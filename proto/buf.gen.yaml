@@ -1,0 +1,19 @@
+version: v1
+plugins:
+  - plugin: buf.build/bufbuild/connect-go
+    out: go/xylona
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=true
+  # dependencies
+  - plugin: buf.build/protocolbuffers/go
+    out: go/xylona
+    opt:
+      - paths=source_relative
+  - plugin: es
+    out: ../frontend/src/proto
+    opt: target=ts
+  # dependencies
+  - plugin: connect-es
+    out: ../frontend/src/proto
+    opt: target=ts

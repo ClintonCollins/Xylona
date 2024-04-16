@@ -1,0 +1,3 @@
+sqlite:
+  dsn: "../data.sqlite"
+  no_factory: true

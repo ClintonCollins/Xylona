@@ -1,0 +1,19 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+
+package xylona;
+option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
+
+enum ResponseType {
+  RESPONSE_TYPE_UNKNOWN = 0;
+  GAME_SERVER_STATUS_UPDATE = 1;
+}
+
+message GameServerStatusUpdate {
+  string server_id = 1;
+  string server_name = 2;
+}
+
+message WebsocketResponse {
+
+}

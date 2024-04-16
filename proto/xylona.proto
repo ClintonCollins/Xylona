@@ -1,0 +1,348 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+
+package xylona;
+option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
+
+service Xylona {
+//  rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
+//  rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
+  rpc GetGame (GetGameRequest) returns (GetGameResponse) {}
+//  rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
+//  rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
+//  rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
+  rpc ListGames (ListGamesRequest) returns (ListGamesResponse) {}
+
+  rpc Login (LoginRequest) returns (LoginResponse) {}
+  rpc Logout (LogoutRequest) returns (LogoutResponse) {}
+  rpc CheckUserAuthenticated (CheckUserAuthenticatedRequest) returns (CheckUserAuthenticatedResponse) {}
+  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse) {}
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse) {}
+  rpc GetUser (GetUserDetailsRequest) returns (GetUserDetailsResponse) {}
+  rpc ListIPs (ListIPsRequest) returns (ListIPsResponse) {}
+  rpc AddIP (AddIPRequest) returns (AddIPResponse) {}
+  rpc RemoveIP (RemoveIPRequest) returns (RemoveIPResponse) {}
+
+  rpc CreateGameServer (CreateGameServerRequest) returns (CreateGameServerResponse) {}
+  rpc EditGameServer (EditGameServerRequest) returns (EditGameServerResponse) {}
+  rpc RemoveGameServer (RemoveGameServerRequest) returns (RemoveGameServerResponse) {}
+  rpc StartGameServer (StartGameServerRequest) returns (StartGameServerResponse) {}
+  rpc StopGameServer (StopGameServerRequest) returns (StopGameServerResponse) {}
+//  rpc RestartGameServer (RestartGameServerRequest) returns (RestartGameServerResponse) {}
+  rpc ReadGameServerOutput (ReadGameServerOutputRequest) returns (ReadGameServerOutputResponse) {}
+  rpc SendGameServerInput (SendGameServerInputRequest) returns (SendGameServerInputResponse) {}
+  rpc GetGameServer (GetGameServerRequest) returns (GetGameServerResponse) {}
+  rpc UpdateGameServer (UpdateGameServerRequest) returns (UpdateGameServerResponse) {}
+//  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
+//  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
+  rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
+//  rpc StreamNotifications (NotificationStreamRequest) returns (stream NotificationStreamResponse) {}
+}
+
+message LoginRequest {
+  string user_name = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  User user = 1;
+}
+
+message CreateUserRequest {
+  string user_name = 1;
+  string email = 2;
+  string password = 3;
+  string first_name = 4;
+  string last_name = 5;
+  bool super_user = 6;
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message LogoutRequest {}
+
+message LogoutResponse {}
+
+message CheckUserAuthenticatedRequest {}
+
+message CheckUserAuthenticatedResponse {
+  bool authenticated = 1;
+  User user = 2;
+}
+
+message ListGameServersRequest {}
+
+message ListGameServersResponse {
+  repeated GameServer game_servers = 1;
+}
+
+message ListGamesRequest {}
+
+message ListGamesResponse {
+  repeated Game games = 1;
+}
+
+message GetGameRequest {
+  string id = 1;
+}
+
+message GetGameResponse {
+  Game game = 1;
+}
+
+message GetGameServerRequest {
+  string id = 1;
+}
+
+message GetGameServerResponse {
+  GameServer game_server = 1;
+}
+
+message User {
+  string id = 1;
+  string user_name = 2;
+  string email = 3;
+  string first_name = 4;
+  string last_name = 5;
+  bool super_user = 6;
+  google.protobuf.Timestamp last_login = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message ListUsersRequest {}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message GetUserDetailsRequest {
+  string id = 1;
+}
+
+message GetUserDetailsResponse {
+  User user = 1;
+}
+
+message Game {
+  string id = 1;
+  string name = 2;
+  int64 default_port = 3;
+  int64 default_query_port = 4;
+  int64 default_max_players = 5;
+  bool linux_support = 6;
+  bool windows_support = 7;
+  string linux_start_command = 8;
+  string linux_stop_command = 9;
+  string linux_install_command = 10;
+  string linux_update_command = 11;
+  string linux_backup_command = 12;
+  string linux_restore_command = 13;
+  string linux_working_directory = 14;
+  string linux_configuration_file_paths = 15;
+  bool linux_allow_backups = 16;
+  string windows_start_command = 17;
+  string windows_stop_command = 18;
+  string windows_install_command = 19;
+  string windows_update_command = 20;
+  string windows_backup_command = 21;
+  string windows_restore_command = 22;
+  string windows_working_directory = 23;
+  string windows_configuration_file_paths = 24;
+  bool windows_allow_backups = 25;
+  bool require_dedicated_ip = 26;
+  bool binds_to_all_ips = 27;
+  google.protobuf.Timestamp created_at = 28;
+  google.protobuf.Timestamp updated_at = 29;
+  bool uses_source_query = 30;
+  bool requires_steam_game_server_login_token = 31;
+}
+
+enum Status {
+  UNKNOWN = 0;
+  OFFLINE = 1;
+  ONLINE = 2;
+  INSTALLING = 3;
+  UPDATING = 4;
+}
+
+enum NotificationEvent {
+  SERVER_STARTED = 0;
+  SERVER_STOPPED = 1;
+  SERVER_UPDATING = 2;
+  SERVER_FINISHED_UPDATE = 3;
+  SERVER_INSTALLING = 4;
+  SERVER_FINISHED_INSTALL = 5;
+  MISCELLANEOUS = 6;
+}
+
+message NotificationStreamRequest {}
+
+message NotificationStreamResponse {
+  NotificationEvent event = 1;
+  GameServer game_server = 2;
+  string message = 3;
+  string error = 4;
+}
+
+message GameServer {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  string game_id = 4;
+  string start_command = 5;
+  Status status = 6;
+  int64 set_max_players = 7;
+  int64 max_players = 8;
+  string map = 9;
+  IP ip = 10;
+  int64 port = 11;
+  int64 query_port = 12;
+  string directory = 13;
+  int64 max_memory_mb = 14;
+  bool backups_enabled = 15;
+  string backup_directory = 16;
+  int64 max_backups = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+  string steam_game_server_login_token = 20;
+  string user_name = 21;
+  string game_name = 22;
+  int64 cpu_percent = 23;
+  int64 memory_bytes = 24;
+  int64 number_of_threads = 25;
+}
+
+message IP {
+  string address = 1;
+  bool usable = 2;
+  bool external = 3;
+}
+
+message ListIPsRequest {}
+
+message ListIPsResponse {
+  repeated IP ips = 1;
+}
+
+message AddIPRequest {
+  IP ip = 1;
+}
+
+message AddIPResponse {}
+
+message RemoveIPRequest {
+  IP ip = 1;
+}
+
+message RemoveIPResponse {}
+
+message AddGameRequest {
+  Game game = 1;
+}
+
+message AddGameResponse {
+  Game game = 1;
+}
+
+message EditGameRequest {
+  string game_id = 1;
+  Game game = 2;
+}
+
+message EditGameResponse {
+  Game game = 1;
+}
+
+message RemoveGameRequest {
+  string game_id = 1;
+}
+
+message RemoveGameResponse {
+}
+
+message ImportGameRequest {
+  string file_path = 1;
+}
+
+message ImportGameResponse {
+  Game game = 1;
+}
+
+message ExportGameRequest {
+  string game_id = 1;
+  string file_path = 2;
+}
+
+message ExportGameResponse {
+  GameServer game_server = 1;
+}
+
+message StartGameServerRequest {
+  string server_id = 1;
+}
+message StartGameServerResponse {
+  string error = 1;
+}
+
+message StopGameServerRequest {
+  string server_id = 1;
+}
+message StopGameServerResponse {}
+
+message RestartGameServerRequest {
+  string server_id = 1;
+}
+message RestartGameServerResponse {}
+
+message RemoveGameServerRequest {
+  string server_id = 1;
+}
+message RemoveGameServerResponse {}
+
+message CreateGameServerRequest {
+  GameServer game_server = 1;
+}
+message CreateGameServerResponse {
+  GameServer game_server = 1;
+}
+
+message EditGameServerRequest {
+  string server_id = 1;
+  GameServer game_server = 2;
+}
+
+message EditGameServerResponse {
+  GameServer game_Server = 1;
+}
+
+message ReadGameServerOutputRequest {
+  string server_id = 1;
+}
+message ReadGameServerOutputResponse {
+  string output = 1;
+}
+
+message SendGameServerInputRequest {
+  string server_id = 1;
+  string input = 2;
+}
+message SendGameServerInputResponse {}
+
+message UpdateGameServerRequest {
+  string server_id = 1;
+}
+message UpdateGameServerResponse {}
+
+message ReinstallGameServerRequest {
+  string server_id = 1;
+}
+message ReinstallGameServerResponse {
+  GameServer game_server = 1;
+}
+
+message BackupGameServerRequest {
+  string server_id = 1;
+}
+message BackupGameServerResponse {}
