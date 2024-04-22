@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
@@ -19,15 +21,6 @@ type WebSocket struct {
 	supervisor *supervisor.Instance
 	db         *db.Connection
 	ctx        context.Context
-}
-
-type GameServerOutputMessage struct {
-	GameServerID string `json:"gameServerID"`
-	Output       string `json:"output"`
-}
-
-type GameServerStreamOutputRequest struct {
-	GameServerID string `json:"gameServerID"`
 }
 
 func NewInstance(ctx context.Context, supervisorInst *supervisor.Instance, db *db.Connection) (*WebSocket, http.HandlerFunc) {
@@ -60,10 +53,10 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	if len(splitPath) < 1 {
 		return
 	}
+	log.Debug().Msg("Websocket connected")
 	requestType := splitPath[0]
 	switch requestType {
 	case "game_server_stream_output":
-		// log.Debug().Msgf("Request type: %s", requestType)
 		if len(splitPath) < 2 {
 			return
 		}
@@ -84,17 +77,33 @@ func (ws *WebSocket) handleGameServerStreamOutputRequest(s *melody.Session, game
 		return
 	}
 	command := ws.supervisor.GetCommandByIDOrCreateShell(gameServer.ID)
-	streamChan := make(chan string)
-	command.AddOutputListener(uuid.NewString(), streamChan)
-	defer command.RemoveOutputListener(uuid.NewString())
+	streamChan := make(chan helpers.WebsocketOutputPayload)
+	listenerID := uuid.NewString()
+	command.AddOutputListener(listenerID, streamChan)
+	defer command.RemoveOutputListener(listenerID)
 	for {
 		select {
 		case <-ws.ctx.Done():
+			log.Debug().Str("Game Server ID", gameServerID).Msg("Got Xylona shutdown signal. Closing websocket stream.")
+			errClose := s.Close()
+			if errClose != nil {
+				log.Error().Err(errClose).Msg("Failed to close websocket connection")
+			}
 			return
 		case <-s.Request.Context().Done():
+			log.Debug().Str("Game Server ID", gameServerID).Msg("Websocket connection closed. Closing websocket stream.")
+			errClose := s.Close()
+			if errClose != nil {
+				log.Error().Err(errClose).Msg("Failed to close websocket connection")
+			}
 			return
 		case output := <-streamChan:
-			errWrite := s.Write([]byte(output))
+			byteOut, errMarshal := json.Marshal(output)
+			if errMarshal != nil {
+				log.Error().Err(errMarshal).Msg("Failed to marshal game server output")
+				return
+			}
+			errWrite := s.Write(byteOut)
 			if errWrite != nil {
 				log.Error().Err(errWrite).Msg("Failed to write websocket message")
 				return
@@ -105,6 +114,10 @@ func (ws *WebSocket) handleGameServerStreamOutputRequest(s *melody.Session, game
 
 func (ws *WebSocket) handleDisconnect(s *melody.Session) {
 	log.Debug().Msg("Websocket disconnected")
+	errClose := s.Close()
+	if errClose != nil {
+		log.Error().Err(errClose).Msg("Failed to close websocket connection")
+	}
 }
 
 func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {

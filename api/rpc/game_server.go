@@ -6,53 +6,11 @@ import (
 	"errors"
 
 	connect_go "github.com/bufbuild/connect-go"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
-
-func (xs XylonaService) StreamGameServerOutput(ctx context.Context, request *connect_go.Request[xylona.ReadGameServerOutputRequest], stream *connect_go.ServerStream[xylona.ReadGameServerOutputResponse]) error {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
-		}
-		return connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
-	}
-
-	gameServerCommand, err := xs.supervisorInst.GetCommandByID(gameServer.ID)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to get game server command")
-		return nil
-	}
-
-	streamID := uuid.NewString()
-	outputChannel := make(chan string)
-	gameServerCommand.AddOutputListener(streamID, outputChannel)
-	defer func() {
-		gameServerCommand.RemoveOutputListener(streamID)
-		close(outputChannel)
-	}()
-	for {
-		select {
-		case <-xs.ctx.Done():
-			return nil
-		case <-ctx.Done():
-			return nil
-		case output := <-outputChannel:
-			response := &xylona.ReadGameServerOutputResponse{
-				Output: output,
-			}
-			errSend := stream.Send(response)
-			if errSend != nil {
-				log.Error().Err(errSend).Msg("Failed to send game server output")
-				return errSend
-			}
-		}
-	}
-}
 
 func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect_go.Request[xylona.CreateGameServerRequest]) (*connect_go.Response[xylona.CreateGameServerResponse], error) {
 
@@ -91,8 +49,20 @@ func (xs XylonaService) EditGameServer(ctx context.Context, request *connect_go.
 }
 
 func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect_go.Request[xylona.RemoveGameServerRequest]) (*connect_go.Response[xylona.RemoveGameServerResponse], error) {
-	//TODO implement me
-	panic("implement me")
+	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGetGameServer != nil {
+		if errors.Is(errGetGameServer, sql.ErrNoRows) {
+			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+		}
+		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+	}
+	xs.actionsInst.StopGameServer(gameServer)
+	errRemove := xs.actionsInst.RemoveGameServer(gameServer, true)
+	if errRemove != nil {
+		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+	}
+	response := &xylona.RemoveGameServerResponse{}
+	return connect_go.NewResponse(response), nil
 }
 
 func (xs XylonaService) StartGameServer(ctx context.Context, request *connect_go.Request[xylona.StartGameServerRequest]) (*connect_go.Response[xylona.StartGameServerResponse], error) {
@@ -137,8 +107,25 @@ func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *conne
 }
 
 func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connect_go.Request[xylona.SendGameServerInputRequest]) (*connect_go.Response[xylona.SendGameServerInputResponse], error) {
-	//TODO implement me
-	panic("implement me")
+	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGetGameServer != nil {
+		if errors.Is(errGetGameServer, sql.ErrNoRows) {
+			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+		}
+		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+	}
+	gameServerCmd, err := xs.supervisorInst.GetCommandByID(gameServer.ID)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get game server command")
+		return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("game server not running"))
+	}
+	errSend := gameServerCmd.SendInput(request.Msg.GetInput())
+	if errSend != nil {
+		log.Error().Err(errSend).Msg("Failed to send input to game server")
+		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+	}
+	response := &xylona.SendGameServerInputResponse{}
+	return connect_go.NewResponse(response), nil
 }
 
 func (xs XylonaService) GetGameServer(ctx context.Context, request *connect_go.Request[xylona.GetGameServerRequest]) (*connect_go.Response[xylona.GetGameServerResponse], error) {
@@ -149,6 +136,15 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect_go.R
 		}
 		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
 	}
+	gameServerCmd, err := xs.supervisorInst.GetCommandByID(gameServer.ID)
+	if err != nil {
+		//log.Error().Err(err).Msg("Failed to get game server command")
+		log.Debug().Msg("Game server is offline")
+		gameServer.Status = xylona.Status_OFFLINE.String()
+	} else {
+		gameServer.Status = gameServerCmd.Status.String()
+	}
+	log.Debug().Msgf("Game server status: %s", gameServer.Status)
 	response := &xylona.GetGameServerResponse{
 		GameServer: helpers.GameServerModelToProto(gameServer),
 	}

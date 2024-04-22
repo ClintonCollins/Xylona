@@ -18,11 +18,6 @@ import (
 )
 
 func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *connect_go.Request[xylona.CheckUserAuthenticatedRequest]) (*connect_go.Response[xylona.CheckUserAuthenticatedResponse], error) {
-	cookies := getCookiesFromHeader(request.Header().Get("Cookie"))
-	sessionID := cookies.Get(SessionIDCookieName)
-	sessionTokenEncoded := cookies.Get(SessionTokenCookieName)
-	log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("CheckUserAuthenticated request")
-
 	sessionUnauthenticatedResponse := &connect_go.Response[xylona.CheckUserAuthenticatedResponse]{
 		Msg: &xylona.CheckUserAuthenticatedResponse{
 			Authenticated: false,

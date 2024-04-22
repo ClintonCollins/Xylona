@@ -1,6 +1,6 @@
 <template>
   <q-header>
-    <q-toolbar class="bg-green-10 glossy">
+    <q-toolbar class="bg-toolbar">
       <q-btn
         flat
         dense
@@ -11,7 +11,7 @@
       />
 
       <q-toolbar-title>
-        Xylona Control Panel
+        Xylona
       </q-toolbar-title>
 
       <div>{{ user?.userName }}</div>
@@ -22,7 +22,7 @@
     <q-list>
       <q-item-label header>Navigation</q-item-label>
       <div v-for="link in navLinks" :key="link.title">
-        <q-item v-if="link.groupItems.length === 0" clickable :to="link.link" exact>
+        <q-item :class="overrideActiveLink(link.link) ? 'q-router-link--exact-active q-router-link--active': null" v-if="link.groupItems.length === 0" clickable :to="link.link" :exact="link.exact">
           <q-item-section v-if="link.icon" avatar>
             <q-icon :name="link.icon"/>
           </q-item-section>
@@ -32,7 +32,7 @@
           </q-item-section>
         </q-item>
         <q-expansion-item v-else v-model="link.expanded" :icon="link.icon" :label="link.title">
-          <q-item inset-level="0.3" v-for="l in link.groupItems" :key="l.title" clickable :to="link.link" exact>
+          <q-item :inset-level="0.3" v-for="l in link.groupItems" :key="l.title" clickable :to="link.link" :exact="link.exact">
             <q-item-section v-if="l.icon" avatar>
               <q-icon :name="l.icon"/>
             </q-item-section>
@@ -50,20 +50,31 @@
 <script setup lang="ts">
 import {useToolbarNavQTabsStore, useUserAuthStore} from "stores/xylona";
 import {User} from "src/proto/xylona_pb";
-import {ref, Ref} from "vue";
+import {computed, ref, Ref} from "vue";
 import {ionGameController, ionPersonAdd, ionLogIn, ionHome} from "@quasar/extras/ionicons-v7";
 import {mdiDns} from "@quasar/extras/mdi-v7";
 import { laServerSolid} from "@quasar/extras/line-awesome";
+import {useRoute} from "vue-router";
 
 const store = useUserAuthStore()
 const user = store.user as User | null
+const route = useRoute()
 
 interface NavItem {
   title: string;
   link: string;
   icon: string;
   expanded: boolean;
+  exact: boolean;
   groupItems: NavItem[];
+}
+
+function overrideActiveLink(link: string) {
+  const pathSplit = route.path.split('/')
+  if (pathSplit.length === 0) {
+    return false
+  }
+  return pathSplit[1] === 'game-servers' && link === '/game-servers'
 }
 
 const navLinks: Ref<NavItem[]> = ref([
@@ -72,6 +83,7 @@ const navLinks: Ref<NavItem[]> = ref([
     icon: ionHome,
     link: '/',
     expanded: true,
+    exact: true,
     groupItems: []
   },
   {
@@ -79,6 +91,7 @@ const navLinks: Ref<NavItem[]> = ref([
     icon: ionLogIn,
     link: '/login',
     expanded: true,
+    exact: true,
     groupItems: []
   },
   {
@@ -86,6 +99,7 @@ const navLinks: Ref<NavItem[]> = ref([
     icon: laServerSolid,
     link: '/game-servers',
     expanded: true,
+    exact: false,
     groupItems: []
   },
   {
@@ -93,12 +107,14 @@ const navLinks: Ref<NavItem[]> = ref([
     icon: ionGameController,
     link: '/games',
     expanded: true,
+    exact: false,
     groupItems: []
   },
   {
     title: 'Create User',
     icon: ionPersonAdd,
     link: '/admin/create-user',
+    exact: true,
     groupItems: [],
     expanded: true,
   },

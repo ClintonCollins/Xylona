@@ -6,6 +6,11 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
+
+	"github.com/ziutek/telnet"
+
+	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 type Runtime string
@@ -45,31 +50,26 @@ type Command struct {
 	User                string
 	FullCommandAndArgs  string
 	UnixStartedAt       int64
+	Status              xylona.Status
+	ServiceID           string
 	currentCMD          *exec.Cmd
-	outputListeners     map[string]chan string
+	outputListeners     map[string]chan helpers.WebsocketOutputPayload
 	outputListenersLock *sync.RWMutex
+	inputMethod         InputMethod
 	stdInWriter         io.Writer
 	combinedOutput      io.Reader
+	telnetConn          *telnet.Conn
 	outBuffer           string
-	ctx                 context.Context
-	ctxCancel           context.CancelFunc
+	instanceCtx         context.Context
+	processCtx          context.Context
+	processCtxCancel    context.CancelFunc
+	toggleOutputType    chan struct{}
 	callbackFunc        func(job *Command)
+	runAfterStartup     func(job *Command)
 	*sync.RWMutex
 }
 
-func (c *Command) AddPersistentOutputStreamListener(id string, outChan chan string) {
-	c.outputListenersLock.Lock()
-	defer c.outputListenersLock.Unlock()
-	c.outputListeners[id] = outChan
-}
-
-func (c *Command) RemovePersistentOutputStreamListener(id string) {
-	c.outputListenersLock.Lock()
-	defer c.outputListenersLock.Unlock()
-	delete(c.outputListeners, id)
-}
-
-func (c *Command) AddOutputListener(id string, outChan chan string) {
+func (c *Command) AddOutputListener(id string, outChan chan helpers.WebsocketOutputPayload) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
 	c.outputListeners[id] = outChan

@@ -9,38 +9,25 @@
         </q-card-section>
         <q-card-section>
           <q-form class="q-pa-lg">
-            <div class="row q-col-gutter-md wrap">
-              <q-input class="col-12 col-xl-6" filled type="text" autofocus label="Name"
-                       v-model="newGameServer.name"
-                       :model-value="newGameServer.name"></q-input>
-              <q-select class="col-12 col-xl-6" filled type="text" label="User" emit-value
-                        :options="availableUsers"
-                        v-model="newGameServer.userId" :model-value="newGameServer.userName"></q-select>
-              <q-select class="col-12 col-xl-6" filled type="text" label="Game" emit-value
-                        :options="availableGames"
-                        v-model="newGameServer.gameId" :model-value="newGameServer.gameName"></q-select>
-              <q-select class="col-12 col-xl-6" filled type="text" label="IP Address" emit-value
-                        :options="availableIPs"
-                        v-model="newGameServer.ip"
-                        :model-value="newGameServer.ip?.address ? newGameServer.ip.address : newGameServer.ip"></q-select>
-              <!--              <q-input class="col-12 col-xl-6" filled type="number" label="Max Backups"-->
-              <!--                       v-model="newGameServer.maxBackups"-->
-              <!--                       :model-value="newGameServer.maxBackups.toString()"></q-input>-->
-              <q-input class="col-12 col-xl-6" filled type="text" label="Port"
-                       v-model="newGameServer.port"
-                       :model-value="newGameServer.port.toString()"></q-input>
-              <q-input class="col-12 col-xl-6" filled type="text" label="Query Port"
-                       v-model="newGameServer.queryPort"
-                       :model-value="newGameServer.queryPort.toString()"></q-input>
-              <!--              <q-checkbox class="col-12" filled type="text" label="Backups Enabled"-->
-              <!--                          v-model="newGameServer.backupsEnabled"-->
-              <!--                          :model-value="newGameServer.backupsEnabled"></q-checkbox>-->
+            <div class="row wrap q-col-gutter-md justify-between">
+              <q-input class="col-12 col-xl-6" outlined type="text" autofocus label="Name"
+                       v-model="newGameServer.name"></q-input>
+              <q-select class="col-12 col-xl-6" outlined type="text" label="User" emit-value :options="availableUsers"
+                        v-model="newGameServer.userId" option-label="label" map-options options-selected-class="selected-option"></q-select>
+              <q-select class="col-12 col-xl-6" outlined type="text" label="Game" emit-value :options="availableGames"
+                        v-model="newGameServer.gameId" option-label="label" map-options options-selected-class="selected-option"></q-select>
+              <q-select class="col-12 col-xl-6" outlined type="text" label="IP Address" emit-value :options="availableIPs"
+                        v-model="newGameServer.ip" option-label="address" options-selected-class="selected-option"></q-select>
+              <q-input class="col-12 col-xl-6" outlined type="text" label="Port"
+                       v-model.number="port"></q-input>
+              <q-input class="col-12 col-xl-6" outlined type="text" label="Query Port"
+                       v-model.number="queryPort"></q-input>
             </div>
           </q-form>
         </q-card-section>
         <q-separator></q-separator>
         <q-card-actions class="q-pa-md" align="right">
-          <q-btn flat label="Cancel" @click="$emit('update:show', false)"></q-btn>
+          <q-btn flat label="Cancel" @click="cancel"></q-btn>
           <q-btn label="Save" color="primary" @click="addGameServer"></q-btn>
         </q-card-actions>
         <q-inner-loading
@@ -58,21 +45,27 @@
 import {
   CreateGameServerRequest,
   Game,
-  GameServer,
+  GameServer, IP,
   ListGamesRequest,
   ListGamesResponse,
-  ListIPsRequest,
+  ListIPsRequest, ListIPsResponse,
   ListUsersRequest
-} from "src/proto/xylona_pb";
-import {onMounted, ref, Ref, watch} from "vue";
-import {GetXylonaClient} from "src/utils/shared";
+} from 'src/proto/xylona_pb'
+import {onMounted, ref, watch} from 'vue'
+import {GetXylonaClient} from 'src/utils/shared'
+import {useRouter} from "vue-router";
 
-const formSubmitting = ref(false)
+const router = useRouter()
+
 const newGameServer = ref(new GameServer())
 const availableGames = ref<Array<Record<string, string>>>([])
 const availableUsers = ref<Array<Record<string, string>>>([])
-const availableIPs = ref<Array<Record<string, string>>>([])
+const availableIPs = ref<Array<IP>>([])
 const gamesMap = ref(new Map<string, Game>())
+
+const formSubmitting = ref(false)
+const port = ref(0)
+const queryPort = ref(0)
 
 onMounted(async () => {
   await getGames()
@@ -80,14 +73,23 @@ onMounted(async () => {
   await getIPs()
 })
 
-watch(newGameServer, (newVal, oldValue) => {
-  console.log(newVal.gameId, oldValue.gameId)
-  if (newVal.gameId !== oldValue.gameId) {
-    console.log(newVal.gameId)
-    newGameServer.value.port = gamesMap.value.get(newVal.gameId)?.defaultPort ?? 0 as unknown as bigint
-  }
-  console.log(newGameServer.value.ip)
+watch(port, (newVal) => {
+  console.log(newGameServer.value.port)
+  newGameServer.value.port = BigInt(newVal)
 })
+
+watch(queryPort, (newVal) => {
+  newGameServer.value.queryPort = BigInt(newVal)
+})
+
+watch(() => newGameServer.value.gameId, (newVal) => {
+  port.value = Number(gamesMap.value.get(newVal)?.defaultPort ?? 0)
+  queryPort.value = Number(gamesMap.value.get(newVal)?.defaultQueryPort ?? 0)
+})
+
+async function cancel() {
+  router.back()
+}
 
 async function getGames() {
   const request = new ListGamesRequest()
@@ -102,8 +104,8 @@ async function getGames() {
     }
     newGameServer.value.gameId = gamesMap.value.get(availableGames.value[0].value)?.id ?? ''
     newGameServer.value.gameName = gamesMap.value.get(availableGames.value[0].value)?.name ?? ''
-    newGameServer.value.port = gamesMap.value.get(availableGames.value[0].value)?.defaultPort ?? 0 as unknown as bigint
-    newGameServer.value.queryPort = gamesMap.value.get(availableGames.value[0].value)?.defaultQueryPort ?? 0 as unknown as bigint
+    port.value = Number(gamesMap.value.get(availableGames.value[0].value)?.defaultPort ?? 0)
+    queryPort.value = Number(gamesMap.value.get(availableGames.value[0].value)?.defaultQueryPort ?? 0)
   } catch (e) {
     console.error(e)
   }
@@ -129,9 +131,10 @@ async function getUsers() {
 async function getIPs() {
   const request = new ListIPsRequest()
   try {
-    const response = await GetXylonaClient().listIPs(request)
+    const response: ListIPsResponse = await GetXylonaClient().listIPs(request)
     response.ips.forEach((ip) => {
-      availableIPs.value.push({label: `${ip.address} ${ip.external ? '(External)' : ''}`, value: ip.address})
+      availableIPs.value.push(ip)
+      // availableIPs.value.push({label: `${ip.address} ${ip.external ? '(External)' : ''}`, value: ip.address})
       if (ip.external) {
         newGameServer.value.ip = ip
       }
@@ -147,8 +150,11 @@ async function getIPs() {
 async function addGameServer() {
   const request = new CreateGameServerRequest()
   request.gameServer = newGameServer.value as GameServer
+  request.gameServer.port = BigInt(port.value)
+  request.gameServer.queryPort = BigInt(queryPort.value)
   try {
     const response = await GetXylonaClient().createGameServer(request)
+    await router.push(`/game-servers/${response.gameServer?.id}/console`)
     console.log(response)
   } catch (e) {
     console.error(e)

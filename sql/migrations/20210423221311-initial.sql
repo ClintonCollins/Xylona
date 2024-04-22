@@ -110,6 +110,23 @@ VALUES ('minecraft', 'Minecraft', 25565, 25565, 32, 0, 0, 1,
         '', '', '', 0, '', 'server.properties', current_timestamp, current_timestamp)
 on conflict do nothing;
 
+-- Insert 7 Days to Die
+INSERT INTO game (id, name, default_port, default_query_port, default_max_players, require_dedicated_ip,
+                  binds_to_all_ips, linux_support, linux_start_command, linux_stop_command, linux_install_command,
+                  linux_update_command, linux_backup_command, linux_restore_command, linux_allow_backups,
+                  linux_working_directory, linux_configuration_file_paths, windows_support, windows_start_command,
+                  windows_stop_command, windows_install_command, windows_update_command, windows_backup_command,
+                  windows_restore_command, windows_allow_backups, windows_working_directory,
+                  windows_configuration_file_paths, created_at, updated_at)
+VALUES ('7_days_to_die', '7 Days to Die', 26900, 26900, 32, 0, 0, 1,
+        './7DaysToDieServer.x86_64 -logfile - -quit -batchmode -nographics -configfile=settings.xml', '',
+        'steamcmd +force_install_dir ~/7days +login anonymous +app_update 294420 validate +quit',
+        '', '', '', 0, '', 'settings.xml', 1,
+        './7DaysToDieServer.x86_64 -logfile - -quit -batchmode -nographics -configfile=settings.xml', '',
+        'steamcmd +force_install_dir ~/7days +login anonymous +app_update 294420 validate +quit',
+        '', '', '', 0, '', 'settings.xml', current_timestamp, current_timestamp)
+on conflict do nothing;
+
 
 -- +migrate Down
 drop table if exists game_server;

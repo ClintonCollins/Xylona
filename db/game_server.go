@@ -47,3 +47,7 @@ func (c *Connection) InsertGameServer(gameServerSetter *models.GameServerSetter)
 	}
 	return gameServer, nil
 }
+
+func (c *Connection) DeleteGameServer(gameServerID string) error {
+	return models.GameServers.Delete(c.ctx, c.DB, &models.GameServer{ID: gameServerID})
+}

@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aarondl/opt/omit"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
@@ -63,15 +66,23 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	}
 
 	preparedCommand := supervisor.PreparedCommand{
-		ID:                 gameServer.ID,
-		FullCommandAndArgs: game.WindowsInstallCommand,
+		ID:                 newGameServer.ID,
+		FullCommandAndArgs: ParameterSubstitution(game.WindowsInstallCommand, newGameServer),
 		WorkingDirectory:   gameServer.Directory,
 		User:               gameServer.UserID,
 		GameServerID:       &gameServer.ID,
+		Status:             xylona.Status_INSTALLING,
+		ServiceID:          gameServer.GameID,
 		CallbackFunction: func(cmd *supervisor.Command) {
-			// inst.StartGameServer(gameServer)
+			errPostInstall := postInstallStep(newGameServer)
+			if errPostInstall != nil {
+				log.Error().Err(errPostInstall).Msg("Failed to perform post install step")
+				return
+			}
+			inst.StartGameServer(newGameServer)
 		},
 	}
+
 	_, err := inst.supervisorInstance.StartCommand(preparedCommand)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to start install command")
@@ -80,17 +91,60 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	return newGameServer, nil
 }
 
+func ParameterSubstitution(str string, gameServer *models.GameServer) string {
+	str = strings.ReplaceAll(str, "%GAMESERVER_DIRECTORY%", gameServer.Directory)
+	str = strings.ReplaceAll(str, "%GAMESERVER_ID%", gameServer.ID)
+	str = strings.ReplaceAll(str, "%GAMESERVER_BACKUP_DIRECTORY%", gameServer.BackupDirectory)
+	str = strings.ReplaceAll(str, "%GAMESERVER_NAME%", gameServer.Name)
+	str = strings.ReplaceAll(str, "%GAMESERVER_IP%", gameServer.IP)
+	str = strings.ReplaceAll(str, "%GAMESERVER_PORT%", strconv.FormatInt(gameServer.Port, 10))
+	str = strings.ReplaceAll(str, "%GAMESERVER_QUERY_PORT%", strconv.FormatInt(gameServer.QueryPort, 10))
+	str = strings.ReplaceAll(str, "%GAMESERVER_MAX_MEMORY_MB%", fmt.Sprintf("%d", gameServer.MaxMemoryMB))
+	str = strings.ReplaceAll(str, "%GAMESERVER_MAX_PLAYERS%", fmt.Sprintf("%d", gameServer.MaxPlayers))
+	str = strings.ReplaceAll(str, "%GAMESERVER_SET_PLAYERS%", fmt.Sprintf("%d", gameServer.SetPlayers))
+
+	return str
+}
+
+func postInstallStep(gameServer *models.GameServer) error {
+	switch gameServer.GameID {
+	case "minecraft":
+		return postMinecraftInstall(gameServer)
+	case "7_days_to_die":
+		return post7DaysToDieInstall(gameServer)
+	default:
+		log.Debug().Str("Game ID", gameServer.GameID).Msg("No post install step")
+		return nil
+	}
+}
+
 func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
+	startCmd := ParameterSubstitution(gameServer.StartCommand, gameServer)
 	preparedCommand := supervisor.PreparedCommand{
 		ID:                 gameServer.ID,
-		FullCommandAndArgs: gameServer.StartCommand,
+		FullCommandAndArgs: startCmd,
 		WorkingDirectory:   gameServer.Directory,
 		User:               gameServer.UserID,
 		GameServerID:       &gameServer.ID,
+		Status:             xylona.Status_ONLINE,
+		ServiceID:          gameServer.GameID,
 		CallbackFunction: func(cmd *supervisor.Command) {
-			log.Info().Msg("Game server stopped")
+			//log.Info().Msg("Game server stopped")
 		},
 	}
+	log.Debug().Msg("Checking input method during startup action")
+	switch gameServer.GameID {
+	case "7_days_to_die":
+		log.Debug().Msg("Found 7 Days to Die. Setting input method to telnet")
+		preparedCommand.InputMethod = supervisor.InputMethod{
+			Type: supervisor.InputTypeTelnet,
+			TelnetCredentials: &supervisor.TelnetCredentials{
+				Port:     int(gameServer.Port + 1),
+				Password: "",
+			},
+		}
+	}
+
 	_, err := inst.supervisorInstance.StartCommand(preparedCommand)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to start game server")
@@ -103,7 +157,7 @@ func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 		log.Error().Err(err).Msg("Failed to get game server command")
 		return
 	}
-	gameServerCommand.Stop()
+	gameServerCommand.Stop(gameServer.R.Game.WindowsStopCommand)
 }
 
 func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string {
@@ -113,4 +167,30 @@ func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string
 		return ""
 	}
 	return gameServerCommand.GetOutputBuffer()
+}
+
+func (inst *Instance) RemoveGameServer(gameServer *models.GameServer, force bool) error {
+	err := inst.DeleteGameServerFiles(gameServer)
+	if err != nil {
+		if !force {
+			log.Error().Err(err).Msg("Failed to remove game server files")
+			return err
+		}
+		log.Warn().Err(err).Msg("Failed to remove game server files")
+	}
+	err = inst.db.DeleteGameServer(gameServer.ID)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to remove game server from database")
+		return err
+	}
+	return nil
+}
+
+func (inst *Instance) DeleteGameServerFiles(gameServer *models.GameServer) error {
+	err := os.RemoveAll(gameServer.Directory)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to delete game server files")
+		return err
+	}
+	return nil
 }

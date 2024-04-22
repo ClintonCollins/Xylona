@@ -5,11 +5,11 @@
             <div class="text-h5 text-weight-bold">Xylona Create User</div>
           </q-card-section>
           <q-card-section>
-            <q-input filled v-model="user.email" label="Email Address" color="blue"></q-input>
-            <q-input filled class="q-mt-md" v-model="user.userName" type="text" color="blue" label="Username"></q-input>
-            <q-input filled class="q-mt-md" v-model="user.password" type="password" color="blue" label="Password"></q-input>
-            <q-input filled class="q-mt-md" v-model="user.firstName" type="text" color="blue" label="First Name"></q-input>
-            <q-input filled class="q-mt-md" v-model="user.lastName" type="text" color="blue" label="Last Name"></q-input>
+            <q-input outlined v-model="user.email" class="rounded-input" label="Email Address" color="blue"></q-input>
+            <q-input outlined class="q-mt-md rounded-input" v-model="user.userName" type="text" color="blue" label="Username"></q-input>
+            <q-input outlined class="q-mt-md rounded-input" v-model="user.password" type="password" color="blue" label="Password"></q-input>
+            <q-input outlined class="q-mt-md rounded-input" v-model="user.firstName" type="text" color="blue" label="First Name"></q-input>
+            <q-input outlined class="q-mt-md rounded-input" v-model="user.lastName" type="text" color="blue" label="Last Name"></q-input>
             <q-toggle v-model="user.superUser" label="Super User" color="blue"></q-toggle>
           </q-card-section>
           <q-card-section align="right">

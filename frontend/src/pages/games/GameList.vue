@@ -1,6 +1,6 @@
 <template>
-  <q-page>
-    <div class="row justify-center q-pa-md">
+  <q-page :padding="windowWidth > 1024">
+    <div class="row justify-center">
       <q-card class="col">
         <q-card-section>
           <div class="q-pa-md">
@@ -34,9 +34,10 @@
 
 <script setup lang="ts">
 import {onMounted, ref} from 'vue'
-import {GetXylonaClient} from "src/utils/shared";
+import {GetXylonaClient, WindowWidth} from "src/utils/shared";
 import {Game, ListGamesRequest} from "src/proto/xylona_pb";
 
+const windowWidth = WindowWidth()
 const rows = ref([] as Game[])
 
 onMounted(async () => {

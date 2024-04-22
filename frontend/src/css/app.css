@@ -1,0 +1,61 @@
+@import 'custom.variables.css';
+
+@import url('https://fonts.googleapis.com/css2?family=Goldman:wght@400;700&family=Mina:wght@400;700&family=Zen+Dots&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Oxygen+Mono&display=swap');
+
+.selected-option {
+    color: var(--q-info);
+    font-weight: 700;
+    background-color: var(--bg-neutral-glass-4);
+}
+
+.selected-option:hover {
+    background-color: var(--bg-neutral-glass-4);
+}
+
+a {
+    text-decoration: none;
+}
+
+.table-link {
+    text-decoration: none;
+    color: var(--q-primary);
+    font-weight: 700;
+}
+
+.table-link:hover {
+    color: var(--q-info);
+}
+
+#consoleContainer {
+    padding-left: .5rem;
+    padding-right: .5rem;
+    font-family: "Oxygen Mono", monospace;
+    font-weight: 400;
+    font-style: normal;
+    height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    max-width: 100%;
+    background-color: rgb(44, 44, 44);
+}
+
+#consoleCodeEl {
+    white-space: pre-wrap;
+}
+
+#consoleInput {
+    background-color: rgb(65, 65, 65);
+    border: none;
+}
+
+.console-url {
+    color: var(--q-info);
+    font-weight: 400;
+    text-decoration: underline;
+}
+
+.console-url:hover {
+    color: hsl(182, 100%, 50%);
+}

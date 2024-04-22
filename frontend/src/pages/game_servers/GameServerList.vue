@@ -1,5 +1,5 @@
 <template>
-  <q-page padding>
+  <q-page :padding="windowWidth > 1024">
     <div class="row justify-center">
       <q-card class="col">
         <q-card-section>
@@ -21,9 +21,9 @@
                   </div>
                   <div class="col-12 col-md-6">
                     <div class="row flex q-gutter-xl justify-end">
-                      <q-btn color="primary" to="/game-servers/create" :disable="loading" label="Add game server"/>
-                      <q-btn v-if="rows.length !== 0" class="q-ml-sm" color="primary" :disable="loading"
-                             label="Remove game server"/>
+                      <q-btn color="primary" to="/game-servers/create" :disable="loading" label="Create Game Server"/>
+                      <q-btn v-if="selected.length == 1" class="q-ml-sm" color="red" :disable="loading"
+                             label="Remove game server" @click="removeGameServer"/>
                       <q-input dense debounce="300" color="primary" v-model="search">
                         <template v-slot:append>
                           <q-icon name="search"/>
@@ -35,7 +35,7 @@
               </template>
               <template v-slot:body-cell-name="props">
                 <q-td :props="props">
-                  <router-link :to="'/game-servers/'+props.row.id+'/console'">{{ props.row.name}}</router-link>
+                  <router-link class="table-link" :to="'/game-servers/'+props.row.id+'/console'">{{ props.row.name}}</router-link>
                 </q-td>
               </template>
             </q-table>
@@ -48,12 +48,19 @@
 
 <script setup lang="ts">
 import {onMounted, Ref, ref} from 'vue'
-import {GetXylonaClient} from "src/utils/shared";
-import {GameServer, ListGameServersRequest} from "src/proto/xylona_pb";
+import {GetXylonaClient, WindowWidth} from "src/utils/shared";
+import {
+  CreateGameServerRequest,
+  GameServer,
+  ListGameServersRequest,
+  RemoveGameServerRequest
+} from "src/proto/xylona_pb";
 
 const rows = ref([] as GameServer[])
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
+
+const windowWidth = WindowWidth()
 
 onMounted(async () => {
   await getGameServers()
@@ -63,6 +70,7 @@ async function getGameServers() {
   const request = new ListGameServersRequest()
   try {
     const response = await GetXylonaClient().listGameServers(request)
+    rows.value = []
     response.gameServers.forEach((gameServer) => {
       console.log(gameServer)
       rows.value.push(gameServer)
@@ -70,6 +78,22 @@ async function getGameServers() {
     console.log(response)
   } catch (e) {
     console.error(e)
+  }
+}
+
+async function removeGameServer() {
+  const selectedGameServer = selected.value[0] as GameServer
+  console.log(selectedGameServer.name)
+
+  const request = new RemoveGameServerRequest()
+  request.serverId = selectedGameServer.id
+  try {
+    const response = await GetXylonaClient().removeGameServer(request)
+    console.log(response)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    await getGameServers()
   }
 }
 

@@ -4,8 +4,8 @@
       <div class="text-h6">Your Game Server</div>
     </div>
   </q-card-section>
-  <div class="row q-gutter-lg">
-    <div class="column col-lg-3 col-12 q-gutter-lg">
+  <div class="row q-gutter-lg-lg q-col-gutter-lg q-px-md">
+    <div class="col-lg-4 col-xs-12 q-gutter-md">
       <q-list bordered separator>
         <q-item clickable>
           <q-item-section>Name</q-item-section>
@@ -13,7 +13,7 @@
         </q-item>
         <q-item clickable>
           <q-item-section>Status</q-item-section>
-          <q-item-section side>{{ gameServer.status }}</q-item-section>
+          <q-item-section side><StatusBadge :status="gameServer.status"></StatusBadge></q-item-section>
         </q-item>
         <q-item clickable>
           <q-item-section>Game</q-item-section>
@@ -36,24 +36,39 @@
         <!--          <q-item-section side>{{ gameServer.memoryBytes}} / {{ gameServer.maxMemoryMb}}</q-item-section>-->
         <!--        </q-item>-->
       </q-list>
+      <div class="col-xs-12 col-md-3 q-gutter-md gt-md">
+          <q-btn push ripple glossy :disable="disableStartButton" class="bg-success" label="Start" @click="startGameServer"></q-btn>
+          <q-btn push ripple glossy :disable="disableStopButton" class="bg-error" label="Stop" @click="stopGameServer"></q-btn>
+      </div>
+      <div class="col-xs-12 col-md-3 q-mt-lg lt-lg">
+        <q-btn-group spread push>
+        <q-btn push ripple glossy :disable="disableStartButton" class="bg-success" label="Start" @click="startGameServer"></q-btn>
+        <q-btn push ripple glossy :disable="disableStopButton" class="bg-error" label="Stop" @click="stopGameServer"></q-btn>
+        </q-btn-group>
+      </div>
     </div>
-    <div class="column col-lg-8 col-12">
+    <div class="col col-lg-8 col-xs-12" :class="{expanded: consoleExpanded}">
       <q-scroll-area ref="consoleScrollArea" id="consoleContainer">
-        <code class="q-pb-md" id="consoleCodeEl" style="white-space: pre-wrap" v-html="gameServerOutput"></code>
+        <q-page-sticky position="top-right" :offset="[12, -40]">
+          <q-btn @click="consoleExpanded = !consoleExpanded" fab flat square padding="sm" :icon="tabMaximize" text-color="info"/>
+        </q-page-sticky>
+        <code class="q-pb-md" id="consoleCodeEl" v-html="gameServerOutput"></code>
       </q-scroll-area>
-      <q-input id="consoleInput" hint="Send to console"
-               dense square filled name="consoleInput"
+      <q-input id="consoleInput" hint="Send to console" placeholder="Enter command..." @keyup.enter="sendGameServerInput"
+               dense square outlined name="consoleInput" @keyup.up="navigateConsoleInputHistory('up')"
+                @keyup.down="navigateConsoleInputHistory('down')"
                v-model="serverInput">
         <template v-slot:append>
-          <q-btn flat color="primary" icon="send" name="send"></q-btn>
+          <q-btn flat color="primary" icon="send" name="send" type="submit" @click="sendGameServerInput"></q-btn>
         </template>
+<!--        <q-menu v-model="showConsoleCommandCompletionsMenu" no-focus anchor="bottom left" self="top left">-->
+<!--          <q-list style="min-width: 100px">-->
+<!--            <q-item v-close-popup v-for="command in consoleCommandCompletionMatches">-->
+<!--              <q-item-section>{{command.label}}</q-item-section>-->
+<!--            </q-item>-->
+<!--          </q-list>-->
+<!--        </q-menu>-->
       </q-input>
-    </div>
-  </div>
-  <div class="row q-gutter-lg">
-    <div class="col q-gutter-md">
-      <q-btn :disable="disableStartButton" color="green-10" label="Start" @click="startGameServer"></q-btn>
-      <q-btn :disable="disableStopButton" color="red-14" label="Stop" @click="stopGameServer"></q-btn>
     </div>
   </div>
   <q-card-section>
@@ -62,67 +77,74 @@
 
 <script setup lang="ts">
 import {useRoute, useRouter} from "vue-router";
-import {onMounted, Ref, ref} from "vue";
+import {computed, onMounted, Ref, ref, watch} from "vue";
 import {
   GameServer,
-  GetGameServerRequest, ReadGameServerOutputRequest,
-  ReadGameServerOutputResponse,
-  StartGameServerRequest
+  GetGameServerRequest,
+  ReadGameServerOutputRequest,
+  ReadGameServerOutputResponse, SendGameServerInputRequest,
+  StartGameServerRequest,
+  Status
 } from "src/proto/xylona_pb";
 import {useToolbarNavQTabsStore} from "stores/xylona";
-import {GetXylonaClient} from "src/utils/shared";
+import {GetXylonaClient, WebsocketOutputMessage, WebsocketOutputType} from "src/utils/shared";
+import {parseConsole} from "src/utils/console";
 import {QScrollArea} from "quasar";
+import StatusBadge from "components/StatusBadge.vue";
+import {tabMaximize, tabArrowsMaximize} from 'quasar-extras-svg-icons/tabler-icons-v2'
 
 
 const gameServerOutput = ref("")
-const router = useRouter()
 const route = useRoute()
 const gameServer: Ref<GameServer> = ref(new GameServer()) as Ref<GameServer>
 const serverInput = ref("")
 const gameServerId: Ref<string> = ref(route.params.id instanceof Array ? route.params.id[0] : route.params.id)
-const disableStartButton = ref(false)
-const disableStopButton = ref(false)
 const consoleScrollArea = ref<QScrollArea | null>(null)
+const consoleHistory = ref<string[]>([])
+const consoleHistoryCurrentIndex = ref(0)
+const consoleExpanded = ref(false)
+const maxConsoleCharacters = 100000
+
+
+
+// const showConsoleCommandCompletionsMenu = ref(false)
+// const consoleCommandCompletionMatches: Ref<Array<Object>> = ref([])
+// watch(serverInput, () => checkConsoleCommandCompletions())
+//
+// function checkConsoleCommandCompletions() {
+//   console.log(serverInput.value)
+//   const matches = serverConsoleCommands.filter((command) => {
+//     return command.label.toLowerCase().startsWith(serverInput.value.toLowerCase())
+//   })
+//   console.log(matches)
+//   if (matches.length === 0) {
+//     consoleCommandCompletionMatches.value = []
+//     showConsoleCommandCompletionsMenu.value = false
+//     return
+//   }
+//   consoleCommandCompletionMatches.value = matches
+//   showConsoleCommandCompletionsMenu.value = true
+// }
+
+const disableStartButton = computed(() => {
+  return gameServer.value.status !== Status.OFFLINE && gameServer.value.status !== Status.UNKNOWN
+})
+
+const disableStopButton = computed(() => {
+  return gameServer.value.status !== Status.ONLINE
+})
 
 onMounted(async () => {
-  await getGameServerOutput()
-  await getGameServerDetails()
+  getGameServerDetails().then(() => {
+    getGameServerOutput()
+  })
+  console.log("Streaming game server output")
   streamGameServerOutput()
 })
 
 useToolbarNavQTabsStore().changeTabs([
   {name: "Console", to: "/game-servers/" + route.params.id + "/console", icon: "terminal", exact: true},
   {name: "Files", to: "/game-servers/" + route.params.id + "/files", icon: "folder", exact: true},
-])
-const serverInfoList = ref([
-  {
-    label: "Name",
-    value: gameServer.value.name
-  },
-  {
-    label: "Status",
-    value: "Loading..."
-  },
-  {
-    label: "Game",
-    value: "Loading..."
-  },
-  {
-    label: "IP",
-    value: "Loading..."
-  },
-  {
-    label: "Port",
-    value: "Loading..."
-  },
-  {
-    label: "Players",
-    value: "Loading..."
-  },
-  {
-    label: "Memory",
-    value: "Loading..."
-  }
 ])
 
 async function getGameServerDetails() {
@@ -164,44 +186,123 @@ async function getGameServerOutput() {
   try {
     request.serverId = gameServerId.value
     const response: ReadGameServerOutputResponse = await GetXylonaClient().readGameServerOutput(request)
-    gameServerOutput.value = response.output
+    gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, response.output)).slice(-maxConsoleCharacters)
     if (consoleScrollArea.value === null) {
       return
     }
-    consoleScrollArea.value.setScrollPercentage("vertical", 100, 0)
+    setTimeout(() => {
+      consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
+    }, 1)
   } catch (e) {
     console.error(e)
   }
 }
 
 function streamGameServerOutput() {
+  console.log('Create new websocket.')
   const apiWebsocket = new WebSocket(`wss://localhost/api/websocket/game_server_stream_output/${gameServerId.value}`)
+  console.log('New websocket created.')
+  window.addEventListener("pagehide", () => {
+    console.log("Page hide event. Closing websocket...")
+    apiWebsocket.close()
+  })
   apiWebsocket.onopen = () => {
     console.log("Websocket opened")
   }
   apiWebsocket.onmessage = (event) => {
-    gameServerOutput.value += event.data
+    const out: WebsocketOutputMessage = JSON.parse(event.data)
+    if (out.outputType !== WebsocketOutputType.OutputTypeGameServerConsole && out.outputType !== WebsocketOutputType.OutputTypeGameServerStatus) {
+      return
+    }
+    if (out.outputType === WebsocketOutputType.OutputTypeGameServerStatus) {
+      gameServer.value.status = out.status
+      return
+    }
+    gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, out.data)).slice(-maxConsoleCharacters)
     if (consoleScrollArea.value === null) {
       return
     }
-    consoleScrollArea.value.setScrollPercentage("vertical", 100, 0)
+    setTimeout(() => {
+      consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
+    }, 1)
   }
+  apiWebsocket.onclose = (event) => {
+    console.log("Websocket closed")
+    event.preventDefault()
+    apiWebsocket.close()
+    setTimeout(streamGameServerOutput, 3000)
+  }
+  apiWebsocket.onerror = (event) => {
+    console.error(event)
+    apiWebsocket.close()
+  }
+}
+
+async function navigateConsoleInputHistory(direction: string) {
+  console.log(`Navigating console input history ${direction}`)
+  let historyDirection = 0
+  switch (direction.toLowerCase()) {
+    case "up":
+      historyDirection = -1
+      break
+    case "down":
+      historyDirection = 1
+      break
+    default:
+      return
+  }
+  if (consoleHistory.value.length === 0) {
+    return
+  }
+
+  if (consoleHistoryCurrentIndex.value > consoleHistory.value.length) {
+    return
+  }
+
+  let newIndex = consoleHistoryCurrentIndex.value + historyDirection
+  console.log(`New index: ${newIndex}, Current index: ${consoleHistoryCurrentIndex.value}`)
+  if (newIndex < 0) {
+    return
+  }
+  if (newIndex > consoleHistory.value.length) {
+    return
+  }
+  consoleHistoryCurrentIndex.value = newIndex
+  serverInput.value = consoleHistory.value[newIndex]
+}
+
+async function sendGameServerInput() {
+  console.log(serverInput.value)
+  const request = new SendGameServerInputRequest()
+  try {
+    request.serverId = gameServerId.value
+    request.input = serverInput.value
+    await GetXylonaClient().sendGameServerInput(request)
+  } catch (e) {
+    console.error(e)
+    alert(e)
+  }
+  consoleHistory.value.push(serverInput.value)
+  consoleHistoryCurrentIndex.value = consoleHistory.value.length
+  serverInput.value = ""
 }
 
 </script>
 
 <style scoped>
-#consoleContainer {
-  height: 400px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  white-space: pre-wrap;
-  max-width: 100%;
-  background-color: rgba(168, 167, 167, 0.07);
-}
-
-#consoleInput {
-  background-color: rgba(211, 207, 207, 0.1);
-  border: none;
+.expanded {
+  z-index: 9999 !important;
+  width: 100vw !important;
+  min-width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  #consoleContainer {
+    min-height: 90% !important;
+  }
 }
 </style>

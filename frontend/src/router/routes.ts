@@ -33,7 +33,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/IndexPage.vue'),
       },
       {
-        path: 'game-servers',
+        path: '/game-servers',
         component: () => import('pages/game_servers/GameServerList.vue'),
       },
       {
@@ -45,7 +45,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/game_servers/CreateGameServer.vue'),
       },
       {
-        path: 'game-servers/:id',
+        path: '/game-servers/:id',
         component: () => import('pages/game_servers/GameServerLayout.vue'),
         children: [
           {

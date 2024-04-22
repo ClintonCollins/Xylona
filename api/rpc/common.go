@@ -47,6 +47,8 @@ func (xs XylonaService) getUserFromHeader(header http.Header) (*models.User, err
 	sessionID := cookies.Get(SessionIDCookieName)
 	sessionTokenEncoded := cookies.Get(SessionTokenCookieName)
 
+	//log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("CheckUserAuthenticated request")
+
 	if sessionID == "" || sessionTokenEncoded == "" {
 		log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("Session ID or token not set")
 		return nil, errors.New("session ID or token not set")

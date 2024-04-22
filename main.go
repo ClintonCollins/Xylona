@@ -3,9 +3,13 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/aarondl/opt/omit"
 	"github.com/bufbuild/connect-go"
@@ -66,6 +70,21 @@ func setDetectedIPs(db *db.Connection) {
 	}
 }
 
+func gracefulShutdown(ctxCancel context.CancelFunc, shutdownSignalType os.Signal, webServer *http.Server) {
+	log.Info().Str("Signal", shutdownSignalType.String()).
+		Msgf("Received signal: %s. Shutting down.", shutdownSignalType)
+	ctxCancel()
+	log.Debug().Msg("Graceful shutdown context cancelled")
+	webServerCtx, webServerCtxCancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer webServerCtxCancel()
+	log.Debug().Msg("Shutting down Xylona web server.")
+	errShutdown := webServer.Shutdown(webServerCtx)
+	if errShutdown != nil {
+		log.Error().Err(errShutdown).Msg("Failed to shutdown web server")
+	}
+	log.Info().Msg("Xylona control panel backend fully stopped.")
+}
+
 func main() {
 	config := Configuration{}
 	_ = godotenv.Load()
@@ -74,6 +93,9 @@ func main() {
 		log.Fatal().Err(errParseConfig).Msg("Error parsing config")
 	}
 	setupLogger()
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
 
 	foundCookieError := false
 	if config.CookieHashKey == "" {
@@ -106,8 +128,6 @@ func main() {
 
 	secureCookie := securecookie.New(cookieHashKey, cookieBlockKey)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	superInst, errSupervisor := supervisor.New(ctx)
 	if errSupervisor != nil {
 		log.Fatal().Err(errSupervisor).Msg("Failed to create supervisor instance")
@@ -126,9 +146,28 @@ func main() {
 	router.Mount(path, handler)
 	router.Mount("/api/websocket", websocketHandler)
 
-	log.Info().Msg("Starting server")
-	errListenAndServe := http.ListenAndServe(":8080", router)
-	if errListenAndServe != nil {
-		log.Fatal().Err(errListenAndServe).Msg("Failed to start server")
+	httpServer := &http.Server{
+		Addr:         ":8080",
+		Handler:      router,
+		ReadTimeout:  time.Second * 60,
+		WriteTimeout: time.Second * 60,
+		IdleTimeout:  time.Second * 300,
 	}
+
+	// Start the web server
+	go func() {
+		log.Info().Msg("Starting Xylona web server on :8080")
+		errListenAndServe := httpServer.ListenAndServe()
+		if errListenAndServe != nil {
+			if !errors.Is(http.ErrServerClosed, errListenAndServe) {
+				log.Error().Err(errListenAndServe).Msg("Failed to start Xylona web server")
+			}
+		}
+	}()
+
+	// Handle SIGINT and SIGTERM
+	shutdownSignalChannel := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGTERM)
+	shutdownSignalType := <-shutdownSignalChannel
+	gracefulShutdown(ctxCancel, shutdownSignalType, httpServer)
 }
