@@ -34,23 +34,51 @@ create table if not exists game
     binds_to_all_ips                       boolean          not null default false,
     uses_source_query                      boolean          not null default false,
     requires_steam_game_server_login_token boolean          not null default false,
+
     linux_support                          boolean          not null default false,
     linux_start_command                    text             not null default '' check ( linux_support == 0 or linux_start_command not null ),
     linux_stop_command                     text             not null default '',
+
     linux_install_command                  text             not null default '' check ( linux_support == 0 or linux_install_command not null ),
+    linux_install_command_type             text             not null default 'direct',
+    constraint linux_install_command_type_check check ( linux_install_command_type in ('direct', 'bash', 'internal') ),
+
     linux_update_command                   text             not null default '',
+    linux_update_command_type              text             not null default 'direct',
+    constraint linux_update_command_type_check check ( linux_update_command_type in ('direct', 'bash', 'internal') ),
+
     linux_backup_command                   text             not null default '',
+    linux_backup_command_type              text             not null default 'direct',
+    constraint linux_backup_command_type_check check ( linux_backup_command_type in ('direct', 'bash', 'internal') ),
+
     linux_restore_command                  text             not null default '',
+    linux_restore_command_type             text             not null default 'direct',
+    constraint linux_restore_command_type_check check ( linux_restore_command_type in ('direct', 'bash', 'internal') ),
+
     linux_allow_backups                    boolean          not null default false,
     linux_working_directory                text             not null default '',
     linux_configuration_file_paths         text             not null default '',
     windows_support                        boolean          not null default false,
+
     windows_start_command                  text             not null default '' check ( windows_support == 0 or windows_start_command not null ),
     windows_stop_command                   text             not null default '',
+
     windows_install_command                text             not null default '' check ( windows_support == 0 or windows_install_command not null ),
+    windows_install_command_type           text             not null default 'direct',
+    constraint windows_install_command_type_check check ( windows_install_command_type in
+                                                          ('direct', 'cmd', 'powershell', 'pwsh', 'internal') ),
     windows_update_command                 text             not null default '',
+    windows_update_command_type            text             not null default 'direct',
+    constraint windows_update_command_type_check check ( windows_update_command_type in
+                                                         ('direct', 'cmd', 'powershell', 'pwsh', 'internal') ),
     windows_backup_command                 text             not null default '',
+    windows_backup_command_type            text             not null default 'direct',
+    constraint windows_backup_command_type_check check ( windows_backup_command_type in
+                                                         ('direct', 'cmd', 'powershell', 'pwsh', 'internal') ),
     windows_restore_command                text             not null default '',
+    windows_restore_command_type           text             not null default 'direct',
+    constraint windows_restore_command_type_check check ( windows_restore_command_type in
+                                                          ('direct', 'cmd', 'powershell', 'pwsh', 'internal') ),
     windows_allow_backups                  boolean          not null default false,
     windows_working_directory              text             not null default '',
     windows_configuration_file_paths       text             not null default '',
@@ -119,11 +147,11 @@ INSERT INTO game (id, name, default_port, default_query_port, default_max_player
                   windows_restore_command, windows_allow_backups, windows_working_directory,
                   windows_configuration_file_paths, created_at, updated_at)
 VALUES ('7_days_to_die', '7 Days to Die', 26900, 26900, 32, 0, 0, 1,
-        './7DaysToDieServer.x86_64 -logfile - -quit -batchmode -nographics -configfile=settings.xml', '',
-        'steamcmd +force_install_dir ~/7days +login anonymous +app_update 294420 validate +quit',
+        './7DaysToDieServer -logfile - -quit -batchmode -nographics -configfile=settings.xml -dedicated', '',
+        'steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit',
         '', '', '', 0, '', 'settings.xml', 1,
-        './7DaysToDieServer.x86_64 -logfile - -quit -batchmode -nographics -configfile=settings.xml', '',
-        'steamcmd +force_install_dir ~/7days +login anonymous +app_update 294420 validate +quit',
+        './7DaysToDieServer -logfile - -quit -batchmode -nographics -configfile=settings.xml -dedicated', '',
+        'steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit',
         '', '', '', 0, '', 'settings.xml', current_timestamp, current_timestamp)
 on conflict do nothing;
 
