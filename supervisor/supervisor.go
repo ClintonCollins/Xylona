@@ -53,7 +53,7 @@ type Command struct {
 	Status              xylona.Status
 	ServiceID           string
 	currentCMD          *exec.Cmd
-	outputListeners     map[string]chan helpers.WebsocketOutputPayload
+	outputListeners     map[string]chan helpers.WebsocketMessage
 	outputListenersLock *sync.RWMutex
 	inputMethod         InputMethod
 	stdInWriter         io.Writer
@@ -69,7 +69,7 @@ type Command struct {
 	*sync.RWMutex
 }
 
-func (c *Command) AddOutputListener(id string, outChan chan helpers.WebsocketOutputPayload) {
+func (c *Command) AddOutputListener(id string, outChan chan helpers.WebsocketMessage) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
 	c.outputListeners[id] = outChan

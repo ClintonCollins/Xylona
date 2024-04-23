@@ -137,7 +137,7 @@ func main() {
 
 	setDetectedIPs(dbInst)
 
-	_, websocketHandler := websocket.NewInstance(ctx, superInst, dbInst)
+	_, websocketHandler := websocket.NewInstance(ctx, superInst, dbInst, secureCookie)
 
 	router := chi.NewRouter()
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie)

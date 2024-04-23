@@ -76,23 +76,29 @@
 </template>
 
 <script setup lang="ts">
-import {useRoute, useRouter} from "vue-router";
-import {computed, onMounted, Ref, ref, watch} from "vue";
+import {useRoute} from "vue-router";
+import {computed, onMounted, Ref, ref} from "vue";
 import {
   GameServer,
   GetGameServerRequest,
   ReadGameServerOutputRequest,
-  ReadGameServerOutputResponse, SendGameServerInputRequest,
+  ReadGameServerOutputResponse,
+  SendGameServerInputRequest,
   StartGameServerRequest,
   Status
 } from "src/proto/xylona_pb";
 import {useToolbarNavQTabsStore} from "stores/xylona";
-import {GetXylonaClient, WebsocketOutputMessage, WebsocketOutputType} from "src/utils/shared";
+import {
+  GetXylonaClient,
+  WebsocketMessage,
+  WebsocketMessageType,
+  WebsocketRequest,
+  WebsocketRequestType,
+} from "src/utils/shared";
 import {parseConsole} from "src/utils/console";
 import {QScrollArea} from "quasar";
 import StatusBadge from "components/StatusBadge.vue";
-import {tabMaximize, tabArrowsMaximize} from 'quasar-extras-svg-icons/tabler-icons-v2'
-
+import {tabMaximize} from 'quasar-extras-svg-icons/tabler-icons-v2'
 
 const gameServerOutput = ref("")
 const route = useRoute()
@@ -104,27 +110,6 @@ const consoleHistory = ref<string[]>([])
 const consoleHistoryCurrentIndex = ref(0)
 const consoleExpanded = ref(false)
 const maxConsoleCharacters = 100000
-
-
-
-// const showConsoleCommandCompletionsMenu = ref(false)
-// const consoleCommandCompletionMatches: Ref<Array<Object>> = ref([])
-// watch(serverInput, () => checkConsoleCommandCompletions())
-//
-// function checkConsoleCommandCompletions() {
-//   console.log(serverInput.value)
-//   const matches = serverConsoleCommands.filter((command) => {
-//     return command.label.toLowerCase().startsWith(serverInput.value.toLowerCase())
-//   })
-//   console.log(matches)
-//   if (matches.length === 0) {
-//     consoleCommandCompletionMatches.value = []
-//     showConsoleCommandCompletionsMenu.value = false
-//     return
-//   }
-//   consoleCommandCompletionMatches.value = matches
-//   showConsoleCommandCompletionsMenu.value = true
-// }
 
 const disableStartButton = computed(() => {
   return gameServer.value.status !== Status.OFFLINE && gameServer.value.status !== Status.UNKNOWN
@@ -199,32 +184,37 @@ async function getGameServerOutput() {
 }
 
 function streamGameServerOutput() {
-  console.log('Create new websocket.')
-  const apiWebsocket = new WebSocket(`wss://localhost/api/websocket/game_server_stream_output/${gameServerId.value}`)
-  console.log('New websocket created.')
+  const apiWebsocket = new WebSocket(`wss://localhost/api/websocket`)
+  // TODO listen to other page change/close events.
   window.addEventListener("pagehide", () => {
     console.log("Page hide event. Closing websocket...")
     apiWebsocket.close()
   })
   apiWebsocket.onopen = () => {
     console.log("Websocket opened")
+    const consoleOutputRequest: WebsocketRequest = {
+      type: WebsocketRequestType.RequestGetGameServerConsole,
+      gameServerID: gameServerId.value,
+    }
+    apiWebsocket.send(JSON.stringify(consoleOutputRequest))
+    console.log('Sent console output request')
   }
   apiWebsocket.onmessage = (event) => {
-    const out: WebsocketOutputMessage = JSON.parse(event.data)
-    if (out.outputType !== WebsocketOutputType.OutputTypeGameServerConsole && out.outputType !== WebsocketOutputType.OutputTypeGameServerStatus) {
-      return
+    const out: WebsocketMessage = JSON.parse(event.data)
+    switch (out.type) {
+      case WebsocketMessageType.GameServerConsole:
+        gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, out.gameServerConsoleOutput!.output)).slice(-maxConsoleCharacters)
+        setTimeout(() => {
+          consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
+        }, 10)
+        break
+      case WebsocketMessageType.GameServerStatus:
+        gameServer.value.status = out.gameServerStatusUpdate!.status
+        break
+      default:
+        console.log(`${event.data}`)
+        return
     }
-    if (out.outputType === WebsocketOutputType.OutputTypeGameServerStatus) {
-      gameServer.value.status = out.status
-      return
-    }
-    gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, out.data)).slice(-maxConsoleCharacters)
-    if (consoleScrollArea.value === null) {
-      return
-    }
-    setTimeout(() => {
-      consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
-    }, 1)
   }
   apiWebsocket.onclose = (event) => {
     console.log("Websocket closed")

@@ -9,10 +9,10 @@ import (
 
 	"github.com/aarondl/opt/omit"
 	connect_go "github.com/bufbuild/connect-go"
-	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -47,11 +47,6 @@ func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *con
 }
 
 func (xs XylonaService) Login(ctx context.Context, request *connect_go.Request[xylona.LoginRequest]) (*connect_go.Response[xylona.LoginResponse], error) {
-	cookies := getCookiesFromHeader(request.Header().Get("Cookie"))
-	sessionID := cookies.Get(SessionIDCookieName)
-	sessionToken := cookies.Get(SessionTokenCookieName)
-	log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionToken).Msg("Login request")
-
 	userName := request.Msg.GetUserName()
 	password := request.Msg.GetPassword()
 
@@ -91,13 +86,13 @@ func (xs XylonaService) Login(ctx context.Context, request *connect_go.Request[x
 		},
 	}
 
-	encodedSession, errEncodeSession := xs.secureCookie.Encode(SessionTokenCookieName, newSession.Token)
+	encodedSession, errEncodeSession := xs.secureCookie.Encode(gatekeeper.SessionTokenCookieName, newSession.Token)
 	if errEncodeSession != nil {
 		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
 	}
 
 	tokenCookie := &http.Cookie{
-		Name:     SessionTokenCookieName,
+		Name:     gatekeeper.SessionTokenCookieName,
 		Value:    encodedSession,
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour * 30),
@@ -106,7 +101,7 @@ func (xs XylonaService) Login(ctx context.Context, request *connect_go.Request[x
 		SameSite: http.SameSiteStrictMode,
 	}
 	idCookie := &http.Cookie{
-		Name:     SessionIDCookieName,
+		Name:     gatekeeper.SessionIDCookieName,
 		Value:    newSession.ID,
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour * 30),

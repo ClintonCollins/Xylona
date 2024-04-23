@@ -72,7 +72,7 @@ async function getGameServers() {
     const response = await GetXylonaClient().listGameServers(request)
     rows.value = []
     response.gameServers.forEach((gameServer) => {
-      console.log(gameServer)
+      // console.log(gameServer)
       rows.value.push(gameServer)
     })
     console.log(response)
@@ -83,7 +83,7 @@ async function getGameServers() {
 
 async function removeGameServer() {
   const selectedGameServer = selected.value[0] as GameServer
-  console.log(selectedGameServer.name)
+  // console.log(selectedGameServer.name)
 
   const request = new RemoveGameServerRequest()
   request.serverId = selectedGameServer.id

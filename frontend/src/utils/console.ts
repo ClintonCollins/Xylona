@@ -1,6 +1,12 @@
 import {StringToColor} from "src/utils/shared";
 
 const reURIMatch = /(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#\/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[A-Z0-9+&@#\/%=~_|$])/igm
+const reServerStop = /Server stopped.+$/gmi
+const reExitStatus = /^exit status [1-9]|^exit status 0.+$/gmi
+const reWarn = /^WARNING|WARN|WRN/gm
+const reError = /ERROR/gm
+const reXylonaMessage = /\[(\d+-\d+-\d+\s\d+:\d+:\d+)]\s\[(Xylona)]/gm
+
 
 type MinecraftPlayer = {
     username: string
@@ -9,12 +15,6 @@ type MinecraftPlayer = {
 }
 
 let minecraftPlayerMap: Map<string, MinecraftPlayer> = new Map<string, MinecraftPlayer>
-
-const reServerStop = /Server stopped.+$/gmi
-const reExitStatus = /^exit status [1-9]|^exit status 0.+$/gmi
-const reWarn = /^WARNING|WARN|WRN/gm
-const reError = /ERROR/gm
-const reXylonaMessage = /\[(\d+-\d+-\d+\s\d+:\d+:\d+)]\s\[(Xylona)]/gm
 
 export function parseConsole(game: string, data: string): string {
     data = data.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
@@ -32,7 +32,7 @@ export function parseConsole(game: string, data: string): string {
     }
     data = data.replaceAll(reError, "<span class='text-red-5'>$&</span>")
     data = data.replaceAll(reWarn, "<span class='text-yellow-5'>$&</span>")
-    data = data.replaceAll(reXylonaMessage, "<span class='text-grey-8'>[$1]</span> <span class='text-green-6'>[$2]</span>")
+    data = data.replaceAll(reXylonaMessage, "<span class='text-grey-6'>[$1]</span> <span class='text-cyan-7'>[$2]</span>")
     return data
 }
 
