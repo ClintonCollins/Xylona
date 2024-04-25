@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"github.com/ClintonCollins/Xylona/api/rpc"
 	"github.com/ClintonCollins/Xylona/api/websocket"
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -153,6 +155,40 @@ func main() {
 		WriteTimeout: time.Second * 60,
 		IdleTimeout:  time.Second * 300,
 	}
+
+	router.Get("/api/test/{appid}", func(w http.ResponseWriter, r *http.Request) {
+		appID := chi.URLParam(r, "appid")
+		branches, err := gsutils.SteamGetBranchesByAppID(appID)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get branches")
+			http.Error(w, "Failed to get branches", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		errEncode := json.NewEncoder(w).Encode(branches)
+		if errEncode != nil {
+			log.Error().Err(errEncode).Msg("Failed to encode branches")
+			http.Error(w, "Failed to encode branches", http.StatusInternalServerError)
+			return
+		}
+	})
+
+	router.Get("/api/test/{appid}/latest", func(w http.ResponseWriter, r *http.Request) {
+		appID := chi.URLParam(r, "appid")
+		branch, errGetLatest := gsutils.SteamGetLatestVersionByAppID(appID)
+		if errGetLatest != nil {
+			log.Error().Err(errGetLatest).Msg("Failed to get latest version")
+			http.Error(w, "Failed to get latest version", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		errEncode := json.NewEncoder(w).Encode(branch)
+		if errEncode != nil {
+			log.Error().Err(errEncode).Msg("Failed to encode latest version")
+			http.Error(w, "Failed to encode latest version", http.StatusInternalServerError)
+			return
+		}
+	})
 
 	// Start the web server
 	go func() {

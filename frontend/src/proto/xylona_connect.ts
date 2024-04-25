@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { AddIPRequest, AddIPResponse, CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, CreateGameServerRequest, CreateGameServerResponse, CreateUserRequest, CreateUserResponse, EditGameServerRequest, EditGameServerResponse, GetGameRequest, GetGameResponse, GetGameServerRequest, GetGameServerResponse, GetUserDetailsRequest, GetUserDetailsResponse, ListGameServersRequest, ListGameServersResponse, ListGamesRequest, ListGamesResponse, ListIPsRequest, ListIPsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, LogoutRequest, LogoutResponse, ReadGameServerOutputRequest, ReadGameServerOutputResponse, RemoveGameServerRequest, RemoveGameServerResponse, RemoveIPRequest, RemoveIPResponse, SendGameServerInputRequest, SendGameServerInputResponse, StartGameServerRequest, StartGameServerResponse, StopGameServerRequest, StopGameServerResponse, UpdateGameServerRequest, UpdateGameServerResponse } from "./xylona_pb.js";
+import { AddIPRequest, AddIPResponse, CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, CreateGameServerRequest, CreateGameServerResponse, CreateUserRequest, CreateUserResponse, EditGameServerRequest, EditGameServerResponse, GetBranchesRequest, GetBranchesResponse, GetGameRequest, GetGameResponse, GetGameServerRequest, GetGameServerResponse, GetUserDetailsRequest, GetUserDetailsResponse, ListGameServersRequest, ListGameServersResponse, ListGamesRequest, ListGamesResponse, ListIPsRequest, ListIPsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, LogoutRequest, LogoutResponse, ReadGameServerOutputRequest, ReadGameServerOutputResponse, RemoveGameServerRequest, RemoveGameServerResponse, RemoveIPRequest, RemoveIPResponse, SendGameServerInputRequest, SendGameServerInputResponse, StartGameServerRequest, StartGameServerResponse, StopGameServerRequest, StopGameServerResponse, UpdateGameServerRequest, UpdateGameServerResponse } from "./xylona_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -211,6 +211,15 @@ export const Xylona = {
       name: "ListGameServers",
       I: ListGameServersRequest,
       O: ListGameServersResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GetBranches
+     */
+    getBranches: {
+      name: "GetBranches",
+      I: GetBranchesRequest,
+      O: GetBranchesResponse,
       kind: MethodKind.Unary,
     },
   }

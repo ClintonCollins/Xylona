@@ -89,6 +89,7 @@ async function removeGameServer() {
   request.serverId = selectedGameServer.id
   try {
     const response = await GetXylonaClient().removeGameServer(request)
+    selected.value = []
     console.log(response)
   } catch (e) {
     console.error(e)

@@ -27,63 +27,58 @@ create table if not exists game
 (
     id                                     text primary key not null,
     name                                   text             not null,
-    default_port                           integer          not null,
-    default_query_port                     integer          not null,
-    default_max_players                    integer          not null,
+    default_port                           bigint           not null,
+    default_query_port                     bigint           not null,
+    default_max_players                    bigint           not null,
     require_dedicated_ip                   boolean          not null default false,
     binds_to_all_ips                       boolean          not null default false,
     uses_source_query                      boolean          not null default false,
+    uses_steamcmd                          boolean          not null default false,
+    steam_app_id                           text             not null default '' check ( uses_steamcmd == 0 or steam_app_id not null ),
     requires_steam_game_server_login_token boolean          not null default false,
-
     linux_support                          boolean          not null default false,
     linux_start_command                    text             not null default '' check ( linux_support == 0 or linux_start_command not null ),
     linux_stop_command                     text             not null default '',
-
     linux_install_command                  text             not null default '' check ( linux_support == 0 or linux_install_command not null ),
     linux_install_command_type             text             not null default 'direct',
-    constraint linux_install_command_type_check check ( linux_install_command_type in ('direct', 'bash', 'internal') ),
-
     linux_update_command                   text             not null default '',
     linux_update_command_type              text             not null default 'direct',
-    constraint linux_update_command_type_check check ( linux_update_command_type in ('direct', 'bash', 'internal') ),
-
     linux_backup_command                   text             not null default '',
     linux_backup_command_type              text             not null default 'direct',
-    constraint linux_backup_command_type_check check ( linux_backup_command_type in ('direct', 'bash', 'internal') ),
-
     linux_restore_command                  text             not null default '',
     linux_restore_command_type             text             not null default 'direct',
-    constraint linux_restore_command_type_check check ( linux_restore_command_type in ('direct', 'bash', 'internal') ),
-
     linux_allow_backups                    boolean          not null default false,
     linux_working_directory                text             not null default '',
     linux_configuration_file_paths         text             not null default '',
     windows_support                        boolean          not null default false,
-
     windows_start_command                  text             not null default '' check ( windows_support == 0 or windows_start_command not null ),
     windows_stop_command                   text             not null default '',
-
     windows_install_command                text             not null default '' check ( windows_support == 0 or windows_install_command not null ),
     windows_install_command_type           text             not null default 'direct',
-    constraint windows_install_command_type_check check ( windows_install_command_type in
-                                                          ('direct', 'cmd', 'powershell', 'pwsh', 'internal') ),
     windows_update_command                 text             not null default '',
     windows_update_command_type            text             not null default 'direct',
-    constraint windows_update_command_type_check check ( windows_update_command_type in
-                                                         ('direct', 'cmd', 'powershell', 'pwsh', 'internal') ),
     windows_backup_command                 text             not null default '',
     windows_backup_command_type            text             not null default 'direct',
-    constraint windows_backup_command_type_check check ( windows_backup_command_type in
-                                                         ('direct', 'cmd', 'powershell', 'pwsh', 'internal') ),
     windows_restore_command                text             not null default '',
     windows_restore_command_type           text             not null default 'direct',
-    constraint windows_restore_command_type_check check ( windows_restore_command_type in
-                                                          ('direct', 'cmd', 'powershell', 'pwsh', 'internal') ),
     windows_allow_backups                  boolean          not null default false,
     windows_working_directory              text             not null default '',
     windows_configuration_file_paths       text             not null default '',
     created_at                             datetime         not null default current_timestamp,
-    updated_at                             datetime         not null default current_timestamp
+    updated_at                             datetime         not null default current_timestamp,
+
+    constraint linux_install_command_type_check check ( linux_install_command_type in ('direct', 'bash', 'xylona_internal') ),
+    constraint linux_update_command_type_check check ( linux_update_command_type in ('direct', 'bash', 'xylona_internal') ),
+    constraint linux_backup_command_type_check check ( linux_backup_command_type in ('direct', 'bash', 'xylona_internal') ),
+    constraint linux_restore_command_type_check check ( linux_restore_command_type in ('direct', 'bash', 'xylona_internal') ),
+    constraint windows_install_command_type_check check ( windows_install_command_type in
+                                                          ('direct', 'cmd', 'powershell', 'pwsh', 'xylona_internal') ),
+    constraint windows_update_command_type_check check ( windows_update_command_type in
+                                                         ('direct', 'cmd', 'powershell', 'pwsh', 'xylona_internal') ),
+    constraint windows_backup_command_type_check check ( windows_backup_command_type in
+                                                         ('direct', 'cmd', 'powershell', 'pwsh', 'xylona_internal') ),
+    constraint windows_restore_command_type_check check ( windows_restore_command_type in
+                                                          ('direct', 'cmd', 'powershell', 'pwsh', 'xylona_internal') )
 );
 
 create table if not exists game_server
@@ -94,18 +89,20 @@ create table if not exists game_server
     game_id                       text references game (id)    not null,
     start_command                 text                         not null,
     status                        text                         not null,
-    set_players                   integer                      not null,
-    max_players                   integer                      not null,
+    set_players                   bigint                       not null,
+    max_players                   bigint                       not null,
     map                           text                         not null default '',
     ip                            text references ip (address) not null,
-    port                          integer                      not null,
-    query_port                    integer                      not null default 0,
+    port                          bigint                       not null,
+    query_port                    bigint                       not null default 0,
     directory                     text                         not null,
-    max_memory_mb                 integer                      not null default 0,
+    max_memory_mb                 bigint                       not null default 0,
     backups_enabled               boolean                      not null default false,
     steam_game_server_login_token text                         not null default '',
     backup_directory              text                         not null default '' check ( backups_enabled == 0 or backup_directory not null ),
-    max_backups                   integer                      not null default 0,
+    max_backups                   bigint                       not null default 0,
+    version                       text                         not null default '',
+    branch                        text                         not null default 'public',
     created_at                    datetime                     not null default current_timestamp,
     updated_at                    datetime                     not null default current_timestamp
 );

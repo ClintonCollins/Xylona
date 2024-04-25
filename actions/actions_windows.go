@@ -1,10 +1,10 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -97,8 +97,8 @@ func ParameterSubstitution(str string, gameServer *models.GameServer) string {
 	str = strings.ReplaceAll(str, "%GAMESERVER_BACKUP_DIRECTORY%", gameServer.BackupDirectory)
 	str = strings.ReplaceAll(str, "%GAMESERVER_NAME%", gameServer.Name)
 	str = strings.ReplaceAll(str, "%GAMESERVER_IP%", gameServer.IP)
-	str = strings.ReplaceAll(str, "%GAMESERVER_PORT%", strconv.FormatInt(gameServer.Port, 10))
-	str = strings.ReplaceAll(str, "%GAMESERVER_QUERY_PORT%", strconv.FormatInt(gameServer.QueryPort, 10))
+	str = strings.ReplaceAll(str, "%GAMESERVER_PORT%", string(gameServer.Port))
+	str = strings.ReplaceAll(str, "%GAMESERVER_QUERY_PORT%", string(gameServer.QueryPort))
 	str = strings.ReplaceAll(str, "%GAMESERVER_MAX_MEMORY_MB%", fmt.Sprintf("%d", gameServer.MaxMemoryMB))
 	str = strings.ReplaceAll(str, "%GAMESERVER_MAX_PLAYERS%", fmt.Sprintf("%d", gameServer.MaxPlayers))
 	str = strings.ReplaceAll(str, "%GAMESERVER_SET_PLAYERS%", fmt.Sprintf("%d", gameServer.SetPlayers))
@@ -154,7 +154,9 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to get game server command")
+		if errors.Is(err, supervisor.ErrCommandDoesNotExist) {
+			log.Error().Err(err).Msg("Failed to get game server command")
+		}
 		return
 	}
 	gameServerCommand.Stop(gameServer.R.Game.WindowsStopCommand)

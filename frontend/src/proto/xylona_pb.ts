@@ -7,6 +7,50 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3, protoInt64, Timestamp } from "@bufbuild/protobuf";
 
 /**
+ * @generated from enum xylona.CommandProcessor
+ */
+export enum CommandProcessor {
+  /**
+   * @generated from enum value: DIRECT = 0;
+   */
+  DIRECT = 0,
+
+  /**
+   * @generated from enum value: XYLONA_INTERNAL = 1;
+   */
+  XYLONA_INTERNAL = 1,
+
+  /**
+   * @generated from enum value: BASH = 2;
+   */
+  BASH = 2,
+
+  /**
+   * @generated from enum value: CMD = 3;
+   */
+  CMD = 3,
+
+  /**
+   * @generated from enum value: POWERSHELL = 4;
+   */
+  POWERSHELL = 4,
+
+  /**
+   * @generated from enum value: PWSH = 5;
+   */
+  PWSH = 5,
+}
+// Retrieve enum metadata with: proto3.getEnumType(CommandProcessor)
+proto3.util.setEnumType(CommandProcessor, "xylona.CommandProcessor", [
+  { no: 0, name: "DIRECT" },
+  { no: 1, name: "XYLONA_INTERNAL" },
+  { no: 2, name: "BASH" },
+  { no: 3, name: "CMD" },
+  { no: 4, name: "POWERSHELL" },
+  { no: 5, name: "PWSH" },
+]);
+
+/**
  * @generated from enum xylona.Status
  */
 export enum Status {
@@ -1078,6 +1122,56 @@ export class Game extends Message<Game> {
    */
   requiresSteamGameServerLoginToken = false;
 
+  /**
+   * @generated from field: xylona.CommandProcessor linux_install_command_processor = 32;
+   */
+  linuxInstallCommandProcessor = CommandProcessor.DIRECT;
+
+  /**
+   * @generated from field: xylona.CommandProcessor linux_update_command_processor = 33;
+   */
+  linuxUpdateCommandProcessor = CommandProcessor.DIRECT;
+
+  /**
+   * @generated from field: xylona.CommandProcessor linux_backup_command_processor = 34;
+   */
+  linuxBackupCommandProcessor = CommandProcessor.DIRECT;
+
+  /**
+   * @generated from field: xylona.CommandProcessor linux_restore_command_processor = 35;
+   */
+  linuxRestoreCommandProcessor = CommandProcessor.DIRECT;
+
+  /**
+   * @generated from field: xylona.CommandProcessor windows_install_command_processor = 36;
+   */
+  windowsInstallCommandProcessor = CommandProcessor.DIRECT;
+
+  /**
+   * @generated from field: xylona.CommandProcessor windows_update_command_processor = 37;
+   */
+  windowsUpdateCommandProcessor = CommandProcessor.DIRECT;
+
+  /**
+   * @generated from field: xylona.CommandProcessor windows_backup_command_processor = 38;
+   */
+  windowsBackupCommandProcessor = CommandProcessor.DIRECT;
+
+  /**
+   * @generated from field: xylona.CommandProcessor windows_restore_command_processor = 39;
+   */
+  windowsRestoreCommandProcessor = CommandProcessor.DIRECT;
+
+  /**
+   * @generated from field: bool uses_steamcmd = 40;
+   */
+  usesSteamcmd = false;
+
+  /**
+   * @generated from field: string steam_appid = 41;
+   */
+  steamAppid = "";
+
   constructor(data?: PartialMessage<Game>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1117,6 +1211,16 @@ export class Game extends Message<Game> {
     { no: 29, name: "updated_at", kind: "message", T: Timestamp },
     { no: 30, name: "uses_source_query", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 31, name: "requires_steam_game_server_login_token", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 32, name: "linux_install_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 33, name: "linux_update_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 34, name: "linux_backup_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 35, name: "linux_restore_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 36, name: "windows_install_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 37, name: "windows_update_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 38, name: "windows_backup_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 39, name: "windows_restore_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 40, name: "uses_steamcmd", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 41, name: "steam_appid", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Game {
@@ -1219,6 +1323,55 @@ export class NotificationStreamResponse extends Message<NotificationStreamRespon
 
   static equals(a: NotificationStreamResponse | PlainMessage<NotificationStreamResponse> | undefined, b: NotificationStreamResponse | PlainMessage<NotificationStreamResponse> | undefined): boolean {
     return proto3.util.equals(NotificationStreamResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message xylona.GameServerPlayer
+ */
+export class GameServerPlayer extends Message<GameServerPlayer> {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name = "";
+
+  /**
+   * @generated from field: optional string id = 2;
+   */
+  id?: string;
+
+  /**
+   * @generated from field: optional string steam_id = 3;
+   */
+  steamId?: string;
+
+  constructor(data?: PartialMessage<GameServerPlayer>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.GameServerPlayer";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 3, name: "steam_id", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerPlayer {
+    return new GameServerPlayer().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GameServerPlayer {
+    return new GameServerPlayer().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GameServerPlayer {
+    return new GameServerPlayer().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GameServerPlayer | PlainMessage<GameServerPlayer> | undefined, b: GameServerPlayer | PlainMessage<GameServerPlayer> | undefined): boolean {
+    return proto3.util.equals(GameServerPlayer, a, b);
   }
 }
 
@@ -1351,6 +1504,31 @@ export class GameServer extends Message<GameServer> {
    */
   numberOfThreads = protoInt64.zero;
 
+  /**
+   * @generated from field: string version = 26;
+   */
+  version = "";
+
+  /**
+   * @generated from field: int64 current_player_count = 27;
+   */
+  currentPlayerCount = protoInt64.zero;
+
+  /**
+   * @generated from field: repeated xylona.GameServerPlayer current_players = 28;
+   */
+  currentPlayers: GameServerPlayer[] = [];
+
+  /**
+   * @generated from field: xylona.SteamBranch steam_branch = 29;
+   */
+  steamBranch?: SteamBranch;
+
+  /**
+   * @generated from field: string branch = 30;
+   */
+  branch = "";
+
   constructor(data?: PartialMessage<GameServer>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1384,6 +1562,11 @@ export class GameServer extends Message<GameServer> {
     { no: 23, name: "cpu_percent", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 24, name: "memory_bytes", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 25, name: "number_of_threads", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 26, name: "version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 27, name: "current_player_count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 28, name: "current_players", kind: "message", T: GameServerPlayer, repeated: true },
+    { no: 29, name: "steam_branch", kind: "message", T: SteamBranch },
+    { no: 30, name: "branch", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServer {
@@ -1400,6 +1583,135 @@ export class GameServer extends Message<GameServer> {
 
   static equals(a: GameServer | PlainMessage<GameServer> | undefined, b: GameServer | PlainMessage<GameServer> | undefined): boolean {
     return proto3.util.equals(GameServer, a, b);
+  }
+}
+
+/**
+ * @generated from message xylona.SteamBranch
+ */
+export class SteamBranch extends Message<SteamBranch> {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name = "";
+
+  /**
+   * @generated from field: string build_id = 2;
+   */
+  buildId = "";
+
+  /**
+   * @generated from field: string description = 3;
+   */
+  description = "";
+
+  /**
+   * @generated from field: string time_updated = 4;
+   */
+  timeUpdated = "";
+
+  constructor(data?: PartialMessage<SteamBranch>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.SteamBranch";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "build_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "time_updated", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SteamBranch {
+    return new SteamBranch().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): SteamBranch {
+    return new SteamBranch().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): SteamBranch {
+    return new SteamBranch().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: SteamBranch | PlainMessage<SteamBranch> | undefined, b: SteamBranch | PlainMessage<SteamBranch> | undefined): boolean {
+    return proto3.util.equals(SteamBranch, a, b);
+  }
+}
+
+/**
+ * @generated from message xylona.GetBranchesRequest
+ */
+export class GetBranchesRequest extends Message<GetBranchesRequest> {
+  /**
+   * @generated from field: string game_id = 1;
+   */
+  gameId = "";
+
+  constructor(data?: PartialMessage<GetBranchesRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.GetBranchesRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "game_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetBranchesRequest {
+    return new GetBranchesRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetBranchesRequest {
+    return new GetBranchesRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetBranchesRequest {
+    return new GetBranchesRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetBranchesRequest | PlainMessage<GetBranchesRequest> | undefined, b: GetBranchesRequest | PlainMessage<GetBranchesRequest> | undefined): boolean {
+    return proto3.util.equals(GetBranchesRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message xylona.GetBranchesResponse
+ */
+export class GetBranchesResponse extends Message<GetBranchesResponse> {
+  /**
+   * @generated from field: repeated xylona.SteamBranch branches = 1;
+   */
+  branches: SteamBranch[] = [];
+
+  constructor(data?: PartialMessage<GetBranchesResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.GetBranchesResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "branches", kind: "message", T: SteamBranch, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetBranchesResponse {
+    return new GetBranchesResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetBranchesResponse {
+    return new GetBranchesResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetBranchesResponse {
+    return new GetBranchesResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetBranchesResponse | PlainMessage<GetBranchesResponse> | undefined, b: GetBranchesResponse | PlainMessage<GetBranchesResponse> | undefined): boolean {
+    return proto3.util.equals(GetBranchesResponse, a, b);
   }
 }
 

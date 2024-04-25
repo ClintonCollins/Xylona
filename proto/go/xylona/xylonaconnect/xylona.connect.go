@@ -78,6 +78,8 @@ const (
 	XylonaUpdateGameServerProcedure = "/xylona.Xylona/UpdateGameServer"
 	// XylonaListGameServersProcedure is the fully-qualified name of the Xylona's ListGameServers RPC.
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
+	// XylonaGetBranchesProcedure is the fully-qualified name of the Xylona's GetBranches RPC.
+	XylonaGetBranchesProcedure = "/xylona.Xylona/GetBranches"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
@@ -111,6 +113,7 @@ type XylonaClient interface {
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect_go.Request[xylona.ListGameServersRequest]) (*connect_go.Response[xylona.ListGameServersResponse], error)
+	GetBranches(context.Context, *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -228,6 +231,11 @@ func NewXylonaClient(httpClient connect_go.HTTPClient, baseURL string, opts ...c
 			baseURL+XylonaListGameServersProcedure,
 			opts...,
 		),
+		getBranches: connect_go.NewClient[xylona.GetBranchesRequest, xylona.GetBranchesResponse](
+			httpClient,
+			baseURL+XylonaGetBranchesProcedure,
+			opts...,
+		),
 	}
 }
 
@@ -254,6 +262,7 @@ type xylonaClient struct {
 	getGameServer          *connect_go.Client[xylona.GetGameServerRequest, xylona.GetGameServerResponse]
 	updateGameServer       *connect_go.Client[xylona.UpdateGameServerRequest, xylona.UpdateGameServerResponse]
 	listGameServers        *connect_go.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
+	getBranches            *connect_go.Client[xylona.GetBranchesRequest, xylona.GetBranchesResponse]
 }
 
 // GetGame calls xylona.Xylona.GetGame.
@@ -361,6 +370,11 @@ func (c *xylonaClient) ListGameServers(ctx context.Context, req *connect_go.Requ
 	return c.listGameServers.CallUnary(ctx, req)
 }
 
+// GetBranches calls xylona.Xylona.GetBranches.
+func (c *xylonaClient) GetBranches(ctx context.Context, req *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error) {
+	return c.getBranches.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
@@ -392,6 +406,7 @@ type XylonaHandler interface {
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect_go.Request[xylona.ListGameServersRequest]) (*connect_go.Response[xylona.ListGameServersResponse], error)
+	GetBranches(context.Context, *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -505,6 +520,11 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (stri
 		svc.ListGameServers,
 		opts...,
 	)
+	xylonaGetBranchesHandler := connect_go.NewUnaryHandler(
+		XylonaGetBranchesProcedure,
+		svc.GetBranches,
+		opts...,
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaGetGameProcedure:
@@ -549,6 +569,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (stri
 			xylonaUpdateGameServerHandler.ServeHTTP(w, r)
 		case XylonaListGameServersProcedure:
 			xylonaListGameServersHandler.ServeHTTP(w, r)
+		case XylonaGetBranchesProcedure:
+			xylonaGetBranchesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -640,4 +662,8 @@ func (UnimplementedXylonaHandler) UpdateGameServer(context.Context, *connect_go.
 
 func (UnimplementedXylonaHandler) ListGameServers(context.Context, *connect_go.Request[xylona.ListGameServersRequest]) (*connect_go.Response[xylona.ListGameServersResponse], error) {
 	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.ListGameServers is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetBranches(context.Context, *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error) {
+	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.GetBranches is not implemented"))
 }

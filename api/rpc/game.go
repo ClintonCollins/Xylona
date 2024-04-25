@@ -51,3 +51,8 @@ func (xs XylonaService) ListGames(ctx context.Context, request *connect_go.Reque
 	}
 	return resp, nil
 }
+
+func (xs XylonaService) GetBranches(ctx context.Context, c *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error) {
+	//TODO implement me
+	panic("implement me")
+}

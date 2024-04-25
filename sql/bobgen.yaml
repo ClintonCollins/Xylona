@@ -1,3 +1,4 @@
+no_factory: true
+wipe: true
 sqlite:
   dsn: "../data.sqlite"
-  no_factory: true

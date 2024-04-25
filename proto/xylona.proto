@@ -5,12 +5,12 @@ package xylona;
 option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
 
 service Xylona {
-//  rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
-//  rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
+  //  rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
+  //  rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
   rpc GetGame (GetGameRequest) returns (GetGameResponse) {}
-//  rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
-//  rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
-//  rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
+  //  rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
+  //  rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
+  //  rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
   rpc ListGames (ListGamesRequest) returns (ListGamesResponse) {}
 
   rpc Login (LoginRequest) returns (LoginResponse) {}
@@ -28,15 +28,16 @@ service Xylona {
   rpc RemoveGameServer (RemoveGameServerRequest) returns (RemoveGameServerResponse) {}
   rpc StartGameServer (StartGameServerRequest) returns (StartGameServerResponse) {}
   rpc StopGameServer (StopGameServerRequest) returns (StopGameServerResponse) {}
-//  rpc RestartGameServer (RestartGameServerRequest) returns (RestartGameServerResponse) {}
+  //  rpc RestartGameServer (RestartGameServerRequest) returns (RestartGameServerResponse) {}
   rpc ReadGameServerOutput (ReadGameServerOutputRequest) returns (ReadGameServerOutputResponse) {}
   rpc SendGameServerInput (SendGameServerInputRequest) returns (SendGameServerInputResponse) {}
   rpc GetGameServer (GetGameServerRequest) returns (GetGameServerResponse) {}
   rpc UpdateGameServer (UpdateGameServerRequest) returns (UpdateGameServerResponse) {}
-//  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
-//  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
+  //  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
+  //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
-//  rpc StreamNotifications (NotificationStreamRequest) returns (stream NotificationStreamResponse) {}
+
+  rpc GetBranches (GetBranchesRequest) returns (GetBranchesResponse) {}
 }
 
 message LoginRequest {
@@ -125,6 +126,15 @@ message GetUserDetailsResponse {
   User user = 1;
 }
 
+enum CommandProcessor {
+  DIRECT = 0;
+  XYLONA_INTERNAL = 1;
+  BASH = 2;
+  CMD = 3;
+  POWERSHELL = 4;
+  PWSH = 5;
+}
+
 message Game {
   string id = 1;
   string name = 2;
@@ -157,6 +167,16 @@ message Game {
   google.protobuf.Timestamp updated_at = 29;
   bool uses_source_query = 30;
   bool requires_steam_game_server_login_token = 31;
+  CommandProcessor linux_install_command_processor = 32;
+  CommandProcessor linux_update_command_processor = 33;
+  CommandProcessor linux_backup_command_processor = 34;
+  CommandProcessor linux_restore_command_processor = 35;
+  CommandProcessor windows_install_command_processor = 36;
+  CommandProcessor windows_update_command_processor = 37;
+  CommandProcessor windows_backup_command_processor = 38;
+  CommandProcessor windows_restore_command_processor = 39;
+  bool uses_steamcmd = 40;
+  string steam_appid = 41;
 }
 
 enum Status {
@@ -186,6 +206,12 @@ message NotificationStreamResponse {
   string error = 4;
 }
 
+message GameServerPlayer {
+  string name = 1;
+  optional string id = 2;
+  optional string steam_id = 3;
+}
+
 message GameServer {
   string id = 1;
   string user_id = 2;
@@ -212,6 +238,26 @@ message GameServer {
   int64 cpu_percent = 23;
   int64 memory_bytes = 24;
   int64 number_of_threads = 25;
+  string version = 26;
+  int64 current_player_count = 27;
+  repeated GameServerPlayer current_players = 28;
+  SteamBranch steam_branch = 29;
+  string branch = 30;
+}
+
+message SteamBranch {
+  string name = 1;
+  string build_id = 2;
+  string description = 3;
+  string time_updated = 4;
+}
+
+message GetBranchesRequest {
+  string game_id = 1;
+}
+
+message GetBranchesResponse {
+  repeated SteamBranch branches = 1;
 }
 
 message IP {

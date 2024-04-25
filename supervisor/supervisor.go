@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os/exec"
 	"runtime"
@@ -20,6 +21,10 @@ const (
 	RuntimeWindows Runtime = "windows"
 	RuntimeDarwin  Runtime = "darwin"
 	RuntimeUnknown Runtime = "unknown"
+)
+
+var (
+	ErrCommandDoesNotExist = errors.New("command does not exist")
 )
 
 var (
