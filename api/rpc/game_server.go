@@ -138,8 +138,6 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect_go.R
 	}
 	gameServerCmd, err := xs.supervisorInst.GetCommandByID(gameServer.ID)
 	if err != nil {
-		//log.Error().Err(err).Msg("Failed to get game server command")
-		log.Debug().Msg("Game server is offline")
 		gameServer.Status = xylona.Status_OFFLINE.String()
 	} else {
 		gameServer.Status = gameServerCmd.Status.String()

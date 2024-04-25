@@ -18,45 +18,6 @@ export function GetXylonaClient() {
     return createPromiseClient(Xylona, transport)
 }
 
-export enum WebsocketRequestType {
-    RequestUnknown,
-    RequestGetGameServerConsole,
-    RequestGetGameServerStatus,
-    RequestRemoveGameServerConsole,
-    RequestRemoveGameServerStatus,
-}
-
-
-export enum WebsocketMessageType {
-    Unknown,
-    GameServerConsole,
-    GameServerStatus,
-    Raw
-}
-
-export type GameServerStatusUpdate = {
-    gameServerID: string;
-    status: Status;
-}
-
-export type GameServerConsoleOutput = {
-    gameServerID: string;
-    output: string;
-}
-
-export type WebsocketRequest = {
-    gameServerID?: string;
-    type: WebsocketRequestType;
-}
-
-export type WebsocketMessage = {
-    type: WebsocketMessageType;
-    gameServerConsoleOutput?: GameServerConsoleOutput;
-    gameServerStatusUpdate?: GameServerStatusUpdate;
-    rawData?: any;
-}
-
-
 export function StringToColor(str: string): string {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {

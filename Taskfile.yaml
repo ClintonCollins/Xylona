@@ -18,3 +18,9 @@ tasks:
     cmds:
       - go run github.com/stephenafamo/bob/gen/bobgen-sqlite@v0.25.0 -c ./bobgen.yaml
     desc: Generate boilerplate code
+
+  proto-gen:
+    dir: ./proto
+    cmds:
+      - buf generate
+    desc: Generate connect_rpc code

@@ -10,7 +10,6 @@ import (
 
 	"github.com/ziutek/telnet"
 
-	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -58,7 +57,7 @@ type Command struct {
 	Status              xylona.Status
 	ServiceID           string
 	currentCMD          *exec.Cmd
-	outputListeners     map[string]chan helpers.WebsocketMessage
+	outputListeners     map[string]chan xylona.Message
 	outputListenersLock *sync.RWMutex
 	inputMethod         InputMethod
 	stdInWriter         io.Writer
@@ -74,7 +73,7 @@ type Command struct {
 	*sync.RWMutex
 }
 
-func (c *Command) AddOutputListener(id string, outChan chan helpers.WebsocketMessage) {
+func (c *Command) AddOutputListener(id string, outChan chan xylona.Message) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
 	c.outputListeners[id] = outChan

@@ -90,11 +90,8 @@ import {
 import {useToolbarNavQTabsStore} from "stores/xylona";
 import {
   GetXylonaClient,
-  WebsocketMessage,
-  WebsocketMessageType,
-  WebsocketRequest,
-  WebsocketRequestType,
 } from "src/utils/shared";
+import {Message, Message_Type, Request, Request_Type} from "src/proto/websocket_pb";
 import {parseConsole} from "src/utils/console";
 import {QScrollArea} from "quasar";
 import StatusBadge from "components/StatusBadge.vue";
@@ -192,23 +189,31 @@ function streamGameServerOutput() {
   })
   apiWebsocket.onopen = () => {
     console.log("Websocket opened")
-    const consoleOutputRequest: WebsocketRequest = {
-      type: WebsocketRequestType.RequestGetGameServerConsole,
-      gameServerID: gameServerId.value,
-    }
-    apiWebsocket.send(JSON.stringify(consoleOutputRequest))
+    // const consoleOutputRequest: WebsocketRequest = {
+    //   type: WebsocketRequestType.RequestGetGameServerConsole,
+    //   gameServerID: gameServerId.value,
+    // }
+
+    const consoleOutputRequest: Request = new Request()
+    consoleOutputRequest.type = Request_Type.GetGameServerConsole
+    consoleOutputRequest.gameServerId = gameServerId.value
+
+    apiWebsocket.send(consoleOutputRequest.toJsonString())
     console.log('Sent console output request')
   }
   apiWebsocket.onmessage = (event) => {
-    const out: WebsocketMessage = JSON.parse(event.data)
+    const out: Message = Message.fromJsonString(event.data)
     switch (out.type) {
-      case WebsocketMessageType.GameServerConsole:
+      case Message_Type.GameServerConsole:
         gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, out.gameServerConsoleOutput!.output)).slice(-maxConsoleCharacters)
         setTimeout(() => {
           consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
         }, 10)
         break
-      case WebsocketMessageType.GameServerStatus:
+      case Message_Type.GameServerStatus:
+        if (out.gameServerStatusUpdate?.gameServerId !== gameServerId.value) {
+          return
+        }
         gameServer.value.status = out.gameServerStatusUpdate!.status
         break
       default:

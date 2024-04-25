@@ -1,0 +1,41 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+import "xylona.proto";
+
+package xylona;
+option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
+
+message GameServerConsoleOutput {
+  string game_server_id = 1;
+  string output = 2;
+}
+
+message GameServerStatusUpdate {
+  string game_server_id = 1;
+  Status status = 2;
+}
+
+message Request {
+  enum Type {
+    Unknown = 0;
+    GetGameServerConsole = 1;
+    GetGameServerStatus = 2;
+    RemoveGameServerConsole = 3;
+    RemoveGameServerStatus = 4;
+  }
+  optional string game_server_id = 1;
+  Type type = 2;
+}
+
+message Message {
+  enum Type {
+    Unknown = 0;
+    GameServerConsole = 1;
+    GameServerStatus = 2;
+    Raw = 3;
+  }
+  Type type = 1;
+  optional GameServerConsoleOutput game_server_console_output = 2;
+  optional GameServerStatusUpdate game_server_status_update = 3;
+  string raw_data = 4;
+}

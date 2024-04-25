@@ -1,5 +1,6 @@
 syntax = "proto3";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
 
 package xylona;
 option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';

@@ -12,10 +12,12 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/olahol/melody"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
@@ -30,7 +32,7 @@ const (
 type connection struct {
 	id                          uuid.UUID
 	melodySession               *melody.Session
-	outputStreamChannel         chan helpers.WebsocketMessage
+	outputStreamChannel         chan xylona.Message
 	requestedGameServerOutputID *string
 	*sync.RWMutex
 }
@@ -158,7 +160,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	log.Debug().Str("User", user.UserName).Msg("Websocket connected")
 	wsConnection := &connection{
 		melodySession:               s,
-		outputStreamChannel:         make(chan helpers.WebsocketMessage),
+		outputStreamChannel:         make(chan xylona.Message),
 		requestedGameServerOutputID: nil,
 		RWMutex:                     &sync.RWMutex{},
 	}
@@ -207,7 +209,7 @@ func closeSession(s *melody.Session) {
 
 // handleUserWebsocketConnection handles a single websocket connection for a user. It's designed to be run in a Go routine.
 // It listens for messages on the streamChan channel and writes them to the websocket connection.
-func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *models.User, streamChan chan helpers.WebsocketMessage) {
+func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *models.User, streamChan chan xylona.Message) {
 	for {
 		select {
 		case <-ws.ctx.Done():
@@ -309,19 +311,19 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		return
 	}
 
-	websocketRequest := &helpers.WebsocketRequest{}
-	errUnmarshal := json.Unmarshal(msg, websocketRequest)
+	websocketRequest := &xylona.Request{}
+	errUnmarshal := protojson.Unmarshal(msg, websocketRequest)
 	if errUnmarshal != nil {
 		log.Error().Err(errUnmarshal).Msg("Failed to unmarshal websocket message")
 		return
 	}
 	switch websocketRequest.Type {
-	case helpers.RequestGetGameServerConsole:
-		if websocketRequest.GameServerID == nil {
+	case xylona.Request_GetGameServerConsole:
+		if websocketRequest.GameServerId == nil {
 			log.Error().Msg("Game server ID not set")
 			return
 		}
-		errAddGameServerOutputListener := ws.addGameServerOutputListener(s, *websocketRequest.GameServerID)
+		errAddGameServerOutputListener := ws.addGameServerOutputListener(s, *websocketRequest.GameServerId)
 		if errAddGameServerOutputListener != nil {
 			log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
 			errWrite := s.Write([]byte(fmt.Sprintf("Failed to get game server console: %s", errAddGameServerOutputListener)))
@@ -330,8 +332,8 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			}
 			return
 		}
-		rawData := &helpers.WebsocketMessage{
-			Type:    helpers.WebsocketOutputTypeRaw,
+		rawData := &xylona.Message{
+			Type:    xylona.Message_Raw,
 			RawData: "Subscribed to game server console output",
 		}
 		b, errMarshal := json.Marshal(rawData)
@@ -348,4 +350,44 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			log.Error().Err(errWrite).Msg("Failed to write websocket message")
 		}
 	}
+
+	//websocketRequest := &helpers.WebsocketRequest{}
+	//errUnmarshal := json.Unmarshal(msg, websocketRequest)
+	//if errUnmarshal != nil {
+	//	log.Error().Err(errUnmarshal).Msg("Failed to unmarshal websocket message")
+	//	return
+	//}
+	//switch websocketRequest.Type {
+	//case helpers.RequestGetGameServerConsole:
+	//	if websocketRequest.GameServerID == nil {
+	//		log.Error().Msg("Game server ID not set")
+	//		return
+	//	}
+	//	errAddGameServerOutputListener := ws.addGameServerOutputListener(s, *websocketRequest.GameServerID)
+	//	if errAddGameServerOutputListener != nil {
+	//		log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
+	//		errWrite := s.Write([]byte(fmt.Sprintf("Failed to get game server console: %s", errAddGameServerOutputListener)))
+	//		if errWrite != nil {
+	//			log.Error().Err(errWrite).Msg("Failed to write websocket message")
+	//		}
+	//		return
+	//	}
+	//	rawData := &helpers.WebsocketMessage{
+	//		Type:    helpers.WebsocketOutputTypeRaw,
+	//		RawData: "Subscribed to game server console output",
+	//	}
+	//	b, errMarshal := json.Marshal(rawData)
+	//	if errMarshal != nil {
+	//		log.Error().Err(errMarshal).Msg("Failed to write websocket message")
+	//		return
+	//	}
+	//	_ = s.Write(b)
+	//default:
+	//	log.Warn().Str("User", username).Msg("Unknown websocket message type")
+	//	log.Debug().Str("User", username).Msgf("Websocket message: %s", string(msg))
+	//	errWrite := s.Write([]byte(fmt.Sprintf("echo: %s", msg)))
+	//	if errWrite != nil {
+	//		log.Error().Err(errWrite).Msg("Failed to write websocket message")
+	//	}
+	//}
 }

@@ -21,7 +21,6 @@ import (
 	"github.com/ziutek/telnet"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -230,7 +229,7 @@ func (c *Command) readTelnetOutput() {
 	log.Debug().Str("Game Server ID", c.ID).Msg("Telnet listener stopped")
 }
 
-func (c *Command) handleOutputListeners(payload helpers.WebsocketMessage) {
+func (c *Command) handleOutputListeners(payload xylona.Message) {
 	listenerIDsToRemove := make([]string, 0)
 	c.outputListenersLock.RLock()
 	errGroup, ctx := errgroup.WithContext(c.instanceCtx)
@@ -268,10 +267,10 @@ func (c *Command) closeJobNotification() {
 }
 
 func (c *Command) sendJobStatusNotification(status xylona.Status) {
-	payload := helpers.WebsocketMessage{
-		Type: helpers.WebsocketOutputTypeGameServerStatus,
-		GameServerStatusUpdate: &helpers.GameServerStatusUpdate{
-			GameServerID: c.ID,
+	payload := xylona.Message{
+		Type: xylona.Message_GameServerStatus,
+		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
+			GameServerId: c.ID,
 			Status:       status,
 		},
 	}
@@ -280,10 +279,10 @@ func (c *Command) sendJobStatusNotification(status xylona.Status) {
 
 func (c *Command) sendJobNotification(message string) {
 	c.pushToOutputBuffer(message)
-	payload := helpers.WebsocketMessage{
-		Type: helpers.WebsocketOutputTypeGameServerConsole,
-		GameServerConsoleOutput: &helpers.GameServerConsoleOutput{
-			GameServerID: c.ID,
+	payload := xylona.Message{
+		Type: xylona.Message_GameServerConsole,
+		GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
+			GameServerId: c.ID,
 			Output:       message + "\n",
 		},
 	}
@@ -413,7 +412,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			instanceCtx:         inst.ctx,
 			processCtx:          processCtx,
 			processCtxCancel:    processCtxCancel,
-			outputListeners:     make(map[string]chan helpers.WebsocketMessage),
+			outputListeners:     make(map[string]chan xylona.Message),
 			outputListenersLock: &sync.RWMutex{},
 			inputMethod:         preparedCommand.InputMethod,
 			toggleOutputType:    make(chan struct{}),
@@ -556,7 +555,7 @@ func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
 			ID:                  commandID,
 			stdInWriter:         &bytes.Buffer{},
 			combinedOutput:      &bytes.Buffer{},
-			outputListeners:     make(map[string]chan helpers.WebsocketMessage),
+			outputListeners:     make(map[string]chan xylona.Message),
 			outputListenersLock: &sync.RWMutex{},
 			RWMutex:             &sync.RWMutex{},
 			Status:              xylona.Status_OFFLINE,
