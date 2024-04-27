@@ -6,6 +6,7 @@ const reExitStatus = /^exit status [1-9]|^exit status 0.+$/gmi
 const reWarn = /^WARNING|WARN|WRN/gm
 const reError = /ERROR/gm
 const reXylonaMessage = /\[(\d+-\d+-\d+\s\d+:\d+:\d+)]\s\[(Xylona)]/gm
+const reMinecraftVersion = /Starting\sminecraft\sserver\sversion\s(.+)$/gmi
 
 
 type MinecraftPlayer = {

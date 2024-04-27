@@ -6,26 +6,42 @@
   </q-card-section>
   <div class="row q-gutter-lg-lg q-col-gutter-lg q-px-md">
     <div class="col-lg-4 col-xs-12 q-gutter-md">
-      <q-list bordered separator>
-        <q-item clickable>
+      <q-list separator>
+        <q-item>
           <q-item-section>Name</q-item-section>
-          <q-item-section side>{{ gameServer.name }}</q-item-section>
+          <q-item-section side>
+            <ClipBoardCopy :clip-board-value="gameServer.name" :display-text="gameServer.name"></ClipBoardCopy>
+          </q-item-section>
         </q-item>
-        <q-item clickable>
+        <q-item>
           <q-item-section>Status</q-item-section>
-          <q-item-section side><StatusBadge :status="gameServer.status"></StatusBadge></q-item-section>
+          <q-item-section side>
+            <StatusBadge :status="gameServer.status"></StatusBadge>
+          </q-item-section>
         </q-item>
-        <q-item clickable>
+        <q-item>
           <q-item-section>Game</q-item-section>
-          <q-item-section side>{{ gameServer.gameName }}</q-item-section>
+          <q-item-section side>
+            <ClipBoardCopy :clip-board-value="gameServer.gameName" :display-text="gameServer.gameName"></ClipBoardCopy>
+          </q-item-section>
         </q-item>
-        <q-item clickable>
+        <q-item>
           <q-item-section>IP</q-item-section>
-          <q-item-section side>{{ gameServer.ip?.address }}</q-item-section>
+          <q-item-section side>
+            <ClipBoardCopy :clip-board-value="gameServer.ip !== undefined ? gameServer.ip.address : ''" :display-text="gameServer.ip?.address"></ClipBoardCopy>
+          </q-item-section>
         </q-item>
-        <q-item clickable>
+        <q-item>
           <q-item-section>Port</q-item-section>
-          <q-item-section side>{{ gameServer.port }}</q-item-section>
+          <q-item-section side>
+            <ClipBoardCopy :clip-board-value="gameServer.port.toString()" :display-text="gameServer.port.toString()"></ClipBoardCopy>
+          </q-item-section>
+        </q-item>
+        <q-item>
+          <q-item-section>Version</q-item-section>
+          <q-item-section side>
+            <ClipBoardCopy :display-text="gameServer.version !== '' ? gameServer.version : 'Unknown version'"  :clip-board-value="gameServer.version !== '' ? gameServer.version : 'Unknown version'"></ClipBoardCopy>
+          </q-item-section>
         </q-item>
         <!--        <q-item clickable>-->
         <!--          <q-item-section>Max Players</q-item-section>-->
@@ -37,37 +53,43 @@
         <!--        </q-item>-->
       </q-list>
       <div class="col-xs-12 col-md-3 q-gutter-md gt-md">
-          <q-btn push ripple glossy :disable="disableStartButton" class="bg-success" label="Start" @click="startGameServer"></q-btn>
-          <q-btn push ripple glossy :disable="disableStopButton" class="bg-error" label="Stop" @click="stopGameServer"></q-btn>
+        <q-btn push ripple glossy :disable="disableStartButton" class="bg-success" label="Start"
+               @click="startGameServer"></q-btn>
+        <q-btn push ripple glossy :disable="disableStopButton" class="bg-error" label="Stop"
+               @click="stopGameServer"></q-btn>
       </div>
       <div class="col-xs-12 col-md-3 q-mt-lg lt-lg">
         <q-btn-group spread push>
-        <q-btn push ripple glossy :disable="disableStartButton" class="bg-success" label="Start" @click="startGameServer"></q-btn>
-        <q-btn push ripple glossy :disable="disableStopButton" class="bg-error" label="Stop" @click="stopGameServer"></q-btn>
+          <q-btn push ripple glossy :disable="disableStartButton" class="bg-success" label="Start"
+                 @click="startGameServer"></q-btn>
+          <q-btn push ripple glossy :disable="disableStopButton" class="bg-error" label="Stop"
+                 @click="stopGameServer"></q-btn>
         </q-btn-group>
       </div>
     </div>
     <div class="col col-lg-8 col-xs-12" :class="{expanded: consoleExpanded}">
       <q-scroll-area ref="consoleScrollArea" id="consoleContainer">
         <q-page-sticky position="top-right" :offset="[12, -40]">
-          <q-btn @click="consoleExpanded = !consoleExpanded" fab flat square padding="sm" :icon="tabMaximize" text-color="info"/>
+          <q-btn @click="consoleExpanded = !consoleExpanded" fab flat square padding="sm" :icon="tabMaximize"
+                 text-color="info"/>
         </q-page-sticky>
         <code class="q-pb-md" id="consoleCodeEl" v-html="gameServerOutput"></code>
       </q-scroll-area>
-      <q-input id="consoleInput" hint="Send to console" placeholder="Enter command..." @keyup.enter="sendGameServerInput"
+      <q-input autofocus id="consoleInput" hint="Send to console" placeholder="Enter command..."
+               @keyup.enter="sendGameServerInput"
                dense square outlined name="consoleInput" @keyup.up="navigateConsoleInputHistory('up')"
-                @keyup.down="navigateConsoleInputHistory('down')"
+               @keyup.down="navigateConsoleInputHistory('down')"
                v-model="serverInput">
         <template v-slot:append>
           <q-btn flat color="primary" icon="send" name="send" type="submit" @click="sendGameServerInput"></q-btn>
         </template>
-<!--        <q-menu v-model="showConsoleCommandCompletionsMenu" no-focus anchor="bottom left" self="top left">-->
-<!--          <q-list style="min-width: 100px">-->
-<!--            <q-item v-close-popup v-for="command in consoleCommandCompletionMatches">-->
-<!--              <q-item-section>{{command.label}}</q-item-section>-->
-<!--            </q-item>-->
-<!--          </q-list>-->
-<!--        </q-menu>-->
+        <!--        <q-menu v-model="showConsoleCommandCompletionsMenu" no-focus anchor="bottom left" self="top left">-->
+        <!--          <q-list style="min-width: 100px">-->
+        <!--            <q-item v-close-popup v-for="command in consoleCommandCompletionMatches">-->
+        <!--              <q-item-section>{{command.label}}</q-item-section>-->
+        <!--            </q-item>-->
+        <!--          </q-list>-->
+        <!--        </q-menu>-->
       </q-input>
     </div>
   </div>
@@ -88,13 +110,12 @@ import {
   Status
 } from "src/proto/xylona_pb";
 import {useToolbarNavQTabsStore} from "stores/xylona";
-import {
-  GetXylonaClient,
-} from "src/utils/shared";
+import {GetXylonaClient, StatusToString,} from "src/utils/shared";
 import {Message, Message_Type, Request, Request_Type} from "src/proto/websocket_pb";
 import {parseConsole} from "src/utils/console";
-import {QScrollArea} from "quasar";
+import {QItemSection, QScrollArea} from "quasar";
 import StatusBadge from "components/StatusBadge.vue";
+import ClipBoardCopy from "components/ClipBoardCopy.vue";
 import {tabMaximize} from 'quasar-extras-svg-icons/tabler-icons-v2'
 
 const gameServerOutput = ref("")
@@ -189,11 +210,6 @@ function streamGameServerOutput() {
   })
   apiWebsocket.onopen = () => {
     console.log("Websocket opened")
-    // const consoleOutputRequest: WebsocketRequest = {
-    //   type: WebsocketRequestType.RequestGetGameServerConsole,
-    //   gameServerID: gameServerId.value,
-    // }
-
     const consoleOutputRequest: Request = new Request()
     consoleOutputRequest.type = Request_Type.GetGameServerConsole
     consoleOutputRequest.gameServerId = gameServerId.value
@@ -214,7 +230,8 @@ function streamGameServerOutput() {
         if (out.gameServerStatusUpdate?.gameServerId !== gameServerId.value) {
           return
         }
-        gameServer.value.status = out.gameServerStatusUpdate!.status
+        console.log(`Game server status update: ${StatusToString(out.gameServerStatusUpdate.status)}. For game server: ${gameServerId.value}`)
+        gameServer.value.status = out.gameServerStatusUpdate.status
         break
       default:
         console.log(`${event.data}`)
@@ -296,6 +313,7 @@ async function sendGameServerInput() {
   left: 0;
   margin: 0;
   padding: 0;
+
   #consoleContainer {
     min-height: 90% !important;
   }

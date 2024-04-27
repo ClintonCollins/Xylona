@@ -59,3 +59,11 @@ a {
 .console-url:hover {
     color: hsl(182, 100%, 50%);
 }
+
+.copy-clipboard {
+    cursor: pointer;
+}
+
+.copy-clipboard:hover {
+    font-weight: 700;
+}
