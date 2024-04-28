@@ -147,30 +147,67 @@ func (c *Command) readJobOut() {
 		return
 	}
 	disableOutput := false
-	scanner := bufio.NewScanner(c.combinedOutput)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		if scanner.Err() != nil {
-			log.Error().Err(scanner.Err()).Msg("Error scanning output")
-			return
-		}
-		select {
-		case <-c.instanceCtx.Done():
-			log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
-		case <-c.processCtx.Done():
-			log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
-			return
-		case <-c.toggleOutputType:
-			disableOutput = !disableOutput
-		default:
-			if disableOutput {
-				continue
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		scannerStdOut := bufio.NewScanner(c.stdout)
+		scannerStdOut.Split(bufio.ScanLines)
+		for scannerStdOut.Scan() {
+			if scannerStdOut.Err() != nil {
+				log.Error().Err(scannerStdOut.Err()).Msg("Error scanning output")
+				return
 			}
-			stdOut := scanner.Text()
-			log.Debug().Str("ID", c.ID).Str("stdout", stdOut).Msg("Output")
-			c.sendJobNotification(stdOut)
+			select {
+			case <-c.instanceCtx.Done():
+				log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
+			case <-c.processCtx.Done():
+				log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
+				return
+			case <-c.toggleOutputType:
+				disableOutput = !disableOutput
+			default:
+				if disableOutput {
+					continue
+				}
+				stdOut := scannerStdOut.Text()
+				log.Debug().Str("ID", c.ID).Str("stdout", stdOut).Msg("Output")
+				c.sendJobNotification(stdOut)
+			}
 		}
-	}
+		wg.Done()
+	}()
+
+	go func() {
+		scannerStdErr := bufio.NewScanner(c.stderr)
+		scannerStdErr.Split(bufio.ScanLines)
+		for scannerStdErr.Scan() {
+			if scannerStdErr.Err() != nil {
+				log.Error().Err(scannerStdErr.Err()).Msg("Error scanning output")
+				return
+			}
+			select {
+			case <-c.instanceCtx.Done():
+				log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
+			case <-c.processCtx.Done():
+				log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
+				return
+			case <-c.toggleOutputType:
+				disableOutput = !disableOutput
+			default:
+				if disableOutput {
+					continue
+				}
+				stdErr := scannerStdErr.Text()
+				log.Debug().Str("ID", c.ID).Str("stderr", stdErr).Msg("Output")
+				c.sendJobNotification(stdErr)
+			}
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
 	log.Debug().Str("Game Server ID", c.ID).Msg("Job output listener stopped")
 	c.processCtxCancel()
 	c.closeJobNotification()
@@ -313,7 +350,7 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 		command.sendJobStatusNotification(xylona.Status_OFFLINE)
 		command.Lock()
 		command.currentCMD = nil
-		command.Status = xylona.Status_OFFLINE
+		command.status = xylona.Status_OFFLINE
 		command.Unlock()
 		commandEndFunc(command)
 		return
@@ -321,7 +358,7 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 
 	fullCommandStr = fmt.Sprintf("%s %s", command.currentCMD.Path, strings.Join(command.currentCMD.Args, " "))
 	log.Debug().Str("Command ID", command.ID).Str("Exec", fullCommandStr).Msg("Command started")
-	command.sendJobStatusNotification(command.Status)
+	command.sendJobStatusNotification(command.status)
 
 	// Run after startup function if it exists.
 	if command.runAfterStartup != nil {
@@ -340,7 +377,7 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")
 	command.Lock()
 	command.currentCMD = nil
-	command.Status = xylona.Status_OFFLINE
+	command.status = xylona.Status_OFFLINE
 	command.Unlock()
 	commandEndFunc(command)
 }
@@ -353,9 +390,7 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 		}
 	}
 
-	log.Debug().Msg(preparedCommand.InputMethod.Type.String())
 	newCommand := inst.initNewCommand(preparedCommand, persistentCommand)
-	log.Debug().Msg(newCommand.inputMethod.Type.String())
 
 	// Extracted Command setup logic to a private function.
 	cmd, err := inst.setupCmd(newCommand, preparedCommand)
@@ -370,7 +405,7 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 	}
 
 	go newCommand.readJobOut()
-	switch newCommand.Status {
+	switch newCommand.status {
 	case xylona.Status_ONLINE:
 		newCommand.sendJobNotification(MessageStartingServer)
 	}
@@ -388,9 +423,9 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.User = preparedCommand.User
 		newCommand.outputListeners = persistentCommand.outputListeners
 		newCommand.FullCommandAndArgs = preparedCommand.FullCommandAndArgs
-		newCommand.UnixStartedAt = time.Now().Unix()
-		newCommand.Status = preparedCommand.Status
-		newCommand.ServiceID = preparedCommand.ServiceID
+		newCommand.unixStartedAt = time.Now().Unix()
+		newCommand.status = preparedCommand.Status
+		newCommand.serviceID = preparedCommand.ServiceID
 		newCommand.outBuffer = ""
 		newCommand.instanceCtx = inst.ctx
 		newCommand.processCtx = processCtx
@@ -403,9 +438,9 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			ID:                  preparedCommand.ID,
 			User:                preparedCommand.User,
 			FullCommandAndArgs:  preparedCommand.FullCommandAndArgs,
-			UnixStartedAt:       time.Now().Unix(),
-			Status:              preparedCommand.Status,
-			ServiceID:           preparedCommand.ServiceID,
+			unixStartedAt:       time.Now().Unix(),
+			status:              preparedCommand.Status,
+			serviceID:           preparedCommand.ServiceID,
 			RWMutex:             &sync.RWMutex{},
 			stdInWriter:         &bytes.Buffer{},
 			combinedOutput:      &bytes.Buffer{},
@@ -439,8 +474,13 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		return nil, err
 	}
 
-	combinedOutput := io.MultiReader(stdOutPipe, stdErrPipe)
-	newCommand.combinedOutput = combinedOutput
+	//combinedOutput := io.MultiReader(stdOutPipe, stdErrPipe)
+	//newCommand.combinedOutput = combinedOutput
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
+
+	newCommand.stdout = stdOutPipe
+	newCommand.stderr = stdErrPipe
 
 	switch newCommand.inputMethod.Type {
 	case InputTypeTelnet:
@@ -558,7 +598,7 @@ func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
 			outputListeners:     make(map[string]chan xylona.Message),
 			outputListenersLock: &sync.RWMutex{},
 			RWMutex:             &sync.RWMutex{},
-			Status:              xylona.Status_OFFLINE,
+			status:              xylona.Status_OFFLINE,
 			toggleOutputType:    make(chan struct{}),
 		}
 		return inst.runningCommands[commandID]

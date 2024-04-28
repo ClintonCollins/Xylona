@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"io"
 	"net"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/rdegges/go-ipify"
 	"github.com/rs/zerolog/log"
@@ -91,4 +93,22 @@ func GetIPs() ([]net.IP, error) {
 		ips = append(ips, ip)
 	}
 	return ips, nil
+}
+
+type xylonaTransport struct{}
+
+var (
+	httpClient = &http.Client{
+		Timeout:   time.Second * 15,
+		Transport: xylonaTransport{},
+	}
+)
+
+func (x xylonaTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Add("User-Agent", "Xylona/0.1 (https://github.com/ClintonCollins/Xylona)")
+	return http.DefaultTransport.RoundTrip(req)
+}
+
+func GetXylonaHTTPClient() *http.Client {
+	return httpClient
 }

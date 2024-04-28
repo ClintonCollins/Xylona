@@ -53,15 +53,17 @@ type Command struct {
 	ID                  string
 	User                string
 	FullCommandAndArgs  string
-	UnixStartedAt       int64
-	Status              xylona.Status
-	ServiceID           string
+	unixStartedAt       int64
+	status              xylona.Status
+	serviceID           string
 	currentCMD          *exec.Cmd
 	outputListeners     map[string]chan xylona.Message
 	outputListenersLock *sync.RWMutex
 	inputMethod         InputMethod
 	stdInWriter         io.Writer
 	combinedOutput      io.Reader
+	stdout              io.Reader
+	stderr              io.Reader
 	telnetConn          *telnet.Conn
 	outBuffer           string
 	instanceCtx         context.Context
@@ -71,6 +73,24 @@ type Command struct {
 	callbackFunc        func(job *Command)
 	runAfterStartup     func(job *Command)
 	*sync.RWMutex
+}
+
+func (c *Command) Status() xylona.Status {
+	c.RLock()
+	defer c.RUnlock()
+	return c.status
+}
+
+func (c *Command) ServiceID() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.serviceID
+}
+
+func (c *Command) UnixStartedAt() int64 {
+	c.RLock()
+	defer c.RUnlock()
+	return c.unixStartedAt
 }
 
 func (c *Command) AddOutputListener(id string, outChan chan xylona.Message) {

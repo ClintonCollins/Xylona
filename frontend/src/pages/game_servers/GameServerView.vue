@@ -109,7 +109,6 @@ import {
   StartGameServerRequest,
   Status
 } from "src/proto/xylona_pb";
-import {useToolbarNavQTabsStore} from "stores/xylona";
 import {GetXylonaClient, StatusToString,} from "src/utils/shared";
 import {Message, Message_Type, Request, Request_Type} from "src/proto/websocket_pb";
 import {parseConsole} from "src/utils/console";
@@ -144,11 +143,6 @@ onMounted(async () => {
   console.log("Streaming game server output")
   streamGameServerOutput()
 })
-
-useToolbarNavQTabsStore().changeTabs([
-  {name: "Console", to: "/game-servers/" + route.params.id + "/console", icon: "terminal", exact: true},
-  {name: "Files", to: "/game-servers/" + route.params.id + "/files", icon: "folder", exact: true},
-])
 
 async function getGameServerDetails() {
   const request = new GetGameServerRequest()

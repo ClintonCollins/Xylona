@@ -139,6 +139,184 @@ proto3.util.setEnumType(NotificationEvent, "xylona.NotificationEvent", [
 ]);
 
 /**
+ * @generated from message xylona.GetFileRequest
+ */
+export class GetFileRequest extends Message<GetFileRequest> {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId = "";
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path = "";
+
+  constructor(data?: PartialMessage<GetFileRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.GetFileRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetFileRequest {
+    return new GetFileRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetFileRequest {
+    return new GetFileRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetFileRequest {
+    return new GetFileRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetFileRequest | PlainMessage<GetFileRequest> | undefined, b: GetFileRequest | PlainMessage<GetFileRequest> | undefined): boolean {
+    return proto3.util.equals(GetFileRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message xylona.File
+ */
+export class File extends Message<File> {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name = "";
+
+  /**
+   * @generated from field: int64 size = 2;
+   */
+  size = protoInt64.zero;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp last_modified = 3;
+   */
+  lastModified?: Timestamp;
+
+  /**
+   * @generated from field: bool is_directory = 4;
+   */
+  isDirectory = false;
+
+  constructor(data?: PartialMessage<File>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.File";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "size", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "last_modified", kind: "message", T: Timestamp },
+    { no: 4, name: "is_directory", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): File {
+    return new File().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): File {
+    return new File().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): File {
+    return new File().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: File | PlainMessage<File> | undefined, b: File | PlainMessage<File> | undefined): boolean {
+    return proto3.util.equals(File, a, b);
+  }
+}
+
+/**
+ * @generated from message xylona.ListDirectoryFilesRequest
+ */
+export class ListDirectoryFilesRequest extends Message<ListDirectoryFilesRequest> {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId = "";
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path = "";
+
+  constructor(data?: PartialMessage<ListDirectoryFilesRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.ListDirectoryFilesRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListDirectoryFilesRequest {
+    return new ListDirectoryFilesRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListDirectoryFilesRequest {
+    return new ListDirectoryFilesRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListDirectoryFilesRequest {
+    return new ListDirectoryFilesRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListDirectoryFilesRequest | PlainMessage<ListDirectoryFilesRequest> | undefined, b: ListDirectoryFilesRequest | PlainMessage<ListDirectoryFilesRequest> | undefined): boolean {
+    return proto3.util.equals(ListDirectoryFilesRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message xylona.ListDirectoryFilesResponse
+ */
+export class ListDirectoryFilesResponse extends Message<ListDirectoryFilesResponse> {
+  /**
+   * @generated from field: repeated xylona.File files = 1;
+   */
+  files: File[] = [];
+
+  constructor(data?: PartialMessage<ListDirectoryFilesResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.ListDirectoryFilesResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "files", kind: "message", T: File, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListDirectoryFilesResponse {
+    return new ListDirectoryFilesResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListDirectoryFilesResponse {
+    return new ListDirectoryFilesResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListDirectoryFilesResponse {
+    return new ListDirectoryFilesResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListDirectoryFilesResponse | PlainMessage<ListDirectoryFilesResponse> | undefined, b: ListDirectoryFilesResponse | PlainMessage<ListDirectoryFilesResponse> | undefined): boolean {
+    return proto3.util.equals(ListDirectoryFilesResponse, a, b);
+  }
+}
+
+/**
  * @generated from message xylona.LoginRequest
  */
 export class LoginRequest extends Message<LoginRequest> {

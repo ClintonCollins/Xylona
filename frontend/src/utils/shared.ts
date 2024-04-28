@@ -1,7 +1,7 @@
 import {createPromiseClient} from "@connectrpc/connect";
 import {createConnectTransport} from "@connectrpc/connect-web";
 import {Xylona} from "src/proto/xylona_connect";
-import {computed, onMounted, ref} from "vue";
+import {onMounted, ref} from "vue";
 import {Status} from "src/proto/xylona_pb";
 
 const XylonaAPIBaseURL: string = "https://localhost";
@@ -41,4 +41,29 @@ export function WindowWidth() {
     })
 
     return windowWidth
+}
+
+export function StatusToString(status: Status): string {
+    switch (status) {
+        case Status.UNKNOWN:
+            return "Unknown"
+        case Status.ONLINE:
+            return "Online"
+        case Status.OFFLINE:
+            return "Offline"
+        case Status.UPDATING:
+            return "Updating"
+        case Status.INSTALLING:
+            return "Installing"
+        default:
+            return "Unknown"
+    }
+}
+
+// The conversion function
+export function bytesToSize(bytes: number): string {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
 }

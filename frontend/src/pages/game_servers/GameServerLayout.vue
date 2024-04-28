@@ -19,9 +19,17 @@
 <script setup lang="ts">
 import {useToolbarNavQTabsStore} from "stores/xylona"
 import {WindowWidth} from "src/utils/shared"
+import {useRoute} from "vue-router";
 
+
+const route = useRoute()
 const navQTabsStore = useToolbarNavQTabsStore()
 const windowWidth = WindowWidth()
+
+useToolbarNavQTabsStore().changeTabs([
+  {name: "Console", to: "/game-servers/" + route.params.id + "/console", icon: "terminal", exact: true},
+  {name: "Files", to: "/game-servers/" + route.params.id + "/files", icon: "folder", exact: true},
+])
 
 </script>
 

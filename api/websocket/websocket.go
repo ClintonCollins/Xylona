@@ -93,7 +93,7 @@ func (ws *WebSocket) getSessionConnection(s *melody.Session) (*connection, error
 	}
 	_, userExists := ws.userWebsocketConnections[userID]
 	if !userExists {
-		log.Error().Str("User", userID).Msg("User not found in websocket connections")
+		// log.Error().Str("User", userID).Msg("User not found in websocket connections")
 		return nil, errors.New("user not found")
 	}
 
@@ -180,13 +180,46 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	ws.userWebsocketConnections[user.ID][connectionID] = wsConnection
 	ws.userWebsocketConnectionsLock.Unlock()
 
+	go ws.sendUserGameServersStatuses(s, user)
+
 	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
+}
+
+func (ws *WebSocket) sendUserGameServersStatuses(s *melody.Session, user *models.User) {
+	gameServers, errGetServers := ws.db.GetGameServersByUser(user.ID)
+	if errGetServers != nil {
+		log.Error().Err(errGetServers).Msg("Failed to get game servers by user")
+	}
+	for _, gameServer := range gameServers {
+		command, errGetCommand := ws.supervisor.GetCommandByID(gameServer.ID)
+		if errGetCommand != nil {
+			continue
+		}
+		status := command.Status()
+		out := &xylona.Message{
+			Type: xylona.Message_GameServerStatus,
+			GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
+				GameServerId: gameServer.ID,
+				Status:       status,
+			},
+		}
+		byteOut, errMarshal := json.Marshal(out)
+		if errMarshal != nil {
+			log.Error().Err(errMarshal).Msg("Failed to marshal game server status update")
+			continue
+		}
+		errWrite := s.Write(byteOut)
+		if errWrite != nil {
+			log.Error().Err(errWrite).Msg("Failed to write websocket message")
+			return
+		}
+	}
 }
 
 func (ws *WebSocket) closeCommandOutputListener(s *melody.Session) {
 	sessionConnection, errGetConnection := ws.getSessionConnection(s)
 	if errGetConnection != nil {
-		log.Error().Err(errGetConnection).Msg("Failed to get session connection")
+		// log.Error().Err(errGetConnection).Msg("Failed to get session connection")
 		return
 	}
 	gameServerID := sessionConnection.requestedGameServerOutputID

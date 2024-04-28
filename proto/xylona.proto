@@ -39,6 +39,29 @@ service Xylona {
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
 
   rpc GetBranches (GetBranchesRequest) returns (GetBranchesResponse) {}
+
+  rpc ListDirectoryFiles (ListDirectoryFilesRequest) returns (ListDirectoryFilesResponse) {}
+}
+
+message GetFileRequest {
+  string game_server_id = 1;
+  string path = 2;
+}
+
+message File {
+  string name = 1;
+  int64 size = 2;
+  google.protobuf.Timestamp last_modified = 3;
+  bool is_directory = 4;
+}
+
+message ListDirectoryFilesRequest {
+  string game_server_id = 1;
+  string path = 2;
+}
+
+message ListDirectoryFilesResponse {
+  repeated File files = 1;
 }
 
 message LoginRequest {

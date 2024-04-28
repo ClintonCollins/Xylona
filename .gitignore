@@ -2,3 +2,6 @@
 .idea
 data.sqlite
 /Xylona.exe
+*.exe
+/cmd/minecraft_version_hasher/test_jars/
+/cmd/minecraft_version_hasher/versions/
