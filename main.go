@@ -233,6 +233,8 @@ func main() {
 		}
 	})
 
+	router.Post("/api/file/upload", actionsInst.DownloadGameServerFiles)
+
 	// Start the web server
 	go func() {
 		log.Info().Msg("Starting Xylona web server on :8080")

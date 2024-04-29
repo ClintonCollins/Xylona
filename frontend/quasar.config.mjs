@@ -30,7 +30,6 @@ export default configure(function (/* ctx */) {
         css: [
             'app.css',
             'overrides.css',
-            'ansi-up.scss'
         ],
 
         // https://github.com/quasarframework/quasar/tree/dev/extras
@@ -88,7 +87,8 @@ export default configure(function (/* ctx */) {
         // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework
         framework: {
             config: {
-                dark: true
+                dark: true,
+                loading: {}
             },
 
             // iconSet: 'material-icons', // Quasar icon set
@@ -102,7 +102,9 @@ export default configure(function (/* ctx */) {
             // directives: [],
 
             // Quasar plugins
-            plugins: []
+            plugins: [
+                'Loading'
+            ]
         },
 
         // animations: 'all', // --- includes all animations

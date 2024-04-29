@@ -5,6 +5,7 @@
 
 import { AddIPRequest, AddIPResponse, CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, CreateGameServerRequest, CreateGameServerResponse, CreateUserRequest, CreateUserResponse, EditGameServerRequest, EditGameServerResponse, GetBranchesRequest, GetBranchesResponse, GetGameRequest, GetGameResponse, GetGameServerRequest, GetGameServerResponse, GetUserDetailsRequest, GetUserDetailsResponse, ListDirectoryFilesRequest, ListDirectoryFilesResponse, ListGameServersRequest, ListGameServersResponse, ListGamesRequest, ListGamesResponse, ListIPsRequest, ListIPsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, LogoutRequest, LogoutResponse, ReadGameServerOutputRequest, ReadGameServerOutputResponse, RemoveGameServerRequest, RemoveGameServerResponse, RemoveIPRequest, RemoveIPResponse, SendGameServerInputRequest, SendGameServerInputResponse, StartGameServerRequest, StartGameServerResponse, StopGameServerRequest, StopGameServerResponse, UpdateGameServerRequest, UpdateGameServerResponse } from "./xylona_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
+import { GameServerFileRenameRequest, GameServerFileRenameResponse, GameServerFilesCompressionRequest, GameServerFilesCompressionResponse, GameServerFilesDecompressionRequest, GameServerFilesDecompressionResponse, GameServerFilesDeleteRequest, GameServerFilesDeleteResponse, GameServerFilesMoveRequest, GameServerFilesMoveResponse, GameServersFileDownloadFromURLRequest, GameServersFileDownloadFromURLResponse, GameServersFileEditRequest, GameServersFileEditResponse } from "./gameserver_files_operations_pb.js";
 
 /**
  * @generated from service xylona.Xylona
@@ -229,6 +230,69 @@ export const Xylona = {
       name: "ListDirectoryFiles",
       I: ListDirectoryFilesRequest,
       O: ListDirectoryFilesResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServerFilesDelete
+     */
+    gameServerFilesDelete: {
+      name: "GameServerFilesDelete",
+      I: GameServerFilesDeleteRequest,
+      O: GameServerFilesDeleteResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServerFilesCompress
+     */
+    gameServerFilesCompress: {
+      name: "GameServerFilesCompress",
+      I: GameServerFilesCompressionRequest,
+      O: GameServerFilesCompressionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServerFilesDecompress
+     */
+    gameServerFilesDecompress: {
+      name: "GameServerFilesDecompress",
+      I: GameServerFilesDecompressionRequest,
+      O: GameServerFilesDecompressionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServerFilesDownloadFromURL
+     */
+    gameServerFilesDownloadFromURL: {
+      name: "GameServerFilesDownloadFromURL",
+      I: GameServersFileDownloadFromURLRequest,
+      O: GameServersFileDownloadFromURLResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServerFileRename
+     */
+    gameServerFileRename: {
+      name: "GameServerFileRename",
+      I: GameServerFileRenameRequest,
+      O: GameServerFileRenameResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServerFilesMove
+     */
+    gameServerFilesMove: {
+      name: "GameServerFilesMove",
+      I: GameServerFilesMoveRequest,
+      O: GameServerFilesMoveResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServersFileEdit
+     */
+    gameServersFileEdit: {
+      name: "GameServersFileEdit",
+      I: GameServersFileEditRequest,
+      O: GameServersFileEditResponse,
       kind: MethodKind.Unary,
     },
   }

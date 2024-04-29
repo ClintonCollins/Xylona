@@ -56,7 +56,7 @@ div:has(> a.q-item) {
 }
 
 .q-layout {
-    background-image: url('/src/assets/backgrounds/background2.webp');
+    background-image: url('/src/assets/backgrounds/background3.webp');
     background-size: cover;
     background-repeat: no-repeat;
 }

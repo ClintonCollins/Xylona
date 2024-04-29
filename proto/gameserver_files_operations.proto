@@ -1,0 +1,81 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+package xylona;
+option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
+
+
+enum GameServerFilesCompressionType {
+  ZIP = 0;
+  TAR = 1;
+  GZIP = 2;
+}
+
+message GameServerFilesDeleteRequest {
+  string game_server_id = 1;
+  repeated string file_paths = 2;
+}
+
+message GameServerFilesDeleteResponse {
+  repeated string file_paths = 1;
+}
+
+message GameServerFilesCompressionRequest {
+  string game_server_id = 1;
+  repeated string file_paths = 2;
+  string file_name = 3;
+  GameServerFilesCompressionType compression_type = 4;
+}
+
+message GameServerFilesCompressionResponse {
+  string file_path = 1;
+}
+
+message GameServerFilesDecompressionRequest {
+  string game_server_id = 1;
+  string file_path = 2;
+}
+
+message GameServerFilesDecompressionResponse {
+  repeated string file_paths = 1;
+}
+
+message GameServersFileDownloadFromURLRequest {
+  string game_server_id = 1;
+  string url = 2;
+}
+
+message GameServersFileDownloadFromURLResponse {
+  string file_path = 1;
+}
+
+message GameServerFileRenameRequest {
+  string game_server_id = 1;
+  string old_path = 2;
+  string new_path = 3;
+}
+
+message GameServerFileRenameResponse {
+  string old_path = 1;
+  string new_path = 2;
+}
+
+message GameServerFilesMoveRequest {
+  string game_server_id = 1;
+  repeated string file_paths = 2;
+  string destination = 3;
+}
+
+message GameServerFilesMoveResponse {
+  repeated string file_paths = 1;
+}
+
+message GameServersFileEditRequest {
+  string game_server_id = 1;
+  string file_path = 2;
+  string content = 3;
+}
+
+message GameServersFileEditResponse {
+}

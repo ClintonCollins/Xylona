@@ -16,6 +16,7 @@
     "@connectrpc/connect": "^1.4.0",
     "@connectrpc/connect-web": "^1.4.0",
     "@quasar/extras": "^1.16.11",
+    "axios": "^1.6.8",
     "dayjs": "^1.11.10",
     "pinia": "^2.1.7",
     "quasar": "^2.15.2",

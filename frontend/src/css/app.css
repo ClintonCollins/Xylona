@@ -3,6 +3,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Goldman:wght@400;700&family=Mina:wght@400;700&family=Zen+Dots&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Oxygen+Mono&display=swap');
 
+
 .selected-option {
     color: var(--q-info);
     font-weight: 700;

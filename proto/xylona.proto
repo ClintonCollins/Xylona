@@ -1,6 +1,6 @@
 syntax = "proto3";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/any.proto";
+import "gameserver_files_operations.proto";
 
 package xylona;
 option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
@@ -41,6 +41,13 @@ service Xylona {
   rpc GetBranches (GetBranchesRequest) returns (GetBranchesResponse) {}
 
   rpc ListDirectoryFiles (ListDirectoryFilesRequest) returns (ListDirectoryFilesResponse) {}
+  rpc GameServerFilesDelete (GameServerFilesDeleteRequest) returns (GameServerFilesDeleteResponse) {}
+  rpc GameServerFilesCompress (GameServerFilesCompressionRequest) returns (GameServerFilesCompressionResponse) {}
+  rpc GameServerFilesDecompress (GameServerFilesDecompressionRequest) returns (GameServerFilesDecompressionResponse) {}
+  rpc GameServerFilesDownloadFromURL (GameServersFileDownloadFromURLRequest) returns (GameServersFileDownloadFromURLResponse) {}
+  rpc GameServerFileRename (GameServerFileRenameRequest) returns (GameServerFileRenameResponse) {}
+  rpc GameServerFilesMove (GameServerFilesMoveRequest) returns (GameServerFilesMoveResponse) {}
+  rpc GameServersFileEdit (GameServersFileEditRequest) returns (GameServersFileEditResponse) {}
 }
 
 message GetFileRequest {

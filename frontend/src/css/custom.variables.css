@@ -76,3 +76,40 @@
 .bg-toolbar {
     background-color: var(--bg-toolbar);
 }
+
+.text-success {
+    color: var(--bg-success);
+}
+
+.text-success-brighter {
+    color: var(--bg-success-brighter);
+}
+
+.text-success-darker {
+    color: var(--bg-success-darker);
+}
+
+.text-error {
+    color: var(--bg-error);
+}
+
+.text-error-brighter {
+    color: var(--bg-error-brighter);
+}
+
+.text-error-darker {
+    color: var(--bg-error-darker);
+}
+
+.text-alert {
+    color: var(--bg-alert);
+}
+
+.text-alert-brighter {
+    color: var(--bg-alert-brighter);
+}
+
+.text-alert-darker {
+    color: var(--bg-alert-darker);
+}
+
