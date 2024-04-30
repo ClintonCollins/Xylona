@@ -30,29 +30,30 @@
           <div class="col-xs-3">Modified</div>
         </div>
         <q-separator class="q-my-sm"></q-separator>
-        <div id="file-list">
-          <div class="row file-list-body-row q-px-sm" v-for="directory in directories">
-            <div class="col-xs-2 col-md-2 col-lg-1">
+        <div id="file-list" ref="filesList">
+          <div class="row file-list-body-row q-px-sm" :class="fileIsSelectedClass(directory)" v-for="directory in directories">
+            <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
               <q-checkbox v-if="directory.name !== '..'" :val="directory" v-model="selectedFiles"></q-checkbox>
             </div>
-            <div class="col-xs-4 file-div" @click="clickDirectory(directory)">
+            <div class="col-xs-4 file-div file-list-cell" @click="clickDirectory(directory)">
               <q-icon size="xs" color="amber" :name="tabFolderFilled" left></q-icon>
               {{ directory.name }}
             </div>
-            <div class="col-xs-3">{{ bytesToSize(Number(directory.size)) }}</div>
-            <div class="col-xs-3">{{ toTimestamp(directory.lastModified) }}</div>
+            <div class="col-xs-3 file-list-cell">{{ bytesToSize(Number(directory.size)) }}</div>
+            <div class="col-xs-3 file-list-cell">{{ toTimestamp(directory.lastModified) }}</div>
           </div>
-          <div class="row file-list-body-row q-px-sm" v-for="file in files" :data-file-name="file.name" draggable="false">
-            <div class="col-xs-2 col-md-2 col-lg-1">
+          <div class="row file-list-body-row q-px-sm" :class="fileIsSelectedClass(file)" v-for="file in files" :data-file-name="file.name"
+               draggable="false">
+            <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
               <q-checkbox :val="file" v-model="selectedFiles"></q-checkbox>
             </div>
-            <div class="col-xs-4 file-div" @click="clickFile(file)">
+            <div class="col-xs-4 file-div file-list-cell" @click="clickFile(file)">
               <q-icon size="xs" :style="'color:'+ getColorFromFilenameExtension(file.name)"
                       :name="getIconFromFilenameExtension(file.name)" left></q-icon>
               <span class="file-name">{{ file.name }}</span>
             </div>
-            <div class="col-xs-3">{{ bytesToSize(Number(file.size)) }}</div>
-            <div class="col-xs-3">{{ toTimestamp(file.lastModified) }}</div>
+            <div class="col-xs-3 file-list-cell">{{ bytesToSize(Number(file.size)) }}</div>
+            <div class="col-xs-3 file-list-cell">{{ toTimestamp(file.lastModified) }}</div>
           </div>
         </div>
         <q-menu ref="contextMenu" touch-position context-menu @before-show="contextMenuClick">
@@ -219,6 +220,13 @@ const dragInFileContainerChildren: Ref<boolean> = ref(false)
 const fileUploaderDialog: Ref<boolean> = ref(false)
 const addingFilesToUploaderViaFileContainerDrop: Ref<boolean> = ref(false) // This is for overriding the default uploader adding files. When this is false, we intercept the file add event and add files manually.
 
+
+function fileIsSelectedClass(file) {
+  if (selectedFiles.value.includes(file)) {
+    return "bg-neutral-glass-4"
+  }
+  return ""
+}
 
 const deleteButtonEnabled = computed(() => {
   const selected = sanitizeSelectedFiles()
@@ -550,6 +558,7 @@ async function listDirectoryFiles(directoryPath: string) {
       return
     }
     console.error(err)
+  } finally {
   }
 }
 
@@ -791,6 +800,9 @@ function getUploaderFilePath(file: File): string {
   return joinedRelativePath.slice(0, joinedRelativePath.lastIndexOf("/"))
 }
 
+// @media screen and (min-height: 2160px), screen {
+//   height: 70dvh;
+// }
 </script>
 
 <style scoped>
@@ -803,13 +815,18 @@ function getUploaderFilePath(file: File): string {
 
 .file-list-body-row {
   align-items: center;
-  min-width: 720px;
-  height: 2.5rem;
+  height: 2rem;
   font-size: 1rem;
 }
 
+.file-list-cell {
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
 .file-list-body-row:hover {
-  background-color: var(--bg-neutral-glass-3);
+  background-color: var(--bg-dark-grey);
 }
 
 .file-list-container {
@@ -818,15 +835,25 @@ function getUploaderFilePath(file: File): string {
 }
 
 #file-list {
-  height: 65vh;
-  max-height: 65vh;
+  /* 1080p and below */
+  @media (height <= 1080px) {
+    height: 60dvh;
+  }
+  /* 1440p */
+  @media (1080px < height <= 1440px) {
+    height: 65dvh;
+  }
+  /* 4K and above */
+  @media (height > 1440px) {
+    height: 75dvh;
+  }
   overflow: scroll;
 }
 
 .file-div {
-  height: 100% !important;
-  display: flex;
-  align-items: center;
+  //height: 100% !important;
+  //display: flex;
+  //align-items: center;
 }
 
 .file-div:hover {

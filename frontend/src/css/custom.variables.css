@@ -5,6 +5,7 @@
     --bg-neutral-opaque: rgba(59, 59, 59, 1);
     --bg-light-grey: #727272;
     --bg-grey: #525252;
+    --bg-dark-grey: #3b3b3b;
     --bg-toolbar: #174b5e;
     --bg-success-brighter: hsl(120, 100%, 22%);
     --bg-success: hsl(120, 100%, 20%);
@@ -71,6 +72,10 @@
 
 .bg-grey {
     background-color: var(--bg-grey);
+}
+
+.bg-dark-grey {
+    background-color: var(--bg-dark-grey);
 }
 
 .bg-toolbar {
