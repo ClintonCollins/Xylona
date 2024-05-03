@@ -194,7 +194,6 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect_go.R
 	} else {
 		gameServer.Status = gameServerCmd.Status().String()
 	}
-	log.Debug().Msgf("Game server status: %s", gameServer.Status)
 	response := &xylona.GetGameServerResponse{
 		GameServer: helpers.GameServerModelToProto(gameServer),
 	}

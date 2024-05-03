@@ -3,12 +3,25 @@ import {createConnectTransport} from "@connectrpc/connect-web";
 import {Xylona} from "src/proto/xylona_connect";
 import {onMounted, ref} from "vue";
 import {Status} from "src/proto/xylona_pb";
+import {GameServerFilesCompressionType} from "src/proto/gameserver_files_operations_pb";
+import {
+    tabArchive,
+    tabFileFilled,
+    tabFileSettings,
+    tabFileTypeTxt,
+    tabFileTypeZip,
+    tabFileZip,
+    tabFilterSearch,
+    tabJson
+} from "quasar-extras-svg-icons/tabler-icons-v2";
 
 const XylonaAPIBaseURL: string = "https://localhost";
 
-const formSubmitting = ref(false)
-const port = ref(0)
-const queryPort = ref(0)
+Array.prototype.asyncForEach = async function(callback) {
+    for (let i = 0; i < this.length; i++) {
+        await callback(this[i], i, this)
+    }
+}
 
 export function GetXylonaClient() {
     const transport = createConnectTransport({
@@ -60,10 +73,98 @@ export function StatusToString(status: Status): string {
     }
 }
 
+export function ArchiveTypeToString(archiveType: GameServerFilesCompressionType) {
+    switch (archiveType) {
+        case GameServerFilesCompressionType.ZIP:
+            return "zip"
+        case GameServerFilesCompressionType.GZIP:
+            return "gzip"
+        case GameServerFilesCompressionType.BZIP2:
+            return "bzip2"
+        case GameServerFilesCompressionType.ZST:
+            return "zst"
+        case GameServerFilesCompressionType.XZ:
+            return "xz"
+        default:
+            return "Unknown"
+    }
+}
+
 // The conversion function
-export function bytesToSize(bytes: number): string {
+export function bytesToSize1(bytes: number): string {
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     if (bytes === 0) return '0 Bytes';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+}
+
+export function bytesToSize(bytes: number): string {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+    if (bytes === 0) return '0 Byte'
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+export function getIconFromFilenameExtension(fileName: string): string {
+    const fileNameSplit = fileName.split('.')
+    if (fileNameSplit.length <= 1) {
+        return tabFileFilled
+    }
+    const extension = fileNameSplit[fileNameSplit.length - 1]
+    switch (extension) {
+        case "json":
+            return tabJson
+        case "txt":
+            return tabFileTypeTxt
+        case "log":
+            return tabFilterSearch
+        case "settings":
+            return tabFileSettings
+        case "jar":
+            return tabArchive
+        case "zip":
+            return tabFileTypeZip
+        case "xz":
+            return tabFileZip
+        case "gz":
+            return tabFileZip
+        case "bz2":
+            return tabFileZip
+        case "zst":
+            return tabFileZip
+        default:
+            return tabFileFilled
+    }
+}
+
+export function getColorFromFilenameExtension(fileName: string): string {
+    const fileNameSplit = fileName.split('.')
+    if (fileNameSplit.length <= 1) {
+        return "whitesmoke"
+    }
+    const extension = fileNameSplit[fileNameSplit.length - 1]
+    switch (extension) {
+        case "json":
+            return "#74c639"
+        case "txt":
+            return "#94c2e6"
+        case "log":
+            return "#818181"
+        case "settings":
+            return "orange"
+        case "jar":
+            return "#f0db4f"
+        case "zip":
+            return "#f0db4f"
+        case "xz":
+            return "#3e9b00"
+        case "gz":
+            return "#674753"
+        case "bz2":
+            return "#757de7"
+        case "zst":
+            return "#f07f4f"
+        default:
+            return "whitesmoke"
+    }
 }

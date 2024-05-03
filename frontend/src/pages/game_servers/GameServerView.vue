@@ -43,14 +43,6 @@
             <ClipBoardCopy :display-text="gameServer.version !== '' ? gameServer.version : 'Unknown version'"  :clip-board-value="gameServer.version !== '' ? gameServer.version : 'Unknown version'"></ClipBoardCopy>
           </q-item-section>
         </q-item>
-        <!--        <q-item clickable>-->
-        <!--          <q-item-section>Max Players</q-item-section>-->
-        <!--          <q-item-section side>{{ gameServer.maxPlayers}}</q-item-section>-->
-        <!--        </q-item>-->
-        <!--        <q-item clickable>-->
-        <!--          <q-item-section>Memory</q-item-section>-->
-        <!--          <q-item-section side>{{ gameServer.memoryBytes}} / {{ gameServer.maxMemoryMb}}</q-item-section>-->
-        <!--        </q-item>-->
       </q-list>
       <div class="col-xs-12 col-md-3 q-gutter-md gt-md">
         <q-btn push ripple glossy :disable="disableStartButton" class="bg-success" label="Start"
@@ -311,5 +303,9 @@ async function sendGameServerInput() {
   #consoleContainer {
     min-height: 90% !important;
   }
+}
+
+#consoleContainer {
+  height: 50dvh;
 }
 </style>

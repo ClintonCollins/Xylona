@@ -8,8 +8,10 @@ option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
 
 enum GameServerFilesCompressionType {
   ZIP = 0;
-  TAR = 1;
+  BZIP2 = 1;
   GZIP = 2;
+  ZST = 3;
+  XZ = 4;
 }
 
 message GameServerFilesDeleteRequest {
@@ -26,6 +28,7 @@ message GameServerFilesCompressionRequest {
   repeated string file_paths = 2;
   string file_name = 3;
   GameServerFilesCompressionType compression_type = 4;
+  string source_path = 5;
 }
 
 message GameServerFilesCompressionResponse {
@@ -35,6 +38,7 @@ message GameServerFilesCompressionResponse {
 message GameServerFilesDecompressionRequest {
   string game_server_id = 1;
   string file_path = 2;
+  string destination_path = 3;
 }
 
 message GameServerFilesDecompressionResponse {
@@ -44,6 +48,7 @@ message GameServerFilesDecompressionResponse {
 message GameServersFileDownloadFromURLRequest {
   string game_server_id = 1;
   string url = 2;
+  string destination_path = 3; // The path to save the file to (Not including the file name)
 }
 
 message GameServersFileDownloadFromURLResponse {

@@ -16,20 +16,32 @@ export enum GameServerFilesCompressionType {
   ZIP = 0,
 
   /**
-   * @generated from enum value: TAR = 1;
+   * @generated from enum value: BZIP2 = 1;
    */
-  TAR = 1,
+  BZIP2 = 1,
 
   /**
    * @generated from enum value: GZIP = 2;
    */
   GZIP = 2,
+
+  /**
+   * @generated from enum value: ZST = 3;
+   */
+  ZST = 3,
+
+  /**
+   * @generated from enum value: XZ = 4;
+   */
+  XZ = 4,
 }
 // Retrieve enum metadata with: proto3.getEnumType(GameServerFilesCompressionType)
 proto3.util.setEnumType(GameServerFilesCompressionType, "xylona.GameServerFilesCompressionType", [
   { no: 0, name: "ZIP" },
-  { no: 1, name: "TAR" },
+  { no: 1, name: "BZIP2" },
   { no: 2, name: "GZIP" },
+  { no: 3, name: "ZST" },
+  { no: 4, name: "XZ" },
 ]);
 
 /**
@@ -136,6 +148,11 @@ export class GameServerFilesCompressionRequest extends Message<GameServerFilesCo
    */
   compressionType = GameServerFilesCompressionType.ZIP;
 
+  /**
+   * @generated from field: string source_path = 5;
+   */
+  sourcePath = "";
+
   constructor(data?: PartialMessage<GameServerFilesCompressionRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -148,6 +165,7 @@ export class GameServerFilesCompressionRequest extends Message<GameServerFilesCo
     { no: 2, name: "file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 3, name: "file_name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "compression_type", kind: "enum", T: proto3.getEnumType(GameServerFilesCompressionType) },
+    { no: 5, name: "source_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesCompressionRequest {
@@ -218,6 +236,11 @@ export class GameServerFilesDecompressionRequest extends Message<GameServerFiles
    */
   filePath = "";
 
+  /**
+   * @generated from field: string destination_path = 3;
+   */
+  destinationPath = "";
+
   constructor(data?: PartialMessage<GameServerFilesDecompressionRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -228,6 +251,7 @@ export class GameServerFilesDecompressionRequest extends Message<GameServerFiles
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "destination_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesDecompressionRequest {
@@ -298,6 +322,13 @@ export class GameServersFileDownloadFromURLRequest extends Message<GameServersFi
    */
   url = "";
 
+  /**
+   * The path to save the file to (Not including the file name)
+   *
+   * @generated from field: string destination_path = 3;
+   */
+  destinationPath = "";
+
   constructor(data?: PartialMessage<GameServersFileDownloadFromURLRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -308,6 +339,7 @@ export class GameServersFileDownloadFromURLRequest extends Message<GameServersFi
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "destination_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServersFileDownloadFromURLRequest {
