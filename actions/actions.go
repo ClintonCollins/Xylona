@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -100,63 +99,78 @@ func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path st
 	return xylonaFiles, nil
 }
 
-func (inst *Instance) DownloadGameServerFiles(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		log.Warn().Err(err).Msg("Error parsing multipart form")
-		http.Error(w, "Error parsing multipart form", http.StatusBadRequest)
+func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Request) {
+	multiReader, err := r.MultipartReader()
+	if err != nil {
+		http.Error(w, "Error creating multipart reader", http.StatusBadRequest)
 		return
 	}
-
-	gameServerID := r.PostForm.Get("gameServerId")
-
-	paths := r.MultipartForm.Value["path"]
-	files := r.MultipartForm.File["file"]
-
-	if len(paths) != len(files) {
-		log.Warn().Str("game server ID", gameServerID).Msg("Number of paths and files do not match")
-		http.Error(w, "Number of paths and files do not match", http.StatusBadRequest)
-		return
-	}
-
-	gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			log.Error().Err(errGetGameServer).Msg("Game server not found")
-			http.Error(w, "Game server not found", http.StatusNotFound)
-			return
+	foundGameServerID := false
+	foundPath := false
+	gameServerID := ""
+	path := ""
+	for {
+		part, errNext := multiReader.NextPart()
+		if errNext == io.EOF {
+			break
+		} else {
+			if errNext != nil {
+				http.Error(w, "Error reading next part", http.StatusBadRequest)
+				return
+			}
 		}
-		log.Error().Err(errGetGameServer).Msg("Failed to get game server")
-		http.Error(w, "Failed to get game server", http.StatusInternalServerError)
-		return
-	}
-
-	for i, file := range files {
-		path := paths[i]
-		log.Debug().Str("path", path).Str("file", file.Filename).Msg("Downloading file")
-		errDownload := inst.downloadGameServerFile(gameServer, path, file)
-		if errDownload != nil {
-			log.Error().Err(errDownload).Msg("Failed to download file")
-			http.Error(w, "Failed to download file", http.StatusInternalServerError)
-			return
+		switch part.FormName() {
+		case "gameServerId":
+			gameServerIDBytes, errRead := io.ReadAll(io.LimitReader(part, 10<<10))
+			if errRead != nil {
+				log.Error().Err(errRead).Msg("Failed to read game server ID")
+				http.Error(w, "Error reading game server ID", http.StatusBadRequest)
+				return
+			}
+			gameServerID = string(gameServerIDBytes)
+			foundGameServerID = true
+		case "path":
+			pathBytes, errRead := io.ReadAll(io.LimitReader(part, 1<<20))
+			if errRead != nil {
+				log.Error().Err(errRead).Msg("Failed to read path")
+				http.Error(w, "Error reading path", http.StatusBadRequest)
+				return
+			}
+			path = string(pathBytes)
+			foundPath = true
+		case "file":
+			if !foundGameServerID || !foundPath {
+				log.Error().Msg("Game server ID and path must be specified")
+				http.Error(w, "Game server ID and path must be specified", http.StatusBadRequest)
+				return
+			}
+			filename := part.FileName()
+			gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
+			if errGetGameServer != nil {
+				if errors.Is(errGetGameServer, sql.ErrNoRows) {
+					log.Error().Err(errGetGameServer).Msg("Game server not found")
+					http.Error(w, "Game server not found", http.StatusNotFound)
+					return
+				}
+				log.Error().Err(errGetGameServer).Msg("Failed to get game server")
+				http.Error(w, "Failed to get game server", http.StatusInternalServerError)
+				return
+			}
+			errDownload := inst.downloadGameServerFile(gameServer, path, filename, part)
+			if errDownload != nil {
+				log.Error().Err(errDownload).Msg("Failed to download file")
+				http.Error(w, "Failed to download file", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 }
 
-func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path string, fileHeader *multipart.FileHeader) error {
-	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
+func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path, fileName string, fileSource io.Reader) error {
 	if path != "" && !filepath.IsLocal(path) {
 		log.Error().Err(errors.New("invalid path"))
 		return ErrInvalidPath
 	}
-
-	fileSource, errOpenFileSource := fileHeader.Open()
-	if errOpenFileSource != nil {
-		log.Error().Err(errOpenFileSource).Msg("Failed to open file source")
-		return errOpenFileSource
-	}
-	defer func() {
-		_ = fileSource.Close()
-	}()
 
 	gameServerDirPlusPath := filepath.Join(gameServer.Directory, path)
 	errMkdirAll := os.MkdirAll(gameServerDirPlusPath, os.ModePerm)
@@ -165,27 +179,21 @@ func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path
 		return errMkdirAll
 	}
 
-	fullPath := filepath.Join(gameServer.Directory, path, fileHeader.Filename)
-	file, errReadFile := os.Create(fullPath)
-	if errReadFile != nil {
-		if errors.Is(errReadFile, os.ErrNotExist) {
-			log.Error().Err(errReadFile).Msg("File does not exist")
-			return errReadFile
-		}
-		log.Error().Err(errReadFile).Msg("Failed to read file")
-		return errReadFile
+	fullPath := filepath.Join(gameServer.Directory, path, fileName)
+	file, errCreateFile := os.Create(fullPath)
+	if errCreateFile != nil {
+		log.Error().Err(errCreateFile).Msg("Failed to create file")
+		return errCreateFile
 	}
 	defer func() {
 		_ = file.Close()
 	}()
 
-	written, errCopy := io.Copy(file, fileSource)
+	_, errCopy := io.Copy(file, fileSource)
 	if errCopy != nil {
 		log.Error().Err(errCopy).Msg("Failed to copy file")
 		return errCopy
 	}
-
-	log.Debug().Msgf("Wrote %d bytes to %s", written, fullPath)
 
 	return nil
 }

@@ -20,7 +20,7 @@
                  @click="uploader.removeQueuedFiles()">
             <q-tooltip>Clear All</q-tooltip>
           </q-btn>
-          <q-spinner v-if="uploader.isUploading" class="q-uploader__spinner"/>
+          <q-spinner v-if="uploader.isUploading" class="q-uploader__spinner q-ml-md"/>
           <div class="col q-ml-md">
             <div class="q-uploader__title">Upload your files</div>
             <div class="q-uploader__subtitle">{{ uploader.uploadedSizeSoFarLabel }} uploaded out of
@@ -43,22 +43,26 @@
 
         <div class="file-uploader">
           <q-list separator>
-            <q-item v-if="uploader.files.size <= maxNumberOfFilesToDisplay" v-for="file in uploader.files.values()" :key="file.key">
-              <q-item-section avatar v-if="!file.error && !file.success">
+            <q-item v-if="uploader.files.size <= maxNumberOfFilesToDisplay" v-for="file in uploader.files.values()"
+                    :key="file.key">
+              <q-item-section avatar v-if="file.status === FileStatus.Queued">
                 <q-icon size="lg" :name="tabDots" class="text-primary-brighter"/>
               </q-item-section>
-              <q-item-section avatar v-if="file.error">
+              <q-item-section avatar v-else-if="file.status === FileStatus.Error">
                 <q-icon size="lg" :name="tabAlertTriangle" class="text-error-brighter"/>
               </q-item-section>
-              <q-item-section avatar v-if="file.success">
+              <q-item-section avatar v-else-if="file.status === FileStatus.Uploaded">
                 <q-icon size="lg" :name="tabCheck" class="text-success-brighter"/>
+              </q-item-section>
+              <q-item-section avatar v-else-if="file.status === FileStatus.Aborted">
+                <q-icon size="lg" :name="tabBarrierBlock" class="text-alert-brighter"/>
               </q-item-section>
               <q-item-section>
                 <q-item-label class="full-width ellipsis">
                   {{ file.file.name }}
                 </q-item-label>
                 <q-item-label caption>
-                  Status: {{ file.status }}
+                  Status: {{ file.status.toString() }}
                 </q-item-label>
 
                 <q-item-label caption>
@@ -93,8 +97,11 @@
               </q-item>
             </div>
           </div>
-          <div v-if="uploader.files.size > maxNumberOfFilesToDisplay" class="flex column justify-center items-center full-height">
-            <div>You've selected <span class="text-bold">{{ uploader.files.size }}</span> files and/or directories. For performance reasons, we only display up to <span class="text-bold">{{ maxNumberOfFilesToDisplay }}</span>.</div>
+          <div v-if="uploader.files.size > maxNumberOfFilesToDisplay"
+               class="flex column justify-center items-center full-height">
+            <div>You've selected <span class="text-bold">{{ uploader.files.size }}</span> files and/or directories. For
+              performance reasons, we only display up to <span class="text-bold">{{ maxNumberOfFilesToDisplay }}</span>.
+            </div>
             <div class="text-info text-bold">You can still upload your files by clicking the upload button.</div>
           </div>
         </div>
@@ -115,7 +122,7 @@
 import {ref, Ref} from "vue";
 import {bytesToSize} from "src/utils/shared";
 import axios, {AxiosRequestConfig} from "axios";
-import {tabCheck, tabClearAll, tabDots, tabTrash, tabX} from "quasar-extras-svg-icons/tabler-icons-v2";
+import {tabBarrierBlock, tabCheck, tabClearAll, tabDots, tabTrash, tabX} from "quasar-extras-svg-icons/tabler-icons-v2";
 import {tabAlertTriangle} from "quasar-extras-svg-icons/tabler-icons";
 import {QCard} from "quasar";
 import {tabOutlineUpload} from "quasar-extras-svg-icons/tabler-icons-v3";
@@ -148,6 +155,13 @@ const maxNumberOfFilesToDisplay = 1000
 const addingFilesToUploaderViaFileContainerDrop: Ref<boolean> = ref(false) // This is for overriding the default uploader adding files. When this is false, we intercept the file add event and add files manually.
 const dragEventInTargetMap: Map<HTMLElement, boolean> = new Map<HTMLElement, boolean>()
 const addingFiles: Ref<boolean> = ref(false)
+// const worker = new Worker()
+//
+// worker.onmessage = (event) => {
+//   if (event.data === "done") {
+//     addingFiles.value = false
+//   }
+// }
 
 const fileUploaderDialog: Ref<boolean> = defineModel('fileUploaderDialog', {
   type: Boolean,
@@ -158,16 +172,22 @@ type uploaderFile = {
   file: File
   path: string
   key: string
-  status: string
+  status: FileStatus
   uploadedSizeSoFarLabel: string
   sizeLabel: string
   progressLabel: string
-  error: boolean
-  success: boolean
+}
+
+enum FileStatus {
+  Queued = "Queued",
+  Uploaded = "Uploaded",
+  Error = "Error",
+  Aborted = "Aborted"
 }
 
 class FileUploader {
   files: Map<string, uploaderFile> = new Map<string, uploaderFile>()
+  queuedFiles: uploaderFile[] = []
   uploadSize: number = 0
   uploadSizeLabel: string = '0.00 MB'
   uploadedSizeSoFarLabel: string = '0.00 MB'
@@ -180,15 +200,12 @@ class FileUploader {
   finishedUpload: boolean = false
   gotError: boolean = false
   abortController: AbortController | null = null
+  concurrentPool = 5
+  timeBetweenUploads = 10
+  aborted: boolean = false
 
-  checkFilesLeftToUpload() {
-    if (this.queuedFilesCount === 0 || this.gotError) {
-      this.isUploading = false
-      this.canUpload = true
-      this.finishedUpload = true
-      this.abortController = null
-      emits('uploadedFiles', this.uploadedFilesCount)
-    }
+  constructor() {
+    this.setFileProgressDetails = this.setFileProgressDetails.bind(this)
   }
 
   removeFile(file: uploaderFile) {
@@ -212,6 +229,7 @@ class FileUploader {
     this.canUpload = true
     this.finishedUpload = false
     this.gotError = false
+    this.aborted = false
     this.calculateLabels()
   }
 
@@ -233,6 +251,12 @@ class FileUploader {
   abort() {
     if (this.abortController !== null) {
       this.abortController.abort()
+      this.aborted = true
+      this.files.forEach((file) => {
+        if (file.status === FileStatus.Queued) {
+          this.changeFileStatus(file, FileStatus.Aborted)
+        }
+      })
     }
   }
 
@@ -244,51 +268,96 @@ class FileUploader {
   async upload() {
     this.isUploading = true
     this.canUpload = false
-    this.files.forEach((file) => {
-      this.uploadFile(file)
-    })
+    this.abortController = new AbortController()
+    this.queuedFiles = Array.from(this.files.values()).filter(file => file.status !== FileStatus.Uploaded)
+    this.queuedFilesCount = this.queuedFiles.length
+    if (this.queuedFiles.length === 0) {
+      console.log('No files to upload')
+      this.uploadFinish()
+      return
+    }
+
+    let uploadPromises = []
+    for (let i = 0; i < this.concurrentPool; i++) {
+      const file = this.queuedFiles.shift()
+      if (file) {
+        uploadPromises.push(this.uploadFile(file))
+      }
+    }
+
+    await Promise.all(uploadPromises)
+    this.uploadFinish()
   }
 
-  uploadFile(file: uploaderFile) {
+  async uploadFile(file: uploaderFile) {
     file.error = false
     file.success = false
     const formData = new FormData()
-    formData.append('file', file.file)
-    formData.append('fileName', file.file.name)
-    formData.append('path', file.path)
     formData.append('gameServerId', props.gameServerId)
+    formData.append('path', file.path)
+    formData.append('file', file.file)
+    if (this.abortController === null) {
+      return
+    }
     const axiosConfig: AxiosRequestConfig = {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
       signal: this.abortController.signal,
       onUploadProgress: (progressEvent) => {
-        if (progressEvent.total === undefined) {
-          return
-        }
-        const progress = (progressEvent.loaded / progressEvent.total)
-        file.progressLabel = (progress * 100).toFixed(2) + "%"
-        file.uploadedSizeSoFarLabel = bytesToSize(progressEvent.loaded)
-        this.uploadedBytes += progressEvent.bytes
+        this.setFileProgressDetails.bind(this)(file, progressEvent)
         this.calculateLabels()
       }
     }
 
-    axios.post(props.uploadURL, formData, axiosConfig).then(() => {
-      file.status = "Uploaded"
-      file.success = true
+    await axios.post(props.uploadURL, formData, axiosConfig).then(() => {
+      this.changeFileStatus(file, FileStatus.Uploaded)
       this.uploadedFilesCount++
       this.queuedFilesCount--
-    }).catch((error) => {
-      console.error(error)
-      file.status = "Error"
-      file.progressLabel = "0.00%"
-      file.error = true
-      this.gotError = true
-    }).finally(() => {
-      this.checkFilesLeftToUpload()
-      this.calculateLabels()
+    }).catch((error: Error) => {
+      if (axios.isCancel(error)) {
+        this.changeFileStatus(file, FileStatus.Aborted)
+        return
+      }
+      this.changeFileStatus(file, FileStatus.Error)
+      file.progressLabel = '0.00%'
+    }).finally(async () => {
+      if (this.aborted) {
+        return;
+      }
+      await this.delay(this.timeBetweenUploads);
+      const nextFile = this.queuedFiles.shift();
+      if (nextFile) {
+        await this.uploadFile(nextFile);
+      }
     })
+  }
+
+  async delay(time: number) {
+    return new Promise((resolve) => setTimeout(resolve, time));
+  }
+
+  changeFileStatus(file: uploaderFile, status: FileStatus) {
+    file.status = status
+  }
+
+  uploadFinish() {
+    this.isUploading = false
+    this.canUpload = true
+    this.finishedUpload = true
+    this.abortController = null
+    this.aborted = false
+    emits('uploadedFiles', this.uploadedFilesCount)
+  }
+
+  setFileProgressDetails(file: uploaderFile, progressEvent: any) {
+    if (progressEvent.total === undefined) {
+      return
+    }
+    const progress = (progressEvent.loaded / progressEvent.total)
+    file.progressLabel = (progress * 100).toFixed(2) + "%"
+    file.uploadedSizeSoFarLabel = bytesToSize(progressEvent.loaded)
+    this.uploadedBytes += progressEvent.bytes
   }
 
   async addFiles(files: File[]) {
@@ -333,6 +402,8 @@ class FileUploader {
       status: "Queued",
       error: false,
       success: false,
+      aborted: false,
+      queued: true,
       sizeLabel: bytesToSize(file.size),
       uploadedSizeSoFarLabel: "0.00 MB",
       progressLabel: "0.00%"
@@ -349,8 +420,7 @@ async function processDirectoryEntry(webkitDirEntry: any): Promise<any> {
       const allPromises = entries.map(async (entry) => {
         if (entry.isFile) {
           return processFileEntry(entry);
-        }
-        else if (entry.isDirectory) {
+        } else if (entry.isDirectory) {
           // This is a directory. It's handled recursively. It could return multiple files as an array
           return await processDirectoryEntry(entry);
         }
@@ -382,8 +452,7 @@ async function handleDropEvent(event: DragEvent) {
       if (webkitEntry.isDirectory) {
         // If it's a directory, process it (this could include nested directories)
         return processDirectoryEntry(webkitEntry);
-      }
-      else if (webkitEntry.isFile) {
+      } else if (webkitEntry.isFile) {
         // If it's a file, process it directly
         return processFileEntry(webkitEntry);
       }

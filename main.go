@@ -233,7 +233,7 @@ func main() {
 		}
 	})
 
-	router.Post("/api/file/upload", actionsInst.DownloadGameServerFiles)
+	router.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
 
 	// Start the web server
 	go func() {
