@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { AddIPRequest, AddIPResponse, CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, CreateGameServerRequest, CreateGameServerResponse, CreateUserRequest, CreateUserResponse, EditGameServerRequest, EditGameServerResponse, GetBranchesRequest, GetBranchesResponse, GetGameRequest, GetGameResponse, GetGameServerRequest, GetGameServerResponse, GetUserDetailsRequest, GetUserDetailsResponse, ListDirectoryFilesRequest, ListDirectoryFilesResponse, ListGameServersRequest, ListGameServersResponse, ListGamesRequest, ListGamesResponse, ListIPsRequest, ListIPsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, LogoutRequest, LogoutResponse, ReadGameServerOutputRequest, ReadGameServerOutputResponse, RemoveGameServerRequest, RemoveGameServerResponse, RemoveIPRequest, RemoveIPResponse, SendGameServerInputRequest, SendGameServerInputResponse, StartGameServerRequest, StartGameServerResponse, StopGameServerRequest, StopGameServerResponse, UpdateGameServerRequest, UpdateGameServerResponse } from "./xylona_pb.js";
+import { AddIPRequest, AddIPResponse, CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, CreateGameServerRequest, CreateGameServerResponse, CreateUserRequest, CreateUserResponse, EditGameServerRequest, EditGameServerResponse, GameServerFilesArchiveProgress, GameServerFilesExtractProgress, GetBranchesRequest, GetBranchesResponse, GetGameRequest, GetGameResponse, GetGameServerRequest, GetGameServerResponse, GetUserDetailsRequest, GetUserDetailsResponse, ListDirectoryFilesRequest, ListDirectoryFilesResponse, ListGameServersRequest, ListGameServersResponse, ListGamesRequest, ListGamesResponse, ListIPsRequest, ListIPsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, LogoutRequest, LogoutResponse, ReadGameServerOutputRequest, ReadGameServerOutputResponse, RemoveGameServerRequest, RemoveGameServerResponse, RemoveIPRequest, RemoveIPResponse, SendGameServerInputRequest, SendGameServerInputResponse, StartGameServerRequest, StartGameServerResponse, StopGameServerRequest, StopGameServerResponse, UpdateGameServerRequest, UpdateGameServerResponse } from "./xylona_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 import { GameServerFileRenameRequest, GameServerFileRenameResponse, GameServerFilesCompressionRequest, GameServerFilesCompressionResponse, GameServerFilesDecompressionRequest, GameServerFilesDecompressionResponse, GameServerFilesDeleteRequest, GameServerFilesDeleteResponse, GameServerFilesMoveRequest, GameServerFilesMoveResponse, GameServersFileDownloadFromURLRequest, GameServersFileDownloadFromURLResponse, GameServersFileEditRequest, GameServersFileEditResponse } from "./gameserver_files_operations_pb.js";
 
@@ -240,6 +240,24 @@ export const Xylona = {
       I: GameServerFilesDeleteRequest,
       O: GameServerFilesDeleteResponse,
       kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServerFilesArchive
+     */
+    gameServerFilesArchive: {
+      name: "GameServerFilesArchive",
+      I: GameServerFilesCompressionRequest,
+      O: GameServerFilesArchiveProgress,
+      kind: MethodKind.ServerStreaming,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServerFilesExtract
+     */
+    gameServerFilesExtract: {
+      name: "GameServerFilesExtract",
+      I: GameServerFilesDecompressionRequest,
+      O: GameServerFilesExtractProgress,
+      kind: MethodKind.ServerStreaming,
     },
     /**
      * @generated from rpc xylona.Xylona.GameServerFilesCompress

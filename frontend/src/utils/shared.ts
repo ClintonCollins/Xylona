@@ -1,9 +1,9 @@
-import {createPromiseClient} from "@connectrpc/connect";
-import {createConnectTransport} from "@connectrpc/connect-web";
-import {Xylona} from "src/proto/xylona_connect";
-import {onMounted, ref} from "vue";
-import {Status} from "src/proto/xylona_pb";
-import {GameServerFilesCompressionType} from "src/proto/gameserver_files_operations_pb";
+import { createCallbackClient, createPromiseClient } from '@connectrpc/connect'
+import { createConnectTransport } from '@connectrpc/connect-web'
+import { Xylona } from 'src/proto/xylona_connect'
+import { onMounted, ref } from 'vue'
+import { Status } from 'src/proto/xylona_pb'
+import { GameServerFilesCompressionType } from 'src/proto/gameserver_files_operations_pb'
 import {
     tabArchive,
     tabFileFilled,
@@ -13,32 +13,34 @@ import {
     tabFileZip,
     tabFilterSearch,
     tabJson
-} from "quasar-extras-svg-icons/tabler-icons-v2";
+} from 'quasar-extras-svg-icons/tabler-icons-v2'
 
-const XylonaAPIBaseURL: string = "https://localhost";
-
-Array.prototype.asyncForEach = async function(callback) {
-    for (let i = 0; i < this.length; i++) {
-        await callback(this[i], i, this)
-    }
-}
+const XylonaAPIBaseURL: string = 'https://localhost'
 
 export function GetXylonaClient() {
     const transport = createConnectTransport({
         baseUrl: XylonaAPIBaseURL,
-        credentials: "include",
-    });
+        credentials: 'include'
+    })
     return createPromiseClient(Xylona, transport)
 }
 
+export function GetXylonaClientCallback() {
+    const transport = createConnectTransport({
+        baseUrl: XylonaAPIBaseURL,
+        credentials: 'include'
+    })
+    return createCallbackClient(Xylona, transport)
+}
+
 export function StringToColor(str: string): string {
-    let hash = 0;
+    let hash = 0
     for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        hash = str.charCodeAt(i) + ((hash << 5) - hash)
     }
 
-    const hue = hash % 360;
-    return 'hsl(' + hue + ', 100%, 50%)';
+    const hue = hash % 360
+    return 'hsl(' + hue + ', 100%, 50%)'
 }
 
 export function WindowWidth() {
@@ -59,43 +61,43 @@ export function WindowWidth() {
 export function StatusToString(status: Status): string {
     switch (status) {
         case Status.UNKNOWN:
-            return "Unknown"
+            return 'Unknown'
         case Status.ONLINE:
-            return "Online"
+            return 'Online'
         case Status.OFFLINE:
-            return "Offline"
+            return 'Offline'
         case Status.UPDATING:
-            return "Updating"
+            return 'Updating'
         case Status.INSTALLING:
-            return "Installing"
+            return 'Installing'
         default:
-            return "Unknown"
+            return 'Unknown'
     }
 }
 
 export function ArchiveTypeToString(archiveType: GameServerFilesCompressionType) {
     switch (archiveType) {
         case GameServerFilesCompressionType.ZIP:
-            return "zip"
+            return 'zip'
         case GameServerFilesCompressionType.GZIP:
-            return "gzip"
+            return 'gzip'
         case GameServerFilesCompressionType.BZIP2:
-            return "bzip2"
+            return 'bzip2'
         case GameServerFilesCompressionType.ZST:
-            return "zst"
+            return 'zst'
         case GameServerFilesCompressionType.XZ:
-            return "xz"
+            return 'xz'
         default:
-            return "Unknown"
+            return 'Unknown'
     }
 }
 
 // The conversion function
 export function bytesToSize1(bytes: number): string {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    if (bytes === 0) return '0 Bytes';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+    if (bytes === 0) return '0 Bytes'
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i]
 }
 
 export function bytesToSize(bytes: number): string {
@@ -112,25 +114,25 @@ export function getIconFromFilenameExtension(fileName: string): string {
     }
     const extension = fileNameSplit[fileNameSplit.length - 1]
     switch (extension) {
-        case "json":
+        case 'json':
             return tabJson
-        case "txt":
+        case 'txt':
             return tabFileTypeTxt
-        case "log":
+        case 'log':
             return tabFilterSearch
-        case "settings":
+        case 'settings':
             return tabFileSettings
-        case "jar":
+        case 'jar':
             return tabArchive
-        case "zip":
+        case 'zip':
             return tabFileTypeZip
-        case "xz":
+        case 'xz':
             return tabFileZip
-        case "gz":
+        case 'gz':
             return tabFileZip
-        case "bz2":
+        case 'bz2':
             return tabFileZip
-        case "zst":
+        case 'zst':
             return tabFileZip
         default:
             return tabFileFilled
@@ -140,31 +142,31 @@ export function getIconFromFilenameExtension(fileName: string): string {
 export function getColorFromFilenameExtension(fileName: string): string {
     const fileNameSplit = fileName.split('.')
     if (fileNameSplit.length <= 1) {
-        return "whitesmoke"
+        return 'whitesmoke'
     }
     const extension = fileNameSplit[fileNameSplit.length - 1]
     switch (extension) {
-        case "json":
-            return "#74c639"
-        case "txt":
-            return "#94c2e6"
-        case "log":
-            return "#818181"
-        case "settings":
-            return "orange"
-        case "jar":
-            return "#f0db4f"
-        case "zip":
-            return "#f0db4f"
-        case "xz":
-            return "#3e9b00"
-        case "gz":
-            return "#674753"
-        case "bz2":
-            return "#757de7"
-        case "zst":
-            return "#f07f4f"
+        case 'json':
+            return '#74c639'
+        case 'txt':
+            return '#94c2e6'
+        case 'log':
+            return '#818181'
+        case 'settings':
+            return 'orange'
+        case 'jar':
+            return '#f0db4f'
+        case 'zip':
+            return '#f0db4f'
+        case 'xz':
+            return '#3e9b00'
+        case 'gz':
+            return '#674753'
+        case 'bz2':
+            return '#757de7'
+        case 'zst':
+            return '#f07f4f'
         default:
-            return "whitesmoke"
+            return 'whitesmoke'
     }
 }

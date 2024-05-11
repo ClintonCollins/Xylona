@@ -465,6 +465,8 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 	}
 	command := commandSplit[0]
 	args := commandSplit[1:]
+	log.Info().Msgf("%+v", commandSplit)
+	log.Info().Msgf("%+v", args)
 
 	cmd := exec.CommandContext(newCommand.processCtx, command, args...)
 	cmd.Dir = preparedCommand.WorkingDirectory

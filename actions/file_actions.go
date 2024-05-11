@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/dsnet/compress/bzip2"
 	"github.com/klauspost/compress/zip"
@@ -20,6 +21,63 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+type progressWriter struct {
+	io.Writer
+	bytesWritten int64
+	BytesChan    chan int64
+	ctx          context.Context
+}
+
+func (pw *progressWriter) Write(p []byte) (n int, err error) {
+	n, err = pw.Writer.Write(p)
+	if err != nil {
+		return
+	}
+	if n > 0 {
+		pw.bytesWritten += int64(n)
+		select {
+		case pw.BytesChan <- pw.bytesWritten:
+		default:
+		}
+	}
+	return
+}
+
+type progressReader struct {
+	io.Reader
+	bytesRead int64
+	BytesChan chan int64
+	fileName  string
+	ctx       context.Context
+}
+
+func (pr *progressReader) Close() error {
+	if closer, ok := pr.Reader.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
+func (pr *progressReader) Read(p []byte) (n int, err error) {
+	n, err = pr.Reader.Read(p)
+	if err != nil {
+		return
+	}
+	if n > 0 {
+		pr.bytesRead += int64(n)
+		select {
+		case pr.BytesChan <- int64(n):
+		default:
+		}
+	}
+	return
+}
+
+type archiveJobResult struct {
+	file archiver.File
+	err  error
+}
 
 func (inst *Instance) DeleteFiles(ctx context.Context, gameServer *models.GameServer, files []string) ([]string, error) {
 	successfullyDeleted := make([]string, 0, len(files))
@@ -172,6 +230,212 @@ func (inst *Instance) DownloadFileFromURL(ctx context.Context, gameServer *model
 	return "", nil
 }
 
+func (inst *Instance) ArchiveFiles(ctx context.Context, gameServer *models.GameServer, archiveName string, files []string,
+	compression xylona.GameServerFilesCompressionType, sourcePath string,
+	xylonaFileArchiveProgressChan chan xylona.GameServerFilesArchiveProgress,
+) (xylona.GameServerFilesArchiveProgress, error) {
+
+	archiveName = strings.TrimPrefix(archiveName, "/")
+	sourcePath = strings.TrimPrefix(sourcePath, "/")
+
+	archiveFullPath := filepath.Join(gameServer.Directory, sourcePath, archiveName)
+
+	pathFilesMap := make(map[string]string)
+	for _, f := range files {
+		absPath, errAbsPath := filepath.Abs(filepath.Join(gameServer.Directory, f))
+		if errAbsPath != nil {
+			log.Error().Err(errAbsPath).Msg("Failed to get absolute path")
+			return xylona.GameServerFilesArchiveProgress{}, errAbsPath
+		}
+		pathFilesMap[absPath] = filepath.Base(f)
+	}
+
+	archiverDiskOptions := &archiver.FromDiskOptions{
+		FollowSymlinks:  false,
+		ClearAttributes: false,
+	}
+
+	archiverFiles, errFilesFromPaths := archiver.FilesFromDisk(archiverDiskOptions, pathFilesMap)
+	if errFilesFromPaths != nil {
+		log.Error().Err(errFilesFromPaths).Msg("Failed to get files from paths")
+		return xylona.GameServerFilesArchiveProgress{}, errFilesFromPaths
+	}
+
+	return inst.archiveFilesWithProgress(ctx, archiveFullPath, archiverFiles, compression, xylonaFileArchiveProgressChan)
+}
+
+func createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes, bytesCompressedSoFar int64,
+	currentFile string,
+) xylona.GameServerFilesArchiveProgress {
+	return xylona.GameServerFilesArchiveProgress{
+		TotalFiles:      totalFiles,
+		FilesCompressed: filesCompressedSoFar,
+		TotalBytes:      totalBytes,
+		BytesCompressed: bytesCompressedSoFar,
+		CurrentFile:     currentFile,
+	}
+}
+
+func attemptToSendOnXylonaProgressChan(ctx context.Context, finishCtx context.Context,
+	xylonaProgress xylona.GameServerFilesArchiveProgress, progressChan chan xylona.GameServerFilesArchiveProgress,
+) {
+	timeout := time.After(time.Millisecond * 50)
+	select {
+	case <-ctx.Done():
+		return
+	case <-finishCtx.Done():
+		return
+	case progressChan <- xylonaProgress:
+	case <-timeout:
+		log.Warn().Msg("Failed to send progress")
+		return
+	}
+}
+
+func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullPath string,
+	archiverFiles []archiver.File, compression xylona.GameServerFilesCompressionType,
+	xylonaFileArchiveProgressChan chan xylona.GameServerFilesArchiveProgress,
+) (xylona.GameServerFilesArchiveProgress, error) {
+	finishCtx, _ := context.WithCancel(ctx)
+
+	format := archiver.CompressedArchive{}
+	// Default to tar if no compression is specified.
+	format.Archival = &archiver.Tar{}
+
+	switch compression {
+	case xylona.GameServerFilesCompressionType_ZIP:
+		format.Archival = &archiver.Zip{
+			SelectiveCompression: true,
+			Compression:          zip.Deflate,
+			ContinueOnError:      false,
+			TextEncoding:         "",
+		}
+	case xylona.GameServerFilesCompressionType_GZIP:
+		format.Compression = &archiver.Gz{
+			CompressionLevel: gzip.DefaultCompression,
+			Multithreaded:    true,
+		}
+	case xylona.GameServerFilesCompressionType_BZIP2:
+		format.Compression = &archiver.Bz2{CompressionLevel: bzip2.DefaultCompression}
+	case xylona.GameServerFilesCompressionType_ZST:
+		format.Compression = &archiver.Zstd{}
+	case xylona.GameServerFilesCompressionType_XZ:
+		format.Compression = &archiver.Xz{}
+	}
+
+	archiveFullPath = archiveFullPath + format.Name()
+
+	archiveOut, errCreate := os.Create(archiveFullPath)
+	if errCreate != nil {
+		log.Error().Err(errCreate).Msg("Failed to create archive")
+		return xylona.GameServerFilesArchiveProgress{}, errCreate
+	}
+	defer func() {
+		_ = archiveOut.Close()
+	}()
+
+	totalBytes := int64(0)
+	totalFiles := int64(len(archiverFiles))
+	filesCompressedSoFar := int64(0)
+	bytesReadSoFar := int64(0)
+	currentFile := ""
+
+	for _, f := range archiverFiles {
+		totalBytes += f.Size()
+	}
+
+	archiveJobs := make(chan archiver.ArchiveAsyncJob, len(archiverFiles))
+	errChan := make(chan error, 1)
+	fileResultChan := make(chan archiveJobResult)
+	readBytesChan := make(chan int64)
+
+	go func() {
+		ticker := time.NewTicker(time.Millisecond * 250)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-finishCtx.Done():
+				return
+			case bytesRead := <-readBytesChan:
+				bytesReadSoFar += bytesRead
+			case <-ticker.C:
+				xylonaProgress := createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes,
+					bytesReadSoFar, currentFile)
+				attemptToSendOnXylonaProgressChan(ctx, finishCtx, xylonaProgress, xylonaFileArchiveProgressChan)
+			case <-fileResultChan:
+				filesCompressedSoFar += 1
+				xylonaProgress := createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes,
+					bytesReadSoFar, currentFile)
+				attemptToSendOnXylonaProgressChan(ctx, finishCtx, xylonaProgress, xylonaFileArchiveProgressChan)
+				if filesCompressedSoFar == totalFiles {
+					return
+				}
+			}
+		}
+
+	}()
+
+	go func() {
+		for _, f := range archiverFiles {
+			select {
+			case <-ctx.Done():
+				close(archiveJobs)
+				return
+			default:
+				currentFile = f.NameInArchive
+				originalOpen := f.Open
+				f = attachReaderToArchiveFile(f, originalOpen, readBytesChan, ctx)
+
+				archiveJobs <- archiver.ArchiveAsyncJob{
+					File:   f,
+					Result: errChan,
+				}
+				result := <-errChan
+				if result != nil {
+					log.Error().Err(result).Str("file", f.NameInArchive).Msg("Failed to archive files")
+					return
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					fileResultChan <- archiveJobResult{file: f, err: result}
+				}
+			}
+		}
+		close(archiveJobs)
+	}()
+
+	err := format.ArchiveAsync(ctx, archiveOut, archiveJobs)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to archive files")
+		return xylona.GameServerFilesArchiveProgress{}, err
+	}
+	// log.Debug().Msg("Finished archiving files")
+	return createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes,
+		bytesReadSoFar, currentFile), nil
+}
+
+func attachReaderToArchiveFile(f archiver.File, originalOpen func() (io.ReadCloser, error), readBytesChan chan int64, ctx context.Context) archiver.File {
+	f.Open = func() (io.ReadCloser, error) {
+		archivedFile, errOpenArchivedFile := originalOpen()
+		if errOpenArchivedFile != nil {
+			log.Error().Err(errOpenArchivedFile).Msg("Failed to open archived file")
+			return nil, errOpenArchivedFile
+		}
+		return &progressReader{
+			Reader:    archivedFile,
+			BytesChan: readBytesChan,
+			fileName:  f.NameInArchive,
+			ctx:       ctx,
+		}, nil
+	}
+	return f
+}
+
 func (inst *Instance) ArchiveAndCompressFiles(ctx context.Context, gameServer *models.GameServer, archiveName string, files []string, compression xylona.GameServerFilesCompressionType, sourcePath string) (string, error) {
 	archiveName = strings.TrimPrefix(archiveName, sourcePath)
 	log.Debug().Str("Archive Name", archiveName).Str("Source Path", sourcePath).Msg("Archive and compress files")
@@ -202,6 +466,7 @@ func (inst *Instance) ArchiveAndCompressFiles(ctx context.Context, gameServer *m
 }
 
 func (inst *Instance) handleArchiveAndCompression(ctx context.Context, archivePathAndFileName string, archiverFiles []archiver.File, compression xylona.GameServerFilesCompressionType) (string, error) {
+	ctx = context.WithoutCancel(inst.ctx)
 	archiveFullPath := archivePathAndFileName
 
 	format := archiver.CompressedArchive{}

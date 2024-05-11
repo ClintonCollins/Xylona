@@ -42,12 +42,30 @@ service Xylona {
 
   rpc ListDirectoryFiles (ListDirectoryFilesRequest) returns (ListDirectoryFilesResponse) {}
   rpc GameServerFilesDelete (GameServerFilesDeleteRequest) returns (GameServerFilesDeleteResponse) {}
+  rpc GameServerFilesArchive (GameServerFilesCompressionRequest) returns (stream GameServerFilesArchiveProgress) {}
+  rpc GameServerFilesExtract (GameServerFilesDecompressionRequest) returns (stream GameServerFilesExtractProgress) {}
   rpc GameServerFilesCompress (GameServerFilesCompressionRequest) returns (GameServerFilesCompressionResponse) {}
   rpc GameServerFilesDecompress (GameServerFilesDecompressionRequest) returns (GameServerFilesDecompressionResponse) {}
   rpc GameServerFilesDownloadFromURL (GameServersFileDownloadFromURLRequest) returns (GameServersFileDownloadFromURLResponse) {}
   rpc GameServerFileRename (GameServerFileRenameRequest) returns (GameServerFileRenameResponse) {}
   rpc GameServerFilesMove (GameServerFilesMoveRequest) returns (GameServerFilesMoveResponse) {}
   rpc GameServersFileEdit (GameServersFileEditRequest) returns (GameServersFileEditResponse) {}
+}
+
+message GameServerFilesArchiveProgress {
+  int64 total_files = 1;
+  int64 files_compressed = 2;
+  int64 total_bytes = 3;
+  int64 bytes_compressed = 4;
+  string current_file = 5;
+}
+
+message GameServerFilesExtractProgress {
+  int64 total_files = 1;
+  int64 files_extracted = 2;
+  int64 total_bytes = 3;
+  int64 bytes_extracted = 4;
+  string current_file = 5;
 }
 
 message GetFileRequest {

@@ -86,6 +86,12 @@ const (
 	// XylonaGameServerFilesDeleteProcedure is the fully-qualified name of the Xylona's
 	// GameServerFilesDelete RPC.
 	XylonaGameServerFilesDeleteProcedure = "/xylona.Xylona/GameServerFilesDelete"
+	// XylonaGameServerFilesArchiveProcedure is the fully-qualified name of the Xylona's
+	// GameServerFilesArchive RPC.
+	XylonaGameServerFilesArchiveProcedure = "/xylona.Xylona/GameServerFilesArchive"
+	// XylonaGameServerFilesExtractProcedure is the fully-qualified name of the Xylona's
+	// GameServerFilesExtract RPC.
+	XylonaGameServerFilesExtractProcedure = "/xylona.Xylona/GameServerFilesExtract"
 	// XylonaGameServerFilesCompressProcedure is the fully-qualified name of the Xylona's
 	// GameServerFilesCompress RPC.
 	XylonaGameServerFilesCompressProcedure = "/xylona.Xylona/GameServerFilesCompress"
@@ -140,6 +146,8 @@ type XylonaClient interface {
 	GetBranches(context.Context, *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error)
 	ListDirectoryFiles(context.Context, *connect_go.Request[xylona.ListDirectoryFilesRequest]) (*connect_go.Response[xylona.ListDirectoryFilesResponse], error)
 	GameServerFilesDelete(context.Context, *connect_go.Request[xylona.GameServerFilesDeleteRequest]) (*connect_go.Response[xylona.GameServerFilesDeleteResponse], error)
+	GameServerFilesArchive(context.Context, *connect_go.Request[xylona.GameServerFilesCompressionRequest]) (*connect_go.ServerStreamForClient[xylona.GameServerFilesArchiveProgress], error)
+	GameServerFilesExtract(context.Context, *connect_go.Request[xylona.GameServerFilesDecompressionRequest]) (*connect_go.ServerStreamForClient[xylona.GameServerFilesExtractProgress], error)
 	GameServerFilesCompress(context.Context, *connect_go.Request[xylona.GameServerFilesCompressionRequest]) (*connect_go.Response[xylona.GameServerFilesCompressionResponse], error)
 	GameServerFilesDecompress(context.Context, *connect_go.Request[xylona.GameServerFilesDecompressionRequest]) (*connect_go.Response[xylona.GameServerFilesDecompressionResponse], error)
 	GameServerFilesDownloadFromURL(context.Context, *connect_go.Request[xylona.GameServersFileDownloadFromURLRequest]) (*connect_go.Response[xylona.GameServersFileDownloadFromURLResponse], error)
@@ -278,6 +286,16 @@ func NewXylonaClient(httpClient connect_go.HTTPClient, baseURL string, opts ...c
 			baseURL+XylonaGameServerFilesDeleteProcedure,
 			opts...,
 		),
+		gameServerFilesArchive: connect_go.NewClient[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesArchiveProgress](
+			httpClient,
+			baseURL+XylonaGameServerFilesArchiveProcedure,
+			opts...,
+		),
+		gameServerFilesExtract: connect_go.NewClient[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesExtractProgress](
+			httpClient,
+			baseURL+XylonaGameServerFilesExtractProcedure,
+			opts...,
+		),
 		gameServerFilesCompress: connect_go.NewClient[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesCompressionResponse](
 			httpClient,
 			baseURL+XylonaGameServerFilesCompressProcedure,
@@ -337,6 +355,8 @@ type xylonaClient struct {
 	getBranches                    *connect_go.Client[xylona.GetBranchesRequest, xylona.GetBranchesResponse]
 	listDirectoryFiles             *connect_go.Client[xylona.ListDirectoryFilesRequest, xylona.ListDirectoryFilesResponse]
 	gameServerFilesDelete          *connect_go.Client[xylona.GameServerFilesDeleteRequest, xylona.GameServerFilesDeleteResponse]
+	gameServerFilesArchive         *connect_go.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesArchiveProgress]
+	gameServerFilesExtract         *connect_go.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesExtractProgress]
 	gameServerFilesCompress        *connect_go.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesCompressionResponse]
 	gameServerFilesDecompress      *connect_go.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesDecompressionResponse]
 	gameServerFilesDownloadFromURL *connect_go.Client[xylona.GameServersFileDownloadFromURLRequest, xylona.GameServersFileDownloadFromURLResponse]
@@ -465,6 +485,16 @@ func (c *xylonaClient) GameServerFilesDelete(ctx context.Context, req *connect_g
 	return c.gameServerFilesDelete.CallUnary(ctx, req)
 }
 
+// GameServerFilesArchive calls xylona.Xylona.GameServerFilesArchive.
+func (c *xylonaClient) GameServerFilesArchive(ctx context.Context, req *connect_go.Request[xylona.GameServerFilesCompressionRequest]) (*connect_go.ServerStreamForClient[xylona.GameServerFilesArchiveProgress], error) {
+	return c.gameServerFilesArchive.CallServerStream(ctx, req)
+}
+
+// GameServerFilesExtract calls xylona.Xylona.GameServerFilesExtract.
+func (c *xylonaClient) GameServerFilesExtract(ctx context.Context, req *connect_go.Request[xylona.GameServerFilesDecompressionRequest]) (*connect_go.ServerStreamForClient[xylona.GameServerFilesExtractProgress], error) {
+	return c.gameServerFilesExtract.CallServerStream(ctx, req)
+}
+
 // GameServerFilesCompress calls xylona.Xylona.GameServerFilesCompress.
 func (c *xylonaClient) GameServerFilesCompress(ctx context.Context, req *connect_go.Request[xylona.GameServerFilesCompressionRequest]) (*connect_go.Response[xylona.GameServerFilesCompressionResponse], error) {
 	return c.gameServerFilesCompress.CallUnary(ctx, req)
@@ -529,6 +559,8 @@ type XylonaHandler interface {
 	GetBranches(context.Context, *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error)
 	ListDirectoryFiles(context.Context, *connect_go.Request[xylona.ListDirectoryFilesRequest]) (*connect_go.Response[xylona.ListDirectoryFilesResponse], error)
 	GameServerFilesDelete(context.Context, *connect_go.Request[xylona.GameServerFilesDeleteRequest]) (*connect_go.Response[xylona.GameServerFilesDeleteResponse], error)
+	GameServerFilesArchive(context.Context, *connect_go.Request[xylona.GameServerFilesCompressionRequest], *connect_go.ServerStream[xylona.GameServerFilesArchiveProgress]) error
+	GameServerFilesExtract(context.Context, *connect_go.Request[xylona.GameServerFilesDecompressionRequest], *connect_go.ServerStream[xylona.GameServerFilesExtractProgress]) error
 	GameServerFilesCompress(context.Context, *connect_go.Request[xylona.GameServerFilesCompressionRequest]) (*connect_go.Response[xylona.GameServerFilesCompressionResponse], error)
 	GameServerFilesDecompress(context.Context, *connect_go.Request[xylona.GameServerFilesDecompressionRequest]) (*connect_go.Response[xylona.GameServerFilesDecompressionResponse], error)
 	GameServerFilesDownloadFromURL(context.Context, *connect_go.Request[xylona.GameServersFileDownloadFromURLRequest]) (*connect_go.Response[xylona.GameServersFileDownloadFromURLResponse], error)
@@ -663,6 +695,16 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (stri
 		svc.GameServerFilesDelete,
 		opts...,
 	)
+	xylonaGameServerFilesArchiveHandler := connect_go.NewServerStreamHandler(
+		XylonaGameServerFilesArchiveProcedure,
+		svc.GameServerFilesArchive,
+		opts...,
+	)
+	xylonaGameServerFilesExtractHandler := connect_go.NewServerStreamHandler(
+		XylonaGameServerFilesExtractProcedure,
+		svc.GameServerFilesExtract,
+		opts...,
+	)
 	xylonaGameServerFilesCompressHandler := connect_go.NewUnaryHandler(
 		XylonaGameServerFilesCompressProcedure,
 		svc.GameServerFilesCompress,
@@ -743,6 +785,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (stri
 			xylonaListDirectoryFilesHandler.ServeHTTP(w, r)
 		case XylonaGameServerFilesDeleteProcedure:
 			xylonaGameServerFilesDeleteHandler.ServeHTTP(w, r)
+		case XylonaGameServerFilesArchiveProcedure:
+			xylonaGameServerFilesArchiveHandler.ServeHTTP(w, r)
+		case XylonaGameServerFilesExtractProcedure:
+			xylonaGameServerFilesExtractHandler.ServeHTTP(w, r)
 		case XylonaGameServerFilesCompressProcedure:
 			xylonaGameServerFilesCompressHandler.ServeHTTP(w, r)
 		case XylonaGameServerFilesDecompressProcedure:
@@ -858,6 +904,14 @@ func (UnimplementedXylonaHandler) ListDirectoryFiles(context.Context, *connect_g
 
 func (UnimplementedXylonaHandler) GameServerFilesDelete(context.Context, *connect_go.Request[xylona.GameServerFilesDeleteRequest]) (*connect_go.Response[xylona.GameServerFilesDeleteResponse], error) {
 	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.GameServerFilesDelete is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GameServerFilesArchive(context.Context, *connect_go.Request[xylona.GameServerFilesCompressionRequest], *connect_go.ServerStream[xylona.GameServerFilesArchiveProgress]) error {
+	return connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.GameServerFilesArchive is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GameServerFilesExtract(context.Context, *connect_go.Request[xylona.GameServerFilesDecompressionRequest], *connect_go.ServerStream[xylona.GameServerFilesExtractProgress]) error {
+	return connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.GameServerFilesExtract is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GameServerFilesCompress(context.Context, *connect_go.Request[xylona.GameServerFilesCompressionRequest]) (*connect_go.Response[xylona.GameServerFilesCompressionResponse], error) {

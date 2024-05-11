@@ -175,7 +175,10 @@ async function getGameServerOutput() {
   try {
     request.serverId = gameServerId.value
     const response: ReadGameServerOutputResponse = await GetXylonaClient().readGameServerOutput(request)
+    const start = performance.now()
     gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, response.output)).slice(-maxConsoleCharacters)
+    const end = performance.now()
+    console.warn(`Took ${end - start}ms to parse console output`)
     if (consoleScrollArea.value === null) {
       return
     }
@@ -207,7 +210,10 @@ function streamGameServerOutput() {
     const out: Message = Message.fromJsonString(event.data)
     switch (out.type) {
       case Message_Type.GameServerConsole:
+        const start = performance.now()
         gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, out.gameServerConsoleOutput!.output)).slice(-maxConsoleCharacters)
+        const end = performance.now()
+        console.warn(`Took ${end - start}ms to parse console stream output`)
         setTimeout(() => {
           consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
         }, 10)

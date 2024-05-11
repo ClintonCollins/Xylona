@@ -14,6 +14,7 @@ import (
 
 	"github.com/aarondl/opt/omit"
 	"github.com/google/uuid"
+	"github.com/gosimple/slug"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -225,7 +226,8 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path stri
 }
 
 func (inst *Instance) createGameServerDirectory(gameServer *models.GameServer, owner *models.User) (string, error) {
-	gameServerDir := filepath.Join(DefaultInstallPath(), owner.UserName, gameServer.Name)
+	gsNameSlug := slug.Make(gameServer.Name)
+	gameServerDir := filepath.Join(DefaultInstallPath(), owner.UserName, gsNameSlug)
 	errMakePath := os.MkdirAll(gameServerDir, os.ModePerm)
 	if errMakePath != nil {
 		log.Error().Err(errMakePath).Msg("Failed to create game server directory")

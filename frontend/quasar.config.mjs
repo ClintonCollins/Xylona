@@ -76,6 +76,9 @@ export default configure(function (/* ctx */) {
             // vitePlugins: [
             //   [ 'package-name', { ..options.. } ]
             // ]
+
+            extendViteConf(viteConf) {
+            }
         },
 
         // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer

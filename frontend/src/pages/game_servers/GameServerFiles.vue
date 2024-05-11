@@ -1,105 +1,95 @@
 <template>
   <q-card-section>
     <FileUploaderDrop :game-server-id="gameServerId" :path-separator="pathSeparator" :path="path"
-                      :upload-u-r-l="uploadURL" :target-element="fileListContainer" @uploaded-files="listDirectoryFiles(path)"
+                      :upload-u-r-l="uploadURL" :target-element="fileListContainer"
+                      @uploaded-files="listDirectoryFiles(path)"
                       v-model:file-uploader-dialog="fileUploaderDialog">
-        <div ref="fileListContainer" class="col-xs-12 file-list-container bg-neutral-glass-4 q-pa-sm"
-             style="border-radius: .5rem">
-          <div class="row q-py-sm justify-end q-gutter-x-md">
-            <q-btn v-show="deleteButtonEnabled" @click="deleteFilesDialog = true" class="bg-error">Delete</q-btn>
-            <q-btn v-show="downloadButtonEnabled" class="bg-blue">Download</q-btn>
-            <q-btn v-show="zipButtonEnabled" @click="archiveFilesDialog = true" class="bg-teal">Archive/Compress</q-btn>
-            <q-btn v-show="extractButtonEnabled" @click="extractFilesDialog = true" class="bg-green">Extract</q-btn>
-            <q-btn class="bg-alert" label="Upload from URL" @click="fileUploaderDialog = true"></q-btn>
-            <q-btn class="bg-success" label="Upload" @click="fileUploaderDialog = true"></q-btn>
-          </div>
-          <div class="row q-py-sm">
-            <div class="col-xs-12">
-              <q-input @keydown.prevent.enter="updatePathFromInput" :prefix="gameServer.directory + pathSeparator"
-                       v-model="path" outlined dense></q-input>
-            </div>
-          </div>
-          <div class="row file-list-header q-px-sm">
-            <div class="col-xs-2 col-md-2 col-lg-1">
-              <q-checkbox v-model="selectAllFiles" label="All"></q-checkbox>
-            </div>
-            <div class="col-xs-4">Name</div>
-            <div class="col-xs-3">Size</div>
-            <div class="col-xs-3">Modified</div>
-          </div>
-          <q-separator class="q-my-sm"></q-separator>
-          <div id="file-list" ref="filesList">
-            <div class="row file-list-body-row q-px-sm" :class="fileIsSelectedClass(directory)"
-                 v-for="directory in directories">
-              <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
-                <q-checkbox v-if="directory.name !== '..'" :val="directory" v-model="selectedFiles"></q-checkbox>
-              </div>
-              <div class="col-xs-4 file-div file-list-cell" @click="clickDirectory(directory)">
-                <q-icon size="xs" color="amber" :name="tabFolderFilled" left></q-icon>
-                {{ directory.name }}
-              </div>
-              <div class="col-xs-3 file-list-cell">{{ bytesToSize(Number(directory.size)) }}</div>
-              <div class="col-xs-3 file-list-cell">{{ toTimestamp(directory.lastModified) }}</div>
-            </div>
-            <div class="row file-list-body-row q-px-sm" :class="fileIsSelectedClass(file)" v-for="file in files"
-                 :data-file-name="file.name"
-                 draggable="false">
-              <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
-                <q-checkbox :val="file" v-model="selectedFiles"></q-checkbox>
-              </div>
-              <div class="col-xs-4 file-div file-list-cell" @click="clickFile(file)">
-                <q-icon size="xs" :style="'color:'+ getColorFromFilenameExtension(file.name)"
-                        :name="getIconFromFilenameExtension(file.name)" left></q-icon>
-                <span class="file-name">{{ file.name }}</span>
-              </div>
-              <div class="col-xs-3 file-list-cell">{{ bytesToSize(Number(file.size)) }}</div>
-              <div class="col-xs-3 file-list-cell">{{ toTimestamp(file.lastModified) }}</div>
-            </div>
-          </div>
-          <q-menu ref="contextMenu" touch-position context-menu @before-show="console.log('before show context menu')">
-            <q-list>
-              <q-item clickable v-ripple @click="selectAllFiles = true">
-                <q-item-section> Select All</q-item-section>
-              </q-item>
-              <q-item clickable v-ripple @click="selectAllFiles = false">
-                <q-item-section> Deselect All</q-item-section>
-              </q-item>
-            </q-list>
-          </q-menu>
+      <div ref="fileListContainer" class="col-xs-12 file-list-container bg-neutral-glass-4 q-pa-sm"
+           style="border-radius: .5rem">
+        <div class="row q-py-sm justify-end q-gutter-x-md">
+          <q-btn v-show="deleteButtonEnabled" @click="deleteFilesDialog = true" class="bg-error">Delete</q-btn>
+          <q-btn v-show="downloadButtonEnabled" class="bg-blue">Download</q-btn>
+          <q-btn v-show="zipButtonEnabled" @click="archiveFilesDialog = true" class="bg-teal">Archive/Compress</q-btn>
+          <q-btn v-show="extractButtonEnabled" @click="extractFilesDialog = true" class="bg-green">Extract</q-btn>
+          <q-btn class="bg-alert" label="Upload from URL" @click="fileUploaderDialog = true"></q-btn>
+          <q-btn class="bg-success" label="Upload" @click="fileUploaderDialog = true"></q-btn>
         </div>
+        <div class="row q-py-sm">
+          <div class="col-xs-12">
+            <q-input @keydown.prevent.enter="updatePathFromInput" :prefix="gameServer.directory + pathSeparator"
+                     v-model="path" outlined dense></q-input>
+          </div>
+        </div>
+        <div class="row file-list-header q-px-sm">
+          <div class="col-xs-2 col-md-2 col-lg-1">
+            <q-checkbox v-model="selectAllFiles" label="All"></q-checkbox>
+          </div>
+          <div class="col-xs-4">Name</div>
+          <div class="col-xs-3">Size</div>
+          <div class="col-xs-3">Modified</div>
+        </div>
+        <q-separator class="q-my-sm"></q-separator>
+        <div id="file-list" ref="filesList">
+          <div class="row file-list-body-row q-px-sm" :class="fileIsSelectedClass(directory)"
+               v-for="directory in directories">
+            <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
+              <q-checkbox v-if="directory.name !== '..'" :val="directory" v-model="selectedFiles"></q-checkbox>
+            </div>
+            <div class="col-xs-4 file-div file-list-cell" @click="clickDirectory(directory)">
+              <q-icon size="xs" color="amber" :name="tabFolderFilled" left></q-icon>
+              {{ directory.name }}
+            </div>
+            <div class="col-xs-3 file-list-cell">{{ bytesToSize(Number(directory.size)) }}</div>
+            <div class="col-xs-3 file-list-cell">{{ toTimestamp(directory.lastModified) }}</div>
+          </div>
+          <div class="row file-list-body-row q-px-sm" :class="fileIsSelectedClass(file)" v-for="file in files"
+               :data-file-name="file.name"
+               draggable="false">
+            <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
+              <q-checkbox :val="file" v-model="selectedFiles"></q-checkbox>
+            </div>
+            <div class="col-xs-4 file-div file-list-cell" @click="clickFile(file)">
+              <q-icon size="xs" :style="'color:'+ getColorFromFilenameExtension(file.name)"
+                      :name="getIconFromFilenameExtension(file.name)" left></q-icon>
+              <span class="file-name">{{ file.name }}</span>
+            </div>
+            <div class="col-xs-3 file-list-cell">{{ bytesToSize(Number(file.size)) }}</div>
+            <div class="col-xs-3 file-list-cell">{{ toTimestamp(file.lastModified) }}</div>
+          </div>
+        </div>
+        <q-menu ref="contextMenu" touch-position context-menu @before-show="console.log('before show context menu')">
+          <q-list>
+            <q-item clickable v-ripple @click="selectAllFiles = true">
+              <q-item-section> Select All</q-item-section>
+            </q-item>
+            <q-item clickable v-ripple @click="selectAllFiles = false">
+              <q-item-section> Deselect All</q-item-section>
+            </q-item>
+          </q-list>
+        </q-menu>
+      </div>
     </FileUploaderDrop>
   </q-card-section>
-  <q-dialog v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
-    <q-card class="file-editor">
-      <q-card-section>
-        <div class="text-h6">{{ editingFilename }}</div>
-      </q-card-section>
-
-      <q-card-section>
-        <q-input v-model="editingFileContent" type="textarea" rows="40" outlined dense></q-input>
-      </q-card-section>
-
-      <q-card-actions align="right">
-        <q-btn flat label="Cancel" color="primary" v-close-popup/>
-        <q-btn flat label="Save" color="primary" v-close-popup/>
-      </q-card-actions>
-    </q-card>
+  <q-dialog no-shake persistent v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
+      <Editor v-model:code-input="editingFileContent" :file-name="editingFilename"></Editor>
   </q-dialog>
   <ArchiveFilesDialog @submit="archiveFilesDialogSubmitted" @cancel="archiveFilesDialog = false"
                       v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"
-                      v-model:archive-type="archiveType" :loading="archiveSubmitting">
+                      :path-separator="pathSeparator" :path="path" :selected-files="selectedFiles"
+                      v-model:archive-type="archiveType" :loading="archiveSubmitting" :game-server-id="gameServerId">
   </ArchiveFilesDialog>
   <ExtractGameServerFiles @submit="extractArchive" @cancel="extractFilesDialog = false"
                           v-model:show-dialog="extractFilesDialog" v-model:extract-to-folder="extractToFolder"
                           :loading="extractSubmitting">
   </ExtractGameServerFiles>
-  <DeleteGameServerFilesDialog @files-deleted="deleteFilesSubmitted(path)" :files-to-delete="selectedFiles"
+  <DeleteGameServerFilesDialog @files-deleted="deleteFilesSubmitted()" :files-to-delete="selectedFiles"
                                :current-path="path" :path-separator="pathSeparator"
                                :game-server-i-d="gameServerId" v-model:show-dialog="deleteFilesDialog">
   </DeleteGameServerFilesDialog>
 </template>
 
 <script setup lang="ts">
+import Editor from 'components/Editor.vue'
 import {
   File as xylonaFile,
   GameServer,
@@ -169,28 +159,30 @@ const deleteFilesDialog: Ref<boolean> = ref(false)
 const allowedExtractExtensions: string[] = [".zip", ".zst", ".gz", ".bz2", ".xz"]
 
 async function archiveFilesDialogSubmitted() {
-  archiveSubmitting.value = true
-  try {
-    const request = new GameServerFilesCompressionRequest()
-    request.gameServerId = gameServerId.value
-    request.fileName = archiveName.value
-    request.compressionType = archiveType.value
-    request.sourcePath = path.value
-    request.filePaths = selectedFiles.value.map((file) => {
-      return getRelativeFilePath(file.name)
-    })
-
-    const response: GameServerFilesCompressionResponse = await GetXylonaClient().gameServerFilesCompress(request)
-    console.log(response)
-  } catch (e) {
-    console.error(e)
-    alert(e)
-  } finally {
-    await listDirectoryFiles(path.value)
-    archiveSubmitting.value = false
-    archiveFilesDialog.value = false
     selectedFiles.value = []
-  }
+    void listDirectoryFiles(path.value)
+  // archiveSubmitting.value = true
+  // try {
+  //   const request = new GameServerFilesCompressionRequest()
+  //   request.gameServerId = gameServerId.value
+  //   request.fileName = archiveName.value
+  //   request.compressionType = archiveType.value
+  //   request.sourcePath = path.value
+  //   request.filePaths = selectedFiles.value.map((file) => {
+  //     return getRelativeFilePath(file.name)
+  //   })
+  //
+  //   const response: GameServerFilesCompressionResponse = await GetXylonaClient().gameServerFilesCompress(request)
+  //   console.log(response)
+  // } catch (e) {
+  //   console.error(e)
+  //   alert(e)
+  // } finally {
+  //   await listDirectoryFiles(path.value)
+  //   archiveSubmitting.value = false
+  //   archiveFilesDialog.value = false
+  //   selectedFiles.value = []
+  // }
 }
 
 async function deleteFilesSubmitted() {
@@ -410,30 +402,6 @@ async function listDirectoryFiles(directoryPath: string) {
   }
 }
 
-function contextMenuClick(event: MouseEvent) {
-  const el = event.target as HTMLElement
-  // console.log(el.children)
-  // console.log(el.innerHTML)
-  const f = directories.value.concat(files.value)
-  if (f.length === 0) {
-    return
-  }
-  let foundFileName: string | null = null
-  f.forEach((file) => {
-    if (el.innerHTML == file.name) {
-      foundFileName = file.name
-    }
-  })
-  if (foundFileName === null) {
-    if (contextMenu.value === null) {
-      return
-    }
-    contextMenu.value?.hide()
-    return
-  }
-  console.log("foundFileName: " + foundFileName)
-}
-
 async function readFileOctetStream(filePath: string) {
   $q.loading.show({
     message: "Reading file...",
@@ -546,11 +514,5 @@ function getRelativeFilePath(...filePaths: string[]): string {
 .file-div:hover {
   cursor: pointer;
   font-weight: 700;
-}
-
-.file-editor {
-  min-width: 60vw !important;
-  min-height: 70vh !important;
-  font-family: "Oxygen Mono", monospace !important;
 }
 </style>

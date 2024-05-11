@@ -159,9 +159,9 @@ func main() {
 	httpServer := &http.Server{
 		Addr:         ":8080",
 		Handler:      router,
-		ReadTimeout:  time.Second * 60,
-		WriteTimeout: time.Second * 60,
-		IdleTimeout:  time.Second * 300,
+		ReadTimeout:  time.Hour * 6,
+		WriteTimeout: time.Hour * 6,
+		IdleTimeout:  time.Hour * 24,
 	}
 
 	router.Get("/api/test/{appid}", func(w http.ResponseWriter, r *http.Request) {
