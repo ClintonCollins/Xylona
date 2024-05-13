@@ -1,6 +1,6 @@
 <template>
   <q-page :padding="windowWidth > 1024">
-    <q-tabs v-if="navQTabsStore.tabs.length > 0" class="bg-success-darker">
+    <q-tabs v-if="navQTabsStore.tabs.length > 0" class="bg-sub-toolbar">
       <q-route-tab
         v-for="tab in navQTabsStore.tabs"
         :key="tab.name"

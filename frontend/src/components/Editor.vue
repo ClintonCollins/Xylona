@@ -7,7 +7,7 @@
                               autocomplete="false"
                               :options="editorOptions" @update:model-value="editorThemeChanged" label="Theme"/>
                     <q-select class="editor-select" dense outlined v-model="selectedLanguage" map-options emit-value
-                                autocomplete="false"
+                              autocomplete="false"
                               :options="LanguageOptions" @update:model-value="editorLanguageChanged" label="Language"/>
                 </div>
             </div>
@@ -15,15 +15,17 @@
         </q-card-section>
 
         <q-card-actions align="right">
-            <q-btn flat label="Cancel" color="primary" v-close-popup/>
-            <q-btn flat label="Save" color="primary" v-close-popup/>
+            <q-btn flat label="Cancel" color="neutral" v-close-popup/>
+            <q-btn label="Save" class="q-btn bg-main" @click="saveFile" v-close-popup/>
         </q-card-actions>
     </q-card>
 </template>
 
 <script setup lang="ts">
-import { QCard } from 'quasar'
+import { QCard, useQuasar } from 'quasar'
 import loadCustomEditorSettings, { getLanguageFromFileName, LanguageOptions } from 'components/editor/editor'
+import { GameServersFileEditRequest, GameServersFileEditResponse } from 'src/proto/gameserver_files_operations_pb'
+import { GetXylonaClient } from 'src/utils/shared'
 import { onMounted, ref } from 'vue'
 import * as monaco from 'monaco-editor'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
@@ -33,8 +35,18 @@ import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import IStandaloneCodeEditor = monaco.editor.IStandaloneCodeEditor
 
+const $q = useQuasar()
+
 const props = defineProps({
+    filePath: {
+        type: String,
+        required: true
+    },
     fileName: {
+        type: String,
+        required: true
+    },
+    gameServerId: {
         type: String,
         required: true
     }
@@ -116,6 +128,32 @@ onMounted(() => {
         console.error('editorContainer is null')
     }
 })
+
+async function saveFile() {
+    try {
+        const request = new GameServersFileEditRequest()
+        request.content = codeInput.value
+        request.filePath = props.fileName
+        request.gameServerId = props.gameServerId
+       await GetXylonaClient().gameServersFileEdit(request)
+        $q.notify({
+            caption: `File <span class="text-bold">${props.fileName}</span> saved successfully.`,
+            type: 'xylona-success',
+            html: true,
+            position: 'top-right',
+            timeout: 3000,
+        })
+    } catch (err) {
+        console.error(err)
+        $q.notify({
+            caption: `Error saving file ${props.fileName}.`,
+            type: 'xylona-error',
+            position: 'top-right',
+            timeout: 5000,
+        })
+    } finally {
+    }
+}
 
 </script>
 

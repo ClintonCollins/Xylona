@@ -1,8 +1,7 @@
-@import 'custom.variables.css';
+@import "custom.variables.css";
 
-@import url('https://fonts.googleapis.com/css2?family=Goldman:wght@400;700&family=Mina:wght@400;700&family=Zen+Dots&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Oxygen+Mono&display=swap');
-
+@import url("https://fonts.googleapis.com/css2?family=Goldman:wght@400;700&family=Mina:wght@400;700&family=Zen+Dots&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Oxygen+Mono&display=swap");
 
 .selected-option {
     color: var(--q-info);
@@ -68,4 +67,63 @@ a {
 
 .copy-clipboard:hover {
     font-weight: 700;
+}
+
+.xylona-notification {
+    font-size: 1.1rem;
+    border: 2px solid;
+    border-radius: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.notification-title {
+    font-family: 'Zen Dots', sans-serif;
+}
+
+.xylona-notification .q-notification__caption {
+    color: white;
+    font-size: 1rem;
+    font-weight: 400;
+    opacity: 1;
+}
+
+.notification-success {
+    background-color: var(--bg-success-notification);
+    border-color: var(--bg-success-brighter);
+}
+
+.notification-success .q-notification__icon {
+    color: #12b612;
+    font-size: 2rem;
+}
+
+.notification-error {
+    background-color: var(--bg-error-notification);
+    border-color: var(--bg-error);
+}
+
+.notification-error .q-notification__icon {
+    color: #ff0000;
+    font-size: 2rem;
+}
+
+.notification-alert {
+    background-color: var(--bg-alert-notification);
+    border-color: var(--bg-alert-brighter);
+}
+
+.notification-alert .q-notification__icon {
+    color: #ffcc00;
+    font-size: 2rem;
+}
+
+.notification-info {
+    background-color: var(--bg-info-notification);
+    border-color: var(--bg-main-brigther);
+}
+
+.notification-info .q-notification__icon {
+    color: #00ccff;
+    font-size: 2rem;
 }

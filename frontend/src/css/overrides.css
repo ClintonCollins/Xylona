@@ -73,6 +73,10 @@ div:has(> a.q-item) {
     background-color: var(--bg-error-brighter);
 }
 
+.q-btn.bg-positive:hover:not(.disabled) {
+    background-color: var(--bg-main-brigther);
+}
+
 .q-btn.disabled {
     opacity: 0.6 !important;
 }
