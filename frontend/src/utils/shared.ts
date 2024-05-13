@@ -75,20 +75,37 @@ export function StatusToString(status: Status): string {
     }
 }
 
-export function ArchiveTypeToString(archiveType: GameServerFilesCompressionType) {
+export function ArchiveTypeToString(archiveType: GameServerFilesCompressionType): string {
     switch (archiveType) {
         case GameServerFilesCompressionType.ZIP:
-            return 'zip'
+            return 'ZIP (.zip)'
         case GameServerFilesCompressionType.GZIP:
-            return 'gzip'
+            return 'Gzip (.gz)'
         case GameServerFilesCompressionType.BZIP2:
-            return 'bzip2'
+            return 'Bzip2 (.bz2)'
         case GameServerFilesCompressionType.ZST:
-            return 'zst'
+            return 'Zstandard (.zst)'
         case GameServerFilesCompressionType.XZ:
-            return 'xz'
+            return 'XZ (.xz)'
         default:
             return 'Unknown'
+    }
+}
+
+export function ArchiveTypeToExtension(archiveType: GameServerFilesCompressionType): string {
+    switch (archiveType) {
+        case GameServerFilesCompressionType.ZIP:
+            return '.zip'
+        case GameServerFilesCompressionType.GZIP:
+            return '.tar.gz'
+        case GameServerFilesCompressionType.BZIP2:
+            return '.tar.bz2'
+        case GameServerFilesCompressionType.ZST:
+            return '.tar.zst'
+        case GameServerFilesCompressionType.XZ:
+            return '.tar.xz'
+        default:
+            return '.unknown'
     }
 }
 

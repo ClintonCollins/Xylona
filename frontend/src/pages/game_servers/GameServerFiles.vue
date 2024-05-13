@@ -84,7 +84,7 @@
     <ArchiveFilesDialog @submit="archiveFilesDialogSubmitted" @cancel="archiveFilesDialog = false"
                         v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"
                         :path-separator="pathSeparator" :path="path" :selected-files="selectedFiles"
-                        v-model:archive-type="archiveType" :loading="archiveSubmitting" :game-server-id="gameServerId">
+                        :game-server-id="gameServerId">
     </ArchiveFilesDialog>
     <ExtractGameServerFiles @submit="extractArchive" @cancel="extractFilesDialog = false"
                             v-model:show-dialog="extractFilesDialog" v-model:extract-to-folder="extractToFolder"

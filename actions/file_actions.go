@@ -276,14 +276,12 @@ func createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes, byt
 	}
 }
 
-func attemptToSendOnXylonaProgressChan(ctx context.Context, finishCtx context.Context,
+func attemptToSendOnXylonaProgressChan(ctx context.Context,
 	xylonaProgress xylona.GameServerFilesArchiveProgress, progressChan chan xylona.GameServerFilesArchiveProgress,
 ) {
 	timeout := time.After(time.Millisecond * 50)
 	select {
 	case <-ctx.Done():
-		return
-	case <-finishCtx.Done():
 		return
 	case progressChan <- xylonaProgress:
 	case <-timeout:
@@ -296,7 +294,6 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 	archiverFiles []archiver.File, compression xylona.GameServerFilesCompressionType,
 	xylonaFileArchiveProgressChan chan xylona.GameServerFilesArchiveProgress,
 ) (xylona.GameServerFilesArchiveProgress, error) {
-	finishCtx, _ := context.WithCancel(ctx)
 
 	format := archiver.CompressedArchive{}
 	// Default to tar if no compression is specified.
@@ -356,19 +353,19 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 			select {
 			case <-ctx.Done():
 				return
-			case <-finishCtx.Done():
+			case <-inst.ctx.Done():
 				return
 			case bytesRead := <-readBytesChan:
 				bytesReadSoFar += bytesRead
 			case <-ticker.C:
 				xylonaProgress := createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes,
 					bytesReadSoFar, currentFile)
-				attemptToSendOnXylonaProgressChan(ctx, finishCtx, xylonaProgress, xylonaFileArchiveProgressChan)
+				attemptToSendOnXylonaProgressChan(ctx, xylonaProgress, xylonaFileArchiveProgressChan)
 			case <-fileResultChan:
 				filesCompressedSoFar += 1
 				xylonaProgress := createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes,
 					bytesReadSoFar, currentFile)
-				attemptToSendOnXylonaProgressChan(ctx, finishCtx, xylonaProgress, xylonaFileArchiveProgressChan)
+				attemptToSendOnXylonaProgressChan(ctx, xylonaProgress, xylonaFileArchiveProgressChan)
 				if filesCompressedSoFar == totalFiles {
 					return
 				}
@@ -381,6 +378,9 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 		for _, f := range archiverFiles {
 			select {
 			case <-ctx.Done():
+				close(archiveJobs)
+				return
+			case <-inst.ctx.Done():
 				close(archiveJobs)
 				return
 			default:
@@ -397,12 +397,11 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 					log.Error().Err(result).Str("file", f.NameInArchive).Msg("Failed to archive files")
 					return
 				}
-
 				select {
 				case <-ctx.Done():
 					return
-				default:
-					fileResultChan <- archiveJobResult{file: f, err: result}
+				case <-inst.ctx.Done():
+				case fileResultChan <- archiveJobResult{file: f, err: result}:
 				}
 			}
 		}
