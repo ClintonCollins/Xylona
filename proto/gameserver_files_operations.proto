@@ -16,39 +16,38 @@ enum GameServerFilesCompressionType {
 
 message GameServerFilesDeleteRequest {
   string game_server_id = 1;
-  repeated string file_paths = 2;
+  repeated string full_file_paths = 2;
 }
 
 message GameServerFilesDeleteResponse {
-  repeated string file_paths = 1;
+  repeated string full_file_paths = 1;
 }
 
 message GameServerFilesCompressionRequest {
   string game_server_id = 1;
-  repeated string file_paths = 2;
-  string file_name = 3;
+  repeated string full_file_paths = 2;
+  string full_destination_file_path = 3;
   GameServerFilesCompressionType compression_type = 4;
-  string source_path = 5;
 }
 
 message GameServerFilesCompressionResponse {
-  string file_path = 1;
+  string full_file_path = 1;
 }
 
 message GameServerFilesDecompressionRequest {
   string game_server_id = 1;
-  string file_path = 2;
-  string destination_path = 3;
+  string full_file_path = 2;
+  string destination_base_path = 3;
 }
 
 message GameServerFilesDecompressionResponse {
-  repeated string file_paths = 1;
+  repeated string full_file_paths = 1;
 }
 
 message GameServersFileDownloadFromURLRequest {
   string game_server_id = 1;
   string url = 2;
-  string destination_path = 3; // The path to save the file to (Not including the file name)
+  string destination_base_path = 3; // The path to save the file to (Not including the file name)
 }
 
 message GameServersFileDownloadFromURLResponse {
@@ -68,17 +67,17 @@ message GameServerFileRenameResponse {
 
 message GameServerFilesMoveRequest {
   string game_server_id = 1;
-  repeated string file_paths = 2;
-  string destination = 3;
+  repeated string full_file_paths = 2;
+  string destination_base_path = 3;
 }
 
 message GameServerFilesMoveResponse {
-  repeated string file_paths = 1;
+  repeated string full_file_paths = 1;
 }
 
 message GameServersFileEditRequest {
   string game_server_id = 1;
-  string file_path = 2;
+  string full_file_path = 2;
   string content = 3;
 }
 

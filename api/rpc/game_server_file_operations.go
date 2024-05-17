@@ -14,11 +14,11 @@ func (xs XylonaService) GameServerFilesDelete(ctx context.Context, request *conn
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
-	results, errDelete := xs.actionsInst.DeleteFiles(ctx, gameServer, request.Msg.FilePaths)
+	results, errDelete := xs.actionsInst.DeleteFiles(ctx, gameServer, request.Msg.GetFullFilePaths())
 	if errDelete != nil {
 		return nil, errDelete
 	}
-	response := &xylona.GameServerFilesDeleteResponse{FilePaths: results}
+	response := &xylona.GameServerFilesDeleteResponse{FullFilePaths: results}
 	return &connect_go.Response[xylona.GameServerFilesDeleteResponse]{Msg: response}, nil
 }
 
@@ -46,8 +46,8 @@ func (xs XylonaService) GameServerFilesArchive(ctx context.Context, request *con
 		}
 	}()
 
-	lastResult, errCompress := xs.actionsInst.ArchiveFiles(ctx, gameServer, request.Msg.GetFileName(),
-		request.Msg.GetFilePaths(), request.Msg.GetCompressionType(), request.Msg.GetSourcePath(), resultsChan)
+	lastResult, errCompress := xs.actionsInst.ArchiveFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
+		request.Msg.GetFullFilePaths(), request.Msg.GetCompressionType(), resultsChan)
 	if errCompress != nil {
 		return connect_go.NewError(connect_go.CodeInternal, errCompress)
 	}
@@ -69,12 +69,12 @@ func (xs XylonaService) GameServerFilesCompress(ctx context.Context, request *co
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
-	results, errCompress := xs.actionsInst.ArchiveAndCompressFiles(ctx, gameServer, request.Msg.GetFileName(),
-		request.Msg.GetFilePaths(), request.Msg.GetCompressionType(), request.Msg.GetSourcePath())
+	results, errCompress := xs.actionsInst.ArchiveAndCompressFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
+		request.Msg.GetFullFilePaths(), request.Msg.GetCompressionType())
 	if errCompress != nil {
 		return nil, connect_go.NewError(connect_go.CodeInternal, errCompress)
 	}
-	response := &xylona.GameServerFilesCompressionResponse{FilePath: results}
+	response := &xylona.GameServerFilesCompressionResponse{FullFilePath: results}
 	return &connect_go.Response[xylona.GameServerFilesCompressionResponse]{Msg: response}, nil
 }
 
@@ -83,11 +83,11 @@ func (xs XylonaService) GameServerFilesDecompress(ctx context.Context, request *
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
-	results, errDecompress := xs.actionsInst.ExtractArchive(ctx, gameServer, request.Msg.GetFilePath(), request.Msg.GetDestinationPath())
+	results, errDecompress := xs.actionsInst.ExtractArchive(ctx, gameServer, request.Msg.GetFullFilePath(), request.Msg.GetDestinationBasePath())
 	if errDecompress != nil {
 		return nil, connect_go.NewError(connect_go.CodeInternal, errDecompress)
 	}
-	response := &xylona.GameServerFilesDecompressionResponse{FilePaths: results}
+	response := &xylona.GameServerFilesDecompressionResponse{FullFilePaths: results}
 	return &connect_go.Response[xylona.GameServerFilesDecompressionResponse]{Msg: response}, nil
 }
 
@@ -96,7 +96,7 @@ func (xs XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, requ
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
-	results, errDownload := xs.actionsInst.DownloadFileFromURL(ctx, gameServer, request.Msg.GetUrl(), request.Msg.GetDestinationPath())
+	results, errDownload := xs.actionsInst.DownloadFileFromURL(ctx, gameServer, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
 	if errDownload != nil {
 		return nil, connect_go.NewError(connect_go.CodeInternal, errDownload)
 	}
@@ -122,11 +122,11 @@ func (xs XylonaService) GameServerFilesMove(ctx context.Context, request *connec
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
-	results, errMove := xs.actionsInst.MoveFiles(ctx, gameServer, request.Msg.FilePaths, request.Msg.Destination)
+	results, errMove := xs.actionsInst.MoveFiles(ctx, gameServer, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
 	if errMove != nil {
 		return nil, connect_go.NewError(connect_go.CodeInternal, errMove)
 	}
-	response := &xylona.GameServerFilesMoveResponse{FilePaths: results}
+	response := &xylona.GameServerFilesMoveResponse{FullFilePaths: results}
 	return &connect_go.Response[xylona.GameServerFilesMoveResponse]{Msg: response}, nil
 }
 
@@ -135,7 +135,7 @@ func (xs XylonaService) GameServersFileEdit(_ context.Context, request *connect_
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
-	errEdit := xs.actionsInst.EditFile(gameServer, request.Msg.GetFilePath(), request.Msg.GetContent())
+	errEdit := xs.actionsInst.EditFile(gameServer, request.Msg.GetFullFilePath(), request.Msg.GetContent())
 	if errEdit != nil {
 		return nil, connect_go.NewError(connect_go.CodeInternal, errEdit)
 	}

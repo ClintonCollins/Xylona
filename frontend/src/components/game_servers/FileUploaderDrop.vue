@@ -290,8 +290,7 @@ class FileUploader {
   }
 
   async uploadFile(file: uploaderFile) {
-    file.error = false
-    file.success = false
+    file.status = FileStatus.Queued
     const formData = new FormData()
     formData.append('gameServerId', props.gameServerId)
     formData.append('path', file.path)
@@ -399,11 +398,7 @@ class FileUploader {
       file: file,
       path: getUploaderFilePath(file),
       key: file.name,
-      status: "Queued",
-      error: false,
-      success: false,
-      aborted: false,
-      queued: true,
+      status: FileStatus.Queued,
       sizeLabel: bytesToSize(file.size),
       uploadedSizeSoFarLabel: "0.00 MB",
       progressLabel: "0.00%"

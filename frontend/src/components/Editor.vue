@@ -38,7 +38,7 @@ import IStandaloneCodeEditor = monaco.editor.IStandaloneCodeEditor
 const $q = useQuasar()
 
 const props = defineProps({
-    filePath: {
+    fullFilePath: {
         type: String,
         required: true
     },
@@ -133,14 +133,14 @@ async function saveFile() {
     try {
         const request = new GameServersFileEditRequest()
         request.content = codeInput.value
-        request.filePath = props.fileName
+        request.fullFilePath = props.fullFilePath
         request.gameServerId = props.gameServerId
        await GetXylonaClient().gameServersFileEdit(request)
         $q.notify({
             caption: `File <span class="text-bold">${props.fileName}</span> saved successfully.`,
             type: 'xylona-success',
             html: true,
-            position: 'top-right',
+            position: 'top',
             timeout: 3000,
         })
     } catch (err) {
@@ -148,7 +148,7 @@ async function saveFile() {
         $q.notify({
             caption: `Error saving file ${props.fileName}.`,
             type: 'xylona-error',
-            position: 'top-right',
+            position: 'top',
             timeout: 5000,
         })
     } finally {

@@ -205,7 +205,7 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path stri
 		log.Error().Err(errors.New("invalid path"))
 		return ErrInvalidPath
 	}
-	log.Debug().Msgf("Path %s is local: %t", path, filepath.IsLocal(path))
+	// log.Debug().Msgf("Path %s is local: %t", path, filepath.IsLocal(path))
 	fullPath := filepath.Join(gameServer.Directory, path)
 	file, errReadFile := os.Open(fullPath)
 	if errReadFile != nil {

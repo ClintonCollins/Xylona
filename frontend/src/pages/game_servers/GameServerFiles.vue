@@ -63,8 +63,7 @@
                         <div class="col-xs-3 file-list-cell">{{ toTimestamp(file.lastModified) }}</div>
                     </div>
                 </div>
-                <q-menu ref="contextMenu" touch-position context-menu
-                        @before-show="console.log('before show context menu')">
+                <q-menu ref="contextMenu" touch-position context-menu>
                     <q-list>
                         <q-item clickable v-ripple @click="selectAllFiles = true">
                             <q-item-section> Select All</q-item-section>
@@ -79,7 +78,7 @@
     </q-card-section>
     <q-dialog no-shake persistent v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
         <Editor v-model:code-input="editingFileContent" :file-name="editingFilename" :game-server-id="gameServerId"
-        :file-path="editingFilePath"></Editor>
+        :full-file-path="editingFilePath"></Editor>
     </q-dialog>
     <ArchiveFilesDialog @submit="archiveFilesDialogSubmitted" @cancel="archiveFilesDialog = false"
                         v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"
@@ -97,7 +96,21 @@
 </template>
 
 <script setup lang="ts">
+import { Timestamp } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import Editor from 'components/Editor.vue'
+import ArchiveFilesDialog from 'components/game_servers/ArchiveFilesDialog.vue'
+import DeleteGameServerFilesDialog from 'components/game_servers/DeleteGameServerFilesDialog.vue'
+import ExtractGameServerFiles from 'components/game_servers/ExtractGameServerFiles.vue'
+import FileUploaderDrop from 'components/game_servers/FileUploaderDrop.vue'
+import dayjs from 'dayjs'
+import { QMenu, useQuasar } from 'quasar'
+import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
+import {
+    GameServerFilesCompressionType,
+    GameServerFilesDecompressionRequest,
+    GameServerFilesDecompressionResponse
+} from 'src/proto/gameserver_files_operations_pb'
 import {
     File as xylonaFile,
     GameServer,
@@ -112,24 +125,8 @@ import {
     getIconFromFilenameExtension,
     GetXylonaClient
 } from 'src/utils/shared'
-import { useRoute } from 'vue-router'
 import { computed, onMounted, ref, Ref, watch } from 'vue'
-import dayjs from 'dayjs'
-import { Timestamp } from '@bufbuild/protobuf'
-import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { Code, ConnectError } from '@connectrpc/connect'
-import { QCard, QMenu, useQuasar } from 'quasar'
-import ArchiveFilesDialog from 'components/game_servers/ArchiveFilesDialog.vue'
-import {
-    GameServerFilesCompressionRequest,
-    GameServerFilesCompressionResponse,
-    GameServerFilesCompressionType,
-    GameServerFilesDecompressionRequest,
-    GameServerFilesDecompressionResponse
-} from 'src/proto/gameserver_files_operations_pb'
-import ExtractGameServerFiles from 'components/game_servers/ExtractGameServerFiles.vue'
-import FileUploaderDrop from 'components/game_servers/FileUploaderDrop.vue'
-import DeleteGameServerFilesDialog from 'components/game_servers/DeleteGameServerFilesDialog.vue'
+import { useRoute } from 'vue-router'
 
 const $q = useQuasar()
 const uploadURL: Ref<string> = ref('/api/file/upload')
@@ -228,16 +225,34 @@ const extractButtonEnabled = computed(() => {
 async function extractArchive() {
     const request = new GameServerFilesDecompressionRequest()
     request.gameServerId = gameServerId.value
-    request.filePath = getRelativeFilePath(selectedFiles.value[0].name)
-    request.destinationPath = getRelativeFilePath(extractToFolder.value)
+    request.fullFilePath = getRelativeFilePath(selectedFiles.value[0].name)
+    request.destinationBasePath = getRelativeFilePath(extractToFolder.value)
     extractSubmitting.value = true
     try {
         const response: GameServerFilesDecompressionResponse = await GetXylonaClient().gameServerFilesDecompress(request)
-        // console.log(response)
-        alert('Extracted ' + response.filePaths.length + ' files.')
-    } catch (e) {
-        console.error(e)
-        alert(e)
+        $q.notify({
+            caption: `Extracted ${response.fullFilePaths.length} files/directories successfully.`,
+            type: 'xylona-success',
+            position: 'top',
+            timeout: 3000,
+        })
+    } catch (err: unknown) {
+        if (!(err instanceof Error)) {
+            console.error(err)
+            $q.notify({
+                caption: `Error extracting files.`,
+                type: 'xylona-error',
+                position: 'top',
+                timeout: 5000,
+            })
+            return
+        }
+        $q.notify({
+            caption: `Error extracting files. ${err.message}`,
+            type: 'xylona-error',
+            position: 'top',
+            timeout: 5000,
+        })
     } finally {
         extractSubmitting.value = false
         extractFilesDialog.value = false
@@ -322,7 +337,7 @@ async function clickDirectory(directory: xylonaFile) {
             path.value = path.value.substring(1)
         }
     }
-    window.location.hash = path.value.replaceAll(pathSeparator.value, '/')
+    window.location.hash = path.value
     await listDirectoryFiles(path.value)
 }
 
@@ -332,11 +347,7 @@ async function clickFile(file: xylonaFile) {
         alert('File is too large to read directly.')
         return
     }
-    if (path.value === '') {
-        await readFileOctetStream(file.name)
-        return
-    }
-    await readFileOctetStream(path.value + pathSeparator.value + file.name)
+    await readFileOctetStream(file.name)
 }
 
 function updatePathFromInput() {
@@ -388,14 +399,15 @@ async function listDirectoryFiles(directoryPath: string) {
     }
 }
 
-async function readFileOctetStream(filePath: string) {
+async function readFileOctetStream(fileName: string) {
     $q.loading.show({
         message: 'Reading file...',
         delay: 100
     })
+    const fullFilePath = getRelativeFilePath(fileName)
     const fileRequest = new GetFileRequest()
     fileRequest.gameServerId = gameServerId.value
-    fileRequest.path = filePath
+    fileRequest.path = fullFilePath
     try {
         const response = await fetch('/api/file/get', {
             method: 'POST',
@@ -405,16 +417,18 @@ async function readFileOctetStream(filePath: string) {
             body: fileRequest.toJsonString()
         })
         const data = await response.text()
-        const fileNameSplit = filePath.split(pathSeparator.value)
-        if (fileNameSplit.length <= 0) {
-            return
-        }
-        editingFilename.value = fileNameSplit[fileNameSplit.length - 1]
+        editingFilename.value = fileName
         editingFileContent.value = data
-        editingFilePath.value = filePath
+        editingFilePath.value = fullFilePath
         editorModal.value = true
     } catch (e) {
         console.error(e)
+        $q.notify({
+            caption: `Error reading file ${fileName}.`,
+            type: 'xylona-error',
+            position: 'top',
+            timeout: 5000,
+        })
     } finally {
         $q.loading.hide()
     }
@@ -445,9 +459,7 @@ function getRelativeFilePath(...filePaths: string[]): string {
     if (path.value === '') {
         return filePaths.join(pathSeparator.value)
     }
-    const a = path.value + pathSeparator.value + filePaths.join(pathSeparator.value)
-    console.log(a)
-    return a
+    return path.value + pathSeparator.value + filePaths.join(pathSeparator.value)
 }
 
 </script>

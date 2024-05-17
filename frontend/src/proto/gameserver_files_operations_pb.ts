@@ -54,9 +54,9 @@ export class GameServerFilesDeleteRequest extends Message<GameServerFilesDeleteR
   gameServerId = "";
 
   /**
-   * @generated from field: repeated string file_paths = 2;
+   * @generated from field: repeated string full_file_paths = 2;
    */
-  filePaths: string[] = [];
+  fullFilePaths: string[] = [];
 
   constructor(data?: PartialMessage<GameServerFilesDeleteRequest>) {
     super();
@@ -67,7 +67,7 @@ export class GameServerFilesDeleteRequest extends Message<GameServerFilesDeleteR
   static readonly typeName = "xylona.GameServerFilesDeleteRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 2, name: "full_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesDeleteRequest {
@@ -92,9 +92,9 @@ export class GameServerFilesDeleteRequest extends Message<GameServerFilesDeleteR
  */
 export class GameServerFilesDeleteResponse extends Message<GameServerFilesDeleteResponse> {
   /**
-   * @generated from field: repeated string file_paths = 1;
+   * @generated from field: repeated string full_file_paths = 1;
    */
-  filePaths: string[] = [];
+  fullFilePaths: string[] = [];
 
   constructor(data?: PartialMessage<GameServerFilesDeleteResponse>) {
     super();
@@ -104,7 +104,7 @@ export class GameServerFilesDeleteResponse extends Message<GameServerFilesDelete
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "xylona.GameServerFilesDeleteResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 1, name: "full_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesDeleteResponse {
@@ -134,24 +134,19 @@ export class GameServerFilesCompressionRequest extends Message<GameServerFilesCo
   gameServerId = "";
 
   /**
-   * @generated from field: repeated string file_paths = 2;
+   * @generated from field: repeated string full_file_paths = 2;
    */
-  filePaths: string[] = [];
+  fullFilePaths: string[] = [];
 
   /**
-   * @generated from field: string file_name = 3;
+   * @generated from field: string full_destination_file_path = 3;
    */
-  fileName = "";
+  fullDestinationFilePath = "";
 
   /**
    * @generated from field: xylona.GameServerFilesCompressionType compression_type = 4;
    */
   compressionType = GameServerFilesCompressionType.ZIP;
-
-  /**
-   * @generated from field: string source_path = 5;
-   */
-  sourcePath = "";
 
   constructor(data?: PartialMessage<GameServerFilesCompressionRequest>) {
     super();
@@ -162,10 +157,9 @@ export class GameServerFilesCompressionRequest extends Message<GameServerFilesCo
   static readonly typeName = "xylona.GameServerFilesCompressionRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
-    { no: 3, name: "file_name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "full_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 3, name: "full_destination_file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "compression_type", kind: "enum", T: proto3.getEnumType(GameServerFilesCompressionType) },
-    { no: 5, name: "source_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesCompressionRequest {
@@ -190,9 +184,9 @@ export class GameServerFilesCompressionRequest extends Message<GameServerFilesCo
  */
 export class GameServerFilesCompressionResponse extends Message<GameServerFilesCompressionResponse> {
   /**
-   * @generated from field: string file_path = 1;
+   * @generated from field: string full_file_path = 1;
    */
-  filePath = "";
+  fullFilePath = "";
 
   constructor(data?: PartialMessage<GameServerFilesCompressionResponse>) {
     super();
@@ -202,7 +196,7 @@ export class GameServerFilesCompressionResponse extends Message<GameServerFilesC
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "xylona.GameServerFilesCompressionResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 1, name: "full_file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesCompressionResponse {
@@ -232,14 +226,14 @@ export class GameServerFilesDecompressionRequest extends Message<GameServerFiles
   gameServerId = "";
 
   /**
-   * @generated from field: string file_path = 2;
+   * @generated from field: string full_file_path = 2;
    */
-  filePath = "";
+  fullFilePath = "";
 
   /**
-   * @generated from field: string destination_path = 3;
+   * @generated from field: string destination_base_path = 3;
    */
-  destinationPath = "";
+  destinationBasePath = "";
 
   constructor(data?: PartialMessage<GameServerFilesDecompressionRequest>) {
     super();
@@ -250,8 +244,8 @@ export class GameServerFilesDecompressionRequest extends Message<GameServerFiles
   static readonly typeName = "xylona.GameServerFilesDecompressionRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "destination_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "full_file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "destination_base_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesDecompressionRequest {
@@ -276,9 +270,9 @@ export class GameServerFilesDecompressionRequest extends Message<GameServerFiles
  */
 export class GameServerFilesDecompressionResponse extends Message<GameServerFilesDecompressionResponse> {
   /**
-   * @generated from field: repeated string file_paths = 1;
+   * @generated from field: repeated string full_file_paths = 1;
    */
-  filePaths: string[] = [];
+  fullFilePaths: string[] = [];
 
   constructor(data?: PartialMessage<GameServerFilesDecompressionResponse>) {
     super();
@@ -288,7 +282,7 @@ export class GameServerFilesDecompressionResponse extends Message<GameServerFile
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "xylona.GameServerFilesDecompressionResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 1, name: "full_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesDecompressionResponse {
@@ -325,9 +319,9 @@ export class GameServersFileDownloadFromURLRequest extends Message<GameServersFi
   /**
    * The path to save the file to (Not including the file name)
    *
-   * @generated from field: string destination_path = 3;
+   * @generated from field: string destination_base_path = 3;
    */
-  destinationPath = "";
+  destinationBasePath = "";
 
   constructor(data?: PartialMessage<GameServersFileDownloadFromURLRequest>) {
     super();
@@ -339,7 +333,7 @@ export class GameServersFileDownloadFromURLRequest extends Message<GameServersFi
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "destination_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "destination_base_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServersFileDownloadFromURLRequest {
@@ -498,14 +492,14 @@ export class GameServerFilesMoveRequest extends Message<GameServerFilesMoveReque
   gameServerId = "";
 
   /**
-   * @generated from field: repeated string file_paths = 2;
+   * @generated from field: repeated string full_file_paths = 2;
    */
-  filePaths: string[] = [];
+  fullFilePaths: string[] = [];
 
   /**
-   * @generated from field: string destination = 3;
+   * @generated from field: string destination_base_path = 3;
    */
-  destination = "";
+  destinationBasePath = "";
 
   constructor(data?: PartialMessage<GameServerFilesMoveRequest>) {
     super();
@@ -516,8 +510,8 @@ export class GameServerFilesMoveRequest extends Message<GameServerFilesMoveReque
   static readonly typeName = "xylona.GameServerFilesMoveRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
-    { no: 3, name: "destination", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "full_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 3, name: "destination_base_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesMoveRequest {
@@ -542,9 +536,9 @@ export class GameServerFilesMoveRequest extends Message<GameServerFilesMoveReque
  */
 export class GameServerFilesMoveResponse extends Message<GameServerFilesMoveResponse> {
   /**
-   * @generated from field: repeated string file_paths = 1;
+   * @generated from field: repeated string full_file_paths = 1;
    */
-  filePaths: string[] = [];
+  fullFilePaths: string[] = [];
 
   constructor(data?: PartialMessage<GameServerFilesMoveResponse>) {
     super();
@@ -554,7 +548,7 @@ export class GameServerFilesMoveResponse extends Message<GameServerFilesMoveResp
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "xylona.GameServerFilesMoveResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 1, name: "full_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFilesMoveResponse {
@@ -584,9 +578,9 @@ export class GameServersFileEditRequest extends Message<GameServersFileEditReque
   gameServerId = "";
 
   /**
-   * @generated from field: string file_path = 2;
+   * @generated from field: string full_file_path = 2;
    */
-  filePath = "";
+  fullFilePath = "";
 
   /**
    * @generated from field: string content = 3;
@@ -602,7 +596,7 @@ export class GameServersFileEditRequest extends Message<GameServersFileEditReque
   static readonly typeName = "xylona.GameServersFileEditRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "full_file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "content", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 

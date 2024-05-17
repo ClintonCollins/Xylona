@@ -230,18 +230,15 @@ func (inst *Instance) DownloadFileFromURL(ctx context.Context, gameServer *model
 	return "", nil
 }
 
-func (inst *Instance) ArchiveFiles(ctx context.Context, gameServer *models.GameServer, archiveName string, files []string,
-	compression xylona.GameServerFilesCompressionType, sourcePath string,
+func (inst *Instance) ArchiveFiles(ctx context.Context, gameServer *models.GameServer, fullArchivePath string, fullFilePaths []string,
+	compression xylona.GameServerFilesCompressionType,
 	xylonaFileArchiveProgressChan chan xylona.GameServerFilesArchiveProgress,
 ) (xylona.GameServerFilesArchiveProgress, error) {
 
-	archiveName = strings.TrimPrefix(archiveName, "/")
-	sourcePath = strings.TrimPrefix(sourcePath, "/")
-
-	archiveFullPath := filepath.Join(gameServer.Directory, sourcePath, archiveName)
+	archiveFullPath := filepath.Join(gameServer.Directory, fullArchivePath)
 
 	pathFilesMap := make(map[string]string)
-	for _, f := range files {
+	for _, f := range fullFilePaths {
 		absPath, errAbsPath := filepath.Abs(filepath.Join(gameServer.Directory, f))
 		if errAbsPath != nil {
 			log.Error().Err(errAbsPath).Msg("Failed to get absolute path")
@@ -276,12 +273,14 @@ func createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes, byt
 	}
 }
 
-func attemptToSendOnXylonaProgressChan(ctx context.Context,
+func (inst *Instance) attemptToSendOnXylonaProgressChan(ctx context.Context,
 	xylonaProgress xylona.GameServerFilesArchiveProgress, progressChan chan xylona.GameServerFilesArchiveProgress,
 ) {
 	timeout := time.After(time.Millisecond * 50)
 	select {
 	case <-ctx.Done():
+		return
+	case <-inst.ctx.Done():
 		return
 	case progressChan <- xylonaProgress:
 	case <-timeout:
@@ -348,7 +347,9 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 
 	go func() {
 		ticker := time.NewTicker(time.Millisecond * 250)
+		debugTicker := time.NewTicker(time.Second * 3)
 		defer ticker.Stop()
+		defer debugTicker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -357,15 +358,24 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 				return
 			case bytesRead := <-readBytesChan:
 				bytesReadSoFar += bytesRead
+			case <-debugTicker.C:
+				log.Debug().Fields(map[string]interface{}{
+					"Total Files":      totalFiles,
+					"Files Compressed": filesCompressedSoFar,
+					"Total Bytes":      totalBytes,
+					"Bytes Read":       bytesReadSoFar,
+					"Current File":     currentFile,
+					"Archive Path":     archiveFullPath,
+				}).Msg("Archive in progress")
 			case <-ticker.C:
 				xylonaProgress := createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes,
 					bytesReadSoFar, currentFile)
-				attemptToSendOnXylonaProgressChan(ctx, xylonaProgress, xylonaFileArchiveProgressChan)
+				inst.attemptToSendOnXylonaProgressChan(ctx, xylonaProgress, xylonaFileArchiveProgressChan)
 			case <-fileResultChan:
 				filesCompressedSoFar += 1
 				xylonaProgress := createXylonaArchiveResult(totalFiles, filesCompressedSoFar, totalBytes,
 					bytesReadSoFar, currentFile)
-				attemptToSendOnXylonaProgressChan(ctx, xylonaProgress, xylonaFileArchiveProgressChan)
+				inst.attemptToSendOnXylonaProgressChan(ctx, xylonaProgress, xylonaFileArchiveProgressChan)
 				if filesCompressedSoFar == totalFiles {
 					return
 				}
@@ -399,8 +409,11 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 				}
 				select {
 				case <-ctx.Done():
+					close(archiveJobs)
 					return
 				case <-inst.ctx.Done():
+					close(archiveJobs)
+					return
 				case fileResultChan <- archiveJobResult{file: f, err: result}:
 				}
 			}
@@ -435,13 +448,11 @@ func attachReaderToArchiveFile(f archiver.File, originalOpen func() (io.ReadClos
 	return f
 }
 
-func (inst *Instance) ArchiveAndCompressFiles(ctx context.Context, gameServer *models.GameServer, archiveName string, files []string, compression xylona.GameServerFilesCompressionType, sourcePath string) (string, error) {
-	archiveName = strings.TrimPrefix(archiveName, sourcePath)
-	log.Debug().Str("Archive Name", archiveName).Str("Source Path", sourcePath).Msg("Archive and compress files")
-	archivePath := filepath.Join(gameServer.Directory, sourcePath, archiveName)
+func (inst *Instance) ArchiveAndCompressFiles(ctx context.Context, gameServer *models.GameServer, destinationArchivePath string, fullFilePaths []string, compression xylona.GameServerFilesCompressionType) (string, error) {
+	archivePath := filepath.Join(gameServer.Directory, destinationArchivePath)
 
 	pathFilesMap := make(map[string]string)
-	for _, f := range files {
+	for _, f := range fullFilePaths {
 		absPath, errAbsPath := filepath.Abs(filepath.Join(gameServer.Directory, f))
 		if errAbsPath != nil {
 			log.Error().Err(errAbsPath).Msg("Failed to get absolute path")
@@ -570,7 +581,6 @@ func (inst *Instance) ExtractArchive(ctx context.Context, gameServer *models.Gam
 			defer func() { _ = archivedFile.Close() }()
 
 			filePath := filepath.Join(destinationFullPath, f.NameInArchive)
-			log.Debug().Str("File Path", filePath).Msg("Extracting file")
 			// If the file is a directory, we just need to create it. If it's a file, we need to create it and copy the contents.
 			if f.IsDir() {
 				// Create the directory.
@@ -580,6 +590,13 @@ func (inst *Instance) ExtractArchive(ctx context.Context, gameServer *models.Gam
 					return errMkdirAll
 				}
 				return nil
+			}
+			// Make sure the directory for the file exists, before creating the file.
+			basePath := filepath.Dir(filePath)
+			errMkdirAll := os.MkdirAll(basePath, 0700)
+			if errMkdirAll != nil {
+				log.Error().Str("Game Server ID", gameServer.ID).Err(errMkdirAll).Msg("Failed to create directory")
+				return errMkdirAll
 			}
 
 			newFile, errCreate := os.Create(filePath)

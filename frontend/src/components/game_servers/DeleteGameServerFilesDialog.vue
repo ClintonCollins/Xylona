@@ -83,7 +83,7 @@ async function deleteFiles() {
   loading.value = true
   const request = new GameServerFilesDeleteRequest()
   request.gameServerId = props.gameServerID
-  request.filePaths = props.filesToDelete.map((file) => {
+  request.fullFilePaths = props.filesToDelete.map((file) => {
     if (props.currentPath === '') {
       return file.name
     }
@@ -91,8 +91,8 @@ async function deleteFiles() {
   })
   try {
     const response: GameServerFilesDeleteResponse = await GetXylonaClient().gameServerFilesDelete(request)
-    void deleteSuccess(response.filePaths)
-    emit('filesDeleted', response.filePaths)
+    void deleteSuccess(response.fullFilePaths)
+    emit('filesDeleted', response.fullFilePaths)
   } catch (e) {
     console.error(e)
     void deleteFailure(e)
@@ -105,21 +105,19 @@ async function deleteFiles() {
 
 async function deleteSuccess(deletedFiles: string[]) {
   $q.notify({
-    message: `Deleted ${deletedFiles.length} files/directories successfully.`,
-    progress: true,
-    color: 'positive',
-    position: 'top-right',
-    timeout: 2000
+    caption: `Deleted ${deletedFiles.length} files/directories successfully.`,
+    type: 'xylona-success',
+    position: 'top',
+    timeout: 3000
   })
 }
 
 async function deleteFailure(err: Error) {
   $q.notify({
     message: 'Failed to delete files/directories.\n' + err.message,
-    progress: true,
-    color: 'negative',
-    position: 'top-right',
-    timeout: 2000
+    type: 'xylona-error',
+    position: 'top',
+    timeout: 3000
   })
 }
 

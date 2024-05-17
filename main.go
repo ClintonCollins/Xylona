@@ -143,7 +143,7 @@ func main() {
 		log.Fatal().Err(errSupervisor).Msg("Failed to create supervisor instance")
 	}
 	dbInst := db.NewConnection(ctx, "./data.sqlite")
-	actionsInst := actions.NewInstance(context.Background(), dbInst, superInst)
+	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
 
 	setDetectedIPs(dbInst)
 
@@ -212,7 +212,7 @@ func main() {
 			http.Error(w, "Failed to decode file request", http.StatusBadRequest)
 			return
 		}
-		log.Debug().Str("gameServerId", fileRequest.GameServerId).Str("path", fileRequest.Path).Msg("Get file request")
+		// log.Debug().Str("gameServerId", fileRequest.GameServerId).Str("path", fileRequest.Path).Msg("Get file request")
 		gameServer, errGetGameServer := dbInst.GetGameServerByID(fileRequest.GameServerId)
 		if errGetGameServer != nil {
 			if errors.Is(errGetGameServer, sql.ErrNoRows) {

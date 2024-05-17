@@ -128,13 +128,12 @@ const emit = defineEmits(['submit'])
 async function archiveFiles() {
     archiveSubmitting.value = true
     abortedArchive.value = false
-    console.log(props.selectedFiles)
+
     const request = new GameServerFilesCompressionRequest()
     request.gameServerId = props.gameServerId
-    request.fileName = archiveName.value
+    request.fullDestinationFilePath = getRelativeFilePath(archiveName.value)
     request.compressionType = archiveType.value
-    request.sourcePath = props.path
-    request.filePaths = props.selectedFiles.map((file: xylonaFile) => {
+    request.fullFilePaths = props.selectedFiles.map((file: xylonaFile) => {
         return getRelativeFilePath(file.name)
     })
 
@@ -149,11 +148,9 @@ async function archiveFiles() {
         submitPercent.value = Math.round(submitProgress.value * 100)
     }, (err?: ConnectError) => {
         setTimeout(() => {
+            resetArchiveStats()
             archiveSubmitting.value = false
             showDialog.value = false
-            archiveType.value = DEFAULT_ARCHIVE_TYPE
-            archiveSuffix.value = DEFAULT_ARCHIVE_SUFFIX
-            archiveName.value = ''
             emit('submit')
         }, 100)
         if (err) {
@@ -161,7 +158,7 @@ async function archiveFiles() {
             $q.notify({
                 caption: `Error archiving files. ${err.message}`,
                 type: 'xylona-error',
-                position: 'top-right',
+                position: 'top',
                 timeout: 3000
             })
             return
@@ -170,7 +167,7 @@ async function archiveFiles() {
             $q.notify({
                 caption: `Files archiving aborted.`,
                 type: 'xylona-alert',
-                position: 'top-right',
+                position: 'top',
                 timeout: 3000
             })
             return
@@ -178,10 +175,23 @@ async function archiveFiles() {
         $q.notify({
             caption: `Files archived successfully.`,
             type: 'xylona-success',
-            position: 'top-right',
+            position: 'top',
             timeout: 3000
         })
     }, {signal: abortController.value.signal})
+}
+
+function resetArchiveStats() {
+    archiveType.value = DEFAULT_ARCHIVE_TYPE
+    archiveSuffix.value = DEFAULT_ARCHIVE_SUFFIX
+    archiveName.value = ''
+    submitProgress.value = 0
+    submitPercent.value = 0
+    archiveCurrentBytes.value = 0
+    archiveTotalBytes.value = 0
+    currentArchiveFile.value = ''
+    filesArchived.value = 0
+    totalFiles.value = 0
 }
 
 function abortArchive() {
