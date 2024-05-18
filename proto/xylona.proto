@@ -68,7 +68,7 @@ message GameServerFilesExtractProgress {
   string current_file = 5;
 }
 
-message GetFileRequest {
+message DownloadFileRequest {
   string game_server_id = 1;
   string path = 2;
 }

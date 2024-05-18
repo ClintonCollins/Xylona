@@ -261,9 +261,9 @@ export class GameServerFilesExtractProgress extends Message<GameServerFilesExtra
 }
 
 /**
- * @generated from message xylona.GetFileRequest
+ * @generated from message xylona.DownloadFileRequest
  */
-export class GetFileRequest extends Message<GetFileRequest> {
+export class DownloadFileRequest extends Message<DownloadFileRequest> {
   /**
    * @generated from field: string game_server_id = 1;
    */
@@ -274,32 +274,32 @@ export class GetFileRequest extends Message<GetFileRequest> {
    */
   path = "";
 
-  constructor(data?: PartialMessage<GetFileRequest>) {
+  constructor(data?: PartialMessage<DownloadFileRequest>) {
     super();
     proto3.util.initPartial(data, this);
   }
 
   static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "xylona.GetFileRequest";
+  static readonly typeName = "xylona.DownloadFileRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetFileRequest {
-    return new GetFileRequest().fromBinary(bytes, options);
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DownloadFileRequest {
+    return new DownloadFileRequest().fromBinary(bytes, options);
   }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetFileRequest {
-    return new GetFileRequest().fromJson(jsonValue, options);
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DownloadFileRequest {
+    return new DownloadFileRequest().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetFileRequest {
-    return new GetFileRequest().fromJsonString(jsonString, options);
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DownloadFileRequest {
+    return new DownloadFileRequest().fromJsonString(jsonString, options);
   }
 
-  static equals(a: GetFileRequest | PlainMessage<GetFileRequest> | undefined, b: GetFileRequest | PlainMessage<GetFileRequest> | undefined): boolean {
-    return proto3.util.equals(GetFileRequest, a, b);
+  static equals(a: DownloadFileRequest | PlainMessage<DownloadFileRequest> | undefined, b: DownloadFileRequest | PlainMessage<DownloadFileRequest> | undefined): boolean {
+    return proto3.util.equals(DownloadFileRequest, a, b);
   }
 }
 

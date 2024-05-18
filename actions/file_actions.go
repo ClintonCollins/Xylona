@@ -3,8 +3,10 @@ package actions
 import (
 	"compress/gzip"
 	"context"
+	"database/sql"
 	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -16,10 +18,15 @@ import (
 	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archiver/v4"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
+)
+
+const (
+	MaxRequestBodySize = 1024 * 1024 * 1 // 1 MB
 )
 
 type progressWriter struct {
@@ -77,6 +84,19 @@ func (pr *progressReader) Read(p []byte) (n int, err error) {
 type archiveJobResult struct {
 	file archiver.File
 	err  error
+}
+
+type fileExtractor struct {
+	gameServer              *models.GameServer
+	currentFilePath         string
+	destinationPath         string
+	totalFiles              int64
+	filesExtractedSoFar     int64
+	totalBytes              int64
+	bytesExtractedSoFar     int64
+	extractedFilePathsSoFar []string
+	reportProgress          bool
+	progressChan            chan xylona.GameServerFilesExtractProgress
 }
 
 func (inst *Instance) DeleteFiles(ctx context.Context, gameServer *models.GameServer, files []string) ([]string, error) {
@@ -523,6 +543,191 @@ func (inst *Instance) handleArchiveAndCompression(ctx context.Context, archivePa
 	return archiveFullPath, nil
 }
 
+func (inst *Instance) ExtractFiles(ctx context.Context, gameServer *models.GameServer, fullArchivePath string, destinationPath string,
+	xylonaFileExtractProgressChan chan xylona.GameServerFilesExtractProgress,
+) (xylona.GameServerFilesExtractProgress, error) {
+	archiveFullPath := filepath.Join(gameServer.Directory, fullArchivePath)
+	fullDestinationPath := filepath.Join(gameServer.Directory, destinationPath)
+	archiveFS, errFS := archiver.FileSystem(ctx, archiveFullPath)
+	if errFS != nil {
+		log.Error().Err(errFS).Msg("Failed to get file system")
+		return xylona.GameServerFilesExtractProgress{}, errFS
+	}
+
+	filesInArchive := make([]string, 0)
+	totalFiles := int64(0)
+	totalBytes := int64(0)
+
+	errWalk := fs.WalkDir(archiveFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, errStat := d.Info()
+		if errStat != nil {
+			return errStat
+		}
+		totalFiles++
+		totalBytes += info.Size()
+		filesInArchive = append(filesInArchive, path)
+		return nil
+	})
+	if errWalk != nil {
+		log.Error().Err(errWalk).Msg("Failed to walk directory")
+		return xylona.GameServerFilesExtractProgress{}, errWalk
+	}
+
+	archiveFile, errOpen := os.Open(archiveFullPath)
+	if errOpen != nil {
+		log.Error().Err(errOpen).Msg("Failed to open archive")
+		return xylona.GameServerFilesExtractProgress{}, errOpen
+	}
+	defer func() { _ = archiveFile.Close() }()
+
+	format, archiveStream, errIdentify := archiver.Identify(archiveFullPath, archiveFile)
+	if errIdentify != nil {
+		log.Error().Err(errIdentify).Msg("Failed to identify archive")
+		return xylona.GameServerFilesExtractProgress{}, errIdentify
+	}
+
+	var uncompressedArchiveExtractor archiver.Extractor
+	compressedArchive, compressedArchiveOk := format.(archiver.CompressedArchive)
+	if !compressedArchiveOk {
+		a, ok := format.(archiver.Extractor)
+		if !ok {
+			log.Error().Msg("Failed to get archive from identify")
+			return xylona.GameServerFilesExtractProgress{}, errors.New("unable to identify archive type")
+		}
+		uncompressedArchiveExtractor = a
+	}
+
+	fx := &fileExtractor{
+		gameServer:              gameServer,
+		currentFilePath:         "",
+		destinationPath:         fullDestinationPath,
+		totalFiles:              totalFiles,
+		filesExtractedSoFar:     0,
+		totalBytes:              totalBytes,
+		bytesExtractedSoFar:     0,
+		extractedFilePathsSoFar: nil,
+		reportProgress:          true,
+		progressChan:            xylonaFileExtractProgressChan,
+	}
+
+	// Handle initial status.
+	firstFile := ""
+	if len(filesInArchive) > 0 {
+		firstFile = filesInArchive[0]
+	}
+	initialProgress := xylona.GameServerFilesExtractProgress{
+		TotalFiles:     totalFiles,
+		FilesExtracted: 0,
+		TotalBytes:     totalBytes,
+		BytesExtracted: 0,
+		CurrentFile:    firstFile,
+	}
+	timeout := time.After(time.Millisecond * 50)
+	select {
+	case <-ctx.Done():
+		return xylona.GameServerFilesExtractProgress{}, ctx.Err()
+	case <-inst.ctx.Done():
+		return xylona.GameServerFilesExtractProgress{}, ctx.Err()
+	case <-timeout:
+		return xylona.GameServerFilesExtractProgress{}, errors.New("timeout")
+	case xylonaFileExtractProgressChan <- initialProgress:
+	}
+	// end initial status
+
+	if compressedArchiveOk {
+		errExtract := compressedArchive.Extract(ctx, archiveStream, nil, fx.extractFileHandler)
+		if errExtract != nil {
+			log.Error().Err(errExtract).Msg("Failed to extract archive")
+			return xylona.GameServerFilesExtractProgress{}, errExtract
+		}
+	} else {
+		errExtract := uncompressedArchiveExtractor.Extract(ctx, archiveStream, nil, fx.extractFileHandler)
+		if errExtract != nil {
+			log.Error().Err(errExtract).Msg("Failed to extract archive")
+			return xylona.GameServerFilesExtractProgress{}, errExtract
+		}
+	}
+	return xylona.GameServerFilesExtractProgress{
+		TotalFiles:     fx.totalFiles,
+		FilesExtracted: fx.filesExtractedSoFar,
+		TotalBytes:     fx.totalBytes,
+		BytesExtracted: fx.bytesExtractedSoFar,
+		CurrentFile:    fx.currentFilePath,
+	}, nil
+}
+
+func (inst *Instance) StreamFileToUser(w http.ResponseWriter, r *http.Request) {
+	fileRequest := xylona.DownloadFileRequest{}
+	bodyBytes, errReadBody := io.ReadAll(io.LimitReader(r.Body, MaxRequestBodySize))
+	if errReadBody != nil {
+		log.Error().Err(errReadBody).Msg("Failed to read file request body")
+		http.Error(w, "Failed to read file request body", http.StatusBadRequest)
+		return
+	}
+	errDecode := protojson.Unmarshal(bodyBytes, &fileRequest)
+	if errDecode != nil {
+		log.Error().Err(errDecode).Msg("Failed to decode file request")
+		http.Error(w, "Failed to decode file request", http.StatusBadRequest)
+		return
+	}
+
+	gameServer, errGetGameServer := inst.db.GetGameServerByID(fileRequest.GameServerId)
+	if errGetGameServer != nil {
+		if errors.Is(errGetGameServer, sql.ErrNoRows) {
+			log.Error().Err(errGetGameServer).Msg("Game server not found")
+			http.Error(w, "Game server not found", http.StatusNotFound)
+			return
+		}
+		log.Error().Err(errGetGameServer).Msg("Failed to get game server")
+		http.Error(w, "Failed to get game server", http.StatusInternalServerError)
+		return
+	}
+	errGetFile := inst.GetGameServerFile(gameServer, fileRequest.Path, w, true, false)
+	if errGetFile != nil {
+		log.Error().Err(errGetFile).Msg("Failed to get file")
+		http.Error(w, "Failed to get file", http.StatusInternalServerError)
+		return
+	}
+	return
+}
+
+func (inst *Instance) UploadFileToUser(w http.ResponseWriter, r *http.Request) {
+	errParseForm := r.ParseForm()
+	if errParseForm != nil {
+		log.Error().Err(errParseForm).Msg("Failed to parse form")
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+	gameServerID := r.FormValue("gameServerId")
+	filePath := r.FormValue("path")
+
+	gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
+	if errGetGameServer != nil {
+		if errors.Is(errGetGameServer, sql.ErrNoRows) {
+			log.Error().Err(errGetGameServer).Msg("Game server not found")
+			http.Error(w, "Game server not found", http.StatusNotFound)
+			return
+		}
+		log.Error().Err(errGetGameServer).Msg("Failed to get game server")
+		http.Error(w, "Failed to get game server", http.StatusInternalServerError)
+		return
+	}
+
+	errGetFile := inst.GetGameServerFile(gameServer, filePath, w, true, true)
+	if errGetFile != nil {
+		log.Error().Err(errGetFile).Msg("Failed to get file")
+		http.Error(w, "Failed to get file", http.StatusInternalServerError)
+		return
+	}
+	return
+}
+
 func (inst *Instance) ExtractArchive(ctx context.Context, gameServer *models.GameServer, archivePath string, destinationDirectoryPath string) ([]string, error) {
 	archivePath = strings.TrimPrefix(archivePath, "/")
 	destinationDirectoryPath = strings.TrimPrefix(destinationDirectoryPath, "/")
@@ -561,78 +766,113 @@ func (inst *Instance) ExtractArchive(ctx context.Context, gameServer *models.Gam
 		uncompressedArchiveExtractor = a
 	}
 
-	files := make([]os.FileInfo, 0)
-	extractHandler := func(ctx context.Context, f archiver.File) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			isLocal := filepath.IsLocal(f.NameInArchive)
-			if !isLocal {
-				log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-				return ErrInvalidPath
-			}
-
-			archivedFile, errOpenArchivedFile := f.Open()
-			if errOpenArchivedFile != nil {
-				log.Error().Str("Game Server ID", gameServer.ID).Err(errOpenArchivedFile).Msg("Failed to open archived file")
-				return errOpenArchivedFile
-			}
-			defer func() { _ = archivedFile.Close() }()
-
-			filePath := filepath.Join(destinationFullPath, f.NameInArchive)
-			// If the file is a directory, we just need to create it. If it's a file, we need to create it and copy the contents.
-			if f.IsDir() {
-				// Create the directory.
-				errMkdirAll := os.MkdirAll(filePath, 0700)
-				if errMkdirAll != nil {
-					log.Error().Str("Game Server ID", gameServer.ID).Err(errMkdirAll).Msg("Failed to create directory")
-					return errMkdirAll
-				}
-				return nil
-			}
-			// Make sure the directory for the file exists, before creating the file.
-			basePath := filepath.Dir(filePath)
-			errMkdirAll := os.MkdirAll(basePath, 0700)
-			if errMkdirAll != nil {
-				log.Error().Str("Game Server ID", gameServer.ID).Err(errMkdirAll).Msg("Failed to create directory")
-				return errMkdirAll
-			}
-
-			newFile, errCreate := os.Create(filePath)
-			if errCreate != nil {
-				log.Error().Str("Game Server ID", gameServer.ID).Err(errCreate).Msg("Failed to create file")
-				return errCreate
-			}
-			defer func() { _ = newFile.Close() }()
-
-			_, errCopy := io.Copy(newFile, archivedFile)
-			if errCopy != nil {
-				log.Error().Str("Game Server ID", gameServer.ID).Err(errCopy).Msg("Failed to copy file")
-				return errCopy
-			}
-			files = append(files, f)
-			return nil
-		}
+	fx := &fileExtractor{
+		gameServer:              gameServer,
+		currentFilePath:         "",
+		destinationPath:         destinationFullPath,
+		totalFiles:              0,
+		filesExtractedSoFar:     0,
+		totalBytes:              0,
+		bytesExtractedSoFar:     0,
+		extractedFilePathsSoFar: nil,
+		reportProgress:          false,
 	}
 
 	if compressedArchiveOk {
-		errExtract := compressedArchive.Extract(ctx, archiveStream, nil, extractHandler)
+		errExtract := compressedArchive.Extract(ctx, archiveStream, nil, fx.extractFileHandler)
 		if errExtract != nil {
 			log.Error().Err(errExtract).Msg("Failed to extract archive")
 			return nil, errExtract
 		}
 	} else {
-		errExtract := uncompressedArchiveExtractor.Extract(ctx, archiveStream, nil, extractHandler)
+		errExtract := uncompressedArchiveExtractor.Extract(ctx, archiveStream, nil, fx.extractFileHandler)
 		if errExtract != nil {
 			log.Error().Err(errExtract).Msg("Failed to extract archive")
 			return nil, errExtract
 		}
 	}
 
-	extractedFiles := make([]string, 0, len(files))
-	for _, f := range files {
-		extractedFiles = append(extractedFiles, f.Name())
+	extractedFiles := make([]string, 0, len(fx.extractedFilePathsSoFar))
+	for _, f := range fx.extractedFilePathsSoFar {
+		extractedFiles = append(extractedFiles, f)
 	}
 	return extractedFiles, nil
+}
+
+func (fx *fileExtractor) extractFileHandler(ctx context.Context, f archiver.File) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		isLocal := filepath.IsLocal(f.NameInArchive)
+		if !isLocal {
+			log.Error().Str("Game Server ID", fx.gameServer.ID).Msg("Invalid path")
+			return ErrInvalidPath
+		}
+
+		archivedFile, errOpenArchivedFile := f.Open()
+		if errOpenArchivedFile != nil {
+			log.Error().Str("Game Server ID", fx.gameServer.ID).Err(errOpenArchivedFile).Msg("Failed to open archived file")
+			return errOpenArchivedFile
+		}
+		defer func() { _ = archivedFile.Close() }()
+
+		filePath := filepath.Join(fx.destinationPath, f.NameInArchive)
+		// If the file is a directory, we just need to create it. If it's a file, we need to create it and copy the contents.
+		if f.IsDir() {
+			// Create the directory.
+			errMkdirAll := os.MkdirAll(filePath, 0700)
+			if errMkdirAll != nil {
+				log.Error().Str("Game Server ID", fx.gameServer.ID).Err(errMkdirAll).Msg("Failed to create directory")
+				return errMkdirAll
+			}
+			return nil
+		}
+		// Make sure the directory for the file exists, before creating the file.
+		basePath := filepath.Dir(filePath)
+		errMkdirAll := os.MkdirAll(basePath, 0700)
+		if errMkdirAll != nil {
+			log.Error().Str("Game Server ID", fx.gameServer.ID).Err(errMkdirAll).Msg("Failed to create directory")
+			return errMkdirAll
+		}
+
+		newFile, errCreate := os.Create(filePath)
+		if errCreate != nil {
+			log.Error().Str("Game Server ID", fx.gameServer.ID).Err(errCreate).Msg("Failed to create file")
+			return errCreate
+		}
+		defer func() { _ = newFile.Close() }()
+
+		_, errCopy := io.Copy(newFile, archivedFile)
+		if errCopy != nil {
+			log.Error().Str("Game Server ID", fx.gameServer.ID).Err(errCopy).Msg("Failed to copy file")
+			return errCopy
+		}
+
+		// Update file extractor data.
+		fx.currentFilePath = f.NameInArchive
+		fx.filesExtractedSoFar++
+		fx.bytesExtractedSoFar += f.Size()
+		fx.extractedFilePathsSoFar = append(fx.extractedFilePathsSoFar, f.NameInArchive)
+
+		if fx.reportProgress {
+			progress := xylona.GameServerFilesExtractProgress{
+				TotalFiles:     fx.totalFiles,
+				FilesExtracted: fx.filesExtractedSoFar,
+				TotalBytes:     fx.totalBytes,
+				BytesExtracted: fx.bytesExtractedSoFar,
+				CurrentFile:    f.NameInArchive,
+			}
+			timeout := time.After(time.Millisecond * 50)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-timeout:
+				log.Warn().Msg("Failed to send progress")
+				return nil
+			case fx.progressChan <- progress:
+			}
+		}
+		return nil
+	}
 }

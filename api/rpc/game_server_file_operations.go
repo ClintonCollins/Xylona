@@ -60,8 +60,39 @@ func (xs XylonaService) GameServerFilesArchive(ctx context.Context, request *con
 }
 
 func (xs XylonaService) GameServerFilesExtract(ctx context.Context, request *connect_go.Request[xylona.GameServerFilesDecompressionRequest], c *connect_go.ServerStream[xylona.GameServerFilesExtractProgress]) error {
-	//TODO implement me
-	panic("implement me")
+	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
+	if errGetGameServer != nil {
+		return nil
+	}
+	resultsChan := make(chan xylona.GameServerFilesExtractProgress)
+	go func() {
+		if recover() != nil {
+			log.Error().Msg("recovered from panic")
+			return
+		}
+		for {
+			select {
+			case <-xs.ctx.Done():
+				return
+			case <-ctx.Done():
+				return
+			case result := <-resultsChan:
+				if c != nil {
+					errSend := c.Send(&result)
+					if errSend != nil {
+						return
+					}
+				}
+			}
+		}
+	}()
+
+	_, errCompress := xs.actionsInst.ExtractFiles(ctx, gameServer, request.Msg.GetFullFilePath(),
+		request.Msg.GetDestinationBasePath(), resultsChan)
+	if errCompress != nil {
+		return connect_go.NewError(connect_go.CodeInternal, errCompress)
+	}
+	return nil
 }
 
 func (xs XylonaService) GameServerFilesCompress(ctx context.Context, request *connect_go.Request[xylona.GameServerFilesCompressionRequest]) (*connect_go.Response[xylona.GameServerFilesCompressionResponse], error) {

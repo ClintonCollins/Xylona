@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/aarondl/opt/omit"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
 	"github.com/gosimple/slug"
 	"github.com/rs/zerolog/log"
@@ -199,7 +200,7 @@ func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path
 	return nil
 }
 
-func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path string, writer io.Writer) error {
+func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path string, writer io.Writer, setHeaders, setAsAttachment bool) error {
 	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
 	if path != "" && !filepath.IsLocal(path) {
 		log.Error().Err(errors.New("invalid path"))
@@ -215,6 +216,33 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path stri
 		}
 		log.Error().Err(errReadFile).Msg("Failed to read file")
 		return errReadFile
+	}
+	defer func() { _ = file.Close() }()
+
+	fileInfo, errFileInfo := file.Stat()
+	if errFileInfo != nil {
+		log.Error().Err(errFileInfo).Msg("Failed to get file info")
+		return errFileInfo
+	}
+
+	if setHeaders {
+		w, ok := writer.(http.ResponseWriter)
+		if !ok {
+			log.Error().Msg("Writer is not an http.ResponseWriter")
+			return errors.New("writer is not an http.ResponseWriter")
+		}
+
+		mimeType, errDetect := mimetype.DetectFile(fullPath)
+		if errDetect != nil {
+			w.Header().Set("Content-Type", "application/octet-stream")
+		} else {
+			w.Header().Set("Content-Type", mimeType.String())
+		}
+
+		w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
+		if setAsAttachment {
+			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileInfo.Name()))
+		}
 	}
 
 	_, errCopy := io.Copy(writer, file)

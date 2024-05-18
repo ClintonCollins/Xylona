@@ -43,6 +43,21 @@ export function StringToColor(str: string): string {
     return 'hsl(' + hue + ', 100%, 50%)'
 }
 
+export function GetRelativeFilePath(referencePathForSeparator: string, ...filePaths: string[]): string {
+    let pathSeparator = '/'
+    if (referencePathForSeparator.indexOf('\\') !== -1) {
+        pathSeparator = '\\'
+    }
+    if (filePaths.length < 1) {
+        return ''
+    }
+    if (filePaths[0] === '') {
+        filePaths.shift()
+    }
+    console.log(filePaths)
+    return filePaths.join(pathSeparator)
+}
+
 export function WindowWidth() {
     const windowWidth = ref(window.innerWidth)
 

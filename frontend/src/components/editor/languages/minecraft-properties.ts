@@ -93,14 +93,14 @@ export default () => {
             root: [
                 // sections
                 [/^\[[^\]]*\]/, 'metatag'],
-
+                [/^.+(?==)/gm, 'keyword'],
                 // keys
-                [/([^\n=]*)(=)(true|false|)([^0-9]*)/, ['key', 'delimiter', 'keyword', 'string']],
+                // [/([^\n=]*)(=)(true|false|)([^0-9]*)/, ['key', 'delimiter', 'keyword', 'string']],
                 // whitespace
                 {include: '@whitespace'},
 
                 // numbers
-                [/\d+/, 'number'],
+                // [/\d+/, 'number'],
 
                 // strings: recover on non-terminated strings
                 [/"([^"\\]|\\.)*$/, 'string.invalid'], // non-teminated string

@@ -78,17 +78,18 @@
     </q-card-section>
     <q-dialog no-shake persistent v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
         <Editor v-model:code-input="editingFileContent" :file-name="editingFilename" :game-server-id="gameServerId"
-        :full-file-path="editingFilePath"></Editor>
+                :full-file-path="editingFilePath"></Editor>
     </q-dialog>
-    <ArchiveFilesDialog @submit="archiveFilesDialogSubmitted" @cancel="archiveFilesDialog = false"
-                        v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"
-                        :path-separator="pathSeparator" :path="path" :selected-files="selectedFiles"
-                        :game-server-id="gameServerId">
-    </ArchiveFilesDialog>
-    <ExtractGameServerFiles @submit="extractArchive" @cancel="extractFilesDialog = false"
-                            v-model:show-dialog="extractFilesDialog" v-model:extract-to-folder="extractToFolder"
-                            :loading="extractSubmitting">
-    </ExtractGameServerFiles>
+    <ArchiveFiles @submit="archiveFilesDialogSubmitted" @cancel="archiveFilesDialog = false"
+                  v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"
+                  :path-separator="pathSeparator" :path="path" :selected-files="selectedFiles"
+                  :game-server-id="gameServerId">
+    </ArchiveFiles>
+    <ExtractFiles @submit="extractFilesDialogSubmitted" @cancel="extractFilesDialog = false"
+                  :game-server-path="gameServer.directory"
+                  v-model:show-dialog="extractFilesDialog" :game-server-id="gameServerId" :path="path"
+                  :full-archive-path="GetRelativeFilePath(gameServer.directory, path, selectedFiles[0]?.name)">
+    </ExtractFiles>
     <DeleteGameServerFilesDialog @files-deleted="deleteFilesSubmitted()" :files-to-delete="selectedFiles"
                                  :current-path="path" :path-separator="pathSeparator"
                                  :game-server-i-d="gameServerId" v-model:show-dialog="deleteFilesDialog">
@@ -99,22 +100,22 @@
 import { Timestamp } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
 import Editor from 'components/Editor.vue'
+import ArchiveFiles from 'components/game_servers/ArchiveFiles.vue'
 import ArchiveFilesDialog from 'components/game_servers/ArchiveFilesDialog.vue'
 import DeleteGameServerFilesDialog from 'components/game_servers/DeleteGameServerFilesDialog.vue'
+import ExtractFiles from 'components/game_servers/ExtractFiles.vue'
 import ExtractGameServerFiles from 'components/game_servers/ExtractGameServerFiles.vue'
 import FileUploaderDrop from 'components/game_servers/FileUploaderDrop.vue'
 import dayjs from 'dayjs'
 import { QMenu, useQuasar } from 'quasar'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
-    GameServerFilesCompressionType,
-    GameServerFilesDecompressionRequest,
-    GameServerFilesDecompressionResponse
+    GameServerFilesCompressionType
 } from 'src/proto/gameserver_files_operations_pb'
 import {
+    DownloadFileRequest,
     File as xylonaFile,
     GameServer,
-    GetFileRequest,
     GetGameServerRequest,
     ListDirectoryFilesRequest,
     ListDirectoryFilesResponse
@@ -122,7 +123,7 @@ import {
 import {
     bytesToSize,
     getColorFromFilenameExtension,
-    getIconFromFilenameExtension,
+    getIconFromFilenameExtension, GetRelativeFilePath,
     GetXylonaClient
 } from 'src/utils/shared'
 import { computed, onMounted, ref, Ref, watch } from 'vue'
@@ -150,20 +151,22 @@ const fileUploaderDialog: Ref<boolean> = ref(false)
 // Archive
 const archiveFilesDialog: Ref<boolean> = ref(false)
 const archiveName: Ref<string> = ref('')
-const archiveType: Ref<GameServerFilesCompressionType> = ref(GameServerFilesCompressionType.ZIP)
-const archiveSubmitting: Ref<boolean> = ref(false)
 
 // Extract
 const extractFilesDialog: Ref<boolean> = ref(false)
-const extractToFolder: Ref<string> = ref('')
-const extractSubmitting: Ref<boolean> = ref(false)
 
 // Delete
 const deleteFilesDialog: Ref<boolean> = ref(false)
 
-const allowedExtractExtensions: string[] = ['.zip', '.zst', '.gz', '.bz2', '.xz']
+const allowedExtractExtensions: string[] = ['.zip', '.zst', '.gz', '.bz2', '.xz', '.7z']
+const allowedFileEditExtensions: string[] = ['.txt', '.cfg', '.json', '.xml', '.yml', '.yaml', '.ini', '.log']
 
 async function archiveFilesDialogSubmitted() {
+    selectedFiles.value = []
+    void listDirectoryFiles(path.value)
+}
+
+async function extractFilesDialogSubmitted() {
     selectedFiles.value = []
     void listDirectoryFiles(path.value)
 }
@@ -221,46 +224,6 @@ const extractButtonEnabled = computed(() => {
     }
     return match
 })
-
-async function extractArchive() {
-    const request = new GameServerFilesDecompressionRequest()
-    request.gameServerId = gameServerId.value
-    request.fullFilePath = getRelativeFilePath(selectedFiles.value[0].name)
-    request.destinationBasePath = getRelativeFilePath(extractToFolder.value)
-    extractSubmitting.value = true
-    try {
-        const response: GameServerFilesDecompressionResponse = await GetXylonaClient().gameServerFilesDecompress(request)
-        $q.notify({
-            caption: `Extracted ${response.fullFilePaths.length} files/directories successfully.`,
-            type: 'xylona-success',
-            position: 'top',
-            timeout: 3000,
-        })
-    } catch (err: unknown) {
-        if (!(err instanceof Error)) {
-            console.error(err)
-            $q.notify({
-                caption: `Error extracting files.`,
-                type: 'xylona-error',
-                position: 'top',
-                timeout: 5000,
-            })
-            return
-        }
-        $q.notify({
-            caption: `Error extracting files. ${err.message}`,
-            type: 'xylona-error',
-            position: 'top',
-            timeout: 5000,
-        })
-    } finally {
-        extractSubmitting.value = false
-        extractFilesDialog.value = false
-        selectedFiles.value = []
-        extractToFolder.value = ''
-        void listDirectoryFiles(path.value)
-    }
-}
 
 function sanitizeSelectedFiles(): xylonaFile[] {
     const sanitizedFiles: xylonaFile[] = []
@@ -342,12 +305,14 @@ async function clickDirectory(directory: xylonaFile) {
 }
 
 async function clickFile(file: xylonaFile) {
-    // If file is too large, don't directly read it.
-    if (file.size > BigInt(1024 * 1024 * 5)) {
-        alert('File is too large to read directly.')
+    // If file is an allowed file type for editing, open the editor.
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.'))
+    if (allowedFileEditExtensions.includes(fileExtension)) {
+        await readFileOctetStream(file.name)
         return
     }
-    await readFileOctetStream(file.name)
+    // If file is not an allowed file type for editing, download the file.
+    await downloadGameServerFile(file.name)
 }
 
 function updatePathFromInput() {
@@ -404,8 +369,8 @@ async function readFileOctetStream(fileName: string) {
         message: 'Reading file...',
         delay: 100
     })
-    const fullFilePath = getRelativeFilePath(fileName)
-    const fileRequest = new GetFileRequest()
+    const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
+    const fileRequest = new DownloadFileRequest()
     fileRequest.gameServerId = gameServerId.value
     fileRequest.path = fullFilePath
     try {
@@ -427,10 +392,44 @@ async function readFileOctetStream(fileName: string) {
             caption: `Error reading file ${fileName}.`,
             type: 'xylona-error',
             position: 'top',
-            timeout: 5000,
+            timeout: 5000
         })
     } finally {
         $q.loading.hide()
+    }
+}
+
+async function downloadGameServerFile(fileName: string) {
+    const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
+    try {
+        const downloadForm = document.createElement('form')
+        downloadForm.method = 'POST'
+        downloadForm.action = '/api/file/download'
+        downloadForm.style.display = 'none'
+
+        const gameServerIDInput = document.createElement('input')
+        gameServerIDInput.name = 'gameServerId'
+        gameServerIDInput.value = gameServerId.value
+        downloadForm.appendChild(gameServerIDInput)
+
+        const filePathInput = document.createElement('input')
+        filePathInput.name = 'path'
+        filePathInput.value = fullFilePath
+        downloadForm.appendChild(filePathInput)
+
+        downloadForm.target = '_blank'
+        document.body.appendChild(downloadForm)
+        downloadForm.submit()
+
+        document.body.removeChild(downloadForm)
+    } catch (e) {
+        console.error(e)
+        $q.notify({
+            caption: `Error reading file ${fileName}.`,
+            type: 'xylona-error',
+            position: 'top',
+            timeout: 5000
+        })
     }
 }
 
@@ -455,12 +454,12 @@ async function getGameServerDetails() {
     }
 }
 
-function getRelativeFilePath(...filePaths: string[]): string {
-    if (path.value === '') {
-        return filePaths.join(pathSeparator.value)
-    }
-    return path.value + pathSeparator.value + filePaths.join(pathSeparator.value)
-}
+// function getRelativeFilePath(...filePaths: string[]): string {
+//     if (path.value === '') {
+//         return filePaths.join(pathSeparator.value)
+//     }
+//     return path.value + pathSeparator.value + filePaths.join(pathSeparator.value)
+// }
 
 </script>
 

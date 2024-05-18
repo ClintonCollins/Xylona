@@ -2,11 +2,9 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,7 +20,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/api/rpc"
@@ -30,7 +27,6 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -42,10 +38,6 @@ type Configuration struct {
 	DBFilePath     string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
 	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
 }
-
-const (
-	MaxRequestBodySize = 1024 * 1024 * 10 // 10 MB
-)
 
 func setupLogger() {
 	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
@@ -198,41 +190,8 @@ func main() {
 		}
 	})
 
-	router.Post("/api/file/get", func(w http.ResponseWriter, r *http.Request) {
-		fileRequest := xylona.GetFileRequest{}
-		bodyBytes, errReadBody := io.ReadAll(io.LimitReader(r.Body, MaxRequestBodySize))
-		if errReadBody != nil {
-			log.Error().Err(errReadBody).Msg("Failed to read file request body")
-			http.Error(w, "Failed to read file request body", http.StatusBadRequest)
-			return
-		}
-		errDecode := protojson.Unmarshal(bodyBytes, &fileRequest)
-		if errDecode != nil {
-			log.Error().Err(errDecode).Msg("Failed to decode file request")
-			http.Error(w, "Failed to decode file request", http.StatusBadRequest)
-			return
-		}
-		// log.Debug().Str("gameServerId", fileRequest.GameServerId).Str("path", fileRequest.Path).Msg("Get file request")
-		gameServer, errGetGameServer := dbInst.GetGameServerByID(fileRequest.GameServerId)
-		if errGetGameServer != nil {
-			if errors.Is(errGetGameServer, sql.ErrNoRows) {
-				log.Error().Err(errGetGameServer).Msg("Game server not found")
-				http.Error(w, "Game server not found", http.StatusNotFound)
-				return
-			}
-			log.Error().Err(errGetGameServer).Msg("Failed to get game server")
-			http.Error(w, "Failed to get game server", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/octet-stream")
-		errGetFile := actionsInst.GetGameServerFile(gameServer, fileRequest.Path, w)
-		if errGetFile != nil {
-			log.Error().Err(errGetFile).Msg("Failed to get file")
-			http.Error(w, "Failed to get file", http.StatusInternalServerError)
-			return
-		}
-	})
-
+	router.Post("/api/file/get", actionsInst.StreamFileToUser)
+	router.Post("/api/file/download", actionsInst.UploadFileToUser)
 	router.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
 
 	// Start the web server
