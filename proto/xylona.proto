@@ -1,11 +1,13 @@
 syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 import "gameserver_files_operations.proto";
+import "games/minecraft.proto";
 
 package xylona;
 option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
 
 service Xylona {
+  // Game Operations
   //  rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
   //  rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
   rpc GetGame (GetGameRequest) returns (GetGameResponse) {}
@@ -14,6 +16,7 @@ service Xylona {
   //  rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
   rpc ListGames (ListGamesRequest) returns (ListGamesResponse) {}
 
+  // General
   rpc Login (LoginRequest) returns (LoginResponse) {}
   rpc Logout (LogoutRequest) returns (LogoutResponse) {}
   rpc CheckUserAuthenticated (CheckUserAuthenticatedRequest) returns (CheckUserAuthenticatedResponse) {}
@@ -24,6 +27,7 @@ service Xylona {
   rpc AddIP (AddIPRequest) returns (AddIPResponse) {}
   rpc RemoveIP (RemoveIPRequest) returns (RemoveIPResponse) {}
 
+  // Game Server Operations
   rpc CreateGameServer (CreateGameServerRequest) returns (CreateGameServerResponse) {}
   rpc EditGameServer (EditGameServerRequest) returns (EditGameServerResponse) {}
   rpc RemoveGameServer (RemoveGameServerRequest) returns (RemoveGameServerResponse) {}
@@ -39,7 +43,7 @@ service Xylona {
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
 
   rpc GetBranches (GetBranchesRequest) returns (GetBranchesResponse) {}
-
+  // File Operations
   rpc ListDirectoryFiles (ListDirectoryFilesRequest) returns (ListDirectoryFilesResponse) {}
   rpc GameServerFilesDelete (GameServerFilesDeleteRequest) returns (GameServerFilesDeleteResponse) {}
   rpc GameServerFilesArchive (GameServerFilesCompressionRequest) returns (stream GameServerFilesArchiveProgress) {}
