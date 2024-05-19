@@ -367,11 +367,7 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 
 	err = command.currentCMD.Wait()
 	if err != nil {
-		if !errors.Is(err, syscall.ERROR_ACCESS_DENIED) {
-			log.Error().Err(err).Msg("Error attempting to stop server.")
-			command.sendJobStatusNotification(xylona.Status_OFFLINE)
-			command.sendJobNotification(err.Error())
-		}
+		checkErrorAccessDenied(err, command)
 		log.Debug().Err(err).Msg("Error waiting for command.")
 	}
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")

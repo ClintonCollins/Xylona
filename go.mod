@@ -7,9 +7,11 @@ require (
 	github.com/bufbuild/connect-go v1.10.0
 	github.com/caarlos0/env/v10 v10.0.0
 	github.com/dsnet/compress v0.0.1
+	github.com/gabriel-vasile/mimetype v1.4.3
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/securecookie v1.1.2
+	github.com/gosimple/slug v1.14.0
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.17.8
 	github.com/mholt/archiver/v4 v4.0.0-alpha.8.0.20240408183022-de08bfa4c558
@@ -38,11 +40,9 @@ require (
 	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
-	github.com/gosimple/slug v1.14.0 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect

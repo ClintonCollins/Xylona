@@ -101,7 +101,7 @@ import {
   StartGameServerRequest,
   Status
 } from "src/proto/xylona_pb";
-import {GetXylonaClient, StatusToString,} from "src/utils/shared";
+import { GetXylonaClient, StatusToString, XylonaWebsocketBaseURL } from 'src/utils/shared'
 import {Message, Message_Type, Request, Request_Type} from "src/proto/websocket_pb";
 import {parseConsole} from "src/utils/console";
 import {QItemSection, QScrollArea} from "quasar";
@@ -191,7 +191,7 @@ async function getGameServerOutput() {
 }
 
 function streamGameServerOutput() {
-  const apiWebsocket = new WebSocket(`wss://localhost/api/websocket`)
+  const apiWebsocket = new WebSocket(XylonaWebsocketBaseURL)
   // TODO listen to other page change/close events.
   window.addEventListener("pagehide", () => {
     console.log("Page hide event. Closing websocket...")

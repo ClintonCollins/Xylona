@@ -15,7 +15,8 @@ import {
     tabJson
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
 
-const XylonaAPIBaseURL: string = 'https://localhost'
+export const XylonaAPIBaseURL: string = `${window.location.protocol}//${window.location.hostname}`
+export const XylonaWebsocketBaseURL: string = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}/api/websocket`
 
 export function GetXylonaClient() {
     const transport = createConnectTransport({

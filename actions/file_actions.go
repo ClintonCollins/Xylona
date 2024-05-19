@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -732,8 +733,13 @@ func (inst *Instance) StreamFileToUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (inst *Instance) UploadFileToUserGET(w http.ResponseWriter, r *http.Request) {
-	gameServerID := chi.URLParam(r, "gameServerId")
-	filePath := chi.URLParam(r, "path")
+	gameServerID, errGameServerID := url.QueryUnescape(chi.URLParam(r, "gameServerId"))
+	filePath, errFilePath := url.QueryUnescape(chi.URLParam(r, "path"))
+	if errGameServerID != nil || errFilePath != nil {
+		log.Error().Err(errGameServerID).Err(errFilePath).Msg("Failed to get game server ID or file path")
+		http.Error(w, "Failed to get game server ID or file path", http.StatusBadRequest)
+		return
+	}
 
 	gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
 	if errGetGameServer != nil {
