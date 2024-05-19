@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/dsnet/compress/bzip2"
+	"github.com/go-chi/chi/v5"
 	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archiver/v4"
 	"github.com/rs/zerolog/log"
@@ -697,7 +698,32 @@ func (inst *Instance) StreamFileToUser(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (inst *Instance) UploadFileToUser(w http.ResponseWriter, r *http.Request) {
+func (inst *Instance) UploadFileToUserGET(w http.ResponseWriter, r *http.Request) {
+	gameServerID := chi.URLParam(r, "gameServerId")
+	filePath := chi.URLParam(r, "path")
+
+	gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
+	if errGetGameServer != nil {
+		if errors.Is(errGetGameServer, sql.ErrNoRows) {
+			log.Error().Err(errGetGameServer).Msg("Game server not found")
+			http.Error(w, "Game server not found", http.StatusNotFound)
+			return
+		}
+		log.Error().Err(errGetGameServer).Msg("Failed to get game server")
+		http.Error(w, "Failed to get game server", http.StatusInternalServerError)
+		return
+	}
+
+	errGetFile := inst.GetGameServerFile(gameServer, filePath, w, true, true)
+	if errGetFile != nil {
+		log.Error().Err(errGetFile).Msg("Failed to get file")
+		http.Error(w, "Failed to get file", http.StatusInternalServerError)
+		return
+	}
+	return
+}
+
+func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Request) {
 	errParseForm := r.ParseForm()
 	if errParseForm != nil {
 		log.Error().Err(errParseForm).Msg("Failed to parse form")

@@ -191,7 +191,8 @@ func main() {
 	})
 
 	router.Post("/api/file/get", actionsInst.StreamFileToUser)
-	router.Post("/api/file/download", actionsInst.UploadFileToUser)
+	router.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
+	router.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
 	router.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
 
 	// Start the web server

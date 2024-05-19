@@ -48,14 +48,13 @@ export function GetRelativeFilePath(referencePathForSeparator: string, ...filePa
     if (referencePathForSeparator.indexOf('\\') !== -1) {
         pathSeparator = '\\'
     }
-    if (filePaths.length < 1) {
+    const filteredFilePaths = filePaths.filter((path) => {
+        return path !== '' && path !== undefined;
+    })
+    if (filteredFilePaths.length < 1) {
         return ''
     }
-    if (filePaths[0] === '') {
-        filePaths.shift()
-    }
-    console.log(filePaths)
-    return filePaths.join(pathSeparator)
+    return filteredFilePaths.join(pathSeparator)
 }
 
 export function WindowWidth() {

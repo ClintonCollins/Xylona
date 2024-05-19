@@ -401,6 +401,21 @@ async function readFileOctetStream(fileName: string) {
 
 async function downloadGameServerFile(fileName: string) {
     const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
+    const rawURL = `${window.location.protocol}//${window.location.host}/api/file/download/${gameServerId.value}/${fullFilePath}`
+    const url = encodeURI(rawURL)
+    // If the URL will fit in a GET request, without hitting browser URL length limits, use GET.
+    if (url.length < 2000) {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        a.target = '_blank'
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        return
+    }
+    // If the URL is too long for a GET request, use POST.
     try {
         const downloadForm = document.createElement('form')
         downloadForm.method = 'POST'
