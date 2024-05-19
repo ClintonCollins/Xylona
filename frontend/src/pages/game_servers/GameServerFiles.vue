@@ -213,7 +213,8 @@ const moveFilesDialog: Ref<boolean> = ref(false)
 const deleteFilesDialog: Ref<boolean> = ref(false)
 
 const allowedExtractExtensions: string[] = ['.zip', '.zst', '.gz', '.bz2', '.xz', '.7z']
-const allowedFileEditExtensions: string[] = ['.txt', '.cfg', '.json', '.xml', '.yml', '.yaml', '.ini', '.log']
+const allowedFileEditExtensions: string[] = ['.txt', '.cfg', '.json', '.xml', '.yml', '.yaml', '.ini', '.log',
+    '.properties', '.sh', '.ps1', '.bat', '.py', '.js', '.ts']
 
 async function archiveFilesDialogSubmitted() {
     selectedFiles.value = []
@@ -494,7 +495,9 @@ async function readFileOctetStream(fileName: string) {
 
 async function downloadGameServerFile(fileName: string) {
     const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
-    const rawURL = `${window.location.protocol}//${window.location.host}/api/file/download/${gameServerId.value}/${fullFilePath}`
+    const encodedGameServerID = encodeURIComponent(gameServerId.value)
+    const encodedFilePath = encodeURIComponent(fullFilePath)
+    const rawURL = `${window.location.protocol}//${window.location.host}/api/file/download/${encodedGameServerID}/${encodedFilePath}`
     const url = encodeURI(rawURL)
     // If the URL will fit in a GET request, without hitting browser URL length limits, use GET.
     if (url.length < 2000) {
