@@ -4956,7 +4956,7 @@ var file_xylona_proto_rawDesc = []byte{
 	0x4e, 0x47, 0x10, 0x04, 0x12, 0x1b, 0x0a, 0x17, 0x53, 0x45, 0x52, 0x56, 0x45, 0x52, 0x5f, 0x46,
 	0x49, 0x4e, 0x49, 0x53, 0x48, 0x45, 0x44, 0x5f, 0x49, 0x4e, 0x53, 0x54, 0x41, 0x4c, 0x4c, 0x10,
 	0x05, 0x12, 0x11, 0x0a, 0x0d, 0x4d, 0x49, 0x53, 0x43, 0x45, 0x4c, 0x4c, 0x41, 0x4e, 0x45, 0x4f,
-	0x55, 0x53, 0x10, 0x06, 0x32, 0xfa, 0x15, 0x0a, 0x06, 0x58, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x12,
+	0x55, 0x53, 0x10, 0x06, 0x32, 0x82, 0x17, 0x0a, 0x06, 0x58, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x12,
 	0x3c, 0x0a, 0x07, 0x47, 0x65, 0x74, 0x47, 0x61, 0x6d, 0x65, 0x12, 0x16, 0x2e, 0x78, 0x79, 0x6c,
 	0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
 	0x73, 0x74, 0x1a, 0x17, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x47,
@@ -5132,10 +5132,19 @@ var file_xylona_proto_rawDesc = []byte{
 	0x64, 0x69, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x23, 0x2e, 0x78, 0x79, 0x6c,
 	0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x46,
 	0x69, 0x6c, 0x65, 0x45, 0x64, 0x69, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x00, 0x42, 0x32, 0x5a, 0x30, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
-	0x43, 0x6c, 0x69, 0x6e, 0x74, 0x6f, 0x6e, 0x43, 0x6f, 0x6c, 0x6c, 0x69, 0x6e, 0x73, 0x2f, 0x58,
-	0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x78,
-	0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x00, 0x12, 0x85, 0x01, 0x0a, 0x20, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x73, 0x46, 0x69, 0x6c, 0x65, 0x4f, 0x72, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79,
+	0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x12, 0x2e, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e,
+	0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x46, 0x69, 0x6c, 0x65, 0x4f, 0x72,
+	0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2f, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e,
+	0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x46, 0x69, 0x6c, 0x65, 0x4f, 0x72,
+	0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x32, 0x5a, 0x30, 0x67, 0x69, 0x74,
+	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x43, 0x6c, 0x69, 0x6e, 0x74, 0x6f, 0x6e, 0x43,
+	0x6f, 0x6c, 0x6c, 0x69, 0x6e, 0x73, 0x2f, 0x58, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2f, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -5153,98 +5162,100 @@ func file_xylona_proto_rawDescGZIP() []byte {
 var file_xylona_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_xylona_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
 var file_xylona_proto_goTypes = []interface{}{
-	(CommandProcessor)(0),                          // 0: xylona.CommandProcessor
-	(Status)(0),                                    // 1: xylona.Status
-	(NotificationEvent)(0),                         // 2: xylona.NotificationEvent
-	(*GameServerFilesArchiveProgress)(nil),         // 3: xylona.GameServerFilesArchiveProgress
-	(*GameServerFilesExtractProgress)(nil),         // 4: xylona.GameServerFilesExtractProgress
-	(*DownloadFileRequest)(nil),                    // 5: xylona.DownloadFileRequest
-	(*File)(nil),                                   // 6: xylona.File
-	(*ListDirectoryFilesRequest)(nil),              // 7: xylona.ListDirectoryFilesRequest
-	(*ListDirectoryFilesResponse)(nil),             // 8: xylona.ListDirectoryFilesResponse
-	(*LoginRequest)(nil),                           // 9: xylona.LoginRequest
-	(*LoginResponse)(nil),                          // 10: xylona.LoginResponse
-	(*CreateUserRequest)(nil),                      // 11: xylona.CreateUserRequest
-	(*CreateUserResponse)(nil),                     // 12: xylona.CreateUserResponse
-	(*LogoutRequest)(nil),                          // 13: xylona.LogoutRequest
-	(*LogoutResponse)(nil),                         // 14: xylona.LogoutResponse
-	(*CheckUserAuthenticatedRequest)(nil),          // 15: xylona.CheckUserAuthenticatedRequest
-	(*CheckUserAuthenticatedResponse)(nil),         // 16: xylona.CheckUserAuthenticatedResponse
-	(*ListGameServersRequest)(nil),                 // 17: xylona.ListGameServersRequest
-	(*ListGameServersResponse)(nil),                // 18: xylona.ListGameServersResponse
-	(*ListGamesRequest)(nil),                       // 19: xylona.ListGamesRequest
-	(*ListGamesResponse)(nil),                      // 20: xylona.ListGamesResponse
-	(*GetGameRequest)(nil),                         // 21: xylona.GetGameRequest
-	(*GetGameResponse)(nil),                        // 22: xylona.GetGameResponse
-	(*GetGameServerRequest)(nil),                   // 23: xylona.GetGameServerRequest
-	(*GetGameServerResponse)(nil),                  // 24: xylona.GetGameServerResponse
-	(*User)(nil),                                   // 25: xylona.User
-	(*ListUsersRequest)(nil),                       // 26: xylona.ListUsersRequest
-	(*ListUsersResponse)(nil),                      // 27: xylona.ListUsersResponse
-	(*GetUserDetailsRequest)(nil),                  // 28: xylona.GetUserDetailsRequest
-	(*GetUserDetailsResponse)(nil),                 // 29: xylona.GetUserDetailsResponse
-	(*Game)(nil),                                   // 30: xylona.Game
-	(*NotificationStreamRequest)(nil),              // 31: xylona.NotificationStreamRequest
-	(*NotificationStreamResponse)(nil),             // 32: xylona.NotificationStreamResponse
-	(*GameServerPlayer)(nil),                       // 33: xylona.GameServerPlayer
-	(*GameServer)(nil),                             // 34: xylona.GameServer
-	(*SteamBranch)(nil),                            // 35: xylona.SteamBranch
-	(*GetBranchesRequest)(nil),                     // 36: xylona.GetBranchesRequest
-	(*GetBranchesResponse)(nil),                    // 37: xylona.GetBranchesResponse
-	(*IP)(nil),                                     // 38: xylona.IP
-	(*ListIPsRequest)(nil),                         // 39: xylona.ListIPsRequest
-	(*ListIPsResponse)(nil),                        // 40: xylona.ListIPsResponse
-	(*AddIPRequest)(nil),                           // 41: xylona.AddIPRequest
-	(*AddIPResponse)(nil),                          // 42: xylona.AddIPResponse
-	(*RemoveIPRequest)(nil),                        // 43: xylona.RemoveIPRequest
-	(*RemoveIPResponse)(nil),                       // 44: xylona.RemoveIPResponse
-	(*AddGameRequest)(nil),                         // 45: xylona.AddGameRequest
-	(*AddGameResponse)(nil),                        // 46: xylona.AddGameResponse
-	(*EditGameRequest)(nil),                        // 47: xylona.EditGameRequest
-	(*EditGameResponse)(nil),                       // 48: xylona.EditGameResponse
-	(*RemoveGameRequest)(nil),                      // 49: xylona.RemoveGameRequest
-	(*RemoveGameResponse)(nil),                     // 50: xylona.RemoveGameResponse
-	(*ImportGameRequest)(nil),                      // 51: xylona.ImportGameRequest
-	(*ImportGameResponse)(nil),                     // 52: xylona.ImportGameResponse
-	(*ExportGameRequest)(nil),                      // 53: xylona.ExportGameRequest
-	(*ExportGameResponse)(nil),                     // 54: xylona.ExportGameResponse
-	(*StartGameServerRequest)(nil),                 // 55: xylona.StartGameServerRequest
-	(*StartGameServerResponse)(nil),                // 56: xylona.StartGameServerResponse
-	(*StopGameServerRequest)(nil),                  // 57: xylona.StopGameServerRequest
-	(*StopGameServerResponse)(nil),                 // 58: xylona.StopGameServerResponse
-	(*RestartGameServerRequest)(nil),               // 59: xylona.RestartGameServerRequest
-	(*RestartGameServerResponse)(nil),              // 60: xylona.RestartGameServerResponse
-	(*RemoveGameServerRequest)(nil),                // 61: xylona.RemoveGameServerRequest
-	(*RemoveGameServerResponse)(nil),               // 62: xylona.RemoveGameServerResponse
-	(*CreateGameServerRequest)(nil),                // 63: xylona.CreateGameServerRequest
-	(*CreateGameServerResponse)(nil),               // 64: xylona.CreateGameServerResponse
-	(*EditGameServerRequest)(nil),                  // 65: xylona.EditGameServerRequest
-	(*EditGameServerResponse)(nil),                 // 66: xylona.EditGameServerResponse
-	(*ReadGameServerOutputRequest)(nil),            // 67: xylona.ReadGameServerOutputRequest
-	(*ReadGameServerOutputResponse)(nil),           // 68: xylona.ReadGameServerOutputResponse
-	(*SendGameServerInputRequest)(nil),             // 69: xylona.SendGameServerInputRequest
-	(*SendGameServerInputResponse)(nil),            // 70: xylona.SendGameServerInputResponse
-	(*UpdateGameServerRequest)(nil),                // 71: xylona.UpdateGameServerRequest
-	(*UpdateGameServerResponse)(nil),               // 72: xylona.UpdateGameServerResponse
-	(*ReinstallGameServerRequest)(nil),             // 73: xylona.ReinstallGameServerRequest
-	(*ReinstallGameServerResponse)(nil),            // 74: xylona.ReinstallGameServerResponse
-	(*BackupGameServerRequest)(nil),                // 75: xylona.BackupGameServerRequest
-	(*BackupGameServerResponse)(nil),               // 76: xylona.BackupGameServerResponse
-	(*timestamppb.Timestamp)(nil),                  // 77: google.protobuf.Timestamp
-	(*GameServerFilesDeleteRequest)(nil),           // 78: xylona.GameServerFilesDeleteRequest
-	(*GameServerFilesCompressionRequest)(nil),      // 79: xylona.GameServerFilesCompressionRequest
-	(*GameServerFilesDecompressionRequest)(nil),    // 80: xylona.GameServerFilesDecompressionRequest
-	(*GameServersFileDownloadFromURLRequest)(nil),  // 81: xylona.GameServersFileDownloadFromURLRequest
-	(*GameServerFileRenameRequest)(nil),            // 82: xylona.GameServerFileRenameRequest
-	(*GameServerFilesMoveRequest)(nil),             // 83: xylona.GameServerFilesMoveRequest
-	(*GameServersFileEditRequest)(nil),             // 84: xylona.GameServersFileEditRequest
-	(*GameServerFilesDeleteResponse)(nil),          // 85: xylona.GameServerFilesDeleteResponse
-	(*GameServerFilesCompressionResponse)(nil),     // 86: xylona.GameServerFilesCompressionResponse
-	(*GameServerFilesDecompressionResponse)(nil),   // 87: xylona.GameServerFilesDecompressionResponse
-	(*GameServersFileDownloadFromURLResponse)(nil), // 88: xylona.GameServersFileDownloadFromURLResponse
-	(*GameServerFileRenameResponse)(nil),           // 89: xylona.GameServerFileRenameResponse
-	(*GameServerFilesMoveResponse)(nil),            // 90: xylona.GameServerFilesMoveResponse
-	(*GameServersFileEditResponse)(nil),            // 91: xylona.GameServersFileEditResponse
+	(CommandProcessor)(0),                           // 0: xylona.CommandProcessor
+	(Status)(0),                                     // 1: xylona.Status
+	(NotificationEvent)(0),                          // 2: xylona.NotificationEvent
+	(*GameServerFilesArchiveProgress)(nil),          // 3: xylona.GameServerFilesArchiveProgress
+	(*GameServerFilesExtractProgress)(nil),          // 4: xylona.GameServerFilesExtractProgress
+	(*DownloadFileRequest)(nil),                     // 5: xylona.DownloadFileRequest
+	(*File)(nil),                                    // 6: xylona.File
+	(*ListDirectoryFilesRequest)(nil),               // 7: xylona.ListDirectoryFilesRequest
+	(*ListDirectoryFilesResponse)(nil),              // 8: xylona.ListDirectoryFilesResponse
+	(*LoginRequest)(nil),                            // 9: xylona.LoginRequest
+	(*LoginResponse)(nil),                           // 10: xylona.LoginResponse
+	(*CreateUserRequest)(nil),                       // 11: xylona.CreateUserRequest
+	(*CreateUserResponse)(nil),                      // 12: xylona.CreateUserResponse
+	(*LogoutRequest)(nil),                           // 13: xylona.LogoutRequest
+	(*LogoutResponse)(nil),                          // 14: xylona.LogoutResponse
+	(*CheckUserAuthenticatedRequest)(nil),           // 15: xylona.CheckUserAuthenticatedRequest
+	(*CheckUserAuthenticatedResponse)(nil),          // 16: xylona.CheckUserAuthenticatedResponse
+	(*ListGameServersRequest)(nil),                  // 17: xylona.ListGameServersRequest
+	(*ListGameServersResponse)(nil),                 // 18: xylona.ListGameServersResponse
+	(*ListGamesRequest)(nil),                        // 19: xylona.ListGamesRequest
+	(*ListGamesResponse)(nil),                       // 20: xylona.ListGamesResponse
+	(*GetGameRequest)(nil),                          // 21: xylona.GetGameRequest
+	(*GetGameResponse)(nil),                         // 22: xylona.GetGameResponse
+	(*GetGameServerRequest)(nil),                    // 23: xylona.GetGameServerRequest
+	(*GetGameServerResponse)(nil),                   // 24: xylona.GetGameServerResponse
+	(*User)(nil),                                    // 25: xylona.User
+	(*ListUsersRequest)(nil),                        // 26: xylona.ListUsersRequest
+	(*ListUsersResponse)(nil),                       // 27: xylona.ListUsersResponse
+	(*GetUserDetailsRequest)(nil),                   // 28: xylona.GetUserDetailsRequest
+	(*GetUserDetailsResponse)(nil),                  // 29: xylona.GetUserDetailsResponse
+	(*Game)(nil),                                    // 30: xylona.Game
+	(*NotificationStreamRequest)(nil),               // 31: xylona.NotificationStreamRequest
+	(*NotificationStreamResponse)(nil),              // 32: xylona.NotificationStreamResponse
+	(*GameServerPlayer)(nil),                        // 33: xylona.GameServerPlayer
+	(*GameServer)(nil),                              // 34: xylona.GameServer
+	(*SteamBranch)(nil),                             // 35: xylona.SteamBranch
+	(*GetBranchesRequest)(nil),                      // 36: xylona.GetBranchesRequest
+	(*GetBranchesResponse)(nil),                     // 37: xylona.GetBranchesResponse
+	(*IP)(nil),                                      // 38: xylona.IP
+	(*ListIPsRequest)(nil),                          // 39: xylona.ListIPsRequest
+	(*ListIPsResponse)(nil),                         // 40: xylona.ListIPsResponse
+	(*AddIPRequest)(nil),                            // 41: xylona.AddIPRequest
+	(*AddIPResponse)(nil),                           // 42: xylona.AddIPResponse
+	(*RemoveIPRequest)(nil),                         // 43: xylona.RemoveIPRequest
+	(*RemoveIPResponse)(nil),                        // 44: xylona.RemoveIPResponse
+	(*AddGameRequest)(nil),                          // 45: xylona.AddGameRequest
+	(*AddGameResponse)(nil),                         // 46: xylona.AddGameResponse
+	(*EditGameRequest)(nil),                         // 47: xylona.EditGameRequest
+	(*EditGameResponse)(nil),                        // 48: xylona.EditGameResponse
+	(*RemoveGameRequest)(nil),                       // 49: xylona.RemoveGameRequest
+	(*RemoveGameResponse)(nil),                      // 50: xylona.RemoveGameResponse
+	(*ImportGameRequest)(nil),                       // 51: xylona.ImportGameRequest
+	(*ImportGameResponse)(nil),                      // 52: xylona.ImportGameResponse
+	(*ExportGameRequest)(nil),                       // 53: xylona.ExportGameRequest
+	(*ExportGameResponse)(nil),                      // 54: xylona.ExportGameResponse
+	(*StartGameServerRequest)(nil),                  // 55: xylona.StartGameServerRequest
+	(*StartGameServerResponse)(nil),                 // 56: xylona.StartGameServerResponse
+	(*StopGameServerRequest)(nil),                   // 57: xylona.StopGameServerRequest
+	(*StopGameServerResponse)(nil),                  // 58: xylona.StopGameServerResponse
+	(*RestartGameServerRequest)(nil),                // 59: xylona.RestartGameServerRequest
+	(*RestartGameServerResponse)(nil),               // 60: xylona.RestartGameServerResponse
+	(*RemoveGameServerRequest)(nil),                 // 61: xylona.RemoveGameServerRequest
+	(*RemoveGameServerResponse)(nil),                // 62: xylona.RemoveGameServerResponse
+	(*CreateGameServerRequest)(nil),                 // 63: xylona.CreateGameServerRequest
+	(*CreateGameServerResponse)(nil),                // 64: xylona.CreateGameServerResponse
+	(*EditGameServerRequest)(nil),                   // 65: xylona.EditGameServerRequest
+	(*EditGameServerResponse)(nil),                  // 66: xylona.EditGameServerResponse
+	(*ReadGameServerOutputRequest)(nil),             // 67: xylona.ReadGameServerOutputRequest
+	(*ReadGameServerOutputResponse)(nil),            // 68: xylona.ReadGameServerOutputResponse
+	(*SendGameServerInputRequest)(nil),              // 69: xylona.SendGameServerInputRequest
+	(*SendGameServerInputResponse)(nil),             // 70: xylona.SendGameServerInputResponse
+	(*UpdateGameServerRequest)(nil),                 // 71: xylona.UpdateGameServerRequest
+	(*UpdateGameServerResponse)(nil),                // 72: xylona.UpdateGameServerResponse
+	(*ReinstallGameServerRequest)(nil),              // 73: xylona.ReinstallGameServerRequest
+	(*ReinstallGameServerResponse)(nil),             // 74: xylona.ReinstallGameServerResponse
+	(*BackupGameServerRequest)(nil),                 // 75: xylona.BackupGameServerRequest
+	(*BackupGameServerResponse)(nil),                // 76: xylona.BackupGameServerResponse
+	(*timestamppb.Timestamp)(nil),                   // 77: google.protobuf.Timestamp
+	(*GameServerFilesDeleteRequest)(nil),            // 78: xylona.GameServerFilesDeleteRequest
+	(*GameServerFilesCompressionRequest)(nil),       // 79: xylona.GameServerFilesCompressionRequest
+	(*GameServerFilesDecompressionRequest)(nil),     // 80: xylona.GameServerFilesDecompressionRequest
+	(*GameServersFileDownloadFromURLRequest)(nil),   // 81: xylona.GameServersFileDownloadFromURLRequest
+	(*GameServerFileRenameRequest)(nil),             // 82: xylona.GameServerFileRenameRequest
+	(*GameServerFilesMoveRequest)(nil),              // 83: xylona.GameServerFilesMoveRequest
+	(*GameServersFileEditRequest)(nil),              // 84: xylona.GameServersFileEditRequest
+	(*GameServerFileOrDirectoryCreateRequest)(nil),  // 85: xylona.GameServerFileOrDirectoryCreateRequest
+	(*GameServerFilesDeleteResponse)(nil),           // 86: xylona.GameServerFilesDeleteResponse
+	(*GameServerFilesCompressionResponse)(nil),      // 87: xylona.GameServerFilesCompressionResponse
+	(*GameServerFilesDecompressionResponse)(nil),    // 88: xylona.GameServerFilesDecompressionResponse
+	(*GameServersFileDownloadFromURLResponse)(nil),  // 89: xylona.GameServersFileDownloadFromURLResponse
+	(*GameServerFileRenameResponse)(nil),            // 90: xylona.GameServerFileRenameResponse
+	(*GameServerFilesMoveResponse)(nil),             // 91: xylona.GameServerFilesMoveResponse
+	(*GameServersFileEditResponse)(nil),             // 92: xylona.GameServersFileEditResponse
+	(*GameServerFileOrDirectoryCreateResponse)(nil), // 93: xylona.GameServerFileOrDirectoryCreateResponse
 }
 var file_xylona_proto_depIdxs = []int32{
 	77, // 0: xylona.File.last_modified:type_name -> google.protobuf.Timestamp
@@ -5325,40 +5336,42 @@ var file_xylona_proto_depIdxs = []int32{
 	82, // 75: xylona.Xylona.GameServerFileRename:input_type -> xylona.GameServerFileRenameRequest
 	83, // 76: xylona.Xylona.GameServerFilesMove:input_type -> xylona.GameServerFilesMoveRequest
 	84, // 77: xylona.Xylona.GameServersFileEdit:input_type -> xylona.GameServersFileEditRequest
-	22, // 78: xylona.Xylona.GetGame:output_type -> xylona.GetGameResponse
-	20, // 79: xylona.Xylona.ListGames:output_type -> xylona.ListGamesResponse
-	10, // 80: xylona.Xylona.Login:output_type -> xylona.LoginResponse
-	14, // 81: xylona.Xylona.Logout:output_type -> xylona.LogoutResponse
-	16, // 82: xylona.Xylona.CheckUserAuthenticated:output_type -> xylona.CheckUserAuthenticatedResponse
-	12, // 83: xylona.Xylona.CreateUser:output_type -> xylona.CreateUserResponse
-	27, // 84: xylona.Xylona.ListUsers:output_type -> xylona.ListUsersResponse
-	29, // 85: xylona.Xylona.GetUser:output_type -> xylona.GetUserDetailsResponse
-	40, // 86: xylona.Xylona.ListIPs:output_type -> xylona.ListIPsResponse
-	42, // 87: xylona.Xylona.AddIP:output_type -> xylona.AddIPResponse
-	44, // 88: xylona.Xylona.RemoveIP:output_type -> xylona.RemoveIPResponse
-	64, // 89: xylona.Xylona.CreateGameServer:output_type -> xylona.CreateGameServerResponse
-	66, // 90: xylona.Xylona.EditGameServer:output_type -> xylona.EditGameServerResponse
-	62, // 91: xylona.Xylona.RemoveGameServer:output_type -> xylona.RemoveGameServerResponse
-	56, // 92: xylona.Xylona.StartGameServer:output_type -> xylona.StartGameServerResponse
-	58, // 93: xylona.Xylona.StopGameServer:output_type -> xylona.StopGameServerResponse
-	68, // 94: xylona.Xylona.ReadGameServerOutput:output_type -> xylona.ReadGameServerOutputResponse
-	70, // 95: xylona.Xylona.SendGameServerInput:output_type -> xylona.SendGameServerInputResponse
-	24, // 96: xylona.Xylona.GetGameServer:output_type -> xylona.GetGameServerResponse
-	72, // 97: xylona.Xylona.UpdateGameServer:output_type -> xylona.UpdateGameServerResponse
-	18, // 98: xylona.Xylona.ListGameServers:output_type -> xylona.ListGameServersResponse
-	37, // 99: xylona.Xylona.GetBranches:output_type -> xylona.GetBranchesResponse
-	8,  // 100: xylona.Xylona.ListDirectoryFiles:output_type -> xylona.ListDirectoryFilesResponse
-	85, // 101: xylona.Xylona.GameServerFilesDelete:output_type -> xylona.GameServerFilesDeleteResponse
-	3,  // 102: xylona.Xylona.GameServerFilesArchive:output_type -> xylona.GameServerFilesArchiveProgress
-	4,  // 103: xylona.Xylona.GameServerFilesExtract:output_type -> xylona.GameServerFilesExtractProgress
-	86, // 104: xylona.Xylona.GameServerFilesCompress:output_type -> xylona.GameServerFilesCompressionResponse
-	87, // 105: xylona.Xylona.GameServerFilesDecompress:output_type -> xylona.GameServerFilesDecompressionResponse
-	88, // 106: xylona.Xylona.GameServerFilesDownloadFromURL:output_type -> xylona.GameServersFileDownloadFromURLResponse
-	89, // 107: xylona.Xylona.GameServerFileRename:output_type -> xylona.GameServerFileRenameResponse
-	90, // 108: xylona.Xylona.GameServerFilesMove:output_type -> xylona.GameServerFilesMoveResponse
-	91, // 109: xylona.Xylona.GameServersFileEdit:output_type -> xylona.GameServersFileEditResponse
-	78, // [78:110] is the sub-list for method output_type
-	46, // [46:78] is the sub-list for method input_type
+	85, // 78: xylona.Xylona.GameServersFileOrDirectoryCreate:input_type -> xylona.GameServerFileOrDirectoryCreateRequest
+	22, // 79: xylona.Xylona.GetGame:output_type -> xylona.GetGameResponse
+	20, // 80: xylona.Xylona.ListGames:output_type -> xylona.ListGamesResponse
+	10, // 81: xylona.Xylona.Login:output_type -> xylona.LoginResponse
+	14, // 82: xylona.Xylona.Logout:output_type -> xylona.LogoutResponse
+	16, // 83: xylona.Xylona.CheckUserAuthenticated:output_type -> xylona.CheckUserAuthenticatedResponse
+	12, // 84: xylona.Xylona.CreateUser:output_type -> xylona.CreateUserResponse
+	27, // 85: xylona.Xylona.ListUsers:output_type -> xylona.ListUsersResponse
+	29, // 86: xylona.Xylona.GetUser:output_type -> xylona.GetUserDetailsResponse
+	40, // 87: xylona.Xylona.ListIPs:output_type -> xylona.ListIPsResponse
+	42, // 88: xylona.Xylona.AddIP:output_type -> xylona.AddIPResponse
+	44, // 89: xylona.Xylona.RemoveIP:output_type -> xylona.RemoveIPResponse
+	64, // 90: xylona.Xylona.CreateGameServer:output_type -> xylona.CreateGameServerResponse
+	66, // 91: xylona.Xylona.EditGameServer:output_type -> xylona.EditGameServerResponse
+	62, // 92: xylona.Xylona.RemoveGameServer:output_type -> xylona.RemoveGameServerResponse
+	56, // 93: xylona.Xylona.StartGameServer:output_type -> xylona.StartGameServerResponse
+	58, // 94: xylona.Xylona.StopGameServer:output_type -> xylona.StopGameServerResponse
+	68, // 95: xylona.Xylona.ReadGameServerOutput:output_type -> xylona.ReadGameServerOutputResponse
+	70, // 96: xylona.Xylona.SendGameServerInput:output_type -> xylona.SendGameServerInputResponse
+	24, // 97: xylona.Xylona.GetGameServer:output_type -> xylona.GetGameServerResponse
+	72, // 98: xylona.Xylona.UpdateGameServer:output_type -> xylona.UpdateGameServerResponse
+	18, // 99: xylona.Xylona.ListGameServers:output_type -> xylona.ListGameServersResponse
+	37, // 100: xylona.Xylona.GetBranches:output_type -> xylona.GetBranchesResponse
+	8,  // 101: xylona.Xylona.ListDirectoryFiles:output_type -> xylona.ListDirectoryFilesResponse
+	86, // 102: xylona.Xylona.GameServerFilesDelete:output_type -> xylona.GameServerFilesDeleteResponse
+	3,  // 103: xylona.Xylona.GameServerFilesArchive:output_type -> xylona.GameServerFilesArchiveProgress
+	4,  // 104: xylona.Xylona.GameServerFilesExtract:output_type -> xylona.GameServerFilesExtractProgress
+	87, // 105: xylona.Xylona.GameServerFilesCompress:output_type -> xylona.GameServerFilesCompressionResponse
+	88, // 106: xylona.Xylona.GameServerFilesDecompress:output_type -> xylona.GameServerFilesDecompressionResponse
+	89, // 107: xylona.Xylona.GameServerFilesDownloadFromURL:output_type -> xylona.GameServersFileDownloadFromURLResponse
+	90, // 108: xylona.Xylona.GameServerFileRename:output_type -> xylona.GameServerFileRenameResponse
+	91, // 109: xylona.Xylona.GameServerFilesMove:output_type -> xylona.GameServerFilesMoveResponse
+	92, // 110: xylona.Xylona.GameServersFileEdit:output_type -> xylona.GameServersFileEditResponse
+	93, // 111: xylona.Xylona.GameServersFileOrDirectoryCreate:output_type -> xylona.GameServerFileOrDirectoryCreateResponse
+	79, // [79:112] is the sub-list for method output_type
+	46, // [46:79] is the sub-list for method input_type
 	46, // [46:46] is the sub-list for extension type_name
 	46, // [46:46] is the sub-list for extension extendee
 	0,  // [0:46] is the sub-list for field type_name

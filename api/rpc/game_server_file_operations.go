@@ -9,6 +9,19 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+func (xs XylonaService) GameServersFileOrDirectoryCreate(_ context.Context, request *connect_go.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect_go.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
+	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
+	if errGetGameServer != nil {
+		return nil, errGetGameServer
+	}
+	errCreate := xs.actionsInst.CreateFileOrDirectory(gameServer, request.Msg.GetFullFilePath(),
+		request.Msg.GetContent(), request.Msg.GetIsDirectory())
+	if errCreate != nil {
+		return nil, connect_go.NewError(connect_go.CodeInternal, errCreate)
+	}
+	return &connect_go.Response[xylona.GameServerFileOrDirectoryCreateResponse]{Msg: &xylona.GameServerFileOrDirectoryCreateResponse{}}, nil
+}
+
 func (xs XylonaService) GameServerFilesDelete(ctx context.Context, request *connect_go.Request[xylona.GameServerFilesDeleteRequest]) (*connect_go.Response[xylona.GameServerFilesDeleteResponse], error) {
 	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
 	if errGetGameServer != nil {

@@ -648,3 +648,89 @@ export class GameServersFileEditResponse extends Message<GameServersFileEditResp
   }
 }
 
+/**
+ * @generated from message xylona.GameServerFileOrDirectoryCreateRequest
+ */
+export class GameServerFileOrDirectoryCreateRequest extends Message<GameServerFileOrDirectoryCreateRequest> {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId = "";
+
+  /**
+   * @generated from field: string full_file_path = 2;
+   */
+  fullFilePath = "";
+
+  /**
+   * @generated from field: string content = 3;
+   */
+  content = "";
+
+  /**
+   * @generated from field: bool is_directory = 4;
+   */
+  isDirectory = false;
+
+  constructor(data?: PartialMessage<GameServerFileOrDirectoryCreateRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.GameServerFileOrDirectoryCreateRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "game_server_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "full_file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "content", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "is_directory", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFileOrDirectoryCreateRequest {
+    return new GameServerFileOrDirectoryCreateRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GameServerFileOrDirectoryCreateRequest {
+    return new GameServerFileOrDirectoryCreateRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GameServerFileOrDirectoryCreateRequest {
+    return new GameServerFileOrDirectoryCreateRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GameServerFileOrDirectoryCreateRequest | PlainMessage<GameServerFileOrDirectoryCreateRequest> | undefined, b: GameServerFileOrDirectoryCreateRequest | PlainMessage<GameServerFileOrDirectoryCreateRequest> | undefined): boolean {
+    return proto3.util.equals(GameServerFileOrDirectoryCreateRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message xylona.GameServerFileOrDirectoryCreateResponse
+ */
+export class GameServerFileOrDirectoryCreateResponse extends Message<GameServerFileOrDirectoryCreateResponse> {
+  constructor(data?: PartialMessage<GameServerFileOrDirectoryCreateResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "xylona.GameServerFileOrDirectoryCreateResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GameServerFileOrDirectoryCreateResponse {
+    return new GameServerFileOrDirectoryCreateResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GameServerFileOrDirectoryCreateResponse {
+    return new GameServerFileOrDirectoryCreateResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GameServerFileOrDirectoryCreateResponse {
+    return new GameServerFileOrDirectoryCreateResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GameServerFileOrDirectoryCreateResponse | PlainMessage<GameServerFileOrDirectoryCreateResponse> | undefined, b: GameServerFileOrDirectoryCreateResponse | PlainMessage<GameServerFileOrDirectoryCreateResponse> | undefined): boolean {
+    return proto3.util.equals(GameServerFileOrDirectoryCreateResponse, a, b);
+  }
+}
+

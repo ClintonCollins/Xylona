@@ -7,16 +7,59 @@
             <div ref="fileListContainer" class="col-xs-12 file-list-container bg-neutral-glass-4 q-pa-sm"
                  style="border-radius: .5rem">
                 <div class="row q-py-sm justify-end q-gutter-x-md">
-                    <q-btn v-show="deleteButtonEnabled" @click="deleteFilesDialog = true" class="bg-error">Delete
-                    </q-btn>
-                    <q-btn v-show="downloadButtonEnabled" class="bg-blue">Download</q-btn>
-                    <q-btn v-show="zipButtonEnabled" @click="archiveFilesDialog = true" class="bg-teal">
-                        Archive/Compress
-                    </q-btn>
-                    <q-btn v-show="extractButtonEnabled" @click="extractFilesDialog = true" class="bg-green">Extract
-                    </q-btn>
-                    <q-btn class="bg-alert" label="Upload from URL" @click="fileUploaderDialog = true"></q-btn>
-                    <q-btn class="bg-success" label="Upload" @click="fileUploaderDialog = true"></q-btn>
+                    <div class="column">
+                        <div class="row justify-center" style="height: 1.5rem">
+                            <p class="text-caption">Compression Operations</p>
+                        </div>
+                        <div class="row q-gutter-x-sm">
+                            <q-btn :disable="!zipButtonEnabled" @click="archiveFilesDialog = true" class="bg-teal">
+                                Archive
+                            </q-btn>
+                            <q-btn :disable="!extractButtonEnabled" @click="extractFilesDialog = true" class="bg-green">
+                                Extract
+                            </q-btn>
+                        </div>
+                    </div>
+                    <q-separator vertical dark style="margin-top: 1.5rem"></q-separator>
+                    <div class="column">
+                        <div class="row justify-center" style="height: 1.5rem">
+                            <p class="text-caption">File Operations</p>
+                        </div>
+                        <div class="row q-gutter-x-sm">
+                            <q-btn :disable="!createButtonEnabled" @click="createFilesDialog = true"
+                                   class="bg-success-brighter">
+                                Create
+                            </q-btn>
+                            <q-btn :disable="!renameButtonEnabled" @click="renameFilesDialog = true" class="bg-accent">
+                                Rename
+                            </q-btn>
+                            <q-btn :disable="!moveButtonEnabled" @click="moveFilesDialog = true" class="bg-main">
+                                Move
+                            </q-btn>
+                            <q-btn :disable="!deleteButtonEnabled" @click="deleteFilesDialog = true" class="bg-error">
+                                Delete
+                            </q-btn>
+                        </div>
+                    </div>
+                    <q-separator vertical dark style="margin-top: 1.5rem"></q-separator>
+                    <div class="column">
+                        <div class="row justify-center" style="height: 1.5rem">
+                            <p class="text-caption">Download File</p>
+                        </div>
+                        <div class="row">
+                            <q-btn :disable="!downloadButtonEnabled" class="bg-blue">Download</q-btn>
+                        </div>
+                    </div>
+                    <q-separator vertical dark style="margin-top: 1.5rem"></q-separator>
+                    <div class="column">
+                        <div class="row justify-center" style="height: 1.5rem">
+                            <p class="text-caption">Upload Operations</p>
+                        </div>
+                        <div class="row q-gutter-x-sm">
+                            <q-btn class="bg-alert" label="Upload from URL" @click="fileUploaderDialog = true"></q-btn>
+                            <q-btn class="bg-success" label="Upload" @click="fileUploaderDialog = true"></q-btn>
+                        </div>
+                    </div>
                 </div>
                 <div class="row q-py-sm">
                     <div class="col-xs-12">
@@ -77,8 +120,8 @@
         </FileUploaderDrop>
     </q-card-section>
     <q-dialog no-shake persistent v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
-        <Editor v-model:code-input="editingFileContent" :file-name="editingFilename" :game-server-id="gameServerId"
-                :full-file-path="editingFilePath"></Editor>
+        <Editor v-model:code-input="editorFileContent" v-model:file-name="editorFilename" :game-server-id="gameServerId"
+                v-model:full-file-path="editorFilePath" :new-file="editorNewFile" @submit="editorSubmitted"></Editor>
     </q-dialog>
     <ArchiveFiles @submit="archiveFilesDialogSubmitted" @cancel="archiveFilesDialog = false"
                   v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"
@@ -90,6 +133,9 @@
                   v-model:show-dialog="extractFilesDialog" :game-server-id="gameServerId" :path="path"
                   :full-archive-path="GetRelativeFilePath(gameServer.directory, path, selectedFiles[0]?.name)">
     </ExtractFiles>
+    <Create :game-server-id="gameServerId" v-model:show-dialog="createFilesDialog"
+            :game-server-path="gameServer.directory" :path="path" @submit="createFilesDialogSubmitted">
+    </Create>
     <DeleteGameServerFilesDialog @files-deleted="deleteFilesSubmitted()" :files-to-delete="selectedFiles"
                                  :current-path="path" :path-separator="pathSeparator"
                                  :game-server-i-d="gameServerId" v-model:show-dialog="deleteFilesDialog">
@@ -101,17 +147,13 @@ import { Timestamp } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
 import Editor from 'components/Editor.vue'
 import ArchiveFiles from 'components/game_servers/ArchiveFiles.vue'
-import ArchiveFilesDialog from 'components/game_servers/ArchiveFilesDialog.vue'
+import Create from 'components/game_servers/Create.vue'
 import DeleteGameServerFilesDialog from 'components/game_servers/DeleteGameServerFilesDialog.vue'
 import ExtractFiles from 'components/game_servers/ExtractFiles.vue'
-import ExtractGameServerFiles from 'components/game_servers/ExtractGameServerFiles.vue'
 import FileUploaderDrop from 'components/game_servers/FileUploaderDrop.vue'
 import dayjs from 'dayjs'
-import { QMenu, useQuasar } from 'quasar'
+import { QBtn, QMenu, useQuasar } from 'quasar'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import {
-    GameServerFilesCompressionType
-} from 'src/proto/gameserver_files_operations_pb'
 import {
     DownloadFileRequest,
     File as xylonaFile,
@@ -141,12 +183,15 @@ const selectedFiles: Ref<Array<xylonaFile>> = ref([])
 const selectAllFiles: Ref<boolean> = ref(false)
 const path: Ref<string> = ref('')
 const editorModal: Ref<boolean> = ref(false)
-const editingFilename: Ref<string> = ref('')
-const editingFilePath: Ref<string> = ref('')
-const editingFileContent: Ref<string> = ref('')
+const editorFilename: Ref<string> = ref('')
+const editorFilePath: Ref<string> = ref('')
+const editorFileContent: Ref<string> = ref('')
+const editorNewFile: Ref<boolean> = ref(false)
 const contextMenu: Ref<QMenu | null> = ref(null)
 const fileListContainer: Ref<HTMLElement | null> = ref(null)
 const fileUploaderDialog: Ref<boolean> = ref(false)
+const createFileName: Ref<string> = ref('')
+const createFileDirType: Ref<string> = ref('file')
 
 // Archive
 const archiveFilesDialog: Ref<boolean> = ref(false)
@@ -154,6 +199,15 @@ const archiveName: Ref<string> = ref('')
 
 // Extract
 const extractFilesDialog: Ref<boolean> = ref(false)
+
+// Create
+const createFilesDialog: Ref<boolean> = ref(false)
+
+// Rename
+const renameFilesDialog: Ref<boolean> = ref(false)
+
+// Move
+const moveFilesDialog: Ref<boolean> = ref(false)
 
 // Delete
 const deleteFilesDialog: Ref<boolean> = ref(false)
@@ -174,6 +228,27 @@ async function extractFilesDialogSubmitted() {
 async function deleteFilesSubmitted() {
     selectedFiles.value = []
     void listDirectoryFiles(path.value)
+}
+
+async function editorSubmitted() {
+    selectedFiles.value = []
+    void listDirectoryFiles(path.value)
+}
+
+async function createFilesDialogSubmitted(success: boolean, data: { fileName: string, fullFilePath: string, isDir: boolean } | null) {
+    void listDirectoryFiles(path.value)
+    createFilesDialog.value = false
+
+    if (!success) {
+        return
+    }
+    if (!data || data.isDir) {
+        return
+    }
+    editorFilename.value = createFileName.value
+    editorFileContent.value = ''
+    editorFilePath.value = data.fullFilePath
+    editorModal.value = true
 }
 
 function fileIsSelectedClass(file: xylonaFile) {
@@ -202,6 +277,20 @@ const downloadButtonEnabled = computed(() => {
 })
 
 const zipButtonEnabled = computed(() => {
+    const selected = sanitizeSelectedFiles()
+    return selected.length > 0
+})
+
+const createButtonEnabled = computed(() => {
+    return selectedFiles.value.length === 0
+})
+
+const renameButtonEnabled = computed(() => {
+    const selected = sanitizeSelectedFiles()
+    return selected.length === 1
+})
+
+const moveButtonEnabled = computed(() => {
     const selected = sanitizeSelectedFiles()
     return selected.length > 0
 })
@@ -272,6 +361,10 @@ watch(selectAllFiles, (newValue) => {
 })
 
 watch(selectedFiles, (newValue) => {
+    const deleteButton: QBtn | null = ref(null)
+    if (deleteButton) {
+        deleteButton.disable = newValue.length === 0
+    }
     if (selectAllFiles) {
         const sanitizedDirectories = directories.value.filter((directory) => {
             return directory.name !== '..'
@@ -382,9 +475,9 @@ async function readFileOctetStream(fileName: string) {
             body: fileRequest.toJsonString()
         })
         const data = await response.text()
-        editingFilename.value = fileName
-        editingFileContent.value = data
-        editingFilePath.value = fullFilePath
+        editorFilename.value = fileName
+        editorFileContent.value = data
+        editorFilePath.value = fullFilePath
         editorModal.value = true
     } catch (e) {
         console.error(e)
@@ -467,6 +560,14 @@ async function getGameServerDetails() {
     } catch (e) {
         console.error(e)
     }
+}
+
+async function createFile() {
+    editorFilename.value = ''
+    editorFileContent.value = ''
+    editorFilePath.value = path.value
+    editorNewFile.value = true
+    editorModal.value = true
 }
 
 // function getRelativeFilePath(...filePaths: string[]): string {

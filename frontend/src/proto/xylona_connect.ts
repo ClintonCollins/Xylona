@@ -5,7 +5,7 @@
 
 import { AddIPRequest, AddIPResponse, CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, CreateGameServerRequest, CreateGameServerResponse, CreateUserRequest, CreateUserResponse, EditGameServerRequest, EditGameServerResponse, GameServerFilesArchiveProgress, GameServerFilesExtractProgress, GetBranchesRequest, GetBranchesResponse, GetGameRequest, GetGameResponse, GetGameServerRequest, GetGameServerResponse, GetUserDetailsRequest, GetUserDetailsResponse, ListDirectoryFilesRequest, ListDirectoryFilesResponse, ListGameServersRequest, ListGameServersResponse, ListGamesRequest, ListGamesResponse, ListIPsRequest, ListIPsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, LogoutRequest, LogoutResponse, ReadGameServerOutputRequest, ReadGameServerOutputResponse, RemoveGameServerRequest, RemoveGameServerResponse, RemoveIPRequest, RemoveIPResponse, SendGameServerInputRequest, SendGameServerInputResponse, StartGameServerRequest, StartGameServerResponse, StopGameServerRequest, StopGameServerResponse, UpdateGameServerRequest, UpdateGameServerResponse } from "./xylona_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
-import { GameServerFileRenameRequest, GameServerFileRenameResponse, GameServerFilesCompressionRequest, GameServerFilesCompressionResponse, GameServerFilesDecompressionRequest, GameServerFilesDecompressionResponse, GameServerFilesDeleteRequest, GameServerFilesDeleteResponse, GameServerFilesMoveRequest, GameServerFilesMoveResponse, GameServersFileDownloadFromURLRequest, GameServersFileDownloadFromURLResponse, GameServersFileEditRequest, GameServersFileEditResponse } from "./gameserver_files_operations_pb.js";
+import { GameServerFileOrDirectoryCreateRequest, GameServerFileOrDirectoryCreateResponse, GameServerFileRenameRequest, GameServerFileRenameResponse, GameServerFilesCompressionRequest, GameServerFilesCompressionResponse, GameServerFilesDecompressionRequest, GameServerFilesDecompressionResponse, GameServerFilesDeleteRequest, GameServerFilesDeleteResponse, GameServerFilesMoveRequest, GameServerFilesMoveResponse, GameServersFileDownloadFromURLRequest, GameServersFileDownloadFromURLResponse, GameServersFileEditRequest, GameServersFileEditResponse } from "./gameserver_files_operations_pb.js";
 
 /**
  * @generated from service xylona.Xylona
@@ -14,6 +14,7 @@ export const Xylona = {
   typeName: "xylona.Xylona",
   methods: {
     /**
+     * Game Operations
      *  rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
      *  rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
      *
@@ -39,6 +40,8 @@ export const Xylona = {
       kind: MethodKind.Unary,
     },
     /**
+     * General
+     *
      * @generated from rpc xylona.Xylona.Login
      */
     login: {
@@ -120,6 +123,8 @@ export const Xylona = {
       kind: MethodKind.Unary,
     },
     /**
+     * Game Server Operations
+     *
      * @generated from rpc xylona.Xylona.CreateGameServer
      */
     createGameServer: {
@@ -224,6 +229,8 @@ export const Xylona = {
       kind: MethodKind.Unary,
     },
     /**
+     * File Operations
+     *
      * @generated from rpc xylona.Xylona.ListDirectoryFiles
      */
     listDirectoryFiles: {
@@ -311,6 +318,15 @@ export const Xylona = {
       name: "GameServersFileEdit",
       I: GameServersFileEditRequest,
       O: GameServersFileEditResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.GameServersFileOrDirectoryCreate
+     */
+    gameServersFileOrDirectoryCreate: {
+      name: "GameServersFileOrDirectoryCreate",
+      I: GameServerFileOrDirectoryCreateRequest,
+      O: GameServerFileOrDirectoryCreateResponse,
       kind: MethodKind.Unary,
     },
   }

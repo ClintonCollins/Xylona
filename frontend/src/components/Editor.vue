@@ -38,10 +38,6 @@ import IStandaloneCodeEditor = monaco.editor.IStandaloneCodeEditor
 const $q = useQuasar()
 
 const props = defineProps({
-    fullFilePath: {
-        type: String,
-        required: true
-    },
     fileName: {
         type: String,
         required: true
@@ -49,6 +45,14 @@ const props = defineProps({
     gameServerId: {
         type: String,
         required: true
+    },
+    newFile: {
+        type: Boolean,
+        default: false
+    },
+    editorTitle: {
+        type: String,
+        default: 'Editor'
     }
 })
 
@@ -58,6 +62,18 @@ const editorOptions = ref([
     {label: 'Visual Studio Dark', value: 'vs-dark'},
     {label: 'High Contrast Black', value: 'hc-black'}
 ])
+
+const emit = defineEmits(['submit'])
+
+const fullFilePath = defineModel('fullFilePath', {
+    type: String,
+    default: ''
+})
+
+const fileName = defineModel('fileName', {
+    type: String,
+    default: ''
+})
 
 const codeInput = defineModel('codeInput', {
     type: String,
@@ -152,6 +168,7 @@ async function saveFile() {
             timeout: 5000,
         })
     } finally {
+        emit('submit')
     }
 }
 

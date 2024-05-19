@@ -54,6 +54,7 @@ service Xylona {
   rpc GameServerFileRename (GameServerFileRenameRequest) returns (GameServerFileRenameResponse) {}
   rpc GameServerFilesMove (GameServerFilesMoveRequest) returns (GameServerFilesMoveResponse) {}
   rpc GameServersFileEdit (GameServersFileEditRequest) returns (GameServersFileEditResponse) {}
+  rpc GameServersFileOrDirectoryCreate (GameServerFileOrDirectoryCreateRequest) returns (GameServerFileOrDirectoryCreateResponse) {}
 }
 
 message GameServerFilesArchiveProgress {

@@ -100,6 +100,39 @@ type fileExtractor struct {
 	progressChan            chan xylona.GameServerFilesExtractProgress
 }
 
+func (inst *Instance) CreateFileOrDirectory(gameServer *models.GameServer, path string, content string, isDirectory bool) error {
+	path = strings.TrimPrefix(path, "/")
+	pathIsLocal := filepath.IsLocal(path)
+	if !pathIsLocal {
+		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
+		return ErrInvalidPath
+	}
+	fullPath := filepath.Join(gameServer.Directory, path)
+	if isDirectory {
+		errMkdir := os.MkdirAll(fullPath, os.ModePerm)
+		if errMkdir != nil {
+			log.Error().Err(errMkdir).Msg("Failed to create directory")
+			return errMkdir
+		}
+	} else {
+		file, errCreate := os.Create(fullPath)
+		if errCreate != nil {
+			log.Error().Err(errCreate).Msg("Failed to create file")
+			return errCreate
+		}
+
+		if content != "" {
+			_, errWrite := file.WriteString(content)
+			if errWrite != nil {
+				log.Error().Err(errWrite).Msg("Failed to write to file")
+			}
+		}
+
+		_ = file.Close()
+	}
+	return nil
+}
+
 func (inst *Instance) DeleteFiles(ctx context.Context, gameServer *models.GameServer, files []string) ([]string, error) {
 	successfullyDeleted := make([]string, 0, len(files))
 	for _, file := range files {

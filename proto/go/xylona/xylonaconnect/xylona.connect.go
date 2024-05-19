@@ -110,17 +110,23 @@ const (
 	// XylonaGameServersFileEditProcedure is the fully-qualified name of the Xylona's
 	// GameServersFileEdit RPC.
 	XylonaGameServersFileEditProcedure = "/xylona.Xylona/GameServersFileEdit"
+	// XylonaGameServersFileOrDirectoryCreateProcedure is the fully-qualified name of the Xylona's
+	// GameServersFileOrDirectoryCreate RPC.
+	XylonaGameServersFileOrDirectoryCreateProcedure = "/xylona.Xylona/GameServersFileOrDirectoryCreate"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
 type XylonaClient interface {
-	// rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
-	// rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
+	// Game Operations
+	//
+	//	rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
+	//	rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
 	GetGame(context.Context, *connect_go.Request[xylona.GetGameRequest]) (*connect_go.Response[xylona.GetGameResponse], error)
 	// rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
 	// rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
 	// rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
 	ListGames(context.Context, *connect_go.Request[xylona.ListGamesRequest]) (*connect_go.Response[xylona.ListGamesResponse], error)
+	// General
 	Login(context.Context, *connect_go.Request[xylona.LoginRequest]) (*connect_go.Response[xylona.LoginResponse], error)
 	Logout(context.Context, *connect_go.Request[xylona.LogoutRequest]) (*connect_go.Response[xylona.LogoutResponse], error)
 	CheckUserAuthenticated(context.Context, *connect_go.Request[xylona.CheckUserAuthenticatedRequest]) (*connect_go.Response[xylona.CheckUserAuthenticatedResponse], error)
@@ -130,6 +136,7 @@ type XylonaClient interface {
 	ListIPs(context.Context, *connect_go.Request[xylona.ListIPsRequest]) (*connect_go.Response[xylona.ListIPsResponse], error)
 	AddIP(context.Context, *connect_go.Request[xylona.AddIPRequest]) (*connect_go.Response[xylona.AddIPResponse], error)
 	RemoveIP(context.Context, *connect_go.Request[xylona.RemoveIPRequest]) (*connect_go.Response[xylona.RemoveIPResponse], error)
+	// Game Server Operations
 	CreateGameServer(context.Context, *connect_go.Request[xylona.CreateGameServerRequest]) (*connect_go.Response[xylona.CreateGameServerResponse], error)
 	EditGameServer(context.Context, *connect_go.Request[xylona.EditGameServerRequest]) (*connect_go.Response[xylona.EditGameServerResponse], error)
 	RemoveGameServer(context.Context, *connect_go.Request[xylona.RemoveGameServerRequest]) (*connect_go.Response[xylona.RemoveGameServerResponse], error)
@@ -144,6 +151,7 @@ type XylonaClient interface {
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect_go.Request[xylona.ListGameServersRequest]) (*connect_go.Response[xylona.ListGameServersResponse], error)
 	GetBranches(context.Context, *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error)
+	// File Operations
 	ListDirectoryFiles(context.Context, *connect_go.Request[xylona.ListDirectoryFilesRequest]) (*connect_go.Response[xylona.ListDirectoryFilesResponse], error)
 	GameServerFilesDelete(context.Context, *connect_go.Request[xylona.GameServerFilesDeleteRequest]) (*connect_go.Response[xylona.GameServerFilesDeleteResponse], error)
 	GameServerFilesArchive(context.Context, *connect_go.Request[xylona.GameServerFilesCompressionRequest]) (*connect_go.ServerStreamForClient[xylona.GameServerFilesArchiveProgress], error)
@@ -154,6 +162,7 @@ type XylonaClient interface {
 	GameServerFileRename(context.Context, *connect_go.Request[xylona.GameServerFileRenameRequest]) (*connect_go.Response[xylona.GameServerFileRenameResponse], error)
 	GameServerFilesMove(context.Context, *connect_go.Request[xylona.GameServerFilesMoveRequest]) (*connect_go.Response[xylona.GameServerFilesMoveResponse], error)
 	GameServersFileEdit(context.Context, *connect_go.Request[xylona.GameServersFileEditRequest]) (*connect_go.Response[xylona.GameServersFileEditResponse], error)
+	GameServersFileOrDirectoryCreate(context.Context, *connect_go.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect_go.Response[xylona.GameServerFileOrDirectoryCreateResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -326,43 +335,49 @@ func NewXylonaClient(httpClient connect_go.HTTPClient, baseURL string, opts ...c
 			baseURL+XylonaGameServersFileEditProcedure,
 			opts...,
 		),
+		gameServersFileOrDirectoryCreate: connect_go.NewClient[xylona.GameServerFileOrDirectoryCreateRequest, xylona.GameServerFileOrDirectoryCreateResponse](
+			httpClient,
+			baseURL+XylonaGameServersFileOrDirectoryCreateProcedure,
+			opts...,
+		),
 	}
 }
 
 // xylonaClient implements XylonaClient.
 type xylonaClient struct {
-	getGame                        *connect_go.Client[xylona.GetGameRequest, xylona.GetGameResponse]
-	listGames                      *connect_go.Client[xylona.ListGamesRequest, xylona.ListGamesResponse]
-	login                          *connect_go.Client[xylona.LoginRequest, xylona.LoginResponse]
-	logout                         *connect_go.Client[xylona.LogoutRequest, xylona.LogoutResponse]
-	checkUserAuthenticated         *connect_go.Client[xylona.CheckUserAuthenticatedRequest, xylona.CheckUserAuthenticatedResponse]
-	createUser                     *connect_go.Client[xylona.CreateUserRequest, xylona.CreateUserResponse]
-	listUsers                      *connect_go.Client[xylona.ListUsersRequest, xylona.ListUsersResponse]
-	getUser                        *connect_go.Client[xylona.GetUserDetailsRequest, xylona.GetUserDetailsResponse]
-	listIPs                        *connect_go.Client[xylona.ListIPsRequest, xylona.ListIPsResponse]
-	addIP                          *connect_go.Client[xylona.AddIPRequest, xylona.AddIPResponse]
-	removeIP                       *connect_go.Client[xylona.RemoveIPRequest, xylona.RemoveIPResponse]
-	createGameServer               *connect_go.Client[xylona.CreateGameServerRequest, xylona.CreateGameServerResponse]
-	editGameServer                 *connect_go.Client[xylona.EditGameServerRequest, xylona.EditGameServerResponse]
-	removeGameServer               *connect_go.Client[xylona.RemoveGameServerRequest, xylona.RemoveGameServerResponse]
-	startGameServer                *connect_go.Client[xylona.StartGameServerRequest, xylona.StartGameServerResponse]
-	stopGameServer                 *connect_go.Client[xylona.StopGameServerRequest, xylona.StopGameServerResponse]
-	readGameServerOutput           *connect_go.Client[xylona.ReadGameServerOutputRequest, xylona.ReadGameServerOutputResponse]
-	sendGameServerInput            *connect_go.Client[xylona.SendGameServerInputRequest, xylona.SendGameServerInputResponse]
-	getGameServer                  *connect_go.Client[xylona.GetGameServerRequest, xylona.GetGameServerResponse]
-	updateGameServer               *connect_go.Client[xylona.UpdateGameServerRequest, xylona.UpdateGameServerResponse]
-	listGameServers                *connect_go.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
-	getBranches                    *connect_go.Client[xylona.GetBranchesRequest, xylona.GetBranchesResponse]
-	listDirectoryFiles             *connect_go.Client[xylona.ListDirectoryFilesRequest, xylona.ListDirectoryFilesResponse]
-	gameServerFilesDelete          *connect_go.Client[xylona.GameServerFilesDeleteRequest, xylona.GameServerFilesDeleteResponse]
-	gameServerFilesArchive         *connect_go.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesArchiveProgress]
-	gameServerFilesExtract         *connect_go.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesExtractProgress]
-	gameServerFilesCompress        *connect_go.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesCompressionResponse]
-	gameServerFilesDecompress      *connect_go.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesDecompressionResponse]
-	gameServerFilesDownloadFromURL *connect_go.Client[xylona.GameServersFileDownloadFromURLRequest, xylona.GameServersFileDownloadFromURLResponse]
-	gameServerFileRename           *connect_go.Client[xylona.GameServerFileRenameRequest, xylona.GameServerFileRenameResponse]
-	gameServerFilesMove            *connect_go.Client[xylona.GameServerFilesMoveRequest, xylona.GameServerFilesMoveResponse]
-	gameServersFileEdit            *connect_go.Client[xylona.GameServersFileEditRequest, xylona.GameServersFileEditResponse]
+	getGame                          *connect_go.Client[xylona.GetGameRequest, xylona.GetGameResponse]
+	listGames                        *connect_go.Client[xylona.ListGamesRequest, xylona.ListGamesResponse]
+	login                            *connect_go.Client[xylona.LoginRequest, xylona.LoginResponse]
+	logout                           *connect_go.Client[xylona.LogoutRequest, xylona.LogoutResponse]
+	checkUserAuthenticated           *connect_go.Client[xylona.CheckUserAuthenticatedRequest, xylona.CheckUserAuthenticatedResponse]
+	createUser                       *connect_go.Client[xylona.CreateUserRequest, xylona.CreateUserResponse]
+	listUsers                        *connect_go.Client[xylona.ListUsersRequest, xylona.ListUsersResponse]
+	getUser                          *connect_go.Client[xylona.GetUserDetailsRequest, xylona.GetUserDetailsResponse]
+	listIPs                          *connect_go.Client[xylona.ListIPsRequest, xylona.ListIPsResponse]
+	addIP                            *connect_go.Client[xylona.AddIPRequest, xylona.AddIPResponse]
+	removeIP                         *connect_go.Client[xylona.RemoveIPRequest, xylona.RemoveIPResponse]
+	createGameServer                 *connect_go.Client[xylona.CreateGameServerRequest, xylona.CreateGameServerResponse]
+	editGameServer                   *connect_go.Client[xylona.EditGameServerRequest, xylona.EditGameServerResponse]
+	removeGameServer                 *connect_go.Client[xylona.RemoveGameServerRequest, xylona.RemoveGameServerResponse]
+	startGameServer                  *connect_go.Client[xylona.StartGameServerRequest, xylona.StartGameServerResponse]
+	stopGameServer                   *connect_go.Client[xylona.StopGameServerRequest, xylona.StopGameServerResponse]
+	readGameServerOutput             *connect_go.Client[xylona.ReadGameServerOutputRequest, xylona.ReadGameServerOutputResponse]
+	sendGameServerInput              *connect_go.Client[xylona.SendGameServerInputRequest, xylona.SendGameServerInputResponse]
+	getGameServer                    *connect_go.Client[xylona.GetGameServerRequest, xylona.GetGameServerResponse]
+	updateGameServer                 *connect_go.Client[xylona.UpdateGameServerRequest, xylona.UpdateGameServerResponse]
+	listGameServers                  *connect_go.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
+	getBranches                      *connect_go.Client[xylona.GetBranchesRequest, xylona.GetBranchesResponse]
+	listDirectoryFiles               *connect_go.Client[xylona.ListDirectoryFilesRequest, xylona.ListDirectoryFilesResponse]
+	gameServerFilesDelete            *connect_go.Client[xylona.GameServerFilesDeleteRequest, xylona.GameServerFilesDeleteResponse]
+	gameServerFilesArchive           *connect_go.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesArchiveProgress]
+	gameServerFilesExtract           *connect_go.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesExtractProgress]
+	gameServerFilesCompress          *connect_go.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesCompressionResponse]
+	gameServerFilesDecompress        *connect_go.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesDecompressionResponse]
+	gameServerFilesDownloadFromURL   *connect_go.Client[xylona.GameServersFileDownloadFromURLRequest, xylona.GameServersFileDownloadFromURLResponse]
+	gameServerFileRename             *connect_go.Client[xylona.GameServerFileRenameRequest, xylona.GameServerFileRenameResponse]
+	gameServerFilesMove              *connect_go.Client[xylona.GameServerFilesMoveRequest, xylona.GameServerFilesMoveResponse]
+	gameServersFileEdit              *connect_go.Client[xylona.GameServersFileEditRequest, xylona.GameServersFileEditResponse]
+	gameServersFileOrDirectoryCreate *connect_go.Client[xylona.GameServerFileOrDirectoryCreateRequest, xylona.GameServerFileOrDirectoryCreateResponse]
 }
 
 // GetGame calls xylona.Xylona.GetGame.
@@ -525,15 +540,23 @@ func (c *xylonaClient) GameServersFileEdit(ctx context.Context, req *connect_go.
 	return c.gameServersFileEdit.CallUnary(ctx, req)
 }
 
+// GameServersFileOrDirectoryCreate calls xylona.Xylona.GameServersFileOrDirectoryCreate.
+func (c *xylonaClient) GameServersFileOrDirectoryCreate(ctx context.Context, req *connect_go.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect_go.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
+	return c.gameServersFileOrDirectoryCreate.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
-	// rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
-	// rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
+	// Game Operations
+	//
+	//	rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
+	//	rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
 	GetGame(context.Context, *connect_go.Request[xylona.GetGameRequest]) (*connect_go.Response[xylona.GetGameResponse], error)
 	// rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
 	// rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
 	// rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
 	ListGames(context.Context, *connect_go.Request[xylona.ListGamesRequest]) (*connect_go.Response[xylona.ListGamesResponse], error)
+	// General
 	Login(context.Context, *connect_go.Request[xylona.LoginRequest]) (*connect_go.Response[xylona.LoginResponse], error)
 	Logout(context.Context, *connect_go.Request[xylona.LogoutRequest]) (*connect_go.Response[xylona.LogoutResponse], error)
 	CheckUserAuthenticated(context.Context, *connect_go.Request[xylona.CheckUserAuthenticatedRequest]) (*connect_go.Response[xylona.CheckUserAuthenticatedResponse], error)
@@ -543,6 +566,7 @@ type XylonaHandler interface {
 	ListIPs(context.Context, *connect_go.Request[xylona.ListIPsRequest]) (*connect_go.Response[xylona.ListIPsResponse], error)
 	AddIP(context.Context, *connect_go.Request[xylona.AddIPRequest]) (*connect_go.Response[xylona.AddIPResponse], error)
 	RemoveIP(context.Context, *connect_go.Request[xylona.RemoveIPRequest]) (*connect_go.Response[xylona.RemoveIPResponse], error)
+	// Game Server Operations
 	CreateGameServer(context.Context, *connect_go.Request[xylona.CreateGameServerRequest]) (*connect_go.Response[xylona.CreateGameServerResponse], error)
 	EditGameServer(context.Context, *connect_go.Request[xylona.EditGameServerRequest]) (*connect_go.Response[xylona.EditGameServerResponse], error)
 	RemoveGameServer(context.Context, *connect_go.Request[xylona.RemoveGameServerRequest]) (*connect_go.Response[xylona.RemoveGameServerResponse], error)
@@ -557,6 +581,7 @@ type XylonaHandler interface {
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect_go.Request[xylona.ListGameServersRequest]) (*connect_go.Response[xylona.ListGameServersResponse], error)
 	GetBranches(context.Context, *connect_go.Request[xylona.GetBranchesRequest]) (*connect_go.Response[xylona.GetBranchesResponse], error)
+	// File Operations
 	ListDirectoryFiles(context.Context, *connect_go.Request[xylona.ListDirectoryFilesRequest]) (*connect_go.Response[xylona.ListDirectoryFilesResponse], error)
 	GameServerFilesDelete(context.Context, *connect_go.Request[xylona.GameServerFilesDeleteRequest]) (*connect_go.Response[xylona.GameServerFilesDeleteResponse], error)
 	GameServerFilesArchive(context.Context, *connect_go.Request[xylona.GameServerFilesCompressionRequest], *connect_go.ServerStream[xylona.GameServerFilesArchiveProgress]) error
@@ -567,6 +592,7 @@ type XylonaHandler interface {
 	GameServerFileRename(context.Context, *connect_go.Request[xylona.GameServerFileRenameRequest]) (*connect_go.Response[xylona.GameServerFileRenameResponse], error)
 	GameServerFilesMove(context.Context, *connect_go.Request[xylona.GameServerFilesMoveRequest]) (*connect_go.Response[xylona.GameServerFilesMoveResponse], error)
 	GameServersFileEdit(context.Context, *connect_go.Request[xylona.GameServersFileEditRequest]) (*connect_go.Response[xylona.GameServersFileEditResponse], error)
+	GameServersFileOrDirectoryCreate(context.Context, *connect_go.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect_go.Response[xylona.GameServerFileOrDirectoryCreateResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -735,6 +761,11 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (stri
 		svc.GameServersFileEdit,
 		opts...,
 	)
+	xylonaGameServersFileOrDirectoryCreateHandler := connect_go.NewUnaryHandler(
+		XylonaGameServersFileOrDirectoryCreateProcedure,
+		svc.GameServersFileOrDirectoryCreate,
+		opts...,
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaGetGameProcedure:
@@ -801,6 +832,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (stri
 			xylonaGameServerFilesMoveHandler.ServeHTTP(w, r)
 		case XylonaGameServersFileEditProcedure:
 			xylonaGameServersFileEditHandler.ServeHTTP(w, r)
+		case XylonaGameServersFileOrDirectoryCreateProcedure:
+			xylonaGameServersFileOrDirectoryCreateHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -936,4 +969,8 @@ func (UnimplementedXylonaHandler) GameServerFilesMove(context.Context, *connect_
 
 func (UnimplementedXylonaHandler) GameServersFileEdit(context.Context, *connect_go.Request[xylona.GameServersFileEditRequest]) (*connect_go.Response[xylona.GameServersFileEditResponse], error) {
 	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.GameServersFileEdit is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GameServersFileOrDirectoryCreate(context.Context, *connect_go.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect_go.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
+	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.GameServersFileOrDirectoryCreate is not implemented"))
 }

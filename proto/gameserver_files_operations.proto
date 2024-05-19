@@ -83,3 +83,13 @@ message GameServersFileEditRequest {
 
 message GameServersFileEditResponse {
 }
+
+message GameServerFileOrDirectoryCreateRequest {
+  string game_server_id = 1;
+  string full_file_path = 2;
+  string content = 3;
+  bool is_directory = 4;
+}
+
+message GameServerFileOrDirectoryCreateResponse {
+}
