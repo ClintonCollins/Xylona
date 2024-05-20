@@ -121,14 +121,14 @@
     </q-card-section>
     <q-dialog no-shake persistent v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
         <Editor v-model:code-input="editorFileContent" :file-name="editorFilename" :game-server-id="gameServerId"
-               :full-file-path="editorFilePath" @submit="editorSubmitted"></Editor>
+               :full-file-path="editorFilePath" @submit="refreshFileList"></Editor>
     </q-dialog>
-    <ArchiveFiles @submit="archiveFilesDialogSubmitted" @cancel="archiveFilesDialog = false"
+    <ArchiveFiles @submit="refreshFileList" @cancel="archiveFilesDialog = false"
                   v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"
                   :path-separator="pathSeparator" :path="path" :selected-files="selectedFiles"
                   :game-server-id="gameServerId">
     </ArchiveFiles>
-    <ExtractFiles @submit="extractFilesDialogSubmitted" @cancel="extractFilesDialog = false"
+    <ExtractFiles @submit="refreshFileList" @cancel="extractFilesDialog = false"
                   :game-server-path="gameServer.directory"
                   v-model:show-dialog="extractFilesDialog" :game-server-id="gameServerId" :path="path"
                   :full-archive-path="GetRelativeFilePath(gameServer.directory, path, selectedFiles[0]?.name)">
@@ -136,7 +136,13 @@
     <Create :game-server-id="gameServerId" v-model:show-dialog="createFilesDialog"
             :game-server-path="gameServer.directory" :path="path" @submit="createFilesDialogSubmitted">
     </Create>
-    <DeleteGameServerFilesDialog @files-deleted="deleteFilesSubmitted()" :files-to-delete="selectedFiles"
+    <RenameFile :old-file-name="selectedFiles[0]?.name" :path="path" :game-server-path="gameServer.directory"
+                :game-server-id="gameServerId" v-model:show-dialog="renameFilesDialog" @submit="refreshFileList">
+    </RenameFile>
+    <MoveFiles :path="path" :game-server-path="gameServer.directory" :game-server-id="gameServerId" :selected-files="selectedFiles"
+               v-model:show-dialog="moveFilesDialog" @submit="refreshFileList" :neighboring-directories-in-path="directories.map(f => f.name)">
+    </MoveFiles>
+    <DeleteGameServerFilesDialog @files-deleted="refreshFileList()" :files-to-delete="selectedFiles"
                                  :current-path="path" :path-separator="pathSeparator"
                                  :game-server-i-d="gameServerId" v-model:show-dialog="deleteFilesDialog">
     </DeleteGameServerFilesDialog>
@@ -151,6 +157,8 @@ import Create from 'components/game_servers/Create.vue'
 import DeleteGameServerFilesDialog from 'components/game_servers/DeleteGameServerFilesDialog.vue'
 import ExtractFiles from 'components/game_servers/ExtractFiles.vue'
 import FileUploaderDrop from 'components/game_servers/FileUploaderDrop.vue'
+import MoveFiles from 'components/game_servers/MoveFiles.vue'
+import RenameFile from 'components/game_servers/RenameFile.vue'
 import dayjs from 'dayjs'
 import { QBtn, QMenu, useQuasar } from 'quasar'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
@@ -191,7 +199,6 @@ const contextMenu: Ref<QMenu | null> = ref(null)
 const fileListContainer: Ref<HTMLElement | null> = ref(null)
 const fileUploaderDialog: Ref<boolean> = ref(false)
 const createFileName: Ref<string> = ref('')
-const createFileDirType: Ref<string> = ref('file')
 
 // Archive
 const archiveFilesDialog: Ref<boolean> = ref(false)
@@ -216,22 +223,7 @@ const allowedExtractExtensions: string[] = ['.zip', '.zst', '.gz', '.bz2', '.xz'
 const allowedFileEditExtensions: string[] = ['.txt', '.cfg', '.json', '.xml', '.yml', '.yaml', '.ini', '.log',
     '.properties', '.sh', '.ps1', '.bat', '.py', '.js', '.ts']
 
-async function archiveFilesDialogSubmitted() {
-    selectedFiles.value = []
-    void listDirectoryFiles(path.value)
-}
-
-async function extractFilesDialogSubmitted() {
-    selectedFiles.value = []
-    void listDirectoryFiles(path.value)
-}
-
-async function deleteFilesSubmitted() {
-    selectedFiles.value = []
-    void listDirectoryFiles(path.value)
-}
-
-async function editorSubmitted() {
+async function refreshFileList() {
     selectedFiles.value = []
     void listDirectoryFiles(path.value)
 }
@@ -362,9 +354,9 @@ watch(selectAllFiles, (newValue) => {
 })
 
 watch(selectedFiles, (newValue) => {
-    const deleteButton: QBtn | null = ref(null)
-    if (deleteButton) {
-        deleteButton.disable = newValue.length === 0
+    const deleteButton: Ref<QBtn | null> = ref(null)
+    if (deleteButton.value) {
+        deleteButton.value.disable = newValue.length === 0
     }
     if (selectAllFiles) {
         const sanitizedDirectories = directories.value.filter((directory) => {

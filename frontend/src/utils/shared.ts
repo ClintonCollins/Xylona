@@ -58,6 +58,13 @@ export function GetRelativeFilePath(referencePathForSeparator: string, ...filePa
     return filteredFilePaths.join(pathSeparator)
 }
 
+export function GetPathSeparator(path: string): string {
+    if (path.indexOf('\\') !== -1) {
+        return '\\'
+    }
+    return '/'
+}
+
 export function WindowWidth() {
     const windowWidth = ref(window.innerWidth)
 

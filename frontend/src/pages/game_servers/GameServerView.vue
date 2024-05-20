@@ -184,7 +184,7 @@ async function getGameServerOutput() {
     }
     setTimeout(() => {
       consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
-    }, 1)
+    }, 50)
   } catch (e) {
     console.error(e)
   }

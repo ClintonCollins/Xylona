@@ -182,17 +182,21 @@ func (inst *Instance) MoveFiles(ctx context.Context, gameServer *models.GameServ
 	successfullyMoved := make([]string, 0, len(files))
 	destination = strings.TrimPrefix(destination, "/")
 	destinationIsLocal := filepath.IsLocal(destination)
-	if !destinationIsLocal {
+	if (!destinationIsLocal && destination != "") || destination == ".." {
 		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
 		return nil, ErrInvalidPath
+	}
+	destinationFullPath := filepath.Join(gameServer.Directory, destination)
+	errMkdir := os.MkdirAll(destinationFullPath, os.ModePerm)
+	if errMkdir != nil {
+		log.Error().Err(errMkdir).Msg("Failed to create destination directory")
+		return nil, errMkdir
 	}
 	for _, file := range files {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			// Strip everything except the filename.
-			file = filepath.Base(file)
 			file = strings.TrimPrefix(file, "/")
 			fileIsLocal := filepath.IsLocal(file)
 			if !fileIsLocal {
@@ -200,8 +204,8 @@ func (inst *Instance) MoveFiles(ctx context.Context, gameServer *models.GameServ
 				return nil, ErrInvalidPath
 			}
 			fullPath := filepath.Join(gameServer.Directory, file)
-			destinationFullPath := filepath.Join(gameServer.Directory, destination, file)
-			errRename := os.Rename(fullPath, destinationFullPath)
+			fileDestinationPath := filepath.Join(destinationFullPath, filepath.Base(file))
+			errRename := os.Rename(fullPath, fileDestinationPath)
 			if errRename != nil {
 				log.Error().Err(errRename).Msg("Failed to move file")
 				continue
