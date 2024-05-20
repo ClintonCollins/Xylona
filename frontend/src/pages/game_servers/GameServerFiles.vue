@@ -120,8 +120,8 @@
         </FileUploaderDrop>
     </q-card-section>
     <q-dialog no-shake persistent v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
-        <Editor v-model:code-input="editorFileContent" v-model:file-name="editorFilename" :game-server-id="gameServerId"
-                v-model:full-file-path="editorFilePath" :new-file="editorNewFile" @submit="editorSubmitted"></Editor>
+        <Editor v-model:code-input="editorFileContent" :file-name="editorFilename" :game-server-id="gameServerId"
+               :full-file-path="editorFilePath" @submit="editorSubmitted"></Editor>
     </q-dialog>
     <ArchiveFiles @submit="archiveFilesDialogSubmitted" @cancel="archiveFilesDialog = false"
                   v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"

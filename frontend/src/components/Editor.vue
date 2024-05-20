@@ -26,7 +26,7 @@ import { QCard, useQuasar } from 'quasar'
 import loadCustomEditorSettings, { getLanguageFromFileName, LanguageOptions } from 'components/editor/editor'
 import { GameServersFileEditRequest, GameServersFileEditResponse } from 'src/proto/gameserver_files_operations_pb'
 import { GetXylonaClient } from 'src/utils/shared'
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import * as monaco from 'monaco-editor'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
@@ -46,9 +46,9 @@ const props = defineProps({
         type: String,
         required: true
     },
-    newFile: {
-        type: Boolean,
-        default: false
+    fullFilePath: {
+        type: String,
+        required: true
     },
     editorTitle: {
         type: String,
@@ -65,30 +65,26 @@ const editorOptions = ref([
 
 const emit = defineEmits(['submit'])
 
-const fullFilePath = defineModel('fullFilePath', {
-    type: String,
-    default: ''
-})
-
-const fileName = defineModel('fileName', {
-    type: String,
-    default: ''
-})
-
 const codeInput = defineModel('codeInput', {
     type: String,
     default: ''
 })
 
-let editor: IStandaloneCodeEditor
+let editor: IStandaloneCodeEditor | null = null
 const editorContainer = ref(null)
 const selectedLanguage = ref(getLanguageFromFileName(props.fileName))
 
 function editorThemeChanged() {
+    if (!editor) {
+        return
+    }
     editor.updateOptions({theme: editorTheme.value})
 }
 
 function editorLanguageChanged() {
+    if (!editor) {
+        return
+    }
     const model = editor.getModel()
     if (model) {
         monaco.editor.setModelLanguage(model,
@@ -121,27 +117,39 @@ self.MonacoEnvironment = {
 }
 
 onMounted(() => {
-    loadCustomEditorSettings()
-    if (editorContainer.value) {
-        editor = monaco.editor.create(editorContainer.value, {
-            value: codeInput.value,
-            language: selectedLanguage.value,
-            scrollBeyondLastLine: false,
-            theme: 'vs-dark',
-            automaticLayout: true,
-            suggest: {
-                showWords: true,
-                showClasses: true,
-                showColors: true,
-                showFiles: true,
-                snippetsPreventQuickSuggestions: false
-            }
-        })
-        editor.onDidChangeModelContent(() => {
-            codeInput.value = editor.getValue()
-        })
-    } else {
-        console.error('editorContainer is null')
+    // Without this timeout, the entire page will lock up in Chrome and begin leaking memory...
+    setTimeout(() => {
+        loadCustomEditorSettings()
+        if (editorContainer.value && !editor) {
+            editor = monaco.editor.create(editorContainer.value, {
+                value: codeInput.value,
+                language: selectedLanguage.value,
+                scrollBeyondLastLine: false,
+                theme: 'vs-dark',
+                automaticLayout: true,
+                suggest: {
+                    showWords: true,
+                    showClasses: true,
+                    showColors: true,
+                    showFiles: true,
+                    snippetsPreventQuickSuggestions: false
+                }
+            })
+            editor.onDidChangeModelContent(() => {
+                if (!editor) {
+                    return
+                }
+                codeInput.value = editor.getValue()
+            })
+        } else {
+            console.error('editorContainer is null')
+        }
+    }, 10)
+})
+
+onUnmounted(() => {
+    if (editor) {
+        editor.dispose()
     }
 })
 
