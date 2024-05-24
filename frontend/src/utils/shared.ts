@@ -1,4 +1,4 @@
-import { createCallbackClient, createPromiseClient } from '@connectrpc/connect'
+import { Code, ConnectError, createCallbackClient, createPromiseClient } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
 import { Xylona } from 'src/proto/xylona_connect'
 import { onMounted, ref } from 'vue'
@@ -144,6 +144,15 @@ export function bytesToSize(bytes: number): string {
     if (bytes === 0) return '0 Byte'
     const i = Math.floor(Math.log(bytes) / Math.log(1024))
     return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+export function ConnectErrorToString(err: ConnectError): string {
+    switch (err.code) {
+        case Code.Unavailable:
+            return 'Unable to connect to Xylona backend.'
+        default:
+            return err.message
+    }
 }
 
 export function getIconFromFilenameExtension(fileName: string): string {

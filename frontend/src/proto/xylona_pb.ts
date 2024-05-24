@@ -7,6 +7,38 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3, protoInt64, Timestamp } from "@bufbuild/protobuf";
 
 /**
+ * @generated from enum xylona.Error
+ */
+export enum Error {
+  /**
+   * @generated from enum value: BAD_REQUEST = 0;
+   */
+  BAD_REQUEST = 0,
+
+  /**
+   * @generated from enum value: PORT_IN_USE = 1;
+   */
+  PORT_IN_USE = 1,
+
+  /**
+   * @generated from enum value: GAME_SERVER_ALREADY_EXISTS = 2;
+   */
+  GAME_SERVER_ALREADY_EXISTS = 2,
+
+  /**
+   * @generated from enum value: USER_ALREADY_EXISTS = 3;
+   */
+  USER_ALREADY_EXISTS = 3,
+}
+// Retrieve enum metadata with: proto3.getEnumType(Error)
+proto3.util.setEnumType(Error, "xylona.Error", [
+  { no: 0, name: "BAD_REQUEST" },
+  { no: 1, name: "PORT_IN_USE" },
+  { no: 2, name: "GAME_SERVER_ALREADY_EXISTS" },
+  { no: 3, name: "USER_ALREADY_EXISTS" },
+]);
+
+/**
  * @generated from enum xylona.CommandProcessor
  */
 export enum CommandProcessor {
@@ -34,11 +66,6 @@ export enum CommandProcessor {
    * @generated from enum value: POWERSHELL = 4;
    */
   POWERSHELL = 4,
-
-  /**
-   * @generated from enum value: PWSH = 5;
-   */
-  PWSH = 5,
 }
 // Retrieve enum metadata with: proto3.getEnumType(CommandProcessor)
 proto3.util.setEnumType(CommandProcessor, "xylona.CommandProcessor", [
@@ -47,7 +74,6 @@ proto3.util.setEnumType(CommandProcessor, "xylona.CommandProcessor", [
   { no: 2, name: "BASH" },
   { no: 3, name: "CMD" },
   { no: 4, name: "POWERSHELL" },
-  { no: 5, name: "PWSH" },
 ]);
 
 /**
@@ -594,6 +620,11 @@ export class CreateUserResponse extends Message<CreateUserResponse> {
    */
   user?: User;
 
+  /**
+   * @generated from field: optional xylona.Error error = 2;
+   */
+  error?: Error;
+
   constructor(data?: PartialMessage<CreateUserResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -603,6 +634,7 @@ export class CreateUserResponse extends Message<CreateUserResponse> {
   static readonly typeName = "xylona.CreateUserResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "user", kind: "message", T: User },
+    { no: 2, name: "error", kind: "enum", T: proto3.getEnumType(Error), opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateUserResponse {
@@ -1323,152 +1355,112 @@ export class Game extends Message<Game> {
   linuxUpdateCommand = "";
 
   /**
-   * @generated from field: string linux_backup_command = 12;
-   */
-  linuxBackupCommand = "";
-
-  /**
-   * @generated from field: string linux_restore_command = 13;
-   */
-  linuxRestoreCommand = "";
-
-  /**
-   * @generated from field: string linux_working_directory = 14;
+   * @generated from field: string linux_working_directory = 12;
    */
   linuxWorkingDirectory = "";
 
   /**
-   * @generated from field: string linux_configuration_file_paths = 15;
+   * @generated from field: string linux_configuration_file_paths = 13;
    */
   linuxConfigurationFilePaths = "";
 
   /**
-   * @generated from field: bool linux_allow_backups = 16;
+   * @generated from field: bool linux_allow_backups = 14;
    */
   linuxAllowBackups = false;
 
   /**
-   * @generated from field: string windows_start_command = 17;
+   * @generated from field: string windows_start_command = 15;
    */
   windowsStartCommand = "";
 
   /**
-   * @generated from field: string windows_stop_command = 18;
+   * @generated from field: string windows_stop_command = 16;
    */
   windowsStopCommand = "";
 
   /**
-   * @generated from field: string windows_install_command = 19;
+   * @generated from field: string windows_install_command = 17;
    */
   windowsInstallCommand = "";
 
   /**
-   * @generated from field: string windows_update_command = 20;
+   * @generated from field: string windows_update_command = 18;
    */
   windowsUpdateCommand = "";
 
   /**
-   * @generated from field: string windows_backup_command = 21;
-   */
-  windowsBackupCommand = "";
-
-  /**
-   * @generated from field: string windows_restore_command = 22;
-   */
-  windowsRestoreCommand = "";
-
-  /**
-   * @generated from field: string windows_working_directory = 23;
+   * @generated from field: string windows_working_directory = 19;
    */
   windowsWorkingDirectory = "";
 
   /**
-   * @generated from field: string windows_configuration_file_paths = 24;
+   * @generated from field: string windows_configuration_file_paths = 20;
    */
   windowsConfigurationFilePaths = "";
 
   /**
-   * @generated from field: bool windows_allow_backups = 25;
+   * @generated from field: bool windows_allow_backups = 21;
    */
   windowsAllowBackups = false;
 
   /**
-   * @generated from field: bool require_dedicated_ip = 26;
+   * @generated from field: bool require_dedicated_ip = 22;
    */
   requireDedicatedIp = false;
 
   /**
-   * @generated from field: bool binds_to_all_ips = 27;
+   * @generated from field: bool binds_to_all_ips = 23;
    */
   bindsToAllIps = false;
 
   /**
-   * @generated from field: google.protobuf.Timestamp created_at = 28;
+   * @generated from field: google.protobuf.Timestamp created_at = 24;
    */
   createdAt?: Timestamp;
 
   /**
-   * @generated from field: google.protobuf.Timestamp updated_at = 29;
+   * @generated from field: google.protobuf.Timestamp updated_at = 25;
    */
   updatedAt?: Timestamp;
 
   /**
-   * @generated from field: bool uses_source_query = 30;
+   * @generated from field: bool uses_source_query = 26;
    */
   usesSourceQuery = false;
 
   /**
-   * @generated from field: bool requires_steam_game_server_login_token = 31;
+   * @generated from field: bool requires_steam_game_server_login_token = 27;
    */
   requiresSteamGameServerLoginToken = false;
 
   /**
-   * @generated from field: xylona.CommandProcessor linux_install_command_processor = 32;
+   * @generated from field: xylona.CommandProcessor linux_install_command_processor = 28;
    */
   linuxInstallCommandProcessor = CommandProcessor.DIRECT;
 
   /**
-   * @generated from field: xylona.CommandProcessor linux_update_command_processor = 33;
+   * @generated from field: xylona.CommandProcessor linux_update_command_processor = 29;
    */
   linuxUpdateCommandProcessor = CommandProcessor.DIRECT;
 
   /**
-   * @generated from field: xylona.CommandProcessor linux_backup_command_processor = 34;
-   */
-  linuxBackupCommandProcessor = CommandProcessor.DIRECT;
-
-  /**
-   * @generated from field: xylona.CommandProcessor linux_restore_command_processor = 35;
-   */
-  linuxRestoreCommandProcessor = CommandProcessor.DIRECT;
-
-  /**
-   * @generated from field: xylona.CommandProcessor windows_install_command_processor = 36;
+   * @generated from field: xylona.CommandProcessor windows_install_command_processor = 30;
    */
   windowsInstallCommandProcessor = CommandProcessor.DIRECT;
 
   /**
-   * @generated from field: xylona.CommandProcessor windows_update_command_processor = 37;
+   * @generated from field: xylona.CommandProcessor windows_update_command_processor = 31;
    */
   windowsUpdateCommandProcessor = CommandProcessor.DIRECT;
 
   /**
-   * @generated from field: xylona.CommandProcessor windows_backup_command_processor = 38;
-   */
-  windowsBackupCommandProcessor = CommandProcessor.DIRECT;
-
-  /**
-   * @generated from field: xylona.CommandProcessor windows_restore_command_processor = 39;
-   */
-  windowsRestoreCommandProcessor = CommandProcessor.DIRECT;
-
-  /**
-   * @generated from field: bool uses_steamcmd = 40;
+   * @generated from field: bool uses_steamcmd = 32;
    */
   usesSteamcmd = false;
 
   /**
-   * @generated from field: string steam_appid = 41;
+   * @generated from field: string steam_appid = 33;
    */
   steamAppid = "";
 
@@ -1491,36 +1483,28 @@ export class Game extends Message<Game> {
     { no: 9, name: "linux_stop_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 10, name: "linux_install_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 11, name: "linux_update_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 12, name: "linux_backup_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 13, name: "linux_restore_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 14, name: "linux_working_directory", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 15, name: "linux_configuration_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 16, name: "linux_allow_backups", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 17, name: "windows_start_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 18, name: "windows_stop_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 19, name: "windows_install_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 20, name: "windows_update_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 21, name: "windows_backup_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 22, name: "windows_restore_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 23, name: "windows_working_directory", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 24, name: "windows_configuration_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 25, name: "windows_allow_backups", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 26, name: "require_dedicated_ip", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 27, name: "binds_to_all_ips", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 28, name: "created_at", kind: "message", T: Timestamp },
-    { no: 29, name: "updated_at", kind: "message", T: Timestamp },
-    { no: 30, name: "uses_source_query", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 31, name: "requires_steam_game_server_login_token", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 32, name: "linux_install_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
-    { no: 33, name: "linux_update_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
-    { no: 34, name: "linux_backup_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
-    { no: 35, name: "linux_restore_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
-    { no: 36, name: "windows_install_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
-    { no: 37, name: "windows_update_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
-    { no: 38, name: "windows_backup_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
-    { no: 39, name: "windows_restore_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
-    { no: 40, name: "uses_steamcmd", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 41, name: "steam_appid", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 12, name: "linux_working_directory", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 13, name: "linux_configuration_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 14, name: "linux_allow_backups", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 15, name: "windows_start_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 16, name: "windows_stop_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 17, name: "windows_install_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 18, name: "windows_update_command", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 19, name: "windows_working_directory", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 20, name: "windows_configuration_file_paths", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 21, name: "windows_allow_backups", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 22, name: "require_dedicated_ip", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 23, name: "binds_to_all_ips", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 24, name: "created_at", kind: "message", T: Timestamp },
+    { no: 25, name: "updated_at", kind: "message", T: Timestamp },
+    { no: 26, name: "uses_source_query", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 27, name: "requires_steam_game_server_login_token", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 28, name: "linux_install_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 29, name: "linux_update_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 30, name: "windows_install_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 31, name: "windows_update_command_processor", kind: "enum", T: proto3.getEnumType(CommandProcessor) },
+    { no: 32, name: "uses_steamcmd", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 33, name: "steam_appid", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Game {
@@ -2314,6 +2298,11 @@ export class AddGameResponse extends Message<AddGameResponse> {
    */
   game?: Game;
 
+  /**
+   * @generated from field: optional xylona.Error error = 2;
+   */
+  error?: Error;
+
   constructor(data?: PartialMessage<AddGameResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -2323,6 +2312,7 @@ export class AddGameResponse extends Message<AddGameResponse> {
   static readonly typeName = "xylona.AddGameResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game", kind: "message", T: Game },
+    { no: 2, name: "error", kind: "enum", T: proto3.getEnumType(Error), opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AddGameResponse {
@@ -2536,6 +2526,11 @@ export class ImportGameResponse extends Message<ImportGameResponse> {
    */
   game?: Game;
 
+  /**
+   * @generated from field: optional xylona.Error error = 2;
+   */
+  error?: Error;
+
   constructor(data?: PartialMessage<ImportGameResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -2545,6 +2540,7 @@ export class ImportGameResponse extends Message<ImportGameResponse> {
   static readonly typeName = "xylona.ImportGameResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game", kind: "message", T: Game },
+    { no: 2, name: "error", kind: "enum", T: proto3.getEnumType(Error), opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ImportGameResponse {
@@ -2968,6 +2964,11 @@ export class CreateGameServerResponse extends Message<CreateGameServerResponse> 
    */
   gameServer?: GameServer;
 
+  /**
+   * @generated from field: optional xylona.Error error = 2;
+   */
+  error?: Error;
+
   constructor(data?: PartialMessage<CreateGameServerResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -2977,6 +2978,7 @@ export class CreateGameServerResponse extends Message<CreateGameServerResponse> 
   static readonly typeName = "xylona.CreateGameServerResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "game_server", kind: "message", T: GameServer },
+    { no: 2, name: "error", kind: "enum", T: proto3.getEnumType(Error), opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateGameServerResponse {

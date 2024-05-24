@@ -21,7 +21,9 @@ import (
 	"github.com/ziutek/telnet"
 	"golang.org/x/sync/errgroup"
 
+	internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 type inputType int
@@ -51,11 +53,14 @@ type InputMethod struct {
 
 type PreparedCommand struct {
 	ID                 string
+	InternalCommand    bool
+	InternalGameServer *models.GameServer
 	FullCommandAndArgs string
 	WorkingDirectory   string
 	User               string
 	ServiceID          string      // ServiceID is usually the ID of the game this command is associated with.
 	InputMethod        InputMethod // InputMethod is used to determine how to send input to the command.
+	GameID             *string
 	GameServerID       *string
 	CallbackFunction   func(*Command)
 	Status             xylona.Status
@@ -81,7 +86,7 @@ func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, e
 	if err != nil {
 		return nil, err
 	}
-	if cmd.currentCMD == nil {
+	if cmd.currentCMD == nil && !preparedCommand.InternalCommand {
 		return nil, fmt.Errorf(cmd.GetOutputBuffer())
 	}
 	return cmd, nil
@@ -143,7 +148,7 @@ func (inst *Instance) ListCommands() []Command {
 // It closes the job notification after reading all the output.
 func (c *Command) readJobOut() {
 	log.Debug().Str("Game Server ID", c.ID).Msg("Reading job output")
-	if c.currentCMD == nil {
+	if c.currentCMD == nil && !c.InternalCommand {
 		return
 	}
 	disableOutput := false
@@ -339,6 +344,52 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 		}
 	}(command)
 	log.Debug().Str("Game Server ID", command.ID).Msg("Starting job")
+	// If it's an internal command, we need to run the internal command.
+	if command.InternalCommand && (command.status == xylona.Status_INSTALLING || command.status == xylona.Status_UPDATING) {
+		if command.internalGameServer == nil {
+			log.Error().Str("Game Server ID", command.ID).Msg("Internal game server is nil")
+			return
+		}
+		if command.gameID == nil {
+			log.Error().Str("Game Server ID", command.ID).Msg("Game ID is nil")
+			return
+		}
+		internalGame, exists := internal.GetGame(*command.gameID)
+		if !exists {
+			log.Error().Str("Game ID", *command.gameID).Str("Game Server ID", command.ID).Msg("Internal game does not exist")
+			return
+		}
+		command.sendJobStatusNotification(command.status)
+		defer func() {
+			command.sendJobStatusNotification(xylona.Status_OFFLINE)
+			command.Lock()
+			command.currentCMD = nil
+			command.status = xylona.Status_OFFLINE
+			command.Unlock()
+			commandEndFunc(command)
+		}()
+		switch command.status {
+		case xylona.Status_INSTALLING:
+			err := internalGame.Install(command.internalGameServer, command.internalCommandStdOut, command.internalCommandStdErr)
+			if err != nil {
+				log.Error().Err(err).Msg("Error installing internal game")
+				return
+			}
+			return
+		case xylona.Status_UPDATING:
+			err := internalGame.Update(command.internalGameServer, command.internalCommandStdOut, command.internalCommandStdErr)
+			if err != nil {
+				log.Error().Err(err).Msg("Error updating internal game")
+				return
+			}
+			return
+		}
+		log.Error().Str("Game Server ID", command.ID).Msg("Unable to find internal command to run.")
+		command.sendJobNotification("Unable to find internal command to run.")
+		return
+	}
+
+	// If it's not an internal command, we need to run the command.
 	if command.currentCMD == nil {
 		return
 	}
@@ -388,14 +439,29 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 
 	newCommand := inst.initNewCommand(preparedCommand, persistentCommand)
 
-	// Extracted Command setup logic to a private function.
-	cmd, err := inst.setupCmd(newCommand, preparedCommand)
-	if err != nil {
-		return nil, err
+	if !preparedCommand.InternalCommand {
+		// Extracted Command setup logic to a private function.
+		cmd, err := inst.setupCmd(newCommand, preparedCommand)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debug().Str("Command ID", preparedCommand.ID).Msg("Starting command")
+		newCommand.currentCMD = cmd
+	} else {
+		// Internal command
+		newCommand.InternalCommand = preparedCommand.InternalCommand
+		newCommand.internalGameServer = preparedCommand.InternalGameServer
+		newCommand.gameID = preparedCommand.GameID
+		stdOutPipeReader, stdOutPipeWriter := io.Pipe()
+		stdErrPipeReader, stdErrPipeWriter := io.Pipe()
+		newCommand.internalCommandStdOut = stdOutPipeWriter
+		newCommand.internalCommandStdErr = stdErrPipeWriter
+		newCommand.stdout = stdOutPipeReader
+		newCommand.stderr = stdErrPipeReader
+		newCommand.currentCMD = nil
 	}
 
-	log.Debug().Str("Command ID", preparedCommand.ID).Msg("Starting command")
-	newCommand.currentCMD = cmd
 	if persistentCommand == nil {
 		inst.runningCommands[preparedCommand.ID] = newCommand
 	}
@@ -461,8 +527,6 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 	}
 	command := commandSplit[0]
 	args := commandSplit[1:]
-	log.Info().Msgf("%+v", commandSplit)
-	log.Info().Msgf("%+v", args)
 
 	cmd := exec.CommandContext(newCommand.processCtx, command, args...)
 	cmd.Dir = preparedCommand.WorkingDirectory
@@ -471,11 +535,6 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 	if err != nil {
 		return nil, err
 	}
-
-	//combinedOutput := io.MultiReader(stdOutPipe, stdErrPipe)
-	//newCommand.combinedOutput = combinedOutput
-	//cmd.Stdout = os.Stdout
-	//cmd.Stderr = os.Stderr
 
 	newCommand.stdout = stdOutPipe
 	newCommand.stderr = stdErrPipe
@@ -625,7 +684,6 @@ func (c *Command) pushToOutputBuffer(output string) {
 	c.Lock()
 	defer c.Unlock()
 	if len(c.outBuffer) > maxOutputBufferBytes {
-		log.Debug().Msg("Over buffer size")
 		c.outBuffer = c.outBuffer[len(c.outBuffer)-maxOutputBufferBytes:]
 	}
 	c.outBuffer += output + "\n"

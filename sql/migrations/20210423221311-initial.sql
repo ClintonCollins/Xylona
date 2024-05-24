@@ -43,13 +43,7 @@ create table if not exists game
     linux_install_command_type             text             not null default 'direct',
     linux_update_command                   text             not null default '',
     linux_update_command_type              text             not null default 'direct',
-    linux_backup_command                   text             not null default '',
-    linux_backup_command_type              text             not null default 'direct',
-    linux_restore_command                  text             not null default '',
-    linux_restore_command_type             text             not null default 'direct',
-    linux_allow_backups                    boolean          not null default false,
     linux_working_directory                text             not null default '',
-    linux_configuration_file_paths         text             not null default '',
     windows_support                        boolean          not null default false,
     windows_start_command                  text             not null default '' check ( windows_support == 0 or windows_start_command not null ),
     windows_stop_command                   text             not null default '',
@@ -57,28 +51,16 @@ create table if not exists game
     windows_install_command_type           text             not null default 'direct',
     windows_update_command                 text             not null default '',
     windows_update_command_type            text             not null default 'direct',
-    windows_backup_command                 text             not null default '',
-    windows_backup_command_type            text             not null default 'direct',
-    windows_restore_command                text             not null default '',
-    windows_restore_command_type           text             not null default 'direct',
-    windows_allow_backups                  boolean          not null default false,
     windows_working_directory              text             not null default '',
-    windows_configuration_file_paths       text             not null default '',
     created_at                             datetime         not null default current_timestamp,
     updated_at                             datetime         not null default current_timestamp,
 
-    constraint linux_install_command_type_check check ( linux_install_command_type in ('direct', 'bash', 'xylona_internal') ),
-    constraint linux_update_command_type_check check ( linux_update_command_type in ('direct', 'bash', 'xylona_internal') ),
-    constraint linux_backup_command_type_check check ( linux_backup_command_type in ('direct', 'bash', 'xylona_internal') ),
-    constraint linux_restore_command_type_check check ( linux_restore_command_type in ('direct', 'bash', 'xylona_internal') ),
+    constraint linux_install_command_type_check check ( linux_install_command_type in ('direct', 'bash', 'internal') ),
+    constraint linux_update_command_type_check check ( linux_update_command_type in ('direct', 'bash', 'internal') ),
     constraint windows_install_command_type_check check ( windows_install_command_type in
-                                                          ('direct', 'cmd', 'powershell', 'pwsh', 'xylona_internal') ),
+                                                          ('direct', 'cmd', 'powershell', 'internal') ),
     constraint windows_update_command_type_check check ( windows_update_command_type in
-                                                         ('direct', 'cmd', 'powershell', 'pwsh', 'xylona_internal') ),
-    constraint windows_backup_command_type_check check ( windows_backup_command_type in
-                                                         ('direct', 'cmd', 'powershell', 'pwsh', 'xylona_internal') ),
-    constraint windows_restore_command_type_check check ( windows_restore_command_type in
-                                                          ('direct', 'cmd', 'powershell', 'pwsh', 'xylona_internal') )
+                                                         ('direct', 'cmd', 'powershell', 'internal') )
 );
 
 create table if not exists game_server
@@ -118,38 +100,74 @@ create table if not exists ip
 
 -- Insert Minecraft
 INSERT INTO game (id, name, default_port, default_query_port, default_max_players, require_dedicated_ip,
-                  binds_to_all_ips, linux_support, linux_start_command, linux_stop_command, linux_install_command,
-                  linux_update_command, linux_backup_command, linux_restore_command, linux_allow_backups,
-                  linux_working_directory, linux_configuration_file_paths, windows_support, windows_start_command,
-                  windows_stop_command, windows_install_command, windows_update_command, windows_backup_command,
-                  windows_restore_command, windows_allow_backups, windows_working_directory,
-                  windows_configuration_file_paths, created_at, updated_at)
-VALUES ('minecraft', 'Minecraft', 25565, 25565, 32, 0, 0, 1,
+                  binds_to_all_ips,
+                  linux_support,
+                  linux_start_command,
+                  linux_stop_command,
+                  linux_install_command_type,
+                  linux_install_command,
+                  linux_update_command,
+                  linux_working_directory,
+                  windows_support,
+                  windows_start_command,
+                  windows_stop_command,
+                  windows_install_command_type,
+                  windows_install_command,
+                  windows_update_command,
+                  windows_working_directory,
+                  created_at, updated_at)
+VALUES ('minecraft', 'Minecraft', 25565, 25565, 32, 0, 0,
+        true,
         'java -Dlog4j2.formatMsgNoLookups=true -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:+ZProactive -XX:ZCollectionInterval=600 -XX:+UseLargePages -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:+ParallelRefProcEnabled -XX:+PerfDisableSharedMem  -jar minecraft_server.jar',
         '/stop',
-        'curl -o minecraft_server.jar https://piston-data.mojang.com/v1/objects/5b868151bd02b41319f54c8d4061b8cae84e665c/server.jar',
-        '', '', '', 0, '', 'server.properties', 1,
+        'internal',
+        '',
+        '',
+        '',
+        true,
         'java -Dlog4j2.formatMsgNoLookups=true -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:+ZProactive -XX:ZCollectionInterval=600 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:+ParallelRefProcEnabled -XX:+PerfDisableSharedMem  -jar minecraft_server.jar',
         '/stop',
-        'curl -o minecraft_server.jar https://piston-data.mojang.com/v1/objects/5b868151bd02b41319f54c8d4061b8cae84e665c/server.jar',
-        '', '', '', 0, '', 'server.properties', current_timestamp, current_timestamp)
+        'internal',
+        '',
+        '',
+        '',
+        current_timestamp, current_timestamp)
 on conflict do nothing;
 
 -- Insert 7 Days to Die
 INSERT INTO game (id, name, default_port, default_query_port, default_max_players, require_dedicated_ip,
-                  binds_to_all_ips, linux_support, linux_start_command, linux_stop_command, linux_install_command,
-                  linux_update_command, linux_backup_command, linux_restore_command, linux_allow_backups,
-                  linux_working_directory, linux_configuration_file_paths, windows_support, windows_start_command,
-                  windows_stop_command, windows_install_command, windows_update_command, windows_backup_command,
-                  windows_restore_command, windows_allow_backups, windows_working_directory,
-                  windows_configuration_file_paths, created_at, updated_at)
-VALUES ('7_days_to_die', '7 Days to Die', 26900, 26900, 32, 0, 0, 1,
-        './7DaysToDieServer -logfile - -quit -batchmode -nographics -configfile=settings.xml -dedicated', '',
+                  binds_to_all_ips,
+                  linux_support,
+                  linux_start_command,
+                  linux_stop_command,
+                  linux_install_command_type,
+                  linux_install_command,
+                  linux_update_command,
+                  linux_working_directory,
+                  windows_support,
+                  windows_start_command,
+                  windows_stop_command,
+                  windows_install_command_type,
+                  windows_install_command,
+                  windows_update_command,
+                  windows_working_directory,
+                  created_at, updated_at)
+VALUES ('7_days_to_die', '7 Days to Die', 26900, 26900, 32, 0, 0,
+        true,
+        './7DaysToDieServer -logfile - -quit -batchmode -nographics -configfile=settings.xml -dedicated',
+        '',
+        'direct',
         'steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit',
-        '', '', '', 0, '', 'settings.xml', 1,
-        './7DaysToDieServer -logfile - -quit -batchmode -nographics -configfile=settings.xml -dedicated', '',
         'steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit',
-        '', '', '', 0, '', 'settings.xml', current_timestamp, current_timestamp)
+        '',
+        true,
+        './7DaysToDieServer -logfile - -quit -batchmode -nographics -configfile=settings.xml -dedicated',
+        '',
+        'direct',
+        'steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit',
+        'steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit',
+        '',
+        current_timestamp, current_timestamp)
 on conflict do nothing;
 
 

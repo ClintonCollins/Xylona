@@ -43,13 +43,7 @@ type Game struct {
 	LinuxInstallCommandType           string    `db:"linux_install_command_type" `
 	LinuxUpdateCommand                string    `db:"linux_update_command" `
 	LinuxUpdateCommandType            string    `db:"linux_update_command_type" `
-	LinuxBackupCommand                string    `db:"linux_backup_command" `
-	LinuxBackupCommandType            string    `db:"linux_backup_command_type" `
-	LinuxRestoreCommand               string    `db:"linux_restore_command" `
-	LinuxRestoreCommandType           string    `db:"linux_restore_command_type" `
-	LinuxAllowBackups                 bool      `db:"linux_allow_backups" `
 	LinuxWorkingDirectory             string    `db:"linux_working_directory" `
-	LinuxConfigurationFilePaths       string    `db:"linux_configuration_file_paths" `
 	WindowsSupport                    bool      `db:"windows_support" `
 	WindowsStartCommand               string    `db:"windows_start_command" `
 	WindowsStopCommand                string    `db:"windows_stop_command" `
@@ -57,13 +51,7 @@ type Game struct {
 	WindowsInstallCommandType         string    `db:"windows_install_command_type" `
 	WindowsUpdateCommand              string    `db:"windows_update_command" `
 	WindowsUpdateCommandType          string    `db:"windows_update_command_type" `
-	WindowsBackupCommand              string    `db:"windows_backup_command" `
-	WindowsBackupCommandType          string    `db:"windows_backup_command_type" `
-	WindowsRestoreCommand             string    `db:"windows_restore_command" `
-	WindowsRestoreCommandType         string    `db:"windows_restore_command_type" `
-	WindowsAllowBackups               bool      `db:"windows_allow_backups" `
 	WindowsWorkingDirectory           string    `db:"windows_working_directory" `
-	WindowsConfigurationFilePaths     string    `db:"windows_configuration_file_paths" `
 	CreatedAt                         time.Time `db:"created_at" `
 	UpdatedAt                         time.Time `db:"updated_at" `
 
@@ -111,13 +99,7 @@ type GameSetter struct {
 	LinuxInstallCommandType           omit.Val[string]    `db:"linux_install_command_type"`
 	LinuxUpdateCommand                omit.Val[string]    `db:"linux_update_command"`
 	LinuxUpdateCommandType            omit.Val[string]    `db:"linux_update_command_type"`
-	LinuxBackupCommand                omit.Val[string]    `db:"linux_backup_command"`
-	LinuxBackupCommandType            omit.Val[string]    `db:"linux_backup_command_type"`
-	LinuxRestoreCommand               omit.Val[string]    `db:"linux_restore_command"`
-	LinuxRestoreCommandType           omit.Val[string]    `db:"linux_restore_command_type"`
-	LinuxAllowBackups                 omit.Val[bool]      `db:"linux_allow_backups"`
 	LinuxWorkingDirectory             omit.Val[string]    `db:"linux_working_directory"`
-	LinuxConfigurationFilePaths       omit.Val[string]    `db:"linux_configuration_file_paths"`
 	WindowsSupport                    omit.Val[bool]      `db:"windows_support"`
 	WindowsStartCommand               omit.Val[string]    `db:"windows_start_command"`
 	WindowsStopCommand                omit.Val[string]    `db:"windows_stop_command"`
@@ -125,19 +107,13 @@ type GameSetter struct {
 	WindowsInstallCommandType         omit.Val[string]    `db:"windows_install_command_type"`
 	WindowsUpdateCommand              omit.Val[string]    `db:"windows_update_command"`
 	WindowsUpdateCommandType          omit.Val[string]    `db:"windows_update_command_type"`
-	WindowsBackupCommand              omit.Val[string]    `db:"windows_backup_command"`
-	WindowsBackupCommandType          omit.Val[string]    `db:"windows_backup_command_type"`
-	WindowsRestoreCommand             omit.Val[string]    `db:"windows_restore_command"`
-	WindowsRestoreCommandType         omit.Val[string]    `db:"windows_restore_command_type"`
-	WindowsAllowBackups               omit.Val[bool]      `db:"windows_allow_backups"`
 	WindowsWorkingDirectory           omit.Val[string]    `db:"windows_working_directory"`
-	WindowsConfigurationFilePaths     omit.Val[string]    `db:"windows_configuration_file_paths"`
 	CreatedAt                         omit.Val[time.Time] `db:"created_at"`
 	UpdatedAt                         omit.Val[time.Time] `db:"updated_at"`
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 41)
+	vals := make([]string, 0, 29)
 	if !s.ID.IsUnset() {
 		vals = append(vals, "id")
 	}
@@ -210,32 +186,8 @@ func (s GameSetter) SetColumns() []string {
 		vals = append(vals, "linux_update_command_type")
 	}
 
-	if !s.LinuxBackupCommand.IsUnset() {
-		vals = append(vals, "linux_backup_command")
-	}
-
-	if !s.LinuxBackupCommandType.IsUnset() {
-		vals = append(vals, "linux_backup_command_type")
-	}
-
-	if !s.LinuxRestoreCommand.IsUnset() {
-		vals = append(vals, "linux_restore_command")
-	}
-
-	if !s.LinuxRestoreCommandType.IsUnset() {
-		vals = append(vals, "linux_restore_command_type")
-	}
-
-	if !s.LinuxAllowBackups.IsUnset() {
-		vals = append(vals, "linux_allow_backups")
-	}
-
 	if !s.LinuxWorkingDirectory.IsUnset() {
 		vals = append(vals, "linux_working_directory")
-	}
-
-	if !s.LinuxConfigurationFilePaths.IsUnset() {
-		vals = append(vals, "linux_configuration_file_paths")
 	}
 
 	if !s.WindowsSupport.IsUnset() {
@@ -266,32 +218,8 @@ func (s GameSetter) SetColumns() []string {
 		vals = append(vals, "windows_update_command_type")
 	}
 
-	if !s.WindowsBackupCommand.IsUnset() {
-		vals = append(vals, "windows_backup_command")
-	}
-
-	if !s.WindowsBackupCommandType.IsUnset() {
-		vals = append(vals, "windows_backup_command_type")
-	}
-
-	if !s.WindowsRestoreCommand.IsUnset() {
-		vals = append(vals, "windows_restore_command")
-	}
-
-	if !s.WindowsRestoreCommandType.IsUnset() {
-		vals = append(vals, "windows_restore_command_type")
-	}
-
-	if !s.WindowsAllowBackups.IsUnset() {
-		vals = append(vals, "windows_allow_backups")
-	}
-
 	if !s.WindowsWorkingDirectory.IsUnset() {
 		vals = append(vals, "windows_working_directory")
-	}
-
-	if !s.WindowsConfigurationFilePaths.IsUnset() {
-		vals = append(vals, "windows_configuration_file_paths")
 	}
 
 	if !s.CreatedAt.IsUnset() {
@@ -360,26 +288,8 @@ func (s GameSetter) Overwrite(t *Game) {
 	if !s.LinuxUpdateCommandType.IsUnset() {
 		t.LinuxUpdateCommandType, _ = s.LinuxUpdateCommandType.Get()
 	}
-	if !s.LinuxBackupCommand.IsUnset() {
-		t.LinuxBackupCommand, _ = s.LinuxBackupCommand.Get()
-	}
-	if !s.LinuxBackupCommandType.IsUnset() {
-		t.LinuxBackupCommandType, _ = s.LinuxBackupCommandType.Get()
-	}
-	if !s.LinuxRestoreCommand.IsUnset() {
-		t.LinuxRestoreCommand, _ = s.LinuxRestoreCommand.Get()
-	}
-	if !s.LinuxRestoreCommandType.IsUnset() {
-		t.LinuxRestoreCommandType, _ = s.LinuxRestoreCommandType.Get()
-	}
-	if !s.LinuxAllowBackups.IsUnset() {
-		t.LinuxAllowBackups, _ = s.LinuxAllowBackups.Get()
-	}
 	if !s.LinuxWorkingDirectory.IsUnset() {
 		t.LinuxWorkingDirectory, _ = s.LinuxWorkingDirectory.Get()
-	}
-	if !s.LinuxConfigurationFilePaths.IsUnset() {
-		t.LinuxConfigurationFilePaths, _ = s.LinuxConfigurationFilePaths.Get()
 	}
 	if !s.WindowsSupport.IsUnset() {
 		t.WindowsSupport, _ = s.WindowsSupport.Get()
@@ -402,26 +312,8 @@ func (s GameSetter) Overwrite(t *Game) {
 	if !s.WindowsUpdateCommandType.IsUnset() {
 		t.WindowsUpdateCommandType, _ = s.WindowsUpdateCommandType.Get()
 	}
-	if !s.WindowsBackupCommand.IsUnset() {
-		t.WindowsBackupCommand, _ = s.WindowsBackupCommand.Get()
-	}
-	if !s.WindowsBackupCommandType.IsUnset() {
-		t.WindowsBackupCommandType, _ = s.WindowsBackupCommandType.Get()
-	}
-	if !s.WindowsRestoreCommand.IsUnset() {
-		t.WindowsRestoreCommand, _ = s.WindowsRestoreCommand.Get()
-	}
-	if !s.WindowsRestoreCommandType.IsUnset() {
-		t.WindowsRestoreCommandType, _ = s.WindowsRestoreCommandType.Get()
-	}
-	if !s.WindowsAllowBackups.IsUnset() {
-		t.WindowsAllowBackups, _ = s.WindowsAllowBackups.Get()
-	}
 	if !s.WindowsWorkingDirectory.IsUnset() {
 		t.WindowsWorkingDirectory, _ = s.WindowsWorkingDirectory.Get()
-	}
-	if !s.WindowsConfigurationFilePaths.IsUnset() {
-		t.WindowsConfigurationFilePaths, _ = s.WindowsConfigurationFilePaths.Get()
 	}
 	if !s.CreatedAt.IsUnset() {
 		t.CreatedAt, _ = s.CreatedAt.Get()
@@ -432,7 +324,7 @@ func (s GameSetter) Overwrite(t *Game) {
 }
 
 func (s GameSetter) InsertMod() bob.Mod[*dialect.InsertQuery] {
-	vals := make([]bob.Expression, 0, 41)
+	vals := make([]bob.Expression, 0, 29)
 	if !s.ID.IsUnset() {
 		vals = append(vals, sqlite.Arg(s.ID))
 	}
@@ -505,32 +397,8 @@ func (s GameSetter) InsertMod() bob.Mod[*dialect.InsertQuery] {
 		vals = append(vals, sqlite.Arg(s.LinuxUpdateCommandType))
 	}
 
-	if !s.LinuxBackupCommand.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.LinuxBackupCommand))
-	}
-
-	if !s.LinuxBackupCommandType.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.LinuxBackupCommandType))
-	}
-
-	if !s.LinuxRestoreCommand.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.LinuxRestoreCommand))
-	}
-
-	if !s.LinuxRestoreCommandType.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.LinuxRestoreCommandType))
-	}
-
-	if !s.LinuxAllowBackups.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.LinuxAllowBackups))
-	}
-
 	if !s.LinuxWorkingDirectory.IsUnset() {
 		vals = append(vals, sqlite.Arg(s.LinuxWorkingDirectory))
-	}
-
-	if !s.LinuxConfigurationFilePaths.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.LinuxConfigurationFilePaths))
 	}
 
 	if !s.WindowsSupport.IsUnset() {
@@ -561,32 +429,8 @@ func (s GameSetter) InsertMod() bob.Mod[*dialect.InsertQuery] {
 		vals = append(vals, sqlite.Arg(s.WindowsUpdateCommandType))
 	}
 
-	if !s.WindowsBackupCommand.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.WindowsBackupCommand))
-	}
-
-	if !s.WindowsBackupCommandType.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.WindowsBackupCommandType))
-	}
-
-	if !s.WindowsRestoreCommand.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.WindowsRestoreCommand))
-	}
-
-	if !s.WindowsRestoreCommandType.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.WindowsRestoreCommandType))
-	}
-
-	if !s.WindowsAllowBackups.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.WindowsAllowBackups))
-	}
-
 	if !s.WindowsWorkingDirectory.IsUnset() {
 		vals = append(vals, sqlite.Arg(s.WindowsWorkingDirectory))
-	}
-
-	if !s.WindowsConfigurationFilePaths.IsUnset() {
-		vals = append(vals, sqlite.Arg(s.WindowsConfigurationFilePaths))
 	}
 
 	if !s.CreatedAt.IsUnset() {
@@ -605,7 +449,7 @@ func (s GameSetter) Apply(q *dialect.UpdateQuery) {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 41)
+	exprs := make([]bob.Expression, 0, 29)
 
 	if !s.ID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -733,52 +577,10 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
-	if !s.LinuxBackupCommand.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "linux_backup_command")...),
-			sqlite.Arg(s.LinuxBackupCommand),
-		}})
-	}
-
-	if !s.LinuxBackupCommandType.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "linux_backup_command_type")...),
-			sqlite.Arg(s.LinuxBackupCommandType),
-		}})
-	}
-
-	if !s.LinuxRestoreCommand.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "linux_restore_command")...),
-			sqlite.Arg(s.LinuxRestoreCommand),
-		}})
-	}
-
-	if !s.LinuxRestoreCommandType.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "linux_restore_command_type")...),
-			sqlite.Arg(s.LinuxRestoreCommandType),
-		}})
-	}
-
-	if !s.LinuxAllowBackups.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "linux_allow_backups")...),
-			sqlite.Arg(s.LinuxAllowBackups),
-		}})
-	}
-
 	if !s.LinuxWorkingDirectory.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "linux_working_directory")...),
 			sqlite.Arg(s.LinuxWorkingDirectory),
-		}})
-	}
-
-	if !s.LinuxConfigurationFilePaths.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "linux_configuration_file_paths")...),
-			sqlite.Arg(s.LinuxConfigurationFilePaths),
 		}})
 	}
 
@@ -831,52 +633,10 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
-	if !s.WindowsBackupCommand.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "windows_backup_command")...),
-			sqlite.Arg(s.WindowsBackupCommand),
-		}})
-	}
-
-	if !s.WindowsBackupCommandType.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "windows_backup_command_type")...),
-			sqlite.Arg(s.WindowsBackupCommandType),
-		}})
-	}
-
-	if !s.WindowsRestoreCommand.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "windows_restore_command")...),
-			sqlite.Arg(s.WindowsRestoreCommand),
-		}})
-	}
-
-	if !s.WindowsRestoreCommandType.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "windows_restore_command_type")...),
-			sqlite.Arg(s.WindowsRestoreCommandType),
-		}})
-	}
-
-	if !s.WindowsAllowBackups.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "windows_allow_backups")...),
-			sqlite.Arg(s.WindowsAllowBackups),
-		}})
-	}
-
 	if !s.WindowsWorkingDirectory.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "windows_working_directory")...),
 			sqlite.Arg(s.WindowsWorkingDirectory),
-		}})
-	}
-
-	if !s.WindowsConfigurationFilePaths.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "windows_configuration_file_paths")...),
-			sqlite.Arg(s.WindowsConfigurationFilePaths),
 		}})
 	}
 
@@ -916,13 +676,7 @@ type gameColumnNames struct {
 	LinuxInstallCommandType           string
 	LinuxUpdateCommand                string
 	LinuxUpdateCommandType            string
-	LinuxBackupCommand                string
-	LinuxBackupCommandType            string
-	LinuxRestoreCommand               string
-	LinuxRestoreCommandType           string
-	LinuxAllowBackups                 string
 	LinuxWorkingDirectory             string
-	LinuxConfigurationFilePaths       string
 	WindowsSupport                    string
 	WindowsStartCommand               string
 	WindowsStopCommand                string
@@ -930,13 +684,7 @@ type gameColumnNames struct {
 	WindowsInstallCommandType         string
 	WindowsUpdateCommand              string
 	WindowsUpdateCommandType          string
-	WindowsBackupCommand              string
-	WindowsBackupCommandType          string
-	WindowsRestoreCommand             string
-	WindowsRestoreCommandType         string
-	WindowsAllowBackups               string
 	WindowsWorkingDirectory           string
-	WindowsConfigurationFilePaths     string
 	CreatedAt                         string
 	UpdatedAt                         string
 }
@@ -980,13 +728,7 @@ var GameColumns = struct {
 	LinuxInstallCommandType           sqlite.Expression
 	LinuxUpdateCommand                sqlite.Expression
 	LinuxUpdateCommandType            sqlite.Expression
-	LinuxBackupCommand                sqlite.Expression
-	LinuxBackupCommandType            sqlite.Expression
-	LinuxRestoreCommand               sqlite.Expression
-	LinuxRestoreCommandType           sqlite.Expression
-	LinuxAllowBackups                 sqlite.Expression
 	LinuxWorkingDirectory             sqlite.Expression
-	LinuxConfigurationFilePaths       sqlite.Expression
 	WindowsSupport                    sqlite.Expression
 	WindowsStartCommand               sqlite.Expression
 	WindowsStopCommand                sqlite.Expression
@@ -994,13 +736,7 @@ var GameColumns = struct {
 	WindowsInstallCommandType         sqlite.Expression
 	WindowsUpdateCommand              sqlite.Expression
 	WindowsUpdateCommandType          sqlite.Expression
-	WindowsBackupCommand              sqlite.Expression
-	WindowsBackupCommandType          sqlite.Expression
-	WindowsRestoreCommand             sqlite.Expression
-	WindowsRestoreCommandType         sqlite.Expression
-	WindowsAllowBackups               sqlite.Expression
 	WindowsWorkingDirectory           sqlite.Expression
-	WindowsConfigurationFilePaths     sqlite.Expression
 	CreatedAt                         sqlite.Expression
 	UpdatedAt                         sqlite.Expression
 }{
@@ -1022,13 +758,7 @@ var GameColumns = struct {
 	LinuxInstallCommandType:           sqlite.Quote("game", "linux_install_command_type"),
 	LinuxUpdateCommand:                sqlite.Quote("game", "linux_update_command"),
 	LinuxUpdateCommandType:            sqlite.Quote("game", "linux_update_command_type"),
-	LinuxBackupCommand:                sqlite.Quote("game", "linux_backup_command"),
-	LinuxBackupCommandType:            sqlite.Quote("game", "linux_backup_command_type"),
-	LinuxRestoreCommand:               sqlite.Quote("game", "linux_restore_command"),
-	LinuxRestoreCommandType:           sqlite.Quote("game", "linux_restore_command_type"),
-	LinuxAllowBackups:                 sqlite.Quote("game", "linux_allow_backups"),
 	LinuxWorkingDirectory:             sqlite.Quote("game", "linux_working_directory"),
-	LinuxConfigurationFilePaths:       sqlite.Quote("game", "linux_configuration_file_paths"),
 	WindowsSupport:                    sqlite.Quote("game", "windows_support"),
 	WindowsStartCommand:               sqlite.Quote("game", "windows_start_command"),
 	WindowsStopCommand:                sqlite.Quote("game", "windows_stop_command"),
@@ -1036,13 +766,7 @@ var GameColumns = struct {
 	WindowsInstallCommandType:         sqlite.Quote("game", "windows_install_command_type"),
 	WindowsUpdateCommand:              sqlite.Quote("game", "windows_update_command"),
 	WindowsUpdateCommandType:          sqlite.Quote("game", "windows_update_command_type"),
-	WindowsBackupCommand:              sqlite.Quote("game", "windows_backup_command"),
-	WindowsBackupCommandType:          sqlite.Quote("game", "windows_backup_command_type"),
-	WindowsRestoreCommand:             sqlite.Quote("game", "windows_restore_command"),
-	WindowsRestoreCommandType:         sqlite.Quote("game", "windows_restore_command_type"),
-	WindowsAllowBackups:               sqlite.Quote("game", "windows_allow_backups"),
 	WindowsWorkingDirectory:           sqlite.Quote("game", "windows_working_directory"),
-	WindowsConfigurationFilePaths:     sqlite.Quote("game", "windows_configuration_file_paths"),
 	CreatedAt:                         sqlite.Quote("game", "created_at"),
 	UpdatedAt:                         sqlite.Quote("game", "updated_at"),
 }
@@ -1066,13 +790,7 @@ type gameWhere[Q sqlite.Filterable] struct {
 	LinuxInstallCommandType           sqlite.WhereMod[Q, string]
 	LinuxUpdateCommand                sqlite.WhereMod[Q, string]
 	LinuxUpdateCommandType            sqlite.WhereMod[Q, string]
-	LinuxBackupCommand                sqlite.WhereMod[Q, string]
-	LinuxBackupCommandType            sqlite.WhereMod[Q, string]
-	LinuxRestoreCommand               sqlite.WhereMod[Q, string]
-	LinuxRestoreCommandType           sqlite.WhereMod[Q, string]
-	LinuxAllowBackups                 sqlite.WhereMod[Q, bool]
 	LinuxWorkingDirectory             sqlite.WhereMod[Q, string]
-	LinuxConfigurationFilePaths       sqlite.WhereMod[Q, string]
 	WindowsSupport                    sqlite.WhereMod[Q, bool]
 	WindowsStartCommand               sqlite.WhereMod[Q, string]
 	WindowsStopCommand                sqlite.WhereMod[Q, string]
@@ -1080,13 +798,7 @@ type gameWhere[Q sqlite.Filterable] struct {
 	WindowsInstallCommandType         sqlite.WhereMod[Q, string]
 	WindowsUpdateCommand              sqlite.WhereMod[Q, string]
 	WindowsUpdateCommandType          sqlite.WhereMod[Q, string]
-	WindowsBackupCommand              sqlite.WhereMod[Q, string]
-	WindowsBackupCommandType          sqlite.WhereMod[Q, string]
-	WindowsRestoreCommand             sqlite.WhereMod[Q, string]
-	WindowsRestoreCommandType         sqlite.WhereMod[Q, string]
-	WindowsAllowBackups               sqlite.WhereMod[Q, bool]
 	WindowsWorkingDirectory           sqlite.WhereMod[Q, string]
-	WindowsConfigurationFilePaths     sqlite.WhereMod[Q, string]
 	CreatedAt                         sqlite.WhereMod[Q, time.Time]
 	UpdatedAt                         sqlite.WhereMod[Q, time.Time]
 }
@@ -1111,13 +823,7 @@ func GameWhere[Q sqlite.Filterable]() gameWhere[Q] {
 		LinuxInstallCommandType:           sqlite.Where[Q, string](GameColumns.LinuxInstallCommandType),
 		LinuxUpdateCommand:                sqlite.Where[Q, string](GameColumns.LinuxUpdateCommand),
 		LinuxUpdateCommandType:            sqlite.Where[Q, string](GameColumns.LinuxUpdateCommandType),
-		LinuxBackupCommand:                sqlite.Where[Q, string](GameColumns.LinuxBackupCommand),
-		LinuxBackupCommandType:            sqlite.Where[Q, string](GameColumns.LinuxBackupCommandType),
-		LinuxRestoreCommand:               sqlite.Where[Q, string](GameColumns.LinuxRestoreCommand),
-		LinuxRestoreCommandType:           sqlite.Where[Q, string](GameColumns.LinuxRestoreCommandType),
-		LinuxAllowBackups:                 sqlite.Where[Q, bool](GameColumns.LinuxAllowBackups),
 		LinuxWorkingDirectory:             sqlite.Where[Q, string](GameColumns.LinuxWorkingDirectory),
-		LinuxConfigurationFilePaths:       sqlite.Where[Q, string](GameColumns.LinuxConfigurationFilePaths),
 		WindowsSupport:                    sqlite.Where[Q, bool](GameColumns.WindowsSupport),
 		WindowsStartCommand:               sqlite.Where[Q, string](GameColumns.WindowsStartCommand),
 		WindowsStopCommand:                sqlite.Where[Q, string](GameColumns.WindowsStopCommand),
@@ -1125,13 +831,7 @@ func GameWhere[Q sqlite.Filterable]() gameWhere[Q] {
 		WindowsInstallCommandType:         sqlite.Where[Q, string](GameColumns.WindowsInstallCommandType),
 		WindowsUpdateCommand:              sqlite.Where[Q, string](GameColumns.WindowsUpdateCommand),
 		WindowsUpdateCommandType:          sqlite.Where[Q, string](GameColumns.WindowsUpdateCommandType),
-		WindowsBackupCommand:              sqlite.Where[Q, string](GameColumns.WindowsBackupCommand),
-		WindowsBackupCommandType:          sqlite.Where[Q, string](GameColumns.WindowsBackupCommandType),
-		WindowsRestoreCommand:             sqlite.Where[Q, string](GameColumns.WindowsRestoreCommand),
-		WindowsRestoreCommandType:         sqlite.Where[Q, string](GameColumns.WindowsRestoreCommandType),
-		WindowsAllowBackups:               sqlite.Where[Q, bool](GameColumns.WindowsAllowBackups),
 		WindowsWorkingDirectory:           sqlite.Where[Q, string](GameColumns.WindowsWorkingDirectory),
-		WindowsConfigurationFilePaths:     sqlite.Where[Q, string](GameColumns.WindowsConfigurationFilePaths),
 		CreatedAt:                         sqlite.Where[Q, time.Time](GameColumns.CreatedAt),
 		UpdatedAt:                         sqlite.Where[Q, time.Time](GameColumns.UpdatedAt),
 	}

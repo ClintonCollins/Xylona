@@ -1,6 +1,10 @@
 package db
 
-import "github.com/ClintonCollins/Xylona/sql/models"
+import (
+	"github.com/stephenafamo/bob"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
+)
 
 func (c *Connection) GetAllGameServers() ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(c.ctx, c.DB,
@@ -40,8 +44,8 @@ func (c *Connection) GetGameServerByID(gameServerID string) (*models.GameServer,
 	return gameServer, nil
 }
 
-func (c *Connection) InsertGameServer(gameServerSetter *models.GameServerSetter) (*models.GameServer, error) {
-	gameServer, err := models.GameServers.Insert(c.ctx, c.DB, gameServerSetter)
+func (c *Connection) InsertGameServer(exec bob.Executor, gameServerSetter *models.GameServerSetter) (*models.GameServer, error) {
+	gameServer, err := models.GameServers.Insert(c.ctx, exec, gameServerSetter)
 	if err != nil {
 		return nil, err
 	}

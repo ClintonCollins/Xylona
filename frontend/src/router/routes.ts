@@ -22,7 +22,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
       const resp: CheckUserAuthenticatedResponse| null = await useUserAuthStore().checkUserAuthenticated()
-      if (!resp || !resp.authenticated) {
+      if (useUserAuthStore().user === null && (!resp || !resp.authenticated)) {
         return {path: '/login'}
       }
     },

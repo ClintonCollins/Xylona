@@ -11,6 +11,7 @@ import (
 	"github.com/ziutek/telnet"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 type Runtime string
@@ -50,28 +51,33 @@ type Instance struct {
 }
 
 type Command struct {
-	ID                  string
-	User                string
-	FullCommandAndArgs  string
-	unixStartedAt       int64
-	status              xylona.Status
-	serviceID           string
-	currentCMD          *exec.Cmd
-	outputListeners     map[string]chan xylona.Message
-	outputListenersLock *sync.RWMutex
-	inputMethod         InputMethod
-	stdInWriter         io.Writer
-	combinedOutput      io.Reader
-	stdout              io.Reader
-	stderr              io.Reader
-	telnetConn          *telnet.Conn
-	outBuffer           string
-	instanceCtx         context.Context
-	processCtx          context.Context
-	processCtxCancel    context.CancelFunc
-	toggleOutputType    chan struct{}
-	callbackFunc        func(job *Command)
-	runAfterStartup     func(job *Command)
+	ID                    string
+	User                  string
+	FullCommandAndArgs    string
+	InternalCommand       bool
+	internalCommandStdOut io.Writer
+	internalCommandStdErr io.Writer
+	internalGameServer    *models.GameServer
+	gameID                *string
+	unixStartedAt         int64
+	status                xylona.Status
+	serviceID             string
+	currentCMD            *exec.Cmd
+	outputListeners       map[string]chan xylona.Message
+	outputListenersLock   *sync.RWMutex
+	inputMethod           InputMethod
+	stdInWriter           io.Writer
+	combinedOutput        io.Reader
+	stdout                io.Reader
+	stderr                io.Reader
+	telnetConn            *telnet.Conn
+	outBuffer             string
+	instanceCtx           context.Context
+	processCtx            context.Context
+	processCtxCancel      context.CancelFunc
+	toggleOutputType      chan struct{}
+	callbackFunc          func(job *Command)
+	runAfterStartup       func(job *Command)
 	*sync.RWMutex
 }
 

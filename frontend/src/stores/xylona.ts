@@ -1,6 +1,9 @@
+import { ConnectError } from '@connectrpc/connect'
 import { defineStore } from 'pinia';
+import { useQuasar } from 'quasar'
 import {CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, User} from "src/proto/xylona_pb";
-import {GetXylonaClient} from "src/utils/shared";
+import { ConnectErrorToString, GetXylonaClient } from 'src/utils/shared'
+import { Notify } from 'quasar'
 
 interface userAuthState {
   user: User | null
@@ -30,8 +33,17 @@ export const useUserAuthStore = defineStore('userAuth', {
           this.user = response.user
           return response
         }
-      } catch (e) {
-        console.error(e)
+      } catch (unknownError: unknown) {
+        const err = ConnectError.from(unknownError)
+        Notify.create({
+          type: 'xylona-error',
+          position: 'top',
+          caption: ConnectErrorToString(err),
+          timeout: 0,
+          closeBtn: 'Dismiss',
+          icon: 'report_problem'
+        })
+        console.error(err.message)
       }
       return null
     }

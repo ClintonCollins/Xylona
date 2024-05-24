@@ -80,3 +80,19 @@ func gameInstallCommand(game *models.Game) string {
 	}
 	return installCommand
 }
+
+func gameInstallCommandType(game *models.Game) string {
+	installType := game.LinuxInstallCommandType
+	if OperatingSystem == Windows {
+		installType = game.WindowsInstallCommandType
+	}
+	return installType
+}
+
+func gameUpdateCommandType(game *models.Game) string {
+	updateType := game.LinuxUpdateCommandType
+	if OperatingSystem == Windows {
+		updateType = game.WindowsUpdateCommandType
+	}
+	return updateType
+}

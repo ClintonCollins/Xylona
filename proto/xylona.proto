@@ -1,7 +1,7 @@
 syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 import "gameserver_files_operations.proto";
-import "games/minecraft.proto";
+// import "games/minecraft.proto";
 
 package xylona;
 option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
@@ -55,6 +55,13 @@ service Xylona {
   rpc GameServerFilesMove (GameServerFilesMoveRequest) returns (GameServerFilesMoveResponse) {}
   rpc GameServersFileEdit (GameServersFileEditRequest) returns (GameServersFileEditResponse) {}
   rpc GameServersFileOrDirectoryCreate (GameServerFileOrDirectoryCreateRequest) returns (GameServerFileOrDirectoryCreateResponse) {}
+}
+
+enum Error {
+  BAD_REQUEST = 0;
+  PORT_IN_USE = 1;
+  GAME_SERVER_ALREADY_EXISTS = 2;
+  USER_ALREADY_EXISTS = 3;
 }
 
 message GameServerFilesArchiveProgress {
@@ -114,6 +121,7 @@ message CreateUserRequest {
 
 message CreateUserResponse {
   User user = 1;
+  optional Error error = 2;
 }
 
 message LogoutRequest {}
@@ -186,7 +194,6 @@ enum CommandProcessor {
   BASH = 2;
   CMD = 3;
   POWERSHELL = 4;
-  PWSH = 5;
 }
 
 message Game {
@@ -201,36 +208,28 @@ message Game {
   string linux_stop_command = 9;
   string linux_install_command = 10;
   string linux_update_command = 11;
-  string linux_backup_command = 12;
-  string linux_restore_command = 13;
-  string linux_working_directory = 14;
-  string linux_configuration_file_paths = 15;
-  bool linux_allow_backups = 16;
-  string windows_start_command = 17;
-  string windows_stop_command = 18;
-  string windows_install_command = 19;
-  string windows_update_command = 20;
-  string windows_backup_command = 21;
-  string windows_restore_command = 22;
-  string windows_working_directory = 23;
-  string windows_configuration_file_paths = 24;
-  bool windows_allow_backups = 25;
-  bool require_dedicated_ip = 26;
-  bool binds_to_all_ips = 27;
-  google.protobuf.Timestamp created_at = 28;
-  google.protobuf.Timestamp updated_at = 29;
-  bool uses_source_query = 30;
-  bool requires_steam_game_server_login_token = 31;
-  CommandProcessor linux_install_command_processor = 32;
-  CommandProcessor linux_update_command_processor = 33;
-  CommandProcessor linux_backup_command_processor = 34;
-  CommandProcessor linux_restore_command_processor = 35;
-  CommandProcessor windows_install_command_processor = 36;
-  CommandProcessor windows_update_command_processor = 37;
-  CommandProcessor windows_backup_command_processor = 38;
-  CommandProcessor windows_restore_command_processor = 39;
-  bool uses_steamcmd = 40;
-  string steam_appid = 41;
+  string linux_working_directory = 12;
+  string linux_configuration_file_paths = 13;
+  bool linux_allow_backups = 14;
+  string windows_start_command = 15;
+  string windows_stop_command = 16;
+  string windows_install_command = 17;
+  string windows_update_command = 18;
+  string windows_working_directory = 19;
+  string windows_configuration_file_paths = 20;
+  bool windows_allow_backups = 21;
+  bool require_dedicated_ip = 22;
+  bool binds_to_all_ips = 23;
+  google.protobuf.Timestamp created_at = 24;
+  google.protobuf.Timestamp updated_at = 25;
+  bool uses_source_query = 26;
+  bool requires_steam_game_server_login_token = 27;
+  CommandProcessor linux_install_command_processor = 28;
+  CommandProcessor linux_update_command_processor = 29;
+  CommandProcessor windows_install_command_processor = 30;
+  CommandProcessor windows_update_command_processor = 31;
+  bool uses_steamcmd = 32;
+  string steam_appid = 33;
 }
 
 enum Status {
@@ -344,6 +343,7 @@ message AddGameRequest {
 
 message AddGameResponse {
   Game game = 1;
+  optional Error error = 2;
 }
 
 message EditGameRequest {
@@ -368,6 +368,7 @@ message ImportGameRequest {
 
 message ImportGameResponse {
   Game game = 1;
+  optional Error error = 2;
 }
 
 message ExportGameRequest {
@@ -406,6 +407,7 @@ message CreateGameServerRequest {
 }
 message CreateGameServerResponse {
   GameServer game_server = 1;
+  optional Error error = 2;
 }
 
 message EditGameServerRequest {

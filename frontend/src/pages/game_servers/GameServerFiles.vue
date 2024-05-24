@@ -439,7 +439,12 @@ async function listDirectoryFiles(directoryPath: string) {
                     window.location.hash = ''
                     listDirectoryFiles(path.value)
                 }, 100)
-                alert('Directory does not exist.')
+                $q.notify({
+                    caption: `Directory not found.`,
+                    type: 'xylona-error',
+                    position: 'top',
+                    timeout: 5000
+                })
                 return
             }
             console.error(`Error listing directory files: ${err.code} ${err.message}`)

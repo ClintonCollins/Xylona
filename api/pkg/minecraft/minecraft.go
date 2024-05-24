@@ -1,0 +1,213 @@
+package minecraft
+
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/pterm/pterm"
+	"github.com/rs/zerolog/log"
+
+	"github.com/ClintonCollins/Xylona/helpers"
+)
+
+type GlobalVersionsManifestJSON struct {
+	Latest struct {
+		Release  string `json:"release"`
+		Snapshot string `json:"snapshot"`
+	} `json:"latest"`
+	Versions []Version `json:"versions"`
+}
+
+type Version struct {
+	Id          string    `json:"id"`
+	Type        string    `json:"type"`
+	Url         string    `json:"url"`
+	Time        time.Time `json:"time"`
+	ReleaseTime time.Time `json:"releaseTime"`
+}
+
+type VersionManifestJSON struct {
+	Arguments struct {
+		Game []interface{} `json:"game"`
+		Jvm  []interface{} `json:"jvm"`
+	} `json:"arguments"`
+	AssetIndex struct {
+		Id        string `json:"id"`
+		Sha1      string `json:"sha1"`
+		Size      int    `json:"size"`
+		TotalSize int    `json:"totalSize"`
+		Url       string `json:"url"`
+	} `json:"assetIndex"`
+	Assets          string `json:"assets"`
+	ComplianceLevel int    `json:"complianceLevel"`
+	Downloads       struct {
+		Client struct {
+			Sha1 string `json:"sha1"`
+			Size int    `json:"size"`
+			Url  string `json:"url"`
+		} `json:"client"`
+		ClientMappings struct {
+			Sha1 string `json:"sha1"`
+			Size int    `json:"size"`
+			Url  string `json:"url"`
+		} `json:"client_mappings"`
+		Server struct {
+			Sha1 string `json:"sha1"`
+			Size int    `json:"size"`
+			Url  string `json:"url"`
+		} `json:"server"`
+		ServerMappings struct {
+			Sha1 string `json:"sha1"`
+			Size int    `json:"size"`
+			Url  string `json:"url"`
+		} `json:"server_mappings"`
+	} `json:"downloads"`
+	Id          string `json:"id"`
+	JavaVersion struct {
+		Component    string `json:"component"`
+		MajorVersion int    `json:"majorVersion"`
+	} `json:"javaVersion"`
+	Libraries []struct {
+		Downloads struct {
+			Artifact struct {
+				Path string `json:"path"`
+				Sha1 string `json:"sha1"`
+				Size int    `json:"size"`
+				Url  string `json:"url"`
+			} `json:"artifact"`
+			Classifiers struct {
+				NativesMacos struct {
+					Path string `json:"path"`
+					Sha1 string `json:"sha1"`
+					Size int    `json:"size"`
+					Url  string `json:"url"`
+				} `json:"natives-macos,omitempty"`
+				NativesLinux struct {
+					Path string `json:"path"`
+					Sha1 string `json:"sha1"`
+					Size int    `json:"size"`
+					Url  string `json:"url"`
+				} `json:"natives-linux,omitempty"`
+				NativesWindows struct {
+					Path string `json:"path"`
+					Sha1 string `json:"sha1"`
+					Size int    `json:"size"`
+					Url  string `json:"url"`
+				} `json:"natives-windows,omitempty"`
+				NativesOsx struct {
+					Path string `json:"path"`
+					Sha1 string `json:"sha1"`
+					Size int    `json:"size"`
+					Url  string `json:"url"`
+				} `json:"natives-osx,omitempty"`
+			} `json:"classifiers,omitempty"`
+		} `json:"downloads"`
+		Name  string `json:"name"`
+		Rules []struct {
+			Action string `json:"action"`
+			Os     struct {
+				Name string `json:"name"`
+			} `json:"os,omitempty"`
+		} `json:"rules,omitempty"`
+		Natives struct {
+			Osx     string `json:"osx,omitempty"`
+			Linux   string `json:"linux,omitempty"`
+			Windows string `json:"windows,omitempty"`
+		} `json:"natives,omitempty"`
+		Extract struct {
+			Exclude []string `json:"exclude"`
+		} `json:"extract,omitempty"`
+	} `json:"libraries"`
+	Logging struct {
+		Client struct {
+			Argument string `json:"argument"`
+			File     struct {
+				Id   string `json:"id"`
+				Sha1 string `json:"sha1"`
+				Size int    `json:"size"`
+				Url  string `json:"url"`
+			} `json:"file"`
+			Type string `json:"type"`
+		} `json:"client"`
+	} `json:"logging"`
+	MainClass              string    `json:"mainClass"`
+	MinimumLauncherVersion int       `json:"minimumLauncherVersion"`
+	ReleaseTime            time.Time `json:"releaseTime"`
+	Time                   time.Time `json:"time"`
+	Type                   string    `json:"type"`
+}
+
+type ServerInfo struct {
+	ID          string `json:"id"`
+	Sha1        string `json:"sha1"`
+	DownloadURL string `json:"downloadURL"`
+	Size        int    `json:"size"`
+	Type        string
+	ReleaseTime time.Time
+}
+
+func GetLatestServerDownloadURL() (string, error) {
+	manifest, err := getMinecraftManifestAPI()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get Minecraft version manifest")
+		return "", err
+	}
+	latest := manifest.Latest.Release
+	latestVersionURL := ""
+	for _, version := range manifest.Versions {
+		if version.Id == latest {
+			latestVersionURL = version.Url
+			break
+		}
+	}
+	if latestVersionURL == "" {
+		log.Error().Msg("Failed to get latest Minecraft version URL")
+		return "", nil
+	}
+	minecraftVersion, errVersionInfo := getMinecraftVersionInfo(latestVersionURL)
+	if errVersionInfo != nil {
+		log.Error().Err(errVersionInfo).Msg("Failed to get Minecraft version info")
+		return "", errVersionInfo
+	}
+	return minecraftVersion.Downloads.Server.Url, nil
+}
+
+func getMinecraftVersionInfo(url string) (*VersionManifestJSON, error) {
+	httpClient := helpers.GetXylonaHTTPClient()
+	response, errGet := httpClient.Get(url)
+	if errGet != nil {
+		pterm.Error.Printf("Failed to get Minecraft version info: %s\n", errGet.Error())
+		return nil, errGet
+	}
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	minecraftVersion := &VersionManifestJSON{}
+	errDecode := json.NewDecoder(response.Body).Decode(&minecraftVersion)
+	if errDecode != nil {
+		pterm.Error.Printf("Failed to decode Minecraft version info: %s\n", errDecode.Error())
+		return nil, errDecode
+	}
+	return minecraftVersion, nil
+}
+
+func getMinecraftManifestAPI() (*GlobalVersionsManifestJSON, error) {
+	httpClient := helpers.GetXylonaHTTPClient()
+	response, errGet := httpClient.Get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
+	if errGet != nil {
+		return nil, errGet
+	}
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	minecraftManifest := &GlobalVersionsManifestJSON{}
+	errDecode := json.NewDecoder(response.Body).Decode(&minecraftManifest)
+	if errDecode != nil {
+		pterm.Error.Printf("Failed to decode version manifest file: %s\n", errDecode.Error())
+		return nil, errDecode
+	}
+
+	return minecraftManifest, nil
+}

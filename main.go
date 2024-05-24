@@ -24,6 +24,7 @@ import (
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/api/rpc"
 	"github.com/ClintonCollins/Xylona/api/websocket"
+	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
@@ -205,6 +206,8 @@ func main() {
 			}
 		}
 	}()
+
+	games.RegisterInternalGames()
 
 	// Handle SIGINT and SIGTERM
 	shutdownSignalChannel := make(chan os.Signal, 1)

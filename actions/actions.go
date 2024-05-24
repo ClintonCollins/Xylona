@@ -29,6 +29,14 @@ var (
 	ErrInvalidPath = errors.New("invalid path")
 )
 
+const (
+	CommandTypeDirect     = "direct"
+	CommandTypeBash       = "bash"
+	CommandTypePowershell = "powershell"
+	CommandTypeCmd        = "cmd"
+	CommandTypeInternal   = "internal"
+)
+
 type Instance struct {
 	ctx                context.Context
 	supervisorInstance *supervisor.Instance
@@ -272,7 +280,17 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	}
 	gameServer.Directory = gameServerDir
 
-	newGameServer, errInsert := inst.db.InsertGameServer(&models.GameServerSetter{
+	tx, errTx := inst.db.BeginTx(inst.ctx, nil)
+	if errTx != nil {
+		log.Error().Err(errTx).Msg("Failed to start transaction")
+		return nil, errTx
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	newGameServer, errInsert := inst.db.InsertGameServer(tx, &models.GameServerSetter{
 		ID:                        omit.From(uuid.NewString()),
 		UserID:                    omit.From(owner.ID),
 		Name:                      omit.From(gameServer.Name),
@@ -315,11 +333,24 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		},
 	}
 
+	if gameInstallCommandType(game) == CommandTypeInternal {
+		preparedCommand.InternalCommand = true
+		preparedCommand.InternalGameServer = newGameServer
+		preparedCommand.GameID = &game.ID
+	}
+
 	_, err := inst.supervisorInstance.StartCommand(preparedCommand)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to start install command")
 		return nil, err
 	}
+
+	errCommit := tx.Commit()
+	if errCommit != nil {
+		log.Error().Str("Game Server ID", gameServer.ID).Err(errCommit).Msg("Failed to commit transaction")
+		return nil, errCommit
+	}
+
 	return newGameServer, nil
 }
 
