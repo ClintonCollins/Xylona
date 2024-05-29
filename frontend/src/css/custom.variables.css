@@ -111,6 +111,26 @@
     background-color: var(--bg-sub-toolbar);
 }
 
+.text-toolbar {
+    color: var(--bg-toolbar);
+}
+
+.text-sub-toolbar {
+    color: var(--bg-sub-toolbar);
+}
+
+.text-main {
+    color: var(--bg-main);
+}
+
+.text-main-brighter {
+    color: var(--bg-main-brigther);
+}
+
+.text-main-darker {
+    color: var(--bg-main-darker);
+}
+
 .text-success {
     color: var(--bg-success);
 }

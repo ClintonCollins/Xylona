@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { AddIPRequest, AddIPResponse, CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, CreateGameServerRequest, CreateGameServerResponse, CreateUserRequest, CreateUserResponse, EditGameServerRequest, EditGameServerResponse, GameServerFilesArchiveProgress, GameServerFilesExtractProgress, GetBranchesRequest, GetBranchesResponse, GetGameRequest, GetGameResponse, GetGameServerRequest, GetGameServerResponse, GetUserDetailsRequest, GetUserDetailsResponse, ListDirectoryFilesRequest, ListDirectoryFilesResponse, ListGameServersRequest, ListGameServersResponse, ListGamesRequest, ListGamesResponse, ListIPsRequest, ListIPsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, LogoutRequest, LogoutResponse, ReadGameServerOutputRequest, ReadGameServerOutputResponse, RemoveGameServerRequest, RemoveGameServerResponse, RemoveIPRequest, RemoveIPResponse, SendGameServerInputRequest, SendGameServerInputResponse, StartGameServerRequest, StartGameServerResponse, StopGameServerRequest, StopGameServerResponse, UpdateGameServerRequest, UpdateGameServerResponse } from "./xylona_pb.js";
+import { AddGameRequest, AddGameResponse, AddIPRequest, AddIPResponse, CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, CreateGameServerRequest, CreateGameServerResponse, CreateUserRequest, CreateUserResponse, EditGameRequest, EditGameResponse, EditGameServerRequest, EditGameServerResponse, ExportGameRequest, ExportGameResponse, GameServerFilesArchiveProgress, GameServerFilesExtractProgress, GetBranchesRequest, GetBranchesResponse, GetGameRequest, GetGameResponse, GetGameServerRequest, GetGameServerResponse, GetUserDetailsRequest, GetUserDetailsResponse, ImportGameRequest, ImportGameResponse, ListDirectoryFilesRequest, ListDirectoryFilesResponse, ListGameServersRequest, ListGameServersResponse, ListGamesRequest, ListGamesResponse, ListIPsRequest, ListIPsResponse, ListUsersRequest, ListUsersResponse, LoginRequest, LoginResponse, LogoutRequest, LogoutResponse, ReadGameServerOutputRequest, ReadGameServerOutputResponse, RemoveGameRequest, RemoveGameResponse, RemoveGameServerRequest, RemoveGameServerResponse, RemoveIPRequest, RemoveIPResponse, SendGameServerInputRequest, SendGameServerInputResponse, StartGameServerRequest, StartGameServerResponse, StopGameServerRequest, StopGameServerResponse, UpdateGameServerRequest, UpdateGameServerResponse } from "./xylona_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 import { GameServerFileOrDirectoryCreateRequest, GameServerFileOrDirectoryCreateResponse, GameServerFileRenameRequest, GameServerFileRenameResponse, GameServerFilesCompressionRequest, GameServerFilesCompressionResponse, GameServerFilesDecompressionRequest, GameServerFilesDecompressionResponse, GameServerFilesDeleteRequest, GameServerFilesDeleteResponse, GameServerFilesMoveRequest, GameServerFilesMoveResponse, GameServersFileDownloadFromURLRequest, GameServersFileDownloadFromURLResponse, GameServersFileEditRequest, GameServersFileEditResponse } from "./gameserver_files_operations_pb.js";
 
@@ -15,9 +15,25 @@ export const Xylona = {
   methods: {
     /**
      * Game Operations
-     *  rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
-     *  rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
      *
+     * @generated from rpc xylona.Xylona.AddGame
+     */
+    addGame: {
+      name: "AddGame",
+      I: AddGameRequest,
+      O: AddGameResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.EditGame
+     */
+    editGame: {
+      name: "EditGame",
+      I: EditGameRequest,
+      O: EditGameResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
      * @generated from rpc xylona.Xylona.GetGame
      */
     getGame: {
@@ -27,10 +43,33 @@ export const Xylona = {
       kind: MethodKind.Unary,
     },
     /**
-     *  rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
-     *  rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
-     *  rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
-     *
+     * @generated from rpc xylona.Xylona.RemoveGame
+     */
+    removeGame: {
+      name: "RemoveGame",
+      I: RemoveGameRequest,
+      O: RemoveGameResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.ImportGame
+     */
+    importGame: {
+      name: "ImportGame",
+      I: ImportGameRequest,
+      O: ImportGameResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc xylona.Xylona.ExportGame
+     */
+    exportGame: {
+      name: "ExportGame",
+      I: ExportGameRequest,
+      O: ExportGameResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
      * @generated from rpc xylona.Xylona.ListGames
      */
     listGames: {

@@ -8,12 +8,12 @@ option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
 
 service Xylona {
   // Game Operations
-  //  rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
-  //  rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
+  rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
+  rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
   rpc GetGame (GetGameRequest) returns (GetGameResponse) {}
-  //  rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
-  //  rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
-  //  rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
+  rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
+  rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
+  rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
   rpc ListGames (ListGamesRequest) returns (ListGamesResponse) {}
 
   // General

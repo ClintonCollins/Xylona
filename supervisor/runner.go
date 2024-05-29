@@ -518,9 +518,26 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 	return newCommand
 }
 
+func getCommandAndArgsSplit(command string) []string {
+	foundQuote := false
+	commandSplit := strings.FieldsFunc(command, func(r rune) bool {
+		if r == '"' {
+			foundQuote = !foundQuote
+		}
+		return r == ' ' && !foundQuote
+	})
+	for i, arg := range commandSplit {
+		if strings.HasPrefix(arg, "\"") && strings.HasSuffix(arg, "\"") {
+			commandSplit[i] = strings.Trim(arg, "\"")
+		}
+	}
+	return commandSplit
+}
+
 func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedCommand) (*exec.Cmd, error) {
 	log.Debug().Str("Command ID", preparedCommand.ID).Msg("Setting up command")
-	commandSplit := strings.Fields(preparedCommand.FullCommandAndArgs)
+	commandSplit := getCommandAndArgsSplit(preparedCommand.FullCommandAndArgs)
+
 	if len(commandSplit) <= 0 {
 		log.Error().Interface("Game server ID", preparedCommand.GameServerID).Str("Command", preparedCommand.FullCommandAndArgs).Msg("No command specified")
 		return nil, fmt.Errorf("no command provided")

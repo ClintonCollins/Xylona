@@ -55,3 +55,16 @@ func (c *Connection) InsertGameServer(exec bob.Executor, gameServerSetter *model
 func (c *Connection) DeleteGameServer(gameServerID string) error {
 	return models.GameServers.Delete(c.ctx, c.DB, &models.GameServer{ID: gameServerID})
 }
+
+func (c *Connection) GetGameServersByGameID(gameID string) ([]*models.GameServer, error) {
+	gameServers, err := models.GameServers.Query(c.ctx, c.DB,
+		models.SelectWhere.GameServers.GameID.EQ(gameID),
+		models.PreloadGameServerIP(),
+		models.PreloadGameServerGame(),
+		models.PreloadGameServerUser(),
+	).All()
+	if err != nil {
+		return nil, err
+	}
+	return gameServers, nil
+}

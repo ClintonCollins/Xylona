@@ -87,14 +87,6 @@ const navLinks: Ref<NavItem[]> = ref([
     groupItems: []
   },
   {
-    title: 'Login',
-    icon: ionLogIn,
-    link: '/login',
-    expanded: true,
-    exact: true,
-    groupItems: []
-  },
-  {
     title: 'Game Servers',
     icon: laServerSolid,
     link: '/game-servers',

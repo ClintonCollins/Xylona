@@ -3,6 +3,7 @@ import {StringToColor} from "src/utils/shared";
 const reURIMatch = /(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#\/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[A-Z0-9+&@#\/%=~_|$])/igm
 const reServerStop = /Server stopped.+$/gmi
 const reExitStatus = /^exit status [1-9]|^exit status 0.+$/gmi
+const reInfo = /^INFO|INF/gm
 const reWarn = /^WARNING|WARN|WRN/gm
 const reError = /ERROR/gm
 const reXylonaMessage = /\[(\d+-\d+-\d+\s\d+:\d+:\d+)]\s\[(Xylona)]/gm
@@ -28,12 +29,36 @@ export function parseConsole(game: string, data: string): string {
         case "7_days_to_die":
             data = parse7DaysToDieConsole(data)
             break
+        case "v-rising":
+            data = parseVRisingConsole(data)
+            break
         default:
-            console.log("No parser found for game: " + game)
+            data = parseDefaultConsole(data)
+            break
     }
     data = data.replaceAll(reError, "<span class='text-red-5'>$&</span>")
     data = data.replaceAll(reWarn, "<span class='text-yellow-5'>$&</span>")
     data = data.replaceAll(reXylonaMessage, "<span class='text-grey-6'>[$1]</span> <span class='text-cyan-7'>[$2]</span>")
+    return data
+}
+
+function parseVRisingConsole(data: string): string {
+    const reServer = /^\[Server]/gm
+    const reCompress = /^\[CompressModificationIdsOnLoadSystem]/gm
+    const rePersistence = /^PersistenceV2/gm
+    const reFinishedSaving = /(?<=Finished Saving to\s').+(?='.)/gm
+    data = data.replaceAll(reServer, "<span class='text-green-6'>$&</span>")
+    data = data.replaceAll(reCompress, "<span class='text-orange-6'>$&</span>")
+    data = data.replaceAll(rePersistence, "<span class='text-blue-6'>$&</span>")
+    data = data.replaceAll(reFinishedSaving, "<span class='text-purple-4'>$&</span>")
+    return data
+}
+
+function parseDefaultConsole(data: string): string {
+    data = data.replaceAll(reInfo, "<span class='text-green-6'>$&</span>")
+    data = data.replaceAll(reWarn, "<span class='text-yellow-5'>$&</span>")
+    data = data.replaceAll(reError, "<span class='text-red-5'>$&</span>")
+    data = data.replace(reURIMatch, "<a class='console-url' href='$&' target='_blank'>$&</a>")
     return data
 }
 

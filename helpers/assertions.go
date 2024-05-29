@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"time"
+
 	"github.com/aarondl/opt/omit"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -122,12 +124,16 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		LinuxStartCommand:                 gameModel.LinuxStartCommand,
 		LinuxStopCommand:                  gameModel.LinuxStopCommand,
 		LinuxInstallCommand:               gameModel.LinuxInstallCommand,
+		LinuxInstallCommandProcessor:      commandTypeToCommandProcessor(gameModel.LinuxInstallCommandType),
 		LinuxUpdateCommand:                gameModel.LinuxUpdateCommand,
+		LinuxUpdateCommandProcessor:       commandTypeToCommandProcessor(gameModel.LinuxUpdateCommandType),
 		LinuxWorkingDirectory:             gameModel.LinuxWorkingDirectory,
 		WindowsStartCommand:               gameModel.WindowsStartCommand,
 		WindowsStopCommand:                gameModel.WindowsStopCommand,
 		WindowsInstallCommand:             gameModel.WindowsInstallCommand,
+		WindowsInstallCommandProcessor:    commandTypeToCommandProcessor(gameModel.WindowsInstallCommandType),
 		WindowsUpdateCommand:              gameModel.WindowsUpdateCommand,
+		WindowsUpdateCommandProcessor:     commandTypeToCommandProcessor(gameModel.WindowsUpdateCommandType),
 		WindowsWorkingDirectory:           gameModel.WindowsWorkingDirectory,
 		RequireDedicatedIp:                gameModel.RequireDedicatedIP,
 		BindsToAllIps:                     gameModel.BindsToAllIps,
@@ -150,12 +156,16 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		LinuxStartCommand:                 gameProto.LinuxStartCommand,
 		LinuxStopCommand:                  gameProto.LinuxStopCommand,
 		LinuxInstallCommand:               gameProto.LinuxInstallCommand,
+		LinuxInstallCommandType:           commandProcessorToCommandType(gameProto.LinuxInstallCommandProcessor),
 		LinuxUpdateCommand:                gameProto.LinuxUpdateCommand,
+		LinuxUpdateCommandType:            commandProcessorToCommandType(gameProto.LinuxUpdateCommandProcessor),
 		LinuxWorkingDirectory:             gameProto.LinuxWorkingDirectory,
 		WindowsStartCommand:               gameProto.WindowsStartCommand,
 		WindowsStopCommand:                gameProto.WindowsStopCommand,
 		WindowsInstallCommand:             gameProto.WindowsInstallCommand,
+		WindowsInstallCommandType:         commandProcessorToCommandType(gameProto.WindowsInstallCommandProcessor),
 		WindowsUpdateCommand:              gameProto.WindowsUpdateCommand,
+		WindowsUpdateCommandType:          commandProcessorToCommandType(gameProto.WindowsUpdateCommandProcessor),
 		WindowsWorkingDirectory:           gameProto.WindowsWorkingDirectory,
 		RequireDedicatedIP:                gameProto.RequireDedicatedIp,
 		BindsToAllIps:                     gameProto.BindsToAllIps,
@@ -163,6 +173,40 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		UpdatedAt:                         gameProto.UpdatedAt.AsTime(),
 		UsesSourceQuery:                   gameProto.UsesSourceQuery,
 		RequiresSteamGameServerLoginToken: gameProto.RequiresSteamGameServerLoginToken,
+	}
+}
+
+func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
+	return &models.GameSetter{
+		ID:                                omit.From(gameModel.ID),
+		Name:                              omit.From(gameModel.Name),
+		DefaultPort:                       omit.From(gameModel.DefaultPort),
+		DefaultQueryPort:                  omit.From(gameModel.DefaultQueryPort),
+		DefaultMaxPlayers:                 omit.From(gameModel.DefaultMaxPlayers),
+		RequireDedicatedIP:                omit.From(gameModel.RequireDedicatedIP),
+		BindsToAllIps:                     omit.From(gameModel.BindsToAllIps),
+		UsesSourceQuery:                   omit.From(gameModel.UsesSourceQuery),
+		UsesSteamcmd:                      omit.From(gameModel.UsesSteamcmd),
+		SteamAppID:                        omit.From(gameModel.SteamAppID),
+		RequiresSteamGameServerLoginToken: omit.From(gameModel.RequiresSteamGameServerLoginToken),
+		LinuxSupport:                      omit.From(gameModel.LinuxSupport),
+		LinuxStartCommand:                 omit.From(gameModel.LinuxStartCommand),
+		LinuxStopCommand:                  omit.From(gameModel.LinuxStopCommand),
+		LinuxInstallCommand:               omit.From(gameModel.LinuxInstallCommand),
+		LinuxInstallCommandType:           omit.From(gameModel.LinuxInstallCommandType),
+		LinuxUpdateCommand:                omit.From(gameModel.LinuxUpdateCommand),
+		LinuxUpdateCommandType:            omit.From(gameModel.LinuxUpdateCommandType),
+		LinuxWorkingDirectory:             omit.From(gameModel.LinuxWorkingDirectory),
+		WindowsSupport:                    omit.From(gameModel.WindowsSupport),
+		WindowsStartCommand:               omit.From(gameModel.WindowsStartCommand),
+		WindowsStopCommand:                omit.From(gameModel.WindowsStopCommand),
+		WindowsInstallCommand:             omit.From(gameModel.WindowsInstallCommand),
+		WindowsInstallCommandType:         omit.From(gameModel.WindowsInstallCommandType),
+		WindowsUpdateCommand:              omit.From(gameModel.WindowsUpdateCommand),
+		WindowsUpdateCommandType:          omit.From(gameModel.WindowsUpdateCommandType),
+		WindowsWorkingDirectory:           omit.From(gameModel.WindowsWorkingDirectory),
+		CreatedAt:                         omit.From(time.Now()),
+		UpdatedAt:                         omit.From(time.Now()),
 	}
 }
 
@@ -198,5 +242,39 @@ func IPModelToProto(ipModel *models.IP) *xylona.IP {
 		Address:  ipModel.Address,
 		Usable:   ipModel.Usable,
 		External: ipModel.External,
+	}
+}
+
+func commandTypeToCommandProcessor(commandType string) xylona.CommandProcessor {
+	switch commandType {
+	case "direct":
+		return xylona.CommandProcessor_DIRECT
+	case "bash":
+		return xylona.CommandProcessor_BASH
+	case "cmd":
+		return xylona.CommandProcessor_CMD
+	case "powershell":
+		return xylona.CommandProcessor_POWERSHELL
+	case "internal":
+		return xylona.CommandProcessor_XYLONA_INTERNAL
+	default:
+		return xylona.CommandProcessor_DIRECT
+	}
+}
+
+func commandProcessorToCommandType(commandProcessor xylona.CommandProcessor) string {
+	switch commandProcessor {
+	case xylona.CommandProcessor_DIRECT:
+		return "direct"
+	case xylona.CommandProcessor_BASH:
+		return "bash"
+	case xylona.CommandProcessor_CMD:
+		return "cmd"
+	case xylona.CommandProcessor_POWERSHELL:
+		return "powershell"
+	case xylona.CommandProcessor_XYLONA_INTERNAL:
+		return "internal"
+	default:
+		return "direct"
 	}
 }

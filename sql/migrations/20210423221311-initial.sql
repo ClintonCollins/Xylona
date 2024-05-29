@@ -31,7 +31,6 @@ create table if not exists game
     default_query_port                     bigint           not null,
     default_max_players                    bigint           not null,
     require_dedicated_ip                   boolean          not null default false,
-    binds_to_all_ips                       boolean          not null default false,
     uses_source_query                      boolean          not null default false,
     uses_steamcmd                          boolean          not null default false,
     steam_app_id                           text             not null default '' check ( uses_steamcmd == 0 or steam_app_id not null ),

@@ -33,8 +33,18 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// XylonaAddGameProcedure is the fully-qualified name of the Xylona's AddGame RPC.
+	XylonaAddGameProcedure = "/xylona.Xylona/AddGame"
+	// XylonaEditGameProcedure is the fully-qualified name of the Xylona's EditGame RPC.
+	XylonaEditGameProcedure = "/xylona.Xylona/EditGame"
 	// XylonaGetGameProcedure is the fully-qualified name of the Xylona's GetGame RPC.
 	XylonaGetGameProcedure = "/xylona.Xylona/GetGame"
+	// XylonaRemoveGameProcedure is the fully-qualified name of the Xylona's RemoveGame RPC.
+	XylonaRemoveGameProcedure = "/xylona.Xylona/RemoveGame"
+	// XylonaImportGameProcedure is the fully-qualified name of the Xylona's ImportGame RPC.
+	XylonaImportGameProcedure = "/xylona.Xylona/ImportGame"
+	// XylonaExportGameProcedure is the fully-qualified name of the Xylona's ExportGame RPC.
+	XylonaExportGameProcedure = "/xylona.Xylona/ExportGame"
 	// XylonaListGamesProcedure is the fully-qualified name of the Xylona's ListGames RPC.
 	XylonaListGamesProcedure = "/xylona.Xylona/ListGames"
 	// XylonaLoginProcedure is the fully-qualified name of the Xylona's Login RPC.
@@ -118,13 +128,12 @@ const (
 // XylonaClient is a client for the xylona.Xylona service.
 type XylonaClient interface {
 	// Game Operations
-	//
-	//	rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
-	//	rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
+	AddGame(context.Context, *connect_go.Request[xylona.AddGameRequest]) (*connect_go.Response[xylona.AddGameResponse], error)
+	EditGame(context.Context, *connect_go.Request[xylona.EditGameRequest]) (*connect_go.Response[xylona.EditGameResponse], error)
 	GetGame(context.Context, *connect_go.Request[xylona.GetGameRequest]) (*connect_go.Response[xylona.GetGameResponse], error)
-	// rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
-	// rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
-	// rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
+	RemoveGame(context.Context, *connect_go.Request[xylona.RemoveGameRequest]) (*connect_go.Response[xylona.RemoveGameResponse], error)
+	ImportGame(context.Context, *connect_go.Request[xylona.ImportGameRequest]) (*connect_go.Response[xylona.ImportGameResponse], error)
+	ExportGame(context.Context, *connect_go.Request[xylona.ExportGameRequest]) (*connect_go.Response[xylona.ExportGameResponse], error)
 	ListGames(context.Context, *connect_go.Request[xylona.ListGamesRequest]) (*connect_go.Response[xylona.ListGamesResponse], error)
 	// General
 	Login(context.Context, *connect_go.Request[xylona.LoginRequest]) (*connect_go.Response[xylona.LoginResponse], error)
@@ -175,9 +184,34 @@ type XylonaClient interface {
 func NewXylonaClient(httpClient connect_go.HTTPClient, baseURL string, opts ...connect_go.ClientOption) XylonaClient {
 	baseURL = strings.TrimRight(baseURL, "/")
 	return &xylonaClient{
+		addGame: connect_go.NewClient[xylona.AddGameRequest, xylona.AddGameResponse](
+			httpClient,
+			baseURL+XylonaAddGameProcedure,
+			opts...,
+		),
+		editGame: connect_go.NewClient[xylona.EditGameRequest, xylona.EditGameResponse](
+			httpClient,
+			baseURL+XylonaEditGameProcedure,
+			opts...,
+		),
 		getGame: connect_go.NewClient[xylona.GetGameRequest, xylona.GetGameResponse](
 			httpClient,
 			baseURL+XylonaGetGameProcedure,
+			opts...,
+		),
+		removeGame: connect_go.NewClient[xylona.RemoveGameRequest, xylona.RemoveGameResponse](
+			httpClient,
+			baseURL+XylonaRemoveGameProcedure,
+			opts...,
+		),
+		importGame: connect_go.NewClient[xylona.ImportGameRequest, xylona.ImportGameResponse](
+			httpClient,
+			baseURL+XylonaImportGameProcedure,
+			opts...,
+		),
+		exportGame: connect_go.NewClient[xylona.ExportGameRequest, xylona.ExportGameResponse](
+			httpClient,
+			baseURL+XylonaExportGameProcedure,
 			opts...,
 		),
 		listGames: connect_go.NewClient[xylona.ListGamesRequest, xylona.ListGamesResponse](
@@ -345,7 +379,12 @@ func NewXylonaClient(httpClient connect_go.HTTPClient, baseURL string, opts ...c
 
 // xylonaClient implements XylonaClient.
 type xylonaClient struct {
+	addGame                          *connect_go.Client[xylona.AddGameRequest, xylona.AddGameResponse]
+	editGame                         *connect_go.Client[xylona.EditGameRequest, xylona.EditGameResponse]
 	getGame                          *connect_go.Client[xylona.GetGameRequest, xylona.GetGameResponse]
+	removeGame                       *connect_go.Client[xylona.RemoveGameRequest, xylona.RemoveGameResponse]
+	importGame                       *connect_go.Client[xylona.ImportGameRequest, xylona.ImportGameResponse]
+	exportGame                       *connect_go.Client[xylona.ExportGameRequest, xylona.ExportGameResponse]
 	listGames                        *connect_go.Client[xylona.ListGamesRequest, xylona.ListGamesResponse]
 	login                            *connect_go.Client[xylona.LoginRequest, xylona.LoginResponse]
 	logout                           *connect_go.Client[xylona.LogoutRequest, xylona.LogoutResponse]
@@ -380,9 +419,34 @@ type xylonaClient struct {
 	gameServersFileOrDirectoryCreate *connect_go.Client[xylona.GameServerFileOrDirectoryCreateRequest, xylona.GameServerFileOrDirectoryCreateResponse]
 }
 
+// AddGame calls xylona.Xylona.AddGame.
+func (c *xylonaClient) AddGame(ctx context.Context, req *connect_go.Request[xylona.AddGameRequest]) (*connect_go.Response[xylona.AddGameResponse], error) {
+	return c.addGame.CallUnary(ctx, req)
+}
+
+// EditGame calls xylona.Xylona.EditGame.
+func (c *xylonaClient) EditGame(ctx context.Context, req *connect_go.Request[xylona.EditGameRequest]) (*connect_go.Response[xylona.EditGameResponse], error) {
+	return c.editGame.CallUnary(ctx, req)
+}
+
 // GetGame calls xylona.Xylona.GetGame.
 func (c *xylonaClient) GetGame(ctx context.Context, req *connect_go.Request[xylona.GetGameRequest]) (*connect_go.Response[xylona.GetGameResponse], error) {
 	return c.getGame.CallUnary(ctx, req)
+}
+
+// RemoveGame calls xylona.Xylona.RemoveGame.
+func (c *xylonaClient) RemoveGame(ctx context.Context, req *connect_go.Request[xylona.RemoveGameRequest]) (*connect_go.Response[xylona.RemoveGameResponse], error) {
+	return c.removeGame.CallUnary(ctx, req)
+}
+
+// ImportGame calls xylona.Xylona.ImportGame.
+func (c *xylonaClient) ImportGame(ctx context.Context, req *connect_go.Request[xylona.ImportGameRequest]) (*connect_go.Response[xylona.ImportGameResponse], error) {
+	return c.importGame.CallUnary(ctx, req)
+}
+
+// ExportGame calls xylona.Xylona.ExportGame.
+func (c *xylonaClient) ExportGame(ctx context.Context, req *connect_go.Request[xylona.ExportGameRequest]) (*connect_go.Response[xylona.ExportGameResponse], error) {
+	return c.exportGame.CallUnary(ctx, req)
 }
 
 // ListGames calls xylona.Xylona.ListGames.
@@ -548,13 +612,12 @@ func (c *xylonaClient) GameServersFileOrDirectoryCreate(ctx context.Context, req
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// Game Operations
-	//
-	//	rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
-	//	rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
+	AddGame(context.Context, *connect_go.Request[xylona.AddGameRequest]) (*connect_go.Response[xylona.AddGameResponse], error)
+	EditGame(context.Context, *connect_go.Request[xylona.EditGameRequest]) (*connect_go.Response[xylona.EditGameResponse], error)
 	GetGame(context.Context, *connect_go.Request[xylona.GetGameRequest]) (*connect_go.Response[xylona.GetGameResponse], error)
-	// rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
-	// rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
-	// rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
+	RemoveGame(context.Context, *connect_go.Request[xylona.RemoveGameRequest]) (*connect_go.Response[xylona.RemoveGameResponse], error)
+	ImportGame(context.Context, *connect_go.Request[xylona.ImportGameRequest]) (*connect_go.Response[xylona.ImportGameResponse], error)
+	ExportGame(context.Context, *connect_go.Request[xylona.ExportGameRequest]) (*connect_go.Response[xylona.ExportGameResponse], error)
 	ListGames(context.Context, *connect_go.Request[xylona.ListGamesRequest]) (*connect_go.Response[xylona.ListGamesResponse], error)
 	// General
 	Login(context.Context, *connect_go.Request[xylona.LoginRequest]) (*connect_go.Response[xylona.LoginResponse], error)
@@ -601,9 +664,34 @@ type XylonaHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (string, http.Handler) {
+	xylonaAddGameHandler := connect_go.NewUnaryHandler(
+		XylonaAddGameProcedure,
+		svc.AddGame,
+		opts...,
+	)
+	xylonaEditGameHandler := connect_go.NewUnaryHandler(
+		XylonaEditGameProcedure,
+		svc.EditGame,
+		opts...,
+	)
 	xylonaGetGameHandler := connect_go.NewUnaryHandler(
 		XylonaGetGameProcedure,
 		svc.GetGame,
+		opts...,
+	)
+	xylonaRemoveGameHandler := connect_go.NewUnaryHandler(
+		XylonaRemoveGameProcedure,
+		svc.RemoveGame,
+		opts...,
+	)
+	xylonaImportGameHandler := connect_go.NewUnaryHandler(
+		XylonaImportGameProcedure,
+		svc.ImportGame,
+		opts...,
+	)
+	xylonaExportGameHandler := connect_go.NewUnaryHandler(
+		XylonaExportGameProcedure,
+		svc.ExportGame,
 		opts...,
 	)
 	xylonaListGamesHandler := connect_go.NewUnaryHandler(
@@ -768,8 +856,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (stri
 	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case XylonaAddGameProcedure:
+			xylonaAddGameHandler.ServeHTTP(w, r)
+		case XylonaEditGameProcedure:
+			xylonaEditGameHandler.ServeHTTP(w, r)
 		case XylonaGetGameProcedure:
 			xylonaGetGameHandler.ServeHTTP(w, r)
+		case XylonaRemoveGameProcedure:
+			xylonaRemoveGameHandler.ServeHTTP(w, r)
+		case XylonaImportGameProcedure:
+			xylonaImportGameHandler.ServeHTTP(w, r)
+		case XylonaExportGameProcedure:
+			xylonaExportGameHandler.ServeHTTP(w, r)
 		case XylonaListGamesProcedure:
 			xylonaListGamesHandler.ServeHTTP(w, r)
 		case XylonaLoginProcedure:
@@ -843,8 +941,28 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect_go.HandlerOption) (stri
 // UnimplementedXylonaHandler returns CodeUnimplemented from all methods.
 type UnimplementedXylonaHandler struct{}
 
+func (UnimplementedXylonaHandler) AddGame(context.Context, *connect_go.Request[xylona.AddGameRequest]) (*connect_go.Response[xylona.AddGameResponse], error) {
+	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.AddGame is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) EditGame(context.Context, *connect_go.Request[xylona.EditGameRequest]) (*connect_go.Response[xylona.EditGameResponse], error) {
+	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.EditGame is not implemented"))
+}
+
 func (UnimplementedXylonaHandler) GetGame(context.Context, *connect_go.Request[xylona.GetGameRequest]) (*connect_go.Response[xylona.GetGameResponse], error) {
 	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.GetGame is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RemoveGame(context.Context, *connect_go.Request[xylona.RemoveGameRequest]) (*connect_go.Response[xylona.RemoveGameResponse], error) {
+	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.RemoveGame is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ImportGame(context.Context, *connect_go.Request[xylona.ImportGameRequest]) (*connect_go.Response[xylona.ImportGameResponse], error) {
+	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.ImportGame is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ExportGame(context.Context, *connect_go.Request[xylona.ExportGameRequest]) (*connect_go.Response[xylona.ExportGameResponse], error) {
+	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("xylona.Xylona.ExportGame is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListGames(context.Context, *connect_go.Request[xylona.ListGamesRequest]) (*connect_go.Response[xylona.ListGamesResponse], error) {

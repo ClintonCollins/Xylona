@@ -31,12 +31,6 @@
         <q-btn label="Cancel" color="neutral" @click="showDialog = false" flat/>
         <q-btn label="Delete" class="bg-error" @click="deleteFiles"/>
       </q-card-actions>
-      <q-inner-loading
-          :showing="props.loading"
-          label="Archiving files..."
-          label-class="text-teal"
-          label-style="font-size: 1.1em"
-      />
     </q-card>
   </q-dialog>
 </template>
