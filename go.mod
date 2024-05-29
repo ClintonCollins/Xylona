@@ -19,6 +19,7 @@ require (
 	github.com/pterm/pterm v0.12.79
 	github.com/rdegges/go-ipify v0.0.0-20150526035502-2d94a6a86c40
 	github.com/rs/zerolog v1.32.0
+	github.com/rubenv/sql-migrate v1.6.1
 	github.com/stephenafamo/bob v0.25.0
 	github.com/tidwall/gjson v1.17.1
 	github.com/ziutek/telnet v0.0.0-20180329124119-c3b780dc415b
@@ -40,6 +41,7 @@ require (
 	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
@@ -47,7 +49,6 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
-	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect

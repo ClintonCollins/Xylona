@@ -99,7 +99,6 @@ create table if not exists ip
 
 -- Insert Minecraft
 INSERT INTO game (id, name, default_port, default_query_port, default_max_players, require_dedicated_ip,
-                  binds_to_all_ips,
                   linux_support,
                   linux_start_command,
                   linux_stop_command,
@@ -115,7 +114,7 @@ INSERT INTO game (id, name, default_port, default_query_port, default_max_player
                   windows_update_command,
                   windows_working_directory,
                   created_at, updated_at)
-VALUES ('minecraft', 'Minecraft', 25565, 25565, 32, 0, 0,
+VALUES ('minecraft', 'Minecraft', 25565, 25565, 32, true,
         true,
         'java -Dlog4j2.formatMsgNoLookups=true -XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:+ZProactive -XX:ZCollectionInterval=600 -XX:+UseLargePages -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:+ParallelRefProcEnabled -XX:+PerfDisableSharedMem  -jar minecraft_server.jar',
         '/stop',
@@ -135,7 +134,6 @@ on conflict do nothing;
 
 -- Insert 7 Days to Die
 INSERT INTO game (id, name, default_port, default_query_port, default_max_players, require_dedicated_ip,
-                  binds_to_all_ips,
                   linux_support,
                   linux_start_command,
                   linux_stop_command,
@@ -151,7 +149,7 @@ INSERT INTO game (id, name, default_port, default_query_port, default_max_player
                   windows_update_command,
                   windows_working_directory,
                   created_at, updated_at)
-VALUES ('7_days_to_die', '7 Days to Die', 26900, 26900, 32, 0, 0,
+VALUES ('7_days_to_die', '7 Days to Die', 26900, 26900, 32, true,
         true,
         './7DaysToDieServer -logfile - -quit -batchmode -nographics -configfile=settings.xml -dedicated',
         '',

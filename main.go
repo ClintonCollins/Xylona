@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/bufbuild/connect-go"
 	"github.com/caarlos0/env/v10"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/gorilla/securecookie"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
@@ -88,6 +91,36 @@ func gracefulShutdown(ctxCancel context.CancelFunc, shutdownSignalType os.Signal
 	log.Info().Msg("Xylona control panel backend fully stopped.")
 }
 
+func handleSPAFunc(frontendFS fs.FS) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sFile, errStat := frontendFS.Open(strings.TrimPrefix(r.URL.Path, "/"))
+		if errStat != nil {
+			r.URL.Path = "/"
+		}
+		if errStat == nil {
+			_ = sFile.Close()
+		}
+		http.FileServerFS(frontendFS).ServeHTTP(w, r)
+	}
+}
+
+func routerLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		timeStart := time.Now()
+		defer func() {
+			timeStop := time.Now()
+			log.Info().Fields(map[string]interface{}{
+				"method":     r.Method,
+				"url":        r.URL.Path,
+				"ip":         r.RemoteAddr,
+				"user-agent": r.UserAgent(),
+				"latency":    timeStop.Sub(timeStart).String(),
+			}).Msg("")
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	config := Configuration{}
 	_ = godotenv.Load()
@@ -136,8 +169,15 @@ func main() {
 		log.Fatal().Err(errSupervisor).Msg("Failed to create supervisor instance")
 	}
 	dbInst := db.NewConnection(ctx, "./data.sqlite")
-	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
 
+	// Run database migrations
+	errMigrate := runMigrations(dbInst.SQLDb)
+	if errMigrate != nil {
+		log.Fatal().Err(errMigrate).Msg("Error running migrations")
+		return
+	}
+
+	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
 	setDetectedIPs(dbInst)
 
 	_, websocketHandler := websocket.NewInstance(ctx, superInst, dbInst, secureCookie)
@@ -145,8 +185,16 @@ func main() {
 	router := chi.NewRouter()
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie)
 
-	path, handler := xylonaconnect.NewXylonaHandler(xylonaService, connect.WithHandlerOptions())
-	router.Mount(path, handler)
+	xylonaAPIPath, handler := xylonaconnect.NewXylonaHandler(xylonaService, connect.WithHandlerOptions())
+
+	frontendFS, errLoadFrontend := Frontend()
+	if errLoadFrontend != nil {
+		log.Fatal().Err(errLoadFrontend).Msg("Failed to load frontend")
+	}
+
+	router.Use(middleware.RealIP)
+	router.Use(routerLogger)
+	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
 
 	httpServer := &http.Server{
@@ -195,6 +243,7 @@ func main() {
 	router.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
 	router.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
 	router.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
+	router.HandleFunc("/*", handleSPAFunc(frontendFS))
 
 	// Start the web server
 	go func() {
