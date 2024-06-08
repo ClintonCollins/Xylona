@@ -26,7 +26,9 @@ export const LanguageOptions = [
     { value: 'cpp', label: 'C++' },
     { value: 'rust', label: 'Rust' },
     { value: 'perl', label: 'Perl' },
-    { value: 'bash', label: 'Bash' },
+    { value: 'shell', label: 'Bash' },
+    { value: 'shell', label: 'Shell' },
+    { value: 'powershell', label: 'Power Shell' },
     { value: 'markdown', label: 'Markdown' },
     { value: 'yaml', label: 'YAML' },
     { value: 'properties', label: 'Properties' },
@@ -50,19 +52,19 @@ export function getLanguageFromFileName(fileName: string): string {
             return 'scss'
         case 'less':
             return 'less'
-        case 'javascript':
+        case 'js':
             return 'javascript'
-        case 'typescript':
+        case 'ts':
             return 'typescript'
         case 'csharp':
             return 'csharp'
-        case 'python':
+        case 'py':
             return 'python'
         case 'java':
             return 'java'
         case 'php':
             return 'php'
-        case 'ruby':
+        case 'rb':
             return 'ruby'
         case 'go':
             return 'go'
@@ -72,14 +74,18 @@ export function getLanguageFromFileName(fileName: string): string {
             return 'cpp'
         case 'rust':
             return 'rust'
-        case 'perl':
+        case 'pl':
             return 'perl'
-        case 'bash':
-            return 'bash'
-        case 'markdown':
+        case 'sh':
+            return 'shell'
+        case 'ps1':
+            return 'powershell'
+        case 'md':
             return 'markdown'
         case 'yaml':
             return 'yaml'
+        case 'yml':
+            return 'yml'
         case 'properties':
             return 'ini'
         case 'minecraft-properties':
