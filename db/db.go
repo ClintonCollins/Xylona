@@ -14,14 +14,14 @@ import (
 type Connection struct {
 	ctx   context.Context
 	SQLDb *sql.DB
-	*bob.DB
+	DB    bob.Executor
 }
 
 func setupHooks() {
-	models.Users.BeforeInsertHooks.Add(beforeInsertUser)
-	models.Users.BeforeUpdateHooks.Add(beforeUpdateUser)
-	models.Users.BeforeUpsertHooks.Add(beforeUpsertUser)
-	models.UserSessions.BeforeInsertHooks.Add(beforeInsertSession)
+	models.Users.BeforeInsertHooks.AppendHooks(beforeInsertUser)
+	models.Users.BeforeUpdateHooks.AppendHooks(beforeUpdateUser)
+	models.Users.BeforeUpdateHooks.AppendHooks(beforeUpsertUser)
+	models.UserSessions.BeforeInsertHooks.AppendHooks(beforeInsertSession)
 }
 
 func NewConnection(ctx context.Context, path string) *Connection {
@@ -34,6 +34,7 @@ func NewConnection(ctx context.Context, path string) *Connection {
 		log.Fatal().Err(err).Msg("Error pinging database")
 	}
 	bobDB := bob.NewDB(db)
+	// bobDB := bob.Debug(bob.NewDB(db))
 	setupHooks()
-	return &Connection{ctx, db, &bobDB}
+	return &Connection{ctx, db, bobDB}
 }

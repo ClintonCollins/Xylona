@@ -1,7 +1,7 @@
 import { ConnectError } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf';
 import { defineStore } from 'pinia';
-import { useQuasar } from 'quasar'
-import {CheckUserAuthenticatedRequest, CheckUserAuthenticatedResponse, User} from "src/proto/xylona_pb";
+import { CheckUserAuthenticatedRequestSchema, CheckUserAuthenticatedResponse, User } from "src/proto/xylona_pb";
 import { ConnectErrorToString, GetXylonaClient } from 'src/utils/shared'
 import { Notify } from 'quasar'
 
@@ -27,7 +27,7 @@ export const useUserAuthStore = defineStore('userAuth', {
       }
       this.initialFetch = true
       try {
-        const response: CheckUserAuthenticatedResponse = await GetXylonaClient().checkUserAuthenticated(new CheckUserAuthenticatedRequest())
+        const response: CheckUserAuthenticatedResponse = await GetXylonaClient().checkUserAuthenticated(create(CheckUserAuthenticatedRequestSchema))
         this.initialResponse = response
         if (response.user) {
           this.user = response.user

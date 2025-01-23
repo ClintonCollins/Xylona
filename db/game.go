@@ -4,14 +4,13 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
-
-	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (c *Connection) GetGameByID(id string) (*models.Game, error) {
-	game, err := models.Games.Query(c.ctx, c.DB, models.SelectWhere.Games.ID.EQ(id)).One()
+	game, err := models.Games.Query(models.SelectWhere.Games.ID.EQ(id)).One(c.ctx, c.DB)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			log.Error().Err(err).Msg("Error querying game")
@@ -22,7 +21,7 @@ func (c *Connection) GetGameByID(id string) (*models.Game, error) {
 }
 
 func (c *Connection) GetGames() ([]*models.Game, error) {
-	games, err := models.Games.Query(c.ctx, c.DB).All()
+	games, err := models.Games.Query().All(c.ctx, c.DB)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -34,7 +33,7 @@ func (c *Connection) GetGames() ([]*models.Game, error) {
 }
 
 func (c *Connection) InsertGame(exec bob.Executor, gameSetter *models.GameSetter) (*models.Game, error) {
-	game, err := models.Games.Insert(c.ctx, exec, gameSetter)
+	game, err := models.Games.Insert(gameSetter).One(c.ctx, c.DB)
 	if err != nil {
 		log.Error().Err(err).Msg("Error inserting game")
 		return nil, err
@@ -57,5 +56,6 @@ func (c *Connection) UpdateGame(exec bob.Executor, game *models.Game, gameSetter
 }
 
 func (c *Connection) DeleteGameByID(id string) error {
-	return models.Games.Delete(c.ctx, c.DB, &models.Game{ID: id})
+	gs := models.GameSlice{&models.Game{ID: id}}
+	return gs.DeleteAll(c.ctx, c.DB)
 }

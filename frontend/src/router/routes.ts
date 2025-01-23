@@ -1,5 +1,5 @@
 import { RouteLocationNormalized, RouteRecordRaw } from 'vue-router'
-import { useUserAuthStore } from 'stores/xylona'
+import { useUserAuthStore } from 'src/stores/xylona'
 import { CheckUserAuthenticatedResponse } from 'src/proto/xylona_pb'
 
 const routes: RouteRecordRaw[] = [

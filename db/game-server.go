@@ -7,11 +7,11 @@ import (
 )
 
 func (c *Connection) GetAllGameServers() ([]*models.GameServer, error) {
-	gameServers, err := models.GameServers.Query(c.ctx, c.DB,
+	gameServers, err := models.GameServers.Query(
 		models.PreloadGameServerIP(),
 		models.PreloadGameServerGame(),
 		models.PreloadGameServerUser(),
-	).All()
+	).All(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -19,12 +19,12 @@ func (c *Connection) GetAllGameServers() ([]*models.GameServer, error) {
 }
 
 func (c *Connection) GetGameServersByUser(userID string) ([]*models.GameServer, error) {
-	gameServers, err := models.GameServers.Query(c.ctx, c.DB,
+	gameServers, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.UserID.EQ(userID),
 		models.PreloadGameServerIP(),
 		models.PreloadGameServerGame(),
 		models.PreloadGameServerUser(),
-	).All()
+	).All(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -32,12 +32,12 @@ func (c *Connection) GetGameServersByUser(userID string) ([]*models.GameServer, 
 }
 
 func (c *Connection) GetGameServerByID(gameServerID string) (*models.GameServer, error) {
-	gameServer, err := models.GameServers.Query(c.ctx, c.DB,
+	gameServer, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.ID.EQ(gameServerID),
 		models.PreloadGameServerIP(),
 		models.PreloadGameServerGame(),
 		models.PreloadGameServerUser(),
-	).One()
+	).One(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (c *Connection) GetGameServerByID(gameServerID string) (*models.GameServer,
 }
 
 func (c *Connection) InsertGameServer(exec bob.Executor, gameServerSetter *models.GameServerSetter) (*models.GameServer, error) {
-	gameServer, err := models.GameServers.Insert(c.ctx, exec, gameServerSetter)
+	gameServer, err := models.GameServers.Insert(gameServerSetter).One(c.ctx, exec)
 	if err != nil {
 		return nil, err
 	}
@@ -53,16 +53,17 @@ func (c *Connection) InsertGameServer(exec bob.Executor, gameServerSetter *model
 }
 
 func (c *Connection) DeleteGameServer(gameServerID string) error {
-	return models.GameServers.Delete(c.ctx, c.DB, &models.GameServer{ID: gameServerID})
+	gs := models.GameServerSlice{&models.GameServer{ID: gameServerID}}
+	return gs.DeleteAll(c.ctx, c.DB)
 }
 
 func (c *Connection) GetGameServersByGameID(gameID string) ([]*models.GameServer, error) {
-	gameServers, err := models.GameServers.Query(c.ctx, c.DB,
+	gameServers, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.GameID.EQ(gameID),
 		models.PreloadGameServerIP(),
 		models.PreloadGameServerGame(),
 		models.PreloadGameServerUser(),
-	).All()
+	).All(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
 	}

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	connect_go "github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
@@ -31,9 +31,9 @@ func (xs XylonaService) getGameServerFromID(gameServerID string) (*models.GameSe
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(gameServerID)
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	return gameServer, nil
 }

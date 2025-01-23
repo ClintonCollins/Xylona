@@ -22,9 +22,12 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import { QCard, useQuasar } from 'quasar'
-import loadCustomEditorSettings, { getLanguageFromFileName, LanguageOptions } from 'components/editor/editor'
-import { GameServersFileEditRequest, GameServersFileEditResponse } from 'src/proto/gameserver_files_operations_pb'
+import loadCustomEditorSettings, { getLanguageFromFileName, LanguageOptions } from 'src/components/editor/editor'
+import {
+  GameServersFileEditRequest, GameServersFileEditRequestSchema, GameServersFileEditResponse
+} from 'src/proto/gameserver_files_operations_pb'
 import { GetXylonaClient } from 'src/utils/shared'
 import { onMounted, onUnmounted, ref } from 'vue'
 import * as monaco from 'monaco-editor'
@@ -155,7 +158,7 @@ onUnmounted(() => {
 
 async function saveFile() {
     try {
-        const request = new GameServersFileEditRequest()
+        const request: GameServersFileEditRequest = create(GameServersFileEditRequestSchema, {})
         request.content = codeInput.value
         request.fullFilePath = props.fullFilePath
         request.gameServerId = props.gameServerId

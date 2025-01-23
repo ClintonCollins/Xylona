@@ -29,9 +29,10 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
-import { GameServerFilesMoveRequest } from 'src/proto/gameserver_files_operations_pb'
-import { File as xylonaFile } from 'src/proto/xylona_pb'
+import { GameServerFilesMoveRequest, GameServerFilesMoveRequestSchema } from 'src/proto/gameserver_files_operations_pb'
+import { File as xylonaFile } from 'src/proto/gameserver_files_operations_pb'
 import {
     GetPathSeparator,
     GetRelativeFilePath,
@@ -97,7 +98,7 @@ function getDestinationDirectory() {
 }
 
 async function moveFiles() {
-    const request = new GameServerFilesMoveRequest()
+    const request: GameServerFilesMoveRequest = create(GameServerFilesMoveRequestSchema, {})
     request.gameServerId = props.gameServerId
     request.destinationBasePath = getDestinationDirectory()
     request.fullFilePaths = props.selectedFiles.map((file: xylonaFile) => {

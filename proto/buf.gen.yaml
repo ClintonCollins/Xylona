@@ -1,19 +1,16 @@
-version: v1
+version: v2
+clean: true
 plugins:
-  - plugin: buf.build/bufbuild/connect-go
+  - remote: buf.build/connectrpc/go:v1.18.1
     out: go/xylona
     opt:
       - paths=source_relative
-      - require_unimplemented_servers=true
-  # dependencies
-  - plugin: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go:v1.36.3
     out: go/xylona
     opt:
       - paths=source_relative
-  - plugin: es
+  - remote: buf.build/bufbuild/es:v2.2.3
     out: ../frontend/src/proto
-    opt: target=ts
-  # dependencies
-  - plugin: connect-es
-    out: ../frontend/src/proto
-    opt: target=ts
+    include_imports: true
+    opt:
+      - target=ts

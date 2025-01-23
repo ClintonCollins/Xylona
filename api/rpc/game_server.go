@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	connect_go "github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/actions"
@@ -35,158 +35,158 @@ type MinecraftVersionJSON struct {
 	UseEditor     bool      `json:"use_editor"`
 }
 
-func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect_go.Request[xylona.CreateGameServerRequest]) (*connect_go.Response[xylona.CreateGameServerResponse], error) {
+func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
 
 	// log.Debug().Msgf("CreateGameServer request: %+v", request.Msg.GetGameServer())
 	user, errGetUser := xs.db.GetUserByID(request.Msg.GetGameServer().UserId)
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	game, errGetGame := xs.db.GetGameByID(request.Msg.GetGameServer().GameId)
 	if errGetGame != nil {
 		if errors.Is(errGetGame, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 
 	newGameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
 
 	newGameServer, errInstallGameServer := xs.actionsInst.InstallGameServer(game, newGameServerModel, user)
 	if errInstallGameServer != nil {
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 
 	response := &xylona.CreateGameServerResponse{
 		GameServer: helpers.GameServerModelToProto(newGameServer),
 	}
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) EditGameServer(ctx context.Context, request *connect_go.Request[xylona.EditGameServerRequest]) (*connect_go.Response[xylona.EditGameServerResponse], error) {
+func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect_go.Request[xylona.RemoveGameServerRequest]) (*connect_go.Response[xylona.RemoveGameServerResponse], error) {
+func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	xs.actionsInst.StopGameServer(gameServer)
 	errRemove := xs.actionsInst.RemoveGameServer(gameServer, true)
 	if errRemove != nil {
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	response := &xylona.RemoveGameServerResponse{}
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) StartGameServer(ctx context.Context, request *connect_go.Request[xylona.StartGameServerRequest]) (*connect_go.Response[xylona.StartGameServerResponse], error) {
+func (xs XylonaService) StartGameServer(ctx context.Context, request *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	xs.actionsInst.StartGameServer(gameServer)
 	response := &xylona.StartGameServerResponse{}
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) StopGameServer(ctx context.Context, request *connect_go.Request[xylona.StopGameServerRequest]) (*connect_go.Response[xylona.StopGameServerResponse], error) {
+func (xs XylonaService) StopGameServer(ctx context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	xs.actionsInst.StopGameServer(gameServer)
 	response := &xylona.StopGameServerResponse{}
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *connect_go.Request[xylona.ReadGameServerOutputRequest]) (*connect_go.Response[xylona.ReadGameServerOutputResponse], error) {
+func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	output := xs.actionsInst.ReadGameServerBuffer(gameServer)
 	response := &xylona.ReadGameServerOutputResponse{
 		Output: output,
 	}
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connect_go.Request[xylona.SendGameServerInputRequest]) (*connect_go.Response[xylona.SendGameServerInputResponse], error) {
+func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	gameServerCmd, err := xs.supervisorInst.GetCommandByID(gameServer.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get game server command")
-		return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("game server not running"))
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not running"))
 	}
 	status := gameServerCmd.Status()
 	if status == xylona.Status_OFFLINE || status == xylona.Status_UNKNOWN {
-		return connect_go.NewResponse(&xylona.SendGameServerInputResponse{}), nil
+		return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
 	}
 	errSend := gameServerCmd.SendInput(request.Msg.GetInput())
 	if errSend != nil {
 		log.Error().Err(errSend).Msg("Failed to send input to game server")
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	response := &xylona.SendGameServerInputResponse{}
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) ListDirectoryFiles(ctx context.Context, request *connect_go.Request[xylona.ListDirectoryFilesRequest]) (*connect_go.Response[xylona.ListDirectoryFilesResponse], error) {
+func (xs XylonaService) ListDirectoryFiles(ctx context.Context, request *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	files, errListGameServerFiles := xs.actionsInst.ListGameServerFiles(gameServer, request.Msg.GetPath())
 	if errListGameServerFiles != nil {
 		if errors.Is(errListGameServerFiles, actions.ErrInvalidPath) {
-			return nil, connect_go.NewError(connect_go.CodeInvalidArgument, errors.New("invalid path"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid path"))
 		}
 		if errors.Is(errListGameServerFiles, os.ErrNotExist) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("invalid path"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("invalid path"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	response := &xylona.ListDirectoryFilesResponse{
 		Files: files,
 	}
 
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) GetGameServer(ctx context.Context, request *connect_go.Request[xylona.GetGameServerRequest]) (*connect_go.Response[xylona.GetGameServerResponse], error) {
+func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	gameServerCmd, err := xs.supervisorInst.GetCommandByID(gameServer.ID)
 	if err != nil {
@@ -203,7 +203,7 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect_go.R
 			response.GameServer.Version = version
 		}
 	}
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }
 
 func (xs XylonaService) getMinecraftVersion(gameServer *models.GameServer) (string, error) {
@@ -245,12 +245,12 @@ func (xs XylonaService) getMinecraftVersion(gameServer *models.GameServer) (stri
 	return minecraftVersionJSON.Name, nil
 }
 
-func (xs XylonaService) UpdateGameServer(ctx context.Context, request *connect_go.Request[xylona.UpdateGameServerRequest]) (*connect_go.Response[xylona.UpdateGameServerResponse], error) {
+func (xs XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (xs XylonaService) ListGameServers(ctx context.Context, request *connect_go.Request[xylona.ListGameServersRequest]) (*connect_go.Response[xylona.ListGameServersResponse], error) {
+func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {
 	user, err := xs.getUserFromHeader(request.Header())
 	if err != nil {
 		return nil, err
@@ -259,9 +259,9 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect_go
 		gameServers, errGetGameServers := xs.db.GetGameServersByUser(user.ID)
 		if errGetGameServers != nil {
 			if errors.Is(errGetGameServers, sql.ErrNoRows) {
-				return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 			}
-			return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+			return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 		}
 		gameServersProto := make([]*xylona.GameServer, len(gameServers))
 		for i, gameServer := range gameServers {
@@ -271,14 +271,14 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect_go
 		response := &xylona.ListGameServersResponse{
 			GameServers: gameServersProto,
 		}
-		return connect_go.NewResponse(response), nil
+		return connect.NewResponse(response), nil
 	}
 	gameServers, errGetGameServers := xs.db.GetAllGameServers()
 	if errGetGameServers != nil {
 		if errors.Is(errGetGameServers, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 
 	gameServersProto := make([]*xylona.GameServer, len(gameServers))
@@ -289,5 +289,5 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect_go
 	response := &xylona.ListGameServersResponse{
 		GameServers: gameServersProto,
 	}
-	return connect_go.NewResponse(response), nil
+	return connect.NewResponse(response), nil
 }

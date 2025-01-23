@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
-	connect_go "github.com/bufbuild/connect-go"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -17,8 +18,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *connect_go.Request[xylona.CheckUserAuthenticatedRequest]) (*connect_go.Response[xylona.CheckUserAuthenticatedResponse], error) {
-	sessionUnauthenticatedResponse := &connect_go.Response[xylona.CheckUserAuthenticatedResponse]{
+func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
+	sessionUnauthenticatedResponse := &connect.Response[xylona.CheckUserAuthenticatedResponse]{
 		Msg: &xylona.CheckUserAuthenticatedResponse{
 			Authenticated: false,
 		},
@@ -29,7 +30,7 @@ func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *con
 		return sessionUnauthenticatedResponse, nil
 	}
 
-	return &connect_go.Response[xylona.CheckUserAuthenticatedResponse]{
+	return &connect.Response[xylona.CheckUserAuthenticatedResponse]{
 		Msg: &xylona.CheckUserAuthenticatedResponse{
 			Authenticated: true,
 			User: &xylona.User{
@@ -46,32 +47,38 @@ func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *con
 	}, nil
 }
 
-func (xs XylonaService) Login(ctx context.Context, request *connect_go.Request[xylona.LoginRequest]) (*connect_go.Response[xylona.LoginResponse], error) {
+func (xs XylonaService) Login(ctx context.Context, request *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error) {
 	userName := request.Msg.GetUserName()
 	password := request.Msg.GetPassword()
 
 	user, errGetUser := xs.db.GetUser(userName)
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeUnauthenticated, errors.New("invalid email or password"))
+			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 
 	errCompare := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if errCompare != nil {
-		return nil, connect_go.NewError(connect_go.CodeUnauthenticated, errors.New("invalid email or password"))
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
 	}
 
-	newSession, errSession := xs.db.CreateUserSession(&models.UserSessionSetter{
+	x := &models.UserSessionSetter{
+		ID:        omit.From(""),
 		UserID:    omit.From(user.ID),
+		Token:     omit.From(""),
 		ExpiresAt: omit.From(time.Now().Add(24 * time.Hour * 30)),
-	})
-	if errSession != nil {
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
 	}
 
-	resp := &connect_go.Response[xylona.LoginResponse]{
+	log.Printf("User session: %+v", x)
+	newSession, errSession := xs.db.CreateUserSession(x)
+
+	if errSession != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+
+	resp := &connect.Response[xylona.LoginResponse]{
 		Msg: &xylona.LoginResponse{
 			User: &xylona.User{
 				Id:        user.ID,
@@ -88,7 +95,7 @@ func (xs XylonaService) Login(ctx context.Context, request *connect_go.Request[x
 
 	encodedSession, errEncodeSession := xs.secureCookie.Encode(gatekeeper.SessionTokenCookieName, newSession.Token)
 	if errEncodeSession != nil {
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 
 	tokenCookie := &http.Cookie{
@@ -116,7 +123,7 @@ func (xs XylonaService) Login(ctx context.Context, request *connect_go.Request[x
 	return resp, nil
 }
 
-func (xs XylonaService) Logout(ctx context.Context, request *connect_go.Request[xylona.LogoutRequest]) (*connect_go.Response[xylona.LogoutResponse], error) {
+func (xs XylonaService) Logout(ctx context.Context, request *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error) {
 	//TODO implement me
 	panic("implement me")
 }

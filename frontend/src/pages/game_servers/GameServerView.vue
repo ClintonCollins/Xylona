@@ -90,28 +90,28 @@
 </template>
 
 <script setup lang="ts">
+import { create, fromJson, fromJsonString, toJsonString } from '@bufbuild/protobuf'
 import {useRoute} from "vue-router";
 import {computed, onMounted, Ref, ref} from "vue";
-import {
-  GameServer,
-  GetGameServerRequest,
-  ReadGameServerOutputRequest,
-  ReadGameServerOutputResponse,
-  SendGameServerInputRequest,
-  StartGameServerRequest,
-  Status
-} from "src/proto/xylona_pb";
 import { GetXylonaClient, StatusToString, XylonaWebsocketBaseURL } from 'src/utils/shared'
-import {Message, Message_Type, Request, Request_Type} from "src/proto/websocket_pb";
+import { Message, Message_Type, MessageSchema, Request, Request_Type, RequestSchema } from 'src/proto/websocket_pb'
 import {parseConsole} from "src/utils/console";
 import {QItemSection, QScrollArea} from "quasar";
 import StatusBadge from "components/StatusBadge.vue";
 import ClipBoardCopy from "components/ClipBoardCopy.vue";
 import {tabMaximize} from 'quasar-extras-svg-icons/tabler-icons-v2'
+import {
+  GameServer, GameServerSchema, ReadGameServerOutputRequest, ReadGameServerOutputRequestSchema,
+  ReadGameServerOutputResponse, SendGameServerInputRequest, SendGameServerInputRequestSchema, StartGameServerRequest,
+  StartGameServerRequestSchema,
+  Status, StopGameServerRequest,
+  StopGameServerRequestSchema
+} from '../../proto/shared_pb'
+import { GetGameServerRequest, GetGameServerRequestSchema } from '../../proto/xylona_pb'
 
 const gameServerOutput = ref("")
 const route = useRoute()
-const gameServer: Ref<GameServer> = ref(new GameServer()) as Ref<GameServer>
+const gameServer: Ref<GameServer> = ref(create(GameServerSchema)) as Ref<GameServer>
 const serverInput = ref("")
 const gameServerId: Ref<string> = ref(route.params.id instanceof Array ? route.params.id[0] : route.params.id)
 const consoleScrollArea = ref<QScrollArea | null>(null)
@@ -137,7 +137,7 @@ onMounted(async () => {
 })
 
 async function getGameServerDetails() {
-  const request = new GetGameServerRequest()
+  const request: GetGameServerRequest = create(GetGameServerRequestSchema, {})
   try {
     request.id = gameServerId.value
     const response = await GetXylonaClient().getGameServer(request)
@@ -151,7 +151,7 @@ async function getGameServerDetails() {
 }
 
 async function startGameServer() {
-  const request = new StartGameServerRequest()
+  const request: StartGameServerRequest = create(StartGameServerRequestSchema, {})
   try {
     request.serverId = gameServerId.value
     await GetXylonaClient().startGameServer(request)
@@ -161,7 +161,7 @@ async function startGameServer() {
 }
 
 async function stopGameServer() {
-  const request = new StartGameServerRequest()
+  const request: StopGameServerRequest = create(StopGameServerRequestSchema, {})
   try {
     request.serverId = gameServerId.value
     await GetXylonaClient().stopGameServer(request)
@@ -171,7 +171,7 @@ async function stopGameServer() {
 }
 
 async function getGameServerOutput() {
-  const request = new ReadGameServerOutputRequest()
+  const request: ReadGameServerOutputRequest = create(ReadGameServerOutputRequestSchema, {})
   try {
     request.serverId = gameServerId.value
     const response: ReadGameServerOutputResponse = await GetXylonaClient().readGameServerOutput(request)
@@ -199,15 +199,15 @@ function streamGameServerOutput() {
   })
   apiWebsocket.onopen = () => {
     console.log("Websocket opened")
-    const consoleOutputRequest: Request = new Request()
+    const consoleOutputRequest: Request = create(RequestSchema, {})
     consoleOutputRequest.type = Request_Type.GetGameServerConsole
     consoleOutputRequest.gameServerId = gameServerId.value
 
-    apiWebsocket.send(consoleOutputRequest.toJsonString())
+    apiWebsocket.send(toJsonString(RequestSchema, consoleOutputRequest))
     console.log('Sent console output request')
   }
   apiWebsocket.onmessage = (event) => {
-    const out: Message = Message.fromJsonString(event.data)
+    const out: Message = fromJsonString(MessageSchema, event.data)
     switch (out.type) {
       case Message_Type.GameServerConsole:
         const start = performance.now()
@@ -277,7 +277,7 @@ async function navigateConsoleInputHistory(direction: string) {
 
 async function sendGameServerInput() {
   console.log(serverInput.value)
-  const request = new SendGameServerInputRequest()
+  const request: SendGameServerInputRequest = create(SendGameServerInputRequestSchema, {})
   try {
     request.serverId = gameServerId.value
     request.input = serverInput.value

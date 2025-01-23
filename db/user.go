@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Connection) GetUser(username string) (*models.User, error) {
-	user, err := models.Users.Query(c.ctx, c.DB, models.SelectWhere.Users.UserName.EQ(username)).One()
+	user, err := models.Users.Query(models.SelectWhere.Users.UserName.EQ(username)).One(c.ctx, c.DB)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			log.Error().Err(err).Msg("Error querying user")
@@ -21,7 +21,7 @@ func (c *Connection) GetUser(username string) (*models.User, error) {
 }
 
 func (c *Connection) GetUserByID(id string) (*models.User, error) {
-	user, err := models.Users.Query(c.ctx, c.DB, models.SelectWhere.Users.ID.EQ(id)).One()
+	user, err := models.Users.Query(models.SelectWhere.Users.ID.EQ(id)).One(c.ctx, c.DB)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			log.Error().Err(err).Msg("Error querying user")
@@ -32,7 +32,7 @@ func (c *Connection) GetUserByID(id string) (*models.User, error) {
 }
 
 func (c *Connection) CreateUser(userSetter *models.UserSetter) (*models.User, error) {
-	user, err := models.Users.Insert(c.ctx, c.DB, userSetter)
+	user, err := models.Users.Insert(userSetter).One(c.ctx, c.DB)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating user")
 		return nil, err
@@ -41,7 +41,10 @@ func (c *Connection) CreateUser(userSetter *models.UserSetter) (*models.User, er
 }
 
 func (c *Connection) UpdateUser(userSetter *models.UserSetter) error {
-	err := models.Users.Update(c.ctx, c.DB, userSetter)
+	_, err := models.Users.Update(
+		userSetter.UpdateMod(),
+		models.UpdateWhere.Users.ID.EQ(userSetter.ID.MustGet()),
+	).Exec(c.ctx, c.DB)
 	if err != nil {
 		log.Error().Err(err).Msg("Error updating user")
 		return err
@@ -50,7 +53,7 @@ func (c *Connection) UpdateUser(userSetter *models.UserSetter) error {
 }
 
 func (c *Connection) CreateUserSession(userSessionSetter *models.UserSessionSetter) (*models.UserSession, error) {
-	userSession, err := models.UserSessions.Insert(c.ctx, c.DB, userSessionSetter)
+	userSession, err := models.UserSessions.Insert(userSessionSetter).One(c.ctx, c.DB)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating user session")
 		return nil, err
@@ -59,7 +62,7 @@ func (c *Connection) CreateUserSession(userSessionSetter *models.UserSessionSett
 }
 
 func (c *Connection) GetUserSession(id string) (*models.UserSession, error) {
-	userSession, err := models.UserSessions.Query(c.ctx, c.DB, models.SelectWhere.UserSessions.ID.EQ(id)).One()
+	userSession, err := models.UserSessions.Query(models.SelectWhere.UserSessions.ID.EQ(id)).One(c.ctx, c.DB)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			log.Error().Err(err).Msg("Error querying user session")
@@ -70,7 +73,7 @@ func (c *Connection) GetUserSession(id string) (*models.UserSession, error) {
 }
 
 func (c *Connection) GetAllUsers() ([]*models.User, error) {
-	users, err := models.Users.Query(c.ctx, c.DB).All()
+	users, err := models.Users.Query().All(c.ctx, c.DB)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			log.Error().Err(err).Msg("Error querying users")

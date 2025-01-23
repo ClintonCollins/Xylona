@@ -1,8 +1,8 @@
-import { Code, ConnectError, createCallbackClient, createPromiseClient } from '@connectrpc/connect'
+import { Code, ConnectError, createCallbackClient, createClient } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
-import { Xylona } from 'src/proto/xylona_connect'
+import { Xylona } from 'src/proto/xylona_pb'
 import { onMounted, ref } from 'vue'
-import { Status } from 'src/proto/xylona_pb'
+import { Status } from 'src/proto/shared_pb'
 import { GameServerFilesCompressionType } from 'src/proto/gameserver_files_operations_pb'
 import {
     tabArchive,
@@ -21,15 +21,15 @@ export const XylonaWebsocketBaseURL: string = `${window.location.protocol === 'h
 export function GetXylonaClient() {
     const transport = createConnectTransport({
         baseUrl: XylonaAPIBaseURL,
-        credentials: 'include'
+        fetch: (input, init) => fetch(input, { ...init, credentials: "include" })
     })
-    return createPromiseClient(Xylona, transport)
+    return createClient(Xylona, transport)
 }
 
 export function GetXylonaClientCallback() {
     const transport = createConnectTransport({
         baseUrl: XylonaAPIBaseURL,
-        credentials: 'include'
+        fetch: (input, init) => fetch(input, { ...init, credentials: "include" })
     })
     return createCallbackClient(Xylona, transport)
 }

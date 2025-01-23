@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gosimple/slug"
 	"github.com/rs/zerolog/log"
+	"github.com/stephenafamo/bob"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/db"
@@ -280,11 +281,12 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	}
 	gameServer.Directory = gameServerDir
 
-	tx, errTx := inst.db.BeginTx(inst.ctx, nil)
+	t, errTx := inst.db.SQLDb.BeginTx(inst.ctx, nil)
 	if errTx != nil {
 		log.Error().Err(errTx).Msg("Failed to start transaction")
 		return nil, errTx
 	}
+	tx := bob.NewTx(t)
 
 	defer func() {
 		_ = tx.Rollback()

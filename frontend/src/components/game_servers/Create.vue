@@ -29,9 +29,10 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
 import {
-    GameServerFileOrDirectoryCreateRequest,
+  GameServerFileOrDirectoryCreateRequest, GameServerFileOrDirectoryCreateRequestSchema
 } from 'src/proto/gameserver_files_operations_pb'
 import {
     GetRelativeFilePath,
@@ -71,7 +72,7 @@ const showDialog = defineModel('showDialog', {
 const emit = defineEmits(['submit'])
 
 async function createFileOrDirectory() {
-    const request = new GameServerFileOrDirectoryCreateRequest()
+    const request: GameServerFileOrDirectoryCreateRequest = create(GameServerFileOrDirectoryCreateRequestSchema, {})
     const fullPath = GetRelativeFilePath(props.gameServerPath, props.path, fileName.value)
     const isDirectory = fileDirType.value === 'directory'
     request.gameServerId = props.gameServerId

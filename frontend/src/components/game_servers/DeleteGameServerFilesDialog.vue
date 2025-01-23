@@ -36,8 +36,9 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import {QBtn, QCard, QCardSection, QDialog, useQuasar} from "quasar";
-import {File as XylonaFile} from "src/proto/xylona_pb";
+import { File as XylonaFile, GameServerFilesDeleteRequestSchema } from 'src/proto/gameserver_files_operations_pb'
 import {getColorFromFilenameExtension, getIconFromFilenameExtension, GetXylonaClient} from "src/utils/shared";
 import {tabFolderFilled} from "quasar-extras-svg-icons/tabler-icons-v2";
 import {GameServerFilesDeleteRequest, GameServerFilesDeleteResponse} from "src/proto/gameserver_files_operations_pb";
@@ -75,7 +76,7 @@ const emit = defineEmits(['filesDeleted'])
 
 async function deleteFiles() {
   loading.value = true
-  const request = new GameServerFilesDeleteRequest()
+  const request: GameServerFilesDeleteRequest = create(GameServerFilesDeleteRequestSchema, {})
   request.gameServerId = props.gameServerID
   request.fullFilePaths = props.filesToDelete.map((file) => {
     if (props.currentPath === '') {

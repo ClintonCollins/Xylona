@@ -7,7 +7,7 @@ import {
 } from 'vue-router';
 
 import routes from './routes';
-import {useUserAuthStore} from "stores/xylona";
+import {useUserAuthStore} from "src/stores/xylona";
 
 /*
  * If not building with SSR mode, you can

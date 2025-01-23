@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
-	"github.com/bufbuild/connect-go"
 	"github.com/caarlos0/env/v10"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"

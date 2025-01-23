@@ -1,0 +1,186 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+import "gameserver_files_operations.proto";
+// import "games/minecraft.proto";
+
+package xylona;
+option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
+
+enum Error {
+  BAD_REQUEST = 0;
+  PORT_IN_USE = 1;
+  GAME_SERVER_ALREADY_EXISTS = 2;
+  USER_ALREADY_EXISTS = 3;
+}
+
+message GameServerFilesArchiveProgress {
+  int64 total_files = 1;
+  int64 files_compressed = 2;
+  int64 total_bytes = 3;
+  int64 bytes_compressed = 4;
+  string current_file = 5;
+}
+
+message GameServerFilesExtractProgress {
+  int64 total_files = 1;
+  int64 files_extracted = 2;
+  int64 total_bytes = 3;
+  int64 bytes_extracted = 4;
+  string current_file = 5;
+}
+
+enum CommandProcessor {
+  DIRECT = 0;
+  XYLONA_INTERNAL = 1;
+  BASH = 2;
+  CMD = 3;
+  POWERSHELL = 4;
+}
+
+message Game {
+  string id = 1;
+  string name = 2;
+  int64 default_port = 3;
+  int64 default_query_port = 4;
+  int64 default_max_players = 5;
+  bool linux_support = 6;
+  bool windows_support = 7;
+  string linux_start_command = 8;
+  string linux_stop_command = 9;
+  string linux_install_command = 10;
+  string linux_update_command = 11;
+  string linux_working_directory = 12;
+  string linux_configuration_file_paths = 13;
+  bool linux_allow_backups = 14;
+  string windows_start_command = 15;
+  string windows_stop_command = 16;
+  string windows_install_command = 17;
+  string windows_update_command = 18;
+  string windows_working_directory = 19;
+  string windows_configuration_file_paths = 20;
+  bool windows_allow_backups = 21;
+  bool require_dedicated_ip = 22;
+  bool binds_to_all_ips = 23;
+  google.protobuf.Timestamp created_at = 24;
+  google.protobuf.Timestamp updated_at = 25;
+  bool uses_source_query = 26;
+  bool requires_steam_game_server_login_token = 27;
+  CommandProcessor linux_install_command_processor = 28;
+  CommandProcessor linux_update_command_processor = 29;
+  CommandProcessor windows_install_command_processor = 30;
+  CommandProcessor windows_update_command_processor = 31;
+  bool uses_steamcmd = 32;
+  string steam_appid = 33;
+}
+
+enum Status {
+  UNKNOWN = 0;
+  OFFLINE = 1;
+  ONLINE = 2;
+  INSTALLING = 3;
+  UPDATING = 4;
+}
+
+message GameServerPlayer {
+  string name = 1;
+  optional string id = 2;
+  optional string steam_id = 3;
+}
+
+message SteamBranch {
+  string name = 1;
+  string build_id = 2;
+  string description = 3;
+  string time_updated = 4;
+}
+
+message GameServer {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  string game_id = 4;
+  string start_command = 5;
+  Status status = 6;
+  int64 set_max_players = 7;
+  int64 max_players = 8;
+  string map = 9;
+  IP ip = 10;
+  int64 port = 11;
+  int64 query_port = 12;
+  string directory = 13;
+  int64 max_memory_mb = 14;
+  bool backups_enabled = 15;
+  string backup_directory = 16;
+  int64 max_backups = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+  string steam_game_server_login_token = 20;
+  string user_name = 21;
+  string game_name = 22;
+  int64 cpu_percent = 23;
+  int64 memory_bytes = 24;
+  int64 number_of_threads = 25;
+  string version = 26;
+  int64 current_player_count = 27;
+  repeated GameServerPlayer current_players = 28;
+  SteamBranch steam_branch = 29;
+  string branch = 30;
+}
+
+message IP {
+  string address = 1;
+  bool usable = 2;
+  bool external = 3;
+}
+
+message StartGameServerRequest {
+  string server_id = 1;
+}
+message StartGameServerResponse {
+  string error = 1;
+}
+
+message StopGameServerRequest {
+  string server_id = 1;
+}
+message StopGameServerResponse {}
+
+message RestartGameServerRequest {
+  string server_id = 1;
+}
+message RestartGameServerResponse {}
+
+message RemoveGameServerRequest {
+  string server_id = 1;
+}
+message RemoveGameServerResponse {}
+
+message CreateGameServerRequest {
+  GameServer game_server = 1;
+}
+message CreateGameServerResponse {
+  GameServer game_server = 1;
+  optional Error error = 2;
+}
+
+message EditGameServerRequest {
+  string server_id = 1;
+  GameServer game_server = 2;
+}
+
+message EditGameServerResponse {
+  GameServer game_Server = 1;
+}
+
+message ReadGameServerOutputRequest {
+  string server_id = 1;
+}
+message ReadGameServerOutputResponse {
+  string output = 1;
+}
+
+message SendGameServerInputRequest {
+  string server_id = 1;
+  string input = 2;
+}
+message SendGameServerInputResponse {}

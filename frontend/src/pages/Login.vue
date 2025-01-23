@@ -26,9 +26,10 @@ import { useQuasar } from 'quasar'
 
 // Login page layout
 import { ref } from 'vue'
-import { LoginRequest } from 'src/proto/xylona_pb'
+import { create } from "@bufbuild/protobuf";
+import { LoginRequestSchema } from 'src/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from 'src/utils/shared'
-import { useUserAuthStore } from 'stores/xylona'
+import { useUserAuthStore } from 'src/stores/xylona'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -39,36 +40,37 @@ const userAuthStore = useUserAuthStore()
 const $q = useQuasar()
 
 async function login() {
-    const loginRequest = new LoginRequest()
-    loginRequest.userName = username.value
-    loginRequest.password = password.value
-    try {
-        const response = await GetXylonaClient().login(loginRequest)
-        if (response.user === undefined) {
-            $q.notify({
-                type: 'xylona-error',
-                position: 'top',
-                caption: 'Invalid username or password',
-                icon: 'report_problem'
-            })
-            return
-        }
-        userAuthStore.setUser(response.user)
-        await router.push({path: '/'})
-    } catch (unknownErr: unknown) {
-        const err = ConnectError.from(unknownErr)
-        let caption = ConnectErrorToString(err)
-        if (err.code === Code.Unauthenticated) {
-            caption = 'Invalid username or password'
-        }
-        $q.notify({
-            type: 'xylona-error',
-            position: 'top',
-            caption: caption,
-            icon: 'report_problem'
-        })
-        console.error(caption)
+  const loginRequest = create(LoginRequestSchema, {
+    userName: username.value,
+    password: password.value
+  })
+  try {
+    const response = await GetXylonaClient().login(loginRequest)
+    if (response.user === undefined) {
+      $q.notify({
+        type: 'xylona-error',
+        position: 'top',
+        caption: 'Invalid username or password',
+        icon: 'report_problem'
+      })
+      return
     }
+    userAuthStore.setUser(response.user)
+    await router.push({path: '/'})
+  } catch (unknownErr: unknown) {
+    const err = ConnectError.from(unknownErr)
+    let caption = ConnectErrorToString(err)
+    if (err.code === Code.Unauthenticated) {
+      caption = 'Invalid username or password'
+    }
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: caption,
+      icon: 'report_problem'
+    })
+    console.error(caption)
+  }
 }
 
 </script>

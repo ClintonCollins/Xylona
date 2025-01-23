@@ -1,14 +1,21 @@
 package db
 
 import (
+	"database/sql"
+	"errors"
+
 	"github.com/rs/zerolog/log"
+	"github.com/stephenafamo/bob/dialect/sqlite/im"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (c *Connection) UpsertIP(ipSetter *models.IPSetter) (*models.IP, error) {
-	ip, err := models.Ips.Upsert(c.ctx, c.DB, true, nil, nil, ipSetter)
+	ip, err := models.Ips.Insert(im.OnConflict(models.IPColumns.Address).DoNothing(), ipSetter).One(c.ctx, c.DB)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		log.Error().Err(err).Msg("Error upserting IP")
 		return nil, err
 	}
@@ -16,7 +23,7 @@ func (c *Connection) UpsertIP(ipSetter *models.IPSetter) (*models.IP, error) {
 }
 
 func (c *Connection) GetAllIPs() ([]*models.IP, error) {
-	ips, err := models.Ips.Query(c.ctx, c.DB).All()
+	ips, err := models.Ips.Query().All(c.ctx, c.DB)
 	if err != nil {
 		log.Error().Err(err).Msg("Error querying IPs")
 		return nil, err

@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
-	connect_go "github.com/bufbuild/connect-go"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -15,11 +15,11 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs XylonaService) CreateUser(ctx context.Context, request *connect_go.Request[xylona.CreateUserRequest]) (*connect_go.Response[xylona.CreateUserResponse], error) {
+func (xs XylonaService) CreateUser(ctx context.Context, request *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error) {
 	password := request.Msg.GetPassword()
 	passwordHash, errHashPassword := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if errHashPassword != nil {
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	user := &models.UserSetter{
 		UserName:     omit.From(request.Msg.GetUserName()),
@@ -32,9 +32,9 @@ func (xs XylonaService) CreateUser(ctx context.Context, request *connect_go.Requ
 
 	createdUser, errCreateUser := xs.db.CreateUser(user)
 	if errCreateUser != nil {
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
-	return &connect_go.Response[xylona.CreateUserResponse]{
+	return &connect.Response[xylona.CreateUserResponse]{
 		Msg: &xylona.CreateUserResponse{
 			User: &xylona.User{
 				Id:        createdUser.ID,
@@ -50,20 +50,20 @@ func (xs XylonaService) CreateUser(ctx context.Context, request *connect_go.Requ
 	}, nil
 }
 
-func (xs XylonaService) ListUsers(ctx context.Context, request *connect_go.Request[xylona.ListUsersRequest]) (*connect_go.Response[xylona.ListUsersResponse], error) {
+func (xs XylonaService) ListUsers(ctx context.Context, request *connect.Request[xylona.ListUsersRequest]) (*connect.Response[xylona.ListUsersResponse], error) {
 	users, errGetUsers := xs.db.GetAllUsers()
 	if errGetUsers != nil {
 		if errors.Is(errGetUsers, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("no users found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("no users found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	userResponses := make([]*xylona.User, len(users))
 	for i, user := range users {
 		userProto := helpers.UserModelToProto(user)
 		userResponses[i] = userProto
 	}
-	response := &connect_go.Response[xylona.ListUsersResponse]{
+	response := &connect.Response[xylona.ListUsersResponse]{
 		Msg: &xylona.ListUsersResponse{
 			Users: userResponses,
 		},
@@ -71,16 +71,16 @@ func (xs XylonaService) ListUsers(ctx context.Context, request *connect_go.Reque
 	return response, nil
 }
 
-func (xs XylonaService) GetUser(ctx context.Context, request *connect_go.Request[xylona.GetUserDetailsRequest]) (*connect_go.Response[xylona.GetUserDetailsResponse], error) {
+func (xs XylonaService) GetUser(ctx context.Context, request *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error) {
 	user, errGetUser := xs.db.GetUserByID(request.Msg.GetId())
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
-			return nil, connect_go.NewError(connect_go.CodeNotFound, errors.New("user not found"))
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("user not found"))
 		}
-		return nil, connect_go.NewError(connect_go.CodeInternal, errors.New("internal error"))
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	userProto := helpers.UserModelToProto(user)
-	response := &connect_go.Response[xylona.GetUserDetailsResponse]{
+	response := &connect.Response[xylona.GetUserDetailsResponse]{
 		Msg: &xylona.GetUserDetailsResponse{
 			User: userProto,
 		},

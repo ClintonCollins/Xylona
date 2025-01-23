@@ -46,13 +46,14 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
 import {
-    GameServerFilesCompressionRequest,
-    GameServerFilesCompressionType
+  GameServerFilesCompressionRequest, GameServerFilesCompressionRequestSchema,
+  GameServerFilesCompressionType
 } from 'src/proto/gameserver_files_operations_pb'
-import { File as xylonaFile } from 'src/proto/xylona_pb'
+import { File as xylonaFile } from 'src/proto/gameserver_files_operations_pb'
 import {
     ArchiveTypeToExtension,
     ArchiveTypeToString,
@@ -129,7 +130,7 @@ async function archiveFiles() {
     archiveSubmitting.value = true
     abortedArchive.value = false
 
-    const request = new GameServerFilesCompressionRequest()
+    const request: GameServerFilesCompressionRequest = create(GameServerFilesCompressionRequestSchema, {})
     request.gameServerId = props.gameServerId
     request.fullDestinationFilePath = getRelativeFilePath(archiveName.value)
     request.compressionType = archiveType.value

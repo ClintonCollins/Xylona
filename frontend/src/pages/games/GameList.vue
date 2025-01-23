@@ -80,6 +80,7 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import GameDeleteDialog from 'components/games/GameDeleteDialog.vue'
 import {
   tabCopy,
@@ -88,8 +89,10 @@ import {
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import { GetXylonaClient, WindowWidth } from 'src/utils/shared'
-import { Game, ListGamesRequest, ListGamesResponse } from 'src/proto/xylona_pb'
 import { useRouter } from 'vue-router'
+import { Game } from '../../proto/shared_pb'
+import { ListGamesRequest, ListGamesRequestSchema, ListGamesResponse
+} from '../../proto/xylona_pb'
 
 const windowWidth = WindowWidth()
 const rows = ref([] as Game[])
@@ -103,7 +106,7 @@ onMounted(async () => {
 })
 
 async function getGames() {
-  const request = new ListGamesRequest()
+  const request: ListGamesRequest = create(ListGamesRequestSchema, {})
   try {
     const response: ListGamesResponse = await GetXylonaClient().listGames(request)
     rows.value = []

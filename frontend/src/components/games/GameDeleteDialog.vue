@@ -21,13 +21,15 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
-import { Game, RemoveGameRequest } from 'src/proto/xylona_pb'
 import { GetXylonaClient } from 'src/utils/shared'
+import { RemoveGameRequest, RemoveGameRequestSchema } from 'src/proto/xylona_pb'
+import { GameSchema } from '../../proto/shared_pb'
 
 const props = defineProps({
   game: {
-    type: Game,
+    type: create(GameSchema),
     required: true
   }
 })
@@ -43,7 +45,7 @@ const showDialog = defineModel('showDialog', {
 })
 
 async function deleteGame() {
-  const request = new RemoveGameRequest()
+  const request: RemoveGameRequest = create(RemoveGameRequestSchema, {})
   request.gameId = props.game?.id
   try {
     await GetXylonaClient().removeGame(request)

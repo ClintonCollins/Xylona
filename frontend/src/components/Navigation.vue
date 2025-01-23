@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import {useToolbarNavQTabsStore, useUserAuthStore} from "stores/xylona";
+import {useToolbarNavQTabsStore, useUserAuthStore} from "src/stores/xylona";
 import {User} from "src/proto/xylona_pb";
 import {computed, ref, Ref} from "vue";
 import {ionGameController, ionPersonAdd, ionLogIn, ionHome} from "@quasar/extras/ionicons-v7";

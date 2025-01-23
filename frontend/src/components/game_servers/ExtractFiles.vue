@@ -38,15 +38,18 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
-import { GameServerFilesDecompressionRequest } from 'src/proto/gameserver_files_operations_pb'
-import { GameServerFilesExtractProgress } from 'src/proto/xylona_pb'
+import {
+  GameServerFilesDecompressionRequest, GameServerFilesDecompressionRequestSchema
+} from 'src/proto/gameserver_files_operations_pb'
 import {
     bytesToSize, GetRelativeFilePath,
     GetXylonaClientCallback
 } from 'src/utils/shared'
 import { ref } from 'vue'
+import { GameServerFilesExtractProgress } from '../../proto/shared_pb'
 
 const props = defineProps({
     gameServerId: {
@@ -93,7 +96,7 @@ async function extractFiles() {
     extractSubmitting.value = true
     abortedExtract.value = false
 
-    const request = new GameServerFilesDecompressionRequest()
+    const request: GameServerFilesDecompressionRequest = create(GameServerFilesDecompressionRequestSchema, {})
     request.gameServerId = props.gameServerId
     request.fullFilePath = props.fullArchivePath
     request.destinationBasePath = GetRelativeFilePath(props.gameServerPath, props.path, fullDestinationPath.value)
@@ -102,12 +105,12 @@ async function extractFiles() {
     abortController.value = new AbortController()
     GetXylonaClientCallback().gameServerFilesExtract(request, (response) => {
         const resp: GameServerFilesExtractProgress = response as GameServerFilesExtractProgress
-        currentExtractFile.value = resp.filesCompressed === resp.totalFiles ? 'All files Extracted!' : `Current file: ${resp.currentFile}`
-        extractCurrentBytes.value = resp.filesCompressed === resp.totalFiles ? Number(resp.totalBytes) : Number(resp.bytesExtracted)
+        currentExtractFile.value = resp.filesExtracted === resp.totalFiles ? 'All files Extracted!' : `Current file: ${resp.currentFile}`
+        extractCurrentBytes.value = resp.filesExtracted === resp.totalFiles ? Number(resp.totalBytes) : Number(resp.bytesExtracted)
         extractTotalBytes.value = Number(resp.totalBytes)
         filesExtracted.value = Number(resp.filesExtracted)
         totalFiles.value = Number(resp.totalFiles)
-        submitProgress.value = resp.filesCompressed === resp.totalFiles ? 1 : (extractCurrentBytes.value / extractTotalBytes.value)
+        submitProgress.value = resp.filesExtracted === resp.totalFiles ? 1 : (extractCurrentBytes.value / extractTotalBytes.value)
         submitPercent.value = Math.round(submitProgress.value * 100)
     }, (err?: ConnectError) => {
         setTimeout(() => {

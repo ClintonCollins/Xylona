@@ -121,7 +121,7 @@
     </q-card-section>
     <q-dialog no-shake persistent v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
         <Editor v-model:code-input="editorFileContent" :file-name="editorFilename" :game-server-id="gameServerId"
-               :full-file-path="editorFilePath" @submit="refreshFileList"></Editor>
+                :full-file-path="editorFilePath" @submit="refreshFileList"></Editor>
     </q-dialog>
     <ArchiveFiles @submit="refreshFileList" @cancel="archiveFilesDialog = false"
                   v-model:show-dialog="archiveFilesDialog" v-model:archive-name="archiveName"
@@ -139,8 +139,10 @@
     <RenameFile :old-file-name="selectedFiles[0]?.name" :path="path" :game-server-path="gameServer.directory"
                 :game-server-id="gameServerId" v-model:show-dialog="renameFilesDialog" @submit="refreshFileList">
     </RenameFile>
-    <MoveFiles :path="path" :game-server-path="gameServer.directory" :game-server-id="gameServerId" :selected-files="selectedFiles"
-               v-model:show-dialog="moveFilesDialog" @submit="refreshFileList" :neighboring-directories-in-path="directories.map(f => f.name)">
+    <MoveFiles :path="path" :game-server-path="gameServer.directory" :game-server-id="gameServerId"
+               :selected-files="selectedFiles"
+               v-model:show-dialog="moveFilesDialog" @submit="refreshFileList"
+               :neighboring-directories-in-path="directories.map(f => f.name)">
     </MoveFiles>
     <DeleteGameServerFilesDialog @files-deleted="refreshFileList()" :files-to-delete="selectedFiles"
                                  :current-path="path" :path-separator="pathSeparator"
@@ -149,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { Timestamp } from '@bufbuild/protobuf'
+import { create, toJson, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
 import Editor from 'components/Editor.vue'
 import ArchiveFiles from 'components/game_servers/ArchiveFiles.vue'
@@ -163,28 +165,29 @@ import dayjs from 'dayjs'
 import { QBtn, QMenu, useQuasar } from 'quasar'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
-    DownloadFileRequest,
-    File as xylonaFile,
-    GameServer,
-    GetGameServerRequest,
-    ListDirectoryFilesRequest,
-    ListDirectoryFilesResponse
-} from 'src/proto/xylona_pb'
+  GameServer, GameServerSchema
+} from 'src/proto/shared_pb'
 import {
-    bytesToSize,
-    getColorFromFilenameExtension,
-    getIconFromFilenameExtension, GetRelativeFilePath,
-    GetXylonaClient
+  DownloadFileRequest, DownloadFileRequestSchema,
+  File as xylonaFile, FileSchema, ListDirectoryFilesRequest, ListDirectoryFilesRequestSchema, ListDirectoryFilesResponse
+} from 'src/proto/gameserver_files_operations_pb'
+import {
+  bytesToSize,
+  getColorFromFilenameExtension,
+  getIconFromFilenameExtension, GetRelativeFilePath,
+  GetXylonaClient
 } from 'src/utils/shared'
 import { computed, onMounted, ref, Ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { Timestamp, timestampDate, TimestampSchema } from '@bufbuild/protobuf/wkt'
+import { GetGameServerRequest, GetGameServerRequestSchema } from '../../proto/xylona_pb'
 
 const $q = useQuasar()
 const uploadURL: Ref<string> = ref('/api/file/upload')
 
 const route = useRoute()
 const gameServerId: Ref<string> = ref(route.params.id instanceof Array ? route.params.id[0] : route.params.id)
-const gameServer: Ref<GameServer> = ref(new GameServer()) as Ref<GameServer>
+const gameServer: Ref<GameServer> = ref(create(GameServerSchema)) as Ref<GameServer>
 const files: Ref<Array<xylonaFile>> = ref([])
 const directories: Ref<Array<xylonaFile>> = ref([])
 const selectedFiles: Ref<Array<xylonaFile>> = ref([])
@@ -221,353 +224,359 @@ const deleteFilesDialog: Ref<boolean> = ref(false)
 
 const allowedExtractExtensions: string[] = ['.zip', '.zst', '.gz', '.bz2', '.xz', '.7z']
 const allowedFileEditExtensions: string[] = ['.txt', '.cfg', '.json', '.xml', '.yml', '.yaml', '.ini', '.log',
-    '.properties', '.sh', '.ps1', '.bat', '.py', '.js', '.ts']
+  '.properties', '.sh', '.ps1', '.bat', '.py', '.js', '.ts']
 
 async function refreshFileList() {
-    selectedFiles.value = []
-    void listDirectoryFiles(path.value)
+  selectedFiles.value = []
+  void listDirectoryFiles(path.value)
 }
 
-async function createFilesDialogSubmitted(success: boolean, data: { fileName: string, fullFilePath: string, isDir: boolean } | null) {
-    void listDirectoryFiles(path.value)
-    createFilesDialog.value = false
+async function createFilesDialogSubmitted(success: boolean, data: {
+  fileName: string,
+  fullFilePath: string,
+  isDir: boolean
+} | null) {
+  void listDirectoryFiles(path.value)
+  createFilesDialog.value = false
 
-    if (!success) {
-        return
-    }
-    if (!data || data.isDir) {
-        return
-    }
-    editorFilename.value = createFileName.value
-    editorFileContent.value = ''
-    editorFilePath.value = data.fullFilePath
-    editorModal.value = true
+  if (!success) {
+    return
+  }
+  if (!data || data.isDir) {
+    return
+  }
+  editorFilename.value = createFileName.value
+  editorFileContent.value = ''
+  editorFilePath.value = data.fullFilePath
+  editorModal.value = true
 }
 
 function fileIsSelectedClass(file: xylonaFile) {
-    if (selectedFiles.value.includes(file)) {
-        return 'bg-neutral-glass-4'
-    }
-    return ''
+  if (selectedFiles.value.includes(file)) {
+    return 'bg-neutral-glass-4'
+  }
+  return ''
 }
 
 const deleteButtonEnabled = computed(() => {
-    const selected = sanitizeSelectedFiles()
-    return selected.length > 0
+  const selected = sanitizeSelectedFiles()
+  return selected.length > 0
 })
 
 const downloadButtonEnabled = computed(() => {
-    const selected = sanitizeSelectedFiles()
-    if (selected.length <= 0) {
-        return false
+  const selected = sanitizeSelectedFiles()
+  if (selected.length <= 0) {
+    return false
+  }
+  for (let i = 0; i < selected.length; i++) {
+    if (selected[i].isDirectory) {
+      return false
     }
-    for (let i = 0; i < selected.length; i++) {
-        if (selected[i].isDirectory) {
-            return false
-        }
-    }
-    return true
+  }
+  return true
 })
 
 const zipButtonEnabled = computed(() => {
-    const selected = sanitizeSelectedFiles()
-    return selected.length > 0
+  const selected = sanitizeSelectedFiles()
+  return selected.length > 0
 })
 
 const createButtonEnabled = computed(() => {
-    return selectedFiles.value.length === 0
+  return selectedFiles.value.length === 0
 })
 
 const renameButtonEnabled = computed(() => {
-    const selected = sanitizeSelectedFiles()
-    return selected.length === 1
+  const selected = sanitizeSelectedFiles()
+  return selected.length === 1
 })
 
 const moveButtonEnabled = computed(() => {
-    const selected = sanitizeSelectedFiles()
-    return selected.length > 0
+  const selected = sanitizeSelectedFiles()
+  return selected.length > 0
 })
 
 const extractButtonEnabled = computed(() => {
-    const selected = sanitizeSelectedFiles()
-    if (selected.length != 1) {
-        return false
-    }
+  const selected = sanitizeSelectedFiles()
+  if (selected.length != 1) {
+    return false
+  }
 
-    let match = false
-    for (let i = 0; i < selected.length; i++) {
-        const selectedName = selected[i].name
-        allowedExtractExtensions.forEach((extension) => {
-            if (selectedName.endsWith(extension)) {
-                match = true
-                return match
-            }
-        })
-    }
-    return match
+  let match = false
+  for (let i = 0; i < selected.length; i++) {
+    const selectedName = selected[i].name
+    allowedExtractExtensions.forEach((extension) => {
+      if (selectedName.endsWith(extension)) {
+        match = true
+        return match
+      }
+    })
+  }
+  return match
 })
 
 function sanitizeSelectedFiles(): xylonaFile[] {
-    const sanitizedFiles: xylonaFile[] = []
-    selectedFiles.value.forEach((file) => {
-        if (file.name === '..') {
-            return
-        }
-        sanitizedFiles.push(file)
-    })
-    return sanitizedFiles
+  const sanitizedFiles: xylonaFile[] = []
+  selectedFiles.value.forEach((file) => {
+    if (file.name === '..') {
+      return
+    }
+    sanitizedFiles.push(file)
+  })
+  return sanitizedFiles
 }
 
 onMounted(async () => {
-    const hashedPath = window.location.hash
-    if (hashedPath.length > 0) {
-        let deHashed = hashedPath.substring(1)
-        path.value = deHashed.replaceAll('/', pathSeparator.value)
-    }
-    void listDirectoryFiles(path.value)
-    void getGameServerDetails()
-    const draggableElements = document.querySelectorAll('div[draggable="true"]')
-    for (let i = 0; i < draggableElements.length; i++) {
-        attachDragStartEvent(draggableElements[i] as HTMLElement)
-    }
+  const hashedPath = window.location.hash
+  if (hashedPath.length > 0) {
+    let deHashed = hashedPath.substring(1)
+    path.value = deHashed.replaceAll('/', pathSeparator.value)
+  }
+  void listDirectoryFiles(path.value)
+  void getGameServerDetails()
+  const draggableElements = document.querySelectorAll('div[draggable="true"]')
+  for (let i = 0; i < draggableElements.length; i++) {
+    attachDragStartEvent(draggableElements[i] as HTMLElement)
+  }
 
 })
 
 function attachDragStartEvent(draggableElement: HTMLElement) {
-    draggableElement.addEventListener('dragstart', (event: DragEvent) => {
-        const fileName: string = (event.target as HTMLElement).dataset.fileName as string
-        event.dataTransfer?.setData('filename', fileName)
-    })
+  draggableElement.addEventListener('dragstart', (event: DragEvent) => {
+    const fileName: string = (event.target as HTMLElement).dataset.fileName as string
+    event.dataTransfer?.setData('filename', fileName)
+  })
 }
 
 watch(selectAllFiles, (newValue) => {
-    const sanitizedDirectories = directories.value.filter((directory) => {
-        return directory.name !== '..'
-    })
-    if (newValue) {
-        selectedFiles.value = sanitizedDirectories.concat(files.value)
-        return
-    }
-    if (selectedFiles.value.length === sanitizedDirectories.length + files.value.length) {
-        selectedFiles.value = []
-    }
+  const sanitizedDirectories = directories.value.filter((directory) => {
+    return directory.name !== '..'
+  })
+  if (newValue) {
+    selectedFiles.value = sanitizedDirectories.concat(files.value)
+    return
+  }
+  if (selectedFiles.value.length === sanitizedDirectories.length + files.value.length) {
+    selectedFiles.value = []
+  }
 })
 
 watch(selectedFiles, (newValue) => {
-    const deleteButton: Ref<QBtn | null> = ref(null)
-    if (deleteButton.value) {
-        deleteButton.value.disable = newValue.length === 0
-    }
-    if (selectAllFiles) {
-        const sanitizedDirectories = directories.value.filter((directory) => {
-            return directory.name !== '..'
-        })
-        selectAllFiles.value = newValue.length === sanitizedDirectories.length + files.value.length
-    }
+  const deleteButton: Ref<QBtn | null> = ref(null)
+  if (deleteButton.value) {
+    deleteButton.value.disable = newValue.length === 0
+  }
+  if (selectAllFiles) {
+    const sanitizedDirectories = directories.value.filter((directory) => {
+      return directory.name !== '..'
+    })
+    selectAllFiles.value = newValue.length === sanitizedDirectories.length + files.value.length
+  }
 })
 
 const pathSeparator = computed(() => {
-    if (gameServer.value.directory.indexOf('\\') !== -1) {
-        return '\\'
-    }
-    return '/'
+  console.log(gameServer.value.directory)
+  if (gameServer.value.directory.indexOf('\\') !== -1) {
+    return '\\'
+  }
+  return '/'
 })
 
 async function clickDirectory(directory: xylonaFile) {
-    if (directory.name === '..') {
-        let pathSplit = path.value.lastIndexOf('/') !== -1 ? path.value.split('/') : path.value.split('\\')
-        pathSplit.pop()
-        path.value = pathSplit.join(pathSeparator.value)
-    } else {
-        path.value = path.value + pathSeparator.value + directory.name
+  if (directory.name === '..') {
+    let pathSplit = path.value.lastIndexOf('/') !== -1 ? path.value.split('/') : path.value.split('\\')
+    pathSplit.pop()
+    path.value = pathSplit.join(pathSeparator.value)
+  } else {
+    path.value = path.value + pathSeparator.value + directory.name
+  }
+  if (path.value.length >= 1) {
+    if (path.value[0] === pathSeparator.value) {
+      path.value = path.value.substring(1)
     }
-    if (path.value.length >= 1) {
-        if (path.value[0] === pathSeparator.value) {
-            path.value = path.value.substring(1)
-        }
-    }
-    window.location.hash = path.value
-    await listDirectoryFiles(path.value)
+  }
+  window.location.hash = path.value
+  await listDirectoryFiles(path.value)
 }
 
 async function clickFile(file: xylonaFile) {
-    // If file is an allowed file type for editing, open the editor.
-    const fileExtension = file.name.substring(file.name.lastIndexOf('.'))
-    if (allowedFileEditExtensions.includes(fileExtension)) {
-        await readFileOctetStream(file.name)
-        return
-    }
-    // If file is not an allowed file type for editing, download the file.
-    await downloadGameServerFile(file.name)
+  // If file is an allowed file type for editing, open the editor.
+  const fileExtension = file.name.substring(file.name.lastIndexOf('.'))
+  if (allowedFileEditExtensions.includes(fileExtension)) {
+    await readFileOctetStream(file.name)
+    return
+  }
+  // If file is not an allowed file type for editing, download the file.
+  await downloadGameServerFile(file.name)
 }
 
 function updatePathFromInput() {
-    if (path.value.length >= 1) {
-        if (path.value[0] === pathSeparator.value) {
-            path.value = path.value.substring(1)
-        }
+  if (path.value.length >= 1) {
+    if (path.value[0] === pathSeparator.value) {
+      path.value = path.value.substring(1)
     }
-    listDirectoryFiles(path.value)
+  }
+  listDirectoryFiles(path.value)
 }
 
 async function listDirectoryFiles(directoryPath: string) {
-    const request = new ListDirectoryFilesRequest()
-    try {
-        request.gameServerId = gameServerId.value
-        request.path = directoryPath
-        const response: ListDirectoryFilesResponse = await GetXylonaClient().listDirectoryFiles(request)
-        directories.value = []
-        files.value = []
-        const upDirectory = new xylonaFile()
-        upDirectory.name = '..'
-        upDirectory.size = BigInt(0)
-        upDirectory.isDirectory = true
-        upDirectory.lastModified = new Timestamp()
-        directories.value.push(upDirectory)
-        response.files.forEach((file) => {
-            if (file.isDirectory) {
-                directories.value.push(file)
-            } else {
-                files.value.push(file)
-            }
+  const request: ListDirectoryFilesRequest = create(ListDirectoryFilesRequestSchema, {})
+  try {
+    request.gameServerId = gameServerId.value
+    request.path = directoryPath
+    const response: ListDirectoryFilesResponse = await GetXylonaClient().listDirectoryFiles(request)
+    directories.value = []
+    files.value = []
+    const upDirectory: xylonaFile = create(FileSchema)
+    upDirectory.name = '..'
+    upDirectory.size = BigInt(0)
+    upDirectory.isDirectory = true
+    upDirectory.lastModified = create(TimestampSchema, {})
+    directories.value.push(upDirectory)
+    response.files.forEach((file) => {
+      if (file.isDirectory) {
+        directories.value.push(file)
+      } else {
+        files.value.push(file)
+      }
+    })
+  } catch (err) {
+    if (err instanceof ConnectError) {
+      if (err.code === Code.NotFound) {
+        path.value = ''
+        setTimeout(() => {
+          window.location.hash = ''
+          listDirectoryFiles(path.value)
+        }, 100)
+        $q.notify({
+          caption: `Directory not found.`,
+          type: 'xylona-error',
+          position: 'top',
+          timeout: 5000
         })
-    } catch (err) {
-        if (err instanceof ConnectError) {
-            if (err.code === Code.NotFound) {
-                path.value = ''
-                setTimeout(() => {
-                    window.location.hash = ''
-                    listDirectoryFiles(path.value)
-                }, 100)
-                $q.notify({
-                    caption: `Directory not found.`,
-                    type: 'xylona-error',
-                    position: 'top',
-                    timeout: 5000
-                })
-                return
-            }
-            console.error(`Error listing directory files: ${err.code} ${err.message}`)
-            return
-        }
-        console.error(err)
-    } finally {
+        return
+      }
+      console.error(`Error listing directory files: ${err.code} ${err.message}`)
+      return
     }
+    console.error(err)
+  } finally {
+  }
 }
 
 async function readFileOctetStream(fileName: string) {
-    $q.loading.show({
-        message: 'Reading file...',
-        delay: 100
+  $q.loading.show({
+    message: 'Reading file...',
+    delay: 100
+  })
+  const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
+  const fileRequest: DownloadFileRequest = create(DownloadFileRequestSchema, {})
+  fileRequest.gameServerId = gameServerId.value
+  fileRequest.path = fullFilePath
+  try {
+    const response = await fetch('/api/file/get', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: toJsonString(DownloadFileRequestSchema, fileRequest)
     })
-    const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
-    const fileRequest = new DownloadFileRequest()
-    fileRequest.gameServerId = gameServerId.value
-    fileRequest.path = fullFilePath
-    try {
-        const response = await fetch('/api/file/get', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: fileRequest.toJsonString()
-        })
-        const data = await response.text()
-        editorFilename.value = fileName
-        editorFileContent.value = data
-        editorFilePath.value = fullFilePath
-        editorModal.value = true
-    } catch (e) {
-        console.error(e)
-        $q.notify({
-            caption: `Error reading file ${fileName}.`,
-            type: 'xylona-error',
-            position: 'top',
-            timeout: 5000
-        })
-    } finally {
-        $q.loading.hide()
-    }
+    const data = await response.text()
+    editorFilename.value = fileName
+    editorFileContent.value = data
+    editorFilePath.value = fullFilePath
+    editorModal.value = true
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      caption: `Error reading file ${fileName}.`,
+      type: 'xylona-error',
+      position: 'top',
+      timeout: 5000
+    })
+  } finally {
+    $q.loading.hide()
+  }
 }
 
 async function downloadGameServerFile(fileName: string) {
-    const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
-    const encodedGameServerID = encodeURIComponent(gameServerId.value)
-    const encodedFilePath = encodeURIComponent(fullFilePath)
-    const rawURL = `${window.location.protocol}//${window.location.host}/api/file/download/${encodedGameServerID}/${encodedFilePath}`
-    const url = encodeURI(rawURL)
-    // If the URL will fit in a GET request, without hitting browser URL length limits, use GET.
-    if (url.length < 2000) {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = fileName
-        a.target = '_blank'
-        a.style.display = 'none'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        return
-    }
-    // If the URL is too long for a GET request, use POST.
-    try {
-        const downloadForm = document.createElement('form')
-        downloadForm.method = 'POST'
-        downloadForm.action = '/api/file/download'
-        downloadForm.style.display = 'none'
+  const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
+  const encodedGameServerID = encodeURIComponent(gameServerId.value)
+  const encodedFilePath = encodeURIComponent(fullFilePath)
+  const rawURL = `${window.location.protocol}//${window.location.host}/api/file/download/${encodedGameServerID}/${encodedFilePath}`
+  const url = encodeURI(rawURL)
+  // If the URL will fit in a GET request, without hitting browser URL length limits, use GET.
+  if (url.length < 2000) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.target = '_blank'
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    return
+  }
+  // If the URL is too long for a GET request, use POST.
+  try {
+    const downloadForm = document.createElement('form')
+    downloadForm.method = 'POST'
+    downloadForm.action = '/api/file/download'
+    downloadForm.style.display = 'none'
 
-        const gameServerIDInput = document.createElement('input')
-        gameServerIDInput.name = 'gameServerId'
-        gameServerIDInput.value = gameServerId.value
-        downloadForm.appendChild(gameServerIDInput)
+    const gameServerIDInput = document.createElement('input')
+    gameServerIDInput.name = 'gameServerId'
+    gameServerIDInput.value = gameServerId.value
+    downloadForm.appendChild(gameServerIDInput)
 
-        const filePathInput = document.createElement('input')
-        filePathInput.name = 'path'
-        filePathInput.value = fullFilePath
-        downloadForm.appendChild(filePathInput)
+    const filePathInput = document.createElement('input')
+    filePathInput.name = 'path'
+    filePathInput.value = fullFilePath
+    downloadForm.appendChild(filePathInput)
 
-        downloadForm.target = '_blank'
-        document.body.appendChild(downloadForm)
-        downloadForm.submit()
+    downloadForm.target = '_blank'
+    document.body.appendChild(downloadForm)
+    downloadForm.submit()
 
-        document.body.removeChild(downloadForm)
-    } catch (e) {
-        console.error(e)
-        $q.notify({
-            caption: `Error reading file ${fileName}.`,
-            type: 'xylona-error',
-            position: 'top',
-            timeout: 5000
-        })
-    }
+    document.body.removeChild(downloadForm)
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      caption: `Error reading file ${fileName}.`,
+      type: 'xylona-error',
+      position: 'top',
+      timeout: 5000
+    })
+  }
 }
 
 function toTimestamp(date: Timestamp | undefined) {
-    if (date === undefined) {
-        return ''
-    }
-    return dayjs(date.toDate()).format('MM/DD/YYYY HH:mm:ss A')
+  if (date === undefined) {
+    return ''
+  }
+  const JSDate: Date = timestampDate(date)
+  return dayjs(JSDate).format('MM/DD/YYYY HH:mm:ss A')
 }
 
 async function getGameServerDetails() {
-    const request = new GetGameServerRequest()
-    try {
-        request.id = gameServerId.value
-        const response = await GetXylonaClient().getGameServer(request)
-        if (response.gameServer === undefined) {
-            return
-        }
-        gameServer.value = response.gameServer
-    } catch (e) {
-        console.error(e)
+  const request: GetGameServerRequest = create(GetGameServerRequestSchema, {})
+  try {
+    request.id = gameServerId.value
+    const response = await GetXylonaClient().getGameServer(request)
+    if (response.gameServer === undefined) {
+      return
     }
+    gameServer.value = response.gameServer
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function createFile() {
-    editorFilename.value = ''
-    editorFileContent.value = ''
-    editorFilePath.value = path.value
-    editorNewFile.value = true
-    editorModal.value = true
+  editorFilename.value = ''
+  editorFileContent.value = ''
+  editorFilePath.value = path.value
+  editorNewFile.value = true
+  editorModal.value = true
 }
 
 // function getRelativeFilePath(...filePaths: string[]): string {

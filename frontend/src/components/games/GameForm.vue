@@ -120,19 +120,18 @@
 
 <script setup lang="ts">
 
+import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import {
-  AddGameRequest,
-  CommandProcessor,
-  EditGameRequest,
-  Game,
-  GetGameRequest,
+  AddGameRequest, AddGameRequestSchema, EditGameRequest, EditGameRequestSchema,
+  GetGameRequest, GetGameRequestSchema,
   GetGameResponse
 } from 'src/proto/xylona_pb'
 import { GetXylonaClient } from 'src/utils/shared'
 import { computed, onMounted, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { CommandProcessor, Game } from '../../proto/shared_pb'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -168,13 +167,13 @@ const props = defineProps({
   }
 })
 
-const game = ref(new Game())
+const game: Ref<Game> = ref({} as Game)
 const existingGame = ref(false)
 const copyGame = ref(false)
 const gameID = ref('')
 
 async function getGameDetailsFromID() {
-  const request = new GetGameRequest()
+  const request: GetGameRequest = create(GetGameRequestSchema, {})
   try {
     request.id = gameID.value
     const response: GetGameResponse = await GetXylonaClient().getGame(request)
@@ -216,8 +215,8 @@ async function submit() {
 }
 
 async function addNewGame() {
-  const request = new AddGameRequest()
-  request.game = game.value as Game
+  const request: AddGameRequest = create(AddGameRequestSchema, {})
+  request.game = game.value
   request.game.defaultPort = BigInt(defaultPort.value ?? 0)
   request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
   try {
@@ -242,7 +241,7 @@ async function addNewGame() {
 }
 
 async function updateExistingGame() {
-  const request = new EditGameRequest()
+  const request: EditGameRequest = create(EditGameRequestSchema, {})
   request.game = game.value as Game
   request.game.defaultPort = BigInt(defaultPort.value ?? 0)
   request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)

@@ -93,3 +93,24 @@ message GameServerFileOrDirectoryCreateRequest {
 
 message GameServerFileOrDirectoryCreateResponse {
 }
+
+message DownloadFileRequest {
+  string game_server_id = 1;
+  string path = 2;
+}
+
+message File {
+  string name = 1;
+  int64 size = 2;
+  google.protobuf.Timestamp last_modified = 3;
+  bool is_directory = 4;
+}
+
+message ListDirectoryFilesRequest {
+  string game_server_id = 1;
+  string path = 2;
+}
+
+message ListDirectoryFilesResponse {
+  repeated File files = 1;
+}

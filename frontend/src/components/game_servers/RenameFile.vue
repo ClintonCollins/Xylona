@@ -23,8 +23,11 @@
 </template>
 
 <script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
-import { GameServerFileRenameRequest } from 'src/proto/gameserver_files_operations_pb'
+import {
+  GameServerFileRenameRequest, GameServerFileRenameRequestSchema
+} from 'src/proto/gameserver_files_operations_pb'
 import {
     GetRelativeFilePath,
     GetXylonaClient
@@ -62,7 +65,7 @@ const showDialog = defineModel('showDialog', {
 const emit = defineEmits(['submit'])
 
 async function renameFile() {
-    const request = new GameServerFileRenameRequest()
+    const request: GameServerFileRenameRequest = create(GameServerFileRenameRequestSchema, {})
     request.gameServerId = props.gameServerId
     request.oldPath = GetRelativeFilePath(props.gameServerPath, props.path, props.oldFileName)
     request.newPath = GetRelativeFilePath(props.gameServerPath, props.path, newFileName.value)
