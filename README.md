@@ -3,6 +3,9 @@
 Xylona is a very simple control panel for running game servers on the local machine. It's designed to be 
 cross-platform and easy to use.
 
+## Warning
+This project is in its early stages and is not yet ready for production use. Use at your own risk.
+
 ## Features
 
 - Start, stop, and restart game servers.
