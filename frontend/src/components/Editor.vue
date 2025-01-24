@@ -26,8 +26,7 @@ import { create } from '@bufbuild/protobuf'
 import { QCard, useQuasar } from 'quasar'
 import loadCustomEditorSettings, { getLanguageFromFileName, LanguageOptions } from 'src/components/editor/editor'
 import {
-  GameServersFileEditRequest, GameServersFileEditRequestSchema, GameServersFileEditResponse
-} from 'src/proto/gameserver_files_operations_pb'
+  GameServersFileEditRequest, GameServersFileEditRequestSchema } from 'src/proto/gameserver_files_operations_pb'
 import { GetXylonaClient } from 'src/utils/shared'
 import { onMounted, onUnmounted, ref } from 'vue'
 import * as monaco from 'monaco-editor'

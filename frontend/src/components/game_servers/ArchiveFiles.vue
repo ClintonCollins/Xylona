@@ -58,10 +58,9 @@ import {
     ArchiveTypeToExtension,
     ArchiveTypeToString,
     bytesToSize,
-    GetXylonaClient,
     GetXylonaClientCallback
 } from 'src/utils/shared'
-import { ref, Ref } from 'vue'
+import { ref } from 'vue'
 
 const props = defineProps({
     gameServerId: {

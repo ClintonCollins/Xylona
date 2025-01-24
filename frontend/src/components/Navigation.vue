@@ -48,11 +48,10 @@
 </template>
 
 <script setup lang="ts">
-import {useToolbarNavQTabsStore, useUserAuthStore} from "src/stores/xylona";
+import {useUserAuthStore} from "src/stores/xylona";
 import {User} from "src/proto/xylona_pb";
-import {computed, ref, Ref} from "vue";
-import {ionGameController, ionPersonAdd, ionLogIn, ionHome} from "@quasar/extras/ionicons-v7";
-import {mdiDns} from "@quasar/extras/mdi-v7";
+import {ref, Ref} from "vue";
+import {ionGameController, ionPersonAdd, ionHome} from "@quasar/extras/ionicons-v7";
 import { laServerSolid} from "@quasar/extras/line-awesome";
 import {useRoute} from "vue-router";
 

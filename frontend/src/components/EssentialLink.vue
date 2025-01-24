@@ -19,7 +19,6 @@
 </template>
 
 <script setup lang="ts">
-import {ionGameController} from "@quasar/extras/ionicons-v7";
 
 export interface EssentialLinkProps {
   title: string;

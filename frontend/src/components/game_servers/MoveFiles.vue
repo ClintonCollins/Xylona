@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
-import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
+import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { GameServerFilesMoveRequest, GameServerFilesMoveRequestSchema } from 'src/proto/gameserver_files_operations_pb'
 import { File as xylonaFile } from 'src/proto/gameserver_files_operations_pb'
 import {
@@ -38,7 +38,7 @@ import {
     GetRelativeFilePath,
     GetXylonaClient
 } from 'src/utils/shared'
-import { computed, onMounted, ref, Ref } from 'vue'
+import { computed, ref, Ref } from 'vue'
 
 const props = defineProps({
     gameServerId: {

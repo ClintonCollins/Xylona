@@ -151,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { create, toJson, toJsonString } from '@bufbuild/protobuf'
+import { create, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
 import Editor from 'components/Editor.vue'
 import ArchiveFiles from 'components/game_servers/ArchiveFiles.vue'

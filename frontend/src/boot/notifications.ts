@@ -1,7 +1,7 @@
 import {
     tabOutlineAlertTriangle,
     tabOutlineCheck,
-    tabOutlineInfoSquareRounded, tabOutlineSquareRoundedLetterX, tabOutlineSquareRoundedX,
+    tabOutlineInfoSquareRounded,
     tabOutlineX
 } from 'quasar-extras-svg-icons/tabler-icons-v3'
 import { boot } from 'quasar/wrappers'
