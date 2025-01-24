@@ -7,7 +7,7 @@
                         <q-table
                                 flat
                                 title="Game Servers"
-                                :rows="rows"
+                                :rows="gameServers"
                                 :columns="columns"
                                 row-key="name"
                                 selection="multiple"
@@ -42,6 +42,11 @@
                                     </router-link>
                                 </q-td>
                             </template>
+                            <template v-slot:body-cell-status="props">
+                                <q-td :props="props">
+                                    <StatusBadge style="margin-left: -1em" :status="props.row.status"></StatusBadge>
+                                </q-td>
+                            </template>
                             <template v-slot:body-cell-actions="props">
                                 <q-td :props="props">
                                     <div class="q-gutter-xs">
@@ -71,14 +76,15 @@
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
-import { tabCopy, tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
+import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
-import { GetXylonaClient, WindowWidth } from 'src/utils/shared'
+import { GetXylonaClient, WindowWidth, XylonaEventBus } from 'src/utils/shared'
 import { ListGameServersRequest, ListGameServersRequestSchema } from 'src/proto/xylona_pb'
 import DeleteGameServerDialog from '../../components/game_servers/DeleteGameServerDialog.vue'
-import { Game, GameServer, RemoveGameServerRequest, RemoveGameServerRequestSchema } from '../../proto/shared_pb'
+import StatusBadge from '../../components/StatusBadge.vue'
+import { GameServer, Status } from '../../proto/shared_pb'
 
-const rows = ref([] as GameServer[])
+const gameServers = ref([] as GameServer[])
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
@@ -88,21 +94,32 @@ const windowWidth = WindowWidth()
 
 onMounted(async () => {
   await getGameServers()
+  watchServerStatusChanges()
 })
 
 async function getGameServers() {
   const request: ListGameServersRequest = create(ListGameServersRequestSchema, {})
   try {
     const response = await GetXylonaClient().listGameServers(request)
-    rows.value = []
+    gameServers.value = []
     response.gameServers.forEach((gameServer) => {
       // console.log(gameServer)
-      rows.value.push(gameServer)
+      gameServers.value.push(gameServer)
     })
     console.log(response)
   } catch (e) {
     console.error(e)
   }
+}
+
+function watchServerStatusChanges() {
+  XylonaEventBus.on('gameServerStatus', (serverID: string, serverStatus: Status) => {
+    for (const gameServer of gameServers.value) {
+      if (gameServer.id === serverID) {
+        gameServer.status = serverStatus
+      }
+    }
+  })
 }
 
 async function deleteGameServerAction(gameServer: GameServer | null) {

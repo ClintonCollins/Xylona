@@ -90,13 +90,12 @@
 </template>
 
 <script setup lang="ts">
-import { create, fromJson, fromJsonString, toJsonString } from '@bufbuild/protobuf'
+import { create } from '@bufbuild/protobuf'
 import {useRoute} from "vue-router";
 import {computed, onMounted, Ref, ref} from "vue";
-import { GetXylonaClient, StatusToString, XylonaWebsocketBaseURL } from 'src/utils/shared'
-import { Message, Message_Type, MessageSchema, Request, Request_Type, RequestSchema } from 'src/proto/websocket_pb'
+import { GetXylonaClient, XylonaEventBus } from 'src/utils/shared'
 import {parseConsole} from "src/utils/console";
-import {QItemSection, QScrollArea} from "quasar";
+import { QItemSection, QScrollArea } from 'quasar'
 import StatusBadge from "components/StatusBadge.vue";
 import ClipBoardCopy from "components/ClipBoardCopy.vue";
 import {tabMaximize} from 'quasar-extras-svg-icons/tabler-icons-v2'
@@ -191,55 +190,29 @@ async function getGameServerOutput() {
 }
 
 function streamGameServerOutput() {
-  const apiWebsocket = new WebSocket(XylonaWebsocketBaseURL)
-  // TODO listen to other page change/close events.
-  window.addEventListener("pagehide", () => {
-    console.log("Page hide event. Closing websocket...")
-    apiWebsocket.close()
-  })
-  apiWebsocket.onopen = () => {
-    console.log("Websocket opened")
-    const consoleOutputRequest: Request = create(RequestSchema, {})
-    consoleOutputRequest.type = Request_Type.GetGameServerConsole
-    consoleOutputRequest.gameServerId = gameServerId.value
-
-    apiWebsocket.send(toJsonString(RequestSchema, consoleOutputRequest))
-    console.log('Sent console output request')
-  }
-  apiWebsocket.onmessage = (event) => {
-    const out: Message = fromJsonString(MessageSchema, event.data)
-    switch (out.type) {
-      case Message_Type.GameServerConsole:
-        const start = performance.now()
-        gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, out.gameServerConsoleOutput!.output)).slice(-maxConsoleCharacters)
-        const end = performance.now()
-        console.warn(`Took ${end - start}ms to parse console stream output`)
-        setTimeout(() => {
-          consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
-        }, 10)
-        break
-      case Message_Type.GameServerStatus:
-        if (out.gameServerStatusUpdate?.gameServerId !== gameServerId.value) {
-          return
-        }
-        console.log(`Game server status update: ${StatusToString(out.gameServerStatusUpdate.status)}. For game server: ${gameServerId.value}`)
-        gameServer.value.status = out.gameServerStatusUpdate.status
-        break
-      default:
-        console.log(`${event.data}`)
-        return
+  // Listen for game server status changes.
+  XylonaEventBus.on('gameServerStatus', (serverID: string, serverStatus: Status) => {
+    if (serverID !== gameServerId.value) {
+      return
     }
-  }
-  apiWebsocket.onclose = (event) => {
-    console.log("Websocket closed")
-    event.preventDefault()
-    apiWebsocket.close()
-    setTimeout(streamGameServerOutput, 3000)
-  }
-  apiWebsocket.onerror = (event) => {
-    console.error(event)
-    apiWebsocket.close()
-  }
+    gameServer.value.status = serverStatus
+  })
+
+  // Stream game server output.
+  XylonaEventBus.on('gameServerConsoleOutput', (serverID: string, output: string) => {
+    if (serverID !== gameServerId.value) {
+      return
+    }
+    gameServerOutput.value = (gameServerOutput.value + parseConsole(gameServer.value.gameId, output)).slice(-maxConsoleCharacters)
+    if (consoleScrollArea.value === null) {
+      return
+    }
+    setTimeout(() => {
+      consoleScrollArea.value?.setScrollPercentage("vertical", 100, 0)
+    }, 50)
+  })
+  // Request the game server to start streaming output.
+  XylonaEventBus.emit('gameServerConsoleOutputRequest', gameServerId.value)
 }
 
 async function navigateConsoleInputHistory(direction: string) {

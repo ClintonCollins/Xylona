@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -30,10 +31,11 @@ const (
 )
 
 type connection struct {
-	id                          uuid.UUID
-	melodySession               *melody.Session
-	outputStreamChannel         chan xylona.Message
-	requestedGameServerOutputID *string
+	id                           uuid.UUID
+	melodySession                *melody.Session
+	outputStreamChannel          chan xylona.Message
+	allGameServerIDs             []string
+	requestedGameServerOutputIDs map[string]struct{}
 	*sync.RWMutex
 }
 
@@ -159,15 +161,15 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 
 	log.Debug().Str("User", user.UserName).Msg("Websocket connected")
 	wsConnection := &connection{
-		melodySession:               s,
-		outputStreamChannel:         make(chan xylona.Message),
-		requestedGameServerOutputID: nil,
-		RWMutex:                     &sync.RWMutex{},
+		id:                           uuid.New(),
+		melodySession:                s,
+		outputStreamChannel:          make(chan xylona.Message),
+		allGameServerIDs:             []string{},
+		requestedGameServerOutputIDs: make(map[string]struct{}),
+		RWMutex:                      &sync.RWMutex{},
 	}
 
-	connectionID := uuid.New()
-
-	s.Set(sessionKeyConnectionID, connectionID)
+	s.Set(sessionKeyConnectionID, wsConnection.id)
 	s.Set(sessionKeyUserID, user.ID)
 	s.Set(sessionKeyUserName, user.UserName)
 	s.Set(sessionKeyStreamChannel, wsConnection.outputStreamChannel)
@@ -177,19 +179,40 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	if !userExists {
 		ws.userWebsocketConnections[user.ID] = make(map[uuid.UUID]*connection)
 	}
-	ws.userWebsocketConnections[user.ID][connectionID] = wsConnection
+	ws.userWebsocketConnections[user.ID][wsConnection.id] = wsConnection
 	ws.userWebsocketConnectionsLock.Unlock()
 
-	go ws.sendUserGameServersStatuses(s, user)
-
-	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
-}
-
-func (ws *WebSocket) sendUserGameServersStatuses(s *melody.Session, user *models.User) {
 	gameServers, errGetServers := ws.db.GetGameServersByUser(user.ID)
 	if errGetServers != nil {
 		log.Error().Err(errGetServers).Msg("Failed to get game servers by user")
+		return
 	}
+
+	wsConnection.allGameServerIDs = make([]string, len(gameServers))
+	for i, gameServer := range gameServers {
+		wsConnection.allGameServerIDs[i] = gameServer.ID
+	}
+
+	go ws.sendUserGameServersStatuses(s, gameServers)
+	go ws.subscribeUserToOwnedGameServerNotifications(s, gameServers)
+	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
+}
+
+func (ws *WebSocket) subscribeUserToOwnedGameServerNotifications(s *melody.Session, gameServers []*models.GameServer) {
+	for _, gameServer := range gameServers {
+		errAddGameServerOutputListener := ws.addGameServerNotificationListener(s, gameServer.ID)
+		if errAddGameServerOutputListener != nil {
+			log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
+			errWrite := s.Write([]byte(fmt.Sprintf("Failed to get game server console: %s", errAddGameServerOutputListener)))
+			if errWrite != nil {
+				log.Error().Err(errWrite).Msg("Failed to write websocket message")
+			}
+			return
+		}
+	}
+}
+
+func (ws *WebSocket) sendUserGameServersStatuses(s *melody.Session, gameServers []*models.GameServer) {
 	for _, gameServer := range gameServers {
 		command, errGetCommand := ws.supervisor.GetCommandByID(gameServer.ID)
 		if errGetCommand != nil {
@@ -216,18 +239,20 @@ func (ws *WebSocket) sendUserGameServersStatuses(s *melody.Session, user *models
 	}
 }
 
-func (ws *WebSocket) closeCommandOutputListener(s *melody.Session) {
+func (ws *WebSocket) closeCommandOutputListeners(s *melody.Session) {
 	sessionConnection, errGetConnection := ws.getSessionConnection(s)
 	if errGetConnection != nil {
 		// log.Error().Err(errGetConnection).Msg("Failed to get session connection")
 		return
 	}
-	gameServerID := sessionConnection.requestedGameServerOutputID
-	if gameServerID == nil {
-		return
+	gameServerIDs := sessionConnection.allGameServerIDs
+	for _, gameServerID := range gameServerIDs {
+		if gameServerID == "" {
+			return
+		}
+		command := ws.supervisor.GetCommandByIDOrCreateShell(gameServerID)
+		command.RemoveOutputListener(sessionConnection.id.String())
 	}
-	command := ws.supervisor.GetCommandByIDOrCreateShell(*gameServerID)
-	command.RemoveOutputListener(sessionConnection.id.String())
 }
 
 func closeSession(s *melody.Session) {
@@ -248,14 +273,29 @@ func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *mode
 		case <-ws.ctx.Done():
 			log.Debug().Str("User", user.UserName).Msg("Got Xylona shutdown signal. Closing websocket stream.")
 			closeSession(s)
-			ws.closeCommandOutputListener(s)
+			ws.closeCommandOutputListeners(s)
 			return
 		case <-s.Request.Context().Done():
 			log.Debug().Str("User", user.UserName).Msg("Websocket connection closed. Closing websocket stream.")
 			closeSession(s)
-			ws.closeCommandOutputListener(s)
+			ws.closeCommandOutputListeners(s)
 			return
 		case output := <-streamChan:
+			// Only write game server console output if this connection is subscribed.
+			if output.Type == xylona.Message_GameServerConsole {
+				sessionConnection, errGetSessionConnection := ws.getSessionConnection(s)
+				if errGetSessionConnection != nil {
+					log.Error().Err(errGetSessionConnection).Msg("Failed to get session connection")
+					continue
+				}
+				sessionConnection.RLock()
+				_, exists := sessionConnection.requestedGameServerOutputIDs[output.GameServerConsoleOutput.GameServerId]
+				sessionConnection.RUnlock()
+				if !exists {
+					log.Debug().Str("User", user.UserName).Msg("Not subscribed to game server console output")
+					continue
+				}
+			}
 			byteOut, errMarshal := json.Marshal(output)
 			if errMarshal != nil {
 				log.Error().Err(errMarshal).Msg("Failed to marshal game server output")
@@ -270,17 +310,13 @@ func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *mode
 	}
 }
 
-func (ws *WebSocket) addGameServerOutputListener(s *melody.Session, gameServerID string) error {
+func (ws *WebSocket) addGameServerNotificationListener(s *melody.Session, gameServerID string) error {
 	sessionConnection, errGetSessionConnection := ws.getSessionConnection(s)
 	if errGetSessionConnection != nil {
 		log.Error().Err(errGetSessionConnection).Msg("Failed to get session connection")
 		return errors.New("failed to get session connection")
 	}
 	listenerID := sessionConnection.id.String()
-
-	sessionConnection.Lock()
-	sessionConnection.requestedGameServerOutputID = &gameServerID
-	sessionConnection.Unlock()
 
 	gameServer, errGetGameServer := ws.db.GetGameServerByID(gameServerID)
 	if errGetGameServer != nil {
@@ -337,10 +373,28 @@ func (ws *WebSocket) handleDisconnect(s *melody.Session) {
 }
 
 func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
+	if msg == nil {
+		return
+	}
+	// Handle heartbeat from websocket. Ensures a connection is still alive.
+	if strings.ToLower(string(msg)) == "ping" {
+		errWrite := s.Write([]byte("pong"))
+		if errWrite != nil {
+			log.Error().Err(errWrite).Msg("Failed to write websocket message")
+		}
+		return
+	}
 	log.Debug().Msgf("Websocket message: %s", string(msg))
+
 	username, errGetUsername := getSessionUsername(s)
 	if errGetUsername != nil {
 		log.Error().Msg("Failed to get username from session")
+		return
+	}
+
+	sessionConnection, errGetSessionConnection := ws.getSessionConnection(s)
+	if errGetSessionConnection != nil {
+		log.Error().Err(errGetSessionConnection).Msg("Failed to get session connection")
 		return
 	}
 
@@ -356,15 +410,9 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			log.Error().Msg("Game server ID not set")
 			return
 		}
-		errAddGameServerOutputListener := ws.addGameServerOutputListener(s, *websocketRequest.GameServerId)
-		if errAddGameServerOutputListener != nil {
-			log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
-			errWrite := s.Write([]byte(fmt.Sprintf("Failed to get game server console: %s", errAddGameServerOutputListener)))
-			if errWrite != nil {
-				log.Error().Err(errWrite).Msg("Failed to write websocket message")
-			}
-			return
-		}
+		sessionConnection.Lock()
+		sessionConnection.requestedGameServerOutputIDs[*websocketRequest.GameServerId] = struct{}{}
+		sessionConnection.Unlock()
 		rawData := &xylona.Message{
 			Type:    xylona.Message_Raw,
 			RawData: "Subscribed to game server console output",

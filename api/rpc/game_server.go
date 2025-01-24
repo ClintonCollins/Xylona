@@ -265,6 +265,12 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 		}
 		gameServersProto := make([]*xylona.GameServer, len(gameServers))
 		for i, gameServer := range gameServers {
+			gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
+			if errGetCommand != nil {
+				gameServer.Status = xylona.Status_OFFLINE.String()
+			} else {
+				gameServer.Status = gameServerCmd.Status().String()
+			}
 			gameServerProto := helpers.GameServerModelToProto(gameServer)
 			gameServersProto[i] = gameServerProto
 		}
@@ -283,6 +289,12 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 
 	gameServersProto := make([]*xylona.GameServer, len(gameServers))
 	for i, gameServer := range gameServers {
+		gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
+		if errGetCommand != nil {
+			gameServer.Status = xylona.Status_OFFLINE.String()
+		} else {
+			gameServer.Status = gameServerCmd.Status().String()
+		}
 		gameServerProto := helpers.GameServerModelToProto(gameServer)
 		gameServersProto[i] = gameServerProto
 	}

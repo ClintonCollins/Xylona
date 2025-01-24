@@ -4,6 +4,7 @@
 
 <script setup lang="ts">
 import {onMounted, ref} from "vue";
+import { GetOrCreateXylonaWebsocketClient } from './utils/shared'
 
 const backgroundImages = ['background1.webp', 'background2.webp', 'background3.webp', 'background4.webp', 'background5.webp']
 const selectedBackgroundIndex = ref(2)
@@ -15,6 +16,7 @@ const secondsBetweenBackgroundChanges = 300
 onMounted(async () => {
   console.log("Mounted")
   setInterval(changeBackgroundImage, secondsBetweenBackgroundChanges * 1000)
+  GetOrCreateXylonaWebsocketClient()
 })
 
 function setBackgroundImageURL(image: string): string {

@@ -1,3 +1,4 @@
+import { create, fromJsonString, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError, createCallbackClient, createClient } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
 import { Xylona } from 'src/proto/xylona_pb'
@@ -14,9 +15,26 @@ import {
     tabFilterSearch,
     tabJson
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
+import { Message, Message_Type, MessageSchema, Request, Request_Type, RequestSchema } from '../proto/websocket_pb'
+import { EventBus } from 'quasar'
+import { ReconnectingWebSocket } from './websocket'
 
 export const XylonaAPIBaseURL: string = `${window.location.protocol}//${window.location.host}`
 export const XylonaWebsocketBaseURL: string = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/websocket`
+
+let globalAPIWebSocket: ReconnectingWebSocket | null = null
+
+type XylonaEventBusEvents = {
+    'gameServerStatus': (gameServerId: string, status: Status) => void
+    'gameServerConsoleOutput': (gameServerId: string, consoleOutput: string) => void
+    'gameServerConsoleOutputRequest': (gameServerId: string) => void
+}
+
+/**
+ * Event bus for Xylona events. Used to easily communicate between components.
+ * @type {EventBus<XylonaEventBusEvents>}
+ */
+export const XylonaEventBus: EventBus<XylonaEventBusEvents> = new EventBus<XylonaEventBusEvents>()
 
 export function GetXylonaClient() {
     const transport = createConnectTransport({
@@ -32,6 +50,60 @@ export function GetXylonaClientCallback() {
         fetch: (input, init) => fetch(input, { ...init, credentials: "include" })
     })
     return createCallbackClient(Xylona, transport)
+}
+
+export function GetOrCreateXylonaWebsocketClient(): ReconnectingWebSocket {
+    if (globalAPIWebSocket === null) {
+        globalAPIWebSocket = new ReconnectingWebSocket(XylonaWebsocketBaseURL, [], 10000, 30000)
+        setupWebsocket()
+    }
+    return globalAPIWebSocket
+}
+
+function setupWebsocket() {
+    window.addEventListener("pagehide", () => {
+        console.log("Page hide event. Closing websocket...")
+        globalAPIWebSocket.close()
+    })
+    globalAPIWebSocket.onopen = (event) => {
+        console.log("Websocket opened")
+    }
+    globalAPIWebSocket.onmessage = (event) => {
+        if (typeof event.data === 'string' && event.data === 'pong') {
+            return
+        }
+        const out: Message = fromJsonString(MessageSchema, event.data)
+        switch (out.type) {
+            case Message_Type.GameServerStatus:
+                console.log(`Game server status update: ${StatusToString(out.gameServerStatusUpdate.status)}. For game server: ${out.gameServerStatusUpdate?.gameServerId}`)
+                XylonaEventBus.emit('gameServerStatus', out.gameServerStatusUpdate?.gameServerId, out.gameServerStatusUpdate?.status)
+                break
+            case Message_Type.GameServerConsole:
+                XylonaEventBus.emit('gameServerConsoleOutput', out.gameServerConsoleOutput?.gameServerId, out.gameServerConsoleOutput?.output)
+                break
+            default:
+                console.log(`${event.data}`)
+                return
+        }
+    }
+    globalAPIWebSocket.onclose = (event) => {
+        console.log("Websocket closed")
+        // Let the ReconnectingWebSocket handle the rest.
+    }
+    globalAPIWebSocket.onerror = (event) => {
+        console.error(event)
+        // Let the ReconnectingWebSocket handle the rest.
+    }
+
+    // Handle MessageBus events
+    XylonaEventBus.on('gameServerConsoleOutputRequest', (gameServerId: string) => {
+        console.log(`Requesting console output for game server: ${gameServerId}`)
+        const consoleOutputRequest: Request = create(RequestSchema, {})
+        consoleOutputRequest.type = Request_Type.GetGameServerConsole
+        consoleOutputRequest.gameServerId = gameServerId
+
+        globalAPIWebSocket?.send(toJsonString(RequestSchema, consoleOutputRequest))
+    })
 }
 
 export function StringToColor(str: string): string {
