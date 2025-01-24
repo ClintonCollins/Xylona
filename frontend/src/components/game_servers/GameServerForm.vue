@@ -22,6 +22,16 @@
                               :options="availableIPs"
                               v-model="gameServer.ip" option-label="address"
                               options-selected-class="selected-option"></q-select>
+                    <q-input v-if="props.existingGameServerId !== undefined" class="col-12 col-xl-6" outlined
+                             type="text"
+                             label="Start Command"
+                             v-model="gameServer.startCommand"></q-input>
+                    <q-input class="col-12 col-xl-6" outlined type="text" label="Set Players"
+                             v-model.number="setPlayers"></q-input>
+                    <q-input class="col-12 col-xl-6" outlined type="text" label="Max Players"
+                             v-model.number="maxPlayers"></q-input>
+                    <q-input v-if="gameServer.gameId === 'minecraft'" class="col-12 col-xl-6" outlined type="text" label="Max Memory MB"
+                             v-model.number="maxMemoryMB"></q-input>
                     <q-input class="col-12 col-xl-6" outlined type="text" label="Port"
                              v-model.number="port"></q-input>
                     <q-input class="col-12 col-xl-6" outlined type="text" label="Query Port"
@@ -45,12 +55,13 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { GetXylonaClient } from 'src/utils/shared'
-import { onMounted, Ref, ref, watch } from 'vue'
+import { onMounted, PropType, Ref, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   CreateGameServerRequest, CreateGameServerRequestSchema, Game, GameServer, GameServerSchema, IP
 } from '../../proto/shared_pb'
 import {
+  GetGameServerRequest, GetGameServerRequestSchema,
   ListGamesRequest, ListGamesRequestSchema, ListGamesResponse, ListIPsRequest, ListIPsRequestSchema, ListIPsResponse,
   ListUsersRequest,
   ListUsersRequestSchema
@@ -59,8 +70,8 @@ import {
 const router = useRouter()
 
 const props = defineProps({
-  existingGameServer: {
-    type: create(GameServerSchema),
+  existingGameServerId: {
+    type: String,
     required: false,
     default: undefined
   }
@@ -69,7 +80,7 @@ const props = defineProps({
 // Is this a new game server or an existing one?
 const newGameServer: Ref<boolean> = ref(true)
 
-const gameServer = ref(getOrInitializeGameServer())
+const gameServer = ref(create(GameServerSchema, {}))
 const availableGames = ref<Array<Record<string, string>>>([])
 const availableUsers = ref<Array<Record<string, string>>>([])
 const availableIPs = ref<Array<IP>>([])
@@ -78,17 +89,14 @@ const gamesMap = ref(new Map<string, Game>())
 const formSubmitting = ref(false)
 const port = ref(0)
 const queryPort = ref(0)
-
-function getOrInitializeGameServer(): GameServer {
-  console.log(props.existingGameServer)
-  if (props.existingGameServer !== undefined) {
-    newGameServer.value = false
-    return props.existingGameServer
-  }
-  return create(GameServerSchema)
-}
+const setPlayers = ref(0)
+const maxPlayers = ref(0)
+const maxMemoryMB = ref(1024)
 
 onMounted(async () => {
+  if (props.existingGameServerId) {
+    await getGameServerDetails()
+  }
   await getGames()
   await getUsers()
   await getIPs()
@@ -105,10 +113,26 @@ watch(queryPort, (newVal) => {
 watch(() => gameServer.value.gameId, (newVal) => {
   port.value = Number(gamesMap.value.get(newVal)?.defaultPort ?? 0)
   queryPort.value = Number(gamesMap.value.get(newVal)?.defaultQueryPort ?? 0)
+  maxPlayers.value = Number(gamesMap.value.get(newVal)?.defaultMaxPlayers ?? 0)
+  setPlayers.value = Number(gamesMap.value.get(newVal)?.defaultMaxPlayers ?? 0)
 })
 
 async function cancel() {
   router.back()
+}
+
+async function getGameServerDetails() {
+  const request: GetGameServerRequest = create(GetGameServerRequestSchema, {})
+  try {
+    request.id = props.existingGameServerId
+    const response = await GetXylonaClient().getGameServer(request)
+    if (response.gameServer === undefined) {
+      return
+    }
+    gameServer.value = response.gameServer
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function getGames() {
@@ -122,10 +146,19 @@ async function getGames() {
     if (availableGames.value.length === 0) {
       return
     }
-    gameServer.value.gameId = gamesMap.value.get(availableGames.value[0].value)?.id ?? ''
-    gameServer.value.gameName = gamesMap.value.get(availableGames.value[0].value)?.name ?? ''
-    port.value = Number(gamesMap.value.get(availableGames.value[0].value)?.defaultPort ?? 0)
-    queryPort.value = Number(gamesMap.value.get(availableGames.value[0].value)?.defaultQueryPort ?? 0)
+    let foundGame = gamesMap.value.get(gameServer.value.gameId)
+    if (foundGame !== undefined) {
+      gameServer.value.gameId = foundGame.id
+      console.log('found game: ' + foundGame.name)
+    } else {
+      foundGame = gamesMap.value.get(availableGames.value[0].value)
+    }
+    gameServer.value.gameId = foundGame.id ?? ''
+    gameServer.value.gameName = foundGame.name ?? ''
+    port.value = Number(foundGame.defaultPort ?? 0)
+    queryPort.value = Number(foundGame.defaultQueryPort ?? 0)
+    maxPlayers.value = Number(foundGame.defaultMaxPlayers ?? 0)
+    setPlayers.value = Number(foundGame.defaultMaxPlayers ?? 0)
   } catch (e) {
     console.error(e)
   }
