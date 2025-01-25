@@ -42,6 +42,7 @@ service Xylona {
   //  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
   //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
+  rpc QueryGameServer (QueryGameServerRequest) returns (QueryGameServerResponse) {}
 
   rpc GetBranches (GetBranchesRequest) returns (GetBranchesResponse) {}
   // File Operations
@@ -249,3 +250,11 @@ message BackupGameServerRequest {
   string server_id = 1;
 }
 message BackupGameServerResponse {}
+
+message QueryGameServerRequest {
+  string server_id = 1;
+}
+
+message QueryGameServerResponse {
+  ServerQuery query_info = 1;
+}

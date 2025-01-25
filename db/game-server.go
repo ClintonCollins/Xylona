@@ -1,6 +1,7 @@
 package db
 
 import (
+	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -48,6 +49,19 @@ func (c *Connection) InsertGameServer(exec bob.Executor, gameServerSetter *model
 	gameServer, err := models.GameServers.Insert(gameServerSetter).One(c.ctx, exec)
 	if err != nil {
 		return nil, err
+	}
+	return gameServer, nil
+}
+
+func (c *Connection) UpdateGameServer(exec bob.Executor, gameServerSetter *models.GameServerSetter) (*models.GameServer, error) {
+	log.Debug().Msgf("%v", gameServerSetter.IP)
+	_, err := models.GameServers.Update(models.UpdateWhere.GameServers.ID.EQ(gameServerSetter.ID.MustGet()), gameServerSetter.UpdateMod()).One(c.ctx, exec)
+	if err != nil {
+		return nil, err
+	}
+	gameServer, errUpdatedGame := c.GetGameServerByID(gameServerSetter.ID.MustGet())
+	if errUpdatedGame != nil {
+		return nil, errUpdatedGame
 	}
 	return gameServer, nil
 }

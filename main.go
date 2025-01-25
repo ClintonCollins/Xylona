@@ -217,7 +217,7 @@ func main() {
 	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
 	setDetectedIPs(dbInst)
 
-	_, websocketHandler := websocket.NewInstance(ctx, superInst, dbInst, secureCookie)
+	_, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie)
 
 	router := chi.NewRouter()
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie)
@@ -275,6 +275,25 @@ func main() {
 			return
 		}
 	})
+
+	//go func() {
+	//	//query.Test("209.236.122.42", 25565)
+	//	info, errInfo := query.Minecraft("games.clinton.dev", 25565)
+	//	if errInfo != nil {
+	//		log.Error().Err(errInfo).Msg("Failed to get Minecraft info")
+	//	} else {
+	//		log.Info().Interface("info", info).Msg("Minecraft server info")
+	//	}
+	//}()
+	//
+	//go func() {
+	//	info, errInfo := query.Source("74.91.124.21", 27015)
+	//	if errInfo != nil {
+	//		log.Error().Err(errInfo).Msg("Failed to get Source info")
+	//	} else {
+	//		log.Info().Interface("info", info).Msg("Source server info")
+	//	}
+	//}()
 
 	router.Post("/api/file/get", actionsInst.StreamFileToUser)
 	router.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)

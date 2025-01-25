@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/aarondl/opt/omit"
 	"github.com/gabriel-vasile/mimetype"
@@ -39,17 +40,33 @@ const (
 )
 
 type Instance struct {
-	ctx                context.Context
-	supervisorInstance *supervisor.Instance
-	db                 *db.Connection
+	ctx                  context.Context
+	supervisorInstance   *supervisor.Instance
+	serverQueriesInfoMap map[string]xylona.ServerQuery
+	serverQueriesMutex   *sync.RWMutex
+	db                   *db.Connection
 }
 
 func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance) *Instance {
-	return &Instance{
-		ctx:                ctx,
-		supervisorInstance: supervisorInstance,
-		db:                 db,
+	inst := &Instance{
+		ctx:                      ctx,
+		supervisorInstance:       supervisorInstance,
+		serverQueriesInfoMap:     make(map[string]xylona.ServerQuery),
+		serverQueriesMutex:       &sync.RWMutex{},
+		db:                       db,
 	}
+	go inst.backgroundJobQueryAllGameServers()
+	return inst
+}
+
+func (inst *Instance) GetServerQueries() xylona.AllServersQueryInfo {
+	inst.serverQueriesMutex.RLock()
+	defer inst.serverQueriesMutex.RUnlock()
+	allServerQueryInfo := xylona.AllServersQueryInfo{Servers: make(map[string]*xylona.ServerQuery)}
+	for _, serverQuery := range inst.serverQueriesInfoMap {
+		allServerQueryInfo.Servers[serverQuery.ServerId] = &serverQuery
+	}
+	return allServerQueryInfo
 }
 
 func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path string) ([]*xylona.File, error) {

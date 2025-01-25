@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/olahol/melody"
@@ -42,6 +44,7 @@ type connection struct {
 type WebSocket struct {
 	melody                       *melody.Melody
 	supervisor                   *supervisor.Instance
+	actions                      *actions.Instance
 	db                           *db.Connection
 	secureCookie                 *securecookie.SecureCookie
 	ctx                          context.Context
@@ -113,13 +116,14 @@ func (ws *WebSocket) getSessionConnection(s *melody.Session) (*connection, error
 	return sessionConnection, nil
 }
 
-func NewInstance(ctx context.Context, supervisorInst *supervisor.Instance, db *db.Connection,
+func NewInstance(ctx context.Context, supervisorInst *supervisor.Instance, actionsInst *actions.Instance, db *db.Connection,
 	secureCookie *securecookie.SecureCookie,
 ) (*WebSocket, http.HandlerFunc) {
 	m := melody.New()
 	inst := &WebSocket{
 		melody:                       m,
 		supervisor:                   supervisorInst,
+		actions:                      actionsInst,
 		db:                           db,
 		ctx:                          ctx,
 		secureCookie:                 secureCookie,
@@ -196,6 +200,47 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	go ws.sendUserGameServersStatuses(s, gameServers)
 	go ws.subscribeUserToOwnedGameServerNotifications(s, gameServers)
 	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
+	go ws.sendOwnedServersQueryInfo(s, gameServers)
+}
+
+func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session, gameServers []*models.GameServer) {
+	throttle := time.NewTicker(time.Second * 5)
+	defer throttle.Stop()
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case <-s.Request.Context().Done():
+			return
+		case <-throttle.C:
+			if s.IsClosed() {
+				return
+			}
+			allQueryInfo := ws.actions.GetServerQueries()
+			ownedServerQueryInfo := &xylona.AllServersQueryInfo{Servers: make(map[string]*xylona.ServerQuery)}
+			for _, gameServer := range gameServers {
+				serverQuery, exists := allQueryInfo.Servers[gameServer.ID]
+				if !exists {
+					continue
+				}
+				ownedServerQueryInfo.Servers[gameServer.ID] = serverQuery
+			}
+			out := &xylona.Message{
+				Type:                xylona.Message_ServerQueries,
+				AllServersQueryInfo: ownedServerQueryInfo,
+			}
+			byteOut, errMarshal := json.Marshal(out)
+			if errMarshal != nil {
+				log.Error().Err(errMarshal).Msg("Failed to marshal game server queries")
+				continue
+			}
+			errWrite := s.Write(byteOut)
+			if errWrite != nil {
+				log.Error().Err(errWrite).Msg("Failed to write websocket message")
+				return
+			}
+		}
+	}
 }
 
 func (ws *WebSocket) subscribeUserToOwnedGameServerNotifications(s *melody.Session, gameServers []*models.GameServer) {

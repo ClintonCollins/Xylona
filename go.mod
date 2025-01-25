@@ -35,6 +35,7 @@ require (
 	atomicgo.dev/schedule v0.1.0 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	github.com/STARRY-S/zip v0.2.1 // indirect
+	github.com/SpencerSharkey/gomc v0.0.0-20171215012004-e16df85c4e5f // indirect
 	github.com/aarondl/json v0.0.0-20221020222930-8b0db17ef1bf // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
@@ -42,6 +43,7 @@ require (
 	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/containerd/console v1.0.4 // indirect
 	github.com/dghubble/oauth1 v0.7.3 // indirect
+	github.com/dreamscached/minequery/v2 v2.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-oauth2/oauth2/v4 v4.5.2 // indirect
@@ -68,11 +70,13 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/nwaples/rardecode/v2 v2.0.1 // indirect
 	github.com/oklog/ulid/v2 v2.1.0 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rrivera/identicon v0.0.0-20240116195454-d5ba35832c0d // indirect
+	github.com/rumblefrog/go-a2s v1.0.2 // indirect
 	github.com/sorairolake/lzip-go v0.3.5 // indirect
 	github.com/stephenafamo/scan v0.6.1 // indirect
 	github.com/therootcompany/xz v1.0.1 // indirect

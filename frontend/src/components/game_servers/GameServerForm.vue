@@ -30,7 +30,8 @@
                              v-model.number="setPlayers"></q-input>
                     <q-input class="col-12 col-xl-6" outlined type="text" label="Max Players"
                              v-model.number="maxPlayers"></q-input>
-                    <q-input v-if="gameServer.gameId === 'minecraft'" class="col-12 col-xl-6" outlined type="text" label="Max Memory MB"
+                    <q-input v-if="gameServer.gameId === 'minecraft'" class="col-12 col-xl-6" outlined type="text"
+                             label="Max Memory MB"
                              v-model.number="maxMemoryMB"></q-input>
                     <q-input class="col-12 col-xl-6" outlined type="text" label="Port"
                              v-model.number="port"></q-input>
@@ -42,7 +43,7 @@
         <q-separator></q-separator>
         <q-card-actions class="q-pa-md" align="right">
             <q-btn flat label="Cancel" @click="cancel"></q-btn>
-            <q-btn label="Save" color="primary" @click="addGameServer"></q-btn>
+            <q-btn label="Save" color="primary" @click="submitGameServer"></q-btn>
         </q-card-actions>
         <q-inner-loading
                 :showing="formSubmitting"
@@ -58,13 +59,14 @@ import { GetXylonaClient } from 'src/utils/shared'
 import { onMounted, Ref, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  CreateGameServerRequest, CreateGameServerRequestSchema, Game, GameServer, GameServerSchema, IP
+  CreateGameServerRequest, CreateGameServerRequestSchema, EditGameServerRequest, EditGameServerRequestSchema, Game,
+  GameServer, GameServerSchema, IP
 } from 'src/proto/shared_pb'
 import {
   GetGameServerRequest, GetGameServerRequestSchema,
   ListGamesRequest, ListGamesRequestSchema, ListGamesResponse, ListIPsRequest, ListIPsRequestSchema, ListIPsResponse,
   ListUsersRequest,
-  ListUsersRequestSchema
+  ListUsersRequestSchema, UpdateGameServerRequest, UpdateGameServerRequestSchema
 } from 'src/proto/xylona_pb'
 
 const router = useRouter()
@@ -199,7 +201,22 @@ async function getIPs() {
   }
 }
 
-async function addGameServer() {
+async function updateGameServer() {
+  const request: EditGameServerRequest = create(EditGameServerRequestSchema, {})
+  request.gameServer = gameServer.value as GameServer
+  request.serverId = props.existingGameServerId
+  request.gameServer.port = BigInt(port.value)
+  request.gameServer.queryPort = BigInt(queryPort.value)
+  request.gameServer.ip = gameServer.value.ip
+  try {
+    const response = await GetXylonaClient().editGameServer(request)
+    await router.push(`/game-servers/${response.gameServer?.id}/console`)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function createGameServer() {
   const request: CreateGameServerRequest = create(CreateGameServerRequestSchema, {})
   request.gameServer = gameServer.value as GameServer
   request.gameServer.port = BigInt(port.value)
@@ -209,6 +226,14 @@ async function addGameServer() {
     await router.push(`/game-servers/${response.gameServer?.id}/console`)
   } catch (e) {
     console.error(e)
+  }
+}
+
+async function submitGameServer() {
+  if (props.existingGameServerId) {
+    await updateGameServer()
+  } else {
+    await createGameServer()
   }
 }
 

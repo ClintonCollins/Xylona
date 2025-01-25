@@ -6,7 +6,7 @@ import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv1"
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv1";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import { file_xylona } from "./xylona_pb";
-import type { Status } from "./shared_pb";
+import type { AllServersQueryInfo, Status } from "./shared_pb";
 import { file_shared } from "./shared_pb";
 import type { Message as Message$1 } from "@bufbuild/protobuf";
 
@@ -14,7 +14,7 @@ import type { Message as Message$1 } from "@bufbuild/protobuf";
  * Describes the file websocket.proto.
  */
 export const file_websocket: GenFile = /*@__PURE__*/
-  fileDesc("Cg93ZWJzb2NrZXQucHJvdG8SBnh5bG9uYSJBChdHYW1lU2VydmVyQ29uc29sZU91dHB1dBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIOCgZvdXRwdXQYAiABKAkiUAoWR2FtZVNlcnZlclN0YXR1c1VwZGF0ZRIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIt4BCgdSZXF1ZXN0EhsKDmdhbWVfc2VydmVyX2lkGAEgASgJSACIAQESIgoEdHlwZRgCIAEoDjIULnh5bG9uYS5SZXF1ZXN0LlR5cGUifwoEVHlwZRILCgdVbmtub3duEAASGAoUR2V0R2FtZVNlcnZlckNvbnNvbGUQARIXChNHZXRHYW1lU2VydmVyU3RhdHVzEAISGwoXUmVtb3ZlR2FtZVNlcnZlckNvbnNvbGUQAxIaChZSZW1vdmVHYW1lU2VydmVyU3RhdHVzEARCEQoPX2dhbWVfc2VydmVyX2lkItkCCgdNZXNzYWdlEiIKBHR5cGUYASABKA4yFC54eWxvbmEuTWVzc2FnZS5UeXBlEkgKGmdhbWVfc2VydmVyX2NvbnNvbGVfb3V0cHV0GAIgASgLMh8ueHlsb25hLkdhbWVTZXJ2ZXJDb25zb2xlT3V0cHV0SACIAQESRgoZZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZRgDIAEoCzIeLnh5bG9uYS5HYW1lU2VydmVyU3RhdHVzVXBkYXRlSAGIAQESEAoIcmF3X2RhdGEYBCABKAkiSQoEVHlwZRILCgdVbmtub3duEAASFQoRR2FtZVNlcnZlckNvbnNvbGUQARIUChBHYW1lU2VydmVyU3RhdHVzEAISBwoDUmF3EANCHQobX2dhbWVfc2VydmVyX2NvbnNvbGVfb3V0cHV0QhwKGl9nYW1lX3NlcnZlcl9zdGF0dXNfdXBkYXRlQjJaMGdpdGh1Yi5jb20vQ2xpbnRvbkNvbGxpbnMvWHlsb25hL3Byb3RvL2dvL3h5bG9uYWIGcHJvdG8z", [file_google_protobuf_timestamp, file_xylona, file_shared]);
+  fileDesc("Cg93ZWJzb2NrZXQucHJvdG8SBnh5bG9uYSJBChdHYW1lU2VydmVyQ29uc29sZU91dHB1dBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIOCgZvdXRwdXQYAiABKAkiUAoWR2FtZVNlcnZlclN0YXR1c1VwZGF0ZRIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIt4BCgdSZXF1ZXN0EhsKDmdhbWVfc2VydmVyX2lkGAEgASgJSACIAQESIgoEdHlwZRgCIAEoDjIULnh5bG9uYS5SZXF1ZXN0LlR5cGUifwoEVHlwZRILCgdVbmtub3duEAASGAoUR2V0R2FtZVNlcnZlckNvbnNvbGUQARIXChNHZXRHYW1lU2VydmVyU3RhdHVzEAISGwoXUmVtb3ZlR2FtZVNlcnZlckNvbnNvbGUQAxIaChZSZW1vdmVHYW1lU2VydmVyU3RhdHVzEARCEQoPX2dhbWVfc2VydmVyX2lkIskDCgdNZXNzYWdlEiIKBHR5cGUYASABKA4yFC54eWxvbmEuTWVzc2FnZS5UeXBlEkgKGmdhbWVfc2VydmVyX2NvbnNvbGVfb3V0cHV0GAIgASgLMh8ueHlsb25hLkdhbWVTZXJ2ZXJDb25zb2xlT3V0cHV0SACIAQESRgoZZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZRgDIAEoCzIeLnh5bG9uYS5HYW1lU2VydmVyU3RhdHVzVXBkYXRlSAGIAQESEAoIcmF3X2RhdGEYBCABKAkSQAoWYWxsX3NlcnZlcnNfcXVlcnlfaW5mbxgFIAEoCzIbLnh5bG9uYS5BbGxTZXJ2ZXJzUXVlcnlJbmZvSAKIAQEiXAoEVHlwZRILCgdVbmtub3duEAASFQoRR2FtZVNlcnZlckNvbnNvbGUQARIUChBHYW1lU2VydmVyU3RhdHVzEAISBwoDUmF3EAMSEQoNU2VydmVyUXVlcmllcxAEQh0KG19nYW1lX3NlcnZlcl9jb25zb2xlX291dHB1dEIcChpfZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZUIZChdfYWxsX3NlcnZlcnNfcXVlcnlfaW5mb0IyWjBnaXRodWIuY29tL0NsaW50b25Db2xsaW5zL1h5bG9uYS9wcm90by9nby94eWxvbmFiBnByb3RvMw", [file_google_protobuf_timestamp, file_xylona, file_shared]);
 
 /**
  * @generated from message xylona.GameServerConsoleOutput
@@ -141,6 +141,11 @@ export type Message = Message$1<"xylona.Message"> & {
    * @generated from field: string raw_data = 4;
    */
   rawData: string;
+
+  /**
+   * @generated from field: optional xylona.AllServersQueryInfo all_servers_query_info = 5;
+   */
+  allServersQueryInfo?: AllServersQueryInfo;
 };
 
 /**
@@ -173,6 +178,11 @@ export enum Message_Type {
    * @generated from enum value: Raw = 3;
    */
   Raw = 3,
+
+  /**
+   * @generated from enum value: ServerQueries = 4;
+   */
+  ServerQueries = 4,
 }
 
 /**

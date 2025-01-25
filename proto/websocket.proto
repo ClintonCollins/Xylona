@@ -34,9 +34,11 @@ message Message {
     GameServerConsole = 1;
     GameServerStatus = 2;
     Raw = 3;
+    ServerQueries = 4;
   }
   Type type = 1;
   optional GameServerConsoleOutput game_server_console_output = 2;
   optional GameServerStatusUpdate game_server_status_update = 3;
   string raw_data = 4;
+  optional AllServersQueryInfo all_servers_query_info = 5;
 }

@@ -652,6 +652,8 @@ func (inst *Instance) setupCmdPipes(newCommand *Command, cmd *exec.Cmd) (io.Read
 }
 
 func (inst *Instance) GetCommandByID(commandID string) (*Command, error) {
+	inst.RLock()
+	defer inst.RUnlock()
 	proc, exists := inst.runningCommands[commandID]
 	if !exists || proc == nil {
 		// log.Debug().Str("Command ID", commandID).Msg("Command does not exist.")

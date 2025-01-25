@@ -67,8 +67,21 @@ func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.R
 }
 
 func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
-	//TODO implement me
-	panic("implement me")
+	_, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGetGameServer != nil {
+		if errors.Is(errGetGameServer, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+	gameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+	setter := helpers.GameServerModelToSetter(gameServerModel)
+	_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
+	if errUpdate != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+	response := &xylona.EditGameServerResponse{Game_Server: helpers.GameServerModelToProto(gameServerModel)}
+	return connect.NewResponse(response), nil
 }
 
 func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
@@ -302,4 +315,34 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 		GameServers: gameServersProto,
 	}
 	return connect.NewResponse(response), nil
+}
+
+func (xs XylonaService) QueryGameServer(ctx context.Context, request *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
+	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGetGameServer != nil {
+		if errors.Is(errGetGameServer, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+	allServerQueries := xs.actionsInst.GetServerQueries()
+	queryInfo, exists := allServerQueries.Servers[gameServer.ID]
+	if !exists {
+		queryType := xylona.ServerQuery_Unknown
+		if gameServer.GameID == "minecraft" {
+			queryType = xylona.ServerQuery_Minecraft
+		} else {
+			queryType = xylona.ServerQuery_Source
+		}
+		resp := &xylona.QueryGameServerResponse{QueryInfo: &xylona.ServerQuery{
+			ServerId:   gameServer.ID,
+			ServerName: gameServer.Name,
+			Type:       queryType,
+			Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: uint32(gameServer.MaxPlayers)},
+			Source: &xylona.SourceQueryInfo{Players: 0, MaxPlayers: uint32(gameServer.MaxPlayers),
+			}},
+		}
+		return connect.NewResponse(resp), nil
+	}
+	return connect.NewResponse(&xylona.QueryGameServerResponse{QueryInfo: queryInfo}), nil
 }

@@ -88,6 +88,8 @@ const (
 	XylonaUpdateGameServerProcedure = "/xylona.Xylona/UpdateGameServer"
 	// XylonaListGameServersProcedure is the fully-qualified name of the Xylona's ListGameServers RPC.
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
+	// XylonaQueryGameServerProcedure is the fully-qualified name of the Xylona's QueryGameServer RPC.
+	XylonaQueryGameServerProcedure = "/xylona.Xylona/QueryGameServer"
 	// XylonaGetBranchesProcedure is the fully-qualified name of the Xylona's GetBranches RPC.
 	XylonaGetBranchesProcedure = "/xylona.Xylona/GetBranches"
 	// XylonaListDirectoryFilesProcedure is the fully-qualified name of the Xylona's ListDirectoryFiles
@@ -159,6 +161,7 @@ type XylonaClient interface {
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
+	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
 	GetBranches(context.Context, *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error)
 	// File Operations
 	ListDirectoryFiles(context.Context, *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error)
@@ -341,6 +344,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("ListGameServers")),
 			connect.WithClientOptions(opts...),
 		),
+		queryGameServer: connect.NewClient[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse](
+			httpClient,
+			baseURL+XylonaQueryGameServerProcedure,
+			connect.WithSchema(xylonaMethods.ByName("QueryGameServer")),
+			connect.WithClientOptions(opts...),
+		),
 		getBranches: connect.NewClient[xylona.GetBranchesRequest, xylona.GetBranchesResponse](
 			httpClient,
 			baseURL+XylonaGetBranchesProcedure,
@@ -444,6 +453,7 @@ type xylonaClient struct {
 	getGameServer                    *connect.Client[xylona.GetGameServerRequest, xylona.GetGameServerResponse]
 	updateGameServer                 *connect.Client[xylona.UpdateGameServerRequest, xylona.UpdateGameServerResponse]
 	listGameServers                  *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
+	queryGameServer                  *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
 	getBranches                      *connect.Client[xylona.GetBranchesRequest, xylona.GetBranchesResponse]
 	listDirectoryFiles               *connect.Client[xylona.ListDirectoryFilesRequest, xylona.ListDirectoryFilesResponse]
 	gameServerFilesDelete            *connect.Client[xylona.GameServerFilesDeleteRequest, xylona.GameServerFilesDeleteResponse]
@@ -588,6 +598,11 @@ func (c *xylonaClient) ListGameServers(ctx context.Context, req *connect.Request
 	return c.listGameServers.CallUnary(ctx, req)
 }
 
+// QueryGameServer calls xylona.Xylona.QueryGameServer.
+func (c *xylonaClient) QueryGameServer(ctx context.Context, req *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
+	return c.queryGameServer.CallUnary(ctx, req)
+}
+
 // GetBranches calls xylona.Xylona.GetBranches.
 func (c *xylonaClient) GetBranches(ctx context.Context, req *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
 	return c.getBranches.CallUnary(ctx, req)
@@ -682,6 +697,7 @@ type XylonaHandler interface {
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
+	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
 	GetBranches(context.Context, *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error)
 	// File Operations
 	ListDirectoryFiles(context.Context, *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error)
@@ -860,6 +876,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("ListGameServers")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaQueryGameServerHandler := connect.NewUnaryHandler(
+		XylonaQueryGameServerProcedure,
+		svc.QueryGameServer,
+		connect.WithSchema(xylonaMethods.ByName("QueryGameServer")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaGetBranchesHandler := connect.NewUnaryHandler(
 		XylonaGetBranchesProcedure,
 		svc.GetBranches,
@@ -986,6 +1008,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaUpdateGameServerHandler.ServeHTTP(w, r)
 		case XylonaListGameServersProcedure:
 			xylonaListGameServersHandler.ServeHTTP(w, r)
+		case XylonaQueryGameServerProcedure:
+			xylonaQueryGameServerHandler.ServeHTTP(w, r)
 		case XylonaGetBranchesProcedure:
 			xylonaGetBranchesHandler.ServeHTTP(w, r)
 		case XylonaListDirectoryFilesProcedure:
@@ -1121,6 +1145,10 @@ func (UnimplementedXylonaHandler) UpdateGameServer(context.Context, *connect.Req
 
 func (UnimplementedXylonaHandler) ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListGameServers is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.QueryGameServer is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetBranches(context.Context, *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
