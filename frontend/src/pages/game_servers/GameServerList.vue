@@ -80,9 +80,9 @@ import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import { GetXylonaClient, WindowWidth, XylonaEventBus } from 'src/utils/shared'
 import { ListGameServersRequest, ListGameServersRequestSchema } from 'src/proto/xylona_pb'
-import DeleteGameServerDialog from '../../components/game_servers/DeleteGameServerDialog.vue'
-import StatusBadge from '../../components/StatusBadge.vue'
-import { GameServer, Status } from '../../proto/shared_pb'
+import DeleteGameServerDialog from 'src/components/game_servers/DeleteGameServerDialog.vue'
+import StatusBadge from 'src/components/StatusBadge.vue'
+import { GameServer, Status } from 'src/proto/shared_pb'
 
 const gameServers = ref([] as GameServer[])
 const loading: Ref<boolean> = ref(false)
@@ -103,10 +103,8 @@ async function getGameServers() {
     const response = await GetXylonaClient().listGameServers(request)
     gameServers.value = []
     response.gameServers.forEach((gameServer) => {
-      // console.log(gameServer)
       gameServers.value.push(gameServer)
     })
-    console.log(response)
   } catch (e) {
     console.error(e)
   }

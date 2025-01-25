@@ -90,9 +90,9 @@ import {
 import { onMounted, Ref, ref } from 'vue'
 import { GetXylonaClient, WindowWidth } from 'src/utils/shared'
 import { useRouter } from 'vue-router'
-import { Game } from '../../proto/shared_pb'
+import { Game } from 'src/proto/shared_pb'
 import { ListGamesRequest, ListGamesRequestSchema, ListGamesResponse
-} from '../../proto/xylona_pb'
+} from 'src/proto/xylona_pb'
 
 const windowWidth = WindowWidth()
 const rows = ref([] as Game[])
@@ -113,7 +113,6 @@ async function getGames() {
     response.games.forEach((game) => {
       rows.value.push(game)
     })
-    console.log(response)
   } catch (unknownError: unknown) {
     const err = unknownError as Error
     console.error(err.message)

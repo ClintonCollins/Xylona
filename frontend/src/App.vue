@@ -14,7 +14,6 @@ const backgroundFadeDuration = ref('opacity 2s')
 const secondsBetweenBackgroundChanges = 300
 
 onMounted(async () => {
-  console.log("Mounted")
   setInterval(changeBackgroundImage, secondsBetweenBackgroundChanges * 1000)
   GetOrCreateXylonaWebsocketClient()
 })

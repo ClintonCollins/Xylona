@@ -180,7 +180,7 @@ import {
 import { computed, onMounted, ref, Ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Timestamp, timestampDate, TimestampSchema } from '@bufbuild/protobuf/wkt'
-import { GetGameServerRequest, GetGameServerRequestSchema } from '../../proto/xylona_pb'
+import { GetGameServerRequest, GetGameServerRequestSchema } from 'src/proto/xylona_pb'
 
 const $q = useQuasar()
 const uploadURL: Ref<string> = ref('/api/file/upload')
@@ -374,7 +374,6 @@ watch(selectedFiles, (newValue) => {
 })
 
 const pathSeparator = computed(() => {
-  console.log(gameServer.value.directory)
   if (gameServer.value.directory.indexOf('\\') !== -1) {
     return '\\'
   }

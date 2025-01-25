@@ -31,7 +31,7 @@ import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { GetXylonaClient } from 'src/utils/shared'
 import { PropType } from 'vue'
 import { GameServer, RemoveGameServerRequest, RemoveGameServerRequestSchema
-} from '../../proto/shared_pb'
+} from 'src/proto/shared_pb'
 
 const props = defineProps({
   gameServers: {

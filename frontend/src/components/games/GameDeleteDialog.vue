@@ -25,7 +25,7 @@ import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { GetXylonaClient } from 'src/utils/shared'
 import { RemoveGameRequest, RemoveGameRequestSchema } from 'src/proto/xylona_pb'
-import { GameSchema } from '../../proto/shared_pb'
+import { GameSchema } from 'src/proto/shared_pb'
 
 const props = defineProps({
   game: {

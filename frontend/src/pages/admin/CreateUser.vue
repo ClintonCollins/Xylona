@@ -30,8 +30,7 @@ user.value.superUser = false
 
 async function createUser() {
   try {
-    const response = await GetXylonaClient().createUser(user.value)
-    console.log(response)
+    await GetXylonaClient().createUser(user.value)
   } catch (e) {
     alert(e)
     console.error(e)

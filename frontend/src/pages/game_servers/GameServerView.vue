@@ -105,8 +105,8 @@ import {
   StartGameServerRequestSchema,
   Status, StopGameServerRequest,
   StopGameServerRequestSchema
-} from '../../proto/shared_pb'
-import { GetGameServerRequest, GetGameServerRequestSchema } from '../../proto/xylona_pb'
+} from 'src/proto/shared_pb'
+import { GetGameServerRequest, GetGameServerRequestSchema } from 'src/proto/xylona_pb'
 
 const gameServerOutput = ref("")
 const route = useRoute()
@@ -131,7 +131,6 @@ onMounted(async () => {
   getGameServerDetails().then(() => {
     getGameServerOutput()
   })
-  console.log("Streaming game server output")
   streamGameServerOutput()
 })
 
@@ -237,7 +236,7 @@ async function navigateConsoleInputHistory(direction: string) {
   }
 
   let newIndex = consoleHistoryCurrentIndex.value + historyDirection
-  console.log(`New index: ${newIndex}, Current index: ${consoleHistoryCurrentIndex.value}`)
+  console.debug(`New index: ${newIndex}, Current index: ${consoleHistoryCurrentIndex.value}`)
   if (newIndex < 0) {
     return
   }
@@ -249,7 +248,6 @@ async function navigateConsoleInputHistory(direction: string) {
 }
 
 async function sendGameServerInput() {
-  console.log(serverInput.value)
   const request: SendGameServerInputRequest = create(SendGameServerInputRequestSchema, {})
   try {
     request.serverId = gameServerId.value

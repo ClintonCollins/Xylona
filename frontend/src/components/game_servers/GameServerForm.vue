@@ -59,13 +59,13 @@ import { onMounted, Ref, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   CreateGameServerRequest, CreateGameServerRequestSchema, Game, GameServer, GameServerSchema, IP
-} from '../../proto/shared_pb'
+} from 'src/proto/shared_pb'
 import {
   GetGameServerRequest, GetGameServerRequestSchema,
   ListGamesRequest, ListGamesRequestSchema, ListGamesResponse, ListIPsRequest, ListIPsRequestSchema, ListIPsResponse,
   ListUsersRequest,
   ListUsersRequestSchema
-} from '../../proto/xylona_pb'
+} from 'src/proto/xylona_pb'
 
 const router = useRouter()
 
@@ -149,7 +149,6 @@ async function getGames() {
     let foundGame = gamesMap.value.get(gameServer.value.gameId)
     if (foundGame !== undefined) {
       gameServer.value.gameId = foundGame.id
-      console.log('found game: ' + foundGame.name)
     } else {
       foundGame = gamesMap.value.get(availableGames.value[0].value)
     }
@@ -208,7 +207,6 @@ async function addGameServer() {
   try {
     const response = await GetXylonaClient().createGameServer(request)
     await router.push(`/game-servers/${response.gameServer?.id}/console`)
-    console.log(response)
   } catch (e) {
     console.error(e)
   }

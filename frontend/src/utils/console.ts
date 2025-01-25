@@ -102,11 +102,9 @@ function parseMinecraftConsole(data: string): string {
     data = data.replace(reURIMatch, "<a class='console-url' href='$&' target='_blank'>$&</a>")
 
     if (playerJoin && playerJoin.length > 1) {
-        console.log(playerJoin[1])
         minecraftPlayerMap.set(playerJoin[1], {username: playerJoin[1], color: StringToColor(playerJoin[1]), uid: playerJoin[2]})
     }
     minecraftPlayerMap.forEach((player: MinecraftPlayer, username: string) => {
-        console.log(player, player.color)
         data = data.replaceAll(username, `<a style="text-decoration: ${player.color} underline" href="https://sessionserver.mojang.com/session/minecraft/profile/${player.uid}" target="_blank"><span style="color: ${player.color}">${username}</span></a>`)
     })
     if (playerLeave) {

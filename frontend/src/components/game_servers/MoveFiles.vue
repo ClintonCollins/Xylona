@@ -102,11 +102,9 @@ async function moveFiles() {
     request.gameServerId = props.gameServerId
     request.destinationBasePath = getDestinationDirectory()
     request.fullFilePaths = props.selectedFiles.map((file: xylonaFile) => {
-        console.log(GetRelativeFilePath(props.gameServerPath, props.path, file.name))
         return GetRelativeFilePath(props.gameServerPath, props.path, file.name)
     })
     try {
-        console.log(request.fullFilePaths)
         await GetXylonaClient().gameServerFilesMove(request)
         emit('submit')
         $q.notify({

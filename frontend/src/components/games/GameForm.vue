@@ -131,7 +131,7 @@ import {
 import { GetXylonaClient } from 'src/utils/shared'
 import { computed, onMounted, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { CommandProcessor, Game } from '../../proto/shared_pb'
+import { CommandProcessor, Game } from 'src/proto/shared_pb'
 
 const $q = useQuasar()
 const router = useRouter()

@@ -62,11 +62,11 @@ export function GetOrCreateXylonaWebsocketClient(): ReconnectingWebSocket {
 
 function setupWebsocket() {
     window.addEventListener("pagehide", () => {
-        console.log("Page hide event. Closing websocket...")
+        console.debug("Page hide event. Closing websocket...")
         globalAPIWebSocket.close()
     })
     globalAPIWebSocket.onopen = (event) => {
-        console.log("Websocket opened")
+        console.debug("Websocket opened")
     }
     globalAPIWebSocket.onmessage = (event) => {
         if (typeof event.data === 'string' && event.data === 'pong') {
@@ -75,19 +75,18 @@ function setupWebsocket() {
         const out: Message = fromJsonString(MessageSchema, event.data)
         switch (out.type) {
             case Message_Type.GameServerStatus:
-                console.log(`Game server status update: ${StatusToString(out.gameServerStatusUpdate.status)}. For game server: ${out.gameServerStatusUpdate?.gameServerId}`)
                 XylonaEventBus.emit('gameServerStatus', out.gameServerStatusUpdate?.gameServerId, out.gameServerStatusUpdate?.status)
                 break
             case Message_Type.GameServerConsole:
                 XylonaEventBus.emit('gameServerConsoleOutput', out.gameServerConsoleOutput?.gameServerId, out.gameServerConsoleOutput?.output)
                 break
             default:
-                console.log(`${event.data}`)
+                console.debug(`${event.data}`)
                 return
         }
     }
     globalAPIWebSocket.onclose = (event) => {
-        console.log("Websocket closed")
+        console.debug("Websocket closed")
         // Let the ReconnectingWebSocket handle the rest.
     }
     globalAPIWebSocket.onerror = (event) => {
@@ -97,7 +96,6 @@ function setupWebsocket() {
 
     // Handle MessageBus events
     XylonaEventBus.on('gameServerConsoleOutputRequest', (gameServerId: string) => {
-        console.log(`Requesting console output for game server: ${gameServerId}`)
         const consoleOutputRequest: Request = create(RequestSchema, {})
         consoleOutputRequest.type = Request_Type.GetGameServerConsole
         consoleOutputRequest.gameServerId = gameServerId

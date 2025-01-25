@@ -286,7 +286,7 @@ class FileUploader {
         this.queuedFiles = Array.from(this.files.values()).filter(file => file.status !== FileStatus.Uploaded)
         this.queuedFilesCount = this.queuedFiles.length
         if (this.queuedFiles.length === 0) {
-            console.log('No files to upload')
+            console.debug('No files to upload')
             this.uploadFinish()
             return
         }

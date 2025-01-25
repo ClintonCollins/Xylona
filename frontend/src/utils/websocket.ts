@@ -210,7 +210,6 @@ export class ReconnectingWebSocket {
     // Send "ping"
     try {
       this._ws.send('ping')
-      console.log('ReconnectingWebSocket: sent ping')
     } catch (e) {
       // If sending fails, just try to reconnect
       this._forceReconnect()

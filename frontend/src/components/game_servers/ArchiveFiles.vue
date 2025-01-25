@@ -50,16 +50,10 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
 import {
-  GameServerFilesCompressionRequest, GameServerFilesCompressionRequestSchema,
+  File as xylonaFile, GameServerFilesCompressionRequest, GameServerFilesCompressionRequestSchema,
   GameServerFilesCompressionType
 } from 'src/proto/gameserver_files_operations_pb'
-import { File as xylonaFile } from 'src/proto/gameserver_files_operations_pb'
-import {
-    ArchiveTypeToExtension,
-    ArchiveTypeToString,
-    bytesToSize,
-    GetXylonaClientCallback
-} from 'src/utils/shared'
+import { ArchiveTypeToExtension, ArchiveTypeToString, bytesToSize, GetXylonaClientCallback } from 'src/utils/shared'
 import { ref } from 'vue'
 
 const props = defineProps({
@@ -205,9 +199,7 @@ function getRelativeFilePath(...filePaths: string[]): string {
     if (props.path === '') {
         return filePaths.join(props.pathSeparator)
     }
-    const a = props.path + props.pathSeparator + filePaths.join(props.pathSeparator)
-    console.log(a)
-    return a
+  return props.path + props.pathSeparator + filePaths.join(props.pathSeparator)
 }
 
 
