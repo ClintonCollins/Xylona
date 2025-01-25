@@ -14,14 +14,29 @@ var _ bob.HookableType = &GameServer{}
 // Make sure the type IP runs hooks after queries
 var _ bob.HookableType = &IP{}
 
+// Make sure the type LocalSecretKey runs hooks after queries
+var _ bob.HookableType = &LocalSecretKey{}
+
+// Make sure the type LocalSetting runs hooks after queries
+var _ bob.HookableType = &LocalSetting{}
+
 // Make sure the type Log runs hooks after queries
 var _ bob.HookableType = &Log{}
 
 // Make sure the type Migration runs hooks after queries
 var _ bob.HookableType = &Migration{}
 
+// Make sure the type Node runs hooks after queries
+var _ bob.HookableType = &Node{}
+
+// Make sure the type NodeSyncQueue runs hooks after queries
+var _ bob.HookableType = &NodeSyncQueue{}
+
 // Make sure the type Notification runs hooks after queries
 var _ bob.HookableType = &Notification{}
+
+// Make sure the type RevokedJWT runs hooks after queries
+var _ bob.HookableType = &RevokedJWT{}
 
 // Make sure the type User runs hooks after queries
 var _ bob.HookableType = &User{}

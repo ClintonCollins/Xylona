@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net"
@@ -8,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/oklog/ulid/v2"
 	"github.com/rdegges/go-ipify"
 	"github.com/rs/zerolog/log"
 )
@@ -111,4 +114,17 @@ func (x xylonaTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func GetXylonaHTTPClient() *http.Client {
 	return httpClient
+}
+
+func GenerateUniqueID() (ulid.ULID, error) {
+	return ulid.New(ulid.Timestamp(time.Now()), rand.Reader)
+}
+
+func GenerateRandomString(length int) (string, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }

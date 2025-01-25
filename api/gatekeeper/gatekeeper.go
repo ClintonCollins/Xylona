@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/securecookie"
 	"github.com/rs/zerolog/log"
 
@@ -18,12 +20,24 @@ const (
 	SessionTokenCookieName = "xylona_session_token"
 )
 
+var (
+	ErrInvalidToken = errors.New("invalid token")
+)
+
 type SessionCookies struct {
 	SessionID    string
 	SessionToken string
 }
 
 type Cookies map[string]string
+
+type JWTClaims struct {
+	Username      string `json:"username"`
+	Email         string `json:"email"`
+	OriginID      string `json:"originID"`
+	OriginAddress string `json:"originAddress"`
+	jwt.RegisteredClaims
+}
 
 func (c Cookies) Get(key string) (string, error) {
 	cookie, exists := c[key]
@@ -126,4 +140,48 @@ func GetUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connec
 		return nil, errors.New("internal error")
 	}
 	return user, nil
+}
+
+func CreateJWT(username, email, jwtID string, expiration time.Time, secretKey []byte) (string, error) {
+	claims := JWTClaims{
+		Username: username,
+		Email:    email,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "xylona",
+			ExpiresAt: jwt.NewNumericDate(expiration),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        jwtID,
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	tokenString, errSign := token.SignedString(secretKey)
+	if errSign != nil {
+		log.Error().Err(errSign).Msg("Error signing token")
+		return "", errors.New("internal error")
+	}
+	return tokenString, nil
+}
+
+func ParseJWT(tokenString string, secretKey []byte) (*JWTClaims, error) {
+	token, errParse := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		_, ok := token.Method.(*jwt.SigningMethodHMAC)
+		if !ok {
+			return nil, jwt.ErrTokenSignatureInvalid
+		}
+		return secretKey, nil
+	})
+	if errParse != nil {
+		log.Error().Err(errParse).Msg("Error parsing token")
+		return nil, errors.New("invalid token")
+	}
+	if !token.Valid {
+		log.Error().Msg("Invalid token")
+		return nil, ErrInvalidToken
+	}
+	claims, ok := token.Claims.(*JWTClaims)
+	if !ok {
+		log.Error().Msg("Invalid token claims")
+		return nil, jwt.ErrTokenInvalidClaims
+	}
+	return claims, nil
 }

@@ -23,9 +23,10 @@ import (
 
 // IP is an object representing the database table.
 type IP struct {
-	Address  string `db:"address,pk" `
-	Usable   bool   `db:"usable" `
-	External bool   `db:"external" `
+	Address            string `db:"address,pk" `
+	Usable             bool   `db:"usable" `
+	External           bool   `db:"external" `
+	AutomaticallyAdded bool   `db:"automatically_added" `
 
 	R ipR `db:"-" `
 }
@@ -46,18 +47,20 @@ type ipR struct {
 }
 
 type ipColumnNames struct {
-	Address  string
-	Usable   string
-	External string
+	Address            string
+	Usable             string
+	External           string
+	AutomaticallyAdded string
 }
 
 var IPColumns = buildIPColumns("ip")
 
 type ipColumns struct {
-	tableAlias string
-	Address    sqlite.Expression
-	Usable     sqlite.Expression
-	External   sqlite.Expression
+	tableAlias         string
+	Address            sqlite.Expression
+	Usable             sqlite.Expression
+	External           sqlite.Expression
+	AutomaticallyAdded sqlite.Expression
 }
 
 func (c ipColumns) Alias() string {
@@ -70,17 +73,19 @@ func (ipColumns) AliasedAs(alias string) ipColumns {
 
 func buildIPColumns(alias string) ipColumns {
 	return ipColumns{
-		tableAlias: alias,
-		Address:    sqlite.Quote(alias, "address"),
-		Usable:     sqlite.Quote(alias, "usable"),
-		External:   sqlite.Quote(alias, "external"),
+		tableAlias:         alias,
+		Address:            sqlite.Quote(alias, "address"),
+		Usable:             sqlite.Quote(alias, "usable"),
+		External:           sqlite.Quote(alias, "external"),
+		AutomaticallyAdded: sqlite.Quote(alias, "automatically_added"),
 	}
 }
 
 type ipWhere[Q sqlite.Filterable] struct {
-	Address  sqlite.WhereMod[Q, string]
-	Usable   sqlite.WhereMod[Q, bool]
-	External sqlite.WhereMod[Q, bool]
+	Address            sqlite.WhereMod[Q, string]
+	Usable             sqlite.WhereMod[Q, bool]
+	External           sqlite.WhereMod[Q, bool]
+	AutomaticallyAdded sqlite.WhereMod[Q, bool]
 }
 
 func (ipWhere[Q]) AliasedAs(alias string) ipWhere[Q] {
@@ -89,9 +94,10 @@ func (ipWhere[Q]) AliasedAs(alias string) ipWhere[Q] {
 
 func buildIPWhere[Q sqlite.Filterable](cols ipColumns) ipWhere[Q] {
 	return ipWhere[Q]{
-		Address:  sqlite.Where[Q, string](cols.Address),
-		Usable:   sqlite.Where[Q, bool](cols.Usable),
-		External: sqlite.Where[Q, bool](cols.External),
+		Address:            sqlite.Where[Q, string](cols.Address),
+		Usable:             sqlite.Where[Q, bool](cols.Usable),
+		External:           sqlite.Where[Q, bool](cols.External),
+		AutomaticallyAdded: sqlite.Where[Q, bool](cols.AutomaticallyAdded),
 	}
 }
 
@@ -99,13 +105,14 @@ func buildIPWhere[Q sqlite.Filterable](cols ipColumns) ipWhere[Q] {
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type IPSetter struct {
-	Address  omit.Val[string] `db:"address,pk" `
-	Usable   omit.Val[bool]   `db:"usable" `
-	External omit.Val[bool]   `db:"external" `
+	Address            omit.Val[string] `db:"address,pk" `
+	Usable             omit.Val[bool]   `db:"usable" `
+	External           omit.Val[bool]   `db:"external" `
+	AutomaticallyAdded omit.Val[bool]   `db:"automatically_added" `
 }
 
 func (s IPSetter) SetColumns() []string {
-	vals := make([]string, 0, 3)
+	vals := make([]string, 0, 4)
 	if !s.Address.IsUnset() {
 		vals = append(vals, "address")
 	}
@@ -116,6 +123,10 @@ func (s IPSetter) SetColumns() []string {
 
 	if !s.External.IsUnset() {
 		vals = append(vals, "external")
+	}
+
+	if !s.AutomaticallyAdded.IsUnset() {
+		vals = append(vals, "automatically_added")
 	}
 
 	return vals
@@ -131,6 +142,9 @@ func (s IPSetter) Overwrite(t *IP) {
 	if !s.External.IsUnset() {
 		t.External, _ = s.External.Get()
 	}
+	if !s.AutomaticallyAdded.IsUnset() {
+		t.AutomaticallyAdded, _ = s.AutomaticallyAdded.Get()
+	}
 }
 
 func (s *IPSetter) Apply(q *dialect.InsertQuery) {
@@ -143,7 +157,7 @@ func (s *IPSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.Writer, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 3)
+		vals := make([]bob.Expression, 0, 4)
 		if !s.Address.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.Address))
 		}
@@ -156,6 +170,10 @@ func (s *IPSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.External))
 		}
 
+		if !s.AutomaticallyAdded.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.AutomaticallyAdded))
+		}
+
 		return bob.ExpressSlice(ctx, w, d, start, vals, "", ", ", "")
 	}))
 }
@@ -165,7 +183,7 @@ func (s IPSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s IPSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 3)
+	exprs := make([]bob.Expression, 0, 4)
 
 	if !s.Address.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -185,6 +203,13 @@ func (s IPSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "external")...),
 			sqlite.Arg(s.External),
+		}})
+	}
+
+	if !s.AutomaticallyAdded.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "automatically_added")...),
+			sqlite.Arg(s.AutomaticallyAdded),
 		}})
 	}
 

@@ -54,6 +54,7 @@ type Game struct {
 	WindowsWorkingDirectory           string    `db:"windows_working_directory" `
 	CreatedAt                         time.Time `db:"created_at" `
 	UpdatedAt                         time.Time `db:"updated_at" `
+	XylonaOfficial                    bool      `db:"xylona_official" `
 
 	R gameR `db:"-" `
 }
@@ -104,6 +105,7 @@ type gameColumnNames struct {
 	WindowsWorkingDirectory           string
 	CreatedAt                         string
 	UpdatedAt                         string
+	XylonaOfficial                    string
 }
 
 var GameColumns = buildGameColumns("game")
@@ -139,6 +141,7 @@ type gameColumns struct {
 	WindowsWorkingDirectory           sqlite.Expression
 	CreatedAt                         sqlite.Expression
 	UpdatedAt                         sqlite.Expression
+	XylonaOfficial                    sqlite.Expression
 }
 
 func (c gameColumns) Alias() string {
@@ -181,6 +184,7 @@ func buildGameColumns(alias string) gameColumns {
 		WindowsWorkingDirectory:           sqlite.Quote(alias, "windows_working_directory"),
 		CreatedAt:                         sqlite.Quote(alias, "created_at"),
 		UpdatedAt:                         sqlite.Quote(alias, "updated_at"),
+		XylonaOfficial:                    sqlite.Quote(alias, "xylona_official"),
 	}
 }
 
@@ -214,6 +218,7 @@ type gameWhere[Q sqlite.Filterable] struct {
 	WindowsWorkingDirectory           sqlite.WhereMod[Q, string]
 	CreatedAt                         sqlite.WhereMod[Q, time.Time]
 	UpdatedAt                         sqlite.WhereMod[Q, time.Time]
+	XylonaOfficial                    sqlite.WhereMod[Q, bool]
 }
 
 func (gameWhere[Q]) AliasedAs(alias string) gameWhere[Q] {
@@ -251,6 +256,7 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		WindowsWorkingDirectory:           sqlite.Where[Q, string](cols.WindowsWorkingDirectory),
 		CreatedAt:                         sqlite.Where[Q, time.Time](cols.CreatedAt),
 		UpdatedAt:                         sqlite.Where[Q, time.Time](cols.UpdatedAt),
+		XylonaOfficial:                    sqlite.Where[Q, bool](cols.XylonaOfficial),
 	}
 }
 
@@ -287,10 +293,11 @@ type GameSetter struct {
 	WindowsWorkingDirectory           omit.Val[string]    `db:"windows_working_directory" `
 	CreatedAt                         omit.Val[time.Time] `db:"created_at" `
 	UpdatedAt                         omit.Val[time.Time] `db:"updated_at" `
+	XylonaOfficial                    omit.Val[bool]      `db:"xylona_official" `
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 29)
+	vals := make([]string, 0, 30)
 	if !s.ID.IsUnset() {
 		vals = append(vals, "id")
 	}
@@ -407,6 +414,10 @@ func (s GameSetter) SetColumns() []string {
 		vals = append(vals, "updated_at")
 	}
 
+	if !s.XylonaOfficial.IsUnset() {
+		vals = append(vals, "xylona_official")
+	}
+
 	return vals
 }
 
@@ -498,6 +509,9 @@ func (s GameSetter) Overwrite(t *Game) {
 	if !s.UpdatedAt.IsUnset() {
 		t.UpdatedAt, _ = s.UpdatedAt.Get()
 	}
+	if !s.XylonaOfficial.IsUnset() {
+		t.XylonaOfficial, _ = s.XylonaOfficial.Get()
+	}
 }
 
 func (s *GameSetter) Apply(q *dialect.InsertQuery) {
@@ -510,7 +524,7 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.Writer, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 29)
+		vals := make([]bob.Expression, 0, 30)
 		if !s.ID.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.ID))
 		}
@@ -627,6 +641,10 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.UpdatedAt))
 		}
 
+		if !s.XylonaOfficial.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.XylonaOfficial))
+		}
+
 		return bob.ExpressSlice(ctx, w, d, start, vals, "", ", ", "")
 	}))
 }
@@ -636,7 +654,7 @@ func (s GameSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 29)
+	exprs := make([]bob.Expression, 0, 30)
 
 	if !s.ID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -838,6 +856,13 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "updated_at")...),
 			sqlite.Arg(s.UpdatedAt),
+		}})
+	}
+
+	if !s.XylonaOfficial.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "xylona_official")...),
+			sqlite.Arg(s.XylonaOfficial),
 		}})
 	}
 

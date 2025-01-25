@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -39,6 +40,7 @@ import (
 type Configuration struct {
 	CookieHashKey  string `env:"COOKIE_HASH_KEY_BASE64"`
 	CookieBlockKey string `env:"COOKIE_BLOCK_KEY_BASE64"`
+	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
 	DBFilePath     string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
 	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
 }
@@ -66,12 +68,16 @@ func setDetectedIPs(db *db.Connection) {
 	}
 	for _, ip := range ips {
 		log.Debug().Str("ip", ip.String()).Bool("external", !ip.IsPrivate()).Msg("Detected IP")
-		_, errUpsertIP := db.UpsertIP(&models.IPSetter{
-			Address:  omit.From(ip.String()),
-			External: omit.From(!ip.IsPrivate()),
-		})
-		if errUpsertIP != nil {
-			log.Fatal().Err(errUpsertIP).Msg("Failed to upsert IP on startup")
+		// Automatically add any external IPs...
+		if !ip.IsPrivate() {
+			_, errUpsertIP := db.UpsertIP(&models.IPSetter{
+				Address:            omit.From(ip.String()),
+				External:           omit.From(!ip.IsPrivate()),
+				AutomaticallyAdded: omit.From(true),
+			})
+			if errUpsertIP != nil {
+				log.Fatal().Err(errUpsertIP).Msg("Failed to upsert IP on startup")
+			}
 		}
 	}
 }
@@ -150,7 +156,16 @@ func main() {
 	}
 	if foundCookieError {
 		log.Fatal().Msg("Cookie keys not set correctly. You can use the generated key(s)" +
-			" above to set the environment variables COOKIE_HASH_KEY_BASE64 and COOKIE_BLOCK_KEY_BASE64.")
+			" above to set the environment variables: COOKIE_HASH_KEY_BASE64 and COOKIE_BLOCK_KEY_BASE64")
+	}
+
+	if config.JWTSecretKey == "" {
+		log.Error().Msg("JWT secret key not set.")
+		newJWTSecretKey := securecookie.GenerateRandomKey(64)
+		encodedJWTSecretKey := base64.StdEncoding.EncodeToString(newJWTSecretKey)
+		log.Info().Str("newJWTSecretKey", encodedJWTSecretKey).Msg("Generated JWT secret key")
+		log.Fatal().Msg("JWT secret key not set correctly. You can use the generated key above to set" +
+			" the environment variable: JWT_SECRET_KEY_BASE64")
 	}
 
 	cookieHashKey, errDecodeHashKey := base64.StdEncoding.DecodeString(config.CookieHashKey)
@@ -175,6 +190,28 @@ func main() {
 	if errMigrate != nil {
 		log.Fatal().Err(errMigrate).Msg("Error running migrations")
 		return
+	}
+
+	settings, errSettings := dbInst.GetLocalSettings()
+	if errSettings != nil {
+		if !errors.Is(errSettings, sql.ErrNoRows) {
+			log.Fatal().Err(errSettings).Msg("Failed to get local settings")
+		}
+		// Create default settings
+		log.Warn().Msg("No settings found. Generating a node ID and default settings.")
+		newID, errID := helpers.GenerateUniqueID()
+		if errID != nil {
+			log.Fatal().Err(errID).Msg("Failed to generate unique ID")
+		}
+		settings = &models.LocalSetting{
+			ID:     1,
+			NodeID: newID.String(),
+		}
+		errInsert := dbInst.UpdateLocalSettings(settings)
+		if errInsert != nil {
+			log.Fatal().Err(errInsert).Msg("Failed to insert local settings")
+		}
+		log.Info().Msgf("Generated ID for this node: %s", settings.NodeID)
 	}
 
 	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
