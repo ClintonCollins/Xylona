@@ -12,6 +12,7 @@
                                 row-key="name"
                                 selection="multiple"
                                 :filter="search"
+                                v-model:pagination="initialPagination"
                                 v-model:selected="selected">
                             <template v-slot:top>
                                 <div class="row col flex justify-between flex-center">
@@ -81,6 +82,7 @@
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
+import { useStorage } from '@vueuse/core'
 import GameDeleteDialog from 'components/games/GameDeleteDialog.vue'
 import {
   tabCopy,
@@ -99,7 +101,12 @@ const rows = ref([] as Game[])
 const search: Ref<string> = ref('')
 const showGameDeleteDialog = ref(false)
 const selectedActionGame = ref<Game | null>(null)
-const router = useRouter()
+
+// Use VueUse to store the pagination state automatically.
+const initialPagination = useStorage('game-pagination', {
+  rowsPerPage: 25,
+  page: 1
+})
 
 onMounted(async () => {
   await getGames()

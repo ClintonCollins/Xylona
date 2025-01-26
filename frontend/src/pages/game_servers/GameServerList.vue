@@ -13,6 +13,7 @@
                                 selection="multiple"
                                 :filter="search"
                                 :loading="loading"
+                                v-model:pagination="initialPagination"
                                 v-model:selected="selectedGameServers">
                             <template v-slot:top>
                                 <div class="row col flex justify-between flex-center">
@@ -83,12 +84,19 @@ import { ListGameServersRequest, ListGameServersRequestSchema } from 'src/proto/
 import DeleteGameServerDialog from 'src/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from 'src/components/StatusBadge.vue'
 import { GameServer, Status } from 'src/proto/shared_pb'
+import { useStorage } from '@vueuse/core'
 
 const gameServers = ref([] as GameServer[])
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
 const selectedGameServers = ref([])
+
+// Use VueUse to store the pagination state automatically.
+const initialPagination = useStorage('game-server-pagination', {
+    rowsPerPage: 25,
+    page: 1
+})
 
 const windowWidth = WindowWidth()
 

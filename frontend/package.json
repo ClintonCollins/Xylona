@@ -17,6 +17,7 @@
     "@connectrpc/connect-web": "^2.0.1",
     "@quasar/extras": "^1.16.16",
     "@types/highlightjs": "^9.12.6",
+    "@vueuse/core": "^12.5.0",
     "axios": "^1.7.9",
     "dayjs": "^1.11.13",
     "highlight.js": "^11.11.1",
