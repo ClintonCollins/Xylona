@@ -29,6 +29,8 @@ type XylonaEventBusEvents = {
   'gameServerConsoleOutput': (gameServerId: string, consoleOutput: string) => void
   'gameServerConsoleOutputRequest': (gameServerId: string) => void
   'gameServersQueryInfo': (queryInfo: AllServersQueryInfo) => void
+  'websocketConnected': () => void
+  'websocketDisconnected': () => void
 }
 
 /**
@@ -67,6 +69,7 @@ function setupWebsocket() {
     globalAPIWebSocket.close()
   })
   globalAPIWebSocket.onopen = (event) => {
+    XylonaEventBus.emit('websocketConnected')
     console.debug('Websocket opened')
   }
   globalAPIWebSocket.onmessage = (event) => {
@@ -90,6 +93,7 @@ function setupWebsocket() {
     }
   }
   globalAPIWebSocket.onclose = (event) => {
+    XylonaEventBus.emit('websocketDisconnected')
     console.debug('Websocket closed')
     // Let the ReconnectingWebSocket handle the rest.
   }

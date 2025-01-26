@@ -271,6 +271,11 @@ function streamGameServerOutput() {
   })
   // Request the game server to start streaming output.
   XylonaEventBus.emit('gameServerConsoleOutputRequest', gameServerId.value)
+
+  // Handle socket reconnection.
+  XylonaEventBus.on('websocketConnected', () => {
+    XylonaEventBus.emit('gameServerConsoleOutputRequest', gameServerId.value)
+  })
 }
 
 async function navigateConsoleInputHistory(direction: string) {

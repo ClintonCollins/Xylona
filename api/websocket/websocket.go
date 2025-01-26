@@ -6,23 +6,23 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ClintonCollins/Xylona/actions"
-	"github.com/google/uuid"
-	"github.com/gorilla/securecookie"
-	"github.com/olahol/melody"
-	"github.com/rs/zerolog/log"
-	"google.golang.org/protobuf/encoding/protojson"
-
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
+	"github.com/google/uuid"
+	"github.com/gorilla/securecookie"
+	"github.com/olahol/melody"
+	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
@@ -203,8 +203,50 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	go ws.sendOwnedServersQueryInfo(s, gameServers)
 }
 
+// queryEqual checks if two ServerQuery objects are equal. Used to save websocket traffic.
+func queryEqual(x, y *xylona.ServerQuery) bool {
+	if x.ServerId != y.ServerId || x.ServerName != y.ServerName || x.Type != y.Type {
+		return false
+	}
+	switch x.Type {
+	case xylona.ServerQuery_Minecraft:
+		xm := x.Minecraft
+		ym := y.Minecraft
+		return xm.Motd == ym.Motd &&
+			xm.GameType == ym.GameType &&
+			xm.Map == ym.Map &&
+			xm.NumberOfPlayers == ym.NumberOfPlayers &&
+			xm.MaxPlayers == ym.MaxPlayers &&
+			slices.Equal(xm.PlayerList, ym.PlayerList) &&
+			xm.ProtocolVersion == ym.ProtocolVersion &&
+			xm.ServerVersion == ym.ServerVersion
+	case xylona.ServerQuery_Source:
+		xs := x.Source
+		ys := y.Source
+		return xs.Name == ys.Name &&
+			xs.Map == ys.Map &&
+			xs.Game == ys.Game &&
+			xs.AppId == ys.AppId &&
+			xs.SteamId == ys.SteamId &&
+			xs.GameId == ys.GameId &&
+			xs.Players == ys.Players &&
+			xs.MaxPlayers == ys.MaxPlayers &&
+			xs.Bots == ys.Bots &&
+			xs.ServerOs == ys.ServerOs &&
+			xs.Visibility == ys.Visibility &&
+			xs.Vac == ys.Vac &&
+			xs.Version == ys.Version &&
+			xs.Protocol == ys.Protocol
+	}
+	return false
+}
+
+
+
 func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session, gameServers []*models.GameServer) {
-	throttle := time.NewTicker(time.Second * 5)
+	// Map of previous queries for each game server.
+	previousQueryMap := make(map[string]*xylona.ServerQuery)
+	throttle := time.NewTicker(time.Second * 1)
 	defer throttle.Stop()
 	for {
 		select {
@@ -218,13 +260,31 @@ func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session, gameServers []
 			}
 			allQueryInfo := ws.actions.GetServerQueries()
 			ownedServerQueryInfo := &xylona.AllServersQueryInfo{Servers: make(map[string]*xylona.ServerQuery)}
+			serverQueriesInfoChanged := false
 			for _, gameServer := range gameServers {
+				// Get the current query info for the game server.
 				serverQuery, exists := allQueryInfo.Servers[gameServer.ID]
 				if !exists {
 					continue
 				}
+				// Get the previous query, so we can see if anything has changed.
+				previousQuery, exists := previousQueryMap[gameServer.ID]
+
+				// If the previous query doesn't exist, or the current query is different from the previous query, update the previous query map.
+				if !exists || !queryEqual(previousQuery, serverQuery) {
+					// Update the previous query map.
+					previousQueryMap[gameServer.ID] = serverQuery
+					serverQueriesInfoChanged = true
+				}
 				ownedServerQueryInfo.Servers[gameServer.ID] = serverQuery
 			}
+
+			// If the server queries info hasn't changed, skip sending the update. This should cut down on traffic significantly.
+			if !serverQueriesInfoChanged {
+				continue
+			}
+
+			// Send the update to the user.
 			out := &xylona.Message{
 				Type:                xylona.Message_ServerQueries,
 				AllServersQueryInfo: ownedServerQueryInfo,
@@ -476,44 +536,4 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			log.Error().Err(errWrite).Msg("Failed to write websocket message")
 		}
 	}
-
-	//websocketRequest := &helpers.WebsocketRequest{}
-	//errUnmarshal := json.Unmarshal(msg, websocketRequest)
-	//if errUnmarshal != nil {
-	//	log.Error().Err(errUnmarshal).Msg("Failed to unmarshal websocket message")
-	//	return
-	//}
-	//switch websocketRequest.Type {
-	//case helpers.RequestGetGameServerConsole:
-	//	if websocketRequest.GameServerID == nil {
-	//		log.Error().Msg("Game server ID not set")
-	//		return
-	//	}
-	//	errAddGameServerOutputListener := ws.addGameServerOutputListener(s, *websocketRequest.GameServerID)
-	//	if errAddGameServerOutputListener != nil {
-	//		log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
-	//		errWrite := s.Write([]byte(fmt.Sprintf("Failed to get game server console: %s", errAddGameServerOutputListener)))
-	//		if errWrite != nil {
-	//			log.Error().Err(errWrite).Msg("Failed to write websocket message")
-	//		}
-	//		return
-	//	}
-	//	rawData := &helpers.WebsocketMessage{
-	//		Type:    helpers.WebsocketOutputTypeRaw,
-	//		RawData: "Subscribed to game server console output",
-	//	}
-	//	b, errMarshal := json.Marshal(rawData)
-	//	if errMarshal != nil {
-	//		log.Error().Err(errMarshal).Msg("Failed to write websocket message")
-	//		return
-	//	}
-	//	_ = s.Write(b)
-	//default:
-	//	log.Warn().Str("User", username).Msg("Unknown websocket message type")
-	//	log.Debug().Str("User", username).Msgf("Websocket message: %s", string(msg))
-	//	errWrite := s.Write([]byte(fmt.Sprintf("echo: %s", msg)))
-	//	if errWrite != nil {
-	//		log.Error().Err(errWrite).Msg("Failed to write websocket message")
-	//	}
-	//}
 }
