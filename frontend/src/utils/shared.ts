@@ -19,10 +19,10 @@ import { Message, Message_Type, MessageSchema, Request, Request_Type, RequestSch
 import { EventBus } from 'quasar'
 import { ReconnectingWebSocket } from './websocket'
 
-export const XylonaAPIBaseURL: string = `${window.location.protocol}//${window.location.host}`
-export const XylonaWebsocketBaseURL: string = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/websocket`
+export const LocalXylonaAPIBaseURL: string = `${window.location.protocol}//${window.location.host}`
+export const LocalXylonaWebsocketBaseURL: string = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/websocket`
 
-let globalAPIWebSocket: ReconnectingWebSocket | null = null
+const allAPIWebsockets: Map<string, ReconnectingWebSocket> = new Map<string, ReconnectingWebSocket>()
 
 type XylonaEventBusEvents = {
   'gameServerStatus': (gameServerId: string, status: Status) => void
@@ -39,40 +39,46 @@ type XylonaEventBusEvents = {
  */
 export const XylonaEventBus: EventBus<XylonaEventBusEvents> = new EventBus<XylonaEventBusEvents>()
 
-export function GetXylonaClient() {
+export function GetXylonaClient(nodeAddress: string = window.location.host) {
+  const baseURL = nodeAddress === window.location.host ? LocalXylonaAPIBaseURL : `${window.location.protocol}//${nodeAddress}`
   const transport = createConnectTransport({
-    baseUrl: XylonaAPIBaseURL,
+    baseUrl: baseURL,
     fetch: (input, init) => fetch(input, {...init, credentials: 'include'})
   })
   return createClient(Xylona, transport)
 }
 
-export function GetXylonaClientCallback() {
+export function GetXylonaClientCallback(nodeAddress: string = window.location.host) {
+  const baseURL = nodeAddress === window.location.host ? LocalXylonaAPIBaseURL : `${window.location.protocol}//${nodeAddress}`
   const transport = createConnectTransport({
-    baseUrl: XylonaAPIBaseURL,
+    baseUrl: baseURL,
     fetch: (input, init) => fetch(input, {...init, credentials: 'include'})
   })
   return createCallbackClient(Xylona, transport)
 }
 
-export function GetOrCreateXylonaWebsocketClient(): ReconnectingWebSocket {
-  if (globalAPIWebSocket === null) {
-    globalAPIWebSocket = new ReconnectingWebSocket(XylonaWebsocketBaseURL, [], 10000, 30000)
-    setupWebsocket()
+export function GetOrCreateXylonaWebsocketClient(nodeAddress: string = window.location.host): ReconnectingWebSocket {
+  const baseURL = nodeAddress === window.location.host ? LocalXylonaWebsocketBaseURL : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${nodeAddress}/api/websocket`
+  let apiWebsocket: ReconnectingWebSocket | undefined = allAPIWebsockets.get(baseURL)
+  const websocketInitialized = allAPIWebsockets.has(baseURL)
+  if (!websocketInitialized) {
+    apiWebsocket = new ReconnectingWebSocket(baseURL, [], 10000, 30000)
+    allAPIWebsockets.set(baseURL, apiWebsocket)
+    setupWebsocket(apiWebsocket)
   }
-  return globalAPIWebSocket
+  return apiWebsocket
 }
 
-function setupWebsocket() {
+function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
   window.addEventListener('pagehide', () => {
     console.debug('Page hide event. Closing websocket...')
-    globalAPIWebSocket.close()
+    apiWebsocket.close()
   })
-  globalAPIWebSocket.onopen = (event) => {
+  apiWebsocket.onopen = (event) => {
     XylonaEventBus.emit('websocketConnected')
     console.debug('Websocket opened')
   }
-  globalAPIWebSocket.onmessage = (event) => {
+  apiWebsocket.onmessage = (event) => {
     if (typeof event.data === 'string' && event.data === 'pong') {
       return
     }
@@ -92,12 +98,12 @@ function setupWebsocket() {
         return
     }
   }
-  globalAPIWebSocket.onclose = (event) => {
+  apiWebsocket.onclose = (event) => {
     XylonaEventBus.emit('websocketDisconnected')
     console.debug('Websocket closed')
     // Let the ReconnectingWebSocket handle the rest.
   }
-  globalAPIWebSocket.onerror = (event) => {
+  apiWebsocket.onerror = (event) => {
     console.error(event)
     // Let the ReconnectingWebSocket handle the rest.
   }
@@ -108,7 +114,7 @@ function setupWebsocket() {
     consoleOutputRequest.type = Request_Type.GetGameServerConsole
     consoleOutputRequest.gameServerId = gameServerId
 
-    globalAPIWebSocket?.send(toJsonString(RequestSchema, consoleOutputRequest))
+    apiWebsocket?.send(toJsonString(RequestSchema, consoleOutputRequest))
   })
 }
 
