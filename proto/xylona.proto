@@ -57,6 +57,18 @@ service Xylona {
   rpc GameServerFilesMove (GameServerFilesMoveRequest) returns (GameServerFilesMoveResponse) {}
   rpc GameServersFileEdit (GameServersFileEditRequest) returns (GameServersFileEditResponse) {}
   rpc GameServersFileOrDirectoryCreate (GameServerFileOrDirectoryCreateRequest) returns (GameServerFileOrDirectoryCreateResponse) {}
+
+  // Nodes
+  rpc GetNode (GetNodeRequest) returns (GetNodeResponse) {}
+  rpc ListNodes (ListNodesRequest) returns (ListNodesResponse) {}
+  rpc AddNode (AddNodeRequest) returns (AddNodeResponse) {}
+  rpc RemoveNode (RemoveNodeRequest) returns (RemoveNodeResponse) {}
+  rpc EditNode (EditNodeRequest) returns (EditNodeResponse) {}
+  // Used to reach out to a new node and verify we're authorized when adding it.
+  rpc VerifyNode (VerifyNodeRequest) returns (VerifyNodeResponse) {}
+  rpc ListLocalSecretKeys (ListLocalSecretKeysRequest) returns (ListLocalSecretKeysResponse) {}
+  rpc CreateLocalSecretKey (CreateLocalSecretKeyRequest) returns (CreateLocalSecretKeyResponse) {}
+  rpc DeleteLocalSecretKey (DeleteLocalSecretKeyRequest) returns (DeleteLocalSecretKeyResponse) {}
 }
 
 message LoginRequest {
@@ -258,3 +270,72 @@ message QueryGameServerRequest {
 message QueryGameServerResponse {
   ServerQuery query_info = 1;
 }
+
+message GetNodeRequest {
+  string node_id = 1;
+}
+
+message GetNodeResponse {
+  Node node = 1;
+}
+
+message ListNodesRequest {}
+
+message ListNodesResponse {
+  repeated Node nodes = 1;
+}
+
+message AddNodeRequest {
+  Node node = 1;
+}
+
+message AddNodeResponse {
+  Node node = 1;
+}
+
+message RemoveNodeRequest {
+  string node_id = 1;
+}
+
+message RemoveNodeResponse {
+  Node node = 1;
+}
+
+message EditNodeRequest {
+  Node node = 1;
+}
+
+message EditNodeResponse {
+  Node node = 1;
+}
+
+message VerifyNodeRequest {
+  string secret_key = 1;
+}
+
+message VerifyNodeResponse {
+  Node node = 1;
+}
+
+message ListLocalSecretKeysRequest {
+}
+
+message ListLocalSecretKeysResponse {
+  repeated SecretKey secret_keys = 1;
+}
+
+message CreateLocalSecretKeyRequest {
+  string node_id = 1;
+  string name = 2;
+}
+
+message CreateLocalSecretKeyResponse {
+  int32 id = 1;
+  string secret_key = 2;
+}
+
+message DeleteLocalSecretKeyRequest {
+  int32 id = 1;
+}
+
+message DeleteLocalSecretKeyResponse {}

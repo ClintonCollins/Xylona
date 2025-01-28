@@ -71,7 +71,7 @@ type GamesQuery = *sqlite.ViewQuery[*Game, GameSlice]
 
 // gameR is where relationships are stored.
 type gameR struct {
-	GameServers GameServerSlice // fk_game_server_1
+	GameServers GameServerSlice // fk_game_server_2
 	Logs        LogSlice        // fk_log_1
 }
 

@@ -83,7 +83,7 @@ import { GetXylonaClient, WindowWidth, XylonaEventBus } from 'src/utils/shared'
 import { ListGameServersRequest, ListGameServersRequestSchema } from 'src/proto/xylona_pb'
 import DeleteGameServerDialog from 'src/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from 'src/components/StatusBadge.vue'
-import { GameServer, Status } from 'src/proto/shared_pb'
+import { GameServer, Node, Status } from 'src/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
 
 const gameServers = ref([] as GameServer[])
@@ -171,6 +171,14 @@ const columns = ref([
     required: true,
     align: 'left',
     field: (row: { status: any; }) => row.status,
+    sortable: true
+  },
+  {
+    name: 'node',
+    label: 'Node',
+    required: true,
+    align: 'left',
+    field: (row: { node: any; }) => row.nodeName,
     sortable: true
   },
   {

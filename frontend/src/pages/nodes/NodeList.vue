@@ -6,7 +6,7 @@
                     <div class="q-pa-md">
                         <q-table
                                 flat
-                                title="Games"
+                                title="Nodes"
                                 :rows="rows"
                                 :columns="columns"
                                 row-key="name"
@@ -17,11 +17,11 @@
                             <template v-slot:top>
                                 <div class="row col flex justify-between flex-center">
                                     <div class="col-12 col-md-6">
-                                        <span class="text-h6">Games</span>
+                                        <span class="text-h6">Nodes</span>
                                     </div>
                                     <div class="col-12 col-md-6">
                                         <div class="row flex q-gutter-xl justify-end">
-                                            <q-btn color="primary" to="/games/create" label="Add Game"/>
+                                            <q-btn color="primary" to="/nodes/add" label="Add Node"/>
                                             <q-input dense debounce="300" color="primary" v-model="search">
                                                 <template v-slot:append>
                                                     <q-icon name="search"/>
@@ -33,7 +33,7 @@
                             </template>
                             <template v-slot:body-cell-name="props">
                                 <q-td :props="props">
-                                    <router-link class="table-link" :to="'/games/'+props.row.id+'/edit'">{{ props.row.name }}
+                                    <router-link class="table-link" :to="'/nodes/'+props.row.id+'/edit'">{{ props.row.name }}
                                     </router-link>
                                 </q-td>
                             </template>
@@ -52,20 +52,15 @@
                             <template v-slot:body-cell-actions="props">
                                 <q-td :props="props">
                                     <div class="q-gutter-xs">
-                                        <router-link :to="'/games/' + props.row.id + '/edit'">
+                                        <router-link :to="'/nodes/' + props.row.id + '/edit'">
                                             <q-btn flat class="text-main-brighter" :icon="tabSettings">
-                                                <q-tooltip>Edit game</q-tooltip>
-                                            </q-btn>
-                                        </router-link>
-                                        <router-link :to="'/games/' + props.row.id + '/copy'">
-                                            <q-btn flat class="text-success-brighter" :icon="tabCopy">
-                                                <q-tooltip>Copy game</q-tooltip>
+                                                <q-tooltip>Edit node</q-tooltip>
                                             </q-btn>
                                         </router-link>
                                         <span>
                                             <q-btn flat class="text-error-brighter"
-                                                   :icon="tabTrash" @click="deleteGameAction(props.row)">
-                                                <q-tooltip>Delete game</q-tooltip>
+                                                   :icon="tabTrash" @click="deleteNodeAction(props.row)">
+                                                <q-tooltip>Delete node</q-tooltip>
                                             </q-btn>
                                         </span>
                                     </div>
@@ -75,7 +70,7 @@
                     </div>
                 </q-card-section>
             </q-card>
-            <GameDeleteDialog :game="selectedActionGame" v-model:showDialog="showGameDeleteDialog" @submit="deleteGameSubmitted"></GameDeleteDialog>
+            <NodeDeleteDialog :node="selectedActionNode" v-model:showDialog="showNodeDeleteDialog" @submit="deleteNodeSubmitted"></NodeDeleteDialog>
         </div>
     </q-page>
 </template>
@@ -83,42 +78,39 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { useStorage } from '@vueuse/core'
-import GameDeleteDialog from 'components/games/GameDeleteDialog.vue'
+import NodeDeleteDialog from 'components/nodes/NodeDeleteDialog.vue'
 import {
-  tabCopy,
   tabSettings,
-  tabTrash,
+  tabTrash, tabKey
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import { GetXylonaClient, WindowWidth } from 'src/utils/shared'
-import { useRouter } from 'vue-router'
-import { Game } from 'src/proto/shared_pb'
-import { ListGamesRequest, ListGamesRequestSchema, ListGamesResponse
-} from 'src/proto/xylona_pb'
+import { Node } from 'src/proto/shared_pb'
+import { ListNodesRequest, ListNodesRequestSchema, ListNodesResponse } from '../../proto/xylona_pb'
 
 const windowWidth = WindowWidth()
-const rows = ref([] as Game[])
+const rows = ref([] as Node[])
 const search: Ref<string> = ref('')
-const showGameDeleteDialog = ref(false)
-const selectedActionGame = ref<Game | null>(null)
+const showNodeDeleteDialog = ref(false)
+const selectedActionNode = ref<Node | null>(null)
 
 // Use VueUse to store the pagination state automatically.
-const initialPagination = useStorage('game-pagination', {
+const initialPagination = useStorage('node-pagination', {
   rowsPerPage: 25,
   page: 1
 })
 
 onMounted(async () => {
-  await getGames()
+  await getNodes()
 })
 
-async function getGames() {
-  const request: ListGamesRequest = create(ListGamesRequestSchema, {})
+async function getNodes() {
+  const request: ListNodesRequest = create(ListNodesRequestSchema, {})
   try {
-    const response: ListGamesResponse = await GetXylonaClient().listGames(request)
+    const response: ListNodesResponse = await GetXylonaClient().listNodes(request)
     rows.value = []
-    response.games.forEach((game) => {
-      rows.value.push(game)
+    response.nodes.forEach((node) => {
+      rows.value.push(node)
     })
   } catch (unknownError: unknown) {
     const err = unknownError as Error
@@ -126,14 +118,14 @@ async function getGames() {
   }
 }
 
-async function deleteGameAction(game: Game) {
-  selectedActionGame.value = game
-  showGameDeleteDialog.value = true
+async function deleteNodeAction(node: Node) {
+  selectedActionNode.value = node
+  showNodeDeleteDialog.value = true
 }
 
-async function deleteGameSubmitted(error: unknown | boolean) {
+async function deleteNodeSubmitted(error: unknown | boolean) {
   if (!error) {
-    void getGames()
+    void getNodes()
   }
 }
 
@@ -148,31 +140,32 @@ const columns = ref([
     sortable: true
   },
   {
-    name: 'default_port',
-    label: 'Default Port',
+    name: 'host',
+    label: 'Host',
     align: 'left',
-    field: (row: { defaultPort: any; }) => row.defaultPort,
+    field: (row: { host: any; }) => row.host,
     sortable: true
   },
   {
-    name: 'default_query_port',
-    label: 'Default Query Port',
+    name: 'port',
+    label: 'Port',
     align: 'left',
-    field: (row: { defaultQueryPort: any; }) => row.defaultQueryPort,
+    field: (row: { port: any; }) => row.port,
     sortable: true
   },
   {
-    name: 'windows_support',
-    label: 'Windows Support',
+    name: 'local',
+    label: 'Local',
     align: 'left',
-    field: (row: { windowsSupport: boolean; }) => row.windowsSupport,
+    field: (row: { local: boolean; }) => row.local,
     sortable: true
   },
   {
-    name: 'linux_support',
-    label: 'Linux Support',
+    name: 'node_id',
+    label: 'ID',
+    required: true,
     align: 'left',
-    field: (row: { windowsSupport: boolean; }) => row.windowsSupport,
+    field: (row: { id: any; }) => row.id,
     sortable: true
   },
   {

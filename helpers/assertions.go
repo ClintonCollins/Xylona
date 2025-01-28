@@ -3,7 +3,9 @@ package helpers
 import (
 	"time"
 
+	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -47,6 +49,7 @@ func GameServerProtoToModel(gsProto *xylona.GameServer) *models.GameServer {
 		SteamGameServerLoginToken: gsProto.SteamGameServerLoginToken,
 		BackupDirectory:           gsProto.BackupDirectory,
 		MaxBackups:                gsProto.MaxBackups,
+		NodeID:                    gsProto.NodeId,
 		CreatedAt:                 gsProto.CreatedAt.AsTime(),
 		UpdatedAt:                 gsProto.UpdatedAt.AsTime(),
 	}
@@ -60,6 +63,10 @@ func GameServerModelToProto(gsModel *models.GameServer) *xylona.GameServer {
 	userName := ""
 	if gsModel.R.User != nil {
 		userName = gsModel.R.User.UserName
+	}
+	if gsModel.R.Node == nil {
+		log.Debug().Msgf("Node is nil for GameServer %s", gsModel.ID)
+		gsModel.R.Node = &models.Node{}
 	}
 	return &xylona.GameServer{
 		Id:                        gsModel.ID,
@@ -84,6 +91,10 @@ func GameServerModelToProto(gsModel *models.GameServer) *xylona.GameServer {
 		SteamGameServerLoginToken: gsModel.SteamGameServerLoginToken,
 		UserName:                  userName,
 		GameName:                  gameName,
+		NodeId:                    gsModel.NodeID,
+		NodeName:                  gsModel.R.Node.Name,
+		NodeHost:                  gsModel.R.Node.Host,
+		NodePort:                  int64(gsModel.R.Node.Port),
 	}
 }
 
@@ -107,6 +118,7 @@ func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSette
 		SteamGameServerLoginToken: omit.From(gsModel.SteamGameServerLoginToken),
 		BackupDirectory:           omit.From(gsModel.BackupDirectory),
 		MaxBackups:                omit.From(gsModel.MaxBackups),
+		NodeID:                    omit.From(gsModel.NodeID),
 		CreatedAt:                 omit.From(gsModel.CreatedAt),
 		UpdatedAt:                 omit.From(gsModel.UpdatedAt),
 	}
@@ -276,5 +288,34 @@ func commandProcessorToCommandType(commandProcessor xylona.CommandProcessor) str
 		return "internal"
 	default:
 		return "direct"
+	}
+}
+
+func NodeProtoToModel(nodeProto *xylona.Node) *models.Node {
+	return &models.Node{
+		ID:        nodeProto.Id,
+		Name:      nodeProto.Name,
+		Host:      nodeProto.Host,
+		Port:      int32(nodeProto.Port),
+		SecretKey: null.From(nodeProto.SecretKey),
+	}
+}
+
+func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
+	return &xylona.Node{
+		Id:    nodeModel.ID,
+		Name:  nodeModel.Name,
+		Host:  nodeModel.Host,
+		Port:  int64(nodeModel.Port),
+		Local: nodeModel.IsLocal,
+	}
+}
+
+func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
+	return &models.NodeSetter{
+		ID:   omit.From(nodeModel.ID),
+		Name: omit.From(nodeModel.Name),
+		Host: omit.From(nodeModel.Host),
+		Port: omit.From(nodeModel.Port),
 	}
 }

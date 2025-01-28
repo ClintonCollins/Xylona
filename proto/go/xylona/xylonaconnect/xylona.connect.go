@@ -125,6 +125,27 @@ const (
 	// XylonaGameServersFileOrDirectoryCreateProcedure is the fully-qualified name of the Xylona's
 	// GameServersFileOrDirectoryCreate RPC.
 	XylonaGameServersFileOrDirectoryCreateProcedure = "/xylona.Xylona/GameServersFileOrDirectoryCreate"
+	// XylonaGetNodeProcedure is the fully-qualified name of the Xylona's GetNode RPC.
+	XylonaGetNodeProcedure = "/xylona.Xylona/GetNode"
+	// XylonaListNodesProcedure is the fully-qualified name of the Xylona's ListNodes RPC.
+	XylonaListNodesProcedure = "/xylona.Xylona/ListNodes"
+	// XylonaAddNodeProcedure is the fully-qualified name of the Xylona's AddNode RPC.
+	XylonaAddNodeProcedure = "/xylona.Xylona/AddNode"
+	// XylonaRemoveNodeProcedure is the fully-qualified name of the Xylona's RemoveNode RPC.
+	XylonaRemoveNodeProcedure = "/xylona.Xylona/RemoveNode"
+	// XylonaEditNodeProcedure is the fully-qualified name of the Xylona's EditNode RPC.
+	XylonaEditNodeProcedure = "/xylona.Xylona/EditNode"
+	// XylonaVerifyNodeProcedure is the fully-qualified name of the Xylona's VerifyNode RPC.
+	XylonaVerifyNodeProcedure = "/xylona.Xylona/VerifyNode"
+	// XylonaListLocalSecretKeysProcedure is the fully-qualified name of the Xylona's
+	// ListLocalSecretKeys RPC.
+	XylonaListLocalSecretKeysProcedure = "/xylona.Xylona/ListLocalSecretKeys"
+	// XylonaCreateLocalSecretKeyProcedure is the fully-qualified name of the Xylona's
+	// CreateLocalSecretKey RPC.
+	XylonaCreateLocalSecretKeyProcedure = "/xylona.Xylona/CreateLocalSecretKey"
+	// XylonaDeleteLocalSecretKeyProcedure is the fully-qualified name of the Xylona's
+	// DeleteLocalSecretKey RPC.
+	XylonaDeleteLocalSecretKeyProcedure = "/xylona.Xylona/DeleteLocalSecretKey"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
@@ -175,6 +196,17 @@ type XylonaClient interface {
 	GameServerFilesMove(context.Context, *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error)
 	GameServersFileEdit(context.Context, *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error)
 	GameServersFileOrDirectoryCreate(context.Context, *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error)
+	// Nodes
+	GetNode(context.Context, *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error)
+	ListNodes(context.Context, *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error)
+	AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error)
+	RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error)
+	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
+	// Used to reach out to a new node and verify we're authorized when adding it.
+	VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error)
+	ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error)
+	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
+	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -422,6 +454,60 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("GameServersFileOrDirectoryCreate")),
 			connect.WithClientOptions(opts...),
 		),
+		getNode: connect.NewClient[xylona.GetNodeRequest, xylona.GetNodeResponse](
+			httpClient,
+			baseURL+XylonaGetNodeProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetNode")),
+			connect.WithClientOptions(opts...),
+		),
+		listNodes: connect.NewClient[xylona.ListNodesRequest, xylona.ListNodesResponse](
+			httpClient,
+			baseURL+XylonaListNodesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListNodes")),
+			connect.WithClientOptions(opts...),
+		),
+		addNode: connect.NewClient[xylona.AddNodeRequest, xylona.AddNodeResponse](
+			httpClient,
+			baseURL+XylonaAddNodeProcedure,
+			connect.WithSchema(xylonaMethods.ByName("AddNode")),
+			connect.WithClientOptions(opts...),
+		),
+		removeNode: connect.NewClient[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse](
+			httpClient,
+			baseURL+XylonaRemoveNodeProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RemoveNode")),
+			connect.WithClientOptions(opts...),
+		),
+		editNode: connect.NewClient[xylona.EditNodeRequest, xylona.EditNodeResponse](
+			httpClient,
+			baseURL+XylonaEditNodeProcedure,
+			connect.WithSchema(xylonaMethods.ByName("EditNode")),
+			connect.WithClientOptions(opts...),
+		),
+		verifyNode: connect.NewClient[xylona.VerifyNodeRequest, xylona.VerifyNodeResponse](
+			httpClient,
+			baseURL+XylonaVerifyNodeProcedure,
+			connect.WithSchema(xylonaMethods.ByName("VerifyNode")),
+			connect.WithClientOptions(opts...),
+		),
+		listLocalSecretKeys: connect.NewClient[xylona.ListLocalSecretKeysRequest, xylona.ListLocalSecretKeysResponse](
+			httpClient,
+			baseURL+XylonaListLocalSecretKeysProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListLocalSecretKeys")),
+			connect.WithClientOptions(opts...),
+		),
+		createLocalSecretKey: connect.NewClient[xylona.CreateLocalSecretKeyRequest, xylona.CreateLocalSecretKeyResponse](
+			httpClient,
+			baseURL+XylonaCreateLocalSecretKeyProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CreateLocalSecretKey")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteLocalSecretKey: connect.NewClient[xylona.DeleteLocalSecretKeyRequest, xylona.DeleteLocalSecretKeyResponse](
+			httpClient,
+			baseURL+XylonaDeleteLocalSecretKeyProcedure,
+			connect.WithSchema(xylonaMethods.ByName("DeleteLocalSecretKey")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -466,6 +552,15 @@ type xylonaClient struct {
 	gameServerFilesMove              *connect.Client[xylona.GameServerFilesMoveRequest, xylona.GameServerFilesMoveResponse]
 	gameServersFileEdit              *connect.Client[xylona.GameServersFileEditRequest, xylona.GameServersFileEditResponse]
 	gameServersFileOrDirectoryCreate *connect.Client[xylona.GameServerFileOrDirectoryCreateRequest, xylona.GameServerFileOrDirectoryCreateResponse]
+	getNode                          *connect.Client[xylona.GetNodeRequest, xylona.GetNodeResponse]
+	listNodes                        *connect.Client[xylona.ListNodesRequest, xylona.ListNodesResponse]
+	addNode                          *connect.Client[xylona.AddNodeRequest, xylona.AddNodeResponse]
+	removeNode                       *connect.Client[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse]
+	editNode                         *connect.Client[xylona.EditNodeRequest, xylona.EditNodeResponse]
+	verifyNode                       *connect.Client[xylona.VerifyNodeRequest, xylona.VerifyNodeResponse]
+	listLocalSecretKeys              *connect.Client[xylona.ListLocalSecretKeysRequest, xylona.ListLocalSecretKeysResponse]
+	createLocalSecretKey             *connect.Client[xylona.CreateLocalSecretKeyRequest, xylona.CreateLocalSecretKeyResponse]
+	deleteLocalSecretKey             *connect.Client[xylona.DeleteLocalSecretKeyRequest, xylona.DeleteLocalSecretKeyResponse]
 }
 
 // AddGame calls xylona.Xylona.AddGame.
@@ -663,6 +758,51 @@ func (c *xylonaClient) GameServersFileOrDirectoryCreate(ctx context.Context, req
 	return c.gameServersFileOrDirectoryCreate.CallUnary(ctx, req)
 }
 
+// GetNode calls xylona.Xylona.GetNode.
+func (c *xylonaClient) GetNode(ctx context.Context, req *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
+	return c.getNode.CallUnary(ctx, req)
+}
+
+// ListNodes calls xylona.Xylona.ListNodes.
+func (c *xylonaClient) ListNodes(ctx context.Context, req *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
+	return c.listNodes.CallUnary(ctx, req)
+}
+
+// AddNode calls xylona.Xylona.AddNode.
+func (c *xylonaClient) AddNode(ctx context.Context, req *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
+	return c.addNode.CallUnary(ctx, req)
+}
+
+// RemoveNode calls xylona.Xylona.RemoveNode.
+func (c *xylonaClient) RemoveNode(ctx context.Context, req *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
+	return c.removeNode.CallUnary(ctx, req)
+}
+
+// EditNode calls xylona.Xylona.EditNode.
+func (c *xylonaClient) EditNode(ctx context.Context, req *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
+	return c.editNode.CallUnary(ctx, req)
+}
+
+// VerifyNode calls xylona.Xylona.VerifyNode.
+func (c *xylonaClient) VerifyNode(ctx context.Context, req *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {
+	return c.verifyNode.CallUnary(ctx, req)
+}
+
+// ListLocalSecretKeys calls xylona.Xylona.ListLocalSecretKeys.
+func (c *xylonaClient) ListLocalSecretKeys(ctx context.Context, req *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
+	return c.listLocalSecretKeys.CallUnary(ctx, req)
+}
+
+// CreateLocalSecretKey calls xylona.Xylona.CreateLocalSecretKey.
+func (c *xylonaClient) CreateLocalSecretKey(ctx context.Context, req *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
+	return c.createLocalSecretKey.CallUnary(ctx, req)
+}
+
+// DeleteLocalSecretKey calls xylona.Xylona.DeleteLocalSecretKey.
+func (c *xylonaClient) DeleteLocalSecretKey(ctx context.Context, req *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error) {
+	return c.deleteLocalSecretKey.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// Game Operations
@@ -711,6 +851,17 @@ type XylonaHandler interface {
 	GameServerFilesMove(context.Context, *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error)
 	GameServersFileEdit(context.Context, *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error)
 	GameServersFileOrDirectoryCreate(context.Context, *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error)
+	// Nodes
+	GetNode(context.Context, *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error)
+	ListNodes(context.Context, *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error)
+	AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error)
+	RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error)
+	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
+	// Used to reach out to a new node and verify we're authorized when adding it.
+	VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error)
+	ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error)
+	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
+	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -954,6 +1105,60 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("GameServersFileOrDirectoryCreate")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetNodeHandler := connect.NewUnaryHandler(
+		XylonaGetNodeProcedure,
+		svc.GetNode,
+		connect.WithSchema(xylonaMethods.ByName("GetNode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListNodesHandler := connect.NewUnaryHandler(
+		XylonaListNodesProcedure,
+		svc.ListNodes,
+		connect.WithSchema(xylonaMethods.ByName("ListNodes")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaAddNodeHandler := connect.NewUnaryHandler(
+		XylonaAddNodeProcedure,
+		svc.AddNode,
+		connect.WithSchema(xylonaMethods.ByName("AddNode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRemoveNodeHandler := connect.NewUnaryHandler(
+		XylonaRemoveNodeProcedure,
+		svc.RemoveNode,
+		connect.WithSchema(xylonaMethods.ByName("RemoveNode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaEditNodeHandler := connect.NewUnaryHandler(
+		XylonaEditNodeProcedure,
+		svc.EditNode,
+		connect.WithSchema(xylonaMethods.ByName("EditNode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaVerifyNodeHandler := connect.NewUnaryHandler(
+		XylonaVerifyNodeProcedure,
+		svc.VerifyNode,
+		connect.WithSchema(xylonaMethods.ByName("VerifyNode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListLocalSecretKeysHandler := connect.NewUnaryHandler(
+		XylonaListLocalSecretKeysProcedure,
+		svc.ListLocalSecretKeys,
+		connect.WithSchema(xylonaMethods.ByName("ListLocalSecretKeys")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaCreateLocalSecretKeyHandler := connect.NewUnaryHandler(
+		XylonaCreateLocalSecretKeyProcedure,
+		svc.CreateLocalSecretKey,
+		connect.WithSchema(xylonaMethods.ByName("CreateLocalSecretKey")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaDeleteLocalSecretKeyHandler := connect.NewUnaryHandler(
+		XylonaDeleteLocalSecretKeyProcedure,
+		svc.DeleteLocalSecretKey,
+		connect.WithSchema(xylonaMethods.ByName("DeleteLocalSecretKey")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaAddGameProcedure:
@@ -1034,6 +1239,24 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGameServersFileEditHandler.ServeHTTP(w, r)
 		case XylonaGameServersFileOrDirectoryCreateProcedure:
 			xylonaGameServersFileOrDirectoryCreateHandler.ServeHTTP(w, r)
+		case XylonaGetNodeProcedure:
+			xylonaGetNodeHandler.ServeHTTP(w, r)
+		case XylonaListNodesProcedure:
+			xylonaListNodesHandler.ServeHTTP(w, r)
+		case XylonaAddNodeProcedure:
+			xylonaAddNodeHandler.ServeHTTP(w, r)
+		case XylonaRemoveNodeProcedure:
+			xylonaRemoveNodeHandler.ServeHTTP(w, r)
+		case XylonaEditNodeProcedure:
+			xylonaEditNodeHandler.ServeHTTP(w, r)
+		case XylonaVerifyNodeProcedure:
+			xylonaVerifyNodeHandler.ServeHTTP(w, r)
+		case XylonaListLocalSecretKeysProcedure:
+			xylonaListLocalSecretKeysHandler.ServeHTTP(w, r)
+		case XylonaCreateLocalSecretKeyProcedure:
+			xylonaCreateLocalSecretKeyHandler.ServeHTTP(w, r)
+		case XylonaDeleteLocalSecretKeyProcedure:
+			xylonaDeleteLocalSecretKeyHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1197,4 +1420,40 @@ func (UnimplementedXylonaHandler) GameServersFileEdit(context.Context, *connect.
 
 func (UnimplementedXylonaHandler) GameServersFileOrDirectoryCreate(context.Context, *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GameServersFileOrDirectoryCreate is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetNode(context.Context, *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListNodes(context.Context, *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListNodes is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.AddNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RemoveNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.EditNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.VerifyNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListLocalSecretKeys is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CreateLocalSecretKey is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteLocalSecretKey is not implemented"))
 }

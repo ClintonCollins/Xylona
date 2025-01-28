@@ -51,7 +51,7 @@ type UsersQuery = *sqlite.ViewQuery[*User, UserSlice]
 
 // userR is where relationships are stored.
 type userR struct {
-	GameServers  GameServerSlice  // fk_game_server_2
+	GameServers  GameServerSlice  // fk_game_server_3
 	Logs         LogSlice         // fk_log_2
 	UserAPIKeys  UserAPIKeySlice  // fk_user_api_key_0
 	UserSessions UserSessionSlice // fk_user_session_0

@@ -77,7 +77,23 @@ const routes: RouteRecordRaw[] = [
             component: () => import('pages/game_servers/GameServerView.vue')
           },
         ]
-      }
+      },
+      {
+        path: '/nodes',
+        component: () => import('pages/nodes/NodeList.vue')
+      },
+      {
+        path: '/nodes/add',
+        component: () => import('pages/nodes/NodeAdd.vue')
+      },
+      {
+        path: '/nodes/:id/edit',
+        component: () => import('pages/nodes/NodeEdit.vue')
+      },
+      {
+        path: '/secret-keys',
+        component: () => import('pages/other/LocalSecretKeyList.vue')
+      },
     ]
   },
   // Admin routes

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/ClintonCollins/Xylona/api/pkg/query"
+	"github.com/ClintonCollins/Xylona/pkg/query"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/rs/zerolog/log"

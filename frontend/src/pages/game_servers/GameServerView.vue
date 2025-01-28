@@ -172,7 +172,6 @@ async function queryGameServer() {
   try {
     request.serverId = gameServerId.value
     const resp: QueryGameServerResponse = await GetXylonaClient().queryGameServer(request)
-    console.log(resp)
     switch (resp.queryInfo?.type) {
       case ServerQuery_Type.Minecraft:
         currentPlayerCount.value = resp.queryInfo.minecraft.numberOfPlayers

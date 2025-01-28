@@ -51,7 +51,7 @@
 import {useUserAuthStore} from "src/stores/xylona";
 import {User} from "src/proto/xylona_pb";
 import {ref, Ref} from "vue";
-import {ionGameController, ionPersonAdd, ionHome} from "@quasar/extras/ionicons-v7";
+import { ionGameController, ionPersonAdd, ionHome, ionServer, ionKey } from '@quasar/extras/ionicons-v7'
 import { laServerSolid} from "@quasar/extras/line-awesome";
 import {useRoute} from "vue-router";
 
@@ -97,6 +97,22 @@ const navLinks: Ref<NavItem[]> = ref([
     title: 'Games',
     icon: ionGameController,
     link: '/games',
+    expanded: true,
+    exact: false,
+    groupItems: []
+  },
+  {
+    title: 'Nodes',
+    icon: ionServer,
+    link: '/nodes',
+    expanded: true,
+    exact: false,
+    groupItems: []
+  },
+  {
+    title: 'Secret Keys',
+    icon: ionKey,
+    link: '/secret-keys',
     expanded: true,
     exact: false,
     groupItems: []

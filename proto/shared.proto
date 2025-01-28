@@ -125,12 +125,17 @@ message GameServer {
   repeated GameServerPlayer current_players = 28;
   SteamBranch steam_branch = 29;
   string branch = 30;
+  string node_id = 31;
+  string node_name = 32;
+  string node_host = 33;
+  int64 node_port = 34;
 }
 
 message IP {
   string address = 1;
   bool usable = 2;
   bool external = 3;
+  string node_id = 4;
 }
 
 message StartGameServerRequest {
@@ -228,4 +233,21 @@ message SourceQueryInfo {
   bool vac = 12;
   string version = 13;
   uint32 protocol = 14;
+}
+
+message Node {
+  string id = 1;
+  string name = 2;
+  string host = 3;
+  int64 port = 5;
+  bool local = 6;
+  string secret_key = 7;
+}
+
+message SecretKey {
+  int32 id = 1;
+  string name = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp last_used = 4;
+  string last_accessed_from = 5;
 }

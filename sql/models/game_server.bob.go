@@ -48,6 +48,7 @@ type GameServer struct {
 	Branch                    string    `db:"branch" `
 	CreatedAt                 time.Time `db:"created_at" `
 	UpdatedAt                 time.Time `db:"updated_at" `
+	NodeID                    string    `db:"node_id" `
 
 	R gameServerR `db:"-" `
 }
@@ -64,9 +65,10 @@ type GameServersQuery = *sqlite.ViewQuery[*GameServer, GameServerSlice]
 
 // gameServerR is where relationships are stored.
 type gameServerR struct {
-	IP   *IP      // fk_game_server_0
-	Game *Game    // fk_game_server_1
-	User *User    // fk_game_server_2
+	Node *Node    // fk_game_server_0
+	IP   *IP      // fk_game_server_1
+	Game *Game    // fk_game_server_2
+	User *User    // fk_game_server_3
 	Logs LogSlice // fk_log_0
 }
 
@@ -93,6 +95,7 @@ type gameServerColumnNames struct {
 	Branch                    string
 	CreatedAt                 string
 	UpdatedAt                 string
+	NodeID                    string
 }
 
 var GameServerColumns = buildGameServerColumns("game_server")
@@ -121,6 +124,7 @@ type gameServerColumns struct {
 	Branch                    sqlite.Expression
 	CreatedAt                 sqlite.Expression
 	UpdatedAt                 sqlite.Expression
+	NodeID                    sqlite.Expression
 }
 
 func (c gameServerColumns) Alias() string {
@@ -156,6 +160,7 @@ func buildGameServerColumns(alias string) gameServerColumns {
 		Branch:                    sqlite.Quote(alias, "branch"),
 		CreatedAt:                 sqlite.Quote(alias, "created_at"),
 		UpdatedAt:                 sqlite.Quote(alias, "updated_at"),
+		NodeID:                    sqlite.Quote(alias, "node_id"),
 	}
 }
 
@@ -182,6 +187,7 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	Branch                    sqlite.WhereMod[Q, string]
 	CreatedAt                 sqlite.WhereMod[Q, time.Time]
 	UpdatedAt                 sqlite.WhereMod[Q, time.Time]
+	NodeID                    sqlite.WhereMod[Q, string]
 }
 
 func (gameServerWhere[Q]) AliasedAs(alias string) gameServerWhere[Q] {
@@ -212,6 +218,7 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		Branch:                    sqlite.Where[Q, string](cols.Branch),
 		CreatedAt:                 sqlite.Where[Q, time.Time](cols.CreatedAt),
 		UpdatedAt:                 sqlite.Where[Q, time.Time](cols.UpdatedAt),
+		NodeID:                    sqlite.Where[Q, string](cols.NodeID),
 	}
 }
 
@@ -241,10 +248,11 @@ type GameServerSetter struct {
 	Branch                    omit.Val[string]    `db:"branch" `
 	CreatedAt                 omit.Val[time.Time] `db:"created_at" `
 	UpdatedAt                 omit.Val[time.Time] `db:"updated_at" `
+	NodeID                    omit.Val[string]    `db:"node_id" `
 }
 
 func (s GameServerSetter) SetColumns() []string {
-	vals := make([]string, 0, 22)
+	vals := make([]string, 0, 23)
 	if !s.ID.IsUnset() {
 		vals = append(vals, "id")
 	}
@@ -333,6 +341,10 @@ func (s GameServerSetter) SetColumns() []string {
 		vals = append(vals, "updated_at")
 	}
 
+	if !s.NodeID.IsUnset() {
+		vals = append(vals, "node_id")
+	}
+
 	return vals
 }
 
@@ -403,6 +415,9 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	if !s.UpdatedAt.IsUnset() {
 		t.UpdatedAt, _ = s.UpdatedAt.Get()
 	}
+	if !s.NodeID.IsUnset() {
+		t.NodeID, _ = s.NodeID.Get()
+	}
 }
 
 func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
@@ -415,7 +430,7 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.Writer, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 22)
+		vals := make([]bob.Expression, 0, 23)
 		if !s.ID.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.ID))
 		}
@@ -504,6 +519,10 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.UpdatedAt))
 		}
 
+		if !s.NodeID.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.NodeID))
+		}
+
 		return bob.ExpressSlice(ctx, w, d, start, vals, "", ", ", "")
 	}))
 }
@@ -513,7 +532,7 @@ func (s GameServerSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 22)
+	exprs := make([]bob.Expression, 0, 23)
 
 	if !s.ID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -666,6 +685,13 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "updated_at")...),
 			sqlite.Arg(s.UpdatedAt),
+		}})
+	}
+
+	if !s.NodeID.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "node_id")...),
+			sqlite.Arg(s.NodeID),
 		}})
 	}
 
@@ -897,6 +923,7 @@ func (o GameServerSlice) ReloadAll(ctx context.Context, exec bob.Executor) error
 
 type gameServerJoins[Q dialect.Joinable] struct {
 	typ  string
+	Node func(context.Context) modAs[Q, nodeColumns]
 	IP   func(context.Context) modAs[Q, ipColumns]
 	Game func(context.Context) modAs[Q, gameColumns]
 	User func(context.Context) modAs[Q, userColumns]
@@ -910,10 +937,30 @@ func (j gameServerJoins[Q]) aliasedAs(alias string) gameServerJoins[Q] {
 func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string) gameServerJoins[Q] {
 	return gameServerJoins[Q]{
 		typ:  typ,
+		Node: gameServersJoinNode[Q](cols, typ),
 		IP:   gameServersJoinIP[Q](cols, typ),
 		Game: gameServersJoinGame[Q](cols, typ),
 		User: gameServersJoinUser[Q](cols, typ),
 		Logs: gameServersJoinLogs[Q](cols, typ),
+	}
+}
+
+func gameServersJoinNode[Q dialect.Joinable](from gameServerColumns, typ string) func(context.Context) modAs[Q, nodeColumns] {
+	return func(ctx context.Context) modAs[Q, nodeColumns] {
+		return modAs[Q, nodeColumns]{
+			c: NodeColumns,
+			f: func(to nodeColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, Nodes.Name().As(to.Alias())).On(
+						to.ID.EQ(from.NodeID),
+					))
+				}
+
+				return mods
+			},
+		}
 	}
 }
 
@@ -991,6 +1038,24 @@ func gameServersJoinLogs[Q dialect.Joinable](from gameServerColumns, typ string)
 			},
 		}
 	}
+}
+
+// Node starts a query for related objects on node
+func (o *GameServer) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
+	return Nodes.Query(append(mods,
+		sm.Where(NodeColumns.ID.EQ(sqlite.Arg(o.NodeID))),
+	)...)
+}
+
+func (os GameServerSlice) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.NodeID)
+	}
+
+	return Nodes.Query(append(mods,
+		sm.Where(sqlite.Group(NodeColumns.ID).In(PKArgs...)),
+	)...)
 }
 
 // IP starts a query for related objects on ip
@@ -1071,6 +1136,18 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
+	case "Node":
+		rel, ok := retrieved.(*Node)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.Node = rel
+
+		if rel != nil {
+			rel.R.GameServers = GameServerSlice{o}
+		}
+		return nil
 	case "IP":
 		rel, ok := retrieved.(*IP)
 		if !ok {
@@ -1124,6 +1201,91 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 	default:
 		return fmt.Errorf("gameServer has no relationship %q", name)
 	}
+}
+
+func PreloadGameServerNode(opts ...sqlite.PreloadOption) sqlite.Preloader {
+	return sqlite.Preload[*Node, NodeSlice](orm.Relationship{
+		Name: "Node",
+		Sides: []orm.RelSide{
+			{
+				From: TableNames.GameServers,
+				To:   TableNames.Nodes,
+				FromColumns: []string{
+					ColumnNames.GameServers.NodeID,
+				},
+				ToColumns: []string{
+					ColumnNames.Nodes.ID,
+				},
+			},
+		},
+	}, Nodes.Columns().Names(), opts...)
+}
+
+func ThenLoadGameServerNode(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadGameServerNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load GameServerNode", retrieved)
+		}
+
+		err := loader.LoadGameServerNode(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadGameServerNode loads the gameServer's Node into the .R struct
+func (o *GameServer) LoadGameServerNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.Node = nil
+
+	related, err := o.Node(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.GameServers = GameServerSlice{o}
+
+	o.R.Node = related
+	return nil
+}
+
+// LoadGameServerNode loads the gameServer's Node into the .R struct
+func (os GameServerSlice) LoadGameServerNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	nodes, err := os.Node(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		for _, rel := range nodes {
+			if o.NodeID != rel.ID {
+				continue
+			}
+
+			rel.R.GameServers = append(rel.R.GameServers, o)
+
+			o.R.Node = rel
+			break
+		}
+	}
+
+	return nil
 }
 
 func PreloadGameServerIP(opts ...sqlite.PreloadOption) sqlite.Preloader {
@@ -1449,6 +1611,52 @@ func (os GameServerSlice) LoadGameServerLogs(ctx context.Context, exec bob.Execu
 			o.R.Logs = append(o.R.Logs, rel)
 		}
 	}
+
+	return nil
+}
+
+func attachGameServerNode0(ctx context.Context, exec bob.Executor, count int, gameServer0 *GameServer, node1 *Node) (*GameServer, error) {
+	setter := &GameServerSetter{
+		NodeID: omit.From(node1.ID),
+	}
+
+	err := gameServer0.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerNode0: %w", err)
+	}
+
+	return gameServer0, nil
+}
+
+func (gameServer0 *GameServer) InsertNode(ctx context.Context, exec bob.Executor, related *NodeSetter) error {
+	node1, err := Nodes.Insert(related).One(ctx, exec)
+	if err != nil {
+		return fmt.Errorf("inserting related objects: %w", err)
+	}
+
+	_, err = attachGameServerNode0(ctx, exec, 1, gameServer0, node1)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.Node = node1
+
+	node1.R.GameServers = append(node1.R.GameServers, gameServer0)
+
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachNode(ctx context.Context, exec bob.Executor, node1 *Node) error {
+	var err error
+
+	_, err = attachGameServerNode0(ctx, exec, 1, gameServer0, node1)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.Node = node1
+
+	node1.R.GameServers = append(node1.R.GameServers, gameServer0)
 
 	return nil
 }

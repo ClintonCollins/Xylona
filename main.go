@@ -214,6 +214,18 @@ func main() {
 		log.Info().Msgf("Generated ID for this node: %s", settings.NodeID)
 	}
 
+	// Update node ID in the database to be a real and unique ID.
+	node, errGetNode := dbInst.GetNodeByID("1")
+	if errGetNode != nil && !errors.Is(errGetNode, sql.ErrNoRows) {
+		log.Fatal().Err(errGetNode).Msg("Failed to get node")
+	}
+	if node != nil {
+		_, errExec := dbInst.SQLDb.Exec(`update node set id = ? where id = 1`, settings.NodeID)
+		if errExec != nil {
+			log.Fatal().Err(errExec).Msg("Failed to update node ID")
+		}
+	}
+
 	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
 	setDetectedIPs(dbInst)
 
@@ -275,25 +287,6 @@ func main() {
 			return
 		}
 	})
-
-	//go func() {
-	//	//query.Test("209.236.122.42", 25565)
-	//	info, errInfo := query.Minecraft("games.clinton.dev", 25565)
-	//	if errInfo != nil {
-	//		log.Error().Err(errInfo).Msg("Failed to get Minecraft info")
-	//	} else {
-	//		log.Info().Interface("info", info).Msg("Minecraft server info")
-	//	}
-	//}()
-	//
-	//go func() {
-	//	info, errInfo := query.Source("74.91.124.21", 27015)
-	//	if errInfo != nil {
-	//		log.Error().Err(errInfo).Msg("Failed to get Source info")
-	//	} else {
-	//		log.Info().Interface("info", info).Msg("Source server info")
-	//	}
-	//}()
 
 	router.Post("/api/file/get", actionsInst.StreamFileToUser)
 	router.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)

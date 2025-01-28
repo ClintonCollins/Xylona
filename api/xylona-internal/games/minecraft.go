@@ -7,8 +7,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/api/pkg/minecraft"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/minecraft"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 

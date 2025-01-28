@@ -2,7 +2,7 @@
     <q-card class="full-width">
         <q-card-section>
             <div class="row">
-                <div class="text-h6">Create Game Server</div>
+                <div class="text-h6" v-text="existingGameServerId ? 'Edit Game Server' : 'Create Game Server'"></div>
             </div>
         </q-card-section>
         <q-card-section>

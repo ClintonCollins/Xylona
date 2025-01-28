@@ -38,8 +38,7 @@ create table node
     secret_key text,
     is_local   boolean          not null default false,
     host       text             not null,
-    rpc_port   integer          not null,
-    web_port   integer          not null
+    port       integer          not null
 );
 
 create table node_sync_queue

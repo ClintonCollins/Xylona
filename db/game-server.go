@@ -12,6 +12,7 @@ func (c *Connection) GetAllGameServers() ([]*models.GameServer, error) {
 		models.PreloadGameServerIP(),
 		models.PreloadGameServerGame(),
 		models.PreloadGameServerUser(),
+		models.PreloadGameServerNode(),
 	).All(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
@@ -25,6 +26,7 @@ func (c *Connection) GetGameServersByUser(userID string) ([]*models.GameServer, 
 		models.PreloadGameServerIP(),
 		models.PreloadGameServerGame(),
 		models.PreloadGameServerUser(),
+		models.PreloadGameServerNode(),
 	).All(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
@@ -38,6 +40,7 @@ func (c *Connection) GetGameServerByID(gameServerID string) (*models.GameServer,
 		models.PreloadGameServerIP(),
 		models.PreloadGameServerGame(),
 		models.PreloadGameServerUser(),
+		models.PreloadGameServerNode(),
 	).One(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
@@ -77,6 +80,7 @@ func (c *Connection) GetGameServersByGameID(gameID string) ([]*models.GameServer
 		models.PreloadGameServerIP(),
 		models.PreloadGameServerGame(),
 		models.PreloadGameServerUser(),
+		models.PreloadGameServerNode(),
 	).All(c.ctx, c.DB)
 	if err != nil {
 		return nil, err

@@ -8,7 +8,9 @@ import (
 	"io"
 	"time"
 
+	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
 	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/sqlite"
 	"github.com/stephenafamo/bob/dialect/sqlite/dialect"
@@ -20,11 +22,12 @@ import (
 
 // LocalSecretKey is an object representing the database table.
 type LocalSecretKey struct {
-	ID               int32     `db:"id,pk" `
-	SecretKeyHash    string    `db:"secret_key_hash" `
-	LastAccessedFrom string    `db:"last_accessed_from" `
-	LastUsedAt       time.Time `db:"last_used_at" `
-	CreatedAt        time.Time `db:"created_at" `
+	ID               int32               `db:"id,pk" `
+	Name             string              `db:"name" `
+	SecretKeyHash    string              `db:"secret_key_hash" `
+	LastAccessedFrom null.Val[string]    `db:"last_accessed_from" `
+	LastUsedAt       null.Val[time.Time] `db:"last_used_at" `
+	CreatedAt        time.Time           `db:"created_at" `
 }
 
 // LocalSecretKeySlice is an alias for a slice of pointers to LocalSecretKey.
@@ -39,6 +42,7 @@ type LocalSecretKeysQuery = *sqlite.ViewQuery[*LocalSecretKey, LocalSecretKeySli
 
 type localSecretKeyColumnNames struct {
 	ID               string
+	Name             string
 	SecretKeyHash    string
 	LastAccessedFrom string
 	LastUsedAt       string
@@ -50,6 +54,7 @@ var LocalSecretKeyColumns = buildLocalSecretKeyColumns("local_secret_keys")
 type localSecretKeyColumns struct {
 	tableAlias       string
 	ID               sqlite.Expression
+	Name             sqlite.Expression
 	SecretKeyHash    sqlite.Expression
 	LastAccessedFrom sqlite.Expression
 	LastUsedAt       sqlite.Expression
@@ -68,6 +73,7 @@ func buildLocalSecretKeyColumns(alias string) localSecretKeyColumns {
 	return localSecretKeyColumns{
 		tableAlias:       alias,
 		ID:               sqlite.Quote(alias, "id"),
+		Name:             sqlite.Quote(alias, "name"),
 		SecretKeyHash:    sqlite.Quote(alias, "secret_key_hash"),
 		LastAccessedFrom: sqlite.Quote(alias, "last_accessed_from"),
 		LastUsedAt:       sqlite.Quote(alias, "last_used_at"),
@@ -77,9 +83,10 @@ func buildLocalSecretKeyColumns(alias string) localSecretKeyColumns {
 
 type localSecretKeyWhere[Q sqlite.Filterable] struct {
 	ID               sqlite.WhereMod[Q, int32]
+	Name             sqlite.WhereMod[Q, string]
 	SecretKeyHash    sqlite.WhereMod[Q, string]
-	LastAccessedFrom sqlite.WhereMod[Q, string]
-	LastUsedAt       sqlite.WhereMod[Q, time.Time]
+	LastAccessedFrom sqlite.WhereNullMod[Q, string]
+	LastUsedAt       sqlite.WhereNullMod[Q, time.Time]
 	CreatedAt        sqlite.WhereMod[Q, time.Time]
 }
 
@@ -90,9 +97,10 @@ func (localSecretKeyWhere[Q]) AliasedAs(alias string) localSecretKeyWhere[Q] {
 func buildLocalSecretKeyWhere[Q sqlite.Filterable](cols localSecretKeyColumns) localSecretKeyWhere[Q] {
 	return localSecretKeyWhere[Q]{
 		ID:               sqlite.Where[Q, int32](cols.ID),
+		Name:             sqlite.Where[Q, string](cols.Name),
 		SecretKeyHash:    sqlite.Where[Q, string](cols.SecretKeyHash),
-		LastAccessedFrom: sqlite.Where[Q, string](cols.LastAccessedFrom),
-		LastUsedAt:       sqlite.Where[Q, time.Time](cols.LastUsedAt),
+		LastAccessedFrom: sqlite.WhereNull[Q, string](cols.LastAccessedFrom),
+		LastUsedAt:       sqlite.WhereNull[Q, time.Time](cols.LastUsedAt),
 		CreatedAt:        sqlite.Where[Q, time.Time](cols.CreatedAt),
 	}
 }
@@ -101,17 +109,22 @@ func buildLocalSecretKeyWhere[Q sqlite.Filterable](cols localSecretKeyColumns) l
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type LocalSecretKeySetter struct {
-	ID               omit.Val[int32]     `db:"id,pk" `
-	SecretKeyHash    omit.Val[string]    `db:"secret_key_hash" `
-	LastAccessedFrom omit.Val[string]    `db:"last_accessed_from" `
-	LastUsedAt       omit.Val[time.Time] `db:"last_used_at" `
-	CreatedAt        omit.Val[time.Time] `db:"created_at" `
+	ID               omit.Val[int32]         `db:"id,pk" `
+	Name             omit.Val[string]        `db:"name" `
+	SecretKeyHash    omit.Val[string]        `db:"secret_key_hash" `
+	LastAccessedFrom omitnull.Val[string]    `db:"last_accessed_from" `
+	LastUsedAt       omitnull.Val[time.Time] `db:"last_used_at" `
+	CreatedAt        omit.Val[time.Time]     `db:"created_at" `
 }
 
 func (s LocalSecretKeySetter) SetColumns() []string {
-	vals := make([]string, 0, 5)
+	vals := make([]string, 0, 6)
 	if !s.ID.IsUnset() {
 		vals = append(vals, "id")
+	}
+
+	if !s.Name.IsUnset() {
+		vals = append(vals, "name")
 	}
 
 	if !s.SecretKeyHash.IsUnset() {
@@ -137,14 +150,17 @@ func (s LocalSecretKeySetter) Overwrite(t *LocalSecretKey) {
 	if !s.ID.IsUnset() {
 		t.ID, _ = s.ID.Get()
 	}
+	if !s.Name.IsUnset() {
+		t.Name, _ = s.Name.Get()
+	}
 	if !s.SecretKeyHash.IsUnset() {
 		t.SecretKeyHash, _ = s.SecretKeyHash.Get()
 	}
 	if !s.LastAccessedFrom.IsUnset() {
-		t.LastAccessedFrom, _ = s.LastAccessedFrom.Get()
+		t.LastAccessedFrom, _ = s.LastAccessedFrom.GetNull()
 	}
 	if !s.LastUsedAt.IsUnset() {
-		t.LastUsedAt, _ = s.LastUsedAt.Get()
+		t.LastUsedAt, _ = s.LastUsedAt.GetNull()
 	}
 	if !s.CreatedAt.IsUnset() {
 		t.CreatedAt, _ = s.CreatedAt.Get()
@@ -161,9 +177,13 @@ func (s *LocalSecretKeySetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.Writer, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 5)
+		vals := make([]bob.Expression, 0, 6)
 		if !s.ID.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.ID))
+		}
+
+		if !s.Name.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.Name))
 		}
 
 		if !s.SecretKeyHash.IsUnset() {
@@ -191,12 +211,19 @@ func (s LocalSecretKeySetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s LocalSecretKeySetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 5)
+	exprs := make([]bob.Expression, 0, 6)
 
 	if !s.ID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "id")...),
 			sqlite.Arg(s.ID),
+		}})
+	}
+
+	if !s.Name.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "name")...),
+			sqlite.Arg(s.Name),
 		}})
 	}
 

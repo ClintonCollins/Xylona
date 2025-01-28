@@ -49,11 +49,11 @@ type Instance struct {
 
 func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance) *Instance {
 	inst := &Instance{
-		ctx:                      ctx,
-		supervisorInstance:       supervisorInstance,
-		serverQueriesInfoMap:     make(map[string]xylona.ServerQuery),
-		serverQueriesMutex:       &sync.RWMutex{},
-		db:                       db,
+		ctx:                  ctx,
+		supervisorInstance:   supervisorInstance,
+		serverQueriesInfoMap: make(map[string]xylona.ServerQuery),
+		serverQueriesMutex:   &sync.RWMutex{},
+		db:                   db,
 	}
 	go inst.backgroundJobQueryAllGameServers()
 	return inst
@@ -309,6 +309,12 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		_ = tx.Rollback()
 	}()
 
+	node, errGetNode := inst.db.GetNodeByID(gameServer.NodeID)
+	if errGetNode != nil {
+		log.Error().Err(errGetNode).Msg("Failed to get node")
+		return nil, errGetNode
+	}
+
 	newGameServer, errInsert := inst.db.InsertGameServer(tx, &models.GameServerSetter{
 		ID:                        omit.From(uuid.NewString()),
 		UserID:                    omit.From(owner.ID),
@@ -328,7 +334,9 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		SteamGameServerLoginToken: omit.From(gameServer.SteamGameServerLoginToken),
 		BackupDirectory:           omit.From(gameServer.BackupDirectory),
 		MaxBackups:                omit.From(gameServer.MaxBackups),
+		NodeID:                    omit.From(gameServer.NodeID),
 	})
+	newGameServer.R.Node = node
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Failed to insert game server")
 		return nil, errInsert

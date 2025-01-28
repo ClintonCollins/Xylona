@@ -43,7 +43,7 @@ type IpsQuery = *sqlite.ViewQuery[*IP, IPSlice]
 
 // ipR is where relationships are stored.
 type ipR struct {
-	GameServers GameServerSlice // fk_game_server_0
+	GameServers GameServerSlice // fk_game_server_1
 }
 
 type ipColumnNames struct {

@@ -30,8 +30,7 @@ type Node struct {
 	SecretKey null.Val[string] `db:"secret_key" `
 	IsLocal   bool             `db:"is_local" `
 	Host      string           `db:"host" `
-	RPCPort   int32            `db:"rpc_port" `
-	WebPort   int32            `db:"web_port" `
+	Port      int32            `db:"port" `
 
 	R nodeR `db:"-" `
 }
@@ -48,6 +47,7 @@ type NodesQuery = *sqlite.ViewQuery[*Node, NodeSlice]
 
 // nodeR is where relationships are stored.
 type nodeR struct {
+	GameServers    GameServerSlice    // fk_game_server_0
 	NodeSyncQueues NodeSyncQueueSlice // fk_node_sync_queue_0
 }
 
@@ -57,8 +57,7 @@ type nodeColumnNames struct {
 	SecretKey string
 	IsLocal   string
 	Host      string
-	RPCPort   string
-	WebPort   string
+	Port      string
 }
 
 var NodeColumns = buildNodeColumns("node")
@@ -70,8 +69,7 @@ type nodeColumns struct {
 	SecretKey  sqlite.Expression
 	IsLocal    sqlite.Expression
 	Host       sqlite.Expression
-	RPCPort    sqlite.Expression
-	WebPort    sqlite.Expression
+	Port       sqlite.Expression
 }
 
 func (c nodeColumns) Alias() string {
@@ -90,8 +88,7 @@ func buildNodeColumns(alias string) nodeColumns {
 		SecretKey:  sqlite.Quote(alias, "secret_key"),
 		IsLocal:    sqlite.Quote(alias, "is_local"),
 		Host:       sqlite.Quote(alias, "host"),
-		RPCPort:    sqlite.Quote(alias, "rpc_port"),
-		WebPort:    sqlite.Quote(alias, "web_port"),
+		Port:       sqlite.Quote(alias, "port"),
 	}
 }
 
@@ -101,8 +98,7 @@ type nodeWhere[Q sqlite.Filterable] struct {
 	SecretKey sqlite.WhereNullMod[Q, string]
 	IsLocal   sqlite.WhereMod[Q, bool]
 	Host      sqlite.WhereMod[Q, string]
-	RPCPort   sqlite.WhereMod[Q, int32]
-	WebPort   sqlite.WhereMod[Q, int32]
+	Port      sqlite.WhereMod[Q, int32]
 }
 
 func (nodeWhere[Q]) AliasedAs(alias string) nodeWhere[Q] {
@@ -116,8 +112,7 @@ func buildNodeWhere[Q sqlite.Filterable](cols nodeColumns) nodeWhere[Q] {
 		SecretKey: sqlite.WhereNull[Q, string](cols.SecretKey),
 		IsLocal:   sqlite.Where[Q, bool](cols.IsLocal),
 		Host:      sqlite.Where[Q, string](cols.Host),
-		RPCPort:   sqlite.Where[Q, int32](cols.RPCPort),
-		WebPort:   sqlite.Where[Q, int32](cols.WebPort),
+		Port:      sqlite.Where[Q, int32](cols.Port),
 	}
 }
 
@@ -130,12 +125,11 @@ type NodeSetter struct {
 	SecretKey omitnull.Val[string] `db:"secret_key" `
 	IsLocal   omit.Val[bool]       `db:"is_local" `
 	Host      omit.Val[string]     `db:"host" `
-	RPCPort   omit.Val[int32]      `db:"rpc_port" `
-	WebPort   omit.Val[int32]      `db:"web_port" `
+	Port      omit.Val[int32]      `db:"port" `
 }
 
 func (s NodeSetter) SetColumns() []string {
-	vals := make([]string, 0, 7)
+	vals := make([]string, 0, 6)
 	if !s.ID.IsUnset() {
 		vals = append(vals, "id")
 	}
@@ -156,12 +150,8 @@ func (s NodeSetter) SetColumns() []string {
 		vals = append(vals, "host")
 	}
 
-	if !s.RPCPort.IsUnset() {
-		vals = append(vals, "rpc_port")
-	}
-
-	if !s.WebPort.IsUnset() {
-		vals = append(vals, "web_port")
+	if !s.Port.IsUnset() {
+		vals = append(vals, "port")
 	}
 
 	return vals
@@ -183,11 +173,8 @@ func (s NodeSetter) Overwrite(t *Node) {
 	if !s.Host.IsUnset() {
 		t.Host, _ = s.Host.Get()
 	}
-	if !s.RPCPort.IsUnset() {
-		t.RPCPort, _ = s.RPCPort.Get()
-	}
-	if !s.WebPort.IsUnset() {
-		t.WebPort, _ = s.WebPort.Get()
+	if !s.Port.IsUnset() {
+		t.Port, _ = s.Port.Get()
 	}
 }
 
@@ -201,7 +188,7 @@ func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.Writer, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 7)
+		vals := make([]bob.Expression, 0, 6)
 		if !s.ID.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.ID))
 		}
@@ -222,12 +209,8 @@ func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.Host))
 		}
 
-		if !s.RPCPort.IsUnset() {
-			vals = append(vals, sqlite.Arg(s.RPCPort))
-		}
-
-		if !s.WebPort.IsUnset() {
-			vals = append(vals, sqlite.Arg(s.WebPort))
+		if !s.Port.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.Port))
 		}
 
 		return bob.ExpressSlice(ctx, w, d, start, vals, "", ", ", "")
@@ -239,7 +222,7 @@ func (s NodeSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s NodeSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 7)
+	exprs := make([]bob.Expression, 0, 6)
 
 	if !s.ID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -276,17 +259,10 @@ func (s NodeSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
-	if !s.RPCPort.IsUnset() {
+	if !s.Port.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "rpc_port")...),
-			sqlite.Arg(s.RPCPort),
-		}})
-	}
-
-	if !s.WebPort.IsUnset() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "web_port")...),
-			sqlite.Arg(s.WebPort),
+			sqlite.Quote(append(prefix, "port")...),
+			sqlite.Arg(s.Port),
 		}})
 	}
 
@@ -518,6 +494,7 @@ func (o NodeSlice) ReloadAll(ctx context.Context, exec bob.Executor) error {
 
 type nodeJoins[Q dialect.Joinable] struct {
 	typ            string
+	GameServers    func(context.Context) modAs[Q, gameServerColumns]
 	NodeSyncQueues func(context.Context) modAs[Q, nodeSyncQueueColumns]
 }
 
@@ -528,7 +505,27 @@ func (j nodeJoins[Q]) aliasedAs(alias string) nodeJoins[Q] {
 func buildNodeJoins[Q dialect.Joinable](cols nodeColumns, typ string) nodeJoins[Q] {
 	return nodeJoins[Q]{
 		typ:            typ,
+		GameServers:    nodesJoinGameServers[Q](cols, typ),
 		NodeSyncQueues: nodesJoinNodeSyncQueues[Q](cols, typ),
+	}
+}
+
+func nodesJoinGameServers[Q dialect.Joinable](from nodeColumns, typ string) func(context.Context) modAs[Q, gameServerColumns] {
+	return func(ctx context.Context) modAs[Q, gameServerColumns] {
+		return modAs[Q, gameServerColumns]{
+			c: GameServerColumns,
+			f: func(to gameServerColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServers.Name().As(to.Alias())).On(
+						to.NodeID.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
 	}
 }
 
@@ -549,6 +546,24 @@ func nodesJoinNodeSyncQueues[Q dialect.Joinable](from nodeColumns, typ string) f
 			},
 		}
 	}
+}
+
+// GameServers starts a query for related objects on game_server
+func (o *Node) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServersQuery {
+	return GameServers.Query(append(mods,
+		sm.Where(GameServerColumns.NodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServersQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return GameServers.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerColumns.NodeID).In(PKArgs...)),
+	)...)
 }
 
 // NodeSyncQueues starts a query for related objects on node_sync_queue
@@ -575,6 +590,20 @@ func (o *Node) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
+	case "GameServers":
+		rels, ok := retrieved.(GameServerSlice)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServers = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.Node = o
+			}
+		}
+		return nil
 	case "NodeSyncQueues":
 		rels, ok := retrieved.(NodeSyncQueueSlice)
 		if !ok {
@@ -592,6 +621,78 @@ func (o *Node) Preload(name string, retrieved any) error {
 	default:
 		return fmt.Errorf("node has no relationship %q", name)
 	}
+}
+
+func ThenLoadNodeGameServers(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadNodeGameServers(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load NodeGameServers", retrieved)
+		}
+
+		err := loader.LoadNodeGameServers(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadNodeGameServers loads the node's GameServers into the .R struct
+func (o *Node) LoadNodeGameServers(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServers = nil
+
+	related, err := o.GameServers(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.Node = o
+	}
+
+	o.R.GameServers = related
+	return nil
+}
+
+// LoadNodeGameServers loads the node's GameServers into the .R struct
+func (os NodeSlice) LoadNodeGameServers(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServers, err := os.GameServers(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		o.R.GameServers = nil
+	}
+
+	for _, o := range os {
+		for _, rel := range gameServers {
+			if o.ID != rel.NodeID {
+				continue
+			}
+
+			rel.R.Node = o
+
+			o.R.GameServers = append(o.R.GameServers, rel)
+		}
+	}
+
+	return nil
 }
 
 func ThenLoadNodeNodeSyncQueues(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
@@ -661,6 +762,74 @@ func (os NodeSlice) LoadNodeNodeSyncQueues(ctx context.Context, exec bob.Executo
 
 			o.R.NodeSyncQueues = append(o.R.NodeSyncQueues, rel)
 		}
+	}
+
+	return nil
+}
+
+func insertNodeGameServers0(ctx context.Context, exec bob.Executor, gameServers1 []*GameServerSetter, node0 *Node) (GameServerSlice, error) {
+	for i := range gameServers1 {
+		gameServers1[i].NodeID = omit.From(node0.ID)
+	}
+
+	ret, err := GameServers.Insert(bob.ToMods(gameServers1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodeGameServers0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodeGameServers0(ctx context.Context, exec bob.Executor, count int, gameServers1 GameServerSlice, node0 *Node) (GameServerSlice, error) {
+	setter := &GameServerSetter{
+		NodeID: omit.From(node0.ID),
+	}
+
+	err := gameServers1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodeGameServers0: %w", err)
+	}
+
+	return gameServers1, nil
+}
+
+func (node0 *Node) InsertGameServers(ctx context.Context, exec bob.Executor, related ...*GameServerSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServers1, err := insertNodeGameServers0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.GameServers = append(node0.R.GameServers, gameServers1...)
+
+	for _, rel := range gameServers1 {
+		rel.R.Node = node0
+	}
+	return nil
+}
+
+func (node0 *Node) AttachGameServers(ctx context.Context, exec bob.Executor, related ...*GameServer) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServers1 := GameServerSlice(related)
+
+	_, err = attachNodeGameServers0(ctx, exec, len(related), gameServers1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.GameServers = append(node0.R.GameServers, gameServers1...)
+
+	for _, rel := range related {
+		rel.R.Node = node0
 	}
 
 	return nil

@@ -117,6 +117,7 @@ var ColumnNames = struct {
 		Branch:                    "branch",
 		CreatedAt:                 "created_at",
 		UpdatedAt:                 "updated_at",
+		NodeID:                    "node_id",
 	},
 	Ips: ipColumnNames{
 		Address:            "address",
@@ -126,6 +127,7 @@ var ColumnNames = struct {
 	},
 	LocalSecretKeys: localSecretKeyColumnNames{
 		ID:               "id",
+		Name:             "name",
 		SecretKeyHash:    "secret_key_hash",
 		LastAccessedFrom: "last_accessed_from",
 		LastUsedAt:       "last_used_at",
@@ -152,8 +154,7 @@ var ColumnNames = struct {
 		SecretKey: "secret_key",
 		IsLocal:   "is_local",
 		Host:      "host",
-		RPCPort:   "rpc_port",
-		WebPort:   "web_port",
+		Port:      "port",
 	},
 	NodeSyncQueues: nodeSyncQueueColumnNames{
 		ID:          "id",
