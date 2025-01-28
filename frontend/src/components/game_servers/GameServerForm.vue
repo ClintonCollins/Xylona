@@ -18,6 +18,10 @@
                               :options="availableGames"
                               v-model="gameServer.gameId" option-label="label" map-options
                               options-selected-class="selected-option"></q-select>
+                    <q-select class="col-12 col-xl-6" outlined type="text" label="Node" emit-value
+                              :options="nodes"
+                              v-model="gameServer.nodeId" option-label="name" map-options option-value="id"
+                              options-selected-class="selected-option"></q-select>
                     <q-select class="col-12 col-xl-6" outlined type="text" label="IP Address" emit-value
                               :options="availableIPs"
                               v-model="gameServer.ip" option-label="address"
@@ -60,13 +64,14 @@ import { onMounted, Ref, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   CreateGameServerRequest, CreateGameServerRequestSchema, EditGameServerRequest, EditGameServerRequestSchema, Game,
-  GameServer, GameServerSchema, IP
+  GameServer, GameServerSchema, IP, Node
 } from 'src/proto/shared_pb'
 import {
   GetGameServerRequest, GetGameServerRequestSchema,
   ListGamesRequest, ListGamesRequestSchema, ListGamesResponse, ListIPsRequest, ListIPsRequestSchema, ListIPsResponse,
+  ListNodesRequest, ListNodesRequestSchema, ListNodesResponse,
   ListUsersRequest,
-  ListUsersRequestSchema, UpdateGameServerRequest, UpdateGameServerRequestSchema
+  ListUsersRequestSchema
 } from 'src/proto/xylona_pb'
 
 const router = useRouter()
@@ -87,6 +92,7 @@ const availableGames = ref<Array<Record<string, string>>>([])
 const availableUsers = ref<Array<Record<string, string>>>([])
 const availableIPs = ref<Array<IP>>([])
 const gamesMap = ref(new Map<string, Game>())
+const nodes = ref<Array<Node>>([])
 
 const formSubmitting = ref(false)
 const port = ref(0)
@@ -100,6 +106,7 @@ onMounted(async () => {
     await getGameServerDetails()
   }
   await getGames()
+  await getNodes()
   await getUsers()
   await getIPs()
 })
@@ -165,6 +172,20 @@ async function getGames() {
   }
 }
 
+async function getNodes() {
+  const request: ListNodesRequest = create(ListNodesRequestSchema, {})
+  try {
+    const response: ListNodesResponse = await GetXylonaClient().listNodes(request)
+    nodes.value = []
+    response.nodes.forEach((node) => {
+      nodes.value.push(node)
+    })
+  } catch (unknownError: unknown) {
+    const err = unknownError as Error
+    console.error(err.message)
+  }
+}
+
 async function getUsers() {
   const request: ListUsersRequest = create(ListUsersRequestSchema, {})
   try {
@@ -221,6 +242,7 @@ async function createGameServer() {
   request.gameServer = gameServer.value as GameServer
   request.gameServer.port = BigInt(port.value)
   request.gameServer.queryPort = BigInt(queryPort.value)
+  request.gameServer.nodeId = gameServer.value.nodeId
   try {
     const response = await GetXylonaClient().createGameServer(request)
     await router.push(`/game-servers/${response.gameServer?.id}/console`)

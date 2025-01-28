@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/aarondl/opt/omit"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
@@ -378,6 +379,9 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		return nil, errCommit
 	}
 
+	eb := eventbus.Get()
+	eb.Publish("game_server_created", newGameServer)
+
 	return newGameServer, nil
 }
 
@@ -475,6 +479,8 @@ func (inst *Instance) RemoveGameServer(gameServer *models.GameServer, force bool
 		log.Error().Err(err).Msg("Failed to remove game server from database")
 		return err
 	}
+	eb := eventbus.Get()
+	eb.Publish("game_server_removed", gameServer)
 	return nil
 }
 

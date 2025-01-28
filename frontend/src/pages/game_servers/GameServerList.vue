@@ -137,6 +137,7 @@ async function deleteGameServerAction(gameServer: GameServer | null) {
 
 async function deleteGameServerSubmitted(error: unknown | boolean) {
   showDeleteGameServerDialog.value = false
+  selectedGameServers.value = []
   if (!error) {
     void getGameServers()
   }

@@ -8,7 +8,8 @@
             </q-card-section>
             <q-card-section>
                 <div class="row wrap q-col-gutter-md justify-between">
-                    <p>Are you sure you want to delete {{ gameServers.length === 1 ? 'this game server' : 'these game servers'}}?
+                    <p>Are you sure you want to delete
+                        {{ gameServers.length === 1 ? 'this game server' : 'these game servers' }}?
                         <br>
                         <span class="text-info">{{ gameServers.map(gs => gs.name).join(', ') }}</span>
                         <br>
@@ -30,7 +31,8 @@ import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { GetXylonaClient } from 'src/utils/shared'
 import { PropType } from 'vue'
-import { GameServer, RemoveGameServerRequest, RemoveGameServerRequestSchema
+import {
+  GameServer, RemoveGameServerRequest, RemoveGameServerRequestSchema
 } from 'src/proto/shared_pb'
 
 const props = defineProps({
@@ -62,6 +64,8 @@ async function deleteGameServers() {
         position: 'top',
         timeout: 5000
       })
+      emit('submit', false)
+      return
     } catch (unknownError: unknown) {
       const err = unknownError as Error
       $q.notify({
@@ -70,9 +74,9 @@ async function deleteGameServers() {
         position: 'top',
         timeout: 5000
       })
+      emit('submit', true)
     }
   }
-  emit('submit', true)
 }
 
 </script>

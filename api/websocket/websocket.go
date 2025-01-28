@@ -15,6 +15,7 @@ import (
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -30,6 +31,7 @@ const (
 	sessionKeyStreamChannel = "streamChannel"
 	sessionKeyUserName      = "userName"
 	sessionKeyConnectionID  = "connectionID"
+	sessionKeyGamesServers  = "gameServers"
 )
 
 type connection struct {
@@ -50,6 +52,7 @@ type WebSocket struct {
 	ctx                          context.Context
 	userWebsocketConnections     map[string]map[uuid.UUID]*connection // map[userID]map[connectionID]*connection
 	userWebsocketConnectionsLock *sync.RWMutex
+	sessionLock                  *sync.RWMutex
 }
 
 func getSessionUsername(s *melody.Session) (string, error) {
@@ -86,6 +89,23 @@ func getSessionConnectionID(s *melody.Session) (uuid.UUID, error) {
 	}
 	connectionID := c.(uuid.UUID)
 	return connectionID, nil
+}
+
+func (ws *WebSocket) getSessionGameServers(s *melody.Session) ([]*models.GameServer, error) {
+	ws.sessionLock.RLock()
+	defer ws.sessionLock.RUnlock()
+	gs, gameServersExists := s.Get(sessionKeyGamesServers)
+	if !gameServersExists {
+		return nil, fmt.Errorf("failed to get game servers from session")
+	}
+	gameServers := gs.([]*models.GameServer)
+	return gameServers, nil
+}
+
+func (ws *WebSocket) setSessionGameServers(s *melody.Session, gameServers []*models.GameServer) {
+	ws.sessionLock.Lock()
+	defer ws.sessionLock.Unlock()
+	s.Set(sessionKeyGamesServers, gameServers)
 }
 
 func (ws *WebSocket) getSessionConnection(s *melody.Session) (*connection, error) {
@@ -129,6 +149,7 @@ func NewInstance(ctx context.Context, supervisorInst *supervisor.Instance, actio
 		secureCookie:                 secureCookie,
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
 		userWebsocketConnectionsLock: &sync.RWMutex{},
+		sessionLock:                  &sync.RWMutex{},
 	}
 	m.HandleConnect(inst.handleConnect)
 	m.HandleDisconnect(inst.handleDisconnect)
@@ -197,10 +218,79 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		wsConnection.allGameServerIDs[i] = gameServer.ID
 	}
 
-	go ws.sendUserGameServersStatuses(s, gameServers)
-	go ws.subscribeUserToOwnedGameServerNotifications(s, gameServers)
+	ws.setSessionGameServers(s, gameServers)
+	for _, gameServer := range gameServers {
+		go ws.sendUserGameServerStatus(s, gameServer)
+		go ws.subscribeUserToOwnedGameServerNotifications(s, gameServer)
+	}
+
 	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
-	go ws.sendOwnedServersQueryInfo(s, gameServers)
+	go ws.sendOwnedServersQueryInfo(s)
+
+	// Listen for game server added and removed events.
+	go ws.listenForGameServersAdded(s)
+	go ws.listenForGameServersRemoved(s)
+}
+
+func (ws *WebSocket) listenForGameServersAdded(s *melody.Session) {
+	eb := eventbus.Get()
+	serverRemoved := eb.Subscribe(eventbus.TopicGameServerRemoved)
+	defer eb.Unsubscribe(eventbus.TopicGameServerRemoved, serverRemoved)
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case <-s.Request.Context().Done():
+			return
+		case data := <-serverRemoved:
+			gameServer, ok := data.(*models.GameServer)
+			if !ok {
+				log.Error().Msg("Failed to cast data to game server")
+				continue
+			}
+			gameServers, err := ws.getSessionGameServers(s)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to get game servers from session")
+				return
+			}
+			for i, gs := range gameServers {
+				if gs.ID == gameServer.ID {
+					gameServers = append(gameServers[:i], gameServers[i+1:]...)
+					break
+				}
+			}
+			ws.setSessionGameServers(s, gameServers)
+		}
+	}
+}
+
+func (ws *WebSocket) listenForGameServersRemoved(s *melody.Session) {
+	eb := eventbus.Get()
+	serverCreated := eb.Subscribe(eventbus.TopicGameServerCreated)
+	defer eb.Unsubscribe(eventbus.TopicGameServerCreated, serverCreated)
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case <-s.Request.Context().Done():
+			return
+		case data := <-serverCreated:
+			gameServer, ok := data.(*models.GameServer)
+			if !ok {
+				log.Error().Msg("Failed to cast data to game server")
+				continue
+			}
+			go ws.sendUserGameServerStatus(s, gameServer)
+			go ws.subscribeUserToOwnedGameServerNotifications(s, gameServer)
+			gameServers, err := ws.getSessionGameServers(s)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to get game servers from session")
+				return
+			}
+			gameServers = append(gameServers, gameServer)
+			ws.setSessionGameServers(s, gameServers)
+		}
+	}
 }
 
 // queryEqual checks if two ServerQuery objects are equal. Used to save websocket traffic.
@@ -241,9 +331,11 @@ func queryEqual(x, y *xylona.ServerQuery) bool {
 	return false
 }
 
+func (ws *WebSocket) AddGameServerToUserID() {
 
+}
 
-func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session, gameServers []*models.GameServer) {
+func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session) {
 	// Map of previous queries for each game server.
 	previousQueryMap := make(map[string]*xylona.ServerQuery)
 	throttle := time.NewTicker(time.Second * 1)
@@ -261,6 +353,11 @@ func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session, gameServers []
 			allQueryInfo := ws.actions.GetServerQueries()
 			ownedServerQueryInfo := &xylona.AllServersQueryInfo{Servers: make(map[string]*xylona.ServerQuery)}
 			serverQueriesInfoChanged := false
+			gameServers, err := ws.getSessionGameServers(s)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to get game servers from session")
+				return
+			}
 			for _, gameServer := range gameServers {
 				// Get the current query info for the game server.
 				serverQuery, exists := allQueryInfo.Servers[gameServer.ID]
@@ -303,44 +400,40 @@ func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session, gameServers []
 	}
 }
 
-func (ws *WebSocket) subscribeUserToOwnedGameServerNotifications(s *melody.Session, gameServers []*models.GameServer) {
-	for _, gameServer := range gameServers {
-		errAddGameServerOutputListener := ws.addGameServerNotificationListener(s, gameServer.ID)
-		if errAddGameServerOutputListener != nil {
-			log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
-			errWrite := s.Write([]byte(fmt.Sprintf("Failed to get game server console: %s", errAddGameServerOutputListener)))
-			if errWrite != nil {
-				log.Error().Err(errWrite).Msg("Failed to write websocket message")
-			}
-			return
+func (ws *WebSocket) subscribeUserToOwnedGameServerNotifications(s *melody.Session, gameServer *models.GameServer) {
+	errAddGameServerOutputListener := ws.addGameServerNotificationListener(s, gameServer.ID)
+	if errAddGameServerOutputListener != nil {
+		log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
+		errWrite := s.Write([]byte(fmt.Sprintf("Failed to get game server console: %s", errAddGameServerOutputListener)))
+		if errWrite != nil {
+			log.Error().Err(errWrite).Msg("Failed to write websocket message")
 		}
+		return
 	}
 }
 
-func (ws *WebSocket) sendUserGameServersStatuses(s *melody.Session, gameServers []*models.GameServer) {
-	for _, gameServer := range gameServers {
-		command, errGetCommand := ws.supervisor.GetCommandByID(gameServer.ID)
-		if errGetCommand != nil {
-			continue
-		}
-		status := command.Status()
-		out := &xylona.Message{
-			Type: xylona.Message_GameServerStatus,
-			GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
-				GameServerId: gameServer.ID,
-				Status:       status,
-			},
-		}
-		byteOut, errMarshal := json.Marshal(out)
-		if errMarshal != nil {
-			log.Error().Err(errMarshal).Msg("Failed to marshal game server status update")
-			continue
-		}
-		errWrite := s.Write(byteOut)
-		if errWrite != nil {
-			log.Error().Err(errWrite).Msg("Failed to write websocket message")
-			return
-		}
+func (ws *WebSocket) sendUserGameServerStatus(s *melody.Session, gameServer *models.GameServer) {
+	command, errGetCommand := ws.supervisor.GetCommandByID(gameServer.ID)
+	if errGetCommand != nil {
+		return
+	}
+	status := command.Status()
+	out := &xylona.Message{
+		Type: xylona.Message_GameServerStatus,
+		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
+			GameServerId: gameServer.ID,
+			Status:       status,
+		},
+	}
+	byteOut, errMarshal := json.Marshal(out)
+	if errMarshal != nil {
+		log.Error().Err(errMarshal).Msg("Failed to marshal game server status update")
+		return
+	}
+	errWrite := s.Write(byteOut)
+	if errWrite != nil {
+		log.Error().Err(errWrite).Msg("Failed to write websocket message")
+		return
 	}
 }
 

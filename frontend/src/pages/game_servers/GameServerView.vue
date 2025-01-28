@@ -147,10 +147,9 @@ const disableStopButton = computed(() => {
 onMounted(async () => {
   getGameServerDetails().then(() => {
     getGameServerOutput()
-  })
-  streamGameServerOutput()
-  listenForServerQueryInfo()
-  await queryGameServer()
+    streamGameServerOutput()
+    listenForServerQueryInfo()
+  }).then(queryGameServer)
 })
 
 async function getGameServerDetails() {
