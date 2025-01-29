@@ -9,6 +9,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -65,9 +66,9 @@ func (xs XylonaService) Login(ctx context.Context, request *connect.Request[xylo
 	}
 
 	x := &models.UserSessionSetter{
-		ID:        omit.From(""),
+		ID:        omit.From(uuid.New().String()),
 		UserID:    omit.From(user.ID),
-		Token:     omit.From(""),
+		Token:     omit.From(uuid.New().String()),
 		ExpiresAt: omit.From(time.Now().Add(24 * time.Hour * 30)),
 	}
 
