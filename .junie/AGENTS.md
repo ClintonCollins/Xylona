@@ -54,12 +54,24 @@ The frontend is a Quasar 2 SPA managed with **pnpm** and built with **Vite** via
 
 Use these as the default commands for this repo:
 
+### Backend
 - `go test ./...` — run backend tests.
 - `go test -short ./...` — run fast unit-focused backend tests.
 - `go test ./... -race -count=1` — run backend tests with the race detector and disable test result caching.
 - `go build -o xylona` — build backend binary locally.
+
+### Frontend
 - `pnpm --dir frontend run dev` — run frontend dev server.
 - `pnpm --dir frontend run build` — build frontend SPA.
+- `pnpm --dir frontend run lint` — run ESLint on frontend code.
+- `pnpm --dir frontend run lint:fix` — run ESLint with auto-fix.
+- `pnpm --dir frontend run format` — run Prettier to format frontend code.
+- `pnpm --dir frontend run format:check` — check Prettier formatting without changes.
+- `pnpm --dir frontend run test` — run Vitest unit tests.
+- `pnpm --dir frontend run test:watch` — run Vitest in watch mode.
+- `pnpm --dir frontend run test:coverage` — run Vitest with coverage reporting.
+
+### Build & Codegen
 - `mage Build` — frontend production build + Goreleaser snapshot build.
 - `mage GenerateProto` — regenerate protobuf outputs.
 - `mage GenerateModels` — regenerate bob ORM models.
@@ -110,6 +122,9 @@ Regeneration commands:
 - **Protobuf types**: Generated from shared `.proto` definitions using `@bufbuild/protoc-gen-es` via `buf`.
 - **Package manager**: pnpm (v9) with lockfile (`pnpm-lock.yaml`).
 - **Code editor**: Monaco Editor integration for in-browser file editing.
+- **Linting**: ESLint configured for Vue 3 + TypeScript; run `pnpm --dir frontend run lint` before committing.
+- **Formatting**: Prettier configured for consistent code style; run `pnpm --dir frontend run format` before committing.
+- **Testing**: Vitest for unit and component tests; Vue Test Utils for component testing.
 
 ## Search & Indexing Guardrails
 
@@ -126,7 +141,7 @@ When exploring or searching the repo, skip large/generated/vendor-like directori
 ### Current State
 
 - **Backend**: Minimal test coverage. One test file exists at `pkg/xycrypt/xycrypt_test.go`.
-- **Frontend**: No tests configured (the `test` script in `package.json` is a no-op).
+- **Frontend**: Vitest configured with Vue Test Utils for unit and component testing. ESLint and Prettier are configured for code quality and formatting.
 
 ### Testing Conventions (Backend)
 
@@ -204,12 +219,96 @@ func TestMyFunction(t *testing.T) {
 - Main package entry points
 - Simple wrapper functions with no logic
 
-### Frontend Testing Roadmap (Recommended)
+### Frontend Testing
 
-- **Current baseline**: Frontend automated tests are not yet configured.
-- **Preferred stack**: Adopt Vitest + Vue Test Utils for unit/component tests, then Playwright for critical end-to-end smoke flows.
-- **Scripts to add**: Replace frontend `test` no-op with `vitest run`, and add `test:watch` + `test:e2e`.
-- **Interim policy**: Until frontend tests are configured, include a concise manual verification checklist for frontend behavior changes.
+Frontend uses Vitest + Vue Test Utils for unit and component testing.
+
+#### Testing Requirements for New Frontend Code
+
+**When generating new or changed frontend logic, always include corresponding tests for complex functionality unless explicitly told not to.**
+
+Required test coverage for new frontend code:
+
+- **Complex utilities and composables**: Add tests covering:
+  - Happy path (valid inputs, expected outputs)
+  - Edge cases (empty inputs, boundary values, null/undefined handling)
+  - Error cases (invalid inputs, API failures, expected exceptions)
+- **Stateful components**: Test components with significant business logic, data transformations, or conditional rendering
+- **Pinia stores**: Test store actions, getters, and state mutations covering:
+  - Successful API interactions
+  - Error handling and fallback states
+  - State consistency across actions
+- **Critical user flows**: Test key interactions (form validation, authentication flows, data submission)
+- **API client logic**: Test RPC client wrappers and data transformation utilities
+
+**Exceptions**: Skip tests for:
+- Simple presentational components with minimal logic
+- Components that are purely layout/styling wrappers
+- Generated protobuf types
+- Simple getter/setter composables
+- Trivial utility functions with no branching logic
+
+#### Frontend Test File Structure
+
+Place test files adjacent to the source file using `.test.ts` or `.spec.ts` suffix:
+
+```typescript
+// utils/myUtil.test.ts
+import { describe, it, expect } from 'vitest'
+import { myFunction } from './myUtil'
+
+describe('myFunction', () => {
+  it('should handle valid input', () => {
+    const result = myFunction('valid')
+    expect(result).toBe('expected')
+  })
+
+  it('should handle edge cases', () => {
+    const result = myFunction('')
+    expect(result).toBe('')
+  })
+
+  it('should throw on invalid input', () => {
+    expect(() => myFunction(null)).toThrow()
+  })
+})
+```
+
+For Vue components:
+
+```typescript
+// components/MyComponent.spec.ts
+import { describe, it, expect } from 'vitest'
+import { mount } from '@vue/test-utils'
+import MyComponent from './MyComponent.vue'
+
+describe('MyComponent', () => {
+  it('renders properly', () => {
+    const wrapper = mount(MyComponent, { props: { msg: 'Hello' } })
+    expect(wrapper.text()).toContain('Hello')
+  })
+
+  it('handles user interaction', async () => {
+    const wrapper = mount(MyComponent)
+    await wrapper.find('button').trigger('click')
+    expect(wrapper.emitted()).toHaveProperty('submit')
+  })
+})
+```
+
+#### Code Quality Workflow
+
+Before completing work on frontend code:
+
+1. **Run linter**: `pnpm --dir frontend run lint` — fix any ESLint errors
+2. **Format code**: `pnpm --dir frontend run format` — apply Prettier formatting
+3. **Run tests**: `pnpm --dir frontend run test` — ensure all tests pass
+4. **Check build**: `pnpm --dir frontend run build` — verify production build succeeds
+
+For complex changes, run tests with coverage to ensure adequate coverage:
+```bash
+pnpm --dir frontend run test:coverage
+```
 
 ## Key Dependencies
 
