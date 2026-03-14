@@ -9,7 +9,9 @@
   "scripts": {
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
-    "build": "quasar build"
+    "build": "quasar build",
+    "lint": "eslint . --ext .vue,.js,.ts,.jsx,.tsx",
+    "lint:fix": "eslint . --ext .vue,.js,.ts,.jsx,.tsx --fix"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
@@ -37,18 +39,29 @@
     "@quasar/app-vite": "2.4.1",
     "@types/node": "^25.5.0",
     "@types/prismjs": "^1.26.6",
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "@vitest/ui": "^4.1.0",
     "autoprefixer": "^10.4.27",
-    "typescript": "^5.9.3"
-  },
-  "engines": {
-    "node": "^22 ||^20",
-    "npm": ">= 6.13.4"
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vue": "^10.8.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0",
+    "vue-eslint-parser": "^10.4.0"
   },
   "pnpm": {
     "overrides": {
       "log-symbols": "^5",
       "ora": "^6"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@bufbuild/buf",
+      "@parcel/watcher",
+      "esbuild",
+      "quasar-extras-svg-icons"
+    ]
   },
-  "packageManager": "pnpm@9.11.0+sha512.0a203ffaed5a3f63242cd064c8fb5892366c103e328079318f78062f24ea8c9d50bc6a47aa3567cabefd824d170e78fa2745ed1f16b132e16436146b7688f19b"
+  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be"
 }

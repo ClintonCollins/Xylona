@@ -74,6 +74,20 @@ func (c *Connection) DeleteGameServer(gameServerID string) error {
 	return gs.DeleteAll(c.ctx, c.DB)
 }
 
+func (c *Connection) GetGameServersByIP(ip string) ([]*models.GameServer, error) {
+	gameServers, err := models.GameServers.Query(
+		models.SelectWhere.GameServers.IP.EQ(ip),
+		models.PreloadGameServerIP(),
+		models.PreloadGameServerGame(),
+		models.PreloadGameServerUser(),
+		models.PreloadGameServerNode(),
+	).All(c.ctx, c.DB)
+	if err != nil {
+		return nil, err
+	}
+	return gameServers, nil
+}
+
 func (c *Connection) GetGameServersByGameID(gameID string) ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.GameID.EQ(gameID),

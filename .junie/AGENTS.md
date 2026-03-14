@@ -55,6 +55,8 @@ The frontend is a Quasar 2 SPA managed with **pnpm** and built with **Vite** via
 Use these as the default commands for this repo:
 
 - `go test ./...` — run backend tests.
+- `go test -short ./...` — run fast unit-focused backend tests.
+- `go test ./... -race -count=1` — run backend tests with the race detector and disable test result caching.
 - `go build -o xylona` — build backend binary locally.
 - `pnpm --dir frontend run dev` — run frontend dev server.
 - `pnpm --dir frontend run build` — build frontend SPA.
@@ -128,17 +130,86 @@ When exploring or searching the repo, skip large/generated/vendor-like directori
 
 ### Testing Conventions (Backend)
 
-- **Table-driven tests**: The existing test uses the standard Go table-driven pattern with `[]struct` test cases and `t.Run()` sub-tests.
-- **Standard library only**: Tests use `testing.T` with `t.Errorf()` for assertions — no external assertion libraries.
-- **Test file placement**: Tests live alongside the code they test in the same package (e.g., `xycrypt_test.go` in `package xycrypt`).
-- **Test naming**: Functions follow `TestXxx` convention; table entries use descriptive lowercase `name` fields (e.g., `"match 1"`, `"invalid version"`).
+- **Table-driven tests**: Prefer table-driven tests for logic with multiple input/output scenarios, using `[]struct` + `t.Run()`.
+- **Standard library only**: Use the `testing` package (no external assertion frameworks unless explicitly requested).
+- **Assertion behavior**: Use `t.Fatalf()` for setup/precondition failures and `t.Errorf()` for additional case-level mismatches.
+- **Test file placement**: Keep tests adjacent to the code they exercise. Use same-package tests by default; add external-package tests (`package foo_test`) when validating public API behavior.
+- **Test naming**: Functions follow `TestXxx` convention; use descriptive case names focused on behavior (e.g., `"returns err on invalid version"`).
 
 ### Writing New Tests
 
 - Place test files next to the source file they test, using the `_test.go` suffix.
-- Use table-driven tests for functions with multiple input/output scenarios.
+- Use table-driven tests for functions with multiple scenarios.
 - Use the standard `testing` package; avoid introducing external test frameworks unless explicitly requested.
 - Cover both positive and negative cases, including invalid/edge-case inputs.
+- Keep tests deterministic: avoid real network calls, wall-clock dependencies, random seeds without control, and fixed `time.Sleep` waits.
+- Use `t.TempDir()`, `t.Setenv()`, and `t.Cleanup()` for isolation and cleanup.
+- Prefer `errors.Is` / `errors.As` over brittle string matching for error assertions.
+- For bug fixes, add or update a regression test that fails before the fix and passes after it.
+
+### Testing Requirements for New Code
+
+**When generating new or changed Go logic, always include corresponding tests unless explicitly told not to.**
+
+Required test coverage for new code:
+
+- **New/changed functions and methods**: Add tests covering:
+  - Happy path (valid inputs, expected outputs)
+  - Edge cases (empty inputs, boundary values, nil pointers)
+  - Error cases (invalid inputs, expected failures)
+- **Behavior changes**: Update existing tests to reflect new behavior, not just new code paths.
+- **New packages**: Create at least one `*_test.go` file covering exported behavior and key internal logic.
+- **Business logic**: Prioritize testing functions in `actions/`, `api/rpc/`, `helpers/`, and `pkg/` packages.
+- **Database methods**: Test CRUD operations with in-memory SQLite when adding new `db/` methods, with each test isolated from shared DB state.
+- **Concurrency-sensitive changes**: Add tests that exercise concurrent access and run with `-race`.
+- **Integration tests**: If a test depends on filesystem/DB/process interactions, mark and structure it so it can be skipped in short runs (`testing.Short()`).
+
+Test file structure:
+
+```go
+package mypackage
+
+import "testing"
+
+func TestMyFunction(t *testing.T) {
+    tests := []struct {
+        name    string
+        input   InputType
+        want    OutputType
+        wantErr bool
+    }{
+        {name: "valid input", input: ..., want: ..., wantErr: false},
+        {name: "invalid input", input: ..., want: ..., wantErr: true},
+        {name: "edge case", input: ..., want: ..., wantErr: false},
+    }
+
+    for _, tt := range tests {
+        tt := tt
+        t.Run(tt.name, func(t *testing.T) {
+            got, err := MyFunction(tt.input)
+            if (err != nil) != tt.wantErr {
+                t.Fatalf("MyFunction() error = %v, wantErr %v", err, tt.wantErr)
+            }
+            if got != tt.want {
+                t.Errorf("MyFunction() = %v, want %v", got, tt.want)
+            }
+        })
+    }
+}
+```
+
+**Exceptions**: Skip tests for:
+- Trivial getters/setters
+- Generated code (protobuf, ORM models)
+- Main package entry points
+- Simple wrapper functions with no logic
+
+### Frontend Testing Roadmap (Recommended)
+
+- **Current baseline**: Frontend automated tests are not yet configured.
+- **Preferred stack**: Adopt Vitest + Vue Test Utils for unit/component tests, then Playwright for critical end-to-end smoke flows.
+- **Scripts to add**: Replace frontend `test` no-op with `vitest run`, and add `test:watch` + `test:e2e`.
+- **Interim policy**: Until frontend tests are configured, include a concise manual verification checklist for frontend behavior changes.
 
 ## Key Dependencies
 

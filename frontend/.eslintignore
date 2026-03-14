@@ -1,0 +1,21 @@
+# Build outputs
+dist
+.quasar
+prod-spa
+dev-spa
+
+# Dependencies
+node_modules
+
+# Generated files
+src/proto/**/*.ts
+
+# Config files
+*.config.*.temporary.compiled*
+
+# Capacitor/Cordova
+src-capacitor
+src-cordova
+
+# Cache
+.q-cache

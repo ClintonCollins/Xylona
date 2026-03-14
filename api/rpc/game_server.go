@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -35,6 +36,56 @@ type MinecraftVersionJSON struct {
 	UseEditor     bool      `json:"use_editor"`
 }
 
+// findAvailablePort checks for port conflicts on the given IP and returns the next available port.
+// If the game requires a dedicated IP, no other game server should use the same IP at all.
+// excludeServerID can be set to skip a specific server (useful when editing an existing server).
+func (xs XylonaService) findAvailablePort(ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
+	existingServers, errGetServers := xs.db.GetGameServersByIP(ip)
+	if errGetServers != nil {
+		return 0, 0, errGetServers
+	}
+
+	// If the game requires a dedicated IP, no other server should use this IP.
+	if game.RequireDedicatedIP {
+		for _, s := range existingServers {
+			if s.ID != excludeServerID {
+				return 0, 0, fmt.Errorf("game %s requires a dedicated IP, but IP %s is already in use by server %s", game.Name, ip, s.Name)
+			}
+		}
+	}
+
+	// Check if any existing server on this IP requires a dedicated IP (and thus blocks all ports).
+	for _, s := range existingServers {
+		if s.ID == excludeServerID {
+			continue
+		}
+		if s.R.Game != nil && s.R.Game.RequireDedicatedIP {
+			return 0, 0, fmt.Errorf("IP %s is dedicated to server %s and cannot be shared", ip, s.Name)
+		}
+	}
+
+	// Collect all used ports on this IP (excluding the server being edited).
+	usedPorts := make(map[int64]bool)
+	for _, s := range existingServers {
+		if s.ID == excludeServerID {
+			continue
+		}
+		usedPorts[s.Port] = true
+		usedPorts[s.QueryPort] = true
+	}
+
+	// Auto-increment port if it conflicts.
+	for usedPorts[port] || usedPorts[queryPort] || (port == queryPort && port != 0) {
+		port++
+		queryPort++
+		if port > 65535 || queryPort > 65535 {
+			return 0, 0, fmt.Errorf("no available ports on IP %s", ip)
+		}
+	}
+
+	return port, queryPort, nil
+}
+
 func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
 
 	// log.Debug().Msgf("CreateGameServer request: %+v", request.Msg.GetGameServer())
@@ -55,6 +106,16 @@ func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.R
 
 	newGameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
 
+	// Check for port conflicts and auto-increment if necessary.
+	availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
+		newGameServerModel.IP, newGameServerModel.Port, newGameServerModel.QueryPort, game, "",
+	)
+	if errPortCheck != nil {
+		return nil, connect.NewError(connect.CodeAlreadyExists, errPortCheck)
+	}
+	newGameServerModel.Port = availablePort
+	newGameServerModel.QueryPort = availableQueryPort
+
 	newGameServer, errInstallGameServer := xs.actionsInst.InstallGameServer(game, newGameServerModel, user)
 	if errInstallGameServer != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -67,7 +128,7 @@ func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.R
 }
 
 func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
-	_, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	existingGameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
@@ -75,6 +136,27 @@ func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	gameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+
+	// Check for port conflicts when IP or port changed.
+	game, errGetGame := xs.db.GetGameByID(gameServerModel.GameID)
+	if errGetGame != nil {
+		if errors.Is(errGetGame, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+
+	if gameServerModel.IP != existingGameServer.IP || gameServerModel.Port != existingGameServer.Port || gameServerModel.QueryPort != existingGameServer.QueryPort {
+		availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
+			gameServerModel.IP, gameServerModel.Port, gameServerModel.QueryPort, game, existingGameServer.ID,
+		)
+		if errPortCheck != nil {
+			return nil, connect.NewError(connect.CodeAlreadyExists, errPortCheck)
+		}
+		gameServerModel.Port = availablePort
+		gameServerModel.QueryPort = availableQueryPort
+	}
+
 	setter := helpers.GameServerModelToSetter(gameServerModel)
 	_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 	if errUpdate != nil {
