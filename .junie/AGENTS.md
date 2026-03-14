@@ -29,7 +29,6 @@ The backend is the project root and uses the Go module path `github.com/ClintonC
 | `sql/migrations` | SQL migration files (used with `sql-migrate`) |
 | `sql/models` | Generated ORM models (bob) |
 | `supervisor` | Game server process lifecycle management (start, stop, I/O, listeners) |
-| `tasks` | Task definitions |
 | `magefiles` | Mage build tasks |
 | `cmd` | Auxiliary CLI tools (e.g., `minecraft_version_hasher`) |
 | `embed.go` | Embeds the built frontend SPA into the Go binary |
@@ -51,9 +50,38 @@ The frontend is a Quasar 2 SPA managed with **pnpm** and built with **Vite** via
 | `src/css` | Global stylesheets |
 | `src/assets` | Static assets (images, backgrounds) |
 
+## Canonical Commands
+
+Use these as the default commands for this repo:
+
+- `go test ./...` — run backend tests.
+- `go build -o xylona` — build backend binary locally.
+- `pnpm --dir frontend run dev` — run frontend dev server.
+- `pnpm --dir frontend run build` — build frontend SPA.
+- `mage Build` — frontend production build + Goreleaser snapshot build.
+- `mage GenerateProto` — regenerate protobuf outputs.
+- `mage GenerateModels` — regenerate bob ORM models.
+- `mage SQLMigrateUp` — apply SQL migrations.
+- `mage SQLMigrateDown` — roll back SQL migrations.
+
+## Generated Code Rules
+
+Never hand-edit generated outputs. Regenerate them via tooling.
+
+Generated paths:
+
+- `proto/go/xylona/**`
+- `frontend/src/proto/**`
+- `sql/models/*.bob.go`
+
+Regeneration commands:
+
+- `mage GenerateProto`
+- `mage GenerateModels`
+
 ## Coding Conventions
 
-- ** Always create and commit files with LF line endings (`\n`).
+- **Always** create and commit files with LF line endings (`\n`).
 
 ### Go Backend
 
@@ -69,7 +97,7 @@ The frontend is a Quasar 2 SPA managed with **pnpm** and built with **Vite** via
 - **API layer**: ConnectRPC (Connect protocol) for the RPC API; protobuf schemas in `/proto`.
 - **Database**: SQLite with `modernc.org/sqlite` (pure Go driver), `bob` as the query builder/ORM, `sql-migrate` for migrations. DB methods are receiver methods on `*db.Connection`.
 - **Configuration**: Environment variables loaded via `godotenv` and parsed with `caarlos0/env`.
-- **File naming**: Lowercase with hyphens for multi-word names (e.g., `game-server.go`, `local-secret-keys.go`).
+- **File naming**: Use kebab-case for new multi-word files (e.g., `game-server.go`, `local-secret-keys.go`). Do not rename existing files solely for style unless explicitly requested.
 
 ### TypeScript Frontend
 
@@ -80,6 +108,16 @@ The frontend is a Quasar 2 SPA managed with **pnpm** and built with **Vite** via
 - **Protobuf types**: Generated from shared `.proto` definitions using `@bufbuild/protoc-gen-es` via `buf`.
 - **Package manager**: pnpm (v9) with lockfile (`pnpm-lock.yaml`).
 - **Code editor**: Monaco Editor integration for in-browser file editing.
+
+## Search & Indexing Guardrails
+
+When exploring or searching the repo, skip large/generated/vendor-like directories unless the task explicitly needs them:
+
+- `frontend/node_modules`
+- `frontend/.quasar`
+- `frontend/dist`
+- `cmd/minecraft_version_hasher/versions`
+- `dist`
 
 ## Unit & Integration Testing
 
