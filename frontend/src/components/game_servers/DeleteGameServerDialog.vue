@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
-import { GetXylonaClient } from 'src/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 import { PropType } from 'vue'
 import {
   GameServer, RemoveGameServerRequest, RemoveGameServerRequestSchema

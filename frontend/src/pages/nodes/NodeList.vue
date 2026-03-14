@@ -78,14 +78,14 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { useStorage } from '@vueuse/core'
-import NodeDeleteDialog from 'components/nodes/NodeDeleteDialog.vue'
+import NodeDeleteDialog from '@/components/nodes/NodeDeleteDialog.vue'
 import {
   tabSettings,
   tabTrash, tabKey
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
-import { GetXylonaClient, WindowWidth } from 'src/utils/shared'
-import { Node } from 'src/proto/shared_pb'
+import { GetXylonaClient, WindowWidth } from '@/utils/shared'
+import { Node } from '@/proto/shared_pb'
 import { ListNodesRequest, ListNodesRequestSchema, ListNodesResponse } from '../../proto/xylona_pb'
 
 const windowWidth = WindowWidth()

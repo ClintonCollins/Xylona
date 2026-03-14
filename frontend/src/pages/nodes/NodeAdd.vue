@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import NodeForm from 'src/components/nodes/NodeForm.vue'
+import NodeForm from '@/components/nodes/NodeForm.vue'
 </script>
 
 <style scoped>

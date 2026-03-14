@@ -61,11 +61,11 @@ import { useStorage } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
-import { GetXylonaClient, WindowWidth } from 'src/utils/shared'
-import { SecretKey } from 'src/proto/shared_pb'
+import { GetXylonaClient, WindowWidth } from '@/utils/shared'
+import { SecretKey } from '@/proto/shared_pb'
 import { ListLocalSecretKeysRequest, ListLocalSecretKeysRequestSchema
 } from 'src/proto/xylona_pb'
-import SecretKeyDeleteDialog from 'src/components/keys/SecretKeyDeleteDialog.vue'
+import SecretKeyDeleteDialog from '@/components/keys/SecretKeyDeleteDialog.vue'
 import SecretKeyFormDialog from '../../components/keys/SecretKeyFormDialog.vue'
 
 const windowWidth = WindowWidth()

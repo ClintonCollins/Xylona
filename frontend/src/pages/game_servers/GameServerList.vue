@@ -79,11 +79,11 @@
 import { create } from '@bufbuild/protobuf'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
-import { GetXylonaClient, WindowWidth, XylonaEventBus } from 'src/utils/shared'
-import { ListGameServersRequest, ListGameServersRequestSchema } from 'src/proto/xylona_pb'
-import DeleteGameServerDialog from 'src/components/game_servers/DeleteGameServerDialog.vue'
-import StatusBadge from 'src/components/StatusBadge.vue'
-import { GameServer, Node, Status } from 'src/proto/shared_pb'
+import { GetXylonaClient, WindowWidth, XylonaEventBus } from '@/utils/shared'
+import { ListGameServersRequest, ListGameServersRequestSchema } from '@/proto/xylona_pb'
+import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
+import { GameServer, Node, Status } from '@/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
 
 const gameServers = ref([] as GameServer[])

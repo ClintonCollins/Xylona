@@ -24,10 +24,10 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { QCard, useQuasar } from 'quasar'
-import loadCustomEditorSettings, { getLanguageFromFileName, LanguageOptions } from 'src/components/editor/editor'
+import loadCustomEditorSettings, { getLanguageFromFileName, LanguageOptions } from '@/components/editor/editor'
 import {
   GameServersFileEditRequest, GameServersFileEditRequestSchema } from 'src/proto/gameserver_files_operations_pb'
-import { GetXylonaClient } from 'src/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 import { onMounted, onUnmounted, ref } from 'vue'
 import * as monaco from 'monaco-editor'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'

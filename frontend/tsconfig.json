@@ -2,7 +2,10 @@
   "compilerOptions": {
     "baseUrl": ".",
     "lib": ["esnext", "dom", "DOM.Iterable"],
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "exclude": [
     "./dist",

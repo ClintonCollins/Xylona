@@ -57,7 +57,7 @@
 
 <script setup lang="ts">
 import {create} from '@bufbuild/protobuf'
-import {GetXylonaClient} from 'src/utils/shared'
+import {GetXylonaClient} from '@/utils/shared'
 import {onMounted, Ref, ref, watch} from 'vue'
 import {useRouter} from 'vue-router'
 import {

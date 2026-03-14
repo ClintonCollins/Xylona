@@ -31,8 +31,8 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
-import { GameServerFilesMoveRequest, GameServerFilesMoveRequestSchema } from 'src/proto/gameserver_files_operations_pb'
-import { File as xylonaFile } from 'src/proto/gameserver_files_operations_pb'
+import { GameServerFilesMoveRequest, GameServerFilesMoveRequestSchema } from '@/proto/gameserver_files_operations_pb'
+import { File as xylonaFile } from '@/proto/gameserver_files_operations_pb'
 import {
     GetPathSeparator,
     GetRelativeFilePath,

@@ -153,14 +153,14 @@
 <script setup lang="ts">
 import { create, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
-import Editor from 'components/Editor.vue'
-import ArchiveFiles from 'components/game_servers/ArchiveFiles.vue'
-import Create from 'components/game_servers/Create.vue'
-import DeleteGameServerFilesDialog from 'components/game_servers/DeleteGameServerFilesDialog.vue'
-import ExtractFiles from 'components/game_servers/ExtractFiles.vue'
-import FileUploaderDrop from 'components/game_servers/FileUploaderDrop.vue'
-import MoveFiles from 'components/game_servers/MoveFiles.vue'
-import RenameFile from 'components/game_servers/RenameFile.vue'
+import Editor from '@/components/Editor.vue'
+import ArchiveFiles from '@/components/game_servers/ArchiveFiles.vue'
+import Create from '@/components/game_servers/Create.vue'
+import DeleteGameServerFilesDialog from '@/components/game_servers/DeleteGameServerFilesDialog.vue'
+import ExtractFiles from '@/components/game_servers/ExtractFiles.vue'
+import FileUploaderDrop from '@/components/game_servers/FileUploaderDrop.vue'
+import MoveFiles from '@/components/game_servers/MoveFiles.vue'
+import RenameFile from '@/components/game_servers/RenameFile.vue'
 import dayjs from 'dayjs'
 import { QBtn, QMenu, useQuasar } from 'quasar'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
@@ -180,7 +180,7 @@ import {
 import { computed, onMounted, ref, Ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Timestamp, timestampDate, TimestampSchema } from '@bufbuild/protobuf/wkt'
-import { GetGameServerRequest, GetGameServerRequestSchema } from 'src/proto/xylona_pb'
+import { GetGameServerRequest, GetGameServerRequestSchema } from '@/proto/xylona_pb'
 
 const $q = useQuasar()
 const uploadURL: Ref<string> = ref('/api/file/upload')

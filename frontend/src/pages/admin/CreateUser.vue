@@ -20,10 +20,10 @@
 </template>
 
 <script setup lang="ts">
-import {CreateUserRequest} from "src/proto/xylona_pb";
+import {CreateUserRequest} from "@/proto/xylona_pb";
 import {Ref} from "vue";
 import {ref} from "vue";
-import {GetXylonaClient} from "src/utils/shared";
+import {GetXylonaClient} from "@/utils/shared";
 
 const user: Ref<CreateUserRequest> = ref({}) as Ref<CreateUserRequest>
 user.value.superUser = false

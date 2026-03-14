@@ -48,8 +48,8 @@
 </template>
 
 <script setup lang="ts">
-import {useUserAuthStore} from "src/stores/xylona";
-import {User} from "src/proto/xylona_pb";
+import {useUserAuthStore} from "@/stores/xylona";
+import {User} from "@/proto/xylona_pb";
 import {ref, Ref} from "vue";
 import { ionGameController, ionPersonAdd, ionHome, ionServer, ionKey } from '@quasar/extras/ionicons-v7'
 import { laServerSolid} from "@quasar/extras/line-awesome";

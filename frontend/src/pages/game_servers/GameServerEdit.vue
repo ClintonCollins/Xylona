@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import GameServerForm from 'src/components/game_servers/GameServerForm.vue'
+import GameServerForm from '@/components/game_servers/GameServerForm.vue'
 import { Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 

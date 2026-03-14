@@ -108,8 +108,8 @@
 
 <script setup lang="ts">
 import {create} from '@bufbuild/protobuf'
-import ClipBoardCopy from 'components/ClipBoardCopy.vue'
-import StatusBadge from 'components/StatusBadge.vue'
+import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import {QItemSection, QScrollArea} from 'quasar'
 import {tabMaximize} from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
@@ -137,8 +137,8 @@ import {
   UpdateGameServerRequest,
   UpdateGameServerRequestSchema
 } from 'src/proto/xylona_pb'
-import {parseConsole} from 'src/utils/console'
-import {GetXylonaClient, XylonaEventBus} from 'src/utils/shared'
+import {parseConsole} from '@/utils/console'
+import {GetXylonaClient, XylonaEventBus} from '@/utils/shared'
 import {computed, onMounted, Ref, ref} from 'vue'
 import {useRoute} from 'vue-router'
 

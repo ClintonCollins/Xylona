@@ -127,7 +127,7 @@
 
 <script setup lang="ts">
 import { ref, Ref } from 'vue'
-import { bytesToSize } from 'src/utils/shared'
+import { bytesToSize } from '@/utils/shared'
 import axios, { AxiosRequestConfig } from 'axios'
 import {
     tabBarrierBlock,

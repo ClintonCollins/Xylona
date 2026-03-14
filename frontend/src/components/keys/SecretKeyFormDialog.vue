@@ -57,7 +57,7 @@
 import { create } from '@bufbuild/protobuf'
 import { ionClipboard, ionSearch } from '@quasar/extras/ionicons-v7'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
-import { GetXylonaClient } from 'src/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 import { Ref, ref } from 'vue'
 import {
   CreateLocalSecretKeyRequest, CreateLocalSecretKeyRequestSchema

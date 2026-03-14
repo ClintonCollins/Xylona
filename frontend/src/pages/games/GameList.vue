@@ -83,16 +83,16 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { useStorage } from '@vueuse/core'
-import GameDeleteDialog from 'components/games/GameDeleteDialog.vue'
+import GameDeleteDialog from '@/components/games/GameDeleteDialog.vue'
 import {
   tabCopy,
   tabSettings,
   tabTrash,
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
-import { GetXylonaClient, WindowWidth } from 'src/utils/shared'
+import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { useRouter } from 'vue-router'
-import { Game } from 'src/proto/shared_pb'
+import { Game } from '@/proto/shared_pb'
 import { ListGamesRequest, ListGamesRequestSchema, ListGamesResponse
 } from 'src/proto/xylona_pb'
 

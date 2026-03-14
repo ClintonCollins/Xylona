@@ -12,6 +12,7 @@ const config: Config = {
   endOfLine: 'lf',
   htmlWhitespaceSensitivity: 'css',
   vueIndentScriptAndStyle: false,
+  bracketSameLine: true,
 }
 
 export default config

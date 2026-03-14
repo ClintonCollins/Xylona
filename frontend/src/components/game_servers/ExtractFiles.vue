@@ -49,7 +49,7 @@ import {
     GetXylonaClientCallback
 } from 'src/utils/shared'
 import { ref } from 'vue'
-import { GameServerFilesExtractProgress } from 'src/proto/shared_pb'
+import { GameServerFilesExtractProgress } from '@/proto/shared_pb'
 
 const props = defineProps({
     gameServerId: {

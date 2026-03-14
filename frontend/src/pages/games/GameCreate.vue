@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import GameForm from 'components/games/GameForm.vue'
+import GameForm from '@/components/games/GameForm.vue'
 </script>
 
 <style scoped>

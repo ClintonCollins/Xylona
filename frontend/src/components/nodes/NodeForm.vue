@@ -34,10 +34,10 @@
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
-import { GetXylonaClient } from 'src/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { NodeSchema } from 'src/proto/shared_pb'
+import { NodeSchema } from '@/proto/shared_pb'
 import {
   AddNodeRequest, AddNodeRequestSchema,
   EditNodeRequest, EditNodeRequestSchema,

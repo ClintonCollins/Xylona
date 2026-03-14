@@ -9,7 +9,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import NodeForm from 'src/components/nodes/NodeForm.vue'
+import NodeForm from '@/components/nodes/NodeForm.vue'
 
 const route = useRoute()
 const nodeID = ref(route.params.id)

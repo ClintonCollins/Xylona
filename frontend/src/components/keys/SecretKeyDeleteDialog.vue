@@ -23,9 +23,9 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
-import { GetXylonaClient } from 'src/utils/shared'
-import { DeleteLocalSecretKeyRequest, DeleteLocalSecretKeyRequestSchema } from 'src/proto/xylona_pb'
-import { SecretKey } from 'src/proto/shared_pb'
+import { GetXylonaClient } from '@/utils/shared'
+import { DeleteLocalSecretKeyRequest, DeleteLocalSecretKeyRequestSchema } from '@/proto/xylona_pb'
+import { SecretKey } from '@/proto/shared_pb'
 import { PropType } from 'vue'
 
 const props = defineProps({

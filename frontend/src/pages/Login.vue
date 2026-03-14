@@ -27,9 +27,9 @@ import { useQuasar } from 'quasar'
 // Login page layout
 import { ref } from 'vue'
 import { create } from "@bufbuild/protobuf";
-import { LoginRequestSchema } from 'src/proto/xylona_pb'
-import { ConnectErrorToString, GetXylonaClient } from 'src/utils/shared'
-import { useUserAuthStore } from 'src/stores/xylona'
+import { LoginRequestSchema } from '@/proto/xylona_pb'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { useUserAuthStore } from '@/stores/xylona'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()

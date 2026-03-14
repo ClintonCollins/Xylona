@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import {Status} from "src/proto/shared_pb";
+import {Status} from "@/proto/shared_pb";
 import {computed, PropType, ref} from "vue";
 
 const props = defineProps({

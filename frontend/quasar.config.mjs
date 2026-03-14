@@ -80,6 +80,10 @@ export default configure(function (/* ctx */) {
             // ]
 
             extendViteConf(viteConf) {
+                viteConf.resolve.alias = {
+                    ...viteConf.resolve.alias,
+                    '@': '/src'
+                };
             }
         },
 

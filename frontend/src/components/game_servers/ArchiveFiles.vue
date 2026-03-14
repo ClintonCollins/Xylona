@@ -53,7 +53,7 @@ import {
   File as xylonaFile, GameServerFilesCompressionRequest, GameServerFilesCompressionRequestSchema,
   GameServerFilesCompressionType
 } from 'src/proto/gameserver_files_operations_pb'
-import { ArchiveTypeToExtension, ArchiveTypeToString, bytesToSize, GetXylonaClientCallback } from 'src/utils/shared'
+import { ArchiveTypeToExtension, ArchiveTypeToString, bytesToSize, GetXylonaClientCallback } from '@/utils/shared'
 import { ref } from 'vue'
 
 const props = defineProps({
