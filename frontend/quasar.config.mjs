@@ -86,7 +86,21 @@ export default configure(function (/* ctx */) {
         // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
         devServer: {
             https: true,
-            open: false // opens browser window automatically
+            open: false, // opens browser window automatically
+            proxy: {
+              '/xylona.Xylona': {
+                target: 'http://localhost:8080',
+                changeOrigin: true,
+                secure: false,
+                ws: true,
+              },
+              '/api': {
+                target: 'http://localhost:8080',
+                changeOrigin: true,
+                secure: false,
+                ws: true,
+              }
+            }
         },
 
         // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework

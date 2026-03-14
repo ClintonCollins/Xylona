@@ -29,6 +29,7 @@ const windowWidth = WindowWidth()
 useToolbarNavQTabsStore().changeTabs([
   {name: "Console", to: "/game-servers/" + route.params.id + "/console", icon: "terminal", exact: true},
   {name: "Files", to: "/game-servers/" + route.params.id + "/files", icon: "folder", exact: true},
+  {name: "Configuration", to: "/game-servers/" + route.params.id + "/configuration", icon: "settings", exact: true},
 ])
 
 </script>

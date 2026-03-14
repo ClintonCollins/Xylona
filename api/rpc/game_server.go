@@ -259,8 +259,16 @@ func (xs XylonaService) getMinecraftVersion(gameServer *models.GameServer) (stri
 }
 
 func (xs XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
-	//TODO implement me
-	panic("implement me")
+	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGetGameServer != nil {
+		if errors.Is(errGetGameServer, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+	xs.actionsInst.UpdateGameServer(gameServer)
+	response := &xylona.UpdateGameServerResponse{}
+	return connect.NewResponse(response), nil
 }
 
 func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {

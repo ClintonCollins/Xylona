@@ -456,6 +456,48 @@ func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 	gameServerCommand.Stop(gameStopCommand(gameServer.R.Game))
 }
 
+func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) {
+	gameServerCommand, errGetCommand := inst.supervisorInstance.GetCommandByID(gameServer.ID)
+	if errGetCommand == nil {
+		status := gameServerCommand.Status()
+		if status != xylona.Status_OFFLINE && status != xylona.Status_UNKNOWN {
+			log.Info().Str("Game Server ID", gameServer.ID).Msg("Stopping game server before update")
+			gameServerCommand.Stop(gameStopCommand(gameServer.R.Game))
+		}
+	}
+
+	updateCmd := gameUpdateCommand(gameServer.R.Game)
+	if updateCmd == "" {
+		log.Warn().Str("Game Server ID", gameServer.ID).Msg("No update command configured for this game")
+		return
+	}
+
+	preparedCommand := supervisor.PreparedCommand{
+		ID:                 gameServer.ID,
+		FullCommandAndArgs: ParameterSubstitution(updateCmd, gameServer),
+		WorkingDirectory:   gameServer.Directory,
+		User:               gameServer.UserID,
+		GameServerID:       &gameServer.ID,
+		Status:             xylona.Status_UPDATING,
+		ServiceID:          gameServer.GameID,
+		CallbackFunction: func(cmd *supervisor.Command) {
+			log.Info().Str("Game Server ID", gameServer.ID).Msg("Game server update completed")
+		},
+	}
+
+	if gameUpdateCommandType(gameServer.R.Game) == CommandTypeInternal {
+		preparedCommand.InternalCommand = true
+		preparedCommand.InternalGameServer = gameServer
+		gameID := gameServer.GameID
+		preparedCommand.GameID = &gameID
+	}
+
+	_, errStart := inst.supervisorInstance.StartCommand(preparedCommand)
+	if errStart != nil {
+		log.Error().Err(errStart).Str("Game Server ID", gameServer.ID).Msg("Failed to start update command")
+	}
+}
+
 func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string {
 	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
 	if err != nil {

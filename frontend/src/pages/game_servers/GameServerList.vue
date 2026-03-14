@@ -51,7 +51,7 @@
                             <template v-slot:body-cell-actions="props">
                                 <q-td :props="props">
                                     <div class="q-gutter-xs">
-                                        <router-link :to="'/game-servers/' + props.row.id + '/edit'">
+                                        <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
                                             <q-btn flat class="text-main-brighter" :icon="tabSettings">
                                                 <q-tooltip>Edit game server</q-tooltip>
                                             </q-btn>

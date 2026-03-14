@@ -1,67 +1,65 @@
 <template>
-    <q-card class="full-width">
-        <q-card-section>
-            <div class="row">
-                <div class="text-h6" v-text="existingGameServerId ? 'Edit Game Server' : 'Create Game Server'"></div>
-            </div>
-        </q-card-section>
-        <q-card-section>
-            <q-form class="q-pa-lg">
-                <div class="row wrap q-col-gutter-md justify-between">
-                    <q-input class="col-12 col-xl-6" outlined type="text" autofocus label="Name"
-                             v-model="gameServer.name"></q-input>
-                    <q-select class="col-12 col-xl-6" outlined type="text" label="User" emit-value
-                              :options="availableUsers"
-                              v-model="gameServer.userId" option-label="label" map-options
-                              options-selected-class="selected-option"></q-select>
-                    <q-select class="col-12 col-xl-6" outlined type="text" label="Game" emit-value
-                              :options="availableGames"
-                              v-model="gameServer.gameId" option-label="label" map-options
-                              options-selected-class="selected-option"></q-select>
-                    <q-select class="col-12 col-xl-6" outlined type="text" label="Node" emit-value
-                              :options="nodes"
-                              v-model="gameServer.nodeId" option-label="name" map-options option-value="id"
-                              options-selected-class="selected-option"></q-select>
-                    <q-select class="col-12 col-xl-6" outlined type="text" label="IP Address" emit-value
-                              :options="availableIPs"
-                              v-model="gameServer.ip" option-label="address"
-                              options-selected-class="selected-option"></q-select>
-                    <q-input v-if="props.existingGameServerId !== undefined" class="col-12 col-xl-6" outlined
-                             type="text"
-                             label="Start Command"
-                             v-model="gameServer.startCommand"></q-input>
-                    <q-input class="col-12 col-xl-6" outlined type="text" label="Set Players"
-                             v-model.number="setPlayers"></q-input>
-                    <q-input class="col-12 col-xl-6" outlined type="text" label="Max Players"
-                             v-model.number="maxPlayers"></q-input>
-                    <q-input v-if="gameServer.gameId === 'minecraft'" class="col-12 col-xl-6" outlined type="text"
-                             label="Max Memory MB"
-                             v-model.number="maxMemoryMB"></q-input>
-                    <q-input class="col-12 col-xl-6" outlined type="text" label="Port"
-                             v-model.number="port"></q-input>
-                    <q-input class="col-12 col-xl-6" outlined type="text" label="Query Port"
-                             v-model.number="queryPort"></q-input>
-                </div>
-            </q-form>
-        </q-card-section>
-        <q-separator></q-separator>
-        <q-card-actions class="q-pa-md" align="right">
-            <q-btn flat label="Cancel" @click="cancel"></q-btn>
-            <q-btn label="Save" color="primary" @click="submitGameServer"></q-btn>
-        </q-card-actions>
-        <q-inner-loading
-                :showing="formSubmitting"
-                label="Saving game configuration..."
-                label-class="text-primary"
-        ></q-inner-loading>
-    </q-card>
+  <q-card-section>
+    <div class="row">
+      <div class="text-h6" v-text="existingGameServerId ? 'Edit Game Server' : 'Create Game Server'"></div>
+    </div>
+  </q-card-section>
+  <q-card-section>
+    <q-form class="q-pa-lg">
+      <div class="row wrap q-col-gutter-md justify-between">
+        <q-input class="col-12 col-xl-6" outlined type="text" autofocus label="Name"
+                 v-model="gameServer.name"></q-input>
+        <q-select class="col-12 col-xl-6" outlined type="text" label="User" emit-value
+                  :options="availableUsers"
+                  v-model="gameServer.userId" option-label="label" map-options
+                  options-selected-class="selected-option"></q-select>
+        <q-select class="col-12 col-xl-6" outlined type="text" label="Game" emit-value
+                  :options="availableGames"
+                  v-model="gameServer.gameId" option-label="label" map-options
+                  options-selected-class="selected-option"></q-select>
+        <q-select class="col-12 col-xl-6" outlined type="text" label="Node" emit-value
+                  :options="nodes"
+                  v-model="gameServer.nodeId" option-label="name" map-options option-value="id"
+                  options-selected-class="selected-option"></q-select>
+        <q-select class="col-12 col-xl-6" outlined type="text" label="IP Address" emit-value
+                  :options="availableIPs"
+                  v-model="gameServer.ip" option-label="address"
+                  options-selected-class="selected-option"></q-select>
+        <q-input v-if="props.existingGameServerId !== undefined" class="col-12 col-xl-6" outlined
+                 type="text"
+                 label="Start Command"
+                 v-model="gameServer.startCommand"></q-input>
+        <q-input class="col-12 col-xl-6" outlined type="text" label="Set Players"
+                 v-model.number="setPlayers"></q-input>
+        <q-input class="col-12 col-xl-6" outlined type="text" label="Max Players"
+                 v-model.number="maxPlayers"></q-input>
+        <q-input v-if="gameServer.gameId === 'minecraft'" class="col-12 col-xl-6" outlined type="text"
+                 label="Max Memory MB"
+                 v-model.number="maxMemoryMB"></q-input>
+        <q-input class="col-12 col-xl-6" outlined type="text" label="Port"
+                 v-model.number="port"></q-input>
+        <q-input class="col-12 col-xl-6" outlined type="text" label="Query Port"
+                 v-model.number="queryPort"></q-input>
+      </div>
+    </q-form>
+  </q-card-section>
+  <q-separator></q-separator>
+  <q-card-actions class="q-pa-md" align="right">
+    <q-btn flat label="Cancel" @click="cancel"></q-btn>
+    <q-btn label="Save" color="primary" @click="submitGameServer"></q-btn>
+  </q-card-actions>
+  <q-inner-loading
+    :showing="formSubmitting"
+    label="Saving game configuration..."
+    label-class="text-primary"
+  ></q-inner-loading>
 </template>
 
 <script setup lang="ts">
-import { create } from '@bufbuild/protobuf'
-import { GetXylonaClient } from 'src/utils/shared'
-import { onMounted, Ref, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import {create} from '@bufbuild/protobuf'
+import {GetXylonaClient} from 'src/utils/shared'
+import {onMounted, Ref, ref, watch} from 'vue'
+import {useRouter} from 'vue-router'
 import {
   CreateGameServerRequest, CreateGameServerRequestSchema, EditGameServerRequest, EditGameServerRequestSchema, Game,
   GameServer, GameServerSchema, IP, Node
