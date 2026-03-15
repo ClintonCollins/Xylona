@@ -99,12 +99,20 @@ func (e *FederationSyncEngine) start() {
 func (e *FederationSyncEngine) cleanupRemoteServerCache() {
 	errOrphanCleanup := e.db.DeleteOrphanedRemoteServerCacheByNodeReferences()
 	if errOrphanCleanup != nil {
-		log.Warn().Err(errOrphanCleanup).Msg("Failed to clean orphaned remote server cache rows")
+		if e.db.IsBusyError(errOrphanCleanup) {
+			log.Debug().Err(errOrphanCleanup).Msg("Database busy during orphaned remote server cache cleanup, will retry later")
+		} else {
+			log.Warn().Err(errOrphanCleanup).Msg("Failed to clean orphaned remote server cache rows")
+		}
 	}
 
 	remoteNodes, errGetRemoteNodes := e.db.GetAllRemoteNodes()
 	if errGetRemoteNodes != nil {
-		log.Warn().Err(errGetRemoteNodes).Msg("Failed to list remote nodes for stale cache cleanup")
+		if e.db.IsBusyError(errGetRemoteNodes) {
+			log.Debug().Err(errGetRemoteNodes).Msg("Database busy while listing remote nodes for stale cache cleanup, will retry later")
+		} else {
+			log.Warn().Err(errGetRemoteNodes).Msg("Failed to list remote nodes for stale cache cleanup")
+		}
 		return
 	}
 
@@ -112,10 +120,17 @@ func (e *FederationSyncEngine) cleanupRemoteServerCache() {
 	for _, remoteNode := range remoteNodes {
 		errDeleteStale := e.db.DeleteStaleRemoteServerCacheByNodeID(remoteNode.ID, olderThan)
 		if errDeleteStale != nil {
-			log.Warn().
-				Err(errDeleteStale).
-				Str("node_id", remoteNode.ID).
-				Msg("Failed to delete stale remote server cache rows")
+			if e.db.IsBusyError(errDeleteStale) {
+				log.Debug().
+					Err(errDeleteStale).
+					Str("node_id", remoteNode.ID).
+					Msg("Database busy during stale remote server cache cleanup, will retry later")
+			} else {
+				log.Warn().
+					Err(errDeleteStale).
+					Str("node_id", remoteNode.ID).
+					Msg("Failed to delete stale remote server cache rows")
+			}
 		}
 	}
 }

@@ -178,3 +178,10 @@ func isSQLiteUniqueConstraintError(err error) bool {
 	}
 	return strings.Contains(strings.ToLower(err.Error()), "unique constraint failed")
 }
+
+func (c *Connection) IsBusyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "database is locked") || strings.Contains(err.Error(), "SQLITE_BUSY")
+}
