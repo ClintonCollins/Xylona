@@ -18,16 +18,14 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
+	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 const (
-	FederationProtocolVersion = 1
-	FederationCapabilities    = "server_list,server_detail,remote_actions,console_streaming,status_streaming,file_operations,update,edit,remove"
-	SoftwareVersion           = "0.1.0"
-	federationRequestTimeout  = 15 * time.Second
+	federationRequestTimeout = 15 * time.Second
 )
 
 // FederationService handles node-to-node federation API calls.
@@ -94,9 +92,9 @@ func (fs FederationService) Handshake(ctx context.Context, request *connect.Requ
 	resp := &xylona.FederationHandshakeResponse{
 		NodeId:          localSettings.NodeID,
 		NodeName:        nodeName,
-		Version:         SoftwareVersion,
-		ProtocolVersion: FederationProtocolVersion,
-		Capabilities:    FederationCapabilities,
+		Version:         version.SoftwareVersion,
+		ProtocolVersion: version.FederationProtocolVersion,
+		Capabilities:    version.FederationCapabilities,
 		ServerTime:      timestamppb.New(time.Now()),
 	}
 

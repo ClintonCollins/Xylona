@@ -366,8 +366,10 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 			command.currentCMD = nil
 			command.status = xylona.Status_OFFLINE
 			command.Unlock()
-			commandEndFunc(command)
-		}()
+ 		if commandEndFunc != nil {
+ 			commandEndFunc(command)
+ 		}
+ 	}()
 		switch command.status {
 		case xylona.Status_INSTALLING:
 			err := internalGame.Install(command.internalGameServer, command.internalCommandStdOut, command.internalCommandStdErr)
@@ -403,7 +405,9 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 		command.currentCMD = nil
 		command.status = xylona.Status_OFFLINE
 		command.Unlock()
-		commandEndFunc(command)
+		if commandEndFunc != nil {
+			commandEndFunc(command)
+		}
 		return
 	}
 
@@ -426,7 +430,9 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 	command.currentCMD = nil
 	command.status = xylona.Status_OFFLINE
 	command.Unlock()
-	commandEndFunc(command)
+	if commandEndFunc != nil {
+		commandEndFunc(command)
+	}
 }
 
 func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*Command, error) {

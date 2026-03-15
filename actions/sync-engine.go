@@ -26,6 +26,7 @@ const (
 	staleThreshold             = 3 * time.Minute
 	maxRetryBackoff            = 5 * time.Minute
 	federationRequestTimeout   = 15 * time.Second
+	federationFileTransferTimeout = 2 * time.Hour
 )
 
 // StatusBroadcaster is called when a remote server status changes in real-time.

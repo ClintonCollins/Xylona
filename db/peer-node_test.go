@@ -2,8 +2,11 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/pkg/version"
 )
 
 func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
@@ -29,10 +32,10 @@ func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
 		t.Fatalf("failed to create table: %v", errCreate)
 	}
 
-	_, errInsert := conn.SQLDb.Exec(`
+	_, errInsert := conn.SQLDb.Exec(fmt.Sprintf(`
 		INSERT INTO node (id, name, version, protocol_version, capabilities)
-		VALUES ('node-1', 'Custom Remote Name', '0.1.0', 1, 'server_list')
-	`)
+		VALUES ('node-1', 'Custom Remote Name', '%s', %d, 'server_list')
+	`, version.SoftwareVersion, version.FederationProtocolVersion))
 	if errInsert != nil {
 		t.Fatalf("failed to insert node: %v", errInsert)
 	}

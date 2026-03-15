@@ -100,12 +100,16 @@ func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path st
 
 			var totalSize int64 = 0
 
-			err := filepath.Walk(filepath.Join(fullPath, file.Name()), func(path string, fileInfo os.FileInfo, err error) error {
+			err := filepath.WalkDir(filepath.Join(fullPath, file.Name()), func(path string, d os.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
-				if !fileInfo.IsDir() {
-					totalSize += fileInfo.Size()
+				if !d.IsDir() {
+					info, err := d.Info()
+					if err != nil {
+						return err
+					}
+					totalSize += info.Size()
 				}
 				return nil
 			})

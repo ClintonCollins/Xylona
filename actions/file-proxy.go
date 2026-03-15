@@ -199,7 +199,7 @@ func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequ
 func (inst *Instance) proxyRemoteFileRequest(req *http.Request, federationKey string, allowInsecureTLS bool, w http.ResponseWriter) error {
 	req.Header.Set("X-Federation-Key", federationKey)
 
-	httpClient := helpers.NewFederationHTTPClient(federationRequestTimeout, allowInsecureTLS)
+	httpClient := helpers.NewFederationHTTPClient(federationFileTransferTimeout, allowInsecureTLS)
 	resp, errDo := httpClient.Do(req)
 	if errDo != nil {
 		return errDo

@@ -6,6 +6,7 @@ import (
 
 	"github.com/aarondl/opt/null"
 
+	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -27,9 +28,9 @@ func TestNodeModelToProtoFederation(t *testing.T) {
 				BaseURL:         "http://192.168.1.100:8080",
 				Enabled:         true,
 				HealthStatus:    "healthy",
-				Version:         "0.1.0",
-				ProtocolVersion: 1,
-				Capabilities:    "server_list,server_detail",
+				Version:         version.SoftwareVersion,
+				ProtocolVersion: version.FederationProtocolVersion,
+				Capabilities:    version.FederationCapabilities,
 				CreatedAt:       null.From(time.Now()),
 				UpdatedAt:       null.From(time.Now()),
 			},
