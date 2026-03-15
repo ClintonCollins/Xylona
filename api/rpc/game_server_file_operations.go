@@ -2,45 +2,50 @@ package rpc
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (xs XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, request *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GameServerId)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return xs.createRemoteFileOrDirectory(ctx, request.Msg.GameServerId, request.Msg.GetFullFilePath(), request.Msg.GetContent(), request.Msg.GetIsDirectory())
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	errCreate := xs.actionsInst.CreateFileOrDirectory(gameServer, request.Msg.GetFullFilePath(),
-		request.Msg.GetContent(), request.Msg.GetIsDirectory())
-	if errCreate != nil {
-		return nil, connect.NewError(connect.CodeInternal, errCreate)
-	}
-	return &connect.Response[xylona.GameServerFileOrDirectoryCreateResponse]{Msg: &xylona.GameServerFileOrDirectoryCreateResponse{}}, nil
+	serverID := request.Msg.GameServerId
+	return dispatchGameServerRequest(
+		xs,
+		serverID,
+		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
+			errCreate := xs.actionsInst.CreateFileOrDirectory(gameServer, request.Msg.GetFullFilePath(),
+				request.Msg.GetContent(), request.Msg.GetIsDirectory())
+			if errCreate != nil {
+				return nil, connect.NewError(connect.CodeInternal, errCreate)
+			}
+			return &connect.Response[xylona.GameServerFileOrDirectoryCreateResponse]{Msg: &xylona.GameServerFileOrDirectoryCreateResponse{}}, nil
+		},
+		func() (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
+			return xs.createRemoteFileOrDirectory(ctx, serverID, request.Msg.GetFullFilePath(), request.Msg.GetContent(), request.Msg.GetIsDirectory())
+		},
+	)
 }
 
 func (xs XylonaService) GameServerFilesDelete(ctx context.Context, request *connect.Request[xylona.GameServerFilesDeleteRequest]) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GameServerId)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return xs.deleteRemoteFiles(ctx, request.Msg.GameServerId, request.Msg.GetFullFilePaths())
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	results, errDelete := xs.actionsInst.DeleteFiles(ctx, gameServer, request.Msg.GetFullFilePaths())
-	if errDelete != nil {
-		return nil, errDelete
-	}
-	response := &xylona.GameServerFilesDeleteResponse{FullFilePaths: results}
-	return &connect.Response[xylona.GameServerFilesDeleteResponse]{Msg: response}, nil
+	serverID := request.Msg.GameServerId
+	return dispatchGameServerRequest(
+		xs,
+		serverID,
+		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
+			results, errDelete := xs.actionsInst.DeleteFiles(ctx, gameServer, request.Msg.GetFullFilePaths())
+			if errDelete != nil {
+				return nil, errDelete
+			}
+			response := &xylona.GameServerFilesDeleteResponse{FullFilePaths: results}
+			return &connect.Response[xylona.GameServerFilesDeleteResponse]{Msg: response}, nil
+		},
+		func() (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
+			return xs.deleteRemoteFiles(ctx, serverID, request.Msg.GetFullFilePaths())
+		},
+	)
 }
 
 func (xs XylonaService) GameServerFilesArchive(ctx context.Context, request *connect.Request[xylona.GameServerFilesCompressionRequest], c *connect.ServerStream[xylona.GameServerFilesArchiveProgress]) error {
@@ -144,64 +149,76 @@ func (xs XylonaService) GameServerFilesDecompress(ctx context.Context, request *
 }
 
 func (xs XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, request *connect.Request[xylona.GameServersFileDownloadFromURLRequest]) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GameServerId)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return xs.downloadRemoteFileFromURL(ctx, request.Msg.GameServerId, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	results, errDownload := xs.actionsInst.DownloadFileFromURL(ctx, gameServer, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
-	if errDownload != nil {
-		return nil, connect.NewError(connect.CodeInternal, errDownload)
-	}
-	response := &xylona.GameServersFileDownloadFromURLResponse{FilePath: results}
-	return &connect.Response[xylona.GameServersFileDownloadFromURLResponse]{Msg: response}, nil
+	serverID := request.Msg.GameServerId
+	return dispatchGameServerRequest(
+		xs,
+		serverID,
+		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
+			results, errDownload := xs.actionsInst.DownloadFileFromURL(ctx, gameServer, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
+			if errDownload != nil {
+				return nil, connect.NewError(connect.CodeInternal, errDownload)
+			}
+			response := &xylona.GameServersFileDownloadFromURLResponse{FilePath: results}
+			return &connect.Response[xylona.GameServersFileDownloadFromURLResponse]{Msg: response}, nil
+		},
+		func() (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
+			return xs.downloadRemoteFileFromURL(ctx, serverID, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
+		},
+	)
 }
 
 func (xs XylonaService) GameServerFileRename(ctx context.Context, request *connect.Request[xylona.GameServerFileRenameRequest]) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GameServerId)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return xs.renameRemoteFile(ctx, request.Msg.GameServerId, request.Msg.GetOldPath(), request.Msg.GetNewPath())
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	newFilePath, errRename := xs.actionsInst.RenameFile(gameServer, request.Msg.GetOldPath(), request.Msg.GetNewPath())
-	if errRename != nil {
-		return nil, connect.NewError(connect.CodeInternal, errRename)
-	}
-	response := &xylona.GameServerFileRenameResponse{NewPath: newFilePath}
-	return &connect.Response[xylona.GameServerFileRenameResponse]{Msg: response}, nil
+	serverID := request.Msg.GameServerId
+	return dispatchGameServerRequest(
+		xs,
+		serverID,
+		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
+			newFilePath, errRename := xs.actionsInst.RenameFile(gameServer, request.Msg.GetOldPath(), request.Msg.GetNewPath())
+			if errRename != nil {
+				return nil, connect.NewError(connect.CodeInternal, errRename)
+			}
+			response := &xylona.GameServerFileRenameResponse{NewPath: newFilePath}
+			return &connect.Response[xylona.GameServerFileRenameResponse]{Msg: response}, nil
+		},
+		func() (*connect.Response[xylona.GameServerFileRenameResponse], error) {
+			return xs.renameRemoteFile(ctx, serverID, request.Msg.GetOldPath(), request.Msg.GetNewPath())
+		},
+	)
 }
 
 func (xs XylonaService) GameServerFilesMove(ctx context.Context, request *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GameServerId)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return xs.moveRemoteFiles(ctx, request.Msg.GameServerId, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	results, errMove := xs.actionsInst.MoveFiles(ctx, gameServer, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
-	if errMove != nil {
-		return nil, connect.NewError(connect.CodeInternal, errMove)
-	}
-	response := &xylona.GameServerFilesMoveResponse{FullFilePaths: results}
-	return &connect.Response[xylona.GameServerFilesMoveResponse]{Msg: response}, nil
+	serverID := request.Msg.GameServerId
+	return dispatchGameServerRequest(
+		xs,
+		serverID,
+		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
+			results, errMove := xs.actionsInst.MoveFiles(ctx, gameServer, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
+			if errMove != nil {
+				return nil, connect.NewError(connect.CodeInternal, errMove)
+			}
+			response := &xylona.GameServerFilesMoveResponse{FullFilePaths: results}
+			return &connect.Response[xylona.GameServerFilesMoveResponse]{Msg: response}, nil
+		},
+		func() (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
+			return xs.moveRemoteFiles(ctx, serverID, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
+		},
+	)
 }
 
 func (xs XylonaService) GameServersFileEdit(ctx context.Context, request *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GameServerId)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return xs.editRemoteFile(ctx, request.Msg.GameServerId, request.Msg.GetFullFilePath(), request.Msg.GetContent())
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	errEdit := xs.actionsInst.EditFile(gameServer, request.Msg.GetFullFilePath(), request.Msg.GetContent())
-	if errEdit != nil {
-		return nil, connect.NewError(connect.CodeInternal, errEdit)
-	}
-	return &connect.Response[xylona.GameServersFileEditResponse]{Msg: &xylona.GameServersFileEditResponse{}}, nil
+	serverID := request.Msg.GameServerId
+	return dispatchGameServerRequest(
+		xs,
+		serverID,
+		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServersFileEditResponse], error) {
+			errEdit := xs.actionsInst.EditFile(gameServer, request.Msg.GetFullFilePath(), request.Msg.GetContent())
+			if errEdit != nil {
+				return nil, connect.NewError(connect.CodeInternal, errEdit)
+			}
+			return &connect.Response[xylona.GameServersFileEditResponse]{Msg: &xylona.GameServersFileEditResponse{}}, nil
+		},
+		func() (*connect.Response[xylona.GameServersFileEditResponse], error) {
+			return xs.editRemoteFile(ctx, serverID, request.Msg.GetFullFilePath(), request.Msg.GetContent())
+		},
+	)
 }

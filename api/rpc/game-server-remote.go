@@ -39,7 +39,7 @@ func (xs XylonaService) editRemoteGameServer(ctx context.Context, serverID strin
 }
 
 func (xs XylonaService) removeRemoteGameServer(ctx context.Context, serverID string) (*connect.Response[xylona.RemoveGameServerResponse], error) {
-	node, _, errGet := xs.getRemoteNodeForServer(serverID)
+	node, remoteCache, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
 	}
@@ -60,8 +60,8 @@ func (xs XylonaService) removeRemoteGameServer(ctx context.Context, serverID str
 		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
 	}
 
-	// Clean up cached remote server data.
-	errDeleteCache := xs.db.DeleteRemoteServerCacheByNodeID(node.ID)
+	// Clean up only the removed server from cache.
+	errDeleteCache := xs.db.DeleteRemoteServerCacheByCompositeKey(remoteCache.SourceNodeID, remoteCache.RemoteServerID)
 	if errDeleteCache != nil {
 		log.Warn().Err(errDeleteCache).Str("server_id", serverID).Msg("Failed to clean up remote server cache after removal")
 	}

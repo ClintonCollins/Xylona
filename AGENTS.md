@@ -102,6 +102,7 @@ Regeneration commands:
 
 - **Import grouping**: Three groups separated by blank lines — (1) standard library, (2) third-party, (3) internal (`github.com/ClintonCollins/Xylona/...`).
 - **Error variable naming**: Use descriptive `err`-prefixed names like `errGenerate`, `errShutdown`, `errUpsertIP` rather than reusing a bare `err`.
+- **Error handling**: Always handle returned errors. Do not ignore errors (including errors returned by deferred calls like `Close()`). At minimum, log them with context using `zerolog`.
 - **Struct fields**: Unexported (lowercase) by default; exported only when needed for serialization or external access.
 - **Logging**: Use `zerolog` (`github.com/rs/zerolog/log`) with structured fields (`.Str()`, `.Err()`, `.Bool()`, `.Msg()`). Use `log.Fatal()` for unrecoverable startup errors.
 - **Naming**: Standard Go conventions — PascalCase for exported identifiers, camelCase for unexported. Package names are short, lowercase, single-word.

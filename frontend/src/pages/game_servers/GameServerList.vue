@@ -99,7 +99,7 @@ import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDi
 import StatusBadge from '@/components/StatusBadge.vue'
 import { Status } from '@/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
-import { AggregatedGameServer, ListAggregatedGameServersRequestSchema } from '@/proto/federation_pb'
+import { AggregatedGameServer, ListAggregatedGameServersRequestSchema } from '@/proto/xylona_pb'
 
 interface DisplayRow {
   compositeId: string

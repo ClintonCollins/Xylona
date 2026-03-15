@@ -115,6 +115,14 @@ func (c *Connection) DeleteRemoteServerCacheByNodeID(nodeID string) error {
 	return err
 }
 
+func (c *Connection) DeleteRemoteServerCacheByCompositeKey(sourceNodeID string, remoteServerID string) error {
+	_, err := sqlite.RawQuery(
+		`DELETE FROM remote_server_cache WHERE source_node_id = ? AND remote_server_id = ?`,
+		sourceNodeID, remoteServerID,
+	).Exec(c.ctx, c.DB)
+	return err
+}
+
 func (c *Connection) GetRemoteServerCacheByRemoteServerID(remoteServerID string) (*models.RemoteServerCache, error) {
 	server, err := models.RemoteServerCaches.Query(
 		models.SelectWhere.RemoteServerCaches.RemoteServerID.EQ(remoteServerID),

@@ -114,10 +114,10 @@ import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { Node } from '@/proto/shared_pb'
-import { SyncNodeRequestSchema } from '@/proto/federation_pb'
 import {
   ListNodesRequestSchema,
   RemoveNodeRequestSchema,
+  SyncNodeRequestSchema,
 } from '@/proto/xylona_pb'
 
 const windowWidth = WindowWidth()

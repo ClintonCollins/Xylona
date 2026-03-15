@@ -60,39 +60,6 @@ service Federation {
   rpc DownloadRemoteFileFromURL (FederationDownloadFileFromURLRequest) returns (FederationDownloadFileFromURLResponse) {}
 }
 
-// RemoteServerSummary is a cached summary of a game server on a remote node.
-message RemoteServerSummary {
-  string id = 1;
-  string source_node_id = 2;
-  string node_id = 3;
-  string remote_server_id = 4;
-  string display_name = 5;
-  Status status = 6;
-  string game_name = 7;
-  string game_id = 8;
-  string ip_address = 9;
-  int64 port = 10;
-  int64 query_port = 11;
-  int64 max_players = 12;
-  int64 current_players = 13;
-  string map_name = 14;
-  string version = 15;
-  string node_name = 16;
-  string node_host = 17;
-  google.protobuf.Timestamp last_remote_update = 18;
-  google.protobuf.Timestamp last_synced_at = 19;
-  bool is_stale = 20;
-}
-
-// AggregatedGameServer represents either a local or remote server in the unified view.
-message AggregatedGameServer {
-  bool is_local = 1;
-  // Set when is_local == true
-  GameServer local_server = 2;
-  // Set when is_local == false
-  RemoteServerSummary remote_server = 3;
-}
-
 // Federation Handshake
 message FederationHandshakeRequest {
   string secret_key = 1;
@@ -292,19 +259,4 @@ message FederationDownloadFileFromURLResponse {
   bool success = 1;
   string error = 2;
   string file_path = 3;
-}
-
-message SyncNodeRequest {
-  string node_id = 1;
-}
-
-message SyncNodeResponse {
-  bool success = 1;
-  string error = 2;
-}
-
-message ListAggregatedGameServersRequest {}
-
-message ListAggregatedGameServersResponse {
-  repeated AggregatedGameServer servers = 1;
 }
