@@ -179,6 +179,8 @@ func TestGameServerModelStatusToProtoStatus(t *testing.T) {
 		{name: "offline", input: "OFFLINE", want: xylona.Status_OFFLINE},
 		{name: "installing", input: "INSTALLING", want: xylona.Status_INSTALLING},
 		{name: "updating", input: "UPDATING", want: xylona.Status_UPDATING},
+		{name: "enum rune offline", input: string(xylona.Status_OFFLINE), want: xylona.Status_OFFLINE},
+		{name: "enum rune online", input: string(xylona.Status_ONLINE), want: xylona.Status_ONLINE},
 		{name: "unknown", input: "UNKNOWN", want: xylona.Status_UNKNOWN},
 		{name: "empty string", input: "", want: xylona.Status_UNKNOWN},
 		{name: "invalid", input: "BOGUS", want: xylona.Status_UNKNOWN},

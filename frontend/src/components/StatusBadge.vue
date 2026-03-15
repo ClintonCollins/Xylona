@@ -8,7 +8,7 @@ import {computed, PropType, ref} from "vue";
 
 const props = defineProps({
   status: {
-    type: Object as PropType<Status>,
+    type: Number as PropType<Status>,
     required: true,
     default: Status.UNKNOWN
   },

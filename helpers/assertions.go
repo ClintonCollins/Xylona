@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"strings"
 	"time"
 
 	"github.com/aarondl/opt/null"
@@ -13,7 +14,8 @@ import (
 )
 
 func GameServerModelStatusToProtoStatus(status string) xylona.Status {
-	switch status {
+	statusNormalized := strings.TrimSpace(strings.ToUpper(status))
+	switch statusNormalized {
 	case xylona.Status_UNKNOWN.String():
 		return xylona.Status_UNKNOWN
 	case xylona.Status_OFFLINE.String():
@@ -25,6 +27,15 @@ func GameServerModelStatusToProtoStatus(status string) xylona.Status {
 	case xylona.Status_UPDATING.String():
 		return xylona.Status_UPDATING
 	}
+
+	if len(status) == 1 {
+		statusFromRune := xylona.Status(status[0])
+		switch statusFromRune {
+		case xylona.Status_UNKNOWN, xylona.Status_OFFLINE, xylona.Status_ONLINE, xylona.Status_INSTALLING, xylona.Status_UPDATING:
+			return statusFromRune
+		}
+	}
+
 	return xylona.Status_UNKNOWN
 }
 
@@ -331,7 +342,6 @@ func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
 		Port: omit.From(nodeModel.Port),
 	}
 }
-
 
 // RemoteServerCacheToProto converts a cached remote server record into a GameServer proto,
 // suitable for use in GetGameServerResponse when the peer is unreachable.

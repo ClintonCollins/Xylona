@@ -24,10 +24,10 @@ import (
 )
 
 const (
-	FederationProtocolVersion  = 1
-	FederationCapabilities     = "server_list,server_detail,remote_actions,console_streaming,status_streaming,file_operations,update,edit,remove"
-	SoftwareVersion            = "0.1.0"
-	federationRequestTimeout   = 15 * time.Second
+	FederationProtocolVersion = 1
+	FederationCapabilities    = "server_list,server_detail,remote_actions,console_streaming,status_streaming,file_operations,update,edit,remove"
+	SoftwareVersion           = "0.1.0"
+	federationRequestTimeout  = 15 * time.Second
 )
 
 // FederationService handles node-to-node federation API calls.
@@ -123,7 +123,7 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 		status := helpers.GameServerModelStatusToProtoStatus(gs.Status)
 		gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gs.ID)
 		if errGetCommand == nil {
-			status = helpers.GameServerModelStatusToProtoStatus(string(gameServerCmd.Status()))
+			status = gameServerCmd.Status()
 		}
 
 		gameName := ""
@@ -169,7 +169,7 @@ func (fs FederationService) GetServerDetail(ctx context.Context, request *connec
 	status := helpers.GameServerModelStatusToProtoStatus(gs.Status)
 	gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gs.ID)
 	if errGetCommand == nil {
-		status = helpers.GameServerModelStatusToProtoStatus(string(gameServerCmd.Status()))
+		status = gameServerCmd.Status()
 	}
 
 	gameName := ""

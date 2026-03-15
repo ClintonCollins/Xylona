@@ -95,7 +95,8 @@ Regeneration commands:
 
 ## Coding Conventions
 
-- **Always** create and commit files with LF line endings (`\n`).
+- **Always** create and commit files with LF line endings (`\n`) for every file in this repository.
+- Never introduce CRLF (`\r\n`) line endings in new files. If a touched file has CRLF, normalize it to LF as part of your change.
 
 ### Go Backend
 
@@ -130,6 +131,7 @@ Regeneration commands:
 
 When exploring or searching the repo, skip large/generated/vendor-like directories unless the task explicitly needs them:
 
+- Prefer `rg` for text search and `rg --files` for file discovery.
 - `frontend/node_modules`
 - `frontend/.quasar`
 - `frontend/dist`

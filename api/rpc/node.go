@@ -220,7 +220,7 @@ func (xs XylonaService) ListAggregatedGameServers(ctx context.Context, request *
 		gsProto := helpers.GameServerModelToProto(gs)
 		gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gs.ID)
 		if errGetCommand == nil {
-			gsProto.Status = helpers.GameServerModelStatusToProtoStatus(string(gameServerCmd.Status()))
+			gsProto.Status = gameServerCmd.Status()
 		}
 		resp.Servers = append(resp.Servers, &xylona.AggregatedGameServer{
 			IsLocal:     true,
