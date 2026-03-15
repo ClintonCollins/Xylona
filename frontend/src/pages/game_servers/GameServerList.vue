@@ -7,9 +7,9 @@
                         <q-table
                                 flat
                                 title="Game Servers"
-                                :rows="gameServers"
+                                :rows="displayRows"
                                 :columns="columns"
-                                row-key="name"
+                                row-key="compositeId"
                                 selection="multiple"
                                 :filter="search"
                                 :loading="loading"
@@ -39,18 +39,26 @@
                             <template v-slot:body-cell-name="props">
                                 <q-td :props="props">
                                     <router-link class="table-link" :to="'/game-servers/'+props.row.id+'/console'">
-                                        {{ props.row.name }}
+                                        {{ props.row.displayName }}
                                     </router-link>
+                                    <q-badge v-if="!props.row.isLocal" color="blue-grey" class="q-ml-sm" label="remote"/>
+                                    <q-badge v-if="props.row.isStale" color="orange" class="q-ml-xs" label="stale"/>
                                 </q-td>
                             </template>
                             <template v-slot:body-cell-status="props">
                                 <q-td :props="props">
-                                    <StatusBadge style="margin-left: -1em" :status="props.row.status"></StatusBadge>
+                                    <StatusBadge style="margin-left: -1em" :status="props.row.statusEnum"></StatusBadge>
+                                </q-td>
+                            </template>
+                            <template v-slot:body-cell-node="props">
+                                <q-td :props="props">
+                                    <span>{{ props.row.nodeName }}</span>
+                                    <q-badge v-if="props.row.isLocal" color="green" class="q-ml-sm" label="local"/>
                                 </q-td>
                             </template>
                             <template v-slot:body-cell-actions="props">
                                 <q-td :props="props">
-                                    <div class="q-gutter-xs">
+                                    <div class="q-gutter-xs" v-if="props.row.isLocal">
                                         <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
                                             <q-btn flat class="text-main-brighter" :icon="tabSettings">
                                                 <q-tooltip>Edit game server</q-tooltip>
@@ -63,13 +71,20 @@
                                             </q-btn>
                                         </span>
                                     </div>
+                                    <div v-else class="q-gutter-xs">
+                                        <router-link :to="'/game-servers/' + props.row.id + '/console'">
+                                            <q-btn flat class="text-info" icon="terminal">
+                                                <q-tooltip>View console</q-tooltip>
+                                            </q-btn>
+                                        </router-link>
+                                    </div>
                                 </q-td>
                             </template>
                         </q-table>
                     </div>
                 </q-card-section>
             </q-card>
-            <DeleteGameServerDialog :game-servers="selectedGameServers" v-model:showDialog="showDeleteGameServerDialog"
+            <DeleteGameServerDialog :game-servers="selectedLocalServersForDelete" v-model:showDialog="showDeleteGameServerDialog"
                                     @submit="deleteGameServerSubmitted"></DeleteGameServerDialog>
         </div>
     </q-page>
@@ -78,21 +93,33 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { onMounted, Ref, ref } from 'vue'
+import { computed, onMounted, Ref, ref } from 'vue'
 import { GetXylonaClient, WindowWidth, XylonaEventBus } from '@/utils/shared'
-import { ListGameServersRequest, ListGameServersRequestSchema } from '@/proto/xylona_pb'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { GameServer, Node, Status } from '@/proto/shared_pb'
+import { Status } from '@/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
+import { AggregatedGameServer, ListAggregatedGameServersRequestSchema } from '@/proto/federation_pb'
 
-const gameServers = ref([] as GameServer[])
+interface DisplayRow {
+  compositeId: string
+  id: string
+  isLocal: boolean
+  displayName: string
+  gameName: string
+  userName: string
+  statusEnum: Status
+  nodeName: string
+  isStale: boolean
+  sourceNodeId: string
+}
+
+const aggregatedServers = ref([] as AggregatedGameServer[])
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
-const selectedGameServers = ref([])
+const selectedGameServers = ref([] as DisplayRow[])
 
-// Use VueUse to store the pagination state automatically.
 const initialPagination = useStorage('game-server-pagination', {
     rowsPerPage: 25,
     page: 1
@@ -100,37 +127,78 @@ const initialPagination = useStorage('game-server-pagination', {
 
 const windowWidth = WindowWidth()
 
+const displayRows = computed((): DisplayRow[] => {
+  return aggregatedServers.value.map((server) => {
+    if (server.isLocal && server.localServer) {
+      const ls = server.localServer
+      return {
+        compositeId: 'local/' + ls.id,
+        id: ls.id,
+        isLocal: true,
+        displayName: ls.name,
+        gameName: ls.gameName,
+        userName: ls.userName,
+        statusEnum: ls.status,
+        nodeName: ls.nodeName || 'Local',
+        isStale: false,
+        sourceNodeId: ''
+      }
+    }
+    const rs = server.remoteServer!
+    return {
+      compositeId: rs.sourceNodeId + '/' + rs.remoteServerId,
+      id: rs.remoteServerId,
+      isLocal: false,
+      displayName: rs.displayName,
+      gameName: rs.gameName,
+      userName: '',
+      statusEnum: rs.status,
+      nodeName: rs.nodeName || rs.nodeHost || 'Remote',
+      isStale: rs.isStale,
+      sourceNodeId: rs.sourceNodeId
+    }
+  })
+})
+
+const selectedLocalServersForDelete = computed(() => {
+  return selectedGameServers.value.filter(s => s.isLocal).map(s => ({ id: s.id, name: s.displayName }))
+})
+
 onMounted(async () => {
   await getGameServers()
   watchServerStatusChanges()
 })
 
 async function getGameServers() {
-  const request: ListGameServersRequest = create(ListGameServersRequestSchema, {})
+  loading.value = true
   try {
-    const response = await GetXylonaClient().listGameServers(request)
-    gameServers.value = []
-    response.gameServers.forEach((gameServer) => {
-      gameServers.value.push(gameServer)
-    })
+    const response = await GetXylonaClient().listAggregatedGameServers(
+      create(ListAggregatedGameServersRequestSchema, {})
+    )
+    aggregatedServers.value = response.servers
   } catch (e) {
     console.error(e)
+  } finally {
+    loading.value = false
   }
 }
 
 function watchServerStatusChanges() {
   XylonaEventBus.on('gameServerStatus', (serverID: string, serverStatus: Status) => {
-    for (const gameServer of gameServers.value) {
-      if (gameServer.id === serverID) {
-        gameServer.status = serverStatus
+    for (const server of aggregatedServers.value) {
+      if (server.isLocal && server.localServer && server.localServer.id === serverID) {
+        server.localServer.status = serverStatus
+      }
+      if (!server.isLocal && server.remoteServer && server.remoteServer.remoteServerId === serverID) {
+        server.remoteServer.status = serverStatus
       }
     }
   })
 }
 
-async function deleteGameServerAction(gameServer: GameServer | null) {
-  if (gameServer !== null) {
-    selectedGameServers.value = [gameServer]
+async function deleteGameServerAction(row: DisplayRow | null) {
+  if (row !== null) {
+    selectedGameServers.value = [row]
   }
   showDeleteGameServerDialog.value = true
 }
@@ -148,50 +216,50 @@ const columns = ref([
     name: 'name',
     label: 'Name',
     required: true,
-    align: 'left',
-    field: (row: { name: any; }) => row.name,
+    align: 'left' as const,
+    field: (row: DisplayRow) => row.displayName,
     sortable: true
   },
   {
     name: 'game',
     label: 'Game',
     required: true,
-    align: 'left',
-    field: (row: { gameName: any; }) => row.gameName,
+    align: 'left' as const,
+    field: (row: DisplayRow) => row.gameName,
     sortable: true
-  }, {
+  },
+  {
     name: 'owner',
     label: 'Owner',
     required: true,
-    align: 'left',
-    field: (row: { userName: any; }) => row.userName,
+    align: 'left' as const,
+    field: (row: DisplayRow) => row.userName,
     sortable: true
-  }, {
+  },
+  {
     name: 'status',
     label: 'Status',
     required: true,
-    align: 'left',
-    field: (row: { status: any; }) => row.status,
+    align: 'left' as const,
+    field: (row: DisplayRow) => row.statusEnum,
     sortable: true
   },
   {
     name: 'node',
     label: 'Node',
     required: true,
-    align: 'left',
-    field: (row: { node: any; }) => row.nodeName,
+    align: 'left' as const,
+    field: (row: DisplayRow) => row.nodeName,
     sortable: true
   },
   {
     name: 'actions',
     label: '',
-    align: 'center',
+    align: 'center' as const,
     field: () => ''
   }
 ])
-
 </script>
 
 <style scoped>
-
 </style>

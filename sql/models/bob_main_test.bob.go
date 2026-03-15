@@ -35,6 +35,15 @@ var _ bob.HookableType = &NodeSyncQueue{}
 // Make sure the type Notification runs hooks after queries
 var _ bob.HookableType = &Notification{}
 
+// Make sure the type PeerNode runs hooks after queries
+var _ bob.HookableType = &PeerNode{}
+
+// Make sure the type PeerSyncState runs hooks after queries
+var _ bob.HookableType = &PeerSyncState{}
+
+// Make sure the type RemoteServerCache runs hooks after queries
+var _ bob.HookableType = &RemoteServerCache{}
+
 // Make sure the type RevokedJWT runs hooks after queries
 var _ bob.HookableType = &RevokedJWT{}
 

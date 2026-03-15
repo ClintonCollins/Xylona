@@ -319,3 +319,70 @@ func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
 		Port: omit.From(nodeModel.Port),
 	}
 }
+
+func PeerNodeModelToProto(pn *models.PeerNode) *xylona.PeerNode {
+	return &xylona.PeerNode{
+		Id:              pn.ID,
+		NodeId:          pn.NodeID,
+		Name:            pn.Name,
+		BaseUrl:         pn.BaseURL,
+		Enabled:         pn.Enabled,
+		LastSeenAt:      timestamppb.New(pn.LastSeenAt.GetOr(time.Time{})),
+		LastSyncAt:      timestamppb.New(pn.LastSyncAt.GetOr(time.Time{})),
+		LastSyncStatus:  pn.LastSyncStatus,
+		HealthStatus:    pn.HealthStatus,
+		Version:         pn.Version,
+		ProtocolVersion: pn.ProtocolVersion,
+		Capabilities:    pn.Capabilities,
+		CreatedAt:       timestamppb.New(pn.CreatedAt),
+		UpdatedAt:       timestamppb.New(pn.UpdatedAt),
+	}
+}
+
+// RemoteServerCacheToProto converts a cached remote server record into a GameServer proto,
+// suitable for use in GetGameServerResponse when the peer is unreachable.
+func RemoteServerCacheToProto(rsc *models.RemoteServerCache, peerNode *models.PeerNode) *xylona.GameServer {
+	return &xylona.GameServer{
+		Id:                 rsc.RemoteServerID,
+		Name:               rsc.DisplayName,
+		GameId:             rsc.GameID,
+		GameName:           rsc.GameName,
+		Status:             GameServerModelStatusToProtoStatus(rsc.Status),
+		Ip:                 &xylona.IP{Address: rsc.IPAddress},
+		Port:               int64(rsc.Port),
+		QueryPort:          int64(rsc.QueryPort),
+		SetMaxPlayers:      int64(rsc.MaxPlayers),
+		MaxPlayers:         int64(rsc.MaxPlayers),
+		CurrentPlayerCount: int64(rsc.CurrentPlayers),
+		Map:                rsc.MapName,
+		Version:            rsc.Version,
+		NodeId:             peerNode.NodeID,
+		NodeName:           peerNode.Name,
+		NodeHost:           peerNode.BaseURL,
+	}
+}
+
+func RemoteServerCacheModelToProto(rsc *models.RemoteServerCache) *xylona.RemoteServerSummary {
+	return &xylona.RemoteServerSummary{
+		Id:               rsc.ID,
+		SourceNodeId:     rsc.SourceNodeID,
+		PeerNodeId:       rsc.PeerNodeID,
+		RemoteServerId:   rsc.RemoteServerID,
+		DisplayName:      rsc.DisplayName,
+		Status:           GameServerModelStatusToProtoStatus(rsc.Status),
+		GameName:         rsc.GameName,
+		GameId:           rsc.GameID,
+		IpAddress:        rsc.IPAddress,
+		Port:             int64(rsc.Port),
+		QueryPort:        int64(rsc.QueryPort),
+		MaxPlayers:       int64(rsc.MaxPlayers),
+		CurrentPlayers:   int64(rsc.CurrentPlayers),
+		MapName:          rsc.MapName,
+		Version:          rsc.Version,
+		NodeName:         rsc.NodeName,
+		NodeHost:         rsc.NodeHost,
+		LastRemoteUpdate: timestamppb.New(rsc.LastRemoteUpdate.GetOr(time.Time{})),
+		LastSyncedAt:     timestamppb.New(rsc.LastSyncedAt.GetOr(time.Time{})),
+		IsStale:          rsc.IsStale,
+	}
+}

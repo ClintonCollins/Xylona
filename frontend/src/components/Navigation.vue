@@ -110,6 +110,14 @@ const navLinks: Ref<NavItem[]> = ref([
     groupItems: []
   },
   {
+    title: 'Peer Nodes',
+    icon: ionServer,
+    link: '/peer-nodes',
+    expanded: true,
+    exact: false,
+    groupItems: []
+  },
+  {
     title: 'Secret Keys',
     icon: ionKey,
     link: '/secret-keys',

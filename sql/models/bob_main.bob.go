@@ -15,52 +15,61 @@ import (
 )
 
 var TableNames = struct {
-	Games           string
-	GameServers     string
-	Ips             string
-	LocalSecretKeys string
-	LocalSettings   string
-	Logs            string
-	Migrations      string
-	Nodes           string
-	NodeSyncQueues  string
-	Notifications   string
-	RevokedJWTS     string
-	Users           string
-	UserAPIKeys     string
-	UserSessions    string
+	Games              string
+	GameServers        string
+	Ips                string
+	LocalSecretKeys    string
+	LocalSettings      string
+	Logs               string
+	Migrations         string
+	Nodes              string
+	NodeSyncQueues     string
+	Notifications      string
+	PeerNodes          string
+	PeerSyncStates     string
+	RemoteServerCaches string
+	RevokedJWTS        string
+	Users              string
+	UserAPIKeys        string
+	UserSessions       string
 }{
-	Games:           "game",
-	GameServers:     "game_server",
-	Ips:             "ip",
-	LocalSecretKeys: "local_secret_keys",
-	LocalSettings:   "local_settings",
-	Logs:            "log",
-	Migrations:      "migrations",
-	Nodes:           "node",
-	NodeSyncQueues:  "node_sync_queue",
-	Notifications:   "notification",
-	RevokedJWTS:     "revoked_jwt",
-	Users:           "user",
-	UserAPIKeys:     "user_api_key",
-	UserSessions:    "user_session",
+	Games:              "game",
+	GameServers:        "game_server",
+	Ips:                "ip",
+	LocalSecretKeys:    "local_secret_keys",
+	LocalSettings:      "local_settings",
+	Logs:               "log",
+	Migrations:         "migrations",
+	Nodes:              "node",
+	NodeSyncQueues:     "node_sync_queue",
+	Notifications:      "notification",
+	PeerNodes:          "peer_node",
+	PeerSyncStates:     "peer_sync_state",
+	RemoteServerCaches: "remote_server_cache",
+	RevokedJWTS:        "revoked_jwt",
+	Users:              "user",
+	UserAPIKeys:        "user_api_key",
+	UserSessions:       "user_session",
 }
 
 var ColumnNames = struct {
-	Games           gameColumnNames
-	GameServers     gameServerColumnNames
-	Ips             ipColumnNames
-	LocalSecretKeys localSecretKeyColumnNames
-	LocalSettings   localSettingColumnNames
-	Logs            logColumnNames
-	Migrations      migrationColumnNames
-	Nodes           nodeColumnNames
-	NodeSyncQueues  nodeSyncQueueColumnNames
-	Notifications   notificationColumnNames
-	RevokedJWTS     revokedJWTColumnNames
-	Users           userColumnNames
-	UserAPIKeys     userAPIKeyColumnNames
-	UserSessions    userSessionColumnNames
+	Games              gameColumnNames
+	GameServers        gameServerColumnNames
+	Ips                ipColumnNames
+	LocalSecretKeys    localSecretKeyColumnNames
+	LocalSettings      localSettingColumnNames
+	Logs               logColumnNames
+	Migrations         migrationColumnNames
+	Nodes              nodeColumnNames
+	NodeSyncQueues     nodeSyncQueueColumnNames
+	Notifications      notificationColumnNames
+	PeerNodes          peerNodeColumnNames
+	PeerSyncStates     peerSyncStateColumnNames
+	RemoteServerCaches remoteServerCacheColumnNames
+	RevokedJWTS        revokedJWTColumnNames
+	Users              userColumnNames
+	UserAPIKeys        userAPIKeyColumnNames
+	UserSessions       userSessionColumnNames
 }{
 	Games: gameColumnNames{
 		ID:                                "id",
@@ -174,6 +183,60 @@ var ColumnNames = struct {
 		CreatedAt:    "created_at",
 		UpdatedAt:    "updated_at",
 	},
+	PeerNodes: peerNodeColumnNames{
+		ID:              "id",
+		NodeID:          "node_id",
+		Name:            "name",
+		BaseURL:         "base_url",
+		Enabled:         "enabled",
+		SecretKey:       "secret_key",
+		LastSeenAt:      "last_seen_at",
+		LastSyncAt:      "last_sync_at",
+		LastSyncStatus:  "last_sync_status",
+		HealthStatus:    "health_status",
+		Version:         "version",
+		ProtocolVersion: "protocol_version",
+		Capabilities:    "capabilities",
+		CreatedAt:       "created_at",
+		UpdatedAt:       "updated_at",
+	},
+	PeerSyncStates: peerSyncStateColumnNames{
+		ID:              "id",
+		PeerNodeID:      "peer_node_id",
+		LastCursor:      "last_cursor",
+		LastFullSyncAt:  "last_full_sync_at",
+		LastDeltaSyncAt: "last_delta_sync_at",
+		LastError:       "last_error",
+		RetryCount:      "retry_count",
+		NextRetryAt:     "next_retry_at",
+		CreatedAt:       "created_at",
+		UpdatedAt:       "updated_at",
+	},
+	RemoteServerCaches: remoteServerCacheColumnNames{
+		ID:               "id",
+		SourceNodeID:     "source_node_id",
+		PeerNodeID:       "peer_node_id",
+		RemoteServerID:   "remote_server_id",
+		DisplayName:      "display_name",
+		Status:           "status",
+		GameName:         "game_name",
+		GameID:           "game_id",
+		IPAddress:        "ip_address",
+		Port:             "port",
+		QueryPort:        "query_port",
+		MaxPlayers:       "max_players",
+		CurrentPlayers:   "current_players",
+		MapName:          "map_name",
+		Version:          "version",
+		NodeName:         "node_name",
+		NodeHost:         "node_host",
+		LastRemoteUpdate: "last_remote_update",
+		LastSyncedAt:     "last_synced_at",
+		IsStale:          "is_stale",
+		RawMetadata:      "raw_metadata",
+		CreatedAt:        "created_at",
+		UpdatedAt:        "updated_at",
+	},
 	RevokedJWTS: revokedJWTColumnNames{
 		ID:                    "id",
 		JWTID:                 "jwt_id",
@@ -215,51 +278,60 @@ var (
 )
 
 func Where[Q sqlite.Filterable]() struct {
-	Games           gameWhere[Q]
-	GameServers     gameServerWhere[Q]
-	Ips             ipWhere[Q]
-	LocalSecretKeys localSecretKeyWhere[Q]
-	LocalSettings   localSettingWhere[Q]
-	Logs            logWhere[Q]
-	Migrations      migrationWhere[Q]
-	Nodes           nodeWhere[Q]
-	NodeSyncQueues  nodeSyncQueueWhere[Q]
-	Notifications   notificationWhere[Q]
-	RevokedJWTS     revokedJWTWhere[Q]
-	Users           userWhere[Q]
-	UserAPIKeys     userAPIKeyWhere[Q]
-	UserSessions    userSessionWhere[Q]
+	Games              gameWhere[Q]
+	GameServers        gameServerWhere[Q]
+	Ips                ipWhere[Q]
+	LocalSecretKeys    localSecretKeyWhere[Q]
+	LocalSettings      localSettingWhere[Q]
+	Logs               logWhere[Q]
+	Migrations         migrationWhere[Q]
+	Nodes              nodeWhere[Q]
+	NodeSyncQueues     nodeSyncQueueWhere[Q]
+	Notifications      notificationWhere[Q]
+	PeerNodes          peerNodeWhere[Q]
+	PeerSyncStates     peerSyncStateWhere[Q]
+	RemoteServerCaches remoteServerCacheWhere[Q]
+	RevokedJWTS        revokedJWTWhere[Q]
+	Users              userWhere[Q]
+	UserAPIKeys        userAPIKeyWhere[Q]
+	UserSessions       userSessionWhere[Q]
 } {
 	return struct {
-		Games           gameWhere[Q]
-		GameServers     gameServerWhere[Q]
-		Ips             ipWhere[Q]
-		LocalSecretKeys localSecretKeyWhere[Q]
-		LocalSettings   localSettingWhere[Q]
-		Logs            logWhere[Q]
-		Migrations      migrationWhere[Q]
-		Nodes           nodeWhere[Q]
-		NodeSyncQueues  nodeSyncQueueWhere[Q]
-		Notifications   notificationWhere[Q]
-		RevokedJWTS     revokedJWTWhere[Q]
-		Users           userWhere[Q]
-		UserAPIKeys     userAPIKeyWhere[Q]
-		UserSessions    userSessionWhere[Q]
+		Games              gameWhere[Q]
+		GameServers        gameServerWhere[Q]
+		Ips                ipWhere[Q]
+		LocalSecretKeys    localSecretKeyWhere[Q]
+		LocalSettings      localSettingWhere[Q]
+		Logs               logWhere[Q]
+		Migrations         migrationWhere[Q]
+		Nodes              nodeWhere[Q]
+		NodeSyncQueues     nodeSyncQueueWhere[Q]
+		Notifications      notificationWhere[Q]
+		PeerNodes          peerNodeWhere[Q]
+		PeerSyncStates     peerSyncStateWhere[Q]
+		RemoteServerCaches remoteServerCacheWhere[Q]
+		RevokedJWTS        revokedJWTWhere[Q]
+		Users              userWhere[Q]
+		UserAPIKeys        userAPIKeyWhere[Q]
+		UserSessions       userSessionWhere[Q]
 	}{
-		Games:           buildGameWhere[Q](GameColumns),
-		GameServers:     buildGameServerWhere[Q](GameServerColumns),
-		Ips:             buildIPWhere[Q](IPColumns),
-		LocalSecretKeys: buildLocalSecretKeyWhere[Q](LocalSecretKeyColumns),
-		LocalSettings:   buildLocalSettingWhere[Q](LocalSettingColumns),
-		Logs:            buildLogWhere[Q](LogColumns),
-		Migrations:      buildMigrationWhere[Q](MigrationColumns),
-		Nodes:           buildNodeWhere[Q](NodeColumns),
-		NodeSyncQueues:  buildNodeSyncQueueWhere[Q](NodeSyncQueueColumns),
-		Notifications:   buildNotificationWhere[Q](NotificationColumns),
-		RevokedJWTS:     buildRevokedJWTWhere[Q](RevokedJWTColumns),
-		Users:           buildUserWhere[Q](UserColumns),
-		UserAPIKeys:     buildUserAPIKeyWhere[Q](UserAPIKeyColumns),
-		UserSessions:    buildUserSessionWhere[Q](UserSessionColumns),
+		Games:              buildGameWhere[Q](GameColumns),
+		GameServers:        buildGameServerWhere[Q](GameServerColumns),
+		Ips:                buildIPWhere[Q](IPColumns),
+		LocalSecretKeys:    buildLocalSecretKeyWhere[Q](LocalSecretKeyColumns),
+		LocalSettings:      buildLocalSettingWhere[Q](LocalSettingColumns),
+		Logs:               buildLogWhere[Q](LogColumns),
+		Migrations:         buildMigrationWhere[Q](MigrationColumns),
+		Nodes:              buildNodeWhere[Q](NodeColumns),
+		NodeSyncQueues:     buildNodeSyncQueueWhere[Q](NodeSyncQueueColumns),
+		Notifications:      buildNotificationWhere[Q](NotificationColumns),
+		PeerNodes:          buildPeerNodeWhere[Q](PeerNodeColumns),
+		PeerSyncStates:     buildPeerSyncStateWhere[Q](PeerSyncStateColumns),
+		RemoteServerCaches: buildRemoteServerCacheWhere[Q](RemoteServerCacheColumns),
+		RevokedJWTS:        buildRevokedJWTWhere[Q](RevokedJWTColumns),
+		Users:              buildUserWhere[Q](UserColumns),
+		UserAPIKeys:        buildUserAPIKeyWhere[Q](UserAPIKeyColumns),
+		UserSessions:       buildUserSessionWhere[Q](UserSessionColumns),
 	}
 }
 
@@ -283,15 +355,18 @@ func (j joinSet[Q]) AliasedAs(alias string) joinSet[Q] {
 }
 
 type joins[Q dialect.Joinable] struct {
-	Games          joinSet[gameJoins[Q]]
-	GameServers    joinSet[gameServerJoins[Q]]
-	Ips            joinSet[ipJoins[Q]]
-	Logs           joinSet[logJoins[Q]]
-	Nodes          joinSet[nodeJoins[Q]]
-	NodeSyncQueues joinSet[nodeSyncQueueJoins[Q]]
-	Users          joinSet[userJoins[Q]]
-	UserAPIKeys    joinSet[userAPIKeyJoins[Q]]
-	UserSessions   joinSet[userSessionJoins[Q]]
+	Games              joinSet[gameJoins[Q]]
+	GameServers        joinSet[gameServerJoins[Q]]
+	Ips                joinSet[ipJoins[Q]]
+	Logs               joinSet[logJoins[Q]]
+	Nodes              joinSet[nodeJoins[Q]]
+	NodeSyncQueues     joinSet[nodeSyncQueueJoins[Q]]
+	PeerNodes          joinSet[peerNodeJoins[Q]]
+	PeerSyncStates     joinSet[peerSyncStateJoins[Q]]
+	RemoteServerCaches joinSet[remoteServerCacheJoins[Q]]
+	Users              joinSet[userJoins[Q]]
+	UserAPIKeys        joinSet[userAPIKeyJoins[Q]]
+	UserSessions       joinSet[userSessionJoins[Q]]
 }
 
 func buildJoinSet[Q interface{ aliasedAs(string) Q }, C any, F func(C, string) Q](c C, f F) joinSet[Q] {
@@ -304,15 +379,18 @@ func buildJoinSet[Q interface{ aliasedAs(string) Q }, C any, F func(C, string) Q
 
 func getJoins[Q dialect.Joinable]() joins[Q] {
 	return joins[Q]{
-		Games:          buildJoinSet[gameJoins[Q]](GameColumns, buildGameJoins),
-		GameServers:    buildJoinSet[gameServerJoins[Q]](GameServerColumns, buildGameServerJoins),
-		Ips:            buildJoinSet[ipJoins[Q]](IPColumns, buildIPJoins),
-		Logs:           buildJoinSet[logJoins[Q]](LogColumns, buildLogJoins),
-		Nodes:          buildJoinSet[nodeJoins[Q]](NodeColumns, buildNodeJoins),
-		NodeSyncQueues: buildJoinSet[nodeSyncQueueJoins[Q]](NodeSyncQueueColumns, buildNodeSyncQueueJoins),
-		Users:          buildJoinSet[userJoins[Q]](UserColumns, buildUserJoins),
-		UserAPIKeys:    buildJoinSet[userAPIKeyJoins[Q]](UserAPIKeyColumns, buildUserAPIKeyJoins),
-		UserSessions:   buildJoinSet[userSessionJoins[Q]](UserSessionColumns, buildUserSessionJoins),
+		Games:              buildJoinSet[gameJoins[Q]](GameColumns, buildGameJoins),
+		GameServers:        buildJoinSet[gameServerJoins[Q]](GameServerColumns, buildGameServerJoins),
+		Ips:                buildJoinSet[ipJoins[Q]](IPColumns, buildIPJoins),
+		Logs:               buildJoinSet[logJoins[Q]](LogColumns, buildLogJoins),
+		Nodes:              buildJoinSet[nodeJoins[Q]](NodeColumns, buildNodeJoins),
+		NodeSyncQueues:     buildJoinSet[nodeSyncQueueJoins[Q]](NodeSyncQueueColumns, buildNodeSyncQueueJoins),
+		PeerNodes:          buildJoinSet[peerNodeJoins[Q]](PeerNodeColumns, buildPeerNodeJoins),
+		PeerSyncStates:     buildJoinSet[peerSyncStateJoins[Q]](PeerSyncStateColumns, buildPeerSyncStateJoins),
+		RemoteServerCaches: buildJoinSet[remoteServerCacheJoins[Q]](RemoteServerCacheColumns, buildRemoteServerCacheJoins),
+		Users:              buildJoinSet[userJoins[Q]](UserColumns, buildUserJoins),
+		UserAPIKeys:        buildJoinSet[userAPIKeyJoins[Q]](UserAPIKeyColumns, buildUserAPIKeyJoins),
+		UserSessions:       buildJoinSet[userSessionJoins[Q]](UserSessionColumns, buildUserSessionJoins),
 	}
 }
 

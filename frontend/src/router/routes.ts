@@ -95,6 +95,18 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/nodes/NodeEdit.vue')
       },
       {
+        path: '/peer-nodes',
+        component: () => import('pages/peer_nodes/PeerNodeList.vue')
+      },
+      {
+        path: '/peer-nodes/add',
+        component: () => import('pages/peer_nodes/PeerNodeAdd.vue')
+      },
+      {
+        path: '/peer-nodes/:id/edit',
+        component: () => import('pages/peer_nodes/PeerNodeEdit.vue')
+      },
+      {
         path: '/secret-keys',
         component: () => import('pages/other/LocalSecretKeyList.vue')
       },

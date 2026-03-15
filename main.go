@@ -227,14 +227,19 @@ func main() {
 	}
 
 	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
+	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst)
 	setDetectedIPs(dbInst)
 
-	_, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie)
+	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie)
 
 	router := chi.NewRouter()
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie)
+	xylonaService.SetSyncEngine(syncEngine)
+	syncEngine.SetStatusBroadcaster(wsInst)
 
 	xylonaAPIPath, handler := xylonaconnect.NewXylonaHandler(xylonaService, connect.WithHandlerOptions())
+	federationService := rpc.NewFederationService(ctx, dbInst, actionsInst, superInst)
+	federationAPIPath, federationHandler := xylonaconnect.NewFederationHandler(federationService, connect.WithHandlerOptions())
 
 	frontendFS, errLoadFrontend := Frontend()
 	if errLoadFrontend != nil {
@@ -244,6 +249,7 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(routerLogger)
 	router.Mount(xylonaAPIPath, handler)
+	router.Mount(federationAPIPath, federationHandler)
 	router.Mount("/api/websocket", websocketHandler)
 
 	httpServer := &http.Server{

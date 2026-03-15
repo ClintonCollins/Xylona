@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -184,10 +186,11 @@ func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect.R
 }
 
 func (xs XylonaService) StartGameServer(ctx context.Context, request *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	gameServer, errGetGameServer := xs.db.GetGameServerByID(serverID)
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+			return xs.startRemoteGameServer(ctx, serverID)
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
@@ -196,11 +199,44 @@ func (xs XylonaService) StartGameServer(ctx context.Context, request *connect.Re
 	return connect.NewResponse(response), nil
 }
 
+func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID string) (*connect.Response[xylona.StartGameServerResponse], error) {
+	remoteCache, errGetRemote := xs.db.GetRemoteServerCacheByRemoteServerID(serverID)
+	if errGetRemote != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+	}
+
+	peerNode, errGetPeer := xs.db.GetPeerNodeByID(remoteCache.PeerNodeID)
+	if errGetPeer != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("peer node not found"))
+	}
+
+	httpClient := &http.Client{Timeout: federationRequestTimeout}
+	client := xylonaconnect.NewFederationClient(httpClient, peerNode.BaseURL)
+
+	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
+		ServerId: serverID,
+	})
+	req.Header().Set("X-Federation-Key", peerNode.SecretKey)
+
+	resp, errStart := client.StartRemoteServer(ctx, req)
+	if errStart != nil {
+		log.Error().Err(errStart).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to start remote game server")
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to start remote server"))
+	}
+
+	if !resp.Msg.Success {
+		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
+	}
+
+	return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
+}
+
 func (xs XylonaService) StopGameServer(ctx context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	gameServer, errGetGameServer := xs.db.GetGameServerByID(serverID)
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+			return xs.stopRemoteGameServer(ctx, serverID)
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
@@ -209,11 +245,45 @@ func (xs XylonaService) StopGameServer(ctx context.Context, request *connect.Req
 	return connect.NewResponse(response), nil
 }
 
+func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID string) (*connect.Response[xylona.StopGameServerResponse], error) {
+	remoteCache, errGetRemote := xs.db.GetRemoteServerCacheByRemoteServerID(serverID)
+	if errGetRemote != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+	}
+
+	peerNode, errGetPeer := xs.db.GetPeerNodeByID(remoteCache.PeerNodeID)
+	if errGetPeer != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("peer node not found"))
+	}
+
+	httpClient := &http.Client{Timeout: federationRequestTimeout}
+	client := xylonaconnect.NewFederationClient(httpClient, peerNode.BaseURL)
+
+	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
+		ServerId: serverID,
+	})
+	req.Header().Set("X-Federation-Key", peerNode.SecretKey)
+
+	resp, errStop := client.StopRemoteServer(ctx, req)
+	if errStop != nil {
+		log.Error().Err(errStop).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to stop remote game server")
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to stop remote server"))
+	}
+
+	if !resp.Msg.Success {
+		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
+	}
+
+	return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
+}
+
 func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	gameServer, errGetGameServer := xs.db.GetGameServerByID(serverID)
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+			// Check if this is a remote server.
+			return xs.readRemoteGameServerOutput(ctx, serverID)
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
@@ -224,11 +294,43 @@ func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *conne
 	return connect.NewResponse(response), nil
 }
 
+func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID string) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
+	remoteCache, errGetRemote := xs.db.GetRemoteServerCacheByRemoteServerID(serverID)
+	if errGetRemote != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+	}
+
+	peerNode, errGetPeer := xs.db.GetPeerNodeByID(remoteCache.PeerNodeID)
+	if errGetPeer != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("peer node not found"))
+	}
+
+	httpClient := &http.Client{Timeout: federationRequestTimeout}
+	client := xylonaconnect.NewFederationClient(httpClient, peerNode.BaseURL)
+
+	req := connect.NewRequest(&xylona.FederationReadConsoleBufferRequest{
+		ServerId: serverID,
+	})
+	req.Header().Set("X-Federation-Key", peerNode.SecretKey)
+
+	resp, errRead := client.ReadConsoleBuffer(ctx, req)
+	if errRead != nil {
+		log.Error().Err(errRead).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to read remote console buffer")
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to read remote console"))
+	}
+
+	return connect.NewResponse(&xylona.ReadGameServerOutputResponse{
+		Output: resp.Msg.Output,
+	}), nil
+}
+
 func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error) {
-	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	gameServer, errGetGameServer := xs.db.GetGameServerByID(serverID)
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+			// Check if this is a remote server.
+			return xs.sendRemoteGameServerInput(ctx, serverID, request.Msg.GetInput())
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
@@ -248,6 +350,39 @@ func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connec
 	}
 	response := &xylona.SendGameServerInputResponse{}
 	return connect.NewResponse(response), nil
+}
+
+func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID string, input string) (*connect.Response[xylona.SendGameServerInputResponse], error) {
+	remoteCache, errGetRemote := xs.db.GetRemoteServerCacheByRemoteServerID(serverID)
+	if errGetRemote != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+	}
+
+	peerNode, errGetPeer := xs.db.GetPeerNodeByID(remoteCache.PeerNodeID)
+	if errGetPeer != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("peer node not found"))
+	}
+
+	httpClient := &http.Client{Timeout: federationRequestTimeout}
+	client := xylonaconnect.NewFederationClient(httpClient, peerNode.BaseURL)
+
+	req := connect.NewRequest(&xylona.FederationSendConsoleInputRequest{
+		ServerId: serverID,
+		Input:    input,
+	})
+	req.Header().Set("X-Federation-Key", peerNode.SecretKey)
+
+	resp, errSend := client.SendConsoleInput(ctx, req)
+	if errSend != nil {
+		log.Error().Err(errSend).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to send remote console input")
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to send remote input"))
+	}
+
+	if !resp.Msg.Success {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(resp.Msg.Error))
+	}
+
+	return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
 }
 
 func (xs XylonaService) ListDirectoryFiles(ctx context.Context, request *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
@@ -279,7 +414,8 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Requ
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(request.Msg.GetId())
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+			// Check if this is a remote server.
+			return xs.getRemoteGameServer(ctx, request.Msg.GetId())
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
@@ -299,6 +435,60 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Requ
 		}
 	}
 	return connect.NewResponse(response), nil
+}
+
+func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string) (*connect.Response[xylona.GetGameServerResponse], error) {
+	remoteCache, errGetRemote := xs.db.GetRemoteServerCacheByRemoteServerID(serverID)
+	if errGetRemote != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+	}
+
+	peerNode, errGetPeer := xs.db.GetPeerNodeByID(remoteCache.PeerNodeID)
+	if errGetPeer != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("peer node not found"))
+	}
+
+	// Try to fetch live detail from the peer.
+	httpClient := &http.Client{Timeout: federationRequestTimeout}
+	client := xylonaconnect.NewFederationClient(httpClient, peerNode.BaseURL)
+
+	req := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
+		ServerId: serverID,
+	})
+	req.Header().Set("X-Federation-Key", peerNode.SecretKey)
+
+	resp, errDetail := client.GetServerDetail(ctx, req)
+	if errDetail != nil {
+		// Fall back to cached data.
+		log.Debug().Err(errDetail).Str("server_id", serverID).Msg("Failed to get remote server detail, using cache")
+		return connect.NewResponse(&xylona.GetGameServerResponse{
+			GameServer: helpers.RemoteServerCacheToProto(remoteCache, peerNode),
+		}), nil
+	}
+
+	server := resp.Msg.Server
+	gs := &xylona.GameServer{
+		Id:       server.ServerId,
+		Name:     server.DisplayName,
+		GameId:   server.GameId,
+		Status:   server.Status,
+		Ip:       &xylona.IP{Address: server.IpAddress},
+		Port:     int64(server.Port),
+		QueryPort: int64(server.QueryPort),
+		SetMaxPlayers: int64(server.MaxPlayers),
+		MaxPlayers: int64(server.MaxPlayers),
+		CurrentPlayerCount: int64(server.CurrentPlayers),
+		Map:      server.MapName,
+		Version:  server.Version,
+		GameName: server.GameName,
+		NodeId:   peerNode.NodeID,
+		NodeName: peerNode.Name,
+		NodeHost: peerNode.BaseURL,
+	}
+
+	return connect.NewResponse(&xylona.GetGameServerResponse{
+		GameServer: gs,
+	}), nil
 }
 
 func (xs XylonaService) getMinecraftVersion(gameServer *models.GameServer) (string, error) {

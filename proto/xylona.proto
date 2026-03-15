@@ -2,6 +2,7 @@ syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 import "gameserver_files_operations.proto";
 import "shared.proto";
+import "federation.proto";
 // import "games/minecraft.proto";
 
 package xylona;
@@ -69,6 +70,17 @@ service Xylona {
   rpc ListLocalSecretKeys (ListLocalSecretKeysRequest) returns (ListLocalSecretKeysResponse) {}
   rpc CreateLocalSecretKey (CreateLocalSecretKeyRequest) returns (CreateLocalSecretKeyResponse) {}
   rpc DeleteLocalSecretKey (DeleteLocalSecretKeyRequest) returns (DeleteLocalSecretKeyResponse) {}
+
+  // Peer Node Management
+  rpc ListPeerNodes (ListPeerNodesRequest) returns (ListPeerNodesResponse) {}
+  rpc GetPeerNode (GetPeerNodeRequest) returns (GetPeerNodeResponse) {}
+  rpc AddPeerNode (AddPeerNodeRequest) returns (AddPeerNodeResponse) {}
+  rpc RemovePeerNode (RemovePeerNodeRequest) returns (RemovePeerNodeResponse) {}
+  rpc EditPeerNode (EditPeerNodeRequest) returns (EditPeerNodeResponse) {}
+  rpc SyncPeerNode (SyncPeerNodeRequest) returns (SyncPeerNodeResponse) {}
+
+  // Aggregated Views
+  rpc ListAggregatedGameServers (ListAggregatedGameServersRequest) returns (ListAggregatedGameServersResponse) {}
 }
 
 message LoginRequest {

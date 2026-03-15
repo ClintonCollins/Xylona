@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,19 +12,22 @@ import (
 	"sync"
 	"time"
 
+	"connectrpc.com/connect"
+	"github.com/google/uuid"
+	"github.com/gorilla/securecookie"
+	"github.com/olahol/melody"
+	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
-	"github.com/google/uuid"
-	"github.com/gorilla/securecookie"
-	"github.com/olahol/melody"
-	"github.com/rs/zerolog/log"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
@@ -40,6 +44,7 @@ type connection struct {
 	outputStreamChannel          chan xylona.Message
 	allGameServerIDs             []string
 	requestedGameServerOutputIDs map[string]struct{}
+	remoteConsoleCancels         map[string]context.CancelFunc
 	*sync.RWMutex
 }
 
@@ -191,6 +196,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		outputStreamChannel:          make(chan xylona.Message),
 		allGameServerIDs:             []string{},
 		requestedGameServerOutputIDs: make(map[string]struct{}),
+		remoteConsoleCancels:         make(map[string]context.CancelFunc),
 		RWMutex:                      &sync.RWMutex{},
 	}
 
@@ -526,6 +532,114 @@ func (ws *WebSocket) addGameServerNotificationListener(s *melody.Session, gameSe
 	return nil
 }
 
+func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connection, serverID string) {
+	remoteCache, errGetRemote := ws.db.GetRemoteServerCacheByRemoteServerID(serverID)
+	if errGetRemote != nil {
+		log.Error().Err(errGetRemote).Str("server_id", serverID).Msg("Remote server not found for console stream")
+		return
+	}
+
+	peerNode, errGetPeer := ws.db.GetPeerNodeByID(remoteCache.PeerNodeID)
+	if errGetPeer != nil {
+		log.Error().Err(errGetPeer).Str("peer_node_id", remoteCache.PeerNodeID).Msg("Peer node not found for console stream")
+		return
+	}
+
+	streamCtx, cancel := context.WithCancel(ws.ctx)
+
+	conn.Lock()
+	// Cancel any existing stream for this server.
+	if existingCancel, exists := conn.remoteConsoleCancels[serverID]; exists {
+		existingCancel()
+	}
+	conn.remoteConsoleCancels[serverID] = cancel
+	conn.Unlock()
+
+	httpClient := &http.Client{}
+	client := xylonaconnect.NewFederationClient(httpClient, peerNode.BaseURL)
+
+	req := connect.NewRequest(&xylona.FederationStreamConsoleRequest{
+		ServerId:  serverID,
+		SecretKey: peerNode.SecretKey,
+	})
+	req.Header().Set("X-Federation-Key", peerNode.SecretKey)
+
+	stream, errStream := client.StreamConsoleOutput(streamCtx, req)
+	if errStream != nil {
+		log.Error().Err(errStream).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to open remote console stream")
+		cancel()
+		return
+	}
+	defer stream.Close()
+
+	log.Debug().Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Remote console stream started")
+
+	for stream.Receive() {
+		chunk := stream.Msg()
+		msg := xylona.Message{
+			Type: xylona.Message_GameServerConsole,
+			GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
+				GameServerId: serverID,
+				Output:       chunk.Output,
+			},
+		}
+
+		select {
+		case conn.outputStreamChannel <- msg:
+		case <-streamCtx.Done():
+			return
+		case <-s.Request.Context().Done():
+			return
+		default:
+			// Channel full, skip this message to avoid blocking.
+		}
+	}
+
+	if errReceive := stream.Err(); errReceive != nil {
+		log.Debug().Err(errReceive).Str("server_id", serverID).Msg("Remote console stream ended")
+	}
+}
+
+// BroadcastRemoteServerStatus sends a status update for a remote server to all connected WebSocket clients.
+func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, status xylona.Status) {
+	out := &xylona.Message{
+		Type: xylona.Message_GameServerStatus,
+		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
+			GameServerId: serverID,
+			Status:       status,
+		},
+	}
+	byteOut, errMarshal := json.Marshal(out)
+	if errMarshal != nil {
+		log.Error().Err(errMarshal).Msg("Failed to marshal remote server status update")
+		return
+	}
+
+	ws.userWebsocketConnectionsLock.RLock()
+	defer ws.userWebsocketConnectionsLock.RUnlock()
+
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			if conn.melodySession.IsClosed() {
+				continue
+			}
+			errWrite := conn.melodySession.Write(byteOut)
+			if errWrite != nil {
+				log.Debug().Err(errWrite).Msg("Failed to write remote status update to WebSocket")
+			}
+		}
+	}
+}
+
+func (ws *WebSocket) cancelRemoteConsoleStreams(conn *connection) {
+	conn.Lock()
+	defer conn.Unlock()
+	for serverID, cancel := range conn.remoteConsoleCancels {
+		cancel()
+		delete(conn.remoteConsoleCancels, serverID)
+	}
+}
+
 func (ws *WebSocket) deleteConnection(sess *melody.Session) {
 	userID, errGetUserID := getSessionUserID(sess)
 	if errGetUserID != nil {
@@ -560,6 +674,11 @@ func (ws *WebSocket) deleteConnection(sess *melody.Session) {
 
 func (ws *WebSocket) handleDisconnect(s *melody.Session) {
 	log.Debug().Msg("Websocket disconnected")
+	// Cancel any active remote console streams for this connection.
+	sessionConnection, errGetConnection := ws.getSessionConnection(s)
+	if errGetConnection == nil {
+		ws.cancelRemoteConsoleStreams(sessionConnection)
+	}
 	ws.deleteConnection(s)
 	if s.IsClosed() {
 		return
@@ -608,9 +727,17 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			log.Error().Msg("Game server ID not set")
 			return
 		}
+		serverID := *websocketRequest.GameServerId
 		sessionConnection.Lock()
-		sessionConnection.requestedGameServerOutputIDs[*websocketRequest.GameServerId] = struct{}{}
+		sessionConnection.requestedGameServerOutputIDs[serverID] = struct{}{}
 		sessionConnection.Unlock()
+
+		// Check if this is a remote server and start a federation console stream.
+		_, errGetLocal := ws.db.GetGameServerByID(serverID)
+		if errGetLocal != nil && errors.Is(errGetLocal, sql.ErrNoRows) {
+			go ws.startRemoteConsoleStream(s, sessionConnection, serverID)
+		}
+
 		rawData := &xylona.Message{
 			Type:    xylona.Message_Raw,
 			RawData: "Subscribed to game server console output",
