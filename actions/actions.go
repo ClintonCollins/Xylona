@@ -2,7 +2,6 @@ package actions
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -174,23 +173,30 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 				return
 			}
 			filename := part.FileName()
-			gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
-			if errGetGameServer != nil {
-				if errors.Is(errGetGameServer, sql.ErrNoRows) {
-					log.Error().Err(errGetGameServer).Msg("Game server not found")
-					http.Error(w, "Game server not found", http.StatusNotFound)
+			target, errResolve := inst.resolveFileRequestTarget(gameServerID)
+			if errResolve != nil {
+				log.Error().Err(errResolve).Msg("Failed to get game server")
+				writeGameServerLookupError(w, errResolve)
+				return
+			}
+
+			if target.isLocal() {
+				errDownload := inst.downloadGameServerFile(target.gameServer, path, filename, part)
+				if errDownload != nil {
+					log.Error().Err(errDownload).Msg("Failed to download file")
+					http.Error(w, "Failed to download file", http.StatusInternalServerError)
 					return
 				}
-				log.Error().Err(errGetGameServer).Msg("Failed to get game server")
-				http.Error(w, "Failed to get game server", http.StatusInternalServerError)
+				continue
+			}
+
+			errProxy := inst.proxyRemoteFileUpload(r.Context(), target, path, filename, part, w)
+			if errProxy != nil {
+				log.Error().Err(errProxy).Msg("Failed to proxy remote file upload")
+				http.Error(w, "Failed to upload file", http.StatusInternalServerError)
 				return
 			}
-			errDownload := inst.downloadGameServerFile(gameServer, path, filename, part)
-			if errDownload != nil {
-				log.Error().Err(errDownload).Msg("Failed to download file")
-				http.Error(w, "Failed to download file", http.StatusInternalServerError)
-				return
-			}
+			continue
 		}
 	}
 }

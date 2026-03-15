@@ -97,9 +97,9 @@ import { computed, onMounted, Ref, ref } from 'vue'
 import { GetXylonaClient, WindowWidth, XylonaEventBus } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { Status } from '@/proto/shared_pb'
+import { Node, Status } from '@/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
-import { AggregatedGameServer, ListAggregatedGameServersRequestSchema } from '@/proto/xylona_pb'
+import { AggregatedGameServer, ListAggregatedGameServersRequestSchema, ListNodesRequestSchema } from '@/proto/xylona_pb'
 
 interface DisplayRow {
   compositeId: string
@@ -115,6 +115,7 @@ interface DisplayRow {
 }
 
 const aggregatedServers = ref([] as AggregatedGameServer[])
+const nodesByID = ref(new Map<string, Node>())
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
@@ -131,6 +132,7 @@ const displayRows = computed((): DisplayRow[] => {
   return aggregatedServers.value.map((server) => {
     if (server.isLocal && server.localServer) {
       const ls = server.localServer
+      const nodeName = nodesByID.value.get(ls.nodeId)?.name || ls.nodeName || ls.nodeHost || 'Local'
       return {
         compositeId: 'local/' + ls.id,
         id: ls.id,
@@ -139,12 +141,13 @@ const displayRows = computed((): DisplayRow[] => {
         gameName: ls.gameName,
         userName: ls.userName,
         statusEnum: ls.status,
-        nodeName: ls.nodeName || 'Local',
+        nodeName,
         isStale: false,
         sourceNodeId: ''
       }
     }
     const rs = server.remoteServer!
+    const nodeName = nodesByID.value.get(rs.sourceNodeId || rs.nodeId)?.name || rs.nodeName || rs.nodeHost || 'Remote'
     return {
       compositeId: rs.sourceNodeId + '/' + rs.remoteServerId,
       id: rs.remoteServerId,
@@ -153,7 +156,7 @@ const displayRows = computed((): DisplayRow[] => {
       gameName: rs.gameName,
       userName: '',
       statusEnum: rs.status,
-      nodeName: rs.nodeName || rs.nodeHost || 'Remote',
+      nodeName,
       isStale: rs.isStale,
       sourceNodeId: rs.sourceNodeId
     }
@@ -172,10 +175,27 @@ onMounted(async () => {
 async function getGameServers() {
   loading.value = true
   try {
-    const response = await GetXylonaClient().listAggregatedGameServers(
-      create(ListAggregatedGameServersRequestSchema, {})
-    )
-    aggregatedServers.value = response.servers
+    const [serversResult, nodesResult] = await Promise.allSettled([
+      GetXylonaClient().listAggregatedGameServers(
+        create(ListAggregatedGameServersRequestSchema, {})
+      ),
+      GetXylonaClient().listNodes(
+        create(ListNodesRequestSchema, {})
+      )
+    ])
+
+    if (serversResult.status === 'fulfilled') {
+      aggregatedServers.value = serversResult.value.servers
+    } else {
+      console.error(serversResult.reason)
+    }
+
+    if (nodesResult.status === 'fulfilled') {
+      nodesByID.value = new Map(nodesResult.value.nodes.map(node => [node.id, node]))
+    } else {
+      console.error(nodesResult.reason)
+      nodesByID.value = new Map()
+    }
   } catch (e) {
     console.error(e)
   } finally {

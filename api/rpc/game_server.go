@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -34,6 +35,14 @@ type MinecraftVersionJSON struct {
 	JavaVersion   int       `json:"java_version"`
 	Stable        bool      `json:"stable"`
 	UseEditor     bool      `json:"use_editor"`
+}
+
+func fallbackNodeID(requestNodeID string, defaultNodeID string) string {
+	trimmedNodeID := strings.TrimSpace(requestNodeID)
+	if trimmedNodeID == "" {
+		return defaultNodeID
+	}
+	return trimmedNodeID
 }
 
 // findAvailablePort checks for port conflicts on the given IP and returns the next available port.
@@ -105,6 +114,21 @@ func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.R
 	}
 
 	newGameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+	if strings.TrimSpace(newGameServerModel.NodeID) == "" {
+		localSettings, errSettings := xs.db.GetLocalSettings()
+		if errSettings != nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to resolve local node"))
+		}
+		newGameServerModel.NodeID = fallbackNodeID(newGameServerModel.NodeID, localSettings.NodeID)
+	}
+
+	_, errNode := xs.db.GetNodeByID(newGameServerModel.NodeID)
+	if errNode != nil {
+		if errors.Is(errNode, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid node"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to validate node"))
+	}
 
 	// Check for port conflicts and auto-increment if necessary.
 	availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
@@ -134,6 +158,15 @@ func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Req
 		serverID,
 		func(existingGameServer *models.GameServer) (*connect.Response[xylona.EditGameServerResponse], error) {
 			gameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+			gameServerModel.NodeID = fallbackNodeID(gameServerModel.NodeID, existingGameServer.NodeID)
+
+			_, errNode := xs.db.GetNodeByID(gameServerModel.NodeID)
+			if errNode != nil {
+				if errors.Is(errNode, sql.ErrNoRows) {
+					return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid node"))
+				}
+				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to validate node"))
+			}
 
 			// Check for port conflicts when IP or port changed.
 			game, errGetGame := xs.db.GetGameByID(gameServerModel.GameID)

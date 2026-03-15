@@ -88,10 +88,10 @@ func (c *Connection) UpdateNodeSyncStatus(id string, syncStatus string, lastSync
 	return err
 }
 
-func (c *Connection) UpdateNodeIdentity(id string, name string, version string, protocolVersion int32, capabilities string) error {
+func (c *Connection) UpdateNodeIdentity(id string, version string, protocolVersion int32, capabilities string) error {
 	_, err := sqlite.RawQuery(
-		`UPDATE node SET name = ?, version = ?, protocol_version = ?, capabilities = ?, updated_at = ? WHERE id = ?`,
-		name, version, protocolVersion, capabilities, time.Now(), id,
+		`UPDATE node SET version = ?, protocol_version = ?, capabilities = ?, updated_at = ? WHERE id = ?`,
+		version, protocolVersion, capabilities, time.Now(), id,
 	).Exec(c.ctx, c.DB)
 	return err
 }
@@ -102,6 +102,15 @@ func (c *Connection) UpdateNodeLastSeen(id string) error {
 		time.Now(), time.Now(), id,
 	).Exec(c.ctx, c.DB)
 	return err
+}
+
+func (c *Connection) GetNodeSyncIntervalSeconds(id string) (int32, error) {
+	var syncIntervalSeconds int32
+	errQuery := c.SQLDb.QueryRowContext(c.ctx, `SELECT sync_interval_seconds FROM node WHERE id = ?`, id).Scan(&syncIntervalSeconds)
+	if errQuery != nil {
+		return 0, errQuery
+	}
+	return syncIntervalSeconds, nil
 }
 
 // GetOrCreatePeerSyncState retrieves or creates a sync state record for a node.

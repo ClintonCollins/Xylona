@@ -19,7 +19,10 @@ import (
 
 const (
 	healthCheckInterval      = 30 * time.Second
-	syncInterval             = 60 * time.Second
+	peerReconcileInterval    = 60 * time.Second
+	defaultNodeSyncInterval  = 60 * time.Second
+	minNodeSyncInterval      = 15 * time.Second
+	maxNodeSyncInterval      = 10 * time.Minute
 	staleThreshold           = 3 * time.Minute
 	maxRetryBackoff          = 5 * time.Minute
 	federationRequestTimeout = 15 * time.Second
@@ -74,7 +77,7 @@ func (e *FederationSyncEngine) start() {
 	}
 
 	// Periodically check for new/removed peers.
-	ticker := time.NewTicker(syncInterval)
+	ticker := time.NewTicker(peerReconcileInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -160,9 +163,9 @@ func (e *FederationSyncEngine) peerSyncLoop(ctx context.Context, nodeID string) 
 	go e.streamPeerStatuses(ctx, nodeID)
 
 	healthTicker := time.NewTicker(healthCheckInterval)
-	syncTicker := time.NewTicker(syncInterval)
+	syncTimer := time.NewTimer(e.getNodeSyncInterval(nodeID))
 	defer healthTicker.Stop()
-	defer syncTicker.Stop()
+	defer syncTimer.Stop()
 
 	for {
 		select {
@@ -170,8 +173,9 @@ func (e *FederationSyncEngine) peerSyncLoop(ctx context.Context, nodeID string) 
 			return
 		case <-healthTicker.C:
 			e.healthCheckPeer(nodeID)
-		case <-syncTicker.C:
+		case <-syncTimer.C:
 			e.syncPeerOnce(nodeID)
+			syncTimer.Reset(e.getNodeSyncInterval(nodeID))
 		}
 	}
 }
@@ -288,7 +292,6 @@ func (e *FederationSyncEngine) healthCheckPeer(nodeID string) {
 	// Update identity if it changed.
 	errIdentity := e.db.UpdateNodeIdentity(
 		nodeID,
-		resp.Msg.NodeName,
 		resp.Msg.Version,
 		resp.Msg.ProtocolVersion,
 		resp.Msg.Capabilities,
@@ -411,6 +414,31 @@ func newFederationClient(baseURL string) xylonaconnect.FederationClient {
 		Timeout: federationRequestTimeout,
 	}
 	return xylonaconnect.NewFederationClient(httpClient, baseURL)
+}
+
+func (e *FederationSyncEngine) getNodeSyncInterval(nodeID string) time.Duration {
+	syncIntervalSeconds, errSyncInterval := e.db.GetNodeSyncIntervalSeconds(nodeID)
+	if errSyncInterval != nil {
+		log.Debug().Err(errSyncInterval).Str("node_id", nodeID).
+			Dur("fallback_interval", defaultNodeSyncInterval).
+			Msg("Failed to get node sync interval, using default")
+		return defaultNodeSyncInterval
+	}
+	return normalizeNodeSyncInterval(syncIntervalSeconds)
+}
+
+func normalizeNodeSyncInterval(syncIntervalSeconds int32) time.Duration {
+	if syncIntervalSeconds <= 0 {
+		return defaultNodeSyncInterval
+	}
+	interval := time.Duration(syncIntervalSeconds) * time.Second
+	if interval < minNodeSyncInterval {
+		return minNodeSyncInterval
+	}
+	if interval > maxNodeSyncInterval {
+		return maxNodeSyncInterval
+	}
+	return interval
 }
 
 func calculateBackoff(retryCount int32) time.Duration {

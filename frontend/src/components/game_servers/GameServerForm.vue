@@ -178,6 +178,14 @@ async function getNodes() {
     response.nodes.forEach((node) => {
       nodes.value.push(node)
     })
+    if (!gameServer.value.nodeId) {
+      const localNode = nodes.value.find((node) => node.local)
+      if (localNode) {
+        gameServer.value.nodeId = localNode.id
+      } else if (nodes.value.length > 0) {
+        gameServer.value.nodeId = nodes.value[0].id
+      }
+    }
   } catch (unknownError: unknown) {
     const err = unknownError as Error
     console.error(err.message)

@@ -3,7 +3,6 @@ package actions
 import (
 	"compress/gzip"
 	"context"
-	"database/sql"
 	"errors"
 	"io"
 	"io/fs"
@@ -726,24 +725,29 @@ func (inst *Instance) StreamFileToUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameServer, errGetGameServer := inst.db.GetGameServerByID(fileRequest.GameServerId)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			log.Error().Err(errGetGameServer).Msg("Game server not found")
-			http.Error(w, "Game server not found", http.StatusNotFound)
-			return
-		}
-		log.Error().Err(errGetGameServer).Msg("Failed to get game server")
-		http.Error(w, "Failed to get game server", http.StatusInternalServerError)
+	target, errResolve := inst.resolveFileRequestTarget(fileRequest.GameServerId)
+	if errResolve != nil {
+		log.Error().Err(errResolve).Msg("Failed to get game server")
+		writeGameServerLookupError(w, errResolve)
 		return
 	}
-	errGetFile := inst.GetGameServerFile(gameServer, fileRequest.Path, w, true, false)
-	if errGetFile != nil {
-		log.Error().Err(errGetFile).Msg("Failed to get file")
+
+	if target.isLocal() {
+		errGetFile := inst.GetGameServerFile(target.gameServer, fileRequest.Path, w, true, false)
+		if errGetFile != nil {
+			log.Error().Err(errGetFile).Msg("Failed to get file")
+			http.Error(w, "Failed to get file", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	errProxy := inst.proxyRemoteFileGet(r.Context(), target, fileRequest.Path, w)
+	if errProxy != nil {
+		log.Error().Err(errProxy).Msg("Failed to proxy remote file request")
 		http.Error(w, "Failed to get file", http.StatusInternalServerError)
 		return
 	}
-	return
 }
 
 func (inst *Instance) UploadFileToUserGET(w http.ResponseWriter, r *http.Request) {
@@ -755,25 +759,29 @@ func (inst *Instance) UploadFileToUserGET(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			log.Error().Err(errGetGameServer).Msg("Game server not found")
-			http.Error(w, "Game server not found", http.StatusNotFound)
-			return
-		}
-		log.Error().Err(errGetGameServer).Msg("Failed to get game server")
-		http.Error(w, "Failed to get game server", http.StatusInternalServerError)
+	target, errResolve := inst.resolveFileRequestTarget(gameServerID)
+	if errResolve != nil {
+		log.Error().Err(errResolve).Msg("Failed to get game server")
+		writeGameServerLookupError(w, errResolve)
 		return
 	}
 
-	errGetFile := inst.GetGameServerFile(gameServer, filePath, w, true, true)
-	if errGetFile != nil {
-		log.Error().Err(errGetFile).Msg("Failed to get file")
+	if target.isLocal() {
+		errGetFile := inst.GetGameServerFile(target.gameServer, filePath, w, true, true)
+		if errGetFile != nil {
+			log.Error().Err(errGetFile).Msg("Failed to get file")
+			http.Error(w, "Failed to get file", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	errProxy := inst.proxyRemoteFileDownload(r.Context(), target, filePath, w)
+	if errProxy != nil {
+		log.Error().Err(errProxy).Msg("Failed to proxy remote file download")
 		http.Error(w, "Failed to get file", http.StatusInternalServerError)
 		return
 	}
-	return
 }
 
 func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Request) {
@@ -786,25 +794,29 @@ func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Reques
 	gameServerID := r.FormValue("gameServerId")
 	filePath := r.FormValue("path")
 
-	gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
-	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			log.Error().Err(errGetGameServer).Msg("Game server not found")
-			http.Error(w, "Game server not found", http.StatusNotFound)
-			return
-		}
-		log.Error().Err(errGetGameServer).Msg("Failed to get game server")
-		http.Error(w, "Failed to get game server", http.StatusInternalServerError)
+	target, errResolve := inst.resolveFileRequestTarget(gameServerID)
+	if errResolve != nil {
+		log.Error().Err(errResolve).Msg("Failed to get game server")
+		writeGameServerLookupError(w, errResolve)
 		return
 	}
 
-	errGetFile := inst.GetGameServerFile(gameServer, filePath, w, true, true)
-	if errGetFile != nil {
-		log.Error().Err(errGetFile).Msg("Failed to get file")
+	if target.isLocal() {
+		errGetFile := inst.GetGameServerFile(target.gameServer, filePath, w, true, true)
+		if errGetFile != nil {
+			log.Error().Err(errGetFile).Msg("Failed to get file")
+			http.Error(w, "Failed to get file", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	errProxy := inst.proxyRemoteFileDownload(r.Context(), target, filePath, w)
+	if errProxy != nil {
+		log.Error().Err(errProxy).Msg("Failed to proxy remote file download")
 		http.Error(w, "Failed to get file", http.StatusInternalServerError)
 		return
 	}
-	return
 }
 
 func (inst *Instance) ExtractArchive(ctx context.Context, gameServer *models.GameServer, archivePath string, destinationDirectoryPath string) ([]string, error) {

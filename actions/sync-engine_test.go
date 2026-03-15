@@ -5,6 +5,29 @@ import (
 	"time"
 )
 
+func TestNormalizeNodeSyncInterval(t *testing.T) {
+	tests := []struct {
+		name      string
+		seconds   int32
+		wantValue time.Duration
+	}{
+		{name: "uses default for zero", seconds: 0, wantValue: defaultNodeSyncInterval},
+		{name: "uses default for negative", seconds: -30, wantValue: defaultNodeSyncInterval},
+		{name: "clamps to minimum", seconds: 5, wantValue: minNodeSyncInterval},
+		{name: "uses configured interval in range", seconds: 45, wantValue: 45 * time.Second},
+		{name: "clamps to maximum", seconds: int32((maxNodeSyncInterval / time.Second) + 1), wantValue: maxNodeSyncInterval},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeNodeSyncInterval(tt.seconds)
+			if got != tt.wantValue {
+				t.Errorf("normalizeNodeSyncInterval(%d) = %v, want %v", tt.seconds, got, tt.wantValue)
+			}
+		})
+	}
+}
+
 func TestCalculateBackoff(t *testing.T) {
 	tests := []struct {
 		name       string
