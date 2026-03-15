@@ -33,7 +33,7 @@ export default [
       },
     },
     rules: {
-      ...vue.configs['vue3-recommended'].rules,
+      ...vue.configs.recommended.rules,
       'vue/multi-word-component-names': 'off',
       'vue/no-v-html': 'warn',
       'vue/require-default-prop': 'off',

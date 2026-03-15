@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aarondl/opt/null"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -319,3 +320,103 @@ func TestProxyRemoteFileUpload(t *testing.T) {
 	}
 }
 
+func TestProxyRemoteFileGetForwardsErrorStatusAndHeaders(t *testing.T) {
+	remoteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-Remote-Reason", "upstream-failure")
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("bad gateway"))
+	}))
+	t.Cleanup(remoteServer.Close)
+
+	inst := &Instance{}
+	target := fileRequestTarget{
+		remoteServerID: "remote-server-id",
+		remoteNode: &models.Node{
+			BaseURL:   remoteServer.URL,
+			SecretKey: null.From("secret-key"),
+		},
+	}
+
+	responseRecorder := httptest.NewRecorder()
+	errProxy := inst.proxyRemoteFileGet(context.Background(), target, "server.properties", responseRecorder)
+	if errProxy != nil {
+		t.Fatalf("proxyRemoteFileGet() error = %v", errProxy)
+	}
+
+	if responseRecorder.Code != http.StatusBadGateway {
+		t.Fatalf("response status = %d, want %d", responseRecorder.Code, http.StatusBadGateway)
+	}
+	if responseRecorder.Body.String() != "bad gateway" {
+		t.Fatalf("response body = %q, want %q", responseRecorder.Body.String(), "bad gateway")
+	}
+	if gotHeader := responseRecorder.Header().Get("X-Remote-Reason"); gotHeader != "upstream-failure" {
+		t.Fatalf("X-Remote-Reason = %q, want %q", gotHeader, "upstream-failure")
+	}
+}
+
+func TestProxyRemoteFileGetRespectsCanceledContext(t *testing.T) {
+	remoteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(remoteServer.Close)
+
+	inst := &Instance{}
+	target := fileRequestTarget{
+		remoteServerID: "remote-server-id",
+		remoteNode: &models.Node{
+			BaseURL:   remoteServer.URL,
+			SecretKey: null.From("secret-key"),
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	responseRecorder := httptest.NewRecorder()
+	errProxy := inst.proxyRemoteFileGet(ctx, target, "server.properties", responseRecorder)
+	if errProxy == nil {
+		t.Fatalf("proxyRemoteFileGet() error = nil, want context cancellation error")
+	}
+	if !errors.Is(errProxy, context.Canceled) && !strings.Contains(strings.ToLower(errProxy.Error()), "context canceled") {
+		t.Fatalf("proxyRemoteFileGet() error = %v, want context canceled", errProxy)
+	}
+}
+
+func TestWriteGameServerLookupError(t *testing.T) {
+	tests := []struct {
+		name       string
+		lookupErr  error
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name:       "not found maps to 404",
+			lookupErr:  sql.ErrNoRows,
+			wantStatus: http.StatusNotFound,
+			wantBody:   "Game server not found",
+		},
+		{
+			name:       "other error maps to 500",
+			lookupErr:  errors.New("db unavailable"),
+			wantStatus: http.StatusInternalServerError,
+			wantBody:   "Failed to get game server",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			responseRecorder := httptest.NewRecorder()
+
+			writeGameServerLookupError(responseRecorder, tt.lookupErr)
+
+			if responseRecorder.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", responseRecorder.Code, tt.wantStatus)
+			}
+			if !strings.Contains(responseRecorder.Body.String(), tt.wantBody) {
+				t.Fatalf("body = %q, want to contain %q", responseRecorder.Body.String(), tt.wantBody)
+			}
+		})
+	}
+}

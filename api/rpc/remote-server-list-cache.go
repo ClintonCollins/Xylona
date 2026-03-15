@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -104,8 +105,7 @@ func cloneRemoteServerSummary(summary *xylona.RemoteServerSummary) *xylona.Remot
 	if summary == nil {
 		return nil
 	}
-	cloned := *summary
-	return &cloned
+	return proto.Clone(summary).(*xylona.RemoteServerSummary)
 }
 
 func markRemoteServerSummariesStale(summaries []*xylona.RemoteServerSummary, fetchedAt time.Time) []*xylona.RemoteServerSummary {

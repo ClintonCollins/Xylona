@@ -1,8 +1,10 @@
 package helpers
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -37,5 +39,29 @@ func TestNewFederationHTTPClientAllowsUntrustedTLSWhenEnabled(t *testing.T) {
 
 	if resp.StatusCode != http.StatusNoContent {
 		t.Errorf("response status = %d, want %d", resp.StatusCode, http.StatusNoContent)
+	}
+}
+
+func TestNewFederationHTTPClientHonorsTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewFederationHTTPClient(40*time.Millisecond, false)
+	_, errGet := client.Get(server.URL)
+	if errGet == nil {
+		t.Fatalf("NewFederationHTTPClient() request error = nil, want timeout error")
+	}
+	if !strings.Contains(strings.ToLower(errGet.Error()), "timeout") && !errors.Is(errGet, http.ErrHandlerTimeout) {
+		t.Fatalf("NewFederationHTTPClient() timeout error = %v, want timeout-related error", errGet)
+	}
+}
+
+func TestNewFederationHTTPClientZeroTimeoutLeavesClientTimeoutUnset(t *testing.T) {
+	client := NewFederationHTTPClient(0, false)
+	if client.Timeout != 0 {
+		t.Fatalf("client.Timeout = %v, want %v", client.Timeout, 0)
 	}
 }

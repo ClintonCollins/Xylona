@@ -1,6 +1,9 @@
 package db
 
 import (
+	"database/sql"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/aarondl/opt/omit"
@@ -115,22 +118,39 @@ func (c *Connection) GetNodeSyncIntervalSeconds(id string) (int32, error) {
 
 // GetOrCreatePeerSyncState retrieves or creates a sync state record for a node.
 func (c *Connection) GetOrCreatePeerSyncState(nodeID string) (*models.PeerSyncState, error) {
-	syncState, err := models.PeerSyncStates.Query(
+	syncState, errQuery := models.PeerSyncStates.Query(
 		models.SelectWhere.PeerSyncStates.NodeID.EQ(nodeID),
 	).One(c.ctx, c.DB)
-	if err != nil {
-		newID, errID := helpers.GenerateUniqueID()
-		if errID != nil {
-			return nil, errID
-		}
-		setter := &models.PeerSyncStateSetter{
-			ID:     omit.From(newID.String()),
-			NodeID: omit.From(nodeID),
-		}
-		syncState, err = models.PeerSyncStates.Insert(setter).One(c.ctx, c.DB)
-		if err != nil {
-			return nil, err
-		}
+	if errQuery == nil {
+		return syncState, nil
+	}
+
+	if !errors.Is(errQuery, sql.ErrNoRows) {
+		return nil, errQuery
+	}
+
+	newID, errID := helpers.GenerateUniqueID()
+	if errID != nil {
+		return nil, errID
+	}
+	setter := &models.PeerSyncStateSetter{
+		ID:     omit.From(newID.String()),
+		NodeID: omit.From(nodeID),
+	}
+
+	syncState, errInsert := models.PeerSyncStates.Insert(setter).One(c.ctx, c.DB)
+	if errInsert == nil {
+		return syncState, nil
+	}
+	if !isSQLiteUniqueConstraintError(errInsert) {
+		return nil, errInsert
+	}
+
+	syncState, errQuery = models.PeerSyncStates.Query(
+		models.SelectWhere.PeerSyncStates.NodeID.EQ(nodeID),
+	).One(c.ctx, c.DB)
+	if errQuery != nil {
+		return nil, errQuery
 	}
 	return syncState, nil
 }
@@ -150,4 +170,11 @@ func (c *Connection) UpdatePeerSyncStateSuccess(nodeID string, cursor string) er
 		cursor, now, now, nodeID,
 	).Exec(c.ctx, c.DB)
 	return err
+}
+
+func isSQLiteUniqueConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "unique constraint failed")
 }

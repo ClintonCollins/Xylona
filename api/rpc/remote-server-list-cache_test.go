@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -149,5 +151,178 @@ func TestRemoteServerListCacheInvalidate(t *testing.T) {
 	}
 	if servers != nil {
 		t.Fatalf("getOrFetch() servers after invalidate = %#v, want nil", servers)
+	}
+}
+
+func TestRemoteServerListCacheGetOrFetchTTLZeroNeverExpires(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0).UTC()
+	cache := newRemoteServerListCache(0)
+	cache.now = func() time.Time { return now }
+
+	fetchCalls := 0
+	fetch := func() ([]*xylona.RemoteServerSummary, error) {
+		fetchCalls++
+		return []*xylona.RemoteServerSummary{
+			{
+				SourceNodeId:   "node-1",
+				NodeId:         "node-1",
+				RemoteServerId: "server-1",
+				DisplayName:    "Alpha",
+				LastSyncedAt:   timestamppb.New(now),
+			},
+		}, nil
+	}
+
+	_, _, errFirst := cache.getOrFetch("node-1", fetch)
+	if errFirst != nil {
+		t.Fatalf("getOrFetch() first call error = %v", errFirst)
+	}
+
+	now = now.Add(24 * time.Hour)
+	servers, usedStale, errSecond := cache.getOrFetch("node-1", fetch)
+	if errSecond != nil {
+		t.Fatalf("getOrFetch() second call error = %v", errSecond)
+	}
+	if usedStale {
+		t.Fatalf("getOrFetch() usedStale = true, want false")
+	}
+	if fetchCalls != 1 {
+		t.Fatalf("fetchCalls = %d, want 1 (TTL=0 should not expire)", fetchCalls)
+	}
+	if len(servers) != 1 || servers[0] == nil {
+		t.Fatalf("servers = %#v, want one non-nil server", servers)
+	}
+}
+
+func TestMarkRemoteServerSummariesStalePreservesExistingSyncTime(t *testing.T) {
+	t.Parallel()
+
+	fetchedAt := time.Unix(1_700_000_100, 0).UTC()
+	existingSyncedAt := timestamppb.New(fetchedAt.Add(-30 * time.Second))
+
+	source := []*xylona.RemoteServerSummary{
+		{
+			RemoteServerId: "server-with-sync",
+			LastSyncedAt:   existingSyncedAt,
+			IsStale:        false,
+		},
+		{
+			RemoteServerId: "server-without-sync",
+			LastSyncedAt:   nil,
+			IsStale:        false,
+		},
+	}
+
+	stale := markRemoteServerSummariesStale(source, fetchedAt)
+	if len(stale) != 2 {
+		t.Fatalf("len(stale) = %d, want 2", len(stale))
+	}
+	if !stale[0].IsStale || !stale[1].IsStale {
+		t.Fatalf("all stale summaries must be marked stale: %#v", stale)
+	}
+
+	if stale[0].LastSyncedAt == nil {
+		t.Fatalf("stale[0].LastSyncedAt = nil, want existing timestamp")
+	}
+	if !stale[0].LastSyncedAt.AsTime().Equal(existingSyncedAt.AsTime()) {
+		t.Fatalf("stale[0].LastSyncedAt = %v, want %v", stale[0].LastSyncedAt.AsTime(), existingSyncedAt.AsTime())
+	}
+
+	if stale[1].LastSyncedAt == nil {
+		t.Fatalf("stale[1].LastSyncedAt = nil, want fetchedAt timestamp")
+	}
+	if !stale[1].LastSyncedAt.AsTime().Equal(fetchedAt) {
+		t.Fatalf("stale[1].LastSyncedAt = %v, want %v", stale[1].LastSyncedAt.AsTime(), fetchedAt)
+	}
+
+	// Ensure source data is unchanged.
+	if source[0].IsStale || source[1].IsStale {
+		t.Fatalf("source summaries were mutated: %#v", source)
+	}
+}
+
+func TestRemoteServerListCacheGetOrFetchConcurrentReadsReturnIsolatedCopies(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0).UTC()
+	cache := newRemoteServerListCache(30 * time.Second)
+	cache.now = func() time.Time { return now }
+
+	_, _, errSeed := cache.getOrFetch("node-1", func() ([]*xylona.RemoteServerSummary, error) {
+		return []*xylona.RemoteServerSummary{
+			{
+				SourceNodeId:   "node-1",
+				NodeId:         "node-1",
+				RemoteServerId: "server-1",
+				DisplayName:    "Alpha",
+				LastSyncedAt:   timestamppb.New(now),
+			},
+		}, nil
+	})
+	if errSeed != nil {
+		t.Fatalf("failed to seed cache: %v", errSeed)
+	}
+
+	const workers = 40
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	errCh := make(chan error, workers)
+	for workerID := range workers {
+		workerID := workerID
+		go func() {
+			defer wg.Done()
+
+			servers, usedStale, errGet := cache.getOrFetch("node-1", func() ([]*xylona.RemoteServerSummary, error) {
+				return nil, errors.New("fetch callback should not run for fresh cache reads")
+			})
+			if errGet != nil {
+				errCh <- fmt.Errorf("worker %d getOrFetch error: %w", workerID, errGet)
+				return
+			}
+			if usedStale {
+				errCh <- fmt.Errorf("worker %d unexpectedly received stale data", workerID)
+				return
+			}
+			if len(servers) != 1 || servers[0] == nil {
+				errCh <- fmt.Errorf("worker %d received invalid server list: %#v", workerID, servers)
+				return
+			}
+
+			servers[0].DisplayName = fmt.Sprintf("mutated-%d", workerID)
+			if servers[0].LastSyncedAt != nil {
+				servers[0].LastSyncedAt.Seconds = int64(workerID)
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for errConcurrent := range errCh {
+		if errConcurrent != nil {
+			t.Fatalf("concurrent cache read failed: %v", errConcurrent)
+		}
+	}
+
+	servers, usedStale, errGet := cache.getOrFetch("node-1", func() ([]*xylona.RemoteServerSummary, error) {
+		return nil, errors.New("fetch callback should not run for fresh cache reads")
+	})
+	if errGet != nil {
+		t.Fatalf("post-concurrency getOrFetch() error = %v", errGet)
+	}
+	if usedStale {
+		t.Fatalf("post-concurrency getOrFetch() usedStale = true, want false")
+	}
+	if len(servers) != 1 || servers[0] == nil {
+		t.Fatalf("post-concurrency server list = %#v, want one non-nil entry", servers)
+	}
+	if servers[0].DisplayName != "Alpha" {
+		t.Fatalf("cached display name mutated across callers: got %q, want %q", servers[0].DisplayName, "Alpha")
+	}
+	if servers[0].LastSyncedAt.AsTime().Unix() != now.Unix() {
+		t.Fatalf("cached last synced time mutated across callers: got %d, want %d", servers[0].LastSyncedAt.Seconds, now.Unix())
 	}
 }

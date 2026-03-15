@@ -11,10 +11,18 @@ describe('normalizeNodePairingBaseURL', () => {
     expect(normalizeNodePairingBaseURL(' https://example.com/ ')).toBe('https://example.com')
   })
 
+  it('throws when base URL is empty after trimming', () => {
+    expect(() => normalizeNodePairingBaseURL('   ')).toThrow('Base URL is required')
+  })
+
   it('throws on unsupported protocol', () => {
     expect(() => normalizeNodePairingBaseURL('ftp://example.com')).toThrow(
       'Base URL must use http or https',
     )
+  })
+
+  it('throws on malformed URLs', () => {
+    expect(() => normalizeNodePairingBaseURL('http://')).toThrow('Base URL must be a valid URL')
   })
 })
 
@@ -26,6 +34,12 @@ describe('createNodePairingPayload', () => {
       base_url: 'https://example.com',
       secret_key: 'secret',
     })
+  })
+
+  it('throws for empty secret key', () => {
+    expect(() => createNodePairingPayload('https://example.com', '   ')).toThrow(
+      'Secret key is required',
+    )
   })
 })
 
@@ -42,6 +56,18 @@ describe('parseNodePairingPayload', () => {
 
   it('throws for invalid json payload', () => {
     expect(() => parseNodePairingPayload('not-json')).toThrow('Pairing JSON is invalid')
+  })
+
+  it('throws for non-object payloads', () => {
+    expect(() => parseNodePairingPayload('["not","object"]')).toThrow(
+      'Pairing JSON must be an object',
+    )
+  })
+
+  it('throws when base_url is missing', () => {
+    expect(() => parseNodePairingPayload('{"secret_key":"abc"}')).toThrow(
+      'Base URL is required',
+    )
   })
 
   it('throws for missing secret key', () => {

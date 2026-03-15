@@ -7,11 +7,15 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
     "build": "quasar build",
-    "lint": "eslint . --ext .vue,.js,.ts,.jsx,.tsx",
-    "lint:fix": "eslint . --ext .vue,.js,.ts,.jsx,.tsx --fix"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.{ts,vue,scss,html,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,vue,scss,html,json}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
@@ -36,6 +40,7 @@
   "devDependencies": {
     "@bufbuild/buf": "^1.66.1",
     "@bufbuild/protoc-gen-es": "^2.11.0",
+    "@eslint/js": "^10.0.1",
     "@quasar/app-vite": "2.4.1",
     "@types/node": "^25.5.0",
     "@types/prismjs": "^1.26.6",
@@ -46,6 +51,7 @@
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.8.0",
+    "happy-dom": "^20.8.4",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0",
