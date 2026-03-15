@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"math/rand"
-	"net/http"
 	"sync"
 	"time"
 
@@ -18,14 +17,15 @@ import (
 )
 
 const (
-	healthCheckInterval      = 30 * time.Second
-	peerReconcileInterval    = 60 * time.Second
-	defaultNodeSyncInterval  = 60 * time.Second
-	minNodeSyncInterval      = 15 * time.Second
-	maxNodeSyncInterval      = 10 * time.Minute
-	staleThreshold           = 3 * time.Minute
-	maxRetryBackoff          = 5 * time.Minute
-	federationRequestTimeout = 15 * time.Second
+	healthCheckInterval        = 30 * time.Second
+	peerReconcileInterval      = 60 * time.Second
+	remoteCacheCleanupInterval = 60 * time.Second
+	defaultNodeSyncInterval    = 60 * time.Second
+	minNodeSyncInterval        = 15 * time.Second
+	maxNodeSyncInterval        = 10 * time.Minute
+	staleThreshold             = 3 * time.Minute
+	maxRetryBackoff            = 5 * time.Minute
+	federationRequestTimeout   = 15 * time.Second
 )
 
 // StatusBroadcaster is called when a remote server status changes in real-time.
@@ -76,15 +76,45 @@ func (e *FederationSyncEngine) start() {
 		e.startPeerWorker(peer.ID)
 	}
 
-	// Periodically check for new/removed peers.
-	ticker := time.NewTicker(peerReconcileInterval)
-	defer ticker.Stop()
+	// Keep worker membership and remote cache cleanup in sync over time.
+	reconcileTicker := time.NewTicker(peerReconcileInterval)
+	cleanupTicker := time.NewTicker(remoteCacheCleanupInterval)
+	defer reconcileTicker.Stop()
+	defer cleanupTicker.Stop()
+
+	e.cleanupRemoteServerCache()
 	for {
 		select {
 		case <-e.ctx.Done():
 			return
-		case <-ticker.C:
+		case <-reconcileTicker.C:
 			e.reconcilePeerWorkers()
+		case <-cleanupTicker.C:
+			e.cleanupRemoteServerCache()
+		}
+	}
+}
+
+func (e *FederationSyncEngine) cleanupRemoteServerCache() {
+	errOrphanCleanup := e.db.DeleteOrphanedRemoteServerCacheByNodeReferences()
+	if errOrphanCleanup != nil {
+		log.Warn().Err(errOrphanCleanup).Msg("Failed to clean orphaned remote server cache rows")
+	}
+
+	remoteNodes, errGetRemoteNodes := e.db.GetAllRemoteNodes()
+	if errGetRemoteNodes != nil {
+		log.Warn().Err(errGetRemoteNodes).Msg("Failed to list remote nodes for stale cache cleanup")
+		return
+	}
+
+	olderThan := time.Now().Add(-staleThreshold)
+	for _, remoteNode := range remoteNodes {
+		errDeleteStale := e.db.DeleteStaleRemoteServerCacheByNodeID(remoteNode.ID, olderThan)
+		if errDeleteStale != nil {
+			log.Warn().
+				Err(errDeleteStale).
+				Str("node_id", remoteNode.ID).
+				Msg("Failed to delete stale remote server cache rows")
 		}
 	}
 }
@@ -213,7 +243,7 @@ func (e *FederationSyncEngine) runStatusStream(ctx context.Context, nodeID strin
 	secretKey := node.SecretKey.GetOr("")
 
 	// Use a long-lived HTTP client without a short timeout for streaming.
-	httpClient := &http.Client{}
+	httpClient := helpers.NewFederationHTTPClient(0, node.AllowInsecureTLS)
 	client := xylonaconnect.NewFederationClient(httpClient, node.BaseURL)
 
 	req := connect.NewRequest(&xylona.FederationStreamServerStatusesRequest{
@@ -261,7 +291,7 @@ func (e *FederationSyncEngine) healthCheckPeer(nodeID string) {
 	}
 
 	secretKey := node.SecretKey.GetOr("")
-	client := newFederationClient(node.BaseURL)
+	client := newFederationClient(node.BaseURL, node.AllowInsecureTLS)
 	reqCtx, cancel := context.WithTimeout(e.ctx, federationRequestTimeout)
 	defer cancel()
 
@@ -327,7 +357,7 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 		}
 	}
 
-	client := newFederationClient(node.BaseURL)
+	client := newFederationClient(node.BaseURL, node.AllowInsecureTLS)
 	reqCtx, cancel := context.WithTimeout(e.ctx, federationRequestTimeout)
 	defer cancel()
 
@@ -409,10 +439,8 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 		Int("server_count", len(resp.Msg.Servers)).Msg("Successfully synced server summaries from node")
 }
 
-func newFederationClient(baseURL string) xylonaconnect.FederationClient {
-	httpClient := &http.Client{
-		Timeout: federationRequestTimeout,
-	}
+func newFederationClient(baseURL string, allowInsecureTLS bool) xylonaconnect.FederationClient {
+	httpClient := helpers.NewFederationHTTPClient(federationRequestTimeout, allowInsecureTLS)
 	return xylonaconnect.NewFederationClient(httpClient, baseURL)
 }
 

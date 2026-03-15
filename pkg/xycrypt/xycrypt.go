@@ -21,8 +21,8 @@ var DefaultHashParameters = HashParameters{
 }
 
 var (
-	ErrInvalidHashFormat = errors.New("invalid hash format")
-	ErrInvalidHashVersion  = errors.New("invalid hash version")
+	ErrInvalidHashFormat  = errors.New("invalid hash format")
+	ErrInvalidHashVersion = errors.New("invalid hash version")
 )
 
 type HashParameters struct {
@@ -58,7 +58,6 @@ func GenerateHashFromString(input string, hashParameters HashParameters) ([]byte
 }
 
 func CompareHashAndString(encodedHash []byte, input string) (bool, error) {
-	fmt.Printf("%s", string(encodedHash))
 	splitEncodedHash := strings.Split(string(encodedHash), "$")
 	if len(splitEncodedHash) != 8 {
 		return false, ErrInvalidHashFormat

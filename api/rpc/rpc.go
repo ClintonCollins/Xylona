@@ -24,6 +24,7 @@ type XylonaService struct {
 	supervisorInst *supervisor.Instance
 	secureCookie   *securecookie.SecureCookie
 	syncEngine     SyncEngine
+	listCache      *remoteServerListCache
 }
 
 func NewXylonaService(ctx context.Context, db *db.Connection, actionsInst *actions.Instance, supervisorInst *supervisor.Instance, secureCookie *securecookie.SecureCookie) *XylonaService {
@@ -33,6 +34,7 @@ func NewXylonaService(ctx context.Context, db *db.Connection, actionsInst *actio
 		actionsInst:    actionsInst,
 		secureCookie:   secureCookie,
 		supervisorInst: supervisorInst,
+		listCache:      newRemoteServerListCache(remoteServerListCacheTTL),
 	}
 }
 

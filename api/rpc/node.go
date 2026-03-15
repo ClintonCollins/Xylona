@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -18,6 +20,7 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -46,45 +49,144 @@ func (xs XylonaService) ListNodes(ctx context.Context, request *connect.Request[
 func (xs XylonaService) AddNode(ctx context.Context, request *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
 	nodeProto := request.Msg.GetNode()
 
-	// If a base_url is provided, treat this as a remote/peer node add with handshake.
-	baseURL := strings.TrimRight(nodeProto.GetBaseUrl(), "/")
-	if baseURL != "" {
-		return xs.addRemoteNode(ctx, nodeProto.GetName(), baseURL, nodeProto.GetSecretKey())
+	baseURL := strings.TrimSpace(nodeProto.GetBaseUrl())
+	if baseURL == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("base URL is required; local nodes are created automatically"))
 	}
 
-	// Otherwise, add a simple local node.
-	nodeModel := helpers.NodeProtoToModel(nodeProto)
-	if nodeModel.ID == "" {
-		newID, errID := helpers.GenerateUniqueID()
-		if errID != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to generate node ID"))
-		}
-		nodeModel.ID = newID.String()
-	}
-	node, err := xs.db.InsertNode(helpers.NodeModelToSetter(nodeModel))
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&xylona.AddNodeResponse{Node: helpers.NodeModelToProto(node)}), nil
+	return xs.addRemoteNode(ctx, nodeProto.GetName(), baseURL, nodeProto.GetSecretKey(), nodeProto.GetAllowInsecureTls())
 }
 
-func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL string, secretKey string) (*connect.Response[xylona.AddNodeResponse], error) {
-	// Validate base URL.
-	parsedURL, errParse := url.Parse(baseURL)
-	if errParse != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {
+	remoteBaseURL, errNormalizeRemoteBaseURL := normalizeBaseURL(request.Msg.GetRemoteBaseUrl())
+	if errNormalizeRemoteBaseURL != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid remote base URL"))
+	}
+
+	localBaseURL, errNormalizeLocalBaseURL := normalizeBaseURL(request.Msg.GetLocalBaseUrl())
+	if errNormalizeLocalBaseURL != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid local base URL"))
+	}
+
+	if remoteBaseURL == localBaseURL {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("remote and local URLs must be different"))
+	}
+
+	remoteSecretKey := strings.TrimSpace(request.Msg.GetRemoteSecretKey())
+	if remoteSecretKey == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("remote secret key is required"))
+	}
+
+	remoteNodeName := strings.TrimSpace(request.Msg.GetRemoteName())
+	localNodeName := strings.TrimSpace(request.Msg.GetLocalName())
+	remoteAllowInsecureTLS := request.Msg.GetRemoteAllowInsecureTls()
+	localAllowInsecureTLS := request.Msg.GetLocalAllowInsecureTls()
+
+	secretKeyName := fmt.Sprintf("pairing:%s:%s", remoteBaseURL, time.Now().UTC().Format(time.RFC3339))
+	_, localSecretKey, errCreateKey := xs.createLocalSecretKey(secretKeyName)
+	if errCreateKey != nil {
+		log.Error().Err(errCreateKey).Str("remote_base_url", remoteBaseURL).Msg("Failed to create local secret key for reciprocal node add")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create local secret key"))
+	}
+
+	httpClient := helpers.NewFederationHTTPClient(federationRequestTimeout, remoteAllowInsecureTLS)
+	remoteClient := xylonaconnect.NewXylonaClient(httpClient, remoteBaseURL)
+	remoteAddRequest := connect.NewRequest(&xylona.AddNodeRequest{
+		Node: &xylona.Node{
+			Name:             localNodeName,
+			BaseUrl:          localBaseURL,
+			SecretKey:        localSecretKey,
+			AllowInsecureTls: localAllowInsecureTLS,
+		},
+	})
+
+	remoteCtx, cancelRemote := context.WithTimeout(ctx, federationRequestTimeout)
+	defer cancelRemote()
+
+	remoteAlreadyHadNode := false
+	var reciprocalNode *xylona.Node
+	remoteAddResp, errRemoteAdd := remoteClient.AddNode(remoteCtx, remoteAddRequest)
+	if errRemoteAdd != nil {
+		if connect.CodeOf(errRemoteAdd) == connect.CodeAlreadyExists {
+			remoteAlreadyHadNode = true
+		} else {
+			log.Warn().
+				Err(errRemoteAdd).
+				Str("remote_base_url", remoteBaseURL).
+				Str("local_base_url", localBaseURL).
+				Msg("Pairing failed while adding this panel to remote node")
+
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("failed to add this panel on remote node: "+errRemoteAdd.Error()))
+		}
+	} else {
+		reciprocalNode = remoteAddResp.Msg.GetNode()
+	}
+
+	localAddResp, errLocalAdd := xs.addRemoteNode(ctx, remoteNodeName, remoteBaseURL, remoteSecretKey, remoteAllowInsecureTLS)
+	var localNode *xylona.Node
+	if errLocalAdd != nil {
+		if connect.CodeOf(errLocalAdd) == connect.CodeAlreadyExists {
+			existingRemoteNode, errGetExistingRemoteNode := xs.db.GetRemoteNodeByBaseURL(remoteBaseURL)
+			if errGetExistingRemoteNode != nil {
+				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load existing remote node"))
+			}
+			localNode = helpers.NodeModelToProto(existingRemoteNode)
+		} else {
+			// Best-effort rollback if this request added the local node to the remote panel.
+			if reciprocalNode != nil && reciprocalNode.GetId() != "" {
+				rollbackCtx, cancelRollback := context.WithTimeout(ctx, federationRequestTimeout)
+				defer cancelRollback()
+				_, errRollback := remoteClient.RemoveNode(rollbackCtx, connect.NewRequest(&xylona.RemoveNodeRequest{
+					NodeId: reciprocalNode.GetId(),
+				}))
+				if errRollback != nil {
+					log.Warn().
+						Err(errRollback).
+						Str("remote_base_url", remoteBaseURL).
+						Str("remote_node_id", reciprocalNode.GetId()).
+						Msg("Failed to rollback reciprocal node add after local add failure")
+				}
+			}
+			return nil, errLocalAdd
+		}
+	} else {
+		localNode = localAddResp.Msg.GetNode()
+	}
+
+	reciprocalError := ""
+	if remoteAlreadyHadNode {
+		reciprocalError = "remote panel already had this node configured"
+	}
+
+	return connect.NewResponse(&xylona.PairNodeResponse{
+		Node:            localNode,
+		ReciprocalAdded: true,
+		ReciprocalError: reciprocalError,
+		ReciprocalNode:  reciprocalNode,
+	}), nil
+}
+
+func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL string, secretKey string, allowInsecureTLS bool) (*connect.Response[xylona.AddNodeResponse], error) {
+	normalizedBaseURL, errNormalizeBaseURL := normalizeBaseURL(baseURL)
+	if errNormalizeBaseURL != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid base URL"))
 	}
 
+	secretKey = strings.TrimSpace(secretKey)
+	if secretKey == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("secret key is required"))
+	}
+
 	// Check for duplicate base URL.
-	_, errExisting := xs.db.GetRemoteNodeByBaseURL(baseURL)
+	_, errExisting := xs.db.GetRemoteNodeByBaseURL(normalizedBaseURL)
 	if errExisting == nil {
 		return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("node with this URL already exists"))
 	}
 
 	// Perform handshake to verify connectivity and get peer identity.
-	handshakeResp, errHandshake := performHandshake(ctx, baseURL, secretKey)
+	handshakeResp, errHandshake := performHandshake(ctx, normalizedBaseURL, secretKey, allowInsecureTLS)
 	if errHandshake != nil {
-		log.Error().Err(errHandshake).Str("base_url", baseURL).Msg("Failed to handshake with peer node")
+		log.Error().Err(errHandshake).Str("base_url", normalizedBaseURL).Msg("Failed to handshake with peer node")
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("failed to connect to peer node: "+errHandshake.Error()))
 	}
 
@@ -108,20 +210,21 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 
 	now := time.Now()
 	setter := &models.NodeSetter{
-		ID:              omit.From(newID.String()),
-		Name:            omit.From(name),
-		IsLocal:         omit.From(false),
-		Host:            omit.From(""),
-		Port:            omit.From(int32(0)),
-		BaseURL:         omit.From(baseURL),
-		Enabled:         omit.From(true),
-		SecretKey:       omitnull.From(secretKey),
-		HealthStatus:    omit.From("healthy"),
-		Version:         omit.From(handshakeResp.Version),
-		ProtocolVersion: omit.From(handshakeResp.ProtocolVersion),
-		Capabilities:    omit.From(handshakeResp.Capabilities),
-		CreatedAt:       omitnull.From(now),
-		UpdatedAt:       omitnull.From(now),
+		ID:               omit.From(newID.String()),
+		Name:             omit.From(name),
+		IsLocal:          omit.From(false),
+		Host:             omit.From(""),
+		Port:             omit.From(int32(0)),
+		BaseURL:          omit.From(normalizedBaseURL),
+		AllowInsecureTLS: omit.From(allowInsecureTLS),
+		Enabled:          omit.From(true),
+		SecretKey:        omitnull.From(secretKey),
+		HealthStatus:     omit.From("healthy"),
+		Version:          omit.From(handshakeResp.Version),
+		ProtocolVersion:  omit.From(handshakeResp.ProtocolVersion),
+		Capabilities:     omit.From(handshakeResp.Capabilities),
+		CreatedAt:        omitnull.From(now),
+		UpdatedAt:        omitnull.From(now),
 	}
 
 	node, errInsert := xs.db.InsertRemoteNode(setter)
@@ -153,6 +256,9 @@ func (xs XylonaService) RemoveNode(ctx context.Context, request *connect.Request
 	if xs.syncEngine != nil {
 		xs.syncEngine.RemovePeer(nodeID)
 	}
+	if xs.listCache != nil {
+		xs.listCache.invalidate(nodeID)
+	}
 
 	// Delete cached remote servers for this node.
 	errDeleteCache := xs.db.DeleteRemoteServerCacheByNodeID(nodeID)
@@ -172,6 +278,9 @@ func (xs XylonaService) EditNode(ctx context.Context, request *connect.Request[x
 	node, err := xs.db.UpdateNode(nodeModel, helpers.NodeModelToSetter(nodeModel))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if !node.IsLocal && xs.listCache != nil {
+		xs.listCache.invalidate(node.ID)
 	}
 	return connect.NewResponse(&xylona.EditNodeResponse{Node: helpers.NodeModelToProto(node)}), nil
 }
@@ -202,6 +311,11 @@ func (xs XylonaService) ListAggregatedGameServers(ctx context.Context, request *
 		return nil, errUser
 	}
 
+	errCleanup := xs.db.DeleteOrphanedRemoteServerCacheByNodeReferences()
+	if errCleanup != nil {
+		log.Warn().Err(errCleanup).Msg("Failed to clean orphaned remote server cache rows")
+	}
+
 	resp := &xylona.ListAggregatedGameServersResponse{}
 
 	// Get local game servers.
@@ -228,19 +342,142 @@ func (xs XylonaService) ListAggregatedGameServers(ctx context.Context, request *
 		})
 	}
 
-	// Get remote cached servers.
-	remoteServers, errRemote := xs.db.GetAllRemoteServerCaches()
-	if errRemote != nil && !errors.Is(errRemote, sql.ErrNoRows) {
-		log.Warn().Err(errRemote).Msg("Failed to get remote server caches")
+	remoteNodes, errRemoteNodes := xs.db.GetEnabledRemoteNodes()
+	if errRemoteNodes != nil && !errors.Is(errRemoteNodes, sql.ErrNoRows) {
+		log.Warn().Err(errRemoteNodes).Msg("Failed to get enabled remote nodes")
+		return connect.NewResponse(resp), nil
 	}
-	for _, rsc := range remoteServers {
-		resp.Servers = append(resp.Servers, &xylona.AggregatedGameServer{
-			IsLocal:      false,
-			RemoteServer: helpers.RemoteServerCacheModelToProto(rsc),
-		})
+
+	type remoteNodeResult struct {
+		nodeID        string
+		summaries     []*xylona.RemoteServerSummary
+		usedStaleData bool
+		err           error
+	}
+
+	results := make(chan remoteNodeResult, len(remoteNodes))
+	var workerGroup sync.WaitGroup
+	for _, remoteNode := range remoteNodes {
+		node := remoteNode
+		workerGroup.Add(1)
+		go func() {
+			defer workerGroup.Done()
+			summaries, usedStaleData, errSummaries := xs.listRemoteNodeSummaries(ctx, node)
+			results <- remoteNodeResult{
+				nodeID:        node.ID,
+				summaries:     summaries,
+				usedStaleData: usedStaleData,
+				err:           errSummaries,
+			}
+		}()
+	}
+
+	go func() {
+		workerGroup.Wait()
+		close(results)
+	}()
+
+	resultByNodeID := make(map[string]remoteNodeResult, len(remoteNodes))
+	for result := range results {
+		resultByNodeID[result.nodeID] = result
+	}
+
+	seenRemote := make(map[string]struct{})
+	for _, remoteNode := range remoteNodes {
+		result, exists := resultByNodeID[remoteNode.ID]
+		if !exists {
+			continue
+		}
+		if result.err != nil {
+			log.Warn().
+				Err(result.err).
+				Str("node_id", remoteNode.ID).
+				Str("base_url", remoteNode.BaseURL).
+				Msg("Failed to load remote node server list")
+			continue
+		}
+		if result.usedStaleData {
+			log.Warn().
+				Str("node_id", remoteNode.ID).
+				Str("base_url", remoteNode.BaseURL).
+				Msg("Using stale in-memory server list for remote node")
+		}
+
+		for _, summary := range result.summaries {
+			if summary == nil {
+				continue
+			}
+			compositeKey := summary.SourceNodeId + "/" + summary.RemoteServerId
+			if _, duplicate := seenRemote[compositeKey]; duplicate {
+				continue
+			}
+			seenRemote[compositeKey] = struct{}{}
+
+			resp.Servers = append(resp.Servers, &xylona.AggregatedGameServer{
+				IsLocal:      false,
+				RemoteServer: summary,
+			})
+		}
 	}
 
 	return connect.NewResponse(resp), nil
+}
+
+func (xs XylonaService) listRemoteNodeSummaries(ctx context.Context, node *models.Node) ([]*xylona.RemoteServerSummary, bool, error) {
+	if xs.listCache == nil {
+		summaries, errFetch := xs.fetchRemoteNodeSummaries(ctx, node)
+		return summaries, false, errFetch
+	}
+
+	return xs.listCache.getOrFetch(node.ID, func() ([]*xylona.RemoteServerSummary, error) {
+		return xs.fetchRemoteNodeSummaries(ctx, node)
+	})
+}
+
+func (xs XylonaService) fetchRemoteNodeSummaries(ctx context.Context, node *models.Node) ([]*xylona.RemoteServerSummary, error) {
+	client, secretKey := newRemoteFederationClient(node)
+	req := connect.NewRequest(&xylona.FederationListServerSummariesRequest{})
+	req.Header().Set("X-Federation-Key", secretKey)
+
+	remoteCtx, cancel := context.WithTimeout(ctx, federationRequestTimeout)
+	defer cancel()
+
+	resp, errList := client.ListServerSummaries(remoteCtx, req)
+	if errList != nil {
+		return nil, errList
+	}
+
+	lastSyncedAt := timestamppb.New(time.Now())
+	summaries := make([]*xylona.RemoteServerSummary, 0, len(resp.Msg.Servers))
+	for _, server := range resp.Msg.Servers {
+		if server == nil {
+			continue
+		}
+		summaries = append(summaries, &xylona.RemoteServerSummary{
+			Id:               node.ID + "/" + server.ServerId,
+			SourceNodeId:     node.ID,
+			NodeId:           node.ID,
+			RemoteServerId:   server.ServerId,
+			DisplayName:      server.DisplayName,
+			Status:           server.Status,
+			GameName:         server.GameName,
+			GameId:           server.GameId,
+			IpAddress:        server.IpAddress,
+			Port:             server.Port,
+			QueryPort:        server.QueryPort,
+			MaxPlayers:       server.MaxPlayers,
+			CurrentPlayers:   server.CurrentPlayers,
+			MapName:          server.MapName,
+			Version:          server.Version,
+			NodeName:         node.Name,
+			NodeHost:         node.BaseURL,
+			LastRemoteUpdate: server.UpdatedAt,
+			LastSyncedAt:     lastSyncedAt,
+			IsStale:          false,
+		})
+	}
+
+	return summaries, nil
 }
 
 func (xs XylonaService) VerifyNode(ctx context.Context, request *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {
@@ -259,7 +496,6 @@ func (xs XylonaService) VerifyNode(ctx context.Context, request *connect.Request
 
 	key.LastUsedAt = null.From(time.Now())
 	key.LastAccessedFrom = null.From(request.Peer().Addr)
-	log.Debug().Msgf("%+v", request.Header())
 
 	node, errNode := models.Nodes.Query(models.SelectWhere.Nodes.IsLocal.EQ(true)).One(ctx, xs.db.DB)
 	if errNode != nil {
@@ -290,28 +526,12 @@ func (xs XylonaService) ListLocalSecretKeys(ctx context.Context, request *connec
 }
 
 func (xs XylonaService) CreateLocalSecretKey(ctx context.Context, request *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
-	key, err := helpers.GenerateRandomString(64)
-	if err != nil {
-		log.Error().Err(err).Msg("Unable to generate random string.")
-		return nil, connect.NewError(connect.CodeInternal, err)
+	localSecretKey, key, errCreateSecretKey := xs.createLocalSecretKey(request.Msg.GetName())
+	if errCreateSecretKey != nil {
+		log.Error().Err(errCreateSecretKey).Msg("Unable to create local secret key.")
+		return nil, connect.NewError(connect.CodeInternal, errCreateSecretKey)
 	}
-	secretKeyHash, errHash := xycrypt.GenerateHashFromString(key, xycrypt.DefaultHashParameters)
-	if errHash != nil {
-		log.Error().Err(errHash).Msg("Unable to generate hash from string.")
-		return nil, connect.NewError(connect.CodeInternal, errHash)
-	}
-	newKeySetter := &models.LocalSecretKeySetter{
-		Name:             omit.From(request.Msg.GetName()),
-		SecretKeyHash:    omit.From(string(secretKeyHash)),
-		LastAccessedFrom: omitnull.From(""),
-		LastUsedAt:       omitnull.From(time.Now()),
-		CreatedAt:        omit.From(time.Now()),
-	}
-	localSecretKey, errInsert := xs.db.InsertSecretKey(newKeySetter)
-	if errInsert != nil {
-		log.Error().Err(errInsert).Msg("Unable to insert secret key.")
-		return nil, connect.NewError(connect.CodeInternal, errInsert)
-	}
+
 	resp := &xylona.CreateLocalSecretKeyResponse{
 		Id:        localSecretKey.ID,
 		SecretKey: key,
@@ -327,4 +547,49 @@ func (xs XylonaService) DeleteLocalSecretKey(ctx context.Context, request *conne
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&xylona.DeleteLocalSecretKeyResponse{}), nil
+}
+
+func normalizeBaseURL(baseURL string) (string, error) {
+	normalizedBaseURL := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if normalizedBaseURL == "" {
+		return "", errors.New("base URL is required")
+	}
+
+	parsedURL, errParseURL := url.Parse(normalizedBaseURL)
+	if errParseURL != nil {
+		return "", errors.New("invalid base URL")
+	}
+	if (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+		return "", errors.New("invalid base URL")
+	}
+
+	return normalizedBaseURL, nil
+}
+
+func (xs XylonaService) createLocalSecretKey(name string) (*models.LocalSecretKey, string, error) {
+	key, errGenerateKey := helpers.GenerateRandomString(64)
+	if errGenerateKey != nil {
+		return nil, "", errGenerateKey
+	}
+
+	secretKeyHash, errHashSecret := xycrypt.GenerateHashFromString(key, xycrypt.DefaultHashParameters)
+	if errHashSecret != nil {
+		return nil, "", errHashSecret
+	}
+
+	now := time.Now()
+	newKeySetter := &models.LocalSecretKeySetter{
+		Name:             omit.From(strings.TrimSpace(name)),
+		SecretKeyHash:    omit.From(string(secretKeyHash)),
+		LastAccessedFrom: omitnull.From(""),
+		LastUsedAt:       omitnull.From(now),
+		CreatedAt:        omit.From(now),
+	}
+
+	localSecretKey, errInsertKey := xs.db.InsertSecretKey(newKeySetter)
+	if errInsertKey != nil {
+		return nil, "", errInsertKey
+	}
+
+	return localSecretKey, key, nil
 }

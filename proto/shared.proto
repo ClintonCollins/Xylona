@@ -253,6 +253,7 @@ message Node {
   string capabilities = 16;
   google.protobuf.Timestamp created_at = 17;
   google.protobuf.Timestamp updated_at = 18;
+  bool allow_insecure_tls = 19;
 }
 
 message SecretKey {

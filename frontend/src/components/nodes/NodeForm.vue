@@ -1,88 +1,308 @@
 <template>
-    <q-card class="full-width">
-        <q-card-section>
-            <div class="row">
-                <div class="text-h6" v-text="existingNodeId ? 'Update Node': 'Add Node'"></div>
+  <q-card class="full-width">
+    <q-card-section>
+      <div class="row">
+        <div class="text-h6" v-text="existingNodeId ? 'Update Node' : 'Add Node'"></div>
+      </div>
+    </q-card-section>
+    <q-card-section>
+      <q-form class="q-pa-lg">
+        <div class="row wrap q-col-gutter-md justify-between">
+          <template v-if="existingNodeId">
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              autofocus
+              :label="nameLabel"
+              v-model="node.name"
+              :hint="remoteNameHint"></q-input>
+            <template v-if="!isRemote">
+              <q-input
+                class="col-12 col-xl-6"
+                outlined
+                type="text"
+                label="Host"
+                v-model="node.host"></q-input>
+              <q-input
+                class="col-12 col-xl-6"
+                outlined
+                type="text"
+                label="Port"
+                v-model.number="port"></q-input>
+              <q-input
+                class="col-12 col-xl-6"
+                outlined
+                type="url"
+                label="Base URL"
+                v-model="node.baseUrl"
+                placeholder="https://panel.example.com"
+                hint="Public URL used for node pairing"></q-input>
+              <div class="col-12">
+                <q-toggle
+                  v-model="node.allowInsecureTls"
+                  label="Allow insecure TLS for this panel endpoint"></q-toggle>
+              </div>
+            </template>
+            <template v-else>
+              <q-input
+                class="col-12 col-xl-6"
+                outlined
+                type="url"
+                label="Base URL"
+                v-model="node.baseUrl"
+                placeholder="http://192.168.1.100:8080"
+                hint="Full URL including protocol and port"></q-input>
+              <q-input
+                class="col-12 col-xl-6"
+                outlined
+                type="text"
+                label="Secret Key"
+                v-model="node.secretKey"
+                hint="The secret key generated on the remote node"></q-input>
+              <div class="col-12">
+                <q-toggle
+                  v-model="node.allowInsecureTls"
+                  label="Allow insecure TLS for this remote node"></q-toggle>
+              </div>
+            </template>
+          </template>
+          <template v-else>
+            <div class="col-12">
+              <q-btn-toggle
+                v-model="addMode"
+                spread
+                no-caps
+                unelevated
+                color="grey-3"
+                text-color="dark"
+                toggle-color="primary"
+                :options="addModeOptions"></q-btn-toggle>
             </div>
+            <template v-if="addMode === 'copy'">
+              <div class="col-12 text-subtitle2">Copy Node Details</div>
+              <q-input
+                class="col-12"
+                outlined
+                type="textarea"
+                autogrow
+                label="Node Details JSON"
+                :model-value="generatedPairingPayload"
+                readonly></q-input>
+              <div class="col-12 row q-gutter-sm">
+                <q-btn
+                  outline
+                  color="primary"
+                  :label="generatedPairingKey ? 'Regenerate JSON' : 'Generate JSON'"
+                  @click="generatePairingKey(false)"
+                  :loading="pairingKeySubmitting"></q-btn>
+                <q-btn
+                  outline
+                  color="primary"
+                  label="Copy JSON"
+                  @click="copyPairingPayload"
+                  :disable="generatedPairingPayload === ''"></q-btn>
+              </div>
+            </template>
+            <template v-else>
+              <div class="col-12 text-subtitle2">Paste Node Details</div>
+              <q-input
+                class="col-12 col-xl-6"
+                outlined
+                type="text"
+                autofocus
+                label="Remote Name (Optional)"
+                v-model="node.name"
+                hint="Leave blank to use the remote node's name"></q-input>
+              <q-input
+                class="col-12"
+                outlined
+                type="textarea"
+                autogrow
+                label="Remote Panel Pairing JSON"
+                v-model="pairingPayloadInput"
+                hint="Paste the JSON copied from the remote panel"></q-input>
+              <div class="col-12">
+                <q-toggle
+                  v-model="pairingRemoteAllowInsecureTLS"
+                  label="Allow insecure TLS for this remote node"></q-toggle>
+              </div>
+              <div class="col-12 row q-gutter-sm">
+                <q-btn
+                  outline
+                  color="primary"
+                  label="Validate JSON"
+                  @click="validatePairingPayload(true)"></q-btn>
+              </div>
+              <div class="col-12 text-caption" v-if="parsedPairingPayload">
+                Remote panel URL: {{ parsedPairingPayload.base_url }}
+              </div>
+            </template>
+          </template>
+        </div>
+        <div v-if="errorMessage" class="q-mt-md">
+          <q-banner dense class="bg-red-2 text-red-9">
+            {{ errorMessage }}
+          </q-banner>
+        </div>
+      </q-form>
+    </q-card-section>
+    <q-separator></q-separator>
+    <q-card-actions class="q-pa-md" align="right">
+      <q-btn flat label="Cancel" @click="cancel"></q-btn>
+      <q-btn
+        v-if="showSaveButton"
+        :label="submitLabel"
+        color="primary"
+        @click="submitNode"
+        :loading="formSubmitting"></q-btn>
+    </q-card-actions>
+    <q-inner-loading
+      :showing="formSubmitting"
+      label="Saving..."
+      label-class="text-primary"></q-inner-loading>
+    <q-dialog v-model="showPairConfirmDialog">
+      <q-card style="min-width: 360px; max-width: 560px">
+        <q-card-section>
+          <div class="text-h6">Confirm Node Pairing</div>
         </q-card-section>
         <q-card-section>
-            <q-form class="q-pa-lg">
-                <div class="row wrap q-col-gutter-md justify-between">
-                    <q-toggle v-if="!existingNodeId" class="col-12" v-model="isRemote" label="Remote node (federation)"/>
-                    <q-input class="col-12 col-xl-6" outlined type="text" autofocus label="Name"
-                             v-model="node.name"
-                             :hint="isRemote ? 'Leave blank to use the remote node\'s name' : ''"></q-input>
-                    <template v-if="!isRemote">
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Host"
-                                 v-model="node.host"></q-input>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Port"
-                                 v-model.number="port"></q-input>
-                    </template>
-                    <template v-if="isRemote">
-                        <q-input class="col-12 col-xl-6" outlined type="url" label="Base URL"
-                                 v-model="node.baseUrl" placeholder="http://192.168.1.100:8080"
-                                 hint="Full URL including protocol and port"></q-input>
-                    </template>
-                    <q-input class="col-12 col-xl-6" outlined type="text" label="Secret Key"
-                             v-model="node.secretKey"
-                             :hint="isRemote ? 'The secret key generated on the remote node' : ''"></q-input>
-                </div>
-                <div v-if="errorMessage" class="q-mt-md">
-                    <q-banner dense class="bg-red-2 text-red-9">
-                        {{ errorMessage }}
-                    </q-banner>
-                </div>
-            </q-form>
+          <div>
+            This will add <strong>{{ parsedPairingPayload?.base_url }}</strong> to this panel.
+          </div>
+          <div class="q-mt-sm">
+            It will also ask the remote panel to add this panel back automatically.
+          </div>
         </q-card-section>
-        <q-separator></q-separator>
-        <q-card-actions class="q-pa-md" align="right">
-            <q-btn flat label="Cancel" @click="cancel"></q-btn>
-            <q-btn label="Save" color="primary" @click="submitNode" :loading="formSubmitting"></q-btn>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" v-close-popup></q-btn>
+          <q-btn
+            color="primary"
+            label="Pair Nodes"
+            @click="confirmPairNode"
+            :loading="formSubmitting"></q-btn>
         </q-card-actions>
-        <q-inner-loading
-                :showing="formSubmitting"
-                label="Saving..."
-                label-class="text-primary"
-        ></q-inner-loading>
-    </q-card>
+      </q-card>
+    </q-dialog>
+  </q-card>
 </template>
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
+import { ConnectError } from '@connectrpc/connect'
+import { useClipboard } from '@vueuse/core'
+import { useQuasar } from 'quasar'
 import { GetXylonaClient } from '@/utils/shared'
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NodeSchema } from '@/proto/shared_pb'
-import { ConnectError } from '@connectrpc/connect'
 import {
-  AddNodeRequest, AddNodeRequestSchema,
-  EditNodeRequest, EditNodeRequestSchema,
-  GetNodeRequest, GetNodeRequestSchema
+  createNodePairingPayload,
+  normalizeNodePairingBaseURL,
+  parseNodePairingPayload,
+  type NodePairingPayload,
+} from '@/utils/node-pairing'
+import {
+  CreateLocalSecretKeyRequest,
+  CreateLocalSecretKeyRequestSchema,
+  EditNodeRequest,
+  EditNodeRequestSchema,
+  GetNodeRequest,
+  GetNodeRequestSchema,
+  ListNodesRequestSchema,
+  PairNodeRequest,
+  PairNodeRequestSchema,
 } from 'src/proto/xylona_pb'
 const router = useRouter()
+const $q = useQuasar()
 
 const props = defineProps({
   existingNodeId: {
     type: String,
     required: false,
-    default: undefined
-  }
+    default: undefined,
+  },
 })
 
 const node = ref(create(NodeSchema, {}))
 const formSubmitting = ref(false)
 const port = ref(8080)
-const isRemote = ref(false)
+const isRemote = ref(true)
+const addMode = ref<'copy' | 'paste'>('copy')
 const errorMessage = ref('')
+const pairingLocalBaseUrl = ref('')
+const pairingLocalAllowInsecureTLS = ref(false)
+const pairingRemoteAllowInsecureTLS = ref(false)
+const generatedPairingKey = ref('')
+const pairingKeySubmitting = ref(false)
+const pairingPayloadInput = ref('')
+const parsedPairingPayload = ref<NodePairingPayload | null>(null)
+const showPairConfirmDialog = ref(false)
+
+const { copy } = useClipboard()
+const addModeOptions = [
+  { label: 'Copy Node Details', value: 'copy' },
+  { label: 'Paste Node Details', value: 'paste' },
+]
+
+const nameLabel = computed(() => {
+  if (props.existingNodeId && !isRemote.value) {
+    return 'Name'
+  }
+  return 'Remote Name (Optional)'
+})
+
+const remoteNameHint = computed(() => {
+  if (props.existingNodeId && !isRemote.value) {
+    return ''
+  }
+  return "Leave blank to use the remote node's name"
+})
+
+const submitLabel = computed(() => {
+  if (!props.existingNodeId) {
+    return 'Pair Node'
+  }
+  return 'Save'
+})
+
+const showSaveButton = computed(() => props.existingNodeId || addMode.value === 'paste')
+
+const generatedPairingPayload = computed(() => {
+  if (generatedPairingKey.value === '') {
+    return ''
+  }
+  try {
+    return createNodePairingPayload(pairingLocalBaseUrl.value, generatedPairingKey.value)
+  } catch (_errPayload) {
+    return ''
+  }
+})
 
 onMounted(async () => {
   if (props.existingNodeId) {
     await getNodeDetails()
+    return
+  }
+  const localBaseURLLoaded = await loadLocalPairingBaseURL()
+  if (localBaseURLLoaded) {
+    await generatePairingKey(true)
   }
 })
 
 watch(port, (newVal) => {
   node.value.port = BigInt(newVal)
+})
+
+watch(pairingPayloadInput, () => {
+  parsedPairingPayload.value = null
+})
+
+watch(addMode, async (newMode) => {
+  errorMessage.value = ''
+  if (newMode === 'copy' && generatedPairingKey.value === '' && pairingLocalBaseUrl.value !== '') {
+    await generatePairingKey(true)
+  }
 })
 
 async function cancel() {
@@ -102,6 +322,35 @@ async function getNodeDetails() {
     port.value = Number(response.node.port)
   } catch (e) {
     console.error(e)
+  }
+}
+
+async function loadLocalPairingBaseURL(): Promise<boolean> {
+  try {
+    const response = await GetXylonaClient().listNodes(create(ListNodesRequestSchema, {}))
+    const localNode = response.nodes.find((currentNode) => currentNode.local)
+    if (!localNode) {
+      errorMessage.value = 'Local node configuration was not found'
+      return false
+    }
+
+    try {
+      pairingLocalBaseUrl.value = normalizeNodePairingBaseURL(localNode.baseUrl)
+      pairingLocalAllowInsecureTLS.value = localNode.allowInsecureTls
+      return true
+    } catch (_errNormalizeLocalBaseURL) {
+      pairingLocalBaseUrl.value = ''
+      errorMessage.value = 'Local node Base URL is not configured. Edit the local node and set Base URL before pairing.'
+      return false
+    }
+  } catch (e) {
+    if (e instanceof ConnectError) {
+      errorMessage.value = e.message
+    } else {
+      errorMessage.value = 'Failed to load local node configuration'
+    }
+    console.error(e)
+    return false
   }
 }
 
@@ -128,22 +377,116 @@ async function updateNode() {
   }
 }
 
-async function createNode() {
+async function generatePairingKey(silent: boolean = false) {
   errorMessage.value = ''
-  formSubmitting.value = true
-  const request: AddNodeRequest = create(AddNodeRequestSchema, {})
-  request.node = node.value
-  if (!isRemote.value) {
-    request.node.port = BigInt(port.value)
-  }
+  pairingKeySubmitting.value = true
+  const request: CreateLocalSecretKeyRequest = create(CreateLocalSecretKeyRequestSchema, {})
+  request.name = `Node pairing key ${new Date().toISOString()}`
   try {
-    await GetXylonaClient().addNode(request)
+    const response = await GetXylonaClient().createLocalSecretKey(request)
+    generatedPairingKey.value = response.secretKey
+    if (!silent) {
+      $q.notify({
+        type: 'positive',
+        message: 'Pairing JSON generated',
+      })
+    }
+  } catch (e) {
+    if (e instanceof ConnectError) {
+      errorMessage.value = e.message
+    } else {
+      errorMessage.value = 'Failed to generate pairing key'
+    }
+    console.error(e)
+  } finally {
+    pairingKeySubmitting.value = false
+  }
+}
+
+async function copyPairingPayload() {
+  if (generatedPairingPayload.value === '') {
+    if (pairingLocalBaseUrl.value === '') {
+      errorMessage.value = 'Local node Base URL is not configured. Edit the local node and set Base URL before pairing.'
+    } else {
+      errorMessage.value = 'Generate pairing JSON first'
+    }
+    return
+  }
+
+  await copy(generatedPairingPayload.value)
+  $q.notify({
+    type: 'positive',
+    message: 'Copied to clipboard',
+  })
+}
+
+function validatePairingPayload(showNotification: boolean): boolean {
+  try {
+    parsedPairingPayload.value = parseNodePairingPayload(pairingPayloadInput.value)
+    errorMessage.value = ''
+    if (showNotification) {
+      $q.notify({
+        type: 'positive',
+        message: 'Pairing JSON looks valid',
+      })
+    }
+    return true
+  } catch (errParsePayload) {
+    parsedPairingPayload.value = null
+    if (errParsePayload instanceof Error) {
+      errorMessage.value = errParsePayload.message
+    } else {
+      errorMessage.value = 'Pairing JSON is invalid'
+    }
+    return false
+  }
+}
+
+async function pairNode() {
+  errorMessage.value = ''
+  if (!validatePairingPayload(false)) {
+    return
+  }
+
+  const payload = parsedPairingPayload.value
+  if (payload === null) {
+    errorMessage.value = 'Pairing JSON is required'
+    return
+  }
+
+  let localBaseURL: string
+  try {
+    localBaseURL = normalizeNodePairingBaseURL(pairingLocalBaseUrl.value)
+  } catch (errNormalizeLocalURL) {
+    if (errNormalizeLocalURL instanceof Error) {
+      errorMessage.value = `Local node Base URL is invalid: ${errNormalizeLocalURL.message}`
+    } else {
+      errorMessage.value = 'Local node Base URL is invalid'
+    }
+    return
+  }
+
+  showPairConfirmDialog.value = false
+  formSubmitting.value = true
+  const request: PairNodeRequest = create(PairNodeRequestSchema, {})
+  request.remoteBaseUrl = payload.base_url
+  request.remoteSecretKey = payload.secret_key
+  request.localBaseUrl = localBaseURL
+  request.remoteName = node.value.name.trim()
+  request.remoteAllowInsecureTls = pairingRemoteAllowInsecureTLS.value
+  request.localAllowInsecureTls = pairingLocalAllowInsecureTLS.value
+  try {
+    await GetXylonaClient().pairNode(request)
+    $q.notify({
+      type: 'positive',
+      message: 'Nodes paired successfully',
+    })
     await router.push('/nodes')
   } catch (e) {
     if (e instanceof ConnectError) {
       errorMessage.value = e.message
     } else {
-      errorMessage.value = 'Failed to add node'
+      errorMessage.value = 'Failed to pair nodes'
     }
     console.error(e)
   } finally {
@@ -151,16 +494,23 @@ async function createNode() {
   }
 }
 
+async function confirmPairNode() {
+  await pairNode()
+}
+
 async function submitNode() {
   if (props.existingNodeId) {
     await updateNode()
-  } else {
-    await createNode()
+    return
   }
+  if (addMode.value !== 'paste') {
+    return
+  }
+  if (!validatePairingPayload(false)) {
+    return
+  }
+  showPairConfirmDialog.value = true
 }
-
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

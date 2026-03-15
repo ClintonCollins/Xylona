@@ -6,6 +6,7 @@ import (
 
 	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -303,43 +304,52 @@ func commandProcessorToCommandType(commandProcessor xylona.CommandProcessor) str
 }
 
 func NodeProtoToModel(nodeProto *xylona.Node) *models.Node {
+	secretKey := strings.TrimSpace(nodeProto.SecretKey)
+
 	return &models.Node{
-		ID:        nodeProto.Id,
-		Name:      nodeProto.Name,
-		Host:      nodeProto.Host,
-		Port:      int32(nodeProto.Port),
-		SecretKey: null.From(nodeProto.SecretKey),
+		ID:               nodeProto.Id,
+		Name:             strings.TrimSpace(nodeProto.Name),
+		Host:             strings.TrimSpace(nodeProto.Host),
+		Port:             int32(nodeProto.Port),
+		SecretKey:        null.FromCond(secretKey, secretKey != ""),
+		IsLocal:          nodeProto.Local,
+		BaseURL:          strings.TrimSpace(nodeProto.BaseUrl),
+		AllowInsecureTLS: nodeProto.AllowInsecureTls,
 	}
 }
 
 func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
 	return &xylona.Node{
-		Id:              nodeModel.ID,
-		Name:            nodeModel.Name,
-		Host:            nodeModel.Host,
-		Port:            int64(nodeModel.Port),
-		Local:           nodeModel.IsLocal,
-		SecretKey:       nodeModel.SecretKey.GetOr(""),
-		BaseUrl:         nodeModel.BaseURL,
-		Enabled:         nodeModel.Enabled,
-		LastSeenAt:      timestamppb.New(nodeModel.LastSeenAt.GetOr(time.Time{})),
-		LastSyncAt:      timestamppb.New(nodeModel.LastSyncAt.GetOr(time.Time{})),
-		LastSyncStatus:  nodeModel.LastSyncStatus,
-		HealthStatus:    nodeModel.HealthStatus,
-		Version:         nodeModel.Version,
-		ProtocolVersion: nodeModel.ProtocolVersion,
-		Capabilities:    nodeModel.Capabilities,
-		CreatedAt:       timestamppb.New(nodeModel.CreatedAt.GetOr(time.Time{})),
-		UpdatedAt:       timestamppb.New(nodeModel.UpdatedAt.GetOr(time.Time{})),
+		Id:               nodeModel.ID,
+		Name:             nodeModel.Name,
+		Host:             nodeModel.Host,
+		Port:             int64(nodeModel.Port),
+		Local:            nodeModel.IsLocal,
+		SecretKey:        nodeModel.SecretKey.GetOr(""),
+		BaseUrl:          nodeModel.BaseURL,
+		Enabled:          nodeModel.Enabled,
+		LastSeenAt:       timestamppb.New(nodeModel.LastSeenAt.GetOr(time.Time{})),
+		LastSyncAt:       timestamppb.New(nodeModel.LastSyncAt.GetOr(time.Time{})),
+		LastSyncStatus:   nodeModel.LastSyncStatus,
+		HealthStatus:     nodeModel.HealthStatus,
+		Version:          nodeModel.Version,
+		ProtocolVersion:  nodeModel.ProtocolVersion,
+		Capabilities:     nodeModel.Capabilities,
+		CreatedAt:        timestamppb.New(nodeModel.CreatedAt.GetOr(time.Time{})),
+		UpdatedAt:        timestamppb.New(nodeModel.UpdatedAt.GetOr(time.Time{})),
+		AllowInsecureTls: nodeModel.AllowInsecureTLS,
 	}
 }
 
 func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
 	return &models.NodeSetter{
-		ID:   omit.From(nodeModel.ID),
-		Name: omit.From(nodeModel.Name),
-		Host: omit.From(nodeModel.Host),
-		Port: omit.From(nodeModel.Port),
+		ID:               omit.From(nodeModel.ID),
+		Name:             omit.From(nodeModel.Name),
+		SecretKey:        omitnull.FromNull(nodeModel.SecretKey),
+		Host:             omit.From(nodeModel.Host),
+		Port:             omit.From(nodeModel.Port),
+		BaseURL:          omit.From(nodeModel.BaseURL),
+		AllowInsecureTLS: omit.From(nodeModel.AllowInsecureTLS),
 	}
 }
 

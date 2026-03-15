@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -50,6 +51,17 @@ func (xs XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, *
 
 	node, errGetNode := xs.db.GetRemoteNodeByID(remoteCache.NodeID)
 	if errGetNode != nil {
+		if errors.Is(errGetNode, sql.ErrNoRows) {
+			errDeleteCache := xs.db.DeleteRemoteServerCacheByCompositeKey(remoteCache.SourceNodeID, remoteCache.RemoteServerID)
+			if errDeleteCache != nil {
+				log.Warn().
+					Err(errDeleteCache).
+					Str("server_id", serverID).
+					Str("node_id", remoteCache.NodeID).
+					Msg("Failed to delete orphaned remote server cache row")
+			}
+			return nil, nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		}
 		return nil, nil, connect.NewError(connect.CodeInternal, errors.New("remote node not found"))
 	}
 
@@ -58,7 +70,7 @@ func (xs XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, *
 
 // newRemoteFederationClient creates a federation client for the given node with auth header set.
 func newRemoteFederationClient(node *models.Node) (xylonaconnect.FederationClient, string) {
-	httpClient := &http.Client{Timeout: 15 * time.Second}
+	httpClient := helpers.NewFederationHTTPClient(15*time.Second, node.AllowInsecureTLS)
 	client := xylonaconnect.NewFederationClient(httpClient, node.BaseURL)
 	secretKey := node.SecretKey.GetOr("")
 	return client, secretKey

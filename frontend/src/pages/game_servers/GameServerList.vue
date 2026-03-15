@@ -100,26 +100,23 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { Node, Status } from '@/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
 import { AggregatedGameServer, ListAggregatedGameServersRequestSchema, ListNodesRequestSchema } from '@/proto/xylona_pb'
-
-interface DisplayRow {
-  compositeId: string
-  id: string
-  isLocal: boolean
-  displayName: string
-  gameName: string
-  userName: string
-  statusEnum: Status
-  nodeName: string
-  isStale: boolean
-  sourceNodeId: string
-}
+import {
+  buildDisplayRows,
+  extractRemoteNodeIDs,
+  filterRowsByRemoteNodeIDs,
+  type DisplayRow,
+} from './server-list-cache'
 
 const aggregatedServers = ref([] as AggregatedGameServer[])
 const nodesByID = ref(new Map<string, Node>())
+const hasFetchedLiveRows = ref(false)
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
 const selectedGameServers = ref([] as DisplayRow[])
+const cachedDisplayRows = useStorage<DisplayRow[]>('game-server-display-rows-cache', [])
+const cachedRemoteNodeIDs = useStorage<string[]>('game-server-remote-node-ids-cache', [])
+const allowedRemoteNodeIDs = ref(new Set(cachedRemoteNodeIDs.value))
 
 const initialPagination = useStorage('game-server-pagination', {
     rowsPerPage: 25,
@@ -128,39 +125,15 @@ const initialPagination = useStorage('game-server-pagination', {
 
 const windowWidth = WindowWidth()
 
+const liveDisplayRows = computed((): DisplayRow[] => {
+  return buildDisplayRows(aggregatedServers.value, nodesByID.value)
+})
+
 const displayRows = computed((): DisplayRow[] => {
-  return aggregatedServers.value.map((server) => {
-    if (server.isLocal && server.localServer) {
-      const ls = server.localServer
-      const nodeName = nodesByID.value.get(ls.nodeId)?.name || ls.nodeName || ls.nodeHost || 'Local'
-      return {
-        compositeId: 'local/' + ls.id,
-        id: ls.id,
-        isLocal: true,
-        displayName: ls.name,
-        gameName: ls.gameName,
-        userName: ls.userName,
-        statusEnum: ls.status,
-        nodeName,
-        isStale: false,
-        sourceNodeId: ''
-      }
-    }
-    const rs = server.remoteServer!
-    const nodeName = nodesByID.value.get(rs.sourceNodeId || rs.nodeId)?.name || rs.nodeName || rs.nodeHost || 'Remote'
-    return {
-      compositeId: rs.sourceNodeId + '/' + rs.remoteServerId,
-      id: rs.remoteServerId,
-      isLocal: false,
-      displayName: rs.displayName,
-      gameName: rs.gameName,
-      userName: '',
-      statusEnum: rs.status,
-      nodeName,
-      isStale: rs.isStale,
-      sourceNodeId: rs.sourceNodeId
-    }
-  })
+  if (hasFetchedLiveRows.value) {
+    return liveDisplayRows.value
+  }
+  return filterRowsByRemoteNodeIDs(cachedDisplayRows.value, allowedRemoteNodeIDs.value)
 })
 
 const selectedLocalServersForDelete = computed(() => {
@@ -186,15 +159,28 @@ async function getGameServers() {
 
     if (serversResult.status === 'fulfilled') {
       aggregatedServers.value = serversResult.value.servers
+      hasFetchedLiveRows.value = true
     } else {
       console.error(serversResult.reason)
     }
 
+    let remoteNodeIDs = new Set(cachedRemoteNodeIDs.value)
     if (nodesResult.status === 'fulfilled') {
       nodesByID.value = new Map(nodesResult.value.nodes.map(node => [node.id, node]))
+      remoteNodeIDs = extractRemoteNodeIDs(nodesResult.value.nodes)
+      cachedRemoteNodeIDs.value = [...remoteNodeIDs]
+      allowedRemoteNodeIDs.value = remoteNodeIDs
+      cachedDisplayRows.value = filterRowsByRemoteNodeIDs(cachedDisplayRows.value, remoteNodeIDs)
     } else {
       console.error(nodesResult.reason)
       nodesByID.value = new Map()
+    }
+
+    if (serversResult.status === 'fulfilled') {
+      cachedDisplayRows.value = filterRowsByRemoteNodeIDs(
+        buildDisplayRows(serversResult.value.servers, nodesByID.value),
+        remoteNodeIDs,
+      )
     }
   } catch (e) {
     console.error(e)
@@ -205,6 +191,12 @@ async function getGameServers() {
 
 function watchServerStatusChanges() {
   XylonaEventBus.on('gameServerStatus', (serverID: string, serverStatus: Status) => {
+    for (const row of cachedDisplayRows.value) {
+      if (row.id === serverID) {
+        row.statusEnum = serverStatus
+      }
+    }
+
     for (const server of aggregatedServers.value) {
       if (server.isLocal && server.localServer && server.localServer.id === serverID) {
         server.localServer.status = serverStatus

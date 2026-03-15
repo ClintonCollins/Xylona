@@ -541,7 +541,7 @@ func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connectio
 
 	peerNode, errGetPeer := ws.db.GetRemoteNodeByID(remoteCache.NodeID)
 	if errGetPeer != nil {
-  log.Error().Err(errGetPeer).Str("node_id", remoteCache.NodeID).Msg("Peer node not found for console stream")
+		log.Error().Err(errGetPeer).Str("node_id", remoteCache.NodeID).Msg("Peer node not found for console stream")
 		return
 	}
 
@@ -555,7 +555,7 @@ func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connectio
 	conn.remoteConsoleCancels[serverID] = cancel
 	conn.Unlock()
 
-	httpClient := &http.Client{}
+	httpClient := helpers.NewFederationHTTPClient(0, peerNode.AllowInsecureTLS)
 	client := xylonaconnect.NewFederationClient(httpClient, peerNode.BaseURL)
 
 	req := connect.NewRequest(&xylona.FederationStreamConsoleRequest{

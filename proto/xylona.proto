@@ -62,6 +62,7 @@ service Xylona {
   rpc GetNode (GetNodeRequest) returns (GetNodeResponse) {}
   rpc ListNodes (ListNodesRequest) returns (ListNodesResponse) {}
   rpc AddNode (AddNodeRequest) returns (AddNodeResponse) {}
+  rpc PairNode (PairNodeRequest) returns (PairNodeResponse) {}
   rpc RemoveNode (RemoveNodeRequest) returns (RemoveNodeResponse) {}
   rpc EditNode (EditNodeRequest) returns (EditNodeResponse) {}
   // Used to reach out to a new node and verify we're authorized when adding it.
@@ -296,6 +297,33 @@ message AddNodeRequest {
 
 message AddNodeResponse {
   Node node = 1;
+}
+
+message PairNodeRequest {
+  // Remote node URL and pairing key generated on the remote panel.
+  string remote_base_url = 1;
+  string remote_secret_key = 2;
+
+  // Public base URL for this panel so the remote panel can add us back.
+  string local_base_url = 3;
+
+  // Optional display names.
+  string remote_name = 4;
+  string local_name = 5;
+
+  // Per-node TLS verification settings.
+  bool remote_allow_insecure_tls = 6;
+  bool local_allow_insecure_tls = 7;
+}
+
+message PairNodeResponse {
+  // Node added locally.
+  Node node = 1;
+
+  // Result of adding this panel to the remote panel.
+  bool reciprocal_added = 2;
+  string reciprocal_error = 3;
+  Node reciprocal_node = 4;
 }
 
 message RemoveNodeRequest {

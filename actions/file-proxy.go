@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -100,7 +101,7 @@ func (inst *Instance) proxyRemoteFileGet(ctx context.Context, target fileRequest
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), w)
+	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), target.remoteNode.AllowInsecureTLS, w)
 }
 
 func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRequestTarget, filePath string, w http.ResponseWriter) error {
@@ -126,7 +127,7 @@ func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRe
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), w)
+	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), target.remoteNode.AllowInsecureTLS, w)
 }
 
 func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequestTarget, destinationPath string, fileName string, fileSource io.Reader, w http.ResponseWriter) error {
@@ -192,13 +193,13 @@ func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequ
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), w)
+	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), target.remoteNode.AllowInsecureTLS, w)
 }
 
-func (inst *Instance) proxyRemoteFileRequest(req *http.Request, federationKey string, w http.ResponseWriter) error {
+func (inst *Instance) proxyRemoteFileRequest(req *http.Request, federationKey string, allowInsecureTLS bool, w http.ResponseWriter) error {
 	req.Header.Set("X-Federation-Key", federationKey)
 
-	httpClient := &http.Client{Timeout: federationRequestTimeout}
+	httpClient := helpers.NewFederationHTTPClient(federationRequestTimeout, allowInsecureTLS)
 	resp, errDo := httpClient.Do(req)
 	if errDo != nil {
 		return errDo

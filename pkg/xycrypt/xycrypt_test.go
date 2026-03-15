@@ -1,6 +1,9 @@
 package xycrypt
 
 import (
+	"bytes"
+	"io"
+	"os"
 	"testing"
 )
 
@@ -98,8 +101,6 @@ func TestCompareHashAndString(t *testing.T) {
 			want:    false,
 			wantErr: true,
 		},
-
-
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -113,4 +114,56 @@ func TestCompareHashAndString(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCompareHashAndStringDoesNotWriteToStdout(t *testing.T) {
+	testHash, errGenerate := GenerateHashFromString("SomeTestString", DefaultHashParameters)
+	if errGenerate != nil {
+		t.Fatalf("GenerateHashFromString() error = %v", errGenerate)
+	}
+
+	stdoutOutput := captureStdout(t, func() {
+		_, _ = CompareHashAndString(testHash, "SomeTestString")
+	})
+
+	if stdoutOutput != "" {
+		t.Fatalf("CompareHashAndString() wrote to stdout: %q", stdoutOutput)
+	}
+}
+
+func captureStdout(t *testing.T, run func()) string {
+	t.Helper()
+
+	oldStdout := os.Stdout
+	stdoutReader, stdoutWriter, errPipe := os.Pipe()
+	if errPipe != nil {
+		t.Fatalf("os.Pipe() error = %v", errPipe)
+	}
+
+	os.Stdout = stdoutWriter
+	defer func() {
+		os.Stdout = oldStdout
+	}()
+
+	outputChan := make(chan string, 1)
+	go func() {
+		var buffer bytes.Buffer
+		_, _ = io.Copy(&buffer, stdoutReader)
+		outputChan <- buffer.String()
+	}()
+
+	run()
+
+	errCloseWriter := stdoutWriter.Close()
+	if errCloseWriter != nil {
+		t.Fatalf("stdoutWriter.Close() error = %v", errCloseWriter)
+	}
+	output := <-outputChan
+
+	errCloseReader := stdoutReader.Close()
+	if errCloseReader != nil {
+		t.Fatalf("stdoutReader.Close() error = %v", errCloseReader)
+	}
+
+	return output
 }

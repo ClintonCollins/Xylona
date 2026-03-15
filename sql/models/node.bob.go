@@ -27,23 +27,25 @@ import (
 
 // Node is an object representing the database table.
 type Node struct {
-	ID              string              `db:"id,pk" `
-	Name            string              `db:"name" `
-	SecretKey       null.Val[string]    `db:"secret_key" `
-	IsLocal         bool                `db:"is_local" `
-	Host            string              `db:"host" `
-	Port            int32               `db:"port" `
-	BaseURL         string              `db:"base_url" `
-	Enabled         bool                `db:"enabled" `
-	LastSeenAt      null.Val[time.Time] `db:"last_seen_at" `
-	LastSyncAt      null.Val[time.Time] `db:"last_sync_at" `
-	LastSyncStatus  string              `db:"last_sync_status" `
-	HealthStatus    string              `db:"health_status" `
-	Version         string              `db:"version" `
-	ProtocolVersion int32               `db:"protocol_version" `
-	Capabilities    string              `db:"capabilities" `
-	CreatedAt       null.Val[time.Time] `db:"created_at" `
-	UpdatedAt       null.Val[time.Time] `db:"updated_at" `
+	ID                  string              `db:"id,pk" `
+	Name                string              `db:"name" `
+	SecretKey           null.Val[string]    `db:"secret_key" `
+	IsLocal             bool                `db:"is_local" `
+	Host                string              `db:"host" `
+	Port                int32               `db:"port" `
+	BaseURL             string              `db:"base_url" `
+	Enabled             bool                `db:"enabled" `
+	LastSeenAt          null.Val[time.Time] `db:"last_seen_at" `
+	LastSyncAt          null.Val[time.Time] `db:"last_sync_at" `
+	LastSyncStatus      string              `db:"last_sync_status" `
+	HealthStatus        string              `db:"health_status" `
+	Version             string              `db:"version" `
+	ProtocolVersion     int32               `db:"protocol_version" `
+	Capabilities        string              `db:"capabilities" `
+	CreatedAt           null.Val[time.Time] `db:"created_at" `
+	UpdatedAt           null.Val[time.Time] `db:"updated_at" `
+	SyncIntervalSeconds int32               `db:"sync_interval_seconds" `
+	AllowInsecureTLS    bool                `db:"allow_insecure_tls" `
 
 	R nodeR `db:"-" `
 }
@@ -67,46 +69,50 @@ type nodeR struct {
 }
 
 type nodeColumnNames struct {
-	ID              string
-	Name            string
-	SecretKey       string
-	IsLocal         string
-	Host            string
-	Port            string
-	BaseURL         string
-	Enabled         string
-	LastSeenAt      string
-	LastSyncAt      string
-	LastSyncStatus  string
-	HealthStatus    string
-	Version         string
-	ProtocolVersion string
-	Capabilities    string
-	CreatedAt       string
-	UpdatedAt       string
+	ID                  string
+	Name                string
+	SecretKey           string
+	IsLocal             string
+	Host                string
+	Port                string
+	BaseURL             string
+	Enabled             string
+	LastSeenAt          string
+	LastSyncAt          string
+	LastSyncStatus      string
+	HealthStatus        string
+	Version             string
+	ProtocolVersion     string
+	Capabilities        string
+	CreatedAt           string
+	UpdatedAt           string
+	SyncIntervalSeconds string
+	AllowInsecureTLS    string
 }
 
 var NodeColumns = buildNodeColumns("node")
 
 type nodeColumns struct {
-	tableAlias      string
-	ID              sqlite.Expression
-	Name            sqlite.Expression
-	SecretKey       sqlite.Expression
-	IsLocal         sqlite.Expression
-	Host            sqlite.Expression
-	Port            sqlite.Expression
-	BaseURL         sqlite.Expression
-	Enabled         sqlite.Expression
-	LastSeenAt      sqlite.Expression
-	LastSyncAt      sqlite.Expression
-	LastSyncStatus  sqlite.Expression
-	HealthStatus    sqlite.Expression
-	Version         sqlite.Expression
-	ProtocolVersion sqlite.Expression
-	Capabilities    sqlite.Expression
-	CreatedAt       sqlite.Expression
-	UpdatedAt       sqlite.Expression
+	tableAlias          string
+	ID                  sqlite.Expression
+	Name                sqlite.Expression
+	SecretKey           sqlite.Expression
+	IsLocal             sqlite.Expression
+	Host                sqlite.Expression
+	Port                sqlite.Expression
+	BaseURL             sqlite.Expression
+	Enabled             sqlite.Expression
+	LastSeenAt          sqlite.Expression
+	LastSyncAt          sqlite.Expression
+	LastSyncStatus      sqlite.Expression
+	HealthStatus        sqlite.Expression
+	Version             sqlite.Expression
+	ProtocolVersion     sqlite.Expression
+	Capabilities        sqlite.Expression
+	CreatedAt           sqlite.Expression
+	UpdatedAt           sqlite.Expression
+	SyncIntervalSeconds sqlite.Expression
+	AllowInsecureTLS    sqlite.Expression
 }
 
 func (c nodeColumns) Alias() string {
@@ -119,45 +125,49 @@ func (nodeColumns) AliasedAs(alias string) nodeColumns {
 
 func buildNodeColumns(alias string) nodeColumns {
 	return nodeColumns{
-		tableAlias:      alias,
-		ID:              sqlite.Quote(alias, "id"),
-		Name:            sqlite.Quote(alias, "name"),
-		SecretKey:       sqlite.Quote(alias, "secret_key"),
-		IsLocal:         sqlite.Quote(alias, "is_local"),
-		Host:            sqlite.Quote(alias, "host"),
-		Port:            sqlite.Quote(alias, "port"),
-		BaseURL:         sqlite.Quote(alias, "base_url"),
-		Enabled:         sqlite.Quote(alias, "enabled"),
-		LastSeenAt:      sqlite.Quote(alias, "last_seen_at"),
-		LastSyncAt:      sqlite.Quote(alias, "last_sync_at"),
-		LastSyncStatus:  sqlite.Quote(alias, "last_sync_status"),
-		HealthStatus:    sqlite.Quote(alias, "health_status"),
-		Version:         sqlite.Quote(alias, "version"),
-		ProtocolVersion: sqlite.Quote(alias, "protocol_version"),
-		Capabilities:    sqlite.Quote(alias, "capabilities"),
-		CreatedAt:       sqlite.Quote(alias, "created_at"),
-		UpdatedAt:       sqlite.Quote(alias, "updated_at"),
+		tableAlias:          alias,
+		ID:                  sqlite.Quote(alias, "id"),
+		Name:                sqlite.Quote(alias, "name"),
+		SecretKey:           sqlite.Quote(alias, "secret_key"),
+		IsLocal:             sqlite.Quote(alias, "is_local"),
+		Host:                sqlite.Quote(alias, "host"),
+		Port:                sqlite.Quote(alias, "port"),
+		BaseURL:             sqlite.Quote(alias, "base_url"),
+		Enabled:             sqlite.Quote(alias, "enabled"),
+		LastSeenAt:          sqlite.Quote(alias, "last_seen_at"),
+		LastSyncAt:          sqlite.Quote(alias, "last_sync_at"),
+		LastSyncStatus:      sqlite.Quote(alias, "last_sync_status"),
+		HealthStatus:        sqlite.Quote(alias, "health_status"),
+		Version:             sqlite.Quote(alias, "version"),
+		ProtocolVersion:     sqlite.Quote(alias, "protocol_version"),
+		Capabilities:        sqlite.Quote(alias, "capabilities"),
+		CreatedAt:           sqlite.Quote(alias, "created_at"),
+		UpdatedAt:           sqlite.Quote(alias, "updated_at"),
+		SyncIntervalSeconds: sqlite.Quote(alias, "sync_interval_seconds"),
+		AllowInsecureTLS:    sqlite.Quote(alias, "allow_insecure_tls"),
 	}
 }
 
 type nodeWhere[Q sqlite.Filterable] struct {
-	ID              sqlite.WhereMod[Q, string]
-	Name            sqlite.WhereMod[Q, string]
-	SecretKey       sqlite.WhereNullMod[Q, string]
-	IsLocal         sqlite.WhereMod[Q, bool]
-	Host            sqlite.WhereMod[Q, string]
-	Port            sqlite.WhereMod[Q, int32]
-	BaseURL         sqlite.WhereMod[Q, string]
-	Enabled         sqlite.WhereMod[Q, bool]
-	LastSeenAt      sqlite.WhereNullMod[Q, time.Time]
-	LastSyncAt      sqlite.WhereNullMod[Q, time.Time]
-	LastSyncStatus  sqlite.WhereMod[Q, string]
-	HealthStatus    sqlite.WhereMod[Q, string]
-	Version         sqlite.WhereMod[Q, string]
-	ProtocolVersion sqlite.WhereMod[Q, int32]
-	Capabilities    sqlite.WhereMod[Q, string]
-	CreatedAt       sqlite.WhereNullMod[Q, time.Time]
-	UpdatedAt       sqlite.WhereNullMod[Q, time.Time]
+	ID                  sqlite.WhereMod[Q, string]
+	Name                sqlite.WhereMod[Q, string]
+	SecretKey           sqlite.WhereNullMod[Q, string]
+	IsLocal             sqlite.WhereMod[Q, bool]
+	Host                sqlite.WhereMod[Q, string]
+	Port                sqlite.WhereMod[Q, int32]
+	BaseURL             sqlite.WhereMod[Q, string]
+	Enabled             sqlite.WhereMod[Q, bool]
+	LastSeenAt          sqlite.WhereNullMod[Q, time.Time]
+	LastSyncAt          sqlite.WhereNullMod[Q, time.Time]
+	LastSyncStatus      sqlite.WhereMod[Q, string]
+	HealthStatus        sqlite.WhereMod[Q, string]
+	Version             sqlite.WhereMod[Q, string]
+	ProtocolVersion     sqlite.WhereMod[Q, int32]
+	Capabilities        sqlite.WhereMod[Q, string]
+	CreatedAt           sqlite.WhereNullMod[Q, time.Time]
+	UpdatedAt           sqlite.WhereNullMod[Q, time.Time]
+	SyncIntervalSeconds sqlite.WhereMod[Q, int32]
+	AllowInsecureTLS    sqlite.WhereMod[Q, bool]
 }
 
 func (nodeWhere[Q]) AliasedAs(alias string) nodeWhere[Q] {
@@ -166,23 +176,25 @@ func (nodeWhere[Q]) AliasedAs(alias string) nodeWhere[Q] {
 
 func buildNodeWhere[Q sqlite.Filterable](cols nodeColumns) nodeWhere[Q] {
 	return nodeWhere[Q]{
-		ID:              sqlite.Where[Q, string](cols.ID),
-		Name:            sqlite.Where[Q, string](cols.Name),
-		SecretKey:       sqlite.WhereNull[Q, string](cols.SecretKey),
-		IsLocal:         sqlite.Where[Q, bool](cols.IsLocal),
-		Host:            sqlite.Where[Q, string](cols.Host),
-		Port:            sqlite.Where[Q, int32](cols.Port),
-		BaseURL:         sqlite.Where[Q, string](cols.BaseURL),
-		Enabled:         sqlite.Where[Q, bool](cols.Enabled),
-		LastSeenAt:      sqlite.WhereNull[Q, time.Time](cols.LastSeenAt),
-		LastSyncAt:      sqlite.WhereNull[Q, time.Time](cols.LastSyncAt),
-		LastSyncStatus:  sqlite.Where[Q, string](cols.LastSyncStatus),
-		HealthStatus:    sqlite.Where[Q, string](cols.HealthStatus),
-		Version:         sqlite.Where[Q, string](cols.Version),
-		ProtocolVersion: sqlite.Where[Q, int32](cols.ProtocolVersion),
-		Capabilities:    sqlite.Where[Q, string](cols.Capabilities),
-		CreatedAt:       sqlite.WhereNull[Q, time.Time](cols.CreatedAt),
-		UpdatedAt:       sqlite.WhereNull[Q, time.Time](cols.UpdatedAt),
+		ID:                  sqlite.Where[Q, string](cols.ID),
+		Name:                sqlite.Where[Q, string](cols.Name),
+		SecretKey:           sqlite.WhereNull[Q, string](cols.SecretKey),
+		IsLocal:             sqlite.Where[Q, bool](cols.IsLocal),
+		Host:                sqlite.Where[Q, string](cols.Host),
+		Port:                sqlite.Where[Q, int32](cols.Port),
+		BaseURL:             sqlite.Where[Q, string](cols.BaseURL),
+		Enabled:             sqlite.Where[Q, bool](cols.Enabled),
+		LastSeenAt:          sqlite.WhereNull[Q, time.Time](cols.LastSeenAt),
+		LastSyncAt:          sqlite.WhereNull[Q, time.Time](cols.LastSyncAt),
+		LastSyncStatus:      sqlite.Where[Q, string](cols.LastSyncStatus),
+		HealthStatus:        sqlite.Where[Q, string](cols.HealthStatus),
+		Version:             sqlite.Where[Q, string](cols.Version),
+		ProtocolVersion:     sqlite.Where[Q, int32](cols.ProtocolVersion),
+		Capabilities:        sqlite.Where[Q, string](cols.Capabilities),
+		CreatedAt:           sqlite.WhereNull[Q, time.Time](cols.CreatedAt),
+		UpdatedAt:           sqlite.WhereNull[Q, time.Time](cols.UpdatedAt),
+		SyncIntervalSeconds: sqlite.Where[Q, int32](cols.SyncIntervalSeconds),
+		AllowInsecureTLS:    sqlite.Where[Q, bool](cols.AllowInsecureTLS),
 	}
 }
 
@@ -190,27 +202,29 @@ func buildNodeWhere[Q sqlite.Filterable](cols nodeColumns) nodeWhere[Q] {
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type NodeSetter struct {
-	ID              omit.Val[string]        `db:"id,pk" `
-	Name            omit.Val[string]        `db:"name" `
-	SecretKey       omitnull.Val[string]    `db:"secret_key" `
-	IsLocal         omit.Val[bool]          `db:"is_local" `
-	Host            omit.Val[string]        `db:"host" `
-	Port            omit.Val[int32]         `db:"port" `
-	BaseURL         omit.Val[string]        `db:"base_url" `
-	Enabled         omit.Val[bool]          `db:"enabled" `
-	LastSeenAt      omitnull.Val[time.Time] `db:"last_seen_at" `
-	LastSyncAt      omitnull.Val[time.Time] `db:"last_sync_at" `
-	LastSyncStatus  omit.Val[string]        `db:"last_sync_status" `
-	HealthStatus    omit.Val[string]        `db:"health_status" `
-	Version         omit.Val[string]        `db:"version" `
-	ProtocolVersion omit.Val[int32]         `db:"protocol_version" `
-	Capabilities    omit.Val[string]        `db:"capabilities" `
-	CreatedAt       omitnull.Val[time.Time] `db:"created_at" `
-	UpdatedAt       omitnull.Val[time.Time] `db:"updated_at" `
+	ID                  omit.Val[string]        `db:"id,pk" `
+	Name                omit.Val[string]        `db:"name" `
+	SecretKey           omitnull.Val[string]    `db:"secret_key" `
+	IsLocal             omit.Val[bool]          `db:"is_local" `
+	Host                omit.Val[string]        `db:"host" `
+	Port                omit.Val[int32]         `db:"port" `
+	BaseURL             omit.Val[string]        `db:"base_url" `
+	Enabled             omit.Val[bool]          `db:"enabled" `
+	LastSeenAt          omitnull.Val[time.Time] `db:"last_seen_at" `
+	LastSyncAt          omitnull.Val[time.Time] `db:"last_sync_at" `
+	LastSyncStatus      omit.Val[string]        `db:"last_sync_status" `
+	HealthStatus        omit.Val[string]        `db:"health_status" `
+	Version             omit.Val[string]        `db:"version" `
+	ProtocolVersion     omit.Val[int32]         `db:"protocol_version" `
+	Capabilities        omit.Val[string]        `db:"capabilities" `
+	CreatedAt           omitnull.Val[time.Time] `db:"created_at" `
+	UpdatedAt           omitnull.Val[time.Time] `db:"updated_at" `
+	SyncIntervalSeconds omit.Val[int32]         `db:"sync_interval_seconds" `
+	AllowInsecureTLS    omit.Val[bool]          `db:"allow_insecure_tls" `
 }
 
 func (s NodeSetter) SetColumns() []string {
-	vals := make([]string, 0, 17)
+	vals := make([]string, 0, 19)
 	if !s.ID.IsUnset() {
 		vals = append(vals, "id")
 	}
@@ -279,6 +293,14 @@ func (s NodeSetter) SetColumns() []string {
 		vals = append(vals, "updated_at")
 	}
 
+	if !s.SyncIntervalSeconds.IsUnset() {
+		vals = append(vals, "sync_interval_seconds")
+	}
+
+	if !s.AllowInsecureTLS.IsUnset() {
+		vals = append(vals, "allow_insecure_tls")
+	}
+
 	return vals
 }
 
@@ -334,6 +356,12 @@ func (s NodeSetter) Overwrite(t *Node) {
 	if !s.UpdatedAt.IsUnset() {
 		t.UpdatedAt, _ = s.UpdatedAt.GetNull()
 	}
+	if !s.SyncIntervalSeconds.IsUnset() {
+		t.SyncIntervalSeconds, _ = s.SyncIntervalSeconds.Get()
+	}
+	if !s.AllowInsecureTLS.IsUnset() {
+		t.AllowInsecureTLS, _ = s.AllowInsecureTLS.Get()
+	}
 }
 
 func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
@@ -346,7 +374,7 @@ func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.Writer, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 17)
+		vals := make([]bob.Expression, 0, 19)
 		if !s.ID.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.ID))
 		}
@@ -415,6 +443,14 @@ func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.UpdatedAt))
 		}
 
+		if !s.SyncIntervalSeconds.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.SyncIntervalSeconds))
+		}
+
+		if !s.AllowInsecureTLS.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.AllowInsecureTLS))
+		}
+
 		return bob.ExpressSlice(ctx, w, d, start, vals, "", ", ", "")
 	}))
 }
@@ -424,7 +460,7 @@ func (s NodeSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s NodeSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 17)
+	exprs := make([]bob.Expression, 0, 19)
 
 	if !s.ID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -542,6 +578,20 @@ func (s NodeSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "updated_at")...),
 			sqlite.Arg(s.UpdatedAt),
+		}})
+	}
+
+	if !s.SyncIntervalSeconds.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "sync_interval_seconds")...),
+			sqlite.Arg(s.SyncIntervalSeconds),
+		}})
+	}
+
+	if !s.AllowInsecureTLS.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "allow_insecure_tls")...),
+			sqlite.Arg(s.AllowInsecureTLS),
 		}})
 	}
 
