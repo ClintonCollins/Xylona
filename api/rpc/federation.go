@@ -17,8 +17,8 @@ import (
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/pkg/version"
+	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -92,7 +92,7 @@ func (fs FederationService) Handshake(ctx context.Context, request *connect.Requ
 	resp := &xylona.FederationHandshakeResponse{
 		NodeId:          localSettings.NodeID,
 		NodeName:        nodeName,
-		Version:         version.SoftwareVersion,
+		Version:         version.SystemVersion,
 		ProtocolVersion: version.FederationProtocolVersion,
 		Capabilities:    version.FederationCapabilities,
 		ServerTime:      timestamppb.New(time.Now()),

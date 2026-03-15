@@ -32,6 +32,7 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -224,6 +225,15 @@ func main() {
 		if errExec != nil {
 			log.Fatal().Err(errExec).Msg("Failed to update node ID")
 		}
+	}
+	errUpdateNodeIdentity := dbInst.UpdateNodeIdentity(
+		settings.NodeID,
+		version.SystemVersion,
+		version.FederationProtocolVersion,
+		version.FederationCapabilities,
+	)
+	if errUpdateNodeIdentity != nil {
+		log.Fatal().Err(errUpdateNodeIdentity).Str("node_id", settings.NodeID).Msg("Failed to stamp local node identity")
 	}
 
 	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
