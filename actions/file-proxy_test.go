@@ -323,6 +323,8 @@ func TestProxyRemoteFileUpload(t *testing.T) {
 func TestProxyRemoteFileGetForwardsErrorStatusAndHeaders(t *testing.T) {
 	remoteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Remote-Reason", "upstream-failure")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Transfer-Encoding", "chunked")
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte("bad gateway"))
 	}))
@@ -351,6 +353,12 @@ func TestProxyRemoteFileGetForwardsErrorStatusAndHeaders(t *testing.T) {
 	}
 	if gotHeader := responseRecorder.Header().Get("X-Remote-Reason"); gotHeader != "upstream-failure" {
 		t.Fatalf("X-Remote-Reason = %q, want %q", gotHeader, "upstream-failure")
+	}
+	if gotHeader := responseRecorder.Header().Get("Connection"); gotHeader != "" {
+		t.Fatalf("Connection header = %q, want empty", gotHeader)
+	}
+	if gotHeader := responseRecorder.Header().Get("Transfer-Encoding"); gotHeader != "" {
+		t.Fatalf("Transfer-Encoding header = %q, want empty", gotHeader)
 	}
 }
 

@@ -1,12 +1,16 @@
 package db
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/stephenafamo/bob/dialect/sqlite"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+var ErrAmbiguousRemoteServerCache = errors.New("ambiguous remote server cache lookup")
 
 func (c *Connection) GetAllRemoteServerCaches() ([]*models.RemoteServerCache, error) {
 	servers, err := models.RemoteServerCaches.Query().All(c.ctx, c.DB)
@@ -133,13 +137,21 @@ func (c *Connection) DeleteOrphanedRemoteServerCacheByNodeReferences() error {
 }
 
 func (c *Connection) GetRemoteServerCacheByRemoteServerID(remoteServerID string) (*models.RemoteServerCache, error) {
-	server, err := models.RemoteServerCaches.Query(
+	servers, err := models.RemoteServerCaches.Query(
 		models.SelectWhere.RemoteServerCaches.RemoteServerID.EQ(remoteServerID),
-	).One(c.ctx, c.DB)
+	).All(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
 	}
-	return server, nil
+
+	if len(servers) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	if len(servers) > 1 {
+		return nil, ErrAmbiguousRemoteServerCache
+	}
+
+	return servers[0], nil
 }
 
 func (c *Connection) UpdateRemoteServerCacheStatus(sourceNodeID string, remoteServerID string, status string) error {

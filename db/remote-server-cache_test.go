@@ -2,9 +2,116 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 )
+
+func createRemoteServerCacheLookupTable(t *testing.T, conn *Connection) {
+	t.Helper()
+
+	_, errCreate := conn.SQLDb.Exec(`
+		CREATE TABLE remote_server_cache (
+			id TEXT PRIMARY KEY NOT NULL,
+			source_node_id TEXT NOT NULL,
+			node_id TEXT NOT NULL,
+			remote_server_id TEXT NOT NULL,
+			display_name TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'UNKNOWN',
+			game_name TEXT NOT NULL DEFAULT '',
+			game_id TEXT NOT NULL DEFAULT '',
+			ip_address TEXT NOT NULL DEFAULT '',
+			port INTEGER NOT NULL DEFAULT 0,
+			query_port INTEGER NOT NULL DEFAULT 0,
+			max_players INTEGER NOT NULL DEFAULT 0,
+			current_players INTEGER NOT NULL DEFAULT 0,
+			map_name TEXT NOT NULL DEFAULT '',
+			version TEXT NOT NULL DEFAULT '',
+			node_name TEXT NOT NULL DEFAULT '',
+			node_host TEXT NOT NULL DEFAULT '',
+			last_remote_update DATETIME,
+			last_synced_at DATETIME,
+			is_stale BOOLEAN NOT NULL DEFAULT FALSE,
+			raw_metadata TEXT NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if errCreate != nil {
+		t.Fatalf("failed to create remote_server_cache table: %v", errCreate)
+	}
+}
+
+func TestGetRemoteServerCacheByRemoteServerID(t *testing.T) {
+	tests := []struct {
+		name          string
+		insertRowsSQL string
+		wantErr       error
+		wantID        string
+	}{
+		{
+			name: "returns matching row",
+			insertRowsSQL: `
+				INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id)
+				VALUES ('cache-1', 'source-1', 'node-1', 'server-a')
+			`,
+			wantID: "cache-1",
+		},
+		{
+			name:          "returns not found when no row exists",
+			insertRowsSQL: "",
+			wantErr:       sql.ErrNoRows,
+		},
+		{
+			name: "returns ambiguity error when multiple rows match",
+			insertRowsSQL: `
+				INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id)
+				VALUES
+					('cache-1', 'source-1', 'node-1', 'server-a'),
+					('cache-2', 'source-2', 'node-2', 'server-a')
+			`,
+			wantErr: ErrAmbiguousRemoteServerCache,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			dbPath := filepath.Join(t.TempDir(), "remote-server-cache-lookup.sqlite")
+			conn := NewConnection(context.Background(), dbPath)
+			t.Cleanup(func() {
+				if errClose := conn.SQLDb.Close(); errClose != nil {
+					t.Errorf("failed to close db: %v", errClose)
+				}
+			})
+
+			createRemoteServerCacheLookupTable(t, conn)
+
+			if tt.insertRowsSQL != "" {
+				_, errInsert := conn.SQLDb.Exec(tt.insertRowsSQL)
+				if errInsert != nil {
+					t.Fatalf("failed to insert test rows: %v", errInsert)
+				}
+			}
+
+			cache, errGet := conn.GetRemoteServerCacheByRemoteServerID("server-a")
+			if tt.wantErr != nil {
+				if !errors.Is(errGet, tt.wantErr) {
+					t.Fatalf("GetRemoteServerCacheByRemoteServerID() error = %v, want %v", errGet, tt.wantErr)
+				}
+				return
+			}
+
+			if errGet != nil {
+				t.Fatalf("GetRemoteServerCacheByRemoteServerID() error = %v", errGet)
+			}
+			if cache.ID != tt.wantID {
+				t.Errorf("cache.ID = %q, want %q", cache.ID, tt.wantID)
+			}
+		})
+	}
+}
 
 func TestDeleteRemoteServerCacheByCompositeKey(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "remote-server-cache.sqlite")

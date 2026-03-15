@@ -116,7 +116,7 @@ func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[x
 				Str("local_base_url", localBaseURL).
 				Msg("Pairing failed while adding this panel to remote node")
 
-			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("failed to add this panel on remote node: "+errRemoteAdd.Error()))
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("failed to add this panel on remote node"))
 		}
 	} else {
 		reciprocalNode = remoteAddResp.Msg.GetNode()
@@ -157,10 +157,11 @@ func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[x
 	if remoteAlreadyHadNode {
 		reciprocalError = "remote panel already had this node configured"
 	}
+	reciprocalAdded := reciprocalNode != nil && !remoteAlreadyHadNode
 
 	return connect.NewResponse(&xylona.PairNodeResponse{
 		Node:            localNode,
-		ReciprocalAdded: true,
+		ReciprocalAdded: reciprocalAdded,
 		ReciprocalError: reciprocalError,
 		ReciprocalNode:  reciprocalNode,
 	}), nil
@@ -181,6 +182,10 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 	_, errExisting := xs.db.GetRemoteNodeByBaseURL(normalizedBaseURL)
 	if errExisting == nil {
 		return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("node with this URL already exists"))
+	}
+	if !errors.Is(errExisting, sql.ErrNoRows) {
+		log.Error().Err(errExisting).Str("base_url", normalizedBaseURL).Msg("Failed to check existing remote node by base URL")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to check existing nodes"))
 	}
 
 	// Perform handshake to verify connectivity and get peer identity.
@@ -204,6 +209,7 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to generate ID"))
 	}
 
+	name = strings.TrimSpace(name)
 	if name == "" {
 		name = handshakeResp.NodeName
 	}

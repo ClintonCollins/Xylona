@@ -75,6 +75,7 @@ Use these as the default commands for this repo:
 - `mage Build` — frontend production build + Goreleaser snapshot build.
 - `mage GenerateProto` — regenerate protobuf outputs.
 - `mage GenerateModels` — regenerate bob ORM models.
+- `mage SQLMigrateNew` — create new SQL migration.
 - `mage SQLMigrateUp` — apply SQL migrations.
 - `mage SQLMigrateDown` — roll back SQL migrations.
 
@@ -140,11 +141,6 @@ When exploring or searching the repo, skip large/generated/vendor-like directori
 - `dist`
 
 ## Unit & Integration Testing
-
-### Current State
-
-- **Backend**: Minimal test coverage. One test file exists at `pkg/xycrypt/xycrypt_test.go`.
-- **Frontend**: Vitest configured with Vue Test Utils for unit and component testing. ESLint and Prettier are configured for code quality and formatting.
 
 ### Testing Conventions (Backend)
 

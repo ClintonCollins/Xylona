@@ -24,6 +24,18 @@ const (
 	fileUploadPath   = "/api/file/upload"
 )
 
+var hopByHopHeaderNames = map[string]struct{}{
+	"Connection":          {},
+	"Keep-Alive":          {},
+	"Proxy-Authenticate":  {},
+	"Proxy-Authorization": {},
+	"Te":                  {},
+	"Trailer":             {},
+	"Transfer-Encoding":   {},
+	"Upgrade":             {},
+	"Proxy-Connection":    {},
+}
+
 type fileRequestTarget struct {
 	gameServer     *models.GameServer
 	remoteServerID string
@@ -211,7 +223,25 @@ func (inst *Instance) proxyRemoteFileRequest(req *http.Request, federationKey st
 		}
 	}()
 
+	connectionSpecificHeaders := make(map[string]struct{})
+	for _, connectionValue := range resp.Header.Values("Connection") {
+		for _, token := range strings.Split(connectionValue, ",") {
+			headerName := http.CanonicalHeaderKey(strings.TrimSpace(token))
+			if headerName == "" {
+				continue
+			}
+			connectionSpecificHeaders[headerName] = struct{}{}
+		}
+	}
+
 	for headerName, headerValues := range resp.Header {
+		canonicalHeaderName := http.CanonicalHeaderKey(headerName)
+		if _, isHopByHop := hopByHopHeaderNames[canonicalHeaderName]; isHopByHop {
+			continue
+		}
+		if _, isConnectionSpecific := connectionSpecificHeaders[canonicalHeaderName]; isConnectionSpecific {
+			continue
+		}
 		for _, headerValue := range headerValues {
 			w.Header().Add(headerName, headerValue)
 		}

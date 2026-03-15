@@ -57,6 +57,20 @@ func GenerateModels() {
 	}
 }
 
+func SQLMigrateNew(migrationName string) {
+	if migrationName == "" {
+		log.Fatal().Msg("Migration name cannot be empty")
+	}
+	cmdMigrateNew := exec.Command("sql-migrate", "new", migrationName)
+	cmdMigrateNew.Dir = "sql"
+	cmdMigrateNew.Stdout = os.Stdout
+	cmdMigrateNew.Stderr = os.Stderr
+	errRun := cmdMigrateNew.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("Failed to create new migration")
+	}
+}
+
 func SQLMigrateDown() {
 	cmdMigrateDown := exec.Command("sql-migrate", "down")
 	cmdMigrateDown.Dir = "sql"

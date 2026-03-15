@@ -321,6 +321,11 @@ async function getNodeDetails() {
     isRemote.value = !response.node.local
     port.value = Number(response.node.port)
   } catch (e) {
+    if (e instanceof ConnectError) {
+      errorMessage.value = e.message
+    } else {
+      errorMessage.value = 'Failed to load node details'
+    }
     console.error(e)
   }
 }

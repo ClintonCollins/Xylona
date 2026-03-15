@@ -535,6 +535,10 @@ func (ws *WebSocket) addGameServerNotificationListener(s *melody.Session, gameSe
 func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connection, serverID string) {
 	remoteCache, errGetRemote := ws.db.GetRemoteServerCacheByRemoteServerID(serverID)
 	if errGetRemote != nil {
+		if errors.Is(errGetRemote, db.ErrAmbiguousRemoteServerCache) {
+			log.Error().Err(errGetRemote).Str("server_id", serverID).Msg("Ambiguous remote server mapping for console stream")
+			return
+		}
 		log.Error().Err(errGetRemote).Str("server_id", serverID).Msg("Remote server not found for console stream")
 		return
 	}

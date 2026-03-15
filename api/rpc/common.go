@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
+	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -46,7 +47,18 @@ func (xs XylonaService) getGameServerFromID(gameServerID string) (*models.GameSe
 func (xs XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, *models.RemoteServerCache, error) {
 	remoteCache, errGetRemote := xs.db.GetRemoteServerCacheByRemoteServerID(serverID)
 	if errGetRemote != nil {
-		return nil, nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		if errors.Is(errGetRemote, db.ErrAmbiguousRemoteServerCache) {
+			log.Warn().
+				Err(errGetRemote).
+				Str("server_id", serverID).
+				Msg("Ambiguous remote server cache lookup by remote server ID")
+			return nil, nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("ambiguous remote server mapping"))
+		}
+		if errors.Is(errGetRemote, sql.ErrNoRows) {
+			return nil, nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+		}
+		log.Error().Err(errGetRemote).Str("server_id", serverID).Msg("Failed to load remote server cache entry")
+		return nil, nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 
 	node, errGetNode := xs.db.GetRemoteNodeByID(remoteCache.NodeID)
