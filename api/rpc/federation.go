@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -18,12 +19,13 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 const (
 	FederationProtocolVersion  = 1
-	FederationCapabilities     = "server_list,server_detail,remote_actions,console_streaming,status_streaming"
+	FederationCapabilities     = "server_list,server_detail,remote_actions,console_streaming,status_streaming,file_operations,update,edit,remove"
 	SoftwareVersion            = "0.1.0"
 	federationRequestTimeout   = 15 * time.Second
 )
@@ -408,3 +410,269 @@ func (fs FederationService) StreamServerStatuses(ctx context.Context, request *c
 		}
 	}
 }
+
+func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	fs.actionsInst.UpdateGameServer(gs)
+
+	return connect.NewResponse(&xylona.FederationRemoteActionResponse{
+		Success: true,
+	}), nil
+}
+
+func (fs FederationService) EditRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	existingGS, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	gameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+	gameServerModel.ID = existingGS.ID
+	setter := helpers.GameServerModelToSetter(gameServerModel)
+	_, errUpdate := fs.db.UpdateGameServer(fs.db.DB, setter)
+	if errUpdate != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update game server"))
+	}
+
+	return connect.NewResponse(&xylona.FederationEditServerResponse{
+		Success:    true,
+		GameServer: helpers.GameServerModelToProto(gameServerModel),
+	}), nil
+}
+
+func (fs FederationService) RemoveRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	fs.actionsInst.StopGameServer(gs)
+	errRemove := fs.actionsInst.RemoveGameServer(gs, true)
+	if errRemove != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to remove game server"))
+	}
+
+	return connect.NewResponse(&xylona.FederationRemoteActionResponse{
+		Success: true,
+	}), nil
+}
+
+func (fs FederationService) ListRemoteDirectoryFiles(ctx context.Context, request *connect.Request[xylona.FederationListDirectoryFilesRequest]) (*connect.Response[xylona.FederationListDirectoryFilesResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	files, errList := fs.actionsInst.ListGameServerFiles(gs, request.Msg.GetPath())
+	if errList != nil {
+		if errors.Is(errList, actions.ErrInvalidPath) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid path"))
+		}
+		if errors.Is(errList, os.ErrNotExist) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("path not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list files"))
+	}
+
+	return connect.NewResponse(&xylona.FederationListDirectoryFilesResponse{
+		Files: files,
+	}), nil
+}
+
+func (fs FederationService) EditRemoteFile(ctx context.Context, request *connect.Request[xylona.FederationEditFileRequest]) (*connect.Response[xylona.FederationEditFileResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	errEdit := fs.actionsInst.EditFile(gs, request.Msg.GetFullFilePath(), request.Msg.GetContent())
+	if errEdit != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to edit file"))
+	}
+
+	return connect.NewResponse(&xylona.FederationEditFileResponse{
+		Success: true,
+	}), nil
+}
+
+func (fs FederationService) DeleteRemoteFiles(ctx context.Context, request *connect.Request[xylona.FederationDeleteFilesRequest]) (*connect.Response[xylona.FederationDeleteFilesResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	results, errDelete := fs.actionsInst.DeleteFiles(ctx, gs, request.Msg.GetFullFilePaths())
+	if errDelete != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete files"))
+	}
+
+	return connect.NewResponse(&xylona.FederationDeleteFilesResponse{
+		Success:       true,
+		FullFilePaths: results,
+	}), nil
+}
+
+func (fs FederationService) RenameRemoteFile(ctx context.Context, request *connect.Request[xylona.FederationRenameFileRequest]) (*connect.Response[xylona.FederationRenameFileResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	newPath, errRename := fs.actionsInst.RenameFile(gs, request.Msg.GetOldPath(), request.Msg.GetNewPath())
+	if errRename != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to rename file"))
+	}
+
+	return connect.NewResponse(&xylona.FederationRenameFileResponse{
+		Success: true,
+		NewPath: newPath,
+	}), nil
+}
+
+func (fs FederationService) MoveRemoteFiles(ctx context.Context, request *connect.Request[xylona.FederationMoveFilesRequest]) (*connect.Response[xylona.FederationMoveFilesResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	results, errMove := fs.actionsInst.MoveFiles(ctx, gs, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
+	if errMove != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to move files"))
+	}
+
+	return connect.NewResponse(&xylona.FederationMoveFilesResponse{
+		Success:       true,
+		FullFilePaths: results,
+	}), nil
+}
+
+func (fs FederationService) CreateRemoteFileOrDirectory(ctx context.Context, request *connect.Request[xylona.FederationCreateFileOrDirectoryRequest]) (*connect.Response[xylona.FederationCreateFileOrDirectoryResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	errCreate := fs.actionsInst.CreateFileOrDirectory(gs, request.Msg.GetFullFilePath(), request.Msg.GetContent(), request.Msg.GetIsDirectory())
+	if errCreate != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create file or directory"))
+	}
+
+	return connect.NewResponse(&xylona.FederationCreateFileOrDirectoryResponse{
+		Success: true,
+	}), nil
+}
+
+func (fs FederationService) DownloadRemoteFileFromURL(ctx context.Context, request *connect.Request[xylona.FederationDownloadFileFromURLRequest]) (*connect.Response[xylona.FederationDownloadFileFromURLResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	filePath, errDownload := fs.actionsInst.DownloadFileFromURL(ctx, gs, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
+	if errDownload != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to download file"))
+	}
+
+	return connect.NewResponse(&xylona.FederationDownloadFileFromURLResponse{
+		Success:  true,
+		FilePath: filePath,
+	}), nil
+}
+
+func (fs FederationService) QueryRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationQueryServerRequest]) (*connect.Response[xylona.FederationQueryServerResponse], error) {
+	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	serverID := request.Msg.GetServerId()
+	gs, errGet := fs.db.GetGameServerByID(serverID)
+	if errGet != nil {
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get server"))
+	}
+
+	allServerQueries := fs.actionsInst.GetServerQueries()
+	queryInfo, exists := allServerQueries.Servers[gs.ID]
+	if !exists {
+		queryType := xylona.ServerQuery_Unknown
+		if gs.GameID == "minecraft" {
+			queryType = xylona.ServerQuery_Minecraft
+		} else {
+			queryType = xylona.ServerQuery_Source
+		}
+		queryInfo = &xylona.ServerQuery{
+			ServerId:   gs.ID,
+			ServerName: gs.Name,
+			Type:       queryType,
+			Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: uint32(gs.MaxPlayers)},
+			Source:     &xylona.SourceQueryInfo{Players: 0, MaxPlayers: uint32(gs.MaxPlayers)},
+		}
+	}
+
+	return connect.NewResponse(&xylona.FederationQueryServerResponse{
+		QueryInfo: queryInfo,
+	}), nil
+}
+
+// Ensure unused imports don't cause build failures.
+var (
+	_ = models.Node{}
+	_ = os.ErrNotExist
+)

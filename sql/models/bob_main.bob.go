@@ -25,7 +25,6 @@ var TableNames = struct {
 	Nodes              string
 	NodeSyncQueues     string
 	Notifications      string
-	PeerNodes          string
 	PeerSyncStates     string
 	RemoteServerCaches string
 	RevokedJWTS        string
@@ -43,7 +42,6 @@ var TableNames = struct {
 	Nodes:              "node",
 	NodeSyncQueues:     "node_sync_queue",
 	Notifications:      "notification",
-	PeerNodes:          "peer_node",
 	PeerSyncStates:     "peer_sync_state",
 	RemoteServerCaches: "remote_server_cache",
 	RevokedJWTS:        "revoked_jwt",
@@ -63,7 +61,6 @@ var ColumnNames = struct {
 	Nodes              nodeColumnNames
 	NodeSyncQueues     nodeSyncQueueColumnNames
 	Notifications      notificationColumnNames
-	PeerNodes          peerNodeColumnNames
 	PeerSyncStates     peerSyncStateColumnNames
 	RemoteServerCaches remoteServerCacheColumnNames
 	RevokedJWTS        revokedJWTColumnNames
@@ -158,12 +155,23 @@ var ColumnNames = struct {
 		AppliedAt: "applied_at",
 	},
 	Nodes: nodeColumnNames{
-		ID:        "id",
-		Name:      "name",
-		SecretKey: "secret_key",
-		IsLocal:   "is_local",
-		Host:      "host",
-		Port:      "port",
+		ID:              "id",
+		Name:            "name",
+		SecretKey:       "secret_key",
+		IsLocal:         "is_local",
+		Host:            "host",
+		Port:            "port",
+		BaseURL:         "base_url",
+		Enabled:         "enabled",
+		LastSeenAt:      "last_seen_at",
+		LastSyncAt:      "last_sync_at",
+		LastSyncStatus:  "last_sync_status",
+		HealthStatus:    "health_status",
+		Version:         "version",
+		ProtocolVersion: "protocol_version",
+		Capabilities:    "capabilities",
+		CreatedAt:       "created_at",
+		UpdatedAt:       "updated_at",
 	},
 	NodeSyncQueues: nodeSyncQueueColumnNames{
 		ID:          "id",
@@ -183,26 +191,9 @@ var ColumnNames = struct {
 		CreatedAt:    "created_at",
 		UpdatedAt:    "updated_at",
 	},
-	PeerNodes: peerNodeColumnNames{
-		ID:              "id",
-		NodeID:          "node_id",
-		Name:            "name",
-		BaseURL:         "base_url",
-		Enabled:         "enabled",
-		SecretKey:       "secret_key",
-		LastSeenAt:      "last_seen_at",
-		LastSyncAt:      "last_sync_at",
-		LastSyncStatus:  "last_sync_status",
-		HealthStatus:    "health_status",
-		Version:         "version",
-		ProtocolVersion: "protocol_version",
-		Capabilities:    "capabilities",
-		CreatedAt:       "created_at",
-		UpdatedAt:       "updated_at",
-	},
 	PeerSyncStates: peerSyncStateColumnNames{
 		ID:              "id",
-		PeerNodeID:      "peer_node_id",
+		NodeID:          "node_id",
 		LastCursor:      "last_cursor",
 		LastFullSyncAt:  "last_full_sync_at",
 		LastDeltaSyncAt: "last_delta_sync_at",
@@ -215,7 +206,7 @@ var ColumnNames = struct {
 	RemoteServerCaches: remoteServerCacheColumnNames{
 		ID:               "id",
 		SourceNodeID:     "source_node_id",
-		PeerNodeID:       "peer_node_id",
+		NodeID:           "node_id",
 		RemoteServerID:   "remote_server_id",
 		DisplayName:      "display_name",
 		Status:           "status",
@@ -288,7 +279,6 @@ func Where[Q sqlite.Filterable]() struct {
 	Nodes              nodeWhere[Q]
 	NodeSyncQueues     nodeSyncQueueWhere[Q]
 	Notifications      notificationWhere[Q]
-	PeerNodes          peerNodeWhere[Q]
 	PeerSyncStates     peerSyncStateWhere[Q]
 	RemoteServerCaches remoteServerCacheWhere[Q]
 	RevokedJWTS        revokedJWTWhere[Q]
@@ -307,7 +297,6 @@ func Where[Q sqlite.Filterable]() struct {
 		Nodes              nodeWhere[Q]
 		NodeSyncQueues     nodeSyncQueueWhere[Q]
 		Notifications      notificationWhere[Q]
-		PeerNodes          peerNodeWhere[Q]
 		PeerSyncStates     peerSyncStateWhere[Q]
 		RemoteServerCaches remoteServerCacheWhere[Q]
 		RevokedJWTS        revokedJWTWhere[Q]
@@ -325,7 +314,6 @@ func Where[Q sqlite.Filterable]() struct {
 		Nodes:              buildNodeWhere[Q](NodeColumns),
 		NodeSyncQueues:     buildNodeSyncQueueWhere[Q](NodeSyncQueueColumns),
 		Notifications:      buildNotificationWhere[Q](NotificationColumns),
-		PeerNodes:          buildPeerNodeWhere[Q](PeerNodeColumns),
 		PeerSyncStates:     buildPeerSyncStateWhere[Q](PeerSyncStateColumns),
 		RemoteServerCaches: buildRemoteServerCacheWhere[Q](RemoteServerCacheColumns),
 		RevokedJWTS:        buildRevokedJWTWhere[Q](RevokedJWTColumns),
@@ -361,7 +349,6 @@ type joins[Q dialect.Joinable] struct {
 	Logs               joinSet[logJoins[Q]]
 	Nodes              joinSet[nodeJoins[Q]]
 	NodeSyncQueues     joinSet[nodeSyncQueueJoins[Q]]
-	PeerNodes          joinSet[peerNodeJoins[Q]]
 	PeerSyncStates     joinSet[peerSyncStateJoins[Q]]
 	RemoteServerCaches joinSet[remoteServerCacheJoins[Q]]
 	Users              joinSet[userJoins[Q]]
@@ -385,7 +372,6 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		Logs:               buildJoinSet[logJoins[Q]](LogColumns, buildLogJoins),
 		Nodes:              buildJoinSet[nodeJoins[Q]](NodeColumns, buildNodeJoins),
 		NodeSyncQueues:     buildJoinSet[nodeSyncQueueJoins[Q]](NodeSyncQueueColumns, buildNodeSyncQueueJoins),
-		PeerNodes:          buildJoinSet[peerNodeJoins[Q]](PeerNodeColumns, buildPeerNodeJoins),
 		PeerSyncStates:     buildJoinSet[peerSyncStateJoins[Q]](PeerSyncStateColumns, buildPeerSyncStateJoins),
 		RemoteServerCaches: buildJoinSet[remoteServerCacheJoins[Q]](RemoteServerCacheColumns, buildRemoteServerCacheJoins),
 		Users:              buildJoinSet[userJoins[Q]](UserColumns, buildUserJoins),

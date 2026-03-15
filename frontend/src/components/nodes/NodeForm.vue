@@ -8,25 +8,40 @@
         <q-card-section>
             <q-form class="q-pa-lg">
                 <div class="row wrap q-col-gutter-md justify-between">
+                    <q-toggle v-if="!existingNodeId" class="col-12" v-model="isRemote" label="Remote node (federation)"/>
                     <q-input class="col-12 col-xl-6" outlined type="text" autofocus label="Name"
-                             v-model="node.name"></q-input>
-                    <q-input class="col-12 col-xl-6" outlined type="text" label="Host"
-                             v-model="node.host"></q-input>
-                    <q-input class="col-12 col-xl-6" outlined type="text" label="Port"
-                             v-model.number="port"></q-input>
+                             v-model="node.name"
+                             :hint="isRemote ? 'Leave blank to use the remote node\'s name' : ''"></q-input>
+                    <template v-if="!isRemote">
+                        <q-input class="col-12 col-xl-6" outlined type="text" label="Host"
+                                 v-model="node.host"></q-input>
+                        <q-input class="col-12 col-xl-6" outlined type="text" label="Port"
+                                 v-model.number="port"></q-input>
+                    </template>
+                    <template v-if="isRemote">
+                        <q-input class="col-12 col-xl-6" outlined type="url" label="Base URL"
+                                 v-model="node.baseUrl" placeholder="http://192.168.1.100:8080"
+                                 hint="Full URL including protocol and port"></q-input>
+                    </template>
                     <q-input class="col-12 col-xl-6" outlined type="text" label="Secret Key"
-                             v-model="node.secretKey"></q-input>
+                             v-model="node.secretKey"
+                             :hint="isRemote ? 'The secret key generated on the remote node' : ''"></q-input>
+                </div>
+                <div v-if="errorMessage" class="q-mt-md">
+                    <q-banner dense class="bg-red-2 text-red-9">
+                        {{ errorMessage }}
+                    </q-banner>
                 </div>
             </q-form>
         </q-card-section>
         <q-separator></q-separator>
         <q-card-actions class="q-pa-md" align="right">
             <q-btn flat label="Cancel" @click="cancel"></q-btn>
-            <q-btn label="Save" color="primary" @click="submitNode"></q-btn>
+            <q-btn label="Save" color="primary" @click="submitNode" :loading="formSubmitting"></q-btn>
         </q-card-actions>
         <q-inner-loading
                 :showing="formSubmitting"
-                label="Adding node..."
+                label="Saving..."
                 label-class="text-primary"
         ></q-inner-loading>
     </q-card>
@@ -38,6 +53,7 @@ import { GetXylonaClient } from '@/utils/shared'
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NodeSchema } from '@/proto/shared_pb'
+import { ConnectError } from '@connectrpc/connect'
 import {
   AddNodeRequest, AddNodeRequestSchema,
   EditNodeRequest, EditNodeRequestSchema,
@@ -56,6 +72,8 @@ const props = defineProps({
 const node = ref(create(NodeSchema, {}))
 const formSubmitting = ref(false)
 const port = ref(8080)
+const isRemote = ref(false)
+const errorMessage = ref('')
 
 onMounted(async () => {
   if (props.existingNodeId) {
@@ -80,32 +98,56 @@ async function getNodeDetails() {
       return
     }
     node.value = response.node
+    isRemote.value = !response.node.local
+    port.value = Number(response.node.port)
   } catch (e) {
     console.error(e)
   }
 }
 
 async function updateNode() {
+  errorMessage.value = ''
+  formSubmitting.value = true
   const request: EditNodeRequest = create(EditNodeRequestSchema, {})
   request.node = node.value
-  request.node.port = BigInt(port.value)
+  if (!isRemote.value) {
+    request.node.port = BigInt(port.value)
+  }
   try {
-    const response = await GetXylonaClient().editNode(request)
-    await router.push(`/nodes`)
+    await GetXylonaClient().editNode(request)
+    await router.push('/nodes')
   } catch (e) {
+    if (e instanceof ConnectError) {
+      errorMessage.value = e.message
+    } else {
+      errorMessage.value = 'Failed to update node'
+    }
     console.error(e)
+  } finally {
+    formSubmitting.value = false
   }
 }
 
 async function createNode() {
+  errorMessage.value = ''
+  formSubmitting.value = true
   const request: AddNodeRequest = create(AddNodeRequestSchema, {})
   request.node = node.value
-  request.node.port = BigInt(port.value)
+  if (!isRemote.value) {
+    request.node.port = BigInt(port.value)
+  }
   try {
-    const response = await GetXylonaClient().addNode(request)
-    await router.push(`/nodes`)
+    await GetXylonaClient().addNode(request)
+    await router.push('/nodes')
   } catch (e) {
+    if (e instanceof ConnectError) {
+      errorMessage.value = e.message
+    } else {
+      errorMessage.value = 'Failed to add node'
+    }
     console.error(e)
+  } finally {
+    formSubmitting.value = false
   }
 }
 

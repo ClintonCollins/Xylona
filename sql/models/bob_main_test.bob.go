@@ -35,9 +35,6 @@ var _ bob.HookableType = &NodeSyncQueue{}
 // Make sure the type Notification runs hooks after queries
 var _ bob.HookableType = &Notification{}
 
-// Make sure the type PeerNode runs hooks after queries
-var _ bob.HookableType = &PeerNode{}
-
 // Make sure the type PeerSyncState runs hooks after queries
 var _ bob.HookableType = &PeerSyncState{}
 

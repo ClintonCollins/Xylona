@@ -1,6 +1,7 @@
 syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 import "shared.proto";
+import "gameserver_files_operations.proto";
 
 package xylona;
 option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
@@ -25,6 +26,15 @@ service Federation {
   // RestartRemoteServer restarts a game server on this node.
   rpc RestartRemoteServer (FederationRemoteActionRequest) returns (FederationRemoteActionResponse) {}
 
+  // UpdateRemoteServer triggers an update for a game server on this node.
+  rpc UpdateRemoteServer (FederationRemoteActionRequest) returns (FederationRemoteActionResponse) {}
+
+  // EditRemoteServer edits a game server's configuration on this node.
+  rpc EditRemoteServer (FederationEditServerRequest) returns (FederationEditServerResponse) {}
+
+  // RemoveRemoteServer removes a game server on this node.
+  rpc RemoveRemoteServer (FederationRemoteActionRequest) returns (FederationRemoteActionResponse) {}
+
   // StreamConsoleOutput streams real-time console output for a game server on this node.
   rpc StreamConsoleOutput (FederationStreamConsoleRequest) returns (stream FederationConsoleOutputChunk) {}
 
@@ -36,32 +46,25 @@ service Federation {
 
   // StreamServerStatuses streams real-time status changes for all game servers on this node.
   rpc StreamServerStatuses (FederationStreamServerStatusesRequest) returns (stream FederationServerStatusEvent) {}
-}
 
-// PeerNode represents a configured federation peer.
-message PeerNode {
-  string id = 1;
-  string node_id = 2;
-  string name = 3;
-  string base_url = 4;
-  bool enabled = 5;
-  string secret_key = 6;
-  google.protobuf.Timestamp last_seen_at = 7;
-  google.protobuf.Timestamp last_sync_at = 8;
-  string last_sync_status = 9;
-  string health_status = 10;
-  string version = 11;
-  int32 protocol_version = 12;
-  string capabilities = 13;
-  google.protobuf.Timestamp created_at = 14;
-  google.protobuf.Timestamp updated_at = 15;
+  // QueryRemoteServer returns query info (player count, etc.) for a game server on this node.
+  rpc QueryRemoteServer (FederationQueryServerRequest) returns (FederationQueryServerResponse) {}
+
+  // File operations on remote servers.
+  rpc ListRemoteDirectoryFiles (FederationListDirectoryFilesRequest) returns (FederationListDirectoryFilesResponse) {}
+  rpc EditRemoteFile (FederationEditFileRequest) returns (FederationEditFileResponse) {}
+  rpc DeleteRemoteFiles (FederationDeleteFilesRequest) returns (FederationDeleteFilesResponse) {}
+  rpc RenameRemoteFile (FederationRenameFileRequest) returns (FederationRenameFileResponse) {}
+  rpc MoveRemoteFiles (FederationMoveFilesRequest) returns (FederationMoveFilesResponse) {}
+  rpc CreateRemoteFileOrDirectory (FederationCreateFileOrDirectoryRequest) returns (FederationCreateFileOrDirectoryResponse) {}
+  rpc DownloadRemoteFileFromURL (FederationDownloadFileFromURLRequest) returns (FederationDownloadFileFromURLResponse) {}
 }
 
 // RemoteServerSummary is a cached summary of a game server on a remote node.
 message RemoteServerSummary {
   string id = 1;
   string source_node_id = 2;
-  string peer_node_id = 3;
+  string node_id = 3;
   string remote_server_id = 4;
   string display_name = 5;
   Status status = 6;
@@ -151,6 +154,18 @@ message FederationRemoteActionResponse {
   string error = 2;
 }
 
+// Federation Edit Server
+message FederationEditServerRequest {
+  string server_id = 1;
+  GameServer game_server = 2;
+}
+
+message FederationEditServerResponse {
+  bool success = 1;
+  string error = 2;
+  GameServer game_server = 3;
+}
+
 // Federation Console Streaming
 message FederationStreamConsoleRequest {
   string server_id = 1;
@@ -190,54 +205,100 @@ message FederationServerStatusEvent {
   Status status = 2;
 }
 
-// Peer management RPCs (added to main Xylona service via xylona.proto)
-message ListPeerNodesRequest {}
-
-message ListPeerNodesResponse {
-  repeated PeerNode peer_nodes = 1;
+// Federation Query Server
+message FederationQueryServerRequest {
+  string server_id = 1;
 }
 
-message GetPeerNodeRequest {
-  string peer_node_id = 1;
+message FederationQueryServerResponse {
+  ServerQuery query_info = 1;
 }
 
-message GetPeerNodeResponse {
-  PeerNode peer_node = 1;
+// Federation File Operations
+message FederationListDirectoryFilesRequest {
+  string server_id = 1;
+  string path = 2;
 }
 
-message AddPeerNodeRequest {
-  string name = 1;
-  string base_url = 2;
-  string secret_key = 3;
+message FederationListDirectoryFilesResponse {
+  repeated File files = 1;
 }
 
-message AddPeerNodeResponse {
-  PeerNode peer_node = 1;
+message FederationEditFileRequest {
+  string server_id = 1;
+  string full_file_path = 2;
+  string content = 3;
 }
 
-message RemovePeerNodeRequest {
-  string peer_node_id = 1;
+message FederationEditFileResponse {
+  bool success = 1;
+  string error = 2;
 }
 
-message RemovePeerNodeResponse {}
-
-message EditPeerNodeRequest {
-  string peer_node_id = 1;
-  string name = 2;
-  string base_url = 3;
-  string secret_key = 4;
-  bool enabled = 5;
+message FederationDeleteFilesRequest {
+  string server_id = 1;
+  repeated string full_file_paths = 2;
 }
 
-message EditPeerNodeResponse {
-  PeerNode peer_node = 1;
+message FederationDeleteFilesResponse {
+  bool success = 1;
+  string error = 2;
+  repeated string full_file_paths = 3;
 }
 
-message SyncPeerNodeRequest {
-  string peer_node_id = 1;
+message FederationRenameFileRequest {
+  string server_id = 1;
+  string old_path = 2;
+  string new_path = 3;
 }
 
-message SyncPeerNodeResponse {
+message FederationRenameFileResponse {
+  bool success = 1;
+  string error = 2;
+  string new_path = 3;
+}
+
+message FederationMoveFilesRequest {
+  string server_id = 1;
+  repeated string full_file_paths = 2;
+  string destination_base_path = 3;
+}
+
+message FederationMoveFilesResponse {
+  bool success = 1;
+  string error = 2;
+  repeated string full_file_paths = 3;
+}
+
+message FederationCreateFileOrDirectoryRequest {
+  string server_id = 1;
+  string full_file_path = 2;
+  string content = 3;
+  bool is_directory = 4;
+}
+
+message FederationCreateFileOrDirectoryResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message FederationDownloadFileFromURLRequest {
+  string server_id = 1;
+  string url = 2;
+  string destination_base_path = 3;
+}
+
+message FederationDownloadFileFromURLResponse {
+  bool success = 1;
+  string error = 2;
+  string file_path = 3;
+}
+
+message SyncNodeRequest {
+  string node_id = 1;
+}
+
+message SyncNodeResponse {
   bool success = 1;
   string error = 2;
 }

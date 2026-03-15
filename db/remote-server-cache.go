@@ -16,9 +16,9 @@ func (c *Connection) GetAllRemoteServerCaches() ([]*models.RemoteServerCache, er
 	return servers, nil
 }
 
-func (c *Connection) GetRemoteServerCachesByPeerNodeID(peerNodeID string) ([]*models.RemoteServerCache, error) {
+func (c *Connection) GetRemoteServerCachesByNodeID(nodeID string) ([]*models.RemoteServerCache, error) {
 	servers, err := models.RemoteServerCaches.Query(
-		models.SelectWhere.RemoteServerCaches.PeerNodeID.EQ(peerNodeID),
+		models.SelectWhere.RemoteServerCaches.NodeID.EQ(nodeID),
 	).All(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (c *Connection) GetRemoteServerCacheByID(id string) (*models.RemoteServerCa
 func (c *Connection) UpsertRemoteServerCache(
 	id string,
 	sourceNodeID string,
-	peerNodeID string,
+	nodeID string,
 	remoteServerID string,
 	displayName string,
 	status string,
@@ -70,7 +70,7 @@ func (c *Connection) UpsertRemoteServerCache(
 	now := time.Now()
 	_, err := sqlite.RawQuery(
 		`INSERT INTO remote_server_cache
-			(id, source_node_id, peer_node_id, remote_server_id, display_name, status, game_name, game_id,
+			(id, source_node_id, node_id, remote_server_id, display_name, status, game_name, game_id,
 			 ip_address, port, query_port, max_players, current_players, map_name, version, node_name, node_host,
 			 last_remote_update, last_synced_at, is_stale, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, false, ?, ?)
@@ -92,25 +92,25 @@ func (c *Connection) UpsertRemoteServerCache(
 			last_synced_at = excluded.last_synced_at,
 			is_stale = false,
 			updated_at = excluded.updated_at`,
-		id, sourceNodeID, peerNodeID, remoteServerID, displayName, status, gameName, gameID,
+		id, sourceNodeID, nodeID, remoteServerID, displayName, status, gameName, gameID,
 		ipAddress, port, queryPort, maxPlayers, currentPlayers, mapName, version, nodeName, nodeHost,
 		lastRemoteUpdate, now, now, now,
 	).Exec(c.ctx, c.DB)
 	return err
 }
 
-func (c *Connection) MarkRemoteServerCacheStaleByPeerNodeID(peerNodeID string) error {
+func (c *Connection) MarkRemoteServerCacheStaleByNodeID(nodeID string) error {
 	_, err := sqlite.RawQuery(
-		`UPDATE remote_server_cache SET is_stale = true, updated_at = ? WHERE peer_node_id = ?`,
-		time.Now(), peerNodeID,
+		`UPDATE remote_server_cache SET is_stale = true, updated_at = ? WHERE node_id = ?`,
+		time.Now(), nodeID,
 	).Exec(c.ctx, c.DB)
 	return err
 }
 
-func (c *Connection) DeleteRemoteServerCacheByPeerNodeID(peerNodeID string) error {
+func (c *Connection) DeleteRemoteServerCacheByNodeID(nodeID string) error {
 	_, err := sqlite.RawQuery(
-		`DELETE FROM remote_server_cache WHERE peer_node_id = ?`,
-		peerNodeID,
+		`DELETE FROM remote_server_cache WHERE node_id = ?`,
+		nodeID,
 	).Exec(c.ctx, c.DB)
 	return err
 }
@@ -133,10 +133,10 @@ func (c *Connection) UpdateRemoteServerCacheStatus(sourceNodeID string, remoteSe
 	return err
 }
 
-func (c *Connection) DeleteStaleRemoteServerCacheByPeerNodeID(peerNodeID string, olderThan time.Time) error {
+func (c *Connection) DeleteStaleRemoteServerCacheByNodeID(nodeID string, olderThan time.Time) error {
 	_, err := sqlite.RawQuery(
-		`DELETE FROM remote_server_cache WHERE peer_node_id = ? AND is_stale = true AND updated_at < ?`,
-		peerNodeID, olderThan,
+		`DELETE FROM remote_server_cache WHERE node_id = ? AND is_stale = true AND updated_at < ?`,
+		nodeID, olderThan,
 	).Exec(c.ctx, c.DB)
 	return err
 }

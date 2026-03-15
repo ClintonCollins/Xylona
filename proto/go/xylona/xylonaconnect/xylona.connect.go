@@ -146,18 +146,8 @@ const (
 	// XylonaDeleteLocalSecretKeyProcedure is the fully-qualified name of the Xylona's
 	// DeleteLocalSecretKey RPC.
 	XylonaDeleteLocalSecretKeyProcedure = "/xylona.Xylona/DeleteLocalSecretKey"
-	// XylonaListPeerNodesProcedure is the fully-qualified name of the Xylona's ListPeerNodes RPC.
-	XylonaListPeerNodesProcedure = "/xylona.Xylona/ListPeerNodes"
-	// XylonaGetPeerNodeProcedure is the fully-qualified name of the Xylona's GetPeerNode RPC.
-	XylonaGetPeerNodeProcedure = "/xylona.Xylona/GetPeerNode"
-	// XylonaAddPeerNodeProcedure is the fully-qualified name of the Xylona's AddPeerNode RPC.
-	XylonaAddPeerNodeProcedure = "/xylona.Xylona/AddPeerNode"
-	// XylonaRemovePeerNodeProcedure is the fully-qualified name of the Xylona's RemovePeerNode RPC.
-	XylonaRemovePeerNodeProcedure = "/xylona.Xylona/RemovePeerNode"
-	// XylonaEditPeerNodeProcedure is the fully-qualified name of the Xylona's EditPeerNode RPC.
-	XylonaEditPeerNodeProcedure = "/xylona.Xylona/EditPeerNode"
-	// XylonaSyncPeerNodeProcedure is the fully-qualified name of the Xylona's SyncPeerNode RPC.
-	XylonaSyncPeerNodeProcedure = "/xylona.Xylona/SyncPeerNode"
+	// XylonaSyncNodeProcedure is the fully-qualified name of the Xylona's SyncNode RPC.
+	XylonaSyncNodeProcedure = "/xylona.Xylona/SyncNode"
 	// XylonaListAggregatedGameServersProcedure is the fully-qualified name of the Xylona's
 	// ListAggregatedGameServers RPC.
 	XylonaListAggregatedGameServersProcedure = "/xylona.Xylona/ListAggregatedGameServers"
@@ -222,13 +212,7 @@ type XylonaClient interface {
 	ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error)
 	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
 	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
-	// Peer Node Management
-	ListPeerNodes(context.Context, *connect.Request[xylona.ListPeerNodesRequest]) (*connect.Response[xylona.ListPeerNodesResponse], error)
-	GetPeerNode(context.Context, *connect.Request[xylona.GetPeerNodeRequest]) (*connect.Response[xylona.GetPeerNodeResponse], error)
-	AddPeerNode(context.Context, *connect.Request[xylona.AddPeerNodeRequest]) (*connect.Response[xylona.AddPeerNodeResponse], error)
-	RemovePeerNode(context.Context, *connect.Request[xylona.RemovePeerNodeRequest]) (*connect.Response[xylona.RemovePeerNodeResponse], error)
-	EditPeerNode(context.Context, *connect.Request[xylona.EditPeerNodeRequest]) (*connect.Response[xylona.EditPeerNodeResponse], error)
-	SyncPeerNode(context.Context, *connect.Request[xylona.SyncPeerNodeRequest]) (*connect.Response[xylona.SyncPeerNodeResponse], error)
+	SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error)
 	// Aggregated Views
 	ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error)
 }
@@ -532,40 +516,10 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("DeleteLocalSecretKey")),
 			connect.WithClientOptions(opts...),
 		),
-		listPeerNodes: connect.NewClient[xylona.ListPeerNodesRequest, xylona.ListPeerNodesResponse](
+		syncNode: connect.NewClient[xylona.SyncNodeRequest, xylona.SyncNodeResponse](
 			httpClient,
-			baseURL+XylonaListPeerNodesProcedure,
-			connect.WithSchema(xylonaMethods.ByName("ListPeerNodes")),
-			connect.WithClientOptions(opts...),
-		),
-		getPeerNode: connect.NewClient[xylona.GetPeerNodeRequest, xylona.GetPeerNodeResponse](
-			httpClient,
-			baseURL+XylonaGetPeerNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("GetPeerNode")),
-			connect.WithClientOptions(opts...),
-		),
-		addPeerNode: connect.NewClient[xylona.AddPeerNodeRequest, xylona.AddPeerNodeResponse](
-			httpClient,
-			baseURL+XylonaAddPeerNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("AddPeerNode")),
-			connect.WithClientOptions(opts...),
-		),
-		removePeerNode: connect.NewClient[xylona.RemovePeerNodeRequest, xylona.RemovePeerNodeResponse](
-			httpClient,
-			baseURL+XylonaRemovePeerNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("RemovePeerNode")),
-			connect.WithClientOptions(opts...),
-		),
-		editPeerNode: connect.NewClient[xylona.EditPeerNodeRequest, xylona.EditPeerNodeResponse](
-			httpClient,
-			baseURL+XylonaEditPeerNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("EditPeerNode")),
-			connect.WithClientOptions(opts...),
-		),
-		syncPeerNode: connect.NewClient[xylona.SyncPeerNodeRequest, xylona.SyncPeerNodeResponse](
-			httpClient,
-			baseURL+XylonaSyncPeerNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("SyncPeerNode")),
+			baseURL+XylonaSyncNodeProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SyncNode")),
 			connect.WithClientOptions(opts...),
 		),
 		listAggregatedGameServers: connect.NewClient[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse](
@@ -627,12 +581,7 @@ type xylonaClient struct {
 	listLocalSecretKeys              *connect.Client[xylona.ListLocalSecretKeysRequest, xylona.ListLocalSecretKeysResponse]
 	createLocalSecretKey             *connect.Client[xylona.CreateLocalSecretKeyRequest, xylona.CreateLocalSecretKeyResponse]
 	deleteLocalSecretKey             *connect.Client[xylona.DeleteLocalSecretKeyRequest, xylona.DeleteLocalSecretKeyResponse]
-	listPeerNodes                    *connect.Client[xylona.ListPeerNodesRequest, xylona.ListPeerNodesResponse]
-	getPeerNode                      *connect.Client[xylona.GetPeerNodeRequest, xylona.GetPeerNodeResponse]
-	addPeerNode                      *connect.Client[xylona.AddPeerNodeRequest, xylona.AddPeerNodeResponse]
-	removePeerNode                   *connect.Client[xylona.RemovePeerNodeRequest, xylona.RemovePeerNodeResponse]
-	editPeerNode                     *connect.Client[xylona.EditPeerNodeRequest, xylona.EditPeerNodeResponse]
-	syncPeerNode                     *connect.Client[xylona.SyncPeerNodeRequest, xylona.SyncPeerNodeResponse]
+	syncNode                         *connect.Client[xylona.SyncNodeRequest, xylona.SyncNodeResponse]
 	listAggregatedGameServers        *connect.Client[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse]
 }
 
@@ -876,34 +825,9 @@ func (c *xylonaClient) DeleteLocalSecretKey(ctx context.Context, req *connect.Re
 	return c.deleteLocalSecretKey.CallUnary(ctx, req)
 }
 
-// ListPeerNodes calls xylona.Xylona.ListPeerNodes.
-func (c *xylonaClient) ListPeerNodes(ctx context.Context, req *connect.Request[xylona.ListPeerNodesRequest]) (*connect.Response[xylona.ListPeerNodesResponse], error) {
-	return c.listPeerNodes.CallUnary(ctx, req)
-}
-
-// GetPeerNode calls xylona.Xylona.GetPeerNode.
-func (c *xylonaClient) GetPeerNode(ctx context.Context, req *connect.Request[xylona.GetPeerNodeRequest]) (*connect.Response[xylona.GetPeerNodeResponse], error) {
-	return c.getPeerNode.CallUnary(ctx, req)
-}
-
-// AddPeerNode calls xylona.Xylona.AddPeerNode.
-func (c *xylonaClient) AddPeerNode(ctx context.Context, req *connect.Request[xylona.AddPeerNodeRequest]) (*connect.Response[xylona.AddPeerNodeResponse], error) {
-	return c.addPeerNode.CallUnary(ctx, req)
-}
-
-// RemovePeerNode calls xylona.Xylona.RemovePeerNode.
-func (c *xylonaClient) RemovePeerNode(ctx context.Context, req *connect.Request[xylona.RemovePeerNodeRequest]) (*connect.Response[xylona.RemovePeerNodeResponse], error) {
-	return c.removePeerNode.CallUnary(ctx, req)
-}
-
-// EditPeerNode calls xylona.Xylona.EditPeerNode.
-func (c *xylonaClient) EditPeerNode(ctx context.Context, req *connect.Request[xylona.EditPeerNodeRequest]) (*connect.Response[xylona.EditPeerNodeResponse], error) {
-	return c.editPeerNode.CallUnary(ctx, req)
-}
-
-// SyncPeerNode calls xylona.Xylona.SyncPeerNode.
-func (c *xylonaClient) SyncPeerNode(ctx context.Context, req *connect.Request[xylona.SyncPeerNodeRequest]) (*connect.Response[xylona.SyncPeerNodeResponse], error) {
-	return c.syncPeerNode.CallUnary(ctx, req)
+// SyncNode calls xylona.Xylona.SyncNode.
+func (c *xylonaClient) SyncNode(ctx context.Context, req *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
+	return c.syncNode.CallUnary(ctx, req)
 }
 
 // ListAggregatedGameServers calls xylona.Xylona.ListAggregatedGameServers.
@@ -970,13 +894,7 @@ type XylonaHandler interface {
 	ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error)
 	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
 	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
-	// Peer Node Management
-	ListPeerNodes(context.Context, *connect.Request[xylona.ListPeerNodesRequest]) (*connect.Response[xylona.ListPeerNodesResponse], error)
-	GetPeerNode(context.Context, *connect.Request[xylona.GetPeerNodeRequest]) (*connect.Response[xylona.GetPeerNodeResponse], error)
-	AddPeerNode(context.Context, *connect.Request[xylona.AddPeerNodeRequest]) (*connect.Response[xylona.AddPeerNodeResponse], error)
-	RemovePeerNode(context.Context, *connect.Request[xylona.RemovePeerNodeRequest]) (*connect.Response[xylona.RemovePeerNodeResponse], error)
-	EditPeerNode(context.Context, *connect.Request[xylona.EditPeerNodeRequest]) (*connect.Response[xylona.EditPeerNodeResponse], error)
-	SyncPeerNode(context.Context, *connect.Request[xylona.SyncPeerNodeRequest]) (*connect.Response[xylona.SyncPeerNodeResponse], error)
+	SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error)
 	// Aggregated Views
 	ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error)
 }
@@ -1276,40 +1194,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("DeleteLocalSecretKey")),
 		connect.WithHandlerOptions(opts...),
 	)
-	xylonaListPeerNodesHandler := connect.NewUnaryHandler(
-		XylonaListPeerNodesProcedure,
-		svc.ListPeerNodes,
-		connect.WithSchema(xylonaMethods.ByName("ListPeerNodes")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaGetPeerNodeHandler := connect.NewUnaryHandler(
-		XylonaGetPeerNodeProcedure,
-		svc.GetPeerNode,
-		connect.WithSchema(xylonaMethods.ByName("GetPeerNode")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaAddPeerNodeHandler := connect.NewUnaryHandler(
-		XylonaAddPeerNodeProcedure,
-		svc.AddPeerNode,
-		connect.WithSchema(xylonaMethods.ByName("AddPeerNode")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaRemovePeerNodeHandler := connect.NewUnaryHandler(
-		XylonaRemovePeerNodeProcedure,
-		svc.RemovePeerNode,
-		connect.WithSchema(xylonaMethods.ByName("RemovePeerNode")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaEditPeerNodeHandler := connect.NewUnaryHandler(
-		XylonaEditPeerNodeProcedure,
-		svc.EditPeerNode,
-		connect.WithSchema(xylonaMethods.ByName("EditPeerNode")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaSyncPeerNodeHandler := connect.NewUnaryHandler(
-		XylonaSyncPeerNodeProcedure,
-		svc.SyncPeerNode,
-		connect.WithSchema(xylonaMethods.ByName("SyncPeerNode")),
+	xylonaSyncNodeHandler := connect.NewUnaryHandler(
+		XylonaSyncNodeProcedure,
+		svc.SyncNode,
+		connect.WithSchema(xylonaMethods.ByName("SyncNode")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListAggregatedGameServersHandler := connect.NewUnaryHandler(
@@ -1416,18 +1304,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaCreateLocalSecretKeyHandler.ServeHTTP(w, r)
 		case XylonaDeleteLocalSecretKeyProcedure:
 			xylonaDeleteLocalSecretKeyHandler.ServeHTTP(w, r)
-		case XylonaListPeerNodesProcedure:
-			xylonaListPeerNodesHandler.ServeHTTP(w, r)
-		case XylonaGetPeerNodeProcedure:
-			xylonaGetPeerNodeHandler.ServeHTTP(w, r)
-		case XylonaAddPeerNodeProcedure:
-			xylonaAddPeerNodeHandler.ServeHTTP(w, r)
-		case XylonaRemovePeerNodeProcedure:
-			xylonaRemovePeerNodeHandler.ServeHTTP(w, r)
-		case XylonaEditPeerNodeProcedure:
-			xylonaEditPeerNodeHandler.ServeHTTP(w, r)
-		case XylonaSyncPeerNodeProcedure:
-			xylonaSyncPeerNodeHandler.ServeHTTP(w, r)
+		case XylonaSyncNodeProcedure:
+			xylonaSyncNodeHandler.ServeHTTP(w, r)
 		case XylonaListAggregatedGameServersProcedure:
 			xylonaListAggregatedGameServersHandler.ServeHTTP(w, r)
 		default:
@@ -1631,28 +1509,8 @@ func (UnimplementedXylonaHandler) DeleteLocalSecretKey(context.Context, *connect
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteLocalSecretKey is not implemented"))
 }
 
-func (UnimplementedXylonaHandler) ListPeerNodes(context.Context, *connect.Request[xylona.ListPeerNodesRequest]) (*connect.Response[xylona.ListPeerNodesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListPeerNodes is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) GetPeerNode(context.Context, *connect.Request[xylona.GetPeerNodeRequest]) (*connect.Response[xylona.GetPeerNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetPeerNode is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) AddPeerNode(context.Context, *connect.Request[xylona.AddPeerNodeRequest]) (*connect.Response[xylona.AddPeerNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.AddPeerNode is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) RemovePeerNode(context.Context, *connect.Request[xylona.RemovePeerNodeRequest]) (*connect.Response[xylona.RemovePeerNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RemovePeerNode is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) EditPeerNode(context.Context, *connect.Request[xylona.EditPeerNodeRequest]) (*connect.Response[xylona.EditPeerNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.EditPeerNode is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) SyncPeerNode(context.Context, *connect.Request[xylona.SyncPeerNodeRequest]) (*connect.Response[xylona.SyncPeerNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SyncPeerNode is not implemented"))
+func (UnimplementedXylonaHandler) SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SyncNode is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {

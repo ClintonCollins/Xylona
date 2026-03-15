@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
@@ -21,16 +22,28 @@ import (
 	"github.com/stephenafamo/bob/dialect/sqlite/um"
 	"github.com/stephenafamo/bob/expr"
 	"github.com/stephenafamo/bob/mods"
+	"github.com/stephenafamo/bob/orm"
 )
 
 // Node is an object representing the database table.
 type Node struct {
-	ID        string           `db:"id,pk" `
-	Name      string           `db:"name" `
-	SecretKey null.Val[string] `db:"secret_key" `
-	IsLocal   bool             `db:"is_local" `
-	Host      string           `db:"host" `
-	Port      int32            `db:"port" `
+	ID              string              `db:"id,pk" `
+	Name            string              `db:"name" `
+	SecretKey       null.Val[string]    `db:"secret_key" `
+	IsLocal         bool                `db:"is_local" `
+	Host            string              `db:"host" `
+	Port            int32               `db:"port" `
+	BaseURL         string              `db:"base_url" `
+	Enabled         bool                `db:"enabled" `
+	LastSeenAt      null.Val[time.Time] `db:"last_seen_at" `
+	LastSyncAt      null.Val[time.Time] `db:"last_sync_at" `
+	LastSyncStatus  string              `db:"last_sync_status" `
+	HealthStatus    string              `db:"health_status" `
+	Version         string              `db:"version" `
+	ProtocolVersion int32               `db:"protocol_version" `
+	Capabilities    string              `db:"capabilities" `
+	CreatedAt       null.Val[time.Time] `db:"created_at" `
+	UpdatedAt       null.Val[time.Time] `db:"updated_at" `
 
 	R nodeR `db:"-" `
 }
@@ -47,29 +60,53 @@ type NodesQuery = *sqlite.ViewQuery[*Node, NodeSlice]
 
 // nodeR is where relationships are stored.
 type nodeR struct {
-	GameServers    GameServerSlice    // fk_game_server_0
-	NodeSyncQueues NodeSyncQueueSlice // fk_node_sync_queue_0
+	GameServers        GameServerSlice        // fk_game_server_0
+	NodeSyncQueues     NodeSyncQueueSlice     // fk_node_sync_queue_0
+	PeerSyncState      *PeerSyncState         // fk_peer_sync_state_0
+	RemoteServerCaches RemoteServerCacheSlice // fk_remote_server_cache_0
 }
 
 type nodeColumnNames struct {
-	ID        string
-	Name      string
-	SecretKey string
-	IsLocal   string
-	Host      string
-	Port      string
+	ID              string
+	Name            string
+	SecretKey       string
+	IsLocal         string
+	Host            string
+	Port            string
+	BaseURL         string
+	Enabled         string
+	LastSeenAt      string
+	LastSyncAt      string
+	LastSyncStatus  string
+	HealthStatus    string
+	Version         string
+	ProtocolVersion string
+	Capabilities    string
+	CreatedAt       string
+	UpdatedAt       string
 }
 
 var NodeColumns = buildNodeColumns("node")
 
 type nodeColumns struct {
-	tableAlias string
-	ID         sqlite.Expression
-	Name       sqlite.Expression
-	SecretKey  sqlite.Expression
-	IsLocal    sqlite.Expression
-	Host       sqlite.Expression
-	Port       sqlite.Expression
+	tableAlias      string
+	ID              sqlite.Expression
+	Name            sqlite.Expression
+	SecretKey       sqlite.Expression
+	IsLocal         sqlite.Expression
+	Host            sqlite.Expression
+	Port            sqlite.Expression
+	BaseURL         sqlite.Expression
+	Enabled         sqlite.Expression
+	LastSeenAt      sqlite.Expression
+	LastSyncAt      sqlite.Expression
+	LastSyncStatus  sqlite.Expression
+	HealthStatus    sqlite.Expression
+	Version         sqlite.Expression
+	ProtocolVersion sqlite.Expression
+	Capabilities    sqlite.Expression
+	CreatedAt       sqlite.Expression
+	UpdatedAt       sqlite.Expression
 }
 
 func (c nodeColumns) Alias() string {
@@ -82,23 +119,45 @@ func (nodeColumns) AliasedAs(alias string) nodeColumns {
 
 func buildNodeColumns(alias string) nodeColumns {
 	return nodeColumns{
-		tableAlias: alias,
-		ID:         sqlite.Quote(alias, "id"),
-		Name:       sqlite.Quote(alias, "name"),
-		SecretKey:  sqlite.Quote(alias, "secret_key"),
-		IsLocal:    sqlite.Quote(alias, "is_local"),
-		Host:       sqlite.Quote(alias, "host"),
-		Port:       sqlite.Quote(alias, "port"),
+		tableAlias:      alias,
+		ID:              sqlite.Quote(alias, "id"),
+		Name:            sqlite.Quote(alias, "name"),
+		SecretKey:       sqlite.Quote(alias, "secret_key"),
+		IsLocal:         sqlite.Quote(alias, "is_local"),
+		Host:            sqlite.Quote(alias, "host"),
+		Port:            sqlite.Quote(alias, "port"),
+		BaseURL:         sqlite.Quote(alias, "base_url"),
+		Enabled:         sqlite.Quote(alias, "enabled"),
+		LastSeenAt:      sqlite.Quote(alias, "last_seen_at"),
+		LastSyncAt:      sqlite.Quote(alias, "last_sync_at"),
+		LastSyncStatus:  sqlite.Quote(alias, "last_sync_status"),
+		HealthStatus:    sqlite.Quote(alias, "health_status"),
+		Version:         sqlite.Quote(alias, "version"),
+		ProtocolVersion: sqlite.Quote(alias, "protocol_version"),
+		Capabilities:    sqlite.Quote(alias, "capabilities"),
+		CreatedAt:       sqlite.Quote(alias, "created_at"),
+		UpdatedAt:       sqlite.Quote(alias, "updated_at"),
 	}
 }
 
 type nodeWhere[Q sqlite.Filterable] struct {
-	ID        sqlite.WhereMod[Q, string]
-	Name      sqlite.WhereMod[Q, string]
-	SecretKey sqlite.WhereNullMod[Q, string]
-	IsLocal   sqlite.WhereMod[Q, bool]
-	Host      sqlite.WhereMod[Q, string]
-	Port      sqlite.WhereMod[Q, int32]
+	ID              sqlite.WhereMod[Q, string]
+	Name            sqlite.WhereMod[Q, string]
+	SecretKey       sqlite.WhereNullMod[Q, string]
+	IsLocal         sqlite.WhereMod[Q, bool]
+	Host            sqlite.WhereMod[Q, string]
+	Port            sqlite.WhereMod[Q, int32]
+	BaseURL         sqlite.WhereMod[Q, string]
+	Enabled         sqlite.WhereMod[Q, bool]
+	LastSeenAt      sqlite.WhereNullMod[Q, time.Time]
+	LastSyncAt      sqlite.WhereNullMod[Q, time.Time]
+	LastSyncStatus  sqlite.WhereMod[Q, string]
+	HealthStatus    sqlite.WhereMod[Q, string]
+	Version         sqlite.WhereMod[Q, string]
+	ProtocolVersion sqlite.WhereMod[Q, int32]
+	Capabilities    sqlite.WhereMod[Q, string]
+	CreatedAt       sqlite.WhereNullMod[Q, time.Time]
+	UpdatedAt       sqlite.WhereNullMod[Q, time.Time]
 }
 
 func (nodeWhere[Q]) AliasedAs(alias string) nodeWhere[Q] {
@@ -107,12 +166,23 @@ func (nodeWhere[Q]) AliasedAs(alias string) nodeWhere[Q] {
 
 func buildNodeWhere[Q sqlite.Filterable](cols nodeColumns) nodeWhere[Q] {
 	return nodeWhere[Q]{
-		ID:        sqlite.Where[Q, string](cols.ID),
-		Name:      sqlite.Where[Q, string](cols.Name),
-		SecretKey: sqlite.WhereNull[Q, string](cols.SecretKey),
-		IsLocal:   sqlite.Where[Q, bool](cols.IsLocal),
-		Host:      sqlite.Where[Q, string](cols.Host),
-		Port:      sqlite.Where[Q, int32](cols.Port),
+		ID:              sqlite.Where[Q, string](cols.ID),
+		Name:            sqlite.Where[Q, string](cols.Name),
+		SecretKey:       sqlite.WhereNull[Q, string](cols.SecretKey),
+		IsLocal:         sqlite.Where[Q, bool](cols.IsLocal),
+		Host:            sqlite.Where[Q, string](cols.Host),
+		Port:            sqlite.Where[Q, int32](cols.Port),
+		BaseURL:         sqlite.Where[Q, string](cols.BaseURL),
+		Enabled:         sqlite.Where[Q, bool](cols.Enabled),
+		LastSeenAt:      sqlite.WhereNull[Q, time.Time](cols.LastSeenAt),
+		LastSyncAt:      sqlite.WhereNull[Q, time.Time](cols.LastSyncAt),
+		LastSyncStatus:  sqlite.Where[Q, string](cols.LastSyncStatus),
+		HealthStatus:    sqlite.Where[Q, string](cols.HealthStatus),
+		Version:         sqlite.Where[Q, string](cols.Version),
+		ProtocolVersion: sqlite.Where[Q, int32](cols.ProtocolVersion),
+		Capabilities:    sqlite.Where[Q, string](cols.Capabilities),
+		CreatedAt:       sqlite.WhereNull[Q, time.Time](cols.CreatedAt),
+		UpdatedAt:       sqlite.WhereNull[Q, time.Time](cols.UpdatedAt),
 	}
 }
 
@@ -120,16 +190,27 @@ func buildNodeWhere[Q sqlite.Filterable](cols nodeColumns) nodeWhere[Q] {
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type NodeSetter struct {
-	ID        omit.Val[string]     `db:"id,pk" `
-	Name      omit.Val[string]     `db:"name" `
-	SecretKey omitnull.Val[string] `db:"secret_key" `
-	IsLocal   omit.Val[bool]       `db:"is_local" `
-	Host      omit.Val[string]     `db:"host" `
-	Port      omit.Val[int32]      `db:"port" `
+	ID              omit.Val[string]        `db:"id,pk" `
+	Name            omit.Val[string]        `db:"name" `
+	SecretKey       omitnull.Val[string]    `db:"secret_key" `
+	IsLocal         omit.Val[bool]          `db:"is_local" `
+	Host            omit.Val[string]        `db:"host" `
+	Port            omit.Val[int32]         `db:"port" `
+	BaseURL         omit.Val[string]        `db:"base_url" `
+	Enabled         omit.Val[bool]          `db:"enabled" `
+	LastSeenAt      omitnull.Val[time.Time] `db:"last_seen_at" `
+	LastSyncAt      omitnull.Val[time.Time] `db:"last_sync_at" `
+	LastSyncStatus  omit.Val[string]        `db:"last_sync_status" `
+	HealthStatus    omit.Val[string]        `db:"health_status" `
+	Version         omit.Val[string]        `db:"version" `
+	ProtocolVersion omit.Val[int32]         `db:"protocol_version" `
+	Capabilities    omit.Val[string]        `db:"capabilities" `
+	CreatedAt       omitnull.Val[time.Time] `db:"created_at" `
+	UpdatedAt       omitnull.Val[time.Time] `db:"updated_at" `
 }
 
 func (s NodeSetter) SetColumns() []string {
-	vals := make([]string, 0, 6)
+	vals := make([]string, 0, 17)
 	if !s.ID.IsUnset() {
 		vals = append(vals, "id")
 	}
@@ -154,6 +235,50 @@ func (s NodeSetter) SetColumns() []string {
 		vals = append(vals, "port")
 	}
 
+	if !s.BaseURL.IsUnset() {
+		vals = append(vals, "base_url")
+	}
+
+	if !s.Enabled.IsUnset() {
+		vals = append(vals, "enabled")
+	}
+
+	if !s.LastSeenAt.IsUnset() {
+		vals = append(vals, "last_seen_at")
+	}
+
+	if !s.LastSyncAt.IsUnset() {
+		vals = append(vals, "last_sync_at")
+	}
+
+	if !s.LastSyncStatus.IsUnset() {
+		vals = append(vals, "last_sync_status")
+	}
+
+	if !s.HealthStatus.IsUnset() {
+		vals = append(vals, "health_status")
+	}
+
+	if !s.Version.IsUnset() {
+		vals = append(vals, "version")
+	}
+
+	if !s.ProtocolVersion.IsUnset() {
+		vals = append(vals, "protocol_version")
+	}
+
+	if !s.Capabilities.IsUnset() {
+		vals = append(vals, "capabilities")
+	}
+
+	if !s.CreatedAt.IsUnset() {
+		vals = append(vals, "created_at")
+	}
+
+	if !s.UpdatedAt.IsUnset() {
+		vals = append(vals, "updated_at")
+	}
+
 	return vals
 }
 
@@ -176,6 +301,39 @@ func (s NodeSetter) Overwrite(t *Node) {
 	if !s.Port.IsUnset() {
 		t.Port, _ = s.Port.Get()
 	}
+	if !s.BaseURL.IsUnset() {
+		t.BaseURL, _ = s.BaseURL.Get()
+	}
+	if !s.Enabled.IsUnset() {
+		t.Enabled, _ = s.Enabled.Get()
+	}
+	if !s.LastSeenAt.IsUnset() {
+		t.LastSeenAt, _ = s.LastSeenAt.GetNull()
+	}
+	if !s.LastSyncAt.IsUnset() {
+		t.LastSyncAt, _ = s.LastSyncAt.GetNull()
+	}
+	if !s.LastSyncStatus.IsUnset() {
+		t.LastSyncStatus, _ = s.LastSyncStatus.Get()
+	}
+	if !s.HealthStatus.IsUnset() {
+		t.HealthStatus, _ = s.HealthStatus.Get()
+	}
+	if !s.Version.IsUnset() {
+		t.Version, _ = s.Version.Get()
+	}
+	if !s.ProtocolVersion.IsUnset() {
+		t.ProtocolVersion, _ = s.ProtocolVersion.Get()
+	}
+	if !s.Capabilities.IsUnset() {
+		t.Capabilities, _ = s.Capabilities.Get()
+	}
+	if !s.CreatedAt.IsUnset() {
+		t.CreatedAt, _ = s.CreatedAt.GetNull()
+	}
+	if !s.UpdatedAt.IsUnset() {
+		t.UpdatedAt, _ = s.UpdatedAt.GetNull()
+	}
 }
 
 func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
@@ -188,7 +346,7 @@ func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.Writer, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 6)
+		vals := make([]bob.Expression, 0, 17)
 		if !s.ID.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.ID))
 		}
@@ -213,6 +371,50 @@ func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.Port))
 		}
 
+		if !s.BaseURL.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.BaseURL))
+		}
+
+		if !s.Enabled.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.Enabled))
+		}
+
+		if !s.LastSeenAt.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.LastSeenAt))
+		}
+
+		if !s.LastSyncAt.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.LastSyncAt))
+		}
+
+		if !s.LastSyncStatus.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.LastSyncStatus))
+		}
+
+		if !s.HealthStatus.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.HealthStatus))
+		}
+
+		if !s.Version.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.Version))
+		}
+
+		if !s.ProtocolVersion.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.ProtocolVersion))
+		}
+
+		if !s.Capabilities.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.Capabilities))
+		}
+
+		if !s.CreatedAt.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.CreatedAt))
+		}
+
+		if !s.UpdatedAt.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.UpdatedAt))
+		}
+
 		return bob.ExpressSlice(ctx, w, d, start, vals, "", ", ", "")
 	}))
 }
@@ -222,7 +424,7 @@ func (s NodeSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s NodeSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 6)
+	exprs := make([]bob.Expression, 0, 17)
 
 	if !s.ID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -263,6 +465,83 @@ func (s NodeSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "port")...),
 			sqlite.Arg(s.Port),
+		}})
+	}
+
+	if !s.BaseURL.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "base_url")...),
+			sqlite.Arg(s.BaseURL),
+		}})
+	}
+
+	if !s.Enabled.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "enabled")...),
+			sqlite.Arg(s.Enabled),
+		}})
+	}
+
+	if !s.LastSeenAt.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "last_seen_at")...),
+			sqlite.Arg(s.LastSeenAt),
+		}})
+	}
+
+	if !s.LastSyncAt.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "last_sync_at")...),
+			sqlite.Arg(s.LastSyncAt),
+		}})
+	}
+
+	if !s.LastSyncStatus.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "last_sync_status")...),
+			sqlite.Arg(s.LastSyncStatus),
+		}})
+	}
+
+	if !s.HealthStatus.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "health_status")...),
+			sqlite.Arg(s.HealthStatus),
+		}})
+	}
+
+	if !s.Version.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "version")...),
+			sqlite.Arg(s.Version),
+		}})
+	}
+
+	if !s.ProtocolVersion.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "protocol_version")...),
+			sqlite.Arg(s.ProtocolVersion),
+		}})
+	}
+
+	if !s.Capabilities.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "capabilities")...),
+			sqlite.Arg(s.Capabilities),
+		}})
+	}
+
+	if !s.CreatedAt.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "created_at")...),
+			sqlite.Arg(s.CreatedAt),
+		}})
+	}
+
+	if !s.UpdatedAt.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "updated_at")...),
+			sqlite.Arg(s.UpdatedAt),
 		}})
 	}
 
@@ -493,9 +772,11 @@ func (o NodeSlice) ReloadAll(ctx context.Context, exec bob.Executor) error {
 }
 
 type nodeJoins[Q dialect.Joinable] struct {
-	typ            string
-	GameServers    func(context.Context) modAs[Q, gameServerColumns]
-	NodeSyncQueues func(context.Context) modAs[Q, nodeSyncQueueColumns]
+	typ                string
+	GameServers        func(context.Context) modAs[Q, gameServerColumns]
+	NodeSyncQueues     func(context.Context) modAs[Q, nodeSyncQueueColumns]
+	PeerSyncState      func(context.Context) modAs[Q, peerSyncStateColumns]
+	RemoteServerCaches func(context.Context) modAs[Q, remoteServerCacheColumns]
 }
 
 func (j nodeJoins[Q]) aliasedAs(alias string) nodeJoins[Q] {
@@ -504,9 +785,11 @@ func (j nodeJoins[Q]) aliasedAs(alias string) nodeJoins[Q] {
 
 func buildNodeJoins[Q dialect.Joinable](cols nodeColumns, typ string) nodeJoins[Q] {
 	return nodeJoins[Q]{
-		typ:            typ,
-		GameServers:    nodesJoinGameServers[Q](cols, typ),
-		NodeSyncQueues: nodesJoinNodeSyncQueues[Q](cols, typ),
+		typ:                typ,
+		GameServers:        nodesJoinGameServers[Q](cols, typ),
+		NodeSyncQueues:     nodesJoinNodeSyncQueues[Q](cols, typ),
+		PeerSyncState:      nodesJoinPeerSyncState[Q](cols, typ),
+		RemoteServerCaches: nodesJoinRemoteServerCaches[Q](cols, typ),
 	}
 }
 
@@ -538,6 +821,44 @@ func nodesJoinNodeSyncQueues[Q dialect.Joinable](from nodeColumns, typ string) f
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, NodeSyncQueues.Name().As(to.Alias())).On(
+						to.NodeID.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
+	}
+}
+
+func nodesJoinPeerSyncState[Q dialect.Joinable](from nodeColumns, typ string) func(context.Context) modAs[Q, peerSyncStateColumns] {
+	return func(ctx context.Context) modAs[Q, peerSyncStateColumns] {
+		return modAs[Q, peerSyncStateColumns]{
+			c: PeerSyncStateColumns,
+			f: func(to peerSyncStateColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, PeerSyncStates.Name().As(to.Alias())).On(
+						to.NodeID.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
+	}
+}
+
+func nodesJoinRemoteServerCaches[Q dialect.Joinable](from nodeColumns, typ string) func(context.Context) modAs[Q, remoteServerCacheColumns] {
+	return func(ctx context.Context) modAs[Q, remoteServerCacheColumns] {
+		return modAs[Q, remoteServerCacheColumns]{
+			c: RemoteServerCacheColumns,
+			f: func(to remoteServerCacheColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, RemoteServerCaches.Name().As(to.Alias())).On(
 						to.NodeID.EQ(from.ID),
 					))
 				}
@@ -584,6 +905,42 @@ func (os NodeSlice) NodeSyncQueues(mods ...bob.Mod[*dialect.SelectQuery]) NodeSy
 	)...)
 }
 
+// PeerSyncState starts a query for related objects on peer_sync_state
+func (o *Node) PeerSyncState(mods ...bob.Mod[*dialect.SelectQuery]) PeerSyncStatesQuery {
+	return PeerSyncStates.Query(append(mods,
+		sm.Where(PeerSyncStateColumns.NodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) PeerSyncState(mods ...bob.Mod[*dialect.SelectQuery]) PeerSyncStatesQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return PeerSyncStates.Query(append(mods,
+		sm.Where(sqlite.Group(PeerSyncStateColumns.NodeID).In(PKArgs...)),
+	)...)
+}
+
+// RemoteServerCaches starts a query for related objects on remote_server_cache
+func (o *Node) RemoteServerCaches(mods ...bob.Mod[*dialect.SelectQuery]) RemoteServerCachesQuery {
+	return RemoteServerCaches.Query(append(mods,
+		sm.Where(RemoteServerCacheColumns.NodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) RemoteServerCaches(mods ...bob.Mod[*dialect.SelectQuery]) RemoteServerCachesQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return RemoteServerCaches.Query(append(mods,
+		sm.Where(sqlite.Group(RemoteServerCacheColumns.NodeID).In(PKArgs...)),
+	)...)
+}
+
 func (o *Node) Preload(name string, retrieved any) error {
 	if o == nil {
 		return nil
@@ -611,6 +968,32 @@ func (o *Node) Preload(name string, retrieved any) error {
 		}
 
 		o.R.NodeSyncQueues = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.Node = o
+			}
+		}
+		return nil
+	case "PeerSyncState":
+		rel, ok := retrieved.(*PeerSyncState)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.PeerSyncState = rel
+
+		if rel != nil {
+			rel.R.Node = o
+		}
+		return nil
+	case "RemoteServerCaches":
+		rels, ok := retrieved.(RemoteServerCacheSlice)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.RemoteServerCaches = rels
 
 		for _, rel := range rels {
 			if rel != nil {
@@ -767,6 +1150,163 @@ func (os NodeSlice) LoadNodeNodeSyncQueues(ctx context.Context, exec bob.Executo
 	return nil
 }
 
+func PreloadNodePeerSyncState(opts ...sqlite.PreloadOption) sqlite.Preloader {
+	return sqlite.Preload[*PeerSyncState, PeerSyncStateSlice](orm.Relationship{
+		Name: "PeerSyncState",
+		Sides: []orm.RelSide{
+			{
+				From: TableNames.Nodes,
+				To:   TableNames.PeerSyncStates,
+				FromColumns: []string{
+					ColumnNames.Nodes.ID,
+				},
+				ToColumns: []string{
+					ColumnNames.PeerSyncStates.NodeID,
+				},
+			},
+		},
+	}, PeerSyncStates.Columns().Names(), opts...)
+}
+
+func ThenLoadNodePeerSyncState(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadNodePeerSyncState(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load NodePeerSyncState", retrieved)
+		}
+
+		err := loader.LoadNodePeerSyncState(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadNodePeerSyncState loads the node's PeerSyncState into the .R struct
+func (o *Node) LoadNodePeerSyncState(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.PeerSyncState = nil
+
+	related, err := o.PeerSyncState(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.Node = o
+
+	o.R.PeerSyncState = related
+	return nil
+}
+
+// LoadNodePeerSyncState loads the node's PeerSyncState into the .R struct
+func (os NodeSlice) LoadNodePeerSyncState(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	peerSyncStates, err := os.PeerSyncState(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		for _, rel := range peerSyncStates {
+			if o.ID != rel.NodeID {
+				continue
+			}
+
+			rel.R.Node = o
+
+			o.R.PeerSyncState = rel
+			break
+		}
+	}
+
+	return nil
+}
+
+func ThenLoadNodeRemoteServerCaches(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadNodeRemoteServerCaches(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load NodeRemoteServerCaches", retrieved)
+		}
+
+		err := loader.LoadNodeRemoteServerCaches(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadNodeRemoteServerCaches loads the node's RemoteServerCaches into the .R struct
+func (o *Node) LoadNodeRemoteServerCaches(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.RemoteServerCaches = nil
+
+	related, err := o.RemoteServerCaches(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.Node = o
+	}
+
+	o.R.RemoteServerCaches = related
+	return nil
+}
+
+// LoadNodeRemoteServerCaches loads the node's RemoteServerCaches into the .R struct
+func (os NodeSlice) LoadNodeRemoteServerCaches(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	remoteServerCaches, err := os.RemoteServerCaches(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		o.R.RemoteServerCaches = nil
+	}
+
+	for _, o := range os {
+		for _, rel := range remoteServerCaches {
+			if o.ID != rel.NodeID {
+				continue
+			}
+
+			rel.R.Node = o
+
+			o.R.RemoteServerCaches = append(o.R.RemoteServerCaches, rel)
+		}
+	}
+
+	return nil
+}
+
 func insertNodeGameServers0(ctx context.Context, exec bob.Executor, gameServers1 []*GameServerSetter, node0 *Node) (GameServerSlice, error) {
 	for i := range gameServers1 {
 		gameServers1[i].NodeID = omit.From(node0.ID)
@@ -895,6 +1435,126 @@ func (node0 *Node) AttachNodeSyncQueues(ctx context.Context, exec bob.Executor, 
 	}
 
 	node0.R.NodeSyncQueues = append(node0.R.NodeSyncQueues, nodeSyncQueues1...)
+
+	for _, rel := range related {
+		rel.R.Node = node0
+	}
+
+	return nil
+}
+
+func insertNodePeerSyncState0(ctx context.Context, exec bob.Executor, peerSyncState1 *PeerSyncStateSetter, node0 *Node) (*PeerSyncState, error) {
+	peerSyncState1.NodeID = omit.From(node0.ID)
+
+	ret, err := PeerSyncStates.Insert(peerSyncState1).One(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodePeerSyncState0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodePeerSyncState0(ctx context.Context, exec bob.Executor, count int, peerSyncState1 *PeerSyncState, node0 *Node) (*PeerSyncState, error) {
+	setter := &PeerSyncStateSetter{
+		NodeID: omit.From(node0.ID),
+	}
+
+	err := peerSyncState1.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodePeerSyncState0: %w", err)
+	}
+
+	return peerSyncState1, nil
+}
+
+func (node0 *Node) InsertPeerSyncState(ctx context.Context, exec bob.Executor, related *PeerSyncStateSetter) error {
+	peerSyncState1, err := insertNodePeerSyncState0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.PeerSyncState = peerSyncState1
+
+	peerSyncState1.R.Node = node0
+
+	return nil
+}
+
+func (node0 *Node) AttachPeerSyncState(ctx context.Context, exec bob.Executor, peerSyncState1 *PeerSyncState) error {
+	var err error
+
+	_, err = attachNodePeerSyncState0(ctx, exec, 1, peerSyncState1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.PeerSyncState = peerSyncState1
+
+	peerSyncState1.R.Node = node0
+
+	return nil
+}
+
+func insertNodeRemoteServerCaches0(ctx context.Context, exec bob.Executor, remoteServerCaches1 []*RemoteServerCacheSetter, node0 *Node) (RemoteServerCacheSlice, error) {
+	for i := range remoteServerCaches1 {
+		remoteServerCaches1[i].NodeID = omit.From(node0.ID)
+	}
+
+	ret, err := RemoteServerCaches.Insert(bob.ToMods(remoteServerCaches1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodeRemoteServerCaches0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodeRemoteServerCaches0(ctx context.Context, exec bob.Executor, count int, remoteServerCaches1 RemoteServerCacheSlice, node0 *Node) (RemoteServerCacheSlice, error) {
+	setter := &RemoteServerCacheSetter{
+		NodeID: omit.From(node0.ID),
+	}
+
+	err := remoteServerCaches1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodeRemoteServerCaches0: %w", err)
+	}
+
+	return remoteServerCaches1, nil
+}
+
+func (node0 *Node) InsertRemoteServerCaches(ctx context.Context, exec bob.Executor, related ...*RemoteServerCacheSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	remoteServerCaches1, err := insertNodeRemoteServerCaches0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.RemoteServerCaches = append(node0.R.RemoteServerCaches, remoteServerCaches1...)
+
+	for _, rel := range remoteServerCaches1 {
+		rel.R.Node = node0
+	}
+	return nil
+}
+
+func (node0 *Node) AttachRemoteServerCaches(ctx context.Context, exec bob.Executor, related ...*RemoteServerCache) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	remoteServerCaches1 := RemoteServerCacheSlice(related)
+
+	_, err = attachNodeRemoteServerCaches0(ctx, exec, len(related), remoteServerCaches1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.RemoteServerCaches = append(node0.R.RemoteServerCaches, remoteServerCaches1...)
 
 	for _, rel := range related {
 		rel.R.Node = node0

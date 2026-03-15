@@ -6,104 +6,17 @@ import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegen
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv1";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { GameServer, Status } from "./shared_pb";
+import type { GameServer, ServerQuery, Status } from "./shared_pb";
 import { file_shared } from "./shared_pb";
+import type { File } from "./gameserver_files_operations_pb";
+import { file_gameserver_files_operations } from "./gameserver_files_operations_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file federation.proto.
  */
 export const file_federation: GenFile = /*@__PURE__*/
-  fileDesc("ChBmZWRlcmF0aW9uLnByb3RvEgZ4eWxvbmEiogMKCFBlZXJOb2RlEgoKAmlkGAEgASgJEg8KB25vZGVfaWQYAiABKAkSDAoEbmFtZRgDIAEoCRIQCghiYXNlX3VybBgEIAEoCRIPCgdlbmFibGVkGAUgASgIEhIKCnNlY3JldF9rZXkYBiABKAkSMAoMbGFzdF9zZWVuX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxsYXN0X3N5bmNfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKEGxhc3Rfc3luY19zdGF0dXMYCSABKAkSFQoNaGVhbHRoX3N0YXR1cxgKIAEoCRIPCgd2ZXJzaW9uGAsgASgJEhgKEHByb3RvY29sX3ZlcnNpb24YDCABKAUSFAoMY2FwYWJpbGl0aWVzGA0gASgJEi4KCmNyZWF0ZWRfYXQYDiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYDyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIu4DChNSZW1vdGVTZXJ2ZXJTdW1tYXJ5EgoKAmlkGAEgASgJEhYKDnNvdXJjZV9ub2RlX2lkGAIgASgJEhQKDHBlZXJfbm9kZV9pZBgDIAEoCRIYChByZW1vdGVfc2VydmVyX2lkGAQgASgJEhQKDGRpc3BsYXlfbmFtZRgFIAEoCRIeCgZzdGF0dXMYBiABKA4yDi54eWxvbmEuU3RhdHVzEhEKCWdhbWVfbmFtZRgHIAEoCRIPCgdnYW1lX2lkGAggASgJEhIKCmlwX2FkZHJlc3MYCSABKAkSDAoEcG9ydBgKIAEoAxISCgpxdWVyeV9wb3J0GAsgASgDEhMKC21heF9wbGF5ZXJzGAwgASgDEhcKD2N1cnJlbnRfcGxheWVycxgNIAEoAxIQCghtYXBfbmFtZRgOIAEoCRIPCgd2ZXJzaW9uGA8gASgJEhEKCW5vZGVfbmFtZRgQIAEoCRIRCglub2RlX2hvc3QYESABKAkSNgoSbGFzdF9yZW1vdGVfdXBkYXRlGBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3N5bmNlZF9hdBgTIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIaXNfc3RhbGUYFCABKAgihgEKFEFnZ3JlZ2F0ZWRHYW1lU2VydmVyEhAKCGlzX2xvY2FsGAEgASgIEigKDGxvY2FsX3NlcnZlchgCIAEoCzISLnh5bG9uYS5HYW1lU2VydmVyEjIKDXJlbW90ZV9zZXJ2ZXIYAyABKAsyGy54eWxvbmEuUmVtb3RlU2VydmVyU3VtbWFyeSIwChpGZWRlcmF0aW9uSGFuZHNoYWtlUmVxdWVzdBISCgpzZWNyZXRfa2V5GAEgASgJIrMBChtGZWRlcmF0aW9uSGFuZHNoYWtlUmVzcG9uc2USDwoHbm9kZV9pZBgBIAEoCRIRCglub2RlX25hbWUYAiABKAkSDwoHdmVyc2lvbhgDIAEoCRIYChBwcm90b2NvbF92ZXJzaW9uGAQgASgFEhQKDGNhcGFiaWxpdGllcxgFIAEoCRIvCgtzZXJ2ZXJfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiRQokRmVkZXJhdGlvbkxpc3RTZXJ2ZXJTdW1tYXJpZXNSZXF1ZXN0Eg4KBmN1cnNvchgBIAEoCRINCgVsaW1pdBgCIAEoBSK9AgoXRmVkZXJhdGlvblNlcnZlclN1bW1hcnkSEQoJc2VydmVyX2lkGAEgASgJEhQKDGRpc3BsYXlfbmFtZRgCIAEoCRIeCgZzdGF0dXMYAyABKA4yDi54eWxvbmEuU3RhdHVzEhEKCWdhbWVfbmFtZRgEIAEoCRIPCgdnYW1lX2lkGAUgASgJEhIKCmlwX2FkZHJlc3MYBiABKAkSDAoEcG9ydBgHIAEoAxISCgpxdWVyeV9wb3J0GAggASgDEhMKC21heF9wbGF5ZXJzGAkgASgDEhcKD2N1cnJlbnRfcGxheWVycxgKIAEoAxIQCghtYXBfbmFtZRgLIAEoCRIPCgd2ZXJzaW9uGAwgASgJEi4KCnVwZGF0ZWRfYXQYDSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIoABCiVGZWRlcmF0aW9uTGlzdFNlcnZlclN1bW1hcmllc1Jlc3BvbnNlEjAKB3NlcnZlcnMYASADKAsyHy54eWxvbmEuRmVkZXJhdGlvblNlcnZlclN1bW1hcnkSEwoLbmV4dF9jdXJzb3IYAiABKAkSEAoIaGFzX21vcmUYAyABKAgiNQogRmVkZXJhdGlvbkdldFNlcnZlckRldGFpbFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIlQKIUZlZGVyYXRpb25HZXRTZXJ2ZXJEZXRhaWxSZXNwb25zZRIvCgZzZXJ2ZXIYASABKAsyHy54eWxvbmEuRmVkZXJhdGlvblNlcnZlclN1bW1hcnkiMgodRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIkAKHkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIkcKHkZlZGVyYXRpb25TdHJlYW1Db25zb2xlUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSEgoKc2VjcmV0X2tleRgCIAEoCSJBChxGZWRlcmF0aW9uQ29uc29sZU91dHB1dENodW5rEhEKCXNlcnZlcl9pZBgBIAEoCRIOCgZvdXRwdXQYAiABKAkiRQohRmVkZXJhdGlvblNlbmRDb25zb2xlSW5wdXRSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRINCgVpbnB1dBgCIAEoCSJECiJGZWRlcmF0aW9uU2VuZENvbnNvbGVJbnB1dFJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkiNwoiRmVkZXJhdGlvblJlYWRDb25zb2xlQnVmZmVyUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiNQojRmVkZXJhdGlvblJlYWRDb25zb2xlQnVmZmVyUmVzcG9uc2USDgoGb3V0cHV0GAEgASgJIjsKJUZlZGVyYXRpb25TdHJlYW1TZXJ2ZXJTdGF0dXNlc1JlcXVlc3QSEgoKc2VjcmV0X2tleRgBIAEoCSJQChtGZWRlcmF0aW9uU2VydmVyU3RhdHVzRXZlbnQSEQoJc2VydmVyX2lkGAEgASgJEh4KBnN0YXR1cxgCIAEoDjIOLnh5bG9uYS5TdGF0dXMiFgoUTGlzdFBlZXJOb2Rlc1JlcXVlc3QiPQoVTGlzdFBlZXJOb2Rlc1Jlc3BvbnNlEiQKCnBlZXJfbm9kZXMYASADKAsyEC54eWxvbmEuUGVlck5vZGUiKgoSR2V0UGVlck5vZGVSZXF1ZXN0EhQKDHBlZXJfbm9kZV9pZBgBIAEoCSI6ChNHZXRQZWVyTm9kZVJlc3BvbnNlEiMKCXBlZXJfbm9kZRgBIAEoCzIQLnh5bG9uYS5QZWVyTm9kZSJIChJBZGRQZWVyTm9kZVJlcXVlc3QSDAoEbmFtZRgBIAEoCRIQCghiYXNlX3VybBgCIAEoCRISCgpzZWNyZXRfa2V5GAMgASgJIjoKE0FkZFBlZXJOb2RlUmVzcG9uc2USIwoJcGVlcl9ub2RlGAEgASgLMhAueHlsb25hLlBlZXJOb2RlIi0KFVJlbW92ZVBlZXJOb2RlUmVxdWVzdBIUCgxwZWVyX25vZGVfaWQYASABKAkiGAoWUmVtb3ZlUGVlck5vZGVSZXNwb25zZSJwChNFZGl0UGVlck5vZGVSZXF1ZXN0EhQKDHBlZXJfbm9kZV9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEhAKCGJhc2VfdXJsGAMgASgJEhIKCnNlY3JldF9rZXkYBCABKAkSDwoHZW5hYmxlZBgFIAEoCCI7ChRFZGl0UGVlck5vZGVSZXNwb25zZRIjCglwZWVyX25vZGUYASABKAsyEC54eWxvbmEuUGVlck5vZGUiKwoTU3luY1BlZXJOb2RlUmVxdWVzdBIUCgxwZWVyX25vZGVfaWQYASABKAkiNgoUU3luY1BlZXJOb2RlUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCSIiCiBMaXN0QWdncmVnYXRlZEdhbWVTZXJ2ZXJzUmVxdWVzdCJSCiFMaXN0QWdncmVnYXRlZEdhbWVTZXJ2ZXJzUmVzcG9uc2USLQoHc2VydmVycxgBIAMoCzIcLnh5bG9uYS5BZ2dyZWdhdGVkR2FtZVNlcnZlcjKtCAoKRmVkZXJhdGlvbhJWCglIYW5kc2hha2USIi54eWxvbmEuRmVkZXJhdGlvbkhhbmRzaGFrZVJlcXVlc3QaIy54eWxvbmEuRmVkZXJhdGlvbkhhbmRzaGFrZVJlc3BvbnNlIgASdAoTTGlzdFNlcnZlclN1bW1hcmllcxIsLnh5bG9uYS5GZWRlcmF0aW9uTGlzdFNlcnZlclN1bW1hcmllc1JlcXVlc3QaLS54eWxvbmEuRmVkZXJhdGlvbkxpc3RTZXJ2ZXJTdW1tYXJpZXNSZXNwb25zZSIAEmgKD0dldFNlcnZlckRldGFpbBIoLnh5bG9uYS5GZWRlcmF0aW9uR2V0U2VydmVyRGV0YWlsUmVxdWVzdBopLnh5bG9uYS5GZWRlcmF0aW9uR2V0U2VydmVyRGV0YWlsUmVzcG9uc2UiABJkChFTdGFydFJlbW90ZVNlcnZlchIlLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVxdWVzdBomLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVzcG9uc2UiABJjChBTdG9wUmVtb3RlU2VydmVyEiUueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXF1ZXN0GiYueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZSIAEmYKE1Jlc3RhcnRSZW1vdGVTZXJ2ZXISJS54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QaJi54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlc3BvbnNlIgASZwoTU3RyZWFtQ29uc29sZU91dHB1dBImLnh5bG9uYS5GZWRlcmF0aW9uU3RyZWFtQ29uc29sZVJlcXVlc3QaJC54eWxvbmEuRmVkZXJhdGlvbkNvbnNvbGVPdXRwdXRDaHVuayIAMAESawoQU2VuZENvbnNvbGVJbnB1dBIpLnh5bG9uYS5GZWRlcmF0aW9uU2VuZENvbnNvbGVJbnB1dFJlcXVlc3QaKi54eWxvbmEuRmVkZXJhdGlvblNlbmRDb25zb2xlSW5wdXRSZXNwb25zZSIAEm4KEVJlYWRDb25zb2xlQnVmZmVyEioueHlsb25hLkZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlcXVlc3QaKy54eWxvbmEuRmVkZXJhdGlvblJlYWRDb25zb2xlQnVmZmVyUmVzcG9uc2UiABJuChRTdHJlYW1TZXJ2ZXJTdGF0dXNlcxItLnh5bG9uYS5GZWRlcmF0aW9uU3RyZWFtU2VydmVyU3RhdHVzZXNSZXF1ZXN0GiMueHlsb25hLkZlZGVyYXRpb25TZXJ2ZXJTdGF0dXNFdmVudCIAMAFCMlowZ2l0aHViLmNvbS9DbGludG9uQ29sbGlucy9YeWxvbmEvcHJvdG8vZ28veHlsb25hYgZwcm90bzM", [file_google_protobuf_timestamp, file_shared]);
-
-/**
- * PeerNode represents a configured federation peer.
- *
- * @generated from message xylona.PeerNode
- */
-export type PeerNode = Message<"xylona.PeerNode"> & {
-  /**
-   * @generated from field: string id = 1;
-   */
-  id: string;
-
-  /**
-   * @generated from field: string node_id = 2;
-   */
-  nodeId: string;
-
-  /**
-   * @generated from field: string name = 3;
-   */
-  name: string;
-
-  /**
-   * @generated from field: string base_url = 4;
-   */
-  baseUrl: string;
-
-  /**
-   * @generated from field: bool enabled = 5;
-   */
-  enabled: boolean;
-
-  /**
-   * @generated from field: string secret_key = 6;
-   */
-  secretKey: string;
-
-  /**
-   * @generated from field: google.protobuf.Timestamp last_seen_at = 7;
-   */
-  lastSeenAt?: Timestamp;
-
-  /**
-   * @generated from field: google.protobuf.Timestamp last_sync_at = 8;
-   */
-  lastSyncAt?: Timestamp;
-
-  /**
-   * @generated from field: string last_sync_status = 9;
-   */
-  lastSyncStatus: string;
-
-  /**
-   * @generated from field: string health_status = 10;
-   */
-  healthStatus: string;
-
-  /**
-   * @generated from field: string version = 11;
-   */
-  version: string;
-
-  /**
-   * @generated from field: int32 protocol_version = 12;
-   */
-  protocolVersion: number;
-
-  /**
-   * @generated from field: string capabilities = 13;
-   */
-  capabilities: string;
-
-  /**
-   * @generated from field: google.protobuf.Timestamp created_at = 14;
-   */
-  createdAt?: Timestamp;
-
-  /**
-   * @generated from field: google.protobuf.Timestamp updated_at = 15;
-   */
-  updatedAt?: Timestamp;
-};
-
-/**
- * Describes the message xylona.PeerNode.
- * Use `create(PeerNodeSchema)` to create a new message.
- */
-export const PeerNodeSchema: GenMessage<PeerNode> = /*@__PURE__*/
-  messageDesc(file_federation, 0);
+  fileDesc("ChBmZWRlcmF0aW9uLnByb3RvEgZ4eWxvbmEi6QMKE1JlbW90ZVNlcnZlclN1bW1hcnkSCgoCaWQYASABKAkSFgoOc291cmNlX25vZGVfaWQYAiABKAkSDwoHbm9kZV9pZBgDIAEoCRIYChByZW1vdGVfc2VydmVyX2lkGAQgASgJEhQKDGRpc3BsYXlfbmFtZRgFIAEoCRIeCgZzdGF0dXMYBiABKA4yDi54eWxvbmEuU3RhdHVzEhEKCWdhbWVfbmFtZRgHIAEoCRIPCgdnYW1lX2lkGAggASgJEhIKCmlwX2FkZHJlc3MYCSABKAkSDAoEcG9ydBgKIAEoAxISCgpxdWVyeV9wb3J0GAsgASgDEhMKC21heF9wbGF5ZXJzGAwgASgDEhcKD2N1cnJlbnRfcGxheWVycxgNIAEoAxIQCghtYXBfbmFtZRgOIAEoCRIPCgd2ZXJzaW9uGA8gASgJEhEKCW5vZGVfbmFtZRgQIAEoCRIRCglub2RlX2hvc3QYESABKAkSNgoSbGFzdF9yZW1vdGVfdXBkYXRlGBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3N5bmNlZF9hdBgTIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIaXNfc3RhbGUYFCABKAgihgEKFEFnZ3JlZ2F0ZWRHYW1lU2VydmVyEhAKCGlzX2xvY2FsGAEgASgIEigKDGxvY2FsX3NlcnZlchgCIAEoCzISLnh5bG9uYS5HYW1lU2VydmVyEjIKDXJlbW90ZV9zZXJ2ZXIYAyABKAsyGy54eWxvbmEuUmVtb3RlU2VydmVyU3VtbWFyeSIwChpGZWRlcmF0aW9uSGFuZHNoYWtlUmVxdWVzdBISCgpzZWNyZXRfa2V5GAEgASgJIrMBChtGZWRlcmF0aW9uSGFuZHNoYWtlUmVzcG9uc2USDwoHbm9kZV9pZBgBIAEoCRIRCglub2RlX25hbWUYAiABKAkSDwoHdmVyc2lvbhgDIAEoCRIYChBwcm90b2NvbF92ZXJzaW9uGAQgASgFEhQKDGNhcGFiaWxpdGllcxgFIAEoCRIvCgtzZXJ2ZXJfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiRQokRmVkZXJhdGlvbkxpc3RTZXJ2ZXJTdW1tYXJpZXNSZXF1ZXN0Eg4KBmN1cnNvchgBIAEoCRINCgVsaW1pdBgCIAEoBSK9AgoXRmVkZXJhdGlvblNlcnZlclN1bW1hcnkSEQoJc2VydmVyX2lkGAEgASgJEhQKDGRpc3BsYXlfbmFtZRgCIAEoCRIeCgZzdGF0dXMYAyABKA4yDi54eWxvbmEuU3RhdHVzEhEKCWdhbWVfbmFtZRgEIAEoCRIPCgdnYW1lX2lkGAUgASgJEhIKCmlwX2FkZHJlc3MYBiABKAkSDAoEcG9ydBgHIAEoAxISCgpxdWVyeV9wb3J0GAggASgDEhMKC21heF9wbGF5ZXJzGAkgASgDEhcKD2N1cnJlbnRfcGxheWVycxgKIAEoAxIQCghtYXBfbmFtZRgLIAEoCRIPCgd2ZXJzaW9uGAwgASgJEi4KCnVwZGF0ZWRfYXQYDSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIoABCiVGZWRlcmF0aW9uTGlzdFNlcnZlclN1bW1hcmllc1Jlc3BvbnNlEjAKB3NlcnZlcnMYASADKAsyHy54eWxvbmEuRmVkZXJhdGlvblNlcnZlclN1bW1hcnkSEwoLbmV4dF9jdXJzb3IYAiABKAkSEAoIaGFzX21vcmUYAyABKAgiNQogRmVkZXJhdGlvbkdldFNlcnZlckRldGFpbFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIlQKIUZlZGVyYXRpb25HZXRTZXJ2ZXJEZXRhaWxSZXNwb25zZRIvCgZzZXJ2ZXIYASABKAsyHy54eWxvbmEuRmVkZXJhdGlvblNlcnZlclN1bW1hcnkiMgodRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIkAKHkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIlkKG0ZlZGVyYXRpb25FZGl0U2VydmVyUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSJwoLZ2FtZV9zZXJ2ZXIYAiABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJnChxGZWRlcmF0aW9uRWRpdFNlcnZlclJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSJwoLZ2FtZV9zZXJ2ZXIYAyABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJHCh5GZWRlcmF0aW9uU3RyZWFtQ29uc29sZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhIKCnNlY3JldF9rZXkYAiABKAkiQQocRmVkZXJhdGlvbkNvbnNvbGVPdXRwdXRDaHVuaxIRCglzZXJ2ZXJfaWQYASABKAkSDgoGb3V0cHV0GAIgASgJIkUKIUZlZGVyYXRpb25TZW5kQ29uc29sZUlucHV0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDQoFaW5wdXQYAiABKAkiRAoiRmVkZXJhdGlvblNlbmRDb25zb2xlSW5wdXRSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIjcKIkZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIjUKI0ZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlc3BvbnNlEg4KBm91dHB1dBgBIAEoCSI7CiVGZWRlcmF0aW9uU3RyZWFtU2VydmVyU3RhdHVzZXNSZXF1ZXN0EhIKCnNlY3JldF9rZXkYASABKAkiUAobRmVkZXJhdGlvblNlcnZlclN0YXR1c0V2ZW50EhEKCXNlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIjEKHEZlZGVyYXRpb25RdWVyeVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIkgKHUZlZGVyYXRpb25RdWVyeVNlcnZlclJlc3BvbnNlEicKCnF1ZXJ5X2luZm8YASABKAsyEy54eWxvbmEuU2VydmVyUXVlcnkiRgojRmVkZXJhdGlvbkxpc3REaXJlY3RvcnlGaWxlc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEgwKBHBhdGgYAiABKAkiQwokRmVkZXJhdGlvbkxpc3REaXJlY3RvcnlGaWxlc1Jlc3BvbnNlEhsKBWZpbGVzGAEgAygLMgwueHlsb25hLkZpbGUiVwoZRmVkZXJhdGlvbkVkaXRGaWxlUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSFgoOZnVsbF9maWxlX3BhdGgYAiABKAkSDwoHY29udGVudBgDIAEoCSI8ChpGZWRlcmF0aW9uRWRpdEZpbGVSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIkoKHEZlZGVyYXRpb25EZWxldGVGaWxlc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgCIAMoCSJYCh1GZWRlcmF0aW9uRGVsZXRlRmlsZXNSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgDIAMoCSJUChtGZWRlcmF0aW9uUmVuYW1lRmlsZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhAKCG9sZF9wYXRoGAIgASgJEhAKCG5ld19wYXRoGAMgASgJIlAKHEZlZGVyYXRpb25SZW5hbWVGaWxlUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCRIQCghuZXdfcGF0aBgDIAEoCSJnChpGZWRlcmF0aW9uTW92ZUZpbGVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSFwoPZnVsbF9maWxlX3BhdGhzGAIgAygJEh0KFWRlc3RpbmF0aW9uX2Jhc2VfcGF0aBgDIAEoCSJWChtGZWRlcmF0aW9uTW92ZUZpbGVzUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCRIXCg9mdWxsX2ZpbGVfcGF0aHMYAyADKAkiegomRmVkZXJhdGlvbkNyZWF0ZUZpbGVPckRpcmVjdG9yeVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhYKDmZ1bGxfZmlsZV9wYXRoGAIgASgJEg8KB2NvbnRlbnQYAyABKAkSFAoMaXNfZGlyZWN0b3J5GAQgASgIIkkKJ0ZlZGVyYXRpb25DcmVhdGVGaWxlT3JEaXJlY3RvcnlSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJImUKJEZlZGVyYXRpb25Eb3dubG9hZEZpbGVGcm9tVVJMUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSCwoDdXJsGAIgASgJEh0KFWRlc3RpbmF0aW9uX2Jhc2VfcGF0aBgDIAEoCSJaCiVGZWRlcmF0aW9uRG93bmxvYWRGaWxlRnJvbVVSTFJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSEQoJZmlsZV9wYXRoGAMgASgJIiIKD1N5bmNOb2RlUmVxdWVzdBIPCgdub2RlX2lkGAEgASgJIjIKEFN5bmNOb2RlUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCSIiCiBMaXN0QWdncmVnYXRlZEdhbWVTZXJ2ZXJzUmVxdWVzdCJSCiFMaXN0QWdncmVnYXRlZEdhbWVTZXJ2ZXJzUmVzcG9uc2USLQoHc2VydmVycxgBIAMoCzIcLnh5bG9uYS5BZ2dyZWdhdGVkR2FtZVNlcnZlcjK2EQoKRmVkZXJhdGlvbhJWCglIYW5kc2hha2USIi54eWxvbmEuRmVkZXJhdGlvbkhhbmRzaGFrZVJlcXVlc3QaIy54eWxvbmEuRmVkZXJhdGlvbkhhbmRzaGFrZVJlc3BvbnNlIgASdAoTTGlzdFNlcnZlclN1bW1hcmllcxIsLnh5bG9uYS5GZWRlcmF0aW9uTGlzdFNlcnZlclN1bW1hcmllc1JlcXVlc3QaLS54eWxvbmEuRmVkZXJhdGlvbkxpc3RTZXJ2ZXJTdW1tYXJpZXNSZXNwb25zZSIAEmgKD0dldFNlcnZlckRldGFpbBIoLnh5bG9uYS5GZWRlcmF0aW9uR2V0U2VydmVyRGV0YWlsUmVxdWVzdBopLnh5bG9uYS5GZWRlcmF0aW9uR2V0U2VydmVyRGV0YWlsUmVzcG9uc2UiABJkChFTdGFydFJlbW90ZVNlcnZlchIlLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVxdWVzdBomLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVzcG9uc2UiABJjChBTdG9wUmVtb3RlU2VydmVyEiUueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXF1ZXN0GiYueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZSIAEmYKE1Jlc3RhcnRSZW1vdGVTZXJ2ZXISJS54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QaJi54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlc3BvbnNlIgASZQoSVXBkYXRlUmVtb3RlU2VydmVyEiUueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXF1ZXN0GiYueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZSIAEl8KEEVkaXRSZW1vdGVTZXJ2ZXISIy54eWxvbmEuRmVkZXJhdGlvbkVkaXRTZXJ2ZXJSZXF1ZXN0GiQueHlsb25hLkZlZGVyYXRpb25FZGl0U2VydmVyUmVzcG9uc2UiABJlChJSZW1vdmVSZW1vdGVTZXJ2ZXISJS54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QaJi54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlc3BvbnNlIgASZwoTU3RyZWFtQ29uc29sZU91dHB1dBImLnh5bG9uYS5GZWRlcmF0aW9uU3RyZWFtQ29uc29sZVJlcXVlc3QaJC54eWxvbmEuRmVkZXJhdGlvbkNvbnNvbGVPdXRwdXRDaHVuayIAMAESawoQU2VuZENvbnNvbGVJbnB1dBIpLnh5bG9uYS5GZWRlcmF0aW9uU2VuZENvbnNvbGVJbnB1dFJlcXVlc3QaKi54eWxvbmEuRmVkZXJhdGlvblNlbmRDb25zb2xlSW5wdXRSZXNwb25zZSIAEm4KEVJlYWRDb25zb2xlQnVmZmVyEioueHlsb25hLkZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlcXVlc3QaKy54eWxvbmEuRmVkZXJhdGlvblJlYWRDb25zb2xlQnVmZmVyUmVzcG9uc2UiABJuChRTdHJlYW1TZXJ2ZXJTdGF0dXNlcxItLnh5bG9uYS5GZWRlcmF0aW9uU3RyZWFtU2VydmVyU3RhdHVzZXNSZXF1ZXN0GiMueHlsb25hLkZlZGVyYXRpb25TZXJ2ZXJTdGF0dXNFdmVudCIAMAESYgoRUXVlcnlSZW1vdGVTZXJ2ZXISJC54eWxvbmEuRmVkZXJhdGlvblF1ZXJ5U2VydmVyUmVxdWVzdBolLnh5bG9uYS5GZWRlcmF0aW9uUXVlcnlTZXJ2ZXJSZXNwb25zZSIAEncKGExpc3RSZW1vdGVEaXJlY3RvcnlGaWxlcxIrLnh5bG9uYS5GZWRlcmF0aW9uTGlzdERpcmVjdG9yeUZpbGVzUmVxdWVzdBosLnh5bG9uYS5GZWRlcmF0aW9uTGlzdERpcmVjdG9yeUZpbGVzUmVzcG9uc2UiABJZCg5FZGl0UmVtb3RlRmlsZRIhLnh5bG9uYS5GZWRlcmF0aW9uRWRpdEZpbGVSZXF1ZXN0GiIueHlsb25hLkZlZGVyYXRpb25FZGl0RmlsZVJlc3BvbnNlIgASYgoRRGVsZXRlUmVtb3RlRmlsZXMSJC54eWxvbmEuRmVkZXJhdGlvbkRlbGV0ZUZpbGVzUmVxdWVzdBolLnh5bG9uYS5GZWRlcmF0aW9uRGVsZXRlRmlsZXNSZXNwb25zZSIAEl8KEFJlbmFtZVJlbW90ZUZpbGUSIy54eWxvbmEuRmVkZXJhdGlvblJlbmFtZUZpbGVSZXF1ZXN0GiQueHlsb25hLkZlZGVyYXRpb25SZW5hbWVGaWxlUmVzcG9uc2UiABJcCg9Nb3ZlUmVtb3RlRmlsZXMSIi54eWxvbmEuRmVkZXJhdGlvbk1vdmVGaWxlc1JlcXVlc3QaIy54eWxvbmEuRmVkZXJhdGlvbk1vdmVGaWxlc1Jlc3BvbnNlIgASgAEKG0NyZWF0ZVJlbW90ZUZpbGVPckRpcmVjdG9yeRIuLnh5bG9uYS5GZWRlcmF0aW9uQ3JlYXRlRmlsZU9yRGlyZWN0b3J5UmVxdWVzdBovLnh5bG9uYS5GZWRlcmF0aW9uQ3JlYXRlRmlsZU9yRGlyZWN0b3J5UmVzcG9uc2UiABJ6ChlEb3dubG9hZFJlbW90ZUZpbGVGcm9tVVJMEiwueHlsb25hLkZlZGVyYXRpb25Eb3dubG9hZEZpbGVGcm9tVVJMUmVxdWVzdBotLnh5bG9uYS5GZWRlcmF0aW9uRG93bmxvYWRGaWxlRnJvbVVSTFJlc3BvbnNlIgBCMlowZ2l0aHViLmNvbS9DbGludG9uQ29sbGlucy9YeWxvbmEvcHJvdG8vZ28veHlsb25hYgZwcm90bzM", [file_google_protobuf_timestamp, file_shared, file_gameserver_files_operations]);
 
 /**
  * RemoteServerSummary is a cached summary of a game server on a remote node.
@@ -122,9 +35,9 @@ export type RemoteServerSummary = Message<"xylona.RemoteServerSummary"> & {
   sourceNodeId: string;
 
   /**
-   * @generated from field: string peer_node_id = 3;
+   * @generated from field: string node_id = 3;
    */
-  peerNodeId: string;
+  nodeId: string;
 
   /**
    * @generated from field: string remote_server_id = 4;
@@ -217,7 +130,7 @@ export type RemoteServerSummary = Message<"xylona.RemoteServerSummary"> & {
  * Use `create(RemoteServerSummarySchema)` to create a new message.
  */
 export const RemoteServerSummarySchema: GenMessage<RemoteServerSummary> = /*@__PURE__*/
-  messageDesc(file_federation, 1);
+  messageDesc(file_federation, 0);
 
 /**
  * AggregatedGameServer represents either a local or remote server in the unified view.
@@ -250,7 +163,7 @@ export type AggregatedGameServer = Message<"xylona.AggregatedGameServer"> & {
  * Use `create(AggregatedGameServerSchema)` to create a new message.
  */
 export const AggregatedGameServerSchema: GenMessage<AggregatedGameServer> = /*@__PURE__*/
-  messageDesc(file_federation, 2);
+  messageDesc(file_federation, 1);
 
 /**
  * Federation Handshake
@@ -269,7 +182,7 @@ export type FederationHandshakeRequest = Message<"xylona.FederationHandshakeRequ
  * Use `create(FederationHandshakeRequestSchema)` to create a new message.
  */
 export const FederationHandshakeRequestSchema: GenMessage<FederationHandshakeRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 3);
+  messageDesc(file_federation, 2);
 
 /**
  * @generated from message xylona.FederationHandshakeResponse
@@ -311,7 +224,7 @@ export type FederationHandshakeResponse = Message<"xylona.FederationHandshakeRes
  * Use `create(FederationHandshakeResponseSchema)` to create a new message.
  */
 export const FederationHandshakeResponseSchema: GenMessage<FederationHandshakeResponse> = /*@__PURE__*/
-  messageDesc(file_federation, 4);
+  messageDesc(file_federation, 3);
 
 /**
  * Federation Server Summaries
@@ -335,7 +248,7 @@ export type FederationListServerSummariesRequest = Message<"xylona.FederationLis
  * Use `create(FederationListServerSummariesRequestSchema)` to create a new message.
  */
 export const FederationListServerSummariesRequestSchema: GenMessage<FederationListServerSummariesRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 5);
+  messageDesc(file_federation, 4);
 
 /**
  * @generated from message xylona.FederationServerSummary
@@ -412,7 +325,7 @@ export type FederationServerSummary = Message<"xylona.FederationServerSummary"> 
  * Use `create(FederationServerSummarySchema)` to create a new message.
  */
 export const FederationServerSummarySchema: GenMessage<FederationServerSummary> = /*@__PURE__*/
-  messageDesc(file_federation, 6);
+  messageDesc(file_federation, 5);
 
 /**
  * @generated from message xylona.FederationListServerSummariesResponse
@@ -439,7 +352,7 @@ export type FederationListServerSummariesResponse = Message<"xylona.FederationLi
  * Use `create(FederationListServerSummariesResponseSchema)` to create a new message.
  */
 export const FederationListServerSummariesResponseSchema: GenMessage<FederationListServerSummariesResponse> = /*@__PURE__*/
-  messageDesc(file_federation, 7);
+  messageDesc(file_federation, 6);
 
 /**
  * Federation Server Detail
@@ -458,7 +371,7 @@ export type FederationGetServerDetailRequest = Message<"xylona.FederationGetServ
  * Use `create(FederationGetServerDetailRequestSchema)` to create a new message.
  */
 export const FederationGetServerDetailRequestSchema: GenMessage<FederationGetServerDetailRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 8);
+  messageDesc(file_federation, 7);
 
 /**
  * @generated from message xylona.FederationGetServerDetailResponse
@@ -475,7 +388,7 @@ export type FederationGetServerDetailResponse = Message<"xylona.FederationGetSer
  * Use `create(FederationGetServerDetailResponseSchema)` to create a new message.
  */
 export const FederationGetServerDetailResponseSchema: GenMessage<FederationGetServerDetailResponse> = /*@__PURE__*/
-  messageDesc(file_federation, 9);
+  messageDesc(file_federation, 8);
 
 /**
  * Federation Remote Action
@@ -494,7 +407,7 @@ export type FederationRemoteActionRequest = Message<"xylona.FederationRemoteActi
  * Use `create(FederationRemoteActionRequestSchema)` to create a new message.
  */
 export const FederationRemoteActionRequestSchema: GenMessage<FederationRemoteActionRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 10);
+  messageDesc(file_federation, 9);
 
 /**
  * @generated from message xylona.FederationRemoteActionResponse
@@ -516,7 +429,58 @@ export type FederationRemoteActionResponse = Message<"xylona.FederationRemoteAct
  * Use `create(FederationRemoteActionResponseSchema)` to create a new message.
  */
 export const FederationRemoteActionResponseSchema: GenMessage<FederationRemoteActionResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 10);
+
+/**
+ * Federation Edit Server
+ *
+ * @generated from message xylona.FederationEditServerRequest
+ */
+export type FederationEditServerRequest = Message<"xylona.FederationEditServerRequest"> & {
+  /**
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: xylona.GameServer game_server = 2;
+   */
+  gameServer?: GameServer;
+};
+
+/**
+ * Describes the message xylona.FederationEditServerRequest.
+ * Use `create(FederationEditServerRequestSchema)` to create a new message.
+ */
+export const FederationEditServerRequestSchema: GenMessage<FederationEditServerRequest> = /*@__PURE__*/
   messageDesc(file_federation, 11);
+
+/**
+ * @generated from message xylona.FederationEditServerResponse
+ */
+export type FederationEditServerResponse = Message<"xylona.FederationEditServerResponse"> & {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string error = 2;
+   */
+  error: string;
+
+  /**
+   * @generated from field: xylona.GameServer game_server = 3;
+   */
+  gameServer?: GameServer;
+};
+
+/**
+ * Describes the message xylona.FederationEditServerResponse.
+ * Use `create(FederationEditServerResponseSchema)` to create a new message.
+ */
+export const FederationEditServerResponseSchema: GenMessage<FederationEditServerResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 12);
 
 /**
  * Federation Console Streaming
@@ -540,7 +504,7 @@ export type FederationStreamConsoleRequest = Message<"xylona.FederationStreamCon
  * Use `create(FederationStreamConsoleRequestSchema)` to create a new message.
  */
 export const FederationStreamConsoleRequestSchema: GenMessage<FederationStreamConsoleRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 12);
+  messageDesc(file_federation, 13);
 
 /**
  * @generated from message xylona.FederationConsoleOutputChunk
@@ -562,7 +526,7 @@ export type FederationConsoleOutputChunk = Message<"xylona.FederationConsoleOutp
  * Use `create(FederationConsoleOutputChunkSchema)` to create a new message.
  */
 export const FederationConsoleOutputChunkSchema: GenMessage<FederationConsoleOutputChunk> = /*@__PURE__*/
-  messageDesc(file_federation, 13);
+  messageDesc(file_federation, 14);
 
 /**
  * @generated from message xylona.FederationSendConsoleInputRequest
@@ -584,7 +548,7 @@ export type FederationSendConsoleInputRequest = Message<"xylona.FederationSendCo
  * Use `create(FederationSendConsoleInputRequestSchema)` to create a new message.
  */
 export const FederationSendConsoleInputRequestSchema: GenMessage<FederationSendConsoleInputRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 14);
+  messageDesc(file_federation, 15);
 
 /**
  * @generated from message xylona.FederationSendConsoleInputResponse
@@ -606,7 +570,7 @@ export type FederationSendConsoleInputResponse = Message<"xylona.FederationSendC
  * Use `create(FederationSendConsoleInputResponseSchema)` to create a new message.
  */
 export const FederationSendConsoleInputResponseSchema: GenMessage<FederationSendConsoleInputResponse> = /*@__PURE__*/
-  messageDesc(file_federation, 15);
+  messageDesc(file_federation, 16);
 
 /**
  * @generated from message xylona.FederationReadConsoleBufferRequest
@@ -623,7 +587,7 @@ export type FederationReadConsoleBufferRequest = Message<"xylona.FederationReadC
  * Use `create(FederationReadConsoleBufferRequestSchema)` to create a new message.
  */
 export const FederationReadConsoleBufferRequestSchema: GenMessage<FederationReadConsoleBufferRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 16);
+  messageDesc(file_federation, 17);
 
 /**
  * @generated from message xylona.FederationReadConsoleBufferResponse
@@ -640,7 +604,7 @@ export type FederationReadConsoleBufferResponse = Message<"xylona.FederationRead
  * Use `create(FederationReadConsoleBufferResponseSchema)` to create a new message.
  */
 export const FederationReadConsoleBufferResponseSchema: GenMessage<FederationReadConsoleBufferResponse> = /*@__PURE__*/
-  messageDesc(file_federation, 17);
+  messageDesc(file_federation, 18);
 
 /**
  * Federation Server Status Streaming
@@ -659,7 +623,7 @@ export type FederationStreamServerStatusesRequest = Message<"xylona.FederationSt
  * Use `create(FederationStreamServerStatusesRequestSchema)` to create a new message.
  */
 export const FederationStreamServerStatusesRequestSchema: GenMessage<FederationStreamServerStatusesRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 18);
+  messageDesc(file_federation, 19);
 
 /**
  * @generated from message xylona.FederationServerStatusEvent
@@ -681,223 +645,116 @@ export type FederationServerStatusEvent = Message<"xylona.FederationServerStatus
  * Use `create(FederationServerStatusEventSchema)` to create a new message.
  */
 export const FederationServerStatusEventSchema: GenMessage<FederationServerStatusEvent> = /*@__PURE__*/
-  messageDesc(file_federation, 19);
-
-/**
- * Peer management RPCs (added to main Xylona service via xylona.proto)
- *
- * @generated from message xylona.ListPeerNodesRequest
- */
-export type ListPeerNodesRequest = Message<"xylona.ListPeerNodesRequest"> & {
-};
-
-/**
- * Describes the message xylona.ListPeerNodesRequest.
- * Use `create(ListPeerNodesRequestSchema)` to create a new message.
- */
-export const ListPeerNodesRequestSchema: GenMessage<ListPeerNodesRequest> = /*@__PURE__*/
   messageDesc(file_federation, 20);
 
 /**
- * @generated from message xylona.ListPeerNodesResponse
+ * Federation Query Server
+ *
+ * @generated from message xylona.FederationQueryServerRequest
  */
-export type ListPeerNodesResponse = Message<"xylona.ListPeerNodesResponse"> & {
+export type FederationQueryServerRequest = Message<"xylona.FederationQueryServerRequest"> & {
   /**
-   * @generated from field: repeated xylona.PeerNode peer_nodes = 1;
+   * @generated from field: string server_id = 1;
    */
-  peerNodes: PeerNode[];
+  serverId: string;
 };
 
 /**
- * Describes the message xylona.ListPeerNodesResponse.
- * Use `create(ListPeerNodesResponseSchema)` to create a new message.
+ * Describes the message xylona.FederationQueryServerRequest.
+ * Use `create(FederationQueryServerRequestSchema)` to create a new message.
  */
-export const ListPeerNodesResponseSchema: GenMessage<ListPeerNodesResponse> = /*@__PURE__*/
+export const FederationQueryServerRequestSchema: GenMessage<FederationQueryServerRequest> = /*@__PURE__*/
   messageDesc(file_federation, 21);
 
 /**
- * @generated from message xylona.GetPeerNodeRequest
+ * @generated from message xylona.FederationQueryServerResponse
  */
-export type GetPeerNodeRequest = Message<"xylona.GetPeerNodeRequest"> & {
+export type FederationQueryServerResponse = Message<"xylona.FederationQueryServerResponse"> & {
   /**
-   * @generated from field: string peer_node_id = 1;
+   * @generated from field: xylona.ServerQuery query_info = 1;
    */
-  peerNodeId: string;
+  queryInfo?: ServerQuery;
 };
 
 /**
- * Describes the message xylona.GetPeerNodeRequest.
- * Use `create(GetPeerNodeRequestSchema)` to create a new message.
+ * Describes the message xylona.FederationQueryServerResponse.
+ * Use `create(FederationQueryServerResponseSchema)` to create a new message.
  */
-export const GetPeerNodeRequestSchema: GenMessage<GetPeerNodeRequest> = /*@__PURE__*/
+export const FederationQueryServerResponseSchema: GenMessage<FederationQueryServerResponse> = /*@__PURE__*/
   messageDesc(file_federation, 22);
 
 /**
- * @generated from message xylona.GetPeerNodeResponse
+ * Federation File Operations
+ *
+ * @generated from message xylona.FederationListDirectoryFilesRequest
  */
-export type GetPeerNodeResponse = Message<"xylona.GetPeerNodeResponse"> & {
+export type FederationListDirectoryFilesRequest = Message<"xylona.FederationListDirectoryFilesRequest"> & {
   /**
-   * @generated from field: xylona.PeerNode peer_node = 1;
+   * @generated from field: string server_id = 1;
    */
-  peerNode?: PeerNode;
+  serverId: string;
+
+  /**
+   * @generated from field: string path = 2;
+   */
+  path: string;
 };
 
 /**
- * Describes the message xylona.GetPeerNodeResponse.
- * Use `create(GetPeerNodeResponseSchema)` to create a new message.
+ * Describes the message xylona.FederationListDirectoryFilesRequest.
+ * Use `create(FederationListDirectoryFilesRequestSchema)` to create a new message.
  */
-export const GetPeerNodeResponseSchema: GenMessage<GetPeerNodeResponse> = /*@__PURE__*/
+export const FederationListDirectoryFilesRequestSchema: GenMessage<FederationListDirectoryFilesRequest> = /*@__PURE__*/
   messageDesc(file_federation, 23);
 
 /**
- * @generated from message xylona.AddPeerNodeRequest
+ * @generated from message xylona.FederationListDirectoryFilesResponse
  */
-export type AddPeerNodeRequest = Message<"xylona.AddPeerNodeRequest"> & {
+export type FederationListDirectoryFilesResponse = Message<"xylona.FederationListDirectoryFilesResponse"> & {
   /**
-   * @generated from field: string name = 1;
+   * @generated from field: repeated xylona.File files = 1;
    */
-  name: string;
-
-  /**
-   * @generated from field: string base_url = 2;
-   */
-  baseUrl: string;
-
-  /**
-   * @generated from field: string secret_key = 3;
-   */
-  secretKey: string;
+  files: File[];
 };
 
 /**
- * Describes the message xylona.AddPeerNodeRequest.
- * Use `create(AddPeerNodeRequestSchema)` to create a new message.
+ * Describes the message xylona.FederationListDirectoryFilesResponse.
+ * Use `create(FederationListDirectoryFilesResponseSchema)` to create a new message.
  */
-export const AddPeerNodeRequestSchema: GenMessage<AddPeerNodeRequest> = /*@__PURE__*/
+export const FederationListDirectoryFilesResponseSchema: GenMessage<FederationListDirectoryFilesResponse> = /*@__PURE__*/
   messageDesc(file_federation, 24);
 
 /**
- * @generated from message xylona.AddPeerNodeResponse
+ * @generated from message xylona.FederationEditFileRequest
  */
-export type AddPeerNodeResponse = Message<"xylona.AddPeerNodeResponse"> & {
+export type FederationEditFileRequest = Message<"xylona.FederationEditFileRequest"> & {
   /**
-   * @generated from field: xylona.PeerNode peer_node = 1;
+   * @generated from field: string server_id = 1;
    */
-  peerNode?: PeerNode;
+  serverId: string;
+
+  /**
+   * @generated from field: string full_file_path = 2;
+   */
+  fullFilePath: string;
+
+  /**
+   * @generated from field: string content = 3;
+   */
+  content: string;
 };
 
 /**
- * Describes the message xylona.AddPeerNodeResponse.
- * Use `create(AddPeerNodeResponseSchema)` to create a new message.
+ * Describes the message xylona.FederationEditFileRequest.
+ * Use `create(FederationEditFileRequestSchema)` to create a new message.
  */
-export const AddPeerNodeResponseSchema: GenMessage<AddPeerNodeResponse> = /*@__PURE__*/
+export const FederationEditFileRequestSchema: GenMessage<FederationEditFileRequest> = /*@__PURE__*/
   messageDesc(file_federation, 25);
 
 /**
- * @generated from message xylona.RemovePeerNodeRequest
+ * @generated from message xylona.FederationEditFileResponse
  */
-export type RemovePeerNodeRequest = Message<"xylona.RemovePeerNodeRequest"> & {
-  /**
-   * @generated from field: string peer_node_id = 1;
-   */
-  peerNodeId: string;
-};
-
-/**
- * Describes the message xylona.RemovePeerNodeRequest.
- * Use `create(RemovePeerNodeRequestSchema)` to create a new message.
- */
-export const RemovePeerNodeRequestSchema: GenMessage<RemovePeerNodeRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 26);
-
-/**
- * @generated from message xylona.RemovePeerNodeResponse
- */
-export type RemovePeerNodeResponse = Message<"xylona.RemovePeerNodeResponse"> & {
-};
-
-/**
- * Describes the message xylona.RemovePeerNodeResponse.
- * Use `create(RemovePeerNodeResponseSchema)` to create a new message.
- */
-export const RemovePeerNodeResponseSchema: GenMessage<RemovePeerNodeResponse> = /*@__PURE__*/
-  messageDesc(file_federation, 27);
-
-/**
- * @generated from message xylona.EditPeerNodeRequest
- */
-export type EditPeerNodeRequest = Message<"xylona.EditPeerNodeRequest"> & {
-  /**
-   * @generated from field: string peer_node_id = 1;
-   */
-  peerNodeId: string;
-
-  /**
-   * @generated from field: string name = 2;
-   */
-  name: string;
-
-  /**
-   * @generated from field: string base_url = 3;
-   */
-  baseUrl: string;
-
-  /**
-   * @generated from field: string secret_key = 4;
-   */
-  secretKey: string;
-
-  /**
-   * @generated from field: bool enabled = 5;
-   */
-  enabled: boolean;
-};
-
-/**
- * Describes the message xylona.EditPeerNodeRequest.
- * Use `create(EditPeerNodeRequestSchema)` to create a new message.
- */
-export const EditPeerNodeRequestSchema: GenMessage<EditPeerNodeRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 28);
-
-/**
- * @generated from message xylona.EditPeerNodeResponse
- */
-export type EditPeerNodeResponse = Message<"xylona.EditPeerNodeResponse"> & {
-  /**
-   * @generated from field: xylona.PeerNode peer_node = 1;
-   */
-  peerNode?: PeerNode;
-};
-
-/**
- * Describes the message xylona.EditPeerNodeResponse.
- * Use `create(EditPeerNodeResponseSchema)` to create a new message.
- */
-export const EditPeerNodeResponseSchema: GenMessage<EditPeerNodeResponse> = /*@__PURE__*/
-  messageDesc(file_federation, 29);
-
-/**
- * @generated from message xylona.SyncPeerNodeRequest
- */
-export type SyncPeerNodeRequest = Message<"xylona.SyncPeerNodeRequest"> & {
-  /**
-   * @generated from field: string peer_node_id = 1;
-   */
-  peerNodeId: string;
-};
-
-/**
- * Describes the message xylona.SyncPeerNodeRequest.
- * Use `create(SyncPeerNodeRequestSchema)` to create a new message.
- */
-export const SyncPeerNodeRequestSchema: GenMessage<SyncPeerNodeRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 30);
-
-/**
- * @generated from message xylona.SyncPeerNodeResponse
- */
-export type SyncPeerNodeResponse = Message<"xylona.SyncPeerNodeResponse"> & {
+export type FederationEditFileResponse = Message<"xylona.FederationEditFileResponse"> & {
   /**
    * @generated from field: bool success = 1;
    */
@@ -910,11 +767,315 @@ export type SyncPeerNodeResponse = Message<"xylona.SyncPeerNodeResponse"> & {
 };
 
 /**
- * Describes the message xylona.SyncPeerNodeResponse.
- * Use `create(SyncPeerNodeResponseSchema)` to create a new message.
+ * Describes the message xylona.FederationEditFileResponse.
+ * Use `create(FederationEditFileResponseSchema)` to create a new message.
  */
-export const SyncPeerNodeResponseSchema: GenMessage<SyncPeerNodeResponse> = /*@__PURE__*/
+export const FederationEditFileResponseSchema: GenMessage<FederationEditFileResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 26);
+
+/**
+ * @generated from message xylona.FederationDeleteFilesRequest
+ */
+export type FederationDeleteFilesRequest = Message<"xylona.FederationDeleteFilesRequest"> & {
+  /**
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: repeated string full_file_paths = 2;
+   */
+  fullFilePaths: string[];
+};
+
+/**
+ * Describes the message xylona.FederationDeleteFilesRequest.
+ * Use `create(FederationDeleteFilesRequestSchema)` to create a new message.
+ */
+export const FederationDeleteFilesRequestSchema: GenMessage<FederationDeleteFilesRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 27);
+
+/**
+ * @generated from message xylona.FederationDeleteFilesResponse
+ */
+export type FederationDeleteFilesResponse = Message<"xylona.FederationDeleteFilesResponse"> & {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string error = 2;
+   */
+  error: string;
+
+  /**
+   * @generated from field: repeated string full_file_paths = 3;
+   */
+  fullFilePaths: string[];
+};
+
+/**
+ * Describes the message xylona.FederationDeleteFilesResponse.
+ * Use `create(FederationDeleteFilesResponseSchema)` to create a new message.
+ */
+export const FederationDeleteFilesResponseSchema: GenMessage<FederationDeleteFilesResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 28);
+
+/**
+ * @generated from message xylona.FederationRenameFileRequest
+ */
+export type FederationRenameFileRequest = Message<"xylona.FederationRenameFileRequest"> & {
+  /**
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: string old_path = 2;
+   */
+  oldPath: string;
+
+  /**
+   * @generated from field: string new_path = 3;
+   */
+  newPath: string;
+};
+
+/**
+ * Describes the message xylona.FederationRenameFileRequest.
+ * Use `create(FederationRenameFileRequestSchema)` to create a new message.
+ */
+export const FederationRenameFileRequestSchema: GenMessage<FederationRenameFileRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 29);
+
+/**
+ * @generated from message xylona.FederationRenameFileResponse
+ */
+export type FederationRenameFileResponse = Message<"xylona.FederationRenameFileResponse"> & {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string error = 2;
+   */
+  error: string;
+
+  /**
+   * @generated from field: string new_path = 3;
+   */
+  newPath: string;
+};
+
+/**
+ * Describes the message xylona.FederationRenameFileResponse.
+ * Use `create(FederationRenameFileResponseSchema)` to create a new message.
+ */
+export const FederationRenameFileResponseSchema: GenMessage<FederationRenameFileResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 30);
+
+/**
+ * @generated from message xylona.FederationMoveFilesRequest
+ */
+export type FederationMoveFilesRequest = Message<"xylona.FederationMoveFilesRequest"> & {
+  /**
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: repeated string full_file_paths = 2;
+   */
+  fullFilePaths: string[];
+
+  /**
+   * @generated from field: string destination_base_path = 3;
+   */
+  destinationBasePath: string;
+};
+
+/**
+ * Describes the message xylona.FederationMoveFilesRequest.
+ * Use `create(FederationMoveFilesRequestSchema)` to create a new message.
+ */
+export const FederationMoveFilesRequestSchema: GenMessage<FederationMoveFilesRequest> = /*@__PURE__*/
   messageDesc(file_federation, 31);
+
+/**
+ * @generated from message xylona.FederationMoveFilesResponse
+ */
+export type FederationMoveFilesResponse = Message<"xylona.FederationMoveFilesResponse"> & {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string error = 2;
+   */
+  error: string;
+
+  /**
+   * @generated from field: repeated string full_file_paths = 3;
+   */
+  fullFilePaths: string[];
+};
+
+/**
+ * Describes the message xylona.FederationMoveFilesResponse.
+ * Use `create(FederationMoveFilesResponseSchema)` to create a new message.
+ */
+export const FederationMoveFilesResponseSchema: GenMessage<FederationMoveFilesResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 32);
+
+/**
+ * @generated from message xylona.FederationCreateFileOrDirectoryRequest
+ */
+export type FederationCreateFileOrDirectoryRequest = Message<"xylona.FederationCreateFileOrDirectoryRequest"> & {
+  /**
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: string full_file_path = 2;
+   */
+  fullFilePath: string;
+
+  /**
+   * @generated from field: string content = 3;
+   */
+  content: string;
+
+  /**
+   * @generated from field: bool is_directory = 4;
+   */
+  isDirectory: boolean;
+};
+
+/**
+ * Describes the message xylona.FederationCreateFileOrDirectoryRequest.
+ * Use `create(FederationCreateFileOrDirectoryRequestSchema)` to create a new message.
+ */
+export const FederationCreateFileOrDirectoryRequestSchema: GenMessage<FederationCreateFileOrDirectoryRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 33);
+
+/**
+ * @generated from message xylona.FederationCreateFileOrDirectoryResponse
+ */
+export type FederationCreateFileOrDirectoryResponse = Message<"xylona.FederationCreateFileOrDirectoryResponse"> & {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string error = 2;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message xylona.FederationCreateFileOrDirectoryResponse.
+ * Use `create(FederationCreateFileOrDirectoryResponseSchema)` to create a new message.
+ */
+export const FederationCreateFileOrDirectoryResponseSchema: GenMessage<FederationCreateFileOrDirectoryResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 34);
+
+/**
+ * @generated from message xylona.FederationDownloadFileFromURLRequest
+ */
+export type FederationDownloadFileFromURLRequest = Message<"xylona.FederationDownloadFileFromURLRequest"> & {
+  /**
+   * @generated from field: string server_id = 1;
+   */
+  serverId: string;
+
+  /**
+   * @generated from field: string url = 2;
+   */
+  url: string;
+
+  /**
+   * @generated from field: string destination_base_path = 3;
+   */
+  destinationBasePath: string;
+};
+
+/**
+ * Describes the message xylona.FederationDownloadFileFromURLRequest.
+ * Use `create(FederationDownloadFileFromURLRequestSchema)` to create a new message.
+ */
+export const FederationDownloadFileFromURLRequestSchema: GenMessage<FederationDownloadFileFromURLRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 35);
+
+/**
+ * @generated from message xylona.FederationDownloadFileFromURLResponse
+ */
+export type FederationDownloadFileFromURLResponse = Message<"xylona.FederationDownloadFileFromURLResponse"> & {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string error = 2;
+   */
+  error: string;
+
+  /**
+   * @generated from field: string file_path = 3;
+   */
+  filePath: string;
+};
+
+/**
+ * Describes the message xylona.FederationDownloadFileFromURLResponse.
+ * Use `create(FederationDownloadFileFromURLResponseSchema)` to create a new message.
+ */
+export const FederationDownloadFileFromURLResponseSchema: GenMessage<FederationDownloadFileFromURLResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 36);
+
+/**
+ * @generated from message xylona.SyncNodeRequest
+ */
+export type SyncNodeRequest = Message<"xylona.SyncNodeRequest"> & {
+  /**
+   * @generated from field: string node_id = 1;
+   */
+  nodeId: string;
+};
+
+/**
+ * Describes the message xylona.SyncNodeRequest.
+ * Use `create(SyncNodeRequestSchema)` to create a new message.
+ */
+export const SyncNodeRequestSchema: GenMessage<SyncNodeRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 37);
+
+/**
+ * @generated from message xylona.SyncNodeResponse
+ */
+export type SyncNodeResponse = Message<"xylona.SyncNodeResponse"> & {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string error = 2;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message xylona.SyncNodeResponse.
+ * Use `create(SyncNodeResponseSchema)` to create a new message.
+ */
+export const SyncNodeResponseSchema: GenMessage<SyncNodeResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 38);
 
 /**
  * @generated from message xylona.ListAggregatedGameServersRequest
@@ -927,7 +1088,7 @@ export type ListAggregatedGameServersRequest = Message<"xylona.ListAggregatedGam
  * Use `create(ListAggregatedGameServersRequestSchema)` to create a new message.
  */
 export const ListAggregatedGameServersRequestSchema: GenMessage<ListAggregatedGameServersRequest> = /*@__PURE__*/
-  messageDesc(file_federation, 32);
+  messageDesc(file_federation, 39);
 
 /**
  * @generated from message xylona.ListAggregatedGameServersResponse
@@ -944,7 +1105,7 @@ export type ListAggregatedGameServersResponse = Message<"xylona.ListAggregatedGa
  * Use `create(ListAggregatedGameServersResponseSchema)` to create a new message.
  */
 export const ListAggregatedGameServersResponseSchema: GenMessage<ListAggregatedGameServersResponse> = /*@__PURE__*/
-  messageDesc(file_federation, 33);
+  messageDesc(file_federation, 40);
 
 /**
  * Federation service for node-to-node communication.
@@ -1013,6 +1174,36 @@ export const Federation: GenService<{
     output: typeof FederationRemoteActionResponseSchema;
   },
   /**
+   * UpdateRemoteServer triggers an update for a game server on this node.
+   *
+   * @generated from rpc xylona.Federation.UpdateRemoteServer
+   */
+  updateRemoteServer: {
+    methodKind: "unary";
+    input: typeof FederationRemoteActionRequestSchema;
+    output: typeof FederationRemoteActionResponseSchema;
+  },
+  /**
+   * EditRemoteServer edits a game server's configuration on this node.
+   *
+   * @generated from rpc xylona.Federation.EditRemoteServer
+   */
+  editRemoteServer: {
+    methodKind: "unary";
+    input: typeof FederationEditServerRequestSchema;
+    output: typeof FederationEditServerResponseSchema;
+  },
+  /**
+   * RemoveRemoteServer removes a game server on this node.
+   *
+   * @generated from rpc xylona.Federation.RemoveRemoteServer
+   */
+  removeRemoteServer: {
+    methodKind: "unary";
+    input: typeof FederationRemoteActionRequestSchema;
+    output: typeof FederationRemoteActionResponseSchema;
+  },
+  /**
    * StreamConsoleOutput streams real-time console output for a game server on this node.
    *
    * @generated from rpc xylona.Federation.StreamConsoleOutput
@@ -1051,6 +1242,74 @@ export const Federation: GenService<{
     methodKind: "server_streaming";
     input: typeof FederationStreamServerStatusesRequestSchema;
     output: typeof FederationServerStatusEventSchema;
+  },
+  /**
+   * QueryRemoteServer returns query info (player count, etc.) for a game server on this node.
+   *
+   * @generated from rpc xylona.Federation.QueryRemoteServer
+   */
+  queryRemoteServer: {
+    methodKind: "unary";
+    input: typeof FederationQueryServerRequestSchema;
+    output: typeof FederationQueryServerResponseSchema;
+  },
+  /**
+   * File operations on remote servers.
+   *
+   * @generated from rpc xylona.Federation.ListRemoteDirectoryFiles
+   */
+  listRemoteDirectoryFiles: {
+    methodKind: "unary";
+    input: typeof FederationListDirectoryFilesRequestSchema;
+    output: typeof FederationListDirectoryFilesResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.EditRemoteFile
+   */
+  editRemoteFile: {
+    methodKind: "unary";
+    input: typeof FederationEditFileRequestSchema;
+    output: typeof FederationEditFileResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.DeleteRemoteFiles
+   */
+  deleteRemoteFiles: {
+    methodKind: "unary";
+    input: typeof FederationDeleteFilesRequestSchema;
+    output: typeof FederationDeleteFilesResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.RenameRemoteFile
+   */
+  renameRemoteFile: {
+    methodKind: "unary";
+    input: typeof FederationRenameFileRequestSchema;
+    output: typeof FederationRenameFileResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.MoveRemoteFiles
+   */
+  moveRemoteFiles: {
+    methodKind: "unary";
+    input: typeof FederationMoveFilesRequestSchema;
+    output: typeof FederationMoveFilesResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.CreateRemoteFileOrDirectory
+   */
+  createRemoteFileOrDirectory: {
+    methodKind: "unary";
+    input: typeof FederationCreateFileOrDirectoryRequestSchema;
+    output: typeof FederationCreateFileOrDirectoryResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.DownloadRemoteFileFromURL
+   */
+  downloadRemoteFileFromURL: {
+    methodKind: "unary";
+    input: typeof FederationDownloadFileFromURLRequestSchema;
+    output: typeof FederationDownloadFileFromURLResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_federation, 0);

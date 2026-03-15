@@ -242,6 +242,17 @@ message Node {
   int64 port = 5;
   bool local = 6;
   string secret_key = 7;
+  string base_url = 8;
+  bool enabled = 9;
+  google.protobuf.Timestamp last_seen_at = 10;
+  google.protobuf.Timestamp last_sync_at = 11;
+  string last_sync_status = 12;
+  string health_status = 13;
+  string version = 14;
+  int32 protocol_version = 15;
+  string capabilities = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
 }
 
 message SecretKey {

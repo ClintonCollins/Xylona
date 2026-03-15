@@ -14,6 +14,10 @@ Federation uses a **direct peer model** with **local-first authority**:
 - The local node aggregates local + remote data for the UI
 - Remote nodes are never treated as database replicas
 
+### Unified Node Model
+
+Local and remote nodes are stored in a single `node` table. Local nodes have `is_local = true`; remote (peer) nodes have `is_local = false` with federation fields (`base_url`, `health_status`, `last_sync_at`, etc.). This consolidation means the UI presents a single "Nodes" page showing both local and remote nodes together.
+
 ### Key Design Principles
 
 1. **Local-first**: Local functionality never depends on peer reachability
@@ -38,7 +42,7 @@ Each node must have:
 
 ### Step 2: Add the Peer on the Local Node
 
-1. Navigate to **Peer Nodes** in the local node's panel
+1. Navigate to **Nodes** in the local node's panel
 2. Click **Add Peer Node**
 3. Enter:
    - **Name** (optional): A display name for this peer
@@ -107,16 +111,28 @@ Remote Node B ──[Federation API]──┘
 5. The frontend renders both in a single table with node origin indicators
 6. Console output streams through federation → WebSocket → browser
 
-### Remote Actions
+### Remote Operations
 
-Start/Stop/Restart actions on remote servers are proxied through the local node:
+All operations that work on local game servers are transparently proxied through the local node for remote servers. When an RPC receives a server ID that isn't found locally, it looks up the remote server cache and forwards the request to the owning peer node's Federation API.
 
-1. Browser sends action to local node (same RPC as local servers)
-2. Local node detects the server ID isn't local, looks up the peer from `remote_server_cache`
-3. Local node forwards the action to the peer's Federation API
-4. Peer executes the action locally and returns the result
+#### Supported Remote Operations
 
-Console input/output and server detail are also proxied transparently — the `ReadGameServerOutput`, `SendGameServerInput`, and `GetGameServer` RPCs all fall through to federation when the server ID isn't found locally.
+| Operation | Federation RPC | Description |
+|---|---|---|
+| Start/Stop/Restart | `StartRemoteServer` / `StopRemoteServer` / `RestartRemoteServer` | Server lifecycle control |
+| Update | `UpdateRemoteServer` | Trigger a game server update |
+| Edit/Configure | `EditRemoteServer` | Edit game server settings |
+| Remove | `RemoveRemoteServer` | Delete a game server |
+| Console I/O | `StreamConsoleOutput` / `SendConsoleInput` / `ReadConsoleBuffer` | Real-time console |
+| List Files | `ListRemoteDirectoryFiles` | Browse game server files |
+| Edit File | `EditRemoteFile` | Edit file content |
+| Delete Files | `DeleteRemoteFiles` | Delete files/directories |
+| Rename File | `RenameRemoteFile` | Rename a file |
+| Move Files | `MoveRemoteFiles` | Move files to a new path |
+| Create File/Dir | `CreateRemoteFileOrDirectory` | Create a file or directory |
+| Download from URL | `DownloadRemoteFileFromURL` | Download a file from a URL to the server |
+
+The browser never connects directly to peer nodes — all remote operations go through the local panel backend.
 
 ## Failure Behavior
 
@@ -133,14 +149,14 @@ Console input/output and server detail are also proxied transparently — the `R
 
 ## Database Schema
 
-### `peer_node`
-Stores configured federation peers with their identity, credentials, health, and sync status.
+### `node`
+Stores all nodes — both the local node (`is_local = true`) and configured remote peers (`is_local = false`). Remote nodes have federation fields: `base_url`, `enabled`, `health_status`, `last_seen_at`, `last_sync_at`, `last_sync_status`, `version`, `protocol_version`, `capabilities`.
 
 ### `remote_server_cache`
-Stores cached game server summaries from remote peers. Keyed by `(source_node_id, remote_server_id)` for upsert. Includes `is_stale` flag and timestamps.
+Stores cached game server summaries from remote peers. Keyed by `(source_node_id, remote_server_id)` for upsert. References `node(id)` via `node_id`. Includes `is_stale` flag and timestamps.
 
 ### `peer_sync_state`
-Tracks sync cursor, retry count, backoff timing, and last error per peer.
+Tracks sync cursor, retry count, backoff timing, and last error per node. References `node(id)` via `node_id`.
 
 ## API Endpoints
 
@@ -148,16 +164,28 @@ Tracks sync cursor, retry count, backoff timing, and last error per peer.
 - `Federation.Handshake` — Identity exchange and auth verification
 - `Federation.ListServerSummaries` — Paginated server list for sync
 - `Federation.GetServerDetail` — Single server detail
-- `Federation.StartRemoteServer` / `StopRemoteServer` / `RestartRemoteServer` — Remote actions
-- `Federation.StreamConsoleOutput` — Server-streaming console output for a game server
+- `Federation.StartRemoteServer` / `StopRemoteServer` / `RestartRemoteServer` — Lifecycle actions
+- `Federation.UpdateRemoteServer` — Trigger game server update
+- `Federation.EditRemoteServer` — Edit game server configuration
+- `Federation.RemoveRemoteServer` — Delete a game server
+- `Federation.StreamConsoleOutput` — Server-streaming console output
 - `Federation.SendConsoleInput` — Send a command to a game server's console
 - `Federation.ReadConsoleBuffer` — Get the current console output buffer
-- `Federation.StreamServerStatuses` — Server-streaming real-time status changes for all game servers
+- `Federation.StreamServerStatuses` — Server-streaming real-time status changes
+- `Federation.ListRemoteDirectoryFiles` — List files in a game server directory
+- `Federation.EditRemoteFile` — Edit a file on a game server
+- `Federation.DeleteRemoteFiles` — Delete files on a game server
+- `Federation.RenameRemoteFile` — Rename a file on a game server
+- `Federation.MoveRemoteFiles` — Move files on a game server
+- `Federation.CreateRemoteFileOrDirectory` — Create a file or directory
+- `Federation.DownloadRemoteFileFromURL` — Download a file from a URL
 
 ### Xylona Service (UI-facing)
-- `Xylona.ListPeerNodes` / `GetPeerNode` / `AddPeerNode` / `EditPeerNode` / `RemovePeerNode` — Peer CRUD
+- `Xylona.ListNodes` / `GetNode` / `AddNode` / `EditNode` / `RemoveNode` — Local node CRUD
+- `Xylona.ListPeerNodes` / `GetPeerNode` / `AddPeerNode` / `EditPeerNode` / `RemovePeerNode` — Remote node CRUD
 - `Xylona.SyncPeerNode` — Trigger manual sync
 - `Xylona.ListAggregatedGameServers` — Unified local + remote server list
+- All game server RPCs (`EditGameServer`, `RemoveGameServer`, `UpdateGameServer`, `ListDirectoryFiles`, file operations, etc.) transparently proxy to remote nodes when the server ID isn't found locally
 
 ## Security
 
@@ -172,5 +200,6 @@ Tracks sync cursor, retry count, backoff timing, and last error per peer.
 - Federation is disabled by default (no peers configured = single-node behavior)
 - Adding the first peer activates the sync engine automatically
 - The sync engine is resilient to restarts; state is persisted in SQLite
-- Health status and last sync time are visible in the Peer Nodes UI
+- Health status and last sync time are visible in the Nodes UI
 - Manual sync can be triggered from the UI at any time
+- The Nodes page shows both local and remote nodes in a unified view with type badges

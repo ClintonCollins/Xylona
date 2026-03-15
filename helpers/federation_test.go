@@ -10,46 +10,46 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func TestPeerNodeModelToProto(t *testing.T) {
+func TestNodeModelToProtoFederation(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    *models.PeerNode
+		input    *models.Node
 		wantID   string
 		wantName string
 		wantURL  string
 	}{
 		{
-			name: "basic peer node",
-			input: &models.PeerNode{
-				ID:              "peer-123",
-				NodeID:          "node-456",
+			name: "remote node",
+			input: &models.Node{
+				ID:              "node-123",
 				Name:            "Test Peer",
+				IsLocal:         false,
 				BaseURL:         "http://192.168.1.100:8080",
 				Enabled:         true,
 				HealthStatus:    "healthy",
 				Version:         "0.1.0",
 				ProtocolVersion: 1,
 				Capabilities:    "server_list,server_detail",
-				CreatedAt:       time.Now(),
-				UpdatedAt:       time.Now(),
+				CreatedAt:       null.From(time.Now()),
+				UpdatedAt:       null.From(time.Now()),
 			},
-			wantID:   "peer-123",
+			wantID:   "node-123",
 			wantName: "Test Peer",
 			wantURL:  "http://192.168.1.100:8080",
 		},
 		{
-			name: "peer node with empty optional fields",
-			input: &models.PeerNode{
-				ID:           "peer-empty",
-				NodeID:       "",
+			name: "remote node with empty optional fields",
+			input: &models.Node{
+				ID:           "node-empty",
 				Name:         "",
+				IsLocal:      false,
 				BaseURL:      "http://localhost:9090",
 				Enabled:      false,
 				HealthStatus: "unknown",
-				CreatedAt:    time.Now(),
-				UpdatedAt:    time.Now(),
+				CreatedAt:    null.From(time.Now()),
+				UpdatedAt:    null.From(time.Now()),
 			},
-			wantID:   "peer-empty",
+			wantID:   "node-empty",
 			wantName: "",
 			wantURL:  "http://localhost:9090",
 		},
@@ -57,21 +57,21 @@ func TestPeerNodeModelToProto(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := PeerNodeModelToProto(tt.input)
+			got := NodeModelToProto(tt.input)
 			if got.Id != tt.wantID {
-				t.Errorf("PeerNodeModelToProto().Id = %v, want %v", got.Id, tt.wantID)
+				t.Errorf("NodeModelToProto().Id = %v, want %v", got.Id, tt.wantID)
 			}
 			if got.Name != tt.wantName {
-				t.Errorf("PeerNodeModelToProto().Name = %v, want %v", got.Name, tt.wantName)
+				t.Errorf("NodeModelToProto().Name = %v, want %v", got.Name, tt.wantName)
 			}
 			if got.BaseUrl != tt.wantURL {
-				t.Errorf("PeerNodeModelToProto().BaseUrl = %v, want %v", got.BaseUrl, tt.wantURL)
+				t.Errorf("NodeModelToProto().BaseUrl = %v, want %v", got.BaseUrl, tt.wantURL)
 			}
 			if got.Enabled != tt.input.Enabled {
-				t.Errorf("PeerNodeModelToProto().Enabled = %v, want %v", got.Enabled, tt.input.Enabled)
+				t.Errorf("NodeModelToProto().Enabled = %v, want %v", got.Enabled, tt.input.Enabled)
 			}
 			if got.HealthStatus != tt.input.HealthStatus {
-				t.Errorf("PeerNodeModelToProto().HealthStatus = %v, want %v", got.HealthStatus, tt.input.HealthStatus)
+				t.Errorf("NodeModelToProto().HealthStatus = %v, want %v", got.HealthStatus, tt.input.HealthStatus)
 			}
 		})
 	}
@@ -91,7 +91,7 @@ func TestRemoteServerCacheModelToProto(t *testing.T) {
 			input: &models.RemoteServerCache{
 				ID:             "cache-1",
 				SourceNodeID:   "node-abc",
-				PeerNodeID:     "peer-123",
+				NodeID:         "node-123",
 				RemoteServerID: "server-xyz",
 				DisplayName:    "My Minecraft",
 				Status:         "ONLINE",
@@ -117,7 +117,7 @@ func TestRemoteServerCacheModelToProto(t *testing.T) {
 			input: &models.RemoteServerCache{
 				ID:             "cache-2",
 				SourceNodeID:   "node-def",
-				PeerNodeID:     "peer-456",
+				NodeID:         "node-456",
 				RemoteServerID: "server-uvw",
 				DisplayName:    "Stale Server",
 				Status:         "OFFLINE",
@@ -134,7 +134,7 @@ func TestRemoteServerCacheModelToProto(t *testing.T) {
 			input: &models.RemoteServerCache{
 				ID:             "cache-3",
 				SourceNodeID:   "node-ghi",
-				PeerNodeID:     "peer-789",
+				NodeID:         "node-789",
 				RemoteServerID: "server-rst",
 				DisplayName:    "Unknown Server",
 				Status:         "SOMETHING_INVALID",
@@ -171,9 +171,9 @@ func TestRemoteServerCacheModelToProto(t *testing.T) {
 
 func TestGameServerModelStatusToProtoStatus(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  string
-		want   xylona.Status
+		name  string
+		input string
+		want  xylona.Status
 	}{
 		{name: "online", input: "ONLINE", want: xylona.Status_ONLINE},
 		{name: "offline", input: "OFFLINE", want: xylona.Status_OFFLINE},
@@ -198,7 +198,7 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 	tests := []struct {
 		name       string
 		cache      *models.RemoteServerCache
-		peer       *models.PeerNode
+		node       *models.Node
 		wantID     string
 		wantName   string
 		wantStatus xylona.Status
@@ -221,8 +221,8 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 				MapName:        "world",
 				Version:        "1.21.0",
 			},
-			peer: &models.PeerNode{
-				NodeID:  "node-remote-1",
+			node: &models.Node{
+				ID:      "node-remote-1",
 				Name:    "Remote Node 1",
 				BaseURL: "http://192.168.1.50:8080",
 			},
@@ -245,8 +245,8 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 				MaxPlayers:     32,
 				CurrentPlayers: 0,
 			},
-			peer: &models.PeerNode{
-				NodeID:  "node-remote-2",
+			node: &models.Node{
+				ID:      "node-remote-2",
 				Name:    "Remote Node 2",
 				BaseURL: "http://10.0.0.1:8080",
 			},
@@ -263,8 +263,8 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 				DisplayName:    "Unknown Status",
 				Status:         "INVALID_STATUS",
 			},
-			peer: &models.PeerNode{
-				NodeID:  "node-3",
+			node: &models.Node{
+				ID:      "node-3",
 				Name:    "Node 3",
 				BaseURL: "http://node3:8080",
 			},
@@ -278,7 +278,7 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := RemoteServerCacheToProto(tt.cache, tt.peer)
+			got := RemoteServerCacheToProto(tt.cache, tt.node)
 			if got.Id != tt.wantID {
 				t.Errorf("RemoteServerCacheToProto().Id = %v, want %v", got.Id, tt.wantID)
 			}
@@ -294,11 +294,11 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 			if got.Port != tt.wantPort {
 				t.Errorf("RemoteServerCacheToProto().Port = %v, want %v", got.Port, tt.wantPort)
 			}
-			if got.NodeName != tt.peer.Name {
-				t.Errorf("RemoteServerCacheToProto().NodeName = %v, want %v", got.NodeName, tt.peer.Name)
+			if got.NodeName != tt.node.Name {
+				t.Errorf("RemoteServerCacheToProto().NodeName = %v, want %v", got.NodeName, tt.node.Name)
 			}
-			if got.NodeHost != tt.peer.BaseURL {
-				t.Errorf("RemoteServerCacheToProto().NodeHost = %v, want %v", got.NodeHost, tt.peer.BaseURL)
+			if got.NodeHost != tt.node.BaseURL {
+				t.Errorf("RemoteServerCacheToProto().NodeHost = %v, want %v", got.NodeHost, tt.node.BaseURL)
 			}
 			if got.GameId != tt.cache.GameID {
 				t.Errorf("RemoteServerCacheToProto().GameId = %v, want %v", got.GameId, tt.cache.GameID)
@@ -322,27 +322,28 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 	}
 }
 
-func TestPeerNodeModelToProtoTimestamps(t *testing.T) {
+func TestNodeModelToProtoTimestamps(t *testing.T) {
 	now := time.Now()
-	input := &models.PeerNode{
+	input := &models.Node{
 		ID:         "ts-test",
+		IsLocal:    false,
 		BaseURL:    "http://test:8080",
 		LastSeenAt: null.From(now),
 		LastSyncAt: null.From(now),
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		CreatedAt:  null.From(now),
+		UpdatedAt:  null.From(now),
 	}
 
-	got := PeerNodeModelToProto(input)
+	got := NodeModelToProto(input)
 
 	if got.LastSeenAt == nil {
-		t.Fatalf("PeerNodeModelToProto().LastSeenAt should not be nil")
+		t.Fatalf("NodeModelToProto().LastSeenAt should not be nil")
 	}
 	if got.LastSyncAt == nil {
-		t.Fatalf("PeerNodeModelToProto().LastSyncAt should not be nil")
+		t.Fatalf("NodeModelToProto().LastSyncAt should not be nil")
 	}
 	if got.CreatedAt == nil {
-		t.Fatalf("PeerNodeModelToProto().CreatedAt should not be nil")
+		t.Fatalf("NodeModelToProto().CreatedAt should not be nil")
 	}
 
 	gotLastSeen := got.LastSeenAt.AsTime()

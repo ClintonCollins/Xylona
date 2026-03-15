@@ -303,11 +303,23 @@ func NodeProtoToModel(nodeProto *xylona.Node) *models.Node {
 
 func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
 	return &xylona.Node{
-		Id:    nodeModel.ID,
-		Name:  nodeModel.Name,
-		Host:  nodeModel.Host,
-		Port:  int64(nodeModel.Port),
-		Local: nodeModel.IsLocal,
+		Id:              nodeModel.ID,
+		Name:            nodeModel.Name,
+		Host:            nodeModel.Host,
+		Port:            int64(nodeModel.Port),
+		Local:           nodeModel.IsLocal,
+		SecretKey:       nodeModel.SecretKey.GetOr(""),
+		BaseUrl:         nodeModel.BaseURL,
+		Enabled:         nodeModel.Enabled,
+		LastSeenAt:      timestamppb.New(nodeModel.LastSeenAt.GetOr(time.Time{})),
+		LastSyncAt:      timestamppb.New(nodeModel.LastSyncAt.GetOr(time.Time{})),
+		LastSyncStatus:  nodeModel.LastSyncStatus,
+		HealthStatus:    nodeModel.HealthStatus,
+		Version:         nodeModel.Version,
+		ProtocolVersion: nodeModel.ProtocolVersion,
+		Capabilities:    nodeModel.Capabilities,
+		CreatedAt:       timestamppb.New(nodeModel.CreatedAt.GetOr(time.Time{})),
+		UpdatedAt:       timestamppb.New(nodeModel.UpdatedAt.GetOr(time.Time{})),
 	}
 }
 
@@ -320,28 +332,10 @@ func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
 	}
 }
 
-func PeerNodeModelToProto(pn *models.PeerNode) *xylona.PeerNode {
-	return &xylona.PeerNode{
-		Id:              pn.ID,
-		NodeId:          pn.NodeID,
-		Name:            pn.Name,
-		BaseUrl:         pn.BaseURL,
-		Enabled:         pn.Enabled,
-		LastSeenAt:      timestamppb.New(pn.LastSeenAt.GetOr(time.Time{})),
-		LastSyncAt:      timestamppb.New(pn.LastSyncAt.GetOr(time.Time{})),
-		LastSyncStatus:  pn.LastSyncStatus,
-		HealthStatus:    pn.HealthStatus,
-		Version:         pn.Version,
-		ProtocolVersion: pn.ProtocolVersion,
-		Capabilities:    pn.Capabilities,
-		CreatedAt:       timestamppb.New(pn.CreatedAt),
-		UpdatedAt:       timestamppb.New(pn.UpdatedAt),
-	}
-}
 
 // RemoteServerCacheToProto converts a cached remote server record into a GameServer proto,
 // suitable for use in GetGameServerResponse when the peer is unreachable.
-func RemoteServerCacheToProto(rsc *models.RemoteServerCache, peerNode *models.PeerNode) *xylona.GameServer {
+func RemoteServerCacheToProto(rsc *models.RemoteServerCache, node *models.Node) *xylona.GameServer {
 	return &xylona.GameServer{
 		Id:                 rsc.RemoteServerID,
 		Name:               rsc.DisplayName,
@@ -356,9 +350,9 @@ func RemoteServerCacheToProto(rsc *models.RemoteServerCache, peerNode *models.Pe
 		CurrentPlayerCount: int64(rsc.CurrentPlayers),
 		Map:                rsc.MapName,
 		Version:            rsc.Version,
-		NodeId:             peerNode.NodeID,
-		NodeName:           peerNode.Name,
-		NodeHost:           peerNode.BaseURL,
+		NodeId:             node.ID,
+		NodeName:           node.Name,
+		NodeHost:           node.BaseURL,
 	}
 }
 
@@ -366,7 +360,7 @@ func RemoteServerCacheModelToProto(rsc *models.RemoteServerCache) *xylona.Remote
 	return &xylona.RemoteServerSummary{
 		Id:               rsc.ID,
 		SourceNodeId:     rsc.SourceNodeID,
-		PeerNodeId:       rsc.PeerNodeID,
+		NodeId:           rsc.NodeID,
 		RemoteServerId:   rsc.RemoteServerID,
 		DisplayName:      rsc.DisplayName,
 		Status:           GameServerModelStatusToProtoStatus(rsc.Status),

@@ -29,7 +29,7 @@ import (
 type RemoteServerCache struct {
 	ID               string              `db:"id,pk" `
 	SourceNodeID     string              `db:"source_node_id" `
-	PeerNodeID       string              `db:"peer_node_id" `
+	NodeID           string              `db:"node_id" `
 	RemoteServerID   string              `db:"remote_server_id" `
 	DisplayName      string              `db:"display_name" `
 	Status           string              `db:"status" `
@@ -66,13 +66,13 @@ type RemoteServerCachesQuery = *sqlite.ViewQuery[*RemoteServerCache, RemoteServe
 
 // remoteServerCacheR is where relationships are stored.
 type remoteServerCacheR struct {
-	PeerNode *PeerNode // fk_remote_server_cache_0
+	Node *Node // fk_remote_server_cache_0
 }
 
 type remoteServerCacheColumnNames struct {
 	ID               string
 	SourceNodeID     string
-	PeerNodeID       string
+	NodeID           string
 	RemoteServerID   string
 	DisplayName      string
 	Status           string
@@ -101,7 +101,7 @@ type remoteServerCacheColumns struct {
 	tableAlias       string
 	ID               sqlite.Expression
 	SourceNodeID     sqlite.Expression
-	PeerNodeID       sqlite.Expression
+	NodeID           sqlite.Expression
 	RemoteServerID   sqlite.Expression
 	DisplayName      sqlite.Expression
 	Status           sqlite.Expression
@@ -137,7 +137,7 @@ func buildRemoteServerCacheColumns(alias string) remoteServerCacheColumns {
 		tableAlias:       alias,
 		ID:               sqlite.Quote(alias, "id"),
 		SourceNodeID:     sqlite.Quote(alias, "source_node_id"),
-		PeerNodeID:       sqlite.Quote(alias, "peer_node_id"),
+		NodeID:           sqlite.Quote(alias, "node_id"),
 		RemoteServerID:   sqlite.Quote(alias, "remote_server_id"),
 		DisplayName:      sqlite.Quote(alias, "display_name"),
 		Status:           sqlite.Quote(alias, "status"),
@@ -164,7 +164,7 @@ func buildRemoteServerCacheColumns(alias string) remoteServerCacheColumns {
 type remoteServerCacheWhere[Q sqlite.Filterable] struct {
 	ID               sqlite.WhereMod[Q, string]
 	SourceNodeID     sqlite.WhereMod[Q, string]
-	PeerNodeID       sqlite.WhereMod[Q, string]
+	NodeID           sqlite.WhereMod[Q, string]
 	RemoteServerID   sqlite.WhereMod[Q, string]
 	DisplayName      sqlite.WhereMod[Q, string]
 	Status           sqlite.WhereMod[Q, string]
@@ -195,7 +195,7 @@ func buildRemoteServerCacheWhere[Q sqlite.Filterable](cols remoteServerCacheColu
 	return remoteServerCacheWhere[Q]{
 		ID:               sqlite.Where[Q, string](cols.ID),
 		SourceNodeID:     sqlite.Where[Q, string](cols.SourceNodeID),
-		PeerNodeID:       sqlite.Where[Q, string](cols.PeerNodeID),
+		NodeID:           sqlite.Where[Q, string](cols.NodeID),
 		RemoteServerID:   sqlite.Where[Q, string](cols.RemoteServerID),
 		DisplayName:      sqlite.Where[Q, string](cols.DisplayName),
 		Status:           sqlite.Where[Q, string](cols.Status),
@@ -225,7 +225,7 @@ func buildRemoteServerCacheWhere[Q sqlite.Filterable](cols remoteServerCacheColu
 type RemoteServerCacheSetter struct {
 	ID               omit.Val[string]        `db:"id,pk" `
 	SourceNodeID     omit.Val[string]        `db:"source_node_id" `
-	PeerNodeID       omit.Val[string]        `db:"peer_node_id" `
+	NodeID           omit.Val[string]        `db:"node_id" `
 	RemoteServerID   omit.Val[string]        `db:"remote_server_id" `
 	DisplayName      omit.Val[string]        `db:"display_name" `
 	Status           omit.Val[string]        `db:"status" `
@@ -258,8 +258,8 @@ func (s RemoteServerCacheSetter) SetColumns() []string {
 		vals = append(vals, "source_node_id")
 	}
 
-	if !s.PeerNodeID.IsUnset() {
-		vals = append(vals, "peer_node_id")
+	if !s.NodeID.IsUnset() {
+		vals = append(vals, "node_id")
 	}
 
 	if !s.RemoteServerID.IsUnset() {
@@ -352,8 +352,8 @@ func (s RemoteServerCacheSetter) Overwrite(t *RemoteServerCache) {
 	if !s.SourceNodeID.IsUnset() {
 		t.SourceNodeID, _ = s.SourceNodeID.Get()
 	}
-	if !s.PeerNodeID.IsUnset() {
-		t.PeerNodeID, _ = s.PeerNodeID.Get()
+	if !s.NodeID.IsUnset() {
+		t.NodeID, _ = s.NodeID.Get()
 	}
 	if !s.RemoteServerID.IsUnset() {
 		t.RemoteServerID, _ = s.RemoteServerID.Get()
@@ -436,8 +436,8 @@ func (s *RemoteServerCacheSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.SourceNodeID))
 		}
 
-		if !s.PeerNodeID.IsUnset() {
-			vals = append(vals, sqlite.Arg(s.PeerNodeID))
+		if !s.NodeID.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.NodeID))
 		}
 
 		if !s.RemoteServerID.IsUnset() {
@@ -545,10 +545,10 @@ func (s RemoteServerCacheSetter) Expressions(prefix ...string) []bob.Expression 
 		}})
 	}
 
-	if !s.PeerNodeID.IsUnset() {
+	if !s.NodeID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "peer_node_id")...),
-			sqlite.Arg(s.PeerNodeID),
+			sqlite.Quote(append(prefix, "node_id")...),
+			sqlite.Arg(s.NodeID),
 		}})
 	}
 
@@ -919,8 +919,8 @@ func (o RemoteServerCacheSlice) ReloadAll(ctx context.Context, exec bob.Executor
 }
 
 type remoteServerCacheJoins[Q dialect.Joinable] struct {
-	typ      string
-	PeerNode func(context.Context) modAs[Q, peerNodeColumns]
+	typ  string
+	Node func(context.Context) modAs[Q, nodeColumns]
 }
 
 func (j remoteServerCacheJoins[Q]) aliasedAs(alias string) remoteServerCacheJoins[Q] {
@@ -929,21 +929,21 @@ func (j remoteServerCacheJoins[Q]) aliasedAs(alias string) remoteServerCacheJoin
 
 func buildRemoteServerCacheJoins[Q dialect.Joinable](cols remoteServerCacheColumns, typ string) remoteServerCacheJoins[Q] {
 	return remoteServerCacheJoins[Q]{
-		typ:      typ,
-		PeerNode: remoteServerCachesJoinPeerNode[Q](cols, typ),
+		typ:  typ,
+		Node: remoteServerCachesJoinNode[Q](cols, typ),
 	}
 }
 
-func remoteServerCachesJoinPeerNode[Q dialect.Joinable](from remoteServerCacheColumns, typ string) func(context.Context) modAs[Q, peerNodeColumns] {
-	return func(ctx context.Context) modAs[Q, peerNodeColumns] {
-		return modAs[Q, peerNodeColumns]{
-			c: PeerNodeColumns,
-			f: func(to peerNodeColumns) bob.Mod[Q] {
+func remoteServerCachesJoinNode[Q dialect.Joinable](from remoteServerCacheColumns, typ string) func(context.Context) modAs[Q, nodeColumns] {
+	return func(ctx context.Context) modAs[Q, nodeColumns] {
+		return modAs[Q, nodeColumns]{
+			c: NodeColumns,
+			f: func(to nodeColumns) bob.Mod[Q] {
 				mods := make(mods.QueryMods[Q], 0, 1)
 
 				{
-					mods = append(mods, dialect.Join[Q](typ, PeerNodes.Name().As(to.Alias())).On(
-						to.ID.EQ(from.PeerNodeID),
+					mods = append(mods, dialect.Join[Q](typ, Nodes.Name().As(to.Alias())).On(
+						to.ID.EQ(from.NodeID),
 					))
 				}
 
@@ -953,21 +953,21 @@ func remoteServerCachesJoinPeerNode[Q dialect.Joinable](from remoteServerCacheCo
 	}
 }
 
-// PeerNode starts a query for related objects on peer_node
-func (o *RemoteServerCache) PeerNode(mods ...bob.Mod[*dialect.SelectQuery]) PeerNodesQuery {
-	return PeerNodes.Query(append(mods,
-		sm.Where(PeerNodeColumns.ID.EQ(sqlite.Arg(o.PeerNodeID))),
+// Node starts a query for related objects on node
+func (o *RemoteServerCache) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
+	return Nodes.Query(append(mods,
+		sm.Where(NodeColumns.ID.EQ(sqlite.Arg(o.NodeID))),
 	)...)
 }
 
-func (os RemoteServerCacheSlice) PeerNode(mods ...bob.Mod[*dialect.SelectQuery]) PeerNodesQuery {
+func (os RemoteServerCacheSlice) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
 	PKArgs := make([]bob.Expression, len(os))
 	for i, o := range os {
-		PKArgs[i] = sqlite.ArgGroup(o.PeerNodeID)
+		PKArgs[i] = sqlite.ArgGroup(o.NodeID)
 	}
 
-	return PeerNodes.Query(append(mods,
-		sm.Where(sqlite.Group(PeerNodeColumns.ID).In(PKArgs...)),
+	return Nodes.Query(append(mods,
+		sm.Where(sqlite.Group(NodeColumns.ID).In(PKArgs...)),
 	)...)
 }
 
@@ -977,13 +977,13 @@ func (o *RemoteServerCache) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
-	case "PeerNode":
-		rel, ok := retrieved.(*PeerNode)
+	case "Node":
+		rel, ok := retrieved.(*Node)
 		if !ok {
 			return fmt.Errorf("remoteServerCache cannot load %T as %q", retrieved, name)
 		}
 
-		o.R.PeerNode = rel
+		o.R.Node = rel
 
 		if rel != nil {
 			rel.R.RemoteServerCaches = RemoteServerCacheSlice{o}
@@ -994,34 +994,34 @@ func (o *RemoteServerCache) Preload(name string, retrieved any) error {
 	}
 }
 
-func PreloadRemoteServerCachePeerNode(opts ...sqlite.PreloadOption) sqlite.Preloader {
-	return sqlite.Preload[*PeerNode, PeerNodeSlice](orm.Relationship{
-		Name: "PeerNode",
+func PreloadRemoteServerCacheNode(opts ...sqlite.PreloadOption) sqlite.Preloader {
+	return sqlite.Preload[*Node, NodeSlice](orm.Relationship{
+		Name: "Node",
 		Sides: []orm.RelSide{
 			{
 				From: TableNames.RemoteServerCaches,
-				To:   TableNames.PeerNodes,
+				To:   TableNames.Nodes,
 				FromColumns: []string{
-					ColumnNames.RemoteServerCaches.PeerNodeID,
+					ColumnNames.RemoteServerCaches.NodeID,
 				},
 				ToColumns: []string{
-					ColumnNames.PeerNodes.ID,
+					ColumnNames.Nodes.ID,
 				},
 			},
 		},
-	}, PeerNodes.Columns().Names(), opts...)
+	}, Nodes.Columns().Names(), opts...)
 }
 
-func ThenLoadRemoteServerCachePeerNode(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+func ThenLoadRemoteServerCacheNode(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
 	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
 		loader, isLoader := retrieved.(interface {
-			LoadRemoteServerCachePeerNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+			LoadRemoteServerCacheNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 		})
 		if !isLoader {
-			return fmt.Errorf("object %T cannot load RemoteServerCachePeerNode", retrieved)
+			return fmt.Errorf("object %T cannot load RemoteServerCacheNode", retrieved)
 		}
 
-		err := loader.LoadRemoteServerCachePeerNode(ctx, exec, queryMods...)
+		err := loader.LoadRemoteServerCacheNode(ctx, exec, queryMods...)
 
 		// Don't cause an issue due to missing relationships
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1032,46 +1032,46 @@ func ThenLoadRemoteServerCachePeerNode(queryMods ...bob.Mod[*dialect.SelectQuery
 	})
 }
 
-// LoadRemoteServerCachePeerNode loads the remoteServerCache's PeerNode into the .R struct
-func (o *RemoteServerCache) LoadRemoteServerCachePeerNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+// LoadRemoteServerCacheNode loads the remoteServerCache's Node into the .R struct
+func (o *RemoteServerCache) LoadRemoteServerCacheNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
 		return nil
 	}
 
 	// Reset the relationship
-	o.R.PeerNode = nil
+	o.R.Node = nil
 
-	related, err := o.PeerNode(mods...).One(ctx, exec)
+	related, err := o.Node(mods...).One(ctx, exec)
 	if err != nil {
 		return err
 	}
 
 	related.R.RemoteServerCaches = RemoteServerCacheSlice{o}
 
-	o.R.PeerNode = related
+	o.R.Node = related
 	return nil
 }
 
-// LoadRemoteServerCachePeerNode loads the remoteServerCache's PeerNode into the .R struct
-func (os RemoteServerCacheSlice) LoadRemoteServerCachePeerNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+// LoadRemoteServerCacheNode loads the remoteServerCache's Node into the .R struct
+func (os RemoteServerCacheSlice) LoadRemoteServerCacheNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if len(os) == 0 {
 		return nil
 	}
 
-	peerNodes, err := os.PeerNode(mods...).All(ctx, exec)
+	nodes, err := os.Node(mods...).All(ctx, exec)
 	if err != nil {
 		return err
 	}
 
 	for _, o := range os {
-		for _, rel := range peerNodes {
-			if o.PeerNodeID != rel.ID {
+		for _, rel := range nodes {
+			if o.NodeID != rel.ID {
 				continue
 			}
 
 			rel.R.RemoteServerCaches = append(rel.R.RemoteServerCaches, o)
 
-			o.R.PeerNode = rel
+			o.R.Node = rel
 			break
 		}
 	}
@@ -1079,48 +1079,48 @@ func (os RemoteServerCacheSlice) LoadRemoteServerCachePeerNode(ctx context.Conte
 	return nil
 }
 
-func attachRemoteServerCachePeerNode0(ctx context.Context, exec bob.Executor, count int, remoteServerCache0 *RemoteServerCache, peerNode1 *PeerNode) (*RemoteServerCache, error) {
+func attachRemoteServerCacheNode0(ctx context.Context, exec bob.Executor, count int, remoteServerCache0 *RemoteServerCache, node1 *Node) (*RemoteServerCache, error) {
 	setter := &RemoteServerCacheSetter{
-		PeerNodeID: omit.From(peerNode1.ID),
+		NodeID: omit.From(node1.ID),
 	}
 
 	err := remoteServerCache0.Update(ctx, exec, setter)
 	if err != nil {
-		return nil, fmt.Errorf("attachRemoteServerCachePeerNode0: %w", err)
+		return nil, fmt.Errorf("attachRemoteServerCacheNode0: %w", err)
 	}
 
 	return remoteServerCache0, nil
 }
 
-func (remoteServerCache0 *RemoteServerCache) InsertPeerNode(ctx context.Context, exec bob.Executor, related *PeerNodeSetter) error {
-	peerNode1, err := PeerNodes.Insert(related).One(ctx, exec)
+func (remoteServerCache0 *RemoteServerCache) InsertNode(ctx context.Context, exec bob.Executor, related *NodeSetter) error {
+	node1, err := Nodes.Insert(related).One(ctx, exec)
 	if err != nil {
 		return fmt.Errorf("inserting related objects: %w", err)
 	}
 
-	_, err = attachRemoteServerCachePeerNode0(ctx, exec, 1, remoteServerCache0, peerNode1)
+	_, err = attachRemoteServerCacheNode0(ctx, exec, 1, remoteServerCache0, node1)
 	if err != nil {
 		return err
 	}
 
-	remoteServerCache0.R.PeerNode = peerNode1
+	remoteServerCache0.R.Node = node1
 
-	peerNode1.R.RemoteServerCaches = append(peerNode1.R.RemoteServerCaches, remoteServerCache0)
+	node1.R.RemoteServerCaches = append(node1.R.RemoteServerCaches, remoteServerCache0)
 
 	return nil
 }
 
-func (remoteServerCache0 *RemoteServerCache) AttachPeerNode(ctx context.Context, exec bob.Executor, peerNode1 *PeerNode) error {
+func (remoteServerCache0 *RemoteServerCache) AttachNode(ctx context.Context, exec bob.Executor, node1 *Node) error {
 	var err error
 
-	_, err = attachRemoteServerCachePeerNode0(ctx, exec, 1, remoteServerCache0, peerNode1)
+	_, err = attachRemoteServerCacheNode0(ctx, exec, 1, remoteServerCache0, node1)
 	if err != nil {
 		return err
 	}
 
-	remoteServerCache0.R.PeerNode = peerNode1
+	remoteServerCache0.R.Node = node1
 
-	peerNode1.R.RemoteServerCaches = append(peerNode1.R.RemoteServerCaches, remoteServerCache0)
+	node1.R.RemoteServerCaches = append(node1.R.RemoteServerCaches, remoteServerCache0)
 
 	return nil
 }

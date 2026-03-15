@@ -28,7 +28,7 @@ import (
 // PeerSyncState is an object representing the database table.
 type PeerSyncState struct {
 	ID              string              `db:"id,pk" `
-	PeerNodeID      string              `db:"peer_node_id" `
+	NodeID          string              `db:"node_id" `
 	LastCursor      string              `db:"last_cursor" `
 	LastFullSyncAt  null.Val[time.Time] `db:"last_full_sync_at" `
 	LastDeltaSyncAt null.Val[time.Time] `db:"last_delta_sync_at" `
@@ -53,12 +53,12 @@ type PeerSyncStatesQuery = *sqlite.ViewQuery[*PeerSyncState, PeerSyncStateSlice]
 
 // peerSyncStateR is where relationships are stored.
 type peerSyncStateR struct {
-	PeerNode *PeerNode // fk_peer_sync_state_0
+	Node *Node // fk_peer_sync_state_0
 }
 
 type peerSyncStateColumnNames struct {
 	ID              string
-	PeerNodeID      string
+	NodeID          string
 	LastCursor      string
 	LastFullSyncAt  string
 	LastDeltaSyncAt string
@@ -74,7 +74,7 @@ var PeerSyncStateColumns = buildPeerSyncStateColumns("peer_sync_state")
 type peerSyncStateColumns struct {
 	tableAlias      string
 	ID              sqlite.Expression
-	PeerNodeID      sqlite.Expression
+	NodeID          sqlite.Expression
 	LastCursor      sqlite.Expression
 	LastFullSyncAt  sqlite.Expression
 	LastDeltaSyncAt sqlite.Expression
@@ -97,7 +97,7 @@ func buildPeerSyncStateColumns(alias string) peerSyncStateColumns {
 	return peerSyncStateColumns{
 		tableAlias:      alias,
 		ID:              sqlite.Quote(alias, "id"),
-		PeerNodeID:      sqlite.Quote(alias, "peer_node_id"),
+		NodeID:          sqlite.Quote(alias, "node_id"),
 		LastCursor:      sqlite.Quote(alias, "last_cursor"),
 		LastFullSyncAt:  sqlite.Quote(alias, "last_full_sync_at"),
 		LastDeltaSyncAt: sqlite.Quote(alias, "last_delta_sync_at"),
@@ -111,7 +111,7 @@ func buildPeerSyncStateColumns(alias string) peerSyncStateColumns {
 
 type peerSyncStateWhere[Q sqlite.Filterable] struct {
 	ID              sqlite.WhereMod[Q, string]
-	PeerNodeID      sqlite.WhereMod[Q, string]
+	NodeID          sqlite.WhereMod[Q, string]
 	LastCursor      sqlite.WhereMod[Q, string]
 	LastFullSyncAt  sqlite.WhereNullMod[Q, time.Time]
 	LastDeltaSyncAt sqlite.WhereNullMod[Q, time.Time]
@@ -129,7 +129,7 @@ func (peerSyncStateWhere[Q]) AliasedAs(alias string) peerSyncStateWhere[Q] {
 func buildPeerSyncStateWhere[Q sqlite.Filterable](cols peerSyncStateColumns) peerSyncStateWhere[Q] {
 	return peerSyncStateWhere[Q]{
 		ID:              sqlite.Where[Q, string](cols.ID),
-		PeerNodeID:      sqlite.Where[Q, string](cols.PeerNodeID),
+		NodeID:          sqlite.Where[Q, string](cols.NodeID),
 		LastCursor:      sqlite.Where[Q, string](cols.LastCursor),
 		LastFullSyncAt:  sqlite.WhereNull[Q, time.Time](cols.LastFullSyncAt),
 		LastDeltaSyncAt: sqlite.WhereNull[Q, time.Time](cols.LastDeltaSyncAt),
@@ -146,7 +146,7 @@ func buildPeerSyncStateWhere[Q sqlite.Filterable](cols peerSyncStateColumns) pee
 // Generated columns are not included
 type PeerSyncStateSetter struct {
 	ID              omit.Val[string]        `db:"id,pk" `
-	PeerNodeID      omit.Val[string]        `db:"peer_node_id" `
+	NodeID          omit.Val[string]        `db:"node_id" `
 	LastCursor      omit.Val[string]        `db:"last_cursor" `
 	LastFullSyncAt  omitnull.Val[time.Time] `db:"last_full_sync_at" `
 	LastDeltaSyncAt omitnull.Val[time.Time] `db:"last_delta_sync_at" `
@@ -163,8 +163,8 @@ func (s PeerSyncStateSetter) SetColumns() []string {
 		vals = append(vals, "id")
 	}
 
-	if !s.PeerNodeID.IsUnset() {
-		vals = append(vals, "peer_node_id")
+	if !s.NodeID.IsUnset() {
+		vals = append(vals, "node_id")
 	}
 
 	if !s.LastCursor.IsUnset() {
@@ -206,8 +206,8 @@ func (s PeerSyncStateSetter) Overwrite(t *PeerSyncState) {
 	if !s.ID.IsUnset() {
 		t.ID, _ = s.ID.Get()
 	}
-	if !s.PeerNodeID.IsUnset() {
-		t.PeerNodeID, _ = s.PeerNodeID.Get()
+	if !s.NodeID.IsUnset() {
+		t.NodeID, _ = s.NodeID.Get()
 	}
 	if !s.LastCursor.IsUnset() {
 		t.LastCursor, _ = s.LastCursor.Get()
@@ -250,8 +250,8 @@ func (s *PeerSyncStateSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.ID))
 		}
 
-		if !s.PeerNodeID.IsUnset() {
-			vals = append(vals, sqlite.Arg(s.PeerNodeID))
+		if !s.NodeID.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.NodeID))
 		}
 
 		if !s.LastCursor.IsUnset() {
@@ -304,10 +304,10 @@ func (s PeerSyncStateSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
-	if !s.PeerNodeID.IsUnset() {
+	if !s.NodeID.IsUnset() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "peer_node_id")...),
-			sqlite.Arg(s.PeerNodeID),
+			sqlite.Quote(append(prefix, "node_id")...),
+			sqlite.Arg(s.NodeID),
 		}})
 	}
 
@@ -594,8 +594,8 @@ func (o PeerSyncStateSlice) ReloadAll(ctx context.Context, exec bob.Executor) er
 }
 
 type peerSyncStateJoins[Q dialect.Joinable] struct {
-	typ      string
-	PeerNode func(context.Context) modAs[Q, peerNodeColumns]
+	typ  string
+	Node func(context.Context) modAs[Q, nodeColumns]
 }
 
 func (j peerSyncStateJoins[Q]) aliasedAs(alias string) peerSyncStateJoins[Q] {
@@ -604,21 +604,21 @@ func (j peerSyncStateJoins[Q]) aliasedAs(alias string) peerSyncStateJoins[Q] {
 
 func buildPeerSyncStateJoins[Q dialect.Joinable](cols peerSyncStateColumns, typ string) peerSyncStateJoins[Q] {
 	return peerSyncStateJoins[Q]{
-		typ:      typ,
-		PeerNode: peerSyncStatesJoinPeerNode[Q](cols, typ),
+		typ:  typ,
+		Node: peerSyncStatesJoinNode[Q](cols, typ),
 	}
 }
 
-func peerSyncStatesJoinPeerNode[Q dialect.Joinable](from peerSyncStateColumns, typ string) func(context.Context) modAs[Q, peerNodeColumns] {
-	return func(ctx context.Context) modAs[Q, peerNodeColumns] {
-		return modAs[Q, peerNodeColumns]{
-			c: PeerNodeColumns,
-			f: func(to peerNodeColumns) bob.Mod[Q] {
+func peerSyncStatesJoinNode[Q dialect.Joinable](from peerSyncStateColumns, typ string) func(context.Context) modAs[Q, nodeColumns] {
+	return func(ctx context.Context) modAs[Q, nodeColumns] {
+		return modAs[Q, nodeColumns]{
+			c: NodeColumns,
+			f: func(to nodeColumns) bob.Mod[Q] {
 				mods := make(mods.QueryMods[Q], 0, 1)
 
 				{
-					mods = append(mods, dialect.Join[Q](typ, PeerNodes.Name().As(to.Alias())).On(
-						to.ID.EQ(from.PeerNodeID),
+					mods = append(mods, dialect.Join[Q](typ, Nodes.Name().As(to.Alias())).On(
+						to.ID.EQ(from.NodeID),
 					))
 				}
 
@@ -628,21 +628,21 @@ func peerSyncStatesJoinPeerNode[Q dialect.Joinable](from peerSyncStateColumns, t
 	}
 }
 
-// PeerNode starts a query for related objects on peer_node
-func (o *PeerSyncState) PeerNode(mods ...bob.Mod[*dialect.SelectQuery]) PeerNodesQuery {
-	return PeerNodes.Query(append(mods,
-		sm.Where(PeerNodeColumns.ID.EQ(sqlite.Arg(o.PeerNodeID))),
+// Node starts a query for related objects on node
+func (o *PeerSyncState) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
+	return Nodes.Query(append(mods,
+		sm.Where(NodeColumns.ID.EQ(sqlite.Arg(o.NodeID))),
 	)...)
 }
 
-func (os PeerSyncStateSlice) PeerNode(mods ...bob.Mod[*dialect.SelectQuery]) PeerNodesQuery {
+func (os PeerSyncStateSlice) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
 	PKArgs := make([]bob.Expression, len(os))
 	for i, o := range os {
-		PKArgs[i] = sqlite.ArgGroup(o.PeerNodeID)
+		PKArgs[i] = sqlite.ArgGroup(o.NodeID)
 	}
 
-	return PeerNodes.Query(append(mods,
-		sm.Where(sqlite.Group(PeerNodeColumns.ID).In(PKArgs...)),
+	return Nodes.Query(append(mods,
+		sm.Where(sqlite.Group(NodeColumns.ID).In(PKArgs...)),
 	)...)
 }
 
@@ -652,13 +652,13 @@ func (o *PeerSyncState) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
-	case "PeerNode":
-		rel, ok := retrieved.(*PeerNode)
+	case "Node":
+		rel, ok := retrieved.(*Node)
 		if !ok {
 			return fmt.Errorf("peerSyncState cannot load %T as %q", retrieved, name)
 		}
 
-		o.R.PeerNode = rel
+		o.R.Node = rel
 
 		if rel != nil {
 			rel.R.PeerSyncState = o
@@ -669,34 +669,34 @@ func (o *PeerSyncState) Preload(name string, retrieved any) error {
 	}
 }
 
-func PreloadPeerSyncStatePeerNode(opts ...sqlite.PreloadOption) sqlite.Preloader {
-	return sqlite.Preload[*PeerNode, PeerNodeSlice](orm.Relationship{
-		Name: "PeerNode",
+func PreloadPeerSyncStateNode(opts ...sqlite.PreloadOption) sqlite.Preloader {
+	return sqlite.Preload[*Node, NodeSlice](orm.Relationship{
+		Name: "Node",
 		Sides: []orm.RelSide{
 			{
 				From: TableNames.PeerSyncStates,
-				To:   TableNames.PeerNodes,
+				To:   TableNames.Nodes,
 				FromColumns: []string{
-					ColumnNames.PeerSyncStates.PeerNodeID,
+					ColumnNames.PeerSyncStates.NodeID,
 				},
 				ToColumns: []string{
-					ColumnNames.PeerNodes.ID,
+					ColumnNames.Nodes.ID,
 				},
 			},
 		},
-	}, PeerNodes.Columns().Names(), opts...)
+	}, Nodes.Columns().Names(), opts...)
 }
 
-func ThenLoadPeerSyncStatePeerNode(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+func ThenLoadPeerSyncStateNode(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
 	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
 		loader, isLoader := retrieved.(interface {
-			LoadPeerSyncStatePeerNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+			LoadPeerSyncStateNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 		})
 		if !isLoader {
-			return fmt.Errorf("object %T cannot load PeerSyncStatePeerNode", retrieved)
+			return fmt.Errorf("object %T cannot load PeerSyncStateNode", retrieved)
 		}
 
-		err := loader.LoadPeerSyncStatePeerNode(ctx, exec, queryMods...)
+		err := loader.LoadPeerSyncStateNode(ctx, exec, queryMods...)
 
 		// Don't cause an issue due to missing relationships
 		if errors.Is(err, sql.ErrNoRows) {
@@ -707,46 +707,46 @@ func ThenLoadPeerSyncStatePeerNode(queryMods ...bob.Mod[*dialect.SelectQuery]) s
 	})
 }
 
-// LoadPeerSyncStatePeerNode loads the peerSyncState's PeerNode into the .R struct
-func (o *PeerSyncState) LoadPeerSyncStatePeerNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+// LoadPeerSyncStateNode loads the peerSyncState's Node into the .R struct
+func (o *PeerSyncState) LoadPeerSyncStateNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
 		return nil
 	}
 
 	// Reset the relationship
-	o.R.PeerNode = nil
+	o.R.Node = nil
 
-	related, err := o.PeerNode(mods...).One(ctx, exec)
+	related, err := o.Node(mods...).One(ctx, exec)
 	if err != nil {
 		return err
 	}
 
 	related.R.PeerSyncState = o
 
-	o.R.PeerNode = related
+	o.R.Node = related
 	return nil
 }
 
-// LoadPeerSyncStatePeerNode loads the peerSyncState's PeerNode into the .R struct
-func (os PeerSyncStateSlice) LoadPeerSyncStatePeerNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+// LoadPeerSyncStateNode loads the peerSyncState's Node into the .R struct
+func (os PeerSyncStateSlice) LoadPeerSyncStateNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if len(os) == 0 {
 		return nil
 	}
 
-	peerNodes, err := os.PeerNode(mods...).All(ctx, exec)
+	nodes, err := os.Node(mods...).All(ctx, exec)
 	if err != nil {
 		return err
 	}
 
 	for _, o := range os {
-		for _, rel := range peerNodes {
-			if o.PeerNodeID != rel.ID {
+		for _, rel := range nodes {
+			if o.NodeID != rel.ID {
 				continue
 			}
 
 			rel.R.PeerSyncState = o
 
-			o.R.PeerNode = rel
+			o.R.Node = rel
 			break
 		}
 	}
@@ -754,48 +754,48 @@ func (os PeerSyncStateSlice) LoadPeerSyncStatePeerNode(ctx context.Context, exec
 	return nil
 }
 
-func attachPeerSyncStatePeerNode0(ctx context.Context, exec bob.Executor, count int, peerSyncState0 *PeerSyncState, peerNode1 *PeerNode) (*PeerSyncState, error) {
+func attachPeerSyncStateNode0(ctx context.Context, exec bob.Executor, count int, peerSyncState0 *PeerSyncState, node1 *Node) (*PeerSyncState, error) {
 	setter := &PeerSyncStateSetter{
-		PeerNodeID: omit.From(peerNode1.ID),
+		NodeID: omit.From(node1.ID),
 	}
 
 	err := peerSyncState0.Update(ctx, exec, setter)
 	if err != nil {
-		return nil, fmt.Errorf("attachPeerSyncStatePeerNode0: %w", err)
+		return nil, fmt.Errorf("attachPeerSyncStateNode0: %w", err)
 	}
 
 	return peerSyncState0, nil
 }
 
-func (peerSyncState0 *PeerSyncState) InsertPeerNode(ctx context.Context, exec bob.Executor, related *PeerNodeSetter) error {
-	peerNode1, err := PeerNodes.Insert(related).One(ctx, exec)
+func (peerSyncState0 *PeerSyncState) InsertNode(ctx context.Context, exec bob.Executor, related *NodeSetter) error {
+	node1, err := Nodes.Insert(related).One(ctx, exec)
 	if err != nil {
 		return fmt.Errorf("inserting related objects: %w", err)
 	}
 
-	_, err = attachPeerSyncStatePeerNode0(ctx, exec, 1, peerSyncState0, peerNode1)
+	_, err = attachPeerSyncStateNode0(ctx, exec, 1, peerSyncState0, node1)
 	if err != nil {
 		return err
 	}
 
-	peerSyncState0.R.PeerNode = peerNode1
+	peerSyncState0.R.Node = node1
 
-	peerNode1.R.PeerSyncState = peerSyncState0
+	node1.R.PeerSyncState = peerSyncState0
 
 	return nil
 }
 
-func (peerSyncState0 *PeerSyncState) AttachPeerNode(ctx context.Context, exec bob.Executor, peerNode1 *PeerNode) error {
+func (peerSyncState0 *PeerSyncState) AttachNode(ctx context.Context, exec bob.Executor, node1 *Node) error {
 	var err error
 
-	_, err = attachPeerSyncStatePeerNode0(ctx, exec, 1, peerSyncState0, peerNode1)
+	_, err = attachPeerSyncStateNode0(ctx, exec, 1, peerSyncState0, node1)
 	if err != nil {
 		return err
 	}
 
-	peerSyncState0.R.PeerNode = peerNode1
+	peerSyncState0.R.Node = node1
 
-	peerNode1.R.PeerSyncState = peerSyncState0
+	node1.R.PeerSyncState = peerSyncState0
 
 	return nil
 }
