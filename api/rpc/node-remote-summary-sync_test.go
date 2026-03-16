@@ -2,18 +2,21 @@ package rpc
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/aarondl/opt/null"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -106,6 +109,25 @@ func createRemoteSummarySyncCacheTable(t *testing.T, conn *db.Connection) {
 	}
 }
 
+func createRemoteSummarySyncTrustTable(t *testing.T, conn *db.Connection) {
+	t.Helper()
+
+	_, errCreate := conn.SQLDb.Exec(`
+		CREATE TABLE federation_trusted_peer (
+			node_id TEXT PRIMARY KEY NOT NULL,
+			peer_node_id TEXT NOT NULL DEFAULT '',
+			peer_fingerprint TEXT NOT NULL,
+			enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			revoked BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if errCreate != nil {
+		t.Fatalf("failed to create federation_trusted_peer table: %v", errCreate)
+	}
+}
+
 func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "node-remote-summary-sync.sqlite")
 	conn := db.NewConnection(context.Background(), dbPath)
@@ -115,27 +137,83 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		}
 	})
 	createRemoteSummarySyncCacheTable(t, conn)
+	createRemoteSummarySyncTrustTable(t, conn)
 
 	testHandler := &federationSummaryTestHandler{}
 	testHandler.SetStatus(xylona.Status_OFFLINE)
 
+	serverMTLS, serverFingerprint, errServerMTLS := helpers.NewFederationMTLS(
+		"remote-peer-node",
+		1,
+		filepath.Join(t.TempDir(), "server.crt"),
+		filepath.Join(t.TempDir(), "server.key"),
+	)
+	if errServerMTLS != nil {
+		t.Fatalf("NewFederationMTLS() server error = %v", errServerMTLS)
+	}
+
+	clientMTLSPath := filepath.Join(t.TempDir(), "client.crt")
+	clientKeyPath := filepath.Join(t.TempDir(), "client.key")
+	_, _, errClientMTLS := helpers.NewFederationMTLS("local-node", 1, clientMTLSPath, clientKeyPath)
+	if errClientMTLS != nil {
+		t.Fatalf("NewFederationMTLS() client error = %v", errClientMTLS)
+	}
+
+	serverCertificate, errLoadServerCert := tls.LoadX509KeyPair(serverMTLS.CertPath(), serverMTLS.KeyPath())
+	if errLoadServerCert != nil {
+		t.Fatalf("tls.LoadX509KeyPair() server cert error = %v", errLoadServerCert)
+	}
+
 	federationPath, federationHTTPHandler := xylonaconnect.NewFederationHandler(testHandler)
 	mux := http.NewServeMux()
 	mux.Handle(federationPath, federationHTTPHandler)
-	server := httptest.NewServer(mux)
+	server := httptest.NewUnstartedServer(mux)
+	server.TLS = &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{serverCertificate},
+		ClientAuth:   tls.RequireAnyClientCert,
+	}
+	server.StartTLS()
 	t.Cleanup(server.Close)
+
+	parsedServerURL, errParseServerURL := url.Parse(server.URL)
+	if errParseServerURL != nil {
+		t.Fatalf("url.Parse() error = %v", errParseServerURL)
+	}
+	serverPort, errParsePort := strconv.Atoi(parsedServerURL.Port())
+	if errParsePort != nil {
+		t.Fatalf("failed to parse server port: %v", errParsePort)
+	}
+
+	clientMTLS, _, errClientConfig := helpers.NewFederationMTLS(
+		"local-node",
+		serverPort,
+		clientMTLSPath,
+		clientKeyPath,
+	)
+	if errClientConfig != nil {
+		t.Fatalf("NewFederationMTLS() client runtime error = %v", errClientConfig)
+	}
 
 	node := &models.Node{
 		ID:               "node-1",
 		Name:             "Peer One",
 		BaseURL:          server.URL,
-		SecretKey:        null.From("test-secret-key"),
 		AllowInsecureTLS: false,
 	}
 
+	_, errInsertTrust := conn.SQLDb.Exec(`
+		INSERT INTO federation_trusted_peer (node_id, peer_node_id, peer_fingerprint, enabled, revoked)
+		VALUES (?, ?, ?, 1, 0)
+	`, node.ID, "remote-peer-node", serverFingerprint)
+	if errInsertTrust != nil {
+		t.Fatalf("failed to insert trusted peer row: %v", errInsertTrust)
+	}
+
 	xylonaService := XylonaService{
-		db:        conn,
-		listCache: newRemoteServerListCache(30 * time.Second),
+		db:             conn,
+		federationMTLS: clientMTLS,
+		listCache:      newRemoteServerListCache(30 * time.Second),
 	}
 
 	firstSummaries, firstUsedStale, errFirst := xylonaService.listRemoteNodeSummaries(context.Background(), node)

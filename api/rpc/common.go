@@ -11,7 +11,6 @@ import (
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -80,10 +79,32 @@ func (xs XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, *
 	return node, remoteCache, nil
 }
 
-// newRemoteFederationClient creates a federation client for the given node with auth header set.
-func newRemoteFederationClient(node *models.Node) (xylonaconnect.FederationClient, string) {
-	httpClient := helpers.NewFederationHTTPClient(15*time.Second, node.AllowInsecureTLS)
-	client := xylonaconnect.NewFederationClient(httpClient, node.BaseURL)
-	secretKey := node.SecretKey.GetOr("")
-	return client, secretKey
+// newRemoteFederationClient creates a federation client for the given node using mTLS and pinned fingerprint trust.
+func (xs XylonaService) newRemoteFederationClient(node *models.Node) (xylonaconnect.FederationClient, error) {
+	if xs.federationMTLS == nil {
+		return nil, errors.New("federation mTLS is not configured")
+	}
+
+	httpClient, federationBaseURL, errClient := xs.federationMTLS.NewTrustedPeerHTTPClientWithPort(
+		15*time.Second,
+		node.ID,
+		node.BaseURL,
+		xs.remoteFederationPort(node),
+		xs.db,
+	)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	return xylonaconnect.NewFederationClient(httpClient, federationBaseURL), nil
+}
+
+func (xs XylonaService) remoteFederationPort(node *models.Node) int {
+	if node != nil && node.Port > 0 {
+		return int(node.Port)
+	}
+	if xs.federationMTLS != nil {
+		return xs.federationMTLS.FederationPort()
+	}
+	return 0
 }

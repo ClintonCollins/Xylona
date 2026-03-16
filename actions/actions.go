@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -45,15 +46,17 @@ type Instance struct {
 	serverQueriesInfoMap map[string]xylona.ServerQuery
 	serverQueriesMutex   *sync.RWMutex
 	db                   *db.Connection
+	federationMTLS       *helpers.FederationMTLS
 }
 
-func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance) *Instance {
+func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS) *Instance {
 	inst := &Instance{
 		ctx:                  ctx,
 		supervisorInstance:   supervisorInstance,
 		serverQueriesInfoMap: make(map[string]xylona.ServerQuery),
 		serverQueriesMutex:   &sync.RWMutex{},
 		db:                   db,
+		federationMTLS:       federationMTLS,
 	}
 	go inst.backgroundJobQueryAllGameServers()
 	return inst

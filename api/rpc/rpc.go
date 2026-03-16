@@ -7,6 +7,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
@@ -22,16 +23,25 @@ type XylonaService struct {
 	db             *db.Connection
 	actionsInst    *actions.Instance
 	supervisorInst *supervisor.Instance
+	federationMTLS *helpers.FederationMTLS
 	secureCookie   *securecookie.SecureCookie
 	syncEngine     SyncEngine
 	listCache      *remoteServerListCache
 }
 
-func NewXylonaService(ctx context.Context, db *db.Connection, actionsInst *actions.Instance, supervisorInst *supervisor.Instance, secureCookie *securecookie.SecureCookie) *XylonaService {
+func NewXylonaService(
+	ctx context.Context,
+	db *db.Connection,
+	actionsInst *actions.Instance,
+	supervisorInst *supervisor.Instance,
+	secureCookie *securecookie.SecureCookie,
+	federationMTLS *helpers.FederationMTLS,
+) *XylonaService {
 	return &XylonaService{
 		ctx:            ctx,
 		db:             db,
 		actionsInst:    actionsInst,
+		federationMTLS: federationMTLS,
 		secureCookie:   secureCookie,
 		supervisorInst: supervisorInst,
 		listCache:      newRemoteServerListCache(remoteServerListCacheTTL),

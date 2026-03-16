@@ -243,12 +243,15 @@ func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID stri
 		return nil, errGetPeer
 	}
 
-	client, secretKey := newRemoteFederationClient(peerNode)
+	client, errClient := xs.newRemoteFederationClient(peerNode)
+	if errClient != nil {
+		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
+	}
 
 	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
 		ServerId: serverID,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errStart := client.StartRemoteServer(ctx, req)
 	if errStart != nil {
@@ -284,12 +287,15 @@ func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID strin
 		return nil, errGetPeer
 	}
 
-	client, secretKey := newRemoteFederationClient(peerNode)
+	client, errClient := xs.newRemoteFederationClient(peerNode)
+	if errClient != nil {
+		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
+	}
 
 	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
 		ServerId: serverID,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errStop := client.StopRemoteServer(ctx, req)
 	if errStop != nil {
@@ -328,12 +334,15 @@ func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID
 		return nil, errGetPeer
 	}
 
-	client, secretKey := newRemoteFederationClient(peerNode)
+	client, errClient := xs.newRemoteFederationClient(peerNode)
+	if errClient != nil {
+		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
+	}
 
 	req := connect.NewRequest(&xylona.FederationReadConsoleBufferRequest{
 		ServerId: serverID,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errRead := client.ReadConsoleBuffer(ctx, req)
 	if errRead != nil {
@@ -380,13 +389,16 @@ func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID 
 		return nil, errGetPeer
 	}
 
-	client, secretKey := newRemoteFederationClient(peerNode)
+	client, errClient := xs.newRemoteFederationClient(peerNode)
+	if errClient != nil {
+		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
+	}
 
 	req := connect.NewRequest(&xylona.FederationSendConsoleInputRequest{
 		ServerId: serverID,
 		Input:    input,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errSend := client.SendConsoleInput(ctx, req)
 	if errSend != nil {
@@ -464,12 +476,15 @@ func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string
 	}
 
 	// Try to fetch live detail from the peer.
-	client, secretKey := newRemoteFederationClient(peerNode)
+	client, errClient := xs.newRemoteFederationClient(peerNode)
+	if errClient != nil {
+		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
+	}
 
 	req := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
 		ServerId: serverID,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errDetail := client.GetServerDetail(ctx, req)
 	if errDetail != nil {

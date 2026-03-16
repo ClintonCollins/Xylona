@@ -131,6 +131,9 @@ const (
 	XylonaListNodesProcedure = "/xylona.Xylona/ListNodes"
 	// XylonaAddNodeProcedure is the fully-qualified name of the Xylona's AddNode RPC.
 	XylonaAddNodeProcedure = "/xylona.Xylona/AddNode"
+	// XylonaGenerateNodePairingObjectProcedure is the fully-qualified name of the Xylona's
+	// GenerateNodePairingObject RPC.
+	XylonaGenerateNodePairingObjectProcedure = "/xylona.Xylona/GenerateNodePairingObject"
 	// XylonaPairNodeProcedure is the fully-qualified name of the Xylona's PairNode RPC.
 	XylonaPairNodeProcedure = "/xylona.Xylona/PairNode"
 	// XylonaRemoveNodeProcedure is the fully-qualified name of the Xylona's RemoveNode RPC.
@@ -207,6 +210,7 @@ type XylonaClient interface {
 	GetNode(context.Context, *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error)
 	ListNodes(context.Context, *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error)
 	AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error)
+	GenerateNodePairingObject(context.Context, *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error)
 	PairNode(context.Context, *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error)
 	RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error)
 	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
@@ -483,6 +487,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("AddNode")),
 			connect.WithClientOptions(opts...),
 		),
+		generateNodePairingObject: connect.NewClient[xylona.GenerateNodePairingObjectRequest, xylona.GenerateNodePairingObjectResponse](
+			httpClient,
+			baseURL+XylonaGenerateNodePairingObjectProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GenerateNodePairingObject")),
+			connect.WithClientOptions(opts...),
+		),
 		pairNode: connect.NewClient[xylona.PairNodeRequest, xylona.PairNodeResponse](
 			httpClient,
 			baseURL+XylonaPairNodeProcedure,
@@ -584,6 +594,7 @@ type xylonaClient struct {
 	getNode                          *connect.Client[xylona.GetNodeRequest, xylona.GetNodeResponse]
 	listNodes                        *connect.Client[xylona.ListNodesRequest, xylona.ListNodesResponse]
 	addNode                          *connect.Client[xylona.AddNodeRequest, xylona.AddNodeResponse]
+	generateNodePairingObject        *connect.Client[xylona.GenerateNodePairingObjectRequest, xylona.GenerateNodePairingObjectResponse]
 	pairNode                         *connect.Client[xylona.PairNodeRequest, xylona.PairNodeResponse]
 	removeNode                       *connect.Client[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse]
 	editNode                         *connect.Client[xylona.EditNodeRequest, xylona.EditNodeResponse]
@@ -805,6 +816,11 @@ func (c *xylonaClient) AddNode(ctx context.Context, req *connect.Request[xylona.
 	return c.addNode.CallUnary(ctx, req)
 }
 
+// GenerateNodePairingObject calls xylona.Xylona.GenerateNodePairingObject.
+func (c *xylonaClient) GenerateNodePairingObject(ctx context.Context, req *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error) {
+	return c.generateNodePairingObject.CallUnary(ctx, req)
+}
+
 // PairNode calls xylona.Xylona.PairNode.
 func (c *xylonaClient) PairNode(ctx context.Context, req *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {
 	return c.pairNode.CallUnary(ctx, req)
@@ -902,6 +918,7 @@ type XylonaHandler interface {
 	GetNode(context.Context, *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error)
 	ListNodes(context.Context, *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error)
 	AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error)
+	GenerateNodePairingObject(context.Context, *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error)
 	PairNode(context.Context, *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error)
 	RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error)
 	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
@@ -1174,6 +1191,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("AddNode")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGenerateNodePairingObjectHandler := connect.NewUnaryHandler(
+		XylonaGenerateNodePairingObjectProcedure,
+		svc.GenerateNodePairingObject,
+		connect.WithSchema(xylonaMethods.ByName("GenerateNodePairingObject")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaPairNodeHandler := connect.NewUnaryHandler(
 		XylonaPairNodeProcedure,
 		svc.PairNode,
@@ -1314,6 +1337,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaListNodesHandler.ServeHTTP(w, r)
 		case XylonaAddNodeProcedure:
 			xylonaAddNodeHandler.ServeHTTP(w, r)
+		case XylonaGenerateNodePairingObjectProcedure:
+			xylonaGenerateNodePairingObjectHandler.ServeHTTP(w, r)
 		case XylonaPairNodeProcedure:
 			xylonaPairNodeHandler.ServeHTTP(w, r)
 		case XylonaRemoveNodeProcedure:
@@ -1507,6 +1532,10 @@ func (UnimplementedXylonaHandler) ListNodes(context.Context, *connect.Request[xy
 
 func (UnimplementedXylonaHandler) AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.AddNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GenerateNodePairingObject(context.Context, *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GenerateNodePairingObject is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) PairNode(context.Context, *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {

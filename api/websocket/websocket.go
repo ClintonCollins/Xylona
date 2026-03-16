@@ -53,6 +53,7 @@ type WebSocket struct {
 	supervisor                   *supervisor.Instance
 	actions                      *actions.Instance
 	db                           *db.Connection
+	federationMTLS               *helpers.FederationMTLS
 	secureCookie                 *securecookie.SecureCookie
 	ctx                          context.Context
 	userWebsocketConnections     map[string]map[uuid.UUID]*connection // map[userID]map[connectionID]*connection
@@ -141,8 +142,13 @@ func (ws *WebSocket) getSessionConnection(s *melody.Session) (*connection, error
 	return sessionConnection, nil
 }
 
-func NewInstance(ctx context.Context, supervisorInst *supervisor.Instance, actionsInst *actions.Instance, db *db.Connection,
+func NewInstance(
+	ctx context.Context,
+	supervisorInst *supervisor.Instance,
+	actionsInst *actions.Instance,
+	db *db.Connection,
 	secureCookie *securecookie.SecureCookie,
+	federationMTLS *helpers.FederationMTLS,
 ) (*WebSocket, http.HandlerFunc) {
 	m := melody.New()
 	inst := &WebSocket{
@@ -150,6 +156,7 @@ func NewInstance(ctx context.Context, supervisorInst *supervisor.Instance, actio
 		supervisor:                   supervisorInst,
 		actions:                      actionsInst,
 		db:                           db,
+		federationMTLS:               federationMTLS,
 		ctx:                          ctx,
 		secureCookie:                 secureCookie,
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
@@ -548,6 +555,20 @@ func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connectio
 		log.Error().Err(errGetPeer).Str("node_id", remoteCache.NodeID).Msg("Peer node not found for console stream")
 		return
 	}
+	if ws.federationMTLS == nil {
+		log.Error().Msg("Federation mTLS is not configured for remote console stream")
+		return
+	}
+
+	trustedPeer, errTrustedPeer := ws.db.GetFederationTrustedPeerByNodeID(peerNode.ID)
+	if errTrustedPeer != nil {
+		log.Error().Err(errTrustedPeer).Str("node_id", peerNode.ID).Msg("Failed to load trusted peer for console stream")
+		return
+	}
+	if !trustedPeer.Enabled || trustedPeer.Revoked {
+		log.Warn().Str("node_id", peerNode.ID).Msg("Remote peer is disabled or revoked for console stream")
+		return
+	}
 
 	streamCtx, cancel := context.WithCancel(ws.ctx)
 
@@ -559,14 +580,28 @@ func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connectio
 	conn.remoteConsoleCancels[serverID] = cancel
 	conn.Unlock()
 
-	httpClient := helpers.NewFederationHTTPClient(0, peerNode.AllowInsecureTLS)
-	client := xylonaconnect.NewFederationClient(httpClient, peerNode.BaseURL)
+	federationPort := ws.federationMTLS.FederationPort()
+	if peerNode.Port > 0 {
+		federationPort = int(peerNode.Port)
+	}
+
+	httpClient, federationBaseURL, errClient := ws.federationMTLS.NewNodeHTTPClientWithPort(
+		0,
+		peerNode.BaseURL,
+		federationPort,
+		trustedPeer.PeerFingerprint,
+		trustedPeer.PeerNodeID,
+	)
+	if errClient != nil {
+		log.Error().Err(errClient).Str("node_id", peerNode.ID).Msg("Failed to create federation client for remote console stream")
+		cancel()
+		return
+	}
+	client := xylonaconnect.NewFederationClient(httpClient, federationBaseURL)
 
 	req := connect.NewRequest(&xylona.FederationStreamConsoleRequest{
-		ServerId:  serverID,
-		SecretKey: peerNode.SecretKey.GetOr(""),
+		ServerId: serverID,
 	})
-	req.Header().Set("X-Federation-Key", peerNode.SecretKey.GetOr(""))
 
 	stream, errStream := client.StreamConsoleOutput(streamCtx, req)
 	if errStream != nil {

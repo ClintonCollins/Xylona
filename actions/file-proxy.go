@@ -13,7 +13,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -106,14 +105,17 @@ func (inst *Instance) proxyRemoteFileGet(ctx context.Context, target fileRequest
 		return errMarshal
 	}
 
-	remoteURL := strings.TrimSuffix(target.remoteNode.BaseURL, "/") + fileGetPath
+	remoteURL, errRemoteURL := inst.remoteFederationFileURL(target.remoteNode, fileGetPath)
+	if errRemoteURL != nil {
+		return errRemoteURL
+	}
 	req, errRequest := http.NewRequestWithContext(ctx, http.MethodPost, remoteURL, bytes.NewReader(bodyBytes))
 	if errRequest != nil {
 		return errRequest
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), target.remoteNode.AllowInsecureTLS, w)
+	return inst.proxyRemoteFileRequest(req, target.remoteNode, w)
 }
 
 func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRequestTarget, filePath string, w http.ResponseWriter) error {
@@ -132,14 +134,17 @@ func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRe
 		return errClose
 	}
 
-	remoteURL := strings.TrimSuffix(target.remoteNode.BaseURL, "/") + fileDownloadPath
+	remoteURL, errRemoteURL := inst.remoteFederationFileURL(target.remoteNode, fileDownloadPath)
+	if errRemoteURL != nil {
+		return errRemoteURL
+	}
 	req, errRequest := http.NewRequestWithContext(ctx, http.MethodPost, remoteURL, body)
 	if errRequest != nil {
 		return errRequest
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), target.remoteNode.AllowInsecureTLS, w)
+	return inst.proxyRemoteFileRequest(req, target.remoteNode, w)
 }
 
 func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequestTarget, destinationPath string, fileName string, fileSource io.Reader, w http.ResponseWriter) error {
@@ -198,20 +203,25 @@ func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequ
 		}
 	}()
 
-	remoteURL := strings.TrimSuffix(target.remoteNode.BaseURL, "/") + fileUploadPath
+	remoteURL, errRemoteURL := inst.remoteFederationFileURL(target.remoteNode, fileUploadPath)
+	if errRemoteURL != nil {
+		return errRemoteURL
+	}
 	req, errRequest := http.NewRequestWithContext(ctx, http.MethodPost, remoteURL, pipedReader)
 	if errRequest != nil {
 		return errRequest
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	return inst.proxyRemoteFileRequest(req, target.remoteNode.SecretKey.GetOr(""), target.remoteNode.AllowInsecureTLS, w)
+	return inst.proxyRemoteFileRequest(req, target.remoteNode, w)
 }
 
-func (inst *Instance) proxyRemoteFileRequest(req *http.Request, federationKey string, allowInsecureTLS bool, w http.ResponseWriter) error {
-	req.Header.Set("X-Federation-Key", federationKey)
+func (inst *Instance) proxyRemoteFileRequest(req *http.Request, remoteNode *models.Node, w http.ResponseWriter) error {
+	httpClient, errClient := inst.remoteFederationHTTPClient(remoteNode)
+	if errClient != nil {
+		return errClient
+	}
 
-	httpClient := helpers.NewFederationHTTPClient(federationFileTransferTimeout, allowInsecureTLS)
 	resp, errDo := httpClient.Do(req)
 	if errDo != nil {
 		return errDo
@@ -253,6 +263,46 @@ func (inst *Instance) proxyRemoteFileRequest(req *http.Request, federationKey st
 		log.Error().Err(errCopy).Msg("Failed to copy remote proxy response body")
 	}
 	return nil
+}
+
+func (inst *Instance) remoteFederationFileURL(remoteNode *models.Node, path string) (string, error) {
+	if inst.federationMTLS == nil {
+		return "", errors.New("federation mTLS is not configured")
+	}
+
+	federationBaseURL, errFederationURL := inst.federationMTLS.FederationBaseURLWithPort(remoteNode.BaseURL, inst.remoteFederationPort(remoteNode))
+	if errFederationURL != nil {
+		return "", errFederationURL
+	}
+	return strings.TrimSuffix(federationBaseURL, "/") + path, nil
+}
+
+func (inst *Instance) remoteFederationHTTPClient(remoteNode *models.Node) (*http.Client, error) {
+	if inst.federationMTLS == nil {
+		return nil, errors.New("federation mTLS is not configured")
+	}
+
+	httpClient, _, errClient := inst.federationMTLS.NewTrustedPeerHTTPClientWithPort(
+		federationFileTransferTimeout,
+		remoteNode.ID,
+		remoteNode.BaseURL,
+		inst.remoteFederationPort(remoteNode),
+		inst.db,
+	)
+	if errClient != nil {
+		return nil, errClient
+	}
+	return httpClient, nil
+}
+
+func (inst *Instance) remoteFederationPort(remoteNode *models.Node) int {
+	if remoteNode != nil && remoteNode.Port > 0 {
+		return int(remoteNode.Port)
+	}
+	if inst.federationMTLS != nil {
+		return inst.federationMTLS.FederationPort()
+	}
+	return 0
 }
 
 func writeGameServerLookupError(w http.ResponseWriter, lookupErr error) {

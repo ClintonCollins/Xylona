@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/url"
 	"strings"
 	"sync"
@@ -54,13 +53,69 @@ func (xs XylonaService) AddNode(ctx context.Context, request *connect.Request[xy
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("base URL is required; local nodes are created automatically"))
 	}
 
-	return xs.addRemoteNode(ctx, nodeProto.GetName(), baseURL, nodeProto.GetSecretKey(), nodeProto.GetAllowInsecureTls())
+	pairingToken := strings.TrimSpace(nodeProto.GetSecretKey())
+	if pairingToken == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("pairing token is required"))
+	}
+
+	return xs.addRemoteNode(ctx, nodeProto.GetName(), baseURL, nodeProto.GetAllowInsecureTls(), pairingToken, "", int(nodeProto.GetPort()))
+}
+
+func (xs XylonaService) GenerateNodePairingObject(
+	ctx context.Context,
+	request *connect.Request[xylona.GenerateNodePairingObjectRequest],
+) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error) {
+	if xs.federationMTLS == nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("federation mTLS is not configured"))
+	}
+
+	normalizedTargetURL := ""
+	targetURL := strings.TrimSpace(request.Msg.GetTargetUrl())
+	if targetURL != "" {
+		var errNormalizeTargetURL error
+		normalizedTargetURL, errNormalizeTargetURL = normalizeBaseURL(targetURL)
+		if errNormalizeTargetURL != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid target URL"))
+		}
+	}
+
+	localSettings, errSettings := xs.db.GetLocalSettings()
+	if errSettings != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local settings"))
+	}
+
+	localNode, errLocalNode := xs.db.GetNodeByID(localSettings.NodeID)
+	if errLocalNode != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local node"))
+	}
+
+	normalizedLocalBaseURL, errNormalizeLocalBaseURL := normalizeBaseURL(localNode.BaseURL)
+	if errNormalizeLocalBaseURL != nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("local node base URL is not configured"))
+	}
+
+	pairingToken, errGeneratePairingToken := xs.db.GeneratePairingToken(normalizedTargetURL)
+	if errGeneratePairingToken != nil {
+		log.Error().Err(errGeneratePairingToken).Msg("Failed to generate federation pairing token")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to generate pairing token"))
+	}
+
+	return connect.NewResponse(&xylona.GenerateNodePairingObjectResponse{
+		BaseUrl:      normalizedLocalBaseURL,
+		PairingToken: formatPairingToken(pairingToken),
+		MtlsPort:     int64(xs.federationMTLS.FederationPort()),
+	}), nil
 }
 
 func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {
 	remoteBaseURL, errNormalizeRemoteBaseURL := normalizeBaseURL(request.Msg.GetRemoteBaseUrl())
 	if errNormalizeRemoteBaseURL != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid remote base URL"))
+	}
+
+	remoteFederationPort, errNormalizeRemoteFederationPort := normalizeFederationPort(request.Msg.GetRemoteMtlsPort())
+	if errNormalizeRemoteFederationPort != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errNormalizeRemoteFederationPort)
 	}
 
 	localBaseURL, errNormalizeLocalBaseURL := normalizeBaseURL(request.Msg.GetLocalBaseUrl())
@@ -72,31 +127,40 @@ func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[x
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("remote and local URLs must be different"))
 	}
 
-	remoteSecretKey := strings.TrimSpace(request.Msg.GetRemoteSecretKey())
-	if remoteSecretKey == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("remote secret key is required"))
-	}
-
 	remoteNodeName := strings.TrimSpace(request.Msg.GetRemoteName())
 	localNodeName := strings.TrimSpace(request.Msg.GetLocalName())
 	remoteAllowInsecureTLS := request.Msg.GetRemoteAllowInsecureTls()
 	localAllowInsecureTLS := request.Msg.GetLocalAllowInsecureTls()
 
-	secretKeyName := fmt.Sprintf("pairing:%s:%s", remoteBaseURL, time.Now().UTC().Format(time.RFC3339))
-	_, localSecretKey, errCreateKey := xs.createLocalSecretKey(secretKeyName)
-	if errCreateKey != nil {
-		log.Error().Err(errCreateKey).Str("remote_base_url", remoteBaseURL).Msg("Failed to create local secret key for reciprocal node add")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create local secret key"))
+	remotePairingToken := strings.TrimSpace(request.Msg.GetRemoteSecretKey())
+	if remotePairingToken == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("remote pairing token is required"))
+	}
+
+	localPairingToken, errGenerateLocalPairingToken := xs.db.GeneratePairingToken(remoteBaseURL)
+	if errGenerateLocalPairingToken != nil {
+		log.Error().
+			Err(errGenerateLocalPairingToken).
+			Str("remote_base_url", remoteBaseURL).
+			Msg("Failed to generate local pairing token for reciprocal pair")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to generate local pairing token"))
 	}
 
 	httpClient := helpers.NewFederationHTTPClient(federationRequestTimeout, remoteAllowInsecureTLS)
 	remoteClient := xylonaconnect.NewXylonaClient(httpClient, remoteBaseURL)
+
+	localFederationPort := int64(0)
+	if xs.federationMTLS != nil {
+		localFederationPort = int64(xs.federationMTLS.FederationPort())
+	}
+
 	remoteAddRequest := connect.NewRequest(&xylona.AddNodeRequest{
 		Node: &xylona.Node{
 			Name:             localNodeName,
 			BaseUrl:          localBaseURL,
-			SecretKey:        localSecretKey,
+			SecretKey:        localPairingToken,
 			AllowInsecureTls: localAllowInsecureTLS,
+			Port:             localFederationPort,
 		},
 	})
 
@@ -115,14 +179,21 @@ func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[x
 				Str("remote_base_url", remoteBaseURL).
 				Str("local_base_url", localBaseURL).
 				Msg("Pairing failed while adding this panel to remote node")
-
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("failed to add this panel on remote node"))
 		}
 	} else {
 		reciprocalNode = remoteAddResp.Msg.GetNode()
 	}
 
-	localAddResp, errLocalAdd := xs.addRemoteNode(ctx, remoteNodeName, remoteBaseURL, remoteSecretKey, remoteAllowInsecureTLS)
+	localAddResp, errLocalAdd := xs.addRemoteNode(
+		ctx,
+		remoteNodeName,
+		remoteBaseURL,
+		remoteAllowInsecureTLS,
+		remotePairingToken,
+		localBaseURL,
+		remoteFederationPort,
+	)
 	var localNode *xylona.Node
 	if errLocalAdd != nil {
 		if connect.CodeOf(errLocalAdd) == connect.CodeAlreadyExists {
@@ -132,7 +203,6 @@ func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[x
 			}
 			localNode = helpers.NodeModelToProto(existingRemoteNode)
 		} else {
-			// Best-effort rollback if this request added the local node to the remote panel.
 			if reciprocalNode != nil && reciprocalNode.GetId() != "" {
 				rollbackCtx, cancelRollback := context.WithTimeout(ctx, federationRequestTimeout)
 				defer cancelRollback()
@@ -167,15 +237,27 @@ func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[x
 	}), nil
 }
 
-func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL string, secretKey string, allowInsecureTLS bool) (*connect.Response[xylona.AddNodeResponse], error) {
+func (xs XylonaService) addRemoteNode(
+	ctx context.Context,
+	name string,
+	baseURL string,
+	allowInsecureTLS bool,
+	pairingToken string,
+	localBaseURL string,
+	remoteFederationPort int,
+) (*connect.Response[xylona.AddNodeResponse], error) {
 	normalizedBaseURL, errNormalizeBaseURL := normalizeBaseURL(baseURL)
 	if errNormalizeBaseURL != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid base URL"))
 	}
 
-	secretKey = strings.TrimSpace(secretKey)
-	if secretKey == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("secret key is required"))
+	if xs.federationMTLS == nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("federation mTLS is not configured"))
+	}
+
+	pairingToken = normalizePairingToken(pairingToken)
+	if pairingToken == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("pairing token is required"))
 	}
 
 	// Check for duplicate base URL.
@@ -188,11 +270,26 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to check existing nodes"))
 	}
 
-	// Perform handshake to verify connectivity and get peer identity.
-	handshakeResp, errHandshake := performHandshake(ctx, normalizedBaseURL, secretKey, allowInsecureTLS)
-	if errHandshake != nil {
-		log.Error().Err(errHandshake).Str("base_url", normalizedBaseURL).Msg("Failed to handshake with peer node")
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("failed to connect to peer node: "+errHandshake.Error()))
+	resolvedLocalBaseURL, errResolveLocalBaseURL := xs.resolveLocalPairingBaseURL(localBaseURL)
+	if errResolveLocalBaseURL != nil {
+		log.Error().Err(errResolveLocalBaseURL).Msg("Failed to resolve local base URL for pairing token verification")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to resolve local base URL"))
+	}
+
+	// Use the pairing token to authenticate with the remote peer and exchange fingerprints.
+	pairingResp, remoteFingerprint, errPairing := ProbePeerAndCompletePairing(
+		xs.federationMTLS,
+		normalizedBaseURL,
+		pairingToken,
+		resolvedLocalBaseURL,
+		remoteFederationPort,
+	)
+	if errPairing != nil {
+		log.Error().
+			Err(errPairing).
+			Str("base_url", normalizedBaseURL).
+			Msg("Failed to complete pairing with peer node")
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("failed to pair with peer node: "+errPairing.Error()))
 	}
 
 	// Prevent self-registration.
@@ -200,7 +297,7 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 	if errSettings != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local settings"))
 	}
-	if handshakeResp.NodeId == localSettings.NodeID {
+	if pairingResp.NodeID == localSettings.NodeID {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot add self as a peer node"))
 	}
 
@@ -211,7 +308,15 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 
 	name = strings.TrimSpace(name)
 	if name == "" {
-		name = handshakeResp.NodeName
+		name = pairingResp.NodeName
+	}
+
+	resolvedRemoteFederationPort := int32(pairingResp.FederationPort)
+	if resolvedRemoteFederationPort <= 0 && remoteFederationPort > 0 {
+		resolvedRemoteFederationPort = int32(remoteFederationPort)
+	}
+	if resolvedRemoteFederationPort <= 0 {
+		resolvedRemoteFederationPort = int32(xs.federationMTLS.FederationPort())
 	}
 
 	now := time.Now()
@@ -220,15 +325,14 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 		Name:             omit.From(name),
 		IsLocal:          omit.From(false),
 		Host:             omit.From(""),
-		Port:             omit.From(int32(0)),
+		Port:             omit.From(resolvedRemoteFederationPort),
 		BaseURL:          omit.From(normalizedBaseURL),
 		AllowInsecureTLS: omit.From(allowInsecureTLS),
 		Enabled:          omit.From(true),
-		SecretKey:        omitnull.From(secretKey),
 		HealthStatus:     omit.From("healthy"),
-		Version:          omit.From(handshakeResp.Version),
-		ProtocolVersion:  omit.From(handshakeResp.ProtocolVersion),
-		Capabilities:     omit.From(handshakeResp.Capabilities),
+		Version:          omit.From(""),
+		ProtocolVersion:  omit.From(int32(0)),
+		Capabilities:     omit.From(""),
 		CreatedAt:        omitnull.From(now),
 		UpdatedAt:        omitnull.From(now),
 	}
@@ -238,6 +342,23 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 		log.Error().Err(errInsert).Msg("Failed to insert remote node")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to save node"))
 	}
+
+	errTrust := xs.db.UpsertFederationTrustedPeer(node.ID, pairingResp.NodeID, remoteFingerprint, true, false)
+	if errTrust != nil {
+		log.Error().Err(errTrust).Str("node_id", node.ID).Msg("Failed to save federation trusted peer")
+		errDeleteNode := xs.db.DeleteRemoteNodeByID(node.ID)
+		if errDeleteNode != nil {
+			log.Warn().Err(errDeleteNode).Str("node_id", node.ID).Msg("Failed to rollback remote node insert after federation trust save failure")
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to save federation trust"))
+	}
+
+	log.Info().
+		Str("node_id", node.ID).
+		Str("peer_node_id", pairingResp.NodeID).
+		Str("peer_fingerprint", remoteFingerprint).
+		Str("base_url", normalizedBaseURL).
+		Msg("Remote node added via pairing token — peer certificate fingerprint trusted")
 
 	// Create sync state for this node.
 	_, errSyncState := xs.db.GetOrCreatePeerSyncState(node.ID)
@@ -253,6 +374,35 @@ func (xs XylonaService) addRemoteNode(ctx context.Context, name string, baseURL 
 	return connect.NewResponse(&xylona.AddNodeResponse{
 		Node: helpers.NodeModelToProto(node),
 	}), nil
+}
+
+func (xs XylonaService) resolveLocalPairingBaseURL(preferredBaseURL string) (string, error) {
+	preferredBaseURL = strings.TrimSpace(preferredBaseURL)
+	if preferredBaseURL != "" {
+		return normalizeBaseURL(preferredBaseURL)
+	}
+
+	localSettings, errSettings := xs.db.GetLocalSettings()
+	if errSettings != nil {
+		if errors.Is(errSettings, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", errSettings
+	}
+
+	localNode, errLocalNode := xs.db.GetNodeByID(localSettings.NodeID)
+	if errLocalNode != nil {
+		if errors.Is(errLocalNode, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", errLocalNode
+	}
+
+	baseURL := strings.TrimSpace(localNode.BaseURL)
+	if baseURL == "" {
+		return "", nil
+	}
+	return normalizeBaseURL(baseURL)
 }
 
 func (xs XylonaService) RemoveNode(ctx context.Context, request *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
@@ -452,9 +602,12 @@ func (xs XylonaService) listRemoteNodeSummaries(ctx context.Context, node *model
 }
 
 func (xs XylonaService) fetchRemoteNodeSummaries(ctx context.Context, node *models.Node) ([]*xylona.RemoteServerSummary, error) {
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.newRemoteFederationClient(node)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationListServerSummariesRequest{})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	remoteCtx, cancel := context.WithTimeout(ctx, federationRequestTimeout)
 	defer cancel()
@@ -620,9 +773,15 @@ func (xs XylonaService) CreateLocalSecretKey(ctx context.Context, request *conne
 		return nil, connect.NewError(connect.CodeInternal, errCreateSecretKey)
 	}
 
+	mtlsPort := int64(0)
+	if xs.federationMTLS != nil {
+		mtlsPort = int64(xs.federationMTLS.FederationPort())
+	}
+
 	resp := &xylona.CreateLocalSecretKeyResponse{
 		Id:        localSecretKey.ID,
 		SecretKey: key,
+		MtlsPort:  mtlsPort,
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -652,6 +811,20 @@ func normalizeBaseURL(baseURL string) (string, error) {
 	}
 
 	return normalizedBaseURL, nil
+}
+
+func normalizeFederationPort(rawPort int64) (int, error) {
+	if rawPort < 0 {
+		return 0, errors.New("remote mTLS port cannot be negative")
+	}
+	if rawPort == 0 {
+		return 0, nil
+	}
+	if rawPort > 65535 {
+		return 0, errors.New("remote mTLS port must be between 1 and 65535")
+	}
+
+	return int(rawPort), nil
 }
 
 func (xs XylonaService) createLocalSecretKey(name string) (*models.LocalSecretKey, string, error) {

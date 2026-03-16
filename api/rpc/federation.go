@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sync"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -18,9 +18,7 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/version"
-	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
@@ -45,30 +43,19 @@ func NewFederationService(ctx context.Context, dbInst *db.Connection, actionsIns
 	}
 }
 
-func (fs FederationService) authenticateRequest(secretKey string) error {
-	if secretKey == "" {
-		return errors.New("secret key is required")
+func (fs FederationService) authenticateRequest(ctx context.Context) (FederationPeerIdentity, error) {
+	identity, okIdentity := federationPeerIdentityFromContext(ctx)
+	if !okIdentity {
+		return FederationPeerIdentity{}, errors.New("federation peer identity is required")
 	}
-
-	allKeys, errGetKeys := fs.db.GetAllSecretKeys()
-	if errGetKeys != nil {
-		return errors.New("failed to retrieve secret keys")
+	if strings.TrimSpace(identity.NodeID) == "" {
+		return FederationPeerIdentity{}, errors.New("federation peer node configuration is required")
 	}
-
-	for _, key := range allKeys {
-		matches, errCompare := xycrypt.CompareHashAndString([]byte(key.SecretKeyHash), secretKey)
-		if errCompare != nil {
-			continue
-		}
-		if matches {
-			return nil
-		}
-	}
-	return errors.New("invalid secret key")
+	return identity, nil
 }
 
 func (fs FederationService) Handshake(ctx context.Context, request *connect.Request[xylona.FederationHandshakeRequest]) (*connect.Response[xylona.FederationHandshakeResponse], error) {
-	errAuth := fs.authenticateRequest(request.Msg.GetSecretKey())
+	peerIdentity, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		log.Warn().Str("peer", request.Peer().Addr).Msg("Federation handshake authentication failed")
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
@@ -98,12 +85,15 @@ func (fs FederationService) Handshake(ctx context.Context, request *connect.Requ
 		ServerTime:      timestamppb.New(time.Now()),
 	}
 
-	log.Info().Str("peer", request.Peer().Addr).Msg("Federation handshake successful")
+	log.Info().
+		Str("peer", request.Peer().Addr).
+		Str("peer_node_id", peerIdentity.PeerNodeID).
+		Msg("Federation handshake successful")
 	return connect.NewResponse(resp), nil
 }
 
 func (fs FederationService) ListServerSummaries(ctx context.Context, request *connect.Request[xylona.FederationListServerSummariesRequest]) (*connect.Response[xylona.FederationListServerSummariesResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -151,7 +141,7 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 }
 
 func (fs FederationService) GetServerDetail(ctx context.Context, request *connect.Request[xylona.FederationGetServerDetailRequest]) (*connect.Response[xylona.FederationGetServerDetailResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -196,7 +186,7 @@ func (fs FederationService) GetServerDetail(ctx context.Context, request *connec
 }
 
 func (fs FederationService) StartRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -214,7 +204,7 @@ func (fs FederationService) StartRemoteServer(ctx context.Context, request *conn
 }
 
 func (fs FederationService) StopRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -232,7 +222,7 @@ func (fs FederationService) StopRemoteServer(ctx context.Context, request *conne
 }
 
 func (fs FederationService) RestartRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -251,7 +241,7 @@ func (fs FederationService) RestartRemoteServer(ctx context.Context, request *co
 }
 
 func (fs FederationService) StreamConsoleOutput(ctx context.Context, request *connect.Request[xylona.FederationStreamConsoleRequest], stream *connect.ServerStream[xylona.FederationConsoleOutputChunk]) error {
-	errAuth := fs.authenticateRequest(request.Msg.GetSecretKey())
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -296,7 +286,7 @@ func (fs FederationService) StreamConsoleOutput(ctx context.Context, request *co
 }
 
 func (fs FederationService) SendConsoleInput(ctx context.Context, request *connect.Request[xylona.FederationSendConsoleInputRequest]) (*connect.Response[xylona.FederationSendConsoleInputResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -335,7 +325,7 @@ func (fs FederationService) SendConsoleInput(ctx context.Context, request *conne
 }
 
 func (fs FederationService) ReadConsoleBuffer(ctx context.Context, request *connect.Request[xylona.FederationReadConsoleBufferRequest]) (*connect.Response[xylona.FederationReadConsoleBufferResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -356,7 +346,7 @@ func (fs FederationService) ReadConsoleBuffer(ctx context.Context, request *conn
 }
 
 func (fs FederationService) StreamServerStatuses(ctx context.Context, request *connect.Request[xylona.FederationStreamServerStatusesRequest], stream *connect.ServerStream[xylona.FederationServerStatusEvent]) error {
-	errAuth := fs.authenticateRequest(request.Msg.GetSecretKey())
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -365,7 +355,6 @@ func (fs FederationService) StreamServerStatuses(ctx context.Context, request *c
 
 	// Poll all local game servers for status changes and stream them.
 	previousStatuses := make(map[string]xylona.Status)
-	var statusLock sync.Mutex
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -382,7 +371,6 @@ func (fs FederationService) StreamServerStatuses(ctx context.Context, request *c
 				continue
 			}
 
-			statusLock.Lock()
 			for _, gs := range allGameServers {
 				currentStatus := xylona.Status_OFFLINE
 				gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gs.ID)
@@ -398,19 +386,17 @@ func (fs FederationService) StreamServerStatuses(ctx context.Context, request *c
 						Status:   currentStatus,
 					})
 					if errSend != nil {
-						statusLock.Unlock()
 						log.Debug().Err(errSend).Msg("Federation server status stream send failed")
 						return nil
 					}
 				}
 			}
-			statusLock.Unlock()
 		}
 	}
 }
 
 func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -428,7 +414,7 @@ func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *con
 }
 
 func (fs FederationService) EditRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -453,7 +439,7 @@ func (fs FederationService) EditRemoteServer(ctx context.Context, request *conne
 }
 
 func (fs FederationService) RemoveRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -475,7 +461,7 @@ func (fs FederationService) RemoveRemoteServer(ctx context.Context, request *con
 }
 
 func (fs FederationService) ListRemoteDirectoryFiles(ctx context.Context, request *connect.Request[xylona.FederationListDirectoryFilesRequest]) (*connect.Response[xylona.FederationListDirectoryFilesResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -502,7 +488,7 @@ func (fs FederationService) ListRemoteDirectoryFiles(ctx context.Context, reques
 }
 
 func (fs FederationService) EditRemoteFile(ctx context.Context, request *connect.Request[xylona.FederationEditFileRequest]) (*connect.Response[xylona.FederationEditFileResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -523,7 +509,7 @@ func (fs FederationService) EditRemoteFile(ctx context.Context, request *connect
 }
 
 func (fs FederationService) DeleteRemoteFiles(ctx context.Context, request *connect.Request[xylona.FederationDeleteFilesRequest]) (*connect.Response[xylona.FederationDeleteFilesResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -545,7 +531,7 @@ func (fs FederationService) DeleteRemoteFiles(ctx context.Context, request *conn
 }
 
 func (fs FederationService) RenameRemoteFile(ctx context.Context, request *connect.Request[xylona.FederationRenameFileRequest]) (*connect.Response[xylona.FederationRenameFileResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -567,7 +553,7 @@ func (fs FederationService) RenameRemoteFile(ctx context.Context, request *conne
 }
 
 func (fs FederationService) MoveRemoteFiles(ctx context.Context, request *connect.Request[xylona.FederationMoveFilesRequest]) (*connect.Response[xylona.FederationMoveFilesResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -589,7 +575,7 @@ func (fs FederationService) MoveRemoteFiles(ctx context.Context, request *connec
 }
 
 func (fs FederationService) CreateRemoteFileOrDirectory(ctx context.Context, request *connect.Request[xylona.FederationCreateFileOrDirectoryRequest]) (*connect.Response[xylona.FederationCreateFileOrDirectoryResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -610,7 +596,7 @@ func (fs FederationService) CreateRemoteFileOrDirectory(ctx context.Context, req
 }
 
 func (fs FederationService) DownloadRemoteFileFromURL(ctx context.Context, request *connect.Request[xylona.FederationDownloadFileFromURLRequest]) (*connect.Response[xylona.FederationDownloadFileFromURLResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -632,7 +618,7 @@ func (fs FederationService) DownloadRemoteFileFromURL(ctx context.Context, reque
 }
 
 func (fs FederationService) QueryRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationQueryServerRequest]) (*connect.Response[xylona.FederationQueryServerResponse], error) {
-	errAuth := fs.authenticateRequest(request.Header().Get("X-Federation-Key"))
+	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
@@ -668,9 +654,3 @@ func (fs FederationService) QueryRemoteServer(ctx context.Context, request *conn
 		QueryInfo: queryInfo,
 	}), nil
 }
-
-// Ensure unused imports don't cause build failures.
-var (
-	_ = models.Node{}
-	_ = os.ErrNotExist
-)

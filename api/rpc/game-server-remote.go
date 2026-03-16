@@ -8,7 +8,22 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func (xs XylonaService) remoteFederationClient(node *models.Node, serverID string) (xylonaconnect.FederationClient, error) {
+	client, errClient := xs.newRemoteFederationClient(node)
+	if errClient != nil {
+		log.Error().
+			Err(errClient).
+			Str("server_id", serverID).
+			Str("node", node.Name).
+			Msg("Failed to create remote federation mTLS client")
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
+	}
+	return client, nil
+}
 
 func (xs XylonaService) editRemoteGameServer(ctx context.Context, serverID string, gameServer *xylona.GameServer) (*connect.Response[xylona.EditGameServerResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
@@ -16,12 +31,15 @@ func (xs XylonaService) editRemoteGameServer(ctx context.Context, serverID strin
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationEditServerRequest{
 		ServerId:   serverID,
 		GameServer: gameServer,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errEdit := client.EditRemoteServer(ctx, req)
 	if errEdit != nil {
@@ -44,11 +62,14 @@ func (xs XylonaService) removeRemoteGameServer(ctx context.Context, serverID str
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
 		ServerId: serverID,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errRemove := client.RemoveRemoteServer(ctx, req)
 	if errRemove != nil {
@@ -75,11 +96,14 @@ func (xs XylonaService) updateRemoteGameServer(ctx context.Context, serverID str
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
 		ServerId: serverID,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errUpdate := client.UpdateRemoteServer(ctx, req)
 	if errUpdate != nil {
@@ -100,12 +124,15 @@ func (xs XylonaService) listRemoteDirectoryFiles(ctx context.Context, serverID s
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationListDirectoryFilesRequest{
 		ServerId: serverID,
 		Path:     path,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errList := client.ListRemoteDirectoryFiles(ctx, req)
 	if errList != nil {
@@ -124,13 +151,16 @@ func (xs XylonaService) editRemoteFile(ctx context.Context, serverID string, ful
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationEditFileRequest{
 		ServerId:     serverID,
 		FullFilePath: fullFilePath,
 		Content:      content,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	_, errEdit := client.EditRemoteFile(ctx, req)
 	if errEdit != nil {
@@ -147,12 +177,15 @@ func (xs XylonaService) deleteRemoteFiles(ctx context.Context, serverID string, 
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationDeleteFilesRequest{
 		ServerId:      serverID,
 		FullFilePaths: fullFilePaths,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errDelete := client.DeleteRemoteFiles(ctx, req)
 	if errDelete != nil {
@@ -171,13 +204,16 @@ func (xs XylonaService) renameRemoteFile(ctx context.Context, serverID string, o
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationRenameFileRequest{
 		ServerId: serverID,
 		OldPath:  oldPath,
 		NewPath:  newPath,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errRename := client.RenameRemoteFile(ctx, req)
 	if errRename != nil {
@@ -196,13 +232,16 @@ func (xs XylonaService) moveRemoteFiles(ctx context.Context, serverID string, fu
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationMoveFilesRequest{
 		ServerId:            serverID,
 		FullFilePaths:       fullFilePaths,
 		DestinationBasePath: destinationBasePath,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errMove := client.MoveRemoteFiles(ctx, req)
 	if errMove != nil {
@@ -221,14 +260,17 @@ func (xs XylonaService) createRemoteFileOrDirectory(ctx context.Context, serverI
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationCreateFileOrDirectoryRequest{
 		ServerId:     serverID,
 		FullFilePath: fullFilePath,
 		Content:      content,
 		IsDirectory:  isDirectory,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	_, errCreate := client.CreateRemoteFileOrDirectory(ctx, req)
 	if errCreate != nil {
@@ -245,11 +287,14 @@ func (xs XylonaService) queryRemoteGameServer(ctx context.Context, serverID stri
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationQueryServerRequest{
 		ServerId: serverID,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errQuery := client.QueryRemoteServer(ctx, req)
 	if errQuery != nil {
@@ -268,13 +313,16 @@ func (xs XylonaService) downloadRemoteFileFromURL(ctx context.Context, serverID 
 		return nil, errGet
 	}
 
-	client, secretKey := newRemoteFederationClient(node)
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
 	req := connect.NewRequest(&xylona.FederationDownloadFileFromURLRequest{
 		ServerId:            serverID,
 		Url:                 url,
 		DestinationBasePath: destinationBasePath,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errDownload := client.DownloadRemoteFileFromURL(ctx, req)
 	if errDownload != nil {

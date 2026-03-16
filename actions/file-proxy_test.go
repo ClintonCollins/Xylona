@@ -2,21 +2,125 @@ package actions
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/aarondl/opt/null"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+// newMTLSFileProxyTestSetup creates an mTLS-configured Instance with a TLS test server.
+// The handler argument is installed on the remote TLS server.
+// Returns the Instance, the remote node model, and a cleanup function.
+func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *models.Node) {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+
+	// Create server mTLS identity (using a placeholder port; the real port comes from the test server).
+	serverCertPath := filepath.Join(tmpDir, "server.crt")
+	serverKeyPath := filepath.Join(tmpDir, "server.key")
+	serverMTLS, serverFP, errServer := helpers.NewFederationMTLS("server-node", 1, serverCertPath, serverKeyPath)
+	if errServer != nil {
+		t.Fatalf("NewFederationMTLS(server) error = %v", errServer)
+	}
+	_ = serverFP
+
+	// Start a TLS test server with the server certificate.
+	serverTLSCert, errLoadServer := tls.LoadX509KeyPair(serverCertPath, serverKeyPath)
+	if errLoadServer != nil {
+		t.Fatalf("LoadX509KeyPair(server) error = %v", errLoadServer)
+	}
+
+	testServer := httptest.NewUnstartedServer(handler)
+	testServer.TLS = &tls.Config{
+		MinVersion:   tls.VersionTLS13,
+		Certificates: []tls.Certificate{serverTLSCert},
+		ClientAuth:   tls.RequireAnyClientCert,
+	}
+	testServer.StartTLS()
+	t.Cleanup(testServer.Close)
+
+	// Extract the actual port from the test server URL to create the client mTLS with the correct federation port.
+	serverURL := testServer.URL // e.g., "https://127.0.0.1:PORT"
+	colonIdx := strings.LastIndex(serverURL, ":")
+	serverPort := 0
+	if colonIdx >= 0 {
+		fmt.Sscanf(serverURL[colonIdx+1:], "%d", &serverPort)
+	}
+	if serverPort == 0 {
+		t.Fatalf("failed to extract port from test server URL: %s", serverURL)
+	}
+
+	// Create client mTLS identity using the actual test server port.
+	clientCertPath := filepath.Join(tmpDir, "client.crt")
+	clientKeyPath := filepath.Join(tmpDir, "client.key")
+	clientMTLS, clientFP, errClient := helpers.NewFederationMTLS("client-node", serverPort, clientCertPath, clientKeyPath)
+	if errClient != nil {
+		t.Fatalf("NewFederationMTLS(client) error = %v", errClient)
+	}
+	_ = clientFP
+
+	// Set up a test DB with the trust entry.
+	dbPath := filepath.Join(tmpDir, "test.sqlite")
+	conn := db.NewConnection(context.Background(), dbPath)
+	t.Cleanup(func() {
+		if errClose := conn.SQLDb.Close(); errClose != nil {
+			t.Errorf("failed to close db: %v", errClose)
+		}
+	})
+
+	_, _ = conn.SQLDb.Exec(`create table node (id text primary key not null)`)
+	_, _ = conn.SQLDb.Exec(`insert into node (id) values ('remote-node-1')`)
+	_, _ = conn.SQLDb.Exec(`
+		create table federation_trusted_peer (
+			node_id text primary key not null references node (id) on delete cascade,
+			peer_node_id text not null default '',
+			peer_fingerprint text not null,
+			enabled boolean not null default true,
+			revoked boolean not null default false,
+			created_at datetime not null default current_timestamp,
+			updated_at datetime not null default current_timestamp
+		)
+	`)
+
+	// Get the server fingerprint from its certificate.
+	serverFPFromCert := helpers.CertificateFingerprint(testServer.Certificate())
+
+	_, errInsertTrust := conn.SQLDb.Exec(`
+		insert into federation_trusted_peer (node_id, peer_node_id, peer_fingerprint, enabled, revoked)
+		values ('remote-node-1', 'server-node', ?, true, false)
+	`, serverFPFromCert)
+	if errInsertTrust != nil {
+		t.Fatalf("failed to insert trust: %v", errInsertTrust)
+	}
+
+	_ = serverMTLS
+	inst := &Instance{
+		db:             conn,
+		federationMTLS: clientMTLS,
+	}
+
+	remoteNode := &models.Node{
+		ID:      "remote-node-1",
+		BaseURL: testServer.URL,
+	}
+
+	return inst, remoteNode
+}
 
 func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 	errDBUnavailable := errors.New("db unavailable")
@@ -130,12 +234,9 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 }
 
 func TestProxyRemoteFileGet(t *testing.T) {
-	remoteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != fileGetPath {
 			t.Fatalf("request path = %q, want %q", r.URL.Path, fileGetPath)
-		}
-		if gotHeader := r.Header.Get("X-Federation-Key"); gotHeader != "secret-key" {
-			t.Fatalf("X-Federation-Key = %q, want %q", gotHeader, "secret-key")
 		}
 
 		bodyBytes, errRead := io.ReadAll(r.Body)
@@ -159,15 +260,10 @@ func TestProxyRemoteFileGet(t *testing.T) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("remote-content"))
 	}))
-	t.Cleanup(remoteServer.Close)
 
-	inst := &Instance{}
 	target := fileRequestTarget{
 		remoteServerID: "remote-server-id",
-		remoteNode: &models.Node{
-			BaseURL:   remoteServer.URL,
-			SecretKey: null.From("secret-key"),
-		},
+		remoteNode:     remoteNode,
 	}
 
 	responseRecorder := httptest.NewRecorder()
@@ -185,7 +281,7 @@ func TestProxyRemoteFileGet(t *testing.T) {
 }
 
 func TestProxyRemoteFileDownload(t *testing.T) {
-	remoteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != fileDownloadPath {
 			t.Fatalf("request path = %q, want %q", r.URL.Path, fileDownloadPath)
 		}
@@ -204,15 +300,10 @@ func TestProxyRemoteFileDownload(t *testing.T) {
 
 		_, _ = w.Write([]byte("download-content"))
 	}))
-	t.Cleanup(remoteServer.Close)
 
-	inst := &Instance{}
 	target := fileRequestTarget{
 		remoteServerID: "remote-server-id",
-		remoteNode: &models.Node{
-			BaseURL:   remoteServer.URL,
-			SecretKey: null.From("secret-key"),
-		},
+		remoteNode:     remoteNode,
 	}
 
 	responseRecorder := httptest.NewRecorder()
@@ -230,7 +321,7 @@ func TestProxyRemoteFileDownload(t *testing.T) {
 }
 
 func TestProxyRemoteFileUpload(t *testing.T) {
-	remoteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != fileUploadPath {
 			t.Fatalf("request path = %q, want %q", r.URL.Path, fileUploadPath)
 		}
@@ -288,15 +379,10 @@ func TestProxyRemoteFileUpload(t *testing.T) {
 
 		_, _ = w.Write([]byte("uploaded"))
 	}))
-	t.Cleanup(remoteServer.Close)
 
-	inst := &Instance{}
 	target := fileRequestTarget{
 		remoteServerID: "remote-server-id",
-		remoteNode: &models.Node{
-			BaseURL:   remoteServer.URL,
-			SecretKey: null.From("secret-key"),
-		},
+		remoteNode:     remoteNode,
 	}
 
 	responseRecorder := httptest.NewRecorder()
@@ -321,22 +407,17 @@ func TestProxyRemoteFileUpload(t *testing.T) {
 }
 
 func TestProxyRemoteFileGetForwardsErrorStatusAndHeaders(t *testing.T) {
-	remoteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Remote-Reason", "upstream-failure")
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("Transfer-Encoding", "chunked")
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte("bad gateway"))
 	}))
-	t.Cleanup(remoteServer.Close)
 
-	inst := &Instance{}
 	target := fileRequestTarget{
 		remoteServerID: "remote-server-id",
-		remoteNode: &models.Node{
-			BaseURL:   remoteServer.URL,
-			SecretKey: null.From("secret-key"),
-		},
+		remoteNode:     remoteNode,
 	}
 
 	responseRecorder := httptest.NewRecorder()
@@ -363,19 +444,14 @@ func TestProxyRemoteFileGetForwardsErrorStatusAndHeaders(t *testing.T) {
 }
 
 func TestProxyRemoteFileGetRespectsCanceledContext(t *testing.T) {
-	remoteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
-	t.Cleanup(remoteServer.Close)
 
-	inst := &Instance{}
 	target := fileRequestTarget{
 		remoteServerID: "remote-server-id",
-		remoteNode: &models.Node{
-			BaseURL:   remoteServer.URL,
-			SecretKey: null.From("secret-key"),
-		},
+		remoteNode:     remoteNode,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"connectrpc.com/connect"
@@ -11,15 +12,34 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 )
 
-func performHandshake(ctx context.Context, baseURL string, secretKey string, allowInsecureTLS bool) (*xylona.FederationHandshakeResponse, error) {
-	httpClient := helpers.NewFederationHTTPClient(15*time.Second, allowInsecureTLS)
-	client := xylonaconnect.NewFederationClient(httpClient, baseURL)
+func performHandshake(
+	ctx context.Context,
+	federationMTLS *helpers.FederationMTLS,
+	baseURL string,
+	expectedPeerFederationPort int,
+	expectedPeerFingerprint string,
+	expectedPeerNodeID string,
+) (*xylona.FederationHandshakeResponse, error) {
+	if federationMTLS == nil {
+		return nil, errors.New("federation mTLS is not configured")
+	}
+
+	httpClient, federationBaseURL, errClient := federationMTLS.NewNodeHTTPClientWithPort(
+		15*time.Second,
+		baseURL,
+		expectedPeerFederationPort,
+		expectedPeerFingerprint,
+		expectedPeerNodeID,
+	)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	client := xylonaconnect.NewFederationClient(httpClient, federationBaseURL)
 	handshakeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	resp, err := client.Handshake(handshakeCtx, connect.NewRequest(&xylona.FederationHandshakeRequest{
-		SecretKey: secretKey,
-	}))
+	resp, err := client.Handshake(handshakeCtx, connect.NewRequest(&xylona.FederationHandshakeRequest{}))
 	if err != nil {
 		return nil, err
 	}

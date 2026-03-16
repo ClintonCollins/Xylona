@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"math"
 	"math/rand"
 	"sync"
@@ -14,18 +15,19 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 const (
-	healthCheckInterval        = 30 * time.Second
-	peerReconcileInterval      = 60 * time.Second
-	remoteCacheCleanupInterval = 60 * time.Second
-	defaultNodeSyncInterval    = 60 * time.Second
-	minNodeSyncInterval        = 15 * time.Second
-	maxNodeSyncInterval        = 10 * time.Minute
-	staleThreshold             = 3 * time.Minute
-	maxRetryBackoff            = 5 * time.Minute
-	federationRequestTimeout   = 15 * time.Second
+	healthCheckInterval           = 30 * time.Second
+	peerReconcileInterval         = 60 * time.Second
+	remoteCacheCleanupInterval    = 60 * time.Second
+	defaultNodeSyncInterval       = 60 * time.Second
+	minNodeSyncInterval           = 15 * time.Second
+	maxNodeSyncInterval           = 10 * time.Minute
+	staleThreshold                = 3 * time.Minute
+	maxRetryBackoff               = 5 * time.Minute
+	federationRequestTimeout      = 15 * time.Second
 	federationFileTransferTimeout = 2 * time.Hour
 )
 
@@ -39,18 +41,20 @@ type FederationSyncEngine struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	db                *db.Connection
+	federationMTLS    *helpers.FederationMTLS
 	mu                sync.RWMutex
 	peerStops         map[string]context.CancelFunc
 	statusBroadcaster StatusBroadcaster
 }
 
-func NewFederationSyncEngine(ctx context.Context, dbInst *db.Connection) *FederationSyncEngine {
+func NewFederationSyncEngine(ctx context.Context, dbInst *db.Connection, federationMTLS *helpers.FederationMTLS) *FederationSyncEngine {
 	engineCtx, engineCancel := context.WithCancel(ctx)
 	engine := &FederationSyncEngine{
-		ctx:       engineCtx,
-		cancel:    engineCancel,
-		db:        dbInst,
-		peerStops: make(map[string]context.CancelFunc),
+		ctx:            engineCtx,
+		cancel:         engineCancel,
+		db:             dbInst,
+		federationMTLS: federationMTLS,
+		peerStops:      make(map[string]context.CancelFunc),
 	}
 	go engine.start()
 	return engine
@@ -256,16 +260,13 @@ func (e *FederationSyncEngine) runStatusStream(ctx context.Context, nodeID strin
 		return
 	}
 
-	secretKey := node.SecretKey.GetOr("")
+	client, errClient := newFederationClient(e.db, e.federationMTLS, node, 0)
+	if errClient != nil {
+		log.Warn().Err(errClient).Str("node_id", nodeID).Str("node_name", node.Name).Msg("Failed to create status stream federation client")
+		return
+	}
 
-	// Use a long-lived HTTP client without a short timeout for streaming.
-	httpClient := helpers.NewFederationHTTPClient(0, node.AllowInsecureTLS)
-	client := xylonaconnect.NewFederationClient(httpClient, node.BaseURL)
-
-	req := connect.NewRequest(&xylona.FederationStreamServerStatusesRequest{
-		SecretKey: secretKey,
-	})
-	req.Header().Set("X-Federation-Key", secretKey)
+	req := connect.NewRequest(&xylona.FederationStreamServerStatusesRequest{})
 
 	stream, errStream := client.StreamServerStatuses(ctx, req)
 	if errStream != nil {
@@ -306,14 +307,24 @@ func (e *FederationSyncEngine) healthCheckPeer(nodeID string) {
 		return
 	}
 
-	secretKey := node.SecretKey.GetOr("")
-	client := newFederationClient(node.BaseURL, node.AllowInsecureTLS)
+	client, errClient := newFederationClient(e.db, e.federationMTLS, node, federationRequestTimeout)
+	if errClient != nil {
+		log.Warn().Err(errClient).Str("node_id", nodeID).Str("node_name", node.Name).Msg("Node health check failed")
+		errUpdate := e.db.UpdateNodeHealth(nodeID, "offline", time.Now())
+		if errUpdate != nil {
+			log.Error().Err(errUpdate).Str("node_id", nodeID).Msg("Failed to update node health status")
+		}
+		errStale := e.db.MarkRemoteServerCacheStaleByNodeID(nodeID)
+		if errStale != nil {
+			log.Error().Err(errStale).Str("node_id", nodeID).Msg("Failed to mark remote servers as stale")
+		}
+		return
+	}
+
 	reqCtx, cancel := context.WithTimeout(e.ctx, federationRequestTimeout)
 	defer cancel()
 
-	req := connect.NewRequest(&xylona.FederationHandshakeRequest{
-		SecretKey: secretKey,
-	})
+	req := connect.NewRequest(&xylona.FederationHandshakeRequest{})
 
 	resp, errHandshake := client.Handshake(reqCtx, req)
 	if errHandshake != nil {
@@ -358,8 +369,6 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 		return
 	}
 
-	secretKey := node.SecretKey.GetOr("")
-
 	syncState, errSyncState := e.db.GetOrCreatePeerSyncState(nodeID)
 	if errSyncState != nil {
 		log.Warn().Err(errSyncState).Str("node_id", nodeID).Msg("Failed to get sync state")
@@ -373,14 +382,37 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 		}
 	}
 
-	client := newFederationClient(node.BaseURL, node.AllowInsecureTLS)
+	client, errClient := newFederationClient(e.db, e.federationMTLS, node, federationRequestTimeout)
+	if errClient != nil {
+		log.Warn().Err(errClient).Str("node_id", nodeID).Str("node_name", node.Name).Msg("Failed to create federation client for node sync")
+
+		retryCount := int32(0)
+		if syncState != nil {
+			retryCount = syncState.RetryCount + 1
+		}
+		backoff := calculateBackoff(retryCount)
+		errUpdateSync := e.db.UpdatePeerSyncStateError(nodeID, errClient.Error(), retryCount, time.Now().Add(backoff))
+		if errUpdateSync != nil {
+			log.Error().Err(errUpdateSync).Str("node_id", nodeID).Msg("Failed to update sync state error")
+		}
+		errUpdateStatus := e.db.UpdateNodeSyncStatus(nodeID, "error", time.Now())
+		if errUpdateStatus != nil {
+			log.Error().Err(errUpdateStatus).Str("node_id", nodeID).Msg("Failed to update node sync status")
+		}
+
+		errStale := e.db.MarkRemoteServerCacheStaleByNodeID(nodeID)
+		if errStale != nil {
+			log.Error().Err(errStale).Str("node_id", nodeID).Msg("Failed to mark remote servers as stale")
+		}
+		return
+	}
+
 	reqCtx, cancel := context.WithTimeout(e.ctx, federationRequestTimeout)
 	defer cancel()
 
 	req := connect.NewRequest(&xylona.FederationListServerSummariesRequest{
 		Limit: 1000,
 	})
-	req.Header().Set("X-Federation-Key", secretKey)
 
 	resp, errSync := client.ListServerSummaries(reqCtx, req)
 	if errSync != nil {
@@ -455,9 +487,28 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 		Int("server_count", len(resp.Msg.Servers)).Msg("Successfully synced server summaries from node")
 }
 
-func newFederationClient(baseURL string, allowInsecureTLS bool) xylonaconnect.FederationClient {
-	httpClient := helpers.NewFederationHTTPClient(federationRequestTimeout, allowInsecureTLS)
-	return xylonaconnect.NewFederationClient(httpClient, baseURL)
+func newFederationClient(dbConn *db.Connection, federationMTLS *helpers.FederationMTLS, node *models.Node, timeout time.Duration) (xylonaconnect.FederationClient, error) {
+	if federationMTLS == nil {
+		return nil, errors.New("federation mTLS is not configured")
+	}
+
+	federationPort := federationMTLS.FederationPort()
+	if node != nil && node.Port > 0 {
+		federationPort = int(node.Port)
+	}
+
+	httpClient, federationBaseURL, errClient := federationMTLS.NewTrustedPeerHTTPClientWithPort(
+		timeout,
+		node.ID,
+		node.BaseURL,
+		federationPort,
+		dbConn,
+	)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	return xylonaconnect.NewFederationClient(httpClient, federationBaseURL), nil
 }
 
 func (e *FederationSyncEngine) getNodeSyncInterval(nodeID string) time.Duration {

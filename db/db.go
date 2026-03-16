@@ -34,6 +34,10 @@ func sqliteDSNWithPragmas(path string, pragmas ...string) string {
 	return b.String()
 }
 
+func sqliteDSNWithPragma(path string, pragma string) string {
+	return sqliteDSNWithPragmas(path, pragma)
+}
+
 func NewConnection(ctx context.Context, path string) *Connection {
 	dsn := sqliteDSNWithPragmas(path,
 		"foreign_keys(1)",

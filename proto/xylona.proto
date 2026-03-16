@@ -62,6 +62,7 @@ service Xylona {
   rpc GetNode (GetNodeRequest) returns (GetNodeResponse) {}
   rpc ListNodes (ListNodesRequest) returns (ListNodesResponse) {}
   rpc AddNode (AddNodeRequest) returns (AddNodeResponse) {}
+  rpc GenerateNodePairingObject (GenerateNodePairingObjectRequest) returns (GenerateNodePairingObjectResponse) {}
   rpc PairNode (PairNodeRequest) returns (PairNodeResponse) {}
   rpc RemoveNode (RemoveNodeRequest) returns (RemoveNodeResponse) {}
   rpc EditNode (EditNodeRequest) returns (EditNodeResponse) {}
@@ -299,10 +300,23 @@ message AddNodeResponse {
   Node node = 1;
 }
 
+message GenerateNodePairingObjectRequest {
+  // Optional remote panel base URL this token is intended for.
+  string target_url = 1;
+}
+
+message GenerateNodePairingObjectResponse {
+  string base_url = 1;
+  string pairing_token = 2;
+  int64 mtls_port = 3;
+}
+
 message PairNodeRequest {
   // Remote node URL and pairing key generated on the remote panel.
   string remote_base_url = 1;
   string remote_secret_key = 2;
+  // Remote node federation mTLS port used for peer RPCs.
+  int64 remote_mtls_port = 8;
 
   // Public base URL for this panel so the remote panel can add us back.
   string local_base_url = 3;
@@ -365,6 +379,7 @@ message CreateLocalSecretKeyRequest {
 message CreateLocalSecretKeyResponse {
   int32 id = 1;
   string secret_key = 2;
+  int64 mtls_port = 3;
 }
 
 message DeleteLocalSecretKeyRequest {

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -39,11 +40,14 @@ import (
 )
 
 type Configuration struct {
-	CookieHashKey  string `env:"COOKIE_HASH_KEY_BASE64"`
-	CookieBlockKey string `env:"COOKIE_BLOCK_KEY_BASE64"`
-	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
-	DBFilePath     string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
-	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
+	CookieHashKey      string `env:"COOKIE_HASH_KEY_BASE64"`
+	CookieBlockKey     string `env:"COOKIE_BLOCK_KEY_BASE64"`
+	JWTSecretKey       string `env:"JWT_SECRET_KEY_BASE64"`
+	DBFilePath         string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
+	LogLevel           string `env:"LOG_LEVEL" envDefault:"info"`
+	FederationPort     int    `env:"FEDERATION_PORT" envDefault:"8443"`
+	FederationCertPath string `env:"FEDERATION_CERT_PATH" envDefault:"./federation/node.crt"`
+	FederationKeyPath  string `env:"FEDERATION_KEY_PATH" envDefault:"./federation/node.key"`
 }
 
 func setupLogger() {
@@ -83,17 +87,22 @@ func setDetectedIPs(db *db.Connection) {
 	}
 }
 
-func gracefulShutdown(ctxCancel context.CancelFunc, shutdownSignalType os.Signal, webServer *http.Server) {
+func gracefulShutdown(ctxCancel context.CancelFunc, shutdownSignalType os.Signal, servers ...*http.Server) {
 	log.Info().Str("Signal", shutdownSignalType.String()).
 		Msgf("Received signal: %s. Shutting down.", shutdownSignalType)
 	ctxCancel()
 	log.Debug().Msg("Graceful shutdown context cancelled")
-	webServerCtx, webServerCtxCancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer webServerCtxCancel()
-	log.Debug().Msg("Shutting down Xylona web server.")
-	errShutdown := webServer.Shutdown(webServerCtx)
-	if errShutdown != nil {
-		log.Error().Err(errShutdown).Msg("Failed to shutdown web server")
+	shutdownCtx, shutdownCtxCancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer shutdownCtxCancel()
+
+	for _, server := range servers {
+		if server == nil {
+			continue
+		}
+		errShutdown := server.Shutdown(shutdownCtx)
+		if errShutdown != nil {
+			log.Error().Err(errShutdown).Str("addr", server.Addr).Msg("Failed to shutdown server")
+		}
 	}
 	log.Info().Msg("Xylona control panel backend fully stopped.")
 }
@@ -236,14 +245,54 @@ func main() {
 		log.Fatal().Err(errUpdateNodeIdentity).Str("node_id", settings.NodeID).Msg("Failed to stamp local node identity")
 	}
 
-	actionsInst := actions.NewInstance(ctx, dbInst, superInst)
-	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst)
+	localIdentity, errLocalIdentity := dbInst.GetFederationLocalIdentity()
+	if errLocalIdentity != nil && !errors.Is(errLocalIdentity, sql.ErrNoRows) {
+		log.Fatal().Err(errLocalIdentity).Msg("Failed to load federation local identity")
+	}
+
+	var certPEM []byte
+	var keyPEM []byte
+	if errLocalIdentity == nil {
+		certPEM = []byte(localIdentity.CertPEM)
+		keyPEM = []byte(localIdentity.KeyPEM)
+	}
+
+	federationMTLS, localCertFingerprint, errFederationMTLS := helpers.NewFederationMTLSFromPEM(config.FederationPort, certPEM, keyPEM)
+	if errFederationMTLS != nil {
+		log.Warn().
+			Err(errFederationMTLS).
+			Msg("No usable federation certificate in database; generating a new in-database identity")
+
+		var errGenerateFederationPEM error
+		certPEM, keyPEM, errGenerateFederationPEM = helpers.GenerateFederationCertificatePEM(settings.NodeID)
+		if errGenerateFederationPEM != nil {
+			log.Fatal().Err(errGenerateFederationPEM).Msg("Failed to generate federation mTLS identity")
+		}
+
+		federationMTLS, localCertFingerprint, errFederationMTLS = helpers.NewFederationMTLSFromPEM(config.FederationPort, certPEM, keyPEM)
+		if errFederationMTLS != nil {
+			log.Fatal().Err(errFederationMTLS).Msg("Failed to initialize federation mTLS identity from generated certificate")
+		}
+	}
+
+	errPersistFederationIdentity := dbInst.UpsertFederationLocalIdentity(
+		settings.NodeID,
+		string(certPEM),
+		string(keyPEM),
+		localCertFingerprint,
+	)
+	if errPersistFederationIdentity != nil {
+		log.Fatal().Err(errPersistFederationIdentity).Msg("Failed to persist federation local identity")
+	}
+
+	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS)
+	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	setDetectedIPs(dbInst)
 
-	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie)
+	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie, federationMTLS)
 
 	router := chi.NewRouter()
-	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie)
+	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS)
 	xylonaService.SetSyncEngine(syncEngine)
 	syncEngine.SetStatusBroadcaster(wsInst)
 
@@ -259,7 +308,6 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(routerLogger)
 	router.Mount(xylonaAPIPath, handler)
-	router.Mount(federationAPIPath, federationHandler)
 	router.Mount("/api/websocket", websocketHandler)
 
 	httpServer := &http.Server{
@@ -268,6 +316,31 @@ func main() {
 		ReadTimeout:  time.Hour * 6,
 		WriteTimeout: time.Hour * 6,
 		IdleTimeout:  time.Hour * 24,
+	}
+
+	federationRouter := chi.NewRouter()
+	federationRouter.Use(middleware.RealIP)
+	federationRouter.Use(routerLogger)
+
+	// The complete-pairing endpoint is exempt from trust-store auth — the pairing token authenticates it.
+	federationRouter.Post("/federation/complete-pairing", rpc.CompletePairingHandler(dbInst, federationMTLS))
+
+	federationRouter.Group(func(r chi.Router) {
+		r.Use(rpc.FederationPeerAuthMiddleware(dbInst))
+		r.Mount(federationAPIPath, federationHandler)
+		r.Post("/api/file/get", actionsInst.StreamFileToUser)
+		r.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
+		r.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
+		r.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
+	})
+
+	federationServer := &http.Server{
+		Addr:         fmt.Sprintf(":%d", config.FederationPort),
+		Handler:      federationRouter,
+		ReadTimeout:  time.Hour * 6,
+		WriteTimeout: time.Hour * 6,
+		IdleTimeout:  time.Hour * 24,
+		TLSConfig:    federationMTLS.ServerTLSConfig(),
 	}
 
 	router.Get("/api/test/{appid}", func(w http.ResponseWriter, r *http.Request) {
@@ -315,8 +388,18 @@ func main() {
 		log.Info().Msg("Starting Xylona web server on :8080")
 		errListenAndServe := httpServer.ListenAndServe()
 		if errListenAndServe != nil {
-			if !errors.Is(http.ErrServerClosed, errListenAndServe) {
+			if !errors.Is(errListenAndServe, http.ErrServerClosed) {
 				log.Error().Err(errListenAndServe).Msg("Failed to start Xylona web server")
+			}
+		}
+	}()
+
+	go func() {
+		log.Info().Int("port", config.FederationPort).Msg("Starting Xylona federation mTLS server")
+		errListenAndServeTLS := federationServer.ListenAndServeTLS("", "")
+		if errListenAndServeTLS != nil {
+			if !errors.Is(errListenAndServeTLS, http.ErrServerClosed) {
+				log.Error().Err(errListenAndServeTLS).Msg("Failed to start Xylona federation mTLS server")
 			}
 		}
 	}()
@@ -327,5 +410,5 @@ func main() {
 	shutdownSignalChannel := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGTERM)
 	shutdownSignalType := <-shutdownSignalChannel
-	gracefulShutdown(ctxCancel, shutdownSignalType, httpServer)
+	gracefulShutdown(ctxCancel, shutdownSignalType, httpServer, federationServer)
 }

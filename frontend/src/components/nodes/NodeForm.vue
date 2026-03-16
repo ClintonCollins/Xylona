@@ -203,10 +203,10 @@ import {
   type NodePairingPayload,
 } from '@/utils/node-pairing'
 import {
-  CreateLocalSecretKeyRequest,
-  CreateLocalSecretKeyRequestSchema,
   EditNodeRequest,
   EditNodeRequestSchema,
+  GenerateNodePairingObjectRequest,
+  GenerateNodePairingObjectRequestSchema,
   GetNodeRequest,
   GetNodeRequestSchema,
   ListNodesRequestSchema,
@@ -231,6 +231,7 @@ const isRemote = ref(true)
 const addMode = ref<'copy' | 'paste'>('copy')
 const errorMessage = ref('')
 const pairingLocalBaseUrl = ref('')
+const pairingLocalMTLSPort = ref(8443)
 const pairingLocalAllowInsecureTLS = ref(false)
 const pairingRemoteAllowInsecureTLS = ref(false)
 const generatedPairingKey = ref('')
@@ -273,7 +274,11 @@ const generatedPairingPayload = computed(() => {
     return ''
   }
   try {
-    return createNodePairingPayload(pairingLocalBaseUrl.value, generatedPairingKey.value)
+    return createNodePairingPayload(
+      pairingLocalBaseUrl.value,
+      generatedPairingKey.value,
+      pairingLocalMTLSPort.value,
+    )
   } catch (_errPayload) {
     return ''
   }
@@ -385,11 +390,21 @@ async function updateNode() {
 async function generatePairingKey(silent: boolean = false) {
   errorMessage.value = ''
   pairingKeySubmitting.value = true
-  const request: CreateLocalSecretKeyRequest = create(CreateLocalSecretKeyRequestSchema, {})
-  request.name = `Node pairing key ${new Date().toISOString()}`
   try {
-    const response = await GetXylonaClient().createLocalSecretKey(request)
-    generatedPairingKey.value = response.secretKey
+    const request: GenerateNodePairingObjectRequest = create(GenerateNodePairingObjectRequestSchema, {})
+    const response = await GetXylonaClient().generateNodePairingObject(request)
+
+    generatedPairingKey.value = response.pairingToken
+    pairingLocalBaseUrl.value = normalizeNodePairingBaseURL(response.baseUrl)
+
+    const mtlsPortFromResponse = Number(response.mtlsPort)
+    if (
+      Number.isInteger(mtlsPortFromResponse) &&
+      mtlsPortFromResponse > 0 &&
+      mtlsPortFromResponse <= 65535
+    ) {
+      pairingLocalMTLSPort.value = mtlsPortFromResponse
+    }
     if (!silent) {
       $q.notify({
         type: 'positive',
@@ -476,6 +491,7 @@ async function pairNode() {
   const request: PairNodeRequest = create(PairNodeRequestSchema, {})
   request.remoteBaseUrl = payload.base_url
   request.remoteSecretKey = payload.secret_key
+  request.remoteMtlsPort = BigInt(payload.mtls_port)
   request.localBaseUrl = localBaseURL
   request.remoteName = node.value.name.trim()
   request.remoteAllowInsecureTls = pairingRemoteAllowInsecureTLS.value
