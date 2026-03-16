@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file federation.proto.
  */
 export const file_federation: GenFile = /*@__PURE__*/
-  fileDesc("ChBmZWRlcmF0aW9uLnByb3RvEgZ4eWxvbmEiMAoaRmVkZXJhdGlvbkhhbmRzaGFrZVJlcXVlc3QSEgoKc2VjcmV0X2tleRgBIAEoCSKzAQobRmVkZXJhdGlvbkhhbmRzaGFrZVJlc3BvbnNlEg8KB25vZGVfaWQYASABKAkSEQoJbm9kZV9uYW1lGAIgASgJEg8KB3ZlcnNpb24YAyABKAkSGAoQcHJvdG9jb2xfdmVyc2lvbhgEIAEoBRIUCgxjYXBhYmlsaXRpZXMYBSABKAkSLwoLc2VydmVyX3RpbWUYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkUKJEZlZGVyYXRpb25MaXN0U2VydmVyU3VtbWFyaWVzUmVxdWVzdBIOCgZjdXJzb3IYASABKAkSDQoFbGltaXQYAiABKAUivQIKF0ZlZGVyYXRpb25TZXJ2ZXJTdW1tYXJ5EhEKCXNlcnZlcl9pZBgBIAEoCRIUCgxkaXNwbGF5X25hbWUYAiABKAkSHgoGc3RhdHVzGAMgASgOMg4ueHlsb25hLlN0YXR1cxIRCglnYW1lX25hbWUYBCABKAkSDwoHZ2FtZV9pZBgFIAEoCRISCgppcF9hZGRyZXNzGAYgASgJEgwKBHBvcnQYByABKAMSEgoKcXVlcnlfcG9ydBgIIAEoAxITCgttYXhfcGxheWVycxgJIAEoAxIXCg9jdXJyZW50X3BsYXllcnMYCiABKAMSEAoIbWFwX25hbWUYCyABKAkSDwoHdmVyc2lvbhgMIAEoCRIuCgp1cGRhdGVkX2F0GA0gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKAAQolRmVkZXJhdGlvbkxpc3RTZXJ2ZXJTdW1tYXJpZXNSZXNwb25zZRIwCgdzZXJ2ZXJzGAEgAygLMh8ueHlsb25hLkZlZGVyYXRpb25TZXJ2ZXJTdW1tYXJ5EhMKC25leHRfY3Vyc29yGAIgASgJEhAKCGhhc19tb3JlGAMgASgIIjMKIkZlZGVyYXRpb25MaXN0VXNlclN1bW1hcmllc1JlcXVlc3QSDQoFbGltaXQYASABKAUi0QEKFUZlZGVyYXRpb25Vc2VyU3VtbWFyeRIPCgd1c2VyX2lkGAEgASgJEhEKCXVzZXJfbmFtZRgCIAEoCRINCgVlbWFpbBgDIAEoCRISCgpmaXJzdF9uYW1lGAQgASgJEhEKCWxhc3RfbmFtZRgFIAEoCRIuCgpjcmVhdGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJTCiNGZWRlcmF0aW9uTGlzdFVzZXJTdW1tYXJpZXNSZXNwb25zZRIsCgV1c2VycxgBIAMoCzIdLnh5bG9uYS5GZWRlcmF0aW9uVXNlclN1bW1hcnkiNQogRmVkZXJhdGlvbkdldFNlcnZlckRldGFpbFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIlQKIUZlZGVyYXRpb25HZXRTZXJ2ZXJEZXRhaWxSZXNwb25zZRIvCgZzZXJ2ZXIYASABKAsyHy54eWxvbmEuRmVkZXJhdGlvblNlcnZlclN1bW1hcnkiYgodRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhYKDmFjdGluZ191c2VyX2lkGAIgASgJEhYKDm9yaWdpbl9ub2RlX2lkGAMgASgJIkAKHkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIlkKG0ZlZGVyYXRpb25FZGl0U2VydmVyUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSJwoLZ2FtZV9zZXJ2ZXIYAiABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJnChxGZWRlcmF0aW9uRWRpdFNlcnZlclJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSJwoLZ2FtZV9zZXJ2ZXIYAyABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJHCh5GZWRlcmF0aW9uU3RyZWFtQ29uc29sZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhIKCnNlY3JldF9rZXkYAiABKAkiQQocRmVkZXJhdGlvbkNvbnNvbGVPdXRwdXRDaHVuaxIRCglzZXJ2ZXJfaWQYASABKAkSDgoGb3V0cHV0GAIgASgJIkUKIUZlZGVyYXRpb25TZW5kQ29uc29sZUlucHV0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDQoFaW5wdXQYAiABKAkiRAoiRmVkZXJhdGlvblNlbmRDb25zb2xlSW5wdXRSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIjcKIkZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIjUKI0ZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlc3BvbnNlEg4KBm91dHB1dBgBIAEoCSI7CiVGZWRlcmF0aW9uU3RyZWFtU2VydmVyU3RhdHVzZXNSZXF1ZXN0EhIKCnNlY3JldF9rZXkYASABKAkiUAobRmVkZXJhdGlvblNlcnZlclN0YXR1c0V2ZW50EhEKCXNlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIjEKHEZlZGVyYXRpb25RdWVyeVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIkgKHUZlZGVyYXRpb25RdWVyeVNlcnZlclJlc3BvbnNlEicKCnF1ZXJ5X2luZm8YASABKAsyEy54eWxvbmEuU2VydmVyUXVlcnkiRgojRmVkZXJhdGlvbkxpc3REaXJlY3RvcnlGaWxlc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEgwKBHBhdGgYAiABKAkiQwokRmVkZXJhdGlvbkxpc3REaXJlY3RvcnlGaWxlc1Jlc3BvbnNlEhsKBWZpbGVzGAEgAygLMgwueHlsb25hLkZpbGUiVwoZRmVkZXJhdGlvbkVkaXRGaWxlUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSFgoOZnVsbF9maWxlX3BhdGgYAiABKAkSDwoHY29udGVudBgDIAEoCSI8ChpGZWRlcmF0aW9uRWRpdEZpbGVSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIkoKHEZlZGVyYXRpb25EZWxldGVGaWxlc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgCIAMoCSJYCh1GZWRlcmF0aW9uRGVsZXRlRmlsZXNSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgDIAMoCSJUChtGZWRlcmF0aW9uUmVuYW1lRmlsZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhAKCG9sZF9wYXRoGAIgASgJEhAKCG5ld19wYXRoGAMgASgJIlAKHEZlZGVyYXRpb25SZW5hbWVGaWxlUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCRIQCghuZXdfcGF0aBgDIAEoCSJnChpGZWRlcmF0aW9uTW92ZUZpbGVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSFwoPZnVsbF9maWxlX3BhdGhzGAIgAygJEh0KFWRlc3RpbmF0aW9uX2Jhc2VfcGF0aBgDIAEoCSJWChtGZWRlcmF0aW9uTW92ZUZpbGVzUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCRIXCg9mdWxsX2ZpbGVfcGF0aHMYAyADKAkiegomRmVkZXJhdGlvbkNyZWF0ZUZpbGVPckRpcmVjdG9yeVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhYKDmZ1bGxfZmlsZV9wYXRoGAIgASgJEg8KB2NvbnRlbnQYAyABKAkSFAoMaXNfZGlyZWN0b3J5GAQgASgIIkkKJ0ZlZGVyYXRpb25DcmVhdGVGaWxlT3JEaXJlY3RvcnlSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJImUKJEZlZGVyYXRpb25Eb3dubG9hZEZpbGVGcm9tVVJMUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSCwoDdXJsGAIgASgJEh0KFWRlc3RpbmF0aW9uX2Jhc2VfcGF0aBgDIAEoCSJaCiVGZWRlcmF0aW9uRG93bmxvYWRGaWxlRnJvbVVSTFJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSEQoJZmlsZV9wYXRoGAMgASgJMqYSCgpGZWRlcmF0aW9uElYKCUhhbmRzaGFrZRIiLnh5bG9uYS5GZWRlcmF0aW9uSGFuZHNoYWtlUmVxdWVzdBojLnh5bG9uYS5GZWRlcmF0aW9uSGFuZHNoYWtlUmVzcG9uc2UiABJ0ChNMaXN0U2VydmVyU3VtbWFyaWVzEiwueHlsb25hLkZlZGVyYXRpb25MaXN0U2VydmVyU3VtbWFyaWVzUmVxdWVzdBotLnh5bG9uYS5GZWRlcmF0aW9uTGlzdFNlcnZlclN1bW1hcmllc1Jlc3BvbnNlIgASbgoRTGlzdFVzZXJTdW1tYXJpZXMSKi54eWxvbmEuRmVkZXJhdGlvbkxpc3RVc2VyU3VtbWFyaWVzUmVxdWVzdBorLnh5bG9uYS5GZWRlcmF0aW9uTGlzdFVzZXJTdW1tYXJpZXNSZXNwb25zZSIAEmgKD0dldFNlcnZlckRldGFpbBIoLnh5bG9uYS5GZWRlcmF0aW9uR2V0U2VydmVyRGV0YWlsUmVxdWVzdBopLnh5bG9uYS5GZWRlcmF0aW9uR2V0U2VydmVyRGV0YWlsUmVzcG9uc2UiABJkChFTdGFydFJlbW90ZVNlcnZlchIlLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVxdWVzdBomLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVzcG9uc2UiABJjChBTdG9wUmVtb3RlU2VydmVyEiUueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXF1ZXN0GiYueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZSIAEmYKE1Jlc3RhcnRSZW1vdGVTZXJ2ZXISJS54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QaJi54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlc3BvbnNlIgASZQoSVXBkYXRlUmVtb3RlU2VydmVyEiUueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXF1ZXN0GiYueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZSIAEl8KEEVkaXRSZW1vdGVTZXJ2ZXISIy54eWxvbmEuRmVkZXJhdGlvbkVkaXRTZXJ2ZXJSZXF1ZXN0GiQueHlsb25hLkZlZGVyYXRpb25FZGl0U2VydmVyUmVzcG9uc2UiABJlChJSZW1vdmVSZW1vdGVTZXJ2ZXISJS54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QaJi54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlc3BvbnNlIgASZwoTU3RyZWFtQ29uc29sZU91dHB1dBImLnh5bG9uYS5GZWRlcmF0aW9uU3RyZWFtQ29uc29sZVJlcXVlc3QaJC54eWxvbmEuRmVkZXJhdGlvbkNvbnNvbGVPdXRwdXRDaHVuayIAMAESawoQU2VuZENvbnNvbGVJbnB1dBIpLnh5bG9uYS5GZWRlcmF0aW9uU2VuZENvbnNvbGVJbnB1dFJlcXVlc3QaKi54eWxvbmEuRmVkZXJhdGlvblNlbmRDb25zb2xlSW5wdXRSZXNwb25zZSIAEm4KEVJlYWRDb25zb2xlQnVmZmVyEioueHlsb25hLkZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlcXVlc3QaKy54eWxvbmEuRmVkZXJhdGlvblJlYWRDb25zb2xlQnVmZmVyUmVzcG9uc2UiABJuChRTdHJlYW1TZXJ2ZXJTdGF0dXNlcxItLnh5bG9uYS5GZWRlcmF0aW9uU3RyZWFtU2VydmVyU3RhdHVzZXNSZXF1ZXN0GiMueHlsb25hLkZlZGVyYXRpb25TZXJ2ZXJTdGF0dXNFdmVudCIAMAESYgoRUXVlcnlSZW1vdGVTZXJ2ZXISJC54eWxvbmEuRmVkZXJhdGlvblF1ZXJ5U2VydmVyUmVxdWVzdBolLnh5bG9uYS5GZWRlcmF0aW9uUXVlcnlTZXJ2ZXJSZXNwb25zZSIAEncKGExpc3RSZW1vdGVEaXJlY3RvcnlGaWxlcxIrLnh5bG9uYS5GZWRlcmF0aW9uTGlzdERpcmVjdG9yeUZpbGVzUmVxdWVzdBosLnh5bG9uYS5GZWRlcmF0aW9uTGlzdERpcmVjdG9yeUZpbGVzUmVzcG9uc2UiABJZCg5FZGl0UmVtb3RlRmlsZRIhLnh5bG9uYS5GZWRlcmF0aW9uRWRpdEZpbGVSZXF1ZXN0GiIueHlsb25hLkZlZGVyYXRpb25FZGl0RmlsZVJlc3BvbnNlIgASYgoRRGVsZXRlUmVtb3RlRmlsZXMSJC54eWxvbmEuRmVkZXJhdGlvbkRlbGV0ZUZpbGVzUmVxdWVzdBolLnh5bG9uYS5GZWRlcmF0aW9uRGVsZXRlRmlsZXNSZXNwb25zZSIAEl8KEFJlbmFtZVJlbW90ZUZpbGUSIy54eWxvbmEuRmVkZXJhdGlvblJlbmFtZUZpbGVSZXF1ZXN0GiQueHlsb25hLkZlZGVyYXRpb25SZW5hbWVGaWxlUmVzcG9uc2UiABJcCg9Nb3ZlUmVtb3RlRmlsZXMSIi54eWxvbmEuRmVkZXJhdGlvbk1vdmVGaWxlc1JlcXVlc3QaIy54eWxvbmEuRmVkZXJhdGlvbk1vdmVGaWxlc1Jlc3BvbnNlIgASgAEKG0NyZWF0ZVJlbW90ZUZpbGVPckRpcmVjdG9yeRIuLnh5bG9uYS5GZWRlcmF0aW9uQ3JlYXRlRmlsZU9yRGlyZWN0b3J5UmVxdWVzdBovLnh5bG9uYS5GZWRlcmF0aW9uQ3JlYXRlRmlsZU9yRGlyZWN0b3J5UmVzcG9uc2UiABJ6ChlEb3dubG9hZFJlbW90ZUZpbGVGcm9tVVJMEiwueHlsb25hLkZlZGVyYXRpb25Eb3dubG9hZEZpbGVGcm9tVVJMUmVxdWVzdBotLnh5bG9uYS5GZWRlcmF0aW9uRG93bmxvYWRGaWxlRnJvbVVSTFJlc3BvbnNlIgBCMlowZ2l0aHViLmNvbS9DbGludG9uQ29sbGlucy9YeWxvbmEvcHJvdG8vZ28veHlsb25hYgZwcm90bzM", [file_google_protobuf_timestamp, file_shared, file_gameserver_files_operations]);
+  fileDesc("ChBmZWRlcmF0aW9uLnByb3RvEgZ4eWxvbmEiMAoaRmVkZXJhdGlvbkhhbmRzaGFrZVJlcXVlc3QSEgoKc2VjcmV0X2tleRgBIAEoCSKzAQobRmVkZXJhdGlvbkhhbmRzaGFrZVJlc3BvbnNlEg8KB25vZGVfaWQYASABKAkSEQoJbm9kZV9uYW1lGAIgASgJEg8KB3ZlcnNpb24YAyABKAkSGAoQcHJvdG9jb2xfdmVyc2lvbhgEIAEoBRIUCgxjYXBhYmlsaXRpZXMYBSABKAkSLwoLc2VydmVyX3RpbWUYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkUKJEZlZGVyYXRpb25MaXN0U2VydmVyU3VtbWFyaWVzUmVxdWVzdBIOCgZjdXJzb3IYASABKAkSDQoFbGltaXQYAiABKAUivQIKF0ZlZGVyYXRpb25TZXJ2ZXJTdW1tYXJ5EhEKCXNlcnZlcl9pZBgBIAEoCRIUCgxkaXNwbGF5X25hbWUYAiABKAkSHgoGc3RhdHVzGAMgASgOMg4ueHlsb25hLlN0YXR1cxIRCglnYW1lX25hbWUYBCABKAkSDwoHZ2FtZV9pZBgFIAEoCRISCgppcF9hZGRyZXNzGAYgASgJEgwKBHBvcnQYByABKAMSEgoKcXVlcnlfcG9ydBgIIAEoAxITCgttYXhfcGxheWVycxgJIAEoAxIXCg9jdXJyZW50X3BsYXllcnMYCiABKAMSEAoIbWFwX25hbWUYCyABKAkSDwoHdmVyc2lvbhgMIAEoCRIuCgp1cGRhdGVkX2F0GA0gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKAAQolRmVkZXJhdGlvbkxpc3RTZXJ2ZXJTdW1tYXJpZXNSZXNwb25zZRIwCgdzZXJ2ZXJzGAEgAygLMh8ueHlsb25hLkZlZGVyYXRpb25TZXJ2ZXJTdW1tYXJ5EhMKC25leHRfY3Vyc29yGAIgASgJEhAKCGhhc19tb3JlGAMgASgIIjMKIkZlZGVyYXRpb25MaXN0VXNlclN1bW1hcmllc1JlcXVlc3QSDQoFbGltaXQYASABKAUi0QEKFUZlZGVyYXRpb25Vc2VyU3VtbWFyeRIPCgd1c2VyX2lkGAEgASgJEhEKCXVzZXJfbmFtZRgCIAEoCRINCgVlbWFpbBgDIAEoCRISCgpmaXJzdF9uYW1lGAQgASgJEhEKCWxhc3RfbmFtZRgFIAEoCRIuCgpjcmVhdGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJTCiNGZWRlcmF0aW9uTGlzdFVzZXJTdW1tYXJpZXNSZXNwb25zZRIsCgV1c2VycxgBIAMoCzIdLnh5bG9uYS5GZWRlcmF0aW9uVXNlclN1bW1hcnkiNQogRmVkZXJhdGlvbkdldFNlcnZlckRldGFpbFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIlQKIUZlZGVyYXRpb25HZXRTZXJ2ZXJEZXRhaWxSZXNwb25zZRIvCgZzZXJ2ZXIYASABKAsyHy54eWxvbmEuRmVkZXJhdGlvblNlcnZlclN1bW1hcnkiYgodRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhYKDmFjdGluZ191c2VyX2lkGAIgASgJEhYKDm9yaWdpbl9ub2RlX2lkGAMgASgJIkAKHkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIlkKG0ZlZGVyYXRpb25FZGl0U2VydmVyUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSJwoLZ2FtZV9zZXJ2ZXIYAiABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJnChxGZWRlcmF0aW9uRWRpdFNlcnZlclJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSJwoLZ2FtZV9zZXJ2ZXIYAyABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJHCh5GZWRlcmF0aW9uU3RyZWFtQ29uc29sZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhIKCnNlY3JldF9rZXkYAiABKAkiQQocRmVkZXJhdGlvbkNvbnNvbGVPdXRwdXRDaHVuaxIRCglzZXJ2ZXJfaWQYASABKAkSDgoGb3V0cHV0GAIgASgJIkUKIUZlZGVyYXRpb25TZW5kQ29uc29sZUlucHV0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSDQoFaW5wdXQYAiABKAkiRAoiRmVkZXJhdGlvblNlbmRDb25zb2xlSW5wdXRSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIjcKIkZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIjUKI0ZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlc3BvbnNlEg4KBm91dHB1dBgBIAEoCSI7CiVGZWRlcmF0aW9uU3RyZWFtU2VydmVyU3RhdHVzZXNSZXF1ZXN0EhIKCnNlY3JldF9rZXkYASABKAkiUAobRmVkZXJhdGlvblNlcnZlclN0YXR1c0V2ZW50EhEKCXNlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIjEKHEZlZGVyYXRpb25RdWVyeVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIkgKHUZlZGVyYXRpb25RdWVyeVNlcnZlclJlc3BvbnNlEicKCnF1ZXJ5X2luZm8YASABKAsyEy54eWxvbmEuU2VydmVyUXVlcnkiRgojRmVkZXJhdGlvbkxpc3REaXJlY3RvcnlGaWxlc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEgwKBHBhdGgYAiABKAkiQwokRmVkZXJhdGlvbkxpc3REaXJlY3RvcnlGaWxlc1Jlc3BvbnNlEhsKBWZpbGVzGAEgAygLMgwueHlsb25hLkZpbGUiVwoZRmVkZXJhdGlvbkVkaXRGaWxlUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSFgoOZnVsbF9maWxlX3BhdGgYAiABKAkSDwoHY29udGVudBgDIAEoCSI8ChpGZWRlcmF0aW9uRWRpdEZpbGVSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJIkoKHEZlZGVyYXRpb25EZWxldGVGaWxlc1JlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgCIAMoCSJYCh1GZWRlcmF0aW9uRGVsZXRlRmlsZXNSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgDIAMoCSJUChtGZWRlcmF0aW9uUmVuYW1lRmlsZVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhAKCG9sZF9wYXRoGAIgASgJEhAKCG5ld19wYXRoGAMgASgJIlAKHEZlZGVyYXRpb25SZW5hbWVGaWxlUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCRIQCghuZXdfcGF0aBgDIAEoCSJnChpGZWRlcmF0aW9uTW92ZUZpbGVzUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSFwoPZnVsbF9maWxlX3BhdGhzGAIgAygJEh0KFWRlc3RpbmF0aW9uX2Jhc2VfcGF0aBgDIAEoCSJWChtGZWRlcmF0aW9uTW92ZUZpbGVzUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCRIXCg9mdWxsX2ZpbGVfcGF0aHMYAyADKAkiegomRmVkZXJhdGlvbkNyZWF0ZUZpbGVPckRpcmVjdG9yeVJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEhYKDmZ1bGxfZmlsZV9wYXRoGAIgASgJEg8KB2NvbnRlbnQYAyABKAkSFAoMaXNfZGlyZWN0b3J5GAQgASgIIkkKJ0ZlZGVyYXRpb25DcmVhdGVGaWxlT3JEaXJlY3RvcnlSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJImUKJEZlZGVyYXRpb25Eb3dubG9hZEZpbGVGcm9tVVJMUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkSCwoDdXJsGAIgASgJEh0KFWRlc3RpbmF0aW9uX2Jhc2VfcGF0aBgDIAEoCSJaCiVGZWRlcmF0aW9uRG93bmxvYWRGaWxlRnJvbVVSTFJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSEQoJZmlsZV9wYXRoGAMgASgJIkUKK0ZlZGVyYXRpb25MaXN0R2FtZVNlcnZlckFjY2Vzc0dyYW50c1JlcXVlc3QSFgoOZ2FtZV9zZXJ2ZXJfaWQYASABKAki9wEKH0ZlZGVyYXRpb25HYW1lU2VydmVyQWNjZXNzR3JhbnQSCgoCaWQYASABKAkSDwoHdXNlcl9pZBgCIAEoCRIRCgl1c2VyX25hbWUYAyABKAkSDwoHcm9sZV9pZBgEIAEoCRIRCglyb2xlX25hbWUYBSABKAkSFgoOZ2FtZV9zZXJ2ZXJfaWQYBiABKAkSGgoSZ3JhbnRlZF9ieV91c2VyX2lkGAcgASgJEhwKFGdyYW50ZWRfYnlfdXNlcl9uYW1lGAggASgJEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wImcKLEZlZGVyYXRpb25MaXN0R2FtZVNlcnZlckFjY2Vzc0dyYW50c1Jlc3BvbnNlEjcKBmdyYW50cxgBIAMoCzInLnh5bG9uYS5GZWRlcmF0aW9uR2FtZVNlcnZlckFjY2Vzc0dyYW50ImIKJkZlZGVyYXRpb25HcmFudEdhbWVTZXJ2ZXJBY2Nlc3NSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEg8KB3VzZXJfaWQYAiABKAkSDwoHcm9sZV9pZBgDIAEoCSJhCidGZWRlcmF0aW9uR3JhbnRHYW1lU2VydmVyQWNjZXNzUmVzcG9uc2USNgoFZ3JhbnQYASABKAsyJy54eWxvbmEuRmVkZXJhdGlvbkdhbWVTZXJ2ZXJBY2Nlc3NHcmFudCI7CidGZWRlcmF0aW9uUmV2b2tlR2FtZVNlcnZlckFjY2Vzc1JlcXVlc3QSEAoIZ3JhbnRfaWQYASABKAkiKgooRmVkZXJhdGlvblJldm9rZUdhbWVTZXJ2ZXJBY2Nlc3NSZXNwb25zZSJECipGZWRlcmF0aW9uTGlzdEZlZGVyYXRlZEFjY2Vzc0dyYW50c1JlcXVlc3QSFgoOZ2FtZV9zZXJ2ZXJfaWQYASABKAkiugIKIkZlZGVyYXRpb25GZWRlcmF0ZWRBY2Nlc3NHcmFudEluZm8SCgoCaWQYASABKAkSFgoOZ2FtZV9zZXJ2ZXJfaWQYAiABKAkSFgoOcmVtb3RlX25vZGVfaWQYAyABKAkSGAoQcmVtb3RlX25vZGVfbmFtZRgEIAEoCRIWCg5yZW1vdGVfdXNlcl9pZBgFIAEoCRIYChByZW1vdGVfdXNlcl9uYW1lGAYgASgJEg8KB3JvbGVfaWQYByABKAkSEQoJcm9sZV9uYW1lGAggASgJEhoKEmdyYW50ZWRfYnlfdXNlcl9pZBgJIAEoCRIcChRncmFudGVkX2J5X3VzZXJfbmFtZRgKIAEoCRIuCgpjcmVhdGVkX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJpCitGZWRlcmF0aW9uTGlzdEZlZGVyYXRlZEFjY2Vzc0dyYW50c1Jlc3BvbnNlEjoKBmdyYW50cxgBIAMoCzIqLnh5bG9uYS5GZWRlcmF0aW9uRmVkZXJhdGVkQWNjZXNzR3JhbnRJbmZvIpoBCiVGZWRlcmF0aW9uR3JhbnRGZWRlcmF0ZWRBY2Nlc3NSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEhYKDnJlbW90ZV9ub2RlX2lkGAIgASgJEhYKDnJlbW90ZV91c2VyX2lkGAMgASgJEhgKEHJlbW90ZV91c2VyX25hbWUYBCABKAkSDwoHcm9sZV9pZBgFIAEoCSJjCiZGZWRlcmF0aW9uR3JhbnRGZWRlcmF0ZWRBY2Nlc3NSZXNwb25zZRI5CgVncmFudBgBIAEoCzIqLnh5bG9uYS5GZWRlcmF0aW9uRmVkZXJhdGVkQWNjZXNzR3JhbnRJbmZvIjoKJkZlZGVyYXRpb25SZXZva2VGZWRlcmF0ZWRBY2Nlc3NSZXF1ZXN0EhAKCGdyYW50X2lkGAEgASgJIikKJ0ZlZGVyYXRpb25SZXZva2VGZWRlcmF0ZWRBY2Nlc3NSZXNwb25zZTLSGAoKRmVkZXJhdGlvbhJWCglIYW5kc2hha2USIi54eWxvbmEuRmVkZXJhdGlvbkhhbmRzaGFrZVJlcXVlc3QaIy54eWxvbmEuRmVkZXJhdGlvbkhhbmRzaGFrZVJlc3BvbnNlIgASdAoTTGlzdFNlcnZlclN1bW1hcmllcxIsLnh5bG9uYS5GZWRlcmF0aW9uTGlzdFNlcnZlclN1bW1hcmllc1JlcXVlc3QaLS54eWxvbmEuRmVkZXJhdGlvbkxpc3RTZXJ2ZXJTdW1tYXJpZXNSZXNwb25zZSIAEm4KEUxpc3RVc2VyU3VtbWFyaWVzEioueHlsb25hLkZlZGVyYXRpb25MaXN0VXNlclN1bW1hcmllc1JlcXVlc3QaKy54eWxvbmEuRmVkZXJhdGlvbkxpc3RVc2VyU3VtbWFyaWVzUmVzcG9uc2UiABJoCg9HZXRTZXJ2ZXJEZXRhaWwSKC54eWxvbmEuRmVkZXJhdGlvbkdldFNlcnZlckRldGFpbFJlcXVlc3QaKS54eWxvbmEuRmVkZXJhdGlvbkdldFNlcnZlckRldGFpbFJlc3BvbnNlIgASZAoRU3RhcnRSZW1vdGVTZXJ2ZXISJS54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlcXVlc3QaJi54eWxvbmEuRmVkZXJhdGlvblJlbW90ZUFjdGlvblJlc3BvbnNlIgASYwoQU3RvcFJlbW90ZVNlcnZlchIlLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVxdWVzdBomLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVzcG9uc2UiABJmChNSZXN0YXJ0UmVtb3RlU2VydmVyEiUueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXF1ZXN0GiYueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZSIAEmUKElVwZGF0ZVJlbW90ZVNlcnZlchIlLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVxdWVzdBomLnh5bG9uYS5GZWRlcmF0aW9uUmVtb3RlQWN0aW9uUmVzcG9uc2UiABJfChBFZGl0UmVtb3RlU2VydmVyEiMueHlsb25hLkZlZGVyYXRpb25FZGl0U2VydmVyUmVxdWVzdBokLnh5bG9uYS5GZWRlcmF0aW9uRWRpdFNlcnZlclJlc3BvbnNlIgASZQoSUmVtb3ZlUmVtb3RlU2VydmVyEiUueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXF1ZXN0GiYueHlsb25hLkZlZGVyYXRpb25SZW1vdGVBY3Rpb25SZXNwb25zZSIAEmcKE1N0cmVhbUNvbnNvbGVPdXRwdXQSJi54eWxvbmEuRmVkZXJhdGlvblN0cmVhbUNvbnNvbGVSZXF1ZXN0GiQueHlsb25hLkZlZGVyYXRpb25Db25zb2xlT3V0cHV0Q2h1bmsiADABEmsKEFNlbmRDb25zb2xlSW5wdXQSKS54eWxvbmEuRmVkZXJhdGlvblNlbmRDb25zb2xlSW5wdXRSZXF1ZXN0GioueHlsb25hLkZlZGVyYXRpb25TZW5kQ29uc29sZUlucHV0UmVzcG9uc2UiABJuChFSZWFkQ29uc29sZUJ1ZmZlchIqLnh5bG9uYS5GZWRlcmF0aW9uUmVhZENvbnNvbGVCdWZmZXJSZXF1ZXN0GisueHlsb25hLkZlZGVyYXRpb25SZWFkQ29uc29sZUJ1ZmZlclJlc3BvbnNlIgASbgoUU3RyZWFtU2VydmVyU3RhdHVzZXMSLS54eWxvbmEuRmVkZXJhdGlvblN0cmVhbVNlcnZlclN0YXR1c2VzUmVxdWVzdBojLnh5bG9uYS5GZWRlcmF0aW9uU2VydmVyU3RhdHVzRXZlbnQiADABEmIKEVF1ZXJ5UmVtb3RlU2VydmVyEiQueHlsb25hLkZlZGVyYXRpb25RdWVyeVNlcnZlclJlcXVlc3QaJS54eWxvbmEuRmVkZXJhdGlvblF1ZXJ5U2VydmVyUmVzcG9uc2UiABJ3ChhMaXN0UmVtb3RlRGlyZWN0b3J5RmlsZXMSKy54eWxvbmEuRmVkZXJhdGlvbkxpc3REaXJlY3RvcnlGaWxlc1JlcXVlc3QaLC54eWxvbmEuRmVkZXJhdGlvbkxpc3REaXJlY3RvcnlGaWxlc1Jlc3BvbnNlIgASWQoORWRpdFJlbW90ZUZpbGUSIS54eWxvbmEuRmVkZXJhdGlvbkVkaXRGaWxlUmVxdWVzdBoiLnh5bG9uYS5GZWRlcmF0aW9uRWRpdEZpbGVSZXNwb25zZSIAEmIKEURlbGV0ZVJlbW90ZUZpbGVzEiQueHlsb25hLkZlZGVyYXRpb25EZWxldGVGaWxlc1JlcXVlc3QaJS54eWxvbmEuRmVkZXJhdGlvbkRlbGV0ZUZpbGVzUmVzcG9uc2UiABJfChBSZW5hbWVSZW1vdGVGaWxlEiMueHlsb25hLkZlZGVyYXRpb25SZW5hbWVGaWxlUmVxdWVzdBokLnh5bG9uYS5GZWRlcmF0aW9uUmVuYW1lRmlsZVJlc3BvbnNlIgASXAoPTW92ZVJlbW90ZUZpbGVzEiIueHlsb25hLkZlZGVyYXRpb25Nb3ZlRmlsZXNSZXF1ZXN0GiMueHlsb25hLkZlZGVyYXRpb25Nb3ZlRmlsZXNSZXNwb25zZSIAEoABChtDcmVhdGVSZW1vdGVGaWxlT3JEaXJlY3RvcnkSLi54eWxvbmEuRmVkZXJhdGlvbkNyZWF0ZUZpbGVPckRpcmVjdG9yeVJlcXVlc3QaLy54eWxvbmEuRmVkZXJhdGlvbkNyZWF0ZUZpbGVPckRpcmVjdG9yeVJlc3BvbnNlIgASegoZRG93bmxvYWRSZW1vdGVGaWxlRnJvbVVSTBIsLnh5bG9uYS5GZWRlcmF0aW9uRG93bmxvYWRGaWxlRnJvbVVSTFJlcXVlc3QaLS54eWxvbmEuRmVkZXJhdGlvbkRvd25sb2FkRmlsZUZyb21VUkxSZXNwb25zZSIAEo8BCiBMaXN0UmVtb3RlR2FtZVNlcnZlckFjY2Vzc0dyYW50cxIzLnh5bG9uYS5GZWRlcmF0aW9uTGlzdEdhbWVTZXJ2ZXJBY2Nlc3NHcmFudHNSZXF1ZXN0GjQueHlsb25hLkZlZGVyYXRpb25MaXN0R2FtZVNlcnZlckFjY2Vzc0dyYW50c1Jlc3BvbnNlIgASgAEKG0dyYW50UmVtb3RlR2FtZVNlcnZlckFjY2VzcxIuLnh5bG9uYS5GZWRlcmF0aW9uR3JhbnRHYW1lU2VydmVyQWNjZXNzUmVxdWVzdBovLnh5bG9uYS5GZWRlcmF0aW9uR3JhbnRHYW1lU2VydmVyQWNjZXNzUmVzcG9uc2UiABKDAQocUmV2b2tlUmVtb3RlR2FtZVNlcnZlckFjY2VzcxIvLnh5bG9uYS5GZWRlcmF0aW9uUmV2b2tlR2FtZVNlcnZlckFjY2Vzc1JlcXVlc3QaMC54eWxvbmEuRmVkZXJhdGlvblJldm9rZUdhbWVTZXJ2ZXJBY2Nlc3NSZXNwb25zZSIAEowBCh9MaXN0UmVtb3RlRmVkZXJhdGVkQWNjZXNzR3JhbnRzEjIueHlsb25hLkZlZGVyYXRpb25MaXN0RmVkZXJhdGVkQWNjZXNzR3JhbnRzUmVxdWVzdBozLnh5bG9uYS5GZWRlcmF0aW9uTGlzdEZlZGVyYXRlZEFjY2Vzc0dyYW50c1Jlc3BvbnNlIgASfQoaR3JhbnRSZW1vdGVGZWRlcmF0ZWRBY2Nlc3MSLS54eWxvbmEuRmVkZXJhdGlvbkdyYW50RmVkZXJhdGVkQWNjZXNzUmVxdWVzdBouLnh5bG9uYS5GZWRlcmF0aW9uR3JhbnRGZWRlcmF0ZWRBY2Nlc3NSZXNwb25zZSIAEoABChtSZXZva2VSZW1vdGVGZWRlcmF0ZWRBY2Nlc3MSLi54eWxvbmEuRmVkZXJhdGlvblJldm9rZUZlZGVyYXRlZEFjY2Vzc1JlcXVlc3QaLy54eWxvbmEuRmVkZXJhdGlvblJldm9rZUZlZGVyYXRlZEFjY2Vzc1Jlc3BvbnNlIgBCMlowZ2l0aHViLmNvbS9DbGludG9uQ29sbGlucy9YeWxvbmEvcHJvdG8vZ28veHlsb25hYgZwcm90bzM", [file_google_protobuf_timestamp, file_shared, file_gameserver_files_operations]);
 
 /**
  * Federation Handshake
@@ -983,6 +983,358 @@ export const FederationDownloadFileFromURLResponseSchema: GenMessage<FederationD
   messageDesc(file_federation, 37);
 
 /**
+ * Federation RBAC
+ *
+ * @generated from message xylona.FederationListGameServerAccessGrantsRequest
+ */
+export type FederationListGameServerAccessGrantsRequest = Message<"xylona.FederationListGameServerAccessGrantsRequest"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
+};
+
+/**
+ * Describes the message xylona.FederationListGameServerAccessGrantsRequest.
+ * Use `create(FederationListGameServerAccessGrantsRequestSchema)` to create a new message.
+ */
+export const FederationListGameServerAccessGrantsRequestSchema: GenMessage<FederationListGameServerAccessGrantsRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 38);
+
+/**
+ * @generated from message xylona.FederationGameServerAccessGrant
+ */
+export type FederationGameServerAccessGrant = Message<"xylona.FederationGameServerAccessGrant"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId: string;
+
+  /**
+   * @generated from field: string user_name = 3;
+   */
+  userName: string;
+
+  /**
+   * @generated from field: string role_id = 4;
+   */
+  roleId: string;
+
+  /**
+   * @generated from field: string role_name = 5;
+   */
+  roleName: string;
+
+  /**
+   * @generated from field: string game_server_id = 6;
+   */
+  gameServerId: string;
+
+  /**
+   * @generated from field: string granted_by_user_id = 7;
+   */
+  grantedByUserId: string;
+
+  /**
+   * @generated from field: string granted_by_user_name = 8;
+   */
+  grantedByUserName: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 9;
+   */
+  createdAt?: Timestamp;
+};
+
+/**
+ * Describes the message xylona.FederationGameServerAccessGrant.
+ * Use `create(FederationGameServerAccessGrantSchema)` to create a new message.
+ */
+export const FederationGameServerAccessGrantSchema: GenMessage<FederationGameServerAccessGrant> = /*@__PURE__*/
+  messageDesc(file_federation, 39);
+
+/**
+ * @generated from message xylona.FederationListGameServerAccessGrantsResponse
+ */
+export type FederationListGameServerAccessGrantsResponse = Message<"xylona.FederationListGameServerAccessGrantsResponse"> & {
+  /**
+   * @generated from field: repeated xylona.FederationGameServerAccessGrant grants = 1;
+   */
+  grants: FederationGameServerAccessGrant[];
+};
+
+/**
+ * Describes the message xylona.FederationListGameServerAccessGrantsResponse.
+ * Use `create(FederationListGameServerAccessGrantsResponseSchema)` to create a new message.
+ */
+export const FederationListGameServerAccessGrantsResponseSchema: GenMessage<FederationListGameServerAccessGrantsResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 40);
+
+/**
+ * @generated from message xylona.FederationGrantGameServerAccessRequest
+ */
+export type FederationGrantGameServerAccessRequest = Message<"xylona.FederationGrantGameServerAccessRequest"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
+
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId: string;
+
+  /**
+   * @generated from field: string role_id = 3;
+   */
+  roleId: string;
+};
+
+/**
+ * Describes the message xylona.FederationGrantGameServerAccessRequest.
+ * Use `create(FederationGrantGameServerAccessRequestSchema)` to create a new message.
+ */
+export const FederationGrantGameServerAccessRequestSchema: GenMessage<FederationGrantGameServerAccessRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 41);
+
+/**
+ * @generated from message xylona.FederationGrantGameServerAccessResponse
+ */
+export type FederationGrantGameServerAccessResponse = Message<"xylona.FederationGrantGameServerAccessResponse"> & {
+  /**
+   * @generated from field: xylona.FederationGameServerAccessGrant grant = 1;
+   */
+  grant?: FederationGameServerAccessGrant;
+};
+
+/**
+ * Describes the message xylona.FederationGrantGameServerAccessResponse.
+ * Use `create(FederationGrantGameServerAccessResponseSchema)` to create a new message.
+ */
+export const FederationGrantGameServerAccessResponseSchema: GenMessage<FederationGrantGameServerAccessResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 42);
+
+/**
+ * @generated from message xylona.FederationRevokeGameServerAccessRequest
+ */
+export type FederationRevokeGameServerAccessRequest = Message<"xylona.FederationRevokeGameServerAccessRequest"> & {
+  /**
+   * @generated from field: string grant_id = 1;
+   */
+  grantId: string;
+};
+
+/**
+ * Describes the message xylona.FederationRevokeGameServerAccessRequest.
+ * Use `create(FederationRevokeGameServerAccessRequestSchema)` to create a new message.
+ */
+export const FederationRevokeGameServerAccessRequestSchema: GenMessage<FederationRevokeGameServerAccessRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 43);
+
+/**
+ * @generated from message xylona.FederationRevokeGameServerAccessResponse
+ */
+export type FederationRevokeGameServerAccessResponse = Message<"xylona.FederationRevokeGameServerAccessResponse"> & {
+};
+
+/**
+ * Describes the message xylona.FederationRevokeGameServerAccessResponse.
+ * Use `create(FederationRevokeGameServerAccessResponseSchema)` to create a new message.
+ */
+export const FederationRevokeGameServerAccessResponseSchema: GenMessage<FederationRevokeGameServerAccessResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 44);
+
+/**
+ * @generated from message xylona.FederationListFederatedAccessGrantsRequest
+ */
+export type FederationListFederatedAccessGrantsRequest = Message<"xylona.FederationListFederatedAccessGrantsRequest"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
+};
+
+/**
+ * Describes the message xylona.FederationListFederatedAccessGrantsRequest.
+ * Use `create(FederationListFederatedAccessGrantsRequestSchema)` to create a new message.
+ */
+export const FederationListFederatedAccessGrantsRequestSchema: GenMessage<FederationListFederatedAccessGrantsRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 45);
+
+/**
+ * @generated from message xylona.FederationFederatedAccessGrantInfo
+ */
+export type FederationFederatedAccessGrantInfo = Message<"xylona.FederationFederatedAccessGrantInfo"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string game_server_id = 2;
+   */
+  gameServerId: string;
+
+  /**
+   * @generated from field: string remote_node_id = 3;
+   */
+  remoteNodeId: string;
+
+  /**
+   * @generated from field: string remote_node_name = 4;
+   */
+  remoteNodeName: string;
+
+  /**
+   * @generated from field: string remote_user_id = 5;
+   */
+  remoteUserId: string;
+
+  /**
+   * @generated from field: string remote_user_name = 6;
+   */
+  remoteUserName: string;
+
+  /**
+   * @generated from field: string role_id = 7;
+   */
+  roleId: string;
+
+  /**
+   * @generated from field: string role_name = 8;
+   */
+  roleName: string;
+
+  /**
+   * @generated from field: string granted_by_user_id = 9;
+   */
+  grantedByUserId: string;
+
+  /**
+   * @generated from field: string granted_by_user_name = 10;
+   */
+  grantedByUserName: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 11;
+   */
+  createdAt?: Timestamp;
+};
+
+/**
+ * Describes the message xylona.FederationFederatedAccessGrantInfo.
+ * Use `create(FederationFederatedAccessGrantInfoSchema)` to create a new message.
+ */
+export const FederationFederatedAccessGrantInfoSchema: GenMessage<FederationFederatedAccessGrantInfo> = /*@__PURE__*/
+  messageDesc(file_federation, 46);
+
+/**
+ * @generated from message xylona.FederationListFederatedAccessGrantsResponse
+ */
+export type FederationListFederatedAccessGrantsResponse = Message<"xylona.FederationListFederatedAccessGrantsResponse"> & {
+  /**
+   * @generated from field: repeated xylona.FederationFederatedAccessGrantInfo grants = 1;
+   */
+  grants: FederationFederatedAccessGrantInfo[];
+};
+
+/**
+ * Describes the message xylona.FederationListFederatedAccessGrantsResponse.
+ * Use `create(FederationListFederatedAccessGrantsResponseSchema)` to create a new message.
+ */
+export const FederationListFederatedAccessGrantsResponseSchema: GenMessage<FederationListFederatedAccessGrantsResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 47);
+
+/**
+ * @generated from message xylona.FederationGrantFederatedAccessRequest
+ */
+export type FederationGrantFederatedAccessRequest = Message<"xylona.FederationGrantFederatedAccessRequest"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
+
+  /**
+   * @generated from field: string remote_node_id = 2;
+   */
+  remoteNodeId: string;
+
+  /**
+   * @generated from field: string remote_user_id = 3;
+   */
+  remoteUserId: string;
+
+  /**
+   * @generated from field: string remote_user_name = 4;
+   */
+  remoteUserName: string;
+
+  /**
+   * @generated from field: string role_id = 5;
+   */
+  roleId: string;
+};
+
+/**
+ * Describes the message xylona.FederationGrantFederatedAccessRequest.
+ * Use `create(FederationGrantFederatedAccessRequestSchema)` to create a new message.
+ */
+export const FederationGrantFederatedAccessRequestSchema: GenMessage<FederationGrantFederatedAccessRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 48);
+
+/**
+ * @generated from message xylona.FederationGrantFederatedAccessResponse
+ */
+export type FederationGrantFederatedAccessResponse = Message<"xylona.FederationGrantFederatedAccessResponse"> & {
+  /**
+   * @generated from field: xylona.FederationFederatedAccessGrantInfo grant = 1;
+   */
+  grant?: FederationFederatedAccessGrantInfo;
+};
+
+/**
+ * Describes the message xylona.FederationGrantFederatedAccessResponse.
+ * Use `create(FederationGrantFederatedAccessResponseSchema)` to create a new message.
+ */
+export const FederationGrantFederatedAccessResponseSchema: GenMessage<FederationGrantFederatedAccessResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 49);
+
+/**
+ * @generated from message xylona.FederationRevokeFederatedAccessRequest
+ */
+export type FederationRevokeFederatedAccessRequest = Message<"xylona.FederationRevokeFederatedAccessRequest"> & {
+  /**
+   * @generated from field: string grant_id = 1;
+   */
+  grantId: string;
+};
+
+/**
+ * Describes the message xylona.FederationRevokeFederatedAccessRequest.
+ * Use `create(FederationRevokeFederatedAccessRequestSchema)` to create a new message.
+ */
+export const FederationRevokeFederatedAccessRequestSchema: GenMessage<FederationRevokeFederatedAccessRequest> = /*@__PURE__*/
+  messageDesc(file_federation, 50);
+
+/**
+ * @generated from message xylona.FederationRevokeFederatedAccessResponse
+ */
+export type FederationRevokeFederatedAccessResponse = Message<"xylona.FederationRevokeFederatedAccessResponse"> & {
+};
+
+/**
+ * Describes the message xylona.FederationRevokeFederatedAccessResponse.
+ * Use `create(FederationRevokeFederatedAccessResponseSchema)` to create a new message.
+ */
+export const FederationRevokeFederatedAccessResponseSchema: GenMessage<FederationRevokeFederatedAccessResponse> = /*@__PURE__*/
+  messageDesc(file_federation, 51);
+
+/**
  * Federation service for node-to-node communication.
  *
  * @generated from service xylona.Federation
@@ -1195,6 +1547,56 @@ export const Federation: GenService<{
     methodKind: "unary";
     input: typeof FederationDownloadFileFromURLRequestSchema;
     output: typeof FederationDownloadFileFromURLResponseSchema;
+  },
+  /**
+   * RBAC operations on remote servers.
+   *
+   * @generated from rpc xylona.Federation.ListRemoteGameServerAccessGrants
+   */
+  listRemoteGameServerAccessGrants: {
+    methodKind: "unary";
+    input: typeof FederationListGameServerAccessGrantsRequestSchema;
+    output: typeof FederationListGameServerAccessGrantsResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.GrantRemoteGameServerAccess
+   */
+  grantRemoteGameServerAccess: {
+    methodKind: "unary";
+    input: typeof FederationGrantGameServerAccessRequestSchema;
+    output: typeof FederationGrantGameServerAccessResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.RevokeRemoteGameServerAccess
+   */
+  revokeRemoteGameServerAccess: {
+    methodKind: "unary";
+    input: typeof FederationRevokeGameServerAccessRequestSchema;
+    output: typeof FederationRevokeGameServerAccessResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.ListRemoteFederatedAccessGrants
+   */
+  listRemoteFederatedAccessGrants: {
+    methodKind: "unary";
+    input: typeof FederationListFederatedAccessGrantsRequestSchema;
+    output: typeof FederationListFederatedAccessGrantsResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.GrantRemoteFederatedAccess
+   */
+  grantRemoteFederatedAccess: {
+    methodKind: "unary";
+    input: typeof FederationGrantFederatedAccessRequestSchema;
+    output: typeof FederationGrantFederatedAccessResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.Federation.RevokeRemoteFederatedAccess
+   */
+  revokeRemoteFederatedAccess: {
+    methodKind: "unary";
+    input: typeof FederationRevokeFederatedAccessRequestSchema;
+    output: typeof FederationRevokeFederatedAccessResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_federation, 0);

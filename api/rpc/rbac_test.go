@@ -302,7 +302,10 @@ func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 	}
 	grantID := createResponse.Msg.Grant.Id
 
-	denyRequest := connect.NewRequest(&xylona.RevokeGameServerAccessRequest{GrantId: grantID})
+	denyRequest := connect.NewRequest(&xylona.RevokeGameServerAccessRequest{
+		GrantId:      grantID,
+		GameServerId: "server-local-1",
+	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, denyRequest, "user-other")
 
 	_, errDeny := fixture.service.RevokeGameServerAccess(context.Background(), denyRequest)
@@ -310,7 +313,10 @@ func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 		t.Fatalf("RevokeGameServerAccess(non-owner) code = %v, want %v", connect.CodeOf(errDeny), connect.CodePermissionDenied)
 	}
 
-	allowRequest := connect.NewRequest(&xylona.RevokeGameServerAccessRequest{GrantId: grantID})
+	allowRequest := connect.NewRequest(&xylona.RevokeGameServerAccessRequest{
+		GrantId:      grantID,
+		GameServerId: "server-local-1",
+	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, allowRequest, "user-owner")
 
 	_, errAllow := fixture.service.RevokeGameServerAccess(context.Background(), allowRequest)

@@ -117,6 +117,8 @@ func markRemoteServerSummariesStale(summaries []*xylona.RemoteServerSummary, fet
 			continue
 		}
 		summary.IsStale = true
+		// Prevent stale data from showing servers as online when a remote node is unreachable.
+		summary.Status = xylona.Status_OFFLINE
 		if summary.LastSyncedAt == nil || summary.LastSyncedAt.AsTime().IsZero() {
 			summary.LastSyncedAt = defaultSyncedAt
 		}

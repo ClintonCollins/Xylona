@@ -1,6 +1,6 @@
 module github.com/ClintonCollins/Xylona
 
-go 1.23
+go 1.26
 
 require (
 	connectrpc.com/connect v1.18.1

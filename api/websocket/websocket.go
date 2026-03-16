@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/actions"
+	"github.com/ClintonCollins/Xylona/api/federation"
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
@@ -539,6 +540,10 @@ func (ws *WebSocket) addGameServerNotificationListener(s *melody.Session, gameSe
 	return nil
 }
 
+func (ws *WebSocket) applyFederatedActingIdentity(header http.Header, userID string) error {
+	return federation.ApplyActingIdentityHeadersForUserID(ws.db, header, userID)
+}
+
 func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connection, serverID string) {
 	remoteCache, errGetRemote := ws.db.GetRemoteServerCacheByRemoteServerID(serverID)
 	if errGetRemote != nil {
@@ -602,6 +607,19 @@ func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connectio
 	req := connect.NewRequest(&xylona.FederationStreamConsoleRequest{
 		ServerId: serverID,
 	})
+
+	userID, errGetUserID := getSessionUserID(s)
+	if errGetUserID != nil {
+		log.Error().Err(errGetUserID).Str("server_id", serverID).Msg("Failed to get session user ID for remote console stream")
+		cancel()
+		return
+	}
+	errIdentity := ws.applyFederatedActingIdentity(req.Header(), userID)
+	if errIdentity != nil {
+		log.Error().Err(errIdentity).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to apply federation identity headers for remote console stream")
+		cancel()
+		return
+	}
 
 	stream, errStream := client.StreamConsoleOutput(streamCtx, req)
 	if errStream != nil {

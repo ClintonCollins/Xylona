@@ -207,11 +207,13 @@ func TestMarkRemoteServerSummariesStalePreservesExistingSyncTime(t *testing.T) {
 			RemoteServerId: "server-with-sync",
 			LastSyncedAt:   existingSyncedAt,
 			IsStale:        false,
+			Status:         xylona.Status_ONLINE,
 		},
 		{
 			RemoteServerId: "server-without-sync",
 			LastSyncedAt:   nil,
 			IsStale:        false,
+			Status:         xylona.Status_UNKNOWN,
 		},
 	}
 
@@ -221,6 +223,9 @@ func TestMarkRemoteServerSummariesStalePreservesExistingSyncTime(t *testing.T) {
 	}
 	if !stale[0].IsStale || !stale[1].IsStale {
 		t.Fatalf("all stale summaries must be marked stale: %#v", stale)
+	}
+	if stale[0].Status != xylona.Status_OFFLINE || stale[1].Status != xylona.Status_OFFLINE {
+		t.Fatalf("stale summaries must be forced offline: %#v", stale)
 	}
 
 	if stale[0].LastSyncedAt == nil {
@@ -240,6 +245,9 @@ func TestMarkRemoteServerSummariesStalePreservesExistingSyncTime(t *testing.T) {
 	// Ensure source data is unchanged.
 	if source[0].IsStale || source[1].IsStale {
 		t.Fatalf("source summaries were mutated: %#v", source)
+	}
+	if source[0].Status != xylona.Status_ONLINE || source[1].Status != xylona.Status_UNKNOWN {
+		t.Fatalf("source statuses were mutated: %#v", source)
 	}
 }
 

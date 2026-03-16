@@ -6,7 +6,7 @@ Xylona is a game server control panel designed to be easily deployable and have 
 
 ## Code Organization & Package Structure
 
-### Backend (Go 1.23)
+### Backend (Go 1.26)
 
 The backend is the project root and uses the Go module path `github.com/ClintonCollins/Xylona`.
 
@@ -94,6 +94,12 @@ Regeneration commands:
 - `mage GenerateProto`
 - `mage GenerateModels`
 
+## Shell & Terminal Usage
+
+- **Never use PowerShell unless absolutely necessary.** PowerShell introduces significant performance slowdowns. Always prefer `cmd.exe`, `bash`, or `sh` for running commands.
+- If a task can be accomplished with `cmd.exe` or a Unix-style shell (e.g., Git Bash, WSL), use that instead of PowerShell.
+- Only fall back to PowerShell when a specific Windows API or cmdlet has no reasonable alternative.
+
 ## Coding Conventions
 
 - **Always** create and commit files with LF line endings (`\n`) for every file in this repository.
@@ -131,9 +137,14 @@ Regeneration commands:
 
 ## Search & Indexing Guardrails
 
+- **Prefer `rg` (ripgrep) when available.** Use `rg` for text search and `rg --files` for file discovery instead of `grep`, `find`, `Get-ChildItem`, or IDE-specific search tools. `rg` automatically respects `.gitignore` rules and skips binary files, making it faster and safer for large repos.
+  - Text search: `rg "pattern"` or `rg -i "pattern"` (case-insensitive).
+  - File discovery: `rg --files` or `rg --files -g "*.go"` (glob filter).
+  - Scoped search: `rg "pattern" path/to/dir`.
+- If `rg` is not available, fall back to `grep -r` or equivalent tools.
+
 When exploring or searching the repo, skip large/generated/vendor-like directories unless the task explicitly needs them:
 
-- Prefer `rg` for text search and `rg --files` for file discovery.
 - `frontend/node_modules`
 - `frontend/.quasar`
 - `frontend/dist`

@@ -61,6 +61,14 @@ service Federation {
   rpc MoveRemoteFiles (FederationMoveFilesRequest) returns (FederationMoveFilesResponse) {}
   rpc CreateRemoteFileOrDirectory (FederationCreateFileOrDirectoryRequest) returns (FederationCreateFileOrDirectoryResponse) {}
   rpc DownloadRemoteFileFromURL (FederationDownloadFileFromURLRequest) returns (FederationDownloadFileFromURLResponse) {}
+
+  // RBAC operations on remote servers.
+  rpc ListRemoteGameServerAccessGrants (FederationListGameServerAccessGrantsRequest) returns (FederationListGameServerAccessGrantsResponse) {}
+  rpc GrantRemoteGameServerAccess (FederationGrantGameServerAccessRequest) returns (FederationGrantGameServerAccessResponse) {}
+  rpc RevokeRemoteGameServerAccess (FederationRevokeGameServerAccessRequest) returns (FederationRevokeGameServerAccessResponse) {}
+  rpc ListRemoteFederatedAccessGrants (FederationListFederatedAccessGrantsRequest) returns (FederationListFederatedAccessGrantsResponse) {}
+  rpc GrantRemoteFederatedAccess (FederationGrantFederatedAccessRequest) returns (FederationGrantFederatedAccessResponse) {}
+  rpc RevokeRemoteFederatedAccess (FederationRevokeFederatedAccessRequest) returns (FederationRevokeFederatedAccessResponse) {}
 }
 
 // Federation Handshake
@@ -283,3 +291,80 @@ message FederationDownloadFileFromURLResponse {
   string error = 2;
   string file_path = 3;
 }
+
+// Federation RBAC
+message FederationListGameServerAccessGrantsRequest {
+  string game_server_id = 1;
+}
+
+message FederationGameServerAccessGrant {
+  string id = 1;
+  string user_id = 2;
+  string user_name = 3;
+  string role_id = 4;
+  string role_name = 5;
+  string game_server_id = 6;
+  string granted_by_user_id = 7;
+  string granted_by_user_name = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message FederationListGameServerAccessGrantsResponse {
+  repeated FederationGameServerAccessGrant grants = 1;
+}
+
+message FederationGrantGameServerAccessRequest {
+  string game_server_id = 1;
+  string user_id = 2;
+  string role_id = 3;
+}
+
+message FederationGrantGameServerAccessResponse {
+  FederationGameServerAccessGrant grant = 1;
+}
+
+message FederationRevokeGameServerAccessRequest {
+  string grant_id = 1;
+}
+
+message FederationRevokeGameServerAccessResponse {}
+
+message FederationListFederatedAccessGrantsRequest {
+  string game_server_id = 1;
+}
+
+message FederationFederatedAccessGrantInfo {
+  string id = 1;
+  string game_server_id = 2;
+  string remote_node_id = 3;
+  string remote_node_name = 4;
+  string remote_user_id = 5;
+  string remote_user_name = 6;
+  string role_id = 7;
+  string role_name = 8;
+  string granted_by_user_id = 9;
+  string granted_by_user_name = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message FederationListFederatedAccessGrantsResponse {
+  repeated FederationFederatedAccessGrantInfo grants = 1;
+}
+
+message FederationGrantFederatedAccessRequest {
+  string game_server_id = 1;
+  string remote_node_id = 2;
+  string remote_user_id = 3;
+  string remote_user_name = 4;
+  string role_id = 5;
+}
+
+message FederationGrantFederatedAccessResponse {
+  FederationFederatedAccessGrantInfo grant = 1;
+}
+
+message FederationRevokeFederatedAccessRequest {
+  string grant_id = 1;
+}
+
+message FederationRevokeFederatedAccessResponse {}

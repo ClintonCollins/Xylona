@@ -4,8 +4,8 @@
       <div class="text-h6">Access Management</div>
       <q-btn flat icon="refresh" label="Refresh" :loading="loading" @click="loadData"></q-btn>
     </div>
-    <q-banner v-if="isRemoteServer" class="bg-warning text-black q-mt-md">
-      This server is remote. Access changes are sent to {{ targetNodeHost || "the remote node" }}.
+    <q-banner v-if="isRemoteServer" class="bg-info text-white q-mt-md">
+      Managing remote server access through federation proxy ({{ targetNodeHost || "remote node" }}).
     </q-banner>
   </q-card-section>
 
@@ -169,8 +169,7 @@ import {
   type RemoteUser,
   RevokeFederatedAccessRequestSchema,
   RevokeGameServerAccessRequestSchema,
-  type Role,
-  type User
+  type Role
 } from 'src/proto/xylona_pb'
 import { formatProtoTimestamp, hostFromBaseURL } from 'src/components/game_servers/game-server-access-utils'
 import { GetXylonaClient } from 'src/utils/shared'
@@ -189,7 +188,7 @@ const revokingLocalGrantID = ref('')
 const revokingFederatedGrantID = ref('')
 
 const roles = ref<Role[]>([])
-const localUsers = ref<User[]>([])
+const localUsers = ref<{ id: string; userName: string; email: string }[]>([])
 const localGrants = ref<GameServerAccessGrant[]>([])
 const federatedGrants = ref<FederatedAccessGrantInfo[]>([])
 const nodes = ref<Node[]>([])
@@ -202,6 +201,7 @@ const selectedRemoteUserID = ref('')
 const selectedFederatedRoleID = ref('')
 
 const isRemoteServer = ref(false)
+const targetNodeID = ref('')
 const targetNodeHost = ref('')
 
 const roleOptions = computed(() => {
@@ -232,12 +232,7 @@ const canGrantFederated = computed(() => {
   return selectedFederatedNodeID.value !== '' && selectedRemoteUserID.value !== '' && selectedFederatedRoleID.value !== ''
 })
 
-const activeClient = computed(() => {
-  if (isRemoteServer.value && targetNodeHost.value !== '') {
-    return GetXylonaClient(targetNodeHost.value)
-  }
-  return GetXylonaClient()
-})
+const xylonaClient = GetXylonaClient()
 
 watch(selectedFederatedNodeID, async (nodeID) => {
   selectedRemoteUserID.value = ''
@@ -280,10 +275,12 @@ async function loadServerClientTarget() {
     const localNode = nodesResponse.nodes.find((node) => node.local)
     if (localNode && gameServer.nodeId !== '' && gameServer.nodeId !== localNode.id) {
       isRemoteServer.value = true
+      targetNodeID.value = gameServer.nodeId
       targetNodeHost.value = hostFromBaseURL(gameServer.nodeHost)
       return
     }
     isRemoteServer.value = false
+    targetNodeID.value = ''
     targetNodeHost.value = ''
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
@@ -293,7 +290,7 @@ async function loadServerClientTarget() {
 
 async function loadRoles() {
   try {
-    const response = await activeClient.value.listRoles(create(ListRolesRequestSchema, {}))
+    const response = await xylonaClient.listRoles(create(ListRolesRequestSchema, {}))
     roles.value = response.roles ? [...response.roles] : []
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
@@ -303,8 +300,24 @@ async function loadRoles() {
 
 async function loadLocalUsers() {
   try {
-    const response = await activeClient.value.listUsers(create(ListUsersRequestSchema, {}))
-    localUsers.value = response.users ? [...response.users] : []
+    if (isRemoteServer.value && targetNodeID.value !== '') {
+      const response = await xylonaClient.listRemoteNodeUsers(
+        create(ListRemoteNodeUsersRequestSchema, { nodeId: targetNodeID.value })
+      )
+      localUsers.value = (response.users ?? []).map((user) => ({
+        id: user.userId,
+        userName: user.userName,
+        email: user.email
+      }))
+      return
+    }
+
+    const response = await xylonaClient.listUsers(create(ListUsersRequestSchema, {}))
+    localUsers.value = (response.users ?? []).map((user) => ({
+      id: user.id,
+      userName: user.userName,
+      email: user.email
+    }))
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
     notifyError(`Failed to load users: ${err.message}`)
@@ -313,7 +326,7 @@ async function loadLocalUsers() {
 
 async function loadNodes() {
   try {
-    const response = await activeClient.value.listNodes(create(ListNodesRequestSchema, {}))
+    const response = await xylonaClient.listNodes(create(ListNodesRequestSchema, {}))
     nodes.value = response.nodes ? [...response.nodes] : []
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
@@ -323,7 +336,7 @@ async function loadNodes() {
 
 async function loadLocalGrants() {
   try {
-    const response = await activeClient.value.listGameServerAccessGrants(
+    const response = await xylonaClient.listGameServerAccessGrants(
       create(ListGameServerAccessGrantsRequestSchema, { gameServerId: gameServerID.value })
     )
     localGrants.value = response.grants ? [...response.grants] : []
@@ -335,7 +348,7 @@ async function loadLocalGrants() {
 
 async function loadFederatedGrants() {
   try {
-    const response = await activeClient.value.listFederatedAccessGrants(
+    const response = await xylonaClient.listFederatedAccessGrants(
       create(ListFederatedAccessGrantsRequestSchema, { gameServerId: gameServerID.value })
     )
     federatedGrants.value = response.grants ? [...response.grants] : []
@@ -348,7 +361,7 @@ async function loadFederatedGrants() {
 async function loadRemoteNodeUsers(nodeID: string) {
   loadingRemoteUsers.value = true
   try {
-    const response = await activeClient.value.listRemoteNodeUsers(
+    const response = await xylonaClient.listRemoteNodeUsers(
       create(ListRemoteNodeUsersRequestSchema, { nodeId: nodeID })
     )
     remoteUsers.value = response.users ? [...response.users] : []
@@ -366,7 +379,7 @@ async function grantLocalAccess() {
   }
   grantingLocal.value = true
   try {
-    await activeClient.value.grantGameServerAccess(
+    await xylonaClient.grantGameServerAccess(
       create(GrantGameServerAccessRequestSchema, {
         gameServerId: gameServerID.value,
         userId: selectedLocalUserID.value,
@@ -387,8 +400,8 @@ async function grantLocalAccess() {
 async function revokeLocalAccess(grantID: string) {
   revokingLocalGrantID.value = grantID
   try {
-    await activeClient.value.revokeGameServerAccess(
-      create(RevokeGameServerAccessRequestSchema, { grantId: grantID })
+    await xylonaClient.revokeGameServerAccess(
+      create(RevokeGameServerAccessRequestSchema, { grantId: grantID, gameServerId: gameServerID.value })
     )
     await loadLocalGrants()
   } catch (unknownError: unknown) {
@@ -406,7 +419,7 @@ async function grantFederatedAccess() {
   grantingFederated.value = true
   try {
     const selectedRemoteUser = remoteUsers.value.find((user) => user.userId === selectedRemoteUserID.value)
-    await activeClient.value.grantFederatedAccess(
+    await xylonaClient.grantFederatedAccess(
       create(GrantFederatedAccessRequestSchema, {
         gameServerId: gameServerID.value,
         remoteNodeId: selectedFederatedNodeID.value,
@@ -429,8 +442,8 @@ async function grantFederatedAccess() {
 async function revokeFederatedAccess(grantID: string) {
   revokingFederatedGrantID.value = grantID
   try {
-    await activeClient.value.revokeFederatedAccess(
-      create(RevokeFederatedAccessRequestSchema, { grantId: grantID })
+    await xylonaClient.revokeFederatedAccess(
+      create(RevokeFederatedAccessRequestSchema, { grantId: grantID, gameServerId: gameServerID.value })
     )
     await loadFederatedGrants()
   } catch (unknownError: unknown) {

@@ -521,6 +521,7 @@ message GrantGameServerAccessResponse {
 
 message RevokeGameServerAccessRequest {
   string grant_id = 1;
+  string game_server_id = 2;
 }
 
 message RevokeGameServerAccessResponse {}
@@ -582,6 +583,7 @@ message GrantFederatedAccessResponse {
 
 message RevokeFederatedAccessRequest {
   string grant_id = 1;
+  string game_server_id = 2;
 }
 
 message RevokeFederatedAccessResponse {}
