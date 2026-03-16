@@ -430,14 +430,25 @@ func (xs XylonaService) ListAggregatedGameServers(ctx context.Context, request *
 }
 
 func (xs XylonaService) listRemoteNodeSummaries(ctx context.Context, node *models.Node) ([]*xylona.RemoteServerSummary, bool, error) {
-	if xs.listCache == nil {
-		summaries, errFetch := xs.fetchRemoteNodeSummaries(ctx, node)
-		return summaries, false, errFetch
+	summaries, errFetch := xs.fetchRemoteNodeSummaries(ctx, node)
+	if errFetch == nil {
+		if xs.listCache != nil {
+			xs.listCache.set(node.ID, summaries, time.Now())
+		}
+		xs.syncRemoteServerCacheSummaries(node, summaries)
+		return summaries, false, nil
 	}
 
-	return xs.listCache.getOrFetch(node.ID, func() ([]*xylona.RemoteServerSummary, error) {
-		return xs.fetchRemoteNodeSummaries(ctx, node)
-	})
+	if xs.listCache == nil {
+		return nil, false, errFetch
+	}
+
+	staleSummaries, staleFetchedAt, hasStale := xs.listCache.getAny(node.ID)
+	if !hasStale {
+		return nil, false, errFetch
+	}
+
+	return markRemoteServerSummariesStale(staleSummaries, staleFetchedAt), true, nil
 }
 
 func (xs XylonaService) fetchRemoteNodeSummaries(ctx context.Context, node *models.Node) ([]*xylona.RemoteServerSummary, error) {
@@ -484,6 +495,77 @@ func (xs XylonaService) fetchRemoteNodeSummaries(ctx context.Context, node *mode
 	}
 
 	return summaries, nil
+}
+
+func (xs XylonaService) syncRemoteServerCacheSummaries(node *models.Node, summaries []*xylona.RemoteServerSummary) {
+	for _, summary := range summaries {
+		if summary == nil {
+			continue
+		}
+
+		newID, errID := helpers.GenerateUniqueID()
+		if errID != nil {
+			log.Warn().
+				Err(errID).
+				Str("node_id", node.ID).
+				Str("remote_server_id", summary.RemoteServerId).
+				Msg("Failed to generate remote cache ID while syncing remote summaries")
+			continue
+		}
+
+		sourceNodeID := strings.TrimSpace(summary.SourceNodeId)
+		if sourceNodeID == "" {
+			sourceNodeID = node.ID
+		}
+
+		cacheNodeID := strings.TrimSpace(summary.NodeId)
+		if cacheNodeID == "" {
+			cacheNodeID = node.ID
+		}
+
+		nodeName := strings.TrimSpace(summary.NodeName)
+		if nodeName == "" {
+			nodeName = node.Name
+		}
+
+		nodeHost := strings.TrimSpace(summary.NodeHost)
+		if nodeHost == "" {
+			nodeHost = node.BaseURL
+		}
+
+		lastRemoteUpdate := time.Now()
+		if summary.LastRemoteUpdate != nil && !summary.LastRemoteUpdate.AsTime().IsZero() {
+			lastRemoteUpdate = summary.LastRemoteUpdate.AsTime()
+		}
+
+		errUpsertCache := xs.db.UpsertRemoteServerCache(
+			newID.String(),
+			sourceNodeID,
+			cacheNodeID,
+			summary.RemoteServerId,
+			summary.DisplayName,
+			summary.Status.String(),
+			summary.GameName,
+			summary.GameId,
+			summary.IpAddress,
+			int32(summary.Port),
+			int32(summary.QueryPort),
+			int32(summary.MaxPlayers),
+			int32(summary.CurrentPlayers),
+			summary.MapName,
+			summary.Version,
+			nodeName,
+			nodeHost,
+			lastRemoteUpdate,
+		)
+		if errUpsertCache != nil {
+			log.Warn().
+				Err(errUpsertCache).
+				Str("node_id", node.ID).
+				Str("remote_server_id", summary.RemoteServerId).
+				Msg("Failed to upsert remote server cache from live remote summary")
+		}
+	}
 }
 
 func (xs XylonaService) VerifyNode(ctx context.Context, request *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {

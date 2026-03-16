@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func createRemoteServerCacheLookupTable(t *testing.T, conn *Connection) {
@@ -251,5 +252,97 @@ func TestDeleteOrphanedRemoteServerCacheByNodeReferences(t *testing.T) {
 	}
 	if remaining[0] != "server-valid" {
 		t.Errorf("remaining remote_server_id = %q, want %q", remaining[0], "server-valid")
+	}
+}
+
+func TestUpdateRemoteServerCacheStatusMarksRowFresh(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "remote-server-cache-update-status.sqlite")
+	conn := NewConnection(context.Background(), dbPath)
+	t.Cleanup(func() {
+		if errClose := conn.SQLDb.Close(); errClose != nil {
+			t.Errorf("failed to close db: %v", errClose)
+		}
+	})
+
+	_, errCreate := conn.SQLDb.Exec(`
+		CREATE TABLE remote_server_cache (
+			source_node_id TEXT NOT NULL,
+			remote_server_id TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'UNKNOWN',
+			last_synced_at DATETIME,
+			is_stale BOOLEAN NOT NULL DEFAULT TRUE,
+			updated_at DATETIME NOT NULL
+		)
+	`)
+	if errCreate != nil {
+		t.Fatalf("failed to create table: %v", errCreate)
+	}
+
+	previousUpdate := time.Now().Add(-10 * time.Minute)
+	_, errInsert := conn.SQLDb.Exec(`
+		INSERT INTO remote_server_cache (source_node_id, remote_server_id, status, last_synced_at, is_stale, updated_at)
+		VALUES
+			('source-1', 'server-a', 'OFFLINE', NULL, 1, ?),
+			('source-1', 'server-b', 'OFFLINE', NULL, 1, ?)
+	`, previousUpdate, previousUpdate)
+	if errInsert != nil {
+		t.Fatalf("failed to insert rows: %v", errInsert)
+	}
+
+	errUpdate := conn.UpdateRemoteServerCacheStatus("source-1", "server-a", "ONLINE")
+	if errUpdate != nil {
+		t.Fatalf("UpdateRemoteServerCacheStatus() error = %v", errUpdate)
+	}
+
+	var (
+		status       string
+		lastSyncedAt sql.NullTime
+		isStale      bool
+		updatedAt    time.Time
+	)
+	errQueryUpdated := conn.SQLDb.QueryRow(`
+		SELECT status, last_synced_at, is_stale, updated_at
+		FROM remote_server_cache
+		WHERE source_node_id = ? AND remote_server_id = ?
+	`, "source-1", "server-a").Scan(&status, &lastSyncedAt, &isStale, &updatedAt)
+	if errQueryUpdated != nil {
+		t.Fatalf("failed to query updated row: %v", errQueryUpdated)
+	}
+
+	if status != "ONLINE" {
+		t.Errorf("updated row status = %q, want %q", status, "ONLINE")
+	}
+	if !lastSyncedAt.Valid {
+		t.Fatalf("updated row last_synced_at is NULL, want non-NULL")
+	}
+	if isStale {
+		t.Errorf("updated row is_stale = true, want false")
+	}
+	if !updatedAt.After(previousUpdate) {
+		t.Errorf("updated row updated_at = %v, want after %v", updatedAt, previousUpdate)
+	}
+
+	var (
+		unchangedStatus       string
+		unchangedLastSyncedAt sql.NullTime
+		unchangedIsStale      bool
+	)
+	errQueryUnchanged := conn.SQLDb.QueryRow(`
+		SELECT status, last_synced_at, is_stale
+		FROM remote_server_cache
+		WHERE source_node_id = ? AND remote_server_id = ?
+	`, "source-1", "server-b").Scan(&unchangedStatus, &unchangedLastSyncedAt, &unchangedIsStale)
+	if errQueryUnchanged != nil {
+		t.Fatalf("failed to query unchanged row: %v", errQueryUnchanged)
+	}
+
+	if unchangedStatus != "OFFLINE" {
+		t.Errorf("unchanged row status = %q, want %q", unchangedStatus, "OFFLINE")
+	}
+	if unchangedLastSyncedAt.Valid {
+		t.Errorf("unchanged row last_synced_at = %v, want NULL", unchangedLastSyncedAt.Time)
+	}
+	if !unchangedIsStale {
+		t.Errorf("unchanged row is_stale = false, want true")
 	}
 }

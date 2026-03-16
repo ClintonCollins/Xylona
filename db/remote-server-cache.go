@@ -155,9 +155,12 @@ func (c *Connection) GetRemoteServerCacheByRemoteServerID(remoteServerID string)
 }
 
 func (c *Connection) UpdateRemoteServerCacheStatus(sourceNodeID string, remoteServerID string, status string) error {
+	now := time.Now()
 	_, err := sqlite.RawQuery(
-		`UPDATE remote_server_cache SET status = ?, updated_at = ? WHERE source_node_id = ? AND remote_server_id = ?`,
-		status, time.Now(), sourceNodeID, remoteServerID,
+		`UPDATE remote_server_cache
+		SET status = ?, last_synced_at = ?, is_stale = false, updated_at = ?
+		WHERE source_node_id = ? AND remote_server_id = ?`,
+		status, now, now, sourceNodeID, remoteServerID,
 	).Exec(c.ctx, c.DB)
 	return err
 }
