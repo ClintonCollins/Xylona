@@ -153,10 +153,19 @@ func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.R
 
 func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(existingGameServer *models.GameServer) (*connect.Response[xylona.EditGameServerResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, existingGameServer, "game_server.settings")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			gameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
 			gameServerModel.NodeID = fallbackNodeID(gameServerModel.NodeID, existingGameServer.NodeID)
 
@@ -198,17 +207,26 @@ func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Req
 			return connect.NewResponse(response), nil
 		},
 		func() (*connect.Response[xylona.EditGameServerResponse], error) {
-			return xs.editRemoteGameServer(ctx, serverID, request.Msg.GetGameServer())
+			return xs.editRemoteGameServer(ctx, serverID, request.Msg.GetGameServer(), user)
 		},
 	)
 }
 
 func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.RemoveGameServerResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.delete")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			xs.actionsInst.StopGameServer(gameServer)
 			errRemove := xs.actionsInst.RemoveGameServer(gameServer, true)
 			if errRemove != nil {
@@ -217,27 +235,36 @@ func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect.R
 			return connect.NewResponse(&xylona.RemoveGameServerResponse{}), nil
 		},
 		func() (*connect.Response[xylona.RemoveGameServerResponse], error) {
-			return xs.removeRemoteGameServer(ctx, serverID)
+			return xs.removeRemoteGameServer(ctx, serverID, user)
 		},
 	)
 }
 
 func (xs XylonaService) StartGameServer(ctx context.Context, request *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.StartGameServerResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.start")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			xs.actionsInst.StartGameServer(gameServer)
 			return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
 		},
 		func() (*connect.Response[xylona.StartGameServerResponse], error) {
-			return xs.startRemoteGameServer(ctx, serverID)
+			return xs.startRemoteGameServer(ctx, serverID, user)
 		},
 	)
 }
 
-func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID string) (*connect.Response[xylona.StartGameServerResponse], error) {
+func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.StartGameServerResponse], error) {
 	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -252,6 +279,11 @@ func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID stri
 	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
 		ServerId: serverID,
 	})
+	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
+	if errIdentity != nil {
+		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to start remote server"))
+	}
 
 	resp, errStart := client.StartRemoteServer(ctx, req)
 	if errStart != nil {
@@ -268,20 +300,29 @@ func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID stri
 
 func (xs XylonaService) StopGameServer(ctx context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.StopGameServerResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.stop")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			xs.actionsInst.StopGameServer(gameServer)
 			return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
 		},
 		func() (*connect.Response[xylona.StopGameServerResponse], error) {
-			return xs.stopRemoteGameServer(ctx, serverID)
+			return xs.stopRemoteGameServer(ctx, serverID, user)
 		},
 	)
 }
 
-func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID string) (*connect.Response[xylona.StopGameServerResponse], error) {
+func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.StopGameServerResponse], error) {
 	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -296,6 +337,11 @@ func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID strin
 	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
 		ServerId: serverID,
 	})
+	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
+	if errIdentity != nil {
+		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to stop remote server"))
+	}
 
 	resp, errStop := client.StopRemoteServer(ctx, req)
 	if errStop != nil {
@@ -312,10 +358,19 @@ func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID strin
 
 func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	serverID := request.Msg.GetServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.console")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			output := xs.actionsInst.ReadGameServerBuffer(gameServer)
 			response := &xylona.ReadGameServerOutputResponse{
 				Output: output,
@@ -323,12 +378,12 @@ func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *conne
 			return connect.NewResponse(response), nil
 		},
 		func() (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
-			return xs.readRemoteGameServerOutput(ctx, serverID)
+			return xs.readRemoteGameServerOutput(ctx, serverID, user)
 		},
 	)
 }
 
-func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID string) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
+func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -343,6 +398,11 @@ func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID
 	req := connect.NewRequest(&xylona.FederationReadConsoleBufferRequest{
 		ServerId: serverID,
 	})
+	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
+	if errIdentity != nil {
+		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to read remote console"))
+	}
 
 	resp, errRead := client.ReadConsoleBuffer(ctx, req)
 	if errRead != nil {
@@ -357,10 +417,19 @@ func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID
 
 func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error) {
 	serverID := request.Msg.GetServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.SendGameServerInputResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.console")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
 			if errGetCommand != nil {
 				log.Error().Err(errGetCommand).Msg("Failed to get game server command")
@@ -378,12 +447,12 @@ func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connec
 			return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
 		},
 		func() (*connect.Response[xylona.SendGameServerInputResponse], error) {
-			return xs.sendRemoteGameServerInput(ctx, serverID, request.Msg.GetInput())
+			return xs.sendRemoteGameServerInput(ctx, serverID, request.Msg.GetInput(), user)
 		},
 	)
 }
 
-func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID string, input string) (*connect.Response[xylona.SendGameServerInputResponse], error) {
+func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID string, input string, actingUser *models.User) (*connect.Response[xylona.SendGameServerInputResponse], error) {
 	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -399,6 +468,11 @@ func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID 
 		ServerId: serverID,
 		Input:    input,
 	})
+	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
+	if errIdentity != nil {
+		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to send remote input"))
+	}
 
 	resp, errSend := client.SendConsoleInput(ctx, req)
 	if errSend != nil {
@@ -415,10 +489,19 @@ func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID 
 
 func (xs XylonaService) ListDirectoryFiles(ctx context.Context, request *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
 	serverID := request.Msg.GetGameServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.view")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			files, errListGameServerFiles := xs.actionsInst.ListGameServerFiles(gameServer, request.Msg.GetPath())
 			if errListGameServerFiles != nil {
 				if errors.Is(errListGameServerFiles, actions.ErrInvalidPath) {
@@ -435,17 +518,26 @@ func (xs XylonaService) ListDirectoryFiles(ctx context.Context, request *connect
 			return connect.NewResponse(response), nil
 		},
 		func() (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
-			return xs.listRemoteDirectoryFiles(ctx, serverID, request.Msg.GetPath())
+			return xs.listRemoteDirectoryFiles(ctx, serverID, request.Msg.GetPath(), user)
 		},
 	)
 }
 
 func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error) {
 	serverID := request.Msg.GetId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.GetGameServerResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
 			if errGetCommand != nil {
 				gameServer.Status = xylona.Status_OFFLINE.String()
@@ -464,12 +556,12 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Requ
 			return connect.NewResponse(response), nil
 		},
 		func() (*connect.Response[xylona.GetGameServerResponse], error) {
-			return xs.getRemoteGameServer(ctx, serverID)
+			return xs.getRemoteGameServer(ctx, serverID, user)
 		},
 	)
 }
 
-func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string) (*connect.Response[xylona.GetGameServerResponse], error) {
+func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.GetGameServerResponse], error) {
 	peerNode, remoteCache, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -485,6 +577,11 @@ func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string
 	req := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
 		ServerId: serverID,
 	})
+	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
+	if errIdentity != nil {
+		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote game server"))
+	}
 
 	resp, errDetail := client.GetServerDetail(ctx, req)
 	if errDetail != nil {
@@ -561,15 +658,24 @@ func (xs XylonaService) getMinecraftVersion(gameServer *models.GameServer) (stri
 
 func (xs XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.UpdateGameServerResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.settings")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			xs.actionsInst.UpdateGameServer(gameServer)
 			return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
 		},
 		func() (*connect.Response[xylona.UpdateGameServerResponse], error) {
-			return xs.updateRemoteGameServer(ctx, serverID)
+			return xs.updateRemoteGameServer(ctx, serverID, user)
 		},
 	)
 }
@@ -630,10 +736,19 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 
 func (xs XylonaService) QueryGameServer(ctx context.Context, request *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.QueryGameServerResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			allServerQueries := xs.actionsInst.GetServerQueries()
 			queryInfo, exists := allServerQueries.Servers[gameServer.ID]
 			if !exists {
@@ -658,7 +773,7 @@ func (xs XylonaService) QueryGameServer(ctx context.Context, request *connect.Re
 			return connect.NewResponse(&xylona.QueryGameServerResponse{QueryInfo: queryInfo}), nil
 		},
 		func() (*connect.Response[xylona.QueryGameServerResponse], error) {
-			return xs.queryRemoteGameServer(ctx, serverID)
+			return xs.queryRemoteGameServer(ctx, serverID, user)
 		},
 	)
 }

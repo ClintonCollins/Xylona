@@ -1,111 +1,151 @@
 <template>
-    <q-page :padding="windowWidth > 1024">
-        <div class="row justify-center">
-            <q-card class="col">
-                <q-card-section>
-                    <div class="q-pa-md">
-                        <q-table
-                                flat
-                                title="Game Servers"
-                                :rows="displayRows"
-                                :columns="columns"
-                                row-key="compositeId"
-                                selection="multiple"
-                                :filter="search"
-                                :loading="loading"
-                                v-model:pagination="initialPagination"
-                                v-model:selected="selectedGameServers">
-                            <template v-slot:top>
-                                <div class="row col flex justify-between flex-center">
-                                    <div class="col-12 col-md-6">
-                                        <span class="text-h6">Game Servers</span>
-                                    </div>
-                                    <div class="col-12 col-md-6">
-                                        <div class="row flex q-gutter-xl justify-end">
-                                            <q-btn color="primary" to="/game-servers/create" :disable="loading"
-                                                   label="Create Game Server"/>
-                                            <q-btn v-if="selectedGameServers.length >= 1" class="q-ml-sm" color="red"
-                                                   :disable="loading"
-                                                   label="Remove game server" @click="deleteGameServerAction(null)"/>
-                                            <q-input dense debounce="300" color="primary" v-model="search">
-                                                <template v-slot:append>
-                                                    <q-icon name="search"/>
-                                                </template>
-                                            </q-input>
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-slot:body-cell-name="props">
-                                <q-td :props="props">
-                                    <router-link class="table-link" :to="'/game-servers/'+props.row.id+'/console'">
-                                        {{ props.row.displayName }}
-                                    </router-link>
-                                    <q-badge v-if="!props.row.isLocal" color="blue-grey" class="q-ml-sm" label="remote"/>
-                                    <q-badge v-if="props.row.isStale" color="orange" class="q-ml-xs" label="stale"/>
-                                </q-td>
-                            </template>
-                            <template v-slot:body-cell-status="props">
-                                <q-td :props="props">
-                                    <StatusBadge style="margin-left: -1em" :status="props.row.statusEnum"></StatusBadge>
-                                </q-td>
-                            </template>
-                            <template v-slot:body-cell-node="props">
-                                <q-td :props="props">
-                                    <span>{{ props.row.nodeName }}</span>
-                                    <q-badge v-if="props.row.isLocal" color="green" class="q-ml-sm" label="local"/>
-                                </q-td>
-                            </template>
-                            <template v-slot:body-cell-actions="props">
-                                <q-td :props="props">
-                                    <div class="q-gutter-xs" v-if="props.row.isLocal">
-                                        <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
-                                            <q-btn flat class="text-main-brighter" :icon="tabSettings">
-                                                <q-tooltip>Edit game server</q-tooltip>
-                                            </q-btn>
-                                        </router-link>
-                                        <span>
-                                            <q-btn flat class="text-error-brighter"
-                                                   :icon="tabTrash" @click="deleteGameServerAction(props.row)">
-                                                <q-tooltip>Delete game server</q-tooltip>
-                                            </q-btn>
-                                        </span>
-                                    </div>
-                                    <div v-else class="q-gutter-xs">
-                                        <router-link :to="'/game-servers/' + props.row.id + '/console'">
-                                            <q-btn flat class="text-info" icon="terminal">
-                                                <q-tooltip>View console</q-tooltip>
-                                            </q-btn>
-                                        </router-link>
-                                    </div>
-                                </q-td>
-                            </template>
-                        </q-table>
+  <q-page :padding="windowWidth > 1024">
+    <div class="row justify-center">
+      <q-card class="col">
+        <q-card-section>
+          <div class="q-pa-md">
+            <q-table
+              flat
+              title="Game Servers"
+              :rows="displayRows"
+              :columns="columns"
+              row-key="compositeId"
+              selection="multiple"
+              :filter="search"
+              :loading="loading"
+              v-model:pagination="initialPagination"
+              v-model:selected="selectedGameServers">
+              <template v-slot:top>
+                <div class="row col flex justify-between flex-center">
+                  <div class="col-12 col-md-6">
+                    <span class="text-h6">Game Servers</span>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <div class="row flex q-gutter-xl justify-end">
+                      <q-btn
+                        color="primary"
+                        to="/game-servers/create"
+                        :disable="loading"
+                        label="Create Game Server" />
+                      <q-btn
+                        v-if="selectedGameServers.length >= 1"
+                        class="q-ml-sm"
+                        color="green"
+                        :disable="loading || selectedGameServersForStart.length < 1"
+                        label="Start selected"
+                        @click="startSelectedGameServers" />
+                      <q-btn
+                        v-if="selectedGameServers.length >= 1"
+                        class="q-ml-sm"
+                        color="orange"
+                        :disable="loading || selectedGameServersForStop.length < 1"
+                        label="Stop selected"
+                        @click="stopSelectedGameServers" />
+                      <q-btn
+                        v-if="selectedGameServers.length >= 1"
+                        class="q-ml-sm"
+                        color="red"
+                        :disable="loading"
+                        label="Remove game server"
+                        @click="deleteGameServerAction(null)" />
+                      <q-input dense debounce="300" color="primary" v-model="search">
+                        <template v-slot:append>
+                          <q-icon name="search" />
+                        </template>
+                      </q-input>
                     </div>
-                </q-card-section>
-            </q-card>
-            <DeleteGameServerDialog :game-servers="selectedLocalServersForDelete" v-model:showDialog="showDeleteGameServerDialog"
-                                    @submit="deleteGameServerSubmitted"></DeleteGameServerDialog>
-        </div>
-    </q-page>
+                  </div>
+                </div>
+              </template>
+              <template v-slot:body-cell-name="props">
+                <q-td :props="props">
+                  <router-link
+                    class="table-link"
+                    :to="'/game-servers/' + props.row.id + '/console'">
+                    {{ props.row.displayName }}
+                  </router-link>
+                  <q-badge v-if="props.row.isStale" color="orange" class="q-ml-xs" label="stale" />
+                </q-td>
+              </template>
+              <template v-slot:body-cell-status="props">
+                <q-td :props="props">
+                  <StatusBadge
+                    style="margin-left: -1em"
+                    :status="props.row.statusEnum"></StatusBadge>
+                </q-td>
+              </template>
+              <template v-slot:body-cell-node="props">
+                <q-td :props="props">
+                  <span>{{ props.row.nodeName }}</span>
+                </q-td>
+              </template>
+              <template v-slot:body-cell-type="props">
+                <q-td :props="props">
+                  <q-badge v-if="props.row.isLocal" color="green" label="local" />
+                  <q-badge v-else color="blue-grey" label="remote" />
+                </q-td>
+              </template>
+              <template v-slot:body-cell-actions="props">
+                <q-td :props="props">
+                  <div class="q-gutter-xs">
+                    <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
+                      <q-btn flat class="text-main-brighter" :icon="tabSettings">
+                        <q-tooltip>Edit game server</q-tooltip>
+                      </q-btn>
+                    </router-link>
+                    <span>
+                      <q-btn
+                        flat
+                        class="text-error-brighter"
+                        :icon="tabTrash"
+                        @click="deleteGameServerAction(props.row)">
+                        <q-tooltip>Delete game server</q-tooltip>
+                      </q-btn>
+                    </span>
+                  </div>
+                </q-td>
+              </template>
+            </q-table>
+          </div>
+        </q-card-section>
+      </q-card>
+      <DeleteGameServerDialog
+        :game-servers="selectedServersForDelete"
+        v-model:showDialog="showDeleteGameServerDialog"
+        @submit="deleteGameServerSubmitted"></DeleteGameServerDialog>
+    </div>
+  </q-page>
 </template>
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
+import { useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onMounted, Ref, ref } from 'vue'
 import { GetXylonaClient, WindowWidth, XylonaEventBus } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { Node, Status } from '@/proto/shared_pb'
+import {
+  Node,
+  StartGameServerRequest,
+  StartGameServerRequestSchema,
+  Status,
+  StopGameServerRequest,
+  StopGameServerRequestSchema,
+} from '@/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
-import { AggregatedGameServer, ListAggregatedGameServersRequestSchema, ListNodesRequestSchema } from '@/proto/xylona_pb'
+import {
+  AggregatedGameServer,
+  ListAggregatedGameServersRequestSchema,
+  ListNodesRequestSchema,
+} from '@/proto/xylona_pb'
 import {
   buildDisplayRows,
   extractRemoteNodeIDs,
   filterRowsByRemoteNodeIDs,
   type DisplayRow,
 } from './server-list-cache'
+import { getStartableServers, getStoppableServers } from './server-list-actions'
 
 const aggregatedServers = ref([] as AggregatedGameServer[])
 const nodesByID = ref(new Map<string, Node>())
@@ -117,10 +157,11 @@ const selectedGameServers = ref([] as DisplayRow[])
 const cachedDisplayRows = useStorage<DisplayRow[]>('game-server-display-rows-cache', [])
 const cachedRemoteNodeIDs = useStorage<string[]>('game-server-remote-node-ids-cache', [])
 const allowedRemoteNodeIDs = ref(new Set(cachedRemoteNodeIDs.value))
+const $q = useQuasar()
 
 const initialPagination = useStorage('game-server-pagination', {
-    rowsPerPage: 25,
-    page: 1
+  rowsPerPage: 25,
+  page: 1,
 })
 
 const windowWidth = WindowWidth()
@@ -136,8 +177,16 @@ const displayRows = computed((): DisplayRow[] => {
   return filterRowsByRemoteNodeIDs(cachedDisplayRows.value, allowedRemoteNodeIDs.value)
 })
 
-const selectedLocalServersForDelete = computed(() => {
-  return selectedGameServers.value.filter(s => s.isLocal).map(s => ({ id: s.id, name: s.displayName }))
+const selectedServersForDelete = computed(() => {
+  return selectedGameServers.value.map((s) => ({ id: s.id, name: s.displayName }))
+})
+
+const selectedGameServersForStart = computed(() => {
+  return getStartableServers(selectedGameServers.value)
+})
+
+const selectedGameServersForStop = computed(() => {
+  return getStoppableServers(selectedGameServers.value)
 })
 
 onMounted(async () => {
@@ -150,11 +199,9 @@ async function getGameServers() {
   try {
     const [serversResult, nodesResult] = await Promise.allSettled([
       GetXylonaClient().listAggregatedGameServers(
-        create(ListAggregatedGameServersRequestSchema, {})
+        create(ListAggregatedGameServersRequestSchema, {}),
       ),
-      GetXylonaClient().listNodes(
-        create(ListNodesRequestSchema, {})
-      )
+      GetXylonaClient().listNodes(create(ListNodesRequestSchema, {})),
     ])
 
     if (serversResult.status === 'fulfilled') {
@@ -166,7 +213,7 @@ async function getGameServers() {
 
     let remoteNodeIDs = new Set(cachedRemoteNodeIDs.value)
     if (nodesResult.status === 'fulfilled') {
-      nodesByID.value = new Map(nodesResult.value.nodes.map(node => [node.id, node]))
+      nodesByID.value = new Map(nodesResult.value.nodes.map((node) => [node.id, node]))
       remoteNodeIDs = extractRemoteNodeIDs(nodesResult.value.nodes)
       cachedRemoteNodeIDs.value = [...remoteNodeIDs]
       allowedRemoteNodeIDs.value = remoteNodeIDs
@@ -191,20 +238,7 @@ async function getGameServers() {
 
 function watchServerStatusChanges() {
   XylonaEventBus.on('gameServerStatus', (serverID: string, serverStatus: Status) => {
-    for (const row of cachedDisplayRows.value) {
-      if (row.id === serverID) {
-        row.statusEnum = serverStatus
-      }
-    }
-
-    for (const server of aggregatedServers.value) {
-      if (server.isLocal && server.localServer && server.localServer.id === serverID) {
-        server.localServer.status = serverStatus
-      }
-      if (!server.isLocal && server.remoteServer && server.remoteServer.remoteServerId === serverID) {
-        server.remoteServer.status = serverStatus
-      }
-    }
+    setServerStatus(serverID, serverStatus)
   })
 }
 
@@ -223,6 +257,121 @@ async function deleteGameServerSubmitted(error: unknown | boolean) {
   }
 }
 
+function setServerStatus(serverID: string, serverStatus: Status) {
+  for (const row of cachedDisplayRows.value) {
+    if (row.id === serverID) {
+      row.statusEnum = serverStatus
+    }
+  }
+
+  for (const server of aggregatedServers.value) {
+    if (server.isLocal && server.localServer && server.localServer.id === serverID) {
+      server.localServer.status = serverStatus
+    }
+    if (!server.isLocal && server.remoteServer && server.remoteServer.remoteServerId === serverID) {
+      server.remoteServer.status = serverStatus
+    }
+  }
+}
+
+async function startSelectedGameServers() {
+  if (selectedGameServersForStart.value.length < 1 || loading.value) {
+    return
+  }
+
+  loading.value = true
+  let successCount = 0
+  const failedServerNames: string[] = []
+
+  try {
+    for (const selectedServer of selectedGameServersForStart.value) {
+      const request: StartGameServerRequest = create(StartGameServerRequestSchema, {})
+      request.serverId = selectedServer.id
+      try {
+        await GetXylonaClient().startGameServer(request)
+        setServerStatus(selectedServer.id, Status.ONLINE)
+        successCount++
+      } catch (errStart) {
+        failedServerNames.push(selectedServer.displayName)
+        console.error(errStart)
+      }
+    }
+  } finally {
+    loading.value = false
+  }
+
+  selectedGameServers.value = []
+
+  if (successCount > 0) {
+    $q.notify({
+      caption: `Started ${successCount} game server${successCount === 1 ? '' : 's'}.`,
+      type: 'xylona-success',
+      position: 'top',
+      timeout: 5000,
+    })
+  }
+
+  if (failedServerNames.length > 0) {
+    $q.notify({
+      caption: `Failed to start: ${failedServerNames.join(', ')}`,
+      type: 'xylona-error',
+      position: 'top',
+      timeout: 5000,
+    })
+  }
+
+  void getGameServers()
+}
+
+async function stopSelectedGameServers() {
+  if (selectedGameServersForStop.value.length < 1 || loading.value) {
+    return
+  }
+
+  loading.value = true
+  let successCount = 0
+  const failedServerNames: string[] = []
+
+  try {
+    for (const selectedServer of selectedGameServersForStop.value) {
+      const request: StopGameServerRequest = create(StopGameServerRequestSchema, {})
+      request.serverId = selectedServer.id
+      try {
+        await GetXylonaClient().stopGameServer(request)
+        setServerStatus(selectedServer.id, Status.OFFLINE)
+        successCount++
+      } catch (errStop) {
+        failedServerNames.push(selectedServer.displayName)
+        console.error(errStop)
+      }
+    }
+  } finally {
+    loading.value = false
+  }
+
+  selectedGameServers.value = []
+
+  if (successCount > 0) {
+    $q.notify({
+      caption: `Stopped ${successCount} game server${successCount === 1 ? '' : 's'}.`,
+      type: 'xylona-success',
+      position: 'top',
+      timeout: 5000,
+    })
+  }
+
+  if (failedServerNames.length > 0) {
+    $q.notify({
+      caption: `Failed to stop: ${failedServerNames.join(', ')}`,
+      type: 'xylona-error',
+      position: 'top',
+      timeout: 5000,
+    })
+  }
+
+  void getGameServers()
+}
+
 const columns = ref([
   {
     name: 'name',
@@ -230,7 +379,7 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.displayName,
-    sortable: true
+    sortable: true,
   },
   {
     name: 'game',
@@ -238,7 +387,7 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.gameName,
-    sortable: true
+    sortable: true,
   },
   {
     name: 'owner',
@@ -246,7 +395,7 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.userName,
-    sortable: true
+    sortable: true,
   },
   {
     name: 'status',
@@ -254,7 +403,7 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.statusEnum,
-    sortable: true
+    sortable: true,
   },
   {
     name: 'node',
@@ -262,16 +411,23 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.nodeName,
-    sortable: true
+    sortable: true,
+  },
+  {
+    name: 'type',
+    label: 'Type',
+    required: true,
+    align: 'left' as const,
+    field: (row: DisplayRow) => (row.isLocal ? 'local' : 'remote'),
+    sortable: true,
   },
   {
     name: 'actions',
     label: '',
     align: 'center' as const,
-    field: () => ''
-  }
+    field: () => '',
+  },
 ])
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

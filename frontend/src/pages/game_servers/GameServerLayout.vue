@@ -30,6 +30,7 @@ useToolbarNavQTabsStore().changeTabs([
   {name: "Console", to: "/game-servers/" + route.params.id + "/console", icon: "terminal", exact: true},
   {name: "Files", to: "/game-servers/" + route.params.id + "/files", icon: "folder", exact: true},
   {name: "Configuration", to: "/game-servers/" + route.params.id + "/configuration", icon: "settings", exact: true},
+  {name: "Access", to: "/game-servers/" + route.params.id + "/access", icon: "manage_accounts", exact: true},
 ])
 
 </script>

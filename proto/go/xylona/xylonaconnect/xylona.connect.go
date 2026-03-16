@@ -60,6 +60,32 @@ const (
 	XylonaListUsersProcedure = "/xylona.Xylona/ListUsers"
 	// XylonaGetUserProcedure is the fully-qualified name of the Xylona's GetUser RPC.
 	XylonaGetUserProcedure = "/xylona.Xylona/GetUser"
+	// XylonaListRolesProcedure is the fully-qualified name of the Xylona's ListRoles RPC.
+	XylonaListRolesProcedure = "/xylona.Xylona/ListRoles"
+	// XylonaListPermissionsProcedure is the fully-qualified name of the Xylona's ListPermissions RPC.
+	XylonaListPermissionsProcedure = "/xylona.Xylona/ListPermissions"
+	// XylonaCreateRoleProcedure is the fully-qualified name of the Xylona's CreateRole RPC.
+	XylonaCreateRoleProcedure = "/xylona.Xylona/CreateRole"
+	// XylonaDeleteRoleProcedure is the fully-qualified name of the Xylona's DeleteRole RPC.
+	XylonaDeleteRoleProcedure = "/xylona.Xylona/DeleteRole"
+	// XylonaListGameServerAccessGrantsProcedure is the fully-qualified name of the Xylona's
+	// ListGameServerAccessGrants RPC.
+	XylonaListGameServerAccessGrantsProcedure = "/xylona.Xylona/ListGameServerAccessGrants"
+	// XylonaGrantGameServerAccessProcedure is the fully-qualified name of the Xylona's
+	// GrantGameServerAccess RPC.
+	XylonaGrantGameServerAccessProcedure = "/xylona.Xylona/GrantGameServerAccess"
+	// XylonaRevokeGameServerAccessProcedure is the fully-qualified name of the Xylona's
+	// RevokeGameServerAccess RPC.
+	XylonaRevokeGameServerAccessProcedure = "/xylona.Xylona/RevokeGameServerAccess"
+	// XylonaListFederatedAccessGrantsProcedure is the fully-qualified name of the Xylona's
+	// ListFederatedAccessGrants RPC.
+	XylonaListFederatedAccessGrantsProcedure = "/xylona.Xylona/ListFederatedAccessGrants"
+	// XylonaGrantFederatedAccessProcedure is the fully-qualified name of the Xylona's
+	// GrantFederatedAccess RPC.
+	XylonaGrantFederatedAccessProcedure = "/xylona.Xylona/GrantFederatedAccess"
+	// XylonaRevokeFederatedAccessProcedure is the fully-qualified name of the Xylona's
+	// RevokeFederatedAccess RPC.
+	XylonaRevokeFederatedAccessProcedure = "/xylona.Xylona/RevokeFederatedAccess"
 	// XylonaListIPsProcedure is the fully-qualified name of the Xylona's ListIPs RPC.
 	XylonaListIPsProcedure = "/xylona.Xylona/ListIPs"
 	// XylonaAddIPProcedure is the fully-qualified name of the Xylona's AddIP RPC.
@@ -142,6 +168,9 @@ const (
 	XylonaEditNodeProcedure = "/xylona.Xylona/EditNode"
 	// XylonaVerifyNodeProcedure is the fully-qualified name of the Xylona's VerifyNode RPC.
 	XylonaVerifyNodeProcedure = "/xylona.Xylona/VerifyNode"
+	// XylonaListRemoteNodeUsersProcedure is the fully-qualified name of the Xylona's
+	// ListRemoteNodeUsers RPC.
+	XylonaListRemoteNodeUsersProcedure = "/xylona.Xylona/ListRemoteNodeUsers"
 	// XylonaListLocalSecretKeysProcedure is the fully-qualified name of the Xylona's
 	// ListLocalSecretKeys RPC.
 	XylonaListLocalSecretKeysProcedure = "/xylona.Xylona/ListLocalSecretKeys"
@@ -175,6 +204,16 @@ type XylonaClient interface {
 	CreateUser(context.Context, *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error)
 	ListUsers(context.Context, *connect.Request[xylona.ListUsersRequest]) (*connect.Response[xylona.ListUsersResponse], error)
 	GetUser(context.Context, *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error)
+	ListRoles(context.Context, *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error)
+	ListPermissions(context.Context, *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error)
+	CreateRole(context.Context, *connect.Request[xylona.CreateRoleRequest]) (*connect.Response[xylona.CreateRoleResponse], error)
+	DeleteRole(context.Context, *connect.Request[xylona.DeleteRoleRequest]) (*connect.Response[xylona.DeleteRoleResponse], error)
+	ListGameServerAccessGrants(context.Context, *connect.Request[xylona.ListGameServerAccessGrantsRequest]) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error)
+	GrantGameServerAccess(context.Context, *connect.Request[xylona.GrantGameServerAccessRequest]) (*connect.Response[xylona.GrantGameServerAccessResponse], error)
+	RevokeGameServerAccess(context.Context, *connect.Request[xylona.RevokeGameServerAccessRequest]) (*connect.Response[xylona.RevokeGameServerAccessResponse], error)
+	ListFederatedAccessGrants(context.Context, *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error)
+	GrantFederatedAccess(context.Context, *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error)
+	RevokeFederatedAccess(context.Context, *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error)
 	ListIPs(context.Context, *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error)
 	AddIP(context.Context, *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error)
 	RemoveIP(context.Context, *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error)
@@ -216,6 +255,7 @@ type XylonaClient interface {
 	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
 	// Used to reach out to a new node and verify we're authorized when adding it.
 	VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error)
+	ListRemoteNodeUsers(context.Context, *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error)
 	ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error)
 	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
 	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
@@ -311,6 +351,66 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaGetUserProcedure,
 			connect.WithSchema(xylonaMethods.ByName("GetUser")),
+			connect.WithClientOptions(opts...),
+		),
+		listRoles: connect.NewClient[xylona.ListRolesRequest, xylona.ListRolesResponse](
+			httpClient,
+			baseURL+XylonaListRolesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListRoles")),
+			connect.WithClientOptions(opts...),
+		),
+		listPermissions: connect.NewClient[xylona.ListPermissionsRequest, xylona.ListPermissionsResponse](
+			httpClient,
+			baseURL+XylonaListPermissionsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListPermissions")),
+			connect.WithClientOptions(opts...),
+		),
+		createRole: connect.NewClient[xylona.CreateRoleRequest, xylona.CreateRoleResponse](
+			httpClient,
+			baseURL+XylonaCreateRoleProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CreateRole")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteRole: connect.NewClient[xylona.DeleteRoleRequest, xylona.DeleteRoleResponse](
+			httpClient,
+			baseURL+XylonaDeleteRoleProcedure,
+			connect.WithSchema(xylonaMethods.ByName("DeleteRole")),
+			connect.WithClientOptions(opts...),
+		),
+		listGameServerAccessGrants: connect.NewClient[xylona.ListGameServerAccessGrantsRequest, xylona.ListGameServerAccessGrantsResponse](
+			httpClient,
+			baseURL+XylonaListGameServerAccessGrantsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListGameServerAccessGrants")),
+			connect.WithClientOptions(opts...),
+		),
+		grantGameServerAccess: connect.NewClient[xylona.GrantGameServerAccessRequest, xylona.GrantGameServerAccessResponse](
+			httpClient,
+			baseURL+XylonaGrantGameServerAccessProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GrantGameServerAccess")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeGameServerAccess: connect.NewClient[xylona.RevokeGameServerAccessRequest, xylona.RevokeGameServerAccessResponse](
+			httpClient,
+			baseURL+XylonaRevokeGameServerAccessProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RevokeGameServerAccess")),
+			connect.WithClientOptions(opts...),
+		),
+		listFederatedAccessGrants: connect.NewClient[xylona.ListFederatedAccessGrantsRequest, xylona.ListFederatedAccessGrantsResponse](
+			httpClient,
+			baseURL+XylonaListFederatedAccessGrantsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListFederatedAccessGrants")),
+			connect.WithClientOptions(opts...),
+		),
+		grantFederatedAccess: connect.NewClient[xylona.GrantFederatedAccessRequest, xylona.GrantFederatedAccessResponse](
+			httpClient,
+			baseURL+XylonaGrantFederatedAccessProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GrantFederatedAccess")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeFederatedAccess: connect.NewClient[xylona.RevokeFederatedAccessRequest, xylona.RevokeFederatedAccessResponse](
+			httpClient,
+			baseURL+XylonaRevokeFederatedAccessProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RevokeFederatedAccess")),
 			connect.WithClientOptions(opts...),
 		),
 		listIPs: connect.NewClient[xylona.ListIPsRequest, xylona.ListIPsResponse](
@@ -517,6 +617,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("VerifyNode")),
 			connect.WithClientOptions(opts...),
 		),
+		listRemoteNodeUsers: connect.NewClient[xylona.ListRemoteNodeUsersRequest, xylona.ListRemoteNodeUsersResponse](
+			httpClient,
+			baseURL+XylonaListRemoteNodeUsersProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListRemoteNodeUsers")),
+			connect.WithClientOptions(opts...),
+		),
 		listLocalSecretKeys: connect.NewClient[xylona.ListLocalSecretKeysRequest, xylona.ListLocalSecretKeysResponse](
 			httpClient,
 			baseURL+XylonaListLocalSecretKeysProcedure,
@@ -565,6 +671,16 @@ type xylonaClient struct {
 	createUser                       *connect.Client[xylona.CreateUserRequest, xylona.CreateUserResponse]
 	listUsers                        *connect.Client[xylona.ListUsersRequest, xylona.ListUsersResponse]
 	getUser                          *connect.Client[xylona.GetUserDetailsRequest, xylona.GetUserDetailsResponse]
+	listRoles                        *connect.Client[xylona.ListRolesRequest, xylona.ListRolesResponse]
+	listPermissions                  *connect.Client[xylona.ListPermissionsRequest, xylona.ListPermissionsResponse]
+	createRole                       *connect.Client[xylona.CreateRoleRequest, xylona.CreateRoleResponse]
+	deleteRole                       *connect.Client[xylona.DeleteRoleRequest, xylona.DeleteRoleResponse]
+	listGameServerAccessGrants       *connect.Client[xylona.ListGameServerAccessGrantsRequest, xylona.ListGameServerAccessGrantsResponse]
+	grantGameServerAccess            *connect.Client[xylona.GrantGameServerAccessRequest, xylona.GrantGameServerAccessResponse]
+	revokeGameServerAccess           *connect.Client[xylona.RevokeGameServerAccessRequest, xylona.RevokeGameServerAccessResponse]
+	listFederatedAccessGrants        *connect.Client[xylona.ListFederatedAccessGrantsRequest, xylona.ListFederatedAccessGrantsResponse]
+	grantFederatedAccess             *connect.Client[xylona.GrantFederatedAccessRequest, xylona.GrantFederatedAccessResponse]
+	revokeFederatedAccess            *connect.Client[xylona.RevokeFederatedAccessRequest, xylona.RevokeFederatedAccessResponse]
 	listIPs                          *connect.Client[xylona.ListIPsRequest, xylona.ListIPsResponse]
 	addIP                            *connect.Client[xylona.AddIPRequest, xylona.AddIPResponse]
 	removeIP                         *connect.Client[xylona.RemoveIPRequest, xylona.RemoveIPResponse]
@@ -599,6 +715,7 @@ type xylonaClient struct {
 	removeNode                       *connect.Client[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse]
 	editNode                         *connect.Client[xylona.EditNodeRequest, xylona.EditNodeResponse]
 	verifyNode                       *connect.Client[xylona.VerifyNodeRequest, xylona.VerifyNodeResponse]
+	listRemoteNodeUsers              *connect.Client[xylona.ListRemoteNodeUsersRequest, xylona.ListRemoteNodeUsersResponse]
 	listLocalSecretKeys              *connect.Client[xylona.ListLocalSecretKeysRequest, xylona.ListLocalSecretKeysResponse]
 	createLocalSecretKey             *connect.Client[xylona.CreateLocalSecretKeyRequest, xylona.CreateLocalSecretKeyResponse]
 	deleteLocalSecretKey             *connect.Client[xylona.DeleteLocalSecretKeyRequest, xylona.DeleteLocalSecretKeyResponse]
@@ -669,6 +786,56 @@ func (c *xylonaClient) ListUsers(ctx context.Context, req *connect.Request[xylon
 // GetUser calls xylona.Xylona.GetUser.
 func (c *xylonaClient) GetUser(ctx context.Context, req *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error) {
 	return c.getUser.CallUnary(ctx, req)
+}
+
+// ListRoles calls xylona.Xylona.ListRoles.
+func (c *xylonaClient) ListRoles(ctx context.Context, req *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error) {
+	return c.listRoles.CallUnary(ctx, req)
+}
+
+// ListPermissions calls xylona.Xylona.ListPermissions.
+func (c *xylonaClient) ListPermissions(ctx context.Context, req *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error) {
+	return c.listPermissions.CallUnary(ctx, req)
+}
+
+// CreateRole calls xylona.Xylona.CreateRole.
+func (c *xylonaClient) CreateRole(ctx context.Context, req *connect.Request[xylona.CreateRoleRequest]) (*connect.Response[xylona.CreateRoleResponse], error) {
+	return c.createRole.CallUnary(ctx, req)
+}
+
+// DeleteRole calls xylona.Xylona.DeleteRole.
+func (c *xylonaClient) DeleteRole(ctx context.Context, req *connect.Request[xylona.DeleteRoleRequest]) (*connect.Response[xylona.DeleteRoleResponse], error) {
+	return c.deleteRole.CallUnary(ctx, req)
+}
+
+// ListGameServerAccessGrants calls xylona.Xylona.ListGameServerAccessGrants.
+func (c *xylonaClient) ListGameServerAccessGrants(ctx context.Context, req *connect.Request[xylona.ListGameServerAccessGrantsRequest]) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error) {
+	return c.listGameServerAccessGrants.CallUnary(ctx, req)
+}
+
+// GrantGameServerAccess calls xylona.Xylona.GrantGameServerAccess.
+func (c *xylonaClient) GrantGameServerAccess(ctx context.Context, req *connect.Request[xylona.GrantGameServerAccessRequest]) (*connect.Response[xylona.GrantGameServerAccessResponse], error) {
+	return c.grantGameServerAccess.CallUnary(ctx, req)
+}
+
+// RevokeGameServerAccess calls xylona.Xylona.RevokeGameServerAccess.
+func (c *xylonaClient) RevokeGameServerAccess(ctx context.Context, req *connect.Request[xylona.RevokeGameServerAccessRequest]) (*connect.Response[xylona.RevokeGameServerAccessResponse], error) {
+	return c.revokeGameServerAccess.CallUnary(ctx, req)
+}
+
+// ListFederatedAccessGrants calls xylona.Xylona.ListFederatedAccessGrants.
+func (c *xylonaClient) ListFederatedAccessGrants(ctx context.Context, req *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error) {
+	return c.listFederatedAccessGrants.CallUnary(ctx, req)
+}
+
+// GrantFederatedAccess calls xylona.Xylona.GrantFederatedAccess.
+func (c *xylonaClient) GrantFederatedAccess(ctx context.Context, req *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error) {
+	return c.grantFederatedAccess.CallUnary(ctx, req)
+}
+
+// RevokeFederatedAccess calls xylona.Xylona.RevokeFederatedAccess.
+func (c *xylonaClient) RevokeFederatedAccess(ctx context.Context, req *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error) {
+	return c.revokeFederatedAccess.CallUnary(ctx, req)
 }
 
 // ListIPs calls xylona.Xylona.ListIPs.
@@ -841,6 +1008,11 @@ func (c *xylonaClient) VerifyNode(ctx context.Context, req *connect.Request[xylo
 	return c.verifyNode.CallUnary(ctx, req)
 }
 
+// ListRemoteNodeUsers calls xylona.Xylona.ListRemoteNodeUsers.
+func (c *xylonaClient) ListRemoteNodeUsers(ctx context.Context, req *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error) {
+	return c.listRemoteNodeUsers.CallUnary(ctx, req)
+}
+
 // ListLocalSecretKeys calls xylona.Xylona.ListLocalSecretKeys.
 func (c *xylonaClient) ListLocalSecretKeys(ctx context.Context, req *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
 	return c.listLocalSecretKeys.CallUnary(ctx, req)
@@ -883,6 +1055,16 @@ type XylonaHandler interface {
 	CreateUser(context.Context, *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error)
 	ListUsers(context.Context, *connect.Request[xylona.ListUsersRequest]) (*connect.Response[xylona.ListUsersResponse], error)
 	GetUser(context.Context, *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error)
+	ListRoles(context.Context, *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error)
+	ListPermissions(context.Context, *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error)
+	CreateRole(context.Context, *connect.Request[xylona.CreateRoleRequest]) (*connect.Response[xylona.CreateRoleResponse], error)
+	DeleteRole(context.Context, *connect.Request[xylona.DeleteRoleRequest]) (*connect.Response[xylona.DeleteRoleResponse], error)
+	ListGameServerAccessGrants(context.Context, *connect.Request[xylona.ListGameServerAccessGrantsRequest]) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error)
+	GrantGameServerAccess(context.Context, *connect.Request[xylona.GrantGameServerAccessRequest]) (*connect.Response[xylona.GrantGameServerAccessResponse], error)
+	RevokeGameServerAccess(context.Context, *connect.Request[xylona.RevokeGameServerAccessRequest]) (*connect.Response[xylona.RevokeGameServerAccessResponse], error)
+	ListFederatedAccessGrants(context.Context, *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error)
+	GrantFederatedAccess(context.Context, *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error)
+	RevokeFederatedAccess(context.Context, *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error)
 	ListIPs(context.Context, *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error)
 	AddIP(context.Context, *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error)
 	RemoveIP(context.Context, *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error)
@@ -924,6 +1106,7 @@ type XylonaHandler interface {
 	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
 	// Used to reach out to a new node and verify we're authorized when adding it.
 	VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error)
+	ListRemoteNodeUsers(context.Context, *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error)
 	ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error)
 	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
 	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
@@ -1015,6 +1198,66 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaGetUserProcedure,
 		svc.GetUser,
 		connect.WithSchema(xylonaMethods.ByName("GetUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListRolesHandler := connect.NewUnaryHandler(
+		XylonaListRolesProcedure,
+		svc.ListRoles,
+		connect.WithSchema(xylonaMethods.ByName("ListRoles")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListPermissionsHandler := connect.NewUnaryHandler(
+		XylonaListPermissionsProcedure,
+		svc.ListPermissions,
+		connect.WithSchema(xylonaMethods.ByName("ListPermissions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaCreateRoleHandler := connect.NewUnaryHandler(
+		XylonaCreateRoleProcedure,
+		svc.CreateRole,
+		connect.WithSchema(xylonaMethods.ByName("CreateRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaDeleteRoleHandler := connect.NewUnaryHandler(
+		XylonaDeleteRoleProcedure,
+		svc.DeleteRole,
+		connect.WithSchema(xylonaMethods.ByName("DeleteRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListGameServerAccessGrantsHandler := connect.NewUnaryHandler(
+		XylonaListGameServerAccessGrantsProcedure,
+		svc.ListGameServerAccessGrants,
+		connect.WithSchema(xylonaMethods.ByName("ListGameServerAccessGrants")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGrantGameServerAccessHandler := connect.NewUnaryHandler(
+		XylonaGrantGameServerAccessProcedure,
+		svc.GrantGameServerAccess,
+		connect.WithSchema(xylonaMethods.ByName("GrantGameServerAccess")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRevokeGameServerAccessHandler := connect.NewUnaryHandler(
+		XylonaRevokeGameServerAccessProcedure,
+		svc.RevokeGameServerAccess,
+		connect.WithSchema(xylonaMethods.ByName("RevokeGameServerAccess")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListFederatedAccessGrantsHandler := connect.NewUnaryHandler(
+		XylonaListFederatedAccessGrantsProcedure,
+		svc.ListFederatedAccessGrants,
+		connect.WithSchema(xylonaMethods.ByName("ListFederatedAccessGrants")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGrantFederatedAccessHandler := connect.NewUnaryHandler(
+		XylonaGrantFederatedAccessProcedure,
+		svc.GrantFederatedAccess,
+		connect.WithSchema(xylonaMethods.ByName("GrantFederatedAccess")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRevokeFederatedAccessHandler := connect.NewUnaryHandler(
+		XylonaRevokeFederatedAccessProcedure,
+		svc.RevokeFederatedAccess,
+		connect.WithSchema(xylonaMethods.ByName("RevokeFederatedAccess")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListIPsHandler := connect.NewUnaryHandler(
@@ -1221,6 +1464,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("VerifyNode")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaListRemoteNodeUsersHandler := connect.NewUnaryHandler(
+		XylonaListRemoteNodeUsersProcedure,
+		svc.ListRemoteNodeUsers,
+		connect.WithSchema(xylonaMethods.ByName("ListRemoteNodeUsers")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaListLocalSecretKeysHandler := connect.NewUnaryHandler(
 		XylonaListLocalSecretKeysProcedure,
 		svc.ListLocalSecretKeys,
@@ -1279,6 +1528,26 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaListUsersHandler.ServeHTTP(w, r)
 		case XylonaGetUserProcedure:
 			xylonaGetUserHandler.ServeHTTP(w, r)
+		case XylonaListRolesProcedure:
+			xylonaListRolesHandler.ServeHTTP(w, r)
+		case XylonaListPermissionsProcedure:
+			xylonaListPermissionsHandler.ServeHTTP(w, r)
+		case XylonaCreateRoleProcedure:
+			xylonaCreateRoleHandler.ServeHTTP(w, r)
+		case XylonaDeleteRoleProcedure:
+			xylonaDeleteRoleHandler.ServeHTTP(w, r)
+		case XylonaListGameServerAccessGrantsProcedure:
+			xylonaListGameServerAccessGrantsHandler.ServeHTTP(w, r)
+		case XylonaGrantGameServerAccessProcedure:
+			xylonaGrantGameServerAccessHandler.ServeHTTP(w, r)
+		case XylonaRevokeGameServerAccessProcedure:
+			xylonaRevokeGameServerAccessHandler.ServeHTTP(w, r)
+		case XylonaListFederatedAccessGrantsProcedure:
+			xylonaListFederatedAccessGrantsHandler.ServeHTTP(w, r)
+		case XylonaGrantFederatedAccessProcedure:
+			xylonaGrantFederatedAccessHandler.ServeHTTP(w, r)
+		case XylonaRevokeFederatedAccessProcedure:
+			xylonaRevokeFederatedAccessHandler.ServeHTTP(w, r)
 		case XylonaListIPsProcedure:
 			xylonaListIPsHandler.ServeHTTP(w, r)
 		case XylonaAddIPProcedure:
@@ -1347,6 +1616,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaEditNodeHandler.ServeHTTP(w, r)
 		case XylonaVerifyNodeProcedure:
 			xylonaVerifyNodeHandler.ServeHTTP(w, r)
+		case XylonaListRemoteNodeUsersProcedure:
+			xylonaListRemoteNodeUsersHandler.ServeHTTP(w, r)
 		case XylonaListLocalSecretKeysProcedure:
 			xylonaListLocalSecretKeysHandler.ServeHTTP(w, r)
 		case XylonaCreateLocalSecretKeyProcedure:
@@ -1416,6 +1687,46 @@ func (UnimplementedXylonaHandler) ListUsers(context.Context, *connect.Request[xy
 
 func (UnimplementedXylonaHandler) GetUser(context.Context, *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetUser is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListRoles(context.Context, *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListRoles is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListPermissions(context.Context, *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListPermissions is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CreateRole(context.Context, *connect.Request[xylona.CreateRoleRequest]) (*connect.Response[xylona.CreateRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CreateRole is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) DeleteRole(context.Context, *connect.Request[xylona.DeleteRoleRequest]) (*connect.Response[xylona.DeleteRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteRole is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListGameServerAccessGrants(context.Context, *connect.Request[xylona.ListGameServerAccessGrantsRequest]) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListGameServerAccessGrants is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GrantGameServerAccess(context.Context, *connect.Request[xylona.GrantGameServerAccessRequest]) (*connect.Response[xylona.GrantGameServerAccessResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GrantGameServerAccess is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RevokeGameServerAccess(context.Context, *connect.Request[xylona.RevokeGameServerAccessRequest]) (*connect.Response[xylona.RevokeGameServerAccessResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RevokeGameServerAccess is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListFederatedAccessGrants(context.Context, *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListFederatedAccessGrants is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GrantFederatedAccess(context.Context, *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GrantFederatedAccess is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RevokeFederatedAccess(context.Context, *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RevokeFederatedAccess is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListIPs(context.Context, *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
@@ -1552,6 +1863,10 @@ func (UnimplementedXylonaHandler) EditNode(context.Context, *connect.Request[xyl
 
 func (UnimplementedXylonaHandler) VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.VerifyNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListRemoteNodeUsers(context.Context, *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListRemoteNodeUsers is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {

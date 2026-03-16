@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
@@ -12,10 +13,19 @@ import (
 
 func (xs XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, request *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
 	serverID := request.Msg.GameServerId
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			errCreate := xs.actionsInst.CreateFileOrDirectory(gameServer, request.Msg.GetFullFilePath(),
 				request.Msg.GetContent(), request.Msg.GetIsDirectory())
 			if errCreate != nil {
@@ -24,17 +34,26 @@ func (xs XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, re
 			return &connect.Response[xylona.GameServerFileOrDirectoryCreateResponse]{Msg: &xylona.GameServerFileOrDirectoryCreateResponse{}}, nil
 		},
 		func() (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
-			return xs.createRemoteFileOrDirectory(ctx, serverID, request.Msg.GetFullFilePath(), request.Msg.GetContent(), request.Msg.GetIsDirectory())
+			return xs.createRemoteFileOrDirectory(ctx, serverID, request.Msg.GetFullFilePath(), request.Msg.GetContent(), request.Msg.GetIsDirectory(), user)
 		},
 	)
 }
 
 func (xs XylonaService) GameServerFilesDelete(ctx context.Context, request *connect.Request[xylona.GameServerFilesDeleteRequest]) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
 	serverID := request.Msg.GameServerId
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			results, errDelete := xs.actionsInst.DeleteFiles(ctx, gameServer, request.Msg.GetFullFilePaths())
 			if errDelete != nil {
 				return nil, errDelete
@@ -43,16 +62,26 @@ func (xs XylonaService) GameServerFilesDelete(ctx context.Context, request *conn
 			return &connect.Response[xylona.GameServerFilesDeleteResponse]{Msg: response}, nil
 		},
 		func() (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
-			return xs.deleteRemoteFiles(ctx, serverID, request.Msg.GetFullFilePaths())
+			return xs.deleteRemoteFiles(ctx, serverID, request.Msg.GetFullFilePaths(), user)
 		},
 	)
 }
 
 func (xs XylonaService) GameServerFilesArchive(ctx context.Context, request *connect.Request[xylona.GameServerFilesCompressionRequest], c *connect.ServerStream[xylona.GameServerFilesArchiveProgress]) error {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
 	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
 	if errGetGameServer != nil {
 		return nil
 	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return errPermission
+	}
+
 	resultsChan := make(chan xylona.GameServerFilesArchiveProgress)
 	go func() {
 		for {
@@ -86,10 +115,20 @@ func (xs XylonaService) GameServerFilesArchive(ctx context.Context, request *con
 }
 
 func (xs XylonaService) GameServerFilesExtract(ctx context.Context, request *connect.Request[xylona.GameServerFilesDecompressionRequest], c *connect.ServerStream[xylona.GameServerFilesExtractProgress]) error {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
 	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
 	if errGetGameServer != nil {
 		return nil
 	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return errPermission
+	}
+
 	resultsChan := make(chan xylona.GameServerFilesExtractProgress)
 	go func() {
 		if recover() != nil {
@@ -122,10 +161,20 @@ func (xs XylonaService) GameServerFilesExtract(ctx context.Context, request *con
 }
 
 func (xs XylonaService) GameServerFilesCompress(ctx context.Context, request *connect.Request[xylona.GameServerFilesCompressionRequest]) (*connect.Response[xylona.GameServerFilesCompressionResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
 	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
 	results, errCompress := xs.actionsInst.ArchiveAndCompressFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
 		request.Msg.GetFullFilePaths(), request.Msg.GetCompressionType())
 	if errCompress != nil {
@@ -136,10 +185,20 @@ func (xs XylonaService) GameServerFilesCompress(ctx context.Context, request *co
 }
 
 func (xs XylonaService) GameServerFilesDecompress(ctx context.Context, request *connect.Request[xylona.GameServerFilesDecompressionRequest]) (*connect.Response[xylona.GameServerFilesDecompressionResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
 	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
 	results, errDecompress := xs.actionsInst.ExtractArchive(ctx, gameServer, request.Msg.GetFullFilePath(), request.Msg.GetDestinationBasePath())
 	if errDecompress != nil {
 		return nil, connect.NewError(connect.CodeInternal, errDecompress)
@@ -150,10 +209,19 @@ func (xs XylonaService) GameServerFilesDecompress(ctx context.Context, request *
 
 func (xs XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, request *connect.Request[xylona.GameServersFileDownloadFromURLRequest]) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
 	serverID := request.Msg.GameServerId
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			results, errDownload := xs.actionsInst.DownloadFileFromURL(ctx, gameServer, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
 			if errDownload != nil {
 				return nil, connect.NewError(connect.CodeInternal, errDownload)
@@ -162,17 +230,26 @@ func (xs XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, requ
 			return &connect.Response[xylona.GameServersFileDownloadFromURLResponse]{Msg: response}, nil
 		},
 		func() (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
-			return xs.downloadRemoteFileFromURL(ctx, serverID, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
+			return xs.downloadRemoteFileFromURL(ctx, serverID, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath(), user)
 		},
 	)
 }
 
 func (xs XylonaService) GameServerFileRename(ctx context.Context, request *connect.Request[xylona.GameServerFileRenameRequest]) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
 	serverID := request.Msg.GameServerId
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			newFilePath, errRename := xs.actionsInst.RenameFile(gameServer, request.Msg.GetOldPath(), request.Msg.GetNewPath())
 			if errRename != nil {
 				return nil, connect.NewError(connect.CodeInternal, errRename)
@@ -181,17 +258,26 @@ func (xs XylonaService) GameServerFileRename(ctx context.Context, request *conne
 			return &connect.Response[xylona.GameServerFileRenameResponse]{Msg: response}, nil
 		},
 		func() (*connect.Response[xylona.GameServerFileRenameResponse], error) {
-			return xs.renameRemoteFile(ctx, serverID, request.Msg.GetOldPath(), request.Msg.GetNewPath())
+			return xs.renameRemoteFile(ctx, serverID, request.Msg.GetOldPath(), request.Msg.GetNewPath(), user)
 		},
 	)
 }
 
 func (xs XylonaService) GameServerFilesMove(ctx context.Context, request *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
 	serverID := request.Msg.GameServerId
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			results, errMove := xs.actionsInst.MoveFiles(ctx, gameServer, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
 			if errMove != nil {
 				return nil, connect.NewError(connect.CodeInternal, errMove)
@@ -200,17 +286,26 @@ func (xs XylonaService) GameServerFilesMove(ctx context.Context, request *connec
 			return &connect.Response[xylona.GameServerFilesMoveResponse]{Msg: response}, nil
 		},
 		func() (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
-			return xs.moveRemoteFiles(ctx, serverID, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
+			return xs.moveRemoteFiles(ctx, serverID, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath(), user)
 		},
 	)
 }
 
 func (xs XylonaService) GameServersFileEdit(ctx context.Context, request *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error) {
 	serverID := request.Msg.GameServerId
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	return dispatchGameServerRequest(
 		xs,
 		serverID,
 		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServersFileEditResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
 			errEdit := xs.actionsInst.EditFile(gameServer, request.Msg.GetFullFilePath(), request.Msg.GetContent())
 			if errEdit != nil {
 				return nil, connect.NewError(connect.CodeInternal, errEdit)
@@ -218,7 +313,7 @@ func (xs XylonaService) GameServersFileEdit(ctx context.Context, request *connec
 			return &connect.Response[xylona.GameServersFileEditResponse]{Msg: &xylona.GameServersFileEditResponse{}}, nil
 		},
 		func() (*connect.Response[xylona.GameServersFileEditResponse], error) {
-			return xs.editRemoteFile(ctx, serverID, request.Msg.GetFullFilePath(), request.Msg.GetContent())
+			return xs.editRemoteFile(ctx, serverID, request.Msg.GetFullFilePath(), request.Msg.GetContent(), user)
 		},
 	)
 }

@@ -65,11 +65,13 @@ type GameServersQuery = *sqlite.ViewQuery[*GameServer, GameServerSlice]
 
 // gameServerR is where relationships are stored.
 type gameServerR struct {
-	Node *Node    // fk_game_server_0
-	IP   *IP      // fk_game_server_1
-	Game *Game    // fk_game_server_2
-	User *User    // fk_game_server_3
-	Logs LogSlice // fk_log_0
+	FederatedAccessGrants FederatedAccessGrantSlice // fk_federated_access_grant_3
+	Node                  *Node                     // fk_game_server_0
+	IP                    *IP                       // fk_game_server_1
+	Game                  *Game                     // fk_game_server_2
+	User                  *User                     // fk_game_server_3
+	Logs                  LogSlice                  // fk_log_0
+	UserRoleAssignments   UserRoleAssignmentSlice   // fk_user_role_assignment_1
 }
 
 type gameServerColumnNames struct {
@@ -922,12 +924,14 @@ func (o GameServerSlice) ReloadAll(ctx context.Context, exec bob.Executor) error
 }
 
 type gameServerJoins[Q dialect.Joinable] struct {
-	typ  string
-	Node func(context.Context) modAs[Q, nodeColumns]
-	IP   func(context.Context) modAs[Q, ipColumns]
-	Game func(context.Context) modAs[Q, gameColumns]
-	User func(context.Context) modAs[Q, userColumns]
-	Logs func(context.Context) modAs[Q, logColumns]
+	typ                   string
+	FederatedAccessGrants func(context.Context) modAs[Q, federatedAccessGrantColumns]
+	Node                  func(context.Context) modAs[Q, nodeColumns]
+	IP                    func(context.Context) modAs[Q, ipColumns]
+	Game                  func(context.Context) modAs[Q, gameColumns]
+	User                  func(context.Context) modAs[Q, userColumns]
+	Logs                  func(context.Context) modAs[Q, logColumns]
+	UserRoleAssignments   func(context.Context) modAs[Q, userRoleAssignmentColumns]
 }
 
 func (j gameServerJoins[Q]) aliasedAs(alias string) gameServerJoins[Q] {
@@ -936,12 +940,33 @@ func (j gameServerJoins[Q]) aliasedAs(alias string) gameServerJoins[Q] {
 
 func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string) gameServerJoins[Q] {
 	return gameServerJoins[Q]{
-		typ:  typ,
-		Node: gameServersJoinNode[Q](cols, typ),
-		IP:   gameServersJoinIP[Q](cols, typ),
-		Game: gameServersJoinGame[Q](cols, typ),
-		User: gameServersJoinUser[Q](cols, typ),
-		Logs: gameServersJoinLogs[Q](cols, typ),
+		typ:                   typ,
+		FederatedAccessGrants: gameServersJoinFederatedAccessGrants[Q](cols, typ),
+		Node:                  gameServersJoinNode[Q](cols, typ),
+		IP:                    gameServersJoinIP[Q](cols, typ),
+		Game:                  gameServersJoinGame[Q](cols, typ),
+		User:                  gameServersJoinUser[Q](cols, typ),
+		Logs:                  gameServersJoinLogs[Q](cols, typ),
+		UserRoleAssignments:   gameServersJoinUserRoleAssignments[Q](cols, typ),
+	}
+}
+
+func gameServersJoinFederatedAccessGrants[Q dialect.Joinable](from gameServerColumns, typ string) func(context.Context) modAs[Q, federatedAccessGrantColumns] {
+	return func(ctx context.Context) modAs[Q, federatedAccessGrantColumns] {
+		return modAs[Q, federatedAccessGrantColumns]{
+			c: FederatedAccessGrantColumns,
+			f: func(to federatedAccessGrantColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, FederatedAccessGrants.Name().As(to.Alias())).On(
+						to.GameServerID.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
 	}
 }
 
@@ -1040,6 +1065,43 @@ func gameServersJoinLogs[Q dialect.Joinable](from gameServerColumns, typ string)
 	}
 }
 
+func gameServersJoinUserRoleAssignments[Q dialect.Joinable](from gameServerColumns, typ string) func(context.Context) modAs[Q, userRoleAssignmentColumns] {
+	return func(ctx context.Context) modAs[Q, userRoleAssignmentColumns] {
+		return modAs[Q, userRoleAssignmentColumns]{
+			c: UserRoleAssignmentColumns,
+			f: func(to userRoleAssignmentColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, UserRoleAssignments.Name().As(to.Alias())).On(
+						to.GameServerID.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
+	}
+}
+
+// FederatedAccessGrants starts a query for related objects on federated_access_grant
+func (o *GameServer) FederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
+	return FederatedAccessGrants.Query(append(mods,
+		sm.Where(FederatedAccessGrantColumns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) FederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return FederatedAccessGrants.Query(append(mods,
+		sm.Where(sqlite.Group(FederatedAccessGrantColumns.GameServerID).In(PKArgs...)),
+	)...)
+}
+
 // Node starts a query for related objects on node
 func (o *GameServer) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
 	return Nodes.Query(append(mods,
@@ -1130,12 +1192,44 @@ func (os GameServerSlice) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery 
 	)...)
 }
 
+// UserRoleAssignments starts a query for related objects on user_role_assignment
+func (o *GameServer) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) UserRoleAssignmentsQuery {
+	return UserRoleAssignments.Query(append(mods,
+		sm.Where(UserRoleAssignmentColumns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) UserRoleAssignmentsQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return UserRoleAssignments.Query(append(mods,
+		sm.Where(sqlite.Group(UserRoleAssignmentColumns.GameServerID).In(PKArgs...)),
+	)...)
+}
+
 func (o *GameServer) Preload(name string, retrieved any) error {
 	if o == nil {
 		return nil
 	}
 
 	switch name {
+	case "FederatedAccessGrants":
+		rels, ok := retrieved.(FederatedAccessGrantSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.FederatedAccessGrants = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+			}
+		}
+		return nil
 	case "Node":
 		rel, ok := retrieved.(*Node)
 		if !ok {
@@ -1198,9 +1292,95 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "UserRoleAssignments":
+		rels, ok := retrieved.(UserRoleAssignmentSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.UserRoleAssignments = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+			}
+		}
+		return nil
 	default:
 		return fmt.Errorf("gameServer has no relationship %q", name)
 	}
+}
+
+func ThenLoadGameServerFederatedAccessGrants(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadGameServerFederatedAccessGrants(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load GameServerFederatedAccessGrants", retrieved)
+		}
+
+		err := loader.LoadGameServerFederatedAccessGrants(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadGameServerFederatedAccessGrants loads the gameServer's FederatedAccessGrants into the .R struct
+func (o *GameServer) LoadGameServerFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.FederatedAccessGrants = nil
+
+	related, err := o.FederatedAccessGrants(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+	}
+
+	o.R.FederatedAccessGrants = related
+	return nil
+}
+
+// LoadGameServerFederatedAccessGrants loads the gameServer's FederatedAccessGrants into the .R struct
+func (os GameServerSlice) LoadGameServerFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	federatedAccessGrants, err := os.FederatedAccessGrants(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		o.R.FederatedAccessGrants = nil
+	}
+
+	for _, o := range os {
+		for _, rel := range federatedAccessGrants {
+			if o.ID != rel.GameServerID {
+				continue
+			}
+
+			rel.R.GameServer = o
+
+			o.R.FederatedAccessGrants = append(o.R.FederatedAccessGrants, rel)
+		}
+	}
+
+	return nil
 }
 
 func PreloadGameServerNode(opts ...sqlite.PreloadOption) sqlite.Preloader {
@@ -1615,6 +1795,146 @@ func (os GameServerSlice) LoadGameServerLogs(ctx context.Context, exec bob.Execu
 	return nil
 }
 
+func ThenLoadGameServerUserRoleAssignments(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadGameServerUserRoleAssignments(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load GameServerUserRoleAssignments", retrieved)
+		}
+
+		err := loader.LoadGameServerUserRoleAssignments(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadGameServerUserRoleAssignments loads the gameServer's UserRoleAssignments into the .R struct
+func (o *GameServer) LoadGameServerUserRoleAssignments(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.UserRoleAssignments = nil
+
+	related, err := o.UserRoleAssignments(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+	}
+
+	o.R.UserRoleAssignments = related
+	return nil
+}
+
+// LoadGameServerUserRoleAssignments loads the gameServer's UserRoleAssignments into the .R struct
+func (os GameServerSlice) LoadGameServerUserRoleAssignments(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	userRoleAssignments, err := os.UserRoleAssignments(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		o.R.UserRoleAssignments = nil
+	}
+
+	for _, o := range os {
+		for _, rel := range userRoleAssignments {
+			if o.ID != rel.GameServerID.GetOrZero() {
+				continue
+			}
+
+			rel.R.GameServer = o
+
+			o.R.UserRoleAssignments = append(o.R.UserRoleAssignments, rel)
+		}
+	}
+
+	return nil
+}
+
+func insertGameServerFederatedAccessGrants0(ctx context.Context, exec bob.Executor, federatedAccessGrants1 []*FederatedAccessGrantSetter, gameServer0 *GameServer) (FederatedAccessGrantSlice, error) {
+	for i := range federatedAccessGrants1 {
+		federatedAccessGrants1[i].GameServerID = omit.From(gameServer0.ID)
+	}
+
+	ret, err := FederatedAccessGrants.Insert(bob.ToMods(federatedAccessGrants1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerFederatedAccessGrants0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerFederatedAccessGrants0(ctx context.Context, exec bob.Executor, count int, federatedAccessGrants1 FederatedAccessGrantSlice, gameServer0 *GameServer) (FederatedAccessGrantSlice, error) {
+	setter := &FederatedAccessGrantSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := federatedAccessGrants1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerFederatedAccessGrants0: %w", err)
+	}
+
+	return federatedAccessGrants1, nil
+}
+
+func (gameServer0 *GameServer) InsertFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrantSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	federatedAccessGrants1, err := insertGameServerFederatedAccessGrants0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.FederatedAccessGrants = append(gameServer0.R.FederatedAccessGrants, federatedAccessGrants1...)
+
+	for _, rel := range federatedAccessGrants1 {
+		rel.R.GameServer = gameServer0
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrant) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	federatedAccessGrants1 := FederatedAccessGrantSlice(related)
+
+	_, err = attachGameServerFederatedAccessGrants0(ctx, exec, len(related), federatedAccessGrants1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.FederatedAccessGrants = append(gameServer0.R.FederatedAccessGrants, federatedAccessGrants1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+	}
+
+	return nil
+}
+
 func attachGameServerNode0(ctx context.Context, exec bob.Executor, count int, gameServer0 *GameServer, node1 *Node) (*GameServer, error) {
 	setter := &GameServerSetter{
 		NodeID: omit.From(node1.ID),
@@ -1859,6 +2179,74 @@ func (gameServer0 *GameServer) AttachLogs(ctx context.Context, exec bob.Executor
 	}
 
 	gameServer0.R.Logs = append(gameServer0.R.Logs, logs1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+	}
+
+	return nil
+}
+
+func insertGameServerUserRoleAssignments0(ctx context.Context, exec bob.Executor, userRoleAssignments1 []*UserRoleAssignmentSetter, gameServer0 *GameServer) (UserRoleAssignmentSlice, error) {
+	for i := range userRoleAssignments1 {
+		userRoleAssignments1[i].GameServerID = omitnull.From(gameServer0.ID)
+	}
+
+	ret, err := UserRoleAssignments.Insert(bob.ToMods(userRoleAssignments1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerUserRoleAssignments0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerUserRoleAssignments0(ctx context.Context, exec bob.Executor, count int, userRoleAssignments1 UserRoleAssignmentSlice, gameServer0 *GameServer) (UserRoleAssignmentSlice, error) {
+	setter := &UserRoleAssignmentSetter{
+		GameServerID: omitnull.From(gameServer0.ID),
+	}
+
+	err := userRoleAssignments1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerUserRoleAssignments0: %w", err)
+	}
+
+	return userRoleAssignments1, nil
+}
+
+func (gameServer0 *GameServer) InsertUserRoleAssignments(ctx context.Context, exec bob.Executor, related ...*UserRoleAssignmentSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	userRoleAssignments1, err := insertGameServerUserRoleAssignments0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.UserRoleAssignments = append(gameServer0.R.UserRoleAssignments, userRoleAssignments1...)
+
+	for _, rel := range userRoleAssignments1 {
+		rel.R.GameServer = gameServer0
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachUserRoleAssignments(ctx context.Context, exec bob.Executor, related ...*UserRoleAssignment) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	userRoleAssignments1 := UserRoleAssignmentSlice(related)
+
+	_, err = attachGameServerUserRoleAssignments0(ctx, exec, len(related), userRoleAssignments1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.UserRoleAssignments = append(gameServer0.R.UserRoleAssignments, userRoleAssignments1...)
 
 	for _, rel := range related {
 		rel.R.GameServer = gameServer0

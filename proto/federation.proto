@@ -14,6 +14,9 @@ service Federation {
   // ListServerSummaries returns summaries of all local game servers for federation sync.
   rpc ListServerSummaries (FederationListServerSummariesRequest) returns (FederationListServerSummariesResponse) {}
 
+  // ListUserSummaries returns users for on-demand grant workflows.
+  rpc ListUserSummaries (FederationListUserSummariesRequest) returns (FederationListUserSummariesResponse) {}
+
   // GetServerDetail returns detailed info for a single local game server.
   rpc GetServerDetail (FederationGetServerDetailRequest) returns (FederationGetServerDetailResponse) {}
 
@@ -102,6 +105,24 @@ message FederationListServerSummariesResponse {
   bool has_more = 3;
 }
 
+message FederationListUserSummariesRequest {
+  int32 limit = 1;
+}
+
+message FederationUserSummary {
+  string user_id = 1;
+  string user_name = 2;
+  string email = 3;
+  string first_name = 4;
+  string last_name = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message FederationListUserSummariesResponse {
+  repeated FederationUserSummary users = 1;
+}
+
 // Federation Server Detail
 message FederationGetServerDetailRequest {
   string server_id = 1;
@@ -114,6 +135,8 @@ message FederationGetServerDetailResponse {
 // Federation Remote Action
 message FederationRemoteActionRequest {
   string server_id = 1;
+  string acting_user_id = 2;
+  string origin_node_id = 3;
 }
 
 message FederationRemoteActionResponse {

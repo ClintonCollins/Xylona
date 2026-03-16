@@ -15,59 +15,121 @@ import (
 )
 
 var TableNames = struct {
-	Games              string
-	GameServers        string
-	Ips                string
-	LocalSecretKeys    string
-	LocalSettings      string
-	Logs               string
-	Migrations         string
-	Nodes              string
-	NodeSyncQueues     string
-	Notifications      string
-	PeerSyncStates     string
-	RemoteServerCaches string
-	RevokedJWTS        string
-	Users              string
-	UserAPIKeys        string
-	UserSessions       string
+	FederatedAccessGrants     string
+	FederationLocalIdentities string
+	FederationPairingTokens   string
+	FederationTrustedPeers    string
+	Games                     string
+	GameServers               string
+	Ips                       string
+	LocalSecretKeys           string
+	LocalSettings             string
+	Logs                      string
+	Migrations                string
+	Nodes                     string
+	NodeSyncQueues            string
+	Notifications             string
+	PeerSyncStates            string
+	Permissions               string
+	RemoteServerCaches        string
+	RevokedJWTS               string
+	Roles                     string
+	RolePermissions           string
+	Users                     string
+	UserAPIKeys               string
+	UserRoleAssignments       string
+	UserSessions              string
 }{
-	Games:              "game",
-	GameServers:        "game_server",
-	Ips:                "ip",
-	LocalSecretKeys:    "local_secret_keys",
-	LocalSettings:      "local_settings",
-	Logs:               "log",
-	Migrations:         "migrations",
-	Nodes:              "node",
-	NodeSyncQueues:     "node_sync_queue",
-	Notifications:      "notification",
-	PeerSyncStates:     "peer_sync_state",
-	RemoteServerCaches: "remote_server_cache",
-	RevokedJWTS:        "revoked_jwt",
-	Users:              "user",
-	UserAPIKeys:        "user_api_key",
-	UserSessions:       "user_session",
+	FederatedAccessGrants:     "federated_access_grant",
+	FederationLocalIdentities: "federation_local_identity",
+	FederationPairingTokens:   "federation_pairing_token",
+	FederationTrustedPeers:    "federation_trusted_peer",
+	Games:                     "game",
+	GameServers:               "game_server",
+	Ips:                       "ip",
+	LocalSecretKeys:           "local_secret_keys",
+	LocalSettings:             "local_settings",
+	Logs:                      "log",
+	Migrations:                "migrations",
+	Nodes:                     "node",
+	NodeSyncQueues:            "node_sync_queue",
+	Notifications:             "notification",
+	PeerSyncStates:            "peer_sync_state",
+	Permissions:               "permission",
+	RemoteServerCaches:        "remote_server_cache",
+	RevokedJWTS:               "revoked_jwt",
+	Roles:                     "role",
+	RolePermissions:           "role_permission",
+	Users:                     "user",
+	UserAPIKeys:               "user_api_key",
+	UserRoleAssignments:       "user_role_assignment",
+	UserSessions:              "user_session",
 }
 
 var ColumnNames = struct {
-	Games              gameColumnNames
-	GameServers        gameServerColumnNames
-	Ips                ipColumnNames
-	LocalSecretKeys    localSecretKeyColumnNames
-	LocalSettings      localSettingColumnNames
-	Logs               logColumnNames
-	Migrations         migrationColumnNames
-	Nodes              nodeColumnNames
-	NodeSyncQueues     nodeSyncQueueColumnNames
-	Notifications      notificationColumnNames
-	PeerSyncStates     peerSyncStateColumnNames
-	RemoteServerCaches remoteServerCacheColumnNames
-	RevokedJWTS        revokedJWTColumnNames
-	Users              userColumnNames
-	UserAPIKeys        userAPIKeyColumnNames
-	UserSessions       userSessionColumnNames
+	FederatedAccessGrants     federatedAccessGrantColumnNames
+	FederationLocalIdentities federationLocalIdentityColumnNames
+	FederationPairingTokens   federationPairingTokenColumnNames
+	FederationTrustedPeers    federationTrustedPeerColumnNames
+	Games                     gameColumnNames
+	GameServers               gameServerColumnNames
+	Ips                       ipColumnNames
+	LocalSecretKeys           localSecretKeyColumnNames
+	LocalSettings             localSettingColumnNames
+	Logs                      logColumnNames
+	Migrations                migrationColumnNames
+	Nodes                     nodeColumnNames
+	NodeSyncQueues            nodeSyncQueueColumnNames
+	Notifications             notificationColumnNames
+	PeerSyncStates            peerSyncStateColumnNames
+	Permissions               permissionColumnNames
+	RemoteServerCaches        remoteServerCacheColumnNames
+	RevokedJWTS               revokedJWTColumnNames
+	Roles                     roleColumnNames
+	RolePermissions           rolePermissionColumnNames
+	Users                     userColumnNames
+	UserAPIKeys               userAPIKeyColumnNames
+	UserRoleAssignments       userRoleAssignmentColumnNames
+	UserSessions              userSessionColumnNames
 }{
+	FederatedAccessGrants: federatedAccessGrantColumnNames{
+		ID:             "id",
+		GameServerID:   "game_server_id",
+		RemoteNodeID:   "remote_node_id",
+		RemoteUserID:   "remote_user_id",
+		RemoteUserName: "remote_user_name",
+		RoleID:         "role_id",
+		GrantedBy:      "granted_by",
+		CreatedAt:      "created_at",
+	},
+	FederationLocalIdentities: federationLocalIdentityColumnNames{
+		ID:              "id",
+		NodeID:          "node_id",
+		CertPath:        "cert_path",
+		KeyPath:         "key_path",
+		CertFingerprint: "cert_fingerprint",
+		CreatedAt:       "created_at",
+		UpdatedAt:       "updated_at",
+		CertPem:         "cert_pem",
+		KeyPem:          "key_pem",
+	},
+	FederationPairingTokens: federationPairingTokenColumnNames{
+		ID:        "id",
+		TokenHash: "token_hash",
+		TargetURL: "target_url",
+		CreatedAt: "created_at",
+		ExpiresAt: "expires_at",
+		Used:      "used",
+	},
+	FederationTrustedPeers: federationTrustedPeerColumnNames{
+		NodeID:          "node_id",
+		PeerNodeID:      "peer_node_id",
+		PeerFingerprint: "peer_fingerprint",
+		Enabled:         "enabled",
+		Revoked:         "revoked",
+		CreatedAt:       "created_at",
+		UpdatedAt:       "updated_at",
+	},
 	Games: gameColumnNames{
 		ID:                                "id",
 		Name:                              "name",
@@ -205,6 +267,11 @@ var ColumnNames = struct {
 		CreatedAt:       "created_at",
 		UpdatedAt:       "updated_at",
 	},
+	Permissions: permissionColumnNames{
+		ID:          "id",
+		Name:        "name",
+		Description: "description",
+	},
 	RemoteServerCaches: remoteServerCacheColumnNames{
 		ID:               "id",
 		SourceNodeID:     "source_node_id",
@@ -237,6 +304,17 @@ var ColumnNames = struct {
 		DeleteAllTokensBefore: "delete_all_tokens_before",
 		CreatedAt:             "created_at",
 	},
+	Roles: roleColumnNames{
+		ID:          "id",
+		Name:        "name",
+		Description: "description",
+		IsSystem:    "is_system",
+		CreatedAt:   "created_at",
+	},
+	RolePermissions: rolePermissionColumnNames{
+		RoleID:       "role_id",
+		PermissionID: "permission_id",
+	},
 	Users: userColumnNames{
 		ID:           "id",
 		UserName:     "user_name",
@@ -252,6 +330,14 @@ var ColumnNames = struct {
 	UserAPIKeys: userAPIKeyColumnNames{
 		ID:     "id",
 		UserID: "user_id",
+	},
+	UserRoleAssignments: userRoleAssignmentColumnNames{
+		ID:           "id",
+		UserID:       "user_id",
+		RoleID:       "role_id",
+		GameServerID: "game_server_id",
+		GrantedBy:    "granted_by",
+		CreatedAt:    "created_at",
 	},
 	UserSessions: userSessionColumnNames{
 		ID:        "id",
@@ -271,57 +357,81 @@ var (
 )
 
 func Where[Q sqlite.Filterable]() struct {
-	Games              gameWhere[Q]
-	GameServers        gameServerWhere[Q]
-	Ips                ipWhere[Q]
-	LocalSecretKeys    localSecretKeyWhere[Q]
-	LocalSettings      localSettingWhere[Q]
-	Logs               logWhere[Q]
-	Migrations         migrationWhere[Q]
-	Nodes              nodeWhere[Q]
-	NodeSyncQueues     nodeSyncQueueWhere[Q]
-	Notifications      notificationWhere[Q]
-	PeerSyncStates     peerSyncStateWhere[Q]
-	RemoteServerCaches remoteServerCacheWhere[Q]
-	RevokedJWTS        revokedJWTWhere[Q]
-	Users              userWhere[Q]
-	UserAPIKeys        userAPIKeyWhere[Q]
-	UserSessions       userSessionWhere[Q]
+	FederatedAccessGrants     federatedAccessGrantWhere[Q]
+	FederationLocalIdentities federationLocalIdentityWhere[Q]
+	FederationPairingTokens   federationPairingTokenWhere[Q]
+	FederationTrustedPeers    federationTrustedPeerWhere[Q]
+	Games                     gameWhere[Q]
+	GameServers               gameServerWhere[Q]
+	Ips                       ipWhere[Q]
+	LocalSecretKeys           localSecretKeyWhere[Q]
+	LocalSettings             localSettingWhere[Q]
+	Logs                      logWhere[Q]
+	Migrations                migrationWhere[Q]
+	Nodes                     nodeWhere[Q]
+	NodeSyncQueues            nodeSyncQueueWhere[Q]
+	Notifications             notificationWhere[Q]
+	PeerSyncStates            peerSyncStateWhere[Q]
+	Permissions               permissionWhere[Q]
+	RemoteServerCaches        remoteServerCacheWhere[Q]
+	RevokedJWTS               revokedJWTWhere[Q]
+	Roles                     roleWhere[Q]
+	RolePermissions           rolePermissionWhere[Q]
+	Users                     userWhere[Q]
+	UserAPIKeys               userAPIKeyWhere[Q]
+	UserRoleAssignments       userRoleAssignmentWhere[Q]
+	UserSessions              userSessionWhere[Q]
 } {
 	return struct {
-		Games              gameWhere[Q]
-		GameServers        gameServerWhere[Q]
-		Ips                ipWhere[Q]
-		LocalSecretKeys    localSecretKeyWhere[Q]
-		LocalSettings      localSettingWhere[Q]
-		Logs               logWhere[Q]
-		Migrations         migrationWhere[Q]
-		Nodes              nodeWhere[Q]
-		NodeSyncQueues     nodeSyncQueueWhere[Q]
-		Notifications      notificationWhere[Q]
-		PeerSyncStates     peerSyncStateWhere[Q]
-		RemoteServerCaches remoteServerCacheWhere[Q]
-		RevokedJWTS        revokedJWTWhere[Q]
-		Users              userWhere[Q]
-		UserAPIKeys        userAPIKeyWhere[Q]
-		UserSessions       userSessionWhere[Q]
+		FederatedAccessGrants     federatedAccessGrantWhere[Q]
+		FederationLocalIdentities federationLocalIdentityWhere[Q]
+		FederationPairingTokens   federationPairingTokenWhere[Q]
+		FederationTrustedPeers    federationTrustedPeerWhere[Q]
+		Games                     gameWhere[Q]
+		GameServers               gameServerWhere[Q]
+		Ips                       ipWhere[Q]
+		LocalSecretKeys           localSecretKeyWhere[Q]
+		LocalSettings             localSettingWhere[Q]
+		Logs                      logWhere[Q]
+		Migrations                migrationWhere[Q]
+		Nodes                     nodeWhere[Q]
+		NodeSyncQueues            nodeSyncQueueWhere[Q]
+		Notifications             notificationWhere[Q]
+		PeerSyncStates            peerSyncStateWhere[Q]
+		Permissions               permissionWhere[Q]
+		RemoteServerCaches        remoteServerCacheWhere[Q]
+		RevokedJWTS               revokedJWTWhere[Q]
+		Roles                     roleWhere[Q]
+		RolePermissions           rolePermissionWhere[Q]
+		Users                     userWhere[Q]
+		UserAPIKeys               userAPIKeyWhere[Q]
+		UserRoleAssignments       userRoleAssignmentWhere[Q]
+		UserSessions              userSessionWhere[Q]
 	}{
-		Games:              buildGameWhere[Q](GameColumns),
-		GameServers:        buildGameServerWhere[Q](GameServerColumns),
-		Ips:                buildIPWhere[Q](IPColumns),
-		LocalSecretKeys:    buildLocalSecretKeyWhere[Q](LocalSecretKeyColumns),
-		LocalSettings:      buildLocalSettingWhere[Q](LocalSettingColumns),
-		Logs:               buildLogWhere[Q](LogColumns),
-		Migrations:         buildMigrationWhere[Q](MigrationColumns),
-		Nodes:              buildNodeWhere[Q](NodeColumns),
-		NodeSyncQueues:     buildNodeSyncQueueWhere[Q](NodeSyncQueueColumns),
-		Notifications:      buildNotificationWhere[Q](NotificationColumns),
-		PeerSyncStates:     buildPeerSyncStateWhere[Q](PeerSyncStateColumns),
-		RemoteServerCaches: buildRemoteServerCacheWhere[Q](RemoteServerCacheColumns),
-		RevokedJWTS:        buildRevokedJWTWhere[Q](RevokedJWTColumns),
-		Users:              buildUserWhere[Q](UserColumns),
-		UserAPIKeys:        buildUserAPIKeyWhere[Q](UserAPIKeyColumns),
-		UserSessions:       buildUserSessionWhere[Q](UserSessionColumns),
+		FederatedAccessGrants:     buildFederatedAccessGrantWhere[Q](FederatedAccessGrantColumns),
+		FederationLocalIdentities: buildFederationLocalIdentityWhere[Q](FederationLocalIdentityColumns),
+		FederationPairingTokens:   buildFederationPairingTokenWhere[Q](FederationPairingTokenColumns),
+		FederationTrustedPeers:    buildFederationTrustedPeerWhere[Q](FederationTrustedPeerColumns),
+		Games:                     buildGameWhere[Q](GameColumns),
+		GameServers:               buildGameServerWhere[Q](GameServerColumns),
+		Ips:                       buildIPWhere[Q](IPColumns),
+		LocalSecretKeys:           buildLocalSecretKeyWhere[Q](LocalSecretKeyColumns),
+		LocalSettings:             buildLocalSettingWhere[Q](LocalSettingColumns),
+		Logs:                      buildLogWhere[Q](LogColumns),
+		Migrations:                buildMigrationWhere[Q](MigrationColumns),
+		Nodes:                     buildNodeWhere[Q](NodeColumns),
+		NodeSyncQueues:            buildNodeSyncQueueWhere[Q](NodeSyncQueueColumns),
+		Notifications:             buildNotificationWhere[Q](NotificationColumns),
+		PeerSyncStates:            buildPeerSyncStateWhere[Q](PeerSyncStateColumns),
+		Permissions:               buildPermissionWhere[Q](PermissionColumns),
+		RemoteServerCaches:        buildRemoteServerCacheWhere[Q](RemoteServerCacheColumns),
+		RevokedJWTS:               buildRevokedJWTWhere[Q](RevokedJWTColumns),
+		Roles:                     buildRoleWhere[Q](RoleColumns),
+		RolePermissions:           buildRolePermissionWhere[Q](RolePermissionColumns),
+		Users:                     buildUserWhere[Q](UserColumns),
+		UserAPIKeys:               buildUserAPIKeyWhere[Q](UserAPIKeyColumns),
+		UserRoleAssignments:       buildUserRoleAssignmentWhere[Q](UserRoleAssignmentColumns),
+		UserSessions:              buildUserSessionWhere[Q](UserSessionColumns),
 	}
 }
 
@@ -345,17 +455,23 @@ func (j joinSet[Q]) AliasedAs(alias string) joinSet[Q] {
 }
 
 type joins[Q dialect.Joinable] struct {
-	Games              joinSet[gameJoins[Q]]
-	GameServers        joinSet[gameServerJoins[Q]]
-	Ips                joinSet[ipJoins[Q]]
-	Logs               joinSet[logJoins[Q]]
-	Nodes              joinSet[nodeJoins[Q]]
-	NodeSyncQueues     joinSet[nodeSyncQueueJoins[Q]]
-	PeerSyncStates     joinSet[peerSyncStateJoins[Q]]
-	RemoteServerCaches joinSet[remoteServerCacheJoins[Q]]
-	Users              joinSet[userJoins[Q]]
-	UserAPIKeys        joinSet[userAPIKeyJoins[Q]]
-	UserSessions       joinSet[userSessionJoins[Q]]
+	FederatedAccessGrants  joinSet[federatedAccessGrantJoins[Q]]
+	FederationTrustedPeers joinSet[federationTrustedPeerJoins[Q]]
+	Games                  joinSet[gameJoins[Q]]
+	GameServers            joinSet[gameServerJoins[Q]]
+	Ips                    joinSet[ipJoins[Q]]
+	Logs                   joinSet[logJoins[Q]]
+	Nodes                  joinSet[nodeJoins[Q]]
+	NodeSyncQueues         joinSet[nodeSyncQueueJoins[Q]]
+	PeerSyncStates         joinSet[peerSyncStateJoins[Q]]
+	Permissions            joinSet[permissionJoins[Q]]
+	RemoteServerCaches     joinSet[remoteServerCacheJoins[Q]]
+	Roles                  joinSet[roleJoins[Q]]
+	RolePermissions        joinSet[rolePermissionJoins[Q]]
+	Users                  joinSet[userJoins[Q]]
+	UserAPIKeys            joinSet[userAPIKeyJoins[Q]]
+	UserRoleAssignments    joinSet[userRoleAssignmentJoins[Q]]
+	UserSessions           joinSet[userSessionJoins[Q]]
 }
 
 func buildJoinSet[Q interface{ aliasedAs(string) Q }, C any, F func(C, string) Q](c C, f F) joinSet[Q] {
@@ -368,17 +484,23 @@ func buildJoinSet[Q interface{ aliasedAs(string) Q }, C any, F func(C, string) Q
 
 func getJoins[Q dialect.Joinable]() joins[Q] {
 	return joins[Q]{
-		Games:              buildJoinSet[gameJoins[Q]](GameColumns, buildGameJoins),
-		GameServers:        buildJoinSet[gameServerJoins[Q]](GameServerColumns, buildGameServerJoins),
-		Ips:                buildJoinSet[ipJoins[Q]](IPColumns, buildIPJoins),
-		Logs:               buildJoinSet[logJoins[Q]](LogColumns, buildLogJoins),
-		Nodes:              buildJoinSet[nodeJoins[Q]](NodeColumns, buildNodeJoins),
-		NodeSyncQueues:     buildJoinSet[nodeSyncQueueJoins[Q]](NodeSyncQueueColumns, buildNodeSyncQueueJoins),
-		PeerSyncStates:     buildJoinSet[peerSyncStateJoins[Q]](PeerSyncStateColumns, buildPeerSyncStateJoins),
-		RemoteServerCaches: buildJoinSet[remoteServerCacheJoins[Q]](RemoteServerCacheColumns, buildRemoteServerCacheJoins),
-		Users:              buildJoinSet[userJoins[Q]](UserColumns, buildUserJoins),
-		UserAPIKeys:        buildJoinSet[userAPIKeyJoins[Q]](UserAPIKeyColumns, buildUserAPIKeyJoins),
-		UserSessions:       buildJoinSet[userSessionJoins[Q]](UserSessionColumns, buildUserSessionJoins),
+		FederatedAccessGrants:  buildJoinSet[federatedAccessGrantJoins[Q]](FederatedAccessGrantColumns, buildFederatedAccessGrantJoins),
+		FederationTrustedPeers: buildJoinSet[federationTrustedPeerJoins[Q]](FederationTrustedPeerColumns, buildFederationTrustedPeerJoins),
+		Games:                  buildJoinSet[gameJoins[Q]](GameColumns, buildGameJoins),
+		GameServers:            buildJoinSet[gameServerJoins[Q]](GameServerColumns, buildGameServerJoins),
+		Ips:                    buildJoinSet[ipJoins[Q]](IPColumns, buildIPJoins),
+		Logs:                   buildJoinSet[logJoins[Q]](LogColumns, buildLogJoins),
+		Nodes:                  buildJoinSet[nodeJoins[Q]](NodeColumns, buildNodeJoins),
+		NodeSyncQueues:         buildJoinSet[nodeSyncQueueJoins[Q]](NodeSyncQueueColumns, buildNodeSyncQueueJoins),
+		PeerSyncStates:         buildJoinSet[peerSyncStateJoins[Q]](PeerSyncStateColumns, buildPeerSyncStateJoins),
+		Permissions:            buildJoinSet[permissionJoins[Q]](PermissionColumns, buildPermissionJoins),
+		RemoteServerCaches:     buildJoinSet[remoteServerCacheJoins[Q]](RemoteServerCacheColumns, buildRemoteServerCacheJoins),
+		Roles:                  buildJoinSet[roleJoins[Q]](RoleColumns, buildRoleJoins),
+		RolePermissions:        buildJoinSet[rolePermissionJoins[Q]](RolePermissionColumns, buildRolePermissionJoins),
+		Users:                  buildJoinSet[userJoins[Q]](UserColumns, buildUserJoins),
+		UserAPIKeys:            buildJoinSet[userAPIKeyJoins[Q]](UserAPIKeyColumns, buildUserAPIKeyJoins),
+		UserRoleAssignments:    buildJoinSet[userRoleAssignmentJoins[Q]](UserRoleAssignmentColumns, buildUserRoleAssignmentJoins),
+		UserSessions:           buildJoinSet[userSessionJoins[Q]](UserSessionColumns, buildUserSessionJoins),
 	}
 }
 

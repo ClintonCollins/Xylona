@@ -38,6 +38,9 @@ const (
 	// FederationListServerSummariesProcedure is the fully-qualified name of the Federation's
 	// ListServerSummaries RPC.
 	FederationListServerSummariesProcedure = "/xylona.Federation/ListServerSummaries"
+	// FederationListUserSummariesProcedure is the fully-qualified name of the Federation's
+	// ListUserSummaries RPC.
+	FederationListUserSummariesProcedure = "/xylona.Federation/ListUserSummaries"
 	// FederationGetServerDetailProcedure is the fully-qualified name of the Federation's
 	// GetServerDetail RPC.
 	FederationGetServerDetailProcedure = "/xylona.Federation/GetServerDetail"
@@ -103,6 +106,8 @@ type FederationClient interface {
 	Handshake(context.Context, *connect.Request[xylona.FederationHandshakeRequest]) (*connect.Response[xylona.FederationHandshakeResponse], error)
 	// ListServerSummaries returns summaries of all local game servers for federation sync.
 	ListServerSummaries(context.Context, *connect.Request[xylona.FederationListServerSummariesRequest]) (*connect.Response[xylona.FederationListServerSummariesResponse], error)
+	// ListUserSummaries returns users for on-demand grant workflows.
+	ListUserSummaries(context.Context, *connect.Request[xylona.FederationListUserSummariesRequest]) (*connect.Response[xylona.FederationListUserSummariesResponse], error)
 	// GetServerDetail returns detailed info for a single local game server.
 	GetServerDetail(context.Context, *connect.Request[xylona.FederationGetServerDetailRequest]) (*connect.Response[xylona.FederationGetServerDetailResponse], error)
 	// StartRemoteServer starts a game server on this node.
@@ -158,6 +163,12 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			httpClient,
 			baseURL+FederationListServerSummariesProcedure,
 			connect.WithSchema(federationMethods.ByName("ListServerSummaries")),
+			connect.WithClientOptions(opts...),
+		),
+		listUserSummaries: connect.NewClient[xylona.FederationListUserSummariesRequest, xylona.FederationListUserSummariesResponse](
+			httpClient,
+			baseURL+FederationListUserSummariesProcedure,
+			connect.WithSchema(federationMethods.ByName("ListUserSummaries")),
 			connect.WithClientOptions(opts...),
 		),
 		getServerDetail: connect.NewClient[xylona.FederationGetServerDetailRequest, xylona.FederationGetServerDetailResponse](
@@ -281,6 +292,7 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 type federationClient struct {
 	handshake                   *connect.Client[xylona.FederationHandshakeRequest, xylona.FederationHandshakeResponse]
 	listServerSummaries         *connect.Client[xylona.FederationListServerSummariesRequest, xylona.FederationListServerSummariesResponse]
+	listUserSummaries           *connect.Client[xylona.FederationListUserSummariesRequest, xylona.FederationListUserSummariesResponse]
 	getServerDetail             *connect.Client[xylona.FederationGetServerDetailRequest, xylona.FederationGetServerDetailResponse]
 	startRemoteServer           *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
 	stopRemoteServer            *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
@@ -310,6 +322,11 @@ func (c *federationClient) Handshake(ctx context.Context, req *connect.Request[x
 // ListServerSummaries calls xylona.Federation.ListServerSummaries.
 func (c *federationClient) ListServerSummaries(ctx context.Context, req *connect.Request[xylona.FederationListServerSummariesRequest]) (*connect.Response[xylona.FederationListServerSummariesResponse], error) {
 	return c.listServerSummaries.CallUnary(ctx, req)
+}
+
+// ListUserSummaries calls xylona.Federation.ListUserSummaries.
+func (c *federationClient) ListUserSummaries(ctx context.Context, req *connect.Request[xylona.FederationListUserSummariesRequest]) (*connect.Response[xylona.FederationListUserSummariesResponse], error) {
+	return c.listUserSummaries.CallUnary(ctx, req)
 }
 
 // GetServerDetail calls xylona.Federation.GetServerDetail.
@@ -413,6 +430,8 @@ type FederationHandler interface {
 	Handshake(context.Context, *connect.Request[xylona.FederationHandshakeRequest]) (*connect.Response[xylona.FederationHandshakeResponse], error)
 	// ListServerSummaries returns summaries of all local game servers for federation sync.
 	ListServerSummaries(context.Context, *connect.Request[xylona.FederationListServerSummariesRequest]) (*connect.Response[xylona.FederationListServerSummariesResponse], error)
+	// ListUserSummaries returns users for on-demand grant workflows.
+	ListUserSummaries(context.Context, *connect.Request[xylona.FederationListUserSummariesRequest]) (*connect.Response[xylona.FederationListUserSummariesResponse], error)
 	// GetServerDetail returns detailed info for a single local game server.
 	GetServerDetail(context.Context, *connect.Request[xylona.FederationGetServerDetailRequest]) (*connect.Response[xylona.FederationGetServerDetailResponse], error)
 	// StartRemoteServer starts a game server on this node.
@@ -464,6 +483,12 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 		FederationListServerSummariesProcedure,
 		svc.ListServerSummaries,
 		connect.WithSchema(federationMethods.ByName("ListServerSummaries")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationListUserSummariesHandler := connect.NewUnaryHandler(
+		FederationListUserSummariesProcedure,
+		svc.ListUserSummaries,
+		connect.WithSchema(federationMethods.ByName("ListUserSummaries")),
 		connect.WithHandlerOptions(opts...),
 	)
 	federationGetServerDetailHandler := connect.NewUnaryHandler(
@@ -586,6 +611,8 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 			federationHandshakeHandler.ServeHTTP(w, r)
 		case FederationListServerSummariesProcedure:
 			federationListServerSummariesHandler.ServeHTTP(w, r)
+		case FederationListUserSummariesProcedure:
+			federationListUserSummariesHandler.ServeHTTP(w, r)
 		case FederationGetServerDetailProcedure:
 			federationGetServerDetailHandler.ServeHTTP(w, r)
 		case FederationStartRemoteServerProcedure:
@@ -639,6 +666,10 @@ func (UnimplementedFederationHandler) Handshake(context.Context, *connect.Reques
 
 func (UnimplementedFederationHandler) ListServerSummaries(context.Context, *connect.Request[xylona.FederationListServerSummariesRequest]) (*connect.Response[xylona.FederationListServerSummariesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.ListServerSummaries is not implemented"))
+}
+
+func (UnimplementedFederationHandler) ListUserSummaries(context.Context, *connect.Request[xylona.FederationListUserSummariesRequest]) (*connect.Response[xylona.FederationListUserSummariesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.ListUserSummaries is not implemented"))
 }
 
 func (UnimplementedFederationHandler) GetServerDetail(context.Context, *connect.Request[xylona.FederationGetServerDetailRequest]) (*connect.Response[xylona.FederationGetServerDetailResponse], error) {

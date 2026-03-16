@@ -62,10 +62,12 @@ type NodesQuery = *sqlite.ViewQuery[*Node, NodeSlice]
 
 // nodeR is where relationships are stored.
 type nodeR struct {
-	GameServers        GameServerSlice        // fk_game_server_0
-	NodeSyncQueues     NodeSyncQueueSlice     // fk_node_sync_queue_0
-	PeerSyncState      *PeerSyncState         // fk_peer_sync_state_0
-	RemoteServerCaches RemoteServerCacheSlice // fk_remote_server_cache_0
+	RemoteNodeFederatedAccessGrants FederatedAccessGrantSlice // fk_federated_access_grant_2
+	FederationTrustedPeer           *FederationTrustedPeer    // fk_federation_trusted_peer_0
+	GameServers                     GameServerSlice           // fk_game_server_0
+	NodeSyncQueues                  NodeSyncQueueSlice        // fk_node_sync_queue_0
+	PeerSyncState                   *PeerSyncState            // fk_peer_sync_state_0
+	RemoteServerCaches              RemoteServerCacheSlice    // fk_remote_server_cache_0
 }
 
 type nodeColumnNames struct {
@@ -822,11 +824,13 @@ func (o NodeSlice) ReloadAll(ctx context.Context, exec bob.Executor) error {
 }
 
 type nodeJoins[Q dialect.Joinable] struct {
-	typ                string
-	GameServers        func(context.Context) modAs[Q, gameServerColumns]
-	NodeSyncQueues     func(context.Context) modAs[Q, nodeSyncQueueColumns]
-	PeerSyncState      func(context.Context) modAs[Q, peerSyncStateColumns]
-	RemoteServerCaches func(context.Context) modAs[Q, remoteServerCacheColumns]
+	typ                             string
+	RemoteNodeFederatedAccessGrants func(context.Context) modAs[Q, federatedAccessGrantColumns]
+	FederationTrustedPeer           func(context.Context) modAs[Q, federationTrustedPeerColumns]
+	GameServers                     func(context.Context) modAs[Q, gameServerColumns]
+	NodeSyncQueues                  func(context.Context) modAs[Q, nodeSyncQueueColumns]
+	PeerSyncState                   func(context.Context) modAs[Q, peerSyncStateColumns]
+	RemoteServerCaches              func(context.Context) modAs[Q, remoteServerCacheColumns]
 }
 
 func (j nodeJoins[Q]) aliasedAs(alias string) nodeJoins[Q] {
@@ -835,11 +839,51 @@ func (j nodeJoins[Q]) aliasedAs(alias string) nodeJoins[Q] {
 
 func buildNodeJoins[Q dialect.Joinable](cols nodeColumns, typ string) nodeJoins[Q] {
 	return nodeJoins[Q]{
-		typ:                typ,
-		GameServers:        nodesJoinGameServers[Q](cols, typ),
-		NodeSyncQueues:     nodesJoinNodeSyncQueues[Q](cols, typ),
-		PeerSyncState:      nodesJoinPeerSyncState[Q](cols, typ),
-		RemoteServerCaches: nodesJoinRemoteServerCaches[Q](cols, typ),
+		typ:                             typ,
+		RemoteNodeFederatedAccessGrants: nodesJoinRemoteNodeFederatedAccessGrants[Q](cols, typ),
+		FederationTrustedPeer:           nodesJoinFederationTrustedPeer[Q](cols, typ),
+		GameServers:                     nodesJoinGameServers[Q](cols, typ),
+		NodeSyncQueues:                  nodesJoinNodeSyncQueues[Q](cols, typ),
+		PeerSyncState:                   nodesJoinPeerSyncState[Q](cols, typ),
+		RemoteServerCaches:              nodesJoinRemoteServerCaches[Q](cols, typ),
+	}
+}
+
+func nodesJoinRemoteNodeFederatedAccessGrants[Q dialect.Joinable](from nodeColumns, typ string) func(context.Context) modAs[Q, federatedAccessGrantColumns] {
+	return func(ctx context.Context) modAs[Q, federatedAccessGrantColumns] {
+		return modAs[Q, federatedAccessGrantColumns]{
+			c: FederatedAccessGrantColumns,
+			f: func(to federatedAccessGrantColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, FederatedAccessGrants.Name().As(to.Alias())).On(
+						to.RemoteNodeID.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
+	}
+}
+
+func nodesJoinFederationTrustedPeer[Q dialect.Joinable](from nodeColumns, typ string) func(context.Context) modAs[Q, federationTrustedPeerColumns] {
+	return func(ctx context.Context) modAs[Q, federationTrustedPeerColumns] {
+		return modAs[Q, federationTrustedPeerColumns]{
+			c: FederationTrustedPeerColumns,
+			f: func(to federationTrustedPeerColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, FederationTrustedPeers.Name().As(to.Alias())).On(
+						to.NodeID.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
 	}
 }
 
@@ -917,6 +961,42 @@ func nodesJoinRemoteServerCaches[Q dialect.Joinable](from nodeColumns, typ strin
 			},
 		}
 	}
+}
+
+// RemoteNodeFederatedAccessGrants starts a query for related objects on federated_access_grant
+func (o *Node) RemoteNodeFederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
+	return FederatedAccessGrants.Query(append(mods,
+		sm.Where(FederatedAccessGrantColumns.RemoteNodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) RemoteNodeFederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return FederatedAccessGrants.Query(append(mods,
+		sm.Where(sqlite.Group(FederatedAccessGrantColumns.RemoteNodeID).In(PKArgs...)),
+	)...)
+}
+
+// FederationTrustedPeer starts a query for related objects on federation_trusted_peer
+func (o *Node) FederationTrustedPeer(mods ...bob.Mod[*dialect.SelectQuery]) FederationTrustedPeersQuery {
+	return FederationTrustedPeers.Query(append(mods,
+		sm.Where(FederationTrustedPeerColumns.NodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) FederationTrustedPeer(mods ...bob.Mod[*dialect.SelectQuery]) FederationTrustedPeersQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return FederationTrustedPeers.Query(append(mods,
+		sm.Where(sqlite.Group(FederationTrustedPeerColumns.NodeID).In(PKArgs...)),
+	)...)
 }
 
 // GameServers starts a query for related objects on game_server
@@ -997,6 +1077,32 @@ func (o *Node) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
+	case "RemoteNodeFederatedAccessGrants":
+		rels, ok := retrieved.(FederatedAccessGrantSlice)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.RemoteNodeFederatedAccessGrants = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.RemoteNodeNode = o
+			}
+		}
+		return nil
+	case "FederationTrustedPeer":
+		rel, ok := retrieved.(*FederationTrustedPeer)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.FederationTrustedPeer = rel
+
+		if rel != nil {
+			rel.R.Node = o
+		}
+		return nil
 	case "GameServers":
 		rels, ok := retrieved.(GameServerSlice)
 		if !ok {
@@ -1054,6 +1160,163 @@ func (o *Node) Preload(name string, retrieved any) error {
 	default:
 		return fmt.Errorf("node has no relationship %q", name)
 	}
+}
+
+func ThenLoadNodeRemoteNodeFederatedAccessGrants(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadNodeRemoteNodeFederatedAccessGrants(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load NodeRemoteNodeFederatedAccessGrants", retrieved)
+		}
+
+		err := loader.LoadNodeRemoteNodeFederatedAccessGrants(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadNodeRemoteNodeFederatedAccessGrants loads the node's RemoteNodeFederatedAccessGrants into the .R struct
+func (o *Node) LoadNodeRemoteNodeFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.RemoteNodeFederatedAccessGrants = nil
+
+	related, err := o.RemoteNodeFederatedAccessGrants(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.RemoteNodeNode = o
+	}
+
+	o.R.RemoteNodeFederatedAccessGrants = related
+	return nil
+}
+
+// LoadNodeRemoteNodeFederatedAccessGrants loads the node's RemoteNodeFederatedAccessGrants into the .R struct
+func (os NodeSlice) LoadNodeRemoteNodeFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	federatedAccessGrants, err := os.RemoteNodeFederatedAccessGrants(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		o.R.RemoteNodeFederatedAccessGrants = nil
+	}
+
+	for _, o := range os {
+		for _, rel := range federatedAccessGrants {
+			if o.ID != rel.RemoteNodeID {
+				continue
+			}
+
+			rel.R.RemoteNodeNode = o
+
+			o.R.RemoteNodeFederatedAccessGrants = append(o.R.RemoteNodeFederatedAccessGrants, rel)
+		}
+	}
+
+	return nil
+}
+
+func PreloadNodeFederationTrustedPeer(opts ...sqlite.PreloadOption) sqlite.Preloader {
+	return sqlite.Preload[*FederationTrustedPeer, FederationTrustedPeerSlice](orm.Relationship{
+		Name: "FederationTrustedPeer",
+		Sides: []orm.RelSide{
+			{
+				From: TableNames.Nodes,
+				To:   TableNames.FederationTrustedPeers,
+				FromColumns: []string{
+					ColumnNames.Nodes.ID,
+				},
+				ToColumns: []string{
+					ColumnNames.FederationTrustedPeers.NodeID,
+				},
+			},
+		},
+	}, FederationTrustedPeers.Columns().Names(), opts...)
+}
+
+func ThenLoadNodeFederationTrustedPeer(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadNodeFederationTrustedPeer(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load NodeFederationTrustedPeer", retrieved)
+		}
+
+		err := loader.LoadNodeFederationTrustedPeer(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadNodeFederationTrustedPeer loads the node's FederationTrustedPeer into the .R struct
+func (o *Node) LoadNodeFederationTrustedPeer(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.FederationTrustedPeer = nil
+
+	related, err := o.FederationTrustedPeer(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.Node = o
+
+	o.R.FederationTrustedPeer = related
+	return nil
+}
+
+// LoadNodeFederationTrustedPeer loads the node's FederationTrustedPeer into the .R struct
+func (os NodeSlice) LoadNodeFederationTrustedPeer(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	federationTrustedPeers, err := os.FederationTrustedPeer(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		for _, rel := range federationTrustedPeers {
+			if o.ID != rel.NodeID {
+				continue
+			}
+
+			rel.R.Node = o
+
+			o.R.FederationTrustedPeer = rel
+			break
+		}
+	}
+
+	return nil
 }
 
 func ThenLoadNodeGameServers(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
@@ -1353,6 +1616,126 @@ func (os NodeSlice) LoadNodeRemoteServerCaches(ctx context.Context, exec bob.Exe
 			o.R.RemoteServerCaches = append(o.R.RemoteServerCaches, rel)
 		}
 	}
+
+	return nil
+}
+
+func insertNodeRemoteNodeFederatedAccessGrants0(ctx context.Context, exec bob.Executor, federatedAccessGrants1 []*FederatedAccessGrantSetter, node0 *Node) (FederatedAccessGrantSlice, error) {
+	for i := range federatedAccessGrants1 {
+		federatedAccessGrants1[i].RemoteNodeID = omit.From(node0.ID)
+	}
+
+	ret, err := FederatedAccessGrants.Insert(bob.ToMods(federatedAccessGrants1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodeRemoteNodeFederatedAccessGrants0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodeRemoteNodeFederatedAccessGrants0(ctx context.Context, exec bob.Executor, count int, federatedAccessGrants1 FederatedAccessGrantSlice, node0 *Node) (FederatedAccessGrantSlice, error) {
+	setter := &FederatedAccessGrantSetter{
+		RemoteNodeID: omit.From(node0.ID),
+	}
+
+	err := federatedAccessGrants1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodeRemoteNodeFederatedAccessGrants0: %w", err)
+	}
+
+	return federatedAccessGrants1, nil
+}
+
+func (node0 *Node) InsertRemoteNodeFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrantSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	federatedAccessGrants1, err := insertNodeRemoteNodeFederatedAccessGrants0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.RemoteNodeFederatedAccessGrants = append(node0.R.RemoteNodeFederatedAccessGrants, federatedAccessGrants1...)
+
+	for _, rel := range federatedAccessGrants1 {
+		rel.R.RemoteNodeNode = node0
+	}
+	return nil
+}
+
+func (node0 *Node) AttachRemoteNodeFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrant) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	federatedAccessGrants1 := FederatedAccessGrantSlice(related)
+
+	_, err = attachNodeRemoteNodeFederatedAccessGrants0(ctx, exec, len(related), federatedAccessGrants1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.RemoteNodeFederatedAccessGrants = append(node0.R.RemoteNodeFederatedAccessGrants, federatedAccessGrants1...)
+
+	for _, rel := range related {
+		rel.R.RemoteNodeNode = node0
+	}
+
+	return nil
+}
+
+func insertNodeFederationTrustedPeer0(ctx context.Context, exec bob.Executor, federationTrustedPeer1 *FederationTrustedPeerSetter, node0 *Node) (*FederationTrustedPeer, error) {
+	federationTrustedPeer1.NodeID = omit.From(node0.ID)
+
+	ret, err := FederationTrustedPeers.Insert(federationTrustedPeer1).One(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodeFederationTrustedPeer0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodeFederationTrustedPeer0(ctx context.Context, exec bob.Executor, count int, federationTrustedPeer1 *FederationTrustedPeer, node0 *Node) (*FederationTrustedPeer, error) {
+	setter := &FederationTrustedPeerSetter{
+		NodeID: omit.From(node0.ID),
+	}
+
+	err := federationTrustedPeer1.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodeFederationTrustedPeer0: %w", err)
+	}
+
+	return federationTrustedPeer1, nil
+}
+
+func (node0 *Node) InsertFederationTrustedPeer(ctx context.Context, exec bob.Executor, related *FederationTrustedPeerSetter) error {
+	federationTrustedPeer1, err := insertNodeFederationTrustedPeer0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.FederationTrustedPeer = federationTrustedPeer1
+
+	federationTrustedPeer1.R.Node = node0
+
+	return nil
+}
+
+func (node0 *Node) AttachFederationTrustedPeer(ctx context.Context, exec bob.Executor, federationTrustedPeer1 *FederationTrustedPeer) error {
+	var err error
+
+	_, err = attachNodeFederationTrustedPeer0(ctx, exec, 1, federationTrustedPeer1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.FederationTrustedPeer = federationTrustedPeer1
+
+	federationTrustedPeer1.R.Node = node0
 
 	return nil
 }

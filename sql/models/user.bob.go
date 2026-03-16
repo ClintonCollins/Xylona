@@ -51,10 +51,13 @@ type UsersQuery = *sqlite.ViewQuery[*User, UserSlice]
 
 // userR is where relationships are stored.
 type userR struct {
-	GameServers  GameServerSlice  // fk_game_server_3
-	Logs         LogSlice         // fk_log_2
-	UserAPIKeys  UserAPIKeySlice  // fk_user_api_key_0
-	UserSessions UserSessionSlice // fk_user_session_0
+	GrantedByFederatedAccessGrants FederatedAccessGrantSlice // fk_federated_access_grant_0
+	GameServers                    GameServerSlice           // fk_game_server_3
+	Logs                           LogSlice                  // fk_log_2
+	UserAPIKeys                    UserAPIKeySlice           // fk_user_api_key_0
+	GrantedByUserRoleAssignments   UserRoleAssignmentSlice   // fk_user_role_assignment_0
+	UserRoleAssignments            UserRoleAssignmentSlice   // fk_user_role_assignment_3
+	UserSessions                   UserSessionSlice          // fk_user_session_0
 }
 
 type userColumnNames struct {
@@ -603,11 +606,14 @@ func (o UserSlice) ReloadAll(ctx context.Context, exec bob.Executor) error {
 }
 
 type userJoins[Q dialect.Joinable] struct {
-	typ          string
-	GameServers  func(context.Context) modAs[Q, gameServerColumns]
-	Logs         func(context.Context) modAs[Q, logColumns]
-	UserAPIKeys  func(context.Context) modAs[Q, userAPIKeyColumns]
-	UserSessions func(context.Context) modAs[Q, userSessionColumns]
+	typ                            string
+	GrantedByFederatedAccessGrants func(context.Context) modAs[Q, federatedAccessGrantColumns]
+	GameServers                    func(context.Context) modAs[Q, gameServerColumns]
+	Logs                           func(context.Context) modAs[Q, logColumns]
+	UserAPIKeys                    func(context.Context) modAs[Q, userAPIKeyColumns]
+	GrantedByUserRoleAssignments   func(context.Context) modAs[Q, userRoleAssignmentColumns]
+	UserRoleAssignments            func(context.Context) modAs[Q, userRoleAssignmentColumns]
+	UserSessions                   func(context.Context) modAs[Q, userSessionColumns]
 }
 
 func (j userJoins[Q]) aliasedAs(alias string) userJoins[Q] {
@@ -616,11 +622,33 @@ func (j userJoins[Q]) aliasedAs(alias string) userJoins[Q] {
 
 func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[Q] {
 	return userJoins[Q]{
-		typ:          typ,
-		GameServers:  usersJoinGameServers[Q](cols, typ),
-		Logs:         usersJoinLogs[Q](cols, typ),
-		UserAPIKeys:  usersJoinUserAPIKeys[Q](cols, typ),
-		UserSessions: usersJoinUserSessions[Q](cols, typ),
+		typ:                            typ,
+		GrantedByFederatedAccessGrants: usersJoinGrantedByFederatedAccessGrants[Q](cols, typ),
+		GameServers:                    usersJoinGameServers[Q](cols, typ),
+		Logs:                           usersJoinLogs[Q](cols, typ),
+		UserAPIKeys:                    usersJoinUserAPIKeys[Q](cols, typ),
+		GrantedByUserRoleAssignments:   usersJoinGrantedByUserRoleAssignments[Q](cols, typ),
+		UserRoleAssignments:            usersJoinUserRoleAssignments[Q](cols, typ),
+		UserSessions:                   usersJoinUserSessions[Q](cols, typ),
+	}
+}
+
+func usersJoinGrantedByFederatedAccessGrants[Q dialect.Joinable](from userColumns, typ string) func(context.Context) modAs[Q, federatedAccessGrantColumns] {
+	return func(ctx context.Context) modAs[Q, federatedAccessGrantColumns] {
+		return modAs[Q, federatedAccessGrantColumns]{
+			c: FederatedAccessGrantColumns,
+			f: func(to federatedAccessGrantColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, FederatedAccessGrants.Name().As(to.Alias())).On(
+						to.GrantedBy.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
 	}
 }
 
@@ -681,6 +709,44 @@ func usersJoinUserAPIKeys[Q dialect.Joinable](from userColumns, typ string) func
 	}
 }
 
+func usersJoinGrantedByUserRoleAssignments[Q dialect.Joinable](from userColumns, typ string) func(context.Context) modAs[Q, userRoleAssignmentColumns] {
+	return func(ctx context.Context) modAs[Q, userRoleAssignmentColumns] {
+		return modAs[Q, userRoleAssignmentColumns]{
+			c: UserRoleAssignmentColumns,
+			f: func(to userRoleAssignmentColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, UserRoleAssignments.Name().As(to.Alias())).On(
+						to.GrantedBy.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
+	}
+}
+
+func usersJoinUserRoleAssignments[Q dialect.Joinable](from userColumns, typ string) func(context.Context) modAs[Q, userRoleAssignmentColumns] {
+	return func(ctx context.Context) modAs[Q, userRoleAssignmentColumns] {
+		return modAs[Q, userRoleAssignmentColumns]{
+			c: UserRoleAssignmentColumns,
+			f: func(to userRoleAssignmentColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, UserRoleAssignments.Name().As(to.Alias())).On(
+						to.UserID.EQ(from.ID),
+					))
+				}
+
+				return mods
+			},
+		}
+	}
+}
+
 func usersJoinUserSessions[Q dialect.Joinable](from userColumns, typ string) func(context.Context) modAs[Q, userSessionColumns] {
 	return func(ctx context.Context) modAs[Q, userSessionColumns] {
 		return modAs[Q, userSessionColumns]{
@@ -698,6 +764,24 @@ func usersJoinUserSessions[Q dialect.Joinable](from userColumns, typ string) fun
 			},
 		}
 	}
+}
+
+// GrantedByFederatedAccessGrants starts a query for related objects on federated_access_grant
+func (o *User) GrantedByFederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
+	return FederatedAccessGrants.Query(append(mods,
+		sm.Where(FederatedAccessGrantColumns.GrantedBy.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) GrantedByFederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return FederatedAccessGrants.Query(append(mods,
+		sm.Where(sqlite.Group(FederatedAccessGrantColumns.GrantedBy).In(PKArgs...)),
+	)...)
 }
 
 // GameServers starts a query for related objects on game_server
@@ -754,6 +838,42 @@ func (os UserSlice) UserAPIKeys(mods ...bob.Mod[*dialect.SelectQuery]) UserAPIKe
 	)...)
 }
 
+// GrantedByUserRoleAssignments starts a query for related objects on user_role_assignment
+func (o *User) GrantedByUserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) UserRoleAssignmentsQuery {
+	return UserRoleAssignments.Query(append(mods,
+		sm.Where(UserRoleAssignmentColumns.GrantedBy.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) GrantedByUserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) UserRoleAssignmentsQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return UserRoleAssignments.Query(append(mods,
+		sm.Where(sqlite.Group(UserRoleAssignmentColumns.GrantedBy).In(PKArgs...)),
+	)...)
+}
+
+// UserRoleAssignments starts a query for related objects on user_role_assignment
+func (o *User) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) UserRoleAssignmentsQuery {
+	return UserRoleAssignments.Query(append(mods,
+		sm.Where(UserRoleAssignmentColumns.UserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) UserRoleAssignmentsQuery {
+	PKArgs := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgs[i] = sqlite.ArgGroup(o.ID)
+	}
+
+	return UserRoleAssignments.Query(append(mods,
+		sm.Where(sqlite.Group(UserRoleAssignmentColumns.UserID).In(PKArgs...)),
+	)...)
+}
+
 // UserSessions starts a query for related objects on user_session
 func (o *User) UserSessions(mods ...bob.Mod[*dialect.SelectQuery]) UserSessionsQuery {
 	return UserSessions.Query(append(mods,
@@ -778,6 +898,20 @@ func (o *User) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
+	case "GrantedByFederatedAccessGrants":
+		rels, ok := retrieved.(FederatedAccessGrantSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GrantedByFederatedAccessGrants = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GrantedByUser = o
+			}
+		}
+		return nil
 	case "GameServers":
 		rels, ok := retrieved.(GameServerSlice)
 		if !ok {
@@ -820,6 +954,34 @@ func (o *User) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "GrantedByUserRoleAssignments":
+		rels, ok := retrieved.(UserRoleAssignmentSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GrantedByUserRoleAssignments = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GrantedByUser = o
+			}
+		}
+		return nil
+	case "UserRoleAssignments":
+		rels, ok := retrieved.(UserRoleAssignmentSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.UserRoleAssignments = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.User = o
+			}
+		}
+		return nil
 	case "UserSessions":
 		rels, ok := retrieved.(UserSessionSlice)
 		if !ok {
@@ -837,6 +999,78 @@ func (o *User) Preload(name string, retrieved any) error {
 	default:
 		return fmt.Errorf("user has no relationship %q", name)
 	}
+}
+
+func ThenLoadUserGrantedByFederatedAccessGrants(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadUserGrantedByFederatedAccessGrants(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load UserGrantedByFederatedAccessGrants", retrieved)
+		}
+
+		err := loader.LoadUserGrantedByFederatedAccessGrants(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadUserGrantedByFederatedAccessGrants loads the user's GrantedByFederatedAccessGrants into the .R struct
+func (o *User) LoadUserGrantedByFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GrantedByFederatedAccessGrants = nil
+
+	related, err := o.GrantedByFederatedAccessGrants(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GrantedByUser = o
+	}
+
+	o.R.GrantedByFederatedAccessGrants = related
+	return nil
+}
+
+// LoadUserGrantedByFederatedAccessGrants loads the user's GrantedByFederatedAccessGrants into the .R struct
+func (os UserSlice) LoadUserGrantedByFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	federatedAccessGrants, err := os.GrantedByFederatedAccessGrants(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		o.R.GrantedByFederatedAccessGrants = nil
+	}
+
+	for _, o := range os {
+		for _, rel := range federatedAccessGrants {
+			if o.ID != rel.GrantedBy {
+				continue
+			}
+
+			rel.R.GrantedByUser = o
+
+			o.R.GrantedByFederatedAccessGrants = append(o.R.GrantedByFederatedAccessGrants, rel)
+		}
+	}
+
+	return nil
 }
 
 func ThenLoadUserGameServers(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
@@ -1055,6 +1289,150 @@ func (os UserSlice) LoadUserUserAPIKeys(ctx context.Context, exec bob.Executor, 
 	return nil
 }
 
+func ThenLoadUserGrantedByUserRoleAssignments(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadUserGrantedByUserRoleAssignments(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load UserGrantedByUserRoleAssignments", retrieved)
+		}
+
+		err := loader.LoadUserGrantedByUserRoleAssignments(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadUserGrantedByUserRoleAssignments loads the user's GrantedByUserRoleAssignments into the .R struct
+func (o *User) LoadUserGrantedByUserRoleAssignments(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GrantedByUserRoleAssignments = nil
+
+	related, err := o.GrantedByUserRoleAssignments(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GrantedByUser = o
+	}
+
+	o.R.GrantedByUserRoleAssignments = related
+	return nil
+}
+
+// LoadUserGrantedByUserRoleAssignments loads the user's GrantedByUserRoleAssignments into the .R struct
+func (os UserSlice) LoadUserGrantedByUserRoleAssignments(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	userRoleAssignments, err := os.GrantedByUserRoleAssignments(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		o.R.GrantedByUserRoleAssignments = nil
+	}
+
+	for _, o := range os {
+		for _, rel := range userRoleAssignments {
+			if o.ID != rel.GrantedBy {
+				continue
+			}
+
+			rel.R.GrantedByUser = o
+
+			o.R.GrantedByUserRoleAssignments = append(o.R.GrantedByUserRoleAssignments, rel)
+		}
+	}
+
+	return nil
+}
+
+func ThenLoadUserUserRoleAssignments(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
+	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
+		loader, isLoader := retrieved.(interface {
+			LoadUserUserRoleAssignments(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+		})
+		if !isLoader {
+			return fmt.Errorf("object %T cannot load UserUserRoleAssignments", retrieved)
+		}
+
+		err := loader.LoadUserUserRoleAssignments(ctx, exec, queryMods...)
+
+		// Don't cause an issue due to missing relationships
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	})
+}
+
+// LoadUserUserRoleAssignments loads the user's UserRoleAssignments into the .R struct
+func (o *User) LoadUserUserRoleAssignments(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.UserRoleAssignments = nil
+
+	related, err := o.UserRoleAssignments(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.User = o
+	}
+
+	o.R.UserRoleAssignments = related
+	return nil
+}
+
+// LoadUserUserRoleAssignments loads the user's UserRoleAssignments into the .R struct
+func (os UserSlice) LoadUserUserRoleAssignments(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	userRoleAssignments, err := os.UserRoleAssignments(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		o.R.UserRoleAssignments = nil
+	}
+
+	for _, o := range os {
+		for _, rel := range userRoleAssignments {
+			if o.ID != rel.UserID {
+				continue
+			}
+
+			rel.R.User = o
+
+			o.R.UserRoleAssignments = append(o.R.UserRoleAssignments, rel)
+		}
+	}
+
+	return nil
+}
+
 func ThenLoadUserUserSessions(queryMods ...bob.Mod[*dialect.SelectQuery]) sqlite.Loader {
 	return sqlite.Loader(func(ctx context.Context, exec bob.Executor, retrieved any) error {
 		loader, isLoader := retrieved.(interface {
@@ -1122,6 +1500,74 @@ func (os UserSlice) LoadUserUserSessions(ctx context.Context, exec bob.Executor,
 
 			o.R.UserSessions = append(o.R.UserSessions, rel)
 		}
+	}
+
+	return nil
+}
+
+func insertUserGrantedByFederatedAccessGrants0(ctx context.Context, exec bob.Executor, federatedAccessGrants1 []*FederatedAccessGrantSetter, user0 *User) (FederatedAccessGrantSlice, error) {
+	for i := range federatedAccessGrants1 {
+		federatedAccessGrants1[i].GrantedBy = omit.From(user0.ID)
+	}
+
+	ret, err := FederatedAccessGrants.Insert(bob.ToMods(federatedAccessGrants1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserGrantedByFederatedAccessGrants0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserGrantedByFederatedAccessGrants0(ctx context.Context, exec bob.Executor, count int, federatedAccessGrants1 FederatedAccessGrantSlice, user0 *User) (FederatedAccessGrantSlice, error) {
+	setter := &FederatedAccessGrantSetter{
+		GrantedBy: omit.From(user0.ID),
+	}
+
+	err := federatedAccessGrants1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserGrantedByFederatedAccessGrants0: %w", err)
+	}
+
+	return federatedAccessGrants1, nil
+}
+
+func (user0 *User) InsertGrantedByFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrantSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	federatedAccessGrants1, err := insertUserGrantedByFederatedAccessGrants0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.GrantedByFederatedAccessGrants = append(user0.R.GrantedByFederatedAccessGrants, federatedAccessGrants1...)
+
+	for _, rel := range federatedAccessGrants1 {
+		rel.R.GrantedByUser = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachGrantedByFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrant) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	federatedAccessGrants1 := FederatedAccessGrantSlice(related)
+
+	_, err = attachUserGrantedByFederatedAccessGrants0(ctx, exec, len(related), federatedAccessGrants1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.GrantedByFederatedAccessGrants = append(user0.R.GrantedByFederatedAccessGrants, federatedAccessGrants1...)
+
+	for _, rel := range related {
+		rel.R.GrantedByUser = user0
 	}
 
 	return nil
@@ -1323,6 +1769,142 @@ func (user0 *User) AttachUserAPIKeys(ctx context.Context, exec bob.Executor, rel
 	}
 
 	user0.R.UserAPIKeys = append(user0.R.UserAPIKeys, userAPIKeys1...)
+
+	for _, rel := range related {
+		rel.R.User = user0
+	}
+
+	return nil
+}
+
+func insertUserGrantedByUserRoleAssignments0(ctx context.Context, exec bob.Executor, userRoleAssignments1 []*UserRoleAssignmentSetter, user0 *User) (UserRoleAssignmentSlice, error) {
+	for i := range userRoleAssignments1 {
+		userRoleAssignments1[i].GrantedBy = omit.From(user0.ID)
+	}
+
+	ret, err := UserRoleAssignments.Insert(bob.ToMods(userRoleAssignments1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserGrantedByUserRoleAssignments0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserGrantedByUserRoleAssignments0(ctx context.Context, exec bob.Executor, count int, userRoleAssignments1 UserRoleAssignmentSlice, user0 *User) (UserRoleAssignmentSlice, error) {
+	setter := &UserRoleAssignmentSetter{
+		GrantedBy: omit.From(user0.ID),
+	}
+
+	err := userRoleAssignments1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserGrantedByUserRoleAssignments0: %w", err)
+	}
+
+	return userRoleAssignments1, nil
+}
+
+func (user0 *User) InsertGrantedByUserRoleAssignments(ctx context.Context, exec bob.Executor, related ...*UserRoleAssignmentSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	userRoleAssignments1, err := insertUserGrantedByUserRoleAssignments0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.GrantedByUserRoleAssignments = append(user0.R.GrantedByUserRoleAssignments, userRoleAssignments1...)
+
+	for _, rel := range userRoleAssignments1 {
+		rel.R.GrantedByUser = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachGrantedByUserRoleAssignments(ctx context.Context, exec bob.Executor, related ...*UserRoleAssignment) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	userRoleAssignments1 := UserRoleAssignmentSlice(related)
+
+	_, err = attachUserGrantedByUserRoleAssignments0(ctx, exec, len(related), userRoleAssignments1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.GrantedByUserRoleAssignments = append(user0.R.GrantedByUserRoleAssignments, userRoleAssignments1...)
+
+	for _, rel := range related {
+		rel.R.GrantedByUser = user0
+	}
+
+	return nil
+}
+
+func insertUserUserRoleAssignments0(ctx context.Context, exec bob.Executor, userRoleAssignments1 []*UserRoleAssignmentSetter, user0 *User) (UserRoleAssignmentSlice, error) {
+	for i := range userRoleAssignments1 {
+		userRoleAssignments1[i].UserID = omit.From(user0.ID)
+	}
+
+	ret, err := UserRoleAssignments.Insert(bob.ToMods(userRoleAssignments1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserUserRoleAssignments0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserUserRoleAssignments0(ctx context.Context, exec bob.Executor, count int, userRoleAssignments1 UserRoleAssignmentSlice, user0 *User) (UserRoleAssignmentSlice, error) {
+	setter := &UserRoleAssignmentSetter{
+		UserID: omit.From(user0.ID),
+	}
+
+	err := userRoleAssignments1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserUserRoleAssignments0: %w", err)
+	}
+
+	return userRoleAssignments1, nil
+}
+
+func (user0 *User) InsertUserRoleAssignments(ctx context.Context, exec bob.Executor, related ...*UserRoleAssignmentSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	userRoleAssignments1, err := insertUserUserRoleAssignments0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UserRoleAssignments = append(user0.R.UserRoleAssignments, userRoleAssignments1...)
+
+	for _, rel := range userRoleAssignments1 {
+		rel.R.User = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachUserRoleAssignments(ctx context.Context, exec bob.Executor, related ...*UserRoleAssignment) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	userRoleAssignments1 := UserRoleAssignmentSlice(related)
+
+	_, err = attachUserUserRoleAssignments0(ctx, exec, len(related), userRoleAssignments1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UserRoleAssignments = append(user0.R.UserRoleAssignments, userRoleAssignments1...)
 
 	for _, rel := range related {
 		rel.R.User = user0

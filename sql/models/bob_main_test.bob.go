@@ -5,6 +5,18 @@ package models
 
 import "github.com/stephenafamo/bob"
 
+// Make sure the type FederatedAccessGrant runs hooks after queries
+var _ bob.HookableType = &FederatedAccessGrant{}
+
+// Make sure the type FederationLocalIdentity runs hooks after queries
+var _ bob.HookableType = &FederationLocalIdentity{}
+
+// Make sure the type FederationPairingToken runs hooks after queries
+var _ bob.HookableType = &FederationPairingToken{}
+
+// Make sure the type FederationTrustedPeer runs hooks after queries
+var _ bob.HookableType = &FederationTrustedPeer{}
+
 // Make sure the type Game runs hooks after queries
 var _ bob.HookableType = &Game{}
 
@@ -38,17 +50,29 @@ var _ bob.HookableType = &Notification{}
 // Make sure the type PeerSyncState runs hooks after queries
 var _ bob.HookableType = &PeerSyncState{}
 
+// Make sure the type Permission runs hooks after queries
+var _ bob.HookableType = &Permission{}
+
 // Make sure the type RemoteServerCache runs hooks after queries
 var _ bob.HookableType = &RemoteServerCache{}
 
 // Make sure the type RevokedJWT runs hooks after queries
 var _ bob.HookableType = &RevokedJWT{}
 
+// Make sure the type Role runs hooks after queries
+var _ bob.HookableType = &Role{}
+
+// Make sure the type RolePermission runs hooks after queries
+var _ bob.HookableType = &RolePermission{}
+
 // Make sure the type User runs hooks after queries
 var _ bob.HookableType = &User{}
 
 // Make sure the type UserAPIKey runs hooks after queries
 var _ bob.HookableType = &UserAPIKey{}
+
+// Make sure the type UserRoleAssignment runs hooks after queries
+var _ bob.HookableType = &UserRoleAssignment{}
 
 // Make sure the type UserSession runs hooks after queries
 var _ bob.HookableType = &UserSession{}

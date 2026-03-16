@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -52,6 +53,45 @@ func (fs FederationService) authenticateRequest(ctx context.Context) (Federation
 		return FederationPeerIdentity{}, errors.New("federation peer node configuration is required")
 	}
 	return identity, nil
+}
+
+func (fs FederationService) authorizeFederatedPermission(
+	header http.Header,
+	actingUserID string,
+	originNodeID string,
+	serverID string,
+	permissionID string,
+) error {
+	if strings.TrimSpace(actingUserID) == "" || strings.TrimSpace(originNodeID) == "" {
+		headerUserID, headerOriginNodeID := getFederatedActingIdentity(header)
+		actingUserID = strings.TrimSpace(headerUserID)
+		originNodeID = strings.TrimSpace(headerOriginNodeID)
+	}
+
+	if actingUserID == "" || originNodeID == "" {
+		log.Warn().
+			Str("server_id", serverID).
+			Str("permission_id", permissionID).
+			Msg("federation request missing acting user identity, denying by default")
+		return connect.NewError(connect.CodePermissionDenied, errors.New("acting user identity is required for federated actions"))
+	}
+
+	allowed, errPermission := fs.db.FederatedUserHasPermissionOnServer(originNodeID, actingUserID, serverID, permissionID)
+	if errPermission != nil {
+		log.Error().
+			Err(errPermission).
+			Str("server_id", serverID).
+			Str("origin_node_id", originNodeID).
+			Str("acting_user_id", actingUserID).
+			Str("permission_id", permissionID).
+			Msg("failed to verify federated permission")
+		return connect.NewError(connect.CodeInternal, errors.New("failed to verify federated permission"))
+	}
+	if !allowed {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("federated user does not have permission"))
+	}
+
+	return nil
 }
 
 func (fs FederationService) Handshake(ctx context.Context, request *connect.Request[xylona.FederationHandshakeRequest]) (*connect.Response[xylona.FederationHandshakeResponse], error) {
@@ -140,13 +180,61 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 	return connect.NewResponse(resp), nil
 }
 
+func (fs FederationService) ListUserSummaries(ctx context.Context, request *connect.Request[xylona.FederationListUserSummariesRequest]) (*connect.Response[xylona.FederationListUserSummariesResponse], error) {
+	_, errAuth := fs.authenticateRequest(ctx)
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	users, errUsers := fs.db.GetAllUsers()
+	if errUsers != nil {
+		if errors.Is(errUsers, sql.ErrNoRows) {
+			return connect.NewResponse(&xylona.FederationListUserSummariesResponse{}), nil
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list users"))
+	}
+
+	limit := int(request.Msg.GetLimit())
+	if limit < 0 {
+		limit = 0
+	}
+
+	resp := &xylona.FederationListUserSummariesResponse{}
+	for _, user := range users {
+		if user.SuperUser {
+			continue
+		}
+		if limit > 0 && len(resp.Users) >= limit {
+			break
+		}
+
+		resp.Users = append(resp.Users, &xylona.FederationUserSummary{
+			UserId:    user.ID,
+			UserName:  user.UserName,
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			CreatedAt: timestamppb.New(user.CreatedAt),
+			UpdatedAt: timestamppb.New(user.UpdatedAt),
+		})
+	}
+
+	return connect.NewResponse(resp), nil
+}
+
 func (fs FederationService) GetServerDetail(ctx context.Context, request *connect.Request[xylona.FederationGetServerDetailRequest]) (*connect.Response[xylona.FederationGetServerDetailResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.view")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		if errors.Is(errGet, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
@@ -191,7 +279,19 @@ func (fs FederationService) StartRemoteServer(ctx context.Context, request *conn
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(
+		request.Header(),
+		request.Msg.GetActingUserId(),
+		request.Msg.GetOriginNodeId(),
+		serverID,
+		"game_server.start",
+	)
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -209,7 +309,19 @@ func (fs FederationService) StopRemoteServer(ctx context.Context, request *conne
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(
+		request.Header(),
+		request.Msg.GetActingUserId(),
+		request.Msg.GetOriginNodeId(),
+		serverID,
+		"game_server.stop",
+	)
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -227,7 +339,19 @@ func (fs FederationService) RestartRemoteServer(ctx context.Context, request *co
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(
+		request.Header(),
+		request.Msg.GetActingUserId(),
+		request.Msg.GetOriginNodeId(),
+		serverID,
+		"game_server.restart",
+	)
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -247,6 +371,11 @@ func (fs FederationService) StreamConsoleOutput(ctx context.Context, request *co
 	}
 
 	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.console")
+	if errPermission != nil {
+		return errPermission
+	}
+
 	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		if errors.Is(errGet, sql.ErrNoRows) {
@@ -292,6 +421,11 @@ func (fs FederationService) SendConsoleInput(ctx context.Context, request *conne
 	}
 
 	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.console")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
 	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		if errors.Is(errGet, sql.ErrNoRows) {
@@ -331,6 +465,11 @@ func (fs FederationService) ReadConsoleBuffer(ctx context.Context, request *conn
 	}
 
 	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.console")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
 	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		if errors.Is(errGet, sql.ErrNoRows) {
@@ -401,7 +540,19 @@ func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *con
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(
+		request.Header(),
+		request.Msg.GetActingUserId(),
+		request.Msg.GetOriginNodeId(),
+		serverID,
+		"game_server.settings",
+	)
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -419,7 +570,13 @@ func (fs FederationService) EditRemoteServer(ctx context.Context, request *conne
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	existingGS, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.settings")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	existingGS, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -444,7 +601,19 @@ func (fs FederationService) RemoveRemoteServer(ctx context.Context, request *con
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(
+		request.Header(),
+		request.Msg.GetActingUserId(),
+		request.Msg.GetOriginNodeId(),
+		serverID,
+		"game_server.delete",
+	)
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -466,7 +635,13 @@ func (fs FederationService) ListRemoteDirectoryFiles(ctx context.Context, reques
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.view")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -493,7 +668,13 @@ func (fs FederationService) EditRemoteFile(ctx context.Context, request *connect
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -514,7 +695,13 @@ func (fs FederationService) DeleteRemoteFiles(ctx context.Context, request *conn
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -536,7 +723,13 @@ func (fs FederationService) RenameRemoteFile(ctx context.Context, request *conne
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -558,7 +751,13 @@ func (fs FederationService) MoveRemoteFiles(ctx context.Context, request *connec
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -580,7 +779,13 @@ func (fs FederationService) CreateRemoteFileOrDirectory(ctx context.Context, req
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -601,7 +806,13 @@ func (fs FederationService) DownloadRemoteFileFromURL(ctx context.Context, reque
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	gs, errGet := fs.db.GetGameServerByID(request.Msg.GetServerId())
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
@@ -624,6 +835,11 @@ func (fs FederationService) QueryRemoteServer(ctx context.Context, request *conn
 	}
 
 	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.view")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
 	gs, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
 		if errors.Is(errGet, sql.ErrNoRows) {
