@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/ziutek/telnet"
 
@@ -78,6 +79,21 @@ type Command struct {
 	toggleOutputType      chan struct{}
 	callbackFunc          func(job *Command)
 	runAfterStartup       func(job *Command)
+	// Metrics fields (transient, not persisted to DB)
+	cpuPercent      float64
+	cpuCores        int32
+	memoryRSS       uint64   // working set (WorkingSetSize on Windows)
+	memoryVMS       uint64   // private committed memory (PagefileUsage on Windows)
+	memoryPercent   float32  // % of total system RAM
+	numThreads      int32
+	diskUsageBytes  uint64
+	workingDir      string
+	ioReadRate      float64  // I/O read bytes/sec (disk + network)
+	ioWriteRate     float64  // I/O write bytes/sec (disk + network)
+	lastIORead      uint64   // previous cumulative read bytes
+	lastIOWrite     uint64   // previous cumulative write bytes
+	lastIOPollTime  time.Time
+	connectionCount int32 // active TCP/UDP connections
 	*sync.RWMutex
 }
 
@@ -97,6 +113,20 @@ func (c *Command) UnixStartedAt() int64 {
 	c.RLock()
 	defer c.RUnlock()
 	return c.unixStartedAt
+}
+
+// Metrics returns the core metrics snapshot for the command's process tree.
+// memoryRSS is the total working set; memoryVMS is private committed memory.
+func (c *Command) Metrics() (cpuPercent float64, memoryRSS uint64, memoryVMS uint64, memoryPercent float32, cpuCores int32, numThreads int32, diskUsageBytes uint64, ioReadRate float64, ioWriteRate float64, connectionCount int32) {
+	c.RLock()
+	defer c.RUnlock()
+	return c.cpuPercent, c.memoryRSS, c.memoryVMS, c.memoryPercent, c.cpuCores, c.numThreads, c.diskUsageBytes, c.ioReadRate, c.ioWriteRate, c.connectionCount
+}
+
+func (c *Command) WorkingDir() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.workingDir
 }
 
 func (c *Command) AddOutputListener(id string, outChan chan xylona.Message) {

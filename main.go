@@ -288,6 +288,7 @@ func main() {
 	}
 
 	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS)
+	superInst.StartMetricsPoller(ctx)
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	setDetectedIPs(dbInst)
 

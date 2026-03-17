@@ -240,6 +240,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 
 	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
 	go ws.sendOwnedServersQueryInfo(s)
+	go ws.sendOwnedServersMetrics(s)
 
 	// Listen for game server added and removed events.
 	go ws.listenForGameServersAdded(s)
@@ -347,6 +348,95 @@ func queryEqual(x, y *xylona.ServerQuery) bool {
 
 func (ws *WebSocket) AddGameServerToUserID() {
 
+}
+
+// metricsEqual checks if two GameServerMetrics snapshots are equal enough to skip sending.
+func metricsEqual(a, b *xylona.GameServerMetrics) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return int64(a.CpuPercent) == int64(b.CpuPercent) &&
+		a.MemoryBytes == b.MemoryBytes &&
+		a.MemoryWorkingSetBytes == b.MemoryWorkingSetBytes &&
+		a.NumberOfThreads == b.NumberOfThreads &&
+		a.DiskUsageBytes == b.DiskUsageBytes &&
+		a.UptimeSeconds == b.UptimeSeconds &&
+		int64(a.IoReadRate) == int64(b.IoReadRate) &&
+		int64(a.IoWriteRate) == int64(b.IoWriteRate) &&
+		a.ConnectionCount == b.ConnectionCount
+}
+
+func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
+	previousMetricsMap := make(map[string]*xylona.GameServerMetrics)
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case <-s.Request.Context().Done():
+			return
+		case <-ticker.C:
+			if s.IsClosed() {
+				return
+			}
+			gameServers, errGetServers := ws.getSessionGameServers(s)
+			if errGetServers != nil {
+				log.Error().Err(errGetServers).Msg("Failed to get game servers from session for metrics")
+				return
+			}
+			allMetrics := &xylona.AllServersMetrics{Servers: make(map[string]*xylona.GameServerMetrics)}
+			metricsChanged := false
+			for _, gameServer := range gameServers {
+				cmd, errGetCmd := ws.supervisor.GetCommandByID(gameServer.ID)
+				if errGetCmd != nil {
+					continue
+				}
+				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := cmd.Metrics()
+				startedAt := cmd.UnixStartedAt()
+				var uptimeSeconds int64
+				if startedAt > 0 {
+					uptimeSeconds = time.Now().Unix() - startedAt
+				}
+				current := &xylona.GameServerMetrics{
+					CpuPercent:            cpuPct,
+					MemoryBytes:           int64(memVMS),
+					MemoryWorkingSetBytes: int64(memRSS),
+					MemoryPercent:         float64(memPct),
+					CpuCores:              cpuCores,
+					NumberOfThreads:       threads,
+					DiskUsageBytes:        int64(diskBytes),
+					IoReadRate:            ioRead,
+					IoWriteRate:           ioWrite,
+					ConnectionCount:       connCount,
+					UptimeSeconds:         uptimeSeconds,
+				}
+				previous, exists := previousMetricsMap[gameServer.ID]
+				if !exists || !metricsEqual(previous, current) {
+					previousMetricsMap[gameServer.ID] = current
+					metricsChanged = true
+				}
+				allMetrics.Servers[gameServer.ID] = current
+			}
+			if !metricsChanged {
+				continue
+			}
+			out := &xylona.Message{
+				Type:              xylona.Message_GameServerMetrics,
+				AllServersMetrics: allMetrics,
+			}
+			byteOut, errMarshal := json.Marshal(out)
+			if errMarshal != nil {
+				log.Error().Err(errMarshal).Msg("Failed to marshal game server metrics")
+				continue
+			}
+			errWrite := s.Write(byteOut)
+			if errWrite != nil {
+				log.Error().Err(errWrite).Msg("Failed to write metrics websocket message")
+				return
+			}
+		}
+	}
 }
 
 func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session) {

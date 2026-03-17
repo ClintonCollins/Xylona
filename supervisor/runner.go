@@ -499,6 +499,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.processCtx = processCtx
 		newCommand.processCtxCancel = processCtxCancel
 		newCommand.inputMethod = preparedCommand.InputMethod
+		newCommand.workingDir = preparedCommand.WorkingDirectory
 		defer newCommand.Unlock()
 	} else {
 		log.Debug().Str("Command ID", preparedCommand.ID).Msg("Creating new command")
@@ -519,6 +520,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			outputListenersLock: &sync.RWMutex{},
 			inputMethod:         preparedCommand.InputMethod,
 			toggleOutputType:    make(chan struct{}),
+			workingDir:          preparedCommand.WorkingDirectory,
 		}
 	}
 	return newCommand

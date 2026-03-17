@@ -15,7 +15,7 @@ import {
   tabFilterSearch,
   tabJson
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { Message, Message_Type, MessageSchema, Request, Request_Type, RequestSchema } from '../proto/websocket_pb'
+import { AllServersMetrics, Message, Message_Type, MessageSchema, Request, Request_Type, RequestSchema } from '../proto/websocket_pb'
 import { EventBus } from 'quasar'
 import { ReconnectingWebSocket } from './websocket'
 
@@ -29,6 +29,7 @@ type XylonaEventBusEvents = {
   'gameServerConsoleOutput': (gameServerId: string, consoleOutput: string) => void
   'gameServerConsoleOutputRequest': (gameServerId: string) => void
   'gameServersQueryInfo': (queryInfo: AllServersQueryInfo) => void
+  'gameServerMetrics': (metrics: AllServersMetrics) => void
   'websocketConnected': () => void
   'websocketDisconnected': () => void
 }
@@ -92,6 +93,9 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
         break
       case Message_Type.ServerQueries:
         XylonaEventBus.emit('gameServersQueryInfo', out.allServersQueryInfo)
+        break
+      case Message_Type.GameServerMetrics:
+        XylonaEventBus.emit('gameServerMetrics', out.allServersMetrics)
         break
       default:
         console.debug(`${event.data}`)

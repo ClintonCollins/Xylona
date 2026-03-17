@@ -544,10 +544,26 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Requ
 			} else {
 				gameServer.Status = gameServerCmd.Status().String()
 			}
-			response := &xylona.GetGameServerResponse{
-				GameServer: helpers.GameServerModelToProto(gameServer),
+			gsProto := helpers.GameServerModelToProto(gameServer)
+			gsProto.Version = resolveGameServerVersion(gameServer)
+			if errGetCommand == nil {
+				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
+				gsProto.CpuPercent = int64(cpuPct)
+				gsProto.MemoryBytes = int64(memVMS)
+				gsProto.MemoryWorkingSetBytes = int64(memRSS)
+				gsProto.MemoryPercent = float64(memPct)
+				gsProto.CpuCores = cpuCores
+				gsProto.NumberOfThreads = int64(threads)
+				gsProto.DiskUsageBytes = int64(diskBytes)
+				gsProto.IoReadRate = ioRead
+				gsProto.IoWriteRate = ioWrite
+				gsProto.ConnectionCount = connCount
+				startedAt := gameServerCmd.UnixStartedAt()
+				if startedAt > 0 {
+					gsProto.UptimeSeconds = time.Now().Unix() - startedAt
+				}
 			}
-			response.GameServer.Version = resolveGameServerVersion(gameServer)
+			response := &xylona.GetGameServerResponse{GameServer: gsProto}
 			return connect.NewResponse(response), nil
 		},
 		func() (*connect.Response[xylona.GetGameServerResponse], error) {
@@ -711,6 +727,23 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 				gameServer.Status = gameServerCmd.Status().String()
 			}
 			gameServerProto := helpers.GameServerModelToProto(gameServer)
+			if errGetCommand == nil {
+				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
+				gameServerProto.CpuPercent = int64(cpuPct)
+				gameServerProto.MemoryBytes = int64(memVMS)
+				gameServerProto.MemoryWorkingSetBytes = int64(memRSS)
+				gameServerProto.MemoryPercent = float64(memPct)
+				gameServerProto.CpuCores = cpuCores
+				gameServerProto.NumberOfThreads = int64(threads)
+				gameServerProto.DiskUsageBytes = int64(diskBytes)
+				gameServerProto.IoReadRate = ioRead
+				gameServerProto.IoWriteRate = ioWrite
+				gameServerProto.ConnectionCount = connCount
+				startedAt := gameServerCmd.UnixStartedAt()
+				if startedAt > 0 {
+					gameServerProto.UptimeSeconds = time.Now().Unix() - startedAt
+				}
+			}
 			gameServersProto[i] = gameServerProto
 		}
 		response := &xylona.ListGameServersResponse{
@@ -735,6 +768,23 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 			gameServer.Status = gameServerCmd.Status().String()
 		}
 		gameServerProto := helpers.GameServerModelToProto(gameServer)
+		if errGetCommand == nil {
+			cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
+			gameServerProto.CpuPercent = int64(cpuPct)
+			gameServerProto.MemoryBytes = int64(memVMS)
+			gameServerProto.MemoryWorkingSetBytes = int64(memRSS)
+			gameServerProto.MemoryPercent = float64(memPct)
+			gameServerProto.CpuCores = cpuCores
+			gameServerProto.NumberOfThreads = int64(threads)
+			gameServerProto.DiskUsageBytes = int64(diskBytes)
+			gameServerProto.IoReadRate = ioRead
+			gameServerProto.IoWriteRate = ioWrite
+			gameServerProto.ConnectionCount = connCount
+			startedAt := gameServerCmd.UnixStartedAt()
+			if startedAt > 0 {
+				gameServerProto.UptimeSeconds = time.Now().Unix() - startedAt
+			}
+		}
 		gameServersProto[i] = gameServerProto
 	}
 	response := &xylona.ListGameServersResponse{

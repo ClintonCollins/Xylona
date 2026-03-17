@@ -28,6 +28,24 @@ message Request {
   Type type = 2;
 }
 
+message GameServerMetrics {
+  double cpu_percent = 1;
+  int64 memory_bytes = 2;
+  int32 number_of_threads = 3;
+  int64 disk_usage_bytes = 4;
+  int64 uptime_seconds = 5;
+  int64 memory_working_set_bytes = 6;
+  double memory_percent = 7;
+  int32 cpu_cores = 8;
+  double io_read_rate = 9;
+  double io_write_rate = 10;
+  int32 connection_count = 11;
+}
+
+message AllServersMetrics {
+  map<string, GameServerMetrics> servers = 1;
+}
+
 message Message {
   enum Type {
     Unknown = 0;
@@ -35,10 +53,12 @@ message Message {
     GameServerStatus = 2;
     Raw = 3;
     ServerQueries = 4;
+    GameServerMetrics = 5;
   }
   Type type = 1;
   optional GameServerConsoleOutput game_server_console_output = 2;
   optional GameServerStatusUpdate game_server_status_update = 3;
   string raw_data = 4;
   optional AllServersQueryInfo all_servers_query_info = 5;
+  optional AllServersMetrics all_servers_metrics = 6;
 }

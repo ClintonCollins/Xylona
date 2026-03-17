@@ -56,6 +56,7 @@
           </q-item-section>
         </q-item>
       </q-list>
+      <GameServerMetrics :game-server-id="gameServerId" :game-server="gameServer" />
       <div class="col-xs-12 col-md-3 q-gutter-md gt-md">
         <q-btn push ripple glossy :disable="disableStartButton" class="bg-success" label="Start"
                @click="startGameServer"></q-btn>
@@ -110,6 +111,7 @@
 import {create} from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import GameServerMetrics from '@/components/game_servers/GameServerMetrics.vue'
 import {QItemSection, QScrollArea} from 'quasar'
 import {tabMaximize} from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {

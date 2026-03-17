@@ -129,6 +129,14 @@ message GameServer {
   string node_name = 32;
   string node_host = 33;
   int64 node_port = 34;
+  int64 disk_usage_bytes = 35;
+  int64 uptime_seconds = 36;
+  int64 memory_working_set_bytes = 37;
+  double memory_percent = 38;
+  int32 cpu_cores = 39;
+  double io_read_rate = 40;
+  double io_write_rate = 41;
+  int32 connection_count = 42;
 }
 
 message IP {
