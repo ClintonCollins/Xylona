@@ -547,12 +547,7 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Requ
 			response := &xylona.GetGameServerResponse{
 				GameServer: helpers.GameServerModelToProto(gameServer),
 			}
-			if gameServer.GameID == "minecraft" {
-				version, errGetMinecraftVersion := xs.getMinecraftVersion(gameServer)
-				if errGetMinecraftVersion == nil {
-					response.GameServer.Version = version
-				}
-			}
+			response.GameServer.Version = resolveGameServerVersion(gameServer)
 			return connect.NewResponse(response), nil
 		},
 		func() (*connect.Response[xylona.GetGameServerResponse], error) {
@@ -617,7 +612,21 @@ func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string
 	}), nil
 }
 
-func (xs XylonaService) getMinecraftVersion(gameServer *models.GameServer) (string, error) {
+func resolveGameServerVersion(gs *models.GameServer) string {
+	switch gs.GameID {
+	case "minecraft":
+		version, errGetVersion := getMinecraftVersion(gs)
+		if errGetVersion != nil {
+			log.Debug().Err(errGetVersion).Str("server_id", gs.ID).Msg("Failed to resolve Minecraft version")
+			return gs.Version
+		}
+		return version
+	default:
+		return gs.Version
+	}
+}
+
+func getMinecraftVersion(gameServer *models.GameServer) (string, error) {
 	dir := gameServer.Directory
 	zipReader, errZipReader := zip.OpenReader(dir + "/minecraft_server.jar")
 	if errZipReader != nil {

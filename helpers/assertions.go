@@ -107,6 +107,7 @@ func GameServerModelToProto(gsModel *models.GameServer) *xylona.GameServer {
 		NodeName:                  gsModel.R.Node.Name,
 		NodeHost:                  gsModel.R.Node.Host,
 		NodePort:                  int64(gsModel.R.Node.Port),
+		Version:                   gsModel.Version,
 	}
 }
 

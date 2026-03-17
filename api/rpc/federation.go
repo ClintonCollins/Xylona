@@ -255,7 +255,7 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 			MaxPlayers:     gs.MaxPlayers,
 			CurrentPlayers: 0,
 			MapName:        gs.Map,
-			Version:        gs.Version,
+			Version:        resolveGameServerVersion(gs),
 			UpdatedAt:      timestamppb.New(gs.UpdatedAt),
 		}
 		resp.Servers = append(resp.Servers, summary)
@@ -344,7 +344,7 @@ func (fs FederationService) GetServerDetail(ctx context.Context, request *connec
 		QueryPort:   gs.QueryPort,
 		MaxPlayers:  gs.MaxPlayers,
 		MapName:     gs.Map,
-		Version:     gs.Version,
+		Version:     resolveGameServerVersion(gs),
 		UpdatedAt:   timestamppb.New(gs.UpdatedAt),
 	}
 
