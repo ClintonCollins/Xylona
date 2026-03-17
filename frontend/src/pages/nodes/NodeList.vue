@@ -11,6 +11,7 @@
                                 :columns="columns"
                                 row-key="id"
                                 :filter="search"
+                                :loading="loading"
                                 v-model:pagination="initialPagination">
                             <template v-slot:top>
                                 <div class="row col flex justify-between flex-center">
@@ -109,10 +110,12 @@
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
+import { ConnectError } from '@connectrpc/connect'
 import { useStorage } from '@vueuse/core'
+import { Notify } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
-import { GetXylonaClient, WindowWidth } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { Node } from '@/proto/shared_pb'
 import {
   ListNodesRequestSchema,
@@ -122,6 +125,7 @@ import {
 
 const windowWidth = WindowWidth()
 const rows = ref([] as Node[])
+const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteDialog = ref(false)
 const selectedNode = ref<Node | null>(null)
@@ -136,11 +140,23 @@ onMounted(async () => {
 })
 
 async function getNodes() {
+  loading.value = true
   try {
     const response = await GetXylonaClient().listNodes(create(ListNodesRequestSchema, {}))
     rows.value = response.nodes ? [...response.nodes] : []
-  } catch (e) {
-    console.error(e)
+  } catch (unknownError: unknown) {
+    const err = ConnectError.from(unknownError)
+    Notify.create({
+      type: 'xylona-error',
+      position: 'top',
+      caption: ConnectErrorToString(err),
+      timeout: 0,
+      closeBtn: 'Dismiss',
+      icon: 'report_problem',
+    })
+    console.error(err.message)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -162,8 +178,17 @@ async function syncNode(node: Node) {
   try {
     await GetXylonaClient().syncNode(create(SyncNodeRequestSchema, { nodeId: node.id }))
     setTimeout(() => getNodes(), 2000)
-  } catch (e) {
-    console.error(e)
+  } catch (unknownError: unknown) {
+    const err = ConnectError.from(unknownError)
+    Notify.create({
+      type: 'xylona-error',
+      position: 'top',
+      caption: ConnectErrorToString(err),
+      timeout: 0,
+      closeBtn: 'Dismiss',
+      icon: 'report_problem',
+    })
+    console.error(err.message)
   }
 }
 
@@ -179,8 +204,17 @@ async function confirmDelete() {
     showDeleteDialog.value = false
     selectedNode.value = null
     await getNodes()
-  } catch (e) {
-    console.error(e)
+  } catch (unknownError: unknown) {
+    const err = ConnectError.from(unknownError)
+    Notify.create({
+      type: 'xylona-error',
+      position: 'top',
+      caption: ConnectErrorToString(err),
+      timeout: 0,
+      closeBtn: 'Dismiss',
+      icon: 'report_problem',
+    })
+    console.error(err.message)
   }
 }
 

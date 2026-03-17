@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type FederationMTLS struct {
@@ -327,7 +329,7 @@ func ensureFederationCertificateFiles(nodeID string, certPath string, keyPath st
 	}
 
 	if certExists != keyExists {
-		fmt.Printf("[WARN] Federation certificate files are in an inconsistent state (cert=%v, key=%v) — regenerating both. This node will get a new identity.\n", certExists, keyExists)
+		log.Warn().Bool("cert_exists", certExists).Bool("key_exists", keyExists).Msg("Federation certificate files are in an inconsistent state — regenerating both. This node will get a new identity.")
 	}
 
 	errMkdirCert := os.MkdirAll(filepath.Dir(certPath), 0700)

@@ -99,8 +99,6 @@ func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path st
 		}
 		size := fileInfo.Size()
 		if fileInfo.IsDir() {
-			// TODO walk directory recursively to get size of directory
-
 			var totalSize int64 = 0
 
 			err := filepath.WalkDir(filepath.Join(fullPath, file.Name()), func(path string, d os.DirEntry, err error) error {

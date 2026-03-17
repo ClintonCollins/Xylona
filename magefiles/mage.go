@@ -3,11 +3,22 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 
 	"github.com/rs/zerolog/log"
 )
+
+var validDeployParam = regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
+
+func validateDeployParam(name, value string) error {
+	if !validDeployParam.MatchString(value) {
+		return fmt.Errorf("invalid %s: %q contains disallowed characters", name, value)
+	}
+	return nil
+}
 
 func Build() {
 	// Build the frontend
@@ -106,6 +117,18 @@ func Deploy(host string, user string, service string, path string) {
 		path = "/usr/local/bin/xylona"
 	}
 
+	params := map[string]string{
+		"host":    host,
+		"user":    user,
+		"service": service,
+		"path":    path,
+	}
+	for paramName, paramValue := range params {
+		if errValidate := validateDeployParam(paramName, paramValue); errValidate != nil {
+			log.Fatal().Err(errValidate).Msg("Invalid deploy parameter")
+		}
+	}
+
 	remoteAddr := user + "@" + host
 
 	// 0. Build Frontend
@@ -128,7 +151,7 @@ func Deploy(host string, user string, service string, path string) {
 
 	// 2. Stop Service
 	log.Info().Str("host", host).Msg("Stopping service...")
-	cmdStop := exec.Command("ssh", remoteAddr, "sudo systemctl stop "+service)
+	cmdStop := exec.Command("ssh", "--", remoteAddr, "sudo systemctl stop "+service)
 	cmdStop.Stdout = os.Stdout
 	cmdStop.Stderr = os.Stderr
 	if err := cmdStop.Run(); err != nil {
@@ -137,7 +160,7 @@ func Deploy(host string, user string, service string, path string) {
 
 	// 3. Copy Binary
 	log.Info().Str("host", host).Msg("Uploading binary...")
-	cmdScp := exec.Command("scp", localBinary, remoteAddr+":"+path)
+	cmdScp := exec.Command("scp", "--", localBinary, remoteAddr+":"+path)
 	cmdScp.Stdout = os.Stdout
 	cmdScp.Stderr = os.Stderr
 	if err := cmdScp.Run(); err != nil {
@@ -146,7 +169,7 @@ func Deploy(host string, user string, service string, path string) {
 
 	// 4. Start Service
 	log.Info().Str("host", host).Msg("Starting service...")
-	cmdStart := exec.Command("ssh", remoteAddr, "sudo systemctl start "+service)
+	cmdStart := exec.Command("ssh", "--", remoteAddr, "sudo systemctl start "+service)
 	cmdStart.Stdout = os.Stdout
 	cmdStart.Stderr = os.Stderr
 	if err := cmdStart.Run(); err != nil {

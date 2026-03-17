@@ -41,6 +41,7 @@ export const useUserAuthStore = defineStore('userAuth', {
           return response
         }
       } catch (unknownError: unknown) {
+        this.initialFetch = false
         const err = ConnectError.from(unknownError)
         Notify.create({
           type: 'xylona-error',

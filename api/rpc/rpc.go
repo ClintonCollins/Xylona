@@ -25,6 +25,7 @@ type XylonaService struct {
 	supervisorInst *supervisor.Instance
 	federationMTLS *helpers.FederationMTLS
 	secureCookie   *securecookie.SecureCookie
+	secureCookies  bool
 	syncEngine     SyncEngine
 	listCache      *remoteServerListCache
 }
@@ -36,6 +37,7 @@ func NewXylonaService(
 	supervisorInst *supervisor.Instance,
 	secureCookie *securecookie.SecureCookie,
 	federationMTLS *helpers.FederationMTLS,
+	secureCookies bool,
 ) *XylonaService {
 	return &XylonaService{
 		ctx:            ctx,
@@ -43,6 +45,7 @@ func NewXylonaService(
 		actionsInst:    actionsInst,
 		federationMTLS: federationMTLS,
 		secureCookie:   secureCookie,
+		secureCookies:  secureCookies,
 		supervisorInst: supervisorInst,
 		listCache:      newRemoteServerListCache(remoteServerListCacheTTL),
 	}

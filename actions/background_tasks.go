@@ -109,5 +109,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 			return nil
 		})
 	}
-	_ = errGroup.Wait()
+	if errWait := errGroup.Wait(); errWait != nil {
+		log.Warn().Err(errWait).Msg("Background task group returned error")
+	}
 }

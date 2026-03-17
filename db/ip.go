@@ -41,3 +41,25 @@ func (c *Connection) GetAllIPs() ([]*models.IP, error) {
 	}
 	return ips, err
 }
+
+func (c *Connection) GetIPByAddress(address string) (*models.IP, error) {
+	ip, errGetIP := models.Ips.Query(models.SelectWhere.Ips.Address.EQ(address)).One(c.ctx, c.DB)
+	if errGetIP != nil {
+		return nil, errGetIP
+	}
+	return ip, nil
+}
+
+func (c *Connection) InsertIP(ipSetter *models.IPSetter) (*models.IP, error) {
+	ip, errInsert := models.Ips.Insert(ipSetter).One(c.ctx, c.DB)
+	if errInsert != nil {
+		log.Error().Err(errInsert).Msg("Error inserting IP")
+		return nil, errInsert
+	}
+	return ip, nil
+}
+
+func (c *Connection) DeleteIP(address string) error {
+	ips := models.IPSlice{&models.IP{Address: address}}
+	return ips.DeleteAll(c.ctx, c.DB)
+}

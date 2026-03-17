@@ -130,10 +130,19 @@ func (inst *Instance) CreateFileOrDirectory(gameServer *models.GameServer, path 
 			_, errWrite := file.WriteString(content)
 			if errWrite != nil {
 				log.Error().Err(errWrite).Msg("Failed to write to file")
+				errClose := file.Close()
+				if errClose != nil {
+					log.Error().Err(errClose).Msg("Failed to close file after write error")
+				}
+				return errWrite
 			}
 		}
 
-		_ = file.Close()
+		errClose := file.Close()
+		if errClose != nil {
+			log.Error().Err(errClose).Msg("Failed to close file")
+			return errClose
+		}
 	}
 	return nil
 }
@@ -234,7 +243,10 @@ func (inst *Instance) EditFile(gameServer *models.GameServer, filePath string, c
 		return errOpen
 	}
 	defer func() {
-		_ = file.Close()
+		errClose := file.Close()
+		if errClose != nil {
+			log.Error().Err(errClose).Msg("Failed to close file")
+		}
 	}()
 	_, errWrite := file.WriteString(content)
 	if errWrite != nil {

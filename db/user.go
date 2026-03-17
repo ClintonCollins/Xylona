@@ -94,6 +94,16 @@ func (c *Connection) GetAllUsers() ([]*models.User, error) {
 	return users, err
 }
 
+func (c *Connection) CountSuperUsers() (int, error) {
+	var count int
+	errQuery := c.SQLDb.QueryRowContext(c.ctx, `SELECT COUNT(*) FROM user WHERE super_user = 1`).Scan(&count)
+	if errQuery != nil {
+		log.Error().Err(errQuery).Msg("Error counting super users")
+		return 0, errQuery
+	}
+	return count, nil
+}
+
 func (c *Connection) DeleteUser(id string) error {
 	user, errGetUser := models.Users.Query(models.SelectWhere.Users.ID.EQ(id)).One(c.ctx, c.DB)
 	if errGetUser != nil {

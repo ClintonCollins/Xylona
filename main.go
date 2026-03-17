@@ -27,6 +27,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/actions"
+	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/api/rpc"
 	"github.com/ClintonCollins/Xylona/api/websocket"
 	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
@@ -45,6 +46,7 @@ type Configuration struct {
 	JWTSecretKey       string `env:"JWT_SECRET_KEY_BASE64"`
 	DBFilePath         string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
 	LogLevel           string `env:"LOG_LEVEL" envDefault:"info"`
+	SecureCookies      bool   `env:"SECURE_COOKIES" envDefault:"false"`
 	FederationPort     int    `env:"FEDERATION_PORT" envDefault:"8443"`
 	FederationCertPath string `env:"FEDERATION_CERT_PATH" envDefault:"./federation/node.crt"`
 	FederationKeyPath  string `env:"FEDERATION_KEY_PATH" envDefault:"./federation/node.key"`
@@ -292,7 +294,7 @@ func main() {
 	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie, federationMTLS)
 
 	router := chi.NewRouter()
-	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS)
+	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies)
 	xylonaService.SetSyncEngine(syncEngine)
 	syncEngine.SetStatusBroadcaster(wsInst)
 
@@ -307,6 +309,7 @@ func main() {
 
 	router.Use(middleware.RealIP)
 	router.Use(routerLogger)
+	router.Use(gatekeeper.AuthRateLimiter())
 	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
 

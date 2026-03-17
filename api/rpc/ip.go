@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net"
 
 	"connectrpc.com/connect"
+	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (xs XylonaService) ListIPs(ctx context.Context, request *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
@@ -28,12 +31,51 @@ func (xs XylonaService) ListIPs(ctx context.Context, request *connect.Request[xy
 	return response, nil
 }
 
-func (xs XylonaService) AddIP(ctx context.Context, request *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error) {
-	//TODO implement me
-	panic("implement me")
+func (xs XylonaService) AddIP(_ context.Context, request *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error) {
+	ipProto := request.Msg.GetIp()
+	if ipProto == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ip is required"))
+	}
+	if net.ParseIP(ipProto.GetAddress()) == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid IP address format"))
+	}
+
+	ipSetter := &models.IPSetter{
+		Address:  omit.From(ipProto.GetAddress()),
+		Usable:   omit.From(ipProto.GetUsable()),
+		External: omit.From(ipProto.GetExternal()),
+	}
+
+	_, errInsertIP := xs.db.InsertIP(ipSetter)
+	if errInsertIP != nil {
+		return nil, connect.NewError(connect.CodeInternal, errInsertIP)
+	}
+
+	return &connect.Response[xylona.AddIPResponse]{Msg: &xylona.AddIPResponse{}}, nil
 }
 
-func (xs XylonaService) RemoveIP(ctx context.Context, request *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error) {
-	//TODO implement me
-	panic("implement me")
+func (xs XylonaService) RemoveIP(_ context.Context, request *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error) {
+	ipProto := request.Msg.GetIp()
+	if ipProto == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ip is required"))
+	}
+	address := ipProto.GetAddress()
+	if address == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ip address is required"))
+	}
+
+	_, errGetIP := xs.db.GetIPByAddress(address)
+	if errGetIP != nil {
+		if errors.Is(errGetIP, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("IP not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errGetIP)
+	}
+
+	errDeleteIP := xs.db.DeleteIP(address)
+	if errDeleteIP != nil {
+		return nil, connect.NewError(connect.CodeInternal, errDeleteIP)
+	}
+
+	return &connect.Response[xylona.RemoveIPResponse]{Msg: &xylona.RemoveIPResponse{}}, nil
 }

@@ -171,3 +171,72 @@ func TestSetRolePermissionsInvalidPermission(t *testing.T) {
 		t.Fatalf("SetRolePermissions() expected foreign key error, got nil")
 	}
 }
+
+func TestGetAllRolesWithPermissions(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "role-with-perms.sqlite")
+
+	// Create a custom role with permissions.
+	errCreate := conn.CreateRoleWithPermissions(
+		"custom-with-perms",
+		"Custom With Perms",
+		"test role",
+		[]string{"game_server.view", "game_server.start"},
+	)
+	if errCreate != nil {
+		t.Fatalf("CreateRoleWithPermissions() error = %v", errCreate)
+	}
+
+	roles, permsByRole, errGet := conn.GetAllRolesWithPermissions()
+	if errGet != nil {
+		t.Fatalf("GetAllRolesWithPermissions() error = %v", errGet)
+	}
+
+	if len(roles) == 0 {
+		t.Fatalf("GetAllRolesWithPermissions() returned 0 roles")
+	}
+
+	// Verify the system roles exist.
+	roleIDs := make(map[string]bool, len(roles))
+	for _, role := range roles {
+		roleIDs[role.ID] = true
+	}
+	for _, expectedID := range []string{"viewer", "operator", "admin", "custom-with-perms"} {
+		if !roleIDs[expectedID] {
+			t.Errorf("GetAllRolesWithPermissions() missing role %q", expectedID)
+		}
+	}
+
+	// Verify the custom role has exactly its assigned permissions.
+	customPerms := permsByRole["custom-with-perms"]
+	if len(customPerms) != 2 {
+		t.Fatalf("permsByRole[custom-with-perms] len = %d, want 2", len(customPerms))
+	}
+	if !slices.Contains(customPerms, "game_server.view") {
+		t.Errorf("permsByRole[custom-with-perms] missing %q", "game_server.view")
+	}
+	if !slices.Contains(customPerms, "game_server.start") {
+		t.Errorf("permsByRole[custom-with-perms] missing %q", "game_server.start")
+	}
+
+	// Verify the operator role has permissions (seeded by migration).
+	operatorPerms := permsByRole["operator"]
+	if len(operatorPerms) == 0 {
+		t.Errorf("permsByRole[operator] has 0 permissions, want > 0")
+	}
+
+	// A role with no permissions should not be in the map or have an empty slice.
+	errCreateEmpty := conn.CreateRole("empty-role", "Empty Role", "no permissions")
+	if errCreateEmpty != nil {
+		t.Fatalf("CreateRole(empty) error = %v", errCreateEmpty)
+	}
+
+	_, permsByRole2, errGet2 := conn.GetAllRolesWithPermissions()
+	if errGet2 != nil {
+		t.Fatalf("GetAllRolesWithPermissions() second call error = %v", errGet2)
+	}
+
+	emptyPerms := permsByRole2["empty-role"]
+	if len(emptyPerms) != 0 {
+		t.Errorf("permsByRole[empty-role] len = %d, want 0", len(emptyPerms))
+	}
+}

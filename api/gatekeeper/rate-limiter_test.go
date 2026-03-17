@@ -1,0 +1,63 @@
+package gatekeeper
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestAuthRateLimiter(t *testing.T) {
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	t.Run("rate limits Login path after exceeding threshold", func(t *testing.T) {
+		handler := AuthRateLimiter()(okHandler)
+
+		var lastStatus int
+		for i := 0; i < 15; i++ {
+			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
+			req.RemoteAddr = "192.0.2.1:12345"
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			lastStatus = rec.Code
+		}
+
+		if lastStatus != http.StatusTooManyRequests {
+			t.Fatalf("expected status %d after exceeding rate limit on /Login, got %d",
+				http.StatusTooManyRequests, lastStatus)
+		}
+	})
+
+	t.Run("does not rate limit non-Login paths", func(t *testing.T) {
+		handler := AuthRateLimiter()(okHandler)
+
+		for i := 0; i < 20; i++ {
+			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/GetGameServers", nil)
+			req.RemoteAddr = "192.0.2.2:12345"
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected status %d for non-Login path on request %d, got %d",
+					http.StatusOK, i+1, rec.Code)
+			}
+		}
+	})
+
+	t.Run("first 10 Login requests succeed", func(t *testing.T) {
+		handler := AuthRateLimiter()(okHandler)
+
+		for i := 0; i < 10; i++ {
+			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
+			req.RemoteAddr = "192.0.2.3:12345"
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected status %d for Login request %d within limit, got %d",
+					http.StatusOK, i+1, rec.Code)
+			}
+		}
+	})
+}

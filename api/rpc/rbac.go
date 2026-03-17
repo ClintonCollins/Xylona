@@ -22,7 +22,7 @@ func (xs XylonaService) ListRoles(ctx context.Context, request *connect.Request[
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	roles, errGetRoles := xs.db.GetAllRoles()
+	roles, permissionsByRole, errGetRoles := xs.db.GetAllRolesWithPermissions()
 	if errGetRoles != nil {
 		log.Error().Err(errGetRoles).Msg("failed to list roles")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list roles"))
@@ -30,18 +30,12 @@ func (xs XylonaService) ListRoles(ctx context.Context, request *connect.Request[
 
 	resp := &xylona.ListRolesResponse{}
 	for _, role := range roles {
-		permissionIDs, errGetPermissions := xs.db.GetPermissionsForRole(role.ID)
-		if errGetPermissions != nil {
-			log.Error().Err(errGetPermissions).Str("role_id", role.ID).Msg("failed to list role permissions")
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list roles"))
-		}
-
 		resp.Roles = append(resp.Roles, &xylona.Role{
 			Id:            role.ID,
 			Name:          role.Name,
 			Description:   role.Description,
 			IsSystem:      role.IsSystem,
-			PermissionIds: permissionIDs,
+			PermissionIds: permissionsByRole[role.ID],
 		})
 	}
 

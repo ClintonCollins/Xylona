@@ -274,17 +274,5 @@ func (xs XylonaService) requireSuperUserForUserManagement(header http.Header) (*
 }
 
 func (xs XylonaService) countSuperUsers() (int, error) {
-	users, errGetUsers := xs.db.GetAllUsers()
-	if errGetUsers != nil {
-		return 0, errGetUsers
-	}
-
-	superUserCount := 0
-	for _, user := range users {
-		if user.SuperUser {
-			superUserCount++
-		}
-	}
-
-	return superUserCount, nil
+	return xs.db.CountSuperUsers()
 }

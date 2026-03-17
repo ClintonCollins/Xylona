@@ -105,6 +105,41 @@ func (c *Connection) DeleteRole(id string) error {
 	return nil
 }
 
+// GetAllRolesWithPermissions returns all roles and a map of role ID to permission IDs
+// using a single JOIN query, avoiding the N+1 problem of querying permissions per role.
+func (c *Connection) GetAllRolesWithPermissions() ([]*models.Role, map[string][]string, error) {
+	roles, errGetRoles := models.Roles.Query().All(c.ctx, c.DB)
+	if errGetRoles != nil {
+		return nil, nil, errGetRoles
+	}
+
+	rows, errQuery := c.SQLDb.QueryContext(
+		c.ctx,
+		`SELECT role_id, permission_id FROM role_permission ORDER BY role_id, permission_id`,
+	)
+	if errQuery != nil {
+		return nil, nil, errQuery
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	permissionsByRole := make(map[string][]string, len(roles))
+	for rows.Next() {
+		var roleID, permissionID string
+		errScan := rows.Scan(&roleID, &permissionID)
+		if errScan != nil {
+			return nil, nil, errScan
+		}
+		permissionsByRole[roleID] = append(permissionsByRole[roleID], permissionID)
+	}
+	if errRows := rows.Err(); errRows != nil {
+		return nil, nil, errRows
+	}
+
+	return roles, permissionsByRole, nil
+}
+
 func (c *Connection) GetPermissionsForRole(roleID string) ([]string, error) {
 	rolePermissions, errGetRolePermissions := models.RolePermissions.Query(
 		models.SelectWhere.RolePermissions.RoleID.EQ(roleID),

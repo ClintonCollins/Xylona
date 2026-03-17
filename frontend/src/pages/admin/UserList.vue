@@ -12,6 +12,7 @@
               row-key="id"
               selection="multiple"
               :filter="search"
+              :loading="loading"
               v-model:pagination="initialPagination"
               v-model:selected="selected">
               <template v-slot:top>
@@ -81,15 +82,18 @@ import { create } from '@bufbuild/protobuf'
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useStorage } from '@vueuse/core'
 import dayjs from 'dayjs'
+import { ConnectError } from '@connectrpc/connect'
+import { Notify } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import UserDeleteDialog from '@/components/admin/UserDeleteDialog.vue'
-import { GetXylonaClient, WindowWidth } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { User } from '@/proto/xylona_pb'
 import { ListUsersRequest, ListUsersRequestSchema, ListUsersResponse } from '@/proto/xylona_pb'
 
 const windowWidth = WindowWidth()
 const rows = ref([] as User[])
+const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showUserDeleteDialog = ref(false)
 const selectedActionUser = ref<User | null>(null)
@@ -104,6 +108,7 @@ onMounted(async () => {
 })
 
 async function getUsers() {
+  loading.value = true
   const request: ListUsersRequest = create(ListUsersRequestSchema, {})
   try {
     const response: ListUsersResponse = await GetXylonaClient().listUsers(request)
@@ -112,8 +117,18 @@ async function getUsers() {
       rows.value.push(user)
     })
   } catch (unknownError: unknown) {
-    const err = unknownError as Error
+    const err = ConnectError.from(unknownError)
+    Notify.create({
+      type: 'xylona-error',
+      position: 'top',
+      caption: ConnectErrorToString(err),
+      timeout: 0,
+      closeBtn: 'Dismiss',
+      icon: 'report_problem',
+    })
     console.error(err.message)
+  } finally {
+    loading.value = false
   }
 }
 

@@ -19,6 +19,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+const defaultSessionDuration = 30 * 24 * time.Hour
+
 func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
 	sessionUnauthenticatedResponse := &connect.Response[xylona.CheckUserAuthenticatedResponse]{
 		Msg: &xylona.CheckUserAuthenticatedResponse{
@@ -65,14 +67,15 @@ func (xs XylonaService) Login(ctx context.Context, request *connect.Request[xylo
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
 	}
 
+	sessionID := uuid.New().String()
 	x := &models.UserSessionSetter{
-		ID:        omit.From(uuid.New().String()),
+		ID:        omit.From(sessionID),
 		UserID:    omit.From(user.ID),
 		Token:     omit.From(uuid.New().String()),
-		ExpiresAt: omit.From(time.Now().Add(24 * time.Hour * 30)),
+		ExpiresAt: omit.From(time.Now().Add(defaultSessionDuration)),
 	}
 
-	log.Printf("User session: %+v", x)
+	log.Debug().Str("session_id", sessionID).Str("user_id", user.ID).Msg("Creating user session")
 	newSession, errSession := xs.db.CreateUserSession(x)
 
 	if errSession != nil {
@@ -103,8 +106,8 @@ func (xs XylonaService) Login(ctx context.Context, request *connect.Request[xylo
 		Name:     gatekeeper.SessionTokenCookieName,
 		Value:    encodedSession,
 		Path:     "/",
-		Expires:  time.Now().Add(24 * time.Hour * 30),
-		Secure:   false,
+		Expires:  time.Now().Add(defaultSessionDuration),
+		Secure:   xs.secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
@@ -112,8 +115,8 @@ func (xs XylonaService) Login(ctx context.Context, request *connect.Request[xylo
 		Name:     gatekeeper.SessionIDCookieName,
 		Value:    newSession.ID,
 		Path:     "/",
-		Expires:  time.Now().Add(24 * time.Hour * 30),
-		Secure:   false,
+		Expires:  time.Now().Add(defaultSessionDuration),
+		Secure:   xs.secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
@@ -130,6 +133,7 @@ func (xs XylonaService) Logout(ctx context.Context, request *connect.Request[xyl
 		errDeleteSession := xs.db.DeleteUserSession(sessionCookies.SessionID)
 		if errDeleteSession != nil {
 			log.Warn().Err(errDeleteSession).Str("session_id", sessionCookies.SessionID).Msg("Failed to delete user session on logout")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete session"))
 		}
 	}
 
@@ -143,7 +147,7 @@ func (xs XylonaService) Logout(ctx context.Context, request *connect.Request[xyl
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
-		Secure:   false,
+		Secure:   xs.secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
@@ -153,7 +157,7 @@ func (xs XylonaService) Logout(ctx context.Context, request *connect.Request[xyl
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
-		Secure:   false,
+		Secure:   xs.secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}

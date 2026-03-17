@@ -118,17 +118,14 @@ func (xs XylonaService) RemoveGame(ctx context.Context, request *connect.Request
 	return &connect.Response[xylona.RemoveGameResponse]{Msg: &xylona.RemoveGameResponse{}}, nil
 }
 
-func (xs XylonaService) ImportGame(ctx context.Context, request *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error) {
-	//TODO implement me
-	panic("implement me")
+func (xs XylonaService) ImportGame(_ context.Context, _ *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
 }
 
-func (xs XylonaService) ExportGame(ctx context.Context, request *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
-	//TODO implement me
-	panic("implement me")
+func (xs XylonaService) ExportGame(_ context.Context, _ *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
 }
 
-func (xs XylonaService) GetBranches(ctx context.Context, c *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
-	//TODO implement me
-	panic("implement me")
+func (xs XylonaService) GetBranches(_ context.Context, _ *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
 }
