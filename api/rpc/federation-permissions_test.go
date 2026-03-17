@@ -229,3 +229,102 @@ func TestListServerSummariesFiltersByFederatedViewPermission(t *testing.T) {
 		t.Fatalf("len(responseSuper.Msg.Servers) = %d, want 2", len(responseSuper.Msg.Servers))
 	}
 }
+
+func TestListServerSummariesTreatsPersistedOnlineAsOfflineWhenCommandMissing(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_, errSetStatus := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`update game_server set status = ? where id = ?`,
+		xylona.Status_ONLINE.String(),
+		"server-local-1",
+	)
+	if errSetStatus != nil {
+		t.Fatalf("failed to set game server status: %v", errSetStatus)
+	}
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("failed to create supervisor instance: %v", errSupervisor)
+	}
+
+	service := FederationService{
+		db:             fixture.conn,
+		supervisorInst: supervisorInst,
+	}
+
+	peerCtx := context.WithValue(context.Background(), federationPeerIdentityKey, FederationPeerIdentity{
+		NodeID: "node-remote",
+	})
+
+	request := connect.NewRequest(&xylona.FederationListServerSummariesRequest{})
+	response, errList := service.ListServerSummaries(peerCtx, request)
+	if errList != nil {
+		t.Fatalf("ListServerSummaries() error = %v", errList)
+	}
+	if len(response.Msg.Servers) != 1 {
+		t.Fatalf("len(response.Msg.Servers) = %d, want 1", len(response.Msg.Servers))
+	}
+	if response.Msg.Servers[0].Status != xylona.Status_OFFLINE {
+		t.Fatalf("response.Msg.Servers[0].Status = %v, want %v", response.Msg.Servers[0].Status, xylona.Status_OFFLINE)
+	}
+}
+
+func TestGetServerDetailTreatsPersistedOnlineAsOfflineWhenCommandMissing(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-remote")
+
+	_, errSetStatus := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`update game_server set status = ? where id = ?`,
+		xylona.Status_ONLINE.String(),
+		"server-local-1",
+	)
+	if errSetStatus != nil {
+		t.Fatalf("failed to set game server status: %v", errSetStatus)
+	}
+
+	errCreateGrant := fixture.conn.CreateFederatedAccessGrant(
+		"fed-grant-detail-status",
+		"server-local-1",
+		"node-remote",
+		"user-owner",
+		"owner",
+		"viewer",
+		"user-admin",
+	)
+	if errCreateGrant != nil {
+		t.Fatalf("failed to create federated grant: %v", errCreateGrant)
+	}
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("failed to create supervisor instance: %v", errSupervisor)
+	}
+
+	service := FederationService{
+		db:             fixture.conn,
+		supervisorInst: supervisorInst,
+	}
+
+	peerCtx := context.WithValue(context.Background(), federationPeerIdentityKey, FederationPeerIdentity{
+		NodeID: "node-remote",
+	})
+
+	request := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
+		ServerId: "server-local-1",
+	})
+	request.Header().Set(helpers.FederationActingUserIDHeader, "user-owner")
+	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote")
+
+	response, errDetail := service.GetServerDetail(peerCtx, request)
+	if errDetail != nil {
+		t.Fatalf("GetServerDetail() error = %v", errDetail)
+	}
+	if response.Msg == nil || response.Msg.Server == nil {
+		t.Fatalf("GetServerDetail() returned empty server")
+	}
+	if response.Msg.Server.Status != xylona.Status_OFFLINE {
+		t.Fatalf("response.Msg.Server.Status = %v, want %v", response.Msg.Server.Status, xylona.Status_OFFLINE)
+	}
+}

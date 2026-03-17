@@ -56,6 +56,28 @@ func (fs FederationService) authenticateRequest(ctx context.Context) (Federation
 	return identity, nil
 }
 
+func (fs FederationService) resolveFederatedServerStatus(gameServer *models.GameServer) xylona.Status {
+	status := helpers.GameServerModelStatusToProtoStatus(gameServer.Status)
+	if fs.supervisorInst == nil {
+		if status == xylona.Status_ONLINE {
+			return xylona.Status_OFFLINE
+		}
+		return status
+	}
+
+	gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gameServer.ID)
+	if errGetCommand == nil {
+		return gameServerCmd.Status()
+	}
+
+	// Prevent stale persisted ONLINE from surviving process restarts.
+	if status == xylona.Status_ONLINE {
+		return xylona.Status_OFFLINE
+	}
+
+	return status
+}
+
 func (fs FederationService) authorizeFederatedPermission(
 	ctx context.Context,
 	header http.Header,
@@ -214,11 +236,7 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 			}
 		}
 
-		status := helpers.GameServerModelStatusToProtoStatus(gs.Status)
-		gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gs.ID)
-		if errGetCommand == nil {
-			status = gameServerCmd.Status()
-		}
+		status := fs.resolveFederatedServerStatus(gs)
 
 		gameName := ""
 		if gs.R.Game != nil {
@@ -308,11 +326,7 @@ func (fs FederationService) GetServerDetail(ctx context.Context, request *connec
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get server"))
 	}
 
-	status := helpers.GameServerModelStatusToProtoStatus(gs.Status)
-	gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gs.ID)
-	if errGetCommand == nil {
-		status = gameServerCmd.Status()
-	}
+	status := fs.resolveFederatedServerStatus(gs)
 
 	gameName := ""
 	if gs.R.Game != nil {
