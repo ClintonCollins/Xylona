@@ -72,6 +72,17 @@ func (c *Connection) GetUserSession(id string) (*models.UserSession, error) {
 	return userSession, err
 }
 
+func (c *Connection) DeleteUserSession(id string) error {
+	_, err := models.UserSessions.Delete(
+		models.DeleteWhere.UserSessions.ID.EQ(id),
+	).Exec(c.ctx, c.DB)
+	if err != nil {
+		log.Error().Err(err).Str("session_id", id).Msg("Error deleting user session")
+		return err
+	}
+	return nil
+}
+
 func (c *Connection) GetAllUsers() ([]*models.User, error) {
 	users, err := models.Users.Query().All(c.ctx, c.DB)
 	if err != nil {
@@ -81,4 +92,22 @@ func (c *Connection) GetAllUsers() ([]*models.User, error) {
 		return nil, err
 	}
 	return users, err
+}
+
+func (c *Connection) DeleteUser(id string) error {
+	user, errGetUser := models.Users.Query(models.SelectWhere.Users.ID.EQ(id)).One(c.ctx, c.DB)
+	if errGetUser != nil {
+		if !errors.Is(errGetUser, sql.ErrNoRows) {
+			log.Error().Err(errGetUser).Str("user_id", id).Msg("Error querying user for delete")
+		}
+		return errGetUser
+	}
+
+	errDeleteUser := models.UserSlice{user}.DeleteAll(c.ctx, c.DB)
+	if errDeleteUser != nil {
+		log.Error().Err(errDeleteUser).Str("user_id", id).Msg("Error deleting user")
+		return errDeleteUser
+	}
+
+	return nil
 }

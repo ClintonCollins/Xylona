@@ -11,15 +11,7 @@ import (
 
 func Build() {
 	// Build the frontend
-	cmdPnpm := exec.Command("pnpm", "run", "build")
-	cmdPnpm.Dir = "frontend"
-	cmdPnpm.Stdout = os.Stdout
-	cmdPnpm.Stderr = os.Stderr
-	errRun := cmdPnpm.Run()
-	if errRun != nil {
-		log.Error().Err(errRun).Msg("Failed to build frontend")
-		os.Exit(1)
-	}
+	buildFrontend()
 
 	// Run Goreleaser
 	cmdGoReleaser := exec.Command("goreleaser", "release", "--snapshot", "--clean")
@@ -116,6 +108,9 @@ func Deploy(host string, user string, service string, path string) {
 
 	remoteAddr := user + "@" + host
 
+	// 0. Build Frontend
+	buildFrontend()
+
 	// 1. Build
 	log.Info().Msg("Building Xylona for Linux/amd64...")
 	cmdBuild := exec.Command("goreleaser", "build", "--snapshot", "--clean", "--single-target")
@@ -159,4 +154,17 @@ func Deploy(host string, user string, service string, path string) {
 	}
 
 	log.Info().Msg("Deployment successful!")
+}
+
+func buildFrontend() {
+	// Build the frontend
+	cmdPnpm := exec.Command("pnpm", "run", "build")
+	cmdPnpm.Dir = "frontend"
+	cmdPnpm.Stdout = os.Stdout
+	cmdPnpm.Stderr = os.Stderr
+	errRun := cmdPnpm.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("Failed to build frontend")
+		os.Exit(1)
+	}
 }

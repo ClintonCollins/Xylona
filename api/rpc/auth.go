@@ -125,6 +125,41 @@ func (xs XylonaService) Login(ctx context.Context, request *connect.Request[xylo
 }
 
 func (xs XylonaService) Logout(ctx context.Context, request *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error) {
-	//TODO implement me
-	panic("implement me")
+	sessionCookies, errGetSession := gatekeeper.GetSessionFromHeader(request.Header())
+	if errGetSession == nil {
+		errDeleteSession := xs.db.DeleteUserSession(sessionCookies.SessionID)
+		if errDeleteSession != nil {
+			log.Warn().Err(errDeleteSession).Str("session_id", sessionCookies.SessionID).Msg("Failed to delete user session on logout")
+		}
+	}
+
+	resp := &connect.Response[xylona.LogoutResponse]{
+		Msg: &xylona.LogoutResponse{},
+	}
+
+	clearTokenCookie := &http.Cookie{
+		Name:     gatekeeper.SessionTokenCookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	}
+	clearIDCookie := &http.Cookie{
+		Name:     gatekeeper.SessionIDCookieName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	resp.Header().Add("Set-Cookie", clearTokenCookie.String())
+	resp.Header().Add("Set-Cookie", clearIDCookie.String())
+
+	return resp, nil
 }

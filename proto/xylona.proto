@@ -24,6 +24,8 @@ service Xylona {
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse) {}
   rpc ListUsers (ListUsersRequest) returns (ListUsersResponse) {}
   rpc GetUser (GetUserDetailsRequest) returns (GetUserDetailsResponse) {}
+  rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse) {}
+  rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse) {}
   rpc ListRoles (ListRolesRequest) returns (ListRolesResponse) {}
   rpc ListPermissions (ListPermissionsRequest) returns (ListPermissionsResponse) {}
   rpc CreateRole (CreateRoleRequest) returns (CreateRoleResponse) {}
@@ -175,6 +177,26 @@ message GetUserDetailsRequest {
 message GetUserDetailsResponse {
   User user = 1;
 }
+
+message UpdateUserRequest {
+  string id = 1;
+  string user_name = 2;
+  string email = 3;
+  string first_name = 4;
+  string last_name = 5;
+  bool super_user = 6;
+  string password = 7;
+}
+
+message UpdateUserResponse {
+  User user = 1;
+}
+
+message DeleteUserRequest {
+  string id = 1;
+}
+
+message DeleteUserResponse {}
 
 enum NotificationEvent {
   SERVER_STARTED = 0;

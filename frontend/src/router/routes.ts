@@ -2,47 +2,60 @@ import { RouteLocationNormalized, RouteRecordRaw } from 'vue-router'
 import { useUserAuthStore } from 'src/stores/xylona'
 import { CheckUserAuthenticatedResponse } from 'src/proto/xylona_pb'
 
+const requireSuperUser = async () => {
+  const store = useUserAuthStore()
+  const resp: CheckUserAuthenticatedResponse | null = await store.checkUserAuthenticated()
+  if (!resp || !resp.user || !resp.authenticated) {
+    return { path: '/login' }
+  }
+  if (!resp.user.superUser) {
+    return { path: '/' }
+  }
+}
+
 const routes: RouteRecordRaw[] = [
   // Unauthenticated routes
   {
     path: '/login',
     component: () => import('pages/Login.vue'),
     beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
-      const resp: CheckUserAuthenticatedResponse | null = await useUserAuthStore().checkUserAuthenticated()
+      const resp: CheckUserAuthenticatedResponse | null =
+        await useUserAuthStore().checkUserAuthenticated()
       if (resp && resp.user && resp.authenticated) {
         if (from.path !== to.path) {
-          return {path: from.path}
+          return { path: from.path }
         }
-        return {path: '/'}
+        return { path: '/' }
       }
-    }
+    },
   },
   // Regular routes
   {
     path: '/',
-    beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
-      const resp: CheckUserAuthenticatedResponse | null = await useUserAuthStore().checkUserAuthenticated()
+    beforeEnter: async (_to: RouteLocationNormalized, _from: RouteLocationNormalized) => {
+      const resp: CheckUserAuthenticatedResponse | null =
+        await useUserAuthStore().checkUserAuthenticated()
       if (useUserAuthStore().user === null && (!resp || !resp.authenticated)) {
-        return {path: '/login'}
+        return { path: '/login' }
       }
     },
     component: () => import('layouts/MainLayout.vue'),
     children: [
       {
         path: '',
-        component: () => import('pages/IndexPage.vue')
+        component: () => import('pages/IndexPage.vue'),
       },
       {
         path: '/game-servers',
-        component: () => import('pages/game_servers/GameServerList.vue')
+        component: () => import('pages/game_servers/GameServerList.vue'),
       },
       {
         path: 'games',
-        component: () => import('pages/games/GameList.vue')
+        component: () => import('pages/games/GameList.vue'),
       },
       {
         path: 'games/create',
-        component: () => import('pages/games/GameCreate.vue')
+        component: () => import('pages/games/GameCreate.vue'),
       },
       {
         path: 'games/:id/edit',
@@ -54,11 +67,11 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'game-servers/create',
-        component: () => import('pages/game_servers/CreateGameServer.vue')
+        component: () => import('pages/game_servers/CreateGameServer.vue'),
       },
       {
         path: '/game-servers/:id/edit',
-        component: () => import('pages/game_servers/GameServerEdit.vue')
+        component: () => import('pages/game_servers/GameServerEdit.vue'),
       },
       {
         path: '/game-servers/:id',
@@ -66,69 +79,65 @@ const routes: RouteRecordRaw[] = [
         children: [
           {
             path: 'console',
-            component: () => import('pages/game_servers/GameServerView.vue')
+            component: () => import('pages/game_servers/GameServerView.vue'),
           },
           {
             path: 'files',
-            component: () => import('pages/game_servers/GameServerFiles.vue')
+            component: () => import('pages/game_servers/GameServerFiles.vue'),
           },
           {
             path: 'configuration',
-            component: () => import('pages/game_servers/GameServerConfiguration.vue')
+            component: () => import('pages/game_servers/GameServerConfiguration.vue'),
           },
           {
             path: 'access',
-            component: () => import('components/game_servers/GameServerAccess.vue')
+            component: () => import('components/game_servers/GameServerAccess.vue'),
           },
           {
             path: '',
-            component: () => import('pages/game_servers/GameServerView.vue')
+            component: () => import('pages/game_servers/GameServerView.vue'),
           },
-        ]
+        ],
       },
       {
         path: '/nodes',
-        component: () => import('pages/nodes/NodeList.vue')
+        component: () => import('pages/nodes/NodeList.vue'),
       },
       {
         path: '/nodes/add',
-        component: () => import('pages/nodes/NodeAdd.vue')
+        component: () => import('pages/nodes/NodeAdd.vue'),
       },
       {
         path: '/nodes/:id/edit',
-        component: () => import('pages/nodes/NodeEdit.vue')
+        component: () => import('pages/nodes/NodeEdit.vue'),
       },
       {
         path: '/secret-keys',
-        component: () => import('pages/other/LocalSecretKeyList.vue')
+        component: () => import('pages/other/LocalSecretKeyList.vue'),
       },
-    ]
-  },
-  // Admin routes
-  {
-    path: '/admin',
-    // beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
-    //   const resp: CheckUserAuthenticatedResponse| null = await useUserAuthStore().checkUserAuthenticated()
-    //   if (!resp || !resp.user || !resp.authenticated) {
-    //     return {path: '/login'}
-    //   }
-    //   if (!resp.user.superUser) {
-    //     return from
-    //   }
-    // },
-    component: () => import('layouts/MainLayout.vue'),
-    children: [
       {
-        path: 'create-user', component: () => import('pages/admin/CreateUser.vue')
-      }
-    ]
+        path: '/admin/users',
+        component: () => import('pages/admin/UserList.vue'),
+        beforeEnter: requireSuperUser,
+      },
+      {
+        path: '/admin/users/create',
+        component: () => import('pages/admin/UserCreate.vue'),
+        beforeEnter: requireSuperUser,
+      },
+      {
+        path: '/admin/users/:id/edit',
+        component: () => import('pages/admin/UserEdit.vue'),
+        beforeEnter: requireSuperUser,
+      },
+    ],
   },
   // Always leave this as last one,
   // but you can also remove it
   {
     path: '/:catchAll(.*)*',
-    component: () => import('pages/ErrorNotFound.vue')
-  }
+    component: () => import('pages/ErrorNotFound.vue'),
+  },
 ]
 
 export default routes

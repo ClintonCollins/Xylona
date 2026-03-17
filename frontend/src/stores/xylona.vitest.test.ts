@@ -1,13 +1,25 @@
 import { create } from '@bufbuild/protobuf'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { UserSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from './xylona'
 
+const mocks = vi.hoisted(() => ({
+  logout: vi.fn(),
+}))
+
+vi.mock('@/utils/shared', () => ({
+  GetXylonaClient: () => ({
+    logout: mocks.logout,
+  }),
+  ConnectErrorToString: (err: Error) => err.message,
+}))
+
 describe('useUserAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    mocks.logout.mockReset()
   })
 
   it('initializes with empty auth state', () => {
@@ -35,6 +47,27 @@ describe('useUserAuthStore', () => {
       email: 'admin@example.com',
       superUser: true,
     })
+  })
+
+  it('resets state on logout', async () => {
+    const store = useUserAuthStore()
+    const user = create(UserSchema, {
+      id: 'user-1',
+      userName: 'admin',
+    })
+
+    store.setUser(user)
+    store.initialFetch = true
+    store.initialResponse = { user, authenticated: true } as any
+
+    mocks.logout.mockResolvedValueOnce({})
+
+    await store.logout()
+
+    expect(mocks.logout).toHaveBeenCalledTimes(1)
+    expect(store.user).toBeNull()
+    expect(store.initialFetch).toBe(false)
+    expect(store.initialResponse).toBeNull()
   })
 })
 

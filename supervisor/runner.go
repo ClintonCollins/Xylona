@@ -87,7 +87,7 @@ func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, e
 		return nil, err
 	}
 	if cmd.currentCMD == nil && !preparedCommand.InternalCommand {
-		return nil, fmt.Errorf(cmd.GetOutputBuffer())
+		return nil, fmt.Errorf("%s", cmd.GetOutputBuffer())
 	}
 	return cmd, nil
 }
