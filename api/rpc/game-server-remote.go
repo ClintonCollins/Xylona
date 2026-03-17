@@ -49,7 +49,7 @@ func (xs XylonaService) editRemoteGameServer(ctx context.Context, serverID strin
 	resp, errEdit := client.EditRemoteServer(ctx, req)
 	if errEdit != nil {
 		log.Error().Err(errEdit).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to edit remote game server")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to edit remote server"))
+		return nil, wrapRemoteRPCError(errEdit, "failed to edit remote server")
 	}
 
 	if !resp.Msg.Success {
@@ -84,7 +84,7 @@ func (xs XylonaService) removeRemoteGameServer(ctx context.Context, serverID str
 	resp, errRemove := client.RemoveRemoteServer(ctx, req)
 	if errRemove != nil {
 		log.Error().Err(errRemove).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to remove remote game server")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to remove remote server"))
+		return nil, wrapRemoteRPCError(errRemove, "failed to remove remote server")
 	}
 
 	if !resp.Msg.Success {
@@ -123,7 +123,7 @@ func (xs XylonaService) updateRemoteGameServer(ctx context.Context, serverID str
 	resp, errUpdate := client.UpdateRemoteServer(ctx, req)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to update remote game server")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to update remote server"))
+		return nil, wrapRemoteRPCError(errUpdate, "failed to update remote server")
 	}
 
 	if !resp.Msg.Success {
@@ -157,7 +157,7 @@ func (xs XylonaService) listRemoteDirectoryFiles(ctx context.Context, serverID s
 	resp, errList := client.ListRemoteDirectoryFiles(ctx, req)
 	if errList != nil {
 		log.Error().Err(errList).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to list remote directory files")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to list remote files"))
+		return nil, wrapRemoteRPCError(errList, "failed to list remote files")
 	}
 
 	return connect.NewResponse(&xylona.ListDirectoryFilesResponse{
@@ -190,7 +190,7 @@ func (xs XylonaService) editRemoteFile(ctx context.Context, serverID string, ful
 	_, errEdit := client.EditRemoteFile(ctx, req)
 	if errEdit != nil {
 		log.Error().Err(errEdit).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to edit remote file")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to edit remote file"))
+		return nil, wrapRemoteRPCError(errEdit, "failed to edit remote file")
 	}
 
 	return connect.NewResponse(&xylona.GameServersFileEditResponse{}), nil
@@ -220,7 +220,7 @@ func (xs XylonaService) deleteRemoteFiles(ctx context.Context, serverID string, 
 	resp, errDelete := client.DeleteRemoteFiles(ctx, req)
 	if errDelete != nil {
 		log.Error().Err(errDelete).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to delete remote files")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to delete remote files"))
+		return nil, wrapRemoteRPCError(errDelete, "failed to delete remote files")
 	}
 
 	return connect.NewResponse(&xylona.GameServerFilesDeleteResponse{
@@ -253,7 +253,7 @@ func (xs XylonaService) renameRemoteFile(ctx context.Context, serverID string, o
 	resp, errRename := client.RenameRemoteFile(ctx, req)
 	if errRename != nil {
 		log.Error().Err(errRename).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to rename remote file")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to rename remote file"))
+		return nil, wrapRemoteRPCError(errRename, "failed to rename remote file")
 	}
 
 	return connect.NewResponse(&xylona.GameServerFileRenameResponse{
@@ -286,7 +286,7 @@ func (xs XylonaService) moveRemoteFiles(ctx context.Context, serverID string, fu
 	resp, errMove := client.MoveRemoteFiles(ctx, req)
 	if errMove != nil {
 		log.Error().Err(errMove).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to move remote files")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to move remote files"))
+		return nil, wrapRemoteRPCError(errMove, "failed to move remote files")
 	}
 
 	return connect.NewResponse(&xylona.GameServerFilesMoveResponse{
@@ -320,7 +320,7 @@ func (xs XylonaService) createRemoteFileOrDirectory(ctx context.Context, serverI
 	_, errCreate := client.CreateRemoteFileOrDirectory(ctx, req)
 	if errCreate != nil {
 		log.Error().Err(errCreate).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to create remote file/directory")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to create remote file or directory"))
+		return nil, wrapRemoteRPCError(errCreate, "failed to create remote file or directory")
 	}
 
 	return connect.NewResponse(&xylona.GameServerFileOrDirectoryCreateResponse{}), nil
@@ -349,7 +349,7 @@ func (xs XylonaService) queryRemoteGameServer(ctx context.Context, serverID stri
 	resp, errQuery := client.QueryRemoteServer(ctx, req)
 	if errQuery != nil {
 		log.Error().Err(errQuery).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to query remote game server")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to query remote server"))
+		return nil, wrapRemoteRPCError(errQuery, "failed to query remote server")
 	}
 
 	return connect.NewResponse(&xylona.QueryGameServerResponse{
@@ -382,7 +382,7 @@ func (xs XylonaService) downloadRemoteFileFromURL(ctx context.Context, serverID 
 	resp, errDownload := client.DownloadRemoteFileFromURL(ctx, req)
 	if errDownload != nil {
 		log.Error().Err(errDownload).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to download file from URL on remote")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to download remote file from URL"))
+		return nil, wrapRemoteRPCError(errDownload, "failed to download remote file from URL")
 	}
 
 	return connect.NewResponse(&xylona.GameServersFileDownloadFromURLResponse{

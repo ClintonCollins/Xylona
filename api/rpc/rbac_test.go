@@ -156,11 +156,14 @@ func seedRBACRPCFixture(t *testing.T, conn *db.Connection) {
 func seedRemoteNodeForRBACRPCTests(t *testing.T, conn *db.Connection, nodeID string) {
 	t.Helper()
 
+	host := fmt.Sprintf("%s.remote.test", nodeID)
+	baseURL := fmt.Sprintf("https://%s", host)
+
 	_, errInsertNode := conn.SQLDb.ExecContext(
 		context.Background(),
 		`insert into node (id, name, is_local, host, port, base_url, enabled)
-		 values (?, ?, ?, ?, ?, ?, ?)`,
-		nodeID, "Remote Node", false, "remote-host", 8443, "https://remote.example.com", true,
+			 values (?, ?, ?, ?, ?, ?, ?)`,
+		nodeID, "Remote Node", false, host, 8443, baseURL, true,
 	)
 	if errInsertNode != nil {
 		t.Fatalf("failed to insert remote node: %v", errInsertNode)

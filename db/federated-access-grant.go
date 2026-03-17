@@ -67,7 +67,8 @@ func (c *Connection) FederatedUserHasPermissionOnServer(remoteNodeID string, rem
 		FROM federated_access_grant fag
 		JOIN role_permission rp ON fag.role_id = rp.role_id
 		WHERE fag.remote_node_id = ? AND fag.remote_user_id = ?
-		AND fag.game_server_id = ? AND rp.permission_id = ?`,
+		AND fag.game_server_id = ?
+		AND rp.permission_id = ?`,
 		remoteNodeID, remoteUserID, gameServerID, permissionID,
 	).Scan(&count)
 	if errQuery != nil {

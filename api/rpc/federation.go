@@ -57,15 +57,20 @@ func (fs FederationService) authenticateRequest(ctx context.Context) (Federation
 }
 
 func (fs FederationService) authorizeFederatedPermission(
+	ctx context.Context,
 	header http.Header,
 	actingUserID string,
 	originNodeID string,
 	serverID string,
 	permissionID string,
 ) error {
-	actingIsSuperUser := helpers.FederatedActingIsSuperUser(header)
-	if actingIsSuperUser {
-		return nil
+	peerIdentity, okIdentity := federationPeerIdentityFromContext(ctx)
+	if !okIdentity || strings.TrimSpace(peerIdentity.NodeID) == "" {
+		log.Warn().
+			Str("server_id", serverID).
+			Str("permission_id", permissionID).
+			Msg("federation request missing authenticated peer identity")
+		return connect.NewError(connect.CodePermissionDenied, errors.New("authenticated federation peer identity is required"))
 	}
 
 	if strings.TrimSpace(actingUserID) == "" || strings.TrimSpace(originNodeID) == "" {
@@ -74,7 +79,7 @@ func (fs FederationService) authorizeFederatedPermission(
 		originNodeID = strings.TrimSpace(headerOriginNodeID)
 	}
 
-	if actingUserID == "" || originNodeID == "" {
+	if actingUserID == "" {
 		log.Warn().
 			Str("server_id", serverID).
 			Str("permission_id", permissionID).
@@ -82,12 +87,36 @@ func (fs FederationService) authorizeFederatedPermission(
 		return connect.NewError(connect.CodePermissionDenied, errors.New("acting user identity is required for federated actions"))
 	}
 
-	allowed, errPermission := fs.db.FederatedUserHasPermissionOnServer(originNodeID, actingUserID, serverID, permissionID)
+	if originNodeID != "" && originNodeID != peerIdentity.NodeID && originNodeID != peerIdentity.PeerNodeID {
+		log.Warn().
+			Str("server_id", serverID).
+			Str("permission_id", permissionID).
+			Str("origin_node_id", originNodeID).
+			Str("authenticated_node_id", peerIdentity.NodeID).
+			Str("authenticated_peer_node_id", peerIdentity.PeerNodeID).
+			Msg("federation request acting origin does not match authenticated peer")
+		return connect.NewError(connect.CodePermissionDenied, errors.New("acting origin node is invalid"))
+	}
+
+	if helpers.FederatedActingIsSuperUser(header) {
+		if originNodeID == "" {
+			log.Warn().
+				Str("server_id", serverID).
+				Str("permission_id", permissionID).
+				Str("acting_user_id", actingUserID).
+				Msg("federation super-user request missing origin node")
+			return connect.NewError(connect.CodePermissionDenied, errors.New("acting origin node is required for super-user federated actions"))
+		}
+		return nil
+	}
+
+	allowed, errPermission := fs.db.FederatedUserHasPermissionOnServer(peerIdentity.NodeID, actingUserID, serverID, permissionID)
 	if errPermission != nil {
 		log.Error().
 			Err(errPermission).
 			Str("server_id", serverID).
 			Str("origin_node_id", originNodeID).
+			Str("authenticated_node_id", peerIdentity.NodeID).
 			Str("acting_user_id", actingUserID).
 			Str("permission_id", permissionID).
 			Msg("failed to verify federated permission")
@@ -139,9 +168,23 @@ func (fs FederationService) Handshake(ctx context.Context, request *connect.Requ
 }
 
 func (fs FederationService) ListServerSummaries(ctx context.Context, request *connect.Request[xylona.FederationListServerSummariesRequest]) (*connect.Response[xylona.FederationListServerSummariesResponse], error) {
-	_, errAuth := fs.authenticateRequest(ctx)
+	peerIdentity, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	actingUserID, originNodeID := helpers.GetFederatedActingIdentity(request.Header())
+	actingUserID = strings.TrimSpace(actingUserID)
+	originNodeID = strings.TrimSpace(originNodeID)
+	actingIsSuperUser := helpers.FederatedActingIsSuperUser(request.Header())
+	if (actingUserID != "" || originNodeID != "") && (actingUserID == "" || originNodeID == "") {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("federated acting identity is invalid"))
+	}
+	if actingIsSuperUser && (actingUserID == "" || originNodeID == "") {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("super-user federated identity is invalid"))
+	}
+	if originNodeID != "" && originNodeID != peerIdentity.NodeID && originNodeID != peerIdentity.PeerNodeID {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("federated acting origin is invalid"))
 	}
 
 	gameServers, errGetServers := fs.db.GetAllGameServers()
@@ -154,6 +197,23 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 
 	resp := &xylona.FederationListServerSummariesResponse{}
 	for _, gs := range gameServers {
+		if actingUserID != "" && !actingIsSuperUser {
+			allowed, errPermission := fs.db.FederatedUserHasPermissionOnServer(peerIdentity.NodeID, actingUserID, gs.ID, "game_server.view")
+			if errPermission != nil {
+				log.Error().
+					Err(errPermission).
+					Str("server_id", gs.ID).
+					Str("origin_node_id", originNodeID).
+					Str("authenticated_node_id", peerIdentity.NodeID).
+					Str("acting_user_id", actingUserID).
+					Msg("failed to evaluate federated view permission for server summary")
+				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to evaluate permissions"))
+			}
+			if !allowed {
+				continue
+			}
+		}
+
 		status := helpers.GameServerModelStatusToProtoStatus(gs.Status)
 		gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gs.ID)
 		if errGetCommand == nil {
@@ -235,7 +295,7 @@ func (fs FederationService) GetServerDetail(ctx context.Context, request *connec
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.view")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.view")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -287,6 +347,7 @@ func (fs FederationService) StartRemoteServer(ctx context.Context, request *conn
 
 	serverID := request.Msg.GetServerId()
 	errPermission := fs.authorizeFederatedPermission(
+		ctx,
 		request.Header(),
 		request.Msg.GetActingUserId(),
 		request.Msg.GetOriginNodeId(),
@@ -317,6 +378,7 @@ func (fs FederationService) StopRemoteServer(ctx context.Context, request *conne
 
 	serverID := request.Msg.GetServerId()
 	errPermission := fs.authorizeFederatedPermission(
+		ctx,
 		request.Header(),
 		request.Msg.GetActingUserId(),
 		request.Msg.GetOriginNodeId(),
@@ -347,6 +409,7 @@ func (fs FederationService) RestartRemoteServer(ctx context.Context, request *co
 
 	serverID := request.Msg.GetServerId()
 	errPermission := fs.authorizeFederatedPermission(
+		ctx,
 		request.Header(),
 		request.Msg.GetActingUserId(),
 		request.Msg.GetOriginNodeId(),
@@ -377,7 +440,7 @@ func (fs FederationService) StreamConsoleOutput(ctx context.Context, request *co
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.console")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.console")
 	if errPermission != nil {
 		return errPermission
 	}
@@ -427,7 +490,7 @@ func (fs FederationService) SendConsoleInput(ctx context.Context, request *conne
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.console")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.console")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -471,7 +534,7 @@ func (fs FederationService) ReadConsoleBuffer(ctx context.Context, request *conn
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.console")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.console")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -548,6 +611,7 @@ func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *con
 
 	serverID := request.Msg.GetServerId()
 	errPermission := fs.authorizeFederatedPermission(
+		ctx,
 		request.Header(),
 		request.Msg.GetActingUserId(),
 		request.Msg.GetOriginNodeId(),
@@ -577,7 +641,7 @@ func (fs FederationService) EditRemoteServer(ctx context.Context, request *conne
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.settings")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.settings")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -609,6 +673,7 @@ func (fs FederationService) RemoveRemoteServer(ctx context.Context, request *con
 
 	serverID := request.Msg.GetServerId()
 	errPermission := fs.authorizeFederatedPermission(
+		ctx,
 		request.Header(),
 		request.Msg.GetActingUserId(),
 		request.Msg.GetOriginNodeId(),
@@ -642,7 +707,7 @@ func (fs FederationService) ListRemoteDirectoryFiles(ctx context.Context, reques
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.view")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.files.view")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -675,7 +740,7 @@ func (fs FederationService) EditRemoteFile(ctx context.Context, request *connect
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.files.edit")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -702,7 +767,7 @@ func (fs FederationService) DeleteRemoteFiles(ctx context.Context, request *conn
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.files.edit")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -730,7 +795,7 @@ func (fs FederationService) RenameRemoteFile(ctx context.Context, request *conne
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.files.edit")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -758,7 +823,7 @@ func (fs FederationService) MoveRemoteFiles(ctx context.Context, request *connec
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.files.edit")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -786,7 +851,7 @@ func (fs FederationService) CreateRemoteFileOrDirectory(ctx context.Context, req
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.files.edit")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -813,7 +878,7 @@ func (fs FederationService) DownloadRemoteFileFromURL(ctx context.Context, reque
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.files.edit")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.files.edit")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -841,7 +906,7 @@ func (fs FederationService) QueryRemoteServer(ctx context.Context, request *conn
 	}
 
 	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.view")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.view")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -888,7 +953,7 @@ func (fs FederationService) ListRemoteGameServerAccessGrants(ctx context.Context
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
 	}
 
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.settings")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.settings")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -924,7 +989,7 @@ func (fs FederationService) GrantRemoteGameServerAccess(ctx context.Context, req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id, user_id, and role_id are required"))
 	}
 
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.settings")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.settings")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -1025,7 +1090,7 @@ func (fs FederationService) RevokeRemoteGameServerAccess(ctx context.Context, re
 	}
 
 	serverID := assignment.GameServerID.MustGet()
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.settings")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.settings")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -1050,7 +1115,7 @@ func (fs FederationService) ListRemoteFederatedAccessGrants(ctx context.Context,
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
 	}
 
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.settings")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.settings")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -1087,7 +1152,7 @@ func (fs FederationService) GrantRemoteFederatedAccess(ctx context.Context, requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id, remote_node_id, remote_user_id, and role_id are required"))
 	}
 
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", serverID, "game_server.settings")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", serverID, "game_server.settings")
 	if errPermission != nil {
 		return nil, errPermission
 	}
@@ -1198,7 +1263,7 @@ func (fs FederationService) RevokeRemoteFederatedAccess(ctx context.Context, req
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to revoke federated access"))
 	}
 
-	errPermission := fs.authorizeFederatedPermission(request.Header(), "", "", grantModel.GameServerID, "game_server.settings")
+	errPermission := fs.authorizeFederatedPermission(ctx, request.Header(), "", "", grantModel.GameServerID, "game_server.settings")
 	if errPermission != nil {
 		return nil, errPermission
 	}

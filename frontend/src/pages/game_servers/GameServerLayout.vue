@@ -17,21 +17,136 @@
 </template>
 
 <script setup lang="ts">
-import {useToolbarNavQTabsStore} from "@/stores/xylona"
-import {WindowWidth} from "@/utils/shared"
-import {useRoute} from "vue-router";
-
+import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
+import { ListDirectoryFilesRequestSchema } from '@/proto/gameserver_files_operations_pb'
+import { GetGameServerRequestSchema, ListGameServerAccessGrantsRequestSchema } from '@/proto/xylona_pb'
+import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
+import { GetXylonaClient, WindowWidth } from '@/utils/shared'
+import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
 const navQTabsStore = useToolbarNavQTabsStore()
 const windowWidth = WindowWidth()
+const canUseConfigurationTab = ref(false)
+const canUseAccessTab = ref(false)
 
-useToolbarNavQTabsStore().changeTabs([
-  {name: "Console", to: "/game-servers/" + route.params.id + "/console", icon: "terminal", exact: true},
-  {name: "Files", to: "/game-servers/" + route.params.id + "/files", icon: "folder", exact: true},
-  {name: "Configuration", to: "/game-servers/" + route.params.id + "/configuration", icon: "settings", exact: true},
-  {name: "Access", to: "/game-servers/" + route.params.id + "/access", icon: "manage_accounts", exact: true},
-])
+onMounted(async () => {
+  await configureTabs()
+  await enforceRouteAccess()
+})
+
+watch(
+  () => route.path,
+  () => {
+    void enforceRouteAccess()
+  },
+)
+
+watch(
+  () => route.params.id,
+  () => {
+    void configureTabs().then(enforceRouteAccess)
+  },
+)
+
+function getServerID(): string {
+  return route.params.id instanceof Array ? route.params.id[0] : route.params.id
+}
+
+async function configureTabs() {
+  const serverID = getServerID()
+  if (serverID === '') {
+    navQTabsStore.changeTabs([])
+    return
+  }
+
+  const { isSuperUser, isOwner } = await resolveUserContext(serverID)
+  const canManageAccessByRequest = await hasAccessGrantsPermission(serverID)
+  canUseAccessTab.value = isSuperUser || isOwner || canManageAccessByRequest
+
+  const canManageConfigurationByRequest = await hasFilesViewPermission(serverID)
+  canUseConfigurationTab.value = canUseAccessTab.value || canManageConfigurationByRequest
+
+  navQTabsStore.changeTabs(buildGameServerTabs(serverID, canUseConfigurationTab.value, canUseAccessTab.value))
+}
+
+async function resolveUserContext(serverID: string): Promise<{ isSuperUser: boolean; isOwner: boolean }> {
+  const authStore = useUserAuthStore()
+  const authResponse = await authStore.checkUserAuthenticated()
+  const currentUser = authResponse?.user ?? authStore.user
+  if (!currentUser) {
+    return { isSuperUser: false, isOwner: false }
+  }
+
+  let isOwner = false
+  try {
+    const gameServerResp = await GetXylonaClient().getGameServer(create(GetGameServerRequestSchema, {
+      id: serverID,
+    }))
+    isOwner = gameServerResp.gameServer?.userId === currentUser.id
+  } catch (unknownError: unknown) {
+    const err = ConnectError.from(unknownError)
+    if (err.code !== Code.PermissionDenied) {
+      console.error(err)
+    }
+  }
+
+  return {
+    isSuperUser: currentUser.superUser,
+    isOwner,
+  }
+}
+
+async function hasAccessGrantsPermission(serverID: string): Promise<boolean> {
+  try {
+    await GetXylonaClient().listGameServerAccessGrants(create(ListGameServerAccessGrantsRequestSchema, {
+      gameServerId: serverID,
+    }))
+    return true
+  } catch (unknownError: unknown) {
+    const err = ConnectError.from(unknownError)
+    if (err.code !== Code.PermissionDenied && err.code !== Code.NotFound) {
+      console.error(err)
+    }
+    return false
+  }
+}
+
+async function hasFilesViewPermission(serverID: string): Promise<boolean> {
+  try {
+    await GetXylonaClient().listDirectoryFiles(create(ListDirectoryFilesRequestSchema, {
+      gameServerId: serverID,
+      path: '',
+    }))
+    return true
+  } catch (unknownError: unknown) {
+    const err = ConnectError.from(unknownError)
+    if (
+      err.code !== Code.PermissionDenied &&
+      err.code !== Code.NotFound &&
+      err.code !== Code.InvalidArgument
+    ) {
+      console.error(err)
+    }
+    return false
+  }
+}
+
+async function enforceRouteAccess() {
+  const serverID = getServerID()
+  if (serverID === '') {
+    return
+  }
+
+  const redirectPath = getUnauthorizedRedirect(route.path, serverID, canUseConfigurationTab.value, canUseAccessTab.value)
+  if (redirectPath !== null && route.path !== redirectPath) {
+    await router.replace(redirectPath)
+  }
+}
 
 </script>
 

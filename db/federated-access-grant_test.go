@@ -131,6 +131,14 @@ func TestFederatedUserHasPermissionOnServer(t *testing.T) {
 			permissionID: "game_server.start",
 			want:         false,
 		},
+		{
+			name:         "different node id does not match",
+			remoteNodeID: "node-remote-peer-2",
+			remoteUserID: "remote-user-1",
+			serverID:     "server-local-1",
+			permissionID: "game_server.start",
+			want:         false,
+		},
 	}
 
 	for _, tt := range tests {

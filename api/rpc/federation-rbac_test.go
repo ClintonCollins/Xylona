@@ -23,13 +23,26 @@ func federationPeerTestContext() context.Context {
 func TestGrantRemoteGameServerAccessFallsBackGrantorToOwner(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	server := FederationService{db: fixture.conn}
+	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-remote-peer")
+
+	errCreateFederatedGrant := fixture.conn.CreateFederatedAccessGrant(
+		"fed-auth-grant-1",
+		"server-local-1",
+		"node-remote-peer",
+		"external-user-id",
+		"External User",
+		"admin",
+		"user-owner",
+	)
+	if errCreateFederatedGrant != nil {
+		t.Fatalf("CreateFederatedAccessGrant() error = %v", errCreateFederatedGrant)
+	}
 
 	request := connect.NewRequest(&xylona.FederationGrantGameServerAccessRequest{
 		GameServerId: "server-local-1",
 		UserId:       "user-other",
 		RoleId:       "viewer",
 	})
-	request.Header().Set(helpers.FederationActingSuperHeader, "true")
 	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
 	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
 
@@ -53,6 +66,20 @@ func TestGrantRemoteGameServerAccessFallsBackGrantorToOwner(t *testing.T) {
 func TestRevokeRemoteGameServerAccessDeletesGrant(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	server := FederationService{db: fixture.conn}
+	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-remote-peer")
+
+	errCreateFederatedGrant := fixture.conn.CreateFederatedAccessGrant(
+		"fed-auth-grant-2",
+		"server-local-1",
+		"node-remote-peer",
+		"external-user-id",
+		"External User",
+		"admin",
+		"user-owner",
+	)
+	if errCreateFederatedGrant != nil {
+		t.Fatalf("CreateFederatedAccessGrant() error = %v", errCreateFederatedGrant)
+	}
 
 	errCreate := fixture.conn.CreateUserRoleAssignment(
 		"grant-to-revoke",
@@ -68,7 +95,8 @@ func TestRevokeRemoteGameServerAccessDeletesGrant(t *testing.T) {
 	request := connect.NewRequest(&xylona.FederationRevokeGameServerAccessRequest{
 		GrantId: "grant-to-revoke",
 	})
-	request.Header().Set(helpers.FederationActingSuperHeader, "true")
+	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
+	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
 
 	_, errRevoke := server.RevokeRemoteGameServerAccess(federationPeerTestContext(), request)
 	if errRevoke != nil {
@@ -84,7 +112,21 @@ func TestRevokeRemoteGameServerAccessDeletesGrant(t *testing.T) {
 func TestGrantRemoteFederatedAccessFallsBackGrantorToOwner(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	server := FederationService{db: fixture.conn}
+	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-remote-peer")
 	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-remote-1")
+
+	errCreateFederatedGrant := fixture.conn.CreateFederatedAccessGrant(
+		"fed-auth-grant-3",
+		"server-local-1",
+		"node-remote-peer",
+		"external-user-id",
+		"External User",
+		"admin",
+		"user-owner",
+	)
+	if errCreateFederatedGrant != nil {
+		t.Fatalf("CreateFederatedAccessGrant() error = %v", errCreateFederatedGrant)
+	}
 
 	request := connect.NewRequest(&xylona.FederationGrantFederatedAccessRequest{
 		GameServerId:   "server-local-1",
@@ -93,7 +135,6 @@ func TestGrantRemoteFederatedAccessFallsBackGrantorToOwner(t *testing.T) {
 		RemoteUserName: "Remote User",
 		RoleId:         "viewer",
 	})
-	request.Header().Set(helpers.FederationActingSuperHeader, "true")
 	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
 	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
 

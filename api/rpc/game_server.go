@@ -288,7 +288,7 @@ func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID stri
 	resp, errStart := client.StartRemoteServer(ctx, req)
 	if errStart != nil {
 		log.Error().Err(errStart).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to start remote game server")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to start remote server"))
+		return nil, wrapRemoteRPCError(errStart, "failed to start remote server")
 	}
 
 	if !resp.Msg.Success {
@@ -346,7 +346,7 @@ func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID strin
 	resp, errStop := client.StopRemoteServer(ctx, req)
 	if errStop != nil {
 		log.Error().Err(errStop).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to stop remote game server")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to stop remote server"))
+		return nil, wrapRemoteRPCError(errStop, "failed to stop remote server")
 	}
 
 	if !resp.Msg.Success {
@@ -407,7 +407,7 @@ func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID
 	resp, errRead := client.ReadConsoleBuffer(ctx, req)
 	if errRead != nil {
 		log.Error().Err(errRead).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to read remote console buffer")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to read remote console"))
+		return nil, wrapRemoteRPCError(errRead, "failed to read remote console")
 	}
 
 	return connect.NewResponse(&xylona.ReadGameServerOutputResponse{
@@ -477,7 +477,7 @@ func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID 
 	resp, errSend := client.SendConsoleInput(ctx, req)
 	if errSend != nil {
 		log.Error().Err(errSend).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to send remote console input")
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to send remote input"))
+		return nil, wrapRemoteRPCError(errSend, "failed to send remote input")
 	}
 
 	if !resp.Msg.Success {

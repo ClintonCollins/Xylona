@@ -25,9 +25,12 @@ import (
 type federationSummaryTestHandler struct {
 	xylonaconnect.UnimplementedFederationHandler
 
-	mu        sync.RWMutex
-	status    xylona.Status
-	updatedAt time.Time
+	mu                sync.RWMutex
+	status            xylona.Status
+	updatedAt         time.Time
+	lastActingUserID  string
+	lastOriginNodeID  string
+	lastActingIsSuper string
 }
 
 func (h *federationSummaryTestHandler) SetStatus(status xylona.Status) {
@@ -41,10 +44,16 @@ func (h *federationSummaryTestHandler) ListServerSummaries(
 	ctx context.Context,
 	request *connect.Request[xylona.FederationListServerSummariesRequest],
 ) (*connect.Response[xylona.FederationListServerSummariesResponse], error) {
-	h.mu.RLock()
+	actingUserID, originNodeID := helpers.GetFederatedActingIdentity(request.Header())
+	actingIsSuper := request.Header().Get(helpers.FederationActingSuperHeader)
+
+	h.mu.Lock()
 	status := h.status
 	updatedAt := h.updatedAt
-	h.mu.RUnlock()
+	h.lastActingUserID = actingUserID
+	h.lastOriginNodeID = originNodeID
+	h.lastActingIsSuper = actingIsSuper
+	h.mu.Unlock()
 
 	response := &xylona.FederationListServerSummariesResponse{
 		Servers: []*xylona.FederationServerSummary{
@@ -65,6 +74,12 @@ func (h *federationSummaryTestHandler) ListServerSummaries(
 		},
 	}
 	return connect.NewResponse(response), nil
+}
+
+func (h *federationSummaryTestHandler) LastActingHeaders() (string, string, string) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.lastActingUserID, h.lastOriginNodeID, h.lastActingIsSuper
 }
 
 func createRemoteSummarySyncCacheTable(t *testing.T, conn *db.Connection) {
@@ -216,7 +231,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		listCache:      newRemoteServerListCache(30 * time.Second),
 	}
 
-	firstSummaries, firstUsedStale, errFirst := xylonaService.listRemoteNodeSummaries(context.Background(), node)
+	firstSummaries, firstUsedStale, errFirst := xylonaService.listRemoteNodeSummaries(context.Background(), node, nil)
 	if errFirst != nil {
 		t.Fatalf("listRemoteNodeSummaries() first call error = %v", errFirst)
 	}
@@ -232,7 +247,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 
 	testHandler.SetStatus(xylona.Status_ONLINE)
 
-	secondSummaries, secondUsedStale, errSecond := xylonaService.listRemoteNodeSummaries(context.Background(), node)
+	secondSummaries, secondUsedStale, errSecond := xylonaService.listRemoteNodeSummaries(context.Background(), node, nil)
 	if errSecond != nil {
 		t.Fatalf("listRemoteNodeSummaries() second call error = %v", errSecond)
 	}
@@ -272,5 +287,30 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 	}
 	if cachedCount != 1 {
 		t.Fatalf("cached row count = %d, want 1", cachedCount)
+	}
+
+	superUser := &models.User{
+		ID:        "user-admin",
+		SuperUser: true,
+	}
+	thirdSummaries, thirdUsedStale, errThird := xylonaService.listRemoteNodeSummaries(context.Background(), node, superUser)
+	if errThird != nil {
+		t.Fatalf("listRemoteNodeSummaries() super-user call error = %v", errThird)
+	}
+	if thirdUsedStale {
+		t.Fatalf("listRemoteNodeSummaries() super-user call used stale data unexpectedly")
+	}
+	if len(thirdSummaries) != 1 {
+		t.Fatalf("len(thirdSummaries) = %d, want 1", len(thirdSummaries))
+	}
+	gotActingUserID, gotOriginNodeID, gotActingIsSuper := testHandler.LastActingHeaders()
+	if gotActingUserID != "" {
+		t.Fatalf("acting user header = %q, want empty for super-user summary fetch", gotActingUserID)
+	}
+	if gotOriginNodeID != "" {
+		t.Fatalf("origin node header = %q, want empty for super-user summary fetch", gotOriginNodeID)
+	}
+	if gotActingIsSuper != "" {
+		t.Fatalf("acting super header = %q, want empty for super-user summary fetch", gotActingIsSuper)
 	}
 }

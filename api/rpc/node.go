@@ -518,7 +518,7 @@ func (xs XylonaService) ListAggregatedGameServers(ctx context.Context, request *
 		workerGroup.Add(1)
 		go func() {
 			defer workerGroup.Done()
-			summaries, usedStaleData, errSummaries := xs.listRemoteNodeSummaries(ctx, node)
+			summaries, usedStaleData, errSummaries := xs.listRemoteNodeSummaries(ctx, node, user)
 			results <- remoteNodeResult{
 				nodeID:        node.ID,
 				summaries:     summaries,
@@ -579,14 +579,20 @@ func (xs XylonaService) ListAggregatedGameServers(ctx context.Context, request *
 	return connect.NewResponse(resp), nil
 }
 
-func (xs XylonaService) listRemoteNodeSummaries(ctx context.Context, node *models.Node) ([]*xylona.RemoteServerSummary, bool, error) {
-	summaries, errFetch := xs.fetchRemoteNodeSummaries(ctx, node)
+func (xs XylonaService) listRemoteNodeSummaries(ctx context.Context, node *models.Node, actingUser *models.User) ([]*xylona.RemoteServerSummary, bool, error) {
+	summaries, errFetch := xs.fetchRemoteNodeSummaries(ctx, node, actingUser)
 	if errFetch == nil {
-		if xs.listCache != nil {
-			xs.listCache.set(node.ID, summaries, time.Now())
+		if actingUser == nil || actingUser.SuperUser {
+			if xs.listCache != nil {
+				xs.listCache.set(node.ID, summaries, time.Now())
+			}
+			xs.syncRemoteServerCacheSummaries(node, summaries)
 		}
-		xs.syncRemoteServerCacheSummaries(node, summaries)
 		return summaries, false, nil
+	}
+
+	if actingUser != nil && !actingUser.SuperUser {
+		return nil, false, errFetch
 	}
 
 	if xs.listCache == nil {
@@ -601,13 +607,19 @@ func (xs XylonaService) listRemoteNodeSummaries(ctx context.Context, node *model
 	return markRemoteServerSummariesStale(staleSummaries, staleFetchedAt), true, nil
 }
 
-func (xs XylonaService) fetchRemoteNodeSummaries(ctx context.Context, node *models.Node) ([]*xylona.RemoteServerSummary, error) {
+func (xs XylonaService) fetchRemoteNodeSummaries(ctx context.Context, node *models.Node, actingUser *models.User) ([]*xylona.RemoteServerSummary, error) {
 	client, errClient := xs.newRemoteFederationClient(node)
 	if errClient != nil {
 		return nil, errClient
 	}
 
 	req := connect.NewRequest(&xylona.FederationListServerSummariesRequest{})
+	if actingUser == nil || !actingUser.SuperUser {
+		errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
+		if errIdentity != nil {
+			return nil, errIdentity
+		}
+	}
 
 	remoteCtx, cancel := context.WithTimeout(ctx, federationRequestTimeout)
 	defer cancel()
