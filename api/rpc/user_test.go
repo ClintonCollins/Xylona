@@ -365,3 +365,121 @@ func createUserForRPCUserTests(t *testing.T, fixture *rbacRPCFixture, userName s
 
 	return response.Msg.User
 }
+
+func TestCreateUserDuplicateUsername(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_ = createUserForRPCUserTests(t, fixture, "dup-username", false)
+
+	request := connect.NewRequest(&xylona.CreateUserRequest{
+		UserName:  "dup-username",
+		Email:     "dup-username-2@example.com",
+		FirstName: "Dup",
+		LastName:  "User",
+		Password:  "password123",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	_, errCreate := fixture.service.CreateUser(context.Background(), request)
+	if errCreate == nil {
+		t.Fatalf("CreateUser(duplicate username) expected error, got nil")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeAlreadyExists {
+		t.Errorf("CreateUser(duplicate username) code = %v, want %v", connect.CodeOf(errCreate), connect.CodeAlreadyExists)
+	}
+}
+
+
+func TestCreateUserEmptyFields(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	tests := []struct {
+		name     string
+		userName string
+		email    string
+		password string
+	}{
+		{name: "empty username", userName: "", email: "valid@example.com", password: "password123"},
+		{name: "empty email", userName: "valid-user", email: "", password: "password123"},
+		{name: "empty password", userName: "valid-user", email: "valid@example.com", password: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := connect.NewRequest(&xylona.CreateUserRequest{
+				UserName:  tt.userName,
+				Email:     tt.email,
+				FirstName: "Test",
+				LastName:  "User",
+				Password:  tt.password,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+			_, errCreate := fixture.service.CreateUser(context.Background(), request)
+			if errCreate == nil {
+				t.Fatalf("CreateUser(%s) expected error, got nil", tt.name)
+			}
+			if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+				t.Errorf("CreateUser(%s) code = %v, want %v", tt.name, connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+			}
+		})
+	}
+}
+
+func TestGetUserNotFound(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.GetUserDetailsRequest{
+		Id: "nonexistent-user-id",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	_, errGet := fixture.service.GetUser(context.Background(), request)
+	if errGet == nil {
+		t.Fatalf("GetUser(nonexistent) expected error, got nil")
+	}
+	if connect.CodeOf(errGet) != connect.CodeNotFound {
+		t.Errorf("GetUser(nonexistent) code = %v, want %v", connect.CodeOf(errGet), connect.CodeNotFound)
+	}
+}
+
+func TestUpdateUserNotFound(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.UpdateUserRequest{
+		Id:        "nonexistent-user-id",
+		UserName:  "nonexistent",
+		Email:     "nonexistent@example.com",
+		FirstName: "Non",
+		LastName:  "Existent",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	_, errUpdate := fixture.service.UpdateUser(context.Background(), request)
+	if errUpdate == nil {
+		t.Fatalf("UpdateUser(nonexistent) expected error, got nil")
+	}
+	if connect.CodeOf(errUpdate) != connect.CodeNotFound {
+		t.Errorf("UpdateUser(nonexistent) code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeNotFound)
+	}
+}
+
+func TestDeleteUserNotFound(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	// Need a second super user so the fixture admin can delete
+	_ = createUserForRPCUserTests(t, fixture, "extra-super-for-delete-notfound", true)
+
+	request := connect.NewRequest(&xylona.DeleteUserRequest{
+		Id: "nonexistent-user-id",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	_, errDelete := fixture.service.DeleteUser(context.Background(), request)
+	if errDelete == nil {
+		t.Fatalf("DeleteUser(nonexistent) expected error, got nil")
+	}
+	if connect.CodeOf(errDelete) != connect.CodeNotFound {
+		t.Errorf("DeleteUser(nonexistent) code = %v, want %v", connect.CodeOf(errDelete), connect.CodeNotFound)
+	}
+}

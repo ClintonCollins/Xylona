@@ -38,20 +38,8 @@ games that use a telnet-style admin console (e.g., 7 Days to Die, some modded se
 
 ## Testing Gaps
 
-### Backend — Still Missing
-
-| Package / File | What's Missing |
-|---|---|
-| `db/node-sync-queue.go` | Sync queue operations |
-| `helpers/assertions.go` | Model-to-proto conversion correctness |
-| `api/rpc/node.go` | Node RPC handler tests |
-| `api/rpc/rbac.go` | RBAC RPC handler tests |
-| `api/rpc/user.go` | User RPC handler tests (beyond existing) |
-
 ### Frontend — Still Missing
 
-- `GameServerLayout.vue` — permission gating logic
-- File operation components — path handling
 - Any component with significant conditional rendering
 
 ### Integration Tests Missing

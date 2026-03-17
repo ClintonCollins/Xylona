@@ -437,3 +437,284 @@ func TestListRemoteNodeUsersRequiresSearchForNonSuper(t *testing.T) {
 		t.Fatalf("ListRemoteNodeUsers(non-super, with search) code = %v, want %v", connect.CodeOf(errWithSearch), connect.CodeNotFound)
 	}
 }
+
+func TestListRoles(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	// Unauthenticated → CodeUnauthenticated
+	unauthedReq := connect.NewRequest(&xylona.ListRolesRequest{})
+	_, errUnauthed := fixture.service.ListRoles(context.Background(), unauthedReq)
+	if errUnauthed == nil {
+		t.Fatalf("ListRoles(unauthenticated) expected error, got nil")
+	}
+	if connect.CodeOf(errUnauthed) != connect.CodeUnauthenticated {
+		t.Errorf("ListRoles(unauthenticated) code = %v, want %v", connect.CodeOf(errUnauthed), connect.CodeUnauthenticated)
+	}
+
+	// Authenticated → returns seeded system roles
+	authedReq := connect.NewRequest(&xylona.ListRolesRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, authedReq, "user-owner")
+
+	resp, errList := fixture.service.ListRoles(context.Background(), authedReq)
+	if errList != nil {
+		t.Fatalf("ListRoles() error = %v", errList)
+	}
+	if resp.Msg == nil || len(resp.Msg.Roles) == 0 {
+		t.Fatalf("ListRoles() returned no roles")
+	}
+
+	foundSystem := false
+	for _, role := range resp.Msg.Roles {
+		if role.IsSystem {
+			foundSystem = true
+			break
+		}
+	}
+	if !foundSystem {
+		t.Errorf("ListRoles() expected at least one system role")
+	}
+}
+
+func TestListPermissions(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	// Unauthenticated → CodeUnauthenticated
+	unauthedReq := connect.NewRequest(&xylona.ListPermissionsRequest{})
+	_, errUnauthed := fixture.service.ListPermissions(context.Background(), unauthedReq)
+	if errUnauthed == nil {
+		t.Fatalf("ListPermissions(unauthenticated) expected error, got nil")
+	}
+	if connect.CodeOf(errUnauthed) != connect.CodeUnauthenticated {
+		t.Errorf("ListPermissions(unauthenticated) code = %v, want %v", connect.CodeOf(errUnauthed), connect.CodeUnauthenticated)
+	}
+
+	// Authenticated → returns seeded permissions
+	authedReq := connect.NewRequest(&xylona.ListPermissionsRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, authedReq, "user-owner")
+
+	resp, errList := fixture.service.ListPermissions(context.Background(), authedReq)
+	if errList != nil {
+		t.Fatalf("ListPermissions() error = %v", errList)
+	}
+	if resp.Msg == nil || len(resp.Msg.Permissions) == 0 {
+		t.Fatalf("ListPermissions() returned no permissions")
+	}
+}
+
+func TestCreateRole(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	// Non-super → CodePermissionDenied
+	nonSuperReq := connect.NewRequest(&xylona.CreateRoleRequest{
+		Name:        "test-role",
+		Description: "A test role",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, nonSuperReq, "user-owner")
+
+	_, errNonSuper := fixture.service.CreateRole(context.Background(), nonSuperReq)
+	if errNonSuper == nil {
+		t.Fatalf("CreateRole(non-super) expected error, got nil")
+	}
+	if connect.CodeOf(errNonSuper) != connect.CodePermissionDenied {
+		t.Errorf("CreateRole(non-super) code = %v, want %v", connect.CodeOf(errNonSuper), connect.CodePermissionDenied)
+	}
+
+	// Empty name → CodeInvalidArgument
+	emptyNameReq := connect.NewRequest(&xylona.CreateRoleRequest{
+		Name: "",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, emptyNameReq, "user-admin")
+
+	_, errEmptyName := fixture.service.CreateRole(context.Background(), emptyNameReq)
+	if errEmptyName == nil {
+		t.Fatalf("CreateRole(empty name) expected error, got nil")
+	}
+	if connect.CodeOf(errEmptyName) != connect.CodeInvalidArgument {
+		t.Errorf("CreateRole(empty name) code = %v, want %v", connect.CodeOf(errEmptyName), connect.CodeInvalidArgument)
+	}
+
+	// Get valid permission IDs from the seeded data
+	listPermReq := connect.NewRequest(&xylona.ListPermissionsRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listPermReq, "user-admin")
+	listPermResp, errListPerm := fixture.service.ListPermissions(context.Background(), listPermReq)
+	if errListPerm != nil {
+		t.Fatalf("ListPermissions() error = %v", errListPerm)
+	}
+	var validPermIDs []string
+	if len(listPermResp.Msg.Permissions) > 0 {
+		validPermIDs = append(validPermIDs, listPermResp.Msg.Permissions[0].Id)
+	}
+
+	// Super user creates role with valid permissions → success
+	createReq := connect.NewRequest(&xylona.CreateRoleRequest{
+		Name:          "custom-role",
+		Description:   "A custom role",
+		PermissionIds: validPermIDs,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-admin")
+
+	createResp, errCreate := fixture.service.CreateRole(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateRole() error = %v", errCreate)
+	}
+	if createResp.Msg == nil || createResp.Msg.Role == nil {
+		t.Fatalf("CreateRole() returned empty response")
+	}
+	if createResp.Msg.Role.Name != "custom-role" {
+		t.Errorf("CreateRole().Role.Name = %q, want %q", createResp.Msg.Role.Name, "custom-role")
+	}
+	if createResp.Msg.Role.IsSystem {
+		t.Errorf("CreateRole().Role.IsSystem = true, want false")
+	}
+
+	// Duplicate name → CodeAlreadyExists
+	dupReq := connect.NewRequest(&xylona.CreateRoleRequest{
+		Name: "custom-role",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, dupReq, "user-admin")
+
+	_, errDup := fixture.service.CreateRole(context.Background(), dupReq)
+	if errDup == nil {
+		t.Fatalf("CreateRole(duplicate) expected error, got nil")
+	}
+	if connect.CodeOf(errDup) != connect.CodeAlreadyExists {
+		t.Errorf("CreateRole(duplicate) code = %v, want %v", connect.CodeOf(errDup), connect.CodeAlreadyExists)
+	}
+
+	// Invalid permission IDs → error
+	invalidPermReq := connect.NewRequest(&xylona.CreateRoleRequest{
+		Name:          "role-with-bad-perms",
+		PermissionIds: []string{"nonexistent-perm-id"},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, invalidPermReq, "user-admin")
+
+	_, errInvalidPerm := fixture.service.CreateRole(context.Background(), invalidPermReq)
+	if errInvalidPerm == nil {
+		t.Fatalf("CreateRole(invalid perms) expected error, got nil")
+	}
+}
+
+func TestDeleteRole(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	// Non-super → CodePermissionDenied
+	nonSuperReq := connect.NewRequest(&xylona.DeleteRoleRequest{
+		RoleId: "viewer",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, nonSuperReq, "user-owner")
+
+	_, errNonSuper := fixture.service.DeleteRole(context.Background(), nonSuperReq)
+	if errNonSuper == nil {
+		t.Fatalf("DeleteRole(non-super) expected error, got nil")
+	}
+	if connect.CodeOf(errNonSuper) != connect.CodePermissionDenied {
+		t.Errorf("DeleteRole(non-super) code = %v, want %v", connect.CodeOf(errNonSuper), connect.CodePermissionDenied)
+	}
+
+	// System role → CodeFailedPrecondition
+	sysRoleReq := connect.NewRequest(&xylona.DeleteRoleRequest{
+		RoleId: "viewer",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, sysRoleReq, "user-admin")
+
+	_, errSysRole := fixture.service.DeleteRole(context.Background(), sysRoleReq)
+	if errSysRole == nil {
+		t.Fatalf("DeleteRole(system role) expected error, got nil")
+	}
+	if connect.CodeOf(errSysRole) != connect.CodeFailedPrecondition {
+		t.Errorf("DeleteRole(system role) code = %v, want %v", connect.CodeOf(errSysRole), connect.CodeFailedPrecondition)
+	}
+
+	// Nonexistent → CodeNotFound
+	nonexistentReq := connect.NewRequest(&xylona.DeleteRoleRequest{
+		RoleId: "nonexistent-role-id",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, nonexistentReq, "user-admin")
+
+	_, errNonexistent := fixture.service.DeleteRole(context.Background(), nonexistentReq)
+	if errNonexistent == nil {
+		t.Fatalf("DeleteRole(nonexistent) expected error, got nil")
+	}
+	if connect.CodeOf(errNonexistent) != connect.CodeNotFound {
+		t.Errorf("DeleteRole(nonexistent) code = %v, want %v", connect.CodeOf(errNonexistent), connect.CodeNotFound)
+	}
+
+	// Create a custom role then delete it → success
+	createReq := connect.NewRequest(&xylona.CreateRoleRequest{
+		Name:        "deletable-role",
+		Description: "Will be deleted",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-admin")
+
+	createResp, errCreate := fixture.service.CreateRole(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateRole() error = %v", errCreate)
+	}
+
+	deleteReq := connect.NewRequest(&xylona.DeleteRoleRequest{
+		RoleId: createResp.Msg.Role.Id,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteReq, "user-admin")
+
+	_, errDelete := fixture.service.DeleteRole(context.Background(), deleteReq)
+	if errDelete != nil {
+		t.Fatalf("DeleteRole() error = %v", errDelete)
+	}
+}
+
+func TestListGameServerAccessGrants(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	// Empty server ID → CodeInvalidArgument
+	emptyReq := connect.NewRequest(&xylona.ListGameServerAccessGrantsRequest{
+		GameServerId: "",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, emptyReq, "user-owner")
+
+	_, errEmpty := fixture.service.ListGameServerAccessGrants(context.Background(), emptyReq)
+	if errEmpty == nil {
+		t.Fatalf("ListGameServerAccessGrants(empty ID) expected error, got nil")
+	}
+	if connect.CodeOf(errEmpty) != connect.CodeInvalidArgument {
+		t.Errorf("ListGameServerAccessGrants(empty ID) code = %v, want %v", connect.CodeOf(errEmpty), connect.CodeInvalidArgument)
+	}
+
+	// Owner can list
+	ownerReq := connect.NewRequest(&xylona.ListGameServerAccessGrantsRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, ownerReq, "user-owner")
+
+	ownerResp, errOwner := fixture.service.ListGameServerAccessGrants(context.Background(), ownerReq)
+	if errOwner != nil {
+		t.Fatalf("ListGameServerAccessGrants(owner) error = %v", errOwner)
+	}
+	if ownerResp.Msg == nil {
+		t.Fatalf("ListGameServerAccessGrants(owner) returned nil message")
+	}
+
+	// Super user can list
+	superReq := connect.NewRequest(&xylona.ListGameServerAccessGrantsRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, superReq, "user-admin")
+
+	_, errSuper := fixture.service.ListGameServerAccessGrants(context.Background(), superReq)
+	if errSuper != nil {
+		t.Fatalf("ListGameServerAccessGrants(super) error = %v", errSuper)
+	}
+
+	// Non-owner non-super → CodePermissionDenied
+	otherReq := connect.NewRequest(&xylona.ListGameServerAccessGrantsRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, otherReq, "user-other")
+
+	_, errOther := fixture.service.ListGameServerAccessGrants(context.Background(), otherReq)
+	if errOther == nil {
+		t.Fatalf("ListGameServerAccessGrants(non-owner) expected error, got nil")
+	}
+	if connect.CodeOf(errOther) != connect.CodePermissionDenied {
+		t.Errorf("ListGameServerAccessGrants(non-owner) code = %v, want %v", connect.CodeOf(errOther), connect.CodePermissionDenied)
+	}
+}

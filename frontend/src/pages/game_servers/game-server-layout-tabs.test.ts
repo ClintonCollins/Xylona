@@ -19,6 +19,27 @@ describe('buildGameServerTabs', () => {
   })
 })
 
+describe('buildGameServerTabs with access only', () => {
+  it('includes Access but not Configuration when access=true, config=false', () => {
+    const tabs = buildGameServerTabs('server-1', false, true)
+    const names = tabs.map((tab) => tab.name)
+    expect(names).toContain('Console')
+    expect(names).toContain('Files')
+    expect(names).toContain('Access')
+    expect(names).not.toContain('Configuration')
+  })
+})
+
+describe('buildGameServerTabs paths include serverID', () => {
+  it('each tab path contains the server ID', () => {
+    const serverID = 'my-unique-server-42'
+    const tabs = buildGameServerTabs(serverID, true, true)
+    for (const tab of tabs) {
+      expect(tab.to).toContain(serverID)
+    }
+  })
+})
+
 describe('getUnauthorizedRedirect', () => {
   it('redirects access route when access is not allowed', () => {
     const redirect = getUnauthorizedRedirect('/game-servers/server-1/access', 'server-1', true, false)
@@ -32,6 +53,16 @@ describe('getUnauthorizedRedirect', () => {
 
   it('does not redirect allowed routes', () => {
     const redirect = getUnauthorizedRedirect('/game-servers/server-1/files', 'server-1', true, true)
+    expect(redirect).toBeNull()
+  })
+
+  it('does not redirect console route regardless of permissions', () => {
+    const redirect = getUnauthorizedRedirect('/game-servers/server-1/console', 'server-1', false, false)
+    expect(redirect).toBeNull()
+  })
+
+  it('does not redirect files route regardless of permissions', () => {
+    const redirect = getUnauthorizedRedirect('/game-servers/server-1/files', 'server-1', false, false)
     expect(redirect).toBeNull()
   })
 })
