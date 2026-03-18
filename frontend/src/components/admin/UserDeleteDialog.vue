@@ -3,7 +3,7 @@
     <q-card>
       <q-card-section>
         <q-card-title>
-          <div class="text-h6 text-red">Delete User</div>
+          <div class="text-h6 text-error">Delete User</div>
         </q-card-title>
       </q-card-section>
       <q-card-section>

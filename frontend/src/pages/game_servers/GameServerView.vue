@@ -112,17 +112,9 @@
             type="submit"
             @click="sendGameServerInput"></q-btn>
         </template>
-        <!--        <q-menu v-model="showConsoleCommandCompletionsMenu" no-focus anchor="bottom left" self="top left">-->
-        <!--          <q-list style="min-width: 100px">-->
-        <!--            <q-item v-close-popup v-for="command in consoleCommandCompletionMatches">-->
-        <!--              <q-item-section>{{command.label}}</q-item-section>-->
-        <!--            </q-item>-->
-        <!--          </q-list>-->
-        <!--        </q-menu>-->
       </q-input>
     </div>
   </div>
-  <q-card-section> </q-card-section>
 </template>
 
 <script setup lang="ts">

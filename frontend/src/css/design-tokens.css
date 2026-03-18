@@ -5,18 +5,18 @@
    ========================================================================== */
 
 :root {
-  /* ---- Primitive Palette: Surfaces ---- */
-  --xy-base: #0E0E0E;
-  --xy-surface-0: #151515;
-  --xy-surface-1: #1C1C1C;
-  --xy-surface-2: #242424;
-  --xy-surface-3: #2E2E2E;
-  --xy-surface-4: #3B3B3B;
+  /* ---- Primitive Palette: Surfaces (cool-tinted) ---- */
+  --xy-base: #0D0E0F;
+  --xy-surface-0: #141516;
+  --xy-surface-1: #1A1C1D;
+  --xy-surface-2: #222425;
+  --xy-surface-3: #2B2E2F;
+  --xy-surface-4: #383B3D;
 
   /* ---- Text ---- */
-  --xy-text-primary: #E2E8F0;
-  --xy-text-secondary: #A0A0A0;
-  --xy-text-muted: #8B8B8B;
+  --xy-text-primary: #E0E4E6;
+  --xy-text-secondary: #979B9E;
+  --xy-text-muted: #858A8C;
 
   /* ---- Borders ---- */
   --xy-border: rgba(255, 255, 255, 0.10);
@@ -26,7 +26,9 @@
   --xy-primary: #3B82F6;
   --xy-primary-hover: #60A5FA;
   --xy-primary-muted: rgba(59, 130, 246, 0.15);
-  --xy-accent: #22D3EE;
+  --xy-accent: #1CB7CF;
+  --xy-accent-hover: #3DCDE3;
+  --xy-accent-muted: rgba(28, 183, 207, 0.12);
   --xy-success: #22C55E;
   --xy-danger: #EF4444;
   --xy-warning: #F59E0B;
@@ -58,11 +60,6 @@
   --xy-space-xl: 2rem;      /* 32px */
   --xy-space-2xl: 3rem;     /* 48px */
   --xy-space-3xl: 4rem;     /* 64px */
-
-  /* ---- Accent Glow ---- */
-  --xy-glow-accent: 0 0 20px rgba(34, 211, 238, 0.15);
-  --xy-glow-primary: 0 0 20px rgba(59, 130, 246, 0.15);
-  --xy-glow-success: 0 0 12px rgba(34, 197, 94, 0.25);
 
   /* ---- Shadows ---- */
   --xy-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -255,11 +252,10 @@
 
 .xy-page-header .xy-page-title {
   font-family: var(--xy-font-display);
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
   color: var(--xy-text-primary);
-  padding-bottom: 6px;
-  border-bottom: 2px solid var(--xy-accent);
+  letter-spacing: 0.02em;
 }
 
 .xy-page-header .xy-page-actions {

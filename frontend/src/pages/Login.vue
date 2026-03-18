@@ -1,35 +1,36 @@
 <template>
   <q-layout view="lHh Lpr fff">
     <q-page-container>
-      <q-page class="login-page flex flex-center row">
-        <div class="login-grid-bg"></div>
-        <q-card class="q-pa-xl col-12 col-sm-10 col-md-5 col-xl-3 login-card" id="login-card">
-          <q-card-section class="text-center">
-            <div class="login-brand">Xylona</div>
-            <div class="login-brand-line"></div>
-            <div class="login-tagline">Game Server Control Panel</div>
-          </q-card-section>
-          <q-card-section>
-            <q-input outlined v-model="username" label="Username" color="primary"></q-input>
-            <q-input
-              outlined
-              class="q-mt-md"
-              v-model="password"
-              type="password"
-              color="primary"
-              label="Password"
-              @keyup.enter="login"></q-input>
-          </q-card-section>
-          <q-card-section>
-            <q-btn
-              color="primary"
-              size="lg"
-              label="Sign in"
-              @click="login"
-              no-caps
-              class="full-width login-btn"></q-btn>
-          </q-card-section>
-        </q-card>
+      <q-page class="login-page">
+        <div class="login-layout">
+          <div class="login-brand-side">
+            <div class="login-brand-name">Xylona</div>
+            <div class="login-brand-tagline">
+              Game Server<br />
+              Control Panel
+            </div>
+          </div>
+          <div class="login-form-side">
+            <div class="login-form">
+              <q-input outlined v-model="username" label="Username" color="primary" />
+              <q-input
+                outlined
+                class="q-mt-md"
+                v-model="password"
+                type="password"
+                color="primary"
+                label="Password"
+                @keyup.enter="login" />
+              <q-btn
+                color="primary"
+                size="lg"
+                label="Sign in"
+                @click="login"
+                no-caps
+                class="full-width login-btn q-mt-lg" />
+            </div>
+          </div>
+        </div>
       </q-page>
     </q-page-container>
   </q-layout>
@@ -39,7 +40,6 @@
 import { Code, ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 
-// Login page layout
 import { ref } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { LoginRequestSchema } from '@/proto/xylona_pb'
@@ -84,64 +84,90 @@ async function login() {
       caption: caption,
       icon: 'report_problem',
     })
-    console.error(caption)
   }
 }
 </script>
 
 <style scoped>
 .login-page {
-  position: relative;
-  overflow: hidden;
   background: var(--xy-base);
 }
 
-/* Subtle perspective grid background */
-.login-grid-bg {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 70%);
-  pointer-events: none;
+.login-layout {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
 }
 
-.login-card {
-  position: relative;
-  z-index: 1;
-  border: 1px solid var(--xy-border);
-  box-shadow: var(--xy-shadow-lg), var(--xy-glow-accent);
+.login-brand-side {
+  flex: 0 0 55%;
+  padding: var(--xy-space-3xl) var(--xy-space-3xl) var(--xy-space-3xl) clamp(2rem, 8vw, 6rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.login-brand {
+.login-brand-name {
   font-family: var(--xy-font-brand);
-  font-size: 2.5rem;
+  font-size: clamp(4rem, 10vw, 8rem);
   color: var(--xy-accent);
-  letter-spacing: 0.06em;
-  line-height: 1;
+  letter-spacing: 0.04em;
+  line-height: 0.9;
 }
 
-.login-brand-line {
-  width: 48px;
-  height: 2px;
-  background: var(--xy-accent);
-  margin: 12px auto 10px;
-  border-radius: 1px;
-}
-
-.login-tagline {
+.login-brand-tagline {
   font-family: var(--xy-font-display);
-  font-size: 0.8rem;
+  font-size: clamp(1rem, 2vw, 1.4rem);
   color: var(--xy-text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  margin-top: var(--xy-space-md);
+  line-height: 1.5;
+}
+
+.login-form-side {
+  flex: 0 0 45%;
+  padding: var(--xy-space-3xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--xy-border);
+}
+
+.login-form {
+  width: 100%;
+  max-width: 360px;
 }
 
 .login-btn {
   font-family: var(--xy-font-display);
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+
+@media (max-width: 768px) {
+  .login-layout {
+    flex-direction: column;
+    justify-content: center;
+    padding: var(--xy-space-xl);
+    gap: var(--xy-space-xl);
+  }
+
+  .login-brand-side {
+    flex: none;
+    padding: 0;
+    text-align: center;
+  }
+
+  .login-brand-name {
+    font-size: clamp(3rem, 12vw, 5rem);
+  }
+
+  .login-form-side {
+    flex: none;
+    padding: 0;
+    width: 100%;
+    border-left: none;
+  }
 }
 </style>

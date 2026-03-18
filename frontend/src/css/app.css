@@ -37,26 +37,6 @@ a {
     max-width: 100%;
     background-color: var(--xy-base);
     border-top: 1px solid var(--xy-border);
-    position: relative;
-}
-
-/* Accent top edge on console */
-#consoleContainer::before {
-    content: '';
-    position: sticky;
-    top: 0;
-    left: 0;
-    right: 0;
-    display: block;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      var(--xy-accent) 0%,
-      var(--xy-primary) 60%,
-      transparent 100%
-    );
-    opacity: 0.5;
-    z-index: 1;
 }
 
 #consoleCodeEl {

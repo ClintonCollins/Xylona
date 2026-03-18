@@ -4,30 +4,15 @@
       <div>
         <div class="xy-page-title">Federation Health</div>
         <div class="text-caption text-xy-secondary" style="margin-top: 2px">
-          Real-time overview of all connected nodes
+          {{ nodeSummaries.length }} {{ nodeSummaries.length === 1 ? 'node' : 'nodes' }}
+          &middot; {{ totalServers }} {{ totalServers === 1 ? 'server' : 'servers' }}
+          <span v-if="runningServers > 0" class="text-success">({{ runningServers }} running)</span>
+          &middot; {{ totalUsers }} {{ totalUsers === 1 ? 'user' : 'users' }}
         </div>
       </div>
     </div>
 
     <div v-if="!selectedNode">
-      <div class="stat-row">
-        <div class="stat-card">
-          <div class="stat-value">{{ nodeSummaries.length }}</div>
-          <div class="stat-label">Nodes</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ totalServers }}</div>
-          <div class="stat-label">Servers</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value text-success">{{ runningServers }}</div>
-          <div class="stat-label">Running</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ totalUsers }}</div>
-          <div class="stat-label">Users</div>
-        </div>
-      </div>
       <div class="nodes-section">
         <div class="xy-section-overline">Nodes</div>
         <div class="row q-col-gutter-md">
@@ -110,36 +95,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.stat-row {
-  display: flex;
-  gap: var(--xy-space-md);
-  margin-bottom: var(--xy-space-2xl);
-}
-
-.stat-card {
-  flex: 1;
-  background-color: var(--xy-surface-1);
-  border: 1px solid var(--xy-border);
-  border-radius: 8px;
-  padding: var(--xy-space-md) var(--xy-space-lg);
-}
-
-.stat-value {
-  font-family: var(--xy-font-display);
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--xy-text-primary);
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--xy-text-muted);
-  margin-top: 6px;
-}
-
 .nodes-section {
   padding-top: var(--xy-space-sm);
 }
@@ -151,14 +106,4 @@ onMounted(async () => {
   padding: var(--xy-space-3xl) var(--xy-space-md);
 }
 
-@media (max-width: 599px) {
-  .stat-row {
-    flex-wrap: wrap;
-  }
-
-  .stat-card {
-    flex: 1 1 calc(50% - var(--xy-space-sm));
-    min-width: calc(50% - var(--xy-space-sm));
-  }
-}
 </style>

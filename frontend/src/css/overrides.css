@@ -23,31 +23,13 @@ a.q-item:hover {
 
 .q-item.q-router-link--active {
     color: var(--xy-accent);
-    background-color: var(--xy-primary-muted);
+    background-color: var(--xy-accent-muted);
     border-left: 3px solid var(--xy-accent);
 }
 
 /* ---- Toolbar ---- */
 .q-header .q-toolbar {
     border-bottom: 1px solid var(--xy-border);
-    position: relative;
-}
-
-.q-header .q-toolbar::after {
-    content: '';
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    width: 100%;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      var(--xy-accent) 20%,
-      var(--xy-primary) 80%,
-      transparent 100%
-    );
-    opacity: 0.4;
 }
 
 /* ---- Toolbar Title ---- */
@@ -149,23 +131,6 @@ a.q-item:hover {
 .q-drawer.q-drawer--dark {
     background-color: var(--xy-surface-2);
     border-right: 1px solid var(--xy-border);
-}
-
-/* Accent edge glow on right side of drawer */
-.q-drawer.q-drawer--dark::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 1px;
-    background: linear-gradient(
-      180deg,
-      var(--xy-accent) 0%,
-      var(--xy-primary) 50%,
-      transparent 100%
-    );
-    opacity: 0.25;
 }
 
 /* ---- Focus Helper ---- */

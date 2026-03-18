@@ -1,9 +1,7 @@
 <template>
   <q-page class="index-page flex flex-center">
-    <div class="index-grid-bg"></div>
     <div class="index-content">
       <div class="brand-title">Xylona</div>
-      <div class="brand-line"></div>
       <div class="brand-subtitle">Game Server Control Panel</div>
       <div class="nav-grid">
         <router-link v-for="item in navItems" :key="item.to" :to="item.to" class="nav-card">
@@ -26,25 +24,7 @@ const navItems = [
 </script>
 
 <style scoped>
-.index-page {
-  position: relative;
-  overflow: hidden;
-}
-
-.index-grid-bg {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(34, 211, 238, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.025) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 10%, transparent 70%);
-  pointer-events: none;
-}
-
 .index-content {
-  position: relative;
-  z-index: 1;
   text-align: center;
 }
 
@@ -54,14 +34,7 @@ const navItems = [
   color: var(--xy-accent);
   letter-spacing: 0.06em;
   line-height: 1;
-}
-
-.brand-line {
-  width: 64px;
-  height: 2px;
-  background: var(--xy-accent);
-  margin: 16px auto 12px;
-  border-radius: 1px;
+  margin-bottom: var(--xy-space-sm);
 }
 
 .brand-subtitle {
@@ -75,8 +48,8 @@ const navItems = [
 .nav-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 48px;
+  gap: var(--xy-space-sm);
+  margin-top: var(--xy-space-2xl);
   max-width: 400px;
   margin-left: auto;
   margin-right: auto;
@@ -85,8 +58,8 @@ const navItems = [
 .nav-card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 18px;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-sm) var(--xy-space-md);
   background-color: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
   border-radius: 8px;
@@ -101,10 +74,12 @@ const navItems = [
     box-shadow 0.2s ease;
 }
 
-.nav-card:hover {
+.nav-card:hover,
+.nav-card:focus-visible {
   border-color: var(--xy-primary);
   background-color: var(--xy-surface-2);
-  box-shadow: 0 4px 12px var(--xy-primary-muted);
+  box-shadow: var(--xy-shadow-md);
+  outline: none;
 }
 
 .nav-card-icon {
@@ -126,7 +101,8 @@ const navItems = [
     transform 0.2s ease;
 }
 
-.nav-card:hover .nav-card-arrow {
+.nav-card:hover .nav-card-arrow,
+.nav-card:focus-visible .nav-card-arrow {
   opacity: 1;
   transform: translateX(0);
 }

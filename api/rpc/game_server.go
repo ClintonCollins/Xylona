@@ -644,7 +644,6 @@ func resolveGameServerVersion(gs *models.GameServer) string {
 	case "minecraft":
 		version, errGetVersion := getMinecraftVersion(gs)
 		if errGetVersion != nil {
-			log.Debug().Err(errGetVersion).Str("server_id", gs.ID).Msg("Failed to resolve Minecraft version")
 			return gs.Version
 		}
 		return version
@@ -655,6 +654,11 @@ func resolveGameServerVersion(gs *models.GameServer) string {
 
 func getMinecraftVersion(gameServer *models.GameServer) (string, error) {
 	dir := gameServer.Directory
+	// Check file exists before attempting to open.
+	_, err := os.Stat(dir + "/minecraft_server.jar")
+	if os.IsNotExist(err) {
+		return "", err
+	}
 	zipReader, errZipReader := zip.OpenReader(dir + "/minecraft_server.jar")
 	if errZipReader != nil {
 		log.Error().Err(errZipReader).Msg("Failed to open zip reader")

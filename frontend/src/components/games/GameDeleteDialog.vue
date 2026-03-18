@@ -7,7 +7,7 @@
     <q-card>
       <q-card-section>
         <q-card-title>
-          <div id="dialog-title" class="text-h6 text-red">Delete Game</div>
+          <div id="dialog-title" class="text-h6 text-error">Delete Game</div>
         </q-card-title>
       </q-card-section>
       <q-card-section>

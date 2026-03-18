@@ -18,11 +18,7 @@
   </q-header>
 
   <q-drawer v-model="leftDrawerOpen" show-if-above bordered class="bg-xy-surface-2">
-    <div class="drawer-brand">
-      <span class="drawer-brand-text">Xylona</span>
-    </div>
-    <div class="xy-nav-divider"></div>
-    <q-list class="nav-list">
+    <q-list class="nav-list q-mt-md">
       <template v-for="(link, index) in navLinks" :key="link.title">
         <div v-if="link.section && index > 0" class="xy-nav-divider"></div>
         <q-item-label v-if="link.section" header class="nav-section-label">{{
@@ -134,7 +130,7 @@ const navLinks = computed((): NavItem[] => {
     })
   }
 
-  links.push(
+  const manageLinks: NavItem[] = [
     {
       title: 'Game Servers',
       icon: laServerSolid,
@@ -144,48 +140,38 @@ const navLinks = computed((): NavItem[] => {
       section: 'Manage',
       groupItems: [],
     },
-    {
-      title: 'Games',
-      icon: ionGameController,
-      link: '/games',
-      expanded: true,
-      exact: false,
-      groupItems: [],
-    },
-    {
-      title: 'Nodes',
-      icon: ionServer,
-      link: '/nodes',
-      expanded: true,
-      exact: false,
-      groupItems: [],
-    },
-  )
-
-  const configLinks: NavItem[] = [
-    {
-      title: 'Secret Keys',
-      icon: ionKey,
-      link: '/secret-keys',
-      expanded: true,
-      exact: false,
-      section: 'Settings',
-      groupItems: [],
-    },
   ]
 
   if (store.user?.superUser) {
-    configLinks.push({
-      title: 'Users',
-      icon: ionPeople,
-      link: '/admin/users',
-      expanded: true,
-      exact: false,
-      groupItems: [],
-    })
+    manageLinks.push(
+      {
+        title: 'Games',
+        icon: ionGameController,
+        link: '/games',
+        expanded: true,
+        exact: false,
+        groupItems: [],
+      },
+      {
+        title: 'Nodes',
+        icon: ionServer,
+        link: '/nodes',
+        expanded: true,
+        exact: false,
+        groupItems: [],
+      },
+      {
+        title: 'Users',
+        icon: ionPeople,
+        link: '/admin/users',
+        expanded: true,
+        exact: false,
+        groupItems: [],
+      },
+    )
   }
 
-  links.push(...configLinks)
+  links.push(...manageLinks)
 
   return links
 })
@@ -199,10 +185,10 @@ function toggleLeftDrawer() {
 
 <style scoped>
 .drawer-brand {
-  padding: 20px 20px 16px;
+  padding: var(--xy-space-lg) var(--xy-space-lg) var(--xy-space-md);
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--xy-space-sm);
 }
 
 .drawer-brand-text {
@@ -225,8 +211,8 @@ function toggleLeftDrawer() {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--xy-text-muted);
-  padding-top: 8px;
-  padding-bottom: 4px;
+  padding-top: var(--xy-space-sm);
+  padding-bottom: var(--xy-space-xs);
   min-height: auto;
 }
 

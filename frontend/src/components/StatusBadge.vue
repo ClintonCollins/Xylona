@@ -65,12 +65,12 @@ const dotClass = computed(() => {
 .server-status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--xy-space-xs);
   font-family: var(--xy-font-display);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  padding: 4px 10px;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
   border-radius: 999px;
   border: 1px solid;
 }

@@ -524,16 +524,16 @@ When adding new styles, extend Layers 2-3. Never hardcode colors — always refe
 |------|-------|-------|
 | Primary | `#3B82F6` | Primary actions, links, focus states |
 | Secondary | `#6366F1` | Secondary actions, accents |
-| Accent | `#22D3EE` | Brand highlights, active nav, toolbar title |
+| Accent | `#1CB7CF` | Brand highlights, active nav, toolbar title |
 | Success | `#22C55E` | Running servers, successful operations |
 | Danger | `#EF4444` | Errors, destructive actions, stopped servers |
 | Warning | `#F59E0B` | Alerts, caution states |
 | Info | `#06B6D4` | Informational messages |
-| Base | `#0E0E0E` | Page background |
-| Surface 0-4 | `#151515` - `#3B3B3B` | Layered UI surfaces |
-| Text Primary | `#E2E8F0` | Main content text |
-| Text Secondary | `#A0A0A0` | Supporting text |
-| Text Muted | `#6B6B6B` | Disabled/tertiary text |
+| Base | `#0D0E0F` | Page background (cool-tinted) |
+| Surface 0-4 | `#141516` - `#383B3D` | Layered UI surfaces (cool-tinted) |
+| Text Primary | `#E0E4E6` | Main content text |
+| Text Secondary | `#979B9E` | Supporting text |
+| Text Muted | `#858A8C` | Disabled/tertiary text |
 
 ### Accessibility
 
