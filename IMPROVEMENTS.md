@@ -87,10 +87,9 @@ No way to schedule server start, stop, restart, or backup. A cron-style schedule
 `hh:mm` daily triggers) would reduce manual work for common maintenance windows.
 
 ### Metrics & Monitoring
-- No CPU/RAM tracking per game server process
-- No disk space warnings
-- No crash/restart counter or uptime display
 - No alerting (email, webhook, Discord) on server crash or resource exhaustion
+- Auto restart server on crash with back-off and max attempts. Should only run for servers that should be online. For
+example, if a stop signal was received from the UI stop button that wouldn't classify as a crash.
 
 ### Log Viewer
 Users cannot view server logs through the UI. A real-time log tail (WebSocket-streamed, like the

@@ -85,19 +85,19 @@ export default configure(function (/* ctx */) {
         open: false, // opens browser window automatically
         proxy: {
           '/xylona.Xylona': {
-            target: 'http://localhost:8080',
+            target: process.env.BACKEND_URL || 'http://localhost:8080',
             changeOrigin: true,
             secure: false,
             ws: true,
           },
           '/xylona.Federation': {
-            target: 'http://localhost:8080',
+            target: process.env.BACKEND_URL || 'http://localhost:8080',
             changeOrigin: true,
             secure: false,
             ws: true,
           },
           '/api': {
-            target: 'http://localhost:8080',
+            target: process.env.BACKEND_URL || 'http://localhost:8080',
             changeOrigin: true,
             secure: false,
             ws: true,

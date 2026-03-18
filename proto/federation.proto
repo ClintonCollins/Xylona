@@ -62,6 +62,12 @@ service Federation {
   rpc CreateRemoteFileOrDirectory (FederationCreateFileOrDirectoryRequest) returns (FederationCreateFileOrDirectoryResponse) {}
   rpc DownloadRemoteFileFromURL (FederationDownloadFileFromURLRequest) returns (FederationDownloadFileFromURLResponse) {}
 
+  // Dashboard / metrics operations.
+  rpc FederationGetNodeSystemInfo (FederationGetNodeSystemInfoRequest) returns (FederationGetNodeSystemInfoResponse) {}
+  rpc FederationGetNodeResourceSnapshot (FederationGetNodeResourceSnapshotRequest) returns (FederationGetNodeResourceSnapshotResponse) {}
+  rpc FederationGetNodeMetricsHistory (FederationGetNodeMetricsHistoryRequest) returns (FederationGetNodeMetricsHistoryResponse) {}
+  rpc FederationGetGameServerMetricsHistory (FederationGetGameServerMetricsHistoryRequest) returns (FederationGetGameServerMetricsHistoryResponse) {}
+
   // RBAC operations on remote servers.
   rpc ListRemoteGameServerAccessGrants (FederationListGameServerAccessGrantsRequest) returns (FederationListGameServerAccessGrantsResponse) {}
   rpc GrantRemoteGameServerAccess (FederationGrantGameServerAccessRequest) returns (FederationGrantGameServerAccessResponse) {}
@@ -83,6 +89,7 @@ message FederationHandshakeResponse {
   int32 protocol_version = 4;
   string capabilities = 5;
   google.protobuf.Timestamp server_time = 6;
+  NodeSystemInfo system_info = 7;
 }
 
 // Federation Server Summaries
@@ -380,3 +387,36 @@ message FederationRevokeFederatedAccessRequest {
 }
 
 message FederationRevokeFederatedAccessResponse {}
+
+// Federation Dashboard / Metrics messages
+
+message FederationGetNodeSystemInfoRequest {}
+
+message FederationGetNodeSystemInfoResponse {
+  NodeSystemInfo system_info = 1;
+}
+
+message FederationGetNodeResourceSnapshotRequest {}
+
+message FederationGetNodeResourceSnapshotResponse {
+  NodeResourceSnapshot snapshot = 1;
+}
+
+message FederationGetNodeMetricsHistoryRequest {
+  google.protobuf.Timestamp since = 1;
+  google.protobuf.Timestamp until = 2;
+}
+
+message FederationGetNodeMetricsHistoryResponse {
+  repeated MetricsHistoryPoint points = 1;
+}
+
+message FederationGetGameServerMetricsHistoryRequest {
+  string game_server_id = 1;
+  google.protobuf.Timestamp since = 2;
+  google.protobuf.Timestamp until = 3;
+}
+
+message FederationGetGameServerMetricsHistoryResponse {
+  repeated GameServerMetricsHistoryPoint points = 1;
+}

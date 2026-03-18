@@ -1,41 +1,32 @@
 import * as path from 'path'
-import { apiLogin, apiDeleteUser, loadTestUsers, BACKEND_URL } from './helpers'
+import { execSync } from 'child_process'
 
-// globalTeardown runs in a separate context; load .env explicitly
+const PROJECT_ROOT = path.resolve(import.meta.dirname, '..', '..')
+const E2E_DIR = import.meta.dirname
+
+// Load .env for BACKEND_URL / admin credentials (optional).
 try {
   process.loadEnvFile(path.join(import.meta.dirname, '..', '.env'))
 } catch {
-  // .env is optional — shell env vars or CI secrets take precedence
+  // .env is optional
 }
 
+const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8080'
 const ADMIN_USERNAME = process.env['E2E_ADMIN_USERNAME'] ?? 'admin'
 const ADMIN_PASSWORD = process.env['E2E_ADMIN_PASSWORD'] ?? 'admin'
 
 export default async function globalTeardown(): Promise<void> {
-  console.log(`[E2E Teardown] Connecting to backend at ${BACKEND_URL}`)
-
-  const users = loadTestUsers()
-  if (users.length === 0) {
-    console.log('[E2E Teardown] No test users to clean up')
-    return
-  }
-
-  let adminCookies
+  console.log('[E2E Teardown] Delegating to Go orchestrator...')
   try {
-    adminCookies = await apiLogin(ADMIN_USERNAME, ADMIN_PASSWORD)
+    execSync(
+      `go run ./cmd/e2e single-teardown` +
+        ` --backend-url "${BACKEND_URL}"` +
+        ` --admin-username "${ADMIN_USERNAME}"` +
+        ` --admin-password "${ADMIN_PASSWORD}"` +
+        ` --e2e-dir "${E2E_DIR}"`,
+      { cwd: PROJECT_ROOT, stdio: 'inherit', timeout: 60_000 },
+    )
   } catch (err) {
-    console.warn(`[E2E Teardown] Warning: could not log in as admin, skipping cleanup: ${err}`)
-    return
+    console.warn(`[E2E Teardown] Go orchestrator returned an error (non-fatal): ${err}`)
   }
-
-  for (const user of users) {
-    try {
-      await apiDeleteUser(adminCookies, user.id)
-      console.log(`[E2E Teardown] Deleted user: ${user.username} (id: ${user.id})`)
-    } catch (err) {
-      console.warn(`[E2E Teardown] Warning: could not delete user ${user.username}: ${err}`)
-    }
-  }
-
-  console.log('[E2E Teardown] Teardown complete')
 }

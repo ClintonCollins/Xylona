@@ -179,6 +179,121 @@ func Deploy(host string, user string, service string, path string) {
 	log.Info().Msg("Deployment successful!")
 }
 
+// E2E runs the single-node Playwright E2E tests.
+// Requires a running backend on :8080. The Vite dev server starts automatically.
+func E2E() {
+	cmdE2E := exec.Command("pnpm", "run", "e2e")
+	cmdE2E.Dir = "frontend"
+	cmdE2E.Stdout = os.Stdout
+	cmdE2E.Stderr = os.Stderr
+	errRun := cmdE2E.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("E2E tests failed")
+		os.Exit(1)
+	}
+}
+
+// E2EHeaded runs single-node E2E tests in headed browser mode.
+func E2EHeaded() {
+	cmdE2E := exec.Command("pnpm", "run", "e2e:headed")
+	cmdE2E.Dir = "frontend"
+	cmdE2E.Stdout = os.Stdout
+	cmdE2E.Stderr = os.Stderr
+	errRun := cmdE2E.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("E2E headed tests failed")
+		os.Exit(1)
+	}
+}
+
+// E2EUI opens the Playwright interactive UI for single-node tests.
+func E2EUI() {
+	cmdE2E := exec.Command("pnpm", "run", "e2e:ui")
+	cmdE2E.Dir = "frontend"
+	cmdE2E.Stdout = os.Stdout
+	cmdE2E.Stderr = os.Stderr
+	errRun := cmdE2E.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("E2E UI failed")
+		os.Exit(1)
+	}
+}
+
+// E2EReport opens the last Playwright HTML report for single-node tests.
+func E2EReport() {
+	cmdE2E := exec.Command("pnpm", "run", "e2e:report")
+	cmdE2E.Dir = "frontend"
+	cmdE2E.Stdout = os.Stdout
+	cmdE2E.Stderr = os.Stderr
+	errRun := cmdE2E.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("E2E report failed")
+		os.Exit(1)
+	}
+}
+
+// E2EFederation runs the two-node federation Playwright E2E tests.
+// Fully self-contained — builds binaries, starts two nodes, pairs them, runs tests, tears down.
+func E2EFederation() {
+	cmdE2E := exec.Command("pnpm", "run", "e2e:federation")
+	cmdE2E.Dir = "frontend"
+	cmdE2E.Stdout = os.Stdout
+	cmdE2E.Stderr = os.Stderr
+	errRun := cmdE2E.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("Federation E2E tests failed")
+		os.Exit(1)
+	}
+}
+
+// E2EFederationHeaded runs federation E2E tests in headed browser mode.
+func E2EFederationHeaded() {
+	cmdE2E := exec.Command("pnpm", "run", "e2e:federation:headed")
+	cmdE2E.Dir = "frontend"
+	cmdE2E.Stdout = os.Stdout
+	cmdE2E.Stderr = os.Stderr
+	errRun := cmdE2E.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("Federation E2E headed tests failed")
+		os.Exit(1)
+	}
+}
+
+// E2EFederationReport opens the last federation Playwright HTML report.
+func E2EFederationReport() {
+	cmdE2E := exec.Command("pnpm", "run", "e2e:federation:report")
+	cmdE2E.Dir = "frontend"
+	cmdE2E.Stdout = os.Stdout
+	cmdE2E.Stderr = os.Stderr
+	errRun := cmdE2E.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("Federation E2E report failed")
+		os.Exit(1)
+	}
+}
+
+// E2ESeed bootstraps a fresh SQLite database with an admin user.
+// Usage: mage e2eSeed <db_path> [username] [password]
+func E2ESeed(dbPath string, username string, password string) {
+	if dbPath == "" {
+		log.Fatal().Msg("db_path is required. Usage: mage e2eSeed <db_path> [username] [password]")
+	}
+	if username == "" {
+		username = "admin"
+	}
+	if password == "" {
+		password = "admin"
+	}
+	cmdSeed := exec.Command("go", "run", "./cmd/e2e", "seed", "-db", dbPath, "-username", username, "-password", password)
+	cmdSeed.Stdout = os.Stdout
+	cmdSeed.Stderr = os.Stderr
+	errRun := cmdSeed.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("E2E seed failed")
+		os.Exit(1)
+	}
+}
+
 func buildFrontend() {
 	// Build the frontend
 	cmdPnpm := exec.Command("pnpm", "run", "build")

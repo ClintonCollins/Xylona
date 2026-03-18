@@ -89,6 +89,13 @@ service Xylona {
 
   // Aggregated Views
   rpc ListAggregatedGameServers (ListAggregatedGameServersRequest) returns (ListAggregatedGameServersResponse) {}
+
+  // Dashboard
+  rpc GetNodeSystemInfo (GetNodeSystemInfoRequest) returns (GetNodeSystemInfoResponse) {}
+  rpc GetNodeResourceSnapshot (GetNodeResourceSnapshotRequest) returns (GetNodeResourceSnapshotResponse) {}
+  rpc GetDashboardOverview (GetDashboardOverviewRequest) returns (GetDashboardOverviewResponse) {}
+  rpc GetNodeMetricsHistory (GetNodeMetricsHistoryRequest) returns (GetNodeMetricsHistoryResponse) {}
+  rpc GetGameServerMetricsHistory (GetGameServerMetricsHistoryRequest) returns (GetGameServerMetricsHistoryResponse) {}
 }
 
 message LoginRequest {
@@ -609,3 +616,54 @@ message RevokeFederatedAccessRequest {
 }
 
 message RevokeFederatedAccessResponse {}
+
+// Dashboard messages
+
+message GetNodeSystemInfoRequest {
+  string node_id = 1;
+}
+
+message GetNodeSystemInfoResponse {
+  NodeSystemInfo system_info = 1;
+}
+
+message GetNodeResourceSnapshotRequest {
+  string node_id = 1;
+}
+
+message GetNodeResourceSnapshotResponse {
+  NodeResourceSnapshot snapshot = 1;
+}
+
+message GetDashboardOverviewRequest {}
+
+// DashboardNodeSummary combines node info with live resource snapshot.
+message DashboardNodeSummary {
+  Node node = 1;
+  NodeSystemInfo system_info = 2;
+  NodeResourceSnapshot snapshot = 3;
+}
+
+message GetDashboardOverviewResponse {
+  repeated DashboardNodeSummary nodes = 1;
+}
+
+message GetNodeMetricsHistoryRequest {
+  string node_id = 1;
+  google.protobuf.Timestamp since = 2;
+  google.protobuf.Timestamp until = 3;
+}
+
+message GetNodeMetricsHistoryResponse {
+  repeated MetricsHistoryPoint points = 1;
+}
+
+message GetGameServerMetricsHistoryRequest {
+  string game_server_id = 1;
+  google.protobuf.Timestamp since = 2;
+  google.protobuf.Timestamp until = 3;
+}
+
+message GetGameServerMetricsHistoryResponse {
+  repeated GameServerMetricsHistoryPoint points = 1;
+}

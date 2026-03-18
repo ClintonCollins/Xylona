@@ -189,6 +189,21 @@ const (
 	// XylonaListAggregatedGameServersProcedure is the fully-qualified name of the Xylona's
 	// ListAggregatedGameServers RPC.
 	XylonaListAggregatedGameServersProcedure = "/xylona.Xylona/ListAggregatedGameServers"
+	// XylonaGetNodeSystemInfoProcedure is the fully-qualified name of the Xylona's GetNodeSystemInfo
+	// RPC.
+	XylonaGetNodeSystemInfoProcedure = "/xylona.Xylona/GetNodeSystemInfo"
+	// XylonaGetNodeResourceSnapshotProcedure is the fully-qualified name of the Xylona's
+	// GetNodeResourceSnapshot RPC.
+	XylonaGetNodeResourceSnapshotProcedure = "/xylona.Xylona/GetNodeResourceSnapshot"
+	// XylonaGetDashboardOverviewProcedure is the fully-qualified name of the Xylona's
+	// GetDashboardOverview RPC.
+	XylonaGetDashboardOverviewProcedure = "/xylona.Xylona/GetDashboardOverview"
+	// XylonaGetNodeMetricsHistoryProcedure is the fully-qualified name of the Xylona's
+	// GetNodeMetricsHistory RPC.
+	XylonaGetNodeMetricsHistoryProcedure = "/xylona.Xylona/GetNodeMetricsHistory"
+	// XylonaGetGameServerMetricsHistoryProcedure is the fully-qualified name of the Xylona's
+	// GetGameServerMetricsHistory RPC.
+	XylonaGetGameServerMetricsHistoryProcedure = "/xylona.Xylona/GetGameServerMetricsHistory"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
@@ -268,6 +283,12 @@ type XylonaClient interface {
 	SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error)
 	// Aggregated Views
 	ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error)
+	// Dashboard
+	GetNodeSystemInfo(context.Context, *connect.Request[xylona.GetNodeSystemInfoRequest]) (*connect.Response[xylona.GetNodeSystemInfoResponse], error)
+	GetNodeResourceSnapshot(context.Context, *connect.Request[xylona.GetNodeResourceSnapshotRequest]) (*connect.Response[xylona.GetNodeResourceSnapshotResponse], error)
+	GetDashboardOverview(context.Context, *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error)
+	GetNodeMetricsHistory(context.Context, *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error)
+	GetGameServerMetricsHistory(context.Context, *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -671,6 +692,36 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("ListAggregatedGameServers")),
 			connect.WithClientOptions(opts...),
 		),
+		getNodeSystemInfo: connect.NewClient[xylona.GetNodeSystemInfoRequest, xylona.GetNodeSystemInfoResponse](
+			httpClient,
+			baseURL+XylonaGetNodeSystemInfoProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetNodeSystemInfo")),
+			connect.WithClientOptions(opts...),
+		),
+		getNodeResourceSnapshot: connect.NewClient[xylona.GetNodeResourceSnapshotRequest, xylona.GetNodeResourceSnapshotResponse](
+			httpClient,
+			baseURL+XylonaGetNodeResourceSnapshotProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetNodeResourceSnapshot")),
+			connect.WithClientOptions(opts...),
+		),
+		getDashboardOverview: connect.NewClient[xylona.GetDashboardOverviewRequest, xylona.GetDashboardOverviewResponse](
+			httpClient,
+			baseURL+XylonaGetDashboardOverviewProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetDashboardOverview")),
+			connect.WithClientOptions(opts...),
+		),
+		getNodeMetricsHistory: connect.NewClient[xylona.GetNodeMetricsHistoryRequest, xylona.GetNodeMetricsHistoryResponse](
+			httpClient,
+			baseURL+XylonaGetNodeMetricsHistoryProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetNodeMetricsHistory")),
+			connect.WithClientOptions(opts...),
+		),
+		getGameServerMetricsHistory: connect.NewClient[xylona.GetGameServerMetricsHistoryRequest, xylona.GetGameServerMetricsHistoryResponse](
+			httpClient,
+			baseURL+XylonaGetGameServerMetricsHistoryProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameServerMetricsHistory")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -741,6 +792,11 @@ type xylonaClient struct {
 	deleteLocalSecretKey             *connect.Client[xylona.DeleteLocalSecretKeyRequest, xylona.DeleteLocalSecretKeyResponse]
 	syncNode                         *connect.Client[xylona.SyncNodeRequest, xylona.SyncNodeResponse]
 	listAggregatedGameServers        *connect.Client[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse]
+	getNodeSystemInfo                *connect.Client[xylona.GetNodeSystemInfoRequest, xylona.GetNodeSystemInfoResponse]
+	getNodeResourceSnapshot          *connect.Client[xylona.GetNodeResourceSnapshotRequest, xylona.GetNodeResourceSnapshotResponse]
+	getDashboardOverview             *connect.Client[xylona.GetDashboardOverviewRequest, xylona.GetDashboardOverviewResponse]
+	getNodeMetricsHistory            *connect.Client[xylona.GetNodeMetricsHistoryRequest, xylona.GetNodeMetricsHistoryResponse]
+	getGameServerMetricsHistory      *connect.Client[xylona.GetGameServerMetricsHistoryRequest, xylona.GetGameServerMetricsHistoryResponse]
 }
 
 // AddGame calls xylona.Xylona.AddGame.
@@ -1068,6 +1124,31 @@ func (c *xylonaClient) ListAggregatedGameServers(ctx context.Context, req *conne
 	return c.listAggregatedGameServers.CallUnary(ctx, req)
 }
 
+// GetNodeSystemInfo calls xylona.Xylona.GetNodeSystemInfo.
+func (c *xylonaClient) GetNodeSystemInfo(ctx context.Context, req *connect.Request[xylona.GetNodeSystemInfoRequest]) (*connect.Response[xylona.GetNodeSystemInfoResponse], error) {
+	return c.getNodeSystemInfo.CallUnary(ctx, req)
+}
+
+// GetNodeResourceSnapshot calls xylona.Xylona.GetNodeResourceSnapshot.
+func (c *xylonaClient) GetNodeResourceSnapshot(ctx context.Context, req *connect.Request[xylona.GetNodeResourceSnapshotRequest]) (*connect.Response[xylona.GetNodeResourceSnapshotResponse], error) {
+	return c.getNodeResourceSnapshot.CallUnary(ctx, req)
+}
+
+// GetDashboardOverview calls xylona.Xylona.GetDashboardOverview.
+func (c *xylonaClient) GetDashboardOverview(ctx context.Context, req *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error) {
+	return c.getDashboardOverview.CallUnary(ctx, req)
+}
+
+// GetNodeMetricsHistory calls xylona.Xylona.GetNodeMetricsHistory.
+func (c *xylonaClient) GetNodeMetricsHistory(ctx context.Context, req *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error) {
+	return c.getNodeMetricsHistory.CallUnary(ctx, req)
+}
+
+// GetGameServerMetricsHistory calls xylona.Xylona.GetGameServerMetricsHistory.
+func (c *xylonaClient) GetGameServerMetricsHistory(ctx context.Context, req *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+	return c.getGameServerMetricsHistory.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// Game Operations
@@ -1145,6 +1226,12 @@ type XylonaHandler interface {
 	SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error)
 	// Aggregated Views
 	ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error)
+	// Dashboard
+	GetNodeSystemInfo(context.Context, *connect.Request[xylona.GetNodeSystemInfoRequest]) (*connect.Response[xylona.GetNodeSystemInfoResponse], error)
+	GetNodeResourceSnapshot(context.Context, *connect.Request[xylona.GetNodeResourceSnapshotRequest]) (*connect.Response[xylona.GetNodeResourceSnapshotResponse], error)
+	GetDashboardOverview(context.Context, *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error)
+	GetNodeMetricsHistory(context.Context, *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error)
+	GetGameServerMetricsHistory(context.Context, *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -1544,6 +1631,36 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("ListAggregatedGameServers")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetNodeSystemInfoHandler := connect.NewUnaryHandler(
+		XylonaGetNodeSystemInfoProcedure,
+		svc.GetNodeSystemInfo,
+		connect.WithSchema(xylonaMethods.ByName("GetNodeSystemInfo")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetNodeResourceSnapshotHandler := connect.NewUnaryHandler(
+		XylonaGetNodeResourceSnapshotProcedure,
+		svc.GetNodeResourceSnapshot,
+		connect.WithSchema(xylonaMethods.ByName("GetNodeResourceSnapshot")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetDashboardOverviewHandler := connect.NewUnaryHandler(
+		XylonaGetDashboardOverviewProcedure,
+		svc.GetDashboardOverview,
+		connect.WithSchema(xylonaMethods.ByName("GetDashboardOverview")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetNodeMetricsHistoryHandler := connect.NewUnaryHandler(
+		XylonaGetNodeMetricsHistoryProcedure,
+		svc.GetNodeMetricsHistory,
+		connect.WithSchema(xylonaMethods.ByName("GetNodeMetricsHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetGameServerMetricsHistoryHandler := connect.NewUnaryHandler(
+		XylonaGetGameServerMetricsHistoryProcedure,
+		svc.GetGameServerMetricsHistory,
+		connect.WithSchema(xylonaMethods.ByName("GetGameServerMetricsHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaAddGameProcedure:
@@ -1676,6 +1793,16 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaSyncNodeHandler.ServeHTTP(w, r)
 		case XylonaListAggregatedGameServersProcedure:
 			xylonaListAggregatedGameServersHandler.ServeHTTP(w, r)
+		case XylonaGetNodeSystemInfoProcedure:
+			xylonaGetNodeSystemInfoHandler.ServeHTTP(w, r)
+		case XylonaGetNodeResourceSnapshotProcedure:
+			xylonaGetNodeResourceSnapshotHandler.ServeHTTP(w, r)
+		case XylonaGetDashboardOverviewProcedure:
+			xylonaGetDashboardOverviewHandler.ServeHTTP(w, r)
+		case XylonaGetNodeMetricsHistoryProcedure:
+			xylonaGetNodeMetricsHistoryHandler.ServeHTTP(w, r)
+		case XylonaGetGameServerMetricsHistoryProcedure:
+			xylonaGetGameServerMetricsHistoryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1943,4 +2070,24 @@ func (UnimplementedXylonaHandler) SyncNode(context.Context, *connect.Request[xyl
 
 func (UnimplementedXylonaHandler) ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListAggregatedGameServers is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetNodeSystemInfo(context.Context, *connect.Request[xylona.GetNodeSystemInfoRequest]) (*connect.Response[xylona.GetNodeSystemInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetNodeSystemInfo is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetNodeResourceSnapshot(context.Context, *connect.Request[xylona.GetNodeResourceSnapshotRequest]) (*connect.Response[xylona.GetNodeResourceSnapshotResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetNodeResourceSnapshot is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetDashboardOverview(context.Context, *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetDashboardOverview is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetNodeMetricsHistory(context.Context, *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetNodeMetricsHistory is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameServerMetricsHistory(context.Context, *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerMetricsHistory is not implemented"))
 }

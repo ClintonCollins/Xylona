@@ -72,6 +72,24 @@ func (inst *Instance) GetServerQueries() xylona.AllServersQueryInfo {
 	return allServerQueryInfo
 }
 
+// GetPlayerCount returns the current player count for a game server from the
+// most recent query result. Returns 0 if no query data is available.
+func (inst *Instance) GetPlayerCount(gameServerID string) int {
+	inst.serverQueriesMutex.RLock()
+	defer inst.serverQueriesMutex.RUnlock()
+	sq, ok := inst.serverQueriesInfoMap[gameServerID]
+	if !ok {
+		return 0
+	}
+	if sq.Minecraft != nil {
+		return int(sq.Minecraft.NumberOfPlayers)
+	}
+	if sq.Source != nil {
+		return int(sq.Source.Players)
+	}
+	return 0
+}
+
 func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path string) ([]*xylona.File, error) {
 	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
 	if path != "" && !filepath.IsLocal(path) {

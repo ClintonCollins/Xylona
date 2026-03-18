@@ -2,85 +2,90 @@
 // @generated from file websocket.proto (package xylona, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv1";
-import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv1";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import { file_xylona } from "./xylona_pb";
-import type { AllServersQueryInfo, Status } from "./shared_pb";
-import { file_shared } from "./shared_pb";
-import type { Message as Message$1 } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv1'
+import { enumDesc, fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv1'
+import { file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
+import { file_xylona } from './xylona_pb'
+import type { AllServersQueryInfo, Status } from './shared_pb'
+import { file_shared } from './shared_pb'
+import type { Message as Message$1 } from '@bufbuild/protobuf'
 
 /**
  * Describes the file websocket.proto.
  */
-export const file_websocket: GenFile = /*@__PURE__*/
-  fileDesc("Cg93ZWJzb2NrZXQucHJvdG8SBnh5bG9uYSJBChdHYW1lU2VydmVyQ29uc29sZU91dHB1dBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIOCgZvdXRwdXQYAiABKAkiUAoWR2FtZVNlcnZlclN0YXR1c1VwZGF0ZRIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIt4BCgdSZXF1ZXN0EhsKDmdhbWVfc2VydmVyX2lkGAEgASgJSACIAQESIgoEdHlwZRgCIAEoDjIULnh5bG9uYS5SZXF1ZXN0LlR5cGUifwoEVHlwZRILCgdVbmtub3duEAASGAoUR2V0R2FtZVNlcnZlckNvbnNvbGUQARIXChNHZXRHYW1lU2VydmVyU3RhdHVzEAISGwoXUmVtb3ZlR2FtZVNlcnZlckNvbnNvbGUQAxIaChZSZW1vdmVHYW1lU2VydmVyU3RhdHVzEARCEQoPX2dhbWVfc2VydmVyX2lkIp8CChFHYW1lU2VydmVyTWV0cmljcxITCgtjcHVfcGVyY2VudBgBIAEoARIUCgxtZW1vcnlfYnl0ZXMYAiABKAMSGQoRbnVtYmVyX29mX3RocmVhZHMYAyABKAUSGAoQZGlza191c2FnZV9ieXRlcxgEIAEoAxIWCg51cHRpbWVfc2Vjb25kcxgFIAEoAxIgChhtZW1vcnlfd29ya2luZ19zZXRfYnl0ZXMYBiABKAMSFgoObWVtb3J5X3BlcmNlbnQYByABKAESEQoJY3B1X2NvcmVzGAggASgFEhQKDGlvX3JlYWRfcmF0ZRgJIAEoARIVCg1pb193cml0ZV9yYXRlGAogASgBEhgKEGNvbm5lY3Rpb25fY291bnQYCyABKAUilwEKEUFsbFNlcnZlcnNNZXRyaWNzEjcKB3NlcnZlcnMYASADKAsyJi54eWxvbmEuQWxsU2VydmVyc01ldHJpY3MuU2VydmVyc0VudHJ5GkkKDFNlcnZlcnNFbnRyeRILCgNrZXkYASABKAkSKAoFdmFsdWUYAiABKAsyGS54eWxvbmEuR2FtZVNlcnZlck1ldHJpY3M6AjgBIrUECgdNZXNzYWdlEiIKBHR5cGUYASABKA4yFC54eWxvbmEuTWVzc2FnZS5UeXBlEkgKGmdhbWVfc2VydmVyX2NvbnNvbGVfb3V0cHV0GAIgASgLMh8ueHlsb25hLkdhbWVTZXJ2ZXJDb25zb2xlT3V0cHV0SACIAQESRgoZZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZRgDIAEoCzIeLnh5bG9uYS5HYW1lU2VydmVyU3RhdHVzVXBkYXRlSAGIAQESEAoIcmF3X2RhdGEYBCABKAkSQAoWYWxsX3NlcnZlcnNfcXVlcnlfaW5mbxgFIAEoCzIbLnh5bG9uYS5BbGxTZXJ2ZXJzUXVlcnlJbmZvSAKIAQESOwoTYWxsX3NlcnZlcnNfbWV0cmljcxgGIAEoCzIZLnh5bG9uYS5BbGxTZXJ2ZXJzTWV0cmljc0gDiAEBInMKBFR5cGUSCwoHVW5rbm93bhAAEhUKEUdhbWVTZXJ2ZXJDb25zb2xlEAESFAoQR2FtZVNlcnZlclN0YXR1cxACEgcKA1JhdxADEhEKDVNlcnZlclF1ZXJpZXMQBBIVChFHYW1lU2VydmVyTWV0cmljcxAFQh0KG19nYW1lX3NlcnZlcl9jb25zb2xlX291dHB1dEIcChpfZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZUIZChdfYWxsX3NlcnZlcnNfcXVlcnlfaW5mb0IWChRfYWxsX3NlcnZlcnNfbWV0cmljc0IyWjBnaXRodWIuY29tL0NsaW50b25Db2xsaW5zL1h5bG9uYS9wcm90by9nby94eWxvbmFiBnByb3RvMw", [file_google_protobuf_timestamp, file_xylona, file_shared]);
+export const file_websocket: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    'Cg93ZWJzb2NrZXQucHJvdG8SBnh5bG9uYSJBChdHYW1lU2VydmVyQ29uc29sZU91dHB1dBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIOCgZvdXRwdXQYAiABKAkiUAoWR2FtZVNlcnZlclN0YXR1c1VwZGF0ZRIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIt4BCgdSZXF1ZXN0EhsKDmdhbWVfc2VydmVyX2lkGAEgASgJSACIAQESIgoEdHlwZRgCIAEoDjIULnh5bG9uYS5SZXF1ZXN0LlR5cGUifwoEVHlwZRILCgdVbmtub3duEAASGAoUR2V0R2FtZVNlcnZlckNvbnNvbGUQARIXChNHZXRHYW1lU2VydmVyU3RhdHVzEAISGwoXUmVtb3ZlR2FtZVNlcnZlckNvbnNvbGUQAxIaChZSZW1vdmVHYW1lU2VydmVyU3RhdHVzEARCEQoPX2dhbWVfc2VydmVyX2lkIp8CChFHYW1lU2VydmVyTWV0cmljcxITCgtjcHVfcGVyY2VudBgBIAEoARIUCgxtZW1vcnlfYnl0ZXMYAiABKAMSGQoRbnVtYmVyX29mX3RocmVhZHMYAyABKAUSGAoQZGlza191c2FnZV9ieXRlcxgEIAEoAxIWCg51cHRpbWVfc2Vjb25kcxgFIAEoAxIgChhtZW1vcnlfd29ya2luZ19zZXRfYnl0ZXMYBiABKAMSFgoObWVtb3J5X3BlcmNlbnQYByABKAESEQoJY3B1X2NvcmVzGAggASgFEhQKDGlvX3JlYWRfcmF0ZRgJIAEoARIVCg1pb193cml0ZV9yYXRlGAogASgBEhgKEGNvbm5lY3Rpb25fY291bnQYCyABKAUilwEKEUFsbFNlcnZlcnNNZXRyaWNzEjcKB3NlcnZlcnMYASADKAsyJi54eWxvbmEuQWxsU2VydmVyc01ldHJpY3MuU2VydmVyc0VudHJ5GkkKDFNlcnZlcnNFbnRyeRILCgNrZXkYASABKAkSKAoFdmFsdWUYAiABKAsyGS54eWxvbmEuR2FtZVNlcnZlck1ldHJpY3M6AjgBIrUECgdNZXNzYWdlEiIKBHR5cGUYASABKA4yFC54eWxvbmEuTWVzc2FnZS5UeXBlEkgKGmdhbWVfc2VydmVyX2NvbnNvbGVfb3V0cHV0GAIgASgLMh8ueHlsb25hLkdhbWVTZXJ2ZXJDb25zb2xlT3V0cHV0SACIAQESRgoZZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZRgDIAEoCzIeLnh5bG9uYS5HYW1lU2VydmVyU3RhdHVzVXBkYXRlSAGIAQESEAoIcmF3X2RhdGEYBCABKAkSQAoWYWxsX3NlcnZlcnNfcXVlcnlfaW5mbxgFIAEoCzIbLnh5bG9uYS5BbGxTZXJ2ZXJzUXVlcnlJbmZvSAKIAQESOwoTYWxsX3NlcnZlcnNfbWV0cmljcxgGIAEoCzIZLnh5bG9uYS5BbGxTZXJ2ZXJzTWV0cmljc0gDiAEBInMKBFR5cGUSCwoHVW5rbm93bhAAEhUKEUdhbWVTZXJ2ZXJDb25zb2xlEAESFAoQR2FtZVNlcnZlclN0YXR1cxACEgcKA1JhdxADEhEKDVNlcnZlclF1ZXJpZXMQBBIVChFHYW1lU2VydmVyTWV0cmljcxAFQh0KG19nYW1lX3NlcnZlcl9jb25zb2xlX291dHB1dEIcChpfZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZUIZChdfYWxsX3NlcnZlcnNfcXVlcnlfaW5mb0IWChRfYWxsX3NlcnZlcnNfbWV0cmljc0IyWjBnaXRodWIuY29tL0NsaW50b25Db2xsaW5zL1h5bG9uYS9wcm90by9nby94eWxvbmFiBnByb3RvMw',
+    [file_google_protobuf_timestamp, file_xylona, file_shared],
+  )
 
 /**
  * @generated from message xylona.GameServerConsoleOutput
  */
-export type GameServerConsoleOutput = Message$1<"xylona.GameServerConsoleOutput"> & {
+export type GameServerConsoleOutput = Message$1<'xylona.GameServerConsoleOutput'> & {
   /**
    * @generated from field: string game_server_id = 1;
    */
-  gameServerId: string;
+  gameServerId: string
 
   /**
    * @generated from field: string output = 2;
    */
-  output: string;
-};
+  output: string
+}
 
 /**
  * Describes the message xylona.GameServerConsoleOutput.
  * Use `create(GameServerConsoleOutputSchema)` to create a new message.
  */
-export const GameServerConsoleOutputSchema: GenMessage<GameServerConsoleOutput> = /*@__PURE__*/
-  messageDesc(file_websocket, 0);
+export const GameServerConsoleOutputSchema: GenMessage<GameServerConsoleOutput> =
+  /*@__PURE__*/
+  messageDesc(file_websocket, 0)
 
 /**
  * @generated from message xylona.GameServerStatusUpdate
  */
-export type GameServerStatusUpdate = Message$1<"xylona.GameServerStatusUpdate"> & {
+export type GameServerStatusUpdate = Message$1<'xylona.GameServerStatusUpdate'> & {
   /**
    * @generated from field: string game_server_id = 1;
    */
-  gameServerId: string;
+  gameServerId: string
 
   /**
    * @generated from field: xylona.Status status = 2;
    */
-  status: Status;
-};
+  status: Status
+}
 
 /**
  * Describes the message xylona.GameServerStatusUpdate.
  * Use `create(GameServerStatusUpdateSchema)` to create a new message.
  */
-export const GameServerStatusUpdateSchema: GenMessage<GameServerStatusUpdate> = /*@__PURE__*/
-  messageDesc(file_websocket, 1);
+export const GameServerStatusUpdateSchema: GenMessage<GameServerStatusUpdate> =
+  /*@__PURE__*/
+  messageDesc(file_websocket, 1)
 
 /**
  * @generated from message xylona.Request
  */
-export type Request = Message$1<"xylona.Request"> & {
+export type Request = Message$1<'xylona.Request'> & {
   /**
    * @generated from field: optional string game_server_id = 1;
    */
-  gameServerId?: string;
+  gameServerId?: string
 
   /**
    * @generated from field: xylona.Request.Type type = 2;
    */
-  type: Request_Type;
-};
+  type: Request_Type
+}
 
 /**
  * Describes the message xylona.Request.
  * Use `create(RequestSchema)` to create a new message.
  */
-export const RequestSchema: GenMessage<Request> = /*@__PURE__*/
-  messageDesc(file_websocket, 2);
+export const RequestSchema: GenMessage<Request> = /*@__PURE__*/ messageDesc(file_websocket, 2)
 
 /**
  * @generated from enum xylona.Request.Type
@@ -115,134 +120,136 @@ export enum Request_Type {
 /**
  * Describes the enum xylona.Request.Type.
  */
-export const Request_TypeSchema: GenEnum<Request_Type> = /*@__PURE__*/
-  enumDesc(file_websocket, 2, 0);
+export const Request_TypeSchema: GenEnum<Request_Type> =
+  /*@__PURE__*/
+  enumDesc(file_websocket, 2, 0)
 
 /**
  * @generated from message xylona.GameServerMetrics
  */
-export type GameServerMetrics = Message$1<"xylona.GameServerMetrics"> & {
+export type GameServerMetrics = Message$1<'xylona.GameServerMetrics'> & {
   /**
    * @generated from field: double cpu_percent = 1;
    */
-  cpuPercent: number;
+  cpuPercent: number
 
   /**
    * @generated from field: int64 memory_bytes = 2;
    */
-  memoryBytes: bigint;
+  memoryBytes: bigint
 
   /**
    * @generated from field: int32 number_of_threads = 3;
    */
-  numberOfThreads: number;
+  numberOfThreads: number
 
   /**
    * @generated from field: int64 disk_usage_bytes = 4;
    */
-  diskUsageBytes: bigint;
+  diskUsageBytes: bigint
 
   /**
    * @generated from field: int64 uptime_seconds = 5;
    */
-  uptimeSeconds: bigint;
+  uptimeSeconds: bigint
 
   /**
    * @generated from field: int64 memory_working_set_bytes = 6;
    */
-  memoryWorkingSetBytes: bigint;
+  memoryWorkingSetBytes: bigint
 
   /**
    * @generated from field: double memory_percent = 7;
    */
-  memoryPercent: number;
+  memoryPercent: number
 
   /**
    * @generated from field: int32 cpu_cores = 8;
    */
-  cpuCores: number;
+  cpuCores: number
 
   /**
    * @generated from field: double io_read_rate = 9;
    */
-  ioReadRate: number;
+  ioReadRate: number
 
   /**
    * @generated from field: double io_write_rate = 10;
    */
-  ioWriteRate: number;
+  ioWriteRate: number
 
   /**
    * @generated from field: int32 connection_count = 11;
    */
-  connectionCount: number;
-};
+  connectionCount: number
+}
 
 /**
  * Describes the message xylona.GameServerMetrics.
  * Use `create(GameServerMetricsSchema)` to create a new message.
  */
-export const GameServerMetricsSchema: GenMessage<GameServerMetrics> = /*@__PURE__*/
-  messageDesc(file_websocket, 3);
+export const GameServerMetricsSchema: GenMessage<GameServerMetrics> =
+  /*@__PURE__*/
+  messageDesc(file_websocket, 3)
 
 /**
  * @generated from message xylona.AllServersMetrics
  */
-export type AllServersMetrics = Message$1<"xylona.AllServersMetrics"> & {
+export type AllServersMetrics = Message$1<'xylona.AllServersMetrics'> & {
   /**
    * @generated from field: map<string, xylona.GameServerMetrics> servers = 1;
    */
-  servers: { [key: string]: GameServerMetrics };
-};
+  servers: { [key: string]: GameServerMetrics }
+}
 
 /**
  * Describes the message xylona.AllServersMetrics.
  * Use `create(AllServersMetricsSchema)` to create a new message.
  */
-export const AllServersMetricsSchema: GenMessage<AllServersMetrics> = /*@__PURE__*/
-  messageDesc(file_websocket, 4);
+export const AllServersMetricsSchema: GenMessage<AllServersMetrics> =
+  /*@__PURE__*/
+  messageDesc(file_websocket, 4)
 
 /**
  * @generated from message xylona.Message
  */
-export type Message = Message$1<"xylona.Message"> & {
+export type Message = Message$1<'xylona.Message'> & {
   /**
    * @generated from field: xylona.Message.Type type = 1;
    */
-  type: Message_Type;
+  type: Message_Type
 
   /**
    * @generated from field: optional xylona.GameServerConsoleOutput game_server_console_output = 2;
    */
-  gameServerConsoleOutput?: GameServerConsoleOutput;
+  gameServerConsoleOutput?: GameServerConsoleOutput
 
   /**
    * @generated from field: optional xylona.GameServerStatusUpdate game_server_status_update = 3;
    */
-  gameServerStatusUpdate?: GameServerStatusUpdate;
+  gameServerStatusUpdate?: GameServerStatusUpdate
 
   /**
    * @generated from field: string raw_data = 4;
    */
-  rawData: string;
+  rawData: string
 
   /**
    * @generated from field: optional xylona.AllServersQueryInfo all_servers_query_info = 5;
    */
-  allServersQueryInfo?: AllServersQueryInfo;
+  allServersQueryInfo?: AllServersQueryInfo
 
   /**
    * @generated from field: optional xylona.AllServersMetrics all_servers_metrics = 6;
    */
-  allServersMetrics?: AllServersMetrics;
-};
+  allServersMetrics?: AllServersMetrics
+}
 
 /**
  * Describes the message xylona.Message.
  * Use `create(MessageSchema)` to create a new message.
  */
-export const MessageSchema: GenMessage<Message> = /*@__PURE__*/
-  messageDesc(file_websocket, 5);
+export const MessageSchema: GenMessage<Message> = /*@__PURE__*/ messageDesc(file_websocket, 5)
 
 /**
  * @generated from enum xylona.Message.Type
@@ -282,6 +289,6 @@ export enum Message_Type {
 /**
  * Describes the enum xylona.Message.Type.
  */
-export const Message_TypeSchema: GenEnum<Message_Type> = /*@__PURE__*/
-  enumDesc(file_websocket, 5, 0);
-
+export const Message_TypeSchema: GenEnum<Message_Type> =
+  /*@__PURE__*/
+  enumDesc(file_websocket, 5, 0)

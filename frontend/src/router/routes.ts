@@ -46,6 +46,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/IndexPage.vue'),
       },
       {
+        path: '/dashboard',
+        component: () => import('pages/dashboard/Dashboard.vue'),
+        beforeEnter: requireSuperUser,
+      },
+      {
         path: '/game-servers',
         component: () => import('pages/game_servers/GameServerList.vue'),
       },
@@ -84,6 +89,10 @@ const routes: RouteRecordRaw[] = [
           {
             path: 'files',
             component: () => import('pages/game_servers/GameServerFiles.vue'),
+          },
+          {
+            path: 'metrics',
+            component: () => import('pages/game_servers/GameServerMetrics.vue'),
           },
           {
             path: 'configuration',

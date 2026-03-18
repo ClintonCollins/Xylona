@@ -50,59 +50,6 @@ export async function apiLogin(username: string, password: string): Promise<ApiC
   return extractCookies(setCookies)
 }
 
-export async function apiCreateUser(
-  cookies: ApiCookies,
-  userData: {
-    userName: string
-    email: string
-    password: string
-    firstName: string
-    lastName: string
-    superUser: boolean
-  },
-): Promise<string> {
-  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/CreateUser`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Connect-Protocol-Version': '1',
-      Cookie: cookies.raw,
-    },
-    body: JSON.stringify({
-      user_name: userData.userName,
-      email: userData.email,
-      password: userData.password,
-      first_name: userData.firstName,
-      last_name: userData.lastName,
-      super_user: userData.superUser,
-    }),
-  })
-  if (!resp.ok) {
-    const body = await resp.text()
-    throw new Error(`CreateUser failed for ${userData.userName}: ${resp.status} ${body}`)
-  }
-  const data = (await resp.json()) as { user?: { id?: string } }
-  const id = data.user?.id
-  if (!id) throw new Error(`CreateUser returned no user ID for ${userData.userName}`)
-  return id
-}
-
-export async function apiDeleteUser(cookies: ApiCookies, userId: string): Promise<void> {
-  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/DeleteUser`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Connect-Protocol-Version': '1',
-      Cookie: cookies.raw,
-    },
-    body: JSON.stringify({ id: userId }),
-  })
-  if (!resp.ok) {
-    const body = await resp.text()
-    throw new Error(`DeleteUser failed for ${userId}: ${resp.status} ${body}`)
-  }
-}
-
 export async function apiListGameServers(
   cookies: ApiCookies,
 ): Promise<Array<{ id: string; name: string }>> {
@@ -120,13 +67,36 @@ export async function apiListGameServers(
   return data.game_servers ?? []
 }
 
-export async function apiGrantGameServerAccess(
+export async function apiListGames(
   cookies: ApiCookies,
-  gameServerId: string,
-  userId: string,
-  roleId: string,
-): Promise<void> {
-  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/GrantGameServerAccess`, {
+): Promise<Array<{ id: string; name: string }>> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/ListGames`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({}),
+  })
+  if (!resp.ok) return []
+  const data = (await resp.json()) as { games?: Array<{ id: string; name: string }> }
+  return data.games ?? []
+}
+
+export async function apiCreateGameServer(
+  cookies: ApiCookies,
+  serverDef: {
+    name: string
+    gameId: string
+    startCommand: string
+    directory: string
+    port?: number
+    queryPort?: number
+    setMaxPlayers?: number
+  },
+): Promise<string> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/CreateGameServer`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -134,32 +104,88 @@ export async function apiGrantGameServerAccess(
       Cookie: cookies.raw,
     },
     body: JSON.stringify({
-      game_server_id: gameServerId,
-      user_id: userId,
-      role_id: roleId,
+      game_server: {
+        name: serverDef.name,
+        game_id: serverDef.gameId,
+        start_command: serverDef.startCommand,
+        directory: serverDef.directory,
+        port: serverDef.port ?? 25565,
+        query_port: serverDef.queryPort ?? 25565,
+        set_max_players: serverDef.setMaxPlayers ?? 20,
+      },
     }),
   })
   if (!resp.ok) {
     const body = await resp.text()
-    throw new Error(`GrantGameServerAccess failed: ${resp.status} ${body}`)
+    throw new Error(`CreateGameServer failed: ${resp.status} ${body}`)
+  }
+  const data = (await resp.json()) as { game_server?: { id?: string } }
+  const id = data.game_server?.id
+  if (!id) throw new Error('CreateGameServer returned no server ID')
+  return id
+}
+
+export async function apiStartGameServer(cookies: ApiCookies, serverId: string): Promise<void> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/StartGameServer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({ server_id: serverId }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`StartGameServer failed: ${resp.status} ${body}`)
   }
 }
 
 export const AUTH_DIR = path.join(import.meta.dirname, '.auth')
-export const TEST_USERS_FILE = path.join(AUTH_DIR, 'test-users.json')
 
-export function storageStatePath(username: string): string {
-  return path.join(AUTH_DIR, `${username}.json`)
+export interface TestState {
+  gameServerId?: string
+  gameId?: string
+  gameName?: string
 }
 
-export function saveTestUsers(users: TestUser[]): void {
-  if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true })
-  fs.writeFileSync(TEST_USERS_FILE, JSON.stringify(users, null, 2))
+const TEST_STATE_FILE = path.join(import.meta.dirname, '.auth', 'test-state.json')
+
+export function loadTestState(): TestState {
+  if (!fs.existsSync(TEST_STATE_FILE)) return {}
+  return JSON.parse(fs.readFileSync(TEST_STATE_FILE, 'utf-8')) as TestState
 }
 
-export function loadTestUsers(): TestUser[] {
-  if (!fs.existsSync(TEST_USERS_FILE)) return []
-  return JSON.parse(fs.readFileSync(TEST_USERS_FILE, 'utf-8')) as TestUser[]
+export async function apiStopGameServer(cookies: ApiCookies, serverId: string): Promise<void> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/StopGameServer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({ server_id: serverId }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`StopGameServer failed: ${resp.status} ${body}`)
+  }
+}
+
+export async function apiRemoveGameServer(cookies: ApiCookies, serverId: string): Promise<void> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/RemoveGameServer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({ server_id: serverId }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`RemoveGameServer failed: ${resp.status} ${body}`)
+  }
 }
 
 export async function loginAsUser(page: Page, username: string, password: string): Promise<void> {

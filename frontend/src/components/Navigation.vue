@@ -68,6 +68,7 @@ import {
   ionHome,
   ionKey,
   ionPeople,
+  ionPulse,
   ionServer,
 } from '@quasar/extras/ionicons-v7'
 import { laServerSolid } from '@quasar/extras/line-awesome'
@@ -112,6 +113,20 @@ const navLinks = computed((): NavItem[] => {
       exact: true,
       groupItems: [],
     },
+  ]
+
+  if (store.user?.superUser) {
+    links.push({
+      title: 'Dashboard',
+      icon: ionPulse,
+      link: '/dashboard',
+      expanded: true,
+      exact: false,
+      groupItems: [],
+    })
+  }
+
+  links.push(
     {
       title: 'Game Servers',
       icon: laServerSolid,
@@ -144,7 +159,7 @@ const navLinks = computed((): NavItem[] => {
       exact: false,
       groupItems: [],
     },
-  ]
+  )
 
   if (store.user?.superUser) {
     links.push({

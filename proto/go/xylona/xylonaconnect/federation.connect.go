@@ -98,6 +98,18 @@ const (
 	// FederationDownloadRemoteFileFromURLProcedure is the fully-qualified name of the Federation's
 	// DownloadRemoteFileFromURL RPC.
 	FederationDownloadRemoteFileFromURLProcedure = "/xylona.Federation/DownloadRemoteFileFromURL"
+	// FederationFederationGetNodeSystemInfoProcedure is the fully-qualified name of the Federation's
+	// FederationGetNodeSystemInfo RPC.
+	FederationFederationGetNodeSystemInfoProcedure = "/xylona.Federation/FederationGetNodeSystemInfo"
+	// FederationFederationGetNodeResourceSnapshotProcedure is the fully-qualified name of the
+	// Federation's FederationGetNodeResourceSnapshot RPC.
+	FederationFederationGetNodeResourceSnapshotProcedure = "/xylona.Federation/FederationGetNodeResourceSnapshot"
+	// FederationFederationGetNodeMetricsHistoryProcedure is the fully-qualified name of the
+	// Federation's FederationGetNodeMetricsHistory RPC.
+	FederationFederationGetNodeMetricsHistoryProcedure = "/xylona.Federation/FederationGetNodeMetricsHistory"
+	// FederationFederationGetGameServerMetricsHistoryProcedure is the fully-qualified name of the
+	// Federation's FederationGetGameServerMetricsHistory RPC.
+	FederationFederationGetGameServerMetricsHistoryProcedure = "/xylona.Federation/FederationGetGameServerMetricsHistory"
 	// FederationListRemoteGameServerAccessGrantsProcedure is the fully-qualified name of the
 	// Federation's ListRemoteGameServerAccessGrants RPC.
 	FederationListRemoteGameServerAccessGrantsProcedure = "/xylona.Federation/ListRemoteGameServerAccessGrants"
@@ -158,6 +170,11 @@ type FederationClient interface {
 	MoveRemoteFiles(context.Context, *connect.Request[xylona.FederationMoveFilesRequest]) (*connect.Response[xylona.FederationMoveFilesResponse], error)
 	CreateRemoteFileOrDirectory(context.Context, *connect.Request[xylona.FederationCreateFileOrDirectoryRequest]) (*connect.Response[xylona.FederationCreateFileOrDirectoryResponse], error)
 	DownloadRemoteFileFromURL(context.Context, *connect.Request[xylona.FederationDownloadFileFromURLRequest]) (*connect.Response[xylona.FederationDownloadFileFromURLResponse], error)
+	// Dashboard / metrics operations.
+	FederationGetNodeSystemInfo(context.Context, *connect.Request[xylona.FederationGetNodeSystemInfoRequest]) (*connect.Response[xylona.FederationGetNodeSystemInfoResponse], error)
+	FederationGetNodeResourceSnapshot(context.Context, *connect.Request[xylona.FederationGetNodeResourceSnapshotRequest]) (*connect.Response[xylona.FederationGetNodeResourceSnapshotResponse], error)
+	FederationGetNodeMetricsHistory(context.Context, *connect.Request[xylona.FederationGetNodeMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetNodeMetricsHistoryResponse], error)
+	FederationGetGameServerMetricsHistory(context.Context, *connect.Request[xylona.FederationGetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetGameServerMetricsHistoryResponse], error)
 	// RBAC operations on remote servers.
 	ListRemoteGameServerAccessGrants(context.Context, *connect.Request[xylona.FederationListGameServerAccessGrantsRequest]) (*connect.Response[xylona.FederationListGameServerAccessGrantsResponse], error)
 	GrantRemoteGameServerAccess(context.Context, *connect.Request[xylona.FederationGrantGameServerAccessRequest]) (*connect.Response[xylona.FederationGrantGameServerAccessResponse], error)
@@ -310,6 +327,30 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(federationMethods.ByName("DownloadRemoteFileFromURL")),
 			connect.WithClientOptions(opts...),
 		),
+		federationGetNodeSystemInfo: connect.NewClient[xylona.FederationGetNodeSystemInfoRequest, xylona.FederationGetNodeSystemInfoResponse](
+			httpClient,
+			baseURL+FederationFederationGetNodeSystemInfoProcedure,
+			connect.WithSchema(federationMethods.ByName("FederationGetNodeSystemInfo")),
+			connect.WithClientOptions(opts...),
+		),
+		federationGetNodeResourceSnapshot: connect.NewClient[xylona.FederationGetNodeResourceSnapshotRequest, xylona.FederationGetNodeResourceSnapshotResponse](
+			httpClient,
+			baseURL+FederationFederationGetNodeResourceSnapshotProcedure,
+			connect.WithSchema(federationMethods.ByName("FederationGetNodeResourceSnapshot")),
+			connect.WithClientOptions(opts...),
+		),
+		federationGetNodeMetricsHistory: connect.NewClient[xylona.FederationGetNodeMetricsHistoryRequest, xylona.FederationGetNodeMetricsHistoryResponse](
+			httpClient,
+			baseURL+FederationFederationGetNodeMetricsHistoryProcedure,
+			connect.WithSchema(federationMethods.ByName("FederationGetNodeMetricsHistory")),
+			connect.WithClientOptions(opts...),
+		),
+		federationGetGameServerMetricsHistory: connect.NewClient[xylona.FederationGetGameServerMetricsHistoryRequest, xylona.FederationGetGameServerMetricsHistoryResponse](
+			httpClient,
+			baseURL+FederationFederationGetGameServerMetricsHistoryProcedure,
+			connect.WithSchema(federationMethods.ByName("FederationGetGameServerMetricsHistory")),
+			connect.WithClientOptions(opts...),
+		),
 		listRemoteGameServerAccessGrants: connect.NewClient[xylona.FederationListGameServerAccessGrantsRequest, xylona.FederationListGameServerAccessGrantsResponse](
 			httpClient,
 			baseURL+FederationListRemoteGameServerAccessGrantsProcedure,
@@ -351,34 +392,38 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 
 // federationClient implements FederationClient.
 type federationClient struct {
-	handshake                        *connect.Client[xylona.FederationHandshakeRequest, xylona.FederationHandshakeResponse]
-	listServerSummaries              *connect.Client[xylona.FederationListServerSummariesRequest, xylona.FederationListServerSummariesResponse]
-	listUserSummaries                *connect.Client[xylona.FederationListUserSummariesRequest, xylona.FederationListUserSummariesResponse]
-	getServerDetail                  *connect.Client[xylona.FederationGetServerDetailRequest, xylona.FederationGetServerDetailResponse]
-	startRemoteServer                *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
-	stopRemoteServer                 *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
-	restartRemoteServer              *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
-	updateRemoteServer               *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
-	editRemoteServer                 *connect.Client[xylona.FederationEditServerRequest, xylona.FederationEditServerResponse]
-	removeRemoteServer               *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
-	streamConsoleOutput              *connect.Client[xylona.FederationStreamConsoleRequest, xylona.FederationConsoleOutputChunk]
-	sendConsoleInput                 *connect.Client[xylona.FederationSendConsoleInputRequest, xylona.FederationSendConsoleInputResponse]
-	readConsoleBuffer                *connect.Client[xylona.FederationReadConsoleBufferRequest, xylona.FederationReadConsoleBufferResponse]
-	streamServerStatuses             *connect.Client[xylona.FederationStreamServerStatusesRequest, xylona.FederationServerStatusEvent]
-	queryRemoteServer                *connect.Client[xylona.FederationQueryServerRequest, xylona.FederationQueryServerResponse]
-	listRemoteDirectoryFiles         *connect.Client[xylona.FederationListDirectoryFilesRequest, xylona.FederationListDirectoryFilesResponse]
-	editRemoteFile                   *connect.Client[xylona.FederationEditFileRequest, xylona.FederationEditFileResponse]
-	deleteRemoteFiles                *connect.Client[xylona.FederationDeleteFilesRequest, xylona.FederationDeleteFilesResponse]
-	renameRemoteFile                 *connect.Client[xylona.FederationRenameFileRequest, xylona.FederationRenameFileResponse]
-	moveRemoteFiles                  *connect.Client[xylona.FederationMoveFilesRequest, xylona.FederationMoveFilesResponse]
-	createRemoteFileOrDirectory      *connect.Client[xylona.FederationCreateFileOrDirectoryRequest, xylona.FederationCreateFileOrDirectoryResponse]
-	downloadRemoteFileFromURL        *connect.Client[xylona.FederationDownloadFileFromURLRequest, xylona.FederationDownloadFileFromURLResponse]
-	listRemoteGameServerAccessGrants *connect.Client[xylona.FederationListGameServerAccessGrantsRequest, xylona.FederationListGameServerAccessGrantsResponse]
-	grantRemoteGameServerAccess      *connect.Client[xylona.FederationGrantGameServerAccessRequest, xylona.FederationGrantGameServerAccessResponse]
-	revokeRemoteGameServerAccess     *connect.Client[xylona.FederationRevokeGameServerAccessRequest, xylona.FederationRevokeGameServerAccessResponse]
-	listRemoteFederatedAccessGrants  *connect.Client[xylona.FederationListFederatedAccessGrantsRequest, xylona.FederationListFederatedAccessGrantsResponse]
-	grantRemoteFederatedAccess       *connect.Client[xylona.FederationGrantFederatedAccessRequest, xylona.FederationGrantFederatedAccessResponse]
-	revokeRemoteFederatedAccess      *connect.Client[xylona.FederationRevokeFederatedAccessRequest, xylona.FederationRevokeFederatedAccessResponse]
+	handshake                             *connect.Client[xylona.FederationHandshakeRequest, xylona.FederationHandshakeResponse]
+	listServerSummaries                   *connect.Client[xylona.FederationListServerSummariesRequest, xylona.FederationListServerSummariesResponse]
+	listUserSummaries                     *connect.Client[xylona.FederationListUserSummariesRequest, xylona.FederationListUserSummariesResponse]
+	getServerDetail                       *connect.Client[xylona.FederationGetServerDetailRequest, xylona.FederationGetServerDetailResponse]
+	startRemoteServer                     *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
+	stopRemoteServer                      *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
+	restartRemoteServer                   *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
+	updateRemoteServer                    *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
+	editRemoteServer                      *connect.Client[xylona.FederationEditServerRequest, xylona.FederationEditServerResponse]
+	removeRemoteServer                    *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
+	streamConsoleOutput                   *connect.Client[xylona.FederationStreamConsoleRequest, xylona.FederationConsoleOutputChunk]
+	sendConsoleInput                      *connect.Client[xylona.FederationSendConsoleInputRequest, xylona.FederationSendConsoleInputResponse]
+	readConsoleBuffer                     *connect.Client[xylona.FederationReadConsoleBufferRequest, xylona.FederationReadConsoleBufferResponse]
+	streamServerStatuses                  *connect.Client[xylona.FederationStreamServerStatusesRequest, xylona.FederationServerStatusEvent]
+	queryRemoteServer                     *connect.Client[xylona.FederationQueryServerRequest, xylona.FederationQueryServerResponse]
+	listRemoteDirectoryFiles              *connect.Client[xylona.FederationListDirectoryFilesRequest, xylona.FederationListDirectoryFilesResponse]
+	editRemoteFile                        *connect.Client[xylona.FederationEditFileRequest, xylona.FederationEditFileResponse]
+	deleteRemoteFiles                     *connect.Client[xylona.FederationDeleteFilesRequest, xylona.FederationDeleteFilesResponse]
+	renameRemoteFile                      *connect.Client[xylona.FederationRenameFileRequest, xylona.FederationRenameFileResponse]
+	moveRemoteFiles                       *connect.Client[xylona.FederationMoveFilesRequest, xylona.FederationMoveFilesResponse]
+	createRemoteFileOrDirectory           *connect.Client[xylona.FederationCreateFileOrDirectoryRequest, xylona.FederationCreateFileOrDirectoryResponse]
+	downloadRemoteFileFromURL             *connect.Client[xylona.FederationDownloadFileFromURLRequest, xylona.FederationDownloadFileFromURLResponse]
+	federationGetNodeSystemInfo           *connect.Client[xylona.FederationGetNodeSystemInfoRequest, xylona.FederationGetNodeSystemInfoResponse]
+	federationGetNodeResourceSnapshot     *connect.Client[xylona.FederationGetNodeResourceSnapshotRequest, xylona.FederationGetNodeResourceSnapshotResponse]
+	federationGetNodeMetricsHistory       *connect.Client[xylona.FederationGetNodeMetricsHistoryRequest, xylona.FederationGetNodeMetricsHistoryResponse]
+	federationGetGameServerMetricsHistory *connect.Client[xylona.FederationGetGameServerMetricsHistoryRequest, xylona.FederationGetGameServerMetricsHistoryResponse]
+	listRemoteGameServerAccessGrants      *connect.Client[xylona.FederationListGameServerAccessGrantsRequest, xylona.FederationListGameServerAccessGrantsResponse]
+	grantRemoteGameServerAccess           *connect.Client[xylona.FederationGrantGameServerAccessRequest, xylona.FederationGrantGameServerAccessResponse]
+	revokeRemoteGameServerAccess          *connect.Client[xylona.FederationRevokeGameServerAccessRequest, xylona.FederationRevokeGameServerAccessResponse]
+	listRemoteFederatedAccessGrants       *connect.Client[xylona.FederationListFederatedAccessGrantsRequest, xylona.FederationListFederatedAccessGrantsResponse]
+	grantRemoteFederatedAccess            *connect.Client[xylona.FederationGrantFederatedAccessRequest, xylona.FederationGrantFederatedAccessResponse]
+	revokeRemoteFederatedAccess           *connect.Client[xylona.FederationRevokeFederatedAccessRequest, xylona.FederationRevokeFederatedAccessResponse]
 }
 
 // Handshake calls xylona.Federation.Handshake.
@@ -491,6 +536,27 @@ func (c *federationClient) DownloadRemoteFileFromURL(ctx context.Context, req *c
 	return c.downloadRemoteFileFromURL.CallUnary(ctx, req)
 }
 
+// FederationGetNodeSystemInfo calls xylona.Federation.FederationGetNodeSystemInfo.
+func (c *federationClient) FederationGetNodeSystemInfo(ctx context.Context, req *connect.Request[xylona.FederationGetNodeSystemInfoRequest]) (*connect.Response[xylona.FederationGetNodeSystemInfoResponse], error) {
+	return c.federationGetNodeSystemInfo.CallUnary(ctx, req)
+}
+
+// FederationGetNodeResourceSnapshot calls xylona.Federation.FederationGetNodeResourceSnapshot.
+func (c *federationClient) FederationGetNodeResourceSnapshot(ctx context.Context, req *connect.Request[xylona.FederationGetNodeResourceSnapshotRequest]) (*connect.Response[xylona.FederationGetNodeResourceSnapshotResponse], error) {
+	return c.federationGetNodeResourceSnapshot.CallUnary(ctx, req)
+}
+
+// FederationGetNodeMetricsHistory calls xylona.Federation.FederationGetNodeMetricsHistory.
+func (c *federationClient) FederationGetNodeMetricsHistory(ctx context.Context, req *connect.Request[xylona.FederationGetNodeMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetNodeMetricsHistoryResponse], error) {
+	return c.federationGetNodeMetricsHistory.CallUnary(ctx, req)
+}
+
+// FederationGetGameServerMetricsHistory calls
+// xylona.Federation.FederationGetGameServerMetricsHistory.
+func (c *federationClient) FederationGetGameServerMetricsHistory(ctx context.Context, req *connect.Request[xylona.FederationGetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetGameServerMetricsHistoryResponse], error) {
+	return c.federationGetGameServerMetricsHistory.CallUnary(ctx, req)
+}
+
 // ListRemoteGameServerAccessGrants calls xylona.Federation.ListRemoteGameServerAccessGrants.
 func (c *federationClient) ListRemoteGameServerAccessGrants(ctx context.Context, req *connect.Request[xylona.FederationListGameServerAccessGrantsRequest]) (*connect.Response[xylona.FederationListGameServerAccessGrantsResponse], error) {
 	return c.listRemoteGameServerAccessGrants.CallUnary(ctx, req)
@@ -561,6 +627,11 @@ type FederationHandler interface {
 	MoveRemoteFiles(context.Context, *connect.Request[xylona.FederationMoveFilesRequest]) (*connect.Response[xylona.FederationMoveFilesResponse], error)
 	CreateRemoteFileOrDirectory(context.Context, *connect.Request[xylona.FederationCreateFileOrDirectoryRequest]) (*connect.Response[xylona.FederationCreateFileOrDirectoryResponse], error)
 	DownloadRemoteFileFromURL(context.Context, *connect.Request[xylona.FederationDownloadFileFromURLRequest]) (*connect.Response[xylona.FederationDownloadFileFromURLResponse], error)
+	// Dashboard / metrics operations.
+	FederationGetNodeSystemInfo(context.Context, *connect.Request[xylona.FederationGetNodeSystemInfoRequest]) (*connect.Response[xylona.FederationGetNodeSystemInfoResponse], error)
+	FederationGetNodeResourceSnapshot(context.Context, *connect.Request[xylona.FederationGetNodeResourceSnapshotRequest]) (*connect.Response[xylona.FederationGetNodeResourceSnapshotResponse], error)
+	FederationGetNodeMetricsHistory(context.Context, *connect.Request[xylona.FederationGetNodeMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetNodeMetricsHistoryResponse], error)
+	FederationGetGameServerMetricsHistory(context.Context, *connect.Request[xylona.FederationGetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetGameServerMetricsHistoryResponse], error)
 	// RBAC operations on remote servers.
 	ListRemoteGameServerAccessGrants(context.Context, *connect.Request[xylona.FederationListGameServerAccessGrantsRequest]) (*connect.Response[xylona.FederationListGameServerAccessGrantsResponse], error)
 	GrantRemoteGameServerAccess(context.Context, *connect.Request[xylona.FederationGrantGameServerAccessRequest]) (*connect.Response[xylona.FederationGrantGameServerAccessResponse], error)
@@ -709,6 +780,30 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(federationMethods.ByName("DownloadRemoteFileFromURL")),
 		connect.WithHandlerOptions(opts...),
 	)
+	federationFederationGetNodeSystemInfoHandler := connect.NewUnaryHandler(
+		FederationFederationGetNodeSystemInfoProcedure,
+		svc.FederationGetNodeSystemInfo,
+		connect.WithSchema(federationMethods.ByName("FederationGetNodeSystemInfo")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationFederationGetNodeResourceSnapshotHandler := connect.NewUnaryHandler(
+		FederationFederationGetNodeResourceSnapshotProcedure,
+		svc.FederationGetNodeResourceSnapshot,
+		connect.WithSchema(federationMethods.ByName("FederationGetNodeResourceSnapshot")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationFederationGetNodeMetricsHistoryHandler := connect.NewUnaryHandler(
+		FederationFederationGetNodeMetricsHistoryProcedure,
+		svc.FederationGetNodeMetricsHistory,
+		connect.WithSchema(federationMethods.ByName("FederationGetNodeMetricsHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationFederationGetGameServerMetricsHistoryHandler := connect.NewUnaryHandler(
+		FederationFederationGetGameServerMetricsHistoryProcedure,
+		svc.FederationGetGameServerMetricsHistory,
+		connect.WithSchema(federationMethods.ByName("FederationGetGameServerMetricsHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
 	federationListRemoteGameServerAccessGrantsHandler := connect.NewUnaryHandler(
 		FederationListRemoteGameServerAccessGrantsProcedure,
 		svc.ListRemoteGameServerAccessGrants,
@@ -791,6 +886,14 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 			federationCreateRemoteFileOrDirectoryHandler.ServeHTTP(w, r)
 		case FederationDownloadRemoteFileFromURLProcedure:
 			federationDownloadRemoteFileFromURLHandler.ServeHTTP(w, r)
+		case FederationFederationGetNodeSystemInfoProcedure:
+			federationFederationGetNodeSystemInfoHandler.ServeHTTP(w, r)
+		case FederationFederationGetNodeResourceSnapshotProcedure:
+			federationFederationGetNodeResourceSnapshotHandler.ServeHTTP(w, r)
+		case FederationFederationGetNodeMetricsHistoryProcedure:
+			federationFederationGetNodeMetricsHistoryHandler.ServeHTTP(w, r)
+		case FederationFederationGetGameServerMetricsHistoryProcedure:
+			federationFederationGetGameServerMetricsHistoryHandler.ServeHTTP(w, r)
 		case FederationListRemoteGameServerAccessGrantsProcedure:
 			federationListRemoteGameServerAccessGrantsHandler.ServeHTTP(w, r)
 		case FederationGrantRemoteGameServerAccessProcedure:
@@ -898,6 +1001,22 @@ func (UnimplementedFederationHandler) CreateRemoteFileOrDirectory(context.Contex
 
 func (UnimplementedFederationHandler) DownloadRemoteFileFromURL(context.Context, *connect.Request[xylona.FederationDownloadFileFromURLRequest]) (*connect.Response[xylona.FederationDownloadFileFromURLResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.DownloadRemoteFileFromURL is not implemented"))
+}
+
+func (UnimplementedFederationHandler) FederationGetNodeSystemInfo(context.Context, *connect.Request[xylona.FederationGetNodeSystemInfoRequest]) (*connect.Response[xylona.FederationGetNodeSystemInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.FederationGetNodeSystemInfo is not implemented"))
+}
+
+func (UnimplementedFederationHandler) FederationGetNodeResourceSnapshot(context.Context, *connect.Request[xylona.FederationGetNodeResourceSnapshotRequest]) (*connect.Response[xylona.FederationGetNodeResourceSnapshotResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.FederationGetNodeResourceSnapshot is not implemented"))
+}
+
+func (UnimplementedFederationHandler) FederationGetNodeMetricsHistory(context.Context, *connect.Request[xylona.FederationGetNodeMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetNodeMetricsHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.FederationGetNodeMetricsHistory is not implemented"))
+}
+
+func (UnimplementedFederationHandler) FederationGetGameServerMetricsHistory(context.Context, *connect.Request[xylona.FederationGetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetGameServerMetricsHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.FederationGetGameServerMetricsHistory is not implemented"))
 }
 
 func (UnimplementedFederationHandler) ListRemoteGameServerAccessGrants(context.Context, *connect.Request[xylona.FederationListGameServerAccessGrantsRequest]) (*connect.Response[xylona.FederationListGameServerAccessGrantsResponse], error) {

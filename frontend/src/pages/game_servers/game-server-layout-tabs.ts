@@ -10,6 +10,7 @@ export function buildGameServerTabs(serverID: string, canUseConfigurationTab: bo
   const tabs: GameServerLayoutTab[] = [
     { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true },
     { name: 'Files', to: `${basePath}/files`, icon: 'folder', exact: true },
+    { name: 'Metrics', to: `${basePath}/metrics`, icon: 'show_chart', exact: true },
   ]
 
   if (canUseConfigurationTab) {

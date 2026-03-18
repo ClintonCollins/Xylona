@@ -271,3 +271,50 @@ message SecretKey {
   google.protobuf.Timestamp last_used = 4;
   string last_accessed_from = 5;
 }
+
+// NodeSystemInfo contains static hardware and OS information for a node.
+message NodeSystemInfo {
+  string cpu_model = 1;
+  int32 cpu_cores = 2;
+  int32 cpu_threads = 3;
+  int64 total_memory_bytes = 4;
+  string os = 5;
+  string os_version = 6;
+  string architecture = 7;
+  string xylona_version = 8;
+}
+
+// NodeResourceSnapshot contains a point-in-time resource usage snapshot for a node.
+message NodeResourceSnapshot {
+  double cpu_percent = 1;
+  double memory_percent = 2;
+  int64 memory_used_bytes = 3;
+  int64 memory_total_bytes = 4;
+  double disk_percent = 5;
+  int64 disk_used_bytes = 6;
+  int64 disk_total_bytes = 7;
+  int32 game_server_count = 8;
+  int32 running_game_server_count = 9;
+  int32 user_count = 10;
+  google.protobuf.Timestamp recorded_at = 11;
+}
+
+// MetricsHistoryPoint is a single data point in a node metrics time series.
+message MetricsHistoryPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  double cpu_percent = 2;
+  double memory_percent = 3;
+  double disk_percent = 4;
+  int64 memory_used_bytes = 5;
+  int64 disk_used_bytes = 6;
+}
+
+// GameServerMetricsHistoryPoint is a single data point in a game server metrics time series.
+message GameServerMetricsHistoryPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  double cpu_percent = 2;
+  int64 memory_bytes = 3;
+  double memory_percent = 4;
+  int64 disk_usage_bytes = 5;
+  int32 player_count = 6;
+}

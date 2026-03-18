@@ -1,0 +1,123 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+// testUser matches helpers.ts TestUser interface.
+type testUser struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	SuperUser bool   `json:"superUser"`
+}
+
+// testState matches helpers.ts TestState interface.
+type testState struct {
+	GameServerID string `json:"gameServerId,omitempty"`
+	GameID       string `json:"gameId,omitempty"`
+	GameName     string `json:"gameName,omitempty"`
+}
+
+// federationTestState matches federation-helpers.ts FederationTestState.
+type federationTestState struct {
+	NodeAURL        string     `json:"nodeAUrl"`
+	NodeBURL        string     `json:"nodeBUrl"`
+	NodeAID         string     `json:"nodeAId,omitempty"`
+	NodeBID         string     `json:"nodeBId,omitempty"`
+	PairedNodeIDOnA string     `json:"pairedNodeIdOnA,omitempty"`
+	PairedNodeIDOnB string     `json:"pairedNodeIdOnB,omitempty"`
+	GameServerID    string     `json:"gameServerId,omitempty"`
+	GameID          string     `json:"gameId,omitempty"`
+	TestUsers       []testUser `json:"testUsers,omitempty"`
+}
+
+func saveTestUsers(dir string, users []testUser) error {
+	authDir := filepath.Join(dir, ".auth")
+	errMkdir := os.MkdirAll(authDir, 0o755)
+	if errMkdir != nil {
+		return fmt.Errorf("create auth dir: %w", errMkdir)
+	}
+	data, errMarshal := json.MarshalIndent(users, "", "  ")
+	if errMarshal != nil {
+		return fmt.Errorf("marshal test users: %w", errMarshal)
+	}
+	return os.WriteFile(filepath.Join(authDir, "test-users.json"), data, 0o644)
+}
+
+func loadTestUsers(dir string) ([]testUser, error) {
+	data, errRead := os.ReadFile(filepath.Join(dir, ".auth", "test-users.json"))
+	if errRead != nil {
+		if os.IsNotExist(errRead) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read test users: %w", errRead)
+	}
+	var users []testUser
+	errUnmarshal := json.Unmarshal(data, &users)
+	if errUnmarshal != nil {
+		return nil, fmt.Errorf("unmarshal test users: %w", errUnmarshal)
+	}
+	return users, nil
+}
+
+func saveTestState(dir string, state *testState) error {
+	authDir := filepath.Join(dir, ".auth")
+	errMkdir := os.MkdirAll(authDir, 0o755)
+	if errMkdir != nil {
+		return fmt.Errorf("create auth dir: %w", errMkdir)
+	}
+	data, errMarshal := json.MarshalIndent(state, "", "  ")
+	if errMarshal != nil {
+		return fmt.Errorf("marshal test state: %w", errMarshal)
+	}
+	return os.WriteFile(filepath.Join(authDir, "test-state.json"), data, 0o644)
+}
+
+func loadTestState(dir string) (*testState, error) {
+	data, errRead := os.ReadFile(filepath.Join(dir, ".auth", "test-state.json"))
+	if errRead != nil {
+		if os.IsNotExist(errRead) {
+			return &testState{}, nil
+		}
+		return nil, fmt.Errorf("read test state: %w", errRead)
+	}
+	var state testState
+	errUnmarshal := json.Unmarshal(data, &state)
+	if errUnmarshal != nil {
+		return nil, fmt.Errorf("unmarshal test state: %w", errUnmarshal)
+	}
+	return &state, nil
+}
+
+func saveFederationState(dir string, state *federationTestState) error {
+	fedDir := filepath.Join(dir, ".federation")
+	errMkdir := os.MkdirAll(fedDir, 0o755)
+	if errMkdir != nil {
+		return fmt.Errorf("create federation dir: %w", errMkdir)
+	}
+	data, errMarshal := json.MarshalIndent(state, "", "  ")
+	if errMarshal != nil {
+		return fmt.Errorf("marshal federation state: %w", errMarshal)
+	}
+	return os.WriteFile(filepath.Join(fedDir, "state.json"), data, 0o644)
+}
+
+func loadFederationState(dir string) (*federationTestState, error) {
+	data, errRead := os.ReadFile(filepath.Join(dir, ".federation", "state.json"))
+	if errRead != nil {
+		if os.IsNotExist(errRead) {
+			return &federationTestState{}, nil
+		}
+		return nil, fmt.Errorf("read federation state: %w", errRead)
+	}
+	var state federationTestState
+	errUnmarshal := json.Unmarshal(data, &state)
+	if errUnmarshal != nil {
+		return nil, fmt.Errorf("unmarshal federation state: %w", errUnmarshal)
+	}
+	return &state, nil
+}

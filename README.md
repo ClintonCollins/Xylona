@@ -73,6 +73,47 @@ pnpm run dev
 ```
 The development server will start on `localhost:3000`.
 
+### E2E Testing
+
+#### Single-Node Tests
+Requires a running backend on `:8080`:
+```bash
+pnpm --dir frontend run e2e
+# Or: mage E2E
+```
+
+#### Federation Tests
+Fully self-contained — builds binaries, starts two Xylona nodes, pairs them, and runs tests:
+```bash
+pnpm --dir frontend run e2e:federation
+# Or: mage E2EFederation
+```
+
+#### Debugging
+```bash
+# Run in headed mode to watch the browser
+mage E2EHeaded
+mage E2EFederationHeaded
+
+# Keep federation data after test run
+E2E_KEEP_DATA=1 pnpm --dir frontend run e2e:federation
+
+# View HTML reports
+mage E2EReport
+mage E2EFederationReport
+```
+
+#### E2E Orchestrator
+All setup and teardown logic lives in a Go CLI tool (`cmd/e2e`). The TypeScript Playwright configs call it automatically, but you can run it directly:
+```bash
+# Seed a fresh database with an admin user
+go run ./cmd/e2e seed -db <path> -username admin -password admin
+
+# Run single-node setup/teardown manually
+go run ./cmd/e2e single-setup --backend-url http://localhost:8080
+go run ./cmd/e2e single-teardown --backend-url http://localhost:8080
+```
+
 ### Recommendations
 
 It's suggested to install Docker and Docker Compose to run Caddy in a container. This will make it easy to proxy

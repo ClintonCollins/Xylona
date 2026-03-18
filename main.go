@@ -47,6 +47,7 @@ type Configuration struct {
 	DBFilePath         string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
 	LogLevel           string `env:"LOG_LEVEL" envDefault:"info"`
 	SecureCookies      bool   `env:"SECURE_COOKIES" envDefault:"false"`
+	HTTPPort           int    `env:"HTTP_PORT" envDefault:"8080"`
 	FederationPort     int    `env:"FEDERATION_PORT" envDefault:"8443"`
 	FederationCertPath string `env:"FEDERATION_CERT_PATH" envDefault:"./federation/node.crt"`
 	FederationKeyPath  string `env:"FEDERATION_KEY_PATH" envDefault:"./federation/node.key"`
@@ -195,10 +196,10 @@ func main() {
 	if errSupervisor != nil {
 		log.Fatal().Err(errSupervisor).Msg("Failed to create supervisor instance")
 	}
-	dbInst := db.NewConnection(ctx, "./data.sqlite")
+	dbInst := db.NewConnection(ctx, config.DBFilePath)
 
 	// Run database migrations
-	errMigrate := runMigrations(dbInst.SQLDb)
+	errMigrate := db.RunMigrations(dbInst.SQLDb, EmbeddedMigrations, "sql/migrations")
 	if errMigrate != nil {
 		log.Fatal().Err(errMigrate).Msg("Error running migrations")
 		return
@@ -289,6 +290,7 @@ func main() {
 
 	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS)
 	superInst.StartMetricsPoller(ctx)
+	_ = actions.NewMetricsRecorder(ctx, dbInst, superInst, settings.NodeID, actionsInst)
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	setDetectedIPs(dbInst)
 
@@ -315,7 +317,7 @@ func main() {
 	router.Mount("/api/websocket", websocketHandler)
 
 	httpServer := &http.Server{
-		Addr:         ":8080",
+		Addr:         fmt.Sprintf(":%d", config.HTTPPort),
 		Handler:      router,
 		ReadTimeout:  time.Hour * 6,
 		WriteTimeout: time.Hour * 6,
@@ -389,7 +391,7 @@ func main() {
 
 	// Start the web server
 	go func() {
-		log.Info().Msg("Starting Xylona web server on :8080")
+		log.Info().Int("port", config.HTTPPort).Msg("Starting Xylona web server")
 		errListenAndServe := httpServer.ListenAndServe()
 		if errListenAndServe != nil {
 			if !errors.Is(errListenAndServe, http.ErrServerClosed) {

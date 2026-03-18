@@ -42,5 +42,9 @@ coverage
 
 # Playwright
 /e2e/test-results/
+/e2e/test-results-federation/
 /e2e/playwright-report/
+/e2e/playwright-report-federation/
 /e2e/.auth/*.json
+/e2e/.federation/
+/e2e/.e2e-bin/

@@ -30,7 +30,7 @@ The backend is the project root and uses the Go module path `github.com/ClintonC
 | `sql/models` | Generated ORM models (bob) |
 | `supervisor` | Game server process lifecycle management (start, stop, I/O, listeners) |
 | `magefiles` | Mage build tasks |
-| `cmd` | Auxiliary CLI tools (e.g., `minecraft_version_hasher`) |
+| `cmd` | Auxiliary CLI tools (e.g., `minecraft_version_hasher`, `e2e` orchestrator, `dummy_game_server`) |
 | `embed.go` | Embeds the built frontend SPA into the Go binary |
 
 ### Frontend (`/frontend`) — Vite + TypeScript + Vue 3 + Quasar 2
@@ -76,6 +76,11 @@ Use these as the default commands for this repo:
 - `pnpm --dir frontend run e2e:debug` — run E2E tests in debug mode.
 - `pnpm --dir frontend run e2e:report` — open the last Playwright HTML report.
 
+### E2E Testing
+- `pnpm --dir frontend run e2e:federation` — run federation two-node E2E tests (self-contained).
+- `pnpm --dir frontend run e2e:federation:headed` — run federation E2E tests in headed browser mode.
+- `pnpm --dir frontend run e2e:federation:report` — open the last federation Playwright HTML report.
+
 ### Build & Codegen
 - `mage Build` — frontend production build + Goreleaser snapshot build.
 - `mage GenerateProto` — regenerate protobuf outputs.
@@ -83,6 +88,16 @@ Use these as the default commands for this repo:
 - `mage SQLMigrateNew` — create new SQL migration.
 - `mage SQLMigrateUp` — apply SQL migrations.
 - `mage SQLMigrateDown` — roll back SQL migrations.
+
+### E2E Testing (Mage)
+- `mage E2E` — run single-node E2E tests (requires backend on `:8080`).
+- `mage E2EHeaded` — run single-node E2E tests in headed browser mode.
+- `mage E2EUI` — open Playwright interactive UI for single-node tests.
+- `mage E2EReport` — open the last single-node Playwright HTML report.
+- `mage E2EFederation` — run two-node federation E2E tests (fully self-contained).
+- `mage E2EFederationHeaded` — run federation E2E tests in headed browser mode.
+- `mage E2EFederationReport` — open the last federation Playwright HTML report.
+- `mage E2ESeed <db_path> [username] [password]` — seed a fresh SQLite database with an admin user.
 
 ## Generated Code Rules
 
@@ -335,6 +350,109 @@ For complex changes, run tests with coverage to ensure adequate coverage:
 ```bash
 pnpm --dir frontend run test:coverage
 ```
+
+## E2E Testing
+
+Xylona has two Playwright E2E test suites: **single-node** (standard) and **federation** (two-node).
+
+### Single-Node Tests
+
+**Prerequisites**: A running backend on `:8080` with a seeded database.
+
+The `global-setup.ts` script delegates to the Go orchestrator (`cmd/e2e single-setup`) which creates test users, a game definition, a game server, test files, and RBAC role assignments. Tests run against `http://localhost:8080`.
+
+| Test file | Coverage |
+|---|---|
+| `login.spec.ts` | Authentication flow (login/logout) |
+| `smoke.spec.ts` | Basic page load and navigation |
+| `admin.spec.ts` | Admin panel functionality |
+| `permissions.spec.ts` | Role-based access control |
+| `page-permissions.spec.ts` | Page-level permission checks |
+| `console-errors.spec.ts` | Verifies no console errors on pages |
+| `file-browser.spec.ts` | Game server file browser |
+| `game-server-lifecycle.spec.ts` | Create, start, stop, delete game servers |
+
+### Federation Tests
+
+Fully self-contained — builds binaries, starts two Xylona nodes, pairs them, runs tests, and tears down.
+
+The `federation-setup.ts` script delegates to the Go orchestrator (`cmd/e2e federation-setup`) which handles:
+1. Building the frontend SPA and Go binaries (`xylona`, dummy game server)
+2. Seeding separate databases for each node (directly, no separate binary needed)
+3. Starting both nodes with distinct ports
+4. Pairing the nodes via typed ConnectRPC clients
+5. Creating test game servers, files, and users
+
+| Port | Usage |
+|---|---|
+| `9081` | Node A HTTP backend |
+| `9082` | Node B HTTP backend |
+| `9444` | Node A federation mTLS |
+| `9445` | Node B federation mTLS |
+
+| Test file | Coverage |
+|---|---|
+| `federation-pairing.spec.ts` | Node pairing and federation setup |
+| `federation-console.spec.ts` | Remote game server console via federation |
+| `federation-console-errors.spec.ts` | No console errors on federation pages |
+| `federation-file-browser.spec.ts` | Remote file browser via federation |
+| `federation-permissions.spec.ts` | Cross-node permission checks |
+| `federation-server-lifecycle.spec.ts` | Remote server start/stop/restart |
+
+### Debugging
+
+- **Headed mode**: Use `mage E2EHeaded` or `mage E2EFederationHeaded` to watch the browser.
+- **Keep data**: Set `E2E_KEEP_DATA=1` when running federation tests to preserve node data directories after the run for inspection.
+- **HTML reports**: Use `mage E2EReport` or `mage E2EFederationReport` to view detailed test reports.
+- **Playwright UI**: Use `mage E2EUI` for interactive test debugging (single-node only).
+
+### `cmd/e2e` Orchestrator
+
+Go CLI tool that handles all E2E test setup and teardown. Uses typed ConnectRPC clients for API calls and direct database seeding (no separate binary needed).
+
+```bash
+go run ./cmd/e2e <subcommand> [flags]
+```
+
+Subcommands:
+- `single-setup` — creates test users, game, server, files, and RBAC grants (requires running backend)
+- `single-teardown` — deletes all test data created by single-setup
+- `federation-setup` — builds binaries, seeds DBs, starts two nodes, pairs them, creates test data
+- `federation-teardown` — API cleanup, kills node processes, removes data directories
+- `seed` — bootstraps a fresh SQLite database with migrations and an admin user
+
+Common flags:
+- `--backend-url` (default: `http://localhost:8080`) — backend URL for single-node commands
+- `--e2e-dir` (default: `frontend/e2e`) — E2E test directory for state files
+- `--project-root` (default: `.`) — project root for building binaries
+
+Seed flags:
+- `--db` (required) — path to the SQLite database file
+- `--username` (default: `admin`) — admin username
+- `--password` (default: `admin`) — admin password
+- `--migrations` (default: `sql/migrations`) — path to SQL migration files
+
+### Infrastructure Files
+
+| File | Purpose |
+|---|---|
+| `cmd/e2e/` | Go orchestrator — setup, teardown, seeding, process management |
+| `frontend/e2e/global-setup.ts` | Thin wrapper that delegates to `cmd/e2e single-setup` |
+| `frontend/e2e/global-teardown.ts` | Thin wrapper that delegates to `cmd/e2e single-teardown` |
+| `frontend/e2e/helpers.ts` | Shared test utilities and API helpers (used by spec files) |
+| `frontend/e2e/auth.setup.ts` | Authentication setup for single-node tests |
+| `frontend/e2e/federation-setup.ts` | Thin wrapper that delegates to `cmd/e2e federation-setup` |
+| `frontend/e2e/federation-teardown.ts` | Thin wrapper that delegates to `cmd/e2e federation-teardown` |
+| `frontend/e2e/federation-helpers.ts` | Federation-specific API helpers (used by spec files) |
+| `frontend/e2e/federation-auth.setup.ts` | Authentication setup for federation tests |
+| `frontend/playwright-federation.config.ts` | Playwright config for federation tests |
+
+### Gitignored Artifacts
+
+- `frontend/e2e/.federation/` — federation node data directories
+- `frontend/e2e/playwright-report/` — single-node HTML report
+- `frontend/e2e/playwright-report-federation/` — federation HTML report
+- `frontend/e2e/test-results/` — test result artifacts
 
 ## Key Dependencies
 

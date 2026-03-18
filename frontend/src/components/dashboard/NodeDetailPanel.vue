@@ -1,0 +1,194 @@
+<template>
+  <q-card flat bordered class="q-mt-md">
+    <q-card-section>
+      <div class="row items-center q-mb-md">
+        <q-btn flat dense round icon="arrow_back" @click="emit('close')" />
+        <div class="text-h6 q-ml-sm">{{ node.name || 'Node Details' }}</div>
+      </div>
+
+      <div v-if="systemInfo" class="q-mb-md">
+        <div class="text-subtitle2 q-mb-sm">System Information</div>
+        <q-list separator dense>
+          <q-item v-if="systemInfo.cpuModel">
+            <q-item-section>CPU</q-item-section>
+            <q-item-section side
+              >{{ systemInfo.cpuModel }} ({{ systemInfo.cpuCores }}C /
+              {{ systemInfo.cpuThreads }}T)</q-item-section
+            >
+          </q-item>
+          <q-item>
+            <q-item-section>Total Memory</q-item-section>
+            <q-item-section side>{{
+              bytesToSize(Number(systemInfo.totalMemoryBytes))
+            }}</q-item-section>
+          </q-item>
+          <q-item>
+            <q-item-section>OS</q-item-section>
+            <q-item-section side>{{ systemInfo.os }} {{ systemInfo.osVersion }}</q-item-section>
+          </q-item>
+          <q-item>
+            <q-item-section>Architecture</q-item-section>
+            <q-item-section side>{{ systemInfo.architecture }}</q-item-section>
+          </q-item>
+          <q-item>
+            <q-item-section>Xylona Version</q-item-section>
+            <q-item-section side>{{ systemInfo.xylonaVersion }}</q-item-section>
+          </q-item>
+        </q-list>
+      </div>
+
+      <div class="q-mb-md">
+        <MetricsLineChart
+          title="CPU Usage"
+          :labels="chartLabels"
+          :datasets="cpuDatasets"
+          y-axis-suffix="%"
+          :y-axis-max="100"
+          @range-change="onRangeChange" />
+      </div>
+
+      <div class="q-mb-md">
+        <MetricsLineChart
+          title="Memory Usage (%)"
+          :labels="chartLabels"
+          :datasets="memoryPercentDatasets"
+          y-axis-suffix="%"
+          :y-axis-max="100"
+          @range-change="onRangeChange" />
+      </div>
+
+      <div class="q-mb-md">
+        <MetricsLineChart
+          title="Memory Usage (GB)"
+          :labels="chartLabels"
+          :datasets="memoryBytesDatasets"
+          y-axis-suffix=" GB"
+          @range-change="onRangeChange" />
+      </div>
+
+      <div>
+        <MetricsLineChart
+          title="Disk Usage"
+          :labels="chartLabels"
+          :datasets="diskDatasets"
+          y-axis-suffix="%"
+          :y-axis-max="100"
+          @range-change="onRangeChange" />
+      </div>
+    </q-card-section>
+    <q-inner-loading :showing="loading" />
+  </q-card>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { ConnectError } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
+import { Timestamp, TimestampSchema } from '@bufbuild/protobuf/wkt'
+import { Node, NodeSystemInfo } from 'src/proto/shared_pb'
+import {
+  GetNodeMetricsHistoryRequestSchema,
+  GetNodeSystemInfoRequestSchema,
+} from 'src/proto/xylona_pb'
+import { MetricsHistoryPoint } from 'src/proto/shared_pb'
+import { GetXylonaClient, bytesToSize } from '@/utils/shared'
+import MetricsLineChart from './MetricsLineChart.vue'
+
+const props = defineProps<{
+  node: Node
+  systemInfo?: NodeSystemInfo
+}>()
+
+const emit = defineEmits<{
+  close: []
+}>()
+
+const loading = ref(false)
+const localSystemInfo = ref<NodeSystemInfo | undefined>(props.systemInfo)
+const historyPoints = ref<MetricsHistoryPoint[]>([])
+const selectedRange = ref('1h')
+
+const rangeMs: Record<string, number> = {
+  '1h': 60 * 60 * 1000,
+  '6h': 6 * 60 * 60 * 1000,
+  '24h': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+}
+
+function toTimestamp(d: Date): Timestamp {
+  return create(TimestampSchema, {
+    seconds: BigInt(Math.floor(d.getTime() / 1000)),
+    nanos: 0,
+  })
+}
+
+const chartLabels = computed(() =>
+  historyPoints.value.map((p) => {
+    const d = p.timestamp ? new Date(Number(p.timestamp.seconds) * 1000) : new Date()
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }),
+)
+
+const cpuDatasets = computed(() => [
+  { label: 'CPU %', data: historyPoints.value.map((p) => p.cpuPercent) },
+])
+
+const memoryPercentDatasets = computed(() => [
+  { label: 'Memory %', data: historyPoints.value.map((p) => p.memoryPercent) },
+])
+
+const memoryBytesDatasets = computed(() => [
+  {
+    label: 'Memory (GB)',
+    data: historyPoints.value.map((p) =>
+      parseFloat((Number(p.memoryUsedBytes) / (1024 * 1024 * 1024)).toFixed(2)),
+    ),
+  },
+])
+
+const diskDatasets = computed(() => [
+  { label: 'Disk %', data: historyPoints.value.map((p) => p.diskPercent) },
+])
+
+async function fetchHistory() {
+  loading.value = true
+  try {
+    const now = new Date()
+    const since = new Date(now.getTime() - (rangeMs[selectedRange.value] ?? rangeMs['1h']))
+
+    const resp = await GetXylonaClient().getNodeMetricsHistory(
+      create(GetNodeMetricsHistoryRequestSchema, {
+        nodeId: props.node.id,
+        since: toTimestamp(since),
+        until: toTimestamp(now),
+      }),
+    )
+    historyPoints.value = resp.points
+  } catch (err) {
+    console.error('Failed to fetch node metrics history:', ConnectError.from(err).message)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchSystemInfo() {
+  if (localSystemInfo.value) return
+  try {
+    const resp = await GetXylonaClient().getNodeSystemInfo(
+      create(GetNodeSystemInfoRequestSchema, { nodeId: props.node.id }),
+    )
+    localSystemInfo.value = resp.systemInfo
+  } catch (err) {
+    console.error('Failed to fetch node system info:', ConnectError.from(err).message)
+  }
+}
+
+function onRangeChange(range: string) {
+  selectedRange.value = range
+  fetchHistory()
+}
+
+onMounted(async () => {
+  await Promise.all([fetchSystemInfo(), fetchHistory()])
+})
+</script>
