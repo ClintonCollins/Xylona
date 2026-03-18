@@ -105,6 +105,18 @@ message FederationServerSummary {
   string map_name = 11;
   string version = 12;
   google.protobuf.Timestamp updated_at = 13;
+  // Process metrics — only populated when the server is running.
+  int64 cpu_percent = 14;
+  int64 memory_bytes = 15;
+  int64 memory_working_set_bytes = 16;
+  double memory_percent = 17;
+  int32 cpu_cores = 18;
+  int32 number_of_threads = 19;
+  int64 disk_usage_bytes = 20;
+  double io_read_rate = 21;
+  double io_write_rate = 22;
+  int32 connection_count = 23;
+  int64 uptime_seconds = 24;
 }
 
 message FederationListServerSummariesResponse {

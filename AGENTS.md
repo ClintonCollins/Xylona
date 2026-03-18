@@ -70,6 +70,11 @@ Use these as the default commands for this repo:
 - `pnpm --dir frontend run test` — run Vitest unit tests.
 - `pnpm --dir frontend run test:watch` — run Vitest in watch mode.
 - `pnpm --dir frontend run test:coverage` — run Vitest with coverage reporting.
+- `pnpm --dir frontend run e2e` — run Playwright E2E tests (requires backend on `:8080`).
+- `pnpm --dir frontend run e2e:headed` — run E2E tests in headed browser mode.
+- `pnpm --dir frontend run e2e:ui` — open Playwright interactive UI.
+- `pnpm --dir frontend run e2e:debug` — run E2E tests in debug mode.
+- `pnpm --dir frontend run e2e:report` — open the last Playwright HTML report.
 
 ### Build & Codegen
 - `mage Build` — frontend production build + Goreleaser snapshot build.
@@ -150,6 +155,17 @@ When exploring or searching the repo, skip large/generated/vendor-like directori
 - `frontend/dist`
 - `cmd/minecraft_version_hasher/versions`
 - `dist`
+
+## Browser Automation
+
+Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
+
+Core workflow:
+
+1. `agent-browser open <url>` - Navigate to page
+2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
+3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
+4. Re-snapshot after page changes
 
 ## Unit & Integration Testing
 

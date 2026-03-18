@@ -258,6 +258,7 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 			Version:        resolveGameServerVersion(gs),
 			UpdatedAt:      timestamppb.New(gs.UpdatedAt),
 		}
+		populateFederationSummaryMetrics(summary, fs.supervisorInst, gs.ID)
 		resp.Servers = append(resp.Servers, summary)
 	}
 
@@ -348,9 +349,39 @@ func (fs FederationService) GetServerDetail(ctx context.Context, request *connec
 		UpdatedAt:   timestamppb.New(gs.UpdatedAt),
 	}
 
+	populateFederationSummaryMetrics(summary, fs.supervisorInst, gs.ID)
+
 	return connect.NewResponse(&xylona.FederationGetServerDetailResponse{
 		Server: summary,
 	}), nil
+}
+
+// populateFederationSummaryMetrics fills metric fields on a FederationServerSummary
+// from the supervisor's running command for the given serverID.
+// It is a no-op when supervisorInst is nil or no command exists for the server.
+func populateFederationSummaryMetrics(summary *xylona.FederationServerSummary, supervisorInst *supervisor.Instance, serverID string) {
+	if supervisorInst == nil {
+		return
+	}
+	cmd, errGetCmd := supervisorInst.GetCommandByID(serverID)
+	if errGetCmd != nil {
+		return
+	}
+	cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := cmd.Metrics()
+	summary.CpuPercent = int64(cpuPct)
+	summary.MemoryBytes = int64(memVMS)
+	summary.MemoryWorkingSetBytes = int64(memRSS)
+	summary.MemoryPercent = float64(memPct)
+	summary.CpuCores = cpuCores
+	summary.NumberOfThreads = threads
+	summary.DiskUsageBytes = int64(diskBytes)
+	summary.IoReadRate = ioRead
+	summary.IoWriteRate = ioWrite
+	summary.ConnectionCount = connCount
+	startedAt := cmd.UnixStartedAt()
+	if startedAt > 0 {
+		summary.UptimeSeconds = time.Now().Unix() - startedAt
+	}
 }
 
 func (fs FederationService) StartRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {

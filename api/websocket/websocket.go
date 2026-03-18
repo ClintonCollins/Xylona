@@ -60,6 +60,8 @@ type WebSocket struct {
 	userWebsocketConnections     map[string]map[uuid.UUID]*connection // map[userID]map[connectionID]*connection
 	userWebsocketConnectionsLock *sync.RWMutex
 	sessionLock                  *sync.RWMutex
+	remoteMetricsCache           map[string]*xylona.GameServerMetrics // keyed by remote server ID
+	remoteMetricsCacheLock       sync.RWMutex
 }
 
 func getSessionUsername(s *melody.Session) (string, error) {
@@ -163,10 +165,12 @@ func NewInstance(
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
 		userWebsocketConnectionsLock: &sync.RWMutex{},
 		sessionLock:                  &sync.RWMutex{},
+		remoteMetricsCache:           make(map[string]*xylona.GameServerMetrics),
 	}
 	m.HandleConnect(inst.handleConnect)
 	m.HandleDisconnect(inst.handleDisconnect)
 	m.HandleMessage(inst.handleMessage)
+	go inst.startRemoteMetricsPoller()
 	return inst, inst.handleRequest
 }
 
@@ -350,6 +354,105 @@ func (ws *WebSocket) AddGameServerToUserID() {
 
 }
 
+// startRemoteMetricsPoller runs a single shared background poller that refreshes
+// the remote-node metrics cache every 3 seconds for all connected clients.
+func (ws *WebSocket) startRemoteMetricsPoller() {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case <-ticker.C:
+			ws.pollRemoteMetrics()
+		}
+	}
+}
+
+// pollRemoteMetrics queries every enabled remote node for its game-server summaries
+// and stores the metrics in remoteMetricsCache. It is called by startRemoteMetricsPoller.
+func (ws *WebSocket) pollRemoteMetrics() {
+	if ws.federationMTLS == nil {
+		return
+	}
+
+	nodes, errNodes := ws.db.GetEnabledRemoteNodes()
+	if errNodes != nil {
+		log.Error().Err(errNodes).Msg("Failed to get enabled remote nodes for metrics poll")
+		return
+	}
+	if len(nodes) == 0 {
+		return
+	}
+
+	type nodeResult struct {
+		servers []*xylona.FederationServerSummary
+	}
+
+	resultsCh := make(chan nodeResult, len(nodes))
+
+	for _, n := range nodes {
+		node := n
+		go func() {
+			client, errClient := ws.newFederationClientForNode(node)
+			if errClient != nil {
+				log.Debug().Err(errClient).Str("node_id", node.ID).Msg("Remote metrics poll: failed to create federation client")
+				resultsCh <- nodeResult{}
+				return
+			}
+			ctx, cancel := context.WithTimeout(ws.ctx, 10*time.Second)
+			defer cancel()
+			resp, errList := client.ListServerSummaries(ctx, connect.NewRequest(&xylona.FederationListServerSummariesRequest{}))
+			if errList != nil {
+				log.Debug().Err(errList).Str("node_id", node.ID).Msg("Remote metrics poll: ListServerSummaries failed")
+				resultsCh <- nodeResult{}
+				return
+			}
+			resultsCh <- nodeResult{servers: resp.Msg.GetServers()}
+		}()
+	}
+
+	newCache := make(map[string]*xylona.GameServerMetrics, len(nodes)*4)
+	for range nodes {
+		result := <-resultsCh
+		for _, s := range result.servers {
+			newCache[s.ServerId] = &xylona.GameServerMetrics{
+				CpuPercent:            float64(s.CpuPercent),
+				MemoryBytes:           s.MemoryBytes,
+				MemoryWorkingSetBytes: s.MemoryWorkingSetBytes,
+				MemoryPercent:         s.MemoryPercent,
+				CpuCores:              s.CpuCores,
+				NumberOfThreads:       s.NumberOfThreads,
+				DiskUsageBytes:        s.DiskUsageBytes,
+				IoReadRate:            s.IoReadRate,
+				IoWriteRate:           s.IoWriteRate,
+				ConnectionCount:       s.ConnectionCount,
+				UptimeSeconds:         s.UptimeSeconds,
+			}
+		}
+	}
+
+	ws.remoteMetricsCacheLock.Lock()
+	ws.remoteMetricsCache = newCache
+	ws.remoteMetricsCacheLock.Unlock()
+}
+
+// newFederationClientForNode creates a trusted-peer mTLS federation client for
+// the given remote node, mirroring newRemoteFederationClient in api/rpc/common.go.
+func (ws *WebSocket) newFederationClientForNode(node *models.Node) (xylonaconnect.FederationClient, error) {
+	federationPort := ws.federationMTLS.FederationPort()
+	if node.Port > 0 {
+		federationPort = int(node.Port)
+	}
+	httpClient, baseURL, errClient := ws.federationMTLS.NewTrustedPeerHTTPClientWithPort(
+		15*time.Second, node.ID, node.BaseURL, federationPort, ws.db,
+	)
+	if errClient != nil {
+		return nil, errClient
+	}
+	return xylonaconnect.NewFederationClient(httpClient, baseURL), nil
+}
+
 // metricsEqual checks if two GameServerMetrics snapshots are equal enough to skip sending.
 func metricsEqual(a, b *xylona.GameServerMetrics) bool {
 	if a == nil || b == nil {
@@ -418,6 +521,19 @@ func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
 				}
 				allMetrics.Servers[gameServer.ID] = current
 			}
+
+			// Merge cached remote server metrics.
+			ws.remoteMetricsCacheLock.RLock()
+			for serverID, metrics := range ws.remoteMetricsCache {
+				previous, exists := previousMetricsMap[serverID]
+				if !exists || !metricsEqual(previous, metrics) {
+					previousMetricsMap[serverID] = metrics
+					metricsChanged = true
+				}
+				allMetrics.Servers[serverID] = metrics
+			}
+			ws.remoteMetricsCacheLock.RUnlock()
+
 			if !metricsChanged {
 				continue
 			}
