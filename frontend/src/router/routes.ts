@@ -46,11 +46,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/IndexPage.vue'),
       },
       {
-        path: '/dashboard',
-        component: () => import('pages/dashboard/Dashboard.vue'),
-        beforeEnter: requireSuperUser,
-      },
-      {
         path: '/game-servers',
         component: () => import('pages/game_servers/GameServerList.vue'),
       },
@@ -111,6 +106,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/nodes',
         component: () => import('pages/nodes/NodeList.vue'),
+        beforeEnter: requireSuperUser,
       },
       {
         path: '/nodes/add',

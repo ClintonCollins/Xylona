@@ -46,7 +46,7 @@ import { TimestampSchema, Timestamp } from '@bufbuild/protobuf/wkt'
 import { GameServerMetricsHistoryPoint } from 'src/proto/shared_pb'
 import { GetGameServerMetricsHistoryRequestSchema } from 'src/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import MetricsLineChart from '@/components/dashboard/MetricsLineChart.vue'
+import MetricsLineChart from '@/components/shared/MetricsLineChart.vue'
 
 function getCssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()

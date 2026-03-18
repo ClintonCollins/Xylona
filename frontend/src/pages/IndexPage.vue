@@ -19,7 +19,6 @@ const navItems = [
   { to: '/game-servers', icon: 'dns', label: 'Game Servers' },
   { to: '/games', icon: 'sports_esports', label: 'Games' },
   { to: '/nodes', icon: 'device_hub', label: 'Nodes' },
-  { to: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
 ]
 </script>
 

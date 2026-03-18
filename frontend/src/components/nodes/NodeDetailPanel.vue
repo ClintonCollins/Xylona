@@ -1,15 +1,22 @@
 <template>
   <q-card class="detail-card q-mt-md">
     <q-card-section>
-      <div class="row items-center q-mb-md">
-        <q-btn
-          flat
-          dense
-          round
-          icon="arrow_back"
-          aria-label="Close detail panel"
-          @click="emit('close')" />
-        <div class="text-h6 q-ml-sm">{{ node.name || 'Node Details' }}</div>
+      <div v-if="snapshot" class="q-mb-md">
+        <div class="text-subtitle2 q-mb-sm">Resource Usage</div>
+        <NodeResourceGauges :snapshot="snapshot" />
+        <div class="row q-mt-sm q-gutter-md text-caption">
+          <div>
+            <q-icon name="dns" size="xs" class="q-mr-xs" />
+            {{ snapshot.gameServerCount ?? 0 }} servers ({{
+              snapshot.runningGameServerCount ?? 0
+            }}
+            running)
+          </div>
+          <div>
+            <q-icon name="people" size="xs" class="q-mr-xs" />
+            {{ snapshot.userCount ?? 0 }} users
+          </div>
+        </div>
       </div>
 
       <div v-if="systemInfo" class="q-mb-md">
@@ -90,28 +97,29 @@ import { computed, onMounted, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import { create } from '@bufbuild/protobuf'
 import { Timestamp, TimestampSchema } from '@bufbuild/protobuf/wkt'
-import { Node, NodeSystemInfo } from 'src/proto/shared_pb'
+import { Node, NodeSystemInfo, NodeResourceSnapshot } from 'src/proto/shared_pb'
 import {
   GetNodeMetricsHistoryRequestSchema,
   GetNodeSystemInfoRequestSchema,
 } from 'src/proto/xylona_pb'
 import { MetricsHistoryPoint } from 'src/proto/shared_pb'
 import { GetXylonaClient, bytesToSize } from '@/utils/shared'
-import MetricsLineChart from './MetricsLineChart.vue'
+import MetricsLineChart from '@/components/shared/MetricsLineChart.vue'
+import NodeResourceGauges from '@/components/nodes/NodeResourceGauges.vue'
 
 const props = defineProps<{
   node: Node
   systemInfo?: NodeSystemInfo
-}>()
-
-const emit = defineEmits<{
-  close: []
+  snapshot?: NodeResourceSnapshot
 }>()
 
 const loading = ref(false)
 const localSystemInfo = ref<NodeSystemInfo | undefined>(props.systemInfo)
 const historyPoints = ref<MetricsHistoryPoint[]>([])
 const selectedRange = ref('1h')
+
+const systemInfo = computed(() => localSystemInfo.value)
+const snapshot = computed(() => props.snapshot)
 
 const rangeMs: Record<string, number> = {
   '1h': 60 * 60 * 1000,
