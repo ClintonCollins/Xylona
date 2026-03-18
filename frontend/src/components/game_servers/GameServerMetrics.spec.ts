@@ -3,7 +3,11 @@ import { mount } from '@vue/test-utils'
 import { create } from '@bufbuild/protobuf'
 import { Quasar } from 'quasar'
 import { GameServerSchema, Status } from 'src/proto/shared_pb'
-import { AllServersMetrics, AllServersMetricsSchema, GameServerMetricsSchema } from 'src/proto/websocket_pb'
+import {
+  AllServersMetrics,
+  AllServersMetricsSchema,
+  GameServerMetricsSchema,
+} from 'src/proto/websocket_pb'
 import { XylonaEventBus } from '@/utils/shared'
 import GameServerMetrics from './GameServerMetrics.vue'
 
@@ -75,13 +79,15 @@ describe('GameServerMetrics', () => {
     vi.useRealTimers()
   })
 
-  it('does not render when server is OFFLINE', () => {
+  it('shows offline state when server is OFFLINE', () => {
     const gameServer = makeGameServer({ status: Status.OFFLINE })
     const wrapper = mount(GameServerMetrics, {
       global: globalConfig,
       props: { gameServerId: 'server-1', gameServer },
     })
-    expect(wrapper.find('.text-subtitle2').exists()).toBe(false)
+    expect(wrapper.find('.text-subtitle2').exists()).toBe(true)
+    expect(wrapper.find('.metrics-offline').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Server Offline')
   })
 
   it('renders resource usage section when server is ONLINE', () => {
@@ -139,7 +145,10 @@ describe('GameServerMetrics', () => {
       props: { gameServerId: 'server-1', gameServer },
     })
 
-    XylonaEventBus.emit('gameServerMetrics', makeAllMetrics('server-1', { memoryBytes: 1073741824n }))
+    XylonaEventBus.emit(
+      'gameServerMetrics',
+      makeAllMetrics('server-1', { memoryBytes: 1073741824n }),
+    )
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('GB')
@@ -152,7 +161,10 @@ describe('GameServerMetrics', () => {
       props: { gameServerId: 'server-1', gameServer },
     })
 
-    XylonaEventBus.emit('gameServerMetrics', makeAllMetrics('server-1', { memoryWorkingSetBytes: 2147483648n }))
+    XylonaEventBus.emit(
+      'gameServerMetrics',
+      makeAllMetrics('server-1', { memoryWorkingSetBytes: 2147483648n }),
+    )
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('Working Set')
@@ -268,7 +280,10 @@ describe('GameServerMetrics', () => {
         global: globalConfig,
         props: { gameServerId: 'server-1', gameServer },
       })
-      XylonaEventBus.emit('gameServerMetrics', makeAllMetrics('server-1', { ioReadRate: 0, ioWriteRate: 0 }))
+      XylonaEventBus.emit(
+        'gameServerMetrics',
+        makeAllMetrics('server-1', { ioReadRate: 0, ioWriteRate: 0 }),
+      )
       await wrapper.vm.$nextTick()
       // Both rates are 0, both should show "0 B/s"
       expect(wrapper.text().match(/0 B\/s/g)?.length).toBeGreaterThanOrEqual(2)
@@ -280,7 +295,10 @@ describe('GameServerMetrics', () => {
         global: globalConfig,
         props: { gameServerId: 'server-1', gameServer },
       })
-      XylonaEventBus.emit('gameServerMetrics', makeAllMetrics('server-1', { ioReadRate: 2 * 1024 * 1024 * 1024 }))
+      XylonaEventBus.emit(
+        'gameServerMetrics',
+        makeAllMetrics('server-1', { ioReadRate: 2 * 1024 * 1024 * 1024 }),
+      )
       await wrapper.vm.$nextTick()
       expect(wrapper.text()).toContain('GB/s')
     })

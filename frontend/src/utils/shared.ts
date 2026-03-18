@@ -13,25 +13,36 @@ import {
   tabFileTypeZip,
   tabFileZip,
   tabFilterSearch,
-  tabJson
+  tabJson,
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { AllServersMetrics, Message, Message_Type, MessageSchema, Request, Request_Type, RequestSchema } from '../proto/websocket_pb'
+import {
+  AllServersMetrics,
+  Message,
+  Message_Type,
+  MessageSchema,
+  Request,
+  Request_Type,
+  RequestSchema,
+} from '../proto/websocket_pb'
 import { EventBus } from 'quasar'
 import { ReconnectingWebSocket } from './websocket'
 
 export const LocalXylonaAPIBaseURL: string = `${window.location.protocol}//${window.location.host}`
 export const LocalXylonaWebsocketBaseURL: string = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/websocket`
 
-const allAPIWebsockets: Map<string, ReconnectingWebSocket> = new Map<string, ReconnectingWebSocket>()
+const allAPIWebsockets: Map<string, ReconnectingWebSocket> = new Map<
+  string,
+  ReconnectingWebSocket
+>()
 
 type XylonaEventBusEvents = {
-  'gameServerStatus': (gameServerId: string, status: Status) => void
-  'gameServerConsoleOutput': (gameServerId: string, consoleOutput: string) => void
-  'gameServerConsoleOutputRequest': (gameServerId: string) => void
-  'gameServersQueryInfo': (queryInfo: AllServersQueryInfo) => void
-  'gameServerMetrics': (metrics: AllServersMetrics) => void
-  'websocketConnected': () => void
-  'websocketDisconnected': () => void
+  gameServerStatus: (gameServerId: string, status: Status) => void
+  gameServerConsoleOutput: (gameServerId: string, consoleOutput: string) => void
+  gameServerConsoleOutputRequest: (gameServerId: string) => void
+  gameServersQueryInfo: (queryInfo: AllServersQueryInfo) => void
+  gameServerMetrics: (metrics: AllServersMetrics) => void
+  websocketConnected: () => void
+  websocketDisconnected: () => void
 }
 
 /**
@@ -41,25 +52,36 @@ type XylonaEventBusEvents = {
 export const XylonaEventBus: EventBus<XylonaEventBusEvents> = new EventBus<XylonaEventBusEvents>()
 
 export function GetXylonaClient(nodeAddress: string = window.location.host) {
-  const baseURL = nodeAddress === window.location.host ? LocalXylonaAPIBaseURL : `${window.location.protocol}//${nodeAddress}`
+  const baseURL =
+    nodeAddress === window.location.host
+      ? LocalXylonaAPIBaseURL
+      : `${window.location.protocol}//${nodeAddress}`
   const transport = createConnectTransport({
     baseUrl: baseURL,
-    fetch: (input, init) => fetch(input, {...init, credentials: 'include'})
+    fetch: (input, init) => fetch(input, { ...init, credentials: 'include' }),
   })
   return createClient(Xylona, transport)
 }
 
 export function GetXylonaClientCallback(nodeAddress: string = window.location.host) {
-  const baseURL = nodeAddress === window.location.host ? LocalXylonaAPIBaseURL : `${window.location.protocol}//${nodeAddress}`
+  const baseURL =
+    nodeAddress === window.location.host
+      ? LocalXylonaAPIBaseURL
+      : `${window.location.protocol}//${nodeAddress}`
   const transport = createConnectTransport({
     baseUrl: baseURL,
-    fetch: (input, init) => fetch(input, {...init, credentials: 'include'})
+    fetch: (input, init) => fetch(input, { ...init, credentials: 'include' }),
   })
   return createCallbackClient(Xylona, transport)
 }
 
-export function GetOrCreateXylonaWebsocketClient(nodeAddress: string = window.location.host): ReconnectingWebSocket {
-  const baseURL = nodeAddress === window.location.host ? LocalXylonaWebsocketBaseURL : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${nodeAddress}/api/websocket`
+export function GetOrCreateXylonaWebsocketClient(
+  nodeAddress: string = window.location.host,
+): ReconnectingWebSocket {
+  const baseURL =
+    nodeAddress === window.location.host
+      ? LocalXylonaWebsocketBaseURL
+      : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${nodeAddress}/api/websocket`
   let apiWebsocket: ReconnectingWebSocket | undefined = allAPIWebsockets.get(baseURL)
   const websocketInitialized = allAPIWebsockets.has(baseURL)
   if (!websocketInitialized) {
@@ -86,10 +108,18 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
     const out: Message = fromJsonString(MessageSchema, event.data)
     switch (out.type) {
       case Message_Type.GameServerStatus:
-        XylonaEventBus.emit('gameServerStatus', out.gameServerStatusUpdate?.gameServerId, out.gameServerStatusUpdate?.status)
+        XylonaEventBus.emit(
+          'gameServerStatus',
+          out.gameServerStatusUpdate?.gameServerId,
+          out.gameServerStatusUpdate?.status,
+        )
         break
       case Message_Type.GameServerConsole:
-        XylonaEventBus.emit('gameServerConsoleOutput', out.gameServerConsoleOutput?.gameServerId, out.gameServerConsoleOutput?.output)
+        XylonaEventBus.emit(
+          'gameServerConsoleOutput',
+          out.gameServerConsoleOutput?.gameServerId,
+          out.gameServerConsoleOutput?.output,
+        )
         break
       case Message_Type.ServerQueries:
         XylonaEventBus.emit('gameServersQueryInfo', out.allServersQueryInfo)
@@ -132,7 +162,10 @@ export function StringToColor(str: string): string {
   return 'hsl(' + hue + ', 100%, 50%)'
 }
 
-export function GetRelativeFilePath(referencePathForSeparator: string, ...filePaths: string[]): string {
+export function GetRelativeFilePath(
+  referencePathForSeparator: string,
+  ...filePaths: string[]
+): string {
   let pathSeparator = '/'
   if (referencePathForSeparator.indexOf('\\') !== -1) {
     pathSeparator = '\\'

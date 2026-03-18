@@ -1,10 +1,14 @@
 <template>
   <div>
-    <div v-if="!loading && historyPoints.length === 0" class="text-grey text-center q-pa-lg">
-      No metrics data available for the selected time range. Metrics are recorded every 60 seconds while the server is running.
+    <div v-if="!loading && historyPoints.length === 0" class="empty-state">
+      <q-icon name="show_chart" size="48px" color="grey-7" />
+      <div class="text-subtitle1 q-mt-sm text-xy-secondary">No Metrics Data</div>
+      <div class="text-caption text-xy-muted">
+        Metrics are recorded every 60 seconds while the server is running.
+      </div>
     </div>
-    <template v-if="historyPoints.length > 0">
-      <div class="q-mb-md">
+    <div v-if="historyPoints.length > 0" class="row q-col-gutter-md">
+      <div class="col-12 col-md-6">
         <MetricsLineChart
           title="CPU Usage"
           :labels="chartLabels"
@@ -13,8 +17,7 @@
           :y-axis-max="100"
           @range-change="onRangeChange" />
       </div>
-
-      <div class="q-mb-md">
+      <div class="col-12 col-md-6">
         <MetricsLineChart
           title="Memory Usage"
           :labels="chartLabels"
@@ -22,15 +25,14 @@
           y-axis-suffix=" MB"
           @range-change="onRangeChange" />
       </div>
-
-      <div>
+      <div class="col-12 col-md-6">
         <MetricsLineChart
           title="Player Count"
           :labels="chartLabels"
           :datasets="playerDatasets"
           @range-change="onRangeChange" />
       </div>
-    </template>
+    </div>
     <q-inner-loading :showing="loading" />
   </div>
 </template>
@@ -45,6 +47,10 @@ import { GameServerMetricsHistoryPoint } from 'src/proto/shared_pb'
 import { GetGameServerMetricsHistoryRequestSchema } from 'src/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import MetricsLineChart from '@/components/dashboard/MetricsLineChart.vue'
+
+function getCssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
 
 const props = defineProps<{
   gameServerId: string
@@ -91,7 +97,7 @@ const playerDatasets = computed(() => [
   {
     label: 'Players',
     data: historyPoints.value.map((p) => p.playerCount),
-    borderColor: '#26A69A',
+    borderColor: getCssVar('--xy-chart-2'),
   },
 ])
 
@@ -133,3 +139,12 @@ onMounted(() => {
   fetchHistory()
 })
 </script>
+
+<style scoped>
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 16px;
+}
+</style>

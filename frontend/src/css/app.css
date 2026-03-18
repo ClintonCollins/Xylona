@@ -1,16 +1,13 @@
-@import "custom.variables.css";
-
-@import url("https://fonts.googleapis.com/css2?family=Goldman:wght@400;700&family=Mina:wght@400;700&family=Zen+Dots&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Oxygen+Mono&display=swap");
+@import "design-tokens.css";
 
 .selected-option {
     color: var(--q-info);
     font-weight: 700;
-    background-color: var(--bg-neutral-glass-4);
+    background-color: var(--xy-surface-2);
 }
 
 .selected-option:hover {
-    background-color: var(--bg-neutral-glass-4);
+    background-color: var(--xy-surface-3);
 }
 
 a {
@@ -19,27 +16,47 @@ a {
 
 .table-link {
     text-decoration: none;
-    color: var(--q-primary);
+    color: var(--xy-accent);
     font-weight: 700;
 }
 
 .table-link:hover {
-    color: var(--q-info);
-    /*height: calc(100vh - calc(10vh - 64px));*/
+    color: var(--xy-primary-hover);
 }
 
 #consoleContainer {
     padding-left: .5rem;
     padding-right: .5rem;
-    font-family: "Oxygen Mono", monospace;
+    font-family: var(--xy-font-mono);
     font-weight: 400;
     font-style: normal;
-    height: 400px;
+    height: clamp(250px, 50vh, 500px);
     overflow-y: auto;
     overflow-x: hidden;
     white-space: pre-wrap;
     max-width: 100%;
-    background-color: rgb(44, 44, 44);
+    background-color: var(--xy-base);
+    border-top: 1px solid var(--xy-border);
+    position: relative;
+}
+
+/* Accent top edge on console */
+#consoleContainer::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: block;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      var(--xy-accent) 0%,
+      var(--xy-primary) 60%,
+      transparent 100%
+    );
+    opacity: 0.5;
+    z-index: 1;
 }
 
 #consoleCodeEl {
@@ -47,18 +64,23 @@ a {
 }
 
 #consoleInput {
-    background-color: rgb(65, 65, 65);
+    background-color: var(--xy-surface-1);
     border: none;
+    border-top: 1px solid var(--xy-border);
+}
+
+#consoleInput .q-field__control {
+    font-family: var(--xy-font-mono);
 }
 
 .console-url {
-    color: var(--q-info);
+    color: var(--xy-accent);
     font-weight: 400;
     text-decoration: underline;
 }
 
 .console-url:hover {
-    color: hsl(182, 100%, 50%);
+    color: var(--xy-primary-hover);
 }
 
 .copy-clipboard {
@@ -71,59 +93,61 @@ a {
 
 .xylona-notification {
     font-size: 1.1rem;
-    border: 2px solid;
-    border-radius: 1rem;
+    border: none;
+    border-left: 3px solid;
+    border-radius: 0 8px 8px 0;
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
+    background-color: var(--xy-surface-2);
 }
 
 .notification-title {
-    font-family: 'Zen Dots', sans-serif;
+    font-family: var(--xy-font-brand);
 }
 
 .xylona-notification .q-notification__caption {
-    color: white;
+    color: var(--xy-text-primary);
     font-size: 1rem;
     font-weight: 400;
     opacity: 1;
 }
 
 .notification-success {
-    background-color: var(--bg-success-notification);
-    border-color: var(--bg-success-brighter);
+    background-color: var(--xy-success-bg);
+    border-left-color: var(--xy-success);
 }
 
 .notification-success .q-notification__icon {
-    color: #12b612;
+    color: var(--xy-success);
     font-size: 2rem;
 }
 
 .notification-error {
-    background-color: var(--bg-error-notification);
-    border-color: var(--bg-error);
+    background-color: var(--xy-danger-bg);
+    border-left-color: var(--xy-danger);
 }
 
 .notification-error .q-notification__icon {
-    color: #ff0000;
+    color: var(--xy-danger);
     font-size: 2rem;
 }
 
 .notification-alert {
-    background-color: var(--bg-alert-notification);
-    border-color: var(--bg-alert-brighter);
+    background-color: var(--xy-warning-bg);
+    border-left-color: var(--xy-warning);
 }
 
 .notification-alert .q-notification__icon {
-    color: #ffcc00;
+    color: var(--xy-warning);
     font-size: 2rem;
 }
 
 .notification-info {
-    background-color: var(--bg-info-notification);
-    border-color: var(--bg-main-brigther);
+    background-color: var(--xy-info-bg);
+    border-left-color: var(--xy-info);
 }
 
 .notification-info .q-notification__icon {
-    color: #00ccff;
+    color: var(--xy-info);
     font-size: 2rem;
 }

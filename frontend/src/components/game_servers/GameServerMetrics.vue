@@ -1,71 +1,114 @@
 <template>
-  <div v-if="gameServer.status === Status.ONLINE" class="q-mt-md">
-    <div class="text-subtitle2 q-mb-sm">Resource Usage</div>
-    <q-list separator dense>
-      <q-item>
-        <q-item-section>
-          <q-item-label>CPU <span class="text-caption text-grey">({{ cpuCores }} cores)</span></q-item-label>
-          <q-linear-progress
-            :value="cpuPercent / 100"
-            :color="cpuColor"
-            track-color="grey-3"
-            rounded
-            class="q-mt-xs"
-          />
-        </q-item-section>
-        <q-item-section side>
-          {{ cpuPercent.toFixed(1) }}%
-        </q-item-section>
-      </q-item>
-      <q-item>
-        <q-item-section>
-          <q-item-label>Memory (Private)</q-item-label>
-          <q-linear-progress
-            v-if="maxMemoryBytes > 0"
-            :value="memoryRatio"
-            :color="memoryColor"
-            track-color="grey-3"
-            rounded
-            class="q-mt-xs"
-          />
-        </q-item-section>
-        <q-item-section side>
-          <span>{{ bytesToSize(memoryBytes) }}<span v-if="maxMemoryBytes > 0"> / {{ bytesToSize(maxMemoryBytes) }}</span></span>
-        </q-item-section>
-      </q-item>
-      <q-item>
-        <q-item-section>Working Set</q-item-section>
-        <q-item-section side>{{ bytesToSize(memoryWorkingSetBytes) }}</q-item-section>
-      </q-item>
-      <q-item v-if="memoryPercent > 0">
-        <q-item-section>System RAM</q-item-section>
-        <q-item-section side>{{ memoryPercent.toFixed(1) }}%</q-item-section>
-      </q-item>
-      <q-item>
-        <q-item-section>Threads</q-item-section>
-        <q-item-section side>{{ numThreads }}</q-item-section>
-      </q-item>
-      <q-item>
-        <q-item-section>Disk Usage</q-item-section>
-        <q-item-section side>{{ bytesToSize(diskUsageBytes) }}</q-item-section>
-      </q-item>
-      <q-item>
-        <q-item-section>I/O Read</q-item-section>
-        <q-item-section side>{{ formatRate(ioReadRate) }}</q-item-section>
-      </q-item>
-      <q-item>
-        <q-item-section>I/O Write</q-item-section>
-        <q-item-section side>{{ formatRate(ioWriteRate) }}</q-item-section>
-      </q-item>
-      <q-item>
-        <q-item-section>Connections</q-item-section>
-        <q-item-section side>{{ connectionCount }}</q-item-section>
-      </q-item>
-      <q-item>
-        <q-item-section>Uptime</q-item-section>
-        <q-item-section side>{{ formattedUptime }}</q-item-section>
-      </q-item>
-    </q-list>
+  <div class="q-mt-md" :class="{ 'metrics-offline': !isOnline }">
+    <div class="row items-center q-mb-sm">
+      <div class="text-subtitle2">Resource Usage</div>
+      <q-space />
+      <q-badge v-if="!isOnline" color="grey-8" text-color="grey-5" label="Server Offline" />
+    </div>
+    <div class="row q-col-gutter-md">
+      <div class="col-12 col-md-6">
+        <div class="metrics-group">
+          <div class="metrics-group-label">Compute</div>
+          <q-list dense>
+            <q-item>
+              <q-item-section>
+                <q-item-label
+                  >CPU
+                  <span class="text-caption text-grey"
+                    >({{ isOnline ? cpuCores : '--' }} cores)</span
+                  ></q-item-label
+                >
+                <q-linear-progress
+                  :value="isOnline ? cpuPercent / 100 : 0"
+                  :color="isOnline ? cpuColor : 'grey-8'"
+                  rounded
+                  class="q-mt-xs" />
+              </q-item-section>
+              <q-item-section side>
+                {{ isOnline ? cpuPercent.toFixed(1) + '%' : '--' }}
+              </q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>Threads</q-item-section>
+              <q-item-section side>{{ isOnline ? numThreads : '--' }}</q-item-section>
+            </q-item>
+          </q-list>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="metrics-group">
+          <div class="metrics-group-label">Memory</div>
+          <q-list dense>
+            <q-item>
+              <q-item-section>
+                <q-item-label>Private</q-item-label>
+                <q-linear-progress
+                  v-if="maxMemoryBytes > 0"
+                  :value="isOnline ? memoryRatio : 0"
+                  :color="isOnline ? memoryColor : 'grey-8'"
+                  rounded
+                  class="q-mt-xs" />
+              </q-item-section>
+              <q-item-section side>
+                <span v-if="isOnline"
+                  >{{ bytesToSize(memoryBytes)
+                  }}<span v-if="maxMemoryBytes > 0">
+                    / {{ bytesToSize(maxMemoryBytes) }}</span
+                  ></span
+                >
+                <span v-else>--</span>
+              </q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>Working Set</q-item-section>
+              <q-item-section side>{{
+                isOnline ? bytesToSize(memoryWorkingSetBytes) : '--'
+              }}</q-item-section>
+            </q-item>
+            <q-item v-if="isOnline && memoryPercent > 0">
+              <q-item-section>System RAM</q-item-section>
+              <q-item-section side>{{ memoryPercent.toFixed(1) }}%</q-item-section>
+            </q-item>
+          </q-list>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="metrics-group">
+          <div class="metrics-group-label">Storage</div>
+          <q-list dense>
+            <q-item>
+              <q-item-section>Disk Usage</q-item-section>
+              <q-item-section side>{{
+                isOnline ? bytesToSize(diskUsageBytes) : '--'
+              }}</q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>I/O Read</q-item-section>
+              <q-item-section side>{{ isOnline ? formatRate(ioReadRate) : '--' }}</q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>I/O Write</q-item-section>
+              <q-item-section side>{{ isOnline ? formatRate(ioWriteRate) : '--' }}</q-item-section>
+            </q-item>
+          </q-list>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="metrics-group">
+          <div class="metrics-group-label">Network</div>
+          <q-list dense>
+            <q-item>
+              <q-item-section>Connections</q-item-section>
+              <q-item-section side>{{ isOnline ? connectionCount : '--' }}</q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>Uptime</q-item-section>
+              <q-item-section side>{{ isOnline ? formattedUptime : '--' }}</q-item-section>
+            </q-item>
+          </q-list>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -101,6 +144,8 @@ const cpuColor = computed(() => {
   return 'positive'
 })
 
+const isOnline = computed(() => props.gameServer.status === Status.ONLINE)
+
 const maxMemoryBytes = computed(() => Number(props.gameServer.maxMemoryMb) * 1024 * 1024)
 
 const memoryRatio = computed(() => {
@@ -131,7 +176,8 @@ const formattedUptime = computed(() => {
 
 function formatRate(bytesPerSec: number): string {
   if (bytesPerSec <= 0) return '0 B/s'
-  if (bytesPerSec >= 1024 * 1024 * 1024) return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(1)} GB/s`
+  if (bytesPerSec >= 1024 * 1024 * 1024)
+    return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(1)} GB/s`
   if (bytesPerSec >= 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`
   if (bytesPerSec >= 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`
   return `${bytesPerSec.toFixed(0)} B/s`
@@ -170,3 +216,23 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+.metrics-offline {
+  opacity: 0.5;
+}
+.metrics-group {
+  background-color: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: 6px;
+  padding: 8px 0;
+}
+.metrics-group-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--xy-text-muted);
+  padding: 0 16px 4px;
+}
+</style>

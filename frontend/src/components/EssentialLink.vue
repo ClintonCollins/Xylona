@@ -1,13 +1,6 @@
 <template>
-  <q-item
-    clickable
-    :to="link"
-    exact
-  >
-    <q-item-section
-      v-if="icon"
-      avatar
-    >
+  <q-item clickable :to="link" exact>
+    <q-item-section v-if="icon" avatar>
       <q-icon :name="icon" />
     </q-item-section>
 
@@ -19,16 +12,15 @@
 </template>
 
 <script setup lang="ts">
-
 export interface EssentialLinkProps {
-  title: string;
-  caption?: string;
-  link?: string;
-  icon?: string;
+  title: string
+  caption?: string
+  link?: string
+  icon?: string
 }
 withDefaults(defineProps<EssentialLinkProps>(), {
   caption: '',
   link: '#',
   icon: '',
-});
+})
 </script>

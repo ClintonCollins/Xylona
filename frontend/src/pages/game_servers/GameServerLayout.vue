@@ -1,16 +1,22 @@
 <template>
   <q-page :padding="windowWidth > 1024">
-    <q-tabs v-if="navQTabsStore.tabs.length > 0" class="bg-sub-toolbar">
-      <q-route-tab
-        v-for="tab in navQTabsStore.tabs"
-        :key="tab.name"
-        :to="tab.to"
-        :label="tab.name"
-        :exact="tab.exact"
-        :icon="tab.icon"
-      />
-    </q-tabs>
-    <q-card class="full-width">
+    <q-card class="full-width game-server-card">
+      <q-tabs
+        v-if="navQTabsStore.tabs.length > 0"
+        class="game-server-tabs"
+        active-color="primary"
+        indicator-color="primary"
+        align="left"
+        narrow-indicator>
+        <q-route-tab
+          v-for="tab in navQTabsStore.tabs"
+          :key="tab.name"
+          :to="tab.to"
+          :label="tab.name"
+          :exact="tab.exact"
+          :icon="tab.icon" />
+      </q-tabs>
+      <q-separator v-if="navQTabsStore.tabs.length > 0" />
       <router-view></router-view>
     </q-card>
   </q-page>
@@ -20,7 +26,10 @@
 import { create } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
 import { ListDirectoryFilesRequestSchema } from '@/proto/gameserver_files_operations_pb'
-import { GetGameServerRequestSchema, ListGameServerAccessGrantsRequestSchema } from '@/proto/xylona_pb'
+import {
+  GetGameServerRequestSchema,
+  ListGameServerAccessGrantsRequestSchema,
+} from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
@@ -71,10 +80,14 @@ async function configureTabs() {
   const canManageConfigurationByRequest = await hasFilesViewPermission(serverID)
   canUseConfigurationTab.value = canUseAccessTab.value || canManageConfigurationByRequest
 
-  navQTabsStore.changeTabs(buildGameServerTabs(serverID, canUseConfigurationTab.value, canUseAccessTab.value))
+  navQTabsStore.changeTabs(
+    buildGameServerTabs(serverID, canUseConfigurationTab.value, canUseAccessTab.value),
+  )
 }
 
-async function resolveUserContext(serverID: string): Promise<{ isSuperUser: boolean; isOwner: boolean }> {
+async function resolveUserContext(
+  serverID: string,
+): Promise<{ isSuperUser: boolean; isOwner: boolean }> {
   const authStore = useUserAuthStore()
   const authResponse = await authStore.checkUserAuthenticated()
   const currentUser = authResponse?.user ?? authStore.user
@@ -84,9 +97,11 @@ async function resolveUserContext(serverID: string): Promise<{ isSuperUser: bool
 
   let isOwner = false
   try {
-    const gameServerResp = await GetXylonaClient().getGameServer(create(GetGameServerRequestSchema, {
-      id: serverID,
-    }))
+    const gameServerResp = await GetXylonaClient().getGameServer(
+      create(GetGameServerRequestSchema, {
+        id: serverID,
+      }),
+    )
     isOwner = gameServerResp.gameServer?.userId === currentUser.id
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
@@ -103,9 +118,11 @@ async function resolveUserContext(serverID: string): Promise<{ isSuperUser: bool
 
 async function hasAccessGrantsPermission(serverID: string): Promise<boolean> {
   try {
-    await GetXylonaClient().listGameServerAccessGrants(create(ListGameServerAccessGrantsRequestSchema, {
-      gameServerId: serverID,
-    }))
+    await GetXylonaClient().listGameServerAccessGrants(
+      create(ListGameServerAccessGrantsRequestSchema, {
+        gameServerId: serverID,
+      }),
+    )
     return true
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
@@ -118,10 +135,12 @@ async function hasAccessGrantsPermission(serverID: string): Promise<boolean> {
 
 async function hasFilesViewPermission(serverID: string): Promise<boolean> {
   try {
-    await GetXylonaClient().listDirectoryFiles(create(ListDirectoryFilesRequestSchema, {
-      gameServerId: serverID,
-      path: '',
-    }))
+    await GetXylonaClient().listDirectoryFiles(
+      create(ListDirectoryFilesRequestSchema, {
+        gameServerId: serverID,
+        path: '',
+      }),
+    )
     return true
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
@@ -142,14 +161,23 @@ async function enforceRouteAccess() {
     return
   }
 
-  const redirectPath = getUnauthorizedRedirect(route.path, serverID, canUseConfigurationTab.value, canUseAccessTab.value)
+  const redirectPath = getUnauthorizedRedirect(
+    route.path,
+    serverID,
+    canUseConfigurationTab.value,
+    canUseAccessTab.value,
+  )
   if (redirectPath !== null && route.path !== redirectPath) {
     await router.replace(redirectPath)
   }
 }
-
 </script>
 
 <style scoped>
-
+.game-server-card {
+  overflow: hidden;
+}
+.game-server-tabs {
+  background-color: var(--xy-surface-2);
+}
 </style>

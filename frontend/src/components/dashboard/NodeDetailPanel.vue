@@ -1,8 +1,14 @@
 <template>
-  <q-card flat bordered class="q-mt-md">
+  <q-card class="detail-card q-mt-md">
     <q-card-section>
       <div class="row items-center q-mb-md">
-        <q-btn flat dense round icon="arrow_back" @click="emit('close')" />
+        <q-btn
+          flat
+          dense
+          round
+          icon="arrow_back"
+          aria-label="Close detail panel"
+          @click="emit('close')" />
         <div class="text-h6 q-ml-sm">{{ node.name || 'Node Details' }}</div>
       </div>
 
@@ -37,43 +43,42 @@
         </q-list>
       </div>
 
-      <div class="q-mb-md">
-        <MetricsLineChart
-          title="CPU Usage"
-          :labels="chartLabels"
-          :datasets="cpuDatasets"
-          y-axis-suffix="%"
-          :y-axis-max="100"
-          @range-change="onRangeChange" />
-      </div>
-
-      <div class="q-mb-md">
-        <MetricsLineChart
-          title="Memory Usage (%)"
-          :labels="chartLabels"
-          :datasets="memoryPercentDatasets"
-          y-axis-suffix="%"
-          :y-axis-max="100"
-          @range-change="onRangeChange" />
-      </div>
-
-      <div class="q-mb-md">
-        <MetricsLineChart
-          title="Memory Usage (GB)"
-          :labels="chartLabels"
-          :datasets="memoryBytesDatasets"
-          y-axis-suffix=" GB"
-          @range-change="onRangeChange" />
-      </div>
-
-      <div>
-        <MetricsLineChart
-          title="Disk Usage"
-          :labels="chartLabels"
-          :datasets="diskDatasets"
-          y-axis-suffix="%"
-          :y-axis-max="100"
-          @range-change="onRangeChange" />
+      <div class="row q-col-gutter-md">
+        <div class="col-12 col-md-6">
+          <MetricsLineChart
+            title="CPU Usage"
+            :labels="chartLabels"
+            :datasets="cpuDatasets"
+            y-axis-suffix="%"
+            :y-axis-max="100"
+            @range-change="onRangeChange" />
+        </div>
+        <div class="col-12 col-md-6">
+          <MetricsLineChart
+            title="Memory Usage (%)"
+            :labels="chartLabels"
+            :datasets="memoryPercentDatasets"
+            y-axis-suffix="%"
+            :y-axis-max="100"
+            @range-change="onRangeChange" />
+        </div>
+        <div class="col-12 col-md-6">
+          <MetricsLineChart
+            title="Memory Usage (GB)"
+            :labels="chartLabels"
+            :datasets="memoryBytesDatasets"
+            y-axis-suffix=" GB"
+            @range-change="onRangeChange" />
+        </div>
+        <div class="col-12 col-md-6">
+          <MetricsLineChart
+            title="Disk Usage"
+            :labels="chartLabels"
+            :datasets="diskDatasets"
+            y-axis-suffix="%"
+            :y-axis-max="100"
+            @range-change="onRangeChange" />
+        </div>
       </div>
     </q-card-section>
     <q-inner-loading :showing="loading" />
@@ -192,3 +197,11 @@ onMounted(async () => {
   await Promise.all([fetchSystemInfo(), fetchHistory()])
 })
 </script>
+
+<style scoped>
+.detail-card {
+  background-color: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
+}
+</style>

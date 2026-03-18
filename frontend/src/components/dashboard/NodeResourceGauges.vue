@@ -3,12 +3,7 @@
     <q-item>
       <q-item-section>
         <q-item-label>CPU</q-item-label>
-        <q-linear-progress
-          :value="cpuPercent / 100"
-          :color="cpuColor"
-          track-color="grey-3"
-          rounded
-          class="q-mt-xs" />
+        <q-linear-progress :value="cpuPercent / 100" :color="cpuColor" rounded class="q-mt-xs" />
       </q-item-section>
       <q-item-section side> {{ cpuPercent.toFixed(1) }}% </q-item-section>
     </q-item>
@@ -18,7 +13,6 @@
         <q-linear-progress
           :value="memoryPercent / 100"
           :color="memoryColor"
-          track-color="grey-3"
           rounded
           class="q-mt-xs" />
       </q-item-section>
@@ -29,12 +23,7 @@
     <q-item>
       <q-item-section>
         <q-item-label>Disk</q-item-label>
-        <q-linear-progress
-          :value="diskPercent / 100"
-          :color="diskColor"
-          track-color="grey-3"
-          rounded
-          class="q-mt-xs" />
+        <q-linear-progress :value="diskPercent / 100" :color="diskColor" rounded class="q-mt-xs" />
       </q-item-section>
       <q-item-section side>
         {{ bytesToSize(diskUsed) }} / {{ bytesToSize(diskTotal) }}

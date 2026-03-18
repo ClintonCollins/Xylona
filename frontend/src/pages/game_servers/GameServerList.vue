@@ -1,119 +1,122 @@
 <template>
-  <q-page :padding="windowWidth > 1024">
-    <div class="row justify-center">
-      <q-card class="col">
-        <q-card-section>
-          <div class="q-pa-md">
-            <q-table
-              flat
-              title="Game Servers"
-              :rows="displayRows"
-              :columns="columns"
-              row-key="compositeId"
-              selection="multiple"
-              :filter="search"
-              :loading="loading"
-              v-model:pagination="initialPagination"
-              v-model:selected="selectedGameServers">
-              <template v-slot:top>
-                <div class="row col flex justify-between flex-center">
-                  <div class="col-12 col-md-6">
-                    <span class="text-h6">Game Servers</span>
-                  </div>
-                  <div class="col-12 col-md-6">
-                    <div class="row flex q-gutter-xl justify-end">
-                      <q-btn
-                        color="primary"
-                        to="/game-servers/create"
-                        :disable="loading"
-                        label="Create Game Server" />
-                      <q-btn
-                        v-if="selectedGameServers.length >= 1"
-                        class="q-ml-sm"
-                        color="green"
-                        :disable="loading || selectedGameServersForStart.length < 1"
-                        label="Start selected"
-                        @click="startSelectedGameServers" />
-                      <q-btn
-                        v-if="selectedGameServers.length >= 1"
-                        class="q-ml-sm"
-                        color="orange"
-                        :disable="loading || selectedGameServersForStop.length < 1"
-                        label="Stop selected"
-                        @click="stopSelectedGameServers" />
-                      <q-btn
-                        v-if="selectedGameServers.length >= 1"
-                        class="q-ml-sm"
-                        color="red"
-                        :disable="loading"
-                        label="Remove game server"
-                        @click="deleteGameServerAction(null)" />
-                      <q-input dense debounce="300" color="primary" v-model="search">
-                        <template v-slot:append>
-                          <q-icon name="search" />
-                        </template>
-                      </q-input>
-                    </div>
-                  </div>
-                </div>
-              </template>
-              <template v-slot:body-cell-name="props">
-                <q-td :props="props">
-                  <router-link
-                    class="table-link"
-                    :to="'/game-servers/' + props.row.id + '/console'">
-                    {{ props.row.displayName }}
-                  </router-link>
-                  <q-badge v-if="props.row.isStale" color="orange" class="q-ml-xs" label="stale" />
-                </q-td>
-              </template>
-              <template v-slot:body-cell-status="props">
-                <q-td :props="props">
-                  <StatusBadge
-                    style="margin-left: -1em"
-                    :status="props.row.statusEnum"></StatusBadge>
-                </q-td>
-              </template>
-              <template v-slot:body-cell-node="props">
-                <q-td :props="props">
-                  <span>{{ props.row.nodeName }}</span>
-                </q-td>
-              </template>
-              <template v-slot:body-cell-type="props">
-                <q-td :props="props">
-                  <q-badge v-if="props.row.isLocal" color="green" label="local" />
-                  <q-badge v-else color="blue-grey" label="remote" />
-                </q-td>
-              </template>
-              <template v-slot:body-cell-actions="props">
-                <q-td :props="props">
-                  <div class="q-gutter-xs">
-                    <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
-                      <q-btn flat class="text-main-brighter" :icon="tabSettings">
-                        <q-tooltip>Edit game server</q-tooltip>
-                      </q-btn>
-                    </router-link>
-                    <span>
-                      <q-btn
-                        flat
-                        class="text-error-brighter"
-                        :icon="tabTrash"
-                        @click="deleteGameServerAction(props.row)">
-                        <q-tooltip>Delete game server</q-tooltip>
-                      </q-btn>
-                    </span>
-                  </div>
-                </q-td>
-              </template>
-            </q-table>
-          </div>
-        </q-card-section>
-      </q-card>
-      <DeleteGameServerDialog
-        :game-servers="selectedServersForDelete"
-        v-model:showDialog="showDeleteGameServerDialog"
-        @submit="deleteGameServerSubmitted"></DeleteGameServerDialog>
+  <q-page class="xy-page-content">
+    <div class="xy-page-header">
+      <div class="xy-page-title">Game Servers</div>
+      <div class="xy-page-actions">
+        <q-btn
+          v-if="selectedGameServers.length >= 1"
+          color="positive"
+          :disable="loading || selectedGameServersForStart.length < 1"
+          label="Start selected"
+          @click="startSelectedGameServers" />
+        <q-btn
+          v-if="selectedGameServers.length >= 1"
+          color="warning"
+          :disable="loading || selectedGameServersForStop.length < 1"
+          label="Stop selected"
+          @click="stopSelectedGameServers" />
+        <q-btn
+          v-if="selectedGameServers.length >= 1"
+          color="negative"
+          :disable="loading"
+          label="Remove game server"
+          @click="deleteGameServerAction(null)" />
+        <q-input
+          dense
+          outlined
+          debounce="300"
+          color="primary"
+          v-model="search"
+          placeholder="Search..."
+          aria-label="Search game servers"
+          style="min-width: 200px">
+          <template v-slot:append>
+            <q-icon name="search" />
+          </template>
+        </q-input>
+        <q-btn
+          color="primary"
+          to="/game-servers/create"
+          :disable="loading"
+          label="Create Game Server" />
+      </div>
     </div>
+    <div>
+      <q-table
+        flat
+        class="xy-standalone-table"
+        :grid="$q.screen.lt.md"
+        :rows="displayRows"
+        :columns="columns"
+        row-key="compositeId"
+        selection="multiple"
+        :filter="search"
+        :loading="loading"
+        v-model:pagination="initialPagination"
+        v-model:selected="selectedGameServers"
+        hide-header-in-grid>
+        <template v-slot:body-cell-name="props">
+          <q-td :props="props">
+            <router-link class="table-link" :to="'/game-servers/' + props.row.id + '/console'">
+              {{ props.row.displayName }}
+            </router-link>
+            <q-badge v-if="props.row.isStale" color="warning" class="q-ml-xs" label="stale" />
+          </q-td>
+        </template>
+        <template v-slot:body-cell-status="props">
+          <q-td :props="props">
+            <StatusBadge style="margin-left: -1em" :status="props.row.statusEnum"></StatusBadge>
+          </q-td>
+        </template>
+        <template v-slot:body-cell-node="props">
+          <q-td :props="props">
+            <span>{{ props.row.nodeName }}</span>
+          </q-td>
+        </template>
+        <template v-slot:body-cell-type="props">
+          <q-td :props="props">
+            <q-badge v-if="props.row.isLocal" color="positive" label="local" />
+            <q-badge v-else color="blue-grey" label="remote" />
+          </q-td>
+        </template>
+        <template v-slot:body-cell-actions="props">
+          <q-td :props="props">
+            <div class="q-gutter-xs">
+              <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
+                <q-btn
+                  flat
+                  class="text-main-brighter"
+                  :icon="tabSettings"
+                  aria-label="Edit game server">
+                  <q-tooltip>Edit game server</q-tooltip>
+                </q-btn>
+              </router-link>
+              <span>
+                <q-btn
+                  flat
+                  class="text-error-brighter"
+                  :icon="tabTrash"
+                  aria-label="Delete game server"
+                  @click="deleteGameServerAction(props.row)">
+                  <q-tooltip>Delete game server</q-tooltip>
+                </q-btn>
+              </span>
+            </div>
+          </q-td>
+        </template>
+        <template #no-data>
+          <div class="full-width column items-center q-pa-lg text-xy-secondary">
+            <q-icon name="dns" size="3rem" class="q-mb-sm text-xy-muted" />
+            <div class="text-subtitle1">No game servers</div>
+            <div class="text-caption text-xy-muted">Create a game server to get started.</div>
+          </div>
+        </template>
+      </q-table>
+    </div>
+    <DeleteGameServerDialog
+      :game-servers="selectedServersForDelete"
+      v-model:showDialog="showDeleteGameServerDialog"
+      @submit="deleteGameServerSubmitted"></DeleteGameServerDialog>
   </q-page>
 </template>
 
@@ -122,7 +125,8 @@ import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onMounted, Ref, ref } from 'vue'
-import { GetXylonaClient, WindowWidth, XylonaEventBus } from '@/utils/shared'
+import { ConnectError } from '@connectrpc/connect'
+import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {
@@ -163,8 +167,6 @@ const initialPagination = useStorage('game-server-pagination', {
   rowsPerPage: 25,
   page: 1,
 })
-
-const windowWidth = WindowWidth()
 
 const liveDisplayRows = computed((): DisplayRow[] => {
   return buildDisplayRows(aggregatedServers.value, nodesByID.value)
@@ -209,6 +211,14 @@ async function getGameServers() {
       hasFetchedLiveRows.value = true
     } else {
       console.error(serversResult.reason)
+      $q.notify({
+        type: 'xylona-error',
+        position: 'top',
+        caption:
+          'Failed to load game servers: ' +
+          ConnectErrorToString(ConnectError.from(serversResult.reason)),
+        icon: 'report_problem',
+      })
     }
 
     let remoteNodeIDs = new Set(cachedRemoteNodeIDs.value)
@@ -220,6 +230,13 @@ async function getGameServers() {
       cachedDisplayRows.value = filterRowsByRemoteNodeIDs(cachedDisplayRows.value, remoteNodeIDs)
     } else {
       console.error(nodesResult.reason)
+      $q.notify({
+        type: 'xylona-error',
+        position: 'top',
+        caption:
+          'Failed to load nodes: ' + ConnectErrorToString(ConnectError.from(nodesResult.reason)),
+        icon: 'report_problem',
+      })
       nodesByID.value = new Map()
     }
 

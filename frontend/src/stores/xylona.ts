@@ -1,6 +1,6 @@
 import { ConnectError } from '@connectrpc/connect'
-import { create } from '@bufbuild/protobuf';
-import { defineStore } from 'pinia';
+import { create } from '@bufbuild/protobuf'
+import { defineStore } from 'pinia'
 import {
   CheckUserAuthenticatedRequestSchema,
   CheckUserAuthenticatedResponse,
@@ -32,9 +32,10 @@ export const useUserAuthStore = defineStore('userAuth', {
       }
       this.initialFetch = true
       try {
-        const response: CheckUserAuthenticatedResponse = await GetXylonaClient().checkUserAuthenticated(
-          create(CheckUserAuthenticatedRequestSchema),
-        )
+        const response: CheckUserAuthenticatedResponse =
+          await GetXylonaClient().checkUserAuthenticated(
+            create(CheckUserAuthenticatedRequestSchema),
+          )
         this.initialResponse = response
         if (response.user) {
           this.user = response.user
@@ -70,12 +71,15 @@ export const useUserAuthStore = defineStore('userAuth', {
 })
 
 export const useToolbarNavQTabsStore = defineStore('toolbarNavQTabs', {
-  state: (): {selectedTab: string, tabs: {name: string, to: string, exact: boolean, icon: string}[]} => ({
+  state: (): {
+    selectedTab: string
+    tabs: { name: string; to: string; exact: boolean; icon: string }[]
+  } => ({
     selectedTab: '',
     tabs: [],
   }),
   actions: {
-    changeTabs(newTabs: {name: string, to: string, exact: boolean, icon: string}[]) {
+    changeTabs(newTabs: { name: string; to: string; exact: boolean; icon: string }[]) {
       this.tabs = newTabs
     },
   },

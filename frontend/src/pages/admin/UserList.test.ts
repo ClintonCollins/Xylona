@@ -19,6 +19,20 @@ vi.mock('@/utils/shared', async () => {
   }
 })
 
+vi.mock('quasar', async () => {
+  const actual = await vi.importActual<typeof import('quasar')>('quasar')
+  return {
+    ...actual,
+    useQuasar: () => ({
+      notify: vi.fn(),
+      screen: { lt: { md: false } },
+    }),
+    Notify: {
+      create: vi.fn(),
+    },
+  }
+})
+
 describe('UserList', () => {
   it('loads users on mount', async () => {
     const users = [

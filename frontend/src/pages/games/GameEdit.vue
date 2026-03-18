@@ -1,9 +1,9 @@
 <template>
-    <q-page>
-        <div class="row justify-center q-pa-md">
-            <GameForm :existing-game-id="gameID"></GameForm>
-        </div>
-    </q-page>
+  <q-page>
+    <div class="row justify-center q-pa-md">
+      <GameForm :existing-game-id="gameID"></GameForm>
+    </div>
+  </q-page>
 </template>
 
 <script setup lang="ts">
@@ -13,10 +13,6 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const gameID = ref(route.params.id)
-
-
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

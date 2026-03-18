@@ -53,8 +53,8 @@ export class ReconnectingWebSocket {
   constructor(
     url: string,
     protocols?: string | string[],
-    reconnectInterval: number = 5000,    // 5 seconds for reconnect attempts
-    heartbeatInterval: number = 15000    // 15 seconds between "ping" checks
+    reconnectInterval: number = 5000, // 5 seconds for reconnect attempts
+    heartbeatInterval: number = 15000, // 15 seconds between "ping" checks
   ) {
     this._url = url
     this._protocols = protocols

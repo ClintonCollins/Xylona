@@ -61,59 +61,18 @@
         </q-item>
       </q-list>
       <GameServerMetrics :game-server-id="gameServerId" :game-server="gameServer" />
-      <div class="col-xs-12 col-md-3 q-gutter-md gt-md">
+      <div class="server-controls">
         <q-btn
-          push
-          ripple
-          glossy
           :disable="disableStartButton"
-          class="bg-success"
+          color="positive"
           label="Start"
-          @click="startGameServer"></q-btn>
+          @click="startGameServer" />
+        <q-btn :disable="disableStopButton" color="negative" label="Stop" @click="stopGameServer" />
         <q-btn
-          push
-          ripple
-          glossy
-          :disable="disableStopButton"
-          class="bg-error"
-          label="Stop"
-          @click="stopGameServer"></q-btn>
-        <q-btn
-          push
-          ripple
-          glossy
           :disable="disableUpdateButton"
-          class="bg-dark"
+          color="primary"
           label="Update"
-          @click="updateGameServer"></q-btn>
-      </div>
-      <div class="col-xs-12 col-md-3 q-mt-lg lt-lg">
-        <q-btn-group spread push>
-          <q-btn
-            push
-            ripple
-            glossy
-            :disable="disableStartButton"
-            class="bg-success"
-            label="Start"
-            @click="startGameServer"></q-btn>
-          <q-btn
-            push
-            ripple
-            glossy
-            :disable="disableStopButton"
-            class="bg-error"
-            label="Stop"
-            @click="stopGameServer"></q-btn>
-          <q-btn
-            push
-            ripple
-            glossy
-            :disable="disableUpdateButton"
-            class="bg-dark"
-            label="Update"
-            @click="updateGameServer"></q-btn>
-        </q-btn-group>
+          @click="updateGameServer" />
       </div>
     </div>
     <div class="col col-lg-8 col-xs-12" :class="{ expanded: consoleExpanded }">
@@ -126,6 +85,7 @@
             square
             padding="sm"
             :icon="tabMaximize"
+            aria-label="Toggle fullscreen console"
             text-color="info" />
         </q-page-sticky>
         <code class="q-pb-md" id="consoleCodeEl" v-html="gameServerOutput"></code>
@@ -170,7 +130,7 @@ import { create } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import GameServerMetrics from '@/components/game_servers/GameServerMetrics.vue'
-import { QItemSection, QScrollArea } from 'quasar'
+import { QItemSection, QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
   AllServersQueryInfo,
@@ -197,11 +157,13 @@ import {
   UpdateGameServerRequest,
   UpdateGameServerRequestSchema,
 } from 'src/proto/xylona_pb'
+import { ConnectError } from '@connectrpc/connect'
 import { parseConsole } from '@/utils/console'
-import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
-import { computed, onMounted, Ref, ref } from 'vue'
+import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { computed, nextTick, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+const $q = useQuasar()
 const gameServerOutput = ref('')
 const route = useRoute()
 const gameServer: Ref<GameServer> = ref(create(GameServerSchema)) as Ref<GameServer>
@@ -255,6 +217,12 @@ async function getGameServerDetails() {
     gameServer.value = response.gameServer
   } catch (e) {
     console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
   }
 }
 
@@ -275,6 +243,12 @@ async function queryGameServer() {
     }
   } catch (e) {
     console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to query game server: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
   }
 }
 
@@ -285,6 +259,12 @@ async function startGameServer() {
     await GetXylonaClient().startGameServer(request)
   } catch (e) {
     console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to start game server: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
   }
 }
 
@@ -295,6 +275,12 @@ async function stopGameServer() {
     await GetXylonaClient().stopGameServer(request)
   } catch (e) {
     console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to stop game server: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
   }
 }
 
@@ -305,6 +291,12 @@ async function updateGameServer() {
     await GetXylonaClient().updateGameServer(request)
   } catch (e) {
     console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to update game server: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
   }
 }
 
@@ -314,18 +306,15 @@ async function getGameServerOutput() {
     request.serverId = gameServerId.value
     const response: ReadGameServerOutputResponse =
       await GetXylonaClient().readGameServerOutput(request)
-    const start = performance.now()
     gameServerOutput.value = (
       gameServerOutput.value + parseConsole(gameServer.value.gameId, response.output)
     ).slice(-maxConsoleCharacters)
-    const end = performance.now()
-    console.warn(`Took ${end - start}ms to parse console output`)
     if (consoleScrollArea.value === null) {
       return
     }
-    setTimeout(() => {
+    void nextTick(() => {
       consoleScrollArea.value?.setScrollPercentage('vertical', 100, 0)
-    }, 50)
+    })
   } catch (e) {
     console.error(e)
   }
@@ -370,9 +359,9 @@ function streamGameServerOutput() {
     if (consoleScrollArea.value === null) {
       return
     }
-    setTimeout(() => {
+    void nextTick(() => {
       consoleScrollArea.value?.setScrollPercentage('vertical', 100, 0)
-    }, 50)
+    })
   })
   // Request the game server to start streaming output.
   XylonaEventBus.emit('gameServerConsoleOutputRequest', gameServerId.value)
@@ -384,7 +373,6 @@ function streamGameServerOutput() {
 }
 
 async function navigateConsoleInputHistory(direction: string) {
-  console.log(`Navigating console input history ${direction}`)
   let historyDirection = 0
   switch (direction.toLowerCase()) {
     case 'up':
@@ -405,7 +393,6 @@ async function navigateConsoleInputHistory(direction: string) {
   }
 
   let newIndex = consoleHistoryCurrentIndex.value + historyDirection
-  console.debug(`New index: ${newIndex}, Current index: ${consoleHistoryCurrentIndex.value}`)
   if (newIndex < 0) {
     return
   }
@@ -424,7 +411,12 @@ async function sendGameServerInput() {
     await GetXylonaClient().sendGameServerInput(request)
   } catch (e) {
     console.error(e)
-    alert(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to send command: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
   }
   consoleHistory.value.push(serverInput.value)
   consoleHistoryCurrentIndex.value = consoleHistory.value.length
@@ -433,17 +425,24 @@ async function sendGameServerInput() {
 </script>
 
 <style scoped>
+.server-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
+  margin-top: var(--xy-space-sm);
+}
+
 .expanded {
   z-index: 9999 !important;
-  width: 100vw !important;
-  min-width: 100vw !important;
-  height: 100vh !important;
-  min-height: 100vh !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
   position: fixed !important;
-  top: 0;
-  left: 0;
+  inset: 0 !important;
   margin: 0;
   padding: 0;
+  background-color: var(--xy-base);
 
   #consoleContainer {
     min-height: 90% !important;

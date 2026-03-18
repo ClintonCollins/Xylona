@@ -161,10 +161,10 @@
       :showing="formSubmitting"
       label="Saving..."
       label-class="text-primary"></q-inner-loading>
-    <q-dialog v-model="showPairConfirmDialog">
-      <q-card style="min-width: 360px; max-width: 560px">
+    <q-dialog v-model="showPairConfirmDialog" aria-labelledby="dialog-title-confirm">
+      <q-card style="min-width: min(360px, 90vw); max-width: 560px">
         <q-card-section>
-          <div class="text-h6">Confirm Node Pairing</div>
+          <div id="dialog-title-confirm" class="text-h6">Confirm Node Pairing</div>
         </q-card-section>
         <q-card-section>
           <div>
@@ -350,7 +350,8 @@ async function loadLocalPairingBaseURL(): Promise<boolean> {
       return true
     } catch (_errNormalizeLocalBaseURL) {
       pairingLocalBaseUrl.value = ''
-      errorMessage.value = 'Local node Base URL is not configured. Edit the local node and set Base URL before pairing.'
+      errorMessage.value =
+        'Local node Base URL is not configured. Edit the local node and set Base URL before pairing.'
       return false
     }
   } catch (e) {
@@ -391,7 +392,10 @@ async function generatePairingKey(silent: boolean = false) {
   errorMessage.value = ''
   pairingKeySubmitting.value = true
   try {
-    const request: GenerateNodePairingObjectRequest = create(GenerateNodePairingObjectRequestSchema, {})
+    const request: GenerateNodePairingObjectRequest = create(
+      GenerateNodePairingObjectRequestSchema,
+      {},
+    )
     const response = await GetXylonaClient().generateNodePairingObject(request)
 
     generatedPairingKey.value = response.pairingToken
@@ -426,7 +430,8 @@ async function generatePairingKey(silent: boolean = false) {
 async function copyPairingPayload() {
   if (generatedPairingPayload.value === '') {
     if (pairingLocalBaseUrl.value === '') {
-      errorMessage.value = 'Local node Base URL is not configured. Edit the local node and set Base URL before pairing.'
+      errorMessage.value =
+        'Local node Base URL is not configured. Edit the local node and set Base URL before pairing.'
     } else {
       errorMessage.value = 'Generate pairing JSON first'
     }

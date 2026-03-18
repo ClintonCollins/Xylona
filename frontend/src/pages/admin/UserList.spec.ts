@@ -13,9 +13,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/utils/shared', async () => {
-  const actual = await vi.importActual<typeof import('@/utils/shared')>(
-    '@/utils/shared',
-  )
+  const actual = await vi.importActual<typeof import('@/utils/shared')>('@/utils/shared')
   return {
     ...actual,
     GetXylonaClient: () => ({
@@ -28,6 +26,10 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
+    useQuasar: () => ({
+      notify: mocks.notifyCreate,
+      screen: { lt: { md: false } },
+    }),
     Notify: {
       create: mocks.notifyCreate,
     },
@@ -90,9 +92,7 @@ describe('UserList', () => {
     await flushPromises()
 
     expect(mocks.listUsers).toHaveBeenCalledTimes(1)
-    expect(
-      (wrapper.vm as unknown as { rows: unknown[] }).rows.length,
-    ).toBe(2)
+    expect((wrapper.vm as unknown as { rows: unknown[] }).rows.length).toBe(2)
     expect(wrapper.find('[data-test="q-table-row-count"]').text()).toBe('2')
   })
 
@@ -109,9 +109,7 @@ describe('UserList', () => {
 
     // Before the request resolves, loading should be true
     await vi.waitFor(() => {
-      expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe(
-        'true',
-      )
+      expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe('true')
     })
 
     // Resolve the pending request
@@ -138,8 +136,6 @@ describe('UserList', () => {
     )
 
     // Rows should remain empty
-    expect(
-      (wrapper.vm as unknown as { rows: unknown[] }).rows.length,
-    ).toBe(0)
+    expect((wrapper.vm as unknown as { rows: unknown[] }).rows.length).toBe(0)
   })
 })

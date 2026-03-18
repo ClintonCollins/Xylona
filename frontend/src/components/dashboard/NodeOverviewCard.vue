@@ -1,5 +1,12 @@
 <template>
-  <q-card flat bordered class="cursor-pointer" @click="emit('select')">
+  <q-card
+    class="node-card cursor-pointer"
+    :class="healthAccentClass"
+    role="button"
+    tabindex="0"
+    @click="emit('select')"
+    @keydown.enter="emit('select')"
+    @keydown.space.prevent="emit('select')">
     <q-card-section>
       <div class="row items-center q-mb-sm">
         <div class="text-h6 q-mr-sm">{{ node.name || 'Unnamed Node' }}</div>
@@ -19,9 +26,7 @@
       <div class="row q-mt-sm q-gutter-md text-caption">
         <div>
           <q-icon name="dns" size="xs" class="q-mr-xs" />
-          {{ snapshot?.gameServerCount ?? 0 }} servers ({{
-            snapshot?.runningGameServerCount ?? 0
-          }}
+          {{ snapshot?.gameServerCount ?? 0 }} servers ({{ snapshot?.runningGameServerCount ?? 0 }}
           running)
         </div>
         <div>
@@ -63,4 +68,44 @@ const healthColor = computed(() => {
   if (s === 'unreachable') return 'negative'
   return 'grey'
 })
+
+const healthAccentClass = computed(() => {
+  const s = props.node.healthStatus
+  if (s === 'healthy') return 'health-healthy'
+  if (s === 'degraded') return 'health-degraded'
+  if (s === 'unreachable') return 'health-unreachable'
+  return 'health-unknown'
+})
 </script>
+
+<style scoped>
+.node-card {
+  background-color: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
+  transition:
+    border-color var(--xy-transition-base),
+    box-shadow var(--xy-transition-base);
+}
+
+.node-card:hover {
+  border-color: var(--xy-primary);
+  box-shadow: 0 4px 12px var(--xy-primary-muted);
+}
+
+.health-healthy {
+  border-left: 3px solid var(--xy-success);
+}
+
+.health-degraded {
+  border-left: 3px solid var(--xy-warning);
+}
+
+.health-unreachable {
+  border-left: 3px solid var(--xy-danger);
+}
+
+.health-unknown {
+  border-left: 3px solid var(--xy-text-muted);
+}
+</style>

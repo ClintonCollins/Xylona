@@ -17,10 +17,17 @@
     </q-toolbar>
   </q-header>
 
-  <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
-    <q-list>
-      <q-item-label header>Navigation</q-item-label>
-      <div v-for="link in navLinks" :key="link.title">
+  <q-drawer v-model="leftDrawerOpen" show-if-above bordered class="bg-xy-surface-2">
+    <div class="drawer-brand">
+      <span class="drawer-brand-text">Xylona</span>
+    </div>
+    <div class="xy-nav-divider"></div>
+    <q-list class="nav-list">
+      <template v-for="(link, index) in navLinks" :key="link.title">
+        <div v-if="link.section && index > 0" class="xy-nav-divider"></div>
+        <q-item-label v-if="link.section" header class="nav-section-label">{{
+          link.section
+        }}</q-item-label>
         <q-item
           :class="
             overrideActiveLink(link.link)
@@ -45,8 +52,8 @@
             v-for="l in link.groupItems"
             :key="l.title"
             clickable
-            :to="link.link"
-            :exact="link.exact">
+            :to="l.link"
+            :exact="l.exact">
             <q-item-section v-if="l.icon" avatar>
               <q-icon :name="l.icon" />
             </q-item-section>
@@ -56,7 +63,7 @@
             </q-item-section>
           </q-item>
         </q-expansion-item>
-      </div>
+      </template>
     </q-list>
   </q-drawer>
 </template>
@@ -92,6 +99,7 @@ interface NavItem {
   icon: string
   expanded: boolean
   exact: boolean
+  section?: string
   groupItems: NavItem[]
 }
 
@@ -133,6 +141,7 @@ const navLinks = computed((): NavItem[] => {
       link: '/game-servers',
       expanded: true,
       exact: false,
+      section: 'Manage',
       groupItems: [],
     },
     {
@@ -151,18 +160,22 @@ const navLinks = computed((): NavItem[] => {
       exact: false,
       groupItems: [],
     },
+  )
+
+  const configLinks: NavItem[] = [
     {
       title: 'Secret Keys',
       icon: ionKey,
       link: '/secret-keys',
       expanded: true,
       exact: false,
+      section: 'Settings',
       groupItems: [],
     },
-  )
+  ]
 
   if (store.user?.superUser) {
-    links.push({
+    configLinks.push({
       title: 'Users',
       icon: ionPeople,
       link: '/admin/users',
@@ -171,6 +184,8 @@ const navLinks = computed((): NavItem[] => {
       groupItems: [],
     })
   }
+
+  links.push(...configLinks)
 
   return links
 })
@@ -182,4 +197,40 @@ function toggleLeftDrawer() {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.drawer-brand {
+  padding: 20px 20px 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.drawer-brand-text {
+  font-family: var(--xy-font-brand);
+  font-size: 1.4rem;
+  color: var(--xy-accent);
+  letter-spacing: 0.06em;
+}
+
+.drawer-brand-version {
+  font-family: var(--xy-font-mono);
+  font-size: 0.6rem;
+  color: var(--xy-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.nav-section-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--xy-text-muted);
+  padding-top: 8px;
+  padding-bottom: 4px;
+  min-height: auto;
+}
+
+.nav-list {
+  padding-top: 0;
+}
+</style>

@@ -24,7 +24,11 @@ export function normalizeNodePairingBaseURL(baseURL: string): string {
   return normalizedBaseURL
 }
 
-export function createNodePairingPayload(baseURL: string, secretKey: string, mtlsPort: number): string {
+export function createNodePairingPayload(
+  baseURL: string,
+  secretKey: string,
+  mtlsPort: number,
+): string {
   const normalizedBaseURL = normalizeNodePairingBaseURL(baseURL)
   const normalizedSecretKey = secretKey.trim()
   if (normalizedSecretKey === '') {

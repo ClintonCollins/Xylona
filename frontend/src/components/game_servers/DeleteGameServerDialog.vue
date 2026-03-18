@@ -1,29 +1,34 @@
 <template>
-    <q-dialog persistent v-model="showDialog" backdrop-filter="brightness(15%)">
-        <q-card>
-            <q-card-section>
-                <q-card-title>
-                    <div class="text-h6 text-red">Delete Game Server</div>
-                </q-card-title>
-            </q-card-section>
-            <q-card-section>
-                <div class="row wrap q-col-gutter-md justify-between">
-                    <p>Are you sure you want to delete
-                        {{ gameServers.length === 1 ? 'this game server' : 'these game servers' }}?
-                        <br>
-                        <span class="text-info">{{ gameServers.map(gs => gs.name).join(', ') }}</span>
-                        <br>
-                        <br>
-                        <span class="text-bold">This action cannot be undone.</span>
-                    </p>
-                </div>
-            </q-card-section>
-            <q-card-actions align="right">
-                <q-btn label="Cancel" color="neutral" @click="showDialog = false" flat/>
-                <q-btn label="Delete" class="bg-error" @click="deleteGameServers"/>
-            </q-card-actions>
-        </q-card>
-    </q-dialog>
+  <q-dialog
+    persistent
+    v-model="showDialog"
+    backdrop-filter="brightness(15%)"
+    aria-labelledby="dialog-title">
+    <q-card>
+      <q-card-section>
+        <q-card-title>
+          <div id="dialog-title" class="text-h6 text-red">Delete Game Server</div>
+        </q-card-title>
+      </q-card-section>
+      <q-card-section>
+        <div class="row wrap q-col-gutter-md justify-between">
+          <p>
+            Are you sure you want to delete
+            {{ gameServers.length === 1 ? 'this game server' : 'these game servers' }}?
+            <br />
+            <span class="text-info">{{ gameServers.map((gs) => gs.name).join(', ') }}</span>
+            <br />
+            <br />
+            <span class="text-bold">This action cannot be undone.</span>
+          </p>
+        </div>
+      </q-card-section>
+      <q-card-actions align="right">
+        <q-btn label="Cancel" color="neutral" @click="showDialog = false" flat />
+        <q-btn label="Delete" class="bg-error" @click="deleteGameServers" />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup lang="ts">
@@ -32,14 +37,16 @@ import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { GetXylonaClient } from '@/utils/shared'
 import { PropType } from 'vue'
 import {
-  GameServer, RemoveGameServerRequest, RemoveGameServerRequestSchema
+  GameServer,
+  RemoveGameServerRequest,
+  RemoveGameServerRequestSchema,
 } from 'src/proto/shared_pb'
 
 const props = defineProps({
   gameServers: {
     type: Array as PropType<GameServer[]>,
-    required: true
-  }
+    required: true,
+  },
 })
 
 const $q = useQuasar()
@@ -49,7 +56,7 @@ const emit = defineEmits<{
 
 const showDialog = defineModel('showDialog', {
   type: Boolean,
-  default: false
+  default: false,
 })
 
 async function deleteGameServers() {
@@ -62,7 +69,7 @@ async function deleteGameServers() {
         caption: `${gameServer?.name} deleted successfully`,
         type: 'xylona-success',
         position: 'top',
-        timeout: 5000
+        timeout: 5000,
       })
       emit('submit', false)
       return
@@ -72,15 +79,12 @@ async function deleteGameServers() {
         caption: `Error deleting ${gameServer.name} ${err.message}`,
         type: 'xylona-error',
         position: 'top',
-        timeout: 5000
+        timeout: 5000,
       })
       emit('submit', true)
     }
   }
 }
-
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

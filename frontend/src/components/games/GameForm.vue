@@ -1,132 +1,237 @@
 <template>
-    <q-card class="full-width">
-        <q-card-section>
-            <div class="row">
-                <div class="text-h6">{{ formTitle }}</div>
-            </div>
-        </q-card-section>
-        <q-card-section>
-            <q-form>
-                <div class="column q-gutter-y-md">
-                    <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-                        <q-input :disable="existingGame" class="col-12 col-xl-6" outlined type="text" label="Unique ID"
-                                 v-model="game.id" hint="ID of the game all lowercase. e.g: minecraft"></q-input>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Name"
-                                 v-model="game.name" hint="Name of the game. e.g: Minecraft"></q-input>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Default Port"
-                                 v-model.number="defaultPort" hint="Default server port. e.g: 25565"></q-input>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Default Query Port"
-                                 v-model.number="defaultQueryPort"
-                                 hint="Default server query port. e.g: 25565"></q-input>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Steam App ID"
-                                 hint="Steam AppID if it's available on steamcmd. e.g: 294420"
-                                 v-model.number="game.steamAppid"></q-input>
-                    </div>
+  <q-card class="full-width">
+    <q-card-section>
+      <div class="row">
+        <div class="text-h6">{{ formTitle }}</div>
+      </div>
+    </q-card-section>
+    <q-card-section>
+      <q-form>
+        <div class="column q-gutter-y-md">
+          <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
+            <q-input
+              :disable="existingGame"
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Unique ID"
+              v-model="game.id"
+              hint="ID of the game all lowercase. e.g: minecraft"></q-input>
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Name"
+              v-model="game.name"
+              hint="Name of the game. e.g: Minecraft"></q-input>
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Default Port"
+              v-model.number="defaultPort"
+              hint="Default server port. e.g: 25565"></q-input>
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Default Query Port"
+              v-model.number="defaultQueryPort"
+              hint="Default server query port. e.g: 25565"></q-input>
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Steam App ID"
+              hint="Steam AppID if it's available on steamcmd. e.g: 294420"
+              v-model.number="game.steamAppid"></q-input>
+          </div>
 
-                    <div class="row q-col-gutter-x-sm full-width">
-                        <q-toggle class="col-6 col-xl-2" v-model="game.requireDedicatedIp"
-                                  label="Requires Dedicated IP"></q-toggle>
-                        <q-toggle class="col-6 col-xl-2" v-model="game.usesSourceQuery"
-                                  label="Uses source query"></q-toggle>
-                        <q-toggle class="col-6 col-xl-2" v-model="game.usesSteamcmd" label="Uses Steamcmd"></q-toggle>
-                        <q-toggle class="col-6 col-xl-2" v-model="game.requiresSteamGameServerLoginToken"
-                                  label="Steam Login Token Required"></q-toggle>
-                        <q-toggle class="col-6 col-xl-2" v-model="game.windowsSupport"
-                                  label="Windows Support"></q-toggle>
-                        <q-toggle class="col-6 col-xl-2" v-model="game.linuxSupport" label="Linux Support"></q-toggle>
-                    </div>
+          <div class="row q-col-gutter-x-sm full-width">
+            <q-toggle
+              class="col-6 col-xl-2"
+              v-model="game.requireDedicatedIp"
+              label="Requires Dedicated IP"></q-toggle>
+            <q-toggle
+              class="col-6 col-xl-2"
+              v-model="game.usesSourceQuery"
+              label="Uses source query"></q-toggle>
+            <q-toggle
+              class="col-6 col-xl-2"
+              v-model="game.usesSteamcmd"
+              label="Uses Steamcmd"></q-toggle>
+            <q-toggle
+              class="col-6 col-xl-2"
+              v-model="game.requiresSteamGameServerLoginToken"
+              label="Steam Login Token Required"></q-toggle>
+            <q-toggle
+              class="col-6 col-xl-2"
+              v-model="game.windowsSupport"
+              label="Windows Support"></q-toggle>
+            <q-toggle
+              class="col-6 col-xl-2"
+              v-model="game.linuxSupport"
+              label="Linux Support"></q-toggle>
+          </div>
 
-                    <q-space v-show="game.linuxSupport || game.windowsSupport"></q-space>
-                    <q-separator v-show="game.linuxSupport || game.windowsSupport"></q-separator>
-                    <q-space v-show="game.linuxSupport || game.windowsSupport"></q-space>
+          <q-space v-show="game.linuxSupport || game.windowsSupport"></q-space>
+          <q-separator v-show="game.linuxSupport || game.windowsSupport"></q-separator>
+          <q-space v-show="game.linuxSupport || game.windowsSupport"></q-space>
 
-                    <div v-show="game.windowsSupport"
-                         class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Windows Start Command"
-                                 hint="Command to start the server on Windows. e.g: java -jar minecraft_server.jar"
-                                 v-model="game.windowsStartCommand"></q-input>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Windows Stop Command"
-                                 hint="Command to stop the server on Windows. This is sent as server input. e.g: /stop"
-                                 v-model="game.windowsStopCommand"></q-input>
-                        <q-input :disable="game.windowsInstallCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-                                 class="col-12 col-xl-6" outlined type="text" label="Windows Install Command"
-                                 hint="Command to install the server on Windows. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
-                                 v-model="game.windowsInstallCommand"></q-input>
-                        <q-select class="col-12 col-xl-6" outlined type="text" label="Windows Install Command Type"
-                                  map-options emit-value
-                                  hint="Direct sends the command directly. Powershell wraps the call in powershell. Internal is a special command that Xylona handles."
-                                  v-model="game.windowsInstallCommandProcessor"
-                                  :options="windowsCommandProcessorOptions">
-                        </q-select>
-                        <q-input :disable="game.windowsUpdateCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-                                 class="col-12 col-xl-6" outlined type="text" label="Windows Update Command"
-                                 hint="Command to update the server on Windows. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
-                                 v-model="game.windowsUpdateCommand"></q-input>
-                        <q-select class="col-12 col-xl-6" outlined type="text" label="Windows Update Command Type"
-                                  hint="Direct sends the command directly. Powershell wraps the call in powershell. Internal is a special command that Xylona handles."
-                                  map-options emit-value v-model="game.windowsUpdateCommandProcessor"
-                                  :options="windowsCommandProcessorOptions">
-                        </q-select>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Windows Working Directory"
-                                 hint="Where should the start command be run from. e.g: ./server"
-                                 v-model="game.windowsWorkingDirectory"></q-input>
-                    </div>
+          <div
+            v-show="game.windowsSupport"
+            class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Windows Start Command"
+              hint="Command to start the server on Windows. e.g: java -jar minecraft_server.jar"
+              v-model="game.windowsStartCommand"></q-input>
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Windows Stop Command"
+              hint="Command to stop the server on Windows. This is sent as server input. e.g: /stop"
+              v-model="game.windowsStopCommand"></q-input>
+            <q-input
+              :disable="game.windowsInstallCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Windows Install Command"
+              hint="Command to install the server on Windows. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
+              v-model="game.windowsInstallCommand"></q-input>
+            <q-select
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Windows Install Command Type"
+              map-options
+              emit-value
+              hint="Direct sends the command directly. Powershell wraps the call in powershell. Internal is a special command that Xylona handles."
+              v-model="game.windowsInstallCommandProcessor"
+              :options="windowsCommandProcessorOptions">
+            </q-select>
+            <q-input
+              :disable="game.windowsUpdateCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Windows Update Command"
+              hint="Command to update the server on Windows. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
+              v-model="game.windowsUpdateCommand"></q-input>
+            <q-select
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Windows Update Command Type"
+              hint="Direct sends the command directly. Powershell wraps the call in powershell. Internal is a special command that Xylona handles."
+              map-options
+              emit-value
+              v-model="game.windowsUpdateCommandProcessor"
+              :options="windowsCommandProcessorOptions">
+            </q-select>
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Windows Working Directory"
+              hint="Where should the start command be run from. e.g: ./server"
+              v-model="game.windowsWorkingDirectory"></q-input>
+          </div>
 
-                    <q-space v-show="game.windowsSupport && game.linuxSupport"></q-space>
-                    <q-separator v-show="game.windowsSupport && game.linuxSupport"></q-separator>
-                    <q-space v-show="game.windowsSupport && game.linuxSupport"></q-space>
+          <q-space v-show="game.windowsSupport && game.linuxSupport"></q-space>
+          <q-separator v-show="game.windowsSupport && game.linuxSupport"></q-separator>
+          <q-space v-show="game.windowsSupport && game.linuxSupport"></q-space>
 
-                    <div v-show="game.linuxSupport"
-                         class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Linux Start Command"
-                                 hint="Command to start the server on Linux. e.g: java -jar minecraft_server.jar"
-                                 v-model="game.linuxStartCommand"></q-input>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Linux Stop Command"
-                                 hint="Command to stop the server on Linux. This is sent as server input. e.g: /stop"
-                                 v-model="game.linuxStopCommand"></q-input>
-                        <q-input :disable="game.linuxInstallCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-                                 class="col-12 col-xl-6" outlined type="text" label="Linux Install Command"
-                                 hint="Command to install the server on Linux. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
-                                 v-model="game.linuxInstallCommand"></q-input>
-                        <q-select class="col-12 col-xl-6" outlined type="text" label="Linux Install Command Type"
-                                  hint="Direct sends the command directly. Bash wraps the call in bash. Internal is a special command that Xylona handles."
-                                  map-options emit-value v-model="game.linuxInstallCommandProcessor"
-                                  :options="linuxCommandProcessorOptions">
-                        </q-select>
-                        <q-input :disable="game.linuxUpdateCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-                                 class="col-12 col-xl-6" outlined type="text" label="Linux Update Command"
-                                 hint="Command to update the server on Linux. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
-                                 v-model="game.linuxUpdateCommand"></q-input>
-                        <q-select class="col-12 col-xl-6" outlined type="text" label="Linux Update Command Type"
-                                  hint="Direct sends the command directly. Bash wraps the call in bash. Internal is a special command that Xylona handles."
-                                  map-options emit-value
-                                  v-model="game.linuxUpdateCommandProcessor"
-                                  :options="linuxCommandProcessorOptions">
-                        </q-select>
-                        <q-input class="col-12 col-xl-6" outlined type="text" label="Linux Working Directory"
-                                 hint="Where should the start command be run from. e.g: ./server"
-                                 v-model="game.linuxWorkingDirectory"></q-input>
-                    </div>
-                </div>
-            </q-form>
-        </q-card-section>
-        <q-separator></q-separator>
-        <q-card-actions class="q-pa-md" align="right">
-            <q-btn flat label="Cancel" @click="router.back()"></q-btn>
-            <q-btn label="Save" color="primary" @click="submit"></q-btn>
-        </q-card-actions>
-    </q-card>
+          <div
+            v-show="game.linuxSupport"
+            class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Linux Start Command"
+              hint="Command to start the server on Linux. e.g: java -jar minecraft_server.jar"
+              v-model="game.linuxStartCommand"></q-input>
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Linux Stop Command"
+              hint="Command to stop the server on Linux. This is sent as server input. e.g: /stop"
+              v-model="game.linuxStopCommand"></q-input>
+            <q-input
+              :disable="game.linuxInstallCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Linux Install Command"
+              hint="Command to install the server on Linux. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
+              v-model="game.linuxInstallCommand"></q-input>
+            <q-select
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Linux Install Command Type"
+              hint="Direct sends the command directly. Bash wraps the call in bash. Internal is a special command that Xylona handles."
+              map-options
+              emit-value
+              v-model="game.linuxInstallCommandProcessor"
+              :options="linuxCommandProcessorOptions">
+            </q-select>
+            <q-input
+              :disable="game.linuxUpdateCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Linux Update Command"
+              hint="Command to update the server on Linux. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
+              v-model="game.linuxUpdateCommand"></q-input>
+            <q-select
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Linux Update Command Type"
+              hint="Direct sends the command directly. Bash wraps the call in bash. Internal is a special command that Xylona handles."
+              map-options
+              emit-value
+              v-model="game.linuxUpdateCommandProcessor"
+              :options="linuxCommandProcessorOptions">
+            </q-select>
+            <q-input
+              class="col-12 col-xl-6"
+              outlined
+              type="text"
+              label="Linux Working Directory"
+              hint="Where should the start command be run from. e.g: ./server"
+              v-model="game.linuxWorkingDirectory"></q-input>
+          </div>
+        </div>
+      </q-form>
+    </q-card-section>
+    <q-separator></q-separator>
+    <q-card-actions class="q-pa-md" align="right">
+      <q-btn flat label="Cancel" @click="router.back()"></q-btn>
+      <q-btn label="Save" color="primary" @click="submit"></q-btn>
+    </q-card-actions>
+  </q-card>
 </template>
 
 <script setup lang="ts">
-
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import {
-  AddGameRequest, AddGameRequestSchema, EditGameRequest, EditGameRequestSchema,
-  GetGameRequest, GetGameRequestSchema,
-  GetGameResponse
+  AddGameRequest,
+  AddGameRequestSchema,
+  EditGameRequest,
+  EditGameRequestSchema,
+  GetGameRequest,
+  GetGameRequestSchema,
+  GetGameResponse,
 } from 'src/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
 import { computed, onMounted, ref, Ref } from 'vue'
@@ -142,29 +247,29 @@ const formTitle = computed(() => {
 })
 
 const linuxCommandProcessorOptions = [
-  {label: 'Direct', value: CommandProcessor.DIRECT},
-  {label: 'Bash', value: CommandProcessor.BASH},
-  {label: 'Internal', value: CommandProcessor.XYLONA_INTERNAL}
+  { label: 'Direct', value: CommandProcessor.DIRECT },
+  { label: 'Bash', value: CommandProcessor.BASH },
+  { label: 'Internal', value: CommandProcessor.XYLONA_INTERNAL },
 ]
 
 const windowsCommandProcessorOptions = [
-  {label: 'Direct', value: CommandProcessor.DIRECT},
-  {label: 'CMD', value: CommandProcessor.CMD},
-  {label: 'PowerShell', value: CommandProcessor.POWERSHELL},
-  {label: 'Internal', value: CommandProcessor.XYLONA_INTERNAL}
+  { label: 'Direct', value: CommandProcessor.DIRECT },
+  { label: 'CMD', value: CommandProcessor.CMD },
+  { label: 'PowerShell', value: CommandProcessor.POWERSHELL },
+  { label: 'Internal', value: CommandProcessor.XYLONA_INTERNAL },
 ]
 
 const props = defineProps({
   existingGameId: {
     type: String,
     required: false,
-    default: ''
+    default: '',
   },
   copyGameId: {
     type: String,
     required: false,
-    default: ''
-  }
+    default: '',
+  },
 })
 
 const game: Ref<Game> = ref({} as Game)
@@ -225,16 +330,16 @@ async function addNewGame() {
       caption: `${game.value.name} added successfully`,
       type: 'xylona-success',
       position: 'top',
-      timeout: 5000
+      timeout: 5000,
     })
-    await router.push({path: '/games'})
+    await router.push({ path: '/games' })
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
     $q.notify({
       caption: `Error adding game ${err.message}`,
       type: 'xylona-error',
       position: 'top',
-      timeout: 5000
+      timeout: 5000,
     })
     console.error(err.message)
   }
@@ -251,23 +356,20 @@ async function updateExistingGame() {
       caption: `${game.value.name} updated successfully`,
       type: 'xylona-success',
       position: 'top',
-      timeout: 5000
+      timeout: 5000,
     })
-    await router.push({path: '/games'})
+    await router.push({ path: '/games' })
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
     $q.notify({
       caption: `Error updating game ${err.message}`,
       type: 'xylona-error',
       position: 'top',
-      timeout: 5000
+      timeout: 5000,
     })
     console.error(err.message)
   }
 }
-
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

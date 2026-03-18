@@ -121,13 +121,11 @@ describe('buildDisplayRows', () => {
 
 describe('extractRemoteNodeIDs', () => {
   it('returns only non-local node ids', () => {
-    const remoteNodeIDs = extractRemoteNodeIDs(
-      [
-        { id: 'node-local', local: true },
-        { id: 'node-remote-a', local: false },
-        { id: 'node-remote-b', local: false },
-      ] as unknown as Node[],
-    )
+    const remoteNodeIDs = extractRemoteNodeIDs([
+      { id: 'node-local', local: true },
+      { id: 'node-remote-a', local: false },
+      { id: 'node-remote-b', local: false },
+    ] as unknown as Node[])
 
     expect(Array.from(remoteNodeIDs)).toEqual(['node-remote-a', 'node-remote-b'])
   })
@@ -176,7 +174,7 @@ describe('filterRowsByRemoteNodeIDs', () => {
 
     const filteredRows = filterRowsByRemoteNodeIDs(rows, new Set(['node-remote-a']))
     expect(filteredRows).toHaveLength(2)
-    expect(filteredRows.map(row => row.compositeId)).toEqual([
+    expect(filteredRows.map((row) => row.compositeId)).toEqual([
       'local/local-1',
       'node-remote-a/remote-1',
     ])

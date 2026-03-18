@@ -3,10 +3,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  CheckUserAuthenticatedResponseSchema,
-  UserSchema,
-} from '@/proto/xylona_pb'
+import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'
 import { useUserAuthStore } from './xylona'
 
 const mocks = vi.hoisted(() => ({
@@ -156,10 +153,7 @@ describe('useUserAuthStore — logout', () => {
     // Should not throw
     await store.logout()
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Logout error:',
-      expect.any(String),
-    )
+    expect(consoleSpy).toHaveBeenCalledWith('Logout error:', expect.any(String))
 
     // User should NOT be cleared since the API call failed
     expect(store.user).not.toBeNull()

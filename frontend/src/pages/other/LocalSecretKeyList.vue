@@ -1,57 +1,70 @@
 <template>
-    <q-page :padding="windowWidth > 1024">
-        <div class="row justify-center">
-            <q-card class="col">
-                <q-card-section>
-                    <div class="q-pa-md">
-                        <q-table
-                                flat
-                                title="Nodes"
-                                :rows="rows"
-                                :columns="columns"
-                                row-key="name"
-                                selection="multiple"
-                                :filter="search"
-                                v-model:pagination="initialPagination"
-                                v-model:selected="selected">
-                            <template v-slot:top>
-                                <div class="row col flex justify-between flex-center">
-                                    <div class="col-12 col-md-6">
-                                        <span class="text-h6">Local Secret Keys</span>
-                                    </div>
-                                    <div class="col-12 col-md-6">
-                                        <div class="row flex q-gutter-xl justify-end">
-                                            <q-btn color="primary" label="Create Secret Key" @click="showSecretKeyFormDialog = true"/>
-                                            <q-input dense debounce="300" color="primary" v-model="search">
-                                                <template v-slot:append>
-                                                    <q-icon name="search"/>
-                                                </template>
-                                            </q-input>
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-slot:body-cell-actions="props">
-                                <q-td :props="props">
-                                    <div class="q-gutter-xs">
-                                        <span>
-                                            <q-btn flat class="text-error-brighter"
-                                                   :icon="tabTrash" @click="deleteSecretKeyAction(props.row)">
-                                                <q-tooltip>Delete secret key</q-tooltip>
-                                            </q-btn>
-                                        </span>
-                                    </div>
-                                </q-td>
-                            </template>
-                        </q-table>
-                    </div>
-                </q-card-section>
-            </q-card>
-            <SecretKeyDeleteDialog :secret-key="selectedActionSecretKey" v-model:showDialog="showSecretKeyDeleteDialog"
-                                   @submit="deleteSecretKeySubmitted"></SecretKeyDeleteDialog>
-            <SecretKeyFormDialog v-model:showDialog="showSecretKeyFormDialog" @submit="getSecretKeys"></SecretKeyFormDialog>
-        </div>
-    </q-page>
+  <q-page class="xy-page-content">
+    <div class="xy-page-header">
+      <div class="xy-page-title">Secret Keys</div>
+      <div class="xy-page-actions">
+        <q-input
+          dense
+          outlined
+          debounce="300"
+          color="primary"
+          v-model="search"
+          placeholder="Search..."
+          aria-label="Search secret keys"
+          style="min-width: 200px">
+          <template v-slot:append>
+            <q-icon name="search" />
+          </template>
+        </q-input>
+        <q-btn color="primary" label="Create Secret Key" @click="showSecretKeyFormDialog = true" />
+      </div>
+    </div>
+    <div>
+      <q-table
+        flat
+        class="xy-standalone-table"
+        :grid="$q.screen.lt.md"
+        :rows="rows"
+        :columns="columns"
+        row-key="name"
+        selection="multiple"
+        :filter="search"
+        v-model:pagination="initialPagination"
+        v-model:selected="selected"
+        hide-header-in-grid>
+        <template v-slot:body-cell-actions="props">
+          <q-td :props="props">
+            <div class="q-gutter-xs">
+              <span>
+                <q-btn
+                  flat
+                  class="text-error-brighter"
+                  :icon="tabTrash"
+                  aria-label="Delete secret key"
+                  @click="deleteSecretKeyAction(props.row)">
+                  <q-tooltip>Delete secret key</q-tooltip>
+                </q-btn>
+              </span>
+            </div>
+          </q-td>
+        </template>
+        <template #no-data>
+          <div class="full-width column items-center q-pa-lg text-xy-secondary">
+            <q-icon name="vpn_key" size="3rem" class="q-mb-sm text-xy-muted" />
+            <div class="text-subtitle1">No secret keys</div>
+            <div class="text-caption text-xy-muted">Generate a secret key for node pairing.</div>
+          </div>
+        </template>
+      </q-table>
+    </div>
+    <SecretKeyDeleteDialog
+      :secret-key="selectedActionSecretKey"
+      v-model:showDialog="showSecretKeyDeleteDialog"
+      @submit="deleteSecretKeySubmitted"></SecretKeyDeleteDialog>
+    <SecretKeyFormDialog
+      v-model:showDialog="showSecretKeyFormDialog"
+      @submit="getSecretKeys"></SecretKeyFormDialog>
+  </q-page>
 </template>
 
 <script setup lang="ts">
@@ -60,15 +73,16 @@ import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useStorage } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
+import { ConnectError } from '@connectrpc/connect'
+import { useQuasar } from 'quasar'
 import { onMounted, Ref, ref } from 'vue'
-import { GetXylonaClient, WindowWidth } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { SecretKey } from '@/proto/shared_pb'
-import { ListLocalSecretKeysRequest, ListLocalSecretKeysRequestSchema
-} from 'src/proto/xylona_pb'
+import { ListLocalSecretKeysRequest, ListLocalSecretKeysRequestSchema } from 'src/proto/xylona_pb'
 import SecretKeyDeleteDialog from '@/components/keys/SecretKeyDeleteDialog.vue'
 import SecretKeyFormDialog from '../../components/keys/SecretKeyFormDialog.vue'
 
-const windowWidth = WindowWidth()
+const $q = useQuasar()
 const rows = ref([] as SecretKey[])
 const search: Ref<string> = ref('')
 const showSecretKeyDeleteDialog = ref(false)
@@ -78,7 +92,7 @@ const selectedActionSecretKey = ref<SecretKey | null>(null)
 // Use VueUse to store the pagination state automatically.
 const initialPagination = useStorage('node-pagination', {
   rowsPerPage: 25,
-  page: 1
+  page: 1,
 })
 
 onMounted(async () => {
@@ -95,6 +109,12 @@ async function getSecretKeys() {
     })
   } catch (e) {
     console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to load secret keys: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
   }
 }
 
@@ -116,40 +136,39 @@ const columns = ref([
     label: 'Name',
     required: true,
     align: 'left',
-    field: (row: { name: any; }) => row.name,
-    sortable: true
+    field: (row: { name: any }) => row.name,
+    sortable: true,
   },
   {
     name: 'last_accessed_from',
     label: 'Last Accessed From',
     align: 'left',
-    field: (row: { last_accessed_from: any; }) => row.last_accessed_from,
-    sortable: true
+    field: (row: { last_accessed_from: any }) => row.last_accessed_from,
+    sortable: true,
   },
   {
     name: 'last_used',
     label: 'Last Used',
     align: 'left',
-    field: (row: { last_used: any; }) => row.last_used ? dayjs(timestampDate(row.last_used)).format('MM/DD/YYYY HH:mm:ss A') : '',
-    sortable: true
+    field: (row: { last_used: any }) =>
+      row.last_used ? dayjs(timestampDate(row.last_used)).format('MM/DD/YYYY HH:mm:ss A') : '',
+    sortable: true,
   },
   {
     name: 'createdAt',
     label: 'Created At',
     align: 'left',
-    field: (row: { createdAt: Timestamp; }) => dayjs(timestampDate(row.createdAt)).format('MM/DD/YYYY HH:mm:ss A'),
-    sortable: true
+    field: (row: { createdAt: Timestamp }) =>
+      dayjs(timestampDate(row.createdAt)).format('MM/DD/YYYY HH:mm:ss A'),
+    sortable: true,
   },
   {
     name: 'actions',
     label: '',
     align: 'center',
-    field: () => ''
-  }
+    field: () => '',
+  },
 ])
-
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

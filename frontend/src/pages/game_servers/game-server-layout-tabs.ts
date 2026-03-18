@@ -5,7 +5,11 @@ export interface GameServerLayoutTab {
   exact: boolean
 }
 
-export function buildGameServerTabs(serverID: string, canUseConfigurationTab: boolean, canUseAccessTab: boolean): GameServerLayoutTab[] {
+export function buildGameServerTabs(
+  serverID: string,
+  canUseConfigurationTab: boolean,
+  canUseAccessTab: boolean,
+): GameServerLayoutTab[] {
   const basePath = `/game-servers/${serverID}`
   const tabs: GameServerLayoutTab[] = [
     { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true },
@@ -14,7 +18,12 @@ export function buildGameServerTabs(serverID: string, canUseConfigurationTab: bo
   ]
 
   if (canUseConfigurationTab) {
-    tabs.push({ name: 'Configuration', to: `${basePath}/configuration`, icon: 'settings', exact: true })
+    tabs.push({
+      name: 'Configuration',
+      to: `${basePath}/configuration`,
+      icon: 'settings',
+      exact: true,
+    })
   }
   if (canUseAccessTab) {
     tabs.push({ name: 'Access', to: `${basePath}/access`, icon: 'manage_accounts', exact: true })

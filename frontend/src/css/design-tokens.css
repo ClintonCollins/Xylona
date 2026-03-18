@@ -1,0 +1,288 @@
+/* ==========================================================================
+   Xylona Design Tokens (Layer 2)
+   Custom CSS properties for surfaces, semantic tints, borders, shadows,
+   and font references. Change this file + quasar.variables.scss to re-theme.
+   ========================================================================== */
+
+:root {
+  /* ---- Primitive Palette: Surfaces ---- */
+  --xy-base: #0E0E0E;
+  --xy-surface-0: #151515;
+  --xy-surface-1: #1C1C1C;
+  --xy-surface-2: #242424;
+  --xy-surface-3: #2E2E2E;
+  --xy-surface-4: #3B3B3B;
+
+  /* ---- Text ---- */
+  --xy-text-primary: #E2E8F0;
+  --xy-text-secondary: #A0A0A0;
+  --xy-text-muted: #8B8B8B;
+
+  /* ---- Borders ---- */
+  --xy-border: rgba(255, 255, 255, 0.10);
+  --xy-border-active: rgba(59, 130, 246, 0.4);
+
+  /* ---- Semantic Colors (mirror Quasar SASS vars) ---- */
+  --xy-primary: #3B82F6;
+  --xy-primary-hover: #60A5FA;
+  --xy-primary-muted: rgba(59, 130, 246, 0.15);
+  --xy-accent: #22D3EE;
+  --xy-success: #22C55E;
+  --xy-danger: #EF4444;
+  --xy-warning: #F59E0B;
+  --xy-info: #06B6D4;
+  --xy-success-hover: #2AE569;
+  --xy-success-darker: #16A34A;
+  --xy-danger-hover: #F87171;
+  --xy-danger-darker: #DC2626;
+  --xy-warning-hover: #FBBF24;
+  --xy-warning-darker: #D97706;
+  --xy-primary-darker: #2563EB;
+  --xy-purple: #8B5CF6;
+
+  /* ---- Semantic Tint Backgrounds ---- */
+  --xy-success-bg: rgba(34, 197, 94, 0.15);
+  --xy-success-border: rgba(34, 197, 94, 0.3);
+  --xy-danger-bg: rgba(239, 68, 68, 0.15);
+  --xy-danger-border: rgba(239, 68, 68, 0.3);
+  --xy-warning-bg: rgba(245, 158, 11, 0.15);
+  --xy-warning-border: rgba(245, 158, 11, 0.3);
+  --xy-info-bg: rgba(6, 182, 212, 0.15);
+  --xy-info-border: rgba(6, 182, 212, 0.3);
+
+  /* ---- Spacing Scale ---- */
+  --xy-space-xs: 0.25rem;   /* 4px  */
+  --xy-space-sm: 0.5rem;    /* 8px  */
+  --xy-space-md: 1rem;      /* 16px */
+  --xy-space-lg: 1.5rem;    /* 24px */
+  --xy-space-xl: 2rem;      /* 32px */
+  --xy-space-2xl: 3rem;     /* 48px */
+  --xy-space-3xl: 4rem;     /* 64px */
+
+  /* ---- Accent Glow ---- */
+  --xy-glow-accent: 0 0 20px rgba(34, 211, 238, 0.15);
+  --xy-glow-primary: 0 0 20px rgba(59, 130, 246, 0.15);
+  --xy-glow-success: 0 0 12px rgba(34, 197, 94, 0.25);
+
+  /* ---- Shadows ---- */
+  --xy-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --xy-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --xy-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+  /* ---- Transitions ---- */
+  --xy-transition-fast: 0.15s ease;
+  --xy-transition-base: 0.25s ease;
+
+  /* ---- Chart Palette ---- */
+  --xy-chart-1: var(--xy-primary);
+  --xy-chart-2: var(--xy-accent);
+  --xy-chart-3: var(--xy-danger);
+  --xy-chart-4: var(--xy-warning);
+  --xy-chart-5: var(--xy-purple);
+  --xy-chart-grid: rgba(255, 255, 255, 0.06);
+  --xy-chart-tooltip-bg: var(--xy-surface-1);
+  --xy-chart-tooltip-text: var(--xy-text-primary);
+  --xy-chart-tooltip-border: var(--xy-border);
+
+  /* ---- Fonts ---- */
+  --xy-font-body: 'Exo 2', '-apple-system', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --xy-font-display: 'Goldman', sans-serif;
+  --xy-font-brand: 'Zen Dots', sans-serif;
+  --xy-font-mono: 'JetBrains Mono', 'Oxygen Mono', monospace;
+
+  /* ---- Backward-Compatible CSS Variable Aliases ---- */
+  /* These allow existing var(--bg-*) references to resolve to new tokens */
+  --bg-neutral-glass-3: var(--xy-surface-1);
+  --bg-neutral-glass-4: var(--xy-surface-2);
+  --bg-neutral-glass-9: var(--xy-surface-3);
+  --bg-neutral-opaque: var(--xy-surface-1);
+  --bg-neutral: var(--xy-surface-3);
+  --bg-light-grey: var(--xy-surface-4);
+  --bg-grey: var(--xy-surface-3);
+  --bg-dark-grey: var(--xy-surface-2);
+  --bg-toolbar: var(--xy-surface-2);
+  --bg-sub-toolbar: var(--xy-surface-1);
+  --bg-main-brigther: var(--xy-primary-hover);
+  --bg-main-brighter: var(--xy-primary-hover);
+  --bg-main: var(--xy-primary);
+  --bg-main-darker: var(--xy-primary-darker);
+  --bg-success-brighter: var(--xy-success-hover);
+  --bg-success: var(--xy-success);
+  --bg-success-darker: var(--xy-success-darker);
+  --bg-error-brighter: var(--xy-danger-hover);
+  --bg-error: var(--xy-danger);
+  --bg-error-darker: var(--xy-danger-darker);
+  --bg-alert-brighter: var(--xy-warning-hover);
+  --bg-alert: var(--xy-warning);
+  --bg-alert-darker: var(--xy-warning-darker);
+  --bg-success-notification: rgba(34, 197, 94, 0.15);
+  --bg-error-notification: rgba(239, 68, 68, 0.15);
+  --bg-alert-notification: rgba(245, 158, 11, 0.15);
+  --bg-info-notification: rgba(6, 182, 212, 0.15);
+}
+
+/* ==========================================================================
+   Surface Utility Classes
+   ========================================================================== */
+
+.bg-xy-base { background-color: var(--xy-base); }
+.bg-xy-surface-0 { background-color: var(--xy-surface-0); }
+.bg-xy-surface-1 { background-color: var(--xy-surface-1); }
+.bg-xy-surface-2 { background-color: var(--xy-surface-2); }
+.bg-xy-surface-3 { background-color: var(--xy-surface-3); }
+.bg-xy-surface-4 { background-color: var(--xy-surface-4); }
+
+/* ==========================================================================
+   Text Utility Classes
+   ========================================================================== */
+
+.text-xy-primary { color: var(--xy-text-primary); }
+.text-xy-secondary { color: var(--xy-text-secondary); }
+.text-xy-muted { color: var(--xy-text-muted); }
+
+/* ==========================================================================
+   Font Utility Classes
+   ========================================================================== */
+
+.font-display { font-family: var(--xy-font-display); }
+.font-brand { font-family: var(--xy-font-brand); }
+.font-mono { font-family: var(--xy-font-mono); }
+
+/* ==========================================================================
+   Semantic Tint Utility Classes
+   ========================================================================== */
+
+.bg-xy-success-tint {
+  background-color: var(--xy-success-bg);
+  border: 1px solid var(--xy-success-border);
+}
+
+.bg-xy-danger-tint {
+  background-color: var(--xy-danger-bg);
+  border: 1px solid var(--xy-danger-border);
+}
+
+.bg-xy-warning-tint {
+  background-color: var(--xy-warning-bg);
+  border: 1px solid var(--xy-warning-border);
+}
+
+.bg-xy-info-tint {
+  background-color: var(--xy-info-bg);
+  border: 1px solid var(--xy-info-border);
+}
+
+/* ==========================================================================
+   Backward-Compatible Aliases (old custom.variables.css classes)
+   These map old class names to the new token system so existing
+   component references continue to work during migration.
+   ========================================================================== */
+
+/* Toolbar aliases */
+.bg-toolbar { background-color: var(--xy-surface-2); }
+.bg-sub-toolbar { background-color: var(--xy-surface-1); }
+.text-toolbar { color: var(--xy-surface-2); }
+.text-sub-toolbar { color: var(--xy-surface-1); }
+
+/* Success aliases */
+.bg-success { background-color: var(--xy-success); }
+.bg-success-brighter { background-color: var(--xy-success-hover); }
+.bg-success-darker { background-color: var(--xy-success-darker); }
+.text-success { color: var(--xy-success); }
+.text-success-brighter { color: var(--xy-success-hover); }
+.text-success-darker { color: var(--xy-success-darker); }
+
+/* Error / Danger aliases */
+.bg-error { background-color: var(--xy-danger); }
+.bg-error-brighter { background-color: var(--xy-danger-hover); }
+.bg-error-darker { background-color: var(--xy-danger-darker); }
+.text-error { color: var(--xy-danger); }
+.text-error-brighter { color: var(--xy-danger-hover); }
+.text-error-darker { color: var(--xy-danger-darker); }
+
+/* Alert / Warning aliases */
+.bg-alert { background-color: var(--xy-warning); }
+.bg-alert-brighter { background-color: var(--xy-warning-hover); }
+.bg-alert-darker { background-color: var(--xy-warning-darker); }
+.text-alert { color: var(--xy-warning); }
+.text-alert-brighter { color: var(--xy-warning-hover); }
+.text-alert-darker { color: var(--xy-warning-darker); }
+
+/* Main / Primary aliases */
+.bg-main { background-color: var(--xy-primary); }
+.bg-main-brighter { background-color: var(--xy-primary-hover); }
+.bg-main-darker { background-color: var(--xy-primary-darker); }
+.text-main { color: var(--xy-primary); }
+.text-main-brighter { color: var(--xy-primary-hover); }
+.text-main-darker { color: var(--xy-primary-darker); }
+
+/* Neutral / Glass aliases (opaque replacements) */
+.bg-neutral-glass-3 { background-color: var(--xy-surface-1); }
+.bg-neutral-glass-4 { background-color: var(--xy-surface-2); }
+.bg-neutral-glass-9 { background-color: var(--xy-surface-3); }
+.bg-neutral { background-color: var(--xy-surface-3); }
+
+/* Grey aliases */
+.bg-light-grey { background-color: var(--xy-surface-4); }
+.bg-grey { background-color: var(--xy-surface-3); }
+.bg-dark-grey { background-color: var(--xy-surface-2); }
+
+/* ==========================================================================
+   Page Layout Utilities
+   ========================================================================== */
+
+/* Page content area with responsive horizontal padding */
+.xy-page-content {
+  width: 100%;
+  padding: var(--xy-space-md) var(--xy-space-lg);
+}
+
+@media (min-width: 1024px) {
+  .xy-page-content {
+    padding: var(--xy-space-lg) var(--xy-space-xl);
+  }
+}
+
+/* Page header with title and actions */
+.xy-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-lg);
+}
+
+.xy-page-header .xy-page-title {
+  font-family: var(--xy-font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--xy-text-primary);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--xy-accent);
+}
+
+.xy-page-header .xy-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xy-space-sm);
+}
+
+/* Section divider with overline label */
+.xy-section-overline {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--xy-text-muted);
+  margin-bottom: var(--xy-space-sm);
+}
+
+/* Nav section divider */
+.xy-nav-divider {
+  height: 1px;
+  background-color: var(--xy-border);
+  margin: var(--xy-space-sm) var(--xy-space-md);
+}
+

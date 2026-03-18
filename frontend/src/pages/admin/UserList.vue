@@ -1,79 +1,85 @@
 <template>
-  <q-page :padding="windowWidth > 1024">
-    <div class="row justify-center">
-      <q-card class="col">
-        <q-card-section>
-          <div class="q-pa-md">
-            <q-table
-              flat
-              title="Users"
-              :rows="rows"
-              :columns="columns"
-              row-key="id"
-              selection="multiple"
-              :filter="search"
-              :loading="loading"
-              v-model:pagination="initialPagination"
-              v-model:selected="selected">
-              <template v-slot:top>
-                <div class="row col flex justify-between flex-center">
-                  <div class="col-12 col-md-6">
-                    <span class="text-h6">Users</span>
-                  </div>
-                  <div class="col-12 col-md-6">
-                    <div class="row flex q-gutter-xl justify-end">
-                      <q-btn color="primary" to="/admin/users/create" label="Add User" />
-                      <q-input dense debounce="300" color="primary" v-model="search">
-                        <template v-slot:append>
-                          <q-icon name="search" />
-                        </template>
-                      </q-input>
-                    </div>
-                  </div>
-                </div>
-              </template>
-              <template v-slot:body-cell-userName="props">
-                <q-td :props="props">
-                  <router-link class="table-link" :to="'/admin/users/' + props.row.id + '/edit'">
-                    {{ props.row.userName }}
-                  </router-link>
-                </q-td>
-              </template>
-              <template v-slot:body-cell-superUser="props">
-                <q-td :props="props">
-                  <q-icon name="check" size="md" v-if="props.row.superUser" color="green" />
-                  <q-icon name="close" size="md" v-else color="red" />
-                </q-td>
-              </template>
-              <template v-slot:body-cell-actions="props">
-                <q-td :props="props">
-                  <div class="q-gutter-xs">
-                    <router-link :to="'/admin/users/' + props.row.id + '/edit'">
-                      <q-btn flat class="text-main-brighter" :icon="tabSettings">
-                        <q-tooltip>Edit user</q-tooltip>
-                      </q-btn>
-                    </router-link>
-                    <span>
-                      <q-btn
-                        flat
-                        class="text-error-brighter"
-                        :icon="tabTrash"
-                        @click="deleteUserAction(props.row)">
-                        <q-tooltip>Delete user</q-tooltip>
-                      </q-btn>
-                    </span>
-                  </div>
-                </q-td>
-              </template>
-            </q-table>
-          </div>
-        </q-card-section>
-      </q-card>
-      <UserDeleteDialog
-        :user="selectedActionUser"
-        v-model:showDialog="showUserDeleteDialog"
-        @submit="deleteUserSubmitted"></UserDeleteDialog>
+  <q-page class="xy-page-content">
+    <div class="xy-page-header">
+      <div class="xy-page-title">Users</div>
+      <div class="xy-page-actions">
+        <q-input
+          dense
+          outlined
+          debounce="300"
+          color="primary"
+          v-model="search"
+          placeholder="Search..."
+          aria-label="Search users"
+          style="min-width: 200px">
+          <template v-slot:append>
+            <q-icon name="search" />
+          </template>
+        </q-input>
+        <q-btn color="primary" to="/admin/users/create" label="Add User" />
+      </div>
     </div>
+    <div>
+      <q-table
+        flat
+        class="xy-standalone-table"
+        :grid="$q.screen.lt.md"
+        :rows="rows"
+        :columns="columns"
+        row-key="id"
+        selection="multiple"
+        :filter="search"
+        :loading="loading"
+        v-model:pagination="initialPagination"
+        v-model:selected="selected"
+        hide-header-in-grid>
+        <template v-slot:body-cell-userName="props">
+          <q-td :props="props">
+            <router-link class="table-link" :to="'/admin/users/' + props.row.id + '/edit'">
+              {{ props.row.userName }}
+            </router-link>
+          </q-td>
+        </template>
+        <template v-slot:body-cell-superUser="props">
+          <q-td :props="props">
+            <q-icon name="check" size="md" v-if="props.row.superUser" color="positive" />
+            <q-icon name="close" size="md" v-else color="negative" />
+          </q-td>
+        </template>
+        <template v-slot:body-cell-actions="props">
+          <q-td :props="props">
+            <div class="q-gutter-xs">
+              <router-link :to="'/admin/users/' + props.row.id + '/edit'">
+                <q-btn flat class="text-main-brighter" :icon="tabSettings" aria-label="Edit user">
+                  <q-tooltip>Edit user</q-tooltip>
+                </q-btn>
+              </router-link>
+              <span>
+                <q-btn
+                  flat
+                  class="text-error-brighter"
+                  :icon="tabTrash"
+                  aria-label="Delete user"
+                  @click="deleteUserAction(props.row)">
+                  <q-tooltip>Delete user</q-tooltip>
+                </q-btn>
+              </span>
+            </div>
+          </q-td>
+        </template>
+        <template #no-data>
+          <div class="full-width column items-center q-pa-lg text-xy-secondary">
+            <q-icon name="people" size="3rem" class="q-mb-sm text-xy-muted" />
+            <div class="text-subtitle1">No users found</div>
+            <div class="text-caption text-xy-muted">Create a user to get started.</div>
+          </div>
+        </template>
+      </q-table>
+    </div>
+    <UserDeleteDialog
+      :user="selectedActionUser"
+      v-model:showDialog="showUserDeleteDialog"
+      @submit="deleteUserSubmitted"></UserDeleteDialog>
   </q-page>
 </template>
 
@@ -83,15 +89,15 @@ import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useStorage } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { ConnectError } from '@connectrpc/connect'
-import { Notify } from 'quasar'
+import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import UserDeleteDialog from '@/components/admin/UserDeleteDialog.vue'
-import { ConnectErrorToString, GetXylonaClient, WindowWidth } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { User } from '@/proto/xylona_pb'
 import { ListUsersRequest, ListUsersRequestSchema, ListUsersResponse } from '@/proto/xylona_pb'
 
-const windowWidth = WindowWidth()
+const $q = useQuasar()
 const rows = ref([] as User[])
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')

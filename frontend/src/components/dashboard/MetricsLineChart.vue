@@ -12,7 +12,7 @@
         :options="rangeOptions"
         class="text-caption" />
     </div>
-    <Line :data="chartData" :options="chartOptions" style="max-height: 250px" />
+    <Line :data="chartData" :options="chartOptions" style="max-height: 180px" />
   </div>
 </template>
 
@@ -41,6 +41,10 @@ ChartJS.register(
   Legend,
   Filler,
 )
+
+function getCssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
 
 export interface Dataset {
   label: string
@@ -74,20 +78,36 @@ watch(selectedRange, (val) => {
   emit('rangeChange', val)
 })
 
-const defaultColors = ['#1976D2', '#26A69A', '#FF6384', '#FF9F40', '#9966FF']
+const defaultColors = [
+  getCssVar('--xy-chart-1'),
+  getCssVar('--xy-chart-2'),
+  getCssVar('--xy-chart-3'),
+  getCssVar('--xy-chart-4'),
+  getCssVar('--xy-chart-5'),
+]
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 const chartData = computed(() => ({
   labels: props.labels,
-  datasets: props.datasets.map((ds, i) => ({
-    label: ds.label,
-    data: ds.data,
-    borderColor: ds.borderColor ?? defaultColors[i % defaultColors.length],
-    backgroundColor: ds.backgroundColor ?? 'transparent',
-    borderWidth: 2,
-    pointRadius: 0,
-    tension: 0.3,
-    fill: false,
-  })),
+  datasets: props.datasets.map((ds, i) => {
+    const borderColor = ds.borderColor ?? defaultColors[i % defaultColors.length]
+    return {
+      label: ds.label,
+      data: ds.data,
+      borderColor,
+      backgroundColor: ds.backgroundColor ?? hexToRgba(borderColor, 0.1),
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: true,
+    }
+  }),
 }))
 
 const chartOptions = computed(() => ({
@@ -101,8 +121,16 @@ const chartOptions = computed(() => ({
     legend: {
       display: props.datasets.length > 1,
       position: 'bottom' as const,
+      labels: {
+        color: getCssVar('--xy-text-secondary'),
+      },
     },
     tooltip: {
+      backgroundColor: getCssVar('--xy-chart-tooltip-bg'),
+      titleColor: getCssVar('--xy-chart-tooltip-text'),
+      bodyColor: getCssVar('--xy-chart-tooltip-text'),
+      borderColor: getCssVar('--xy-chart-tooltip-border'),
+      borderWidth: 1,
       callbacks: {
         label: (context: { dataset: { label?: string }; parsed: { y: number | null } }) => {
           const label = context.dataset.label ?? ''
@@ -118,6 +146,7 @@ const chartOptions = computed(() => ({
       ticks: {
         maxTicksLimit: 8,
         maxRotation: 0,
+        color: getCssVar('--xy-text-secondary'),
       },
       grid: {
         display: false,
@@ -127,7 +156,11 @@ const chartOptions = computed(() => ({
       min: 0,
       max: props.yAxisMax,
       ticks: {
+        color: getCssVar('--xy-text-secondary'),
         callback: (value: string | number) => `${value}${props.yAxisSuffix ?? ''}`,
+      },
+      grid: {
+        color: getCssVar('--xy-chart-grid'),
       },
     },
   },

@@ -11,9 +11,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/utils/shared', async () => {
-  const actual = await vi.importActual<typeof import('@/utils/shared')>(
-    '@/utils/shared',
-  )
+  const actual = await vi.importActual<typeof import('@/utils/shared')>('@/utils/shared')
   return {
     ...actual,
     GetXylonaClient: () => ({
@@ -26,6 +24,10 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
+    useQuasar: () => ({
+      notify: vi.fn(),
+      screen: { lt: { md: false } },
+    }),
     Notify: {
       create: vi.fn(),
     },
@@ -87,9 +89,7 @@ describe('NodeList', () => {
     await flushPromises()
 
     expect(mocks.listNodes).toHaveBeenCalledTimes(1)
-    expect(
-      (wrapper.vm as unknown as { rows: unknown[] }).rows.length,
-    ).toBe(2)
+    expect((wrapper.vm as unknown as { rows: unknown[] }).rows.length).toBe(2)
     expect(wrapper.find('[data-test="q-table-row-count"]').text()).toBe('2')
   })
 
@@ -104,9 +104,7 @@ describe('NodeList', () => {
     const wrapper = mount(NodeList, { global: globalStubs })
 
     await vi.waitFor(() => {
-      expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe(
-        'true',
-      )
+      expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe('true')
     })
 
     resolveRequest({ nodes: [] })

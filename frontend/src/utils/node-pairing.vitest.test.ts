@@ -30,7 +30,11 @@ describe('normalizeNodePairingBaseURL', () => {
 describe('createNodePairingPayload', () => {
   it('creates compact pairing json fields', () => {
     const payloadText = createNodePairingPayload('https://example.com/', ' secret ', 8443)
-    const payload = JSON.parse(payloadText) as { base_url: string; secret_key: string; mtls_port: number }
+    const payload = JSON.parse(payloadText) as {
+      base_url: string
+      secret_key: string
+      mtls_port: number
+    }
     expect(payload).toEqual({
       base_url: 'https://example.com',
       secret_key: 'secret',
@@ -94,9 +98,7 @@ describe('parseNodePairingPayload', () => {
   })
 
   it('throws when base_url is missing', () => {
-    expect(() => parseNodePairingPayload('{"secret_key":"abc"}')).toThrow(
-      'Base URL is required',
-    )
+    expect(() => parseNodePairingPayload('{"secret_key":"abc"}')).toThrow('Base URL is required')
   })
 
   it('throws for missing secret key', () => {
@@ -107,7 +109,9 @@ describe('parseNodePairingPayload', () => {
 
   it('throws for invalid mTLS port', () => {
     expect(() =>
-      parseNodePairingPayload('{"base_url":"https://example.com","secret_key":"abc","mtls_port":70000}'),
+      parseNodePairingPayload(
+        '{"base_url":"https://example.com","secret_key":"abc","mtls_port":70000}',
+      ),
     ).toThrow('mTLS port must be between 1 and 65535')
   })
 })

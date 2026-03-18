@@ -5,12 +5,17 @@
       <q-btn flat icon="refresh" label="Refresh" :loading="loading" @click="loadData"></q-btn>
     </div>
     <q-banner v-if="isRemoteServer" class="bg-info text-white q-mt-md">
-      Managing remote server access through federation proxy ({{ targetNodeHost || "remote node" }}).
+      Managing remote server access through federation proxy ({{
+        targetNodeHost || 'remote node'
+      }}).
     </q-banner>
   </q-card-section>
 
   <q-card-section class="q-pt-none">
-    <div class="text-subtitle1 q-mb-sm">Local Access</div>
+    <div class="access-section-header">
+      <q-icon name="person" size="xs" color="primary" class="q-mr-xs" />
+      <span>Local Access</span>
+    </div>
     <div class="row q-col-gutter-md q-mb-md">
       <div class="col-12 col-md-4">
         <q-select
@@ -20,8 +25,7 @@
           map-options
           v-model="selectedLocalUserID"
           :options="localUserOptions"
-          label="User"
-        ></q-select>
+          label="User"></q-select>
       </div>
       <div class="col-12 col-md-4">
         <q-select
@@ -31,8 +35,7 @@
           map-options
           v-model="selectedLocalRoleID"
           :options="roleOptions"
-          label="Role"
-        ></q-select>
+          label="Role"></q-select>
       </div>
       <div class="col-12 col-md-4">
         <q-btn
@@ -41,20 +44,26 @@
           label="Grant Local Access"
           :loading="grantingLocal"
           :disable="!selectedLocalUserID || !selectedLocalRoleID"
-          @click="grantLocalAccess"
-        ></q-btn>
+          @click="grantLocalAccess"></q-btn>
       </div>
     </div>
 
     <q-list bordered separator>
       <q-item v-if="localGrants.length === 0">
-        <q-item-section class="text-grey-6">No local access grants.</q-item-section>
+        <q-item-section class="text-center q-pa-md">
+          <q-icon name="lock_open" size="32px" color="grey-7" class="q-mb-xs" />
+          <div class="text-xy-secondary">No local access grants</div>
+          <div class="text-caption text-xy-muted">
+            Grant users access to this server using the form above.
+          </div>
+        </q-item-section>
       </q-item>
       <q-item v-for="grant in localGrants" :key="grant.id">
         <q-item-section>
           <q-item-label>{{ grant.userName }}</q-item-label>
           <q-item-label caption>
-            Role: {{ grant.roleName }} | Granted by: {{ grant.grantedByUserName }} | {{ formatTimestamp(grant.createdAt) }}
+            Role: {{ grant.roleName }} | Granted by: {{ grant.grantedByUserName }} |
+            {{ formatTimestamp(grant.createdAt) }}
           </q-item-label>
         </q-item-section>
         <q-item-section side>
@@ -64,8 +73,7 @@
             icon="delete"
             label="Revoke"
             :loading="revokingLocalGrantID === grant.id"
-            @click="revokeLocalAccess(grant.id)"
-          ></q-btn>
+            @click="revokeLocalAccess(grant.id)"></q-btn>
         </q-item-section>
       </q-item>
     </q-list>
@@ -74,7 +82,10 @@
   <q-separator></q-separator>
 
   <q-card-section>
-    <div class="text-subtitle1 q-mb-sm">Federated Access</div>
+    <div class="access-section-header">
+      <q-icon name="hub" size="xs" color="accent" class="q-mr-xs" />
+      <span>Federated Access</span>
+    </div>
     <div class="row q-col-gutter-md q-mb-md">
       <div class="col-12 col-md-3">
         <q-select
@@ -84,8 +95,7 @@
           map-options
           v-model="selectedFederatedNodeID"
           :options="remoteNodeOptions"
-          label="Remote Node"
-        ></q-select>
+          label="Remote Node"></q-select>
       </div>
       <div class="col-12 col-md-3">
         <q-select
@@ -97,8 +107,7 @@
           :options="remoteUserOptions"
           label="Remote User"
           :loading="loadingRemoteUsers"
-          :disable="selectedFederatedNodeID === ''"
-        ></q-select>
+          :disable="selectedFederatedNodeID === ''"></q-select>
       </div>
       <div class="col-12 col-md-3">
         <q-select
@@ -108,8 +117,7 @@
           map-options
           v-model="selectedFederatedRoleID"
           :options="roleOptions"
-          label="Role"
-        ></q-select>
+          label="Role"></q-select>
       </div>
       <div class="col-12 col-md-3">
         <q-btn
@@ -118,20 +126,30 @@
           label="Grant Federated Access"
           :loading="grantingFederated"
           :disable="!canGrantFederated"
-          @click="grantFederatedAccess"
-        ></q-btn>
+          @click="grantFederatedAccess"></q-btn>
       </div>
     </div>
 
     <q-list bordered separator>
       <q-item v-if="federatedGrants.length === 0">
-        <q-item-section class="text-grey-6">No federated access grants.</q-item-section>
+        <q-item-section class="text-center q-pa-md">
+          <q-icon name="cloud_off" size="32px" color="grey-7" class="q-mb-xs" />
+          <div class="text-xy-secondary">No federated access grants</div>
+          <div class="text-caption text-xy-muted">
+            Grant remote node users access to this server using the form above.
+          </div>
+        </q-item-section>
       </q-item>
       <q-item v-for="grant in federatedGrants" :key="grant.id">
         <q-item-section>
-          <q-item-label>{{ grant.remoteUserName }} ({{ grant.remoteNodeName || grant.remoteNodeId }})</q-item-label>
+          <q-item-label
+            >{{ grant.remoteUserName }} ({{
+              grant.remoteNodeName || grant.remoteNodeId
+            }})</q-item-label
+          >
           <q-item-label caption>
-            Role: {{ grant.roleName }} | Granted by: {{ grant.grantedByUserName }} | {{ formatTimestamp(grant.createdAt) }}
+            Role: {{ grant.roleName }} | Granted by: {{ grant.grantedByUserName }} |
+            {{ formatTimestamp(grant.createdAt) }}
           </q-item-label>
         </q-item-section>
         <q-item-section side>
@@ -141,8 +159,7 @@
             icon="delete"
             label="Revoke"
             :loading="revokingFederatedGrantID === grant.id"
-            @click="revokeFederatedAccess(grant.id)"
-          ></q-btn>
+            @click="revokeFederatedAccess(grant.id)"></q-btn>
         </q-item-section>
       </q-item>
     </q-list>
@@ -169,9 +186,12 @@ import {
   type RemoteUser,
   RevokeFederatedAccessRequestSchema,
   RevokeGameServerAccessRequestSchema,
-  type Role
+  type Role,
 } from 'src/proto/xylona_pb'
-import { formatProtoTimestamp, hostFromBaseURL } from 'src/components/game_servers/game-server-access-utils'
+import {
+  formatProtoTimestamp,
+  hostFromBaseURL,
+} from 'src/components/game_servers/game-server-access-utils'
 import { GetXylonaClient } from 'src/utils/shared'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -211,7 +231,7 @@ const roleOptions = computed(() => {
 const localUserOptions = computed(() => {
   return localUsers.value.map((user) => ({
     label: `${user.userName} (${user.email || 'no email'})`,
-    value: user.id
+    value: user.id,
   }))
 })
 
@@ -224,12 +244,16 @@ const remoteNodeOptions = computed(() => {
 const remoteUserOptions = computed(() => {
   return remoteUsers.value.map((user) => ({
     label: `${user.userName} (${user.email || 'no email'})`,
-    value: user.userId
+    value: user.userId,
   }))
 })
 
 const canGrantFederated = computed(() => {
-  return selectedFederatedNodeID.value !== '' && selectedRemoteUserID.value !== '' && selectedFederatedRoleID.value !== ''
+  return (
+    selectedFederatedNodeID.value !== '' &&
+    selectedRemoteUserID.value !== '' &&
+    selectedFederatedRoleID.value !== ''
+  )
 })
 
 const xylonaClient = GetXylonaClient()
@@ -256,7 +280,7 @@ async function loadData() {
       loadLocalUsers(),
       loadNodes(),
       loadLocalGrants(),
-      loadFederatedGrants()
+      loadFederatedGrants(),
     ])
   } finally {
     loading.value = false
@@ -265,7 +289,9 @@ async function loadData() {
 
 async function loadServerClientTarget() {
   try {
-    const response = await GetXylonaClient().getGameServer(create(GetGameServerRequestSchema, { id: gameServerID.value }))
+    const response = await GetXylonaClient().getGameServer(
+      create(GetGameServerRequestSchema, { id: gameServerID.value }),
+    )
     const gameServer = response.gameServer
     if (gameServer === undefined) {
       return
@@ -302,12 +328,12 @@ async function loadLocalUsers() {
   try {
     if (isRemoteServer.value && targetNodeID.value !== '') {
       const response = await xylonaClient.listRemoteNodeUsers(
-        create(ListRemoteNodeUsersRequestSchema, { nodeId: targetNodeID.value })
+        create(ListRemoteNodeUsersRequestSchema, { nodeId: targetNodeID.value }),
       )
       localUsers.value = (response.users ?? []).map((user) => ({
         id: user.userId,
         userName: user.userName,
-        email: user.email
+        email: user.email,
       }))
       return
     }
@@ -316,7 +342,7 @@ async function loadLocalUsers() {
     localUsers.value = (response.users ?? []).map((user) => ({
       id: user.id,
       userName: user.userName,
-      email: user.email
+      email: user.email,
     }))
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
@@ -337,7 +363,7 @@ async function loadNodes() {
 async function loadLocalGrants() {
   try {
     const response = await xylonaClient.listGameServerAccessGrants(
-      create(ListGameServerAccessGrantsRequestSchema, { gameServerId: gameServerID.value })
+      create(ListGameServerAccessGrantsRequestSchema, { gameServerId: gameServerID.value }),
     )
     localGrants.value = response.grants ? [...response.grants] : []
   } catch (unknownError: unknown) {
@@ -349,7 +375,7 @@ async function loadLocalGrants() {
 async function loadFederatedGrants() {
   try {
     const response = await xylonaClient.listFederatedAccessGrants(
-      create(ListFederatedAccessGrantsRequestSchema, { gameServerId: gameServerID.value })
+      create(ListFederatedAccessGrantsRequestSchema, { gameServerId: gameServerID.value }),
     )
     federatedGrants.value = response.grants ? [...response.grants] : []
   } catch (unknownError: unknown) {
@@ -362,7 +388,7 @@ async function loadRemoteNodeUsers(nodeID: string) {
   loadingRemoteUsers.value = true
   try {
     const response = await xylonaClient.listRemoteNodeUsers(
-      create(ListRemoteNodeUsersRequestSchema, { nodeId: nodeID })
+      create(ListRemoteNodeUsersRequestSchema, { nodeId: nodeID }),
     )
     remoteUsers.value = response.users ? [...response.users] : []
   } catch (unknownError: unknown) {
@@ -383,8 +409,8 @@ async function grantLocalAccess() {
       create(GrantGameServerAccessRequestSchema, {
         gameServerId: gameServerID.value,
         userId: selectedLocalUserID.value,
-        roleId: selectedLocalRoleID.value
-      })
+        roleId: selectedLocalRoleID.value,
+      }),
     )
     selectedLocalUserID.value = ''
     selectedLocalRoleID.value = ''
@@ -401,7 +427,10 @@ async function revokeLocalAccess(grantID: string) {
   revokingLocalGrantID.value = grantID
   try {
     await xylonaClient.revokeGameServerAccess(
-      create(RevokeGameServerAccessRequestSchema, { grantId: grantID, gameServerId: gameServerID.value })
+      create(RevokeGameServerAccessRequestSchema, {
+        grantId: grantID,
+        gameServerId: gameServerID.value,
+      }),
     )
     await loadLocalGrants()
   } catch (unknownError: unknown) {
@@ -418,15 +447,17 @@ async function grantFederatedAccess() {
   }
   grantingFederated.value = true
   try {
-    const selectedRemoteUser = remoteUsers.value.find((user) => user.userId === selectedRemoteUserID.value)
+    const selectedRemoteUser = remoteUsers.value.find(
+      (user) => user.userId === selectedRemoteUserID.value,
+    )
     await xylonaClient.grantFederatedAccess(
       create(GrantFederatedAccessRequestSchema, {
         gameServerId: gameServerID.value,
         remoteNodeId: selectedFederatedNodeID.value,
         remoteUserId: selectedRemoteUserID.value,
         remoteUserName: selectedRemoteUser?.userName ?? selectedRemoteUserID.value,
-        roleId: selectedFederatedRoleID.value
-      })
+        roleId: selectedFederatedRoleID.value,
+      }),
     )
     selectedFederatedRoleID.value = ''
     selectedRemoteUserID.value = ''
@@ -443,7 +474,10 @@ async function revokeFederatedAccess(grantID: string) {
   revokingFederatedGrantID.value = grantID
   try {
     await xylonaClient.revokeFederatedAccess(
-      create(RevokeFederatedAccessRequestSchema, { grantId: grantID, gameServerId: gameServerID.value })
+      create(RevokeFederatedAccessRequestSchema, {
+        grantId: grantID,
+        gameServerId: gameServerID.value,
+      }),
     )
     await loadFederatedGrants()
   } catch (unknownError: unknown) {
@@ -463,10 +497,18 @@ function notifyError(message: string) {
     type: 'xylona-error',
     position: 'top',
     caption: message,
-    timeout: 5000
+    timeout: 5000,
   })
 }
 </script>
 
 <style scoped>
+.access-section-header {
+  display: flex;
+  align-items: center;
+  font-family: var(--xy-font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
 </style>

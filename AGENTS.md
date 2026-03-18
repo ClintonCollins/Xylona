@@ -155,6 +155,15 @@ Regeneration commands:
 - **Formatting**: Prettier configured for consistent code style; run `pnpm --dir frontend run format` before committing.
 - **Testing**: Vitest for unit and component tests; Vue Test Utils for component testing.
 
+### Accepted v-html Usage
+
+The following `v-html` usages are intentional and should NOT be flagged as XSS concerns in audits or reviews:
+
+- **`GameServerView.vue` console output** (`v-html="gameServerOutput"`): Game server console output is rendered as HTML to support ANSI color codes and formatting parsed by `parseConsole()`. The data originates from the user's own game server process and is only visible to authenticated users who already have server access. This is an accepted trust boundary.
+- **`ClipBoardCopy.vue` tooltip** (`v-html="clipboardInnerHTML"`): Used for styled tooltip content. The data comes from component props set by the application, not external user input.
+
+Do not add DOMPurify or replace these with text rendering unless the trust model changes (e.g., multi-tenant shared servers with untrusted operators).
+
 ## Search & Indexing Guardrails
 
 - **Prefer `rg` (ripgrep) when available.** Use `rg` for text search and `rg --files` for file discovery instead of `grep`, `find`, `Get-ChildItem`, or IDE-specific search tools. `rg` automatically respects `.gitignore` rules and skips binary files, making it faster and safer for large repos.
@@ -472,3 +481,60 @@ Seed flags:
 - **State**: Pinia
 - **RPC**: `@connectrpc/connect-web` + `@bufbuild/protobuf`
 - **Editor**: Monaco Editor
+
+## Design Context
+
+### Users
+
+Xylona serves a broad range of users — from individual gamers self-hosting a Minecraft server for friends, to gaming community admins managing servers for dozens of players, to small hosting providers running multiple nodes. The common thread: they want to manage game servers without friction. The UI must be immediately understandable for first-timers while giving power users efficient workflows. Users are often checking server status, browsing files, reading console output, or adjusting configuration — tasks that benefit from information density without clutter.
+
+### Brand Personality
+
+**Powerful, sleek, futuristic.** Xylona should feel like a high-tech command center — confident, in-control, and visually distinct. The existing brand fonts (Zen Dots for brand, Goldman for display, Exo 2 for body) already establish a sci-fi / cyberpunk aesthetic. Lean into this identity rather than softening it.
+
+### Aesthetic Direction
+
+- **Visual tone**: Dark, immersive, technical. Layered dark surfaces with subtle depth. Cyan and blue accents that pop against near-black backgrounds. The UI should feel like piloting a spacecraft, not filling out a spreadsheet.
+- **References**: Draw layout and UX patterns from modern SaaS dashboards (Vercel, Linear) for their polish and spatial clarity. Reference Discord and Steam for gaming-audience familiarity. Study Pterodactyl/Pelican for domain-specific patterns (console, file browser, server controls) — but differentiate through unique layout and styling choices.
+- **Anti-references**: Avoid generic admin panel templates. Avoid cluttered cPanel-style density. Avoid flat, lifeless layouts with no personality.
+- **Theme**: Dark mode only. The existing surface hierarchy (--xy-base through --xy-surface-4) provides excellent depth layering — use it consistently.
+- **Typography**: Four-font system already in place. Zen Dots (brand moments), Goldman (headings, buttons, nav), Exo 2 (body text), JetBrains Mono (code, console, technical data). Respect the hierarchy — don't overuse brand/display fonts.
+
+### Design Principles
+
+1. **Command & control**: Every screen should give users a clear sense of what's happening and what they can do about it. Status, actions, and feedback should be immediately visible — not hidden behind menus.
+2. **Layered depth**: Use the surface hierarchy to create visual depth. Cards float above pages, dialogs float above cards. Consistent elevation communicates structure without borders everywhere.
+3. **Purposeful contrast**: Reserve high-contrast accents (cyan, blue) for interactive elements and status indicators. Let the dark surfaces breathe. White space (dark space) is a feature, not wasted space.
+4. **Gaming-native but professional**: The aesthetic should feel at home next to Discord and Steam, but the UX should be as polished as Vercel or Linear. Fun and capable, never toy-like or chaotic.
+5. **Information when needed**: Show essential info at a glance (server status, resource usage, player counts). Defer complexity to detail views. Progressive disclosure over information overload.
+
+### Existing Design System
+
+The codebase has a well-structured 3-layer token system:
+
+- **Layer 1** (SCSS): `quasar.variables.scss` — Quasar component theming (primary, secondary, accent, spacing, typography scale)
+- **Layer 2** (CSS): `design-tokens.css` — Custom properties for surfaces, semantic colors, borders, shadows, fonts, transitions
+- **Layer 3** (CSS): `overrides.css` — Quasar component-level style overrides using Layer 1 and 2 tokens
+
+When adding new styles, extend Layers 2-3. Never hardcode colors — always reference tokens. New utility classes go in `design-tokens.css`. Component overrides go in `overrides.css`.
+
+### Color Palette
+
+| Role | Value | Usage |
+|------|-------|-------|
+| Primary | `#3B82F6` | Primary actions, links, focus states |
+| Secondary | `#6366F1` | Secondary actions, accents |
+| Accent | `#22D3EE` | Brand highlights, active nav, toolbar title |
+| Success | `#22C55E` | Running servers, successful operations |
+| Danger | `#EF4444` | Errors, destructive actions, stopped servers |
+| Warning | `#F59E0B` | Alerts, caution states |
+| Info | `#06B6D4` | Informational messages |
+| Base | `#0E0E0E` | Page background |
+| Surface 0-4 | `#151515` - `#3B3B3B` | Layered UI surfaces |
+| Text Primary | `#E2E8F0` | Main content text |
+| Text Secondary | `#A0A0A0` | Supporting text |
+| Text Muted | `#6B6B6B` | Disabled/tertiary text |
+
+### Accessibility
+
+Best-effort approach: follow good contrast and keyboard navigation practices, but don't let strict WCAG compliance block design decisions that serve the gaming audience. Prioritize readability and discoverability over formal audit scores.

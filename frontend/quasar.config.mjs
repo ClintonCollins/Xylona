@@ -37,7 +37,7 @@ export default configure(function (/* ctx */) {
         // 'line-awesome',
         // 'roboto-font-latin-ext', // this or either 'roboto-font', NEVER both!
 
-        'roboto-font', // optional, you are not bound to it
+        // 'roboto-font', // removed — using Exo 2 via Google Fonts import
         'material-icons', // optional, you are not bound to it
       ],
 
