@@ -45,6 +45,24 @@ func TestAuthRateLimiter(t *testing.T) {
 		}
 	})
 
+	t.Run("localhost Login is never rate limited", func(t *testing.T) {
+		handler := AuthRateLimiter()(okHandler)
+
+		for i := 0; i < 20; i++ {
+			for _, addr := range []string{"127.0.0.1:12345", "[::1]:12345"} {
+				req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
+				req.RemoteAddr = addr
+				rec := httptest.NewRecorder()
+				handler.ServeHTTP(rec, req)
+
+				if rec.Code != http.StatusOK {
+					t.Fatalf("expected status %d for localhost Login request %d from %s, got %d",
+						http.StatusOK, i+1, addr, rec.Code)
+				}
+			}
+		}
+	})
+
 	t.Run("first 10 Login requests succeed", func(t *testing.T) {
 		handler := AuthRateLimiter()(okHandler)
 
