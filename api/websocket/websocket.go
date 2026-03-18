@@ -18,6 +18,7 @@ import (
 	"github.com/olahol/melody"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/api/federation"
@@ -25,6 +26,7 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/sysinfo"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -37,6 +39,7 @@ const (
 	sessionKeyUserName      = "userName"
 	sessionKeyConnectionID  = "connectionID"
 	sessionKeyGamesServers  = "gameServers"
+	sessionKeySuperUser     = "superUser"
 )
 
 type connection struct {
@@ -62,6 +65,8 @@ type WebSocket struct {
 	sessionLock                  *sync.RWMutex
 	remoteMetricsCache           map[string]*xylona.GameServerMetrics // keyed by remote server ID
 	remoteMetricsCacheLock       sync.RWMutex
+	remoteNodeSnapshotCache      map[string]*xylona.NodeResourceSnapshot // keyed by remote node ID
+	remoteNodeSnapshotCacheLock  sync.RWMutex
 }
 
 func getSessionUsername(s *melody.Session) (string, error) {
@@ -98,6 +103,15 @@ func getSessionConnectionID(s *melody.Session) (uuid.UUID, error) {
 	}
 	connectionID := c.(uuid.UUID)
 	return connectionID, nil
+}
+
+func getSessionSuperUser(s *melody.Session) bool {
+	v, exists := s.Get(sessionKeySuperUser)
+	if !exists {
+		return false
+	}
+	su, ok := v.(bool)
+	return ok && su
 }
 
 func (ws *WebSocket) getSessionGameServers(s *melody.Session) ([]*models.GameServer, error) {
@@ -165,12 +179,14 @@ func NewInstance(
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
 		userWebsocketConnectionsLock: &sync.RWMutex{},
 		sessionLock:                  &sync.RWMutex{},
-		remoteMetricsCache:           make(map[string]*xylona.GameServerMetrics),
+		remoteMetricsCache:          make(map[string]*xylona.GameServerMetrics),
+		remoteNodeSnapshotCache:     make(map[string]*xylona.NodeResourceSnapshot),
 	}
 	m.HandleConnect(inst.handleConnect)
 	m.HandleDisconnect(inst.handleDisconnect)
 	m.HandleMessage(inst.handleMessage)
 	go inst.startRemoteMetricsPoller()
+	go inst.startRemoteNodeMetricsPoller()
 	return inst, inst.handleRequest
 }
 
@@ -216,6 +232,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	s.Set(sessionKeyUserID, user.ID)
 	s.Set(sessionKeyUserName, user.UserName)
 	s.Set(sessionKeyStreamChannel, wsConnection.outputStreamChannel)
+	s.Set(sessionKeySuperUser, user.SuperUser)
 
 	ws.userWebsocketConnectionsLock.Lock()
 	_, userExists := ws.userWebsocketConnections[user.ID]
@@ -245,6 +262,10 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
 	go ws.sendOwnedServersQueryInfo(s)
 	go ws.sendOwnedServersMetrics(s)
+
+	if user.SuperUser {
+		go ws.sendNodeMetrics(s)
+	}
 
 	// Listen for game server added and removed events.
 	go ws.listenForGameServersAdded(s)
@@ -467,6 +488,202 @@ func metricsEqual(a, b *xylona.GameServerMetrics) bool {
 		int64(a.IoReadRate) == int64(b.IoReadRate) &&
 		int64(a.IoWriteRate) == int64(b.IoWriteRate) &&
 		a.ConnectionCount == b.ConnectionCount
+}
+
+// startRemoteNodeMetricsPoller runs a shared background poller that refreshes
+// the remote node resource snapshot cache every 5 seconds.
+func (ws *WebSocket) startRemoteNodeMetricsPoller() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case <-ticker.C:
+			ws.pollRemoteNodeSnapshots()
+		}
+	}
+}
+
+func (ws *WebSocket) pollRemoteNodeSnapshots() {
+	if ws.federationMTLS == nil {
+		return
+	}
+
+	nodes, errNodes := ws.db.GetEnabledRemoteNodes()
+	if errNodes != nil {
+		log.Error().Err(errNodes).Msg("Failed to get enabled remote nodes for node metrics poll")
+		return
+	}
+	if len(nodes) == 0 {
+		ws.remoteNodeSnapshotCacheLock.Lock()
+		ws.remoteNodeSnapshotCache = make(map[string]*xylona.NodeResourceSnapshot)
+		ws.remoteNodeSnapshotCacheLock.Unlock()
+		return
+	}
+
+	type nodeResult struct {
+		nodeID   string
+		snapshot *xylona.NodeResourceSnapshot
+	}
+
+	resultsCh := make(chan nodeResult, len(nodes))
+
+	for _, n := range nodes {
+		node := n
+		go func() {
+			client, errClient := ws.newFederationClientForNode(node)
+			if errClient != nil {
+				log.Debug().Err(errClient).Str("node_id", node.ID).Msg("Node metrics poll: failed to create federation client")
+				resultsCh <- nodeResult{nodeID: node.ID}
+				return
+			}
+			ctx, cancel := context.WithTimeout(ws.ctx, 10*time.Second)
+			defer cancel()
+			resp, errRPC := client.FederationGetNodeResourceSnapshot(ctx, connect.NewRequest(&xylona.FederationGetNodeResourceSnapshotRequest{}))
+			if errRPC != nil {
+				log.Debug().Err(errRPC).Str("node_id", node.ID).Msg("Node metrics poll: FederationGetNodeResourceSnapshot failed")
+				resultsCh <- nodeResult{nodeID: node.ID}
+				return
+			}
+			resultsCh <- nodeResult{nodeID: node.ID, snapshot: resp.Msg.GetSnapshot()}
+		}()
+	}
+
+	newCache := make(map[string]*xylona.NodeResourceSnapshot, len(nodes))
+	for range nodes {
+		result := <-resultsCh
+		if result.snapshot != nil {
+			newCache[result.nodeID] = result.snapshot
+		}
+	}
+
+	ws.remoteNodeSnapshotCacheLock.Lock()
+	ws.remoteNodeSnapshotCache = newCache
+	ws.remoteNodeSnapshotCacheLock.Unlock()
+}
+
+// collectLocalNodeSnapshot collects resource metrics for the local node.
+func (ws *WebSocket) collectLocalNodeSnapshot() *xylona.NodeResourceSnapshot {
+	snapshot, errSnap := sysinfo.CollectResourceSnapshot()
+	if errSnap != nil {
+		log.Error().Err(errSnap).Msg("Failed to collect local resource snapshot for node metrics")
+		return nil
+	}
+
+	gsCount, errGS := ws.db.CountGameServers()
+	if errGS != nil {
+		log.Error().Err(errGS).Msg("Failed to count game servers for node metrics")
+	}
+
+	runningCount := 0
+	for _, cmd := range ws.supervisor.ListCommands() {
+		if cmd.Status() == xylona.Status_ONLINE || cmd.Status() == xylona.Status_INSTALLING || cmd.Status() == xylona.Status_UPDATING {
+			runningCount++
+		}
+	}
+
+	userCount, errUsers := ws.db.CountUsers()
+	if errUsers != nil {
+		log.Error().Err(errUsers).Msg("Failed to count users for node metrics")
+	}
+
+	return &xylona.NodeResourceSnapshot{
+		CpuPercent:             snapshot.CPUPercent,
+		MemoryPercent:          snapshot.MemoryPercent,
+		MemoryUsedBytes:        int64(snapshot.MemoryUsed),
+		MemoryTotalBytes:       int64(snapshot.MemoryTotal),
+		DiskPercent:            snapshot.DiskPercent,
+		DiskUsedBytes:          int64(snapshot.DiskUsed),
+		DiskTotalBytes:         int64(snapshot.DiskTotal),
+		GameServerCount:        int32(gsCount),
+		RunningGameServerCount: int32(runningCount),
+		UserCount:              int32(userCount),
+		RecordedAt:             timestamppb.Now(),
+	}
+}
+
+// nodeSnapshotEqual checks if two NodeResourceSnapshot values are equal enough to skip sending.
+func nodeSnapshotEqual(a, b *xylona.NodeResourceSnapshot) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return int64(a.CpuPercent) == int64(b.CpuPercent) &&
+		a.MemoryUsedBytes == b.MemoryUsedBytes &&
+		a.DiskUsedBytes == b.DiskUsedBytes &&
+		a.GameServerCount == b.GameServerCount &&
+		a.RunningGameServerCount == b.RunningGameServerCount &&
+		a.UserCount == b.UserCount
+}
+
+// sendNodeMetrics sends node resource metrics to a superuser connection every 5 seconds.
+func (ws *WebSocket) sendNodeMetrics(s *melody.Session) {
+	previousSnapshots := make(map[string]*xylona.NodeResourceSnapshot)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case <-s.Request.Context().Done():
+			return
+		case <-ticker.C:
+			if s.IsClosed() {
+				return
+			}
+
+			localNodeID, errLocalID := ws.db.GetLocalNodeID()
+			if errLocalID != nil {
+				log.Error().Err(errLocalID).Msg("Failed to get local node ID for node metrics")
+				continue
+			}
+
+			allNodeMetrics := &xylona.AllNodeMetrics{Nodes: make(map[string]*xylona.NodeResourceSnapshot)}
+			changed := false
+
+			// Collect local node snapshot.
+			localSnap := ws.collectLocalNodeSnapshot()
+			if localSnap != nil {
+				prev, exists := previousSnapshots[localNodeID]
+				if !exists || !nodeSnapshotEqual(prev, localSnap) {
+					changed = true
+				}
+				previousSnapshots[localNodeID] = localSnap
+				allNodeMetrics.Nodes[localNodeID] = localSnap
+			}
+
+			// Merge remote node snapshots from cache.
+			ws.remoteNodeSnapshotCacheLock.RLock()
+			for nodeID, snap := range ws.remoteNodeSnapshotCache {
+				prev, exists := previousSnapshots[nodeID]
+				if !exists || !nodeSnapshotEqual(prev, snap) {
+					changed = true
+				}
+				previousSnapshots[nodeID] = snap
+				allNodeMetrics.Nodes[nodeID] = snap
+			}
+			ws.remoteNodeSnapshotCacheLock.RUnlock()
+
+			if !changed {
+				continue
+			}
+
+			out := &xylona.Message{
+				Type:           xylona.Message_NodeMetrics,
+				AllNodeMetrics: allNodeMetrics,
+			}
+			byteOut, errMarshal := json.Marshal(out)
+			if errMarshal != nil {
+				log.Error().Err(errMarshal).Msg("Failed to marshal node metrics")
+				continue
+			}
+			errWrite := s.Write(byteOut)
+			if errWrite != nil {
+				log.Error().Err(errWrite).Msg("Failed to write node metrics websocket message")
+				return
+			}
+		}
+	}
 }
 
 func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {

@@ -62,13 +62,67 @@
                   :color="healthColor(props.row.healthStatus)"
                   :label="healthLabel(props.row.healthStatus)" />
               </template>
+              <q-badge v-else color="positive" label="Healthy" />
+            </q-td>
+          </template>
+          <template v-slot:body-cell-cpu="props">
+            <q-td :props="props">
+              <template v-if="getSnapshot(props.row.id)">
+                <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.cpuPercent)">
+                  {{ Math.round(getSnapshot(props.row.id)!.cpuPercent) }}%
+                </span>
+              </template>
+              <span v-else class="text-grey">&mdash;</span>
+            </q-td>
+          </template>
+          <template v-slot:body-cell-ram="props">
+            <q-td :props="props">
+              <template v-if="getSnapshot(props.row.id)">
+                <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.memoryPercent)">
+                  {{ Math.round(getSnapshot(props.row.id)!.memoryPercent) }}%
+                </span>
+                <span class="text-caption text-xy-muted q-ml-xs">
+                  {{ bytesToSize(Number(getSnapshot(props.row.id)!.memoryUsedBytes)) }}
+                </span>
+              </template>
+              <span v-else class="text-grey">&mdash;</span>
+            </q-td>
+          </template>
+          <template v-slot:body-cell-disk="props">
+            <q-td :props="props">
+              <template v-if="getSnapshot(props.row.id)">
+                <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.diskPercent)">
+                  {{ Math.round(getSnapshot(props.row.id)!.diskPercent) }}%
+                </span>
+                <span class="text-caption text-xy-muted q-ml-xs">
+                  {{ bytesToSize(Number(getSnapshot(props.row.id)!.diskUsedBytes)) }}
+                </span>
+              </template>
+              <span v-else class="text-grey">&mdash;</span>
+            </q-td>
+          </template>
+          <template v-slot:body-cell-servers="props">
+            <q-td :props="props">
+              <template v-if="getSnapshot(props.row.id)">
+                <span class="text-success">{{ getSnapshot(props.row.id)!.runningGameServerCount }}</span>
+                /
+                {{ getSnapshot(props.row.id)!.gameServerCount }}
+              </template>
+              <span v-else class="text-grey">&mdash;</span>
+            </q-td>
+          </template>
+          <template v-slot:body-cell-users="props">
+            <q-td :props="props">
+              <template v-if="getSnapshot(props.row.id)">
+                {{ getSnapshot(props.row.id)!.userCount }}
+              </template>
               <span v-else class="text-grey">&mdash;</span>
             </q-td>
           </template>
           <template v-slot:body-cell-version="props">
             <q-td :props="props">
               <span v-if="getNodeVersion(props.row.id)">
-                v{{ getNodeVersion(props.row.id) }}
+                {{ getNodeVersion(props.row.id) }}
               </span>
               <span v-else class="text-grey">&mdash;</span>
             </q-td>
@@ -91,14 +145,6 @@
                   class="q-ml-sm"
                   label="ok" />
               </template>
-              <span v-else class="text-grey">&mdash;</span>
-            </q-td>
-          </template>
-          <template v-slot:body-cell-dateAdded="props">
-            <q-td :props="props">
-              <span v-if="props.row.createdAt?.seconds">
-                {{ formatTimestamp(props.row.createdAt) }}
-              </span>
               <span v-else class="text-grey">&mdash;</span>
             </q-td>
           </template>
@@ -216,7 +262,7 @@
       <NodeDetailPanel
         :node="detailNode"
         :system-info="getNodeSummary(detailNode.id)?.systemInfo"
-        :snapshot="getNodeSummary(detailNode.id)?.snapshot" />
+        :snapshot="getSnapshot(detailNode.id)" />
     </div>
 
     <q-dialog v-model="showDeleteDialog" aria-labelledby="dialog-title">
@@ -244,9 +290,16 @@ import { ConnectError } from '@connectrpc/connect'
 import { useStorage } from '@vueuse/core'
 import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { computed, onMounted, Ref, ref } from 'vue'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { Node } from '@/proto/shared_pb'
+import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
+import {
+  ConnectErrorToString,
+  GetOrCreateXylonaWebsocketClient,
+  GetXylonaClient,
+  XylonaEventBus,
+  bytesToSize,
+} from '@/utils/shared'
+import { Node, NodeResourceSnapshot } from '@/proto/shared_pb'
+import { AllNodeMetrics } from '@/proto/websocket_pb'
 import {
   DashboardNodeSummary,
   ListNodesRequestSchema,
@@ -263,6 +316,7 @@ const showDeleteDialog = ref(false)
 const selectedNodeForDelete = ref<Node | null>(null)
 const detailNode = ref<Node | null>(null)
 const dashboardSummaries = ref<DashboardNodeSummary[]>([])
+const liveSnapshots = ref<Map<string, NodeResourceSnapshot>>(new Map())
 
 const initialPagination = useStorage('node-pagination', {
   rowsPerPage: 25,
@@ -270,28 +324,48 @@ const initialPagination = useStorage('node-pagination', {
 })
 
 const totalServers = computed(() =>
-  dashboardSummaries.value.reduce((sum, s) => sum + (s.snapshot?.gameServerCount ?? 0), 0),
+  rows.value.reduce((sum, n) => sum + (getSnapshot(n.id)?.gameServerCount ?? 0), 0),
 )
 const runningServers = computed(() =>
-  dashboardSummaries.value.reduce(
-    (sum, s) => sum + (s.snapshot?.runningGameServerCount ?? 0),
-    0,
-  ),
+  rows.value.reduce((sum, n) => sum + (getSnapshot(n.id)?.runningGameServerCount ?? 0), 0),
 )
 const totalUsers = computed(() =>
-  dashboardSummaries.value.reduce((sum, s) => sum + (s.snapshot?.userCount ?? 0), 0),
+  rows.value.reduce((sum, n) => sum + (getSnapshot(n.id)?.userCount ?? 0), 0),
 )
 
 function getNodeSummary(nodeId: string): DashboardNodeSummary | undefined {
   return dashboardSummaries.value.find((s) => s.node?.id === nodeId)
 }
 
+function getSnapshot(nodeId: string): NodeResourceSnapshot | undefined {
+  return liveSnapshots.value.get(nodeId) ?? getNodeSummary(nodeId)?.snapshot
+}
+
 function getNodeVersion(nodeId: string): string | undefined {
   return getNodeSummary(nodeId)?.systemInfo?.xylonaVersion
 }
 
+function metricColor(percent: number): string {
+  if (percent >= 80) return 'negative'
+  if (percent >= 50) return 'warning'
+  return 'positive'
+}
+
+function onNodeMetrics(metrics: AllNodeMetrics | undefined) {
+  if (!metrics?.nodes) return
+  for (const [nodeId, snapshot] of Object.entries(metrics.nodes)) {
+    liveSnapshots.value.set(nodeId, snapshot)
+  }
+}
+
 onMounted(async () => {
+  GetOrCreateXylonaWebsocketClient()
+  XylonaEventBus.on('nodeMetrics', onNodeMetrics)
   await fetchAll()
+})
+
+onBeforeUnmount(() => {
+  XylonaEventBus.off('nodeMetrics', onNodeMetrics)
 })
 
 async function fetchAll() {
@@ -410,8 +484,43 @@ const columns = ref([
     sortable: true,
   },
   {
+    name: 'cpu',
+    label: 'CPU',
+    align: 'left' as const,
+    field: (row: Node) => getSnapshot(row.id)?.cpuPercent ?? -1,
+    sortable: true,
+  },
+  {
+    name: 'ram',
+    label: 'RAM',
+    align: 'left' as const,
+    field: (row: Node) => getSnapshot(row.id)?.memoryPercent ?? -1,
+    sortable: true,
+  },
+  {
+    name: 'disk',
+    label: 'Disk',
+    align: 'left' as const,
+    field: (row: Node) => getSnapshot(row.id)?.diskPercent ?? -1,
+    sortable: true,
+  },
+  {
+    name: 'servers',
+    label: 'Servers',
+    align: 'left' as const,
+    field: (row: Node) => getSnapshot(row.id)?.gameServerCount ?? -1,
+    sortable: true,
+  },
+  {
+    name: 'users',
+    label: 'Users',
+    align: 'left' as const,
+    field: (row: Node) => getSnapshot(row.id)?.userCount ?? -1,
+    sortable: true,
+  },
+  {
     name: 'version',
-    label: 'Xylona Version',
+    label: 'Version',
     align: 'left' as const,
     field: () => '',
     sortable: false,
@@ -422,13 +531,6 @@ const columns = ref([
     align: 'left' as const,
     field: (row: Node) => row.lastSyncAt,
     sortable: false,
-  },
-  {
-    name: 'dateAdded',
-    label: 'Date Added',
-    align: 'left' as const,
-    field: (row: Node) => row.createdAt,
-    sortable: true,
   },
   { name: 'actions', label: '', align: 'center' as const, field: () => '' },
 ])

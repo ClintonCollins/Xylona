@@ -93,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import { create } from '@bufbuild/protobuf'
 import { Timestamp, TimestampSchema } from '@bufbuild/protobuf/wkt'
@@ -102,8 +102,9 @@ import {
   GetNodeMetricsHistoryRequestSchema,
   GetNodeSystemInfoRequestSchema,
 } from 'src/proto/xylona_pb'
+import { AllNodeMetrics } from 'src/proto/websocket_pb'
 import { MetricsHistoryPoint } from 'src/proto/shared_pb'
-import { GetXylonaClient, bytesToSize } from '@/utils/shared'
+import { GetXylonaClient, bytesToSize, XylonaEventBus } from '@/utils/shared'
 import MetricsLineChart from '@/components/shared/MetricsLineChart.vue'
 import NodeResourceGauges from '@/components/nodes/NodeResourceGauges.vue'
 
@@ -117,9 +118,18 @@ const loading = ref(false)
 const localSystemInfo = ref<NodeSystemInfo | undefined>(props.systemInfo)
 const historyPoints = ref<MetricsHistoryPoint[]>([])
 const selectedRange = ref('1h')
+const liveSnapshot = ref<NodeResourceSnapshot | undefined>(undefined)
 
 const systemInfo = computed(() => localSystemInfo.value)
-const snapshot = computed(() => props.snapshot)
+const snapshot = computed(() => liveSnapshot.value ?? props.snapshot)
+
+function onNodeMetrics(metrics: AllNodeMetrics | undefined) {
+  if (!metrics?.nodes) return
+  const snap = metrics.nodes[props.node.id]
+  if (snap) {
+    liveSnapshot.value = snap
+  }
+}
 
 const rangeMs: Record<string, number> = {
   '1h': 60 * 60 * 1000,
@@ -202,7 +212,12 @@ function onRangeChange(range: string) {
 }
 
 onMounted(async () => {
+  XylonaEventBus.on('nodeMetrics', onNodeMetrics)
   await Promise.all([fetchSystemInfo(), fetchHistory()])
+})
+
+onBeforeUnmount(() => {
+  XylonaEventBus.off('nodeMetrics', onNodeMetrics)
 })
 </script>
 

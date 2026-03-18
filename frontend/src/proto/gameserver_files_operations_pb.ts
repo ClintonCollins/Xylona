@@ -2,496 +2,466 @@
 // @generated from file gameserver_files_operations.proto (package xylona, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv1'
-import { enumDesc, fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv1'
-import type { Timestamp } from '@bufbuild/protobuf/wkt'
-import { file_google_protobuf_any, file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
-import type { Message } from '@bufbuild/protobuf'
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv1";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv1";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_any, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file gameserver_files_operations.proto.
  */
-export const file_gameserver_files_operations: GenFile =
-  /*@__PURE__*/
-  fileDesc(
-    'CiFnYW1lc2VydmVyX2ZpbGVzX29wZXJhdGlvbnMucHJvdG8SBnh5bG9uYSJPChxHYW1lU2VydmVyRmlsZXNEZWxldGVSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgCIAMoCSI4Ch1HYW1lU2VydmVyRmlsZXNEZWxldGVSZXNwb25zZRIXCg9mdWxsX2ZpbGVfcGF0aHMYASADKAkiugEKIUdhbWVTZXJ2ZXJGaWxlc0NvbXByZXNzaW9uUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIXCg9mdWxsX2ZpbGVfcGF0aHMYAiADKAkSIgoaZnVsbF9kZXN0aW5hdGlvbl9maWxlX3BhdGgYAyABKAkSQAoQY29tcHJlc3Npb25fdHlwZRgEIAEoDjImLnh5bG9uYS5HYW1lU2VydmVyRmlsZXNDb21wcmVzc2lvblR5cGUiPAoiR2FtZVNlcnZlckZpbGVzQ29tcHJlc3Npb25SZXNwb25zZRIWCg5mdWxsX2ZpbGVfcGF0aBgBIAEoCSJ0CiNHYW1lU2VydmVyRmlsZXNEZWNvbXByZXNzaW9uUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIWCg5mdWxsX2ZpbGVfcGF0aBgCIAEoCRIdChVkZXN0aW5hdGlvbl9iYXNlX3BhdGgYAyABKAkiPwokR2FtZVNlcnZlckZpbGVzRGVjb21wcmVzc2lvblJlc3BvbnNlEhcKD2Z1bGxfZmlsZV9wYXRocxgBIAMoCSJrCiVHYW1lU2VydmVyc0ZpbGVEb3dubG9hZEZyb21VUkxSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEgsKA3VybBgCIAEoCRIdChVkZXN0aW5hdGlvbl9iYXNlX3BhdGgYAyABKAkiOwomR2FtZVNlcnZlcnNGaWxlRG93bmxvYWRGcm9tVVJMUmVzcG9uc2USEQoJZmlsZV9wYXRoGAEgASgJIlkKG0dhbWVTZXJ2ZXJGaWxlUmVuYW1lUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIQCghvbGRfcGF0aBgCIAEoCRIQCghuZXdfcGF0aBgDIAEoCSJCChxHYW1lU2VydmVyRmlsZVJlbmFtZVJlc3BvbnNlEhAKCG9sZF9wYXRoGAEgASgJEhAKCG5ld19wYXRoGAIgASgJImwKGkdhbWVTZXJ2ZXJGaWxlc01vdmVSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgCIAMoCRIdChVkZXN0aW5hdGlvbl9iYXNlX3BhdGgYAyABKAkiNgobR2FtZVNlcnZlckZpbGVzTW92ZVJlc3BvbnNlEhcKD2Z1bGxfZmlsZV9wYXRocxgBIAMoCSJdChpHYW1lU2VydmVyc0ZpbGVFZGl0UmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIWCg5mdWxsX2ZpbGVfcGF0aBgCIAEoCRIPCgdjb250ZW50GAMgASgJIh0KG0dhbWVTZXJ2ZXJzRmlsZUVkaXRSZXNwb25zZSJ/CiZHYW1lU2VydmVyRmlsZU9yRGlyZWN0b3J5Q3JlYXRlUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIWCg5mdWxsX2ZpbGVfcGF0aBgCIAEoCRIPCgdjb250ZW50GAMgASgJEhQKDGlzX2RpcmVjdG9yeRgEIAEoCCIpCidHYW1lU2VydmVyRmlsZU9yRGlyZWN0b3J5Q3JlYXRlUmVzcG9uc2UiOwoTRG93bmxvYWRGaWxlUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIMCgRwYXRoGAIgASgJImsKBEZpbGUSDAoEbmFtZRgBIAEoCRIMCgRzaXplGAIgASgDEjEKDWxhc3RfbW9kaWZpZWQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhQKDGlzX2RpcmVjdG9yeRgEIAEoCCJBChlMaXN0RGlyZWN0b3J5RmlsZXNSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEgwKBHBhdGgYAiABKAkiOQoaTGlzdERpcmVjdG9yeUZpbGVzUmVzcG9uc2USGwoFZmlsZXMYASADKAsyDC54eWxvbmEuRmlsZSpPCh5HYW1lU2VydmVyRmlsZXNDb21wcmVzc2lvblR5cGUSBwoDWklQEAASCQoFQlpJUDIQARIICgRHWklQEAISBwoDWlNUEAMSBgoCWFoQBEIyWjBnaXRodWIuY29tL0NsaW50b25Db2xsaW5zL1h5bG9uYS9wcm90by9nby94eWxvbmFiBnByb3RvMw',
-    [file_google_protobuf_timestamp, file_google_protobuf_any],
-  )
+export const file_gameserver_files_operations: GenFile = /*@__PURE__*/
+  fileDesc("CiFnYW1lc2VydmVyX2ZpbGVzX29wZXJhdGlvbnMucHJvdG8SBnh5bG9uYSJPChxHYW1lU2VydmVyRmlsZXNEZWxldGVSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgCIAMoCSI4Ch1HYW1lU2VydmVyRmlsZXNEZWxldGVSZXNwb25zZRIXCg9mdWxsX2ZpbGVfcGF0aHMYASADKAkiugEKIUdhbWVTZXJ2ZXJGaWxlc0NvbXByZXNzaW9uUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIXCg9mdWxsX2ZpbGVfcGF0aHMYAiADKAkSIgoaZnVsbF9kZXN0aW5hdGlvbl9maWxlX3BhdGgYAyABKAkSQAoQY29tcHJlc3Npb25fdHlwZRgEIAEoDjImLnh5bG9uYS5HYW1lU2VydmVyRmlsZXNDb21wcmVzc2lvblR5cGUiPAoiR2FtZVNlcnZlckZpbGVzQ29tcHJlc3Npb25SZXNwb25zZRIWCg5mdWxsX2ZpbGVfcGF0aBgBIAEoCSJ0CiNHYW1lU2VydmVyRmlsZXNEZWNvbXByZXNzaW9uUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIWCg5mdWxsX2ZpbGVfcGF0aBgCIAEoCRIdChVkZXN0aW5hdGlvbl9iYXNlX3BhdGgYAyABKAkiPwokR2FtZVNlcnZlckZpbGVzRGVjb21wcmVzc2lvblJlc3BvbnNlEhcKD2Z1bGxfZmlsZV9wYXRocxgBIAMoCSJrCiVHYW1lU2VydmVyc0ZpbGVEb3dubG9hZEZyb21VUkxSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEgsKA3VybBgCIAEoCRIdChVkZXN0aW5hdGlvbl9iYXNlX3BhdGgYAyABKAkiOwomR2FtZVNlcnZlcnNGaWxlRG93bmxvYWRGcm9tVVJMUmVzcG9uc2USEQoJZmlsZV9wYXRoGAEgASgJIlkKG0dhbWVTZXJ2ZXJGaWxlUmVuYW1lUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIQCghvbGRfcGF0aBgCIAEoCRIQCghuZXdfcGF0aBgDIAEoCSJCChxHYW1lU2VydmVyRmlsZVJlbmFtZVJlc3BvbnNlEhAKCG9sZF9wYXRoGAEgASgJEhAKCG5ld19wYXRoGAIgASgJImwKGkdhbWVTZXJ2ZXJGaWxlc01vdmVSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEhcKD2Z1bGxfZmlsZV9wYXRocxgCIAMoCRIdChVkZXN0aW5hdGlvbl9iYXNlX3BhdGgYAyABKAkiNgobR2FtZVNlcnZlckZpbGVzTW92ZVJlc3BvbnNlEhcKD2Z1bGxfZmlsZV9wYXRocxgBIAMoCSJdChpHYW1lU2VydmVyc0ZpbGVFZGl0UmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIWCg5mdWxsX2ZpbGVfcGF0aBgCIAEoCRIPCgdjb250ZW50GAMgASgJIh0KG0dhbWVTZXJ2ZXJzRmlsZUVkaXRSZXNwb25zZSJ/CiZHYW1lU2VydmVyRmlsZU9yRGlyZWN0b3J5Q3JlYXRlUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIWCg5mdWxsX2ZpbGVfcGF0aBgCIAEoCRIPCgdjb250ZW50GAMgASgJEhQKDGlzX2RpcmVjdG9yeRgEIAEoCCIpCidHYW1lU2VydmVyRmlsZU9yRGlyZWN0b3J5Q3JlYXRlUmVzcG9uc2UiOwoTRG93bmxvYWRGaWxlUmVxdWVzdBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIMCgRwYXRoGAIgASgJImsKBEZpbGUSDAoEbmFtZRgBIAEoCRIMCgRzaXplGAIgASgDEjEKDWxhc3RfbW9kaWZpZWQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhQKDGlzX2RpcmVjdG9yeRgEIAEoCCJBChlMaXN0RGlyZWN0b3J5RmlsZXNSZXF1ZXN0EhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEgwKBHBhdGgYAiABKAkiOQoaTGlzdERpcmVjdG9yeUZpbGVzUmVzcG9uc2USGwoFZmlsZXMYASADKAsyDC54eWxvbmEuRmlsZSpPCh5HYW1lU2VydmVyRmlsZXNDb21wcmVzc2lvblR5cGUSBwoDWklQEAASCQoFQlpJUDIQARIICgRHWklQEAISBwoDWlNUEAMSBgoCWFoQBEIyWjBnaXRodWIuY29tL0NsaW50b25Db2xsaW5zL1h5bG9uYS9wcm90by9nby94eWxvbmFiBnByb3RvMw", [file_google_protobuf_timestamp, file_google_protobuf_any]);
 
 /**
  * @generated from message xylona.GameServerFilesDeleteRequest
  */
-export type GameServerFilesDeleteRequest = Message<'xylona.GameServerFilesDeleteRequest'> & {
+export type GameServerFilesDeleteRequest = Message<"xylona.GameServerFilesDeleteRequest"> & {
   /**
    * @generated from field: string game_server_id = 1;
    */
-  gameServerId: string
+  gameServerId: string;
 
   /**
    * @generated from field: repeated string full_file_paths = 2;
    */
-  fullFilePaths: string[]
-}
+  fullFilePaths: string[];
+};
 
 /**
  * Describes the message xylona.GameServerFilesDeleteRequest.
  * Use `create(GameServerFilesDeleteRequestSchema)` to create a new message.
  */
-export const GameServerFilesDeleteRequestSchema: GenMessage<GameServerFilesDeleteRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 0)
+export const GameServerFilesDeleteRequestSchema: GenMessage<GameServerFilesDeleteRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 0);
 
 /**
  * @generated from message xylona.GameServerFilesDeleteResponse
  */
-export type GameServerFilesDeleteResponse = Message<'xylona.GameServerFilesDeleteResponse'> & {
+export type GameServerFilesDeleteResponse = Message<"xylona.GameServerFilesDeleteResponse"> & {
   /**
    * @generated from field: repeated string full_file_paths = 1;
    */
-  fullFilePaths: string[]
-}
+  fullFilePaths: string[];
+};
 
 /**
  * Describes the message xylona.GameServerFilesDeleteResponse.
  * Use `create(GameServerFilesDeleteResponseSchema)` to create a new message.
  */
-export const GameServerFilesDeleteResponseSchema: GenMessage<GameServerFilesDeleteResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 1)
+export const GameServerFilesDeleteResponseSchema: GenMessage<GameServerFilesDeleteResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 1);
 
 /**
  * @generated from message xylona.GameServerFilesCompressionRequest
  */
-export type GameServerFilesCompressionRequest =
-  Message<'xylona.GameServerFilesCompressionRequest'> & {
-    /**
-     * @generated from field: string game_server_id = 1;
-     */
-    gameServerId: string
+export type GameServerFilesCompressionRequest = Message<"xylona.GameServerFilesCompressionRequest"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
 
-    /**
-     * @generated from field: repeated string full_file_paths = 2;
-     */
-    fullFilePaths: string[]
+  /**
+   * @generated from field: repeated string full_file_paths = 2;
+   */
+  fullFilePaths: string[];
 
-    /**
-     * @generated from field: string full_destination_file_path = 3;
-     */
-    fullDestinationFilePath: string
+  /**
+   * @generated from field: string full_destination_file_path = 3;
+   */
+  fullDestinationFilePath: string;
 
-    /**
-     * @generated from field: xylona.GameServerFilesCompressionType compression_type = 4;
-     */
-    compressionType: GameServerFilesCompressionType
-  }
+  /**
+   * @generated from field: xylona.GameServerFilesCompressionType compression_type = 4;
+   */
+  compressionType: GameServerFilesCompressionType;
+};
 
 /**
  * Describes the message xylona.GameServerFilesCompressionRequest.
  * Use `create(GameServerFilesCompressionRequestSchema)` to create a new message.
  */
-export const GameServerFilesCompressionRequestSchema: GenMessage<GameServerFilesCompressionRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 2)
+export const GameServerFilesCompressionRequestSchema: GenMessage<GameServerFilesCompressionRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 2);
 
 /**
  * @generated from message xylona.GameServerFilesCompressionResponse
  */
-export type GameServerFilesCompressionResponse =
-  Message<'xylona.GameServerFilesCompressionResponse'> & {
-    /**
-     * @generated from field: string full_file_path = 1;
-     */
-    fullFilePath: string
-  }
+export type GameServerFilesCompressionResponse = Message<"xylona.GameServerFilesCompressionResponse"> & {
+  /**
+   * @generated from field: string full_file_path = 1;
+   */
+  fullFilePath: string;
+};
 
 /**
  * Describes the message xylona.GameServerFilesCompressionResponse.
  * Use `create(GameServerFilesCompressionResponseSchema)` to create a new message.
  */
-export const GameServerFilesCompressionResponseSchema: GenMessage<GameServerFilesCompressionResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 3)
+export const GameServerFilesCompressionResponseSchema: GenMessage<GameServerFilesCompressionResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 3);
 
 /**
  * @generated from message xylona.GameServerFilesDecompressionRequest
  */
-export type GameServerFilesDecompressionRequest =
-  Message<'xylona.GameServerFilesDecompressionRequest'> & {
-    /**
-     * @generated from field: string game_server_id = 1;
-     */
-    gameServerId: string
+export type GameServerFilesDecompressionRequest = Message<"xylona.GameServerFilesDecompressionRequest"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
 
-    /**
-     * @generated from field: string full_file_path = 2;
-     */
-    fullFilePath: string
+  /**
+   * @generated from field: string full_file_path = 2;
+   */
+  fullFilePath: string;
 
-    /**
-     * @generated from field: string destination_base_path = 3;
-     */
-    destinationBasePath: string
-  }
+  /**
+   * @generated from field: string destination_base_path = 3;
+   */
+  destinationBasePath: string;
+};
 
 /**
  * Describes the message xylona.GameServerFilesDecompressionRequest.
  * Use `create(GameServerFilesDecompressionRequestSchema)` to create a new message.
  */
-export const GameServerFilesDecompressionRequestSchema: GenMessage<GameServerFilesDecompressionRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 4)
+export const GameServerFilesDecompressionRequestSchema: GenMessage<GameServerFilesDecompressionRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 4);
 
 /**
  * @generated from message xylona.GameServerFilesDecompressionResponse
  */
-export type GameServerFilesDecompressionResponse =
-  Message<'xylona.GameServerFilesDecompressionResponse'> & {
-    /**
-     * @generated from field: repeated string full_file_paths = 1;
-     */
-    fullFilePaths: string[]
-  }
+export type GameServerFilesDecompressionResponse = Message<"xylona.GameServerFilesDecompressionResponse"> & {
+  /**
+   * @generated from field: repeated string full_file_paths = 1;
+   */
+  fullFilePaths: string[];
+};
 
 /**
  * Describes the message xylona.GameServerFilesDecompressionResponse.
  * Use `create(GameServerFilesDecompressionResponseSchema)` to create a new message.
  */
-export const GameServerFilesDecompressionResponseSchema: GenMessage<GameServerFilesDecompressionResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 5)
+export const GameServerFilesDecompressionResponseSchema: GenMessage<GameServerFilesDecompressionResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 5);
 
 /**
  * @generated from message xylona.GameServersFileDownloadFromURLRequest
  */
-export type GameServersFileDownloadFromURLRequest =
-  Message<'xylona.GameServersFileDownloadFromURLRequest'> & {
-    /**
-     * @generated from field: string game_server_id = 1;
-     */
-    gameServerId: string
+export type GameServersFileDownloadFromURLRequest = Message<"xylona.GameServersFileDownloadFromURLRequest"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
 
-    /**
-     * @generated from field: string url = 2;
-     */
-    url: string
+  /**
+   * @generated from field: string url = 2;
+   */
+  url: string;
 
-    /**
-     * The path to save the file to (Not including the file name)
-     *
-     * @generated from field: string destination_base_path = 3;
-     */
-    destinationBasePath: string
-  }
+  /**
+   * The path to save the file to (Not including the file name)
+   *
+   * @generated from field: string destination_base_path = 3;
+   */
+  destinationBasePath: string;
+};
 
 /**
  * Describes the message xylona.GameServersFileDownloadFromURLRequest.
  * Use `create(GameServersFileDownloadFromURLRequestSchema)` to create a new message.
  */
-export const GameServersFileDownloadFromURLRequestSchema: GenMessage<GameServersFileDownloadFromURLRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 6)
+export const GameServersFileDownloadFromURLRequestSchema: GenMessage<GameServersFileDownloadFromURLRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 6);
 
 /**
  * @generated from message xylona.GameServersFileDownloadFromURLResponse
  */
-export type GameServersFileDownloadFromURLResponse =
-  Message<'xylona.GameServersFileDownloadFromURLResponse'> & {
-    /**
-     * @generated from field: string file_path = 1;
-     */
-    filePath: string
-  }
+export type GameServersFileDownloadFromURLResponse = Message<"xylona.GameServersFileDownloadFromURLResponse"> & {
+  /**
+   * @generated from field: string file_path = 1;
+   */
+  filePath: string;
+};
 
 /**
  * Describes the message xylona.GameServersFileDownloadFromURLResponse.
  * Use `create(GameServersFileDownloadFromURLResponseSchema)` to create a new message.
  */
-export const GameServersFileDownloadFromURLResponseSchema: GenMessage<GameServersFileDownloadFromURLResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 7)
+export const GameServersFileDownloadFromURLResponseSchema: GenMessage<GameServersFileDownloadFromURLResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 7);
 
 /**
  * @generated from message xylona.GameServerFileRenameRequest
  */
-export type GameServerFileRenameRequest = Message<'xylona.GameServerFileRenameRequest'> & {
+export type GameServerFileRenameRequest = Message<"xylona.GameServerFileRenameRequest"> & {
   /**
    * @generated from field: string game_server_id = 1;
    */
-  gameServerId: string
+  gameServerId: string;
 
   /**
    * @generated from field: string old_path = 2;
    */
-  oldPath: string
+  oldPath: string;
 
   /**
    * @generated from field: string new_path = 3;
    */
-  newPath: string
-}
+  newPath: string;
+};
 
 /**
  * Describes the message xylona.GameServerFileRenameRequest.
  * Use `create(GameServerFileRenameRequestSchema)` to create a new message.
  */
-export const GameServerFileRenameRequestSchema: GenMessage<GameServerFileRenameRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 8)
+export const GameServerFileRenameRequestSchema: GenMessage<GameServerFileRenameRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 8);
 
 /**
  * @generated from message xylona.GameServerFileRenameResponse
  */
-export type GameServerFileRenameResponse = Message<'xylona.GameServerFileRenameResponse'> & {
+export type GameServerFileRenameResponse = Message<"xylona.GameServerFileRenameResponse"> & {
   /**
    * @generated from field: string old_path = 1;
    */
-  oldPath: string
+  oldPath: string;
 
   /**
    * @generated from field: string new_path = 2;
    */
-  newPath: string
-}
+  newPath: string;
+};
 
 /**
  * Describes the message xylona.GameServerFileRenameResponse.
  * Use `create(GameServerFileRenameResponseSchema)` to create a new message.
  */
-export const GameServerFileRenameResponseSchema: GenMessage<GameServerFileRenameResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 9)
+export const GameServerFileRenameResponseSchema: GenMessage<GameServerFileRenameResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 9);
 
 /**
  * @generated from message xylona.GameServerFilesMoveRequest
  */
-export type GameServerFilesMoveRequest = Message<'xylona.GameServerFilesMoveRequest'> & {
+export type GameServerFilesMoveRequest = Message<"xylona.GameServerFilesMoveRequest"> & {
   /**
    * @generated from field: string game_server_id = 1;
    */
-  gameServerId: string
+  gameServerId: string;
 
   /**
    * @generated from field: repeated string full_file_paths = 2;
    */
-  fullFilePaths: string[]
+  fullFilePaths: string[];
 
   /**
    * @generated from field: string destination_base_path = 3;
    */
-  destinationBasePath: string
-}
+  destinationBasePath: string;
+};
 
 /**
  * Describes the message xylona.GameServerFilesMoveRequest.
  * Use `create(GameServerFilesMoveRequestSchema)` to create a new message.
  */
-export const GameServerFilesMoveRequestSchema: GenMessage<GameServerFilesMoveRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 10)
+export const GameServerFilesMoveRequestSchema: GenMessage<GameServerFilesMoveRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 10);
 
 /**
  * @generated from message xylona.GameServerFilesMoveResponse
  */
-export type GameServerFilesMoveResponse = Message<'xylona.GameServerFilesMoveResponse'> & {
+export type GameServerFilesMoveResponse = Message<"xylona.GameServerFilesMoveResponse"> & {
   /**
    * @generated from field: repeated string full_file_paths = 1;
    */
-  fullFilePaths: string[]
-}
+  fullFilePaths: string[];
+};
 
 /**
  * Describes the message xylona.GameServerFilesMoveResponse.
  * Use `create(GameServerFilesMoveResponseSchema)` to create a new message.
  */
-export const GameServerFilesMoveResponseSchema: GenMessage<GameServerFilesMoveResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 11)
+export const GameServerFilesMoveResponseSchema: GenMessage<GameServerFilesMoveResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 11);
 
 /**
  * @generated from message xylona.GameServersFileEditRequest
  */
-export type GameServersFileEditRequest = Message<'xylona.GameServersFileEditRequest'> & {
+export type GameServersFileEditRequest = Message<"xylona.GameServersFileEditRequest"> & {
   /**
    * @generated from field: string game_server_id = 1;
    */
-  gameServerId: string
+  gameServerId: string;
 
   /**
    * @generated from field: string full_file_path = 2;
    */
-  fullFilePath: string
+  fullFilePath: string;
 
   /**
    * @generated from field: string content = 3;
    */
-  content: string
-}
+  content: string;
+};
 
 /**
  * Describes the message xylona.GameServersFileEditRequest.
  * Use `create(GameServersFileEditRequestSchema)` to create a new message.
  */
-export const GameServersFileEditRequestSchema: GenMessage<GameServersFileEditRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 12)
+export const GameServersFileEditRequestSchema: GenMessage<GameServersFileEditRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 12);
 
 /**
  * @generated from message xylona.GameServersFileEditResponse
  */
-export type GameServersFileEditResponse = Message<'xylona.GameServersFileEditResponse'> & {}
+export type GameServersFileEditResponse = Message<"xylona.GameServersFileEditResponse"> & {
+};
 
 /**
  * Describes the message xylona.GameServersFileEditResponse.
  * Use `create(GameServersFileEditResponseSchema)` to create a new message.
  */
-export const GameServersFileEditResponseSchema: GenMessage<GameServersFileEditResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 13)
+export const GameServersFileEditResponseSchema: GenMessage<GameServersFileEditResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 13);
 
 /**
  * @generated from message xylona.GameServerFileOrDirectoryCreateRequest
  */
-export type GameServerFileOrDirectoryCreateRequest =
-  Message<'xylona.GameServerFileOrDirectoryCreateRequest'> & {
-    /**
-     * @generated from field: string game_server_id = 1;
-     */
-    gameServerId: string
+export type GameServerFileOrDirectoryCreateRequest = Message<"xylona.GameServerFileOrDirectoryCreateRequest"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
 
-    /**
-     * @generated from field: string full_file_path = 2;
-     */
-    fullFilePath: string
+  /**
+   * @generated from field: string full_file_path = 2;
+   */
+  fullFilePath: string;
 
-    /**
-     * @generated from field: string content = 3;
-     */
-    content: string
+  /**
+   * @generated from field: string content = 3;
+   */
+  content: string;
 
-    /**
-     * @generated from field: bool is_directory = 4;
-     */
-    isDirectory: boolean
-  }
+  /**
+   * @generated from field: bool is_directory = 4;
+   */
+  isDirectory: boolean;
+};
 
 /**
  * Describes the message xylona.GameServerFileOrDirectoryCreateRequest.
  * Use `create(GameServerFileOrDirectoryCreateRequestSchema)` to create a new message.
  */
-export const GameServerFileOrDirectoryCreateRequestSchema: GenMessage<GameServerFileOrDirectoryCreateRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 14)
+export const GameServerFileOrDirectoryCreateRequestSchema: GenMessage<GameServerFileOrDirectoryCreateRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 14);
 
 /**
  * @generated from message xylona.GameServerFileOrDirectoryCreateResponse
  */
-export type GameServerFileOrDirectoryCreateResponse =
-  Message<'xylona.GameServerFileOrDirectoryCreateResponse'> & {}
+export type GameServerFileOrDirectoryCreateResponse = Message<"xylona.GameServerFileOrDirectoryCreateResponse"> & {
+};
 
 /**
  * Describes the message xylona.GameServerFileOrDirectoryCreateResponse.
  * Use `create(GameServerFileOrDirectoryCreateResponseSchema)` to create a new message.
  */
-export const GameServerFileOrDirectoryCreateResponseSchema: GenMessage<GameServerFileOrDirectoryCreateResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 15)
+export const GameServerFileOrDirectoryCreateResponseSchema: GenMessage<GameServerFileOrDirectoryCreateResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 15);
 
 /**
  * @generated from message xylona.DownloadFileRequest
  */
-export type DownloadFileRequest = Message<'xylona.DownloadFileRequest'> & {
+export type DownloadFileRequest = Message<"xylona.DownloadFileRequest"> & {
   /**
    * @generated from field: string game_server_id = 1;
    */
-  gameServerId: string
+  gameServerId: string;
 
   /**
    * @generated from field: string path = 2;
    */
-  path: string
-}
+  path: string;
+};
 
 /**
  * Describes the message xylona.DownloadFileRequest.
  * Use `create(DownloadFileRequestSchema)` to create a new message.
  */
-export const DownloadFileRequestSchema: GenMessage<DownloadFileRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 16)
+export const DownloadFileRequestSchema: GenMessage<DownloadFileRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 16);
 
 /**
  * @generated from message xylona.File
  */
-export type File = Message<'xylona.File'> & {
+export type File = Message<"xylona.File"> & {
   /**
    * @generated from field: string name = 1;
    */
-  name: string
+  name: string;
 
   /**
    * @generated from field: int64 size = 2;
    */
-  size: bigint
+  size: bigint;
 
   /**
    * @generated from field: google.protobuf.Timestamp last_modified = 3;
    */
-  lastModified?: Timestamp
+  lastModified?: Timestamp;
 
   /**
    * @generated from field: bool is_directory = 4;
    */
-  isDirectory: boolean
-}
+  isDirectory: boolean;
+};
 
 /**
  * Describes the message xylona.File.
  * Use `create(FileSchema)` to create a new message.
  */
-export const FileSchema: GenMessage<File> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 17)
+export const FileSchema: GenMessage<File> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 17);
 
 /**
  * @generated from message xylona.ListDirectoryFilesRequest
  */
-export type ListDirectoryFilesRequest = Message<'xylona.ListDirectoryFilesRequest'> & {
+export type ListDirectoryFilesRequest = Message<"xylona.ListDirectoryFilesRequest"> & {
   /**
    * @generated from field: string game_server_id = 1;
    */
-  gameServerId: string
+  gameServerId: string;
 
   /**
    * @generated from field: string path = 2;
    */
-  path: string
-}
+  path: string;
+};
 
 /**
  * Describes the message xylona.ListDirectoryFilesRequest.
  * Use `create(ListDirectoryFilesRequestSchema)` to create a new message.
  */
-export const ListDirectoryFilesRequestSchema: GenMessage<ListDirectoryFilesRequest> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 18)
+export const ListDirectoryFilesRequestSchema: GenMessage<ListDirectoryFilesRequest> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 18);
 
 /**
  * @generated from message xylona.ListDirectoryFilesResponse
  */
-export type ListDirectoryFilesResponse = Message<'xylona.ListDirectoryFilesResponse'> & {
+export type ListDirectoryFilesResponse = Message<"xylona.ListDirectoryFilesResponse"> & {
   /**
    * @generated from field: repeated xylona.File files = 1;
    */
-  files: File[]
-}
+  files: File[];
+};
 
 /**
  * Describes the message xylona.ListDirectoryFilesResponse.
  * Use `create(ListDirectoryFilesResponseSchema)` to create a new message.
  */
-export const ListDirectoryFilesResponseSchema: GenMessage<ListDirectoryFilesResponse> =
-  /*@__PURE__*/
-  messageDesc(file_gameserver_files_operations, 19)
+export const ListDirectoryFilesResponseSchema: GenMessage<ListDirectoryFilesResponse> = /*@__PURE__*/
+  messageDesc(file_gameserver_files_operations, 19);
 
 /**
  * @generated from enum xylona.GameServerFilesCompressionType
@@ -526,6 +496,6 @@ export enum GameServerFilesCompressionType {
 /**
  * Describes the enum xylona.GameServerFilesCompressionType.
  */
-export const GameServerFilesCompressionTypeSchema: GenEnum<GameServerFilesCompressionType> =
-  /*@__PURE__*/
-  enumDesc(file_gameserver_files_operations, 0)
+export const GameServerFilesCompressionTypeSchema: GenEnum<GameServerFilesCompressionType> = /*@__PURE__*/
+  enumDesc(file_gameserver_files_operations, 0);
+
