@@ -1,6 +1,6 @@
 <template>
   <q-card-section>
-    <GameServerForm :existing-game-server-id="gameServerID"></GameServerForm>
+    <game-server-form :existing-game-server-id="gameServerID"></game-server-form>
   </q-card-section>
 </template>
 

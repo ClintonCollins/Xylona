@@ -10,94 +10,94 @@
     <q-form class="q-pa-lg">
       <div class="row wrap q-col-gutter-md justify-between">
         <q-input
+          v-model="gameServer.name"
           class="col-12 col-xl-6"
           outlined
           type="text"
           autofocus
-          label="Name"
-          v-model="gameServer.name"></q-input>
+          label="Name"></q-input>
         <q-select
+          v-model="gameServer.userId"
           class="col-12 col-xl-6"
           outlined
           type="text"
           label="User"
           emit-value
           :options="availableUsers"
-          v-model="gameServer.userId"
           option-label="label"
           map-options
           options-selected-class="selected-option"></q-select>
         <q-select
+          v-model="gameServer.gameId"
           class="col-12 col-xl-6"
           outlined
           type="text"
           label="Game"
           emit-value
           :options="availableGames"
-          v-model="gameServer.gameId"
           option-label="label"
           map-options
           options-selected-class="selected-option"></q-select>
         <q-select
+          v-model="gameServer.nodeId"
           class="col-12 col-xl-6"
           outlined
           type="text"
           label="Node"
           emit-value
           :options="nodes"
-          v-model="gameServer.nodeId"
           option-label="name"
           map-options
           option-value="id"
           options-selected-class="selected-option"></q-select>
         <q-select
+          v-model="gameServer.ip"
           class="col-12 col-xl-6"
           outlined
           type="text"
           label="IP Address"
           emit-value
           :options="availableIPs"
-          v-model="gameServer.ip"
           option-label="address"
           options-selected-class="selected-option"></q-select>
         <q-input
           v-if="props.existingGameServerId !== undefined"
+          v-model="gameServer.startCommand"
           class="col-12 col-xl-6"
           outlined
           type="text"
-          label="Start Command"
-          v-model="gameServer.startCommand"></q-input>
+          label="Start Command"></q-input>
         <q-input
+          v-model.number="setPlayers"
           class="col-12 col-xl-6"
           outlined
           type="text"
-          label="Set Players"
-          v-model.number="setPlayers"></q-input>
+          label="Set Players"></q-input>
         <q-input
+          v-model.number="maxPlayers"
           class="col-12 col-xl-6"
           outlined
           type="text"
-          label="Max Players"
-          v-model.number="maxPlayers"></q-input>
+          label="Max Players"></q-input>
         <q-input
           v-if="gameServer.gameId === 'minecraft'"
+          v-model.number="maxMemoryMB"
           class="col-12 col-xl-6"
           outlined
           type="text"
-          label="Max Memory MB"
-          v-model.number="maxMemoryMB"></q-input>
+          label="Max Memory MB"></q-input>
         <q-input
+          v-model.number="port"
           class="col-12 col-xl-6"
           outlined
           type="text"
-          label="Port"
-          v-model.number="port"></q-input>
+          label="Port"></q-input>
         <q-input
+          v-model.number="queryPort"
           class="col-12 col-xl-6"
           outlined
           type="text"
-          label="Query Port"
-          v-model.number="queryPort"></q-input>
+          label="Query Port"></q-input>
       </div>
     </q-form>
   </q-card-section>
@@ -158,7 +158,7 @@ const props = defineProps({
 })
 
 // Is this a new game server or an existing one?
-const newGameServer: Ref<boolean> = ref(true)
+const _newGameServer: Ref<boolean> = ref(true)
 
 const gameServer = ref(create(GameServerSchema, {}))
 const availableGames = ref<Array<Record<string, string>>>([])

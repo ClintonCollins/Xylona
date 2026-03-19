@@ -1,19 +1,19 @@
 <template>
   <div
-    @click="copyValue(props.clipBoardValue)"
-    @keydown.enter="copyValue(props.clipBoardValue)"
-    @keydown.space.prevent="copyValue(props.clipBoardValue)"
     role="button"
     tabindex="0"
     aria-label="Copy to clipboard"
-    class="copy-clipboard">
+    class="copy-clipboard"
+    @click="copyValue(props.clipBoardValue)"
+    @keydown.enter="copyValue(props.clipBoardValue)"
+    @keydown.space.prevent="copyValue(props.clipBoardValue)">
     {{ props.displayText }}
     <q-tooltip
       id="clipBoardCopyTooltip"
-      @before-show="resetClipboardCopy"
       :anchor="props.tooltipAnchor"
       :self="props.tooltipSelf"
       :offset="[10, 10]"
+      @before-show="resetClipboardCopy"
       v-html="clipboardInnerHTML"></q-tooltip>
   </div>
 </template>

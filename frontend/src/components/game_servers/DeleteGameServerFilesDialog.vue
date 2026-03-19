@@ -1,7 +1,7 @@
 <template>
   <q-dialog
-    persistent
     v-model="showDialog"
+    persistent
     backdrop-filter="brightness(25%)"
     aria-labelledby="dialog-title">
     <q-card>
@@ -18,7 +18,7 @@
               <span class="text-bold">This action cannot be undone.</span>
             </p>
             <q-scroll-area style="height: 30dvh; width: 100%">
-              <div class="q-pl-xl" v-for="file in props.filesToDelete as XylonaFile[]" key="name">
+              <div v-for="file in props.filesToDelete as XylonaFile[]" key="name" class="q-pl-xl">
                 <span v-if="file.isDirectory">
                   <q-icon size="xs" color="amber" :name="tabFolderFilled" left></q-icon>
                   <span class="file-name">{{ file.name }}</span>
@@ -37,7 +37,7 @@
         </q-form>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="neutral" @click="showDialog = false" flat />
+        <q-btn label="Cancel" color="neutral" flat @click="showDialog = false" />
         <q-btn label="Delete" class="bg-error" @click="deleteFiles" />
       </q-card-actions>
     </q-card>

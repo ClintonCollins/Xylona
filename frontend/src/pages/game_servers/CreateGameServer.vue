@@ -2,7 +2,7 @@
   <q-page>
     <div class="row justify-center q-pa-md">
       <q-card>
-        <GameServerForm></GameServerForm>
+        <game-server-form></game-server-form>
       </q-card>
     </div>
   </q-page>

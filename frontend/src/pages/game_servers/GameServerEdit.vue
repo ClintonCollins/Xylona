@@ -1,7 +1,7 @@
 <template>
   <q-page>
     <div class="row justify-center q-pa-md">
-      <GameServerForm :existing-game-server-id="gameServerID"></GameServerForm>
+      <game-server-form :existing-game-server-id="gameServerID"></game-server-form>
     </div>
   </q-page>
 </template>

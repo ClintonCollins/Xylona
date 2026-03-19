@@ -271,7 +271,7 @@ func (c *Command) readTelnetOutput() {
 	log.Debug().Str("Game Server ID", c.ID).Msg("Telnet listener stopped")
 }
 
-func (c *Command) handleOutputListeners(payload xylona.Message) {
+func (c *Command) handleOutputListeners(payload *xylona.Message) {
 	listenerIDsToRemove := make([]string, 0)
 	c.outputListenersLock.RLock()
 	errGroup, ctx := errgroup.WithContext(c.instanceCtx)
@@ -309,26 +309,24 @@ func (c *Command) closeJobNotification() {
 }
 
 func (c *Command) sendJobStatusNotification(status xylona.Status) {
-	payload := xylona.Message{
+	c.handleOutputListeners(&xylona.Message{
 		Type: xylona.Message_GameServerStatus,
 		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
 			GameServerId: c.ID,
 			Status:       status,
 		},
-	}
-	c.handleOutputListeners(payload)
+	})
 }
 
 func (c *Command) sendJobNotification(message string) {
 	c.pushToOutputBuffer(message)
-	payload := xylona.Message{
+	c.handleOutputListeners(&xylona.Message{
 		Type: xylona.Message_GameServerConsole,
 		GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
 			GameServerId: c.ID,
 			Output:       message + "\n",
 		},
-	}
-	c.handleOutputListeners(payload)
+	})
 }
 
 func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(command *Command)) {
@@ -516,7 +514,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			instanceCtx:         inst.ctx,
 			processCtx:          processCtx,
 			processCtxCancel:    processCtxCancel,
-			outputListeners:     make(map[string]chan xylona.Message),
+			outputListeners:     make(map[string]chan *xylona.Message),
 			outputListenersLock: &sync.RWMutex{},
 			inputMethod:         preparedCommand.InputMethod,
 			toggleOutputType:    make(chan struct{}),
@@ -599,7 +597,7 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 			return nil, errDial
 		}
 		log.Debug().Msg("Telnet connection successful")
-		log.Debug().Str("telnet password", command.inputMethod.TelnetCredentials.Password).Msg("Writing password to telnet")
+		log.Debug().Msg("Writing password to telnet")
 		if command.inputMethod.TelnetCredentials.Password != "" {
 			b, errAuth := telnetConn.Write([]byte(command.inputMethod.TelnetCredentials.Password))
 			if errAuth != nil {
@@ -679,7 +677,7 @@ func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
 			ID:                  commandID,
 			stdInWriter:         &bytes.Buffer{},
 			combinedOutput:      &bytes.Buffer{},
-			outputListeners:     make(map[string]chan xylona.Message),
+			outputListeners:     make(map[string]chan *xylona.Message),
 			outputListenersLock: &sync.RWMutex{},
 			RWMutex:             &sync.RWMutex{},
 			status:              xylona.Status_OFFLINE,

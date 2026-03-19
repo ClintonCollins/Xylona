@@ -53,7 +53,7 @@ func getCookiesFromHeader(cookiesHeader string) Cookies {
 	for _, cookie := range cookies {
 		cookie = strings.TrimSpace(cookie)
 		cookie = strings.TrimSuffix(cookie, ";")
-		cookieParts := strings.Split(cookie, "=")
+		cookieParts := strings.SplitN(cookie, "=", 2)
 		if len(cookieParts) != 2 {
 			continue
 		}
@@ -99,14 +99,14 @@ func GetSessionFromCookies(cookies []*http.Cookie) (*SessionCookies, error) {
 
 func GetUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connection, secureCookie *securecookie.SecureCookie) (*models.User, error) {
 	if sessionID == "" || sessionTokenEncoded == "" {
-		log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("Session ID or token not set")
+		log.Debug().Msg("Session ID or token not set")
 		return nil, errors.New("session ID or token not set")
 	}
 
 	session, errGetSession := dbConn.GetUserSession(sessionID)
 	if errGetSession != nil {
 		if errors.Is(errGetSession, sql.ErrNoRows) {
-			log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("Session does not exist")
+			log.Debug().Msg("Session does not exist")
 			return nil, errors.New("session does not exist")
 		}
 		log.Error().Err(errGetSession).Msg("Error getting session")
@@ -114,32 +114,59 @@ func GetUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connec
 	}
 
 	if session.ID != sessionID {
-		log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("Session ID does not match")
+		log.Debug().Msg("Session ID does not match")
 		return nil, errors.New("session ID does not match")
+	}
+
+	// Enforce server-side session expiration.
+	if session.ExpiresAt.Before(time.Now()) {
+		log.Debug().Msg("Session has expired")
+		return nil, errors.New("session expired")
 	}
 
 	decodedToken := ""
 	errDecode := secureCookie.Decode(SessionTokenCookieName, sessionTokenEncoded, &decodedToken)
 	if errDecode != nil {
-		log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("Error decoding session token")
+		log.Debug().Msg("Error decoding session token")
 		return nil, errors.New("invalid session")
 	}
 
 	if session.Token != decodedToken {
-		log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("Session token does not match")
+		log.Debug().Msg("Session token does not match")
 		return nil, errors.New("session token does not match")
 	}
 
 	user, errGetUser := dbConn.GetUserByID(session.UserID)
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
-			log.Debug().Str("sessionID", sessionID).Str("sessionToken", sessionTokenEncoded).Msg("User does not exist")
+			log.Debug().Msg("User does not exist")
 			return nil, errors.New("user does not exist")
 		}
 		log.Error().Err(errGetUser).Msg("Error getting user")
 		return nil, errors.New("internal error")
 	}
 	return user, nil
+}
+
+// RequireSessionAuth returns a chi middleware that rejects unauthenticated
+// requests with 401. It validates the session cookie before allowing the
+// request to proceed.
+func RequireSessionAuth(dbConn *db.Connection, sc *securecookie.SecureCookie) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sessionCookies, errGetSession := GetSessionFromCookies(r.Cookies())
+			if errGetSession != nil {
+				http.Error(w, "unauthenticated", http.StatusUnauthorized)
+				return
+			}
+			_, errGetUser := GetUserFromSession(sessionCookies.SessionID, sessionCookies.SessionToken, dbConn, sc)
+			if errGetUser != nil {
+				http.Error(w, "unauthenticated", http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func CreateJWT(username, email, jwtID string, expiration time.Time, secretKey []byte) (string, error) {

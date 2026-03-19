@@ -1,7 +1,7 @@
 <template>
   <q-dialog
-    persistent
     v-model="showDialog"
+    persistent
     backdrop-filter="brightness(25%)"
     aria-labelledby="dialog-title">
     <q-card class="full-width">
@@ -14,9 +14,9 @@
         <q-form class="q-pa-lg">
           <div class="row wrap q-col-gutter-md justify-between">
             <q-select
+              v-model="destinationDirectory"
               class="col-12"
               outlined
-              v-model="destinationDirectory"
               emit-value
               map-options
               use-input
@@ -36,7 +36,7 @@
         </q-form>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="primary" @click="showDialog = false" flat />
+        <q-btn label="Cancel" color="primary" flat @click="showDialog = false" />
         <q-btn label="Submit" color="primary" @click="moveFiles" />
       </q-card-actions>
     </q-card>

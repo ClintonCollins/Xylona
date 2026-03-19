@@ -12,11 +12,11 @@
           </div>
           <div class="login-form-side">
             <div class="login-form">
-              <q-input outlined v-model="username" label="Username" color="primary" />
+              <q-input v-model="username" outlined label="Username" color="primary" />
               <q-input
+                v-model="password"
                 outlined
                 class="q-mt-md"
-                v-model="password"
                 type="password"
                 color="primary"
                 label="Password"
@@ -25,9 +25,9 @@
                 color="primary"
                 size="lg"
                 label="Sign in"
-                @click="login"
                 no-caps
-                class="full-width login-btn q-mt-lg" />
+                class="full-width login-btn q-mt-lg"
+                @click="login" />
             </div>
           </div>
         </div>

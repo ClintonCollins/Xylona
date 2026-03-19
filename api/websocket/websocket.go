@@ -45,7 +45,7 @@ const (
 type connection struct {
 	id                           uuid.UUID
 	melodySession                *melody.Session
-	outputStreamChannel          chan xylona.Message
+	outputStreamChannel          chan *xylona.Message
 	allGameServerIDs             []string
 	requestedGameServerOutputIDs map[string]struct{}
 	remoteConsoleCancels         map[string]context.CancelFunc
@@ -221,7 +221,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	wsConnection := &connection{
 		id:                           uuid.New(),
 		melodySession:                s,
-		outputStreamChannel:          make(chan xylona.Message),
+		outputStreamChannel:          make(chan *xylona.Message),
 		allGameServerIDs:             []string{},
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		remoteConsoleCancels:         make(map[string]context.CancelFunc),
@@ -902,7 +902,7 @@ func closeSession(s *melody.Session) {
 
 // handleUserWebsocketConnection handles a single websocket connection for a user. It's designed to be run in a Go routine.
 // It listens for messages on the streamChan channel and writes them to the websocket connection.
-func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *models.User, streamChan chan xylona.Message) {
+func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *models.User, streamChan chan *xylona.Message) {
 	for {
 		select {
 		case <-ws.ctx.Done():
@@ -1056,7 +1056,7 @@ func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connectio
 
 	for stream.Receive() {
 		chunk := stream.Msg()
-		msg := xylona.Message{
+		msg := &xylona.Message{
 			Type: xylona.Message_GameServerConsole,
 			GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
 				GameServerId: serverID,
@@ -1230,10 +1230,5 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		_ = s.Write(b)
 	default:
 		log.Warn().Str("User", username).Msg("Unknown websocket message type")
-		log.Debug().Str("User", username).Msgf("Websocket message: %s", string(msg))
-		errWrite := s.Write([]byte(fmt.Sprintf("echo: %s", msg)))
-		if errWrite != nil {
-			log.Error().Err(errWrite).Msg("Failed to write websocket message")
-		}
 	}
 }

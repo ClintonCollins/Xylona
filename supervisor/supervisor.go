@@ -64,7 +64,7 @@ type Command struct {
 	status                xylona.Status
 	serviceID             string
 	currentCMD            *exec.Cmd
-	outputListeners       map[string]chan xylona.Message
+	outputListeners       map[string]chan *xylona.Message
 	outputListenersLock   *sync.RWMutex
 	inputMethod           InputMethod
 	stdInWriter           io.Writer
@@ -129,7 +129,7 @@ func (c *Command) WorkingDir() string {
 	return c.workingDir
 }
 
-func (c *Command) AddOutputListener(id string, outChan chan xylona.Message) {
+func (c *Command) AddOutputListener(id string, outChan chan *xylona.Message) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
 	c.outputListeners[id] = outChan

@@ -19,21 +19,21 @@
     <div class="row q-col-gutter-md q-mb-md">
       <div class="col-12 col-md-4">
         <q-select
+          v-model="selectedLocalUserID"
           outlined
           dense
           emit-value
           map-options
-          v-model="selectedLocalUserID"
           :options="localUserOptions"
           label="User"></q-select>
       </div>
       <div class="col-12 col-md-4">
         <q-select
+          v-model="selectedLocalRoleID"
           outlined
           dense
           emit-value
           map-options
-          v-model="selectedLocalRoleID"
           :options="roleOptions"
           label="Role"></q-select>
       </div>
@@ -89,21 +89,21 @@
     <div class="row q-col-gutter-md q-mb-md">
       <div class="col-12 col-md-3">
         <q-select
+          v-model="selectedFederatedNodeID"
           outlined
           dense
           emit-value
           map-options
-          v-model="selectedFederatedNodeID"
           :options="remoteNodeOptions"
           label="Remote Node"></q-select>
       </div>
       <div class="col-12 col-md-3">
         <q-select
+          v-model="selectedRemoteUserID"
           outlined
           dense
           emit-value
           map-options
-          v-model="selectedRemoteUserID"
           :options="remoteUserOptions"
           label="Remote User"
           :loading="loadingRemoteUsers"
@@ -111,11 +111,11 @@
       </div>
       <div class="col-12 col-md-3">
         <q-select
+          v-model="selectedFederatedRoleID"
           outlined
           dense
           emit-value
           map-options
-          v-model="selectedFederatedRoleID"
           :options="roleOptions"
           label="Role"></q-select>
       </div>

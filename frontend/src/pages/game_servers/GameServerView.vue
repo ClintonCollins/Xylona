@@ -10,49 +10,49 @@
         <q-item>
           <q-item-section>Name</q-item-section>
           <q-item-section side>
-            <ClipBoardCopy
+            <clip-board-copy
               :clip-board-value="gameServer.name"
-              :display-text="gameServer.name"></ClipBoardCopy>
+              :display-text="gameServer.name"></clip-board-copy>
           </q-item-section>
         </q-item>
         <q-item>
           <q-item-section>Status</q-item-section>
           <q-item-section side>
-            <StatusBadge :status="gameServer.status"></StatusBadge>
+            <status-badge :status="gameServer.status"></status-badge>
           </q-item-section>
         </q-item>
         <q-item>
           <q-item-section>Game</q-item-section>
           <q-item-section side>
-            <ClipBoardCopy
+            <clip-board-copy
               :clip-board-value="gameServer.gameName"
-              :display-text="gameServer.gameName"></ClipBoardCopy>
+              :display-text="gameServer.gameName"></clip-board-copy>
           </q-item-section>
         </q-item>
         <q-item>
           <q-item-section>IP</q-item-section>
           <q-item-section side>
-            <ClipBoardCopy
+            <clip-board-copy
               :clip-board-value="gameServer.ip !== undefined ? gameServer.ip.address : ''"
-              :display-text="gameServer.ip?.address"></ClipBoardCopy>
+              :display-text="gameServer.ip?.address"></clip-board-copy>
           </q-item-section>
         </q-item>
         <q-item>
           <q-item-section>Port</q-item-section>
           <q-item-section side>
-            <ClipBoardCopy
+            <clip-board-copy
               :clip-board-value="gameServer.port.toString()"
-              :display-text="gameServer.port.toString()"></ClipBoardCopy>
+              :display-text="gameServer.port.toString()"></clip-board-copy>
           </q-item-section>
         </q-item>
         <q-item>
           <q-item-section>Version</q-item-section>
           <q-item-section side>
-            <ClipBoardCopy
+            <clip-board-copy
               :display-text="gameServer.version !== '' ? gameServer.version : 'Unknown version'"
               :clip-board-value="
                 gameServer.version !== '' ? gameServer.version : 'Unknown version'
-              "></ClipBoardCopy>
+              "></clip-board-copy>
           </q-item-section>
         </q-item>
         <q-item>
@@ -60,7 +60,7 @@
           <q-item-section side> {{ currentPlayerCount }} / {{ maxPlayerCount }} </q-item-section>
         </q-item>
       </q-list>
-      <GameServerMetrics :game-server-id="gameServerId" :game-server="gameServer" />
+      <game-server-metrics :game-server-id="gameServerId" :game-server="gameServer" />
       <div class="server-controls">
         <q-btn
           :disable="disableStartButton"
@@ -76,33 +76,33 @@
       </div>
     </div>
     <div class="col col-lg-8 col-xs-12" :class="{ expanded: consoleExpanded }">
-      <q-scroll-area ref="consoleScrollArea" id="consoleContainer">
+      <q-scroll-area id="consoleContainer" ref="consoleScrollArea">
         <q-page-sticky position="top-right" :offset="[12, -40]">
           <q-btn
-            @click="consoleExpanded = !consoleExpanded"
             fab
             flat
             square
             padding="sm"
             :icon="tabMaximize"
             aria-label="Toggle fullscreen console"
-            text-color="info" />
+            text-color="info"
+            @click="consoleExpanded = !consoleExpanded" />
         </q-page-sticky>
-        <code class="q-pb-md" id="consoleCodeEl" v-html="gameServerOutput"></code>
+        <code id="consoleCodeEl" class="q-pb-md" v-html="gameServerOutput"></code>
       </q-scroll-area>
       <q-input
-        autofocus
         id="consoleInput"
+        autofocus
         hint="Send to console"
+        v-model="serverInput"
         placeholder="Enter command..."
-        @keyup.enter="sendGameServerInput"
         dense
         square
         outlined
         name="consoleInput"
+        @keyup.enter="sendGameServerInput"
         @keyup.up="navigateConsoleInputHistory('up')"
-        @keyup.down="navigateConsoleInputHistory('down')"
-        v-model="serverInput">
+        @keyup.down="navigateConsoleInputHistory('down')">
         <template v-slot:append>
           <q-btn
             flat
@@ -365,7 +365,7 @@ function streamGameServerOutput() {
 }
 
 async function navigateConsoleInputHistory(direction: string) {
-  let historyDirection = 0
+  let historyDirection: number
   switch (direction.toLowerCase()) {
     case 'up':
       historyDirection = -1

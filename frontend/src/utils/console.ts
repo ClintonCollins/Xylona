@@ -1,14 +1,14 @@
 import { StringToColor } from 'src/utils/shared'
 
 const reURIMatch =
-  /(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#\/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[A-Z0-9+&@#\/%=~_|$])/gim
+  /(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#/%=~_|$?!:,.]*\)|[A-Z0-9+&@#/%=~_|$])/gim
 const reServerStop = /Server stopped.+$/gim
 const reExitStatus = /^exit status [1-9]|^exit status 0.+$/gim
 const reInfo = /^INFO|INF/gm
 const reWarn = /^WARNING|WARN|WRN/gm
 const reError = /ERROR/gm
 const reXylonaMessage = /\[(\d+-\d+-\d+\s\d+:\d+:\d+)]\s\[(Xylona)]/gm
-const reMinecraftVersion = /Starting\sminecraft\sserver\sversion\s(.+)$/gim
+const _reMinecraftVersion = /Starting\sminecraft\sserver\sversion\s(.+)$/gim
 
 type MinecraftPlayer = {
   username: string

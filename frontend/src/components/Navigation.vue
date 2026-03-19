@@ -25,12 +25,12 @@
           link.section
         }}</q-item-label>
         <q-item
+          v-if="link.groupItems.length === 0"
           :class="
             overrideActiveLink(link.link)
               ? 'q-router-link--exact-active q-router-link--active'
               : null
           "
-          v-if="link.groupItems.length === 0"
           clickable
           :to="link.link"
           :exact="link.exact">
@@ -44,9 +44,9 @@
         </q-item>
         <q-expansion-item v-else v-model="link.expanded" :icon="link.icon" :label="link.title">
           <q-item
-            :inset-level="0.3"
             v-for="l in link.groupItems"
             :key="l.title"
+            :inset-level="0.3"
             clickable
             :to="l.link"
             :exact="l.exact">
@@ -66,13 +66,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import {
-  ionGameController,
-  ionHome,
-  ionKey,
-  ionPeople,
-  ionServer,
-} from '@quasar/extras/ionicons-v7'
+import { ionGameController, ionHome, ionPeople, ionServer } from '@quasar/extras/ionicons-v7'
 import { laServerSolid } from '@quasar/extras/line-awesome'
 import { useRoute, useRouter } from 'vue-router'
 import { User } from '@/proto/xylona_pb'

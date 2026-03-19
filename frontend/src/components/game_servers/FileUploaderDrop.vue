@@ -10,8 +10,8 @@
   <q-dialog
     v-model="fileUploaderDialog"
     backdrop-filter="brightness(25%)"
-    @hide="uploader.close()"
-    aria-labelledby="dialog-title">
+    aria-labelledby="dialog-title"
+    @hide="uploader.close()">
     <q-card
       id="fileUploaderCard"
       class="fileUploaderDialogCard q-px-lg"
@@ -55,10 +55,10 @@
             v-if="uploader.isUploading"
             icon="clear"
             aria-label="Abort upload"
-            @click="uploader.abort()"
             round
             dense
-            flat>
+            flat
+            @click="uploader.abort()">
             <q-tooltip>Abort Upload</q-tooltip>
           </q-btn>
         </q-toolbar>
@@ -66,19 +66,19 @@
         <div class="file-uploader">
           <q-list separator>
             <q-item
-              v-if="uploader.files.size <= maxNumberOfFilesToDisplay"
               v-for="file in uploader.files.values()"
+              v-if="uploader.files.size <= maxNumberOfFilesToDisplay"
               :key="file.key">
-              <q-item-section avatar v-if="file.status === FileStatus.Queued">
+              <q-item-section v-if="file.status === FileStatus.Queued" avatar>
                 <q-icon size="lg" :name="tabDots" class="text-primary-brighter" />
               </q-item-section>
-              <q-item-section avatar v-else-if="file.status === FileStatus.Error">
+              <q-item-section v-else-if="file.status === FileStatus.Error" avatar>
                 <q-icon size="lg" :name="tabAlertTriangle" class="text-error-brighter" />
               </q-item-section>
-              <q-item-section avatar v-else-if="file.status === FileStatus.Uploaded">
+              <q-item-section v-else-if="file.status === FileStatus.Uploaded" avatar>
                 <q-icon size="lg" :name="tabCheck" class="text-success-brighter" />
               </q-item-section>
-              <q-item-section avatar v-else-if="file.status === FileStatus.Aborted">
+              <q-item-section v-else-if="file.status === FileStatus.Aborted" avatar>
                 <q-icon size="lg" :name="tabBarrierBlock" class="text-alert-brighter" />
               </q-item-section>
               <q-item-section>
@@ -140,8 +140,8 @@
         <q-btn
           label="Upload"
           class="bg-success"
-          @click="uploader.upload()"
-          :disable="!uploader.canUpload || uploader.queuedFilesCount <= 0" />
+          :disable="!uploader.canUpload || uploader.queuedFilesCount <= 0"
+          @click="uploader.upload()" />
       </q-card-actions>
       <q-inner-loading :showing="addingFiles">
         <div class="text-info">Generating upload preview</div>

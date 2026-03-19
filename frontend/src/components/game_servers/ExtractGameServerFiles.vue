@@ -1,7 +1,7 @@
 <template>
   <q-dialog
-    persistent
     v-model="showDialog"
+    persistent
     backdrop-filter="brightness(25%)"
     aria-labelledby="dialog-title">
     <q-card class="full-width">
@@ -14,9 +14,9 @@
         <q-form class="q-pa-lg">
           <div class="row wrap q-col-gutter-md justify-between">
             <q-input
+              v-model="extractToFolder"
               class="col-12"
               outlined
-              v-model="extractToFolder"
               hint="Leave this blank to extract to the current directory."
               label="Folder to extract files to"
               :autofocus="true" />
@@ -24,7 +24,7 @@
         </q-form>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="primary" @click="showDialog = false" flat />
+        <q-btn label="Cancel" color="primary" flat @click="showDialog = false" />
         <q-btn label="Extract" color="primary" @click="submit" />
       </q-card-actions>
       <q-inner-loading

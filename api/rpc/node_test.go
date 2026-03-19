@@ -81,6 +81,7 @@ func TestEditNode(t *testing.T) {
 			Port: 8080,
 		},
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
 
 	resp, errEdit := fixture.service.EditNode(context.Background(), request)
 	if errEdit != nil {
@@ -119,6 +120,7 @@ func TestRemoveNode(t *testing.T) {
 
 	// Remove it
 	removeReq := connect.NewRequest(&xylona.RemoveNodeRequest{NodeId: "node-to-delete"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, removeReq, "user-admin")
 	_, errRemove := fixture.service.RemoveNode(context.Background(), removeReq)
 	if errRemove != nil {
 		t.Fatalf("RemoveNode() error = %v", errRemove)
@@ -138,6 +140,7 @@ func TestCreateAndDeleteLocalSecretKey(t *testing.T) {
 	createReq := connect.NewRequest(&xylona.CreateLocalSecretKeyRequest{
 		Name: "test-key",
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-admin")
 
 	createResp, errCreate := fixture.service.CreateLocalSecretKey(context.Background(), createReq)
 	if errCreate != nil {
@@ -157,6 +160,7 @@ func TestCreateAndDeleteLocalSecretKey(t *testing.T) {
 	deleteReq := connect.NewRequest(&xylona.DeleteLocalSecretKeyRequest{
 		Id: createResp.Msg.Id,
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteReq, "user-admin")
 
 	_, errDelete := fixture.service.DeleteLocalSecretKey(context.Background(), deleteReq)
 	if errDelete != nil {
@@ -171,6 +175,7 @@ func TestListLocalSecretKeys(t *testing.T) {
 	createReq := connect.NewRequest(&xylona.CreateLocalSecretKeyRequest{
 		Name: "list-test-key",
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-admin")
 	createResp, errCreate := fixture.service.CreateLocalSecretKey(context.Background(), createReq)
 	if errCreate != nil {
 		t.Fatalf("CreateLocalSecretKey() error = %v", errCreate)
@@ -178,6 +183,7 @@ func TestListLocalSecretKeys(t *testing.T) {
 
 	// List keys
 	listReq := connect.NewRequest(&xylona.ListLocalSecretKeysRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listReq, "user-admin")
 	listResp, errList := fixture.service.ListLocalSecretKeys(context.Background(), listReq)
 	if errList != nil {
 		t.Fatalf("ListLocalSecretKeys() error = %v", errList)

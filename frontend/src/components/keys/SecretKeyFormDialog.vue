@@ -1,7 +1,7 @@
 <template>
   <q-dialog
-    persistent
     v-model="showDialog"
+    persistent
     backdrop-filter="brightness(15%)"
     aria-labelledby="dialog-title">
     <q-card v-if="!showKey" class="full-width">
@@ -14,12 +14,12 @@
         <q-form class="q-pa-lg">
           <div class="row wrap q-col-gutter-md justify-between">
             <q-input
+              v-model="keyName"
               class="col-12"
               outlined
               type="text"
               autofocus
-              label="Name"
-              v-model="keyName"></q-input>
+              label="Name"></q-input>
           </div>
         </q-form>
       </q-card-section>
@@ -43,27 +43,27 @@
         <q-form class="q-pa-lg">
           <div class="row wrap q-col-gutter-md justify-between">
             <q-input
+              v-model="keyName"
               class="col-12"
               outlined
               type="text"
               label="Name"
-              v-model="keyName"
               disable></q-input>
             <q-input
+              v-model="key"
               autogrow
               class="col-12"
               outlined
               type="text"
               label="Secret Key"
-              v-model="key"
               readonly>
               <template v-slot:append>
                 <q-btn
                   flat
                   size="small"
                   class="cursor-pointer"
-                  @click="copy(key)"
-                  :icon="ionClipboard"></q-btn>
+                  :icon="ionClipboard"
+                  @click="copy(key)"></q-btn>
               </template>
             </q-input>
           </div>
@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
-import { ionClipboard, ionSearch } from '@quasar/extras/ionicons-v7'
+import { ionClipboard } from '@quasar/extras/ionicons-v7'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { ConnectError } from '@connectrpc/connect'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
@@ -92,7 +92,7 @@ const showKey = ref(false)
 
 const $q = useQuasar()
 const emit = defineEmits<{
-  submit: [error: Boolean]
+  submit: [error: boolean]
 }>()
 const keyName: Ref<string> = ref('')
 const key: Ref<string> = ref('')

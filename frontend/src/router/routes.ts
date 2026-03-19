@@ -111,14 +111,17 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/nodes/add',
         component: () => import('pages/nodes/NodeAdd.vue'),
+        beforeEnter: requireSuperUser,
       },
       {
         path: '/nodes/:id/edit',
         component: () => import('pages/nodes/NodeEdit.vue'),
+        beforeEnter: requireSuperUser,
       },
       {
         path: '/secret-keys',
         component: () => import('pages/other/LocalSecretKeyList.vue'),
+        beforeEnter: requireSuperUser,
       },
       {
         path: '/admin/users',

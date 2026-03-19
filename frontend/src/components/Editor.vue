@@ -4,35 +4,35 @@
       <div class="q-pa-md">
         <div class="row justify-end q-gutter-md">
           <q-select
+            v-model="editorTheme"
             class="editor-select"
             dense
             outlined
-            v-model="editorTheme"
             map-options
             emit-value
             autocomplete="false"
             :options="editorOptions"
-            @update:model-value="editorThemeChanged"
-            label="Theme" />
+            label="Theme"
+            @update:model-value="editorThemeChanged" />
           <q-select
+            v-model="selectedLanguage"
             class="editor-select"
             dense
             outlined
-            v-model="selectedLanguage"
             map-options
             emit-value
             autocomplete="false"
             :options="LanguageOptions"
-            @update:model-value="editorLanguageChanged"
-            label="Language" />
+            label="Language"
+            @update:model-value="editorLanguageChanged" />
         </div>
       </div>
       <div id="editor" ref="editorContainer" class="editor-container"></div>
     </q-card-section>
 
     <q-card-actions align="right">
-      <q-btn flat label="Cancel" color="neutral" v-close-popup />
-      <q-btn label="Save" class="q-btn bg-main" @click="saveFile" v-close-popup />
+      <q-btn v-close-popup flat label="Cancel" color="neutral" />
+      <q-btn v-close-popup label="Save" class="q-btn bg-main" @click="saveFile" />
     </q-card-actions>
   </q-card>
 </template>

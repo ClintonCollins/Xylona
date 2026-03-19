@@ -500,7 +500,7 @@ func (fs FederationService) StreamConsoleOutput(ctx context.Context, request *co
 
 	command := fs.supervisorInst.GetCommandByIDOrCreateShell(gs.ID)
 	listenerID := fmt.Sprintf("federation-%s", uuid.New().String())
-	outputChan := make(chan xylona.Message, 64)
+	outputChan := make(chan *xylona.Message, 64)
 	command.AddOutputListener(listenerID, outputChan)
 	defer command.RemoveOutputListener(listenerID)
 

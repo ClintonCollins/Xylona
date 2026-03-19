@@ -22,11 +22,11 @@
           label="Remove game server"
           @click="deleteGameServerAction(null)" />
         <q-input
+          v-model="search"
           dense
           outlined
           debounce="300"
           color="primary"
-          v-model="search"
           placeholder="Search..."
           aria-label="Search game servers"
           style="min-width: 200px">
@@ -43,6 +43,8 @@
     </div>
     <div>
       <q-table
+        v-model:pagination="initialPagination"
+        v-model:selected="selectedGameServers"
         flat
         class="xy-standalone-table"
         :grid="$q.screen.lt.md"
@@ -52,8 +54,6 @@
         selection="multiple"
         :filter="search"
         :loading="loading"
-        v-model:pagination="initialPagination"
-        v-model:selected="selectedGameServers"
         hide-header-in-grid>
         <template v-slot:body-cell-name="props">
           <q-td :props="props">
@@ -65,7 +65,7 @@
         </template>
         <template v-slot:body-cell-status="props">
           <q-td :props="props">
-            <StatusBadge style="margin-left: -1em" :status="props.row.statusEnum"></StatusBadge>
+            <status-badge style="margin-left: -1em" :status="props.row.statusEnum"></status-badge>
           </q-td>
         </template>
         <template v-slot:body-cell-node="props">
@@ -113,10 +113,10 @@
         </template>
       </q-table>
     </div>
-    <DeleteGameServerDialog
-      :game-servers="selectedServersForDelete"
+    <delete-game-server-dialog
       v-model:showDialog="showDeleteGameServerDialog"
-      @submit="deleteGameServerSubmitted"></DeleteGameServerDialog>
+      :game-servers="selectedServersForDelete"
+      @submit="deleteGameServerSubmitted"></delete-game-server-dialog>
   </q-page>
 </template>
 

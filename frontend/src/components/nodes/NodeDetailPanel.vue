@@ -3,13 +3,11 @@
     <q-card-section>
       <div v-if="snapshot" class="q-mb-md">
         <div class="text-subtitle2 q-mb-sm">Resource Usage</div>
-        <NodeResourceGauges :snapshot="snapshot" />
+        <node-resource-gauges :snapshot="snapshot" />
         <div class="row q-mt-sm q-gutter-md text-caption">
           <div>
             <q-icon name="dns" size="xs" class="q-mr-xs" />
-            {{ snapshot.gameServerCount ?? 0 }} servers ({{
-              snapshot.runningGameServerCount ?? 0
-            }}
+            {{ snapshot.gameServerCount ?? 0 }} servers ({{ snapshot.runningGameServerCount ?? 0 }}
             running)
           </div>
           <div>
@@ -52,7 +50,7 @@
 
       <div class="row q-col-gutter-md">
         <div class="col-12 col-md-6">
-          <MetricsLineChart
+          <metrics-line-chart
             title="CPU Usage"
             :labels="chartLabels"
             :datasets="cpuDatasets"
@@ -61,7 +59,7 @@
             @range-change="onRangeChange" />
         </div>
         <div class="col-12 col-md-6">
-          <MetricsLineChart
+          <metrics-line-chart
             title="Memory Usage (%)"
             :labels="chartLabels"
             :datasets="memoryPercentDatasets"
@@ -70,7 +68,7 @@
             @range-change="onRangeChange" />
         </div>
         <div class="col-12 col-md-6">
-          <MetricsLineChart
+          <metrics-line-chart
             title="Memory Usage (GB)"
             :labels="chartLabels"
             :datasets="memoryBytesDatasets"
@@ -78,7 +76,7 @@
             @range-change="onRangeChange" />
         </div>
         <div class="col-12 col-md-6">
-          <MetricsLineChart
+          <metrics-line-chart
             title="Disk Usage"
             :labels="chartLabels"
             :datasets="diskDatasets"

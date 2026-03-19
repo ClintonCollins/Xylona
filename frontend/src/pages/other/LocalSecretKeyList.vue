@@ -4,11 +4,11 @@
       <div class="xy-page-title">Secret Keys</div>
       <div class="xy-page-actions">
         <q-input
+          v-model="search"
           dense
           outlined
           debounce="300"
           color="primary"
-          v-model="search"
           placeholder="Search..."
           aria-label="Search secret keys"
           style="min-width: 200px">
@@ -21,6 +21,8 @@
     </div>
     <div>
       <q-table
+        v-model:pagination="initialPagination"
+        v-model:selected="selected"
         flat
         class="xy-standalone-table"
         :grid="$q.screen.lt.md"
@@ -29,8 +31,6 @@
         row-key="name"
         selection="multiple"
         :filter="search"
-        v-model:pagination="initialPagination"
-        v-model:selected="selected"
         hide-header-in-grid>
         <template v-slot:body-cell-actions="props">
           <q-td :props="props">
@@ -57,13 +57,13 @@
         </template>
       </q-table>
     </div>
-    <SecretKeyDeleteDialog
-      :secret-key="selectedActionSecretKey"
+    <secret-key-delete-dialog
       v-model:showDialog="showSecretKeyDeleteDialog"
-      @submit="deleteSecretKeySubmitted"></SecretKeyDeleteDialog>
-    <SecretKeyFormDialog
+      :secret-key="selectedActionSecretKey"
+      @submit="deleteSecretKeySubmitted"></secret-key-delete-dialog>
+    <secret-key-form-dialog
       v-model:showDialog="showSecretKeyFormDialog"
-      @submit="getSecretKeys"></SecretKeyFormDialog>
+      @submit="getSecretKeys"></secret-key-form-dialog>
   </q-page>
 </template>
 

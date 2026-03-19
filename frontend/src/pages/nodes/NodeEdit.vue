@@ -1,7 +1,7 @@
 <template>
   <q-page>
     <div class="row justify-center q-pa-md">
-      <NodeForm :existing-node-id="nodeID"></NodeForm>
+      <node-form :existing-node-id="nodeID"></node-form>
     </div>
   </q-page>
 </template>

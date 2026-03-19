@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { loadTestState } from './helpers'
 
 test.describe('File browser operations (superuser)', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page: _page }) => {
     const state = loadTestState()
     if (!state.gameServerId) {
       test.skip(true, 'No game server available')

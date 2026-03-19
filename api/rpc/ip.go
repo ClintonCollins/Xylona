@@ -32,6 +32,13 @@ func (xs XylonaService) ListIPs(ctx context.Context, request *connect.Request[xy
 }
 
 func (xs XylonaService) AddIP(_ context.Context, request *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	ipProto := request.Msg.GetIp()
 	if ipProto == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ip is required"))
@@ -55,6 +62,13 @@ func (xs XylonaService) AddIP(_ context.Context, request *connect.Request[xylona
 }
 
 func (xs XylonaService) RemoveIP(_ context.Context, request *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	ipProto := request.Msg.GetIp()
 	if ipProto == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ip is required"))

@@ -27,6 +27,7 @@ func addGameForTests(t *testing.T, fixture *rbacRPCFixture, id, name string) *xy
 	req := connect.NewRequest(&xylona.AddGameRequest{
 		Game: newTestGame(id, name),
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	resp, errAdd := fixture.service.AddGame(context.Background(), req)
 	if errAdd != nil {
@@ -134,6 +135,7 @@ func TestAddGameValidData(t *testing.T) {
 	req := connect.NewRequest(&xylona.AddGameRequest{
 		Game: newTestGame("add-game-valid", "Add Game Valid"),
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	resp, errAdd := fixture.service.AddGame(context.Background(), req)
 	if errAdd != nil {
@@ -170,6 +172,7 @@ func TestAddGameDuplicateID(t *testing.T) {
 	req := connect.NewRequest(&xylona.AddGameRequest{
 		Game: newTestGame("dup-game", "Duplicate Game 2"),
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	_, errAdd := fixture.service.AddGame(context.Background(), req)
 	if errAdd == nil {
@@ -192,6 +195,7 @@ func TestEditGameValidData(t *testing.T) {
 		GameId: game.Id,
 		Game:   updatedGame,
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	resp, errEdit := fixture.service.EditGame(context.Background(), req)
 	if errEdit != nil {
@@ -215,6 +219,7 @@ func TestEditGameNonExistentID(t *testing.T) {
 		GameId: "does-not-exist",
 		Game:   newTestGame("does-not-exist", "No Such Game"),
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	_, errEdit := fixture.service.EditGame(context.Background(), req)
 	if errEdit == nil {
@@ -233,6 +238,7 @@ func TestRemoveGameValidID(t *testing.T) {
 	req := connect.NewRequest(&xylona.RemoveGameRequest{
 		GameId: game.Id,
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	_, errRemove := fixture.service.RemoveGame(context.Background(), req)
 	if errRemove != nil {
@@ -258,6 +264,7 @@ func TestRemoveGameNonExistentID(t *testing.T) {
 	req := connect.NewRequest(&xylona.RemoveGameRequest{
 		GameId: "does-not-exist",
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	_, errRemove := fixture.service.RemoveGame(context.Background(), req)
 	if errRemove == nil {
@@ -277,6 +284,7 @@ func TestRemoveGameUsedByGameServer(t *testing.T) {
 	req := connect.NewRequest(&xylona.RemoveGameRequest{
 		GameId: "minecraft",
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	_, errRemove := fixture.service.RemoveGame(context.Background(), req)
 	if errRemove == nil {

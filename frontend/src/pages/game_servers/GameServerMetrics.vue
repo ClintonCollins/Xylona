@@ -6,7 +6,7 @@
     </div>
   </q-card-section>
   <q-card-section>
-    <GameServerMetricsHistory :game-server-id="gameServerId" />
+    <game-server-metrics-history :game-server-id="gameServerId" />
   </q-card-section>
 </template>
 

@@ -123,6 +123,16 @@ func handleSPAFunc(frontendFS fs.FS) func(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func routerLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		timeStart := time.Now()
@@ -312,6 +322,7 @@ func main() {
 
 	router.Use(middleware.RealIP)
 	router.Use(routerLogger)
+	router.Use(securityHeaders)
 	router.Use(gatekeeper.AuthRateLimiter())
 	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
@@ -383,10 +394,13 @@ func main() {
 		}
 	})
 
-	router.Post("/api/file/get", actionsInst.StreamFileToUser)
-	router.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
-	router.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
-	router.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
+	router.Group(func(r chi.Router) {
+		r.Use(gatekeeper.RequireSessionAuth(dbInst, secureCookie))
+		r.Post("/api/file/get", actionsInst.StreamFileToUser)
+		r.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
+		r.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
+		r.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
+	})
 	router.HandleFunc("/*", handleSPAFunc(frontendFS))
 
 	// Start the web server

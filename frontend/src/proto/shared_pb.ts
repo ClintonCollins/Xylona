@@ -2,907 +2,922 @@
 // @generated from file shared.proto (package xylona, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv1";
-import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv1";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import { file_gameserver_files_operations } from "./gameserver_files_operations_pb";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv1'
+import { enumDesc, fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv1'
+import type { Timestamp } from '@bufbuild/protobuf/wkt'
+import { file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
+import { file_gameserver_files_operations } from './gameserver_files_operations_pb'
+import type { Message } from '@bufbuild/protobuf'
 
 /**
  * Describes the file shared.proto.
  */
-export const file_shared: GenFile = /*@__PURE__*/
-  fileDesc("CgxzaGFyZWQucHJvdG8SBnh5bG9uYSKUAQoeR2FtZVNlcnZlckZpbGVzQXJjaGl2ZVByb2dyZXNzEhMKC3RvdGFsX2ZpbGVzGAEgASgDEhgKEGZpbGVzX2NvbXByZXNzZWQYAiABKAMSEwoLdG90YWxfYnl0ZXMYAyABKAMSGAoQYnl0ZXNfY29tcHJlc3NlZBgEIAEoAxIUCgxjdXJyZW50X2ZpbGUYBSABKAkikgEKHkdhbWVTZXJ2ZXJGaWxlc0V4dHJhY3RQcm9ncmVzcxITCgt0b3RhbF9maWxlcxgBIAEoAxIXCg9maWxlc19leHRyYWN0ZWQYAiABKAMSEwoLdG90YWxfYnl0ZXMYAyABKAMSFwoPYnl0ZXNfZXh0cmFjdGVkGAQgASgDEhQKDGN1cnJlbnRfZmlsZRgFIAEoCSKCCQoER2FtZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhQKDGRlZmF1bHRfcG9ydBgDIAEoAxIaChJkZWZhdWx0X3F1ZXJ5X3BvcnQYBCABKAMSGwoTZGVmYXVsdF9tYXhfcGxheWVycxgFIAEoAxIVCg1saW51eF9zdXBwb3J0GAYgASgIEhcKD3dpbmRvd3Nfc3VwcG9ydBgHIAEoCBIbChNsaW51eF9zdGFydF9jb21tYW5kGAggASgJEhoKEmxpbnV4X3N0b3BfY29tbWFuZBgJIAEoCRIdChVsaW51eF9pbnN0YWxsX2NvbW1hbmQYCiABKAkSHAoUbGludXhfdXBkYXRlX2NvbW1hbmQYCyABKAkSHwoXbGludXhfd29ya2luZ19kaXJlY3RvcnkYDCABKAkSJgoebGludXhfY29uZmlndXJhdGlvbl9maWxlX3BhdGhzGA0gASgJEhsKE2xpbnV4X2FsbG93X2JhY2t1cHMYDiABKAgSHQoVd2luZG93c19zdGFydF9jb21tYW5kGA8gASgJEhwKFHdpbmRvd3Nfc3RvcF9jb21tYW5kGBAgASgJEh8KF3dpbmRvd3NfaW5zdGFsbF9jb21tYW5kGBEgASgJEh4KFndpbmRvd3NfdXBkYXRlX2NvbW1hbmQYEiABKAkSIQoZd2luZG93c193b3JraW5nX2RpcmVjdG9yeRgTIAEoCRIoCiB3aW5kb3dzX2NvbmZpZ3VyYXRpb25fZmlsZV9wYXRocxgUIAEoCRIdChV3aW5kb3dzX2FsbG93X2JhY2t1cHMYFSABKAgSHAoUcmVxdWlyZV9kZWRpY2F0ZWRfaXAYFiABKAgSGAoQYmluZHNfdG9fYWxsX2lwcxgXIAEoCBIuCgpjcmVhdGVkX2F0GBggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GBkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIZChF1c2VzX3NvdXJjZV9xdWVyeRgaIAEoCBIuCiZyZXF1aXJlc19zdGVhbV9nYW1lX3NlcnZlcl9sb2dpbl90b2tlbhgbIAEoCBJBCh9saW51eF9pbnN0YWxsX2NvbW1hbmRfcHJvY2Vzc29yGBwgASgOMhgueHlsb25hLkNvbW1hbmRQcm9jZXNzb3ISQAoebGludXhfdXBkYXRlX2NvbW1hbmRfcHJvY2Vzc29yGB0gASgOMhgueHlsb25hLkNvbW1hbmRQcm9jZXNzb3ISQwohd2luZG93c19pbnN0YWxsX2NvbW1hbmRfcHJvY2Vzc29yGB4gASgOMhgueHlsb25hLkNvbW1hbmRQcm9jZXNzb3ISQgogd2luZG93c191cGRhdGVfY29tbWFuZF9wcm9jZXNzb3IYHyABKA4yGC54eWxvbmEuQ29tbWFuZFByb2Nlc3NvchIVCg11c2VzX3N0ZWFtY21kGCAgASgIEhMKC3N0ZWFtX2FwcGlkGCEgASgJIlwKEEdhbWVTZXJ2ZXJQbGF5ZXISDAoEbmFtZRgBIAEoCRIPCgJpZBgCIAEoCUgAiAEBEhUKCHN0ZWFtX2lkGAMgASgJSAGIAQFCBQoDX2lkQgsKCV9zdGVhbV9pZCJYCgtTdGVhbUJyYW5jaBIMCgRuYW1lGAEgASgJEhAKCGJ1aWxkX2lkGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhQKDHRpbWVfdXBkYXRlZBgEIAEoCSKGCAoKR2FtZVNlcnZlchIKCgJpZBgBIAEoCRIPCgd1c2VyX2lkGAIgASgJEgwKBG5hbWUYAyABKAkSDwoHZ2FtZV9pZBgEIAEoCRIVCg1zdGFydF9jb21tYW5kGAUgASgJEh4KBnN0YXR1cxgGIAEoDjIOLnh5bG9uYS5TdGF0dXMSFwoPc2V0X21heF9wbGF5ZXJzGAcgASgDEhMKC21heF9wbGF5ZXJzGAggASgDEgsKA21hcBgJIAEoCRIWCgJpcBgKIAEoCzIKLnh5bG9uYS5JUBIMCgRwb3J0GAsgASgDEhIKCnF1ZXJ5X3BvcnQYDCABKAMSEQoJZGlyZWN0b3J5GA0gASgJEhUKDW1heF9tZW1vcnlfbWIYDiABKAMSFwoPYmFja3Vwc19lbmFibGVkGA8gASgIEhgKEGJhY2t1cF9kaXJlY3RvcnkYECABKAkSEwoLbWF4X2JhY2t1cHMYESABKAMSLgoKY3JlYXRlZF9hdBgSIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgTIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJQodc3RlYW1fZ2FtZV9zZXJ2ZXJfbG9naW5fdG9rZW4YFCABKAkSEQoJdXNlcl9uYW1lGBUgASgJEhEKCWdhbWVfbmFtZRgWIAEoCRITCgtjcHVfcGVyY2VudBgXIAEoAxIUCgxtZW1vcnlfYnl0ZXMYGCABKAMSGQoRbnVtYmVyX29mX3RocmVhZHMYGSABKAMSDwoHdmVyc2lvbhgaIAEoCRIcChRjdXJyZW50X3BsYXllcl9jb3VudBgbIAEoAxIxCg9jdXJyZW50X3BsYXllcnMYHCADKAsyGC54eWxvbmEuR2FtZVNlcnZlclBsYXllchIpCgxzdGVhbV9icmFuY2gYHSABKAsyEy54eWxvbmEuU3RlYW1CcmFuY2gSDgoGYnJhbmNoGB4gASgJEg8KB25vZGVfaWQYHyABKAkSEQoJbm9kZV9uYW1lGCAgASgJEhEKCW5vZGVfaG9zdBghIAEoCRIRCglub2RlX3BvcnQYIiABKAMSGAoQZGlza191c2FnZV9ieXRlcxgjIAEoAxIWCg51cHRpbWVfc2Vjb25kcxgkIAEoAxIgChhtZW1vcnlfd29ya2luZ19zZXRfYnl0ZXMYJSABKAMSFgoObWVtb3J5X3BlcmNlbnQYJiABKAESEQoJY3B1X2NvcmVzGCcgASgFEhQKDGlvX3JlYWRfcmF0ZRgoIAEoARIVCg1pb193cml0ZV9yYXRlGCkgASgBEhgKEGNvbm5lY3Rpb25fY291bnQYKiABKAUiSAoCSVASDwoHYWRkcmVzcxgBIAEoCRIOCgZ1c2FibGUYAiABKAgSEAoIZXh0ZXJuYWwYAyABKAgSDwoHbm9kZV9pZBgEIAEoCSIrChZTdGFydEdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIoChdTdGFydEdhbWVTZXJ2ZXJSZXNwb25zZRINCgVlcnJvchgBIAEoCSIqChVTdG9wR2FtZVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIhgKFlN0b3BHYW1lU2VydmVyUmVzcG9uc2UiLQoYUmVzdGFydEdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIbChlSZXN0YXJ0R2FtZVNlcnZlclJlc3BvbnNlIiwKF1JlbW92ZUdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIaChhSZW1vdmVHYW1lU2VydmVyUmVzcG9uc2UiQgoXQ3JlYXRlR2FtZVNlcnZlclJlcXVlc3QSJwoLZ2FtZV9zZXJ2ZXIYASABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJwChhDcmVhdGVHYW1lU2VydmVyUmVzcG9uc2USJwoLZ2FtZV9zZXJ2ZXIYASABKAsyEi54eWxvbmEuR2FtZVNlcnZlchIhCgVlcnJvchgCIAEoDjINLnh5bG9uYS5FcnJvckgAiAEBQggKBl9lcnJvciJTChVFZGl0R2FtZVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEicKC2dhbWVfc2VydmVyGAIgASgLMhIueHlsb25hLkdhbWVTZXJ2ZXIiQQoWRWRpdEdhbWVTZXJ2ZXJSZXNwb25zZRInCgtnYW1lX1NlcnZlchgBIAEoCzISLnh5bG9uYS5HYW1lU2VydmVyIjAKG1JlYWRHYW1lU2VydmVyT3V0cHV0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiLgocUmVhZEdhbWVTZXJ2ZXJPdXRwdXRSZXNwb25zZRIOCgZvdXRwdXQYASABKAkiPgoaU2VuZEdhbWVTZXJ2ZXJJbnB1dFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg0KBWlucHV0GAIgASgJIh0KG1NlbmRHYW1lU2VydmVySW5wdXRSZXNwb25zZSKVAQoTQWxsU2VydmVyc1F1ZXJ5SW5mbxI5CgdzZXJ2ZXJzGAEgAygLMigueHlsb25hLkFsbFNlcnZlcnNRdWVyeUluZm8uU2VydmVyc0VudHJ5GkMKDFNlcnZlcnNFbnRyeRILCgNrZXkYASABKAkSIgoFdmFsdWUYAiABKAsyEy54eWxvbmEuU2VydmVyUXVlcnk6AjgBIogCCgtTZXJ2ZXJRdWVyeRIRCglzZXJ2ZXJfaWQYASABKAkSEwoLc2VydmVyX25hbWUYAiABKAkSJgoEdHlwZRgDIAEoDjIYLnh5bG9uYS5TZXJ2ZXJRdWVyeS5UeXBlEjIKCW1pbmVjcmFmdBgEIAEoCzIaLnh5bG9uYS5NaW5lY3JhZnRRdWVyeUluZm9IAIgBARIsCgZzb3VyY2UYBSABKAsyFy54eWxvbmEuU291cmNlUXVlcnlJbmZvSAGIAQEiLgoEVHlwZRILCgdVbmtub3duEAASDQoJTWluZWNyYWZ0EAESCgoGU291cmNlEAJCDAoKX21pbmVjcmFmdEIJCgdfc291cmNlIrkBChJNaW5lY3JhZnRRdWVyeUluZm8SDAoEbW90ZBgBIAEoCRIRCglnYW1lX3R5cGUYAiABKAkSCwoDbWFwGAMgASgJEhkKEW51bWJlcl9vZl9wbGF5ZXJzGAQgASgNEhMKC21heF9wbGF5ZXJzGAUgASgNEhMKC3BsYXllcl9saXN0GAYgAygJEhgKEHByb3RvY29sX3ZlcnNpb24YByABKA0SFgoOc2VydmVyX3ZlcnNpb24YCCABKAki+AEKD1NvdXJjZVF1ZXJ5SW5mbxIMCgRuYW1lGAEgASgJEgsKA21hcBgCIAEoCRIMCgRnYW1lGAMgASgJEg4KBmFwcF9pZBgEIAEoDRIQCghzdGVhbV9pZBgFIAEoBBIPCgdnYW1lX2lkGAYgASgEEg8KB3BsYXllcnMYByABKA0SEwoLbWF4X3BsYXllcnMYCCABKA0SDAoEYm90cxgJIAEoDRIRCglzZXJ2ZXJfb3MYCiABKAkSEgoKdmlzaWJpbGl0eRgLIAEoCBILCgN2YWMYDCABKAgSDwoHdmVyc2lvbhgNIAEoCRIQCghwcm90b2NvbBgOIAEoDSLUAwoETm9kZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEgwKBGhvc3QYAyABKAkSDAoEcG9ydBgFIAEoAxINCgVsb2NhbBgGIAEoCBISCgpzZWNyZXRfa2V5GAcgASgJEhAKCGJhc2VfdXJsGAggASgJEg8KB2VuYWJsZWQYCSABKAgSMAoMbGFzdF9zZWVuX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxsYXN0X3N5bmNfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKEGxhc3Rfc3luY19zdGF0dXMYDCABKAkSFQoNaGVhbHRoX3N0YXR1cxgNIAEoCRIPCgd2ZXJzaW9uGA4gASgJEhgKEHByb3RvY29sX3ZlcnNpb24YDyABKAUSFAoMY2FwYWJpbGl0aWVzGBAgASgJEi4KCmNyZWF0ZWRfYXQYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYEiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhoKEmFsbG93X2luc2VjdXJlX3RscxgTIAEoCCKgAQoJU2VjcmV0S2V5EgoKAmlkGAEgASgFEgwKBG5hbWUYAiABKAkSLgoKY3JlYXRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLQoJbGFzdF91c2VkGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIaChJsYXN0X2FjY2Vzc2VkX2Zyb20YBSABKAkitQEKDk5vZGVTeXN0ZW1JbmZvEhEKCWNwdV9tb2RlbBgBIAEoCRIRCgljcHVfY29yZXMYAiABKAUSEwoLY3B1X3RocmVhZHMYAyABKAUSGgoSdG90YWxfbWVtb3J5X2J5dGVzGAQgASgDEgoKAm9zGAUgASgJEhIKCm9zX3ZlcnNpb24YBiABKAkSFAoMYXJjaGl0ZWN0dXJlGAcgASgJEhYKDnh5bG9uYV92ZXJzaW9uGAggASgJIsYCChROb2RlUmVzb3VyY2VTbmFwc2hvdBITCgtjcHVfcGVyY2VudBgBIAEoARIWCg5tZW1vcnlfcGVyY2VudBgCIAEoARIZChFtZW1vcnlfdXNlZF9ieXRlcxgDIAEoAxIaChJtZW1vcnlfdG90YWxfYnl0ZXMYBCABKAMSFAoMZGlza19wZXJjZW50GAUgASgBEhcKD2Rpc2tfdXNlZF9ieXRlcxgGIAEoAxIYChBkaXNrX3RvdGFsX2J5dGVzGAcgASgDEhkKEWdhbWVfc2VydmVyX2NvdW50GAggASgFEiEKGXJ1bm5pbmdfZ2FtZV9zZXJ2ZXJfY291bnQYCSABKAUSEgoKdXNlcl9jb3VudBgKIAEoBRIvCgtyZWNvcmRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiuwEKE01ldHJpY3NIaXN0b3J5UG9pbnQSLQoJdGltZXN0YW1wGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjcHVfcGVyY2VudBgCIAEoARIWCg5tZW1vcnlfcGVyY2VudBgDIAEoARIUCgxkaXNrX3BlcmNlbnQYBCABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYBSABKAMSFwoPZGlza191c2VkX2J5dGVzGAYgASgDIsEBCh1HYW1lU2VydmVyTWV0cmljc0hpc3RvcnlQb2ludBItCgl0aW1lc3RhbXAYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NwdV9wZXJjZW50GAIgASgBEhQKDG1lbW9yeV9ieXRlcxgDIAEoAxIWCg5tZW1vcnlfcGVyY2VudBgEIAEoARIYChBkaXNrX3VzYWdlX2J5dGVzGAUgASgDEhQKDHBsYXllcl9jb3VudBgGIAEoBSpiCgVFcnJvchIPCgtCQURfUkVRVUVTVBAAEg8KC1BPUlRfSU5fVVNFEAESHgoaR0FNRV9TRVJWRVJfQUxSRUFEWV9FWElTVFMQAhIXChNVU0VSX0FMUkVBRFlfRVhJU1RTEAMqVgoQQ29tbWFuZFByb2Nlc3NvchIKCgZESVJFQ1QQABITCg9YWUxPTkFfSU5URVJOQUwQARIICgRCQVNIEAISBwoDQ01EEAMSDgoKUE9XRVJTSEVMTBAEKkwKBlN0YXR1cxILCgdVTktOT1dOEAASCwoHT0ZGTElORRABEgoKBk9OTElORRACEg4KCklOU1RBTExJTkcQAxIMCghVUERBVElORxAEQjJaMGdpdGh1Yi5jb20vQ2xpbnRvbkNvbGxpbnMvWHlsb25hL3Byb3RvL2dvL3h5bG9uYWIGcHJvdG8z", [file_google_protobuf_timestamp, file_gameserver_files_operations]);
+export const file_shared: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    'CgxzaGFyZWQucHJvdG8SBnh5bG9uYSKUAQoeR2FtZVNlcnZlckZpbGVzQXJjaGl2ZVByb2dyZXNzEhMKC3RvdGFsX2ZpbGVzGAEgASgDEhgKEGZpbGVzX2NvbXByZXNzZWQYAiABKAMSEwoLdG90YWxfYnl0ZXMYAyABKAMSGAoQYnl0ZXNfY29tcHJlc3NlZBgEIAEoAxIUCgxjdXJyZW50X2ZpbGUYBSABKAkikgEKHkdhbWVTZXJ2ZXJGaWxlc0V4dHJhY3RQcm9ncmVzcxITCgt0b3RhbF9maWxlcxgBIAEoAxIXCg9maWxlc19leHRyYWN0ZWQYAiABKAMSEwoLdG90YWxfYnl0ZXMYAyABKAMSFwoPYnl0ZXNfZXh0cmFjdGVkGAQgASgDEhQKDGN1cnJlbnRfZmlsZRgFIAEoCSKCCQoER2FtZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhQKDGRlZmF1bHRfcG9ydBgDIAEoAxIaChJkZWZhdWx0X3F1ZXJ5X3BvcnQYBCABKAMSGwoTZGVmYXVsdF9tYXhfcGxheWVycxgFIAEoAxIVCg1saW51eF9zdXBwb3J0GAYgASgIEhcKD3dpbmRvd3Nfc3VwcG9ydBgHIAEoCBIbChNsaW51eF9zdGFydF9jb21tYW5kGAggASgJEhoKEmxpbnV4X3N0b3BfY29tbWFuZBgJIAEoCRIdChVsaW51eF9pbnN0YWxsX2NvbW1hbmQYCiABKAkSHAoUbGludXhfdXBkYXRlX2NvbW1hbmQYCyABKAkSHwoXbGludXhfd29ya2luZ19kaXJlY3RvcnkYDCABKAkSJgoebGludXhfY29uZmlndXJhdGlvbl9maWxlX3BhdGhzGA0gASgJEhsKE2xpbnV4X2FsbG93X2JhY2t1cHMYDiABKAgSHQoVd2luZG93c19zdGFydF9jb21tYW5kGA8gASgJEhwKFHdpbmRvd3Nfc3RvcF9jb21tYW5kGBAgASgJEh8KF3dpbmRvd3NfaW5zdGFsbF9jb21tYW5kGBEgASgJEh4KFndpbmRvd3NfdXBkYXRlX2NvbW1hbmQYEiABKAkSIQoZd2luZG93c193b3JraW5nX2RpcmVjdG9yeRgTIAEoCRIoCiB3aW5kb3dzX2NvbmZpZ3VyYXRpb25fZmlsZV9wYXRocxgUIAEoCRIdChV3aW5kb3dzX2FsbG93X2JhY2t1cHMYFSABKAgSHAoUcmVxdWlyZV9kZWRpY2F0ZWRfaXAYFiABKAgSGAoQYmluZHNfdG9fYWxsX2lwcxgXIAEoCBIuCgpjcmVhdGVkX2F0GBggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GBkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIZChF1c2VzX3NvdXJjZV9xdWVyeRgaIAEoCBIuCiZyZXF1aXJlc19zdGVhbV9nYW1lX3NlcnZlcl9sb2dpbl90b2tlbhgbIAEoCBJBCh9saW51eF9pbnN0YWxsX2NvbW1hbmRfcHJvY2Vzc29yGBwgASgOMhgueHlsb25hLkNvbW1hbmRQcm9jZXNzb3ISQAoebGludXhfdXBkYXRlX2NvbW1hbmRfcHJvY2Vzc29yGB0gASgOMhgueHlsb25hLkNvbW1hbmRQcm9jZXNzb3ISQwohd2luZG93c19pbnN0YWxsX2NvbW1hbmRfcHJvY2Vzc29yGB4gASgOMhgueHlsb25hLkNvbW1hbmRQcm9jZXNzb3ISQgogd2luZG93c191cGRhdGVfY29tbWFuZF9wcm9jZXNzb3IYHyABKA4yGC54eWxvbmEuQ29tbWFuZFByb2Nlc3NvchIVCg11c2VzX3N0ZWFtY21kGCAgASgIEhMKC3N0ZWFtX2FwcGlkGCEgASgJIlwKEEdhbWVTZXJ2ZXJQbGF5ZXISDAoEbmFtZRgBIAEoCRIPCgJpZBgCIAEoCUgAiAEBEhUKCHN0ZWFtX2lkGAMgASgJSAGIAQFCBQoDX2lkQgsKCV9zdGVhbV9pZCJYCgtTdGVhbUJyYW5jaBIMCgRuYW1lGAEgASgJEhAKCGJ1aWxkX2lkGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhQKDHRpbWVfdXBkYXRlZBgEIAEoCSKGCAoKR2FtZVNlcnZlchIKCgJpZBgBIAEoCRIPCgd1c2VyX2lkGAIgASgJEgwKBG5hbWUYAyABKAkSDwoHZ2FtZV9pZBgEIAEoCRIVCg1zdGFydF9jb21tYW5kGAUgASgJEh4KBnN0YXR1cxgGIAEoDjIOLnh5bG9uYS5TdGF0dXMSFwoPc2V0X21heF9wbGF5ZXJzGAcgASgDEhMKC21heF9wbGF5ZXJzGAggASgDEgsKA21hcBgJIAEoCRIWCgJpcBgKIAEoCzIKLnh5bG9uYS5JUBIMCgRwb3J0GAsgASgDEhIKCnF1ZXJ5X3BvcnQYDCABKAMSEQoJZGlyZWN0b3J5GA0gASgJEhUKDW1heF9tZW1vcnlfbWIYDiABKAMSFwoPYmFja3Vwc19lbmFibGVkGA8gASgIEhgKEGJhY2t1cF9kaXJlY3RvcnkYECABKAkSEwoLbWF4X2JhY2t1cHMYESABKAMSLgoKY3JlYXRlZF9hdBgSIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgTIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJQodc3RlYW1fZ2FtZV9zZXJ2ZXJfbG9naW5fdG9rZW4YFCABKAkSEQoJdXNlcl9uYW1lGBUgASgJEhEKCWdhbWVfbmFtZRgWIAEoCRITCgtjcHVfcGVyY2VudBgXIAEoAxIUCgxtZW1vcnlfYnl0ZXMYGCABKAMSGQoRbnVtYmVyX29mX3RocmVhZHMYGSABKAMSDwoHdmVyc2lvbhgaIAEoCRIcChRjdXJyZW50X3BsYXllcl9jb3VudBgbIAEoAxIxCg9jdXJyZW50X3BsYXllcnMYHCADKAsyGC54eWxvbmEuR2FtZVNlcnZlclBsYXllchIpCgxzdGVhbV9icmFuY2gYHSABKAsyEy54eWxvbmEuU3RlYW1CcmFuY2gSDgoGYnJhbmNoGB4gASgJEg8KB25vZGVfaWQYHyABKAkSEQoJbm9kZV9uYW1lGCAgASgJEhEKCW5vZGVfaG9zdBghIAEoCRIRCglub2RlX3BvcnQYIiABKAMSGAoQZGlza191c2FnZV9ieXRlcxgjIAEoAxIWCg51cHRpbWVfc2Vjb25kcxgkIAEoAxIgChhtZW1vcnlfd29ya2luZ19zZXRfYnl0ZXMYJSABKAMSFgoObWVtb3J5X3BlcmNlbnQYJiABKAESEQoJY3B1X2NvcmVzGCcgASgFEhQKDGlvX3JlYWRfcmF0ZRgoIAEoARIVCg1pb193cml0ZV9yYXRlGCkgASgBEhgKEGNvbm5lY3Rpb25fY291bnQYKiABKAUiSAoCSVASDwoHYWRkcmVzcxgBIAEoCRIOCgZ1c2FibGUYAiABKAgSEAoIZXh0ZXJuYWwYAyABKAgSDwoHbm9kZV9pZBgEIAEoCSIrChZTdGFydEdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIoChdTdGFydEdhbWVTZXJ2ZXJSZXNwb25zZRINCgVlcnJvchgBIAEoCSIqChVTdG9wR2FtZVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIhgKFlN0b3BHYW1lU2VydmVyUmVzcG9uc2UiLQoYUmVzdGFydEdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIbChlSZXN0YXJ0R2FtZVNlcnZlclJlc3BvbnNlIiwKF1JlbW92ZUdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIaChhSZW1vdmVHYW1lU2VydmVyUmVzcG9uc2UiQgoXQ3JlYXRlR2FtZVNlcnZlclJlcXVlc3QSJwoLZ2FtZV9zZXJ2ZXIYASABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJwChhDcmVhdGVHYW1lU2VydmVyUmVzcG9uc2USJwoLZ2FtZV9zZXJ2ZXIYASABKAsyEi54eWxvbmEuR2FtZVNlcnZlchIhCgVlcnJvchgCIAEoDjINLnh5bG9uYS5FcnJvckgAiAEBQggKBl9lcnJvciJTChVFZGl0R2FtZVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEicKC2dhbWVfc2VydmVyGAIgASgLMhIueHlsb25hLkdhbWVTZXJ2ZXIiQQoWRWRpdEdhbWVTZXJ2ZXJSZXNwb25zZRInCgtnYW1lX1NlcnZlchgBIAEoCzISLnh5bG9uYS5HYW1lU2VydmVyIjAKG1JlYWRHYW1lU2VydmVyT3V0cHV0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiLgocUmVhZEdhbWVTZXJ2ZXJPdXRwdXRSZXNwb25zZRIOCgZvdXRwdXQYASABKAkiPgoaU2VuZEdhbWVTZXJ2ZXJJbnB1dFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg0KBWlucHV0GAIgASgJIh0KG1NlbmRHYW1lU2VydmVySW5wdXRSZXNwb25zZSKVAQoTQWxsU2VydmVyc1F1ZXJ5SW5mbxI5CgdzZXJ2ZXJzGAEgAygLMigueHlsb25hLkFsbFNlcnZlcnNRdWVyeUluZm8uU2VydmVyc0VudHJ5GkMKDFNlcnZlcnNFbnRyeRILCgNrZXkYASABKAkSIgoFdmFsdWUYAiABKAsyEy54eWxvbmEuU2VydmVyUXVlcnk6AjgBIogCCgtTZXJ2ZXJRdWVyeRIRCglzZXJ2ZXJfaWQYASABKAkSEwoLc2VydmVyX25hbWUYAiABKAkSJgoEdHlwZRgDIAEoDjIYLnh5bG9uYS5TZXJ2ZXJRdWVyeS5UeXBlEjIKCW1pbmVjcmFmdBgEIAEoCzIaLnh5bG9uYS5NaW5lY3JhZnRRdWVyeUluZm9IAIgBARIsCgZzb3VyY2UYBSABKAsyFy54eWxvbmEuU291cmNlUXVlcnlJbmZvSAGIAQEiLgoEVHlwZRILCgdVbmtub3duEAASDQoJTWluZWNyYWZ0EAESCgoGU291cmNlEAJCDAoKX21pbmVjcmFmdEIJCgdfc291cmNlIrkBChJNaW5lY3JhZnRRdWVyeUluZm8SDAoEbW90ZBgBIAEoCRIRCglnYW1lX3R5cGUYAiABKAkSCwoDbWFwGAMgASgJEhkKEW51bWJlcl9vZl9wbGF5ZXJzGAQgASgNEhMKC21heF9wbGF5ZXJzGAUgASgNEhMKC3BsYXllcl9saXN0GAYgAygJEhgKEHByb3RvY29sX3ZlcnNpb24YByABKA0SFgoOc2VydmVyX3ZlcnNpb24YCCABKAki+AEKD1NvdXJjZVF1ZXJ5SW5mbxIMCgRuYW1lGAEgASgJEgsKA21hcBgCIAEoCRIMCgRnYW1lGAMgASgJEg4KBmFwcF9pZBgEIAEoDRIQCghzdGVhbV9pZBgFIAEoBBIPCgdnYW1lX2lkGAYgASgEEg8KB3BsYXllcnMYByABKA0SEwoLbWF4X3BsYXllcnMYCCABKA0SDAoEYm90cxgJIAEoDRIRCglzZXJ2ZXJfb3MYCiABKAkSEgoKdmlzaWJpbGl0eRgLIAEoCBILCgN2YWMYDCABKAgSDwoHdmVyc2lvbhgNIAEoCRIQCghwcm90b2NvbBgOIAEoDSLUAwoETm9kZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEgwKBGhvc3QYAyABKAkSDAoEcG9ydBgFIAEoAxINCgVsb2NhbBgGIAEoCBISCgpzZWNyZXRfa2V5GAcgASgJEhAKCGJhc2VfdXJsGAggASgJEg8KB2VuYWJsZWQYCSABKAgSMAoMbGFzdF9zZWVuX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxsYXN0X3N5bmNfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKEGxhc3Rfc3luY19zdGF0dXMYDCABKAkSFQoNaGVhbHRoX3N0YXR1cxgNIAEoCRIPCgd2ZXJzaW9uGA4gASgJEhgKEHByb3RvY29sX3ZlcnNpb24YDyABKAUSFAoMY2FwYWJpbGl0aWVzGBAgASgJEi4KCmNyZWF0ZWRfYXQYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYEiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhoKEmFsbG93X2luc2VjdXJlX3RscxgTIAEoCCKgAQoJU2VjcmV0S2V5EgoKAmlkGAEgASgFEgwKBG5hbWUYAiABKAkSLgoKY3JlYXRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLQoJbGFzdF91c2VkGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIaChJsYXN0X2FjY2Vzc2VkX2Zyb20YBSABKAkitQEKDk5vZGVTeXN0ZW1JbmZvEhEKCWNwdV9tb2RlbBgBIAEoCRIRCgljcHVfY29yZXMYAiABKAUSEwoLY3B1X3RocmVhZHMYAyABKAUSGgoSdG90YWxfbWVtb3J5X2J5dGVzGAQgASgDEgoKAm9zGAUgASgJEhIKCm9zX3ZlcnNpb24YBiABKAkSFAoMYXJjaGl0ZWN0dXJlGAcgASgJEhYKDnh5bG9uYV92ZXJzaW9uGAggASgJIsYCChROb2RlUmVzb3VyY2VTbmFwc2hvdBITCgtjcHVfcGVyY2VudBgBIAEoARIWCg5tZW1vcnlfcGVyY2VudBgCIAEoARIZChFtZW1vcnlfdXNlZF9ieXRlcxgDIAEoAxIaChJtZW1vcnlfdG90YWxfYnl0ZXMYBCABKAMSFAoMZGlza19wZXJjZW50GAUgASgBEhcKD2Rpc2tfdXNlZF9ieXRlcxgGIAEoAxIYChBkaXNrX3RvdGFsX2J5dGVzGAcgASgDEhkKEWdhbWVfc2VydmVyX2NvdW50GAggASgFEiEKGXJ1bm5pbmdfZ2FtZV9zZXJ2ZXJfY291bnQYCSABKAUSEgoKdXNlcl9jb3VudBgKIAEoBRIvCgtyZWNvcmRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiuwEKE01ldHJpY3NIaXN0b3J5UG9pbnQSLQoJdGltZXN0YW1wGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjcHVfcGVyY2VudBgCIAEoARIWCg5tZW1vcnlfcGVyY2VudBgDIAEoARIUCgxkaXNrX3BlcmNlbnQYBCABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYBSABKAMSFwoPZGlza191c2VkX2J5dGVzGAYgASgDIsEBCh1HYW1lU2VydmVyTWV0cmljc0hpc3RvcnlQb2ludBItCgl0aW1lc3RhbXAYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NwdV9wZXJjZW50GAIgASgBEhQKDG1lbW9yeV9ieXRlcxgDIAEoAxIWCg5tZW1vcnlfcGVyY2VudBgEIAEoARIYChBkaXNrX3VzYWdlX2J5dGVzGAUgASgDEhQKDHBsYXllcl9jb3VudBgGIAEoBSpiCgVFcnJvchIPCgtCQURfUkVRVUVTVBAAEg8KC1BPUlRfSU5fVVNFEAESHgoaR0FNRV9TRVJWRVJfQUxSRUFEWV9FWElTVFMQAhIXChNVU0VSX0FMUkVBRFlfRVhJU1RTEAMqVgoQQ29tbWFuZFByb2Nlc3NvchIKCgZESVJFQ1QQABITCg9YWUxPTkFfSU5URVJOQUwQARIICgRCQVNIEAISBwoDQ01EEAMSDgoKUE9XRVJTSEVMTBAEKkwKBlN0YXR1cxILCgdVTktOT1dOEAASCwoHT0ZGTElORRABEgoKBk9OTElORRACEg4KCklOU1RBTExJTkcQAxIMCghVUERBVElORxAEQjJaMGdpdGh1Yi5jb20vQ2xpbnRvbkNvbGxpbnMvWHlsb25hL3Byb3RvL2dvL3h5bG9uYWIGcHJvdG8z',
+    [file_google_protobuf_timestamp, file_gameserver_files_operations],
+  )
 
 /**
  * @generated from message xylona.GameServerFilesArchiveProgress
  */
-export type GameServerFilesArchiveProgress = Message<"xylona.GameServerFilesArchiveProgress"> & {
+export type GameServerFilesArchiveProgress = Message<'xylona.GameServerFilesArchiveProgress'> & {
   /**
    * @generated from field: int64 total_files = 1;
    */
-  totalFiles: bigint;
+  totalFiles: bigint
 
   /**
    * @generated from field: int64 files_compressed = 2;
    */
-  filesCompressed: bigint;
+  filesCompressed: bigint
 
   /**
    * @generated from field: int64 total_bytes = 3;
    */
-  totalBytes: bigint;
+  totalBytes: bigint
 
   /**
    * @generated from field: int64 bytes_compressed = 4;
    */
-  bytesCompressed: bigint;
+  bytesCompressed: bigint
 
   /**
    * @generated from field: string current_file = 5;
    */
-  currentFile: string;
-};
+  currentFile: string
+}
 
 /**
  * Describes the message xylona.GameServerFilesArchiveProgress.
  * Use `create(GameServerFilesArchiveProgressSchema)` to create a new message.
  */
-export const GameServerFilesArchiveProgressSchema: GenMessage<GameServerFilesArchiveProgress> = /*@__PURE__*/
-  messageDesc(file_shared, 0);
+export const GameServerFilesArchiveProgressSchema: GenMessage<GameServerFilesArchiveProgress> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 0)
 
 /**
  * @generated from message xylona.GameServerFilesExtractProgress
  */
-export type GameServerFilesExtractProgress = Message<"xylona.GameServerFilesExtractProgress"> & {
+export type GameServerFilesExtractProgress = Message<'xylona.GameServerFilesExtractProgress'> & {
   /**
    * @generated from field: int64 total_files = 1;
    */
-  totalFiles: bigint;
+  totalFiles: bigint
 
   /**
    * @generated from field: int64 files_extracted = 2;
    */
-  filesExtracted: bigint;
+  filesExtracted: bigint
 
   /**
    * @generated from field: int64 total_bytes = 3;
    */
-  totalBytes: bigint;
+  totalBytes: bigint
 
   /**
    * @generated from field: int64 bytes_extracted = 4;
    */
-  bytesExtracted: bigint;
+  bytesExtracted: bigint
 
   /**
    * @generated from field: string current_file = 5;
    */
-  currentFile: string;
-};
+  currentFile: string
+}
 
 /**
  * Describes the message xylona.GameServerFilesExtractProgress.
  * Use `create(GameServerFilesExtractProgressSchema)` to create a new message.
  */
-export const GameServerFilesExtractProgressSchema: GenMessage<GameServerFilesExtractProgress> = /*@__PURE__*/
-  messageDesc(file_shared, 1);
+export const GameServerFilesExtractProgressSchema: GenMessage<GameServerFilesExtractProgress> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 1)
 
 /**
  * @generated from message xylona.Game
  */
-export type Game = Message<"xylona.Game"> & {
+export type Game = Message<'xylona.Game'> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string;
+  id: string
 
   /**
    * @generated from field: string name = 2;
    */
-  name: string;
+  name: string
 
   /**
    * @generated from field: int64 default_port = 3;
    */
-  defaultPort: bigint;
+  defaultPort: bigint
 
   /**
    * @generated from field: int64 default_query_port = 4;
    */
-  defaultQueryPort: bigint;
+  defaultQueryPort: bigint
 
   /**
    * @generated from field: int64 default_max_players = 5;
    */
-  defaultMaxPlayers: bigint;
+  defaultMaxPlayers: bigint
 
   /**
    * @generated from field: bool linux_support = 6;
    */
-  linuxSupport: boolean;
+  linuxSupport: boolean
 
   /**
    * @generated from field: bool windows_support = 7;
    */
-  windowsSupport: boolean;
+  windowsSupport: boolean
 
   /**
    * @generated from field: string linux_start_command = 8;
    */
-  linuxStartCommand: string;
+  linuxStartCommand: string
 
   /**
    * @generated from field: string linux_stop_command = 9;
    */
-  linuxStopCommand: string;
+  linuxStopCommand: string
 
   /**
    * @generated from field: string linux_install_command = 10;
    */
-  linuxInstallCommand: string;
+  linuxInstallCommand: string
 
   /**
    * @generated from field: string linux_update_command = 11;
    */
-  linuxUpdateCommand: string;
+  linuxUpdateCommand: string
 
   /**
    * @generated from field: string linux_working_directory = 12;
    */
-  linuxWorkingDirectory: string;
+  linuxWorkingDirectory: string
 
   /**
    * @generated from field: string linux_configuration_file_paths = 13;
    */
-  linuxConfigurationFilePaths: string;
+  linuxConfigurationFilePaths: string
 
   /**
    * @generated from field: bool linux_allow_backups = 14;
    */
-  linuxAllowBackups: boolean;
+  linuxAllowBackups: boolean
 
   /**
    * @generated from field: string windows_start_command = 15;
    */
-  windowsStartCommand: string;
+  windowsStartCommand: string
 
   /**
    * @generated from field: string windows_stop_command = 16;
    */
-  windowsStopCommand: string;
+  windowsStopCommand: string
 
   /**
    * @generated from field: string windows_install_command = 17;
    */
-  windowsInstallCommand: string;
+  windowsInstallCommand: string
 
   /**
    * @generated from field: string windows_update_command = 18;
    */
-  windowsUpdateCommand: string;
+  windowsUpdateCommand: string
 
   /**
    * @generated from field: string windows_working_directory = 19;
    */
-  windowsWorkingDirectory: string;
+  windowsWorkingDirectory: string
 
   /**
    * @generated from field: string windows_configuration_file_paths = 20;
    */
-  windowsConfigurationFilePaths: string;
+  windowsConfigurationFilePaths: string
 
   /**
    * @generated from field: bool windows_allow_backups = 21;
    */
-  windowsAllowBackups: boolean;
+  windowsAllowBackups: boolean
 
   /**
    * @generated from field: bool require_dedicated_ip = 22;
    */
-  requireDedicatedIp: boolean;
+  requireDedicatedIp: boolean
 
   /**
    * @generated from field: bool binds_to_all_ips = 23;
    */
-  bindsToAllIps: boolean;
+  bindsToAllIps: boolean
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 24;
    */
-  createdAt?: Timestamp;
+  createdAt?: Timestamp
 
   /**
    * @generated from field: google.protobuf.Timestamp updated_at = 25;
    */
-  updatedAt?: Timestamp;
+  updatedAt?: Timestamp
 
   /**
    * @generated from field: bool uses_source_query = 26;
    */
-  usesSourceQuery: boolean;
+  usesSourceQuery: boolean
 
   /**
    * @generated from field: bool requires_steam_game_server_login_token = 27;
    */
-  requiresSteamGameServerLoginToken: boolean;
+  requiresSteamGameServerLoginToken: boolean
 
   /**
    * @generated from field: xylona.CommandProcessor linux_install_command_processor = 28;
    */
-  linuxInstallCommandProcessor: CommandProcessor;
+  linuxInstallCommandProcessor: CommandProcessor
 
   /**
    * @generated from field: xylona.CommandProcessor linux_update_command_processor = 29;
    */
-  linuxUpdateCommandProcessor: CommandProcessor;
+  linuxUpdateCommandProcessor: CommandProcessor
 
   /**
    * @generated from field: xylona.CommandProcessor windows_install_command_processor = 30;
    */
-  windowsInstallCommandProcessor: CommandProcessor;
+  windowsInstallCommandProcessor: CommandProcessor
 
   /**
    * @generated from field: xylona.CommandProcessor windows_update_command_processor = 31;
    */
-  windowsUpdateCommandProcessor: CommandProcessor;
+  windowsUpdateCommandProcessor: CommandProcessor
 
   /**
    * @generated from field: bool uses_steamcmd = 32;
    */
-  usesSteamcmd: boolean;
+  usesSteamcmd: boolean
 
   /**
    * @generated from field: string steam_appid = 33;
    */
-  steamAppid: string;
-};
+  steamAppid: string
+}
 
 /**
  * Describes the message xylona.Game.
  * Use `create(GameSchema)` to create a new message.
  */
-export const GameSchema: GenMessage<Game> = /*@__PURE__*/
-  messageDesc(file_shared, 2);
+export const GameSchema: GenMessage<Game> = /*@__PURE__*/ messageDesc(file_shared, 2)
 
 /**
  * @generated from message xylona.GameServerPlayer
  */
-export type GameServerPlayer = Message<"xylona.GameServerPlayer"> & {
+export type GameServerPlayer = Message<'xylona.GameServerPlayer'> & {
   /**
    * @generated from field: string name = 1;
    */
-  name: string;
+  name: string
 
   /**
    * @generated from field: optional string id = 2;
    */
-  id?: string;
+  id?: string
 
   /**
    * @generated from field: optional string steam_id = 3;
    */
-  steamId?: string;
-};
+  steamId?: string
+}
 
 /**
  * Describes the message xylona.GameServerPlayer.
  * Use `create(GameServerPlayerSchema)` to create a new message.
  */
-export const GameServerPlayerSchema: GenMessage<GameServerPlayer> = /*@__PURE__*/
-  messageDesc(file_shared, 3);
+export const GameServerPlayerSchema: GenMessage<GameServerPlayer> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 3)
 
 /**
  * @generated from message xylona.SteamBranch
  */
-export type SteamBranch = Message<"xylona.SteamBranch"> & {
+export type SteamBranch = Message<'xylona.SteamBranch'> & {
   /**
    * @generated from field: string name = 1;
    */
-  name: string;
+  name: string
 
   /**
    * @generated from field: string build_id = 2;
    */
-  buildId: string;
+  buildId: string
 
   /**
    * @generated from field: string description = 3;
    */
-  description: string;
+  description: string
 
   /**
    * @generated from field: string time_updated = 4;
    */
-  timeUpdated: string;
-};
+  timeUpdated: string
+}
 
 /**
  * Describes the message xylona.SteamBranch.
  * Use `create(SteamBranchSchema)` to create a new message.
  */
-export const SteamBranchSchema: GenMessage<SteamBranch> = /*@__PURE__*/
-  messageDesc(file_shared, 4);
+export const SteamBranchSchema: GenMessage<SteamBranch> = /*@__PURE__*/ messageDesc(file_shared, 4)
 
 /**
  * @generated from message xylona.GameServer
  */
-export type GameServer = Message<"xylona.GameServer"> & {
+export type GameServer = Message<'xylona.GameServer'> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string;
+  id: string
 
   /**
    * @generated from field: string user_id = 2;
    */
-  userId: string;
+  userId: string
 
   /**
    * @generated from field: string name = 3;
    */
-  name: string;
+  name: string
 
   /**
    * @generated from field: string game_id = 4;
    */
-  gameId: string;
+  gameId: string
 
   /**
    * @generated from field: string start_command = 5;
    */
-  startCommand: string;
+  startCommand: string
 
   /**
    * @generated from field: xylona.Status status = 6;
    */
-  status: Status;
+  status: Status
 
   /**
    * @generated from field: int64 set_max_players = 7;
    */
-  setMaxPlayers: bigint;
+  setMaxPlayers: bigint
 
   /**
    * @generated from field: int64 max_players = 8;
    */
-  maxPlayers: bigint;
+  maxPlayers: bigint
 
   /**
    * @generated from field: string map = 9;
    */
-  map: string;
+  map: string
 
   /**
    * @generated from field: xylona.IP ip = 10;
    */
-  ip?: IP;
+  ip?: IP
 
   /**
    * @generated from field: int64 port = 11;
    */
-  port: bigint;
+  port: bigint
 
   /**
    * @generated from field: int64 query_port = 12;
    */
-  queryPort: bigint;
+  queryPort: bigint
 
   /**
    * @generated from field: string directory = 13;
    */
-  directory: string;
+  directory: string
 
   /**
    * @generated from field: int64 max_memory_mb = 14;
    */
-  maxMemoryMb: bigint;
+  maxMemoryMb: bigint
 
   /**
    * @generated from field: bool backups_enabled = 15;
    */
-  backupsEnabled: boolean;
+  backupsEnabled: boolean
 
   /**
    * @generated from field: string backup_directory = 16;
    */
-  backupDirectory: string;
+  backupDirectory: string
 
   /**
    * @generated from field: int64 max_backups = 17;
    */
-  maxBackups: bigint;
+  maxBackups: bigint
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 18;
    */
-  createdAt?: Timestamp;
+  createdAt?: Timestamp
 
   /**
    * @generated from field: google.protobuf.Timestamp updated_at = 19;
    */
-  updatedAt?: Timestamp;
+  updatedAt?: Timestamp
 
   /**
    * @generated from field: string steam_game_server_login_token = 20;
    */
-  steamGameServerLoginToken: string;
+  steamGameServerLoginToken: string
 
   /**
    * @generated from field: string user_name = 21;
    */
-  userName: string;
+  userName: string
 
   /**
    * @generated from field: string game_name = 22;
    */
-  gameName: string;
+  gameName: string
 
   /**
    * @generated from field: int64 cpu_percent = 23;
    */
-  cpuPercent: bigint;
+  cpuPercent: bigint
 
   /**
    * @generated from field: int64 memory_bytes = 24;
    */
-  memoryBytes: bigint;
+  memoryBytes: bigint
 
   /**
    * @generated from field: int64 number_of_threads = 25;
    */
-  numberOfThreads: bigint;
+  numberOfThreads: bigint
 
   /**
    * @generated from field: string version = 26;
    */
-  version: string;
+  version: string
 
   /**
    * @generated from field: int64 current_player_count = 27;
    */
-  currentPlayerCount: bigint;
+  currentPlayerCount: bigint
 
   /**
    * @generated from field: repeated xylona.GameServerPlayer current_players = 28;
    */
-  currentPlayers: GameServerPlayer[];
+  currentPlayers: GameServerPlayer[]
 
   /**
    * @generated from field: xylona.SteamBranch steam_branch = 29;
    */
-  steamBranch?: SteamBranch;
+  steamBranch?: SteamBranch
 
   /**
    * @generated from field: string branch = 30;
    */
-  branch: string;
+  branch: string
 
   /**
    * @generated from field: string node_id = 31;
    */
-  nodeId: string;
+  nodeId: string
 
   /**
    * @generated from field: string node_name = 32;
    */
-  nodeName: string;
+  nodeName: string
 
   /**
    * @generated from field: string node_host = 33;
    */
-  nodeHost: string;
+  nodeHost: string
 
   /**
    * @generated from field: int64 node_port = 34;
    */
-  nodePort: bigint;
+  nodePort: bigint
 
   /**
    * @generated from field: int64 disk_usage_bytes = 35;
    */
-  diskUsageBytes: bigint;
+  diskUsageBytes: bigint
 
   /**
    * @generated from field: int64 uptime_seconds = 36;
    */
-  uptimeSeconds: bigint;
+  uptimeSeconds: bigint
 
   /**
    * @generated from field: int64 memory_working_set_bytes = 37;
    */
-  memoryWorkingSetBytes: bigint;
+  memoryWorkingSetBytes: bigint
 
   /**
    * @generated from field: double memory_percent = 38;
    */
-  memoryPercent: number;
+  memoryPercent: number
 
   /**
    * @generated from field: int32 cpu_cores = 39;
    */
-  cpuCores: number;
+  cpuCores: number
 
   /**
    * @generated from field: double io_read_rate = 40;
    */
-  ioReadRate: number;
+  ioReadRate: number
 
   /**
    * @generated from field: double io_write_rate = 41;
    */
-  ioWriteRate: number;
+  ioWriteRate: number
 
   /**
    * @generated from field: int32 connection_count = 42;
    */
-  connectionCount: number;
-};
+  connectionCount: number
+}
 
 /**
  * Describes the message xylona.GameServer.
  * Use `create(GameServerSchema)` to create a new message.
  */
-export const GameServerSchema: GenMessage<GameServer> = /*@__PURE__*/
-  messageDesc(file_shared, 5);
+export const GameServerSchema: GenMessage<GameServer> = /*@__PURE__*/ messageDesc(file_shared, 5)
 
 /**
  * @generated from message xylona.IP
  */
-export type IP = Message<"xylona.IP"> & {
+export type IP = Message<'xylona.IP'> & {
   /**
    * @generated from field: string address = 1;
    */
-  address: string;
+  address: string
 
   /**
    * @generated from field: bool usable = 2;
    */
-  usable: boolean;
+  usable: boolean
 
   /**
    * @generated from field: bool external = 3;
    */
-  external: boolean;
+  external: boolean
 
   /**
    * @generated from field: string node_id = 4;
    */
-  nodeId: string;
-};
+  nodeId: string
+}
 
 /**
  * Describes the message xylona.IP.
  * Use `create(IPSchema)` to create a new message.
  */
-export const IPSchema: GenMessage<IP> = /*@__PURE__*/
-  messageDesc(file_shared, 6);
+export const IPSchema: GenMessage<IP> = /*@__PURE__*/ messageDesc(file_shared, 6)
 
 /**
  * @generated from message xylona.StartGameServerRequest
  */
-export type StartGameServerRequest = Message<"xylona.StartGameServerRequest"> & {
+export type StartGameServerRequest = Message<'xylona.StartGameServerRequest'> & {
   /**
    * @generated from field: string server_id = 1;
    */
-  serverId: string;
-};
+  serverId: string
+}
 
 /**
  * Describes the message xylona.StartGameServerRequest.
  * Use `create(StartGameServerRequestSchema)` to create a new message.
  */
-export const StartGameServerRequestSchema: GenMessage<StartGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 7);
+export const StartGameServerRequestSchema: GenMessage<StartGameServerRequest> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 7)
 
 /**
  * @generated from message xylona.StartGameServerResponse
  */
-export type StartGameServerResponse = Message<"xylona.StartGameServerResponse"> & {
+export type StartGameServerResponse = Message<'xylona.StartGameServerResponse'> & {
   /**
    * @generated from field: string error = 1;
    */
-  error: string;
-};
+  error: string
+}
 
 /**
  * Describes the message xylona.StartGameServerResponse.
  * Use `create(StartGameServerResponseSchema)` to create a new message.
  */
-export const StartGameServerResponseSchema: GenMessage<StartGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 8);
+export const StartGameServerResponseSchema: GenMessage<StartGameServerResponse> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 8)
 
 /**
  * @generated from message xylona.StopGameServerRequest
  */
-export type StopGameServerRequest = Message<"xylona.StopGameServerRequest"> & {
+export type StopGameServerRequest = Message<'xylona.StopGameServerRequest'> & {
   /**
    * @generated from field: string server_id = 1;
    */
-  serverId: string;
-};
+  serverId: string
+}
 
 /**
  * Describes the message xylona.StopGameServerRequest.
  * Use `create(StopGameServerRequestSchema)` to create a new message.
  */
-export const StopGameServerRequestSchema: GenMessage<StopGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 9);
+export const StopGameServerRequestSchema: GenMessage<StopGameServerRequest> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 9)
 
 /**
  * @generated from message xylona.StopGameServerResponse
  */
-export type StopGameServerResponse = Message<"xylona.StopGameServerResponse"> & {
-};
+export type StopGameServerResponse = Message<'xylona.StopGameServerResponse'> & {}
 
 /**
  * Describes the message xylona.StopGameServerResponse.
  * Use `create(StopGameServerResponseSchema)` to create a new message.
  */
-export const StopGameServerResponseSchema: GenMessage<StopGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 10);
+export const StopGameServerResponseSchema: GenMessage<StopGameServerResponse> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 10)
 
 /**
  * @generated from message xylona.RestartGameServerRequest
  */
-export type RestartGameServerRequest = Message<"xylona.RestartGameServerRequest"> & {
+export type RestartGameServerRequest = Message<'xylona.RestartGameServerRequest'> & {
   /**
    * @generated from field: string server_id = 1;
    */
-  serverId: string;
-};
+  serverId: string
+}
 
 /**
  * Describes the message xylona.RestartGameServerRequest.
  * Use `create(RestartGameServerRequestSchema)` to create a new message.
  */
-export const RestartGameServerRequestSchema: GenMessage<RestartGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 11);
+export const RestartGameServerRequestSchema: GenMessage<RestartGameServerRequest> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 11)
 
 /**
  * @generated from message xylona.RestartGameServerResponse
  */
-export type RestartGameServerResponse = Message<"xylona.RestartGameServerResponse"> & {
-};
+export type RestartGameServerResponse = Message<'xylona.RestartGameServerResponse'> & {}
 
 /**
  * Describes the message xylona.RestartGameServerResponse.
  * Use `create(RestartGameServerResponseSchema)` to create a new message.
  */
-export const RestartGameServerResponseSchema: GenMessage<RestartGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 12);
+export const RestartGameServerResponseSchema: GenMessage<RestartGameServerResponse> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 12)
 
 /**
  * @generated from message xylona.RemoveGameServerRequest
  */
-export type RemoveGameServerRequest = Message<"xylona.RemoveGameServerRequest"> & {
+export type RemoveGameServerRequest = Message<'xylona.RemoveGameServerRequest'> & {
   /**
    * @generated from field: string server_id = 1;
    */
-  serverId: string;
-};
+  serverId: string
+}
 
 /**
  * Describes the message xylona.RemoveGameServerRequest.
  * Use `create(RemoveGameServerRequestSchema)` to create a new message.
  */
-export const RemoveGameServerRequestSchema: GenMessage<RemoveGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 13);
+export const RemoveGameServerRequestSchema: GenMessage<RemoveGameServerRequest> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 13)
 
 /**
  * @generated from message xylona.RemoveGameServerResponse
  */
-export type RemoveGameServerResponse = Message<"xylona.RemoveGameServerResponse"> & {
-};
+export type RemoveGameServerResponse = Message<'xylona.RemoveGameServerResponse'> & {}
 
 /**
  * Describes the message xylona.RemoveGameServerResponse.
  * Use `create(RemoveGameServerResponseSchema)` to create a new message.
  */
-export const RemoveGameServerResponseSchema: GenMessage<RemoveGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 14);
+export const RemoveGameServerResponseSchema: GenMessage<RemoveGameServerResponse> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 14)
 
 /**
  * @generated from message xylona.CreateGameServerRequest
  */
-export type CreateGameServerRequest = Message<"xylona.CreateGameServerRequest"> & {
+export type CreateGameServerRequest = Message<'xylona.CreateGameServerRequest'> & {
   /**
    * @generated from field: xylona.GameServer game_server = 1;
    */
-  gameServer?: GameServer;
-};
+  gameServer?: GameServer
+}
 
 /**
  * Describes the message xylona.CreateGameServerRequest.
  * Use `create(CreateGameServerRequestSchema)` to create a new message.
  */
-export const CreateGameServerRequestSchema: GenMessage<CreateGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 15);
+export const CreateGameServerRequestSchema: GenMessage<CreateGameServerRequest> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 15)
 
 /**
  * @generated from message xylona.CreateGameServerResponse
  */
-export type CreateGameServerResponse = Message<"xylona.CreateGameServerResponse"> & {
+export type CreateGameServerResponse = Message<'xylona.CreateGameServerResponse'> & {
   /**
    * @generated from field: xylona.GameServer game_server = 1;
    */
-  gameServer?: GameServer;
+  gameServer?: GameServer
 
   /**
    * @generated from field: optional xylona.Error error = 2;
    */
-  error?: Error;
-};
+  error?: Error
+}
 
 /**
  * Describes the message xylona.CreateGameServerResponse.
  * Use `create(CreateGameServerResponseSchema)` to create a new message.
  */
-export const CreateGameServerResponseSchema: GenMessage<CreateGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 16);
+export const CreateGameServerResponseSchema: GenMessage<CreateGameServerResponse> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 16)
 
 /**
  * @generated from message xylona.EditGameServerRequest
  */
-export type EditGameServerRequest = Message<"xylona.EditGameServerRequest"> & {
+export type EditGameServerRequest = Message<'xylona.EditGameServerRequest'> & {
   /**
    * @generated from field: string server_id = 1;
    */
-  serverId: string;
+  serverId: string
 
   /**
    * @generated from field: xylona.GameServer game_server = 2;
    */
-  gameServer?: GameServer;
-};
+  gameServer?: GameServer
+}
 
 /**
  * Describes the message xylona.EditGameServerRequest.
  * Use `create(EditGameServerRequestSchema)` to create a new message.
  */
-export const EditGameServerRequestSchema: GenMessage<EditGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 17);
+export const EditGameServerRequestSchema: GenMessage<EditGameServerRequest> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 17)
 
 /**
  * @generated from message xylona.EditGameServerResponse
  */
-export type EditGameServerResponse = Message<"xylona.EditGameServerResponse"> & {
+export type EditGameServerResponse = Message<'xylona.EditGameServerResponse'> & {
   /**
    * @generated from field: xylona.GameServer game_Server = 1;
    */
-  gameServer?: GameServer;
-};
+  gameServer?: GameServer
+}
 
 /**
  * Describes the message xylona.EditGameServerResponse.
  * Use `create(EditGameServerResponseSchema)` to create a new message.
  */
-export const EditGameServerResponseSchema: GenMessage<EditGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 18);
+export const EditGameServerResponseSchema: GenMessage<EditGameServerResponse> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 18)
 
 /**
  * @generated from message xylona.ReadGameServerOutputRequest
  */
-export type ReadGameServerOutputRequest = Message<"xylona.ReadGameServerOutputRequest"> & {
+export type ReadGameServerOutputRequest = Message<'xylona.ReadGameServerOutputRequest'> & {
   /**
    * @generated from field: string server_id = 1;
    */
-  serverId: string;
-};
+  serverId: string
+}
 
 /**
  * Describes the message xylona.ReadGameServerOutputRequest.
  * Use `create(ReadGameServerOutputRequestSchema)` to create a new message.
  */
-export const ReadGameServerOutputRequestSchema: GenMessage<ReadGameServerOutputRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 19);
+export const ReadGameServerOutputRequestSchema: GenMessage<ReadGameServerOutputRequest> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 19)
 
 /**
  * @generated from message xylona.ReadGameServerOutputResponse
  */
-export type ReadGameServerOutputResponse = Message<"xylona.ReadGameServerOutputResponse"> & {
+export type ReadGameServerOutputResponse = Message<'xylona.ReadGameServerOutputResponse'> & {
   /**
    * @generated from field: string output = 1;
    */
-  output: string;
-};
+  output: string
+}
 
 /**
  * Describes the message xylona.ReadGameServerOutputResponse.
  * Use `create(ReadGameServerOutputResponseSchema)` to create a new message.
  */
-export const ReadGameServerOutputResponseSchema: GenMessage<ReadGameServerOutputResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 20);
+export const ReadGameServerOutputResponseSchema: GenMessage<ReadGameServerOutputResponse> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 20)
 
 /**
  * @generated from message xylona.SendGameServerInputRequest
  */
-export type SendGameServerInputRequest = Message<"xylona.SendGameServerInputRequest"> & {
+export type SendGameServerInputRequest = Message<'xylona.SendGameServerInputRequest'> & {
   /**
    * @generated from field: string server_id = 1;
    */
-  serverId: string;
+  serverId: string
 
   /**
    * @generated from field: string input = 2;
    */
-  input: string;
-};
+  input: string
+}
 
 /**
  * Describes the message xylona.SendGameServerInputRequest.
  * Use `create(SendGameServerInputRequestSchema)` to create a new message.
  */
-export const SendGameServerInputRequestSchema: GenMessage<SendGameServerInputRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 21);
+export const SendGameServerInputRequestSchema: GenMessage<SendGameServerInputRequest> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 21)
 
 /**
  * @generated from message xylona.SendGameServerInputResponse
  */
-export type SendGameServerInputResponse = Message<"xylona.SendGameServerInputResponse"> & {
-};
+export type SendGameServerInputResponse = Message<'xylona.SendGameServerInputResponse'> & {}
 
 /**
  * Describes the message xylona.SendGameServerInputResponse.
  * Use `create(SendGameServerInputResponseSchema)` to create a new message.
  */
-export const SendGameServerInputResponseSchema: GenMessage<SendGameServerInputResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 22);
+export const SendGameServerInputResponseSchema: GenMessage<SendGameServerInputResponse> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 22)
 
 /**
  * @generated from message xylona.AllServersQueryInfo
  */
-export type AllServersQueryInfo = Message<"xylona.AllServersQueryInfo"> & {
+export type AllServersQueryInfo = Message<'xylona.AllServersQueryInfo'> & {
   /**
    * @generated from field: map<string, xylona.ServerQuery> servers = 1;
    */
-  servers: { [key: string]: ServerQuery };
-};
+  servers: { [key: string]: ServerQuery }
+}
 
 /**
  * Describes the message xylona.AllServersQueryInfo.
  * Use `create(AllServersQueryInfoSchema)` to create a new message.
  */
-export const AllServersQueryInfoSchema: GenMessage<AllServersQueryInfo> = /*@__PURE__*/
-  messageDesc(file_shared, 23);
+export const AllServersQueryInfoSchema: GenMessage<AllServersQueryInfo> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 23)
 
 /**
  * @generated from message xylona.ServerQuery
  */
-export type ServerQuery = Message<"xylona.ServerQuery"> & {
+export type ServerQuery = Message<'xylona.ServerQuery'> & {
   /**
    * @generated from field: string server_id = 1;
    */
-  serverId: string;
+  serverId: string
 
   /**
    * @generated from field: string server_name = 2;
    */
-  serverName: string;
+  serverName: string
 
   /**
    * @generated from field: xylona.ServerQuery.Type type = 3;
    */
-  type: ServerQuery_Type;
+  type: ServerQuery_Type
 
   /**
    * @generated from field: optional xylona.MinecraftQueryInfo minecraft = 4;
    */
-  minecraft?: MinecraftQueryInfo;
+  minecraft?: MinecraftQueryInfo
 
   /**
    * @generated from field: optional xylona.SourceQueryInfo source = 5;
    */
-  source?: SourceQueryInfo;
-};
+  source?: SourceQueryInfo
+}
 
 /**
  * Describes the message xylona.ServerQuery.
  * Use `create(ServerQuerySchema)` to create a new message.
  */
-export const ServerQuerySchema: GenMessage<ServerQuery> = /*@__PURE__*/
-  messageDesc(file_shared, 24);
+export const ServerQuerySchema: GenMessage<ServerQuery> = /*@__PURE__*/ messageDesc(file_shared, 24)
 
 /**
  * @generated from enum xylona.ServerQuery.Type
@@ -927,492 +942,497 @@ export enum ServerQuery_Type {
 /**
  * Describes the enum xylona.ServerQuery.Type.
  */
-export const ServerQuery_TypeSchema: GenEnum<ServerQuery_Type> = /*@__PURE__*/
-  enumDesc(file_shared, 24, 0);
+export const ServerQuery_TypeSchema: GenEnum<ServerQuery_Type> =
+  /*@__PURE__*/
+  enumDesc(file_shared, 24, 0)
 
 /**
  * @generated from message xylona.MinecraftQueryInfo
  */
-export type MinecraftQueryInfo = Message<"xylona.MinecraftQueryInfo"> & {
+export type MinecraftQueryInfo = Message<'xylona.MinecraftQueryInfo'> & {
   /**
    * @generated from field: string motd = 1;
    */
-  motd: string;
+  motd: string
 
   /**
    * @generated from field: string game_type = 2;
    */
-  gameType: string;
+  gameType: string
 
   /**
    * @generated from field: string map = 3;
    */
-  map: string;
+  map: string
 
   /**
    * @generated from field: uint32 number_of_players = 4;
    */
-  numberOfPlayers: number;
+  numberOfPlayers: number
 
   /**
    * @generated from field: uint32 max_players = 5;
    */
-  maxPlayers: number;
+  maxPlayers: number
 
   /**
    * @generated from field: repeated string player_list = 6;
    */
-  playerList: string[];
+  playerList: string[]
 
   /**
    * @generated from field: uint32 protocol_version = 7;
    */
-  protocolVersion: number;
+  protocolVersion: number
 
   /**
    * @generated from field: string server_version = 8;
    */
-  serverVersion: string;
-};
+  serverVersion: string
+}
 
 /**
  * Describes the message xylona.MinecraftQueryInfo.
  * Use `create(MinecraftQueryInfoSchema)` to create a new message.
  */
-export const MinecraftQueryInfoSchema: GenMessage<MinecraftQueryInfo> = /*@__PURE__*/
-  messageDesc(file_shared, 25);
+export const MinecraftQueryInfoSchema: GenMessage<MinecraftQueryInfo> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 25)
 
 /**
  * @generated from message xylona.SourceQueryInfo
  */
-export type SourceQueryInfo = Message<"xylona.SourceQueryInfo"> & {
+export type SourceQueryInfo = Message<'xylona.SourceQueryInfo'> & {
   /**
    * @generated from field: string name = 1;
    */
-  name: string;
+  name: string
 
   /**
    * @generated from field: string map = 2;
    */
-  map: string;
+  map: string
 
   /**
    * @generated from field: string game = 3;
    */
-  game: string;
+  game: string
 
   /**
    * @generated from field: uint32 app_id = 4;
    */
-  appId: number;
+  appId: number
 
   /**
    * @generated from field: uint64 steam_id = 5;
    */
-  steamId: bigint;
+  steamId: bigint
 
   /**
    * @generated from field: uint64 game_id = 6;
    */
-  gameId: bigint;
+  gameId: bigint
 
   /**
    * @generated from field: uint32 players = 7;
    */
-  players: number;
+  players: number
 
   /**
    * @generated from field: uint32 max_players = 8;
    */
-  maxPlayers: number;
+  maxPlayers: number
 
   /**
    * @generated from field: uint32 bots = 9;
    */
-  bots: number;
+  bots: number
 
   /**
    * @generated from field: string server_os = 10;
    */
-  serverOs: string;
+  serverOs: string
 
   /**
    * @generated from field: bool visibility = 11;
    */
-  visibility: boolean;
+  visibility: boolean
 
   /**
    * @generated from field: bool vac = 12;
    */
-  vac: boolean;
+  vac: boolean
 
   /**
    * @generated from field: string version = 13;
    */
-  version: string;
+  version: string
 
   /**
    * @generated from field: uint32 protocol = 14;
    */
-  protocol: number;
-};
+  protocol: number
+}
 
 /**
  * Describes the message xylona.SourceQueryInfo.
  * Use `create(SourceQueryInfoSchema)` to create a new message.
  */
-export const SourceQueryInfoSchema: GenMessage<SourceQueryInfo> = /*@__PURE__*/
-  messageDesc(file_shared, 26);
+export const SourceQueryInfoSchema: GenMessage<SourceQueryInfo> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 26)
 
 /**
  * @generated from message xylona.Node
  */
-export type Node = Message<"xylona.Node"> & {
+export type Node = Message<'xylona.Node'> & {
   /**
    * @generated from field: string id = 1;
    */
-  id: string;
+  id: string
 
   /**
    * @generated from field: string name = 2;
    */
-  name: string;
+  name: string
 
   /**
    * @generated from field: string host = 3;
    */
-  host: string;
+  host: string
 
   /**
    * @generated from field: int64 port = 5;
    */
-  port: bigint;
+  port: bigint
 
   /**
    * @generated from field: bool local = 6;
    */
-  local: boolean;
+  local: boolean
 
   /**
    * @generated from field: string secret_key = 7;
    */
-  secretKey: string;
+  secretKey: string
 
   /**
    * @generated from field: string base_url = 8;
    */
-  baseUrl: string;
+  baseUrl: string
 
   /**
    * @generated from field: bool enabled = 9;
    */
-  enabled: boolean;
+  enabled: boolean
 
   /**
    * @generated from field: google.protobuf.Timestamp last_seen_at = 10;
    */
-  lastSeenAt?: Timestamp;
+  lastSeenAt?: Timestamp
 
   /**
    * @generated from field: google.protobuf.Timestamp last_sync_at = 11;
    */
-  lastSyncAt?: Timestamp;
+  lastSyncAt?: Timestamp
 
   /**
    * @generated from field: string last_sync_status = 12;
    */
-  lastSyncStatus: string;
+  lastSyncStatus: string
 
   /**
    * @generated from field: string health_status = 13;
    */
-  healthStatus: string;
+  healthStatus: string
 
   /**
    * @generated from field: string version = 14;
    */
-  version: string;
+  version: string
 
   /**
    * @generated from field: int32 protocol_version = 15;
    */
-  protocolVersion: number;
+  protocolVersion: number
 
   /**
    * @generated from field: string capabilities = 16;
    */
-  capabilities: string;
+  capabilities: string
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 17;
    */
-  createdAt?: Timestamp;
+  createdAt?: Timestamp
 
   /**
    * @generated from field: google.protobuf.Timestamp updated_at = 18;
    */
-  updatedAt?: Timestamp;
+  updatedAt?: Timestamp
 
   /**
    * @generated from field: bool allow_insecure_tls = 19;
    */
-  allowInsecureTls: boolean;
-};
+  allowInsecureTls: boolean
+}
 
 /**
  * Describes the message xylona.Node.
  * Use `create(NodeSchema)` to create a new message.
  */
-export const NodeSchema: GenMessage<Node> = /*@__PURE__*/
-  messageDesc(file_shared, 27);
+export const NodeSchema: GenMessage<Node> = /*@__PURE__*/ messageDesc(file_shared, 27)
 
 /**
  * @generated from message xylona.SecretKey
  */
-export type SecretKey = Message<"xylona.SecretKey"> & {
+export type SecretKey = Message<'xylona.SecretKey'> & {
   /**
    * @generated from field: int32 id = 1;
    */
-  id: number;
+  id: number
 
   /**
    * @generated from field: string name = 2;
    */
-  name: string;
+  name: string
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 3;
    */
-  createdAt?: Timestamp;
+  createdAt?: Timestamp
 
   /**
    * @generated from field: google.protobuf.Timestamp last_used = 4;
    */
-  lastUsed?: Timestamp;
+  lastUsed?: Timestamp
 
   /**
    * @generated from field: string last_accessed_from = 5;
    */
-  lastAccessedFrom: string;
-};
+  lastAccessedFrom: string
+}
 
 /**
  * Describes the message xylona.SecretKey.
  * Use `create(SecretKeySchema)` to create a new message.
  */
-export const SecretKeySchema: GenMessage<SecretKey> = /*@__PURE__*/
-  messageDesc(file_shared, 28);
+export const SecretKeySchema: GenMessage<SecretKey> = /*@__PURE__*/ messageDesc(file_shared, 28)
 
 /**
  * NodeSystemInfo contains static hardware and OS information for a node.
  *
  * @generated from message xylona.NodeSystemInfo
  */
-export type NodeSystemInfo = Message<"xylona.NodeSystemInfo"> & {
+export type NodeSystemInfo = Message<'xylona.NodeSystemInfo'> & {
   /**
    * @generated from field: string cpu_model = 1;
    */
-  cpuModel: string;
+  cpuModel: string
 
   /**
    * @generated from field: int32 cpu_cores = 2;
    */
-  cpuCores: number;
+  cpuCores: number
 
   /**
    * @generated from field: int32 cpu_threads = 3;
    */
-  cpuThreads: number;
+  cpuThreads: number
 
   /**
    * @generated from field: int64 total_memory_bytes = 4;
    */
-  totalMemoryBytes: bigint;
+  totalMemoryBytes: bigint
 
   /**
    * @generated from field: string os = 5;
    */
-  os: string;
+  os: string
 
   /**
    * @generated from field: string os_version = 6;
    */
-  osVersion: string;
+  osVersion: string
 
   /**
    * @generated from field: string architecture = 7;
    */
-  architecture: string;
+  architecture: string
 
   /**
    * @generated from field: string xylona_version = 8;
    */
-  xylonaVersion: string;
-};
+  xylonaVersion: string
+}
 
 /**
  * Describes the message xylona.NodeSystemInfo.
  * Use `create(NodeSystemInfoSchema)` to create a new message.
  */
-export const NodeSystemInfoSchema: GenMessage<NodeSystemInfo> = /*@__PURE__*/
-  messageDesc(file_shared, 29);
+export const NodeSystemInfoSchema: GenMessage<NodeSystemInfo> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 29)
 
 /**
  * NodeResourceSnapshot contains a point-in-time resource usage snapshot for a node.
  *
  * @generated from message xylona.NodeResourceSnapshot
  */
-export type NodeResourceSnapshot = Message<"xylona.NodeResourceSnapshot"> & {
+export type NodeResourceSnapshot = Message<'xylona.NodeResourceSnapshot'> & {
   /**
    * @generated from field: double cpu_percent = 1;
    */
-  cpuPercent: number;
+  cpuPercent: number
 
   /**
    * @generated from field: double memory_percent = 2;
    */
-  memoryPercent: number;
+  memoryPercent: number
 
   /**
    * @generated from field: int64 memory_used_bytes = 3;
    */
-  memoryUsedBytes: bigint;
+  memoryUsedBytes: bigint
 
   /**
    * @generated from field: int64 memory_total_bytes = 4;
    */
-  memoryTotalBytes: bigint;
+  memoryTotalBytes: bigint
 
   /**
    * @generated from field: double disk_percent = 5;
    */
-  diskPercent: number;
+  diskPercent: number
 
   /**
    * @generated from field: int64 disk_used_bytes = 6;
    */
-  diskUsedBytes: bigint;
+  diskUsedBytes: bigint
 
   /**
    * @generated from field: int64 disk_total_bytes = 7;
    */
-  diskTotalBytes: bigint;
+  diskTotalBytes: bigint
 
   /**
    * @generated from field: int32 game_server_count = 8;
    */
-  gameServerCount: number;
+  gameServerCount: number
 
   /**
    * @generated from field: int32 running_game_server_count = 9;
    */
-  runningGameServerCount: number;
+  runningGameServerCount: number
 
   /**
    * @generated from field: int32 user_count = 10;
    */
-  userCount: number;
+  userCount: number
 
   /**
    * @generated from field: google.protobuf.Timestamp recorded_at = 11;
    */
-  recordedAt?: Timestamp;
-};
+  recordedAt?: Timestamp
+}
 
 /**
  * Describes the message xylona.NodeResourceSnapshot.
  * Use `create(NodeResourceSnapshotSchema)` to create a new message.
  */
-export const NodeResourceSnapshotSchema: GenMessage<NodeResourceSnapshot> = /*@__PURE__*/
-  messageDesc(file_shared, 30);
+export const NodeResourceSnapshotSchema: GenMessage<NodeResourceSnapshot> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 30)
 
 /**
  * MetricsHistoryPoint is a single data point in a node metrics time series.
  *
  * @generated from message xylona.MetricsHistoryPoint
  */
-export type MetricsHistoryPoint = Message<"xylona.MetricsHistoryPoint"> & {
+export type MetricsHistoryPoint = Message<'xylona.MetricsHistoryPoint'> & {
   /**
    * @generated from field: google.protobuf.Timestamp timestamp = 1;
    */
-  timestamp?: Timestamp;
+  timestamp?: Timestamp
 
   /**
    * @generated from field: double cpu_percent = 2;
    */
-  cpuPercent: number;
+  cpuPercent: number
 
   /**
    * @generated from field: double memory_percent = 3;
    */
-  memoryPercent: number;
+  memoryPercent: number
 
   /**
    * @generated from field: double disk_percent = 4;
    */
-  diskPercent: number;
+  diskPercent: number
 
   /**
    * @generated from field: int64 memory_used_bytes = 5;
    */
-  memoryUsedBytes: bigint;
+  memoryUsedBytes: bigint
 
   /**
    * @generated from field: int64 disk_used_bytes = 6;
    */
-  diskUsedBytes: bigint;
-};
+  diskUsedBytes: bigint
+}
 
 /**
  * Describes the message xylona.MetricsHistoryPoint.
  * Use `create(MetricsHistoryPointSchema)` to create a new message.
  */
-export const MetricsHistoryPointSchema: GenMessage<MetricsHistoryPoint> = /*@__PURE__*/
-  messageDesc(file_shared, 31);
+export const MetricsHistoryPointSchema: GenMessage<MetricsHistoryPoint> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 31)
 
 /**
  * GameServerMetricsHistoryPoint is a single data point in a game server metrics time series.
  *
  * @generated from message xylona.GameServerMetricsHistoryPoint
  */
-export type GameServerMetricsHistoryPoint = Message<"xylona.GameServerMetricsHistoryPoint"> & {
+export type GameServerMetricsHistoryPoint = Message<'xylona.GameServerMetricsHistoryPoint'> & {
   /**
    * @generated from field: google.protobuf.Timestamp timestamp = 1;
    */
-  timestamp?: Timestamp;
+  timestamp?: Timestamp
 
   /**
    * @generated from field: double cpu_percent = 2;
    */
-  cpuPercent: number;
+  cpuPercent: number
 
   /**
    * @generated from field: int64 memory_bytes = 3;
    */
-  memoryBytes: bigint;
+  memoryBytes: bigint
 
   /**
    * @generated from field: double memory_percent = 4;
    */
-  memoryPercent: number;
+  memoryPercent: number
 
   /**
    * @generated from field: int64 disk_usage_bytes = 5;
    */
-  diskUsageBytes: bigint;
+  diskUsageBytes: bigint
 
   /**
    * @generated from field: int32 player_count = 6;
    */
-  playerCount: number;
-};
+  playerCount: number
+}
 
 /**
  * Describes the message xylona.GameServerMetricsHistoryPoint.
  * Use `create(GameServerMetricsHistoryPointSchema)` to create a new message.
  */
-export const GameServerMetricsHistoryPointSchema: GenMessage<GameServerMetricsHistoryPoint> = /*@__PURE__*/
-  messageDesc(file_shared, 32);
+export const GameServerMetricsHistoryPointSchema: GenMessage<GameServerMetricsHistoryPoint> =
+  /*@__PURE__*/
+  messageDesc(file_shared, 32)
 
 /**
  * @generated from enum xylona.Error
@@ -1442,8 +1462,7 @@ export enum Error {
 /**
  * Describes the enum xylona.Error.
  */
-export const ErrorSchema: GenEnum<Error> = /*@__PURE__*/
-  enumDesc(file_shared, 0);
+export const ErrorSchema: GenEnum<Error> = /*@__PURE__*/ enumDesc(file_shared, 0)
 
 /**
  * @generated from enum xylona.CommandProcessor
@@ -1478,8 +1497,9 @@ export enum CommandProcessor {
 /**
  * Describes the enum xylona.CommandProcessor.
  */
-export const CommandProcessorSchema: GenEnum<CommandProcessor> = /*@__PURE__*/
-  enumDesc(file_shared, 1);
+export const CommandProcessorSchema: GenEnum<CommandProcessor> =
+  /*@__PURE__*/
+  enumDesc(file_shared, 1)
 
 /**
  * @generated from enum xylona.Status
@@ -1514,6 +1534,4 @@ export enum Status {
 /**
  * Describes the enum xylona.Status.
  */
-export const StatusSchema: GenEnum<Status> = /*@__PURE__*/
-  enumDesc(file_shared, 2);
-
+export const StatusSchema: GenEnum<Status> = /*@__PURE__*/ enumDesc(file_shared, 2)

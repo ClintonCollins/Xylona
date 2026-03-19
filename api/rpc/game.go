@@ -54,6 +54,13 @@ func (xs XylonaService) ListGames(ctx context.Context, request *connect.Request[
 }
 
 func (xs XylonaService) AddGame(_ context.Context, request *connect.Request[xylona.AddGameRequest]) (*connect.Response[xylona.AddGameResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	gameProto := request.Msg.Game
 	gameModel := helpers.GameProtoToModel(gameProto)
 	gameSetter := helpers.GameModelToGameSetter(gameModel)
@@ -70,6 +77,13 @@ func (xs XylonaService) AddGame(_ context.Context, request *connect.Request[xylo
 }
 
 func (xs XylonaService) EditGame(_ context.Context, request *connect.Request[xylona.EditGameRequest]) (*connect.Response[xylona.EditGameResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	gameProto := request.Msg.Game
 	gameModel, errGetGameModel := xs.db.GetGameByID(gameProto.GetId())
 	if errGetGameModel != nil {
@@ -96,6 +110,13 @@ func (xs XylonaService) EditGame(_ context.Context, request *connect.Request[xyl
 }
 
 func (xs XylonaService) RemoveGame(ctx context.Context, request *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	game, errGetGame := xs.db.GetGameByID(request.Msg.GetGameId())
 	if errGetGame != nil {
 		if errors.Is(errGetGame, sql.ErrNoRows) {

@@ -43,7 +43,7 @@ const (
 type Instance struct {
 	ctx                  context.Context
 	supervisorInstance   *supervisor.Instance
-	serverQueriesInfoMap map[string]xylona.ServerQuery
+	serverQueriesInfoMap map[string]*xylona.ServerQuery
 	serverQueriesMutex   *sync.RWMutex
 	db                   *db.Connection
 	federationMTLS       *helpers.FederationMTLS
@@ -53,7 +53,7 @@ func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *sup
 	inst := &Instance{
 		ctx:                  ctx,
 		supervisorInstance:   supervisorInstance,
-		serverQueriesInfoMap: make(map[string]xylona.ServerQuery),
+		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
 		serverQueriesMutex:   &sync.RWMutex{},
 		db:                   db,
 		federationMTLS:       federationMTLS,
@@ -62,12 +62,12 @@ func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *sup
 	return inst
 }
 
-func (inst *Instance) GetServerQueries() xylona.AllServersQueryInfo {
+func (inst *Instance) GetServerQueries() *xylona.AllServersQueryInfo {
 	inst.serverQueriesMutex.RLock()
 	defer inst.serverQueriesMutex.RUnlock()
-	allServerQueryInfo := xylona.AllServersQueryInfo{Servers: make(map[string]*xylona.ServerQuery)}
+	allServerQueryInfo := &xylona.AllServersQueryInfo{Servers: make(map[string]*xylona.ServerQuery)}
 	for _, serverQuery := range inst.serverQueriesInfoMap {
-		allServerQueryInfo.Servers[serverQuery.ServerId] = &serverQuery
+		allServerQueryInfo.Servers[serverQuery.ServerId] = serverQuery
 	}
 	return allServerQueryInfo
 }
@@ -230,6 +230,13 @@ func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path
 		return ErrInvalidPath
 	}
 
+	// Sanitize uploaded filename to prevent path traversal (e.g., "../../etc/passwd").
+	sanitizedFileName := filepath.Base(fileName)
+	if sanitizedFileName == "." || sanitizedFileName == string(filepath.Separator) {
+		log.Error().Str("fileName", fileName).Msg("Invalid file name")
+		return ErrInvalidPath
+	}
+
 	gameServerDirPlusPath := filepath.Join(gameServer.Directory, path)
 	errMkdirAll := os.MkdirAll(gameServerDirPlusPath, os.ModePerm)
 	if errMkdirAll != nil {
@@ -237,7 +244,7 @@ func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path
 		return errMkdirAll
 	}
 
-	fullPath := filepath.Join(gameServer.Directory, path, fileName)
+	fullPath := filepath.Join(gameServer.Directory, path, sanitizedFileName)
 	file, errCreateFile := os.Create(fullPath)
 	if errCreateFile != nil {
 		log.Error().Err(errCreateFile).Msg("Failed to create file")
@@ -297,7 +304,14 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path stri
 
 		w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 		if setAsAttachment {
-			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileInfo.Name()))
+			// Sanitize filename to prevent header injection via quotes or newlines.
+		safeName := strings.Map(func(r rune) rune {
+			if r == '"' || r == '\\' || r == '\n' || r == '\r' {
+				return '_'
+			}
+			return r
+		}, fileInfo.Name())
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safeName))
 		}
 	}
 

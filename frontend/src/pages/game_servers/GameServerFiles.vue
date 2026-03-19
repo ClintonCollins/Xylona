@@ -1,13 +1,13 @@
 <template>
   <q-card-section>
-    <FileUploaderDrop
+    <file-uploader-drop
+      v-model:file-uploader-dialog="fileUploaderDialog"
       :game-server-id="gameServerId"
       :path-separator="pathSeparator"
       :path="path"
       :upload-u-r-l="uploadURL"
       :target-element="fileListContainer"
-      @uploaded-files="listDirectoryFiles(path)"
-      v-model:file-uploader-dialog="fileUploaderDialog">
+      @uploaded-files="listDirectoryFiles(path)">
       <div
         ref="fileListContainer"
         class="col-xs-12 file-list-container bg-xy-surface-2 q-pa-sm"
@@ -16,10 +16,10 @@
           <div class="file-toolbar-primary">
             <q-btn
               :disable="!createButtonEnabled"
-              @click="createFilesDialog = true"
               color="primary"
               icon="add"
-              label="Create" />
+              label="Create"
+              @click="createFilesDialog = true" />
             <q-btn
               color="positive"
               icon="upload"
@@ -32,7 +32,7 @@
               icon="download"
               label="Download" />
           </div>
-          <div class="file-toolbar-selection" v-if="selectedFiles.length > 0">
+          <div v-if="selectedFiles.length > 0" class="file-toolbar-selection">
             <span class="text-caption text-xy-secondary">
               {{ selectedFiles.length }} selected
             </span>
@@ -79,17 +79,17 @@
             dense
             icon="link"
             label="URL Upload"
-            @click="fileUploaderDialog = true"
-            class="gt-xs" />
+            class="gt-xs"
+            @click="fileUploaderDialog = true" />
         </div>
         <div class="row q-py-sm">
           <div class="col-xs-12">
             <q-input
-              @keydown.prevent.enter="updatePathFromInput"
-              :prefix="gameServer.directory + pathSeparator"
               v-model="path"
+              :prefix="gameServer.directory + pathSeparator"
               outlined
-              dense></q-input>
+              dense
+              @keydown.prevent.enter="updatePathFromInput"></q-input>
           </div>
         </div>
         <div class="row file-list-header q-px-sm">
@@ -103,14 +103,14 @@
         <q-separator class="q-my-sm"></q-separator>
         <div id="file-list" ref="filesList">
           <div
+            v-for="directory in directories"
             class="row file-list-body-row q-px-sm"
-            :class="fileIsSelectedClass(directory)"
-            v-for="directory in directories">
+            :class="fileIsSelectedClass(directory)">
             <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
               <q-checkbox
                 v-if="directory.name !== '..'"
-                :val="directory"
-                v-model="selectedFiles"></q-checkbox>
+                v-model="selectedFiles"
+                :val="directory"></q-checkbox>
             </div>
             <div
               class="col-xs-5 col-sm-4 file-div file-list-cell"
@@ -130,13 +130,13 @@
             </div>
           </div>
           <div
+            v-for="file in files"
             class="row file-list-body-row q-px-sm"
             :class="fileIsSelectedClass(file)"
-            v-for="file in files"
             :data-file-name="file.name"
             draggable="false">
             <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
-              <q-checkbox :val="file" v-model="selectedFiles"></q-checkbox>
+              <q-checkbox v-model="selectedFiles" :val="file"></q-checkbox>
             </div>
             <div
               class="col-xs-5 col-sm-4 file-div file-list-cell"
@@ -158,76 +158,76 @@
         </div>
         <q-menu ref="contextMenu" touch-position context-menu>
           <q-list>
-            <q-item clickable v-ripple @click="selectAllFiles = true">
+            <q-item v-ripple clickable @click="selectAllFiles = true">
               <q-item-section> Select All</q-item-section>
             </q-item>
-            <q-item clickable v-ripple @click="selectAllFiles = false">
+            <q-item v-ripple clickable @click="selectAllFiles = false">
               <q-item-section> Deselect All</q-item-section>
             </q-item>
           </q-list>
         </q-menu>
       </div>
-    </FileUploaderDrop>
+    </file-uploader-drop>
   </q-card-section>
-  <q-dialog no-shake persistent v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)">
-    <Editor
+  <q-dialog v-model="editorModal" no-shake persistent backdrop-filter="blur(6px) brightness(15%)">
+    <editor
       v-model:code-input="editorFileContent"
       :file-name="editorFilename"
       :game-server-id="gameServerId"
       :full-file-path="editorFilePath"
-      @submit="refreshFileList"></Editor>
+      @submit="refreshFileList"></editor>
   </q-dialog>
-  <ArchiveFiles
-    @submit="refreshFileList"
-    @cancel="archiveFilesDialog = false"
+  <archive-files
     v-model:show-dialog="archiveFilesDialog"
     v-model:archive-name="archiveName"
     :path-separator="pathSeparator"
     :path="path"
     :selected-files="selectedFiles"
-    :game-server-id="gameServerId">
-  </ArchiveFiles>
-  <ExtractFiles
+    :game-server-id="gameServerId"
     @submit="refreshFileList"
-    @cancel="extractFilesDialog = false"
-    :game-server-path="gameServer.directory"
+    @cancel="archiveFilesDialog = false">
+  </archive-files>
+  <extract-files
     v-model:show-dialog="extractFilesDialog"
+    :game-server-path="gameServer.directory"
     :game-server-id="gameServerId"
     :path="path"
-    :full-archive-path="GetRelativeFilePath(gameServer.directory, path, selectedFiles[0]?.name)">
-  </ExtractFiles>
-  <Create
-    :game-server-id="gameServerId"
+    :full-archive-path="GetRelativeFilePath(gameServer.directory, path, selectedFiles[0]?.name)"
+    @submit="refreshFileList"
+    @cancel="extractFilesDialog = false">
+  </extract-files>
+  <create
     v-model:show-dialog="createFilesDialog"
+    :game-server-id="gameServerId"
     :game-server-path="gameServer.directory"
     :path="path"
     @submit="createFilesDialogSubmitted">
-  </Create>
-  <RenameFile
+  </create>
+  <rename-file
+    v-model:show-dialog="renameFilesDialog"
     :old-file-name="selectedFiles[0]?.name"
     :path="path"
     :game-server-path="gameServer.directory"
     :game-server-id="gameServerId"
-    v-model:show-dialog="renameFilesDialog"
     @submit="refreshFileList">
-  </RenameFile>
-  <MoveFiles
+  </rename-file>
+  <move-files
+    v-model:show-dialog="moveFilesDialog"
     :path="path"
     :game-server-path="gameServer.directory"
     :game-server-id="gameServerId"
     :selected-files="selectedFiles"
-    v-model:show-dialog="moveFilesDialog"
-    @submit="refreshFileList"
-    :neighboring-directories-in-path="directories.map((f) => f.name)">
-  </MoveFiles>
-  <DeleteGameServerFilesDialog
-    @files-deleted="refreshFileList()"
+    :neighboring-directories-in-path="directories.map((f) => f.name)"
+    @submit="refreshFileList">
+  </move-files>
+  <delete-game-server-files-dialog
+    v-model:show-dialog="deleteFilesDialog"
     :files-to-delete="selectedFiles"
     :current-path="path"
     :path-separator="pathSeparator"
     :game-server-i-d="gameServerId"
-    v-model:show-dialog="deleteFilesDialog">
-  </DeleteGameServerFilesDialog>
+    @files-deleted="refreshFileList()">
+  </delete-game-server-files-dialog>
 </template>
 
 <script setup lang="ts">
@@ -237,6 +237,7 @@ import { defineAsyncComponent } from 'vue'
 
 const Editor = defineAsyncComponent(() => import('@/components/Editor.vue'))
 import ArchiveFiles from '@/components/game_servers/ArchiveFiles.vue'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in template as <create>
 import Create from '@/components/game_servers/Create.vue'
 import DeleteGameServerFilesDialog from '@/components/game_servers/DeleteGameServerFilesDialog.vue'
 import ExtractFiles from '@/components/game_servers/ExtractFiles.vue'
@@ -285,7 +286,6 @@ const editorModal: Ref<boolean> = ref(false)
 const editorFilename: Ref<string> = ref('')
 const editorFilePath: Ref<string> = ref('')
 const editorFileContent: Ref<string> = ref('')
-const editorNewFile: Ref<boolean> = ref(false)
 const contextMenu: Ref<QMenu | null> = ref(null)
 const fileListContainer: Ref<HTMLElement | null> = ref(null)
 const fileUploaderDialog: Ref<boolean> = ref(false)
@@ -561,6 +561,7 @@ async function listDirectoryFiles(directoryPath: string) {
     }
     console.error(err)
   } finally {
+    // Ensure loading state is always cleared
   }
 }
 
@@ -670,14 +671,6 @@ async function getGameServerDetails() {
   } catch (e) {
     console.error(e)
   }
-}
-
-async function createFile() {
-  editorFilename.value = ''
-  editorFileContent.value = ''
-  editorFilePath.value = path.value
-  editorNewFile.value = true
-  editorModal.value = true
 }
 
 // function getRelativeFilePath(...filePaths: string[]): string {

@@ -78,7 +78,7 @@ func TestCommandOutputListener(t *testing.T) {
 
 	cmd, _ := inst.StartCommand(pc)
 
-	outChan := make(chan xylona.Message, 10)
+	outChan := make(chan *xylona.Message, 10)
 	cmd.AddOutputListener("test-l", outChan)
 	defer cmd.RemoveOutputListener("test-l")
 

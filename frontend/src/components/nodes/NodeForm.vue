@@ -10,32 +10,32 @@
         <div class="row wrap q-col-gutter-md justify-between">
           <template v-if="existingNodeId">
             <q-input
+              v-model="node.name"
               class="col-12 col-xl-6"
               outlined
               type="text"
               autofocus
               :label="nameLabel"
-              v-model="node.name"
               :hint="remoteNameHint"></q-input>
             <template v-if="!isRemote">
               <q-input
+                v-model="node.host"
                 class="col-12 col-xl-6"
                 outlined
                 type="text"
-                label="Host"
-                v-model="node.host"></q-input>
+                label="Host"></q-input>
               <q-input
+                v-model.number="port"
                 class="col-12 col-xl-6"
                 outlined
                 type="text"
-                label="Port"
-                v-model.number="port"></q-input>
+                label="Port"></q-input>
               <q-input
+                v-model="node.baseUrl"
                 class="col-12 col-xl-6"
                 outlined
                 type="url"
                 label="Base URL"
-                v-model="node.baseUrl"
                 placeholder="https://panel.example.com"
                 hint="Public URL used for node pairing"></q-input>
               <div class="col-12">
@@ -46,19 +46,19 @@
             </template>
             <template v-else>
               <q-input
+                v-model="node.baseUrl"
                 class="col-12 col-xl-6"
                 outlined
                 type="url"
                 label="Base URL"
-                v-model="node.baseUrl"
                 placeholder="http://192.168.1.100:8080"
                 hint="Full URL including protocol and port"></q-input>
               <q-input
+                v-model="node.secretKey"
                 class="col-12 col-xl-6"
                 outlined
                 type="text"
                 label="Secret Key"
-                v-model="node.secretKey"
                 hint="The secret key generated on the remote node"></q-input>
               <div class="col-12">
                 <q-toggle
@@ -94,33 +94,33 @@
                   outline
                   color="primary"
                   :label="generatedPairingKey ? 'Regenerate JSON' : 'Generate JSON'"
-                  @click="generatePairingKey(false)"
-                  :loading="pairingKeySubmitting"></q-btn>
+                  :loading="pairingKeySubmitting"
+                  @click="generatePairingKey(false)"></q-btn>
                 <q-btn
                   outline
                   color="primary"
                   label="Copy JSON"
-                  @click="copyPairingPayload"
-                  :disable="generatedPairingPayload === ''"></q-btn>
+                  :disable="generatedPairingPayload === ''"
+                  @click="copyPairingPayload"></q-btn>
               </div>
             </template>
             <template v-else>
               <div class="col-12 text-subtitle2">Paste Node Details</div>
               <q-input
+                v-model="node.name"
                 class="col-12 col-xl-6"
                 outlined
                 type="text"
                 autofocus
                 label="Remote Name (Optional)"
-                v-model="node.name"
                 hint="Leave blank to use the remote node's name"></q-input>
               <q-input
+                v-model="pairingPayloadInput"
                 class="col-12"
                 outlined
                 type="textarea"
                 autogrow
                 label="Remote Panel Pairing JSON"
-                v-model="pairingPayloadInput"
                 hint="Paste the JSON copied from the remote panel"></q-input>
               <div class="col-12">
                 <q-toggle
@@ -134,7 +134,7 @@
                   label="Validate JSON"
                   @click="validatePairingPayload(true)"></q-btn>
               </div>
-              <div class="col-12 text-caption" v-if="parsedPairingPayload">
+              <div v-if="parsedPairingPayload" class="col-12 text-caption">
                 Remote panel URL: {{ parsedPairingPayload.base_url }}
               </div>
             </template>
@@ -154,8 +154,8 @@
         v-if="showSaveButton"
         :label="submitLabel"
         color="primary"
-        @click="submitNode"
-        :loading="formSubmitting"></q-btn>
+        :loading="formSubmitting"
+        @click="submitNode"></q-btn>
     </q-card-actions>
     <q-inner-loading
       :showing="formSubmitting"
@@ -175,12 +175,12 @@
           </div>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" v-close-popup></q-btn>
+          <q-btn v-close-popup flat label="Cancel"></q-btn>
           <q-btn
             color="primary"
             label="Pair Nodes"
-            @click="confirmPairNode"
-            :loading="formSubmitting"></q-btn>
+            :loading="formSubmitting"
+            @click="confirmPairNode"></q-btn>
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -279,7 +279,7 @@ const generatedPairingPayload = computed(() => {
       generatedPairingKey.value,
       pairingLocalMTLSPort.value,
     )
-  } catch (_errPayload) {
+  } catch {
     return ''
   }
 })
@@ -348,7 +348,7 @@ async function loadLocalPairingBaseURL(): Promise<boolean> {
       pairingLocalBaseUrl.value = normalizeNodePairingBaseURL(localNode.baseUrl)
       pairingLocalAllowInsecureTLS.value = localNode.allowInsecureTls
       return true
-    } catch (_errNormalizeLocalBaseURL) {
+    } catch {
       pairingLocalBaseUrl.value = ''
       errorMessage.value =
         'Local node Base URL is not configured. Edit the local node and set Base URL before pairing.'

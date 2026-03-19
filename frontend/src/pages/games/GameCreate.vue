@@ -1,7 +1,7 @@
 <template>
   <q-page>
     <div class="row justify-center q-pa-md">
-      <GameForm></GameForm>
+      <game-form></game-form>
     </div>
   </q-page>
 </template>

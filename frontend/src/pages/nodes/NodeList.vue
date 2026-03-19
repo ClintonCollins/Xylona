@@ -19,11 +19,11 @@
         </div>
         <div class="xy-page-actions">
           <q-input
+            v-model="search"
             dense
             outlined
             debounce="300"
             color="primary"
-            v-model="search"
             placeholder="Search..."
             aria-label="Search nodes"
             style="min-width: 200px">
@@ -36,6 +36,7 @@
       </div>
       <div>
         <q-table
+          v-model:pagination="initialPagination"
           flat
           class="xy-standalone-table"
           :grid="$q.screen.lt.md"
@@ -44,7 +45,6 @@
           row-key="id"
           :filter="search"
           :loading="loading"
-          v-model:pagination="initialPagination"
           hide-header-in-grid>
           <template v-slot:body-cell-name="props">
             <q-td :props="props">
@@ -104,7 +104,9 @@
           <template v-slot:body-cell-servers="props">
             <q-td :props="props">
               <template v-if="getSnapshot(props.row.id)">
-                <span class="text-success">{{ getSnapshot(props.row.id)!.runningGameServerCount }}</span>
+                <span class="text-success">{{
+                  getSnapshot(props.row.id)!.runningGameServerCount
+                }}</span>
                 /
                 {{ getSnapshot(props.row.id)!.gameServerCount }}
               </template>
@@ -150,7 +152,7 @@
           </template>
           <template v-slot:body-cell-actions="props">
             <q-td :props="props">
-              <div class="q-gutter-xs" v-if="!props.row.local">
+              <div v-if="!props.row.local" class="q-gutter-xs">
                 <q-btn
                   flat
                   dense
@@ -180,7 +182,7 @@
                   <q-tooltip>Remove node</q-tooltip>
                 </q-btn>
               </div>
-              <div class="q-gutter-xs" v-else>
+              <div v-else class="q-gutter-xs">
                 <router-link :to="'/nodes/' + props.row.id + '/edit'">
                   <q-btn
                     flat
@@ -218,14 +220,10 @@
             aria-label="Back to nodes"
             @click="detailNode = null" />
           <div class="text-h6 q-ml-sm">{{ detailNode.name || 'Node Details' }}</div>
-          <q-badge
-            v-if="detailNode.local"
-            color="primary"
-            class="q-ml-sm"
-            label="local" />
+          <q-badge v-if="detailNode.local" color="primary" class="q-ml-sm" label="local" />
           <q-badge v-else color="purple" class="q-ml-sm" label="remote" />
         </div>
-        <div class="xy-page-actions" v-if="!detailNode.local">
+        <div v-if="!detailNode.local" class="xy-page-actions">
           <q-btn
             flat
             dense
@@ -248,7 +246,7 @@
             label="Remove"
             @click="deleteNodeAction(detailNode)" />
         </div>
-        <div class="xy-page-actions" v-else>
+        <div v-else class="xy-page-actions">
           <q-btn
             flat
             dense
@@ -259,7 +257,7 @@
         </div>
       </div>
 
-      <NodeDetailPanel
+      <node-detail-panel
         :node="detailNode"
         :system-info="getNodeSummary(detailNode.id)?.systemInfo"
         :snapshot="getSnapshot(detailNode.id)" />
@@ -276,7 +274,7 @@
           >? This will also remove all cached remote server data from this node.
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn v-close-popup flat label="Cancel" />
           <q-btn flat label="Remove" color="negative" @click="confirmDelete" />
         </q-card-actions>
       </q-card>
@@ -373,7 +371,9 @@ async function fetchAll() {
   try {
     const [nodesResp, dashResp] = await Promise.all([
       GetXylonaClient().listNodes(create(ListNodesRequestSchema, {})),
-      GetXylonaClient().getDashboardOverview({}).catch(() => null),
+      GetXylonaClient()
+        .getDashboardOverview({})
+        .catch(() => null),
     ])
     rows.value = nodesResp.nodes ? [...nodesResp.nodes] : []
     if (dashResp) {

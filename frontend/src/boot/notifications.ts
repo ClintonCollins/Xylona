@@ -9,7 +9,7 @@ import { Notify } from 'quasar'
 
 // "async" is optional;
 // more info on params: https://v2.quasar.dev/quasar-cli/boot-files
-export default boot(async ({ app }) => {
+export default boot(async ({ app: _app }) => {
   Notify.registerType('xylona-success', {
     message: '<span class="text-bold notification-title">Success</span>',
     icon: tabOutlineCheck,

@@ -4,6 +4,22 @@ import typescriptParser from '@typescript-eslint/parser'
 import vue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
 import prettier from 'eslint-config-prettier'
+import globals from 'globals'
+
+const tsRules = {
+  ...typescript.configs['recommended'].rules,
+  '@typescript-eslint/no-explicit-any': 'warn',
+  '@typescript-eslint/no-unused-vars': [
+    'error',
+    {
+      argsIgnorePattern: '^_',
+      varsIgnorePattern: '^_',
+    },
+  ],
+  '@typescript-eslint/explicit-function-return-type': 'off',
+  '@typescript-eslint/explicit-module-boundary-types': 'off',
+  '@typescript-eslint/no-non-null-assertion': 'warn',
+}
 
 export default [
   {
@@ -22,6 +38,7 @@ export default [
     files: ['**/*.vue'],
     plugins: {
       vue,
+      '@typescript-eslint': typescript,
     },
     languageOptions: {
       parser: vueParser,
@@ -31,9 +48,13 @@ export default [
         sourceType: 'module',
         extraFileExtensions: ['.vue'],
       },
+      globals: {
+        ...globals.browser,
+      },
     },
     rules: {
       ...vue.configs.recommended.rules,
+      ...tsRules,
       'vue/multi-word-component-names': 'off',
       'vue/no-v-html': 'warn',
       'vue/require-default-prop': 'off',
@@ -54,7 +75,7 @@ export default [
     },
   },
   {
-    files: ['**/*.ts', '**/*.tsx', '**/*.vue'],
+    files: ['**/*.ts', '**/*.tsx'],
     plugins: {
       '@typescript-eslint': typescript,
     },
@@ -64,20 +85,26 @@ export default [
         ecmaVersion: 'latest',
         sourceType: 'module',
       },
+      globals: {
+        ...globals.browser,
+        process: 'readonly', // Vite/Quasar defines process.env at build time
+      },
     },
     rules: {
-      ...typescript.configs['recommended'].rules,
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-        },
-      ],
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'warn',
+      ...tsRules,
+    },
+  },
+  {
+    files: [
+      'e2e/**/*.ts',
+      '*.config.ts',
+      '*.config.mjs',
+      'playwright*.config.ts',
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
     },
   },
   prettier,

@@ -99,7 +99,7 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
     console.debug('Page hide event. Closing websocket...')
     apiWebsocket.close()
   })
-  apiWebsocket.onopen = (event) => {
+  apiWebsocket.onopen = (_event) => {
     XylonaEventBus.emit('websocketConnected')
     console.debug('Websocket opened')
   }
@@ -137,7 +137,7 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
         return
     }
   }
-  apiWebsocket.onclose = (event) => {
+  apiWebsocket.onclose = (_event) => {
     XylonaEventBus.emit('websocketDisconnected')
     console.debug('Websocket closed')
     // Let the ReconnectingWebSocket handle the rest.

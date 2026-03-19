@@ -96,9 +96,18 @@ func (xs XylonaService) findAvailablePort(ip string, port int64, queryPort int64
 }
 
 func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
+	callingUser, errCallingUser := xs.getUserFromHeader(request.Header())
+	if errCallingUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 
-	// log.Debug().Msgf("CreateGameServer request: %+v", request.Msg.GetGameServer())
-	user, errGetUser := xs.db.GetUserByID(request.Msg.GetGameServer().UserId)
+	// Only superusers can create servers for other users.
+	targetUserID := request.Msg.GetGameServer().UserId
+	if targetUserID != callingUser.ID && !callingUser.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("cannot create servers for other users"))
+	}
+
+	user, errGetUser := xs.db.GetUserByID(targetUserID)
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))

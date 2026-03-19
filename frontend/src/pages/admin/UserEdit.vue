@@ -12,50 +12,50 @@
             <div class="column q-gutter-y-md">
               <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
                 <q-input
+                  v-model="userName"
                   class="col-12 col-xl-6"
                   outlined
                   type="text"
-                  label="Username"
-                  v-model="userName"></q-input>
+                  label="Username"></q-input>
                 <q-input
+                  v-model="email"
                   class="col-12 col-xl-6"
                   outlined
                   type="email"
-                  label="Email"
-                  v-model="email"></q-input>
+                  label="Email"></q-input>
                 <q-input
+                  v-model="firstName"
                   class="col-12 col-xl-6"
                   outlined
                   type="text"
-                  label="First Name"
-                  v-model="firstName"></q-input>
+                  label="First Name"></q-input>
                 <q-input
+                  v-model="lastName"
                   class="col-12 col-xl-6"
                   outlined
                   type="text"
-                  label="Last Name"
-                  v-model="lastName"></q-input>
+                  label="Last Name"></q-input>
               </div>
 
               <div class="row q-col-gutter-x-sm full-width">
-                <q-toggle class="col-12 col-xl-2" v-model="superUser" label="Super User"></q-toggle>
+                <q-toggle v-model="superUser" class="col-12 col-xl-2" label="Super User"></q-toggle>
               </div>
 
               <q-separator></q-separator>
 
               <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
                 <q-input
+                  v-model="password"
                   class="col-12 col-xl-6"
                   outlined
                   type="password"
-                  label="New Password (Optional)"
-                  v-model="password"></q-input>
+                  label="New Password (Optional)"></q-input>
                 <q-input
+                  v-model="confirmPassword"
                   class="col-12 col-xl-6"
                   outlined
                   type="password"
-                  label="Confirm Password"
-                  v-model="confirmPassword"></q-input>
+                  label="Confirm Password"></q-input>
               </div>
             </div>
           </q-form>

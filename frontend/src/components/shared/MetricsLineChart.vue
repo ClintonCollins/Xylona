@@ -12,7 +12,7 @@
         :options="rangeOptions"
         class="text-caption" />
     </div>
-    <Line :data="chartData" :options="chartOptions" style="max-height: 180px" />
+    <line :data="chartData" :options="chartOptions" style="max-height: 180px" />
   </div>
 </template>
 
@@ -29,7 +29,7 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
-import { Line } from 'vue-chartjs'
+import { Line as _Line } from 'vue-chartjs'
 
 ChartJS.register(
   CategoryScale,

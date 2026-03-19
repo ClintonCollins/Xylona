@@ -2,10 +2,8 @@ import { test, expect } from '@playwright/test'
 import {
   apiLogin,
   apiCreateGameServer,
-  apiStartGameServer,
   apiListGames,
   loadTestState,
-  BACKEND_URL,
 } from './helpers'
 
 test.describe('Game server lifecycle', () => {

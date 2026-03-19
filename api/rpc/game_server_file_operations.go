@@ -82,7 +82,7 @@ func (xs XylonaService) GameServerFilesArchive(ctx context.Context, request *con
 		return errPermission
 	}
 
-	resultsChan := make(chan xylona.GameServerFilesArchiveProgress)
+	resultsChan := make(chan *xylona.GameServerFilesArchiveProgress)
 	go func() {
 		for {
 			select {
@@ -92,7 +92,7 @@ func (xs XylonaService) GameServerFilesArchive(ctx context.Context, request *con
 				return
 			case result := <-resultsChan:
 				if c != nil {
-					errSend := c.Send(&result)
+					errSend := c.Send(result)
 					if errSend != nil {
 						return
 					}
@@ -106,7 +106,7 @@ func (xs XylonaService) GameServerFilesArchive(ctx context.Context, request *con
 	if errCompress != nil {
 		return connect.NewError(connect.CodeInternal, errCompress)
 	}
-	errSend := c.Send(&lastResult)
+	errSend := c.Send(lastResult)
 	if errSend != nil {
 		log.Err(errSend).Msg("failed to send last result")
 		return connect.NewError(connect.CodeInternal, errSend)
@@ -129,7 +129,7 @@ func (xs XylonaService) GameServerFilesExtract(ctx context.Context, request *con
 		return errPermission
 	}
 
-	resultsChan := make(chan xylona.GameServerFilesExtractProgress)
+	resultsChan := make(chan *xylona.GameServerFilesExtractProgress)
 	go func() {
 		if recover() != nil {
 			log.Error().Msg("recovered from panic")
@@ -143,7 +143,7 @@ func (xs XylonaService) GameServerFilesExtract(ctx context.Context, request *con
 				return
 			case result := <-resultsChan:
 				if c != nil {
-					errSend := c.Send(&result)
+					errSend := c.Send(result)
 					if errSend != nil {
 						return
 					}

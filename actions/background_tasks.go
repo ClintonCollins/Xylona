@@ -56,7 +56,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 			case xylona.ServerQuery_Minecraft:
 				if gs.Status != xylona.Status_ONLINE.String() {
 					inst.serverQueriesMutex.Lock()
-					inst.serverQueriesInfoMap[gs.ID] = xylona.ServerQuery{
+					inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
 						ServerId:   gs.ID,
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Minecraft,
@@ -71,7 +71,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 					info = &xylona.MinecraftQueryInfo{MaxPlayers: uint32(gs.MaxPlayers)}
 				}
 				inst.serverQueriesMutex.Lock()
-				inst.serverQueriesInfoMap[gs.ID] = xylona.ServerQuery{
+				inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
 					ServerId:   gs.ID,
 					ServerName: gs.Name,
 					Type:       xylona.ServerQuery_Minecraft,
@@ -82,7 +82,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 			case xylona.ServerQuery_Source:
 				if gs.Status != xylona.Status_ONLINE.String() {
 					inst.serverQueriesMutex.Lock()
-					inst.serverQueriesInfoMap[gs.ID] = xylona.ServerQuery{
+					inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
 						ServerId:   gs.ID,
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Source,
@@ -97,7 +97,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 					info = &xylona.SourceQueryInfo{MaxPlayers: uint32(gs.MaxPlayers)}
 				}
 				inst.serverQueriesMutex.Lock()
-				inst.serverQueriesInfoMap[gs.ID] = xylona.ServerQuery{
+				inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
 					ServerId:   gs.ID,
 					ServerName: gs.Name,
 					Type:       xylona.ServerQuery_Source,

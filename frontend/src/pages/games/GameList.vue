@@ -4,11 +4,11 @@
       <div class="xy-page-title">Games</div>
       <div class="xy-page-actions">
         <q-input
+          v-model="search"
           dense
           outlined
           debounce="300"
           color="primary"
-          v-model="search"
           placeholder="Search..."
           aria-label="Search games"
           style="min-width: 200px">
@@ -21,6 +21,8 @@
     </div>
     <div>
       <q-table
+        v-model:pagination="initialPagination"
+        v-model:selected="selected"
         flat
         class="xy-standalone-table"
         :grid="$q.screen.lt.md"
@@ -29,8 +31,6 @@
         row-key="name"
         selection="multiple"
         :filter="search"
-        v-model:pagination="initialPagination"
-        v-model:selected="selected"
         hide-header-in-grid>
         <template v-slot:body-cell-name="props">
           <q-td :props="props">
@@ -41,14 +41,14 @@
         </template>
         <template v-slot:body-cell-windows_support="props">
           <q-td :props="props">
-            <q-icon name="check" size="md" v-if="props.row.windowsSupport" color="positive" />
-            <q-icon name="close" size="md" v-else color="negative" />
+            <q-icon v-if="props.row.windowsSupport" name="check" size="md" color="positive" />
+            <q-icon v-else name="close" size="md" color="negative" />
           </q-td>
         </template>
         <template v-slot:body-cell-linux_support="props">
           <q-td :props="props">
-            <q-icon name="check" size="md" v-if="props.row.linuxSupport" color="positive" />
-            <q-icon name="close" size="md" v-else color="negative" />
+            <q-icon v-if="props.row.linuxSupport" name="check" size="md" color="positive" />
+            <q-icon v-else name="close" size="md" color="negative" />
           </q-td>
         </template>
         <template v-slot:body-cell-actions="props">
@@ -86,10 +86,10 @@
         </template>
       </q-table>
     </div>
-    <GameDeleteDialog
-      :game="selectedActionGame"
+    <game-delete-dialog
       v-model:showDialog="showGameDeleteDialog"
-      @submit="deleteGameSubmitted"></GameDeleteDialog>
+      :game="selectedActionGame"
+      @submit="deleteGameSubmitted"></game-delete-dialog>
   </q-page>
 </template>
 
@@ -102,7 +102,6 @@ import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { onMounted, Ref, ref } from 'vue'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { useRouter } from 'vue-router'
 import { Game } from '@/proto/shared_pb'
 import { ListGamesRequest, ListGamesRequestSchema, ListGamesResponse } from 'src/proto/xylona_pb'
 

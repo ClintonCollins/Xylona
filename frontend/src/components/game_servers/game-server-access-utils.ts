@@ -14,6 +14,8 @@ export function hostFromBaseURL(raw: string): string {
     if (parsed.host !== '') {
       return parsed.host
     }
-  } catch {}
+  } catch {
+    // URL parsing failed, fall through to string manipulation below
+  }
   return raw.replace('https://', '').replace('http://', '')
 }

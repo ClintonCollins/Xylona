@@ -1,7 +1,7 @@
 <template>
   <q-dialog
-    persistent
     v-model="showDialog"
+    persistent
     backdrop-filter="brightness(15%)"
     aria-labelledby="dialog-title">
     <q-card>
@@ -24,7 +24,7 @@
         </div>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="neutral" @click="showDialog = false" flat />
+        <q-btn label="Cancel" color="neutral" flat @click="showDialog = false" />
         <q-btn label="Delete" class="bg-error" @click="deleteGameServers" />
       </q-card-actions>
     </q-card>
@@ -51,7 +51,7 @@ const props = defineProps({
 
 const $q = useQuasar()
 const emit = defineEmits<{
-  submit: [error: Boolean]
+  submit: [error: boolean]
 }>()
 
 const showDialog = defineModel('showDialog', {

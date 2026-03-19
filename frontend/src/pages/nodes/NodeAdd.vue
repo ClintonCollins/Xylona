@@ -1,7 +1,7 @@
 <template>
   <q-page>
     <div class="row justify-center q-pa-md">
-      <NodeForm></NodeForm>
+      <node-form></node-form>
     </div>
   </q-page>
 </template>

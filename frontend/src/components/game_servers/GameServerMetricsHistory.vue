@@ -9,7 +9,7 @@
     </div>
     <div v-if="historyPoints.length > 0" class="row q-col-gutter-md">
       <div class="col-12 col-md-6">
-        <MetricsLineChart
+        <metrics-line-chart
           title="CPU Usage"
           :labels="chartLabels"
           :datasets="cpuDatasets"
@@ -18,7 +18,7 @@
           @range-change="onRangeChange" />
       </div>
       <div class="col-12 col-md-6">
-        <MetricsLineChart
+        <metrics-line-chart
           title="Memory Usage"
           :labels="chartLabels"
           :datasets="memoryDatasets"
@@ -26,7 +26,7 @@
           @range-change="onRangeChange" />
       </div>
       <div class="col-12 col-md-6">
-        <MetricsLineChart
+        <metrics-line-chart
           title="Player Count"
           :labels="chartLabels"
           :datasets="playerDatasets"

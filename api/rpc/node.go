@@ -406,6 +406,13 @@ func (xs XylonaService) resolveLocalPairingBaseURL(preferredBaseURL string) (str
 }
 
 func (xs XylonaService) RemoveNode(ctx context.Context, request *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	nodeID := request.Msg.GetNodeId()
 
 	// Stop syncing this node if it's a remote peer.
@@ -430,6 +437,13 @@ func (xs XylonaService) RemoveNode(ctx context.Context, request *connect.Request
 }
 
 func (xs XylonaService) EditNode(ctx context.Context, request *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	nodeModel := helpers.NodeProtoToModel(request.Msg.GetNode())
 	node, err := xs.db.UpdateNode(nodeModel, helpers.NodeModelToSetter(nodeModel))
 	if err != nil {
@@ -442,6 +456,13 @@ func (xs XylonaService) EditNode(ctx context.Context, request *connect.Request[x
 }
 
 func (xs XylonaService) SyncNode(ctx context.Context, request *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	nodeID := request.Msg.GetNodeId()
 
 	_, err := xs.db.GetRemoteNodeByID(nodeID)
@@ -760,6 +781,13 @@ func (xs XylonaService) VerifyNode(ctx context.Context, request *connect.Request
 }
 
 func (xs XylonaService) ListLocalSecretKeys(ctx context.Context, request *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	secretKeys, err := xs.db.GetAllSecretKeys()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -779,6 +807,13 @@ func (xs XylonaService) ListLocalSecretKeys(ctx context.Context, request *connec
 }
 
 func (xs XylonaService) CreateLocalSecretKey(ctx context.Context, request *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	localSecretKey, key, errCreateSecretKey := xs.createLocalSecretKey(request.Msg.GetName())
 	if errCreateSecretKey != nil {
 		log.Error().Err(errCreateSecretKey).Msg("Unable to create local secret key.")
@@ -799,6 +834,13 @@ func (xs XylonaService) CreateLocalSecretKey(ctx context.Context, request *conne
 }
 
 func (xs XylonaService) DeleteLocalSecretKey(ctx context.Context, request *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	id := request.Msg.GetId()
 	err := xs.db.DeleteSecretKeyByID(id)
 	if err != nil {

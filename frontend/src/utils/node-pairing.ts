@@ -13,8 +13,8 @@ export function normalizeNodePairingBaseURL(baseURL: string): string {
   let parsedURL: URL
   try {
     parsedURL = new URL(normalizedBaseURL)
-  } catch (_errParseURL) {
-    throw new Error('Base URL must be a valid URL')
+  } catch (err) {
+    throw new Error('Base URL must be a valid URL', { cause: err })
   }
 
   if (parsedURL.protocol !== 'http:' && parsedURL.protocol !== 'https:') {
@@ -63,8 +63,8 @@ export function parseNodePairingPayload(payloadText: string): NodePairingPayload
   let parsedPayload: unknown
   try {
     parsedPayload = JSON.parse(payloadText)
-  } catch (_errParseJSON) {
-    throw new Error('Pairing JSON is invalid')
+  } catch (err) {
+    throw new Error('Pairing JSON is invalid', { cause: err })
   }
 
   if (parsedPayload === null || typeof parsedPayload !== 'object' || Array.isArray(parsedPayload)) {

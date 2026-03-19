@@ -4,11 +4,11 @@
       <div class="xy-page-title">Users</div>
       <div class="xy-page-actions">
         <q-input
+          v-model="search"
           dense
           outlined
           debounce="300"
           color="primary"
-          v-model="search"
           placeholder="Search..."
           aria-label="Search users"
           style="min-width: 200px">
@@ -21,6 +21,8 @@
     </div>
     <div>
       <q-table
+        v-model:pagination="initialPagination"
+        v-model:selected="selected"
         flat
         class="xy-standalone-table"
         :grid="$q.screen.lt.md"
@@ -30,8 +32,6 @@
         selection="multiple"
         :filter="search"
         :loading="loading"
-        v-model:pagination="initialPagination"
-        v-model:selected="selected"
         hide-header-in-grid>
         <template v-slot:body-cell-userName="props">
           <q-td :props="props">
@@ -42,8 +42,8 @@
         </template>
         <template v-slot:body-cell-superUser="props">
           <q-td :props="props">
-            <q-icon name="check" size="md" v-if="props.row.superUser" color="positive" />
-            <q-icon name="close" size="md" v-else color="negative" />
+            <q-icon v-if="props.row.superUser" name="check" size="md" color="positive" />
+            <q-icon v-else name="close" size="md" color="negative" />
           </q-td>
         </template>
         <template v-slot:body-cell-actions="props">
@@ -76,10 +76,10 @@
         </template>
       </q-table>
     </div>
-    <UserDeleteDialog
-      :user="selectedActionUser"
+    <user-delete-dialog
       v-model:showDialog="showUserDeleteDialog"
-      @submit="deleteUserSubmitted"></UserDeleteDialog>
+      :user="selectedActionUser"
+      @submit="deleteUserSubmitted"></user-delete-dialog>
   </q-page>
 </template>
 

@@ -1,7 +1,7 @@
 <template>
   <q-dialog
-    persistent
     v-model="showDialog"
+    persistent
     backdrop-filter="brightness(25%)"
     aria-labelledby="dialog-title">
     <q-card class="full-width">
@@ -14,26 +14,26 @@
         <q-form class="q-pa-lg">
           <div class="row wrap q-col-gutter-md justify-between">
             <q-select
+              v-model="archiveType"
               class="col-12"
               outlined
-              v-model="archiveType"
               emit-value
               map-options
-              @update:model-value="archiveSuffix = ArchiveTypeToExtension(archiveType)"
               :options="archiveTypeOptions"
-              label="Archive Type">
+              label="Archive Type"
+              @update:model-value="archiveSuffix = ArchiveTypeToExtension(archiveType)">
               <template v-slot:prepend>
                 <q-icon name="event" />
               </template>
             </q-select>
             <q-input
+              v-model="archiveName"
               placeholder="example-archive"
               name="archive-name"
               aria-autocomplete="none"
               class="col-12"
               :suffix="archiveSuffix"
               outlined
-              v-model="archiveName"
               label="Archive name"
               autofocus />
           </div>
@@ -54,7 +54,7 @@
         </q-card-section>
       </q-card-section>
       <q-card-actions v-if="!archiveSubmitting" align="right">
-        <q-btn label="Cancel" color="primary" @click="showDialog = false" flat />
+        <q-btn label="Cancel" color="primary" flat @click="showDialog = false" />
         <q-btn label="Archive" color="primary" @click="archiveFiles()" />
       </q-card-actions>
       <q-card-actions v-else align="right">
