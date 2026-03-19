@@ -734,48 +734,13 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 	if err != nil {
 		return nil, err
 	}
-	if !user.SuperUser {
-		gameServers, errGetGameServers := xs.db.GetGameServersByUser(user.ID)
-		if errGetGameServers != nil {
-			if errors.Is(errGetGameServers, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-		}
-		gameServersProto := make([]*xylona.GameServer, len(gameServers))
-		for i, gameServer := range gameServers {
-			gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
-			if errGetCommand != nil {
-				gameServer.Status = xylona.Status_OFFLINE.String()
-			} else {
-				gameServer.Status = gameServerCmd.Status().String()
-			}
-			gameServerProto := helpers.GameServerModelToProto(gameServer)
-			if errGetCommand == nil {
-				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
-				gameServerProto.CpuPercent = int64(cpuPct)
-				gameServerProto.MemoryBytes = int64(memVMS)
-				gameServerProto.MemoryWorkingSetBytes = int64(memRSS)
-				gameServerProto.MemoryPercent = float64(memPct)
-				gameServerProto.CpuCores = cpuCores
-				gameServerProto.NumberOfThreads = int64(threads)
-				gameServerProto.DiskUsageBytes = int64(diskBytes)
-				gameServerProto.IoReadRate = ioRead
-				gameServerProto.IoWriteRate = ioWrite
-				gameServerProto.ConnectionCount = connCount
-				startedAt := gameServerCmd.UnixStartedAt()
-				if startedAt > 0 {
-					gameServerProto.UptimeSeconds = time.Now().Unix() - startedAt
-				}
-			}
-			gameServersProto[i] = gameServerProto
-		}
-		response := &xylona.ListGameServersResponse{
-			GameServers: gameServersProto,
-		}
-		return connect.NewResponse(response), nil
+	var gameServers []*models.GameServer
+	var errGetGameServers error
+	if user.SuperUser {
+		gameServers, errGetGameServers = xs.db.GetAllGameServers()
+	} else {
+		gameServers, errGetGameServers = xs.db.GetGameServersAccessibleByUser(user.ID)
 	}
-	gameServers, errGetGameServers := xs.db.GetAllGameServers()
 	if errGetGameServers != nil {
 		if errors.Is(errGetGameServers, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))

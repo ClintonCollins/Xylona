@@ -276,3 +276,97 @@ func TestDeleteGameServer(t *testing.T) {
 		t.Errorf("GetGameServerByID() after delete error = %v, want %v", errGet, sql.ErrNoRows)
 	}
 }
+
+func TestGetGameServersAccessibleByUser(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "gs-accessible.sqlite")
+	addMissingGameColumns(t, conn)
+	seedRBACFixture(t, conn)
+
+	// seedRBACFixture creates:
+	//   user-owner  — owns server-local-1
+	//   user-other  — no servers, no role assignments
+	//   user-admin  — superuser, no servers
+
+	// Step 1: grantee (user-other) has no ownership and no role assignments.
+	servers, errGet := conn.GetGameServersAccessibleByUser("user-other")
+	if errGet != nil {
+		t.Fatalf("GetGameServersAccessibleByUser(grantee, before grant) error = %v", errGet)
+	}
+	if len(servers) != 0 {
+		t.Errorf("GetGameServersAccessibleByUser(grantee, before grant) len = %d, want 0", len(servers))
+	}
+
+	// Step 2: create a role assignment granting user-other access to server-local-1.
+	errAssign := conn.CreateUserRoleAssignment(
+		"assignment-accessible-1",
+		"user-other",
+		"operator",
+		"server-local-1",
+		"user-owner",
+	)
+	if errAssign != nil {
+		t.Fatalf("CreateUserRoleAssignment() error = %v", errAssign)
+	}
+
+	// Step 3: grantee now sees the granted server.
+	servers, errGet = conn.GetGameServersAccessibleByUser("user-other")
+	if errGet != nil {
+		t.Fatalf("GetGameServersAccessibleByUser(grantee, after grant) error = %v", errGet)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("GetGameServersAccessibleByUser(grantee, after grant) len = %d, want 1", len(servers))
+	}
+	if servers[0].ID != "server-local-1" {
+		t.Errorf("GetGameServersAccessibleByUser(grantee)[0].ID = %q, want %q", servers[0].ID, "server-local-1")
+	}
+
+	// Step 4: owner sees the server via ownership.
+	servers, errGet = conn.GetGameServersAccessibleByUser("user-owner")
+	if errGet != nil {
+		t.Fatalf("GetGameServersAccessibleByUser(owner) error = %v", errGet)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("GetGameServersAccessibleByUser(owner) len = %d, want 1", len(servers))
+	}
+	if servers[0].ID != "server-local-1" {
+		t.Errorf("GetGameServersAccessibleByUser(owner)[0].ID = %q, want %q", servers[0].ID, "server-local-1")
+	}
+
+	// Step 5: owner also gets a role assignment — should NOT produce duplicates.
+	errOwnerAssign := conn.CreateUserRoleAssignment(
+		"assignment-accessible-2",
+		"user-owner",
+		"operator",
+		"server-local-1",
+		"user-owner",
+	)
+	if errOwnerAssign != nil {
+		t.Fatalf("CreateUserRoleAssignment(owner) error = %v", errOwnerAssign)
+	}
+
+	servers, errGet = conn.GetGameServersAccessibleByUser("user-owner")
+	if errGet != nil {
+		t.Fatalf("GetGameServersAccessibleByUser(owner, with role) error = %v", errGet)
+	}
+	if len(servers) != 1 {
+		t.Errorf("GetGameServersAccessibleByUser(owner, with role) len = %d, want 1 (no duplicates)", len(servers))
+	}
+
+	// Step 6: user with no servers and no assignments returns empty.
+	servers, errGet = conn.GetGameServersAccessibleByUser("user-admin")
+	if errGet != nil {
+		t.Fatalf("GetGameServersAccessibleByUser(admin, no servers) error = %v", errGet)
+	}
+	if len(servers) != 0 {
+		t.Errorf("GetGameServersAccessibleByUser(admin, no servers) len = %d, want 0", len(servers))
+	}
+
+	// Step 7: nonexistent user returns empty, no error.
+	servers, errGet = conn.GetGameServersAccessibleByUser("user-nonexistent")
+	if errGet != nil {
+		t.Fatalf("GetGameServersAccessibleByUser(nonexistent) error = %v", errGet)
+	}
+	if len(servers) != 0 {
+		t.Errorf("GetGameServersAccessibleByUser(nonexistent) len = %d, want 0", len(servers))
+	}
+}

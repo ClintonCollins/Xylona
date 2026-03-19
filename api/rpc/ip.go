@@ -15,6 +15,10 @@ import (
 )
 
 func (xs XylonaService) ListIPs(ctx context.Context, request *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	ips, err := xs.db.GetAllIPs()
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

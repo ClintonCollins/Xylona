@@ -74,6 +74,56 @@ func (c *Connection) DeleteGameServer(gameServerID string) error {
 	return gs.DeleteAll(c.ctx, c.DB)
 }
 
+// GetGameServersAccessibleByUser returns game servers that a user either owns
+// or has any RBAC role assignment on (including global role assignments).
+func (c *Connection) GetGameServersAccessibleByUser(userID string) ([]*models.GameServer, error) {
+	// Get servers the user owns.
+	ownedServers, errOwned := c.GetGameServersByUser(userID)
+	if errOwned != nil {
+		return nil, errOwned
+	}
+
+	// Get server IDs the user has RBAC grants on.
+	rows, errQuery := c.SQLDb.QueryContext(
+		c.ctx,
+		`SELECT DISTINCT ura.game_server_id FROM user_role_assignment ura
+		 WHERE ura.user_id = ? AND ura.game_server_id IS NOT NULL`,
+		userID,
+	)
+	if errQuery != nil {
+		return nil, errQuery
+	}
+	defer func() { _ = rows.Close() }()
+
+	ownedIDs := make(map[string]struct{}, len(ownedServers))
+	for _, gs := range ownedServers {
+		ownedIDs[gs.ID] = struct{}{}
+	}
+
+	// Fetch granted servers that the user doesn't already own.
+	var grantedServers []*models.GameServer
+	for rows.Next() {
+		var id string
+		if errScan := rows.Scan(&id); errScan != nil {
+			return nil, errScan
+		}
+		if _, alreadyOwned := ownedIDs[id]; alreadyOwned {
+			continue
+		}
+		gs, errGet := c.GetGameServerByID(id)
+		if errGet != nil {
+			log.Warn().Err(errGet).Str("game_server_id", id).Msg("Skipping inaccessible granted server")
+			continue
+		}
+		grantedServers = append(grantedServers, gs)
+	}
+	if errRows := rows.Err(); errRows != nil {
+		return nil, errRows
+	}
+
+	return append(ownedServers, grantedServers...), nil
+}
+
 func (c *Connection) GetGameServersByIP(ip string) ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.IP.EQ(ip),

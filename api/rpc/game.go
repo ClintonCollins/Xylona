@@ -13,6 +13,10 @@ import (
 )
 
 func (xs XylonaService) GetGame(ctx context.Context, request *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	game, errGetGame := xs.db.GetGameByID(request.Msg.GetId())
 	if errGetGame != nil {
 		if errors.Is(errGetGame, sql.ErrNoRows) {
@@ -29,6 +33,10 @@ func (xs XylonaService) GetGame(ctx context.Context, request *connect.Request[xy
 }
 
 func (xs XylonaService) ListGames(ctx context.Context, request *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	games, errGetGames := xs.db.GetGames()
 	if errGetGames != nil {
 		if errors.Is(errGetGames, sql.ErrNoRows) {

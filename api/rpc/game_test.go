@@ -48,6 +48,7 @@ func TestGetGameValidID(t *testing.T) {
 	req := connect.NewRequest(&xylona.GetGameRequest{
 		Id: game.Id,
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	resp, errGet := fixture.service.GetGame(context.Background(), req)
 	if errGet != nil {
@@ -70,6 +71,7 @@ func TestGetGameNonExistentID(t *testing.T) {
 	req := connect.NewRequest(&xylona.GetGameRequest{
 		Id: "does-not-exist",
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	_, errGet := fixture.service.GetGame(context.Background(), req)
 	if errGet == nil {
@@ -84,6 +86,7 @@ func TestListGamesReturnsSeededGames(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
 	req := connect.NewRequest(&xylona.ListGamesRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	resp, errList := fixture.service.ListGames(context.Background(), req)
 	if errList != nil {
@@ -104,6 +107,7 @@ func TestListGamesIncludesAdded(t *testing.T) {
 
 	// Get baseline count from migration-seeded games.
 	baselineReq := connect.NewRequest(&xylona.ListGamesRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, baselineReq, "user-admin")
 	baselineResp, errBaseline := fixture.service.ListGames(context.Background(), baselineReq)
 	if errBaseline != nil {
 		t.Fatalf("ListGames() baseline error = %v", errBaseline)
@@ -115,6 +119,7 @@ func TestListGamesIncludesAdded(t *testing.T) {
 	_ = addGameForTests(t, fixture, "list-game-3", "List Game 3")
 
 	req := connect.NewRequest(&xylona.ListGamesRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
 	resp, errList := fixture.service.ListGames(context.Background(), req)
 	if errList != nil {
@@ -155,6 +160,7 @@ func TestAddGameValidData(t *testing.T) {
 	getReq := connect.NewRequest(&xylona.GetGameRequest{
 		Id: resp.Msg.Game.Id,
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-admin")
 	getResp, errGet := fixture.service.GetGame(context.Background(), getReq)
 	if errGet != nil {
 		t.Fatalf("GetGame() after AddGame error = %v", errGet)
@@ -249,6 +255,7 @@ func TestRemoveGameValidID(t *testing.T) {
 	getReq := connect.NewRequest(&xylona.GetGameRequest{
 		Id: game.Id,
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-admin")
 	_, errGet := fixture.service.GetGame(context.Background(), getReq)
 	if errGet == nil {
 		t.Fatalf("GetGame() after RemoveGame expected error, got nil")

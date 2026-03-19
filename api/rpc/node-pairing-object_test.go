@@ -11,11 +11,14 @@ import (
 )
 
 func TestGenerateNodePairingObjectRequiresMTLS(t *testing.T) {
-	xylonaService := XylonaService{}
+	fixture := newRBACRPCFixture(t)
 
-	_, errGenerate := xylonaService.GenerateNodePairingObject(
+	req := connect.NewRequest(&xylona.GenerateNodePairingObjectRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	_, errGenerate := fixture.service.GenerateNodePairingObject(
 		t.Context(),
-		connect.NewRequest(&xylona.GenerateNodePairingObjectRequest{}),
+		req,
 	)
 	if errGenerate == nil {
 		t.Fatalf("GenerateNodePairingObject() error = nil, want error")
@@ -26,6 +29,8 @@ func TestGenerateNodePairingObjectRequiresMTLS(t *testing.T) {
 }
 
 func TestGenerateNodePairingObjectRejectsInvalidTargetURL(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
 	temporaryDirectory := t.TempDir()
 	certPath := filepath.Join(temporaryDirectory, "node.crt")
 	keyPath := filepath.Join(temporaryDirectory, "node.key")
@@ -35,15 +40,16 @@ func TestGenerateNodePairingObjectRejectsInvalidTargetURL(t *testing.T) {
 		t.Fatalf("NewFederationMTLS() error = %v", errCreateMTLS)
 	}
 
-	xylonaService := XylonaService{
-		federationMTLS: federationMTLS,
-	}
+	fixture.service.federationMTLS = federationMTLS
 
-	_, errGenerate := xylonaService.GenerateNodePairingObject(
+	req := connect.NewRequest(&xylona.GenerateNodePairingObjectRequest{
+		TargetUrl: "not-a-valid-url",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	_, errGenerate := fixture.service.GenerateNodePairingObject(
 		t.Context(),
-		connect.NewRequest(&xylona.GenerateNodePairingObjectRequest{
-			TargetUrl: "not-a-valid-url",
-		}),
+		req,
 	)
 	if errGenerate == nil {
 		t.Fatalf("GenerateNodePairingObject() error = nil, want error")

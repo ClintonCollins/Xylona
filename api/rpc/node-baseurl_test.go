@@ -64,14 +64,15 @@ func TestNormalizeBaseURL(t *testing.T) {
 }
 
 func TestAddNodeRejectsLocalNodeCreation(t *testing.T) {
-	xylonaService := XylonaService{}
+	fixture := newRBACRPCFixture(t)
 	request := connect.NewRequest(&xylona.AddNodeRequest{
 		Node: &xylona.Node{
 			Name: "should-fail",
 		},
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
 
-	_, errAddNode := xylonaService.AddNode(t.Context(), request)
+	_, errAddNode := fixture.service.AddNode(t.Context(), request)
 	if errAddNode == nil {
 		t.Fatalf("AddNode() error = nil, want error")
 	}

@@ -24,6 +24,10 @@ import (
 )
 
 func (xs XylonaService) GetNode(ctx context.Context, request *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	nodeID := request.Msg.GetNodeId()
 	node, err := xs.db.GetNodeByID(nodeID)
 	if err != nil {
@@ -33,6 +37,10 @@ func (xs XylonaService) GetNode(ctx context.Context, request *connect.Request[xy
 }
 
 func (xs XylonaService) ListNodes(ctx context.Context, request *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
 	nodes, err := xs.db.GetAllNodes()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -46,6 +54,13 @@ func (xs XylonaService) ListNodes(ctx context.Context, request *connect.Request[
 }
 
 func (xs XylonaService) AddNode(ctx context.Context, request *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	nodeProto := request.Msg.GetNode()
 
 	baseURL := strings.TrimSpace(nodeProto.GetBaseUrl())
@@ -65,6 +80,13 @@ func (xs XylonaService) GenerateNodePairingObject(
 	ctx context.Context,
 	request *connect.Request[xylona.GenerateNodePairingObjectRequest],
 ) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	if xs.federationMTLS == nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("federation mTLS is not configured"))
 	}
@@ -108,6 +130,13 @@ func (xs XylonaService) GenerateNodePairingObject(
 }
 
 func (xs XylonaService) PairNode(ctx context.Context, request *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+	if !user.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+	}
 	remoteBaseURL, errNormalizeRemoteBaseURL := normalizeBaseURL(request.Msg.GetRemoteBaseUrl())
 	if errNormalizeRemoteBaseURL != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid remote base URL"))
@@ -495,13 +524,13 @@ func (xs XylonaService) ListAggregatedGameServers(ctx context.Context, request *
 
 	resp := &xylona.ListAggregatedGameServersResponse{}
 
-	// Get local game servers.
+	// Get local game servers (owned + RBAC-granted for non-super users).
 	var localServers []*models.GameServer
 	var errLocal error
 	if user.SuperUser {
 		localServers, errLocal = xs.db.GetAllGameServers()
 	} else {
-		localServers, errLocal = xs.db.GetGameServersByUser(user.ID)
+		localServers, errLocal = xs.db.GetGameServersAccessibleByUser(user.ID)
 	}
 	if errLocal != nil && !errors.Is(errLocal, sql.ErrNoRows) {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local game servers"))

@@ -16,6 +16,7 @@ func TestGetNode(t *testing.T) {
 	request := connect.NewRequest(&xylona.GetNodeRequest{
 		NodeId: "node-local",
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
 
 	resp, errGet := fixture.service.GetNode(context.Background(), request)
 	if errGet != nil {
@@ -38,6 +39,7 @@ func TestGetNode(t *testing.T) {
 	badRequest := connect.NewRequest(&xylona.GetNodeRequest{
 		NodeId: "nonexistent-node",
 	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, badRequest, "user-admin")
 
 	_, errBad := fixture.service.GetNode(context.Background(), badRequest)
 	if errBad == nil {
@@ -49,6 +51,7 @@ func TestListNodes(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
 	request := connect.NewRequest(&xylona.ListNodesRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
 
 	resp, errList := fixture.service.ListNodes(context.Background(), request)
 	if errList != nil {
@@ -96,6 +99,7 @@ func TestEditNode(t *testing.T) {
 
 	// Verify persistence
 	getReq := connect.NewRequest(&xylona.GetNodeRequest{NodeId: "node-local"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-admin")
 	getResp, errGet := fixture.service.GetNode(context.Background(), getReq)
 	if errGet != nil {
 		t.Fatalf("GetNode() after edit error = %v", errGet)
@@ -113,6 +117,7 @@ func TestRemoveNode(t *testing.T) {
 
 	// Verify it exists
 	getReq := connect.NewRequest(&xylona.GetNodeRequest{NodeId: "node-to-delete"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-admin")
 	_, errGet := fixture.service.GetNode(context.Background(), getReq)
 	if errGet != nil {
 		t.Fatalf("GetNode(node-to-delete) before remove error = %v", errGet)
