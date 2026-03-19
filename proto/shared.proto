@@ -137,6 +137,7 @@ message GameServer {
   double io_read_rate = 40;
   double io_write_rate = 41;
   int32 connection_count = 42;
+  repeated string effective_permissions = 43;
 }
 
 message IP {

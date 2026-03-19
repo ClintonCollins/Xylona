@@ -1,94 +1,128 @@
-import { describe, expect, it } from 'vitest'
-
+import { describe, it, expect } from 'vitest'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
 
 describe('buildGameServerTabs', () => {
-  it('includes only console and files when configuration and access are disabled', () => {
-    const tabs = buildGameServerTabs('server-1', false, false)
-    expect(tabs.map((tab) => tab.name)).toEqual(['Console', 'Files', 'Metrics'])
+  const serverID = 'test-server'
+
+  it('shows only Console tab for viewer (game_server.view only)', () => {
+    const tabs = buildGameServerTabs(serverID, ['game_server.view'], false)
+    expect(tabs.map((t) => t.name)).toEqual(['Console'])
   })
 
-  it('includes configuration when enabled', () => {
-    const tabs = buildGameServerTabs('server-1', true, false)
-    expect(tabs.map((tab) => tab.name)).toEqual(['Console', 'Files', 'Metrics', 'Configuration'])
+  it('shows Console tab for operator (no files/metrics/config)', () => {
+    const perms = [
+      'game_server.view',
+      'game_server.start',
+      'game_server.stop',
+      'game_server.restart',
+      'game_server.console',
+    ]
+    const tabs = buildGameServerTabs(serverID, perms, false)
+    expect(tabs.map((t) => t.name)).toEqual(['Console'])
   })
 
-  it('includes access when enabled', () => {
-    const tabs = buildGameServerTabs('server-1', true, true)
-    expect(tabs.map((tab) => tab.name)).toEqual([
-      'Console',
-      'Files',
-      'Metrics',
-      'Configuration',
-      'Access',
-    ])
+  it('shows all tabs for admin role', () => {
+    const perms = [
+      'game_server.view',
+      'game_server.start',
+      'game_server.stop',
+      'game_server.restart',
+      'game_server.console',
+      'game_server.files.view',
+      'game_server.files.edit',
+      'game_server.settings',
+      'game_server.metrics',
+      'game_server.backup',
+      'game_server.delete',
+    ]
+    const tabs = buildGameServerTabs(serverID, perms, false)
+    expect(tabs.map((t) => t.name)).toEqual(['Console', 'Files', 'Metrics', 'Configuration'])
   })
-})
 
-describe('buildGameServerTabs with access only', () => {
-  it('includes Access but not Configuration when access=true, config=false', () => {
-    const tabs = buildGameServerTabs('server-1', false, true)
-    const names = tabs.map((tab) => tab.name)
-    expect(names).toContain('Console')
-    expect(names).toContain('Files')
-    expect(names).toContain('Access')
-    expect(names).not.toContain('Configuration')
+  it('shows Access tab only for owner/super', () => {
+    const perms = ['game_server.view']
+    const tabs = buildGameServerTabs(serverID, perms, true)
+    expect(tabs.map((t) => t.name)).toContain('Access')
   })
-})
 
-describe('buildGameServerTabs paths include serverID', () => {
-  it('each tab path contains the server ID', () => {
-    const serverID = 'my-unique-server-42'
-    const tabs = buildGameServerTabs(serverID, true, true)
-    for (const tab of tabs) {
-      expect(tab.to).toContain(serverID)
-    }
+  it('does not show Access tab for non-owner/non-super even with all permissions', () => {
+    const perms = [
+      'game_server.view',
+      'game_server.files.view',
+      'game_server.settings',
+      'game_server.metrics',
+    ]
+    const tabs = buildGameServerTabs(serverID, perms, false)
+    expect(tabs.map((t) => t.name)).not.toContain('Access')
   })
 })
 
 describe('getUnauthorizedRedirect', () => {
-  it('redirects access route when access is not allowed', () => {
-    const redirect = getUnauthorizedRedirect(
-      '/game-servers/server-1/access',
-      'server-1',
+  const serverID = 'test-server'
+  const consolePath = `/game-servers/${serverID}/console`
+
+  it('redirects /files when missing files.view permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/files`,
+      serverID,
+      ['game_server.view'],
+      false,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('returns null for /files when user has files.view permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/files`,
+      serverID,
+      ['game_server.files.view'],
+      false,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('redirects /metrics when missing metrics permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/metrics`,
+      serverID,
+      ['game_server.view'],
+      false,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('redirects /configuration when missing settings permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/configuration`,
+      serverID,
+      ['game_server.view'],
+      false,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('redirects /access when not owner/super', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/access`,
+      serverID,
+      ['game_server.view'],
+      false,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('allows /access for owner/super', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/access`,
+      serverID,
+      ['game_server.view'],
       true,
-      false,
     )
-    expect(redirect).toBe('/game-servers/server-1/console')
+    expect(result).toBeNull()
   })
 
-  it('redirects configuration route when configuration is not allowed', () => {
-    const redirect = getUnauthorizedRedirect(
-      '/game-servers/server-1/configuration',
-      'server-1',
-      false,
-      true,
-    )
-    expect(redirect).toBe('/game-servers/server-1/console')
-  })
-
-  it('does not redirect allowed routes', () => {
-    const redirect = getUnauthorizedRedirect('/game-servers/server-1/files', 'server-1', true, true)
-    expect(redirect).toBeNull()
-  })
-
-  it('does not redirect console route regardless of permissions', () => {
-    const redirect = getUnauthorizedRedirect(
-      '/game-servers/server-1/console',
-      'server-1',
-      false,
-      false,
-    )
-    expect(redirect).toBeNull()
-  })
-
-  it('does not redirect files route regardless of permissions', () => {
-    const redirect = getUnauthorizedRedirect(
-      '/game-servers/server-1/files',
-      'server-1',
-      false,
-      false,
-    )
-    expect(redirect).toBeNull()
+  it('returns null for console path regardless of permissions', () => {
+    const result = getUnauthorizedRedirect(consolePath, serverID, [], false)
+    expect(result).toBeNull()
   })
 })

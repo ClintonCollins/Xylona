@@ -154,6 +154,39 @@ func TestFederatedUserHasPermissionOnServer(t *testing.T) {
 	}
 }
 
+func TestGetFederatedUserPermissionIDsForServer(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "federated-grant-perm-ids.sqlite")
+	seedRBACFixture(t, conn)
+	seedRemoteNodeForFederatedTests(t, conn, "node-remote-1")
+
+	// No grants yet — should return empty
+	perms, errPerms := conn.GetFederatedUserPermissionIDsForServer("node-remote-1", "remote-user-1", "server-local-1")
+	if errPerms != nil {
+		t.Fatalf("GetFederatedUserPermissionIDsForServer() error = %v", errPerms)
+	}
+	if len(perms) != 0 {
+		t.Errorf("expected 0 permissions before grant, got %d", len(perms))
+	}
+
+	// Grant operator role
+	errGrant := conn.CreateFederatedAccessGrant(
+		"fed-perm-ids-grant", "server-local-1", "node-remote-1",
+		"remote-user-1", "Remote User", "operator", "user-owner",
+	)
+	if errGrant != nil {
+		t.Fatalf("CreateFederatedAccessGrant() error = %v", errGrant)
+	}
+
+	// operator has: view, start, stop, restart, console = 5 permissions
+	perms, errPerms = conn.GetFederatedUserPermissionIDsForServer("node-remote-1", "remote-user-1", "server-local-1")
+	if errPerms != nil {
+		t.Fatalf("GetFederatedUserPermissionIDsForServer() after grant error = %v", errPerms)
+	}
+	if len(perms) != 5 {
+		t.Errorf("expected 5 permissions for operator, got %d: %v", len(perms), perms)
+	}
+}
+
 func TestDeleteFederatedAccessGrant(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federated-grant-delete.sqlite")
 	seedRBACFixture(t, conn)

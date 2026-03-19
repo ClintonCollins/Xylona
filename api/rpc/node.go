@@ -536,11 +536,34 @@ func (xs XylonaService) ListAggregatedGameServers(ctx context.Context, request *
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local game servers"))
 	}
 
+	localBulkPerms := map[string][]string{}
+	if !user.SuperUser {
+		var grantedLocalServerIDs []string
+		for _, gs := range localServers {
+			if gs.UserID != user.ID {
+				grantedLocalServerIDs = append(grantedLocalServerIDs, gs.ID)
+			}
+		}
+		if len(grantedLocalServerIDs) > 0 {
+			var errBulkPerms error
+			localBulkPerms, errBulkPerms = xs.db.GetUserPermissionIDsForServers(user.ID, grantedLocalServerIDs)
+			if errBulkPerms != nil {
+				log.Error().Err(errBulkPerms).Msg("Failed to get bulk permissions for aggregated list")
+				localBulkPerms = map[string][]string{}
+			}
+		}
+	}
+
 	for _, gs := range localServers {
 		gsProto := helpers.GameServerModelToProto(gs)
 		gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gs.ID)
 		if errGetCommand == nil {
 			gsProto.Status = gameServerCmd.Status()
+		}
+		if user.SuperUser || gs.UserID == user.ID {
+			gsProto.EffectivePermissions = xs.allPermissionIDs
+		} else if perms, ok := localBulkPerms[gs.ID]; ok {
+			gsProto.EffectivePermissions = perms
 		}
 		resp.Servers = append(resp.Servers, &xylona.AggregatedGameServer{
 			IsLocal:     true,

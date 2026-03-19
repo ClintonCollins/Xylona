@@ -78,6 +78,34 @@ func (c *Connection) FederatedUserHasPermissionOnServer(remoteNodeID string, rem
 	return count > 0, nil
 }
 
+// GetFederatedUserPermissionIDsForServer returns the distinct permission IDs
+// a federated (remote) user holds on a local game server via federated access grants.
+func (c *Connection) GetFederatedUserPermissionIDsForServer(remoteNodeID string, remoteUserID string, gameServerID string) ([]string, error) {
+	rows, errQuery := c.SQLDb.QueryContext(
+		c.ctx,
+		`SELECT DISTINCT rp.permission_id
+		FROM federated_access_grant fag
+		JOIN role_permission rp ON fag.role_id = rp.role_id
+		WHERE fag.remote_node_id = ? AND fag.remote_user_id = ?
+		AND fag.game_server_id = ?`,
+		remoteNodeID, remoteUserID, gameServerID,
+	)
+	if errQuery != nil {
+		return nil, errQuery
+	}
+	defer func() { _ = rows.Close() }()
+
+	var perms []string
+	for rows.Next() {
+		var perm string
+		if errScan := rows.Scan(&perm); errScan != nil {
+			return nil, errScan
+		}
+		perms = append(perms, perm)
+	}
+	return perms, rows.Err()
+}
+
 func (c *Connection) GetFederatedAccessGrantByID(id string) (*models.FederatedAccessGrant, error) {
 	grant, errGetGrant := models.FederatedAccessGrants.Query(
 		models.SelectWhere.FederatedAccessGrants.ID.EQ(id),

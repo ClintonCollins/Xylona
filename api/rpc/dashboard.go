@@ -321,7 +321,7 @@ func (xs XylonaService) GetGameServerMetricsHistory(ctx context.Context, request
 		func(gameServer *models.GameServer) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 			// Local server — check access: owner, superuser, or RBAC grant.
 			if !user.SuperUser && gameServer.UserID != user.ID {
-				allowed, errPerm := helpers.HasPermission(xs.db, user, gameServerID, gameServer.UserID, "game_server.console")
+				allowed, errPerm := helpers.HasPermission(xs.db, user, gameServerID, gameServer.UserID, "game_server.metrics")
 				if errPerm != nil {
 					return nil, connect.NewError(connect.CodeInternal, errors.New("failed to check permissions"))
 				}

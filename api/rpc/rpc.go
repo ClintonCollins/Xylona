@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gorilla/securecookie"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
@@ -19,15 +20,16 @@ type SyncEngine interface {
 }
 
 type XylonaService struct {
-	ctx            context.Context
-	db             *db.Connection
-	actionsInst    *actions.Instance
-	supervisorInst *supervisor.Instance
-	federationMTLS *helpers.FederationMTLS
-	secureCookie   *securecookie.SecureCookie
-	secureCookies  bool
-	syncEngine     SyncEngine
-	listCache      *remoteServerListCache
+	ctx              context.Context
+	db               *db.Connection
+	actionsInst      *actions.Instance
+	supervisorInst   *supervisor.Instance
+	federationMTLS   *helpers.FederationMTLS
+	secureCookie     *securecookie.SecureCookie
+	secureCookies    bool
+	syncEngine       SyncEngine
+	listCache        *remoteServerListCache
+	allPermissionIDs []string
 }
 
 func NewXylonaService(
@@ -39,15 +41,25 @@ func NewXylonaService(
 	federationMTLS *helpers.FederationMTLS,
 	secureCookies bool,
 ) *XylonaService {
+	allPerms, errPerms := db.GetAllPermissions()
+	if errPerms != nil {
+		log.Fatal().Err(errPerms).Msg("Failed to load permission IDs")
+	}
+	permIDs := make([]string, len(allPerms))
+	for i, p := range allPerms {
+		permIDs[i] = p.ID
+	}
+
 	return &XylonaService{
-		ctx:            ctx,
-		db:             db,
-		actionsInst:    actionsInst,
-		federationMTLS: federationMTLS,
-		secureCookie:   secureCookie,
-		secureCookies:  secureCookies,
-		supervisorInst: supervisorInst,
-		listCache:      newRemoteServerListCache(remoteServerListCacheTTL),
+		ctx:              ctx,
+		db:               db,
+		actionsInst:      actionsInst,
+		federationMTLS:   federationMTLS,
+		secureCookie:     secureCookie,
+		secureCookies:    secureCookies,
+		supervisorInst:   supervisorInst,
+		listCache:        newRemoteServerListCache(remoteServerListCacheTTL),
+		allPermissionIDs: permIDs,
 	}
 }
 

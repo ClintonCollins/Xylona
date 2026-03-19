@@ -8,6 +8,7 @@ import NodeList from './NodeList.vue'
 
 const mocks = vi.hoisted(() => ({
   listNodes: vi.fn(),
+  getDashboardOverview: vi.fn().mockResolvedValue({ nodes: [] }),
 }))
 
 vi.mock('@/utils/shared', async () => {
@@ -16,6 +17,7 @@ vi.mock('@/utils/shared', async () => {
     ...actual,
     GetXylonaClient: () => ({
       listNodes: mocks.listNodes,
+      getDashboardOverview: mocks.getDashboardOverview,
     }),
   }
 })

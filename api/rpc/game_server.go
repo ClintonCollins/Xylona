@@ -572,6 +572,7 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Requ
 					gsProto.UptimeSeconds = time.Now().Unix() - startedAt
 				}
 			}
+			gsProto.EffectivePermissions = xs.computeEffectivePermissions(user, gameServer)
 			response := &xylona.GetGameServerResponse{GameServer: gsProto}
 			return connect.NewResponse(response), nil
 		},
@@ -642,6 +643,7 @@ func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string
 		ConnectionCount:       server.ConnectionCount,
 		UptimeSeconds:         server.UptimeSeconds,
 	}
+	gs.EffectivePermissions = resp.Msg.EffectivePermissions
 
 	return connect.NewResponse(&xylona.GetGameServerResponse{
 		GameServer: gs,
@@ -748,6 +750,24 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 
+	bulkPerms := map[string][]string{}
+	if !user.SuperUser {
+		var grantedServerIDs []string
+		for _, gs := range gameServers {
+			if gs.UserID != user.ID {
+				grantedServerIDs = append(grantedServerIDs, gs.ID)
+			}
+		}
+		if len(grantedServerIDs) > 0 {
+			var errBulkPerms error
+			bulkPerms, errBulkPerms = xs.db.GetUserPermissionIDsForServers(user.ID, grantedServerIDs)
+			if errBulkPerms != nil {
+				log.Error().Err(errBulkPerms).Msg("Failed to get bulk permissions")
+				bulkPerms = map[string][]string{}
+			}
+		}
+	}
+
 	gameServersProto := make([]*xylona.GameServer, len(gameServers))
 	for i, gameServer := range gameServers {
 		gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
@@ -773,6 +793,11 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 			if startedAt > 0 {
 				gameServerProto.UptimeSeconds = time.Now().Unix() - startedAt
 			}
+		}
+		if user.SuperUser || gameServer.UserID == user.ID {
+			gameServerProto.EffectivePermissions = xs.allPermissionIDs
+		} else if perms, ok := bulkPerms[gameServer.ID]; ok {
+			gameServerProto.EffectivePermissions = perms
 		}
 		gameServersProto[i] = gameServerProto
 	}

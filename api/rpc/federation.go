@@ -30,18 +30,29 @@ const (
 
 // FederationService handles node-to-node federation API calls.
 type FederationService struct {
-	ctx            context.Context
-	db             *db.Connection
-	actionsInst    *actions.Instance
-	supervisorInst *supervisor.Instance
+	ctx              context.Context
+	db               *db.Connection
+	actionsInst      *actions.Instance
+	supervisorInst   *supervisor.Instance
+	allPermissionIDs []string
 }
 
 func NewFederationService(ctx context.Context, dbInst *db.Connection, actionsInst *actions.Instance, supervisorInst *supervisor.Instance) *FederationService {
+	allPerms, errPerms := dbInst.GetAllPermissions()
+	if errPerms != nil {
+		log.Fatal().Err(errPerms).Msg("Failed to load permission IDs")
+	}
+	permIDs := make([]string, len(allPerms))
+	for i, p := range allPerms {
+		permIDs[i] = p.ID
+	}
+
 	return &FederationService{
-		ctx:            ctx,
-		db:             dbInst,
-		actionsInst:    actionsInst,
-		supervisorInst: supervisorInst,
+		ctx:              ctx,
+		db:               dbInst,
+		actionsInst:      actionsInst,
+		supervisorInst:   supervisorInst,
+		allPermissionIDs: permIDs,
 	}
 }
 
@@ -351,8 +362,19 @@ func (fs FederationService) GetServerDetail(ctx context.Context, request *connec
 
 	populateFederationSummaryMetrics(summary, fs.supervisorInst, gs.ID)
 
+	actingUserID, originNodeID := helpers.GetFederatedActingIdentity(request.Header())
+	isSuperUser := helpers.FederatedActingIsSuperUser(request.Header())
+
+	var effectivePerms []string
+	if isSuperUser {
+		effectivePerms = fs.allPermissionIDs
+	} else if actingUserID != "" && originNodeID != "" {
+		effectivePerms, _ = fs.db.GetFederatedUserPermissionIDsForServer(originNodeID, actingUserID, serverID)
+	}
+
 	return connect.NewResponse(&xylona.FederationGetServerDetailResponse{
-		Server: summary,
+		Server:               summary,
+		EffectivePermissions: effectivePerms,
 	}), nil
 }
 

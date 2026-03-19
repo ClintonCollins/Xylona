@@ -24,24 +24,21 @@
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
-import { Code, ConnectError } from '@connectrpc/connect'
-import { ListDirectoryFilesRequestSchema } from '@/proto/gameserver_files_operations_pb'
-import {
-  GetGameServerRequestSchema,
-  ListGameServerAccessGrantsRequestSchema,
-} from '@/proto/xylona_pb'
+import { ConnectError } from '@connectrpc/connect'
+import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 const navQTabsStore = useToolbarNavQTabsStore()
 const windowWidth = WindowWidth()
-const canUseConfigurationTab = ref(false)
-const canUseAccessTab = ref(false)
+
+let currentPermissions: string[] = []
+let currentIsOwnerOrSuper = false
 
 onMounted(async () => {
   await configureTabs()
@@ -73,86 +70,33 @@ async function configureTabs() {
     return
   }
 
-  const { isSuperUser, isOwner } = await resolveUserContext(serverID)
-  const canManageAccessByRequest = await hasAccessGrantsPermission(serverID)
-  canUseAccessTab.value = isSuperUser || isOwner || canManageAccessByRequest
-
-  const canManageConfigurationByRequest = await hasFilesViewPermission(serverID)
-  canUseConfigurationTab.value = canUseAccessTab.value || canManageConfigurationByRequest
-
-  navQTabsStore.changeTabs(
-    buildGameServerTabs(serverID, canUseConfigurationTab.value, canUseAccessTab.value),
-  )
-}
-
-async function resolveUserContext(
-  serverID: string,
-): Promise<{ isSuperUser: boolean; isOwner: boolean }> {
   const authStore = useUserAuthStore()
   const authResponse = await authStore.checkUserAuthenticated()
   const currentUser = authResponse?.user ?? authStore.user
-  if (!currentUser) {
-    return { isSuperUser: false, isOwner: false }
-  }
 
-  let isOwner = false
-  try {
-    const gameServerResp = await GetXylonaClient().getGameServer(
-      create(GetGameServerRequestSchema, {
-        id: serverID,
-      }),
-    )
-    isOwner = gameServerResp.gameServer?.userId === currentUser.id
-  } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    if (err.code !== Code.PermissionDenied) {
+  let permissions: string[] = []
+  let isOwnerOrSuper = false
+
+  if (currentUser) {
+    try {
+      const gameServerResp = await GetXylonaClient().getGameServer(
+        create(GetGameServerRequestSchema, {
+          id: serverID,
+        }),
+      )
+      permissions = gameServerResp.gameServer?.effectivePermissions ?? []
+      const isOwner = gameServerResp.gameServer?.userId === currentUser.id
+      isOwnerOrSuper = currentUser.superUser || isOwner
+    } catch (unknownError: unknown) {
+      const err = ConnectError.from(unknownError)
       console.error(err)
     }
   }
 
-  return {
-    isSuperUser: currentUser.superUser,
-    isOwner,
-  }
-}
+  currentPermissions = permissions
+  currentIsOwnerOrSuper = isOwnerOrSuper
 
-async function hasAccessGrantsPermission(serverID: string): Promise<boolean> {
-  try {
-    await GetXylonaClient().listGameServerAccessGrants(
-      create(ListGameServerAccessGrantsRequestSchema, {
-        gameServerId: serverID,
-      }),
-    )
-    return true
-  } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    if (err.code !== Code.PermissionDenied && err.code !== Code.NotFound) {
-      console.error(err)
-    }
-    return false
-  }
-}
-
-async function hasFilesViewPermission(serverID: string): Promise<boolean> {
-  try {
-    await GetXylonaClient().listDirectoryFiles(
-      create(ListDirectoryFilesRequestSchema, {
-        gameServerId: serverID,
-        path: '',
-      }),
-    )
-    return true
-  } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    if (
-      err.code !== Code.PermissionDenied &&
-      err.code !== Code.NotFound &&
-      err.code !== Code.InvalidArgument
-    ) {
-      console.error(err)
-    }
-    return false
-  }
+  navQTabsStore.changeTabs(buildGameServerTabs(serverID, permissions, isOwnerOrSuper))
 }
 
 async function enforceRouteAccess() {
@@ -164,8 +108,8 @@ async function enforceRouteAccess() {
   const redirectPath = getUnauthorizedRedirect(
     route.path,
     serverID,
-    canUseConfigurationTab.value,
-    canUseAccessTab.value,
+    currentPermissions,
+    currentIsOwnerOrSuper,
   )
   if (redirectPath !== null && route.path !== redirectPath) {
     await router.replace(redirectPath)

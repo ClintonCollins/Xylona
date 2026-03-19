@@ -63,16 +63,32 @@
       <game-server-metrics :game-server-id="gameServerId" :game-server="gameServer" />
       <div class="server-controls">
         <q-btn
-          :disable="disableStartButton"
+          :disable="disableStartButton || !hasPermission('game_server.start')"
           color="positive"
           label="Start"
-          @click="startGameServer" />
-        <q-btn :disable="disableStopButton" color="negative" label="Stop" @click="stopGameServer" />
+          @click="startGameServer">
+          <q-tooltip v-if="!hasPermission('game_server.start')">
+            Requires start permission
+          </q-tooltip>
+        </q-btn>
         <q-btn
-          :disable="disableUpdateButton"
+          :disable="disableStopButton || !hasPermission('game_server.stop')"
+          color="negative"
+          label="Stop"
+          @click="stopGameServer">
+          <q-tooltip v-if="!hasPermission('game_server.stop')">
+            Requires stop permission
+          </q-tooltip>
+        </q-btn>
+        <q-btn
+          :disable="disableUpdateButton || !hasPermission('game_server.settings')"
           color="primary"
           label="Update"
-          @click="updateGameServer" />
+          @click="updateGameServer">
+          <q-tooltip v-if="!hasPermission('game_server.settings')">
+            Requires settings permission
+          </q-tooltip>
+        </q-btn>
       </div>
     </div>
     <div class="col col-lg-8 col-xs-12" :class="{ expanded: consoleExpanded }">
@@ -92,14 +108,15 @@
       </q-scroll-area>
       <q-input
         id="consoleInput"
+        v-model="serverInput"
         autofocus
         hint="Send to console"
-        v-model="serverInput"
         placeholder="Enter command..."
         dense
         square
         outlined
         name="consoleInput"
+        :disable="!hasPermission('game_server.console')"
         @keyup.enter="sendGameServerInput"
         @keyup.up="navigateConsoleInputHistory('up')"
         @keyup.down="navigateConsoleInputHistory('down')">
@@ -110,7 +127,12 @@
             icon="send"
             name="send"
             type="submit"
-            @click="sendGameServerInput"></q-btn>
+            :disable="!hasPermission('game_server.console')"
+            @click="sendGameServerInput">
+            <q-tooltip v-if="!hasPermission('game_server.console')">
+              Requires console permission
+            </q-tooltip>
+          </q-btn>
         </template>
       </q-input>
     </div>
@@ -187,6 +209,12 @@ const disableUpdateButton = computed(() => {
     gameServer.value.status === Status.ONLINE
   )
 })
+
+function hasPermission(perm: string): boolean {
+  const perms = gameServer.value?.effectivePermissions ?? []
+  // Empty permissions = unknown (cache fallback) — allow everything, backend enforces.
+  return perms.length === 0 || perms.includes(perm)
+}
 
 onMounted(async () => {
   getGameServerDetails()

@@ -157,6 +157,7 @@ message FederationGetServerDetailRequest {
 
 message FederationGetServerDetailResponse {
   FederationServerSummary server = 1;
+  repeated string effective_permissions = 2;
 }
 
 // Federation Remote Action

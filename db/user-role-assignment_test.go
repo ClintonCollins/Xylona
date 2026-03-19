@@ -253,3 +253,84 @@ func TestCreateUserRoleAssignmentMissingReference(t *testing.T) {
 		t.Fatalf("CreateUserRoleAssignment() expected foreign key error, got nil")
 	}
 }
+
+func TestGetUserPermissionIDsForServer(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-role-perm-test.sqlite")
+	seedRBACFixture(t, conn)
+
+	t.Run("user with no assignments returns empty", func(t *testing.T) {
+		perms, errPerms := conn.GetUserPermissionIDsForServer("user-owner", "server-local-1")
+		if errPerms != nil {
+			t.Fatalf("GetUserPermissionIDsForServer() error = %v", errPerms)
+		}
+		if len(perms) != 0 {
+			t.Errorf("GetUserPermissionIDsForServer() len = %d, want 0", len(perms))
+		}
+	})
+
+	t.Run("operator role returns 5 permissions", func(t *testing.T) {
+		errCreateAssignment := conn.CreateUserRoleAssignment(
+			"assignment-perm-1",
+			"user-other",
+			"operator",
+			"server-local-1",
+			"user-owner",
+		)
+		if errCreateAssignment != nil {
+			t.Fatalf("CreateUserRoleAssignment() error = %v", errCreateAssignment)
+		}
+
+		perms, errPerms := conn.GetUserPermissionIDsForServer("user-other", "server-local-1")
+		if errPerms != nil {
+			t.Fatalf("GetUserPermissionIDsForServer() error = %v", errPerms)
+		}
+		if len(perms) != 5 {
+			t.Errorf("GetUserPermissionIDsForServer() len = %d, want 5; got %v", len(perms), perms)
+		}
+	})
+}
+
+func TestGetUserPermissionIDsForServers(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-role-perm-bulk-test.sqlite")
+	seedRBACFixture(t, conn)
+
+	t.Run("empty server list returns empty map", func(t *testing.T) {
+		result, errResult := conn.GetUserPermissionIDsForServers("user-other", []string{})
+		if errResult != nil {
+			t.Fatalf("GetUserPermissionIDsForServers() error = %v", errResult)
+		}
+		if len(result) != 0 {
+			t.Errorf("GetUserPermissionIDsForServers() len = %d, want 0", len(result))
+		}
+	})
+
+	t.Run("operator on one server, nonexistent server not in result", func(t *testing.T) {
+		errCreateAssignment := conn.CreateUserRoleAssignment(
+			"assignment-bulk-1",
+			"user-other",
+			"operator",
+			"server-local-1",
+			"user-owner",
+		)
+		if errCreateAssignment != nil {
+			t.Fatalf("CreateUserRoleAssignment() error = %v", errCreateAssignment)
+		}
+
+		result, errResult := conn.GetUserPermissionIDsForServers("user-other", []string{"server-local-1", "nonexistent-server"})
+		if errResult != nil {
+			t.Fatalf("GetUserPermissionIDsForServers() error = %v", errResult)
+		}
+
+		perms, ok := result["server-local-1"]
+		if !ok {
+			t.Fatalf("GetUserPermissionIDsForServers() missing key server-local-1; got %v", result)
+		}
+		if len(perms) != 5 {
+			t.Errorf("GetUserPermissionIDsForServers()[server-local-1] len = %d, want 5; got %v", len(perms), perms)
+		}
+
+		if _, exists := result["nonexistent-server"]; exists {
+			t.Errorf("GetUserPermissionIDsForServers() has unexpected key nonexistent-server")
+		}
+	})
+}
