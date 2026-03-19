@@ -6,9 +6,7 @@
     aria-labelledby="dialog-title">
     <q-card class="full-width">
       <q-card-section>
-        <q-card-title>
-          <div id="dialog-title" class="text-h6">{{ extractTitle }}</div>
-        </q-card-title>
+        <div id="dialog-title" class="text-h6">{{ extractTitle }}</div>
       </q-card-section>
       <q-card-section v-if="!extractSubmitting">
         <q-form class="q-pa-lg">

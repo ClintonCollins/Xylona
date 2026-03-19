@@ -132,11 +132,11 @@ async function fetchHistory() {
 
 function onRangeChange(range: string) {
   selectedRange.value = range
-  fetchHistory()
+  void fetchHistory()
 }
 
 onMounted(() => {
-  fetchHistory()
+  void fetchHistory()
 })
 </script>
 

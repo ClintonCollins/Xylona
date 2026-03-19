@@ -6,9 +6,7 @@
     aria-labelledby="dialog-title">
     <q-card class="full-width">
       <q-card-section>
-        <q-card-title>
-          <div id="dialog-title" class="text-h6">Rename {{ oldFileName }}</div>
-        </q-card-title>
+        <div id="dialog-title" class="text-h6">Rename {{ oldFileName }}</div>
       </q-card-section>
       <q-card-section>
         <q-form class="q-pa-lg">
@@ -57,7 +55,7 @@ const props = defineProps({
   },
   oldFileName: {
     type: String,
-    required: true,
+    default: '',
   },
 })
 

@@ -104,6 +104,7 @@
         <div id="file-list" ref="filesList">
           <div
             v-for="directory in directories"
+            :key="directory.name"
             class="row file-list-body-row q-px-sm"
             :class="fileIsSelectedClass(directory)">
             <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
@@ -131,6 +132,7 @@
           </div>
           <div
             v-for="file in files"
+            :key="file.name"
             class="row file-list-body-row q-px-sm"
             :class="fileIsSelectedClass(file)"
             :data-file-name="file.name"
@@ -434,7 +436,7 @@ function sanitizeSelectedFiles(): xylonaFile[] {
 onMounted(async () => {
   const hashedPath = window.location.hash
   if (hashedPath.length > 0) {
-    let deHashed = hashedPath.substring(1)
+    const deHashed = hashedPath.substring(1)
     path.value = deHashed.replaceAll('/', pathSeparator.value)
   }
   void listDirectoryFiles(path.value)
@@ -466,7 +468,7 @@ watch(selectAllFiles, (newValue) => {
 })
 
 watch(selectedFiles, (newValue) => {
-  if (selectAllFiles) {
+  if (selectAllFiles.value) {
     const sanitizedDirectories = directories.value.filter((directory) => {
       return directory.name !== '..'
     })
@@ -483,7 +485,7 @@ const pathSeparator = computed(() => {
 
 async function clickDirectory(directory: xylonaFile) {
   if (directory.name === '..') {
-    let pathSplit =
+    const pathSplit =
       path.value.lastIndexOf('/') !== -1 ? path.value.split('/') : path.value.split('\\')
     pathSplit.pop()
     path.value = pathSplit.join(pathSeparator.value)
@@ -516,7 +518,7 @@ function updatePathFromInput() {
       path.value = path.value.substring(1)
     }
   }
-  listDirectoryFiles(path.value)
+  void listDirectoryFiles(path.value)
 }
 
 async function listDirectoryFiles(directoryPath: string) {
@@ -546,7 +548,7 @@ async function listDirectoryFiles(directoryPath: string) {
         path.value = ''
         setTimeout(() => {
           window.location.hash = ''
-          listDirectoryFiles(path.value)
+          void listDirectoryFiles(path.value)
         }, 100)
         $q.notify({
           caption: `Directory not found.`,

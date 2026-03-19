@@ -6,9 +6,7 @@
     aria-labelledby="dialog-title">
     <q-card>
       <q-card-section>
-        <q-card-title>
-          <div id="dialog-title" class="text-h6 text-error">Delete Files</div>
-        </q-card-title>
+        <div id="dialog-title" class="text-h6 text-error">Delete Files</div>
       </q-card-section>
       <q-card-section>
         <q-form class="q-pa-lg">
@@ -18,7 +16,10 @@
               <span class="text-bold">This action cannot be undone.</span>
             </p>
             <q-scroll-area style="height: 30dvh; width: 100%">
-              <div v-for="file in props.filesToDelete as XylonaFile[]" key="name" class="q-pl-xl">
+              <div
+                v-for="file in props.filesToDelete as XylonaFile[]"
+                :key="file.name"
+                class="q-pl-xl">
                 <span v-if="file.isDirectory">
                   <q-icon size="xs" color="amber" :name="tabFolderFilled" left></q-icon>
                   <span class="file-name">{{ file.name }}</span>

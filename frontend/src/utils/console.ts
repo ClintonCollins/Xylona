@@ -16,7 +16,7 @@ type MinecraftPlayer = {
   uid: string
 }
 
-let minecraftPlayerMap: Map<string, MinecraftPlayer> = new Map<string, MinecraftPlayer>()
+const minecraftPlayerMap: Map<string, MinecraftPlayer> = new Map<string, MinecraftPlayer>()
 
 export function parseConsole(game: string, data: string): string {
   data = data.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')

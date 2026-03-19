@@ -56,8 +56,6 @@
     "@quasar/app-vite": "2.4.1",
     "@types/node": "^25.5.0",
     "@types/prismjs": "^1.26.6",
-    "@typescript-eslint/eslint-plugin": "^8.57.0",
-    "@typescript-eslint/parser": "^8.57.0",
     "@vitest/coverage-v8": "4.1.0",
     "@vitest/ui": "^4.1.0",
     "@vue/test-utils": "^2.4.6",
@@ -69,8 +67,8 @@
     "happy-dom": "^20.8.4",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0",
-    "vue-eslint-parser": "^10.4.0"
+    "typescript-eslint": "^8.57.1",
+    "vitest": "^4.1.0"
   },
   "pnpm": {
     "overrides": {

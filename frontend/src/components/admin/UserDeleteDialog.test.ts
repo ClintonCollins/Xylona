@@ -50,7 +50,6 @@ describe('UserDeleteDialog', () => {
           'q-card': { template: '<div><slot /></div>' },
           'q-card-section': { template: '<div><slot /></div>' },
           'q-card-actions': { template: '<div><slot /></div>' },
-          'q-card-title': { template: '<div><slot /></div>' },
           'q-btn': {
             props: ['label'],
             emits: ['click'],
@@ -94,7 +93,6 @@ describe('UserDeleteDialog', () => {
           'q-card': { template: '<div><slot /></div>' },
           'q-card-section': { template: '<div><slot /></div>' },
           'q-card-actions': { template: '<div><slot /></div>' },
-          'q-card-title': { template: '<div><slot /></div>' },
           'q-btn': {
             props: ['label'],
             emits: ['click'],

@@ -217,9 +217,9 @@ function hasPermission(perm: string): boolean {
 }
 
 onMounted(async () => {
-  getGameServerDetails()
+  void getGameServerDetails()
     .then(() => {
-      getGameServerOutput()
+      void getGameServerOutput()
       streamGameServerOutput()
       listenForServerQueryInfo()
     })
@@ -412,7 +412,7 @@ async function navigateConsoleInputHistory(direction: string) {
     return
   }
 
-  let newIndex = consoleHistoryCurrentIndex.value + historyDirection
+  const newIndex = consoleHistoryCurrentIndex.value + historyDirection
   if (newIndex < 0) {
     return
   }

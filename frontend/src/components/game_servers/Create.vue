@@ -6,9 +6,7 @@
     aria-labelledby="dialog-title">
     <q-card class="full-width">
       <q-card-section>
-        <q-card-title>
-          <div id="dialog-title" class="text-h6">Create new file or directory</div>
-        </q-card-title>
+        <div id="dialog-title" class="text-h6">Create new file or directory</div>
       </q-card-section>
       <q-card-section>
         <q-form class="q-pa-lg">

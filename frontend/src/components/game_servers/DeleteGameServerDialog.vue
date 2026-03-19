@@ -6,9 +6,7 @@
     aria-labelledby="dialog-title">
     <q-card>
       <q-card-section>
-        <q-card-title>
-          <div id="dialog-title" class="text-h6 text-error">Delete Game Server</div>
-        </q-card-title>
+        <div id="dialog-title" class="text-h6 text-error">Delete Game Server</div>
       </q-card-section>
       <q-card-section>
         <div class="row wrap q-col-gutter-md justify-between">

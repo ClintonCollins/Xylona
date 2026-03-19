@@ -2,9 +2,7 @@
   <q-dialog v-model="showDialog" persistent backdrop-filter="brightness(15%)">
     <q-card>
       <q-card-section>
-        <q-card-title>
-          <div class="text-h6 text-error">Delete User</div>
-        </q-card-title>
+        <div class="text-h6 text-error">Delete User</div>
       </q-card-section>
       <q-card-section>
         <div class="row wrap q-col-gutter-md justify-between">

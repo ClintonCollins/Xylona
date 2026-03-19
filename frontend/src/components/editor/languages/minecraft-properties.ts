@@ -1,6 +1,6 @@
 import * as monaco from 'monaco-editor'
 
-const sample = `#Minecraft server properties
+const _sample = `#Minecraft server properties
 #Sat May 04 19:04:52 CDT 2024
 accepts-transfers=false
 allow-flight=false
@@ -222,14 +222,14 @@ export default () => {
   // Register a completion item provider for the new language
   monaco.languages.registerCompletionItemProvider('minecraft-properties', {
     provideCompletionItems: (model, position) => {
-      let word = model.getWordUntilPosition(position)
-      let range = {
+      const word = model.getWordUntilPosition(position)
+      const range = {
         startLineNumber: position.lineNumber,
         endLineNumber: position.lineNumber,
         startColumn: word.startColumn,
         endColumn: word.endColumn,
       }
-      let suggestions = SERVER_PROPERTY_KEYWORDS.map((keyword) => ({
+      const suggestions = SERVER_PROPERTY_KEYWORDS.map((keyword) => ({
         label: keyword,
         kind: monaco.languages.CompletionItemKind.Snippet,
         insertText: `${keyword}=`,

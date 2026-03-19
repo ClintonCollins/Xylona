@@ -3,7 +3,6 @@ package websocket
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -672,7 +671,7 @@ func (ws *WebSocket) sendNodeMetrics(s *melody.Session) {
 				Type:           xylona.Message_NodeMetrics,
 				AllNodeMetrics: allNodeMetrics,
 			}
-			byteOut, errMarshal := json.Marshal(out)
+			byteOut, errMarshal := protojson.Marshal(out)
 			if errMarshal != nil {
 				log.Error().Err(errMarshal).Msg("Failed to marshal node metrics")
 				continue
@@ -758,7 +757,7 @@ func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
 				Type:              xylona.Message_GameServerMetrics,
 				AllServersMetrics: allMetrics,
 			}
-			byteOut, errMarshal := json.Marshal(out)
+			byteOut, errMarshal := protojson.Marshal(out)
 			if errMarshal != nil {
 				log.Error().Err(errMarshal).Msg("Failed to marshal game server metrics")
 				continue
@@ -823,7 +822,7 @@ func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session) {
 				Type:                xylona.Message_ServerQueries,
 				AllServersQueryInfo: ownedServerQueryInfo,
 			}
-			byteOut, errMarshal := json.Marshal(out)
+			byteOut, errMarshal := protojson.Marshal(out)
 			if errMarshal != nil {
 				log.Error().Err(errMarshal).Msg("Failed to marshal game server queries")
 				continue
@@ -862,7 +861,7 @@ func (ws *WebSocket) sendUserGameServerStatus(s *melody.Session, gameServer *mod
 			Status:       status,
 		},
 	}
-	byteOut, errMarshal := json.Marshal(out)
+	byteOut, errMarshal := protojson.Marshal(out)
 	if errMarshal != nil {
 		log.Error().Err(errMarshal).Msg("Failed to marshal game server status update")
 		return
@@ -931,7 +930,7 @@ func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *mode
 					continue
 				}
 			}
-			byteOut, errMarshal := json.Marshal(output)
+			byteOut, errMarshal := protojson.Marshal(output)
 			if errMarshal != nil {
 				log.Error().Err(errMarshal).Msg("Failed to marshal game server output")
 				return
@@ -1089,7 +1088,7 @@ func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, status xylona.
 			Status:       status,
 		},
 	}
-	byteOut, errMarshal := json.Marshal(out)
+	byteOut, errMarshal := protojson.Marshal(out)
 	if errMarshal != nil {
 		log.Error().Err(errMarshal).Msg("Failed to marshal remote server status update")
 		return
@@ -1222,7 +1221,7 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			Type:    xylona.Message_Raw,
 			RawData: "Subscribed to game server console output",
 		}
-		b, errMarshal := json.Marshal(rawData)
+		b, errMarshal := protojson.Marshal(rawData)
 		if errMarshal != nil {
 			log.Error().Err(errMarshal).Msg("Failed to write websocket message")
 			return

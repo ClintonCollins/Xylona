@@ -17,33 +17,35 @@
         </div>
       </div>
 
-      <div v-if="systemInfo" class="q-mb-md">
+      <div v-if="currentSystemInfo" class="q-mb-md">
         <div class="text-subtitle2 q-mb-sm">System Information</div>
         <q-list separator dense>
-          <q-item v-if="systemInfo.cpuModel">
+          <q-item v-if="currentSystemInfo.cpuModel">
             <q-item-section>CPU</q-item-section>
             <q-item-section side
-              >{{ systemInfo.cpuModel }} ({{ systemInfo.cpuCores }}C /
-              {{ systemInfo.cpuThreads }}T)</q-item-section
+              >{{ currentSystemInfo.cpuModel }} ({{ currentSystemInfo.cpuCores }}C /
+              {{ currentSystemInfo.cpuThreads }}T)</q-item-section
             >
           </q-item>
           <q-item>
             <q-item-section>Total Memory</q-item-section>
             <q-item-section side>{{
-              bytesToSize(Number(systemInfo.totalMemoryBytes))
+              bytesToSize(Number(currentSystemInfo.totalMemoryBytes))
             }}</q-item-section>
           </q-item>
           <q-item>
             <q-item-section>OS</q-item-section>
-            <q-item-section side>{{ systemInfo.os }} {{ systemInfo.osVersion }}</q-item-section>
+            <q-item-section side
+              >{{ currentSystemInfo.os }} {{ currentSystemInfo.osVersion }}</q-item-section
+            >
           </q-item>
           <q-item>
             <q-item-section>Architecture</q-item-section>
-            <q-item-section side>{{ systemInfo.architecture }}</q-item-section>
+            <q-item-section side>{{ currentSystemInfo.architecture }}</q-item-section>
           </q-item>
           <q-item>
             <q-item-section>Xylona Version</q-item-section>
-            <q-item-section side>{{ systemInfo.xylonaVersion }}</q-item-section>
+            <q-item-section side>{{ currentSystemInfo.xylonaVersion }}</q-item-section>
           </q-item>
         </q-list>
       </div>
@@ -118,7 +120,7 @@ const historyPoints = ref<MetricsHistoryPoint[]>([])
 const selectedRange = ref('1h')
 const liveSnapshot = ref<NodeResourceSnapshot | undefined>(undefined)
 
-const systemInfo = computed(() => localSystemInfo.value)
+const currentSystemInfo = computed(() => localSystemInfo.value)
 const snapshot = computed(() => liveSnapshot.value ?? props.snapshot)
 
 function onNodeMetrics(metrics: AllNodeMetrics | undefined) {
@@ -206,7 +208,7 @@ async function fetchSystemInfo() {
 
 function onRangeChange(range: string) {
   selectedRange.value = range
-  fetchHistory()
+  void fetchHistory()
 }
 
 onMounted(async () => {

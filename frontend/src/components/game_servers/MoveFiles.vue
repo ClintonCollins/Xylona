@@ -6,9 +6,7 @@
     aria-labelledby="dialog-title">
     <q-card class="full-width">
       <q-card-section>
-        <q-card-title>
-          <div id="dialog-title" class="text-h6">Move files</div>
-        </q-card-title>
+        <div id="dialog-title" class="text-h6">Move files</div>
       </q-card-section>
       <q-card-section>
         <q-form class="q-pa-lg">
@@ -104,7 +102,7 @@ const emit = defineEmits(['submit'])
 function getDestinationDirectory() {
   if (destinationDirectory.value === '..') {
     const pathSeparator = GetPathSeparator(props.gameServerPath)
-    let pathSplit = props.path.split(pathSeparator)
+    const pathSplit = props.path.split(pathSeparator)
     pathSplit.pop()
     return pathSplit.join(pathSeparator)
   }

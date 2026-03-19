@@ -1,9 +1,9 @@
 <template>
   <section
     ref="dragAndDropZone"
-    v-on:dragenter="dragEnterEvent($event, props.targetElement)"
-    v-on:dragleave="dragLeaveEvent($event, props.targetElement)"
-    v-on:drop="dragDropEvent($event, props.targetElement)"
+    v-on:dragenter="props.targetElement && dragEnterEvent($event, props.targetElement)"
+    v-on:dragleave="props.targetElement && dragLeaveEvent($event, props.targetElement)"
+    v-on:drop="props.targetElement && dragDropEvent($event, props.targetElement)"
     v-on:dragover="$event.preventDefault()">
     <slot></slot>
   </section>
@@ -67,7 +67,7 @@
           <q-list separator>
             <q-item
               v-for="file in uploader.files.values()"
-              v-if="uploader.files.size <= maxNumberOfFilesToDisplay"
+              v-show="uploader.files.size <= maxNumberOfFilesToDisplay"
               :key="file.key">
               <q-item-section v-if="file.status === FileStatus.Queued" avatar>
                 <q-icon size="lg" :name="tabDots" class="text-primary-brighter" />
@@ -185,7 +185,7 @@ const props = defineProps({
   },
   targetElement: {
     type: HTMLElement,
-    required: true,
+    default: null,
   },
 })
 
@@ -319,7 +319,7 @@ class FileUploader {
       return
     }
 
-    let uploadPromises = []
+    const uploadPromises = []
     for (let i = 0; i < this.concurrentPool; i++) {
       const file = this.queuedFiles.shift()
       if (file) {
@@ -407,11 +407,15 @@ class FileUploader {
 
   async addFiles(files: FileSystemFileEntry[]) {
     await Promise.all(
-      files.map((fileEntry: FileSystemFileEntry) => {
-        fileEntry.file((file: File) => {
-          this.addFile(file, fileEntry)
-        })
-      }),
+      files.map(
+        (fileEntry: FileSystemFileEntry) =>
+          new Promise<void>((resolve, reject) => {
+            fileEntry.file((file: File) => {
+              this.addFile(file, fileEntry)
+              resolve()
+            }, reject)
+          }),
+      ),
     )
   }
 

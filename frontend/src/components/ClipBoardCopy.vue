@@ -8,6 +8,7 @@
     @keydown.enter="copyValue(props.clipBoardValue)"
     @keydown.space.prevent="copyValue(props.clipBoardValue)">
     {{ props.displayText }}
+    <!-- eslint-disable vue/no-v-text-v-html-on-component -- accepted per CLAUDE.md -->
     <q-tooltip
       id="clipBoardCopyTooltip"
       :anchor="props.tooltipAnchor"
@@ -15,6 +16,7 @@
       :offset="[10, 10]"
       @before-show="resetClipboardCopy"
       v-html="clipboardInnerHTML"></q-tooltip>
+    <!-- eslint-enable vue/no-v-text-v-html-on-component -->
   </div>
 </template>
 
