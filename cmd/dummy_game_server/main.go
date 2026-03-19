@@ -92,7 +92,7 @@ func main() {
 		for {
 			select {
 			case code := <-shutdownCh:
-				os.Exit(code)
+				os.Exit(code) //nolint:gocritic // intentional exit in signal handler; ticker defer cleanup is irrelevant
 			case <-ticker.C:
 				uptime := time.Since(startTime).Round(time.Millisecond)
 				fmt.Printf("[dummy-game-server] heartbeat pid=%d uptime=%s\n", pid, uptime)

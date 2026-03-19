@@ -86,15 +86,6 @@ func getSessionUserID(s *melody.Session) (string, error) {
 	return userID, nil
 }
 
-func getSessionStreamChannel(s *melody.Session) (chan helpers.WebsocketMessage, error) {
-	sc, streamChannelExists := s.Get(sessionKeyStreamChannel)
-	if !streamChannelExists {
-		return nil, fmt.Errorf("failed to get stream channel from session")
-	}
-	streamChannel := sc.(chan helpers.WebsocketMessage)
-	return streamChannel, nil
-}
-
 func getSessionConnectionID(s *melody.Session) (uuid.UUID, error) {
 	c, connectionIDExists := s.Get(sessionKeyConnectionID)
 	if !connectionIDExists {
@@ -102,15 +93,6 @@ func getSessionConnectionID(s *melody.Session) (uuid.UUID, error) {
 	}
 	connectionID := c.(uuid.UUID)
 	return connectionID, nil
-}
-
-func getSessionSuperUser(s *melody.Session) bool {
-	v, exists := s.Get(sessionKeySuperUser)
-	if !exists {
-		return false
-	}
-	su, ok := v.(bool)
-	return ok && su
 }
 
 func (ws *WebSocket) getSessionGameServers(s *melody.Session) ([]*models.GameServer, error) {
@@ -178,8 +160,8 @@ func NewInstance(
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
 		userWebsocketConnectionsLock: &sync.RWMutex{},
 		sessionLock:                  &sync.RWMutex{},
-		remoteMetricsCache:          make(map[string]*xylona.GameServerMetrics),
-		remoteNodeSnapshotCache:     make(map[string]*xylona.NodeResourceSnapshot),
+		remoteMetricsCache:           make(map[string]*xylona.GameServerMetrics),
+		remoteNodeSnapshotCache:      make(map[string]*xylona.NodeResourceSnapshot),
 	}
 	m.HandleConnect(inst.handleConnect)
 	m.HandleDisconnect(inst.handleDisconnect)
@@ -840,7 +822,7 @@ func (ws *WebSocket) subscribeUserToOwnedGameServerNotifications(s *melody.Sessi
 	errAddGameServerOutputListener := ws.addGameServerNotificationListener(s, gameServer.ID)
 	if errAddGameServerOutputListener != nil {
 		log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
-		errWrite := s.Write([]byte(fmt.Sprintf("Failed to get game server console: %s", errAddGameServerOutputListener)))
+		errWrite := s.Write(fmt.Appendf(nil, "Failed to get game server console: %s", errAddGameServerOutputListener))
 		if errWrite != nil {
 			log.Error().Err(errWrite).Msg("Failed to write websocket message")
 		}
@@ -1049,7 +1031,7 @@ func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connectio
 		cancel()
 		return
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	log.Debug().Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Remote console stream started")
 

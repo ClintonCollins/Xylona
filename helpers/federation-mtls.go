@@ -231,7 +231,7 @@ func (m *FederationMTLS) ProbeServerFingerprintWithPort(nodeBaseURL string, fede
 		InsecureSkipVerify: true, // #nosec G402 -- fingerprint is read directly from the peer cert for pinning.
 	}
 
-	conn, errDial := tls.DialWithDialer(dialer, "tcp", parsedURL.Host, tlsConfig)
+	conn, errDial := tls.DialWithDialer(dialer, "tcp", parsedURL.Host, tlsConfig) //nolint:noctx // tls.DialWithDialer doesn't have a context variant that fits here
 	if errDial != nil {
 		return "", errDial
 	}

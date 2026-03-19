@@ -273,7 +273,7 @@ func (e *FederationSyncEngine) runStatusStream(ctx context.Context, nodeID strin
 		log.Debug().Err(errStream).Str("node_id", nodeID).Str("node_name", node.Name).Msg("Failed to open status stream")
 		return
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	log.Debug().Str("node_id", nodeID).Str("node_name", node.Name).Msg("Status stream connected")
 
@@ -538,9 +538,7 @@ func normalizeNodeSyncInterval(syncIntervalSeconds int32) time.Duration {
 
 func calculateBackoff(retryCount int32) time.Duration {
 	base := time.Duration(math.Pow(2, float64(retryCount))) * time.Second
-	if base > maxRetryBackoff {
-		base = maxRetryBackoff
-	}
+	base = min(base, maxRetryBackoff)
 	// Add jitter.
 	jitter := time.Duration(rand.Int63n(int64(5 * time.Second)))
 	return base + jitter

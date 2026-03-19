@@ -13,25 +13,25 @@ import (
 
 // SystemInfo contains static hardware and OS information.
 type SystemInfo struct {
-	CPUModel       string
-	CPUCores       int
-	CPUThreads     int
-	TotalMemory    uint64
-	OS             string
-	OSVersion      string
-	Architecture   string
-	XylonaVersion  string
+	CPUModel      string
+	CPUCores      int
+	CPUThreads    int
+	TotalMemory   uint64
+	OS            string
+	OSVersion     string
+	Architecture  string
+	XylonaVersion string
 }
 
 // ResourceSnapshot contains a point-in-time resource usage snapshot.
 type ResourceSnapshot struct {
-	CPUPercent     float64
-	MemoryPercent  float64
-	MemoryUsed     uint64
-	MemoryTotal    uint64
-	DiskPercent    float64
-	DiskUsed       uint64
-	DiskTotal      uint64
+	CPUPercent    float64
+	MemoryPercent float64
+	MemoryUsed    uint64
+	MemoryTotal   uint64
+	DiskPercent   float64
+	DiskUsed      uint64
+	DiskTotal     uint64
 }
 
 // CollectSystemInfo gathers static hardware and OS information.

@@ -147,6 +147,7 @@ func TestCleanupRemoteServerCacheRemovesOrphanedAndStaleRows(t *testing.T) {
 
 	oldUpdatedAt := time.Now().Add(-10 * time.Minute)
 	freshUpdatedAt := time.Now()
+
 	_, errInsertCache := conn.SQLDb.Exec(`
 		INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id, is_stale, updated_at) VALUES
 			('cache-1', 'remote-1', 'remote-1', 'server-stale-old', 1, ?),

@@ -6,17 +6,18 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/dreamscached/minequery/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/rumblefrog/go-a2s"
+
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 var (
 	ErrMinecraftServerUnreachable = errors.New("minecraft server unreachable")
 )
 
-//type MinecraftInfo struct {
+// type MinecraftInfo struct {
 //	Host            string
 //	Port            int
 //	MOTD            string
@@ -27,9 +28,9 @@ var (
 //	PlayerList      []string
 //	ProtocolVersion int
 //	ServerVersion   string
-//}
+// }
 
-//type SourceInfo struct {
+// type SourceInfo struct {
 //	Protocol   uint8  `json:"Protocol"`
 //	Name       string `json:"Name"`
 //	Map        string `json:"Map"`
@@ -44,7 +45,7 @@ var (
 //	Visibility bool   `json:"Visibility"`
 //	VAC        bool   `json:"VAC"`
 //	Version    string `json:"Version"`
-//}
+// }
 
 func Source(host string, port int) (*xylona.SourceQueryInfo, error) {
 	conn, errNewClient := a2s.NewClient(net.JoinHostPort(host, strconv.Itoa(port)), a2s.TimeoutOption(time.Second*1))

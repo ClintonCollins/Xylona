@@ -20,6 +20,30 @@ func validateDeployParam(name, value string) error {
 	return nil
 }
 
+// Lint runs golangci-lint on the Go codebase.
+func Lint() {
+	cmdLint := exec.Command("golangci-lint", "run", "./...")
+	cmdLint.Stdout = os.Stdout
+	cmdLint.Stderr = os.Stderr
+	errLint := cmdLint.Run()
+	if errLint != nil {
+		log.Error().Err(errLint).Msg("Lint failed")
+		os.Exit(1)
+	}
+}
+
+// LintFix runs golangci-lint with auto-fix for fixable issues.
+func LintFix() {
+	cmdLint := exec.Command("golangci-lint", "run", "--fix", "./...")
+	cmdLint.Stdout = os.Stdout
+	cmdLint.Stderr = os.Stderr
+	errLint := cmdLint.Run()
+	if errLint != nil {
+		log.Error().Err(errLint).Msg("Lint fix failed")
+		os.Exit(1)
+	}
+}
+
 func Build() {
 	// Build the frontend
 	buildFrontend()

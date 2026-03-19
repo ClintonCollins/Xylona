@@ -16,9 +16,9 @@ import (
 const (
 	metricsSnapshotInterval = 60 * time.Second
 	metricsCleanupInterval  = 10 * time.Minute
-	minuteRetention         = 7 * 24 * time.Hour // 7 days
+	minuteRetention         = 7 * 24 * time.Hour  // 7 days
 	hourlyRetention         = 90 * 24 * time.Hour // 90 days
-	rollupCutoff            = 24 * time.Hour       // rollup data older than 24h
+	rollupCutoff            = 24 * time.Hour      // rollup data older than 24h
 )
 
 // PlayerCountProvider returns the current player count for a game server.

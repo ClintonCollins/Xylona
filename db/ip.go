@@ -11,6 +11,9 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// ErrIPConflict is returned when an IP upsert hits a conflict and DoNothing is applied.
+var ErrIPConflict = errors.New("ip conflict: address already exists")
+
 func (c *Connection) RemoveAutomaticallyAddedIPs() error {
 	_, err := sqlite.RawQuery(
 		`delete from ip where automatically_added = 1`).Exec(c.ctx, c.DB)
@@ -25,7 +28,7 @@ func (c *Connection) UpsertIP(ipSetter *models.IPSetter) (*models.IP, error) {
 	ip, err := models.Ips.Insert(im.OnConflict(models.IPColumns.Address).DoNothing(), ipSetter).One(c.ctx, c.DB)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, ErrIPConflict
 		}
 		log.Error().Err(err).Msg("Error upserting IP")
 		return nil, err

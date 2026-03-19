@@ -14,7 +14,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs XylonaService) ListIPs(ctx context.Context, request *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
+func (xs *XylonaService) ListIPs(ctx context.Context, request *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -35,7 +35,7 @@ func (xs XylonaService) ListIPs(ctx context.Context, request *connect.Request[xy
 	return response, nil
 }
 
-func (xs XylonaService) AddIP(_ context.Context, request *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error) {
+func (xs *XylonaService) AddIP(_ context.Context, request *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -65,7 +65,7 @@ func (xs XylonaService) AddIP(_ context.Context, request *connect.Request[xylona
 	return &connect.Response[xylona.AddIPResponse]{Msg: &xylona.AddIPResponse{}}, nil
 }
 
-func (xs XylonaService) RemoveIP(_ context.Context, request *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error) {
+func (xs *XylonaService) RemoveIP(_ context.Context, request *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))

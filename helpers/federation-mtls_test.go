@@ -180,7 +180,10 @@ func TestNewNodeHTTPClientPinsPeerFingerprint(t *testing.T) {
 		t.Fatalf("NewNodeHTTPClient() bad fingerprint setup error = %v", errBadClient)
 	}
 
-	_, errBadGet := badClient.Get(badFederationBaseURL)
+	badResp, errBadGet := badClient.Get(badFederationBaseURL)
+	if badResp != nil {
+		_ = badResp.Body.Close()
+	}
 	if errBadGet == nil {
 		t.Fatalf("expected pinned-fingerprint client request to fail, got nil error")
 	}

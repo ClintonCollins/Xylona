@@ -15,7 +15,7 @@ func TestAuthRateLimiter(t *testing.T) {
 		handler := AuthRateLimiter()(okHandler)
 
 		var lastStatus int
-		for i := 0; i < 15; i++ {
+		for range 15 {
 			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
 			req.RemoteAddr = "192.0.2.1:12345"
 			rec := httptest.NewRecorder()
@@ -32,7 +32,7 @@ func TestAuthRateLimiter(t *testing.T) {
 	t.Run("does not rate limit non-Login paths", func(t *testing.T) {
 		handler := AuthRateLimiter()(okHandler)
 
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/GetGameServers", nil)
 			req.RemoteAddr = "192.0.2.2:12345"
 			rec := httptest.NewRecorder()
@@ -48,7 +48,7 @@ func TestAuthRateLimiter(t *testing.T) {
 	t.Run("localhost Login is never rate limited", func(t *testing.T) {
 		handler := AuthRateLimiter()(okHandler)
 
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			for _, addr := range []string{"127.0.0.1:12345", "[::1]:12345"} {
 				req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
 				req.RemoteAddr = addr
@@ -66,7 +66,7 @@ func TestAuthRateLimiter(t *testing.T) {
 	t.Run("first 10 Login requests succeed", func(t *testing.T) {
 		handler := AuthRateLimiter()(okHandler)
 
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
 			req.RemoteAddr = "192.0.2.3:12345"
 			rec := httptest.NewRecorder()

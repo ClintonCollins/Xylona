@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 )
@@ -199,7 +200,7 @@ func TestFederationTrustedPeerCRUD(t *testing.T) {
 	if errMissing == nil {
 		t.Fatalf("GetFederationTrustedPeerByFingerprint() error = nil, want sql.ErrNoRows")
 	}
-	if errMissing != sql.ErrNoRows {
+	if !errors.Is(errMissing, sql.ErrNoRows) {
 		t.Fatalf("GetFederationTrustedPeerByFingerprint() error = %v, want %v", errMissing, sql.ErrNoRows)
 	}
 }

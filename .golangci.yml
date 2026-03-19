@@ -1,0 +1,71 @@
+version: "2"
+
+run:
+  go: "1.26"
+
+linters:
+  default: standard
+  enable:
+    - gocritic
+    - misspell
+    - nilerr
+    - errorlint
+    - bodyclose
+    - durationcheck
+    - makezero
+    - noctx
+    - reassign
+    - wastedassign
+    - modernize
+    - zerologlint
+    - unconvert
+    - sqlclosecheck
+    - nolintlint
+    - usestdlibvars
+    - usetesting
+    - fatcontext
+    - recvcheck
+    - nilnil
+#    - gosec
+  settings:
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+      exclude-functions:
+        - (io.Closer).Close
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+        - singleCaseSwitch
+        - assignOp
+        - appendAssign
+  exclusions:
+    generated: strict
+    presets:
+      - common-false-positives
+      - std-error-handling
+    paths:
+      - proto/go/xylona/
+      - sql/models/
+      - cmd/minecraft_version_hasher/versions/
+    rules:
+      - path: "magefiles/"
+        linters:
+          - errcheck
+        text: "fmt\\.Print"
+      - path: "_test\\.go"
+        linters:
+          - errcheck
+          - noctx
+
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ClintonCollins/Xylona
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

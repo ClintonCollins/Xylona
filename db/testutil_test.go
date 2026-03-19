@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -32,7 +33,7 @@ func withTxRollback(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx))
 	}
 
 	t.Cleanup(func() {
-		if errRollback := tx.Rollback(); errRollback != nil && errRollback != sql.ErrTxDone {
+		if errRollback := tx.Rollback(); errRollback != nil && !errors.Is(errRollback, sql.ErrTxDone) {
 			t.Errorf("failed to rollback transaction: %v", errRollback)
 		}
 	})

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )

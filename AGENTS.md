@@ -59,6 +59,9 @@ Use these as the default commands for this repo:
 - `go test -short ./...` — run fast unit-focused backend tests.
 - `go test ./... -race -count=1` — run backend tests with the race detector and disable test result caching.
 - `go build -o xylona` — build backend binary locally.
+- `mage Lint` — run golangci-lint on backend code.
+- `mage LintFix` — run golangci-lint with auto-fix.
+- `golangci-lint run ./...` — run linter directly.
 
 ### Frontend
 - `pnpm --dir frontend run dev` — run frontend dev server.

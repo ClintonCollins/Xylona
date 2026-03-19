@@ -112,13 +112,13 @@ func runSingleSetup(ctx context.Context, backendURL, adminUsername, adminPasswor
 			log.Info().Msg("[E2E Setup] Creating test game definition...")
 			addResp, errAdd := client.rpc.AddGame(ctx, connect.NewRequest(&xylona.AddGameRequest{
 				Game: &xylona.Game{
-					Name:                 "E2E Test Game",
-					WindowsStartCommand:  dummyExePath,
-					WindowsStopCommand:   "stop",
+					Name:                  "E2E Test Game",
+					WindowsStartCommand:   dummyExePath,
+					WindowsStopCommand:    "stop",
 					WindowsInstallCommand: "echo installed",
-					WindowsSupport:       true,
-					DefaultPort:          25599,
-					DefaultQueryPort:     25599,
+					WindowsSupport:        true,
+					DefaultPort:           25599,
+					DefaultQueryPort:      25599,
 				},
 			}))
 			if errAdd != nil {
@@ -196,9 +196,9 @@ func runSingleSetup(ctx context.Context, backendURL, adminUsername, adminPasswor
 	// Create test files in the game server directory for file browser tests.
 	if testServerID != "" {
 		testFiles := []struct {
-			path      string
-			isDir     bool
-			content   string
+			path    string
+			isDir   bool
+			content string
 		}{
 			{path: "e2e-test-config.cfg", isDir: false, content: "key=value\nport=25565\n"},
 			{path: "e2e-test-readme.txt", isDir: false, content: "This is a test file for E2E testing.\n"},

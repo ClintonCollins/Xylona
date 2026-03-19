@@ -1,10 +1,7 @@
 package main
 
 import (
-	"crypto/sha1"
 	"encoding/json"
-	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"path"
@@ -13,30 +10,12 @@ import (
 	"time"
 
 	"github.com/pterm/pterm"
-
-	"github.com/ClintonCollins/Xylona/helpers"
 )
-
-type GlobalMinecraftVersionsManifestJSON struct {
-	Latest struct {
-		Release  string `json:"release"`
-		Snapshot string `json:"snapshot"`
-	} `json:"latest"`
-	Versions []MinecraftVersion `json:"versions"`
-}
-
-type MinecraftVersion struct {
-	Id          string    `json:"id"`
-	Type        string    `json:"type"`
-	Url         string    `json:"url"`
-	Time        time.Time `json:"time"`
-	ReleaseTime time.Time `json:"releaseTime"`
-}
 
 type MinecraftVersionManifestJSON struct {
 	Arguments struct {
-		Game []interface{} `json:"game"`
-		Jvm  []interface{} `json:"jvm"`
+		Game []any `json:"game"`
+		Jvm  []any `json:"jvm"`
 	} `json:"arguments"`
 	AssetIndex struct {
 		Id        string `json:"id"`
@@ -88,42 +67,42 @@ type MinecraftVersionManifestJSON struct {
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
 					Url  string `json:"url"`
-				} `json:"natives-macos,omitempty"`
+				} `json:"natives-macos,omitzero"`
 				NativesLinux struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
 					Url  string `json:"url"`
-				} `json:"natives-linux,omitempty"`
+				} `json:"natives-linux,omitzero"`
 				NativesWindows struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
 					Url  string `json:"url"`
-				} `json:"natives-windows,omitempty"`
+				} `json:"natives-windows,omitzero"`
 				NativesOsx struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
 					Url  string `json:"url"`
-				} `json:"natives-osx,omitempty"`
-			} `json:"classifiers,omitempty"`
+				} `json:"natives-osx,omitzero"`
+			} `json:"classifiers,omitzero"`
 		} `json:"downloads"`
 		Name  string `json:"name"`
 		Rules []struct {
 			Action string `json:"action"`
 			Os     struct {
 				Name string `json:"name"`
-			} `json:"os,omitempty"`
+			} `json:"os,omitzero"`
 		} `json:"rules,omitempty"`
 		Natives struct {
 			Osx     string `json:"osx,omitempty"`
 			Linux   string `json:"linux,omitempty"`
 			Windows string `json:"windows,omitempty"`
-		} `json:"natives,omitempty"`
+		} `json:"natives,omitzero"`
 		Extract struct {
 			Exclude []string `json:"exclude"`
-		} `json:"extract,omitempty"`
+		} `json:"extract,omitzero"`
 	} `json:"libraries"`
 	Logging struct {
 		Client struct {
@@ -153,37 +132,6 @@ type MinecraftServerInfo struct {
 	ReleaseTime time.Time
 }
 
-func getMinecraftVersionsFromManifestAPI() ([]MinecraftVersion, error) {
-	httpClient := helpers.GetXylonaHTTPClient()
-	response, errGet := httpClient.Get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
-	if errGet != nil {
-		return nil, errGet
-	}
-	defer func() {
-		_ = response.Body.Close()
-	}()
-
-	minecraftManifest := GlobalMinecraftVersionsManifestJSON{}
-	errDecode := json.NewDecoder(response.Body).Decode(&minecraftManifest)
-	if errDecode != nil {
-		pterm.Error.Printf("Failed to decode version manifest file: %s\n", errDecode.Error())
-		return nil, errDecode
-	}
-
-	return minecraftManifest.Versions, nil
-}
-
-func getMissingVersions(mainManifestVersions []MinecraftVersion) ([]MinecraftVersion, error) {
-	var missingVersions []MinecraftVersion
-	for _, version := range mainManifestVersions {
-		if _, errStat := os.Stat(path.Join("versions", version.Id+".json")); os.IsNotExist(errStat) {
-			missingVersions = append(missingVersions, version)
-		}
-	}
-
-	return missingVersions, nil
-}
-
 func main() {
 	shutdownSignalChannel := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -201,14 +149,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	//sha1Map := generateSha1Map(serverInfo)
+	// sha1Map := generateSha1Map(serverInfo)
 	//
-	//jars, errRead := os.ReadDir("test_jars")
-	//if errRead != nil {
+	// jars, errRead := os.ReadDir("test_jars")
+	// if errRead != nil {
 	//	pterm.Error.Println("Failed to read test_jars directory")
 	//	os.Exit(1)
-	//}
-	//for _, jar := range jars {
+	// }
+	// for _, jar := range jars {
 	//	if jar.IsDir() {
 	//		continue
 	//	}
@@ -225,7 +173,7 @@ func main() {
 	//		pterm.Error.Printf("Version not found for %s\n", jar.Name())
 	//	}
 	//
-	//}
+	// }
 }
 
 func saveServerVersionsToFile(serverInfos []*MinecraftServerInfo) error {
@@ -249,38 +197,11 @@ func saveServerVersionsToFile(serverInfos []*MinecraftServerInfo) error {
 	if errWrite != nil {
 		return errWrite
 	}
-	//errEncode := json.NewEncoder(f).Encode(serverInfos)
-	//if errEncode != nil {
-	//	return errEncode
+	// errEncode := json.NewEncoder(f).Encode(serverInfos)
+	// if errEncode != nil {
+	// 	return errEncode
 	//}
 	return nil
-}
-
-func calculateSha1OfFile(filePath string) (string, error) {
-	f, errOpen := os.Open(filePath)
-	if errOpen != nil {
-		return "", errOpen
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	hash := sha1.New()
-	_, errCopy := io.Copy(hash, f)
-	if errCopy != nil {
-		return "", errCopy
-	}
-
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
-
-}
-
-func generateSha1Map(serverInfos []*MinecraftServerInfo) map[string]*MinecraftServerInfo {
-	sha1Map := make(map[string]*MinecraftServerInfo)
-	for _, serverInfo := range serverInfos {
-		sha1Map[serverInfo.Sha1] = serverInfo
-	}
-	return sha1Map
 }
 
 func getAllServerVersionsInformation(shutdownSignalChannel chan os.Signal) ([]*MinecraftServerInfo, error) {
@@ -310,51 +231,6 @@ func getAllServerVersionsInformation(shutdownSignalChannel chan os.Signal) ([]*M
 	return serverInfos, nil
 }
 
-func getVersions(shutdownSignalChannel chan os.Signal) {
-	versions, errGetVersions := getMinecraftVersionsFromManifestAPI()
-	if errGetVersions != nil {
-		pterm.Error.Println("Failed to get Minecraft versions from manifest")
-		os.Exit(1)
-	}
-
-	versionsToDownload, errGetMissingVersions := getMissingVersions(versions)
-	if errGetMissingVersions != nil {
-		pterm.Error.Println("Failed to get missing Minecraft versions")
-		os.Exit(1)
-	}
-
-	pterm.Info.Printf("Found %d total versions and %d missing versions\n", len(versions), len(versionsToDownload))
-
-	p, _ := pterm.DefaultProgressbar.WithTotal(len(versionsToDownload)).WithTitle("Getting Minecraft versions").Start()
-
-	ticker := time.NewTicker(time.Second * 10)
-	defer ticker.Stop()
-
-	firstLoop := true
-	for i := range p.Total {
-		// If this is the first loop, we want to skip the sleep and just print the first item.
-		if firstLoop {
-			firstLoop = false
-			handleProgressIncrement(p, versionsToDownload, i)
-			if i < p.Total {
-				p.UpdateTitle("Downloading " + versionsToDownload[i+1].Id)
-			}
-			continue
-		}
-		select {
-		case <-shutdownSignalChannel:
-			_, _ = p.Stop()
-			pterm.Info.Println("Received shutdown signal. Exiting...")
-			os.Exit(0)
-		case <-ticker.C:
-			handleProgressIncrement(p, versionsToDownload, i)
-			if i < p.Total {
-				p.UpdateTitle("Downloading " + versionsToDownload[i+1].Id)
-			}
-		}
-	}
-}
-
 func getMinecraftServerInformation(fileName string) (*MinecraftServerInfo, error) {
 	f, errOpen := os.Open(path.Join("versions", fileName))
 	if errOpen != nil {
@@ -380,47 +256,4 @@ func getMinecraftServerInformation(fileName string) (*MinecraftServerInfo, error
 	}
 
 	return serverInfo, nil
-}
-
-func handleProgressIncrement(progressBar *pterm.ProgressbarPrinter, versionsToDownload []MinecraftVersion, i int) {
-	// Update the title of the progressbar with the current item being downloaded.
-	progressBar.UpdateTitle("Downloading " + versionsToDownload[i].Id)
-
-	errDownload := downloadMinecraftVersionManifest(versionsToDownload[i])
-	if errDownload != nil {
-		pterm.Error.Println("Failed to download " + versionsToDownload[i].Id)
-		return
-	}
-
-	// Print a success message for the current download. This will be printed above the progressbar.
-	fmt.Println()
-	pterm.Success.Println("Downloaded " + versionsToDownload[i].Id)
-
-	// Increment the progressbar by one to indicate progress.
-	progressBar.Increment()
-}
-
-func downloadMinecraftVersionManifest(version MinecraftVersion) error {
-	httpClient := helpers.GetXylonaHTTPClient()
-	response, errGet := httpClient.Get(version.Url)
-	if errGet != nil {
-		return errGet
-	}
-	defer func() {
-		_ = response.Body.Close()
-	}()
-
-	f, errCreate := os.Create(path.Join("versions", version.Id+".json"))
-	if errCreate != nil {
-		return errCreate
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	_, errCopy := io.Copy(f, response.Body)
-	if errCopy != nil {
-		return errCopy
-	}
-	return nil
 }

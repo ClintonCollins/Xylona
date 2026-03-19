@@ -1,9 +1,10 @@
 package db
 
 import (
-	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob/dialect/sqlite"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (c *Connection) GetLocalSettings() (*models.LocalSetting, error) {

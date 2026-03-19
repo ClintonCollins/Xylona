@@ -170,9 +170,7 @@ func formatPairingToken(token string) string {
 	var parts []string
 	for i := 0; i < len(token); i += 8 {
 		end := i + 8
-		if end > len(token) {
-			end = len(token)
-		}
+		end = min(end, len(token))
 		parts = append(parts, token[i:end])
 	}
 	return strings.Join(parts, "-")
@@ -244,7 +242,7 @@ func ProbePeerAndCompletePairing(
 	}
 
 	pairingURL := strings.TrimSuffix(federationBaseURL, "/") + federationPairingPath
-	resp, errDo := httpClient.Post(pairingURL, "application/json", strings.NewReader(string(bodyBytes)))
+	resp, errDo := httpClient.Post(pairingURL, "application/json", strings.NewReader(string(bodyBytes))) //nolint:noctx // TODO: refactor to use http.NewRequestWithContext
 	if errDo != nil {
 		return nil, "", errDo
 	}

@@ -235,7 +235,7 @@ func (inst *Instance) proxyRemoteFileRequest(req *http.Request, remoteNode *mode
 
 	connectionSpecificHeaders := make(map[string]struct{})
 	for _, connectionValue := range resp.Header.Values("Connection") {
-		for _, token := range strings.Split(connectionValue, ",") {
+		for token := range strings.SplitSeq(connectionValue, ",") {
 			headerName := http.CanonicalHeaderKey(strings.TrimSpace(token))
 			if headerName == "" {
 				continue

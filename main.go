@@ -31,7 +31,7 @@ import (
 	"github.com/ClintonCollins/Xylona/api/rpc"
 	"github.com/ClintonCollins/Xylona/api/websocket"
 	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
-	"github.com/ClintonCollins/Xylona/db"
+	dbpkg "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/version"
@@ -69,7 +69,7 @@ func setupLogger() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 }
 
-func setDetectedIPs(db *db.Connection) {
+func setDetectedIPs(db *dbpkg.Connection) {
 	ips, err := helpers.GetIPs()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to get IPs")
@@ -83,7 +83,7 @@ func setDetectedIPs(db *db.Connection) {
 				External:           omit.From(!ip.IsPrivate()),
 				AutomaticallyAdded: omit.From(true),
 			})
-			if errUpsertIP != nil {
+			if errUpsertIP != nil && !errors.Is(errUpsertIP, dbpkg.ErrIPConflict) {
 				log.Fatal().Err(errUpsertIP).Msg("Failed to upsert IP on startup")
 			}
 		}
@@ -138,7 +138,7 @@ func routerLogger(next http.Handler) http.Handler {
 		timeStart := time.Now()
 		defer func() {
 			timeStop := time.Now()
-			log.Info().Fields(map[string]interface{}{
+			log.Info().Fields(map[string]any{
 				"method":     r.Method,
 				"url":        r.URL.Path,
 				"ip":         r.RemoteAddr,
@@ -178,6 +178,7 @@ func main() {
 		foundCookieError = true
 	}
 	if foundCookieError {
+		//nolint:gocritic // log.Fatal calls os.Exit; deferred ctxCancel is intentionally skipped on fatal startup error
 		log.Fatal().Msg("Cookie keys not set correctly. You can use the generated key(s)" +
 			" above to set the environment variables: COOKIE_HASH_KEY_BASE64 and COOKIE_BLOCK_KEY_BASE64")
 	}
@@ -206,10 +207,10 @@ func main() {
 	if errSupervisor != nil {
 		log.Fatal().Err(errSupervisor).Msg("Failed to create supervisor instance")
 	}
-	dbInst := db.NewConnection(ctx, config.DBFilePath)
+	dbInst := dbpkg.NewConnection(ctx, config.DBFilePath)
 
 	// Run database migrations
-	errMigrate := db.RunMigrations(dbInst.SQLDb, EmbeddedMigrations, "sql/migrations")
+	errMigrate := dbpkg.RunMigrations(dbInst.SQLDb, EmbeddedMigrations, "sql/migrations")
 	if errMigrate != nil {
 		log.Fatal().Err(errMigrate).Msg("Error running migrations")
 		return
@@ -243,7 +244,7 @@ func main() {
 		log.Fatal().Err(errGetNode).Msg("Failed to get node")
 	}
 	if node != nil {
-		_, errExec := dbInst.SQLDb.Exec(`update node set id = ? where id = 1`, settings.NodeID)
+		_, errExec := dbInst.SQLDb.Exec(`update node set id = ? where id = 1`, settings.NodeID) //nolint:noctx // startup migration, context not meaningful
 		if errExec != nil {
 			log.Fatal().Err(errExec).Msg("Failed to update node ID")
 		}

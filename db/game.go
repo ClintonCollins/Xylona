@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (c *Connection) GetGameByID(id string) (*models.Game, error) {

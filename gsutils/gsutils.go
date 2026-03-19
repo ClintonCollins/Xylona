@@ -66,7 +66,7 @@ func SteamGetLatestVersionByAppID(appID string) (string, error) {
 }
 
 func SteamGetBranchesByAppID(appID string) (map[string]SteamAppBranch, error) {
-	resp, err := httpClient.Get("https://api.steamcmd.net/v1/info/" + appID)
+	resp, err := httpClient.Get("https://api.steamcmd.net/v1/info/" + appID) //nolint:noctx // TODO: refactor to use http.NewRequestWithContext
 	if err != nil {
 		return nil, err
 	}

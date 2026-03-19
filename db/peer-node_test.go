@@ -49,6 +49,7 @@ func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
 	var gotVersion string
 	var gotProtocolVersion int
 	var gotCapabilities string
+
 	errQuery := conn.SQLDb.QueryRow(`
 		SELECT name, version, protocol_version, capabilities
 		FROM node

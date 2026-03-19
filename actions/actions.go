@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/aarondl/opt/omit"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
@@ -20,6 +19,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
@@ -93,7 +94,7 @@ func (inst *Instance) GetPlayerCount(gameServerID string) int {
 func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path string) ([]*xylona.File, error) {
 	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
 	if path != "" && !filepath.IsLocal(path) {
-		log.Error().Err(errors.New("invalid path"))
+		log.Error().Err(errors.New("invalid path")).Msg("Path is not local")
 		return nil, ErrInvalidPath
 	}
 	fullPath := filepath.Join(gameServer.Directory, path)
@@ -109,7 +110,6 @@ func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path st
 
 	xylonaFiles := make([]*xylona.File, 0, len(files))
 	for _, file := range files {
-		file := file
 		fileInfo, errFileInfo := file.Info()
 		if errFileInfo != nil {
 			log.Error().Err(errFileInfo).Msg("Failed to get file info")
@@ -164,11 +164,9 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 		part, errNext := multiReader.NextPart()
 		if errNext == io.EOF {
 			break
-		} else {
-			if errNext != nil {
-				http.Error(w, "Error reading next part", http.StatusBadRequest)
-				return
-			}
+		} else if errNext != nil {
+			http.Error(w, "Error reading next part", http.StatusBadRequest)
+			return
 		}
 		switch part.FormName() {
 		case "gameServerId":
@@ -226,7 +224,7 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 
 func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path, fileName string, fileSource io.Reader) error {
 	if path != "" && !filepath.IsLocal(path) {
-		log.Error().Err(errors.New("invalid path"))
+		log.Error().Err(errors.New("invalid path")).Msg("Path is not local")
 		return ErrInvalidPath
 	}
 
@@ -266,7 +264,7 @@ func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path
 func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path string, writer io.Writer, setHeaders, setAsAttachment bool) error {
 	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
 	if path != "" && !filepath.IsLocal(path) {
-		log.Error().Err(errors.New("invalid path"))
+		log.Error().Err(errors.New("invalid path")).Msg("Path is not local")
 		return ErrInvalidPath
 	}
 	// log.Debug().Msgf("Path %s is local: %t", path, filepath.IsLocal(path))
@@ -305,13 +303,13 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path stri
 		w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 		if setAsAttachment {
 			// Sanitize filename to prevent header injection via quotes or newlines.
-		safeName := strings.Map(func(r rune) rune {
-			if r == '"' || r == '\\' || r == '\n' || r == '\r' {
-				return '_'
-			}
-			return r
-		}, fileInfo.Name())
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safeName))
+			safeName := strings.Map(func(r rune) rune {
+				if r == '"' || r == '\\' || r == '\n' || r == '\r' {
+					return '_'
+				}
+				return r
+			}, fileInfo.Name())
+			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safeName))
 		}
 	}
 
@@ -466,12 +464,11 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 		Status:             xylona.Status_ONLINE,
 		ServiceID:          gameServer.GameID,
 		CallbackFunction: func(cmd *supervisor.Command) {
-			//log.Info().Msg("Game server stopped")
+			// log.Info().Msg("Game server stopped")
 		},
 	}
 	log.Debug().Msg("Checking input method during startup action")
-	switch gameServer.GameID {
-	case "7_days_to_die":
+	if gameServer.GameID == "7_days_to_die" {
 		log.Debug().Msg("Found 7 Days to Die. Setting input method to telnet")
 		preparedCommand.InputMethod = supervisor.InputMethod{
 			Type: supervisor.InputTypeTelnet,

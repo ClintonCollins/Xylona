@@ -30,28 +30,6 @@ const (
 	MaxRequestBodySize = 1024 * 1024 * 1 // 1 MB
 )
 
-type progressWriter struct {
-	io.Writer
-	bytesWritten int64
-	BytesChan    chan int64
-	ctx          context.Context
-}
-
-func (pw *progressWriter) Write(p []byte) (n int, err error) {
-	n, err = pw.Writer.Write(p)
-	if err != nil {
-		return
-	}
-	if n > 0 {
-		pw.bytesWritten += int64(n)
-		select {
-		case pw.BytesChan <- pw.bytesWritten:
-		default:
-		}
-	}
-	return
-}
-
 type progressReader struct {
 	io.Reader
 	bytesRead int64
@@ -404,7 +382,7 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 		format.Compression = &archives.Xz{}
 	}
 
-	archiveFullPath = archiveFullPath + format.Extension()
+	archiveFullPath += format.Extension()
 
 	archiveOut, errCreate := os.Create(archiveFullPath)
 	if errCreate != nil {
@@ -444,7 +422,7 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 			case bytesRead := <-readBytesChan:
 				bytesReadSoFar += bytesRead
 			case <-debugTicker.C:
-				log.Debug().Fields(map[string]interface{}{
+				log.Debug().Fields(map[string]any{
 					"Total Files":      totalFiles,
 					"Files Compressed": filesCompressedSoFar,
 					"Total Bytes":      totalBytes,
@@ -566,8 +544,8 @@ func (inst *Instance) ArchiveAndCompressFiles(ctx context.Context, gameServer *m
 	return inst.handleArchiveAndCompression(ctx, archivePath, archivesFiles, compression)
 }
 
-func (inst *Instance) handleArchiveAndCompression(ctx context.Context, archivePathAndFileName string, archivesFiles []archives.FileInfo, compression xylona.GameServerFilesCompressionType) (string, error) {
-	ctx = context.WithoutCancel(inst.ctx)
+func (inst *Instance) handleArchiveAndCompression(_ context.Context, archivePathAndFileName string, archivesFiles []archives.FileInfo, compression xylona.GameServerFilesCompressionType) (string, error) {
+	ctx := context.WithoutCancel(inst.ctx)
 	archiveFullPath := archivePathAndFileName
 
 	format := archives.CompressedArchive{}
@@ -594,7 +572,7 @@ func (inst *Instance) handleArchiveAndCompression(ctx context.Context, archivePa
 		format.Compression = &archives.Xz{}
 	}
 
-	archiveFullPath = archiveFullPath + format.Extension()
+	archiveFullPath += format.Extension()
 
 	archiveOut, errCreate := os.Create(archiveFullPath)
 	if errCreate != nil {
@@ -906,10 +884,7 @@ func (inst *Instance) ExtractArchive(ctx context.Context, gameServer *models.Gam
 		}
 	}
 
-	extractedFiles := make([]string, 0, len(fx.extractedFilePathsSoFar))
-	for _, f := range fx.extractedFilePathsSoFar {
-		extractedFiles = append(extractedFiles, f)
-	}
+	extractedFiles := append([]string(nil), fx.extractedFilePathsSoFar...)
 	return extractedFiles, nil
 }
 

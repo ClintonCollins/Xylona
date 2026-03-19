@@ -1,7 +1,6 @@
 package supervisor
 
 import (
-	"context"
 	"runtime"
 	"strings"
 	"testing"
@@ -11,8 +10,7 @@ import (
 )
 
 func TestStartCommand(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	inst, _ := New(ctx)
 
@@ -51,15 +49,14 @@ func TestStartCommand(t *testing.T) {
 	}
 
 	cmd.Stop("")
-	
+
 	if cmd.Status() != xylona.Status_OFFLINE {
 		t.Errorf("Expected status OFFLINE after stop, got %v", cmd.Status())
 	}
 }
 
 func TestCommandOutputListener(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	inst, _ := New(ctx)
 

@@ -30,7 +30,7 @@ func buildDummyGameServer(projectRoot, outputPath string) error {
 	}
 
 	log.Info().Msg("[E2E Setup] Building dummy game server binary...")
-	cmd := exec.Command("go", "build", "-o", outputPath, "./cmd/dummy_game_server")
+	cmd := exec.Command("go", "build", "-o", outputPath, "./cmd/dummy_game_server") //nolint:noctx // build commands don't need cancellation context
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -43,7 +43,7 @@ func buildXylona(projectRoot, outputPath string) error {
 	if errMkdir != nil {
 		return fmt.Errorf("create output dir: %w", errMkdir)
 	}
-	cmd := exec.Command("go", "build", "-o", outputPath, ".")
+	cmd := exec.Command("go", "build", "-o", outputPath, ".") //nolint:noctx // build commands don't need cancellation context
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -52,7 +52,7 @@ func buildXylona(projectRoot, outputPath string) error {
 
 func buildFrontend(projectRoot string) error {
 	log.Info().Msg("[Federation Setup] Building frontend SPA...")
-	cmd := exec.Command("pnpm", "run", "build")
+	cmd := exec.Command("pnpm", "run", "build") //nolint:noctx // build commands don't need cancellation context
 	cmd.Dir = filepath.Join(projectRoot, "frontend")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

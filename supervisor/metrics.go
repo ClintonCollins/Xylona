@@ -111,7 +111,7 @@ func (c *Command) collectProcessMetrics() {
 
 	// Normalize CPU to 0-100% across all cores.
 	if numCPU > 0 {
-		totalCPU = totalCPU / float64(numCPU)
+		totalCPU /= float64(numCPU)
 	}
 
 	// Compute I/O rates using delta from last poll.
@@ -159,7 +159,7 @@ func calculateDirSize(directory string) (uint64, error) {
 	var total uint64
 	errWalk := filepath.WalkDir(directory, func(_ string, d fs.DirEntry, errEntry error) error {
 		if errEntry != nil {
-			return nil
+			return nil //nolint:nilerr // intentionally skipping unreadable entries to continue the walk
 		}
 		if !d.IsDir() {
 			info, errInfo := d.Info()

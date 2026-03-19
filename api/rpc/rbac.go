@@ -16,7 +16,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs XylonaService) ListRoles(ctx context.Context, request *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error) {
+func (xs *XylonaService) ListRoles(ctx context.Context, request *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -42,7 +42,7 @@ func (xs XylonaService) ListRoles(ctx context.Context, request *connect.Request[
 	return connect.NewResponse(resp), nil
 }
 
-func (xs XylonaService) ListPermissions(ctx context.Context, request *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error) {
+func (xs *XylonaService) ListPermissions(ctx context.Context, request *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -66,7 +66,7 @@ func (xs XylonaService) ListPermissions(ctx context.Context, request *connect.Re
 	return connect.NewResponse(resp), nil
 }
 
-func (xs XylonaService) CreateRole(ctx context.Context, request *connect.Request[xylona.CreateRoleRequest]) (*connect.Response[xylona.CreateRoleResponse], error) {
+func (xs *XylonaService) CreateRole(ctx context.Context, request *connect.Request[xylona.CreateRoleRequest]) (*connect.Response[xylona.CreateRoleResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -121,7 +121,7 @@ func (xs XylonaService) CreateRole(ctx context.Context, request *connect.Request
 	}), nil
 }
 
-func (xs XylonaService) DeleteRole(ctx context.Context, request *connect.Request[xylona.DeleteRoleRequest]) (*connect.Response[xylona.DeleteRoleResponse], error) {
+func (xs *XylonaService) DeleteRole(ctx context.Context, request *connect.Request[xylona.DeleteRoleRequest]) (*connect.Response[xylona.DeleteRoleResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -150,7 +150,7 @@ func (xs XylonaService) DeleteRole(ctx context.Context, request *connect.Request
 	return connect.NewResponse(&xylona.DeleteRoleResponse{}), nil
 }
 
-func (xs XylonaService) ListGameServerAccessGrants(ctx context.Context, request *connect.Request[xylona.ListGameServerAccessGrantsRequest]) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error) {
+func (xs *XylonaService) ListGameServerAccessGrants(ctx context.Context, request *connect.Request[xylona.ListGameServerAccessGrantsRequest]) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -192,7 +192,7 @@ func (xs XylonaService) ListGameServerAccessGrants(ctx context.Context, request 
 	)
 }
 
-func (xs XylonaService) GrantGameServerAccess(ctx context.Context, request *connect.Request[xylona.GrantGameServerAccessRequest]) (*connect.Response[xylona.GrantGameServerAccessResponse], error) {
+func (xs *XylonaService) GrantGameServerAccess(ctx context.Context, request *connect.Request[xylona.GrantGameServerAccessRequest]) (*connect.Response[xylona.GrantGameServerAccessResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -278,7 +278,7 @@ func (xs XylonaService) GrantGameServerAccess(ctx context.Context, request *conn
 	)
 }
 
-func (xs XylonaService) RevokeGameServerAccess(ctx context.Context, request *connect.Request[xylona.RevokeGameServerAccessRequest]) (*connect.Response[xylona.RevokeGameServerAccessResponse], error) {
+func (xs *XylonaService) RevokeGameServerAccess(ctx context.Context, request *connect.Request[xylona.RevokeGameServerAccessRequest]) (*connect.Response[xylona.RevokeGameServerAccessResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -352,7 +352,7 @@ func (xs XylonaService) RevokeGameServerAccess(ctx context.Context, request *con
 	return connect.NewResponse(&xylona.RevokeGameServerAccessResponse{}), nil
 }
 
-func (xs XylonaService) ListRemoteNodeUsers(ctx context.Context, request *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error) {
+func (xs *XylonaService) ListRemoteNodeUsers(ctx context.Context, request *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -421,7 +421,7 @@ func (xs XylonaService) ListRemoteNodeUsers(ctx context.Context, request *connec
 	return connect.NewResponse(resp), nil
 }
 
-func (xs XylonaService) ListFederatedAccessGrants(ctx context.Context, request *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error) {
+func (xs *XylonaService) ListFederatedAccessGrants(ctx context.Context, request *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -463,7 +463,7 @@ func (xs XylonaService) ListFederatedAccessGrants(ctx context.Context, request *
 	)
 }
 
-func (xs XylonaService) GrantFederatedAccess(ctx context.Context, request *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error) {
+func (xs *XylonaService) GrantFederatedAccess(ctx context.Context, request *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -561,7 +561,7 @@ func (xs XylonaService) GrantFederatedAccess(ctx context.Context, request *conne
 	)
 }
 
-func (xs XylonaService) RevokeFederatedAccess(ctx context.Context, request *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error) {
+func (xs *XylonaService) RevokeFederatedAccess(ctx context.Context, request *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -627,7 +627,7 @@ func (xs XylonaService) RevokeFederatedAccess(ctx context.Context, request *conn
 	return connect.NewResponse(&xylona.RevokeFederatedAccessResponse{}), nil
 }
 
-func (xs XylonaService) listRemoteGameServerAccessGrants(ctx context.Context, gameServerID string, actingUser *models.User) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error) {
+func (xs *XylonaService) listRemoteGameServerAccessGrants(ctx context.Context, gameServerID string, actingUser *models.User) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error) {
 	node, _, errGetRemote := xs.getRemoteNodeForServer(gameServerID)
 	if errGetRemote != nil {
 		return nil, errGetRemote
@@ -664,7 +664,7 @@ func (xs XylonaService) listRemoteGameServerAccessGrants(ctx context.Context, ga
 	return connect.NewResponse(localResp), nil
 }
 
-func (xs XylonaService) grantRemoteGameServerAccess(ctx context.Context, gameServerID string, userID string, roleID string, actingUser *models.User) (*connect.Response[xylona.GrantGameServerAccessResponse], error) {
+func (xs *XylonaService) grantRemoteGameServerAccess(ctx context.Context, gameServerID string, userID string, roleID string, actingUser *models.User) (*connect.Response[xylona.GrantGameServerAccessResponse], error) {
 	node, _, errGetRemote := xs.getRemoteNodeForServer(gameServerID)
 	if errGetRemote != nil {
 		return nil, errGetRemote
@@ -700,7 +700,7 @@ func (xs XylonaService) grantRemoteGameServerAccess(ctx context.Context, gameSer
 	}), nil
 }
 
-func (xs XylonaService) revokeRemoteGameServerAccess(ctx context.Context, gameServerID string, grantID string, actingUser *models.User) (*connect.Response[xylona.RevokeGameServerAccessResponse], error) {
+func (xs *XylonaService) revokeRemoteGameServerAccess(ctx context.Context, gameServerID string, grantID string, actingUser *models.User) (*connect.Response[xylona.RevokeGameServerAccessResponse], error) {
 	node, _, errGetRemote := xs.getRemoteNodeForServer(gameServerID)
 	if errGetRemote != nil {
 		return nil, errGetRemote
@@ -732,7 +732,7 @@ func (xs XylonaService) revokeRemoteGameServerAccess(ctx context.Context, gameSe
 	return connect.NewResponse(&xylona.RevokeGameServerAccessResponse{}), nil
 }
 
-func (xs XylonaService) listRemoteFederatedAccessGrants(ctx context.Context, gameServerID string, actingUser *models.User) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error) {
+func (xs *XylonaService) listRemoteFederatedAccessGrants(ctx context.Context, gameServerID string, actingUser *models.User) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error) {
 	node, _, errGetRemote := xs.getRemoteNodeForServer(gameServerID)
 	if errGetRemote != nil {
 		return nil, errGetRemote
@@ -769,7 +769,7 @@ func (xs XylonaService) listRemoteFederatedAccessGrants(ctx context.Context, gam
 	return connect.NewResponse(localResp), nil
 }
 
-func (xs XylonaService) grantRemoteFederatedAccess(
+func (xs *XylonaService) grantRemoteFederatedAccess(
 	ctx context.Context,
 	gameServerID string,
 	remoteNodeID string,
@@ -815,7 +815,7 @@ func (xs XylonaService) grantRemoteFederatedAccess(
 	}), nil
 }
 
-func (xs XylonaService) revokeRemoteFederatedAccess(ctx context.Context, gameServerID string, grantID string, actingUser *models.User) (*connect.Response[xylona.RevokeFederatedAccessResponse], error) {
+func (xs *XylonaService) revokeRemoteFederatedAccess(ctx context.Context, gameServerID string, grantID string, actingUser *models.User) (*connect.Response[xylona.RevokeFederatedAccessResponse], error) {
 	node, _, errGetRemote := xs.getRemoteNodeForServer(gameServerID)
 	if errGetRemote != nil {
 		return nil, errGetRemote
@@ -885,7 +885,7 @@ func federationFederatedAccessGrantInfoToXylona(grant *xylona.FederationFederate
 	}
 }
 
-func (xs XylonaService) requireLocalServerOwnerOrSuper(user *models.User, gameServerID string) (*models.GameServer, error) {
+func (xs *XylonaService) requireLocalServerOwnerOrSuper(user *models.User, gameServerID string) (*models.GameServer, error) {
 	serverID := strings.TrimSpace(gameServerID)
 	if serverID == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
@@ -907,7 +907,7 @@ func (xs XylonaService) requireLocalServerOwnerOrSuper(user *models.User, gameSe
 	return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
 }
 
-func (xs XylonaService) buildGameServerAccessGrant(assignment *models.UserRoleAssignment) (*xylona.GameServerAccessGrant, error) {
+func (xs *XylonaService) buildGameServerAccessGrant(assignment *models.UserRoleAssignment) (*xylona.GameServerAccessGrant, error) {
 	role, errGetRole := xs.db.GetRoleByID(assignment.RoleID)
 	if errGetRole != nil {
 		log.Error().Err(errGetRole).Str("role_id", assignment.RoleID).Msg("failed to fetch role for access grant")
@@ -944,7 +944,7 @@ func (xs XylonaService) buildGameServerAccessGrant(assignment *models.UserRoleAs
 	}, nil
 }
 
-func (xs XylonaService) buildFederatedAccessGrantInfo(grantModel *models.FederatedAccessGrant) (*xylona.FederatedAccessGrantInfo, error) {
+func (xs *XylonaService) buildFederatedAccessGrantInfo(grantModel *models.FederatedAccessGrant) (*xylona.FederatedAccessGrantInfo, error) {
 	role, errGetRole := xs.db.GetRoleByID(grantModel.RoleID)
 	if errGetRole != nil {
 		log.Error().Err(errGetRole).Str("role_id", grantModel.RoleID).Msg("failed to fetch role for federated access grant")

@@ -85,6 +85,7 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 
 	_, _ = conn.SQLDb.Exec(`create table node (id text primary key not null)`)
 	_, _ = conn.SQLDb.Exec(`insert into node (id) values ('remote-node-1')`)
+
 	_, _ = conn.SQLDb.Exec(`
 		create table federation_trusted_peer (
 			node_id text primary key not null references node (id) on delete cascade,
@@ -141,11 +142,11 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 			},
 			remoteCacheLookup: func(string) (*models.RemoteServerCache, error) {
 				t.Fatalf("remote cache lookup should not be called when local server exists")
-				return nil, nil
+				panic("unreachable")
 			},
 			remoteNodeLookup: func(string) (*models.Node, error) {
 				t.Fatalf("remote node lookup should not be called when local server exists")
-				return nil, nil
+				panic("unreachable")
 			},
 			wantLocal: true,
 		},
@@ -182,11 +183,11 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 			},
 			remoteCacheLookup: func(string) (*models.RemoteServerCache, error) {
 				t.Fatalf("remote cache lookup should not be called when local lookup fails")
-				return nil, nil
+				panic("unreachable")
 			},
 			remoteNodeLookup: func(string) (*models.Node, error) {
 				t.Fatalf("remote node lookup should not be called when local lookup fails")
-				return nil, nil
+				panic("unreachable")
 			},
 			wantErr: errDBUnavailable,
 		},
@@ -200,14 +201,13 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 			},
 			remoteNodeLookup: func(string) (*models.Node, error) {
 				t.Fatalf("remote node lookup should not be called when remote cache is missing")
-				return nil, nil
+				panic("unreachable")
 			},
 			wantErr: sql.ErrNoRows,
 		},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			target, errResolve := resolveFileRequestTargetWithLookups("server-id", tt.localLookup, tt.remoteCacheLookup, tt.remoteNodeLookup)
 			if tt.wantErr != nil {
@@ -489,7 +489,6 @@ func TestWriteGameServerLookupError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			responseRecorder := httptest.NewRecorder()
 

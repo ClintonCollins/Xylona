@@ -389,7 +389,6 @@ func TestCreateUserDuplicateUsername(t *testing.T) {
 	}
 }
 
-
 func TestCreateUserEmptyFields(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 

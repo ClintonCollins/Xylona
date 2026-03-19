@@ -103,15 +103,13 @@ func (c *Command) Stop(stopInputCommand string) {
 		if errSend != nil {
 			log.Error().Err(errSend).Msg("Error sending stop command")
 		}
-	} else {
-		if runtime.GOOS != "windows" {
-			errInterrupt := c.currentCMD.Process.Signal(os.Interrupt)
-			if errInterrupt != nil {
-				log.Error().Err(errInterrupt).Msg("Error interrupting process")
-				errTerm := c.currentCMD.Process.Signal(syscall.SIGTERM)
-				if errTerm != nil {
-					log.Error().Err(errTerm).Msg("Error terminating process")
-				}
+	} else if runtime.GOOS != "windows" {
+		errInterrupt := c.currentCMD.Process.Signal(os.Interrupt)
+		if errInterrupt != nil {
+			log.Error().Err(errInterrupt).Msg("Error interrupting process")
+			errTerm := c.currentCMD.Process.Signal(syscall.SIGTERM)
+			if errTerm != nil {
+				log.Error().Err(errTerm).Msg("Error terminating process")
 			}
 		}
 	}
@@ -276,7 +274,6 @@ func (c *Command) handleOutputListeners(payload *xylona.Message) {
 	c.outputListenersLock.RLock()
 	errGroup, ctx := errgroup.WithContext(c.instanceCtx)
 	for id, listener := range c.outputListeners {
-		id, listener := id, listener
 		errGroup.Go(func() error {
 			select {
 			case <-c.instanceCtx.Done():
@@ -364,10 +361,10 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 			command.currentCMD = nil
 			command.status = xylona.Status_OFFLINE
 			command.Unlock()
- 		if commandEndFunc != nil {
- 			commandEndFunc(command)
- 		}
- 	}()
+			if commandEndFunc != nil {
+				commandEndFunc(command)
+			}
+		}()
 		switch command.status {
 		case xylona.Status_INSTALLING:
 			err := internalGame.Install(command.internalGameServer, command.internalCommandStdOut, command.internalCommandStdErr)
@@ -409,7 +406,6 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 		return
 	}
 
-	fullCommandStr = fmt.Sprintf("%s %s", command.currentCMD.Path, strings.Join(command.currentCMD.Args, " "))
 	log.Debug().Str("Command ID", command.ID).Str("Exec", fullCommandStr).Msg("Command started")
 	command.sendJobStatusNotification(command.status)
 
@@ -471,8 +467,7 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 	}
 
 	go newCommand.readJobOut()
-	switch newCommand.status {
-	case xylona.Status_ONLINE:
+	if newCommand.status == xylona.Status_ONLINE {
 		newCommand.sendJobNotification(MessageStartingServer)
 	}
 	go inst.startAndWaitForJob(newCommand, preparedCommand.CallbackFunction)
@@ -544,7 +539,7 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 	log.Debug().Str("Command ID", preparedCommand.ID).Msg("Setting up command")
 	commandSplit := getCommandAndArgsSplit(preparedCommand.FullCommandAndArgs)
 
-	if len(commandSplit) <= 0 {
+	if len(commandSplit) == 0 {
 		log.Error().Interface("Game server ID", preparedCommand.GameServerID).Str("Command", preparedCommand.FullCommandAndArgs).Msg("No command specified")
 		return nil, fmt.Errorf("no command provided")
 	}
@@ -697,7 +692,7 @@ func (c *Command) SendInput(input string) error {
 	}
 	c.RUnlock()
 	log.Debug().Str("Command ID", c.ID).Str("Input", input).Msg("Sending input")
-	b, wErr := c.stdInWriter.Write([]byte(fmt.Sprintf("%s\n", input)))
+	b, wErr := fmt.Fprintf(c.stdInWriter, "%s\n", input)
 	if wErr != nil {
 		return wErr
 	}

@@ -279,7 +279,6 @@ func TestRemoteServerListCacheGetOrFetchConcurrentReadsReturnIsolatedCopies(t *t
 
 	errCh := make(chan error, workers)
 	for workerID := range workers {
-		workerID := workerID
 		go func() {
 			defer wg.Done()
 

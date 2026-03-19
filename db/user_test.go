@@ -65,9 +65,9 @@ func TestDeleteUserCascadesRoleAssignments(t *testing.T) {
 
 func TestCountSuperUsers(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupSQL   []string
-		wantCount  int
+		name      string
+		setupSQL  []string
+		wantCount int
 	}{
 		{
 			name:      "zero super users",

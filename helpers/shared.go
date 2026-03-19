@@ -39,7 +39,7 @@ type WebsocketMessage struct {
 	Type                    WebsocketMessageType     `json:"type"`
 	GameServerConsoleOutput *GameServerConsoleOutput `json:"gameServerConsoleOutput,omitempty"`
 	GameServerStatusUpdate  *GameServerStatusUpdate  `json:"gameServerStatusUpdate,omitempty"`
-	RawData                 interface{}              `json:"rawData,omitempty"`
+	RawData                 any                      `json:"rawData,omitempty"`
 }
 
 func (w WebsocketMessageType) String() string {

@@ -11,12 +11,12 @@ import (
 
 func newTestGame(id, name string) *xylona.Game {
 	return &xylona.Game{
-		Id:               id,
-		Name:             name,
-		DefaultPort:      25565,
-		DefaultQueryPort: 25565,
+		Id:                id,
+		Name:              name,
+		DefaultPort:       25565,
+		DefaultQueryPort:  25565,
 		DefaultMaxPlayers: 20,
-		LinuxSupport:     true,
+		LinuxSupport:      true,
 		LinuxStartCommand: "java -jar server.jar",
 	}
 }

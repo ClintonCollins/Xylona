@@ -18,14 +18,14 @@ import (
 
 func sysInfoToProto(info *sysinfo.SystemInfo) *xylona.NodeSystemInfo {
 	return &xylona.NodeSystemInfo{
-		CpuModel:      info.CPUModel,
-		CpuCores:      int32(info.CPUCores),
-		CpuThreads:    int32(info.CPUThreads),
+		CpuModel:         info.CPUModel,
+		CpuCores:         int32(info.CPUCores),
+		CpuThreads:       int32(info.CPUThreads),
 		TotalMemoryBytes: int64(info.TotalMemory),
-		Os:            info.OS,
-		OsVersion:     info.OSVersion,
-		Architecture:  info.Architecture,
-		XylonaVersion: info.XylonaVersion,
+		Os:               info.OS,
+		OsVersion:        info.OSVersion,
+		Architecture:     info.Architecture,
+		XylonaVersion:    info.XylonaVersion,
 	}
 }
 
@@ -46,7 +46,7 @@ func snapshotToProto(snap *sysinfo.ResourceSnapshot, gsCount, runningCount, user
 }
 
 // GetNodeSystemInfo returns system hardware/OS info for a node.
-func (xs XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect.Request[xylona.GetNodeSystemInfoRequest]) (*connect.Response[xylona.GetNodeSystemInfoResponse], error) {
+func (xs *XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect.Request[xylona.GetNodeSystemInfoRequest]) (*connect.Response[xylona.GetNodeSystemInfoResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
@@ -101,7 +101,7 @@ func (xs XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect.
 }
 
 // GetNodeResourceSnapshot returns a live resource usage snapshot for a node.
-func (xs XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *connect.Request[xylona.GetNodeResourceSnapshotRequest]) (*connect.Response[xylona.GetNodeResourceSnapshotResponse], error) {
+func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *connect.Request[xylona.GetNodeResourceSnapshotRequest]) (*connect.Response[xylona.GetNodeResourceSnapshotResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
@@ -152,7 +152,7 @@ func (xs XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *co
 }
 
 // GetDashboardOverview returns an overview of all nodes with live resource snapshots.
-func (xs XylonaService) GetDashboardOverview(ctx context.Context, request *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error) {
+func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
@@ -237,7 +237,7 @@ func (xs XylonaService) GetDashboardOverview(ctx context.Context, request *conne
 }
 
 // GetNodeMetricsHistory returns historical metrics for a node.
-func (xs XylonaService) GetNodeMetricsHistory(ctx context.Context, request *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error) {
+func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
@@ -290,12 +290,12 @@ func (xs XylonaService) GetNodeMetricsHistory(ctx context.Context, request *conn
 	var points []*xylona.MetricsHistoryPoint
 	for _, row := range rows {
 		points = append(points, &xylona.MetricsHistoryPoint{
-			Timestamp:      timestamppb.New(row.RecordedAt),
-			CpuPercent:     row.CPUPercent,
-			MemoryPercent:  row.MemoryPercent,
-			DiskPercent:    row.DiskPercent,
+			Timestamp:       timestamppb.New(row.RecordedAt),
+			CpuPercent:      row.CPUPercent,
+			MemoryPercent:   row.MemoryPercent,
+			DiskPercent:     row.DiskPercent,
 			MemoryUsedBytes: row.MemoryUsedBytes,
-			DiskUsedBytes:  row.DiskUsedBytes,
+			DiskUsedBytes:   row.DiskUsedBytes,
 		})
 	}
 
@@ -305,7 +305,7 @@ func (xs XylonaService) GetNodeMetricsHistory(ctx context.Context, request *conn
 }
 
 // GetGameServerMetricsHistory returns historical metrics for a game server.
-func (xs XylonaService) GetGameServerMetricsHistory(ctx context.Context, request *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+func (xs *XylonaService) GetGameServerMetricsHistory(ctx context.Context, request *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
@@ -338,7 +338,7 @@ func (xs XylonaService) GetGameServerMetricsHistory(ctx context.Context, request
 	)
 }
 
-func (xs XylonaService) queryLocalGameServerMetricsHistory(gameServerID string, since, until time.Time) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+func (xs *XylonaService) queryLocalGameServerMetricsHistory(gameServerID string, since, until time.Time) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	rows, errQuery := xs.db.GetGameServerMetricsHistory(gameServerID, since, until)
 	if errQuery != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to query game server metrics history"))
@@ -361,7 +361,7 @@ func (xs XylonaService) queryLocalGameServerMetricsHistory(gameServerID string, 
 	}), nil
 }
 
-func (xs XylonaService) getRemoteGameServerMetricsHistory(ctx context.Context, serverID string, since, until time.Time, actingUser *models.User, originalMsg *xylona.GetGameServerMetricsHistoryRequest) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+func (xs *XylonaService) getRemoteGameServerMetricsHistory(ctx context.Context, serverID string, since, until time.Time, actingUser *models.User, originalMsg *xylona.GetGameServerMetricsHistoryRequest) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	peerNode, remoteCache, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -395,7 +395,7 @@ func (xs XylonaService) getRemoteGameServerMetricsHistory(ctx context.Context, s
 	}), nil
 }
 
-func (xs XylonaService) collectLocalSnapshot() (*sysinfo.ResourceSnapshot, int, int, int, error) {
+func (xs *XylonaService) collectLocalSnapshot() (*sysinfo.ResourceSnapshot, int, int, int, error) {
 	snapshot, errSnap := sysinfo.CollectResourceSnapshot()
 	if errSnap != nil {
 		return nil, 0, 0, 0, errSnap

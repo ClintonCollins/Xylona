@@ -16,7 +16,7 @@ func TestNewFederationHTTPClientRejectsUntrustedTLSByDefault(t *testing.T) {
 	defer server.Close()
 
 	client := NewFederationHTTPClient(2*time.Second, false)
-	_, errGet := client.Get(server.URL)
+	_, errGet := client.Get(server.URL) //nolint:bodyclose // error expected; response will be nil
 	if errGet == nil {
 		t.Fatalf("NewFederationHTTPClient() default TLS verification should fail for untrusted cert")
 	}
@@ -50,7 +50,7 @@ func TestNewFederationHTTPClientHonorsTimeout(t *testing.T) {
 	defer server.Close()
 
 	client := NewFederationHTTPClient(40*time.Millisecond, false)
-	_, errGet := client.Get(server.URL)
+	_, errGet := client.Get(server.URL) //nolint:bodyclose // timeout expected; response will be nil
 	if errGet == nil {
 		t.Fatalf("NewFederationHTTPClient() request error = nil, want timeout error")
 	}

@@ -48,7 +48,7 @@ func fallbackNodeID(requestNodeID string, defaultNodeID string) string {
 // findAvailablePort checks for port conflicts on the given IP and returns the next available port.
 // If the game requires a dedicated IP, no other game server should use the same IP at all.
 // excludeServerID can be set to skip a specific server (useful when editing an existing server).
-func (xs XylonaService) findAvailablePort(ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
+func (xs *XylonaService) findAvailablePort(ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
 	existingServers, errGetServers := xs.db.GetGameServersByIP(ip)
 	if errGetServers != nil {
 		return 0, 0, errGetServers
@@ -95,7 +95,7 @@ func (xs XylonaService) findAvailablePort(ip string, port int64, queryPort int64
 	return port, queryPort, nil
 }
 
-func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
+func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
 	callingUser, errCallingUser := xs.getUserFromHeader(request.Header())
 	if errCallingUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -160,7 +160,7 @@ func (xs XylonaService) CreateGameServer(ctx context.Context, request *connect.R
 	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
+func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -221,7 +221,7 @@ func (xs XylonaService) EditGameServer(ctx context.Context, request *connect.Req
 	)
 }
 
-func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
+func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -249,7 +249,7 @@ func (xs XylonaService) RemoveGameServer(ctx context.Context, request *connect.R
 	)
 }
 
-func (xs XylonaService) StartGameServer(ctx context.Context, request *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error) {
+func (xs *XylonaService) StartGameServer(ctx context.Context, request *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -273,7 +273,7 @@ func (xs XylonaService) StartGameServer(ctx context.Context, request *connect.Re
 	)
 }
 
-func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.StartGameServerResponse], error) {
+func (xs *XylonaService) startRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.StartGameServerResponse], error) {
 	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -307,7 +307,7 @@ func (xs XylonaService) startRemoteGameServer(ctx context.Context, serverID stri
 	return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
 }
 
-func (xs XylonaService) StopGameServer(ctx context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
+func (xs *XylonaService) StopGameServer(ctx context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -331,7 +331,7 @@ func (xs XylonaService) StopGameServer(ctx context.Context, request *connect.Req
 	)
 }
 
-func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.StopGameServerResponse], error) {
+func (xs *XylonaService) stopRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.StopGameServerResponse], error) {
 	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -365,7 +365,7 @@ func (xs XylonaService) stopRemoteGameServer(ctx context.Context, serverID strin
 	return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
 }
 
-func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
+func (xs *XylonaService) ReadGameServerOutput(ctx context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -392,7 +392,7 @@ func (xs XylonaService) ReadGameServerOutput(ctx context.Context, request *conne
 	)
 }
 
-func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
+func (xs *XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -424,7 +424,7 @@ func (xs XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID
 	}), nil
 }
 
-func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error) {
+func (xs *XylonaService) SendGameServerInput(ctx context.Context, request *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -461,7 +461,7 @@ func (xs XylonaService) SendGameServerInput(ctx context.Context, request *connec
 	)
 }
 
-func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID string, input string, actingUser *models.User) (*connect.Response[xylona.SendGameServerInputResponse], error) {
+func (xs *XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID string, input string, actingUser *models.User) (*connect.Response[xylona.SendGameServerInputResponse], error) {
 	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -496,7 +496,7 @@ func (xs XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID 
 	return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
 }
 
-func (xs XylonaService) ListDirectoryFiles(ctx context.Context, request *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
+func (xs *XylonaService) ListDirectoryFiles(ctx context.Context, request *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
 	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -532,7 +532,7 @@ func (xs XylonaService) ListDirectoryFiles(ctx context.Context, request *connect
 	)
 }
 
-func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error) {
+func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error) {
 	serverID := request.Msg.GetId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -582,7 +582,7 @@ func (xs XylonaService) GetGameServer(ctx context.Context, request *connect.Requ
 	)
 }
 
-func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.GetGameServerResponse], error) {
+func (xs *XylonaService) getRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.GetGameServerResponse], error) {
 	peerNode, remoteCache, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -620,11 +620,11 @@ func (xs XylonaService) getRemoteGameServer(ctx context.Context, serverID string
 		GameId:                server.GameId,
 		Status:                server.Status,
 		Ip:                    &xylona.IP{Address: server.IpAddress},
-		Port:                  int64(server.Port),
-		QueryPort:             int64(server.QueryPort),
-		SetMaxPlayers:         int64(server.MaxPlayers),
-		MaxPlayers:            int64(server.MaxPlayers),
-		CurrentPlayerCount:    int64(server.CurrentPlayers),
+		Port:                  server.Port,
+		QueryPort:             server.QueryPort,
+		SetMaxPlayers:         server.MaxPlayers,
+		MaxPlayers:            server.MaxPlayers,
+		CurrentPlayerCount:    server.CurrentPlayers,
 		Map:                   server.MapName,
 		Version:               server.Version,
 		GameName:              server.GameName,
@@ -707,7 +707,7 @@ func getMinecraftVersion(gameServer *models.GameServer) (string, error) {
 	return minecraftVersionJSON.Name, nil
 }
 
-func (xs XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
+func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -731,7 +731,7 @@ func (xs XylonaService) UpdateGameServer(ctx context.Context, request *connect.R
 	)
 }
 
-func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {
+func (xs *XylonaService) ListGameServers(ctx context.Context, request *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {
 	user, err := xs.getUserFromHeader(request.Header())
 	if err != nil {
 		return nil, err
@@ -807,7 +807,7 @@ func (xs XylonaService) ListGameServers(ctx context.Context, request *connect.Re
 	return connect.NewResponse(response), nil
 }
 
-func (xs XylonaService) QueryGameServer(ctx context.Context, request *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
+func (xs *XylonaService) QueryGameServer(ctx context.Context, request *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -825,7 +825,7 @@ func (xs XylonaService) QueryGameServer(ctx context.Context, request *connect.Re
 			allServerQueries := xs.actionsInst.GetServerQueries()
 			queryInfo, exists := allServerQueries.Servers[gameServer.ID]
 			if !exists {
-				queryType := xylona.ServerQuery_Unknown
+				var queryType xylona.ServerQuery_Type
 				if gameServer.GameID == "minecraft" {
 					queryType = xylona.ServerQuery_Minecraft
 				} else {

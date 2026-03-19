@@ -29,12 +29,12 @@ func TestInsertGameAndGetGameByID(t *testing.T) {
 	addMissingGameColumns(t, conn)
 
 	setter := &models.GameSetter{
-		ID:               omit.From("test-game"),
-		Name:             omit.From("Test Game"),
-		DefaultPort:      omit.From(int64(27015)),
-		DefaultQueryPort: omit.From(int64(27015)),
+		ID:                omit.From("test-game"),
+		Name:              omit.From("Test Game"),
+		DefaultPort:       omit.From(int64(27015)),
+		DefaultQueryPort:  omit.From(int64(27015)),
 		DefaultMaxPlayers: omit.From(int64(32)),
-		WindowsSupport:   omit.From(true),
+		WindowsSupport:    omit.From(true),
 	}
 
 	game, errInsert := conn.InsertGame(conn.DB, setter)

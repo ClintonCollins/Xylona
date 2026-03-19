@@ -35,7 +35,7 @@ func (c *Connection) InsertSecretKey(secretKeySetter *models.LocalSecretKeySette
 }
 
 func (c *Connection) DeleteSecretKeyByID(secretKeyID int32) error {
-	_, err := c.SQLDb.Exec("delete from local_secret_keys where id = ?", secretKeyID)
+	_, err := c.SQLDb.Exec("delete from local_secret_keys where id = ?", secretKeyID) //nolint:noctx
 	if err != nil {
 		return err
 	}

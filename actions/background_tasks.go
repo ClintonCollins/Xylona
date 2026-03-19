@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ClintonCollins/Xylona/pkg/query"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/rs/zerolog/log"
-	"golang.org/x/sync/errgroup"
 )
 
 func (inst *Instance) backgroundJobQueryAllGameServers() {

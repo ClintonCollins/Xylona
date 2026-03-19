@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/aarondl/opt/omit"
@@ -73,8 +74,8 @@ func TestUpsertIPConflictDoesNothing(t *testing.T) {
 	}
 
 	ip, errSecond := conn.UpsertIP(conflictSetter)
-	if errSecond != nil {
-		t.Fatalf("UpsertIP(conflict) error = %v", errSecond)
+	if !errors.Is(errSecond, ErrIPConflict) {
+		t.Fatalf("UpsertIP(conflict) error = %v, want ErrIPConflict", errSecond)
 	}
 	if ip != nil {
 		t.Errorf("UpsertIP(conflict) = %v, want nil (DoNothing)", ip)

@@ -291,9 +291,7 @@ func (fs FederationService) ListUserSummaries(ctx context.Context, request *conn
 	}
 
 	limit := int(request.Msg.GetLimit())
-	if limit < 0 {
-		limit = 0
-	}
+	limit = max(limit, 0)
 
 	resp := &xylona.FederationListUserSummariesResponse{}
 	for _, user := range users {
@@ -989,7 +987,7 @@ func (fs FederationService) QueryRemoteServer(ctx context.Context, request *conn
 	allServerQueries := fs.actionsInst.GetServerQueries()
 	queryInfo, exists := allServerQueries.Servers[gs.ID]
 	if !exists {
-		queryType := xylona.ServerQuery_Unknown
+		var queryType xylona.ServerQuery_Type
 		if gs.GameID == "minecraft" {
 			queryType = xylona.ServerQuery_Minecraft
 		} else {

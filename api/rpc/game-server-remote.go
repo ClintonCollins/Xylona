@@ -12,7 +12,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs XylonaService) remoteFederationClient(node *models.Node, serverID string) (xylonaconnect.FederationClient, error) {
+func (xs *XylonaService) remoteFederationClient(node *models.Node, serverID string) (xylonaconnect.FederationClient, error) {
 	client, errClient := xs.newRemoteFederationClient(node)
 	if errClient != nil {
 		log.Error().
@@ -25,7 +25,7 @@ func (xs XylonaService) remoteFederationClient(node *models.Node, serverID strin
 	return client, nil
 }
 
-func (xs XylonaService) editRemoteGameServer(ctx context.Context, serverID string, gameServer *xylona.GameServer, actingUser *models.User) (*connect.Response[xylona.EditGameServerResponse], error) {
+func (xs *XylonaService) editRemoteGameServer(ctx context.Context, serverID string, gameServer *xylona.GameServer, actingUser *models.User) (*connect.Response[xylona.EditGameServerResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -61,7 +61,7 @@ func (xs XylonaService) editRemoteGameServer(ctx context.Context, serverID strin
 	}), nil
 }
 
-func (xs XylonaService) removeRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.RemoveGameServerResponse], error) {
+func (xs *XylonaService) removeRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.RemoveGameServerResponse], error) {
 	node, remoteCache, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -100,7 +100,7 @@ func (xs XylonaService) removeRemoteGameServer(ctx context.Context, serverID str
 	return connect.NewResponse(&xylona.RemoveGameServerResponse{}), nil
 }
 
-func (xs XylonaService) updateRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.UpdateGameServerResponse], error) {
+func (xs *XylonaService) updateRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.UpdateGameServerResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -133,7 +133,7 @@ func (xs XylonaService) updateRemoteGameServer(ctx context.Context, serverID str
 	return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
 }
 
-func (xs XylonaService) listRemoteDirectoryFiles(ctx context.Context, serverID string, path string, actingUser *models.User) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
+func (xs *XylonaService) listRemoteDirectoryFiles(ctx context.Context, serverID string, path string, actingUser *models.User) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -165,7 +165,7 @@ func (xs XylonaService) listRemoteDirectoryFiles(ctx context.Context, serverID s
 	}), nil
 }
 
-func (xs XylonaService) editRemoteFile(ctx context.Context, serverID string, fullFilePath string, content string, actingUser *models.User) (*connect.Response[xylona.GameServersFileEditResponse], error) {
+func (xs *XylonaService) editRemoteFile(ctx context.Context, serverID string, fullFilePath string, content string, actingUser *models.User) (*connect.Response[xylona.GameServersFileEditResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -196,7 +196,7 @@ func (xs XylonaService) editRemoteFile(ctx context.Context, serverID string, ful
 	return connect.NewResponse(&xylona.GameServersFileEditResponse{}), nil
 }
 
-func (xs XylonaService) deleteRemoteFiles(ctx context.Context, serverID string, fullFilePaths []string, actingUser *models.User) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
+func (xs *XylonaService) deleteRemoteFiles(ctx context.Context, serverID string, fullFilePaths []string, actingUser *models.User) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -228,7 +228,7 @@ func (xs XylonaService) deleteRemoteFiles(ctx context.Context, serverID string, 
 	}), nil
 }
 
-func (xs XylonaService) renameRemoteFile(ctx context.Context, serverID string, oldPath string, newPath string, actingUser *models.User) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
+func (xs *XylonaService) renameRemoteFile(ctx context.Context, serverID string, oldPath string, newPath string, actingUser *models.User) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -261,7 +261,7 @@ func (xs XylonaService) renameRemoteFile(ctx context.Context, serverID string, o
 	}), nil
 }
 
-func (xs XylonaService) moveRemoteFiles(ctx context.Context, serverID string, fullFilePaths []string, destinationBasePath string, actingUser *models.User) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
+func (xs *XylonaService) moveRemoteFiles(ctx context.Context, serverID string, fullFilePaths []string, destinationBasePath string, actingUser *models.User) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -294,7 +294,7 @@ func (xs XylonaService) moveRemoteFiles(ctx context.Context, serverID string, fu
 	}), nil
 }
 
-func (xs XylonaService) createRemoteFileOrDirectory(ctx context.Context, serverID string, fullFilePath string, content string, isDirectory bool, actingUser *models.User) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
+func (xs *XylonaService) createRemoteFileOrDirectory(ctx context.Context, serverID string, fullFilePath string, content string, isDirectory bool, actingUser *models.User) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -326,7 +326,7 @@ func (xs XylonaService) createRemoteFileOrDirectory(ctx context.Context, serverI
 	return connect.NewResponse(&xylona.GameServerFileOrDirectoryCreateResponse{}), nil
 }
 
-func (xs XylonaService) queryRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.QueryGameServerResponse], error) {
+func (xs *XylonaService) queryRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -357,7 +357,7 @@ func (xs XylonaService) queryRemoteGameServer(ctx context.Context, serverID stri
 	}), nil
 }
 
-func (xs XylonaService) downloadRemoteFileFromURL(ctx context.Context, serverID string, url string, destinationBasePath string, actingUser *models.User) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
+func (xs *XylonaService) downloadRemoteFileFromURL(ctx context.Context, serverID string, url string, destinationBasePath string, actingUser *models.User) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet

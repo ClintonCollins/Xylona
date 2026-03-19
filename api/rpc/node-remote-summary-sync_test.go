@@ -265,11 +265,8 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		cachedStatus string
 		cachedCount  int
 	)
-	errCacheStatus := conn.SQLDb.QueryRow(`
-		SELECT status
-		FROM remote_server_cache
-		WHERE source_node_id = ? AND remote_server_id = ?
-	`, node.ID, "server-1").Scan(&cachedStatus)
+	const cacheStatusQuery = `SELECT status FROM remote_server_cache WHERE source_node_id = ? AND remote_server_id = ?`
+	errCacheStatus := conn.SQLDb.QueryRow(cacheStatusQuery, node.ID, "server-1").Scan(&cachedStatus)
 	if errCacheStatus != nil {
 		t.Fatalf("failed to read cached status: %v", errCacheStatus)
 	}
@@ -277,11 +274,8 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		t.Fatalf("cached status = %q, want %q", cachedStatus, xylona.Status_ONLINE.String())
 	}
 
-	errCacheCount := conn.SQLDb.QueryRow(`
-		SELECT COUNT(*)
-		FROM remote_server_cache
-		WHERE source_node_id = ? AND remote_server_id = ?
-	`, node.ID, "server-1").Scan(&cachedCount)
+	const cacheCountQuery = `SELECT COUNT(*) FROM remote_server_cache WHERE source_node_id = ? AND remote_server_id = ?`
+	errCacheCount := conn.SQLDb.QueryRow(cacheCountQuery, node.ID, "server-1").Scan(&cachedCount)
 	if errCacheCount != nil {
 		t.Fatalf("failed to count cached rows: %v", errCacheCount)
 	}

@@ -15,7 +15,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs XylonaService) getUserFromHeader(header http.Header) (*models.User, error) {
+func (xs *XylonaService) getUserFromHeader(header http.Header) (*models.User, error) {
 	sessionCookies, errGetSession := gatekeeper.GetSessionFromHeader(header)
 	if errGetSession != nil {
 		log.Debug().Err(errGetSession).Msg("Error getting session")
@@ -30,7 +30,7 @@ func (xs XylonaService) getUserFromHeader(header http.Header) (*models.User, err
 	return user, nil
 }
 
-func (xs XylonaService) getGameServerFromID(gameServerID string) (*models.GameServer, error) {
+func (xs *XylonaService) getGameServerFromID(gameServerID string) (*models.GameServer, error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(gameServerID)
 	if errGetGameServer != nil {
 		if errors.Is(errGetGameServer, sql.ErrNoRows) {
@@ -43,7 +43,7 @@ func (xs XylonaService) getGameServerFromID(gameServerID string) (*models.GameSe
 
 // getRemoteNodeForServer looks up the remote node that owns the given server ID.
 // Returns the node and remote server cache entry, or an error.
-func (xs XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, *models.RemoteServerCache, error) {
+func (xs *XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, *models.RemoteServerCache, error) {
 	remoteCache, errGetRemote := xs.db.GetRemoteServerCacheByRemoteServerID(serverID)
 	if errGetRemote != nil {
 		if errors.Is(errGetRemote, db.ErrAmbiguousRemoteServerCache) {
@@ -80,7 +80,7 @@ func (xs XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, *
 }
 
 // newRemoteFederationClient creates a federation client for the given node using mTLS and pinned fingerprint trust.
-func (xs XylonaService) newRemoteFederationClient(node *models.Node) (xylonaconnect.FederationClient, error) {
+func (xs *XylonaService) newRemoteFederationClient(node *models.Node) (xylonaconnect.FederationClient, error) {
 	if xs.federationMTLS == nil {
 		return nil, errors.New("federation mTLS is not configured")
 	}
@@ -99,7 +99,7 @@ func (xs XylonaService) newRemoteFederationClient(node *models.Node) (xylonaconn
 	return xylonaconnect.NewFederationClient(httpClient, federationBaseURL), nil
 }
 
-func (xs XylonaService) remoteFederationPort(node *models.Node) int {
+func (xs *XylonaService) remoteFederationPort(node *models.Node) int {
 	if node != nil && node.Port > 0 {
 		return int(node.Port)
 	}

@@ -77,7 +77,6 @@ func TestGetRemoteServerCacheByRemoteServerID(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			dbPath := filepath.Join(t.TempDir(), "remote-server-cache-lookup.sqlite")
 			conn := NewConnection(context.Background(), dbPath)
@@ -300,6 +299,7 @@ func TestUpdateRemoteServerCacheStatusMarksRowFresh(t *testing.T) {
 		isStale      bool
 		updatedAt    time.Time
 	)
+
 	errQueryUpdated := conn.SQLDb.QueryRow(`
 		SELECT status, last_synced_at, is_stale, updated_at
 		FROM remote_server_cache
@@ -327,6 +327,7 @@ func TestUpdateRemoteServerCacheStatusMarksRowFresh(t *testing.T) {
 		unchangedLastSyncedAt sql.NullTime
 		unchangedIsStale      bool
 	)
+
 	errQueryUnchanged := conn.SQLDb.QueryRow(`
 		SELECT status, last_synced_at, is_stale
 		FROM remote_server_cache

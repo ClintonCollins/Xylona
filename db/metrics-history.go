@@ -67,7 +67,7 @@ func (c *Connection) GetNodeMetricsHistory(nodeID string, since, until time.Time
 	if errQuery != nil {
 		return nil, errQuery
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*NodeMetricsRow
 	for rows.Next() {
@@ -94,7 +94,7 @@ func (c *Connection) GetGameServerMetricsHistory(gameServerID string, since, unt
 	if errQuery != nil {
 		return nil, errQuery
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*GameServerMetricsRow
 	for rows.Next() {

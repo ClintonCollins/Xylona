@@ -66,7 +66,7 @@ func TestGetAllNodes(t *testing.T) {
 			Name:    omit.From("Node " + id),
 			IsLocal: omit.From(false),
 			Host:    omit.From("localhost"),
-			Port:    omit.From(int32(8080 + int32(i))),
+			Port:    omit.From(8080 + int32(i)),
 			BaseURL: omit.From("http://localhost:" + fmt.Sprintf("%d", 8080+i)),
 			Enabled: omit.From(true),
 		}

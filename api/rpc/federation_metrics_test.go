@@ -39,15 +39,15 @@ func TestGetServerDetailPopulatesMetricsFromSupervisor(t *testing.T) {
 
 	// Known metric values to inject.
 	var (
-		wantCPUPercent      float64 = 42.5
+		wantCPUPercent              = 42.5
 		wantMemoryRSS       uint64  = 134217728 // 128 MiB working set
 		wantMemoryVMS       uint64  = 268435456 // 256 MiB private committed
 		wantMemoryPercent   float32 = 3.14
 		wantCPUCores        int32   = 8
 		wantNumThreads      int32   = 16
 		wantDiskUsageBytes  uint64  = 1073741824 // 1 GiB
-		wantIOReadRate      float64 = 1024.0
-		wantIOWriteRate     float64 = 512.0
+		wantIOReadRate              = 1024.0
+		wantIOWriteRate             = 512.0
 		wantConnectionCount int32   = 7
 	)
 
@@ -398,15 +398,15 @@ func TestListServerSummariesPopulatesMetrics(t *testing.T) {
 	}
 
 	var (
-		wantCPUPercent      float64 = 55.0
+		wantCPUPercent              = 55.0
 		wantMemoryRSS       uint64  = 67108864  // 64 MiB
 		wantMemoryVMS       uint64  = 134217728 // 128 MiB
 		wantMemoryPercent   float32 = 1.5
 		wantCPUCores        int32   = 4
 		wantNumThreads      int32   = 8
 		wantDiskUsageBytes  uint64  = 536870912 // 512 MiB
-		wantIOReadRate      float64 = 2048.0
-		wantIOWriteRate     float64 = 1024.0
+		wantIOReadRate              = 2048.0
+		wantIOWriteRate             = 1024.0
 		wantConnectionCount int32   = 3
 	)
 	startedAt := time.Now().Unix() - 60

@@ -28,8 +28,8 @@ type Version struct {
 
 type VersionManifestJSON struct {
 	Arguments struct {
-		Game []interface{} `json:"game"`
-		Jvm  []interface{} `json:"jvm"`
+		Game []any `json:"game"`
+		Jvm  []any `json:"jvm"`
 	} `json:"arguments"`
 	AssetIndex struct {
 		Id        string `json:"id"`
@@ -81,42 +81,42 @@ type VersionManifestJSON struct {
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
 					Url  string `json:"url"`
-				} `json:"natives-macos,omitempty"`
+				} `json:"natives-macos,omitzero"`
 				NativesLinux struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
 					Url  string `json:"url"`
-				} `json:"natives-linux,omitempty"`
+				} `json:"natives-linux,omitzero"`
 				NativesWindows struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
 					Url  string `json:"url"`
-				} `json:"natives-windows,omitempty"`
+				} `json:"natives-windows,omitzero"`
 				NativesOsx struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
 					Url  string `json:"url"`
-				} `json:"natives-osx,omitempty"`
-			} `json:"classifiers,omitempty"`
+				} `json:"natives-osx,omitzero"`
+			} `json:"classifiers,omitzero"`
 		} `json:"downloads"`
 		Name  string `json:"name"`
 		Rules []struct {
 			Action string `json:"action"`
 			Os     struct {
 				Name string `json:"name"`
-			} `json:"os,omitempty"`
+			} `json:"os,omitzero"`
 		} `json:"rules,omitempty"`
 		Natives struct {
 			Osx     string `json:"osx,omitempty"`
 			Linux   string `json:"linux,omitempty"`
 			Windows string `json:"windows,omitempty"`
-		} `json:"natives,omitempty"`
+		} `json:"natives,omitzero"`
 		Extract struct {
 			Exclude []string `json:"exclude"`
-		} `json:"extract,omitempty"`
+		} `json:"extract,omitzero"`
 	} `json:"libraries"`
 	Logging struct {
 		Client struct {

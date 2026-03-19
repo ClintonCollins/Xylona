@@ -40,7 +40,7 @@ func startNode(name, workDir, xylonaExe string, httpPort, fedPort int) (*exec.Cm
 		return nil, errJWT
 	}
 
-	cmd := exec.Command(xylonaExe)
+	cmd := exec.Command(xylonaExe) //nolint:noctx
 	cmd.Dir = workDir
 	cmd.Env = append(os.Environ(),
 		"DB_FILE_PATH="+filepath.Join(workDir, "data.sqlite"),
@@ -106,7 +106,7 @@ func killByPIDFile(pidFile, label string) {
 	log.Info().Msgf("[Federation Teardown] Killing %s (PID %d)...", label, pid)
 
 	// On Windows, use taskkill to kill the process tree.
-	killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T")
+	killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T") //nolint:noctx
 	errKill := killCmd.Run()
 	if errKill != nil {
 		// Fallback: try os.Process.Kill.
@@ -130,7 +130,7 @@ func waitForReady(ctx context.Context, url string, timeout time.Duration) error 
 		default:
 		}
 
-		resp, errGet := client.Get(url)
+		resp, errGet := client.Get(url) //nolint:noctx // health check polling, context not needed
 		if errGet == nil {
 			_ = resp.Body.Close()
 			// Any response means the server is up.

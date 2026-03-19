@@ -190,7 +190,7 @@ func CreateJWT(username, email, jwtID string, expiration time.Time, secretKey []
 }
 
 func ParseJWT(tokenString string, secretKey []byte) (*JWTClaims, error) {
-	token, errParse := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, errParse := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (any, error) {
 		_, ok := token.Method.(*jwt.SigningMethodHMAC)
 		if !ok {
 			return nil, jwt.ErrTokenSignatureInvalid

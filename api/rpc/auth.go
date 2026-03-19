@@ -21,7 +21,7 @@ import (
 
 const defaultSessionDuration = 30 * 24 * time.Hour
 
-func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
+func (xs *XylonaService) CheckUserAuthenticated(ctx context.Context, request *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
 	sessionUnauthenticatedResponse := &connect.Response[xylona.CheckUserAuthenticatedResponse]{
 		Msg: &xylona.CheckUserAuthenticatedResponse{
 			Authenticated: false,
@@ -30,7 +30,7 @@ func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *con
 
 	user, err := xs.getUserFromHeader(request.Header())
 	if err != nil {
-		return sessionUnauthenticatedResponse, nil
+		return sessionUnauthenticatedResponse, nil //nolint:nilerr // intentionally returning unauthenticated response instead of propagating the auth error
 	}
 
 	return &connect.Response[xylona.CheckUserAuthenticatedResponse]{
@@ -50,7 +50,7 @@ func (xs XylonaService) CheckUserAuthenticated(ctx context.Context, request *con
 	}, nil
 }
 
-func (xs XylonaService) Login(ctx context.Context, request *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error) {
+func (xs *XylonaService) Login(ctx context.Context, request *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error) {
 	userName := request.Msg.GetUserName()
 	password := request.Msg.GetPassword()
 
@@ -127,7 +127,7 @@ func (xs XylonaService) Login(ctx context.Context, request *connect.Request[xylo
 	return resp, nil
 }
 
-func (xs XylonaService) Logout(ctx context.Context, request *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error) {
+func (xs *XylonaService) Logout(ctx context.Context, request *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error) {
 	sessionCookies, errGetSession := gatekeeper.GetSessionFromHeader(request.Header())
 	if errGetSession == nil {
 		errDeleteSession := xs.db.DeleteUserSession(sessionCookies.SessionID)

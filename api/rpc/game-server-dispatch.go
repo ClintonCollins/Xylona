@@ -32,7 +32,7 @@ func dispatchLocalOrRemote[T any](
 }
 
 func dispatchGameServerRequest[T any](
-	xs XylonaService,
+	xs *XylonaService,
 	serverID string,
 	localHandler func(*models.GameServer) (*connect.Response[T], error),
 	remoteHandler func() (*connect.Response[T], error),

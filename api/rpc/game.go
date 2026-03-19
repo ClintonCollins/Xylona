@@ -12,7 +12,7 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-func (xs XylonaService) GetGame(ctx context.Context, request *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {
+func (xs *XylonaService) GetGame(ctx context.Context, request *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -32,7 +32,7 @@ func (xs XylonaService) GetGame(ctx context.Context, request *connect.Request[xy
 	return resp, nil
 }
 
-func (xs XylonaService) ListGames(ctx context.Context, request *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
+func (xs *XylonaService) ListGames(ctx context.Context, request *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -61,7 +61,7 @@ func (xs XylonaService) ListGames(ctx context.Context, request *connect.Request[
 	return resp, nil
 }
 
-func (xs XylonaService) AddGame(_ context.Context, request *connect.Request[xylona.AddGameRequest]) (*connect.Response[xylona.AddGameResponse], error) {
+func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xylona.AddGameRequest]) (*connect.Response[xylona.AddGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -84,7 +84,7 @@ func (xs XylonaService) AddGame(_ context.Context, request *connect.Request[xylo
 	return resp, nil
 }
 
-func (xs XylonaService) EditGame(_ context.Context, request *connect.Request[xylona.EditGameRequest]) (*connect.Response[xylona.EditGameResponse], error) {
+func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xylona.EditGameRequest]) (*connect.Response[xylona.EditGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -117,7 +117,7 @@ func (xs XylonaService) EditGame(_ context.Context, request *connect.Request[xyl
 	return resp, nil
 }
 
-func (xs XylonaService) RemoveGame(ctx context.Context, request *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error) {
+func (xs *XylonaService) RemoveGame(ctx context.Context, request *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -147,14 +147,14 @@ func (xs XylonaService) RemoveGame(ctx context.Context, request *connect.Request
 	return &connect.Response[xylona.RemoveGameResponse]{Msg: &xylona.RemoveGameResponse{}}, nil
 }
 
-func (xs XylonaService) ImportGame(_ context.Context, _ *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error) {
+func (xs *XylonaService) ImportGame(_ context.Context, _ *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
 }
 
-func (xs XylonaService) ExportGame(_ context.Context, _ *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
+func (xs *XylonaService) ExportGame(_ context.Context, _ *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
 }
 
-func (xs XylonaService) GetBranches(_ context.Context, _ *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
+func (xs *XylonaService) GetBranches(_ context.Context, _ *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
 }

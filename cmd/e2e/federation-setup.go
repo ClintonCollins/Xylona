@@ -177,7 +177,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		pairResp, errPair := clientA.rpc.PairNode(ctx, connect.NewRequest(&xylona.PairNodeRequest{
 			RemoteBaseUrl:          nodeBURL,
 			RemoteSecretKey:        pairingResp.Msg.PairingToken,
-			RemoteMtlsPort:        pairingResp.Msg.MtlsPort,
+			RemoteMtlsPort:         pairingResp.Msg.MtlsPort,
 			LocalBaseUrl:           nodeAURL,
 			RemoteName:             "Node B",
 			LocalName:              "Node A",
@@ -391,7 +391,7 @@ func killProcess(cmd *exec.Cmd) {
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
-	killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(cmd.Process.Pid), "/F", "/T")
+	killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(cmd.Process.Pid), "/F", "/T") //nolint:noctx
 	errKill := killCmd.Run()
 	if errKill != nil {
 		_ = cmd.Process.Kill()

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -25,7 +26,7 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
 		os.Exit(1)
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 
 	binaryName := "dummy_game_server_qa"
 	if runtime.GOOS == "windows" {
@@ -37,7 +38,7 @@ func TestMain(m *testing.M) {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to build binary: %v\n", err)
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // standard TestMain exit; defer cleanup is intentionally skipped on build failure
 	}
 
 	os.Exit(m.Run())
@@ -54,7 +55,8 @@ func runServer(t *testing.T, stdin string, args ...string) (stdout, stderr strin
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			t.Fatalf("unexpected error running server: %v", err)
@@ -81,7 +83,8 @@ func runServerWithPipe(t *testing.T, args ...string) (stdinWriter io.WriteCloser
 	return stdinPipe, &outBuf, &errBuf, func() int {
 		err := cmd.Wait()
 		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
 				return exitErr.ExitCode()
 			}
 		}
@@ -137,7 +140,6 @@ func TestEchoCommand(t *testing.T) {
 		{name: "no argument", input: "echo\nstop\n", want: ""},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			stdout, _, exitCode := runServer(t, tt.input, "-heartbeat=0")
 			if exitCode != 0 {
@@ -186,9 +188,9 @@ func TestStatusCommand(t *testing.T) {
 func TestStatusUptimeIncreases(t *testing.T) {
 	stdin, _, _, wait := runServerWithPipe(t, "-heartbeat=0")
 	time.Sleep(250 * time.Millisecond)
-	fmt.Fprintln(stdin, "status")
-	fmt.Fprintln(stdin, "stop")
-	stdin.Close()
+	_, _ = fmt.Fprintln(stdin, "status")
+	_, _ = fmt.Fprintln(stdin, "stop")
+	_ = stdin.Close()
 	wait()
 
 	// Re-run with proper output capture.
@@ -226,7 +228,6 @@ func TestStderrCommand(t *testing.T) {
 		{name: "no argument", msg: "", wantMsg: ""},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			var input string
 			if tt.msg != "" {
@@ -290,7 +291,6 @@ func TestUnknownCommand(t *testing.T) {
 		{name: "numeric", cmd: "12345"},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			input := fmt.Sprintf("%s\nstop\n", tt.cmd)
 			stdout, _, exitCode := runServer(t, input, "-heartbeat=0")
@@ -308,8 +308,8 @@ func TestUnknownCommand(t *testing.T) {
 func TestHeartbeatEnabled(t *testing.T) {
 	stdin, stdoutBuf, _, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(350 * time.Millisecond)
-	fmt.Fprintln(stdin, "stop")
-	stdin.Close()
+	_, _ = fmt.Fprintln(stdin, "stop")
+	_ = stdin.Close()
 	exitCode := wait()
 	if exitCode != 0 {
 		t.Errorf("heartbeat: expected exit code 0, got %d", exitCode)
@@ -339,8 +339,8 @@ func TestHeartbeatEnabled(t *testing.T) {
 func TestHeartbeatDisabled(t *testing.T) {
 	stdin, stdoutBuf, _, wait := runServerWithPipe(t, "-heartbeat=0")
 	time.Sleep(200 * time.Millisecond)
-	fmt.Fprintln(stdin, "stop")
-	stdin.Close()
+	_, _ = fmt.Fprintln(stdin, "stop")
+	_ = stdin.Close()
 	exitCode := wait()
 	if exitCode != 0 {
 		t.Errorf("heartbeat disabled: expected exit code 0, got %d", exitCode)
@@ -361,8 +361,8 @@ func TestHeartbeatDefaultIs5s(t *testing.T) {
 	stdin, stdoutBuf, _, wait := runServerWithPipe(t)
 	// After 5.5s at least one heartbeat should have fired.
 	time.Sleep(5500 * time.Millisecond)
-	fmt.Fprintln(stdin, "stop")
-	stdin.Close()
+	_, _ = fmt.Fprintln(stdin, "stop")
+	_ = stdin.Close()
 	exitCode := wait()
 	if exitCode != 0 {
 		t.Errorf("default heartbeat: expected exit code 0, got %d", exitCode)
@@ -383,8 +383,8 @@ func TestHeartbeatDefaultIs5s(t *testing.T) {
 func TestHeartbeatPIDMatchesBanner(t *testing.T) {
 	stdin, stdoutBuf, _, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(250 * time.Millisecond)
-	fmt.Fprintln(stdin, "stop")
-	stdin.Close()
+	_, _ = fmt.Fprintln(stdin, "stop")
+	_ = stdin.Close()
 	wait()
 	stdout := stdoutBuf.(*bytes.Buffer).String()
 	var bannerPID, heartbeatPID string
@@ -446,7 +446,6 @@ func TestEOFShutdown(t *testing.T) {
 		{name: "blank line then EOF", stdin: "\n"},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			stdout, _, exitCode := runServer(t, tt.stdin, "-heartbeat=0")
 			if exitCode != 0 {
@@ -482,7 +481,6 @@ func TestCommandCaseSensitivity(t *testing.T) {
 		{"uppercase CRASH", "CRASH"},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			input := fmt.Sprintf("%s\nstop\n", tt.cmd)
 			stdout, _, exitCode := runServer(t, input, "-heartbeat=0")
@@ -542,8 +540,8 @@ func TestScannerBufferOverflow(t *testing.T) {
 func TestHeartbeatUptimeMonotonic(t *testing.T) {
 	stdin, stdoutBuf, _, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(500 * time.Millisecond)
-	fmt.Fprintln(stdin, "stop")
-	stdin.Close()
+	_, _ = fmt.Fprintln(stdin, "stop")
+	_ = stdin.Close()
 	wait()
 	stdout := stdoutBuf.(*bytes.Buffer).String()
 
@@ -614,7 +612,8 @@ func TestInvalidFlagExitsNonZero(t *testing.T) {
 	if err == nil {
 		t.Error("expected non-zero exit for invalid flag, got exit 0")
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		if exitErr.ExitCode() == 0 {
 			t.Errorf("expected non-zero exit code, got 0")
 		}
@@ -623,16 +622,12 @@ func TestInvalidFlagExitsNonZero(t *testing.T) {
 
 // extractField extracts the value after a key= prefix up to the next space or end.
 func extractField(line, key string) string {
-	idx := strings.Index(line, key)
-	if idx == -1 {
+	_, rest, found := strings.Cut(line, key)
+	if !found {
 		return ""
 	}
-	rest := line[idx+len(key):]
-	spaceIdx := strings.Index(rest, " ")
-	if spaceIdx == -1 {
-		return rest
-	}
-	return rest[:spaceIdx]
+	before, _, _ := strings.Cut(rest, " ")
+	return before
 }
 
 // nonEmptyLines returns non-empty lines from a string.
