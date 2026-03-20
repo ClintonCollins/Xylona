@@ -2,25 +2,29 @@ package db
 
 import (
 	"testing"
+
+	"github.com/aarondl/opt/omit"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func TestInsertAndListFederationAdvisories(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "advisory-insert.sqlite")
 
-	advisory := FederationAdvisory{
-		ID:                 "adv-001",
-		Type:               "NODE_AUTO_PAIRED",
-		Title:              "Node auto-paired",
-		Message:            "us-west-2 was auto-paired via introduction from eu-central-1",
-		SourceNodeID:       "source-id",
-		SourceNodeName:     "eu-central-1",
-		SubjectNodeID:      "subject-id",
-		SubjectNodeName:    "us-west-2",
-		SubjectNodeBaseURL: "https://us-west-2.example.com",
-		Read:               false,
+	setter := &models.FederationAdvisorySetter{
+		ID:                 omit.From("adv-001"),
+		Type:               omit.From("NODE_AUTO_PAIRED"),
+		Title:              omit.From("Node auto-paired"),
+		Message:            omit.From("us-west-2 was auto-paired via introduction from eu-central-1"),
+		SourceNodeID:       omit.From("source-id"),
+		SourceNodeName:     omit.From("eu-central-1"),
+		SubjectNodeID:      omit.From("subject-id"),
+		SubjectNodeName:    omit.From("us-west-2"),
+		SubjectNodeBaseURL: omit.From("https://us-west-2.example.com"),
+		Read:               omit.From(false),
 	}
 
-	errInsert := conn.InsertFederationAdvisory(advisory)
+	_, errInsert := conn.InsertFederationAdvisory(setter)
 	if errInsert != nil {
 		t.Fatalf("InsertFederationAdvisory() error = %v", errInsert)
 	}
@@ -53,14 +57,16 @@ func TestListFederationAdvisories_UnreadFilter(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "advisory-unread-filter.sqlite")
 
 	// Insert one read and one unread advisory.
-	errInsert := conn.InsertFederationAdvisory(FederationAdvisory{
-		ID: "adv-read", Type: "NODE_AUTO_PAIRED", Title: "Read", Message: "Already read", Read: true,
+	_, errInsert := conn.InsertFederationAdvisory(&models.FederationAdvisorySetter{
+		ID: omit.From("adv-read"), Type: omit.From("NODE_AUTO_PAIRED"), Title: omit.From("Read"),
+		Message: omit.From("Already read"), Read: omit.From(true),
 	})
 	if errInsert != nil {
 		t.Fatalf("InsertFederationAdvisory() error = %v", errInsert)
 	}
-	errInsert = conn.InsertFederationAdvisory(FederationAdvisory{
-		ID: "adv-unread", Type: "NODE_DEPARTED", Title: "Unread", Message: "Not yet read", Read: false,
+	_, errInsert = conn.InsertFederationAdvisory(&models.FederationAdvisorySetter{
+		ID: omit.From("adv-unread"), Type: omit.From("NODE_DEPARTED"), Title: omit.From("Unread"),
+		Message: omit.From("Not yet read"), Read: omit.From(false),
 	})
 	if errInsert != nil {
 		t.Fatalf("InsertFederationAdvisory() error = %v", errInsert)
@@ -95,8 +101,9 @@ func TestListFederationAdvisories_Pagination(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "advisory-pagination.sqlite")
 
 	for i := range 5 {
-		errInsert := conn.InsertFederationAdvisory(FederationAdvisory{
-			ID: "adv-" + string(rune('a'+i)), Type: "NODE_AUTO_PAIRED", Title: "Advisory", Message: "Message",
+		_, errInsert := conn.InsertFederationAdvisory(&models.FederationAdvisorySetter{
+			ID: omit.From("adv-" + string(rune('a'+i))), Type: omit.From("NODE_AUTO_PAIRED"),
+			Title: omit.From("Advisory"), Message: omit.From("Message"),
 		})
 		if errInsert != nil {
 			t.Fatalf("InsertFederationAdvisory() error = %v", errInsert)
@@ -127,8 +134,9 @@ func TestMarkAdvisoriesReadAndCount(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "advisory-read.sqlite")
 
 	for _, id := range []string{"adv-a", "adv-b"} {
-		errInsert := conn.InsertFederationAdvisory(FederationAdvisory{
-			ID: id, Type: "NODE_AUTO_PAIRED", Title: "Test", Message: "Test message",
+		_, errInsert := conn.InsertFederationAdvisory(&models.FederationAdvisorySetter{
+			ID: omit.From(id), Type: omit.From("NODE_AUTO_PAIRED"),
+			Title: omit.From("Test"), Message: omit.From("Test message"),
 		})
 		if errInsert != nil {
 			t.Fatalf("InsertFederationAdvisory(%s) error = %v", id, errInsert)
@@ -161,8 +169,9 @@ func TestMarkAllAdvisoriesRead(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "advisory-markall.sqlite")
 
 	for _, id := range []string{"adv-x", "adv-y", "adv-z"} {
-		errInsert := conn.InsertFederationAdvisory(FederationAdvisory{
-			ID: id, Type: "NODE_DEPARTED", Title: "Test", Message: "Test",
+		_, errInsert := conn.InsertFederationAdvisory(&models.FederationAdvisorySetter{
+			ID: omit.From(id), Type: omit.From("NODE_DEPARTED"),
+			Title: omit.From("Test"), Message: omit.From("Test"),
 		})
 		if errInsert != nil {
 			t.Fatalf("InsertFederationAdvisory(%s) error = %v", id, errInsert)
@@ -183,8 +192,9 @@ func TestMarkAllAdvisoriesRead(t *testing.T) {
 	}
 
 	// Also test with empty slice.
-	errInsert := conn.InsertFederationAdvisory(FederationAdvisory{
-		ID: "adv-new", Type: "NODE_AUTO_PAIRED", Title: "New", Message: "Fresh",
+	_, errInsert := conn.InsertFederationAdvisory(&models.FederationAdvisorySetter{
+		ID: omit.From("adv-new"), Type: omit.From("NODE_AUTO_PAIRED"),
+		Title: omit.From("New"), Message: omit.From("Fresh"),
 	})
 	if errInsert != nil {
 		t.Fatalf("InsertFederationAdvisory() error = %v", errInsert)

@@ -3,95 +3,66 @@ package db
 import (
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/aarondl/opt/omit"
 	"github.com/stephenafamo/bob/dialect/sqlite"
+	"github.com/stephenafamo/bob/dialect/sqlite/sm"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// FederationAdvisory represents a federation advisory record.
-// NOTE: This is a temporary hand-written struct. Once bob is upgraded to a
-// version that compiles on Go 1.26, regenerate models and switch to
-// *models.FederationAdvisory / *models.FederationAdvisorySetter.
-type FederationAdvisory struct {
-	ID                 string
-	Type               string
-	Title              string
-	Message            string
-	SourceNodeID       string
-	SourceNodeName     string
-	SubjectNodeID      string
-	SubjectNodeName    string
-	SubjectNodeBaseURL string
-	Read               bool
-	CreatedAt          time.Time
-}
-
 // InsertFederationAdvisory inserts a new federation advisory record.
-func (c *Connection) InsertFederationAdvisory(advisory FederationAdvisory) error {
-	_, errInsert := sqlite.RawQuery(
-		`INSERT INTO federation_advisory
-			(id, type, title, message, source_node_id, source_node_name,
-			 subject_node_id, subject_node_name, subject_node_base_url, read)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		advisory.ID,
-		advisory.Type,
-		advisory.Title,
-		advisory.Message,
-		advisory.SourceNodeID,
-		advisory.SourceNodeName,
-		advisory.SubjectNodeID,
-		advisory.SubjectNodeName,
-		advisory.SubjectNodeBaseURL,
-		advisory.Read,
-	).Exec(c.ctx, c.DB)
-	return errInsert
+func (c *Connection) InsertFederationAdvisory(setter *models.FederationAdvisorySetter) (*models.FederationAdvisory, error) {
+	advisory, errInsert := models.FederationAdvisories.Insert(setter).One(c.ctx, c.DB)
+	if errInsert != nil {
+		return nil, errInsert
+	}
+	return advisory, nil
 }
 
 // ListFederationAdvisories returns federation advisories with optional unread
 // filter and pagination. Returns the matching advisories and total count.
-func (c *Connection) ListFederationAdvisories(unreadOnly bool, limit, offset int) ([]FederationAdvisory, int, error) {
-	// Count total matching rows.
-	countQuery := `SELECT COUNT(*) FROM federation_advisory`
+func (c *Connection) ListFederationAdvisories(unreadOnly bool, limit, offset int) ([]*models.FederationAdvisory, int64, error) {
 	if unreadOnly {
-		countQuery += ` WHERE read = 0`
+		return c.listAdvisoriesFiltered(limit, offset)
 	}
-	var total int
-	errCount := c.SQLDb.QueryRowContext(c.ctx, countQuery).Scan(&total)
+	return c.listAdvisoriesAll(limit, offset)
+}
+
+func (c *Connection) listAdvisoriesAll(limit, offset int) ([]*models.FederationAdvisory, int64, error) {
+	total, errCount := models.FederationAdvisories.Query().Count(c.ctx, c.DB)
 	if errCount != nil {
 		return nil, 0, errCount
 	}
 
-	// Fetch paginated results.
-	selectQuery := `SELECT id, type, title, message, source_node_id, source_node_name,
-		subject_node_id, subject_node_name, subject_node_base_url, read, created_at
-		FROM federation_advisory`
-	if unreadOnly {
-		selectQuery += ` WHERE read = 0`
-	}
-	selectQuery += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
-
-	rows, errQuery := c.SQLDb.QueryContext(c.ctx, selectQuery, limit, offset)
+	advisories, errQuery := models.FederationAdvisories.Query(
+		sm.OrderBy(models.FederationAdvisories.Columns.CreatedAt).Desc(),
+		sm.Limit(limit),
+		sm.Offset(offset),
+	).All(c.ctx, c.DB)
 	if errQuery != nil {
 		return nil, 0, errQuery
 	}
-	defer rows.Close()
 
-	var advisories []FederationAdvisory
-	for rows.Next() {
-		var a FederationAdvisory
-		errScan := rows.Scan(
-			&a.ID, &a.Type, &a.Title, &a.Message,
-			&a.SourceNodeID, &a.SourceNodeName,
-			&a.SubjectNodeID, &a.SubjectNodeName, &a.SubjectNodeBaseURL,
-			&a.Read, &a.CreatedAt,
-		)
-		if errScan != nil {
-			return nil, 0, errScan
-		}
-		advisories = append(advisories, a)
+	return advisories, total, nil
+}
+
+func (c *Connection) listAdvisoriesFiltered(limit, offset int) ([]*models.FederationAdvisory, int64, error) {
+	unreadFilter := models.SelectWhere.FederationAdvisories.Read.EQ(false)
+
+	total, errCount := models.FederationAdvisories.Query(unreadFilter).Count(c.ctx, c.DB)
+	if errCount != nil {
+		return nil, 0, errCount
 	}
-	if errRows := rows.Err(); errRows != nil {
-		return nil, 0, errRows
+
+	advisories, errQuery := models.FederationAdvisories.Query(
+		unreadFilter,
+		sm.OrderBy(models.FederationAdvisories.Columns.CreatedAt).Desc(),
+		sm.Limit(limit),
+		sm.Offset(offset),
+	).All(c.ctx, c.DB)
+	if errQuery != nil {
+		return nil, 0, errQuery
 	}
 
 	return advisories, total, nil
@@ -100,10 +71,15 @@ func (c *Connection) ListFederationAdvisories(unreadOnly bool, limit, offset int
 // MarkAdvisoriesRead marks advisories as read. If ids is nil or empty, all
 // advisories are marked as read. Otherwise only the specified IDs are updated.
 func (c *Connection) MarkAdvisoriesRead(ids []string) error {
+	readSetter := models.FederationAdvisorySetter{
+		Read: omit.From(true),
+	}
+
 	if len(ids) == 0 {
-		_, errExec := sqlite.RawQuery(
-			`UPDATE federation_advisory SET read = 1 WHERE read = 0`,
-		).Exec(c.ctx, c.DB)
+		_, errExec := models.FederationAdvisories.Update(
+			readSetter.UpdateMod(),
+			models.UpdateWhere.FederationAdvisories.Read.EQ(false),
+		).All(c.ctx, c.DB)
 		return errExec
 	}
 
@@ -123,13 +99,12 @@ func (c *Connection) MarkAdvisoriesRead(ids []string) error {
 }
 
 // GetUnreadAdvisoryCount returns the number of unread federation advisories.
-func (c *Connection) GetUnreadAdvisoryCount() (int, error) {
-	var count int
-	errQuery := c.SQLDb.QueryRowContext(c.ctx,
-		`SELECT COUNT(*) FROM federation_advisory WHERE read = 0`,
-	).Scan(&count)
-	if errQuery != nil {
-		return 0, errQuery
+func (c *Connection) GetUnreadAdvisoryCount() (int64, error) {
+	count, errCount := models.FederationAdvisories.Query(
+		models.SelectWhere.FederationAdvisories.Read.EQ(false),
+	).Count(c.ctx, c.DB)
+	if errCount != nil {
+		return 0, errCount
 	}
 	return count, nil
 }
