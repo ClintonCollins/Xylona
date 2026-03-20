@@ -31,6 +31,7 @@
               <q-icon name="search" />
             </template>
           </q-input>
+          <q-btn flat color="primary" to="/nodes/activity" label="Activity" icon="notifications" />
           <q-btn color="primary" to="/nodes/add" label="Add Node" />
         </div>
       </div>
@@ -53,6 +54,7 @@
               </a>
               <q-badge v-if="props.row.local" color="primary" class="q-ml-sm" label="local" />
               <q-badge v-else color="purple" class="q-ml-sm" label="remote" />
+              <q-badge v-if="props.row.autoPaired" color="cyan" class="q-ml-xs" label="auto" />
             </q-td>
           </template>
           <template v-slot:body-cell-health="props">

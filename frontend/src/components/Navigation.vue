@@ -39,7 +39,15 @@
           </q-item-section>
 
           <q-item-section>
-            <q-item-label>{{ link.title }}</q-item-label>
+            <q-item-label>
+              {{ link.title }}
+              <q-badge
+                v-if="link.title === 'Nodes' && unreadAdvisoryCount > 0"
+                color="primary"
+                floating
+                rounded
+                :label="unreadAdvisoryCount" />
+            </q-item-label>
           </q-item-section>
         </q-item>
         <q-expansion-item v-else v-model="link.expanded" :icon="link.icon" :label="link.title">
@@ -65,12 +73,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { create } from '@bufbuild/protobuf'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ionGameController, ionHome, ionPeople, ionServer } from '@quasar/extras/ionicons-v7'
 import { laServerSolid } from '@quasar/extras/line-awesome'
 import { useRoute, useRouter } from 'vue-router'
-import { User } from '@/proto/xylona_pb'
+import { GetUnreadAdvisoryCountRequestSchema, User } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
+import { GetXylonaClient } from '@/utils/shared'
 
 const store = useUserAuthStore()
 const user = computed(() => store.user as User | null)
@@ -159,6 +169,34 @@ const navLinks = computed((): NavItem[] => {
 })
 
 const leftDrawerOpen = ref(false)
+const unreadAdvisoryCount = ref(0)
+let advisoryPollTimer: ReturnType<typeof setInterval> | null = null
+
+async function fetchUnreadAdvisoryCount() {
+  if (!store.user?.superUser) return
+  try {
+    const resp = await GetXylonaClient().getUnreadAdvisoryCount(
+      create(GetUnreadAdvisoryCountRequestSchema, {}),
+    )
+    unreadAdvisoryCount.value = resp.count
+  } catch {
+    // Silently ignore — badge is non-critical
+  }
+}
+
+onMounted(() => {
+  void fetchUnreadAdvisoryCount()
+  advisoryPollTimer = setInterval(() => {
+    void fetchUnreadAdvisoryCount()
+  }, 60_000)
+})
+
+onBeforeUnmount(() => {
+  if (advisoryPollTimer) {
+    clearInterval(advisoryPollTimer)
+    advisoryPollTimer = null
+  }
+})
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value

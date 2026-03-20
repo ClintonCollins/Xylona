@@ -6037,6 +6037,475 @@ func (x *GetGameServerMetricsHistoryResponse) GetPoints() []*GameServerMetricsHi
 	return nil
 }
 
+// Federation Mesh
+type LeaveFederationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveFederationRequest) Reset() {
+	*x = LeaveFederationRequest{}
+	mi := &file_xylona_proto_msgTypes[119]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveFederationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveFederationRequest) ProtoMessage() {}
+
+func (x *LeaveFederationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[119]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveFederationRequest.ProtoReflect.Descriptor instead.
+func (*LeaveFederationRequest) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{119}
+}
+
+type LeaveFederationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveFederationResponse) Reset() {
+	*x = LeaveFederationResponse{}
+	mi := &file_xylona_proto_msgTypes[120]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveFederationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveFederationResponse) ProtoMessage() {}
+
+func (x *LeaveFederationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[120]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveFederationResponse.ProtoReflect.Descriptor instead.
+func (*LeaveFederationResponse) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{120}
+}
+
+type ListFederationAdvisoriesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UnreadOnly    bool                   `protobuf:"varint,1,opt,name=unread_only,json=unreadOnly,proto3" json:"unread_only,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFederationAdvisoriesRequest) Reset() {
+	*x = ListFederationAdvisoriesRequest{}
+	mi := &file_xylona_proto_msgTypes[121]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFederationAdvisoriesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFederationAdvisoriesRequest) ProtoMessage() {}
+
+func (x *ListFederationAdvisoriesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[121]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFederationAdvisoriesRequest.ProtoReflect.Descriptor instead.
+func (*ListFederationAdvisoriesRequest) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{121}
+}
+
+func (x *ListFederationAdvisoriesRequest) GetUnreadOnly() bool {
+	if x != nil {
+		return x.UnreadOnly
+	}
+	return false
+}
+
+func (x *ListFederationAdvisoriesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListFederationAdvisoriesRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+type FederationAdvisory struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Type               string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Title              string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Message            string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	SourceNodeId       string                 `protobuf:"bytes,5,opt,name=source_node_id,json=sourceNodeId,proto3" json:"source_node_id,omitempty"`
+	SourceNodeName     string                 `protobuf:"bytes,6,opt,name=source_node_name,json=sourceNodeName,proto3" json:"source_node_name,omitempty"`
+	SubjectNodeId      string                 `protobuf:"bytes,7,opt,name=subject_node_id,json=subjectNodeId,proto3" json:"subject_node_id,omitempty"`
+	SubjectNodeName    string                 `protobuf:"bytes,8,opt,name=subject_node_name,json=subjectNodeName,proto3" json:"subject_node_name,omitempty"`
+	SubjectNodeBaseUrl string                 `protobuf:"bytes,9,opt,name=subject_node_base_url,json=subjectNodeBaseUrl,proto3" json:"subject_node_base_url,omitempty"`
+	Read               bool                   `protobuf:"varint,10,opt,name=read,proto3" json:"read,omitempty"`
+	CreatedAt          *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *FederationAdvisory) Reset() {
+	*x = FederationAdvisory{}
+	mi := &file_xylona_proto_msgTypes[122]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FederationAdvisory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FederationAdvisory) ProtoMessage() {}
+
+func (x *FederationAdvisory) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[122]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FederationAdvisory.ProtoReflect.Descriptor instead.
+func (*FederationAdvisory) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{122}
+}
+
+func (x *FederationAdvisory) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetSourceNodeId() string {
+	if x != nil {
+		return x.SourceNodeId
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetSourceNodeName() string {
+	if x != nil {
+		return x.SourceNodeName
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetSubjectNodeId() string {
+	if x != nil {
+		return x.SubjectNodeId
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetSubjectNodeName() string {
+	if x != nil {
+		return x.SubjectNodeName
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetSubjectNodeBaseUrl() string {
+	if x != nil {
+		return x.SubjectNodeBaseUrl
+	}
+	return ""
+}
+
+func (x *FederationAdvisory) GetRead() bool {
+	if x != nil {
+		return x.Read
+	}
+	return false
+}
+
+func (x *FederationAdvisory) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type ListFederationAdvisoriesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Advisories    []*FederationAdvisory  `protobuf:"bytes,1,rep,name=advisories,proto3" json:"advisories,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFederationAdvisoriesResponse) Reset() {
+	*x = ListFederationAdvisoriesResponse{}
+	mi := &file_xylona_proto_msgTypes[123]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFederationAdvisoriesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFederationAdvisoriesResponse) ProtoMessage() {}
+
+func (x *ListFederationAdvisoriesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[123]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFederationAdvisoriesResponse.ProtoReflect.Descriptor instead.
+func (*ListFederationAdvisoriesResponse) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{123}
+}
+
+func (x *ListFederationAdvisoriesResponse) GetAdvisories() []*FederationAdvisory {
+	if x != nil {
+		return x.Advisories
+	}
+	return nil
+}
+
+func (x *ListFederationAdvisoriesResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+type MarkAdvisoriesReadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AdvisoryIds   []string               `protobuf:"bytes,1,rep,name=advisory_ids,json=advisoryIds,proto3" json:"advisory_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkAdvisoriesReadRequest) Reset() {
+	*x = MarkAdvisoriesReadRequest{}
+	mi := &file_xylona_proto_msgTypes[124]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkAdvisoriesReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkAdvisoriesReadRequest) ProtoMessage() {}
+
+func (x *MarkAdvisoriesReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[124]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkAdvisoriesReadRequest.ProtoReflect.Descriptor instead.
+func (*MarkAdvisoriesReadRequest) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{124}
+}
+
+func (x *MarkAdvisoriesReadRequest) GetAdvisoryIds() []string {
+	if x != nil {
+		return x.AdvisoryIds
+	}
+	return nil
+}
+
+type MarkAdvisoriesReadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkAdvisoriesReadResponse) Reset() {
+	*x = MarkAdvisoriesReadResponse{}
+	mi := &file_xylona_proto_msgTypes[125]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkAdvisoriesReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkAdvisoriesReadResponse) ProtoMessage() {}
+
+func (x *MarkAdvisoriesReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[125]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkAdvisoriesReadResponse.ProtoReflect.Descriptor instead.
+func (*MarkAdvisoriesReadResponse) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{125}
+}
+
+type GetUnreadAdvisoryCountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUnreadAdvisoryCountRequest) Reset() {
+	*x = GetUnreadAdvisoryCountRequest{}
+	mi := &file_xylona_proto_msgTypes[126]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUnreadAdvisoryCountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUnreadAdvisoryCountRequest) ProtoMessage() {}
+
+func (x *GetUnreadAdvisoryCountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[126]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUnreadAdvisoryCountRequest.ProtoReflect.Descriptor instead.
+func (*GetUnreadAdvisoryCountRequest) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{126}
+}
+
+type GetUnreadAdvisoryCountResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Count         int32                  `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUnreadAdvisoryCountResponse) Reset() {
+	*x = GetUnreadAdvisoryCountResponse{}
+	mi := &file_xylona_proto_msgTypes[127]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUnreadAdvisoryCountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUnreadAdvisoryCountResponse) ProtoMessage() {}
+
+func (x *GetUnreadAdvisoryCountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[127]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUnreadAdvisoryCountResponse.ProtoReflect.Descriptor instead.
+func (*GetUnreadAdvisoryCountResponse) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{127}
+}
+
+func (x *GetUnreadAdvisoryCountResponse) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 var File_xylona_proto protoreflect.FileDescriptor
 
 var file_xylona_proto_rawDesc = []byte{
@@ -6688,7 +7157,62 @@ var file_xylona_proto_rawDesc = []byte{
 	0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x25, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e,
 	0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63,
 	0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x06, 0x70,
-	0x6f, 0x69, 0x6e, 0x74, 0x73, 0x2a, 0xb3, 0x01, 0x0a, 0x11, 0x4e, 0x6f, 0x74, 0x69, 0x66, 0x69,
+	0x6f, 0x69, 0x6e, 0x74, 0x73, 0x22, 0x18, 0x0a, 0x16, 0x4c, 0x65, 0x61, 0x76, 0x65, 0x46, 0x65,
+	0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22,
+	0x19, 0x0a, 0x17, 0x4c, 0x65, 0x61, 0x76, 0x65, 0x46, 0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x70, 0x0a, 0x1f, 0x4c, 0x69,
+	0x73, 0x74, 0x46, 0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x41, 0x64, 0x76, 0x69,
+	0x73, 0x6f, 0x72, 0x69, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1f, 0x0a,
+	0x0b, 0x75, 0x6e, 0x72, 0x65, 0x61, 0x64, 0x5f, 0x6f, 0x6e, 0x6c, 0x79, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x08, 0x52, 0x0a, 0x75, 0x6e, 0x72, 0x65, 0x61, 0x64, 0x4f, 0x6e, 0x6c, 0x79, 0x12, 0x14,
+	0x0a, 0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05, 0x6c,
+	0x69, 0x6d, 0x69, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x05, 0x52, 0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x22, 0x8e, 0x03, 0x0a,
+	0x12, 0x46, 0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x41, 0x64, 0x76, 0x69, 0x73,
+	0x6f, 0x72, 0x79, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x02, 0x69, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x69, 0x74, 0x6c, 0x65,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x12, 0x18, 0x0a,
+	0x07, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07,
+	0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x24, 0x0a, 0x0e, 0x73, 0x6f, 0x75, 0x72, 0x63,
+	0x65, 0x5f, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x0c, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x4e, 0x6f, 0x64, 0x65, 0x49, 0x64, 0x12, 0x28, 0x0a,
+	0x10, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x5f, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x6e, 0x61, 0x6d,
+	0x65, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0e, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x4e,
+	0x6f, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x26, 0x0a, 0x0f, 0x73, 0x75, 0x62, 0x6a, 0x65,
+	0x63, 0x74, 0x5f, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x0d, 0x73, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x49, 0x64, 0x12,
+	0x2a, 0x0a, 0x11, 0x73, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x6e, 0x6f, 0x64, 0x65, 0x5f,
+	0x6e, 0x61, 0x6d, 0x65, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0f, 0x73, 0x75, 0x62, 0x6a,
+	0x65, 0x63, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x31, 0x0a, 0x15, 0x73,
+	0x75, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x62, 0x61, 0x73, 0x65,
+	0x5f, 0x75, 0x72, 0x6c, 0x18, 0x09, 0x20, 0x01, 0x28, 0x09, 0x52, 0x12, 0x73, 0x75, 0x62, 0x6a,
+	0x65, 0x63, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x42, 0x61, 0x73, 0x65, 0x55, 0x72, 0x6c, 0x12, 0x12,
+	0x0a, 0x04, 0x72, 0x65, 0x61, 0x64, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x08, 0x52, 0x04, 0x72, 0x65,
+	0x61, 0x64, 0x12, 0x39, 0x0a, 0x0a, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x74,
+	0x18, 0x0b, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
+	0x6d, 0x70, 0x52, 0x09, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x41, 0x74, 0x22, 0x7f, 0x0a,
+	0x20, 0x4c, 0x69, 0x73, 0x74, 0x46, 0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x41,
+	0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x69, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x12, 0x3a, 0x0a, 0x0a, 0x61, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x69, 0x65, 0x73, 0x18,
+	0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x46,
+	0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72,
+	0x79, 0x52, 0x0a, 0x61, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x69, 0x65, 0x73, 0x12, 0x1f, 0x0a,
+	0x0b, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x05, 0x52, 0x0a, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x3e,
+	0x0a, 0x19, 0x4d, 0x61, 0x72, 0x6b, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x69, 0x65, 0x73,
+	0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x21, 0x0a, 0x0c, 0x61,
+	0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x79, 0x5f, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
+	0x09, 0x52, 0x0b, 0x61, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x79, 0x49, 0x64, 0x73, 0x22, 0x1c,
+	0x0a, 0x1a, 0x4d, 0x61, 0x72, 0x6b, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x69, 0x65, 0x73,
+	0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1f, 0x0a, 0x1d,
+	0x47, 0x65, 0x74, 0x55, 0x6e, 0x72, 0x65, 0x61, 0x64, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72,
+	0x79, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x36, 0x0a,
+	0x1e, 0x47, 0x65, 0x74, 0x55, 0x6e, 0x72, 0x65, 0x61, 0x64, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f,
+	0x72, 0x79, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
+	0x14, 0x0a, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05,
+	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x2a, 0xb3, 0x01, 0x0a, 0x11, 0x4e, 0x6f, 0x74, 0x69, 0x66, 0x69,
 	0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x12, 0x0a, 0x0e, 0x53,
 	0x45, 0x52, 0x56, 0x45, 0x52, 0x5f, 0x53, 0x54, 0x41, 0x52, 0x54, 0x45, 0x44, 0x10, 0x00, 0x12,
 	0x12, 0x0a, 0x0e, 0x53, 0x45, 0x52, 0x56, 0x45, 0x52, 0x5f, 0x53, 0x54, 0x4f, 0x50, 0x50, 0x45,
@@ -6699,7 +7223,7 @@ var file_xylona_proto_rawDesc = []byte{
 	0x4e, 0x53, 0x54, 0x41, 0x4c, 0x4c, 0x49, 0x4e, 0x47, 0x10, 0x04, 0x12, 0x1b, 0x0a, 0x17, 0x53,
 	0x45, 0x52, 0x56, 0x45, 0x52, 0x5f, 0x46, 0x49, 0x4e, 0x49, 0x53, 0x48, 0x45, 0x44, 0x5f, 0x49,
 	0x4e, 0x53, 0x54, 0x41, 0x4c, 0x4c, 0x10, 0x05, 0x12, 0x11, 0x0a, 0x0d, 0x4d, 0x49, 0x53, 0x43,
-	0x45, 0x4c, 0x4c, 0x41, 0x4e, 0x45, 0x4f, 0x55, 0x53, 0x10, 0x06, 0x32, 0x85, 0x30, 0x0a, 0x06,
+	0x45, 0x4c, 0x4c, 0x41, 0x4e, 0x45, 0x4f, 0x55, 0x53, 0x10, 0x06, 0x32, 0x96, 0x33, 0x0a, 0x06,
 	0x58, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x12, 0x3c, 0x0a, 0x07, 0x41, 0x64, 0x64, 0x47, 0x61, 0x6d,
 	0x65, 0x12, 0x16, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x41, 0x64, 0x64, 0x47, 0x61,
 	0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x78, 0x79, 0x6c, 0x6f,
@@ -7043,51 +7567,76 @@ var file_xylona_proto_rawDesc = []byte{
 	0x08, 0x53, 0x79, 0x6e, 0x63, 0x4e, 0x6f, 0x64, 0x65, 0x12, 0x17, 0x2e, 0x78, 0x79, 0x6c, 0x6f,
 	0x6e, 0x61, 0x2e, 0x53, 0x79, 0x6e, 0x63, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
 	0x73, 0x74, 0x1a, 0x18, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x53, 0x79, 0x6e, 0x63,
-	0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x72,
-	0x0a, 0x19, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67, 0x61, 0x74, 0x65, 0x64,
-	0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12, 0x28, 0x2e, 0x78, 0x79,
-	0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67, 0x61,
-	0x74, 0x65, 0x64, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x29, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x4c,
-	0x69, 0x73, 0x74, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67, 0x61, 0x74, 0x65, 0x64, 0x47, 0x61, 0x6d,
-	0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x00, 0x12, 0x5a, 0x0a, 0x11, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x79, 0x73,
-	0x74, 0x65, 0x6d, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x20, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61,
-	0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x49, 0x6e,
-	0x66, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x78, 0x79, 0x6c, 0x6f,
-	0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d,
-	0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x6c,
-	0x0a, 0x17, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63,
-	0x65, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x12, 0x26, 0x2e, 0x78, 0x79, 0x6c, 0x6f,
-	0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72,
-	0x63, 0x65, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x27, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f,
-	0x64, 0x65, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68,
-	0x6f, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x63, 0x0a, 0x14,
-	0x47, 0x65, 0x74, 0x44, 0x61, 0x73, 0x68, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x4f, 0x76, 0x65, 0x72,
-	0x76, 0x69, 0x65, 0x77, 0x12, 0x23, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65,
-	0x74, 0x44, 0x61, 0x73, 0x68, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x4f, 0x76, 0x65, 0x72, 0x76, 0x69,
-	0x65, 0x77, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x24, 0x2e, 0x78, 0x79, 0x6c, 0x6f,
-	0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x44, 0x61, 0x73, 0x68, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x4f,
-	0x76, 0x65, 0x72, 0x76, 0x69, 0x65, 0x77, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x00, 0x12, 0x66, 0x0a, 0x15, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x4d, 0x65, 0x74, 0x72,
-	0x69, 0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x24, 0x2e, 0x78, 0x79, 0x6c,
-	0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x4d, 0x65, 0x74, 0x72, 0x69,
-	0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x1a, 0x25, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64,
-	0x65, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x78, 0x0a, 0x1b, 0x47, 0x65, 0x74,
-	0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63,
-	0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x2a, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e,
-	0x61, 0x2e, 0x47, 0x65, 0x74, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4d,
-	0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x2b, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65,
+	0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x54,
+	0x0a, 0x0f, 0x4c, 0x65, 0x61, 0x76, 0x65, 0x46, 0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x12, 0x1e, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x4c, 0x65, 0x61, 0x76, 0x65,
+	0x46, 0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x1f, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x4c, 0x65, 0x61, 0x76, 0x65,
+	0x46, 0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x00, 0x12, 0x6f, 0x0a, 0x18, 0x4c, 0x69, 0x73, 0x74, 0x46, 0x65, 0x64, 0x65,
+	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x69, 0x65, 0x73,
+	0x12, 0x27, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x46, 0x65,
+	0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x69,
+	0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x28, 0x2e, 0x78, 0x79, 0x6c, 0x6f,
+	0x6e, 0x61, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x46, 0x65, 0x64, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x69, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x5d, 0x0a, 0x12, 0x4d, 0x61, 0x72, 0x6b, 0x41, 0x64, 0x76,
+	0x69, 0x73, 0x6f, 0x72, 0x69, 0x65, 0x73, 0x52, 0x65, 0x61, 0x64, 0x12, 0x21, 0x2e, 0x78, 0x79,
+	0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x4d, 0x61, 0x72, 0x6b, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72,
+	0x69, 0x65, 0x73, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22,
+	0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x4d, 0x61, 0x72, 0x6b, 0x41, 0x64, 0x76, 0x69,
+	0x73, 0x6f, 0x72, 0x69, 0x65, 0x73, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x00, 0x12, 0x69, 0x0a, 0x16, 0x47, 0x65, 0x74, 0x55, 0x6e, 0x72, 0x65, 0x61,
+	0x64, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x79, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x25,
+	0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x55, 0x6e, 0x72, 0x65, 0x61,
+	0x64, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x79, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47,
+	0x65, 0x74, 0x55, 0x6e, 0x72, 0x65, 0x61, 0x64, 0x41, 0x64, 0x76, 0x69, 0x73, 0x6f, 0x72, 0x79,
+	0x43, 0x6f, 0x75, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12,
+	0x72, 0x0a, 0x19, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67, 0x61, 0x74, 0x65,
+	0x64, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12, 0x28, 0x2e, 0x78,
+	0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67,
+	0x61, 0x74, 0x65, 0x64, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x29, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e,
+	0x4c, 0x69, 0x73, 0x74, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67, 0x61, 0x74, 0x65, 0x64, 0x47, 0x61,
+	0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x00, 0x12, 0x5a, 0x0a, 0x11, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x79,
+	0x73, 0x74, 0x65, 0x6d, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x20, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e,
+	0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x49,
+	0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x78, 0x79, 0x6c,
+	0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x79, 0x73, 0x74, 0x65,
+	0x6d, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12,
+	0x6c, 0x0a, 0x17, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72,
+	0x63, 0x65, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x12, 0x26, 0x2e, 0x78, 0x79, 0x6c,
+	0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x6f, 0x75,
+	0x72, 0x63, 0x65, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x27, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e,
+	0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x53, 0x6e, 0x61, 0x70, 0x73,
+	0x68, 0x6f, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x63, 0x0a,
+	0x14, 0x47, 0x65, 0x74, 0x44, 0x61, 0x73, 0x68, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x4f, 0x76, 0x65,
+	0x72, 0x76, 0x69, 0x65, 0x77, 0x12, 0x23, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47,
+	0x65, 0x74, 0x44, 0x61, 0x73, 0x68, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x4f, 0x76, 0x65, 0x72, 0x76,
+	0x69, 0x65, 0x77, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x24, 0x2e, 0x78, 0x79, 0x6c,
+	0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x44, 0x61, 0x73, 0x68, 0x62, 0x6f, 0x61, 0x72, 0x64,
+	0x4f, 0x76, 0x65, 0x72, 0x76, 0x69, 0x65, 0x77, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x00, 0x12, 0x66, 0x0a, 0x15, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x4d, 0x65, 0x74,
+	0x72, 0x69, 0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x24, 0x2e, 0x78, 0x79,
+	0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x4d, 0x65, 0x74, 0x72,
+	0x69, 0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x25, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f,
+	0x64, 0x65, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x78, 0x0a, 0x1b, 0x47, 0x65,
 	0x74, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4d, 0x65, 0x74, 0x72, 0x69,
-	0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x00, 0x42, 0x32, 0x5a, 0x30, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
-	0x6d, 0x2f, 0x43, 0x6c, 0x69, 0x6e, 0x74, 0x6f, 0x6e, 0x43, 0x6f, 0x6c, 0x6c, 0x69, 0x6e, 0x73,
-	0x2f, 0x58, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f,
-	0x2f, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x2a, 0x2e, 0x78, 0x79, 0x6c, 0x6f,
+	0x6e, 0x61, 0x2e, 0x47, 0x65, 0x74, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x4d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2b, 0x2e, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2e, 0x47,
+	0x65, 0x74, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4d, 0x65, 0x74, 0x72,
+	0x69, 0x63, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x00, 0x42, 0x32, 0x5a, 0x30, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x6f, 0x6d, 0x2f, 0x43, 0x6c, 0x69, 0x6e, 0x74, 0x6f, 0x6e, 0x43, 0x6f, 0x6c, 0x6c, 0x69, 0x6e,
+	0x73, 0x2f, 0x58, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67,
+	0x6f, 0x2f, 0x78, 0x79, 0x6c, 0x6f, 0x6e, 0x61, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -7103,391 +7652,410 @@ func file_xylona_proto_rawDescGZIP() []byte {
 }
 
 var file_xylona_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_xylona_proto_msgTypes = make([]protoimpl.MessageInfo, 119)
+var file_xylona_proto_msgTypes = make([]protoimpl.MessageInfo, 128)
 var file_xylona_proto_goTypes = []any{
-	(NotificationEvent)(0),                      // 0: xylona.NotificationEvent
-	(*LoginRequest)(nil),                        // 1: xylona.LoginRequest
-	(*LoginResponse)(nil),                       // 2: xylona.LoginResponse
-	(*CreateUserRequest)(nil),                   // 3: xylona.CreateUserRequest
-	(*CreateUserResponse)(nil),                  // 4: xylona.CreateUserResponse
-	(*LogoutRequest)(nil),                       // 5: xylona.LogoutRequest
-	(*LogoutResponse)(nil),                      // 6: xylona.LogoutResponse
-	(*CheckUserAuthenticatedRequest)(nil),       // 7: xylona.CheckUserAuthenticatedRequest
-	(*CheckUserAuthenticatedResponse)(nil),      // 8: xylona.CheckUserAuthenticatedResponse
-	(*ListGameServersRequest)(nil),              // 9: xylona.ListGameServersRequest
-	(*ListGameServersResponse)(nil),             // 10: xylona.ListGameServersResponse
-	(*ListGamesRequest)(nil),                    // 11: xylona.ListGamesRequest
-	(*ListGamesResponse)(nil),                   // 12: xylona.ListGamesResponse
-	(*GetGameRequest)(nil),                      // 13: xylona.GetGameRequest
-	(*GetGameResponse)(nil),                     // 14: xylona.GetGameResponse
-	(*GetGameServerRequest)(nil),                // 15: xylona.GetGameServerRequest
-	(*GetGameServerResponse)(nil),               // 16: xylona.GetGameServerResponse
-	(*User)(nil),                                // 17: xylona.User
-	(*ListUsersRequest)(nil),                    // 18: xylona.ListUsersRequest
-	(*ListUsersResponse)(nil),                   // 19: xylona.ListUsersResponse
-	(*GetUserDetailsRequest)(nil),               // 20: xylona.GetUserDetailsRequest
-	(*GetUserDetailsResponse)(nil),              // 21: xylona.GetUserDetailsResponse
-	(*UpdateUserRequest)(nil),                   // 22: xylona.UpdateUserRequest
-	(*UpdateUserResponse)(nil),                  // 23: xylona.UpdateUserResponse
-	(*DeleteUserRequest)(nil),                   // 24: xylona.DeleteUserRequest
-	(*DeleteUserResponse)(nil),                  // 25: xylona.DeleteUserResponse
-	(*NotificationStreamRequest)(nil),           // 26: xylona.NotificationStreamRequest
-	(*NotificationStreamResponse)(nil),          // 27: xylona.NotificationStreamResponse
-	(*GetBranchesRequest)(nil),                  // 28: xylona.GetBranchesRequest
-	(*GetBranchesResponse)(nil),                 // 29: xylona.GetBranchesResponse
-	(*ListIPsRequest)(nil),                      // 30: xylona.ListIPsRequest
-	(*ListIPsResponse)(nil),                     // 31: xylona.ListIPsResponse
-	(*AddIPRequest)(nil),                        // 32: xylona.AddIPRequest
-	(*AddIPResponse)(nil),                       // 33: xylona.AddIPResponse
-	(*RemoveIPRequest)(nil),                     // 34: xylona.RemoveIPRequest
-	(*RemoveIPResponse)(nil),                    // 35: xylona.RemoveIPResponse
-	(*AddGameRequest)(nil),                      // 36: xylona.AddGameRequest
-	(*AddGameResponse)(nil),                     // 37: xylona.AddGameResponse
-	(*EditGameRequest)(nil),                     // 38: xylona.EditGameRequest
-	(*EditGameResponse)(nil),                    // 39: xylona.EditGameResponse
-	(*RemoveGameRequest)(nil),                   // 40: xylona.RemoveGameRequest
-	(*RemoveGameResponse)(nil),                  // 41: xylona.RemoveGameResponse
-	(*ImportGameRequest)(nil),                   // 42: xylona.ImportGameRequest
-	(*ImportGameResponse)(nil),                  // 43: xylona.ImportGameResponse
-	(*ExportGameRequest)(nil),                   // 44: xylona.ExportGameRequest
-	(*ExportGameResponse)(nil),                  // 45: xylona.ExportGameResponse
-	(*UpdateGameServerRequest)(nil),             // 46: xylona.UpdateGameServerRequest
-	(*UpdateGameServerResponse)(nil),            // 47: xylona.UpdateGameServerResponse
-	(*ReinstallGameServerRequest)(nil),          // 48: xylona.ReinstallGameServerRequest
-	(*ReinstallGameServerResponse)(nil),         // 49: xylona.ReinstallGameServerResponse
-	(*BackupGameServerRequest)(nil),             // 50: xylona.BackupGameServerRequest
-	(*BackupGameServerResponse)(nil),            // 51: xylona.BackupGameServerResponse
-	(*QueryGameServerRequest)(nil),              // 52: xylona.QueryGameServerRequest
-	(*QueryGameServerResponse)(nil),             // 53: xylona.QueryGameServerResponse
-	(*GetNodeRequest)(nil),                      // 54: xylona.GetNodeRequest
-	(*GetNodeResponse)(nil),                     // 55: xylona.GetNodeResponse
-	(*ListNodesRequest)(nil),                    // 56: xylona.ListNodesRequest
-	(*ListNodesResponse)(nil),                   // 57: xylona.ListNodesResponse
-	(*AddNodeRequest)(nil),                      // 58: xylona.AddNodeRequest
-	(*AddNodeResponse)(nil),                     // 59: xylona.AddNodeResponse
-	(*GenerateNodePairingObjectRequest)(nil),    // 60: xylona.GenerateNodePairingObjectRequest
-	(*GenerateNodePairingObjectResponse)(nil),   // 61: xylona.GenerateNodePairingObjectResponse
-	(*PairNodeRequest)(nil),                     // 62: xylona.PairNodeRequest
-	(*PairNodeResponse)(nil),                    // 63: xylona.PairNodeResponse
-	(*RemoveNodeRequest)(nil),                   // 64: xylona.RemoveNodeRequest
-	(*RemoveNodeResponse)(nil),                  // 65: xylona.RemoveNodeResponse
-	(*EditNodeRequest)(nil),                     // 66: xylona.EditNodeRequest
-	(*EditNodeResponse)(nil),                    // 67: xylona.EditNodeResponse
-	(*VerifyNodeRequest)(nil),                   // 68: xylona.VerifyNodeRequest
-	(*VerifyNodeResponse)(nil),                  // 69: xylona.VerifyNodeResponse
-	(*ListLocalSecretKeysRequest)(nil),          // 70: xylona.ListLocalSecretKeysRequest
-	(*ListLocalSecretKeysResponse)(nil),         // 71: xylona.ListLocalSecretKeysResponse
-	(*CreateLocalSecretKeyRequest)(nil),         // 72: xylona.CreateLocalSecretKeyRequest
-	(*CreateLocalSecretKeyResponse)(nil),        // 73: xylona.CreateLocalSecretKeyResponse
-	(*DeleteLocalSecretKeyRequest)(nil),         // 74: xylona.DeleteLocalSecretKeyRequest
-	(*DeleteLocalSecretKeyResponse)(nil),        // 75: xylona.DeleteLocalSecretKeyResponse
-	(*RemoteServerSummary)(nil),                 // 76: xylona.RemoteServerSummary
-	(*AggregatedGameServer)(nil),                // 77: xylona.AggregatedGameServer
-	(*SyncNodeRequest)(nil),                     // 78: xylona.SyncNodeRequest
-	(*SyncNodeResponse)(nil),                    // 79: xylona.SyncNodeResponse
-	(*ListAggregatedGameServersRequest)(nil),    // 80: xylona.ListAggregatedGameServersRequest
-	(*ListAggregatedGameServersResponse)(nil),   // 81: xylona.ListAggregatedGameServersResponse
-	(*ListRolesRequest)(nil),                    // 82: xylona.ListRolesRequest
-	(*ListRolesResponse)(nil),                   // 83: xylona.ListRolesResponse
-	(*Role)(nil),                                // 84: xylona.Role
-	(*Permission)(nil),                          // 85: xylona.Permission
-	(*ListPermissionsRequest)(nil),              // 86: xylona.ListPermissionsRequest
-	(*ListPermissionsResponse)(nil),             // 87: xylona.ListPermissionsResponse
-	(*CreateRoleRequest)(nil),                   // 88: xylona.CreateRoleRequest
-	(*CreateRoleResponse)(nil),                  // 89: xylona.CreateRoleResponse
-	(*DeleteRoleRequest)(nil),                   // 90: xylona.DeleteRoleRequest
-	(*DeleteRoleResponse)(nil),                  // 91: xylona.DeleteRoleResponse
-	(*ListGameServerAccessGrantsRequest)(nil),   // 92: xylona.ListGameServerAccessGrantsRequest
-	(*ListGameServerAccessGrantsResponse)(nil),  // 93: xylona.ListGameServerAccessGrantsResponse
-	(*GameServerAccessGrant)(nil),               // 94: xylona.GameServerAccessGrant
-	(*GrantGameServerAccessRequest)(nil),        // 95: xylona.GrantGameServerAccessRequest
-	(*GrantGameServerAccessResponse)(nil),       // 96: xylona.GrantGameServerAccessResponse
-	(*RevokeGameServerAccessRequest)(nil),       // 97: xylona.RevokeGameServerAccessRequest
-	(*RevokeGameServerAccessResponse)(nil),      // 98: xylona.RevokeGameServerAccessResponse
-	(*ListRemoteNodeUsersRequest)(nil),          // 99: xylona.ListRemoteNodeUsersRequest
-	(*ListRemoteNodeUsersResponse)(nil),         // 100: xylona.ListRemoteNodeUsersResponse
-	(*RemoteUser)(nil),                          // 101: xylona.RemoteUser
-	(*ListFederatedAccessGrantsRequest)(nil),    // 102: xylona.ListFederatedAccessGrantsRequest
-	(*ListFederatedAccessGrantsResponse)(nil),   // 103: xylona.ListFederatedAccessGrantsResponse
-	(*FederatedAccessGrantInfo)(nil),            // 104: xylona.FederatedAccessGrantInfo
-	(*GrantFederatedAccessRequest)(nil),         // 105: xylona.GrantFederatedAccessRequest
-	(*GrantFederatedAccessResponse)(nil),        // 106: xylona.GrantFederatedAccessResponse
-	(*RevokeFederatedAccessRequest)(nil),        // 107: xylona.RevokeFederatedAccessRequest
-	(*RevokeFederatedAccessResponse)(nil),       // 108: xylona.RevokeFederatedAccessResponse
-	(*GetNodeSystemInfoRequest)(nil),            // 109: xylona.GetNodeSystemInfoRequest
-	(*GetNodeSystemInfoResponse)(nil),           // 110: xylona.GetNodeSystemInfoResponse
-	(*GetNodeResourceSnapshotRequest)(nil),      // 111: xylona.GetNodeResourceSnapshotRequest
-	(*GetNodeResourceSnapshotResponse)(nil),     // 112: xylona.GetNodeResourceSnapshotResponse
-	(*GetDashboardOverviewRequest)(nil),         // 113: xylona.GetDashboardOverviewRequest
-	(*DashboardNodeSummary)(nil),                // 114: xylona.DashboardNodeSummary
-	(*GetDashboardOverviewResponse)(nil),        // 115: xylona.GetDashboardOverviewResponse
-	(*GetNodeMetricsHistoryRequest)(nil),        // 116: xylona.GetNodeMetricsHistoryRequest
-	(*GetNodeMetricsHistoryResponse)(nil),       // 117: xylona.GetNodeMetricsHistoryResponse
-	(*GetGameServerMetricsHistoryRequest)(nil),  // 118: xylona.GetGameServerMetricsHistoryRequest
-	(*GetGameServerMetricsHistoryResponse)(nil), // 119: xylona.GetGameServerMetricsHistoryResponse
-	(Error)(0),                                      // 120: xylona.Error
-	(*GameServer)(nil),                              // 121: xylona.GameServer
-	(*Game)(nil),                                    // 122: xylona.Game
-	(*timestamppb.Timestamp)(nil),                   // 123: google.protobuf.Timestamp
-	(*SteamBranch)(nil),                             // 124: xylona.SteamBranch
-	(*IP)(nil),                                      // 125: xylona.IP
-	(*ServerQuery)(nil),                             // 126: xylona.ServerQuery
-	(*Node)(nil),                                    // 127: xylona.Node
-	(*SecretKey)(nil),                               // 128: xylona.SecretKey
-	(Status)(0),                                     // 129: xylona.Status
-	(*NodeSystemInfo)(nil),                          // 130: xylona.NodeSystemInfo
-	(*NodeResourceSnapshot)(nil),                    // 131: xylona.NodeResourceSnapshot
-	(*MetricsHistoryPoint)(nil),                     // 132: xylona.MetricsHistoryPoint
-	(*GameServerMetricsHistoryPoint)(nil),           // 133: xylona.GameServerMetricsHistoryPoint
-	(*CreateGameServerRequest)(nil),                 // 134: xylona.CreateGameServerRequest
-	(*EditGameServerRequest)(nil),                   // 135: xylona.EditGameServerRequest
-	(*RemoveGameServerRequest)(nil),                 // 136: xylona.RemoveGameServerRequest
-	(*StartGameServerRequest)(nil),                  // 137: xylona.StartGameServerRequest
-	(*StopGameServerRequest)(nil),                   // 138: xylona.StopGameServerRequest
-	(*ReadGameServerOutputRequest)(nil),             // 139: xylona.ReadGameServerOutputRequest
-	(*SendGameServerInputRequest)(nil),              // 140: xylona.SendGameServerInputRequest
-	(*ListDirectoryFilesRequest)(nil),               // 141: xylona.ListDirectoryFilesRequest
-	(*GameServerFilesDeleteRequest)(nil),            // 142: xylona.GameServerFilesDeleteRequest
-	(*GameServerFilesCompressionRequest)(nil),       // 143: xylona.GameServerFilesCompressionRequest
-	(*GameServerFilesDecompressionRequest)(nil),     // 144: xylona.GameServerFilesDecompressionRequest
-	(*GameServersFileDownloadFromURLRequest)(nil),   // 145: xylona.GameServersFileDownloadFromURLRequest
-	(*GameServerFileRenameRequest)(nil),             // 146: xylona.GameServerFileRenameRequest
-	(*GameServerFilesMoveRequest)(nil),              // 147: xylona.GameServerFilesMoveRequest
-	(*GameServersFileEditRequest)(nil),              // 148: xylona.GameServersFileEditRequest
-	(*GameServerFileOrDirectoryCreateRequest)(nil),  // 149: xylona.GameServerFileOrDirectoryCreateRequest
-	(*CreateGameServerResponse)(nil),                // 150: xylona.CreateGameServerResponse
-	(*EditGameServerResponse)(nil),                  // 151: xylona.EditGameServerResponse
-	(*RemoveGameServerResponse)(nil),                // 152: xylona.RemoveGameServerResponse
-	(*StartGameServerResponse)(nil),                 // 153: xylona.StartGameServerResponse
-	(*StopGameServerResponse)(nil),                  // 154: xylona.StopGameServerResponse
-	(*ReadGameServerOutputResponse)(nil),            // 155: xylona.ReadGameServerOutputResponse
-	(*SendGameServerInputResponse)(nil),             // 156: xylona.SendGameServerInputResponse
-	(*ListDirectoryFilesResponse)(nil),              // 157: xylona.ListDirectoryFilesResponse
-	(*GameServerFilesDeleteResponse)(nil),           // 158: xylona.GameServerFilesDeleteResponse
-	(*GameServerFilesArchiveProgress)(nil),          // 159: xylona.GameServerFilesArchiveProgress
-	(*GameServerFilesExtractProgress)(nil),          // 160: xylona.GameServerFilesExtractProgress
-	(*GameServerFilesCompressionResponse)(nil),      // 161: xylona.GameServerFilesCompressionResponse
-	(*GameServerFilesDecompressionResponse)(nil),    // 162: xylona.GameServerFilesDecompressionResponse
-	(*GameServersFileDownloadFromURLResponse)(nil),  // 163: xylona.GameServersFileDownloadFromURLResponse
-	(*GameServerFileRenameResponse)(nil),            // 164: xylona.GameServerFileRenameResponse
-	(*GameServerFilesMoveResponse)(nil),             // 165: xylona.GameServerFilesMoveResponse
-	(*GameServersFileEditResponse)(nil),             // 166: xylona.GameServersFileEditResponse
-	(*GameServerFileOrDirectoryCreateResponse)(nil), // 167: xylona.GameServerFileOrDirectoryCreateResponse
+	(NotificationEvent)(0),                          // 0: xylona.NotificationEvent
+	(*LoginRequest)(nil),                            // 1: xylona.LoginRequest
+	(*LoginResponse)(nil),                           // 2: xylona.LoginResponse
+	(*CreateUserRequest)(nil),                       // 3: xylona.CreateUserRequest
+	(*CreateUserResponse)(nil),                      // 4: xylona.CreateUserResponse
+	(*LogoutRequest)(nil),                           // 5: xylona.LogoutRequest
+	(*LogoutResponse)(nil),                          // 6: xylona.LogoutResponse
+	(*CheckUserAuthenticatedRequest)(nil),           // 7: xylona.CheckUserAuthenticatedRequest
+	(*CheckUserAuthenticatedResponse)(nil),          // 8: xylona.CheckUserAuthenticatedResponse
+	(*ListGameServersRequest)(nil),                  // 9: xylona.ListGameServersRequest
+	(*ListGameServersResponse)(nil),                 // 10: xylona.ListGameServersResponse
+	(*ListGamesRequest)(nil),                        // 11: xylona.ListGamesRequest
+	(*ListGamesResponse)(nil),                       // 12: xylona.ListGamesResponse
+	(*GetGameRequest)(nil),                          // 13: xylona.GetGameRequest
+	(*GetGameResponse)(nil),                         // 14: xylona.GetGameResponse
+	(*GetGameServerRequest)(nil),                    // 15: xylona.GetGameServerRequest
+	(*GetGameServerResponse)(nil),                   // 16: xylona.GetGameServerResponse
+	(*User)(nil),                                    // 17: xylona.User
+	(*ListUsersRequest)(nil),                        // 18: xylona.ListUsersRequest
+	(*ListUsersResponse)(nil),                       // 19: xylona.ListUsersResponse
+	(*GetUserDetailsRequest)(nil),                   // 20: xylona.GetUserDetailsRequest
+	(*GetUserDetailsResponse)(nil),                  // 21: xylona.GetUserDetailsResponse
+	(*UpdateUserRequest)(nil),                       // 22: xylona.UpdateUserRequest
+	(*UpdateUserResponse)(nil),                      // 23: xylona.UpdateUserResponse
+	(*DeleteUserRequest)(nil),                       // 24: xylona.DeleteUserRequest
+	(*DeleteUserResponse)(nil),                      // 25: xylona.DeleteUserResponse
+	(*NotificationStreamRequest)(nil),               // 26: xylona.NotificationStreamRequest
+	(*NotificationStreamResponse)(nil),              // 27: xylona.NotificationStreamResponse
+	(*GetBranchesRequest)(nil),                      // 28: xylona.GetBranchesRequest
+	(*GetBranchesResponse)(nil),                     // 29: xylona.GetBranchesResponse
+	(*ListIPsRequest)(nil),                          // 30: xylona.ListIPsRequest
+	(*ListIPsResponse)(nil),                         // 31: xylona.ListIPsResponse
+	(*AddIPRequest)(nil),                            // 32: xylona.AddIPRequest
+	(*AddIPResponse)(nil),                           // 33: xylona.AddIPResponse
+	(*RemoveIPRequest)(nil),                         // 34: xylona.RemoveIPRequest
+	(*RemoveIPResponse)(nil),                        // 35: xylona.RemoveIPResponse
+	(*AddGameRequest)(nil),                          // 36: xylona.AddGameRequest
+	(*AddGameResponse)(nil),                         // 37: xylona.AddGameResponse
+	(*EditGameRequest)(nil),                         // 38: xylona.EditGameRequest
+	(*EditGameResponse)(nil),                        // 39: xylona.EditGameResponse
+	(*RemoveGameRequest)(nil),                       // 40: xylona.RemoveGameRequest
+	(*RemoveGameResponse)(nil),                      // 41: xylona.RemoveGameResponse
+	(*ImportGameRequest)(nil),                       // 42: xylona.ImportGameRequest
+	(*ImportGameResponse)(nil),                      // 43: xylona.ImportGameResponse
+	(*ExportGameRequest)(nil),                       // 44: xylona.ExportGameRequest
+	(*ExportGameResponse)(nil),                      // 45: xylona.ExportGameResponse
+	(*UpdateGameServerRequest)(nil),                 // 46: xylona.UpdateGameServerRequest
+	(*UpdateGameServerResponse)(nil),                // 47: xylona.UpdateGameServerResponse
+	(*ReinstallGameServerRequest)(nil),              // 48: xylona.ReinstallGameServerRequest
+	(*ReinstallGameServerResponse)(nil),             // 49: xylona.ReinstallGameServerResponse
+	(*BackupGameServerRequest)(nil),                 // 50: xylona.BackupGameServerRequest
+	(*BackupGameServerResponse)(nil),                // 51: xylona.BackupGameServerResponse
+	(*QueryGameServerRequest)(nil),                  // 52: xylona.QueryGameServerRequest
+	(*QueryGameServerResponse)(nil),                 // 53: xylona.QueryGameServerResponse
+	(*GetNodeRequest)(nil),                          // 54: xylona.GetNodeRequest
+	(*GetNodeResponse)(nil),                         // 55: xylona.GetNodeResponse
+	(*ListNodesRequest)(nil),                        // 56: xylona.ListNodesRequest
+	(*ListNodesResponse)(nil),                       // 57: xylona.ListNodesResponse
+	(*AddNodeRequest)(nil),                          // 58: xylona.AddNodeRequest
+	(*AddNodeResponse)(nil),                         // 59: xylona.AddNodeResponse
+	(*GenerateNodePairingObjectRequest)(nil),        // 60: xylona.GenerateNodePairingObjectRequest
+	(*GenerateNodePairingObjectResponse)(nil),       // 61: xylona.GenerateNodePairingObjectResponse
+	(*PairNodeRequest)(nil),                         // 62: xylona.PairNodeRequest
+	(*PairNodeResponse)(nil),                        // 63: xylona.PairNodeResponse
+	(*RemoveNodeRequest)(nil),                       // 64: xylona.RemoveNodeRequest
+	(*RemoveNodeResponse)(nil),                      // 65: xylona.RemoveNodeResponse
+	(*EditNodeRequest)(nil),                         // 66: xylona.EditNodeRequest
+	(*EditNodeResponse)(nil),                        // 67: xylona.EditNodeResponse
+	(*VerifyNodeRequest)(nil),                       // 68: xylona.VerifyNodeRequest
+	(*VerifyNodeResponse)(nil),                      // 69: xylona.VerifyNodeResponse
+	(*ListLocalSecretKeysRequest)(nil),              // 70: xylona.ListLocalSecretKeysRequest
+	(*ListLocalSecretKeysResponse)(nil),             // 71: xylona.ListLocalSecretKeysResponse
+	(*CreateLocalSecretKeyRequest)(nil),             // 72: xylona.CreateLocalSecretKeyRequest
+	(*CreateLocalSecretKeyResponse)(nil),            // 73: xylona.CreateLocalSecretKeyResponse
+	(*DeleteLocalSecretKeyRequest)(nil),             // 74: xylona.DeleteLocalSecretKeyRequest
+	(*DeleteLocalSecretKeyResponse)(nil),            // 75: xylona.DeleteLocalSecretKeyResponse
+	(*RemoteServerSummary)(nil),                     // 76: xylona.RemoteServerSummary
+	(*AggregatedGameServer)(nil),                    // 77: xylona.AggregatedGameServer
+	(*SyncNodeRequest)(nil),                         // 78: xylona.SyncNodeRequest
+	(*SyncNodeResponse)(nil),                        // 79: xylona.SyncNodeResponse
+	(*ListAggregatedGameServersRequest)(nil),        // 80: xylona.ListAggregatedGameServersRequest
+	(*ListAggregatedGameServersResponse)(nil),       // 81: xylona.ListAggregatedGameServersResponse
+	(*ListRolesRequest)(nil),                        // 82: xylona.ListRolesRequest
+	(*ListRolesResponse)(nil),                       // 83: xylona.ListRolesResponse
+	(*Role)(nil),                                    // 84: xylona.Role
+	(*Permission)(nil),                              // 85: xylona.Permission
+	(*ListPermissionsRequest)(nil),                  // 86: xylona.ListPermissionsRequest
+	(*ListPermissionsResponse)(nil),                 // 87: xylona.ListPermissionsResponse
+	(*CreateRoleRequest)(nil),                       // 88: xylona.CreateRoleRequest
+	(*CreateRoleResponse)(nil),                      // 89: xylona.CreateRoleResponse
+	(*DeleteRoleRequest)(nil),                       // 90: xylona.DeleteRoleRequest
+	(*DeleteRoleResponse)(nil),                      // 91: xylona.DeleteRoleResponse
+	(*ListGameServerAccessGrantsRequest)(nil),       // 92: xylona.ListGameServerAccessGrantsRequest
+	(*ListGameServerAccessGrantsResponse)(nil),      // 93: xylona.ListGameServerAccessGrantsResponse
+	(*GameServerAccessGrant)(nil),                   // 94: xylona.GameServerAccessGrant
+	(*GrantGameServerAccessRequest)(nil),            // 95: xylona.GrantGameServerAccessRequest
+	(*GrantGameServerAccessResponse)(nil),           // 96: xylona.GrantGameServerAccessResponse
+	(*RevokeGameServerAccessRequest)(nil),           // 97: xylona.RevokeGameServerAccessRequest
+	(*RevokeGameServerAccessResponse)(nil),          // 98: xylona.RevokeGameServerAccessResponse
+	(*ListRemoteNodeUsersRequest)(nil),              // 99: xylona.ListRemoteNodeUsersRequest
+	(*ListRemoteNodeUsersResponse)(nil),             // 100: xylona.ListRemoteNodeUsersResponse
+	(*RemoteUser)(nil),                              // 101: xylona.RemoteUser
+	(*ListFederatedAccessGrantsRequest)(nil),        // 102: xylona.ListFederatedAccessGrantsRequest
+	(*ListFederatedAccessGrantsResponse)(nil),       // 103: xylona.ListFederatedAccessGrantsResponse
+	(*FederatedAccessGrantInfo)(nil),                // 104: xylona.FederatedAccessGrantInfo
+	(*GrantFederatedAccessRequest)(nil),             // 105: xylona.GrantFederatedAccessRequest
+	(*GrantFederatedAccessResponse)(nil),            // 106: xylona.GrantFederatedAccessResponse
+	(*RevokeFederatedAccessRequest)(nil),            // 107: xylona.RevokeFederatedAccessRequest
+	(*RevokeFederatedAccessResponse)(nil),           // 108: xylona.RevokeFederatedAccessResponse
+	(*GetNodeSystemInfoRequest)(nil),                // 109: xylona.GetNodeSystemInfoRequest
+	(*GetNodeSystemInfoResponse)(nil),               // 110: xylona.GetNodeSystemInfoResponse
+	(*GetNodeResourceSnapshotRequest)(nil),          // 111: xylona.GetNodeResourceSnapshotRequest
+	(*GetNodeResourceSnapshotResponse)(nil),         // 112: xylona.GetNodeResourceSnapshotResponse
+	(*GetDashboardOverviewRequest)(nil),             // 113: xylona.GetDashboardOverviewRequest
+	(*DashboardNodeSummary)(nil),                    // 114: xylona.DashboardNodeSummary
+	(*GetDashboardOverviewResponse)(nil),            // 115: xylona.GetDashboardOverviewResponse
+	(*GetNodeMetricsHistoryRequest)(nil),            // 116: xylona.GetNodeMetricsHistoryRequest
+	(*GetNodeMetricsHistoryResponse)(nil),           // 117: xylona.GetNodeMetricsHistoryResponse
+	(*GetGameServerMetricsHistoryRequest)(nil),      // 118: xylona.GetGameServerMetricsHistoryRequest
+	(*GetGameServerMetricsHistoryResponse)(nil),     // 119: xylona.GetGameServerMetricsHistoryResponse
+	(*LeaveFederationRequest)(nil),                  // 120: xylona.LeaveFederationRequest
+	(*LeaveFederationResponse)(nil),                 // 121: xylona.LeaveFederationResponse
+	(*ListFederationAdvisoriesRequest)(nil),         // 122: xylona.ListFederationAdvisoriesRequest
+	(*FederationAdvisory)(nil),                      // 123: xylona.FederationAdvisory
+	(*ListFederationAdvisoriesResponse)(nil),        // 124: xylona.ListFederationAdvisoriesResponse
+	(*MarkAdvisoriesReadRequest)(nil),               // 125: xylona.MarkAdvisoriesReadRequest
+	(*MarkAdvisoriesReadResponse)(nil),              // 126: xylona.MarkAdvisoriesReadResponse
+	(*GetUnreadAdvisoryCountRequest)(nil),           // 127: xylona.GetUnreadAdvisoryCountRequest
+	(*GetUnreadAdvisoryCountResponse)(nil),          // 128: xylona.GetUnreadAdvisoryCountResponse
+	(Error)(0),                                      // 129: xylona.Error
+	(*GameServer)(nil),                              // 130: xylona.GameServer
+	(*Game)(nil),                                    // 131: xylona.Game
+	(*timestamppb.Timestamp)(nil),                   // 132: google.protobuf.Timestamp
+	(*SteamBranch)(nil),                             // 133: xylona.SteamBranch
+	(*IP)(nil),                                      // 134: xylona.IP
+	(*ServerQuery)(nil),                             // 135: xylona.ServerQuery
+	(*Node)(nil),                                    // 136: xylona.Node
+	(*SecretKey)(nil),                               // 137: xylona.SecretKey
+	(Status)(0),                                     // 138: xylona.Status
+	(*NodeSystemInfo)(nil),                          // 139: xylona.NodeSystemInfo
+	(*NodeResourceSnapshot)(nil),                    // 140: xylona.NodeResourceSnapshot
+	(*MetricsHistoryPoint)(nil),                     // 141: xylona.MetricsHistoryPoint
+	(*GameServerMetricsHistoryPoint)(nil),           // 142: xylona.GameServerMetricsHistoryPoint
+	(*CreateGameServerRequest)(nil),                 // 143: xylona.CreateGameServerRequest
+	(*EditGameServerRequest)(nil),                   // 144: xylona.EditGameServerRequest
+	(*RemoveGameServerRequest)(nil),                 // 145: xylona.RemoveGameServerRequest
+	(*StartGameServerRequest)(nil),                  // 146: xylona.StartGameServerRequest
+	(*StopGameServerRequest)(nil),                   // 147: xylona.StopGameServerRequest
+	(*ReadGameServerOutputRequest)(nil),             // 148: xylona.ReadGameServerOutputRequest
+	(*SendGameServerInputRequest)(nil),              // 149: xylona.SendGameServerInputRequest
+	(*ListDirectoryFilesRequest)(nil),               // 150: xylona.ListDirectoryFilesRequest
+	(*GameServerFilesDeleteRequest)(nil),            // 151: xylona.GameServerFilesDeleteRequest
+	(*GameServerFilesCompressionRequest)(nil),       // 152: xylona.GameServerFilesCompressionRequest
+	(*GameServerFilesDecompressionRequest)(nil),     // 153: xylona.GameServerFilesDecompressionRequest
+	(*GameServersFileDownloadFromURLRequest)(nil),   // 154: xylona.GameServersFileDownloadFromURLRequest
+	(*GameServerFileRenameRequest)(nil),             // 155: xylona.GameServerFileRenameRequest
+	(*GameServerFilesMoveRequest)(nil),              // 156: xylona.GameServerFilesMoveRequest
+	(*GameServersFileEditRequest)(nil),              // 157: xylona.GameServersFileEditRequest
+	(*GameServerFileOrDirectoryCreateRequest)(nil),  // 158: xylona.GameServerFileOrDirectoryCreateRequest
+	(*CreateGameServerResponse)(nil),                // 159: xylona.CreateGameServerResponse
+	(*EditGameServerResponse)(nil),                  // 160: xylona.EditGameServerResponse
+	(*RemoveGameServerResponse)(nil),                // 161: xylona.RemoveGameServerResponse
+	(*StartGameServerResponse)(nil),                 // 162: xylona.StartGameServerResponse
+	(*StopGameServerResponse)(nil),                  // 163: xylona.StopGameServerResponse
+	(*ReadGameServerOutputResponse)(nil),            // 164: xylona.ReadGameServerOutputResponse
+	(*SendGameServerInputResponse)(nil),             // 165: xylona.SendGameServerInputResponse
+	(*ListDirectoryFilesResponse)(nil),              // 166: xylona.ListDirectoryFilesResponse
+	(*GameServerFilesDeleteResponse)(nil),           // 167: xylona.GameServerFilesDeleteResponse
+	(*GameServerFilesArchiveProgress)(nil),          // 168: xylona.GameServerFilesArchiveProgress
+	(*GameServerFilesExtractProgress)(nil),          // 169: xylona.GameServerFilesExtractProgress
+	(*GameServerFilesCompressionResponse)(nil),      // 170: xylona.GameServerFilesCompressionResponse
+	(*GameServerFilesDecompressionResponse)(nil),    // 171: xylona.GameServerFilesDecompressionResponse
+	(*GameServersFileDownloadFromURLResponse)(nil),  // 172: xylona.GameServersFileDownloadFromURLResponse
+	(*GameServerFileRenameResponse)(nil),            // 173: xylona.GameServerFileRenameResponse
+	(*GameServerFilesMoveResponse)(nil),             // 174: xylona.GameServerFilesMoveResponse
+	(*GameServersFileEditResponse)(nil),             // 175: xylona.GameServersFileEditResponse
+	(*GameServerFileOrDirectoryCreateResponse)(nil), // 176: xylona.GameServerFileOrDirectoryCreateResponse
 }
 var file_xylona_proto_depIdxs = []int32{
 	17,  // 0: xylona.LoginResponse.user:type_name -> xylona.User
 	17,  // 1: xylona.CreateUserResponse.user:type_name -> xylona.User
-	120, // 2: xylona.CreateUserResponse.error:type_name -> xylona.Error
+	129, // 2: xylona.CreateUserResponse.error:type_name -> xylona.Error
 	17,  // 3: xylona.CheckUserAuthenticatedResponse.user:type_name -> xylona.User
-	121, // 4: xylona.ListGameServersResponse.game_servers:type_name -> xylona.GameServer
-	122, // 5: xylona.ListGamesResponse.games:type_name -> xylona.Game
-	122, // 6: xylona.GetGameResponse.game:type_name -> xylona.Game
-	121, // 7: xylona.GetGameServerResponse.game_server:type_name -> xylona.GameServer
-	123, // 8: xylona.User.last_login:type_name -> google.protobuf.Timestamp
-	123, // 9: xylona.User.created_at:type_name -> google.protobuf.Timestamp
+	130, // 4: xylona.ListGameServersResponse.game_servers:type_name -> xylona.GameServer
+	131, // 5: xylona.ListGamesResponse.games:type_name -> xylona.Game
+	131, // 6: xylona.GetGameResponse.game:type_name -> xylona.Game
+	130, // 7: xylona.GetGameServerResponse.game_server:type_name -> xylona.GameServer
+	132, // 8: xylona.User.last_login:type_name -> google.protobuf.Timestamp
+	132, // 9: xylona.User.created_at:type_name -> google.protobuf.Timestamp
 	17,  // 10: xylona.ListUsersResponse.users:type_name -> xylona.User
 	17,  // 11: xylona.GetUserDetailsResponse.user:type_name -> xylona.User
 	17,  // 12: xylona.UpdateUserResponse.user:type_name -> xylona.User
 	0,   // 13: xylona.NotificationStreamResponse.event:type_name -> xylona.NotificationEvent
-	121, // 14: xylona.NotificationStreamResponse.game_server:type_name -> xylona.GameServer
-	124, // 15: xylona.GetBranchesResponse.branches:type_name -> xylona.SteamBranch
-	125, // 16: xylona.ListIPsResponse.ips:type_name -> xylona.IP
-	125, // 17: xylona.AddIPRequest.ip:type_name -> xylona.IP
-	125, // 18: xylona.RemoveIPRequest.ip:type_name -> xylona.IP
-	122, // 19: xylona.AddGameRequest.game:type_name -> xylona.Game
-	122, // 20: xylona.AddGameResponse.game:type_name -> xylona.Game
-	120, // 21: xylona.AddGameResponse.error:type_name -> xylona.Error
-	122, // 22: xylona.EditGameRequest.game:type_name -> xylona.Game
-	122, // 23: xylona.EditGameResponse.game:type_name -> xylona.Game
-	122, // 24: xylona.ImportGameResponse.game:type_name -> xylona.Game
-	120, // 25: xylona.ImportGameResponse.error:type_name -> xylona.Error
-	121, // 26: xylona.ExportGameResponse.game_server:type_name -> xylona.GameServer
-	121, // 27: xylona.ReinstallGameServerResponse.game_server:type_name -> xylona.GameServer
-	126, // 28: xylona.QueryGameServerResponse.query_info:type_name -> xylona.ServerQuery
-	127, // 29: xylona.GetNodeResponse.node:type_name -> xylona.Node
-	127, // 30: xylona.ListNodesResponse.nodes:type_name -> xylona.Node
-	127, // 31: xylona.AddNodeRequest.node:type_name -> xylona.Node
-	127, // 32: xylona.AddNodeResponse.node:type_name -> xylona.Node
-	127, // 33: xylona.PairNodeResponse.node:type_name -> xylona.Node
-	127, // 34: xylona.PairNodeResponse.reciprocal_node:type_name -> xylona.Node
-	127, // 35: xylona.RemoveNodeResponse.node:type_name -> xylona.Node
-	127, // 36: xylona.EditNodeRequest.node:type_name -> xylona.Node
-	127, // 37: xylona.EditNodeResponse.node:type_name -> xylona.Node
-	127, // 38: xylona.VerifyNodeResponse.node:type_name -> xylona.Node
-	128, // 39: xylona.ListLocalSecretKeysResponse.secret_keys:type_name -> xylona.SecretKey
-	129, // 40: xylona.RemoteServerSummary.status:type_name -> xylona.Status
-	123, // 41: xylona.RemoteServerSummary.last_remote_update:type_name -> google.protobuf.Timestamp
-	123, // 42: xylona.RemoteServerSummary.last_synced_at:type_name -> google.protobuf.Timestamp
-	121, // 43: xylona.AggregatedGameServer.local_server:type_name -> xylona.GameServer
+	130, // 14: xylona.NotificationStreamResponse.game_server:type_name -> xylona.GameServer
+	133, // 15: xylona.GetBranchesResponse.branches:type_name -> xylona.SteamBranch
+	134, // 16: xylona.ListIPsResponse.ips:type_name -> xylona.IP
+	134, // 17: xylona.AddIPRequest.ip:type_name -> xylona.IP
+	134, // 18: xylona.RemoveIPRequest.ip:type_name -> xylona.IP
+	131, // 19: xylona.AddGameRequest.game:type_name -> xylona.Game
+	131, // 20: xylona.AddGameResponse.game:type_name -> xylona.Game
+	129, // 21: xylona.AddGameResponse.error:type_name -> xylona.Error
+	131, // 22: xylona.EditGameRequest.game:type_name -> xylona.Game
+	131, // 23: xylona.EditGameResponse.game:type_name -> xylona.Game
+	131, // 24: xylona.ImportGameResponse.game:type_name -> xylona.Game
+	129, // 25: xylona.ImportGameResponse.error:type_name -> xylona.Error
+	130, // 26: xylona.ExportGameResponse.game_server:type_name -> xylona.GameServer
+	130, // 27: xylona.ReinstallGameServerResponse.game_server:type_name -> xylona.GameServer
+	135, // 28: xylona.QueryGameServerResponse.query_info:type_name -> xylona.ServerQuery
+	136, // 29: xylona.GetNodeResponse.node:type_name -> xylona.Node
+	136, // 30: xylona.ListNodesResponse.nodes:type_name -> xylona.Node
+	136, // 31: xylona.AddNodeRequest.node:type_name -> xylona.Node
+	136, // 32: xylona.AddNodeResponse.node:type_name -> xylona.Node
+	136, // 33: xylona.PairNodeResponse.node:type_name -> xylona.Node
+	136, // 34: xylona.PairNodeResponse.reciprocal_node:type_name -> xylona.Node
+	136, // 35: xylona.RemoveNodeResponse.node:type_name -> xylona.Node
+	136, // 36: xylona.EditNodeRequest.node:type_name -> xylona.Node
+	136, // 37: xylona.EditNodeResponse.node:type_name -> xylona.Node
+	136, // 38: xylona.VerifyNodeResponse.node:type_name -> xylona.Node
+	137, // 39: xylona.ListLocalSecretKeysResponse.secret_keys:type_name -> xylona.SecretKey
+	138, // 40: xylona.RemoteServerSummary.status:type_name -> xylona.Status
+	132, // 41: xylona.RemoteServerSummary.last_remote_update:type_name -> google.protobuf.Timestamp
+	132, // 42: xylona.RemoteServerSummary.last_synced_at:type_name -> google.protobuf.Timestamp
+	130, // 43: xylona.AggregatedGameServer.local_server:type_name -> xylona.GameServer
 	76,  // 44: xylona.AggregatedGameServer.remote_server:type_name -> xylona.RemoteServerSummary
 	77,  // 45: xylona.ListAggregatedGameServersResponse.servers:type_name -> xylona.AggregatedGameServer
 	84,  // 46: xylona.ListRolesResponse.roles:type_name -> xylona.Role
 	85,  // 47: xylona.ListPermissionsResponse.permissions:type_name -> xylona.Permission
 	84,  // 48: xylona.CreateRoleResponse.role:type_name -> xylona.Role
 	94,  // 49: xylona.ListGameServerAccessGrantsResponse.grants:type_name -> xylona.GameServerAccessGrant
-	123, // 50: xylona.GameServerAccessGrant.created_at:type_name -> google.protobuf.Timestamp
+	132, // 50: xylona.GameServerAccessGrant.created_at:type_name -> google.protobuf.Timestamp
 	94,  // 51: xylona.GrantGameServerAccessResponse.grant:type_name -> xylona.GameServerAccessGrant
 	101, // 52: xylona.ListRemoteNodeUsersResponse.users:type_name -> xylona.RemoteUser
 	104, // 53: xylona.ListFederatedAccessGrantsResponse.grants:type_name -> xylona.FederatedAccessGrantInfo
-	123, // 54: xylona.FederatedAccessGrantInfo.created_at:type_name -> google.protobuf.Timestamp
+	132, // 54: xylona.FederatedAccessGrantInfo.created_at:type_name -> google.protobuf.Timestamp
 	104, // 55: xylona.GrantFederatedAccessResponse.grant:type_name -> xylona.FederatedAccessGrantInfo
-	130, // 56: xylona.GetNodeSystemInfoResponse.system_info:type_name -> xylona.NodeSystemInfo
-	131, // 57: xylona.GetNodeResourceSnapshotResponse.snapshot:type_name -> xylona.NodeResourceSnapshot
-	127, // 58: xylona.DashboardNodeSummary.node:type_name -> xylona.Node
-	130, // 59: xylona.DashboardNodeSummary.system_info:type_name -> xylona.NodeSystemInfo
-	131, // 60: xylona.DashboardNodeSummary.snapshot:type_name -> xylona.NodeResourceSnapshot
+	139, // 56: xylona.GetNodeSystemInfoResponse.system_info:type_name -> xylona.NodeSystemInfo
+	140, // 57: xylona.GetNodeResourceSnapshotResponse.snapshot:type_name -> xylona.NodeResourceSnapshot
+	136, // 58: xylona.DashboardNodeSummary.node:type_name -> xylona.Node
+	139, // 59: xylona.DashboardNodeSummary.system_info:type_name -> xylona.NodeSystemInfo
+	140, // 60: xylona.DashboardNodeSummary.snapshot:type_name -> xylona.NodeResourceSnapshot
 	114, // 61: xylona.GetDashboardOverviewResponse.nodes:type_name -> xylona.DashboardNodeSummary
-	123, // 62: xylona.GetNodeMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	123, // 63: xylona.GetNodeMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
-	132, // 64: xylona.GetNodeMetricsHistoryResponse.points:type_name -> xylona.MetricsHistoryPoint
-	123, // 65: xylona.GetGameServerMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	123, // 66: xylona.GetGameServerMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
-	133, // 67: xylona.GetGameServerMetricsHistoryResponse.points:type_name -> xylona.GameServerMetricsHistoryPoint
-	36,  // 68: xylona.Xylona.AddGame:input_type -> xylona.AddGameRequest
-	38,  // 69: xylona.Xylona.EditGame:input_type -> xylona.EditGameRequest
-	13,  // 70: xylona.Xylona.GetGame:input_type -> xylona.GetGameRequest
-	40,  // 71: xylona.Xylona.RemoveGame:input_type -> xylona.RemoveGameRequest
-	42,  // 72: xylona.Xylona.ImportGame:input_type -> xylona.ImportGameRequest
-	44,  // 73: xylona.Xylona.ExportGame:input_type -> xylona.ExportGameRequest
-	11,  // 74: xylona.Xylona.ListGames:input_type -> xylona.ListGamesRequest
-	1,   // 75: xylona.Xylona.Login:input_type -> xylona.LoginRequest
-	5,   // 76: xylona.Xylona.Logout:input_type -> xylona.LogoutRequest
-	7,   // 77: xylona.Xylona.CheckUserAuthenticated:input_type -> xylona.CheckUserAuthenticatedRequest
-	3,   // 78: xylona.Xylona.CreateUser:input_type -> xylona.CreateUserRequest
-	18,  // 79: xylona.Xylona.ListUsers:input_type -> xylona.ListUsersRequest
-	20,  // 80: xylona.Xylona.GetUser:input_type -> xylona.GetUserDetailsRequest
-	22,  // 81: xylona.Xylona.UpdateUser:input_type -> xylona.UpdateUserRequest
-	24,  // 82: xylona.Xylona.DeleteUser:input_type -> xylona.DeleteUserRequest
-	82,  // 83: xylona.Xylona.ListRoles:input_type -> xylona.ListRolesRequest
-	86,  // 84: xylona.Xylona.ListPermissions:input_type -> xylona.ListPermissionsRequest
-	88,  // 85: xylona.Xylona.CreateRole:input_type -> xylona.CreateRoleRequest
-	90,  // 86: xylona.Xylona.DeleteRole:input_type -> xylona.DeleteRoleRequest
-	92,  // 87: xylona.Xylona.ListGameServerAccessGrants:input_type -> xylona.ListGameServerAccessGrantsRequest
-	95,  // 88: xylona.Xylona.GrantGameServerAccess:input_type -> xylona.GrantGameServerAccessRequest
-	97,  // 89: xylona.Xylona.RevokeGameServerAccess:input_type -> xylona.RevokeGameServerAccessRequest
-	102, // 90: xylona.Xylona.ListFederatedAccessGrants:input_type -> xylona.ListFederatedAccessGrantsRequest
-	105, // 91: xylona.Xylona.GrantFederatedAccess:input_type -> xylona.GrantFederatedAccessRequest
-	107, // 92: xylona.Xylona.RevokeFederatedAccess:input_type -> xylona.RevokeFederatedAccessRequest
-	30,  // 93: xylona.Xylona.ListIPs:input_type -> xylona.ListIPsRequest
-	32,  // 94: xylona.Xylona.AddIP:input_type -> xylona.AddIPRequest
-	34,  // 95: xylona.Xylona.RemoveIP:input_type -> xylona.RemoveIPRequest
-	134, // 96: xylona.Xylona.CreateGameServer:input_type -> xylona.CreateGameServerRequest
-	135, // 97: xylona.Xylona.EditGameServer:input_type -> xylona.EditGameServerRequest
-	136, // 98: xylona.Xylona.RemoveGameServer:input_type -> xylona.RemoveGameServerRequest
-	137, // 99: xylona.Xylona.StartGameServer:input_type -> xylona.StartGameServerRequest
-	138, // 100: xylona.Xylona.StopGameServer:input_type -> xylona.StopGameServerRequest
-	139, // 101: xylona.Xylona.ReadGameServerOutput:input_type -> xylona.ReadGameServerOutputRequest
-	140, // 102: xylona.Xylona.SendGameServerInput:input_type -> xylona.SendGameServerInputRequest
-	15,  // 103: xylona.Xylona.GetGameServer:input_type -> xylona.GetGameServerRequest
-	46,  // 104: xylona.Xylona.UpdateGameServer:input_type -> xylona.UpdateGameServerRequest
-	9,   // 105: xylona.Xylona.ListGameServers:input_type -> xylona.ListGameServersRequest
-	52,  // 106: xylona.Xylona.QueryGameServer:input_type -> xylona.QueryGameServerRequest
-	28,  // 107: xylona.Xylona.GetBranches:input_type -> xylona.GetBranchesRequest
-	141, // 108: xylona.Xylona.ListDirectoryFiles:input_type -> xylona.ListDirectoryFilesRequest
-	142, // 109: xylona.Xylona.GameServerFilesDelete:input_type -> xylona.GameServerFilesDeleteRequest
-	143, // 110: xylona.Xylona.GameServerFilesArchive:input_type -> xylona.GameServerFilesCompressionRequest
-	144, // 111: xylona.Xylona.GameServerFilesExtract:input_type -> xylona.GameServerFilesDecompressionRequest
-	143, // 112: xylona.Xylona.GameServerFilesCompress:input_type -> xylona.GameServerFilesCompressionRequest
-	144, // 113: xylona.Xylona.GameServerFilesDecompress:input_type -> xylona.GameServerFilesDecompressionRequest
-	145, // 114: xylona.Xylona.GameServerFilesDownloadFromURL:input_type -> xylona.GameServersFileDownloadFromURLRequest
-	146, // 115: xylona.Xylona.GameServerFileRename:input_type -> xylona.GameServerFileRenameRequest
-	147, // 116: xylona.Xylona.GameServerFilesMove:input_type -> xylona.GameServerFilesMoveRequest
-	148, // 117: xylona.Xylona.GameServersFileEdit:input_type -> xylona.GameServersFileEditRequest
-	149, // 118: xylona.Xylona.GameServersFileOrDirectoryCreate:input_type -> xylona.GameServerFileOrDirectoryCreateRequest
-	54,  // 119: xylona.Xylona.GetNode:input_type -> xylona.GetNodeRequest
-	56,  // 120: xylona.Xylona.ListNodes:input_type -> xylona.ListNodesRequest
-	58,  // 121: xylona.Xylona.AddNode:input_type -> xylona.AddNodeRequest
-	60,  // 122: xylona.Xylona.GenerateNodePairingObject:input_type -> xylona.GenerateNodePairingObjectRequest
-	62,  // 123: xylona.Xylona.PairNode:input_type -> xylona.PairNodeRequest
-	64,  // 124: xylona.Xylona.RemoveNode:input_type -> xylona.RemoveNodeRequest
-	66,  // 125: xylona.Xylona.EditNode:input_type -> xylona.EditNodeRequest
-	68,  // 126: xylona.Xylona.VerifyNode:input_type -> xylona.VerifyNodeRequest
-	99,  // 127: xylona.Xylona.ListRemoteNodeUsers:input_type -> xylona.ListRemoteNodeUsersRequest
-	70,  // 128: xylona.Xylona.ListLocalSecretKeys:input_type -> xylona.ListLocalSecretKeysRequest
-	72,  // 129: xylona.Xylona.CreateLocalSecretKey:input_type -> xylona.CreateLocalSecretKeyRequest
-	74,  // 130: xylona.Xylona.DeleteLocalSecretKey:input_type -> xylona.DeleteLocalSecretKeyRequest
-	78,  // 131: xylona.Xylona.SyncNode:input_type -> xylona.SyncNodeRequest
-	80,  // 132: xylona.Xylona.ListAggregatedGameServers:input_type -> xylona.ListAggregatedGameServersRequest
-	109, // 133: xylona.Xylona.GetNodeSystemInfo:input_type -> xylona.GetNodeSystemInfoRequest
-	111, // 134: xylona.Xylona.GetNodeResourceSnapshot:input_type -> xylona.GetNodeResourceSnapshotRequest
-	113, // 135: xylona.Xylona.GetDashboardOverview:input_type -> xylona.GetDashboardOverviewRequest
-	116, // 136: xylona.Xylona.GetNodeMetricsHistory:input_type -> xylona.GetNodeMetricsHistoryRequest
-	118, // 137: xylona.Xylona.GetGameServerMetricsHistory:input_type -> xylona.GetGameServerMetricsHistoryRequest
-	37,  // 138: xylona.Xylona.AddGame:output_type -> xylona.AddGameResponse
-	39,  // 139: xylona.Xylona.EditGame:output_type -> xylona.EditGameResponse
-	14,  // 140: xylona.Xylona.GetGame:output_type -> xylona.GetGameResponse
-	41,  // 141: xylona.Xylona.RemoveGame:output_type -> xylona.RemoveGameResponse
-	43,  // 142: xylona.Xylona.ImportGame:output_type -> xylona.ImportGameResponse
-	45,  // 143: xylona.Xylona.ExportGame:output_type -> xylona.ExportGameResponse
-	12,  // 144: xylona.Xylona.ListGames:output_type -> xylona.ListGamesResponse
-	2,   // 145: xylona.Xylona.Login:output_type -> xylona.LoginResponse
-	6,   // 146: xylona.Xylona.Logout:output_type -> xylona.LogoutResponse
-	8,   // 147: xylona.Xylona.CheckUserAuthenticated:output_type -> xylona.CheckUserAuthenticatedResponse
-	4,   // 148: xylona.Xylona.CreateUser:output_type -> xylona.CreateUserResponse
-	19,  // 149: xylona.Xylona.ListUsers:output_type -> xylona.ListUsersResponse
-	21,  // 150: xylona.Xylona.GetUser:output_type -> xylona.GetUserDetailsResponse
-	23,  // 151: xylona.Xylona.UpdateUser:output_type -> xylona.UpdateUserResponse
-	25,  // 152: xylona.Xylona.DeleteUser:output_type -> xylona.DeleteUserResponse
-	83,  // 153: xylona.Xylona.ListRoles:output_type -> xylona.ListRolesResponse
-	87,  // 154: xylona.Xylona.ListPermissions:output_type -> xylona.ListPermissionsResponse
-	89,  // 155: xylona.Xylona.CreateRole:output_type -> xylona.CreateRoleResponse
-	91,  // 156: xylona.Xylona.DeleteRole:output_type -> xylona.DeleteRoleResponse
-	93,  // 157: xylona.Xylona.ListGameServerAccessGrants:output_type -> xylona.ListGameServerAccessGrantsResponse
-	96,  // 158: xylona.Xylona.GrantGameServerAccess:output_type -> xylona.GrantGameServerAccessResponse
-	98,  // 159: xylona.Xylona.RevokeGameServerAccess:output_type -> xylona.RevokeGameServerAccessResponse
-	103, // 160: xylona.Xylona.ListFederatedAccessGrants:output_type -> xylona.ListFederatedAccessGrantsResponse
-	106, // 161: xylona.Xylona.GrantFederatedAccess:output_type -> xylona.GrantFederatedAccessResponse
-	108, // 162: xylona.Xylona.RevokeFederatedAccess:output_type -> xylona.RevokeFederatedAccessResponse
-	31,  // 163: xylona.Xylona.ListIPs:output_type -> xylona.ListIPsResponse
-	33,  // 164: xylona.Xylona.AddIP:output_type -> xylona.AddIPResponse
-	35,  // 165: xylona.Xylona.RemoveIP:output_type -> xylona.RemoveIPResponse
-	150, // 166: xylona.Xylona.CreateGameServer:output_type -> xylona.CreateGameServerResponse
-	151, // 167: xylona.Xylona.EditGameServer:output_type -> xylona.EditGameServerResponse
-	152, // 168: xylona.Xylona.RemoveGameServer:output_type -> xylona.RemoveGameServerResponse
-	153, // 169: xylona.Xylona.StartGameServer:output_type -> xylona.StartGameServerResponse
-	154, // 170: xylona.Xylona.StopGameServer:output_type -> xylona.StopGameServerResponse
-	155, // 171: xylona.Xylona.ReadGameServerOutput:output_type -> xylona.ReadGameServerOutputResponse
-	156, // 172: xylona.Xylona.SendGameServerInput:output_type -> xylona.SendGameServerInputResponse
-	16,  // 173: xylona.Xylona.GetGameServer:output_type -> xylona.GetGameServerResponse
-	47,  // 174: xylona.Xylona.UpdateGameServer:output_type -> xylona.UpdateGameServerResponse
-	10,  // 175: xylona.Xylona.ListGameServers:output_type -> xylona.ListGameServersResponse
-	53,  // 176: xylona.Xylona.QueryGameServer:output_type -> xylona.QueryGameServerResponse
-	29,  // 177: xylona.Xylona.GetBranches:output_type -> xylona.GetBranchesResponse
-	157, // 178: xylona.Xylona.ListDirectoryFiles:output_type -> xylona.ListDirectoryFilesResponse
-	158, // 179: xylona.Xylona.GameServerFilesDelete:output_type -> xylona.GameServerFilesDeleteResponse
-	159, // 180: xylona.Xylona.GameServerFilesArchive:output_type -> xylona.GameServerFilesArchiveProgress
-	160, // 181: xylona.Xylona.GameServerFilesExtract:output_type -> xylona.GameServerFilesExtractProgress
-	161, // 182: xylona.Xylona.GameServerFilesCompress:output_type -> xylona.GameServerFilesCompressionResponse
-	162, // 183: xylona.Xylona.GameServerFilesDecompress:output_type -> xylona.GameServerFilesDecompressionResponse
-	163, // 184: xylona.Xylona.GameServerFilesDownloadFromURL:output_type -> xylona.GameServersFileDownloadFromURLResponse
-	164, // 185: xylona.Xylona.GameServerFileRename:output_type -> xylona.GameServerFileRenameResponse
-	165, // 186: xylona.Xylona.GameServerFilesMove:output_type -> xylona.GameServerFilesMoveResponse
-	166, // 187: xylona.Xylona.GameServersFileEdit:output_type -> xylona.GameServersFileEditResponse
-	167, // 188: xylona.Xylona.GameServersFileOrDirectoryCreate:output_type -> xylona.GameServerFileOrDirectoryCreateResponse
-	55,  // 189: xylona.Xylona.GetNode:output_type -> xylona.GetNodeResponse
-	57,  // 190: xylona.Xylona.ListNodes:output_type -> xylona.ListNodesResponse
-	59,  // 191: xylona.Xylona.AddNode:output_type -> xylona.AddNodeResponse
-	61,  // 192: xylona.Xylona.GenerateNodePairingObject:output_type -> xylona.GenerateNodePairingObjectResponse
-	63,  // 193: xylona.Xylona.PairNode:output_type -> xylona.PairNodeResponse
-	65,  // 194: xylona.Xylona.RemoveNode:output_type -> xylona.RemoveNodeResponse
-	67,  // 195: xylona.Xylona.EditNode:output_type -> xylona.EditNodeResponse
-	69,  // 196: xylona.Xylona.VerifyNode:output_type -> xylona.VerifyNodeResponse
-	100, // 197: xylona.Xylona.ListRemoteNodeUsers:output_type -> xylona.ListRemoteNodeUsersResponse
-	71,  // 198: xylona.Xylona.ListLocalSecretKeys:output_type -> xylona.ListLocalSecretKeysResponse
-	73,  // 199: xylona.Xylona.CreateLocalSecretKey:output_type -> xylona.CreateLocalSecretKeyResponse
-	75,  // 200: xylona.Xylona.DeleteLocalSecretKey:output_type -> xylona.DeleteLocalSecretKeyResponse
-	79,  // 201: xylona.Xylona.SyncNode:output_type -> xylona.SyncNodeResponse
-	81,  // 202: xylona.Xylona.ListAggregatedGameServers:output_type -> xylona.ListAggregatedGameServersResponse
-	110, // 203: xylona.Xylona.GetNodeSystemInfo:output_type -> xylona.GetNodeSystemInfoResponse
-	112, // 204: xylona.Xylona.GetNodeResourceSnapshot:output_type -> xylona.GetNodeResourceSnapshotResponse
-	115, // 205: xylona.Xylona.GetDashboardOverview:output_type -> xylona.GetDashboardOverviewResponse
-	117, // 206: xylona.Xylona.GetNodeMetricsHistory:output_type -> xylona.GetNodeMetricsHistoryResponse
-	119, // 207: xylona.Xylona.GetGameServerMetricsHistory:output_type -> xylona.GetGameServerMetricsHistoryResponse
-	138, // [138:208] is the sub-list for method output_type
-	68,  // [68:138] is the sub-list for method input_type
-	68,  // [68:68] is the sub-list for extension type_name
-	68,  // [68:68] is the sub-list for extension extendee
-	0,   // [0:68] is the sub-list for field type_name
+	132, // 62: xylona.GetNodeMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	132, // 63: xylona.GetNodeMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	141, // 64: xylona.GetNodeMetricsHistoryResponse.points:type_name -> xylona.MetricsHistoryPoint
+	132, // 65: xylona.GetGameServerMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	132, // 66: xylona.GetGameServerMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	142, // 67: xylona.GetGameServerMetricsHistoryResponse.points:type_name -> xylona.GameServerMetricsHistoryPoint
+	132, // 68: xylona.FederationAdvisory.created_at:type_name -> google.protobuf.Timestamp
+	123, // 69: xylona.ListFederationAdvisoriesResponse.advisories:type_name -> xylona.FederationAdvisory
+	36,  // 70: xylona.Xylona.AddGame:input_type -> xylona.AddGameRequest
+	38,  // 71: xylona.Xylona.EditGame:input_type -> xylona.EditGameRequest
+	13,  // 72: xylona.Xylona.GetGame:input_type -> xylona.GetGameRequest
+	40,  // 73: xylona.Xylona.RemoveGame:input_type -> xylona.RemoveGameRequest
+	42,  // 74: xylona.Xylona.ImportGame:input_type -> xylona.ImportGameRequest
+	44,  // 75: xylona.Xylona.ExportGame:input_type -> xylona.ExportGameRequest
+	11,  // 76: xylona.Xylona.ListGames:input_type -> xylona.ListGamesRequest
+	1,   // 77: xylona.Xylona.Login:input_type -> xylona.LoginRequest
+	5,   // 78: xylona.Xylona.Logout:input_type -> xylona.LogoutRequest
+	7,   // 79: xylona.Xylona.CheckUserAuthenticated:input_type -> xylona.CheckUserAuthenticatedRequest
+	3,   // 80: xylona.Xylona.CreateUser:input_type -> xylona.CreateUserRequest
+	18,  // 81: xylona.Xylona.ListUsers:input_type -> xylona.ListUsersRequest
+	20,  // 82: xylona.Xylona.GetUser:input_type -> xylona.GetUserDetailsRequest
+	22,  // 83: xylona.Xylona.UpdateUser:input_type -> xylona.UpdateUserRequest
+	24,  // 84: xylona.Xylona.DeleteUser:input_type -> xylona.DeleteUserRequest
+	82,  // 85: xylona.Xylona.ListRoles:input_type -> xylona.ListRolesRequest
+	86,  // 86: xylona.Xylona.ListPermissions:input_type -> xylona.ListPermissionsRequest
+	88,  // 87: xylona.Xylona.CreateRole:input_type -> xylona.CreateRoleRequest
+	90,  // 88: xylona.Xylona.DeleteRole:input_type -> xylona.DeleteRoleRequest
+	92,  // 89: xylona.Xylona.ListGameServerAccessGrants:input_type -> xylona.ListGameServerAccessGrantsRequest
+	95,  // 90: xylona.Xylona.GrantGameServerAccess:input_type -> xylona.GrantGameServerAccessRequest
+	97,  // 91: xylona.Xylona.RevokeGameServerAccess:input_type -> xylona.RevokeGameServerAccessRequest
+	102, // 92: xylona.Xylona.ListFederatedAccessGrants:input_type -> xylona.ListFederatedAccessGrantsRequest
+	105, // 93: xylona.Xylona.GrantFederatedAccess:input_type -> xylona.GrantFederatedAccessRequest
+	107, // 94: xylona.Xylona.RevokeFederatedAccess:input_type -> xylona.RevokeFederatedAccessRequest
+	30,  // 95: xylona.Xylona.ListIPs:input_type -> xylona.ListIPsRequest
+	32,  // 96: xylona.Xylona.AddIP:input_type -> xylona.AddIPRequest
+	34,  // 97: xylona.Xylona.RemoveIP:input_type -> xylona.RemoveIPRequest
+	143, // 98: xylona.Xylona.CreateGameServer:input_type -> xylona.CreateGameServerRequest
+	144, // 99: xylona.Xylona.EditGameServer:input_type -> xylona.EditGameServerRequest
+	145, // 100: xylona.Xylona.RemoveGameServer:input_type -> xylona.RemoveGameServerRequest
+	146, // 101: xylona.Xylona.StartGameServer:input_type -> xylona.StartGameServerRequest
+	147, // 102: xylona.Xylona.StopGameServer:input_type -> xylona.StopGameServerRequest
+	148, // 103: xylona.Xylona.ReadGameServerOutput:input_type -> xylona.ReadGameServerOutputRequest
+	149, // 104: xylona.Xylona.SendGameServerInput:input_type -> xylona.SendGameServerInputRequest
+	15,  // 105: xylona.Xylona.GetGameServer:input_type -> xylona.GetGameServerRequest
+	46,  // 106: xylona.Xylona.UpdateGameServer:input_type -> xylona.UpdateGameServerRequest
+	9,   // 107: xylona.Xylona.ListGameServers:input_type -> xylona.ListGameServersRequest
+	52,  // 108: xylona.Xylona.QueryGameServer:input_type -> xylona.QueryGameServerRequest
+	28,  // 109: xylona.Xylona.GetBranches:input_type -> xylona.GetBranchesRequest
+	150, // 110: xylona.Xylona.ListDirectoryFiles:input_type -> xylona.ListDirectoryFilesRequest
+	151, // 111: xylona.Xylona.GameServerFilesDelete:input_type -> xylona.GameServerFilesDeleteRequest
+	152, // 112: xylona.Xylona.GameServerFilesArchive:input_type -> xylona.GameServerFilesCompressionRequest
+	153, // 113: xylona.Xylona.GameServerFilesExtract:input_type -> xylona.GameServerFilesDecompressionRequest
+	152, // 114: xylona.Xylona.GameServerFilesCompress:input_type -> xylona.GameServerFilesCompressionRequest
+	153, // 115: xylona.Xylona.GameServerFilesDecompress:input_type -> xylona.GameServerFilesDecompressionRequest
+	154, // 116: xylona.Xylona.GameServerFilesDownloadFromURL:input_type -> xylona.GameServersFileDownloadFromURLRequest
+	155, // 117: xylona.Xylona.GameServerFileRename:input_type -> xylona.GameServerFileRenameRequest
+	156, // 118: xylona.Xylona.GameServerFilesMove:input_type -> xylona.GameServerFilesMoveRequest
+	157, // 119: xylona.Xylona.GameServersFileEdit:input_type -> xylona.GameServersFileEditRequest
+	158, // 120: xylona.Xylona.GameServersFileOrDirectoryCreate:input_type -> xylona.GameServerFileOrDirectoryCreateRequest
+	54,  // 121: xylona.Xylona.GetNode:input_type -> xylona.GetNodeRequest
+	56,  // 122: xylona.Xylona.ListNodes:input_type -> xylona.ListNodesRequest
+	58,  // 123: xylona.Xylona.AddNode:input_type -> xylona.AddNodeRequest
+	60,  // 124: xylona.Xylona.GenerateNodePairingObject:input_type -> xylona.GenerateNodePairingObjectRequest
+	62,  // 125: xylona.Xylona.PairNode:input_type -> xylona.PairNodeRequest
+	64,  // 126: xylona.Xylona.RemoveNode:input_type -> xylona.RemoveNodeRequest
+	66,  // 127: xylona.Xylona.EditNode:input_type -> xylona.EditNodeRequest
+	68,  // 128: xylona.Xylona.VerifyNode:input_type -> xylona.VerifyNodeRequest
+	99,  // 129: xylona.Xylona.ListRemoteNodeUsers:input_type -> xylona.ListRemoteNodeUsersRequest
+	70,  // 130: xylona.Xylona.ListLocalSecretKeys:input_type -> xylona.ListLocalSecretKeysRequest
+	72,  // 131: xylona.Xylona.CreateLocalSecretKey:input_type -> xylona.CreateLocalSecretKeyRequest
+	74,  // 132: xylona.Xylona.DeleteLocalSecretKey:input_type -> xylona.DeleteLocalSecretKeyRequest
+	78,  // 133: xylona.Xylona.SyncNode:input_type -> xylona.SyncNodeRequest
+	120, // 134: xylona.Xylona.LeaveFederation:input_type -> xylona.LeaveFederationRequest
+	122, // 135: xylona.Xylona.ListFederationAdvisories:input_type -> xylona.ListFederationAdvisoriesRequest
+	125, // 136: xylona.Xylona.MarkAdvisoriesRead:input_type -> xylona.MarkAdvisoriesReadRequest
+	127, // 137: xylona.Xylona.GetUnreadAdvisoryCount:input_type -> xylona.GetUnreadAdvisoryCountRequest
+	80,  // 138: xylona.Xylona.ListAggregatedGameServers:input_type -> xylona.ListAggregatedGameServersRequest
+	109, // 139: xylona.Xylona.GetNodeSystemInfo:input_type -> xylona.GetNodeSystemInfoRequest
+	111, // 140: xylona.Xylona.GetNodeResourceSnapshot:input_type -> xylona.GetNodeResourceSnapshotRequest
+	113, // 141: xylona.Xylona.GetDashboardOverview:input_type -> xylona.GetDashboardOverviewRequest
+	116, // 142: xylona.Xylona.GetNodeMetricsHistory:input_type -> xylona.GetNodeMetricsHistoryRequest
+	118, // 143: xylona.Xylona.GetGameServerMetricsHistory:input_type -> xylona.GetGameServerMetricsHistoryRequest
+	37,  // 144: xylona.Xylona.AddGame:output_type -> xylona.AddGameResponse
+	39,  // 145: xylona.Xylona.EditGame:output_type -> xylona.EditGameResponse
+	14,  // 146: xylona.Xylona.GetGame:output_type -> xylona.GetGameResponse
+	41,  // 147: xylona.Xylona.RemoveGame:output_type -> xylona.RemoveGameResponse
+	43,  // 148: xylona.Xylona.ImportGame:output_type -> xylona.ImportGameResponse
+	45,  // 149: xylona.Xylona.ExportGame:output_type -> xylona.ExportGameResponse
+	12,  // 150: xylona.Xylona.ListGames:output_type -> xylona.ListGamesResponse
+	2,   // 151: xylona.Xylona.Login:output_type -> xylona.LoginResponse
+	6,   // 152: xylona.Xylona.Logout:output_type -> xylona.LogoutResponse
+	8,   // 153: xylona.Xylona.CheckUserAuthenticated:output_type -> xylona.CheckUserAuthenticatedResponse
+	4,   // 154: xylona.Xylona.CreateUser:output_type -> xylona.CreateUserResponse
+	19,  // 155: xylona.Xylona.ListUsers:output_type -> xylona.ListUsersResponse
+	21,  // 156: xylona.Xylona.GetUser:output_type -> xylona.GetUserDetailsResponse
+	23,  // 157: xylona.Xylona.UpdateUser:output_type -> xylona.UpdateUserResponse
+	25,  // 158: xylona.Xylona.DeleteUser:output_type -> xylona.DeleteUserResponse
+	83,  // 159: xylona.Xylona.ListRoles:output_type -> xylona.ListRolesResponse
+	87,  // 160: xylona.Xylona.ListPermissions:output_type -> xylona.ListPermissionsResponse
+	89,  // 161: xylona.Xylona.CreateRole:output_type -> xylona.CreateRoleResponse
+	91,  // 162: xylona.Xylona.DeleteRole:output_type -> xylona.DeleteRoleResponse
+	93,  // 163: xylona.Xylona.ListGameServerAccessGrants:output_type -> xylona.ListGameServerAccessGrantsResponse
+	96,  // 164: xylona.Xylona.GrantGameServerAccess:output_type -> xylona.GrantGameServerAccessResponse
+	98,  // 165: xylona.Xylona.RevokeGameServerAccess:output_type -> xylona.RevokeGameServerAccessResponse
+	103, // 166: xylona.Xylona.ListFederatedAccessGrants:output_type -> xylona.ListFederatedAccessGrantsResponse
+	106, // 167: xylona.Xylona.GrantFederatedAccess:output_type -> xylona.GrantFederatedAccessResponse
+	108, // 168: xylona.Xylona.RevokeFederatedAccess:output_type -> xylona.RevokeFederatedAccessResponse
+	31,  // 169: xylona.Xylona.ListIPs:output_type -> xylona.ListIPsResponse
+	33,  // 170: xylona.Xylona.AddIP:output_type -> xylona.AddIPResponse
+	35,  // 171: xylona.Xylona.RemoveIP:output_type -> xylona.RemoveIPResponse
+	159, // 172: xylona.Xylona.CreateGameServer:output_type -> xylona.CreateGameServerResponse
+	160, // 173: xylona.Xylona.EditGameServer:output_type -> xylona.EditGameServerResponse
+	161, // 174: xylona.Xylona.RemoveGameServer:output_type -> xylona.RemoveGameServerResponse
+	162, // 175: xylona.Xylona.StartGameServer:output_type -> xylona.StartGameServerResponse
+	163, // 176: xylona.Xylona.StopGameServer:output_type -> xylona.StopGameServerResponse
+	164, // 177: xylona.Xylona.ReadGameServerOutput:output_type -> xylona.ReadGameServerOutputResponse
+	165, // 178: xylona.Xylona.SendGameServerInput:output_type -> xylona.SendGameServerInputResponse
+	16,  // 179: xylona.Xylona.GetGameServer:output_type -> xylona.GetGameServerResponse
+	47,  // 180: xylona.Xylona.UpdateGameServer:output_type -> xylona.UpdateGameServerResponse
+	10,  // 181: xylona.Xylona.ListGameServers:output_type -> xylona.ListGameServersResponse
+	53,  // 182: xylona.Xylona.QueryGameServer:output_type -> xylona.QueryGameServerResponse
+	29,  // 183: xylona.Xylona.GetBranches:output_type -> xylona.GetBranchesResponse
+	166, // 184: xylona.Xylona.ListDirectoryFiles:output_type -> xylona.ListDirectoryFilesResponse
+	167, // 185: xylona.Xylona.GameServerFilesDelete:output_type -> xylona.GameServerFilesDeleteResponse
+	168, // 186: xylona.Xylona.GameServerFilesArchive:output_type -> xylona.GameServerFilesArchiveProgress
+	169, // 187: xylona.Xylona.GameServerFilesExtract:output_type -> xylona.GameServerFilesExtractProgress
+	170, // 188: xylona.Xylona.GameServerFilesCompress:output_type -> xylona.GameServerFilesCompressionResponse
+	171, // 189: xylona.Xylona.GameServerFilesDecompress:output_type -> xylona.GameServerFilesDecompressionResponse
+	172, // 190: xylona.Xylona.GameServerFilesDownloadFromURL:output_type -> xylona.GameServersFileDownloadFromURLResponse
+	173, // 191: xylona.Xylona.GameServerFileRename:output_type -> xylona.GameServerFileRenameResponse
+	174, // 192: xylona.Xylona.GameServerFilesMove:output_type -> xylona.GameServerFilesMoveResponse
+	175, // 193: xylona.Xylona.GameServersFileEdit:output_type -> xylona.GameServersFileEditResponse
+	176, // 194: xylona.Xylona.GameServersFileOrDirectoryCreate:output_type -> xylona.GameServerFileOrDirectoryCreateResponse
+	55,  // 195: xylona.Xylona.GetNode:output_type -> xylona.GetNodeResponse
+	57,  // 196: xylona.Xylona.ListNodes:output_type -> xylona.ListNodesResponse
+	59,  // 197: xylona.Xylona.AddNode:output_type -> xylona.AddNodeResponse
+	61,  // 198: xylona.Xylona.GenerateNodePairingObject:output_type -> xylona.GenerateNodePairingObjectResponse
+	63,  // 199: xylona.Xylona.PairNode:output_type -> xylona.PairNodeResponse
+	65,  // 200: xylona.Xylona.RemoveNode:output_type -> xylona.RemoveNodeResponse
+	67,  // 201: xylona.Xylona.EditNode:output_type -> xylona.EditNodeResponse
+	69,  // 202: xylona.Xylona.VerifyNode:output_type -> xylona.VerifyNodeResponse
+	100, // 203: xylona.Xylona.ListRemoteNodeUsers:output_type -> xylona.ListRemoteNodeUsersResponse
+	71,  // 204: xylona.Xylona.ListLocalSecretKeys:output_type -> xylona.ListLocalSecretKeysResponse
+	73,  // 205: xylona.Xylona.CreateLocalSecretKey:output_type -> xylona.CreateLocalSecretKeyResponse
+	75,  // 206: xylona.Xylona.DeleteLocalSecretKey:output_type -> xylona.DeleteLocalSecretKeyResponse
+	79,  // 207: xylona.Xylona.SyncNode:output_type -> xylona.SyncNodeResponse
+	121, // 208: xylona.Xylona.LeaveFederation:output_type -> xylona.LeaveFederationResponse
+	124, // 209: xylona.Xylona.ListFederationAdvisories:output_type -> xylona.ListFederationAdvisoriesResponse
+	126, // 210: xylona.Xylona.MarkAdvisoriesRead:output_type -> xylona.MarkAdvisoriesReadResponse
+	128, // 211: xylona.Xylona.GetUnreadAdvisoryCount:output_type -> xylona.GetUnreadAdvisoryCountResponse
+	81,  // 212: xylona.Xylona.ListAggregatedGameServers:output_type -> xylona.ListAggregatedGameServersResponse
+	110, // 213: xylona.Xylona.GetNodeSystemInfo:output_type -> xylona.GetNodeSystemInfoResponse
+	112, // 214: xylona.Xylona.GetNodeResourceSnapshot:output_type -> xylona.GetNodeResourceSnapshotResponse
+	115, // 215: xylona.Xylona.GetDashboardOverview:output_type -> xylona.GetDashboardOverviewResponse
+	117, // 216: xylona.Xylona.GetNodeMetricsHistory:output_type -> xylona.GetNodeMetricsHistoryResponse
+	119, // 217: xylona.Xylona.GetGameServerMetricsHistory:output_type -> xylona.GetGameServerMetricsHistoryResponse
+	144, // [144:218] is the sub-list for method output_type
+	70,  // [70:144] is the sub-list for method input_type
+	70,  // [70:70] is the sub-list for extension type_name
+	70,  // [70:70] is the sub-list for extension extendee
+	0,   // [0:70] is the sub-list for field type_name
 }
 
 func init() { file_xylona_proto_init() }
@@ -7506,7 +8074,7 @@ func file_xylona_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_xylona_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   119,
+			NumMessages:   128,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

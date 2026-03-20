@@ -9,6 +9,7 @@ import (
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
@@ -17,6 +18,7 @@ import (
 type SyncEngine interface {
 	SyncPeer(peerNodeID string)
 	RemovePeer(peerNodeID string)
+	BroadcastPeerChange(changeType xylona.PeerChangeType, peer *xylona.PeerInfo, initiatedByNodeID string, initiatedByNodeName string)
 }
 
 type XylonaService struct {

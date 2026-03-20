@@ -87,6 +87,12 @@ service Xylona {
 
   rpc SyncNode (SyncNodeRequest) returns (SyncNodeResponse) {}
 
+  // Federation Mesh
+  rpc LeaveFederation (LeaveFederationRequest) returns (LeaveFederationResponse) {}
+  rpc ListFederationAdvisories (ListFederationAdvisoriesRequest) returns (ListFederationAdvisoriesResponse) {}
+  rpc MarkAdvisoriesRead (MarkAdvisoriesReadRequest) returns (MarkAdvisoriesReadResponse) {}
+  rpc GetUnreadAdvisoryCount (GetUnreadAdvisoryCountRequest) returns (GetUnreadAdvisoryCountResponse) {}
+
   // Aggregated Views
   rpc ListAggregatedGameServers (ListAggregatedGameServersRequest) returns (ListAggregatedGameServersResponse) {}
 
@@ -666,4 +672,43 @@ message GetGameServerMetricsHistoryRequest {
 
 message GetGameServerMetricsHistoryResponse {
   repeated GameServerMetricsHistoryPoint points = 1;
+}
+
+// Federation Mesh
+message LeaveFederationRequest {}
+message LeaveFederationResponse {}
+
+message ListFederationAdvisoriesRequest {
+  bool unread_only = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message FederationAdvisory {
+  string id = 1;
+  string type = 2;
+  string title = 3;
+  string message = 4;
+  string source_node_id = 5;
+  string source_node_name = 6;
+  string subject_node_id = 7;
+  string subject_node_name = 8;
+  string subject_node_base_url = 9;
+  bool read = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message ListFederationAdvisoriesResponse {
+  repeated FederationAdvisory advisories = 1;
+  int32 total_count = 2;
+}
+
+message MarkAdvisoriesReadRequest {
+  repeated string advisory_ids = 1;
+}
+message MarkAdvisoriesReadResponse {}
+
+message GetUnreadAdvisoryCountRequest {}
+message GetUnreadAdvisoryCountResponse {
+  int32 count = 1;
 }

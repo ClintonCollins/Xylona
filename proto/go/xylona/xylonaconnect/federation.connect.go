@@ -128,6 +128,15 @@ const (
 	// FederationRevokeRemoteFederatedAccessProcedure is the fully-qualified name of the Federation's
 	// RevokeRemoteFederatedAccess RPC.
 	FederationRevokeRemoteFederatedAccessProcedure = "/xylona.Federation/RevokeRemoteFederatedAccess"
+	// FederationExchangePeerListProcedure is the fully-qualified name of the Federation's
+	// ExchangePeerList RPC.
+	FederationExchangePeerListProcedure = "/xylona.Federation/ExchangePeerList"
+	// FederationNotifyPeerChangeProcedure is the fully-qualified name of the Federation's
+	// NotifyPeerChange RPC.
+	FederationNotifyPeerChangeProcedure = "/xylona.Federation/NotifyPeerChange"
+	// FederationNotifyDepartureProcedure is the fully-qualified name of the Federation's
+	// NotifyDeparture RPC.
+	FederationNotifyDepartureProcedure = "/xylona.Federation/NotifyDeparture"
 )
 
 // FederationClient is a client for the xylona.Federation service.
@@ -182,6 +191,10 @@ type FederationClient interface {
 	ListRemoteFederatedAccessGrants(context.Context, *connect.Request[xylona.FederationListFederatedAccessGrantsRequest]) (*connect.Response[xylona.FederationListFederatedAccessGrantsResponse], error)
 	GrantRemoteFederatedAccess(context.Context, *connect.Request[xylona.FederationGrantFederatedAccessRequest]) (*connect.Response[xylona.FederationGrantFederatedAccessResponse], error)
 	RevokeRemoteFederatedAccess(context.Context, *connect.Request[xylona.FederationRevokeFederatedAccessRequest]) (*connect.Response[xylona.FederationRevokeFederatedAccessResponse], error)
+	// Peer mesh operations
+	ExchangePeerList(context.Context, *connect.Request[xylona.ExchangePeerListRequest]) (*connect.Response[xylona.ExchangePeerListResponse], error)
+	NotifyPeerChange(context.Context, *connect.Request[xylona.NotifyPeerChangeRequest]) (*connect.Response[xylona.NotifyPeerChangeResponse], error)
+	NotifyDeparture(context.Context, *connect.Request[xylona.NotifyDepartureRequest]) (*connect.Response[xylona.NotifyDepartureResponse], error)
 }
 
 // NewFederationClient constructs a client for the xylona.Federation service. By default, it uses
@@ -387,6 +400,24 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(federationMethods.ByName("RevokeRemoteFederatedAccess")),
 			connect.WithClientOptions(opts...),
 		),
+		exchangePeerList: connect.NewClient[xylona.ExchangePeerListRequest, xylona.ExchangePeerListResponse](
+			httpClient,
+			baseURL+FederationExchangePeerListProcedure,
+			connect.WithSchema(federationMethods.ByName("ExchangePeerList")),
+			connect.WithClientOptions(opts...),
+		),
+		notifyPeerChange: connect.NewClient[xylona.NotifyPeerChangeRequest, xylona.NotifyPeerChangeResponse](
+			httpClient,
+			baseURL+FederationNotifyPeerChangeProcedure,
+			connect.WithSchema(federationMethods.ByName("NotifyPeerChange")),
+			connect.WithClientOptions(opts...),
+		),
+		notifyDeparture: connect.NewClient[xylona.NotifyDepartureRequest, xylona.NotifyDepartureResponse](
+			httpClient,
+			baseURL+FederationNotifyDepartureProcedure,
+			connect.WithSchema(federationMethods.ByName("NotifyDeparture")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -424,6 +455,9 @@ type federationClient struct {
 	listRemoteFederatedAccessGrants       *connect.Client[xylona.FederationListFederatedAccessGrantsRequest, xylona.FederationListFederatedAccessGrantsResponse]
 	grantRemoteFederatedAccess            *connect.Client[xylona.FederationGrantFederatedAccessRequest, xylona.FederationGrantFederatedAccessResponse]
 	revokeRemoteFederatedAccess           *connect.Client[xylona.FederationRevokeFederatedAccessRequest, xylona.FederationRevokeFederatedAccessResponse]
+	exchangePeerList                      *connect.Client[xylona.ExchangePeerListRequest, xylona.ExchangePeerListResponse]
+	notifyPeerChange                      *connect.Client[xylona.NotifyPeerChangeRequest, xylona.NotifyPeerChangeResponse]
+	notifyDeparture                       *connect.Client[xylona.NotifyDepartureRequest, xylona.NotifyDepartureResponse]
 }
 
 // Handshake calls xylona.Federation.Handshake.
@@ -587,6 +621,21 @@ func (c *federationClient) RevokeRemoteFederatedAccess(ctx context.Context, req 
 	return c.revokeRemoteFederatedAccess.CallUnary(ctx, req)
 }
 
+// ExchangePeerList calls xylona.Federation.ExchangePeerList.
+func (c *federationClient) ExchangePeerList(ctx context.Context, req *connect.Request[xylona.ExchangePeerListRequest]) (*connect.Response[xylona.ExchangePeerListResponse], error) {
+	return c.exchangePeerList.CallUnary(ctx, req)
+}
+
+// NotifyPeerChange calls xylona.Federation.NotifyPeerChange.
+func (c *federationClient) NotifyPeerChange(ctx context.Context, req *connect.Request[xylona.NotifyPeerChangeRequest]) (*connect.Response[xylona.NotifyPeerChangeResponse], error) {
+	return c.notifyPeerChange.CallUnary(ctx, req)
+}
+
+// NotifyDeparture calls xylona.Federation.NotifyDeparture.
+func (c *federationClient) NotifyDeparture(ctx context.Context, req *connect.Request[xylona.NotifyDepartureRequest]) (*connect.Response[xylona.NotifyDepartureResponse], error) {
+	return c.notifyDeparture.CallUnary(ctx, req)
+}
+
 // FederationHandler is an implementation of the xylona.Federation service.
 type FederationHandler interface {
 	// Handshake returns the identity and capabilities of this node.
@@ -639,6 +688,10 @@ type FederationHandler interface {
 	ListRemoteFederatedAccessGrants(context.Context, *connect.Request[xylona.FederationListFederatedAccessGrantsRequest]) (*connect.Response[xylona.FederationListFederatedAccessGrantsResponse], error)
 	GrantRemoteFederatedAccess(context.Context, *connect.Request[xylona.FederationGrantFederatedAccessRequest]) (*connect.Response[xylona.FederationGrantFederatedAccessResponse], error)
 	RevokeRemoteFederatedAccess(context.Context, *connect.Request[xylona.FederationRevokeFederatedAccessRequest]) (*connect.Response[xylona.FederationRevokeFederatedAccessResponse], error)
+	// Peer mesh operations
+	ExchangePeerList(context.Context, *connect.Request[xylona.ExchangePeerListRequest]) (*connect.Response[xylona.ExchangePeerListResponse], error)
+	NotifyPeerChange(context.Context, *connect.Request[xylona.NotifyPeerChangeRequest]) (*connect.Response[xylona.NotifyPeerChangeResponse], error)
+	NotifyDeparture(context.Context, *connect.Request[xylona.NotifyDepartureRequest]) (*connect.Response[xylona.NotifyDepartureResponse], error)
 }
 
 // NewFederationHandler builds an HTTP handler from the service implementation. It returns the path
@@ -840,6 +893,24 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(federationMethods.ByName("RevokeRemoteFederatedAccess")),
 		connect.WithHandlerOptions(opts...),
 	)
+	federationExchangePeerListHandler := connect.NewUnaryHandler(
+		FederationExchangePeerListProcedure,
+		svc.ExchangePeerList,
+		connect.WithSchema(federationMethods.ByName("ExchangePeerList")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationNotifyPeerChangeHandler := connect.NewUnaryHandler(
+		FederationNotifyPeerChangeProcedure,
+		svc.NotifyPeerChange,
+		connect.WithSchema(federationMethods.ByName("NotifyPeerChange")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationNotifyDepartureHandler := connect.NewUnaryHandler(
+		FederationNotifyDepartureProcedure,
+		svc.NotifyDeparture,
+		connect.WithSchema(federationMethods.ByName("NotifyDeparture")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.Federation/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case FederationHandshakeProcedure:
@@ -906,6 +977,12 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 			federationGrantRemoteFederatedAccessHandler.ServeHTTP(w, r)
 		case FederationRevokeRemoteFederatedAccessProcedure:
 			federationRevokeRemoteFederatedAccessHandler.ServeHTTP(w, r)
+		case FederationExchangePeerListProcedure:
+			federationExchangePeerListHandler.ServeHTTP(w, r)
+		case FederationNotifyPeerChangeProcedure:
+			federationNotifyPeerChangeHandler.ServeHTTP(w, r)
+		case FederationNotifyDepartureProcedure:
+			federationNotifyDepartureHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1041,4 +1118,16 @@ func (UnimplementedFederationHandler) GrantRemoteFederatedAccess(context.Context
 
 func (UnimplementedFederationHandler) RevokeRemoteFederatedAccess(context.Context, *connect.Request[xylona.FederationRevokeFederatedAccessRequest]) (*connect.Response[xylona.FederationRevokeFederatedAccessResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.RevokeRemoteFederatedAccess is not implemented"))
+}
+
+func (UnimplementedFederationHandler) ExchangePeerList(context.Context, *connect.Request[xylona.ExchangePeerListRequest]) (*connect.Response[xylona.ExchangePeerListResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.ExchangePeerList is not implemented"))
+}
+
+func (UnimplementedFederationHandler) NotifyPeerChange(context.Context, *connect.Request[xylona.NotifyPeerChangeRequest]) (*connect.Response[xylona.NotifyPeerChangeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.NotifyPeerChange is not implemented"))
+}
+
+func (UnimplementedFederationHandler) NotifyDeparture(context.Context, *connect.Request[xylona.NotifyDepartureRequest]) (*connect.Response[xylona.NotifyDepartureResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.NotifyDeparture is not implemented"))
 }

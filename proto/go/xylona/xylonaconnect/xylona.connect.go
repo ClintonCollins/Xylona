@@ -186,6 +186,17 @@ const (
 	XylonaDeleteLocalSecretKeyProcedure = "/xylona.Xylona/DeleteLocalSecretKey"
 	// XylonaSyncNodeProcedure is the fully-qualified name of the Xylona's SyncNode RPC.
 	XylonaSyncNodeProcedure = "/xylona.Xylona/SyncNode"
+	// XylonaLeaveFederationProcedure is the fully-qualified name of the Xylona's LeaveFederation RPC.
+	XylonaLeaveFederationProcedure = "/xylona.Xylona/LeaveFederation"
+	// XylonaListFederationAdvisoriesProcedure is the fully-qualified name of the Xylona's
+	// ListFederationAdvisories RPC.
+	XylonaListFederationAdvisoriesProcedure = "/xylona.Xylona/ListFederationAdvisories"
+	// XylonaMarkAdvisoriesReadProcedure is the fully-qualified name of the Xylona's MarkAdvisoriesRead
+	// RPC.
+	XylonaMarkAdvisoriesReadProcedure = "/xylona.Xylona/MarkAdvisoriesRead"
+	// XylonaGetUnreadAdvisoryCountProcedure is the fully-qualified name of the Xylona's
+	// GetUnreadAdvisoryCount RPC.
+	XylonaGetUnreadAdvisoryCountProcedure = "/xylona.Xylona/GetUnreadAdvisoryCount"
 	// XylonaListAggregatedGameServersProcedure is the fully-qualified name of the Xylona's
 	// ListAggregatedGameServers RPC.
 	XylonaListAggregatedGameServersProcedure = "/xylona.Xylona/ListAggregatedGameServers"
@@ -281,6 +292,11 @@ type XylonaClient interface {
 	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
 	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
 	SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error)
+	// Federation Mesh
+	LeaveFederation(context.Context, *connect.Request[xylona.LeaveFederationRequest]) (*connect.Response[xylona.LeaveFederationResponse], error)
+	ListFederationAdvisories(context.Context, *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error)
+	MarkAdvisoriesRead(context.Context, *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error)
+	GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error)
 	// Aggregated Views
 	ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error)
 	// Dashboard
@@ -686,6 +702,30 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("SyncNode")),
 			connect.WithClientOptions(opts...),
 		),
+		leaveFederation: connect.NewClient[xylona.LeaveFederationRequest, xylona.LeaveFederationResponse](
+			httpClient,
+			baseURL+XylonaLeaveFederationProcedure,
+			connect.WithSchema(xylonaMethods.ByName("LeaveFederation")),
+			connect.WithClientOptions(opts...),
+		),
+		listFederationAdvisories: connect.NewClient[xylona.ListFederationAdvisoriesRequest, xylona.ListFederationAdvisoriesResponse](
+			httpClient,
+			baseURL+XylonaListFederationAdvisoriesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListFederationAdvisories")),
+			connect.WithClientOptions(opts...),
+		),
+		markAdvisoriesRead: connect.NewClient[xylona.MarkAdvisoriesReadRequest, xylona.MarkAdvisoriesReadResponse](
+			httpClient,
+			baseURL+XylonaMarkAdvisoriesReadProcedure,
+			connect.WithSchema(xylonaMethods.ByName("MarkAdvisoriesRead")),
+			connect.WithClientOptions(opts...),
+		),
+		getUnreadAdvisoryCount: connect.NewClient[xylona.GetUnreadAdvisoryCountRequest, xylona.GetUnreadAdvisoryCountResponse](
+			httpClient,
+			baseURL+XylonaGetUnreadAdvisoryCountProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetUnreadAdvisoryCount")),
+			connect.WithClientOptions(opts...),
+		),
 		listAggregatedGameServers: connect.NewClient[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse](
 			httpClient,
 			baseURL+XylonaListAggregatedGameServersProcedure,
@@ -791,6 +831,10 @@ type xylonaClient struct {
 	createLocalSecretKey             *connect.Client[xylona.CreateLocalSecretKeyRequest, xylona.CreateLocalSecretKeyResponse]
 	deleteLocalSecretKey             *connect.Client[xylona.DeleteLocalSecretKeyRequest, xylona.DeleteLocalSecretKeyResponse]
 	syncNode                         *connect.Client[xylona.SyncNodeRequest, xylona.SyncNodeResponse]
+	leaveFederation                  *connect.Client[xylona.LeaveFederationRequest, xylona.LeaveFederationResponse]
+	listFederationAdvisories         *connect.Client[xylona.ListFederationAdvisoriesRequest, xylona.ListFederationAdvisoriesResponse]
+	markAdvisoriesRead               *connect.Client[xylona.MarkAdvisoriesReadRequest, xylona.MarkAdvisoriesReadResponse]
+	getUnreadAdvisoryCount           *connect.Client[xylona.GetUnreadAdvisoryCountRequest, xylona.GetUnreadAdvisoryCountResponse]
 	listAggregatedGameServers        *connect.Client[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse]
 	getNodeSystemInfo                *connect.Client[xylona.GetNodeSystemInfoRequest, xylona.GetNodeSystemInfoResponse]
 	getNodeResourceSnapshot          *connect.Client[xylona.GetNodeResourceSnapshotRequest, xylona.GetNodeResourceSnapshotResponse]
@@ -1119,6 +1163,26 @@ func (c *xylonaClient) SyncNode(ctx context.Context, req *connect.Request[xylona
 	return c.syncNode.CallUnary(ctx, req)
 }
 
+// LeaveFederation calls xylona.Xylona.LeaveFederation.
+func (c *xylonaClient) LeaveFederation(ctx context.Context, req *connect.Request[xylona.LeaveFederationRequest]) (*connect.Response[xylona.LeaveFederationResponse], error) {
+	return c.leaveFederation.CallUnary(ctx, req)
+}
+
+// ListFederationAdvisories calls xylona.Xylona.ListFederationAdvisories.
+func (c *xylonaClient) ListFederationAdvisories(ctx context.Context, req *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error) {
+	return c.listFederationAdvisories.CallUnary(ctx, req)
+}
+
+// MarkAdvisoriesRead calls xylona.Xylona.MarkAdvisoriesRead.
+func (c *xylonaClient) MarkAdvisoriesRead(ctx context.Context, req *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error) {
+	return c.markAdvisoriesRead.CallUnary(ctx, req)
+}
+
+// GetUnreadAdvisoryCount calls xylona.Xylona.GetUnreadAdvisoryCount.
+func (c *xylonaClient) GetUnreadAdvisoryCount(ctx context.Context, req *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error) {
+	return c.getUnreadAdvisoryCount.CallUnary(ctx, req)
+}
+
 // ListAggregatedGameServers calls xylona.Xylona.ListAggregatedGameServers.
 func (c *xylonaClient) ListAggregatedGameServers(ctx context.Context, req *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {
 	return c.listAggregatedGameServers.CallUnary(ctx, req)
@@ -1224,6 +1288,11 @@ type XylonaHandler interface {
 	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
 	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
 	SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error)
+	// Federation Mesh
+	LeaveFederation(context.Context, *connect.Request[xylona.LeaveFederationRequest]) (*connect.Response[xylona.LeaveFederationResponse], error)
+	ListFederationAdvisories(context.Context, *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error)
+	MarkAdvisoriesRead(context.Context, *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error)
+	GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error)
 	// Aggregated Views
 	ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error)
 	// Dashboard
@@ -1625,6 +1694,30 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("SyncNode")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaLeaveFederationHandler := connect.NewUnaryHandler(
+		XylonaLeaveFederationProcedure,
+		svc.LeaveFederation,
+		connect.WithSchema(xylonaMethods.ByName("LeaveFederation")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListFederationAdvisoriesHandler := connect.NewUnaryHandler(
+		XylonaListFederationAdvisoriesProcedure,
+		svc.ListFederationAdvisories,
+		connect.WithSchema(xylonaMethods.ByName("ListFederationAdvisories")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaMarkAdvisoriesReadHandler := connect.NewUnaryHandler(
+		XylonaMarkAdvisoriesReadProcedure,
+		svc.MarkAdvisoriesRead,
+		connect.WithSchema(xylonaMethods.ByName("MarkAdvisoriesRead")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetUnreadAdvisoryCountHandler := connect.NewUnaryHandler(
+		XylonaGetUnreadAdvisoryCountProcedure,
+		svc.GetUnreadAdvisoryCount,
+		connect.WithSchema(xylonaMethods.ByName("GetUnreadAdvisoryCount")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaListAggregatedGameServersHandler := connect.NewUnaryHandler(
 		XylonaListAggregatedGameServersProcedure,
 		svc.ListAggregatedGameServers,
@@ -1791,6 +1884,14 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaDeleteLocalSecretKeyHandler.ServeHTTP(w, r)
 		case XylonaSyncNodeProcedure:
 			xylonaSyncNodeHandler.ServeHTTP(w, r)
+		case XylonaLeaveFederationProcedure:
+			xylonaLeaveFederationHandler.ServeHTTP(w, r)
+		case XylonaListFederationAdvisoriesProcedure:
+			xylonaListFederationAdvisoriesHandler.ServeHTTP(w, r)
+		case XylonaMarkAdvisoriesReadProcedure:
+			xylonaMarkAdvisoriesReadHandler.ServeHTTP(w, r)
+		case XylonaGetUnreadAdvisoryCountProcedure:
+			xylonaGetUnreadAdvisoryCountHandler.ServeHTTP(w, r)
 		case XylonaListAggregatedGameServersProcedure:
 			xylonaListAggregatedGameServersHandler.ServeHTTP(w, r)
 		case XylonaGetNodeSystemInfoProcedure:
@@ -2066,6 +2167,22 @@ func (UnimplementedXylonaHandler) DeleteLocalSecretKey(context.Context, *connect
 
 func (UnimplementedXylonaHandler) SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SyncNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) LeaveFederation(context.Context, *connect.Request[xylona.LeaveFederationRequest]) (*connect.Response[xylona.LeaveFederationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.LeaveFederation is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListFederationAdvisories(context.Context, *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListFederationAdvisories is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) MarkAdvisoriesRead(context.Context, *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.MarkAdvisoriesRead is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetUnreadAdvisoryCount is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {

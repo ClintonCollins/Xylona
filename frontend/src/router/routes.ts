@@ -119,6 +119,11 @@ const routes: RouteRecordRaw[] = [
         beforeEnter: requireSuperUser,
       },
       {
+        path: '/nodes/activity',
+        component: () => import('pages/nodes/NodeActivity.vue'),
+        beforeEnter: requireSuperUser,
+      },
+      {
         path: '/secret-keys',
         component: () => import('pages/other/LocalSecretKeyList.vue'),
         beforeEnter: requireSuperUser,

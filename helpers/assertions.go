@@ -339,6 +339,8 @@ func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
 		CreatedAt:        timestamppb.New(nodeModel.CreatedAt.GetOr(time.Time{})),
 		UpdatedAt:        timestamppb.New(nodeModel.UpdatedAt.GetOr(time.Time{})),
 		AllowInsecureTls: nodeModel.AllowInsecureTLS,
+		Departed:         nodeModel.Departed,
+		AutoPaired:       nodeModel.AutoPaired,
 	}
 }
 

@@ -76,6 +76,11 @@ service Federation {
   rpc ListRemoteFederatedAccessGrants (FederationListFederatedAccessGrantsRequest) returns (FederationListFederatedAccessGrantsResponse) {}
   rpc GrantRemoteFederatedAccess (FederationGrantFederatedAccessRequest) returns (FederationGrantFederatedAccessResponse) {}
   rpc RevokeRemoteFederatedAccess (FederationRevokeFederatedAccessRequest) returns (FederationRevokeFederatedAccessResponse) {}
+
+  // Peer mesh operations
+  rpc ExchangePeerList (ExchangePeerListRequest) returns (ExchangePeerListResponse) {}
+  rpc NotifyPeerChange (NotifyPeerChangeRequest) returns (NotifyPeerChangeResponse) {}
+  rpc NotifyDeparture (NotifyDepartureRequest) returns (NotifyDepartureResponse) {}
 }
 
 // Federation Handshake
@@ -91,6 +96,7 @@ message FederationHandshakeResponse {
   string capabilities = 5;
   google.protobuf.Timestamp server_time = 6;
   NodeSystemInfo system_info = 7;
+  bool departed = 8;
 }
 
 // Federation Server Summaries
@@ -459,3 +465,44 @@ message FederationServerMetricsUpdate {
 
 message FederationStreamHeartbeat {
 }
+
+// Peer Mesh
+message PeerInfo {
+  string node_id = 1;
+  string name = 2;
+  string base_url = 3;
+  string cert_fingerprint = 4;
+  int32 federation_port = 5;
+}
+
+message ExchangePeerListRequest {
+  string sender_node_id = 1;
+  repeated PeerInfo peers = 2;
+}
+
+message ExchangePeerListResponse {
+  repeated PeerInfo peers = 1;
+}
+
+enum PeerChangeType {
+  PEER_CHANGE_TYPE_UNSPECIFIED = 0;
+  PEER_CHANGE_TYPE_NODE_JOINED = 1;
+  PEER_CHANGE_TYPE_NODE_DEPARTED = 2;
+  PEER_CHANGE_TYPE_NODE_REVOKED = 3;
+}
+
+message NotifyPeerChangeRequest {
+  PeerChangeType change_type = 1;
+  PeerInfo peer = 2;
+  string initiated_by_node_id = 3;
+  string initiated_by_node_name = 4;
+}
+
+message NotifyPeerChangeResponse {}
+
+message NotifyDepartureRequest {
+  string node_id = 1;
+  string reason = 2;
+}
+
+message NotifyDepartureResponse {}

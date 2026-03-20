@@ -41,6 +41,14 @@ const (
 	CommandTypeInternal   = "internal"
 )
 
+// SyncEngine is implemented by FederationSyncEngine. Using an interface
+// avoids a circular dependency between actions and sync-engine.
+type SyncEngine interface {
+	SyncPeer(peerNodeID string)
+	RemovePeer(peerNodeID string)
+	BroadcastPeerChange(changeType xylona.PeerChangeType, peer *xylona.PeerInfo, initiatedByNodeID string, initiatedByNodeName string)
+}
+
 type Instance struct {
 	ctx                  context.Context
 	supervisorInstance   *supervisor.Instance
@@ -48,6 +56,14 @@ type Instance struct {
 	serverQueriesMutex   *sync.RWMutex
 	db                   *db.Connection
 	federationMTLS       *helpers.FederationMTLS
+	syncEngine           SyncEngine
+}
+
+// SetSyncEngine sets the sync engine on the actions instance. This is called
+// after both the actions instance and the sync engine are created to avoid
+// circular constructor dependencies.
+func (inst *Instance) SetSyncEngine(se SyncEngine) {
+	inst.syncEngine = se
 }
 
 func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS) *Instance {

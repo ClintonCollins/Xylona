@@ -193,6 +193,16 @@ func (fs FederationService) Handshake(ctx context.Context, request *connect.Requ
 		nodeName = localNode.Name
 	}
 
+	// If this node has departed the federation, signal it to the peer.
+	if localNode != nil && localNode.Departed {
+		resp := &xylona.FederationHandshakeResponse{
+			NodeId:   localSettings.NodeID,
+			NodeName: nodeName,
+			Departed: true,
+		}
+		return connect.NewResponse(resp), nil
+	}
+
 	resp := &xylona.FederationHandshakeResponse{
 		NodeId:          localSettings.NodeID,
 		NodeName:        nodeName,

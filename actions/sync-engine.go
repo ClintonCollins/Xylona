@@ -51,6 +51,7 @@ type FederationSyncEngine struct {
 	peerStops          map[string]context.CancelFunc
 	statusBroadcaster  StatusBroadcaster
 	metricsBroadcaster MetricsBroadcaster
+	actionsInst        *Instance
 }
 
 func NewFederationSyncEngine(ctx context.Context, dbInst *db.Connection, federationMTLS *helpers.FederationMTLS) *FederationSyncEngine {
@@ -78,6 +79,11 @@ func (e *FederationSyncEngine) SetMetricsBroadcaster(broadcaster MetricsBroadcas
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.metricsBroadcaster = broadcaster
+}
+
+// SetActionsInstance sets the actions instance for peer list operations.
+func (e *FederationSyncEngine) SetActionsInstance(inst *Instance) {
+	e.actionsInst = inst
 }
 
 func (e *FederationSyncEngine) start() {
@@ -389,6 +395,17 @@ func (e *FederationSyncEngine) healthCheckPeer(nodeID string) {
 		return
 	}
 
+	// Check if the peer has departed the federation.
+	if resp.Msg.Departed {
+		log.Info().Str("node_id", nodeID).Msg("Peer has departed the federation, removing")
+		_ = e.db.DeleteNodeByID(nodeID)
+		e.RemovePeer(nodeID)
+		return
+	}
+
+	// Capture previous health status for reconnect detection.
+	previousHealth := node.HealthStatus
+
 	errUpdate := e.db.UpdateNodeHealth(nodeID, "healthy", time.Now())
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Str("node_id", nodeID).Msg("Failed to update node health status")
@@ -403,6 +420,11 @@ func (e *FederationSyncEngine) healthCheckPeer(nodeID string) {
 	)
 	if errIdentity != nil {
 		log.Error().Err(errIdentity).Str("node_id", nodeID).Msg("Failed to update node identity")
+	}
+
+	// Reconnect reconciliation: exchange peer lists when transitioning to healthy.
+	if previousHealth == "offline" || previousHealth == "unknown" || previousHealth == "" {
+		go e.reconcilePeerListOnReconnect(nodeID)
 	}
 }
 
@@ -657,4 +679,97 @@ func (e *FederationSyncEngine) handleMetricsUpdate(update *xylona.FederationServ
 	if broadcaster != nil {
 		broadcaster.BroadcastRemoteServerMetrics(update.ServerId, update.Metrics)
 	}
+}
+
+// BroadcastPeerChange sends a NotifyPeerChange to all connected peers concurrently.
+func (e *FederationSyncEngine) BroadcastPeerChange(
+	changeType xylona.PeerChangeType,
+	peer *xylona.PeerInfo,
+	initiatedByNodeID string,
+	initiatedByNodeName string,
+) {
+	nodes, errNodes := e.db.GetEnabledRemoteNodes()
+	if errNodes != nil {
+		log.Error().Err(errNodes).Msg("Failed to get remote nodes for peer change broadcast")
+		return
+	}
+
+	msg := &xylona.NotifyPeerChangeRequest{
+		ChangeType:          changeType,
+		Peer:                peer,
+		InitiatedByNodeId:   initiatedByNodeID,
+		InitiatedByNodeName: initiatedByNodeName,
+	}
+
+	var wg sync.WaitGroup
+	for _, node := range nodes {
+		// Don't notify the node the change is about.
+		if node.ID == peer.NodeId {
+			continue
+		}
+		wg.Add(1)
+		go func(n *models.Node) {
+			defer wg.Done()
+			client, errClient := newFederationClient(e.db, e.federationMTLS, n, federationRequestTimeout)
+			if errClient != nil {
+				log.Warn().Err(errClient).Str("node_id", n.ID).Msg("Failed to create client for peer change broadcast")
+				return
+			}
+			reqCtx, cancel := context.WithTimeout(e.ctx, federationRequestTimeout)
+			defer cancel()
+			_, errNotify := client.NotifyPeerChange(reqCtx, connect.NewRequest(msg))
+			if errNotify != nil {
+				log.Warn().Err(errNotify).Str("node_id", n.ID).Msg("Failed to broadcast peer change")
+			}
+		}(node)
+	}
+	wg.Wait()
+}
+
+// reconcilePeerListOnReconnect exchanges peer lists with a peer that just came back online.
+func (e *FederationSyncEngine) reconcilePeerListOnReconnect(nodeID string) {
+	if e.actionsInst == nil {
+		return
+	}
+
+	node, errNode := e.db.GetRemoteNodeByID(nodeID)
+	if errNode != nil {
+		log.Warn().Err(errNode).Str("node_id", nodeID).Msg("Failed to get node for peer list reconciliation")
+		return
+	}
+
+	client, errClient := newFederationClient(e.db, e.federationMTLS, node, federationRequestTimeout)
+	if errClient != nil {
+		log.Warn().Err(errClient).Str("node_id", nodeID).Msg("Failed to create client for peer list reconciliation")
+		return
+	}
+
+	localPeers, errBuild := e.actionsInst.BuildLocalPeerList()
+	if errBuild != nil {
+		log.Error().Err(errBuild).Msg("Failed to build local peer list for reconciliation")
+		return
+	}
+
+	localSettings, errSettings := e.db.GetLocalSettings()
+	if errSettings != nil {
+		log.Error().Err(errSettings).Msg("Failed to get local settings for reconciliation")
+		return
+	}
+
+	reqCtx, cancel := context.WithTimeout(e.ctx, federationRequestTimeout)
+	defer cancel()
+
+	resp, errExchange := client.ExchangePeerList(reqCtx, connect.NewRequest(&xylona.ExchangePeerListRequest{
+		SenderNodeId: localSettings.NodeID,
+		Peers:        localPeers,
+	}))
+	if errExchange != nil {
+		log.Warn().Err(errExchange).Str("node_id", nodeID).Msg("Peer list exchange failed on reconnect")
+		return
+	}
+
+	// Process received peer list for auto-pairing.
+	e.actionsInst.ProcessReceivedPeerList(resp.Msg.Peers, nodeID)
+
+	log.Info().Str("node_id", nodeID).Int("remote_peers", len(resp.Msg.Peers)).Msg("Peer list exchanged on reconnect")
 }

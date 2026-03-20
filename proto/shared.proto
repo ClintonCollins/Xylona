@@ -263,6 +263,8 @@ message Node {
   google.protobuf.Timestamp created_at = 17;
   google.protobuf.Timestamp updated_at = 18;
   bool allow_insecure_tls = 19;
+  bool departed = 20;
+  bool auto_paired = 21;
 }
 
 message SecretKey {

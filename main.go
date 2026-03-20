@@ -312,6 +312,8 @@ func main() {
 	xylonaService.SetSyncEngine(syncEngine)
 	syncEngine.SetStatusBroadcaster(wsInst)
 	syncEngine.SetMetricsBroadcaster(wsInst)
+	syncEngine.SetActionsInstance(actionsInst)
+	actionsInst.SetSyncEngine(syncEngine)
 
 	xylonaAPIPath, handler := xylonaconnect.NewXylonaHandler(xylonaService, connect.WithHandlerOptions())
 	federationService := rpc.NewFederationService(ctx, dbInst, actionsInst, superInst)

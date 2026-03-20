@@ -400,6 +400,34 @@ func (xs *XylonaService) addRemoteNode(
 		go xs.syncEngine.SyncPeer(node.ID)
 	}
 
+	// Peer exchange: notify existing peers about the new node and exchange lists.
+	if xs.syncEngine != nil {
+		localNode, errLocalNode := xs.db.GetNodeByID(localSettings.NodeID)
+		localName := "this node"
+		if errLocalNode == nil {
+			localName = localNode.Name
+		}
+
+		newPeerInfo := &xylona.PeerInfo{
+			NodeId:          node.ID,
+			Name:            node.Name,
+			BaseUrl:         node.BaseURL,
+			CertFingerprint: remoteFingerprint,
+			FederationPort:  int32(node.Port),
+		}
+
+		// Notify existing peers about the new node.
+		xs.syncEngine.BroadcastPeerChange(
+			xylona.PeerChangeType_PEER_CHANGE_TYPE_NODE_JOINED,
+			newPeerInfo,
+			localSettings.NodeID,
+			localName,
+		)
+
+		// Exchange peer list with the new node so it learns about existing peers.
+		go xs.actionsInst.ExchangePeerListWithNode(node.ID)
+	}
+
 	return connect.NewResponse(&xylona.AddNodeResponse{
 		Node: helpers.NodeModelToProto(node),
 	}), nil
@@ -443,6 +471,43 @@ func (xs *XylonaService) RemoveNode(ctx context.Context, request *connect.Reques
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
 	}
 	nodeID := request.Msg.GetNodeId()
+
+	// Get node info before deletion for the broadcast.
+	node, errGetNode := xs.db.GetNodeByID(nodeID)
+	if errGetNode != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("node not found"))
+	}
+
+	// Broadcast NODE_REVOKED to all remaining peers BEFORE local deletion.
+	if xs.syncEngine != nil && !node.IsLocal {
+		localSettings, errSettings := xs.db.GetLocalSettings()
+		localName := "this node"
+		if errSettings == nil {
+			localNode, errLocal := xs.db.GetNodeByID(localSettings.NodeID)
+			if errLocal == nil {
+				localName = localNode.Name
+			}
+		}
+
+		trust, _ := xs.db.GetFederationTrustedPeerByNodeID(nodeID)
+		fingerprint := ""
+		if trust != nil {
+			fingerprint = trust.PeerFingerprint
+		}
+
+		xs.syncEngine.BroadcastPeerChange(
+			xylona.PeerChangeType_PEER_CHANGE_TYPE_NODE_REVOKED,
+			&xylona.PeerInfo{
+				NodeId:          nodeID,
+				Name:            node.Name,
+				BaseUrl:         node.BaseURL,
+				CertFingerprint: fingerprint,
+				FederationPort:  int32(node.Port),
+			},
+			localSettings.NodeID,
+			localName,
+		)
+	}
 
 	// Stop syncing this node if it's a remote peer.
 	if xs.syncEngine != nil {
