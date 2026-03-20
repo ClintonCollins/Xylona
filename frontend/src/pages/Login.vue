@@ -11,8 +11,15 @@
             </div>
           </div>
           <div class="login-form-side">
-            <div class="login-form">
-              <q-input v-model="username" outlined label="Username" color="primary" />
+            <q-form class="login-form" greedy @submit.prevent="login">
+              <q-input
+                v-model="username"
+                outlined
+                label="Username"
+                color="primary"
+                :rules="[(val: string) => !!val || 'Username is required']"
+                lazy-rules
+                autofocus />
               <q-input
                 v-model="password"
                 outlined
@@ -20,15 +27,18 @@
                 type="password"
                 color="primary"
                 label="Password"
-                @keyup.enter="login" />
+                :rules="[(val: string) => !!val || 'Password is required']"
+                lazy-rules />
               <q-btn
                 color="primary"
                 size="lg"
                 label="Sign in"
                 no-caps
-                class="full-width login-btn q-mt-lg"
-                @click="login" />
-            </div>
+                type="submit"
+                :loading="loggingIn"
+                :disable="loggingIn"
+                class="full-width login-btn q-mt-lg" />
+            </q-form>
           </div>
         </div>
       </q-page>
@@ -50,16 +60,19 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const username = ref('')
 const password = ref('')
+const loggingIn = ref(false)
 const userAuthStore = useUserAuthStore()
 
 const $q = useQuasar()
 
 async function login() {
-  const loginRequest = create(LoginRequestSchema, {
-    userName: username.value,
-    password: password.value,
-  })
+  if (loggingIn.value) return
+  loggingIn.value = true
   try {
+    const loginRequest = create(LoginRequestSchema, {
+      userName: username.value,
+      password: password.value,
+    })
     const response = await GetXylonaClient().login(loginRequest)
     if (response.user === undefined) {
       $q.notify({
@@ -84,6 +97,8 @@ async function login() {
       caption: caption,
       icon: 'report_problem',
     })
+  } finally {
+    loggingIn.value = false
   }
 }
 </script>

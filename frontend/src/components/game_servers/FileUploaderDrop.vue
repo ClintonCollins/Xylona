@@ -21,7 +21,7 @@
       v-on:dragover="$event.preventDefault()">
       <q-card-section>
         <div id="dialog-title" class="text-h6">File Upload (You can drag and drop files below)</div>
-        <q-toolbar class="bg-blue-grey-10 q-py-sm">
+        <q-toolbar class="bg-xy-surface-2 q-py-sm">
           <q-btn
             v-if="uploader.files.size > 0"
             :icon="tabClearAll"
@@ -136,7 +136,7 @@
         </div>
       </q-card-section>
       <q-card-actions align="right" class="">
-        <q-btn flat label="Close" color="grey" @click="uploader.close()" />
+        <q-btn flat label="Close" class="text-xy-secondary" @click="uploader.close()" />
         <q-btn
           label="Upload"
           class="bg-success"

@@ -447,7 +447,11 @@ async function navigateConsoleInputHistory(direction: string) {
     return
   }
   consoleHistoryCurrentIndex.value = newIndex
-  serverInput.value = consoleHistory.value[newIndex]
+  if (newIndex === consoleHistory.value.length) {
+    serverInput.value = ''
+  } else {
+    serverInput.value = consoleHistory.value[newIndex]
+  }
 }
 
 async function sendGameServerInput() {

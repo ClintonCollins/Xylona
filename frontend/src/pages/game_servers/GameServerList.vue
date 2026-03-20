@@ -76,7 +76,7 @@
         <template v-slot:body-cell-type="props">
           <q-td :props="props">
             <q-badge v-if="props.row.isLocal" color="positive" label="local" />
-            <q-badge v-else color="blue-grey" label="remote" />
+            <q-badge v-else class="badge-remote" label="remote" />
           </q-td>
         </template>
         <template v-slot:body-cell-actions="props">
@@ -447,4 +447,9 @@ const columns = ref([
 ])
 </script>
 
-<style scoped></style>
+<style scoped>
+.badge-remote {
+  background-color: var(--xy-surface-4);
+  color: var(--xy-text-secondary);
+}
+</style>

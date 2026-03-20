@@ -1,7 +1,7 @@
 <template>
   <div>
     <div v-if="!loading && historyPoints.length === 0" class="empty-state">
-      <q-icon name="show_chart" size="48px" color="grey-7" />
+      <q-icon name="show_chart" size="48px" class="text-xy-muted" />
       <div class="text-subtitle1 q-mt-sm text-xy-secondary">No Metrics Data</div>
       <div class="text-caption text-xy-muted">
         Metrics are recorded every 60 seconds while the server is running.
@@ -145,6 +145,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 16px;
+  padding: var(--xy-space-2xl) var(--xy-space-md);
 }
 </style>

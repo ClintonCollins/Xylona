@@ -3,7 +3,7 @@
     <div class="row items-center q-mb-sm">
       <div class="text-subtitle2">Resource Usage</div>
       <q-space />
-      <q-badge v-if="!isOnline" color="grey-8" text-color="grey-5" label="Server Offline" />
+      <q-badge v-if="!isOnline" class="badge-offline" label="Server Offline" />
     </div>
     <div class="row q-col-gutter-md">
       <div class="col-12 col-md-6">
@@ -14,13 +14,14 @@
               <q-item-section>
                 <q-item-label
                   >CPU
-                  <span class="text-caption text-grey"
+                  <span class="text-caption text-xy-muted"
                     >({{ isOnline ? cpuCores : '--' }} cores)</span
                   ></q-item-label
                 >
                 <q-linear-progress
                   :value="isOnline ? cpuPercent / 100 : 0"
-                  :color="isOnline ? cpuColor : 'grey-8'"
+                  :color="isOnline ? cpuColor : undefined"
+                  :class="{ 'progress-disabled': !isOnline }"
                   rounded
                   class="q-mt-xs" />
               </q-item-section>
@@ -45,7 +46,8 @@
                 <q-linear-progress
                   v-if="maxMemoryBytes > 0"
                   :value="isOnline ? memoryRatio : 0"
-                  :color="isOnline ? memoryColor : 'grey-8'"
+                  :color="isOnline ? memoryColor : undefined"
+                  :class="{ 'progress-disabled': !isOnline }"
                   rounded
                   class="q-mt-xs" />
               </q-item-section>
@@ -234,5 +236,12 @@ onUnmounted(() => {
   text-transform: uppercase;
   color: var(--xy-text-muted);
   padding: 0 16px 4px;
+}
+.badge-offline {
+  background-color: var(--xy-surface-3);
+  color: var(--xy-text-muted);
+}
+.progress-disabled :deep(.q-linear-progress__model) {
+  background-color: var(--xy-surface-4);
 }
 </style>

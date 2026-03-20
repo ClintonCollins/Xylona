@@ -51,7 +51,7 @@
     <q-list bordered separator>
       <q-item v-if="localGrants.length === 0">
         <q-item-section class="text-center q-pa-md">
-          <q-icon name="lock_open" size="32px" color="grey-7" class="q-mb-xs" />
+          <q-icon name="lock_open" size="32px" class="text-xy-muted q-mb-xs" />
           <div class="text-xy-secondary">No local access grants</div>
           <div class="text-caption text-xy-muted">
             Grant users access to this server using the form above.
@@ -133,7 +133,7 @@
     <q-list bordered separator>
       <q-item v-if="federatedGrants.length === 0">
         <q-item-section class="text-center q-pa-md">
-          <q-icon name="cloud_off" size="32px" color="grey-7" class="q-mb-xs" />
+          <q-icon name="cloud_off" size="32px" class="text-xy-muted q-mb-xs" />
           <div class="text-xy-secondary">No federated access grants</div>
           <div class="text-caption text-xy-muted">
             Grant remote node users access to this server using the form above.

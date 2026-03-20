@@ -53,8 +53,8 @@
                 {{ props.row.name || 'Unnamed' }}
               </a>
               <q-badge v-if="props.row.local" color="primary" class="q-ml-sm" label="local" />
-              <q-badge v-else color="purple" class="q-ml-sm" label="remote" />
-              <q-badge v-if="props.row.autoPaired" color="cyan" class="q-ml-xs" label="auto" />
+              <q-badge v-else class="badge-remote q-ml-sm" label="remote" />
+              <q-badge v-if="props.row.autoPaired" class="badge-auto q-ml-xs" label="auto" />
             </q-td>
           </template>
           <template v-slot:body-cell-health="props">
@@ -74,7 +74,7 @@
                   {{ Math.round(getSnapshot(props.row.id)!.cpuPercent) }}%
                 </span>
               </template>
-              <span v-else class="text-grey">&mdash;</span>
+              <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
           <template v-slot:body-cell-ram="props">
@@ -87,7 +87,7 @@
                   {{ bytesToSize(Number(getSnapshot(props.row.id)!.memoryUsedBytes)) }}
                 </span>
               </template>
-              <span v-else class="text-grey">&mdash;</span>
+              <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
           <template v-slot:body-cell-disk="props">
@@ -100,7 +100,7 @@
                   {{ bytesToSize(Number(getSnapshot(props.row.id)!.diskUsedBytes)) }}
                 </span>
               </template>
-              <span v-else class="text-grey">&mdash;</span>
+              <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
           <template v-slot:body-cell-servers="props">
@@ -112,7 +112,7 @@
                 /
                 {{ getSnapshot(props.row.id)!.gameServerCount }}
               </template>
-              <span v-else class="text-grey">&mdash;</span>
+              <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
           <template v-slot:body-cell-users="props">
@@ -120,7 +120,7 @@
               <template v-if="getSnapshot(props.row.id)">
                 {{ getSnapshot(props.row.id)!.userCount }}
               </template>
-              <span v-else class="text-grey">&mdash;</span>
+              <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
           <template v-slot:body-cell-version="props">
@@ -128,7 +128,7 @@
               <span v-if="getNodeVersion(props.row.id)">
                 {{ getNodeVersion(props.row.id) }}
               </span>
-              <span v-else class="text-grey">&mdash;</span>
+              <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
           <template v-slot:body-cell-lastSync="props">
@@ -137,7 +137,7 @@
                 <span v-if="props.row.lastSyncAt?.seconds">
                   {{ formatTimestamp(props.row.lastSyncAt) }}
                 </span>
-                <span v-else class="text-grey">Never</span>
+                <span v-else class="text-xy-muted">Never</span>
                 <q-badge
                   v-if="props.row.lastSyncStatus === 'error'"
                   color="negative"
@@ -149,7 +149,7 @@
                   class="q-ml-sm"
                   label="ok" />
               </template>
-              <span v-else class="text-grey">&mdash;</span>
+              <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
           <template v-slot:body-cell-actions="props">
@@ -223,7 +223,7 @@
             @click="detailNode = null" />
           <div class="text-h6 q-ml-sm">{{ detailNode.name || 'Node Details' }}</div>
           <q-badge v-if="detailNode.local" color="primary" class="q-ml-sm" label="local" />
-          <q-badge v-else color="purple" class="q-ml-sm" label="remote" />
+          <q-badge v-else class="badge-remote q-ml-sm" label="remote" />
         </div>
         <div v-if="!detailNode.local" class="xy-page-actions">
           <q-btn
@@ -538,4 +538,13 @@ const columns = ref([
 ])
 </script>
 
-<style scoped></style>
+<style scoped>
+.badge-remote {
+  background-color: var(--xy-purple);
+  color: var(--xy-text-primary);
+}
+.badge-auto {
+  background-color: var(--xy-accent);
+  color: var(--xy-base);
+}
+</style>

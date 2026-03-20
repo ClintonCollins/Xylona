@@ -239,7 +239,7 @@ onMounted(() => {
 
 .advisory-tab-count--unread {
   background: var(--xy-primary);
-  color: #fff;
+  color: var(--xy-text-primary);
 }
 
 .advisory-loading {

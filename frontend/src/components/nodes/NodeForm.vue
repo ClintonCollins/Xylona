@@ -74,8 +74,7 @@
                 spread
                 no-caps
                 unelevated
-                color="grey-3"
-                text-color="dark"
+                class="btn-toggle-neutral"
                 toggle-color="primary"
                 :options="addModeOptions"></q-btn-toggle>
             </div>
@@ -141,7 +140,7 @@
           </template>
         </div>
         <div v-if="errorMessage" class="q-mt-md">
-          <q-banner dense class="bg-red-2 text-red-9">
+          <q-banner dense class="bg-xy-danger-tint">
             {{ errorMessage }}
           </q-banner>
         </div>
@@ -539,4 +538,9 @@ async function submitNode() {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.btn-toggle-neutral :deep(.q-btn:not(.q-btn--active)) {
+  background-color: var(--xy-surface-3);
+  color: var(--xy-text-primary);
+}
+</style>

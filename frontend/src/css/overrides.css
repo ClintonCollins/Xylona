@@ -133,6 +133,29 @@ a.q-item:hover {
     border-right: 1px solid var(--xy-border);
 }
 
+/* ---- Focus Visible ---- */
+:focus-visible {
+    outline: 2px solid var(--xy-primary);
+    outline-offset: 2px;
+}
+
+/* Quasar buttons/items handle their own focus ring via .q-focus-helper;
+   suppress the generic outline so it doesn't double up. */
+.q-btn:focus-visible,
+.q-item:focus-visible,
+.q-tab:focus-visible,
+.q-field__control:focus-visible {
+    outline: none;
+}
+
+/* Show ring on Quasar's internal focus helper instead */
+.q-btn:focus-visible > .q-focus-helper,
+.q-item:focus-visible > .q-focus-helper,
+.q-tab:focus-visible > .q-focus-helper {
+    opacity: 0.15;
+    background: var(--xy-primary);
+}
+
 /* ---- Focus Helper ---- */
 .q-focus-helper {
     color: var(--xy-surface-2);
