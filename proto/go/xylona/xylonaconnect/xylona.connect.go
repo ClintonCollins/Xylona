@@ -197,6 +197,24 @@ const (
 	// XylonaGetUnreadAdvisoryCountProcedure is the fully-qualified name of the Xylona's
 	// GetUnreadAdvisoryCount RPC.
 	XylonaGetUnreadAdvisoryCountProcedure = "/xylona.Xylona/GetUnreadAdvisoryCount"
+	// XylonaGetGameConfigSchemasProcedure is the fully-qualified name of the Xylona's
+	// GetGameConfigSchemas RPC.
+	XylonaGetGameConfigSchemasProcedure = "/xylona.Xylona/GetGameConfigSchemas"
+	// XylonaUpdateGameConfigSchemasProcedure is the fully-qualified name of the Xylona's
+	// UpdateGameConfigSchemas RPC.
+	XylonaUpdateGameConfigSchemasProcedure = "/xylona.Xylona/UpdateGameConfigSchemas"
+	// XylonaGetGameServerConfigFilesProcedure is the fully-qualified name of the Xylona's
+	// GetGameServerConfigFiles RPC.
+	XylonaGetGameServerConfigFilesProcedure = "/xylona.Xylona/GetGameServerConfigFiles"
+	// XylonaGetGameServerConfigFileProcedure is the fully-qualified name of the Xylona's
+	// GetGameServerConfigFile RPC.
+	XylonaGetGameServerConfigFileProcedure = "/xylona.Xylona/GetGameServerConfigFile"
+	// XylonaUpdateGameServerConfigFileProcedure is the fully-qualified name of the Xylona's
+	// UpdateGameServerConfigFile RPC.
+	XylonaUpdateGameServerConfigFileProcedure = "/xylona.Xylona/UpdateGameServerConfigFile"
+	// XylonaGenerateGameServerConfigFileProcedure is the fully-qualified name of the Xylona's
+	// GenerateGameServerConfigFile RPC.
+	XylonaGenerateGameServerConfigFileProcedure = "/xylona.Xylona/GenerateGameServerConfigFile"
 	// XylonaListAggregatedGameServersProcedure is the fully-qualified name of the Xylona's
 	// ListAggregatedGameServers RPC.
 	XylonaListAggregatedGameServersProcedure = "/xylona.Xylona/ListAggregatedGameServers"
@@ -297,6 +315,14 @@ type XylonaClient interface {
 	ListFederationAdvisories(context.Context, *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error)
 	MarkAdvisoriesRead(context.Context, *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error)
 	GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error)
+	// Config Schema Management (superuser)
+	GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error)
+	UpdateGameConfigSchemas(context.Context, *connect.Request[xylona.UpdateGameConfigSchemasRequest]) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error)
+	// Config File Editing
+	GetGameServerConfigFiles(context.Context, *connect.Request[xylona.GetGameServerConfigFilesRequest]) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error)
+	GetGameServerConfigFile(context.Context, *connect.Request[xylona.GetGameServerConfigFileRequest]) (*connect.Response[xylona.GetGameServerConfigFileResponse], error)
+	UpdateGameServerConfigFile(context.Context, *connect.Request[xylona.UpdateGameServerConfigFileRequest]) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error)
+	GenerateGameServerConfigFile(context.Context, *connect.Request[xylona.GenerateGameServerConfigFileRequest]) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error)
 	// Aggregated Views
 	ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error)
 	// Dashboard
@@ -726,6 +752,42 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("GetUnreadAdvisoryCount")),
 			connect.WithClientOptions(opts...),
 		),
+		getGameConfigSchemas: connect.NewClient[xylona.GetGameConfigSchemasRequest, xylona.GetGameConfigSchemasResponse](
+			httpClient,
+			baseURL+XylonaGetGameConfigSchemasProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameConfigSchemas")),
+			connect.WithClientOptions(opts...),
+		),
+		updateGameConfigSchemas: connect.NewClient[xylona.UpdateGameConfigSchemasRequest, xylona.UpdateGameConfigSchemasResponse](
+			httpClient,
+			baseURL+XylonaUpdateGameConfigSchemasProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateGameConfigSchemas")),
+			connect.WithClientOptions(opts...),
+		),
+		getGameServerConfigFiles: connect.NewClient[xylona.GetGameServerConfigFilesRequest, xylona.GetGameServerConfigFilesResponse](
+			httpClient,
+			baseURL+XylonaGetGameServerConfigFilesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameServerConfigFiles")),
+			connect.WithClientOptions(opts...),
+		),
+		getGameServerConfigFile: connect.NewClient[xylona.GetGameServerConfigFileRequest, xylona.GetGameServerConfigFileResponse](
+			httpClient,
+			baseURL+XylonaGetGameServerConfigFileProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameServerConfigFile")),
+			connect.WithClientOptions(opts...),
+		),
+		updateGameServerConfigFile: connect.NewClient[xylona.UpdateGameServerConfigFileRequest, xylona.UpdateGameServerConfigFileResponse](
+			httpClient,
+			baseURL+XylonaUpdateGameServerConfigFileProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateGameServerConfigFile")),
+			connect.WithClientOptions(opts...),
+		),
+		generateGameServerConfigFile: connect.NewClient[xylona.GenerateGameServerConfigFileRequest, xylona.GenerateGameServerConfigFileResponse](
+			httpClient,
+			baseURL+XylonaGenerateGameServerConfigFileProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GenerateGameServerConfigFile")),
+			connect.WithClientOptions(opts...),
+		),
 		listAggregatedGameServers: connect.NewClient[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse](
 			httpClient,
 			baseURL+XylonaListAggregatedGameServersProcedure,
@@ -835,6 +897,12 @@ type xylonaClient struct {
 	listFederationAdvisories         *connect.Client[xylona.ListFederationAdvisoriesRequest, xylona.ListFederationAdvisoriesResponse]
 	markAdvisoriesRead               *connect.Client[xylona.MarkAdvisoriesReadRequest, xylona.MarkAdvisoriesReadResponse]
 	getUnreadAdvisoryCount           *connect.Client[xylona.GetUnreadAdvisoryCountRequest, xylona.GetUnreadAdvisoryCountResponse]
+	getGameConfigSchemas             *connect.Client[xylona.GetGameConfigSchemasRequest, xylona.GetGameConfigSchemasResponse]
+	updateGameConfigSchemas          *connect.Client[xylona.UpdateGameConfigSchemasRequest, xylona.UpdateGameConfigSchemasResponse]
+	getGameServerConfigFiles         *connect.Client[xylona.GetGameServerConfigFilesRequest, xylona.GetGameServerConfigFilesResponse]
+	getGameServerConfigFile          *connect.Client[xylona.GetGameServerConfigFileRequest, xylona.GetGameServerConfigFileResponse]
+	updateGameServerConfigFile       *connect.Client[xylona.UpdateGameServerConfigFileRequest, xylona.UpdateGameServerConfigFileResponse]
+	generateGameServerConfigFile     *connect.Client[xylona.GenerateGameServerConfigFileRequest, xylona.GenerateGameServerConfigFileResponse]
 	listAggregatedGameServers        *connect.Client[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse]
 	getNodeSystemInfo                *connect.Client[xylona.GetNodeSystemInfoRequest, xylona.GetNodeSystemInfoResponse]
 	getNodeResourceSnapshot          *connect.Client[xylona.GetNodeResourceSnapshotRequest, xylona.GetNodeResourceSnapshotResponse]
@@ -1183,6 +1251,36 @@ func (c *xylonaClient) GetUnreadAdvisoryCount(ctx context.Context, req *connect.
 	return c.getUnreadAdvisoryCount.CallUnary(ctx, req)
 }
 
+// GetGameConfigSchemas calls xylona.Xylona.GetGameConfigSchemas.
+func (c *xylonaClient) GetGameConfigSchemas(ctx context.Context, req *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error) {
+	return c.getGameConfigSchemas.CallUnary(ctx, req)
+}
+
+// UpdateGameConfigSchemas calls xylona.Xylona.UpdateGameConfigSchemas.
+func (c *xylonaClient) UpdateGameConfigSchemas(ctx context.Context, req *connect.Request[xylona.UpdateGameConfigSchemasRequest]) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error) {
+	return c.updateGameConfigSchemas.CallUnary(ctx, req)
+}
+
+// GetGameServerConfigFiles calls xylona.Xylona.GetGameServerConfigFiles.
+func (c *xylonaClient) GetGameServerConfigFiles(ctx context.Context, req *connect.Request[xylona.GetGameServerConfigFilesRequest]) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
+	return c.getGameServerConfigFiles.CallUnary(ctx, req)
+}
+
+// GetGameServerConfigFile calls xylona.Xylona.GetGameServerConfigFile.
+func (c *xylonaClient) GetGameServerConfigFile(ctx context.Context, req *connect.Request[xylona.GetGameServerConfigFileRequest]) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
+	return c.getGameServerConfigFile.CallUnary(ctx, req)
+}
+
+// UpdateGameServerConfigFile calls xylona.Xylona.UpdateGameServerConfigFile.
+func (c *xylonaClient) UpdateGameServerConfigFile(ctx context.Context, req *connect.Request[xylona.UpdateGameServerConfigFileRequest]) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
+	return c.updateGameServerConfigFile.CallUnary(ctx, req)
+}
+
+// GenerateGameServerConfigFile calls xylona.Xylona.GenerateGameServerConfigFile.
+func (c *xylonaClient) GenerateGameServerConfigFile(ctx context.Context, req *connect.Request[xylona.GenerateGameServerConfigFileRequest]) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
+	return c.generateGameServerConfigFile.CallUnary(ctx, req)
+}
+
 // ListAggregatedGameServers calls xylona.Xylona.ListAggregatedGameServers.
 func (c *xylonaClient) ListAggregatedGameServers(ctx context.Context, req *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {
 	return c.listAggregatedGameServers.CallUnary(ctx, req)
@@ -1293,6 +1391,14 @@ type XylonaHandler interface {
 	ListFederationAdvisories(context.Context, *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error)
 	MarkAdvisoriesRead(context.Context, *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error)
 	GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error)
+	// Config Schema Management (superuser)
+	GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error)
+	UpdateGameConfigSchemas(context.Context, *connect.Request[xylona.UpdateGameConfigSchemasRequest]) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error)
+	// Config File Editing
+	GetGameServerConfigFiles(context.Context, *connect.Request[xylona.GetGameServerConfigFilesRequest]) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error)
+	GetGameServerConfigFile(context.Context, *connect.Request[xylona.GetGameServerConfigFileRequest]) (*connect.Response[xylona.GetGameServerConfigFileResponse], error)
+	UpdateGameServerConfigFile(context.Context, *connect.Request[xylona.UpdateGameServerConfigFileRequest]) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error)
+	GenerateGameServerConfigFile(context.Context, *connect.Request[xylona.GenerateGameServerConfigFileRequest]) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error)
 	// Aggregated Views
 	ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error)
 	// Dashboard
@@ -1718,6 +1824,42 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("GetUnreadAdvisoryCount")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetGameConfigSchemasHandler := connect.NewUnaryHandler(
+		XylonaGetGameConfigSchemasProcedure,
+		svc.GetGameConfigSchemas,
+		connect.WithSchema(xylonaMethods.ByName("GetGameConfigSchemas")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateGameConfigSchemasHandler := connect.NewUnaryHandler(
+		XylonaUpdateGameConfigSchemasProcedure,
+		svc.UpdateGameConfigSchemas,
+		connect.WithSchema(xylonaMethods.ByName("UpdateGameConfigSchemas")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetGameServerConfigFilesHandler := connect.NewUnaryHandler(
+		XylonaGetGameServerConfigFilesProcedure,
+		svc.GetGameServerConfigFiles,
+		connect.WithSchema(xylonaMethods.ByName("GetGameServerConfigFiles")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetGameServerConfigFileHandler := connect.NewUnaryHandler(
+		XylonaGetGameServerConfigFileProcedure,
+		svc.GetGameServerConfigFile,
+		connect.WithSchema(xylonaMethods.ByName("GetGameServerConfigFile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateGameServerConfigFileHandler := connect.NewUnaryHandler(
+		XylonaUpdateGameServerConfigFileProcedure,
+		svc.UpdateGameServerConfigFile,
+		connect.WithSchema(xylonaMethods.ByName("UpdateGameServerConfigFile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGenerateGameServerConfigFileHandler := connect.NewUnaryHandler(
+		XylonaGenerateGameServerConfigFileProcedure,
+		svc.GenerateGameServerConfigFile,
+		connect.WithSchema(xylonaMethods.ByName("GenerateGameServerConfigFile")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaListAggregatedGameServersHandler := connect.NewUnaryHandler(
 		XylonaListAggregatedGameServersProcedure,
 		svc.ListAggregatedGameServers,
@@ -1892,6 +2034,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaMarkAdvisoriesReadHandler.ServeHTTP(w, r)
 		case XylonaGetUnreadAdvisoryCountProcedure:
 			xylonaGetUnreadAdvisoryCountHandler.ServeHTTP(w, r)
+		case XylonaGetGameConfigSchemasProcedure:
+			xylonaGetGameConfigSchemasHandler.ServeHTTP(w, r)
+		case XylonaUpdateGameConfigSchemasProcedure:
+			xylonaUpdateGameConfigSchemasHandler.ServeHTTP(w, r)
+		case XylonaGetGameServerConfigFilesProcedure:
+			xylonaGetGameServerConfigFilesHandler.ServeHTTP(w, r)
+		case XylonaGetGameServerConfigFileProcedure:
+			xylonaGetGameServerConfigFileHandler.ServeHTTP(w, r)
+		case XylonaUpdateGameServerConfigFileProcedure:
+			xylonaUpdateGameServerConfigFileHandler.ServeHTTP(w, r)
+		case XylonaGenerateGameServerConfigFileProcedure:
+			xylonaGenerateGameServerConfigFileHandler.ServeHTTP(w, r)
 		case XylonaListAggregatedGameServersProcedure:
 			xylonaListAggregatedGameServersHandler.ServeHTTP(w, r)
 		case XylonaGetNodeSystemInfoProcedure:
@@ -2183,6 +2337,30 @@ func (UnimplementedXylonaHandler) MarkAdvisoriesRead(context.Context, *connect.R
 
 func (UnimplementedXylonaHandler) GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetUnreadAdvisoryCount is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameConfigSchemas is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateGameConfigSchemas(context.Context, *connect.Request[xylona.UpdateGameConfigSchemasRequest]) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateGameConfigSchemas is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameServerConfigFiles(context.Context, *connect.Request[xylona.GetGameServerConfigFilesRequest]) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerConfigFiles is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameServerConfigFile(context.Context, *connect.Request[xylona.GetGameServerConfigFileRequest]) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerConfigFile is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateGameServerConfigFile(context.Context, *connect.Request[xylona.UpdateGameServerConfigFileRequest]) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateGameServerConfigFile is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GenerateGameServerConfigFile(context.Context, *connect.Request[xylona.GenerateGameServerConfigFileRequest]) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GenerateGameServerConfigFile is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListAggregatedGameServers(context.Context, *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {

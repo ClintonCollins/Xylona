@@ -9,6 +9,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 	"github.com/stephenafamo/bob"
@@ -24,36 +25,37 @@ import (
 
 // Game is an object representing the database table.
 type Game struct {
-	ID                                string    `db:"id,pk" `
-	Name                              string    `db:"name" `
-	DefaultPort                       int64     `db:"default_port" `
-	DefaultQueryPort                  int64     `db:"default_query_port" `
-	DefaultMaxPlayers                 int64     `db:"default_max_players" `
-	RequireDedicatedIP                bool      `db:"require_dedicated_ip" `
-	BindsToAllIps                     bool      `db:"binds_to_all_ips" `
-	UsesSourceQuery                   bool      `db:"uses_source_query" `
-	UsesSteamcmd                      bool      `db:"uses_steamcmd" `
-	SteamAppID                        string    `db:"steam_app_id" `
-	RequiresSteamGameServerLoginToken bool      `db:"requires_steam_game_server_login_token" `
-	LinuxSupport                      bool      `db:"linux_support" `
-	LinuxStartCommand                 string    `db:"linux_start_command" `
-	LinuxStopCommand                  string    `db:"linux_stop_command" `
-	LinuxInstallCommand               string    `db:"linux_install_command" `
-	LinuxInstallCommandType           string    `db:"linux_install_command_type" `
-	LinuxUpdateCommand                string    `db:"linux_update_command" `
-	LinuxUpdateCommandType            string    `db:"linux_update_command_type" `
-	LinuxWorkingDirectory             string    `db:"linux_working_directory" `
-	WindowsSupport                    bool      `db:"windows_support" `
-	WindowsStartCommand               string    `db:"windows_start_command" `
-	WindowsStopCommand                string    `db:"windows_stop_command" `
-	WindowsInstallCommand             string    `db:"windows_install_command" `
-	WindowsInstallCommandType         string    `db:"windows_install_command_type" `
-	WindowsUpdateCommand              string    `db:"windows_update_command" `
-	WindowsUpdateCommandType          string    `db:"windows_update_command_type" `
-	WindowsWorkingDirectory           string    `db:"windows_working_directory" `
-	CreatedAt                         time.Time `db:"created_at" `
-	UpdatedAt                         time.Time `db:"updated_at" `
-	XylonaOfficial                    bool      `db:"xylona_official" `
+	ID                                string           `db:"id,pk" `
+	Name                              string           `db:"name" `
+	DefaultPort                       int64            `db:"default_port" `
+	DefaultQueryPort                  int64            `db:"default_query_port" `
+	DefaultMaxPlayers                 int64            `db:"default_max_players" `
+	RequireDedicatedIP                bool             `db:"require_dedicated_ip" `
+	BindsToAllIps                     bool             `db:"binds_to_all_ips" `
+	UsesSourceQuery                   bool             `db:"uses_source_query" `
+	UsesSteamcmd                      bool             `db:"uses_steamcmd" `
+	SteamAppID                        string           `db:"steam_app_id" `
+	RequiresSteamGameServerLoginToken bool             `db:"requires_steam_game_server_login_token" `
+	LinuxSupport                      bool             `db:"linux_support" `
+	LinuxStartCommand                 string           `db:"linux_start_command" `
+	LinuxStopCommand                  string           `db:"linux_stop_command" `
+	LinuxInstallCommand               string           `db:"linux_install_command" `
+	LinuxInstallCommandType           string           `db:"linux_install_command_type" `
+	LinuxUpdateCommand                string           `db:"linux_update_command" `
+	LinuxUpdateCommandType            string           `db:"linux_update_command_type" `
+	LinuxWorkingDirectory             string           `db:"linux_working_directory" `
+	WindowsSupport                    bool             `db:"windows_support" `
+	WindowsStartCommand               string           `db:"windows_start_command" `
+	WindowsStopCommand                string           `db:"windows_stop_command" `
+	WindowsInstallCommand             string           `db:"windows_install_command" `
+	WindowsInstallCommandType         string           `db:"windows_install_command_type" `
+	WindowsUpdateCommand              string           `db:"windows_update_command" `
+	WindowsUpdateCommandType          string           `db:"windows_update_command_type" `
+	WindowsWorkingDirectory           string           `db:"windows_working_directory" `
+	CreatedAt                         time.Time        `db:"created_at" `
+	UpdatedAt                         time.Time        `db:"updated_at" `
+	XylonaOfficial                    bool             `db:"xylona_official" `
+	ConfigSchemas                     null.Val[string] `db:"config_schemas" `
 
 	R gameR `db:"-" `
 }
@@ -77,7 +79,7 @@ type gameR struct {
 func buildGameColumns(alias string) gameColumns {
 	return gameColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "binds_to_all_ips", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_start_command", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_start_command", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "created_at", "updated_at", "xylona_official",
+			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "binds_to_all_ips", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_start_command", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_start_command", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "created_at", "updated_at", "xylona_official", "config_schemas",
 		).WithParent("game"),
 		tableAlias:                        alias,
 		ID:                                sqlite.Quote(alias, "id"),
@@ -110,6 +112,7 @@ func buildGameColumns(alias string) gameColumns {
 		CreatedAt:                         sqlite.Quote(alias, "created_at"),
 		UpdatedAt:                         sqlite.Quote(alias, "updated_at"),
 		XylonaOfficial:                    sqlite.Quote(alias, "xylona_official"),
+		ConfigSchemas:                     sqlite.Quote(alias, "config_schemas"),
 	}
 }
 
@@ -146,6 +149,7 @@ type gameColumns struct {
 	CreatedAt                         sqlite.Expression
 	UpdatedAt                         sqlite.Expression
 	XylonaOfficial                    sqlite.Expression
+	ConfigSchemas                     sqlite.Expression
 }
 
 func (c gameColumns) Alias() string {
@@ -160,40 +164,41 @@ func (gameColumns) AliasedAs(alias string) gameColumns {
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type GameSetter struct {
-	ID                                omit.Val[string]    `db:"id,pk" `
-	Name                              omit.Val[string]    `db:"name" `
-	DefaultPort                       omit.Val[int64]     `db:"default_port" `
-	DefaultQueryPort                  omit.Val[int64]     `db:"default_query_port" `
-	DefaultMaxPlayers                 omit.Val[int64]     `db:"default_max_players" `
-	RequireDedicatedIP                omit.Val[bool]      `db:"require_dedicated_ip" `
-	BindsToAllIps                     omit.Val[bool]      `db:"binds_to_all_ips" `
-	UsesSourceQuery                   omit.Val[bool]      `db:"uses_source_query" `
-	UsesSteamcmd                      omit.Val[bool]      `db:"uses_steamcmd" `
-	SteamAppID                        omit.Val[string]    `db:"steam_app_id" `
-	RequiresSteamGameServerLoginToken omit.Val[bool]      `db:"requires_steam_game_server_login_token" `
-	LinuxSupport                      omit.Val[bool]      `db:"linux_support" `
-	LinuxStartCommand                 omit.Val[string]    `db:"linux_start_command" `
-	LinuxStopCommand                  omit.Val[string]    `db:"linux_stop_command" `
-	LinuxInstallCommand               omit.Val[string]    `db:"linux_install_command" `
-	LinuxInstallCommandType           omit.Val[string]    `db:"linux_install_command_type" `
-	LinuxUpdateCommand                omit.Val[string]    `db:"linux_update_command" `
-	LinuxUpdateCommandType            omit.Val[string]    `db:"linux_update_command_type" `
-	LinuxWorkingDirectory             omit.Val[string]    `db:"linux_working_directory" `
-	WindowsSupport                    omit.Val[bool]      `db:"windows_support" `
-	WindowsStartCommand               omit.Val[string]    `db:"windows_start_command" `
-	WindowsStopCommand                omit.Val[string]    `db:"windows_stop_command" `
-	WindowsInstallCommand             omit.Val[string]    `db:"windows_install_command" `
-	WindowsInstallCommandType         omit.Val[string]    `db:"windows_install_command_type" `
-	WindowsUpdateCommand              omit.Val[string]    `db:"windows_update_command" `
-	WindowsUpdateCommandType          omit.Val[string]    `db:"windows_update_command_type" `
-	WindowsWorkingDirectory           omit.Val[string]    `db:"windows_working_directory" `
-	CreatedAt                         omit.Val[time.Time] `db:"created_at" `
-	UpdatedAt                         omit.Val[time.Time] `db:"updated_at" `
-	XylonaOfficial                    omit.Val[bool]      `db:"xylona_official" `
+	ID                                omit.Val[string]     `db:"id,pk" `
+	Name                              omit.Val[string]     `db:"name" `
+	DefaultPort                       omit.Val[int64]      `db:"default_port" `
+	DefaultQueryPort                  omit.Val[int64]      `db:"default_query_port" `
+	DefaultMaxPlayers                 omit.Val[int64]      `db:"default_max_players" `
+	RequireDedicatedIP                omit.Val[bool]       `db:"require_dedicated_ip" `
+	BindsToAllIps                     omit.Val[bool]       `db:"binds_to_all_ips" `
+	UsesSourceQuery                   omit.Val[bool]       `db:"uses_source_query" `
+	UsesSteamcmd                      omit.Val[bool]       `db:"uses_steamcmd" `
+	SteamAppID                        omit.Val[string]     `db:"steam_app_id" `
+	RequiresSteamGameServerLoginToken omit.Val[bool]       `db:"requires_steam_game_server_login_token" `
+	LinuxSupport                      omit.Val[bool]       `db:"linux_support" `
+	LinuxStartCommand                 omit.Val[string]     `db:"linux_start_command" `
+	LinuxStopCommand                  omit.Val[string]     `db:"linux_stop_command" `
+	LinuxInstallCommand               omit.Val[string]     `db:"linux_install_command" `
+	LinuxInstallCommandType           omit.Val[string]     `db:"linux_install_command_type" `
+	LinuxUpdateCommand                omit.Val[string]     `db:"linux_update_command" `
+	LinuxUpdateCommandType            omit.Val[string]     `db:"linux_update_command_type" `
+	LinuxWorkingDirectory             omit.Val[string]     `db:"linux_working_directory" `
+	WindowsSupport                    omit.Val[bool]       `db:"windows_support" `
+	WindowsStartCommand               omit.Val[string]     `db:"windows_start_command" `
+	WindowsStopCommand                omit.Val[string]     `db:"windows_stop_command" `
+	WindowsInstallCommand             omit.Val[string]     `db:"windows_install_command" `
+	WindowsInstallCommandType         omit.Val[string]     `db:"windows_install_command_type" `
+	WindowsUpdateCommand              omit.Val[string]     `db:"windows_update_command" `
+	WindowsUpdateCommandType          omit.Val[string]     `db:"windows_update_command_type" `
+	WindowsWorkingDirectory           omit.Val[string]     `db:"windows_working_directory" `
+	CreatedAt                         omit.Val[time.Time]  `db:"created_at" `
+	UpdatedAt                         omit.Val[time.Time]  `db:"updated_at" `
+	XylonaOfficial                    omit.Val[bool]       `db:"xylona_official" `
+	ConfigSchemas                     omitnull.Val[string] `db:"config_schemas" `
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 30)
+	vals := make([]string, 0, 31)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -283,6 +288,9 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if s.XylonaOfficial.IsValue() {
 		vals = append(vals, "xylona_official")
+	}
+	if !s.ConfigSchemas.IsUnset() {
+		vals = append(vals, "config_schemas")
 	}
 	return vals
 }
@@ -378,6 +386,9 @@ func (s GameSetter) Overwrite(t *Game) {
 	if s.XylonaOfficial.IsValue() {
 		t.XylonaOfficial = s.XylonaOfficial.MustGet()
 	}
+	if !s.ConfigSchemas.IsUnset() {
+		t.ConfigSchemas = s.ConfigSchemas.MustGetNull()
+	}
 }
 
 func (s *GameSetter) Apply(q *dialect.InsertQuery) {
@@ -394,7 +405,7 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 30)
+		vals := make([]bob.Expression, 0, 31)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -515,6 +526,10 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.XylonaOfficial.MustGet()))
 		}
 
+		if !s.ConfigSchemas.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.ConfigSchemas.MustGetNull()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -528,7 +543,7 @@ func (s GameSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 30)
+	exprs := make([]bob.Expression, 0, 31)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -737,6 +752,13 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "xylona_official")...),
 			sqlite.Arg(s.XylonaOfficial),
+		}})
+	}
+
+	if !s.ConfigSchemas.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "config_schemas")...),
+			sqlite.Arg(s.ConfigSchemas),
 		}})
 	}
 
@@ -1171,6 +1193,7 @@ type gameWhere[Q sqlite.Filterable] struct {
 	CreatedAt                         sqlite.WhereMod[Q, time.Time]
 	UpdatedAt                         sqlite.WhereMod[Q, time.Time]
 	XylonaOfficial                    sqlite.WhereMod[Q, bool]
+	ConfigSchemas                     sqlite.WhereNullMod[Q, string]
 }
 
 func (gameWhere[Q]) AliasedAs(alias string) gameWhere[Q] {
@@ -1209,6 +1232,7 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		CreatedAt:                         sqlite.Where[Q, time.Time](cols.CreatedAt),
 		UpdatedAt:                         sqlite.Where[Q, time.Time](cols.UpdatedAt),
 		XylonaOfficial:                    sqlite.Where[Q, bool](cols.XylonaOfficial),
+		ConfigSchemas:                     sqlite.WhereNull[Q, string](cols.ConfigSchemas),
 	}
 }
 

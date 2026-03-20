@@ -1,0 +1,346 @@
+<template>
+  <div class="config-sidebar" :class="{ collapsed: isCollapsed }">
+    <div v-if="!isCollapsed" class="sidebar-expanded">
+      <div class="sidebar-header">
+        <div class="sidebar-title font-display">Config Files</div>
+        <div class="sidebar-subtitle text-xy-secondary">
+          {{ configFiles.length }} file{{ configFiles.length !== 1 ? 's' : '' }}
+          <span v-if="categoryCount > 0">&middot; {{ categoryCount }} categories</span>
+        </div>
+        <q-btn
+          flat
+          dense
+          round
+          icon="chevron_left"
+          size="sm"
+          class="collapse-btn"
+          @click="isCollapsed = true">
+          <q-tooltip>Collapse sidebar</q-tooltip>
+        </q-btn>
+      </div>
+
+      <q-separator class="sidebar-divider" />
+
+      <div class="sidebar-content">
+        <div v-if="configFiles.length === 0" class="no-files text-xy-muted q-pa-md">
+          No config files defined for this game.
+        </div>
+
+        <div v-for="(files, category) in groupedFiles" :key="category" class="category-group">
+          <div class="category-header">
+            <span class="category-dot" :style="{ backgroundColor: getCategoryColor(String(category)) }"></span>
+            <span class="category-name">{{ category }}</span>
+          </div>
+
+          <q-list dense class="category-files">
+            <q-item
+              v-for="file in files"
+              :key="file.path"
+              clickable
+              :active="selectedPath === file.path"
+              active-class="file-active"
+              class="file-item"
+              :class="{ 'file-missing': !file.existsOnDisk }"
+              @click="$emit('select', file.path, !file.existsOnDisk)">
+              <q-item-section side class="file-icon-section">
+                <q-icon
+                  :name="file.existsOnDisk ? 'description' : 'note_add'"
+                  :color="file.existsOnDisk ? undefined : 'warning'"
+                  size="xs" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label class="file-name font-mono">{{ getFileName(file.path) }}</q-item-label>
+                <q-item-label caption class="file-meta">
+                  {{ file.format }} &middot; {{ file.fieldCount }} fields
+                </q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-badge
+                  v-if="!file.existsOnDisk"
+                  color="warning"
+                  text-color="dark"
+                  label="Missing"
+                  class="file-badge" />
+                <q-badge
+                  v-else-if="file.managedFieldCount > 0"
+                  outline
+                  color="accent"
+                  :label="`${file.managedFieldCount} managed`"
+                  class="file-badge" />
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="sidebar-collapsed">
+      <q-btn
+        flat
+        dense
+        round
+        icon="chevron_right"
+        size="sm"
+        class="expand-btn"
+        @click="isCollapsed = false">
+        <q-tooltip>Expand sidebar</q-tooltip>
+      </q-btn>
+
+      <q-separator class="sidebar-divider" />
+
+      <div class="collapsed-files">
+        <q-btn
+          v-for="file in configFiles"
+          :key="file.path"
+          flat
+          dense
+          class="collapsed-file-btn"
+          :class="{
+            'collapsed-active': selectedPath === file.path,
+            'collapsed-missing': !file.existsOnDisk,
+          }"
+          @click="$emit('select', file.path, !file.existsOnDisk)">
+          <span class="collapsed-abbr font-mono">{{ getAbbreviation(file.path) }}</span>
+          <q-tooltip>{{ file.path }}</q-tooltip>
+        </q-btn>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import type { ConfigFileInfo } from '@/proto/xylona_pb'
+
+const props = defineProps<{
+  configFiles: ConfigFileInfo[]
+  selectedPath: string
+}>()
+
+defineEmits<{
+  select: [path: string, isMissing: boolean]
+}>()
+
+const isCollapsed = ref(false)
+
+const CATEGORY_COLORS = [
+  '#3B82F6', // blue
+  '#22C55E', // green
+  '#F59E0B', // amber
+  '#8B5CF6', // purple
+  '#EF4444', // red
+  '#06B6D4', // cyan
+  '#EC4899', // pink
+  '#F97316', // orange
+]
+
+const categoryColorMap = computed(() => {
+  const map = new Map<string, string>()
+  const categories = [...new Set(props.configFiles.map((f) => f.category || 'Uncategorized'))]
+  categories.forEach((cat, i) => {
+    map.set(cat, CATEGORY_COLORS[i % CATEGORY_COLORS.length])
+  })
+  return map
+})
+
+const categoryCount = computed(() => categoryColorMap.value.size)
+
+const groupedFiles = computed(() => {
+  const groups: Record<string, ConfigFileInfo[]> = {}
+  for (const file of props.configFiles) {
+    const cat = file.category || 'Uncategorized'
+    if (!groups[cat]) {
+      groups[cat] = []
+    }
+    groups[cat].push(file)
+  }
+  return groups
+})
+
+function getCategoryColor(category: string): string {
+  return categoryColorMap.value.get(category) || CATEGORY_COLORS[0]
+}
+
+function getFileName(path: string): string {
+  const parts = path.split('/')
+  return parts[parts.length - 1]
+}
+
+function getAbbreviation(path: string): string {
+  const name = getFileName(path)
+  const dotIndex = name.indexOf('.')
+  const base = dotIndex > 0 ? name.substring(0, dotIndex) : name
+  return base.substring(0, 2).toUpperCase()
+}
+</script>
+
+<style scoped>
+.config-sidebar {
+  background-color: var(--xy-surface-1);
+  border-right: 1px solid var(--xy-border);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: width var(--xy-transition-base);
+}
+
+.sidebar-expanded {
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sidebar-collapsed {
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  padding-top: var(--xy-space-sm);
+}
+
+.sidebar-header {
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  position: relative;
+}
+
+.sidebar-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--xy-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.sidebar-subtitle {
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+
+.collapse-btn {
+  position: absolute;
+  top: var(--xy-space-xs);
+  right: var(--xy-space-xs);
+  color: var(--xy-text-muted);
+}
+
+.sidebar-divider {
+  background-color: var(--xy-border);
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--xy-space-xs) 0;
+}
+
+.category-group {
+  margin-bottom: var(--xy-space-xs);
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  padding: var(--xy-space-xs) var(--xy-space-md);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--xy-text-muted);
+}
+
+.category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.file-item {
+  padding: var(--xy-space-xs) var(--xy-space-md);
+  min-height: 44px;
+  border-left: 2px solid transparent;
+  transition: all var(--xy-transition-fast);
+}
+
+.file-item:hover {
+  background-color: var(--xy-surface-2);
+}
+
+.file-active {
+  background-color: var(--xy-surface-2);
+  border-left-color: var(--xy-primary);
+}
+
+.file-missing {
+  opacity: 0.7;
+}
+
+.file-icon-section {
+  min-width: 24px;
+  padding-right: var(--xy-space-xs);
+}
+
+.file-name {
+  font-size: 0.8rem;
+  color: var(--xy-text-primary);
+}
+
+.file-meta {
+  font-size: 0.65rem;
+  color: var(--xy-text-muted);
+}
+
+.file-badge {
+  font-size: 0.6rem;
+}
+
+.no-files {
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* Collapsed state */
+.expand-btn {
+  color: var(--xy-text-muted);
+  margin-bottom: var(--xy-space-xs);
+}
+
+.collapsed-files {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--xy-space-xs) 0;
+}
+
+.collapsed-file-btn {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 6px;
+  color: var(--xy-text-secondary);
+  border: 1px solid transparent;
+  transition: all var(--xy-transition-fast);
+}
+
+.collapsed-file-btn:hover {
+  background-color: var(--xy-surface-2);
+}
+
+.collapsed-active {
+  background-color: var(--xy-surface-2);
+  border-color: var(--xy-primary);
+  color: var(--xy-text-primary);
+}
+
+.collapsed-missing {
+  opacity: 0.5;
+}
+
+.collapsed-abbr {
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+</style>

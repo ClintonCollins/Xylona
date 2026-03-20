@@ -50,14 +50,16 @@ message Game {
   string linux_install_command = 10;
   string linux_update_command = 11;
   string linux_working_directory = 12;
-  string linux_configuration_file_paths = 13;
+  reserved 13;
+  reserved "linux_configuration_file_paths";
   bool linux_allow_backups = 14;
   string windows_start_command = 15;
   string windows_stop_command = 16;
   string windows_install_command = 17;
   string windows_update_command = 18;
   string windows_working_directory = 19;
-  string windows_configuration_file_paths = 20;
+  reserved 20;
+  reserved "windows_configuration_file_paths";
   bool windows_allow_backups = 21;
   bool require_dedicated_ip = 22;
   bool binds_to_all_ips = 23;
@@ -71,6 +73,7 @@ message Game {
   CommandProcessor windows_update_command_processor = 31;
   bool uses_steamcmd = 32;
   string steam_appid = 33;
+  string config_schemas = 70; // JSON blob, parsed by application layer
 }
 
 enum Status {

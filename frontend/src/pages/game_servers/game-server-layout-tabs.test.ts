@@ -36,7 +36,7 @@ describe('buildGameServerTabs', () => {
       'game_server.delete',
     ]
     const tabs = buildGameServerTabs(serverID, perms, false)
-    expect(tabs.map((t) => t.name)).toEqual(['Console', 'Files', 'Metrics', 'Configuration'])
+    expect(tabs.map((t) => t.name)).toEqual(['Console', 'Files', 'Metrics', 'Settings'])
   })
 
   it('shows Access tab only for owner/super', () => {

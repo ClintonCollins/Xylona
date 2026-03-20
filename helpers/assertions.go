@@ -166,6 +166,7 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		UpdatedAt:                         timestamppb.New(gameModel.UpdatedAt),
 		UsesSourceQuery:                   gameModel.UsesSourceQuery,
 		RequiresSteamGameServerLoginToken: gameModel.RequiresSteamGameServerLoginToken,
+		ConfigSchemas:                     gameModel.ConfigSchemas.GetOr(""),
 	}
 }
 
@@ -198,6 +199,7 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		UpdatedAt:                         gameProto.UpdatedAt.AsTime(),
 		UsesSourceQuery:                   gameProto.UsesSourceQuery,
 		RequiresSteamGameServerLoginToken: gameProto.RequiresSteamGameServerLoginToken,
+		ConfigSchemas:                     null.FromCond(gameProto.ConfigSchemas, gameProto.ConfigSchemas != ""),
 	}
 }
 
@@ -230,6 +232,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		WindowsUpdateCommand:              omit.From(gameModel.WindowsUpdateCommand),
 		WindowsUpdateCommandType:          omit.From(gameModel.WindowsUpdateCommandType),
 		WindowsWorkingDirectory:           omit.From(gameModel.WindowsWorkingDirectory),
+		ConfigSchemas:                     omitnull.FromNull(gameModel.ConfigSchemas),
 		CreatedAt:                         omit.From(time.Now()),
 		UpdatedAt:                         omit.From(time.Now()),
 	}

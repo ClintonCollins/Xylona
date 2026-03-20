@@ -18,6 +18,15 @@ export function buildGameServerTabs(
     { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true },
   ]
 
+  if (has('game_server.config')) {
+    tabs.push({
+      name: 'Configuration',
+      to: `${basePath}/configuration`,
+      icon: 'tune',
+      exact: true,
+      requiredPermission: 'game_server.config',
+    })
+  }
   if (has('game_server.files.view')) {
     tabs.push({
       name: 'Files',
@@ -38,8 +47,8 @@ export function buildGameServerTabs(
   }
   if (has('game_server.settings')) {
     tabs.push({
-      name: 'Configuration',
-      to: `${basePath}/configuration`,
+      name: 'Settings',
+      to: `${basePath}/settings`,
       icon: 'settings',
       exact: true,
       requiredPermission: 'game_server.settings',
@@ -73,7 +82,10 @@ export function getUnauthorizedRedirect(
   if (currentPath === `${basePath}/metrics` && !has('game_server.metrics')) {
     return consolePath
   }
-  if (currentPath === `${basePath}/configuration` && !has('game_server.settings')) {
+  if (currentPath === `${basePath}/configuration` && !has('game_server.config')) {
+    return consolePath
+  }
+  if (currentPath === `${basePath}/settings` && !has('game_server.settings')) {
     return consolePath
   }
   if (currentPath === `${basePath}/access` && !isOwnerOrSuper) {

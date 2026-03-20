@@ -20,6 +20,7 @@ import (
 	"github.com/stephenafamo/bob"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 
 	"github.com/ClintonCollins/Xylona/db"
@@ -470,6 +471,9 @@ func postInstallStep(gameServer *models.GameServer) error {
 }
 
 func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
+	// Run pre-start config enforcement before launching the process.
+	inst.runConfigPreStart(gameServer)
+
 	startCmd := ParameterSubstitution(gameServer.StartCommand, gameServer)
 	preparedCommand := supervisor.PreparedCommand{
 		ID:                 gameServer.ID,
@@ -499,6 +503,21 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to start game server")
 	}
+}
+
+func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
+	schemasJSON, errGet := inst.db.GetGameConfigSchemas(gameServer.GameID)
+	if errGet != nil {
+		log.Debug().Err(errGet).Str("game_id", gameServer.GameID).
+			Msg("Pre-start: could not get config schemas, skipping")
+		return
+	}
+	if schemasJSON == "" {
+		return
+	}
+
+	resolver := cfgschema.ServerSettingsResolver(gameServer.IP, gameServer.Port, gameServer.QueryPort)
+	cfgschema.RunPreStart(gameServer.Directory, schemasJSON, resolver)
 }
 
 func (inst *Instance) StopGameServer(gameServer *models.GameServer) {

@@ -210,6 +210,14 @@
               hint="Where should the start command be run from. e.g: ./server"></q-input>
           </div>
         </div>
+
+          <q-space></q-space>
+          <q-separator></q-separator>
+          <q-space></q-space>
+
+          <config-schema-list
+            v-model="configSchemas"
+            @edit-schema="navigateToSchemaEditor" />
       </q-form>
     </q-card-section>
     <q-separator></q-separator>
@@ -232,11 +240,14 @@ import {
   GetGameRequest,
   GetGameRequestSchema,
   GetGameResponse,
+  UpdateGameConfigSchemasRequestSchema,
 } from 'src/proto/xylona_pb'
-import { GetXylonaClient } from '@/utils/shared'
+import { GetXylonaClient, ConnectErrorToString } from '@/utils/shared'
 import { computed, onMounted, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { CommandProcessor, Game } from '@/proto/shared_pb'
+import ConfigSchemaList from './ConfigSchemaList.vue'
+import type { ConfigSchemaEntry } from './ConfigSchemaList.vue'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -276,6 +287,7 @@ const game: Ref<Game> = ref({} as Game)
 const existingGame = ref(false)
 const copyGame = ref(false)
 const gameID = ref('')
+const configSchemas = ref<ConfigSchemaEntry[]>([])
 
 async function getGameDetailsFromID() {
   const request: GetGameRequest = create(GetGameRequestSchema, {})
@@ -288,6 +300,13 @@ async function getGameDetailsFromID() {
     game.value = response.game
     defaultPort.value = Number(response.game.defaultPort)
     defaultQueryPort.value = Number(response.game.defaultQueryPort)
+    if (response.game.configSchemas) {
+      try {
+        configSchemas.value = JSON.parse(response.game.configSchemas) as ConfigSchemaEntry[]
+      } catch {
+        configSchemas.value = []
+      }
+    }
     if (copyGame.value) {
       game.value.id = ''
       game.value.name = `${game.value.name} (Copy)`
@@ -312,11 +331,42 @@ onMounted(async () => {
   }
 })
 
+function syncConfigSchemas() {
+  game.value.configSchemas =
+    configSchemas.value.length > 0 ? JSON.stringify(configSchemas.value) : ''
+}
+
 async function submit() {
+  syncConfigSchemas()
   if (existingGame.value) {
     return await updateExistingGame()
   }
   return await addNewGame()
+}
+
+async function navigateToSchemaEditor(fileIndex: number) {
+  const id = existingGame.value ? gameID.value : ''
+  if (!id) return
+
+  // Persist current config schemas before navigating so the editor can load them
+  try {
+    const request = create(UpdateGameConfigSchemasRequestSchema, {
+      gameId: id,
+      configSchemasJson: JSON.stringify(configSchemas.value),
+    })
+    await GetXylonaClient().updateGameConfigSchemas(request)
+  } catch (unknownErr: unknown) {
+    const err = ConnectError.from(unknownErr)
+    $q.notify({
+      type: 'xylona-error',
+      caption: `Failed to save schemas before editing: ${ConnectErrorToString(err)}`,
+      position: 'top',
+      timeout: 5000,
+    })
+    return
+  }
+
+  await router.push({ path: `/games/${id}/config-schema/${fileIndex}` })
 }
 
 async function addNewGame() {

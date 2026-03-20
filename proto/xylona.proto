@@ -93,6 +93,16 @@ service Xylona {
   rpc MarkAdvisoriesRead (MarkAdvisoriesReadRequest) returns (MarkAdvisoriesReadResponse) {}
   rpc GetUnreadAdvisoryCount (GetUnreadAdvisoryCountRequest) returns (GetUnreadAdvisoryCountResponse) {}
 
+  // Config Schema Management (superuser)
+  rpc GetGameConfigSchemas (GetGameConfigSchemasRequest) returns (GetGameConfigSchemasResponse) {}
+  rpc UpdateGameConfigSchemas (UpdateGameConfigSchemasRequest) returns (UpdateGameConfigSchemasResponse) {}
+
+  // Config File Editing
+  rpc GetGameServerConfigFiles (GetGameServerConfigFilesRequest) returns (GetGameServerConfigFilesResponse) {}
+  rpc GetGameServerConfigFile (GetGameServerConfigFileRequest) returns (GetGameServerConfigFileResponse) {}
+  rpc UpdateGameServerConfigFile (UpdateGameServerConfigFileRequest) returns (UpdateGameServerConfigFileResponse) {}
+  rpc GenerateGameServerConfigFile (GenerateGameServerConfigFileRequest) returns (GenerateGameServerConfigFileResponse) {}
+
   // Aggregated Views
   rpc ListAggregatedGameServers (ListAggregatedGameServersRequest) returns (ListAggregatedGameServersResponse) {}
 
@@ -711,4 +721,106 @@ message MarkAdvisoriesReadResponse {}
 message GetUnreadAdvisoryCountRequest {}
 message GetUnreadAdvisoryCountResponse {
   int32 count = 1;
+}
+
+// Config Schema Messages
+
+message ConfigFileInfo {
+  string path = 1;
+  string format = 2;
+  string category = 3;
+  int32 field_count = 4;
+  int32 managed_field_count = 5;
+  bool exists_on_disk = 6;
+  bool generate_before_start = 7;
+}
+
+message ConfigFieldData {
+  string key = 1;
+  string value = 2;
+  string title = 3;
+  string description = 4;
+  string field_type = 5;
+  string default_value = 6;
+  bool is_managed = 7;
+  bool is_missing_from_file = 8;
+  repeated string enum_options = 9;
+  optional int64 minimum = 10;
+  optional int64 maximum = 11;
+  optional int32 max_length = 12;
+  bool required = 13;
+  bool allow_multiple = 14;
+  repeated string values = 15;
+}
+
+message AdvancedField {
+  string key = 1;
+  string value = 2;
+  string section = 3;
+}
+
+message ConfigValidationError {
+  string field = 1;
+  string message = 2;
+}
+
+message GetGameServerConfigFilesRequest {
+  string game_server_id = 1;
+}
+
+message GetGameServerConfigFilesResponse {
+  repeated ConfigFileInfo config_files = 1;
+  string game_name = 2;
+}
+
+message GetGameServerConfigFileRequest {
+  string game_server_id = 1;
+  string file_path = 2;
+}
+
+message GetGameServerConfigFileResponse {
+  repeated ConfigFieldData fields = 1;
+  repeated AdvancedField advanced_fields = 2;
+  string file_path = 3;
+  string format = 4;
+  string category = 5;
+}
+
+message UpdateGameServerConfigFileRequest {
+  string game_server_id = 1;
+  string file_path = 2;
+  repeated ConfigFieldData fields = 3;
+  repeated AdvancedField advanced_fields = 4;
+}
+
+message UpdateGameServerConfigFileResponse {
+  repeated ConfigValidationError errors = 1;
+  bool success = 2;
+}
+
+message GenerateGameServerConfigFileRequest {
+  string game_server_id = 1;
+  string file_path = 2;
+}
+
+message GenerateGameServerConfigFileResponse {
+  bool success = 1;
+}
+
+message GetGameConfigSchemasRequest {
+  string game_id = 1;
+}
+
+message GetGameConfigSchemasResponse {
+  string config_schemas_json = 1;
+}
+
+message UpdateGameConfigSchemasRequest {
+  string game_id = 1;
+  string config_schemas_json = 2;
+}
+
+message UpdateGameConfigSchemasResponse {
+  bool success = 1;
+  repeated string validation_errors = 2;
 }

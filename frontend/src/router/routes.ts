@@ -66,6 +66,10 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/games/GameCopy.vue'),
       },
       {
+        path: 'games/:id/config-schema/:fileIndex',
+        component: () => import('pages/games/GameConfigSchema.vue'),
+      },
+      {
         path: 'game-servers/create',
         component: () => import('pages/game_servers/CreateGameServer.vue'),
       },
@@ -91,7 +95,11 @@ const routes: RouteRecordRaw[] = [
           },
           {
             path: 'configuration',
-            component: () => import('pages/game_servers/GameServerConfiguration.vue'),
+            component: () => import('pages/game_servers/GameServerConfig.vue'),
+          },
+          {
+            path: 'settings',
+            component: () => import('pages/game_servers/GameServerSettings.vue'),
           },
           {
             path: 'access',

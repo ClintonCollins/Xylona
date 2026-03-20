@@ -20,6 +20,7 @@ require (
 	github.com/mholt/archives v0.1.5
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/olahol/melody v1.4.0
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pterm/pterm v0.12.83
 	github.com/rdegges/go-ipify v0.0.0-20150526035502-2d94a6a86c40
 	github.com/rs/zerolog v1.34.0
@@ -33,6 +34,7 @@ require (
 	golang.org/x/crypto v0.49.0
 	golang.org/x/sync v0.20.0
 	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.47.0
 )
 
