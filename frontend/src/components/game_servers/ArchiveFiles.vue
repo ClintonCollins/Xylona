@@ -20,7 +20,7 @@
               :options="archiveTypeOptions"
               label="Archive Type"
               @update:model-value="archiveSuffix = ArchiveTypeToExtension(archiveType)">
-              <template v-slot:prepend>
+              <template #prepend>
                 <q-icon name="event" />
               </template>
             </q-select>

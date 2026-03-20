@@ -10,9 +10,7 @@
           <q-icon name="code" color="warning" size="sm" />
         </q-item-section>
         <q-item-section>
-          <q-item-label class="advanced-title font-display">
-            Advanced Fields
-          </q-item-label>
+          <q-item-label class="advanced-title font-display"> Advanced Fields </q-item-label>
           <q-item-label caption class="text-xy-muted">
             {{ fields.length }} field{{ fields.length !== 1 ? 's' : '' }} not in schema
           </q-item-label>
@@ -24,8 +22,8 @@
           <template #avatar>
             <q-icon name="info" color="warning" size="xs" />
           </template>
-          These fields exist in the config file but aren't defined in the schema.
-          They will be preserved when saving.
+          These fields exist in the config file but aren't defined in the schema. They will be
+          preserved when saving.
         </q-banner>
 
         <div class="advanced-list">
@@ -96,7 +94,9 @@ watch(
 function emitUpdate() {
   emit(
     'update',
-    localFields.value.map((f) => ({ key: f.key, value: f.value, section: f.section }) as AdvancedField),
+    localFields.value.map(
+      (f) => ({ key: f.key, value: f.value, section: f.section }) as AdvancedField,
+    ),
   )
 }
 </script>

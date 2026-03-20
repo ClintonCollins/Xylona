@@ -1,10 +1,10 @@
 <template>
   <section
     ref="dragAndDropZone"
-    v-on:dragenter="props.targetElement && dragEnterEvent($event, props.targetElement)"
-    v-on:dragleave="props.targetElement && dragLeaveEvent($event, props.targetElement)"
-    v-on:drop="props.targetElement && dragDropEvent($event, props.targetElement)"
-    v-on:dragover="$event.preventDefault()">
+    @dragenter="props.targetElement && dragEnterEvent($event, props.targetElement)"
+    @dragleave="props.targetElement && dragLeaveEvent($event, props.targetElement)"
+    @drop="props.targetElement && dragDropEvent($event, props.targetElement)"
+    @dragover="$event.preventDefault()">
     <slot></slot>
   </section>
   <q-dialog
@@ -15,10 +15,10 @@
     <q-card
       id="fileUploaderCard"
       class="fileUploaderDialogCard q-px-lg"
-      v-on:dragenter="dragEnterEvent($event, 'fileUploaderCard')"
-      v-on:dragleave="dragLeaveEvent($event, 'fileUploaderCard')"
-      v-on:drop="dragDropEvent($event, 'fileUploaderCard')"
-      v-on:dragover="$event.preventDefault()">
+      @dragenter="dragEnterEvent($event, 'fileUploaderCard')"
+      @dragleave="dragLeaveEvent($event, 'fileUploaderCard')"
+      @drop="dragDropEvent($event, 'fileUploaderCard')"
+      @dragover="$event.preventDefault()">
       <q-card-section>
         <div id="dialog-title" class="text-h6">File Upload (You can drag and drop files below)</div>
         <q-toolbar class="bg-xy-surface-2 q-py-sm">

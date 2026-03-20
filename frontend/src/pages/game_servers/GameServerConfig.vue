@@ -109,7 +109,9 @@ const categoryColorMap = computed(() => {
   return map
 })
 
-const selectedFile = computed(() => configFiles.value.find((f) => f.path === selectedFilePath.value))
+const selectedFile = computed(() =>
+  configFiles.value.find((f) => f.path === selectedFilePath.value),
+)
 const selectedFileFormat = computed(() => selectedFile.value?.format || '')
 const selectedFileCategory = computed(() => selectedFile.value?.category || '')
 const selectedFileCategoryColor = computed(
@@ -161,8 +163,10 @@ async function handleFileSelect(path: string, isMissing: boolean) {
       filePath: path,
     })
     const response = await GetXylonaClient().getGameServerConfigFile(request)
-    fileFields.value = response.fields
-    fileAdvancedFields.value = response.advancedFields
+    fileFields.value = [...response.fields].sort((a, b) => a.key.localeCompare(b.key))
+    fileAdvancedFields.value = [...response.advancedFields].sort((a, b) =>
+      a.key.localeCompare(b.key),
+    )
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
     $q.notify({

@@ -120,7 +120,7 @@
         @keyup.enter="sendGameServerInput"
         @keyup.up="navigateConsoleInputHistory('up')"
         @keyup.down="navigateConsoleInputHistory('down')">
-        <template v-slot:append>
+        <template #append>
           <q-btn
             flat
             color="primary"

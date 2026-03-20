@@ -56,7 +56,9 @@
 
     <!-- Fields -->
     <div class="editor-fields">
-      <div v-if="fields.length === 0 && advancedFields.length === 0" class="no-fields text-xy-muted">
+      <div
+        v-if="fields.length === 0 && advancedFields.length === 0"
+        class="no-fields text-xy-muted">
         No fields defined in the schema for this file.
       </div>
 
@@ -132,7 +134,9 @@
             :rules="getNumberRules(field)"
             class="field-input"
             input-class="font-mono"
-            @update:model-value="(val: string | number | null) => setFieldValue(field.key, String(val ?? ''))" />
+            @update:model-value="
+              (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
+            " />
 
           <!-- String input (default) -->
           <q-input
@@ -144,18 +148,20 @@
             :rules="getStringRules(field)"
             class="field-input"
             input-class="font-mono"
-            @update:model-value="(val: string | number | null) => setFieldValue(field.key, String(val ?? ''))" />
+            @update:model-value="
+              (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
+            " />
 
-          <div v-if="field.defaultValue && field.isMissingFromFile" class="field-default text-xy-muted">
+          <div
+            v-if="field.defaultValue && field.isMissingFromFile"
+            class="field-default text-xy-muted">
             Default: <code class="font-mono">{{ field.defaultValue }}</code>
           </div>
         </div>
       </div>
 
       <!-- Advanced fields -->
-      <config-advanced-fields
-        :fields="advancedFields"
-        @update="handleAdvancedUpdate" />
+      <config-advanced-fields :fields="advancedFields" @update="handleAdvancedUpdate" />
     </div>
   </div>
 </template>

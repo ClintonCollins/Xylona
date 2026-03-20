@@ -62,6 +62,12 @@
             </q-tooltip>
           </q-toggle>
 
+          <!-- Import from Sample -->
+          <div class="import-section">
+            <div class="xy-section-overline">Import from Sample (optional)</div>
+            <config-import-input @detected="handleDetected" />
+          </div>
+
           <!-- XML Key Mode (conditional) -->
           <div v-if="entry.format === 'xml'" class="xml-options">
             <div class="xy-section-overline">XML Key Mode</div>
@@ -74,7 +80,9 @@
               inline
               color="primary" />
 
-            <div v-if="xmlKeyMode.mode === 'attributes'" class="xml-attr-fields column q-gutter-y-sm q-mt-sm">
+            <div
+              v-if="xmlKeyMode.mode === 'attributes'"
+              class="xml-attr-fields column q-gutter-y-sm q-mt-sm">
               <q-input
                 v-model="xmlKeyMode.element"
                 outlined
@@ -116,6 +124,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import type { QForm } from 'quasar'
 import type { ConfigSchemaEntry } from './ConfigSchemaList.vue'
+import ConfigImportInput from './ConfigImportInput.vue'
+import type { ImportDetectionResult, ImportedField } from 'src/utils/config-import'
 
 const props = defineProps<{
   modelValue: boolean
@@ -162,10 +172,14 @@ const xmlKeyMode = reactive({
   value_attr: 'value',
 })
 
+const detectedResult = ref<ImportDetectionResult | null>(null)
+
 const filteredCategories = computed(() => {
   if (!entry.category) return props.existingCategories
   const lower = entry.category.toLowerCase()
-  return props.existingCategories.filter((c) => c.toLowerCase().includes(lower) && c !== entry.category)
+  return props.existingCategories.filter(
+    (c) => c.toLowerCase().includes(lower) && c !== entry.category,
+  )
 })
 
 watch(
@@ -181,9 +195,74 @@ watch(
       xmlKeyMode.element = 'property'
       xmlKeyMode.key_attr = 'name'
       xmlKeyMode.value_attr = 'value'
+      detectedResult.value = null
     }
   },
 )
+
+function handleDetected(result: ImportDetectionResult) {
+  detectedResult.value = result
+
+  // Pre-fill format if detected
+  if (result.format && !entry.format) {
+    entry.format = result.format
+  }
+
+  // Pre-fill path from filename
+  if (result.filename && !entry.path) {
+    entry.path = result.filename
+  }
+
+  // Pre-fill XML key mode if detected
+  if (result.xml_key_mode) {
+    xmlKeyMode.mode = result.xml_key_mode.mode
+    if (result.xml_key_mode.element) xmlKeyMode.element = result.xml_key_mode.element
+    if (result.xml_key_mode.key_attr) xmlKeyMode.key_attr = result.xml_key_mode.key_attr
+    if (result.xml_key_mode.value_attr) xmlKeyMode.value_attr = result.xml_key_mode.value_attr
+  }
+}
+
+function importedFieldsToProperties(fields: ImportedField[]): Record<
+  string,
+  {
+    type?: string
+    title?: string
+    default?: unknown
+    'x-allow-multiple'?: boolean
+    [key: string]: unknown
+  }
+> {
+  const properties: Record<
+    string,
+    {
+      type?: string
+      title?: string
+      default?: unknown
+      'x-allow-multiple'?: boolean
+      [key: string]: unknown
+    }
+  > = {}
+  for (const field of fields) {
+    const prop: {
+      type?: string
+      title?: string
+      default?: unknown
+      'x-allow-multiple'?: boolean
+      [key: string]: unknown
+    } = {
+      type: field.type,
+      title: field.title,
+    }
+    if (field.value !== null && field.value !== undefined) {
+      prop.default = field.value
+    }
+    if (field.allowMultiple) {
+      prop['x-allow-multiple'] = true
+    }
+    properties[field.key] = prop
+  }
+  return properties
+}
 
 function handleClose() {
   dialogOpen.value = false
@@ -200,7 +279,9 @@ async function handleSubmit() {
     generate_before_start: entry.generate_before_start,
     schema: {
       type: 'object',
-      properties: {},
+      properties: detectedResult.value?.fields
+        ? importedFieldsToProperties(detectedResult.value.fields)
+        : {},
     },
   }
 
@@ -229,6 +310,13 @@ async function handleSubmit() {
 }
 
 .xml-options {
+  padding: var(--xy-space-sm);
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
+  background-color: var(--xy-surface-0);
+}
+
+.import-section {
   padding: var(--xy-space-sm);
   border: 1px solid var(--xy-border);
   border-radius: 8px;

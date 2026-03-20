@@ -12,7 +12,7 @@
           placeholder="Search..."
           aria-label="Search games"
           style="min-width: 200px">
-          <template v-slot:append>
+          <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
@@ -32,26 +32,26 @@
         selection="multiple"
         :filter="search"
         hide-header-in-grid>
-        <template v-slot:body-cell-name="props">
+        <template #body-cell-name="props">
           <q-td :props="props">
             <router-link class="table-link" :to="'/games/' + props.row.id + '/edit'"
               >{{ props.row.name }}
             </router-link>
           </q-td>
         </template>
-        <template v-slot:body-cell-windows_support="props">
+        <template #body-cell-windows_support="props">
           <q-td :props="props">
             <q-icon v-if="props.row.windowsSupport" name="check" size="md" color="positive" />
             <q-icon v-else name="close" size="md" color="negative" />
           </q-td>
         </template>
-        <template v-slot:body-cell-linux_support="props">
+        <template #body-cell-linux_support="props">
           <q-td :props="props">
             <q-icon v-if="props.row.linuxSupport" name="check" size="md" color="positive" />
             <q-icon v-else name="close" size="md" color="negative" />
           </q-td>
         </template>
-        <template v-slot:body-cell-actions="props">
+        <template #body-cell-actions="props">
           <q-td :props="props">
             <div class="q-gutter-xs">
               <router-link :to="'/games/' + props.row.id + '/edit'">
@@ -87,7 +87,7 @@
       </q-table>
     </div>
     <game-delete-dialog
-      v-model:showDialog="showGameDeleteDialog"
+      v-model:show-dialog="showGameDeleteDialog"
       :game="selectedActionGame"
       @submit="deleteGameSubmitted"></game-delete-dialog>
   </q-page>

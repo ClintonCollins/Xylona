@@ -27,7 +27,7 @@
             placeholder="Search..."
             aria-label="Search nodes"
             style="min-width: 200px">
-            <template v-slot:append>
+            <template #append>
               <q-icon name="search" />
             </template>
           </q-input>
@@ -47,7 +47,7 @@
           :filter="search"
           :loading="loading"
           hide-header-in-grid>
-          <template v-slot:body-cell-name="props">
+          <template #body-cell-name="props">
             <q-td :props="props">
               <a class="table-link" href="#" @click.prevent="openDetail(props.row)">
                 {{ props.row.name || 'Unnamed' }}
@@ -57,7 +57,7 @@
               <q-badge v-if="props.row.autoPaired" class="badge-auto q-ml-xs" label="auto" />
             </q-td>
           </template>
-          <template v-slot:body-cell-health="props">
+          <template #body-cell-health="props">
             <q-td :props="props">
               <template v-if="!props.row.local">
                 <q-badge
@@ -67,7 +67,7 @@
               <q-badge v-else color="positive" label="Healthy" />
             </q-td>
           </template>
-          <template v-slot:body-cell-cpu="props">
+          <template #body-cell-cpu="props">
             <q-td :props="props">
               <template v-if="getSnapshot(props.row.id)">
                 <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.cpuPercent)">
@@ -77,7 +77,7 @@
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
-          <template v-slot:body-cell-ram="props">
+          <template #body-cell-ram="props">
             <q-td :props="props">
               <template v-if="getSnapshot(props.row.id)">
                 <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.memoryPercent)">
@@ -90,7 +90,7 @@
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
-          <template v-slot:body-cell-disk="props">
+          <template #body-cell-disk="props">
             <q-td :props="props">
               <template v-if="getSnapshot(props.row.id)">
                 <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.diskPercent)">
@@ -103,7 +103,7 @@
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
-          <template v-slot:body-cell-servers="props">
+          <template #body-cell-servers="props">
             <q-td :props="props">
               <template v-if="getSnapshot(props.row.id)">
                 <span class="text-success">{{
@@ -115,7 +115,7 @@
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
-          <template v-slot:body-cell-users="props">
+          <template #body-cell-users="props">
             <q-td :props="props">
               <template v-if="getSnapshot(props.row.id)">
                 {{ getSnapshot(props.row.id)!.userCount }}
@@ -123,7 +123,7 @@
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
-          <template v-slot:body-cell-version="props">
+          <template #body-cell-version="props">
             <q-td :props="props">
               <span v-if="getNodeVersion(props.row.id)">
                 {{ getNodeVersion(props.row.id) }}
@@ -131,7 +131,7 @@
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
-          <template v-slot:body-cell-lastSync="props">
+          <template #body-cell-lastSync="props">
             <q-td :props="props">
               <template v-if="!props.row.local">
                 <span v-if="props.row.lastSyncAt?.seconds">
@@ -152,7 +152,7 @@
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
-          <template v-slot:body-cell-actions="props">
+          <template #body-cell-actions="props">
             <q-td :props="props">
               <div v-if="!props.row.local" class="q-gutter-xs">
                 <q-btn

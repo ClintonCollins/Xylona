@@ -12,7 +12,7 @@
           placeholder="Search..."
           aria-label="Search secret keys"
           style="min-width: 200px">
-          <template v-slot:append>
+          <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
@@ -32,7 +32,7 @@
         selection="multiple"
         :filter="search"
         hide-header-in-grid>
-        <template v-slot:body-cell-actions="props">
+        <template #body-cell-actions="props">
           <q-td :props="props">
             <div class="q-gutter-xs">
               <span>
@@ -58,11 +58,11 @@
       </q-table>
     </div>
     <secret-key-delete-dialog
-      v-model:showDialog="showSecretKeyDeleteDialog"
+      v-model:show-dialog="showSecretKeyDeleteDialog"
       :secret-key="selectedActionSecretKey"
       @submit="deleteSecretKeySubmitted"></secret-key-delete-dialog>
     <secret-key-form-dialog
-      v-model:showDialog="showSecretKeyFormDialog"
+      v-model:show-dialog="showSecretKeyFormDialog"
       @submit="getSecretKeys"></secret-key-form-dialog>
   </q-page>
 </template>

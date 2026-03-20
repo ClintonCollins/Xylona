@@ -28,7 +28,9 @@
 
         <div v-for="(files, category) in groupedFiles" :key="category" class="category-group">
           <div class="category-header">
-            <span class="category-dot" :style="{ backgroundColor: getCategoryColor(String(category)) }"></span>
+            <span
+              class="category-dot"
+              :style="{ backgroundColor: getCategoryColor(String(category)) }"></span>
             <span class="category-name">{{ category }}</span>
           </div>
 
@@ -49,7 +51,9 @@
                   size="xs" />
               </q-item-section>
               <q-item-section>
-                <q-item-label class="file-name font-mono">{{ getFileName(file.path) }}</q-item-label>
+                <q-item-label class="file-name font-mono">{{
+                  getFileName(file.path)
+                }}</q-item-label>
                 <q-item-label caption class="file-meta">
                   {{ file.format }} &middot; {{ file.fieldCount }} fields
                 </q-item-label>

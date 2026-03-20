@@ -7,9 +7,21 @@
           size="sm"
           class="text-xy-muted expand-icon" />
         <span class="field-card-key font-mono">{{ field.key || '(unnamed)' }}</span>
-        <q-badge v-if="field.type" outline color="primary" :label="field.type" class="field-type-badge" />
-        <q-badge v-if="field.managed" outline color="accent" label="Managed" class="field-managed-badge" />
-        <span v-if="field.title && field.title !== field.key" class="field-card-label text-xy-secondary">
+        <q-badge
+          v-if="field.type"
+          outline
+          color="primary"
+          :label="field.type"
+          class="field-type-badge" />
+        <q-badge
+          v-if="field.managed"
+          outline
+          color="accent"
+          label="Managed"
+          class="field-managed-badge" />
+        <span
+          v-if="field.title && field.title !== field.key"
+          class="field-card-label text-xy-secondary">
           {{ field.title }}
         </span>
       </div>
@@ -181,6 +193,7 @@ export interface SchemaFieldModel {
 
 const props = defineProps<{
   modelValue: SchemaFieldModel
+  forceExpanded?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -189,6 +202,13 @@ const emit = defineEmits<{
 }>()
 
 const expanded = ref(false)
+
+watch(
+  () => props.forceExpanded,
+  (val) => {
+    if (val !== undefined) expanded.value = val
+  },
+)
 
 const field = reactive<SchemaFieldModel>({ ...props.modelValue })
 
@@ -207,6 +227,7 @@ const typeOptions = [
 ]
 
 const managedSourceOptions = [
+  { label: 'IP', value: 'ip' },
   { label: 'Server Port', value: 'server_port' },
   { label: 'Query Port', value: 'query_port' },
   { label: 'Max Players', value: 'max_players' },

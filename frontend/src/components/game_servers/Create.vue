@@ -19,7 +19,7 @@
               map-options
               :options="options"
               label="File or Directory">
-              <template v-slot:prepend>
+              <template #prepend>
                 <q-icon name="event" />
               </template>
             </q-select>

@@ -12,7 +12,7 @@
           placeholder="Search..."
           aria-label="Search users"
           style="min-width: 200px">
-          <template v-slot:append>
+          <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
@@ -33,20 +33,20 @@
         :filter="search"
         :loading="loading"
         hide-header-in-grid>
-        <template v-slot:body-cell-userName="props">
+        <template #body-cell-userName="props">
           <q-td :props="props">
             <router-link class="table-link" :to="'/admin/users/' + props.row.id + '/edit'">
               {{ props.row.userName }}
             </router-link>
           </q-td>
         </template>
-        <template v-slot:body-cell-superUser="props">
+        <template #body-cell-superUser="props">
           <q-td :props="props">
             <q-icon v-if="props.row.superUser" name="check" size="md" color="positive" />
             <q-icon v-else name="close" size="md" color="negative" />
           </q-td>
         </template>
-        <template v-slot:body-cell-actions="props">
+        <template #body-cell-actions="props">
           <q-td :props="props">
             <div class="q-gutter-xs">
               <router-link :to="'/admin/users/' + props.row.id + '/edit'">
@@ -77,7 +77,7 @@
       </q-table>
     </div>
     <user-delete-dialog
-      v-model:showDialog="showUserDeleteDialog"
+      v-model:show-dialog="showUserDeleteDialog"
       :user="selectedActionUser"
       @submit="deleteUserSubmitted"></user-delete-dialog>
   </q-page>

@@ -21,7 +21,9 @@
     <div v-else class="schema-list-content">
       <div v-for="(files, category) in groupedSchemas" :key="category" class="schema-category">
         <div class="schema-category-header">
-          <span class="category-dot" :style="{ backgroundColor: getCategoryColor(String(category)) }"></span>
+          <span
+            class="category-dot"
+            :style="{ backgroundColor: getCategoryColor(String(category)) }"></span>
           <span class="category-label">{{ category }}</span>
         </div>
 
@@ -33,7 +35,28 @@
             <q-item-section>
               <q-item-label class="font-mono schema-file-path">{{ schema.path }}</q-item-label>
               <q-item-label caption>
-                <span class="schema-file-meta">{{ schema.format }}</span>
+                <span class="schema-file-meta schema-format-edit" @click.stop>
+                  {{ schema.format }}
+                  <q-popup-edit
+                    v-slot="scope"
+                    v-model="schema.format"
+                    auto-save
+                    @save="
+                      (val: string) =>
+                        updateSchemaFormat(getGlobalIndex(String(category), index), val)
+                    ">
+                    <q-select
+                      v-model="scope.value"
+                      :options="formatOptions"
+                      emit-value
+                      map-options
+                      dense
+                      outlined
+                      autofocus
+                      @update:model-value="scope.set" />
+                  </q-popup-edit>
+                  <q-icon name="edit" size="10px" class="format-edit-icon" />
+                </span>
                 <span v-if="getFieldCount(schema)" class="schema-file-meta">
                   &middot; {{ getFieldCount(schema) }} fields
                 </span>
@@ -197,6 +220,26 @@ function removeSchema(index: number) {
 function handleAddSchema(entry: ConfigSchemaEntry) {
   emit('update:modelValue', [...configSchemas.value, entry])
 }
+
+const formatOptions = [
+  { label: 'Properties', value: 'properties' },
+  { label: 'INI', value: 'ini' },
+  { label: 'JSON', value: 'json' },
+  { label: 'YAML', value: 'yaml' },
+  { label: 'TOML', value: 'toml' },
+  { label: 'XML', value: 'xml' },
+]
+
+function updateSchemaFormat(globalIndex: number, newFormat: string) {
+  if (globalIndex === -1) return
+  const updated = [...configSchemas.value]
+  updated[globalIndex] = { ...updated[globalIndex], format: newFormat }
+  // Remove xml_key_mode if format changed away from XML
+  if (newFormat !== 'xml') {
+    delete updated[globalIndex].xml_key_mode
+  }
+  emit('update:modelValue', updated)
+}
 </script>
 
 <style scoped>
@@ -279,5 +322,29 @@ function handleAddSchema(entry: ConfigSchemaEntry) {
 .schema-file-actions {
   display: flex;
   gap: 2px;
+}
+
+.schema-format-edit {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: background-color var(--xy-transition-fast);
+}
+
+.schema-format-edit:hover {
+  background-color: var(--xy-surface-2);
+}
+
+.format-edit-icon {
+  opacity: 0;
+  transition: opacity var(--xy-transition-fast);
+  color: var(--xy-text-muted);
+}
+
+.schema-format-edit:hover .format-edit-icon {
+  opacity: 1;
 }
 </style>

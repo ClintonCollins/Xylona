@@ -29,10 +29,43 @@
     <!-- Form Builder Mode -->
     <div v-if="mode === 'form'" class="form-builder">
       <div class="form-builder-toolbar">
-        <div class="text-xy-secondary field-count">
-          {{ fields.length }} field{{ fields.length !== 1 ? 's' : '' }}
+        <div class="toolbar-left">
+          <span class="text-xy-secondary field-count">
+            {{ fields.length }} field{{ fields.length !== 1 ? 's' : '' }}
+          </span>
+          <q-btn
+            v-if="fields.length > 0"
+            flat
+            dense
+            round
+            icon="unfold_more"
+            size="xs"
+            class="text-xy-muted"
+            @click="forceExpanded = true">
+            <q-tooltip>Expand all</q-tooltip>
+          </q-btn>
+          <q-btn
+            v-if="fields.length > 0"
+            flat
+            dense
+            round
+            icon="unfold_less"
+            size="xs"
+            class="text-xy-muted"
+            @click="forceExpanded = false">
+            <q-tooltip>Collapse all</q-tooltip>
+          </q-btn>
         </div>
-        <q-btn outline color="primary" label="Add Field" icon="add" size="sm" @click="addField" />
+        <div class="toolbar-actions">
+          <q-btn
+            outline
+            color="accent"
+            label="Import Fields"
+            icon="upload_file"
+            size="sm"
+            @click="showImportDialog = true" />
+          <q-btn outline color="primary" label="Add Field" icon="add" size="sm" @click="addField" />
+        </div>
       </div>
 
       <div v-if="fields.length === 0" class="form-builder-empty">
@@ -48,9 +81,28 @@
           v-for="(field, index) in fields"
           :key="index"
           :model-value="field"
+          :force-expanded="forceExpanded"
           @update:model-value="updateField(index, $event)"
           @remove="removeField(index)" />
       </div>
+
+      <!-- Import Fields Dialog — teleports to body at runtime -->
+      <q-dialog v-model="showImportDialog">
+        <q-card class="import-dialog">
+          <q-card-section class="dialog-header">
+            <div class="text-h6 font-display">Import Fields from Sample</div>
+          </q-card-section>
+          <q-separator />
+          <q-card-section>
+            <config-import-input @detected="handleImportDetection" />
+          </q-card-section>
+          <q-separator />
+          <q-card-actions align="right" class="q-pa-md">
+            <q-btn flat label="Cancel" @click="showImportDialog = false" />
+            <q-btn color="primary" label="Import" :disable="!pendingImport" @click="applyImport" />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </div>
 
     <!-- Raw JSON Mode -->
@@ -69,8 +121,11 @@
 
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useQuasar } from 'quasar'
 import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
 import type { SchemaFieldModel } from './ConfigSchemaFieldCard.vue'
+import ConfigImportInput from './ConfigImportInput.vue'
+import type { ImportDetectionResult, ImportedField } from 'src/utils/config-import'
 
 interface SchemaProperty {
   type?: string
@@ -102,7 +157,12 @@ const emit = defineEmits<{
   back: []
 }>()
 
+const $q = useQuasar()
+const showImportDialog = ref(false)
+const pendingImport = ref<ImportDetectionResult | null>(null)
+
 const mode = ref<'form' | 'json'>('form')
+const forceExpanded = ref<boolean | undefined>(undefined)
 const fields = ref<SchemaFieldModel[]>([])
 const jsonValid = ref(true)
 const jsonError = ref('')
@@ -155,21 +215,23 @@ onUnmounted(() => {
 function schemaToFields(schema: JsonSchema): SchemaFieldModel[] {
   if (!schema?.properties) return []
   const requiredFields = new Set(schema.required || [])
-  return Object.entries(schema.properties).map(([key, prop]) => ({
-    key,
-    title: prop.title || '',
-    type: prop.type || 'string',
-    description: prop.description || '',
-    defaultValue: prop.default !== undefined ? String(prop.default) : '',
-    required: requiredFields.has(key),
-    minimum: prop.minimum ?? null,
-    maximum: prop.maximum ?? null,
-    maxLength: prop.maxLength ?? null,
-    enumOptionsStr: prop.enum ? prop.enum.join(', ') : '',
-    managed: !!prop['x-managed'],
-    managedSource: prop['x-managed']?.source || '',
-    allowMultiple: !!prop['x-allow-multiple'],
-  }))
+  return Object.entries(schema.properties)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, prop]) => ({
+      key,
+      title: prop.title || '',
+      type: prop.type || 'string',
+      description: prop.description || '',
+      defaultValue: prop.default !== undefined ? String(prop.default) : '',
+      required: requiredFields.has(key),
+      minimum: prop.minimum ?? null,
+      maximum: prop.maximum ?? null,
+      maxLength: prop.maxLength ?? null,
+      enumOptionsStr: prop.enum ? prop.enum.join(', ') : '',
+      managed: !!prop['x-managed'],
+      managedSource: prop['x-managed']?.source || '',
+      allowMultiple: !!prop['x-allow-multiple'],
+    }))
 }
 
 function fieldsToSchema(): JsonSchema {
@@ -298,6 +360,54 @@ function validateJson(jsonStr: string) {
   }
 }
 
+function handleImportDetection(result: ImportDetectionResult) {
+  pendingImport.value = result
+}
+
+function importedFieldToFieldModel(field: ImportedField): SchemaFieldModel {
+  return {
+    key: field.key,
+    title: field.title,
+    type: field.type,
+    description: '',
+    defaultValue: field.value !== null && field.value !== undefined ? String(field.value) : '',
+    required: false,
+    minimum: null,
+    maximum: null,
+    maxLength: null,
+    enumOptionsStr: '',
+    managed: false,
+    managedSource: '',
+    allowMultiple: field.allowMultiple,
+  }
+}
+
+function applyImport() {
+  if (!pendingImport.value?.fields) return
+
+  const existingKeys = new Set(fields.value.map((f) => f.key))
+  let added = 0
+  let skipped = 0
+
+  for (const field of pendingImport.value.fields) {
+    if (existingKeys.has(field.key)) {
+      skipped++
+    } else {
+      fields.value.push(importedFieldToFieldModel(field))
+      added++
+    }
+  }
+
+  showImportDialog.value = false
+  pendingImport.value = null
+
+  $q.notify({
+    type: 'positive',
+    message: `Added ${added} new field${added !== 1 ? 's' : ''}${skipped > 0 ? `, ${skipped} already existed (skipped)` : ''}`,
+    position: 'bottom',
+  })
+}
+
 function handleSave() {
   if (mode.value === 'json' && monacoEditor) {
     const editor = monacoEditor as import('monaco-editor').editor.IStandaloneCodeEditor
@@ -370,8 +480,20 @@ function handleSave() {
   margin-bottom: var(--xy-space-md);
 }
 
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .field-count {
   font-size: 0.8rem;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
 }
 
 .form-builder-empty {
@@ -416,6 +538,17 @@ function handleSave() {
 
 .monaco-container {
   flex: 1;
-  min-height: 400px;
+  min-height: 70vh;
+}
+
+/* Import dialog */
+.import-dialog {
+  min-width: 500px;
+  max-width: 640px;
+  background-color: var(--xy-surface-1);
+}
+
+.import-dialog .dialog-header {
+  padding: var(--xy-space-md);
 }
 </style>

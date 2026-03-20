@@ -26,7 +26,7 @@
               input-debounce="0"
               :options="moveOptions"
               label="Destination directory">
-              <template v-slot:prepend>
+              <template #prepend>
                 <q-icon name="folder" />
               </template>
             </q-select>

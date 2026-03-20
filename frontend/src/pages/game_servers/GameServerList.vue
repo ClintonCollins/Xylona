@@ -30,7 +30,7 @@
           placeholder="Search..."
           aria-label="Search game servers"
           style="min-width: 200px">
-          <template v-slot:append>
+          <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
@@ -55,7 +55,7 @@
         :filter="search"
         :loading="loading"
         hide-header-in-grid>
-        <template v-slot:body-cell-name="props">
+        <template #body-cell-name="props">
           <q-td :props="props">
             <router-link class="table-link" :to="'/game-servers/' + props.row.id + '/console'">
               {{ props.row.displayName }}
@@ -63,23 +63,23 @@
             <q-badge v-if="props.row.isStale" color="warning" class="q-ml-xs" label="stale" />
           </q-td>
         </template>
-        <template v-slot:body-cell-status="props">
+        <template #body-cell-status="props">
           <q-td :props="props">
             <status-badge style="margin-left: -1em" :status="props.row.statusEnum"></status-badge>
           </q-td>
         </template>
-        <template v-slot:body-cell-node="props">
+        <template #body-cell-node="props">
           <q-td :props="props">
             <span>{{ props.row.nodeName }}</span>
           </q-td>
         </template>
-        <template v-slot:body-cell-type="props">
+        <template #body-cell-type="props">
           <q-td :props="props">
             <q-badge v-if="props.row.isLocal" color="positive" label="local" />
             <q-badge v-else class="badge-remote" label="remote" />
           </q-td>
         </template>
-        <template v-slot:body-cell-actions="props">
+        <template #body-cell-actions="props">
           <q-td :props="props">
             <div class="q-gutter-xs">
               <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
@@ -114,7 +114,7 @@
       </q-table>
     </div>
     <delete-game-server-dialog
-      v-model:showDialog="showDeleteGameServerDialog"
+      v-model:show-dialog="showDeleteGameServerDialog"
       :game-servers="selectedServersForDelete"
       @submit="deleteGameServerSubmitted"></delete-game-server-dialog>
   </q-page>

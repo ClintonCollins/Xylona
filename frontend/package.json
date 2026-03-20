@@ -37,16 +37,19 @@
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.20",
     "highlight.js": "^11.11.1",
+    "ini": "^6.0.0",
     "monaco-editor": "^0.55.1",
     "pinia": "^3.0.4",
     "prismjs": "^1.30.0",
     "quasar": "^2.18.6",
     "quasar-extras-svg-icons": "^2.2.0",
+    "smol-toml": "^1.6.0",
     "stores": "^1.0.0",
     "vue": "^3.5.30",
     "vue-chartjs": "^5.3.3",
     "vue-prism-editor": "2.0.0-alpha.2",
-    "vue-router": "^5.0.3"
+    "vue-router": "^5.0.3",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.66.1",

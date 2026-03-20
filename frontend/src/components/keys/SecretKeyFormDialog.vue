@@ -57,7 +57,7 @@
               type="text"
               label="Secret Key"
               readonly>
-              <template v-slot:append>
+              <template #append>
                 <q-btn
                   flat
                   size="small"
