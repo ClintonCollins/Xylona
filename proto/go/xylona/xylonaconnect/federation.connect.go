@@ -71,9 +71,9 @@ const (
 	// FederationReadConsoleBufferProcedure is the fully-qualified name of the Federation's
 	// ReadConsoleBuffer RPC.
 	FederationReadConsoleBufferProcedure = "/xylona.Federation/ReadConsoleBuffer"
-	// FederationStreamServerStatusesProcedure is the fully-qualified name of the Federation's
-	// StreamServerStatuses RPC.
-	FederationStreamServerStatusesProcedure = "/xylona.Federation/StreamServerStatuses"
+	// FederationStreamServerUpdatesProcedure is the fully-qualified name of the Federation's
+	// StreamServerUpdates RPC.
+	FederationStreamServerUpdatesProcedure = "/xylona.Federation/StreamServerUpdates"
 	// FederationQueryRemoteServerProcedure is the fully-qualified name of the Federation's
 	// QueryRemoteServer RPC.
 	FederationQueryRemoteServerProcedure = "/xylona.Federation/QueryRemoteServer"
@@ -158,8 +158,8 @@ type FederationClient interface {
 	SendConsoleInput(context.Context, *connect.Request[xylona.FederationSendConsoleInputRequest]) (*connect.Response[xylona.FederationSendConsoleInputResponse], error)
 	// ReadConsoleBuffer returns the current console output buffer for a game server.
 	ReadConsoleBuffer(context.Context, *connect.Request[xylona.FederationReadConsoleBufferRequest]) (*connect.Response[xylona.FederationReadConsoleBufferResponse], error)
-	// StreamServerStatuses streams real-time status changes for all game servers on this node.
-	StreamServerStatuses(context.Context, *connect.Request[xylona.FederationStreamServerStatusesRequest]) (*connect.ServerStreamForClient[xylona.FederationServerStatusEvent], error)
+	// StreamServerUpdates streams real-time server updates (status, metrics, snapshots) for all game servers on this node.
+	StreamServerUpdates(context.Context, *connect.Request[xylona.FederationStreamServerUpdatesRequest]) (*connect.ServerStreamForClient[xylona.FederationServerUpdateEvent], error)
 	// QueryRemoteServer returns query info (player count, etc.) for a game server on this node.
 	QueryRemoteServer(context.Context, *connect.Request[xylona.FederationQueryServerRequest]) (*connect.Response[xylona.FederationQueryServerResponse], error)
 	// File operations on remote servers.
@@ -273,10 +273,10 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(federationMethods.ByName("ReadConsoleBuffer")),
 			connect.WithClientOptions(opts...),
 		),
-		streamServerStatuses: connect.NewClient[xylona.FederationStreamServerStatusesRequest, xylona.FederationServerStatusEvent](
+		streamServerUpdates: connect.NewClient[xylona.FederationStreamServerUpdatesRequest, xylona.FederationServerUpdateEvent](
 			httpClient,
-			baseURL+FederationStreamServerStatusesProcedure,
-			connect.WithSchema(federationMethods.ByName("StreamServerStatuses")),
+			baseURL+FederationStreamServerUpdatesProcedure,
+			connect.WithSchema(federationMethods.ByName("StreamServerUpdates")),
 			connect.WithClientOptions(opts...),
 		),
 		queryRemoteServer: connect.NewClient[xylona.FederationQueryServerRequest, xylona.FederationQueryServerResponse](
@@ -405,7 +405,7 @@ type federationClient struct {
 	streamConsoleOutput                   *connect.Client[xylona.FederationStreamConsoleRequest, xylona.FederationConsoleOutputChunk]
 	sendConsoleInput                      *connect.Client[xylona.FederationSendConsoleInputRequest, xylona.FederationSendConsoleInputResponse]
 	readConsoleBuffer                     *connect.Client[xylona.FederationReadConsoleBufferRequest, xylona.FederationReadConsoleBufferResponse]
-	streamServerStatuses                  *connect.Client[xylona.FederationStreamServerStatusesRequest, xylona.FederationServerStatusEvent]
+	streamServerUpdates                   *connect.Client[xylona.FederationStreamServerUpdatesRequest, xylona.FederationServerUpdateEvent]
 	queryRemoteServer                     *connect.Client[xylona.FederationQueryServerRequest, xylona.FederationQueryServerResponse]
 	listRemoteDirectoryFiles              *connect.Client[xylona.FederationListDirectoryFilesRequest, xylona.FederationListDirectoryFilesResponse]
 	editRemoteFile                        *connect.Client[xylona.FederationEditFileRequest, xylona.FederationEditFileResponse]
@@ -491,9 +491,9 @@ func (c *federationClient) ReadConsoleBuffer(ctx context.Context, req *connect.R
 	return c.readConsoleBuffer.CallUnary(ctx, req)
 }
 
-// StreamServerStatuses calls xylona.Federation.StreamServerStatuses.
-func (c *federationClient) StreamServerStatuses(ctx context.Context, req *connect.Request[xylona.FederationStreamServerStatusesRequest]) (*connect.ServerStreamForClient[xylona.FederationServerStatusEvent], error) {
-	return c.streamServerStatuses.CallServerStream(ctx, req)
+// StreamServerUpdates calls xylona.Federation.StreamServerUpdates.
+func (c *federationClient) StreamServerUpdates(ctx context.Context, req *connect.Request[xylona.FederationStreamServerUpdatesRequest]) (*connect.ServerStreamForClient[xylona.FederationServerUpdateEvent], error) {
+	return c.streamServerUpdates.CallServerStream(ctx, req)
 }
 
 // QueryRemoteServer calls xylona.Federation.QueryRemoteServer.
@@ -615,8 +615,8 @@ type FederationHandler interface {
 	SendConsoleInput(context.Context, *connect.Request[xylona.FederationSendConsoleInputRequest]) (*connect.Response[xylona.FederationSendConsoleInputResponse], error)
 	// ReadConsoleBuffer returns the current console output buffer for a game server.
 	ReadConsoleBuffer(context.Context, *connect.Request[xylona.FederationReadConsoleBufferRequest]) (*connect.Response[xylona.FederationReadConsoleBufferResponse], error)
-	// StreamServerStatuses streams real-time status changes for all game servers on this node.
-	StreamServerStatuses(context.Context, *connect.Request[xylona.FederationStreamServerStatusesRequest], *connect.ServerStream[xylona.FederationServerStatusEvent]) error
+	// StreamServerUpdates streams real-time server updates (status, metrics, snapshots) for all game servers on this node.
+	StreamServerUpdates(context.Context, *connect.Request[xylona.FederationStreamServerUpdatesRequest], *connect.ServerStream[xylona.FederationServerUpdateEvent]) error
 	// QueryRemoteServer returns query info (player count, etc.) for a game server on this node.
 	QueryRemoteServer(context.Context, *connect.Request[xylona.FederationQueryServerRequest]) (*connect.Response[xylona.FederationQueryServerResponse], error)
 	// File operations on remote servers.
@@ -726,10 +726,10 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(federationMethods.ByName("ReadConsoleBuffer")),
 		connect.WithHandlerOptions(opts...),
 	)
-	federationStreamServerStatusesHandler := connect.NewServerStreamHandler(
-		FederationStreamServerStatusesProcedure,
-		svc.StreamServerStatuses,
-		connect.WithSchema(federationMethods.ByName("StreamServerStatuses")),
+	federationStreamServerUpdatesHandler := connect.NewServerStreamHandler(
+		FederationStreamServerUpdatesProcedure,
+		svc.StreamServerUpdates,
+		connect.WithSchema(federationMethods.ByName("StreamServerUpdates")),
 		connect.WithHandlerOptions(opts...),
 	)
 	federationQueryRemoteServerHandler := connect.NewUnaryHandler(
@@ -868,8 +868,8 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 			federationSendConsoleInputHandler.ServeHTTP(w, r)
 		case FederationReadConsoleBufferProcedure:
 			federationReadConsoleBufferHandler.ServeHTTP(w, r)
-		case FederationStreamServerStatusesProcedure:
-			federationStreamServerStatusesHandler.ServeHTTP(w, r)
+		case FederationStreamServerUpdatesProcedure:
+			federationStreamServerUpdatesHandler.ServeHTTP(w, r)
 		case FederationQueryRemoteServerProcedure:
 			federationQueryRemoteServerHandler.ServeHTTP(w, r)
 		case FederationListRemoteDirectoryFilesProcedure:
@@ -967,8 +967,8 @@ func (UnimplementedFederationHandler) ReadConsoleBuffer(context.Context, *connec
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.ReadConsoleBuffer is not implemented"))
 }
 
-func (UnimplementedFederationHandler) StreamServerStatuses(context.Context, *connect.Request[xylona.FederationStreamServerStatusesRequest], *connect.ServerStream[xylona.FederationServerStatusEvent]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.StreamServerStatuses is not implemented"))
+func (UnimplementedFederationHandler) StreamServerUpdates(context.Context, *connect.Request[xylona.FederationStreamServerUpdatesRequest], *connect.ServerStream[xylona.FederationServerUpdateEvent]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.StreamServerUpdates is not implemented"))
 }
 
 func (UnimplementedFederationHandler) QueryRemoteServer(context.Context, *connect.Request[xylona.FederationQueryServerRequest]) (*connect.Response[xylona.FederationQueryServerResponse], error) {

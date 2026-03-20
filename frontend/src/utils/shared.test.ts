@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Status } from 'src/proto/shared_pb'
 import { GameServerFilesCompressionType } from 'src/proto/gameserver_files_operations_pb'
+import { AllServersMetrics } from 'src/proto/websocket_pb'
 
 import {
   ArchiveTypeToExtension,
@@ -12,6 +13,7 @@ import {
   GetRelativeFilePath,
   getIconFromFilenameExtension,
   StatusToString,
+  XylonaEventBus,
 } from './shared'
 
 describe('GetRelativeFilePath', () => {
@@ -234,5 +236,83 @@ describe('ArchiveTypeToExtension', () => {
 
   it('defaults to .unknown for unrecognized values', () => {
     expect(ArchiveTypeToExtension(999 as GameServerFilesCompressionType)).toBe('.unknown')
+  })
+})
+
+describe('XylonaEventBus remoteServerMetrics', () => {
+  afterEach(() => {
+    // Clean up all listeners to avoid leaking between tests.
+    XylonaEventBus.off('remoteServerMetrics')
+  })
+
+  it('should emit per-server remoteServerMetrics when gameServerMetrics arrives', () => {
+    // The WebSocket onmessage handler receives an AllServersMetrics message
+    // containing a map of server_id -> GameServerMetrics. In addition to
+    // emitting the bulk "gameServerMetrics" event, it should fan out
+    // individual "remoteServerMetrics" events keyed by server ID so that
+    // individual GameServerView components can subscribe to metrics for a
+    // single server without processing the entire map.
+
+    const perServerHandler = vi.fn()
+    XylonaEventBus.on('remoteServerMetrics', perServerHandler)
+
+    // Simulate what the onmessage handler currently does: emit gameServerMetrics
+    // with the full AllServersMetrics payload. The new behavior should also
+    // fan out per-server events.
+    const fakeMetrics = {
+      servers: {
+        'server-abc': {
+          cpuPercent: 45.2,
+          memoryBytes: BigInt(1073741824),
+          numberOfThreads: 12,
+          diskUsageBytes: BigInt(5368709120),
+          uptimeSeconds: BigInt(3600),
+          memoryWorkingSetBytes: BigInt(536870912),
+          memoryPercent: 25.0,
+          cpuCores: 4,
+          ioReadRate: 100.5,
+          ioWriteRate: 50.3,
+          connectionCount: 8,
+        },
+        'server-def': {
+          cpuPercent: 10.0,
+          memoryBytes: BigInt(2147483648),
+          numberOfThreads: 6,
+          diskUsageBytes: BigInt(10737418240),
+          uptimeSeconds: BigInt(7200),
+          memoryWorkingSetBytes: BigInt(1073741824),
+          memoryPercent: 50.0,
+          cpuCores: 8,
+          ioReadRate: 200.0,
+          ioWriteRate: 75.0,
+          connectionCount: 3,
+        },
+      },
+    }
+
+    // Emit the bulk event (simulating WebSocket message arrival).
+    XylonaEventBus.emit('gameServerMetrics', fakeMetrics as AllServersMetrics)
+
+    // The handler should have fanned out two remoteServerMetrics events,
+    // one per server in the map.
+    expect(perServerHandler).toHaveBeenCalledTimes(2)
+    expect(perServerHandler).toHaveBeenCalledWith(
+      'server-abc',
+      expect.objectContaining({ cpuPercent: 45.2 }),
+    )
+    expect(perServerHandler).toHaveBeenCalledWith(
+      'server-def',
+      expect.objectContaining({ cpuPercent: 10.0 }),
+    )
+  })
+
+  it('should not emit remoteServerMetrics when gameServerMetrics has no servers', () => {
+    const perServerHandler = vi.fn()
+    XylonaEventBus.on('remoteServerMetrics', perServerHandler)
+
+    const emptyMetrics = { servers: {} }
+    XylonaEventBus.emit('gameServerMetrics', emptyMetrics as AllServersMetrics)
+
+    expect(perServerHandler).not.toHaveBeenCalled()
   })
 })

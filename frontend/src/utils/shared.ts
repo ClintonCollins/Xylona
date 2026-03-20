@@ -18,6 +18,7 @@ import {
 import {
   AllNodeMetrics,
   AllServersMetrics,
+  GameServerMetrics,
   Message,
   Message_Type,
   MessageSchema,
@@ -42,6 +43,7 @@ type XylonaEventBusEvents = {
   gameServerConsoleOutputRequest: (gameServerId: string) => void
   gameServersQueryInfo: (queryInfo: AllServersQueryInfo) => void
   gameServerMetrics: (metrics: AllServersMetrics) => void
+  remoteServerMetrics: (gameServerId: string, metrics: GameServerMetrics) => void
   nodeMetrics: (metrics: AllNodeMetrics) => void
   websocketConnected: () => void
   websocketDisconnected: () => void
@@ -52,6 +54,15 @@ type XylonaEventBusEvents = {
  * @type {EventBus<XylonaEventBusEvents>}
  */
 export const XylonaEventBus: EventBus<XylonaEventBusEvents> = new EventBus<XylonaEventBusEvents>()
+
+// Fan out per-server metrics events so individual views can subscribe by server ID.
+XylonaEventBus.on('gameServerMetrics', (metrics: AllServersMetrics) => {
+  if (metrics?.servers) {
+    for (const [serverId, serverMetrics] of Object.entries(metrics.servers)) {
+      XylonaEventBus.emit('remoteServerMetrics', serverId, serverMetrics)
+    }
+  }
+})
 
 export function GetXylonaClient(nodeAddress: string = window.location.host) {
   const baseURL =

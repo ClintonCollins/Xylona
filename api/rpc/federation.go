@@ -18,6 +18,7 @@ import (
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -26,6 +27,14 @@ import (
 
 const (
 	federationRequestTimeout = 15 * time.Second
+)
+
+// streamMetricsInterval and streamHeartbeatInterval control the tick rates for
+// the metrics and heartbeat events sent by StreamServerUpdates. They are
+// package-level variables so that tests can override them to avoid long waits.
+var (
+	streamMetricsInterval   = 3 * time.Second
+	streamHeartbeatInterval = 30 * time.Second
 )
 
 // FederationService handles node-to-node federation API calls.
@@ -618,19 +627,67 @@ func (fs FederationService) ReadConsoleBuffer(ctx context.Context, request *conn
 	}), nil
 }
 
-func (fs FederationService) StreamServerStatuses(ctx context.Context, request *connect.Request[xylona.FederationStreamServerStatusesRequest], stream *connect.ServerStream[xylona.FederationServerStatusEvent]) error {
+func (fs FederationService) StreamServerUpdates(ctx context.Context, request *connect.Request[xylona.FederationStreamServerUpdatesRequest], stream *connect.ServerStream[xylona.FederationServerUpdateEvent]) error {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
 	}
 
-	log.Debug().Msg("Federation server status stream started")
+	snapshot, errSnapshot := fs.buildServerSnapshot()
+	if errSnapshot != nil {
+		return errSnapshot
+	}
 
-	// Poll all local game servers for status changes and stream them.
-	previousStatuses := make(map[string]xylona.Status)
+	errSend := stream.Send(&xylona.FederationServerUpdateEvent{
+		Event: &xylona.FederationServerUpdateEvent_Snapshot{
+			Snapshot: snapshot,
+		},
+	})
+	if errSend != nil {
+		return errSend
+	}
 
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	// Register a status listener on each game server's supervisor command so we
+	// can push status change events to the remote peer in real time.
+	statusChan := make(chan *xylona.GameServerStatusUpdate, 64)
+	listenerID := fmt.Sprintf("federation-stream-%s", uuid.New().String())
+
+	gameServers, errGetServers := fs.db.GetAllGameServers()
+	if errGetServers != nil && !errors.Is(errGetServers, sql.ErrNoRows) {
+		return connect.NewError(connect.CodeInternal, errors.New("failed to get game servers for status listeners"))
+	}
+
+	for _, gs := range gameServers {
+		cmd := fs.supervisorInst.GetCommandByIDOrCreateShell(gs.ID)
+		cmd.AddStatusListener(listenerID, statusChan)
+	}
+	defer func() {
+		for _, gs := range gameServers {
+			cmd := fs.supervisorInst.GetCommandByIDOrCreateShell(gs.ID)
+			cmd.RemoveStatusListener(listenerID)
+		}
+	}()
+
+	// Initialize previous metrics from the snapshot so the first tick only
+	// sends updates for servers whose metrics actually changed.
+	previousMetrics := make(map[string]*xylona.GameServerMetrics, len(snapshot.Servers))
+	for _, srv := range snapshot.Servers {
+		if srv.Metrics != nil {
+			previousMetrics[srv.ServerId] = srv.Metrics
+		}
+	}
+
+	serverCreatedCh := eventbus.Get().Subscribe(eventbus.TopicGameServerCreated)
+	defer eventbus.Get().Unsubscribe(eventbus.TopicGameServerCreated, serverCreatedCh)
+
+	serverRemovedCh := eventbus.Get().Subscribe(eventbus.TopicGameServerRemoved)
+	defer eventbus.Get().Unsubscribe(eventbus.TopicGameServerRemoved, serverRemovedCh)
+
+	metricsTicker := time.NewTicker(streamMetricsInterval)
+	defer metricsTicker.Stop()
+
+	heartbeatTicker := time.NewTicker(streamHeartbeatInterval)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
@@ -638,34 +695,185 @@ func (fs FederationService) StreamServerStatuses(ctx context.Context, request *c
 			return nil
 		case <-fs.ctx.Done():
 			return nil
-		case <-ticker.C:
-			allGameServers, errGetServers := fs.db.GetAllGameServers()
-			if errGetServers != nil {
+		case <-serverCreatedCh:
+			newServers, errGetNew := fs.db.GetAllGameServers()
+			if errGetNew != nil && !errors.Is(errGetNew, sql.ErrNoRows) {
+				log.Error().Err(errGetNew).Msg("failed to get game servers after create event")
 				continue
 			}
+			for _, gs := range newServers {
+				cmd := fs.supervisorInst.GetCommandByIDOrCreateShell(gs.ID)
+				cmd.AddStatusListener(listenerID, statusChan)
+			}
+			gameServers = newServers
 
-			for _, gs := range allGameServers {
-				currentStatus := xylona.Status_OFFLINE
-				gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gs.ID)
-				if errGetCommand == nil {
-					currentStatus = gameServerCmd.Status()
+			newSnapshot, errNewSnapshot := fs.buildServerSnapshot()
+			if errNewSnapshot != nil {
+				log.Error().Err(errNewSnapshot).Msg("failed to build snapshot after server create")
+				continue
+			}
+			previousMetrics = make(map[string]*xylona.GameServerMetrics, len(newSnapshot.Servers))
+			for _, srv := range newSnapshot.Servers {
+				if srv.Metrics != nil {
+					previousMetrics[srv.ServerId] = srv.Metrics
 				}
+			}
+			errSendCreate := stream.Send(&xylona.FederationServerUpdateEvent{
+				Event: &xylona.FederationServerUpdateEvent_Snapshot{
+					Snapshot: newSnapshot,
+				},
+			})
+			if errSendCreate != nil {
+				return nil
+			}
+		case <-serverRemovedCh:
+			newServers, errGetNew := fs.db.GetAllGameServers()
+			if errGetNew != nil && !errors.Is(errGetNew, sql.ErrNoRows) {
+				log.Error().Err(errGetNew).Msg("failed to get game servers after remove event")
+				continue
+			}
+			gameServers = newServers
 
-				prevStatus, exists := previousStatuses[gs.ID]
-				if !exists || prevStatus != currentStatus {
-					previousStatuses[gs.ID] = currentStatus
-					errSend := stream.Send(&xylona.FederationServerStatusEvent{
-						ServerId: gs.ID,
-						Status:   currentStatus,
-					})
-					if errSend != nil {
-						log.Debug().Err(errSend).Msg("Federation server status stream send failed")
-						return nil
-					}
+			newSnapshot, errNewSnapshot := fs.buildServerSnapshot()
+			if errNewSnapshot != nil {
+				log.Error().Err(errNewSnapshot).Msg("failed to build snapshot after server remove")
+				continue
+			}
+			previousMetrics = make(map[string]*xylona.GameServerMetrics, len(newSnapshot.Servers))
+			for _, srv := range newSnapshot.Servers {
+				if srv.Metrics != nil {
+					previousMetrics[srv.ServerId] = srv.Metrics
 				}
+			}
+			errSendRemove := stream.Send(&xylona.FederationServerUpdateEvent{
+				Event: &xylona.FederationServerUpdateEvent_Snapshot{
+					Snapshot: newSnapshot,
+				},
+			})
+			if errSendRemove != nil {
+				return nil
+			}
+		case update := <-statusChan:
+			errStatus := stream.Send(&xylona.FederationServerUpdateEvent{
+				Event: &xylona.FederationServerUpdateEvent_StatusChange{
+					StatusChange: &xylona.FederationServerStatusChange{
+						ServerId: update.GameServerId,
+						Status:   update.Status,
+					},
+				},
+			})
+			if errStatus != nil {
+				return nil
+			}
+		case <-metricsTicker.C:
+			for _, gs := range gameServers {
+				current := buildServerStateMetrics(fs.supervisorInst, gs.ID)
+				if current == nil {
+					continue
+				}
+				prev := previousMetrics[gs.ID]
+				if !helpers.MetricsChanged(prev, current) {
+					continue
+				}
+				previousMetrics[gs.ID] = current
+				errMetrics := stream.Send(&xylona.FederationServerUpdateEvent{
+					Event: &xylona.FederationServerUpdateEvent_MetricsUpdate{
+						MetricsUpdate: &xylona.FederationServerMetricsUpdate{
+							ServerId: gs.ID,
+							Metrics:  current,
+						},
+					},
+				})
+				if errMetrics != nil {
+					return nil
+				}
+			}
+		case <-heartbeatTicker.C:
+			errHeartbeat := stream.Send(&xylona.FederationServerUpdateEvent{
+				Event: &xylona.FederationServerUpdateEvent_Heartbeat{
+					Heartbeat: &xylona.FederationStreamHeartbeat{},
+				},
+			})
+			if errHeartbeat != nil {
+				return nil
 			}
 		}
 	}
+}
+
+// buildServerSnapshot constructs a FederationServerSnapshot containing the current
+// state of all local game servers, including live status and metrics from the supervisor.
+func (fs FederationService) buildServerSnapshot() (*xylona.FederationServerSnapshot, error) {
+	gameServers, errGetServers := fs.db.GetAllGameServers()
+	if errGetServers != nil {
+		if errors.Is(errGetServers, sql.ErrNoRows) {
+			return &xylona.FederationServerSnapshot{}, nil
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game servers"))
+	}
+
+	snapshot := &xylona.FederationServerSnapshot{
+		Servers: make([]*xylona.FederationServerState, 0, len(gameServers)),
+	}
+
+	for _, gs := range gameServers {
+		status := fs.resolveFederatedServerStatus(gs)
+
+		gameName := ""
+		if gs.R.Game != nil {
+			gameName = gs.R.Game.Name
+		}
+
+		serverState := &xylona.FederationServerState{
+			ServerId:       gs.ID,
+			Status:         status,
+			DisplayName:    gs.Name,
+			GameName:       gameName,
+			GameId:         gs.GameID,
+			IpAddress:      gs.IP,
+			Port:           int32(gs.Port),
+			QueryPort:      int32(gs.QueryPort),
+			MaxPlayers:     int32(gs.MaxPlayers),
+			CurrentPlayers: 0,
+			MapName:        gs.Map,
+			Version:        resolveGameServerVersion(gs),
+		}
+
+		serverState.Metrics = buildServerStateMetrics(fs.supervisorInst, gs.ID)
+		snapshot.Servers = append(snapshot.Servers, serverState)
+	}
+
+	return snapshot, nil
+}
+
+// buildServerStateMetrics returns a GameServerMetrics proto populated from the
+// supervisor command for the given server, or nil if no command is running.
+func buildServerStateMetrics(supervisorInst *supervisor.Instance, serverID string) *xylona.GameServerMetrics {
+	if supervisorInst == nil {
+		return nil
+	}
+	cmd, errGetCmd := supervisorInst.GetCommandByID(serverID)
+	if errGetCmd != nil {
+		return nil
+	}
+	cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := cmd.Metrics()
+	metrics := &xylona.GameServerMetrics{
+		CpuPercent:            cpuPct,
+		MemoryBytes:           int64(memVMS),
+		MemoryWorkingSetBytes: int64(memRSS),
+		MemoryPercent:         float64(memPct),
+		CpuCores:              cpuCores,
+		NumberOfThreads:       threads,
+		DiskUsageBytes:        int64(diskBytes),
+		IoReadRate:            ioRead,
+		IoWriteRate:           ioWrite,
+		ConnectionCount:       connCount,
+	}
+	startedAt := cmd.UnixStartedAt()
+	if startedAt > 0 {
+		metrics.UptimeSeconds = time.Now().Unix() - startedAt
+	}
+	return metrics
 }
 
 func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {

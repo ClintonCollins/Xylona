@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { create } from '@bufbuild/protobuf'
+import { create, toJsonString } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import GameServerMetrics from '@/components/game_servers/GameServerMetrics.vue'
@@ -171,10 +171,16 @@ import {
   UpdateGameServerRequest,
   UpdateGameServerRequestSchema,
 } from 'src/proto/xylona_pb'
+import { Request, Request_Type, RequestSchema } from 'src/proto/websocket_pb'
 import { ConnectError } from '@connectrpc/connect'
 import { parseConsole } from '@/utils/console'
-import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
-import { computed, nextTick, onMounted, Ref, ref } from 'vue'
+import {
+  ConnectErrorToString,
+  GetOrCreateXylonaWebsocketClient,
+  GetXylonaClient,
+  XylonaEventBus,
+} from '@/utils/shared'
+import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 const $q = useQuasar()
@@ -222,9 +228,30 @@ onMounted(async () => {
       void getGameServerOutput()
       streamGameServerOutput()
       listenForServerQueryInfo()
+      subscribeServerMetrics()
     })
     .then(queryGameServer)
 })
+
+onBeforeUnmount(() => {
+  unsubscribeServerMetrics()
+})
+
+function subscribeServerMetrics() {
+  const ws = GetOrCreateXylonaWebsocketClient()
+  const request: Request = create(RequestSchema, {})
+  request.type = Request_Type.SubscribeServerMetrics
+  request.gameServerId = gameServerId.value
+  ws.send(toJsonString(RequestSchema, request))
+}
+
+function unsubscribeServerMetrics() {
+  const ws = GetOrCreateXylonaWebsocketClient()
+  const request: Request = create(RequestSchema, {})
+  request.type = Request_Type.UnsubscribeServerMetrics
+  request.gameServerId = gameServerId.value
+  ws.send(toJsonString(RequestSchema, request))
+}
 
 async function getGameServerDetails() {
   const request: GetGameServerRequest = create(GetGameServerRequestSchema, {})

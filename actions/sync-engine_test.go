@@ -17,8 +17,8 @@ func TestNormalizeNodeSyncInterval(t *testing.T) {
 	}{
 		{name: "uses default for zero", seconds: 0, wantValue: defaultNodeSyncInterval},
 		{name: "uses default for negative", seconds: -30, wantValue: defaultNodeSyncInterval},
-		{name: "clamps to minimum", seconds: 5, wantValue: minNodeSyncInterval},
-		{name: "uses configured interval in range", seconds: 45, wantValue: 45 * time.Second},
+		{name: "clamps to minimum", seconds: 30, wantValue: minNodeSyncInterval},
+		{name: "uses configured interval in range", seconds: 120, wantValue: 120 * time.Second},
 		{name: "clamps to maximum", seconds: int32((maxNodeSyncInterval / time.Second) + 1), wantValue: maxNodeSyncInterval},
 	}
 

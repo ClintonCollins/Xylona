@@ -66,6 +66,8 @@ type Command struct {
 	currentCMD            *exec.Cmd
 	outputListeners       map[string]chan *xylona.Message
 	outputListenersLock   *sync.RWMutex
+	statusListeners       map[string]chan *xylona.GameServerStatusUpdate
+	statusListenersLock   *sync.RWMutex
 	inputMethod           InputMethod
 	stdInWriter           io.Writer
 	combinedOutput        io.Reader
@@ -138,6 +140,18 @@ func (c *Command) RemoveOutputListener(id string) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
 	delete(c.outputListeners, id)
+}
+
+func (c *Command) AddStatusListener(id string, ch chan *xylona.GameServerStatusUpdate) {
+	c.statusListenersLock.Lock()
+	defer c.statusListenersLock.Unlock()
+	c.statusListeners[id] = ch
+}
+
+func (c *Command) RemoveStatusListener(id string) {
+	c.statusListenersLock.Lock()
+	defer c.statusListenersLock.Unlock()
+	delete(c.statusListeners, id)
 }
 
 func New(ctx context.Context) (*Instance, error) {

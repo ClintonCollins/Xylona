@@ -23,6 +23,8 @@ message Request {
     GetGameServerStatus = 2;
     RemoveGameServerConsole = 3;
     RemoveGameServerStatus = 4;
+    SubscribeServerMetrics = 5;
+    UnsubscribeServerMetrics = 6;
   }
   optional string game_server_id = 1;
   Type type = 2;

@@ -22,8 +22,8 @@ const (
 	healthCheckInterval           = 30 * time.Second
 	peerReconcileInterval         = 60 * time.Second
 	remoteCacheCleanupInterval    = 60 * time.Second
-	defaultNodeSyncInterval       = 60 * time.Second
-	minNodeSyncInterval           = 15 * time.Second
+	defaultNodeSyncInterval       = 5 * time.Minute
+	minNodeSyncInterval           = 60 * time.Second
 	maxNodeSyncInterval           = 10 * time.Minute
 	staleThreshold                = 3 * time.Minute
 	maxRetryBackoff               = 5 * time.Minute
@@ -36,15 +36,21 @@ type StatusBroadcaster interface {
 	BroadcastRemoteServerStatus(serverID string, status xylona.Status)
 }
 
+// MetricsBroadcaster is called when remote server metrics are received in real-time.
+type MetricsBroadcaster interface {
+	BroadcastRemoteServerMetrics(serverID string, metrics *xylona.GameServerMetrics)
+}
+
 // FederationSyncEngine manages periodic synchronization with peer nodes.
 type FederationSyncEngine struct {
-	ctx               context.Context
-	cancel            context.CancelFunc
-	db                *db.Connection
-	federationMTLS    *helpers.FederationMTLS
-	mu                sync.RWMutex
-	peerStops         map[string]context.CancelFunc
-	statusBroadcaster StatusBroadcaster
+	ctx                context.Context
+	cancel             context.CancelFunc
+	db                 *db.Connection
+	federationMTLS     *helpers.FederationMTLS
+	mu                 sync.RWMutex
+	peerStops          map[string]context.CancelFunc
+	statusBroadcaster  StatusBroadcaster
+	metricsBroadcaster MetricsBroadcaster
 }
 
 func NewFederationSyncEngine(ctx context.Context, dbInst *db.Connection, federationMTLS *helpers.FederationMTLS) *FederationSyncEngine {
@@ -65,6 +71,13 @@ func (e *FederationSyncEngine) SetStatusBroadcaster(broadcaster StatusBroadcaste
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.statusBroadcaster = broadcaster
+}
+
+// SetMetricsBroadcaster sets the callback for real-time remote server metrics updates.
+func (e *FederationSyncEngine) SetMetricsBroadcaster(broadcaster MetricsBroadcaster) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.metricsBroadcaster = broadcaster
 }
 
 func (e *FederationSyncEngine) start() {
@@ -238,7 +251,7 @@ func (e *FederationSyncEngine) streamPeerStatuses(ctx context.Context, nodeID st
 		default:
 		}
 
-		e.runStatusStream(ctx, nodeID)
+		e.runUpdatesStream(ctx, nodeID)
 
 		// Backoff before reconnecting.
 		select {
@@ -249,54 +262,89 @@ func (e *FederationSyncEngine) streamPeerStatuses(ctx context.Context, nodeID st
 	}
 }
 
-func (e *FederationSyncEngine) runStatusStream(ctx context.Context, nodeID string) {
+func (e *FederationSyncEngine) runUpdatesStream(ctx context.Context, nodeID string) {
 	node, errGetNode := e.db.GetRemoteNodeByID(nodeID)
 	if errGetNode != nil {
-		log.Warn().Err(errGetNode).Str("node_id", nodeID).Msg("Failed to get node for status stream")
+		log.Warn().Err(errGetNode).Str("node_id", nodeID).Msg("Failed to get remote node for updates stream")
 		return
 	}
-
 	if !node.Enabled {
 		return
 	}
-
 	client, errClient := newFederationClient(e.db, e.federationMTLS, node, 0)
 	if errClient != nil {
-		log.Warn().Err(errClient).Str("node_id", nodeID).Str("node_name", node.Name).Msg("Failed to create status stream federation client")
+		log.Debug().Err(errClient).Str("node_id", nodeID).Msg("Failed to create federation client for updates stream")
 		return
 	}
-
-	req := connect.NewRequest(&xylona.FederationStreamServerStatusesRequest{})
-
-	stream, errStream := client.StreamServerStatuses(ctx, req)
+	req := connect.NewRequest(&xylona.FederationStreamServerUpdatesRequest{})
+	stream, errStream := client.StreamServerUpdates(ctx, req)
 	if errStream != nil {
-		log.Debug().Err(errStream).Str("node_id", nodeID).Str("node_name", node.Name).Msg("Failed to open status stream")
+		log.Debug().Err(errStream).Str("node_id", nodeID).Msg("Failed to open updates stream")
 		return
 	}
 	defer func() { _ = stream.Close() }()
 
-	log.Debug().Str("node_id", nodeID).Str("node_name", node.Name).Msg("Status stream connected")
-
-	for stream.Receive() {
-		event := stream.Msg()
-
-		// Update the cached status in the database.
-		errUpdate := e.db.UpdateRemoteServerCacheStatus(node.ID, event.ServerId, event.Status.String())
-		if errUpdate != nil {
-			log.Debug().Err(errUpdate).Str("server_id", event.ServerId).Msg("Failed to update remote server cache status")
-		}
-
-		// Broadcast to connected WebSocket clients.
-		e.mu.RLock()
-		broadcaster := e.statusBroadcaster
-		e.mu.RUnlock()
-		if broadcaster != nil {
-			broadcaster.BroadcastRemoteServerStatus(event.ServerId, event.Status)
-		}
+	// Feed received messages into a channel so the select loop can also handle
+	// a staleness timer without blocking on Receive.
+	type recvResult struct {
+		msg *xylona.FederationServerUpdateEvent
+		ok  bool
 	}
+	recvCh := make(chan recvResult, 1)
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			ok := stream.Receive()
+			if !ok {
+				select {
+				case recvCh <- recvResult{ok: false}:
+				case <-done:
+				}
+				return
+			}
+			select {
+			case recvCh <- recvResult{msg: stream.Msg(), ok: true}:
+			case <-done:
+				return
+			}
+		}
+	}()
 
-	if errReceive := stream.Err(); errReceive != nil {
-		log.Debug().Err(errReceive).Str("node_id", nodeID).Msg("Status stream ended")
+	staleTimer := time.NewTimer(90 * time.Second)
+	defer staleTimer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-staleTimer.C:
+			log.Warn().Str("node_id", nodeID).Msg("Updates stream stale, no heartbeat received within 90s")
+			return
+		case result := <-recvCh:
+			if !result.ok {
+				return
+			}
+			// Any message resets the staleness timer.
+			if !staleTimer.Stop() {
+				select {
+				case <-staleTimer.C:
+				default:
+				}
+			}
+			staleTimer.Reset(90 * time.Second)
+
+			switch evt := result.msg.Event.(type) {
+			case *xylona.FederationServerUpdateEvent_Snapshot:
+				e.handleSnapshot(node, evt.Snapshot)
+			case *xylona.FederationServerUpdateEvent_StatusChange:
+				e.handleStatusChange(node, evt.StatusChange)
+			case *xylona.FederationServerUpdateEvent_MetricsUpdate:
+				e.handleMetricsUpdate(evt.MetricsUpdate)
+			case *xylona.FederationServerUpdateEvent_Heartbeat:
+				log.Debug().Str("node_id", nodeID).Msg("Received heartbeat from peer")
+			}
+		}
 	}
 }
 
@@ -542,4 +590,71 @@ func calculateBackoff(retryCount int32) time.Duration {
 	// Add jitter.
 	jitter := time.Duration(rand.Int63n(int64(5 * time.Second)))
 	return base + jitter
+}
+
+// handleSnapshot processes a full server snapshot from a peer node.
+func (e *FederationSyncEngine) handleSnapshot(node *models.Node, snapshot *xylona.FederationServerSnapshot) {
+	for _, server := range snapshot.Servers {
+		newID, errID := helpers.GenerateUniqueID()
+		if errID != nil {
+			log.Error().Err(errID).Msg("Failed to generate ID for remote server cache during snapshot")
+			continue
+		}
+
+		lastRemoteUpdate := time.Now()
+
+		errUpsert := e.db.UpsertRemoteServerCache(
+			newID.String(),
+			node.ID,
+			node.ID,
+			server.ServerId,
+			server.DisplayName,
+			server.Status.String(),
+			server.GameName,
+			server.GameId,
+			server.IpAddress,
+			server.Port,
+			server.QueryPort,
+			server.MaxPlayers,
+			server.CurrentPlayers,
+			server.MapName,
+			server.Version,
+			node.Name,
+			node.BaseURL,
+			lastRemoteUpdate,
+		)
+		if errUpsert != nil {
+			log.Error().Err(errUpsert).Str("server_id", server.ServerId).Msg("Failed to upsert remote server cache from snapshot")
+		}
+	}
+}
+
+// handleStatusChange processes a single server status change from a peer node.
+func (e *FederationSyncEngine) handleStatusChange(node *models.Node, change *xylona.FederationServerStatusChange) {
+	errUpdate := e.db.UpdateRemoteServerCacheStatus(node.ID, change.ServerId, change.Status.String())
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).
+			Str("node_id", node.ID).
+			Str("server_id", change.ServerId).
+			Msg("Failed to update remote server cache status")
+	}
+
+	e.mu.RLock()
+	broadcaster := e.statusBroadcaster
+	e.mu.RUnlock()
+
+	if broadcaster != nil {
+		broadcaster.BroadcastRemoteServerStatus(change.ServerId, change.Status)
+	}
+}
+
+// handleMetricsUpdate processes a server metrics update from a peer node.
+func (e *FederationSyncEngine) handleMetricsUpdate(update *xylona.FederationServerMetricsUpdate) {
+	e.mu.RLock()
+	broadcaster := e.metricsBroadcaster
+	e.mu.RUnlock()
+
+	if broadcaster != nil {
+		broadcaster.BroadcastRemoteServerMetrics(update.ServerId, update.Metrics)
+	}
 }

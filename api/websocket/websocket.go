@@ -47,8 +47,17 @@ type connection struct {
 	outputStreamChannel          chan *xylona.Message
 	allGameServerIDs             []string
 	requestedGameServerOutputIDs map[string]struct{}
+	subscribedMetricsServerIDs   map[string]struct{}
 	remoteConsoleCancels         map[string]context.CancelFunc
 	*sync.RWMutex
+}
+
+// shouldReceiveMetrics returns true if the connection is subscribed to metrics for the given server ID.
+func (c *connection) shouldReceiveMetrics(serverID string) bool {
+	c.RLock()
+	defer c.RUnlock()
+	_, ok := c.subscribedMetricsServerIDs[serverID]
+	return ok
 }
 
 type WebSocket struct {
@@ -62,8 +71,6 @@ type WebSocket struct {
 	userWebsocketConnections     map[string]map[uuid.UUID]*connection // map[userID]map[connectionID]*connection
 	userWebsocketConnectionsLock *sync.RWMutex
 	sessionLock                  *sync.RWMutex
-	remoteMetricsCache           map[string]*xylona.GameServerMetrics // keyed by remote server ID
-	remoteMetricsCacheLock       sync.RWMutex
 	remoteNodeSnapshotCache      map[string]*xylona.NodeResourceSnapshot // keyed by remote node ID
 	remoteNodeSnapshotCacheLock  sync.RWMutex
 }
@@ -160,13 +167,11 @@ func NewInstance(
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
 		userWebsocketConnectionsLock: &sync.RWMutex{},
 		sessionLock:                  &sync.RWMutex{},
-		remoteMetricsCache:           make(map[string]*xylona.GameServerMetrics),
 		remoteNodeSnapshotCache:      make(map[string]*xylona.NodeResourceSnapshot),
 	}
 	m.HandleConnect(inst.handleConnect)
 	m.HandleDisconnect(inst.handleDisconnect)
 	m.HandleMessage(inst.handleMessage)
-	go inst.startRemoteMetricsPoller()
 	go inst.startRemoteNodeMetricsPoller()
 	return inst, inst.handleRequest
 }
@@ -204,7 +209,8 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		melodySession:                s,
 		outputStreamChannel:          make(chan *xylona.Message),
 		allGameServerIDs:             []string{},
-		requestedGameServerOutputIDs: make(map[string]struct{}),
+		requestedGameServerOutputIDs:  make(map[string]struct{}),
+		subscribedMetricsServerIDs:   make(map[string]struct{}),
 		remoteConsoleCancels:         make(map[string]context.CancelFunc),
 		RWMutex:                      &sync.RWMutex{},
 	}
@@ -354,89 +360,6 @@ func queryEqual(x, y *xylona.ServerQuery) bool {
 
 func (ws *WebSocket) AddGameServerToUserID() {
 
-}
-
-// startRemoteMetricsPoller runs a single shared background poller that refreshes
-// the remote-node metrics cache every 3 seconds for all connected clients.
-func (ws *WebSocket) startRemoteMetricsPoller() {
-	ticker := time.NewTicker(3 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ws.ctx.Done():
-			return
-		case <-ticker.C:
-			ws.pollRemoteMetrics()
-		}
-	}
-}
-
-// pollRemoteMetrics queries every enabled remote node for its game-server summaries
-// and stores the metrics in remoteMetricsCache. It is called by startRemoteMetricsPoller.
-func (ws *WebSocket) pollRemoteMetrics() {
-	if ws.federationMTLS == nil {
-		return
-	}
-
-	nodes, errNodes := ws.db.GetEnabledRemoteNodes()
-	if errNodes != nil {
-		log.Error().Err(errNodes).Msg("Failed to get enabled remote nodes for metrics poll")
-		return
-	}
-	if len(nodes) == 0 {
-		return
-	}
-
-	type nodeResult struct {
-		servers []*xylona.FederationServerSummary
-	}
-
-	resultsCh := make(chan nodeResult, len(nodes))
-
-	for _, n := range nodes {
-		node := n
-		go func() {
-			client, errClient := ws.newFederationClientForNode(node)
-			if errClient != nil {
-				log.Debug().Err(errClient).Str("node_id", node.ID).Msg("Remote metrics poll: failed to create federation client")
-				resultsCh <- nodeResult{}
-				return
-			}
-			ctx, cancel := context.WithTimeout(ws.ctx, 10*time.Second)
-			defer cancel()
-			resp, errList := client.ListServerSummaries(ctx, connect.NewRequest(&xylona.FederationListServerSummariesRequest{}))
-			if errList != nil {
-				log.Debug().Err(errList).Str("node_id", node.ID).Msg("Remote metrics poll: ListServerSummaries failed")
-				resultsCh <- nodeResult{}
-				return
-			}
-			resultsCh <- nodeResult{servers: resp.Msg.GetServers()}
-		}()
-	}
-
-	newCache := make(map[string]*xylona.GameServerMetrics, len(nodes)*4)
-	for range nodes {
-		result := <-resultsCh
-		for _, s := range result.servers {
-			newCache[s.ServerId] = &xylona.GameServerMetrics{
-				CpuPercent:            float64(s.CpuPercent),
-				MemoryBytes:           s.MemoryBytes,
-				MemoryWorkingSetBytes: s.MemoryWorkingSetBytes,
-				MemoryPercent:         s.MemoryPercent,
-				CpuCores:              s.CpuCores,
-				NumberOfThreads:       s.NumberOfThreads,
-				DiskUsageBytes:        s.DiskUsageBytes,
-				IoReadRate:            s.IoReadRate,
-				IoWriteRate:           s.IoWriteRate,
-				ConnectionCount:       s.ConnectionCount,
-				UptimeSeconds:         s.UptimeSeconds,
-			}
-		}
-	}
-
-	ws.remoteMetricsCacheLock.Lock()
-	ws.remoteMetricsCache = newCache
-	ws.remoteMetricsCacheLock.Unlock()
 }
 
 // newFederationClientForNode creates a trusted-peer mTLS federation client for
@@ -719,18 +642,6 @@ func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
 				}
 				allMetrics.Servers[gameServer.ID] = current
 			}
-
-			// Merge cached remote server metrics.
-			ws.remoteMetricsCacheLock.RLock()
-			for serverID, metrics := range ws.remoteMetricsCache {
-				previous, exists := previousMetricsMap[serverID]
-				if !exists || !metricsEqual(previous, metrics) {
-					previousMetricsMap[serverID] = metrics
-					metricsChanged = true
-				}
-				allMetrics.Servers[serverID] = metrics
-			}
-			ws.remoteMetricsCacheLock.RUnlock()
 
 			if !metricsChanged {
 				continue
@@ -1092,6 +1003,40 @@ func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, status xylona.
 	}
 }
 
+func (ws *WebSocket) BroadcastRemoteServerMetrics(serverID string, metrics *xylona.GameServerMetrics) {
+	out := &xylona.Message{
+		Type: xylona.Message_GameServerMetrics,
+		AllServersMetrics: &xylona.AllServersMetrics{
+			Servers: map[string]*xylona.GameServerMetrics{
+				serverID: metrics,
+			},
+		},
+	}
+	byteOut, errMarshal := protojson.Marshal(out)
+	if errMarshal != nil {
+		log.Error().Err(errMarshal).Msg("Failed to marshal remote server metrics update")
+		return
+	}
+
+	ws.userWebsocketConnectionsLock.RLock()
+	defer ws.userWebsocketConnectionsLock.RUnlock()
+
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			if conn.melodySession.IsClosed() {
+				continue
+			}
+			if !conn.shouldReceiveMetrics(serverID) {
+				continue
+			}
+			errWrite := conn.melodySession.Write(byteOut)
+			if errWrite != nil {
+				log.Debug().Err(errWrite).Msg("Failed to write remote metrics update to WebSocket")
+			}
+		}
+	}
+}
+
 func (ws *WebSocket) cancelRemoteConsoleStreams(conn *connection) {
 	conn.Lock()
 	defer conn.Unlock()
@@ -1209,6 +1154,24 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			return
 		}
 		_ = s.Write(b)
+	case xylona.Request_SubscribeServerMetrics:
+		if websocketRequest.GameServerId == nil {
+			return
+		}
+		serverID := *websocketRequest.GameServerId
+		sessionConnection.Lock()
+		sessionConnection.subscribedMetricsServerIDs[serverID] = struct{}{}
+		sessionConnection.Unlock()
+
+	case xylona.Request_UnsubscribeServerMetrics:
+		if websocketRequest.GameServerId == nil {
+			return
+		}
+		serverID := *websocketRequest.GameServerId
+		sessionConnection.Lock()
+		delete(sessionConnection.subscribedMetricsServerIDs, serverID)
+		sessionConnection.Unlock()
+
 	default:
 		log.Warn().Str("User", username).Msg("Unknown websocket message type")
 	}

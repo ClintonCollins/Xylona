@@ -1,0 +1,82 @@
+package supervisor
+
+import (
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+)
+
+func newTestCommand(t *testing.T) *Command {
+	t.Helper()
+	ctx := t.Context()
+	return &Command{
+		ID:                  "test-id",
+		RWMutex:             &sync.RWMutex{},
+		outputListeners:     make(map[string]chan *xylona.Message),
+		outputListenersLock: &sync.RWMutex{},
+		statusListeners:     make(map[string]chan *xylona.GameServerStatusUpdate),
+		statusListenersLock: &sync.RWMutex{},
+		instanceCtx:         ctx,
+		status:              xylona.Status_OFFLINE,
+		toggleOutputType:    make(chan struct{}),
+	}
+}
+
+func TestAddStatusListener_ReceivesStatusChanges(t *testing.T) {
+	cmd := newTestCommand(t)
+	ch := make(chan *xylona.GameServerStatusUpdate, 8)
+	cmd.AddStatusListener("test-listener", ch)
+
+	cmd.sendJobStatusNotification(xylona.Status_ONLINE)
+
+	select {
+	case update := <-ch:
+		if update.GameServerId != "test-id" {
+			t.Errorf("expected server ID %q, got %q", "test-id", update.GameServerId)
+		}
+		if update.Status != xylona.Status_ONLINE {
+			t.Errorf("expected status ONLINE, got %v", update.Status)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for status update")
+	}
+}
+
+func TestStatusListener_DoesNotReceiveConsoleOutput(t *testing.T) {
+	cmd := newTestCommand(t)
+	ch := make(chan *xylona.GameServerStatusUpdate, 8)
+	cmd.AddStatusListener("test-listener", ch)
+
+	cmd.handleOutputListeners(&xylona.Message{
+		Type: xylona.Message_GameServerConsole,
+		GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
+			GameServerId: "test-id",
+			Output:       "some console output",
+		},
+	})
+
+	select {
+	case <-ch:
+		t.Fatal("status listener should not receive console output")
+	case <-time.After(200 * time.Millisecond):
+		// Expected — no message received
+	}
+}
+
+func TestRemoveStatusListener_StopsDelivery(t *testing.T) {
+	cmd := newTestCommand(t)
+	ch := make(chan *xylona.GameServerStatusUpdate, 8)
+	cmd.AddStatusListener("test-listener", ch)
+	cmd.RemoveStatusListener("test-listener")
+
+	cmd.sendJobStatusNotification(xylona.Status_OFFLINE)
+
+	select {
+	case <-ch:
+		t.Fatal("removed listener should not receive updates")
+	case <-time.After(200 * time.Millisecond):
+		// Expected — no message received
+	}
+}

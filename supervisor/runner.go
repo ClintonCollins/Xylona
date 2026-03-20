@@ -313,6 +313,28 @@ func (c *Command) sendJobStatusNotification(status xylona.Status) {
 			Status:       status,
 		},
 	})
+	c.handleStatusListeners(status)
+}
+
+func (c *Command) handleStatusListeners(status xylona.Status) {
+	update := &xylona.GameServerStatusUpdate{
+		GameServerId: c.ID,
+		Status:       status,
+	}
+	listenerIDsToRemove := make([]string, 0)
+	c.statusListenersLock.RLock()
+	for id, listener := range c.statusListeners {
+		select {
+		case listener <- update:
+		default:
+			listenerIDsToRemove = append(listenerIDsToRemove, id)
+		}
+	}
+	c.statusListenersLock.RUnlock()
+	for _, id := range listenerIDsToRemove {
+		log.Debug().Str("ID", id).Msg("Removing slow status listener")
+		c.RemoveStatusListener(id)
+	}
 }
 
 func (c *Command) sendJobNotification(message string) {
@@ -511,6 +533,8 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			processCtxCancel:    processCtxCancel,
 			outputListeners:     make(map[string]chan *xylona.Message),
 			outputListenersLock: &sync.RWMutex{},
+			statusListeners:     make(map[string]chan *xylona.GameServerStatusUpdate),
+			statusListenersLock: &sync.RWMutex{},
 			inputMethod:         preparedCommand.InputMethod,
 			toggleOutputType:    make(chan struct{}),
 			workingDir:          preparedCommand.WorkingDirectory,
@@ -674,6 +698,8 @@ func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
 			combinedOutput:      &bytes.Buffer{},
 			outputListeners:     make(map[string]chan *xylona.Message),
 			outputListenersLock: &sync.RWMutex{},
+			statusListeners:     make(map[string]chan *xylona.GameServerStatusUpdate),
+			statusListenersLock: &sync.RWMutex{},
 			RWMutex:             &sync.RWMutex{},
 			status:              xylona.Status_OFFLINE,
 			toggleOutputType:    make(chan struct{}),

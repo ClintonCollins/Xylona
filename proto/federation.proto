@@ -2,6 +2,7 @@ syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 import "shared.proto";
 import "gameserver_files_operations.proto";
+import "websocket.proto";
 
 package xylona;
 option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
@@ -47,8 +48,8 @@ service Federation {
   // ReadConsoleBuffer returns the current console output buffer for a game server.
   rpc ReadConsoleBuffer (FederationReadConsoleBufferRequest) returns (FederationReadConsoleBufferResponse) {}
 
-  // StreamServerStatuses streams real-time status changes for all game servers on this node.
-  rpc StreamServerStatuses (FederationStreamServerStatusesRequest) returns (stream FederationServerStatusEvent) {}
+  // StreamServerUpdates streams real-time server updates (status, metrics, snapshots) for all game servers on this node.
+  rpc StreamServerUpdates (FederationStreamServerUpdatesRequest) returns (stream FederationServerUpdateEvent) {}
 
   // QueryRemoteServer returns query info (player count, etc.) for a game server on this node.
   rpc QueryRemoteServer (FederationQueryServerRequest) returns (FederationQueryServerResponse) {}
@@ -211,16 +212,6 @@ message FederationReadConsoleBufferRequest {
 
 message FederationReadConsoleBufferResponse {
   string output = 1;
-}
-
-// Federation Server Status Streaming
-message FederationStreamServerStatusesRequest {
-  string secret_key = 1;
-}
-
-message FederationServerStatusEvent {
-  string server_id = 1;
-  Status status = 2;
 }
 
 // Federation Query Server
@@ -420,4 +411,51 @@ message FederationGetGameServerMetricsHistoryRequest {
 
 message FederationGetGameServerMetricsHistoryResponse {
   repeated GameServerMetricsHistoryPoint points = 1;
+}
+
+// Federation streaming — real-time server updates.
+message FederationStreamServerUpdatesRequest {
+  // Authentication handled by mTLS peer middleware.
+}
+
+message FederationServerUpdateEvent {
+  oneof event {
+    FederationServerSnapshot snapshot = 1;
+    FederationServerStatusChange status_change = 2;
+    FederationServerMetricsUpdate metrics_update = 3;
+    FederationStreamHeartbeat heartbeat = 4;
+  }
+}
+
+message FederationServerSnapshot {
+  repeated FederationServerState servers = 1;
+}
+
+message FederationServerState {
+  string server_id = 1;
+  Status status = 2;
+  string display_name = 3;
+  string game_name = 4;
+  string game_id = 5;
+  string ip_address = 6;
+  int32 port = 7;
+  int32 query_port = 8;
+  int32 max_players = 9;
+  int32 current_players = 10;
+  string map_name = 11;
+  string version = 12;
+  GameServerMetrics metrics = 13;
+}
+
+message FederationServerStatusChange {
+  string server_id = 1;
+  Status status = 2;
+}
+
+message FederationServerMetricsUpdate {
+  string server_id = 1;
+  GameServerMetrics metrics = 2;
+}
+
+message FederationStreamHeartbeat {
 }
