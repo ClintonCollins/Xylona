@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"context"
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/db/dbtest"
 	"github.com/ClintonCollins/Xylona/helpers"
 )
 
@@ -135,57 +135,7 @@ func TestFederationPeerAuthMiddlewareRejectsUnknownPeer(t *testing.T) {
 
 func newFederationAuthTestConnection(t *testing.T) *db.Connection {
 	t.Helper()
-
-	conn := db.NewConnection(context.Background(), filepath.Join(t.TempDir(), "federation-auth.sqlite"))
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
-
-	_, errCreateNode := conn.SQLDb.Exec(`
-		create table node (
-			id TEXT PRIMARY KEY NOT NULL,
-			name TEXT NOT NULL DEFAULT '',
-			secret_key TEXT,
-			is_local BOOLEAN NOT NULL DEFAULT FALSE,
-			host TEXT NOT NULL DEFAULT '',
-			port INTEGER NOT NULL DEFAULT 0,
-			base_url TEXT NOT NULL DEFAULT '',
-			enabled BOOLEAN NOT NULL DEFAULT TRUE,
-			last_seen_at DATETIME,
-			last_sync_at DATETIME,
-			last_sync_status TEXT NOT NULL DEFAULT '',
-			health_status TEXT NOT NULL DEFAULT '',
-			version TEXT NOT NULL DEFAULT '',
-			protocol_version INTEGER NOT NULL DEFAULT 0,
-			capabilities TEXT NOT NULL DEFAULT '',
-			created_at DATETIME,
-			updated_at DATETIME,
-			sync_interval_seconds INTEGER NOT NULL DEFAULT 60,
-			allow_insecure_tls BOOLEAN NOT NULL DEFAULT FALSE
-		)
-	`)
-	if errCreateNode != nil {
-		t.Fatalf("failed to create node table: %v", errCreateNode)
-	}
-
-	_, errCreateTrust := conn.SQLDb.Exec(`
-		create table federation_trusted_peer (
-			node_id text primary key not null references node (id) on delete cascade,
-			peer_node_id text not null default '',
-			peer_fingerprint text not null,
-			enabled boolean not null default true,
-			revoked boolean not null default false,
-			created_at datetime not null default current_timestamp,
-			updated_at datetime not null default current_timestamp
-		)
-	`)
-	if errCreateTrust != nil {
-		t.Fatalf("failed to create federation_trusted_peer table: %v", errCreateTrust)
-	}
-
-	return conn
+	return dbtest.NewMigratedConnection(t, "federation-auth.sqlite")
 }
 
 func insertRemoteNodeForFederationAuth(t *testing.T, conn *db.Connection, nodeID string) error {
@@ -193,8 +143,8 @@ func insertRemoteNodeForFederationAuth(t *testing.T, conn *db.Connection, nodeID
 
 	_, errInsert := conn.SQLDb.Exec(`
 		insert into node (
-			id, name, is_local, base_url, enabled, health_status, last_sync_status, version, protocol_version, capabilities, sync_interval_seconds, allow_insecure_tls
-		) values (?, 'Remote Node', 0, 'https://node.example.com', 1, 'healthy', '', '', 0, '', 60, 0)
+			id, name, is_local, host, port, base_url, enabled, health_status, last_sync_status, version, protocol_version, capabilities, sync_interval_seconds, allow_insecure_tls
+		) values (?, 'Remote Node', 0, '', 0, 'https://node.example.com', 1, 'healthy', '', '', 0, '', 60, 0)
 	`, nodeID)
 	return errInsert
 }

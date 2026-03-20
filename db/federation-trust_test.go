@@ -1,39 +1,13 @@
 package db
 
 import (
-	"context"
 	"database/sql"
 	"errors"
-	"path/filepath"
 	"testing"
 )
 
 func TestFederationLocalIdentityCRUD(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "federation-local-identity.sqlite")
-	conn := NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
-
-	_, errCreate := conn.SQLDb.Exec(`
-		create table federation_local_identity
-		(
-			id integer primary key not null check (id = 1),
-			node_id text not null,
-			cert_path text not null,
-			key_path text not null,
-			cert_pem text not null default '',
-			key_pem text not null default '',
-			cert_fingerprint text not null,
-			created_at datetime not null default current_timestamp,
-			updated_at datetime not null default current_timestamp
-		)
-	`)
-	if errCreate != nil {
-		t.Fatalf("failed to create table: %v", errCreate)
-	}
+	conn := newRBACMigratedConnection(t, "federation-local-identity.sqlite")
 
 	errUpsert := conn.UpsertFederationLocalIdentity(
 		"local-node-1",
@@ -93,45 +67,13 @@ func TestFederationLocalIdentityCRUD(t *testing.T) {
 }
 
 func TestFederationTrustedPeerCRUD(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "federation-trusted-peer.sqlite")
-	conn := NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
-
-	_, errCreateNode := conn.SQLDb.Exec(`
-		create table node
-		(
-			id text primary key not null
-		)
-	`)
-	if errCreateNode != nil {
-		t.Fatalf("failed to create node table: %v", errCreateNode)
-	}
+	conn := newRBACMigratedConnection(t, "federation-trusted-peer.sqlite")
 
 	_, errInsertNode := conn.SQLDb.Exec(`
-		insert into node (id) values ('remote-node-row-1')
+		INSERT INTO node (id, name, host, port) VALUES ('remote-node-row-1', 'Remote Node', '', 0)
 	`)
 	if errInsertNode != nil {
 		t.Fatalf("failed to insert node row: %v", errInsertNode)
-	}
-
-	_, errCreateTrust := conn.SQLDb.Exec(`
-		create table federation_trusted_peer
-		(
-			node_id text primary key not null references node (id) on delete cascade,
-			peer_node_id text not null default '',
-			peer_fingerprint text not null,
-			enabled boolean not null default true,
-			revoked boolean not null default false,
-			created_at datetime not null default current_timestamp,
-			updated_at datetime not null default current_timestamp
-		)
-	`)
-	if errCreateTrust != nil {
-		t.Fatalf("failed to create federation_trusted_peer table: %v", errCreateTrust)
 	}
 
 	errUpsert := conn.UpsertFederationTrustedPeer(
@@ -206,34 +148,13 @@ func TestFederationTrustedPeerCRUD(t *testing.T) {
 }
 
 func TestFederationTrustedPeerRevokeAndEnable(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "federation-revoke-enable.sqlite")
-	conn := NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
+	conn := newRBACMigratedConnection(t, "federation-revoke-enable.sqlite")
 
-	_, errCreateNode := conn.SQLDb.Exec(`create table node (id text primary key not null)`)
-	if errCreateNode != nil {
-		t.Fatalf("failed to create node table: %v", errCreateNode)
-	}
-	_, _ = conn.SQLDb.Exec(`insert into node (id) values ('node-1')`)
-
-	_, errCreateTrust := conn.SQLDb.Exec(`
-		create table federation_trusted_peer
-		(
-			node_id text primary key not null references node (id) on delete cascade,
-			peer_node_id text not null default '',
-			peer_fingerprint text not null,
-			enabled boolean not null default true,
-			revoked boolean not null default false,
-			created_at datetime not null default current_timestamp,
-			updated_at datetime not null default current_timestamp
-		)
+	_, errInsertNode := conn.SQLDb.Exec(`
+		INSERT INTO node (id, name, host, port) VALUES ('node-1', 'Test Node', '', 0)
 	`)
-	if errCreateTrust != nil {
-		t.Fatalf("failed to create table: %v", errCreateTrust)
+	if errInsertNode != nil {
+		t.Fatalf("failed to insert node row: %v", errInsertNode)
 	}
 
 	errUpsert := conn.UpsertFederationTrustedPeer("node-1", "peer-1", "fp-1", true, false)

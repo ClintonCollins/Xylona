@@ -434,7 +434,7 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 	if errClient != nil {
 		log.Warn().Err(errClient).Str("node_id", nodeID).Str("node_name", node.Name).Msg("Failed to create federation client for node sync")
 
-		retryCount := int32(0)
+		retryCount := int64(0)
 		if syncState != nil {
 			retryCount = syncState.RetryCount + 1
 		}
@@ -466,7 +466,7 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 	if errSync != nil {
 		log.Warn().Err(errSync).Str("node_id", nodeID).Str("node_name", node.Name).Msg("Failed to sync server summaries from node")
 
-		retryCount := int32(0)
+		retryCount := int64(0)
 		if syncState != nil {
 			retryCount = syncState.RetryCount + 1
 		}
@@ -584,7 +584,7 @@ func normalizeNodeSyncInterval(syncIntervalSeconds int32) time.Duration {
 	return interval
 }
 
-func calculateBackoff(retryCount int32) time.Duration {
+func calculateBackoff(retryCount int64) time.Duration {
 	base := time.Duration(math.Pow(2, float64(retryCount))) * time.Second
 	base = min(base, maxRetryBackoff)
 	// Add jitter.

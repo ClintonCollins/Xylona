@@ -2,7 +2,7 @@ package db
 
 import "github.com/ClintonCollins/Xylona/sql/models"
 
-func (c *Connection) GetSecretKeyByID(secretKeyID int32) (*models.LocalSecretKey, error) {
+func (c *Connection) GetSecretKeyByID(secretKeyID int64) (*models.LocalSecretKey, error) {
 	localSecretKey, err := models.LocalSecretKeys.Query(models.SelectWhere.LocalSecretKeys.ID.EQ(secretKeyID)).One(c.ctx, c.DB)
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func (c *Connection) InsertSecretKey(secretKeySetter *models.LocalSecretKeySette
 	return localSecretKey, nil
 }
 
-func (c *Connection) DeleteSecretKeyByID(secretKeyID int32) error {
+func (c *Connection) DeleteSecretKeyByID(secretKeyID int64) error {
 	_, err := c.SQLDb.Exec("delete from local_secret_keys where id = ?", secretKeyID) //nolint:noctx
 	if err != nil {
 		return err

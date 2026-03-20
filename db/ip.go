@@ -25,7 +25,7 @@ func (c *Connection) RemoveAutomaticallyAddedIPs() error {
 }
 
 func (c *Connection) UpsertIP(ipSetter *models.IPSetter) (*models.IP, error) {
-	ip, err := models.Ips.Insert(im.OnConflict(models.IPColumns.Address).DoNothing(), ipSetter).One(c.ctx, c.DB)
+	ip, err := models.Ips.Insert(im.OnConflict(models.Ips.Columns.Address).DoNothing(), ipSetter).One(c.ctx, c.DB)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrIPConflict

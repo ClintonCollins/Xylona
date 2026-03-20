@@ -1,12 +1,10 @@
 package actions
 
 import (
-	"context"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/db/dbtest"
 )
 
 func TestNormalizeNodeSyncInterval(t *testing.T) {
@@ -35,7 +33,7 @@ func TestNormalizeNodeSyncInterval(t *testing.T) {
 func TestCalculateBackoff(t *testing.T) {
 	tests := []struct {
 		name       string
-		retryCount int32
+		retryCount int64
 		maxBackoff time.Duration
 	}{
 		{name: "first retry", retryCount: 0, maxBackoff: 6 * time.Second},
@@ -87,54 +85,16 @@ func TestCalculateBackoffCapsAtMax(t *testing.T) {
 }
 
 func TestCleanupRemoteServerCacheRemovesOrphanedAndStaleRows(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "sync-engine-cleanup.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
+	conn := dbtest.NewMigratedConnection(t, "sync-engine-cleanup.sqlite")
+
+	// Disable foreign keys temporarily so we can insert orphaned rows for testing cleanup behavior.
+	_, errDisableFK := conn.SQLDb.Exec(`PRAGMA foreign_keys = OFF`)
+	if errDisableFK != nil {
+		t.Fatalf("failed to disable foreign keys: %v", errDisableFK)
+	}
 	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
+		_, _ = conn.SQLDb.Exec(`PRAGMA foreign_keys = ON`)
 	})
-
-	_, errCreateNode := conn.SQLDb.Exec(`
-		CREATE TABLE node (
-			id TEXT PRIMARY KEY NOT NULL,
-			name TEXT NOT NULL DEFAULT '',
-			secret_key TEXT,
-			is_local BOOLEAN NOT NULL DEFAULT FALSE,
-			host TEXT NOT NULL DEFAULT '',
-			port INTEGER NOT NULL DEFAULT 0,
-			base_url TEXT NOT NULL DEFAULT '',
-			enabled BOOLEAN NOT NULL DEFAULT TRUE,
-			last_seen_at DATETIME,
-			last_sync_at DATETIME,
-			last_sync_status TEXT NOT NULL DEFAULT '',
-			health_status TEXT NOT NULL DEFAULT '',
-			version TEXT NOT NULL DEFAULT '',
-			protocol_version INTEGER NOT NULL DEFAULT 0,
-			capabilities TEXT NOT NULL DEFAULT '',
-			created_at DATETIME,
-			updated_at DATETIME,
-			sync_interval_seconds INTEGER NOT NULL DEFAULT 60,
-			allow_insecure_tls BOOLEAN NOT NULL DEFAULT FALSE
-		)
-	`)
-	if errCreateNode != nil {
-		t.Fatalf("failed to create node table: %v", errCreateNode)
-	}
-
-	_, errCreateCache := conn.SQLDb.Exec(`
-		CREATE TABLE remote_server_cache (
-			id TEXT PRIMARY KEY NOT NULL,
-			source_node_id TEXT NOT NULL,
-			node_id TEXT NOT NULL,
-			remote_server_id TEXT NOT NULL,
-			is_stale BOOLEAN NOT NULL DEFAULT FALSE,
-			updated_at DATETIME NOT NULL
-		)
-	`)
-	if errCreateCache != nil {
-		t.Fatalf("failed to create remote_server_cache table: %v", errCreateCache)
-	}
 
 	_, errInsertNodes := conn.SQLDb.Exec(`
 		INSERT INTO node (id, name, is_local, host, port) VALUES

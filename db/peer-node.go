@@ -155,7 +155,7 @@ func (c *Connection) GetOrCreatePeerSyncState(nodeID string) (*models.PeerSyncSt
 	return syncState, nil
 }
 
-func (c *Connection) UpdatePeerSyncStateError(nodeID string, lastError string, retryCount int32, nextRetryAt time.Time) error {
+func (c *Connection) UpdatePeerSyncStateError(nodeID string, lastError string, retryCount int64, nextRetryAt time.Time) error {
 	_, err := sqlite.RawQuery(
 		`UPDATE peer_sync_state SET last_error = ?, retry_count = ?, next_retry_at = ?, updated_at = ? WHERE node_id = ?`,
 		lastError, retryCount, nextRetryAt, time.Now(), nodeID,
@@ -170,6 +170,27 @@ func (c *Connection) UpdatePeerSyncStateSuccess(nodeID string, cursor string) er
 		cursor, now, now, nodeID,
 	).Exec(c.ctx, c.DB)
 	return err
+}
+
+// SetNodeDeparted sets the departed flag on a node.
+func (c *Connection) SetNodeDeparted(id string, departed bool) error {
+	_, errExec := sqlite.RawQuery(
+		`UPDATE node SET departed = ?, updated_at = ? WHERE id = ?`,
+		departed, time.Now(), id,
+	).Exec(c.ctx, c.DB)
+	return errExec
+}
+
+// GetNodeDeparted returns the departed flag for a node.
+func (c *Connection) GetNodeDeparted(id string) (bool, error) {
+	var departed bool
+	errQuery := c.SQLDb.QueryRowContext(c.ctx,
+		`SELECT departed FROM node WHERE id = ?`, id,
+	).Scan(&departed)
+	if errQuery != nil {
+		return false, errQuery
+	}
+	return departed, nil
 }
 
 func isSQLiteUniqueConstraintError(err error) bool {

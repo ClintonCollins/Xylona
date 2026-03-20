@@ -8,8 +8,8 @@ import (
 
 const (
 	cpuPercentThreshold       = 0.5
-	memoryBytesThreshold      = 1024 * 1024     // 1 MB
-	memoryWorkingSetThreshold = 1024 * 1024     // 1 MB
+	memoryBytesThreshold      = 1024 * 1024 // 1 MB
+	memoryWorkingSetThreshold = 1024 * 1024 // 1 MB
 	memoryPercentThreshold    = 0.5
 	diskUsageBytesThreshold   = 10 * 1024 * 1024 // 10 MB
 	ioRateThreshold           = 1.0

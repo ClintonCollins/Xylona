@@ -308,7 +308,7 @@ func (xs *XylonaService) RevokeGameServerAccess(ctx context.Context, request *co
 					return nil, connect.NewError(connect.CodeInternal, errors.New("failed to revoke access"))
 				}
 
-				if !assignment.GameServerID.IsSet() || assignment.GameServerID.IsNull() {
+				if !assignment.GameServerID.IsValue() || assignment.GameServerID.IsNull() {
 					return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("grant is not scoped to a game server"))
 				}
 				if assignment.GameServerID.MustGet() != gameServer.ID {
@@ -337,7 +337,7 @@ func (xs *XylonaService) RevokeGameServerAccess(ctx context.Context, request *co
 		log.Error().Err(errGetAssignment).Str("grant_id", grantID).Msg("failed to fetch local access grant")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to revoke access"))
 	}
-	if !assignment.GameServerID.IsSet() || assignment.GameServerID.IsNull() {
+	if !assignment.GameServerID.IsValue() || assignment.GameServerID.IsNull() {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("grant is not scoped to a game server"))
 	}
 	_, errServer := xs.requireLocalServerOwnerOrSuper(user, assignment.GameServerID.MustGet())
@@ -927,7 +927,7 @@ func (xs *XylonaService) buildGameServerAccessGrant(assignment *models.UserRoleA
 	}
 
 	gameServerID := ""
-	if assignment.GameServerID.IsSet() && !assignment.GameServerID.IsNull() {
+	if assignment.GameServerID.IsValue() && !assignment.GameServerID.IsNull() {
 		gameServerID = assignment.GameServerID.MustGet()
 	}
 

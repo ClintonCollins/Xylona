@@ -348,7 +348,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	tx := bob.NewTx(t)
 
 	defer func() {
-		_ = tx.Rollback()
+		_ = tx.Rollback(inst.ctx)
 	}()
 
 	node, errGetNode := inst.db.GetNodeByID(gameServer.NodeID)
@@ -414,7 +414,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		return nil, err
 	}
 
-	errCommit := tx.Commit()
+	errCommit := tx.Commit(inst.ctx)
 	if errCommit != nil {
 		log.Error().Str("Game Server ID", gameServer.ID).Err(errCommit).Msg("Failed to commit transaction")
 		return nil, errCommit

@@ -19,7 +19,7 @@ func TestInsertNodeAndGetNodeByID(t *testing.T) {
 		Name:    omit.From("Test Node"),
 		IsLocal: omit.From(false),
 		Host:    omit.From("10.0.0.5"),
-		Port:    omit.From(int32(8080)),
+		Port:    omit.From(int64(8080)),
 		BaseURL: omit.From("http://10.0.0.5:8080"),
 		Enabled: omit.From(true),
 	}
@@ -66,7 +66,7 @@ func TestGetAllNodes(t *testing.T) {
 			Name:    omit.From("Node " + id),
 			IsLocal: omit.From(false),
 			Host:    omit.From("localhost"),
-			Port:    omit.From(8080 + int32(i)),
+			Port:    omit.From(8080 + int64(i)),
 			BaseURL: omit.From("http://localhost:" + fmt.Sprintf("%d", 8080+i)),
 			Enabled: omit.From(true),
 		}
@@ -94,7 +94,7 @@ func TestUpdateNode(t *testing.T) {
 		Name:    omit.From("Before Update"),
 		IsLocal: omit.From(false),
 		Host:    omit.From("10.0.0.1"),
-		Port:    omit.From(int32(8080)),
+		Port:    omit.From(int64(8080)),
 		BaseURL: omit.From("http://10.0.0.1:8080"),
 		Enabled: omit.From(true),
 	}
@@ -130,7 +130,7 @@ func TestDeleteNodeByID(t *testing.T) {
 		Name:    omit.From("Delete Me"),
 		IsLocal: omit.From(false),
 		Host:    omit.From("10.0.0.3"),
-		Port:    omit.From(int32(8080)),
+		Port:    omit.From(int64(8080)),
 		BaseURL: omit.From("http://10.0.0.3:8080"),
 		Enabled: omit.From(true),
 	}
@@ -151,6 +151,63 @@ func TestDeleteNodeByID(t *testing.T) {
 	}
 }
 
+func TestSetAndGetNodeDeparted(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "node-departed.sqlite")
+
+	setter := &models.NodeSetter{
+		ID:      omit.From("node-depart"),
+		Name:    omit.From("Departing Node"),
+		IsLocal: omit.From(false),
+		Host:    omit.From("10.0.0.9"),
+		Port:    omit.From(int64(8080)),
+		BaseURL: omit.From("http://10.0.0.9:8080"),
+		Enabled: omit.From(true),
+	}
+
+	_, errInsert := conn.InsertNode(setter)
+	if errInsert != nil {
+		t.Fatalf("InsertNode() error = %v", errInsert)
+	}
+
+	// Default should be false (checked via GetNodeDeparted since the
+	// bob model won't have the Departed field until models are regenerated).
+	departed, errGet := conn.GetNodeDeparted("node-depart")
+	if errGet != nil {
+		t.Fatalf("GetNodeDeparted() error = %v", errGet)
+	}
+	if departed {
+		t.Errorf("GetNodeDeparted() = true, want false")
+	}
+
+	// Set departed to true.
+	errSet := conn.SetNodeDeparted("node-depart", true)
+	if errSet != nil {
+		t.Fatalf("SetNodeDeparted(true) error = %v", errSet)
+	}
+
+	departed, errGet = conn.GetNodeDeparted("node-depart")
+	if errGet != nil {
+		t.Fatalf("GetNodeDeparted() after set error = %v", errGet)
+	}
+	if !departed {
+		t.Errorf("GetNodeDeparted() after set = false, want true")
+	}
+
+	// Set back to false.
+	errSet = conn.SetNodeDeparted("node-depart", false)
+	if errSet != nil {
+		t.Fatalf("SetNodeDeparted(false) error = %v", errSet)
+	}
+
+	departed, errGet = conn.GetNodeDeparted("node-depart")
+	if errGet != nil {
+		t.Fatalf("GetNodeDeparted() after unset error = %v", errGet)
+	}
+	if departed {
+		t.Errorf("GetNodeDeparted() after unset = true, want false")
+	}
+}
+
 func TestInsertNodeDuplicateID(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "node-dup.sqlite")
 
@@ -159,7 +216,7 @@ func TestInsertNodeDuplicateID(t *testing.T) {
 		Name:    omit.From("First"),
 		IsLocal: omit.From(false),
 		Host:    omit.From("localhost"),
-		Port:    omit.From(int32(8080)),
+		Port:    omit.From(int64(8080)),
 		BaseURL: omit.From("http://localhost:8080"),
 		Enabled: omit.From(true),
 	}
@@ -173,7 +230,7 @@ func TestInsertNodeDuplicateID(t *testing.T) {
 		Name:    omit.From("Second"),
 		IsLocal: omit.From(false),
 		Host:    omit.From("localhost"),
-		Port:    omit.From(int32(9090)),
+		Port:    omit.From(int64(9090)),
 		BaseURL: omit.From("http://localhost:9090"),
 		Enabled: omit.From(true),
 	}

@@ -258,7 +258,7 @@ message Node {
   string last_sync_status = 12;
   string health_status = 13;
   string version = 14;
-  int32 protocol_version = 15;
+  int64 protocol_version = 15;
   string capabilities = 16;
   google.protobuf.Timestamp created_at = 17;
   google.protobuf.Timestamp updated_at = 18;
@@ -266,7 +266,7 @@ message Node {
 }
 
 message SecretKey {
-  int32 id = 1;
+  int64 id = 1;
   string name = 2;
   google.protobuf.Timestamp created_at = 3;
   google.protobuf.Timestamp last_used = 4;

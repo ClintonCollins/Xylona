@@ -8,60 +8,16 @@ import (
 	"time"
 )
 
-type sqlExecContext interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-}
-
-func createPeerSyncStateTestSchema(t *testing.T, exec sqlExecContext) {
-	t.Helper()
-
-	_, errCreateNode := exec.ExecContext(
-		context.Background(),
-		`CREATE TABLE node (
-			id TEXT PRIMARY KEY NOT NULL
-		)`,
-	)
-	if errCreateNode != nil {
-		t.Fatalf("failed to create node table: %v", errCreateNode)
-	}
-
-	_, errCreateSyncState := exec.ExecContext(
-		context.Background(),
-		`CREATE TABLE peer_sync_state (
-			id TEXT PRIMARY KEY NOT NULL,
-			node_id TEXT NOT NULL REFERENCES node (id) ON DELETE CASCADE,
-			last_cursor TEXT NOT NULL DEFAULT '',
-			last_full_sync_at DATETIME,
-			last_delta_sync_at DATETIME,
-			last_error TEXT NOT NULL DEFAULT '',
-			retry_count INTEGER NOT NULL DEFAULT 0,
-			next_retry_at DATETIME,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		)`,
-	)
-	if errCreateSyncState != nil {
-		t.Fatalf("failed to create peer_sync_state table: %v", errCreateSyncState)
-	}
-
-	_, errUniqueIndex := exec.ExecContext(
-		context.Background(),
-		`CREATE UNIQUE INDEX peer_sync_state_node_id_unique ON peer_sync_state (node_id)`,
-	)
-	if errUniqueIndex != nil {
-		t.Fatalf("failed to create unique index: %v", errUniqueIndex)
-	}
-}
-
 func TestGetOrCreatePeerSyncStateCreatesAndReusesRow(t *testing.T) {
 	t.Parallel()
 
-	conn := newTestConnection(t, "peer-sync-state-create.sqlite")
+	conn := newRBACMigratedConnection(t, "peer-sync-state-create.sqlite")
 
 	withConnectionTxRollback(t, conn, func(t *testing.T, tx *sql.Tx) {
-		createPeerSyncStateTestSchema(t, tx)
-
-		_, errInsertNode := tx.ExecContext(context.Background(), `INSERT INTO node (id) VALUES (?)`, "node-1")
+		_, errInsertNode := tx.ExecContext(context.Background(),
+			`INSERT INTO node (id, name, host, port) VALUES (?, ?, ?, ?)`,
+			"node-1", "Test Node", "", 0,
+		)
 		if errInsertNode != nil {
 			t.Fatalf("failed to insert node row: %v", errInsertNode)
 		}
@@ -97,17 +53,19 @@ func TestGetOrCreatePeerSyncStateCreatesAndReusesRow(t *testing.T) {
 func TestGetOrCreatePeerSyncStateConcurrentCallsReuseSingleRow(t *testing.T) {
 	t.Parallel()
 
-	conn := newTestConnection(t, "peer-sync-state-concurrency.sqlite")
+	conn := newRBACMigratedConnection(t, "peer-sync-state-concurrency.sqlite")
 	conn.SQLDb.SetMaxOpenConns(1)
 	conn.SQLDb.SetMaxIdleConns(1)
 
-	createPeerSyncStateTestSchema(t, conn.SQLDb)
 	_, errBusyTimeout := conn.SQLDb.ExecContext(context.Background(), `PRAGMA busy_timeout = 5000`)
 	if errBusyTimeout != nil {
 		t.Fatalf("failed to set busy timeout pragma: %v", errBusyTimeout)
 	}
 
-	_, errInsertNode := conn.SQLDb.ExecContext(context.Background(), `INSERT INTO node (id) VALUES (?)`, "node-1")
+	_, errInsertNode := conn.SQLDb.ExecContext(context.Background(),
+		`INSERT INTO node (id, name, host, port) VALUES (?, ?, ?, ?)`,
+		"node-1", "Test Node", "", 0,
+	)
 	if errInsertNode != nil {
 		t.Fatalf("failed to insert node row: %v", errInsertNode)
 	}
@@ -172,12 +130,13 @@ func TestGetOrCreatePeerSyncStateConcurrentCallsReuseSingleRow(t *testing.T) {
 func TestUpdatePeerSyncStateErrorAndSuccess(t *testing.T) {
 	t.Parallel()
 
-	conn := newTestConnection(t, "peer-sync-state-update.sqlite")
+	conn := newRBACMigratedConnection(t, "peer-sync-state-update.sqlite")
 
 	withConnectionTxRollback(t, conn, func(t *testing.T, tx *sql.Tx) {
-		createPeerSyncStateTestSchema(t, tx)
-
-		_, errInsertNode := tx.ExecContext(context.Background(), `INSERT INTO node (id) VALUES (?)`, "node-1")
+		_, errInsertNode := tx.ExecContext(context.Background(),
+			`INSERT INTO node (id, name, host, port) VALUES (?, ?, ?, ?)`,
+			"node-1", "Test Node", "", 0,
+		)
 		if errInsertNode != nil {
 			t.Fatalf("failed to insert node row: %v", errInsertNode)
 		}

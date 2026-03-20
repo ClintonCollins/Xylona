@@ -1,44 +1,13 @@
 package db
 
 import (
-	"context"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
 func newPairingTokenTestDB(t *testing.T) *Connection {
 	t.Helper()
-	dbPath := filepath.Join(t.TempDir(), "pairing-token.sqlite")
-	conn := NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
-
-	_, errCreate := conn.SQLDb.Exec(`
-		create table federation_pairing_token
-		(
-			id         text primary key not null,
-			token_hash text             not null,
-			target_url text             not null default '',
-			created_at datetime         not null default current_timestamp,
-			expires_at datetime         not null,
-			used       boolean          not null default false
-		)
-	`)
-	if errCreate != nil {
-		t.Fatalf("failed to create table: %v", errCreate)
-	}
-	_, errIndex := conn.SQLDb.Exec(`
-		create index federation_pairing_token_token_hash_idx on federation_pairing_token (token_hash)
-	`)
-	if errIndex != nil {
-		t.Fatalf("failed to create index: %v", errIndex)
-	}
-
-	return conn
+	return newRBACMigratedConnection(t, "pairing-token.sqlite")
 }
 
 func TestGenerateAndValidatePairingToken(t *testing.T) {

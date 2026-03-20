@@ -4,25 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"path/filepath"
 	"testing"
 
 	"github.com/stephenafamo/scan"
 )
-
-func newTestConnection(t *testing.T, sqliteFileName string) *Connection {
-	t.Helper()
-
-	dbPath := filepath.Join(t.TempDir(), sqliteFileName)
-	conn := NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close test database: %v", errClose)
-		}
-	})
-
-	return conn
-}
 
 func withTxRollback(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
 	t.Helper()

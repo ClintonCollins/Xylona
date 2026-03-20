@@ -15,7 +15,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/db/dbtest"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
@@ -82,77 +82,8 @@ func (h *federationSummaryTestHandler) LastActingHeaders() (string, string, stri
 	return h.lastActingUserID, h.lastOriginNodeID, h.lastActingIsSuper
 }
 
-func createRemoteSummarySyncCacheTable(t *testing.T, conn *db.Connection) {
-	t.Helper()
-
-	_, errCreate := conn.SQLDb.Exec(`
-		CREATE TABLE remote_server_cache (
-			id TEXT PRIMARY KEY NOT NULL,
-			source_node_id TEXT NOT NULL,
-			node_id TEXT NOT NULL,
-			remote_server_id TEXT NOT NULL,
-			display_name TEXT NOT NULL DEFAULT '',
-			status TEXT NOT NULL DEFAULT 'UNKNOWN',
-			game_name TEXT NOT NULL DEFAULT '',
-			game_id TEXT NOT NULL DEFAULT '',
-			ip_address TEXT NOT NULL DEFAULT '',
-			port INTEGER NOT NULL DEFAULT 0,
-			query_port INTEGER NOT NULL DEFAULT 0,
-			max_players INTEGER NOT NULL DEFAULT 0,
-			current_players INTEGER NOT NULL DEFAULT 0,
-			map_name TEXT NOT NULL DEFAULT '',
-			version TEXT NOT NULL DEFAULT '',
-			node_name TEXT NOT NULL DEFAULT '',
-			node_host TEXT NOT NULL DEFAULT '',
-			last_remote_update DATETIME,
-			last_synced_at DATETIME,
-			is_stale BOOLEAN NOT NULL DEFAULT FALSE,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-	if errCreate != nil {
-		t.Fatalf("failed to create remote_server_cache table: %v", errCreate)
-	}
-
-	_, errCreateIndex := conn.SQLDb.Exec(`
-		CREATE UNIQUE INDEX remote_server_cache_source_server
-		ON remote_server_cache (source_node_id, remote_server_id)
-	`)
-	if errCreateIndex != nil {
-		t.Fatalf("failed to create unique index: %v", errCreateIndex)
-	}
-}
-
-func createRemoteSummarySyncTrustTable(t *testing.T, conn *db.Connection) {
-	t.Helper()
-
-	_, errCreate := conn.SQLDb.Exec(`
-		CREATE TABLE federation_trusted_peer (
-			node_id TEXT PRIMARY KEY NOT NULL,
-			peer_node_id TEXT NOT NULL DEFAULT '',
-			peer_fingerprint TEXT NOT NULL,
-			enabled BOOLEAN NOT NULL DEFAULT TRUE,
-			revoked BOOLEAN NOT NULL DEFAULT FALSE,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-	if errCreate != nil {
-		t.Fatalf("failed to create federation_trusted_peer table: %v", errCreate)
-	}
-}
-
 func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "node-remote-summary-sync.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
-	createRemoteSummarySyncCacheTable(t, conn)
-	createRemoteSummarySyncTrustTable(t, conn)
+	conn := dbtest.NewMigratedConnection(t, "node-remote-summary-sync.sqlite")
 
 	testHandler := &federationSummaryTestHandler{}
 	testHandler.SetStatus(xylona.Status_OFFLINE)
@@ -215,6 +146,14 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		Name:             "Peer One",
 		BaseURL:          server.URL,
 		AllowInsecureTLS: false,
+	}
+
+	_, errInsertNode := conn.SQLDb.Exec(
+		`INSERT INTO node (id, name, is_local, host, port, base_url, enabled) VALUES (?, ?, 0, '', 0, ?, 1)`,
+		node.ID, node.Name, node.BaseURL,
+	)
+	if errInsertNode != nil {
+		t.Fatalf("failed to insert node row: %v", errInsertNode)
 	}
 
 	_, errInsertTrust := conn.SQLDb.Exec(`

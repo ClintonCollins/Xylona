@@ -32,16 +32,16 @@ func TestStreamServerUpdates_SnapshotOnConnect(t *testing.T) {
 	supervisor.NewCommandWithMetrics(
 		supervisorInst,
 		"server-local-1",
-		10.0,    // cpuPercent
-		1024,    // memoryRSS
-		2048,    // memoryVMS
-		1.0,     // memoryPercent
-		4,       // cpuCores
-		8,       // numThreads
-		4096,    // diskUsageBytes
-		100.0,   // ioReadRate
-		50.0,    // ioWriteRate
-		2,       // connectionCount
+		10.0,  // cpuPercent
+		1024,  // memoryRSS
+		2048,  // memoryVMS
+		1.0,   // memoryPercent
+		4,     // cpuCores
+		8,     // numThreads
+		4096,  // diskUsageBytes
+		100.0, // ioReadRate
+		50.0,  // ioWriteRate
+		2,     // connectionCount
 		startedAt,
 	)
 
@@ -310,16 +310,16 @@ func TestStreamServerUpdates_MetricsUpdate(t *testing.T) {
 		supervisor.UpdateCommandMetrics(
 			supervisorInst,
 			"server-local-1",
-			50.0,    // cpuPercent — changed from 10.0
-			8192,    // memoryRSS — changed from 1024
-			16384,   // memoryVMS — changed from 2048
-			5.0,     // memoryPercent — changed from 1.0
-			4,       // cpuCores — unchanged
-			12,      // numThreads — changed from 8
-			65536,   // diskUsageBytes — changed from 4096
-			500.0,   // ioReadRate — changed from 100.0
-			250.0,   // ioWriteRate — changed from 50.0
-			10,      // connectionCount — changed from 2
+			50.0,  // cpuPercent — changed from 10.0
+			8192,  // memoryRSS — changed from 1024
+			16384, // memoryVMS — changed from 2048
+			5.0,   // memoryPercent — changed from 1.0
+			4,     // cpuCores — unchanged
+			12,    // numThreads — changed from 8
+			65536, // diskUsageBytes — changed from 4096
+			500.0, // ioReadRate — changed from 100.0
+			250.0, // ioWriteRate — changed from 50.0
+			10,    // connectionCount — changed from 2
 		)
 	}()
 

@@ -66,7 +66,7 @@ func TestCreateUserRoleAssignmentGlobalScope(t *testing.T) {
 		t.Fatalf("GetUserRoleAssignmentByID() error = %v", errGetAssignment)
 	}
 
-	if gotAssignment.GameServerID.IsSet() && !gotAssignment.GameServerID.IsNull() {
+	if gotAssignment.GameServerID.IsValue() && !gotAssignment.GameServerID.IsNull() {
 		t.Errorf("GetUserRoleAssignmentByID().GameServerID should be NULL when set")
 	}
 

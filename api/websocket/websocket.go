@@ -209,7 +209,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		melodySession:                s,
 		outputStreamChannel:          make(chan *xylona.Message),
 		allGameServerIDs:             []string{},
-		requestedGameServerOutputIDs:  make(map[string]struct{}),
+		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
 		remoteConsoleCancels:         make(map[string]context.CancelFunc),
 		RWMutex:                      &sync.RWMutex{},

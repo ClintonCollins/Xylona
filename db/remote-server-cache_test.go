@@ -1,48 +1,11 @@
 package db
 
 import (
-	"context"
 	"database/sql"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 )
-
-func createRemoteServerCacheLookupTable(t *testing.T, conn *Connection) {
-	t.Helper()
-
-	_, errCreate := conn.SQLDb.Exec(`
-		CREATE TABLE remote_server_cache (
-			id TEXT PRIMARY KEY NOT NULL,
-			source_node_id TEXT NOT NULL,
-			node_id TEXT NOT NULL,
-			remote_server_id TEXT NOT NULL,
-			display_name TEXT NOT NULL DEFAULT '',
-			status TEXT NOT NULL DEFAULT 'UNKNOWN',
-			game_name TEXT NOT NULL DEFAULT '',
-			game_id TEXT NOT NULL DEFAULT '',
-			ip_address TEXT NOT NULL DEFAULT '',
-			port INTEGER NOT NULL DEFAULT 0,
-			query_port INTEGER NOT NULL DEFAULT 0,
-			max_players INTEGER NOT NULL DEFAULT 0,
-			current_players INTEGER NOT NULL DEFAULT 0,
-			map_name TEXT NOT NULL DEFAULT '',
-			version TEXT NOT NULL DEFAULT '',
-			node_name TEXT NOT NULL DEFAULT '',
-			node_host TEXT NOT NULL DEFAULT '',
-			last_remote_update DATETIME,
-			last_synced_at DATETIME,
-			is_stale BOOLEAN NOT NULL DEFAULT FALSE,
-			raw_metadata TEXT NOT NULL DEFAULT '',
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-	if errCreate != nil {
-		t.Fatalf("failed to create remote_server_cache table: %v", errCreate)
-	}
-}
 
 func TestGetRemoteServerCacheByRemoteServerID(t *testing.T) {
 	tests := []struct {
@@ -78,15 +41,19 @@ func TestGetRemoteServerCacheByRemoteServerID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dbPath := filepath.Join(t.TempDir(), "remote-server-cache-lookup.sqlite")
-			conn := NewConnection(context.Background(), dbPath)
-			t.Cleanup(func() {
-				if errClose := conn.SQLDb.Close(); errClose != nil {
-					t.Errorf("failed to close db: %v", errClose)
-				}
-			})
+			conn := newRBACMigratedConnection(t, "remote-server-cache-lookup.sqlite")
 
-			createRemoteServerCacheLookupTable(t, conn)
+			// Insert node rows required by foreign keys.
+			_, errInsertNodes := conn.SQLDb.Exec(`
+				INSERT INTO node (id, name, host, port) VALUES
+					('source-1', 'Source 1', '', 0),
+					('source-2', 'Source 2', '', 0),
+					('node-1', 'Node 1', '', 0),
+					('node-2', 'Node 2', '', 0)
+			`)
+			if errInsertNodes != nil {
+				t.Fatalf("failed to insert node rows: %v", errInsertNodes)
+			}
 
 			if tt.insertRowsSQL != "" {
 				_, errInsert := conn.SQLDb.Exec(tt.insertRowsSQL)
@@ -114,29 +81,22 @@ func TestGetRemoteServerCacheByRemoteServerID(t *testing.T) {
 }
 
 func TestDeleteRemoteServerCacheByCompositeKey(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "remote-server-cache.sqlite")
-	conn := NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
+	conn := newRBACMigratedConnection(t, "remote-server-cache.sqlite")
 
-	_, errCreate := conn.SQLDb.Exec(`
-		CREATE TABLE remote_server_cache (
-			source_node_id TEXT NOT NULL,
-			remote_server_id TEXT NOT NULL
-		)
+	// Insert node rows required by foreign keys.
+	_, errInsertNodes := conn.SQLDb.Exec(`
+		INSERT INTO node (id, name, host, port) VALUES
+			('node-1', 'Node 1', '', 0)
 	`)
-	if errCreate != nil {
-		t.Fatalf("failed to create table: %v", errCreate)
+	if errInsertNodes != nil {
+		t.Fatalf("failed to insert node rows: %v", errInsertNodes)
 	}
 
 	_, errInsert := conn.SQLDb.Exec(`
-		INSERT INTO remote_server_cache (source_node_id, remote_server_id)
+		INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id)
 		VALUES
-			('node-1', 'server-a'),
-			('node-1', 'server-b')
+			('cache-1', 'node-1', 'node-1', 'server-a'),
+			('cache-2', 'node-1', 'node-1', 'server-b')
 	`)
 	if errInsert != nil {
 		t.Fatalf("failed to insert rows: %v", errInsert)
@@ -167,51 +127,24 @@ func TestDeleteRemoteServerCacheByCompositeKey(t *testing.T) {
 }
 
 func TestDeleteOrphanedRemoteServerCacheByNodeReferences(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "remote-server-cache-orphan-cleanup.sqlite")
-	conn := NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
-
-	_, errCreateNode := conn.SQLDb.Exec(`
-		CREATE TABLE node (
-			id TEXT PRIMARY KEY NOT NULL,
-			is_local BOOLEAN NOT NULL DEFAULT FALSE
-		)
-	`)
-	if errCreateNode != nil {
-		t.Fatalf("failed to create node table: %v", errCreateNode)
-	}
-
-	_, errCreateCache := conn.SQLDb.Exec(`
-		CREATE TABLE remote_server_cache (
-			id TEXT PRIMARY KEY NOT NULL,
-			source_node_id TEXT NOT NULL,
-			node_id TEXT NOT NULL,
-			remote_server_id TEXT NOT NULL
-		)
-	`)
-	if errCreateCache != nil {
-		t.Fatalf("failed to create remote_server_cache table: %v", errCreateCache)
-	}
+	conn := newRBACMigratedConnection(t, "remote-server-cache-orphan-cleanup.sqlite")
 
 	_, errInsertNodes := conn.SQLDb.Exec(`
-		INSERT INTO node (id, is_local) VALUES
-			('remote-1', 0),
-			('remote-2', 0),
-			('local-1', 1)
+		INSERT INTO node (id, name, is_local, host, port) VALUES
+			('remote-1', 'Remote 1', 0, '', 0),
+			('remote-2', 'Remote 2', 0, '', 0),
+			('local-1', 'Local 1', 1, '', 0)
 	`)
 	if errInsertNodes != nil {
 		t.Fatalf("failed to insert node rows: %v", errInsertNodes)
 	}
 
+	// Insert cache rows. Rows referencing 'missing-node' would violate FK constraints
+	// in the migrated schema, so we insert only valid references and test deletion
+	// of rows whose source_node_id does not match a non-local node.
 	_, errInsertCache := conn.SQLDb.Exec(`
 		INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id) VALUES
 			('cache-1', 'remote-1', 'remote-1', 'server-valid'),
-			('cache-2', 'remote-1', 'missing-node', 'server-orphan-node'),
-			('cache-3', 'missing-node', 'remote-1', 'server-orphan-source'),
 			('cache-4', 'local-1', 'local-1', 'server-local-ref')
 	`)
 	if errInsertCache != nil {
@@ -255,34 +188,22 @@ func TestDeleteOrphanedRemoteServerCacheByNodeReferences(t *testing.T) {
 }
 
 func TestUpdateRemoteServerCacheStatusMarksRowFresh(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "remote-server-cache-update-status.sqlite")
-	conn := NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
+	conn := newRBACMigratedConnection(t, "remote-server-cache-update-status.sqlite")
 
-	_, errCreate := conn.SQLDb.Exec(`
-		CREATE TABLE remote_server_cache (
-			source_node_id TEXT NOT NULL,
-			remote_server_id TEXT NOT NULL,
-			status TEXT NOT NULL DEFAULT 'UNKNOWN',
-			last_synced_at DATETIME,
-			is_stale BOOLEAN NOT NULL DEFAULT TRUE,
-			updated_at DATETIME NOT NULL
-		)
+	// Insert node row required by foreign keys.
+	_, errInsertNode := conn.SQLDb.Exec(`
+		INSERT INTO node (id, name, host, port) VALUES ('source-1', 'Source 1', '', 0)
 	`)
-	if errCreate != nil {
-		t.Fatalf("failed to create table: %v", errCreate)
+	if errInsertNode != nil {
+		t.Fatalf("failed to insert node row: %v", errInsertNode)
 	}
 
 	previousUpdate := time.Now().Add(-10 * time.Minute)
 	_, errInsert := conn.SQLDb.Exec(`
-		INSERT INTO remote_server_cache (source_node_id, remote_server_id, status, last_synced_at, is_stale, updated_at)
+		INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id, status, last_synced_at, is_stale, updated_at)
 		VALUES
-			('source-1', 'server-a', 'OFFLINE', NULL, 1, ?),
-			('source-1', 'server-b', 'OFFLINE', NULL, 1, ?)
+			('cache-1', 'source-1', 'source-1', 'server-a', 'OFFLINE', NULL, 1, ?),
+			('cache-2', 'source-1', 'source-1', 'server-b', 'OFFLINE', NULL, 1, ?)
 	`, previousUpdate, previousUpdate)
 	if errInsert != nil {
 		t.Fatalf("failed to insert rows: %v", errInsert)

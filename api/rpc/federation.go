@@ -1358,7 +1358,7 @@ func (fs FederationService) RevokeRemoteGameServerAccess(ctx context.Context, re
 		log.Error().Err(errGetAssignment).Str("grant_id", grantID).Msg("failed to fetch remote game server access grant")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to revoke access"))
 	}
-	if !assignment.GameServerID.IsSet() || assignment.GameServerID.IsNull() {
+	if !assignment.GameServerID.IsValue() || assignment.GameServerID.IsNull() {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("grant is not scoped to a game server"))
 	}
 
@@ -1570,7 +1570,7 @@ func (fs FederationService) buildFederationGameServerAccessGrant(assignment *mod
 	}
 
 	gameServerID := ""
-	if assignment.GameServerID.IsSet() && !assignment.GameServerID.IsNull() {
+	if assignment.GameServerID.IsValue() && !assignment.GameServerID.IsNull() {
 		gameServerID = assignment.GameServerID.MustGet()
 	}
 

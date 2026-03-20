@@ -6,7 +6,6 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-
 // NewCommandWithMetrics registers a synthetic Command with preset metric
 // values under serverID in inst. It exists solely to support integration
 // tests that need to verify metric propagation through higher-level layers

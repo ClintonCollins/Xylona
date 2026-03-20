@@ -16,7 +16,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/db/dbtest"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -75,28 +75,9 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 	_ = clientFP
 
 	// Set up a test DB with the trust entry.
-	dbPath := filepath.Join(tmpDir, "test.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
+	conn := dbtest.NewMigratedConnection(t, "file-proxy-test.sqlite")
 
-	_, _ = conn.SQLDb.Exec(`create table node (id text primary key not null)`)
-	_, _ = conn.SQLDb.Exec(`insert into node (id) values ('remote-node-1')`)
-
-	_, _ = conn.SQLDb.Exec(`
-		create table federation_trusted_peer (
-			node_id text primary key not null references node (id) on delete cascade,
-			peer_node_id text not null default '',
-			peer_fingerprint text not null,
-			enabled boolean not null default true,
-			revoked boolean not null default false,
-			created_at datetime not null default current_timestamp,
-			updated_at datetime not null default current_timestamp
-		)
-	`)
+	_, _ = conn.SQLDb.Exec(`insert into node (id, name, is_local, host, port) values ('remote-node-1', 'Remote Node 1', 0, '', 0)`)
 
 	// Get the server fingerprint from its certificate.
 	serverFPFromCert := helpers.CertificateFingerprint(testServer.Certificate())

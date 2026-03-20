@@ -2,12 +2,12 @@ package actions
 
 import (
 	"context"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/db/dbtest"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -46,79 +46,10 @@ func (m *mockMetricsBroadcaster) BroadcastRemoteServerMetrics(serverID string, m
 	m.calls = append(m.calls, metricsBroadcastCall{serverID: serverID, metrics: metrics})
 }
 
-// newSyncEngineTestDB creates a test SQLite DB with the minimal schema needed for sync engine
-// tests. It creates the node and remote_server_cache tables with the full column set.
+// newSyncEngineTestDB creates a test SQLite DB with all migrations applied for sync engine tests.
 func newSyncEngineTestDB(t *testing.T) *db.Connection {
 	t.Helper()
-
-	dbPath := filepath.Join(t.TempDir(), "sync-engine-updates-stream.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close db: %v", errClose)
-		}
-	})
-
-	_, errCreateNode := conn.SQLDb.Exec(`
-		CREATE TABLE node (
-			id TEXT PRIMARY KEY NOT NULL,
-			name TEXT NOT NULL DEFAULT '',
-			secret_key TEXT,
-			is_local BOOLEAN NOT NULL DEFAULT FALSE,
-			host TEXT NOT NULL DEFAULT '',
-			port INTEGER NOT NULL DEFAULT 0,
-			base_url TEXT NOT NULL DEFAULT '',
-			enabled BOOLEAN NOT NULL DEFAULT TRUE,
-			last_seen_at DATETIME,
-			last_sync_at DATETIME,
-			last_sync_status TEXT NOT NULL DEFAULT '',
-			health_status TEXT NOT NULL DEFAULT '',
-			version TEXT NOT NULL DEFAULT '',
-			protocol_version INTEGER NOT NULL DEFAULT 0,
-			capabilities TEXT NOT NULL DEFAULT '',
-			created_at DATETIME,
-			updated_at DATETIME,
-			sync_interval_seconds INTEGER NOT NULL DEFAULT 60,
-			allow_insecure_tls BOOLEAN NOT NULL DEFAULT FALSE
-		)
-	`)
-	if errCreateNode != nil {
-		t.Fatalf("failed to create node table: %v", errCreateNode)
-	}
-
-	_, errCreateCache := conn.SQLDb.Exec(`
-		CREATE TABLE remote_server_cache (
-			id TEXT PRIMARY KEY NOT NULL,
-			source_node_id TEXT NOT NULL,
-			node_id TEXT NOT NULL,
-			remote_server_id TEXT NOT NULL,
-			display_name TEXT NOT NULL DEFAULT '',
-			status TEXT NOT NULL DEFAULT '',
-			game_name TEXT NOT NULL DEFAULT '',
-			game_id TEXT NOT NULL DEFAULT '',
-			ip_address TEXT NOT NULL DEFAULT '',
-			port INTEGER NOT NULL DEFAULT 0,
-			query_port INTEGER NOT NULL DEFAULT 0,
-			max_players INTEGER NOT NULL DEFAULT 0,
-			current_players INTEGER NOT NULL DEFAULT 0,
-			map_name TEXT NOT NULL DEFAULT '',
-			version TEXT NOT NULL DEFAULT '',
-			node_name TEXT NOT NULL DEFAULT '',
-			node_host TEXT NOT NULL DEFAULT '',
-			last_remote_update DATETIME,
-			last_synced_at DATETIME,
-			is_stale BOOLEAN NOT NULL DEFAULT FALSE,
-			raw_metadata TEXT NOT NULL DEFAULT '',
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			UNIQUE(source_node_id, remote_server_id)
-		)
-	`)
-	if errCreateCache != nil {
-		t.Fatalf("failed to create remote_server_cache table: %v", errCreateCache)
-	}
-
-	return conn
+	return dbtest.NewMigratedConnection(t, "sync-engine-updates-stream.sqlite")
 }
 
 // insertRemoteNode inserts a remote (non-local) node row for testing.
@@ -337,9 +268,9 @@ func TestHandleMetricsUpdate_CallsBroadcaster(t *testing.T) {
 	broadcaster := &mockMetricsBroadcaster{}
 
 	engine := &FederationSyncEngine{
-		ctx:               ctx,
-		cancel:            cancel,
-		peerStops:         make(map[string]context.CancelFunc),
+		ctx:                ctx,
+		cancel:             cancel,
+		peerStops:          make(map[string]context.CancelFunc),
 		metricsBroadcaster: broadcaster,
 	}
 

@@ -340,12 +340,12 @@ func (xs *XylonaService) addRemoteNode(
 		name = pairingResp.NodeName
 	}
 
-	resolvedRemoteFederationPort := int32(pairingResp.FederationPort)
+	resolvedRemoteFederationPort := int64(pairingResp.FederationPort)
 	if resolvedRemoteFederationPort <= 0 && remoteFederationPort > 0 {
-		resolvedRemoteFederationPort = int32(remoteFederationPort)
+		resolvedRemoteFederationPort = int64(remoteFederationPort)
 	}
 	if resolvedRemoteFederationPort <= 0 {
-		resolvedRemoteFederationPort = int32(xs.federationMTLS.FederationPort())
+		resolvedRemoteFederationPort = int64(xs.federationMTLS.FederationPort())
 	}
 
 	now := time.Now()
@@ -360,7 +360,7 @@ func (xs *XylonaService) addRemoteNode(
 		Enabled:          omit.From(true),
 		HealthStatus:     omit.From("healthy"),
 		Version:          omit.From(""),
-		ProtocolVersion:  omit.From(int32(0)),
+		ProtocolVersion:  omit.From(int64(0)),
 		Capabilities:     omit.From(""),
 		CreatedAt:        omitnull.From(now),
 		UpdatedAt:        omitnull.From(now),

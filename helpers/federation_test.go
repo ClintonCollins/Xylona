@@ -315,10 +315,10 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 			if got.Ip.Address != tt.cache.IPAddress {
 				t.Errorf("RemoteServerCacheToProto().Ip.Address = %v, want %v", got.Ip.Address, tt.cache.IPAddress)
 			}
-			if got.MaxPlayers != int64(tt.cache.MaxPlayers) {
+			if got.MaxPlayers != tt.cache.MaxPlayers {
 				t.Errorf("RemoteServerCacheToProto().MaxPlayers = %v, want %v", got.MaxPlayers, tt.cache.MaxPlayers)
 			}
-			if got.CurrentPlayerCount != int64(tt.cache.CurrentPlayers) {
+			if got.CurrentPlayerCount != tt.cache.CurrentPlayers {
 				t.Errorf("RemoteServerCacheToProto().CurrentPlayerCount = %v, want %v", got.CurrentPlayerCount, tt.cache.CurrentPlayers)
 			}
 		})
