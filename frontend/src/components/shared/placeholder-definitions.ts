@@ -38,6 +38,22 @@ export const managedSourceToPlaceholder: Record<string, string> = {
   rcon_password: 'RCON_PASSWORD',
 }
 
+/** Maps full backend managed source keys (e.g. "game_server.port") to human-readable labels */
+export const managedSourceLabels: Record<string, string> = {
+  'game_server.ip': 'IP Address',
+  'game_server.port': 'Server Port',
+  'game_server.query_port': 'Query Port',
+  'game_server.max_players': 'Max Players',
+  'game_server.server_name': 'Server Name',
+  'game_server.rcon_port': 'RCON Port',
+  'game_server.rcon_password': 'RCON Password',
+}
+
+/** Returns a human-readable label for a managed source key, or the raw key if unknown */
+export function getManagedSourceLabel(source: string): string {
+  return managedSourceLabels[source] ?? source
+}
+
 /** Managed source options for config schema field dropdown (excludes command-only placeholders) */
 export const managedSourceOptions = placeholders
   .filter((p) => !p.commandOnly)

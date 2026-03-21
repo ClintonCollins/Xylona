@@ -56,7 +56,9 @@
 
     <!-- Fields -->
     <div class="editor-fields">
-      <div v-if="fields.length === 0 && advancedFields.length === 0" class="no-fields text-xy-muted">
+      <div
+        v-if="fields.length === 0 && advancedFields.length === 0"
+        class="no-fields text-xy-muted">
         No fields defined in the schema for this file.
       </div>
 
@@ -65,7 +67,10 @@
         <div v-if="field.isManaged" class="field-managed">
           <div class="field-label-row">
             <label class="field-label">{{ field.title || field.key }}</label>
-            <q-badge color="accent" label="Managed" class="field-managed-badge" />
+            <q-badge color="accent" class="field-managed-badge">
+              <q-icon name="lock" size="10px" class="q-mr-xs" />
+              Managed
+            </q-badge>
           </div>
           <q-input
             :model-value="field.value || field.defaultValue"
@@ -75,11 +80,16 @@
             class="field-input managed-input"
             input-class="font-mono">
             <template #append>
-              <q-icon name="lock" size="xs" color="accent" />
+              <q-icon name="lock" size="xs" color="accent">
+                <q-tooltip>This field is managed by server settings</q-tooltip>
+              </q-icon>
             </template>
           </q-input>
           <div class="field-hint text-xy-muted">
-            Bound from server settings — edit in Settings tab.
+            <span class="managed-source-label">
+              Source: {{ getManagedSourceLabel(field.managedSource) }}
+            </span>
+            — edit in Settings tab.
           </div>
         </div>
 
@@ -132,7 +142,9 @@
             :rules="getNumberRules(field)"
             class="field-input"
             input-class="font-mono"
-            @update:model-value="(val: string | number | null) => setFieldValue(field.key, String(val ?? ''))" />
+            @update:model-value="
+              (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
+            " />
 
           <!-- String input (default) -->
           <q-input
@@ -144,18 +156,20 @@
             :rules="getStringRules(field)"
             class="field-input"
             input-class="font-mono"
-            @update:model-value="(val: string | number | null) => setFieldValue(field.key, String(val ?? ''))" />
+            @update:model-value="
+              (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
+            " />
 
-          <div v-if="field.defaultValue && field.isMissingFromFile" class="field-default text-xy-muted">
+          <div
+            v-if="field.defaultValue && field.isMissingFromFile"
+            class="field-default text-xy-muted">
             Default: <code class="font-mono">{{ field.defaultValue }}</code>
           </div>
         </div>
       </div>
 
       <!-- Advanced fields -->
-      <config-advanced-fields
-        :fields="advancedFields"
-        @update="handleAdvancedUpdate" />
+      <config-advanced-fields :fields="advancedFields" @update="handleAdvancedUpdate" />
     </div>
   </div>
 </template>
@@ -163,6 +177,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import type { ConfigFieldData, ConfigValidationError, AdvancedField } from '@/proto/xylona_pb'
+import { getManagedSourceLabel } from '@/components/shared/placeholder-definitions'
 import ConfigAdvancedFields from './ConfigAdvancedFields.vue'
 
 const props = defineProps<{
@@ -383,7 +398,8 @@ function handleSave() {
   max-width: 480px;
 }
 
-.managed-input {
+.managed-input :deep(.q-field__control) {
+  background-color: var(--xy-surface-1);
   border-color: var(--xy-accent-muted);
 }
 
@@ -391,6 +407,12 @@ function handleSave() {
   font-size: 0.65rem;
   margin-top: 4px;
   font-style: italic;
+}
+
+.managed-source-label {
+  color: var(--xy-accent);
+  font-style: normal;
+  font-weight: 500;
 }
 
 .field-default {

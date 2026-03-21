@@ -65,6 +65,7 @@ type FieldData struct {
 	FieldType         string
 	DefaultValue      string
 	IsManaged         bool
+	ManagedSource     string
 	IsMissingFromFile bool
 	EnumOptions       []string
 	Minimum           *int64
@@ -149,6 +150,7 @@ func MatchFields(
 		source, isManaged := managedFields[key]
 		if isManaged {
 			fd.IsManaged = true
+			fd.ManagedSource = source
 			resolvedValue, ok := resolver(source)
 			if ok {
 				fd.Value = resolvedValue

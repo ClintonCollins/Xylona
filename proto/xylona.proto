@@ -755,6 +755,7 @@ message ConfigFieldData {
   bool required = 13;
   bool allow_multiple = 14;
   repeated string values = 15;
+  string managed_source = 16;
 }
 
 message AdvancedField {

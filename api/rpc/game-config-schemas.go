@@ -247,6 +247,7 @@ func (xs *XylonaService) getGameServerConfigFileLocal(
 			FieldType:         f.FieldType,
 			DefaultValue:      f.DefaultValue,
 			IsManaged:         f.IsManaged,
+			ManagedSource:     f.ManagedSource,
 			IsMissingFromFile: f.IsMissingFromFile,
 			EnumOptions:       f.EnumOptions,
 			Required:          f.Required,
