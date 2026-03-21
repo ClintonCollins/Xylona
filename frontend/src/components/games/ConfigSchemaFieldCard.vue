@@ -19,12 +19,6 @@
           color="accent"
           label="Managed"
           class="field-managed-badge" />
-        <q-badge
-          v-if="field.group"
-          outline
-          color="secondary"
-          :label="field.group"
-          class="field-group-badge" />
         <span
           v-if="field.title && field.title !== field.key"
           class="field-card-label text-xy-secondary">
@@ -60,34 +54,6 @@
                 class="col-6"
                 @update:model-value="emitUpdate" />
             </div>
-
-            <q-input
-              v-model="field.group"
-              outlined
-              dense
-              label="Group"
-              hint="e.g. network, gameplay, world"
-              class="col-12 q-mt-xs"
-              @update:model-value="emitUpdate">
-              <template #append>
-                <q-icon name="category" size="xs" class="text-xy-muted" />
-              </template>
-              <q-menu
-                v-if="filteredGroups.length > 0"
-                fit
-                no-parent-event
-                :model-value="filteredGroups.length > 0">
-                <q-list dense>
-                  <q-item
-                    v-for="g in filteredGroups"
-                    :key="g"
-                    clickable
-                    @click="field.group = g; emitUpdate()">
-                    <q-item-section>{{ g }}</q-item-section>
-                  </q-item>
-                </q-list>
-              </q-menu>
-            </q-input>
 
             <div class="row q-col-gutter-sm">
               <q-select
@@ -207,7 +173,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
+import { managedSourceOptions } from '@/components/shared/placeholder-definitions'
 
 export interface SchemaFieldModel {
   key: string
@@ -223,13 +190,10 @@ export interface SchemaFieldModel {
   managed: boolean
   managedSource: string
   allowMultiple: boolean
-  group: string
 }
 
 const props = defineProps<{
   modelValue: SchemaFieldModel
-  forceExpanded?: boolean
-  availableGroups?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -238,13 +202,6 @@ const emit = defineEmits<{
 }>()
 
 const expanded = ref(false)
-
-watch(
-  () => props.forceExpanded,
-  (val) => {
-    if (val !== undefined) expanded.value = val
-  },
-)
 
 const field = reactive<SchemaFieldModel>({ ...props.modelValue })
 
@@ -261,24 +218,6 @@ const typeOptions = [
   { label: 'Number', value: 'number' },
   { label: 'Boolean', value: 'boolean' },
 ]
-
-const managedSourceOptions = [
-  { label: 'IP', value: 'ip' },
-  { label: 'Server Port', value: 'server_port' },
-  { label: 'Query Port', value: 'query_port' },
-  { label: 'Max Players', value: 'max_players' },
-  { label: 'Server Name', value: 'server_name' },
-  { label: 'RCON Port', value: 'rcon_port' },
-  { label: 'RCON Password', value: 'rcon_password' },
-]
-
-const filteredGroups = computed(() => {
-  if (!props.availableGroups || !field.group) return []
-  const lower = field.group.toLowerCase()
-  return props.availableGroups.filter(
-    (g) => g.toLowerCase().includes(lower) && g.toLowerCase() !== field.group.toLowerCase(),
-  )
-})
 
 function handleTypeChange() {
   // Reset type-specific fields
@@ -341,10 +280,6 @@ function emitUpdate() {
 }
 
 .field-managed-badge {
-  font-size: 0.55rem;
-}
-
-.field-group-badge {
   font-size: 0.55rem;
 }
 

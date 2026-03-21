@@ -141,16 +141,28 @@
               <q-badge
                 v-if="field.isManaged"
                 color="accent"
-                label="Managed"
-                class="managed-badge" />
+                class="managed-badge">
+                <q-icon name="lock" size="10px" class="q-mr-xs" />
+                Managed
+              </q-badge>
               <span v-if="field.required && !field.isManaged" class="field-required" aria-label="required">*</span>
             </td>
             <!-- Setting value -->
             <td class="setting-value">
-              <!-- Managed: read-only -->
-              <span v-if="field.isManaged" class="managed-value font-mono">
-                {{ field.value || field.defaultValue }}
-              </span>
+              <!-- Managed: read-only with lock icon and source label -->
+              <div v-if="field.isManaged" class="managed-field-display">
+                <span class="managed-value font-mono">
+                  {{ field.value || field.defaultValue }}
+                  <q-icon name="lock" size="xs" color="accent" class="q-ml-xs">
+                    <q-tooltip>This field is managed by server settings</q-tooltip>
+                  </q-icon>
+                </span>
+                <div class="managed-source-hint text-xy-muted">
+                  <span class="managed-source-label">
+                    Source: {{ getManagedSourceLabel(field.managedSource) }}
+                  </span>
+                </div>
+              </div>
 
               <!-- Boolean toggle -->
               <div v-else-if="field.fieldType === 'boolean'" class="inline-toggle">
@@ -225,6 +237,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { ConfigFieldData, ConfigValidationError, AdvancedField } from '@/proto/xylona_pb'
+import { getManagedSourceLabel } from '@/components/shared/placeholder-definitions'
 import ConfigAdvancedFields from './ConfigAdvancedFields.vue'
 import { groupFields, filterFields } from './config-field-helpers'
 
@@ -748,6 +761,22 @@ function handleSave() {
 
 .inline-input {
   max-width: 300px;
+}
+
+.managed-field-display {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.managed-source-hint {
+  font-size: 0.65rem;
+}
+
+.managed-source-label {
+  color: var(--xy-accent);
+  font-style: normal;
+  font-weight: 500;
 }
 
 /* ---- Mobile ---- */

@@ -76,6 +76,28 @@ message Game {
   string config_schemas = 70; // JSON blob, parsed by application layer
 }
 
+message SteamApp {
+  string app_id = 1;
+  string name = 2;
+}
+
+message SteamAppDetails {
+  string app_id = 1;
+  string name = 2;
+  bool windows_support = 3;
+  bool linux_support = 4;
+  string install_directory = 5;
+  string parent_app_id = 6;
+  repeated SteamLaunchConfig launch_configs = 7;
+}
+
+message SteamLaunchConfig {
+  string executable = 1;
+  string arguments = 2;
+  string os = 3;
+  string description = 4;
+}
+
 enum Status {
   UNKNOWN = 0;
   OFFLINE = 1;

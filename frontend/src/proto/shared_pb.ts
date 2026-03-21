@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shared.proto.
  */
 export const file_shared: GenFile = /*@__PURE__*/
-  fileDesc("CgxzaGFyZWQucHJvdG8SBnh5bG9uYSKUAQoeR2FtZVNlcnZlckZpbGVzQXJjaGl2ZVByb2dyZXNzEhMKC3RvdGFsX2ZpbGVzGAEgASgDEhgKEGZpbGVzX2NvbXByZXNzZWQYAiABKAMSEwoLdG90YWxfYnl0ZXMYAyABKAMSGAoQYnl0ZXNfY29tcHJlc3NlZBgEIAEoAxIUCgxjdXJyZW50X2ZpbGUYBSABKAkikgEKHkdhbWVTZXJ2ZXJGaWxlc0V4dHJhY3RQcm9ncmVzcxITCgt0b3RhbF9maWxlcxgBIAEoAxIXCg9maWxlc19leHRyYWN0ZWQYAiABKAMSEwoLdG90YWxfYnl0ZXMYAyABKAMSFwoPYnl0ZXNfZXh0cmFjdGVkGAQgASgDEhQKDGN1cnJlbnRfZmlsZRgFIAEoCSKWCQoER2FtZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhQKDGRlZmF1bHRfcG9ydBgDIAEoAxIaChJkZWZhdWx0X3F1ZXJ5X3BvcnQYBCABKAMSGwoTZGVmYXVsdF9tYXhfcGxheWVycxgFIAEoAxIVCg1saW51eF9zdXBwb3J0GAYgASgIEhcKD3dpbmRvd3Nfc3VwcG9ydBgHIAEoCBIbChNsaW51eF9zdGFydF9jb21tYW5kGAggASgJEhoKEmxpbnV4X3N0b3BfY29tbWFuZBgJIAEoCRIdChVsaW51eF9pbnN0YWxsX2NvbW1hbmQYCiABKAkSHAoUbGludXhfdXBkYXRlX2NvbW1hbmQYCyABKAkSHwoXbGludXhfd29ya2luZ19kaXJlY3RvcnkYDCABKAkSGwoTbGludXhfYWxsb3dfYmFja3VwcxgOIAEoCBIdChV3aW5kb3dzX3N0YXJ0X2NvbW1hbmQYDyABKAkSHAoUd2luZG93c19zdG9wX2NvbW1hbmQYECABKAkSHwoXd2luZG93c19pbnN0YWxsX2NvbW1hbmQYESABKAkSHgoWd2luZG93c191cGRhdGVfY29tbWFuZBgSIAEoCRIhChl3aW5kb3dzX3dvcmtpbmdfZGlyZWN0b3J5GBMgASgJEh0KFXdpbmRvd3NfYWxsb3dfYmFja3VwcxgVIAEoCBIcChRyZXF1aXJlX2RlZGljYXRlZF9pcBgWIAEoCBIYChBiaW5kc190b19hbGxfaXBzGBcgASgIEi4KCmNyZWF0ZWRfYXQYGCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYGSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhkKEXVzZXNfc291cmNlX3F1ZXJ5GBogASgIEi4KJnJlcXVpcmVzX3N0ZWFtX2dhbWVfc2VydmVyX2xvZ2luX3Rva2VuGBsgASgIEkEKH2xpbnV4X2luc3RhbGxfY29tbWFuZF9wcm9jZXNzb3IYHCABKA4yGC54eWxvbmEuQ29tbWFuZFByb2Nlc3NvchJACh5saW51eF91cGRhdGVfY29tbWFuZF9wcm9jZXNzb3IYHSABKA4yGC54eWxvbmEuQ29tbWFuZFByb2Nlc3NvchJDCiF3aW5kb3dzX2luc3RhbGxfY29tbWFuZF9wcm9jZXNzb3IYHiABKA4yGC54eWxvbmEuQ29tbWFuZFByb2Nlc3NvchJCCiB3aW5kb3dzX3VwZGF0ZV9jb21tYW5kX3Byb2Nlc3NvchgfIAEoDjIYLnh5bG9uYS5Db21tYW5kUHJvY2Vzc29yEhUKDXVzZXNfc3RlYW1jbWQYICABKAgSEwoLc3RlYW1fYXBwaWQYISABKAkSFgoOY29uZmlnX3NjaGVtYXMYRiABKAlKBAgNEA5KBAgUEBVSHmxpbnV4X2NvbmZpZ3VyYXRpb25fZmlsZV9wYXRoc1Igd2luZG93c19jb25maWd1cmF0aW9uX2ZpbGVfcGF0aHMiXAoQR2FtZVNlcnZlclBsYXllchIMCgRuYW1lGAEgASgJEg8KAmlkGAIgASgJSACIAQESFQoIc3RlYW1faWQYAyABKAlIAYgBAUIFCgNfaWRCCwoJX3N0ZWFtX2lkIlgKC1N0ZWFtQnJhbmNoEgwKBG5hbWUYASABKAkSEAoIYnVpbGRfaWQYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSFAoMdGltZV91cGRhdGVkGAQgASgJIqUICgpHYW1lU2VydmVyEgoKAmlkGAEgASgJEg8KB3VzZXJfaWQYAiABKAkSDAoEbmFtZRgDIAEoCRIPCgdnYW1lX2lkGAQgASgJEhUKDXN0YXJ0X2NvbW1hbmQYBSABKAkSHgoGc3RhdHVzGAYgASgOMg4ueHlsb25hLlN0YXR1cxIXCg9zZXRfbWF4X3BsYXllcnMYByABKAMSEwoLbWF4X3BsYXllcnMYCCABKAMSCwoDbWFwGAkgASgJEhYKAmlwGAogASgLMgoueHlsb25hLklQEgwKBHBvcnQYCyABKAMSEgoKcXVlcnlfcG9ydBgMIAEoAxIRCglkaXJlY3RvcnkYDSABKAkSFQoNbWF4X21lbW9yeV9tYhgOIAEoAxIXCg9iYWNrdXBzX2VuYWJsZWQYDyABKAgSGAoQYmFja3VwX2RpcmVjdG9yeRgQIAEoCRITCgttYXhfYmFja3VwcxgRIAEoAxIuCgpjcmVhdGVkX2F0GBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GBMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIlCh1zdGVhbV9nYW1lX3NlcnZlcl9sb2dpbl90b2tlbhgUIAEoCRIRCgl1c2VyX25hbWUYFSABKAkSEQoJZ2FtZV9uYW1lGBYgASgJEhMKC2NwdV9wZXJjZW50GBcgASgDEhQKDG1lbW9yeV9ieXRlcxgYIAEoAxIZChFudW1iZXJfb2ZfdGhyZWFkcxgZIAEoAxIPCgd2ZXJzaW9uGBogASgJEhwKFGN1cnJlbnRfcGxheWVyX2NvdW50GBsgASgDEjEKD2N1cnJlbnRfcGxheWVycxgcIAMoCzIYLnh5bG9uYS5HYW1lU2VydmVyUGxheWVyEikKDHN0ZWFtX2JyYW5jaBgdIAEoCzITLnh5bG9uYS5TdGVhbUJyYW5jaBIOCgZicmFuY2gYHiABKAkSDwoHbm9kZV9pZBgfIAEoCRIRCglub2RlX25hbWUYICABKAkSEQoJbm9kZV9ob3N0GCEgASgJEhEKCW5vZGVfcG9ydBgiIAEoAxIYChBkaXNrX3VzYWdlX2J5dGVzGCMgASgDEhYKDnVwdGltZV9zZWNvbmRzGCQgASgDEiAKGG1lbW9yeV93b3JraW5nX3NldF9ieXRlcxglIAEoAxIWCg5tZW1vcnlfcGVyY2VudBgmIAEoARIRCgljcHVfY29yZXMYJyABKAUSFAoMaW9fcmVhZF9yYXRlGCggASgBEhUKDWlvX3dyaXRlX3JhdGUYKSABKAESGAoQY29ubmVjdGlvbl9jb3VudBgqIAEoBRIdChVlZmZlY3RpdmVfcGVybWlzc2lvbnMYKyADKAkiSAoCSVASDwoHYWRkcmVzcxgBIAEoCRIOCgZ1c2FibGUYAiABKAgSEAoIZXh0ZXJuYWwYAyABKAgSDwoHbm9kZV9pZBgEIAEoCSIrChZTdGFydEdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIoChdTdGFydEdhbWVTZXJ2ZXJSZXNwb25zZRINCgVlcnJvchgBIAEoCSIqChVTdG9wR2FtZVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIhgKFlN0b3BHYW1lU2VydmVyUmVzcG9uc2UiLQoYUmVzdGFydEdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIbChlSZXN0YXJ0R2FtZVNlcnZlclJlc3BvbnNlIiwKF1JlbW92ZUdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIaChhSZW1vdmVHYW1lU2VydmVyUmVzcG9uc2UiQgoXQ3JlYXRlR2FtZVNlcnZlclJlcXVlc3QSJwoLZ2FtZV9zZXJ2ZXIYASABKAsyEi54eWxvbmEuR2FtZVNlcnZlciJwChhDcmVhdGVHYW1lU2VydmVyUmVzcG9uc2USJwoLZ2FtZV9zZXJ2ZXIYASABKAsyEi54eWxvbmEuR2FtZVNlcnZlchIhCgVlcnJvchgCIAEoDjINLnh5bG9uYS5FcnJvckgAiAEBQggKBl9lcnJvciJTChVFZGl0R2FtZVNlcnZlclJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEicKC2dhbWVfc2VydmVyGAIgASgLMhIueHlsb25hLkdhbWVTZXJ2ZXIiQQoWRWRpdEdhbWVTZXJ2ZXJSZXNwb25zZRInCgtnYW1lX1NlcnZlchgBIAEoCzISLnh5bG9uYS5HYW1lU2VydmVyIjAKG1JlYWRHYW1lU2VydmVyT3V0cHV0UmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiLgocUmVhZEdhbWVTZXJ2ZXJPdXRwdXRSZXNwb25zZRIOCgZvdXRwdXQYASABKAkiPgoaU2VuZEdhbWVTZXJ2ZXJJbnB1dFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJEg0KBWlucHV0GAIgASgJIh0KG1NlbmRHYW1lU2VydmVySW5wdXRSZXNwb25zZSKVAQoTQWxsU2VydmVyc1F1ZXJ5SW5mbxI5CgdzZXJ2ZXJzGAEgAygLMigueHlsb25hLkFsbFNlcnZlcnNRdWVyeUluZm8uU2VydmVyc0VudHJ5GkMKDFNlcnZlcnNFbnRyeRILCgNrZXkYASABKAkSIgoFdmFsdWUYAiABKAsyEy54eWxvbmEuU2VydmVyUXVlcnk6AjgBIogCCgtTZXJ2ZXJRdWVyeRIRCglzZXJ2ZXJfaWQYASABKAkSEwoLc2VydmVyX25hbWUYAiABKAkSJgoEdHlwZRgDIAEoDjIYLnh5bG9uYS5TZXJ2ZXJRdWVyeS5UeXBlEjIKCW1pbmVjcmFmdBgEIAEoCzIaLnh5bG9uYS5NaW5lY3JhZnRRdWVyeUluZm9IAIgBARIsCgZzb3VyY2UYBSABKAsyFy54eWxvbmEuU291cmNlUXVlcnlJbmZvSAGIAQEiLgoEVHlwZRILCgdVbmtub3duEAASDQoJTWluZWNyYWZ0EAESCgoGU291cmNlEAJCDAoKX21pbmVjcmFmdEIJCgdfc291cmNlIrkBChJNaW5lY3JhZnRRdWVyeUluZm8SDAoEbW90ZBgBIAEoCRIRCglnYW1lX3R5cGUYAiABKAkSCwoDbWFwGAMgASgJEhkKEW51bWJlcl9vZl9wbGF5ZXJzGAQgASgNEhMKC21heF9wbGF5ZXJzGAUgASgNEhMKC3BsYXllcl9saXN0GAYgAygJEhgKEHByb3RvY29sX3ZlcnNpb24YByABKA0SFgoOc2VydmVyX3ZlcnNpb24YCCABKAki+AEKD1NvdXJjZVF1ZXJ5SW5mbxIMCgRuYW1lGAEgASgJEgsKA21hcBgCIAEoCRIMCgRnYW1lGAMgASgJEg4KBmFwcF9pZBgEIAEoDRIQCghzdGVhbV9pZBgFIAEoBBIPCgdnYW1lX2lkGAYgASgEEg8KB3BsYXllcnMYByABKA0SEwoLbWF4X3BsYXllcnMYCCABKA0SDAoEYm90cxgJIAEoDRIRCglzZXJ2ZXJfb3MYCiABKAkSEgoKdmlzaWJpbGl0eRgLIAEoCBILCgN2YWMYDCABKAgSDwoHdmVyc2lvbhgNIAEoCRIQCghwcm90b2NvbBgOIAEoDSL7AwoETm9kZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEgwKBGhvc3QYAyABKAkSDAoEcG9ydBgFIAEoAxINCgVsb2NhbBgGIAEoCBISCgpzZWNyZXRfa2V5GAcgASgJEhAKCGJhc2VfdXJsGAggASgJEg8KB2VuYWJsZWQYCSABKAgSMAoMbGFzdF9zZWVuX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxsYXN0X3N5bmNfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKEGxhc3Rfc3luY19zdGF0dXMYDCABKAkSFQoNaGVhbHRoX3N0YXR1cxgNIAEoCRIPCgd2ZXJzaW9uGA4gASgJEhgKEHByb3RvY29sX3ZlcnNpb24YDyABKAMSFAoMY2FwYWJpbGl0aWVzGBAgASgJEi4KCmNyZWF0ZWRfYXQYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYEiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhoKEmFsbG93X2luc2VjdXJlX3RscxgTIAEoCBIQCghkZXBhcnRlZBgUIAEoCBITCgthdXRvX3BhaXJlZBgVIAEoCCKgAQoJU2VjcmV0S2V5EgoKAmlkGAEgASgDEgwKBG5hbWUYAiABKAkSLgoKY3JlYXRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLQoJbGFzdF91c2VkGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIaChJsYXN0X2FjY2Vzc2VkX2Zyb20YBSABKAkitQEKDk5vZGVTeXN0ZW1JbmZvEhEKCWNwdV9tb2RlbBgBIAEoCRIRCgljcHVfY29yZXMYAiABKAUSEwoLY3B1X3RocmVhZHMYAyABKAUSGgoSdG90YWxfbWVtb3J5X2J5dGVzGAQgASgDEgoKAm9zGAUgASgJEhIKCm9zX3ZlcnNpb24YBiABKAkSFAoMYXJjaGl0ZWN0dXJlGAcgASgJEhYKDnh5bG9uYV92ZXJzaW9uGAggASgJIsYCChROb2RlUmVzb3VyY2VTbmFwc2hvdBITCgtjcHVfcGVyY2VudBgBIAEoARIWCg5tZW1vcnlfcGVyY2VudBgCIAEoARIZChFtZW1vcnlfdXNlZF9ieXRlcxgDIAEoAxIaChJtZW1vcnlfdG90YWxfYnl0ZXMYBCABKAMSFAoMZGlza19wZXJjZW50GAUgASgBEhcKD2Rpc2tfdXNlZF9ieXRlcxgGIAEoAxIYChBkaXNrX3RvdGFsX2J5dGVzGAcgASgDEhkKEWdhbWVfc2VydmVyX2NvdW50GAggASgFEiEKGXJ1bm5pbmdfZ2FtZV9zZXJ2ZXJfY291bnQYCSABKAUSEgoKdXNlcl9jb3VudBgKIAEoBRIvCgtyZWNvcmRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiuwEKE01ldHJpY3NIaXN0b3J5UG9pbnQSLQoJdGltZXN0YW1wGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjcHVfcGVyY2VudBgCIAEoARIWCg5tZW1vcnlfcGVyY2VudBgDIAEoARIUCgxkaXNrX3BlcmNlbnQYBCABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYBSABKAMSFwoPZGlza191c2VkX2J5dGVzGAYgASgDIsEBCh1HYW1lU2VydmVyTWV0cmljc0hpc3RvcnlQb2ludBItCgl0aW1lc3RhbXAYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NwdV9wZXJjZW50GAIgASgBEhQKDG1lbW9yeV9ieXRlcxgDIAEoAxIWCg5tZW1vcnlfcGVyY2VudBgEIAEoARIYChBkaXNrX3VzYWdlX2J5dGVzGAUgASgDEhQKDHBsYXllcl9jb3VudBgGIAEoBSpiCgVFcnJvchIPCgtCQURfUkVRVUVTVBAAEg8KC1BPUlRfSU5fVVNFEAESHgoaR0FNRV9TRVJWRVJfQUxSRUFEWV9FWElTVFMQAhIXChNVU0VSX0FMUkVBRFlfRVhJU1RTEAMqVgoQQ29tbWFuZFByb2Nlc3NvchIKCgZESVJFQ1QQABITCg9YWUxPTkFfSU5URVJOQUwQARIICgRCQVNIEAISBwoDQ01EEAMSDgoKUE9XRVJTSEVMTBAEKkwKBlN0YXR1cxILCgdVTktOT1dOEAASCwoHT0ZGTElORRABEgoKBk9OTElORRACEg4KCklOU1RBTExJTkcQAxIMCghVUERBVElORxAEQjJaMGdpdGh1Yi5jb20vQ2xpbnRvbkNvbGxpbnMvWHlsb25hL3Byb3RvL2dvL3h5bG9uYWIGcHJvdG8z", [file_google_protobuf_timestamp, file_gameserver_files_operations]);
+  fileDesc("CgxzaGFyZWQucHJvdG8SBnh5bG9uYSKUAQoeR2FtZVNlcnZlckZpbGVzQXJjaGl2ZVByb2dyZXNzEhMKC3RvdGFsX2ZpbGVzGAEgASgDEhgKEGZpbGVzX2NvbXByZXNzZWQYAiABKAMSEwoLdG90YWxfYnl0ZXMYAyABKAMSGAoQYnl0ZXNfY29tcHJlc3NlZBgEIAEoAxIUCgxjdXJyZW50X2ZpbGUYBSABKAkikgEKHkdhbWVTZXJ2ZXJGaWxlc0V4dHJhY3RQcm9ncmVzcxITCgt0b3RhbF9maWxlcxgBIAEoAxIXCg9maWxlc19leHRyYWN0ZWQYAiABKAMSEwoLdG90YWxfYnl0ZXMYAyABKAMSFwoPYnl0ZXNfZXh0cmFjdGVkGAQgASgDEhQKDGN1cnJlbnRfZmlsZRgFIAEoCSKWCQoER2FtZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhQKDGRlZmF1bHRfcG9ydBgDIAEoAxIaChJkZWZhdWx0X3F1ZXJ5X3BvcnQYBCABKAMSGwoTZGVmYXVsdF9tYXhfcGxheWVycxgFIAEoAxIVCg1saW51eF9zdXBwb3J0GAYgASgIEhcKD3dpbmRvd3Nfc3VwcG9ydBgHIAEoCBIbChNsaW51eF9zdGFydF9jb21tYW5kGAggASgJEhoKEmxpbnV4X3N0b3BfY29tbWFuZBgJIAEoCRIdChVsaW51eF9pbnN0YWxsX2NvbW1hbmQYCiABKAkSHAoUbGludXhfdXBkYXRlX2NvbW1hbmQYCyABKAkSHwoXbGludXhfd29ya2luZ19kaXJlY3RvcnkYDCABKAkSGwoTbGludXhfYWxsb3dfYmFja3VwcxgOIAEoCBIdChV3aW5kb3dzX3N0YXJ0X2NvbW1hbmQYDyABKAkSHAoUd2luZG93c19zdG9wX2NvbW1hbmQYECABKAkSHwoXd2luZG93c19pbnN0YWxsX2NvbW1hbmQYESABKAkSHgoWd2luZG93c191cGRhdGVfY29tbWFuZBgSIAEoCRIhChl3aW5kb3dzX3dvcmtpbmdfZGlyZWN0b3J5GBMgASgJEh0KFXdpbmRvd3NfYWxsb3dfYmFja3VwcxgVIAEoCBIcChRyZXF1aXJlX2RlZGljYXRlZF9pcBgWIAEoCBIYChBiaW5kc190b19hbGxfaXBzGBcgASgIEi4KCmNyZWF0ZWRfYXQYGCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYGSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhkKEXVzZXNfc291cmNlX3F1ZXJ5GBogASgIEi4KJnJlcXVpcmVzX3N0ZWFtX2dhbWVfc2VydmVyX2xvZ2luX3Rva2VuGBsgASgIEkEKH2xpbnV4X2luc3RhbGxfY29tbWFuZF9wcm9jZXNzb3IYHCABKA4yGC54eWxvbmEuQ29tbWFuZFByb2Nlc3NvchJACh5saW51eF91cGRhdGVfY29tbWFuZF9wcm9jZXNzb3IYHSABKA4yGC54eWxvbmEuQ29tbWFuZFByb2Nlc3NvchJDCiF3aW5kb3dzX2luc3RhbGxfY29tbWFuZF9wcm9jZXNzb3IYHiABKA4yGC54eWxvbmEuQ29tbWFuZFByb2Nlc3NvchJCCiB3aW5kb3dzX3VwZGF0ZV9jb21tYW5kX3Byb2Nlc3NvchgfIAEoDjIYLnh5bG9uYS5Db21tYW5kUHJvY2Vzc29yEhUKDXVzZXNfc3RlYW1jbWQYICABKAgSEwoLc3RlYW1fYXBwaWQYISABKAkSFgoOY29uZmlnX3NjaGVtYXMYRiABKAlKBAgNEA5KBAgUEBVSHmxpbnV4X2NvbmZpZ3VyYXRpb25fZmlsZV9wYXRoc1Igd2luZG93c19jb25maWd1cmF0aW9uX2ZpbGVfcGF0aHMiKAoIU3RlYW1BcHASDgoGYXBwX2lkGAEgASgJEgwKBG5hbWUYAiABKAkixAEKD1N0ZWFtQXBwRGV0YWlscxIOCgZhcHBfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIXCg93aW5kb3dzX3N1cHBvcnQYAyABKAgSFQoNbGludXhfc3VwcG9ydBgEIAEoCBIZChFpbnN0YWxsX2RpcmVjdG9yeRgFIAEoCRIVCg1wYXJlbnRfYXBwX2lkGAYgASgJEjEKDmxhdW5jaF9jb25maWdzGAcgAygLMhkueHlsb25hLlN0ZWFtTGF1bmNoQ29uZmlnIlsKEVN0ZWFtTGF1bmNoQ29uZmlnEhIKCmV4ZWN1dGFibGUYASABKAkSEQoJYXJndW1lbnRzGAIgASgJEgoKAm9zGAMgASgJEhMKC2Rlc2NyaXB0aW9uGAQgASgJIlwKEEdhbWVTZXJ2ZXJQbGF5ZXISDAoEbmFtZRgBIAEoCRIPCgJpZBgCIAEoCUgAiAEBEhUKCHN0ZWFtX2lkGAMgASgJSAGIAQFCBQoDX2lkQgsKCV9zdGVhbV9pZCJYCgtTdGVhbUJyYW5jaBIMCgRuYW1lGAEgASgJEhAKCGJ1aWxkX2lkGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhQKDHRpbWVfdXBkYXRlZBgEIAEoCSKlCAoKR2FtZVNlcnZlchIKCgJpZBgBIAEoCRIPCgd1c2VyX2lkGAIgASgJEgwKBG5hbWUYAyABKAkSDwoHZ2FtZV9pZBgEIAEoCRIVCg1zdGFydF9jb21tYW5kGAUgASgJEh4KBnN0YXR1cxgGIAEoDjIOLnh5bG9uYS5TdGF0dXMSFwoPc2V0X21heF9wbGF5ZXJzGAcgASgDEhMKC21heF9wbGF5ZXJzGAggASgDEgsKA21hcBgJIAEoCRIWCgJpcBgKIAEoCzIKLnh5bG9uYS5JUBIMCgRwb3J0GAsgASgDEhIKCnF1ZXJ5X3BvcnQYDCABKAMSEQoJZGlyZWN0b3J5GA0gASgJEhUKDW1heF9tZW1vcnlfbWIYDiABKAMSFwoPYmFja3Vwc19lbmFibGVkGA8gASgIEhgKEGJhY2t1cF9kaXJlY3RvcnkYECABKAkSEwoLbWF4X2JhY2t1cHMYESABKAMSLgoKY3JlYXRlZF9hdBgSIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgTIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJQodc3RlYW1fZ2FtZV9zZXJ2ZXJfbG9naW5fdG9rZW4YFCABKAkSEQoJdXNlcl9uYW1lGBUgASgJEhEKCWdhbWVfbmFtZRgWIAEoCRITCgtjcHVfcGVyY2VudBgXIAEoAxIUCgxtZW1vcnlfYnl0ZXMYGCABKAMSGQoRbnVtYmVyX29mX3RocmVhZHMYGSABKAMSDwoHdmVyc2lvbhgaIAEoCRIcChRjdXJyZW50X3BsYXllcl9jb3VudBgbIAEoAxIxCg9jdXJyZW50X3BsYXllcnMYHCADKAsyGC54eWxvbmEuR2FtZVNlcnZlclBsYXllchIpCgxzdGVhbV9icmFuY2gYHSABKAsyEy54eWxvbmEuU3RlYW1CcmFuY2gSDgoGYnJhbmNoGB4gASgJEg8KB25vZGVfaWQYHyABKAkSEQoJbm9kZV9uYW1lGCAgASgJEhEKCW5vZGVfaG9zdBghIAEoCRIRCglub2RlX3BvcnQYIiABKAMSGAoQZGlza191c2FnZV9ieXRlcxgjIAEoAxIWCg51cHRpbWVfc2Vjb25kcxgkIAEoAxIgChhtZW1vcnlfd29ya2luZ19zZXRfYnl0ZXMYJSABKAMSFgoObWVtb3J5X3BlcmNlbnQYJiABKAESEQoJY3B1X2NvcmVzGCcgASgFEhQKDGlvX3JlYWRfcmF0ZRgoIAEoARIVCg1pb193cml0ZV9yYXRlGCkgASgBEhgKEGNvbm5lY3Rpb25fY291bnQYKiABKAUSHQoVZWZmZWN0aXZlX3Blcm1pc3Npb25zGCsgAygJIkgKAklQEg8KB2FkZHJlc3MYASABKAkSDgoGdXNhYmxlGAIgASgIEhAKCGV4dGVybmFsGAMgASgIEg8KB25vZGVfaWQYBCABKAkiKwoWU3RhcnRHYW1lU2VydmVyUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiKAoXU3RhcnRHYW1lU2VydmVyUmVzcG9uc2USDQoFZXJyb3IYASABKAkiKgoVU3RvcEdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCSIYChZTdG9wR2FtZVNlcnZlclJlc3BvbnNlIi0KGFJlc3RhcnRHYW1lU2VydmVyUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiGwoZUmVzdGFydEdhbWVTZXJ2ZXJSZXNwb25zZSIsChdSZW1vdmVHYW1lU2VydmVyUmVxdWVzdBIRCglzZXJ2ZXJfaWQYASABKAkiGgoYUmVtb3ZlR2FtZVNlcnZlclJlc3BvbnNlIkIKF0NyZWF0ZUdhbWVTZXJ2ZXJSZXF1ZXN0EicKC2dhbWVfc2VydmVyGAEgASgLMhIueHlsb25hLkdhbWVTZXJ2ZXIicAoYQ3JlYXRlR2FtZVNlcnZlclJlc3BvbnNlEicKC2dhbWVfc2VydmVyGAEgASgLMhIueHlsb25hLkdhbWVTZXJ2ZXISIQoFZXJyb3IYAiABKA4yDS54eWxvbmEuRXJyb3JIAIgBAUIICgZfZXJyb3IiUwoVRWRpdEdhbWVTZXJ2ZXJSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRInCgtnYW1lX3NlcnZlchgCIAEoCzISLnh5bG9uYS5HYW1lU2VydmVyIkEKFkVkaXRHYW1lU2VydmVyUmVzcG9uc2USJwoLZ2FtZV9TZXJ2ZXIYASABKAsyEi54eWxvbmEuR2FtZVNlcnZlciIwChtSZWFkR2FtZVNlcnZlck91dHB1dFJlcXVlc3QSEQoJc2VydmVyX2lkGAEgASgJIi4KHFJlYWRHYW1lU2VydmVyT3V0cHV0UmVzcG9uc2USDgoGb3V0cHV0GAEgASgJIj4KGlNlbmRHYW1lU2VydmVySW5wdXRSZXF1ZXN0EhEKCXNlcnZlcl9pZBgBIAEoCRINCgVpbnB1dBgCIAEoCSIdChtTZW5kR2FtZVNlcnZlcklucHV0UmVzcG9uc2UilQEKE0FsbFNlcnZlcnNRdWVyeUluZm8SOQoHc2VydmVycxgBIAMoCzIoLnh5bG9uYS5BbGxTZXJ2ZXJzUXVlcnlJbmZvLlNlcnZlcnNFbnRyeRpDCgxTZXJ2ZXJzRW50cnkSCwoDa2V5GAEgASgJEiIKBXZhbHVlGAIgASgLMhMueHlsb25hLlNlcnZlclF1ZXJ5OgI4ASKIAgoLU2VydmVyUXVlcnkSEQoJc2VydmVyX2lkGAEgASgJEhMKC3NlcnZlcl9uYW1lGAIgASgJEiYKBHR5cGUYAyABKA4yGC54eWxvbmEuU2VydmVyUXVlcnkuVHlwZRIyCgltaW5lY3JhZnQYBCABKAsyGi54eWxvbmEuTWluZWNyYWZ0UXVlcnlJbmZvSACIAQESLAoGc291cmNlGAUgASgLMhcueHlsb25hLlNvdXJjZVF1ZXJ5SW5mb0gBiAEBIi4KBFR5cGUSCwoHVW5rbm93bhAAEg0KCU1pbmVjcmFmdBABEgoKBlNvdXJjZRACQgwKCl9taW5lY3JhZnRCCQoHX3NvdXJjZSK5AQoSTWluZWNyYWZ0UXVlcnlJbmZvEgwKBG1vdGQYASABKAkSEQoJZ2FtZV90eXBlGAIgASgJEgsKA21hcBgDIAEoCRIZChFudW1iZXJfb2ZfcGxheWVycxgEIAEoDRITCgttYXhfcGxheWVycxgFIAEoDRITCgtwbGF5ZXJfbGlzdBgGIAMoCRIYChBwcm90b2NvbF92ZXJzaW9uGAcgASgNEhYKDnNlcnZlcl92ZXJzaW9uGAggASgJIvgBCg9Tb3VyY2VRdWVyeUluZm8SDAoEbmFtZRgBIAEoCRILCgNtYXAYAiABKAkSDAoEZ2FtZRgDIAEoCRIOCgZhcHBfaWQYBCABKA0SEAoIc3RlYW1faWQYBSABKAQSDwoHZ2FtZV9pZBgGIAEoBBIPCgdwbGF5ZXJzGAcgASgNEhMKC21heF9wbGF5ZXJzGAggASgNEgwKBGJvdHMYCSABKA0SEQoJc2VydmVyX29zGAogASgJEhIKCnZpc2liaWxpdHkYCyABKAgSCwoDdmFjGAwgASgIEg8KB3ZlcnNpb24YDSABKAkSEAoIcHJvdG9jb2wYDiABKA0i+wMKBE5vZGUSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRob3N0GAMgASgJEgwKBHBvcnQYBSABKAMSDQoFbG9jYWwYBiABKAgSEgoKc2VjcmV0X2tleRgHIAEoCRIQCghiYXNlX3VybBgIIAEoCRIPCgdlbmFibGVkGAkgASgIEjAKDGxhc3Rfc2Vlbl9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMAoMbGFzdF9zeW5jX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBsYXN0X3N5bmNfc3RhdHVzGAwgASgJEhUKDWhlYWx0aF9zdGF0dXMYDSABKAkSDwoHdmVyc2lvbhgOIAEoCRIYChBwcm90b2NvbF92ZXJzaW9uGA8gASgDEhQKDGNhcGFiaWxpdGllcxgQIAEoCRIuCgpjcmVhdGVkX2F0GBEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIaChJhbGxvd19pbnNlY3VyZV90bHMYEyABKAgSEAoIZGVwYXJ0ZWQYFCABKAgSEwoLYXV0b19wYWlyZWQYFSABKAgioAEKCVNlY3JldEtleRIKCgJpZBgBIAEoAxIMCgRuYW1lGAIgASgJEi4KCmNyZWF0ZWRfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi0KCWxhc3RfdXNlZBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGgoSbGFzdF9hY2Nlc3NlZF9mcm9tGAUgASgJIrUBCg5Ob2RlU3lzdGVtSW5mbxIRCgljcHVfbW9kZWwYASABKAkSEQoJY3B1X2NvcmVzGAIgASgFEhMKC2NwdV90aHJlYWRzGAMgASgFEhoKEnRvdGFsX21lbW9yeV9ieXRlcxgEIAEoAxIKCgJvcxgFIAEoCRISCgpvc192ZXJzaW9uGAYgASgJEhQKDGFyY2hpdGVjdHVyZRgHIAEoCRIWCg54eWxvbmFfdmVyc2lvbhgIIAEoCSLGAgoUTm9kZVJlc291cmNlU25hcHNob3QSEwoLY3B1X3BlcmNlbnQYASABKAESFgoObWVtb3J5X3BlcmNlbnQYAiABKAESGQoRbWVtb3J5X3VzZWRfYnl0ZXMYAyABKAMSGgoSbWVtb3J5X3RvdGFsX2J5dGVzGAQgASgDEhQKDGRpc2tfcGVyY2VudBgFIAEoARIXCg9kaXNrX3VzZWRfYnl0ZXMYBiABKAMSGAoQZGlza190b3RhbF9ieXRlcxgHIAEoAxIZChFnYW1lX3NlcnZlcl9jb3VudBgIIAEoBRIhChlydW5uaW5nX2dhbWVfc2VydmVyX2NvdW50GAkgASgFEhIKCnVzZXJfY291bnQYCiABKAUSLwoLcmVjb3JkZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIrsBChNNZXRyaWNzSGlzdG9yeVBvaW50Ei0KCXRpbWVzdGFtcBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoLY3B1X3BlcmNlbnQYAiABKAESFgoObWVtb3J5X3BlcmNlbnQYAyABKAESFAoMZGlza19wZXJjZW50GAQgASgBEhkKEW1lbW9yeV91c2VkX2J5dGVzGAUgASgDEhcKD2Rpc2tfdXNlZF9ieXRlcxgGIAEoAyLBAQodR2FtZVNlcnZlck1ldHJpY3NIaXN0b3J5UG9pbnQSLQoJdGltZXN0YW1wGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjcHVfcGVyY2VudBgCIAEoARIUCgxtZW1vcnlfYnl0ZXMYAyABKAMSFgoObWVtb3J5X3BlcmNlbnQYBCABKAESGAoQZGlza191c2FnZV9ieXRlcxgFIAEoAxIUCgxwbGF5ZXJfY291bnQYBiABKAUqYgoFRXJyb3ISDwoLQkFEX1JFUVVFU1QQABIPCgtQT1JUX0lOX1VTRRABEh4KGkdBTUVfU0VSVkVSX0FMUkVBRFlfRVhJU1RTEAISFwoTVVNFUl9BTFJFQURZX0VYSVNUUxADKlYKEENvbW1hbmRQcm9jZXNzb3ISCgoGRElSRUNUEAASEwoPWFlMT05BX0lOVEVSTkFMEAESCAoEQkFTSBACEgcKA0NNRBADEg4KClBPV0VSU0hFTEwQBCpMCgZTdGF0dXMSCwoHVU5LTk9XThAAEgsKB09GRkxJTkUQARIKCgZPTkxJTkUQAhIOCgpJTlNUQUxMSU5HEAMSDAoIVVBEQVRJTkcQBEIyWjBnaXRodWIuY29tL0NsaW50b25Db2xsaW5zL1h5bG9uYS9wcm90by9nby94eWxvbmFiBnByb3RvMw", [file_google_protobuf_timestamp, file_gameserver_files_operations]);
 
 /**
  * @generated from message xylona.GameServerFilesArchiveProgress
@@ -264,6 +264,107 @@ export const GameSchema: GenMessage<Game> = /*@__PURE__*/
   messageDesc(file_shared, 2);
 
 /**
+ * @generated from message xylona.SteamApp
+ */
+export type SteamApp = Message<"xylona.SteamApp"> & {
+  /**
+   * @generated from field: string app_id = 1;
+   */
+  appId: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message xylona.SteamApp.
+ * Use `create(SteamAppSchema)` to create a new message.
+ */
+export const SteamAppSchema: GenMessage<SteamApp> = /*@__PURE__*/
+  messageDesc(file_shared, 3);
+
+/**
+ * @generated from message xylona.SteamAppDetails
+ */
+export type SteamAppDetails = Message<"xylona.SteamAppDetails"> & {
+  /**
+   * @generated from field: string app_id = 1;
+   */
+  appId: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: bool windows_support = 3;
+   */
+  windowsSupport: boolean;
+
+  /**
+   * @generated from field: bool linux_support = 4;
+   */
+  linuxSupport: boolean;
+
+  /**
+   * @generated from field: string install_directory = 5;
+   */
+  installDirectory: string;
+
+  /**
+   * @generated from field: string parent_app_id = 6;
+   */
+  parentAppId: string;
+
+  /**
+   * @generated from field: repeated xylona.SteamLaunchConfig launch_configs = 7;
+   */
+  launchConfigs: SteamLaunchConfig[];
+};
+
+/**
+ * Describes the message xylona.SteamAppDetails.
+ * Use `create(SteamAppDetailsSchema)` to create a new message.
+ */
+export const SteamAppDetailsSchema: GenMessage<SteamAppDetails> = /*@__PURE__*/
+  messageDesc(file_shared, 4);
+
+/**
+ * @generated from message xylona.SteamLaunchConfig
+ */
+export type SteamLaunchConfig = Message<"xylona.SteamLaunchConfig"> & {
+  /**
+   * @generated from field: string executable = 1;
+   */
+  executable: string;
+
+  /**
+   * @generated from field: string arguments = 2;
+   */
+  arguments: string;
+
+  /**
+   * @generated from field: string os = 3;
+   */
+  os: string;
+
+  /**
+   * @generated from field: string description = 4;
+   */
+  description: string;
+};
+
+/**
+ * Describes the message xylona.SteamLaunchConfig.
+ * Use `create(SteamLaunchConfigSchema)` to create a new message.
+ */
+export const SteamLaunchConfigSchema: GenMessage<SteamLaunchConfig> = /*@__PURE__*/
+  messageDesc(file_shared, 5);
+
+/**
  * @generated from message xylona.GameServerPlayer
  */
 export type GameServerPlayer = Message<"xylona.GameServerPlayer"> & {
@@ -288,7 +389,7 @@ export type GameServerPlayer = Message<"xylona.GameServerPlayer"> & {
  * Use `create(GameServerPlayerSchema)` to create a new message.
  */
 export const GameServerPlayerSchema: GenMessage<GameServerPlayer> = /*@__PURE__*/
-  messageDesc(file_shared, 3);
+  messageDesc(file_shared, 6);
 
 /**
  * @generated from message xylona.SteamBranch
@@ -320,7 +421,7 @@ export type SteamBranch = Message<"xylona.SteamBranch"> & {
  * Use `create(SteamBranchSchema)` to create a new message.
  */
 export const SteamBranchSchema: GenMessage<SteamBranch> = /*@__PURE__*/
-  messageDesc(file_shared, 4);
+  messageDesc(file_shared, 7);
 
 /**
  * @generated from message xylona.GameServer
@@ -547,7 +648,7 @@ export type GameServer = Message<"xylona.GameServer"> & {
  * Use `create(GameServerSchema)` to create a new message.
  */
 export const GameServerSchema: GenMessage<GameServer> = /*@__PURE__*/
-  messageDesc(file_shared, 5);
+  messageDesc(file_shared, 8);
 
 /**
  * @generated from message xylona.IP
@@ -579,7 +680,7 @@ export type IP = Message<"xylona.IP"> & {
  * Use `create(IPSchema)` to create a new message.
  */
 export const IPSchema: GenMessage<IP> = /*@__PURE__*/
-  messageDesc(file_shared, 6);
+  messageDesc(file_shared, 9);
 
 /**
  * @generated from message xylona.StartGameServerRequest
@@ -596,7 +697,7 @@ export type StartGameServerRequest = Message<"xylona.StartGameServerRequest"> & 
  * Use `create(StartGameServerRequestSchema)` to create a new message.
  */
 export const StartGameServerRequestSchema: GenMessage<StartGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 7);
+  messageDesc(file_shared, 10);
 
 /**
  * @generated from message xylona.StartGameServerResponse
@@ -613,7 +714,7 @@ export type StartGameServerResponse = Message<"xylona.StartGameServerResponse"> 
  * Use `create(StartGameServerResponseSchema)` to create a new message.
  */
 export const StartGameServerResponseSchema: GenMessage<StartGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 8);
+  messageDesc(file_shared, 11);
 
 /**
  * @generated from message xylona.StopGameServerRequest
@@ -630,7 +731,7 @@ export type StopGameServerRequest = Message<"xylona.StopGameServerRequest"> & {
  * Use `create(StopGameServerRequestSchema)` to create a new message.
  */
 export const StopGameServerRequestSchema: GenMessage<StopGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 9);
+  messageDesc(file_shared, 12);
 
 /**
  * @generated from message xylona.StopGameServerResponse
@@ -643,7 +744,7 @@ export type StopGameServerResponse = Message<"xylona.StopGameServerResponse"> & 
  * Use `create(StopGameServerResponseSchema)` to create a new message.
  */
 export const StopGameServerResponseSchema: GenMessage<StopGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 10);
+  messageDesc(file_shared, 13);
 
 /**
  * @generated from message xylona.RestartGameServerRequest
@@ -660,7 +761,7 @@ export type RestartGameServerRequest = Message<"xylona.RestartGameServerRequest"
  * Use `create(RestartGameServerRequestSchema)` to create a new message.
  */
 export const RestartGameServerRequestSchema: GenMessage<RestartGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 11);
+  messageDesc(file_shared, 14);
 
 /**
  * @generated from message xylona.RestartGameServerResponse
@@ -673,7 +774,7 @@ export type RestartGameServerResponse = Message<"xylona.RestartGameServerRespons
  * Use `create(RestartGameServerResponseSchema)` to create a new message.
  */
 export const RestartGameServerResponseSchema: GenMessage<RestartGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 12);
+  messageDesc(file_shared, 15);
 
 /**
  * @generated from message xylona.RemoveGameServerRequest
@@ -690,7 +791,7 @@ export type RemoveGameServerRequest = Message<"xylona.RemoveGameServerRequest"> 
  * Use `create(RemoveGameServerRequestSchema)` to create a new message.
  */
 export const RemoveGameServerRequestSchema: GenMessage<RemoveGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 13);
+  messageDesc(file_shared, 16);
 
 /**
  * @generated from message xylona.RemoveGameServerResponse
@@ -703,7 +804,7 @@ export type RemoveGameServerResponse = Message<"xylona.RemoveGameServerResponse"
  * Use `create(RemoveGameServerResponseSchema)` to create a new message.
  */
 export const RemoveGameServerResponseSchema: GenMessage<RemoveGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 14);
+  messageDesc(file_shared, 17);
 
 /**
  * @generated from message xylona.CreateGameServerRequest
@@ -720,7 +821,7 @@ export type CreateGameServerRequest = Message<"xylona.CreateGameServerRequest"> 
  * Use `create(CreateGameServerRequestSchema)` to create a new message.
  */
 export const CreateGameServerRequestSchema: GenMessage<CreateGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 15);
+  messageDesc(file_shared, 18);
 
 /**
  * @generated from message xylona.CreateGameServerResponse
@@ -742,7 +843,7 @@ export type CreateGameServerResponse = Message<"xylona.CreateGameServerResponse"
  * Use `create(CreateGameServerResponseSchema)` to create a new message.
  */
 export const CreateGameServerResponseSchema: GenMessage<CreateGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 16);
+  messageDesc(file_shared, 19);
 
 /**
  * @generated from message xylona.EditGameServerRequest
@@ -764,7 +865,7 @@ export type EditGameServerRequest = Message<"xylona.EditGameServerRequest"> & {
  * Use `create(EditGameServerRequestSchema)` to create a new message.
  */
 export const EditGameServerRequestSchema: GenMessage<EditGameServerRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 17);
+  messageDesc(file_shared, 20);
 
 /**
  * @generated from message xylona.EditGameServerResponse
@@ -781,7 +882,7 @@ export type EditGameServerResponse = Message<"xylona.EditGameServerResponse"> & 
  * Use `create(EditGameServerResponseSchema)` to create a new message.
  */
 export const EditGameServerResponseSchema: GenMessage<EditGameServerResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 18);
+  messageDesc(file_shared, 21);
 
 /**
  * @generated from message xylona.ReadGameServerOutputRequest
@@ -798,7 +899,7 @@ export type ReadGameServerOutputRequest = Message<"xylona.ReadGameServerOutputRe
  * Use `create(ReadGameServerOutputRequestSchema)` to create a new message.
  */
 export const ReadGameServerOutputRequestSchema: GenMessage<ReadGameServerOutputRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 19);
+  messageDesc(file_shared, 22);
 
 /**
  * @generated from message xylona.ReadGameServerOutputResponse
@@ -815,7 +916,7 @@ export type ReadGameServerOutputResponse = Message<"xylona.ReadGameServerOutputR
  * Use `create(ReadGameServerOutputResponseSchema)` to create a new message.
  */
 export const ReadGameServerOutputResponseSchema: GenMessage<ReadGameServerOutputResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 20);
+  messageDesc(file_shared, 23);
 
 /**
  * @generated from message xylona.SendGameServerInputRequest
@@ -837,7 +938,7 @@ export type SendGameServerInputRequest = Message<"xylona.SendGameServerInputRequ
  * Use `create(SendGameServerInputRequestSchema)` to create a new message.
  */
 export const SendGameServerInputRequestSchema: GenMessage<SendGameServerInputRequest> = /*@__PURE__*/
-  messageDesc(file_shared, 21);
+  messageDesc(file_shared, 24);
 
 /**
  * @generated from message xylona.SendGameServerInputResponse
@@ -850,7 +951,7 @@ export type SendGameServerInputResponse = Message<"xylona.SendGameServerInputRes
  * Use `create(SendGameServerInputResponseSchema)` to create a new message.
  */
 export const SendGameServerInputResponseSchema: GenMessage<SendGameServerInputResponse> = /*@__PURE__*/
-  messageDesc(file_shared, 22);
+  messageDesc(file_shared, 25);
 
 /**
  * @generated from message xylona.AllServersQueryInfo
@@ -867,7 +968,7 @@ export type AllServersQueryInfo = Message<"xylona.AllServersQueryInfo"> & {
  * Use `create(AllServersQueryInfoSchema)` to create a new message.
  */
 export const AllServersQueryInfoSchema: GenMessage<AllServersQueryInfo> = /*@__PURE__*/
-  messageDesc(file_shared, 23);
+  messageDesc(file_shared, 26);
 
 /**
  * @generated from message xylona.ServerQuery
@@ -904,7 +1005,7 @@ export type ServerQuery = Message<"xylona.ServerQuery"> & {
  * Use `create(ServerQuerySchema)` to create a new message.
  */
 export const ServerQuerySchema: GenMessage<ServerQuery> = /*@__PURE__*/
-  messageDesc(file_shared, 24);
+  messageDesc(file_shared, 27);
 
 /**
  * @generated from enum xylona.ServerQuery.Type
@@ -930,7 +1031,7 @@ export enum ServerQuery_Type {
  * Describes the enum xylona.ServerQuery.Type.
  */
 export const ServerQuery_TypeSchema: GenEnum<ServerQuery_Type> = /*@__PURE__*/
-  enumDesc(file_shared, 24, 0);
+  enumDesc(file_shared, 27, 0);
 
 /**
  * @generated from message xylona.MinecraftQueryInfo
@@ -982,7 +1083,7 @@ export type MinecraftQueryInfo = Message<"xylona.MinecraftQueryInfo"> & {
  * Use `create(MinecraftQueryInfoSchema)` to create a new message.
  */
 export const MinecraftQueryInfoSchema: GenMessage<MinecraftQueryInfo> = /*@__PURE__*/
-  messageDesc(file_shared, 25);
+  messageDesc(file_shared, 28);
 
 /**
  * @generated from message xylona.SourceQueryInfo
@@ -1064,7 +1165,7 @@ export type SourceQueryInfo = Message<"xylona.SourceQueryInfo"> & {
  * Use `create(SourceQueryInfoSchema)` to create a new message.
  */
 export const SourceQueryInfoSchema: GenMessage<SourceQueryInfo> = /*@__PURE__*/
-  messageDesc(file_shared, 26);
+  messageDesc(file_shared, 29);
 
 /**
  * @generated from message xylona.Node
@@ -1176,7 +1277,7 @@ export type Node = Message<"xylona.Node"> & {
  * Use `create(NodeSchema)` to create a new message.
  */
 export const NodeSchema: GenMessage<Node> = /*@__PURE__*/
-  messageDesc(file_shared, 27);
+  messageDesc(file_shared, 30);
 
 /**
  * @generated from message xylona.SecretKey
@@ -1213,7 +1314,7 @@ export type SecretKey = Message<"xylona.SecretKey"> & {
  * Use `create(SecretKeySchema)` to create a new message.
  */
 export const SecretKeySchema: GenMessage<SecretKey> = /*@__PURE__*/
-  messageDesc(file_shared, 28);
+  messageDesc(file_shared, 31);
 
 /**
  * NodeSystemInfo contains static hardware and OS information for a node.
@@ -1267,7 +1368,7 @@ export type NodeSystemInfo = Message<"xylona.NodeSystemInfo"> & {
  * Use `create(NodeSystemInfoSchema)` to create a new message.
  */
 export const NodeSystemInfoSchema: GenMessage<NodeSystemInfo> = /*@__PURE__*/
-  messageDesc(file_shared, 29);
+  messageDesc(file_shared, 32);
 
 /**
  * NodeResourceSnapshot contains a point-in-time resource usage snapshot for a node.
@@ -1336,7 +1437,7 @@ export type NodeResourceSnapshot = Message<"xylona.NodeResourceSnapshot"> & {
  * Use `create(NodeResourceSnapshotSchema)` to create a new message.
  */
 export const NodeResourceSnapshotSchema: GenMessage<NodeResourceSnapshot> = /*@__PURE__*/
-  messageDesc(file_shared, 30);
+  messageDesc(file_shared, 33);
 
 /**
  * MetricsHistoryPoint is a single data point in a node metrics time series.
@@ -1380,7 +1481,7 @@ export type MetricsHistoryPoint = Message<"xylona.MetricsHistoryPoint"> & {
  * Use `create(MetricsHistoryPointSchema)` to create a new message.
  */
 export const MetricsHistoryPointSchema: GenMessage<MetricsHistoryPoint> = /*@__PURE__*/
-  messageDesc(file_shared, 31);
+  messageDesc(file_shared, 34);
 
 /**
  * GameServerMetricsHistoryPoint is a single data point in a game server metrics time series.
@@ -1424,7 +1525,7 @@ export type GameServerMetricsHistoryPoint = Message<"xylona.GameServerMetricsHis
  * Use `create(GameServerMetricsHistoryPointSchema)` to create a new message.
  */
 export const GameServerMetricsHistoryPointSchema: GenMessage<GameServerMetricsHistoryPoint> = /*@__PURE__*/
-  messageDesc(file_shared, 32);
+  messageDesc(file_shared, 35);
 
 /**
  * @generated from enum xylona.Error

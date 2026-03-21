@@ -37,6 +37,7 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/steamcache"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
@@ -305,10 +306,13 @@ func main() {
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	setDetectedIPs(dbInst)
 
+	steamCache := steamcache.New(&steamcache.SteamAPIFetcher{})
+	go steamCache.Start(ctx)
+
 	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie, federationMTLS)
 
 	router := chi.NewRouter()
-	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies)
+	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache)
 	xylonaService.SetSyncEngine(syncEngine)
 	syncEngine.SetStatusBroadcaster(wsInst)
 	syncEngine.SetMetricsBroadcaster(wsInst)

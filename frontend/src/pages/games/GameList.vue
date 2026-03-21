@@ -16,7 +16,7 @@
             <q-icon name="search" />
           </template>
         </q-input>
-        <q-btn color="primary" to="/games/create" label="Add Game" />
+        <q-btn color="primary" to="/games/new" label="Add Game" />
       </div>
     </div>
     <div>
