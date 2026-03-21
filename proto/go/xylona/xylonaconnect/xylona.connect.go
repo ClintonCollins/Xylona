@@ -47,6 +47,11 @@ const (
 	XylonaExportGameProcedure = "/xylona.Xylona/ExportGame"
 	// XylonaListGamesProcedure is the fully-qualified name of the Xylona's ListGames RPC.
 	XylonaListGamesProcedure = "/xylona.Xylona/ListGames"
+	// XylonaSearchSteamAppsProcedure is the fully-qualified name of the Xylona's SearchSteamApps RPC.
+	XylonaSearchSteamAppsProcedure = "/xylona.Xylona/SearchSteamApps"
+	// XylonaGetSteamAppDetailsProcedure is the fully-qualified name of the Xylona's GetSteamAppDetails
+	// RPC.
+	XylonaGetSteamAppDetailsProcedure = "/xylona.Xylona/GetSteamAppDetails"
 	// XylonaLoginProcedure is the fully-qualified name of the Xylona's Login RPC.
 	XylonaLoginProcedure = "/xylona.Xylona/Login"
 	// XylonaLogoutProcedure is the fully-qualified name of the Xylona's Logout RPC.
@@ -245,6 +250,9 @@ type XylonaClient interface {
 	ImportGame(context.Context, *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error)
 	ExportGame(context.Context, *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error)
 	ListGames(context.Context, *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error)
+	// Steam App Lookup
+	SearchSteamApps(context.Context, *connect.Request[xylona.SearchSteamAppsRequest]) (*connect.Response[xylona.SearchSteamAppsResponse], error)
+	GetSteamAppDetails(context.Context, *connect.Request[xylona.GetSteamAppDetailsRequest]) (*connect.Response[xylona.GetSteamAppDetailsResponse], error)
 	// General
 	Login(context.Context, *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error)
 	Logout(context.Context, *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error)
@@ -384,6 +392,18 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaListGamesProcedure,
 			connect.WithSchema(xylonaMethods.ByName("ListGames")),
+			connect.WithClientOptions(opts...),
+		),
+		searchSteamApps: connect.NewClient[xylona.SearchSteamAppsRequest, xylona.SearchSteamAppsResponse](
+			httpClient,
+			baseURL+XylonaSearchSteamAppsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SearchSteamApps")),
+			connect.WithClientOptions(opts...),
+		),
+		getSteamAppDetails: connect.NewClient[xylona.GetSteamAppDetailsRequest, xylona.GetSteamAppDetailsResponse](
+			httpClient,
+			baseURL+XylonaGetSteamAppDetailsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetSteamAppDetails")),
 			connect.WithClientOptions(opts...),
 		),
 		login: connect.NewClient[xylona.LoginRequest, xylona.LoginResponse](
@@ -836,6 +856,8 @@ type xylonaClient struct {
 	importGame                       *connect.Client[xylona.ImportGameRequest, xylona.ImportGameResponse]
 	exportGame                       *connect.Client[xylona.ExportGameRequest, xylona.ExportGameResponse]
 	listGames                        *connect.Client[xylona.ListGamesRequest, xylona.ListGamesResponse]
+	searchSteamApps                  *connect.Client[xylona.SearchSteamAppsRequest, xylona.SearchSteamAppsResponse]
+	getSteamAppDetails               *connect.Client[xylona.GetSteamAppDetailsRequest, xylona.GetSteamAppDetailsResponse]
 	login                            *connect.Client[xylona.LoginRequest, xylona.LoginResponse]
 	logout                           *connect.Client[xylona.LogoutRequest, xylona.LogoutResponse]
 	checkUserAuthenticated           *connect.Client[xylona.CheckUserAuthenticatedRequest, xylona.CheckUserAuthenticatedResponse]
@@ -944,6 +966,16 @@ func (c *xylonaClient) ExportGame(ctx context.Context, req *connect.Request[xylo
 // ListGames calls xylona.Xylona.ListGames.
 func (c *xylonaClient) ListGames(ctx context.Context, req *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
 	return c.listGames.CallUnary(ctx, req)
+}
+
+// SearchSteamApps calls xylona.Xylona.SearchSteamApps.
+func (c *xylonaClient) SearchSteamApps(ctx context.Context, req *connect.Request[xylona.SearchSteamAppsRequest]) (*connect.Response[xylona.SearchSteamAppsResponse], error) {
+	return c.searchSteamApps.CallUnary(ctx, req)
+}
+
+// GetSteamAppDetails calls xylona.Xylona.GetSteamAppDetails.
+func (c *xylonaClient) GetSteamAppDetails(ctx context.Context, req *connect.Request[xylona.GetSteamAppDetailsRequest]) (*connect.Response[xylona.GetSteamAppDetailsResponse], error) {
+	return c.getSteamAppDetails.CallUnary(ctx, req)
 }
 
 // Login calls xylona.Xylona.Login.
@@ -1321,6 +1353,9 @@ type XylonaHandler interface {
 	ImportGame(context.Context, *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error)
 	ExportGame(context.Context, *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error)
 	ListGames(context.Context, *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error)
+	// Steam App Lookup
+	SearchSteamApps(context.Context, *connect.Request[xylona.SearchSteamAppsRequest]) (*connect.Response[xylona.SearchSteamAppsResponse], error)
+	GetSteamAppDetails(context.Context, *connect.Request[xylona.GetSteamAppDetailsRequest]) (*connect.Response[xylona.GetSteamAppDetailsResponse], error)
 	// General
 	Login(context.Context, *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error)
 	Logout(context.Context, *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error)
@@ -1456,6 +1491,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaListGamesProcedure,
 		svc.ListGames,
 		connect.WithSchema(xylonaMethods.ByName("ListGames")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSearchSteamAppsHandler := connect.NewUnaryHandler(
+		XylonaSearchSteamAppsProcedure,
+		svc.SearchSteamApps,
+		connect.WithSchema(xylonaMethods.ByName("SearchSteamApps")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetSteamAppDetailsHandler := connect.NewUnaryHandler(
+		XylonaGetSteamAppDetailsProcedure,
+		svc.GetSteamAppDetails,
+		connect.WithSchema(xylonaMethods.ByName("GetSteamAppDetails")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaLoginHandler := connect.NewUnaryHandler(
@@ -1912,6 +1959,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaExportGameHandler.ServeHTTP(w, r)
 		case XylonaListGamesProcedure:
 			xylonaListGamesHandler.ServeHTTP(w, r)
+		case XylonaSearchSteamAppsProcedure:
+			xylonaSearchSteamAppsHandler.ServeHTTP(w, r)
+		case XylonaGetSteamAppDetailsProcedure:
+			xylonaGetSteamAppDetailsHandler.ServeHTTP(w, r)
 		case XylonaLoginProcedure:
 			xylonaLoginHandler.ServeHTTP(w, r)
 		case XylonaLogoutProcedure:
@@ -2093,6 +2144,14 @@ func (UnimplementedXylonaHandler) ExportGame(context.Context, *connect.Request[x
 
 func (UnimplementedXylonaHandler) ListGames(context.Context, *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListGames is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SearchSteamApps(context.Context, *connect.Request[xylona.SearchSteamAppsRequest]) (*connect.Response[xylona.SearchSteamAppsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SearchSteamApps is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetSteamAppDetails(context.Context, *connect.Request[xylona.GetSteamAppDetailsRequest]) (*connect.Response[xylona.GetSteamAppDetailsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSteamAppDetails is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) Login(context.Context, *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error) {

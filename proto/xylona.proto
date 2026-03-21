@@ -17,6 +17,10 @@ service Xylona {
   rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
   rpc ListGames (ListGamesRequest) returns (ListGamesResponse) {}
 
+  // Steam App Lookup
+  rpc SearchSteamApps (SearchSteamAppsRequest) returns (SearchSteamAppsResponse) {}
+  rpc GetSteamAppDetails (GetSteamAppDetailsRequest) returns (GetSteamAppDetailsResponse) {}
+
   // General
   rpc Login (LoginRequest) returns (LoginResponse) {}
   rpc Logout (LogoutRequest) returns (LogoutResponse) {}
@@ -823,4 +827,23 @@ message UpdateGameConfigSchemasRequest {
 message UpdateGameConfigSchemasResponse {
   bool success = 1;
   repeated string validation_errors = 2;
+}
+
+// Steam App Lookup Messages
+
+message SearchSteamAppsRequest {
+  string query = 1;
+}
+
+message SearchSteamAppsResponse {
+  repeated SteamApp apps = 1;
+}
+
+message GetSteamAppDetailsRequest {
+  string app_id = 1;
+}
+
+message GetSteamAppDetailsResponse {
+  SteamAppDetails details = 1;
+  bool details_available = 2;
 }
