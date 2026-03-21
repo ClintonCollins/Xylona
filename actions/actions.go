@@ -22,6 +22,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/placeholder"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
@@ -401,9 +402,10 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		return nil, errInsert
 	}
 
+	installVars := placeholder.BuildVarsFromGameServer(newGameServer)
 	preparedCommand := supervisor.PreparedCommand{
 		ID:                 newGameServer.ID,
-		FullCommandAndArgs: ParameterSubstitution(gameInstallCommand(game), newGameServer),
+		FullCommandAndArgs: placeholder.Resolve(gameInstallCommand(game), installVars),
 		WorkingDirectory:   gameServer.Directory,
 		User:               gameServer.UserID,
 		GameServerID:       &gameServer.ID,
@@ -443,21 +445,6 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	return newGameServer, nil
 }
 
-func ParameterSubstitution(str string, gameServer *models.GameServer) string {
-	str = strings.ReplaceAll(str, "%GAMESERVER_DIRECTORY%", gameServer.Directory)
-	str = strings.ReplaceAll(str, "%GAMESERVER_ID%", gameServer.ID)
-	str = strings.ReplaceAll(str, "%GAMESERVER_BACKUP_DIRECTORY%", gameServer.BackupDirectory)
-	str = strings.ReplaceAll(str, "%GAMESERVER_NAME%", gameServer.Name)
-	str = strings.ReplaceAll(str, "%GAMESERVER_IP%", gameServer.IP)
-	str = strings.ReplaceAll(str, "%GAMESERVER_PORT%", strconv.FormatInt(gameServer.Port, 10))
-	str = strings.ReplaceAll(str, "%GAMESERVER_QUERY_PORT%", strconv.FormatInt(gameServer.QueryPort, 10))
-	str = strings.ReplaceAll(str, "%GAMESERVER_MAX_MEMORY_MB%", fmt.Sprintf("%d", gameServer.MaxMemoryMB))
-	str = strings.ReplaceAll(str, "%GAMESERVER_MAX_PLAYERS%", fmt.Sprintf("%d", gameServer.MaxPlayers))
-	str = strings.ReplaceAll(str, "%GAMESERVER_SET_PLAYERS%", fmt.Sprintf("%d", gameServer.SetPlayers))
-
-	return str
-}
-
 func postInstallStep(gameServer *models.GameServer) error {
 	switch gameServer.GameID {
 	case "minecraft":
@@ -474,7 +461,8 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 	// Run pre-start config enforcement before launching the process.
 	inst.runConfigPreStart(gameServer)
 
-	startCmd := ParameterSubstitution(gameServer.StartCommand, gameServer)
+	startVars := placeholder.BuildVarsFromGameServer(gameServer)
+	startCmd := placeholder.Resolve(gameServer.StartCommand, startVars)
 	preparedCommand := supervisor.PreparedCommand{
 		ID:                 gameServer.ID,
 		FullCommandAndArgs: startCmd,
@@ -549,7 +537,7 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) {
 
 	preparedCommand := supervisor.PreparedCommand{
 		ID:                 gameServer.ID,
-		FullCommandAndArgs: ParameterSubstitution(updateCmd, gameServer),
+		FullCommandAndArgs: placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
 		WorkingDirectory:   gameServer.Directory,
 		User:               gameServer.UserID,
 		GameServerID:       &gameServer.ID,
