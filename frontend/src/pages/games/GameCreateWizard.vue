@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import SteamAppSearch from '@/components/games/SteamAppSearch.vue'
@@ -10,7 +9,6 @@ import { GetSteamAppDetailsRequestSchema } from '@/proto/xylona_pb'
 import type { SteamAppDetails } from '@/proto/shared_pb'
 
 const router = useRouter()
-const $q = useQuasar()
 
 // Wizard state
 type WizardStep = 'select' | 'search' | 'preview'
@@ -209,7 +207,7 @@ function platformText(): string {
           <p class="wizard-subtitle">Find your game server on Steam to auto-fill configuration.</p>
 
           <div class="search-wrapper">
-            <SteamAppSearch @select="onAppSelected" />
+            <steam-app-search @select="onAppSelected" />
           </div>
         </div>
 

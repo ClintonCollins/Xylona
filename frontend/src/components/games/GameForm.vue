@@ -88,21 +88,21 @@
             v-show="game.windowsSupport"
             class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.windowsStartCommand"
                 label="Windows Start Command"
                 placeholder="e.g: java -jar minecraft_server.jar"
                 command-only />
             </div>
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.windowsStopCommand"
                 label="Windows Stop Command"
                 placeholder="e.g: /stop"
                 command-only />
             </div>
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.windowsInstallCommand"
                 label="Windows Install Command"
                 placeholder="e.g: steamcmd +login anonymous +app_update 294420 +quit"
@@ -120,7 +120,7 @@
               :options="windowsCommandProcessorOptions">
             </q-select>
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.windowsUpdateCommand"
                 label="Windows Update Command"
                 placeholder="e.g: steamcmd +login anonymous +app_update 294420 +quit"
@@ -138,7 +138,7 @@
               :options="windowsCommandProcessorOptions">
             </q-select>
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.windowsWorkingDirectory"
                 label="Windows Working Directory"
                 placeholder="e.g: ./server"
@@ -154,21 +154,21 @@
             v-show="game.linuxSupport"
             class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.linuxStartCommand"
                 label="Linux Start Command"
                 placeholder="e.g: java -jar minecraft_server.jar"
                 command-only />
             </div>
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.linuxStopCommand"
                 label="Linux Stop Command"
                 placeholder="e.g: /stop"
                 command-only />
             </div>
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.linuxInstallCommand"
                 label="Linux Install Command"
                 placeholder="e.g: steamcmd +login anonymous +app_update 294420 +quit"
@@ -186,7 +186,7 @@
               :options="linuxCommandProcessorOptions">
             </q-select>
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.linuxUpdateCommand"
                 label="Linux Update Command"
                 placeholder="e.g: steamcmd +login anonymous +app_update 294420 +quit"
@@ -204,7 +204,7 @@
               :options="linuxCommandProcessorOptions">
             </q-select>
             <div class="col-12 col-xl-6">
-              <PlaceholderInput
+              <placeholder-input
                 v-model="game.linuxWorkingDirectory"
                 label="Linux Working Directory"
                 placeholder="e.g: ./server"
