@@ -7,9 +7,21 @@
           size="sm"
           class="text-xy-muted expand-icon" />
         <span class="field-card-key font-mono">{{ field.key || '(unnamed)' }}</span>
-        <q-badge v-if="field.type" outline color="primary" :label="field.type" class="field-type-badge" />
-        <q-badge v-if="field.managed" outline color="accent" label="Managed" class="field-managed-badge" />
-        <span v-if="field.title && field.title !== field.key" class="field-card-label text-xy-secondary">
+        <q-badge
+          v-if="field.type"
+          outline
+          color="primary"
+          :label="field.type"
+          class="field-type-badge" />
+        <q-badge
+          v-if="field.managed"
+          outline
+          color="accent"
+          label="Managed"
+          class="field-managed-badge" />
+        <span
+          v-if="field.title && field.title !== field.key"
+          class="field-card-label text-xy-secondary">
           {{ field.title }}
         </span>
       </div>
@@ -162,6 +174,7 @@
 
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
+import { managedSourceOptions } from '@/components/shared/placeholder-definitions'
 
 export interface SchemaFieldModel {
   key: string
@@ -204,15 +217,6 @@ const typeOptions = [
   { label: 'Integer', value: 'integer' },
   { label: 'Number', value: 'number' },
   { label: 'Boolean', value: 'boolean' },
-]
-
-const managedSourceOptions = [
-  { label: 'Server Port', value: 'server_port' },
-  { label: 'Query Port', value: 'query_port' },
-  { label: 'Max Players', value: 'max_players' },
-  { label: 'Server Name', value: 'server_name' },
-  { label: 'RCON Port', value: 'rcon_port' },
-  { label: 'RCON Password', value: 'rcon_password' },
 ]
 
 function handleTypeChange() {

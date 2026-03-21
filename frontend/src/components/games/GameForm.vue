@@ -1,8 +1,14 @@
 <template>
   <q-card class="full-width">
     <q-card-section>
-      <div class="row">
+      <div class="row items-center justify-between">
         <div class="text-h6">{{ formTitle }}</div>
+        <router-link
+          v-if="!existingGame && !copyGame"
+          to="/games/new"
+          class="text-caption guided-setup-link">
+          Use guided setup
+        </router-link>
       </div>
     </q-card-section>
     <q-card-section>
@@ -81,28 +87,27 @@
           <div
             v-show="game.windowsSupport"
             class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-            <q-input
-              v-model="game.windowsStartCommand"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Windows Start Command"
-              hint="Command to start the server on Windows. e.g: java -jar minecraft_server.jar"></q-input>
-            <q-input
-              v-model="game.windowsStopCommand"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Windows Stop Command"
-              hint="Command to stop the server on Windows. This is sent as server input. e.g: /stop"></q-input>
-            <q-input
-              v-model="game.windowsInstallCommand"
-              :disable="game.windowsInstallCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Windows Install Command"
-              hint="Command to install the server on Windows. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></q-input>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.windowsStartCommand"
+                label="Windows Start Command"
+                placeholder="e.g: java -jar minecraft_server.jar"
+                command-only />
+            </div>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.windowsStopCommand"
+                label="Windows Stop Command"
+                placeholder="e.g: /stop"
+                command-only />
+            </div>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.windowsInstallCommand"
+                label="Windows Install Command"
+                placeholder="e.g: steamcmd +login anonymous +app_update 294420 +quit"
+                command-only />
+            </div>
             <q-select
               v-model="game.windowsInstallCommandProcessor"
               class="col-12 col-xl-6"
@@ -114,14 +119,13 @@
               hint="Direct sends the command directly. Powershell wraps the call in powershell. Internal is a special command that Xylona handles."
               :options="windowsCommandProcessorOptions">
             </q-select>
-            <q-input
-              v-model="game.windowsUpdateCommand"
-              :disable="game.windowsUpdateCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Windows Update Command"
-              hint="Command to update the server on Windows. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></q-input>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.windowsUpdateCommand"
+                label="Windows Update Command"
+                placeholder="e.g: steamcmd +login anonymous +app_update 294420 +quit"
+                command-only />
+            </div>
             <q-select
               v-model="game.windowsUpdateCommandProcessor"
               class="col-12 col-xl-6"
@@ -133,13 +137,13 @@
               emit-value
               :options="windowsCommandProcessorOptions">
             </q-select>
-            <q-input
-              v-model="game.windowsWorkingDirectory"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Windows Working Directory"
-              hint="Where should the start command be run from. e.g: ./server"></q-input>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.windowsWorkingDirectory"
+                label="Windows Working Directory"
+                placeholder="e.g: ./server"
+                command-only />
+            </div>
           </div>
 
           <q-space v-show="game.windowsSupport && game.linuxSupport"></q-space>
@@ -149,28 +153,27 @@
           <div
             v-show="game.linuxSupport"
             class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-            <q-input
-              v-model="game.linuxStartCommand"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Linux Start Command"
-              hint="Command to start the server on Linux. e.g: java -jar minecraft_server.jar"></q-input>
-            <q-input
-              v-model="game.linuxStopCommand"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Linux Stop Command"
-              hint="Command to stop the server on Linux. This is sent as server input. e.g: /stop"></q-input>
-            <q-input
-              v-model="game.linuxInstallCommand"
-              :disable="game.linuxInstallCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Linux Install Command"
-              hint="Command to install the server on Linux. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></q-input>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.linuxStartCommand"
+                label="Linux Start Command"
+                placeholder="e.g: java -jar minecraft_server.jar"
+                command-only />
+            </div>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.linuxStopCommand"
+                label="Linux Stop Command"
+                placeholder="e.g: /stop"
+                command-only />
+            </div>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.linuxInstallCommand"
+                label="Linux Install Command"
+                placeholder="e.g: steamcmd +login anonymous +app_update 294420 +quit"
+                command-only />
+            </div>
             <q-select
               v-model="game.linuxInstallCommandProcessor"
               class="col-12 col-xl-6"
@@ -182,14 +185,13 @@
               emit-value
               :options="linuxCommandProcessorOptions">
             </q-select>
-            <q-input
-              v-model="game.linuxUpdateCommand"
-              :disable="game.linuxUpdateCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Linux Update Command"
-              hint="Command to update the server on Linux. e.g: steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></q-input>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.linuxUpdateCommand"
+                label="Linux Update Command"
+                placeholder="e.g: steamcmd +login anonymous +app_update 294420 +quit"
+                command-only />
+            </div>
             <q-select
               v-model="game.linuxUpdateCommandProcessor"
               class="col-12 col-xl-6"
@@ -201,23 +203,21 @@
               emit-value
               :options="linuxCommandProcessorOptions">
             </q-select>
-            <q-input
-              v-model="game.linuxWorkingDirectory"
-              class="col-12 col-xl-6"
-              outlined
-              type="text"
-              label="Linux Working Directory"
-              hint="Where should the start command be run from. e.g: ./server"></q-input>
+            <div class="col-12 col-xl-6">
+              <PlaceholderInput
+                v-model="game.linuxWorkingDirectory"
+                label="Linux Working Directory"
+                placeholder="e.g: ./server"
+                command-only />
+            </div>
           </div>
         </div>
 
-          <q-space></q-space>
-          <q-separator></q-separator>
-          <q-space></q-space>
+        <q-space></q-space>
+        <q-separator></q-separator>
+        <q-space></q-space>
 
-          <config-schema-list
-            v-model="configSchemas"
-            @edit-schema="navigateToSchemaEditor" />
+        <config-schema-list v-model="configSchemas" @edit-schema="navigateToSchemaEditor" />
       </q-form>
     </q-card-section>
     <q-separator></q-separator>
@@ -248,6 +248,7 @@ import { useRouter } from 'vue-router'
 import { CommandProcessor, Game } from '@/proto/shared_pb'
 import ConfigSchemaList from './ConfigSchemaList.vue'
 import type { ConfigSchemaEntry } from './ConfigSchemaList.vue'
+import PlaceholderInput from '@/components/shared/PlaceholderInput.vue'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -328,6 +329,32 @@ onMounted(async () => {
   }
   if (existingGame.value || copyGame.value) {
     await getGameDetailsFromID()
+  }
+
+  // Check for wizard pre-fill state (only for new game creation, not edit/copy)
+  if (!props.existingGameId && !props.copyGameId) {
+    const wizardState = history.state?.wizardState
+    if (wizardState) {
+      game.value.name = wizardState.name || ''
+      game.value.id = wizardState.slug || ''
+      game.value.steamAppid = wizardState.steamAppId || ''
+      game.value.usesSteamcmd = wizardState.usesSteamcmd ?? false
+      game.value.windowsSupport = wizardState.windowsSupport ?? false
+      game.value.linuxSupport = wizardState.linuxSupport ?? false
+      // Pre-fill commands if available
+      if (wizardState.installCommand) {
+        if (game.value.linuxSupport) game.value.linuxInstallCommand = wizardState.installCommand
+        if (game.value.windowsSupport) game.value.windowsInstallCommand = wizardState.installCommand
+      }
+      if (wizardState.updateCommand) {
+        if (game.value.linuxSupport) game.value.linuxUpdateCommand = wizardState.updateCommand
+        if (game.value.windowsSupport) game.value.windowsUpdateCommand = wizardState.updateCommand
+      }
+      if (wizardState.startCommand) {
+        if (game.value.linuxSupport) game.value.linuxStartCommand = wizardState.startCommand
+        if (game.value.windowsSupport) game.value.windowsStartCommand = wizardState.startCommand
+      }
+    }
   }
 })
 
@@ -422,4 +449,15 @@ async function updateExistingGame() {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.guided-setup-link {
+  color: var(--xy-accent);
+  text-decoration: none;
+  transition: opacity var(--xy-transition-fast);
+}
+
+.guided-setup-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+</style>

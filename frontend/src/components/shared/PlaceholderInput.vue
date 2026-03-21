@@ -51,9 +51,10 @@
                   <q-icon name="mdi-plus-circle-outline" size="16px" color="accent" />
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label class="font-mono" style="font-size: 0.8rem">
-                    {{ '{{' + ph.key + '}}' }}
-                  </q-item-label>
+                  <q-item-label
+                    class="font-mono"
+                    style="font-size: 0.8rem"
+                    v-text="formatPlaceholder(ph.key)" />
                   <q-item-label caption style="font-size: 0.7rem">
                     {{ ph.description }}
                   </q-item-label>
@@ -130,6 +131,10 @@ const filteredPlaceholders = computed<PlaceholderDefinition[]>(() => {
 })
 
 // -- Chip HTML generation --
+
+function formatPlaceholder(key: string): string {
+  return `\u007B\u007B${key}\u007D\u007D`
+}
 
 const PLACEHOLDER_REGEX = /\{\{([A-Z_]+)\}\}/g
 
