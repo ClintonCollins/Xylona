@@ -10,6 +10,7 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/steamcache"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
@@ -30,6 +31,7 @@ type XylonaService struct {
 	secureCookie     *securecookie.SecureCookie
 	secureCookies    bool
 	syncEngine       SyncEngine
+	steamCache       *steamcache.Cache
 	listCache        *remoteServerListCache
 	allPermissionIDs []string
 }
@@ -42,6 +44,7 @@ func NewXylonaService(
 	secureCookie *securecookie.SecureCookie,
 	federationMTLS *helpers.FederationMTLS,
 	secureCookies bool,
+	steamCache *steamcache.Cache,
 ) *XylonaService {
 	allPerms, errPerms := db.GetAllPermissions()
 	if errPerms != nil {
@@ -60,6 +63,7 @@ func NewXylonaService(
 		secureCookie:     secureCookie,
 		secureCookies:    secureCookies,
 		supervisorInst:   supervisorInst,
+		steamCache:       steamCache,
 		listCache:        newRemoteServerListCache(remoteServerListCacheTTL),
 		allPermissionIDs: permIDs,
 	}

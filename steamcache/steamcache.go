@@ -139,6 +139,19 @@ func (c *Cache) Search(query string) []SteamApp {
 	return results
 }
 
+// FindByID returns the cached SteamApp with the given appID, or nil if not found.
+func (c *Cache) FindByID(appID string) *SteamApp {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	for _, app := range c.apps {
+		if app.AppID == appID {
+			return &app
+		}
+	}
+	return nil
+}
+
 // FetchDetails retrieves detailed information about a Steam app from the
 // steamcmd.net API.
 func (c *Cache) FetchDetails(ctx context.Context, appID string) (*SteamAppDetails, error) {
