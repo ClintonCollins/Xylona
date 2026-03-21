@@ -5,6 +5,7 @@ export interface ImportedField {
   type: 'string' | 'integer' | 'number' | 'boolean'
   title: string
   allowMultiple: boolean
+  group: string
 }
 
 /** Result returned by a single parser adapter. */

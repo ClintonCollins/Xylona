@@ -119,3 +119,22 @@ func TestValidate_DuplicatePaths(t *testing.T) {
 		t.Error("expected error for duplicate paths")
 	}
 }
+
+func TestValidateConfigSchemas_AcceptsXGroup(t *testing.T) {
+	schemasJSON := `[{
+		"path": "server.properties",
+		"format": "properties",
+		"category": "Core",
+		"schema": {
+			"type": "object",
+			"properties": {
+				"port": {"type": "integer", "x-group": "network"},
+				"motd": {"type": "string", "x-group": "gameplay"}
+			}
+		}
+	}]`
+	errs := ValidateConfigSchemas(schemasJSON)
+	if len(errs) > 0 {
+		t.Errorf("expected no validation errors, got: %v", errs)
+	}
+}

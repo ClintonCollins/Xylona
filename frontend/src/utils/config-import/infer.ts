@@ -54,6 +54,28 @@ export function coerceValue(value: unknown, type: FieldType): unknown {
 }
 
 /**
+ * Convert a group name to a display-friendly Title Case label.
+ * Unlike keyToTitle, this processes ALL segments of a dot-path.
+ * e.g., "server.network" -> "Server Network"
+ */
+export function groupToTitle(group: string): string {
+  if (!group) return ''
+
+  return group
+    .split('.')
+    .map((segment) =>
+      segment
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/[-_]+/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' '),
+    )
+    .join(' ')
+}
+
+/**
  * Convert a dot-path config key to a human-readable Title Case label.
  * Uses the last segment and splits on kebab-case, snake_case, or camelCase.
  */

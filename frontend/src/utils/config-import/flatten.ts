@@ -2,6 +2,7 @@ export interface FlatEntry {
   key: string
   value: unknown
   allowMultiple?: boolean
+  group?: string
 }
 
 /**
@@ -19,12 +20,12 @@ export function flattenObject(obj: Record<string, unknown>, prefix = ''): FlatEn
     const key = prefix ? `${prefix}.${rawKey}` : rawKey
 
     if (value === null || value === undefined) {
-      entries.push({ key, value })
+      entries.push({ key, value, group: prefix || '' })
       continue
     }
 
     if (Array.isArray(value)) {
-      entries.push(...flattenArray(key, value))
+      entries.push(...flattenArray(key, value, prefix))
       continue
     }
 
@@ -33,13 +34,13 @@ export function flattenObject(obj: Record<string, unknown>, prefix = ''): FlatEn
       continue
     }
 
-    entries.push({ key, value })
+    entries.push({ key, value, group: prefix || '' })
   }
 
   return entries
 }
 
-function flattenArray(key: string, arr: unknown[]): FlatEntry[] {
+function flattenArray(key: string, arr: unknown[], parentPrefix: string): FlatEntry[] {
   if (arr.length === 0) return []
 
   // Check if all elements are the same primitive type
@@ -49,7 +50,7 @@ function flattenArray(key: string, arr: unknown[]): FlatEntry[] {
     arr.every((el) => el !== null && typeof el !== 'object')
 
   if (allSamePrimitive) {
-    return [{ key, value: arr[0], allowMultiple: true }]
+    return [{ key, value: arr[0], allowMultiple: true, group: parentPrefix || '' }]
   }
 
   // Mixed or object arrays: flatten with numeric indices
@@ -61,7 +62,7 @@ function flattenArray(key: string, arr: unknown[]): FlatEntry[] {
     if (el !== null && typeof el === 'object' && !Array.isArray(el)) {
       entries.push(...flattenObject(el as Record<string, unknown>, indexKey))
     } else {
-      entries.push({ key: indexKey, value: el })
+      entries.push({ key: indexKey, value: el, group: key })
     }
   }
   return entries

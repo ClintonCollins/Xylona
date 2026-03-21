@@ -7,7 +7,7 @@
       expand-icon-class="text-xy-muted">
       <template #header>
         <q-item-section avatar>
-          <q-icon name="code" color="warning" size="sm" />
+          <q-icon name="code" color="warning" size="sm" aria-hidden="true" />
         </q-item-section>
         <q-item-section>
           <q-item-label class="advanced-title font-display"> Advanced Fields </q-item-label>
@@ -20,7 +20,7 @@
       <div class="advanced-content">
         <q-banner dense class="advanced-banner q-mb-sm">
           <template #avatar>
-            <q-icon name="info" color="warning" size="xs" />
+            <q-icon name="info" color="warning" size="xs" aria-hidden="true" />
           </template>
           These fields exist in the config file but aren't defined in the schema. They will be
           preserved when saving.
@@ -34,6 +34,7 @@
             <div class="advanced-field-row">
               <q-input
                 v-model="field.key"
+                :aria-label="`Field key: ${field.key}`"
                 dense
                 outlined
                 readonly
@@ -43,6 +44,7 @@
               <span class="advanced-equals text-xy-muted">=</span>
               <q-input
                 v-model="field.value"
+                :aria-label="`Value for ${field.key}`"
                 dense
                 outlined
                 class="advanced-value"
@@ -139,8 +141,8 @@ function emitUpdate() {
 }
 
 .advanced-section {
-  font-size: 0.7rem;
-  padding: var(--xy-space-xs) 0 2px;
+  font-size: 0.75rem;
+  padding: var(--xy-space-xs) 0;
 }
 
 .advanced-field-row {

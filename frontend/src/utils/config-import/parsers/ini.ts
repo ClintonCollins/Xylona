@@ -20,6 +20,7 @@ export const iniParser: ParserAdapter = {
               type,
               title: keyToTitle(fullKey),
               allowMultiple: false,
+              group: key,
             })
           }
         } else {
@@ -30,6 +31,7 @@ export const iniParser: ParserAdapter = {
             type,
             title: keyToTitle(key),
             allowMultiple: false,
+            group: '',
           })
         }
       }

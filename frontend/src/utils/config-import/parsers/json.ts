@@ -19,6 +19,7 @@ export const jsonParser: ParserAdapter = {
           type,
           title: keyToTitle(entry.key),
           allowMultiple: entry.allowMultiple ?? false,
+          group: entry.group ?? '',
         }
       })
       return { fields, errors: [] }

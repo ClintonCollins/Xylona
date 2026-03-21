@@ -32,6 +32,7 @@
         <!-- File editor -->
         <config-file-editor
           v-else
+          ref="editorRef"
           :file-path="selectedFilePath"
           :format="selectedFileFormat"
           :category="selectedFileCategory"
@@ -51,8 +52,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
@@ -73,10 +74,50 @@ import type {
 } from '@/proto/xylona_pb'
 import ConfigFileSidebar from '@/components/game_servers/ConfigFileSidebar.vue'
 import ConfigFileEditor from '@/components/game_servers/ConfigFileEditor.vue'
+import {
+  CATEGORY_COLORS,
+  buildCategoryColorMap,
+} from '@/components/game_servers/config-field-helpers'
 
 const $q = useQuasar()
 const route = useRoute()
 const gameServerId = route.params.id as string
+
+const editorRef = ref<InstanceType<typeof ConfigFileEditor> | null>(null)
+
+const editorHasChanges = computed(() => editorRef.value?.hasChanges ?? false)
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (editorHasChanges.value) {
+    e.preventDefault()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', onBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
+})
+
+onBeforeRouteLeave(() => {
+  if (!editorHasChanges.value) {
+    return true
+  }
+  return new Promise<boolean>((resolve) => {
+    $q.dialog({
+      title: 'Unsaved Changes',
+      message: 'You have unsaved changes. Are you sure you want to leave?',
+      cancel: { flat: true, label: 'Stay' },
+      ok: { color: 'negative', label: 'Discard Changes' },
+      persistent: true,
+    })
+      .onOk(() => resolve(true))
+      .onCancel(() => resolve(false))
+      .onDismiss(() => resolve(false))
+  })
+})
 
 const loading = ref(true)
 const saving = ref(false)
@@ -89,25 +130,7 @@ const fileAdvancedFields = ref<AdvancedField[]>([])
 const validationErrors = ref<ConfigValidationError[]>([])
 const pendingAdvancedUpdates = ref<AdvancedField[]>([])
 
-const CATEGORY_COLORS = [
-  '#3B82F6',
-  '#22C55E',
-  '#F59E0B',
-  '#8B5CF6',
-  '#EF4444',
-  '#06B6D4',
-  '#EC4899',
-  '#F97316',
-]
-
-const categoryColorMap = computed(() => {
-  const map = new Map<string, string>()
-  const categories = [...new Set(configFiles.value.map((f) => f.category || 'Uncategorized'))]
-  categories.forEach((cat, i) => {
-    map.set(cat, CATEGORY_COLORS[i % CATEGORY_COLORS.length])
-  })
-  return map
-})
+const categoryColorMap = computed(() => buildCategoryColorMap(configFiles.value))
 
 const selectedFile = computed(() =>
   configFiles.value.find((f) => f.path === selectedFilePath.value),
@@ -148,6 +171,23 @@ async function loadConfigFiles() {
 }
 
 async function handleFileSelect(path: string, isMissing: boolean) {
+  // Guard against switching files with unsaved changes
+  if (editorHasChanges.value && path !== selectedFilePath.value) {
+    const confirmed = await new Promise<boolean>((resolve) => {
+      $q.dialog({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Discard them and switch files?',
+        cancel: { flat: true, label: 'Stay' },
+        ok: { color: 'negative', label: 'Discard Changes' },
+        persistent: true,
+      })
+        .onOk(() => resolve(true))
+        .onCancel(() => resolve(false))
+        .onDismiss(() => resolve(false))
+    })
+    if (!confirmed) return
+  }
+
   selectedFilePath.value = path
   selectedFileIsMissing.value = isMissing
   validationErrors.value = []
@@ -163,10 +203,8 @@ async function handleFileSelect(path: string, isMissing: boolean) {
       filePath: path,
     })
     const response = await GetXylonaClient().getGameServerConfigFile(request)
-    fileFields.value = [...response.fields].sort((a, b) => a.key.localeCompare(b.key))
-    fileAdvancedFields.value = [...response.advancedFields].sort((a, b) =>
-      a.key.localeCompare(b.key),
-    )
+    fileFields.value = [...response.fields]
+    fileAdvancedFields.value = [...response.advancedFields]
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
     $q.notify({
@@ -305,7 +343,9 @@ function handleUpdateAdvanced(fields: AdvancedField[]) {
 .config-editor-panel {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .config-placeholder {
@@ -315,5 +355,15 @@ function handleUpdateAdvanced(fields: AdvancedField[]) {
   justify-content: center;
   height: 300px;
   font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .config-layout {
+    flex-direction: column;
+  }
+
+  .config-placeholder {
+    height: 200px;
+  }
 }
 </style>

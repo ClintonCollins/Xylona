@@ -175,3 +175,29 @@ describe('propertiesParser', () => {
     })
   })
 })
+
+describe('parser group inference', () => {
+  it('JSON parser infers group from dot-path prefix', () => {
+    const result = jsonParser.parse('{"server": {"network": {"port": 25565}}}')
+    expect(result.fields[0]).toMatchObject({ key: 'server.network.port', group: 'server.network' })
+  })
+
+  it('INI parser infers group from section name', () => {
+    const content = '[network]\nport=25565\n'
+    const result = iniParser.parse(content)
+    expect(result.fields[0]).toMatchObject({ key: 'network.port', group: 'network' })
+  })
+
+  it('Properties parser has no group for flat keys', () => {
+    const content = 'port=25565\nmotd=Hello\n'
+    const result = propertiesParser.parse(content)
+    expect(result.fields[0]).toMatchObject({ key: 'port', group: '' })
+    expect(result.fields[1]).toMatchObject({ key: 'motd', group: '' })
+  })
+
+  it('YAML parser infers group from nesting', () => {
+    const content = 'gameplay:\n  difficulty: hard\n'
+    const result = yamlParser.parse(content)
+    expect(result.fields[0]).toMatchObject({ key: 'gameplay.difficulty', group: 'gameplay' })
+  })
+})

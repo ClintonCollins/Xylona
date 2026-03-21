@@ -65,6 +65,7 @@ function tryAttributeMode(root: Element): ParserAdapterResult | null {
       type,
       title: keyToTitle(key),
       allowMultiple: false,
+      group: '',
     })
   }
 
@@ -99,6 +100,7 @@ function parseElementMode(element: Element, prefix: string): ImportedField[] {
         type,
         title: keyToTitle(key),
         allowMultiple: false,
+        group: prefix,
       })
     }
   }

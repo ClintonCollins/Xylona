@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coerceValue, inferType, keyToTitle } from './infer'
+import { coerceValue, groupToTitle, inferType, keyToTitle } from './infer'
 
 describe('inferType', () => {
   it('detects native booleans', () => {
@@ -103,5 +103,31 @@ describe('keyToTitle', () => {
 
   it('handles empty string', () => {
     expect(keyToTitle('')).toBe('')
+  })
+})
+
+describe('groupToTitle', () => {
+  it('capitalizes all segments of a dot-path', () => {
+    expect(groupToTitle('server.network')).toBe('Server Network')
+  })
+
+  it('converts kebab-case segments', () => {
+    expect(groupToTitle('world-gen')).toBe('World Gen')
+  })
+
+  it('converts snake_case segments', () => {
+    expect(groupToTitle('game_settings')).toBe('Game Settings')
+  })
+
+  it('handles single word', () => {
+    expect(groupToTitle('network')).toBe('Network')
+  })
+
+  it('handles empty string', () => {
+    expect(groupToTitle('')).toBe('')
+  })
+
+  it('handles camelCase segments', () => {
+    expect(groupToTitle('serverNetwork')).toBe('Server Network')
   })
 })

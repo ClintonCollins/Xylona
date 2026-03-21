@@ -30,6 +30,17 @@
     <div v-if="mode === 'form'" class="form-builder">
       <div class="form-builder-toolbar">
         <div class="toolbar-left">
+          <q-checkbox
+            v-if="fields.length > 0"
+            :model-value="visibleFields.length > 0 && selectedFields.length >= visibleFields.length"
+            :indeterminate-value="true"
+            :model-value-indeterminate="selectedFields.length > 0 && selectedFields.length < visibleFields.length"
+            dense
+            size="sm"
+            class="select-all-checkbox"
+            @update:model-value="toggleSelectAll">
+            <q-tooltip>{{ selectedFields.length >= visibleFields.length ? 'Deselect all' : 'Select all' }}</q-tooltip>
+          </q-checkbox>
           <span class="text-xy-secondary field-count">
             {{ fields.length }} field{{ fields.length !== 1 ? 's' : '' }}
           </span>
@@ -68,6 +79,92 @@
         </div>
       </div>
 
+      <!-- Search and filters -->
+      <div v-if="fields.length > 0" class="schema-search">
+        <q-input
+          v-model="searchQuery"
+          dense
+          outlined
+          placeholder="Search fields..."
+          class="schema-search-input"
+          clearable
+          @clear="searchQuery = ''">
+          <template #prepend>
+            <q-icon name="search" size="xs" class="text-xy-muted" />
+          </template>
+        </q-input>
+        <q-btn-toggle
+          v-model="managedFilter"
+          flat
+          dense
+          no-caps
+          toggle-color="accent"
+          size="xs"
+          :options="[
+            { label: 'All', value: 'all' },
+            { label: 'Managed', value: 'managed' },
+            { label: 'Unmanaged', value: 'unmanaged' },
+          ]"
+          class="schema-filter-toggle" />
+        <q-btn-toggle
+          v-model="requiredFilter"
+          flat
+          dense
+          no-caps
+          toggle-color="accent"
+          size="xs"
+          :options="[
+            { label: 'All', value: 'all' },
+            { label: 'Required', value: 'required' },
+            { label: 'Optional', value: 'optional' },
+          ]"
+          class="schema-filter-toggle" />
+        <span v-if="hasActiveFilters" class="text-xy-muted schema-search-count">
+          {{ filteredFields.length }} / {{ fields.length }}
+        </span>
+      </div>
+
+      <!-- Selection toolbar -->
+      <div v-if="selectedFields.length > 0" class="selection-toolbar">
+        <span class="text-xy-secondary selection-count">
+          {{ selectedFields.length }} selected
+        </span>
+        <q-input
+          v-model="bulkGroupName"
+          dense
+          outlined
+          placeholder="Group name..."
+          class="bulk-group-input"
+          @keyup.enter="applyBulkGroup">
+          <template #append>
+            <q-btn
+              flat
+              dense
+              round
+              icon="check"
+              size="xs"
+              color="primary"
+              :disable="!bulkGroupName.trim()"
+              @click="applyBulkGroup">
+              <q-tooltip>Apply group</q-tooltip>
+            </q-btn>
+          </template>
+          <q-menu v-if="bulkGroupSuggestions.length > 0" fit no-parent-event :model-value="bulkGroupSuggestions.length > 0">
+            <q-list dense>
+              <q-item
+                v-for="g in bulkGroupSuggestions"
+                :key="g"
+                clickable
+                @click="bulkGroupName = g; applyBulkGroup()">
+                <q-item-section>{{ g }}</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-input>
+        <q-btn flat dense size="xs" label="Clear group" class="text-xy-muted" @click="clearBulkGroup" />
+        <q-btn flat dense size="xs" label="Deselect all" class="text-xy-muted" @click="selectedFields = []" />
+      </div>
+
       <div v-if="fields.length === 0" class="form-builder-empty">
         <q-icon name="playlist_add" size="48px" class="text-xy-muted q-mb-md" />
         <div class="text-xy-secondary">No fields defined yet</div>
@@ -77,13 +174,37 @@
       </div>
 
       <div v-else class="form-builder-fields">
-        <config-schema-field-card
-          v-for="(field, index) in fields"
-          :key="index"
-          :model-value="field"
-          :force-expanded="forceExpanded"
-          @update:model-value="updateField(index, $event)"
-          @remove="removeField(index)" />
+        <template v-for="group in displayGroups" :key="group.name">
+          <div v-if="group.fields.length > 0" class="schema-field-group">
+            <div
+              class="schema-group-header"
+              @click="toggleGroupExpand(group.name)">
+              <q-icon
+                :name="isGroupExpanded(group.name) ? 'expand_more' : 'chevron_right'"
+                size="xs"
+                class="text-xy-muted" />
+              <span class="schema-group-title">{{ group.displayName }}</span>
+              <span class="schema-group-count text-xy-muted">{{ group.fields.length }}</span>
+            </div>
+            <div v-show="isGroupExpanded(group.name)" class="schema-group-content">
+              <div v-for="(field, index) in group.fields" :key="field.key || index" class="field-select-row">
+                <q-checkbox
+                  :model-value="isFieldSelected(field)"
+                  dense
+                  size="sm"
+                  class="field-select-checkbox"
+                  @update:model-value="toggleFieldSelection(field)" />
+                <config-schema-field-card
+                  :model-value="field"
+                  :force-expanded="forceExpanded"
+                  :available-groups="availableGroups"
+                  class="field-select-card"
+                  @update:model-value="updateFieldByRef(field, $event)"
+                  @remove="removeFieldByRef(field)" />
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Import Fields Dialog — teleports to body at runtime -->
@@ -120,12 +241,13 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
 import type { SchemaFieldModel } from './ConfigSchemaFieldCard.vue'
 import ConfigImportInput from './ConfigImportInput.vue'
 import type { ImportDetectionResult, ImportedField } from 'src/utils/config-import'
+import { groupFields } from '../game_servers/config-field-helpers'
 
 interface SchemaProperty {
   type?: string
@@ -138,6 +260,7 @@ interface SchemaProperty {
   maxLength?: number
   'x-managed'?: { source: string }
   'x-allow-multiple'?: boolean
+  'x-group'?: string
   [key: string]: unknown
 }
 
@@ -215,23 +338,22 @@ onUnmounted(() => {
 function schemaToFields(schema: JsonSchema): SchemaFieldModel[] {
   if (!schema?.properties) return []
   const requiredFields = new Set(schema.required || [])
-  return Object.entries(schema.properties)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, prop]) => ({
-      key,
-      title: prop.title || '',
-      type: prop.type || 'string',
-      description: prop.description || '',
-      defaultValue: prop.default !== undefined ? String(prop.default) : '',
-      required: requiredFields.has(key),
-      minimum: prop.minimum ?? null,
-      maximum: prop.maximum ?? null,
-      maxLength: prop.maxLength ?? null,
-      enumOptionsStr: prop.enum ? prop.enum.join(', ') : '',
-      managed: !!prop['x-managed'],
-      managedSource: prop['x-managed']?.source || '',
-      allowMultiple: !!prop['x-allow-multiple'],
-    }))
+  return Object.entries(schema.properties).map(([key, prop]) => ({
+    key,
+    title: prop.title || '',
+    type: prop.type || 'string',
+    description: prop.description || '',
+    defaultValue: prop.default !== undefined ? String(prop.default) : '',
+    required: requiredFields.has(key),
+    minimum: prop.minimum ?? null,
+    maximum: prop.maximum ?? null,
+    maxLength: prop.maxLength ?? null,
+    enumOptionsStr: prop.enum ? prop.enum.join(', ') : '',
+    managed: !!prop['x-managed'],
+    managedSource: prop['x-managed']?.source || '',
+    allowMultiple: !!prop['x-allow-multiple'],
+    group: prop['x-group'] || '',
+  }))
 }
 
 function fieldsToSchema(): JsonSchema {
@@ -271,6 +393,9 @@ function fieldsToSchema(): JsonSchema {
     if (field.allowMultiple) {
       prop['x-allow-multiple'] = true
     }
+    if (field.group) {
+      prop['x-group'] = field.group.toLowerCase()
+    }
     if (field.required) {
       required.push(field.key)
     }
@@ -300,15 +425,138 @@ function addField() {
     managed: false,
     managedSource: '',
     allowMultiple: false,
+    group: '',
   })
 }
 
-function updateField(index: number, field: SchemaFieldModel) {
-  fields.value[index] = field
+const availableGroups = computed(() => [
+  ...new Set(fields.value.map((f) => f.group).filter((g) => g)),
+])
+
+// Search / filter
+const searchQuery = ref('')
+const managedFilter = ref<'all' | 'managed' | 'unmanaged'>('all')
+const requiredFilter = ref<'all' | 'required' | 'optional'>('all')
+
+const hasActiveFilters = computed(
+  () => searchQuery.value.trim() || managedFilter.value !== 'all' || requiredFilter.value !== 'all',
+)
+
+const filteredFields = computed(() => {
+  let result = fields.value
+
+  if (searchQuery.value.trim()) {
+    const lower = searchQuery.value.toLowerCase()
+    result = result.filter(
+      (f) =>
+        f.key.toLowerCase().includes(lower) ||
+        f.title.toLowerCase().includes(lower) ||
+        f.group.toLowerCase().includes(lower),
+    )
+  }
+
+  if (managedFilter.value === 'managed') {
+    result = result.filter((f) => f.managed)
+  } else if (managedFilter.value === 'unmanaged') {
+    result = result.filter((f) => !f.managed)
+  }
+
+  if (requiredFilter.value === 'required') {
+    result = result.filter((f) => f.required)
+  } else if (requiredFilter.value === 'optional') {
+    result = result.filter((f) => !f.required)
+  }
+
+  return result
+})
+
+const visibleFields = computed(() => filteredFields.value)
+
+const displayGroups = computed(() => groupFields(filteredFields.value))
+
+// Group expand/collapse
+const expandedGroups = reactive(new Map<string, boolean>())
+
+function isGroupExpanded(name: string): boolean {
+  return expandedGroups.get(name) ?? true
 }
 
-function removeField(index: number) {
-  fields.value.splice(index, 1)
+function toggleGroupExpand(name: string) {
+  expandedGroups.set(name, !isGroupExpanded(name))
+}
+
+// Multi-select + bulk group assignment
+const selectedFields = ref<SchemaFieldModel[]>([])
+const bulkGroupName = ref('')
+
+const bulkGroupSuggestions = computed(() => {
+  if (!bulkGroupName.value) return availableGroups.value
+  const lower = bulkGroupName.value.toLowerCase()
+  return availableGroups.value.filter(
+    (g) => g.toLowerCase().includes(lower) && g.toLowerCase() !== bulkGroupName.value.toLowerCase(),
+  )
+})
+
+function toggleSelectAll() {
+  const visible = visibleFields.value
+  const allVisible = visible.every((f) => selectedFields.value.includes(f))
+  if (allVisible) {
+    // Deselect only visible fields
+    selectedFields.value = selectedFields.value.filter((f) => !visible.includes(f))
+  } else {
+    // Select all visible fields (keep any already-selected non-visible ones)
+    const existing = new Set(selectedFields.value)
+    for (const f of visible) {
+      existing.add(f)
+    }
+    selectedFields.value = [...existing]
+  }
+}
+
+function isFieldSelected(field: SchemaFieldModel): boolean {
+  return selectedFields.value.includes(field)
+}
+
+function toggleFieldSelection(field: SchemaFieldModel) {
+  const idx = selectedFields.value.indexOf(field)
+  if (idx === -1) {
+    selectedFields.value.push(field)
+  } else {
+    selectedFields.value.splice(idx, 1)
+  }
+}
+
+function applyBulkGroup() {
+  const groupName = bulkGroupName.value.trim().toLowerCase()
+  if (!groupName) return
+
+  for (const field of selectedFields.value) {
+    field.group = groupName
+  }
+  selectedFields.value = []
+  bulkGroupName.value = ''
+}
+
+function clearBulkGroup() {
+  for (const field of selectedFields.value) {
+    field.group = ''
+  }
+  selectedFields.value = []
+  bulkGroupName.value = ''
+}
+
+function updateFieldByRef(original: SchemaFieldModel, updated: SchemaFieldModel) {
+  const index = fields.value.indexOf(original)
+  if (index !== -1) {
+    fields.value[index] = updated
+  }
+}
+
+function removeFieldByRef(field: SchemaFieldModel) {
+  const index = fields.value.indexOf(field)
+  if (index !== -1) {
+    fields.value.splice(index, 1)
+  }
 }
 
 async function initMonaco(content: string) {
@@ -379,6 +627,7 @@ function importedFieldToFieldModel(field: ImportedField): SchemaFieldModel {
     managed: false,
     managedSource: '',
     allowMultiple: field.allowMultiple,
+    group: field.group || '',
   }
 }
 
@@ -509,6 +758,99 @@ function handleSave() {
   display: flex;
   flex-direction: column;
   gap: var(--xy-space-sm);
+}
+
+.schema-field-group {
+  margin-bottom: var(--xy-space-md);
+}
+
+.schema-search {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-sm);
+}
+
+.schema-search-input {
+  flex: 1;
+  max-width: 320px;
+}
+
+.schema-search-count {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.schema-filter-toggle {
+  border: 1px solid var(--xy-border);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.schema-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  padding: var(--xy-space-xs) 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.schema-group-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--xy-text-muted);
+}
+
+.schema-group-count {
+  font-size: 0.65rem;
+}
+
+.schema-group-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-sm);
+}
+
+/* Selection UI */
+.selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  margin-bottom: var(--xy-space-sm);
+  border: 1px solid var(--xy-accent);
+  border-radius: 8px;
+  background-color: rgba(28, 183, 207, 0.05);
+}
+
+.selection-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bulk-group-input {
+  flex: 1;
+  max-width: 240px;
+}
+
+.field-select-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--xy-space-xs);
+}
+
+.field-select-checkbox {
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.field-select-card {
+  flex: 1;
+  min-width: 0;
 }
 
 /* JSON editor */

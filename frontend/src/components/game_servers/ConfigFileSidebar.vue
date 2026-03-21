@@ -1,19 +1,17 @@
 <template>
-  <div class="config-sidebar" :class="{ collapsed: isCollapsed }">
-    <div v-if="!isCollapsed" class="sidebar-expanded">
+  <div class="config-sidebar" :class="{ collapsed: isCollapsed && !isMobile }">
+    <div v-if="!isCollapsed || isMobile" class="sidebar-expanded">
       <div class="sidebar-header">
         <div class="sidebar-title font-display">Config Files</div>
-        <div class="sidebar-subtitle text-xy-secondary">
-          {{ configFiles.length }} file{{ configFiles.length !== 1 ? 's' : '' }}
-          <span v-if="categoryCount > 0">&middot; {{ categoryCount }} categories</span>
-        </div>
         <q-btn
+          v-if="!isMobile"
           flat
           dense
           round
           icon="chevron_left"
           size="sm"
           class="collapse-btn"
+          aria-label="Collapse sidebar"
           @click="isCollapsed = true">
           <q-tooltip>Collapse sidebar</q-tooltip>
         </q-btn>
@@ -27,7 +25,7 @@
         </div>
 
         <div v-for="(files, category) in groupedFiles" :key="category" class="category-group">
-          <div class="category-header">
+          <div v-if="categoryCount > 1" class="category-header">
             <span
               class="category-dot"
               :style="{ backgroundColor: getCategoryColor(String(category)) }"></span>
@@ -86,6 +84,7 @@
         icon="chevron_right"
         size="sm"
         class="expand-btn"
+        aria-label="Expand sidebar"
         @click="isCollapsed = false">
         <q-tooltip>Expand sidebar</q-tooltip>
       </q-btn>
@@ -114,7 +113,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useQuasar } from 'quasar'
 import type { ConfigFileInfo } from '@/proto/xylona_pb'
+import { CATEGORY_COLORS, buildCategoryColorMap } from './config-field-helpers'
+
+const $q = useQuasar()
+const isMobile = computed(() => $q.screen.lt.md)
 
 const props = defineProps<{
   configFiles: ConfigFileInfo[]
@@ -127,25 +131,7 @@ defineEmits<{
 
 const isCollapsed = ref(false)
 
-const CATEGORY_COLORS = [
-  '#3B82F6', // blue
-  '#22C55E', // green
-  '#F59E0B', // amber
-  '#8B5CF6', // purple
-  '#EF4444', // red
-  '#06B6D4', // cyan
-  '#EC4899', // pink
-  '#F97316', // orange
-]
-
-const categoryColorMap = computed(() => {
-  const map = new Map<string, string>()
-  const categories = [...new Set(props.configFiles.map((f) => f.category || 'Uncategorized'))]
-  categories.forEach((cat, i) => {
-    map.set(cat, CATEGORY_COLORS[i % CATEGORY_COLORS.length])
-  })
-  return map
-})
+const categoryColorMap = computed(() => buildCategoryColorMap(props.configFiles))
 
 const categoryCount = computed(() => categoryColorMap.value.size)
 
@@ -185,7 +171,6 @@ function getAbbreviation(path: string): string {
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: width var(--xy-transition-base);
 }
 
 .sidebar-expanded {
@@ -216,11 +201,6 @@ function getAbbreviation(path: string): string {
   letter-spacing: 0.02em;
 }
 
-.sidebar-subtitle {
-  font-size: 0.7rem;
-  margin-top: 2px;
-}
-
 .collapse-btn {
   position: absolute;
   top: var(--xy-space-xs);
@@ -247,7 +227,7 @@ function getAbbreviation(path: string): string {
   align-items: center;
   gap: var(--xy-space-xs);
   padding: var(--xy-space-xs) var(--xy-space-md);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -265,7 +245,9 @@ function getAbbreviation(path: string): string {
   padding: var(--xy-space-xs) var(--xy-space-md);
   min-height: 44px;
   border-left: 2px solid transparent;
-  transition: all var(--xy-transition-fast);
+  transition:
+    background-color var(--xy-transition-fast),
+    border-left-color var(--xy-transition-fast);
 }
 
 .file-item:hover {
@@ -292,12 +274,12 @@ function getAbbreviation(path: string): string {
 }
 
 .file-meta {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--xy-text-muted);
 }
 
 .file-badge {
-  font-size: 0.6rem;
+  font-size: 0.75rem;
 }
 
 .no-files {
@@ -315,18 +297,21 @@ function getAbbreviation(path: string): string {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--xy-space-xs);
   padding: var(--xy-space-xs) 0;
 }
 
 .collapsed-file-btn {
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   border-radius: 6px;
   color: var(--xy-text-secondary);
   border: 1px solid transparent;
-  transition: all var(--xy-transition-fast);
+  transition:
+    background-color var(--xy-transition-fast),
+    border-color var(--xy-transition-fast),
+    color var(--xy-transition-fast);
 }
 
 .collapsed-file-btn:hover {
@@ -344,7 +329,77 @@ function getAbbreviation(path: string): string {
 }
 
 .collapsed-abbr {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 600;
+}
+
+/* Mobile: horizontal scrollable file strip */
+@media (max-width: 767px) {
+  .config-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--xy-border);
+    height: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar-expanded {
+    width: 100%;
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--xy-space-xs) var(--xy-space-md);
+  }
+
+  .collapse-btn {
+    position: static;
+  }
+
+  .sidebar-content {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 var(--xy-space-xs) var(--xy-space-xs);
+  }
+
+  .category-group {
+    margin-bottom: 0;
+  }
+
+  .category-header {
+    display: none;
+  }
+
+  .category-files {
+    display: flex;
+    flex-direction: row;
+    gap: var(--xy-space-xs);
+  }
+
+  .file-item {
+    flex-shrink: 0;
+    min-width: 140px;
+    max-width: 200px;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 6px;
+    background-color: var(--xy-surface-0);
+  }
+
+  .file-active {
+    border-left-color: transparent;
+    border-bottom-color: var(--xy-primary);
+    background-color: var(--xy-surface-2);
+  }
+
+  /* Hide collapsed state on mobile — always show expanded strip */
+  .sidebar-collapsed {
+    display: none;
+  }
+
+  .config-sidebar.collapsed .sidebar-expanded {
+    display: flex;
+  }
 }
 </style>

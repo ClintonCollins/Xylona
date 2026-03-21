@@ -29,6 +29,7 @@ type SchemaProperty struct {
 	MaxLength     *int32   `json:"maxLength"`
 	Required      bool     `json:"required"`
 	AllowMultiple bool     `json:"x-allow-multiple"`
+	Group         string   `json:"x-group,omitempty"`
 }
 
 // ConfigSchemaEntry represents a single entry in the config_schemas JSON array,
@@ -73,6 +74,7 @@ type FieldData struct {
 	Required          bool
 	AllowMultiple     bool
 	Values            []string
+	Group             string
 }
 
 // AdvancedFieldData represents a config entry not matched by the schema.
@@ -107,19 +109,22 @@ func ServerSettingsResolver(ip string, port int64, queryPort int64) ManagedField
 // MatchFields matches parsed config entries against a JSON Schema and returns
 // structured field data. Entries not in the schema become advanced fields.
 // Managed fields are resolved via the resolver and marked as read-only.
+//
+// Fields are returned in two phases:
+// Phase 1: Entries from the parsed config in file order (preserving original ordering).
+// Phase 2: Schema-only fields (not in config) appended alphabetically.
 func MatchFields(
 	entries []cfgparse.ConfigEntry,
 	schema SchemaDefinition,
 	managedFields map[string]string,
 	resolver ManagedFieldResolver,
 ) MatchFieldsResult {
-	matched := map[string]bool{}
-	multiValues := map[string][]string{}
-
 	// Index entries by key for lookup. Track multi-value keys.
+	multiValues := map[string][]string{}
 	entryMap := map[string]cfgparse.ConfigEntry{}
 	for _, e := range entries {
-		if _, exists := entryMap[e.Key]; exists {
+		_, exists := entryMap[e.Key]
+		if exists {
 			multiValues[e.Key] = append(multiValues[e.Key], e.Value)
 		} else {
 			entryMap[e.Key] = e
@@ -128,76 +133,104 @@ func MatchFields(
 	}
 
 	var fields []FieldData
+	matched := map[string]bool{}
 
-	// Process schema properties in order.
-	for key, prop := range schema.Properties {
-		fd := FieldData{
-			Key:           key,
-			Title:         prop.Title,
-			Description:   prop.Description,
-			FieldType:     prop.Type,
-			DefaultValue:  formatDefault(prop.Default),
-			EnumOptions:   prop.Enum,
-			Minimum:       prop.Minimum,
-			Maximum:       prop.Maximum,
-			MaxLength:     prop.MaxLength,
-			Required:      prop.Required,
-			AllowMultiple: prop.AllowMultiple,
+	// Phase 1: Iterate parsed entries in file order.
+	var advanced []AdvancedFieldData
+
+	for _, e := range entries {
+		// Skip duplicate keys (already processed first occurrence).
+		if matched[e.Key] {
+			continue
+		}
+		matched[e.Key] = true
+
+		prop, inSchema := schema.Properties[e.Key]
+		if !inSchema {
+			// Only add first occurrence to advanced fields.
+			if e.Index == 0 {
+				advanced = append(advanced, AdvancedFieldData{
+					Key:     e.Key,
+					Value:   e.Value,
+					Section: e.Section,
+				})
+			}
+			continue
 		}
 
-		// Check if this is a managed field.
-		source, isManaged := managedFields[key]
-		if isManaged {
-			fd.IsManaged = true
-			resolvedValue, ok := resolver(source)
-			if ok {
-				fd.Value = resolvedValue
-			} else {
-				log.Warn().Str("key", key).Str("source", source).Msg("Unknown managed field source")
-			}
-		}
+		fd := buildFieldData(e.Key, prop, managedFields, resolver)
 
-		// Match against entries.
-		entry, found := entryMap[key]
-		if found {
-			matched[key] = true
-			if !isManaged {
-				fd.Value = entry.Value
-			}
-			if prop.AllowMultiple {
-				fd.Values = multiValues[key]
-			}
-		} else {
-			fd.IsMissingFromFile = true
-			if !isManaged && fd.Value == "" {
-				fd.Value = fd.DefaultValue
-			}
+		// Fill value from parsed entry.
+		if !fd.IsManaged {
+			fd.Value = e.Value
+		}
+		if prop.AllowMultiple {
+			fd.Values = multiValues[e.Key]
 		}
 
 		fields = append(fields, fd)
 	}
 
-	// Collect unmatched entries as advanced fields.
-	var advanced []AdvancedFieldData
-	for _, e := range entries {
-		if matched[e.Key] {
-			continue
+	// Phase 2: Append schema-only fields (not in config file), sorted alphabetically.
+	var schemaOnlyKeys []string
+	for key := range schema.Properties {
+		if !matched[key] {
+			schemaOnlyKeys = append(schemaOnlyKeys, key)
 		}
-		// Only add each key once to advanced fields (first occurrence).
-		if e.Index > 0 {
-			continue
+	}
+	slices.Sort(schemaOnlyKeys)
+
+	for _, key := range schemaOnlyKeys {
+		prop := schema.Properties[key]
+		fd := buildFieldData(key, prop, managedFields, resolver)
+		fd.IsMissingFromFile = true
+		if !fd.IsManaged && fd.Value == "" {
+			fd.Value = fd.DefaultValue
 		}
-		advanced = append(advanced, AdvancedFieldData{
-			Key:     e.Key,
-			Value:   e.Value,
-			Section: e.Section,
-		})
+		fields = append(fields, fd)
 	}
 
 	return MatchFieldsResult{
 		Fields:         fields,
 		AdvancedFields: advanced,
 	}
+}
+
+// buildFieldData creates a FieldData from a schema property, resolving managed fields.
+func buildFieldData(
+	key string,
+	prop SchemaProperty,
+	managedFields map[string]string,
+	resolver ManagedFieldResolver,
+) FieldData {
+	fd := FieldData{
+		Key:           key,
+		Title:         prop.Title,
+		Description:   prop.Description,
+		FieldType:     prop.Type,
+		DefaultValue:  formatDefault(prop.Default),
+		EnumOptions:   prop.Enum,
+		Minimum:       prop.Minimum,
+		Maximum:       prop.Maximum,
+		MaxLength:     prop.MaxLength,
+		Required:      prop.Required,
+		AllowMultiple: prop.AllowMultiple,
+		Group:         prop.Group,
+	}
+
+	// Check if this is a managed field.
+	source, isManaged := managedFields[key]
+	if isManaged {
+		fd.IsManaged = true
+		resolvedValue, ok := resolver(source)
+		if ok {
+			fd.Value = resolvedValue
+		} else {
+			log.Warn().Str("key", key).Str("source", source).Msg("Unknown managed field source")
+		}
+	}
+
+	return fd
 }
 
 // formatDefault converts a JSON Schema default value to a string.

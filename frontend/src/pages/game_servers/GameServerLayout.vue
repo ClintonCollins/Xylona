@@ -1,5 +1,5 @@
 <template>
-  <q-page :padding="windowWidth > 1024">
+  <q-page ref="pageRef" class="game-server-page">
     <q-card class="full-width game-server-card">
       <q-tabs
         v-if="navQTabsStore.tabs.length > 0"
@@ -29,20 +29,52 @@ import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
-import { onMounted, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 const navQTabsStore = useToolbarNavQTabsStore()
 const windowWidth = WindowWidth()
+const pageRef = ref<{ $el: HTMLElement } | null>(null)
 
 let currentPermissions: string[] = []
 let currentIsOwnerOrSuper = false
 
+// Sync page height from Quasar's min-height for scroll containment.
+// Quasar sets min-height inline on q-page; we copy it to height so
+// flex children get a bounded container.
+function syncPageHeight() {
+  const el = pageRef.value?.$el
+  if (!el) return
+  const minH = el.style.minHeight
+  if (minH) {
+    el.style.height = minH
+  }
+}
+
+let resizeObserverCleanup: (() => void) | null = null
+
 onMounted(async () => {
   await configureTabs()
   await enforceRouteAccess()
+
+  nextTick(() => {
+    syncPageHeight()
+    // Re-sync on window resize (Quasar updates min-height)
+    const ro = new ResizeObserver(() => syncPageHeight())
+    const el = pageRef.value?.$el
+    if (el) {
+      ro.observe(el)
+      resizeObserverCleanup = () => ro.disconnect()
+    }
+  })
+})
+
+onBeforeUnmount(() => {
+  if (resizeObserverCleanup) {
+    resizeObserverCleanup()
+  }
 })
 
 watch(
@@ -118,7 +150,20 @@ async function enforceRouteAccess() {
 </script>
 
 <style scoped>
+/* q-page height is set via JS (syncPageHeight) to match Quasar's min-height.
+   This establishes a bounded container for flex scroll containment. */
+.game-server-page {
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
 .game-server-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 .game-server-tabs {

@@ -1,11 +1,37 @@
 package cfgschema
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/ClintonCollins/Xylona/cfgparse"
 )
+
+func TestSchemaProperty_GroupDeserialization(t *testing.T) {
+	jsonStr := `{
+		"type": "object",
+		"properties": {
+			"port": {"type": "integer", "title": "Port", "x-group": "network"},
+			"motd": {"type": "string", "title": "MOTD"}
+		}
+	}`
+	var schema SchemaDefinition
+	errUnmarshal := json.Unmarshal([]byte(jsonStr), &schema)
+	if errUnmarshal != nil {
+		t.Fatalf("unmarshal error: %v", errUnmarshal)
+	}
+
+	portProp := schema.Properties["port"]
+	if portProp.Group != "network" {
+		t.Errorf("port group = %q, want %q", portProp.Group, "network")
+	}
+
+	motdProp := schema.Properties["motd"]
+	if motdProp.Group != "" {
+		t.Errorf("motd group = %q, want empty", motdProp.Group)
+	}
+}
 
 func testResolver(source string) (string, bool) {
 	sources := map[string]string{
@@ -413,6 +439,98 @@ func TestValidateFields_ManagedFieldSkipped(t *testing.T) {
 	errs := ValidateFields(fields, schema)
 	if len(errs) != 0 {
 		t.Errorf("expected no errors for managed field, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestMatchFields_PreservesFileOrder(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{
+		{Key: "port", Value: "25565"},
+		{Key: "motd", Value: "Hello"},
+		{Key: "difficulty", Value: "hard"},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"difficulty": {Type: "string", Title: "Difficulty"},
+			"motd":       {Type: "string", Title: "MOTD"},
+			"port":       {Type: "integer", Title: "Port"},
+		},
+	}
+
+	result := MatchFields(entries, schema, nil, testResolver)
+
+	if len(result.Fields) != 3 {
+		t.Fatalf("expected 3 fields, got %d", len(result.Fields))
+	}
+
+	expectedOrder := []string{"port", "motd", "difficulty"}
+	for i, expected := range expectedOrder {
+		if result.Fields[i].Key != expected {
+			t.Errorf("field[%d].Key = %q, want %q", i, result.Fields[i].Key, expected)
+		}
+	}
+}
+
+func TestMatchFields_SchemaOnlyFieldsAppendedAlphabetically(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{
+		{Key: "port", Value: "25565"},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"port":       {Type: "integer", Title: "Port"},
+			"motd":       {Type: "string", Title: "MOTD", Default: "A Server"},
+			"difficulty": {Type: "string", Title: "Difficulty", Default: "normal"},
+		},
+	}
+
+	result := MatchFields(entries, schema, nil, testResolver)
+
+	if len(result.Fields) != 3 {
+		t.Fatalf("expected 3 fields, got %d", len(result.Fields))
+	}
+
+	expectedOrder := []string{"port", "difficulty", "motd"}
+	for i, expected := range expectedOrder {
+		if result.Fields[i].Key != expected {
+			t.Errorf("field[%d].Key = %q, want %q", i, result.Fields[i].Key, expected)
+		}
+	}
+
+	if !result.Fields[1].IsMissingFromFile {
+		t.Error("difficulty should be IsMissingFromFile")
+	}
+	if !result.Fields[2].IsMissingFromFile {
+		t.Error("motd should be IsMissingFromFile")
+	}
+}
+
+func TestMatchFields_PassesGroupFromSchema(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{
+		{Key: "port", Value: "25565"},
+		{Key: "motd", Value: "Hello"},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"port": {Type: "integer", Title: "Port", Group: "network"},
+			"motd": {Type: "string", Title: "MOTD", Group: "gameplay"},
+		},
+	}
+
+	result := MatchFields(entries, schema, nil, testResolver)
+
+	for _, f := range result.Fields {
+		switch f.Key {
+		case "port":
+			if f.Group != "network" {
+				t.Errorf("port group = %q, want %q", f.Group, "network")
+			}
+		case "motd":
+			if f.Group != "gameplay" {
+				t.Errorf("motd group = %q, want %q", f.Group, "gameplay")
+			}
+		}
 	}
 }
 

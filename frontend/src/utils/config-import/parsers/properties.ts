@@ -29,6 +29,7 @@ export const propertiesParser: ParserAdapter = {
         type,
         title: keyToTitle(key),
         allowMultiple: false,
+        group: '',
       })
     }
 

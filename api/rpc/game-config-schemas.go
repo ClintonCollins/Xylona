@@ -252,6 +252,7 @@ func (xs *XylonaService) getGameServerConfigFileLocal(
 			Required:          f.Required,
 			AllowMultiple:     f.AllowMultiple,
 			Values:            f.Values,
+			Group:             f.Group,
 		}
 		if f.Minimum != nil {
 			pf.Minimum = f.Minimum
