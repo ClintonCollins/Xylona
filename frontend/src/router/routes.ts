@@ -54,6 +54,10 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/games/GameList.vue'),
       },
       {
+        path: 'games/new',
+        component: () => import('pages/games/GameCreateWizard.vue'),
+      },
+      {
         path: 'games/create',
         component: () => import('pages/games/GameCreate.vue'),
       },
