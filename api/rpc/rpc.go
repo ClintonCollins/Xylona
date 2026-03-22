@@ -11,6 +11,7 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/steamcache"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -44,6 +45,8 @@ type XylonaService struct {
 	allPermissionIDs []string
 	installTracker   *modmanager.InstallTracker
 	installBroadcast ServerSoftwareInstallBroadcaster
+	versionState     *versiontracker.VersionStateMap
+	dummyTracker     *versiontracker.DummyTracker
 }
 
 func NewXylonaService(
@@ -56,6 +59,7 @@ func NewXylonaService(
 	secureCookies bool,
 	steamCache *steamcache.Client,
 	modMgr *modmanager.ModManager,
+	versionState *versiontracker.VersionStateMap,
 ) *XylonaService {
 	allPerms, errPerms := db.GetAllPermissions()
 	if errPerms != nil {
@@ -94,6 +98,7 @@ func NewXylonaService(
 		listCache:        newRemoteServerListCache(remoteServerListCacheTTL),
 		allPermissionIDs: permIDs,
 		installTracker:   tracker,
+		versionState:     versionState,
 	}
 }
 
@@ -105,4 +110,9 @@ func (xs *XylonaService) SetSyncEngine(engine SyncEngine) {
 // status updates over WebSocket.
 func (xs *XylonaService) SetInstallBroadcaster(b ServerSoftwareInstallBroadcaster) {
 	xs.installBroadcast = b
+}
+
+// SetDummyTracker sets the dummy tracker used for testing update failure simulation.
+func (xs *XylonaService) SetDummyTracker(dt *versiontracker.DummyTracker) {
+	xs.dummyTracker = dt
 }

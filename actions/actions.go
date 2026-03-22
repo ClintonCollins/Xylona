@@ -79,6 +79,19 @@ func (inst *Instance) VersionState() *versiontracker.VersionStateMap {
 	return inst.versionState
 }
 
+// CheckServerVersionByID loads the game server from the DB and runs a version check.
+// Called from the RPC layer to trigger on-demand checks.
+func (inst *Instance) CheckServerVersionByID(_ context.Context, gameServerID string) {
+	gs, errGet := inst.db.GetGameServerByID(gameServerID)
+	if errGet != nil {
+		log.Warn().Err(errGet).Str("game_server_id", gameServerID).
+			Msg("Version check: failed to get game server")
+		return
+	}
+	eb := eventbus.Get()
+	inst.checkServerVersion(gs, eb)
+}
+
 func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS, modMgr *modmanager.ModManager, versionState *versiontracker.VersionStateMap, resolverConfig versiontracker.ResolverConfig) *Instance {
 	inst := &Instance{
 		ctx:                  ctx,
