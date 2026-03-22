@@ -30,6 +30,11 @@ type ServerSoftwareInstallBroadcaster interface {
 	BroadcastServerSoftwareInstall(serverID string, status string, softwareID string, errMsg string)
 }
 
+// UpdateProgressBroadcaster broadcasts update progress events to WebSocket clients.
+type UpdateProgressBroadcaster interface {
+	BroadcastUpdateProgress(serverID string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string)
+}
+
 type XylonaService struct {
 	ctx              context.Context
 	db               *db.Connection
@@ -44,8 +49,9 @@ type XylonaService struct {
 	listCache        *remoteServerListCache
 	allPermissionIDs []string
 	installTracker   *modmanager.InstallTracker
-	installBroadcast ServerSoftwareInstallBroadcaster
-	versionState     *versiontracker.VersionStateMap
+	installBroadcast  ServerSoftwareInstallBroadcaster
+	updateBroadcast   UpdateProgressBroadcaster
+	versionState      *versiontracker.VersionStateMap
 	dummyTracker     *versiontracker.DummyTracker
 }
 
@@ -110,6 +116,11 @@ func (xs *XylonaService) SetSyncEngine(engine SyncEngine) {
 // status updates over WebSocket.
 func (xs *XylonaService) SetInstallBroadcaster(b ServerSoftwareInstallBroadcaster) {
 	xs.installBroadcast = b
+}
+
+// SetUpdateBroadcaster sets the broadcaster used to push update progress events over WebSocket.
+func (xs *XylonaService) SetUpdateBroadcaster(b UpdateProgressBroadcaster) {
+	xs.updateBroadcast = b
 }
 
 // SetDummyTracker sets the dummy tracker used for testing update failure simulation.
