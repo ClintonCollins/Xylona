@@ -60,12 +60,15 @@ test.describe('Game Server Update Flow', () => {
 
     // Progress panel should appear.
     await expect(page.locator('.update-progress-panel')).toBeVisible()
-    await expect(page.locator('text=You can safely navigate away')).toBeVisible()
+    await expect(page.getByText('You can safely navigate away')).toBeVisible()
 
     // Wait for completion toast.
     await expect(page.locator('.q-notification', { hasText: /update.*complete/i })).toBeVisible({
       timeout: 30_000,
     })
+
+    // Badge/hint should clear after successful update.
+    await expect(page.locator('.update-hint')).not.toBeVisible({ timeout: 5_000 })
   })
 })
 
