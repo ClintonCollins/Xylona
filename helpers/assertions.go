@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -67,7 +68,7 @@ func GameServerProtoToModel(gsProto *xylona.GameServer) *models.GameServer {
 	}
 }
 
-func GameServerModelToProto(gsModel *models.GameServer) *xylona.GameServer {
+func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.VersionStateMap) *xylona.GameServer {
 	gameName := ""
 	if gsModel.R.Game != nil {
 		gameName = gsModel.R.Game.Name
@@ -80,7 +81,7 @@ func GameServerModelToProto(gsModel *models.GameServer) *xylona.GameServer {
 		log.Debug().Msgf("Node is nil for GameServer %s", gsModel.ID)
 		gsModel.R.Node = &models.Node{}
 	}
-	return &xylona.GameServer{
+	proto := &xylona.GameServer{
 		Id:                        gsModel.ID,
 		UserId:                    gsModel.UserID,
 		Name:                      gsModel.Name,
@@ -111,6 +112,38 @@ func GameServerModelToProto(gsModel *models.GameServer) *xylona.GameServer {
 		ServerSoftware:            gsModel.ServerSoftware.GetOr(""),
 		ServerExecutable:          gsModel.ServerExecutable.GetOr(""),
 		Game:                      gameProtoFromRelation(gsModel),
+	}
+	if vsm != nil {
+		proto.VersionInfo = versionStateToVersionInfoProto(vsm.Get(gsModel.ID))
+	}
+	return proto
+}
+
+func versionStateToVersionInfoProto(state versiontracker.VersionState) *xylona.VersionInfo {
+	protoStatus := xylona.VersionStatus_VERSION_STATUS_NO_TRACKER
+	switch state.Status {
+	case versiontracker.VersionStatusUnchecked:
+		protoStatus = xylona.VersionStatus_VERSION_STATUS_UNCHECKED
+	case versiontracker.VersionStatusChecking:
+		protoStatus = xylona.VersionStatus_VERSION_STATUS_CHECKING
+	case versiontracker.VersionStatusChecked:
+		protoStatus = xylona.VersionStatus_VERSION_STATUS_CHECKED
+	case versiontracker.VersionStatusError:
+		protoStatus = xylona.VersionStatus_VERSION_STATUS_ERROR
+	}
+
+	var lastCheckUnix int64
+	if !state.LastCheckTime.IsZero() {
+		lastCheckUnix = state.LastCheckTime.Unix()
+	}
+
+	return &xylona.VersionInfo{
+		InstalledVersion: state.InstalledVersion,
+		LatestVersion:    state.LatestVersion,
+		UpdateAvailable:  state.UpdateAvailable,
+		LastCheckTime:    lastCheckUnix,
+		TrackerType:      state.TrackerType,
+		Status:           protoStatus,
 	}
 }
 

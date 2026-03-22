@@ -944,7 +944,7 @@ func (fs FederationService) EditRemoteServer(ctx context.Context, request *conne
 
 	return connect.NewResponse(&xylona.FederationEditServerResponse{
 		Success:    true,
-		GameServer: helpers.GameServerModelToProto(gameServerModel),
+		GameServer: helpers.GameServerModelToProto(gameServerModel, nil),
 	}), nil
 }
 

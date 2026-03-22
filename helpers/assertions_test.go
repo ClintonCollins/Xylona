@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -152,7 +153,7 @@ func TestGameServerModelToProto(t *testing.T) {
 		input.R.User = &models.User{UserName: "admin"}
 		input.R.Node = &models.Node{Name: "Node-1", Host: "node1.example.com", Port: 8080}
 
-		got := GameServerModelToProto(input)
+		got := GameServerModelToProto(input, nil)
 
 		if got.Id != "gs-1" {
 			t.Errorf("Id = %q, want %q", got.Id, "gs-1")
@@ -194,7 +195,7 @@ func TestGameServerModelToProto(t *testing.T) {
 		input.R.User = &models.User{UserName: "testuser"}
 		input.R.Node = &models.Node{Name: "Node-2"}
 
-		got := GameServerModelToProto(input)
+		got := GameServerModelToProto(input, nil)
 		if got.GameName != "" {
 			t.Errorf("GameName = %q, want empty string", got.GameName)
 		}
@@ -208,7 +209,7 @@ func TestGameServerModelToProto(t *testing.T) {
 		input.R.Game = &models.Game{Name: "Minecraft"}
 		input.R.Node = &models.Node{Name: "Node-3"}
 
-		got := GameServerModelToProto(input)
+		got := GameServerModelToProto(input, nil)
 		if got.UserName != "" {
 			t.Errorf("UserName = %q, want empty string", got.UserName)
 		}
@@ -220,7 +221,7 @@ func TestGameServerModelToProto(t *testing.T) {
 			Status: "OFFLINE",
 		}
 
-		got := GameServerModelToProto(input)
+		got := GameServerModelToProto(input, nil)
 		if got.NodeName != "" {
 			t.Errorf("NodeName = %q, want empty string", got.NodeName)
 		}
@@ -552,6 +553,131 @@ func TestUserProtoToModel(t *testing.T) {
 	if !got.CreatedAt.Equal(now) {
 		t.Errorf("CreatedAt = %v, want %v", got.CreatedAt, now)
 	}
+}
+
+func TestGameServerModelToProtoVersionInfo(t *testing.T) {
+	baseInput := func() *models.GameServer {
+		gs := &models.GameServer{
+			ID:     "gs-vi-1",
+			Status: "OFFLINE",
+		}
+		gs.R.Node = &models.Node{Name: "Node-1"}
+		return gs
+	}
+
+	t.Run("nil vsm leaves VersionInfo nil", func(t *testing.T) {
+		got := GameServerModelToProto(baseInput(), nil)
+		if got.VersionInfo != nil {
+			t.Errorf("VersionInfo = %v, want nil when vsm is nil", got.VersionInfo)
+		}
+	})
+
+	t.Run("vsm present with no tracker status", func(t *testing.T) {
+		vsm := versiontracker.NewVersionStateMap()
+		vsm.InitNoTracker("gs-vi-1")
+		got := GameServerModelToProto(baseInput(), vsm)
+		if got.VersionInfo == nil {
+			t.Fatalf("VersionInfo should not be nil when vsm is provided")
+		}
+		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_NO_TRACKER {
+			t.Errorf("Status = %v, want VERSION_STATUS_NO_TRACKER", got.VersionInfo.Status)
+		}
+	})
+
+	t.Run("vsm present with unchecked status", func(t *testing.T) {
+		vsm := versiontracker.NewVersionStateMap()
+		vsm.InitUnchecked("gs-vi-1", "dummy")
+		got := GameServerModelToProto(baseInput(), vsm)
+		if got.VersionInfo == nil {
+			t.Fatalf("VersionInfo should not be nil when vsm is provided")
+		}
+		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_UNCHECKED {
+			t.Errorf("Status = %v, want VERSION_STATUS_UNCHECKED", got.VersionInfo.Status)
+		}
+		if got.VersionInfo.TrackerType != "dummy" {
+			t.Errorf("TrackerType = %q, want %q", got.VersionInfo.TrackerType, "dummy")
+		}
+	})
+
+	t.Run("vsm present with checked status populates all fields", func(t *testing.T) {
+		checkTime := time.Now().Truncate(time.Second)
+		vsm := versiontracker.NewVersionStateMap()
+		vsm.Set("gs-vi-1", versiontracker.VersionState{
+			Status:           versiontracker.VersionStatusChecked,
+			InstalledVersion: "1.0.0",
+			LatestVersion:    "1.1.0",
+			UpdateAvailable:  true,
+			LastCheckTime:    checkTime,
+			TrackerType:      "minecraft",
+		})
+		got := GameServerModelToProto(baseInput(), vsm)
+		if got.VersionInfo == nil {
+			t.Fatalf("VersionInfo should not be nil when vsm is provided")
+		}
+		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_CHECKED {
+			t.Errorf("Status = %v, want VERSION_STATUS_CHECKED", got.VersionInfo.Status)
+		}
+		if got.VersionInfo.InstalledVersion != "1.0.0" {
+			t.Errorf("InstalledVersion = %q, want %q", got.VersionInfo.InstalledVersion, "1.0.0")
+		}
+		if got.VersionInfo.LatestVersion != "1.1.0" {
+			t.Errorf("LatestVersion = %q, want %q", got.VersionInfo.LatestVersion, "1.1.0")
+		}
+		if !got.VersionInfo.UpdateAvailable {
+			t.Errorf("UpdateAvailable = %v, want true", got.VersionInfo.UpdateAvailable)
+		}
+		if got.VersionInfo.LastCheckTime != checkTime.Unix() {
+			t.Errorf("LastCheckTime = %d, want %d", got.VersionInfo.LastCheckTime, checkTime.Unix())
+		}
+		if got.VersionInfo.TrackerType != "minecraft" {
+			t.Errorf("TrackerType = %q, want %q", got.VersionInfo.TrackerType, "minecraft")
+		}
+	})
+
+	t.Run("vsm present with error status", func(t *testing.T) {
+		vsm := versiontracker.NewVersionStateMap()
+		vsm.Set("gs-vi-1", versiontracker.VersionState{
+			Status:      versiontracker.VersionStatusError,
+			TrackerType: "steam",
+		})
+		got := GameServerModelToProto(baseInput(), vsm)
+		if got.VersionInfo == nil {
+			t.Fatalf("VersionInfo should not be nil when vsm is provided")
+		}
+		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_ERROR {
+			t.Errorf("Status = %v, want VERSION_STATUS_ERROR", got.VersionInfo.Status)
+		}
+	})
+
+	t.Run("vsm present with checking status", func(t *testing.T) {
+		vsm := versiontracker.NewVersionStateMap()
+		vsm.Set("gs-vi-1", versiontracker.VersionState{
+			Status:      versiontracker.VersionStatusChecking,
+			TrackerType: "steam",
+		})
+		got := GameServerModelToProto(baseInput(), vsm)
+		if got.VersionInfo == nil {
+			t.Fatalf("VersionInfo should not be nil when vsm is provided")
+		}
+		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_CHECKING {
+			t.Errorf("Status = %v, want VERSION_STATUS_CHECKING", got.VersionInfo.Status)
+		}
+	})
+
+	t.Run("zero LastCheckTime yields zero unix timestamp", func(t *testing.T) {
+		vsm := versiontracker.NewVersionStateMap()
+		vsm.Set("gs-vi-1", versiontracker.VersionState{
+			Status:        versiontracker.VersionStatusChecked,
+			LastCheckTime: time.Time{},
+		})
+		got := GameServerModelToProto(baseInput(), vsm)
+		if got.VersionInfo == nil {
+			t.Fatalf("VersionInfo should not be nil when vsm is provided")
+		}
+		if got.VersionInfo.LastCheckTime != 0 {
+			t.Errorf("LastCheckTime = %d, want 0 for zero time", got.VersionInfo.LastCheckTime)
+		}
+	})
 }
 
 func TestIPModelToProto(t *testing.T) {

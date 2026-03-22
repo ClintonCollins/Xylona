@@ -245,7 +245,7 @@ func (xs *XylonaService) SetServerSoftware(
 		}
 		return &connect.Response[xylona.SetServerSoftwareResponse]{
 			Msg: &xylona.SetServerSoftwareResponse{
-				GameServer:        helpers.GameServerModelToProto(updated),
+				GameServer:        helpers.GameServerModelToProto(updated, xs.versionState),
 				Status:            modmanager.InstallStatusComplete,
 				InstalledModCount: modCount,
 			},
@@ -265,10 +265,22 @@ func (xs *XylonaService) SetServerSoftware(
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("jar source provider not found: %s", sw.JarSource))
 	}
 
+	requestedVersionID := request.Msg.GetVersionId()
 	downloadCtx, downloadCancel := context.WithTimeout(xs.ctx, 10*time.Minute)
 	go func() {
 		defer downloadCancel()
-		files, errDownload := provider.Download(downloadCtx, sw.ID, request.Msg.GetVersionId(), gameServer.Directory)
+
+		// The frontend sends a game version (e.g., "1.21.4") from GetServerSoftwareVersions,
+		// but providers like PaperMC expect a version-build ID (e.g., "1.21.4-100") for
+		// download. Resolve the game version to the latest build via GetVersions.
+		downloadVersionID := requestedVersionID
+		builds, errBuilds := provider.GetVersions(downloadCtx, sw.ID, requestedVersionID, nil)
+		if errBuilds == nil && len(builds) > 0 {
+			// Use the last build (newest) — GetVersions returns oldest-first for PaperMC.
+			downloadVersionID = builds[len(builds)-1].VersionID
+		}
+
+		files, errDownload := provider.Download(downloadCtx, sw.ID, downloadVersionID, gameServer.Directory)
 		if errDownload != nil {
 			xs.installTracker.SetFailed(gameServerID, errDownload.Error())
 			if xs.installBroadcast != nil {
@@ -316,7 +328,7 @@ func (xs *XylonaService) SetServerSoftware(
 
 	return &connect.Response[xylona.SetServerSoftwareResponse]{
 		Msg: &xylona.SetServerSoftwareResponse{
-			GameServer:        helpers.GameServerModelToProto(gameServer),
+			GameServer:        helpers.GameServerModelToProto(gameServer, xs.versionState),
 			Status:            modmanager.InstallStatusInstalling,
 			InstalledModCount: modCount,
 		},

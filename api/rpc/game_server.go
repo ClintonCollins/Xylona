@@ -155,7 +155,7 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 	}
 
 	response := &xylona.CreateGameServerResponse{
-		GameServer: helpers.GameServerModelToProto(newGameServer),
+		GameServer: helpers.GameServerModelToProto(newGameServer, xs.versionState),
 	}
 	return connect.NewResponse(response), nil
 }
@@ -212,7 +212,7 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 			}
 
-			response := &xylona.EditGameServerResponse{Game_Server: helpers.GameServerModelToProto(gameServerModel)}
+			response := &xylona.EditGameServerResponse{Game_Server: helpers.GameServerModelToProto(gameServerModel, xs.versionState)}
 			return connect.NewResponse(response), nil
 		},
 		func() (*connect.Response[xylona.EditGameServerResponse], error) {
@@ -553,7 +553,7 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 			} else {
 				gameServer.Status = gameServerCmd.Status().String()
 			}
-			gsProto := helpers.GameServerModelToProto(gameServer)
+			gsProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
 			gsProto.Version = resolveGameServerVersion(gameServer)
 			if errGetCommand == nil {
 				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
@@ -776,7 +776,7 @@ func (xs *XylonaService) ListGameServers(ctx context.Context, request *connect.R
 		} else {
 			gameServer.Status = gameServerCmd.Status().String()
 		}
-		gameServerProto := helpers.GameServerModelToProto(gameServer)
+		gameServerProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
 		if errGetCommand == nil {
 			cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
 			gameServerProto.CpuPercent = int64(cpuPct)
