@@ -8,6 +8,7 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 )
 
 func newTestInstance(t *testing.T) *Instance {
@@ -30,5 +31,5 @@ func newTestInstance(t *testing.T) *Instance {
 		t.Fatalf("failed to apply migrations: %v", errMigrate)
 	}
 
-	return NewInstance(context.Background(), conn, nil, nil, nil)
+	return NewInstance(context.Background(), conn, nil, nil, nil, nil, versiontracker.ResolverConfig{})
 }

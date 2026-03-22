@@ -15,9 +15,10 @@ func (m *mockProvider) ID() string {
 	return m.id
 }
 
-func (m *mockProvider) Search(_ context.Context, _ string, _ SearchParams) ([]ModSearchResult, error) {
-	return []ModSearchResult{
-		{Source: m.id, SourceID: "result-1", Name: "Test Mod"},
+func (m *mockProvider) Search(_ context.Context, _ string, _ SearchParams) (SearchResult, error) {
+	return SearchResult{
+		Results:   []ModSearchResult{{Source: m.id, SourceID: "result-1", Name: "Test Mod"}},
+		TotalHits: 1,
 	}, nil
 }
 

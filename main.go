@@ -35,6 +35,7 @@ import (
 	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/hangar"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/modrinth"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/papermc"
@@ -307,7 +308,8 @@ func main() {
 	}
 
 	modMgr := modmanager.New(dbInst)
-	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS, modMgr)
+	versionState := versiontracker.NewVersionStateMap()
+	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS, modMgr, versionState, versiontracker.ResolverConfig{})
 	superInst.StartMetricsPoller(ctx)
 	_ = actions.NewMetricsRecorder(ctx, dbInst, superInst, settings.NodeID, actionsInst)
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
@@ -318,7 +320,7 @@ func main() {
 	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie, federationMTLS)
 
 	router := chi.NewRouter()
-	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr)
+	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)
 	xylonaService.SetSyncEngine(syncEngine)
 	xylonaService.SetInstallBroadcaster(wsInst)
 	syncEngine.SetStatusBroadcaster(wsInst)

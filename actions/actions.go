@@ -24,6 +24,7 @@ import (
 	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/placeholder"
 
 	"github.com/ClintonCollins/Xylona/db"
@@ -62,6 +63,8 @@ type Instance struct {
 	federationMTLS       *helpers.FederationMTLS
 	syncEngine           SyncEngine
 	modManager           *modmanager.ModManager
+	versionState         *versiontracker.VersionStateMap
+	resolverConfig       versiontracker.ResolverConfig
 }
 
 // SetSyncEngine sets the sync engine on the actions instance. This is called
@@ -71,7 +74,12 @@ func (inst *Instance) SetSyncEngine(se SyncEngine) {
 	inst.syncEngine = se
 }
 
-func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS, modMgr *modmanager.ModManager) *Instance {
+// VersionState returns the version state map used to track game server versions.
+func (inst *Instance) VersionState() *versiontracker.VersionStateMap {
+	return inst.versionState
+}
+
+func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS, modMgr *modmanager.ModManager, versionState *versiontracker.VersionStateMap, resolverConfig versiontracker.ResolverConfig) *Instance {
 	inst := &Instance{
 		ctx:                  ctx,
 		supervisorInstance:   supervisorInstance,
@@ -80,9 +88,12 @@ func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *sup
 		db:                   db,
 		federationMTLS:       federationMTLS,
 		modManager:           modMgr,
+		versionState:         versionState,
+		resolverConfig:       resolverConfig,
 	}
 	go inst.backgroundJobQueryAllGameServers()
 	go inst.backgroundJobCheckModUpdates()
+	go inst.backgroundJobCheckVersionUpdates()
 	return inst
 }
 
