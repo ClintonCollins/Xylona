@@ -1,11 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import {
-  apiLogin,
-  apiCreateGameServer,
-  apiListGames,
-  loadTestState,
-  loadTestUsers,
-} from './helpers'
+import { loadTestState } from './helpers'
 
 async function gotoConsolePage(page: Page, gameServerId: string) {
   await page.goto(`/game-servers/${gameServerId}/console`)
@@ -71,45 +65,32 @@ test.describe('Game server lifecycle', () => {
   })
 
   test('can delete a game server via the delete dialog', async ({ page }) => {
-    const adminCookies = await apiLogin(
-      process.env['E2E_ADMIN_USERNAME'] ?? 'admin',
-      process.env['E2E_ADMIN_PASSWORD'] ?? 'admin',
-    )
-
-    const games = await apiListGames(adminCookies)
-    if (games.length === 0) {
-      test.skip(true, 'No game definitions available')
-      return
-    }
-
-    const tempServerOwner = loadTestUsers().find((user) => user.username === 'e2e-superuser')
-    if (!tempServerOwner) {
-      test.skip(true, 'No E2E superuser available')
-      return
-    }
-
     const tempServerName = `E2E Temp Delete Server ${Date.now()}`
-    await apiCreateGameServer(adminCookies, {
-      name: tempServerName,
-      gameId: games[0]!.id,
-      userId: tempServerOwner.id,
-      startCommand: 'echo test',
-      directory: '.',
-      port: 25598,
-      queryPort: 25598,
-    })
+    await page.goto('/game-servers')
+    await expect(page.locator('.q-layout')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('link', { name: 'Create Game Server' }).click()
+    await expect(page.getByText('Create Game Server')).toBeVisible({ timeout: 10_000 })
+    await page.getByLabel('Name').fill(tempServerName)
+    await page.getByLabel('Game').click()
+    const gameMenu = page.locator('.q-menu').last()
+    await expect(gameMenu).toBeVisible({ timeout: 5_000 })
+    await gameMenu.getByText('E2E Test Game', { exact: true }).click()
+    await page.getByRole('textbox', { name: /^Port$/ }).fill('25597')
+    await page.getByRole('textbox', { name: /^Query Port$/ }).fill('25598')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page).toHaveURL(/\/game-servers\/[^/]+\/console$/, { timeout: 20_000 })
 
-    // Navigate to game servers list and verify the temp server is visible.
     await page.goto('/game-servers')
     await expect(page.locator('.q-layout')).toBeVisible({ timeout: 10_000 })
     const searchInput = page.getByLabel('Search game servers')
     await searchInput.fill(tempServerName)
-    await expect(page.getByText(tempServerName)).toBeVisible({ timeout: 10_000 })
+    const serverRow = page.getByRole('row', { name: new RegExp(tempServerName) })
+    await expect(serverRow).toBeVisible({ timeout: 10_000 })
 
-    // Filter down to the temp server and delete it through the list action.
-    const deleteBtn = page.locator('button[aria-label="Delete game server"]').first()
+    // Trigger the row delete action directly so the test depends on the UI handler, not API cleanup.
+    const deleteBtn = serverRow.getByRole('button', { name: 'Delete game server' })
     await expect(deleteBtn).toBeVisible({ timeout: 5_000 })
-    await deleteBtn.click()
+    await deleteBtn.evaluate((button: HTMLElement) => button.click())
 
     // Confirm deletion in the dialog.
     const dialog = page.locator('.q-dialog').filter({ hasText: 'Delete Game Server' }).first()

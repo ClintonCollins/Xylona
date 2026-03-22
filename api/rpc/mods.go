@@ -172,7 +172,37 @@ func (xs *XylonaService) SearchMods(
 		sources = append(sources, src)
 	}
 
-	results, errSearch := xs.modManager.SearchAll(ctx, request.Msg.GetQuery(), sources)
+	// Determine sort default based on whether a query is present.
+	sortBy := request.Msg.GetSortBy()
+	if sortBy == "" {
+		if request.Msg.GetQuery() != "" {
+			sortBy = "relevance"
+		} else {
+			sortBy = "downloads"
+		}
+	}
+
+	pageSize := int(request.Msg.GetPageSize())
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	page := int(request.Msg.GetPage())
+	offset := 0
+	if page > 0 {
+		offset = (page - 1) * pageSize
+	}
+
+	results, errSearch := xs.modManager.SearchAll(
+		ctx,
+		request.Msg.GetQuery(),
+		sources,
+		sortBy,
+		request.Msg.GetGameVersion(),
+		request.Msg.GetCategories(),
+		pageSize,
+		offset,
+	)
 	if errSearch != nil {
 		log.Error().Err(errSearch).Msg("Failed to search mods")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("search failed"))
@@ -524,6 +554,32 @@ func (xs *XylonaService) SetModEnabled(
 	return &connect.Response[xylona.SetModEnabledResponse]{
 		Msg: &xylona.SetModEnabledResponse{
 			InstalledMod: helpers.InstalledModModelToProto(mod),
+		},
+	}, nil
+}
+
+// GetModCategories returns the available mod categories for browsing.
+// Uses a hardcoded list of well-known Modrinth categories that apply broadly
+// across mod platforms. Can be enhanced later to query provider APIs with caching.
+func (xs *XylonaService) GetModCategories(
+	_ context.Context,
+	request *connect.Request[xylona.GetModCategoriesRequest],
+) (*connect.Response[xylona.GetModCategoriesResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	categories := []string{
+		"adventure", "cursed", "decoration", "economy", "equipment",
+		"food", "game-mechanics", "library", "magic", "management",
+		"minigame", "mobs", "optimization", "social", "storage",
+		"technology", "transportation", "utility", "worldgen",
+	}
+
+	return &connect.Response[xylona.GetModCategoriesResponse]{
+		Msg: &xylona.GetModCategoriesResponse{
+			Categories: categories,
 		},
 	}, nil
 }

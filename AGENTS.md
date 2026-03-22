@@ -210,7 +210,7 @@ When exploring or searching the repo, skip large/generated/vendor-like directori
 
 ### Testing Requirements for New Code
 
-**Use Test-Driven Development (TDD) for all new or changed Go logic unless explicitly told not to.** Write the failing test FIRST, then implement the minimum code to pass it, then refactor. Never write implementation code before its test exists.
+**Use Test-Driven Development (TDD) for all new or changed logic unless explicitly told not to.** Write the failing test FIRST, then implement the minimum code to pass it, then refactor. Never write implementation code before its test exists.
 
 Required test coverage for new code:
 
@@ -237,7 +237,7 @@ Frontend uses Vitest + Vue Test Utils for unit and component testing.
 
 #### Testing Requirements for New Frontend Code
 
-**Use Test-Driven Development (TDD) for new or changed frontend logic with testable behavior unless explicitly told not to.** Write the failing test FIRST, then implement the minimum code to pass it, then refactor. Never write implementation code before its test exists.
+**Use Test-Driven Development (TDD) for new or changed logic with testable behavior unless explicitly told not to.** Write the failing test FIRST, then implement the minimum code to pass it, then refactor. Never write implementation code before its test exists.
 
 Required test coverage for new frontend code:
 

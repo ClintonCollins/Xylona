@@ -13,7 +13,7 @@ import (
 
 // InsertInstalledMod inserts a new installed mod record.
 func (c *Connection) InsertInstalledMod(exec bob.Executor, setter *models.InstalledModSetter) (*models.InstalledMod, error) {
-	mod, errInsert := models.InstalledMods.Insert(setter).One(c.ctx, c.DB)
+	mod, errInsert := models.InstalledMods.Insert(setter).One(c.ctx, exec)
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Error inserting installed mod")
 		return nil, errInsert
@@ -69,7 +69,7 @@ func (c *Connection) DeleteInstalledModByID(id string) error {
 
 // InsertInstalledModFile inserts a file record for an installed mod.
 func (c *Connection) InsertInstalledModFile(exec bob.Executor, setter *models.InstalledModFileSetter) (*models.InstalledModFile, error) {
-	file, errInsert := models.InstalledModFiles.Insert(setter).One(c.ctx, c.DB)
+	file, errInsert := models.InstalledModFiles.Insert(setter).One(c.ctx, exec)
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Error inserting installed mod file")
 		return nil, errInsert
@@ -91,11 +91,11 @@ func (c *Connection) GetInstalledModFilesByModID(modID string) ([]*models.Instal
 }
 
 // DeleteInstalledModFilesByModID deletes all file records for an installed mod.
-func (c *Connection) DeleteInstalledModFilesByModID(modID string) error {
+func (c *Connection) DeleteInstalledModFilesByModID(exec bob.Executor, modID string) error {
 	_, errExec := sqlite.RawQuery(
 		`DELETE FROM installed_mod_file WHERE installed_mod_id = ?`,
 		modID,
-	).Exec(c.ctx, c.DB)
+	).Exec(c.ctx, exec)
 	if errExec != nil {
 		log.Error().Err(errExec).Msg("Error deleting installed mod files")
 		return errExec

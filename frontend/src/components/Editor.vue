@@ -115,7 +115,7 @@ function editorLanguageChanged() {
 }
 
 self.MonacoEnvironment = {
-  getWorker(_: any, label: string) {
+  getWorker(_: string, label: string) {
     if (label === 'json') {
       // noinspection JSPotentiallyInvalidConstructorUsage
       return new jsonWorker()

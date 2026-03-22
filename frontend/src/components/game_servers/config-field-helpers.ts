@@ -56,7 +56,10 @@ export function groupFields<T extends { key: string; group: string }>(
       groupOrderArr.push(g)
       groupMap.set(g, [])
     }
-    groupMap.get(g)!.push(field)
+    const group = groupMap.get(g)
+    if (group) {
+      group.push(field)
+    }
   }
 
   let finalOrder: string[]

@@ -153,7 +153,7 @@
 <script setup lang="ts">
 import { ref, Ref } from 'vue'
 import { bytesToSize } from '@/utils/shared'
-import axios, { AxiosRequestConfig } from 'axios'
+import axios, { AxiosProgressEvent, AxiosRequestConfig } from 'axios'
 import {
   tabBarrierBlock,
   tabCheck,
@@ -395,7 +395,7 @@ class FileUploader {
     emits('uploadedFiles', this.uploadedFilesCount)
   }
 
-  setFileProgressDetails(file: uploaderFile, progressEvent: any) {
+  setFileProgressDetails(file: uploaderFile, progressEvent: AxiosProgressEvent) {
     if (progressEvent.total === undefined) {
       return
     }

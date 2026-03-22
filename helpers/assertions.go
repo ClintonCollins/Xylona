@@ -109,6 +109,7 @@ func GameServerModelToProto(gsModel *models.GameServer) *xylona.GameServer {
 		NodePort:                  gsModel.R.Node.Port,
 		Version:                   gsModel.Version,
 		ServerSoftware:            gsModel.ServerSoftware.GetOr(""),
+		ServerExecutable:          gsModel.ServerExecutable.GetOr(""),
 		Game:                      gameProtoFromRelation(gsModel),
 	}
 }

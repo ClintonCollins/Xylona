@@ -1,32 +1,39 @@
 <template>
-  <q-card-section>
-    <div class="row">
-      <div class="text-h6">Your Game Server</div>
+  <div class="identity-header">
+    <div class="identity-name">{{ gameServer.name }}</div>
+    <div class="identity-subtitle">
+      <span>{{ gameServer.gameName }}</span>
+      <template v-if="hasSoftwareOptions && !softwareNameRedundant">
+        <span class="identity-separator">·</span>
+        <span class="identity-running">running</span>
+        <span>{{ softwareDisplayName }}</span>
+      </template>
+      <template v-if="gameServer.version && hasSoftwareOptions">
+        <span class="identity-version" :class="{ 'version-outdated': softwareHasUpdate }">
+          {{ gameServer.version }}
+          <q-tooltip v-if="softwareHasUpdate">
+            Update available: {{ softwareLatestVersion }}
+          </q-tooltip>
+        </span>
+      </template>
+      <q-btn
+        v-if="showChangeButton"
+        flat
+        dense
+        no-caps
+        size="sm"
+        label="Change"
+        class="identity-change-btn"
+        @click="softwareSelector?.openChangeDialog()" />
     </div>
-  </q-card-section>
+  </div>
   <div class="row q-gutter-lg-lg q-col-gutter-lg q-px-md">
-    <div class="col-lg-4 col-xs-12 q-gutter-md">
+    <div class="col-lg-4 col-xs-12 q-gutter-md info-panel">
       <q-list separator>
-        <q-item>
-          <q-item-section>Name</q-item-section>
-          <q-item-section side>
-            <clip-board-copy
-              :clip-board-value="gameServer.name"
-              :display-text="gameServer.name"></clip-board-copy>
-          </q-item-section>
-        </q-item>
         <q-item>
           <q-item-section>Status</q-item-section>
           <q-item-section side>
-            <status-badge :status="gameServer.status"></status-badge>
-          </q-item-section>
-        </q-item>
-        <q-item>
-          <q-item-section>Game</q-item-section>
-          <q-item-section side>
-            <clip-board-copy
-              :clip-board-value="gameServer.gameName"
-              :display-text="gameServer.gameName"></clip-board-copy>
+            <status-badge :status="gameServer.status" />
           </q-item-section>
         </q-item>
         <q-item>
@@ -46,24 +53,24 @@
           </q-item-section>
         </q-item>
         <q-item>
-          <q-item-section>Version</q-item-section>
-          <q-item-section side>
-            <clip-board-copy
-              :display-text="gameServer.version !== '' ? gameServer.version : 'Unknown version'"
-              :clip-board-value="
-                gameServer.version !== '' ? gameServer.version : 'Unknown version'
-              "></clip-board-copy>
-          </q-item-section>
-        </q-item>
-        <q-item>
           <q-item-section>Current player count</q-item-section>
           <q-item-section side> {{ currentPlayerCount }} / {{ maxPlayerCount }} </q-item-section>
         </q-item>
       </q-list>
+      <server-software-selector
+        v-if="gameServer.gameId !== ''"
+        ref="softwareSelector"
+        :game-server-id="gameServerId"
+        :game-id="gameServer.gameId"
+        :game-name="gameServer.gameName"
+        :current-software="gameServer.serverSoftware"
+        :current-version="gameServer.version"
+        @software-changed="getGameServerDetails" />
       <game-server-metrics :game-server-id="gameServerId" :game-server="gameServer" />
       <div class="server-controls">
         <q-btn
           :disable="disableStartButton || !hasPermission('game_server.start')"
+          :loading="startingServer"
           color="positive"
           label="Start"
           @click="startGameServer">
@@ -73,6 +80,7 @@
         </q-btn>
         <q-btn
           :disable="disableStopButton || !hasPermission('game_server.stop')"
+          :loading="stoppingServer"
           color="negative"
           label="Stop"
           @click="stopGameServer">
@@ -82,6 +90,7 @@
         </q-btn>
         <q-btn
           :disable="disableUpdateButton || !hasPermission('game_server.settings')"
+          :loading="updatingServer"
           color="primary"
           label="Update"
           @click="updateGameServer">
@@ -90,25 +99,21 @@
           </q-tooltip>
         </q-btn>
       </div>
-      <server-software-selector
-        v-if="gameServer.gameId !== '' && hasPermission('game_server.settings')"
-        :game-server-id="gameServerId"
-        :game-id="gameServer.gameId"
-        :current-software="gameServer.serverSoftware" />
     </div>
     <div class="col col-lg-8 col-xs-12 console-panel" :class="{ expanded: consoleExpanded }">
+      <q-btn
+        flat
+        square
+        dense
+        padding="xs"
+        class="console-expand-btn"
+        :icon="tabMaximize"
+        aria-label="Toggle fullscreen console"
+        text-color="info"
+        @click="consoleExpanded = !consoleExpanded" />
       <q-scroll-area id="consoleContainer" ref="consoleScrollArea">
-        <q-page-sticky position="top-right" :offset="[12, -40]">
-          <q-btn
-            fab
-            flat
-            square
-            padding="sm"
-            :icon="tabMaximize"
-            aria-label="Toggle fullscreen console"
-            text-color="info"
-            @click="consoleExpanded = !consoleExpanded" />
-        </q-page-sticky>
+        <div v-if="consoleTruncated" class="console-truncated-notice">Earlier output truncated</div>
+        <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: game server console output -->
         <code
           id="consoleCodeEl"
           role="log"
@@ -116,12 +121,12 @@
           aria-label="Game server console output"
           class="q-pb-md"
           v-html="gameServerOutput"></code>
+        <!-- eslint-enable vue/no-v-html -->
       </q-scroll-area>
       <q-input
         id="consoleInput"
         v-model="serverInput"
         autofocus
-        hint="Send to console"
         placeholder="Enter command..."
         dense
         square
@@ -138,6 +143,7 @@
             icon="send"
             name="send"
             type="submit"
+            aria-label="Send command"
             :disable="!hasPermission('game_server.console')"
             @click="sendGameServerInput">
             <q-tooltip v-if="!hasPermission('game_server.console')">
@@ -156,7 +162,7 @@ import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import GameServerMetrics from '@/components/game_servers/GameServerMetrics.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
-import { QItemSection, QScrollArea, useQuasar } from 'quasar'
+import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
   AllServersQueryInfo,
@@ -204,13 +210,25 @@ const gameServerId: Ref<string> = ref(
   route.params.id instanceof Array ? route.params.id[0] : route.params.id,
 )
 const consoleScrollArea = ref<QScrollArea | null>(null)
+const softwareSelector = ref<InstanceType<typeof ServerSoftwareSelector> | null>(null)
 const consoleHistory = ref<string[]>([])
 const consoleHistoryCurrentIndex = ref(0)
 const consoleExpanded = ref(false)
 const maxConsoleCharacters = 100000
+const consoleTruncated = ref(false)
+
+const startingServer = ref(false)
+const stoppingServer = ref(false)
+const updatingServer = ref(false)
 
 const currentPlayerCount: Ref<number> = ref(0)
 const maxPlayerCount: Ref<number> = ref(0)
+
+function onEscapeKey(e: KeyboardEvent) {
+  if (e.key === 'Escape' && consoleExpanded.value) {
+    consoleExpanded.value = false
+  }
+}
 
 const disableStartButton = computed(() => {
   return gameServer.value.status !== Status.OFFLINE && gameServer.value.status !== Status.UNKNOWN
@@ -228,6 +246,35 @@ const disableUpdateButton = computed(() => {
   )
 })
 
+const softwareDisplayName = computed(() => {
+  return softwareSelector.value?.currentSoftwareDisplayName ?? ''
+})
+
+const hasSoftwareOptions = computed(() => {
+  return (softwareSelector.value?.softwareOptions?.length ?? 0) > 0
+})
+
+const showChangeButton = computed(() => {
+  if (!hasPermission('game_server.settings')) return false
+  const optionCount = softwareSelector.value?.softwareOptions?.length ?? 0
+  const versionCount = softwareSelector.value?.versions?.length ?? 0
+  return optionCount > 1 || versionCount > 0
+})
+
+const softwareNameRedundant = computed(() => {
+  const swName = softwareDisplayName.value.toLowerCase()
+  const gameName = gameServer.value.gameName.toLowerCase()
+  return swName === gameName || gameName.includes(swName) || swName.includes(gameName)
+})
+
+const softwareHasUpdate = computed(() => {
+  return softwareSelector.value?.hasUpdate ?? false
+})
+
+const softwareLatestVersion = computed(() => {
+  return softwareSelector.value?.latestVersion ?? ''
+})
+
 function hasPermission(perm: string): boolean {
   const perms = gameServer.value?.effectivePermissions ?? []
   // Empty permissions = unknown (cache fallback) — allow everything, backend enforces.
@@ -235,6 +282,7 @@ function hasPermission(perm: string): boolean {
 }
 
 onMounted(async () => {
+  document.addEventListener('keydown', onEscapeKey)
   void getGameServerDetails()
     .then(() => {
       void getGameServerOutput()
@@ -246,6 +294,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onEscapeKey)
   unsubscribeServerMetrics()
 })
 
@@ -313,6 +362,7 @@ async function queryGameServer() {
 
 async function startGameServer() {
   const request: StartGameServerRequest = create(StartGameServerRequestSchema, {})
+  startingServer.value = true
   try {
     request.serverId = gameServerId.value
     await GetXylonaClient().startGameServer(request)
@@ -324,11 +374,14 @@ async function startGameServer() {
       caption: 'Failed to start game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
+  } finally {
+    startingServer.value = false
   }
 }
 
 async function stopGameServer() {
   const request: StopGameServerRequest = create(StopGameServerRequestSchema, {})
+  stoppingServer.value = true
   try {
     request.serverId = gameServerId.value
     await GetXylonaClient().stopGameServer(request)
@@ -340,11 +393,14 @@ async function stopGameServer() {
       caption: 'Failed to stop game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
+  } finally {
+    stoppingServer.value = false
   }
 }
 
 async function updateGameServer() {
   const request: UpdateGameServerRequest = create(UpdateGameServerRequestSchema, {})
+  updatingServer.value = true
   try {
     request.serverId = gameServerId.value
     await GetXylonaClient().updateGameServer(request)
@@ -356,6 +412,8 @@ async function updateGameServer() {
       caption: 'Failed to update game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
+  } finally {
+    updatingServer.value = false
   }
 }
 
@@ -365,9 +423,11 @@ async function getGameServerOutput() {
     request.serverId = gameServerId.value
     const response: ReadGameServerOutputResponse =
       await GetXylonaClient().readGameServerOutput(request)
-    gameServerOutput.value = (
-      gameServerOutput.value + parseConsole(gameServer.value.gameId, response.output)
-    ).slice(-maxConsoleCharacters)
+    const combined = gameServerOutput.value + parseConsole(gameServer.value.gameId, response.output)
+    if (combined.length > maxConsoleCharacters) {
+      consoleTruncated.value = true
+    }
+    gameServerOutput.value = combined.slice(-maxConsoleCharacters)
     if (consoleScrollArea.value === null) {
       return
     }
@@ -412,9 +472,11 @@ function streamGameServerOutput() {
     if (serverID !== gameServerId.value) {
       return
     }
-    gameServerOutput.value = (
-      gameServerOutput.value + parseConsole(gameServer.value.gameId, output)
-    ).slice(-maxConsoleCharacters)
+    const combined = gameServerOutput.value + parseConsole(gameServer.value.gameId, output)
+    if (combined.length > maxConsoleCharacters) {
+      consoleTruncated.value = true
+    }
+    gameServerOutput.value = combined.slice(-maxConsoleCharacters)
     if (consoleScrollArea.value === null) {
       return
     }
@@ -488,6 +550,67 @@ async function sendGameServerInput() {
 </script>
 
 <style scoped>
+.identity-header {
+  padding: 0 var(--xy-space-md) var(--xy-space-md);
+  border-bottom: 1px solid var(--xy-border);
+  margin-bottom: var(--xy-space-md);
+}
+
+.identity-name {
+  font-family: var(--xy-font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--xy-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.identity-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--xy-text-secondary);
+}
+
+.identity-separator {
+  color: var(--xy-text-muted);
+  opacity: 0.5;
+}
+
+.identity-running {
+  color: var(--xy-text-muted);
+  font-style: italic;
+}
+
+.identity-version {
+  font-family: var(--xy-font-mono);
+  font-size: 0.75rem;
+  color: var(--xy-text-muted);
+}
+
+.identity-version.version-outdated {
+  color: var(--xy-accent);
+  cursor: help;
+}
+
+.identity-change-btn {
+  border: 1px solid var(--xy-border);
+  border-radius: 5px;
+  color: var(--xy-text-secondary);
+  font-family: var(--xy-font-display);
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  margin-left: 0.25rem;
+  transition: all var(--xy-transition-fast);
+}
+
+.identity-change-btn:hover {
+  border-color: var(--xy-primary);
+  color: var(--xy-primary);
+  background: var(--xy-primary-muted);
+}
+
 .server-controls {
   display: flex;
   flex-wrap: wrap;
@@ -498,11 +621,69 @@ async function sendGameServerInput() {
 .console-panel {
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+.console-expand-btn {
+  position: absolute;
+  top: var(--xy-space-xs);
+  right: var(--xy-space-sm);
+  z-index: 1;
+  opacity: 0.6;
+  transition: opacity var(--xy-transition-fast);
+}
+
+.console-expand-btn:hover {
+  opacity: 1;
 }
 
 .console-panel :deep(.q-scrollarea) {
   flex: 1;
   min-height: 50dvh;
+  padding-left: var(--xy-space-sm);
+  padding-right: var(--xy-space-sm);
+  font-family: var(--xy-font-mono);
+  font-size: 0.85rem;
+  font-weight: 400;
+  font-style: normal;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  max-width: 100%;
+  background-color: var(--xy-base);
+  border-top: 1px solid var(--xy-border);
+}
+
+.console-truncated-notice {
+  font-family: var(--xy-font-mono);
+  font-size: 0.75rem;
+  color: var(--xy-text-muted);
+  text-align: center;
+  padding: var(--xy-space-xs) 0;
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.console-panel :deep(#consoleCodeEl) {
+  white-space: pre-wrap;
+}
+
+.console-panel :deep(#consoleInput) {
+  background-color: var(--xy-surface-1);
+  border: none;
+  border-top: 1px solid var(--xy-border);
+}
+
+.console-panel :deep(#consoleInput .q-field__control) {
+  font-family: var(--xy-font-mono);
+}
+
+@media (max-width: 1023px) {
+  .console-panel {
+    order: -1;
+  }
+
+  .info-panel {
+    order: 1;
+  }
 }
 
 .expanded {
@@ -514,6 +695,18 @@ async function sendGameServerInput() {
   margin: 0;
   padding: 0;
   background-color: var(--xy-base);
+  animation: console-expand 200ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+@keyframes console-expand {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .expanded :deep(.q-scrollarea) {

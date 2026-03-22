@@ -13,7 +13,11 @@ import {
 let remoteServerId: string | undefined
 
 test.beforeAll(async () => {
-  const { cookies: adminCookies } = await fedApiLogin('e2e-superuser', 'TestPassword123!', NODE_A_BACKEND)
+  const { cookies: adminCookies } = await fedApiLogin(
+    'e2e-superuser',
+    'TestPassword123!',
+    NODE_A_BACKEND,
+  )
   const servers = await fedApiListAggregatedGameServers(adminCookies, NODE_A_BACKEND)
   const remoteServer = servers.find((s) => !s.isLocal)
   remoteServerId = remoteServer?.remoteServer?.remoteServerId
@@ -70,7 +74,11 @@ test.describe('Federation remote server lifecycle', () => {
 
   test('can delete a remote game server via Node A UI', async ({ page }) => {
     // Create a temporary game server on Node B for this test
-    const { cookies: adminCookiesB, userId: adminUserIdB } = await fedApiLogin('admin', 'admin', NODE_B_BACKEND)
+    const { cookies: adminCookiesB, userId: adminUserIdB } = await fedApiLogin(
+      'admin',
+      'admin',
+      NODE_B_BACKEND,
+    )
 
     const games = await fedApiListGames(adminCookiesB, NODE_B_BACKEND)
     if (games.length === 0) {
@@ -78,11 +86,14 @@ test.describe('Federation remote server lifecycle', () => {
       return
     }
 
+    const game = games[0]
+    if (!game) throw new Error('No games available on Node B')
+
     const tempServerId = await fedApiCreateGameServer(
       adminCookiesB,
       {
         name: 'E2E Temp Federation Delete',
-        gameId: games[0]!.id,
+        gameId: game.id,
         userId: adminUserIdB,
         startCommand: 'echo test',
         directory: '.',
@@ -92,20 +103,28 @@ test.describe('Federation remote server lifecycle', () => {
     )
 
     // Wait for it to sync to Node A
-    const { cookies: adminCookiesA } = await fedApiLogin('e2e-superuser', 'TestPassword123!', NODE_A_BACKEND)
+    const { cookies: adminCookiesA } = await fedApiLogin(
+      'e2e-superuser',
+      'TestPassword123!',
+      NODE_A_BACKEND,
+    )
     let tempRemoteId: string | undefined
 
-    await waitForCondition(async () => {
-      const servers = await fedApiListAggregatedGameServers(adminCookiesA, NODE_A_BACKEND)
-      const found = servers.find(
-        (s) => !s.isLocal && s.remoteServer?.displayName === 'E2E Temp Federation Delete',
-      )
-      if (found) {
-        tempRemoteId = found.remoteServer?.remoteServerId
-        return true
-      }
-      return false
-    }, 60_000, 2000)
+    await waitForCondition(
+      async () => {
+        const servers = await fedApiListAggregatedGameServers(adminCookiesA, NODE_A_BACKEND)
+        const found = servers.find(
+          (s) => !s.isLocal && s.remoteServer?.displayName === 'E2E Temp Federation Delete',
+        )
+        if (found) {
+          tempRemoteId = found.remoteServer?.remoteServerId
+          return true
+        }
+        return false
+      },
+      60_000,
+      2000,
+    )
 
     if (!tempRemoteId) {
       test.skip(true, 'Temp server did not sync to Node A')

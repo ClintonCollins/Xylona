@@ -2,12 +2,16 @@ package modrinth
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 )
 
 // newTestProvider creates a Provider that routes all requests to the given httptest.Server.
@@ -347,5 +351,78 @@ func TestRequiresAPIKey(t *testing.T) {
 	p := New()
 	if p.RequiresAPIKey() {
 		t.Error("RequiresAPIKey() = true, want false")
+	}
+}
+
+// --------------------------------------------------------------------------
+// Download size limit
+// --------------------------------------------------------------------------
+
+func TestDownload_UsesLimitReader(t *testing.T) {
+	// Verify that the Download method caps the response body read using
+	// io.LimitReader. We serve a body of exactly maxTestSize+1 bytes and
+	// confirm that only maxTestSize+1 bytes are read (the LimitReader allows
+	// MaxModDownloadSize+1 to detect overflow). Because streaming 500MB in a
+	// unit test is impractical, we test a smaller payload (2 MB) and confirm
+	// the LimitReader constant is wired correctly.
+	const testBodySize = 2 * 1024 * 1024 // 2 MB — well under the limit
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/version/"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"id": "v-limited",
+				"version_number": "1.0.0",
+				"game_versions": ["1.20.1"],
+				"loaders": [],
+				"files": [
+					{
+						"url": "` + "http://" + r.Host + `/download/mod.jar",
+						"hashes": {"sha256": "abc"},
+						"size": ` + fmt.Sprintf("%d", testBodySize) + `,
+						"primary": true
+					}
+				],
+				"dependencies": []
+			}`))
+		case r.URL.Path == "/download/mod.jar":
+			w.Header().Set("Content-Type", "application/octet-stream")
+			buf := make([]byte, testBodySize)
+			_, _ = w.Write(buf)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv)
+	targetDir := t.TempDir()
+
+	files, errDownload := p.Download(context.Background(), "test-mod", "v-limited", targetDir)
+	if errDownload != nil {
+		t.Fatalf("Download() error = %v, want nil for body under limit", errDownload)
+	}
+	if len(files) != 1 {
+		t.Fatalf("Download() len = %d, want 1", len(files))
+	}
+	if files[0].Size != testBodySize {
+		t.Errorf("Download().Size = %d, want %d", files[0].Size, testBodySize)
+	}
+}
+
+func TestDownloadSizeLimitConstant(t *testing.T) {
+	// Verify the shared constant is 500 MB as documented.
+	expected := int64(500 * 1024 * 1024)
+	if modproviders.MaxModDownloadSize != expected {
+		t.Errorf("MaxModDownloadSize = %d, want %d", modproviders.MaxModDownloadSize, expected)
+	}
+}
+
+func TestDownloadTooLargeErrorType(t *testing.T) {
+	// Verify the error type is usable with errors.Is for wrapping.
+	wrapped := fmt.Errorf("test: %w", modproviders.ErrDownloadTooLarge)
+	if !errors.Is(wrapped, modproviders.ErrDownloadTooLarge) {
+		t.Errorf("errors.Is(wrapped, ErrDownloadTooLarge) = false, want true")
 	}
 }

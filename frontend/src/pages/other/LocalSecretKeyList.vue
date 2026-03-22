@@ -136,21 +136,21 @@ const columns = ref([
     label: 'Name',
     required: true,
     align: 'left',
-    field: (row: { name: any }) => row.name,
+    field: (row: { name: string }) => row.name,
     sortable: true,
   },
   {
     name: 'last_accessed_from',
     label: 'Last Accessed From',
     align: 'left',
-    field: (row: { last_accessed_from: any }) => row.last_accessed_from,
+    field: (row: { last_accessed_from: string }) => row.last_accessed_from,
     sortable: true,
   },
   {
     name: 'last_used',
     label: 'Last Used',
     align: 'left',
-    field: (row: { last_used: any }) =>
+    field: (row: { last_used: Timestamp | undefined }) =>
       row.last_used ? dayjs(timestampDate(row.last_used)).format('MM/DD/YYYY HH:mm:ss A') : '',
     sortable: true,
   },

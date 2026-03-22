@@ -1,11 +1,13 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
 
 	"github.com/aarondl/opt/omit"
+	"github.com/stephenafamo/bob"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -166,5 +168,38 @@ func TestInsertGameDuplicateID(t *testing.T) {
 	_, errSecond := conn.InsertGame(conn.DB, setter2)
 	if errSecond == nil {
 		t.Fatalf("InsertGame(duplicate) expected error, got nil")
+	}
+}
+
+func TestInsertGameRespectsTransaction(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "game-tx-rollback.sqlite")
+
+	tx, errBegin := conn.SQLDb.BeginTx(context.Background(), nil)
+	if errBegin != nil {
+		t.Fatalf("BeginTx() error = %v", errBegin)
+	}
+	bobTx := bob.NewTx(tx)
+
+	setter := &models.GameSetter{
+		ID:                omit.From("tx-game"),
+		Name:              omit.From("Tx Game"),
+		DefaultPort:       omit.From(int64(5555)),
+		DefaultQueryPort:  omit.From(int64(5555)),
+		DefaultMaxPlayers: omit.From(int64(10)),
+	}
+
+	_, errInsert := conn.InsertGame(bobTx, setter)
+	if errInsert != nil {
+		t.Fatalf("InsertGame() error = %v", errInsert)
+	}
+
+	errRollback := tx.Rollback()
+	if errRollback != nil {
+		t.Fatalf("Rollback() error = %v", errRollback)
+	}
+
+	_, errGet := conn.GetGameByID("tx-game")
+	if !errors.Is(errGet, sql.ErrNoRows) {
+		t.Errorf("GetGameByID() after rollback error = %v, want %v", errGet, sql.ErrNoRows)
 	}
 }

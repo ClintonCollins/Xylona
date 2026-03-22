@@ -344,7 +344,7 @@ func TestSearchAll(t *testing.T) {
 		{ID: pid2, SearchParams: map[string]any{}},
 	}
 
-	results, errSearch := mgr.SearchAll(context.Background(), "test", sources)
+	results, errSearch := mgr.SearchAll(context.Background(), "test", sources, "", "", nil, 0, 0)
 	if errSearch != nil {
 		t.Fatalf("SearchAll() error = %v", errSearch)
 	}
@@ -365,7 +365,7 @@ func TestSearchAllSkipsUnknownProvider(t *testing.T) {
 		{ID: "nonexistent-provider-xyz", SearchParams: map[string]any{}},
 	}
 
-	results, errSearch := mgr.SearchAll(context.Background(), "test", sources)
+	results, errSearch := mgr.SearchAll(context.Background(), "test", sources, "", "", nil, 0, 0)
 	if errSearch != nil {
 		t.Fatalf("SearchAll() error = %v", errSearch)
 	}

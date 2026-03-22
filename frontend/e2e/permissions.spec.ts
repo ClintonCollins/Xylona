@@ -83,7 +83,8 @@ test.describe('RBAC permission-based access', () => {
       return
     }
 
-    const firstServer = gameServers[0]!
+    const firstServer = gameServers[0]
+    if (!firstServer) throw new Error('No game servers available')
     const ctx = await browser.newContext({
       storageState: './e2e/.auth/e2e-viewer.json',
       ignoreHTTPSErrors: true,

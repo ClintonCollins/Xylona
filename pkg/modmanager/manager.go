@@ -175,7 +175,7 @@ func (m *ModManager) Uninstall(ctx context.Context, modID, serverDir string) err
 		}
 	}
 
-	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(mod.ID)
+	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(m.db.DB, mod.ID)
 	if errDeleteFiles != nil {
 		return fmt.Errorf("modmanager: delete mod files: %w", errDeleteFiles)
 	}
@@ -251,8 +251,20 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		primaryHash = downloaded[0].Hash
 	}
 
+	// Wrap all DB mutations in a transaction so a partial failure does not leave
+	// the database in an inconsistent state.
+	t, errTx := m.db.SQLDb.BeginTx(ctx, nil)
+	if errTx != nil {
+		return nil, fmt.Errorf("modmanager: begin update transaction: %w", errTx)
+	}
+	tx := bob.NewTx(t)
+
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
 	// Delete old file records and insert new ones.
-	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(mod.ID)
+	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(tx, mod.ID)
 	if errDeleteFiles != nil {
 		return nil, fmt.Errorf("modmanager: delete old file records: %w", errDeleteFiles)
 	}
@@ -275,7 +287,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 			FileSize:       omit.From(df.Size),
 			IsPrimary:      omit.From(isPrimary),
 		}
-		_, errInsertFile := m.db.InsertInstalledModFile(m.db.DB, fileSetter)
+		_, errInsertFile := m.db.InsertInstalledModFile(tx, fileSetter)
 		if errInsertFile != nil {
 			return nil, fmt.Errorf("modmanager: insert updated file record: %w", errInsertFile)
 		}
@@ -288,9 +300,14 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		UpdatedAt:          omit.From(time.Now().UTC()),
 	}
 
-	updated, errUpdate := m.db.UpdateInstalledMod(m.db.DB, mod, updateSetter)
+	updated, errUpdate := m.db.UpdateInstalledMod(tx, mod, updateSetter)
 	if errUpdate != nil {
 		return nil, fmt.Errorf("modmanager: update mod record: %w", errUpdate)
+	}
+
+	errCommit := tx.Commit(ctx)
+	if errCommit != nil {
+		return nil, fmt.Errorf("modmanager: commit update transaction: %w", errCommit)
 	}
 
 	return updated, nil
@@ -484,6 +501,11 @@ func (m *ModManager) SearchAll(
 	ctx context.Context,
 	query string,
 	sources []SourceConfig,
+	sortBy string,
+	gameVersion string,
+	categories []string,
+	limit int,
+	offset int,
 ) ([]modproviders.ModSearchResult, error) {
 	var mu sync.Mutex
 	var allResults []modproviders.ModSearchResult
@@ -499,7 +521,28 @@ func (m *ModManager) SearchAll(
 				return nil
 			}
 
-			results, errSearch := provider.Search(gCtx, query, src.SearchParams)
+			// Merge well-known keys into a copy of the source's SearchParams.
+			params := make(modproviders.SearchParams, len(src.SearchParams)+5)
+			for k, v := range src.SearchParams {
+				params[k] = v
+			}
+			if sortBy != "" {
+				params[modproviders.ParamSortBy] = sortBy
+			}
+			if gameVersion != "" {
+				params[modproviders.ParamGameVersion] = gameVersion
+			}
+			if len(categories) > 0 {
+				params[modproviders.ParamCategories] = categories
+			}
+			if limit > 0 {
+				params[modproviders.ParamLimit] = limit
+			}
+			if offset > 0 {
+				params[modproviders.ParamOffset] = offset
+			}
+
+			results, errSearch := provider.Search(gCtx, query, params)
 			if errSearch != nil {
 				log.Warn().Err(errSearch).Str("provider", src.ID).Msg("Search failed")
 				return nil // Don't fail the whole search.

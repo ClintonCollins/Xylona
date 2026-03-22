@@ -158,7 +158,10 @@ async function handleToggleAutoUpdate(modId: string, enabled: boolean): Promise<
   // Optimistically replace the mod object to trigger Vue reactivity.
   const idx = installedMods.value.findIndex((m) => m.id === modId)
   if (idx !== -1) {
-    const updated = Object.assign(Object.create(Object.getPrototypeOf(installedMods.value[idx])), installedMods.value[idx])
+    const updated = Object.assign(
+      Object.create(Object.getPrototypeOf(installedMods.value[idx])),
+      installedMods.value[idx],
+    )
     updated.autoUpdate = enabled
     installedMods.value.splice(idx, 1, updated)
   }

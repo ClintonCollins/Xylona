@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test'
-import {
-  fedApiListAggregatedGameServers,
-  fedApiLogin,
-  NODE_A_BACKEND,
-} from './federation-helpers'
+import { fedApiListAggregatedGameServers, fedApiLogin, NODE_A_BACKEND } from './federation-helpers'
 
 let remoteServerId: string | undefined
 
 test.beforeAll(async () => {
-  const { cookies: adminCookies } = await fedApiLogin('e2e-superuser', 'TestPassword123!', NODE_A_BACKEND)
+  const { cookies: adminCookies } = await fedApiLogin(
+    'e2e-superuser',
+    'TestPassword123!',
+    NODE_A_BACKEND,
+  )
   const servers = await fedApiListAggregatedGameServers(adminCookies, NODE_A_BACKEND)
   const remoteServer = servers.find((s) => !s.isLocal)
   remoteServerId = remoteServer?.remoteServer?.remoteServerId
@@ -127,9 +127,7 @@ test.describe('operator with federated access', () => {
     await expect(page).not.toHaveURL(/\/configuration/)
   })
 
-  test('cannot access remote /game-servers/:id/access (not owner/superuser)', async ({
-    page,
-  }) => {
+  test('cannot access remote /game-servers/:id/access (not owner/superuser)', async ({ page }) => {
     if (!remoteServerId) {
       test.skip(true, 'No remote server')
       return
@@ -175,9 +173,7 @@ test.describe('viewer with federated access', () => {
     await expect(page).not.toHaveURL(/\/configuration/)
   })
 
-  test('cannot access remote /game-servers/:id/access (not owner/superuser)', async ({
-    page,
-  }) => {
+  test('cannot access remote /game-servers/:id/access (not owner/superuser)', async ({ page }) => {
     if (!remoteServerId) {
       test.skip(true, 'No remote server')
       return
@@ -212,8 +208,10 @@ test.describe('user with no federated access', () => {
     await page.waitForTimeout(3000)
     // Should be redirected or see an error
     const bodyText = await page.locator('body').textContent()
-    const isRedirected = !page.url().includes(remoteServerId!)
-    const hasError = bodyText?.includes('denied') || bodyText?.includes('not found') || bodyText?.includes('404')
+    if (!remoteServerId) throw new Error('remoteServerId is not set')
+    const isRedirected = !page.url().includes(remoteServerId)
+    const hasError =
+      bodyText?.includes('denied') || bodyText?.includes('not found') || bodyText?.includes('404')
     expect(isRedirected || hasError).toBeTruthy()
   })
 })

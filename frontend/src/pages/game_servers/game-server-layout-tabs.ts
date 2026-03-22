@@ -81,6 +81,7 @@ export function getUnauthorizedRedirect(
   serverID: string,
   permissions: string[],
   isOwnerOrSuper: boolean,
+  hasModSupport = false,
 ): string | null {
   const basePath = `/game-servers/${serverID}`
   const consolePath = `${basePath}/console`
@@ -98,7 +99,7 @@ export function getUnauthorizedRedirect(
   if (currentPath === `${basePath}/settings` && !has('game_server.settings')) {
     return consolePath
   }
-  if (currentPath === `${basePath}/mods` && !has('game_server.mods')) {
+  if (currentPath === `${basePath}/mods` && (!has('game_server.mods') || !hasModSupport)) {
     return consolePath
   }
   if (currentPath === `${basePath}/access` && !isOwnerOrSuper) {

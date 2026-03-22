@@ -44,10 +44,12 @@ function makeInstalledMod(
 
 // Mock the RPC client
 const mockSearchMods = vi.fn()
+const mockGetModCategories = vi.fn()
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
     searchMods: mockSearchMods,
+    getModCategories: mockGetModCategories,
   }),
   ConnectErrorToString: (err: Error) => err.message,
 }))
@@ -72,6 +74,11 @@ const QUASAR_STUBS = {
     emits: ['click'],
     template:
       '<button :disabled="disable" @click.stop="$emit(\'click\')">{{ label }}<slot /></button>',
+  },
+  'q-select': {
+    props: ['modelValue', 'options', 'multiple', 'useChips'],
+    emits: ['update:modelValue'],
+    template: '<div class="q-select-stub" />',
   },
 } as Record<string, unknown>
 
@@ -104,6 +111,10 @@ describe('ModBrowse', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mockSearchMods.mockReset()
+    mockGetModCategories.mockReset()
+    // Default: return empty results for initial load
+    mockSearchMods.mockResolvedValue({ results: [], totalCount: 0 })
+    mockGetModCategories.mockResolvedValue({ categories: [] })
   })
 
   afterEach(() => {
@@ -122,28 +133,39 @@ describe('ModBrowse', () => {
     expect(wrapper.text()).toContain('Hangar')
   })
 
-  it('shows initial empty state prompting user to search', () => {
-    const wrapper = mountBrowse()
+  it('triggers initial search on mount', async () => {
+    mountBrowse()
 
-    expect(wrapper.text()).toContain('Search for mods')
+    // onMounted fires performSearch immediately
+    await vi.waitFor(() => {
+      expect(mockSearchMods).toHaveBeenCalledTimes(1)
+    })
   })
 
-  it('triggers search after 300ms debounce', async () => {
+  it('triggers search after 300ms debounce when typing', async () => {
     const result = makeSearchResult()
-    mockSearchMods.mockResolvedValue({ results: [result], totalCount: 1 })
+    // First call is the auto-search on mount, second is the typed search
+    mockSearchMods
+      .mockResolvedValueOnce({ results: [], totalCount: 0 })
+      .mockResolvedValueOnce({ results: [result], totalCount: 1 })
 
     const wrapper = mountBrowse()
+
+    // Wait for initial search to complete
+    await vi.waitFor(() => {
+      expect(mockSearchMods).toHaveBeenCalledTimes(1)
+    })
 
     const input = wrapper.find('input')
     await input.setValue('fabric')
 
-    // Should not have searched yet
-    expect(mockSearchMods).not.toHaveBeenCalled()
+    // Should not have searched again yet
+    expect(mockSearchMods).toHaveBeenCalledTimes(1)
 
     // Advance past debounce
     await vi.advanceTimersByTimeAsync(350)
 
-    expect(mockSearchMods).toHaveBeenCalledTimes(1)
+    expect(mockSearchMods).toHaveBeenCalledTimes(2)
   })
 
   it('renders results in a grid after search', async () => {
@@ -155,11 +177,6 @@ describe('ModBrowse', () => {
 
     const wrapper = mountBrowse()
 
-    const input = wrapper.find('input')
-    await input.setValue('mod')
-    await vi.advanceTimersByTimeAsync(350)
-
-    // Wait for async search to complete
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('Fabric API')
     })
@@ -183,10 +200,6 @@ describe('ModBrowse', () => {
 
     const wrapper = mountBrowse({ installedMods: [installed] })
 
-    const input = wrapper.find('input')
-    await input.setValue('fabric')
-    await vi.advanceTimersByTimeAsync(350)
-
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('Fabric API')
     })
@@ -204,10 +217,6 @@ describe('ModBrowse', () => {
     mockSearchMods.mockResolvedValue({ results: [result], totalCount: 1 })
 
     const wrapper = mountBrowse()
-
-    const input = wrapper.find('input')
-    await input.setValue('sodium')
-    await vi.advanceTimersByTimeAsync(350)
 
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('Sodium')
@@ -229,10 +238,6 @@ describe('ModBrowse', () => {
 
     const wrapper = mountBrowse()
 
-    const input = wrapper.find('input')
-    await input.setValue('fabric')
-    await vi.advanceTimersByTimeAsync(350)
-
     await vi.waitFor(() => {
       expect(wrapper.find('.mod-card').exists()).toBe(true)
     })
@@ -253,10 +258,6 @@ describe('ModBrowse', () => {
     mockSearchMods.mockResolvedValue({ results: [result], totalCount: 1 })
 
     const wrapper = mountBrowse()
-
-    const input = wrapper.find('input')
-    await input.setValue('sodium')
-    await vi.advanceTimersByTimeAsync(350)
 
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('Sodium')
@@ -280,10 +281,6 @@ describe('ModBrowse', () => {
 
     const wrapper = mountBrowse()
 
-    const input = wrapper.find('input')
-    await input.setValue('nonexistent')
-    await vi.advanceTimersByTimeAsync(350)
-
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('No mods found')
     })
@@ -298,10 +295,6 @@ describe('ModBrowse', () => {
     mockSearchMods.mockResolvedValue({ results, totalCount: 3 })
 
     const wrapper = mountBrowse()
-
-    const input = wrapper.find('input')
-    await input.setValue('mod')
-    await vi.advanceTimersByTimeAsync(350)
 
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('5.0M')
@@ -320,10 +313,6 @@ describe('ModBrowse', () => {
 
     const wrapper = mountBrowse()
 
-    const input = wrapper.find('input')
-    await input.setValue('mod')
-    await vi.advanceTimersByTimeAsync(350)
-
     await vi.waitFor(() => {
       expect(wrapper.findAll('.mod-card').length).toBe(2)
     })
@@ -332,5 +321,33 @@ describe('ModBrowse', () => {
     const badgeTexts = badges.map((b) => b.text())
     expect(badgeTexts).toContain('M')
     expect(badgeTexts).toContain('H')
+  })
+
+  it('shows Load More button when there are more results', async () => {
+    const results = Array.from({ length: 20 }, (_, i) =>
+      makeSearchResult({ sourceId: `id-${i}`, name: `Mod ${i}` }),
+    )
+    mockSearchMods.mockResolvedValue({ results, totalCount: 40 })
+
+    const wrapper = mountBrowse()
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.mod-card').length).toBe(20)
+    })
+
+    expect(wrapper.find('.browse-load-more').exists()).toBe(true)
+  })
+
+  it('does not show Load More when all results are loaded', async () => {
+    const results = [makeSearchResult({ sourceId: 'a', name: 'Only Mod' })]
+    mockSearchMods.mockResolvedValue({ results, totalCount: 1 })
+
+    const wrapper = mountBrowse()
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.mod-card').length).toBe(1)
+    })
+
+    expect(wrapper.find('.browse-load-more').exists()).toBe(false)
   })
 })

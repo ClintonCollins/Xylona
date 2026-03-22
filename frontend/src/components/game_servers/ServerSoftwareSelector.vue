@@ -1,68 +1,109 @@
 <template>
-  <div v-if="softwareOptions.length > 0">
-    <q-card-section>
-      <div class="text-h6">Server Software</div>
-    </q-card-section>
-    <q-card-section>
-      <div class="row wrap q-col-gutter-md">
-        <div class="col-12 col-md-6" aria-label="Software">
-          <q-select
-            v-model="selectedSoftwareId"
-            outlined
-            label="Software"
-            emit-value
-            map-options
-            :display-value="selectedSoftwareName || undefined"
-            :options="softwareSelectOptions"
-            :loading="loadingOptions"
-            :disable="saving"
-            options-selected-class="selected-option"
-            @update:model-value="onSoftwareChange" />
-        </div>
-        <q-select
-          v-if="selectedSoftwareId !== '' && versions.length > 0"
-          v-model="selectedVersionId"
-          class="col-12 col-md-6"
-          outlined
-          label="Version"
-          emit-value
-          map-options
-          :options="versionSelectOptions"
-          :loading="loadingVersions"
-          :disable="saving || loadingVersions"
-          options-selected-class="selected-option" />
-      </div>
-      <div class="row q-mt-md">
-        <q-btn
-          label="Apply"
-          color="primary"
-          :loading="saving"
-          :disable="!canApply"
-          @click="showConfirmDialog = true" />
-      </div>
-    </q-card-section>
-
+  <div>
     <q-dialog
-      v-model="showConfirmDialog"
+      v-model="showChangeDialog"
       persistent
       backdrop-filter="brightness(15%)"
-      aria-labelledby="software-confirm-title">
-      <q-card>
-        <q-card-section>
-          <div id="software-confirm-title" class="text-h6">Change Server Software</div>
+      aria-labelledby="software-change-title">
+      <q-card class="change-dialog-card">
+        <q-card-section class="change-dialog-header">
+          <div id="software-change-title" class="change-dialog-title">Change Server Software</div>
+          <div class="change-dialog-subtitle">Select new software and version for this server</div>
         </q-card-section>
-        <q-card-section>
-          <p>
-            Switching server software may affect installed mods. Mods will be preserved but may not
-            be compatible with {{ selectedSoftwareName }}. Continue?
-          </p>
+
+        <q-card-section class="change-dialog-body">
+          <div class="dialog-current">
+            <div class="dialog-current-icon">
+              <q-icon name="dns" size="16px" color="accent" />
+            </div>
+            <div>
+              <div class="dialog-current-label">Currently active</div>
+              <div>
+                <span class="dialog-current-value">{{ currentSoftwareDisplayName }}</span>
+                <span v-if="currentVersion" class="dialog-current-version">{{
+                  currentVersion
+                }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="dialog-fields">
+            <div class="dialog-field">
+              <q-select
+                v-model="selectedSoftwareId"
+                outlined
+                dense
+                label="Software"
+                emit-value
+                map-options
+                :display-value="selectedSoftwareName || undefined"
+                :options="softwareSelectOptions"
+                :loading="loadingOptions"
+                :disable="saving || installStatus === 'installing'"
+                options-selected-class="selected-option"
+                @update:model-value="onSoftwareChange" />
+            </div>
+            <div class="dialog-field">
+              <q-select
+                v-if="selectedSoftwareId !== '' && versions.length > 0"
+                v-model="selectedVersionId"
+                outlined
+                dense
+                label="Version"
+                emit-value
+                map-options
+                :options="versionSelectOptions"
+                :loading="loadingVersions"
+                :disable="saving || loadingVersions || installStatus === 'installing'"
+                options-selected-class="selected-option" />
+            </div>
+          </div>
+
+          <div class="dialog-warning">
+            <q-icon name="warning" size="16px" color="warning" class="dialog-warning-icon" />
+            <span>
+              Switching server software may affect installed mods. Mods will be preserved but may
+              not be compatible with {{ selectedSoftwareName || 'the new software' }}.
+            </span>
+          </div>
         </q-card-section>
-        <q-card-actions align="right">
-          <q-btn label="Cancel" color="neutral" flat @click="showConfirmDialog = false" />
-          <q-btn label="Confirm" color="primary" @click="applyServerSoftware" />
+
+        <q-card-actions class="change-dialog-footer" align="right">
+          <q-btn
+            flat
+            no-caps
+            label="Cancel"
+            class="dialog-cancel-btn"
+            @click="cancelChangeDialog" />
+          <q-btn
+            no-caps
+            label="Apply"
+            color="primary"
+            :loading="saving"
+            :disable="!canApply || installStatus === 'installing'"
+            @click="applyServerSoftware" />
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <div v-if="installStatus === 'installing'" class="install-progress">
+      <q-spinner color="accent" size="18px" class="install-progress-spinner" />
+      <span class="install-progress-text">Installing server software...</span>
+    </div>
+
+    <div v-if="installStatus === 'failed'" class="install-error">
+      <q-icon name="error_outline" size="18px" color="negative" class="install-error-icon" />
+      <span class="install-error-text">{{ installError || 'Installation failed.' }}</span>
+      <q-btn
+        flat
+        dense
+        no-caps
+        size="sm"
+        label="Retry"
+        color="primary"
+        class="install-error-retry"
+        @click="resetInstallStatus" />
+    </div>
   </div>
 </template>
 
@@ -74,19 +115,26 @@ import { computed, onMounted, ref } from 'vue'
 
 import {
   GetServerSoftwareOptionsRequestSchema,
+  GetServerSoftwareStatusRequestSchema,
   GetServerSoftwareVersionsRequestSchema,
   SetServerSoftwareRequestSchema,
 } from '@/proto/xylona_pb'
 import type { ServerSoftwareOption, SoftwareVersion } from '@/proto/shared_pb'
 import { GetXylonaClient } from '@/utils/shared'
+import { useServerSoftwareInstall } from 'src/composables/useServerSoftwareInstall'
 
 interface Props {
   gameServerId: string
   gameId: string
+  gameName: string
   currentSoftware?: string
+  currentVersion?: string
 }
 
 const props = defineProps<Props>()
+const emit = defineEmits<{
+  'software-changed': []
+}>()
 
 const $q = useQuasar()
 
@@ -97,7 +145,9 @@ const selectedVersionId = ref('')
 const loadingOptions = ref(false)
 const loadingVersions = ref(false)
 const saving = ref(false)
-const showConfirmDialog = ref(false)
+const showChangeDialog = ref(false)
+const installStatus = ref<'idle' | 'installing' | 'complete' | 'failed'>('idle')
+const installError = ref('')
 
 const softwareSelectOptions = computed(() =>
   softwareOptions.value.map((opt) => ({
@@ -118,6 +168,21 @@ const selectedSoftwareName = computed(() => {
   return found?.name ?? ''
 })
 
+const currentSoftwareDisplayName = computed(() => {
+  if (props.currentSoftware) {
+    const found = softwareOptions.value.find((opt) => opt.id === props.currentSoftware)
+    if (found) {
+      return found.name
+    }
+  }
+  return props.gameName || 'Unknown'
+})
+
+const currentSoftwareHasJarSource = computed(() => {
+  const found = softwareOptions.value.find((opt) => opt.id === props.currentSoftware)
+  return (found?.jarSource ?? '') !== ''
+})
+
 const selectedSoftwareHasJarSource = computed(() => {
   const found = softwareOptions.value.find((opt) => opt.id === selectedSoftwareId.value)
   return (found?.jarSource ?? '') !== ''
@@ -129,9 +194,67 @@ const canApply = computed(() => {
   return true
 })
 
+const latestVersion = computed(() => {
+  if (versions.value.length === 0) return ''
+  return versions.value[0].versionString || versions.value[0].versionId
+})
+
+const hasUpdate = computed(() => {
+  if (!props.currentVersion || versions.value.length === 0) return false
+  const latest = versions.value[0]
+  const latestStr = latest.versionString || latest.versionId
+  return latestStr !== props.currentVersion
+})
+
+useServerSoftwareInstall((gameServerId, status) => {
+  if (gameServerId !== props.gameServerId) return
+  if (status === 'complete') {
+    installStatus.value = 'idle'
+    void fetchSoftwareOptions()
+    emit('software-changed')
+  } else if (status === 'failed') {
+    installStatus.value = 'failed'
+  }
+})
+
 onMounted(async () => {
   await fetchSoftwareOptions()
+  await checkInstallStatus()
 })
+
+function openChangeDialog(): void {
+  if (props.currentSoftware) {
+    selectedSoftwareId.value = props.currentSoftware
+  }
+  showChangeDialog.value = true
+}
+
+function cancelChangeDialog(): void {
+  showChangeDialog.value = false
+}
+
+function resetInstallStatus(): void {
+  installStatus.value = 'idle'
+  installError.value = ''
+}
+
+async function checkInstallStatus(): Promise<void> {
+  try {
+    const response = await GetXylonaClient().getServerSoftwareStatus(
+      create(GetServerSoftwareStatusRequestSchema, {
+        gameServerId: props.gameServerId,
+      }),
+    )
+    if (response.status === 'installing') {
+      installStatus.value = 'installing'
+    } else if (response.status === 'failed') {
+      installStatus.value = 'failed'
+      installError.value = response.error
+    }
+  } catch {
+    // Non-critical — ignore
+  }
+}
 
 async function fetchSoftwareOptions(): Promise<void> {
   loadingOptions.value = true
@@ -143,7 +266,6 @@ async function fetchSoftwareOptions(): Promise<void> {
     )
     softwareOptions.value = response.options
 
-    // Pre-select the current software if set on the game server.
     if (props.currentSoftware) {
       const match = softwareOptions.value.find((opt) => opt.id === props.currentSoftware)
       if (match) {
@@ -201,22 +323,36 @@ async function onSoftwareChange(): Promise<void> {
 }
 
 async function applyServerSoftware(): Promise<void> {
-  showConfirmDialog.value = false
   saving.value = true
   try {
-    await GetXylonaClient().setServerSoftware(
+    const response = await GetXylonaClient().setServerSoftware(
       create(SetServerSoftwareRequestSchema, {
         gameServerId: props.gameServerId,
         softwareId: selectedSoftwareId.value,
         versionId: selectedVersionId.value,
       }),
     )
-    $q.notify({
-      caption: `Server software changed to ${selectedSoftwareName.value}`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
+    showChangeDialog.value = false
+
+    if (response.status === 'installing') {
+      installStatus.value = 'installing'
+      if (response.installedModCount > 0) {
+        $q.notify({
+          caption: `${response.installedModCount} mod(s) are installed. They will be preserved but may not be compatible with the new software.`,
+          type: 'xylona-warning',
+          position: 'top',
+          timeout: 8000,
+        })
+      }
+    } else {
+      $q.notify({
+        caption: `Server software changed to ${selectedSoftwareName.value}`,
+        type: 'xylona-success',
+        position: 'top',
+        timeout: 5000,
+      })
+      emit('software-changed')
+    }
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
     $q.notify({
@@ -229,6 +365,176 @@ async function applyServerSoftware(): Promise<void> {
     saving.value = false
   }
 }
+
+defineExpose({
+  softwareOptions,
+  versions,
+  currentSoftwareDisplayName,
+  currentSoftwareHasJarSource,
+  hasUpdate,
+  latestVersion,
+  openChangeDialog,
+})
 </script>
 
-<style scoped></style>
+<style scoped>
+/* Dialog styles */
+.change-dialog-card {
+  width: 420px;
+  max-width: 90vw;
+  background: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+}
+
+.change-dialog-header {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.change-dialog-title {
+  font-family: var(--xy-font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--xy-text-primary);
+}
+
+.change-dialog-subtitle {
+  font-size: 0.8rem;
+  color: var(--xy-text-muted);
+  margin-top: 0.2rem;
+}
+
+.change-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.dialog-current {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--xy-surface-0);
+  border: 1px solid var(--xy-border);
+  border-radius: 6px;
+}
+
+.dialog-current-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: var(--xy-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dialog-current-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--xy-text-muted);
+  line-height: 1;
+}
+
+.dialog-current-value {
+  font-family: var(--xy-font-display);
+  font-size: 0.85rem;
+  color: var(--xy-text-primary);
+}
+
+.dialog-current-version {
+  font-family: var(--xy-font-mono);
+  font-size: 0.72rem;
+  color: var(--xy-text-muted);
+  margin-left: 0.3rem;
+}
+
+.dialog-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
+}
+
+.dialog-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--xy-warning-bg);
+  border: 1px solid var(--xy-warning-border);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--xy-text-secondary);
+  line-height: 1.4;
+}
+
+.dialog-warning-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.change-dialog-footer {
+  border-top: 1px solid var(--xy-border);
+  background: var(--xy-surface-0);
+}
+
+.dialog-cancel-btn {
+  border: 1px solid var(--xy-border);
+  color: var(--xy-text-secondary);
+}
+
+.dialog-cancel-btn:hover {
+  border-color: var(--xy-text-muted);
+  color: var(--xy-text-primary);
+}
+
+/* Install progress */
+.install-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 6px;
+  background: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  margin-top: 0.5rem;
+}
+
+.install-progress-spinner {
+  flex-shrink: 0;
+}
+
+.install-progress-text {
+  font-size: 0.8rem;
+  color: var(--xy-text-secondary);
+}
+
+/* Install error */
+.install-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 6px;
+  background: var(--xy-surface-1);
+  border: 1px solid var(--xy-danger-border, var(--xy-border));
+  margin-top: 0.5rem;
+}
+
+.install-error-icon {
+  flex-shrink: 0;
+}
+
+.install-error-text {
+  font-size: 0.8rem;
+  color: var(--xy-text-secondary);
+  flex: 1;
+}
+
+.install-error-retry {
+  flex-shrink: 0;
+}
+</style>

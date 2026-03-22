@@ -61,6 +61,7 @@ message Message {
     ServerQueries = 4;
     GameServerMetrics = 5;
     NodeMetrics = 6;
+    ServerSoftwareInstall = 7;
   }
   Type type = 1;
   optional GameServerConsoleOutput game_server_console_output = 2;
@@ -69,4 +70,12 @@ message Message {
   optional AllServersQueryInfo all_servers_query_info = 5;
   optional AllServersMetrics all_servers_metrics = 6;
   optional AllNodeMetrics all_node_metrics = 7;
+  optional ServerSoftwareInstallUpdate server_software_install_update = 8;
+}
+
+message ServerSoftwareInstallUpdate {
+  string game_server_id = 1;
+  string status = 2;
+  string error = 3;
+  string software_id = 4;
 }

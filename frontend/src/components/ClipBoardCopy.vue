@@ -8,15 +8,15 @@
     @keydown.enter="copyValue(props.clipBoardValue)"
     @keydown.space.prevent="copyValue(props.clipBoardValue)">
     {{ props.displayText }}
-    <!-- eslint-disable vue/no-v-text-v-html-on-component -- accepted per CLAUDE.md -->
+    <!-- eslint-disable vue/no-v-text-v-html-on-component, vue/no-v-html -- accepted per CLAUDE.md -->
     <q-tooltip
-      id="clipBoardCopyTooltip"
+      class="clipboard-tooltip"
       :anchor="props.tooltipAnchor"
       :self="props.tooltipSelf"
       :offset="[10, 10]"
       @before-show="resetClipboardCopy"
       v-html="clipboardInnerHTML"></q-tooltip>
-    <!-- eslint-enable vue/no-v-text-v-html-on-component -->
+    <!-- eslint-enable vue/no-v-text-v-html-on-component, vue/no-v-html -->
   </div>
 </template>
 
@@ -27,7 +27,6 @@ import { ref } from 'vue'
 const props = defineProps({
   clipBoardValue: {
     type: String,
-    required: true,
     default: '',
   },
   displayText: {
@@ -71,7 +70,7 @@ async function copyValue(value: string) {
 </script>
 
 <style>
-#clipBoardCopyTooltip {
+.clipboard-tooltip {
   font-family: var(--xy-font-brand);
   font-weight: 400;
   font-size: 0.65rem;

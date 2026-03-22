@@ -13,9 +13,16 @@ import (
 )
 
 type Connection struct {
-	ctx   context.Context
-	SQLDb *sql.DB
-	DB    bob.Executor
+	ctx           context.Context
+	SQLDb         *sql.DB
+	DB            bob.Executor
+	encryptionKey []byte
+}
+
+// SetEncryptionKey sets the AES-256 key used to encrypt sensitive fields
+// (e.g., node API keys) at rest. The key must be exactly 32 bytes.
+func (c *Connection) SetEncryptionKey(key []byte) {
+	c.encryptionKey = key
 }
 
 func sqliteDSNWithPragmas(path string, pragmas ...string) string {
@@ -85,5 +92,5 @@ func NewConnection(ctx context.Context, path string) *Connection {
 
 	bobDB := bob.NewDB(db)
 	// bobDB := bob.Debug(bob.NewDB(db))
-	return &Connection{ctx, db, bobDB}
+	return &Connection{ctx: ctx, SQLDb: db, DB: bobDB}
 }

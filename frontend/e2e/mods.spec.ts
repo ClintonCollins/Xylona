@@ -440,7 +440,8 @@ test.describe('Installed Mod Management', () => {
     // Search for WorldEdit to get a source_id.
     const results = await apiSearchMods(cookies, state.gameServerId, 'WorldEdit')
     if (results.length > 0) {
-      const mod = results[0]!
+      const mod = results[0]
+      if (!mod) throw new Error('No mod search results')
       // Install the first result (version_id empty = latest).
       try {
         await apiListInstalledMods(cookies, state.gameServerId).then(async (mods) => {

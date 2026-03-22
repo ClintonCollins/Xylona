@@ -227,7 +227,7 @@ onUnmounted(() => {
   background-color: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
   border-radius: 6px;
-  padding: 8px 0;
+  padding: var(--xy-space-sm) 0;
 }
 .metrics-group-label {
   font-size: 0.7rem;
@@ -235,7 +235,7 @@ onUnmounted(() => {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--xy-text-muted);
-  padding: 0 16px 4px;
+  padding: 0 var(--xy-space-md) var(--xy-space-xs);
 }
 .badge-offline {
   background-color: var(--xy-surface-3);

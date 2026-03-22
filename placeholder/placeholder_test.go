@@ -113,6 +113,70 @@ func TestBuildVarsFromGameServer(t *testing.T) {
 	}
 }
 
+func TestBuildVarsFromGameServer_ServerExecutable(t *testing.T) {
+	gs := &models.GameServer{
+		ID:              "test-id",
+		IP:              "127.0.0.1",
+		Port:            25565,
+		QueryPort:       25565,
+		MaxPlayers:      20,
+		Name:            "Test Server",
+		Directory:       "/srv/mc",
+		BackupDirectory: "/backups",
+		MaxMemoryMB:     4096,
+		SetPlayers:      10,
+	}
+	gs.ServerExecutable.Set("paper-1.21.4-100.jar")
+
+	vars := BuildVarsFromGameServer(gs)
+
+	expected := "paper-1.21.4-100.jar"
+	actual, ok := vars["SERVER_EXECUTABLE"]
+	if !ok {
+		t.Fatal("SERVER_EXECUTABLE key missing from vars")
+	}
+	if actual != expected {
+		t.Errorf("SERVER_EXECUTABLE = %q, want %q", actual, expected)
+	}
+}
+
+func TestBuildVarsFromGameServer_ServerExecutableEmpty(t *testing.T) {
+	gs := &models.GameServer{
+		ID:              "test-id",
+		IP:              "127.0.0.1",
+		Port:            25565,
+		QueryPort:       25565,
+		MaxPlayers:      20,
+		Name:            "Test Server",
+		Directory:       "/srv/mc",
+		BackupDirectory: "/backups",
+		MaxMemoryMB:     4096,
+		SetPlayers:      10,
+	}
+
+	vars := BuildVarsFromGameServer(gs)
+
+	actual := vars["SERVER_EXECUTABLE"]
+	if actual != "" {
+		t.Errorf("SERVER_EXECUTABLE = %q, want empty string", actual)
+	}
+}
+
+func TestResolve_ServerExecutable(t *testing.T) {
+	vars := map[string]string{
+		"MAX_MEMORY_MB":     "4096",
+		"SERVER_EXECUTABLE": "paper-1.21.4-100.jar",
+	}
+
+	template := "java -Xmx{{MAX_MEMORY_MB}}M -jar {{SERVER_EXECUTABLE}}"
+	result := Resolve(template, vars)
+
+	expected := "java -Xmx4096M -jar paper-1.21.4-100.jar"
+	if result != expected {
+		t.Errorf("Resolve() = %q, want %q", result, expected)
+	}
+}
+
 func TestLegacyMapping(t *testing.T) {
 	tests := []struct {
 		name   string

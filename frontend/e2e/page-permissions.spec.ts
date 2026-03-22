@@ -267,7 +267,9 @@ test.describe('no-access user', () => {
     // Wait for data to load
     await page.waitForTimeout(2000)
     // Should not see any game server cards/rows
-    const serverItems = page.locator('[data-testid="game-server-item"], .game-server-card, .q-item').filter({ hasText: /E2E Test Server/ })
+    const serverItems = page
+      .locator('[data-testid="game-server-item"], .game-server-card, .q-item')
+      .filter({ hasText: /E2E Test Server/ })
     await expect(serverItems).toHaveCount(0)
   })
 

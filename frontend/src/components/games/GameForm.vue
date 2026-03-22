@@ -1,4 +1,5 @@
 <template>
+  <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: highlightCommand() syntax highlighting -->
   <div class="game-form-wrapper full-width">
     <!-- Sentinel for sticky detection -->
     <div ref="stickySentinel" class="sticky-sentinel"></div>
@@ -228,11 +229,10 @@
                   <span class="cmd-label">START COMMAND</span>
                 </div>
                 <div class="cmd-input-wrap">
-                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <div
                     class="cmd-highlight font-mono"
-                    v-html="highlightCommand(game.windowsStartCommand)"
-                    aria-hidden="true"></div>
+                    aria-hidden="true"
+                    v-html="highlightCommand(game.windowsStartCommand)"></div>
                   <textarea
                     v-model="game.windowsStartCommand"
                     class="cmd-textarea font-mono"
@@ -250,11 +250,10 @@
                   </q-badge>
                 </div>
                 <div class="cmd-input-wrap">
-                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <div
                     class="cmd-highlight font-mono"
-                    v-html="highlightCommand(game.windowsStopCommand)"
-                    aria-hidden="true"></div>
+                    aria-hidden="true"
+                    v-html="highlightCommand(game.windowsStopCommand)"></div>
                   <textarea
                     v-model="game.windowsStopCommand"
                     class="cmd-textarea font-mono"
@@ -292,11 +291,10 @@
                   Managed internally by Xylona
                 </div>
                 <div v-else class="cmd-input-wrap">
-                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <div
                     class="cmd-highlight font-mono"
-                    v-html="highlightCommand(game.windowsInstallCommand)"
-                    aria-hidden="true"></div>
+                    aria-hidden="true"
+                    v-html="highlightCommand(game.windowsInstallCommand)"></div>
                   <textarea
                     v-model="game.windowsInstallCommand"
                     class="cmd-textarea font-mono"
@@ -334,11 +332,10 @@
                   Managed internally by Xylona
                 </div>
                 <div v-else class="cmd-input-wrap">
-                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <div
                     class="cmd-highlight font-mono"
-                    v-html="highlightCommand(game.windowsUpdateCommand)"
-                    aria-hidden="true"></div>
+                    aria-hidden="true"
+                    v-html="highlightCommand(game.windowsUpdateCommand)"></div>
                   <textarea
                     v-model="game.windowsUpdateCommand"
                     class="cmd-textarea font-mono"
@@ -368,11 +365,10 @@
                   <span class="cmd-label">START COMMAND</span>
                 </div>
                 <div class="cmd-input-wrap">
-                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <div
                     class="cmd-highlight font-mono"
-                    v-html="highlightCommand(game.linuxStartCommand)"
-                    aria-hidden="true"></div>
+                    aria-hidden="true"
+                    v-html="highlightCommand(game.linuxStartCommand)"></div>
                   <textarea
                     v-model="game.linuxStartCommand"
                     class="cmd-textarea font-mono"
@@ -390,11 +386,10 @@
                   </q-badge>
                 </div>
                 <div class="cmd-input-wrap">
-                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <div
                     class="cmd-highlight font-mono"
-                    v-html="highlightCommand(game.linuxStopCommand)"
-                    aria-hidden="true"></div>
+                    aria-hidden="true"
+                    v-html="highlightCommand(game.linuxStopCommand)"></div>
                   <textarea
                     v-model="game.linuxStopCommand"
                     class="cmd-textarea font-mono"
@@ -432,11 +427,10 @@
                   Managed internally by Xylona
                 </div>
                 <div v-else class="cmd-input-wrap">
-                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <div
                     class="cmd-highlight font-mono"
-                    v-html="highlightCommand(game.linuxInstallCommand)"
-                    aria-hidden="true"></div>
+                    aria-hidden="true"
+                    v-html="highlightCommand(game.linuxInstallCommand)"></div>
                   <textarea
                     v-model="game.linuxInstallCommand"
                     class="cmd-textarea font-mono"
@@ -474,11 +468,10 @@
                   Managed internally by Xylona
                 </div>
                 <div v-else class="cmd-input-wrap">
-                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <div
                     class="cmd-highlight font-mono"
-                    v-html="highlightCommand(game.linuxUpdateCommand)"
-                    aria-hidden="true"></div>
+                    aria-hidden="true"
+                    v-html="highlightCommand(game.linuxUpdateCommand)"></div>
                   <textarea
                     v-model="game.linuxUpdateCommand"
                     class="cmd-textarea font-mono"

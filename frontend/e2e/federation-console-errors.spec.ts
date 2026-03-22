@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test'
-import {
-  fedApiListAggregatedGameServers,
-  fedApiLogin,
-  NODE_A_BACKEND,
-} from './federation-helpers'
+import { fedApiListAggregatedGameServers, fedApiLogin, NODE_A_BACKEND } from './federation-helpers'
 
 let remoteServerId: string | undefined
 
 test.beforeAll(async () => {
-  const { cookies: adminCookies } = await fedApiLogin('e2e-superuser', 'TestPassword123!', NODE_A_BACKEND)
+  const { cookies: adminCookies } = await fedApiLogin(
+    'e2e-superuser',
+    'TestPassword123!',
+    NODE_A_BACKEND,
+  )
   const servers = await fedApiListAggregatedGameServers(adminCookies, NODE_A_BACKEND)
   const remoteServer = servers.find((s) => !s.isLocal)
   remoteServerId = remoteServer?.remoteServer?.remoteServerId

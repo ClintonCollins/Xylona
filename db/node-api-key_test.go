@@ -1,13 +1,16 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/aarondl/opt/omit"
+	"github.com/stephenafamo/bob"
 
+	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -117,5 +120,146 @@ func TestGetNodeApiKeyByServiceNameNotFound(t *testing.T) {
 	_, errGet := conn.GetNodeApiKeyByServiceName("nonexistent")
 	if !errors.Is(errGet, sql.ErrNoRows) {
 		t.Errorf("GetNodeApiKeyByServiceName() error = %v, want %v", errGet, sql.ErrNoRows)
+	}
+}
+
+func TestInsertOrUpdateNodeApiKeyRespectsTransaction(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "nak-tx-rollback.sqlite")
+
+	tx, errBegin := conn.SQLDb.BeginTx(context.Background(), nil)
+	if errBegin != nil {
+		t.Fatalf("BeginTx() error = %v", errBegin)
+	}
+	bobTx := bob.NewTx(tx)
+
+	setter := makeNodeAPIKeySetter("key-tx", "txservice", "tx-secret")
+
+	_, errUpsert := conn.InsertOrUpdateNodeApiKey(bobTx, setter)
+	if errUpsert != nil {
+		t.Fatalf("InsertOrUpdateNodeApiKey() error = %v", errUpsert)
+	}
+
+	errRollback := tx.Rollback()
+	if errRollback != nil {
+		t.Fatalf("Rollback() error = %v", errRollback)
+	}
+
+	_, errGet := conn.GetNodeApiKeyByServiceName("txservice")
+	if !errors.Is(errGet, sql.ErrNoRows) {
+		t.Errorf("GetNodeApiKeyByServiceName() after rollback error = %v, want %v", errGet, sql.ErrNoRows)
+	}
+}
+
+// --------------------------------------------------------------------------
+// Encryption tests
+// --------------------------------------------------------------------------
+
+func newEncryptedConnection(t *testing.T, sqliteFileName string) *Connection {
+	t.Helper()
+	conn := newRBACMigratedConnection(t, sqliteFileName)
+
+	key, errGen := xycrypt.GenerateEncryptionKey()
+	if errGen != nil {
+		t.Fatalf("GenerateEncryptionKey() error = %v", errGen)
+	}
+	conn.SetEncryptionKey(key)
+	return conn
+}
+
+func TestEncryptedInsertAndGetRoundtrip(t *testing.T) {
+	conn := newEncryptedConnection(t, "nak-encrypt-roundtrip.sqlite")
+
+	setter := makeNodeAPIKeySetter("key-enc-1", "modrinth", "secret-modrinth-key-12345")
+
+	key, errUpsert := conn.InsertOrUpdateNodeApiKey(conn.DB, setter)
+	if errUpsert != nil {
+		t.Fatalf("InsertOrUpdateNodeApiKey() error = %v", errUpsert)
+	}
+	// The returned key should have the decrypted (plaintext) value.
+	if key.APIKey != "secret-modrinth-key-12345" {
+		t.Errorf("InsertOrUpdateNodeApiKey().APIKey = %q, want %q", key.APIKey, "secret-modrinth-key-12345")
+	}
+
+	// Fetch by service name — should also return decrypted value.
+	fetched, errGet := conn.GetNodeApiKeyByServiceName("modrinth")
+	if errGet != nil {
+		t.Fatalf("GetNodeApiKeyByServiceName() error = %v", errGet)
+	}
+	if fetched.APIKey != "secret-modrinth-key-12345" {
+		t.Errorf("GetNodeApiKeyByServiceName().APIKey = %q, want %q", fetched.APIKey, "secret-modrinth-key-12345")
+	}
+}
+
+func TestEncryptedKeyStoredDifferentFromPlaintext(t *testing.T) {
+	conn := newEncryptedConnection(t, "nak-encrypt-stored.sqlite")
+
+	plaintext := "secret-api-key-visible"
+	setter := makeNodeAPIKeySetter("key-enc-stored", "steam", plaintext)
+
+	_, errUpsert := conn.InsertOrUpdateNodeApiKey(conn.DB, setter)
+	if errUpsert != nil {
+		t.Fatalf("InsertOrUpdateNodeApiKey() error = %v", errUpsert)
+	}
+
+	// Read the raw value directly from the database to confirm it is NOT the plaintext.
+	var storedValue string
+	errScan := conn.SQLDb.QueryRow(`SELECT api_key FROM node_api_key WHERE service_name = ?`, "steam").Scan(&storedValue)
+	if errScan != nil {
+		t.Fatalf("QueryRow() error = %v", errScan)
+	}
+
+	if storedValue == plaintext {
+		t.Errorf("Stored API key matches plaintext %q — expected encrypted value", plaintext)
+	}
+}
+
+func TestEncryptedGetAllKeysDecrypts(t *testing.T) {
+	conn := newEncryptedConnection(t, "nak-encrypt-getall.sqlite")
+
+	for _, svc := range []string{"svc-a", "svc-b"} {
+		setter := makeNodeAPIKeySetter("key-"+svc, svc, "apikey-for-"+svc)
+		_, errUpsert := conn.InsertOrUpdateNodeApiKey(conn.DB, setter)
+		if errUpsert != nil {
+			t.Fatalf("InsertOrUpdateNodeApiKey(%q) error = %v", svc, errUpsert)
+		}
+	}
+
+	keys, errGet := conn.GetNodeApiKeys()
+	if errGet != nil {
+		t.Fatalf("GetNodeApiKeys() error = %v", errGet)
+	}
+	if len(keys) != 2 {
+		t.Fatalf("GetNodeApiKeys() len = %d, want 2", len(keys))
+	}
+
+	for _, k := range keys {
+		expected := "apikey-for-" + k.ServiceName
+		if k.APIKey != expected {
+			t.Errorf("GetNodeApiKeys()[%s].APIKey = %q, want %q", k.ServiceName, k.APIKey, expected)
+		}
+	}
+}
+
+func TestEncryptedUpsertUpdatesExisting(t *testing.T) {
+	conn := newEncryptedConnection(t, "nak-encrypt-upsert.sqlite")
+
+	setter := makeNodeAPIKeySetter("key-enc-up", "hangar", "old-encrypted-key")
+	_, errFirst := conn.InsertOrUpdateNodeApiKey(conn.DB, setter)
+	if errFirst != nil {
+		t.Fatalf("InsertOrUpdateNodeApiKey(first) error = %v", errFirst)
+	}
+
+	updatedSetter := makeNodeAPIKeySetter("key-enc-up-2", "hangar", "new-encrypted-key")
+	_, errSecond := conn.InsertOrUpdateNodeApiKey(conn.DB, updatedSetter)
+	if errSecond != nil {
+		t.Fatalf("InsertOrUpdateNodeApiKey(update) error = %v", errSecond)
+	}
+
+	fetched, errGet := conn.GetNodeApiKeyByServiceName("hangar")
+	if errGet != nil {
+		t.Fatalf("GetNodeApiKeyByServiceName() error = %v", errGet)
+	}
+	if fetched.APIKey != "new-encrypted-key" {
+		t.Errorf("GetNodeApiKeyByServiceName().APIKey = %q, want %q", fetched.APIKey, "new-encrypted-key")
 	}
 }

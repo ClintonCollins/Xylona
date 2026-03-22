@@ -359,7 +359,8 @@ function selectAutocomplete(key: string) {
   const afterTextNode = document.createTextNode(textAfter)
   const beforeTextNode = document.createTextNode(beforeText)
 
-  const parent = textNode.parentNode!
+  const parent = textNode.parentNode
+  if (!parent) return
   parent.insertBefore(beforeTextNode, textNode)
   parent.insertBefore(chip, textNode)
   // Add a zero-width space after the chip so cursor has somewhere to go
@@ -447,7 +448,9 @@ onMounted(() => {
   if (editorRef.value) {
     const observer = new MutationObserver(() => {
       if (isUpdatingFromModel) return
-      const text = htmlToText(editorRef.value!)
+      const el = editorRef.value
+      if (!el) return
+      const text = htmlToText(el)
       isEmpty.value = text.length === 0
       emit('update:modelValue', text)
     })

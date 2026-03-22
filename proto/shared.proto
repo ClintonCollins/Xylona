@@ -167,6 +167,7 @@ message GameServer {
   repeated string effective_permissions = 43;
   string server_software = 44;
   Game game = 45;
+  string server_executable = 46;
 }
 
 message IP {

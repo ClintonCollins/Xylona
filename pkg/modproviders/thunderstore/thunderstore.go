@@ -362,9 +362,13 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 	hasher := sha256.New()
 	writer := io.MultiWriter(outFile, hasher)
 
-	written, errCopy := io.Copy(writer, resp.Body)
+	limitedBody := io.LimitReader(resp.Body, modproviders.MaxModDownloadSize+1)
+	written, errCopy := io.Copy(writer, limitedBody)
 	if errCopy != nil {
 		return nil, fmt.Errorf("thunderstore download: write file %s: %w", destPath, errCopy)
+	}
+	if written > modproviders.MaxModDownloadSize {
+		return nil, fmt.Errorf("thunderstore download: file %s (%d bytes): %w", destPath, written, modproviders.ErrDownloadTooLarge)
 	}
 
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))

@@ -5,8 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
 	"connectrpc.com/connect"
+	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 	"github.com/rs/zerolog/log"
@@ -130,7 +134,41 @@ func (xs *XylonaService) GetServerSoftwareVersions(
 	}, nil
 }
 
+// GetServerSoftwareStatus returns the current installation status for a game server's software.
+func (xs *XylonaService) GetServerSoftwareStatus(
+	_ context.Context,
+	request *connect.Request[xylona.GetServerSoftwareStatusRequest],
+) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
+	if errGetServer != nil {
+		return nil, errGetServer
+	}
+
+	errPerm := xs.ensureLocalServerPermission(user, gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
+	}
+
+	state, _ := xs.installTracker.Get(request.Msg.GetGameServerId())
+
+	return &connect.Response[xylona.GetServerSoftwareStatusResponse]{
+		Msg: &xylona.GetServerSoftwareStatusResponse{
+			Status:     state.Status,
+			Error:      state.Error,
+			SoftwareId: state.SoftwareID,
+		},
+	}, nil
+}
+
 // SetServerSoftware sets the active server software for a game server.
+// If the software has a jar source, it kicks off a background download and
+// returns status "installing". Otherwise it updates the DB immediately and
+// returns status "complete".
 func (xs *XylonaService) SetServerSoftware(
 	_ context.Context,
 	request *connect.Request[xylona.SetServerSoftwareRequest],
@@ -150,25 +188,137 @@ func (xs *XylonaService) SetServerSoftware(
 		return nil, errPerm
 	}
 
+	// Server must be stopped before changing software.
+	if gameServer.Status != xylona.Status_OFFLINE.String() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("server must be stopped before changing software"))
+	}
+
+	gameServerID := gameServer.ID
 	softwareID := request.Msg.GetSoftwareId()
 
-	// Store only the software ID (e.g., "paper", "fabric", "vanilla").
-	// The version is used for the JAR download but doesn't need to persist
-	// separately — it's a property of the installed server files.
-	setter := &models.GameServerSetter{
-		ID:             omit.From(gameServer.ID),
-		ServerSoftware: omitnull.From(softwareID),
+	// Reject if an install is already in progress.
+	if xs.installTracker.IsInstalling(gameServerID) {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("software installation already in progress"))
 	}
 
-	updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
-	if errUpdate != nil {
-		log.Error().Err(errUpdate).Msg("Failed to update game server software")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update server software"))
+	// Resolve the software definition from the game.
+	game := gameServer.R.Game
+	if game == nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("game relation not loaded"))
 	}
+
+	softwareJSON := game.ServerSoftware.GetOr("")
+	allSoftware, errParse := modmanager.ParseServerSoftware(softwareJSON)
+	if errParse != nil {
+		log.Error().Err(errParse).Str("game_id", game.ID).Msg("Failed to parse server software JSON")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse server software config"))
+	}
+
+	sw, found := modmanager.GetSoftwareByID(allSoftware, softwareID)
+	if !found {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("software option not found: %s", softwareID))
+	}
+
+	// Count installed mods for the response.
+	installedMods, errMods := xs.db.GetInstalledModsByGameServerID(gameServerID)
+	if errMods != nil {
+		log.Error().Err(errMods).Str("server_id", gameServerID).Msg("Failed to list installed mods")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list installed mods"))
+	}
+	modCount := int32(len(installedMods))
+
+	// If the software has no jar source, update the DB immediately.
+	if sw.JarSource == "" {
+		setter := &models.GameServerSetter{
+			ID:               omit.From(gameServerID),
+			ServerSoftware:   omitnull.From(softwareID),
+			ServerExecutable: omitnull.FromNull(null.Val[string]{}),
+		}
+		updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
+		if errUpdate != nil {
+			log.Error().Err(errUpdate).Msg("Failed to update game server software")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update server software"))
+		}
+		// Broadcast completion so the frontend can react (tab recalculation, etc.)
+		if xs.installBroadcast != nil {
+			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusComplete, softwareID, "")
+		}
+		return &connect.Response[xylona.SetServerSoftwareResponse]{
+			Msg: &xylona.SetServerSoftwareResponse{
+				GameServer:        helpers.GameServerModelToProto(updated),
+				Status:            modmanager.InstallStatusComplete,
+				InstalledModCount: modCount,
+			},
+		}, nil
+	}
+
+	// Software has a jar source — kick off a background download.
+	xs.installTracker.SetInstalling(gameServerID, softwareID)
+
+	if xs.installBroadcast != nil {
+		xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusInstalling, softwareID, "")
+	}
+
+	provider, ok := modproviders.GetProvider(sw.JarSource)
+	if !ok {
+		xs.installTracker.SetFailed(gameServerID, "jar source provider not found: "+sw.JarSource)
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("jar source provider not found: %s", sw.JarSource))
+	}
+
+	downloadCtx, downloadCancel := context.WithTimeout(xs.ctx, 10*time.Minute)
+	go func() {
+		defer downloadCancel()
+		files, errDownload := provider.Download(downloadCtx, sw.ID, request.Msg.GetVersionId(), gameServer.Directory)
+		if errDownload != nil {
+			xs.installTracker.SetFailed(gameServerID, errDownload.Error())
+			if xs.installBroadcast != nil {
+				xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusFailed, softwareID, errDownload.Error())
+			}
+			return
+		}
+
+		// Find the primary downloaded file.
+		var newExecutable string
+		for _, f := range files {
+			if f.IsPrimary {
+				newExecutable = f.Path
+				break
+			}
+		}
+
+		// Delete old executable if it differs from the new one.
+		oldExe := gameServer.ServerExecutable.GetOr("")
+		if oldExe != "" && oldExe != newExecutable {
+			oldPath := filepath.Join(gameServer.Directory, oldExe)
+			_ = os.Remove(oldPath) // Best effort
+		}
+
+		// Update DB with new software and executable.
+		setter := &models.GameServerSetter{
+			ID:               omit.From(gameServerID),
+			ServerSoftware:   omitnull.From(softwareID),
+			ServerExecutable: omitnull.From(newExecutable),
+		}
+		_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
+		if errUpdate != nil {
+			xs.installTracker.SetFailed(gameServerID, errUpdate.Error())
+			if xs.installBroadcast != nil {
+				xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusFailed, softwareID, errUpdate.Error())
+			}
+			return
+		}
+
+		xs.installTracker.SetComplete(gameServerID)
+		if xs.installBroadcast != nil {
+			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusComplete, softwareID, "")
+		}
+	}()
 
 	return &connect.Response[xylona.SetServerSoftwareResponse]{
 		Msg: &xylona.SetServerSoftwareResponse{
-			GameServer: helpers.GameServerModelToProto(updated),
+			GameServer:        helpers.GameServerModelToProto(gameServer),
+			Status:            modmanager.InstallStatusInstalling,
+			InstalledModCount: modCount,
 		},
 	}, nil
 }

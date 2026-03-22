@@ -12,7 +12,6 @@ import { computed, PropType } from 'vue'
 const props = defineProps({
   status: {
     type: Number as PropType<Status>,
-    required: true,
     default: Status.UNKNOWN,
   },
 })
@@ -76,8 +75,8 @@ const dotClass = computed(() => {
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
   flex-shrink: 0;
 }

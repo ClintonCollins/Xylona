@@ -49,6 +49,7 @@ type GameServer struct {
 	UpdatedAt                 time.Time        `db:"updated_at" `
 	NodeID                    string           `db:"node_id" `
 	ServerSoftware            null.Val[string] `db:"server_software" `
+	ServerExecutable          null.Val[string] `db:"server_executable" `
 
 	R gameServerR `db:"-" `
 }
@@ -79,7 +80,7 @@ type gameServerR struct {
 func buildGameServerColumns(alias string) gameServerColumns {
 	return gameServerColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "user_id", "name", "game_id", "start_command", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software",
+			"id", "user_id", "name", "game_id", "start_command", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable",
 		).WithParent("game_server"),
 		tableAlias:                alias,
 		ID:                        sqlite.Quote(alias, "id"),
@@ -106,6 +107,7 @@ func buildGameServerColumns(alias string) gameServerColumns {
 		UpdatedAt:                 sqlite.Quote(alias, "updated_at"),
 		NodeID:                    sqlite.Quote(alias, "node_id"),
 		ServerSoftware:            sqlite.Quote(alias, "server_software"),
+		ServerExecutable:          sqlite.Quote(alias, "server_executable"),
 	}
 }
 
@@ -136,6 +138,7 @@ type gameServerColumns struct {
 	UpdatedAt                 sqlite.Expression
 	NodeID                    sqlite.Expression
 	ServerSoftware            sqlite.Expression
+	ServerExecutable          sqlite.Expression
 }
 
 func (c gameServerColumns) Alias() string {
@@ -174,10 +177,11 @@ type GameServerSetter struct {
 	UpdatedAt                 omit.Val[time.Time]  `db:"updated_at" `
 	NodeID                    omit.Val[string]     `db:"node_id" `
 	ServerSoftware            omitnull.Val[string] `db:"server_software" `
+	ServerExecutable          omitnull.Val[string] `db:"server_executable" `
 }
 
 func (s GameServerSetter) SetColumns() []string {
-	vals := make([]string, 0, 24)
+	vals := make([]string, 0, 25)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -249,6 +253,9 @@ func (s GameServerSetter) SetColumns() []string {
 	}
 	if !s.ServerSoftware.IsUnset() {
 		vals = append(vals, "server_software")
+	}
+	if !s.ServerExecutable.IsUnset() {
+		vals = append(vals, "server_executable")
 	}
 	return vals
 }
@@ -326,6 +333,9 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	if !s.ServerSoftware.IsUnset() {
 		t.ServerSoftware = s.ServerSoftware.MustGetNull()
 	}
+	if !s.ServerExecutable.IsUnset() {
+		t.ServerExecutable = s.ServerExecutable.MustGetNull()
+	}
 }
 
 func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
@@ -342,7 +352,7 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 24)
+		vals := make([]bob.Expression, 0, 25)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -439,6 +449,10 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.ServerSoftware.MustGetNull()))
 		}
 
+		if !s.ServerExecutable.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.ServerExecutable.MustGetNull()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -452,7 +466,7 @@ func (s GameServerSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 24)
+	exprs := make([]bob.Expression, 0, 25)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -619,6 +633,13 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "server_software")...),
 			sqlite.Arg(s.ServerSoftware),
+		}})
+	}
+
+	if !s.ServerExecutable.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_executable")...),
+			sqlite.Arg(s.ServerExecutable),
 		}})
 	}
 
@@ -1576,6 +1597,7 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	UpdatedAt                 sqlite.WhereMod[Q, time.Time]
 	NodeID                    sqlite.WhereMod[Q, string]
 	ServerSoftware            sqlite.WhereNullMod[Q, string]
+	ServerExecutable          sqlite.WhereNullMod[Q, string]
 }
 
 func (gameServerWhere[Q]) AliasedAs(alias string) gameServerWhere[Q] {
@@ -1608,6 +1630,7 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		UpdatedAt:                 sqlite.Where[Q, time.Time](cols.UpdatedAt),
 		NodeID:                    sqlite.Where[Q, string](cols.NodeID),
 		ServerSoftware:            sqlite.WhereNull[Q, string](cols.ServerSoftware),
+		ServerExecutable:          sqlite.WhereNull[Q, string](cols.ServerExecutable),
 	}
 }
 

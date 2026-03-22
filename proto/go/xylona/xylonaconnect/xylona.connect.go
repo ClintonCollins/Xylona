@@ -268,6 +268,11 @@ const (
 	// XylonaSetServerSoftwareProcedure is the fully-qualified name of the Xylona's SetServerSoftware
 	// RPC.
 	XylonaSetServerSoftwareProcedure = "/xylona.Xylona/SetServerSoftware"
+	// XylonaGetServerSoftwareStatusProcedure is the fully-qualified name of the Xylona's
+	// GetServerSoftwareStatus RPC.
+	XylonaGetServerSoftwareStatusProcedure = "/xylona.Xylona/GetServerSoftwareStatus"
+	// XylonaGetModCategoriesProcedure is the fully-qualified name of the Xylona's GetModCategories RPC.
+	XylonaGetModCategoriesProcedure = "/xylona.Xylona/GetModCategories"
 	// XylonaListNodeApiKeysProcedure is the fully-qualified name of the Xylona's ListNodeApiKeys RPC.
 	XylonaListNodeApiKeysProcedure = "/xylona.Xylona/ListNodeApiKeys"
 	// XylonaSetNodeApiKeyProcedure is the fully-qualified name of the Xylona's SetNodeApiKey RPC.
@@ -390,6 +395,8 @@ type XylonaClient interface {
 	GetServerSoftwareOptions(context.Context, *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error)
 	GetServerSoftwareVersions(context.Context, *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error)
 	SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error)
+	GetServerSoftwareStatus(context.Context, *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error)
+	GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error)
 	// Node API keys
 	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
 	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
@@ -977,6 +984,18 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("SetServerSoftware")),
 			connect.WithClientOptions(opts...),
 		),
+		getServerSoftwareStatus: connect.NewClient[xylona.GetServerSoftwareStatusRequest, xylona.GetServerSoftwareStatusResponse](
+			httpClient,
+			baseURL+XylonaGetServerSoftwareStatusProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		getModCategories: connect.NewClient[xylona.GetModCategoriesRequest, xylona.GetModCategoriesResponse](
+			httpClient,
+			baseURL+XylonaGetModCategoriesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetModCategories")),
+			connect.WithClientOptions(opts...),
+		),
 		listNodeApiKeys: connect.NewClient[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse](
 			httpClient,
 			baseURL+XylonaListNodeApiKeysProcedure,
@@ -1095,6 +1114,8 @@ type xylonaClient struct {
 	getServerSoftwareOptions         *connect.Client[xylona.GetServerSoftwareOptionsRequest, xylona.GetServerSoftwareOptionsResponse]
 	getServerSoftwareVersions        *connect.Client[xylona.GetServerSoftwareVersionsRequest, xylona.GetServerSoftwareVersionsResponse]
 	setServerSoftware                *connect.Client[xylona.SetServerSoftwareRequest, xylona.SetServerSoftwareResponse]
+	getServerSoftwareStatus          *connect.Client[xylona.GetServerSoftwareStatusRequest, xylona.GetServerSoftwareStatusResponse]
+	getModCategories                 *connect.Client[xylona.GetModCategoriesRequest, xylona.GetModCategoriesResponse]
 	listNodeApiKeys                  *connect.Client[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse]
 	setNodeApiKey                    *connect.Client[xylona.SetNodeApiKeyRequest, xylona.SetNodeApiKeyResponse]
 	deleteNodeApiKey                 *connect.Client[xylona.DeleteNodeApiKeyRequest, xylona.DeleteNodeApiKeyResponse]
@@ -1575,6 +1596,16 @@ func (c *xylonaClient) SetServerSoftware(ctx context.Context, req *connect.Reque
 	return c.setServerSoftware.CallUnary(ctx, req)
 }
 
+// GetServerSoftwareStatus calls xylona.Xylona.GetServerSoftwareStatus.
+func (c *xylonaClient) GetServerSoftwareStatus(ctx context.Context, req *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error) {
+	return c.getServerSoftwareStatus.CallUnary(ctx, req)
+}
+
+// GetModCategories calls xylona.Xylona.GetModCategories.
+func (c *xylonaClient) GetModCategories(ctx context.Context, req *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error) {
+	return c.getModCategories.CallUnary(ctx, req)
+}
+
 // ListNodeApiKeys calls xylona.Xylona.ListNodeApiKeys.
 func (c *xylonaClient) ListNodeApiKeys(ctx context.Context, req *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {
 	return c.listNodeApiKeys.CallUnary(ctx, req)
@@ -1704,6 +1735,8 @@ type XylonaHandler interface {
 	GetServerSoftwareOptions(context.Context, *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error)
 	GetServerSoftwareVersions(context.Context, *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error)
 	SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error)
+	GetServerSoftwareStatus(context.Context, *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error)
+	GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error)
 	// Node API keys
 	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
 	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
@@ -2287,6 +2320,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("SetServerSoftware")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetServerSoftwareStatusHandler := connect.NewUnaryHandler(
+		XylonaGetServerSoftwareStatusProcedure,
+		svc.GetServerSoftwareStatus,
+		connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetModCategoriesHandler := connect.NewUnaryHandler(
+		XylonaGetModCategoriesProcedure,
+		svc.GetModCategories,
+		connect.WithSchema(xylonaMethods.ByName("GetModCategories")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaListNodeApiKeysHandler := connect.NewUnaryHandler(
 		XylonaListNodeApiKeysProcedure,
 		svc.ListNodeApiKeys,
@@ -2497,6 +2542,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetServerSoftwareVersionsHandler.ServeHTTP(w, r)
 		case XylonaSetServerSoftwareProcedure:
 			xylonaSetServerSoftwareHandler.ServeHTTP(w, r)
+		case XylonaGetServerSoftwareStatusProcedure:
+			xylonaGetServerSoftwareStatusHandler.ServeHTTP(w, r)
+		case XylonaGetModCategoriesProcedure:
+			xylonaGetModCategoriesHandler.ServeHTTP(w, r)
 		case XylonaListNodeApiKeysProcedure:
 			xylonaListNodeApiKeysHandler.ServeHTTP(w, r)
 		case XylonaSetNodeApiKeyProcedure:
@@ -2890,6 +2939,14 @@ func (UnimplementedXylonaHandler) GetServerSoftwareVersions(context.Context, *co
 
 func (UnimplementedXylonaHandler) SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetServerSoftware is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetServerSoftwareStatus(context.Context, *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetServerSoftwareStatus is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetModCategories is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {

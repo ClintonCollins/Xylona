@@ -1,12 +1,14 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/aarondl/opt/omit"
+	"github.com/stephenafamo/bob"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -340,7 +342,7 @@ func TestDeleteInstalledModFilesByModID(t *testing.T) {
 		}
 	}
 
-	errDelete := conn.DeleteInstalledModFilesByModID("mod-fdel")
+	errDelete := conn.DeleteInstalledModFilesByModID(conn.DB, "mod-fdel")
 	if errDelete != nil {
 		t.Fatalf("DeleteInstalledModFilesByModID() error = %v", errDelete)
 	}
@@ -405,5 +407,109 @@ func TestInstalledModCascadeDeleteFiles(t *testing.T) {
 	}
 	if len(files) != 0 {
 		t.Errorf("GetInstalledModFilesByModID() after cascade delete len = %d, want 0", len(files))
+	}
+}
+
+func TestInsertInstalledModRespectsTransaction(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "imod-tx-rollback.sqlite")
+	seedInstalledModFixture(t, conn)
+
+	now := time.Now().UTC()
+
+	tx, errBegin := conn.SQLDb.BeginTx(context.Background(), nil)
+	if errBegin != nil {
+		t.Fatalf("BeginTx() error = %v", errBegin)
+	}
+	bobTx := bob.NewTx(tx)
+
+	setter := &models.InstalledModSetter{
+		ID:                 omit.From("mod-tx-test"),
+		GameServerID:       omit.From("server-local-1"),
+		Source:             omit.From("modrinth"),
+		SourceID:           omit.From("src-tx"),
+		ModName:            omit.From("TxMod"),
+		ModAuthor:          omit.From("Author"),
+		InstalledVersion:   omit.From("1.0.0"),
+		InstalledVersionID: omit.From("v1"),
+		FileHash:           omit.From("hash"),
+		AutoUpdate:         omit.From(int64(0)),
+		Enabled:            omit.From(int64(1)),
+		CreatedAt:          omit.From(now),
+		UpdatedAt:          omit.From(now),
+	}
+
+	_, errInsert := conn.InsertInstalledMod(bobTx, setter)
+	if errInsert != nil {
+		t.Fatalf("InsertInstalledMod() error = %v", errInsert)
+	}
+
+	errRollback := tx.Rollback()
+	if errRollback != nil {
+		t.Fatalf("Rollback() error = %v", errRollback)
+	}
+
+	_, errGet := conn.GetInstalledModByID("mod-tx-test")
+	if !errors.Is(errGet, sql.ErrNoRows) {
+		t.Errorf("GetInstalledModByID() after rollback error = %v, want %v", errGet, sql.ErrNoRows)
+	}
+}
+
+func TestInsertInstalledModFileRespectsTransaction(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "imod-file-tx-rollback.sqlite")
+	seedInstalledModFixture(t, conn)
+
+	now := time.Now().UTC()
+	modSetter := &models.InstalledModSetter{
+		ID:                 omit.From("mod-file-tx"),
+		GameServerID:       omit.From("server-local-1"),
+		Source:             omit.From("modrinth"),
+		SourceID:           omit.From("src-file-tx"),
+		ModName:            omit.From("FileTxMod"),
+		ModAuthor:          omit.From("Author"),
+		InstalledVersion:   omit.From("1.0.0"),
+		InstalledVersionID: omit.From("v1"),
+		FileHash:           omit.From("hash"),
+		AutoUpdate:         omit.From(int64(0)),
+		Enabled:            omit.From(int64(1)),
+		CreatedAt:          omit.From(now),
+		UpdatedAt:          omit.From(now),
+	}
+
+	_, errInsertMod := conn.InsertInstalledMod(conn.DB, modSetter)
+	if errInsertMod != nil {
+		t.Fatalf("InsertInstalledMod() error = %v", errInsertMod)
+	}
+
+	tx, errBegin := conn.SQLDb.BeginTx(context.Background(), nil)
+	if errBegin != nil {
+		t.Fatalf("BeginTx() error = %v", errBegin)
+	}
+	bobTx := bob.NewTx(tx)
+
+	fileSetter := &models.InstalledModFileSetter{
+		ID:             omit.From("file-tx-1"),
+		InstalledModID: omit.From("mod-file-tx"),
+		FilePath:       omit.From("/mods/txmod.jar"),
+		FileHash:       omit.From("filehash"),
+		FileSize:       omit.From(int64(1024)),
+		IsPrimary:      omit.From(int64(1)),
+	}
+
+	_, errInsertFile := conn.InsertInstalledModFile(bobTx, fileSetter)
+	if errInsertFile != nil {
+		t.Fatalf("InsertInstalledModFile() error = %v", errInsertFile)
+	}
+
+	errRollback := tx.Rollback()
+	if errRollback != nil {
+		t.Fatalf("Rollback() error = %v", errRollback)
+	}
+
+	files, errGet := conn.GetInstalledModFilesByModID("mod-file-tx")
+	if errGet != nil {
+		t.Fatalf("GetInstalledModFilesByModID() error = %v", errGet)
+	}
+	if len(files) != 0 {
+		t.Errorf("GetInstalledModFilesByModID() after rollback len = %d, want 0", len(files))
 	}
 }

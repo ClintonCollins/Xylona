@@ -33,6 +33,7 @@ import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
+import { useServerSoftwareInstall } from 'src/composables/useServerSoftwareInstall'
 import { onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -43,6 +44,7 @@ const windowWidth = WindowWidth()
 
 let currentPermissions: string[] = []
 let currentIsOwnerOrSuper = false
+let currentHasModSupport = false
 
 onMounted(async () => {
   await configureTabs()
@@ -62,6 +64,14 @@ watch(
     void configureTabs().then(enforceRouteAccess)
   },
 )
+
+useServerSoftwareInstall((gameServerId, status) => {
+  const currentId = route.params.id as string
+  if (gameServerId !== currentId) return
+  if (status === 'complete' || status === 'failed') {
+    void configureTabs().then(enforceRouteAccess)
+  }
+})
 
 function getServerID(): string {
   return route.params.id instanceof Array ? route.params.id[0] : route.params.id
@@ -124,6 +134,7 @@ async function configureTabs() {
 
   currentPermissions = permissions
   currentIsOwnerOrSuper = isOwnerOrSuper
+  currentHasModSupport = hasModSupport
 
   navQTabsStore.changeTabs(
     buildGameServerTabs(serverID, permissions, isOwnerOrSuper, hasModSupport),
@@ -141,6 +152,7 @@ async function enforceRouteAccess() {
     serverID,
     currentPermissions,
     currentIsOwnerOrSuper,
+    currentHasModSupport,
   )
   if (redirectPath !== null && route.path !== redirectPath) {
     await router.replace(redirectPath)

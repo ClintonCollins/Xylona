@@ -5,10 +5,7 @@ import { BACKEND_URL, apiLogin, loadTestState, type ApiCookies } from './helpers
 // API helpers for config schemas
 // ---------------------------------------------------------------------------
 
-async function apiGetConfigSchemas(
-  cookies: ApiCookies,
-  gameId: string,
-): Promise<unknown[]> {
+async function apiGetConfigSchemas(cookies: ApiCookies, gameId: string): Promise<unknown[]> {
   const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/GetGameConfigSchemas`, {
     method: 'POST',
     headers: {
@@ -275,7 +272,11 @@ test.describe('Config schema ordering', () => {
 
     // Hover to reveal action buttons, then click move-up
     await secondFieldCard.hover()
-    const moveUpBtn = secondFieldCard.locator('button', { has: page.locator('i:has-text("arrow_upward"), .q-icon:has-text("arrow_upward")') }).first()
+    const moveUpBtn = secondFieldCard
+      .locator('button', {
+        has: page.locator('i:has-text("arrow_upward"), .q-icon:has-text("arrow_upward")'),
+      })
+      .first()
     await moveUpBtn.click()
     await page.waitForTimeout(500)
 
@@ -301,7 +302,11 @@ test.describe('Config schema ordering', () => {
     // Restore original field order for subsequent tests
     const firstFieldCard = gameplayGroupAfter.locator('.field-card').nth(0)
     await firstFieldCard.hover()
-    const moveDownBtn = firstFieldCard.locator('button', { has: page.locator('i:has-text("arrow_downward"), .q-icon:has-text("arrow_downward")') }).first()
+    const moveDownBtn = firstFieldCard
+      .locator('button', {
+        has: page.locator('i:has-text("arrow_downward"), .q-icon:has-text("arrow_downward")'),
+      })
+      .first()
     await moveDownBtn.click()
     await page.waitForTimeout(300)
     await page.getByRole('button', { name: 'Save Schema' }).click()

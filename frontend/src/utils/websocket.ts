@@ -4,27 +4,27 @@
 export class ReconnectingWebSocket {
   /**
    * Event handler for the `onopen` event.
-   * @type {(this: WebSocket, ev: Event) => any | null}
+   * @type {(this: WebSocket, ev: Event) => void | null}
    */
-  public onopen: ((this: WebSocket, ev: Event) => any) | null = null
+  public onopen: ((this: WebSocket, ev: Event) => void) | null = null
 
   /**
    * Event handler for the `onmessage` event.
-   * @type {(this: WebSocket, ev: MessageEvent) => any | null}
+   * @type {(this: WebSocket, ev: MessageEvent) => void | null}
    */
-  public onmessage: ((this: WebSocket, ev: MessageEvent) => any) | null = null
+  public onmessage: ((this: WebSocket, ev: MessageEvent) => void) | null = null
 
   /**
    * Event handler for the `onerror` event.
-   * @type {(this: WebSocket, ev: Event) => any | null}
+   * @type {(this: WebSocket, ev: Event) => void | null}
    */
-  public onerror: ((this: WebSocket, ev: Event) => any) | null = null
+  public onerror: ((this: WebSocket, ev: Event) => void) | null = null
 
   /**
    * Event handler for the `onclose` event.
-   * @type {(this: WebSocket, ev: CloseEvent) => any) | null}
+   * @type {(this: WebSocket, ev: CloseEvent) => void | null}
    */
-  public onclose: ((this: WebSocket, ev: CloseEvent) => any) | null = null
+  public onclose: ((this: WebSocket, ev: CloseEvent) => void) | null = null
 
   private _ws: WebSocket | null = null
   private readonly _url: string

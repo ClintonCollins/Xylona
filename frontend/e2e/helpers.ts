@@ -1,6 +1,11 @@
+import { create } from '@bufbuild/protobuf'
+import { createClient } from '@connectrpc/connect'
+import { createConnectTransport } from '@connectrpc/connect-web'
 import { expect, Page } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
+import { CreateGameServerRequestSchema, GameServerSchema, IPSchema } from '../src/proto/shared_pb'
+import { Xylona } from '../src/proto/xylona_pb'
 
 export const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:9091'
 
@@ -15,6 +20,18 @@ export interface TestUser {
   username: string
   password: string
   superUser: boolean
+}
+
+function createAPIClient(cookies: ApiCookies) {
+  const transport = createConnectTransport({
+    baseUrl: BACKEND_URL,
+    fetch: (input, init) => {
+      const headers = new Headers(init?.headers)
+      headers.set('Cookie', cookies.raw)
+      return fetch(input, { ...init, headers })
+    },
+  })
+  return createClient(Xylona, transport)
 }
 
 function extractCookies(setCookieHeaders: string[]): ApiCookies {
@@ -98,33 +115,21 @@ export async function apiCreateGameServer(
     setMaxPlayers?: number
   },
 ): Promise<string> {
-  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/CreateGameServer`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Connect-Protocol-Version': '1',
-      Cookie: cookies.raw,
-    },
-    body: JSON.stringify({
-      game_server: {
-        name: serverDef.name,
-        game_id: serverDef.gameId,
-        user_id: serverDef.userId ?? '',
-        start_command: serverDef.startCommand,
-        directory: serverDef.directory,
-        ip: serverDef.ip ? { address: serverDef.ip } : undefined,
-        port: serverDef.port ?? 25565,
-        query_port: serverDef.queryPort ?? 25565,
-        set_max_players: serverDef.setMaxPlayers ?? 20,
-      },
+  const request = create(CreateGameServerRequestSchema, {
+    gameServer: create(GameServerSchema, {
+      name: serverDef.name,
+      gameId: serverDef.gameId,
+      userId: serverDef.userId ?? '',
+      startCommand: serverDef.startCommand,
+      directory: serverDef.directory,
+      ip: create(IPSchema, { address: serverDef.ip ?? '0.0.0.0' }),
+      port: BigInt(serverDef.port ?? 25565),
+      queryPort: BigInt(serverDef.queryPort ?? (serverDef.port ?? 25565) + 1),
+      setMaxPlayers: BigInt(serverDef.setMaxPlayers ?? 20),
     }),
   })
-  if (!resp.ok) {
-    const body = await resp.text()
-    throw new Error(`CreateGameServer failed: ${resp.status} ${body}`)
-  }
-  const data = (await resp.json()) as { game_server?: { id?: string } }
-  const id = data.game_server?.id
+  const response = await createAPIClient(cookies).createGameServer(request)
+  const id = response.gameServer?.id
   if (!id) throw new Error('CreateGameServer returned no server ID')
   return id
 }

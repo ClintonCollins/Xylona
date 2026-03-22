@@ -159,8 +159,25 @@ type hangarVersionsResponse struct {
 func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) ([]modproviders.ModSearchResult, error) {
 	queryParams := url.Values{}
 	queryParams.Set("q", query)
-	queryParams.Set("limit", "20")
-	queryParams.Set("offset", "0")
+
+	limit := getIntParam(params, modproviders.ParamLimit, 20)
+	queryParams.Set("limit", fmt.Sprintf("%d", limit))
+
+	offset := getIntParam(params, modproviders.ParamOffset, 0)
+	queryParams.Set("offset", fmt.Sprintf("%d", offset))
+
+	sortBy := getStringParam(params, modproviders.ParamSortBy)
+	if sortBy != "" {
+		hangarSort := mapSortToHangar(sortBy)
+		if hangarSort != "" {
+			queryParams.Set("sort", hangarSort)
+		}
+	}
+
+	gameVersion := getStringParam(params, modproviders.ParamGameVersion)
+	if gameVersion != "" {
+		queryParams.Set("version", gameVersion)
+	}
 
 	platform := extractPlatform(params)
 	if platform != "" {
@@ -369,9 +386,13 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 	hasher := sha256.New()
 	writer := io.MultiWriter(outFile, hasher)
 
-	written, errCopy := io.Copy(writer, resp.Body)
+	limitedBody := io.LimitReader(resp.Body, modproviders.MaxModDownloadSize+1)
+	written, errCopy := io.Copy(writer, limitedBody)
 	if errCopy != nil {
 		return nil, fmt.Errorf("hangar download: write file %s: %w", destPath, errCopy)
+	}
+	if written > modproviders.MaxModDownloadSize {
+		return nil, fmt.Errorf("hangar download: file %s (%d bytes): %w", destPath, written, modproviders.ErrDownloadTooLarge)
 	}
 
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))
@@ -499,6 +520,54 @@ func containsGameVersion(versions []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+// getStringParam safely reads a string value from SearchParams.
+func getStringParam(params modproviders.SearchParams, key string) string {
+	if params == nil {
+		return ""
+	}
+	v, ok := params[key]
+	if !ok {
+		return ""
+	}
+	s, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return s
+}
+
+// getIntParam safely reads an int value from SearchParams, returning defaultVal if missing or wrong type.
+func getIntParam(params modproviders.SearchParams, key string, defaultVal int) int {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	n, ok := v.(int)
+	if !ok {
+		return defaultVal
+	}
+	return n
+}
+
+// mapSortToHangar maps well-known sort values to Hangar's sort parameter format.
+func mapSortToHangar(sortBy string) string {
+	switch sortBy {
+	case "downloads":
+		return "-downloads"
+	case "updated":
+		return "-updated"
+	case "newest":
+		return "-created_at"
+	case "relevance":
+		return "relevance"
+	default:
+		return ""
+	}
 }
 
 // collectDependencies returns ModDependency entries from plugin dependencies.

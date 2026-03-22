@@ -94,9 +94,26 @@ type modrinthSearchResponse struct {
 func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) ([]modproviders.ModSearchResult, error) {
 	facets := buildFacets(params)
 
+	// Merge well-known filter params into facets.
+	facets = mergeFacets(facets, params)
+
 	queryParams := url.Values{}
 	queryParams.Set("query", query)
-	queryParams.Set("limit", "20")
+
+	limit := getIntParam(params, modproviders.ParamLimit, 20)
+	queryParams.Set("limit", fmt.Sprintf("%d", limit))
+
+	offset := getIntParam(params, modproviders.ParamOffset, 0)
+	if offset > 0 {
+		queryParams.Set("offset", fmt.Sprintf("%d", offset))
+	}
+
+	sortBy := getStringParam(params, modproviders.ParamSortBy)
+	if sortBy != "" {
+		// Modrinth uses the same names: downloads, updated, newest, relevance.
+		queryParams.Set("index", sortBy)
+	}
+
 	if facets != "" {
 		queryParams.Set("facets", facets)
 	}
@@ -327,9 +344,13 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 	hasher := sha256.New()
 	writer := io.MultiWriter(outFile, hasher)
 
-	written, errCopy := io.Copy(writer, resp.Body)
+	limitedBody := io.LimitReader(resp.Body, modproviders.MaxModDownloadSize+1)
+	written, errCopy := io.Copy(writer, limitedBody)
 	if errCopy != nil {
 		return nil, fmt.Errorf("modrinth download: write file %s: %w", destPath, errCopy)
+	}
+	if written > modproviders.MaxModDownloadSize {
+		return nil, fmt.Errorf("modrinth download: file %s (%d bytes): %w", destPath, written, modproviders.ErrDownloadTooLarge)
 	}
 
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))
@@ -494,6 +515,94 @@ func extractLoaders(params modproviders.SearchParams) []string {
 		return result
 	}
 	return nil
+}
+
+// getStringParam safely reads a string value from SearchParams.
+func getStringParam(params modproviders.SearchParams, key string) string {
+	if params == nil {
+		return ""
+	}
+	v, ok := params[key]
+	if !ok {
+		return ""
+	}
+	s, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return s
+}
+
+// getIntParam safely reads an int value from SearchParams, returning defaultVal if missing or wrong type.
+func getIntParam(params modproviders.SearchParams, key string, defaultVal int) int {
+	if params == nil {
+		return defaultVal
+	}
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	n, ok := v.(int)
+	if !ok {
+		return defaultVal
+	}
+	return n
+}
+
+// getStringSliceParam safely reads a []string value from SearchParams.
+func getStringSliceParam(params modproviders.SearchParams, key string) []string {
+	if params == nil {
+		return nil
+	}
+	v, ok := params[key]
+	if !ok {
+		return nil
+	}
+	s, ok := v.([]string)
+	if !ok {
+		return nil
+	}
+	return s
+}
+
+// mergeFacets takes existing facets JSON and merges in well-known filter params
+// (game_version, categories) from SearchParams. Returns the updated facets JSON string.
+func mergeFacets(existingFacets string, params modproviders.SearchParams) string {
+	if params == nil {
+		return existingFacets
+	}
+
+	var outer [][]string
+	if existingFacets != "" {
+		errDecode := json.Unmarshal([]byte(existingFacets), &outer)
+		if errDecode != nil {
+			outer = nil
+		}
+	}
+
+	gameVersion := getStringParam(params, modproviders.ParamGameVersion)
+	if gameVersion != "" {
+		outer = append(outer, []string{"versions:" + gameVersion})
+	}
+
+	categories := getStringSliceParam(params, modproviders.ParamCategories)
+	if len(categories) > 0 {
+		inner := make([]string, 0, len(categories))
+		for _, cat := range categories {
+			inner = append(inner, "categories:"+cat)
+		}
+		outer = append(outer, inner)
+	}
+
+	if len(outer) == 0 {
+		return ""
+	}
+
+	encoded, errEncode := json.Marshal(outer)
+	if errEncode != nil {
+		return existingFacets
+	}
+	return string(encoded)
 }
 
 // primaryFileFor returns the primary file from the list, falling back to the first

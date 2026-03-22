@@ -125,4 +125,37 @@ describe('getUnauthorizedRedirect', () => {
     const result = getUnauthorizedRedirect(consolePath, serverID, [], false)
     expect(result).toBeNull()
   })
+
+  it('redirects /mods when missing mods permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/mods`,
+      serverID,
+      ['game_server.view'],
+      false,
+      true,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('redirects /mods when mod support is removed (hasModSupport false)', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/mods`,
+      serverID,
+      ['game_server.mods'],
+      false,
+      false,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('returns null for /mods when user has mods permission and mod support is active', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/mods`,
+      serverID,
+      ['game_server.mods'],
+      false,
+      true,
+    )
+    expect(result).toBeNull()
+  })
 })

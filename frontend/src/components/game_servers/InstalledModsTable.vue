@@ -123,7 +123,10 @@
 
             <!-- Auto-update toggle -->
             <td class="col-auto">
-              <label class="q-toggle auto-update-toggle" role="switch" :aria-checked="Boolean(mod.autoUpdate)">
+              <label
+                class="q-toggle auto-update-toggle"
+                role="switch"
+                :aria-checked="Boolean(mod.autoUpdate)">
                 <input
                   type="checkbox"
                   :checked="Boolean(mod.autoUpdate)"

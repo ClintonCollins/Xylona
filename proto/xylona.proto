@@ -133,6 +133,8 @@ service Xylona {
   rpc GetServerSoftwareOptions (GetServerSoftwareOptionsRequest) returns (GetServerSoftwareOptionsResponse) {}
   rpc GetServerSoftwareVersions (GetServerSoftwareVersionsRequest) returns (GetServerSoftwareVersionsResponse) {}
   rpc SetServerSoftware (SetServerSoftwareRequest) returns (SetServerSoftwareResponse) {}
+  rpc GetServerSoftwareStatus (GetServerSoftwareStatusRequest) returns (GetServerSoftwareStatusResponse) {}
+  rpc GetModCategories (GetModCategoriesRequest) returns (GetModCategoriesResponse) {}
 
   // Node API keys
   rpc ListNodeApiKeys (ListNodeApiKeysRequest) returns (ListNodeApiKeysResponse) {}
@@ -881,6 +883,9 @@ message SearchModsRequest {
   string source = 3;
   int32 page = 4;
   int32 page_size = 5;
+  string sort_by = 6;
+  string game_version = 7;
+  repeated string categories = 8;
 }
 message SearchModsResponse {
   repeated ModSearchResult results = 1;
@@ -965,6 +970,13 @@ message PinModVersionResponse {
   InstalledMod installed_mod = 1;
 }
 
+message GetModCategoriesRequest {
+  string game_server_id = 1;
+}
+message GetModCategoriesResponse {
+  repeated string categories = 1;
+}
+
 // Server software messages
 message GetServerSoftwareOptionsRequest {
   string game_id = 1;
@@ -988,6 +1000,17 @@ message SetServerSoftwareRequest {
 }
 message SetServerSoftwareResponse {
   GameServer game_server = 1;
+  string status = 2;
+  int32 installed_mod_count = 3;
+}
+
+message GetServerSoftwareStatusRequest {
+  string game_server_id = 1;
+}
+message GetServerSoftwareStatusResponse {
+  string status = 1;
+  string error = 2;
+  string software_id = 3;
 }
 
 // Node API key messages

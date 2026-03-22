@@ -2,7 +2,25 @@ package modproviders
 
 import (
 	"context"
+	"errors"
 	"maps"
+)
+
+// MaxModDownloadSize is the maximum number of bytes allowed for a single mod
+// download. Downloads that exceed this limit are rejected.
+const MaxModDownloadSize = 500 * 1024 * 1024 // 500 MB
+
+// ErrDownloadTooLarge is returned when a download exceeds MaxModDownloadSize.
+var ErrDownloadTooLarge = errors.New("modproviders: download exceeds maximum allowed size")
+
+// Well-known SearchParams keys. Providers read these from the map alongside
+// any game-specific params configured in the server software definition.
+const (
+	ParamSortBy      = "sort_by"       // string: "downloads", "updated", "newest", "relevance"
+	ParamGameVersion = "game_version"  // string: e.g. "1.21.4"
+	ParamCategories  = "categories"    // []string: category/tag names
+	ParamLimit       = "limit"         // int: page size
+	ParamOffset      = "offset"        // int: pagination offset
 )
 
 // SearchParams holds passthrough parameters from the game's server software config.

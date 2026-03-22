@@ -63,7 +63,9 @@ export async function fedApiLogin(
     body: JSON.stringify({ userName: username, password }),
   })
   if (!resp.ok) {
-    throw new Error(`Login failed for ${username} at ${backendUrl}: ${resp.status} ${await resp.text()}`)
+    throw new Error(
+      `Login failed for ${username} at ${backendUrl}: ${resp.status} ${await resp.text()}`,
+    )
   }
   const data = (await resp.json()) as { user?: { id?: string } }
   const setCookies = resp.headers.getSetCookie?.() ?? []

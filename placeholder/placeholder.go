@@ -29,6 +29,7 @@ var Registry = []Placeholder{
 	{Key: "RCON_PASSWORD", Label: "RCON Password", Description: "The RCON password"},
 	{Key: "INSTALL_DIR", Label: "Install Directory", Description: "The game server's installation directory"},
 	{Key: "STEAM_APPID", Label: "Steam App ID", Description: "The Steam application ID"},
+	{Key: "SERVER_EXECUTABLE", Label: "Server Executable", Description: "The server software executable filename (e.g., paper-1.21.4-100.jar)"},
 }
 
 // ManagedSourceMapping maps managed source keys (used in config schemas frontend)
@@ -125,6 +126,7 @@ func BuildVarsFromGameServer(gs *models.GameServer) map[string]string {
 		"SERVER_ID":     gs.ID,
 		"BACKUP_DIR":    gs.BackupDirectory,
 		"MAX_MEMORY_MB": fmt.Sprintf("%d", gs.MaxMemoryMB),
-		"SET_PLAYERS":   fmt.Sprintf("%d", gs.SetPlayers),
+		"SET_PLAYERS":      fmt.Sprintf("%d", gs.SetPlayers),
+		"SERVER_EXECUTABLE": gs.ServerExecutable.GetOr(""),
 	}
 }

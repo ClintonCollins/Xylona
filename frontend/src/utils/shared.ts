@@ -47,6 +47,12 @@ type XylonaEventBusEvents = {
   nodeMetrics: (metrics: AllNodeMetrics) => void
   websocketConnected: () => void
   websocketDisconnected: () => void
+  serverSoftwareInstall: (
+    gameServerId: string,
+    status: string,
+    error: string,
+    softwareId: string,
+  ) => void
 }
 
 /**
@@ -143,6 +149,19 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
       case Message_Type.NodeMetrics:
         XylonaEventBus.emit('nodeMetrics', out.allNodeMetrics)
         break
+      case Message_Type.ServerSoftwareInstall: {
+        const update = out.serverSoftwareInstallUpdate
+        if (update) {
+          XylonaEventBus.emit(
+            'serverSoftwareInstall',
+            update.gameServerId,
+            update.status,
+            update.error ?? '',
+            update.softwareId ?? '',
+          )
+        }
+        break
+      }
       default:
         console.debug(`${event.data}`)
         return

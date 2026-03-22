@@ -24,35 +24,6 @@ a {
     color: var(--xy-primary-hover);
 }
 
-#consoleContainer {
-    padding-left: .5rem;
-    padding-right: .5rem;
-    font-family: var(--xy-font-mono);
-    font-weight: 400;
-    font-style: normal;
-    height: clamp(250px, 50vh, 500px);
-    overflow-y: auto;
-    overflow-x: hidden;
-    white-space: pre-wrap;
-    max-width: 100%;
-    background-color: var(--xy-base);
-    border-top: 1px solid var(--xy-border);
-}
-
-#consoleCodeEl {
-    white-space: pre-wrap;
-}
-
-#consoleInput {
-    background-color: var(--xy-surface-1);
-    border: none;
-    border-top: 1px solid var(--xy-border);
-}
-
-#consoleInput .q-field__control {
-    font-family: var(--xy-font-mono);
-}
-
 .console-url {
     color: var(--xy-accent);
     font-weight: 400;
@@ -68,7 +39,7 @@ a {
 }
 
 .copy-clipboard:hover {
-    font-weight: 700;
+    color: var(--xy-accent);
 }
 
 .xylona-notification {

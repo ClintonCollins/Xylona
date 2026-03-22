@@ -2,7 +2,7 @@ import { create } from '@bufbuild/protobuf'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { UserSchema } from '@/proto/xylona_pb'
+import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from './xylona'
 
 const mocks = vi.hoisted(() => ({
@@ -58,7 +58,10 @@ describe('useUserAuthStore', () => {
 
     store.setUser(user)
     store.initialFetch = true
-    store.initialResponse = { user, authenticated: true } as any
+    store.initialResponse = create(CheckUserAuthenticatedResponseSchema, {
+      user,
+      authenticated: true,
+    })
 
     mocks.logout.mockResolvedValueOnce({})
 

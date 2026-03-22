@@ -320,6 +320,7 @@ func main() {
 	router := chi.NewRouter()
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr)
 	xylonaService.SetSyncEngine(syncEngine)
+	xylonaService.SetInstallBroadcaster(wsInst)
 	syncEngine.SetStatusBroadcaster(wsInst)
 	syncEngine.SetMetricsBroadcaster(wsInst)
 	syncEngine.SetActionsInstance(actionsInst)

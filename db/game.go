@@ -34,7 +34,7 @@ func (c *Connection) GetGames() ([]*models.Game, error) {
 }
 
 func (c *Connection) InsertGame(exec bob.Executor, gameSetter *models.GameSetter) (*models.Game, error) {
-	game, err := models.Games.Insert(gameSetter).One(c.ctx, c.DB)
+	game, err := models.Games.Insert(gameSetter).One(c.ctx, exec)
 	if err != nil {
 		log.Error().Err(err).Msg("Error inserting game")
 		return nil, err

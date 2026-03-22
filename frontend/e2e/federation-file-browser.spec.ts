@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test'
-import {
-  fedApiListAggregatedGameServers,
-  fedApiLogin,
-  NODE_A_BACKEND,
-} from './federation-helpers'
+import { fedApiListAggregatedGameServers, fedApiLogin, NODE_A_BACKEND } from './federation-helpers'
 
 let remoteServerId: string | undefined
 
 test.beforeAll(async () => {
-  const { cookies: adminCookies } = await fedApiLogin('e2e-superuser', 'TestPassword123!', NODE_A_BACKEND)
+  const { cookies: adminCookies } = await fedApiLogin(
+    'e2e-superuser',
+    'TestPassword123!',
+    NODE_A_BACKEND,
+  )
   const servers = await fedApiListAggregatedGameServers(adminCookies, NODE_A_BACKEND)
   const remoteServer = servers.find((s) => !s.isLocal)
   remoteServerId = remoteServer?.remoteServer?.remoteServerId
@@ -44,7 +44,9 @@ test.describe('Federation remote file browser (superuser)', () => {
     await expect(page.locator('body')).toContainText('nested.txt')
 
     // Navigate back
-    const backButton = page.locator('[aria-label="Go back"], [aria-label="Parent directory"]').first()
+    const backButton = page
+      .locator('[aria-label="Go back"], [aria-label="Parent directory"]')
+      .first()
     if (await backButton.isVisible()) {
       await backButton.click()
     } else {
@@ -90,7 +92,9 @@ test.describe('Federation remote file browser (superuser)', () => {
     await expect(page.locator('.q-layout')).toBeVisible({ timeout: 10_000 })
     await page.waitForTimeout(2000)
 
-    const newDirButton = page.getByRole('button', { name: /new folder|create dir|new dir/i }).first()
+    const newDirButton = page
+      .getByRole('button', { name: /new folder|create dir|new dir/i })
+      .first()
     if (await newDirButton.isVisible()) {
       await newDirButton.click()
       await page.waitForTimeout(500)

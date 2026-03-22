@@ -17,6 +17,16 @@
         </template>
       </q-input>
 
+      <q-select
+        v-model="sortBy"
+        :options="sortOptions"
+        dense
+        outlined
+        emit-value
+        map-options
+        aria-label="Sort by"
+        class="browse-sort-select" />
+
       <div class="source-chips" role="group" aria-label="Filter by source">
         <q-btn
           :outline="activeSource !== ''"
@@ -46,23 +56,40 @@
       </div>
     </div>
 
-    <!-- Loading state -->
-    <div v-if="loading" class="browse-loading">
-      <q-spinner color="primary" size="2rem" />
-      <span class="text-xy-muted">Searching mods...</span>
+    <!-- Filters row -->
+    <div v-if="gameVersionFilter || availableCategories.length > 0" class="browse-filters">
+      <q-input
+        v-model="gameVersionFilter"
+        dense
+        outlined
+        placeholder="Game version filter..."
+        aria-label="Filter by game version"
+        class="browse-version-input"
+        clearable
+        @clear="gameVersionFilter = ''" />
+
+      <q-select
+        v-if="availableCategories.length > 0"
+        v-model="categoryFilter"
+        :options="availableCategories"
+        dense
+        outlined
+        multiple
+        use-chips
+        emit-value
+        aria-label="Filter by category"
+        placeholder="Categories"
+        class="browse-category-select" />
     </div>
 
-    <!-- Empty: no query yet -->
-    <div v-else-if="!hasSearched" class="browse-empty">
-      <q-icon name="travel_explore" size="3rem" class="text-xy-muted" aria-hidden="true" />
-      <div class="browse-empty-title text-xy-secondary">Search for mods</div>
-      <div class="browse-empty-subtitle text-xy-muted">
-        Enter a search term to browse available mods.
-      </div>
+    <!-- Loading state -->
+    <div v-if="loading && results.length === 0" class="browse-loading">
+      <q-spinner color="primary" size="2rem" />
+      <span class="text-xy-muted">Loading mods...</span>
     </div>
 
     <!-- Empty: no results -->
-    <div v-else-if="results.length === 0" class="browse-empty">
+    <div v-else-if="hasSearched && results.length === 0" class="browse-empty">
       <q-icon name="search_off" size="3rem" class="text-xy-muted" aria-hidden="true" />
       <div class="browse-empty-title text-xy-secondary">No mods found</div>
       <div class="browse-empty-subtitle text-xy-muted">
@@ -71,7 +98,7 @@
     </div>
 
     <!-- Results grid -->
-    <div v-else class="browse-grid-scroll">
+    <div v-else-if="results.length > 0" class="browse-grid-scroll">
       <div class="browse-grid">
         <button
           v-for="mod in results"
@@ -136,6 +163,18 @@
           </div>
         </button>
       </div>
+
+      <!-- Load More -->
+      <div v-if="hasMoreResults" class="browse-load-more">
+        <q-btn
+          outline
+          color="primary"
+          no-caps
+          :loading="loadingMore"
+          label="Load More"
+          icon="expand_more"
+          @click="loadMore" />
+      </div>
     </div>
 
     <!-- Error banner -->
@@ -147,11 +186,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
-import { SearchModsRequestSchema } from '@/proto/xylona_pb'
+import { GetModCategoriesRequestSchema, SearchModsRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 interface ModSource {
@@ -172,39 +211,79 @@ const emit = defineEmits<{
   install: [source: string, sourceId: string]
 }>()
 
+const PAGE_SIZE = 20
+
 const searchQuery = ref('')
 const activeSource = ref('')
 const loading = ref(false)
+const loadingMore = ref(false)
 const hasSearched = ref(false)
 const results = ref<ModSearchResult[]>([])
 const errorMessage = ref('')
+const currentPage = ref(1)
+const totalCount = ref(0)
+
+const sortBy = ref<string>('downloads')
+const gameVersionFilter = ref('')
+const categoryFilter = ref<string[]>([])
+const availableCategories = ref<string[]>([])
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
+
+const sortOptions = computed(() => {
+  const options = [
+    { label: 'Most Downloaded', value: 'downloads' },
+    { label: 'Recently Updated', value: 'updated' },
+    { label: 'Newest', value: 'newest' },
+  ]
+  if (searchQuery.value.trim()) {
+    options.push({ label: 'Relevance', value: 'relevance' })
+  }
+  return options
+})
+
+const hasMoreResults = computed(() => {
+  return results.value.length < totalCount.value
+})
+
+onMounted(() => {
+  void performSearch()
+  void loadCategories()
+})
+
+watch(sortBy, () => {
+  void resetAndSearch()
+})
+
+watch(gameVersionFilter, () => {
+  void resetAndSearch()
+})
+
+watch(categoryFilter, () => {
+  void resetAndSearch()
+})
 
 function debouncedSearch(): void {
   if (debounceTimer !== undefined) {
     clearTimeout(debounceTimer)
   }
   debounceTimer = setTimeout(() => {
-    void performSearch()
+    void resetAndSearch()
   }, 300)
 }
 
 function setActiveSource(source: string): void {
   activeSource.value = source
-  if (hasSearched.value || searchQuery.value) {
-    void performSearch()
-  }
+  void resetAndSearch()
+}
+
+async function resetAndSearch(): Promise<void> {
+  currentPage.value = 1
+  results.value = []
+  await performSearch()
 }
 
 async function performSearch(): Promise<void> {
-  const query = searchQuery.value.trim()
-  if (!query) {
-    results.value = []
-    hasSearched.value = false
-    return
-  }
-
   loading.value = true
   errorMessage.value = ''
 
@@ -212,13 +291,21 @@ async function performSearch(): Promise<void> {
     const client = GetXylonaClient()
     const request = create(SearchModsRequestSchema, {
       gameServerId: props.gameServerId,
-      query,
+      query: searchQuery.value.trim(),
       source: activeSource.value,
-      page: 1,
-      pageSize: 40,
+      page: currentPage.value,
+      pageSize: PAGE_SIZE,
+      sortBy: sortBy.value,
+      gameVersion: gameVersionFilter.value,
+      categories: categoryFilter.value,
     })
     const response = await client.searchMods(request)
-    results.value = response.results
+    if (currentPage.value === 1) {
+      results.value = response.results
+    } else {
+      results.value = [...results.value, ...response.results]
+    }
+    totalCount.value = response.totalCount
     hasSearched.value = true
   } catch (err: unknown) {
     if (err instanceof ConnectError) {
@@ -226,9 +313,31 @@ async function performSearch(): Promise<void> {
     } else {
       errorMessage.value = 'An unexpected error occurred while searching.'
     }
-    results.value = []
+    if (currentPage.value === 1) {
+      results.value = []
+    }
   } finally {
     loading.value = false
+    loadingMore.value = false
+  }
+}
+
+async function loadMore(): Promise<void> {
+  loadingMore.value = true
+  currentPage.value += 1
+  await performSearch()
+}
+
+async function loadCategories(): Promise<void> {
+  try {
+    const response = await GetXylonaClient().getModCategories(
+      create(GetModCategoriesRequestSchema, {
+        gameServerId: props.gameServerId,
+      }),
+    )
+    availableCategories.value = response.categories
+  } catch {
+    // Non-critical — silently ignore
   }
 }
 
@@ -307,8 +416,13 @@ function formatDownloads(downloads: bigint): string {
 
 .browse-search-input {
   flex: 1;
-  max-width: 360px;
+  max-width: 320px;
   min-width: 180px;
+}
+
+.browse-sort-select {
+  min-width: 160px;
+  max-width: 200px;
 }
 
 .source-chips {
@@ -337,6 +451,28 @@ function formatDownloads(downloads: bigint): string {
 
 .source-chip-name {
   font-size: 0.8rem;
+}
+
+/* ---- Filters row ---- */
+.browse-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-xs) var(--xy-space-md);
+  background-color: var(--xy-surface-1);
+  border-bottom: 1px solid var(--xy-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.browse-version-input {
+  min-width: 160px;
+  max-width: 200px;
+}
+
+.browse-category-select {
+  min-width: 200px;
+  max-width: 320px;
 }
 
 /* ---- Loading / Empty states ---- */
@@ -386,6 +522,13 @@ function formatDownloads(downloads: bigint): string {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--xy-space-md);
+}
+
+/* ---- Load More ---- */
+.browse-load-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--xy-space-lg) 0 var(--xy-space-sm);
 }
 
 /* ---- Card ---- */
@@ -543,6 +686,25 @@ function formatDownloads(downloads: bigint): string {
   }
 
   .browse-search-input {
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  .browse-sort-select {
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  .browse-filters {
+    padding: var(--xy-space-xs) var(--xy-space-sm);
+  }
+
+  .browse-version-input {
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  .browse-category-select {
     max-width: none;
     flex: 1 1 100%;
   }

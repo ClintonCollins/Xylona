@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"time"
 
 	"github.com/gorilla/securecookie"
 	"github.com/rs/zerolog/log"
@@ -23,6 +24,11 @@ type SyncEngine interface {
 	BroadcastPeerChange(changeType xylona.PeerChangeType, peer *xylona.PeerInfo, initiatedByNodeID string, initiatedByNodeName string)
 }
 
+// ServerSoftwareInstallBroadcaster broadcasts server software install events.
+type ServerSoftwareInstallBroadcaster interface {
+	BroadcastServerSoftwareInstall(serverID string, status string, softwareID string, errMsg string)
+}
+
 type XylonaService struct {
 	ctx              context.Context
 	db               *db.Connection
@@ -36,6 +42,8 @@ type XylonaService struct {
 	steamCache       *steamcache.Client
 	listCache        *remoteServerListCache
 	allPermissionIDs []string
+	installTracker   *modmanager.InstallTracker
+	installBroadcast ServerSoftwareInstallBroadcaster
 }
 
 func NewXylonaService(
@@ -58,6 +66,21 @@ func NewXylonaService(
 		permIDs[i] = p.ID
 	}
 
+	tracker := modmanager.NewInstallTracker()
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				tracker.Cleanup()
+			}
+		}
+	}()
+
 	return &XylonaService{
 		ctx:              ctx,
 		db:               db,
@@ -70,9 +93,16 @@ func NewXylonaService(
 		steamCache:       steamCache,
 		listCache:        newRemoteServerListCache(remoteServerListCacheTTL),
 		allPermissionIDs: permIDs,
+		installTracker:   tracker,
 	}
 }
 
 func (xs *XylonaService) SetSyncEngine(engine SyncEngine) {
 	xs.syncEngine = engine
+}
+
+// SetInstallBroadcaster sets the broadcaster used to push server software install
+// status updates over WebSocket.
+func (xs *XylonaService) SetInstallBroadcaster(b ServerSoftwareInstallBroadcaster) {
+	xs.installBroadcast = b
 }

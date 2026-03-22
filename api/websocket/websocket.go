@@ -60,6 +60,18 @@ func (c *connection) shouldReceiveMetrics(serverID string) bool {
 	return ok
 }
 
+// hasGameServerAccess returns true if the connection has access to the given game server ID.
+func (c *connection) hasGameServerAccess(serverID string) bool {
+	c.RLock()
+	defer c.RUnlock()
+	for _, id := range c.allGameServerIDs {
+		if id == serverID {
+			return true
+		}
+	}
+	return false
+}
+
 type WebSocket struct {
 	melody                       *melody.Melody
 	supervisor                   *supervisor.Instance
@@ -1032,6 +1044,42 @@ func (ws *WebSocket) BroadcastRemoteServerMetrics(serverID string, metrics *xylo
 			errWrite := conn.melodySession.Write(byteOut)
 			if errWrite != nil {
 				log.Debug().Err(errWrite).Msg("Failed to write remote metrics update to WebSocket")
+			}
+		}
+	}
+}
+
+// BroadcastServerSoftwareInstall sends a server software install status update
+// to all connected WebSocket clients. Authorization is enforced at the RPC
+// level, so we broadcast to all authenticated connections here — the frontend
+// composable filters by game server ID.
+func (ws *WebSocket) BroadcastServerSoftwareInstall(serverID string, status string, softwareID string, errMsg string) {
+	out := &xylona.Message{
+		Type: xylona.Message_ServerSoftwareInstall,
+		ServerSoftwareInstallUpdate: &xylona.ServerSoftwareInstallUpdate{
+			GameServerId: serverID,
+			Status:       status,
+			Error:        errMsg,
+			SoftwareId:   softwareID,
+		},
+	}
+	byteOut, errMarshal := protojson.Marshal(out)
+	if errMarshal != nil {
+		log.Error().Err(errMarshal).Msg("Failed to marshal server software install update")
+		return
+	}
+
+	ws.userWebsocketConnectionsLock.RLock()
+	defer ws.userWebsocketConnectionsLock.RUnlock()
+
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			if conn.melodySession.IsClosed() {
+				continue
+			}
+			errWrite := conn.melodySession.Write(byteOut)
+			if errWrite != nil {
+				log.Debug().Err(errWrite).Msg("Failed to write software install update to WebSocket")
 			}
 		}
 	}

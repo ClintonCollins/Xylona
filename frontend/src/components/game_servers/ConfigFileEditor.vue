@@ -476,8 +476,10 @@ function moveTabIndicator(groupName: string) {
       damping,
     )
 
-    indicator!.style.transform = `translateX(${springLeftPos}px)`
-    indicator!.style.width = `${springWidthPos}px`
+    if (!indicator) return
+
+    indicator.style.transform = `translateX(${springLeftPos}px)`
+    indicator.style.width = `${springWidthPos}px`
 
     const settled =
       Math.abs(springLeftPos - targetLeft) < 0.3 &&
@@ -490,8 +492,8 @@ function moveTabIndicator(groupName: string) {
       springLeftVel = 0
       springWidthPos = targetWidth
       springWidthVel = 0
-      indicator!.style.transform = `translateX(${targetLeft}px)`
-      indicator!.style.width = `${targetWidth}px`
+      indicator.style.transform = `translateX(${targetLeft}px)`
+      indicator.style.width = `${targetWidth}px`
     } else {
       springAnimId = requestAnimationFrame(step)
     }
@@ -503,7 +505,7 @@ function moveTabIndicator(groupName: string) {
 // Animate indicator when active group changes
 watch(activeGroup, (groupName) => {
   if (groupName) {
-    nextTick(() => moveTabIndicator(groupName))
+    void nextTick(() => moveTabIndicator(groupName))
   }
 })
 
@@ -597,7 +599,7 @@ watch(
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  nextTick(() => {
+  void nextTick(() => {
     setupScrollspy()
     // Initialize tab indicator position
     if (activeGroup.value) {
@@ -647,8 +649,9 @@ function enumFilter(field: ConfigFieldData, val: string, update: (fn: () => void
 }
 
 function getFieldValue(field: ConfigFieldData): string {
-  if (editedValues.has(field.key)) {
-    return editedValues.get(field.key)!
+  const edited = editedValues.get(field.key)
+  if (edited !== undefined) {
+    return edited
   }
   return field.value || field.defaultValue
 }
@@ -741,7 +744,7 @@ watch(
     }
     if (wasSaving && !saving) {
       // Restore scroll position and re-enable scrollspy after Vue re-renders
-      nextTick(() => {
+      void nextTick(() => {
         const scrollRoot = tableScrollRef.value
         if (scrollRoot && savedScrollTop > 0) {
           scrollRoot.scrollTop = savedScrollTop
