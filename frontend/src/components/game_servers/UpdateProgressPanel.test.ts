@@ -1,13 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { UpdateStep, StepStatus } from '@/proto/xylona_pb'
+import type { StepState } from './UpdateProgressPanel.types'
 import UpdateProgressPanel from './UpdateProgressPanel.vue'
-
-interface StepState {
-  step: UpdateStep
-  status: StepStatus
-  message?: string
-}
 
 const QUASAR_STUBS = {
   'q-icon': { props: ['name', 'size', 'color'], template: '<i />' },
@@ -15,22 +10,20 @@ const QUASAR_STUBS = {
 } as Record<string, unknown>
 
 function makeSteps(overrides: Partial<Record<UpdateStep, StepStatus>> = {}): StepState[] {
-  const defaults: Record<UpdateStep, StepStatus> = {
-    [UpdateStep.UNSPECIFIED]: StepStatus.UNSPECIFIED,
+  const defaults: Partial<Record<UpdateStep, StepStatus>> = {
     [UpdateStep.STOPPING]: StepStatus.PENDING,
     [UpdateStep.BACKING_UP]: StepStatus.PENDING,
     [UpdateStep.DOWNLOADING]: StepStatus.PENDING,
     [UpdateStep.INSTALLING]: StepStatus.PENDING,
     [UpdateStep.RESTARTING]: StepStatus.PENDING,
-    [UpdateStep.ROLLING_BACK]: StepStatus.PENDING,
   }
   const merged = { ...defaults, ...overrides }
   return [
-    { step: UpdateStep.STOPPING, status: merged[UpdateStep.STOPPING] },
-    { step: UpdateStep.BACKING_UP, status: merged[UpdateStep.BACKING_UP] },
-    { step: UpdateStep.DOWNLOADING, status: merged[UpdateStep.DOWNLOADING] },
-    { step: UpdateStep.INSTALLING, status: merged[UpdateStep.INSTALLING] },
-    { step: UpdateStep.RESTARTING, status: merged[UpdateStep.RESTARTING] },
+    { step: UpdateStep.STOPPING, status: merged[UpdateStep.STOPPING] ?? StepStatus.PENDING },
+    { step: UpdateStep.BACKING_UP, status: merged[UpdateStep.BACKING_UP] ?? StepStatus.PENDING },
+    { step: UpdateStep.DOWNLOADING, status: merged[UpdateStep.DOWNLOADING] ?? StepStatus.PENDING },
+    { step: UpdateStep.INSTALLING, status: merged[UpdateStep.INSTALLING] ?? StepStatus.PENDING },
+    { step: UpdateStep.RESTARTING, status: merged[UpdateStep.RESTARTING] ?? StepStatus.PENDING },
   ]
 }
 

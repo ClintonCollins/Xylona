@@ -38,12 +38,7 @@
 
 <script setup lang="ts">
 import { UpdateStep, StepStatus } from '@/proto/xylona_pb'
-
-interface StepState {
-  step: UpdateStep
-  status: StepStatus
-  message?: string
-}
+import type { StepState } from './UpdateProgressPanel.types'
 
 defineProps<{
   steps: StepState[]
