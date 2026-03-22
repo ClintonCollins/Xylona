@@ -365,11 +365,92 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			log.Info().Msg("[E2E Setup] Created test files for file browser tests")
 		}
 
+		// Create a "no-tracker" game and server for version tracking E2E tests.
+		noTrackerServerID := ""
+
+		dummyExePath := strings.ReplaceAll(dummyServerExe, "\\", "/")
+
+		gamesResp2, errGames2 := client.rpc.ListGames(ctx, connect.NewRequest(&xylona.ListGamesRequest{}))
+		if errGames2 == nil {
+			var noTrackerGame *xylona.Game
+			for _, g := range gamesResp2.Msg.Games {
+				if g.Name == "E2E No-Tracker Game" {
+					noTrackerGame = g
+					break
+				}
+			}
+			if noTrackerGame == nil {
+				addResp2, errAdd2 := client.rpc.AddGame(ctx, connect.NewRequest(&xylona.AddGameRequest{
+					Game: &xylona.Game{
+						Name:                "E2E No-Tracker Game",
+						LinuxSupport:        true,
+						LinuxStartCommand:   dummyExePath,
+						WindowsSupport:      true,
+						WindowsStartCommand: dummyExePath,
+						DefaultPort:         25601,
+						DefaultQueryPort:    25602,
+					},
+				}))
+				if errAdd2 != nil {
+					log.Warn().Err(errAdd2).Msg("[E2E Setup] Warning: could not create no-tracker game")
+				} else {
+					noTrackerGame = addResp2.Msg.Game
+					log.Info().Msgf("[E2E Setup] Created no-tracker game: %s", noTrackerGame.Id)
+				}
+			}
+			if noTrackerGame != nil {
+				ntGsDir := filepath.Join(dataDir, "bin", "no-tracker-server")
+				errMkdirNT := os.MkdirAll(ntGsDir, 0o755)
+				if errMkdirNT != nil {
+					log.Warn().Err(errMkdirNT).Msg("[E2E Setup] Warning: could not create no-tracker server dir")
+				} else {
+					// Check if a no-tracker server already exists.
+					listResp3, errList3 := client.rpc.ListGameServers(ctx, connect.NewRequest(&xylona.ListGameServersRequest{}))
+					if errList3 == nil {
+						for _, gs := range listResp3.Msg.GameServers {
+							if gs.Name == "E2E No-Tracker Server" {
+								noTrackerServerID = gs.Id
+								break
+							}
+						}
+					}
+					if noTrackerServerID == "" {
+						ipsResp2, errIPs2 := client.rpc.ListIPs(ctx, connect.NewRequest(&xylona.ListIPsRequest{}))
+						ipAddress2 := "0.0.0.0"
+						if errIPs2 == nil && len(ipsResp2.Msg.Ips) > 0 {
+							ipAddress2 = ipsResp2.Msg.Ips[0].Address
+						}
+						ntGsDirPath := strings.ReplaceAll(ntGsDir, "\\", "/")
+						createResp2, errCreate2 := client.rpc.CreateGameServer(ctx, connect.NewRequest(&xylona.CreateGameServerRequest{
+							GameServer: &xylona.GameServer{
+								Name:          "E2E No-Tracker Server",
+								GameId:        noTrackerGame.Id,
+								UserId:        client.userID,
+								StartCommand:  dummyExePath + " -heartbeat 5s",
+								Directory:     ntGsDirPath,
+								Ip:            &xylona.IP{Address: ipAddress2},
+								Port:          25601,
+								QueryPort:     25602,
+								SetMaxPlayers: 20,
+							},
+						}))
+						if errCreate2 != nil {
+							log.Warn().Err(errCreate2).Msg("[E2E Setup] Warning: could not create no-tracker server")
+						} else {
+							noTrackerServerID = createResp2.Msg.GameServer.Id
+							log.Info().Msgf("[E2E Setup] Created no-tracker server: %s", noTrackerServerID)
+						}
+					}
+				}
+			}
+		}
+
 		// Save test state.
 		errSaveState := saveTestState(e2eDir, &testState{
-			GameServerID: testServerID,
-			GameID:       testGameID,
-			GameName:     "E2E Test Game",
+			GameServerID:      testServerID,
+			GameID:            testGameID,
+			GameName:          "E2E Test Game",
+			NoTrackerServerID: noTrackerServerID,
 		})
 		if errSaveState != nil {
 			return fmt.Errorf("save test state: %w", errSaveState)

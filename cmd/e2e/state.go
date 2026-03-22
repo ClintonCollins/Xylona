@@ -17,9 +17,10 @@ type testUser struct {
 
 // testState matches helpers.ts TestState interface.
 type testState struct {
-	GameServerID string `json:"gameServerId,omitempty"`
-	GameID       string `json:"gameId,omitempty"`
-	GameName     string `json:"gameName,omitempty"`
+	GameServerID      string `json:"gameServerId,omitempty"`
+	GameID            string `json:"gameId,omitempty"`
+	GameName          string `json:"gameName,omitempty"`
+	NoTrackerServerID string `json:"noTrackerServerId,omitempty"`
 }
 
 // federationTestState matches federation-helpers.ts FederationTestState.

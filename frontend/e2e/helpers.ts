@@ -156,6 +156,7 @@ export interface TestState {
   gameServerId?: string
   gameId?: string
   gameName?: string
+  noTrackerServerId?: string
 }
 
 const TEST_USERS_FILE = path.join(import.meta.dirname, '.auth', 'test-users.json')
@@ -346,4 +347,22 @@ export async function apiListInstalledMods(
     }>
   }
   return data.installed_mods ?? []
+}
+
+export async function apiSetDummyUpdateFailure(
+  cookies: ApiCookies,
+  simulateFailure: boolean,
+): Promise<void> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/SetDummyUpdateFailure`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({ simulate_failure: simulateFailure }),
+  })
+  if (!resp.ok) {
+    throw new Error(`SetDummyUpdateFailure failed: ${resp.status}`)
+  }
 }
