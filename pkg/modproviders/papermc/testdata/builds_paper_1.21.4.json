@@ -1,0 +1,38 @@
+{
+  "project_id": "paper",
+  "project_name": "Paper",
+  "version": "1.21.4",
+  "builds": [
+    {
+      "build": 100,
+      "time": "2024-12-01T10:00:00Z",
+      "channel": "default",
+      "promoted": false,
+      "changes": [
+        {"commit": "abc123", "summary": "Fix chunk loading issue"},
+        {"commit": "def456", "summary": "Improve performance"}
+      ],
+      "downloads": {
+        "application": {
+          "name": "paper-1.21.4-100.jar",
+          "sha256": "aabbccdd1122334455667788990011aabbccdd1122334455667788990011aabb"
+        }
+      }
+    },
+    {
+      "build": 101,
+      "time": "2024-12-02T10:00:00Z",
+      "channel": "default",
+      "promoted": false,
+      "changes": [
+        {"commit": "ghi789", "summary": "Update libraries"}
+      ],
+      "downloads": {
+        "application": {
+          "name": "paper-1.21.4-101.jar",
+          "sha256": "1122334455667788990011aabbccdd1122334455667788990011aabbccdd1122"
+        }
+      }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 <template>
-  <div class="config-editor">
+  <form class="config-editor" @submit.prevent>
     <!-- Sticky header -->
     <div class="editor-header-sticky">
       <div class="editor-header">
@@ -14,6 +14,7 @@
               class="editor-category-badge" />
             <span class="text-xy-muted editor-meta-text">{{ format }}</span>
             <span v-if="editedValues.size > 0" class="editor-modified-count">
+              <span class="modified-dot" aria-hidden="true"></span>
               {{ editedValues.size }} modified
             </span>
           </div>
@@ -21,6 +22,7 @@
         <div class="editor-header-actions">
           <q-btn
             v-if="isMissing"
+            type="button"
             outline
             color="warning"
             label="Generate File"
@@ -30,22 +32,28 @@
             @click="$emit('generate')" />
           <q-btn
             v-else
-            color="primary"
-            label="Save"
-            icon="save"
+            type="button"
+            :color="saveSuccess ? 'positive' : 'primary'"
+            :label="saveSuccess ? 'Saved' : 'Save'"
+            :icon="saveSuccess ? 'check' : 'save'"
             size="sm"
             :loading="saving"
-            :disable="!hasChanges"
-            @click="handleSave" />
+            :disable="!hasChanges && !saveSuccess"
+            class="save-btn"
+            :class="{ 'save-success': saveSuccess }"
+            @click.prevent.stop="handleSave">
+            <q-tooltip>{{ hasChanges ? 'Save changes (Ctrl+S)' : 'No changes to save' }}</q-tooltip>
+          </q-btn>
         </div>
       </div>
       <q-separator class="editor-divider" />
 
       <!-- Scrollspy group tabs -->
-      <div v-if="allGroups.length > 1" class="group-tabs" role="tablist">
+      <div v-if="allGroups.length > 1" ref="groupTabsRef" class="group-tabs" role="tablist">
         <button
           v-for="group in allGroups"
           :key="group.name"
+          :ref="(el) => setTabRef(group.name, el as HTMLElement | null)"
           role="tab"
           :aria-selected="activeGroup === group.name"
           class="group-tab"
@@ -53,31 +61,33 @@
             active: activeGroup === group.name,
             dimmed: searchQuery && !filteredGroupCounts.has(group.name),
           }"
+          :style="{ '--tab-accent': groupAccentColor(group.name) }"
           @click="scrollToGroup(group.name)">
           {{ group.displayName }}
           <span class="tab-count">{{
-            searchQuery
-              ? (filteredGroupCounts.get(group.name) ?? 0)
-              : group.fields.length
+            searchQuery ? (filteredGroupCounts.get(group.name) ?? 0) : group.fields.length
           }}</span>
         </button>
+        <div
+          ref="tabIndicatorRef"
+          class="tab-indicator"
+          :style="{ background: groupAccentColor(activeGroup) }"
+          aria-hidden="true" />
       </div>
 
       <!-- Validation errors -->
-      <q-banner
-        v-if="validationErrors.length > 0"
-        role="alert"
-        dense
-        class="validation-banner">
-        <template #avatar>
-          <q-icon name="error_outline" color="negative" size="sm" aria-hidden="true" />
-        </template>
-        <div class="validation-errors">
-          <div v-for="(error, i) in validationErrors" :key="i" class="validation-error-item">
-            <strong>{{ error.field }}:</strong> {{ error.message }}
+      <Transition name="validation-slide">
+        <q-banner v-if="validationErrors.length > 0" role="alert" dense class="validation-banner">
+          <template #avatar>
+            <q-icon name="error_outline" color="negative" size="sm" aria-hidden="true" />
+          </template>
+          <div class="validation-errors">
+            <div v-for="(error, i) in validationErrors" :key="i" class="validation-error-item">
+              <strong>{{ error.field }}:</strong> {{ error.message }}
+            </div>
           </div>
-        </div>
-      </q-banner>
+        </q-banner>
+      </Transition>
 
       <!-- Search controls -->
       <div v-if="fields.length > 0" class="editor-controls">
@@ -85,10 +95,11 @@
           v-model="searchQuery"
           dense
           outlined
-          placeholder="Search settings..."
+          :placeholder="`Filter ${fields.length} settings...`"
           aria-label="Search configuration fields"
           class="search-input"
           clearable
+          @keydown.enter.prevent
           @clear="searchQuery = ''">
           <template #prepend>
             <q-icon name="search" size="xs" class="text-xy-muted" aria-hidden="true" />
@@ -102,13 +113,23 @@
       <div
         v-if="fields.length === 0 && advancedFields.length === 0"
         class="no-fields text-xy-muted">
-        No fields defined in the schema for this file.
+        No fields defined for this file. A superuser can add fields in the game's config schema
+        editor.
       </div>
 
-      <div
-        v-else-if="filteredFields.length === 0 && searchQuery"
-        class="no-fields text-xy-muted">
-        No fields match "{{ searchQuery }}"
+      <div v-else-if="filteredFields.length === 0 && searchQuery" class="no-fields text-xy-muted">
+        <q-icon name="search_off" size="28px" class="q-mb-sm" />
+        <div>
+          No settings match "<strong class="text-xy-secondary">{{ searchQuery }}</strong
+          >"
+        </div>
+        <q-btn
+          flat
+          dense
+          size="sm"
+          label="Clear filter"
+          class="q-mt-sm"
+          @click="searchQuery = ''" />
       </div>
 
       <table v-else class="settings-table">
@@ -116,17 +137,16 @@
           <!-- Sentinel for IntersectionObserver (invisible) -->
           <tr class="group-sentinel-row">
             <td colspan="2">
-              <div
-                :id="`sentinel-${group.name}`"
-                :data-group="group.name"
-                class="group-sentinel" />
+              <div :id="`sentinel-${group.name}`" :data-group="group.name" class="group-sentinel" />
             </td>
           </tr>
           <!-- Sticky group header -->
-          <tr class="group-header-row">
+          <tr class="group-header-row" :style="{ '--group-accent': groupAccentColor(group.name) }">
             <td colspan="2">
-              <span class="group-header-title">{{ group.displayName }}</span>
-              <span class="group-header-count">{{ group.fields.length }}</span>
+              <div class="group-header-inner">
+                <span class="group-header-title">{{ group.displayName }}</span>
+                <span class="group-header-count">{{ group.fields.length }}</span>
+              </div>
             </td>
           </tr>
           <!-- Field rows -->
@@ -137,15 +157,22 @@
             :class="{ 'setting-edited': editedValues.has(field.key) }">
             <!-- Setting name -->
             <td class="setting-key">
-              {{ field.title || field.key }}
-              <q-badge
-                v-if="field.isManaged"
-                color="accent"
-                class="managed-badge">
-                <q-icon name="lock" size="10px" class="q-mr-xs" />
-                Managed
-              </q-badge>
-              <span v-if="field.required && !field.isManaged" class="field-required" aria-label="required">*</span>
+              <div class="setting-key-label">
+                {{ field.title || field.key }}
+                <q-badge v-if="field.isManaged" color="accent" class="managed-badge">
+                  <q-icon name="lock" size="10px" class="q-mr-xs" />
+                  Managed
+                </q-badge>
+                <span
+                  v-if="field.required && !field.isManaged"
+                  class="field-required"
+                  aria-label="required"
+                  >*</span
+                >
+              </div>
+              <div v-if="field.description" class="setting-description">
+                {{ field.description }}
+              </div>
             </td>
             <!-- Setting value -->
             <td class="setting-value">
@@ -154,7 +181,9 @@
                 <span class="managed-value font-mono">
                   {{ field.value || field.defaultValue }}
                   <q-icon name="lock" size="xs" color="accent" class="q-ml-xs">
-                    <q-tooltip>This field is managed by server settings</q-tooltip>
+                    <q-tooltip
+                      >Automatically set from server settings — edit it there instead</q-tooltip
+                    >
                   </q-icon>
                 </span>
                 <div class="managed-source-hint text-xy-muted">
@@ -170,12 +199,14 @@
                   :id="fieldId(field.key)"
                   :model-value="getFieldValue(field) === 'true'"
                   dense
-                  color="primary"
+                  :color="getFieldValue(field) === 'true' ? 'positive' : 'primary'"
                   :aria-label="field.title || field.key"
                   @update:model-value="(val: boolean) => setFieldValue(field.key, String(val))" />
-                <span class="toggle-label">{{
-                  getFieldValue(field) === 'true' ? 'Enabled' : 'Disabled'
-                }}</span>
+                <span
+                  class="toggle-label"
+                  :class="getFieldValue(field) === 'true' ? 'toggle-on' : ''">
+                  {{ getFieldValue(field) === 'true' ? 'Enabled' : 'Disabled' }}
+                </span>
               </div>
 
               <!-- Enum dropdown -->
@@ -183,13 +214,23 @@
                 v-else-if="field.enumOptions.length > 0"
                 :id="fieldId(field.key)"
                 :model-value="getFieldValue(field)"
-                :options="field.enumOptions"
+                :options="enumFilteredOptions(field)"
                 :aria-label="field.title || field.key"
                 dense
                 outlined
                 emit-value
                 map-options
+                use-input
+                hide-selected
+                fill-input
+                input-debounce="0"
+                new-value-mode="add"
+                hint="Select or type a custom value"
                 class="inline-input"
+                @filter="
+                  (val: string, update: (fn: () => void) => void) => enumFilter(field, val, update)
+                "
+                @input-value="(val: string) => (enumInputValues[field.key] = val)"
                 @update:model-value="(val: string) => setFieldValue(field.key, val)" />
 
               <!-- Number input -->
@@ -201,9 +242,13 @@
                 dense
                 outlined
                 type="number"
+                :min="field.minimum ?? undefined"
+                :max="field.maximum ?? undefined"
+                :hint="getNumberHint(field)"
                 :rules="getNumberRules(field)"
                 class="inline-input"
                 input-class="font-mono"
+                @keydown.enter.prevent
                 @update:model-value="
                   (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
                 " />
@@ -220,6 +265,7 @@
                 :rules="getStringRules(field)"
                 class="inline-input"
                 input-class="font-mono"
+                @keydown.enter.prevent
                 @update:model-value="
                   (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
                 " />
@@ -231,7 +277,7 @@
       <!-- Advanced fields (below table) -->
       <config-advanced-fields :fields="advancedFields" @update="handleAdvancedUpdate" />
     </div>
-  </div>
+  </form>
 </template>
 
 <script setup lang="ts">
@@ -263,6 +309,8 @@ const emit = defineEmits<{
 // Track local edits as key → value overrides
 const editedValues = reactive(new Map<string, string>())
 const advancedChanged = ref(false)
+const saveSuccess = ref(false)
+let saveSuccessTimer = 0
 
 // Ctrl+S / Cmd+S keyboard shortcut
 function onKeyDown(e: KeyboardEvent) {
@@ -295,13 +343,18 @@ const allGroups = computed(() => {
 
 const activeGroup = ref('')
 
-// Reset activeGroup when the groups change (e.g., file switch)
+// Reset activeGroup only when the group structure actually changes (e.g., file switch),
+// not when the same groups reload with updated field values after save.
 watch(
-  allGroups,
-  (groups) => {
-    if (groups.length > 0) {
-      activeGroup.value = groups[0].name
-    }
+  () => allGroups.value.map((g) => g.name).join(','),
+  (groupKey, oldGroupKey) => {
+    const groups = allGroups.value
+    if (groups.length === 0) return
+
+    // If the current active group still exists, keep it
+    if (oldGroupKey && groups.some((g) => g.name === activeGroup.value)) return
+
+    activeGroup.value = groups[0].name
   },
   { immediate: true },
 )
@@ -312,6 +365,146 @@ const filteredGroupCounts = computed(() => {
     counts.set(group.name, group.fields.length)
   }
   return counts
+})
+
+// Stable accent colors for group headers — derived from the existing palette
+const GROUP_ACCENT_COLORS = [
+  'var(--xy-primary)', // Blue
+  'var(--xy-accent)', // Cyan
+  'var(--xy-success)', // Green
+  'var(--xy-warning)', // Amber
+  'var(--xy-secondary)', // Indigo
+  'var(--xy-info)', // Teal
+]
+
+const groupAccentMap = computed(() => {
+  const map = new Map<string, string>()
+  for (let i = 0; i < allGroups.value.length; i++) {
+    map.set(allGroups.value[i].name, GROUP_ACCENT_COLORS[i % GROUP_ACCENT_COLORS.length])
+  }
+  return map
+})
+
+function groupAccentColor(groupName: string): string {
+  return groupAccentMap.value.get(groupName) || GROUP_ACCENT_COLORS[0]
+}
+
+// ---- Spring-physics tab indicator ----
+const groupTabsRef = ref<HTMLElement | null>(null)
+const tabIndicatorRef = ref<HTMLElement | null>(null)
+const tabRefs = new Map<string, HTMLElement>()
+const prefersReducedMotion = ref(false)
+
+function setTabRef(name: string, el: HTMLElement | null) {
+  if (el) tabRefs.set(name, el)
+  else tabRefs.delete(name)
+}
+
+// Spring solver state
+let springLeftPos = 0
+let springLeftVel = 0
+let springWidthPos = 0
+let springWidthVel = 0
+let springAnimId = 0
+let indicatorInitialized = false
+
+function solveSpring(
+  pos: number,
+  vel: number,
+  target: number,
+  stiffness: number,
+  damping: number,
+): [number, number] {
+  const force = -stiffness * (pos - target)
+  const dampForce = -damping * vel
+  const accel = force + dampForce
+  const dt = 1 / 60
+  const newVel = vel + accel * dt
+  const newPos = pos + newVel * dt
+  return [newPos, newVel]
+}
+
+function moveTabIndicator(groupName: string) {
+  const tab = tabRefs.get(groupName)
+  const container = groupTabsRef.value
+  const indicator = tabIndicatorRef.value
+  if (!tab || !container || !indicator) return
+
+  const containerRect = container.getBoundingClientRect()
+  const tabRect = tab.getBoundingClientRect()
+  const targetLeft = tabRect.left - containerRect.left + container.scrollLeft
+  const targetWidth = tabRect.width
+
+  // First render: snap instantly, no spring
+  if (!indicatorInitialized) {
+    indicatorInitialized = true
+    springLeftPos = targetLeft
+    springWidthPos = targetWidth
+    indicator.style.opacity = '1'
+    indicator.style.transform = `translateX(${targetLeft}px)`
+    indicator.style.width = `${targetWidth}px`
+    return
+  }
+
+  // Reduced motion: snap
+  if (prefersReducedMotion.value) {
+    springLeftPos = targetLeft
+    springWidthPos = targetWidth
+    indicator.style.transform = `translateX(${targetLeft}px)`
+    indicator.style.width = `${targetWidth}px`
+    return
+  }
+
+  cancelAnimationFrame(springAnimId)
+
+  const stiffness = 300
+  const damping = 26
+
+  function step() {
+    ;[springLeftPos, springLeftVel] = solveSpring(
+      springLeftPos,
+      springLeftVel,
+      targetLeft,
+      stiffness,
+      damping,
+    )
+    ;[springWidthPos, springWidthVel] = solveSpring(
+      springWidthPos,
+      springWidthVel,
+      targetWidth,
+      stiffness,
+      damping,
+    )
+
+    indicator!.style.transform = `translateX(${springLeftPos}px)`
+    indicator!.style.width = `${springWidthPos}px`
+
+    const settled =
+      Math.abs(springLeftPos - targetLeft) < 0.3 &&
+      Math.abs(springLeftVel) < 0.3 &&
+      Math.abs(springWidthPos - targetWidth) < 0.3 &&
+      Math.abs(springWidthVel) < 0.3
+
+    if (settled) {
+      springLeftPos = targetLeft
+      springLeftVel = 0
+      springWidthPos = targetWidth
+      springWidthVel = 0
+      indicator!.style.transform = `translateX(${targetLeft}px)`
+      indicator!.style.width = `${targetWidth}px`
+    } else {
+      springAnimId = requestAnimationFrame(step)
+    }
+  }
+
+  springAnimId = requestAnimationFrame(step)
+}
+
+// Animate indicator when active group changes
+watch(activeGroup, (groupName) => {
+  if (groupName) {
+    nextTick(() => moveTabIndicator(groupName))
+  }
 })
 
 // Scrollspy
@@ -347,13 +540,12 @@ function scrollToGroup(groupName: string) {
 }
 
 function updateActiveGroupFromScroll() {
-  if (scrollSpySuppressed) return
-
-  // Use rAF to avoid thrashing during fast scrolling
   cancelAnimationFrame(scrollRafId)
   scrollRafId = requestAnimationFrame(() => {
     const scrollRoot = tableScrollRef.value
     if (!scrollRoot) return
+
+    if (scrollSpySuppressed) return
 
     const containerTop = scrollRoot.getBoundingClientRect().top
     let currentGroup = ''
@@ -371,6 +563,8 @@ function updateActiveGroupFromScroll() {
 
     if (currentGroup) {
       activeGroup.value = currentGroup
+    } else if (displayGroups.value.length > 0) {
+      activeGroup.value = displayGroups.value[0].name
     }
   })
 }
@@ -381,7 +575,6 @@ function setupScrollspy() {
 
   scrollRoot.addEventListener('scroll', updateActiveGroupFromScroll, { passive: true })
 }
-
 
 // Reset edits when file changes
 watch(
@@ -394,20 +587,64 @@ watch(
     if (tableScrollRef.value) {
       tableScrollRef.value.scrollTop = 0
     }
+    // Reset tab indicator so it snaps to new position
+    indicatorInitialized = false
+    springLeftVel = 0
+    springWidthVel = 0
   },
 )
 
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
-  nextTick(() => setupScrollspy())
+  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  nextTick(() => {
+    setupScrollspy()
+    // Initialize tab indicator position
+    if (activeGroup.value) {
+      moveTabIndicator(activeGroup.value)
+    }
+  })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown)
+  cancelAnimationFrame(springAnimId)
+  clearTimeout(saveSuccessTimer)
   if (tableScrollRef.value) {
     tableScrollRef.value.removeEventListener('scroll', updateActiveGroupFromScroll)
   }
 })
+
+function enumSelectOptions(field: ConfigFieldData) {
+  if (field.enumLabels.length > 0) {
+    return field.enumOptions.map((val, i) => ({
+      label: field.enumLabels[i] ?? val,
+      value: val,
+    }))
+  }
+  return field.enumOptions.map((val) => ({ label: val, value: val }))
+}
+
+const enumInputValues: Record<string, string> = reactive({})
+const enumFilteredCache: Record<string, { label: string; value: string }[]> = reactive({})
+
+function enumFilteredOptions(field: ConfigFieldData) {
+  return enumFilteredCache[field.key] ?? enumSelectOptions(field)
+}
+
+function enumFilter(field: ConfigFieldData, val: string, update: (fn: () => void) => void) {
+  update(() => {
+    const allOptions = enumSelectOptions(field)
+    if (!val) {
+      enumFilteredCache[field.key] = allOptions
+      return
+    }
+    const needle = val.toLowerCase()
+    enumFilteredCache[field.key] = allOptions.filter(
+      (opt) => opt.label.toLowerCase().includes(needle) || opt.value.toLowerCase().includes(needle),
+    )
+  })
+}
 
 function getFieldValue(field: ConfigFieldData): string {
   if (editedValues.has(field.key)) {
@@ -424,6 +661,21 @@ function setFieldValue(key: string, value: string) {
   } else {
     editedValues.set(key, value)
   }
+}
+
+function getNumberHint(field: ConfigFieldData): string | undefined {
+  const hasMin = field.minimum !== undefined
+  const hasMax = field.maximum !== undefined
+  if (hasMin && hasMax) {
+    return `${field.minimum} – ${field.maximum}`
+  }
+  if (hasMin) {
+    return `Min: ${field.minimum}`
+  }
+  if (hasMax) {
+    return `Max: ${field.maximum}`
+  }
+  return undefined
 }
 
 function getNumberRules(field: ConfigFieldData): ((val: string) => true | string)[] {
@@ -463,7 +715,12 @@ function handleAdvancedUpdate(fields: AdvancedField[]) {
   emit('updateAdvanced', fields)
 }
 
+let savedScrollTop = 0
+
 function handleSave() {
+  // Save scroll position before the async save cycle replaces the fields prop
+  savedScrollTop = tableScrollRef.value?.scrollTop ?? 0
+
   const fieldValues = new Map<string, string>()
   for (const field of props.fields) {
     if (field.isManaged) continue
@@ -473,6 +730,41 @@ function handleSave() {
   editedValues.clear()
   advancedChanged.value = false
 }
+
+// Suppress scrollspy while saving to prevent the active group from resetting
+// when the fields prop is replaced and the table DOM re-renders.
+watch(
+  () => props.saving,
+  (saving, wasSaving) => {
+    if (saving && !wasSaving) {
+      scrollSpySuppressed = true
+    }
+    if (wasSaving && !saving) {
+      // Restore scroll position and re-enable scrollspy after Vue re-renders
+      nextTick(() => {
+        const scrollRoot = tableScrollRef.value
+        if (scrollRoot && savedScrollTop > 0) {
+          scrollRoot.scrollTop = savedScrollTop
+        }
+        // Also re-position the tab indicator since tab refs may have been recreated
+        if (activeGroup.value) {
+          moveTabIndicator(activeGroup.value)
+        }
+        setTimeout(() => {
+          scrollSpySuppressed = false
+        }, 100)
+      })
+      // Flash success state
+      if (props.validationErrors.length === 0) {
+        clearTimeout(saveSuccessTimer)
+        saveSuccess.value = true
+        saveSuccessTimer = window.setTimeout(() => {
+          saveSuccess.value = false
+        }, 2000)
+      }
+    }
+  },
+)
 </script>
 
 <style scoped>
@@ -493,14 +785,23 @@ function handleSave() {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: var(--xy-space-sm) var(--xy-space-md);
+  padding: var(--xy-space-md) var(--xy-space-md) var(--xy-space-sm);
   gap: var(--xy-space-md);
 }
 
+.editor-header-info {
+  min-width: 0;
+  flex: 1;
+}
+
 .editor-file-name {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--xy-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .editor-meta {
@@ -519,9 +820,57 @@ function handleSave() {
 }
 
 .editor-modified-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--xy-warning);
+  background: color-mix(in srgb, var(--xy-warning) 10%, transparent);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.modified-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--xy-warning);
+  flex-shrink: 0;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ---- Save button success flash ---- */
+.save-btn {
+  transition:
+    background-color 200ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.save-success {
+  animation: save-pop 300ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes save-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .editor-divider {
@@ -534,6 +883,8 @@ function handleSave() {
   overflow-x: auto;
   scrollbar-width: none;
   border-bottom: 1px solid var(--xy-border);
+  background: var(--xy-surface-0);
+  position: relative;
 }
 
 .group-tabs::-webkit-scrollbar {
@@ -544,8 +895,8 @@ function handleSave() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 1.25rem;
-  font-family: var(--xy-font-body);
+  padding: 0.65rem 1.5rem;
+  font-family: var(--xy-font-display);
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--xy-text-muted);
@@ -555,9 +906,11 @@ function handleSave() {
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
+  letter-spacing: 0.02em;
   transition:
     color var(--xy-transition-fast),
-    border-color var(--xy-transition-fast);
+    border-color var(--xy-transition-fast),
+    background-color var(--xy-transition-fast);
 }
 
 .group-tab:hover {
@@ -565,9 +918,16 @@ function handleSave() {
   background-color: var(--xy-surface-2);
 }
 
+.group-tab:focus-visible {
+  outline: 2px solid var(--xy-primary);
+  outline-offset: -2px;
+  border-radius: 2px;
+}
+
 .group-tab.active {
   color: var(--xy-text-primary);
-  border-bottom-color: var(--xy-primary);
+  border-bottom-color: var(--tab-accent, var(--xy-primary));
+  background-color: color-mix(in srgb, var(--tab-accent, var(--xy-primary)) 6%, transparent);
 }
 
 .group-tab.dimmed {
@@ -582,18 +942,32 @@ function handleSave() {
 
 .tab-count {
   font-size: 0.65rem;
-  font-weight: 600;
+  font-weight: 700;
   background: var(--xy-surface-3);
   color: var(--xy-text-muted);
-  padding: 0.1rem 0.4rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 8px;
-  min-width: 1.3rem;
+  min-width: 1.4rem;
   text-align: center;
 }
 
 .group-tab.active .tab-count {
-  background: var(--xy-primary-muted);
-  color: var(--xy-primary);
+  background: var(--tab-accent, var(--xy-primary));
+  color: var(--xy-base);
+}
+
+/* ---- Spring-physics tab indicator ---- */
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: var(--xy-primary);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, width;
+  border-radius: 1px 1px 0 0;
 }
 
 /* ---- Validation banner ---- */
@@ -610,6 +984,30 @@ function handleSave() {
   padding: 2px 0;
 }
 
+/* Validation banner entrance/exit animation */
+.validation-slide-enter-active {
+  animation: validation-enter 300ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.validation-slide-leave-active {
+  animation: validation-enter 200ms cubic-bezier(0.25, 1, 0.5, 1) reverse;
+}
+
+@keyframes validation-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+    max-height: 0;
+    margin-top: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+    margin-top: var(--xy-space-sm);
+  }
+}
+
 /* ---- Search controls ---- */
 .editor-controls {
   display: flex;
@@ -623,12 +1021,23 @@ function handleSave() {
   max-width: 400px;
 }
 
+.search-input :deep(.q-field__control) {
+  background-color: var(--xy-surface-0);
+}
+
+.search-input :deep(.q-field--focused .q-field__control) {
+  border-color: var(--xy-primary);
+}
+
 /* ---- Table scroll container (darker bg for contrast against header) ---- */
 .table-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   background-color: var(--xy-base);
+  /* Extra bottom padding ensures last rows are reachable even if
+     the container height is slightly clipped by Quasar's layout. */
+  padding-bottom: 5rem;
 }
 
 .table-scroll::-webkit-scrollbar {
@@ -670,61 +1079,113 @@ function handleSave() {
   height: 1px;
 }
 
+/* Section divider: add visual gap above every group header that follows a setting row.
+   The sentinel row sits between groups, so target it when preceded by a setting row. */
+.setting-row + .group-sentinel-row td {
+  padding-top: 24px;
+  background: var(--xy-base);
+}
+
 .group-header-row td {
-  padding: 0.5rem 1rem 0.35rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--xy-text-muted);
-  background: var(--xy-surface-0);
+  padding: 0;
+  background: var(--xy-surface-1);
   border-bottom: 1px solid var(--xy-border);
   position: sticky;
   top: 0;
   z-index: 5;
 }
 
+.group-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem 0.5rem;
+  border-left: 3px solid var(--group-accent, var(--xy-primary));
+}
+
+.group-header-title {
+  font-family: var(--xy-font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--xy-text-primary);
+}
+
 .group-header-count {
-  float: right;
-  font-weight: 400;
+  font-family: var(--xy-font-mono);
   font-size: 0.65rem;
-  color: var(--xy-text-muted);
-  text-transform: none;
-  letter-spacing: 0;
+  font-weight: 600;
+  color: var(--group-accent, var(--xy-text-muted));
+  opacity: 0.7;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
 }
 
 .setting-row {
-  transition: background-color 0.1s ease;
+  transition:
+    background-color var(--xy-transition-fast),
+    border-left-color var(--xy-transition-fast);
+  border-left: 3px solid transparent;
+}
+
+/* Subtle alternating rows for scan-ability.
+   Uses :nth-child(… of .setting-row) to count only setting rows,
+   ignoring sentinel/header rows interleaved in the table. */
+.setting-row:nth-child(even of .setting-row) {
+  background-color: color-mix(in srgb, var(--xy-surface-0) 60%, transparent);
 }
 
 .setting-row:hover {
   background-color: var(--xy-surface-1);
+  border-left-color: color-mix(in srgb, var(--xy-primary) 40%, transparent);
 }
 
 .setting-row:focus-within {
   background-color: var(--xy-surface-1);
+  border-left-color: var(--xy-primary);
 }
 
 .setting-row td {
-  padding: 0.4rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--xy-border);
   vertical-align: middle;
 }
 
-.setting-edited {
-  border-left: 2px solid var(--xy-warning);
+.setting-row td:first-child {
+  padding-left: calc(1rem - 3px);
 }
 
-.setting-edited td:first-child {
-  padding-left: calc(1rem - 2px);
+/* When a description is present, top-align so the value stays paired with the label */
+.setting-row:has(.setting-description) td {
+  vertical-align: top;
+  padding-top: 0.6rem;
+}
+
+.setting-edited {
+  border-left-color: var(--xy-warning);
+  background-color: color-mix(in srgb, var(--xy-warning) 4%, transparent);
+}
+
+.setting-edited:hover {
+  border-left-color: var(--xy-warning);
 }
 
 .setting-key {
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--xy-text-primary);
   width: 40%;
   min-width: 160px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.setting-description {
+  font-size: 0.7rem;
+  color: var(--xy-text-muted);
+  line-height: 1.4;
+  margin-top: 3px;
 }
 
 .managed-badge {
@@ -746,6 +1207,8 @@ function handleSave() {
   font-size: 0.8rem;
   color: var(--xy-text-muted);
   opacity: 0.6;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .inline-toggle {
@@ -757,10 +1220,30 @@ function handleSave() {
 .toggle-label {
   font-size: 0.7rem;
   color: var(--xy-text-muted);
+  transition: color var(--xy-transition-fast);
+}
+
+.toggle-on {
+  color: var(--xy-success);
 }
 
 .inline-input {
   max-width: 300px;
+}
+
+/* Give inputs a visible background so empty fields are clearly interactive */
+.inline-input :deep(.q-field__control) {
+  background-color: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: 4px;
+}
+
+.inline-input :deep(.q-field__control:hover) {
+  border-color: color-mix(in srgb, var(--xy-primary) 50%, var(--xy-border));
+}
+
+.inline-input :deep(.q-field--focused .q-field__control) {
+  border-color: var(--xy-primary);
 }
 
 .managed-field-display {
@@ -779,6 +1262,26 @@ function handleSave() {
   font-weight: 500;
 }
 
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .setting-row,
+  .group-tab,
+  .file-item,
+  .inline-input :deep(.q-field__control) {
+    transition-duration: 0.01ms !important;
+  }
+
+  .validation-slide-enter-active,
+  .validation-slide-leave-active {
+    animation-duration: 0.01ms !important;
+  }
+
+  .modified-dot,
+  .save-success {
+    animation: none;
+  }
+}
+
 /* ---- Mobile ---- */
 @media (max-width: 767px) {
   .editor-header {
@@ -787,16 +1290,8 @@ function handleSave() {
     gap: var(--xy-space-sm);
   }
 
-  .editor-header-info {
-    min-width: 0;
-    flex: 1;
-  }
-
   .editor-file-name {
     font-size: 0.8rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .editor-controls {

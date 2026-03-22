@@ -34,12 +34,16 @@
             v-if="fields.length > 0"
             :model-value="visibleFields.length > 0 && selectedFields.length >= visibleFields.length"
             :indeterminate-value="true"
-            :model-value-indeterminate="selectedFields.length > 0 && selectedFields.length < visibleFields.length"
+            :model-value-indeterminate="
+              selectedFields.length > 0 && selectedFields.length < visibleFields.length
+            "
             dense
             size="sm"
             class="select-all-checkbox"
             @update:model-value="toggleSelectAll">
-            <q-tooltip>{{ selectedFields.length >= visibleFields.length ? 'Deselect all' : 'Select all' }}</q-tooltip>
+            <q-tooltip>{{
+              selectedFields.length >= visibleFields.length ? 'Deselect all' : 'Select all'
+            }}</q-tooltip>
           </q-checkbox>
           <span class="text-xy-secondary field-count">
             {{ fields.length }} field{{ fields.length !== 1 ? 's' : '' }}
@@ -149,20 +153,36 @@
               <q-tooltip>Apply group</q-tooltip>
             </q-btn>
           </template>
-          <q-menu v-if="bulkGroupSuggestions.length > 0" fit no-parent-event :model-value="bulkGroupSuggestions.length > 0">
+          <q-menu
+            v-if="bulkGroupSuggestions.length > 0"
+            fit
+            no-parent-event
+            :model-value="bulkGroupSuggestions.length > 0">
             <q-list dense>
               <q-item
                 v-for="g in bulkGroupSuggestions"
                 :key="g"
                 clickable
-                @click="bulkGroupName = g; applyBulkGroup()">
+                @click="selectBulkGroupSuggestion(g)">
                 <q-item-section>{{ g }}</q-item-section>
               </q-item>
             </q-list>
           </q-menu>
         </q-input>
-        <q-btn flat dense size="xs" label="Clear group" class="text-xy-muted" @click="clearBulkGroup" />
-        <q-btn flat dense size="xs" label="Deselect all" class="text-xy-muted" @click="selectedFields = []" />
+        <q-btn
+          flat
+          dense
+          size="xs"
+          label="Clear group"
+          class="text-xy-muted"
+          @click="clearBulkGroup" />
+        <q-btn
+          flat
+          dense
+          size="xs"
+          label="Deselect all"
+          class="text-xy-muted"
+          @click="selectedFields = []" />
       </div>
 
       <div v-if="fields.length === 0" class="form-builder-empty">
@@ -175,19 +195,77 @@
 
       <div v-else class="form-builder-fields">
         <template v-for="group in displayGroups" :key="group.name">
-          <div v-if="group.fields.length > 0" class="schema-field-group">
+          <div
+            v-if="group.fields.length > 0"
+            class="schema-field-group"
+            :class="{ 'drag-over-group': dragOverGroup === group.name }"
+            @dragover.prevent="onGroupDragOver($event, group.name)"
+            @dragleave="onGroupDragLeave($event, group.name)"
+            @drop.prevent="onGroupDrop(group.name)">
             <div
               class="schema-group-header"
-              @click="toggleGroupExpand(group.name)">
+              :draggable="group.name !== ''"
+              :class="{ dragging: draggedGroup === group.name }"
+              @click="toggleGroupExpand(group.name)"
+              @dragstart="onGroupDragStart($event, group.name)"
+              @dragend="onGroupDragEnd">
+              <q-icon
+                v-if="group.name"
+                name="drag_indicator"
+                size="xs"
+                class="text-xy-muted drag-handle"
+                @click.stop />
               <q-icon
                 :name="isGroupExpanded(group.name) ? 'expand_more' : 'chevron_right'"
                 size="xs"
                 class="text-xy-muted" />
               <span class="schema-group-title">{{ group.displayName }}</span>
               <span class="schema-group-count text-xy-muted">{{ group.fields.length }}</span>
+              <div class="schema-group-actions" @click.stop>
+                <q-btn
+                  v-if="group.name"
+                  flat
+                  dense
+                  round
+                  icon="arrow_upward"
+                  size="xs"
+                  class="text-xy-muted group-move-btn"
+                  @click="moveGroupUp(group.name)">
+                  <q-tooltip>Move group up</q-tooltip>
+                </q-btn>
+                <q-btn
+                  v-if="group.name"
+                  flat
+                  dense
+                  round
+                  icon="arrow_downward"
+                  size="xs"
+                  class="text-xy-muted group-move-btn"
+                  @click="moveGroupDown(group.name)">
+                  <q-tooltip>Move group down</q-tooltip>
+                </q-btn>
+              </div>
             </div>
             <div v-show="isGroupExpanded(group.name)" class="schema-group-content">
-              <div v-for="(field, index) in group.fields" :key="field.key || index" class="field-select-row">
+              <div
+                v-for="(field, index) in group.fields"
+                :key="field.key || index"
+                draggable="true"
+                class="field-select-row"
+                :class="{
+                  dragging: draggedField === field,
+                  'drag-over-above': dragOverField === field && dragOverPosition === 'above',
+                  'drag-over-below': dragOverField === field && dragOverPosition === 'below',
+                }"
+                @dragstart="onFieldDragStart($event, field, group.name)"
+                @dragend="onFieldDragEnd"
+                @dragover.prevent="onFieldDragOver($event, field, group.name)"
+                @dragleave="onFieldDragLeave"
+                @drop.prevent="onFieldDrop(field, group.name)">
+                <q-icon
+                  name="drag_indicator"
+                  size="xs"
+                  class="text-xy-muted drag-handle field-drag-handle" />
                 <q-checkbox
                   :model-value="isFieldSelected(field)"
                   dense
@@ -200,7 +278,9 @@
                   :available-groups="availableGroups"
                   class="field-select-card"
                   @update:model-value="updateFieldByRef(field, $event)"
-                  @remove="removeFieldByRef(field)" />
+                  @remove="removeFieldByRef(field)"
+                  @move-up="moveFieldUp(field)"
+                  @move-down="moveFieldDown(field)" />
               </div>
             </div>
           </div>
@@ -228,9 +308,19 @@
 
     <!-- Raw JSON Mode -->
     <div v-else class="json-editor">
-      <div class="json-status-bar" :class="{ 'json-valid': jsonValid, 'json-invalid': !jsonValid }">
-        <q-icon :name="jsonValid ? 'check_circle' : 'error'" size="xs" />
-        <span>{{ jsonValid ? 'Valid JSON' : jsonError }}</span>
+      <div
+        class="json-status-bar"
+        :class="{
+          'json-valid': jsonValid && jsonWarnings.length === 0,
+          'json-warning': jsonValid && jsonWarnings.length > 0,
+          'json-invalid': !jsonValid,
+        }">
+        <q-icon
+          :name="!jsonValid ? 'error' : jsonWarnings.length > 0 ? 'warning' : 'check_circle'"
+          size="xs" />
+        <span v-if="!jsonValid">{{ jsonError }}</span>
+        <span v-else-if="jsonWarnings.length > 0">{{ jsonWarnings.join('; ') }}</span>
+        <span v-else>Valid JSON</span>
         <span v-if="jsonValid" class="text-xy-muted">
           &middot; {{ jsonFieldCount }} field{{ jsonFieldCount !== 1 ? 's' : '' }}
         </span>
@@ -261,6 +351,7 @@ interface SchemaProperty {
   'x-managed'?: { source: string }
   'x-allow-multiple'?: boolean
   'x-group'?: string
+  'x-order'?: number
   [key: string]: unknown
 }
 
@@ -268,6 +359,7 @@ interface JsonSchema {
   type: string
   properties: Record<string, SchemaProperty>
   required?: string[]
+  'x-groups'?: string[]
 }
 
 const props = defineProps<{
@@ -289,8 +381,10 @@ const forceExpanded = ref<boolean | undefined>(undefined)
 const fields = ref<SchemaFieldModel[]>([])
 const jsonValid = ref(true)
 const jsonError = ref('')
+const jsonWarnings = ref<string[]>([])
 const jsonFieldCount = ref(0)
 const monacoContainer = ref<HTMLElement | null>(null)
+const groupOrder = ref<string[]>([])
 
 let monacoEditor: unknown = null
 let monacoModule: typeof import('monaco-editor') | null = null
@@ -338,7 +432,11 @@ onUnmounted(() => {
 function schemaToFields(schema: JsonSchema): SchemaFieldModel[] {
   if (!schema?.properties) return []
   const requiredFields = new Set(schema.required || [])
-  return Object.entries(schema.properties).map(([key, prop]) => ({
+
+  // Initialize group order from schema.
+  groupOrder.value = schema['x-groups'] ? [...schema['x-groups']] : []
+
+  const result = Object.entries(schema.properties).map(([key, prop], index) => ({
     key,
     title: prop.title || '',
     type: prop.type || 'string',
@@ -348,20 +446,44 @@ function schemaToFields(schema: JsonSchema): SchemaFieldModel[] {
     minimum: prop.minimum ?? null,
     maximum: prop.maximum ?? null,
     maxLength: prop.maxLength ?? null,
-    enumOptionsStr: prop.enum ? prop.enum.join(', ') : '',
+    enumOptionsStr: prop.enum ? prop.enum.map((v: unknown) => String(v)).join(', ') : '',
+    enumLabelsStr: Array.isArray(prop['x-enum-labels'])
+      ? (prop['x-enum-labels'] as unknown[]).map(String).join(', ')
+      : '',
     managed: !!prop['x-managed'],
     managedSource: prop['x-managed']?.source || '',
     allowMultiple: !!prop['x-allow-multiple'],
     group: prop['x-group'] || '',
+    order: prop['x-order'] ?? index,
   }))
+
+  // Sort by order so the form builder reflects schema ordering.
+  result.sort((a, b) => a.order - b.order)
+
+  // If no explicit x-groups was set, derive group order from the sorted fields.
+  if (groupOrder.value.length === 0) {
+    const seen = new Set<string>()
+    for (const field of result) {
+      if (field.group && !seen.has(field.group)) {
+        groupOrder.value.push(field.group)
+        seen.add(field.group)
+      }
+    }
+  }
+
+  return result
 }
 
 function fieldsToSchema(): JsonSchema {
   const properties: Record<string, SchemaProperty> = {}
   const required: string[] = []
 
-  for (const field of fields.value) {
+  for (let i = 0; i < fields.value.length; i++) {
+    const field = fields.value[i]
     if (!field.key) continue
+
+    // Assign order from current position.
+    field.order = i
 
     const prop: SchemaProperty = {
       type: field.type || 'string',
@@ -387,6 +509,12 @@ function fieldsToSchema(): JsonSchema {
         .map((s) => s.trim())
         .filter((s) => s)
     }
+    if (field.enumLabelsStr) {
+      prop['x-enum-labels'] = field.enumLabelsStr
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s)
+    }
     if (field.managed && field.managedSource) {
       prop['x-managed'] = { source: field.managedSource }
     }
@@ -396,6 +524,7 @@ function fieldsToSchema(): JsonSchema {
     if (field.group) {
       prop['x-group'] = field.group.toLowerCase()
     }
+    prop['x-order'] = field.order
     if (field.required) {
       required.push(field.key)
     }
@@ -404,6 +533,9 @@ function fieldsToSchema(): JsonSchema {
   }
 
   const schema: JsonSchema = { type: 'object', properties }
+  if (groupOrder.value.length > 0) {
+    schema['x-groups'] = groupOrder.value
+  }
   if (required.length > 0) {
     schema.required = required
   }
@@ -411,6 +543,7 @@ function fieldsToSchema(): JsonSchema {
 }
 
 function addField() {
+  const maxOrder = fields.value.reduce((max, f) => Math.max(max, f.order), -1)
   fields.value.push({
     key: '',
     title: '',
@@ -422,10 +555,12 @@ function addField() {
     maximum: null,
     maxLength: null,
     enumOptionsStr: '',
+    enumLabelsStr: '',
     managed: false,
     managedSource: '',
     allowMultiple: false,
     group: '',
+    order: maxOrder + 1,
   })
 }
 
@@ -472,7 +607,7 @@ const filteredFields = computed(() => {
 
 const visibleFields = computed(() => filteredFields.value)
 
-const displayGroups = computed(() => groupFields(filteredFields.value))
+const displayGroups = computed(() => groupFields(filteredFields.value, groupOrder.value))
 
 // Group expand/collapse
 const expandedGroups = reactive(new Map<string, boolean>())
@@ -526,6 +661,11 @@ function toggleFieldSelection(field: SchemaFieldModel) {
   }
 }
 
+function selectBulkGroupSuggestion(g: string) {
+  bulkGroupName.value = g
+  applyBulkGroup()
+}
+
 function applyBulkGroup() {
   const groupName = bulkGroupName.value.trim().toLowerCase()
   if (!groupName) return
@@ -533,6 +673,12 @@ function applyBulkGroup() {
   for (const field of selectedFields.value) {
     field.group = groupName
   }
+
+  // Add to groupOrder if not already present.
+  if (!groupOrder.value.includes(groupName)) {
+    groupOrder.value.push(groupName)
+  }
+
   selectedFields.value = []
   bulkGroupName.value = ''
 }
@@ -557,6 +703,174 @@ function removeFieldByRef(field: SchemaFieldModel) {
   if (index !== -1) {
     fields.value.splice(index, 1)
   }
+}
+
+function moveFieldUp(field: SchemaFieldModel) {
+  const sameGroup = fields.value.filter((f) => f.group === field.group)
+  const groupIdx = sameGroup.indexOf(field)
+  if (groupIdx <= 0) return
+
+  const prev = sameGroup[groupIdx - 1]
+  const flatIdx = fields.value.indexOf(field)
+  const prevFlatIdx = fields.value.indexOf(prev)
+
+  fields.value.splice(flatIdx, 1)
+  fields.value.splice(prevFlatIdx, 0, field)
+}
+
+function moveFieldDown(field: SchemaFieldModel) {
+  const sameGroup = fields.value.filter((f) => f.group === field.group)
+  const groupIdx = sameGroup.indexOf(field)
+  if (groupIdx < 0 || groupIdx >= sameGroup.length - 1) return
+
+  const next = sameGroup[groupIdx + 1]
+  const flatIdx = fields.value.indexOf(field)
+  const nextFlatIdx = fields.value.indexOf(next)
+
+  fields.value.splice(flatIdx, 1)
+  fields.value.splice(nextFlatIdx, 0, field)
+}
+
+/**
+ * Ensures groupOrder contains all current groups. If a group exists in the
+ * fields but is missing from groupOrder (e.g. added via bulk assignment after
+ * initial load), it gets appended. This prevents move operations from silently
+ * failing when groupOrder is out of sync.
+ */
+function ensureGroupOrder() {
+  const seen = new Set(groupOrder.value)
+  for (const field of fields.value) {
+    if (field.group && !seen.has(field.group)) {
+      groupOrder.value.push(field.group)
+      seen.add(field.group)
+    }
+  }
+}
+
+function moveGroupUp(groupName: string) {
+  ensureGroupOrder()
+  const idx = groupOrder.value.indexOf(groupName)
+  if (idx <= 0) return
+  groupOrder.value.splice(idx, 1)
+  groupOrder.value.splice(idx - 1, 0, groupName)
+}
+
+function moveGroupDown(groupName: string) {
+  ensureGroupOrder()
+  const idx = groupOrder.value.indexOf(groupName)
+  if (idx < 0 || idx >= groupOrder.value.length - 1) return
+  groupOrder.value.splice(idx, 1)
+  groupOrder.value.splice(idx + 1, 0, groupName)
+}
+
+// --- Drag-and-drop: fields within groups ---
+const draggedField = ref<SchemaFieldModel | null>(null)
+const draggedFieldGroup = ref('')
+const dragOverField = ref<SchemaFieldModel | null>(null)
+const dragOverPosition = ref<'above' | 'below'>('below')
+
+function onFieldDragStart(event: DragEvent, field: SchemaFieldModel, groupName: string) {
+  draggedField.value = field
+  draggedFieldGroup.value = groupName
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', 'field')
+  }
+}
+
+function onFieldDragEnd() {
+  draggedField.value = null
+  draggedFieldGroup.value = ''
+  dragOverField.value = null
+}
+
+function onFieldDragOver(event: DragEvent, targetField: SchemaFieldModel, targetGroup: string) {
+  if (!draggedField.value || draggedField.value === targetField) return
+  // Only allow drag within the same group.
+  if (draggedFieldGroup.value !== targetGroup) return
+
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const midY = rect.top + rect.height / 2
+  dragOverPosition.value = event.clientY < midY ? 'above' : 'below'
+  dragOverField.value = targetField
+}
+
+function onFieldDragLeave() {
+  dragOverField.value = null
+}
+
+function onFieldDrop(targetField: SchemaFieldModel, targetGroup: string) {
+  if (!draggedField.value || draggedField.value === targetField) return
+  if (draggedFieldGroup.value !== targetGroup) return
+
+  const fromIdx = fields.value.indexOf(draggedField.value)
+  if (fromIdx === -1) return
+
+  // Remove from current position.
+  fields.value.splice(fromIdx, 1)
+
+  // Find the target index after removal.
+  let toIdx = fields.value.indexOf(targetField)
+  if (toIdx === -1) return
+
+  if (dragOverPosition.value === 'below') {
+    toIdx++
+  }
+  fields.value.splice(toIdx, 0, draggedField.value)
+
+  draggedField.value = null
+  draggedFieldGroup.value = ''
+  dragOverField.value = null
+}
+
+// --- Drag-and-drop: groups ---
+const draggedGroup = ref<string | null>(null)
+const dragOverGroup = ref<string | null>(null)
+
+function onGroupDragStart(event: DragEvent, groupName: string) {
+  if (!groupName) return // Don't drag General group.
+  draggedGroup.value = groupName
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', 'group')
+  }
+}
+
+function onGroupDragEnd() {
+  draggedGroup.value = null
+  dragOverGroup.value = null
+}
+
+function onGroupDragOver(_event: DragEvent, groupName: string) {
+  if (!draggedGroup.value || draggedGroup.value === groupName) return
+  if (!groupName) return // Can't drop before General.
+  dragOverGroup.value = groupName
+}
+
+function onGroupDragLeave(event: DragEvent, groupName: string) {
+  // Only clear if actually leaving this group (not entering a child).
+  const related = event.relatedTarget as HTMLElement | null
+  const current = event.currentTarget as HTMLElement | null
+  if (current && related && current.contains(related)) return
+  if (dragOverGroup.value === groupName) {
+    dragOverGroup.value = null
+  }
+}
+
+function onGroupDrop(targetGroupName: string) {
+  if (!draggedGroup.value || draggedGroup.value === targetGroupName) return
+  if (!targetGroupName) return
+
+  ensureGroupOrder()
+  const fromIdx = groupOrder.value.indexOf(draggedGroup.value)
+  const toIdx = groupOrder.value.indexOf(targetGroupName)
+  if (fromIdx === -1 || toIdx === -1) return
+
+  groupOrder.value.splice(fromIdx, 1)
+  groupOrder.value.splice(toIdx, 0, draggedGroup.value)
+
+  draggedGroup.value = null
+  dragOverGroup.value = null
 }
 
 async function initMonaco(content: string) {
@@ -597,13 +911,77 @@ function disposeMonaco() {
 
 function validateJson(jsonStr: string) {
   try {
-    const parsed = JSON.parse(jsonStr) as JsonSchema
+    const parsed: unknown = JSON.parse(jsonStr)
+    const warnings: string[] = []
+
+    // Detect if user pasted a ConfigSchemaEntry array instead of a schema object
+    if (Array.isArray(parsed)) {
+      jsonValid.value = false
+      jsonError.value =
+        'Expected a schema object { "type": "object", "properties": {...} }, not an array. ' +
+        'Did you paste the full config schemas array? This editor handles a single schema.'
+      jsonWarnings.value = []
+      jsonFieldCount.value = 0
+      return
+    }
+
+    if (typeof parsed !== 'object' || parsed === null) {
+      jsonValid.value = false
+      jsonError.value = 'Expected a JSON object'
+      jsonWarnings.value = []
+      jsonFieldCount.value = 0
+      return
+    }
+
+    const obj = parsed as Record<string, unknown>
+
+    // Detect if user pasted a ConfigSchemaEntry (has path/format but no properties)
+    if ('path' in obj && 'format' in obj && !('properties' in obj)) {
+      jsonValid.value = false
+      jsonError.value =
+        'This looks like a config schema entry (has "path" and "format"). ' +
+        'This editor expects only the inner "schema" object with "type" and "properties".'
+      jsonWarnings.value = []
+      jsonFieldCount.value = 0
+      return
+    }
+
+    // Warn if missing expected structure
+    if (obj.type !== 'object') {
+      warnings.push('Missing or unexpected "type" (expected "object")')
+    }
+    if (!obj.properties || typeof obj.properties !== 'object') {
+      warnings.push('Missing "properties" object')
+    }
+
+    // Check for non-string enum values (backend requires string enums)
+    if (obj.properties && typeof obj.properties === 'object') {
+      const props = obj.properties as Record<string, Record<string, unknown>>
+      let nonStringEnumCount = 0
+      for (const [, prop] of Object.entries(props)) {
+        if (Array.isArray(prop.enum)) {
+          const hasNonString = prop.enum.some((v: unknown) => typeof v !== 'string')
+          if (hasNonString) {
+            nonStringEnumCount++
+          }
+        }
+      }
+      if (nonStringEnumCount > 0) {
+        warnings.push(
+          `${nonStringEnumCount} field${nonStringEnumCount !== 1 ? 's have' : ' has'} non-string enum values (will be auto-converted on save)`,
+        )
+      }
+    }
+
+    const schema = obj as JsonSchema
     jsonValid.value = true
     jsonError.value = ''
-    jsonFieldCount.value = parsed.properties ? Object.keys(parsed.properties).length : 0
+    jsonWarnings.value = warnings
+    jsonFieldCount.value = schema.properties ? Object.keys(schema.properties).length : 0
   } catch (err) {
     jsonValid.value = false
     jsonError.value = err instanceof Error ? err.message : 'Invalid JSON'
+    jsonWarnings.value = []
     jsonFieldCount.value = 0
   }
 }
@@ -624,10 +1002,12 @@ function importedFieldToFieldModel(field: ImportedField): SchemaFieldModel {
     maximum: null,
     maxLength: null,
     enumOptionsStr: '',
+    enumLabelsStr: '',
     managed: false,
     managedSource: '',
     allowMultiple: field.allowMultiple,
     group: field.group || '',
+    order: fields.value.length,
   }
 }
 
@@ -657,11 +1037,57 @@ function applyImport() {
   })
 }
 
+/**
+ * Normalizes a parsed schema object to ensure backend compatibility.
+ * - Converts non-string enum values to strings (backend expects []string).
+ * - Ensures top-level structure has type and properties.
+ */
+function normalizeSchema(schema: JsonSchema): JsonSchema {
+  const normalized: JsonSchema = {
+    type: schema.type || 'object',
+    properties: {},
+  }
+  if (schema.required && schema.required.length > 0) {
+    normalized.required = schema.required
+  }
+  if (schema['x-groups'] && schema['x-groups'].length > 0) {
+    normalized['x-groups'] = schema['x-groups']
+  }
+
+  if (!schema.properties) return normalized
+
+  for (const [key, prop] of Object.entries(schema.properties)) {
+    const normalizedProp = { ...prop }
+
+    // Convert non-string enum values to strings
+    if (Array.isArray(normalizedProp.enum)) {
+      normalizedProp.enum = normalizedProp.enum.map((v: unknown) => String(v))
+    }
+
+    normalized.properties[key] = normalizedProp
+  }
+
+  return normalized
+}
+
 function handleSave() {
   if (mode.value === 'json' && monacoEditor) {
     const editor = monacoEditor as import('monaco-editor').editor.IStandaloneCodeEditor
     try {
-      const parsed = JSON.parse(editor.getValue()) as JsonSchema
+      const raw: unknown = JSON.parse(editor.getValue())
+
+      // Block saving arrays or non-objects
+      if (Array.isArray(raw) || typeof raw !== 'object' || raw === null) {
+        $q.notify({
+          type: 'xylona-error',
+          caption: 'Schema must be a JSON object with "type" and "properties", not an array.',
+          position: 'top',
+          timeout: 5000,
+        })
+        return
+      }
+
+      const parsed = normalizeSchema(raw as JsonSchema)
       emit('save', parsed)
     } catch {
       // Don't save invalid JSON
@@ -823,7 +1249,7 @@ function handleSave() {
   margin-bottom: var(--xy-space-sm);
   border: 1px solid var(--xy-accent);
   border-radius: 8px;
-  background-color: rgba(28, 183, 207, 0.05);
+  background-color: var(--xy-accent-muted);
 }
 
 .selection-count {
@@ -874,6 +1300,10 @@ function handleSave() {
   color: var(--xy-success);
 }
 
+.json-warning {
+  color: var(--xy-warning);
+}
+
 .json-invalid {
   color: var(--xy-danger);
 }
@@ -892,5 +1322,65 @@ function handleSave() {
 
 .import-dialog .dialog-header {
   padding: var(--xy-space-md);
+}
+
+.schema-group-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.group-move-btn {
+  opacity: 0;
+  transition: opacity var(--xy-transition-fast);
+}
+
+.schema-group-header:hover .group-move-btn {
+  opacity: 1;
+}
+
+/* Drag-and-drop */
+.drag-handle {
+  cursor: grab;
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: opacity var(--xy-transition-fast);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.schema-group-header:hover .drag-handle,
+.field-select-row:hover > .drag-handle {
+  opacity: 1;
+}
+
+.field-drag-handle {
+  margin-top: 10px;
+}
+
+/* Field drag states */
+.field-select-row.dragging {
+  opacity: 0.3;
+}
+
+.field-select-row.drag-over-above {
+  border-top: 2px solid var(--xy-accent);
+}
+
+.field-select-row.drag-over-below {
+  border-bottom: 2px solid var(--xy-accent);
+}
+
+/* Group drag states */
+.schema-group-header.dragging {
+  opacity: 0.3;
+}
+
+.schema-field-group.drag-over-group {
+  outline: 2px dashed var(--xy-accent);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 </style>

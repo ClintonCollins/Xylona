@@ -1,0 +1,16 @@
+{
+  "slug": "worldedit",
+  "title": "WorldEdit",
+  "description": "A Minecraft map editor that runs in-game.",
+  "body": "# WorldEdit\n\nWorldEdit is an easy-to-use in-game Minecraft map editor.",
+  "author": "sk89q",
+  "icon_url": "https://cdn.modrinth.com/data/worldedit/icon.png",
+  "downloads": 5000000,
+  "gallery": [
+    {"url": "https://cdn.modrinth.com/data/worldedit/gallery/screenshot1.png"},
+    {"url": "https://cdn.modrinth.com/data/worldedit/gallery/screenshot2.png"}
+  ],
+  "categories": ["utility", "world-management"],
+  "license": {"id": "lgpl-3"},
+  "source_url": "https://github.com/enginehub/WorldEdit"
+}

@@ -56,6 +56,7 @@ type Game struct {
 	UpdatedAt                         time.Time        `db:"updated_at" `
 	XylonaOfficial                    bool             `db:"xylona_official" `
 	ConfigSchemas                     null.Val[string] `db:"config_schemas" `
+	ServerSoftware                    null.Val[string] `db:"server_software" `
 
 	R gameR `db:"-" `
 }
@@ -79,7 +80,7 @@ type gameR struct {
 func buildGameColumns(alias string) gameColumns {
 	return gameColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "binds_to_all_ips", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_start_command", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_start_command", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "created_at", "updated_at", "xylona_official", "config_schemas",
+			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "binds_to_all_ips", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_start_command", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_start_command", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software",
 		).WithParent("game"),
 		tableAlias:                        alias,
 		ID:                                sqlite.Quote(alias, "id"),
@@ -113,6 +114,7 @@ func buildGameColumns(alias string) gameColumns {
 		UpdatedAt:                         sqlite.Quote(alias, "updated_at"),
 		XylonaOfficial:                    sqlite.Quote(alias, "xylona_official"),
 		ConfigSchemas:                     sqlite.Quote(alias, "config_schemas"),
+		ServerSoftware:                    sqlite.Quote(alias, "server_software"),
 	}
 }
 
@@ -150,6 +152,7 @@ type gameColumns struct {
 	UpdatedAt                         sqlite.Expression
 	XylonaOfficial                    sqlite.Expression
 	ConfigSchemas                     sqlite.Expression
+	ServerSoftware                    sqlite.Expression
 }
 
 func (c gameColumns) Alias() string {
@@ -195,10 +198,11 @@ type GameSetter struct {
 	UpdatedAt                         omit.Val[time.Time]  `db:"updated_at" `
 	XylonaOfficial                    omit.Val[bool]       `db:"xylona_official" `
 	ConfigSchemas                     omitnull.Val[string] `db:"config_schemas" `
+	ServerSoftware                    omitnull.Val[string] `db:"server_software" `
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 31)
+	vals := make([]string, 0, 32)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -291,6 +295,9 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if !s.ConfigSchemas.IsUnset() {
 		vals = append(vals, "config_schemas")
+	}
+	if !s.ServerSoftware.IsUnset() {
+		vals = append(vals, "server_software")
 	}
 	return vals
 }
@@ -389,6 +396,9 @@ func (s GameSetter) Overwrite(t *Game) {
 	if !s.ConfigSchemas.IsUnset() {
 		t.ConfigSchemas = s.ConfigSchemas.MustGetNull()
 	}
+	if !s.ServerSoftware.IsUnset() {
+		t.ServerSoftware = s.ServerSoftware.MustGetNull()
+	}
 }
 
 func (s *GameSetter) Apply(q *dialect.InsertQuery) {
@@ -405,7 +415,7 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 31)
+		vals := make([]bob.Expression, 0, 32)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -530,6 +540,10 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.ConfigSchemas.MustGetNull()))
 		}
 
+		if !s.ServerSoftware.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.ServerSoftware.MustGetNull()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -543,7 +557,7 @@ func (s GameSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 31)
+	exprs := make([]bob.Expression, 0, 32)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -759,6 +773,13 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "config_schemas")...),
 			sqlite.Arg(s.ConfigSchemas),
+		}})
+	}
+
+	if !s.ServerSoftware.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_software")...),
+			sqlite.Arg(s.ServerSoftware),
 		}})
 	}
 
@@ -1194,6 +1215,7 @@ type gameWhere[Q sqlite.Filterable] struct {
 	UpdatedAt                         sqlite.WhereMod[Q, time.Time]
 	XylonaOfficial                    sqlite.WhereMod[Q, bool]
 	ConfigSchemas                     sqlite.WhereNullMod[Q, string]
+	ServerSoftware                    sqlite.WhereNullMod[Q, string]
 }
 
 func (gameWhere[Q]) AliasedAs(alias string) gameWhere[Q] {
@@ -1233,6 +1255,7 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		UpdatedAt:                         sqlite.Where[Q, time.Time](cols.UpdatedAt),
 		XylonaOfficial:                    sqlite.Where[Q, bool](cols.XylonaOfficial),
 		ConfigSchemas:                     sqlite.WhereNull[Q, string](cols.ConfigSchemas),
+		ServerSoftware:                    sqlite.WhereNull[Q, string](cols.ServerSoftware),
 	}
 }
 

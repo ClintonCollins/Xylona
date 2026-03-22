@@ -1,0 +1,25 @@
+{
+  "name": "WorldEdit",
+  "description": "A Minecraft map editor that runs in-game.",
+  "namespace": {
+    "owner": "EngineHub",
+    "slug": "WorldEdit"
+  },
+  "stats": {
+    "downloads": 5000000,
+    "stars": 1200
+  },
+  "avatarUrl": "https://hangar.papermc.io/api/v1/projects/EngineHub/WorldEdit/icon",
+  "settings": {
+    "tags": ["WORLD_MANAGEMENT", "UTILITY"],
+    "links": [
+      {
+        "type": "SOURCE",
+        "url": "https://github.com/enginehub/WorldEdit"
+      }
+    ],
+    "license": {
+      "name": "LGPL-3.0"
+    }
+  }
+}

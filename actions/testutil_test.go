@@ -30,5 +30,5 @@ func newTestInstance(t *testing.T) *Instance {
 		t.Fatalf("failed to apply migrations: %v", errMigrate)
 	}
 
-	return NewInstance(context.Background(), conn, nil, nil)
+	return NewInstance(context.Background(), conn, nil, nil, nil)
 }

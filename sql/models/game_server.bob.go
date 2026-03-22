@@ -9,6 +9,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 	"github.com/stephenafamo/bob"
@@ -24,29 +25,30 @@ import (
 
 // GameServer is an object representing the database table.
 type GameServer struct {
-	ID                        string    `db:"id,pk" `
-	UserID                    string    `db:"user_id" `
-	Name                      string    `db:"name" `
-	GameID                    string    `db:"game_id" `
-	StartCommand              string    `db:"start_command" `
-	Status                    string    `db:"status" `
-	SetPlayers                int64     `db:"set_players" `
-	MaxPlayers                int64     `db:"max_players" `
-	Map                       string    `db:"map" `
-	IP                        string    `db:"ip" `
-	Port                      int64     `db:"port" `
-	QueryPort                 int64     `db:"query_port" `
-	Directory                 string    `db:"directory" `
-	MaxMemoryMB               int64     `db:"max_memory_mb" `
-	BackupsEnabled            bool      `db:"backups_enabled" `
-	SteamGameServerLoginToken string    `db:"steam_game_server_login_token" `
-	BackupDirectory           string    `db:"backup_directory" `
-	MaxBackups                int64     `db:"max_backups" `
-	Version                   string    `db:"version" `
-	Branch                    string    `db:"branch" `
-	CreatedAt                 time.Time `db:"created_at" `
-	UpdatedAt                 time.Time `db:"updated_at" `
-	NodeID                    string    `db:"node_id" `
+	ID                        string           `db:"id,pk" `
+	UserID                    string           `db:"user_id" `
+	Name                      string           `db:"name" `
+	GameID                    string           `db:"game_id" `
+	StartCommand              string           `db:"start_command" `
+	Status                    string           `db:"status" `
+	SetPlayers                int64            `db:"set_players" `
+	MaxPlayers                int64            `db:"max_players" `
+	Map                       string           `db:"map" `
+	IP                        string           `db:"ip" `
+	Port                      int64            `db:"port" `
+	QueryPort                 int64            `db:"query_port" `
+	Directory                 string           `db:"directory" `
+	MaxMemoryMB               int64            `db:"max_memory_mb" `
+	BackupsEnabled            bool             `db:"backups_enabled" `
+	SteamGameServerLoginToken string           `db:"steam_game_server_login_token" `
+	BackupDirectory           string           `db:"backup_directory" `
+	MaxBackups                int64            `db:"max_backups" `
+	Version                   string           `db:"version" `
+	Branch                    string           `db:"branch" `
+	CreatedAt                 time.Time        `db:"created_at" `
+	UpdatedAt                 time.Time        `db:"updated_at" `
+	NodeID                    string           `db:"node_id" `
+	ServerSoftware            null.Val[string] `db:"server_software" `
 
 	R gameServerR `db:"-" `
 }
@@ -69,6 +71,7 @@ type gameServerR struct {
 	Game                       *Game                         // fk_game_server_2
 	User                       *User                         // fk_game_server_3
 	GameServerMetricsHistories GameServerMetricsHistorySlice // fk_game_server_metrics_history_0
+	InstalledMods              InstalledModSlice             // fk_installed_mod_0
 	Logs                       LogSlice                      // fk_log_0
 	UserRoleAssignments        UserRoleAssignmentSlice       // fk_user_role_assignment_1
 }
@@ -76,7 +79,7 @@ type gameServerR struct {
 func buildGameServerColumns(alias string) gameServerColumns {
 	return gameServerColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "user_id", "name", "game_id", "start_command", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id",
+			"id", "user_id", "name", "game_id", "start_command", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software",
 		).WithParent("game_server"),
 		tableAlias:                alias,
 		ID:                        sqlite.Quote(alias, "id"),
@@ -102,6 +105,7 @@ func buildGameServerColumns(alias string) gameServerColumns {
 		CreatedAt:                 sqlite.Quote(alias, "created_at"),
 		UpdatedAt:                 sqlite.Quote(alias, "updated_at"),
 		NodeID:                    sqlite.Quote(alias, "node_id"),
+		ServerSoftware:            sqlite.Quote(alias, "server_software"),
 	}
 }
 
@@ -131,6 +135,7 @@ type gameServerColumns struct {
 	CreatedAt                 sqlite.Expression
 	UpdatedAt                 sqlite.Expression
 	NodeID                    sqlite.Expression
+	ServerSoftware            sqlite.Expression
 }
 
 func (c gameServerColumns) Alias() string {
@@ -145,33 +150,34 @@ func (gameServerColumns) AliasedAs(alias string) gameServerColumns {
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type GameServerSetter struct {
-	ID                        omit.Val[string]    `db:"id,pk" `
-	UserID                    omit.Val[string]    `db:"user_id" `
-	Name                      omit.Val[string]    `db:"name" `
-	GameID                    omit.Val[string]    `db:"game_id" `
-	StartCommand              omit.Val[string]    `db:"start_command" `
-	Status                    omit.Val[string]    `db:"status" `
-	SetPlayers                omit.Val[int64]     `db:"set_players" `
-	MaxPlayers                omit.Val[int64]     `db:"max_players" `
-	Map                       omit.Val[string]    `db:"map" `
-	IP                        omit.Val[string]    `db:"ip" `
-	Port                      omit.Val[int64]     `db:"port" `
-	QueryPort                 omit.Val[int64]     `db:"query_port" `
-	Directory                 omit.Val[string]    `db:"directory" `
-	MaxMemoryMB               omit.Val[int64]     `db:"max_memory_mb" `
-	BackupsEnabled            omit.Val[bool]      `db:"backups_enabled" `
-	SteamGameServerLoginToken omit.Val[string]    `db:"steam_game_server_login_token" `
-	BackupDirectory           omit.Val[string]    `db:"backup_directory" `
-	MaxBackups                omit.Val[int64]     `db:"max_backups" `
-	Version                   omit.Val[string]    `db:"version" `
-	Branch                    omit.Val[string]    `db:"branch" `
-	CreatedAt                 omit.Val[time.Time] `db:"created_at" `
-	UpdatedAt                 omit.Val[time.Time] `db:"updated_at" `
-	NodeID                    omit.Val[string]    `db:"node_id" `
+	ID                        omit.Val[string]     `db:"id,pk" `
+	UserID                    omit.Val[string]     `db:"user_id" `
+	Name                      omit.Val[string]     `db:"name" `
+	GameID                    omit.Val[string]     `db:"game_id" `
+	StartCommand              omit.Val[string]     `db:"start_command" `
+	Status                    omit.Val[string]     `db:"status" `
+	SetPlayers                omit.Val[int64]      `db:"set_players" `
+	MaxPlayers                omit.Val[int64]      `db:"max_players" `
+	Map                       omit.Val[string]     `db:"map" `
+	IP                        omit.Val[string]     `db:"ip" `
+	Port                      omit.Val[int64]      `db:"port" `
+	QueryPort                 omit.Val[int64]      `db:"query_port" `
+	Directory                 omit.Val[string]     `db:"directory" `
+	MaxMemoryMB               omit.Val[int64]      `db:"max_memory_mb" `
+	BackupsEnabled            omit.Val[bool]       `db:"backups_enabled" `
+	SteamGameServerLoginToken omit.Val[string]     `db:"steam_game_server_login_token" `
+	BackupDirectory           omit.Val[string]     `db:"backup_directory" `
+	MaxBackups                omit.Val[int64]      `db:"max_backups" `
+	Version                   omit.Val[string]     `db:"version" `
+	Branch                    omit.Val[string]     `db:"branch" `
+	CreatedAt                 omit.Val[time.Time]  `db:"created_at" `
+	UpdatedAt                 omit.Val[time.Time]  `db:"updated_at" `
+	NodeID                    omit.Val[string]     `db:"node_id" `
+	ServerSoftware            omitnull.Val[string] `db:"server_software" `
 }
 
 func (s GameServerSetter) SetColumns() []string {
-	vals := make([]string, 0, 23)
+	vals := make([]string, 0, 24)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -240,6 +246,9 @@ func (s GameServerSetter) SetColumns() []string {
 	}
 	if s.NodeID.IsValue() {
 		vals = append(vals, "node_id")
+	}
+	if !s.ServerSoftware.IsUnset() {
+		vals = append(vals, "server_software")
 	}
 	return vals
 }
@@ -314,6 +323,9 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	if s.NodeID.IsValue() {
 		t.NodeID = s.NodeID.MustGet()
 	}
+	if !s.ServerSoftware.IsUnset() {
+		t.ServerSoftware = s.ServerSoftware.MustGetNull()
+	}
 }
 
 func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
@@ -330,7 +342,7 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 23)
+		vals := make([]bob.Expression, 0, 24)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -423,6 +435,10 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.NodeID.MustGet()))
 		}
 
+		if !s.ServerSoftware.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.ServerSoftware.MustGetNull()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -436,7 +452,7 @@ func (s GameServerSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 23)
+	exprs := make([]bob.Expression, 0, 24)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -596,6 +612,13 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "node_id")...),
 			sqlite.Arg(s.NodeID),
+		}})
+	}
+
+	if !s.ServerSoftware.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_software")...),
+			sqlite.Arg(s.ServerSoftware),
 		}})
 	}
 
@@ -936,6 +959,25 @@ func (os GameServerSlice) GameServerMetricsHistories(mods ...bob.Mod[*dialect.Se
 
 	return GameServerMetricsHistories.Query(append(mods,
 		sm.Where(sqlite.Group(GameServerMetricsHistories.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// InstalledMods starts a query for related objects on installed_mod
+func (o *GameServer) InstalledMods(mods ...bob.Mod[*dialect.SelectQuery]) InstalledModsQuery {
+	return InstalledMods.Query(append(mods,
+		sm.Where(InstalledMods.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) InstalledMods(mods ...bob.Mod[*dialect.SelectQuery]) InstalledModsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return InstalledMods.Query(append(mods,
+		sm.Where(sqlite.Group(InstalledMods.Columns.GameServerID).OP("IN", PKArgExpr)),
 	)...)
 }
 
@@ -1305,6 +1347,74 @@ func (gameServer0 *GameServer) AttachGameServerMetricsHistories(ctx context.Cont
 	return nil
 }
 
+func insertGameServerInstalledMods0(ctx context.Context, exec bob.Executor, installedMods1 []*InstalledModSetter, gameServer0 *GameServer) (InstalledModSlice, error) {
+	for i := range installedMods1 {
+		installedMods1[i].GameServerID = omit.From(gameServer0.ID)
+	}
+
+	ret, err := InstalledMods.Insert(bob.ToMods(installedMods1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerInstalledMods0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerInstalledMods0(ctx context.Context, exec bob.Executor, count int, installedMods1 InstalledModSlice, gameServer0 *GameServer) (InstalledModSlice, error) {
+	setter := &InstalledModSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := installedMods1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerInstalledMods0: %w", err)
+	}
+
+	return installedMods1, nil
+}
+
+func (gameServer0 *GameServer) InsertInstalledMods(ctx context.Context, exec bob.Executor, related ...*InstalledModSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	installedMods1, err := insertGameServerInstalledMods0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.InstalledMods = append(gameServer0.R.InstalledMods, installedMods1...)
+
+	for _, rel := range installedMods1 {
+		rel.R.GameServer = gameServer0
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachInstalledMods(ctx context.Context, exec bob.Executor, related ...*InstalledMod) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	installedMods1 := InstalledModSlice(related)
+
+	_, err = attachGameServerInstalledMods0(ctx, exec, len(related), installedMods1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.InstalledMods = append(gameServer0.R.InstalledMods, installedMods1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+	}
+
+	return nil
+}
+
 func insertGameServerLogs0(ctx context.Context, exec bob.Executor, logs1 []*LogSetter, gameServer0 *GameServer) (LogSlice, error) {
 	for i := range logs1 {
 		logs1[i].GameServerID = omitnull.From(gameServer0.ID)
@@ -1465,6 +1575,7 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	CreatedAt                 sqlite.WhereMod[Q, time.Time]
 	UpdatedAt                 sqlite.WhereMod[Q, time.Time]
 	NodeID                    sqlite.WhereMod[Q, string]
+	ServerSoftware            sqlite.WhereNullMod[Q, string]
 }
 
 func (gameServerWhere[Q]) AliasedAs(alias string) gameServerWhere[Q] {
@@ -1496,6 +1607,7 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		CreatedAt:                 sqlite.Where[Q, time.Time](cols.CreatedAt),
 		UpdatedAt:                 sqlite.Where[Q, time.Time](cols.UpdatedAt),
 		NodeID:                    sqlite.Where[Q, string](cols.NodeID),
+		ServerSoftware:            sqlite.WhereNull[Q, string](cols.ServerSoftware),
 	}
 }
 
@@ -1574,6 +1686,20 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 		}
 
 		o.R.GameServerMetricsHistories = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+			}
+		}
+		return nil
+	case "InstalledMods":
+		rels, ok := retrieved.(InstalledModSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.InstalledMods = rels
 
 		for _, rel := range rels {
 			if rel != nil {
@@ -1685,6 +1811,7 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 	Game                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	User                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Logs                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserRoleAssignments        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
@@ -1707,6 +1834,9 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 	type GameServerMetricsHistoriesLoadInterface interface {
 		LoadGameServerMetricsHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type InstalledModsLoadInterface interface {
+		LoadInstalledMods(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type LogsLoadInterface interface {
 		LoadLogs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1750,6 +1880,12 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 			"GameServerMetricsHistories",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerMetricsHistoriesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServerMetricsHistories(ctx, exec, mods...)
+			},
+		),
+		InstalledMods: thenLoadBuilder[Q](
+			"InstalledMods",
+			func(ctx context.Context, exec bob.Executor, retrieved InstalledModsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadInstalledMods(ctx, exec, mods...)
 			},
 		),
 		Logs: thenLoadBuilder[Q](
@@ -2097,6 +2233,67 @@ func (os GameServerSlice) LoadGameServerMetricsHistories(ctx context.Context, ex
 	return nil
 }
 
+// LoadInstalledMods loads the gameServer's InstalledMods into the .R struct
+func (o *GameServer) LoadInstalledMods(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.InstalledMods = nil
+
+	related, err := o.InstalledMods(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+	}
+
+	o.R.InstalledMods = related
+	return nil
+}
+
+// LoadInstalledMods loads the gameServer's InstalledMods into the .R struct
+func (os GameServerSlice) LoadInstalledMods(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	installedMods, err := os.InstalledMods(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.InstalledMods = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range installedMods {
+
+			if !(o.ID == rel.GameServerID) {
+				continue
+			}
+
+			rel.R.GameServer = o
+
+			o.R.InstalledMods = append(o.R.InstalledMods, rel)
+		}
+	}
+
+	return nil
+}
+
 // LoadLogs loads the gameServer's Logs into the .R struct
 func (o *GameServer) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2233,6 +2430,7 @@ type gameServerJoins[Q dialect.Joinable] struct {
 	Game                       modAs[Q, gameColumns]
 	User                       modAs[Q, userColumns]
 	GameServerMetricsHistories modAs[Q, gameServerMetricsHistoryColumns]
+	InstalledMods              modAs[Q, installedModColumns]
 	Logs                       modAs[Q, logColumns]
 	UserRoleAssignments        modAs[Q, userRoleAssignmentColumns]
 }
@@ -2321,6 +2519,20 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServerMetricsHistories.Name().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		InstalledMods: modAs[Q, installedModColumns]{
+			c: InstalledMods.Columns,
+			f: func(to installedModColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, InstalledMods.Name().As(to.Alias())).On(
 						to.GameServerID.EQ(cols.ID),
 					))
 				}

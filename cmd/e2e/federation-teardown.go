@@ -114,6 +114,12 @@ func runFederationTeardown(ctx context.Context, e2eDir string, keepData bool, no
 		log.Info().Msg("[Federation Teardown] keep-data set, preserving data for debugging")
 	}
 
+	// Clean the frontend dist built during setup.
+	cleanFrontendDist(e2eDir)
+
+	// Release the suite lock.
+	releaseLock(e2eDir, "federation")
+
 	log.Info().Msg("[Federation Teardown] Teardown complete")
 	return nil
 }

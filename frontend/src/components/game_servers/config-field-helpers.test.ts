@@ -49,6 +49,57 @@ describe('groupFields', () => {
   it('handles empty fields array', () => {
     expect(groupFields([])).toEqual([])
   })
+
+  it('respects explicit groupOrder parameter', () => {
+    const fields = [
+      makeField('difficulty', 'gameplay'),
+      makeField('port', 'network'),
+      makeField('threads', 'performance'),
+    ]
+    const groups = groupFields(fields, ['network', 'performance', 'gameplay'])
+    expect(groups.map((g) => g.name)).toEqual(['network', 'performance', 'gameplay'])
+  })
+
+  it('puts General first even with explicit groupOrder', () => {
+    const fields = [makeField('motd', ''), makeField('port', 'network')]
+    const groups = groupFields(fields, ['network'])
+    expect(groups[0].name).toBe('')
+    expect(groups[0].displayName).toBe('General')
+    expect(groups[1].name).toBe('network')
+  })
+
+  it('appends unlisted groups after explicitly ordered ones', () => {
+    const fields = [makeField('a', 'alpha'), makeField('b', 'beta'), makeField('g', 'gamma')]
+    const groups = groupFields(fields, ['beta'])
+    expect(groups[0].name).toBe('beta')
+    expect(groups.slice(1).map((g) => g.name)).toEqual(['alpha', 'gamma'])
+  })
+
+  it('ignores empty groupOrder array (fallback to first-occurrence)', () => {
+    const fields = [
+      makeField('difficulty', 'gameplay'),
+      makeField('port', 'network'),
+      makeField('motd', 'gameplay'),
+    ]
+    const withEmpty = groupFields(fields, [])
+    const withoutParam = groupFields(fields)
+    expect(withEmpty.map((g) => g.name)).toEqual(withoutParam.map((g) => g.name))
+  })
+
+  it('filters out groups in groupOrder that have no fields', () => {
+    const fields = [makeField('port', 'network')]
+    const groups = groupFields(fields, ['missing', 'network'])
+    expect(groups).toHaveLength(1)
+    expect(groups[0].name).toBe('network')
+  })
+
+  it('handles all fields in one group with groupOrder', () => {
+    const fields = [makeField('port', 'net'), makeField('ip', 'net')]
+    const groups = groupFields(fields, ['net'])
+    expect(groups).toHaveLength(1)
+    expect(groups[0].name).toBe('net')
+    expect(groups[0].fields).toHaveLength(2)
+  })
 })
 
 describe('filterFields', () => {

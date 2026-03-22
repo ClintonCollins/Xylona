@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/query"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -112,5 +113,46 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 	}
 	if errWait := errGroup.Wait(); errWait != nil {
 		log.Warn().Err(errWait).Msg("Background task group returned error")
+	}
+}
+
+// backgroundJobCheckModUpdates runs every 6 hours, checks all game servers for
+// available mod updates, and publishes a "mod.update_available" event for each
+// server that has at least one mod with a newer version available.
+func (inst *Instance) backgroundJobCheckModUpdates() {
+	if inst.modManager == nil {
+		return
+	}
+
+	throttle := time.NewTicker(time.Hour * 6)
+	defer throttle.Stop()
+
+	for {
+		select {
+		case <-inst.ctx.Done():
+			return
+		case <-throttle.C:
+			gameServers, errServers := inst.db.GetAllGameServers()
+			if errServers != nil {
+				log.Error().Err(errServers).Msg("Mod update check: failed to get game servers")
+				continue
+			}
+
+			eb := eventbus.Get()
+
+			for _, gs := range gameServers {
+				updates, errCheck := inst.modManager.CheckUpdates(inst.ctx, gs.ID, "")
+				if errCheck != nil {
+					log.Warn().Err(errCheck).Str("game_server_id", gs.ID).
+						Msg("Mod update check: failed to check updates for game server")
+					continue
+				}
+				if len(updates) > 0 {
+					eb.Publish("mod.update_available", gs.ID)
+					log.Info().Str("game_server_id", gs.ID).Int("update_count", len(updates)).
+						Msg("Mod update check: updates available")
+				}
+			}
+		}
 	}
 }

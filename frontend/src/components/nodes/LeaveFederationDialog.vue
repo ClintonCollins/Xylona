@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="dialogOpen" aria-labelledby="leave-dialog-title">
-    <q-card style="min-width: 400px">
+    <q-card style="min-width: min(400px, 90vw)">
       <q-card-section>
         <div id="leave-dialog-title" class="text-h6">Leave Federation</div>
       </q-card-section>

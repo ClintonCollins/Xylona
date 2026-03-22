@@ -89,6 +89,7 @@
               :prefix="gameServer.directory + pathSeparator"
               outlined
               dense
+              aria-label="File path"
               @keydown.prevent.enter="updatePathFromInput"></q-input>
           </div>
         </div>
@@ -101,6 +102,13 @@
           <div class="col-xs-3 gt-sm">Modified</div>
         </div>
         <q-separator class="q-my-sm"></q-separator>
+        <div v-if="directories.length === 0 && files.length === 0" class="file-empty-state">
+          <q-icon name="folder_open" size="3rem" class="text-xy-muted q-mb-sm" />
+          <div class="text-subtitle1 text-xy-secondary">This directory is empty</div>
+          <div class="text-caption text-xy-muted q-mt-xs">
+            Upload files or create new ones using the toolbar above.
+          </div>
+        </div>
         <div id="file-list" ref="filesList">
           <div
             v-for="directory in directories"
@@ -684,6 +692,15 @@ async function getGameServerDetails() {
 </script>
 
 <style scoped>
+.file-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--xy-space-3xl) var(--xy-space-md);
+  text-align: center;
+}
+
 .file-toolbar {
   display: flex;
   flex-wrap: wrap;

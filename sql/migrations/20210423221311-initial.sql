@@ -51,6 +51,7 @@ create table if not exists game
     windows_update_command                 text             not null default '',
     windows_update_command_type            text             not null default 'direct',
     windows_working_directory              text             not null default '',
+    binds_to_all_ips                       boolean          not null default false,
     created_at                             datetime         not null default current_timestamp,
     updated_at                             datetime         not null default current_timestamp,
 

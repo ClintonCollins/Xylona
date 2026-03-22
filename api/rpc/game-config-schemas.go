@@ -250,6 +250,7 @@ func (xs *XylonaService) getGameServerConfigFileLocal(
 			ManagedSource:     f.ManagedSource,
 			IsMissingFromFile: f.IsMissingFromFile,
 			EnumOptions:       f.EnumOptions,
+			EnumLabels:        f.EnumLabels,
 			Required:          f.Required,
 			AllowMultiple:     f.AllowMultiple,
 			Values:            f.Values,
@@ -263,6 +264,9 @@ func (xs *XylonaService) getGameServerConfigFileLocal(
 		}
 		if f.MaxLength != nil {
 			pf.MaxLength = f.MaxLength
+		}
+		if f.Order != nil {
+			pf.Order = f.Order
 		}
 		protoFields = append(protoFields, pf)
 	}

@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
+	"github.com/google/uuid"
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -70,6 +71,9 @@ func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xyl
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
 	}
 	gameProto := request.Msg.Game
+	if gameProto.Id == "" {
+		gameProto.Id = uuid.NewString()
+	}
 	gameModel := helpers.GameProtoToModel(gameProto)
 	gameSetter := helpers.GameModelToGameSetter(gameModel)
 	game, errInsertGame := xs.db.InsertGame(xs.db.DB, gameSetter)

@@ -101,15 +101,15 @@ func processPreStartEntry(serverDir string, entry ConfigSchemaEntry, resolver Ma
 
 // generateDefaultEntries creates entries from schema defaults for a new file.
 func generateDefaultEntries(entry ConfigSchemaEntry) []cfgparse.ConfigEntry {
-	var result []cfgparse.ConfigEntry
-	i := 0
-	for key, prop := range entry.Schema.Properties {
+	keys := SortedPropertyKeys(entry.Schema)
+	result := make([]cfgparse.ConfigEntry, 0, len(keys))
+	for i, key := range keys {
+		prop := entry.Schema.Properties[key]
 		result = append(result, cfgparse.ConfigEntry{
 			Key:   key,
 			Value: formatDefault(prop.Default),
 			Index: i,
 		})
-		i++
 	}
 	return result
 }

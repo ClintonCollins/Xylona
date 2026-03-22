@@ -4,14 +4,14 @@ import { execSync } from 'child_process'
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..', '..')
 const E2E_DIR = import.meta.dirname
 
-// Load .env for BACKEND_URL / admin credentials (optional).
+// Load .env for custom credentials or port overrides (optional).
 try {
   process.loadEnvFile(path.join(import.meta.dirname, '..', '.env'))
 } catch {
   // .env is optional
 }
 
-const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8080'
+const HTTP_PORT = process.env['E2E_HTTP_PORT'] ?? '9091'
 const ADMIN_USERNAME = process.env['E2E_ADMIN_USERNAME'] ?? 'admin'
 const ADMIN_PASSWORD = process.env['E2E_ADMIN_PASSWORD'] ?? 'admin'
 
@@ -20,7 +20,7 @@ export default async function globalTeardown(): Promise<void> {
   try {
     execSync(
       `go run ./cmd/e2e single-teardown` +
-        ` --backend-url "${BACKEND_URL}"` +
+        ` --http-port ${HTTP_PORT}` +
         ` --admin-username "${ADMIN_USERNAME}"` +
         ` --admin-password "${ADMIN_PASSWORD}"` +
         ` --e2e-dir "${E2E_DIR}"`,

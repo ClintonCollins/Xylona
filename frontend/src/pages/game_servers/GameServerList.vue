@@ -29,7 +29,7 @@
           color="primary"
           placeholder="Search..."
           aria-label="Search game servers"
-          style="min-width: 200px">
+          class="xy-search-input">
           <template #append>
             <q-icon name="search" />
           </template>

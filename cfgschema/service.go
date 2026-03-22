@@ -3,7 +3,6 @@ package cfgschema
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strconv"
 
 	"github.com/rs/zerolog/log"
@@ -14,6 +13,7 @@ import (
 // SchemaDefinition represents a parsed JSON Schema for a config file.
 type SchemaDefinition struct {
 	Type       string                    `json:"type"`
+	Groups     []string                  `json:"x-groups,omitempty"`
 	Properties map[string]SchemaProperty `json:"properties"`
 }
 
@@ -24,12 +24,14 @@ type SchemaProperty struct {
 	Description   string   `json:"description"`
 	Default       any      `json:"default"`
 	Enum          []string `json:"enum"`
+	EnumLabels    []string `json:"x-enum-labels"`
 	Minimum       *int64   `json:"minimum"`
 	Maximum       *int64   `json:"maximum"`
 	MaxLength     *int32   `json:"maxLength"`
 	Required      bool     `json:"required"`
 	AllowMultiple bool     `json:"x-allow-multiple"`
 	Group         string   `json:"x-group,omitempty"`
+	Order         *int32   `json:"x-order,omitempty"`
 }
 
 // ConfigSchemaEntry represents a single entry in the config_schemas JSON array,
@@ -69,6 +71,7 @@ type FieldData struct {
 	ManagedSource     string
 	IsMissingFromFile bool
 	EnumOptions       []string
+	EnumLabels        []string
 	Minimum           *int64
 	Maximum           *int64
 	MaxLength         *int32
@@ -76,6 +79,7 @@ type FieldData struct {
 	AllowMultiple     bool
 	Values            []string
 	Group             string
+	Order             *int32
 }
 
 // AdvancedFieldData represents a config entry not matched by the schema.
@@ -172,16 +176,13 @@ func MatchFields(
 		fields = append(fields, fd)
 	}
 
-	// Phase 2: Append schema-only fields (not in config file), sorted alphabetically.
-	var schemaOnlyKeys []string
-	for key := range schema.Properties {
-		if !matched[key] {
-			schemaOnlyKeys = append(schemaOnlyKeys, key)
-		}
-	}
-	slices.Sort(schemaOnlyKeys)
+	// Phase 2: Append schema-only fields sorted by x-order, then alphabetically.
+	schemaOnlyKeys := SortedPropertyKeys(schema)
 
 	for _, key := range schemaOnlyKeys {
+		if matched[key] {
+			continue
+		}
 		prop := schema.Properties[key]
 		fd := buildFieldData(key, prop, managedFields, resolver)
 		fd.IsMissingFromFile = true
@@ -190,6 +191,8 @@ func MatchFields(
 		}
 		fields = append(fields, fd)
 	}
+
+	fields = SortFieldsBySchema(fields, schema)
 
 	return MatchFieldsResult{
 		Fields:         fields,
@@ -211,12 +214,14 @@ func buildFieldData(
 		FieldType:     prop.Type,
 		DefaultValue:  formatDefault(prop.Default),
 		EnumOptions:   prop.Enum,
+		EnumLabels:    prop.EnumLabels,
 		Minimum:       prop.Minimum,
 		Maximum:       prop.Maximum,
 		MaxLength:     prop.MaxLength,
 		Required:      prop.Required,
 		AllowMultiple: prop.AllowMultiple,
 		Group:         prop.Group,
+		Order:         prop.Order,
 	}
 
 	// Check if this is a managed field.
@@ -423,13 +428,8 @@ func ValidateFields(fields []FieldData, schema SchemaDefinition) []ValidationErr
 			}
 		}
 
-		// Enum check (applies to any type).
-		if len(prop.Enum) > 0 && !slices.Contains(prop.Enum, value) {
-			errs = append(errs, ValidationError{
-				Field:   f.Key,
-				Message: fmt.Sprintf("value %q is not a valid option", value),
-			})
-		}
+		// Enum values are suggestions, not constraints. Mods and plugins may
+		// require values outside the predefined list, so we do not reject them.
 	}
 
 	return errs

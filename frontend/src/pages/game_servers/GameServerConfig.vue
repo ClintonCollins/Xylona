@@ -9,9 +9,9 @@
     <!-- No schemas defined -->
     <div v-else-if="configFiles.length === 0" class="config-empty">
       <q-icon name="tune" size="48px" class="text-xy-muted q-mb-md" />
-      <div class="text-subtitle1 text-xy-secondary">No configuration schemas defined</div>
+      <div class="text-subtitle1 text-xy-secondary">No config files for this game yet</div>
       <div class="text-caption text-xy-muted q-mt-sm">
-        Configuration schemas are defined on the game definition by a superuser.
+        A superuser can define config schemas on the game to enable structured editing here.
       </div>
     </div>
 
@@ -26,7 +26,7 @@
         <!-- No file selected -->
         <div v-if="!selectedFilePath" class="config-placeholder">
           <q-icon name="arrow_back" size="32px" class="text-xy-muted q-mb-sm" />
-          <div class="text-xy-secondary">Select a config file from the sidebar</div>
+          <div class="text-xy-secondary">Choose a config file to start editing</div>
         </div>
 
         <!-- File editor -->
@@ -145,8 +145,10 @@ onMounted(async () => {
   await loadConfigFiles()
 })
 
-async function loadConfigFiles() {
-  loading.value = true
+async function loadConfigFiles(showLoading = true) {
+  if (showLoading) {
+    loading.value = true
+  }
   try {
     const request = create(GetGameServerConfigFilesRequestSchema, {
       gameServerId,
@@ -166,7 +168,9 @@ async function loadConfigFiles() {
       timeout: 5000,
     })
   } finally {
-    loading.value = false
+    if (showLoading) {
+      loading.value = false
+    }
   }
 }
 
@@ -253,8 +257,8 @@ async function handleSave(fieldValues: Map<string, string>) {
       })
       // Reload the file to get fresh state
       await handleFileSelect(selectedFilePath.value, false)
-      // Refresh file list to update exists status
-      await loadConfigFiles()
+      // Refresh file list to update exists status (without showing loading spinner)
+      await loadConfigFiles(false)
     } else {
       validationErrors.value = response.errors
     }
@@ -312,9 +316,11 @@ function handleUpdateAdvanced(fields: AdvancedField[]) {
 
 <style scoped>
 .config-page {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .config-loading {

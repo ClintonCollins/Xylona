@@ -211,7 +211,7 @@ defineExpose({ content })
   align-items: center;
   justify-content: center;
   gap: var(--xy-space-xs);
-  background-color: rgba(28, 183, 207, 0.08);
+  background-color: var(--xy-accent-muted);
   border-radius: 8px;
   color: var(--xy-accent);
   font-size: 0.85rem;

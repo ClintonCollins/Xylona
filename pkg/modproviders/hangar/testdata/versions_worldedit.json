@@ -1,0 +1,61 @@
+{
+  "result": [
+    {
+      "name": "7.2.15",
+      "description": "Bug fixes and performance improvements.",
+      "stats": {
+        "downloads": 120000
+      },
+      "createdAt": "2024-01-15T12:00:00Z",
+      "downloads": {
+        "PAPER": {
+          "fileInfo": {
+            "name": "worldedit-bukkit-7.2.15.jar",
+            "sizeBytes": 2048576,
+            "sha256Hash": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"
+          },
+          "downloadUrl": "https://hangar.papermc.io/api/v1/projects/EngineHub/WorldEdit/versions/7.2.15/PAPER/download"
+        }
+      },
+      "platformDependencies": {
+        "PAPER": ["1.20", "1.20.1"]
+      },
+      "pluginDependencies": {
+        "PAPER": [
+          {
+            "name": "dep-plugin-1",
+            "required": true,
+            "namespace": {
+              "owner": "SomeAuthor",
+              "slug": "dep-plugin-1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "7.2.14",
+      "description": "Previous release.",
+      "stats": {
+        "downloads": 95000
+      },
+      "createdAt": "2023-12-01T12:00:00Z",
+      "downloads": {
+        "PAPER": {
+          "fileInfo": {
+            "name": "worldedit-bukkit-7.2.14.jar",
+            "sizeBytes": 2040000,
+            "sha256Hash": "1122334455667788990011223344556677889900112233445566778899001122"
+          },
+          "downloadUrl": "https://hangar.papermc.io/api/v1/projects/EngineHub/WorldEdit/versions/7.2.14/PAPER/download"
+        }
+      },
+      "platformDependencies": {
+        "PAPER": ["1.19.4"]
+      },
+      "pluginDependencies": {
+        "PAPER": []
+      }
+    }
+  ]
+}

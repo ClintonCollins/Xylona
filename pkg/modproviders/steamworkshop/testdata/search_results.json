@@ -1,0 +1,47 @@
+{
+  "response": {
+    "total": 2,
+    "publishedfiledetails": [
+      {
+        "publishedfileid": "2128699613",
+        "result": 1,
+        "creator": "76561198012345678",
+        "creator_appid": 108600,
+        "consumer_appid": 108600,
+        "file_size": "15728640",
+        "preview_url": "https://steamuserimages-a.akamaihd.net/ugc/111/preview.jpg",
+        "title": "Project Zomboid Expanded Helicopter Events",
+        "file_description": "Adds expanded helicopter events to Project Zomboid.",
+        "time_created": 1596500000,
+        "time_updated": 1700000000,
+        "visibility": 0,
+        "subscriptions": 250000,
+        "lifetime_subscriptions": 500000,
+        "tags": [
+          {"tag": "Rebalance", "display_name": "Rebalance"},
+          {"tag": "Gameplay", "display_name": "Gameplay"}
+        ]
+      },
+      {
+        "publishedfileid": "2392709985",
+        "result": 1,
+        "creator": "76561198087654321",
+        "creator_appid": 108600,
+        "consumer_appid": 108600,
+        "file_size": "8388608",
+        "preview_url": "https://steamuserimages-a.akamaihd.net/ugc/222/preview.jpg",
+        "title": "Brita's Armor Pack",
+        "file_description": "A large armor and clothing pack for Project Zomboid.",
+        "time_created": 1610000000,
+        "time_updated": 1699000000,
+        "visibility": 0,
+        "subscriptions": 180000,
+        "lifetime_subscriptions": 350000,
+        "tags": [
+          {"tag": "Clothing", "display_name": "Clothing"},
+          {"tag": "Items", "display_name": "Items"}
+        ]
+      }
+    ]
+  }
+}

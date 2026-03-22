@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aarondl/opt/omit"
 	"github.com/gabriel-vasile/mimetype"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/placeholder"
 
 	"github.com/ClintonCollins/Xylona/db"
@@ -59,6 +61,7 @@ type Instance struct {
 	db                   *db.Connection
 	federationMTLS       *helpers.FederationMTLS
 	syncEngine           SyncEngine
+	modManager           *modmanager.ModManager
 }
 
 // SetSyncEngine sets the sync engine on the actions instance. This is called
@@ -68,7 +71,7 @@ func (inst *Instance) SetSyncEngine(se SyncEngine) {
 	inst.syncEngine = se
 }
 
-func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS) *Instance {
+func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS, modMgr *modmanager.ModManager) *Instance {
 	inst := &Instance{
 		ctx:                  ctx,
 		supervisorInstance:   supervisorInstance,
@@ -76,8 +79,10 @@ func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *sup
 		serverQueriesMutex:   &sync.RWMutex{},
 		db:                   db,
 		federationMTLS:       federationMTLS,
+		modManager:           modMgr,
 	}
 	go inst.backgroundJobQueryAllGameServers()
+	go inst.backgroundJobCheckModUpdates()
 	return inst
 }
 
@@ -460,6 +465,8 @@ func postInstallStep(gameServer *models.GameServer) error {
 func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 	// Run pre-start config enforcement before launching the process.
 	inst.runConfigPreStart(gameServer)
+	// Run mod auto-updates before launching the process.
+	inst.runModAutoUpdates(gameServer)
 
 	startVars := placeholder.BuildVarsFromGameServer(gameServer)
 	startCmd := placeholder.Resolve(gameServer.StartCommand, startVars)
@@ -506,6 +513,46 @@ func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
 
 	resolver := cfgschema.ServerSettingsResolver(gameServer.IP, gameServer.Port, gameServer.QueryPort)
 	cfgschema.RunPreStart(gameServer.Directory, schemasJSON, resolver)
+}
+
+func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
+	if inst.modManager == nil {
+		return
+	}
+
+	mods, errGet := inst.db.GetInstalledModsByGameServerID(gameServer.ID)
+	if errGet != nil {
+		log.Warn().Err(errGet).Str("game_server_id", gameServer.ID).
+			Msg("Pre-start mod auto-update: failed to get installed mods, skipping")
+		return
+	}
+
+	hasAutoUpdate := false
+	for _, m := range mods {
+		if m.AutoUpdate == 1 && m.Enabled == 1 && m.PinnedVersion.IsNull() {
+			hasAutoUpdate = true
+			break
+		}
+	}
+	if !hasAutoUpdate {
+		return
+	}
+
+	// Use the shell command slot so messages appear in the console before
+	// the server process takes over the same slot.
+	cmd := inst.supervisorInstance.GetCommandByIDOrCreateShell(gameServer.ID)
+
+	statusFn := func(msg string) {
+		formatted := fmt.Sprintf("[%s] [Xylona]: %s", time.Now().Format("2006-01-02 15:04:05"), msg)
+		cmd.SendOutput(formatted)
+		log.Info().Str("game_server_id", gameServer.ID).Msg(msg)
+	}
+
+	errAutoUpdate := inst.modManager.RunAutoUpdates(inst.ctx, gameServer.ID, "", gameServer.Directory, statusFn)
+	if errAutoUpdate != nil {
+		log.Warn().Err(errAutoUpdate).Str("game_server_id", gameServer.ID).
+			Msg("Pre-start mod auto-update failed; continuing server startup")
+	}
 }
 
 func (inst *Instance) StopGameServer(gameServer *models.GameServer) {

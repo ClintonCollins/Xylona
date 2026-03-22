@@ -1,0 +1,36 @@
+[
+  {
+    "id": "version-abc123",
+    "version_number": "7.2.15",
+    "game_versions": ["1.20.1", "1.20"],
+    "loaders": ["bukkit", "spigot", "paper"],
+    "files": [
+      {
+        "url": "https://cdn.modrinth.com/data/worldedit/versions/worldedit-7.2.15.jar",
+        "hashes": {"sha256": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"},
+        "size": 2048576,
+        "primary": true
+      }
+    ],
+    "dependencies": [
+      {"project_id": "dep-project-1", "dependency_type": "required"}
+    ],
+    "changelog": "Bug fixes and performance improvements."
+  },
+  {
+    "id": "version-def456",
+    "version_number": "7.2.14",
+    "game_versions": ["1.19.4"],
+    "loaders": ["bukkit", "spigot"],
+    "files": [
+      {
+        "url": "https://cdn.modrinth.com/data/worldedit/versions/worldedit-7.2.14.jar",
+        "hashes": {"sha256": "1122334455667788990011223344556677889900112233445566778899001122"},
+        "size": 2040000,
+        "primary": true
+      }
+    ],
+    "dependencies": [],
+    "changelog": "Previous release."
+  }
+]

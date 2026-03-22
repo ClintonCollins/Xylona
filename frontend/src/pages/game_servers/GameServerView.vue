@@ -90,8 +90,13 @@
           </q-tooltip>
         </q-btn>
       </div>
+      <server-software-selector
+        v-if="gameServer.gameId !== '' && hasPermission('game_server.settings')"
+        :game-server-id="gameServerId"
+        :game-id="gameServer.gameId"
+        :current-software="gameServer.serverSoftware" />
     </div>
-    <div class="col col-lg-8 col-xs-12" :class="{ expanded: consoleExpanded }">
+    <div class="col col-lg-8 col-xs-12 console-panel" :class="{ expanded: consoleExpanded }">
       <q-scroll-area id="consoleContainer" ref="consoleScrollArea">
         <q-page-sticky position="top-right" :offset="[12, -40]">
           <q-btn
@@ -104,7 +109,13 @@
             text-color="info"
             @click="consoleExpanded = !consoleExpanded" />
         </q-page-sticky>
-        <code id="consoleCodeEl" class="q-pb-md" v-html="gameServerOutput"></code>
+        <code
+          id="consoleCodeEl"
+          role="log"
+          aria-live="polite"
+          aria-label="Game server console output"
+          class="q-pb-md"
+          v-html="gameServerOutput"></code>
       </q-scroll-area>
       <q-input
         id="consoleInput"
@@ -144,6 +155,7 @@ import { create, toJsonString } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import GameServerMetrics from '@/components/game_servers/GameServerMetrics.vue'
+import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
 import { QItemSection, QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
@@ -483,24 +495,29 @@ async function sendGameServerInput() {
   margin-top: var(--xy-space-sm);
 }
 
+.console-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.console-panel :deep(.q-scrollarea) {
+  flex: 1;
+  min-height: 50dvh;
+}
+
 .expanded {
-  z-index: 9999 !important;
-  width: 100% !important;
-  min-width: 100% !important;
-  height: 100dvh !important;
-  min-height: 100dvh !important;
   position: fixed !important;
   inset: 0 !important;
+  z-index: 9999;
+  width: 100%;
+  height: 100dvh;
   margin: 0;
   padding: 0;
   background-color: var(--xy-base);
-
-  #consoleContainer {
-    min-height: 90% !important;
-  }
 }
 
-#consoleContainer {
-  height: 50dvh;
+.expanded :deep(.q-scrollarea) {
+  min-height: 0;
+  flex: 1;
 }
 </style>

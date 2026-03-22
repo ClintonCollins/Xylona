@@ -19,12 +19,29 @@ import (
 func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPort, nodeBPort, nodeAFedPort, nodeBFedPort int) error {
 	log.Info().Msg("[Federation Setup] Starting federation E2E setup...")
 
+	// Acquire lock to prevent concurrent runs.
+	errLock := acquireLock(e2eDir, "federation", map[string]int{
+		"node-a-http":       nodeAPort,
+		"node-b-http":       nodeBPort,
+		"node-a-federation": nodeAFedPort,
+		"node-b-federation": nodeBFedPort,
+	})
+	if errLock != nil {
+		return fmt.Errorf("acquire lock: %w", errLock)
+	}
+	setupOK := false
+	defer func() {
+		if !setupOK {
+			releaseLock(e2eDir, "federation")
+		}
+	}()
+
 	federationDir := filepath.Join(e2eDir, ".federation")
 	nodeADir := filepath.Join(federationDir, "node-a")
 	nodeBDir := filepath.Join(federationDir, "node-b")
 	gsDir := filepath.Join(federationDir, "game-server-data")
-	xylonaExe := filepath.Join(federationDir, "xylona.exe")
-	dummyServerExe := filepath.Join(federationDir, "dummy-game-server.exe")
+	xylonaExe := filepath.Join(federationDir, binaryName("xylona"))
+	dummyServerExe := filepath.Join(federationDir, binaryName("dummy-game-server"))
 
 	nodeAURL := fmt.Sprintf("http://localhost:%d", nodeAPort)
 	nodeBURL := fmt.Sprintf("http://localhost:%d", nodeBPort)
@@ -194,13 +211,19 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		dummyExePath := strings.ReplaceAll(dummyServerExe, "\\", "/")
 		addGameResp, errAddGame := clientB.rpc.AddGame(ctx, connect.NewRequest(&xylona.AddGameRequest{
 			Game: &xylona.Game{
-				Name:                  "E2E Federation Test Game",
-				WindowsStartCommand:   dummyExePath,
-				WindowsStopCommand:    "stop",
-				WindowsInstallCommand: "echo installed",
-				WindowsSupport:        true,
-				DefaultPort:           25597,
-				DefaultQueryPort:      25597,
+				Name:                           "E2E Federation Test Game",
+				LinuxSupport:                   true,
+				LinuxStartCommand:              dummyExePath,
+				LinuxStopCommand:               "stop",
+				LinuxInstallCommand:            "echo installed",
+				LinuxInstallCommandProcessor:   xylona.CommandProcessor_BASH,
+				WindowsSupport:                 true,
+				WindowsStartCommand:            dummyExePath,
+				WindowsStopCommand:             "stop",
+				WindowsInstallCommand:          `cmd /c "echo installed"`,
+				WindowsInstallCommandProcessor: xylona.CommandProcessor_CMD,
+				DefaultPort:                    25597,
+				DefaultQueryPort:               25597,
 			},
 		}))
 		if errAddGame != nil {
@@ -372,6 +395,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		return errSetup
 	}
 
+	setupOK = true
 	return nil
 }
 

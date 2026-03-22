@@ -14,7 +14,6 @@ import (
 
 func seedGameServerFixture(t *testing.T, conn *Connection) {
 	t.Helper()
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	// Insert a second game server for list/filter tests.
@@ -62,7 +61,6 @@ func TestGetGameServerByID(t *testing.T) {
 
 func TestGetGameServerByIDNotFound(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-not-found.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	_, errGet := conn.GetGameServerByID("nonexistent")
@@ -89,7 +87,6 @@ func TestGetGameServersByUser(t *testing.T) {
 
 func TestGetGameServersByUserNoResults(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-by-user-empty.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	servers, errGet := conn.GetGameServersByUser("user-admin")
@@ -116,7 +113,6 @@ func TestGetGameServersByIP(t *testing.T) {
 
 func TestGetGameServersByIPNoResults(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-by-ip-empty.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	servers, errGet := conn.GetGameServersByIP("10.0.0.1")
@@ -143,7 +139,6 @@ func TestGetGameServersByGameID(t *testing.T) {
 
 func TestGetGameServersByGameIDNoResults(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-by-game-empty.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	servers, errGet := conn.GetGameServersByGameID("nonexistent-game")
@@ -157,7 +152,6 @@ func TestGetGameServersByGameIDNoResults(t *testing.T) {
 
 func TestInsertGameServer(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-insert.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	now := time.Now().UTC()
@@ -194,7 +188,6 @@ func TestInsertGameServer(t *testing.T) {
 
 func TestInsertGameServerDuplicateUserName(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-dup-name.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	now := time.Now().UTC()
@@ -224,7 +217,6 @@ func TestInsertGameServerDuplicateUserName(t *testing.T) {
 
 func TestUpdateGameServer(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-update.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	now := time.Now().UTC()
@@ -263,7 +255,6 @@ func TestUpdateGameServer(t *testing.T) {
 
 func TestDeleteGameServer(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-delete.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	errDelete := conn.DeleteGameServer("server-local-1")
@@ -279,7 +270,6 @@ func TestDeleteGameServer(t *testing.T) {
 
 func TestGetGameServersAccessibleByUser(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-accessible.sqlite")
-	addMissingGameColumns(t, conn)
 	seedRBACFixture(t, conn)
 
 	// seedRBACFixture creates:

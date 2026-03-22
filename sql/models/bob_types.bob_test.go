@@ -32,6 +32,12 @@ var _ bob.HookableType = &GameServer{}
 // Make sure the type GameServerMetricsHistory runs hooks after queries
 var _ bob.HookableType = &GameServerMetricsHistory{}
 
+// Make sure the type InstalledMod runs hooks after queries
+var _ bob.HookableType = &InstalledMod{}
+
+// Make sure the type InstalledModFile runs hooks after queries
+var _ bob.HookableType = &InstalledModFile{}
+
 // Make sure the type IP runs hooks after queries
 var _ bob.HookableType = &IP{}
 
@@ -49,6 +55,9 @@ var _ bob.HookableType = &Migration{}
 
 // Make sure the type Node runs hooks after queries
 var _ bob.HookableType = &Node{}
+
+// Make sure the type NodeAPIKey runs hooks after queries
+var _ bob.HookableType = &NodeAPIKey{}
 
 // Make sure the type NodeMetricsHistory runs hooks after queries
 var _ bob.HookableType = &NodeMetricsHistory{}

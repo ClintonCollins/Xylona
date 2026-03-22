@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -61,7 +63,7 @@ func startNode(name, workDir, xylonaExe string, httpPort, fedPort int) (*exec.Cm
 		return nil, fmt.Errorf("stderr pipe: %w", errStderr)
 	}
 
-	log.Info().Msgf("[Federation Setup] Starting %s on HTTP :%d, Federation :%d", name, httpPort, fedPort)
+	log.Info().Msgf("[%s] Starting on HTTP :%d, Federation :%d", name, httpPort, fedPort)
 
 	errStart := cmd.Start()
 	if errStart != nil {
@@ -103,15 +105,22 @@ func killByPIDFile(pidFile, label string) {
 		return
 	}
 
-	log.Info().Msgf("[Federation Teardown] Killing %s (PID %d)...", label, pid)
+	log.Info().Msgf("[Teardown] Killing %s (PID %d)...", label, pid)
 
-	// On Windows, use taskkill to kill the process tree.
-	killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T") //nolint:noctx
-	errKill := killCmd.Run()
-	if errKill != nil {
-		// Fallback: try os.Process.Kill.
+	if runtime.GOOS == "windows" {
+		killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T") //nolint:noctx
+		errKill := killCmd.Run()
+		if errKill != nil {
+			proc, errFind := os.FindProcess(pid)
+			if errFind == nil {
+				_ = proc.Kill()
+			}
+		}
+	} else {
 		proc, errFind := os.FindProcess(pid)
 		if errFind == nil {
+			_ = proc.Signal(syscall.SIGTERM)
+			time.Sleep(500 * time.Millisecond)
 			_ = proc.Kill()
 		}
 	}

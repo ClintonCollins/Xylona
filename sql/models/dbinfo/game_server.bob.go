@@ -222,6 +222,15 @@ var GameServers = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		ServerSoftware: column{
+			Name:      "server_software",
+			DBType:    "TEXT",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameServerIndexes{
 		GameServerUserIDNameUniqueIndex: index{
@@ -329,11 +338,12 @@ type gameServerColumns struct {
 	CreatedAt                 column
 	UpdatedAt                 column
 	NodeID                    column
+	ServerSoftware            column
 }
 
 func (c gameServerColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.UserID, c.Name, c.GameID, c.StartCommand, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID,
+		c.ID, c.UserID, c.Name, c.GameID, c.StartCommand, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware,
 	}
 }
 

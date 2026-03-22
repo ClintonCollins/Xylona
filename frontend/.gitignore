@@ -48,3 +48,5 @@ coverage
 /e2e/.auth/*.json
 /e2e/.federation/
 /e2e/.e2e-bin/
+/e2e/.e2e-data/
+/e2e/.e2e-*.lock

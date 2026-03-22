@@ -204,7 +204,7 @@ func Deploy(host string, user string, service string, path string) {
 }
 
 // E2E runs the single-node Playwright E2E tests.
-// Requires a running backend on :8080. The Vite dev server starts automatically.
+// Fully self-contained -- builds backend, seeds DB, starts on :9091, runs tests, tears down.
 func E2E() {
 	cmdE2E := exec.Command("pnpm", "run", "e2e")
 	cmdE2E.Dir = "frontend"

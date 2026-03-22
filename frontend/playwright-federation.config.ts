@@ -9,11 +9,12 @@ export default defineConfig({
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 2 : 0,
   workers: 1,
-  reporter: [['html', { outputFolder: 'e2e/playwright-report-federation', open: 'never' }]],
+  reporter: [['list'], ['html', { outputFolder: 'e2e/playwright-report-federation', open: 'never' }]],
   outputDir: 'e2e/test-results-federation',
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
+    actionTimeout: 10_000,
     ignoreHTTPSErrors: true,
   },
   globalSetup: './e2e/federation-setup.ts',
@@ -34,7 +35,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm run dev -- --port 9001`,
+    command: `pnpm exec quasar dev -p 9001`,
     url: BASE_URL,
     reuseExistingServer: true,
     ignoreHTTPSErrors: true,

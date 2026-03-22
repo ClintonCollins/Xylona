@@ -10,6 +10,7 @@ export function buildGameServerTabs(
   serverID: string,
   permissions: string[],
   isOwnerOrSuper: boolean,
+  hasModSupport = false,
 ): GameServerLayoutTab[] {
   const basePath = `/game-servers/${serverID}`
   const has = (perm: string) => permissions.includes(perm)
@@ -54,6 +55,15 @@ export function buildGameServerTabs(
       requiredPermission: 'game_server.settings',
     })
   }
+  if (has('game_server.mods') && hasModSupport) {
+    tabs.push({
+      name: 'Mods',
+      to: `${basePath}/mods`,
+      icon: 'extension',
+      exact: true,
+      requiredPermission: 'game_server.mods',
+    })
+  }
   if (isOwnerOrSuper) {
     tabs.push({
       name: 'Access',
@@ -86,6 +96,9 @@ export function getUnauthorizedRedirect(
     return consolePath
   }
   if (currentPath === `${basePath}/settings` && !has('game_server.settings')) {
+    return consolePath
+  }
+  if (currentPath === `${basePath}/mods` && !has('game_server.mods')) {
     return consolePath
   }
   if (currentPath === `${basePath}/access` && !isOwnerOrSuper) {

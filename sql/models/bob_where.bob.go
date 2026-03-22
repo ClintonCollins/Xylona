@@ -25,12 +25,15 @@ func Where[Q sqlite.Filterable]() struct {
 	Games                      gameWhere[Q]
 	GameServers                gameServerWhere[Q]
 	GameServerMetricsHistories gameServerMetricsHistoryWhere[Q]
+	InstalledMods              installedModWhere[Q]
+	InstalledModFiles          installedModFileWhere[Q]
 	Ips                        ipWhere[Q]
 	LocalSecretKeys            localSecretKeyWhere[Q]
 	LocalSettings              localSettingWhere[Q]
 	Logs                       logWhere[Q]
 	Migrations                 migrationWhere[Q]
 	Nodes                      nodeWhere[Q]
+	NodeAPIKeys                nodeAPIKeyWhere[Q]
 	NodeMetricsHistories       nodeMetricsHistoryWhere[Q]
 	NodeSyncQueues             nodeSyncQueueWhere[Q]
 	Notifications              notificationWhere[Q]
@@ -54,12 +57,15 @@ func Where[Q sqlite.Filterable]() struct {
 		Games                      gameWhere[Q]
 		GameServers                gameServerWhere[Q]
 		GameServerMetricsHistories gameServerMetricsHistoryWhere[Q]
+		InstalledMods              installedModWhere[Q]
+		InstalledModFiles          installedModFileWhere[Q]
 		Ips                        ipWhere[Q]
 		LocalSecretKeys            localSecretKeyWhere[Q]
 		LocalSettings              localSettingWhere[Q]
 		Logs                       logWhere[Q]
 		Migrations                 migrationWhere[Q]
 		Nodes                      nodeWhere[Q]
+		NodeAPIKeys                nodeAPIKeyWhere[Q]
 		NodeMetricsHistories       nodeMetricsHistoryWhere[Q]
 		NodeSyncQueues             nodeSyncQueueWhere[Q]
 		Notifications              notificationWhere[Q]
@@ -82,12 +88,15 @@ func Where[Q sqlite.Filterable]() struct {
 		Games:                      buildGameWhere[Q](Games.Columns),
 		GameServers:                buildGameServerWhere[Q](GameServers.Columns),
 		GameServerMetricsHistories: buildGameServerMetricsHistoryWhere[Q](GameServerMetricsHistories.Columns),
+		InstalledMods:              buildInstalledModWhere[Q](InstalledMods.Columns),
+		InstalledModFiles:          buildInstalledModFileWhere[Q](InstalledModFiles.Columns),
 		Ips:                        buildIPWhere[Q](Ips.Columns),
 		LocalSecretKeys:            buildLocalSecretKeyWhere[Q](LocalSecretKeys.Columns),
 		LocalSettings:              buildLocalSettingWhere[Q](LocalSettings.Columns),
 		Logs:                       buildLogWhere[Q](Logs.Columns),
 		Migrations:                 buildMigrationWhere[Q](Migrations.Columns),
 		Nodes:                      buildNodeWhere[Q](Nodes.Columns),
+		NodeAPIKeys:                buildNodeAPIKeyWhere[Q](NodeAPIKeys.Columns),
 		NodeMetricsHistories:       buildNodeMetricsHistoryWhere[Q](NodeMetricsHistories.Columns),
 		NodeSyncQueues:             buildNodeSyncQueueWhere[Q](NodeSyncQueues.Columns),
 		Notifications:              buildNotificationWhere[Q](Notifications.Columns),

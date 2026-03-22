@@ -75,7 +75,13 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ionGameController, ionHome, ionPeople, ionServer } from '@quasar/extras/ionicons-v7'
+import {
+  ionGameController,
+  ionHome,
+  ionPeople,
+  ionServer,
+  ionSettings,
+} from '@quasar/extras/ionicons-v7'
 import { laServerSolid } from '@quasar/extras/line-awesome'
 import { useRoute, useRouter } from 'vue-router'
 import { GetUnreadAdvisoryCountRequestSchema, User } from '@/proto/xylona_pb'
@@ -156,6 +162,14 @@ const navLinks = computed((): NavItem[] => {
         title: 'Users',
         icon: ionPeople,
         link: '/admin/users',
+        expanded: true,
+        exact: false,
+        groupItems: [],
+      },
+      {
+        title: 'Node Settings',
+        icon: ionSettings,
+        link: '/admin/settings',
         expanded: true,
         exact: false,
         groupItems: [],

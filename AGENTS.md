@@ -14,7 +14,7 @@ The backend is the project root and uses the Go module path `github.com/ClintonC
 |---|---|
 | `main` (root) | Application entry point, HTTP server setup, router configuration, graceful shutdown |
 | `actions` | Business logic layer (background tasks, file operations, post-install actions) |
-| `api/rpc` | ConnectRPC service handlers (auth, game servers, games, IPs, nodes, users) |
+| `api/rpc` | ConnectRPC service handlers (auth, game servers, games, IPs, nodes, users, federation, RBAC, permissions, mods, server-software, dashboard, config schemas, Steam) |
 | `api/websocket` | WebSocket handling via the Melody library |
 | `api/gatekeeper` | Authentication/authorization middleware |
 | `api/xylona-internal` | Internal game-specific logic (e.g., Minecraft) |
@@ -25,12 +25,19 @@ The backend is the project root and uses the Go module path `github.com/ClintonC
 | `pkg/minecraft` | Minecraft-specific utilities |
 | `pkg/query` | Game server query protocol support |
 | `pkg/xycrypt` | Cryptographic helpers (Argon2id hashing) |
+| `cfgparse` | Config file format parsers (INI, JSON, TOML, XML, YAML, properties) |
+| `cfgschema` | Config schema validation, field ordering, prestart command templates |
+| `pkg/modmanager` | Mod lifecycle management and server software abstraction |
+| `pkg/modproviders` | Mod provider integrations (Modrinth, Hangar, PaperMC, Steam Workshop, Thunderstore) |
+| `pkg/sysinfo` | System resource information (CPU, memory, disk) |
+| `pkg/version` | Version string utilities |
+| `steamcache` | Steam app metadata caching for app search and icon resolution |
 | `proto` | Protobuf definitions (`.proto` files) and generated Go/TypeScript code |
 | `sql/migrations` | SQL migration files (used with `sql-migrate`) |
 | `sql/models` | Generated ORM models (bob) |
 | `supervisor` | Game server process lifecycle management (start, stop, I/O, listeners) |
 | `magefiles` | Mage build tasks |
-| `cmd` | Auxiliary CLI tools (e.g., `minecraft_version_hasher`, `e2e` orchestrator, `dummy_game_server`) |
+| `cmd` | Auxiliary CLI tools (`e2e` orchestrator, `e2e-seed` DB seeder, `dummy_game_server` for testing, `minecraft_version_hasher`) |
 | `embed.go` | Embeds the built frontend SPA into the Go binary |
 
 ### Frontend (`/frontend`) — Vite + TypeScript + Vue 3 + Quasar 2
@@ -40,7 +47,7 @@ The frontend is a Quasar 2 SPA managed with **pnpm** and built with **Vite** via
 | Directory | Purpose |
 |---|---|
 | `src/pages` | Route-level Vue components organized by domain (`game_servers/`, `games/`, `nodes/`, `admin/`, `other/`) |
-| `src/components` | Reusable Vue components organized by domain (`game_servers/`, `games/`, `keys/`, `nodes/`, `editor/`) |
+| `src/components` | Reusable Vue components organized by domain (`game_servers/`, `games/`, `keys/`, `nodes/`, `editor/`, `shared/`, `admin/`) |
 | `src/stores` | Pinia state stores (`xylona.ts` for auth state, toolbar nav state) |
 | `src/router` | Vue Router configuration |
 | `src/layouts` | Quasar layout components |
@@ -57,6 +64,7 @@ Use these as the default commands for this repo:
 ### Backend
 - `go test ./...` — run backend tests.
 - `go test -short ./...` — run fast unit-focused backend tests.
+- `go test -tags=integration ./...` — run backend tests including live third-party API integration tests (steamcache, mod providers).
 - `go test ./... -race -count=1` — run backend tests with the race detector and disable test result caching.
 - `go build -o xylona` — build backend binary locally.
 - `mage Lint` — run golangci-lint on backend code.
@@ -111,6 +119,8 @@ Generated paths:
 - `proto/go/xylona/**`
 - `frontend/src/proto/**`
 - `sql/models/*.bob.go`
+- `sql/models/dberrors/*.bob.go`
+- `sql/models/dbinfo/*.bob.go`
 
 Regeneration commands:
 
@@ -169,12 +179,6 @@ Do not add DOMPurify or replace these with text rendering unless the trust model
 
 ## Search & Indexing Guardrails
 
-- **Prefer `rg` (ripgrep) when available.** Use `rg` for text search and `rg --files` for file discovery instead of `grep`, `find`, `Get-ChildItem`, or IDE-specific search tools. `rg` automatically respects `.gitignore` rules and skips binary files, making it faster and safer for large repos.
-  - Text search: `rg "pattern"` or `rg -i "pattern"` (case-insensitive).
-  - File discovery: `rg --files` or `rg --files -g "*.go"` (glob filter).
-  - Scoped search: `rg "pattern" path/to/dir`.
-- If `rg` is not available, fall back to `grep -r` or equivalent tools.
-
 When exploring or searching the repo, skip large/generated/vendor-like directories unless the task explicitly needs them:
 
 - `frontend/node_modules`
@@ -182,17 +186,6 @@ When exploring or searching the repo, skip large/generated/vendor-like directori
 - `frontend/dist`
 - `cmd/minecraft_version_hasher/versions`
 - `dist`
-
-## Browser Automation
-
-Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
-
-Core workflow:
-
-1. `agent-browser open <url>` - Navigate to page
-2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
-3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
-4. Re-snapshot after page changes
 
 ## Unit & Integration Testing
 
@@ -217,7 +210,7 @@ Core workflow:
 
 ### Testing Requirements for New Code
 
-**When generating new or changed Go logic, always include corresponding tests unless explicitly told not to.**
+**Use Test-Driven Development (TDD) for all new or changed Go logic unless explicitly told not to.** Write the failing test FIRST, then implement the minimum code to pass it, then refactor. Never write implementation code before its test exists.
 
 Required test coverage for new code:
 
@@ -232,40 +225,6 @@ Required test coverage for new code:
 - **Concurrency-sensitive changes**: Add tests that exercise concurrent access and run with `-race`.
 - **Integration tests**: If a test depends on filesystem/DB/process interactions, mark and structure it so it can be skipped in short runs (`testing.Short()`).
 
-Test file structure:
-
-```go
-package mypackage
-
-import "testing"
-
-func TestMyFunction(t *testing.T) {
-    tests := []struct {
-        name    string
-        input   InputType
-        want    OutputType
-        wantErr bool
-    }{
-        {name: "valid input", input: ..., want: ..., wantErr: false},
-        {name: "invalid input", input: ..., want: ..., wantErr: true},
-        {name: "edge case", input: ..., want: ..., wantErr: false},
-    }
-
-    for _, tt := range tests {
-        tt := tt
-        t.Run(tt.name, func(t *testing.T) {
-            got, err := MyFunction(tt.input)
-            if (err != nil) != tt.wantErr {
-                t.Fatalf("MyFunction() error = %v, wantErr %v", err, tt.wantErr)
-            }
-            if got != tt.want {
-                t.Errorf("MyFunction() = %v, want %v", got, tt.want)
-            }
-        })
-    }
-}
-```
-
 **Exceptions**: Skip tests for:
 - Trivial getters/setters
 - Generated code (protobuf, ORM models)
@@ -278,7 +237,7 @@ Frontend uses Vitest + Vue Test Utils for unit and component testing.
 
 #### Testing Requirements for New Frontend Code
 
-**When generating new or changed frontend logic, always include corresponding tests for complex functionality unless explicitly told not to.**
+**Use Test-Driven Development (TDD) for new or changed frontend logic with testable behavior unless explicitly told not to.** Write the failing test FIRST, then implement the minimum code to pass it, then refactor. Never write implementation code before its test exists.
 
 Required test coverage for new frontend code:
 
@@ -303,51 +262,7 @@ Required test coverage for new frontend code:
 
 #### Frontend Test File Structure
 
-Place test files adjacent to the source file using `.test.ts` or `.spec.ts` suffix:
-
-```typescript
-// utils/myUtil.test.ts
-import { describe, it, expect } from 'vitest'
-import { myFunction } from './myUtil'
-
-describe('myFunction', () => {
-  it('should handle valid input', () => {
-    const result = myFunction('valid')
-    expect(result).toBe('expected')
-  })
-
-  it('should handle edge cases', () => {
-    const result = myFunction('')
-    expect(result).toBe('')
-  })
-
-  it('should throw on invalid input', () => {
-    expect(() => myFunction(null)).toThrow()
-  })
-})
-```
-
-For Vue components:
-
-```typescript
-// components/MyComponent.spec.ts
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
-import MyComponent from './MyComponent.vue'
-
-describe('MyComponent', () => {
-  it('renders properly', () => {
-    const wrapper = mount(MyComponent, { props: { msg: 'Hello' } })
-    expect(wrapper.text()).toContain('Hello')
-  })
-
-  it('handles user interaction', async () => {
-    const wrapper = mount(MyComponent)
-    await wrapper.find('button').trigger('click')
-    expect(wrapper.emitted()).toHaveProperty('submit')
-  })
-})
-```
+Place test files adjacent to the source file using `.test.ts` or `.spec.ts` suffix.
 
 #### Code Quality Workflow
 
@@ -369,9 +284,9 @@ Xylona has two Playwright E2E test suites: **single-node** (standard) and **fede
 
 ### Single-Node Tests
 
-**Prerequisites**: A running backend on `:8080` with a seeded database.
+**Prerequisites**: None -- fully self-contained. The Go orchestrator builds a fresh Xylona binary, seeds a fresh database, and starts the backend on `:9091` (HTTP) and `:9446` (federation). The Vite dev server starts on `:9002`.
 
-The `global-setup.ts` script delegates to the Go orchestrator (`cmd/e2e single-setup`) which creates test users, a game definition, a game server, test files, and RBAC role assignments. Tests run against `http://localhost:8080`.
+The `global-setup.ts` script delegates to the Go orchestrator (`cmd/e2e single-setup`) which builds binaries, seeds the database, starts the backend, then creates test users, a game definition, a game server, test files, and RBAC role assignments. Tests run against `http://localhost:9091` (backend) via `https://localhost:9002` (Vite proxy).
 
 | Test file | Coverage |
 |---|---|
@@ -383,6 +298,8 @@ The `global-setup.ts` script delegates to the Go orchestrator (`cmd/e2e single-s
 | `console-errors.spec.ts` | Verifies no console errors on pages |
 | `file-browser.spec.ts` | Game server file browser |
 | `game-server-lifecycle.spec.ts` | Create, start, stop, delete game servers |
+| `config-schema-ordering.spec.ts` | Config schema field ordering |
+| `mods.spec.ts` | Mod browsing and installation |
 
 ### Federation Tests
 
@@ -427,14 +344,15 @@ go run ./cmd/e2e <subcommand> [flags]
 ```
 
 Subcommands:
-- `single-setup` — creates test users, game, server, files, and RBAC grants (requires running backend)
-- `single-teardown` — deletes all test data created by single-setup
+- `single-setup` — builds binaries, seeds DB, starts backend on `:9091`, creates test users, game, server, files, and RBAC grants
+- `single-teardown` — kills the backend process and removes the data directory
 - `federation-setup` — builds binaries, seeds DBs, starts two nodes, pairs them, creates test data
 - `federation-teardown` — API cleanup, kills node processes, removes data directories
 - `seed` — bootstraps a fresh SQLite database with migrations and an admin user
 
 Common flags:
-- `--backend-url` (default: `http://localhost:8080`) — backend URL for single-node commands
+- `--http-port` (default: `9091`) — backend HTTP port for single-node E2E
+- `--fed-port` (default: `9446`) — backend federation port for single-node E2E
 - `--e2e-dir` (default: `frontend/e2e`) — E2E test directory for state files
 - `--project-root` (default: `.`) — project root for building binaries
 
@@ -461,6 +379,8 @@ Seed flags:
 
 ### Gitignored Artifacts
 
+- `frontend/e2e/.e2e-data/` — single-node E2E backend data (binary, DB, PID)
+- `frontend/e2e/.e2e-*.lock` — E2E suite lock files (prevent concurrent runs)
 - `frontend/e2e/.federation/` — federation node data directories
 - `frontend/e2e/playwright-report/` — single-node HTML report
 - `frontend/e2e/playwright-report-federation/` — federation HTML report

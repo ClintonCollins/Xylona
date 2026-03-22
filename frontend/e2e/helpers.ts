@@ -1,8 +1,8 @@
-import { Page } from '@playwright/test'
+import { expect, Page } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
 
-export const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8080'
+export const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:9091'
 
 export interface ApiCookies {
   sessionId: string
@@ -149,7 +149,13 @@ export interface TestState {
   gameName?: string
 }
 
+const TEST_USERS_FILE = path.join(import.meta.dirname, '.auth', 'test-users.json')
 const TEST_STATE_FILE = path.join(import.meta.dirname, '.auth', 'test-state.json')
+
+export function loadTestUsers(): TestUser[] {
+  if (!fs.existsSync(TEST_USERS_FILE)) return []
+  return JSON.parse(fs.readFileSync(TEST_USERS_FILE, 'utf-8')) as TestUser[]
+}
 
 export function loadTestState(): TestState {
   if (!fs.existsSync(TEST_STATE_FILE)) return {}
@@ -193,5 +199,142 @@ export async function loginAsUser(page: Page, username: string, password: string
   await page.getByLabel('Username').fill(username)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10_000 })
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
+}
+
+// ---------------------------------------------------------------------------
+// Mod management API helpers
+// ---------------------------------------------------------------------------
+
+export async function apiSetServerSoftware(
+  cookies: ApiCookies,
+  gameServerId: string,
+  softwareId: string,
+  versionId: string,
+): Promise<void> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/SetServerSoftware`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({
+      game_server_id: gameServerId,
+      software_id: softwareId,
+      version_id: versionId,
+    }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`SetServerSoftware failed: ${resp.status} ${body}`)
+  }
+}
+
+export async function apiSearchMods(
+  cookies: ApiCookies,
+  gameServerId: string,
+  query: string,
+  source?: string,
+): Promise<Array<{ source: string; source_id: string; name: string; is_installed: boolean }>> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/SearchMods`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({
+      game_server_id: gameServerId,
+      query,
+      source: source ?? '',
+      page: 0,
+      page_size: 20,
+    }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`SearchMods failed: ${resp.status} ${body}`)
+  }
+  const data = (await resp.json()) as {
+    results?: Array<{ source: string; source_id: string; name: string; is_installed: boolean }>
+  }
+  return data.results ?? []
+}
+
+export async function apiInstallMod(
+  cookies: ApiCookies,
+  gameServerId: string,
+  source: string,
+  sourceId: string,
+  versionId: string,
+): Promise<{ id: string }> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/InstallMod`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({
+      game_server_id: gameServerId,
+      source,
+      source_id: sourceId,
+      version_id: versionId,
+    }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`InstallMod failed: ${resp.status} ${body}`)
+  }
+  const data = (await resp.json()) as { installed_mod?: { id: string } }
+  return { id: data.installed_mod?.id ?? '' }
+}
+
+export async function apiUninstallMod(
+  cookies: ApiCookies,
+  gameServerId: string,
+  installedModId: string,
+): Promise<void> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/UninstallMod`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({
+      game_server_id: gameServerId,
+      installed_mod_id: installedModId,
+    }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`UninstallMod failed: ${resp.status} ${body}`)
+  }
+}
+
+export async function apiListInstalledMods(
+  cookies: ApiCookies,
+  gameServerId: string,
+): Promise<Array<{ id: string; mod_name: string; source: string; installed_version: string }>> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/ListInstalledMods`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({ game_server_id: gameServerId }),
+  })
+  if (!resp.ok) return []
+  const data = (await resp.json()) as {
+    installed_mods?: Array<{
+      id: string
+      mod_name: string
+      source: string
+      installed_version: string
+    }>
+  }
+  return data.installed_mods ?? []
 }

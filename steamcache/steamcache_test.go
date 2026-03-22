@@ -2,175 +2,217 @@ package steamcache
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
-// mockFetcher implements Fetcher for testing.
-type mockFetcher struct {
-	apps []SteamApp
-	err  error
-}
-
-func (m *mockFetcher) FetchAppList(ctx context.Context) ([]SteamApp, error) {
-	return m.apps, m.err
-}
-
-func TestFilterApps(t *testing.T) {
-	apps := []SteamApp{
-		{AppID: "1", Name: "Counter-Strike 2"},
-		{AppID: "2", Name: "Counter-Strike 2 Dedicated Server"},
-		{AppID: "3", Name: "Valheim Dedicated Server"},
-		{AppID: "4", Name: "Rust"},
-		{AppID: "5", Name: "Team Fortress 2 Server"},
-		{AppID: "6", Name: "Some Game"},
-		{AppID: "7", Name: "DEDICATED thing"},
-		{AppID: "8", Name: "my SERVER app"},
-	}
-
-	filtered := FilterApps(apps)
-
-	want := map[string]bool{
-		"2": true, // "Dedicated Server"
-		"3": true, // "Dedicated Server"
-		"5": true, // "Server"
-		"7": true, // "DEDICATED"
-		"8": true, // "SERVER"
-	}
-
-	if len(filtered) != len(want) {
-		t.Fatalf("FilterApps() returned %d apps, want %d", len(filtered), len(want))
-	}
-
-	for _, app := range filtered {
-		if !want[app.AppID] {
-			t.Errorf("FilterApps() included unexpected app %q (ID %s)", app.Name, app.AppID)
+func TestFetchDetails_ParsesSteamCmdResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := steamCmdResponse{
+			Data: map[string]steamCmdAppData{
+				"896660": {
+					Common: struct {
+						Name   string `json:"name"`
+						OSList string `json:"oslist"`
+						Parent string `json:"parent"`
+						Type   string `json:"type"`
+					}{
+						Name:   "Valheim Dedicated Server",
+						OSList: "windows,linux",
+						Parent: "892970",
+						Type:   "Tool",
+					},
+					Config: struct {
+						InstallDir string                        `json:"installdir"`
+						Launch     map[string]steamCmdLaunchEntry `json:"launch"`
+					}{
+						InstallDir: "Valheim dedicated server",
+						Launch: map[string]steamCmdLaunchEntry{
+							"0": {
+								Executable:  "valheim_server.exe",
+								Arguments:   "-nographics -batchmode",
+								Description: "Run Server",
+								Config: struct {
+									OSList string `json:"oslist"`
+								}{OSList: "windows"},
+							},
+						},
+					},
+				},
+			},
+			Status: "success",
 		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := &Client{detailsURLFmt: server.URL + "/%s"}
+	details, err := c.FetchDetails(context.Background(), "896660")
+	if err != nil {
+		t.Fatalf("FetchDetails() error: %v", err)
+	}
+
+	if details.Name != "Valheim Dedicated Server" {
+		t.Errorf("Name = %q, want %q", details.Name, "Valheim Dedicated Server")
+	}
+	if details.Type != "Tool" {
+		t.Errorf("Type = %q, want %q", details.Type, "Tool")
+	}
+	if !details.WindowsSupport {
+		t.Error("expected WindowsSupport = true")
+	}
+	if !details.LinuxSupport {
+		t.Error("expected LinuxSupport = true")
+	}
+	if details.InstallDirectory != "Valheim dedicated server" {
+		t.Errorf("InstallDirectory = %q, want %q", details.InstallDirectory, "Valheim dedicated server")
+	}
+	if details.ParentAppID != "892970" {
+		t.Errorf("ParentAppID = %q, want %q", details.ParentAppID, "892970")
+	}
+	if len(details.LaunchConfigs) != 1 {
+		t.Fatalf("LaunchConfigs length = %d, want 1", len(details.LaunchConfigs))
+	}
+	if details.LaunchConfigs[0].Executable != "valheim_server.exe" {
+		t.Errorf("LaunchConfigs[0].Executable = %q, want %q", details.LaunchConfigs[0].Executable, "valheim_server.exe")
+	}
+	if details.LaunchConfigs[0].OS != "windows" {
+		t.Errorf("LaunchConfigs[0].OS = %q, want %q", details.LaunchConfigs[0].OS, "windows")
 	}
 }
 
-func TestSearch(t *testing.T) {
-	apps := make([]SteamApp, 30)
-	for i := range 30 {
-		apps[i] = SteamApp{
-			AppID: string(rune('0' + i)),
-			Name:  "Test Server " + string(rune('A'+i)),
+func TestFetchDetails_LinuxOnlyApp(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := steamCmdResponse{
+			Data: map[string]steamCmdAppData{
+				"123": {
+					Common: struct {
+						Name   string `json:"name"`
+						OSList string `json:"oslist"`
+						Parent string `json:"parent"`
+						Type   string `json:"type"`
+					}{
+						Name:   "Linux Only Server",
+						OSList: "linux",
+						Type:   "Tool",
+					},
+				},
+			},
+			Status: "success",
 		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	c := &Client{detailsURLFmt: server.URL + "/%s"}
+	details, err := c.FetchDetails(context.Background(), "123")
+	if err != nil {
+		t.Fatalf("FetchDetails() error: %v", err)
 	}
-
-	fetcher := &mockFetcher{apps: apps}
-	cache := New(fetcher)
-
-	ctx := context.Background()
-	errStart := cache.loadApps(ctx)
-	if errStart != nil {
-		t.Fatalf("loadApps() error = %v", errStart)
+	if details.WindowsSupport {
+		t.Error("expected WindowsSupport = false")
 	}
-
-	results := cache.Search("Test Server")
-	if len(results) != 20 {
-		t.Errorf("Search() returned %d results, want 20 (max limit)", len(results))
-	}
-
-	results = cache.Search("Server A")
-	if len(results) != 1 {
-		t.Errorf("Search(\"Server A\") returned %d results, want 1", len(results))
-	}
-
-	results = cache.Search("nonexistent")
-	if len(results) != 0 {
-		t.Errorf("Search(\"nonexistent\") returned %d results, want 0", len(results))
+	if !details.LinuxSupport {
+		t.Error("expected LinuxSupport = true")
 	}
 }
 
-func TestSearch_CaseInsensitive(t *testing.T) {
-	apps := []SteamApp{
-		{AppID: "1", Name: "Valheim Dedicated Server"},
-		{AppID: "2", Name: "Rust Dedicated Server"},
-	}
+func TestFetchDetails_HandlesHTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer server.Close()
 
-	fetcher := &mockFetcher{apps: apps}
-	cache := New(fetcher)
-
-	ctx := context.Background()
-	errLoad := cache.loadApps(ctx)
-	if errLoad != nil {
-		t.Fatalf("loadApps() error = %v", errLoad)
-	}
-
-	tests := []struct {
-		name  string
-		query string
-		want  int
-	}{
-		{name: "lowercase query", query: "valheim", want: 1},
-		{name: "uppercase query", query: "VALHEIM", want: 1},
-		{name: "mixed case query", query: "VaLhEiM", want: 1},
-		{name: "lowercase dedicated", query: "dedicated", want: 2},
-		{name: "uppercase dedicated", query: "DEDICATED", want: 2},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results := cache.Search(tt.query)
-			if len(results) != tt.want {
-				t.Errorf("Search(%q) returned %d results, want %d", tt.query, len(results), tt.want)
-			}
-		})
+	c := &Client{detailsURLFmt: server.URL + "/%s"}
+	_, err := c.FetchDetails(context.Background(), "999999")
+	if err == nil {
+		t.Fatal("FetchDetails() expected error for 404 response")
 	}
 }
 
-func TestSearch_EmptyQuery(t *testing.T) {
-	apps := []SteamApp{
-		{AppID: "1", Name: "Valheim Dedicated Server"},
-	}
+func TestFetchDetails_HandlesMissingAppData(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := steamCmdResponse{
+			Data:   map[string]steamCmdAppData{},
+			Status: "success",
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
 
-	fetcher := &mockFetcher{apps: apps}
-	cache := New(fetcher)
-
-	ctx := context.Background()
-	errLoad := cache.loadApps(ctx)
-	if errLoad != nil {
-		t.Fatalf("loadApps() error = %v", errLoad)
-	}
-
-	results := cache.Search("")
-	if len(results) != 0 {
-		t.Errorf("Search(\"\") returned %d results, want 0", len(results))
+	c := &Client{detailsURLFmt: server.URL + "/%s"}
+	_, err := c.FetchDetails(context.Background(), "896660")
+	if err == nil {
+		t.Fatal("FetchDetails() expected error when app data is missing from response")
 	}
 }
 
-func TestCacheRetainsDataOnFetchFailure(t *testing.T) {
-	initialApps := []SteamApp{
-		{AppID: "1", Name: "Valheim Dedicated Server"},
-		{AppID: "2", Name: "Rust Dedicated Server"},
+func TestFetchDetails_HandlesServerDown(t *testing.T) {
+	c := &Client{detailsURLFmt: "http://localhost:1/%s"}
+	_, err := c.FetchDetails(context.Background(), "896660")
+	if err == nil {
+		t.Fatal("FetchDetails() expected error for unreachable server")
 	}
+}
 
-	fetcher := &mockFetcher{apps: initialApps}
-	cache := New(fetcher)
+func TestFetchDetails_MultipleLaunchConfigs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := steamCmdResponse{
+			Data: map[string]steamCmdAppData{
+				"100": {
+					Common: struct {
+						Name   string `json:"name"`
+						OSList string `json:"oslist"`
+						Parent string `json:"parent"`
+						Type   string `json:"type"`
+					}{
+						Name:   "Multi Launch Server",
+						OSList: "windows,linux",
+						Type:   "Tool",
+					},
+					Config: struct {
+						InstallDir string                        `json:"installdir"`
+						Launch     map[string]steamCmdLaunchEntry `json:"launch"`
+					}{
+						InstallDir: "multi_server",
+						Launch: map[string]steamCmdLaunchEntry{
+							"0": {
+								Executable: "server_win.exe",
+								Config: struct {
+									OSList string `json:"oslist"`
+								}{OSList: "windows"},
+							},
+							"1": {
+								Executable: "server_linux",
+								Config: struct {
+									OSList string `json:"oslist"`
+								}{OSList: "linux"},
+							},
+						},
+					},
+				},
+			},
+			Status: "success",
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
 
-	ctx := context.Background()
-	errLoad := cache.loadApps(ctx)
-	if errLoad != nil {
-		t.Fatalf("initial loadApps() error = %v", errLoad)
+	c := &Client{detailsURLFmt: server.URL + "/%s"}
+	details, err := c.FetchDetails(context.Background(), "100")
+	if err != nil {
+		t.Fatalf("FetchDetails() error: %v", err)
 	}
-
-	results := cache.Search("Dedicated")
-	if len(results) != 2 {
-		t.Fatalf("initial Search(\"Dedicated\") returned %d results, want 2", len(results))
+	if len(details.LaunchConfigs) != 2 {
+		t.Errorf("LaunchConfigs length = %d, want 2", len(details.LaunchConfigs))
 	}
+}
 
-	// Make subsequent fetches fail.
-	fetcher.err = errors.New("network error")
-
-	errReload := cache.loadApps(ctx)
-	if errReload == nil {
-		t.Fatal("expected loadApps() to return error on fetch failure")
-	}
-
-	// Cache should retain previous data.
-	results = cache.Search("Dedicated")
-	if len(results) != 2 {
-		t.Errorf("after failed refresh, Search(\"Dedicated\") returned %d results, want 2", len(results))
+func TestNew_SetsDefaults(t *testing.T) {
+	c := New()
+	if c.detailsURLFmt == "" {
+		t.Error("detailsURLFmt not set")
 	}
 }

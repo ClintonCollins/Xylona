@@ -1,5 +1,5 @@
 <template>
-  <q-page ref="pageRef" class="game-server-page">
+  <q-page :padding="windowWidth > 1024" class="game-server-page">
     <q-card class="full-width game-server-card">
       <q-tabs
         v-if="navQTabsStore.tabs.length > 0"
@@ -7,7 +7,9 @@
         active-color="primary"
         indicator-color="primary"
         align="left"
-        narrow-indicator>
+        narrow-indicator
+        no-caps
+        mobile-arrows>
         <q-route-tab
           v-for="tab in navQTabsStore.tabs"
           :key="tab.name"
@@ -17,7 +19,9 @@
           :icon="tab.icon" />
       </q-tabs>
       <q-separator v-if="navQTabsStore.tabs.length > 0" />
-      <router-view></router-view>
+      <div class="game-server-content">
+        <router-view></router-view>
+      </div>
     </q-card>
   </q-page>
 </template>
@@ -29,52 +33,20 @@ import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 const navQTabsStore = useToolbarNavQTabsStore()
 const windowWidth = WindowWidth()
-const pageRef = ref<{ $el: HTMLElement } | null>(null)
 
 let currentPermissions: string[] = []
 let currentIsOwnerOrSuper = false
 
-// Sync page height from Quasar's min-height for scroll containment.
-// Quasar sets min-height inline on q-page; we copy it to height so
-// flex children get a bounded container.
-function syncPageHeight() {
-  const el = pageRef.value?.$el
-  if (!el) return
-  const minH = el.style.minHeight
-  if (minH) {
-    el.style.height = minH
-  }
-}
-
-let resizeObserverCleanup: (() => void) | null = null
-
 onMounted(async () => {
   await configureTabs()
   await enforceRouteAccess()
-
-  nextTick(() => {
-    syncPageHeight()
-    // Re-sync on window resize (Quasar updates min-height)
-    const ro = new ResizeObserver(() => syncPageHeight())
-    const el = pageRef.value?.$el
-    if (el) {
-      ro.observe(el)
-      resizeObserverCleanup = () => ro.disconnect()
-    }
-  })
-})
-
-onBeforeUnmount(() => {
-  if (resizeObserverCleanup) {
-    resizeObserverCleanup()
-  }
 })
 
 watch(
@@ -95,6 +67,25 @@ function getServerID(): string {
   return route.params.id instanceof Array ? route.params.id[0] : route.params.id
 }
 
+function checkHasModSupport(serverSoftwareJson: string, activeServerSoftware: string): boolean {
+  if (!serverSoftwareJson) return false
+  try {
+    const options = JSON.parse(serverSoftwareJson) as Array<{
+      id: string
+      mod_config?: object | null
+    }>
+    if (!Array.isArray(options) || options.length === 0) return false
+    // If no active software set, check if any option has mod support
+    if (!activeServerSoftware) {
+      return options.some((o) => o.mod_config != null)
+    }
+    const active = options.find((o) => o.id === activeServerSoftware)
+    return active?.mod_config != null
+  } catch {
+    return false
+  }
+}
+
 async function configureTabs() {
   const serverID = getServerID()
   if (serverID === '') {
@@ -108,6 +99,7 @@ async function configureTabs() {
 
   let permissions: string[] = []
   let isOwnerOrSuper = false
+  let hasModSupport = false
 
   if (currentUser) {
     try {
@@ -119,6 +111,11 @@ async function configureTabs() {
       permissions = gameServerResp.gameServer?.effectivePermissions ?? []
       const isOwner = gameServerResp.gameServer?.userId === currentUser.id
       isOwnerOrSuper = currentUser.superUser || isOwner
+
+      // Check if the game has mod support by parsing server_software JSON
+      const gameServerSoftware = gameServerResp.gameServer?.game?.serverSoftware ?? ''
+      const activeServerSoftware = gameServerResp.gameServer?.serverSoftware ?? ''
+      hasModSupport = checkHasModSupport(gameServerSoftware, activeServerSoftware)
     } catch (unknownError: unknown) {
       const err = ConnectError.from(unknownError)
       console.error(err)
@@ -128,7 +125,9 @@ async function configureTabs() {
   currentPermissions = permissions
   currentIsOwnerOrSuper = isOwnerOrSuper
 
-  navQTabsStore.changeTabs(buildGameServerTabs(serverID, permissions, isOwnerOrSuper))
+  navQTabsStore.changeTabs(
+    buildGameServerTabs(serverID, permissions, isOwnerOrSuper, hasModSupport),
+  )
 }
 
 async function enforceRouteAccess() {
@@ -150,12 +149,13 @@ async function enforceRouteAccess() {
 </script>
 
 <style scoped>
-/* q-page height is set via JS (syncPageHeight) to match Quasar's min-height.
-   This establishes a bounded container for flex scroll containment. */
 .game-server-page {
   display: flex;
   flex-direction: column;
-  padding: 0 !important;
+  /* Override Quasar's inline min-height (full viewport) so max-height
+     can constrain the page to the available space below the header. */
+  min-height: 0 !important;
+  max-height: calc(100dvh - 50px);
   overflow: hidden;
 }
 
@@ -165,6 +165,11 @@ async function enforceRouteAccess() {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+.game-server-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .game-server-tabs {
   background-color: var(--xy-surface-2);

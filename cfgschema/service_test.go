@@ -33,6 +33,54 @@ func TestSchemaProperty_GroupDeserialization(t *testing.T) {
 	}
 }
 
+func TestSchemaProperty_OrderDeserialization(t *testing.T) {
+	jsonStr := `{
+		"type": "object",
+		"x-groups": ["network", "gameplay"],
+		"properties": {
+			"port": {"type": "integer", "title": "Port", "x-group": "network", "x-order": 1},
+			"motd": {"type": "string", "title": "MOTD", "x-order": 5},
+			"pvp":  {"type": "boolean", "title": "PvP"}
+		}
+	}`
+	var schema SchemaDefinition
+	errUnmarshal := json.Unmarshal([]byte(jsonStr), &schema)
+	if errUnmarshal != nil {
+		t.Fatalf("unmarshal error: %v", errUnmarshal)
+	}
+
+	// Verify x-groups on SchemaDefinition.
+	if len(schema.Groups) != 2 {
+		t.Fatalf("groups length = %d, want 2", len(schema.Groups))
+	}
+	if schema.Groups[0] != "network" || schema.Groups[1] != "gameplay" {
+		t.Errorf("groups = %v, want [network, gameplay]", schema.Groups)
+	}
+
+	// Verify x-order on properties.
+	portProp := schema.Properties["port"]
+	if portProp.Order == nil {
+		t.Fatal("port order is nil, want 1")
+	}
+	if *portProp.Order != 1 {
+		t.Errorf("port order = %d, want 1", *portProp.Order)
+	}
+
+	motdProp := schema.Properties["motd"]
+	if motdProp.Order == nil {
+		t.Fatal("motd order is nil, want 5")
+	}
+	if *motdProp.Order != 5 {
+		t.Errorf("motd order = %d, want 5", *motdProp.Order)
+	}
+
+	// Verify nil order when x-order is absent.
+	pvpProp := schema.Properties["pvp"]
+	if pvpProp.Order != nil {
+		t.Errorf("pvp order = %v, want nil", pvpProp.Order)
+	}
+}
+
 func testResolver(source string) (string, bool) {
 	sources := map[string]string{
 		"game_server.ip":         "192.168.1.1",
@@ -373,9 +421,9 @@ func TestValidateFields_IntegerBelowMinimum(t *testing.T) {
 	}
 }
 
-func TestValidateFields_InvalidEnum(t *testing.T) {
+func TestValidateFields_NonEnumValueAllowed(t *testing.T) {
 	fields := []FieldData{
-		{Key: "gamemode", Value: "invalid_mode"},
+		{Key: "gamemode", Value: "modded_mode"},
 	}
 	schema := SchemaDefinition{
 		Type: "object",
@@ -385,8 +433,8 @@ func TestValidateFields_InvalidEnum(t *testing.T) {
 	}
 
 	errs := ValidateFields(fields, schema)
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d: %v", len(errs), errs)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors (enum values are suggestions), got %d: %v", len(errs), errs)
 	}
 }
 
@@ -548,5 +596,277 @@ func TestValidateFields_InvalidInteger(t *testing.T) {
 	errs := ValidateFields(fields, schema)
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 error, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestMatchFields_RespectsXOrderAndXGroups(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{
+		{Key: "motd", Value: "Hello"},
+		{Key: "port", Value: "25565"},
+		{Key: "ip", Value: "0.0.0.0"},
+	}
+	schema := SchemaDefinition{
+		Type:   "object",
+		Groups: []string{"network", "gameplay"},
+		Properties: map[string]SchemaProperty{
+			"motd": {Type: "string", Title: "MOTD", Group: "gameplay", Order: int32Ptr(0)},
+			"port": {Type: "integer", Title: "Port", Group: "network", Order: int32Ptr(1)},
+			"ip":   {Type: "string", Title: "IP", Group: "network", Order: int32Ptr(0)},
+		},
+	}
+
+	result := MatchFields(entries, schema, nil, testResolver)
+
+	wantKeys := []string{"ip", "port", "motd"}
+	if len(result.Fields) != 3 {
+		t.Fatalf("expected 3 fields, got %d", len(result.Fields))
+	}
+	for i, f := range result.Fields {
+		if f.Key != wantKeys[i] {
+			t.Errorf("result.Fields[%d].Key = %q, want %q", i, f.Key, wantKeys[i])
+		}
+	}
+}
+
+func TestMatchFields_SchemaOnlyFieldsSortedByOrder(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"z-field": {Type: "string", Order: int32Ptr(2)},
+			"a-field": {Type: "string", Order: int32Ptr(0)},
+			"m-field": {Type: "string", Order: int32Ptr(1)},
+		},
+	}
+
+	result := MatchFields(entries, schema, nil, testResolver)
+
+	wantKeys := []string{"a-field", "m-field", "z-field"}
+	if len(result.Fields) != 3 {
+		t.Fatalf("expected 3 fields, got %d", len(result.Fields))
+	}
+	for i, f := range result.Fields {
+		if f.Key != wantKeys[i] {
+			t.Errorf("result.Fields[%d].Key = %q, want %q", i, f.Key, wantKeys[i])
+		}
+	}
+}
+
+func TestMatchFields_OrderPropagatedToFieldData(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{
+		{Key: "motd", Value: "Hello World"},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"motd": {Type: "string", Title: "MOTD", Order: int32Ptr(5)},
+		},
+	}
+
+	result := MatchFields(entries, schema, nil, testResolver)
+
+	if len(result.Fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(result.Fields))
+	}
+	if result.Fields[0].Order == nil {
+		t.Fatal("expected Order to be non-nil")
+	}
+	if *result.Fields[0].Order != 5 {
+		t.Errorf("Order = %d, want 5", *result.Fields[0].Order)
+	}
+}
+
+func TestMatchFields_MixedOrderedAndUnorderedFields(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{
+		{Key: "motd", Value: "Hello"},
+		{Key: "port", Value: "25565"},
+		{Key: "pvp", Value: "true"},
+		{Key: "difficulty", Value: "hard"},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"motd":       {Type: "string", Title: "MOTD"},
+			"port":       {Type: "integer", Title: "Port", Order: int32Ptr(0)},
+			"pvp":        {Type: "boolean", Title: "PvP"},
+			"difficulty": {Type: "string", Title: "Difficulty", Order: int32Ptr(1)},
+		},
+	}
+
+	result := MatchFields(entries, schema, nil, testResolver)
+
+	if len(result.Fields) != 4 {
+		t.Fatalf("expected 4 fields, got %d", len(result.Fields))
+	}
+
+	// Ordered fields (port=0, difficulty=1) should come before unordered fields.
+	// Unordered fields preserve their relative order from the file.
+	wantKeys := []string{"port", "difficulty", "motd", "pvp"}
+	for i, want := range wantKeys {
+		if result.Fields[i].Key != want {
+			t.Errorf("result.Fields[%d].Key = %q, want %q", i, result.Fields[i].Key, want)
+		}
+	}
+}
+
+func TestMatchFields_GroupOrderWithMixedFileAndSchemaOnlyFields(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{
+		{Key: "motd", Value: "Hello"},
+		{Key: "port", Value: "25565"},
+	}
+	schema := SchemaDefinition{
+		Type:   "object",
+		Groups: []string{"network", "gameplay"},
+		Properties: map[string]SchemaProperty{
+			"port":       {Type: "integer", Title: "Port", Group: "network", Order: int32Ptr(0)},
+			"ip":         {Type: "string", Title: "IP", Group: "network", Order: int32Ptr(1), Default: "0.0.0.0"},
+			"motd":       {Type: "string", Title: "MOTD", Group: "gameplay", Order: int32Ptr(0)},
+			"difficulty": {Type: "string", Title: "Difficulty", Group: "gameplay", Order: int32Ptr(1), Default: "normal"},
+		},
+	}
+
+	result := MatchFields(entries, schema, nil, testResolver)
+
+	if len(result.Fields) != 4 {
+		t.Fatalf("expected 4 fields, got %d", len(result.Fields))
+	}
+
+	// Network group first (port from file, ip schema-only), then gameplay group
+	// (motd from file, difficulty schema-only).
+	wantKeys := []string{"port", "ip", "motd", "difficulty"}
+	for i, want := range wantKeys {
+		if result.Fields[i].Key != want {
+			t.Errorf("result.Fields[%d].Key = %q, want %q", i, result.Fields[i].Key, want)
+		}
+	}
+
+	// Verify schema-only fields are marked correctly.
+	for _, f := range result.Fields {
+		switch f.Key {
+		case "ip", "difficulty":
+			if !f.IsMissingFromFile {
+				t.Errorf("%q should be IsMissingFromFile", f.Key)
+			}
+		case "port", "motd":
+			if f.IsMissingFromFile {
+				t.Errorf("%q should NOT be IsMissingFromFile", f.Key)
+			}
+		}
+	}
+}
+
+func TestParseConfigSchemas_RoundTripWithOrdering(t *testing.T) {
+	jsonStr := `[{
+		"path": "server.properties",
+		"format": "properties",
+		"category": "server",
+		"generate_before_start": false,
+		"schema": {
+			"type": "object",
+			"x-groups": ["network", "gameplay"],
+			"properties": {
+				"port": {"type": "integer", "title": "Port", "x-group": "network", "x-order": 0},
+				"motd": {"type": "string", "title": "MOTD", "x-group": "gameplay", "x-order": 1}
+			}
+		}
+	}]`
+
+	entries, errParse := ParseConfigSchemas(jsonStr)
+	if errParse != nil {
+		t.Fatalf("ParseConfigSchemas error: %v", errParse)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+
+	entry := entries[0]
+
+	// Verify Groups parsed correctly.
+	if len(entry.Schema.Groups) != 2 {
+		t.Fatalf("groups length = %d, want 2", len(entry.Schema.Groups))
+	}
+	if entry.Schema.Groups[0] != "network" || entry.Schema.Groups[1] != "gameplay" {
+		t.Errorf("groups = %v, want [network, gameplay]", entry.Schema.Groups)
+	}
+
+	// Verify Order parsed correctly.
+	portProp := entry.Schema.Properties["port"]
+	if portProp.Order == nil || *portProp.Order != 0 {
+		t.Errorf("port order = %v, want 0", portProp.Order)
+	}
+	motdProp := entry.Schema.Properties["motd"]
+	if motdProp.Order == nil || *motdProp.Order != 1 {
+		t.Errorf("motd order = %v, want 1", motdProp.Order)
+	}
+
+	// Verify Group parsed correctly.
+	if portProp.Group != "network" {
+		t.Errorf("port group = %q, want %q", portProp.Group, "network")
+	}
+	if motdProp.Group != "gameplay" {
+		t.Errorf("motd group = %q, want %q", motdProp.Group, "gameplay")
+	}
+
+	// Round-trip: marshal back to JSON and re-parse.
+	marshaled, errMarshal := json.Marshal(entries)
+	if errMarshal != nil {
+		t.Fatalf("json.Marshal error: %v", errMarshal)
+	}
+
+	roundTripped, errRoundTrip := ParseConfigSchemas(string(marshaled))
+	if errRoundTrip != nil {
+		t.Fatalf("round-trip ParseConfigSchemas error: %v", errRoundTrip)
+	}
+	if len(roundTripped) != 1 {
+		t.Fatalf("round-trip expected 1 entry, got %d", len(roundTripped))
+	}
+
+	rtSchema := roundTripped[0].Schema
+	if len(rtSchema.Groups) != 2 {
+		t.Fatalf("round-trip groups length = %d, want 2", len(rtSchema.Groups))
+	}
+	if rtSchema.Groups[0] != "network" || rtSchema.Groups[1] != "gameplay" {
+		t.Errorf("round-trip groups = %v, want [network, gameplay]", rtSchema.Groups)
+	}
+
+	rtPort := rtSchema.Properties["port"]
+	if rtPort.Order == nil || *rtPort.Order != 0 {
+		t.Errorf("round-trip port order = %v, want 0", rtPort.Order)
+	}
+	rtMotd := rtSchema.Properties["motd"]
+	if rtMotd.Order == nil || *rtMotd.Order != 1 {
+		t.Errorf("round-trip motd order = %v, want 1", rtMotd.Order)
+	}
+}
+
+func TestGenerateDefaultEntries_RespectsOrder(t *testing.T) {
+	entry := ConfigSchemaEntry{
+		Path:   "test.properties",
+		Format: "properties",
+		Schema: SchemaDefinition{
+			Type: "object",
+			Properties: map[string]SchemaProperty{
+				"z-field": {Type: "string", Default: "z", Order: int32Ptr(2)},
+				"a-field": {Type: "string", Default: "a", Order: int32Ptr(0)},
+				"m-field": {Type: "string", Default: "m", Order: int32Ptr(1)},
+			},
+		},
+	}
+
+	result := generateDefaultEntries(entry)
+
+	if len(result) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(result))
+	}
+
+	wantKeys := []string{"a-field", "m-field", "z-field"}
+	wantValues := []string{"a", "m", "z"}
+	for i, want := range wantKeys {
+		if result[i].Key != want {
+			t.Errorf("result[%d].Key = %q, want %q", i, result[i].Key, want)
+		}
+		if result[i].Value != wantValues[i] {
+			t.Errorf("result[%d].Value = %q, want %q", i, result[i].Value, wantValues[i])
+		}
 	}
 }

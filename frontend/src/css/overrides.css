@@ -80,6 +80,27 @@ a.q-item:hover {
     opacity: 0.6 !important;
 }
 
+/* ---- Menus (select dropdowns, context menus) ---- */
+.body--dark .q-menu {
+  background-color: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  box-shadow: var(--xy-shadow-lg);
+}
+
+.q-menu .q-item {
+  color: var(--xy-text-primary);
+  transition: background-color var(--xy-transition-fast);
+}
+
+.q-menu .q-item:hover,
+.q-menu .q-item--active {
+  background-color: var(--xy-surface-3);
+}
+
+.q-menu .q-item.q-manual-focusable--focused {
+  background-color: var(--xy-surface-3);
+}
+
 /* ---- Cards ---- */
 .q-card.q-dark {
     background-color: var(--xy-surface-1);

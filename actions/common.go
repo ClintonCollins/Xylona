@@ -15,6 +15,7 @@ type OSType string
 const (
 	Windows OSType = "windows"
 	Linux   OSType = "linux"
+	Darwin  OSType = "darwin"
 )
 
 var (
@@ -22,19 +23,29 @@ var (
 )
 
 func init() {
-	switch runtime.GOOS {
-	case "windows":
-		OperatingSystem = Windows
-	case "linux":
-		OperatingSystem = Linux
-	default:
+	osType, ok := detectOperatingSystem(runtime.GOOS)
+	if !ok {
 		log.Error().Str("OS", runtime.GOOS).Msg("Unsupported operating system")
 		os.Exit(1)
+	}
+	OperatingSystem = osType
+}
+
+func detectOperatingSystem(goos string) (OSType, bool) {
+	switch goos {
+	case "windows":
+		return Windows, true
+	case "linux":
+		return Linux, true
+	case "darwin":
+		return Darwin, true
+	default:
+		return "", false
 	}
 }
 
 func DefaultInstallPath() string {
-	if OperatingSystem == Linux {
+	if OperatingSystem == Linux || OperatingSystem == Darwin {
 		home := os.Getenv("HOME")
 		user := os.Getenv("USER")
 		if home == "" && user == "" {

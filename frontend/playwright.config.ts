@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const BASE_URL = 'https://localhost:9000'
+const BASE_URL = 'https://localhost:9002'
 
 export default defineConfig({
   testDir: './e2e',
@@ -8,11 +8,12 @@ export default defineConfig({
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 2 : 0,
   workers: 1,
-  reporter: [['html', { outputFolder: 'e2e/playwright-report', open: 'never' }]],
+  reporter: [['list'], ['html', { outputFolder: 'e2e/playwright-report', open: 'never' }]],
   outputDir: 'e2e/test-results',
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
+    actionTimeout: 10_000,
     ignoreHTTPSErrors: true,
   },
   globalSetup: './e2e/global-setup.ts',
@@ -33,10 +34,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm run dev',
+    command: 'pnpm exec quasar dev -p 9002',
     url: BASE_URL,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     ignoreHTTPSErrors: true,
     timeout: 120_000,
+    env: {
+      BACKEND_URL: 'http://localhost:9091',
+    },
   },
 })

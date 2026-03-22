@@ -94,6 +94,66 @@ func ValidateConfigSchemas(schemasJSON string) []string {
 				}
 			}
 		}
+
+		// Validate schema properties.
+		if len(entry.Schema) > 0 {
+			var schemaDef struct {
+				Properties map[string]struct {
+					Enum       []any    `json:"enum"`
+					EnumLabels []string `json:"x-enum-labels"`
+				} `json:"properties"`
+			}
+			errSchemaParse := json.Unmarshal(entry.Schema, &schemaDef)
+			if errSchemaParse == nil && schemaDef.Properties != nil {
+				for propKey, prop := range schemaDef.Properties {
+					if len(prop.EnumLabels) > 0 && len(prop.Enum) == 0 {
+						errs = append(errs, fmt.Sprintf(
+							"%s: property %q has x-enum-labels but no enum values",
+							prefix, propKey))
+					}
+					if len(prop.EnumLabels) > 0 && len(prop.Enum) > 0 && len(prop.EnumLabels) != len(prop.Enum) {
+						errs = append(errs, fmt.Sprintf(
+							"%s: property %q x-enum-labels length (%d) must match enum length (%d)",
+							prefix, propKey, len(prop.EnumLabels), len(prop.Enum)))
+					}
+				}
+			}
+		}
+
+		// Validate x-groups.
+		var schemaWithGroups struct {
+			Groups []string `json:"x-groups"`
+		}
+		if len(entry.Schema) > 0 {
+			_ = json.Unmarshal(entry.Schema, &schemaWithGroups)
+		}
+		seenGroups := map[string]bool{}
+		for _, g := range schemaWithGroups.Groups {
+			if g == "" {
+				errs = append(errs, fmt.Sprintf("%s: x-groups must not contain empty strings", prefix))
+			}
+			if seenGroups[g] {
+				errs = append(errs, fmt.Sprintf("%s: duplicate group %q in x-groups", prefix, g))
+			}
+			seenGroups[g] = true
+		}
+
+		// Validate x-order on properties.
+		var schemaWithOrder struct {
+			Properties map[string]struct {
+				Order *int32 `json:"x-order"`
+			} `json:"properties"`
+		}
+		if len(entry.Schema) > 0 {
+			_ = json.Unmarshal(entry.Schema, &schemaWithOrder)
+		}
+		for propKey, prop := range schemaWithOrder.Properties {
+			if prop.Order != nil && *prop.Order < 0 {
+				errs = append(errs, fmt.Sprintf(
+					"%s: property %q x-order must be non-negative, got %d",
+					prefix, propKey, *prop.Order))
+			}
+		}
 	}
 
 	return errs

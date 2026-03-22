@@ -11,7 +11,7 @@
           color="primary"
           placeholder="Search..."
           aria-label="Search users"
-          style="min-width: 200px">
+          class="xy-search-input">
           <template #append>
             <q-icon name="search" />
           </template>

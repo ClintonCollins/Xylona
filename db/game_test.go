@@ -1,7 +1,6 @@
 package db
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -11,22 +10,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// addMissingGameColumns adds columns present in the ORM model but missing
-// from the SQL migrations so that ORM-driven queries work in tests.
-func addMissingGameColumns(t *testing.T, conn *Connection) {
-	t.Helper()
-	_, errAlter := conn.SQLDb.ExecContext(
-		context.Background(),
-		`ALTER TABLE game ADD COLUMN binds_to_all_ips boolean NOT NULL DEFAULT false`,
-	)
-	if errAlter != nil {
-		t.Fatalf("failed to add missing binds_to_all_ips column: %v", errAlter)
-	}
-}
-
 func TestInsertGameAndGetGameByID(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "game-insert.sqlite")
-	addMissingGameColumns(t, conn)
 
 	setter := &models.GameSetter{
 		ID:                omit.From("test-game"),
@@ -62,7 +47,6 @@ func TestInsertGameAndGetGameByID(t *testing.T) {
 
 func TestGetGameByIDNotFound(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "game-not-found.sqlite")
-	addMissingGameColumns(t, conn)
 
 	_, errGet := conn.GetGameByID("nonexistent")
 	if !errors.Is(errGet, sql.ErrNoRows) {
@@ -72,7 +56,6 @@ func TestGetGameByIDNotFound(t *testing.T) {
 
 func TestGetGames(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "game-list.sqlite")
-	addMissingGameColumns(t, conn)
 
 	// The migration seeds at least the "minecraft" game.
 	games, errGet := conn.GetGames()
@@ -97,7 +80,6 @@ func TestGetGames(t *testing.T) {
 
 func TestUpdateGame(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "game-update.sqlite")
-	addMissingGameColumns(t, conn)
 
 	setter := &models.GameSetter{
 		ID:                omit.From("update-game"),
@@ -134,7 +116,6 @@ func TestUpdateGame(t *testing.T) {
 
 func TestDeleteGameByID(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "game-delete.sqlite")
-	addMissingGameColumns(t, conn)
 
 	setter := &models.GameSetter{
 		ID:                omit.From("delete-game"),
@@ -162,7 +143,6 @@ func TestDeleteGameByID(t *testing.T) {
 
 func TestInsertGameDuplicateID(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "game-dup.sqlite")
-	addMissingGameColumns(t, conn)
 
 	setter := &models.GameSetter{
 		ID:                omit.From("dup-game"),

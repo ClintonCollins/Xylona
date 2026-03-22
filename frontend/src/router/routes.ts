@@ -106,6 +106,11 @@ const routes: RouteRecordRaw[] = [
             component: () => import('pages/game_servers/GameServerSettings.vue'),
           },
           {
+            path: 'mods',
+            name: 'game-server-mods',
+            component: () => import('pages/game_servers/GameServerMods.vue'),
+          },
+          {
             path: 'access',
             component: () => import('components/game_servers/GameServerAccess.vue'),
           },
@@ -153,6 +158,11 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/admin/users/:id/edit',
         component: () => import('pages/admin/UserEdit.vue'),
+        beforeEnter: requireSuperUser,
+      },
+      {
+        path: '/admin/settings',
+        component: () => import('pages/admin/NodeSettings.vue'),
         beforeEnter: requireSuperUser,
       },
     ],

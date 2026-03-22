@@ -26,7 +26,6 @@ func insertTestGameForConfig(t *testing.T, conn *Connection, id string) {
 
 func TestGetGameConfigSchemas_ReturnsEmptyForNewGame(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "cfg-schema-read.sqlite")
-	addMissingGameColumns(t, conn)
 	insertTestGameForConfig(t, conn, "test-game")
 
 	schemas, errGet := conn.GetGameConfigSchemas("test-game")
@@ -40,7 +39,6 @@ func TestGetGameConfigSchemas_ReturnsEmptyForNewGame(t *testing.T) {
 
 func TestUpdateGameConfigSchemas_RoundTrip(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "cfg-schema-update.sqlite")
-	addMissingGameColumns(t, conn)
 	insertTestGameForConfig(t, conn, "test-game")
 
 	schemasJSON := `[{"path":"server.properties","format":"properties","category":"Core"}]`
@@ -61,7 +59,6 @@ func TestUpdateGameConfigSchemas_RoundTrip(t *testing.T) {
 
 func TestUpdateGameConfigSchemas_ClearWithEmpty(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "cfg-schema-clear.sqlite")
-	addMissingGameColumns(t, conn)
 	insertTestGameForConfig(t, conn, "test-game")
 
 	// Set schemas, then clear.

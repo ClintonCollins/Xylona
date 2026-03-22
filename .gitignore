@@ -18,3 +18,5 @@ data.sqlite
 /.superpowers/
 /notes.md
 /frontend/mockups
+/.e2e-data/
+/coverage

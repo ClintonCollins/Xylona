@@ -74,6 +74,7 @@ message Game {
   bool uses_steamcmd = 32;
   string steam_appid = 33;
   string config_schemas = 70; // JSON blob, parsed by application layer
+  string server_software = 71; // JSON blob, parsed by application layer
 }
 
 message SteamApp {
@@ -104,6 +105,7 @@ enum Status {
   ONLINE = 2;
   INSTALLING = 3;
   UPDATING = 4;
+  PRE_START = 5;
 }
 
 message GameServerPlayer {
@@ -163,6 +165,8 @@ message GameServer {
   double io_write_rate = 41;
   int32 connection_count = 42;
   repeated string effective_permissions = 43;
+  string server_software = 44;
+  Game game = 45;
 }
 
 message IP {
@@ -345,4 +349,102 @@ message GameServerMetricsHistoryPoint {
   double memory_percent = 4;
   int64 disk_usage_bytes = 5;
   int32 player_count = 6;
+}
+
+message InstalledMod {
+  string id = 1;
+  string game_server_id = 2;
+  string source = 3;
+  string source_id = 4;
+  string mod_name = 5;
+  string mod_author = 6;
+  string installed_version = 7;
+  string installed_version_id = 8;
+  string file_hash = 9;
+  bool auto_update = 10;
+  bool enabled = 11;
+  string pinned_version = 12;
+  bool update_available = 13;
+  string latest_version = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+  repeated InstalledModFile files = 17;
+}
+
+message InstalledModFile {
+  string id = 1;
+  string installed_mod_id = 2;
+  string file_path = 3;
+  string file_hash = 4;
+  int64 file_size = 5;
+  bool is_primary = 6;
+}
+
+message ModSearchResult {
+  string source = 1;
+  string source_id = 2;
+  string name = 3;
+  string author = 4;
+  string description = 5;
+  string icon_url = 6;
+  int64 downloads = 7;
+  string latest_version = 8;
+  repeated string compatible_versions = 9;
+  bool is_installed = 10;
+}
+
+message ModDetails {
+  string source = 1;
+  string source_id = 2;
+  string name = 3;
+  string author = 4;
+  string description = 5;
+  string body = 6;
+  string icon_url = 7;
+  int64 downloads = 8;
+  repeated string gallery_images = 9;
+  repeated string categories = 10;
+  string license = 11;
+  string source_url = 12;
+  repeated ModVersion versions = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message ModVersion {
+  string version_id = 1;
+  string version_string = 2;
+  repeated string game_versions = 3;
+  string download_url = 4;
+  int64 file_size = 5;
+  repeated ModDependency dependencies = 6;
+  string changelog = 7;
+  google.protobuf.Timestamp published_at = 8;
+}
+
+message ModDependency {
+  string source_id = 1;
+  string name = 2;
+  bool required = 3;
+}
+
+message NodeApiKey {
+  string id = 1;
+  string service_name = 2;
+  string masked_key = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message ServerSoftwareOption {
+  string id = 1;
+  string name = 2;
+  string jar_source = 3;
+  bool has_mod_support = 4;
+}
+
+message SoftwareVersion {
+  string version_id = 1;
+  string version_string = 2;
+  int32 build_number = 3;
+  string channel = 4;
 }

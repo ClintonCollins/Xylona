@@ -22,6 +22,8 @@ type preloaders struct {
 	Game                     gamePreloader
 	GameServer               gameServerPreloader
 	GameServerMetricsHistory gameServerMetricsHistoryPreloader
+	InstalledMod             installedModPreloader
+	InstalledModFile         installedModFilePreloader
 	IP                       ipPreloader
 	Log                      logPreloader
 	Node                     nodePreloader
@@ -45,6 +47,8 @@ func getPreloaders() preloaders {
 		Game:                     buildGamePreloader(),
 		GameServer:               buildGameServerPreloader(),
 		GameServerMetricsHistory: buildGameServerMetricsHistoryPreloader(),
+		InstalledMod:             buildInstalledModPreloader(),
+		InstalledModFile:         buildInstalledModFilePreloader(),
 		IP:                       buildIPPreloader(),
 		Log:                      buildLogPreloader(),
 		Node:                     buildNodePreloader(),
@@ -74,6 +78,8 @@ type thenLoaders[Q orm.Loadable] struct {
 	Game                     gameThenLoader[Q]
 	GameServer               gameServerThenLoader[Q]
 	GameServerMetricsHistory gameServerMetricsHistoryThenLoader[Q]
+	InstalledMod             installedModThenLoader[Q]
+	InstalledModFile         installedModFileThenLoader[Q]
 	IP                       ipThenLoader[Q]
 	Log                      logThenLoader[Q]
 	Node                     nodeThenLoader[Q]
@@ -97,6 +103,8 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		Game:                     buildGameThenLoader[Q](),
 		GameServer:               buildGameServerThenLoader[Q](),
 		GameServerMetricsHistory: buildGameServerMetricsHistoryThenLoader[Q](),
+		InstalledMod:             buildInstalledModThenLoader[Q](),
+		InstalledModFile:         buildInstalledModFileThenLoader[Q](),
 		IP:                       buildIPThenLoader[Q](),
 		Log:                      buildLogThenLoader[Q](),
 		Node:                     buildNodeThenLoader[Q](),

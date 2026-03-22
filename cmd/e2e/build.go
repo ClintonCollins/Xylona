@@ -58,3 +58,28 @@ func buildFrontend(projectRoot string) error {
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
+
+// cleanFrontendDist removes the built SPA files from frontend/dist so stale
+// E2E build artifacts don't linger after teardown. It leaves a .gitkeep file
+// so the embed directive in embed.go doesn't break go build.
+func cleanFrontendDist(e2eDir string) {
+	distDir := filepath.Join(e2eDir, "..", "dist")
+	entries, errRead := os.ReadDir(distDir)
+	if errRead != nil {
+		// dist doesn't exist or can't be read — nothing to clean.
+		return
+	}
+
+	for _, entry := range entries {
+		_ = os.RemoveAll(filepath.Join(distDir, entry.Name()))
+	}
+
+	// Write a .gitkeep so embed.go's "all:frontend/dist" has at least one file.
+	errKeep := os.WriteFile(filepath.Join(distDir, ".gitkeep"), []byte(""), 0o644)
+	if errKeep != nil {
+		log.Warn().Err(errKeep).Msg("Could not write .gitkeep to frontend/dist")
+		return
+	}
+
+	log.Info().Msg("Cleaned frontend/dist (left .gitkeep for embed directive)")
+}

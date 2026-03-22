@@ -26,6 +26,26 @@
         </span>
       </div>
       <div class="field-card-actions" @click.stop>
+        <q-btn
+          flat
+          dense
+          round
+          icon="arrow_upward"
+          size="xs"
+          class="text-xy-muted"
+          @click="$emit('move-up')">
+          <q-tooltip>Move up</q-tooltip>
+        </q-btn>
+        <q-btn
+          flat
+          dense
+          round
+          icon="arrow_downward"
+          size="xs"
+          class="text-xy-muted"
+          @click="$emit('move-down')">
+          <q-tooltip>Move down</q-tooltip>
+        </q-btn>
         <q-btn flat dense round icon="delete" size="sm" color="negative" @click="$emit('remove')">
           <q-tooltip>Remove field</q-tooltip>
         </q-btn>
@@ -126,13 +146,23 @@
             </div>
 
             <!-- Enum options -->
-            <div v-if="field.type === 'string'" class="enum-section">
+            <div
+              v-if="field.type === 'string' || field.type === 'integer' || field.type === 'number'"
+              class="enum-section">
               <q-input
                 v-model="field.enumOptionsStr"
                 outlined
                 dense
                 label="Enum Options"
                 hint="Comma-separated list of allowed values (leave empty for free-text)"
+                @update:model-value="emitUpdate" />
+              <q-input
+                v-if="field.enumOptionsStr"
+                v-model="field.enumLabelsStr"
+                outlined
+                dense
+                label="Enum Labels"
+                hint="Comma-separated display labels matching each enum value (optional)"
                 @update:model-value="emitUpdate" />
             </div>
 
@@ -187,23 +217,38 @@ export interface SchemaFieldModel {
   maximum: number | null
   maxLength: number | null
   enumOptionsStr: string
+  enumLabelsStr: string
   managed: boolean
   managedSource: string
   allowMultiple: boolean
+  group: string
+  order: number
 }
 
 const props = defineProps<{
   modelValue: SchemaFieldModel
+  forceExpanded?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [field: SchemaFieldModel]
   remove: []
+  'move-up': []
+  'move-down': []
 }>()
 
 const expanded = ref(false)
 
 const field = reactive<SchemaFieldModel>({ ...props.modelValue })
+
+watch(
+  () => props.forceExpanded,
+  (val) => {
+    if (val !== undefined) {
+      expanded.value = val
+    }
+  },
+)
 
 watch(
   () => props.modelValue,
@@ -227,7 +272,10 @@ function handleTypeChange() {
   }
   if (field.type !== 'string') {
     field.maxLength = null
+  }
+  if (field.type !== 'string' && field.type !== 'integer' && field.type !== 'number') {
     field.enumOptionsStr = ''
+    field.enumLabelsStr = ''
   }
   emitUpdate()
 }

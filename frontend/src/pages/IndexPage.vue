@@ -15,11 +15,21 @@
 </template>
 
 <script setup lang="ts">
-const navItems = [
-  { to: '/game-servers', icon: 'dns', label: 'Game Servers' },
-  { to: '/games', icon: 'sports_esports', label: 'Games' },
-  { to: '/nodes', icon: 'device_hub', label: 'Nodes' },
-]
+import { computed } from 'vue'
+import { useUserAuthStore } from '@/stores/xylona'
+
+const store = useUserAuthStore()
+
+const navItems = computed(() => {
+  const items = [{ to: '/game-servers', icon: 'dns', label: 'Game Servers' }]
+  if (store.user?.superUser) {
+    items.push(
+      { to: '/games', icon: 'sports_esports', label: 'Games' },
+      { to: '/nodes', icon: 'device_hub', label: 'Nodes' },
+    )
+  }
+  return items
+})
 </script>
 
 <style scoped>

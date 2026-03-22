@@ -70,6 +70,9 @@
   --xy-transition-fast: 0.15s ease;
   --xy-transition-base: 0.25s ease;
 
+  /* ---- Animation Durations (used by keyframe animations) ---- */
+  --xy-animation-duration: 1;
+
   /* ---- Chart Palette ---- */
   --xy-chart-1: var(--xy-primary);
   --xy-chart-2: var(--xy-accent);
@@ -87,35 +90,6 @@
   --xy-font-brand: 'Zen Dots', sans-serif;
   --xy-font-mono: 'JetBrains Mono', 'Oxygen Mono', monospace;
 
-  /* ---- Backward-Compatible CSS Variable Aliases ---- */
-  /* These allow existing var(--bg-*) references to resolve to new tokens */
-  --bg-neutral-glass-3: var(--xy-surface-1);
-  --bg-neutral-glass-4: var(--xy-surface-2);
-  --bg-neutral-glass-9: var(--xy-surface-3);
-  --bg-neutral-opaque: var(--xy-surface-1);
-  --bg-neutral: var(--xy-surface-3);
-  --bg-light-grey: var(--xy-surface-4);
-  --bg-grey: var(--xy-surface-3);
-  --bg-dark-grey: var(--xy-surface-2);
-  --bg-toolbar: var(--xy-surface-2);
-  --bg-sub-toolbar: var(--xy-surface-1);
-  --bg-main-brigther: var(--xy-primary-hover);
-  --bg-main-brighter: var(--xy-primary-hover);
-  --bg-main: var(--xy-primary);
-  --bg-main-darker: var(--xy-primary-darker);
-  --bg-success-brighter: var(--xy-success-hover);
-  --bg-success: var(--xy-success);
-  --bg-success-darker: var(--xy-success-darker);
-  --bg-error-brighter: var(--xy-danger-hover);
-  --bg-error: var(--xy-danger);
-  --bg-error-darker: var(--xy-danger-darker);
-  --bg-alert-brighter: var(--xy-warning-hover);
-  --bg-alert: var(--xy-warning);
-  --bg-alert-darker: var(--xy-warning-darker);
-  --bg-success-notification: rgba(34, 197, 94, 0.15);
-  --bg-error-notification: rgba(239, 68, 68, 0.15);
-  --bg-alert-notification: rgba(245, 158, 11, 0.15);
-  --bg-info-notification: rgba(6, 182, 212, 0.15);
 }
 
 /* ==========================================================================
@@ -170,59 +144,17 @@
 }
 
 /* ==========================================================================
-   Backward-Compatible Aliases (old custom.variables.css classes)
-   These map old class names to the new token system so existing
-   component references continue to work during migration.
+   Legacy Class Aliases (still referenced — migrate then remove)
    ========================================================================== */
 
-/* Toolbar aliases */
 .bg-toolbar { background-color: var(--xy-surface-2); }
-.bg-sub-toolbar { background-color: var(--xy-surface-1); }
-.text-toolbar { color: var(--xy-surface-2); }
-.text-sub-toolbar { color: var(--xy-surface-1); }
-
-/* Success aliases */
 .bg-success { background-color: var(--xy-success); }
-.bg-success-brighter { background-color: var(--xy-success-hover); }
 .bg-success-darker { background-color: var(--xy-success-darker); }
-.text-success { color: var(--xy-success); }
-.text-success-brighter { color: var(--xy-success-hover); }
-.text-success-darker { color: var(--xy-success-darker); }
-
-/* Error / Danger aliases */
-.bg-error { background-color: var(--xy-danger); }
-.bg-error-brighter { background-color: var(--xy-danger-hover); }
-.bg-error-darker { background-color: var(--xy-danger-darker); }
-.text-error { color: var(--xy-danger); }
-.text-error-brighter { color: var(--xy-danger-hover); }
-.text-error-darker { color: var(--xy-danger-darker); }
-
-/* Alert / Warning aliases */
-.bg-alert { background-color: var(--xy-warning); }
 .bg-alert-brighter { background-color: var(--xy-warning-hover); }
-.bg-alert-darker { background-color: var(--xy-warning-darker); }
-.text-alert { color: var(--xy-warning); }
+.text-success-brighter { color: var(--xy-success-hover); }
+.text-error-brighter { color: var(--xy-danger-hover); }
 .text-alert-brighter { color: var(--xy-warning-hover); }
-.text-alert-darker { color: var(--xy-warning-darker); }
-
-/* Main / Primary aliases */
-.bg-main { background-color: var(--xy-primary); }
-.bg-main-brighter { background-color: var(--xy-primary-hover); }
-.bg-main-darker { background-color: var(--xy-primary-darker); }
-.text-main { color: var(--xy-primary); }
 .text-main-brighter { color: var(--xy-primary-hover); }
-.text-main-darker { color: var(--xy-primary-darker); }
-
-/* Neutral / Glass aliases (opaque replacements) */
-.bg-neutral-glass-3 { background-color: var(--xy-surface-1); }
-.bg-neutral-glass-4 { background-color: var(--xy-surface-2); }
-.bg-neutral-glass-9 { background-color: var(--xy-surface-3); }
-.bg-neutral { background-color: var(--xy-surface-3); }
-
-/* Grey aliases */
-.bg-light-grey { background-color: var(--xy-surface-4); }
-.bg-grey { background-color: var(--xy-surface-3); }
-.bg-dark-grey { background-color: var(--xy-surface-2); }
 
 /* ==========================================================================
    Page Layout Utilities
@@ -280,5 +212,33 @@
   height: 1px;
   background-color: var(--xy-border);
   margin: var(--xy-space-sm) var(--xy-space-md);
+}
+
+/* Search input used inside page headers / toolbars */
+.xy-search-input {
+  min-width: 200px;
+}
+
+/* ==========================================================================
+   Reduced Motion
+   Zeroes out token-based transitions and suppresses animations globally
+   when the user prefers reduced motion.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --xy-transition-fast: 0s;
+    --xy-transition-base: 0s;
+    --xy-animation-duration: 0;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 

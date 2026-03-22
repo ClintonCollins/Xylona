@@ -36,6 +36,8 @@ type joins[Q dialect.Joinable] struct {
 	Games                      joinSet[gameJoins[Q]]
 	GameServers                joinSet[gameServerJoins[Q]]
 	GameServerMetricsHistories joinSet[gameServerMetricsHistoryJoins[Q]]
+	InstalledMods              joinSet[installedModJoins[Q]]
+	InstalledModFiles          joinSet[installedModFileJoins[Q]]
 	Ips                        joinSet[ipJoins[Q]]
 	Logs                       joinSet[logJoins[Q]]
 	Nodes                      joinSet[nodeJoins[Q]]
@@ -67,6 +69,8 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		Games:                      buildJoinSet[gameJoins[Q]](Games.Columns, buildGameJoins),
 		GameServers:                buildJoinSet[gameServerJoins[Q]](GameServers.Columns, buildGameServerJoins),
 		GameServerMetricsHistories: buildJoinSet[gameServerMetricsHistoryJoins[Q]](GameServerMetricsHistories.Columns, buildGameServerMetricsHistoryJoins),
+		InstalledMods:              buildJoinSet[installedModJoins[Q]](InstalledMods.Columns, buildInstalledModJoins),
+		InstalledModFiles:          buildJoinSet[installedModFileJoins[Q]](InstalledModFiles.Columns, buildInstalledModFileJoins),
 		Ips:                        buildJoinSet[ipJoins[Q]](Ips.Columns, buildIPJoins),
 		Logs:                       buildJoinSet[logJoins[Q]](Logs.Columns, buildLogJoins),
 		Nodes:                      buildJoinSet[nodeJoins[Q]](Nodes.Columns, buildNodeJoins),

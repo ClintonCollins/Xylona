@@ -108,7 +108,16 @@ func GameServerModelToProto(gsModel *models.GameServer) *xylona.GameServer {
 		NodeHost:                  gsModel.R.Node.Host,
 		NodePort:                  gsModel.R.Node.Port,
 		Version:                   gsModel.Version,
+		ServerSoftware:            gsModel.ServerSoftware.GetOr(""),
+		Game:                      gameProtoFromRelation(gsModel),
 	}
+}
+
+func gameProtoFromRelation(gsModel *models.GameServer) *xylona.Game {
+	if gsModel.R.Game == nil {
+		return nil
+	}
+	return GameModelToProto(gsModel.R.Game)
 }
 
 func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSetter {
@@ -167,6 +176,7 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		UsesSourceQuery:                   gameModel.UsesSourceQuery,
 		RequiresSteamGameServerLoginToken: gameModel.RequiresSteamGameServerLoginToken,
 		ConfigSchemas:                     gameModel.ConfigSchemas.GetOr(""),
+		ServerSoftware:                    gameModel.ServerSoftware.GetOr(""),
 	}
 }
 
@@ -200,6 +210,7 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		UsesSourceQuery:                   gameProto.UsesSourceQuery,
 		RequiresSteamGameServerLoginToken: gameProto.RequiresSteamGameServerLoginToken,
 		ConfigSchemas:                     null.FromCond(gameProto.ConfigSchemas, gameProto.ConfigSchemas != ""),
+		ServerSoftware:                    null.FromCond(gameProto.ServerSoftware, gameProto.ServerSoftware != ""),
 	}
 }
 
@@ -233,6 +244,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		WindowsUpdateCommandType:          omit.From(gameModel.WindowsUpdateCommandType),
 		WindowsWorkingDirectory:           omit.From(gameModel.WindowsWorkingDirectory),
 		ConfigSchemas:                     omitnull.FromNull(gameModel.ConfigSchemas),
+		ServerSoftware:                    omitnull.FromNull(gameModel.ServerSoftware),
 		CreatedAt:                         omit.From(time.Now()),
 		UpdatedAt:                         omit.From(time.Now()),
 	}
@@ -379,6 +391,52 @@ func RemoteServerCacheToProto(rsc *models.RemoteServerCache, node *models.Node) 
 		NodeId:             node.ID,
 		NodeName:           node.Name,
 		NodeHost:           node.BaseURL,
+	}
+}
+
+func InstalledModModelToProto(mod *models.InstalledMod) *xylona.InstalledMod {
+	return &xylona.InstalledMod{
+		Id:                 mod.ID,
+		GameServerId:       mod.GameServerID,
+		Source:             mod.Source,
+		SourceId:           mod.SourceID,
+		ModName:            mod.ModName,
+		ModAuthor:          mod.ModAuthor,
+		InstalledVersion:   mod.InstalledVersion,
+		InstalledVersionId: mod.InstalledVersionID,
+		FileHash:           mod.FileHash,
+		AutoUpdate:         mod.AutoUpdate != 0,
+		Enabled:            mod.Enabled != 0,
+		PinnedVersion:      mod.PinnedVersion.GetOr(""),
+		UpdateAvailable:    false,
+		LatestVersion:      "",
+		CreatedAt:          timestamppb.New(mod.CreatedAt),
+		UpdatedAt:          timestamppb.New(mod.UpdatedAt),
+	}
+}
+
+func InstalledModFileModelToProto(file *models.InstalledModFile) *xylona.InstalledModFile {
+	return &xylona.InstalledModFile{
+		Id:             file.ID,
+		InstalledModId: file.InstalledModID,
+		FilePath:       file.FilePath,
+		FileHash:       file.FileHash,
+		FileSize:       file.FileSize,
+		IsPrimary:      file.IsPrimary != 0,
+	}
+}
+
+func NodeApiKeyModelToProto(key *models.NodeAPIKey) *xylona.NodeApiKey {
+	maskedKey := "****"
+	if len(key.APIKey) >= 4 {
+		maskedKey = key.APIKey[:4] + "****"
+	}
+	return &xylona.NodeApiKey{
+		Id:          key.ID,
+		ServiceName: key.ServiceName,
+		MaskedKey:   maskedKey,
+		CreatedAt:   timestamppb.New(key.CreatedAt),
+		UpdatedAt:   timestamppb.New(key.UpdatedAt),
 	}
 }
 

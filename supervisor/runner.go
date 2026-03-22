@@ -348,6 +348,14 @@ func (c *Command) sendJobNotification(message string) {
 	})
 }
 
+// SendOutput injects a message into the command's console output stream,
+// writing it to the output buffer and broadcasting it to all output listeners.
+// This allows external callers (e.g., the actions layer) to surface status
+// messages in the game server console without routing through stdin.
+func (c *Command) SendOutput(message string) {
+	c.sendJobNotification(message)
+}
+
 func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(command *Command)) {
 	defer func(command *Command) {
 		if command.inputMethod.Type == InputTypeTelnet {

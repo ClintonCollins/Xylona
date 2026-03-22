@@ -1,3 +1,4 @@
+// Package steamcache provides Steam app detail lookups via the api.steamcmd.net API.
 package steamcache
 
 import (
@@ -6,18 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	maxSearchResults = 20
-	refreshInterval  = 24 * time.Hour
-	detailsURLFmt    = "https://api.steamcmd.net/v1/info/%s"
-	appListURL       = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
-)
+const defaultDetailsURLFmt = "https://api.steamcmd.net/v1/info/%s"
 
 // SteamApp represents a Steam application with its ID and name.
 type SteamApp struct {
@@ -37,6 +31,7 @@ type LaunchConfig struct {
 type SteamAppDetails struct {
 	AppID            string
 	Name             string
+	Type             string // e.g., "Game", "Tool"
 	WindowsSupport   bool
 	LinuxSupport     bool
 	InstallDirectory string
@@ -44,124 +39,32 @@ type SteamAppDetails struct {
 	LaunchConfigs    []LaunchConfig
 }
 
-// Fetcher defines the interface for fetching Steam app data.
-type Fetcher interface {
-	FetchAppList(ctx context.Context) ([]SteamApp, error)
+// Client provides Steam app lookups via the api.steamcmd.net API.
+type Client struct {
+	detailsURLFmt string
 }
 
-// Cache holds a cached list of Steam apps and provides search functionality.
-type Cache struct {
-	fetcher Fetcher
-	mu      sync.RWMutex
-	apps    []SteamApp
-}
-
-// New creates a new Cache with the given Fetcher.
-func New(fetcher Fetcher) *Cache {
-	return &Cache{
-		fetcher: fetcher,
+// New creates a new Client.
+func New() *Client {
+	return &Client{
+		detailsURLFmt: defaultDetailsURLFmt,
 	}
 }
 
-// FilterApps filters a list of SteamApp entries to those containing
-// "server" or "dedicated" in their name (case-insensitive).
-func FilterApps(apps []SteamApp) []SteamApp {
-	var filtered []SteamApp
-	for _, app := range apps {
-		lower := strings.ToLower(app.Name)
-		if strings.Contains(lower, "server") || strings.Contains(lower, "dedicated") {
-			filtered = append(filtered, app)
-		}
-	}
-	return filtered
-}
-
-// Start performs an initial fetch and then refreshes every 24 hours in the
-// background. It returns when the context is cancelled.
-func (c *Cache) Start(ctx context.Context) {
-	errLoad := c.loadApps(ctx)
-	if errLoad != nil {
-		log.Error().Err(errLoad).Msg("steamcache: initial app list fetch failed")
-	}
-
-	ticker := time.NewTicker(refreshInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			errRefresh := c.loadApps(ctx)
-			if errRefresh != nil {
-				log.Error().Err(errRefresh).Msg("steamcache: refresh failed, keeping existing data")
-			}
-		}
-	}
-}
-
-// loadApps fetches apps from the fetcher and updates the cache.
-// On failure it returns the error without clearing existing cached data.
-func (c *Cache) loadApps(ctx context.Context) error {
-	apps, errFetch := c.fetcher.FetchAppList(ctx)
-	if errFetch != nil {
-		return fmt.Errorf("fetching app list: %w", errFetch)
-	}
-
-	c.mu.Lock()
-	c.apps = apps
-	c.mu.Unlock()
-
-	return nil
-}
-
-// Search returns apps whose name contains the query (case-insensitive),
-// up to a maximum of 20 results. Returns nil for empty queries.
-func (c *Cache) Search(query string) []SteamApp {
-	if query == "" {
-		return nil
-	}
-
-	lowerQuery := strings.ToLower(query)
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	var results []SteamApp
-	for _, app := range c.apps {
-		if strings.Contains(strings.ToLower(app.Name), lowerQuery) {
-			results = append(results, app)
-			if len(results) >= maxSearchResults {
-				break
-			}
-		}
-	}
-	return results
-}
-
-// FindByID returns the cached SteamApp with the given appID, or nil if not found.
-func (c *Cache) FindByID(appID string) *SteamApp {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	for _, app := range c.apps {
-		if app.AppID == appID {
-			return &app
-		}
-	}
-	return nil
+func (c *Client) client() *http.Client {
+	return http.DefaultClient
 }
 
 // FetchDetails retrieves detailed information about a Steam app from the
 // steamcmd.net API.
-func (c *Cache) FetchDetails(ctx context.Context, appID string) (*SteamAppDetails, error) {
-	url := fmt.Sprintf(detailsURLFmt, appID)
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (c *Client) FetchDetails(ctx context.Context, appID string) (*SteamAppDetails, error) {
+	detailsURL := fmt.Sprintf(c.detailsURLFmt, appID)
+	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, detailsURL, nil)
 	if errReq != nil {
 		return nil, fmt.Errorf("creating request for app %s: %w", appID, errReq)
 	}
 
-	resp, errDo := http.DefaultClient.Do(req)
+	resp, errDo := c.client().Do(req)
 	if errDo != nil {
 		return nil, fmt.Errorf("fetching details for app %s: %w", appID, errDo)
 	}
@@ -186,6 +89,7 @@ func (c *Cache) FetchDetails(ctx context.Context, appID string) (*SteamAppDetail
 	details := &SteamAppDetails{
 		AppID:            appID,
 		Name:             appData.Common.Name,
+		Type:             appData.Common.Type,
 		WindowsSupport:   strings.Contains(osList, "windows"),
 		LinuxSupport:     strings.Contains(osList, "linux"),
 		InstallDirectory: appData.Config.InstallDir,
@@ -205,58 +109,16 @@ func (c *Cache) FetchDetails(ctx context.Context, appID string) (*SteamAppDetail
 		})
 	}
 
+	log.Debug().
+		Str("app_id", appID).
+		Str("name", details.Name).
+		Str("type", details.Type).
+		Msg("steamcache: fetched app details")
+
 	return details, nil
 }
 
-// --- SteamAPIFetcher: default Fetcher implementation ---
-
-// SteamAPIFetcher fetches the Steam app list from the Steam Web API and filters
-// to entries whose name contains "server" or "dedicated".
-type SteamAPIFetcher struct{}
-
-func (f *SteamAPIFetcher) FetchAppList(ctx context.Context) ([]SteamApp, error) {
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, appListURL, nil)
-	if errReq != nil {
-		return nil, fmt.Errorf("creating steam app list request: %w", errReq)
-	}
-
-	resp, errDo := http.DefaultClient.Do(req)
-	if errDo != nil {
-		return nil, fmt.Errorf("fetching steam app list: %w", errDo)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("steam app list returned status %d", resp.StatusCode)
-	}
-
-	var raw steamAppListResponse
-	errDecode := json.NewDecoder(resp.Body).Decode(&raw)
-	if errDecode != nil {
-		return nil, fmt.Errorf("decoding steam app list: %w", errDecode)
-	}
-
-	apps := make([]SteamApp, 0, len(raw.AppList.Apps))
-	for _, a := range raw.AppList.Apps {
-		apps = append(apps, SteamApp{
-			AppID: fmt.Sprintf("%d", a.AppID),
-			Name:  a.Name,
-		})
-	}
-
-	return FilterApps(apps), nil
-}
-
 // --- JSON response types ---
-
-type steamAppListResponse struct {
-	AppList struct {
-		Apps []struct {
-			AppID int    `json:"appid"`
-			Name  string `json:"name"`
-		} `json:"apps"`
-	} `json:"applist"`
-}
 
 type steamCmdResponse struct {
 	Data   map[string]steamCmdAppData `json:"data"`

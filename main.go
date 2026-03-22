@@ -34,6 +34,12 @@ import (
 	dbpkg "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/hangar"
+	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/modrinth"
+	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/papermc"
+	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/steamworkshop"
+	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/thunderstore"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -300,19 +306,19 @@ func main() {
 		log.Fatal().Err(errPersistFederationIdentity).Msg("Failed to persist federation local identity")
 	}
 
-	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS)
+	modMgr := modmanager.New(dbInst)
+	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS, modMgr)
 	superInst.StartMetricsPoller(ctx)
 	_ = actions.NewMetricsRecorder(ctx, dbInst, superInst, settings.NodeID, actionsInst)
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	setDetectedIPs(dbInst)
 
-	steamCache := steamcache.New(&steamcache.SteamAPIFetcher{})
-	go steamCache.Start(ctx)
+	steamCache := steamcache.New()
 
 	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie, federationMTLS)
 
 	router := chi.NewRouter()
-	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache)
+	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr)
 	xylonaService.SetSyncEngine(syncEngine)
 	syncEngine.SetStatusBroadcaster(wsInst)
 	syncEngine.SetMetricsBroadcaster(wsInst)

@@ -16,9 +16,7 @@ export const CATEGORY_COLORS = [
  * Build a category → color mapping from a list of config files.
  * Assigns colors from CATEGORY_COLORS in first-occurrence order.
  */
-export function buildCategoryColorMap(
-  configFiles: { category: string }[],
-): Map<string, string> {
+export function buildCategoryColorMap(configFiles: { category: string }[]): Map<string, string> {
   const map = new Map<string, string>()
   const categories = [...new Set(configFiles.map((f) => f.category || 'Uncategorized'))]
   categories.forEach((cat, i) => {
@@ -45,29 +43,46 @@ export interface FieldGroup {
  */
 export function groupFields<T extends { key: string; group: string }>(
   fields: T[],
+  groupOrder?: string[],
 ): { name: string; displayName: string; fields: T[] }[] {
   if (fields.length === 0) return []
 
-  const groupOrder: string[] = []
+  const groupOrderArr: string[] = []
   const groupMap = new Map<string, T[]>()
 
   for (const field of fields) {
     const g = field.group || ''
     if (!groupMap.has(g)) {
-      groupOrder.push(g)
+      groupOrderArr.push(g)
       groupMap.set(g, [])
     }
     groupMap.get(g)!.push(field)
   }
 
-  // Move "General" (empty group) to the top
-  const generalIdx = groupOrder.indexOf('')
-  if (generalIdx > 0) {
-    groupOrder.splice(generalIdx, 1)
-    groupOrder.unshift('')
+  let finalOrder: string[]
+
+  if (groupOrder && groupOrder.length > 0) {
+    // Use explicit group order. Groups not in the list are appended in first-occurrence order.
+    const listed = new Set(groupOrder)
+    const unlisted = groupOrderArr.filter((g) => g !== '' && !listed.has(g))
+    finalOrder = [...groupOrder.filter((g) => groupMap.has(g)), ...unlisted]
+
+    // General (empty group) always first if it exists.
+    if (groupMap.has('')) {
+      finalOrder = finalOrder.filter((g) => g !== '')
+      finalOrder.unshift('')
+    }
+  } else {
+    // Fallback: first-occurrence order with General at top.
+    finalOrder = groupOrderArr
+    const generalIdx = finalOrder.indexOf('')
+    if (generalIdx > 0) {
+      finalOrder.splice(generalIdx, 1)
+      finalOrder.unshift('')
+    }
   }
 
-  return groupOrder.map((name) => ({
+  return finalOrder.map((name) => ({
     name,
     displayName: name ? groupToTitle(name) : 'General',
     fields: groupMap.get(name) || [],

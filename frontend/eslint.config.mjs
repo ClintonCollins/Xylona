@@ -1,29 +1,32 @@
-import js from '@eslint/js'
+import eslint from '@eslint/js'
+import { defineConfig } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 import pluginVue from 'eslint-plugin-vue'
 import prettier from 'eslint-config-prettier'
 import globals from 'globals'
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: [
-      '**/dist/**',
-      '**/.quasar/**',
-      '**/node_modules/**',
-      '**/src-capacitor/**',
-      '**/src-cordova/**',
+      '**/dist/',
+      '**/.quasar/',
+      '**/node_modules/',
+      '**/src-capacitor/',
+      '**/src-cordova/',
+      '**/.idea/',
       '**/*.config.*.temporary.compiled*',
       '**/proto/**/*.ts', // Generated protobuf files
+      '**/.prettierrc.*', // Prettier config — no lint value
     ],
   },
 
   // Base JS recommended rules
-  js.configs.recommended,
+  eslint.configs.recommended,
 
-  // TypeScript recommended rules for .ts/.tsx/.vue files
+  // TypeScript recommended rules for .ts/.tsx/.mts/.vue files
   ...tseslint.configs.recommended.map((config) => ({
     ...config,
-    files: ['**/*.ts', '**/*.tsx', '**/*.vue'],
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.vue'],
   })),
 
   // Vue recommended rules (bundles vue-eslint-parser internally)
@@ -32,9 +35,12 @@ export default tseslint.config(
     files: ['**/*.vue'],
   })),
 
-  // Vue files: TypeScript parser for <script lang="ts"> blocks
+  // All src files: shared projectService for type-checked linting.
+  // IMPORTANT: extraFileExtensions must be identical across all projectService
+  // blocks to prevent TypeScript server reloads on every file switch.
+  // See: https://typescript-eslint.io/troubleshooting/typed-linting/performance/
   {
-    files: ['**/*.vue'],
+    files: ['src/**/*.ts', 'src/**/*.tsx', 'src/**/*.vue'],
     languageOptions: {
       parserOptions: {
         parser: tseslint.parser,
@@ -46,30 +52,48 @@ export default tseslint.config(
       },
       globals: {
         ...globals.browser,
-      },
-    },
-  },
-
-  // TypeScript files
-  {
-    files: ['**/*.ts', '**/*.tsx'],
-    languageOptions: {
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-      globals: {
-        ...globals.browser,
         process: 'readonly', // Vite/Quasar defines process.env at build time
       },
     },
   },
 
-  // Shared TypeScript rule overrides
+  // Vue files outside src (if any) — parser without type checking
   {
-    files: ['**/*.ts', '**/*.tsx', '**/*.vue'],
+    files: ['**/*.vue'],
+    ignores: ['src/**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        parser: tseslint.parser,
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        extraFileExtensions: ['.vue'],
+      },
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
+
+  // TypeScript files outside src (configs, e2e) — no type-checked rules
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts'],
+    ignores: ['src/**/*.ts', 'src/**/*.tsx'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
+      globals: {
+        ...globals.browser,
+        process: 'readonly',
+      },
+    },
+  },
+
+  // Shared TypeScript rule overrides (non-type-checked)
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.vue'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
@@ -79,11 +103,15 @@ export default tseslint.config(
           varsIgnorePattern: '^_',
         },
       ],
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',
+    },
+  },
 
-      // Type-checked rules — these require projectService (above) and catch real bugs
+  // Type-checked rules — only for src/ where projectService is configured
+  {
+    files: ['src/**/*.ts', 'src/**/*.tsx', 'src/**/*.vue'],
+    ignores: ['src/proto/**'],
+    rules: {
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': [
         'error',

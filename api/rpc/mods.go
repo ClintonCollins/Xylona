@@ -1,0 +1,579 @@
+package rpc
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+
+	"connectrpc.com/connect"
+	"github.com/aarondl/opt/null"
+	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
+	"github.com/rs/zerolog/log"
+
+	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
+)
+
+// PermissionGameServerMods is the RBAC permission key for managing game server mods.
+const PermissionGameServerMods = "game_server.mods"
+
+// serverModInfo holds the information needed by mod handlers after resolving
+// a game server's mod configuration.
+type serverModInfo struct {
+	gameServer *models.GameServer
+	game       *models.Game
+	software   *modmanager.ServerSoftware
+	modConfig  *modmanager.ModConfig
+}
+
+// getServerModInfo fetches the game server, its game, parses server software
+// JSON, and returns the active software's mod config.
+func getServerModInfo(xs *XylonaService, gameServerID string) (*serverModInfo, error) {
+	gameServer, errGetServer := xs.db.GetGameServerByID(gameServerID)
+	if errGetServer != nil {
+		if errors.Is(errGetServer, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game server"))
+	}
+
+	game, errGetGame := xs.db.GetGameByID(gameServer.GameID)
+	if errGetGame != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
+	}
+
+	softwareJSON := game.ServerSoftware.GetOr("")
+	allSoftware, errParse := modmanager.ParseServerSoftware(softwareJSON)
+	if errParse != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse server software config"))
+	}
+
+	// Determine the active software ID from the game server's column.
+	activeSoftwareID := gameServer.ServerSoftware.GetOr("")
+	if activeSoftwareID == "" && len(allSoftware) > 0 {
+		activeSoftwareID = allSoftware[0].ID
+	}
+
+	sw, found := modmanager.GetSoftwareByID(allSoftware, activeSoftwareID)
+	if !found {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("server software not configured"))
+	}
+
+	return &serverModInfo{
+		gameServer: gameServer,
+		game:       game,
+		software:   sw,
+		modConfig:  sw.ModConfig,
+	}, nil
+}
+
+// getInstallPath returns the install path from the mod config.
+// If multiple mod types exist, the first one is used as default.
+func getInstallPath(modCfg *modmanager.ModConfig) string {
+	if modCfg == nil || len(modCfg.ModTypes) == 0 {
+		return "mods"
+	}
+	return modCfg.ModTypes[0].InstallPath
+}
+
+// modSearchResultToProto converts a provider search result to proto.
+func modSearchResultToProto(r modproviders.ModSearchResult) *xylona.ModSearchResult {
+	return &xylona.ModSearchResult{
+		Source:             r.Source,
+		SourceId:           r.SourceID,
+		Name:               r.Name,
+		Author:             r.Author,
+		Description:        r.Description,
+		IconUrl:            r.IconURL,
+		Downloads:          r.Downloads,
+		LatestVersion:      r.LatestVersion,
+		CompatibleVersions: r.CompatibleVersions,
+	}
+}
+
+// modVersionToProto converts a provider mod version to proto.
+func modVersionToProto(v modproviders.ModVersion) *xylona.ModVersion {
+	var deps []*xylona.ModDependency
+	for _, d := range v.Dependencies {
+		deps = append(deps, &xylona.ModDependency{
+			SourceId: d.SourceID,
+			Name:     d.Name,
+			Required: d.Required,
+		})
+	}
+	return &xylona.ModVersion{
+		VersionId:     v.VersionID,
+		VersionString: v.VersionString,
+		GameVersions:  v.GameVersions,
+		DownloadUrl:   v.DownloadURL,
+		FileSize:      v.FileSize,
+		Dependencies:  deps,
+		Changelog:     v.Changelog,
+	}
+}
+
+// modDetailsToProto converts a provider mod details to proto.
+func modDetailsToProto(d *modproviders.ModDetails) *xylona.ModDetails {
+	var versions []*xylona.ModVersion
+	for _, v := range d.Versions {
+		versions = append(versions, modVersionToProto(v))
+	}
+	return &xylona.ModDetails{
+		Source:        d.Source,
+		SourceId:      d.SourceID,
+		Name:          d.Name,
+		Author:        d.Author,
+		Description:   d.Description,
+		Body:          d.Body,
+		IconUrl:       d.IconURL,
+		Downloads:     d.Downloads,
+		GalleryImages: d.GalleryImages,
+		Categories:    d.Categories,
+		License:       d.License,
+		SourceUrl:     d.SourceURL,
+		Versions:      versions,
+	}
+}
+
+// SearchMods searches for mods across configured providers.
+func (xs *XylonaService) SearchMods(
+	ctx context.Context,
+	request *connect.Request[xylona.SearchModsRequest],
+) (*connect.Response[xylona.SearchModsResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
+	if errInfo != nil {
+		return nil, errInfo
+	}
+
+	if info.modConfig == nil {
+		return &connect.Response[xylona.SearchModsResponse]{
+			Msg: &xylona.SearchModsResponse{},
+		}, nil
+	}
+
+	// Build source configs for the search.
+	var sources []modmanager.SourceConfig
+	requestedSource := request.Msg.GetSource()
+	for _, src := range info.modConfig.Sources {
+		if requestedSource != "" && src.ID != requestedSource {
+			continue
+		}
+		sources = append(sources, src)
+	}
+
+	results, errSearch := xs.modManager.SearchAll(ctx, request.Msg.GetQuery(), sources)
+	if errSearch != nil {
+		log.Error().Err(errSearch).Msg("Failed to search mods")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("search failed"))
+	}
+
+	// Check which mods are already installed.
+	installed, errInstalled := xs.db.GetInstalledModsByGameServerID(request.Msg.GetGameServerId())
+	if errInstalled != nil {
+		log.Warn().Err(errInstalled).Msg("Failed to get installed mods for search result enrichment")
+	}
+	installedMap := make(map[string]bool)
+	for _, m := range installed {
+		key := m.Source + ":" + m.SourceID
+		installedMap[key] = true
+	}
+
+	var protoResults []*xylona.ModSearchResult
+	for _, r := range results {
+		pr := modSearchResultToProto(r)
+		key := r.Source + ":" + r.SourceID
+		pr.IsInstalled = installedMap[key]
+		protoResults = append(protoResults, pr)
+	}
+
+	return &connect.Response[xylona.SearchModsResponse]{
+		Msg: &xylona.SearchModsResponse{
+			Results:    protoResults,
+			TotalCount: int32(len(protoResults)),
+		},
+	}, nil
+}
+
+// GetModDetails returns detailed information about a specific mod.
+func (xs *XylonaService) GetModDetails(
+	ctx context.Context,
+	request *connect.Request[xylona.GetModDetailsRequest],
+) (*connect.Response[xylona.GetModDetailsResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	source := request.Msg.GetSource()
+	provider, ok := modproviders.GetProvider(source)
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("provider not found: %s", source))
+	}
+
+	// Get search params from server's mod config if available.
+	var params modproviders.SearchParams
+	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
+	if errInfo == nil && info.modConfig != nil {
+		for _, src := range info.modConfig.Sources {
+			if src.ID == source {
+				params = src.SearchParams
+				break
+			}
+		}
+	}
+
+	details, errDetails := provider.GetModDetails(ctx, request.Msg.GetSourceId(), params)
+	if errDetails != nil {
+		log.Error().Err(errDetails).Str("source", source).Str("source_id", request.Msg.GetSourceId()).Msg("Failed to get mod details")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get mod details"))
+	}
+
+	return &connect.Response[xylona.GetModDetailsResponse]{
+		Msg: &xylona.GetModDetailsResponse{
+			Details: modDetailsToProto(details),
+		},
+	}, nil
+}
+
+// GetModVersions returns available versions for a mod.
+func (xs *XylonaService) GetModVersions(
+	ctx context.Context,
+	request *connect.Request[xylona.GetModVersionsRequest],
+) (*connect.Response[xylona.GetModVersionsResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	source := request.Msg.GetSource()
+	provider, ok := modproviders.GetProvider(source)
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("provider not found: %s", source))
+	}
+
+	// Get search params from server's mod config if available.
+	var params modproviders.SearchParams
+	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
+	if errInfo == nil && info.modConfig != nil {
+		for _, src := range info.modConfig.Sources {
+			if src.ID == source {
+				params = src.SearchParams
+				break
+			}
+		}
+	}
+
+	versions, errVersions := provider.GetVersions(ctx, request.Msg.GetSourceId(), request.Msg.GetGameVersion(), params)
+	if errVersions != nil {
+		log.Error().Err(errVersions).Str("source", source).Msg("Failed to get mod versions")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get mod versions"))
+	}
+
+	var protoVersions []*xylona.ModVersion
+	for _, v := range versions {
+		protoVersions = append(protoVersions, modVersionToProto(v))
+	}
+
+	return &connect.Response[xylona.GetModVersionsResponse]{
+		Msg: &xylona.GetModVersionsResponse{
+			Versions: protoVersions,
+		},
+	}, nil
+}
+
+// InstallMod installs a mod on a game server.
+func (xs *XylonaService) InstallMod(
+	ctx context.Context,
+	request *connect.Request[xylona.InstallModRequest],
+) (*connect.Response[xylona.InstallModResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
+	if errInfo != nil {
+		return nil, errInfo
+	}
+
+	errPerm := xs.ensureLocalServerPermission(user, info.gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
+	}
+
+	if info.modConfig == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("mod support not configured for this server software"))
+	}
+
+	installPath := getInstallPath(info.modConfig)
+
+	mod, errInstall := xs.modManager.Install(
+		ctx,
+		info.gameServer.ID,
+		request.Msg.GetSource(),
+		request.Msg.GetSourceId(),
+		request.Msg.GetVersionId(),
+		info.gameServer.Directory,
+		installPath,
+	)
+	if errInstall != nil {
+		log.Error().Err(errInstall).Msg("Failed to install mod")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to install mod"))
+	}
+
+	return &connect.Response[xylona.InstallModResponse]{
+		Msg: &xylona.InstallModResponse{
+			InstalledMod: helpers.InstalledModModelToProto(mod),
+		},
+	}, nil
+}
+
+// UninstallMod removes a mod from a game server.
+func (xs *XylonaService) UninstallMod(
+	ctx context.Context,
+	request *connect.Request[xylona.UninstallModRequest],
+) (*connect.Response[xylona.UninstallModResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
+	if errGetServer != nil {
+		return nil, errGetServer
+	}
+
+	errPerm := xs.ensureLocalServerPermission(user, gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
+	}
+
+	errUninstall := xs.modManager.Uninstall(ctx, request.Msg.GetInstalledModId(), gameServer.Directory)
+	if errUninstall != nil {
+		log.Error().Err(errUninstall).Msg("Failed to uninstall mod")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to uninstall mod"))
+	}
+
+	return &connect.Response[xylona.UninstallModResponse]{
+		Msg: &xylona.UninstallModResponse{},
+	}, nil
+}
+
+// UpdateMod updates an installed mod to a new version.
+func (xs *XylonaService) UpdateMod(
+	ctx context.Context,
+	request *connect.Request[xylona.UpdateModRequest],
+) (*connect.Response[xylona.UpdateModResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
+	if errGetServer != nil {
+		return nil, errGetServer
+	}
+
+	errPerm := xs.ensureLocalServerPermission(user, gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
+	}
+
+	updated, errUpdate := xs.modManager.Update(ctx, request.Msg.GetInstalledModId(), request.Msg.GetVersionId(), gameServer.Directory)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).Msg("Failed to update mod")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update mod"))
+	}
+
+	return &connect.Response[xylona.UpdateModResponse]{
+		Msg: &xylona.UpdateModResponse{
+			InstalledMod: helpers.InstalledModModelToProto(updated),
+		},
+	}, nil
+}
+
+// ListInstalledMods returns all installed mods for a game server.
+func (xs *XylonaService) ListInstalledMods(
+	_ context.Context,
+	request *connect.Request[xylona.ListInstalledModsRequest],
+) (*connect.Response[xylona.ListInstalledModsResponse], error) {
+	_, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	mods, errGet := xs.db.GetInstalledModsByGameServerID(request.Msg.GetGameServerId())
+	if errGet != nil {
+		log.Error().Err(errGet).Msg("Failed to get installed mods")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list installed mods"))
+	}
+
+	var protoMods []*xylona.InstalledMod
+	for _, m := range mods {
+		protoMods = append(protoMods, helpers.InstalledModModelToProto(m))
+	}
+
+	return &connect.Response[xylona.ListInstalledModsResponse]{
+		Msg: &xylona.ListInstalledModsResponse{
+			InstalledMods: protoMods,
+		},
+	}, nil
+}
+
+// SetModAutoUpdate toggles auto-update for an installed mod.
+func (xs *XylonaService) SetModAutoUpdate(
+	_ context.Context,
+	request *connect.Request[xylona.SetModAutoUpdateRequest],
+) (*connect.Response[xylona.SetModAutoUpdateResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
+	if errGetServer != nil {
+		return nil, errGetServer
+	}
+
+	errPerm := xs.ensureLocalServerPermission(user, gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
+	}
+
+	mod, errGet := xs.db.GetInstalledModByID(request.Msg.GetInstalledModId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("installed mod not found"))
+	}
+
+	autoUpdateVal := int64(0)
+	if request.Msg.GetEnabled() {
+		autoUpdateVal = 1
+	}
+
+	setter := &models.InstalledModSetter{
+		AutoUpdate: omit.From(autoUpdateVal),
+		UpdatedAt:  omit.From(time.Now().UTC()),
+	}
+
+	updated, errUpdate := xs.db.UpdateInstalledMod(xs.db.DB, mod, setter)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).Msg("Failed to set mod auto-update")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update mod"))
+	}
+
+	return &connect.Response[xylona.SetModAutoUpdateResponse]{
+		Msg: &xylona.SetModAutoUpdateResponse{
+			InstalledMod: helpers.InstalledModModelToProto(updated),
+		},
+	}, nil
+}
+
+// SetModEnabled enables or disables an installed mod.
+func (xs *XylonaService) SetModEnabled(
+	ctx context.Context,
+	request *connect.Request[xylona.SetModEnabledRequest],
+) (*connect.Response[xylona.SetModEnabledResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
+	if errInfo != nil {
+		return nil, errInfo
+	}
+
+	errPerm := xs.ensureLocalServerPermission(user, info.gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
+	}
+
+	installPath := getInstallPath(info.modConfig)
+
+	if request.Msg.GetEnabled() {
+		errEnable := xs.modManager.Enable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
+		if errEnable != nil {
+			log.Error().Err(errEnable).Msg("Failed to enable mod")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to enable mod"))
+		}
+	} else {
+		errDisable := xs.modManager.Disable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
+		if errDisable != nil {
+			log.Error().Err(errDisable).Msg("Failed to disable mod")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to disable mod"))
+		}
+	}
+
+	// Re-fetch the updated mod.
+	mod, errGet := xs.db.GetInstalledModByID(request.Msg.GetInstalledModId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to fetch updated mod"))
+	}
+
+	return &connect.Response[xylona.SetModEnabledResponse]{
+		Msg: &xylona.SetModEnabledResponse{
+			InstalledMod: helpers.InstalledModModelToProto(mod),
+		},
+	}, nil
+}
+
+// PinModVersion pins or unpins a mod to a specific version.
+func (xs *XylonaService) PinModVersion(
+	_ context.Context,
+	request *connect.Request[xylona.PinModVersionRequest],
+) (*connect.Response[xylona.PinModVersionResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
+	if errGetServer != nil {
+		return nil, errGetServer
+	}
+
+	errPerm := xs.ensureLocalServerPermission(user, gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
+	}
+
+	mod, errGet := xs.db.GetInstalledModByID(request.Msg.GetInstalledModId())
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("installed mod not found"))
+	}
+
+	version := request.Msg.GetVersion()
+	pinnedVersion := omitnull.Val[string]{}
+	if version != "" {
+		pinnedVersion = omitnull.From(version)
+	} else {
+		pinnedVersion = omitnull.FromNull(null.Val[string]{})
+	}
+	setter := &models.InstalledModSetter{
+		PinnedVersion: pinnedVersion,
+		UpdatedAt:     omit.From(time.Now().UTC()),
+	}
+
+	updated, errUpdate := xs.db.UpdateInstalledMod(xs.db.DB, mod, setter)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).Msg("Failed to pin mod version")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update mod"))
+	}
+
+	return &connect.Response[xylona.PinModVersionResponse]{
+		Msg: &xylona.PinModVersionResponse{
+			InstalledMod: helpers.InstalledModModelToProto(updated),
+		},
+	}, nil
+}

@@ -294,6 +294,15 @@ var Games = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		ServerSoftware: column{
+			Name:      "server_software",
+			DBType:    "TEXT",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameIndexes{
 		SqliteAutoindexGame1: index{
@@ -352,11 +361,12 @@ type gameColumns struct {
 	UpdatedAt                         column
 	XylonaOfficial                    column
 	ConfigSchemas                     column
+	ServerSoftware                    column
 }
 
 func (c gameColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.BindsToAllIps, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStartCommand, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStartCommand, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas,
+		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.BindsToAllIps, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStartCommand, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStartCommand, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware,
 	}
 }
 

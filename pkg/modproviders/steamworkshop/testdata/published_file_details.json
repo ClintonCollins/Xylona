@@ -1,0 +1,63 @@
+{
+  "response": {
+    "result": 1,
+    "resultcount": 1,
+    "publishedfiledetails": [
+      {
+        "publishedfileid": "2128699613",
+        "result": 1,
+        "creator": "76561198012345678",
+        "creator_appid": 108600,
+        "consumer_appid": 108600,
+        "consumer_shortcutid": 0,
+        "filename": "",
+        "file_size": "15728640",
+        "preview_url": "https://steamuserimages-a.akamaihd.net/ugc/123456789/preview.jpg",
+        "url": "",
+        "hcontent_file": "1234567890123456789",
+        "hcontent_preview": "9876543210987654321",
+        "title": "Project Zomboid Expanded Helicopter Events",
+        "file_description": "Adds expanded helicopter events to Project Zomboid.",
+        "time_created": 1596500000,
+        "time_updated": 1700000000,
+        "visibility": 0,
+        "flags": 0,
+        "workshop_file": false,
+        "workshop_accepted": false,
+        "show_subscribe_all": false,
+        "num_comments_developer": 0,
+        "num_comments_public": 42,
+        "banned": false,
+        "ban_reason": "",
+        "banner": "",
+        "can_be_deleted": true,
+        "app_name": "Project Zomboid",
+        "file_type": 0,
+        "can_subscribe": true,
+        "subscriptions": 250000,
+        "favorited": 12000,
+        "followers": 0,
+        "lifetime_subscriptions": 500000,
+        "lifetime_favorited": 25000,
+        "lifetime_followers": 0,
+        "lifetime_playtime": "0",
+        "lifetime_playtime_sessions": "0",
+        "views": 750000,
+        "num_children": 0,
+        "num_reports": 0,
+        "tags": [
+          {"tag": "Rebalance", "display_name": "Rebalance"},
+          {"tag": "Gameplay", "display_name": "Gameplay"},
+          {"tag": "Environment", "display_name": "Environment"}
+        ],
+        "language": 0,
+        "maybe_inappropriate_sex": false,
+        "maybe_inappropriate_violence": false,
+        "revision_change_number": "12",
+        "revision": 1,
+        "available_revisions": [1],
+        "ban_text_check_result": 0
+      }
+    ]
+  }
+}

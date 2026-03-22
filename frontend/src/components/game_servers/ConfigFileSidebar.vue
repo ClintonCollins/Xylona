@@ -1,6 +1,7 @@
 <template>
   <div class="config-sidebar" :class="{ collapsed: isCollapsed && !isMobile }">
-    <div v-if="!isCollapsed || isMobile" class="sidebar-expanded">
+    <!-- Expanded view -->
+    <div class="sidebar-expanded" :inert="isCollapsed && !isMobile ? true : undefined">
       <div class="sidebar-header">
         <div class="sidebar-title font-display">Config Files</div>
         <q-btn
@@ -76,7 +77,8 @@
       </div>
     </div>
 
-    <div v-else class="sidebar-collapsed">
+    <!-- Collapsed view (always in DOM for smooth transition) -->
+    <div class="sidebar-collapsed" :inert="!isCollapsed || isMobile ? true : undefined">
       <q-btn
         flat
         dense
@@ -171,22 +173,53 @@ function getAbbreviation(path: string): string {
   height: 100%;
   display: flex;
   flex-direction: column;
+  width: 260px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  transition: width 300ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.config-sidebar.collapsed {
+  width: 48px;
 }
 
 .sidebar-expanded {
   width: 260px;
+  min-width: 260px;
   display: flex;
   flex-direction: column;
   height: 100%;
+  opacity: 1;
+  transition: opacity 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.collapsed .sidebar-expanded {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
 }
 
 .sidebar-collapsed {
   width: 48px;
+  min-width: 48px;
   display: flex;
   flex-direction: column;
   align-items: center;
   height: 100%;
   padding-top: var(--xy-space-sm);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  transition: opacity 200ms cubic-bezier(0.25, 1, 0.5, 1) 100ms;
+}
+
+.collapsed .sidebar-collapsed {
+  opacity: 1;
+  pointer-events: auto;
+  position: static;
 }
 
 .sidebar-header {
@@ -255,8 +288,13 @@ function getAbbreviation(path: string): string {
 }
 
 .file-active {
-  background-color: var(--xy-surface-2);
+  background-color: color-mix(in srgb, var(--xy-primary) 8%, var(--xy-surface-2));
   border-left-color: var(--xy-primary);
+}
+
+.file-active .file-name {
+  color: var(--xy-primary);
+  font-weight: 600;
 }
 
 .file-missing {
@@ -319,9 +357,9 @@ function getAbbreviation(path: string): string {
 }
 
 .collapsed-active {
-  background-color: var(--xy-surface-2);
+  background-color: color-mix(in srgb, var(--xy-primary) 12%, var(--xy-surface-2));
   border-color: var(--xy-primary);
-  color: var(--xy-text-primary);
+  color: var(--xy-primary);
 }
 
 .collapsed-missing {
@@ -333,17 +371,31 @@ function getAbbreviation(path: string): string {
   font-weight: 600;
 }
 
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .config-sidebar,
+  .sidebar-expanded,
+  .sidebar-collapsed {
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Mobile: horizontal scrollable file strip */
 @media (max-width: 767px) {
   .config-sidebar {
     border-right: none;
     border-bottom: 1px solid var(--xy-border);
     height: auto;
-    flex-shrink: 0;
+    width: 100%;
+    transition: none;
   }
 
   .sidebar-expanded {
     width: 100%;
+    min-width: unset;
+    opacity: 1;
+    position: static;
+    pointer-events: auto;
   }
 
   .sidebar-header {
@@ -400,6 +452,9 @@ function getAbbreviation(path: string): string {
 
   .config-sidebar.collapsed .sidebar-expanded {
     display: flex;
+    opacity: 1;
+    position: static;
+    pointer-events: auto;
   }
 }
 </style>

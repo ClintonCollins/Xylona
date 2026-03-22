@@ -1,10 +1,35 @@
-import { test, expect } from '@playwright/test'
-import {
-  apiLogin,
-  apiCreateGameServer,
-  apiListGames,
-  loadTestState,
-} from './helpers'
+import { test, expect, type Page } from '@playwright/test'
+import { apiLogin, apiCreateGameServer, apiListGames, loadTestState } from './helpers'
+
+async function gotoConsolePage(page: Page, gameServerId: string) {
+  await page.goto(`/game-servers/${gameServerId}/console`)
+  await expect(page.locator('.q-layout')).toBeVisible({ timeout: 10_000 })
+}
+
+async function currentControlState(page: Page) {
+  const startDisabled = await page
+    .getByRole('button', { name: /^Start$/i })
+    .first()
+    .isDisabled()
+  const stopDisabled = await page
+    .getByRole('button', { name: /^Stop$/i })
+    .first()
+    .isDisabled()
+
+  return `${startDisabled ? 'start-disabled' : 'start-enabled'}:${stopDisabled ? 'stop-disabled' : 'stop-enabled'}`
+}
+
+async function waitForControlState(page: Page, gameServerId: string, expectedState: string) {
+  await expect
+    .poll(
+      async () => {
+        await gotoConsolePage(page, gameServerId)
+        return currentControlState(page)
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(expectedState)
+}
 
 test.describe('Game server lifecycle', () => {
   test('can stop a running game server', async ({ page }) => {
@@ -13,28 +38,14 @@ test.describe('Game server lifecycle', () => {
       test.skip(true, 'No game server available')
       return
     }
-    await page.goto(`/game-servers/${state.gameServerId}/console`)
-    await expect(page.locator('.q-layout')).toBeVisible({ timeout: 10_000 })
-    await page.waitForTimeout(2000)
+    await gotoConsolePage(page, state.gameServerId)
 
-    // Find and click the stop button
-    const stopButton = page.getByRole('button', { name: /stop/i }).first()
-    if (await stopButton.isVisible()) {
-      await stopButton.click()
-      await page.waitForTimeout(500)
+    const stopButton = page.getByRole('button', { name: /^Stop$/i }).first()
+    await expect(stopButton).toBeVisible({ timeout: 10_000 })
+    await expect(stopButton).toBeEnabled({ timeout: 5_000 })
+    await stopButton.click()
 
-      // Handle confirmation dialog if present
-      const confirmButton = page.getByRole('button', { name: /confirm|yes|stop/i }).last()
-      if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await confirmButton.click()
-      }
-
-      // Wait for status to change
-      await page.waitForTimeout(3000)
-
-      // Verify offline status appears somewhere on the page
-      await expect(page.locator('body')).toContainText(/offline|stopped/i, { timeout: 10_000 })
-    }
+    await waitForControlState(page, state.gameServerId, 'start-enabled:stop-disabled')
   })
 
   test('can start a stopped game server', async ({ page }) => {
@@ -43,32 +54,17 @@ test.describe('Game server lifecycle', () => {
       test.skip(true, 'No game server available')
       return
     }
-    await page.goto(`/game-servers/${state.gameServerId}/console`)
-    await expect(page.locator('.q-layout')).toBeVisible({ timeout: 10_000 })
-    await page.waitForTimeout(2000)
+    await gotoConsolePage(page, state.gameServerId)
 
-    // Find and click the start button
-    const startButton = page.getByRole('button', { name: /start/i }).first()
-    if (await startButton.isVisible()) {
-      await startButton.click()
-      await page.waitForTimeout(500)
+    const startButton = page.getByRole('button', { name: /^Start$/i }).first()
+    await expect(startButton).toBeVisible({ timeout: 10_000 })
+    await expect(startButton).toBeEnabled({ timeout: 5_000 })
+    await startButton.click()
 
-      // Handle confirmation dialog if present
-      const confirmButton = page.getByRole('button', { name: /confirm|yes|start/i }).last()
-      if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await confirmButton.click()
-      }
-
-      // Wait for status to change
-      await page.waitForTimeout(5000)
-
-      // Verify online status appears
-      await expect(page.locator('body')).toContainText(/online|running/i, { timeout: 10_000 })
-    }
+    await waitForControlState(page, state.gameServerId, 'start-disabled:stop-enabled')
   })
 
   test('can delete a game server via the delete dialog', async ({ page }) => {
-    // Create a temporary game server for this test
     const adminCookies = await apiLogin(
       process.env['E2E_ADMIN_USERNAME'] ?? 'admin',
       process.env['E2E_ADMIN_PASSWORD'] ?? 'admin',
@@ -80,8 +76,9 @@ test.describe('Game server lifecycle', () => {
       return
     }
 
-    const tempServerId = await apiCreateGameServer(adminCookies, {
-      name: 'E2E Temp Delete Server',
+    const tempServerName = `E2E Temp Delete Server ${Date.now()}`
+    await apiCreateGameServer(adminCookies, {
+      name: tempServerName,
       gameId: games[0]!.id,
       startCommand: 'echo test',
       directory: '.',
@@ -89,39 +86,27 @@ test.describe('Game server lifecycle', () => {
       queryPort: 25598,
     })
 
-    // Navigate to game servers list
+    // Navigate to game servers list and verify the temp server is visible.
     await page.goto('/game-servers')
     await expect(page.locator('.q-layout')).toBeVisible({ timeout: 10_000 })
-    await page.waitForTimeout(2000)
+    const searchInput = page.getByLabel('Search game servers')
+    await searchInput.fill(tempServerName)
+    await expect(page.getByText(tempServerName)).toBeVisible({ timeout: 10_000 })
 
-    // Navigate to the temp server's detail page
-    await page.goto(`/game-servers/${tempServerId}/console`)
-    await expect(page.locator('.q-layout')).toBeVisible({ timeout: 10_000 })
-    await page.waitForTimeout(1000)
+    // Filter down to the temp server and delete it through the list action.
+    const deleteBtn = page.locator('button[aria-label="Delete game server"]').first()
+    await expect(deleteBtn).toBeVisible({ timeout: 5_000 })
+    await deleteBtn.click()
 
-    // Look for delete button
-    const deleteButton = page.getByRole('button', { name: /delete/i }).first()
-    if (await deleteButton.isVisible()) {
-      await deleteButton.click()
-      await page.waitForTimeout(500)
+    // Confirm deletion in the dialog.
+    const dialog = page.locator('.q-dialog').filter({ hasText: 'Delete Game Server' }).first()
+    await expect(dialog).toBeVisible({ timeout: 5_000 })
+    const confirmDeleteBtn = dialog.getByRole('button', { name: /delete/i })
+    await expect(confirmDeleteBtn).toBeVisible()
+    await confirmDeleteBtn.click()
 
-      // Confirm deletion
-      const confirmButton = page.getByRole('button', { name: /confirm|yes|delete/i }).last()
-      if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await confirmButton.click()
-      }
-
-      // Should redirect back to game servers list
-      await expect(page).toHaveURL(/\/game-servers/, { timeout: 10_000 })
-    } else {
-      // If no delete button is visible on the console page, try via API
-      const { apiRemoveGameServer } = await import('./helpers')
-      await apiRemoveGameServer(adminCookies, tempServerId)
-    }
-
-    // Verify the server is no longer in the list
-    await page.goto('/game-servers')
-    await page.waitForTimeout(2000)
-    await expect(page.locator('body')).not.toContainText('E2E Temp Delete Server')
+    // Wait for the dialog to close and the filtered list to clear.
+    await expect(dialog).not.toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('No game servers')).toBeVisible({ timeout: 10_000 })
   })
 })

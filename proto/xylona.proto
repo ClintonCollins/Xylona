@@ -116,6 +116,28 @@ service Xylona {
   rpc GetDashboardOverview (GetDashboardOverviewRequest) returns (GetDashboardOverviewResponse) {}
   rpc GetNodeMetricsHistory (GetNodeMetricsHistoryRequest) returns (GetNodeMetricsHistoryResponse) {}
   rpc GetGameServerMetricsHistory (GetGameServerMetricsHistoryRequest) returns (GetGameServerMetricsHistoryResponse) {}
+
+  // Mod management
+  rpc SearchMods (SearchModsRequest) returns (SearchModsResponse) {}
+  rpc GetModDetails (GetModDetailsRequest) returns (GetModDetailsResponse) {}
+  rpc GetModVersions (GetModVersionsRequest) returns (GetModVersionsResponse) {}
+  rpc InstallMod (InstallModRequest) returns (InstallModResponse) {}
+  rpc UninstallMod (UninstallModRequest) returns (UninstallModResponse) {}
+  rpc UpdateMod (UpdateModRequest) returns (UpdateModResponse) {}
+  rpc ListInstalledMods (ListInstalledModsRequest) returns (ListInstalledModsResponse) {}
+  rpc SetModAutoUpdate (SetModAutoUpdateRequest) returns (SetModAutoUpdateResponse) {}
+  rpc SetModEnabled (SetModEnabledRequest) returns (SetModEnabledResponse) {}
+  rpc PinModVersion (PinModVersionRequest) returns (PinModVersionResponse) {}
+
+  // Server software
+  rpc GetServerSoftwareOptions (GetServerSoftwareOptionsRequest) returns (GetServerSoftwareOptionsResponse) {}
+  rpc GetServerSoftwareVersions (GetServerSoftwareVersionsRequest) returns (GetServerSoftwareVersionsResponse) {}
+  rpc SetServerSoftware (SetServerSoftwareRequest) returns (SetServerSoftwareResponse) {}
+
+  // Node API keys
+  rpc ListNodeApiKeys (ListNodeApiKeysRequest) returns (ListNodeApiKeysResponse) {}
+  rpc SetNodeApiKey (SetNodeApiKeyRequest) returns (SetNodeApiKeyResponse) {}
+  rpc DeleteNodeApiKey (DeleteNodeApiKeyRequest) returns (DeleteNodeApiKeyResponse) {}
 }
 
 message LoginRequest {
@@ -757,6 +779,8 @@ message ConfigFieldData {
   repeated string values = 15;
   string group = 16;
   string managed_source = 17;
+  repeated string enum_labels = 18;
+  optional int32 order = 19;
 }
 
 message AdvancedField {
@@ -849,3 +873,138 @@ message GetSteamAppDetailsResponse {
   SteamAppDetails details = 1;
   bool details_available = 2;
 }
+
+// Mod management messages
+message SearchModsRequest {
+  string game_server_id = 1;
+  string query = 2;
+  string source = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+message SearchModsResponse {
+  repeated ModSearchResult results = 1;
+  int32 total_count = 2;
+}
+
+message GetModDetailsRequest {
+  string game_server_id = 1;
+  string source = 2;
+  string source_id = 3;
+}
+message GetModDetailsResponse {
+  ModDetails details = 1;
+}
+
+message GetModVersionsRequest {
+  string game_server_id = 1;
+  string source = 2;
+  string source_id = 3;
+  string game_version = 4;
+}
+message GetModVersionsResponse {
+  repeated ModVersion versions = 1;
+}
+
+message InstallModRequest {
+  string game_server_id = 1;
+  string source = 2;
+  string source_id = 3;
+  string version_id = 4;
+}
+message InstallModResponse {
+  InstalledMod installed_mod = 1;
+}
+
+message UninstallModRequest {
+  string game_server_id = 1;
+  string installed_mod_id = 2;
+}
+message UninstallModResponse {}
+
+message UpdateModRequest {
+  string game_server_id = 1;
+  string installed_mod_id = 2;
+  string version_id = 3;
+}
+message UpdateModResponse {
+  InstalledMod installed_mod = 1;
+}
+
+message ListInstalledModsRequest {
+  string game_server_id = 1;
+}
+message ListInstalledModsResponse {
+  repeated InstalledMod installed_mods = 1;
+}
+
+message SetModAutoUpdateRequest {
+  string game_server_id = 1;
+  string installed_mod_id = 2;
+  bool enabled = 3;
+}
+message SetModAutoUpdateResponse {
+  InstalledMod installed_mod = 1;
+}
+
+message SetModEnabledRequest {
+  string game_server_id = 1;
+  string installed_mod_id = 2;
+  bool enabled = 3;
+}
+message SetModEnabledResponse {
+  InstalledMod installed_mod = 1;
+}
+
+message PinModVersionRequest {
+  string game_server_id = 1;
+  string installed_mod_id = 2;
+  string version = 3;
+}
+message PinModVersionResponse {
+  InstalledMod installed_mod = 1;
+}
+
+// Server software messages
+message GetServerSoftwareOptionsRequest {
+  string game_id = 1;
+}
+message GetServerSoftwareOptionsResponse {
+  repeated ServerSoftwareOption options = 1;
+}
+
+message GetServerSoftwareVersionsRequest {
+  string game_id = 1;
+  string software_id = 2;
+}
+message GetServerSoftwareVersionsResponse {
+  repeated SoftwareVersion versions = 1;
+}
+
+message SetServerSoftwareRequest {
+  string game_server_id = 1;
+  string software_id = 2;
+  string version_id = 3;
+}
+message SetServerSoftwareResponse {
+  GameServer game_server = 1;
+}
+
+// Node API key messages
+message ListNodeApiKeysRequest {}
+message ListNodeApiKeysResponse {
+  repeated NodeApiKey api_keys = 1;
+}
+
+message SetNodeApiKeyRequest {
+  string service_name = 1;
+  string api_key = 2;
+}
+message SetNodeApiKeyResponse {
+  NodeApiKey api_key = 1;
+}
+
+message DeleteNodeApiKeyRequest {
+  string service_name = 1;
+}
+message DeleteNodeApiKeyResponse {}

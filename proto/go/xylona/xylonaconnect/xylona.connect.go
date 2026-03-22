@@ -238,6 +238,42 @@ const (
 	// XylonaGetGameServerMetricsHistoryProcedure is the fully-qualified name of the Xylona's
 	// GetGameServerMetricsHistory RPC.
 	XylonaGetGameServerMetricsHistoryProcedure = "/xylona.Xylona/GetGameServerMetricsHistory"
+	// XylonaSearchModsProcedure is the fully-qualified name of the Xylona's SearchMods RPC.
+	XylonaSearchModsProcedure = "/xylona.Xylona/SearchMods"
+	// XylonaGetModDetailsProcedure is the fully-qualified name of the Xylona's GetModDetails RPC.
+	XylonaGetModDetailsProcedure = "/xylona.Xylona/GetModDetails"
+	// XylonaGetModVersionsProcedure is the fully-qualified name of the Xylona's GetModVersions RPC.
+	XylonaGetModVersionsProcedure = "/xylona.Xylona/GetModVersions"
+	// XylonaInstallModProcedure is the fully-qualified name of the Xylona's InstallMod RPC.
+	XylonaInstallModProcedure = "/xylona.Xylona/InstallMod"
+	// XylonaUninstallModProcedure is the fully-qualified name of the Xylona's UninstallMod RPC.
+	XylonaUninstallModProcedure = "/xylona.Xylona/UninstallMod"
+	// XylonaUpdateModProcedure is the fully-qualified name of the Xylona's UpdateMod RPC.
+	XylonaUpdateModProcedure = "/xylona.Xylona/UpdateMod"
+	// XylonaListInstalledModsProcedure is the fully-qualified name of the Xylona's ListInstalledMods
+	// RPC.
+	XylonaListInstalledModsProcedure = "/xylona.Xylona/ListInstalledMods"
+	// XylonaSetModAutoUpdateProcedure is the fully-qualified name of the Xylona's SetModAutoUpdate RPC.
+	XylonaSetModAutoUpdateProcedure = "/xylona.Xylona/SetModAutoUpdate"
+	// XylonaSetModEnabledProcedure is the fully-qualified name of the Xylona's SetModEnabled RPC.
+	XylonaSetModEnabledProcedure = "/xylona.Xylona/SetModEnabled"
+	// XylonaPinModVersionProcedure is the fully-qualified name of the Xylona's PinModVersion RPC.
+	XylonaPinModVersionProcedure = "/xylona.Xylona/PinModVersion"
+	// XylonaGetServerSoftwareOptionsProcedure is the fully-qualified name of the Xylona's
+	// GetServerSoftwareOptions RPC.
+	XylonaGetServerSoftwareOptionsProcedure = "/xylona.Xylona/GetServerSoftwareOptions"
+	// XylonaGetServerSoftwareVersionsProcedure is the fully-qualified name of the Xylona's
+	// GetServerSoftwareVersions RPC.
+	XylonaGetServerSoftwareVersionsProcedure = "/xylona.Xylona/GetServerSoftwareVersions"
+	// XylonaSetServerSoftwareProcedure is the fully-qualified name of the Xylona's SetServerSoftware
+	// RPC.
+	XylonaSetServerSoftwareProcedure = "/xylona.Xylona/SetServerSoftware"
+	// XylonaListNodeApiKeysProcedure is the fully-qualified name of the Xylona's ListNodeApiKeys RPC.
+	XylonaListNodeApiKeysProcedure = "/xylona.Xylona/ListNodeApiKeys"
+	// XylonaSetNodeApiKeyProcedure is the fully-qualified name of the Xylona's SetNodeApiKey RPC.
+	XylonaSetNodeApiKeyProcedure = "/xylona.Xylona/SetNodeApiKey"
+	// XylonaDeleteNodeApiKeyProcedure is the fully-qualified name of the Xylona's DeleteNodeApiKey RPC.
+	XylonaDeleteNodeApiKeyProcedure = "/xylona.Xylona/DeleteNodeApiKey"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
@@ -339,6 +375,25 @@ type XylonaClient interface {
 	GetDashboardOverview(context.Context, *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error)
 	GetNodeMetricsHistory(context.Context, *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error)
 	GetGameServerMetricsHistory(context.Context, *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error)
+	// Mod management
+	SearchMods(context.Context, *connect.Request[xylona.SearchModsRequest]) (*connect.Response[xylona.SearchModsResponse], error)
+	GetModDetails(context.Context, *connect.Request[xylona.GetModDetailsRequest]) (*connect.Response[xylona.GetModDetailsResponse], error)
+	GetModVersions(context.Context, *connect.Request[xylona.GetModVersionsRequest]) (*connect.Response[xylona.GetModVersionsResponse], error)
+	InstallMod(context.Context, *connect.Request[xylona.InstallModRequest]) (*connect.Response[xylona.InstallModResponse], error)
+	UninstallMod(context.Context, *connect.Request[xylona.UninstallModRequest]) (*connect.Response[xylona.UninstallModResponse], error)
+	UpdateMod(context.Context, *connect.Request[xylona.UpdateModRequest]) (*connect.Response[xylona.UpdateModResponse], error)
+	ListInstalledMods(context.Context, *connect.Request[xylona.ListInstalledModsRequest]) (*connect.Response[xylona.ListInstalledModsResponse], error)
+	SetModAutoUpdate(context.Context, *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error)
+	SetModEnabled(context.Context, *connect.Request[xylona.SetModEnabledRequest]) (*connect.Response[xylona.SetModEnabledResponse], error)
+	PinModVersion(context.Context, *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error)
+	// Server software
+	GetServerSoftwareOptions(context.Context, *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error)
+	GetServerSoftwareVersions(context.Context, *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error)
+	SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error)
+	// Node API keys
+	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
+	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
+	DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -844,6 +899,102 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("GetGameServerMetricsHistory")),
 			connect.WithClientOptions(opts...),
 		),
+		searchMods: connect.NewClient[xylona.SearchModsRequest, xylona.SearchModsResponse](
+			httpClient,
+			baseURL+XylonaSearchModsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SearchMods")),
+			connect.WithClientOptions(opts...),
+		),
+		getModDetails: connect.NewClient[xylona.GetModDetailsRequest, xylona.GetModDetailsResponse](
+			httpClient,
+			baseURL+XylonaGetModDetailsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetModDetails")),
+			connect.WithClientOptions(opts...),
+		),
+		getModVersions: connect.NewClient[xylona.GetModVersionsRequest, xylona.GetModVersionsResponse](
+			httpClient,
+			baseURL+XylonaGetModVersionsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetModVersions")),
+			connect.WithClientOptions(opts...),
+		),
+		installMod: connect.NewClient[xylona.InstallModRequest, xylona.InstallModResponse](
+			httpClient,
+			baseURL+XylonaInstallModProcedure,
+			connect.WithSchema(xylonaMethods.ByName("InstallMod")),
+			connect.WithClientOptions(opts...),
+		),
+		uninstallMod: connect.NewClient[xylona.UninstallModRequest, xylona.UninstallModResponse](
+			httpClient,
+			baseURL+XylonaUninstallModProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UninstallMod")),
+			connect.WithClientOptions(opts...),
+		),
+		updateMod: connect.NewClient[xylona.UpdateModRequest, xylona.UpdateModResponse](
+			httpClient,
+			baseURL+XylonaUpdateModProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateMod")),
+			connect.WithClientOptions(opts...),
+		),
+		listInstalledMods: connect.NewClient[xylona.ListInstalledModsRequest, xylona.ListInstalledModsResponse](
+			httpClient,
+			baseURL+XylonaListInstalledModsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListInstalledMods")),
+			connect.WithClientOptions(opts...),
+		),
+		setModAutoUpdate: connect.NewClient[xylona.SetModAutoUpdateRequest, xylona.SetModAutoUpdateResponse](
+			httpClient,
+			baseURL+XylonaSetModAutoUpdateProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetModAutoUpdate")),
+			connect.WithClientOptions(opts...),
+		),
+		setModEnabled: connect.NewClient[xylona.SetModEnabledRequest, xylona.SetModEnabledResponse](
+			httpClient,
+			baseURL+XylonaSetModEnabledProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetModEnabled")),
+			connect.WithClientOptions(opts...),
+		),
+		pinModVersion: connect.NewClient[xylona.PinModVersionRequest, xylona.PinModVersionResponse](
+			httpClient,
+			baseURL+XylonaPinModVersionProcedure,
+			connect.WithSchema(xylonaMethods.ByName("PinModVersion")),
+			connect.WithClientOptions(opts...),
+		),
+		getServerSoftwareOptions: connect.NewClient[xylona.GetServerSoftwareOptionsRequest, xylona.GetServerSoftwareOptionsResponse](
+			httpClient,
+			baseURL+XylonaGetServerSoftwareOptionsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareOptions")),
+			connect.WithClientOptions(opts...),
+		),
+		getServerSoftwareVersions: connect.NewClient[xylona.GetServerSoftwareVersionsRequest, xylona.GetServerSoftwareVersionsResponse](
+			httpClient,
+			baseURL+XylonaGetServerSoftwareVersionsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareVersions")),
+			connect.WithClientOptions(opts...),
+		),
+		setServerSoftware: connect.NewClient[xylona.SetServerSoftwareRequest, xylona.SetServerSoftwareResponse](
+			httpClient,
+			baseURL+XylonaSetServerSoftwareProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetServerSoftware")),
+			connect.WithClientOptions(opts...),
+		),
+		listNodeApiKeys: connect.NewClient[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse](
+			httpClient,
+			baseURL+XylonaListNodeApiKeysProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListNodeApiKeys")),
+			connect.WithClientOptions(opts...),
+		),
+		setNodeApiKey: connect.NewClient[xylona.SetNodeApiKeyRequest, xylona.SetNodeApiKeyResponse](
+			httpClient,
+			baseURL+XylonaSetNodeApiKeyProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetNodeApiKey")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteNodeApiKey: connect.NewClient[xylona.DeleteNodeApiKeyRequest, xylona.DeleteNodeApiKeyResponse](
+			httpClient,
+			baseURL+XylonaDeleteNodeApiKeyProcedure,
+			connect.WithSchema(xylonaMethods.ByName("DeleteNodeApiKey")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -931,6 +1082,22 @@ type xylonaClient struct {
 	getDashboardOverview             *connect.Client[xylona.GetDashboardOverviewRequest, xylona.GetDashboardOverviewResponse]
 	getNodeMetricsHistory            *connect.Client[xylona.GetNodeMetricsHistoryRequest, xylona.GetNodeMetricsHistoryResponse]
 	getGameServerMetricsHistory      *connect.Client[xylona.GetGameServerMetricsHistoryRequest, xylona.GetGameServerMetricsHistoryResponse]
+	searchMods                       *connect.Client[xylona.SearchModsRequest, xylona.SearchModsResponse]
+	getModDetails                    *connect.Client[xylona.GetModDetailsRequest, xylona.GetModDetailsResponse]
+	getModVersions                   *connect.Client[xylona.GetModVersionsRequest, xylona.GetModVersionsResponse]
+	installMod                       *connect.Client[xylona.InstallModRequest, xylona.InstallModResponse]
+	uninstallMod                     *connect.Client[xylona.UninstallModRequest, xylona.UninstallModResponse]
+	updateMod                        *connect.Client[xylona.UpdateModRequest, xylona.UpdateModResponse]
+	listInstalledMods                *connect.Client[xylona.ListInstalledModsRequest, xylona.ListInstalledModsResponse]
+	setModAutoUpdate                 *connect.Client[xylona.SetModAutoUpdateRequest, xylona.SetModAutoUpdateResponse]
+	setModEnabled                    *connect.Client[xylona.SetModEnabledRequest, xylona.SetModEnabledResponse]
+	pinModVersion                    *connect.Client[xylona.PinModVersionRequest, xylona.PinModVersionResponse]
+	getServerSoftwareOptions         *connect.Client[xylona.GetServerSoftwareOptionsRequest, xylona.GetServerSoftwareOptionsResponse]
+	getServerSoftwareVersions        *connect.Client[xylona.GetServerSoftwareVersionsRequest, xylona.GetServerSoftwareVersionsResponse]
+	setServerSoftware                *connect.Client[xylona.SetServerSoftwareRequest, xylona.SetServerSoftwareResponse]
+	listNodeApiKeys                  *connect.Client[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse]
+	setNodeApiKey                    *connect.Client[xylona.SetNodeApiKeyRequest, xylona.SetNodeApiKeyResponse]
+	deleteNodeApiKey                 *connect.Client[xylona.DeleteNodeApiKeyRequest, xylona.DeleteNodeApiKeyResponse]
 }
 
 // AddGame calls xylona.Xylona.AddGame.
@@ -1343,6 +1510,86 @@ func (c *xylonaClient) GetGameServerMetricsHistory(ctx context.Context, req *con
 	return c.getGameServerMetricsHistory.CallUnary(ctx, req)
 }
 
+// SearchMods calls xylona.Xylona.SearchMods.
+func (c *xylonaClient) SearchMods(ctx context.Context, req *connect.Request[xylona.SearchModsRequest]) (*connect.Response[xylona.SearchModsResponse], error) {
+	return c.searchMods.CallUnary(ctx, req)
+}
+
+// GetModDetails calls xylona.Xylona.GetModDetails.
+func (c *xylonaClient) GetModDetails(ctx context.Context, req *connect.Request[xylona.GetModDetailsRequest]) (*connect.Response[xylona.GetModDetailsResponse], error) {
+	return c.getModDetails.CallUnary(ctx, req)
+}
+
+// GetModVersions calls xylona.Xylona.GetModVersions.
+func (c *xylonaClient) GetModVersions(ctx context.Context, req *connect.Request[xylona.GetModVersionsRequest]) (*connect.Response[xylona.GetModVersionsResponse], error) {
+	return c.getModVersions.CallUnary(ctx, req)
+}
+
+// InstallMod calls xylona.Xylona.InstallMod.
+func (c *xylonaClient) InstallMod(ctx context.Context, req *connect.Request[xylona.InstallModRequest]) (*connect.Response[xylona.InstallModResponse], error) {
+	return c.installMod.CallUnary(ctx, req)
+}
+
+// UninstallMod calls xylona.Xylona.UninstallMod.
+func (c *xylonaClient) UninstallMod(ctx context.Context, req *connect.Request[xylona.UninstallModRequest]) (*connect.Response[xylona.UninstallModResponse], error) {
+	return c.uninstallMod.CallUnary(ctx, req)
+}
+
+// UpdateMod calls xylona.Xylona.UpdateMod.
+func (c *xylonaClient) UpdateMod(ctx context.Context, req *connect.Request[xylona.UpdateModRequest]) (*connect.Response[xylona.UpdateModResponse], error) {
+	return c.updateMod.CallUnary(ctx, req)
+}
+
+// ListInstalledMods calls xylona.Xylona.ListInstalledMods.
+func (c *xylonaClient) ListInstalledMods(ctx context.Context, req *connect.Request[xylona.ListInstalledModsRequest]) (*connect.Response[xylona.ListInstalledModsResponse], error) {
+	return c.listInstalledMods.CallUnary(ctx, req)
+}
+
+// SetModAutoUpdate calls xylona.Xylona.SetModAutoUpdate.
+func (c *xylonaClient) SetModAutoUpdate(ctx context.Context, req *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error) {
+	return c.setModAutoUpdate.CallUnary(ctx, req)
+}
+
+// SetModEnabled calls xylona.Xylona.SetModEnabled.
+func (c *xylonaClient) SetModEnabled(ctx context.Context, req *connect.Request[xylona.SetModEnabledRequest]) (*connect.Response[xylona.SetModEnabledResponse], error) {
+	return c.setModEnabled.CallUnary(ctx, req)
+}
+
+// PinModVersion calls xylona.Xylona.PinModVersion.
+func (c *xylonaClient) PinModVersion(ctx context.Context, req *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error) {
+	return c.pinModVersion.CallUnary(ctx, req)
+}
+
+// GetServerSoftwareOptions calls xylona.Xylona.GetServerSoftwareOptions.
+func (c *xylonaClient) GetServerSoftwareOptions(ctx context.Context, req *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error) {
+	return c.getServerSoftwareOptions.CallUnary(ctx, req)
+}
+
+// GetServerSoftwareVersions calls xylona.Xylona.GetServerSoftwareVersions.
+func (c *xylonaClient) GetServerSoftwareVersions(ctx context.Context, req *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error) {
+	return c.getServerSoftwareVersions.CallUnary(ctx, req)
+}
+
+// SetServerSoftware calls xylona.Xylona.SetServerSoftware.
+func (c *xylonaClient) SetServerSoftware(ctx context.Context, req *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error) {
+	return c.setServerSoftware.CallUnary(ctx, req)
+}
+
+// ListNodeApiKeys calls xylona.Xylona.ListNodeApiKeys.
+func (c *xylonaClient) ListNodeApiKeys(ctx context.Context, req *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {
+	return c.listNodeApiKeys.CallUnary(ctx, req)
+}
+
+// SetNodeApiKey calls xylona.Xylona.SetNodeApiKey.
+func (c *xylonaClient) SetNodeApiKey(ctx context.Context, req *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error) {
+	return c.setNodeApiKey.CallUnary(ctx, req)
+}
+
+// DeleteNodeApiKey calls xylona.Xylona.DeleteNodeApiKey.
+func (c *xylonaClient) DeleteNodeApiKey(ctx context.Context, req *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error) {
+	return c.deleteNodeApiKey.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// Game Operations
@@ -1442,6 +1689,25 @@ type XylonaHandler interface {
 	GetDashboardOverview(context.Context, *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error)
 	GetNodeMetricsHistory(context.Context, *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error)
 	GetGameServerMetricsHistory(context.Context, *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error)
+	// Mod management
+	SearchMods(context.Context, *connect.Request[xylona.SearchModsRequest]) (*connect.Response[xylona.SearchModsResponse], error)
+	GetModDetails(context.Context, *connect.Request[xylona.GetModDetailsRequest]) (*connect.Response[xylona.GetModDetailsResponse], error)
+	GetModVersions(context.Context, *connect.Request[xylona.GetModVersionsRequest]) (*connect.Response[xylona.GetModVersionsResponse], error)
+	InstallMod(context.Context, *connect.Request[xylona.InstallModRequest]) (*connect.Response[xylona.InstallModResponse], error)
+	UninstallMod(context.Context, *connect.Request[xylona.UninstallModRequest]) (*connect.Response[xylona.UninstallModResponse], error)
+	UpdateMod(context.Context, *connect.Request[xylona.UpdateModRequest]) (*connect.Response[xylona.UpdateModResponse], error)
+	ListInstalledMods(context.Context, *connect.Request[xylona.ListInstalledModsRequest]) (*connect.Response[xylona.ListInstalledModsResponse], error)
+	SetModAutoUpdate(context.Context, *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error)
+	SetModEnabled(context.Context, *connect.Request[xylona.SetModEnabledRequest]) (*connect.Response[xylona.SetModEnabledResponse], error)
+	PinModVersion(context.Context, *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error)
+	// Server software
+	GetServerSoftwareOptions(context.Context, *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error)
+	GetServerSoftwareVersions(context.Context, *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error)
+	SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error)
+	// Node API keys
+	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
+	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
+	DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -1943,6 +2209,102 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("GetGameServerMetricsHistory")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaSearchModsHandler := connect.NewUnaryHandler(
+		XylonaSearchModsProcedure,
+		svc.SearchMods,
+		connect.WithSchema(xylonaMethods.ByName("SearchMods")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetModDetailsHandler := connect.NewUnaryHandler(
+		XylonaGetModDetailsProcedure,
+		svc.GetModDetails,
+		connect.WithSchema(xylonaMethods.ByName("GetModDetails")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetModVersionsHandler := connect.NewUnaryHandler(
+		XylonaGetModVersionsProcedure,
+		svc.GetModVersions,
+		connect.WithSchema(xylonaMethods.ByName("GetModVersions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaInstallModHandler := connect.NewUnaryHandler(
+		XylonaInstallModProcedure,
+		svc.InstallMod,
+		connect.WithSchema(xylonaMethods.ByName("InstallMod")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUninstallModHandler := connect.NewUnaryHandler(
+		XylonaUninstallModProcedure,
+		svc.UninstallMod,
+		connect.WithSchema(xylonaMethods.ByName("UninstallMod")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateModHandler := connect.NewUnaryHandler(
+		XylonaUpdateModProcedure,
+		svc.UpdateMod,
+		connect.WithSchema(xylonaMethods.ByName("UpdateMod")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListInstalledModsHandler := connect.NewUnaryHandler(
+		XylonaListInstalledModsProcedure,
+		svc.ListInstalledMods,
+		connect.WithSchema(xylonaMethods.ByName("ListInstalledMods")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetModAutoUpdateHandler := connect.NewUnaryHandler(
+		XylonaSetModAutoUpdateProcedure,
+		svc.SetModAutoUpdate,
+		connect.WithSchema(xylonaMethods.ByName("SetModAutoUpdate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetModEnabledHandler := connect.NewUnaryHandler(
+		XylonaSetModEnabledProcedure,
+		svc.SetModEnabled,
+		connect.WithSchema(xylonaMethods.ByName("SetModEnabled")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaPinModVersionHandler := connect.NewUnaryHandler(
+		XylonaPinModVersionProcedure,
+		svc.PinModVersion,
+		connect.WithSchema(xylonaMethods.ByName("PinModVersion")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetServerSoftwareOptionsHandler := connect.NewUnaryHandler(
+		XylonaGetServerSoftwareOptionsProcedure,
+		svc.GetServerSoftwareOptions,
+		connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareOptions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetServerSoftwareVersionsHandler := connect.NewUnaryHandler(
+		XylonaGetServerSoftwareVersionsProcedure,
+		svc.GetServerSoftwareVersions,
+		connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareVersions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetServerSoftwareHandler := connect.NewUnaryHandler(
+		XylonaSetServerSoftwareProcedure,
+		svc.SetServerSoftware,
+		connect.WithSchema(xylonaMethods.ByName("SetServerSoftware")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListNodeApiKeysHandler := connect.NewUnaryHandler(
+		XylonaListNodeApiKeysProcedure,
+		svc.ListNodeApiKeys,
+		connect.WithSchema(xylonaMethods.ByName("ListNodeApiKeys")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetNodeApiKeyHandler := connect.NewUnaryHandler(
+		XylonaSetNodeApiKeyProcedure,
+		svc.SetNodeApiKey,
+		connect.WithSchema(xylonaMethods.ByName("SetNodeApiKey")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaDeleteNodeApiKeyHandler := connect.NewUnaryHandler(
+		XylonaDeleteNodeApiKeyProcedure,
+		svc.DeleteNodeApiKey,
+		connect.WithSchema(xylonaMethods.ByName("DeleteNodeApiKey")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaAddGameProcedure:
@@ -2109,6 +2471,38 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetNodeMetricsHistoryHandler.ServeHTTP(w, r)
 		case XylonaGetGameServerMetricsHistoryProcedure:
 			xylonaGetGameServerMetricsHistoryHandler.ServeHTTP(w, r)
+		case XylonaSearchModsProcedure:
+			xylonaSearchModsHandler.ServeHTTP(w, r)
+		case XylonaGetModDetailsProcedure:
+			xylonaGetModDetailsHandler.ServeHTTP(w, r)
+		case XylonaGetModVersionsProcedure:
+			xylonaGetModVersionsHandler.ServeHTTP(w, r)
+		case XylonaInstallModProcedure:
+			xylonaInstallModHandler.ServeHTTP(w, r)
+		case XylonaUninstallModProcedure:
+			xylonaUninstallModHandler.ServeHTTP(w, r)
+		case XylonaUpdateModProcedure:
+			xylonaUpdateModHandler.ServeHTTP(w, r)
+		case XylonaListInstalledModsProcedure:
+			xylonaListInstalledModsHandler.ServeHTTP(w, r)
+		case XylonaSetModAutoUpdateProcedure:
+			xylonaSetModAutoUpdateHandler.ServeHTTP(w, r)
+		case XylonaSetModEnabledProcedure:
+			xylonaSetModEnabledHandler.ServeHTTP(w, r)
+		case XylonaPinModVersionProcedure:
+			xylonaPinModVersionHandler.ServeHTTP(w, r)
+		case XylonaGetServerSoftwareOptionsProcedure:
+			xylonaGetServerSoftwareOptionsHandler.ServeHTTP(w, r)
+		case XylonaGetServerSoftwareVersionsProcedure:
+			xylonaGetServerSoftwareVersionsHandler.ServeHTTP(w, r)
+		case XylonaSetServerSoftwareProcedure:
+			xylonaSetServerSoftwareHandler.ServeHTTP(w, r)
+		case XylonaListNodeApiKeysProcedure:
+			xylonaListNodeApiKeysHandler.ServeHTTP(w, r)
+		case XylonaSetNodeApiKeyProcedure:
+			xylonaSetNodeApiKeyHandler.ServeHTTP(w, r)
+		case XylonaDeleteNodeApiKeyProcedure:
+			xylonaDeleteNodeApiKeyHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2444,4 +2838,68 @@ func (UnimplementedXylonaHandler) GetNodeMetricsHistory(context.Context, *connec
 
 func (UnimplementedXylonaHandler) GetGameServerMetricsHistory(context.Context, *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerMetricsHistory is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SearchMods(context.Context, *connect.Request[xylona.SearchModsRequest]) (*connect.Response[xylona.SearchModsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SearchMods is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetModDetails(context.Context, *connect.Request[xylona.GetModDetailsRequest]) (*connect.Response[xylona.GetModDetailsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetModDetails is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetModVersions(context.Context, *connect.Request[xylona.GetModVersionsRequest]) (*connect.Response[xylona.GetModVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetModVersions is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) InstallMod(context.Context, *connect.Request[xylona.InstallModRequest]) (*connect.Response[xylona.InstallModResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.InstallMod is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UninstallMod(context.Context, *connect.Request[xylona.UninstallModRequest]) (*connect.Response[xylona.UninstallModResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UninstallMod is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateMod(context.Context, *connect.Request[xylona.UpdateModRequest]) (*connect.Response[xylona.UpdateModResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateMod is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListInstalledMods(context.Context, *connect.Request[xylona.ListInstalledModsRequest]) (*connect.Response[xylona.ListInstalledModsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListInstalledMods is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetModAutoUpdate(context.Context, *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetModAutoUpdate is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetModEnabled(context.Context, *connect.Request[xylona.SetModEnabledRequest]) (*connect.Response[xylona.SetModEnabledResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetModEnabled is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) PinModVersion(context.Context, *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.PinModVersion is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetServerSoftwareOptions(context.Context, *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetServerSoftwareOptions is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetServerSoftwareVersions(context.Context, *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetServerSoftwareVersions is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetServerSoftware is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListNodeApiKeys is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetNodeApiKey is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteNodeApiKey is not implemented"))
 }

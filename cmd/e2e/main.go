@@ -24,7 +24,8 @@ func main() {
 	switch subcommand {
 	case "single-setup":
 		fs := flag.NewFlagSet("single-setup", flag.ExitOnError)
-		backendURL := fs.String("backend-url", "http://localhost:8080", "Backend URL")
+		httpPort := fs.Int("http-port", 9091, "Backend HTTP port for E2E")
+		fedPort := fs.Int("fed-port", 9446, "Backend federation port for E2E")
 		adminUsername := fs.String("admin-username", "admin", "Admin username")
 		adminPassword := fs.String("admin-password", "admin", "Admin password")
 		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
@@ -33,14 +34,14 @@ func main() {
 		if errParse != nil {
 			log.Fatal().Err(errParse).Msg("Failed to parse flags")
 		}
-		errRun := runSingleSetup(ctx, *backendURL, *adminUsername, *adminPassword, *e2eDir, *projectRoot)
+		errRun := runSingleSetup(ctx, *httpPort, *fedPort, *adminUsername, *adminPassword, *e2eDir, *projectRoot)
 		if errRun != nil {
 			log.Fatal().Err(errRun).Msg("Single setup failed")
 		}
 
 	case "single-teardown":
 		fs := flag.NewFlagSet("single-teardown", flag.ExitOnError)
-		backendURL := fs.String("backend-url", "http://localhost:8080", "Backend URL")
+		httpPort := fs.Int("http-port", 9091, "Backend HTTP port for E2E")
 		adminUsername := fs.String("admin-username", "admin", "Admin username")
 		adminPassword := fs.String("admin-password", "admin", "Admin password")
 		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
@@ -48,7 +49,7 @@ func main() {
 		if errParse != nil {
 			log.Fatal().Err(errParse).Msg("Failed to parse flags")
 		}
-		errRun := runSingleTeardown(ctx, *backendURL, *adminUsername, *adminPassword, *e2eDir)
+		errRun := runSingleTeardown(ctx, *httpPort, *adminUsername, *adminPassword, *e2eDir)
 		if errRun != nil {
 			log.Fatal().Err(errRun).Msg("Single teardown failed")
 		}

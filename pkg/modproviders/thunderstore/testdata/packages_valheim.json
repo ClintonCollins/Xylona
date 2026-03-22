@@ -1,0 +1,149 @@
+[
+  {
+    "name": "ValheimPlus",
+    "full_name": "ValheimPlus-ValheimPlus",
+    "owner": "ValheimPlus",
+    "package_url": "https://thunderstore.io/c/valheim/p/ValheimPlus/ValheimPlus/",
+    "date_created": "2021-02-15T00:00:00.000000Z",
+    "date_updated": "2023-10-01T00:00:00.000000Z",
+    "rating_score": 4200,
+    "is_pinned": false,
+    "is_deprecated": false,
+    "total_downloads": 8500000,
+    "latest": {
+      "name": "ValheimPlus",
+      "full_name": "ValheimPlus-ValheimPlus-0.9.12.0",
+      "description": "A comprehensive gameplay modification for Valheim.",
+      "icon": "https://thunderstore.io/icon/ValheimPlus/ValheimPlus/0.9.12.0/icon.png",
+      "version_number": "0.9.12.0",
+      "dependencies": [],
+      "download_url": "https://thunderstore.io/package/download/ValheimPlus/ValheimPlus/0.9.12.0/",
+      "downloads": 1500000,
+      "date_created": "2023-10-01T00:00:00.000000Z",
+      "file_size": 1048576
+    },
+    "community_listings": [
+      {"community": "valheim"}
+    ],
+    "versions": [
+      {
+        "name": "ValheimPlus",
+        "full_name": "ValheimPlus-ValheimPlus-0.9.12.0",
+        "description": "A comprehensive gameplay modification for Valheim.",
+        "icon": "https://thunderstore.io/icon/ValheimPlus/ValheimPlus/0.9.12.0/icon.png",
+        "version_number": "0.9.12.0",
+        "dependencies": [],
+        "download_url": "https://thunderstore.io/package/download/ValheimPlus/ValheimPlus/0.9.12.0/",
+        "downloads": 1500000,
+        "date_created": "2023-10-01T00:00:00.000000Z",
+        "file_size": 1048576
+      },
+      {
+        "name": "ValheimPlus",
+        "full_name": "ValheimPlus-ValheimPlus-0.9.11.0",
+        "description": "A comprehensive gameplay modification for Valheim.",
+        "icon": "https://thunderstore.io/icon/ValheimPlus/ValheimPlus/0.9.11.0/icon.png",
+        "version_number": "0.9.11.0",
+        "dependencies": [],
+        "download_url": "https://thunderstore.io/package/download/ValheimPlus/ValheimPlus/0.9.11.0/",
+        "downloads": 2000000,
+        "date_created": "2023-06-01T00:00:00.000000Z",
+        "file_size": 1040000
+      }
+    ]
+  },
+  {
+    "name": "BepInExPack",
+    "full_name": "denikson-BepInExPack_Valheim",
+    "owner": "denikson",
+    "package_url": "https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/",
+    "date_created": "2021-01-01T00:00:00.000000Z",
+    "date_updated": "2023-09-15T00:00:00.000000Z",
+    "rating_score": 5000,
+    "is_pinned": true,
+    "is_deprecated": false,
+    "total_downloads": 15000000,
+    "latest": {
+      "name": "BepInExPack_Valheim",
+      "full_name": "denikson-BepInExPack_Valheim-5.4.2202",
+      "description": "BepInEx pack for Valheim. Enables BepInEx for Valheim.",
+      "icon": "https://thunderstore.io/icon/denikson/BepInExPack_Valheim/5.4.2202/icon.png",
+      "version_number": "5.4.2202",
+      "dependencies": [],
+      "download_url": "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2202/",
+      "downloads": 3000000,
+      "date_created": "2023-09-15T00:00:00.000000Z",
+      "file_size": 2097152
+    },
+    "community_listings": [
+      {"community": "valheim"}
+    ],
+    "versions": [
+      {
+        "name": "BepInExPack_Valheim",
+        "full_name": "denikson-BepInExPack_Valheim-5.4.2202",
+        "description": "BepInEx pack for Valheim. Enables BepInEx for Valheim.",
+        "icon": "https://thunderstore.io/icon/denikson/BepInExPack_Valheim/5.4.2202/icon.png",
+        "version_number": "5.4.2202",
+        "dependencies": [],
+        "download_url": "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2202/",
+        "downloads": 3000000,
+        "date_created": "2023-09-15T00:00:00.000000Z",
+        "file_size": 2097152
+      },
+      {
+        "name": "BepInExPack_Valheim",
+        "full_name": "denikson-BepInExPack_Valheim-5.4.2100",
+        "description": "BepInEx pack for Valheim. Enables BepInEx for Valheim.",
+        "icon": "https://thunderstore.io/icon/denikson/BepInExPack_Valheim/5.4.2100/icon.png",
+        "version_number": "5.4.2100",
+        "dependencies": [],
+        "download_url": "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2100/",
+        "downloads": 5000000,
+        "date_created": "2022-12-01T00:00:00.000000Z",
+        "file_size": 2000000
+      }
+    ]
+  },
+  {
+    "name": "SomeDifferentMod",
+    "full_name": "SomeAuthor-SomeDifferentMod",
+    "owner": "SomeAuthor",
+    "package_url": "https://thunderstore.io/c/valheim/p/SomeAuthor/SomeDifferentMod/",
+    "date_created": "2022-03-01T00:00:00.000000Z",
+    "date_updated": "2023-05-01T00:00:00.000000Z",
+    "rating_score": 100,
+    "is_pinned": false,
+    "is_deprecated": false,
+    "total_downloads": 50000,
+    "latest": {
+      "name": "SomeDifferentMod",
+      "full_name": "SomeAuthor-SomeDifferentMod-1.0.0",
+      "description": "An unrelated mod with no connection to any mod framework.",
+      "icon": "https://thunderstore.io/icon/SomeAuthor/SomeDifferentMod/1.0.0/icon.png",
+      "version_number": "1.0.0",
+      "dependencies": ["denikson-BepInExPack_Valheim-5.4.2202"],
+      "download_url": "https://thunderstore.io/package/download/SomeAuthor/SomeDifferentMod/1.0.0/",
+      "downloads": 50000,
+      "date_created": "2023-05-01T00:00:00.000000Z",
+      "file_size": 102400
+    },
+    "community_listings": [
+      {"community": "valheim"}
+    ],
+    "versions": [
+      {
+        "name": "SomeDifferentMod",
+        "full_name": "SomeAuthor-SomeDifferentMod-1.0.0",
+        "description": "An unrelated mod with no connection to any mod framework.",
+        "icon": "https://thunderstore.io/icon/SomeAuthor/SomeDifferentMod/1.0.0/icon.png",
+        "version_number": "1.0.0",
+        "dependencies": ["denikson-BepInExPack_Valheim-5.4.2202"],
+        "download_url": "https://thunderstore.io/package/download/SomeAuthor/SomeDifferentMod/1.0.0/",
+        "downloads": 50000,
+        "date_created": "2023-05-01T00:00:00.000000Z",
+        "file_size": 102400
+      }
+    ]
+  }
+]
