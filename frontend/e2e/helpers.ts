@@ -89,8 +89,10 @@ export async function apiCreateGameServer(
   serverDef: {
     name: string
     gameId: string
+    userId?: string
     startCommand: string
     directory: string
+    ip?: string
     port?: number
     queryPort?: number
     setMaxPlayers?: number
@@ -107,8 +109,10 @@ export async function apiCreateGameServer(
       game_server: {
         name: serverDef.name,
         game_id: serverDef.gameId,
+        user_id: serverDef.userId ?? '',
         start_command: serverDef.startCommand,
         directory: serverDef.directory,
+        ip: serverDef.ip ? { address: serverDef.ip } : undefined,
         port: serverDef.port ?? 25565,
         query_port: serverDef.queryPort ?? 25565,
         set_max_players: serverDef.setMaxPlayers ?? 20,

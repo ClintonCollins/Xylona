@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
-import { apiLogin, apiCreateGameServer, apiListGames, loadTestState } from './helpers'
+import {
+  apiLogin,
+  apiCreateGameServer,
+  apiListGames,
+  loadTestState,
+  loadTestUsers,
+} from './helpers'
 
 async function gotoConsolePage(page: Page, gameServerId: string) {
   await page.goto(`/game-servers/${gameServerId}/console`)
@@ -76,10 +82,17 @@ test.describe('Game server lifecycle', () => {
       return
     }
 
+    const tempServerOwner = loadTestUsers().find((user) => user.username === 'e2e-superuser')
+    if (!tempServerOwner) {
+      test.skip(true, 'No E2E superuser available')
+      return
+    }
+
     const tempServerName = `E2E Temp Delete Server ${Date.now()}`
     await apiCreateGameServer(adminCookies, {
       name: tempServerName,
       gameId: games[0]!.id,
+      userId: tempServerOwner.id,
       startCommand: 'echo test',
       directory: '.',
       port: 25598,
