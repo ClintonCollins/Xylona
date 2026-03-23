@@ -200,6 +200,26 @@ func (c *Connection) GetUserPermissionIDsForServers(userID string, gameServerIDs
 	return result, nil
 }
 
+// UserHasGlobalPermission checks whether the user has the given permission via
+// a globally-scoped role assignment (game_server_id IS NULL).
+func (c *Connection) UserHasGlobalPermission(userID string, permissionID string) (bool, error) {
+	var count int
+	errQuery := c.SQLDb.QueryRowContext(
+		c.ctx,
+		`SELECT COUNT(*)
+		FROM user_role_assignment ura
+		JOIN role_permission rp ON ura.role_id = rp.role_id
+		WHERE ura.user_id = ? AND rp.permission_id = ?
+		AND ura.game_server_id IS NULL`,
+		userID, permissionID,
+	).Scan(&count)
+	if errQuery != nil {
+		return false, errQuery
+	}
+
+	return count > 0, nil
+}
+
 func (c *Connection) GetUserRoleAssignmentByComposite(userID string, roleID string, gameServerID string) (*models.UserRoleAssignment, error) {
 	if gameServerID == "" {
 		return models.UserRoleAssignments.Query(
