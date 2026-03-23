@@ -469,3 +469,86 @@ message SoftwareVersion {
   int32 build_number = 3;
   string channel = 4;
 }
+
+enum AlertEventType {
+  ALERT_EVENT_TYPE_UNSPECIFIED = 0;
+  ALERT_EVENT_TYPE_CRASH = 1;
+  ALERT_EVENT_TYPE_STATUS_CHANGE = 2;
+  ALERT_EVENT_TYPE_CPU_THRESHOLD = 3;
+  ALERT_EVENT_TYPE_MEMORY_THRESHOLD = 4;
+  ALERT_EVENT_TYPE_DISK_THRESHOLD = 5;
+  ALERT_EVENT_TYPE_PLAYER_COUNT_THRESHOLD = 6;
+  ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD = 7;
+  ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD = 8;
+  ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD = 9;
+}
+
+enum ThresholdDirection {
+  THRESHOLD_DIRECTION_UNSPECIFIED = 0;
+  THRESHOLD_DIRECTION_ENTERED = 1;
+  THRESHOLD_DIRECTION_RESOLVED = 2;
+}
+
+enum NotificationChannelType {
+  NOTIFICATION_CHANNEL_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD = 1;
+  NOTIFICATION_CHANNEL_TYPE_WEBHOOK_SLACK = 2;
+  NOTIFICATION_CHANNEL_TYPE_WEBHOOK_GENERIC = 3;
+  NOTIFICATION_CHANNEL_TYPE_EMAIL = 4;
+}
+
+enum DeliveryStatus {
+  DELIVERY_STATUS_UNSPECIFIED = 0;
+  DELIVERY_STATUS_PENDING = 1;
+  DELIVERY_STATUS_SENT = 2;
+  DELIVERY_STATUS_FAILED = 3;
+}
+
+message NotificationChannel {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  NotificationChannelType channel_type = 4;
+  string config = 5;
+  bool enabled = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message AlertRule {
+  string id = 1;
+  string user_id = 2;
+  optional string server_id = 3;
+  optional string server_node_id = 4;
+  optional string node_id = 5;
+  AlertEventType event_type = 6;
+  string condition = 7;
+  string notification_channel_id = 8;
+  bool enabled = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message AlertHistoryEntry {
+  string id = 1;
+  optional string alert_rule_id = 2;
+  string user_id = 3;
+  optional string server_id = 4;
+  optional string server_node_id = 5;
+  optional string node_id = 6;
+  AlertEventType event_type = 7;
+  string event_data = 8;
+  NotificationChannelType channel_type = 9;
+  DeliveryStatus delivery_status = 10;
+  optional string delivery_error = 11;
+  google.protobuf.Timestamp created_at = 12;
+}
+
+message SystemSMTPConfig {
+  string host = 1;
+  int32 port = 2;
+  string user = 3;
+  string password = 4;
+  string from_address = 5;
+  bool tls_enabled = 6;
+}

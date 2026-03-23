@@ -286,6 +286,39 @@ const (
 	XylonaSetNodeApiKeyProcedure = "/xylona.Xylona/SetNodeApiKey"
 	// XylonaDeleteNodeApiKeyProcedure is the fully-qualified name of the Xylona's DeleteNodeApiKey RPC.
 	XylonaDeleteNodeApiKeyProcedure = "/xylona.Xylona/DeleteNodeApiKey"
+	// XylonaCreateNotificationChannelProcedure is the fully-qualified name of the Xylona's
+	// CreateNotificationChannel RPC.
+	XylonaCreateNotificationChannelProcedure = "/xylona.Xylona/CreateNotificationChannel"
+	// XylonaUpdateNotificationChannelProcedure is the fully-qualified name of the Xylona's
+	// UpdateNotificationChannel RPC.
+	XylonaUpdateNotificationChannelProcedure = "/xylona.Xylona/UpdateNotificationChannel"
+	// XylonaDeleteNotificationChannelProcedure is the fully-qualified name of the Xylona's
+	// DeleteNotificationChannel RPC.
+	XylonaDeleteNotificationChannelProcedure = "/xylona.Xylona/DeleteNotificationChannel"
+	// XylonaListNotificationChannelsProcedure is the fully-qualified name of the Xylona's
+	// ListNotificationChannels RPC.
+	XylonaListNotificationChannelsProcedure = "/xylona.Xylona/ListNotificationChannels"
+	// XylonaTestNotificationChannelProcedure is the fully-qualified name of the Xylona's
+	// TestNotificationChannel RPC.
+	XylonaTestNotificationChannelProcedure = "/xylona.Xylona/TestNotificationChannel"
+	// XylonaCreateAlertRuleProcedure is the fully-qualified name of the Xylona's CreateAlertRule RPC.
+	XylonaCreateAlertRuleProcedure = "/xylona.Xylona/CreateAlertRule"
+	// XylonaUpdateAlertRuleProcedure is the fully-qualified name of the Xylona's UpdateAlertRule RPC.
+	XylonaUpdateAlertRuleProcedure = "/xylona.Xylona/UpdateAlertRule"
+	// XylonaDeleteAlertRuleProcedure is the fully-qualified name of the Xylona's DeleteAlertRule RPC.
+	XylonaDeleteAlertRuleProcedure = "/xylona.Xylona/DeleteAlertRule"
+	// XylonaListAlertRulesProcedure is the fully-qualified name of the Xylona's ListAlertRules RPC.
+	XylonaListAlertRulesProcedure = "/xylona.Xylona/ListAlertRules"
+	// XylonaGetAlertHistoryProcedure is the fully-qualified name of the Xylona's GetAlertHistory RPC.
+	XylonaGetAlertHistoryProcedure = "/xylona.Xylona/GetAlertHistory"
+	// XylonaGetSystemSMTPConfigProcedure is the fully-qualified name of the Xylona's
+	// GetSystemSMTPConfig RPC.
+	XylonaGetSystemSMTPConfigProcedure = "/xylona.Xylona/GetSystemSMTPConfig"
+	// XylonaSetSystemSMTPConfigProcedure is the fully-qualified name of the Xylona's
+	// SetSystemSMTPConfig RPC.
+	XylonaSetSystemSMTPConfigProcedure = "/xylona.Xylona/SetSystemSMTPConfig"
+	// XylonaTestSystemSMTPProcedure is the fully-qualified name of the Xylona's TestSystemSMTP RPC.
+	XylonaTestSystemSMTPProcedure = "/xylona.Xylona/TestSystemSMTP"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
@@ -412,6 +445,23 @@ type XylonaClient interface {
 	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
 	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
 	DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error)
+	// Notification Channels
+	CreateNotificationChannel(context.Context, *connect.Request[xylona.CreateNotificationChannelRequest]) (*connect.Response[xylona.CreateNotificationChannelResponse], error)
+	UpdateNotificationChannel(context.Context, *connect.Request[xylona.UpdateNotificationChannelRequest]) (*connect.Response[xylona.UpdateNotificationChannelResponse], error)
+	DeleteNotificationChannel(context.Context, *connect.Request[xylona.DeleteNotificationChannelRequest]) (*connect.Response[xylona.DeleteNotificationChannelResponse], error)
+	ListNotificationChannels(context.Context, *connect.Request[xylona.ListNotificationChannelsRequest]) (*connect.Response[xylona.ListNotificationChannelsResponse], error)
+	TestNotificationChannel(context.Context, *connect.Request[xylona.TestNotificationChannelRequest]) (*connect.Response[xylona.TestNotificationChannelResponse], error)
+	// Alert Rules
+	CreateAlertRule(context.Context, *connect.Request[xylona.CreateAlertRuleRequest]) (*connect.Response[xylona.CreateAlertRuleResponse], error)
+	UpdateAlertRule(context.Context, *connect.Request[xylona.UpdateAlertRuleRequest]) (*connect.Response[xylona.UpdateAlertRuleResponse], error)
+	DeleteAlertRule(context.Context, *connect.Request[xylona.DeleteAlertRuleRequest]) (*connect.Response[xylona.DeleteAlertRuleResponse], error)
+	ListAlertRules(context.Context, *connect.Request[xylona.ListAlertRulesRequest]) (*connect.Response[xylona.ListAlertRulesResponse], error)
+	// Alert History
+	GetAlertHistory(context.Context, *connect.Request[xylona.GetAlertHistoryRequest]) (*connect.Response[xylona.GetAlertHistoryResponse], error)
+	// System SMTP (superuser only)
+	GetSystemSMTPConfig(context.Context, *connect.Request[xylona.GetSystemSMTPConfigRequest]) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error)
+	SetSystemSMTPConfig(context.Context, *connect.Request[xylona.SetSystemSMTPConfigRequest]) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error)
+	TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -1043,6 +1093,84 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("DeleteNodeApiKey")),
 			connect.WithClientOptions(opts...),
 		),
+		createNotificationChannel: connect.NewClient[xylona.CreateNotificationChannelRequest, xylona.CreateNotificationChannelResponse](
+			httpClient,
+			baseURL+XylonaCreateNotificationChannelProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CreateNotificationChannel")),
+			connect.WithClientOptions(opts...),
+		),
+		updateNotificationChannel: connect.NewClient[xylona.UpdateNotificationChannelRequest, xylona.UpdateNotificationChannelResponse](
+			httpClient,
+			baseURL+XylonaUpdateNotificationChannelProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateNotificationChannel")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteNotificationChannel: connect.NewClient[xylona.DeleteNotificationChannelRequest, xylona.DeleteNotificationChannelResponse](
+			httpClient,
+			baseURL+XylonaDeleteNotificationChannelProcedure,
+			connect.WithSchema(xylonaMethods.ByName("DeleteNotificationChannel")),
+			connect.WithClientOptions(opts...),
+		),
+		listNotificationChannels: connect.NewClient[xylona.ListNotificationChannelsRequest, xylona.ListNotificationChannelsResponse](
+			httpClient,
+			baseURL+XylonaListNotificationChannelsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListNotificationChannels")),
+			connect.WithClientOptions(opts...),
+		),
+		testNotificationChannel: connect.NewClient[xylona.TestNotificationChannelRequest, xylona.TestNotificationChannelResponse](
+			httpClient,
+			baseURL+XylonaTestNotificationChannelProcedure,
+			connect.WithSchema(xylonaMethods.ByName("TestNotificationChannel")),
+			connect.WithClientOptions(opts...),
+		),
+		createAlertRule: connect.NewClient[xylona.CreateAlertRuleRequest, xylona.CreateAlertRuleResponse](
+			httpClient,
+			baseURL+XylonaCreateAlertRuleProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CreateAlertRule")),
+			connect.WithClientOptions(opts...),
+		),
+		updateAlertRule: connect.NewClient[xylona.UpdateAlertRuleRequest, xylona.UpdateAlertRuleResponse](
+			httpClient,
+			baseURL+XylonaUpdateAlertRuleProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateAlertRule")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteAlertRule: connect.NewClient[xylona.DeleteAlertRuleRequest, xylona.DeleteAlertRuleResponse](
+			httpClient,
+			baseURL+XylonaDeleteAlertRuleProcedure,
+			connect.WithSchema(xylonaMethods.ByName("DeleteAlertRule")),
+			connect.WithClientOptions(opts...),
+		),
+		listAlertRules: connect.NewClient[xylona.ListAlertRulesRequest, xylona.ListAlertRulesResponse](
+			httpClient,
+			baseURL+XylonaListAlertRulesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListAlertRules")),
+			connect.WithClientOptions(opts...),
+		),
+		getAlertHistory: connect.NewClient[xylona.GetAlertHistoryRequest, xylona.GetAlertHistoryResponse](
+			httpClient,
+			baseURL+XylonaGetAlertHistoryProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetAlertHistory")),
+			connect.WithClientOptions(opts...),
+		),
+		getSystemSMTPConfig: connect.NewClient[xylona.GetSystemSMTPConfigRequest, xylona.GetSystemSMTPConfigResponse](
+			httpClient,
+			baseURL+XylonaGetSystemSMTPConfigProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetSystemSMTPConfig")),
+			connect.WithClientOptions(opts...),
+		),
+		setSystemSMTPConfig: connect.NewClient[xylona.SetSystemSMTPConfigRequest, xylona.SetSystemSMTPConfigResponse](
+			httpClient,
+			baseURL+XylonaSetSystemSMTPConfigProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetSystemSMTPConfig")),
+			connect.WithClientOptions(opts...),
+		),
+		testSystemSMTP: connect.NewClient[xylona.TestSystemSMTPRequest, xylona.TestSystemSMTPResponse](
+			httpClient,
+			baseURL+XylonaTestSystemSMTPProcedure,
+			connect.WithSchema(xylonaMethods.ByName("TestSystemSMTP")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1151,6 +1279,19 @@ type xylonaClient struct {
 	listNodeApiKeys                  *connect.Client[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse]
 	setNodeApiKey                    *connect.Client[xylona.SetNodeApiKeyRequest, xylona.SetNodeApiKeyResponse]
 	deleteNodeApiKey                 *connect.Client[xylona.DeleteNodeApiKeyRequest, xylona.DeleteNodeApiKeyResponse]
+	createNotificationChannel        *connect.Client[xylona.CreateNotificationChannelRequest, xylona.CreateNotificationChannelResponse]
+	updateNotificationChannel        *connect.Client[xylona.UpdateNotificationChannelRequest, xylona.UpdateNotificationChannelResponse]
+	deleteNotificationChannel        *connect.Client[xylona.DeleteNotificationChannelRequest, xylona.DeleteNotificationChannelResponse]
+	listNotificationChannels         *connect.Client[xylona.ListNotificationChannelsRequest, xylona.ListNotificationChannelsResponse]
+	testNotificationChannel          *connect.Client[xylona.TestNotificationChannelRequest, xylona.TestNotificationChannelResponse]
+	createAlertRule                  *connect.Client[xylona.CreateAlertRuleRequest, xylona.CreateAlertRuleResponse]
+	updateAlertRule                  *connect.Client[xylona.UpdateAlertRuleRequest, xylona.UpdateAlertRuleResponse]
+	deleteAlertRule                  *connect.Client[xylona.DeleteAlertRuleRequest, xylona.DeleteAlertRuleResponse]
+	listAlertRules                   *connect.Client[xylona.ListAlertRulesRequest, xylona.ListAlertRulesResponse]
+	getAlertHistory                  *connect.Client[xylona.GetAlertHistoryRequest, xylona.GetAlertHistoryResponse]
+	getSystemSMTPConfig              *connect.Client[xylona.GetSystemSMTPConfigRequest, xylona.GetSystemSMTPConfigResponse]
+	setSystemSMTPConfig              *connect.Client[xylona.SetSystemSMTPConfigRequest, xylona.SetSystemSMTPConfigResponse]
+	testSystemSMTP                   *connect.Client[xylona.TestSystemSMTPRequest, xylona.TestSystemSMTPResponse]
 }
 
 // AddGame calls xylona.Xylona.AddGame.
@@ -1668,6 +1809,71 @@ func (c *xylonaClient) DeleteNodeApiKey(ctx context.Context, req *connect.Reques
 	return c.deleteNodeApiKey.CallUnary(ctx, req)
 }
 
+// CreateNotificationChannel calls xylona.Xylona.CreateNotificationChannel.
+func (c *xylonaClient) CreateNotificationChannel(ctx context.Context, req *connect.Request[xylona.CreateNotificationChannelRequest]) (*connect.Response[xylona.CreateNotificationChannelResponse], error) {
+	return c.createNotificationChannel.CallUnary(ctx, req)
+}
+
+// UpdateNotificationChannel calls xylona.Xylona.UpdateNotificationChannel.
+func (c *xylonaClient) UpdateNotificationChannel(ctx context.Context, req *connect.Request[xylona.UpdateNotificationChannelRequest]) (*connect.Response[xylona.UpdateNotificationChannelResponse], error) {
+	return c.updateNotificationChannel.CallUnary(ctx, req)
+}
+
+// DeleteNotificationChannel calls xylona.Xylona.DeleteNotificationChannel.
+func (c *xylonaClient) DeleteNotificationChannel(ctx context.Context, req *connect.Request[xylona.DeleteNotificationChannelRequest]) (*connect.Response[xylona.DeleteNotificationChannelResponse], error) {
+	return c.deleteNotificationChannel.CallUnary(ctx, req)
+}
+
+// ListNotificationChannels calls xylona.Xylona.ListNotificationChannels.
+func (c *xylonaClient) ListNotificationChannels(ctx context.Context, req *connect.Request[xylona.ListNotificationChannelsRequest]) (*connect.Response[xylona.ListNotificationChannelsResponse], error) {
+	return c.listNotificationChannels.CallUnary(ctx, req)
+}
+
+// TestNotificationChannel calls xylona.Xylona.TestNotificationChannel.
+func (c *xylonaClient) TestNotificationChannel(ctx context.Context, req *connect.Request[xylona.TestNotificationChannelRequest]) (*connect.Response[xylona.TestNotificationChannelResponse], error) {
+	return c.testNotificationChannel.CallUnary(ctx, req)
+}
+
+// CreateAlertRule calls xylona.Xylona.CreateAlertRule.
+func (c *xylonaClient) CreateAlertRule(ctx context.Context, req *connect.Request[xylona.CreateAlertRuleRequest]) (*connect.Response[xylona.CreateAlertRuleResponse], error) {
+	return c.createAlertRule.CallUnary(ctx, req)
+}
+
+// UpdateAlertRule calls xylona.Xylona.UpdateAlertRule.
+func (c *xylonaClient) UpdateAlertRule(ctx context.Context, req *connect.Request[xylona.UpdateAlertRuleRequest]) (*connect.Response[xylona.UpdateAlertRuleResponse], error) {
+	return c.updateAlertRule.CallUnary(ctx, req)
+}
+
+// DeleteAlertRule calls xylona.Xylona.DeleteAlertRule.
+func (c *xylonaClient) DeleteAlertRule(ctx context.Context, req *connect.Request[xylona.DeleteAlertRuleRequest]) (*connect.Response[xylona.DeleteAlertRuleResponse], error) {
+	return c.deleteAlertRule.CallUnary(ctx, req)
+}
+
+// ListAlertRules calls xylona.Xylona.ListAlertRules.
+func (c *xylonaClient) ListAlertRules(ctx context.Context, req *connect.Request[xylona.ListAlertRulesRequest]) (*connect.Response[xylona.ListAlertRulesResponse], error) {
+	return c.listAlertRules.CallUnary(ctx, req)
+}
+
+// GetAlertHistory calls xylona.Xylona.GetAlertHistory.
+func (c *xylonaClient) GetAlertHistory(ctx context.Context, req *connect.Request[xylona.GetAlertHistoryRequest]) (*connect.Response[xylona.GetAlertHistoryResponse], error) {
+	return c.getAlertHistory.CallUnary(ctx, req)
+}
+
+// GetSystemSMTPConfig calls xylona.Xylona.GetSystemSMTPConfig.
+func (c *xylonaClient) GetSystemSMTPConfig(ctx context.Context, req *connect.Request[xylona.GetSystemSMTPConfigRequest]) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error) {
+	return c.getSystemSMTPConfig.CallUnary(ctx, req)
+}
+
+// SetSystemSMTPConfig calls xylona.Xylona.SetSystemSMTPConfig.
+func (c *xylonaClient) SetSystemSMTPConfig(ctx context.Context, req *connect.Request[xylona.SetSystemSMTPConfigRequest]) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error) {
+	return c.setSystemSMTPConfig.CallUnary(ctx, req)
+}
+
+// TestSystemSMTP calls xylona.Xylona.TestSystemSMTP.
+func (c *xylonaClient) TestSystemSMTP(ctx context.Context, req *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error) {
+	return c.testSystemSMTP.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// Game Operations
@@ -1792,6 +1998,23 @@ type XylonaHandler interface {
 	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
 	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
 	DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error)
+	// Notification Channels
+	CreateNotificationChannel(context.Context, *connect.Request[xylona.CreateNotificationChannelRequest]) (*connect.Response[xylona.CreateNotificationChannelResponse], error)
+	UpdateNotificationChannel(context.Context, *connect.Request[xylona.UpdateNotificationChannelRequest]) (*connect.Response[xylona.UpdateNotificationChannelResponse], error)
+	DeleteNotificationChannel(context.Context, *connect.Request[xylona.DeleteNotificationChannelRequest]) (*connect.Response[xylona.DeleteNotificationChannelResponse], error)
+	ListNotificationChannels(context.Context, *connect.Request[xylona.ListNotificationChannelsRequest]) (*connect.Response[xylona.ListNotificationChannelsResponse], error)
+	TestNotificationChannel(context.Context, *connect.Request[xylona.TestNotificationChannelRequest]) (*connect.Response[xylona.TestNotificationChannelResponse], error)
+	// Alert Rules
+	CreateAlertRule(context.Context, *connect.Request[xylona.CreateAlertRuleRequest]) (*connect.Response[xylona.CreateAlertRuleResponse], error)
+	UpdateAlertRule(context.Context, *connect.Request[xylona.UpdateAlertRuleRequest]) (*connect.Response[xylona.UpdateAlertRuleResponse], error)
+	DeleteAlertRule(context.Context, *connect.Request[xylona.DeleteAlertRuleRequest]) (*connect.Response[xylona.DeleteAlertRuleResponse], error)
+	ListAlertRules(context.Context, *connect.Request[xylona.ListAlertRulesRequest]) (*connect.Response[xylona.ListAlertRulesResponse], error)
+	// Alert History
+	GetAlertHistory(context.Context, *connect.Request[xylona.GetAlertHistoryRequest]) (*connect.Response[xylona.GetAlertHistoryResponse], error)
+	// System SMTP (superuser only)
+	GetSystemSMTPConfig(context.Context, *connect.Request[xylona.GetSystemSMTPConfigRequest]) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error)
+	SetSystemSMTPConfig(context.Context, *connect.Request[xylona.SetSystemSMTPConfigRequest]) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error)
+	TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -2419,6 +2642,84 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("DeleteNodeApiKey")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaCreateNotificationChannelHandler := connect.NewUnaryHandler(
+		XylonaCreateNotificationChannelProcedure,
+		svc.CreateNotificationChannel,
+		connect.WithSchema(xylonaMethods.ByName("CreateNotificationChannel")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateNotificationChannelHandler := connect.NewUnaryHandler(
+		XylonaUpdateNotificationChannelProcedure,
+		svc.UpdateNotificationChannel,
+		connect.WithSchema(xylonaMethods.ByName("UpdateNotificationChannel")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaDeleteNotificationChannelHandler := connect.NewUnaryHandler(
+		XylonaDeleteNotificationChannelProcedure,
+		svc.DeleteNotificationChannel,
+		connect.WithSchema(xylonaMethods.ByName("DeleteNotificationChannel")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListNotificationChannelsHandler := connect.NewUnaryHandler(
+		XylonaListNotificationChannelsProcedure,
+		svc.ListNotificationChannels,
+		connect.WithSchema(xylonaMethods.ByName("ListNotificationChannels")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaTestNotificationChannelHandler := connect.NewUnaryHandler(
+		XylonaTestNotificationChannelProcedure,
+		svc.TestNotificationChannel,
+		connect.WithSchema(xylonaMethods.ByName("TestNotificationChannel")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaCreateAlertRuleHandler := connect.NewUnaryHandler(
+		XylonaCreateAlertRuleProcedure,
+		svc.CreateAlertRule,
+		connect.WithSchema(xylonaMethods.ByName("CreateAlertRule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateAlertRuleHandler := connect.NewUnaryHandler(
+		XylonaUpdateAlertRuleProcedure,
+		svc.UpdateAlertRule,
+		connect.WithSchema(xylonaMethods.ByName("UpdateAlertRule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaDeleteAlertRuleHandler := connect.NewUnaryHandler(
+		XylonaDeleteAlertRuleProcedure,
+		svc.DeleteAlertRule,
+		connect.WithSchema(xylonaMethods.ByName("DeleteAlertRule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListAlertRulesHandler := connect.NewUnaryHandler(
+		XylonaListAlertRulesProcedure,
+		svc.ListAlertRules,
+		connect.WithSchema(xylonaMethods.ByName("ListAlertRules")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetAlertHistoryHandler := connect.NewUnaryHandler(
+		XylonaGetAlertHistoryProcedure,
+		svc.GetAlertHistory,
+		connect.WithSchema(xylonaMethods.ByName("GetAlertHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetSystemSMTPConfigHandler := connect.NewUnaryHandler(
+		XylonaGetSystemSMTPConfigProcedure,
+		svc.GetSystemSMTPConfig,
+		connect.WithSchema(xylonaMethods.ByName("GetSystemSMTPConfig")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetSystemSMTPConfigHandler := connect.NewUnaryHandler(
+		XylonaSetSystemSMTPConfigProcedure,
+		svc.SetSystemSMTPConfig,
+		connect.WithSchema(xylonaMethods.ByName("SetSystemSMTPConfig")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaTestSystemSMTPHandler := connect.NewUnaryHandler(
+		XylonaTestSystemSMTPProcedure,
+		svc.TestSystemSMTP,
+		connect.WithSchema(xylonaMethods.ByName("TestSystemSMTP")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaAddGameProcedure:
@@ -2627,6 +2928,32 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaSetNodeApiKeyHandler.ServeHTTP(w, r)
 		case XylonaDeleteNodeApiKeyProcedure:
 			xylonaDeleteNodeApiKeyHandler.ServeHTTP(w, r)
+		case XylonaCreateNotificationChannelProcedure:
+			xylonaCreateNotificationChannelHandler.ServeHTTP(w, r)
+		case XylonaUpdateNotificationChannelProcedure:
+			xylonaUpdateNotificationChannelHandler.ServeHTTP(w, r)
+		case XylonaDeleteNotificationChannelProcedure:
+			xylonaDeleteNotificationChannelHandler.ServeHTTP(w, r)
+		case XylonaListNotificationChannelsProcedure:
+			xylonaListNotificationChannelsHandler.ServeHTTP(w, r)
+		case XylonaTestNotificationChannelProcedure:
+			xylonaTestNotificationChannelHandler.ServeHTTP(w, r)
+		case XylonaCreateAlertRuleProcedure:
+			xylonaCreateAlertRuleHandler.ServeHTTP(w, r)
+		case XylonaUpdateAlertRuleProcedure:
+			xylonaUpdateAlertRuleHandler.ServeHTTP(w, r)
+		case XylonaDeleteAlertRuleProcedure:
+			xylonaDeleteAlertRuleHandler.ServeHTTP(w, r)
+		case XylonaListAlertRulesProcedure:
+			xylonaListAlertRulesHandler.ServeHTTP(w, r)
+		case XylonaGetAlertHistoryProcedure:
+			xylonaGetAlertHistoryHandler.ServeHTTP(w, r)
+		case XylonaGetSystemSMTPConfigProcedure:
+			xylonaGetSystemSMTPConfigHandler.ServeHTTP(w, r)
+		case XylonaSetSystemSMTPConfigProcedure:
+			xylonaSetSystemSMTPConfigHandler.ServeHTTP(w, r)
+		case XylonaTestSystemSMTPProcedure:
+			xylonaTestSystemSMTPHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3046,4 +3373,56 @@ func (UnimplementedXylonaHandler) SetNodeApiKey(context.Context, *connect.Reques
 
 func (UnimplementedXylonaHandler) DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteNodeApiKey is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CreateNotificationChannel(context.Context, *connect.Request[xylona.CreateNotificationChannelRequest]) (*connect.Response[xylona.CreateNotificationChannelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CreateNotificationChannel is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateNotificationChannel(context.Context, *connect.Request[xylona.UpdateNotificationChannelRequest]) (*connect.Response[xylona.UpdateNotificationChannelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateNotificationChannel is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) DeleteNotificationChannel(context.Context, *connect.Request[xylona.DeleteNotificationChannelRequest]) (*connect.Response[xylona.DeleteNotificationChannelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteNotificationChannel is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListNotificationChannels(context.Context, *connect.Request[xylona.ListNotificationChannelsRequest]) (*connect.Response[xylona.ListNotificationChannelsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListNotificationChannels is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) TestNotificationChannel(context.Context, *connect.Request[xylona.TestNotificationChannelRequest]) (*connect.Response[xylona.TestNotificationChannelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.TestNotificationChannel is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CreateAlertRule(context.Context, *connect.Request[xylona.CreateAlertRuleRequest]) (*connect.Response[xylona.CreateAlertRuleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CreateAlertRule is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateAlertRule(context.Context, *connect.Request[xylona.UpdateAlertRuleRequest]) (*connect.Response[xylona.UpdateAlertRuleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateAlertRule is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) DeleteAlertRule(context.Context, *connect.Request[xylona.DeleteAlertRuleRequest]) (*connect.Response[xylona.DeleteAlertRuleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteAlertRule is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListAlertRules(context.Context, *connect.Request[xylona.ListAlertRulesRequest]) (*connect.Response[xylona.ListAlertRulesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListAlertRules is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetAlertHistory(context.Context, *connect.Request[xylona.GetAlertHistoryRequest]) (*connect.Response[xylona.GetAlertHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetAlertHistory is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetSystemSMTPConfig(context.Context, *connect.Request[xylona.GetSystemSMTPConfigRequest]) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSystemSMTPConfig is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetSystemSMTPConfig(context.Context, *connect.Request[xylona.SetSystemSMTPConfigRequest]) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetSystemSMTPConfig is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.TestSystemSMTP is not implemented"))
 }

@@ -145,6 +145,27 @@ service Xylona {
   rpc ListNodeApiKeys (ListNodeApiKeysRequest) returns (ListNodeApiKeysResponse) {}
   rpc SetNodeApiKey (SetNodeApiKeyRequest) returns (SetNodeApiKeyResponse) {}
   rpc DeleteNodeApiKey (DeleteNodeApiKeyRequest) returns (DeleteNodeApiKeyResponse) {}
+
+  // Notification Channels
+  rpc CreateNotificationChannel (CreateNotificationChannelRequest) returns (CreateNotificationChannelResponse) {}
+  rpc UpdateNotificationChannel (UpdateNotificationChannelRequest) returns (UpdateNotificationChannelResponse) {}
+  rpc DeleteNotificationChannel (DeleteNotificationChannelRequest) returns (DeleteNotificationChannelResponse) {}
+  rpc ListNotificationChannels (ListNotificationChannelsRequest) returns (ListNotificationChannelsResponse) {}
+  rpc TestNotificationChannel (TestNotificationChannelRequest) returns (TestNotificationChannelResponse) {}
+
+  // Alert Rules
+  rpc CreateAlertRule (CreateAlertRuleRequest) returns (CreateAlertRuleResponse) {}
+  rpc UpdateAlertRule (UpdateAlertRuleRequest) returns (UpdateAlertRuleResponse) {}
+  rpc DeleteAlertRule (DeleteAlertRuleRequest) returns (DeleteAlertRuleResponse) {}
+  rpc ListAlertRules (ListAlertRulesRequest) returns (ListAlertRulesResponse) {}
+
+  // Alert History
+  rpc GetAlertHistory (GetAlertHistoryRequest) returns (GetAlertHistoryResponse) {}
+
+  // System SMTP (superuser only)
+  rpc GetSystemSMTPConfig (GetSystemSMTPConfigRequest) returns (GetSystemSMTPConfigResponse) {}
+  rpc SetSystemSMTPConfig (SetSystemSMTPConfigRequest) returns (SetSystemSMTPConfigResponse) {}
+  rpc TestSystemSMTP (TestSystemSMTPRequest) returns (TestSystemSMTPResponse) {}
 }
 
 message LoginRequest {
@@ -1084,3 +1105,118 @@ message DeleteNodeApiKeyRequest {
   string service_name = 1;
 }
 message DeleteNodeApiKeyResponse {}
+
+// --- Notification Channels ---
+
+message CreateNotificationChannelRequest {
+  string name = 1;
+  NotificationChannelType channel_type = 2;
+  string config = 3;
+  bool enabled = 4;
+}
+message CreateNotificationChannelResponse {
+  NotificationChannel channel = 1;
+}
+
+message UpdateNotificationChannelRequest {
+  string id = 1;
+  string name = 2;
+  string config = 3;
+  bool enabled = 4;
+}
+message UpdateNotificationChannelResponse {
+  NotificationChannel channel = 1;
+}
+
+message DeleteNotificationChannelRequest {
+  string id = 1;
+}
+message DeleteNotificationChannelResponse {}
+
+message ListNotificationChannelsRequest {}
+message ListNotificationChannelsResponse {
+  repeated NotificationChannel channels = 1;
+}
+
+message TestNotificationChannelRequest {
+  string id = 1;
+}
+message TestNotificationChannelResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// --- Alert Rules ---
+
+message CreateAlertRuleRequest {
+  optional string server_id = 1;
+  optional string server_node_id = 2;
+  optional string node_id = 3;
+  AlertEventType event_type = 4;
+  string condition = 5;
+  string notification_channel_id = 6;
+  bool enabled = 7;
+}
+message CreateAlertRuleResponse {
+  AlertRule rule = 1;
+}
+
+message UpdateAlertRuleRequest {
+  string id = 1;
+  optional string server_id = 2;
+  optional string server_node_id = 3;
+  optional string node_id = 4;
+  AlertEventType event_type = 5;
+  string condition = 6;
+  string notification_channel_id = 7;
+  bool enabled = 8;
+}
+message UpdateAlertRuleResponse {
+  AlertRule rule = 1;
+}
+
+message DeleteAlertRuleRequest {
+  string id = 1;
+}
+message DeleteAlertRuleResponse {}
+
+message ListAlertRulesRequest {
+  optional string server_id = 1;
+  optional string server_node_id = 2;
+}
+message ListAlertRulesResponse {
+  repeated AlertRule rules = 1;
+}
+
+// --- Alert History ---
+
+message GetAlertHistoryRequest {
+  optional string server_id = 1;
+  optional string server_node_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+message GetAlertHistoryResponse {
+  repeated AlertHistoryEntry entries = 1;
+}
+
+// --- System SMTP ---
+
+message GetSystemSMTPConfigRequest {}
+message GetSystemSMTPConfigResponse {
+  SystemSMTPConfig config = 1;
+  bool configured = 2;
+}
+
+message SetSystemSMTPConfigRequest {
+  SystemSMTPConfig config = 1;
+}
+message SetSystemSMTPConfigResponse {}
+
+message TestSystemSMTPRequest {
+  string to_address = 1;
+}
+message TestSystemSMTPResponse {
+  bool success = 1;
+  string error = 2;
+}
