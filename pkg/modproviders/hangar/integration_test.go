@@ -14,23 +14,23 @@ func TestIntegration_Search_WorldEdit(t *testing.T) {
 	}
 
 	p := New()
-	results, errSearch := p.Search(context.Background(), "WorldEdit", nil)
+	searchResult, errSearch := p.Search(context.Background(), "WorldEdit", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if len(results) == 0 {
+	if len(searchResult.Results) == 0 {
 		t.Fatal("Search() returned no results, want at least one")
 	}
 
 	found := false
-	for _, r := range results {
+	for _, r := range searchResult.Results {
 		if strings.EqualFold(r.Name, "WorldEdit") || strings.Contains(strings.ToLower(r.SourceID), "worldedit") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("Search() did not return WorldEdit in results; got: %+v", results)
+		t.Errorf("Search() did not return WorldEdit in results; got: %+v", searchResult.Results)
 	}
 }
 
@@ -42,16 +42,16 @@ func TestIntegration_GetModDetails_WorldEdit(t *testing.T) {
 	p := New()
 
 	// First search to find the real author/slug sourceID.
-	results, errSearch := p.Search(context.Background(), "WorldEdit", nil)
+	searchResult, errSearch := p.Search(context.Background(), "WorldEdit", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if len(results) == 0 {
+	if len(searchResult.Results) == 0 {
 		t.Fatal("Search() returned no results; cannot proceed with GetModDetails")
 	}
 
 	var sourceID string
-	for _, r := range results {
+	for _, r := range searchResult.Results {
 		if strings.EqualFold(r.Name, "WorldEdit") || strings.Contains(strings.ToLower(r.SourceID), "worldedit") {
 			sourceID = r.SourceID
 			break

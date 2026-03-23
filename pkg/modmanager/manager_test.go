@@ -17,6 +17,7 @@ import (
 type mockProvider struct {
 	id                string
 	searchResults     []modproviders.ModSearchResult
+	searchTotalHits   int
 	details           *modproviders.ModDetails
 	versions          []modproviders.ModVersion
 	downloadedFiles   []modproviders.DownloadedFile
@@ -29,8 +30,15 @@ type mockProvider struct {
 
 func (m *mockProvider) ID() string { return m.id }
 
-func (m *mockProvider) Search(_ context.Context, _ string, _ modproviders.SearchParams) ([]modproviders.ModSearchResult, error) {
-	return m.searchResults, m.searchErr
+func (m *mockProvider) Search(_ context.Context, _ string, _ modproviders.SearchParams) (modproviders.SearchResult, error) {
+	totalHits := m.searchTotalHits
+	if totalHits == 0 && len(m.searchResults) > 0 {
+		totalHits = len(m.searchResults)
+	}
+	return modproviders.SearchResult{
+		Results:   m.searchResults,
+		TotalHits: totalHits,
+	}, m.searchErr
 }
 
 func (m *mockProvider) GetModDetails(_ context.Context, _ string, _ modproviders.SearchParams) (*modproviders.ModDetails, error) {
@@ -344,12 +352,15 @@ func TestSearchAll(t *testing.T) {
 		{ID: pid2, SearchParams: map[string]any{}},
 	}
 
-	results, errSearch := mgr.SearchAll(context.Background(), "test", sources, "", "", nil, 0, 0)
+	results, totalHits, errSearch := mgr.SearchAll(context.Background(), "test", sources, "", "", nil, 0, 0)
 	if errSearch != nil {
 		t.Fatalf("SearchAll() error = %v", errSearch)
 	}
 	if len(results) != 3 {
 		t.Errorf("SearchAll() len = %d, want 3", len(results))
+	}
+	if totalHits != 3 {
+		t.Errorf("SearchAll() totalHits = %d, want 3", totalHits)
 	}
 }
 
@@ -365,12 +376,57 @@ func TestSearchAllSkipsUnknownProvider(t *testing.T) {
 		{ID: "nonexistent-provider-xyz", SearchParams: map[string]any{}},
 	}
 
-	results, errSearch := mgr.SearchAll(context.Background(), "test", sources, "", "", nil, 0, 0)
+	results, totalHits, errSearch := mgr.SearchAll(context.Background(), "test", sources, "", "", nil, 0, 0)
 	if errSearch != nil {
 		t.Fatalf("SearchAll() error = %v", errSearch)
 	}
 	if len(results) != 0 {
 		t.Errorf("SearchAll() len = %d, want 0", len(results))
+	}
+	if totalHits != 0 {
+		t.Errorf("SearchAll() totalHits = %d, want 0", totalHits)
+	}
+}
+
+func TestSearchAllReturnsUnknownTotalWhenProviderTotalIsUnknown(t *testing.T) {
+	pid1 := newUniqueProviderID()
+	pid2 := newUniqueProviderID()
+
+	mock1 := &mockProvider{
+		id:              pid1,
+		searchResults:   []modproviders.ModSearchResult{{Source: pid1, Name: "Known"}},
+		searchTotalHits: 1,
+	}
+	mock2 := &mockProvider{
+		id:              pid2,
+		searchResults:   []modproviders.ModSearchResult{{Source: pid2, Name: "Unknown"}},
+		searchTotalHits: -1,
+	}
+
+	modproviders.RegisterProvider(mock1)
+	modproviders.RegisterProvider(mock2)
+
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "mm-searchall-unknown-total.sqlite")
+	mgr := New(conn)
+
+	sources := []SourceConfig{
+		{ID: pid1, SearchParams: map[string]any{}},
+		{ID: pid2, SearchParams: map[string]any{}},
+	}
+
+	results, totalHits, errSearch := mgr.SearchAll(context.Background(), "test", sources, "", "", nil, 0, 0)
+	if errSearch != nil {
+		t.Fatalf("SearchAll() error = %v", errSearch)
+	}
+	if len(results) != 2 {
+		t.Fatalf("SearchAll() len = %d, want 2", len(results))
+	}
+	if totalHits != -1 {
+		t.Fatalf("SearchAll() totalHits = %d, want -1 for unknown total", totalHits)
 	}
 }
 

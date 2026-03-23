@@ -722,7 +722,7 @@ func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.
 				return nil, errPermission
 			}
 
-			xs.actionsInst.UpdateGameServer(gameServer)
+			xs.actionsInst.UpdateGameServerWithBackup(gameServer, xs.updateBroadcast)
 			return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
 		},
 		func() (*connect.Response[xylona.UpdateGameServerResponse], error) {

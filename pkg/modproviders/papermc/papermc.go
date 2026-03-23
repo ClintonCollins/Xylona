@@ -124,13 +124,13 @@ type buildEntry struct {
 // Search returns the list of available PaperMC projects (paper, folia, velocity,
 // waterfall) as search results. The query parameter is ignored because PaperMC
 // has no freetext search endpoint.
-func (p *Provider) Search(ctx context.Context, _ string, _ modproviders.SearchParams) ([]modproviders.ModSearchResult, error) {
+func (p *Provider) Search(ctx context.Context, _ string, _ modproviders.SearchParams) (modproviders.SearchResult, error) {
 	endpoint := fmt.Sprintf("%s/projects", p.baseURL)
 
 	var resp projectsListResponse
 	errFetch := p.getJSON(ctx, endpoint, &resp)
 	if errFetch != nil {
-		return nil, fmt.Errorf("papermc search: %w", errFetch)
+		return modproviders.SearchResult{}, fmt.Errorf("papermc search: %w", errFetch)
 	}
 
 	results := make([]modproviders.ModSearchResult, 0, len(resp.Projects))
@@ -142,7 +142,10 @@ func (p *Provider) Search(ctx context.Context, _ string, _ modproviders.SearchPa
 			Description: fmt.Sprintf("PaperMC project: %s", project),
 		})
 	}
-	return results, nil
+	return modproviders.SearchResult{
+		Results:   results,
+		TotalHits: modproviders.UnknownTotalHits,
+	}, nil
 }
 
 // --------------------------------------------------------------------------

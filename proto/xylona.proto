@@ -136,6 +136,11 @@ service Xylona {
   rpc GetServerSoftwareStatus (GetServerSoftwareStatusRequest) returns (GetServerSoftwareStatusResponse) {}
   rpc GetModCategories (GetModCategoriesRequest) returns (GetModCategoriesResponse) {}
 
+  // Version tracking
+  rpc GetVersionInfo (GetVersionInfoRequest) returns (GetVersionInfoResponse) {}
+  rpc CheckForUpdate (CheckForUpdateRequest) returns (CheckForUpdateResponse) {}
+  rpc SetDummyUpdateFailure (SetDummyUpdateFailureRequest) returns (SetDummyUpdateFailureResponse) {}
+
   // Node API keys
   rpc ListNodeApiKeys (ListNodeApiKeysRequest) returns (ListNodeApiKeysResponse) {}
   rpc SetNodeApiKey (SetNodeApiKeyRequest) returns (SetNodeApiKeyResponse) {}
@@ -1012,6 +1017,54 @@ message GetServerSoftwareStatusResponse {
   string error = 2;
   string software_id = 3;
 }
+
+// Version tracking enums and messages
+enum UpdateStep {
+  UPDATE_STEP_UNSPECIFIED = 0;
+  UPDATE_STEP_STOPPING = 1;
+  UPDATE_STEP_BACKING_UP = 2;
+  UPDATE_STEP_DOWNLOADING = 3;
+  UPDATE_STEP_INSTALLING = 4;
+  UPDATE_STEP_RESTARTING = 5;
+  UPDATE_STEP_ROLLING_BACK = 6;
+}
+
+enum StepStatus {
+  STEP_STATUS_UNSPECIFIED = 0;
+  STEP_STATUS_PENDING = 1;
+  STEP_STATUS_IN_PROGRESS = 2;
+  STEP_STATUS_COMPLETED = 3;
+  STEP_STATUS_FAILED = 4;
+}
+
+message UpdateProgress {
+  string game_server_id = 1;
+  UpdateStep step = 2;
+  StepStatus step_status = 3;
+  string message = 4;
+}
+
+message GetVersionInfoRequest {
+  string game_server_id = 1;
+}
+
+message GetVersionInfoResponse {
+  VersionInfo version_info = 1;
+}
+
+message CheckForUpdateRequest {
+  string game_server_id = 1;
+}
+
+message CheckForUpdateResponse {
+  VersionInfo version_info = 1;
+}
+
+message SetDummyUpdateFailureRequest {
+  bool simulate_failure = 1;
+}
+
+message SetDummyUpdateFailureResponse {}
 
 // Node API key messages
 message ListNodeApiKeysRequest {}

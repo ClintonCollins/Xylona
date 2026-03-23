@@ -156,7 +156,7 @@ type hangarVersionsResponse struct {
 // --------------------------------------------------------------------------
 
 // Search queries the Hangar search endpoint and returns matching plugins.
-func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) ([]modproviders.ModSearchResult, error) {
+func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) (modproviders.SearchResult, error) {
 	queryParams := url.Values{}
 	queryParams.Set("q", query)
 
@@ -189,7 +189,7 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 	var searchResp hangarSearchResponse
 	errFetch := p.getJSON(ctx, endpoint, &searchResp)
 	if errFetch != nil {
-		return nil, fmt.Errorf("hangar search: %w", errFetch)
+		return modproviders.SearchResult{}, fmt.Errorf("hangar search: %w", errFetch)
 	}
 
 	results := make([]modproviders.ModSearchResult, 0, len(searchResp.Result))
@@ -203,9 +203,13 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 			Description: proj.Description,
 			IconURL:     proj.AvatarURL,
 			Downloads:   proj.Stats.Downloads,
+			Categories:  proj.Settings.Tags,
 		})
 	}
-	return results, nil
+	return modproviders.SearchResult{
+		Results:   results,
+		TotalHits: searchResp.Pagination.Count,
+	}, nil
 }
 
 // --------------------------------------------------------------------------

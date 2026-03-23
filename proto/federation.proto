@@ -33,6 +33,12 @@ service Federation {
   // UpdateRemoteServer triggers an update for a game server on this node.
   rpc UpdateRemoteServer (FederationRemoteActionRequest) returns (FederationRemoteActionResponse) {}
 
+  // GetRemoteVersionInfo returns cached or newly checked version info for a game server on this node.
+  rpc GetRemoteVersionInfo (FederationRemoteActionRequest) returns (FederationVersionInfoResponse) {}
+
+  // CheckRemoteServerForUpdate forces a version check for a game server on this node.
+  rpc CheckRemoteServerForUpdate (FederationRemoteActionRequest) returns (FederationVersionInfoResponse) {}
+
   // EditRemoteServer edits a game server's configuration on this node.
   rpc EditRemoteServer (FederationEditServerRequest) returns (FederationEditServerResponse) {}
 
@@ -177,6 +183,10 @@ message FederationRemoteActionRequest {
 message FederationRemoteActionResponse {
   bool success = 1;
   string error = 2;
+}
+
+message FederationVersionInfoResponse {
+  VersionInfo version_info = 1;
 }
 
 // Federation Edit Server

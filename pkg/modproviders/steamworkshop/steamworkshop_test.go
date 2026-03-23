@@ -99,15 +99,18 @@ func TestSearch_WithAPIKey_ReturnsResults(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProviderWithKey(srv, "fake-api-key")
-	results, errSearch := p.Search(context.Background(), "helicopter", nil)
+	searchResult, errSearch := p.Search(context.Background(), "helicopter", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if len(results) != 2 {
-		t.Fatalf("Search() len = %d, want 2", len(results))
+	if len(searchResult.Results) != 2 {
+		t.Fatalf("Search() len = %d, want 2", len(searchResult.Results))
+	}
+	if searchResult.TotalHits != 2 {
+		t.Errorf("Search().TotalHits = %d, want 2", searchResult.TotalHits)
 	}
 
-	first := results[0]
+	first := searchResult.Results[0]
 	if first.SourceID != "2128699613" {
 		t.Errorf("results[0].SourceID = %q, want %q", first.SourceID, "2128699613")
 	}
@@ -125,6 +128,12 @@ func TestSearch_WithAPIKey_ReturnsResults(t *testing.T) {
 	}
 	if first.IconURL == "" {
 		t.Error("results[0].IconURL is empty, want non-empty")
+	}
+	if len(first.Categories) != 2 {
+		t.Errorf("results[0].Categories len = %d, want 2", len(first.Categories))
+	}
+	if first.DateModified == "" {
+		t.Error("results[0].DateModified is empty, want non-empty")
 	}
 }
 
@@ -186,15 +195,18 @@ func TestSearch_EmptyResults_ReturnsEmptySlice(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProviderWithKey(srv, "fake-api-key")
-	results, errSearch := p.Search(context.Background(), "nonexistent", nil)
+	searchResult, errSearch := p.Search(context.Background(), "nonexistent", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if results == nil {
-		t.Error("Search() returned nil, want empty (non-nil) slice")
+	if searchResult.Results == nil {
+		t.Error("Search() returned nil Results, want empty (non-nil) slice")
 	}
-	if len(results) != 0 {
-		t.Errorf("Search() len = %d, want 0", len(results))
+	if len(searchResult.Results) != 0 {
+		t.Errorf("Search() len = %d, want 0", len(searchResult.Results))
+	}
+	if searchResult.TotalHits != 0 {
+		t.Errorf("Search().TotalHits = %d, want 0", searchResult.TotalHits)
 	}
 }
 

@@ -200,10 +200,20 @@ const latestVersion = computed(() => {
 })
 
 const hasUpdate = computed(() => {
-  if (!props.currentVersion || versions.value.length === 0) return false
-  const latest = versions.value[0]
-  const latestStr = latest.versionString || latest.versionId
-  return latestStr !== props.currentVersion
+  // Guard: don't show update available if version is unknown, empty,
+  // or if the current software has no jar source (nothing to update).
+  if (!props.currentVersion || !props.currentSoftware) return false
+  if (!currentSoftwareHasJarSource.value) return false
+  if (versions.value.length === 0) return false
+
+  // Only compare when the current version appears somewhere in the
+  // version list (same format). If it doesn't match any entry, the
+  // version is likely stale or from a different context — don't flag.
+  const versionStrings = versions.value.map((v) => v.versionString || v.versionId)
+  const currentInList = versionStrings.includes(props.currentVersion)
+  if (!currentInList) return false
+
+  return versionStrings[0] !== props.currentVersion
 })
 
 useServerSoftwareInstall((gameServerId, status) => {

@@ -5,9 +5,7 @@ import { InstalledModSchema, ModSearchResultSchema } from '@/proto/shared_pb'
 import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
 import ModBrowse from './ModBrowse.vue'
 
-function makeSearchResult(
-  overrides: Partial<Record<keyof ModSearchResult, unknown>> = {},
-): ModSearchResult {
+function makeSearchResult(overrides: Partial<ModSearchResult> = {}): ModSearchResult {
   return create(ModSearchResultSchema, {
     source: 'modrinth',
     sourceId: 'abc123',
@@ -22,9 +20,7 @@ function makeSearchResult(
   })
 }
 
-function makeInstalledMod(
-  overrides: Partial<Record<keyof InstalledMod, unknown>> = {},
-): InstalledMod {
+function makeInstalledMod(overrides: Partial<InstalledMod> = {}): InstalledMod {
   return create(InstalledModSchema, {
     id: 'mod-1',
     gameServerId: 'gs-1',
@@ -54,6 +50,13 @@ vi.mock('@/utils/shared', () => ({
   ConnectErrorToString: (err: Error) => err.message,
 }))
 
+// Mock vue-router
+const mockReplace = vi.fn()
+vi.mock('vue-router', () => ({
+  useRoute: () => ({ query: {} }),
+  useRouter: () => ({ replace: mockReplace }),
+}))
+
 const QUASAR_STUBS = {
   'q-input': {
     props: ['modelValue', 'placeholder'],
@@ -79,6 +82,11 @@ const QUASAR_STUBS = {
     props: ['modelValue', 'options', 'multiple', 'useChips'],
     emits: ['update:modelValue'],
     template: '<div class="q-select-stub" />',
+  },
+  'q-pagination': {
+    props: ['modelValue', 'max', 'maxPages'],
+    emits: ['update:modelValue'],
+    template: '<div class="q-pagination-stub" />',
   },
 } as Record<string, unknown>
 
@@ -107,11 +115,35 @@ function mountBrowse(
   })
 }
 
+// Provide a minimal localStorage mock for happy-dom
+const localStorageStore: Record<string, string> = {}
+const localStorageMock = {
+  getItem: vi.fn((key: string) => localStorageStore[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    localStorageStore[key] = value
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete localStorageStore[key]
+  }),
+  clear: vi.fn(() => {
+    for (const key of Object.keys(localStorageStore)) {
+      delete localStorageStore[key]
+    }
+  }),
+  get length() {
+    return Object.keys(localStorageStore).length
+  },
+  key: vi.fn((index: number) => Object.keys(localStorageStore)[index] ?? null),
+}
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true })
+
 describe('ModBrowse', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    localStorageMock.clear()
     mockSearchMods.mockReset()
     mockGetModCategories.mockReset()
+    mockReplace.mockReset()
     // Default: return empty results for initial load
     mockSearchMods.mockResolvedValue({ results: [], totalCount: 0 })
     mockGetModCategories.mockResolvedValue({ categories: [] })
@@ -323,7 +355,7 @@ describe('ModBrowse', () => {
     expect(badgeTexts).toContain('H')
   })
 
-  it('shows Load More button when there are more results', async () => {
+  it('shows pagination footer when there are results', async () => {
     const results = Array.from({ length: 20 }, (_, i) =>
       makeSearchResult({ sourceId: `id-${i}`, name: `Mod ${i}` }),
     )
@@ -335,10 +367,11 @@ describe('ModBrowse', () => {
       expect(wrapper.findAll('.mod-card').length).toBe(20)
     })
 
-    expect(wrapper.find('.browse-load-more').exists()).toBe(true)
+    expect(wrapper.find('.browse-pagination-footer').exists()).toBe(true)
+    expect(wrapper.text()).toContain('40 mods found')
   })
 
-  it('does not show Load More when all results are loaded', async () => {
+  it('shows pagination footer even when all results fit on one page', async () => {
     const results = [makeSearchResult({ sourceId: 'a', name: 'Only Mod' })]
     mockSearchMods.mockResolvedValue({ results, totalCount: 1 })
 
@@ -348,6 +381,22 @@ describe('ModBrowse', () => {
       expect(wrapper.findAll('.mod-card').length).toBe(1)
     })
 
-    expect(wrapper.find('.browse-load-more').exists()).toBe(false)
+    expect(wrapper.find('.browse-pagination-footer').exists()).toBe(true)
+    expect(wrapper.text()).toContain('1 mod found')
+  })
+
+  it('shows a result summary without pagination when total count is unknown', async () => {
+    const results = [makeSearchResult({ sourceId: 'a', name: 'Only Mod' })]
+    mockSearchMods.mockResolvedValue({ results, totalCount: -1 })
+
+    const wrapper = mountBrowse()
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.mod-card').length).toBe(1)
+    })
+
+    expect(wrapper.find('.browse-pagination-footer').exists()).toBe(true)
+    expect(wrapper.find('.q-pagination-stub').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Showing 1 result')
   })
 })

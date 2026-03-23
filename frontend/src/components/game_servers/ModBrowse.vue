@@ -54,18 +54,35 @@
           <span class="source-chip-name">{{ sourceDisplayName(src.id) }}</span>
         </q-btn>
       </div>
+
+      <q-btn
+        v-if="hasActiveFilters"
+        flat
+        dense
+        no-caps
+        size="sm"
+        icon="filter_list_off"
+        label="Reset"
+        class="reset-filters-btn"
+        aria-label="Reset all filters"
+        @click="resetFilters" />
     </div>
 
     <!-- Filters row -->
-    <div v-if="gameVersionFilter || availableCategories.length > 0" class="browse-filters">
-      <q-input
+    <div
+      v-if="versionSelectOptions.length > 0 || availableCategories.length > 0"
+      class="browse-filters">
+      <q-select
+        v-if="versionSelectOptions.length > 0"
         v-model="gameVersionFilter"
+        :options="versionSelectOptions"
         dense
         outlined
-        placeholder="Game version filter..."
+        emit-value
+        map-options
+        clearable
         aria-label="Filter by game version"
         class="browse-version-input"
-        clearable
         @clear="gameVersionFilter = ''" />
 
       <q-select
@@ -138,14 +155,27 @@
             </div>
             <div class="mod-card-author text-xy-muted">by {{ mod.author }}</div>
             <div class="mod-card-desc text-xy-secondary">{{ mod.description }}</div>
+
+            <!-- Categories -->
+            <div v-if="mod.categories.length > 0" class="mod-card-categories">
+              <span v-for="cat in mod.categories.slice(0, 3)" :key="cat" class="mod-card-category">
+                {{ cat }}
+              </span>
+            </div>
           </div>
 
           <!-- Footer -->
           <div class="mod-card-footer">
-            <span class="mod-card-downloads text-xy-muted">
-              <q-icon name="download" size="xs" aria-hidden="true" />
-              {{ formatDownloads(mod.downloads) }}
-            </span>
+            <div class="mod-card-footer-left">
+              <span class="mod-card-downloads text-xy-muted">
+                <q-icon name="download" size="xs" aria-hidden="true" />
+                {{ formatDownloads(mod.downloads) }}
+              </span>
+              <span v-if="mod.dateModified" class="mod-card-updated text-xy-muted">
+                <q-icon name="schedule" size="xs" aria-hidden="true" />
+                {{ formatRelativeDate(mod.dateModified) }}
+              </span>
+            </div>
 
             <span v-if="isModInstalled(mod.source, mod.sourceId)" class="installed-badge">
               <q-icon name="check_circle" size="xs" aria-hidden="true" />
@@ -164,16 +194,39 @@
         </button>
       </div>
 
-      <!-- Load More -->
-      <div v-if="hasMoreResults" class="browse-load-more">
-        <q-btn
-          outline
-          color="primary"
-          no-caps
-          :loading="loadingMore"
-          label="Load More"
-          icon="expand_more"
-          @click="loadMore" />
+      <!-- Pagination footer -->
+      <div v-if="results.length > 0" class="browse-pagination-footer">
+        <q-select
+          v-model="pageSize"
+          :options="pageSizeOptions"
+          dense
+          outlined
+          emit-value
+          map-options
+          aria-label="Results per page"
+          class="page-size-select" />
+
+        <q-pagination
+          v-if="hasKnownTotalCount"
+          :model-value="currentPage"
+          :max="totalPages"
+          :max-pages="7"
+          direction-links
+          boundary-links
+          icon-first="first_page"
+          icon-last="last_page"
+          icon-prev="chevron_left"
+          icon-next="chevron_right"
+          active-design="unelevated"
+          active-color="primary"
+          active-text-color="white"
+          class="browse-pagination"
+          aria-label="Page navigation"
+          @update:model-value="onPageChange" />
+
+        <span class="browse-result-count text-xy-muted">
+          {{ resultCountLabel }}
+        </span>
       </div>
     </div>
 
@@ -187,11 +240,17 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
 import { GetModCategoriesRequestSchema, SearchModsRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+
+const VALID_SORT_VALUES = ['downloads', 'updated', 'newest', 'relevance'] as const
+const PAGE_SIZE_OPTIONS = [12, 20, 40, 60] as const
+const PAGE_SIZE_STORAGE_KEY = 'xylona-mod-browse-page-size'
+const DEFAULT_PAGE_SIZE = 20
 
 interface ModSource {
   id: string
@@ -202,6 +261,7 @@ interface Props {
   gameServerId: string
   installedMods: InstalledMod[]
   sources: ModSource[]
+  availableVersions?: string[]
 }
 
 const props = defineProps<Props>()
@@ -211,17 +271,32 @@ const emit = defineEmits<{
   install: [source: string, sourceId: string]
 }>()
 
-const PAGE_SIZE = 20
+const route = useRoute()
+const router = useRouter()
+
+function loadPageSize(): number {
+  const stored = localStorage.getItem(PAGE_SIZE_STORAGE_KEY)
+  if (stored !== null) {
+    const parsed = parseInt(stored, 10)
+    if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed)) {
+      return parsed
+    }
+  }
+  return DEFAULT_PAGE_SIZE
+}
+
+const pageSize = ref(loadPageSize())
 
 const searchQuery = ref('')
 const activeSource = ref('')
 const loading = ref(false)
-const loadingMore = ref(false)
 const hasSearched = ref(false)
 const results = ref<ModSearchResult[]>([])
 const errorMessage = ref('')
 const currentPage = ref(1)
 const totalCount = ref(0)
+const suppressWatchSearch = ref(false)
+const searchRequestId = ref(0)
 
 const sortBy = ref<string>('downloads')
 const gameVersionFilter = ref('')
@@ -229,6 +304,12 @@ const categoryFilter = ref<string[]>([])
 const availableCategories = ref<string[]>([])
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
+
+const versionSelectOptions = computed(() => {
+  const versions = props.availableVersions ?? []
+  if (versions.length === 0) return []
+  return [{ label: 'All Versions', value: '' }, ...versions.map((v) => ({ label: v, value: v }))]
+})
 
 const sortOptions = computed(() => {
   const options = [
@@ -242,25 +323,124 @@ const sortOptions = computed(() => {
   return options
 })
 
-const hasMoreResults = computed(() => {
-  return results.value.length < totalCount.value
+function initFromQuery(): void {
+  const q = route.query
+
+  if (typeof q.q === 'string' && q.q !== '') {
+    searchQuery.value = q.q
+  }
+
+  if (typeof q.sort === 'string' && (VALID_SORT_VALUES as readonly string[]).includes(q.sort)) {
+    if (q.sort === 'relevance' && searchQuery.value.trim() === '') {
+      sortBy.value = 'downloads'
+    } else {
+      sortBy.value = q.sort
+    }
+  }
+
+  if (typeof q.source === 'string') {
+    activeSource.value = q.source
+  }
+
+  if (typeof q.version === 'string') {
+    gameVersionFilter.value = q.version
+  }
+
+  // Categories use repeated query params: ?categories=foo&categories=bar
+  const rawCats = q.categories
+  if (Array.isArray(rawCats)) {
+    categoryFilter.value = rawCats.filter((c): c is string => typeof c === 'string' && c !== '')
+  } else if (typeof rawCats === 'string' && rawCats !== '') {
+    categoryFilter.value = [rawCats]
+  }
+
+  if (typeof q.page === 'string') {
+    const parsed = parseInt(q.page, 10)
+    if (!isNaN(parsed) && parsed > 0) {
+      currentPage.value = parsed
+    }
+  }
+}
+
+function syncQueryParams(): void {
+  const query: Record<string, string | string[]> = {}
+
+  // Preserve any query params not managed by this component.
+  const managedKeys = new Set(['q', 'sort', 'source', 'version', 'categories', 'page'])
+  for (const [key, value] of Object.entries(route.query)) {
+    if (!managedKeys.has(key) && value != null) {
+      query[key] = value as string | string[]
+    }
+  }
+
+  if (searchQuery.value.trim() !== '') {
+    query.q = searchQuery.value.trim()
+  }
+  if (sortBy.value !== 'downloads') {
+    query.sort = sortBy.value
+  }
+  if (activeSource.value !== '') {
+    query.source = activeSource.value
+  }
+  if (gameVersionFilter.value !== '') {
+    query.version = gameVersionFilter.value
+  }
+  if (categoryFilter.value.length > 0) {
+    query.categories = categoryFilter.value
+  }
+  if (currentPage.value !== 1) {
+    query.page = String(currentPage.value)
+  }
+
+  void router.replace({ query })
+}
+
+const hasActiveFilters = computed(() => {
+  return (
+    searchQuery.value.trim() !== '' ||
+    sortBy.value !== 'downloads' ||
+    activeSource.value !== '' ||
+    gameVersionFilter.value !== '' ||
+    categoryFilter.value.length > 0 ||
+    currentPage.value !== 1
+  )
 })
 
+function resetFilters(): void {
+  suppressWatchSearch.value = true
+  searchQuery.value = ''
+  sortBy.value = 'downloads'
+  activeSource.value = ''
+  gameVersionFilter.value = ''
+  categoryFilter.value = []
+  currentPage.value = 1
+  suppressWatchSearch.value = false
+  void router.replace({ query: {} })
+  void performSearch()
+}
+
 onMounted(() => {
+  initFromQuery()
   void performSearch()
   void loadCategories()
 })
 
 watch(sortBy, () => {
-  void resetAndSearch()
+  if (!suppressWatchSearch.value) {
+    void resetAndSearch()
+  }
 })
 
 watch(gameVersionFilter, () => {
-  void resetAndSearch()
+  if (!suppressWatchSearch.value) {
+    void resetAndSearch()
+  }
 })
 
 watch(categoryFilter, () => {
-  void resetAndSearch()
+  if (!suppressWatchSearch.value) {
+    void resetAndSearch()
+  }
 })
 
 function debouncedSearch(): void {
@@ -273,19 +453,27 @@ function debouncedSearch(): void {
 }
 
 function setActiveSource(source: string): void {
-  activeSource.value = source
+  // Toggle: clicking the already-active source deselects it (back to "All")
+  if (activeSource.value === source) {
+    activeSource.value = ''
+  } else {
+    activeSource.value = source
+  }
   void resetAndSearch()
 }
 
 async function resetAndSearch(): Promise<void> {
   currentPage.value = 1
-  results.value = []
+  syncQueryParams()
   await performSearch()
 }
 
-async function performSearch(): Promise<void> {
+async function performSearch(retried: boolean = false): Promise<void> {
   loading.value = true
   errorMessage.value = ''
+
+  searchRequestId.value++
+  const thisRequestId = searchRequestId.value
 
   try {
     const client = GetXylonaClient()
@@ -294,39 +482,87 @@ async function performSearch(): Promise<void> {
       query: searchQuery.value.trim(),
       source: activeSource.value,
       page: currentPage.value,
-      pageSize: PAGE_SIZE,
+      pageSize: pageSize.value,
       sortBy: sortBy.value,
       gameVersion: gameVersionFilter.value,
       categories: categoryFilter.value,
     })
     const response = await client.searchMods(request)
-    if (currentPage.value === 1) {
-      results.value = response.results
-    } else {
-      results.value = [...results.value, ...response.results]
+
+    if (thisRequestId !== searchRequestId.value) {
+      return
     }
+
+    results.value = response.results
     totalCount.value = response.totalCount
+
+    const maxPage = Math.max(1, Math.ceil(totalCount.value / pageSize.value))
+    if (
+      !retried &&
+      results.value.length === 0 &&
+      totalCount.value > 0 &&
+      maxPage < currentPage.value
+    ) {
+      currentPage.value = maxPage
+      syncQueryParams()
+      await performSearch(true)
+      return
+    }
+
     hasSearched.value = true
+
+    const gridEl = document.querySelector('.browse-grid-scroll')
+    if (gridEl) {
+      gridEl.scrollTop = 0
+    }
   } catch (err: unknown) {
+    if (thisRequestId !== searchRequestId.value) {
+      return
+    }
     if (err instanceof ConnectError) {
       errorMessage.value = ConnectErrorToString(err)
     } else {
       errorMessage.value = 'An unexpected error occurred while searching.'
     }
-    if (currentPage.value === 1) {
-      results.value = []
-    }
+    results.value = []
   } finally {
-    loading.value = false
-    loadingMore.value = false
+    if (thisRequestId === searchRequestId.value) {
+      loading.value = false
+    }
   }
 }
 
-async function loadMore(): Promise<void> {
-  loadingMore.value = true
-  currentPage.value += 1
-  await performSearch()
+watch(pageSize, () => {
+  localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize.value))
+  currentPage.value = 1
+  syncQueryParams()
+  void performSearch()
+})
+
+function onPageChange(newPage: number): void {
+  currentPage.value = newPage
+  syncQueryParams()
+  void performSearch()
 }
+
+const totalPages = computed(() => {
+  if (totalCount.value <= 0) return 1
+  return Math.ceil(totalCount.value / pageSize.value)
+})
+
+const hasKnownTotalCount = computed(() => totalCount.value >= 0)
+
+const resultCountLabel = computed(() => {
+  if (!hasKnownTotalCount.value) {
+    return `Showing ${results.value.length} result${results.value.length === 1 ? '' : 's'}`
+  }
+  return `${totalCount.value} mod${totalCount.value === 1 ? '' : 's'} found`
+})
+
+const pageSizeOptions = PAGE_SIZE_OPTIONS.map((size) => ({
+  label: `${size} per page`,
+  value: size,
+}))
 
 async function loadCategories(): Promise<void> {
   try {
@@ -392,6 +628,28 @@ function formatDownloads(downloads: bigint): string {
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`
   return num.toString()
 }
+
+function formatRelativeDate(dateStr: string): string {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  if (diffMs < 0) return 'just now'
+
+  const seconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  const months = Math.floor(days / 30)
+  const years = Math.floor(days / 365)
+
+  if (years > 0) return `${years} year${years === 1 ? '' : 's'} ago`
+  if (months > 0) return `${months} month${months === 1 ? '' : 's'} ago`
+  if (days > 0) return `${days} day${days === 1 ? '' : 's'} ago`
+  if (hours > 0) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  if (minutes > 0) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  return 'just now'
+}
 </script>
 
 <style scoped>
@@ -400,6 +658,7 @@ function formatDownloads(downloads: bigint): string {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* ---- Toolbar ---- */
@@ -451,6 +710,16 @@ function formatDownloads(downloads: bigint): string {
 
 .source-chip-name {
   font-size: 0.8rem;
+}
+
+/* ---- Reset filters ---- */
+.reset-filters-btn {
+  color: var(--xy-text-muted);
+  font-size: 0.8rem;
+}
+
+.reset-filters-btn:hover {
+  color: var(--xy-text-primary);
 }
 
 /* ---- Filters row ---- */
@@ -524,11 +793,29 @@ function formatDownloads(downloads: bigint): string {
   gap: var(--xy-space-md);
 }
 
-/* ---- Load More ---- */
-.browse-load-more {
+/* ---- Pagination footer ---- */
+.browse-pagination-footer {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: var(--xy-space-lg) 0 var(--xy-space-sm);
+  gap: var(--xy-space-md);
+  padding: var(--xy-space-md) 0 var(--xy-space-sm);
+  flex-wrap: wrap;
+}
+
+.page-size-select {
+  min-width: 130px;
+  max-width: 160px;
+}
+
+.browse-pagination :deep(.q-btn) {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.browse-result-count {
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 /* ---- Card ---- */
@@ -623,7 +910,27 @@ function formatDownloads(downloads: bigint): string {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin-bottom: var(--xy-space-xs);
+}
+
+/* ---- Card categories ---- */
+.mod-card-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   margin-bottom: var(--xy-space-sm);
+}
+
+.mod-card-category {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  font-weight: 500;
+  background-color: var(--xy-surface-3);
+  color: var(--xy-text-muted);
+  line-height: 1.5;
+  text-transform: capitalize;
 }
 
 /* ---- Card footer ---- */
@@ -636,7 +943,14 @@ function formatDownloads(downloads: bigint): string {
   border-top: 1px solid var(--xy-border);
 }
 
-.mod-card-downloads {
+.mod-card-footer-left {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+}
+
+.mod-card-downloads,
+.mod-card-updated {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -711,6 +1025,15 @@ function formatDownloads(downloads: bigint): string {
 
   .browse-grid {
     grid-template-columns: 1fr;
+  }
+
+  .browse-pagination-footer {
+    gap: var(--xy-space-sm);
+  }
+
+  .page-size-select {
+    min-width: 110px;
+    max-width: 130px;
   }
 }
 </style>

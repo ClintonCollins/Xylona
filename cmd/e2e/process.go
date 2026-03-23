@@ -28,7 +28,7 @@ func generateBase64Key(length int) (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-func startNode(name, workDir, xylonaExe string, httpPort, fedPort int) (*exec.Cmd, error) {
+func startNode(name, workDir, logDir, xylonaExe string, httpPort, fedPort int, extraEnv ...string) (*exec.Cmd, error) {
 	cookieHashKey, errCookie := generateBase64Key(64)
 	if errCookie != nil {
 		return nil, errCookie
@@ -44,15 +44,17 @@ func startNode(name, workDir, xylonaExe string, httpPort, fedPort int) (*exec.Cm
 
 	cmd := exec.Command(xylonaExe) //nolint:noctx
 	cmd.Dir = workDir
-	cmd.Env = append(os.Environ(),
-		"DB_FILE_PATH="+filepath.Join(workDir, "data.sqlite"),
-		"HTTP_PORT="+strconv.Itoa(httpPort),
-		"FEDERATION_PORT="+strconv.Itoa(fedPort),
-		"COOKIE_HASH_KEY_BASE64="+cookieHashKey,
-		"COOKIE_BLOCK_KEY_BASE64="+cookieBlockKey,
-		"JWT_SECRET_KEY_BASE64="+jwtSecretKey,
+	baseEnv := []string{
+		"DB_FILE_PATH=" + filepath.Join(workDir, "data.sqlite"),
+		"HTTP_PORT=" + strconv.Itoa(httpPort),
+		"FEDERATION_PORT=" + strconv.Itoa(fedPort),
+		"COOKIE_HASH_KEY_BASE64=" + cookieHashKey,
+		"COOKIE_BLOCK_KEY_BASE64=" + cookieBlockKey,
+		"JWT_SECRET_KEY_BASE64=" + jwtSecretKey,
 		"SECURE_COOKIES=false",
-	)
+		"E2E_LOG_FILE=" + filepath.Join(logDir, "backend.log"),
+	}
+	cmd.Env = append(os.Environ(), append(baseEnv, extraEnv...)...)
 
 	stdout, errStdout := cmd.StdoutPipe()
 	if errStdout != nil {

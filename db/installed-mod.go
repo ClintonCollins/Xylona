@@ -61,6 +61,19 @@ func (c *Connection) UpdateInstalledMod(exec bob.Executor, mod *models.Installed
 	return updated, nil
 }
 
+// UpdateInstalledModInTx updates an installed mod within a transaction without
+// performing a post-update re-read. Use this when the caller commits the
+// transaction and re-fetches the record afterward (to avoid reading pre-commit
+// state from the connection pool).
+func (c *Connection) UpdateInstalledModInTx(exec bob.Executor, mod *models.InstalledMod, setter *models.InstalledModSetter) error {
+	errUpdate := mod.Update(c.ctx, exec, setter)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).Msg("Error updating installed mod in transaction")
+		return errUpdate
+	}
+	return nil
+}
+
 // DeleteInstalledModByID deletes an installed mod by ID.
 func (c *Connection) DeleteInstalledModByID(id string) error {
 	mods := models.InstalledModSlice{&models.InstalledMod{ID: id}}

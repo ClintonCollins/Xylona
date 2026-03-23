@@ -131,6 +131,17 @@ func (inst *Instance) backgroundJobCheckVersionUpdates() {
 		}
 	}
 
+	// Run an initial check shortly after startup so version info is available
+	// without waiting for the first periodic tick.
+	startupTimer := time.NewTimer(5 * time.Second)
+	defer startupTimer.Stop()
+	select {
+	case <-inst.ctx.Done():
+		return
+	case <-startupTimer.C:
+		inst.checkAllServerVersions()
+	}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -151,10 +162,16 @@ func (inst *Instance) checkAllServerVersions() {
 		return
 	}
 
+	// Include all servers unless they are EXPLICITLY known to have no tracker
+	// (i.e., their state was deliberately set to VersionStatusNoTracker by a
+	// prior check). Servers with the default state (also VersionStatusNoTracker
+	// but never written to the map) are treated as unchecked and included so
+	// that trackers can be resolved on first run.
+	allStates := inst.versionState.GetAll()
 	var trackable []*models.GameServer
 	for _, gs := range gameServers {
-		state := inst.versionState.Get(gs.ID)
-		if state.Status != versiontracker.VersionStatusNoTracker {
+		state, explicitlySet := allStates[gs.ID]
+		if !explicitlySet || state.Status != versiontracker.VersionStatusNoTracker {
 			trackable = append(trackable, gs)
 		}
 	}
@@ -172,10 +189,14 @@ func (inst *Instance) checkAllServerVersions() {
 
 	for i, gs := range trackable {
 		if i > 0 && stagger > 0 {
+			staggerTimer := time.NewTimer(stagger)
 			select {
 			case <-inst.ctx.Done():
+				if !staggerTimer.Stop() {
+					<-staggerTimer.C
+				}
 				return
-			case <-time.After(stagger):
+			case <-staggerTimer.C:
 			}
 		}
 		inst.checkServerVersion(gs, eb)
@@ -185,12 +206,14 @@ func (inst *Instance) checkAllServerVersions() {
 func (inst *Instance) checkServerVersion(gs *models.GameServer, eb *eventbus.EventBus) {
 	tracker := versiontracker.ResolveTracker(inst.resolverConfig, gs.GameID, gameUpdateCommand(gs.R.Game), gs.R.Game.ServerSoftware.GetOr(""))
 	if tracker == nil {
+		inst.versionState.InitNoTracker(gs.ID)
 		return
 	}
+	trackerType := versiontracker.TrackerTypeName(tracker)
 
 	inst.versionState.Set(gs.ID, versiontracker.VersionState{
 		Status:      versiontracker.VersionStatusChecking,
-		TrackerType: inst.versionState.Get(gs.ID).TrackerType,
+		TrackerType: trackerType,
 	})
 
 	info, errCheck := tracker.CheckForUpdate(inst.ctx, gs)
@@ -199,15 +222,14 @@ func (inst *Instance) checkServerVersion(gs *models.GameServer, eb *eventbus.Eve
 			Msg("Version check: failed to check for update")
 		inst.versionState.Set(gs.ID, versiontracker.VersionState{
 			Status:      versiontracker.VersionStatusError,
-			TrackerType: inst.versionState.Get(gs.ID).TrackerType,
+			TrackerType: trackerType,
 		})
 		return
 	}
 
-	prevState := inst.versionState.Get(gs.ID)
 	newState := versiontracker.VersionState{
 		Status:        versiontracker.VersionStatusChecked,
-		TrackerType:   prevState.TrackerType,
+		TrackerType:   trackerType,
 		LastCheckTime: time.Now(),
 	}
 
@@ -216,6 +238,7 @@ func (inst *Instance) checkServerVersion(gs *models.GameServer, eb *eventbus.Eve
 		newState.LatestVersion = info.LatestVersion
 		newState.UpdateAvailable = info.UpdateAvailable
 
+		prevState := inst.versionState.Get(gs.ID)
 		if info.UpdateAvailable && !prevState.UpdateAvailable {
 			eb.Publish("server.update_available", gs.ID)
 			log.Info().Str("game_server_id", gs.ID).

@@ -100,18 +100,18 @@ type packageVersionInfo struct {
 
 // packageInfo represents a single package in the community package list response.
 type packageInfo struct {
-	Name             string               `json:"name"`
-	FullName         string               `json:"full_name"`
-	Owner            string               `json:"owner"`
-	PackageURL       string               `json:"package_url"`
-	DateCreated      string               `json:"date_created"`
-	DateUpdated      string               `json:"date_updated"`
-	RatingScore      int                  `json:"rating_score"`
-	IsPinned         bool                 `json:"is_pinned"`
-	IsDeprecated     bool                 `json:"is_deprecated"`
-	TotalDownloads   int64                `json:"total_downloads"`
-	Latest           packageVersionInfo   `json:"latest"`
-	Versions         []packageVersionInfo `json:"versions"`
+	Name           string               `json:"name"`
+	FullName       string               `json:"full_name"`
+	Owner          string               `json:"owner"`
+	PackageURL     string               `json:"package_url"`
+	DateCreated    string               `json:"date_created"`
+	DateUpdated    string               `json:"date_updated"`
+	RatingScore    int                  `json:"rating_score"`
+	IsPinned       bool                 `json:"is_pinned"`
+	IsDeprecated   bool                 `json:"is_deprecated"`
+	TotalDownloads int64                `json:"total_downloads"`
+	Latest         packageVersionInfo   `json:"latest"`
+	Versions       []packageVersionInfo `json:"versions"`
 }
 
 // --------------------------------------------------------------------------
@@ -154,7 +154,7 @@ func (p *Provider) getPackageList(ctx context.Context, community string) ([]pack
 
 // Search fetches the full community package list and filters in-memory by query.
 // SearchParams["community"] specifies the Thunderstore community (e.g., "valheim").
-func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) ([]modproviders.ModSearchResult, error) {
+func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) (modproviders.SearchResult, error) {
 	community := extractCommunity(params)
 	if community == "" {
 		community = "valheim"
@@ -162,7 +162,7 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 
 	packages, errList := p.getPackageList(ctx, community)
 	if errList != nil {
-		return nil, fmt.Errorf("thunderstore search: %w", errList)
+		return modproviders.SearchResult{}, fmt.Errorf("thunderstore search: %w", errList)
 	}
 
 	queryLower := strings.ToLower(query)
@@ -200,10 +200,14 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 			Downloads:          pkg.TotalDownloads,
 			LatestVersion:      latestVersion,
 			CompatibleVersions: versions,
+			DateModified:       pkg.DateUpdated,
 		})
 	}
 
-	return results, nil
+	return modproviders.SearchResult{
+		Results:   results,
+		TotalHits: modproviders.UnknownTotalHits,
+	}, nil
 }
 
 // --------------------------------------------------------------------------

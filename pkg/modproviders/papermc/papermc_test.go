@@ -68,16 +68,19 @@ func TestSearch_ReturnsProjects(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	results, errSearch := p.Search(context.Background(), "ignored", nil)
+	searchResult, errSearch := p.Search(context.Background(), "ignored", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if len(results) != 4 {
-		t.Fatalf("Search() len = %d, want 4", len(results))
+	if len(searchResult.Results) != 4 {
+		t.Fatalf("Search() len = %d, want 4", len(searchResult.Results))
+	}
+	if searchResult.TotalHits != -1 {
+		t.Errorf("Search().TotalHits = %d, want -1 for unknown total", searchResult.TotalHits)
 	}
 
 	sourceIDs := make(map[string]bool)
-	for _, r := range results {
+	for _, r := range searchResult.Results {
 		sourceIDs[r.SourceID] = true
 		if r.Source != providerID {
 			t.Errorf("result.Source = %q, want %q", r.Source, providerID)
@@ -110,8 +113,8 @@ func TestSearch_QueryIsIgnored(t *testing.T) {
 	if errSearch2 != nil {
 		t.Fatalf("Search(other) error = %v", errSearch2)
 	}
-	if len(r1) != len(r2) {
-		t.Errorf("Search results differ by query: %d vs %d", len(r1), len(r2))
+	if len(r1.Results) != len(r2.Results) {
+		t.Errorf("Search results differ by query: %d vs %d", len(r1.Results), len(r2.Results))
 	}
 }
 

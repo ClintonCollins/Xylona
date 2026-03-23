@@ -10,22 +10,32 @@ import (
 // download. Downloads that exceed this limit are rejected.
 const MaxModDownloadSize = 500 * 1024 * 1024 // 500 MB
 
+// UnknownTotalHits marks provider search results whose real total count is not
+// known or not pagination-safe.
+const UnknownTotalHits = -1
+
 // ErrDownloadTooLarge is returned when a download exceeds MaxModDownloadSize.
 var ErrDownloadTooLarge = errors.New("modproviders: download exceeds maximum allowed size")
 
 // Well-known SearchParams keys. Providers read these from the map alongside
 // any game-specific params configured in the server software definition.
 const (
-	ParamSortBy      = "sort_by"       // string: "downloads", "updated", "newest", "relevance"
-	ParamGameVersion = "game_version"  // string: e.g. "1.21.4"
-	ParamCategories  = "categories"    // []string: category/tag names
-	ParamLimit       = "limit"         // int: page size
-	ParamOffset      = "offset"        // int: pagination offset
+	ParamSortBy      = "sort_by"      // string: "downloads", "updated", "newest", "relevance"
+	ParamGameVersion = "game_version" // string: e.g. "1.21.4"
+	ParamCategories  = "categories"   // []string: category/tag names
+	ParamLimit       = "limit"        // int: page size
+	ParamOffset      = "offset"       // int: pagination offset
 )
 
 // SearchParams holds passthrough parameters from the game's server software config.
 // Each provider interprets its own params (e.g., Modrinth uses "facets", Hangar uses "platform").
 type SearchParams map[string]any
+
+// SearchResult contains a page of search results with the total hit count.
+type SearchResult struct {
+	Results   []ModSearchResult
+	TotalHits int
+}
 
 // ModSearchResult is a single search result from a provider.
 type ModSearchResult struct {
@@ -38,6 +48,8 @@ type ModSearchResult struct {
 	Downloads          int64
 	LatestVersion      string
 	CompatibleVersions []string
+	Categories         []string
+	DateModified       string
 }
 
 // ModDetails contains full information about a mod.
@@ -89,7 +101,7 @@ type ModProvider interface {
 	ID() string
 
 	// Search queries the source with the given query and game-defined search params.
-	Search(ctx context.Context, query string, params SearchParams) ([]ModSearchResult, error)
+	Search(ctx context.Context, query string, params SearchParams) (SearchResult, error)
 
 	// GetModDetails returns full details for a specific mod.
 	GetModDetails(ctx context.Context, sourceID string, params SearchParams) (*ModDetails, error)

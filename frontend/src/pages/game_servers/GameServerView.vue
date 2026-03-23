@@ -1,167 +1,383 @@
 <template>
-  <div class="identity-header">
-    <div class="identity-name">{{ gameServer.name }}</div>
-    <div class="identity-subtitle">
-      <span>{{ gameServer.gameName }}</span>
-      <template v-if="hasSoftwareOptions && !softwareNameRedundant">
-        <span class="identity-separator">·</span>
-        <span class="identity-running">running</span>
-        <span>{{ softwareDisplayName }}</span>
-      </template>
-      <template v-if="gameServer.version && hasSoftwareOptions">
-        <span class="identity-version" :class="{ 'version-outdated': softwareHasUpdate }">
-          {{ gameServer.version }}
-          <q-tooltip v-if="softwareHasUpdate">
-            Update available: {{ softwareLatestVersion }}
-          </q-tooltip>
-        </span>
-      </template>
-      <q-btn
-        v-if="showChangeButton"
-        flat
-        dense
-        no-caps
-        size="sm"
-        label="Change"
-        class="identity-change-btn"
-        @click="softwareSelector?.openChangeDialog()" />
+  <div class="identity-bar">
+    <div class="identity-bar-left">
+      <span class="identity-bar-name">{{ gameServer.name }}</span>
+      <span class="identity-bar-detail">
+        <span>{{ gameServer.gameName }}</span>
+        <template v-if="hasSoftwareOptions && !softwareNameRedundant">
+          <span class="identity-bar-sep">&middot;</span>
+          <span class="identity-bar-running">running</span>
+          <span>{{ softwareDisplayName }}</span>
+        </template>
+        <template v-if="gameServer.version && hasSoftwareOptions">
+          <span class="identity-bar-version" :class="{ 'version-outdated': softwareHasUpdate }">
+            {{ gameServer.version }}
+            <q-tooltip v-if="softwareHasUpdate">
+              Update available: {{ softwareLatestVersion }}
+            </q-tooltip>
+          </span>
+        </template>
+      </span>
     </div>
+    <div class="identity-bar-spacer"></div>
+    <status-badge :status="gameServer.status" />
   </div>
-  <div class="row q-gutter-lg-lg q-col-gutter-lg q-px-md">
-    <div class="col-lg-4 col-xs-12 q-gutter-md info-panel">
-      <q-list separator>
-        <q-item>
-          <q-item-section>Status</q-item-section>
-          <q-item-section side>
-            <status-badge :status="gameServer.status" />
-          </q-item-section>
-        </q-item>
-        <q-item>
-          <q-item-section>IP</q-item-section>
-          <q-item-section side>
-            <clip-board-copy
-              :clip-board-value="gameServer.ip !== undefined ? gameServer.ip.address : ''"
-              :display-text="gameServer.ip?.address"></clip-board-copy>
-          </q-item-section>
-        </q-item>
-        <q-item>
-          <q-item-section>Port</q-item-section>
-          <q-item-section side>
-            <clip-board-copy
-              :clip-board-value="gameServer.port.toString()"
-              :display-text="gameServer.port.toString()"></clip-board-copy>
-          </q-item-section>
-        </q-item>
-        <q-item>
-          <q-item-section>Current player count</q-item-section>
-          <q-item-section side> {{ currentPlayerCount }} / {{ maxPlayerCount }} </q-item-section>
-        </q-item>
-      </q-list>
-      <server-software-selector
-        v-if="gameServer.gameId !== ''"
-        ref="softwareSelector"
-        :game-server-id="gameServerId"
-        :game-id="gameServer.gameId"
-        :game-name="gameServer.gameName"
-        :current-software="gameServer.serverSoftware"
-        :current-version="gameServer.version"
-        @software-changed="getGameServerDetails" />
-      <game-server-metrics :game-server-id="gameServerId" :game-server="gameServer" />
-      <div class="server-controls">
+
+  <div class="main-area" :class="{ 'main-area-expanded': consoleExpanded }">
+    <!-- Sidebar -->
+    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
+      <div class="sidebar-content">
+        <!-- Controls -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">Controls</div>
+          <div class="server-controls">
+            <q-btn
+              :disable="disableStartButton || !hasPermission('game_server.start')"
+              :loading="startingServer"
+              color="positive"
+              label="Start"
+              @click="startGameServer">
+              <q-tooltip v-if="!hasPermission('game_server.start')">
+                Requires start permission
+              </q-tooltip>
+            </q-btn>
+            <q-btn
+              :disable="disableStopButton || !hasPermission('game_server.stop')"
+              :loading="stoppingServer"
+              color="negative"
+              label="Stop"
+              @click="stopGameServer">
+              <q-tooltip v-if="!hasPermission('game_server.stop')">
+                Requires stop permission
+              </q-tooltip>
+            </q-btn>
+            <q-btn
+              class="update-server-btn"
+              :disable="disableUpdateButton || !hasPermission('game_server.settings')"
+              :loading="updatingServer"
+              color="primary"
+              label="Update"
+              @click="updateGameServer">
+              <q-tooltip v-if="!hasPermission('game_server.settings')">
+                Requires settings permission
+              </q-tooltip>
+            </q-btn>
+          </div>
+        </div>
+
+        <!-- Server Software -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">Server Software</div>
+          <div class="software-card">
+            <template v-if="hasSoftwareOptions">
+              <div class="software-card-body">
+                <div class="software-icon">
+                  <q-icon name="settings" />
+                </div>
+                <div class="software-info">
+                  <div class="software-name-row">
+                    <span class="software-name">
+                      {{ softwareNameRedundant ? gameServer.gameName : softwareDisplayName }}
+                    </span>
+                    <span v-if="gameServer.version" class="software-version">
+                      {{ gameServer.version }}
+                    </span>
+                  </div>
+                  <div v-if="!softwareNameRedundant" class="software-game">
+                    {{ gameServer.gameName }}
+                  </div>
+                </div>
+              </div>
+              <div v-if="softwareHasUpdate" class="update-hint">
+                <span class="update-dot"></span>
+                Update available: {{ softwareLatestVersion }}
+              </div>
+              <div
+                v-if="
+                  !softwareHasUpdate &&
+                  gameServer.versionInfo?.status === VersionStatus.CHECKED &&
+                  gameServer.versionInfo?.updateAvailable
+                "
+                class="update-hint">
+                <span class="update-dot"></span>
+                {{ gameServer.versionInfo.installedVersion }} &rarr;
+                {{ gameServer.versionInfo.latestVersion }}
+              </div>
+              <!-- Check for updates button -->
+              <div
+                v-if="gameServer.versionInfo?.status !== VersionStatus.NO_TRACKER"
+                class="software-card-footer">
+                <button class="change-btn" :disabled="checkingForUpdates" @click="checkForUpdate">
+                  <q-spinner v-if="checkingForUpdates" size="0.8em" />
+                  <template v-else>Check version</template>
+                </button>
+              </div>
+              <div v-if="showChangeButton" class="software-card-footer">
+                <button class="change-btn" @click="softwareSelector?.openChangeDialog()">
+                  Change
+                  <span class="change-arrow">&rsaquo;</span>
+                </button>
+              </div>
+            </template>
+            <div v-else class="software-card-body">
+              <div class="software-icon">
+                <q-icon name="sports_esports" />
+              </div>
+              <div class="software-info">
+                <div class="software-name-row">
+                  <span class="software-name">{{ gameServer.gameName }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">Connection</div>
+          <div class="connection-list">
+            <div class="connection-item">
+              <span class="cl-label">Address</span>
+              <span class="cl-value">
+                <clip-board-copy
+                  :clip-board-value="connectionAddress"
+                  :display-text="connectionAddress" />
+              </span>
+            </div>
+            <div class="connection-item">
+              <span class="cl-label">Players</span>
+              <span class="cl-value cl-value-plain">
+                {{ currentPlayerCount }} / {{ maxPlayerCount }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resource Usage -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">Resource Usage</div>
+          <div class="metrics-preview" :class="{ 'metrics-offline': !isServerOnline }">
+            <!-- Compute -->
+            <div class="metrics-group">
+              <div class="metrics-group-label">Compute</div>
+              <div>
+                <div class="metric-row">
+                  <span class="ml"
+                    >CPU
+                    <span class="metric-detail"
+                      >({{ isServerOnline ? metricsCpuCores : '--' }} cores)</span
+                    ></span
+                  >
+                  <span class="mv">{{ isServerOnline ? metricsCpu.toFixed(1) + '%' : '--' }}</span>
+                </div>
+                <div class="metric-bar">
+                  <div
+                    class="metric-bar-fill"
+                    :class="cpuBarClass"
+                    :style="{ width: isServerOnline ? metricsCpu + '%' : '0%' }"></div>
+                </div>
+              </div>
+              <div class="metric-row">
+                <span class="ml">Threads</span>
+                <span class="mv">{{ isServerOnline ? metricsThreads : '--' }}</span>
+              </div>
+            </div>
+
+            <!-- Memory -->
+            <div class="metrics-group">
+              <div class="metrics-group-label">Memory</div>
+              <div>
+                <div class="metric-row">
+                  <span class="ml">Private</span>
+                  <span class="mv">
+                    <template v-if="isServerOnline">
+                      {{ bytesToSize(metricsMemory) }}
+                      <template v-if="metricsMaxMemory > 0">
+                        / {{ bytesToSize(metricsMaxMemory) }}
+                      </template>
+                    </template>
+                    <template v-else>--</template>
+                  </span>
+                </div>
+                <div v-if="metricsMaxMemory > 0" class="metric-bar">
+                  <div
+                    class="metric-bar-fill"
+                    :class="memoryBarClass"
+                    :style="{
+                      width: isServerOnline ? metricsMemoryRatio * 100 + '%' : '0%',
+                    }"></div>
+                </div>
+              </div>
+              <div v-if="isServerOnline && metricsMemoryPercent > 0" class="metric-row">
+                <span class="ml">System RAM</span>
+                <span class="mv">{{ metricsMemoryPercent.toFixed(1) }}%</span>
+              </div>
+            </div>
+
+            <!-- Storage -->
+            <div class="metrics-group">
+              <div class="metrics-group-label">Storage</div>
+              <div class="metric-row">
+                <span class="ml">Disk Usage</span>
+                <span class="mv">{{ isServerOnline ? bytesToSize(metricsDisk) : '--' }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="ml">I/O Read</span>
+                <span class="mv">{{ isServerOnline ? formatRate(metricsIoReadRate) : '--' }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="ml">I/O Write</span>
+                <span class="mv">{{ isServerOnline ? formatRate(metricsIoWriteRate) : '--' }}</span>
+              </div>
+            </div>
+
+            <!-- Network -->
+            <div class="metrics-group">
+              <div class="metrics-group-label">Network</div>
+              <div class="metric-row">
+                <span class="ml">Connections</span>
+                <span class="mv">{{ isServerOnline ? metricsConnections : '--' }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="ml">Uptime</span>
+                <span class="mv">{{ isServerOnline ? formattedUptime : '--' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Console wrapper -->
+    <div class="console-wrapper" :class="{ expanded: consoleExpanded }">
+      <!-- Sidebar toggle tab -->
+      <button
+        class="sidebar-toggle"
+        aria-label="Toggle sidebar"
+        @click="sidebarCollapsed = !sidebarCollapsed">
+        {{ sidebarCollapsed ? '\u25BA' : '\u25C4' }}
+      </button>
+
+      <!-- Console toolbar buttons -->
+      <div class="console-toolbar-btns">
         <q-btn
-          :disable="disableStartButton || !hasPermission('game_server.start')"
-          :loading="startingServer"
-          color="positive"
-          label="Start"
-          @click="startGameServer">
-          <q-tooltip v-if="!hasPermission('game_server.start')">
-            Requires start permission
-          </q-tooltip>
+          flat
+          square
+          dense
+          padding="xs"
+          class="console-toolbar-btn"
+          :class="{ 'console-toolbar-btn-off': !consoleAutoScroll }"
+          icon="vertical_align_bottom"
+          :aria-label="consoleAutoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'"
+          :text-color="consoleAutoScroll ? 'info' : undefined"
+          @click="toggleAutoScroll">
+          <q-tooltip>{{
+            consoleAutoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'
+          }}</q-tooltip>
         </q-btn>
         <q-btn
-          :disable="disableStopButton || !hasPermission('game_server.stop')"
-          :loading="stoppingServer"
-          color="negative"
-          label="Stop"
-          @click="stopGameServer">
-          <q-tooltip v-if="!hasPermission('game_server.stop')">
-            Requires stop permission
-          </q-tooltip>
-        </q-btn>
-        <q-btn
-          :disable="disableUpdateButton || !hasPermission('game_server.settings')"
-          :loading="updatingServer"
-          color="primary"
-          label="Update"
-          @click="updateGameServer">
-          <q-tooltip v-if="!hasPermission('game_server.settings')">
-            Requires settings permission
-          </q-tooltip>
-        </q-btn>
+          flat
+          square
+          dense
+          padding="xs"
+          class="console-toolbar-btn"
+          :icon="tabMaximize"
+          aria-label="Toggle fullscreen console"
+          text-color="info"
+          @click="consoleExpanded = !consoleExpanded" />
+      </div>
+
+      <!-- Update Progress Panel -->
+      <update-progress-panel
+        v-if="updateInProgress"
+        :steps="updateSteps"
+        class="update-panel-in-console" />
+
+      <!-- Console output -->
+      <template v-if="isServerOffline">
+        <div class="console-output console-output-offline">
+          <div class="offline-placeholder">
+            <div class="offline-icon">
+              <q-icon name="power_settings_new" />
+            </div>
+            <div class="offline-text">Server is offline</div>
+            <div class="offline-hint">Press Start to launch the server</div>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <q-scroll-area id="consoleContainer" ref="consoleScrollArea" class="console-scroll-area">
+          <div v-if="consoleTruncated" class="console-truncated-notice">
+            Earlier output truncated
+          </div>
+          <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: game server console output -->
+          <code
+            id="consoleCodeEl"
+            role="log"
+            aria-live="polite"
+            aria-label="Game server console output"
+            class="q-pb-md"
+            v-html="gameServerOutput"></code>
+          <!-- eslint-enable vue/no-v-html -->
+        </q-scroll-area>
+      </template>
+
+      <!-- Console input -->
+      <div class="console-input-wrapper" :class="{ 'console-input-disabled': isServerOffline }">
+        <span class="console-prompt">&gt;</span>
+        <q-input
+          id="consoleInput"
+          v-model="serverInput"
+          autofocus
+          placeholder="Enter command..."
+          dense
+          square
+          borderless
+          name="consoleInput"
+          class="console-input-field"
+          :disable="!hasPermission('game_server.console') || isServerOffline"
+          @keyup.enter="sendGameServerInput"
+          @keyup.up="navigateConsoleInputHistory('up')"
+          @keyup.down="navigateConsoleInputHistory('down')">
+          <template #append>
+            <q-btn
+              flat
+              color="primary"
+              icon="send"
+              name="send"
+              type="submit"
+              aria-label="Send command"
+              :disable="!hasPermission('game_server.console') || isServerOffline"
+              @click="sendGameServerInput">
+              <q-tooltip v-if="!hasPermission('game_server.console')">
+                Requires console permission
+              </q-tooltip>
+            </q-btn>
+          </template>
+        </q-input>
       </div>
     </div>
-    <div class="col col-lg-8 col-xs-12 console-panel" :class="{ expanded: consoleExpanded }">
-      <q-btn
-        flat
-        square
-        dense
-        padding="xs"
-        class="console-expand-btn"
-        :icon="tabMaximize"
-        aria-label="Toggle fullscreen console"
-        text-color="info"
-        @click="consoleExpanded = !consoleExpanded" />
-      <q-scroll-area id="consoleContainer" ref="consoleScrollArea">
-        <div v-if="consoleTruncated" class="console-truncated-notice">Earlier output truncated</div>
-        <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: game server console output -->
-        <code
-          id="consoleCodeEl"
-          role="log"
-          aria-live="polite"
-          aria-label="Game server console output"
-          class="q-pb-md"
-          v-html="gameServerOutput"></code>
-        <!-- eslint-enable vue/no-v-html -->
-      </q-scroll-area>
-      <q-input
-        id="consoleInput"
-        v-model="serverInput"
-        autofocus
-        placeholder="Enter command..."
-        dense
-        square
-        outlined
-        name="consoleInput"
-        :disable="!hasPermission('game_server.console')"
-        @keyup.enter="sendGameServerInput"
-        @keyup.up="navigateConsoleInputHistory('up')"
-        @keyup.down="navigateConsoleInputHistory('down')">
-        <template #append>
-          <q-btn
-            flat
-            color="primary"
-            icon="send"
-            name="send"
-            type="submit"
-            aria-label="Send command"
-            :disable="!hasPermission('game_server.console')"
-            @click="sendGameServerInput">
-            <q-tooltip v-if="!hasPermission('game_server.console')">
-              Requires console permission
-            </q-tooltip>
-          </q-btn>
-        </template>
-      </q-input>
-    </div>
   </div>
+
+  <!-- ServerSoftwareSelector (renders its own dialog, kept mounted for ref access) -->
+  <server-software-selector
+    v-if="gameServer.gameId !== ''"
+    ref="softwareSelector"
+    :game-server-id="gameServerId"
+    :game-id="gameServer.gameId"
+    :game-name="gameServer.gameName"
+    :current-software="gameServer.serverSoftware"
+    :current-version="gameServer.version"
+    @software-changed="getGameServerDetails" />
 </template>
 
 <script setup lang="ts">
 import { create, toJsonString } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
-import GameServerMetrics from '@/components/game_servers/GameServerMetrics.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
+import UpdateProgressPanel from '@/components/game_servers/UpdateProgressPanel.vue'
+import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
@@ -179,24 +395,33 @@ import {
   Status,
   StopGameServerRequest,
   StopGameServerRequestSchema,
+  VersionStatus,
 } from 'src/proto/shared_pb'
 import {
+  CheckForUpdateRequest,
+  CheckForUpdateRequestSchema,
   GetGameServerRequest,
   GetGameServerRequestSchema,
+  GetVersionInfoRequest,
+  GetVersionInfoRequestSchema,
   QueryGameServerRequest,
   QueryGameServerRequestSchema,
   QueryGameServerResponse,
+  StepStatus,
   UpdateGameServerRequest,
   UpdateGameServerRequestSchema,
+  UpdateStep,
 } from 'src/proto/xylona_pb'
-import { Request, Request_Type, RequestSchema } from 'src/proto/websocket_pb'
-import { ConnectError } from '@connectrpc/connect'
+import type { UpdateProgress } from 'src/proto/xylona_pb'
+import { AllServersMetrics, Request, Request_Type, RequestSchema } from 'src/proto/websocket_pb'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { parseConsole } from '@/utils/console'
 import {
   ConnectErrorToString,
   GetOrCreateXylonaWebsocketClient,
   GetXylonaClient,
   XylonaEventBus,
+  bytesToSize,
 } from '@/utils/shared'
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -216,13 +441,107 @@ const consoleHistoryCurrentIndex = ref(0)
 const consoleExpanded = ref(false)
 const maxConsoleCharacters = 100000
 const consoleTruncated = ref(false)
+const sidebarCollapsed = ref(false)
+const consoleAutoScroll = ref(localStorage.getItem('xylona_console_autoscroll') !== 'false')
+
+function scrollConsoleToBottom() {
+  const el = consoleScrollArea.value?.$el as HTMLElement | undefined
+  const container = el?.querySelector('.q-scrollarea__container') as HTMLElement | null
+  if (container) {
+    container.scrollTop = container.scrollHeight
+  }
+}
 
 const startingServer = ref(false)
 const stoppingServer = ref(false)
 const updatingServer = ref(false)
+const checkingForUpdates = ref(false)
+const updateInProgress = ref(false)
+const updateSteps = ref<StepState[]>([
+  { step: UpdateStep.STOPPING, status: StepStatus.PENDING },
+  { step: UpdateStep.BACKING_UP, status: StepStatus.PENDING },
+  { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING },
+  { step: UpdateStep.INSTALLING, status: StepStatus.PENDING },
+  { step: UpdateStep.RESTARTING, status: StepStatus.PENDING },
+])
 
 const currentPlayerCount: Ref<number> = ref(0)
 const maxPlayerCount: Ref<number> = ref(0)
+
+// Metrics state (lifted from GameServerMetrics for compact sidebar display)
+const metricsCpu = ref(0)
+const metricsCpuCores = ref(0)
+const metricsMemory = ref(0)
+const metricsMemoryPercent = ref(0)
+const metricsThreads = ref(0)
+const metricsDisk = ref(0)
+const metricsIoReadRate = ref(0)
+const metricsIoWriteRate = ref(0)
+const metricsConnections = ref(0)
+const metricsUptimeSeconds = ref(0)
+let uptimeTicker: ReturnType<typeof setInterval> | null = null
+
+const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
+const isServerOffline = computed(
+  () => gameServer.value.status === Status.OFFLINE || gameServer.value.status === Status.UNKNOWN,
+)
+
+const metricsMaxMemory = computed(() => Number(gameServer.value.maxMemoryMb) * 1024 * 1024)
+const metricsMemoryRatio = computed(() => {
+  if (metricsMaxMemory.value <= 0) return 0
+  return Math.min(metricsMemory.value / metricsMaxMemory.value, 1)
+})
+
+const cpuBarClass = computed(() => {
+  if (metricsCpu.value >= 80) return 'fill-high'
+  if (metricsCpu.value >= 50) return 'fill-mid'
+  return 'fill-low'
+})
+
+const memoryBarClass = computed(() => {
+  if (metricsMemoryRatio.value >= 0.8) return 'fill-high'
+  if (metricsMemoryRatio.value >= 0.5) return 'fill-mid'
+  return 'fill-low'
+})
+
+const formattedUptime = computed(() => {
+  const total = metricsUptimeSeconds.value
+  if (total <= 0) return '0s'
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor((total % 86400) / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}d`)
+  if (hours > 0) parts.push(`${hours}h`)
+  if (minutes > 0) parts.push(`${minutes}m`)
+  if (parts.length === 0 || seconds > 0) parts.push(`${seconds}s`)
+  return parts.join(' ')
+})
+
+function formatRate(bytesPerSec: number): string {
+  if (bytesPerSec <= 0) return '0 B/s'
+  if (bytesPerSec >= 1024 * 1024 * 1024)
+    return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(1)} GB/s`
+  if (bytesPerSec >= 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`
+  if (bytesPerSec >= 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`
+  return `${bytesPerSec.toFixed(0)} B/s`
+}
+
+const connectionAddress = computed(() => {
+  const ip = gameServer.value.ip?.address ?? ''
+  const port = gameServer.value.port.toString()
+  if (!ip) return port
+  return `${ip}:${port}`
+})
+
+function toggleAutoScroll() {
+  consoleAutoScroll.value = !consoleAutoScroll.value
+  localStorage.setItem('xylona_console_autoscroll', String(consoleAutoScroll.value))
+  if (consoleAutoScroll.value) {
+    void nextTick(scrollConsoleToBottom)
+  }
+}
 
 function onEscapeKey(e: KeyboardEvent) {
   if (e.key === 'Escape' && consoleExpanded.value) {
@@ -242,7 +561,7 @@ const disableUpdateButton = computed(() => {
   return (
     gameServer.value.status === Status.INSTALLING ||
     gameServer.value.status === Status.UPDATING ||
-    gameServer.value.status === Status.ONLINE
+    updateInProgress.value
   )
 })
 
@@ -281,14 +600,47 @@ function hasPermission(perm: string): boolean {
   return perms.length === 0 || perms.includes(perm)
 }
 
+function onMetrics(metrics: AllServersMetrics) {
+  const serverMetrics = metrics.servers[gameServerId.value]
+  if (!serverMetrics) return
+  metricsCpu.value = serverMetrics.cpuPercent
+  metricsCpuCores.value = serverMetrics.cpuCores
+  metricsMemory.value = Number(serverMetrics.memoryBytes)
+  metricsMemoryPercent.value = serverMetrics.memoryPercent
+  metricsThreads.value = serverMetrics.numberOfThreads
+  metricsDisk.value = Number(serverMetrics.diskUsageBytes)
+  metricsIoReadRate.value = serverMetrics.ioReadRate
+  metricsIoWriteRate.value = serverMetrics.ioWriteRate
+  metricsConnections.value = serverMetrics.connectionCount
+  metricsUptimeSeconds.value = Number(serverMetrics.uptimeSeconds)
+}
+
+function handleMobileSidebar() {
+  if (window.innerWidth < 1024) {
+    sidebarCollapsed.value = true
+  }
+}
+
 onMounted(async () => {
   document.addEventListener('keydown', onEscapeKey)
+  handleMobileSidebar()
+
+  XylonaEventBus.on('gameServerMetrics', onMetrics)
+  uptimeTicker = setInterval(() => {
+    if (gameServer.value.status === Status.ONLINE && metricsUptimeSeconds.value > 0) {
+      metricsUptimeSeconds.value++
+    }
+  }, 1000)
+
   void getGameServerDetails()
     .then(() => {
       void getGameServerOutput()
+      void getVersionInfo()
       streamGameServerOutput()
       listenForServerQueryInfo()
-      subscribeServerMetrics()
+      void subscribeServerMetrics().catch((error) => {
+        console.error('Failed to subscribe to server metrics', error)
+      })
     })
     .then(queryGameServer)
 })
@@ -296,22 +648,40 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onEscapeKey)
   unsubscribeServerMetrics()
+
+  XylonaEventBus.off('gameServerMetrics', onMetrics)
+  XylonaEventBus.off('gameServerUpdateProgress', onUpdateProgress)
+  XylonaEventBus.off('websocketConnected', onWebsocketReconnect)
+  if (uptimeTicker !== null) {
+    clearInterval(uptimeTicker)
+    uptimeTicker = null
+  }
 })
 
-function subscribeServerMetrics() {
+async function subscribeServerMetrics() {
   const ws = GetOrCreateXylonaWebsocketClient()
   const request: Request = create(RequestSchema, {})
   request.type = Request_Type.SubscribeServerMetrics
   request.gameServerId = gameServerId.value
+  await ws.waitForOpen(10_000)
   ws.send(toJsonString(RequestSchema, request))
 }
 
 function unsubscribeServerMetrics() {
   const ws = GetOrCreateXylonaWebsocketClient()
+  if (!ws.isOpen()) {
+    return
+  }
   const request: Request = create(RequestSchema, {})
   request.type = Request_Type.UnsubscribeServerMetrics
   request.gameServerId = gameServerId.value
   ws.send(toJsonString(RequestSchema, request))
+}
+
+async function requestConsoleOutputStream() {
+  const ws = GetOrCreateXylonaWebsocketClient()
+  await ws.waitForOpen(10_000)
+  XylonaEventBus.emit('gameServerConsoleOutputRequest', gameServerId.value)
 }
 
 async function getGameServerDetails() {
@@ -331,6 +701,44 @@ async function getGameServerDetails() {
       caption: 'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
+  }
+}
+
+async function getVersionInfo() {
+  const request: GetVersionInfoRequest = create(GetVersionInfoRequestSchema, {})
+  request.gameServerId = gameServerId.value
+  try {
+    const response = await GetXylonaClient().getVersionInfo(request)
+    if (response.versionInfo) {
+      gameServer.value.versionInfo = response.versionInfo
+    }
+  } catch (e) {
+    const err = ConnectError.from(e)
+    if (err.code !== Code.Unimplemented) {
+      console.error(e)
+    }
+  }
+}
+
+async function checkForUpdate() {
+  const request: CheckForUpdateRequest = create(CheckForUpdateRequestSchema, {})
+  checkingForUpdates.value = true
+  request.gameServerId = gameServerId.value
+  try {
+    const response = await GetXylonaClient().checkForUpdate(request)
+    if (response.versionInfo) {
+      gameServer.value.versionInfo = response.versionInfo
+    }
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to check for updates: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    checkingForUpdates.value = false
   }
 }
 
@@ -398,12 +806,107 @@ async function stopGameServer() {
   }
 }
 
+function resetUpdateSteps() {
+  updateSteps.value = [
+    { step: UpdateStep.STOPPING, status: StepStatus.PENDING },
+    { step: UpdateStep.BACKING_UP, status: StepStatus.PENDING },
+    { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING },
+    { step: UpdateStep.INSTALLING, status: StepStatus.PENDING },
+    { step: UpdateStep.RESTARTING, status: StepStatus.PENDING },
+  ]
+}
+
+function onUpdateProgress(progress: UpdateProgress) {
+  if (progress.gameServerId !== gameServerId.value) return
+
+  const existingIdx = updateSteps.value.findIndex((s) => s.step === progress.step)
+  const newState: StepState = {
+    step: progress.step,
+    status: progress.stepStatus,
+    message: progress.message || undefined,
+  }
+  if (existingIdx >= 0) {
+    updateSteps.value[existingIdx] = newState
+  } else {
+    updateSteps.value.push(newState)
+  }
+
+  if (progress.step === UpdateStep.RESTARTING && progress.stepStatus === StepStatus.COMPLETED) {
+    $q.notify({
+      type: 'positive',
+      position: 'top',
+      message: 'Update complete',
+      icon: 'check_circle',
+    })
+    updateInProgress.value = false
+    resetUpdateSteps()
+    void getGameServerDetails()
+  } else if (
+    progress.step === UpdateStep.ROLLING_BACK &&
+    progress.stepStatus === StepStatus.COMPLETED
+  ) {
+    $q.notify({
+      type: 'negative',
+      position: 'top',
+      message: 'Update failed — rolled back to previous version',
+      icon: 'error',
+    })
+    updateInProgress.value = false
+    resetUpdateSteps()
+  } else if (
+    progress.stepStatus === StepStatus.FAILED &&
+    progress.step !== UpdateStep.INSTALLING &&
+    progress.step !== UpdateStep.RESTARTING
+  ) {
+    // Terminal failure without rollback (e.g. BACKING_UP FAILED). INSTALLING and
+    // RESTARTING failures trigger a rollback sequence handled above.
+    $q.notify({
+      type: 'negative',
+      position: 'top',
+      message: progress.message || 'Update failed',
+      icon: 'error',
+    })
+    updateInProgress.value = false
+  }
+}
+
 async function updateGameServer() {
+  if (gameServer.value.status === Status.ONLINE) {
+    const confirmed = await new Promise<boolean>((resolve) => {
+      let settled = false
+      $q.dialog({
+        title: 'Update running server?',
+        message: 'Xylona will stop the server, install the update, and start it again.',
+        cancel: true,
+        persistent: true,
+        ok: {
+          label: 'Update server',
+          color: 'primary',
+          unelevated: true,
+        },
+      })
+        .onOk(() => {
+          settled = true
+          resolve(true)
+        })
+        .onDismiss(() => {
+          if (!settled) {
+            resolve(false)
+          }
+        })
+    })
+    if (!confirmed) {
+      return
+    }
+  }
+
   const request: UpdateGameServerRequest = create(UpdateGameServerRequestSchema, {})
   updatingServer.value = true
   try {
     request.serverId = gameServerId.value
     await GetXylonaClient().updateGameServer(request)
+    resetUpdateSteps()
+    updateInProgress.value = true
   } catch (e) {
     console.error(e)
     $q.notify({
@@ -428,12 +931,10 @@ async function getGameServerOutput() {
       consoleTruncated.value = true
     }
     gameServerOutput.value = combined.slice(-maxConsoleCharacters)
-    if (consoleScrollArea.value === null) {
+    if (!consoleAutoScroll.value) {
       return
     }
-    void nextTick(() => {
-      consoleScrollArea.value?.setScrollPercentage('vertical', 100, 0)
-    })
+    void nextTick(scrollConsoleToBottom)
   } catch (e) {
     console.error(e)
   }
@@ -458,6 +959,12 @@ function listenForServerQueryInfo() {
   })
 }
 
+function onWebsocketReconnect() {
+  void requestConsoleOutputStream().catch((error) => {
+    console.error('Failed to resubscribe to game server console output', error)
+  })
+}
+
 function streamGameServerOutput() {
   // Listen for game server status changes.
   XylonaEventBus.on('gameServerStatus', (serverID: string, serverStatus: Status) => {
@@ -477,19 +984,22 @@ function streamGameServerOutput() {
       consoleTruncated.value = true
     }
     gameServerOutput.value = combined.slice(-maxConsoleCharacters)
-    if (consoleScrollArea.value === null) {
+    if (!consoleAutoScroll.value) {
       return
     }
-    void nextTick(() => {
-      consoleScrollArea.value?.setScrollPercentage('vertical', 100, 0)
-    })
+    void nextTick(scrollConsoleToBottom)
   })
-  // Request the game server to start streaming output.
-  XylonaEventBus.emit('gameServerConsoleOutputRequest', gameServerId.value)
+
+  // Listen for update progress events before any initial websocket request so
+  // an early send failure cannot skip the listener registration.
+  XylonaEventBus.on('gameServerUpdateProgress', onUpdateProgress)
 
   // Handle socket reconnection.
-  XylonaEventBus.on('websocketConnected', () => {
-    XylonaEventBus.emit('gameServerConsoleOutputRequest', gameServerId.value)
+  XylonaEventBus.on('websocketConnected', onWebsocketReconnect)
+
+  // Request the game server to start streaming output.
+  void requestConsoleOutputStream().catch((error) => {
+    console.error('Failed to subscribe to game server console output', error)
   })
 }
 
@@ -550,97 +1060,460 @@ async function sendGameServerInput() {
 </script>
 
 <style scoped>
-.identity-header {
-  padding: 0 var(--xy-space-md) var(--xy-space-md);
-  border-bottom: 1px solid var(--xy-border);
-  margin-bottom: var(--xy-space-md);
-}
-
-.identity-name {
-  font-family: var(--xy-font-display);
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--xy-text-primary);
-  letter-spacing: 0.02em;
-}
-
-.identity-subtitle {
+/* ===== Identity Bar ===== */
+.identity-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-  font-size: 0.82rem;
-  color: var(--xy-text-secondary);
+  gap: var(--xy-space-md);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  background: var(--xy-surface-1);
+  border-bottom: 1px solid var(--xy-border);
+  flex-shrink: 0;
 }
 
-.identity-separator {
+.identity-bar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.identity-bar-name {
+  font-family: var(--xy-font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--xy-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.identity-bar-detail {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--xy-text-secondary);
+  flex-wrap: wrap;
+}
+
+.identity-bar-sep {
   color: var(--xy-text-muted);
   opacity: 0.5;
 }
 
-.identity-running {
-  color: var(--xy-text-muted);
+.identity-bar-running {
   font-style: italic;
-}
-
-.identity-version {
-  font-family: var(--xy-font-mono);
-  font-size: 0.75rem;
   color: var(--xy-text-muted);
 }
 
-.identity-version.version-outdated {
+.identity-bar-version {
+  font-family: var(--xy-font-mono);
+  font-size: 0.72rem;
+  color: var(--xy-text-muted);
+}
+
+.identity-bar-version.version-outdated {
   color: var(--xy-accent);
   cursor: help;
 }
 
-.identity-change-btn {
+.identity-bar-spacer {
+  flex: 1;
+}
+
+/* ===== Main Area ===== */
+.main-area {
+  flex: 1;
+  display: flex;
+  min-height: 0;
   border: 1px solid var(--xy-border);
-  border-radius: 5px;
-  color: var(--xy-text-secondary);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: 290px;
+  display: flex;
+  flex-direction: column;
+  background: var(--xy-surface-0);
+  border-right: 1px solid var(--xy-border);
+  flex-shrink: 0;
+  transition:
+    width 0.25s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.2s ease;
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  border-right: none;
+  opacity: 0;
+}
+
+.sidebar-content {
+  padding: var(--xy-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-lg);
+  overflow-y: auto;
+  flex: 1;
+  min-width: 290px;
+}
+
+.sidebar-section-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--xy-text-muted);
+  margin-bottom: var(--xy-space-xs);
+}
+
+/* ===== Controls ===== */
+.server-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
+}
+
+/* ===== Software Card ===== */
+.software-card {
+  background: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.software-card-body {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+}
+
+.software-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--xy-surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  color: var(--xy-accent);
+}
+
+.software-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.software-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.software-name {
   font-family: var(--xy-font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--xy-text-primary);
+  line-height: 1.2;
+}
+
+.software-version {
+  font-family: var(--xy-font-mono);
   font-size: 0.72rem;
-  padding: 0.15rem 0.5rem;
-  margin-left: 0.25rem;
+  color: var(--xy-text-muted);
+}
+
+.software-game {
+  font-size: 0.7rem;
+  color: var(--xy-text-muted);
+  margin-top: 1px;
+}
+
+.software-none {
+  font-size: 0.78rem;
+  color: var(--xy-text-muted);
+  font-style: italic;
+  padding: var(--xy-space-sm) var(--xy-space-md);
+}
+
+/* Update hint */
+.update-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 var(--xy-space-md) var(--xy-space-sm);
+  font-size: 0.68rem;
+  color: var(--xy-warning);
+  cursor: help;
+}
+
+.update-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--xy-warning);
+  flex-shrink: 0;
+  animation: update-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes update-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+  }
+}
+
+/* Change button */
+.software-card-footer {
+  padding: var(--xy-space-xs) var(--xy-space-md) var(--xy-space-sm);
+}
+
+.change-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-radius: 4px;
+  color: var(--xy-text-secondary);
+  font-family: var(--xy-font-body);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.25rem 0.6rem;
   transition: all var(--xy-transition-fast);
 }
 
-.identity-change-btn:hover {
+.change-btn:hover {
   border-color: var(--xy-primary);
   color: var(--xy-primary);
   background: var(--xy-primary-muted);
 }
 
-.server-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--xy-space-sm);
-  margin-top: var(--xy-space-sm);
+.change-arrow {
+  font-size: 0.72rem;
+  transition: transform var(--xy-transition-fast);
 }
 
-.console-panel {
+.change-btn:hover .change-arrow {
+  transform: translateX(2px);
+}
+
+/* ===== Connection ===== */
+.connection-list {
   display: flex;
   flex-direction: column;
+  gap: 1px;
+  background: var(--xy-border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.connection-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  background: var(--xy-surface-1);
+}
+
+.cl-label {
+  font-size: 0.75rem;
+  color: var(--xy-text-muted);
+}
+
+.cl-value {
+  font-family: var(--xy-font-mono);
+  font-size: 0.78rem;
+  color: var(--xy-text-secondary);
+}
+
+.cl-value :deep(.copy-clipboard) {
+  cursor: pointer;
+  transition: color var(--xy-transition-fast);
+}
+
+.cl-value :deep(.copy-clipboard:hover) {
+  color: var(--xy-accent);
+}
+
+.cl-value-plain {
+  font-family: var(--xy-font-mono);
+  font-size: 0.78rem;
+  color: var(--xy-text-secondary);
+}
+
+/* ===== Metrics Preview ===== */
+.metrics-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-sm);
+}
+
+.metrics-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-bottom: var(--xy-space-sm);
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.metrics-group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.metrics-group-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--xy-text-muted);
+  margin-bottom: 0.1rem;
+}
+
+.metrics-offline {
+  opacity: 0.35;
+}
+
+.metrics-offline .metric-bar-fill {
+  width: 0 !important;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.metric-row .ml {
+  color: var(--xy-text-muted);
+  font-weight: 500;
+}
+
+.metric-detail {
+  font-size: 0.65rem;
+  color: var(--xy-text-muted);
+  opacity: 0.7;
+}
+
+.metric-row .mv {
+  color: var(--xy-text-secondary);
+  font-family: var(--xy-font-mono);
+  font-size: 0.75rem;
+}
+
+.metric-bar {
+  width: 100%;
+  height: 3px;
+  background: var(--xy-surface-3);
+  border-radius: 2px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.fill-low {
+  background: var(--xy-success);
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.3);
+}
+
+.fill-mid {
+  background: var(--xy-warning);
+  box-shadow: 0 0 4px rgba(245, 158, 11, 0.3);
+}
+
+.fill-high {
+  background: var(--xy-danger);
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.3);
+}
+
+/* ===== Console Wrapper ===== */
+.console-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   position: relative;
 }
 
-.console-expand-btn {
+/* Sidebar toggle tab */
+.sidebar-toggle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 52px;
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-left: none;
+  border-radius: 0 5px 5px 0;
+  color: var(--xy-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  z-index: 10;
+  transition: all var(--xy-transition-fast);
+}
+
+.sidebar-toggle:hover {
+  color: var(--xy-accent);
+  background: var(--xy-surface-3);
+  width: 22px;
+}
+
+/* Console toolbar buttons */
+.console-toolbar-btns {
   position: absolute;
   top: var(--xy-space-xs);
   right: var(--xy-space-sm);
-  z-index: 1;
+  z-index: 10;
+  display: flex;
+  gap: 2px;
+}
+
+.console-toolbar-btn {
   opacity: 0.6;
   transition: opacity var(--xy-transition-fast);
 }
 
-.console-expand-btn:hover {
+.console-toolbar-btn:hover {
   opacity: 1;
 }
 
-.console-panel :deep(.q-scrollarea) {
+.console-toolbar-btn-off {
+  opacity: 0.3;
+  color: var(--xy-text-muted);
+}
+
+/* Console output scroll area */
+.console-scroll-area {
   flex: 1;
-  min-height: 50dvh;
-  padding-left: var(--xy-space-sm);
+  min-height: 0;
+  padding-left: calc(var(--xy-space-md) + 22px);
   padding-right: var(--xy-space-sm);
   font-family: var(--xy-font-mono);
   font-size: 0.85rem;
@@ -650,7 +1523,20 @@ async function sendGameServerInput() {
   white-space: pre-wrap;
   max-width: 100%;
   background-color: var(--xy-base);
-  border-top: 1px solid var(--xy-border);
+  position: relative;
+}
+
+/* Top fade gradient */
+.console-scroll-area::before {
+  content: '';
+  position: sticky;
+  top: 0;
+  display: block;
+  height: 16px;
+  margin-bottom: -16px;
+  background: linear-gradient(to bottom, var(--xy-base) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .console-truncated-notice {
@@ -662,40 +1548,130 @@ async function sendGameServerInput() {
   border-bottom: 1px solid var(--xy-border);
 }
 
-.console-panel :deep(#consoleCodeEl) {
+.console-scroll-area :deep(#consoleCodeEl) {
   white-space: pre-wrap;
 }
 
-.console-panel :deep(#consoleInput) {
-  background-color: var(--xy-surface-1);
-  border: none;
-  border-top: 1px solid var(--xy-border);
+/* Offline console output */
+.console-output-offline {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--xy-base);
+  min-height: 0;
 }
 
-.console-panel :deep(#consoleInput .q-field__control) {
+.offline-placeholder {
+  text-align: center;
+  color: var(--xy-text-muted);
+  font-family: var(--xy-font-body);
+}
+
+.offline-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--xy-space-md);
+  border-radius: 50%;
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  opacity: 0.5;
+  position: relative;
+}
+
+.offline-icon::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--xy-border);
+  animation: offline-ring 4s ease-in-out infinite;
+}
+
+@keyframes offline-ring {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+}
+
+.offline-text {
+  font-size: 0.88rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.offline-hint {
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+/* ===== Console Input ===== */
+.console-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--xy-surface-1);
+  border-top: 1px solid var(--xy-border);
+  flex-shrink: 0;
+}
+
+.console-input-wrapper:focus-within {
+  border-top-color: rgba(28, 183, 207, 0.3);
+  background: color-mix(in srgb, var(--xy-surface-1) 95%, var(--xy-accent) 5%);
+}
+
+.console-input-disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.console-prompt {
+  padding: 0 0.35rem 0 var(--xy-space-md);
+  font-family: var(--xy-font-mono);
+  font-size: 0.85rem;
+  color: var(--xy-accent);
+  user-select: none;
+  opacity: 0.8;
+}
+
+.console-input-wrapper:focus-within .console-prompt {
+  opacity: 1;
+}
+
+.console-input-field {
+  flex: 1;
+}
+
+.console-input-field :deep(.q-field__control) {
   font-family: var(--xy-font-mono);
 }
 
-@media (max-width: 1023px) {
-  .console-panel {
-    order: -1;
-  }
-
-  .info-panel {
-    order: 1;
-  }
-}
-
-.expanded {
-  position: fixed !important;
-  inset: 0 !important;
+/* ===== Fullscreen Console ===== */
+.console-wrapper.expanded {
+  position: fixed;
+  inset: 0;
   z-index: 9999;
   width: 100%;
   height: 100dvh;
-  margin: 0;
-  padding: 0;
   background-color: var(--xy-base);
   animation: console-expand 200ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.console-wrapper.expanded .sidebar-toggle {
+  display: none;
+}
+
+.console-wrapper.expanded .console-scroll-area {
+  padding-left: var(--xy-space-sm);
 }
 
 @keyframes console-expand {
@@ -709,8 +1685,26 @@ async function sendGameServerInput() {
   }
 }
 
-.expanded :deep(.q-scrollarea) {
-  min-height: 0;
-  flex: 1;
+/* Expanded state also hides sidebar when fullscreen is active */
+.main-area-expanded .sidebar {
+  display: none;
+}
+
+/* ===== Focus rings ===== */
+.change-btn:focus-visible,
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--xy-primary);
+  outline-offset: 2px;
+}
+
+/* ===== Mobile ===== */
+@media (max-width: 1023px) {
+  .identity-bar {
+    flex-wrap: wrap;
+  }
+
+  .identity-bar-name {
+    font-size: 1rem;
+  }
 }
 </style>

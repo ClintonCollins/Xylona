@@ -74,13 +74,15 @@ func (p *Provider) RequiresAPIKey() bool {
 
 // modrinthSearchHit maps the JSON returned by the /search endpoint.
 type modrinthSearchHit struct {
-	Slug        string   `json:"slug"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Author      string   `json:"author"`
-	IconURL     string   `json:"icon_url"`
-	Downloads   int64    `json:"downloads"`
-	Versions    []string `json:"versions"`
+	Slug         string   `json:"slug"`
+	Title        string   `json:"title"`
+	Description  string   `json:"description"`
+	Author       string   `json:"author"`
+	IconURL      string   `json:"icon_url"`
+	Downloads    int64    `json:"downloads"`
+	Versions     []string `json:"versions"`
+	Categories   []string `json:"categories"`
+	DateModified string   `json:"date_modified"`
 }
 
 type modrinthSearchResponse struct {
@@ -91,7 +93,7 @@ type modrinthSearchResponse struct {
 }
 
 // Search queries the Modrinth search endpoint and returns matching mods.
-func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) ([]modproviders.ModSearchResult, error) {
+func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) (modproviders.SearchResult, error) {
 	facets := buildFacets(params)
 
 	// Merge well-known filter params into facets.
@@ -123,7 +125,7 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 	var searchResp modrinthSearchResponse
 	errFetch := p.getJSON(ctx, endpoint, &searchResp)
 	if errFetch != nil {
-		return nil, fmt.Errorf("modrinth search: %w", errFetch)
+		return modproviders.SearchResult{}, fmt.Errorf("modrinth search: %w", errFetch)
 	}
 
 	results := make([]modproviders.ModSearchResult, 0, len(searchResp.Hits))
@@ -142,9 +144,14 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 			Downloads:          hit.Downloads,
 			LatestVersion:      latest,
 			CompatibleVersions: hit.Versions,
+			Categories:         hit.Categories,
+			DateModified:       hit.DateModified,
 		})
 	}
-	return results, nil
+	return modproviders.SearchResult{
+		Results:   results,
+		TotalHits: searchResp.TotalHits,
+	}, nil
 }
 
 // --------------------------------------------------------------------------

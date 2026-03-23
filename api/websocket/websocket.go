@@ -38,17 +38,20 @@ const (
 	sessionKeyUserName      = "userName"
 	sessionKeyConnectionID  = "connectionID"
 	sessionKeyGamesServers  = "gameServers"
-	sessionKeySuperUser     = "superUser"
 )
 
 type connection struct {
 	id                           uuid.UUID
 	melodySession                *melody.Session
 	outputStreamChannel          chan *xylona.Message
+	userID                       string
+	userLookup                   func(string) (*models.User, error)
 	allGameServerIDs             []string
 	requestedGameServerOutputIDs map[string]struct{}
 	subscribedMetricsServerIDs   map[string]struct{}
 	remoteConsoleCancels         map[string]context.CancelFunc
+	isSuperUser                  bool
+	lastSuperUserCheck           time.Time
 	*sync.RWMutex
 }
 
@@ -61,7 +64,12 @@ func (c *connection) shouldReceiveMetrics(serverID string) bool {
 }
 
 // hasGameServerAccess returns true if the connection has access to the given game server ID.
+// Superusers have access to all game servers.
 func (c *connection) hasGameServerAccess(serverID string) bool {
+	if c.currentlySuperUser() {
+		return true
+	}
+
 	c.RLock()
 	defer c.RUnlock()
 	for _, id := range c.allGameServerIDs {
@@ -70,6 +78,41 @@ func (c *connection) hasGameServerAccess(serverID string) bool {
 		}
 	}
 	return false
+}
+
+func (c *connection) currentlySuperUser() bool {
+	c.RLock()
+	isSuperUser := c.isSuperUser
+	userLookup := c.userLookup
+	userID := c.userID
+	lastCheck := c.lastSuperUserCheck
+	c.RUnlock()
+
+	if !isSuperUser {
+		return false
+	}
+	if userLookup == nil || userID == "" {
+		return true
+	}
+	if time.Since(lastCheck) < 5*time.Second {
+		return true
+	}
+
+	user, errLookup := userLookup(userID)
+	if errLookup != nil {
+		log.Warn().Err(errLookup).Str("user_id", userID).Msg("Failed to refresh websocket superuser status")
+		c.Lock()
+		c.isSuperUser = false
+		c.lastSuperUserCheck = time.Now()
+		c.Unlock()
+		return false
+	}
+
+	c.Lock()
+	c.isSuperUser = user.SuperUser
+	c.lastSuperUserCheck = time.Now()
+	c.Unlock()
+	return user.SuperUser
 }
 
 type WebSocket struct {
@@ -220,10 +263,14 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		id:                           uuid.New(),
 		melodySession:                s,
 		outputStreamChannel:          make(chan *xylona.Message),
+		userID:                       user.ID,
+		userLookup:                   ws.db.GetUserByID,
 		allGameServerIDs:             []string{},
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
 		remoteConsoleCancels:         make(map[string]context.CancelFunc),
+		isSuperUser:                  user.SuperUser,
+		lastSuperUserCheck:           time.Now(),
 		RWMutex:                      &sync.RWMutex{},
 	}
 
@@ -231,7 +278,6 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	s.Set(sessionKeyUserID, user.ID)
 	s.Set(sessionKeyUserName, user.UserName)
 	s.Set(sessionKeyStreamChannel, wsConnection.outputStreamChannel)
-	s.Set(sessionKeySuperUser, user.SuperUser)
 
 	ws.userWebsocketConnectionsLock.Lock()
 	_, userExists := ws.userWebsocketConnections[user.ID]
@@ -532,6 +578,24 @@ func nodeSnapshotEqual(a, b *xylona.NodeResourceSnapshot) bool {
 		a.UserCount == b.UserCount
 }
 
+type nodeMetricsLoopAction int
+
+const (
+	nodeMetricsLoopActionSend nodeMetricsLoopAction = iota
+	nodeMetricsLoopActionSkip
+	nodeMetricsLoopActionExit
+)
+
+func determineNodeMetricsLoopAction(conn *connection, errConnection error) nodeMetricsLoopAction {
+	if errConnection != nil || conn == nil {
+		return nodeMetricsLoopActionExit
+	}
+	if !conn.currentlySuperUser() {
+		return nodeMetricsLoopActionSkip
+	}
+	return nodeMetricsLoopActionSend
+}
+
 // sendNodeMetrics sends node resource metrics to a superuser connection every 5 seconds.
 func (ws *WebSocket) sendNodeMetrics(s *melody.Session) {
 	previousSnapshots := make(map[string]*xylona.NodeResourceSnapshot)
@@ -546,6 +610,17 @@ func (ws *WebSocket) sendNodeMetrics(s *melody.Session) {
 		case <-ticker.C:
 			if s.IsClosed() {
 				return
+			}
+			conn, errConnection := ws.getSessionConnection(s)
+			if errConnection != nil {
+				log.Error().Err(errConnection).Msg("Failed to get websocket connection for node metrics")
+				return
+			}
+			switch determineNodeMetricsLoopAction(conn, nil) {
+			case nodeMetricsLoopActionExit:
+				return
+			case nodeMetricsLoopActionSkip:
+				continue
 			}
 
 			localNodeID, errLocalID := ws.db.GetLocalNodeID()
@@ -1066,7 +1141,6 @@ func (ws *WebSocket) BroadcastUpdateProgress(serverID string, step xylona.Update
 		log.Error().Err(errMarshal).Msg("Failed to marshal update progress message")
 		return
 	}
-
 	ws.userWebsocketConnectionsLock.RLock()
 	defer ws.userWebsocketConnectionsLock.RUnlock()
 

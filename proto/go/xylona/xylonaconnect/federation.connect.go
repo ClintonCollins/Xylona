@@ -56,6 +56,12 @@ const (
 	// FederationUpdateRemoteServerProcedure is the fully-qualified name of the Federation's
 	// UpdateRemoteServer RPC.
 	FederationUpdateRemoteServerProcedure = "/xylona.Federation/UpdateRemoteServer"
+	// FederationGetRemoteVersionInfoProcedure is the fully-qualified name of the Federation's
+	// GetRemoteVersionInfo RPC.
+	FederationGetRemoteVersionInfoProcedure = "/xylona.Federation/GetRemoteVersionInfo"
+	// FederationCheckRemoteServerForUpdateProcedure is the fully-qualified name of the Federation's
+	// CheckRemoteServerForUpdate RPC.
+	FederationCheckRemoteServerForUpdateProcedure = "/xylona.Federation/CheckRemoteServerForUpdate"
 	// FederationEditRemoteServerProcedure is the fully-qualified name of the Federation's
 	// EditRemoteServer RPC.
 	FederationEditRemoteServerProcedure = "/xylona.Federation/EditRemoteServer"
@@ -157,6 +163,10 @@ type FederationClient interface {
 	RestartRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error)
 	// UpdateRemoteServer triggers an update for a game server on this node.
 	UpdateRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error)
+	// GetRemoteVersionInfo returns cached or newly checked version info for a game server on this node.
+	GetRemoteVersionInfo(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error)
+	// CheckRemoteServerForUpdate forces a version check for a game server on this node.
+	CheckRemoteServerForUpdate(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error)
 	// EditRemoteServer edits a game server's configuration on this node.
 	EditRemoteServer(context.Context, *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error)
 	// RemoveRemoteServer removes a game server on this node.
@@ -254,6 +264,18 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			httpClient,
 			baseURL+FederationUpdateRemoteServerProcedure,
 			connect.WithSchema(federationMethods.ByName("UpdateRemoteServer")),
+			connect.WithClientOptions(opts...),
+		),
+		getRemoteVersionInfo: connect.NewClient[xylona.FederationRemoteActionRequest, xylona.FederationVersionInfoResponse](
+			httpClient,
+			baseURL+FederationGetRemoteVersionInfoProcedure,
+			connect.WithSchema(federationMethods.ByName("GetRemoteVersionInfo")),
+			connect.WithClientOptions(opts...),
+		),
+		checkRemoteServerForUpdate: connect.NewClient[xylona.FederationRemoteActionRequest, xylona.FederationVersionInfoResponse](
+			httpClient,
+			baseURL+FederationCheckRemoteServerForUpdateProcedure,
+			connect.WithSchema(federationMethods.ByName("CheckRemoteServerForUpdate")),
 			connect.WithClientOptions(opts...),
 		),
 		editRemoteServer: connect.NewClient[xylona.FederationEditServerRequest, xylona.FederationEditServerResponse](
@@ -431,6 +453,8 @@ type federationClient struct {
 	stopRemoteServer                      *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
 	restartRemoteServer                   *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
 	updateRemoteServer                    *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
+	getRemoteVersionInfo                  *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationVersionInfoResponse]
+	checkRemoteServerForUpdate            *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationVersionInfoResponse]
 	editRemoteServer                      *connect.Client[xylona.FederationEditServerRequest, xylona.FederationEditServerResponse]
 	removeRemoteServer                    *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
 	streamConsoleOutput                   *connect.Client[xylona.FederationStreamConsoleRequest, xylona.FederationConsoleOutputChunk]
@@ -498,6 +522,16 @@ func (c *federationClient) RestartRemoteServer(ctx context.Context, req *connect
 // UpdateRemoteServer calls xylona.Federation.UpdateRemoteServer.
 func (c *federationClient) UpdateRemoteServer(ctx context.Context, req *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
 	return c.updateRemoteServer.CallUnary(ctx, req)
+}
+
+// GetRemoteVersionInfo calls xylona.Federation.GetRemoteVersionInfo.
+func (c *federationClient) GetRemoteVersionInfo(ctx context.Context, req *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {
+	return c.getRemoteVersionInfo.CallUnary(ctx, req)
+}
+
+// CheckRemoteServerForUpdate calls xylona.Federation.CheckRemoteServerForUpdate.
+func (c *federationClient) CheckRemoteServerForUpdate(ctx context.Context, req *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {
+	return c.checkRemoteServerForUpdate.CallUnary(ctx, req)
 }
 
 // EditRemoteServer calls xylona.Federation.EditRemoteServer.
@@ -654,6 +688,10 @@ type FederationHandler interface {
 	RestartRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error)
 	// UpdateRemoteServer triggers an update for a game server on this node.
 	UpdateRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error)
+	// GetRemoteVersionInfo returns cached or newly checked version info for a game server on this node.
+	GetRemoteVersionInfo(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error)
+	// CheckRemoteServerForUpdate forces a version check for a game server on this node.
+	CheckRemoteServerForUpdate(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error)
 	// EditRemoteServer edits a game server's configuration on this node.
 	EditRemoteServer(context.Context, *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error)
 	// RemoveRemoteServer removes a game server on this node.
@@ -747,6 +785,18 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 		FederationUpdateRemoteServerProcedure,
 		svc.UpdateRemoteServer,
 		connect.WithSchema(federationMethods.ByName("UpdateRemoteServer")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationGetRemoteVersionInfoHandler := connect.NewUnaryHandler(
+		FederationGetRemoteVersionInfoProcedure,
+		svc.GetRemoteVersionInfo,
+		connect.WithSchema(federationMethods.ByName("GetRemoteVersionInfo")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationCheckRemoteServerForUpdateHandler := connect.NewUnaryHandler(
+		FederationCheckRemoteServerForUpdateProcedure,
+		svc.CheckRemoteServerForUpdate,
+		connect.WithSchema(federationMethods.ByName("CheckRemoteServerForUpdate")),
 		connect.WithHandlerOptions(opts...),
 	)
 	federationEditRemoteServerHandler := connect.NewUnaryHandler(
@@ -929,6 +979,10 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 			federationRestartRemoteServerHandler.ServeHTTP(w, r)
 		case FederationUpdateRemoteServerProcedure:
 			federationUpdateRemoteServerHandler.ServeHTTP(w, r)
+		case FederationGetRemoteVersionInfoProcedure:
+			federationGetRemoteVersionInfoHandler.ServeHTTP(w, r)
+		case FederationCheckRemoteServerForUpdateProcedure:
+			federationCheckRemoteServerForUpdateHandler.ServeHTTP(w, r)
 		case FederationEditRemoteServerProcedure:
 			federationEditRemoteServerHandler.ServeHTTP(w, r)
 		case FederationRemoveRemoteServerProcedure:
@@ -1022,6 +1076,14 @@ func (UnimplementedFederationHandler) RestartRemoteServer(context.Context, *conn
 
 func (UnimplementedFederationHandler) UpdateRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.UpdateRemoteServer is not implemented"))
+}
+
+func (UnimplementedFederationHandler) GetRemoteVersionInfo(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.GetRemoteVersionInfo is not implemented"))
+}
+
+func (UnimplementedFederationHandler) CheckRemoteServerForUpdate(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.CheckRemoteServerForUpdate is not implemented"))
 }
 
 func (UnimplementedFederationHandler) EditRemoteServer(context.Context, *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error) {

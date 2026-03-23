@@ -55,15 +55,18 @@ func TestSearch_ReturnsResults(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	results, errSearch := p.Search(context.Background(), "worldedit", nil)
+	searchResult, errSearch := p.Search(context.Background(), "worldedit", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if len(results) != 2 {
-		t.Fatalf("Search() len = %d, want 2", len(results))
+	if len(searchResult.Results) != 2 {
+		t.Fatalf("Search() len = %d, want 2", len(searchResult.Results))
+	}
+	if searchResult.TotalHits != 2 {
+		t.Errorf("Search().TotalHits = %d, want 2", searchResult.TotalHits)
 	}
 
-	first := results[0]
+	first := searchResult.Results[0]
 	if first.SourceID != "worldedit" {
 		t.Errorf("results[0].SourceID = %q, want %q", first.SourceID, "worldedit")
 	}
@@ -96,15 +99,18 @@ func TestSearch_EmptyQueryReturnsEmptySlice(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	results, errSearch := p.Search(context.Background(), "", nil)
+	searchResult, errSearch := p.Search(context.Background(), "", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if results == nil {
-		t.Error("Search() returned nil, want empty (non-nil) slice")
+	if searchResult.Results == nil {
+		t.Error("Search() returned nil Results, want empty (non-nil) slice")
 	}
-	if len(results) != 0 {
-		t.Errorf("Search() len = %d, want 0", len(results))
+	if len(searchResult.Results) != 0 {
+		t.Errorf("Search() len = %d, want 0", len(searchResult.Results))
+	}
+	if searchResult.TotalHits != 0 {
+		t.Errorf("Search().TotalHits = %d, want 0", searchResult.TotalHits)
 	}
 }
 

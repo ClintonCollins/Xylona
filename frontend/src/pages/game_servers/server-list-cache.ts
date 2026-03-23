@@ -1,4 +1,4 @@
-import type { Node, Status } from '@/proto/shared_pb'
+import type { Node, Status, VersionInfo } from '@/proto/shared_pb'
 import type { AggregatedGameServer } from '@/proto/xylona_pb'
 
 export interface DisplayRow {
@@ -12,6 +12,7 @@ export interface DisplayRow {
   nodeName: string
   isStale: boolean
   sourceNodeId: string
+  versionInfo?: VersionInfo
 }
 
 export function buildDisplayRows(
@@ -40,6 +41,7 @@ export function buildDisplayRows(
         nodeName,
         isStale: false,
         sourceNodeId: '',
+        versionInfo: localServer.versionInfo,
       }
 
       if (!seenCompositeIDs.has(row.compositeId)) {

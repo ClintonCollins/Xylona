@@ -179,6 +179,8 @@ async function enforceRouteAccess() {
   overflow: hidden;
 }
 .game-server-content {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow-y: auto;

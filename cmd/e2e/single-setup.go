@@ -91,7 +91,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 	}
 
 	// Start the Xylona backend.
-	backendCmd, errStart := startNode("E2E-Backend", dataDir, xylonaExe, httpPort, fedPort)
+	backendCmd, errStart := startNode("E2E-Backend", dataDir, e2eDir, xylonaExe, httpPort, fedPort, "DUMMY_GAME_ID=e2e-test-game", "XYLONA_VERSION_CHECK_INTERVAL=30s")
 	if errStart != nil {
 		return fmt.Errorf("start backend: %w", errStart)
 	}
@@ -170,6 +170,18 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 		var testGameID string
 		var testServerID string
 
+		// Find e2e-superuser's ID so the test game server is owned by the
+		// primary test user. This ensures the WebSocket subscription for update
+		// progress notifications is registered for the user that the E2E tests
+		// are logged in as.
+		testOwnerUserID := client.userID
+		for _, u := range createdUsers {
+			if u.Username == "e2e-superuser" {
+				testOwnerUserID = u.ID
+				break
+			}
+		}
+
 		if len(gameServers) == 0 {
 			log.Info().Msg("[E2E Setup] No game servers found; creating a test game server...")
 
@@ -193,16 +205,20 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 				log.Info().Msg("[E2E Setup] Creating test game definition...")
 				addResp, errAdd := client.rpc.AddGame(ctx, connect.NewRequest(&xylona.AddGameRequest{
 					Game: &xylona.Game{
+						Id:                             "e2e-test-game",
 						Name:                           "E2E Test Game",
 						LinuxSupport:                   true,
 						LinuxStartCommand:              dummyExePath,
 						LinuxStopCommand:               "stop",
 						LinuxInstallCommand:            "echo installed",
 						LinuxInstallCommandProcessor:   xylona.CommandProcessor_BASH,
+						LinuxUpdateCommand:             "echo updated",
+						LinuxUpdateCommandProcessor:    xylona.CommandProcessor_BASH,
 						WindowsSupport:                 true,
 						WindowsStartCommand:            dummyExePath,
 						WindowsStopCommand:             "stop",
 						WindowsInstallCommand:          `cmd /c "echo installed"`,
+						WindowsUpdateCommand:           `cmd /c "echo updated"`,
 						WindowsInstallCommandProcessor: xylona.CommandProcessor_CMD,
 						DefaultPort:                    25599,
 						DefaultQueryPort:               25599,
@@ -243,7 +259,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 				GameServer: &xylona.GameServer{
 					Name:          "E2E Test Server",
 					GameId:        game.Id,
-					UserId:        client.userID,
+					UserId:        testOwnerUserID,
 					StartCommand:  dummyExePath + " -heartbeat 5s",
 					Directory:     gsDirPath,
 					Ip:            &xylona.IP{Address: ipAddress},
@@ -382,13 +398,17 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			if noTrackerGame == nil {
 				addResp2, errAdd2 := client.rpc.AddGame(ctx, connect.NewRequest(&xylona.AddGameRequest{
 					Game: &xylona.Game{
-						Name:                "E2E No-Tracker Game",
-						LinuxSupport:        true,
-						LinuxStartCommand:   dummyExePath,
-						WindowsSupport:      true,
-						WindowsStartCommand: dummyExePath,
-						DefaultPort:         25601,
-						DefaultQueryPort:    25602,
+						Name:                           "E2E No-Tracker Game",
+						LinuxSupport:                   true,
+						LinuxStartCommand:              dummyExePath,
+						LinuxInstallCommand:            "echo installed",
+						LinuxInstallCommandProcessor:   xylona.CommandProcessor_BASH,
+						WindowsSupport:                 true,
+						WindowsStartCommand:            dummyExePath,
+						WindowsInstallCommand:          `cmd /c "echo installed"`,
+						WindowsInstallCommandProcessor: xylona.CommandProcessor_CMD,
+						DefaultPort:                    25601,
+						DefaultQueryPort:               25602,
 					},
 				}))
 				if errAdd2 != nil {

@@ -2,10 +2,14 @@ package websocket
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func newTestConnection() *connection {
@@ -109,4 +113,65 @@ func TestConnection_ShouldReceiveMetrics_ConcurrentAccess(t *testing.T) {
 	}
 
 	<-done
+}
+
+func TestConnection_HasGameServerAccess_RevalidatesRevokedSuperUser(t *testing.T) {
+	c := newTestConnection()
+	c.userID = "user-1"
+	c.isSuperUser = true
+	c.lastSuperUserCheck = time.Now().Add(-10 * time.Second)
+	c.userLookup = func(string) (*models.User, error) {
+		return &models.User{ID: "user-1", SuperUser: false}, nil
+	}
+
+	if c.hasGameServerAccess("server-1") {
+		t.Fatal("hasGameServerAccess() = true, want false after superuser revocation")
+	}
+}
+
+func TestConnection_HasGameServerAccess_FallsBackToOwnedServersAfterRevocation(t *testing.T) {
+	c := newTestConnection()
+	c.userID = "user-1"
+	c.isSuperUser = true
+	c.allGameServerIDs = []string{"server-1"}
+	c.lastSuperUserCheck = time.Now().Add(-10 * time.Second)
+	c.userLookup = func(string) (*models.User, error) {
+		return &models.User{ID: "user-1", SuperUser: false}, nil
+	}
+
+	if !c.hasGameServerAccess("server-1") {
+		t.Fatal("hasGameServerAccess() = false, want true for owned server after superuser revocation")
+	}
+	if c.hasGameServerAccess("server-2") {
+		t.Fatal("hasGameServerAccess() = true, want false for unowned server after superuser revocation")
+	}
+}
+
+func TestConnection_HasGameServerAccess_DropsElevatedAccessOnRefreshFailure(t *testing.T) {
+	c := newTestConnection()
+	c.userID = "user-1"
+	c.isSuperUser = true
+	c.lastSuperUserCheck = time.Now().Add(-10 * time.Second)
+	c.userLookup = func(string) (*models.User, error) {
+		return nil, errors.New("lookup failed")
+	}
+
+	if c.hasGameServerAccess("server-1") {
+		t.Fatal("hasGameServerAccess() = true, want false after refresh failure")
+	}
+}
+
+func TestNodeMetricsLoopActionSkipsTickWhenSuperUserRevoked(t *testing.T) {
+	c := newTestConnection()
+	c.userID = "user-1"
+	c.isSuperUser = true
+	c.lastSuperUserCheck = time.Now().Add(-10 * time.Second)
+	c.userLookup = func(string) (*models.User, error) {
+		return &models.User{ID: "user-1", SuperUser: false}, nil
+	}
+
+	action := determineNodeMetricsLoopAction(c, nil)
+	if action != nodeMetricsLoopActionSkip {
+		t.Fatalf("determineNodeMetricsLoopAction() = %v, want %v", action, nodeMetricsLoopActionSkip)
+	}
 }

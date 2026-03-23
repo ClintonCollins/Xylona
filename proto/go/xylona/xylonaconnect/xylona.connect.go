@@ -273,6 +273,13 @@ const (
 	XylonaGetServerSoftwareStatusProcedure = "/xylona.Xylona/GetServerSoftwareStatus"
 	// XylonaGetModCategoriesProcedure is the fully-qualified name of the Xylona's GetModCategories RPC.
 	XylonaGetModCategoriesProcedure = "/xylona.Xylona/GetModCategories"
+	// XylonaGetVersionInfoProcedure is the fully-qualified name of the Xylona's GetVersionInfo RPC.
+	XylonaGetVersionInfoProcedure = "/xylona.Xylona/GetVersionInfo"
+	// XylonaCheckForUpdateProcedure is the fully-qualified name of the Xylona's CheckForUpdate RPC.
+	XylonaCheckForUpdateProcedure = "/xylona.Xylona/CheckForUpdate"
+	// XylonaSetDummyUpdateFailureProcedure is the fully-qualified name of the Xylona's
+	// SetDummyUpdateFailure RPC.
+	XylonaSetDummyUpdateFailureProcedure = "/xylona.Xylona/SetDummyUpdateFailure"
 	// XylonaListNodeApiKeysProcedure is the fully-qualified name of the Xylona's ListNodeApiKeys RPC.
 	XylonaListNodeApiKeysProcedure = "/xylona.Xylona/ListNodeApiKeys"
 	// XylonaSetNodeApiKeyProcedure is the fully-qualified name of the Xylona's SetNodeApiKey RPC.
@@ -397,6 +404,10 @@ type XylonaClient interface {
 	SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error)
 	GetServerSoftwareStatus(context.Context, *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error)
 	GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error)
+	// Version tracking
+	GetVersionInfo(context.Context, *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error)
+	CheckForUpdate(context.Context, *connect.Request[xylona.CheckForUpdateRequest]) (*connect.Response[xylona.CheckForUpdateResponse], error)
+	SetDummyUpdateFailure(context.Context, *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error)
 	// Node API keys
 	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
 	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
@@ -996,6 +1007,24 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("GetModCategories")),
 			connect.WithClientOptions(opts...),
 		),
+		getVersionInfo: connect.NewClient[xylona.GetVersionInfoRequest, xylona.GetVersionInfoResponse](
+			httpClient,
+			baseURL+XylonaGetVersionInfoProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetVersionInfo")),
+			connect.WithClientOptions(opts...),
+		),
+		checkForUpdate: connect.NewClient[xylona.CheckForUpdateRequest, xylona.CheckForUpdateResponse](
+			httpClient,
+			baseURL+XylonaCheckForUpdateProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CheckForUpdate")),
+			connect.WithClientOptions(opts...),
+		),
+		setDummyUpdateFailure: connect.NewClient[xylona.SetDummyUpdateFailureRequest, xylona.SetDummyUpdateFailureResponse](
+			httpClient,
+			baseURL+XylonaSetDummyUpdateFailureProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetDummyUpdateFailure")),
+			connect.WithClientOptions(opts...),
+		),
 		listNodeApiKeys: connect.NewClient[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse](
 			httpClient,
 			baseURL+XylonaListNodeApiKeysProcedure,
@@ -1116,6 +1145,9 @@ type xylonaClient struct {
 	setServerSoftware                *connect.Client[xylona.SetServerSoftwareRequest, xylona.SetServerSoftwareResponse]
 	getServerSoftwareStatus          *connect.Client[xylona.GetServerSoftwareStatusRequest, xylona.GetServerSoftwareStatusResponse]
 	getModCategories                 *connect.Client[xylona.GetModCategoriesRequest, xylona.GetModCategoriesResponse]
+	getVersionInfo                   *connect.Client[xylona.GetVersionInfoRequest, xylona.GetVersionInfoResponse]
+	checkForUpdate                   *connect.Client[xylona.CheckForUpdateRequest, xylona.CheckForUpdateResponse]
+	setDummyUpdateFailure            *connect.Client[xylona.SetDummyUpdateFailureRequest, xylona.SetDummyUpdateFailureResponse]
 	listNodeApiKeys                  *connect.Client[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse]
 	setNodeApiKey                    *connect.Client[xylona.SetNodeApiKeyRequest, xylona.SetNodeApiKeyResponse]
 	deleteNodeApiKey                 *connect.Client[xylona.DeleteNodeApiKeyRequest, xylona.DeleteNodeApiKeyResponse]
@@ -1606,6 +1638,21 @@ func (c *xylonaClient) GetModCategories(ctx context.Context, req *connect.Reques
 	return c.getModCategories.CallUnary(ctx, req)
 }
 
+// GetVersionInfo calls xylona.Xylona.GetVersionInfo.
+func (c *xylonaClient) GetVersionInfo(ctx context.Context, req *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error) {
+	return c.getVersionInfo.CallUnary(ctx, req)
+}
+
+// CheckForUpdate calls xylona.Xylona.CheckForUpdate.
+func (c *xylonaClient) CheckForUpdate(ctx context.Context, req *connect.Request[xylona.CheckForUpdateRequest]) (*connect.Response[xylona.CheckForUpdateResponse], error) {
+	return c.checkForUpdate.CallUnary(ctx, req)
+}
+
+// SetDummyUpdateFailure calls xylona.Xylona.SetDummyUpdateFailure.
+func (c *xylonaClient) SetDummyUpdateFailure(ctx context.Context, req *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error) {
+	return c.setDummyUpdateFailure.CallUnary(ctx, req)
+}
+
 // ListNodeApiKeys calls xylona.Xylona.ListNodeApiKeys.
 func (c *xylonaClient) ListNodeApiKeys(ctx context.Context, req *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {
 	return c.listNodeApiKeys.CallUnary(ctx, req)
@@ -1737,6 +1784,10 @@ type XylonaHandler interface {
 	SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error)
 	GetServerSoftwareStatus(context.Context, *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error)
 	GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error)
+	// Version tracking
+	GetVersionInfo(context.Context, *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error)
+	CheckForUpdate(context.Context, *connect.Request[xylona.CheckForUpdateRequest]) (*connect.Response[xylona.CheckForUpdateResponse], error)
+	SetDummyUpdateFailure(context.Context, *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error)
 	// Node API keys
 	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
 	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
@@ -2332,6 +2383,24 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("GetModCategories")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetVersionInfoHandler := connect.NewUnaryHandler(
+		XylonaGetVersionInfoProcedure,
+		svc.GetVersionInfo,
+		connect.WithSchema(xylonaMethods.ByName("GetVersionInfo")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaCheckForUpdateHandler := connect.NewUnaryHandler(
+		XylonaCheckForUpdateProcedure,
+		svc.CheckForUpdate,
+		connect.WithSchema(xylonaMethods.ByName("CheckForUpdate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetDummyUpdateFailureHandler := connect.NewUnaryHandler(
+		XylonaSetDummyUpdateFailureProcedure,
+		svc.SetDummyUpdateFailure,
+		connect.WithSchema(xylonaMethods.ByName("SetDummyUpdateFailure")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaListNodeApiKeysHandler := connect.NewUnaryHandler(
 		XylonaListNodeApiKeysProcedure,
 		svc.ListNodeApiKeys,
@@ -2546,6 +2615,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetServerSoftwareStatusHandler.ServeHTTP(w, r)
 		case XylonaGetModCategoriesProcedure:
 			xylonaGetModCategoriesHandler.ServeHTTP(w, r)
+		case XylonaGetVersionInfoProcedure:
+			xylonaGetVersionInfoHandler.ServeHTTP(w, r)
+		case XylonaCheckForUpdateProcedure:
+			xylonaCheckForUpdateHandler.ServeHTTP(w, r)
+		case XylonaSetDummyUpdateFailureProcedure:
+			xylonaSetDummyUpdateFailureHandler.ServeHTTP(w, r)
 		case XylonaListNodeApiKeysProcedure:
 			xylonaListNodeApiKeysHandler.ServeHTTP(w, r)
 		case XylonaSetNodeApiKeyProcedure:
@@ -2947,6 +3022,18 @@ func (UnimplementedXylonaHandler) GetServerSoftwareStatus(context.Context, *conn
 
 func (UnimplementedXylonaHandler) GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetModCategories is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetVersionInfo(context.Context, *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetVersionInfo is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CheckForUpdate(context.Context, *connect.Request[xylona.CheckForUpdateRequest]) (*connect.Response[xylona.CheckForUpdateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CheckForUpdate is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetDummyUpdateFailure(context.Context, *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetDummyUpdateFailure is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {

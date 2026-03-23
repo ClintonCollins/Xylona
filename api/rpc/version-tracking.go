@@ -2,46 +2,108 @@ package rpc
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (xs *XylonaService) GetVersionInfo(ctx context.Context, req *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error) {
-	gameServerID := req.Msg.GetGameServerId()
-
-	state := xs.versionState.Get(gameServerID)
-
-	// If unchecked, trigger an immediate check.
-	if state.Status == versiontracker.VersionStatusUnchecked {
-		xs.triggerVersionCheck(ctx, gameServerID)
-		state = xs.versionState.Get(gameServerID)
+	user, errUser := xs.getUserFromHeader(req.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 
-	return connect.NewResponse(&xylona.GetVersionInfoResponse{
-		VersionInfo: versionStateToProto(state),
-	}), nil
+	gameServerID := req.Msg.GetGameServerId()
+	return dispatchGameServerRequest(
+		xs,
+		gameServerID,
+		func(gameServer *models.GameServer) (*connect.Response[xylona.GetVersionInfoResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+			if errPermission != nil {
+				return nil, errPermission
+			}
+
+			// Trigger an immediate check if the state has not been set yet (default NO_TRACKER
+			// from an uninitialized map entry) or if it is explicitly unchecked.
+			allStates := xs.versionState.GetAll()
+			state, explicitlySet := allStates[gameServerID]
+			if !explicitlySet || state.Status == versiontracker.VersionStatusUnchecked {
+				xs.triggerVersionCheck(ctx, gameServerID)
+				state = xs.versionState.Get(gameServerID)
+			}
+
+			return connect.NewResponse(&xylona.GetVersionInfoResponse{
+				VersionInfo: versionStateToProto(state),
+			}), nil
+		},
+		func() (*connect.Response[xylona.GetVersionInfoResponse], error) {
+			return xs.getRemoteVersionInfo(ctx, gameServerID, user)
+		},
+	)
 }
 
 func (xs *XylonaService) CheckForUpdate(ctx context.Context, req *connect.Request[xylona.CheckForUpdateRequest]) (*connect.Response[xylona.CheckForUpdateResponse], error) {
+	user, errUser := xs.getUserFromHeader(req.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+
 	gameServerID := req.Msg.GetGameServerId()
+	return dispatchGameServerRequest(
+		xs,
+		gameServerID,
+		func(gameServer *models.GameServer) (*connect.Response[xylona.CheckForUpdateResponse], error) {
+			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+			if errPermission != nil {
+				return nil, errPermission
+			}
 
-	xs.triggerVersionCheck(ctx, gameServerID)
-	state := xs.versionState.Get(gameServerID)
+			xs.triggerVersionCheck(ctx, gameServerID)
+			state := xs.versionState.Get(gameServerID)
 
-	return connect.NewResponse(&xylona.CheckForUpdateResponse{
-		VersionInfo: versionStateToProto(state),
-	}), nil
+			return connect.NewResponse(&xylona.CheckForUpdateResponse{
+				VersionInfo: versionStateToProto(state),
+			}), nil
+		},
+		func() (*connect.Response[xylona.CheckForUpdateResponse], error) {
+			return xs.checkRemoteServerForUpdate(ctx, gameServerID, user)
+		},
+	)
 }
 
 func (xs *XylonaService) SetDummyUpdateFailure(_ context.Context, req *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error) {
+	_, errUser := xs.getUserFromHeader(req.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+
 	if xs.dummyTracker == nil {
 		return connect.NewResponse(&xylona.SetDummyUpdateFailureResponse{}), nil
 	}
+	if req.Msg.GetSimulateFailure() {
+		// Reset the dummy tracker before failure-mode tests so E2E update cases do
+		// not inherit a previously "updated" version from an earlier test.
+		xs.dummyTracker.Reset()
+		if xs.versionState != nil {
+			clearDummyVersionStates(xs.versionState)
+		}
+	}
 	xs.dummyTracker.SetSimulateFailure(req.Msg.GetSimulateFailure())
 	return connect.NewResponse(&xylona.SetDummyUpdateFailureResponse{}), nil
+}
+
+func clearDummyVersionStates(states *versiontracker.VersionStateMap) {
+	// Reset only dummy-tracked entries so E2E failure toggles do not wipe unrelated
+	// version state cached for other server types.
+	for serverID, state := range states.GetAll() {
+		if state.TrackerType == "dummy" {
+			states.Delete(serverID)
+		}
+	}
 }
 
 func (xs *XylonaService) triggerVersionCheck(ctx context.Context, gameServerID string) {

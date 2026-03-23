@@ -13,6 +13,10 @@ import (
 )
 
 func (xs *XylonaService) remoteFederationClient(node *models.Node, serverID string) (xylonaconnect.FederationClient, error) {
+	if xs.remoteFederationClientFactory != nil {
+		return xs.remoteFederationClientFactory(node, serverID)
+	}
+
 	client, errClient := xs.newRemoteFederationClient(node)
 	if errClient != nil {
 		log.Error().
@@ -131,6 +135,68 @@ func (xs *XylonaService) updateRemoteGameServer(ctx context.Context, serverID st
 	}
 
 	return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
+}
+
+func (xs *XylonaService) getRemoteVersionInfo(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.GetVersionInfoResponse], error) {
+	node, _, errGet := xs.getRemoteNodeForServer(serverID)
+	if errGet != nil {
+		return nil, errGet
+	}
+
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
+		ServerId: serverID,
+	})
+	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
+	if errIdentity != nil {
+		log.Error().Err(errIdentity).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to apply federation identity headers")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote version info"))
+	}
+
+	resp, errGetVersion := client.GetRemoteVersionInfo(ctx, req)
+	if errGetVersion != nil {
+		log.Error().Err(errGetVersion).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to get remote version info")
+		return nil, wrapRemoteRPCError(errGetVersion, "failed to get remote version info")
+	}
+
+	return connect.NewResponse(&xylona.GetVersionInfoResponse{
+		VersionInfo: resp.Msg.GetVersionInfo(),
+	}), nil
+}
+
+func (xs *XylonaService) checkRemoteServerForUpdate(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.CheckForUpdateResponse], error) {
+	node, _, errGet := xs.getRemoteNodeForServer(serverID)
+	if errGet != nil {
+		return nil, errGet
+	}
+
+	client, errClient := xs.remoteFederationClient(node, serverID)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
+		ServerId: serverID,
+	})
+	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
+	if errIdentity != nil {
+		log.Error().Err(errIdentity).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to apply federation identity headers")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to check remote server for updates"))
+	}
+
+	resp, errCheck := client.CheckRemoteServerForUpdate(ctx, req)
+	if errCheck != nil {
+		log.Error().Err(errCheck).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to check remote server for updates")
+		return nil, wrapRemoteRPCError(errCheck, "failed to check remote server for updates")
+	}
+
+	return connect.NewResponse(&xylona.CheckForUpdateResponse{
+		VersionInfo: resp.Msg.GetVersionInfo(),
+	}), nil
 }
 
 func (xs *XylonaService) listRemoteDirectoryFiles(ctx context.Context, serverID string, path string, actingUser *models.User) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {

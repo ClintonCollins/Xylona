@@ -85,12 +85,12 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 	}
 
 	// Start both nodes.
-	nodeACmd, errStartA := startNode("Node-A", nodeADir, xylonaExe, nodeAPort, nodeAFedPort)
+	nodeACmd, errStartA := startNode("Node-A", nodeADir, federationDir, xylonaExe, nodeAPort, nodeAFedPort)
 	if errStartA != nil {
 		return fmt.Errorf("start node A: %w", errStartA)
 	}
 
-	nodeBCmd, errStartB := startNode("Node-B", nodeBDir, xylonaExe, nodeBPort, nodeBFedPort)
+	nodeBCmd, errStartB := startNode("Node-B", nodeBDir, federationDir, xylonaExe, nodeBPort, nodeBFedPort)
 	if errStartB != nil {
 		killProcess(nodeACmd)
 		return fmt.Errorf("start node B: %w", errStartB)

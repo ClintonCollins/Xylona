@@ -65,6 +65,7 @@ type Instance struct {
 	modManager           *modmanager.ModManager
 	versionState         *versiontracker.VersionStateMap
 	resolverConfig       versiontracker.ResolverConfig
+	dummyTracker         *versiontracker.DummyTracker
 }
 
 // SetSyncEngine sets the sync engine on the actions instance. This is called
@@ -77,6 +78,11 @@ func (inst *Instance) SetSyncEngine(se SyncEngine) {
 // VersionState returns the version state map used to track game server versions.
 func (inst *Instance) VersionState() *versiontracker.VersionStateMap {
 	return inst.versionState
+}
+
+// SetDummyTracker sets the dummy tracker used for E2E update failure simulation.
+func (inst *Instance) SetDummyTracker(dt *versiontracker.DummyTracker) {
+	inst.dummyTracker = dt
 }
 
 // CheckServerVersionByID loads the game server from the DB and runs a version check.

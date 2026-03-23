@@ -14,16 +14,16 @@ func TestIntegration_Search_BepInExPackValheim(t *testing.T) {
 	}
 
 	p := New()
-	results, errSearch := p.Search(context.Background(), "BepInExPack", map[string]any{"community": "valheim"})
+	searchResult, errSearch := p.Search(context.Background(), "BepInExPack", map[string]any{"community": "valheim"})
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if len(results) == 0 {
+	if len(searchResult.Results) == 0 {
 		t.Fatal("Search() returned no results, want at least one")
 	}
 
 	found := false
-	for _, r := range results {
+	for _, r := range searchResult.Results {
 		if strings.Contains(strings.ToLower(r.Name), "bepinex") ||
 			strings.Contains(strings.ToLower(r.SourceID), "bepinex") {
 			found = true
@@ -31,7 +31,7 @@ func TestIntegration_Search_BepInExPackValheim(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("Search() did not return a BepInEx result; got: %+v", results)
+		t.Errorf("Search() did not return a BepInEx result; got: %+v", searchResult.Results)
 	}
 }
 
@@ -42,13 +42,13 @@ func TestIntegration_GetModDetails_BepInExPackValheim(t *testing.T) {
 
 	// First search to discover the canonical full_name.
 	p := New()
-	results, errSearch := p.Search(context.Background(), "BepInExPack_Valheim", map[string]any{"community": "valheim"})
+	searchResult, errSearch := p.Search(context.Background(), "BepInExPack_Valheim", map[string]any{"community": "valheim"})
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
 
 	var sourceID string
-	for _, r := range results {
+	for _, r := range searchResult.Results {
 		if strings.Contains(strings.ToLower(r.SourceID), "bepinexpack_valheim") {
 			sourceID = r.SourceID
 			break

@@ -62,6 +62,7 @@ message Message {
     GameServerMetrics = 5;
     NodeMetrics = 6;
     ServerSoftwareInstall = 7;
+    GameServerUpdateProgress = 8;
   }
   Type type = 1;
   optional GameServerConsoleOutput game_server_console_output = 2;
@@ -71,6 +72,7 @@ message Message {
   optional AllServersMetrics all_servers_metrics = 6;
   optional AllNodeMetrics all_node_metrics = 7;
   optional ServerSoftwareInstallUpdate server_software_install_update = 8;
+  optional UpdateProgress update_progress = 9;
 }
 
 message ServerSoftwareInstallUpdate {

@@ -83,18 +83,18 @@ func TestIntegration_Search_RequiresAPIKey(t *testing.T) {
 	p := New()
 	p.SetAPIKey(apiKey)
 
-	results, errSearch := p.Search(context.Background(), "helicopter", map[string]any{
+	searchResult, errSearch := p.Search(context.Background(), "helicopter", map[string]any{
 		"app_id": "108600",
 	})
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if len(results) == 0 {
+	if len(searchResult.Results) == 0 {
 		t.Fatal("Search() returned no results, want at least one")
 	}
 
 	found := false
-	for _, r := range results {
+	for _, r := range searchResult.Results {
 		if strings.Contains(strings.ToLower(r.Name), "helicopter") ||
 			strings.Contains(strings.ToLower(r.Description), "helicopter") {
 			found = true
@@ -102,6 +102,6 @@ func TestIntegration_Search_RequiresAPIKey(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Logf("Search() returned %d results but none mention 'helicopter'; first result: %+v", len(results), results[0])
+		t.Logf("Search() returned %d results but none mention 'helicopter'; first result: %+v", len(searchResult.Results), searchResult.Results[0])
 	}
 }

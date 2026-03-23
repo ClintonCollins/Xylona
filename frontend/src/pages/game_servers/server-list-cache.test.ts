@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Node } from '@/proto/shared_pb'
-import { Status } from '@/proto/shared_pb'
+import { Status, VersionStatus } from '@/proto/shared_pb'
 import type { AggregatedGameServer } from '@/proto/xylona_pb'
 import {
   buildDisplayRows,
@@ -24,6 +24,14 @@ describe('buildDisplayRows', () => {
           nodeId: 'node-local',
           nodeName: '',
           nodeHost: '',
+          versionInfo: {
+            status: VersionStatus.CHECKED,
+            installedVersion: '1.0.0',
+            latestVersion: '1.1.0',
+            updateAvailable: true,
+            lastCheckTime: BigInt(0),
+            trackerType: 'dummy',
+          },
         },
       },
       {
@@ -71,6 +79,11 @@ describe('buildDisplayRows', () => {
       isLocal: true,
       nodeName: 'Local Node',
     })
+    expect(rows[0].versionInfo).toMatchObject({
+      status: VersionStatus.CHECKED,
+      installedVersion: '1.0.0',
+      updateAvailable: true,
+    })
     expect(rows[1]).toMatchObject({
       compositeId: 'node-remote/remote-1',
       id: 'remote-1',
@@ -79,6 +92,7 @@ describe('buildDisplayRows', () => {
       isStale: true,
       sourceNodeId: 'node-remote',
     })
+    expect(rows[1].versionInfo).toBeUndefined()
   })
 
   it('falls back to remote node id and host when source node id and name are missing', () => {

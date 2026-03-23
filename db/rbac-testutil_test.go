@@ -3,11 +3,16 @@ package db
 import (
 	"context"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	migrate "github.com/rubenv/sql-migrate"
 )
+
+// setTableOnce guards the global migrate.SetTable call, which would race if
+// multiple tests call newRBACMigratedConnection concurrently.
+var setTableOnce sync.Once
 
 func newRBACMigratedConnection(t *testing.T, sqliteFileName string) *Connection {
 	t.Helper()
@@ -23,7 +28,7 @@ func newRBACMigratedConnection(t *testing.T, sqliteFileName string) *Connection 
 	migrationSource := &migrate.FileMigrationSource{
 		Dir: filepath.Join("..", "sql", "migrations"),
 	}
-	migrate.SetTable("migrations")
+	setTableOnce.Do(func() { migrate.SetTable("migrations") })
 	_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
 	if errMigrate != nil {
 		t.Fatalf("failed to apply migrations: %v", errMigrate)

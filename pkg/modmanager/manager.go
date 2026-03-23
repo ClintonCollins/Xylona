@@ -300,7 +300,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		UpdatedAt:          omit.From(time.Now().UTC()),
 	}
 
-	updated, errUpdate := m.db.UpdateInstalledMod(tx, mod, updateSetter)
+	errUpdate := m.db.UpdateInstalledModInTx(tx, mod, updateSetter)
 	if errUpdate != nil {
 		return nil, fmt.Errorf("modmanager: update mod record: %w", errUpdate)
 	}
@@ -308,6 +308,14 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 	errCommit := tx.Commit(ctx)
 	if errCommit != nil {
 		return nil, fmt.Errorf("modmanager: commit update transaction: %w", errCommit)
+	}
+
+	// Re-fetch after commit so the returned record reflects the committed values.
+	// Reading inside the transaction via UpdateInstalledMod would see pre-commit
+	// state from the connection pool's read path.
+	updated, errRefetch := m.db.GetInstalledModByID(mod.ID)
+	if errRefetch != nil {
+		return nil, fmt.Errorf("modmanager: re-fetch updated mod: %w", errRefetch)
 	}
 
 	return updated, nil
@@ -497,6 +505,7 @@ func (m *ModManager) Disable(ctx context.Context, modID, serverDir, installPath 
 }
 
 // SearchAll searches across all compatible providers for a server.
+// Returns the combined results and the sum of TotalHits across all providers.
 func (m *ModManager) SearchAll(
 	ctx context.Context,
 	query string,
@@ -506,9 +515,11 @@ func (m *ModManager) SearchAll(
 	categories []string,
 	limit int,
 	offset int,
-) ([]modproviders.ModSearchResult, error) {
+) ([]modproviders.ModSearchResult, int, error) {
 	var mu sync.Mutex
 	var allResults []modproviders.ModSearchResult
+	totalHits := 0
+	hasUnknownTotal := false
 
 	g, gCtx := errgroup.WithContext(ctx)
 
@@ -542,14 +553,19 @@ func (m *ModManager) SearchAll(
 				params[modproviders.ParamOffset] = offset
 			}
 
-			results, errSearch := provider.Search(gCtx, query, params)
+			searchResult, errSearch := provider.Search(gCtx, query, params)
 			if errSearch != nil {
 				log.Warn().Err(errSearch).Str("provider", src.ID).Msg("Search failed")
 				return nil // Don't fail the whole search.
 			}
 
 			mu.Lock()
-			allResults = append(allResults, results...)
+			allResults = append(allResults, searchResult.Results...)
+			if searchResult.TotalHits == modproviders.UnknownTotalHits {
+				hasUnknownTotal = true
+			} else {
+				totalHits += searchResult.TotalHits
+			}
 			mu.Unlock()
 			return nil
 		})
@@ -557,8 +573,11 @@ func (m *ModManager) SearchAll(
 
 	errWait := g.Wait()
 	if errWait != nil {
-		return nil, errWait
+		return nil, 0, errWait
+	}
+	if hasUnknownTotal {
+		return allResults, modproviders.UnknownTotalHits, nil
 	}
 
-	return allResults, nil
+	return allResults, totalHits, nil
 }

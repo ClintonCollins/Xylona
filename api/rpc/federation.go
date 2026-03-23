@@ -20,6 +20,7 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/version"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -43,10 +44,17 @@ type FederationService struct {
 	db               *db.Connection
 	actionsInst      *actions.Instance
 	supervisorInst   *supervisor.Instance
+	versionState     *versiontracker.VersionStateMap
 	allPermissionIDs []string
 }
 
-func NewFederationService(ctx context.Context, dbInst *db.Connection, actionsInst *actions.Instance, supervisorInst *supervisor.Instance) *FederationService {
+func NewFederationService(
+	ctx context.Context,
+	dbInst *db.Connection,
+	actionsInst *actions.Instance,
+	supervisorInst *supervisor.Instance,
+	versionState *versiontracker.VersionStateMap,
+) *FederationService {
 	allPerms, errPerms := dbInst.GetAllPermissions()
 	if errPerms != nil {
 		log.Fatal().Err(errPerms).Msg("Failed to load permission IDs")
@@ -61,6 +69,7 @@ func NewFederationService(ctx context.Context, dbInst *db.Connection, actionsIns
 		db:               dbInst,
 		actionsInst:      actionsInst,
 		supervisorInst:   supervisorInst,
+		versionState:     versionState,
 		allPermissionIDs: permIDs,
 	}
 }
@@ -886,6 +895,13 @@ func buildServerStateMetrics(supervisorInst *supervisor.Instance, serverID strin
 	return metrics
 }
 
+func (fs FederationService) getVersionState(serverID string) versiontracker.VersionState {
+	if fs.versionState == nil {
+		return versiontracker.VersionState{}
+	}
+	return fs.versionState.Get(serverID)
+}
+
 func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -914,6 +930,73 @@ func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *con
 
 	return connect.NewResponse(&xylona.FederationRemoteActionResponse{
 		Success: true,
+	}), nil
+}
+
+func (fs FederationService) GetRemoteVersionInfo(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {
+	_, errAuth := fs.authenticateRequest(ctx)
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(
+		ctx,
+		request.Header(),
+		request.Msg.GetActingUserId(),
+		request.Msg.GetOriginNodeId(),
+		serverID,
+		"game_server.view",
+	)
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	_, errGet := fs.db.GetGameServerByID(serverID)
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	state := fs.getVersionState(serverID)
+	if state.Status == versiontracker.VersionStatusUnchecked || state.Status == versiontracker.VersionStatusNoTracker {
+		fs.actionsInst.CheckServerVersionByID(ctx, serverID)
+		state = fs.getVersionState(serverID)
+	}
+
+	return connect.NewResponse(&xylona.FederationVersionInfoResponse{
+		VersionInfo: versionStateToProto(state),
+	}), nil
+}
+
+func (fs FederationService) CheckRemoteServerForUpdate(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {
+	_, errAuth := fs.authenticateRequest(ctx)
+	if errAuth != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+	}
+
+	serverID := request.Msg.GetServerId()
+	errPermission := fs.authorizeFederatedPermission(
+		ctx,
+		request.Header(),
+		request.Msg.GetActingUserId(),
+		request.Msg.GetOriginNodeId(),
+		serverID,
+		"game_server.view",
+	)
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	_, errGet := fs.db.GetGameServerByID(serverID)
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
+	}
+
+	fs.actionsInst.CheckServerVersionByID(ctx, serverID)
+	state := fs.getVersionState(serverID)
+
+	return connect.NewResponse(&xylona.FederationVersionInfoResponse{
+		VersionInfo: versionStateToProto(state),
 	}), nil
 }
 

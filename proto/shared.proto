@@ -168,6 +168,24 @@ message GameServer {
   string server_software = 44;
   Game game = 45;
   string server_executable = 46;
+  optional VersionInfo version_info = 47;
+}
+
+enum VersionStatus {
+  VERSION_STATUS_NO_TRACKER = 0;
+  VERSION_STATUS_UNCHECKED = 1;
+  VERSION_STATUS_CHECKING = 2;
+  VERSION_STATUS_CHECKED = 3;
+  VERSION_STATUS_ERROR = 4;
+}
+
+message VersionInfo {
+  string installed_version = 1;
+  string latest_version = 2;
+  bool update_available = 3;
+  int64 last_check_time = 4;
+  string tracker_type = 5;
+  VersionStatus status = 6;
 }
 
 message IP {
@@ -392,6 +410,8 @@ message ModSearchResult {
   string latest_version = 8;
   repeated string compatible_versions = 9;
   bool is_installed = 10;
+  repeated string categories = 11;
+  string date_modified = 12;
 }
 
 message ModDetails {

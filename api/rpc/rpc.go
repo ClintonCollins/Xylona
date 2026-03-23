@@ -13,6 +13,8 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
+	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/steamcache"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
@@ -36,23 +38,24 @@ type UpdateProgressBroadcaster interface {
 }
 
 type XylonaService struct {
-	ctx              context.Context
-	db               *db.Connection
-	actionsInst      *actions.Instance
-	supervisorInst   *supervisor.Instance
-	federationMTLS   *helpers.FederationMTLS
-	secureCookie     *securecookie.SecureCookie
-	secureCookies    bool
-	syncEngine       SyncEngine
-	modManager       *modmanager.ModManager
-	steamCache       *steamcache.Client
-	listCache        *remoteServerListCache
-	allPermissionIDs []string
-	installTracker   *modmanager.InstallTracker
-	installBroadcast  ServerSoftwareInstallBroadcaster
-	updateBroadcast   UpdateProgressBroadcaster
-	versionState      *versiontracker.VersionStateMap
-	dummyTracker     *versiontracker.DummyTracker
+	ctx                           context.Context
+	db                            *db.Connection
+	actionsInst                   *actions.Instance
+	supervisorInst                *supervisor.Instance
+	federationMTLS                *helpers.FederationMTLS
+	secureCookie                  *securecookie.SecureCookie
+	secureCookies                 bool
+	syncEngine                    SyncEngine
+	modManager                    *modmanager.ModManager
+	steamCache                    *steamcache.Client
+	listCache                     *remoteServerListCache
+	remoteFederationClientFactory func(node *models.Node, serverID string) (xylonaconnect.FederationClient, error)
+	allPermissionIDs              []string
+	installTracker                *modmanager.InstallTracker
+	installBroadcast              ServerSoftwareInstallBroadcaster
+	updateBroadcast               UpdateProgressBroadcaster
+	versionState                  *versiontracker.VersionStateMap
+	dummyTracker                  *versiontracker.DummyTracker
 }
 
 func NewXylonaService(

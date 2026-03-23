@@ -42,6 +42,11 @@ export class ReconnectingWebSocket {
 
   // Track whether the close was initiated by the user
   private _manualClose: boolean = false
+  private _openWaiters: Array<{
+    resolve: () => void
+    reject: (error: Error) => void
+    timeoutId: ReturnType<typeof setTimeout>
+  }> = []
 
   /**
    * Creates an instance of ReconnectingWebSocket.
@@ -76,6 +81,25 @@ export class ReconnectingWebSocket {
     this._ws.send(data)
   }
 
+  public isOpen(): boolean {
+    return this._ws?.readyState === WebSocket.OPEN
+  }
+
+  public waitForOpen(timeoutMs: number = 10000): Promise<void> {
+    if (this.isOpen()) {
+      return Promise.resolve()
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this._openWaiters = this._openWaiters.filter((waiter) => waiter.timeoutId !== timeoutId)
+        reject(new Error('WebSocket did not open in time'))
+      }, timeoutMs)
+
+      this._openWaiters.push({ resolve, reject, timeoutId })
+    })
+  }
+
   /**
    * Closes the WebSocket connection and prevents auto-reconnect.
    * @param {number} [code] - The status code explaining why the connection is being closed.
@@ -84,6 +108,7 @@ export class ReconnectingWebSocket {
    */
   public close(code?: number, reason?: string, attemptReconnect: boolean = false): void {
     this._manualClose = !attemptReconnect
+    this._rejectOpenWaiters('WebSocket closed before open')
 
     // Clear any pending reconnection
     if (this._reconnectTimer) {
@@ -111,6 +136,7 @@ export class ReconnectingWebSocket {
 
     // Handlers
     this._ws.onopen = (event: Event) => {
+      this._resolveOpenWaiters()
       if (this.onopen) {
         this.onopen.call(this._ws, event)
       }
@@ -233,6 +259,24 @@ export class ReconnectingWebSocket {
       clearTimeout(this._pongTimeoutTimer)
       this._pongTimeoutTimer = null
     }
+  }
+
+  private _resolveOpenWaiters(): void {
+    const waiters = this._openWaiters
+    this._openWaiters = []
+    waiters.forEach((waiter) => {
+      clearTimeout(waiter.timeoutId)
+      waiter.resolve()
+    })
+  }
+
+  private _rejectOpenWaiters(message: string): void {
+    const waiters = this._openWaiters
+    this._openWaiters = []
+    waiters.forEach((waiter) => {
+      clearTimeout(waiter.timeoutId)
+      waiter.reject(new Error(message))
+    })
   }
 
   /**

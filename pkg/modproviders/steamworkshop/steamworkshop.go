@@ -114,9 +114,9 @@ type steamQueryFilesResponse struct {
 
 // Search queries the IPublishedFileService/QueryFiles endpoint.
 // An API key is required; returns an error if none is set.
-func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) ([]modproviders.ModSearchResult, error) {
+func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) (modproviders.SearchResult, error) {
 	if p.apiKey == "" {
-		return nil, errors.New("Steam Workshop search requires an API key")
+		return modproviders.SearchResult{}, errors.New("Steam Workshop search requires an API key")
 	}
 
 	appID := extractAppID(params)
@@ -136,14 +136,17 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 	var searchResp steamQueryFilesResponse
 	errFetch := p.getJSON(ctx, endpoint, &searchResp)
 	if errFetch != nil {
-		return nil, fmt.Errorf("steam workshop search: %w", errFetch)
+		return modproviders.SearchResult{}, fmt.Errorf("steam workshop search: %w", errFetch)
 	}
 
 	results := make([]modproviders.ModSearchResult, 0, len(searchResp.Response.PublishedFileDetails))
 	for _, detail := range searchResp.Response.PublishedFileDetails {
 		results = append(results, mapDetailToSearchResult(detail))
 	}
-	return results, nil
+	return modproviders.SearchResult{
+		Results:   results,
+		TotalHits: searchResp.Response.Total,
+	}, nil
 }
 
 // --------------------------------------------------------------------------
@@ -365,14 +368,22 @@ func mapDetailToSearchResult(detail steamPublishedFileDetail) modproviders.ModSe
 	for _, t := range detail.Tags {
 		tags = append(tags, t.Tag)
 	}
+
+	dateModified := ""
+	if detail.TimeUpdated > 0 {
+		dateModified = time.Unix(detail.TimeUpdated, 0).UTC().Format(time.RFC3339)
+	}
+
 	return modproviders.ModSearchResult{
-		Source:      providerID,
-		SourceID:    detail.PublishedFileID,
-		Name:        detail.Title,
-		Author:      detail.Creator,
-		Description: detail.FileDescription,
-		IconURL:     detail.PreviewURL,
-		Downloads:   detail.LifetimeSubscriptions,
+		Source:       providerID,
+		SourceID:     detail.PublishedFileID,
+		Name:         detail.Title,
+		Author:       detail.Creator,
+		Description:  detail.FileDescription,
+		IconURL:      detail.PreviewURL,
+		Downloads:    detail.LifetimeSubscriptions,
+		Categories:   tags,
+		DateModified: dateModified,
 	}
 }
 

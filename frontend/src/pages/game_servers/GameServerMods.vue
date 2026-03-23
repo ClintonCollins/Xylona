@@ -14,6 +14,8 @@ import {
   PinModVersionRequestSchema,
   InstallModRequestSchema,
   GetModVersionsRequestSchema,
+  GetGameServerRequestSchema,
+  GetServerSoftwareVersionsRequestSchema,
 } from '@/proto/xylona_pb'
 import type { InstalledMod, ModVersion } from '@/proto/shared_pb'
 import InstalledModsTable from '@/components/game_servers/InstalledModsTable.vue'
@@ -46,20 +48,15 @@ const pendingInstall = ref<{
   versionId: string
 } | null>(null)
 
-// Mod sources for the browse tab filter chips.
-// Derived from unique sources present in installed mods as a fallback
-// until the server software selector (Task 18) provides proper source discovery.
-const modSources = computed(() => {
-  const seen = new Set<string>()
-  const sources: { id: string; searchParams: Record<string, unknown> }[] = []
-  for (const mod of installedMods.value) {
-    if (!seen.has(mod.source)) {
-      seen.add(mod.source)
-      sources.push({ id: mod.source, searchParams: {} })
-    }
-  }
-  return sources
-})
+// Mod sources derived from the game's server software config.
+const modSources = ref<{ id: string; searchParams: Record<string, unknown> }[]>([])
+
+// Available game versions for the browse version filter.
+const availableVersions = ref<string[]>([])
+
+// Game server metadata needed to resolve sources and versions.
+const gameId = ref('')
+const activeSoftwareId = ref('')
 
 const detailIsInstalled = computed(() => {
   return installedMods.value.some(
@@ -69,6 +66,13 @@ const detailIsInstalled = computed(() => {
 
 onMounted(async () => {
   await loadInstalledMods()
+
+  // Default to the browse tab when no mods are installed.
+  if (installedMods.value.length === 0) {
+    activeTab.value = 'browse'
+  }
+
+  await loadGameServerConfig()
 })
 
 async function loadInstalledMods(): Promise<void> {
@@ -89,6 +93,65 @@ async function loadInstalledMods(): Promise<void> {
     })
   } finally {
     loading.value = false
+  }
+}
+
+interface ServerSoftwareConfig {
+  id: string
+  name: string
+  jar_source?: string
+  mod_config?: {
+    sources?: { id: string; search_params?: Record<string, unknown> }[]
+  }
+}
+
+async function loadGameServerConfig(): Promise<void> {
+  try {
+    const request = create(GetGameServerRequestSchema, { id: gameServerId })
+    const response = await GetXylonaClient().getGameServer(request)
+    const gs = response.gameServer
+    if (!gs) return
+
+    gameId.value = gs.gameId
+    activeSoftwareId.value = gs.serverSoftware
+
+    // Parse server software JSON from the game definition to extract mod sources.
+    const game = gs.game
+    if (game && game.serverSoftware) {
+      try {
+        const softwareList: ServerSoftwareConfig[] = JSON.parse(game.serverSoftware)
+        const activeSw = softwareList.find((sw) => sw.id === gs.serverSoftware)
+        if (activeSw?.mod_config?.sources) {
+          modSources.value = activeSw.mod_config.sources.map((src) => ({
+            id: src.id,
+            searchParams: src.search_params ?? {},
+          }))
+        }
+      } catch {
+        // Invalid JSON — ignore
+      }
+    }
+
+    // Fetch available versions for the version filter dropdown.
+    if (gs.serverSoftware && gs.gameId) {
+      await loadAvailableVersions(gs.gameId, gs.serverSoftware)
+    }
+  } catch (unknownErr: unknown) {
+    const err = ConnectError.from(unknownErr)
+    console.error('Failed to load game server config:', err)
+  }
+}
+
+async function loadAvailableVersions(gId: string, softwareId: string): Promise<void> {
+  try {
+    const request = create(GetServerSoftwareVersionsRequestSchema, {
+      gameId: gId,
+      softwareId,
+    })
+    const response = await GetXylonaClient().getServerSoftwareVersions(request)
+    availableVersions.value = response.versions.map((v) => v.versionString || v.versionId)
+  } catch {
+    // Non-critical — silently ignore
   }
 }
 
@@ -512,7 +575,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
     <q-separator />
 
     <q-tab-panels v-model="activeTab" animated class="mods-panels">
-      <q-tab-panel name="installed" class="mods-panel">
+      <q-tab-panel name="installed">
         <installed-mods-table
           :installed-mods="installedMods"
           :loading="loading"
@@ -524,11 +587,12 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
           @update-all="handleUpdateAll" />
       </q-tab-panel>
 
-      <q-tab-panel name="browse" class="mods-panel">
+      <q-tab-panel name="browse">
         <mod-browse
           :game-server-id="gameServerId"
           :installed-mods="installedMods"
           :sources="modSources"
+          :available-versions="availableVersions"
           @view-details="handleViewDetails"
           @install="handleInstallFromBrowse" />
       </q-tab-panel>
@@ -572,13 +636,28 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 .mods-panels {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   background-color: transparent;
-}
-
-.mods-panel {
-  padding: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
+}
+
+/* Quasar QTabPanels internal wrapper chain: .mods-panels > .q-panel.scroll > .q-tab-panel.
+   Each layer must constrain height so only browse-grid-scroll scrolls. */
+.mods-panels :deep(.q-panel.scroll) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.mods-panels :deep(.q-tab-panel) {
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>

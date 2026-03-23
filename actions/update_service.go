@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -263,9 +264,14 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	// Step 3: Update (download + install).
 	broadcast(xylona.UpdateStep_UPDATE_STEP_DOWNLOADING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Downloading update")
 	broadcast(xylona.UpdateStep_UPDATE_STEP_INSTALLING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Installing update")
-	inst.UpdateGameServer(gameServer)
+
+	// If the dummy tracker has failure simulation enabled, treat this as a failed update.
+	updateFailed := inst.dummyTracker != nil && inst.dummyTracker.SimulateFailure()
+
+	if !updateFailed {
+		inst.UpdateGameServer(gameServer)
+	}
 	// UpdateGameServer is async (starts a supervised process). Wait for it to complete.
-	updateFailed := false
 	for i := 0; i < 120; i++ {
 		c, errGet := inst.supervisorInstance.GetCommandByID(serverID)
 		if errGet != nil {
@@ -291,23 +297,75 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	}
 	broadcast(xylona.UpdateStep_UPDATE_STEP_INSTALLING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Update installed")
 
-	// Step 4: Restart if was running.
+	// Step 4: Restart if was running; otherwise mark as skipped-complete.
 	if wasRunning {
 		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Restarting server")
 		inst.StartGameServer(gameServer)
-		// Wait 30s to verify it comes up.
-		time.Sleep(30 * time.Second)
-		c, errGet := inst.supervisorInstance.GetCommandByID(serverID)
-		if errGet != nil || c.Status() == xylona.Status_OFFLINE || c.Status() == xylona.Status_UNKNOWN {
+		// Poll up to 60s for the server to come online.
+		restarted := waitForServerOnline(inst.ctx, func() (xylona.Status, bool) {
+			c, errGet := inst.supervisorInstance.GetCommandByID(serverID)
+			if errGet != nil {
+				return xylona.Status_UNKNOWN, false
+			}
+			return c.Status(), true
+		}, 60, time.Second)
+		if !restarted {
 			broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_FAILED, "Server failed to restart")
 			inst.rollbackUpdate(gameServer, wasRunning, broadcaster)
 			return
 		}
 		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Server restarted")
+	} else {
+		// Server was not running before update; no restart needed. Signal completion.
+		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Update complete")
 	}
 
 	cleanupBackup(gameServer)
+
+	// If the dummy tracker is active, mark it as updated so subsequent version
+	// checks report the installed version as up-to-date.
+	if inst.dummyTracker != nil {
+		inst.dummyTracker.MarkUpdated()
+	}
+
 	log.Info().Str("game_server_id", serverID).Msg("Update completed successfully")
+
+	// Trigger a version re-check so the UI reflects the new installed version.
+	inst.CheckServerVersionByID(inst.ctx, serverID)
+}
+
+func waitForServerOnline(
+	ctx context.Context,
+	statusLookup func() (xylona.Status, bool),
+	attempts int,
+	interval time.Duration,
+) bool {
+	for i := 0; i < attempts; i++ {
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
+
+		status, ok := statusLookup()
+		if ok && status == xylona.Status_ONLINE {
+			return true
+		}
+		if i == attempts-1 {
+			break
+		}
+
+		timer := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return false
+		case <-timer.C:
+		}
+	}
+	return false
 }
 
 func (inst *Instance) rollbackUpdate(gameServer *models.GameServer, wasRunning bool, broadcaster UpdateProgressBroadcaster) {
@@ -329,4 +387,3 @@ func (inst *Instance) rollbackUpdate(gameServer *models.GameServer, wasRunning b
 	broadcast(xylona.UpdateStep_UPDATE_STEP_ROLLING_BACK, xylona.StepStatus_STEP_STATUS_COMPLETED, "Rollback complete")
 	log.Warn().Str("game_server_id", serverID).Msg("Update rolled back")
 }
-

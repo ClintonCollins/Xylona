@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"connectrpc.com/connect"
@@ -94,6 +95,8 @@ func modSearchResultToProto(r modproviders.ModSearchResult) *xylona.ModSearchRes
 		Downloads:          r.Downloads,
 		LatestVersion:      r.LatestVersion,
 		CompatibleVersions: r.CompatibleVersions,
+		Categories:         r.Categories,
+		DateModified:       r.DateModified,
 	}
 }
 
@@ -193,7 +196,7 @@ func (xs *XylonaService) SearchMods(
 		offset = (page - 1) * pageSize
 	}
 
-	results, errSearch := xs.modManager.SearchAll(
+	results, totalHits, errSearch := xs.modManager.SearchAll(
 		ctx,
 		request.Msg.GetQuery(),
 		sources,
@@ -230,9 +233,22 @@ func (xs *XylonaService) SearchMods(
 	return &connect.Response[xylona.SearchModsResponse]{
 		Msg: &xylona.SearchModsResponse{
 			Results:    protoResults,
-			TotalCount: int32(len(protoResults)),
+			TotalCount: clampSearchTotalCount(totalHits),
 		},
 	}, nil
+}
+
+func clampSearchTotalCount(totalHits int) int32 {
+	if totalHits == modproviders.UnknownTotalHits {
+		return int32(modproviders.UnknownTotalHits)
+	}
+	if totalHits < 0 {
+		return 0
+	}
+	if totalHits > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(totalHits)
 }
 
 // GetModDetails returns detailed information about a specific mod.

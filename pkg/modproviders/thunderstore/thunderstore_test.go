@@ -52,16 +52,19 @@ func TestSearch_ReturnsFilteredResults(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	results, errSearch := p.Search(context.Background(), "BepInEx", map[string]any{"community": "valheim"})
+	searchResult, errSearch := p.Search(context.Background(), "BepInEx", map[string]any{"community": "valheim"})
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
 	// Only BepInExPack should match "BepInEx" in name/description.
-	if len(results) != 1 {
-		t.Fatalf("Search() len = %d, want 1 (only BepInExPack)", len(results))
+	if len(searchResult.Results) != 1 {
+		t.Fatalf("Search() len = %d, want 1 (only BepInExPack)", len(searchResult.Results))
+	}
+	if searchResult.TotalHits != -1 {
+		t.Errorf("Search().TotalHits = %d, want -1 for unknown total", searchResult.TotalHits)
 	}
 
-	first := results[0]
+	first := searchResult.Results[0]
 	if first.SourceID != "denikson-BepInExPack_Valheim" {
 		t.Errorf("results[0].SourceID = %q, want %q", first.SourceID, "denikson-BepInExPack_Valheim")
 	}
@@ -92,13 +95,16 @@ func TestSearch_EmptyQueryReturnsAllNonDeprecated(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	results, errSearch := p.Search(context.Background(), "", map[string]any{"community": "valheim"})
+	searchResult, errSearch := p.Search(context.Background(), "", map[string]any{"community": "valheim"})
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
 	// All 3 packages are non-deprecated in the fixture.
-	if len(results) != 3 {
-		t.Fatalf("Search() len = %d, want 3 (all non-deprecated)", len(results))
+	if len(searchResult.Results) != 3 {
+		t.Fatalf("Search() len = %d, want 3 (all non-deprecated)", len(searchResult.Results))
+	}
+	if searchResult.TotalHits != -1 {
+		t.Errorf("Search().TotalHits = %d, want -1 for unknown total", searchResult.TotalHits)
 	}
 }
 
@@ -112,12 +118,12 @@ func TestSearch_DefaultsCommunityToValheim(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	results, errSearch := p.Search(context.Background(), "test", nil)
+	searchResult, errSearch := p.Search(context.Background(), "test", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if results == nil {
-		t.Error("Search() returned nil, want empty (non-nil) slice")
+	if searchResult.Results == nil {
+		t.Error("Search() returned nil Results, want empty (non-nil) slice")
 	}
 	if capturedPath != "/c/valheim/api/v1/package/" {
 		t.Errorf("capturedPath = %q, want /c/valheim/api/v1/package/", capturedPath)
@@ -172,12 +178,12 @@ func TestSearch_SkipsDeprecatedPackages(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	results, errSearch := p.Search(context.Background(), "", map[string]any{"community": "valheim"})
+	searchResult, errSearch := p.Search(context.Background(), "", map[string]any{"community": "valheim"})
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
 	}
-	if len(results) != 0 {
-		t.Errorf("Search() len = %d, want 0 (deprecated package should be skipped)", len(results))
+	if len(searchResult.Results) != 0 {
+		t.Errorf("Search() len = %d, want 0 (deprecated package should be skipped)", len(searchResult.Results))
 	}
 }
 

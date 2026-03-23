@@ -1,7 +1,7 @@
 import { create, fromJsonString, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError, createCallbackClient, createClient } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
-import { Xylona } from 'src/proto/xylona_pb'
+import { UpdateProgress, Xylona } from 'src/proto/xylona_pb'
 import { onMounted, ref } from 'vue'
 import { AllServersQueryInfo, Status } from 'src/proto/shared_pb'
 import { GameServerFilesCompressionType } from 'src/proto/gameserver_files_operations_pb'
@@ -53,6 +53,7 @@ type XylonaEventBusEvents = {
     error: string,
     softwareId: string,
   ) => void
+  gameServerUpdateProgress: (progress: UpdateProgress) => void
 }
 
 /**
@@ -159,6 +160,13 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
             update.error ?? '',
             update.softwareId ?? '',
           )
+        }
+        break
+      }
+      case Message_Type.GameServerUpdateProgress: {
+        const progress = out.updateProgress
+        if (progress) {
+          XylonaEventBus.emit('gameServerUpdateProgress', progress)
         }
         break
       }

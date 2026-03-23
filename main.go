@@ -35,13 +35,13 @@ import (
 	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/hangar"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/modrinth"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/papermc"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/steamworkshop"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/thunderstore"
 	"github.com/ClintonCollins/Xylona/pkg/version"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/steamcache"
@@ -59,9 +59,13 @@ type Configuration struct {
 	FederationPort     int    `env:"FEDERATION_PORT" envDefault:"8443"`
 	FederationCertPath string `env:"FEDERATION_CERT_PATH" envDefault:"./federation/node.crt"`
 	FederationKeyPath  string `env:"FEDERATION_KEY_PATH" envDefault:"./federation/node.key"`
+	// DummyGameID enables the DummyTracker for E2E testing. When set, the game
+	// with this ID is treated as a trackable server returning a simulated 1.0.0→2.0.0
+	// update. Leave empty in production.
+	DummyGameID string `env:"DUMMY_GAME_ID" envDefault:""`
 }
 
-func setupLogger() {
+func setupLogger() func() {
 	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
 		short := file
 		for i := len(file) - 1; i > 0; i-- {
@@ -73,8 +77,24 @@ func setupLogger() {
 		file = short
 		return file + ":" + strconv.Itoa(line)
 	}
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).With().Caller().Logger()
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr}
+	if logFile := os.Getenv("E2E_LOG_FILE"); logFile != "" {
+		f, errOpen := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if errOpen == nil {
+			multi := zerolog.MultiLevelWriter(consoleWriter, f)
+			log.Logger = zerolog.New(multi).With().Caller().Timestamp().Logger()
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+			return func() {
+				errClose := f.Close()
+				if errClose != nil {
+					log.Error().Err(errClose).Str("file", logFile).Msg("Failed to close E2E log file")
+				}
+			}
+		}
+	}
+	log.Logger = log.Output(consoleWriter).With().Caller().Logger()
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	return func() {}
 }
 
 func setDetectedIPs(db *dbpkg.Connection) {
@@ -165,7 +185,8 @@ func main() {
 	if errParseConfig != nil {
 		log.Fatal().Err(errParseConfig).Msg("Error parsing config")
 	}
-	setupLogger()
+	cleanupLogger := setupLogger()
+	defer cleanupLogger()
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
@@ -309,7 +330,20 @@ func main() {
 
 	modMgr := modmanager.New(dbInst)
 	versionState := versiontracker.NewVersionStateMap()
-	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS, modMgr, versionState, versiontracker.ResolverConfig{})
+
+	var dummyTracker *versiontracker.DummyTracker
+	resolverConfig := versiontracker.ResolverConfig{}
+	if config.DummyGameID != "" {
+		log.Info().Str("dummy_game_id", config.DummyGameID).Msg("DummyTracker enabled for E2E testing")
+		dummyTracker = versiontracker.NewDummyTracker()
+		resolverConfig.DummyTracker = dummyTracker
+		resolverConfig.DummyGameID = config.DummyGameID
+	}
+
+	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS, modMgr, versionState, resolverConfig)
+	if dummyTracker != nil {
+		actionsInst.SetDummyTracker(dummyTracker)
+	}
 	superInst.StartMetricsPoller(ctx)
 	_ = actions.NewMetricsRecorder(ctx, dbInst, superInst, settings.NodeID, actionsInst)
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
@@ -323,13 +357,17 @@ func main() {
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)
 	xylonaService.SetSyncEngine(syncEngine)
 	xylonaService.SetInstallBroadcaster(wsInst)
+	xylonaService.SetUpdateBroadcaster(wsInst)
+	if dummyTracker != nil {
+		xylonaService.SetDummyTracker(dummyTracker)
+	}
 	syncEngine.SetStatusBroadcaster(wsInst)
 	syncEngine.SetMetricsBroadcaster(wsInst)
 	syncEngine.SetActionsInstance(actionsInst)
 	actionsInst.SetSyncEngine(syncEngine)
 
 	xylonaAPIPath, handler := xylonaconnect.NewXylonaHandler(xylonaService, connect.WithHandlerOptions())
-	federationService := rpc.NewFederationService(ctx, dbInst, actionsInst, superInst)
+	federationService := rpc.NewFederationService(ctx, dbInst, actionsInst, superInst, versionState)
 	federationAPIPath, federationHandler := xylonaconnect.NewFederationHandler(federationService, connect.WithHandlerOptions())
 
 	frontendFS, errLoadFrontend := Frontend()

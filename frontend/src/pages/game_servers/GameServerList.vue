@@ -66,6 +66,24 @@
         <template #body-cell-status="props">
           <q-td :props="props">
             <status-badge style="margin-left: -1em" :status="props.row.statusEnum"></status-badge>
+            <version-badge :update-available="props.row.versionInfo?.updateAvailable ?? false" />
+          </q-td>
+        </template>
+        <template #body-cell-version="props">
+          <q-td :props="props">
+            <template v-if="props.row.versionInfo?.status === VersionStatus.CHECKED">
+              <span class="version-text">{{ props.row.versionInfo.installedVersion }}</span>
+              <template v-if="props.row.versionInfo.updateAvailable">
+                <span class="version-arrow">→</span>
+                <span class="version-new">{{ props.row.versionInfo.latestVersion }}</span>
+              </template>
+            </template>
+            <template v-else-if="props.row.versionInfo?.status === VersionStatus.CHECKING">
+              <q-spinner size="1em" color="primary" />
+            </template>
+            <template v-else>
+              <span class="version-na">—</span>
+            </template>
           </q-td>
         </template>
         <template #body-cell-node="props">
@@ -129,6 +147,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import VersionBadge from '@/components/game_servers/VersionBadge.vue'
 import {
   Node,
   StartGameServerRequest,
@@ -136,6 +155,7 @@ import {
   Status,
   StopGameServerRequest,
   StopGameServerRequestSchema,
+  VersionStatus,
 } from '@/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
 import {
@@ -241,8 +261,14 @@ async function getGameServers() {
     }
 
     if (serversResult.status === 'fulfilled') {
+      // Strip versionInfo before caching: VersionInfo contains bigint fields that
+      // JSON.stringify cannot serialize. Version info is re-fetched fresh from the
+      // server on each page load, so caching it provides no benefit.
       cachedDisplayRows.value = filterRowsByRemoteNodeIDs(
-        buildDisplayRows(serversResult.value.servers, nodesByID.value),
+        buildDisplayRows(serversResult.value.servers, nodesByID.value).map((row) => ({
+          ...row,
+          versionInfo: undefined,
+        })),
         remoteNodeIDs,
       )
     }
@@ -399,6 +425,14 @@ const columns = ref([
     sortable: true,
   },
   {
+    name: 'version',
+    label: 'Version',
+    required: true,
+    align: 'left' as const,
+    field: (row: DisplayRow) => row.versionInfo?.installedVersion ?? '',
+    sortable: false,
+  },
+  {
     name: 'game',
     label: 'Game',
     required: true,
@@ -451,5 +485,29 @@ const columns = ref([
 .badge-remote {
   background-color: var(--xy-surface-4);
   color: var(--xy-text-secondary);
+}
+
+.version-text {
+  font-family: var(--xy-font-mono);
+  font-size: 0.8rem;
+  color: var(--xy-text-secondary);
+}
+
+.version-arrow {
+  color: var(--xy-warning);
+  margin: 0 0.25rem;
+  font-size: 0.75rem;
+}
+
+.version-new {
+  font-family: var(--xy-font-mono);
+  font-size: 0.8rem;
+  color: var(--xy-warning);
+  font-weight: 600;
+}
+
+.version-na {
+  color: var(--xy-text-muted);
+  font-style: italic;
 }
 </style>
