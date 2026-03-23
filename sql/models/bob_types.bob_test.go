@@ -8,6 +8,15 @@ import "github.com/stephenafamo/bob"
 // Set the testDB to enable tests that use the database
 var testDB bob.Transactor[bob.Tx]
 
+// Make sure the type AlertHistory runs hooks after queries
+var _ bob.HookableType = &AlertHistory{}
+
+// Make sure the type AlertRule runs hooks after queries
+var _ bob.HookableType = &AlertRule{}
+
+// Make sure the type AlertState runs hooks after queries
+var _ bob.HookableType = &AlertState{}
+
 // Make sure the type FederatedAccessGrant runs hooks after queries
 var _ bob.HookableType = &FederatedAccessGrant{}
 
@@ -68,6 +77,9 @@ var _ bob.HookableType = &NodeSyncQueue{}
 // Make sure the type Notification runs hooks after queries
 var _ bob.HookableType = &Notification{}
 
+// Make sure the type NotificationChannel runs hooks after queries
+var _ bob.HookableType = &NotificationChannel{}
+
 // Make sure the type PeerSyncState runs hooks after queries
 var _ bob.HookableType = &PeerSyncState{}
 
@@ -85,6 +97,9 @@ var _ bob.HookableType = &Role{}
 
 // Make sure the type RolePermission runs hooks after queries
 var _ bob.HookableType = &RolePermission{}
+
+// Make sure the type SystemConfig runs hooks after queries
+var _ bob.HookableType = &SystemConfig{}
 
 // Make sure the type User runs hooks after queries
 var _ bob.HookableType = &User{}

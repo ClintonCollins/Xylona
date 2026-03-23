@@ -31,6 +31,9 @@ func (j joinSet[Q]) AliasedAs(alias string) joinSet[Q] {
 }
 
 type joins[Q dialect.Joinable] struct {
+	AlertHistories             joinSet[alertHistoryJoins[Q]]
+	AlertRules                 joinSet[alertRuleJoins[Q]]
+	AlertStates                joinSet[alertStateJoins[Q]]
 	FederatedAccessGrants      joinSet[federatedAccessGrantJoins[Q]]
 	FederationTrustedPeers     joinSet[federationTrustedPeerJoins[Q]]
 	Games                      joinSet[gameJoins[Q]]
@@ -43,6 +46,7 @@ type joins[Q dialect.Joinable] struct {
 	Nodes                      joinSet[nodeJoins[Q]]
 	NodeMetricsHistories       joinSet[nodeMetricsHistoryJoins[Q]]
 	NodeSyncQueues             joinSet[nodeSyncQueueJoins[Q]]
+	NotificationChannels       joinSet[notificationChannelJoins[Q]]
 	PeerSyncStates             joinSet[peerSyncStateJoins[Q]]
 	Permissions                joinSet[permissionJoins[Q]]
 	RemoteServerCaches         joinSet[remoteServerCacheJoins[Q]]
@@ -64,6 +68,9 @@ func buildJoinSet[Q interface{ aliasedAs(string) Q }, C any, F func(C, string) Q
 
 func getJoins[Q dialect.Joinable]() joins[Q] {
 	return joins[Q]{
+		AlertHistories:             buildJoinSet[alertHistoryJoins[Q]](AlertHistories.Columns, buildAlertHistoryJoins),
+		AlertRules:                 buildJoinSet[alertRuleJoins[Q]](AlertRules.Columns, buildAlertRuleJoins),
+		AlertStates:                buildJoinSet[alertStateJoins[Q]](AlertStates.Columns, buildAlertStateJoins),
 		FederatedAccessGrants:      buildJoinSet[federatedAccessGrantJoins[Q]](FederatedAccessGrants.Columns, buildFederatedAccessGrantJoins),
 		FederationTrustedPeers:     buildJoinSet[federationTrustedPeerJoins[Q]](FederationTrustedPeers.Columns, buildFederationTrustedPeerJoins),
 		Games:                      buildJoinSet[gameJoins[Q]](Games.Columns, buildGameJoins),
@@ -76,6 +83,7 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		Nodes:                      buildJoinSet[nodeJoins[Q]](Nodes.Columns, buildNodeJoins),
 		NodeMetricsHistories:       buildJoinSet[nodeMetricsHistoryJoins[Q]](NodeMetricsHistories.Columns, buildNodeMetricsHistoryJoins),
 		NodeSyncQueues:             buildJoinSet[nodeSyncQueueJoins[Q]](NodeSyncQueues.Columns, buildNodeSyncQueueJoins),
+		NotificationChannels:       buildJoinSet[notificationChannelJoins[Q]](NotificationChannels.Columns, buildNotificationChannelJoins),
 		PeerSyncStates:             buildJoinSet[peerSyncStateJoins[Q]](PeerSyncStates.Columns, buildPeerSyncStateJoins),
 		Permissions:                buildJoinSet[permissionJoins[Q]](Permissions.Columns, buildPermissionJoins),
 		RemoteServerCaches:         buildJoinSet[remoteServerCacheJoins[Q]](RemoteServerCaches.Columns, buildRemoteServerCacheJoins),

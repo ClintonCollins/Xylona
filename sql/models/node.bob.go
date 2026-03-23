@@ -62,6 +62,7 @@ type NodesQuery = *sqlite.ViewQuery[*Node, NodeSlice]
 
 // nodeR is where relationships are stored.
 type nodeR struct {
+	AlertRules                      AlertRuleSlice            // fk_alert_rule_1
 	RemoteNodeFederatedAccessGrants FederatedAccessGrantSlice // fk_federated_access_grant_2
 	FederationTrustedPeer           *FederationTrustedPeer    // fk_federation_trusted_peer_0
 	GameServers                     GameServerSlice           // fk_game_server_0
@@ -783,6 +784,25 @@ func (o NodeSlice) ReloadAll(ctx context.Context, exec bob.Executor) error {
 	return nil
 }
 
+// AlertRules starts a query for related objects on alert_rule
+func (o *Node) AlertRules(mods ...bob.Mod[*dialect.SelectQuery]) AlertRulesQuery {
+	return AlertRules.Query(append(mods,
+		sm.Where(AlertRules.Columns.NodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) AlertRules(mods ...bob.Mod[*dialect.SelectQuery]) AlertRulesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return AlertRules.Query(append(mods,
+		sm.Where(sqlite.Group(AlertRules.Columns.NodeID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // RemoteNodeFederatedAccessGrants starts a query for related objects on federated_access_grant
 func (o *Node) RemoteNodeFederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
 	return FederatedAccessGrants.Query(append(mods,
@@ -914,6 +934,74 @@ func (os NodeSlice) RemoteServerCaches(mods ...bob.Mod[*dialect.SelectQuery]) Re
 	return RemoteServerCaches.Query(append(mods,
 		sm.Where(sqlite.Group(RemoteServerCaches.Columns.NodeID).OP("IN", PKArgExpr)),
 	)...)
+}
+
+func insertNodeAlertRules0(ctx context.Context, exec bob.Executor, alertRules1 []*AlertRuleSetter, node0 *Node) (AlertRuleSlice, error) {
+	for i := range alertRules1 {
+		alertRules1[i].NodeID = omitnull.From(node0.ID)
+	}
+
+	ret, err := AlertRules.Insert(bob.ToMods(alertRules1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodeAlertRules0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodeAlertRules0(ctx context.Context, exec bob.Executor, count int, alertRules1 AlertRuleSlice, node0 *Node) (AlertRuleSlice, error) {
+	setter := &AlertRuleSetter{
+		NodeID: omitnull.From(node0.ID),
+	}
+
+	err := alertRules1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodeAlertRules0: %w", err)
+	}
+
+	return alertRules1, nil
+}
+
+func (node0 *Node) InsertAlertRules(ctx context.Context, exec bob.Executor, related ...*AlertRuleSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	alertRules1, err := insertNodeAlertRules0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.AlertRules = append(node0.R.AlertRules, alertRules1...)
+
+	for _, rel := range alertRules1 {
+		rel.R.Node = node0
+	}
+	return nil
+}
+
+func (node0 *Node) AttachAlertRules(ctx context.Context, exec bob.Executor, related ...*AlertRule) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	alertRules1 := AlertRuleSlice(related)
+
+	_, err = attachNodeAlertRules0(ctx, exec, len(related), alertRules1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.AlertRules = append(node0.R.AlertRules, alertRules1...)
+
+	for _, rel := range related {
+		rel.R.Node = node0
+	}
+
+	return nil
 }
 
 func insertNodeRemoteNodeFederatedAccessGrants0(ctx context.Context, exec bob.Executor, federatedAccessGrants1 []*FederatedAccessGrantSetter, node0 *Node) (FederatedAccessGrantSlice, error) {
@@ -1438,6 +1526,20 @@ func (o *Node) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
+	case "AlertRules":
+		rels, ok := retrieved.(AlertRuleSlice)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.AlertRules = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.Node = o
+			}
+		}
+		return nil
 	case "RemoteNodeFederatedAccessGrants":
 		rels, ok := retrieved.(FederatedAccessGrantSlice)
 		if !ok {
@@ -1562,6 +1664,7 @@ func buildNodePreloader() nodePreloader {
 }
 
 type nodeThenLoader[Q orm.Loadable] struct {
+	AlertRules                      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	RemoteNodeFederatedAccessGrants func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	FederationTrustedPeer           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServers                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1572,6 +1675,9 @@ type nodeThenLoader[Q orm.Loadable] struct {
 }
 
 func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
+	type AlertRulesLoadInterface interface {
+		LoadAlertRules(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type RemoteNodeFederatedAccessGrantsLoadInterface interface {
 		LoadRemoteNodeFederatedAccessGrants(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
@@ -1595,6 +1701,12 @@ func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
 	}
 
 	return nodeThenLoader[Q]{
+		AlertRules: thenLoadBuilder[Q](
+			"AlertRules",
+			func(ctx context.Context, exec bob.Executor, retrieved AlertRulesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadAlertRules(ctx, exec, mods...)
+			},
+		),
 		RemoteNodeFederatedAccessGrants: thenLoadBuilder[Q](
 			"RemoteNodeFederatedAccessGrants",
 			func(ctx context.Context, exec bob.Executor, retrieved RemoteNodeFederatedAccessGrantsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
@@ -1638,6 +1750,70 @@ func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
 			},
 		),
 	}
+}
+
+// LoadAlertRules loads the node's AlertRules into the .R struct
+func (o *Node) LoadAlertRules(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.AlertRules = nil
+
+	related, err := o.AlertRules(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.Node = o
+	}
+
+	o.R.AlertRules = related
+	return nil
+}
+
+// LoadAlertRules loads the node's AlertRules into the .R struct
+func (os NodeSlice) LoadAlertRules(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	alertRules, err := os.AlertRules(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.AlertRules = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range alertRules {
+
+			if !rel.NodeID.IsValue() {
+				continue
+			}
+			if !(rel.NodeID.IsValue() && o.ID == rel.NodeID.MustGet()) {
+				continue
+			}
+
+			rel.R.Node = o
+
+			o.R.AlertRules = append(o.R.AlertRules, rel)
+		}
+	}
+
+	return nil
 }
 
 // LoadRemoteNodeFederatedAccessGrants loads the node's RemoteNodeFederatedAccessGrants into the .R struct
@@ -2060,6 +2236,7 @@ func (os NodeSlice) LoadRemoteServerCaches(ctx context.Context, exec bob.Executo
 
 type nodeJoins[Q dialect.Joinable] struct {
 	typ                             string
+	AlertRules                      modAs[Q, alertRuleColumns]
 	RemoteNodeFederatedAccessGrants modAs[Q, federatedAccessGrantColumns]
 	FederationTrustedPeer           modAs[Q, federationTrustedPeerColumns]
 	GameServers                     modAs[Q, gameServerColumns]
@@ -2076,6 +2253,20 @@ func (j nodeJoins[Q]) aliasedAs(alias string) nodeJoins[Q] {
 func buildNodeJoins[Q dialect.Joinable](cols nodeColumns, typ string) nodeJoins[Q] {
 	return nodeJoins[Q]{
 		typ: typ,
+		AlertRules: modAs[Q, alertRuleColumns]{
+			c: AlertRules.Columns,
+			f: func(to alertRuleColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, AlertRules.Name().As(to.Alias())).On(
+						to.NodeID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
 		RemoteNodeFederatedAccessGrants: modAs[Q, federatedAccessGrantColumns]{
 			c: FederatedAccessGrants.Columns,
 			f: func(to federatedAccessGrantColumns) bob.Mod[Q] {

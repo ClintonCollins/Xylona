@@ -50,9 +50,12 @@ type UsersQuery = *sqlite.ViewQuery[*User, UserSlice]
 
 // userR is where relationships are stored.
 type userR struct {
+	AlertHistories                 AlertHistorySlice         // fk_alert_history_0
+	AlertRules                     AlertRuleSlice            // fk_alert_rule_2
 	GrantedByFederatedAccessGrants FederatedAccessGrantSlice // fk_federated_access_grant_0
 	GameServers                    GameServerSlice           // fk_game_server_3
 	Logs                           LogSlice                  // fk_log_2
+	NotificationChannels           NotificationChannelSlice  // fk_notification_channel_0
 	UserAPIKeys                    UserAPIKeySlice           // fk_user_api_key_0
 	GrantedByUserRoleAssignments   UserRoleAssignmentSlice   // fk_user_role_assignment_0
 	UserRoleAssignments            UserRoleAssignmentSlice   // fk_user_role_assignment_3
@@ -551,6 +554,44 @@ func (o UserSlice) ReloadAll(ctx context.Context, exec bob.Executor) error {
 	return nil
 }
 
+// AlertHistories starts a query for related objects on alert_history
+func (o *User) AlertHistories(mods ...bob.Mod[*dialect.SelectQuery]) AlertHistoriesQuery {
+	return AlertHistories.Query(append(mods,
+		sm.Where(AlertHistories.Columns.UserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) AlertHistories(mods ...bob.Mod[*dialect.SelectQuery]) AlertHistoriesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return AlertHistories.Query(append(mods,
+		sm.Where(sqlite.Group(AlertHistories.Columns.UserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// AlertRules starts a query for related objects on alert_rule
+func (o *User) AlertRules(mods ...bob.Mod[*dialect.SelectQuery]) AlertRulesQuery {
+	return AlertRules.Query(append(mods,
+		sm.Where(AlertRules.Columns.UserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) AlertRules(mods ...bob.Mod[*dialect.SelectQuery]) AlertRulesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return AlertRules.Query(append(mods,
+		sm.Where(sqlite.Group(AlertRules.Columns.UserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // GrantedByFederatedAccessGrants starts a query for related objects on federated_access_grant
 func (o *User) GrantedByFederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
 	return FederatedAccessGrants.Query(append(mods,
@@ -605,6 +646,25 @@ func (os UserSlice) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
 
 	return Logs.Query(append(mods,
 		sm.Where(sqlite.Group(Logs.Columns.UserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// NotificationChannels starts a query for related objects on notification_channel
+func (o *User) NotificationChannels(mods ...bob.Mod[*dialect.SelectQuery]) NotificationChannelsQuery {
+	return NotificationChannels.Query(append(mods,
+		sm.Where(NotificationChannels.Columns.UserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) NotificationChannels(mods ...bob.Mod[*dialect.SelectQuery]) NotificationChannelsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return NotificationChannels.Query(append(mods,
+		sm.Where(sqlite.Group(NotificationChannels.Columns.UserID).OP("IN", PKArgExpr)),
 	)...)
 }
 
@@ -682,6 +742,142 @@ func (os UserSlice) UserSessions(mods ...bob.Mod[*dialect.SelectQuery]) UserSess
 	return UserSessions.Query(append(mods,
 		sm.Where(sqlite.Group(UserSessions.Columns.UserID).OP("IN", PKArgExpr)),
 	)...)
+}
+
+func insertUserAlertHistories0(ctx context.Context, exec bob.Executor, alertHistories1 []*AlertHistorySetter, user0 *User) (AlertHistorySlice, error) {
+	for i := range alertHistories1 {
+		alertHistories1[i].UserID = omit.From(user0.ID)
+	}
+
+	ret, err := AlertHistories.Insert(bob.ToMods(alertHistories1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserAlertHistories0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserAlertHistories0(ctx context.Context, exec bob.Executor, count int, alertHistories1 AlertHistorySlice, user0 *User) (AlertHistorySlice, error) {
+	setter := &AlertHistorySetter{
+		UserID: omit.From(user0.ID),
+	}
+
+	err := alertHistories1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserAlertHistories0: %w", err)
+	}
+
+	return alertHistories1, nil
+}
+
+func (user0 *User) InsertAlertHistories(ctx context.Context, exec bob.Executor, related ...*AlertHistorySetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	alertHistories1, err := insertUserAlertHistories0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.AlertHistories = append(user0.R.AlertHistories, alertHistories1...)
+
+	for _, rel := range alertHistories1 {
+		rel.R.User = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachAlertHistories(ctx context.Context, exec bob.Executor, related ...*AlertHistory) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	alertHistories1 := AlertHistorySlice(related)
+
+	_, err = attachUserAlertHistories0(ctx, exec, len(related), alertHistories1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.AlertHistories = append(user0.R.AlertHistories, alertHistories1...)
+
+	for _, rel := range related {
+		rel.R.User = user0
+	}
+
+	return nil
+}
+
+func insertUserAlertRules0(ctx context.Context, exec bob.Executor, alertRules1 []*AlertRuleSetter, user0 *User) (AlertRuleSlice, error) {
+	for i := range alertRules1 {
+		alertRules1[i].UserID = omit.From(user0.ID)
+	}
+
+	ret, err := AlertRules.Insert(bob.ToMods(alertRules1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserAlertRules0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserAlertRules0(ctx context.Context, exec bob.Executor, count int, alertRules1 AlertRuleSlice, user0 *User) (AlertRuleSlice, error) {
+	setter := &AlertRuleSetter{
+		UserID: omit.From(user0.ID),
+	}
+
+	err := alertRules1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserAlertRules0: %w", err)
+	}
+
+	return alertRules1, nil
+}
+
+func (user0 *User) InsertAlertRules(ctx context.Context, exec bob.Executor, related ...*AlertRuleSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	alertRules1, err := insertUserAlertRules0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.AlertRules = append(user0.R.AlertRules, alertRules1...)
+
+	for _, rel := range alertRules1 {
+		rel.R.User = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachAlertRules(ctx context.Context, exec bob.Executor, related ...*AlertRule) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	alertRules1 := AlertRuleSlice(related)
+
+	_, err = attachUserAlertRules0(ctx, exec, len(related), alertRules1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.AlertRules = append(user0.R.AlertRules, alertRules1...)
+
+	for _, rel := range related {
+		rel.R.User = user0
+	}
+
+	return nil
 }
 
 func insertUserGrantedByFederatedAccessGrants0(ctx context.Context, exec bob.Executor, federatedAccessGrants1 []*FederatedAccessGrantSetter, user0 *User) (FederatedAccessGrantSlice, error) {
@@ -880,6 +1076,74 @@ func (user0 *User) AttachLogs(ctx context.Context, exec bob.Executor, related ..
 	}
 
 	user0.R.Logs = append(user0.R.Logs, logs1...)
+
+	for _, rel := range related {
+		rel.R.User = user0
+	}
+
+	return nil
+}
+
+func insertUserNotificationChannels0(ctx context.Context, exec bob.Executor, notificationChannels1 []*NotificationChannelSetter, user0 *User) (NotificationChannelSlice, error) {
+	for i := range notificationChannels1 {
+		notificationChannels1[i].UserID = omit.From(user0.ID)
+	}
+
+	ret, err := NotificationChannels.Insert(bob.ToMods(notificationChannels1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserNotificationChannels0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserNotificationChannels0(ctx context.Context, exec bob.Executor, count int, notificationChannels1 NotificationChannelSlice, user0 *User) (NotificationChannelSlice, error) {
+	setter := &NotificationChannelSetter{
+		UserID: omit.From(user0.ID),
+	}
+
+	err := notificationChannels1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserNotificationChannels0: %w", err)
+	}
+
+	return notificationChannels1, nil
+}
+
+func (user0 *User) InsertNotificationChannels(ctx context.Context, exec bob.Executor, related ...*NotificationChannelSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	notificationChannels1, err := insertUserNotificationChannels0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.NotificationChannels = append(user0.R.NotificationChannels, notificationChannels1...)
+
+	for _, rel := range notificationChannels1 {
+		rel.R.User = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachNotificationChannels(ctx context.Context, exec bob.Executor, related ...*NotificationChannel) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	notificationChannels1 := NotificationChannelSlice(related)
+
+	_, err = attachUserNotificationChannels0(ctx, exec, len(related), notificationChannels1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.NotificationChannels = append(user0.R.NotificationChannels, notificationChannels1...)
 
 	for _, rel := range related {
 		rel.R.User = user0
@@ -1198,6 +1462,34 @@ func (o *User) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
+	case "AlertHistories":
+		rels, ok := retrieved.(AlertHistorySlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.AlertHistories = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.User = o
+			}
+		}
+		return nil
+	case "AlertRules":
+		rels, ok := retrieved.(AlertRuleSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.AlertRules = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.User = o
+			}
+		}
+		return nil
 	case "GrantedByFederatedAccessGrants":
 		rels, ok := retrieved.(FederatedAccessGrantSlice)
 		if !ok {
@@ -1233,6 +1525,20 @@ func (o *User) Preload(name string, retrieved any) error {
 		}
 
 		o.R.Logs = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.User = o
+			}
+		}
+		return nil
+	case "NotificationChannels":
+		rels, ok := retrieved.(NotificationChannelSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.NotificationChannels = rels
 
 		for _, rel := range rels {
 			if rel != nil {
@@ -1308,9 +1614,12 @@ func buildUserPreloader() userPreloader {
 }
 
 type userThenLoader[Q orm.Loadable] struct {
+	AlertHistories                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	AlertRules                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GrantedByFederatedAccessGrants func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServers                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Logs                           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	NotificationChannels           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserAPIKeys                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GrantedByUserRoleAssignments   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserRoleAssignments            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1318,6 +1627,12 @@ type userThenLoader[Q orm.Loadable] struct {
 }
 
 func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
+	type AlertHistoriesLoadInterface interface {
+		LoadAlertHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type AlertRulesLoadInterface interface {
+		LoadAlertRules(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type GrantedByFederatedAccessGrantsLoadInterface interface {
 		LoadGrantedByFederatedAccessGrants(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
@@ -1326,6 +1641,9 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 	}
 	type LogsLoadInterface interface {
 		LoadLogs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type NotificationChannelsLoadInterface interface {
+		LoadNotificationChannels(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type UserAPIKeysLoadInterface interface {
 		LoadUserAPIKeys(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1341,6 +1659,18 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 	}
 
 	return userThenLoader[Q]{
+		AlertHistories: thenLoadBuilder[Q](
+			"AlertHistories",
+			func(ctx context.Context, exec bob.Executor, retrieved AlertHistoriesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadAlertHistories(ctx, exec, mods...)
+			},
+		),
+		AlertRules: thenLoadBuilder[Q](
+			"AlertRules",
+			func(ctx context.Context, exec bob.Executor, retrieved AlertRulesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadAlertRules(ctx, exec, mods...)
+			},
+		),
 		GrantedByFederatedAccessGrants: thenLoadBuilder[Q](
 			"GrantedByFederatedAccessGrants",
 			func(ctx context.Context, exec bob.Executor, retrieved GrantedByFederatedAccessGrantsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
@@ -1357,6 +1687,12 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 			"Logs",
 			func(ctx context.Context, exec bob.Executor, retrieved LogsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadLogs(ctx, exec, mods...)
+			},
+		),
+		NotificationChannels: thenLoadBuilder[Q](
+			"NotificationChannels",
+			func(ctx context.Context, exec bob.Executor, retrieved NotificationChannelsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadNotificationChannels(ctx, exec, mods...)
 			},
 		),
 		UserAPIKeys: thenLoadBuilder[Q](
@@ -1384,6 +1720,128 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 			},
 		),
 	}
+}
+
+// LoadAlertHistories loads the user's AlertHistories into the .R struct
+func (o *User) LoadAlertHistories(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.AlertHistories = nil
+
+	related, err := o.AlertHistories(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.User = o
+	}
+
+	o.R.AlertHistories = related
+	return nil
+}
+
+// LoadAlertHistories loads the user's AlertHistories into the .R struct
+func (os UserSlice) LoadAlertHistories(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	alertHistories, err := os.AlertHistories(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.AlertHistories = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range alertHistories {
+
+			if !(o.ID == rel.UserID) {
+				continue
+			}
+
+			rel.R.User = o
+
+			o.R.AlertHistories = append(o.R.AlertHistories, rel)
+		}
+	}
+
+	return nil
+}
+
+// LoadAlertRules loads the user's AlertRules into the .R struct
+func (o *User) LoadAlertRules(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.AlertRules = nil
+
+	related, err := o.AlertRules(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.User = o
+	}
+
+	o.R.AlertRules = related
+	return nil
+}
+
+// LoadAlertRules loads the user's AlertRules into the .R struct
+func (os UserSlice) LoadAlertRules(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	alertRules, err := os.AlertRules(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.AlertRules = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range alertRules {
+
+			if !(o.ID == rel.UserID) {
+				continue
+			}
+
+			rel.R.User = o
+
+			o.R.AlertRules = append(o.R.AlertRules, rel)
+		}
+	}
+
+	return nil
 }
 
 // LoadGrantedByFederatedAccessGrants loads the user's GrantedByFederatedAccessGrants into the .R struct
@@ -1566,6 +2024,67 @@ func (os UserSlice) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob
 			rel.R.User = o
 
 			o.R.Logs = append(o.R.Logs, rel)
+		}
+	}
+
+	return nil
+}
+
+// LoadNotificationChannels loads the user's NotificationChannels into the .R struct
+func (o *User) LoadNotificationChannels(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.NotificationChannels = nil
+
+	related, err := o.NotificationChannels(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.User = o
+	}
+
+	o.R.NotificationChannels = related
+	return nil
+}
+
+// LoadNotificationChannels loads the user's NotificationChannels into the .R struct
+func (os UserSlice) LoadNotificationChannels(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	notificationChannels, err := os.NotificationChannels(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.NotificationChannels = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range notificationChannels {
+
+			if !(o.ID == rel.UserID) {
+				continue
+			}
+
+			rel.R.User = o
+
+			o.R.NotificationChannels = append(o.R.NotificationChannels, rel)
 		}
 	}
 
@@ -1821,9 +2340,12 @@ func (os UserSlice) LoadUserSessions(ctx context.Context, exec bob.Executor, mod
 
 type userJoins[Q dialect.Joinable] struct {
 	typ                            string
+	AlertHistories                 modAs[Q, alertHistoryColumns]
+	AlertRules                     modAs[Q, alertRuleColumns]
 	GrantedByFederatedAccessGrants modAs[Q, federatedAccessGrantColumns]
 	GameServers                    modAs[Q, gameServerColumns]
 	Logs                           modAs[Q, logColumns]
+	NotificationChannels           modAs[Q, notificationChannelColumns]
 	UserAPIKeys                    modAs[Q, userAPIKeyColumns]
 	GrantedByUserRoleAssignments   modAs[Q, userRoleAssignmentColumns]
 	UserRoleAssignments            modAs[Q, userRoleAssignmentColumns]
@@ -1837,6 +2359,34 @@ func (j userJoins[Q]) aliasedAs(alias string) userJoins[Q] {
 func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[Q] {
 	return userJoins[Q]{
 		typ: typ,
+		AlertHistories: modAs[Q, alertHistoryColumns]{
+			c: AlertHistories.Columns,
+			f: func(to alertHistoryColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, AlertHistories.Name().As(to.Alias())).On(
+						to.UserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		AlertRules: modAs[Q, alertRuleColumns]{
+			c: AlertRules.Columns,
+			f: func(to alertRuleColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, AlertRules.Name().As(to.Alias())).On(
+						to.UserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
 		GrantedByFederatedAccessGrants: modAs[Q, federatedAccessGrantColumns]{
 			c: FederatedAccessGrants.Columns,
 			f: func(to federatedAccessGrantColumns) bob.Mod[Q] {
@@ -1872,6 +2422,20 @@ func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, Logs.Name().As(to.Alias())).On(
+						to.UserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		NotificationChannels: modAs[Q, notificationChannelColumns]{
+			c: NotificationChannels.Columns,
+			f: func(to notificationChannelColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, NotificationChannels.Name().As(to.Alias())).On(
 						to.UserID.EQ(cols.ID),
 					))
 				}

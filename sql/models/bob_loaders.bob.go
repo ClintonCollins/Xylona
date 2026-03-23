@@ -17,6 +17,9 @@ import (
 var Preload = getPreloaders()
 
 type preloaders struct {
+	AlertHistory             alertHistoryPreloader
+	AlertRule                alertRulePreloader
+	AlertState               alertStatePreloader
 	FederatedAccessGrant     federatedAccessGrantPreloader
 	FederationTrustedPeer    federationTrustedPeerPreloader
 	Game                     gamePreloader
@@ -29,6 +32,7 @@ type preloaders struct {
 	Node                     nodePreloader
 	NodeMetricsHistory       nodeMetricsHistoryPreloader
 	NodeSyncQueue            nodeSyncQueuePreloader
+	NotificationChannel      notificationChannelPreloader
 	PeerSyncState            peerSyncStatePreloader
 	Permission               permissionPreloader
 	RemoteServerCache        remoteServerCachePreloader
@@ -42,6 +46,9 @@ type preloaders struct {
 
 func getPreloaders() preloaders {
 	return preloaders{
+		AlertHistory:             buildAlertHistoryPreloader(),
+		AlertRule:                buildAlertRulePreloader(),
+		AlertState:               buildAlertStatePreloader(),
 		FederatedAccessGrant:     buildFederatedAccessGrantPreloader(),
 		FederationTrustedPeer:    buildFederationTrustedPeerPreloader(),
 		Game:                     buildGamePreloader(),
@@ -54,6 +61,7 @@ func getPreloaders() preloaders {
 		Node:                     buildNodePreloader(),
 		NodeMetricsHistory:       buildNodeMetricsHistoryPreloader(),
 		NodeSyncQueue:            buildNodeSyncQueuePreloader(),
+		NotificationChannel:      buildNotificationChannelPreloader(),
 		PeerSyncState:            buildPeerSyncStatePreloader(),
 		Permission:               buildPermissionPreloader(),
 		RemoteServerCache:        buildRemoteServerCachePreloader(),
@@ -73,6 +81,9 @@ var (
 )
 
 type thenLoaders[Q orm.Loadable] struct {
+	AlertHistory             alertHistoryThenLoader[Q]
+	AlertRule                alertRuleThenLoader[Q]
+	AlertState               alertStateThenLoader[Q]
 	FederatedAccessGrant     federatedAccessGrantThenLoader[Q]
 	FederationTrustedPeer    federationTrustedPeerThenLoader[Q]
 	Game                     gameThenLoader[Q]
@@ -85,6 +96,7 @@ type thenLoaders[Q orm.Loadable] struct {
 	Node                     nodeThenLoader[Q]
 	NodeMetricsHistory       nodeMetricsHistoryThenLoader[Q]
 	NodeSyncQueue            nodeSyncQueueThenLoader[Q]
+	NotificationChannel      notificationChannelThenLoader[Q]
 	PeerSyncState            peerSyncStateThenLoader[Q]
 	Permission               permissionThenLoader[Q]
 	RemoteServerCache        remoteServerCacheThenLoader[Q]
@@ -98,6 +110,9 @@ type thenLoaders[Q orm.Loadable] struct {
 
 func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 	return thenLoaders[Q]{
+		AlertHistory:             buildAlertHistoryThenLoader[Q](),
+		AlertRule:                buildAlertRuleThenLoader[Q](),
+		AlertState:               buildAlertStateThenLoader[Q](),
 		FederatedAccessGrant:     buildFederatedAccessGrantThenLoader[Q](),
 		FederationTrustedPeer:    buildFederationTrustedPeerThenLoader[Q](),
 		Game:                     buildGameThenLoader[Q](),
@@ -110,6 +125,7 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		Node:                     buildNodeThenLoader[Q](),
 		NodeMetricsHistory:       buildNodeMetricsHistoryThenLoader[Q](),
 		NodeSyncQueue:            buildNodeSyncQueueThenLoader[Q](),
+		NotificationChannel:      buildNotificationChannelThenLoader[Q](),
 		PeerSyncState:            buildPeerSyncStateThenLoader[Q](),
 		Permission:               buildPermissionThenLoader[Q](),
 		RemoteServerCache:        buildRemoteServerCacheThenLoader[Q](),
