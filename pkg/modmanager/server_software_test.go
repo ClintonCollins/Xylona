@@ -161,3 +161,40 @@ func TestGetSoftwareByIDNilSlice(t *testing.T) {
 		t.Errorf("GetSoftwareByID(nil) got non-nil result")
 	}
 }
+
+func TestProviderIDForGame(t *testing.T) {
+	tests := []struct {
+		name   string
+		gameID string
+		input  ServerSoftware
+		want   string
+	}{
+		{
+			name:   "uses explicit jar source when present",
+			gameID: "minecraft",
+			input:  ServerSoftware{ID: "paper", JarSource: "papermc"},
+			want:   "papermc",
+		},
+		{
+			name:   "maps legacy minecraft vanilla to mojang",
+			gameID: "minecraft",
+			input:  ServerSoftware{ID: "vanilla"},
+			want:   "mojang",
+		},
+		{
+			name:   "leaves non minecraft blank source empty",
+			gameID: "terraria",
+			input:  ServerSoftware{ID: "vanilla"},
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ProviderIDForGame(tt.gameID, tt.input)
+			if got != tt.want {
+				t.Errorf("ProviderIDForGame() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

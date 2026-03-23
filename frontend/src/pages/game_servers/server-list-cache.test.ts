@@ -24,6 +24,7 @@ describe('buildDisplayRows', () => {
           nodeId: 'node-local',
           nodeName: '',
           nodeHost: '',
+          version: '1.20.4',
           versionInfo: {
             status: VersionStatus.CHECKED,
             installedVersion: '1.0.0',
@@ -45,6 +46,7 @@ describe('buildDisplayRows', () => {
           status: Status.OFFLINE,
           nodeName: 'Remote Node Name',
           nodeHost: 'https://remote.example.com',
+          version: '0.217.46',
           isStale: true,
         },
       },
@@ -59,6 +61,7 @@ describe('buildDisplayRows', () => {
           status: Status.OFFLINE,
           nodeName: 'Remote Node Name',
           nodeHost: 'https://remote.example.com',
+          version: '0.217.46',
           isStale: true,
         },
       },
@@ -78,6 +81,7 @@ describe('buildDisplayRows', () => {
       id: 'local-1',
       isLocal: true,
       nodeName: 'Local Node',
+      version: '1.20.4',
     })
     expect(rows[0].versionInfo).toMatchObject({
       status: VersionStatus.CHECKED,
@@ -91,6 +95,7 @@ describe('buildDisplayRows', () => {
       nodeName: 'Remote Node',
       isStale: true,
       sourceNodeId: 'node-remote',
+      version: '0.217.46',
     })
     expect(rows[1].versionInfo).toBeUndefined()
   })

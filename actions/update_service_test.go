@@ -2,10 +2,24 @@ package actions
 
 import (
 	"context"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aarondl/opt/null"
+	"github.com/aarondl/opt/omit"
+
+	internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
+	"github.com/ClintonCollins/Xylona/db/dbtest"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func TestWaitForServerOnlineReturnsFalseWhenContextCanceled(t *testing.T) {
@@ -42,4 +56,482 @@ func TestWaitForServerOnlineReturnsTrueWhenServerComesOnline(t *testing.T) {
 	if attempts != 3 {
 		t.Fatalf("status lookup attempts = %d, want 3", attempts)
 	}
+}
+
+func TestUpdateGameServerRunsInternalUpdaterWhenNoShellCommandConfigured(t *testing.T) {
+	ctx := context.Background()
+	supervisorInst, errNewSupervisor := supervisor.New(ctx)
+	if errNewSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errNewSupervisor)
+	}
+
+	serverDir := t.TempDir()
+	markerPath := filepath.Join(serverDir, "updated.txt")
+	gameID := "internal-update-test"
+	internal.RegisterGame(gameID, internalUpdateTestGame{markerPath: markerPath})
+
+	inst := &Instance{
+		ctx:                ctx,
+		supervisorInstance: supervisorInst,
+	}
+	gameServer := &models.GameServer{
+		ID:        "server-1",
+		GameID:    gameID,
+		Directory: serverDir,
+		UserID:    "user-1",
+	}
+	gameServer.R.Game = &models.Game{}
+
+	inst.UpdateGameServer(gameServer)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		_, errStat := os.Stat(markerPath)
+		if errStat == nil {
+			return
+		}
+		if !os.IsNotExist(errStat) {
+			t.Fatalf("os.Stat(%q) error = %v", markerPath, errStat)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("internal updater did not create %q", markerPath)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestUpdateGameServerUsesMinecraftServerSoftwareProvider(t *testing.T) {
+	ctx := context.Background()
+	supervisorInst, errNewSupervisor := supervisor.New(ctx)
+	if errNewSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errNewSupervisor)
+	}
+
+	serverDir := t.TempDir()
+	provider := &minecraftUpdateTestProvider{
+		latestVersion:   "1.21.5",
+		downloadVersion: "1.21.5-build-9",
+		markerPath:      filepath.Join(serverDir, "paper-1.21.5.jar"),
+	}
+	modproviders.RegisterProvider(provider)
+
+	inst := &Instance{
+		ctx:                ctx,
+		supervisorInstance: supervisorInst,
+	}
+	gameServer := &models.GameServer{
+		ID:               "minecraft-provider-update",
+		GameID:           "minecraft",
+		Directory:        serverDir,
+		UserID:           "user-1",
+		ServerSoftware:   null.From("paper"),
+		ServerExecutable: null.From("paper-1.21.4.jar"),
+	}
+	gameServer.R.Game = &models.Game{
+		ServerSoftware: null.From(`[{"id":"paper","name":"Paper","jar_source":"test-minecraft-update-provider"}]`),
+	}
+
+	errUpdate := inst.UpdateGameServer(gameServer)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+
+	if provider.detailsSourceID != "paper" {
+		t.Errorf("GetModDetails sourceID = %q, want %q", provider.detailsSourceID, "paper")
+	}
+	if provider.versionsSourceID != "paper" {
+		t.Errorf("GetVersions sourceID = %q, want %q", provider.versionsSourceID, "paper")
+	}
+	if provider.versionsGameVersion != "1.21.5" {
+		t.Errorf("GetVersions gameVersion = %q, want %q", provider.versionsGameVersion, "1.21.5")
+	}
+	if provider.downloadSourceID != "paper" {
+		t.Errorf("Download sourceID = %q, want %q", provider.downloadSourceID, "paper")
+	}
+	if provider.downloadVersionID != "1.21.5-build-9" {
+		t.Errorf("Download versionID = %q, want %q", provider.downloadVersionID, "1.21.5-build-9")
+	}
+
+	_, errStat := os.Stat(provider.markerPath)
+	if errStat != nil {
+		t.Fatalf("expected downloaded marker at %q: %v", provider.markerPath, errStat)
+	}
+
+	_, errGetCmd := supervisorInst.GetCommandByID(gameServer.ID)
+	if !errors.Is(errGetCmd, supervisor.ErrCommandDoesNotExist) {
+		t.Fatalf("expected no supervised update command, got %v", errGetCmd)
+	}
+}
+
+func TestUpdateGameServerRejectsUnsupportedMinecraftVariant(t *testing.T) {
+	ctx := context.Background()
+	supervisorInst, errNewSupervisor := supervisor.New(ctx)
+	if errNewSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errNewSupervisor)
+	}
+
+	serverDir := t.TempDir()
+	markerPath := filepath.Join(serverDir, "updated.txt")
+	previousGame, hadPrevious := internal.GetGame("minecraft")
+	internal.RegisterGame("minecraft", internalUpdateTestGame{markerPath: markerPath})
+	t.Cleanup(func() {
+		if hadPrevious {
+			internal.RegisterGame("minecraft", previousGame)
+			return
+		}
+		delete(internal.GetGames(), "minecraft")
+	})
+
+	inst := &Instance{
+		ctx:                ctx,
+		supervisorInstance: supervisorInst,
+	}
+	gameServer := &models.GameServer{
+		ID:               "minecraft-unsupported-update",
+		GameID:           "minecraft",
+		Directory:        serverDir,
+		UserID:           "user-1",
+		ServerSoftware:   null.From("fabric"),
+		ServerExecutable: null.From("fabric-server.jar"),
+	}
+	gameServer.R.Game = &models.Game{
+		ServerSoftware: null.From(`[
+			{"id":"vanilla","name":"Vanilla","jar_source":null},
+			{"id":"fabric","name":"Fabric","jar_source":null}
+		]`),
+	}
+
+	errUpdate := inst.UpdateGameServer(gameServer)
+	if !errors.Is(errUpdate, ErrMinecraftVariantUpdateNotSupported) {
+		t.Fatalf("UpdateGameServer() error = %v, want %v", errUpdate, ErrMinecraftVariantUpdateNotSupported)
+	}
+
+	_, errStat := os.Stat(markerPath)
+	if !os.IsNotExist(errStat) {
+		t.Fatalf("expected internal updater marker to be absent, got err=%v", errStat)
+	}
+
+	_, errGetCmd := supervisorInst.GetCommandByID(gameServer.ID)
+	if !errors.Is(errGetCmd, supervisor.ErrCommandDoesNotExist) {
+		t.Fatalf("expected no supervised update command, got %v", errGetCmd)
+	}
+}
+
+func TestRunUpdateWithBackupWritesProgressToConsoleBuffer(t *testing.T) {
+	ctx := context.Background()
+	supervisorInst, errNewSupervisor := supervisor.New(ctx)
+	if errNewSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errNewSupervisor)
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "update-console.sqlite")
+	now := time.Now().UTC()
+	_, errCreateUser := conn.CreateUser(&models.UserSetter{
+		ID:           omit.From("user-1"),
+		UserName:     omit.From("console-user"),
+		Email:        omit.From("console@example.com"),
+		FirstName:    omit.From("Console"),
+		LastName:     omit.From("User"),
+		PasswordHash: omit.From("hash"),
+		SuperUser:    omit.From(false),
+		LastLoginAt:  omit.From(now),
+		CreatedAt:    omit.From(now),
+		UpdatedAt:    omit.From(now),
+	})
+	if errCreateUser != nil {
+		t.Fatalf("CreateUser() error = %v", errCreateUser)
+	}
+
+	_, errInsertNode := conn.InsertNode(&models.NodeSetter{
+		ID:      omit.From("node-local"),
+		Name:    omit.From("Local Node"),
+		IsLocal: omit.From(true),
+		Host:    omit.From("localhost"),
+		Port:    omit.From(int64(8080)),
+		BaseURL: omit.From("http://localhost:8080"),
+		Enabled: omit.From(true),
+	})
+	if errInsertNode != nil {
+		t.Fatalf("InsertNode() error = %v", errInsertNode)
+	}
+
+	_, errUpsertIP := conn.UpsertIP(&models.IPSetter{
+		Address:            omit.From("127.0.0.1"),
+		Usable:             omit.From(true),
+		External:           omit.From(false),
+		AutomaticallyAdded: omit.From(false),
+	})
+	if errUpsertIP != nil {
+		t.Fatalf("UpsertIP() error = %v", errUpsertIP)
+	}
+
+	serverDir := t.TempDir()
+	markerPath := filepath.Join(serverDir, "updated.txt")
+	gameID := "internal-update-console-test"
+	internal.RegisterGame(gameID, internalUpdateTestGame{markerPath: markerPath})
+	_, errInsertGame := conn.InsertGame(conn.DB, &models.GameSetter{
+		ID:                omit.From(gameID),
+		Name:              omit.From("Internal Update Test"),
+		DefaultPort:       omit.From(int64(25565)),
+		DefaultQueryPort:  omit.From(int64(25565)),
+		DefaultMaxPlayers: omit.From(int64(20)),
+	})
+	if errInsertGame != nil {
+		t.Fatalf("InsertGame() error = %v", errInsertGame)
+	}
+
+	inst := &Instance{
+		ctx:                ctx,
+		db:                 conn,
+		versionState:       versiontracker.NewVersionStateMap(),
+		supervisorInstance: supervisorInst,
+	}
+	gameServer := &models.GameServer{
+		ID:        "server-console-progress",
+		GameID:    gameID,
+		Directory: serverDir,
+		UserID:    "user-1",
+	}
+	gameServer.R.Game = &models.Game{}
+	_, errInsertServer := conn.InsertGameServer(conn.DB, &models.GameServerSetter{
+		ID:           omit.From(gameServer.ID),
+		UserID:       omit.From(gameServer.UserID),
+		Name:         omit.From("Console Progress Server"),
+		GameID:       omit.From(gameID),
+		StartCommand: omit.From("internal-update"),
+		Status:       omit.From("OFFLINE"),
+		SetPlayers:   omit.From(int64(20)),
+		MaxPlayers:   omit.From(int64(20)),
+		Map:          omit.From("world"),
+		IP:           omit.From("127.0.0.1"),
+		Port:         omit.From(int64(25565)),
+		QueryPort:    omit.From(int64(25565)),
+		Directory:    omit.From(serverDir),
+		NodeID:       omit.From("node-local"),
+		CreatedAt:    omit.From(now),
+		UpdatedAt:    omit.From(now),
+	})
+	if errInsertServer != nil {
+		t.Fatalf("InsertGameServer() error = %v", errInsertServer)
+	}
+
+	outChan := make(chan *xylona.Message, 32)
+	shellCommand := supervisorInst.GetCommandByIDOrCreateShell(gameServer.ID)
+	shellCommand.AddOutputListener("test-progress", outChan)
+	defer shellCommand.RemoveOutputListener("test-progress")
+
+	broadcaster := &recordingUpdateProgressBroadcaster{}
+	inst.runUpdateWithBackup(gameServer, broadcaster)
+
+	var streamedOutput strings.Builder
+	for {
+		select {
+		case msg := <-outChan:
+			if msg != nil && msg.GameServerConsoleOutput != nil {
+				streamedOutput.WriteString(msg.GameServerConsoleOutput.Output)
+			}
+		default:
+			goto assertOutput
+		}
+	}
+
+assertOutput:
+	output := streamedOutput.String()
+	for _, expected := range []string{
+		"Backing up files",
+		"Downloading update",
+		"Installing update",
+		"Update complete",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Errorf("output buffer missing %q in %q", expected, output)
+		}
+	}
+	for _, unexpected := range []string{"Stopping server", "Restarting server", "Server restarted"} {
+		if strings.Contains(output, unexpected) {
+			t.Errorf("output buffer unexpectedly contained %q in %q", unexpected, output)
+		}
+	}
+	for _, unexpectedStep := range []xylona.UpdateStep{
+		xylona.UpdateStep_UPDATE_STEP_STOPPING,
+		xylona.UpdateStep_UPDATE_STEP_RESTARTING,
+	} {
+		if broadcaster.ContainsStep(unexpectedStep) {
+			t.Errorf("unexpected progress step %v recorded for offline update", unexpectedStep)
+		}
+	}
+}
+
+func TestRunUpdateWithBackupIncludesMinecraftUpdateDetails(t *testing.T) {
+	ctx := context.Background()
+	supervisorInst, errNewSupervisor := supervisor.New(ctx)
+	if errNewSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errNewSupervisor)
+	}
+
+	serverDir := t.TempDir()
+	provider := &minecraftUpdateTestProvider{
+		providerID:      "test-minecraft-update-provider-detailed",
+		latestVersion:   "1.21.5",
+		downloadVersion: "1.21.5-build-9",
+		markerPath:      filepath.Join(serverDir, "paper-1.21.5-9.jar"),
+	}
+	modproviders.RegisterProvider(provider)
+
+	inst := &Instance{
+		ctx:                ctx,
+		supervisorInstance: supervisorInst,
+	}
+	gameServer := &models.GameServer{
+		ID:               "minecraft-detailed-update",
+		GameID:           "minecraft",
+		Directory:        serverDir,
+		UserID:           "user-1",
+		ServerSoftware:   null.From("paper"),
+		ServerExecutable: null.From("paper-1.21.4.jar"),
+	}
+	gameServer.R.Game = &models.Game{
+		ServerSoftware: null.From(
+			`[{"id":"paper","name":"Paper","jar_source":"test-minecraft-update-provider-detailed"}]`,
+		),
+	}
+
+	outChan := make(chan *xylona.Message, 32)
+	shellCommand := supervisorInst.GetCommandByIDOrCreateShell(gameServer.ID)
+	shellCommand.AddOutputListener("test-progress", outChan)
+	defer shellCommand.RemoveOutputListener("test-progress")
+
+	broadcaster := &recordingUpdateProgressBroadcaster{}
+	inst.runUpdateWithBackup(gameServer, broadcaster)
+
+	var streamedOutput strings.Builder
+	for {
+		select {
+		case msg := <-outChan:
+			if msg != nil && msg.GameServerConsoleOutput != nil {
+				streamedOutput.WriteString(msg.GameServerConsoleOutput.Output)
+			}
+		default:
+			goto assertDetailedOutput
+		}
+	}
+
+assertDetailedOutput:
+	output := streamedOutput.String()
+	for _, expected := range []string{
+		"Downloading Paper for Minecraft 1.21.5",
+		"paper-1.21.5-9.jar",
+		"Applying paper-1.21.5-9.jar",
+		"Installed Paper 1.21.5 with paper-1.21.5-9.jar",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Errorf("output buffer missing %q in %q", expected, output)
+		}
+	}
+}
+
+type recordedUpdateProgress struct {
+	step       xylona.UpdateStep
+	stepStatus xylona.StepStatus
+	message    string
+}
+
+type recordingUpdateProgressBroadcaster struct {
+	events []recordedUpdateProgress
+}
+
+func (b *recordingUpdateProgressBroadcaster) BroadcastUpdateProgress(
+	_ string,
+	step xylona.UpdateStep,
+	stepStatus xylona.StepStatus,
+	message string,
+) {
+	b.events = append(b.events, recordedUpdateProgress{
+		step:       step,
+		stepStatus: stepStatus,
+		message:    message,
+	})
+}
+
+func (b *recordingUpdateProgressBroadcaster) ContainsStep(step xylona.UpdateStep) bool {
+	for _, event := range b.events {
+		if event.step == step {
+			return true
+		}
+	}
+	return false
+}
+
+type internalUpdateTestGame struct {
+	markerPath string
+}
+
+func (g internalUpdateTestGame) Install(_ *models.GameServer, _, _ io.Writer) error {
+	return nil
+}
+
+func (g internalUpdateTestGame) Update(_ *models.GameServer, _, _ io.Writer) error {
+	return os.WriteFile(g.markerPath, []byte("updated"), 0o644)
+}
+
+type minecraftUpdateTestProvider struct {
+	providerID          string
+	latestVersion       string
+	downloadVersion     string
+	markerPath          string
+	detailsSourceID     string
+	versionsSourceID    string
+	versionsGameVersion string
+	downloadSourceID    string
+	downloadVersionID   string
+}
+
+func (p *minecraftUpdateTestProvider) ID() string {
+	if p.providerID != "" {
+		return p.providerID
+	}
+	return "test-minecraft-update-provider"
+}
+
+func (p *minecraftUpdateTestProvider) Search(_ context.Context, _ string, _ modproviders.SearchParams) (modproviders.SearchResult, error) {
+	return modproviders.SearchResult{}, nil
+}
+
+func (p *minecraftUpdateTestProvider) GetModDetails(_ context.Context, sourceID string, _ modproviders.SearchParams) (*modproviders.ModDetails, error) {
+	p.detailsSourceID = sourceID
+	return &modproviders.ModDetails{
+		SourceID: sourceID,
+		Versions: []modproviders.ModVersion{
+			{VersionID: p.latestVersion, VersionString: p.latestVersion},
+		},
+	}, nil
+}
+
+func (p *minecraftUpdateTestProvider) GetVersions(_ context.Context, sourceID string, gameVersion string, _ modproviders.SearchParams) ([]modproviders.ModVersion, error) {
+	p.versionsSourceID = sourceID
+	p.versionsGameVersion = gameVersion
+	return []modproviders.ModVersion{
+		{VersionID: p.downloadVersion, VersionString: "Build 9"},
+	}, nil
+}
+
+func (p *minecraftUpdateTestProvider) Download(_ context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
+	p.downloadSourceID = sourceID
+	p.downloadVersionID = versionID
+	relativePath := filepath.Base(p.markerPath)
+	fullPath := filepath.Join(targetDir, relativePath)
+	if errWrite := os.WriteFile(fullPath, []byte("updated"), 0o644); errWrite != nil {
+		return nil, errWrite
+	}
+	return []modproviders.DownloadedFile{
+		{Path: relativePath, IsPrimary: true},
+	}, nil
+}
+
+func (p *minecraftUpdateTestProvider) CheckForUpdate(_ context.Context, _ string, _ string) (*modproviders.ModVersion, error) {
+	return nil, nil
+}
+
+func (p *minecraftUpdateTestProvider) RequiresAPIKey() bool {
+	return false
 }

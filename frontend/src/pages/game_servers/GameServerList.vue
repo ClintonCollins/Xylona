@@ -81,6 +81,9 @@
             <template v-else-if="props.row.versionInfo?.status === VersionStatus.CHECKING">
               <q-spinner size="1em" color="primary" />
             </template>
+            <template v-else-if="getDisplayVersion(props.row)">
+              <span class="version-text">{{ getDisplayVersion(props.row) }}</span>
+            </template>
             <template v-else>
               <span class="version-na">—</span>
             </template>
@@ -317,6 +320,10 @@ function setServerStatus(serverID: string, serverStatus: Status) {
   }
 }
 
+function getDisplayVersion(row: DisplayRow): string {
+  return row.versionInfo?.installedVersion || row.version
+}
+
 async function startSelectedGameServers() {
   if (selectedGameServersForStart.value.length < 1 || loading.value) {
     return
@@ -429,7 +436,7 @@ const columns = ref([
     label: 'Version',
     required: true,
     align: 'left' as const,
-    field: (row: DisplayRow) => row.versionInfo?.installedVersion ?? '',
+    field: (row: DisplayRow) => getDisplayVersion(row),
     sortable: false,
   },
   {

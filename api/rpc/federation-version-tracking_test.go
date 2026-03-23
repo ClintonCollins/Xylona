@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,6 +97,133 @@ func TestGetRemoteVersionInfoReturnsVersionState(t *testing.T) {
 	}
 	if got.LastCheckTime != lastCheck.Unix() {
 		t.Errorf("LastCheckTime = %d, want %d", got.LastCheckTime, lastCheck.Unix())
+	}
+}
+
+func TestUpdateRemoteServerReturnsErrorForUnsupportedMinecraftVariant(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-remote-peer")
+
+	errGrant := fixture.conn.CreateFederatedAccessGrant(
+		"fed-update-grant-1",
+		"server-local-1",
+		"node-remote-peer",
+		"external-user-id",
+		"External User",
+		"admin",
+		"user-owner",
+	)
+	if errGrant != nil {
+		t.Fatalf("CreateFederatedAccessGrant() error = %v", errGrant)
+	}
+
+	_, errUpdateGame := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`update game set server_software = ? where id = ?`,
+		`[
+			{"id":"vanilla","name":"Vanilla","jar_source":null},
+			{"id":"fabric","name":"Fabric","jar_source":null}
+		]`,
+		"minecraft",
+	)
+	if errUpdateGame != nil {
+		t.Fatalf("update minecraft game server_software: %v", errUpdateGame)
+	}
+
+	_, errUpdateServer := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`update game_server set server_software = ?, server_executable = ? where id = ?`,
+		"fabric",
+		"fabric-server.jar",
+		"server-local-1",
+	)
+	if errUpdateServer != nil {
+		t.Fatalf("update game server software: %v", errUpdateServer)
+	}
+
+	actionsCtx, cancelActions := context.WithCancel(context.Background())
+	t.Cleanup(cancelActions)
+
+	supervisorInst, errSupervisor := supervisor.New(actionsCtx)
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+
+	actionsInst := actions.NewInstance(
+		actionsCtx,
+		fixture.conn,
+		supervisorInst,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	service := FederationService{
+		ctx:         actionsCtx,
+		db:          fixture.conn,
+		actionsInst: actionsInst,
+	}
+
+	mux := http.NewServeMux()
+	path, handler := xylonaconnect.NewFederationHandler(&service)
+	mux.Handle(path, injectFederationPeerIdentity("node-remote-peer", handler))
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := xylonaconnect.NewFederationClient(http.DefaultClient, server.URL)
+
+	request := connect.NewRequest(&xylona.FederationRemoteActionRequest{
+		ServerId: "server-local-1",
+	})
+	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
+	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
+
+	_, errUpdate := client.UpdateRemoteServer(context.Background(), request)
+	if errUpdate == nil {
+		t.Fatal("UpdateRemoteServer() error = nil, want error")
+	}
+	if connect.CodeOf(errUpdate) != connect.CodeFailedPrecondition {
+		t.Fatalf("UpdateRemoteServer() code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeFailedPrecondition)
+	}
+}
+
+func TestFederationUpdateErrorCode(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want connect.Code
+	}{
+		{
+			name: "unsupported minecraft variant is failed precondition",
+			err:  actions.ErrMinecraftVariantUpdateNotSupported,
+			want: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "missing game update command is failed precondition",
+			err:  actions.ErrGameUpdateNotConfigured,
+			want: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "missing internal updater is failed precondition",
+			err:  actions.ErrInternalGameUpdateMissing,
+			want: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "unexpected errors stay internal",
+			err:  fmt.Errorf("unexpected update failure"),
+			want: connect.CodeInternal,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := federationUpdateErrorCode(tt.err)
+			if got != tt.want {
+				t.Fatalf("federationUpdateErrorCode() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -310,6 +438,124 @@ func TestCheckForUpdateDelegatesToFederatedServer(t *testing.T) {
 	}
 	if !got.UpdateAvailable {
 		t.Error("UpdateAvailable = false, want true")
+	}
+}
+
+func TestUpdateGameServerDelegatesUnsupportedMinecraftVariantFailure(t *testing.T) {
+	localFixture := newRBACRPCFixture(t)
+	remoteFixture := newRBACRPCFixture(t)
+
+	seedRemoteNodeForRBACRPCTests(t, localFixture.conn, "node-remote-peer")
+	insertFederatedTestServer(t, remoteFixture.conn, "server-remote-update-1", "Remote Fabric", "minecraft")
+
+	errGrant := remoteFixture.conn.CreateFederatedAccessGrant(
+		"fed-update-grant-2",
+		"server-remote-update-1",
+		"node-local",
+		"user-owner",
+		"Owner User",
+		"admin",
+		"user-owner",
+	)
+	if errGrant != nil {
+		t.Fatalf("CreateFederatedAccessGrant() error = %v", errGrant)
+	}
+
+	_, errUpdateGame := remoteFixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`update game set server_software = ? where id = ?`,
+		`[
+			{"id":"vanilla","name":"Vanilla","jar_source":null},
+			{"id":"fabric","name":"Fabric","jar_source":null}
+		]`,
+		"minecraft",
+	)
+	if errUpdateGame != nil {
+		t.Fatalf("update minecraft game server_software: %v", errUpdateGame)
+	}
+
+	_, errUpdateServer := remoteFixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`update game_server set server_software = ?, server_executable = ? where id = ?`,
+		"fabric",
+		"fabric-server.jar",
+		"server-remote-update-1",
+	)
+	if errUpdateServer != nil {
+		t.Fatalf("update remote game server software: %v", errUpdateServer)
+	}
+
+	errUpsertCache := localFixture.conn.UpsertRemoteServerCache(
+		"remote-cache-update-1",
+		"node-remote-peer",
+		"node-remote-peer",
+		"server-remote-update-1",
+		"Remote Fabric",
+		"OFFLINE",
+		"Minecraft",
+		"minecraft",
+		"203.0.113.11",
+		25565,
+		25565,
+		20,
+		0,
+		"world",
+		"1.20.4",
+		"Remote Node",
+		"node-remote-peer.remote.test",
+		time.Now().UTC(),
+	)
+	if errUpsertCache != nil {
+		t.Fatalf("UpsertRemoteServerCache() error = %v", errUpsertCache)
+	}
+
+	actionsCtx, cancelActions := context.WithCancel(context.Background())
+	t.Cleanup(cancelActions)
+
+	supervisorInst, errSupervisor := supervisor.New(actionsCtx)
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+
+	actionsInst := actions.NewInstance(
+		actionsCtx,
+		remoteFixture.conn,
+		supervisorInst,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	remoteService := FederationService{
+		ctx:         actionsCtx,
+		db:          remoteFixture.conn,
+		actionsInst: actionsInst,
+	}
+
+	mux := http.NewServeMux()
+	path, handler := xylonaconnect.NewFederationHandler(&remoteService)
+	mux.Handle(path, injectFederationPeerIdentity("node-local", handler))
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	localFixture.service.remoteFederationClientFactory = func(_ *models.Node, _ string) (xylonaconnect.FederationClient, error) {
+		return xylonaconnect.NewFederationClient(http.DefaultClient, server.URL), nil
+	}
+
+	request := connect.NewRequest(&xylona.UpdateGameServerRequest{ServerId: "server-remote-update-1"})
+	addSessionCookieHeader(t, localFixture.conn, localFixture.secureCookie, request, "user-owner")
+
+	_, errUpdate := localFixture.service.UpdateGameServer(context.Background(), request)
+	if errUpdate == nil {
+		t.Fatal("UpdateGameServer() error = nil, want error")
+	}
+	if connect.CodeOf(errUpdate) != connect.CodeFailedPrecondition {
+		t.Fatalf("UpdateGameServer() code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeFailedPrecondition)
+	}
+	if !strings.Contains(errUpdate.Error(), actions.ErrMinecraftVariantUpdateNotSupported.Error()) {
+		t.Fatalf("UpdateGameServer() error = %q, want substring %q", errUpdate.Error(), actions.ErrMinecraftVariantUpdateNotSupported.Error())
 	}
 }
 

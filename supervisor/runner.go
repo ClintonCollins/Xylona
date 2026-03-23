@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -58,6 +59,7 @@ type PreparedCommand struct {
 	FullCommandAndArgs string
 	WorkingDirectory   string
 	User               string
+	NodeID             string
 	ServiceID          string      // ServiceID is usually the ID of the game this command is associated with.
 	InputMethod        InputMethod // InputMethod is used to determine how to send input to the command.
 	GameID             *string
@@ -302,18 +304,31 @@ func (c *Command) handleOutputListeners(payload *xylona.Message) {
 
 func (c *Command) closeJobNotification() {
 	c.sendJobNotification(MessageStoppedServer)
-	c.sendJobStatusNotification(xylona.Status_OFFLINE)
+	oldStatus := c.Status()
+	c.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
 }
 
-func (c *Command) sendJobStatusNotification(status xylona.Status) {
+func (c *Command) sendJobStatusNotification(oldStatus, newStatus xylona.Status) {
 	c.handleOutputListeners(&xylona.Message{
 		Type: xylona.Message_GameServerStatus,
 		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
 			GameServerId: c.ID,
-			Status:       status,
+			Status:       newStatus,
 		},
 	})
-	c.handleStatusListeners(status)
+	c.handleStatusListeners(newStatus)
+
+	// Publish status change to the event bus for alert evaluation.
+	// Skip no-op transitions (e.g., OFFLINE→OFFLINE from concurrent shutdown paths).
+	if oldStatus != newStatus {
+		eb := eventbus.Get()
+		eb.Publish(eventbus.TopicGameServerStatusChanged, eventbus.StatusChangedEvent{
+			ServerID:     c.ID,
+			ServerNodeID: c.nodeID,
+			OldStatus:    oldStatus.String(),
+			NewStatus:    newStatus.String(),
+		})
+	}
 }
 
 func (c *Command) handleStatusListeners(status xylona.Status) {
@@ -353,6 +368,11 @@ func (c *Command) sendJobNotification(message string) {
 // This allows external callers (e.g., the actions layer) to surface status
 // messages in the game server console without routing through stdin.
 func (c *Command) SendOutput(message string) {
+	c.Lock()
+	if c.currentCMD == nil && c.status == xylona.Status_OFFLINE {
+		c.preserveBufferedOutputOnReuse = true
+	}
+	c.Unlock()
 	c.sendJobNotification(message)
 }
 
@@ -384,9 +404,10 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 			log.Error().Str("Game ID", *command.gameID).Str("Game Server ID", command.ID).Msg("Internal game does not exist")
 			return
 		}
-		command.sendJobStatusNotification(command.status)
+		command.sendJobStatusNotification(xylona.Status_OFFLINE, command.status)
 		defer func() {
-			command.sendJobStatusNotification(xylona.Status_OFFLINE)
+			oldStatus := command.Status()
+			command.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
 			command.Lock()
 			command.currentCMD = nil
 			command.status = xylona.Status_OFFLINE
@@ -425,7 +446,8 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to start command.")
 		command.sendJobNotification(err.Error())
-		command.sendJobStatusNotification(xylona.Status_OFFLINE)
+		oldStatus := command.Status()
+		command.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
 		command.Lock()
 		command.currentCMD = nil
 		command.status = xylona.Status_OFFLINE
@@ -437,18 +459,32 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 	}
 
 	log.Debug().Str("Command ID", command.ID).Str("Exec", fullCommandStr).Msg("Command started")
-	command.sendJobStatusNotification(command.status)
+	command.sendJobStatusNotification(xylona.Status_OFFLINE, command.status)
 
 	// Run after startup function if it exists.
 	if command.runAfterStartup != nil {
 		command.runAfterStartup(command)
 	}
 
-	err = command.currentCMD.Wait()
-	if err != nil {
-		checkErrorAccessDenied(err, command)
-		log.Debug().Err(err).Msg("Error waiting for command.")
+	errWait := command.currentCMD.Wait()
+	exitCode := extractExitCode(command.currentCMD, errWait)
+	if errWait != nil {
+		checkErrorAccessDenied(errWait, command)
+		log.Debug().Err(errWait).Msg("Error waiting for command.")
 	}
+
+	// Publish crash event if the process exited with a non-zero exit code.
+	if exitCode != 0 {
+		log.Warn().Str("Game Server ID", command.ID).Int("exit_code", exitCode).Msg("Game server process crashed")
+		eb := eventbus.Get()
+		eb.Publish(eventbus.TopicGameServerCrashed, eventbus.ServerCrashedEvent{
+			ServerID:     command.ID,
+			ServerNodeID: command.nodeID,
+			ExitCode:     exitCode,
+			Timestamp:    time.Now(),
+		})
+	}
+
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")
 	command.Lock()
 	command.currentCMD = nil
@@ -511,13 +547,18 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		log.Debug().Str("Command ID", persistentCommand.ID).Msg("Reusing persistent command")
 		newCommand = persistentCommand
 		newCommand.Lock()
+		preserveBufferedOutputOnReuse := newCommand.preserveBufferedOutputOnReuse
 		newCommand.User = preparedCommand.User
+		newCommand.nodeID = preparedCommand.NodeID
 		newCommand.outputListeners = persistentCommand.outputListeners
 		newCommand.FullCommandAndArgs = preparedCommand.FullCommandAndArgs
 		newCommand.unixStartedAt = time.Now().Unix()
 		newCommand.status = preparedCommand.Status
 		newCommand.serviceID = preparedCommand.ServiceID
-		newCommand.outBuffer = ""
+		if !preserveBufferedOutputOnReuse {
+			newCommand.outBuffer = ""
+		}
+		newCommand.preserveBufferedOutputOnReuse = false
 		newCommand.instanceCtx = inst.ctx
 		newCommand.processCtx = processCtx
 		newCommand.processCtxCancel = processCtxCancel
@@ -530,6 +571,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			ID:                  preparedCommand.ID,
 			User:                preparedCommand.User,
 			FullCommandAndArgs:  preparedCommand.FullCommandAndArgs,
+			nodeID:              preparedCommand.NodeID,
 			unixStartedAt:       time.Now().Unix(),
 			status:              preparedCommand.Status,
 			serviceID:           preparedCommand.ServiceID,
@@ -702,6 +744,7 @@ func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
 		defer inst.Unlock()
 		inst.runningCommands[commandID] = &Command{
 			ID:                  commandID,
+			instanceCtx:         inst.ctx,
 			stdInWriter:         &bytes.Buffer{},
 			combinedOutput:      &bytes.Buffer{},
 			outputListeners:     make(map[string]chan *xylona.Message),
@@ -715,6 +758,12 @@ func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
 		return inst.runningCommands[commandID]
 	}
 	return persistentCommand
+}
+
+// SendConsoleOutput injects a Xylona status line into the server console stream,
+// creating a synthetic shell command buffer when the server is offline.
+func (inst *Instance) SendConsoleOutput(commandID string, message string) {
+	inst.GetCommandByIDOrCreateShell(commandID).SendOutput(formatXylonaMessage(message))
 }
 
 // SendInput sends input to the command's StdIn.
@@ -747,4 +796,26 @@ func (c *Command) GetOutputBuffer() string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.outBuffer
+}
+
+// extractExitCode returns the exit code from a completed command. It checks
+// the ProcessState first (which is set even when Wait returns a context
+// cancellation error on Windows), then falls back to unwrapping exec.ExitError.
+// Returns 0 if err is nil or the process exited with code 0, the actual exit
+// code if it can be determined, or -1 if the error is not an exit error.
+func extractExitCode(cmd *exec.Cmd, err error) int {
+	if err == nil {
+		return 0
+	}
+	// ProcessState is populated after Wait completes, even when the error
+	// is a context cancellation wrapping a TerminateProcess failure (Windows).
+	if cmd != nil && cmd.ProcessState != nil {
+		return cmd.ProcessState.ExitCode()
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	// If we can't determine the exit code but there was an error, assume non-zero.
+	return -1
 }

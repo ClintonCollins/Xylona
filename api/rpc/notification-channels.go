@@ -139,8 +139,17 @@ func (xs *XylonaService) UpdateNotificationChannel(
 
 	channel, errGet := xs.db.GetNotificationChannelByID(id)
 	if errGet != nil {
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("notification channel not found"))
+		}
 		log.Error().Err(errGet).Str("notification_channel_id", id).Msg("failed to fetch updated notification channel")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to fetch updated notification channel"))
+	}
+	// Verify the re-fetched channel belongs to the caller. The UPDATE was
+	// scoped by user_id, so if the channel belongs to another user the
+	// update was a no-op but GetNotificationChannelByID ignores ownership.
+	if channel.UserID != user.ID {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("notification channel not found"))
 	}
 
 	return connect.NewResponse(&xylona.UpdateNotificationChannelResponse{
@@ -235,13 +244,16 @@ func (xs *XylonaService) TestNotificationChannel(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
 	}
 
-	_, errGet := xs.db.GetNotificationChannelByID(id)
+	channel, errGet := xs.db.GetNotificationChannelByID(id)
 	if errGet != nil {
 		if errors.Is(errGet, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("notification channel not found"))
 		}
 		log.Error().Err(errGet).Str("notification_channel_id", id).Msg("failed to fetch notification channel for test")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+	if channel.UserID != user.ID {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("notification channel not found"))
 	}
 
 	// Test delivery is not yet implemented. Return a stub response.

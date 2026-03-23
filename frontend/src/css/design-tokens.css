@@ -52,6 +52,29 @@
   --xy-info-bg: rgba(6, 182, 212, 0.15);
   --xy-info-border: rgba(6, 182, 212, 0.3);
 
+  /* ---- Surface Tints & Emphasis ---- */
+  --xy-surface-overlay-faint: rgba(255, 255, 255, 0.01);
+  --xy-surface-overlay-soft: rgba(255, 255, 255, 0.03);
+  --xy-surface-sheen-soft: rgba(255, 255, 255, 0.04);
+  --xy-surface-raised-subtle: color-mix(in srgb, var(--xy-surface-0) 92%, var(--xy-surface-1) 8%);
+  --xy-surface-raised-soft: color-mix(in srgb, var(--xy-surface-0) 94%, var(--xy-surface-1) 6%);
+  --xy-shadow-sticky-lg: 0 12px 30px rgba(0, 0, 0, 0.28);
+
+  /* ---- Contextual Accent Tints ---- */
+  --xy-accent-glow-soft: rgba(28, 183, 207, 0.06);
+  --xy-accent-border-soft: color-mix(in srgb, var(--xy-accent) 35%, var(--xy-border) 65%);
+  --xy-success-border-soft: color-mix(in srgb, var(--xy-success) 28%, var(--xy-border) 72%);
+  --xy-success-border-softer: color-mix(in srgb, var(--xy-success) 22%, var(--xy-border) 78%);
+  --xy-success-bg-soft: color-mix(in srgb, var(--xy-success) 8%, transparent);
+  --xy-success-text-soft: color-mix(in srgb, var(--xy-success) 68%, var(--xy-text-primary) 32%);
+  --xy-warning-border-soft: color-mix(in srgb, var(--xy-warning) 28%, var(--xy-border) 72%);
+
+  /* ---- Text Roles ---- */
+  --xy-text-emphasis-soft: color-mix(in srgb, var(--xy-text-primary) 76%, var(--xy-text-secondary) 24%);
+  --xy-text-emphasis-strong: color-mix(in srgb, var(--xy-text-primary) 80%, var(--xy-text-secondary) 20%);
+  --xy-field-label-color: color-mix(in srgb, var(--xy-text-secondary) 88%, var(--xy-text-muted) 12%);
+  --xy-field-helper-color: color-mix(in srgb, var(--xy-text-secondary) 90%, var(--xy-text-muted) 10%);
+
   /* ---- Spacing Scale ---- */
   --xy-space-xs: 0.25rem;   /* 4px  */
   --xy-space-sm: 0.5rem;    /* 8px  */
@@ -241,4 +264,3 @@
     scroll-behavior: auto !important;
   }
 }
-

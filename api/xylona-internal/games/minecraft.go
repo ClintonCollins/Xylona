@@ -16,6 +16,14 @@ type Minecraft struct {
 }
 
 func (m *Minecraft) Install(gameServer *models.GameServer, stdOutWriter, stdErrWriter io.Writer) error {
+	return downloadLatestMinecraftServerJar(gameServer, stdOutWriter)
+}
+
+func (m *Minecraft) Update(gameServer *models.GameServer, stdOutWriter, stdErrWriter io.Writer) error {
+	return downloadLatestMinecraftServerJar(gameServer, stdOutWriter)
+}
+
+func downloadLatestMinecraftServerJar(gameServer *models.GameServer, stdOutWriter io.Writer) error {
 	latestServerURL, errGetURL := minecraft.GetLatestServerDownloadURL()
 	if errGetURL != nil {
 		log.Error().Err(errGetURL).Msg("Failed to get latest server URL")
@@ -28,7 +36,10 @@ func (m *Minecraft) Install(gameServer *models.GameServer, stdOutWriter, stdErrW
 		return errGet
 	}
 	defer func() {
-		_ = response.Body.Close()
+		errClose := response.Body.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("Failed to close Minecraft server download response body")
+		}
 	}()
 	_, _ = stdOutWriter.Write([]byte("Downloading latest server\n"))
 
@@ -38,7 +49,10 @@ func (m *Minecraft) Install(gameServer *models.GameServer, stdOutWriter, stdErrW
 		return errCreate
 	}
 	defer func() {
-		_ = f.Close()
+		errClose := f.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("Failed to close Minecraft server jar file")
+		}
 	}()
 
 	_, errCopy := io.Copy(f, response.Body)
@@ -47,9 +61,5 @@ func (m *Minecraft) Install(gameServer *models.GameServer, stdOutWriter, stdErrW
 		return errCopy
 	}
 
-	return nil
-}
-
-func (m *Minecraft) Update(gameServer *models.GameServer, stdOutWriter, stdErrWriter io.Writer) error {
 	return nil
 }

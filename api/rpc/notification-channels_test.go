@@ -453,6 +453,86 @@ func TestListNotificationChannels_UserIsolation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Cross-user write isolation: update/delete another user's channel
+// ---------------------------------------------------------------------------
+
+func TestUpdateNotificationChannel_CrossUserIsolation(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	// Superuser creates a channel
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "super-owned",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
+		Config:      `{"url":"https://discord.com/api/webhooks/1/abc"}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("Create error = %v", errCreate)
+	}
+	channelID := createResp.Msg.Channel.Id
+
+	// user-alerts tries to update it → should get NotFound
+	updateReq := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
+		Id:      channelID,
+		Name:    "hijacked",
+		Config:  `{"url":"https://evil.com"}`,
+		Enabled: false,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-alerts")
+
+	_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), updateReq)
+	if errUpdate == nil {
+		t.Fatalf("expected error updating another user's channel, got nil")
+	}
+	if connect.CodeOf(errUpdate) != connect.CodeNotFound {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeNotFound)
+	}
+}
+
+func TestDeleteNotificationChannel_CrossUserIsolation(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	// Superuser creates a channel
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "super-owned",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
+		Config:      `{"url":"https://discord.com/api/webhooks/1/abc"}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("Create error = %v", errCreate)
+	}
+	channelID := createResp.Msg.Channel.Id
+
+	// user-alerts tries to delete it → should silently no-op (DB scopes by user_id)
+	deleteReq := connect.NewRequest(&xylona.DeleteNotificationChannelRequest{Id: channelID})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteReq, "user-alerts")
+
+	_, errDelete := fixture.service.DeleteNotificationChannel(context.Background(), deleteReq)
+	if errDelete != nil {
+		t.Fatalf("Delete error = %v (expected silent no-op)", errDelete)
+	}
+
+	// Verify the channel still exists for the superuser
+	listReq := connect.NewRequest(&xylona.ListNotificationChannelsRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listReq, "user-super")
+
+	listResp, errList := fixture.service.ListNotificationChannels(context.Background(), listReq)
+	if errList != nil {
+		t.Fatalf("List error = %v", errList)
+	}
+	if len(listResp.Msg.Channels) != 1 {
+		t.Errorf("expected channel to survive cross-user delete, got %d channels", len(listResp.Msg.Channels))
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Update + Delete permission and validation
 // ---------------------------------------------------------------------------
 
@@ -696,5 +776,35 @@ func TestTestNotificationChannel_Stub(t *testing.T) {
 	}
 	if testResp.Msg.Error == "" {
 		t.Errorf("Error message is empty, expected non-empty stub message")
+	}
+}
+
+func TestTestNotificationChannel_CrossUserIsolation(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	// Superuser creates a channel
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "super-owned",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
+		Config:      `{"url":"https://discord.com/api/webhooks/1/abc"}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("Create error = %v", errCreate)
+	}
+
+	// user-alerts tries to test it → should get NotFound
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-alerts")
+
+	_, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+	if errTest == nil {
+		t.Fatalf("expected error testing another user's channel, got nil")
+	}
+	if connect.CodeOf(errTest) != connect.CodeNotFound {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errTest), connect.CodeNotFound)
 	}
 }

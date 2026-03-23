@@ -1,8 +1,6 @@
 <template>
-  <q-page>
-    <div class="row justify-center q-pa-md">
-      <game-server-form :existing-game-server-id="gameServerID"></game-server-form>
-    </div>
+  <q-page class="q-pa-md">
+    <game-server-form :existing-game-server-id="gameServerID"></game-server-form>
   </q-page>
 </template>
 

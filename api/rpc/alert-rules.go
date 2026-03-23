@@ -205,7 +205,7 @@ func (xs *XylonaService) validateAlertRuleRequest(
 
 	// Server access check (if serverID provided)
 	if serverID != "" {
-		errAccess := xs.validateServerAccess(serverID, serverNodeID)
+		errAccess := xs.validateServerAccess(user, serverID, serverNodeID)
 		if errAccess != nil {
 			return "", "", "", errAccess
 		}
@@ -214,10 +214,11 @@ func (xs *XylonaService) validateAlertRuleRequest(
 	return serverID, serverNodeID, nodeID, nil
 }
 
-// validateServerAccess verifies that the given server exists. For local
-// servers it uses getGameServerFromID; for remote servers it verifies via
-// the remote server cache.
-func (xs *XylonaService) validateServerAccess(serverID, serverNodeID string) error {
+// validateServerAccess verifies that the given server exists and that the user
+// has access to it. For local servers it uses getGameServerFromID and checks
+// ownership/permissions. For remote servers it verifies via the remote server
+// cache.
+func (xs *XylonaService) validateServerAccess(user *models.User, serverID, serverNodeID string) error {
 	localNodeID, errLocal := xs.db.GetLocalNodeID()
 	if errLocal != nil {
 		log.Error().Err(errLocal).Msg("failed to get local node ID")
@@ -225,10 +226,19 @@ func (xs *XylonaService) validateServerAccess(serverID, serverNodeID string) err
 	}
 
 	if serverNodeID == localNodeID {
-		// Local server — just verify it exists.
-		_, errServer := xs.getGameServerFromID(serverID)
+		// Local server — verify it exists and user has access.
+		gameServer, errServer := xs.getGameServerFromID(serverID)
 		if errServer != nil {
 			return errServer
+		}
+		// Superusers and server owners always have access.
+		if user.SuperUser || user.ID == gameServer.UserID {
+			return nil
+		}
+		// Check if the user has at least game_server.view permission.
+		errPerm := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+		if errPerm != nil {
+			return errPerm
 		}
 		return nil
 	}
@@ -343,20 +353,17 @@ func (xs *XylonaService) UpdateAlertRule(
 	}
 
 	// Re-fetch the updated rule to return fresh data.
-	rules, errGet := xs.db.GetAlertRulesByUserID(user.ID)
+	updatedRule, errGet := xs.db.GetAlertRuleByID(id)
 	if errGet != nil {
-		log.Error().Err(errGet).Str("user_id", user.ID).Msg("failed to fetch alert rules after update")
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("alert rule not found"))
+		}
+		log.Error().Err(errGet).Str("alert_rule_id", id).Msg("failed to fetch alert rule after update")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to fetch updated alert rule"))
 	}
-
-	var updatedRule *models.AlertRule
-	for _, r := range rules {
-		if r.ID == id {
-			updatedRule = r
-			break
-		}
-	}
-	if updatedRule == nil {
+	// Verify ownership — the UPDATE was scoped by user_id, so if the rule
+	// belongs to another user the update was a no-op.
+	if updatedRule.UserID != user.ID {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("alert rule not found"))
 	}
 
@@ -415,15 +422,22 @@ func (xs *XylonaService) ListAlertRules(
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
 	}
 
+	// Pair consistency for server filter
+	hasServerID := request.Msg.ServerId != nil
+	hasServerNodeID := request.Msg.ServerNodeId != nil
+	if hasServerID != hasServerNodeID {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("server_id and server_node_id must both be provided or both omitted"))
+	}
+
 	var rules []*models.AlertRule
 
 	// If server filter is provided, query by server
-	if request.Msg.ServerId != nil && request.Msg.ServerNodeId != nil {
+	if hasServerID {
 		serverID := *request.Msg.ServerId
 		serverNodeID := *request.Msg.ServerNodeId
 
 		// Verify access to the server
-		errAccess := xs.validateServerAccess(serverID, serverNodeID)
+		errAccess := xs.validateServerAccess(user, serverID, serverNodeID)
 		if errAccess != nil {
 			return nil, errAccess
 		}
@@ -481,20 +495,24 @@ func (xs *XylonaService) GetAlertHistory(
 		limit = 100
 	}
 
-	offset := int(request.Msg.GetOffset())
-	if offset < 0 {
-		offset = 0
+	offset := max(int(request.Msg.GetOffset()), 0)
+
+	// Pair consistency for server filter
+	hasServerID := request.Msg.ServerId != nil
+	hasServerNodeID := request.Msg.ServerNodeId != nil
+	if hasServerID != hasServerNodeID {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("server_id and server_node_id must both be provided or both omitted"))
 	}
 
 	var entries []*models.AlertHistory
 
 	// If server filter is provided, query by server
-	if request.Msg.ServerId != nil && request.Msg.ServerNodeId != nil {
+	if hasServerID {
 		serverID := *request.Msg.ServerId
 		serverNodeID := *request.Msg.ServerNodeId
 
 		// Verify access to the server
-		errAccess := xs.validateServerAccess(serverID, serverNodeID)
+		errAccess := xs.validateServerAccess(user, serverID, serverNodeID)
 		if errAccess != nil {
 			return nil, errAccess
 		}
@@ -506,6 +524,14 @@ func (xs *XylonaService) GetAlertHistory(
 				Str("server_id", serverID).
 				Str("server_node_id", serverNodeID).
 				Msg("failed to get alert history by server")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get alert history"))
+		}
+	} else if user.SuperUser {
+		// Superusers see all history
+		var errGet error
+		entries, errGet = xs.db.GetAllAlertHistory(limit, offset)
+		if errGet != nil {
+			log.Error().Err(errGet).Msg("failed to get all alert history")
 			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get alert history"))
 		}
 	} else {

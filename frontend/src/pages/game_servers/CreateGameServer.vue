@@ -1,10 +1,6 @@
 <template>
-  <q-page>
-    <div class="row justify-center q-pa-md">
-      <q-card>
-        <game-server-form></game-server-form>
-      </q-card>
-    </div>
+  <q-page class="q-pa-md">
+    <game-server-form />
   </q-page>
 </template>
 

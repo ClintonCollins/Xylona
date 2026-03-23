@@ -220,15 +220,26 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 		wasRunning = status != xylona.Status_OFFLINE && status != xylona.Status_UNKNOWN
 	}
 
+	updatePlan, errPlan := inst.resolveMinecraftUpdatePlan(gameServer)
+	if errPlan != nil && gameServer.GameID == "minecraft" {
+		log.Debug().
+			Err(errPlan).
+			Str("game_server_id", serverID).
+			Msg("Could not resolve detailed Minecraft update info")
+	}
+
 	broadcast := func(step xylona.UpdateStep, status xylona.StepStatus, msg string) {
+		if inst.supervisorInstance != nil && msg != "" {
+			inst.supervisorInstance.SendConsoleOutput(serverID, msg)
+		}
 		if broadcaster != nil {
 			broadcaster.BroadcastUpdateProgress(serverID, step, status, msg)
 		}
 	}
 
 	// Step 1: Stop if running.
-	broadcast(xylona.UpdateStep_UPDATE_STEP_STOPPING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Stopping server")
 	if wasRunning {
+		broadcast(xylona.UpdateStep_UPDATE_STEP_STOPPING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Stopping server")
 		inst.StopGameServer(gameServer)
 		// Wait for server to fully stop (poll up to 30s).
 		stopped := false
@@ -248,8 +259,8 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 		if !stopped {
 			log.Warn().Str("game_server_id", serverID).Msg("Server did not stop cleanly before update")
 		}
+		broadcast(xylona.UpdateStep_UPDATE_STEP_STOPPING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Server stopped")
 	}
-	broadcast(xylona.UpdateStep_UPDATE_STEP_STOPPING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Server stopped")
 
 	// Step 2: Backup.
 	broadcast(xylona.UpdateStep_UPDATE_STEP_BACKING_UP, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Backing up files")
@@ -262,14 +273,33 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	broadcast(xylona.UpdateStep_UPDATE_STEP_BACKING_UP, xylona.StepStatus_STEP_STATUS_COMPLETED, "Backup complete")
 
 	// Step 3: Update (download + install).
-	broadcast(xylona.UpdateStep_UPDATE_STEP_DOWNLOADING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Downloading update")
-	broadcast(xylona.UpdateStep_UPDATE_STEP_INSTALLING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Installing update")
+	broadcast(
+		xylona.UpdateStep_UPDATE_STEP_DOWNLOADING,
+		xylona.StepStatus_STEP_STATUS_IN_PROGRESS,
+		downloadStartMessage(updatePlan),
+	)
 
 	// If the dummy tracker has failure simulation enabled, treat this as a failed update.
 	updateFailed := inst.dummyTracker != nil && inst.dummyTracker.SimulateFailure()
 
 	if !updateFailed {
-		inst.UpdateGameServer(gameServer)
+		errUpdate := inst.UpdateGameServer(gameServer)
+		if errUpdate != nil {
+			log.Error().Err(errUpdate).Str("game_server_id", serverID).Msg("Failed to start game update")
+			updateFailed = true
+		}
+	}
+	if !updateFailed {
+		broadcast(
+			xylona.UpdateStep_UPDATE_STEP_DOWNLOADING,
+			xylona.StepStatus_STEP_STATUS_COMPLETED,
+			downloadCompleteMessage(gameServer, updatePlan),
+		)
+		broadcast(
+			xylona.UpdateStep_UPDATE_STEP_INSTALLING,
+			xylona.StepStatus_STEP_STATUS_IN_PROGRESS,
+			installStartMessage(gameServer, updatePlan),
+		)
 	}
 	// UpdateGameServer is async (starts a supervised process). Wait for it to complete.
 	for i := 0; i < 120; i++ {
@@ -295,9 +325,21 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 		inst.rollbackUpdate(gameServer, wasRunning, broadcaster)
 		return
 	}
-	broadcast(xylona.UpdateStep_UPDATE_STEP_INSTALLING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Update installed")
+	if wasRunning {
+		broadcast(
+			xylona.UpdateStep_UPDATE_STEP_INSTALLING,
+			xylona.StepStatus_STEP_STATUS_COMPLETED,
+			installCompleteMessage(gameServer, updatePlan, true),
+		)
+	} else {
+		broadcast(
+			xylona.UpdateStep_UPDATE_STEP_INSTALLING,
+			xylona.StepStatus_STEP_STATUS_COMPLETED,
+			installCompleteMessage(gameServer, updatePlan, false),
+		)
+	}
 
-	// Step 4: Restart if was running; otherwise mark as skipped-complete.
+	// Step 4: Restart if the server was running before the update.
 	if wasRunning {
 		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Restarting server")
 		inst.StartGameServer(gameServer)
@@ -315,9 +357,6 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 			return
 		}
 		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Server restarted")
-	} else {
-		// Server was not running before update; no restart needed. Signal completion.
-		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Update complete")
 	}
 
 	cleanupBackup(gameServer)
@@ -331,7 +370,72 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	log.Info().Str("game_server_id", serverID).Msg("Update completed successfully")
 
 	// Trigger a version re-check so the UI reflects the new installed version.
-	inst.CheckServerVersionByID(inst.ctx, serverID)
+	if inst.db != nil {
+		inst.CheckServerVersionByID(inst.ctx, serverID)
+	}
+}
+
+func downloadStartMessage(plan *minecraftUpdatePlan) string {
+	if plan == nil {
+		return "Downloading update"
+	}
+
+	message := "Downloading " + plan.softwareName + " for Minecraft " + plan.targetVersion
+	if plan.downloadVersionName != "" && plan.downloadVersionName != plan.targetVersion {
+		message += " (" + plan.downloadVersionName + ")"
+	}
+	if plan.plannedFileName != "" {
+		message += " as " + plan.plannedFileName
+	}
+	return message
+}
+
+func downloadCompleteMessage(gameServer *models.GameServer, plan *minecraftUpdatePlan) string {
+	if plan == nil {
+		return "Download complete"
+	}
+
+	if targetJar := updatedJarName(gameServer, plan); targetJar != "" {
+		return "Downloaded " + targetJar + " for " + plan.softwareName + " " + plan.targetVersion
+	}
+	return "Downloaded " + plan.softwareName + " " + plan.targetVersion
+}
+
+func installStartMessage(gameServer *models.GameServer, plan *minecraftUpdatePlan) string {
+	if plan == nil {
+		return "Installing update"
+	}
+
+	if targetJar := updatedJarName(gameServer, plan); targetJar != "" {
+		return "Applying " + targetJar
+	}
+	return "Applying " + plan.softwareName + " " + plan.targetVersion
+}
+
+func installCompleteMessage(gameServer *models.GameServer, plan *minecraftUpdatePlan, wasRunning bool) string {
+	if plan == nil {
+		if wasRunning {
+			return "Update installed"
+		}
+		return "Update complete"
+	}
+
+	if targetJar := updatedJarName(gameServer, plan); targetJar != "" {
+		return "Installed " + plan.softwareName + " " + plan.targetVersion + " with " + targetJar
+	}
+	return "Installed " + plan.softwareName + " " + plan.targetVersion
+}
+
+func updatedJarName(gameServer *models.GameServer, plan *minecraftUpdatePlan) string {
+	if gameServer != nil {
+		if executable := filepath.Base(gameServer.ServerExecutable.GetOr("")); executable != "." && executable != "" {
+			return executable
+		}
+	}
+	if plan != nil {
+		return plan.plannedFileName
+	}
+	return ""
 }
 
 func waitForServerOnline(
@@ -371,6 +475,9 @@ func waitForServerOnline(
 func (inst *Instance) rollbackUpdate(gameServer *models.GameServer, wasRunning bool, broadcaster UpdateProgressBroadcaster) {
 	serverID := gameServer.ID
 	broadcast := func(step xylona.UpdateStep, status xylona.StepStatus, msg string) {
+		if inst.supervisorInstance != nil && msg != "" {
+			inst.supervisorInstance.SendConsoleOutput(serverID, msg)
+		}
 		if broadcaster != nil {
 			broadcaster.BroadcastUpdateProgress(serverID, step, status, msg)
 		}

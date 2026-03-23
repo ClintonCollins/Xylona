@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -216,10 +217,10 @@ func (inst *Instance) checkServerVersion(gs *models.GameServer, eb *eventbus.Eve
 		TrackerType: trackerType,
 	})
 
-	info, errCheck := tracker.CheckForUpdate(inst.ctx, gs)
-	if errCheck != nil {
-		log.Warn().Err(errCheck).Str("game_server_id", gs.ID).
-			Msg("Version check: failed to check for update")
+	installed, errInstalled := tracker.GetInstalledVersion(inst.ctx, gs)
+	if errInstalled != nil {
+		log.Warn().Err(errInstalled).Str("game_server_id", gs.ID).
+			Msg("Version check: failed to get installed version")
 		inst.versionState.Set(gs.ID, versiontracker.VersionState{
 			Status:      versiontracker.VersionStatusError,
 			TrackerType: trackerType,
@@ -227,23 +228,37 @@ func (inst *Instance) checkServerVersion(gs *models.GameServer, eb *eventbus.Eve
 		return
 	}
 
-	newState := versiontracker.VersionState{
-		Status:        versiontracker.VersionStatusChecked,
-		TrackerType:   trackerType,
-		LastCheckTime: time.Now(),
+	latest, errLatest := tracker.GetLatestVersion(inst.ctx, gs)
+	if errLatest != nil {
+		log.Warn().Err(errLatest).Str("game_server_id", gs.ID).
+			Msg("Version check: failed to get latest version")
+		inst.versionState.Set(gs.ID, versiontracker.VersionState{
+			Status:      versiontracker.VersionStatusError,
+			TrackerType: trackerType,
+		})
+		return
 	}
 
-	if info != nil {
-		newState.InstalledVersion = info.InstalledVersion
-		newState.LatestVersion = info.LatestVersion
-		newState.UpdateAvailable = info.UpdateAvailable
+	installed = strings.TrimSpace(installed)
+	latest = strings.TrimSpace(latest)
+	updateAvailable := installed != "" && latest != "" && installed != latest
 
+	newState := versiontracker.VersionState{
+		Status:           versiontracker.VersionStatusChecked,
+		TrackerType:      trackerType,
+		LastCheckTime:    time.Now(),
+		InstalledVersion: installed,
+		LatestVersion:    latest,
+		UpdateAvailable:  updateAvailable,
+	}
+
+	if updateAvailable {
 		prevState := inst.versionState.Get(gs.ID)
-		if info.UpdateAvailable && !prevState.UpdateAvailable {
+		if !prevState.UpdateAvailable {
 			eb.Publish("server.update_available", gs.ID)
 			log.Info().Str("game_server_id", gs.ID).
-				Str("installed", info.InstalledVersion).
-				Str("latest", info.LatestVersion).
+				Str("installed", installed).
+				Str("latest", latest).
 				Msg("Version check: update available")
 		}
 	}

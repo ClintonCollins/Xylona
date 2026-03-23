@@ -56,3 +56,15 @@ func GetSoftwareByID(software []ServerSoftware, id string) (*ServerSoftware, boo
 	}
 	return nil, false
 }
+
+// ProviderIDForGame resolves the effective provider ID for a server software option.
+// This preserves legacy Minecraft Vanilla definitions that omitted jar_source.
+func ProviderIDForGame(gameID string, sw ServerSoftware) string {
+	if sw.JarSource != "" {
+		return sw.JarSource
+	}
+	if strings.EqualFold(gameID, "minecraft") && strings.EqualFold(sw.ID, "vanilla") {
+		return "mojang"
+	}
+	return ""
+}

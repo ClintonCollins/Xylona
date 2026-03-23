@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	bus *EventBus
+	bus     *EventBus
+	busOnce sync.Once
 )
 
 const (
@@ -24,12 +25,12 @@ type EventBus struct {
 }
 
 func Get() *EventBus {
-	if bus == nil {
+	busOnce.Do(func() {
 		bus = &EventBus{
 			subscribers:   make(map[string][]chan any, 10),
 			reliableChans: make(map[chan any]bool),
 		}
-	}
+	})
 	return bus
 }
 

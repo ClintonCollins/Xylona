@@ -52,6 +52,7 @@
               </q-tooltip>
             </q-btn>
             <q-btn
+              v-if="showUpdateButton"
               class="update-server-btn"
               :disable="disableUpdateButton || !hasPermission('game_server.settings')"
               :loading="updatingServer"
@@ -102,15 +103,6 @@
                 <span class="update-dot"></span>
                 {{ gameServer.versionInfo.installedVersion }} &rarr;
                 {{ gameServer.versionInfo.latestVersion }}
-              </div>
-              <!-- Check for updates button -->
-              <div
-                v-if="gameServer.versionInfo?.status !== VersionStatus.NO_TRACKER"
-                class="software-card-footer">
-                <button class="change-btn" :disabled="checkingForUpdates" @click="checkForUpdate">
-                  <q-spinner v-if="checkingForUpdates" size="0.8em" />
-                  <template v-else>Check version</template>
-                </button>
               </div>
               <div v-if="showChangeButton" class="software-card-footer">
                 <button class="change-btn" @click="softwareSelector?.openChangeDialog()">
@@ -287,14 +279,8 @@
           @click="consoleExpanded = !consoleExpanded" />
       </div>
 
-      <!-- Update Progress Panel -->
-      <update-progress-panel
-        v-if="updateInProgress"
-        :steps="updateSteps"
-        class="update-panel-in-console" />
-
       <!-- Console output -->
-      <template v-if="isServerOffline">
+      <template v-if="showConsolePlaceholder">
         <div class="console-output console-output-offline">
           <div class="offline-placeholder">
             <div class="offline-icon">
@@ -307,6 +293,11 @@
       </template>
       <template v-else>
         <q-scroll-area id="consoleContainer" ref="consoleScrollArea" class="console-scroll-area">
+          <div
+            v-if="isServerOffline && !updateInProgress && !softwareOperationInProgress"
+            class="console-status-banner">
+            Server offline.
+          </div>
           <div v-if="consoleTruncated" class="console-truncated-notice">
             Earlier output truncated
           </div>
@@ -368,16 +359,40 @@
     :game-name="gameServer.gameName"
     :current-software="gameServer.serverSoftware"
     :current-version="gameServer.version"
-    @software-changed="getGameServerDetails" />
+    @software-changed="getGameServerDetails"
+    @software-operation-state="onSoftwareOperationState" />
+
+  <operation-progress-dialog
+    v-model="updateDialogOpen"
+    title="Updating Server"
+    subtitle="Xylona will apply the update and only restart the server if it was already running."
+    :steps="updateSteps"
+    :output-lines="updateOutputLines"
+    :show-output-area="true"
+    :complete="updateDialogComplete" />
+
+  <operation-progress-dialog
+    v-model="softwareOperationOpen"
+    title="Changing Server Software"
+    subtitle="Xylona will apply the selected server software and refresh the detected version when it finishes."
+    :steps="softwareOperationSteps"
+    :context-facts="softwareOperationContextFacts"
+    :output-lines="softwareOperationOutputLines"
+    :show-output-area="true"
+    :complete="softwareOperationComplete" />
 </template>
 
 <script setup lang="ts">
 import { create, toJsonString } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import OperationProgressDialog from '@/components/game_servers/OperationProgressDialog.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
-import UpdateProgressPanel from '@/components/game_servers/UpdateProgressPanel.vue'
-import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
+import type {
+  OperationContextFact,
+  StepState,
+} from '@/components/game_servers/UpdateProgressPanel.types'
+import type { ServerSoftwareOperationEvent } from '@/components/game_servers/ServerSoftwareSelector.types'
 import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
@@ -398,8 +413,6 @@ import {
   VersionStatus,
 } from 'src/proto/shared_pb'
 import {
-  CheckForUpdateRequest,
-  CheckForUpdateRequestSchema,
   GetGameServerRequest,
   GetGameServerRequestSchema,
   GetVersionInfoRequest,
@@ -416,6 +429,13 @@ import type { UpdateProgress } from 'src/proto/xylona_pb'
 import { AllServersMetrics, Request, Request_Type, RequestSchema } from 'src/proto/websocket_pb'
 import { Code, ConnectError } from '@connectrpc/connect'
 import { parseConsole } from '@/utils/console'
+import { canShowUpdateButton } from './game-server-update-capability'
+import {
+  appendOperationOutputLines,
+  normalizeOperationOutputChunk,
+  resolveOperationOutputRoute,
+} from './operation-output'
+import { applyUpdateProgress, buildUpdateSteps, isUpdateProgressTerminal } from './update-progress'
 import {
   ConnectErrorToString,
   GetOrCreateXylonaWebsocketClient,
@@ -455,15 +475,17 @@ function scrollConsoleToBottom() {
 const startingServer = ref(false)
 const stoppingServer = ref(false)
 const updatingServer = ref(false)
-const checkingForUpdates = ref(false)
 const updateInProgress = ref(false)
-const updateSteps = ref<StepState[]>([
-  { step: UpdateStep.STOPPING, status: StepStatus.PENDING },
-  { step: UpdateStep.BACKING_UP, status: StepStatus.PENDING },
-  { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING },
-  { step: UpdateStep.INSTALLING, status: StepStatus.PENDING },
-  { step: UpdateStep.RESTARTING, status: StepStatus.PENDING },
-])
+const updateDialogOpen = ref(false)
+const updateDialogComplete = ref(false)
+const updateSteps = ref<StepState[]>(buildUpdateSteps(Status.UNKNOWN))
+const updateOutputLines = ref<string[]>([])
+const softwareOperationOpen = ref(false)
+const softwareOperationComplete = ref(false)
+const softwareOperationSteps = ref<StepState[]>([])
+const softwareOperationOutputLines = ref<string[]>([])
+const softwareOperationContextFacts = ref<OperationContextFact[]>([])
+const maxOperationOutputLines = 80
 
 const currentPlayerCount: Ref<number> = ref(0)
 const maxPlayerCount: Ref<number> = ref(0)
@@ -484,6 +506,17 @@ let uptimeTicker: ReturnType<typeof setInterval> | null = null
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 const isServerOffline = computed(
   () => gameServer.value.status === Status.OFFLINE || gameServer.value.status === Status.UNKNOWN,
+)
+const hasConsoleOutput = computed(() => gameServerOutput.value.trim().length > 0)
+const softwareOperationInProgress = computed(() =>
+  softwareOperationSteps.value.some((step) => step.status === StepStatus.IN_PROGRESS),
+)
+const showConsolePlaceholder = computed(
+  () =>
+    isServerOffline.value &&
+    !hasConsoleOutput.value &&
+    !updateInProgress.value &&
+    !softwareOperationInProgress.value,
 )
 
 const metricsMaxMemory = computed(() => Number(gameServer.value.maxMemoryMb) * 1024 * 1024)
@@ -563,6 +596,10 @@ const disableUpdateButton = computed(() => {
     gameServer.value.status === Status.UPDATING ||
     updateInProgress.value
   )
+})
+
+const showUpdateButton = computed(() => {
+  return canShowUpdateButton(gameServer.value)
 })
 
 const softwareDisplayName = computed(() => {
@@ -720,28 +757,6 @@ async function getVersionInfo() {
   }
 }
 
-async function checkForUpdate() {
-  const request: CheckForUpdateRequest = create(CheckForUpdateRequestSchema, {})
-  checkingForUpdates.value = true
-  request.gameServerId = gameServerId.value
-  try {
-    const response = await GetXylonaClient().checkForUpdate(request)
-    if (response.versionInfo) {
-      gameServer.value.versionInfo = response.versionInfo
-    }
-  } catch (e) {
-    console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to check for updates: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
-  } finally {
-    checkingForUpdates.value = false
-  }
-}
-
 async function queryGameServer() {
   const request: QueryGameServerRequest = create(QueryGameServerRequestSchema, {})
   try {
@@ -807,66 +822,152 @@ async function stopGameServer() {
 }
 
 function resetUpdateSteps() {
-  updateSteps.value = [
-    { step: UpdateStep.STOPPING, status: StepStatus.PENDING },
-    { step: UpdateStep.BACKING_UP, status: StepStatus.PENDING },
-    { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING },
-    { step: UpdateStep.INSTALLING, status: StepStatus.PENDING },
-    { step: UpdateStep.RESTARTING, status: StepStatus.PENDING },
+  updateDialogComplete.value = false
+  updateSteps.value = buildUpdateSteps(gameServer.value.status)
+  updateOutputLines.value = []
+}
+
+function buildSoftwareOperationLabel(event: ServerSoftwareOperationEvent): string {
+  if (event.versionLabel) {
+    return `${event.softwareName} ${event.versionLabel}`
+  }
+  return event.softwareName
+}
+
+function currentSoftwareOperationLabel(): string {
+  const softwareName = softwareDisplayName.value || gameServer.value.gameName
+  if (gameServer.value.version) {
+    return `${softwareName} ${gameServer.value.version}`
+  }
+  return softwareName
+}
+
+function buildSoftwareOperationContextFacts(targetLabel: string): OperationContextFact[] {
+  return [
+    { label: 'Current', value: currentSoftwareOperationLabel() },
+    { label: 'Target', value: targetLabel },
+    { label: 'Restart policy', value: 'No restart required' },
   ]
+}
+
+function baseSoftwareOperationSteps(targetLabel: string): StepState[] {
+  return [
+    {
+      step: 'software-selection',
+      label: `Selected ${targetLabel}`,
+      status: StepStatus.COMPLETED,
+    },
+    {
+      step: 'software-download',
+      label: `Downloading ${targetLabel}`,
+      status: StepStatus.IN_PROGRESS,
+    },
+    {
+      step: 'software-apply',
+      label: 'Applying server software',
+      status: StepStatus.PENDING,
+    },
+  ]
+}
+
+function setSoftwareOperationStep(stepId: string, status: StepStatus, message?: string) {
+  const stepIndex = softwareOperationSteps.value.findIndex((step) => step.step === stepId)
+  if (stepIndex < 0) {
+    return
+  }
+  softwareOperationSteps.value[stepIndex] = {
+    ...softwareOperationSteps.value[stepIndex],
+    status,
+    message,
+  }
+}
+
+function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
+  const targetLabel = buildSoftwareOperationLabel(event)
+
+  if (event.status === 'installing') {
+    softwareOperationSteps.value = baseSoftwareOperationSteps(targetLabel)
+    softwareOperationContextFacts.value = buildSoftwareOperationContextFacts(targetLabel)
+    softwareOperationOutputLines.value = []
+    softwareOperationComplete.value = false
+    softwareOperationOpen.value = true
+    return
+  }
+
+  if (softwareOperationSteps.value.length === 0) {
+    softwareOperationSteps.value = baseSoftwareOperationSteps(targetLabel)
+  }
+  if (softwareOperationContextFacts.value.length === 0) {
+    softwareOperationContextFacts.value = buildSoftwareOperationContextFacts(targetLabel)
+  }
+
+  if (event.status === 'complete') {
+    setSoftwareOperationStep('software-download', StepStatus.COMPLETED)
+    setSoftwareOperationStep('software-apply', StepStatus.COMPLETED, 'Server software changed')
+    softwareOperationComplete.value = true
+    softwareOperationOpen.value = true
+    return
+  }
+
+  setSoftwareOperationStep('software-download', StepStatus.COMPLETED)
+  setSoftwareOperationStep(
+    'software-apply',
+    StepStatus.FAILED,
+    event.error || 'Server software installation failed',
+  )
+  softwareOperationComplete.value = true
+  softwareOperationOpen.value = true
+}
+
+function appendOutputLines(target: typeof updateOutputLines, output: string) {
+  target.value = appendOperationOutputLines(target.value, output, maxOperationOutputLines)
+}
+
+function captureOperationOutput(output: string): boolean {
+  if (normalizeOperationOutputChunk(output).length === 0) {
+    return false
+  }
+
+  const route = resolveOperationOutputRoute({
+    isServerOffline: isServerOffline.value,
+    updateInProgress: updateInProgress.value,
+    softwareOperationInProgress: softwareOperationInProgress.value,
+  })
+
+  if (route === 'software') {
+    appendOutputLines(softwareOperationOutputLines, output)
+    softwareOperationOpen.value = true
+    return true
+  }
+
+  if (route === 'update') {
+    appendOutputLines(updateOutputLines, output)
+    updateDialogOpen.value = true
+    return true
+  }
+
+  if (route === 'discard') {
+    return true
+  }
+
+  return false
 }
 
 function onUpdateProgress(progress: UpdateProgress) {
   if (progress.gameServerId !== gameServerId.value) return
 
-  const existingIdx = updateSteps.value.findIndex((s) => s.step === progress.step)
-  const newState: StepState = {
-    step: progress.step,
-    status: progress.stepStatus,
-    message: progress.message || undefined,
-  }
-  if (existingIdx >= 0) {
-    updateSteps.value[existingIdx] = newState
-  } else {
-    updateSteps.value.push(newState)
-  }
+  updateSteps.value = applyUpdateProgress(updateSteps.value, progress)
 
-  if (progress.step === UpdateStep.RESTARTING && progress.stepStatus === StepStatus.COMPLETED) {
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      message: 'Update complete',
-      icon: 'check_circle',
-    })
+  if (isUpdateProgressTerminal(progress, updateSteps.value)) {
     updateInProgress.value = false
-    resetUpdateSteps()
-    void getGameServerDetails()
-  } else if (
-    progress.step === UpdateStep.ROLLING_BACK &&
-    progress.stepStatus === StepStatus.COMPLETED
-  ) {
-    $q.notify({
-      type: 'negative',
-      position: 'top',
-      message: 'Update failed — rolled back to previous version',
-      icon: 'error',
-    })
-    updateInProgress.value = false
-    resetUpdateSteps()
-  } else if (
-    progress.stepStatus === StepStatus.FAILED &&
-    progress.step !== UpdateStep.INSTALLING &&
-    progress.step !== UpdateStep.RESTARTING
-  ) {
-    // Terminal failure without rollback (e.g. BACKING_UP FAILED). INSTALLING and
-    // RESTARTING failures trigger a rollback sequence handled above.
-    $q.notify({
-      type: 'negative',
-      position: 'top',
-      message: progress.message || 'Update failed',
-      icon: 'error',
-    })
-    updateInProgress.value = false
+    updateDialogComplete.value = true
+    updateDialogOpen.value = true
+    if (
+      progress.step === UpdateStep.RESTARTING ||
+      (progress.step === UpdateStep.INSTALLING && progress.stepStatus === StepStatus.COMPLETED)
+    ) {
+      void getGameServerDetails()
+    }
   }
 }
 
@@ -907,6 +1008,7 @@ async function updateGameServer() {
     await GetXylonaClient().updateGameServer(request)
     resetUpdateSteps()
     updateInProgress.value = true
+    updateDialogOpen.value = true
   } catch (e) {
     console.error(e)
     $q.notify({
@@ -926,6 +1028,9 @@ async function getGameServerOutput() {
     request.serverId = gameServerId.value
     const response: ReadGameServerOutputResponse =
       await GetXylonaClient().readGameServerOutput(request)
+    if (captureOperationOutput(response.output)) {
+      return
+    }
     const combined = gameServerOutput.value + parseConsole(gameServer.value.gameId, response.output)
     if (combined.length > maxConsoleCharacters) {
       consoleTruncated.value = true
@@ -977,6 +1082,9 @@ function streamGameServerOutput() {
   // Stream game server output.
   XylonaEventBus.on('gameServerConsoleOutput', (serverID: string, output: string) => {
     if (serverID !== gameServerId.value) {
+      return
+    }
+    if (captureOperationOutput(output)) {
       return
     }
     const combined = gameServerOutput.value + parseConsole(gameServer.value.gameId, output)
@@ -1546,6 +1654,15 @@ async function sendGameServerInput() {
   text-align: center;
   padding: var(--xy-space-xs) 0;
   border-bottom: 1px solid var(--xy-border);
+}
+
+.console-status-banner {
+  font-family: var(--xy-font-mono);
+  font-size: 0.75rem;
+  color: var(--xy-accent);
+  padding: var(--xy-space-xs) 0;
+  border-bottom: 1px solid var(--xy-border);
+  margin-bottom: var(--xy-space-xs);
 }
 
 .console-scroll-area :deep(#consoleCodeEl) {

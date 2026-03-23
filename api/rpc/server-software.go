@@ -49,10 +49,11 @@ func (xs *XylonaService) GetServerSoftwareOptions(
 
 	var options []*xylona.ServerSoftwareOption
 	for _, sw := range allSoftware {
+		providerID := modmanager.ProviderIDForGame(game.ID, sw)
 		options = append(options, &xylona.ServerSoftwareOption{
 			Id:            sw.ID,
 			Name:          sw.Name,
-			JarSource:     sw.JarSource,
+			JarSource:     providerID,
 			HasModSupport: sw.ModConfig != nil,
 		})
 	}
@@ -93,16 +94,17 @@ func (xs *XylonaService) GetServerSoftwareVersions(
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("software option not found: %s", request.Msg.GetSoftwareId()))
 	}
 
-	if sw.JarSource == "" {
+	providerID := modmanager.ProviderIDForGame(game.ID, *sw)
+	if providerID == "" {
 		return &connect.Response[xylona.GetServerSoftwareVersionsResponse]{
 			Msg: &xylona.GetServerSoftwareVersionsResponse{},
 		}, nil
 	}
 
 	// Use the jar source as the provider ID to get available game versions.
-	provider, ok := modproviders.GetProvider(sw.JarSource)
+	provider, ok := modproviders.GetProvider(providerID)
 	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("jar source provider not found: %s", sw.JarSource))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("jar source provider not found: %s", providerID))
 	}
 
 	// For jar source providers like PaperMC, GetModDetails returns the project
@@ -111,7 +113,7 @@ func (xs *XylonaService) GetServerSoftwareVersions(
 	// select, not individual builds.
 	details, errDetails := provider.GetModDetails(ctx, sw.ID, nil)
 	if errDetails != nil {
-		log.Error().Err(errDetails).Str("jar_source", sw.JarSource).Msg("Failed to get software versions")
+		log.Error().Err(errDetails).Str("jar_source", providerID).Msg("Failed to get software versions")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get software versions"))
 	}
 
@@ -195,6 +197,11 @@ func (xs *XylonaService) SetServerSoftware(
 
 	gameServerID := gameServer.ID
 	softwareID := request.Msg.GetSoftwareId()
+	logConsoleOutput := func(message string) {
+		if xs.supervisorInst != nil {
+			xs.supervisorInst.SendConsoleOutput(gameServerID, message)
+		}
+	}
 
 	// Reject if an install is already in progress.
 	if xs.installTracker.IsInstalling(gameServerID) {
@@ -227,8 +234,15 @@ func (xs *XylonaService) SetServerSoftware(
 	}
 	modCount := int32(len(installedMods))
 
+	providerID := modmanager.ProviderIDForGame(game.ID, *sw)
+	selectedLabel := sw.Name
+	if requestedVersion := request.Msg.GetVersionId(); requestedVersion != "" {
+		selectedLabel = fmt.Sprintf("%s %s", sw.Name, requestedVersion)
+	}
+
 	// If the software has no jar source, update the DB immediately.
-	if sw.JarSource == "" {
+	if providerID == "" {
+		logConsoleOutput(fmt.Sprintf("Changing server software to %s", selectedLabel))
 		setter := &models.GameServerSetter{
 			ID:               omit.From(gameServerID),
 			ServerSoftware:   omitnull.From(softwareID),
@@ -243,6 +257,7 @@ func (xs *XylonaService) SetServerSoftware(
 		if xs.installBroadcast != nil {
 			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusComplete, softwareID, "")
 		}
+		logConsoleOutput(fmt.Sprintf("Server software changed to %s", selectedLabel))
 		return &connect.Response[xylona.SetServerSoftwareResponse]{
 			Msg: &xylona.SetServerSoftwareResponse{
 				GameServer:        helpers.GameServerModelToProto(updated, xs.versionState),
@@ -254,15 +269,16 @@ func (xs *XylonaService) SetServerSoftware(
 
 	// Software has a jar source — kick off a background download.
 	xs.installTracker.SetInstalling(gameServerID, softwareID)
+	logConsoleOutput(fmt.Sprintf("Starting server software change to %s", selectedLabel))
 
 	if xs.installBroadcast != nil {
 		xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusInstalling, softwareID, "")
 	}
 
-	provider, ok := modproviders.GetProvider(sw.JarSource)
+	provider, ok := modproviders.GetProvider(providerID)
 	if !ok {
-		xs.installTracker.SetFailed(gameServerID, "jar source provider not found: "+sw.JarSource)
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("jar source provider not found: %s", sw.JarSource))
+		xs.installTracker.SetFailed(gameServerID, "jar source provider not found: "+providerID)
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("jar source provider not found: %s", providerID))
 	}
 
 	requestedVersionID := request.Msg.GetVersionId()
@@ -274,15 +290,20 @@ func (xs *XylonaService) SetServerSoftware(
 		// but providers like PaperMC expect a version-build ID (e.g., "1.21.4-100") for
 		// download. Resolve the game version to the latest build via GetVersions.
 		downloadVersionID := requestedVersionID
+		if requestedVersionID != "" {
+			logConsoleOutput(fmt.Sprintf("Resolving latest build for %s", requestedVersionID))
+		}
 		builds, errBuilds := provider.GetVersions(downloadCtx, sw.ID, requestedVersionID, nil)
 		if errBuilds == nil && len(builds) > 0 {
 			// Use the last build (newest) — GetVersions returns oldest-first for PaperMC.
 			downloadVersionID = builds[len(builds)-1].VersionID
 		}
 
+		logConsoleOutput(fmt.Sprintf("Downloading server software files for %s", selectedLabel))
 		files, errDownload := provider.Download(downloadCtx, sw.ID, downloadVersionID, gameServer.Directory)
 		if errDownload != nil {
 			xs.installTracker.SetFailed(gameServerID, errDownload.Error())
+			logConsoleOutput(fmt.Sprintf("Server software installation failed: %s", errDownload.Error()))
 			if xs.installBroadcast != nil {
 				xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusFailed, softwareID, errDownload.Error())
 			}
@@ -305,6 +326,7 @@ func (xs *XylonaService) SetServerSoftware(
 			_ = os.Remove(oldPath) // Best effort
 		}
 
+		logConsoleOutput("Applying downloaded server software")
 		// Update DB with new software and executable.
 		setter := &models.GameServerSetter{
 			ID:               omit.From(gameServerID),
@@ -314,6 +336,7 @@ func (xs *XylonaService) SetServerSoftware(
 		_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 		if errUpdate != nil {
 			xs.installTracker.SetFailed(gameServerID, errUpdate.Error())
+			logConsoleOutput(fmt.Sprintf("Server software installation failed: %s", errUpdate.Error()))
 			if xs.installBroadcast != nil {
 				xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusFailed, softwareID, errUpdate.Error())
 			}
@@ -321,6 +344,7 @@ func (xs *XylonaService) SetServerSoftware(
 		}
 
 		xs.installTracker.SetComplete(gameServerID)
+		logConsoleOutput(fmt.Sprintf("Server software changed to %s", selectedLabel))
 		if xs.installBroadcast != nil {
 			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusComplete, softwareID, "")
 		}

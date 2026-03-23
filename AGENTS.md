@@ -278,6 +278,18 @@ For complex changes, run tests with coverage to ensure adequate coverage:
 pnpm --dir frontend run test:coverage
 ```
 
+## Visual Change Policy
+
+- Purely visual/frontend presentation changes do not require automated tests by default.
+- Only add or run tests for visual-only changes when explicitly requested.
+- Non-test verification is still expected when appropriate (for example: lint, formatting, build, browser/manual verification).
+- If a visual change also alters behavior, state, validation, data flow, or business logic, follow the normal testing requirements.
+
+## Local Panel Auth
+
+- For local browser verification, the agent may read `XYLONA_ADMIN_USERNAME` and `XYLONA_ADMIN_PASSWORD` from `.env` and use them to sign into the locally running Xylona panel when needed.
+- Never print, log, or commit these credentials.
+
 ## E2E Testing
 
 Xylona has two Playwright E2E test suites: **single-node** (standard) and **federation** (two-node).

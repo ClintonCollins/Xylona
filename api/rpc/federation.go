@@ -926,11 +926,26 @@ func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *con
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
 
-	fs.actionsInst.UpdateGameServer(gs)
+	errUpdate := fs.actionsInst.UpdateGameServer(gs)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).Str("server_id", serverID).Msg("Failed to update game server")
+		return nil, connect.NewError(federationUpdateErrorCode(errUpdate), errUpdate)
+	}
 
 	return connect.NewResponse(&xylona.FederationRemoteActionResponse{
 		Success: true,
 	}), nil
+}
+
+func federationUpdateErrorCode(err error) connect.Code {
+	switch {
+	case errors.Is(err, actions.ErrMinecraftVariantUpdateNotSupported),
+		errors.Is(err, actions.ErrGameUpdateNotConfigured),
+		errors.Is(err, actions.ErrInternalGameUpdateMissing):
+		return connect.CodeFailedPrecondition
+	default:
+		return connect.CodeInternal
+	}
 }
 
 func (fs FederationService) GetRemoteVersionInfo(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {

@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { UpdateStep, StepStatus } from '@/proto/xylona_pb'
-import type { StepState } from './UpdateProgressPanel.types'
+import type { OperationContextFact, StepState } from './UpdateProgressPanel.types'
 import UpdateProgressPanel from './UpdateProgressPanel.vue'
 
 const QUASAR_STUBS = {
@@ -9,99 +9,178 @@ const QUASAR_STUBS = {
   'q-spinner': { props: ['color', 'size'], template: '<span class="q-spinner-stub" />' },
 } as Record<string, unknown>
 
-function makeSteps(overrides: Partial<Record<UpdateStep, StepStatus>> = {}): StepState[] {
-  const defaults: Partial<Record<UpdateStep, StepStatus>> = {
-    [UpdateStep.STOPPING]: StepStatus.PENDING,
-    [UpdateStep.BACKING_UP]: StepStatus.PENDING,
-    [UpdateStep.DOWNLOADING]: StepStatus.PENDING,
-    [UpdateStep.INSTALLING]: StepStatus.PENDING,
-    [UpdateStep.RESTARTING]: StepStatus.PENDING,
-  }
-  const merged = { ...defaults, ...overrides }
-  return [
-    { step: UpdateStep.STOPPING, status: merged[UpdateStep.STOPPING] ?? StepStatus.PENDING },
-    { step: UpdateStep.BACKING_UP, status: merged[UpdateStep.BACKING_UP] ?? StepStatus.PENDING },
-    { step: UpdateStep.DOWNLOADING, status: merged[UpdateStep.DOWNLOADING] ?? StepStatus.PENDING },
-    { step: UpdateStep.INSTALLING, status: merged[UpdateStep.INSTALLING] ?? StepStatus.PENDING },
-    { step: UpdateStep.RESTARTING, status: merged[UpdateStep.RESTARTING] ?? StepStatus.PENDING },
-  ]
-}
-
-function mountPanel(steps: StepState[]) {
+function mountPanel(
+  steps: StepState[],
+  options?: {
+    contextFacts?: OperationContextFact[]
+    outputLines?: string[]
+    showNavigateAwayMessage?: boolean
+  },
+) {
   return mount(UpdateProgressPanel, {
-    props: { steps },
+    props: {
+      steps,
+      contextFacts: options?.contextFacts,
+      outputLines: options?.outputLines,
+      showNavigateAwayMessage: options?.showNavigateAwayMessage,
+    },
     global: { stubs: QUASAR_STUBS },
   })
 }
 
 describe('UpdateProgressPanel', () => {
-  it('renders a step for each of the 5 main update steps', () => {
-    const wrapper = mountPanel(makeSteps())
-    expect(wrapper.find('.update-progress-panel').exists()).toBe(true)
-    expect(wrapper.findAll('.update-step')).toHaveLength(5)
-    expect(wrapper.text()).toContain('Stopping')
-    expect(wrapper.text()).toContain('Backing Up')
-    expect(wrapper.text()).toContain('Downloading')
-    expect(wrapper.text()).toContain('Installing')
-    expect(wrapper.text()).toContain('Restarting')
+  it('renders a timeline with an active-event summary for short operations', () => {
+    const wrapper = mountPanel([
+      {
+        step: UpdateStep.DOWNLOADING,
+        label: 'Download update package',
+        status: StepStatus.COMPLETED,
+      },
+      {
+        step: UpdateStep.INSTALLING,
+        label: 'Apply updated files',
+        status: StepStatus.IN_PROGRESS,
+        message: 'The update is being written into place now.',
+      },
+      {
+        step: UpdateStep.RESTARTING,
+        label: 'Publish updated state',
+        status: StepStatus.PENDING,
+      },
+    ])
+
+    expect(wrapper.find('.operation-timeline-panel').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Active event')
+    expect(wrapper.text()).toContain('Apply updated files')
+    expect(wrapper.text()).toContain('Next: Publish updated state')
+    expect(wrapper.findAll('.operation-timeline-entry')).toHaveLength(3)
+    expect(wrapper.find('.q-spinner-stub').exists()).toBe(true)
+    expect(wrapper.find('.operation-timeline-icon--complete').exists()).toBe(true)
   })
 
-  it('shows "safely navigate away" text', () => {
-    const wrapper = mountPanel(makeSteps())
-    expect(wrapper.text()).toContain('safely navigate away')
+  it('omits the context rail when no facts are provided', () => {
+    const wrapper = mountPanel([
+      {
+        step: UpdateStep.INSTALLING,
+        label: 'Apply updated files',
+        status: StepStatus.IN_PROGRESS,
+      },
+    ])
+
+    expect(wrapper.find('.operation-context-rail').exists()).toBe(false)
+    expect(wrapper.find('.operation-timeline-desc--placeholder').exists()).toBe(true)
   })
 
-  it('renders a spinner for in-progress steps', () => {
-    const wrapper = mountPanel(makeSteps({ [UpdateStep.DOWNLOADING]: StepStatus.IN_PROGRESS }))
-    const inProgressStep = wrapper
-      .findAll('.update-step')
-      .find((el) => el.text().includes('Downloading'))
-    expect(inProgressStep).toBeDefined()
-    if (inProgressStep) {
-      expect(inProgressStep.find('.step-icon--in-progress').exists()).toBe(true)
-    }
-  })
-
-  it('renders a checkmark for completed steps', () => {
+  it('renders the optional context rail when facts are provided', () => {
     const wrapper = mountPanel(
-      makeSteps({
-        [UpdateStep.STOPPING]: StepStatus.COMPLETED,
-        [UpdateStep.BACKING_UP]: StepStatus.COMPLETED,
-      }),
+      [
+        {
+          step: 'software-apply',
+          label: 'Apply selected server software',
+          status: StepStatus.IN_PROGRESS,
+        },
+      ],
+      {
+        contextFacts: [
+          { label: 'Current', value: 'Vanilla 1.21.1' },
+          { label: 'Target', value: 'Paper 1.21.5-28' },
+        ],
+      },
     )
-    const stoppingStep = wrapper
-      .findAll('.update-step')
-      .find((el) => el.text().includes('Stopping'))
-    expect(stoppingStep).toBeDefined()
-    if (stoppingStep) {
-      expect(stoppingStep.find('.step-icon--completed').exists()).toBe(true)
-    }
 
-    const backingUpStep = wrapper
-      .findAll('.update-step')
-      .find((el) => el.text().includes('Backing Up'))
-    expect(backingUpStep).toBeDefined()
-    if (backingUpStep) {
-      expect(backingUpStep.find('.step-icon--completed').exists()).toBe(true)
-    }
+    expect(wrapper.find('.operation-context-rail').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Current')
+    expect(wrapper.text()).toContain('Paper 1.21.5-28')
   })
 
-  it('renders an error icon for failed steps', () => {
-    const wrapper = mountPanel(makeSteps({ [UpdateStep.INSTALLING]: StepStatus.FAILED }))
-    const installingStep = wrapper
-      .findAll('.update-step')
-      .find((el) => el.text().includes('Installing'))
-    expect(installingStep).toBeDefined()
-    if (installingStep) {
-      expect(installingStep.find('.step-icon--failed').exists()).toBe(true)
-    }
+  it('keeps operation output collapsed until requested', async () => {
+    const wrapper = mountPanel(
+      [
+        {
+          step: UpdateStep.INSTALLING,
+          label: 'Apply updated files',
+          status: StepStatus.IN_PROGRESS,
+        },
+      ],
+      {
+        outputLines: ['[Xylona] Downloading update', '[Xylona] Applying update'],
+      },
+    )
+
+    expect(wrapper.find('.operation-output-toggle').exists()).toBe(true)
+    expect(wrapper.find('.operation-output-lines').exists()).toBe(false)
+    expect(wrapper.text()).toContain('2 lines available')
+
+    await wrapper.get('.operation-output-toggle').trigger('click')
+
+    expect(wrapper.find('.operation-output-lines').exists()).toBe(true)
+    expect(wrapper.text()).toContain('[Xylona] Applying update')
   })
 
-  it('renders pending steps with dimmed styling', () => {
-    const wrapper = mountPanel(makeSteps())
-    const allSteps = wrapper.findAll('.update-step')
-    allSteps.forEach((step) => {
-      expect(step.find('.step-icon--pending').exists()).toBe(true)
+  it('omits the output section when there is no operation output', () => {
+    const wrapper = mountPanel([
+      {
+        step: UpdateStep.INSTALLING,
+        label: 'Apply updated files',
+        status: StepStatus.IN_PROGRESS,
+      },
+    ])
+
+    expect(wrapper.find('.operation-output-toggle').exists()).toBe(false)
+  })
+
+  it('can reserve output space before any lines arrive', () => {
+    const wrapper = mount(UpdateProgressPanel, {
+      props: {
+        steps: [
+          {
+            step: UpdateStep.INSTALLING,
+            label: 'Apply updated files',
+            status: StepStatus.IN_PROGRESS,
+          },
+        ],
+        showOutputArea: true,
+      },
+      global: { stubs: QUASAR_STUBS },
     })
+
+    expect(wrapper.find('.operation-output-toggle').exists()).toBe(true)
+    expect(wrapper.text()).toContain('No operation output yet')
+  })
+
+  it('keeps the top status band visible after the operation completes', () => {
+    const wrapper = mountPanel([
+      {
+        step: UpdateStep.DOWNLOADING,
+        label: 'Download update package',
+        status: StepStatus.COMPLETED,
+      },
+      {
+        step: UpdateStep.INSTALLING,
+        label: 'Apply updated files',
+        status: StepStatus.COMPLETED,
+        message: 'Update installed',
+      },
+    ])
+
+    expect(wrapper.find('.operation-active-band').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Operation complete')
+    expect(wrapper.text()).toContain('Apply updated files')
+    expect(wrapper.text()).toContain('You can close this dialog whenever you are ready')
+  })
+
+  it('can hide the navigate-away helper copy', () => {
+    const wrapper = mountPanel(
+      [
+        {
+          step: UpdateStep.INSTALLING,
+          label: 'Apply updated files',
+          status: StepStatus.IN_PROGRESS,
+        },
+      ],
+      { showNavigateAwayMessage: false },
+    )
+
+    expect(wrapper.text()).not.toContain('safely navigate away')
   })
 })

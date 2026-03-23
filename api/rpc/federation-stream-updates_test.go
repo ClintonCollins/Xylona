@@ -193,7 +193,7 @@ func TestStreamServerUpdates_StatusChangeEvent(t *testing.T) {
 	// give the handler time to register its status listener.
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		supervisor.TriggerStatusNotification(supervisorInst, "server-local-1", xylona.Status_ONLINE)
+		supervisor.TriggerStatusNotification(supervisorInst, "server-local-1", xylona.Status_OFFLINE, xylona.Status_ONLINE)
 	}()
 
 	// The next message on the stream should be a StatusChange event.

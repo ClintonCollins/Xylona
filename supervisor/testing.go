@@ -92,10 +92,10 @@ func UpdateCommandMetrics(
 // identified by serverID, causing all registered status listeners to receive
 // the update. This is a test-only helper that allows RPC-layer tests to
 // simulate status changes without starting a real OS process.
-func TriggerStatusNotification(inst *Instance, serverID string, status xylona.Status) {
+func TriggerStatusNotification(inst *Instance, serverID string, oldStatus, newStatus xylona.Status) {
 	cmd, errGet := inst.GetCommandByID(serverID)
 	if errGet != nil {
 		return
 	}
-	cmd.sendJobStatusNotification(status)
+	cmd.sendJobStatusNotification(oldStatus, newStatus)
 }

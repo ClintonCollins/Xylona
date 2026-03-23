@@ -52,34 +52,36 @@ type Instance struct {
 }
 
 type Command struct {
-	ID                    string
-	User                  string
-	FullCommandAndArgs    string
-	InternalCommand       bool
-	internalCommandStdOut io.Writer
-	internalCommandStdErr io.Writer
-	internalGameServer    *models.GameServer
-	gameID                *string
-	unixStartedAt         int64
-	status                xylona.Status
-	serviceID             string
-	currentCMD            *exec.Cmd
-	outputListeners       map[string]chan *xylona.Message
-	outputListenersLock   *sync.RWMutex
-	statusListeners       map[string]chan *xylona.GameServerStatusUpdate
-	statusListenersLock   *sync.RWMutex
-	inputMethod           InputMethod
-	stdInWriter           io.Writer
-	combinedOutput        io.Reader
-	stdout                io.Reader
-	stderr                io.Reader
-	telnetConn            *telnet.Conn
-	outBuffer             string
-	instanceCtx           context.Context
-	processCtx            context.Context
-	processCtxCancel      context.CancelFunc
-	toggleOutputType      chan struct{}
-	runAfterStartup       func(job *Command)
+	ID                            string
+	User                          string
+	FullCommandAndArgs            string
+	InternalCommand               bool
+	nodeID                        string
+	internalCommandStdOut         io.Writer
+	internalCommandStdErr         io.Writer
+	internalGameServer            *models.GameServer
+	gameID                        *string
+	unixStartedAt                 int64
+	status                        xylona.Status
+	serviceID                     string
+	currentCMD                    *exec.Cmd
+	outputListeners               map[string]chan *xylona.Message
+	outputListenersLock           *sync.RWMutex
+	statusListeners               map[string]chan *xylona.GameServerStatusUpdate
+	statusListenersLock           *sync.RWMutex
+	inputMethod                   InputMethod
+	stdInWriter                   io.Writer
+	combinedOutput                io.Reader
+	stdout                        io.Reader
+	stderr                        io.Reader
+	telnetConn                    *telnet.Conn
+	outBuffer                     string
+	preserveBufferedOutputOnReuse bool
+	instanceCtx                   context.Context
+	processCtx                    context.Context
+	processCtxCancel              context.CancelFunc
+	toggleOutputType              chan struct{}
+	runAfterStartup               func(job *Command)
 	// Metrics fields (transient, not persisted to DB)
 	cpuPercent      float64
 	cpuCores        int32

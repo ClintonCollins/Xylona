@@ -106,6 +106,25 @@ func (c *Connection) GetAlertHistoryByServerID(serverID, serverNodeID string, li
 	return results, nil
 }
 
+// GetAllAlertHistory returns all alert history records (regardless of user),
+// ordered by created_at descending with pagination. Intended for superuser access.
+func (c *Connection) GetAllAlertHistory(limit, offset int) ([]*models.AlertHistory, error) {
+	results, errGet := models.AlertHistories.Query(
+		sm.OrderBy(models.AlertHistories.Columns.CreatedAt).Desc(),
+		sm.Limit(limit),
+		sm.Offset(offset),
+	).All(c.ctx, c.DB)
+	if errGet != nil {
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, nil
+		}
+		log.Error().Err(errGet).Msg("Error querying all alert history")
+		return nil, errGet
+	}
+
+	return results, nil
+}
+
 // PruneAlertHistory deletes alert history records older than the given time
 // and returns the number of deleted rows.
 func (c *Connection) PruneAlertHistory(olderThan time.Time) (int64, error) {

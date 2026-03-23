@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -333,4 +334,84 @@ func TestGetUserPermissionIDsForServers(t *testing.T) {
 			t.Errorf("GetUserPermissionIDsForServers() has unexpected key nonexistent-server")
 		}
 	})
+}
+
+func TestUserHasGlobalPermission(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-role-assignment-global-perm.sqlite")
+	seedRBACFixture(t, conn)
+
+	// Create a custom role with alerts.manage
+	_, errRole := conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role (id, name, description, is_system) VALUES (?, ?, ?, ?)`,
+		"role-alert-mgr", "Alert Manager", "Can manage alerts", false,
+	)
+	if errRole != nil {
+		t.Fatalf("failed to insert role: %v", errRole)
+	}
+
+	_, errRolePerm := conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role_permission (role_id, permission_id) VALUES (?, ?)`,
+		"role-alert-mgr", "alerts.manage",
+	)
+	if errRolePerm != nil {
+		t.Fatalf("failed to insert role_permission: %v", errRolePerm)
+	}
+
+	// Assign globally to user-other (game_server_id IS NULL)
+	errGlobal := conn.CreateUserRoleAssignment("assign-global", "user-other", "role-alert-mgr", "", "user-owner")
+	if errGlobal != nil {
+		t.Fatalf("CreateUserRoleAssignment(global) error = %v", errGlobal)
+	}
+
+	// Assign server-scoped to user-owner (game_server_id = "server-local-1")
+	errScoped := conn.CreateUserRoleAssignment("assign-scoped", "user-owner", "role-alert-mgr", "server-local-1", "user-admin")
+	if errScoped != nil {
+		t.Fatalf("CreateUserRoleAssignment(scoped) error = %v", errScoped)
+	}
+
+	tests := []struct {
+		name         string
+		userID       string
+		permissionID string
+		want         bool
+	}{
+		{
+			name:         "global assignment matches",
+			userID:       "user-other",
+			permissionID: "alerts.manage",
+			want:         true,
+		},
+		{
+			name:         "server-scoped assignment does not match global check",
+			userID:       "user-owner",
+			permissionID: "alerts.manage",
+			want:         false,
+		},
+		{
+			name:         "no assignments at all",
+			userID:       "user-admin",
+			permissionID: "alerts.manage",
+			want:         false,
+		},
+		{
+			name:         "global assignment but wrong permission",
+			userID:       "user-other",
+			permissionID: "alerts.view_history",
+			want:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, errPerm := conn.UserHasGlobalPermission(tt.userID, tt.permissionID)
+			if errPerm != nil {
+				t.Fatalf("UserHasGlobalPermission() error = %v", errPerm)
+			}
+			if got != tt.want {
+				t.Errorf("UserHasGlobalPermission() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

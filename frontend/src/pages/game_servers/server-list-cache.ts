@@ -12,6 +12,7 @@ export interface DisplayRow {
   nodeName: string
   isStale: boolean
   sourceNodeId: string
+  version: string
   versionInfo?: VersionInfo
 }
 
@@ -41,6 +42,7 @@ export function buildDisplayRows(
         nodeName,
         isStale: false,
         sourceNodeId: '',
+        version: localServer.version,
         versionInfo: localServer.versionInfo,
       }
 
@@ -73,6 +75,7 @@ export function buildDisplayRows(
       nodeName,
       isStale: remoteServer.isStale,
       sourceNodeId: sourceNodeID,
+      version: remoteServer.version,
     }
 
     if (!seenCompositeIDs.has(row.compositeId)) {

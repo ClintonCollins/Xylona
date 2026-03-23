@@ -1,11 +1,14 @@
 package versiontracker
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,6 +16,35 @@ import (
 
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+// createTestMinecraftJar creates a minimal jar in dir with a version.json
+// containing the given version string.
+func createTestMinecraftJar(t *testing.T, dir string, fileName string, version string) {
+	t.Helper()
+	jarPath := filepath.Join(dir, fileName)
+	f, errCreate := os.Create(jarPath)
+	if errCreate != nil {
+		t.Fatalf("create jar: %v", errCreate)
+	}
+	zw := zip.NewWriter(f)
+	w, errEntry := zw.Create("version.json")
+	if errEntry != nil {
+		t.Fatalf("create zip entry: %v", errEntry)
+	}
+	versionJSON := fmt.Sprintf(`{"id":"%s","name":"%s"}`, version, version)
+	_, errWrite := w.Write([]byte(versionJSON))
+	if errWrite != nil {
+		t.Fatalf("write version.json: %v", errWrite)
+	}
+	errClose := zw.Close()
+	if errClose != nil {
+		t.Fatalf("close zip writer: %v", errClose)
+	}
+	errCloseFile := f.Close()
+	if errCloseFile != nil {
+		t.Fatalf("close jar file: %v", errCloseFile)
+	}
+}
 
 // newTestPaperMCServer returns an httptest.Server that serves a static versions list
 // for the given project. It also records the last request path for inspection.
@@ -35,6 +67,23 @@ func newTestPaperMCServer(t *testing.T, project string, versions []string, reque
 	}))
 }
 
+func newTestMojangManifestServer(t *testing.T, latestRelease string, requestPath *string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requestPath != nil {
+			*requestPath = r.URL.Path
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, errWrite := fmt.Fprintf(w, `{
+			"latest": {"release": %q, "snapshot": "24w01a"},
+			"versions": []
+		}`, latestRelease)
+		if errWrite != nil {
+			t.Errorf("test server write error: %v", errWrite)
+		}
+	}))
+}
+
 // serverSoftwareJSON builds the JSON string for a single software entry.
 func serverSoftwareJSON(jarSource string) string {
 	entries := []serverSoftwareEntry{{ID: jarSource, Name: jarSource, JarSource: jarSource}}
@@ -44,9 +93,12 @@ func serverSoftwareJSON(jarSource string) string {
 
 // --- GetInstalledVersion ---
 
-func TestMinecraftTracker_GetInstalledVersion_ReturnsVersionField(t *testing.T) {
+func TestMinecraftTracker_GetInstalledVersion_ReadsVersionFromJar(t *testing.T) {
+	dir := t.TempDir()
+	createTestMinecraftJar(t, dir, "minecraft_server.jar", "1.21.4")
+
 	tracker := NewMinecraftTracker()
-	gs := &models.GameServer{Version: "1.21.4"}
+	gs := &models.GameServer{Directory: dir}
 	version, errGet := tracker.GetInstalledVersion(context.Background(), gs)
 	if errGet != nil {
 		t.Fatalf("unexpected error: %v", errGet)
@@ -56,9 +108,44 @@ func TestMinecraftTracker_GetInstalledVersion_ReturnsVersionField(t *testing.T) 
 	}
 }
 
-func TestMinecraftTracker_GetInstalledVersion_EmptyVersion(t *testing.T) {
+func TestMinecraftTracker_GetInstalledVersion_UsesServerExecutableJar(t *testing.T) {
+	dir := t.TempDir()
+	createTestMinecraftJar(t, dir, "paper-1.21.4-100.jar", "1.21.4")
+
 	tracker := NewMinecraftTracker()
-	gs := &models.GameServer{Version: ""}
+	gs := &models.GameServer{
+		Directory:        dir,
+		ServerExecutable: null.From("paper-1.21.4-100.jar"),
+	}
+	version, errGet := tracker.GetInstalledVersion(context.Background(), gs)
+	if errGet != nil {
+		t.Fatalf("unexpected error: %v", errGet)
+	}
+	if version != "1.21.4" {
+		t.Errorf("expected 1.21.4, got %s", version)
+	}
+}
+
+func TestMinecraftTracker_GetInstalledVersion_FallsBackToDBVersion(t *testing.T) {
+	dir := t.TempDir()
+	// No jar file in this directory.
+
+	tracker := NewMinecraftTracker()
+	gs := &models.GameServer{Directory: dir, Version: "1.20.0"}
+	version, errGet := tracker.GetInstalledVersion(context.Background(), gs)
+	if errGet != nil {
+		t.Fatalf("unexpected error: %v", errGet)
+	}
+	if version != "1.20.0" {
+		t.Errorf("expected 1.20.0, got %s", version)
+	}
+}
+
+func TestMinecraftTracker_GetInstalledVersion_NoJarNoDBVersion(t *testing.T) {
+	dir := t.TempDir()
+
+	tracker := NewMinecraftTracker()
+	gs := &models.GameServer{Directory: dir, Version: ""}
 	version, errGet := tracker.GetInstalledVersion(context.Background(), gs)
 	if errGet != nil {
 		t.Fatalf("unexpected error: %v", errGet)
@@ -84,6 +171,36 @@ func TestMinecraftTracker_GetLatestVersion_QueriesPaperMCAPI(t *testing.T) {
 	}
 	if version != "1.21.4" {
 		t.Errorf("expected 1.21.4, got %s", version)
+	}
+}
+
+func TestMinecraftTracker_GetLatestVersion_VanillaUsesMojangLatestRelease(t *testing.T) {
+	var paperPath string
+	paperSrv := newTestPaperMCServer(t, "paper", []string{"1.20.0", "1.21.4"}, &paperPath)
+	defer paperSrv.Close()
+
+	var mojangPath string
+	mojangSrv := newTestMojangManifestServer(t, "1.21.5", &mojangPath)
+	defer mojangSrv.Close()
+
+	tracker := newMinecraftTrackerWithURL(paperSrv.URL)
+	tracker.mojangManifestURL = mojangSrv.URL + "/mc/game/version_manifest.json"
+
+	gs := &models.GameServer{
+		ServerSoftware: null.From("vanilla"),
+	}
+	version, errLatest := tracker.GetLatestVersion(context.Background(), gs)
+	if errLatest != nil {
+		t.Fatalf("unexpected error: %v", errLatest)
+	}
+	if version != "1.21.5" {
+		t.Errorf("expected 1.21.5, got %s", version)
+	}
+	if mojangPath != "/mc/game/version_manifest.json" {
+		t.Errorf("expected request to /mc/game/version_manifest.json, got %s", mojangPath)
+	}
+	if paperPath != "" {
+		t.Errorf("expected no PaperMC request for vanilla, got %s", paperPath)
 	}
 }
 
@@ -214,7 +331,7 @@ func TestMinecraftTracker_GetLatestVersion_RejectsOversizedResponses(t *testing.
 		_, errWrite := fmt.Fprintf(
 			w,
 			`{"project_id":"paper","project_name":"paper","versions":["%s"]}`,
-			strings.Repeat("x", (maxPaperMCResponseBytes)+128),
+			strings.Repeat("x", maxVersionAPIResponseBytes+128),
 		)
 		if errWrite != nil {
 			t.Errorf("test server write error: %v", errWrite)
@@ -237,9 +354,12 @@ func TestMinecraftTracker_CheckForUpdate_UpdateAvailable(t *testing.T) {
 	srv := newTestPaperMCServer(t, "paper", []string{"1.20.0", "1.21.4"}, nil)
 	defer srv.Close()
 
+	dir := t.TempDir()
+	createTestMinecraftJar(t, dir, "minecraft_server.jar", "1.20.0")
+
 	tracker := newMinecraftTrackerWithURL(srv.URL)
 	gs := &models.GameServer{
-		Version:        "1.20.0",
+		Directory:      dir,
 		ServerSoftware: null.From(serverSoftwareJSON("paper")),
 	}
 	info, errCheck := tracker.CheckForUpdate(context.Background(), gs)
@@ -264,9 +384,12 @@ func TestMinecraftTracker_CheckForUpdate_UpToDate(t *testing.T) {
 	srv := newTestPaperMCServer(t, "paper", []string{"1.21.4"}, nil)
 	defer srv.Close()
 
+	dir := t.TempDir()
+	createTestMinecraftJar(t, dir, "minecraft_server.jar", "1.21.4")
+
 	tracker := newMinecraftTrackerWithURL(srv.URL)
 	gs := &models.GameServer{
-		Version:        "1.21.4",
+		Directory:      dir,
 		ServerSoftware: null.From(serverSoftwareJSON("paper")),
 	}
 	info, errCheck := tracker.CheckForUpdate(context.Background(), gs)
@@ -278,12 +401,16 @@ func TestMinecraftTracker_CheckForUpdate_UpToDate(t *testing.T) {
 	}
 }
 
-func TestMinecraftTracker_CheckForUpdate_TrimsWhitespaceBeforeComparing(t *testing.T) {
+func TestMinecraftTracker_CheckForUpdate_NoJarFallsBackToDBVersion(t *testing.T) {
 	srv := newTestPaperMCServer(t, "paper", []string{"1.21.4"}, nil)
 	defer srv.Close()
 
+	dir := t.TempDir()
+	// No jar — falls back to gs.Version from DB.
+
 	tracker := newMinecraftTrackerWithURL(srv.URL)
 	gs := &models.GameServer{
+		Directory:      dir,
 		Version:        " 1.21.4 \n",
 		ServerSoftware: null.From(serverSoftwareJSON("paper")),
 	}
@@ -301,8 +428,12 @@ func TestMinecraftTracker_CheckForUpdate_EmptyInstalled(t *testing.T) {
 	srv := newTestPaperMCServer(t, "paper", []string{"1.21.4"}, nil)
 	defer srv.Close()
 
+	dir := t.TempDir()
+	// No jar, empty DB version → can't determine installed.
+
 	tracker := newMinecraftTrackerWithURL(srv.URL)
 	gs := &models.GameServer{
+		Directory:      dir,
 		Version:        "",
 		ServerSoftware: null.From(serverSoftwareJSON("paper")),
 	}
@@ -320,9 +451,12 @@ func TestMinecraftTracker_CheckForUpdate_EmptyLatest(t *testing.T) {
 	srv := newTestPaperMCServer(t, "paper", []string{}, nil)
 	defer srv.Close()
 
+	dir := t.TempDir()
+	createTestMinecraftJar(t, dir, "minecraft_server.jar", "1.21.4")
+
 	tracker := newMinecraftTrackerWithURL(srv.URL)
 	gs := &models.GameServer{
-		Version:        "1.21.4",
+		Directory:      dir,
 		ServerSoftware: null.From(serverSoftwareJSON("paper")),
 	}
 	info, errCheck := tracker.CheckForUpdate(context.Background(), gs)

@@ -85,25 +85,6 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
-    <div v-if="installStatus === 'installing'" class="install-progress">
-      <q-spinner color="accent" size="18px" class="install-progress-spinner" />
-      <span class="install-progress-text">Installing server software...</span>
-    </div>
-
-    <div v-if="installStatus === 'failed'" class="install-error">
-      <q-icon name="error_outline" size="18px" color="negative" class="install-error-icon" />
-      <span class="install-error-text">{{ installError || 'Installation failed.' }}</span>
-      <q-btn
-        flat
-        dense
-        no-caps
-        size="sm"
-        label="Retry"
-        color="primary"
-        class="install-error-retry"
-        @click="resetInstallStatus" />
-    </div>
   </div>
 </template>
 
@@ -111,7 +92,7 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import {
   GetServerSoftwareOptionsRequestSchema,
@@ -120,8 +101,8 @@ import {
   SetServerSoftwareRequestSchema,
 } from '@/proto/xylona_pb'
 import type { ServerSoftwareOption, SoftwareVersion } from '@/proto/shared_pb'
-import { GetXylonaClient } from '@/utils/shared'
-import { useServerSoftwareInstall } from 'src/composables/useServerSoftwareInstall'
+import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import type { ServerSoftwareOperationEvent } from './ServerSoftwareSelector.types'
 
 interface Props {
   gameServerId: string
@@ -134,6 +115,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   'software-changed': []
+  'software-operation-state': [event: ServerSoftwareOperationEvent]
 }>()
 
 const $q = useQuasar()
@@ -147,7 +129,6 @@ const loadingVersions = ref(false)
 const saving = ref(false)
 const showChangeDialog = ref(false)
 const installStatus = ref<'idle' | 'installing' | 'complete' | 'failed'>('idle')
-const installError = ref('')
 
 const softwareSelectOptions = computed(() =>
   softwareOptions.value.map((opt) => ({
@@ -199,6 +180,14 @@ const latestVersion = computed(() => {
   return versions.value[0].versionString || versions.value[0].versionId
 })
 
+const selectedVersionLabel = computed(() => {
+  if (selectedVersionId.value === '') {
+    return ''
+  }
+  const found = versions.value.find((version) => version.versionId === selectedVersionId.value)
+  return found?.versionString || found?.versionId || selectedVersionId.value
+})
+
 const hasUpdate = computed(() => {
   // Guard: don't show update available if version is unknown, empty,
   // or if the current software has no jar source (nothing to update).
@@ -216,20 +205,15 @@ const hasUpdate = computed(() => {
   return versionStrings[0] !== props.currentVersion
 })
 
-useServerSoftwareInstall((gameServerId, status) => {
-  if (gameServerId !== props.gameServerId) return
-  if (status === 'complete') {
-    installStatus.value = 'idle'
-    void fetchSoftwareOptions()
-    emit('software-changed')
-  } else if (status === 'failed') {
-    installStatus.value = 'failed'
-  }
-})
-
 onMounted(async () => {
+  XylonaEventBus.on('serverSoftwareInstall', handleInstallEvent)
+
   await fetchSoftwareOptions()
   await checkInstallStatus()
+})
+
+onUnmounted(() => {
+  XylonaEventBus.off('serverSoftwareInstall', handleInstallEvent)
 })
 
 function openChangeDialog(): void {
@@ -243,11 +227,6 @@ function cancelChangeDialog(): void {
   showChangeDialog.value = false
 }
 
-function resetInstallStatus(): void {
-  installStatus.value = 'idle'
-  installError.value = ''
-}
-
 async function checkInstallStatus(): Promise<void> {
   try {
     const response = await GetXylonaClient().getServerSoftwareStatus(
@@ -257,9 +236,10 @@ async function checkInstallStatus(): Promise<void> {
     )
     if (response.status === 'installing') {
       installStatus.value = 'installing'
+      emitOperationState('installing', response.softwareId)
     } else if (response.status === 'failed') {
       installStatus.value = 'failed'
-      installError.value = response.error
+      emitOperationState('failed', response.softwareId, response.error)
     }
   } catch {
     // Non-critical — ignore
@@ -346,33 +326,74 @@ async function applyServerSoftware(): Promise<void> {
 
     if (response.status === 'installing') {
       installStatus.value = 'installing'
-      if (response.installedModCount > 0) {
-        $q.notify({
-          caption: `${response.installedModCount} mod(s) are installed. They will be preserved but may not be compatible with the new software.`,
-          type: 'xylona-warning',
-          position: 'top',
-          timeout: 8000,
-        })
-      }
+      emitOperationState('installing', selectedSoftwareId.value)
     } else {
-      $q.notify({
-        caption: `Server software changed to ${selectedSoftwareName.value}`,
-        type: 'xylona-success',
-        position: 'top',
-        timeout: 5000,
-      })
+      installStatus.value = 'complete'
+      emitOperationState('complete', selectedSoftwareId.value)
       emit('software-changed')
     }
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
-    $q.notify({
-      caption: `Failed to change server software: ${err.message}`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
+    showChangeDialog.value = false
+    installStatus.value = 'failed'
+    emitOperationState('failed', selectedSoftwareId.value, err.message)
   } finally {
     saving.value = false
+  }
+}
+
+function emitOperationState(
+  status: ServerSoftwareOperationEvent['status'],
+  softwareId: string,
+  error = '',
+): void {
+  const resolvedSoftwareId = softwareId || props.currentSoftware || selectedSoftwareId.value
+  emit('software-operation-state', {
+    status,
+    softwareId: resolvedSoftwareId,
+    softwareName: resolveSoftwareName(resolvedSoftwareId),
+    versionLabel: selectedVersionLabel.value || props.currentVersion || undefined,
+    error: error || undefined,
+  })
+}
+
+function resolveSoftwareName(softwareId: string): string {
+  if (softwareId !== '') {
+    const found = softwareOptions.value.find((opt) => opt.id === softwareId)
+    if (found) {
+      return found.name
+    }
+  }
+  return currentSoftwareDisplayName.value
+}
+
+function handleInstallEvent(
+  gameServerId: string,
+  status: string,
+  error: string,
+  softwareId: string,
+): void {
+  if (gameServerId !== props.gameServerId) {
+    return
+  }
+
+  if (status === 'installing') {
+    installStatus.value = 'installing'
+    emitOperationState('installing', softwareId)
+    return
+  }
+
+  if (status === 'complete') {
+    installStatus.value = 'idle'
+    emitOperationState('complete', softwareId)
+    void fetchSoftwareOptions()
+    emit('software-changed')
+    return
+  }
+
+  if (status === 'failed') {
+    installStatus.value = 'failed'
+    emitOperationState('failed', softwareId, error)
   }
 }
 

@@ -1048,3 +1048,100 @@ func TestDeleteAlertRule_EmptyID(t *testing.T) {
 		t.Errorf("code = %v, want %v", connect.CodeOf(errDelete), connect.CodeInvalidArgument)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Half-pair rejection tests
+// ---------------------------------------------------------------------------
+
+func TestListAlertRules_HalfPairServerID(t *testing.T) {
+	fixture := newAlertRulesFixture(t)
+
+	req := connect.NewRequest(&xylona.ListAlertRulesRequest{
+		ServerId: ptrStr("server-local-1"),
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+
+	_, errList := fixture.service.ListAlertRules(context.Background(), req)
+	if errList == nil {
+		t.Fatalf("ListAlertRules(half-pair) expected error, got nil")
+	}
+	if connect.CodeOf(errList) != connect.CodeInvalidArgument {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errList), connect.CodeInvalidArgument)
+	}
+}
+
+func TestGetAlertHistory_HalfPairServerID(t *testing.T) {
+	fixture := newAlertRulesFixture(t)
+
+	req := connect.NewRequest(&xylona.GetAlertHistoryRequest{
+		ServerId: ptrStr("server-local-1"),
+		Limit:    50,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+
+	_, errHist := fixture.service.GetAlertHistory(context.Background(), req)
+	if errHist == nil {
+		t.Fatalf("GetAlertHistory(half-pair) expected error, got nil")
+	}
+	if connect.CodeOf(errHist) != connect.CodeInvalidArgument {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errHist), connect.CodeInvalidArgument)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Superuser sees all alert history
+// ---------------------------------------------------------------------------
+
+func TestGetAlertHistory_SuperuserSeesAll(t *testing.T) {
+	fixture := newAlertRulesFixture(t)
+
+	// Insert history for user-alerts
+	_, errH1 := fixture.conn.InsertAlertHistory(
+		"", "user-alerts", "", "", "", "ALERT_EVENT_TYPE_CRASH",
+		`{"msg":"alert user crash"}`,
+		"NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD",
+		"DELIVERY_STATUS_SENT",
+	)
+	if errH1 != nil {
+		t.Fatalf("InsertAlertHistory(user-alerts) error = %v", errH1)
+	}
+
+	// Insert history for user-super
+	_, errH2 := fixture.conn.InsertAlertHistory(
+		"", "user-super", "", "", "", "ALERT_EVENT_TYPE_STATUS_CHANGE",
+		`{"msg":"super user event"}`,
+		"NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD",
+		"DELIVERY_STATUS_SENT",
+	)
+	if errH2 != nil {
+		t.Fatalf("InsertAlertHistory(user-super) error = %v", errH2)
+	}
+
+	// Superuser should see both records
+	req := connect.NewRequest(&xylona.GetAlertHistoryRequest{
+		Limit: 50,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+
+	resp, errResp := fixture.service.GetAlertHistory(context.Background(), req)
+	if errResp != nil {
+		t.Fatalf("GetAlertHistory(superuser) error = %v", errResp)
+	}
+	if len(resp.Msg.Entries) != 2 {
+		t.Errorf("GetAlertHistory(superuser) len = %d, want 2", len(resp.Msg.Entries))
+	}
+
+	// Non-superuser should only see their own
+	req2 := connect.NewRequest(&xylona.GetAlertHistoryRequest{
+		Limit: 50,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req2, "user-alerts")
+
+	resp2, errResp2 := fixture.service.GetAlertHistory(context.Background(), req2)
+	if errResp2 != nil {
+		t.Fatalf("GetAlertHistory(user-alerts) error = %v", errResp2)
+	}
+	if len(resp2.Msg.Entries) != 1 {
+		t.Errorf("GetAlertHistory(user-alerts) len = %d, want 1", len(resp2.Msg.Entries))
+	}
+}

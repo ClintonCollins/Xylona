@@ -57,6 +57,15 @@ func (c *Connection) InsertAlertRule(userID, serverID, serverNodeID, nodeID, eve
 	return rule, nil
 }
 
+// GetAlertRuleByID returns a single alert rule by its ID.
+func (c *Connection) GetAlertRuleByID(id string) (*models.AlertRule, error) {
+	rule, errGet := models.FindAlertRule(c.ctx, c.DB, id)
+	if errGet != nil {
+		return nil, errGet
+	}
+	return rule, nil
+}
+
 // GetAlertRulesByUserID returns all alert rules belonging to the given user.
 func (c *Connection) GetAlertRulesByUserID(userID string) ([]*models.AlertRule, error) {
 	rules, errGet := models.AlertRules.Query(

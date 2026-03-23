@@ -29,7 +29,7 @@ func TestAddStatusListener_ReceivesStatusChanges(t *testing.T) {
 	ch := make(chan *xylona.GameServerStatusUpdate, 8)
 	cmd.AddStatusListener("test-listener", ch)
 
-	cmd.sendJobStatusNotification(xylona.Status_ONLINE)
+	cmd.sendJobStatusNotification(xylona.Status_OFFLINE, xylona.Status_ONLINE)
 
 	select {
 	case update := <-ch:
@@ -71,7 +71,7 @@ func TestRemoveStatusListener_StopsDelivery(t *testing.T) {
 	cmd.AddStatusListener("test-listener", ch)
 	cmd.RemoveStatusListener("test-listener")
 
-	cmd.sendJobStatusNotification(xylona.Status_OFFLINE)
+	cmd.sendJobStatusNotification(xylona.Status_ONLINE, xylona.Status_OFFLINE)
 
 	select {
 	case <-ch:
