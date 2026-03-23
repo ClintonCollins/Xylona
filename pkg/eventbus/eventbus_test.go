@@ -192,3 +192,118 @@ func TestSubscribeReliable_HighThroughput(t *testing.T) {
 		}
 	}
 }
+
+func TestTypedEvent_ServerCrashed(t *testing.T) {
+	eb := Get()
+	ch := eb.SubscribeReliable(TopicGameServerCrashed)
+	defer eb.Unsubscribe(TopicGameServerCrashed, ch)
+
+	event := ServerCrashedEvent{
+		ServerID:     "srv-1",
+		ServerNodeID: "node-a",
+		ExitCode:     1,
+		Timestamp:    time.Now(),
+	}
+	eb.Publish(TopicGameServerCrashed, event)
+
+	select {
+	case msg := <-ch:
+		got, ok := msg.(ServerCrashedEvent)
+		if !ok {
+			t.Fatalf("expected ServerCrashedEvent, got %T", msg)
+		}
+		if got.ServerID != "srv-1" {
+			t.Fatalf("expected server ID 'srv-1', got %q", got.ServerID)
+		}
+		if got.ServerNodeID != "node-a" {
+			t.Fatalf("expected server node ID 'node-a', got %q", got.ServerNodeID)
+		}
+		if got.ExitCode != 1 {
+			t.Fatalf("expected exit code 1, got %d", got.ExitCode)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	}
+}
+
+func TestTypedEvent_ThresholdCrossed(t *testing.T) {
+	eb := Get()
+	ch := eb.SubscribeReliable(TopicGameServerCPUThreshold)
+	defer eb.Unsubscribe(TopicGameServerCPUThreshold, ch)
+
+	event := ThresholdEvent{
+		ServerID:     "srv-2",
+		ServerNodeID: "node-b",
+		CurrentValue: 95.5,
+		Threshold:    90.0,
+		Direction:    ThresholdEntered,
+	}
+	eb.Publish(TopicGameServerCPUThreshold, event)
+
+	select {
+	case msg := <-ch:
+		got, ok := msg.(ThresholdEvent)
+		if !ok {
+			t.Fatalf("expected ThresholdEvent, got %T", msg)
+		}
+		if got.Direction != ThresholdEntered {
+			t.Fatalf("expected direction Entered, got %v", got.Direction)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	}
+}
+
+func TestTypedEvent_StatusChanged(t *testing.T) {
+	eb := Get()
+	ch := eb.SubscribeReliable(TopicGameServerStatusChanged)
+	defer eb.Unsubscribe(TopicGameServerStatusChanged, ch)
+
+	event := StatusChangedEvent{
+		ServerID:     "srv-3",
+		ServerNodeID: "node-a",
+		OldStatus:    "online",
+		NewStatus:    "offline",
+	}
+	eb.Publish(TopicGameServerStatusChanged, event)
+
+	select {
+	case msg := <-ch:
+		got, ok := msg.(StatusChangedEvent)
+		if !ok {
+			t.Fatalf("expected StatusChangedEvent, got %T", msg)
+		}
+		if got.NewStatus != "offline" {
+			t.Fatalf("expected new status 'offline', got %q", got.NewStatus)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	}
+}
+
+func TestTypedEvent_NodeThreshold(t *testing.T) {
+	eb := Get()
+	ch := eb.SubscribeReliable(TopicNodeCPUThreshold)
+	defer eb.Unsubscribe(TopicNodeCPUThreshold, ch)
+
+	event := NodeThresholdEvent{
+		NodeID:       "node-c",
+		CurrentValue: 88.0,
+		Threshold:    85.0,
+		Direction:    ThresholdEntered,
+	}
+	eb.Publish(TopicNodeCPUThreshold, event)
+
+	select {
+	case msg := <-ch:
+		got, ok := msg.(NodeThresholdEvent)
+		if !ok {
+			t.Fatalf("expected NodeThresholdEvent, got %T", msg)
+		}
+		if got.NodeID != "node-c" {
+			t.Fatalf("expected node ID 'node-c', got %q", got.NodeID)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out")
+	}
+}
