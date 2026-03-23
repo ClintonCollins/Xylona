@@ -151,3 +151,44 @@ func TestSubscribeAfterPublish_MissesMessage(t *testing.T) {
 		// Expected
 	}
 }
+
+func TestSubscribeReliable_BufferedChannel(t *testing.T) {
+	eb := Get()
+	topic := "test.reliable"
+	ch := eb.SubscribeReliable(topic)
+	defer eb.Unsubscribe(topic, ch)
+
+	// Should be able to publish without a receiver (buffered)
+	eb.Publish(topic, "buffered_msg")
+
+	select {
+	case msg := <-ch:
+		if msg != "buffered_msg" {
+			t.Fatalf("expected 'buffered_msg', got %v", msg)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out — message should be in buffer")
+	}
+}
+
+func TestSubscribeReliable_HighThroughput(t *testing.T) {
+	eb := Get()
+	topic := "test.reliable_throughput"
+	ch := eb.SubscribeReliable(topic)
+	defer eb.Unsubscribe(topic, ch)
+
+	count := 100
+	for i := 0; i < count; i++ {
+		eb.Publish(topic, i)
+	}
+
+	received := 0
+	for received < count {
+		select {
+		case <-ch:
+			received++
+		case <-time.After(time.Second):
+			t.Fatalf("only received %d of %d messages", received, count)
+		}
+	}
+}
