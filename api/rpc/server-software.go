@@ -2,11 +2,11 @@ package rpc
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -18,129 +18,73 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// GetServerSoftwareOptions returns the available server software options for a game.
-func (xs *XylonaService) GetServerSoftwareOptions(
-	_ context.Context,
-	request *connect.Request[xylona.GetServerSoftwareOptionsRequest],
-) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
-	}
-
-	game, errGame := xs.db.GetGameByID(request.Msg.GetGameId())
-	if errGame != nil {
-		if errors.Is(errGame, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
-	}
-
-	softwareJSON := game.ServerSoftware.GetOr("")
-	allSoftware, errParse := modmanager.ParseServerSoftware(softwareJSON)
-	if errParse != nil {
-		log.Error().Err(errParse).Str("game_id", game.ID).Msg("Failed to parse server software JSON")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse server software config"))
-	}
-
-	var options []*xylona.ServerSoftwareOption
-	for _, sw := range allSoftware {
-		providerID := modmanager.ProviderIDForGame(game.ID, sw)
-		options = append(options, &xylona.ServerSoftwareOption{
-			Id:            sw.ID,
-			Name:          sw.Name,
-			JarSource:     providerID,
-			HasModSupport: sw.ModConfig != nil,
-		})
-	}
-
-	return &connect.Response[xylona.GetServerSoftwareOptionsResponse]{
-		Msg: &xylona.GetServerSoftwareOptionsResponse{
-			Options: options,
-		},
-	}, nil
-}
-
-// GetServerSoftwareVersions returns available versions for a server software option.
-func (xs *XylonaService) GetServerSoftwareVersions(
+func (xs *XylonaService) GetUpdateTargets(
 	ctx context.Context,
-	request *connect.Request[xylona.GetServerSoftwareVersionsRequest],
-) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	request *connect.Request[xylona.GetUpdateTargetsRequest],
+) (*connect.Response[xylona.GetUpdateTargetsResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	game, errGame := xs.db.GetGameByID(request.Msg.GetGameId())
-	if errGame != nil {
-		if errors.Is(errGame, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
+	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
+	if errGetServer != nil {
+		return nil, errGetServer
 	}
 
-	softwareJSON := game.ServerSoftware.GetOr("")
-	allSoftware, errParse := modmanager.ParseServerSoftware(softwareJSON)
-	if errParse != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse server software config"))
+	errPerm := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+	if errPerm != nil {
+		return nil, errPerm
 	}
 
-	sw, found := modmanager.GetSoftwareByID(allSoftware, request.Msg.GetSoftwareId())
-	if !found {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("software option not found: %s", request.Msg.GetSoftwareId()))
+	if gameServer.R.Game == nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("game relation not loaded"))
 	}
 
-	providerID := modmanager.ProviderIDForGame(game.ID, *sw)
-	if providerID == "" {
-		return &connect.Response[xylona.GetServerSoftwareVersionsResponse]{
-			Msg: &xylona.GetServerSoftwareVersionsResponse{},
-		}, nil
+	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameServer.R.Game)
+	if errConfig != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load update configuration"))
 	}
 
-	// Use the jar source as the provider ID to get available game versions.
-	provider, ok := modproviders.GetProvider(providerID)
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("jar source provider not found: %s", providerID))
-	}
-
-	// For jar source providers like PaperMC, GetModDetails returns the project
-	// with its available game versions (e.g., 1.21.4, 1.21.3). We return these
-	// as SoftwareVersion entries — each represents a game version the user can
-	// select, not individual builds.
-	details, errDetails := provider.GetModDetails(ctx, sw.ID, nil)
-	if errDetails != nil {
-		log.Error().Err(errDetails).Str("jar_source", providerID).Msg("Failed to get software versions")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get software versions"))
-	}
-
-	var protoVersions []*xylona.SoftwareVersion
-	// The versions in ModDetails come from the project's version list.
-	// For PaperMC this is game versions; for other providers it may differ.
-	if details != nil {
-		for _, v := range details.Versions {
-			protoVersions = append(protoVersions, &xylona.SoftwareVersion{
-				VersionId:     v.VersionID,
-				VersionString: v.VersionString,
-			})
+	serverConfig := updateproviders.LoadServerConfigFromModel(gameServer)
+	requestedVariantID := strings.TrimSpace(request.Msg.GetVariantId())
+	if requestedVariantID != "" {
+		currentVariantID := serverConfig.VariantID
+		serverConfig.VariantID = requestedVariantID
+		if requestedVariantID != currentVariantID {
+			resetTarget, errReset := updateproviders.ResetTargetForVariant(gameConfig, requestedVariantID)
+			if errReset != nil {
+				return nil, connect.NewError(connect.CodeNotFound, errReset)
+			}
+			serverConfig.Target = resetTarget
 		}
 	}
 
-	return &connect.Response[xylona.GetServerSoftwareVersionsResponse]{
-		Msg: &xylona.GetServerSoftwareVersionsResponse{
-			Versions: protoVersions,
-		},
-	}, nil
+	resolved, errResolve := updateproviders.ResolveConfig(gameConfig, serverConfig)
+	if errResolve != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to resolve update configuration"))
+	}
+
+	targets, errTargets := xs.listUpdateTargets(ctx, gameServer, resolved)
+	if errTargets != nil {
+		return nil, errTargets
+	}
+
+	return connect.NewResponse(&xylona.GetUpdateTargetsResponse{
+		Targets:       targets,
+		CurrentTarget: resolved.Target,
+	}), nil
 }
 
-// GetServerSoftwareStatus returns the current installation status for a game server's software.
-func (xs *XylonaService) GetServerSoftwareStatus(
+func (xs *XylonaService) GetVariantOperationStatus(
 	_ context.Context,
-	request *connect.Request[xylona.GetServerSoftwareStatusRequest],
-) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error) {
+	request *connect.Request[xylona.GetVariantOperationStatusRequest],
+) (*connect.Response[xylona.GetVariantOperationStatusResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -158,23 +102,17 @@ func (xs *XylonaService) GetServerSoftwareStatus(
 
 	state, _ := xs.installTracker.Get(request.Msg.GetGameServerId())
 
-	return &connect.Response[xylona.GetServerSoftwareStatusResponse]{
-		Msg: &xylona.GetServerSoftwareStatusResponse{
-			Status:     state.Status,
-			Error:      state.Error,
-			SoftwareId: state.SoftwareID,
-		},
-	}, nil
+	return connect.NewResponse(&xylona.GetVariantOperationStatusResponse{
+		Status:    state.Status,
+		Error:     state.Error,
+		VariantId: state.SoftwareID,
+	}), nil
 }
 
-// SetServerSoftware sets the active server software for a game server.
-// If the software has a jar source, it kicks off a background download and
-// returns status "installing". Otherwise it updates the DB immediately and
-// returns status "complete".
-func (xs *XylonaService) SetServerSoftware(
+func (xs *XylonaService) SetServerVariant(
 	_ context.Context,
-	request *connect.Request[xylona.SetServerSoftwareRequest],
-) (*connect.Response[xylona.SetServerSoftwareResponse], error) {
+	request *connect.Request[xylona.SetServerVariantRequest],
+) (*connect.Response[xylona.SetServerVariantResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -190,177 +128,376 @@ func (xs *XylonaService) SetServerSoftware(
 		return nil, errPerm
 	}
 
-	// Server must be stopped before changing software.
 	if xs.getLocalGameServerStatus(gameServer) != xylona.Status_OFFLINE {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("server must be stopped before changing software"))
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("server must be stopped before changing variant"))
 	}
 
-	gameServerID := gameServer.ID
-	softwareID := request.Msg.GetSoftwareId()
-	logConsoleOutput := func(message string) {
-		if xs.supervisorInst != nil {
-			xs.supervisorInst.SendConsoleOutput(gameServerID, message)
-		}
+	if xs.installTracker.IsInstalling(gameServer.ID) {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("variant change already in progress"))
 	}
 
-	// Reject if an install is already in progress.
-	if xs.installTracker.IsInstalling(gameServerID) {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("software installation already in progress"))
-	}
-
-	// Resolve the software definition from the game.
 	game := gameServer.R.Game
 	if game == nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("game relation not loaded"))
 	}
 
-	softwareJSON := game.ServerSoftware.GetOr("")
-	allSoftware, errParse := modmanager.ParseServerSoftware(softwareJSON)
-	if errParse != nil {
-		log.Error().Err(errParse).Str("game_id", game.ID).Msg("Failed to parse server software JSON")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse server software config"))
+	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(game)
+	if errConfig != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load variant configuration"))
 	}
 
-	sw, found := modmanager.GetSoftwareByID(allSoftware, softwareID)
-	if !found {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("software option not found: %s", softwareID))
+	variantID := strings.TrimSpace(request.Msg.GetVariantId())
+	target := strings.TrimSpace(request.Msg.GetTarget())
+	pinTarget := request.Msg.GetPinTarget()
+	if target == "" {
+		var errTarget error
+		target, errTarget = updateproviders.ResetTargetForVariant(gameConfig, variantID)
+		if errTarget != nil {
+			return nil, connect.NewError(connect.CodeNotFound, errTarget)
+		}
 	}
 
-	// Count installed mods for the response.
-	installedMods, errMods := xs.db.GetInstalledModsByGameServerID(gameServerID)
+	resolved, errResolve := updateproviders.ResolveConfig(gameConfig, updateproviders.ServerConfig{
+		VariantID:    variantID,
+		Target:       target,
+		TargetPinned: true,
+	})
+	if errResolve != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errResolve)
+	}
+
+	persistedTarget, persistedTargetPinned := persistedVariantTarget(resolved.Provider.Kind, resolved.Target, pinTarget)
+
+	installedMods, errMods := xs.db.GetInstalledModsByGameServerID(gameServer.ID)
 	if errMods != nil {
-		log.Error().Err(errMods).Str("server_id", gameServerID).Msg("Failed to list installed mods")
+		log.Error().Err(errMods).Str("server_id", gameServer.ID).Msg("Failed to list installed mods")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list installed mods"))
 	}
 	modCount := int32(len(installedMods))
 
-	providerID := modmanager.ProviderIDForGame(game.ID, *sw)
-	selectedLabel := sw.Name
-	if requestedVersion := request.Msg.GetVersionId(); requestedVersion != "" {
-		selectedLabel = fmt.Sprintf("%s %s", sw.Name, requestedVersion)
-	}
-
-	// If the software has no jar source, update the DB immediately.
-	if providerID == "" {
-		logConsoleOutput(fmt.Sprintf("Changing server software to %s", selectedLabel))
-		setter := &models.GameServerSetter{
-			ID:               omit.From(gameServerID),
-			ServerSoftware:   omitnull.From(softwareID),
-			ServerExecutable: omitnull.FromNull(null.Val[string]{}),
-		}
-		updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
+	if !variantRequiresDownload(resolved.Provider.Kind) {
+		updated, errUpdate := xs.persistVariantSelection(
+			gameServer,
+			variantID,
+			persistedTarget,
+			persistedTargetPinned,
+			omitnull.Val[string]{},
+		)
 		if errUpdate != nil {
-			log.Error().Err(errUpdate).Msg("Failed to update game server software")
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update server software"))
-		}
-		// Broadcast completion so the frontend can react (tab recalculation, etc.)
-		if xs.installBroadcast != nil {
-			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusComplete, softwareID, "")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update variant"))
 		}
 		if xs.actionsInst != nil {
-			xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServerID)
+			xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServer.ID)
 		}
-		logConsoleOutput(fmt.Sprintf("Server software changed to %s", selectedLabel))
-		return &connect.Response[xylona.SetServerSoftwareResponse]{
-			Msg: &xylona.SetServerSoftwareResponse{
-				GameServer:        helpers.GameServerModelToProto(updated, xs.versionState),
-				Status:            modmanager.InstallStatusComplete,
-				InstalledModCount: modCount,
-			},
-		}, nil
+		return connect.NewResponse(&xylona.SetServerVariantResponse{
+			GameServer:        helpers.GameServerModelToProto(updated, xs.versionState),
+			Status:            modmanager.InstallStatusComplete,
+			InstalledModCount: modCount,
+		}), nil
 	}
 
-	// Software has a jar source — kick off a background download.
-	xs.installTracker.SetInstalling(gameServerID, softwareID)
-	logConsoleOutput(fmt.Sprintf("Starting server software change to %s", selectedLabel))
+	logConsoleOutput := func(message string) {
+		if xs.supervisorInst != nil {
+			xs.supervisorInst.SendConsoleOutput(gameServer.ID, message)
+		}
+	}
+
+	xs.installTracker.SetInstalling(gameServer.ID, variantID)
+	logConsoleOutput(fmt.Sprintf("Starting variant change to %s", variantDisplayName(resolved)))
 
 	if xs.installBroadcast != nil {
-		xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusInstalling, softwareID, "")
+		xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusInstalling, variantID, "")
 	}
 
-	provider, ok := modproviders.GetProvider(providerID)
+	go xs.applyVariantDownload(gameServer, variantID, resolved, persistedTarget, persistedTargetPinned, logConsoleOutput)
+
+	return connect.NewResponse(&xylona.SetServerVariantResponse{
+		GameServer:        helpers.GameServerModelToProto(gameServer, xs.versionState),
+		Status:            modmanager.InstallStatusInstalling,
+		InstalledModCount: modCount,
+	}), nil
+}
+
+func (xs *XylonaService) listUpdateTargets(
+	ctx context.Context,
+	gameServer *models.GameServer,
+	resolved updateproviders.ResolvedConfig,
+) ([]*xylona.UpdateTargetOption, error) {
+	switch resolved.Provider.Kind {
+	case updateproviders.ProviderKindSteamCMD:
+		if gameServer.R.Game == nil || strings.TrimSpace(gameServer.R.Game.SteamAppID) == "" {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("steam update targets are unavailable"))
+		}
+		if xs.steamCache == nil {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("steam cache is unavailable"))
+		}
+
+		releases, errReleases := xs.steamCache.FetchReleases(ctx, gameServer.R.Game.SteamAppID)
+		if errReleases != nil {
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to load steam release metadata"))
+		}
+
+		targets := make([]*xylona.UpdateTargetOption, 0, len(releases))
+		for _, release := range releases {
+			label := strings.TrimSpace(release.DisplayLabel)
+			if label == "" {
+				label = strings.TrimSpace(release.Name)
+			}
+			description := strings.TrimSpace(release.Description)
+			if description == "" && release.BuildID != "" {
+				description = fmt.Sprintf("Build %s", release.BuildID)
+			}
+			targets = append(targets, &xylona.UpdateTargetOption{
+				Id:            release.Name,
+				Label:         label,
+				Description:   description,
+				LatestVersion: release.BuildID,
+				IsSelected:    updateproviders.NormalizeSteamTarget(release.Name) == updateproviders.NormalizeSteamTarget(resolved.Target),
+			})
+		}
+		return targets, nil
+	case updateproviders.ProviderKindPaperMC, updateproviders.ProviderKindMojang:
+		provider, ok := providerForVariant(resolved.Provider)
+		if !ok {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("update provider is unavailable"))
+		}
+
+		details, errDetails := provider.GetModDetails(ctx, resolved.Provider.SourceID, nil)
+		if errDetails != nil {
+			log.Error().Err(errDetails).Str("provider", provider.ID()).Str("source_id", resolved.Provider.SourceID).Msg("Failed to load update targets")
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to load update targets"))
+		}
+
+		targets := make([]*xylona.UpdateTargetOption, 0, len(details.Versions))
+		for _, version := range details.Versions {
+			targetID := strings.TrimSpace(version.VersionID)
+			if targetID == "" {
+				targetID = strings.TrimSpace(version.VersionString)
+			}
+			label := strings.TrimSpace(version.VersionString)
+			if label == "" {
+				label = targetID
+			}
+			targets = append(targets, &xylona.UpdateTargetOption{
+				Id:            targetID,
+				Label:         label,
+				LatestVersion: strings.TrimSpace(version.VersionString),
+				IsSelected:    targetID == strings.TrimSpace(resolved.Target),
+			})
+		}
+		return targets, nil
+	default:
+		return []*xylona.UpdateTargetOption{}, nil
+	}
+}
+
+func (xs *XylonaService) applyVariantDownload(
+	gameServer *models.GameServer,
+	variantID string,
+	resolved updateproviders.ResolvedConfig,
+	persistedTarget string,
+	persistedTargetPinned bool,
+	logConsoleOutput func(message string),
+) {
+	downloadCtx, cancel := context.WithTimeout(xs.ctx, 10*time.Minute)
+	defer cancel()
+
+	provider, ok := providerForVariant(resolved.Provider)
 	if !ok {
-		xs.installTracker.SetFailed(gameServerID, "jar source provider not found: "+providerID)
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("jar source provider not found: %s", providerID))
+		errMsg := "variant update provider not found"
+		xs.installTracker.SetFailed(gameServer.ID, errMsg)
+		if xs.installBroadcast != nil {
+			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusFailed, variantID, errMsg)
+		}
+		return
 	}
 
-	requestedVersionID := request.Msg.GetVersionId()
-	downloadCtx, downloadCancel := context.WithTimeout(xs.ctx, 10*time.Minute)
-	go func() {
-		defer downloadCancel()
-
-		// The frontend sends a game version (e.g., "1.21.4") from GetServerSoftwareVersions,
-		// but providers like PaperMC expect a version-build ID (e.g., "1.21.4-100") for
-		// download. Resolve the game version to the latest build via GetVersions.
-		downloadVersionID := requestedVersionID
-		if requestedVersionID != "" {
-			logConsoleOutput(fmt.Sprintf("Resolving latest build for %s", requestedVersionID))
-		}
-		builds, errBuilds := provider.GetVersions(downloadCtx, sw.ID, requestedVersionID, nil)
-		if errBuilds == nil && len(builds) > 0 {
-			// Use the last build (newest) — GetVersions returns oldest-first for PaperMC.
-			downloadVersionID = builds[len(builds)-1].VersionID
-		}
-
-		logConsoleOutput(fmt.Sprintf("Downloading server software files for %s", selectedLabel))
-		files, errDownload := provider.Download(downloadCtx, sw.ID, downloadVersionID, gameServer.Directory)
-		if errDownload != nil {
-			xs.installTracker.SetFailed(gameServerID, errDownload.Error())
-			logConsoleOutput(fmt.Sprintf("Server software installation failed: %s", errDownload.Error()))
-			if xs.installBroadcast != nil {
-				xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusFailed, softwareID, errDownload.Error())
-			}
-			return
-		}
-
-		// Find the primary downloaded file.
-		var newExecutable string
-		for _, f := range files {
-			if f.IsPrimary {
-				newExecutable = f.Path
-				break
-			}
-		}
-
-		// Delete old executable if it differs from the new one.
-		oldExe := gameServer.ServerExecutable.GetOr("")
-		if oldExe != "" && oldExe != newExecutable {
-			oldPath := filepath.Join(gameServer.Directory, oldExe)
-			_ = os.Remove(oldPath) // Best effort
-		}
-
-		logConsoleOutput("Applying downloaded server software")
-		// Update DB with new software and executable.
-		setter := &models.GameServerSetter{
-			ID:               omit.From(gameServerID),
-			ServerSoftware:   omitnull.From(softwareID),
-			ServerExecutable: omitnull.From(newExecutable),
-		}
-		_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
-		if errUpdate != nil {
-			xs.installTracker.SetFailed(gameServerID, errUpdate.Error())
-			logConsoleOutput(fmt.Sprintf("Server software installation failed: %s", errUpdate.Error()))
-			if xs.installBroadcast != nil {
-				xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusFailed, softwareID, errUpdate.Error())
-			}
-			return
-		}
-
-		xs.installTracker.SetComplete(gameServerID)
-		logConsoleOutput(fmt.Sprintf("Server software changed to %s", selectedLabel))
+	downloadVersionID, errDownloadID := resolveVariantDownloadVersion(downloadCtx, provider, resolved)
+	if errDownloadID != nil {
+		xs.installTracker.SetFailed(gameServer.ID, errDownloadID.Error())
+		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errDownloadID.Error()))
 		if xs.installBroadcast != nil {
-			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusComplete, softwareID, "")
+			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusFailed, variantID, errDownloadID.Error())
 		}
-		if xs.actionsInst != nil {
-			xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServerID)
-		}
-	}()
+		return
+	}
 
-	return &connect.Response[xylona.SetServerSoftwareResponse]{
-		Msg: &xylona.SetServerSoftwareResponse{
-			GameServer:        helpers.GameServerModelToProto(gameServer, xs.versionState),
-			Status:            modmanager.InstallStatusInstalling,
-			InstalledModCount: modCount,
-		},
-	}, nil
+	logConsoleOutput(fmt.Sprintf("Downloading files for %s", variantDisplayName(resolved)))
+	files, errDownload := provider.Download(downloadCtx, resolved.Provider.SourceID, downloadVersionID, gameServer.Directory)
+	if errDownload != nil {
+		xs.installTracker.SetFailed(gameServer.ID, errDownload.Error())
+		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errDownload.Error()))
+		if xs.installBroadcast != nil {
+			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusFailed, variantID, errDownload.Error())
+		}
+		return
+	}
+
+	newExecutable := primaryVariantDownloadedFile(files)
+	oldExecutable := gameServer.ServerExecutable.GetOr("")
+	if oldExecutable != "" && oldExecutable != newExecutable {
+		oldPath := filepath.Join(gameServer.Directory, oldExecutable)
+		errRemove := os.Remove(oldPath)
+		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+			log.Warn().Err(errRemove).Str("path", oldPath).Msg("Failed to remove superseded executable")
+		}
+	}
+
+	logConsoleOutput(fmt.Sprintf("Applying variant %s", variantDisplayName(resolved)))
+	updated, errUpdate := xs.persistVariantSelection(
+		gameServer,
+		variantID,
+		persistedTarget,
+		persistedTargetPinned,
+		executableSetterValue(newExecutable),
+	)
+	if errUpdate != nil {
+		xs.installTracker.SetFailed(gameServer.ID, errUpdate.Error())
+		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errUpdate.Error()))
+		if xs.installBroadcast != nil {
+			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusFailed, variantID, errUpdate.Error())
+		}
+		return
+	}
+
+	gameServer.ServerExecutable = updated.ServerExecutable
+	gameServer.ServerSoftware = updated.ServerSoftware
+	gameServer.Branch = updated.Branch
+	gameServer.TargetPinned = updated.TargetPinned
+
+	xs.installTracker.SetComplete(gameServer.ID)
+	logConsoleOutput(fmt.Sprintf("Variant changed to %s", variantDisplayName(resolved)))
+	if xs.installBroadcast != nil {
+		xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusComplete, variantID, "")
+	}
+	if xs.actionsInst != nil {
+		xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServer.ID)
+	}
+}
+
+func (xs *XylonaService) persistVariantSelection(
+	gameServer *models.GameServer,
+	variantID string,
+	target string,
+	targetPinned bool,
+	executable omitnull.Val[string],
+) (*models.GameServer, error) {
+	setter := &models.GameServerSetter{
+		ID:             omit.From(gameServer.ID),
+		ServerSoftware: omitnull.FromNull(null.FromCond(strings.TrimSpace(variantID), strings.TrimSpace(variantID) != "")),
+		Branch:         omit.From(strings.TrimSpace(target)),
+		TargetPinned:   omit.From(targetPinned),
+	}
+	if !executable.IsUnset() {
+		setter.ServerExecutable = executable
+	}
+
+	updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
+	if errUpdate != nil {
+		return nil, errUpdate
+	}
+	return updated, nil
+}
+
+func executableSetterValue(executable string) omitnull.Val[string] {
+	if strings.TrimSpace(executable) == "" {
+		return omitnull.FromNull(null.Val[string]{})
+	}
+	return omitnull.From(strings.TrimSpace(executable))
+}
+
+func persistedVariantTarget(kind updateproviders.ProviderKind, target string, pinTarget bool) (string, bool) {
+	normalizedTarget := strings.TrimSpace(target)
+	if kind == updateproviders.ProviderKindPaperMC || kind == updateproviders.ProviderKindMojang {
+		if !pinTarget {
+			return "", false
+		}
+		if normalizedTarget == "" {
+			return "", false
+		}
+		return normalizedTarget, true
+	}
+	return normalizedTarget, false
+}
+
+func variantRequiresDownload(kind updateproviders.ProviderKind) bool {
+	return kind == updateproviders.ProviderKindPaperMC || kind == updateproviders.ProviderKindMojang
+}
+
+func providerForVariant(cfg updateproviders.ProviderConfig) (modproviders.ModProvider, bool) {
+	switch cfg.Kind {
+	case updateproviders.ProviderKindPaperMC:
+		return modproviders.GetProvider("papermc")
+	case updateproviders.ProviderKindMojang:
+		return modproviders.GetProvider("mojang")
+	default:
+		return nil, false
+	}
+}
+
+func resolveVariantDownloadVersion(
+	ctx context.Context,
+	provider modproviders.ModProvider,
+	resolved updateproviders.ResolvedConfig,
+) (string, error) {
+	target := strings.TrimSpace(resolved.Target)
+	if target == "" {
+		details, errDetails := provider.GetModDetails(ctx, resolved.Provider.SourceID, nil)
+		if errDetails != nil {
+			return "", fmt.Errorf("resolve target version: %w", errDetails)
+		}
+		if details == nil || len(details.Versions) == 0 {
+			return "", errors.New("variant target is not configured")
+		}
+		target = strings.TrimSpace(details.Versions[0].VersionID)
+		if target == "" {
+			target = strings.TrimSpace(details.Versions[0].VersionString)
+		}
+		if target == "" {
+			return "", errors.New("variant target is not configured")
+		}
+	}
+
+	versions, errVersions := provider.GetVersions(ctx, resolved.Provider.SourceID, target, nil)
+	if errVersions != nil {
+		return "", fmt.Errorf("resolve target version: %w", errVersions)
+	}
+	if len(versions) == 0 {
+		return target, nil
+	}
+
+	selected := versions[len(versions)-1]
+	if strings.TrimSpace(selected.VersionID) != "" {
+		return strings.TrimSpace(selected.VersionID), nil
+	}
+	if strings.TrimSpace(selected.VersionString) != "" {
+		return strings.TrimSpace(selected.VersionString), nil
+	}
+	return target, nil
+}
+
+func variantDisplayName(resolved updateproviders.ResolvedConfig) string {
+	name := strings.TrimSpace(resolved.VariantName)
+	if name == "" {
+		name = strings.TrimSpace(resolved.VariantID)
+	}
+	if name == "" {
+		name = strings.TrimSpace(resolved.Target)
+	}
+	if name == "" {
+		name = "selected variant"
+	}
+	if strings.TrimSpace(resolved.Target) == "" {
+		return name
+	}
+	return fmt.Sprintf("%s (%s)", name, resolved.Target)
+}
+
+func primaryVariantDownloadedFile(files []modproviders.DownloadedFile) string {
+	for _, file := range files {
+		if file.IsPrimary {
+			return file.Path
+		}
+	}
+	return ""
 }

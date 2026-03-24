@@ -104,7 +104,7 @@ func (xs *XylonaService) removeRemoteGameServer(ctx context.Context, serverID st
 	return connect.NewResponse(&xylona.RemoveGameServerResponse{}), nil
 }
 
-func (xs *XylonaService) updateRemoteGameServer(ctx context.Context, serverID string, steamBranch string, actingUser *models.User) (*connect.Response[xylona.UpdateGameServerResponse], error) {
+func (xs *XylonaService) updateRemoteGameServer(ctx context.Context, serverID string, target string, actingUser *models.User) (*connect.Response[xylona.UpdateGameServerResponse], error) {
 	node, _, errGet := xs.getRemoteNodeForServer(serverID)
 	if errGet != nil {
 		return nil, errGet
@@ -116,8 +116,8 @@ func (xs *XylonaService) updateRemoteGameServer(ctx context.Context, serverID st
 	}
 
 	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
-		ServerId:    serverID,
-		SteamBranch: steamBranch,
+		ServerId: serverID,
+		Target:   target,
 	})
 	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
 	if errIdentity != nil {

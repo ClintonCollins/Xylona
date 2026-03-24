@@ -119,8 +119,8 @@ func TestResolveVersionDataUsesInstalledAndLatestTTLs(t *testing.T) {
 		versionInstalledTTL: 15 * time.Second,
 		versionLatestTTL:    2 * time.Minute,
 		resolverConfig: versiontracker.ResolverConfig{
-			CustomTrackerFactory: func(gameID string, updateCommand string, serverSoftware string) versiontracker.VersionTracker {
-				if gameID == "dummy-game" {
+			CustomTrackerFactory: func(info versiontracker.TrackerContext) versiontracker.VersionTracker {
+				if info.GameID == "dummy-game" {
 					return tracker
 				}
 				return nil
@@ -158,6 +158,57 @@ func TestResolveVersionDataUsesInstalledAndLatestTTLs(t *testing.T) {
 	installedCalls, latestCalls = tracker.counts()
 	if installedCalls != 2 || latestCalls != 1 {
 		t.Fatalf("installed-stale tracker calls = (%d, %d), want (2, 1)", installedCalls, latestCalls)
+	}
+}
+
+func TestResolveVersionDataRefreshesWhenTrackerContextChanges(t *testing.T) {
+	tracker := &versionRefreshTestTracker{
+		latestVersion: "2.0.0",
+		installedSource: func(_ *models.GameServer) (string, error) {
+			return "1.0.0", nil
+		},
+	}
+	inst := &Instance{
+		ctx:                 context.Background(),
+		versionState:        versiontracker.NewVersionStateMap(),
+		versionInstalledTTL: 15 * time.Second,
+		versionLatestTTL:    2 * time.Minute,
+		resolverConfig: versiontracker.ResolverConfig{
+			CustomTrackerFactory: func(info versiontracker.TrackerContext) versiontracker.VersionTracker {
+				if info.GameID == "dummy-game" {
+					return tracker
+				}
+				return nil
+			},
+		},
+	}
+
+	gameServer := &models.GameServer{ID: "server-1", GameID: "dummy-game", Version: "1.0.0"}
+	gameServer.R.Game = &models.Game{ID: "dummy-game", ServerSoftware: null.From("dummy")}
+
+	inst.versionState.Set(gameServer.ID, versiontracker.VersionState{
+		Status:             versiontracker.VersionStatusChecked,
+		InstalledVersion:   "1.0.0",
+		LatestVersion:      "26.1",
+		UpdateAvailable:    true,
+		LastCheckTime:      time.Now(),
+		InstalledCheckTime: time.Now(),
+		LatestCheckTime:    time.Now(),
+		TrackerType:        "dummy",
+		ContextKey:         "stale-context",
+	})
+
+	_, state := inst.ResolveVersionData(context.Background(), gameServer, VersionResolveOptions{})
+
+	installedCalls, latestCalls := tracker.counts()
+	if installedCalls != 1 || latestCalls != 1 {
+		t.Fatalf("tracker calls after context change = (%d, %d), want (1, 1)", installedCalls, latestCalls)
+	}
+	if state.LatestVersion != "2.0.0" {
+		t.Fatalf("latest version = %q, want %q", state.LatestVersion, "2.0.0")
+	}
+	if state.ContextKey == "" || state.ContextKey == "stale-context" {
+		t.Fatalf("context key = %q, want refreshed key", state.ContextKey)
 	}
 }
 
@@ -267,8 +318,8 @@ func TestResolveVersionDataCoalescesConcurrentRefreshes(t *testing.T) {
 		versionInstalledTTL: 15 * time.Second,
 		versionLatestTTL:    2 * time.Minute,
 		resolverConfig: versiontracker.ResolverConfig{
-			CustomTrackerFactory: func(gameID string, updateCommand string, serverSoftware string) versiontracker.VersionTracker {
-				if gameID == "dummy-game" {
+			CustomTrackerFactory: func(info versiontracker.TrackerContext) versiontracker.VersionTracker {
+				if info.GameID == "dummy-game" {
 					return tracker
 				}
 				return nil
@@ -317,8 +368,8 @@ func TestCheckAllServerVersionsDetectsOutOfBandMinecraftJarReplacement(t *testin
 	inst.versionInstalledTTL = 15 * time.Second
 	inst.versionLatestTTL = 2 * time.Minute
 	inst.resolverConfig = versiontracker.ResolverConfig{
-		CustomTrackerFactory: func(gameID string, updateCommand string, serverSoftware string) versiontracker.VersionTracker {
-			if gameID == "minecraft" {
+		CustomTrackerFactory: func(info versiontracker.TrackerContext) versiontracker.VersionTracker {
+			if info.GameID == "minecraft" {
 				return tracker
 			}
 			return nil

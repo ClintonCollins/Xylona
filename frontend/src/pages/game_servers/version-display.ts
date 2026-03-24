@@ -1,5 +1,5 @@
 import type { VersionInfo } from '@/proto/shared_pb'
-import { VersionStatus } from '@/proto/shared_pb'
+import { UpdateProviderKind, VersionStatus } from '@/proto/shared_pb'
 
 export interface CanonicalVersionDisplay {
   installedVersion: string
@@ -33,4 +33,25 @@ export function resolveCanonicalVersionDisplay(
     checking,
     checked,
   }
+}
+
+export function resolveVariantTrackingLabel(
+  providerKind: UpdateProviderKind | undefined,
+  selectedTarget: string,
+  selectedTargetPinned: boolean,
+): string {
+  if (providerKind !== UpdateProviderKind.MOJANG && providerKind !== UpdateProviderKind.PAPERMC) {
+    return ''
+  }
+
+  if (!selectedTargetPinned) {
+    return 'Tracking latest'
+  }
+
+  const normalizedTarget = selectedTarget.trim()
+  if (normalizedTarget === '') {
+    return 'Tracking latest'
+  }
+
+  return `Pinned to ${normalizedTarget}`
 }

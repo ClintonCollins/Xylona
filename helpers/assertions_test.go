@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -71,6 +72,9 @@ func TestGameServerProtoToModel(t *testing.T) {
 		BackupDirectory:           "/backups",
 		MaxBackups:                5,
 		NodeId:                    "node-1",
+		SelectedTarget:            "1.21.4",
+		SelectedTargetPinned:      true,
+		SelectedVariantId:         "vanilla",
 		CreatedAt:                 timestamppb.New(now),
 		UpdatedAt:                 timestamppb.New(now),
 	}
@@ -113,6 +117,15 @@ func TestGameServerProtoToModel(t *testing.T) {
 	if got.NodeID != "node-1" {
 		t.Errorf("NodeID = %q, want %q", got.NodeID, "node-1")
 	}
+	if got.Branch != "1.21.4" {
+		t.Errorf("Branch = %q, want %q", got.Branch, "1.21.4")
+	}
+	if !got.TargetPinned {
+		t.Errorf("TargetPinned = %v, want true", got.TargetPinned)
+	}
+	if got.ServerSoftware.GetOr("") != "vanilla" {
+		t.Errorf("ServerSoftware = %q, want %q", got.ServerSoftware.GetOr(""), "vanilla")
+	}
 	if !got.CreatedAt.Equal(now) {
 		t.Errorf("CreatedAt = %v, want %v", got.CreatedAt, now)
 	}
@@ -146,6 +159,8 @@ func TestGameServerModelToProto(t *testing.T) {
 			MaxBackups:                5,
 			Version:                   "1.0.0",
 			NodeID:                    "node-1",
+			Branch:                    "1.21.4",
+			TargetPinned:              true,
 			CreatedAt:                 now,
 			UpdatedAt:                 now,
 		}
@@ -178,6 +193,12 @@ func TestGameServerModelToProto(t *testing.T) {
 		}
 		if got.Version != "1.0.0" {
 			t.Errorf("Version = %q, want %q", got.Version, "1.0.0")
+		}
+		if got.SelectedTarget != "1.21.4" {
+			t.Errorf("SelectedTarget = %q, want %q", got.SelectedTarget, "1.21.4")
+		}
+		if !got.SelectedTargetPinned {
+			t.Errorf("SelectedTargetPinned = %v, want true", got.SelectedTargetPinned)
 		}
 		if got.Ip == nil {
 			t.Fatalf("Ip should not be nil")
@@ -245,6 +266,8 @@ func TestGameServerModelToSetter(t *testing.T) {
 		BackupsEnabled: true,
 		NodeID:         "node-1",
 		MaxMemoryMB:    4096,
+		Branch:         "1.21.4",
+		TargetPinned:   true,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -298,6 +321,14 @@ func TestGameServerModelToSetter(t *testing.T) {
 	if gotNodeID != "node-1" {
 		t.Errorf("NodeID = %q, want %q", gotNodeID, "node-1")
 	}
+
+	gotTargetPinned, okTargetPinned := setter.TargetPinned.Get()
+	if !okTargetPinned {
+		t.Fatalf("TargetPinned should be set")
+	}
+	if !gotTargetPinned {
+		t.Errorf("TargetPinned = %v, want true", gotTargetPinned)
+	}
 }
 
 func TestGameModelToProto(t *testing.T) {
@@ -334,14 +365,26 @@ func TestGameModelToProto(t *testing.T) {
 	if got.DefaultPort != 25565 {
 		t.Errorf("DefaultPort = %d, want %d", got.DefaultPort, 25565)
 	}
+	if got.LinuxInstallType != xylona.CommandType_COMMAND {
+		t.Errorf("LinuxInstallType = %v, want COMMAND", got.LinuxInstallType)
+	}
 	if got.LinuxInstallCommandProcessor != xylona.CommandProcessor_BASH {
 		t.Errorf("LinuxInstallCommandProcessor = %v, want BASH", got.LinuxInstallCommandProcessor)
+	}
+	if got.LinuxUpdateType != xylona.CommandType_NONE {
+		t.Errorf("LinuxUpdateType = %v, want NONE", got.LinuxUpdateType)
 	}
 	if got.LinuxUpdateCommandProcessor != xylona.CommandProcessor_DIRECT {
 		t.Errorf("LinuxUpdateCommandProcessor = %v, want DIRECT", got.LinuxUpdateCommandProcessor)
 	}
+	if got.WindowsInstallType != xylona.CommandType_COMMAND {
+		t.Errorf("WindowsInstallType = %v, want COMMAND", got.WindowsInstallType)
+	}
 	if got.WindowsInstallCommandProcessor != xylona.CommandProcessor_POWERSHELL {
 		t.Errorf("WindowsInstallCommandProcessor = %v, want POWERSHELL", got.WindowsInstallCommandProcessor)
+	}
+	if got.WindowsUpdateType != xylona.CommandType_COMMAND {
+		t.Errorf("WindowsUpdateType = %v, want COMMAND", got.WindowsUpdateType)
 	}
 	if got.WindowsUpdateCommandProcessor != xylona.CommandProcessor_CMD {
 		t.Errorf("WindowsUpdateCommandProcessor = %v, want CMD", got.WindowsUpdateCommandProcessor)
@@ -369,9 +412,13 @@ func TestGameProtoToModel(t *testing.T) {
 		Id:                                "game-1",
 		Name:                              "Minecraft",
 		DefaultPort:                       25565,
+		LinuxInstallType:                  xylona.CommandType_COMMAND,
 		LinuxInstallCommandProcessor:      xylona.CommandProcessor_BASH,
+		LinuxUpdateType:                   xylona.CommandType_COMMAND,
 		LinuxUpdateCommandProcessor:       xylona.CommandProcessor_DIRECT,
+		WindowsInstallType:                xylona.CommandType_COMMAND,
 		WindowsInstallCommandProcessor:    xylona.CommandProcessor_POWERSHELL,
+		WindowsUpdateType:                 xylona.CommandType_COMMAND,
 		WindowsUpdateCommandProcessor:     xylona.CommandProcessor_CMD,
 		RequireDedicatedIp:                true,
 		CreatedAt:                         timestamppb.New(now),
@@ -440,6 +487,7 @@ func TestCommandTypeRoundtrip(t *testing.T) {
 			}
 
 			gameProto := &xylona.Game{
+				LinuxInstallType:             xylona.CommandType_COMMAND,
 				LinuxInstallCommandProcessor: tt.wantProcessor,
 				CreatedAt:                    timestamppb.Now(),
 				UpdatedAt:                    timestamppb.Now(),
@@ -452,6 +500,142 @@ func TestCommandTypeRoundtrip(t *testing.T) {
 			if model.LinuxInstallCommandType != wantType {
 				t.Errorf("commandProcessorToCommandType(%v) = %q, want %q",
 					tt.wantProcessor, model.LinuxInstallCommandType, wantType)
+			}
+		})
+	}
+}
+
+func TestGameModelToProtoMapsInstallAndUpdateTypes(t *testing.T) {
+	tests := []struct {
+		name                 string
+		modelType            string
+		updateProvider       *xylona.UpdateProviderConfig
+		wantType             xylona.CommandType
+		wantCommandProcessor xylona.CommandProcessor
+	}{
+		{
+			name:                 "none",
+			modelType:            "none",
+			wantType:             xylona.CommandType_NONE,
+			wantCommandProcessor: xylona.CommandProcessor_DIRECT,
+		},
+		{
+			name:                 "steamcmd",
+			modelType:            "steamcmd",
+			wantType:             xylona.CommandType_STEAMCMD,
+			wantCommandProcessor: xylona.CommandProcessor_DIRECT,
+		},
+		{
+			name:                 "papermc",
+			modelType:            "papermc",
+			wantType:             xylona.CommandType_PAPERMC,
+			wantCommandProcessor: xylona.CommandProcessor_DIRECT,
+		},
+		{
+			name:                 "mojang",
+			modelType:            "mojang",
+			wantType:             xylona.CommandType_MOJANG,
+			wantCommandProcessor: xylona.CommandProcessor_DIRECT,
+		},
+		{
+			name:                 "internal mojang keeps internal processor",
+			modelType:            "internal",
+			updateProvider:       &xylona.UpdateProviderConfig{Kind: xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_MOJANG},
+			wantType:             xylona.CommandType_MOJANG,
+			wantCommandProcessor: xylona.CommandProcessor_XYLONA_INTERNAL,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gameModel := &models.Game{
+				LinuxInstallCommandType: tt.modelType,
+			}
+
+			if tt.updateProvider != nil {
+				errSave := updateproviders.SaveGameConfigToModel(gameModel, updateproviders.GameConfig{
+					UpdateProvider: updateproviders.ProviderConfig{
+						Kind: updateproviders.ProviderKindMojang,
+					},
+				})
+				if errSave != nil {
+					t.Fatalf("SaveGameConfigToModel() error = %v", errSave)
+				}
+			}
+
+			got := GameModelToProto(gameModel)
+			if got.LinuxInstallType != tt.wantType {
+				t.Fatalf("LinuxInstallType = %v, want %v", got.LinuxInstallType, tt.wantType)
+			}
+			if got.LinuxInstallCommandProcessor != tt.wantCommandProcessor {
+				t.Fatalf(
+					"LinuxInstallCommandProcessor = %v, want %v",
+					got.LinuxInstallCommandProcessor,
+					tt.wantCommandProcessor,
+				)
+			}
+		})
+	}
+}
+
+func TestGameProtoToModelMapsInstallAndUpdateTypes(t *testing.T) {
+	tests := []struct {
+		name            string
+		inputType       xylona.CommandType
+		inputProcessor  xylona.CommandProcessor
+		wantCommandType string
+	}{
+		{
+			name:            "command bash",
+			inputType:       xylona.CommandType_COMMAND,
+			inputProcessor:  xylona.CommandProcessor_BASH,
+			wantCommandType: "bash",
+		},
+		{
+			name:            "none",
+			inputType:       xylona.CommandType_NONE,
+			inputProcessor:  xylona.CommandProcessor_DIRECT,
+			wantCommandType: "direct",
+		},
+		{
+			name:            "steamcmd",
+			inputType:       xylona.CommandType_STEAMCMD,
+			inputProcessor:  xylona.CommandProcessor_DIRECT,
+			wantCommandType: "direct",
+		},
+		{
+			name:            "papermc",
+			inputType:       xylona.CommandType_PAPERMC,
+			inputProcessor:  xylona.CommandProcessor_DIRECT,
+			wantCommandType: "internal",
+		},
+		{
+			name:            "mojang",
+			inputType:       xylona.CommandType_MOJANG,
+			inputProcessor:  xylona.CommandProcessor_DIRECT,
+			wantCommandType: "internal",
+		},
+		{
+			name:            "command internal preserves internal",
+			inputType:       xylona.CommandType_COMMAND,
+			inputProcessor:  xylona.CommandProcessor_XYLONA_INTERNAL,
+			wantCommandType: "internal",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			now := timestamppb.Now()
+			gameProto := &xylona.Game{
+				LinuxInstallType:             tt.inputType,
+				LinuxInstallCommandProcessor: tt.inputProcessor,
+				CreatedAt:                    now,
+				UpdatedAt:                    now,
+			}
+
+			got := GameProtoToModel(gameProto)
+			if got.LinuxInstallCommandType != tt.wantCommandType {
+				t.Fatalf("LinuxInstallCommandType = %q, want %q", got.LinuxInstallCommandType, tt.wantCommandType)
 			}
 		})
 	}

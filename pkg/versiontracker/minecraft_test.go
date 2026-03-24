@@ -204,6 +204,31 @@ func TestMinecraftTracker_GetLatestVersion_VanillaUsesMojangLatestRelease(t *tes
 	}
 }
 
+func TestMinecraftTracker_GetLatestVersion_InvalidConfiguredVanillaTargetFallsBackToMojangLatestRelease(t *testing.T) {
+	var mojangPath string
+	mojangSrv := newTestMojangManifestServer(t, "1.21.5", &mojangPath)
+	defer mojangSrv.Close()
+
+	tracker := NewConfiguredMinecraftTracker("mojang", "vanilla", "26.1")
+	tracker.httpClient = mojangSrv.Client()
+	tracker.mojangManifestURL = mojangSrv.URL + "/mc/game/version_manifest.json"
+
+	gs := &models.GameServer{
+		ServerSoftware: null.From("vanilla"),
+	}
+
+	version, errLatest := tracker.GetLatestVersion(context.Background(), gs)
+	if errLatest != nil {
+		t.Fatalf("unexpected error: %v", errLatest)
+	}
+	if version != "1.21.5" {
+		t.Errorf("expected 1.21.5, got %s", version)
+	}
+	if mojangPath != "/mc/game/version_manifest.json" {
+		t.Errorf("expected request to /mc/game/version_manifest.json, got %s", mojangPath)
+	}
+}
+
 func TestMinecraftTracker_GetLatestVersion_DefaultsToPaper(t *testing.T) {
 	var capturedPath string
 	srv := newTestPaperMCServer(t, "paper", []string{"1.19.0", "1.21.4"}, &capturedPath)
@@ -242,8 +267,8 @@ func TestMinecraftTracker_GetLatestVersion_FoliaProject(t *testing.T) {
 	if version != "1.21.4" {
 		t.Errorf("expected 1.21.4, got %s", version)
 	}
-	if capturedPath != "/projects/folia" {
-		t.Errorf("expected request to /projects/folia, got %s", capturedPath)
+	if capturedPath != "/projects/folia/versions/1.21.4/builds" {
+		t.Errorf("expected request to /projects/folia/versions/1.21.4/builds, got %s", capturedPath)
 	}
 }
 
@@ -263,8 +288,8 @@ func TestMinecraftTracker_GetLatestVersion_WaterfallProject(t *testing.T) {
 	if version != "1.21.0" {
 		t.Errorf("expected 1.21.0, got %s", version)
 	}
-	if capturedPath != "/projects/waterfall" {
-		t.Errorf("expected request to /projects/waterfall, got %s", capturedPath)
+	if capturedPath != "/projects/waterfall/versions/1.21.0/builds" {
+		t.Errorf("expected request to /projects/waterfall/versions/1.21.0/builds, got %s", capturedPath)
 	}
 }
 
@@ -284,8 +309,8 @@ func TestMinecraftTracker_GetLatestVersion_VelocityProject(t *testing.T) {
 	if version != "3.4.0" {
 		t.Errorf("expected 3.4.0, got %s", version)
 	}
-	if capturedPath != "/projects/velocity" {
-		t.Errorf("expected request to /projects/velocity, got %s", capturedPath)
+	if capturedPath != "/projects/velocity/versions/3.4.0/builds" {
+		t.Errorf("expected request to /projects/velocity/versions/3.4.0/builds, got %s", capturedPath)
 	}
 }
 
@@ -305,8 +330,8 @@ func TestMinecraftTracker_GetLatestVersion_UnknownJarSourceDefaultsToPaper(t *te
 	if version != "1.21.4" {
 		t.Errorf("expected 1.21.4, got %s", version)
 	}
-	if capturedPath != "/projects/paper" {
-		t.Errorf("expected default request to /projects/paper, got %s", capturedPath)
+	if capturedPath != "/projects/paper/versions/1.21.4/builds" {
+		t.Errorf("expected default request to /projects/paper/versions/1.21.4/builds, got %s", capturedPath)
 	}
 }
 
@@ -377,6 +402,41 @@ func TestMinecraftTracker_CheckForUpdate_UpdateAvailable(t *testing.T) {
 	}
 	if info.LatestVersion != "1.21.4" {
 		t.Errorf("expected LatestVersion 1.21.4, got %s", info.LatestVersion)
+	}
+}
+
+func TestMinecraftTracker_CheckForUpdate_InvalidConfiguredVanillaTargetUsesResolvedReleaseLabels(t *testing.T) {
+	var mojangPath string
+	mojangSrv := newTestMojangManifestServer(t, "1.21.5", &mojangPath)
+	defer mojangSrv.Close()
+
+	dir := t.TempDir()
+	createTestMinecraftJar(t, dir, "minecraft_server.jar", "1.21.2")
+
+	tracker := NewConfiguredMinecraftTracker("mojang", "vanilla", "26.1")
+	tracker.httpClient = mojangSrv.Client()
+	tracker.mojangManifestURL = mojangSrv.URL + "/mc/game/version_manifest.json"
+
+	gs := &models.GameServer{
+		Directory:      dir,
+		ServerSoftware: null.From("vanilla"),
+	}
+
+	info, errCheck := tracker.CheckForUpdate(context.Background(), gs)
+	if errCheck != nil {
+		t.Fatalf("unexpected error: %v", errCheck)
+	}
+	if info == nil {
+		t.Fatal("expected non-nil UpdateInfo")
+	}
+	if info.InstalledVersionLabel != "1.21.2" {
+		t.Fatalf("InstalledVersionLabel = %q, want %q", info.InstalledVersionLabel, "1.21.2")
+	}
+	if info.LatestVersionLabel != "1.21.5" {
+		t.Fatalf("LatestVersionLabel = %q, want %q", info.LatestVersionLabel, "1.21.5")
+	}
+	if mojangPath != "/mc/game/version_manifest.json" {
+		t.Errorf("expected request to /mc/game/version_manifest.json, got %s", mojangPath)
 	}
 }
 

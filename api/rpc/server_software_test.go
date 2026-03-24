@@ -9,10 +9,59 @@ import (
 	"github.com/aarondl/opt/omitnull"
 
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
+
+func TestPersistedVariantTarget(t *testing.T) {
+	testCases := []struct {
+		name       string
+		kind       updateproviders.ProviderKind
+		target     string
+		pinTarget  bool
+		wantTarget string
+		wantPinned bool
+	}{
+		{
+			name:       "mojang tracking latest clears stored target",
+			kind:       updateproviders.ProviderKindMojang,
+			target:     "1.21.4",
+			pinTarget:  false,
+			wantTarget: "",
+			wantPinned: false,
+		},
+		{
+			name:       "papermc pinned keeps target",
+			kind:       updateproviders.ProviderKindPaperMC,
+			target:     "1.21.4",
+			pinTarget:  true,
+			wantTarget: "1.21.4",
+			wantPinned: true,
+		},
+		{
+			name:       "steamcmd stays sticky",
+			kind:       updateproviders.ProviderKindSteamCMD,
+			target:     "latest_experimental",
+			pinTarget:  false,
+			wantTarget: "latest_experimental",
+			wantPinned: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotTarget, gotPinned := persistedVariantTarget(tc.kind, tc.target, tc.pinTarget)
+			if gotTarget != tc.wantTarget {
+				t.Fatalf("persistedVariantTarget() target = %q, want %q", gotTarget, tc.wantTarget)
+			}
+			if gotPinned != tc.wantPinned {
+				t.Fatalf("persistedVariantTarget() pinned = %v, want %v", gotPinned, tc.wantPinned)
+			}
+		})
+	}
+}
 
 func TestSetServerSoftwareUsesLiveSupervisorStatus(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
@@ -36,8 +85,15 @@ func TestSetServerSoftwareUsesLiveSupervisorStatus(t *testing.T) {
 	}
 
 	_, errUpdateGame := fixture.conn.UpdateGame(fixture.conn.DB, game, &models.GameSetter{
-		ID:             omit.From(game.ID),
-		ServerSoftware: omitnull.From(`[{"id":"paper","name":"Paper"}]`),
+		ID: omit.From(game.ID),
+		ServerSoftware: omitnull.From(`{
+			"variants":[
+				{
+					"id":"paper",
+					"name":"Paper"
+				}
+			]
+		}`),
 	})
 	if errUpdateGame != nil {
 		t.Fatalf("UpdateGame() error = %v", errUpdateGame)
@@ -53,18 +109,18 @@ func TestSetServerSoftwareUsesLiveSupervisorStatus(t *testing.T) {
 
 	supervisorInst.GetCommandByIDOrCreateShell(gameServer.ID)
 
-	request := connect.NewRequest(&xylona.SetServerSoftwareRequest{
+	request := connect.NewRequest(&xylona.SetServerVariantRequest{
 		GameServerId: gameServer.ID,
-		SoftwareId:   "paper",
+		VariantId:    "paper",
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
 
-	response, errSet := fixture.service.SetServerSoftware(context.Background(), request)
+	response, errSet := fixture.service.SetServerVariant(context.Background(), request)
 	if errSet != nil {
-		t.Fatalf("SetServerSoftware() error = %v", errSet)
+		t.Fatalf("SetServerVariant() error = %v", errSet)
 	}
 	if response.Msg.GetStatus() != modmanager.InstallStatusComplete {
-		t.Fatalf("SetServerSoftware().Status = %q, want %q", response.Msg.GetStatus(), modmanager.InstallStatusComplete)
+		t.Fatalf("SetServerVariant().Status = %q, want %q", response.Msg.GetStatus(), modmanager.InstallStatusComplete)
 	}
 
 	updatedServer, errGetUpdated := fixture.conn.GetGameServerByID(gameServer.ID)

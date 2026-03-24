@@ -13,38 +13,48 @@ func TestResolveTracker(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		gameID         string
-		updateCommand  string
-		serverSoftware string
+		info           TrackerContext
 		wantType       string
 	}{
 		{
-			name:     "dummy game ID returns DummyTracker",
-			gameID:   "test-dummy-game",
+			name: "dummy game ID returns DummyTracker",
+			info: TrackerContext{
+				GameID: "test-dummy-game",
+			},
 			wantType: "dummy",
 		},
 		{
-			name:          "steamcmd update command returns SteamTracker",
-			gameID:        "valheim",
-			updateCommand: "steamcmd +app_update 896660",
+			name: "steamcmd provider returns SteamTracker",
+			info: TrackerContext{
+				GameID:        "valheim",
+				UpdateCommand: "steamcmd +app_update 896660",
+				ProviderKind:  "steamcmd",
+				SteamAppID:    "896660",
+			},
 			wantType:      "steam",
 		},
 		{
-			name:           "minecraft with server software returns MinecraftTracker",
-			gameID:         "minecraft",
-			serverSoftware: `[{"id":"paper"}]`,
-			wantType:       "minecraft",
+			name: "typed papermc provider returns MinecraftTracker",
+			info: TrackerContext{
+				GameID:           "minecraft",
+				ProviderKind:     "papermc",
+				ProviderSourceID: "paper",
+				Target:           "1.21.4",
+			},
+			wantType: "minecraft",
 		},
 		{
-			name:     "unknown game with no steamcmd returns nil",
-			gameID:   "custom-game",
+			name: "unknown game with no tracker returns nil",
+			info: TrackerContext{
+				GameID: "custom-game",
+			},
 			wantType: "nil",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			tracker := ResolveTracker(cfg, tc.gameID, tc.updateCommand, tc.serverSoftware)
+			tracker := ResolveTrackerWithContext(cfg, tc.info)
 			switch tc.wantType {
 			case "dummy":
 				if _, ok := tracker.(*DummyTracker); !ok {

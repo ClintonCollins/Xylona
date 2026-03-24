@@ -81,8 +81,8 @@ describe('UpdateProgressPanel', () => {
     const wrapper = mountPanel(
       [
         {
-          step: 'software-apply',
-          label: 'Apply selected server software',
+          step: 'variant-apply',
+          label: 'Apply selected variant',
           status: StepStatus.IN_PROGRESS,
         },
       ],

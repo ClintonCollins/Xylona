@@ -1,7 +1,13 @@
 import { create } from '@bufbuild/protobuf'
 import { describe, expect, it, vi } from 'vitest'
 
-import { GameSchema, GameServerSchema, SteamBranchSchema } from '@/proto/shared_pb'
+import {
+  GameSchema,
+  GameServerSchema,
+  UpdateProviderConfigSchema,
+  UpdateProviderKind,
+  UpdateTargetOptionSchema,
+} from '@/proto/shared_pb'
 
 import {
   buildSteamBranchDialogItems,
@@ -18,17 +24,17 @@ describe('normalizeSteamBranch', () => {
 })
 
 describe('buildSteamBranchDialogItems', () => {
-  it('uses the backend display label and build id for dialog options', () => {
+  it('uses the backend target labels and build ids for dialog options', () => {
     const items = buildSteamBranchDialogItems([
-      create(SteamBranchSchema, {
-        name: 'public',
-        description: 'Public',
-        buildId: '21600865',
+      create(UpdateTargetOptionSchema, {
+        id: 'public',
+        label: 'Public',
+        latestVersion: '21600865',
       }),
-      create(SteamBranchSchema, {
-        name: 'latest_experimental',
-        description: 'Unstable build',
-        buildId: '22422094',
+      create(UpdateTargetOptionSchema, {
+        id: 'latest_experimental',
+        label: 'Unstable build',
+        latestVersion: '22422094',
       }),
     ])
 
@@ -36,19 +42,19 @@ describe('buildSteamBranchDialogItems', () => {
       {
         label: 'Public',
         value: 'public',
-        caption: 'Branch public - Build 21600865',
+        caption: 'Track public - Build 21600865',
       },
       {
         label: 'Unstable build',
         value: 'latest_experimental',
-        caption: 'Branch latest_experimental - Build 22422094',
+        caption: 'Track latest_experimental - Build 22422094',
       },
     ])
   })
 })
 
 describe('chooseSteamBranchForUpdate', () => {
-  it('skips branch lookup for non-SteamCMD servers', async () => {
+  it('skips target lookup for non-SteamCMD servers', async () => {
     const getBranches = vi.fn()
     const dialog = vi.fn()
 
@@ -70,19 +76,19 @@ describe('chooseSteamBranchForUpdate', () => {
     expect(dialog).not.toHaveBeenCalled()
   })
 
-  it('returns the selected branch when metadata is available', async () => {
+  it('returns the selected target when metadata is available', async () => {
     const getBranches = vi.fn().mockResolvedValue({
-      currentBranch: 'public',
-      branches: [
-        create(SteamBranchSchema, {
-          name: 'public',
-          description: 'Public',
-          buildId: '21600865',
+      currentTarget: 'public',
+      targets: [
+        create(UpdateTargetOptionSchema, {
+          id: 'public',
+          label: 'Public',
+          latestVersion: '21600865',
         }),
-        create(SteamBranchSchema, {
-          name: 'latest_experimental',
-          description: 'Unstable build',
-          buildId: '22422094',
+        create(UpdateTargetOptionSchema, {
+          id: 'latest_experimental',
+          label: 'Unstable build',
+          latestVersion: '22422094',
         }),
       ],
     })
@@ -95,10 +101,12 @@ describe('chooseSteamBranchForUpdate', () => {
       gameServerId: 'server-1',
       gameServer: create(GameServerSchema, {
         id: 'server-1',
-        branch: 'public',
+        selectedTarget: 'public',
+        resolvedUpdateProvider: create(UpdateProviderConfigSchema, {
+          kind: UpdateProviderKind.STEAMCMD,
+        }),
         game: create(GameSchema, {
           id: 'game-1',
-          usesSteamcmd: true,
           steamAppid: '294420',
         }),
       }),
@@ -125,7 +133,7 @@ describe('chooseSteamBranchForUpdate', () => {
     )
   })
 
-  it('falls back cleanly when branch metadata cannot be loaded', async () => {
+  it('falls back cleanly when target metadata cannot be loaded', async () => {
     const getBranches = vi.fn().mockRejectedValue(new Error('boom'))
     const dialog = vi.fn()
 
@@ -133,9 +141,11 @@ describe('chooseSteamBranchForUpdate', () => {
       gameServerId: 'server-1',
       gameServer: create(GameServerSchema, {
         id: 'server-1',
+        resolvedUpdateProvider: create(UpdateProviderConfigSchema, {
+          kind: UpdateProviderKind.STEAMCMD,
+        }),
         game: create(GameSchema, {
           id: 'game-1',
-          usesSteamcmd: true,
           steamAppid: '294420',
         }),
       }),
@@ -153,12 +163,12 @@ describe('chooseSteamBranchForUpdate', () => {
 
   it('cancels the update when the picker is dismissed', async () => {
     const getBranches = vi.fn().mockResolvedValue({
-      currentBranch: 'public',
-      branches: [
-        create(SteamBranchSchema, {
-          name: 'public',
-          description: 'Public',
-          buildId: '21600865',
+      currentTarget: 'public',
+      targets: [
+        create(UpdateTargetOptionSchema, {
+          id: 'public',
+          label: 'Public',
+          latestVersion: '21600865',
         }),
       ],
     })
@@ -171,9 +181,11 @@ describe('chooseSteamBranchForUpdate', () => {
       gameServerId: 'server-1',
       gameServer: create(GameServerSchema, {
         id: 'server-1',
+        resolvedUpdateProvider: create(UpdateProviderConfigSchema, {
+          kind: UpdateProviderKind.STEAMCMD,
+        }),
         game: create(GameSchema, {
           id: 'game-1',
-          usesSteamcmd: true,
           steamAppid: '294420',
         }),
       }),

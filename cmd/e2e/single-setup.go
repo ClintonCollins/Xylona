@@ -15,9 +15,77 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-// minecraftServerSoftwareJSON matches the Minecraft preset from frontend/src/utils/game-presets.ts.
-// It defines Vanilla, Paper, Purpur, and Fabric server software options.
-const minecraftServerSoftwareJSON = `[{"id":"vanilla","name":"Vanilla","jar_source":null,"mod_config":null},{"id":"paper","name":"Paper","jar_source":"papermc","mod_config":{"mod_types":[{"type":"plugin","label":"Plugins","install_path":"plugins/"}],"sources":[{"id":"modrinth","search_params":{"facets":{"project_type":"plugin","categories":["paper","spigot","bukkit"]}}},{"id":"hangar","search_params":{"platform":"PAPER"}}]}},{"id":"purpur","name":"Purpur","jar_source":"papermc","mod_config":{"mod_types":[{"type":"plugin","label":"Plugins","install_path":"plugins/"}],"sources":[{"id":"modrinth","search_params":{"facets":{"project_type":"plugin","categories":["purpur","paper","spigot","bukkit"]}}},{"id":"hangar","search_params":{"platform":"PAPER"}}]}},{"id":"fabric","name":"Fabric","jar_source":null,"mod_config":{"mod_types":[{"type":"mod","label":"Mods","install_path":"mods/"}],"sources":[{"id":"modrinth","search_params":{"facets":{"project_type":"mod","categories":["fabric"]}}}]}}]`
+func minecraftE2EVariants() []*xylona.Variant {
+	return []*xylona.Variant{
+		{
+			Id:            "vanilla",
+			Name:          "Vanilla",
+			UpdateProvider: &xylona.UpdateProviderConfig{
+				Kind: xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND,
+			},
+		},
+		{
+			Id:            "paper",
+			Name:          "Paper",
+			DefaultTarget: "1.21.4",
+			UpdateProvider: &xylona.UpdateProviderConfig{
+				Kind:     xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_PAPERMC,
+				SourceId: "paper",
+			},
+			ModProfile: &xylona.ModProfile{
+				InstallPath: "plugins/",
+				Sources: []*xylona.ModSource{
+					{
+						Id:               "modrinth",
+						SearchParamsJson: `{"facets":{"project_type":"plugin","categories":["paper","spigot","bukkit"]}}`,
+					},
+					{
+						Id:               "hangar",
+						SearchParamsJson: `{"platform":"PAPER"}`,
+					},
+				},
+			},
+		},
+		{
+			Id:            "purpur",
+			Name:          "Purpur",
+			DefaultTarget: "1.21.4",
+			UpdateProvider: &xylona.UpdateProviderConfig{
+				Kind:     xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_PAPERMC,
+				SourceId: "purpur",
+			},
+			ModProfile: &xylona.ModProfile{
+				InstallPath: "plugins/",
+				Sources: []*xylona.ModSource{
+					{
+						Id:               "modrinth",
+						SearchParamsJson: `{"facets":{"project_type":"plugin","categories":["purpur","paper","spigot","bukkit"]}}`,
+					},
+					{
+						Id:               "hangar",
+						SearchParamsJson: `{"platform":"PAPER"}`,
+					},
+				},
+			},
+		},
+		{
+			Id:            "fabric",
+			Name:          "Fabric",
+			UpdateProvider: &xylona.UpdateProviderConfig{
+				Kind: xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND,
+			},
+			ModProfile: &xylona.ModProfile{
+				InstallPath: "mods/",
+				Sources: []*xylona.ModSource{
+					{
+						Id:               "modrinth",
+						SearchParamsJson: `{"facets":{"project_type":"mod","categories":["fabric"]}}`,
+					},
+				},
+			},
+		},
+	}
+}
 
 var testUserDefs = []struct {
 	userName  string
@@ -222,7 +290,10 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 						WindowsInstallCommandProcessor: xylona.CommandProcessor_CMD,
 						DefaultPort:                    25599,
 						DefaultQueryPort:               25599,
-						ServerSoftware:                 minecraftServerSoftwareJSON,
+						UpdateProvider: &xylona.UpdateProviderConfig{
+							Kind: xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND,
+						},
+						Variants: minecraftE2EVariants(),
 					},
 				}))
 				if errAdd != nil {
@@ -274,16 +345,15 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			testServerID = createResp.Msg.GameServer.Id
 			log.Info().Msgf("[E2E Setup] Created game server: %s", testServerID)
 
-			// Set server software to "paper" so the Mods tab is available.
-			_, errSetSoftware := client.rpc.SetServerSoftware(ctx, connect.NewRequest(&xylona.SetServerSoftwareRequest{
+			// Select the Paper variant so the Mods tab is available.
+			_, errSetVariant := client.rpc.SetServerVariant(ctx, connect.NewRequest(&xylona.SetServerVariantRequest{
 				GameServerId: testServerID,
-				SoftwareId:   "paper",
-				VersionId:    "1.21.4",
+				VariantId:    "paper",
 			}))
-			if errSetSoftware != nil {
-				log.Warn().Err(errSetSoftware).Msg("[E2E Setup] Warning: could not set server software to paper")
+			if errSetVariant != nil {
+				log.Warn().Err(errSetVariant).Msg("[E2E Setup] Warning: could not set server variant to paper")
 			} else {
-				log.Info().Msg("[E2E Setup] Set server software to Paper")
+				log.Info().Msg("[E2E Setup] Set server variant to Paper")
 			}
 
 			// Start the game server.
@@ -310,47 +380,49 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			log.Info().Msgf("[E2E Setup] Using existing game server: %s", gameServers[0].Name)
 		}
 
-		// Ensure the game has server_software configured for mod management tests.
-		// Always update — the field may have been cleared or missing.
+		// Ensure the game has variants configured for mod management tests.
+		// Always update when missing so E2E stays deterministic.
 		if testGameID != "" {
 			gameResp, errGetGame := client.rpc.GetGame(ctx, connect.NewRequest(&xylona.GetGameRequest{
 				Id: testGameID,
 			}))
 			if errGetGame != nil {
 				log.Warn().Err(errGetGame).Msg("[E2E Setup] Warning: could not fetch game")
-			} else if gameResp.Msg.Game != nil && gameResp.Msg.Game.ServerSoftware == "" {
-				log.Info().Msg("[E2E Setup] Updating game with server_software config...")
+			} else if gameResp.Msg.Game != nil && len(gameResp.Msg.Game.Variants) == 0 {
+				log.Info().Msg("[E2E Setup] Updating game with typed variant config...")
 				gameToUpdate := gameResp.Msg.Game
-				gameToUpdate.ServerSoftware = minecraftServerSoftwareJSON
+				gameToUpdate.UpdateProvider = &xylona.UpdateProviderConfig{
+					Kind: xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND,
+				}
+				gameToUpdate.Variants = minecraftE2EVariants()
 				_, errEdit := client.rpc.EditGame(ctx, connect.NewRequest(&xylona.EditGameRequest{
 					Game: gameToUpdate,
 				}))
 				if errEdit != nil {
-					log.Warn().Err(errEdit).Msg("[E2E Setup] Warning: could not update game with server_software")
+					log.Warn().Err(errEdit).Msg("[E2E Setup] Warning: could not update game with typed variant config")
 				} else {
-					log.Info().Msg("[E2E Setup] Updated game with Minecraft server software config")
+					log.Info().Msg("[E2E Setup] Updated game with Minecraft variant config")
 				}
 			}
 		}
 
-		// Ensure the game server has server_software set to "paper".
+		// Ensure the game server has the Paper variant selected.
 		if testServerID != "" {
 			gsResp, errGetGS := client.rpc.GetGameServer(ctx, connect.NewRequest(&xylona.GetGameServerRequest{
 				Id: testServerID,
 			}))
 			if errGetGS != nil {
 				log.Warn().Err(errGetGS).Msg("[E2E Setup] Warning: could not fetch game server")
-			} else if gsResp.Msg.GameServer != nil && gsResp.Msg.GameServer.ServerSoftware == "" {
-				log.Info().Msg("[E2E Setup] Setting server software to Paper...")
-				_, errSetSoftware := client.rpc.SetServerSoftware(ctx, connect.NewRequest(&xylona.SetServerSoftwareRequest{
+			} else if gsResp.Msg.GameServer != nil && gsResp.Msg.GameServer.SelectedVariantId == "" {
+				log.Info().Msg("[E2E Setup] Setting server variant to Paper...")
+				_, errSetVariant := client.rpc.SetServerVariant(ctx, connect.NewRequest(&xylona.SetServerVariantRequest{
 					GameServerId: testServerID,
-					SoftwareId:   "paper",
-					VersionId:    "1.21.4",
+					VariantId:    "paper",
 				}))
-				if errSetSoftware != nil {
-					log.Warn().Err(errSetSoftware).Msg("[E2E Setup] Warning: could not set server software to paper")
+				if errSetVariant != nil {
+					log.Warn().Err(errSetVariant).Msg("[E2E Setup] Warning: could not set server variant to paper")
 				} else {
-					log.Info().Msg("[E2E Setup] Set server software to Paper")
+					log.Info().Msg("[E2E Setup] Set server variant to Paper")
 				}
 			}
 		}

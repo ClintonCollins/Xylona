@@ -15,7 +15,7 @@ import {
   InstallModRequestSchema,
   GetModVersionsRequestSchema,
   GetGameServerRequestSchema,
-  GetServerSoftwareVersionsRequestSchema,
+  GetUpdateTargetsRequestSchema,
 } from '@/proto/xylona_pb'
 import type { InstalledMod, ModVersion } from '@/proto/shared_pb'
 import InstalledModsTable from '@/components/game_servers/InstalledModsTable.vue'
@@ -48,15 +48,11 @@ const pendingInstall = ref<{
   versionId: string
 } | null>(null)
 
-// Mod sources derived from the game's server software config.
+// Mod sources derived from the resolved mod profile.
 const modSources = ref<{ id: string; searchParams: Record<string, unknown> }[]>([])
 
 // Available game versions for the browse version filter.
 const availableVersions = ref<string[]>([])
-
-// Game server metadata needed to resolve sources and versions.
-const gameId = ref('')
-const activeSoftwareId = ref('')
 
 const detailIsInstalled = computed(() => {
   return installedMods.value.some(
@@ -96,15 +92,6 @@ async function loadInstalledMods(): Promise<void> {
   }
 }
 
-interface ServerSoftwareConfig {
-  id: string
-  name: string
-  jar_source?: string
-  mod_config?: {
-    sources?: { id: string; search_params?: Record<string, unknown> }[]
-  }
-}
-
 async function loadGameServerConfig(): Promise<void> {
   try {
     const request = create(GetGameServerRequestSchema, { id: gameServerId })
@@ -112,29 +99,15 @@ async function loadGameServerConfig(): Promise<void> {
     const gs = response.gameServer
     if (!gs) return
 
-    gameId.value = gs.gameId
-    activeSoftwareId.value = gs.serverSoftware
+    const resolvedModProfile = gs.resolvedModProfile
+    modSources.value =
+      resolvedModProfile?.sources.map((src) => ({
+        id: src.id,
+        searchParams: src.searchParamsJson ? JSON.parse(src.searchParamsJson) : {},
+      })) ?? []
 
-    // Parse server software JSON from the game definition to extract mod sources.
-    const game = gs.game
-    if (game && game.serverSoftware) {
-      try {
-        const softwareList: ServerSoftwareConfig[] = JSON.parse(game.serverSoftware)
-        const activeSw = softwareList.find((sw) => sw.id === gs.serverSoftware)
-        if (activeSw?.mod_config?.sources) {
-          modSources.value = activeSw.mod_config.sources.map((src) => ({
-            id: src.id,
-            searchParams: src.search_params ?? {},
-          }))
-        }
-      } catch {
-        // Invalid JSON — ignore
-      }
-    }
-
-    // Fetch available versions for the version filter dropdown.
-    if (gs.serverSoftware && gs.gameId) {
-      await loadAvailableVersions(gs.gameId, gs.serverSoftware)
+    if (gs.selectedVariantId || gs.resolvedUpdateProvider) {
+      await loadAvailableVersions()
     }
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
@@ -142,14 +115,13 @@ async function loadGameServerConfig(): Promise<void> {
   }
 }
 
-async function loadAvailableVersions(gId: string, softwareId: string): Promise<void> {
+async function loadAvailableVersions(): Promise<void> {
   try {
-    const request = create(GetServerSoftwareVersionsRequestSchema, {
-      gameId: gId,
-      softwareId,
+    const request = create(GetUpdateTargetsRequestSchema, {
+      gameServerId,
     })
-    const response = await GetXylonaClient().getServerSoftwareVersions(request)
-    availableVersions.value = response.versions.map((v) => v.versionString || v.versionId)
+    const response = await GetXylonaClient().getUpdateTargets(request)
+    availableVersions.value = response.targets.map((target) => target.label || target.id)
   } catch {
     // Non-critical — silently ignore
   }

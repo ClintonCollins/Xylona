@@ -266,40 +266,63 @@
               <div class="cmd-block cmd-block--windows">
                 <div class="cmd-header">
                   <span class="cmd-label">INSTALL COMMAND</span>
-                  <div class="cmd-type-group">
-                    <span class="cmd-type-label">Type</span>
-                    <select
-                      :value="game.windowsInstallCommandProcessor"
-                      class="cmd-type-select font-mono"
-                      @change="
-                        game.windowsInstallCommandProcessor = Number(
-                          ($event.target as HTMLSelectElement).value,
-                        ) as CommandProcessor
-                      ">
-                      <option
-                        v-for="opt in windowsCommandProcessorOptions"
-                        :key="opt.value"
-                        :value="opt.value">
-                        {{ opt.label }}
-                      </option>
-                    </select>
+                  <div class="cmd-type-row">
+                    <div class="cmd-type-group">
+                      <span class="cmd-type-label">Type</span>
+                      <select
+                        :value="game.windowsInstallType"
+                        data-testid="windows-install-type"
+                        class="cmd-type-select font-mono"
+                        @change="
+                          game.windowsInstallType = Number(
+                            ($event.target as HTMLSelectElement).value,
+                          ) as CommandType
+                        ">
+                        <option
+                          v-for="opt in commandTypeOptions"
+                          :key="opt.value"
+                          :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
+                    <div
+                      v-if="isCommandTypeCommand(game.windowsInstallType)"
+                      class="cmd-type-group">
+                      <span class="cmd-type-label">Shell</span>
+                      <select
+                        :value="game.windowsInstallCommandProcessor"
+                        data-testid="windows-install-shell"
+                        class="cmd-type-select font-mono"
+                        @change="
+                          game.windowsInstallCommandProcessor = Number(
+                            ($event.target as HTMLSelectElement).value,
+                          ) as CommandProcessor
+                        ">
+                        <option
+                          v-for="opt in windowsCommandProcessorOptions"
+                          :key="opt.value"
+                          :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div
-                  v-if="game.windowsInstallCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-                  class="cmd-internal font-mono">
-                  Managed internally by Xylona
-                </div>
-                <div v-else class="cmd-input-wrap">
+                <div v-if="isCommandTypeCommand(game.windowsInstallType)" class="cmd-input-wrap">
                   <div
                     class="cmd-highlight font-mono"
                     aria-hidden="true"
                     v-html="highlightCommand(game.windowsInstallCommand)"></div>
                   <textarea
                     v-model="game.windowsInstallCommand"
+                    data-testid="windows-install-command"
                     class="cmd-textarea font-mono"
                     rows="2"
                     placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
+                </div>
+                <div v-else class="cmd-internal font-mono">
+                  {{ commandTypeSummary(game.windowsInstallType, 'install') }}
                 </div>
               </div>
 
@@ -307,40 +330,61 @@
               <div class="cmd-block cmd-block--windows">
                 <div class="cmd-header">
                   <span class="cmd-label">UPDATE COMMAND</span>
-                  <div class="cmd-type-group">
-                    <span class="cmd-type-label">Type</span>
-                    <select
-                      :value="game.windowsUpdateCommandProcessor"
-                      class="cmd-type-select font-mono"
-                      @change="
-                        game.windowsUpdateCommandProcessor = Number(
-                          ($event.target as HTMLSelectElement).value,
-                        ) as CommandProcessor
-                      ">
-                      <option
-                        v-for="opt in windowsCommandProcessorOptions"
-                        :key="opt.value"
-                        :value="opt.value">
-                        {{ opt.label }}
-                      </option>
-                    </select>
+                  <div class="cmd-type-row">
+                    <div class="cmd-type-group">
+                      <span class="cmd-type-label">Type</span>
+                      <select
+                        :value="game.windowsUpdateType"
+                        data-testid="windows-update-type"
+                        class="cmd-type-select font-mono"
+                        @change="
+                          game.windowsUpdateType = Number(
+                            ($event.target as HTMLSelectElement).value,
+                          ) as CommandType
+                        ">
+                        <option
+                          v-for="opt in commandTypeOptions"
+                          :key="opt.value"
+                          :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
+                    <div v-if="isCommandTypeCommand(game.windowsUpdateType)" class="cmd-type-group">
+                      <span class="cmd-type-label">Shell</span>
+                      <select
+                        :value="game.windowsUpdateCommandProcessor"
+                        data-testid="windows-update-shell"
+                        class="cmd-type-select font-mono"
+                        @change="
+                          game.windowsUpdateCommandProcessor = Number(
+                            ($event.target as HTMLSelectElement).value,
+                          ) as CommandProcessor
+                        ">
+                        <option
+                          v-for="opt in windowsCommandProcessorOptions"
+                          :key="opt.value"
+                          :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div
-                  v-if="game.windowsUpdateCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-                  class="cmd-internal font-mono">
-                  Managed internally by Xylona
-                </div>
-                <div v-else class="cmd-input-wrap">
+                <div v-if="isCommandTypeCommand(game.windowsUpdateType)" class="cmd-input-wrap">
                   <div
                     class="cmd-highlight font-mono"
                     aria-hidden="true"
                     v-html="highlightCommand(game.windowsUpdateCommand)"></div>
                   <textarea
                     v-model="game.windowsUpdateCommand"
+                    data-testid="windows-update-command"
                     class="cmd-textarea font-mono"
                     rows="2"
                     placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
+                </div>
+                <div v-else class="cmd-internal font-mono">
+                  {{ commandTypeSummary(game.windowsUpdateType, 'update') }}
                 </div>
               </div>
 
@@ -402,40 +446,61 @@
               <div class="cmd-block cmd-block--linux">
                 <div class="cmd-header">
                   <span class="cmd-label">INSTALL COMMAND</span>
-                  <div class="cmd-type-group">
-                    <span class="cmd-type-label">Type</span>
-                    <select
-                      :value="game.linuxInstallCommandProcessor"
-                      class="cmd-type-select font-mono"
-                      @change="
-                        game.linuxInstallCommandProcessor = Number(
-                          ($event.target as HTMLSelectElement).value,
-                        ) as CommandProcessor
-                      ">
-                      <option
-                        v-for="opt in linuxCommandProcessorOptions"
-                        :key="opt.value"
-                        :value="opt.value">
-                        {{ opt.label }}
-                      </option>
-                    </select>
+                  <div class="cmd-type-row">
+                    <div class="cmd-type-group">
+                      <span class="cmd-type-label">Type</span>
+                      <select
+                        :value="game.linuxInstallType"
+                        data-testid="linux-install-type"
+                        class="cmd-type-select font-mono"
+                        @change="
+                          game.linuxInstallType = Number(
+                            ($event.target as HTMLSelectElement).value,
+                          ) as CommandType
+                        ">
+                        <option
+                          v-for="opt in commandTypeOptions"
+                          :key="opt.value"
+                          :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
+                    <div v-if="isCommandTypeCommand(game.linuxInstallType)" class="cmd-type-group">
+                      <span class="cmd-type-label">Shell</span>
+                      <select
+                        :value="game.linuxInstallCommandProcessor"
+                        data-testid="linux-install-shell"
+                        class="cmd-type-select font-mono"
+                        @change="
+                          game.linuxInstallCommandProcessor = Number(
+                            ($event.target as HTMLSelectElement).value,
+                          ) as CommandProcessor
+                        ">
+                        <option
+                          v-for="opt in linuxCommandProcessorOptions"
+                          :key="opt.value"
+                          :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div
-                  v-if="game.linuxInstallCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-                  class="cmd-internal font-mono">
-                  Managed internally by Xylona
-                </div>
-                <div v-else class="cmd-input-wrap">
+                <div v-if="isCommandTypeCommand(game.linuxInstallType)" class="cmd-input-wrap">
                   <div
                     class="cmd-highlight font-mono"
                     aria-hidden="true"
                     v-html="highlightCommand(game.linuxInstallCommand)"></div>
                   <textarea
                     v-model="game.linuxInstallCommand"
+                    data-testid="linux-install-command"
                     class="cmd-textarea font-mono"
                     rows="2"
                     placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
+                </div>
+                <div v-else class="cmd-internal font-mono">
+                  {{ commandTypeSummary(game.linuxInstallType, 'install') }}
                 </div>
               </div>
 
@@ -443,40 +508,61 @@
               <div class="cmd-block cmd-block--linux">
                 <div class="cmd-header">
                   <span class="cmd-label">UPDATE COMMAND</span>
-                  <div class="cmd-type-group">
-                    <span class="cmd-type-label">Type</span>
-                    <select
-                      :value="game.linuxUpdateCommandProcessor"
-                      class="cmd-type-select font-mono"
-                      @change="
-                        game.linuxUpdateCommandProcessor = Number(
-                          ($event.target as HTMLSelectElement).value,
-                        ) as CommandProcessor
-                      ">
-                      <option
-                        v-for="opt in linuxCommandProcessorOptions"
-                        :key="opt.value"
-                        :value="opt.value">
-                        {{ opt.label }}
-                      </option>
-                    </select>
+                  <div class="cmd-type-row">
+                    <div class="cmd-type-group">
+                      <span class="cmd-type-label">Type</span>
+                      <select
+                        :value="game.linuxUpdateType"
+                        data-testid="linux-update-type"
+                        class="cmd-type-select font-mono"
+                        @change="
+                          game.linuxUpdateType = Number(
+                            ($event.target as HTMLSelectElement).value,
+                          ) as CommandType
+                        ">
+                        <option
+                          v-for="opt in commandTypeOptions"
+                          :key="opt.value"
+                          :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
+                    <div v-if="isCommandTypeCommand(game.linuxUpdateType)" class="cmd-type-group">
+                      <span class="cmd-type-label">Shell</span>
+                      <select
+                        :value="game.linuxUpdateCommandProcessor"
+                        data-testid="linux-update-shell"
+                        class="cmd-type-select font-mono"
+                        @change="
+                          game.linuxUpdateCommandProcessor = Number(
+                            ($event.target as HTMLSelectElement).value,
+                          ) as CommandProcessor
+                        ">
+                        <option
+                          v-for="opt in linuxCommandProcessorOptions"
+                          :key="opt.value"
+                          :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div
-                  v-if="game.linuxUpdateCommandProcessor === CommandProcessor.XYLONA_INTERNAL"
-                  class="cmd-internal font-mono">
-                  Managed internally by Xylona
-                </div>
-                <div v-else class="cmd-input-wrap">
+                <div v-if="isCommandTypeCommand(game.linuxUpdateType)" class="cmd-input-wrap">
                   <div
                     class="cmd-highlight font-mono"
                     aria-hidden="true"
                     v-html="highlightCommand(game.linuxUpdateCommand)"></div>
                   <textarea
                     v-model="game.linuxUpdateCommand"
+                    data-testid="linux-update-command"
                     class="cmd-textarea font-mono"
                     rows="2"
                     placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
+                </div>
+                <div v-else class="cmd-internal font-mono">
+                  {{ commandTypeSummary(game.linuxUpdateType, 'update') }}
                 </div>
               </div>
 
@@ -495,75 +581,82 @@
           </template>
         </section>
 
-        <!-- Server Software -->
+        <!-- Mods -->
         <section class="form-section">
           <div class="section-header">
             <span class="section-bar" style="background-color: var(--xy-info)"></span>
-            <span class="section-title font-display">Server Software</span>
+            <span class="section-title font-display">Mods</span>
             <span class="section-line"></span>
           </div>
           <div class="section-help text-xy-muted">
-            Choose a game preset to auto-populate server software configuration, or customize the
-            JSON directly for advanced setups.
+            Configure a single mod source for custom games. Built-in game variants and advanced
+            update wiring are managed internally.
           </div>
 
-          <!-- Preset selector -->
-          <div class="preset-selector">
-            <q-select
-              v-model="selectedPresetId"
-              :options="presetOptions"
-              option-value="value"
-              option-label="label"
-              emit-value
-              map-options
-              outlined
-              label="Game Preset"
-              class="preset-select"
-              @update:model-value="onPresetSelected">
-              <template #option="scope">
-                <q-item v-bind="scope.itemProps">
-                  <q-item-section>
-                    <q-item-label>{{ scope.opt.label }}</q-item-label>
-                    <q-item-label v-if="scope.opt.description" caption class="text-xy-muted">
-                      {{ scope.opt.description }}
-                    </q-item-label>
-                  </q-item-section>
-                </q-item>
-              </template>
-            </q-select>
-            <div v-if="selectedPresetDescription" class="preset-description text-xy-muted">
-              {{ selectedPresetDescription }}
-            </div>
+          <div v-if="managedModConfig" class="typed-config-managed text-xy-muted">
+            This game uses advanced mod configuration outside the simple editor. Hidden internal
+            mod settings will be preserved when you save this game.
           </div>
 
-          <!-- Raw JSON (collapsed by default) -->
-          <q-expansion-item
-            v-model="rawJsonExpanded"
-            label="Advanced: Raw JSON"
-            header-class="server-software-expansion-header"
-            class="server-software-expansion">
-            <div class="server-software-editor">
-              <div class="server-software-input-wrap">
-                <textarea
-                  v-model="serverSoftwareJson"
-                  class="server-software-textarea font-mono"
-                  rows="12"
-                  placeholder='[
-  {
-    "id": "vanilla",
-    "name": "Vanilla",
-    "jar_source": null,
-    "mod_config": null
-  }
-]'
-                  spellcheck="false"
-                  @input="onRawJsonEdited"></textarea>
+          <div v-else class="typed-config-card">
+            <div class="typed-config-header">
+              <div>
+                <div class="typed-config-title font-display">Mod Support</div>
+                <div class="typed-config-copy text-xy-muted">
+                  Optional install path plus one mod source for custom games.
+                </div>
               </div>
-              <div v-if="serverSoftwareError" class="server-software-error text-negative">
-                {{ serverSoftwareError }}
-              </div>
+              <q-btn
+                v-if="!game.modProfile"
+                flat
+                no-caps
+                color="accent"
+                label="Add Mod Support"
+                @click="addGameModProfile" />
+              <q-btn
+                v-else
+                flat
+                no-caps
+                color="negative"
+                label="Remove"
+                @click="clearGameModProfile" />
             </div>
-          </q-expansion-item>
+
+            <div v-if="game.modProfile" class="typed-config-fields">
+              <q-input
+                v-model="game.modProfile.installPath"
+                outlined
+                label="Install Path"
+                hint="Where downloaded mods should be written"
+                persistent-hint />
+
+              <q-select
+                v-model="game.modProfile.sources[0].id"
+                :options="modSourceOptions"
+                emit-value
+                map-options
+                outlined
+                label="Mod Source"
+                @update:model-value="onModSourceProviderChanged(game.modProfile.sources[0])" />
+
+              <q-input
+                :model-value="readModSourceDisplayValue(game.modProfile.sources[0])"
+                outlined
+                :type="
+                  getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'
+                    ? 'textarea'
+                    : 'text'
+                "
+                :autogrow="getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'"
+                :label="getModSourceConfig(game.modProfile.sources[0].id).primaryLabel"
+                :hint="getModSourceConfig(game.modProfile.sources[0].id).primaryHint"
+                :placeholder="getModSourceConfig(game.modProfile.sources[0].id).placeholder"
+                persistent-hint
+                @update:model-value="
+                  updateModSourceDisplayValue(game.modProfile.sources[0], $event)
+                " />
+            </div>
+          </div>
         </section>
 
         <!-- Configuration Files -->
@@ -597,11 +690,31 @@ import {
 import { GetXylonaClient, ConnectErrorToString } from '@/utils/shared'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { CommandProcessor, Game } from '@/proto/shared_pb'
+import {
+  CommandType,
+  CommandProcessor,
+  Game,
+  GameSchema,
+  type ModSource,
+  ModProfileSchema,
+  ModSourceSchema,
+  UpdateProviderConfigSchema,
+} from '@/proto/shared_pb'
 import ConfigSchemaList from './ConfigSchemaList.vue'
 import type { ConfigSchemaEntry } from './ConfigSchemaList.vue'
+import {
+  applySimpleGameConfig,
+  getCommandProcessorOptions,
+  getCommandTypeOptions,
+  getModSourceConfig,
+  getModSourceOptions,
+  isCommandTypeCommand,
+  isManagedGameConfig,
+  isManagedModConfig,
+  readModSourcePrimaryValue,
+  writeModSourcePrimaryValue,
+} from './game-form-provider-fields'
 import { normalizeSteamAppID } from './game-form-normalization'
-import { gamePresets, detectPreset, presetToJson } from '@/utils/game-presets'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -665,20 +778,9 @@ const portRules = [
   },
 ]
 
-// --- Command processor options ---
-
-const linuxCommandProcessorOptions = [
-  { label: 'Direct', value: CommandProcessor.DIRECT },
-  { label: 'Bash', value: CommandProcessor.BASH },
-  { label: 'Internal', value: CommandProcessor.XYLONA_INTERNAL },
-]
-
-const windowsCommandProcessorOptions = [
-  { label: 'Direct', value: CommandProcessor.DIRECT },
-  { label: 'CMD', value: CommandProcessor.CMD },
-  { label: 'PowerShell', value: CommandProcessor.POWERSHELL },
-  { label: 'Internal', value: CommandProcessor.XYLONA_INTERNAL },
-]
+const commandTypeOptions = getCommandTypeOptions()
+const linuxCommandProcessorOptions = getCommandProcessorOptions('linux')
+const windowsCommandProcessorOptions = getCommandProcessorOptions('windows')
 
 const props = defineProps({
   existingGameId: {
@@ -693,64 +795,86 @@ const props = defineProps({
   },
 })
 
-const game: Ref<Game> = ref({} as Game)
+const game: Ref<Game> = ref(create(GameSchema)) as Ref<Game>
 const existingGame = ref(false)
 const copyGame = ref(false)
 const gameID = ref('')
 const configSchemas = ref<ConfigSchemaEntry[]>([])
-const serverSoftwareJson = ref('')
-const serverSoftwareError = ref('')
-const selectedPresetId = ref('none')
-const rawJsonExpanded = ref(false)
+const modSourceOptions = getModSourceOptions()
+const managedTypedConfig = computed(() => isManagedGameConfig(game.value))
+const managedModConfig = computed(() => isManagedModConfig(game.value))
 
-// Build QSelect options from presets + a "Custom" entry for unrecognized JSON
-const presetOptions = computed(() => {
-  const options = gamePresets.map((p) => ({
-    value: p.id,
-    label: p.label,
-    description: p.description,
-  }))
-  options.push({
-    value: 'custom',
-    label: 'Custom',
-    description: 'Manually edited JSON configuration',
+function ensureTypedGameConfig(): void {
+  if (!game.value.updateProvider) {
+    game.value.updateProvider = create(UpdateProviderConfigSchema, {})
+  }
+  if (!Array.isArray(game.value.variants)) {
+    game.value.variants = []
+  }
+  if (game.value.modProfile && game.value.modProfile.sources.length === 0) {
+    game.value.modProfile.sources.push(createEmptyModSource())
+  }
+}
+
+function createEmptyModProfile() {
+  return create(ModProfileSchema, {
+    installPath: '',
+    sources: [createEmptyModSource()],
   })
-  return options
-})
+}
 
-const selectedPresetDescription = computed(() => {
-  const preset = gamePresets.find((p) => p.id === selectedPresetId.value)
-  if (preset) return preset.description
-  if (selectedPresetId.value === 'custom') return 'Manually edited JSON configuration'
-  return ''
-})
+function createEmptyModSource() {
+  return create(ModSourceSchema, {
+    id: 'modrinth',
+    searchParamsJson: '',
+  })
+}
 
-function onPresetSelected(presetId: string): void {
-  if (presetId === 'custom') {
-    // Switching to custom: just expand the editor, don't touch the JSON
-    rawJsonExpanded.value = true
+function onModSourceProviderChanged(source: ModSource): void {
+  source.searchParamsJson = ''
+}
+
+function readModSourceDisplayValue(source: ModSource): string {
+  return readModSourcePrimaryValue(source.id, source.searchParamsJson)
+}
+
+function updateModSourceDisplayValue(source: ModSource, value: string | number | null): void {
+  const nextValue = typeof value === 'string' ? value : value == null ? '' : String(value)
+  source.searchParamsJson = writeModSourcePrimaryValue(
+    source.id,
+    source.searchParamsJson,
+    nextValue,
+  )
+}
+
+function addGameModProfile(): void {
+  game.value.modProfile = createEmptyModProfile()
+}
+
+function clearGameModProfile(): void {
+  game.value.modProfile = undefined
+}
+
+function syncSimpleGameConfig(): void {
+  ensureTypedGameConfig()
+  if (managedTypedConfig.value) {
     return
   }
-  const preset = gamePresets.find((p) => p.id === presetId)
-  if (!preset) return
-  serverSoftwareJson.value = presetToJson(preset)
-  serverSoftwareError.value = ''
+  applySimpleGameConfig(game.value)
 }
 
-function onRawJsonEdited(): void {
-  // When the user edits the raw JSON, re-detect which preset it matches
-  selectedPresetId.value = detectPreset(serverSoftwareJson.value)
-}
-
-/**
- * Syncs the preset selector to match the current serverSoftwareJson value.
- * Called after loading game data or applying wizard state.
- */
-function syncPresetFromJson(): void {
-  selectedPresetId.value = detectPreset(serverSoftwareJson.value)
-  // If the JSON is custom (doesn't match a preset), expand the raw editor
-  if (selectedPresetId.value === 'custom') {
-    rawJsonExpanded.value = true
+function commandTypeSummary(commandType: CommandType, operation: 'install' | 'update'): string {
+  switch (commandType) {
+    case CommandType.NONE:
+      return `No ${operation} step will run for this platform.`
+    case CommandType.STEAMCMD:
+      return `Xylona will generate the SteamCMD ${operation} command automatically from the Steam App ID.`
+    case CommandType.PAPERMC:
+      return `Xylona will handle the PaperMC ${operation} flow internally.`
+    case CommandType.MOJANG:
+      return `Xylona will handle the Mojang ${operation} flow internally.`
+    default:
+      return `Use a shell command for this ${operation} step.`
   }
 }
 
@@ -783,7 +907,6 @@ function takeSnapshot(): string {
       defaultPort: defaultPort.value,
       defaultQueryPort: defaultQueryPort.value,
       configSchemas: configSchemas.value,
-      serverSoftwareJson: serverSoftwareJson.value,
     },
     (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
   )
@@ -813,6 +936,7 @@ async function getGameDetailsFromID() {
       return
     }
     game.value = response.game
+    ensureTypedGameConfig()
     defaultPort.value = Number(response.game.defaultPort)
     defaultQueryPort.value = Number(response.game.defaultQueryPort)
     if (response.game.configSchemas) {
@@ -822,10 +946,6 @@ async function getGameDetailsFromID() {
         configSchemas.value = []
       }
     }
-    if (response.game.serverSoftware) {
-      serverSoftwareJson.value = response.game.serverSoftware
-    }
-    syncPresetFromJson()
     if (copyGame.value) {
       game.value.id = ''
       game.value.name = `${game.value.name} (Copy)`
@@ -896,10 +1016,13 @@ onMounted(async () => {
         if (game.value.linuxSupport) game.value.linuxStartCommand = wizardState.startCommand
         if (game.value.windowsSupport) game.value.windowsStartCommand = wizardState.startCommand
       }
+      ensureTypedGameConfig()
+      syncSimpleGameConfig()
       // Set platform tab to first enabled
       if (game.value.windowsSupport) activePlatform.value = 'windows'
       else if (game.value.linuxSupport) activePlatform.value = 'linux'
     }
+    ensureTypedGameConfig()
     // Snapshot after pre-fill settles
     await nextTick()
     initialSnapshot = takeSnapshot()
@@ -913,29 +1036,6 @@ onBeforeUnmount(() => {
 function syncConfigSchemas() {
   game.value.configSchemas =
     configSchemas.value.length > 0 ? JSON.stringify(configSchemas.value) : ''
-}
-
-function syncServerSoftware(): boolean {
-  const trimmed = serverSoftwareJson.value.trim()
-  if (!trimmed) {
-    game.value.serverSoftware = ''
-    serverSoftwareError.value = ''
-    return true
-  }
-  try {
-    const parsed: unknown = JSON.parse(trimmed)
-    if (!Array.isArray(parsed)) {
-      serverSoftwareError.value = 'Server software must be a JSON array.'
-      return false
-    }
-    game.value.serverSoftware = trimmed
-    serverSoftwareError.value = ''
-    return true
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Invalid JSON'
-    serverSoftwareError.value = `Invalid JSON: ${msg}`
-    return false
-  }
 }
 
 async function submit() {
@@ -952,17 +1052,7 @@ async function submit() {
 
   submitting.value = true
   syncConfigSchemas()
-  const softwareValid = syncServerSoftware()
-  if (!softwareValid) {
-    submitting.value = false
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Please fix the server software JSON before saving.',
-      position: 'top',
-      timeout: 3000,
-    })
-    return
-  }
+  syncSimpleGameConfig()
   try {
     if (existingGame.value) {
       await updateExistingGame()
@@ -1008,10 +1098,11 @@ async function navigateToSchemaEditor(fileIndex: number) {
 
 async function addNewGame() {
   const request: AddGameRequest = create(AddGameRequestSchema, {})
+  game.value.steamAppid = normalizeSteamAppID(game.value.steamAppid)
+  syncSimpleGameConfig()
   request.game = game.value
   request.game.defaultPort = BigInt(defaultPort.value ?? 0)
   request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
-  request.game.steamAppid = normalizeSteamAppID(request.game.steamAppid)
   try {
     await GetXylonaClient().addGame(request)
     savedSuccessfully.value = true
@@ -1036,10 +1127,11 @@ async function addNewGame() {
 
 async function updateExistingGame() {
   const request: EditGameRequest = create(EditGameRequestSchema, {})
+  game.value.steamAppid = normalizeSteamAppID(game.value.steamAppid)
+  syncSimpleGameConfig()
   request.game = game.value as Game
   request.game.defaultPort = BigInt(defaultPort.value ?? 0)
   request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
-  request.game.steamAppid = normalizeSteamAppID(request.game.steamAppid)
   try {
     await GetXylonaClient().editGame(request)
     savedSuccessfully.value = true
@@ -1419,6 +1511,13 @@ async function updateExistingGame() {
   gap: 6px;
 }
 
+.cmd-type-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .cmd-type-label {
   font-size: 0.6rem;
   color: var(--xy-text-muted);
@@ -1502,52 +1601,115 @@ async function updateExistingGame() {
   line-height: 1.5;
 }
 
-/* ---- Server Software Editor ---- */
+/* ---- Typed Game Config ---- */
 
-.server-software-editor {
+.typed-config-grid {
+  display: grid;
+  gap: var(--xy-space-md);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.typed-config-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
+  padding: var(--xy-space-md);
+  background: var(--xy-surface-0);
+  border: 1px solid var(--xy-border);
+  border-radius: 10px;
+}
+
+.typed-config-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+  align-items: flex-start;
+}
+
+.typed-config-title {
+  font-size: 0.94rem;
+  color: var(--xy-text-primary);
+}
+
+.typed-config-copy {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin-top: 0.15rem;
+}
+
+.typed-config-fields {
   display: flex;
   flex-direction: column;
   gap: var(--xy-space-sm);
 }
 
-.server-software-input-wrap {
+.typed-config-managed {
+  padding: var(--xy-space-md);
   background: var(--xy-surface-0);
+  border: 1px dashed var(--xy-border);
+  border-radius: 10px;
+  line-height: 1.55;
+}
+
+.typed-config-fields--nested {
+  padding: var(--xy-space-sm);
+  background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
   border-radius: 8px;
-  overflow: hidden;
-  transition: border-color var(--xy-transition-fast);
 }
 
-.server-software-input-wrap:focus-within {
-  border-color: var(--xy-primary);
+.typed-subtitle {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--xy-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.server-software-textarea {
-  display: block;
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: var(--xy-text-primary);
-  font-size: 0.82rem;
-  padding: 12px;
-  resize: vertical;
-  outline: none;
-  line-height: 1.5;
-  min-height: 120px;
-  tab-size: 2;
+.variants-toolbar,
+.sources-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+  align-items: center;
 }
 
-.server-software-textarea::placeholder {
-  color: var(--xy-text-muted);
-  opacity: 0.5;
+.variants-toolbar {
+  margin-top: var(--xy-space-lg);
+  margin-bottom: var(--xy-space-md);
 }
 
-.server-software-error {
-  font-size: 0.75rem;
-  padding: 6px 12px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  border-radius: 6px;
+.variants-empty {
+  padding: var(--xy-space-md);
+  background: var(--xy-surface-0);
+  border: 1px dashed var(--xy-border);
+  border-radius: 10px;
+}
+
+.variant-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
+}
+
+.variant-card {
+  margin-top: 0;
+}
+
+.source-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-sm);
+  background: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
+}
+
+.source-actions,
+.sources-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ---- Preset Selector ---- */
@@ -1567,31 +1729,5 @@ async function updateExistingGame() {
   font-size: 0.78rem;
   line-height: 1.4;
   padding-left: 2px;
-}
-
-/* ---- Server Software Expansion ---- */
-
-.server-software-expansion {
-  background: var(--xy-surface-0);
-  border: 1px solid var(--xy-border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-:deep(.server-software-expansion-header) {
-  font-size: 0.78rem;
-  color: var(--xy-text-muted);
-  padding: 8px 12px;
-  min-height: unset;
-}
-
-.server-software-expansion .server-software-editor {
-  padding: 0;
-}
-
-.server-software-expansion .server-software-input-wrap {
-  border: none;
-  border-radius: 0;
-  border-top: 1px solid var(--xy-border);
 }
 </style>

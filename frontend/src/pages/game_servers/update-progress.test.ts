@@ -30,11 +30,13 @@ describe('buildUpdateSteps', () => {
   })
 
   it('can apply steamcmd-specific labels', () => {
-    expect(buildUpdateSteps(Status.OFFLINE, buildUpdateStepLabels({ usesSteamcmd: true }))).toEqual([
-      { step: UpdateStep.BACKING_UP, status: StepStatus.PENDING },
-      { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING, label: 'Preparing SteamCMD' },
-      { step: UpdateStep.INSTALLING, status: StepStatus.PENDING, label: 'Running SteamCMD' },
-    ])
+    expect(buildUpdateSteps(Status.OFFLINE, buildUpdateStepLabels({ usesSteamcmd: true }))).toEqual(
+      [
+        { step: UpdateStep.BACKING_UP, status: StepStatus.PENDING },
+        { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING, label: 'Preparing SteamCMD' },
+        { step: UpdateStep.INSTALLING, status: StepStatus.PENDING, label: 'Running SteamCMD' },
+      ],
+    )
   })
 })
 

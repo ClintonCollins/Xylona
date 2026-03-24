@@ -4,17 +4,19 @@
       v-model="showChangeDialog"
       persistent
       backdrop-filter="brightness(15%)"
-      aria-labelledby="software-change-title">
+      aria-labelledby="variant-change-title">
       <q-card class="change-dialog-card">
         <q-card-section class="change-dialog-header">
-          <div id="software-change-title" class="change-dialog-title">Change Server Software</div>
-          <div class="change-dialog-subtitle">Select new software and version for this server</div>
+          <div id="variant-change-title" class="change-dialog-title">Change Variant</div>
+          <div class="change-dialog-subtitle">
+            Select the server distribution this server should use.
+          </div>
         </q-card-section>
 
         <q-card-section class="change-dialog-body">
           <div class="dialog-current">
             <div class="dialog-current-icon">
-              <q-icon name="dns" size="16px" color="accent" />
+              <q-icon name="layers" size="16px" color="accent" />
             </div>
             <div>
               <div class="dialog-current-label">Currently active</div>
@@ -27,43 +29,49 @@
             </div>
           </div>
 
-          <div class="dialog-fields">
-            <div class="dialog-field">
-              <q-select
-                v-model="selectedSoftwareId"
-                outlined
-                dense
-                label="Software"
-                emit-value
-                map-options
-                :display-value="selectedSoftwareName || undefined"
-                :options="softwareSelectOptions"
-                :loading="loadingOptions"
-                :disable="saving || installStatus === 'installing'"
-                options-selected-class="selected-option"
-                @update:model-value="onSoftwareChange" />
-            </div>
-            <div class="dialog-field">
-              <q-select
-                v-if="selectedSoftwareId !== '' && versions.length > 0"
-                v-model="selectedVersionId"
-                outlined
-                dense
-                label="Version"
-                emit-value
-                map-options
-                :options="versionSelectOptions"
-                :loading="loadingVersions"
-                :disable="saving || loadingVersions || installStatus === 'installing'"
-                options-selected-class="selected-option" />
+          <div class="dialog-field">
+            <q-select
+              v-model="selectedVariantId"
+              outlined
+              dense
+              label="Variant"
+              emit-value
+              map-options
+              :display-value="selectedVariantName || undefined"
+              :options="variantSelectOptions"
+              :disable="saving || installStatus === 'installing'"
+              options-selected-class="selected-option" />
+          </div>
+
+          <div v-if="targetOptions.length > 0" class="dialog-field">
+            <q-select
+              v-model="selectedTarget"
+              outlined
+              dense
+              label="Version"
+              emit-value
+              map-options
+              :options="targetOptions"
+              :disable="saving || loadingTargets || installStatus === 'installing'"
+              options-selected-class="selected-option" />
+          </div>
+
+          <div v-if="showPinTargetToggle" class="dialog-field">
+            <q-toggle
+              v-model="selectedPinTarget"
+              color="primary"
+              label="Stick to selected version"
+              :disable="saving || loadingTargets || installStatus === 'installing'" />
+            <div class="dialog-toggle-hint">
+              When off, Xylona installs this version now and keeps tracking the latest release.
             </div>
           </div>
 
           <div class="dialog-warning">
             <q-icon name="warning" size="16px" color="warning" class="dialog-warning-icon" />
             <span>
-              Switching server software may affect installed mods. Mods will be preserved but may
-              not be compatible with {{ selectedSoftwareName || 'the new software' }}.
+              Switching variants may change update behavior and mod compatibility. The server must
+              stay offline while Xylona applies the new variant.
             </span>
           </div>
         </q-card-section>
@@ -81,7 +89,7 @@
             color="primary"
             :loading="saving"
             :disable="!canApply || installStatus === 'installing'"
-            @click="applyServerSoftware" />
+            @click="applyVariant" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -92,27 +100,36 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
+import { UpdateProviderKind, type Variant } from '@/proto/shared_pb'
 import {
-  GetServerSoftwareOptionsRequestSchema,
-  GetServerSoftwareStatusRequestSchema,
-  GetServerSoftwareVersionsRequestSchema,
-  SetServerSoftwareRequestSchema,
+  GetUpdateTargetsRequestSchema,
+  GetVariantOperationStatusRequestSchema,
+  SetServerVariantRequestSchema,
 } from '@/proto/xylona_pb'
-import type { ServerSoftwareOption, SoftwareVersion } from '@/proto/shared_pb'
 import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import type { ServerSoftwareOperationEvent } from './ServerSoftwareSelector.types'
 
 interface Props {
   gameServerId: string
-  gameId: string
   gameName: string
   currentSoftware?: string
   currentVersion?: string
+  currentTarget?: string
+  currentTargetPinned?: boolean
+  currentInstalledVersion?: string
+  variants?: Variant[]
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  currentSoftware: '',
+  currentVersion: '',
+  currentTarget: '',
+  currentTargetPinned: false,
+  currentInstalledVersion: '',
+  variants: () => [],
+})
 const emit = defineEmits<{
   'software-changed': []
   'software-operation-state': [event: ServerSoftwareOperationEvent]
@@ -120,68 +137,67 @@ const emit = defineEmits<{
 
 const $q = useQuasar()
 
-const softwareOptions = ref<ServerSoftwareOption[]>([])
-const versions = ref<SoftwareVersion[]>([])
-const selectedSoftwareId = ref('')
-const selectedVersionId = ref('')
-const loadingOptions = ref(false)
-const loadingVersions = ref(false)
+const selectedVariantId = ref('')
 const saving = ref(false)
 const showChangeDialog = ref(false)
 const installStatus = ref<'idle' | 'installing' | 'complete' | 'failed'>('idle')
+const selectedTarget = ref('')
+const targetOptions = ref<Array<{ label: string; value: string }>>([])
+const loadingTargets = ref(false)
+const initialVariantId = ref('')
+const initialTarget = ref('')
+const selectedPinTarget = ref(false)
+const initialPinTarget = ref(false)
 
-const softwareSelectOptions = computed(() =>
-  softwareOptions.value.map((opt) => ({
-    label: opt.name,
-    value: opt.id,
+const variantSelectOptions = computed(() =>
+  props.variants.map((variant) => ({
+    label: variant.name,
+    value: variant.id,
   })),
 )
 
-const versionSelectOptions = computed(() =>
-  versions.value.map((v) => ({
-    label: v.versionString || v.versionId,
-    value: v.versionId,
-  })),
-)
+const selectedVariantName = computed(() => {
+  return resolveVariantName(selectedVariantId.value)
+})
 
-const selectedSoftwareName = computed(() => {
-  const found = softwareOptions.value.find((opt) => opt.id === selectedSoftwareId.value)
-  return found?.name ?? ''
+const selectedVariantProviderKind = computed(() => {
+  return resolveVariantProviderKind(selectedVariantId.value)
+})
+
+const showPinTargetToggle = computed(() => {
+  return (
+    targetOptions.value.length > 0 &&
+    (selectedVariantProviderKind.value === UpdateProviderKind.MOJANG ||
+      selectedVariantProviderKind.value === UpdateProviderKind.PAPERMC)
+  )
 })
 
 const currentSoftwareDisplayName = computed(() => {
   if (props.currentSoftware) {
-    const found = softwareOptions.value.find((opt) => opt.id === props.currentSoftware)
-    if (found) {
-      return found.name
+    const name = resolveVariantName(props.currentSoftware)
+    if (name !== '') {
+      return name
     }
   }
-  return props.gameName || 'Unknown'
-})
-
-const selectedSoftwareHasJarSource = computed(() => {
-  const found = softwareOptions.value.find((opt) => opt.id === selectedSoftwareId.value)
-  return (found?.jarSource ?? '') !== ''
+  return props.gameName || 'Default'
 })
 
 const canApply = computed(() => {
-  if (selectedSoftwareId.value === '' || saving.value || loadingVersions.value) return false
-  if (versions.value.length > 0) return selectedVersionId.value !== ''
-  return true
-})
-
-const selectedVersionLabel = computed(() => {
-  if (selectedVersionId.value === '') {
-    return ''
+  if (selectedVariantId.value === '') {
+    return false
   }
-  const found = versions.value.find((version) => version.versionId === selectedVersionId.value)
-  return found?.versionString || found?.versionId || selectedVersionId.value
+
+  const variantChanged = selectedVariantId.value !== initialVariantId.value
+  const targetChanged =
+    targetOptions.value.length > 0 && selectedTarget.value.trim() !== initialTarget.value.trim()
+  const pinChanged = showPinTargetToggle.value && selectedPinTarget.value !== initialPinTarget.value
+
+  return variantChanged || targetChanged || pinChanged
 })
 
 onMounted(async () => {
   XylonaEventBus.on('serverSoftwareInstall', handleInstallEvent)
-
-  await fetchSoftwareOptions()
+  selectedVariantId.value = props.currentSoftware
   await checkInstallStatus()
 })
 
@@ -189,11 +205,32 @@ onUnmounted(() => {
   XylonaEventBus.off('serverSoftwareInstall', handleInstallEvent)
 })
 
+watch(
+  () => props.currentSoftware,
+  (currentSoftware) => {
+    selectedVariantId.value = currentSoftware
+  },
+)
+
+watch(
+  selectedVariantId,
+  async (variantId) => {
+    if (!showChangeDialog.value) {
+      return
+    }
+    await loadVariantTargets(variantId)
+  },
+)
+
 function openChangeDialog(): void {
-  if (props.currentSoftware) {
-    selectedSoftwareId.value = props.currentSoftware
-  }
+  selectedVariantId.value = props.currentSoftware
+  initialVariantId.value = props.currentSoftware
+  initialTarget.value = ''
+  selectedPinTarget.value =
+    props.currentTargetPinned && variantSupportsExplicitPinning(props.currentSoftware)
+  initialPinTarget.value = selectedPinTarget.value
   showChangeDialog.value = true
+  void loadVariantTargets(selectedVariantId.value, true)
 }
 
 function cancelChangeDialog(): void {
@@ -202,114 +239,58 @@ function cancelChangeDialog(): void {
 
 async function checkInstallStatus(): Promise<void> {
   try {
-    const response = await GetXylonaClient().getServerSoftwareStatus(
-      create(GetServerSoftwareStatusRequestSchema, {
+    const response = await GetXylonaClient().getVariantOperationStatus(
+      create(GetVariantOperationStatusRequestSchema, {
         gameServerId: props.gameServerId,
       }),
     )
     if (response.status === 'installing') {
       installStatus.value = 'installing'
-      emitOperationState('installing', response.softwareId)
-    } else if (response.status === 'failed') {
+      emitOperationState('installing', response.variantId)
+      return
+    }
+    if (response.status === 'failed') {
       installStatus.value = 'failed'
-      emitOperationState('failed', response.softwareId, response.error)
+      emitOperationState('failed', response.variantId, response.error)
     }
   } catch {
-    // Non-critical — ignore
+    // Non-critical.
   }
 }
 
-async function fetchSoftwareOptions(): Promise<void> {
-  loadingOptions.value = true
-  try {
-    const response = await GetXylonaClient().getServerSoftwareOptions(
-      create(GetServerSoftwareOptionsRequestSchema, {
-        gameId: props.gameId,
-      }),
-    )
-    softwareOptions.value = response.options
-
-    if (props.currentSoftware) {
-      const match = softwareOptions.value.find((opt) => opt.id === props.currentSoftware)
-      if (match) {
-        selectedSoftwareId.value = match.id
-        await fetchVersions()
-      }
-    }
-  } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    console.error('Failed to fetch server software options:', err)
-  } finally {
-    loadingOptions.value = false
-  }
-}
-
-async function fetchVersions(): Promise<void> {
-  if (selectedSoftwareId.value === '') {
-    versions.value = []
-    return
-  }
-  if (!selectedSoftwareHasJarSource.value) {
-    versions.value = []
-    return
-  }
-  loadingVersions.value = true
-  try {
-    const response = await GetXylonaClient().getServerSoftwareVersions(
-      create(GetServerSoftwareVersionsRequestSchema, {
-        gameId: props.gameId,
-        softwareId: selectedSoftwareId.value,
-      }),
-    )
-    versions.value = response.versions
-    if (versions.value.length > 0) {
-      selectedVersionId.value = versions.value[0].versionId
-    }
-  } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    console.error('Failed to fetch software versions:', err)
-    $q.notify({
-      caption: `Failed to fetch versions: ${err.message}`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
-  } finally {
-    loadingVersions.value = false
-  }
-}
-
-async function onSoftwareChange(): Promise<void> {
-  selectedVersionId.value = ''
-  versions.value = []
-  await fetchVersions()
-}
-
-async function applyServerSoftware(): Promise<void> {
+async function applyVariant(): Promise<void> {
   saving.value = true
   try {
-    const response = await GetXylonaClient().setServerSoftware(
-      create(SetServerSoftwareRequestSchema, {
+    const response = await GetXylonaClient().setServerVariant(
+      create(SetServerVariantRequestSchema, {
         gameServerId: props.gameServerId,
-        softwareId: selectedSoftwareId.value,
-        versionId: selectedVersionId.value,
+        variantId: selectedVariantId.value,
+        target: selectedTarget.value,
+        pinTarget: selectedPinTarget.value,
       }),
     )
     showChangeDialog.value = false
 
     if (response.status === 'installing') {
       installStatus.value = 'installing'
-      emitOperationState('installing', selectedSoftwareId.value)
-    } else {
-      installStatus.value = 'complete'
-      emitOperationState('complete', selectedSoftwareId.value)
-      emit('software-changed')
+      emitOperationState('installing', selectedVariantId.value)
+      return
     }
+
+    installStatus.value = 'complete'
+    emitOperationState('complete', selectedVariantId.value)
+    emit('software-changed')
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
     showChangeDialog.value = false
     installStatus.value = 'failed'
-    emitOperationState('failed', selectedSoftwareId.value, err.message)
+    emitOperationState('failed', selectedVariantId.value, err.message)
+    $q.notify({
+      type: 'xylona-error',
+      caption: err.message,
+      position: 'top',
+      timeout: 5000,
+    })
   } finally {
     saving.value = false
   }
@@ -320,24 +301,89 @@ function emitOperationState(
   softwareId: string,
   error = '',
 ): void {
-  const resolvedSoftwareId = softwareId || props.currentSoftware || selectedSoftwareId.value
+  const resolvedVariantId = softwareId || props.currentSoftware || selectedVariantId.value
   emit('software-operation-state', {
     status,
-    softwareId: resolvedSoftwareId,
-    softwareName: resolveSoftwareName(resolvedSoftwareId),
-    versionLabel: selectedVersionLabel.value || props.currentVersion || undefined,
+    softwareId: resolvedVariantId,
+    softwareName: resolveVariantName(resolvedVariantId) || currentSoftwareDisplayName.value,
+    versionLabel: props.currentVersion || undefined,
     error: error || undefined,
   })
 }
 
-function resolveSoftwareName(softwareId: string): string {
-  if (softwareId !== '') {
-    const found = softwareOptions.value.find((opt) => opt.id === softwareId)
-    if (found) {
-      return found.name
+function resolveVariantName(variantId: string): string {
+  if (variantId === '') {
+    return ''
+  }
+  const found = props.variants.find((variant) => variant.id === variantId)
+  return found?.name ?? ''
+}
+
+function resolveVariantProviderKind(variantId: string): UpdateProviderKind | undefined {
+  const trimmedVariantID = variantId.trim()
+  if (trimmedVariantID === '') {
+    return undefined
+  }
+  const found = props.variants.find((variant) => variant.id === trimmedVariantID)
+  return found?.updateProvider?.kind
+}
+
+function variantSupportsExplicitPinning(variantId: string): boolean {
+  const providerKind = resolveVariantProviderKind(variantId)
+  return providerKind === UpdateProviderKind.MOJANG || providerKind === UpdateProviderKind.PAPERMC
+}
+
+function installedTargetCandidate(variantId: string): string {
+  const providerKind = resolveVariantProviderKind(variantId)
+  const normalizedInstalledVersion = props.currentInstalledVersion.trim()
+  if (normalizedInstalledVersion === '') {
+    return ''
+  }
+
+  if (providerKind === UpdateProviderKind.PAPERMC) {
+    const match = normalizedInstalledVersion.match(/^(.+)-\d+$/)
+    if (match?.[1]) {
+      return match[1].trim()
     }
   }
-  return currentSoftwareDisplayName.value
+
+  return normalizedInstalledVersion
+}
+
+function resolveInitialTargetSelection(
+  variantId: string,
+  availableTargets: string[],
+  currentTarget: string,
+): string {
+  if (availableTargets.length === 0) {
+    return ''
+  }
+
+  const sameVariant = variantId.trim() === initialVariantId.value.trim()
+  if (!sameVariant) {
+    return availableTargets[0]
+  }
+
+  if (props.currentTargetPinned) {
+    if (currentTarget !== '' && availableTargets.includes(currentTarget)) {
+      return currentTarget
+    }
+    const normalizedCurrentTarget = props.currentTarget.trim()
+    if (normalizedCurrentTarget !== '' && availableTargets.includes(normalizedCurrentTarget)) {
+      return normalizedCurrentTarget
+    }
+  }
+
+  const installedCandidate = installedTargetCandidate(variantId)
+  if (!props.currentTargetPinned && installedCandidate !== '' && availableTargets.includes(installedCandidate)) {
+    return installedCandidate
+  }
+
+  if (props.currentTargetPinned && currentTarget !== '' && availableTargets.includes(currentTarget)) {
+    return currentTarget
+  }
+
+  return availableTargets[0]
 }
 
 function handleInstallEvent(
@@ -359,7 +405,6 @@ function handleInstallEvent(
   if (status === 'complete') {
     installStatus.value = 'idle'
     emitOperationState('complete', softwareId)
-    void fetchSoftwareOptions()
     emit('software-changed')
     return
   }
@@ -370,16 +415,77 @@ function handleInstallEvent(
   }
 }
 
+async function loadVariantTargets(variantId: string, resetBaseline = false): Promise<void> {
+  const trimmedVariantID = variantId.trim()
+  if (trimmedVariantID === '') {
+    targetOptions.value = []
+    selectedTarget.value = ''
+    selectedPinTarget.value = false
+    if (resetBaseline) {
+      initialTarget.value = ''
+      initialPinTarget.value = false
+    }
+    return
+  }
+
+  if (!variantSupportsExplicitPinning(trimmedVariantID)) {
+    selectedPinTarget.value = false
+  }
+
+  loadingTargets.value = true
+  try {
+    const response = await GetXylonaClient().getUpdateTargets(
+      create(GetUpdateTargetsRequestSchema, {
+        gameServerId: props.gameServerId,
+        variantId: trimmedVariantID,
+      }),
+    )
+
+    targetOptions.value = response.targets.map((target) => ({
+      label: target.label || target.id,
+      value: target.id,
+    }))
+
+    if (targetOptions.value.length == 0) {
+      selectedTarget.value = ''
+      if (resetBaseline) {
+        initialTarget.value = ''
+        initialPinTarget.value = selectedPinTarget.value
+      }
+      return
+    }
+
+    const currentTarget = response.currentTarget.trim()
+    const availableTargets = targetOptions.value.map((target) => target.value)
+    selectedTarget.value = resolveInitialTargetSelection(trimmedVariantID, availableTargets, currentTarget)
+    if (resetBaseline) {
+      initialTarget.value = selectedTarget.value
+      initialPinTarget.value = selectedPinTarget.value
+    }
+  } catch {
+    targetOptions.value = []
+    selectedTarget.value = ''
+    selectedPinTarget.value = false
+    if (resetBaseline) {
+      initialTarget.value = ''
+      initialPinTarget.value = false
+    }
+  } finally {
+    loadingTargets.value = false
+  }
+}
+
 defineExpose({
-  softwareOptions,
-  versions,
   currentSoftwareDisplayName,
   openChangeDialog,
+  selectedVariantId,
+  selectedTarget,
+  selectedPinTarget,
+  applyVariant,
 })
 </script>
 
 <style scoped>
-/* Dialog styles */
 .change-dialog-card {
   width: 420px;
   max-width: 90vw;
@@ -418,124 +524,63 @@ defineExpose({
   padding: 0.5rem 0.75rem;
   background: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
-  border-radius: 6px;
 }
 
 .dialog-current-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 5px;
-  background: var(--xy-surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--xy-accent) 16%, transparent);
 }
 
 .dialog-current-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
+  font-size: 0.7rem;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--xy-text-muted);
-  line-height: 1;
 }
 
 .dialog-current-value {
-  font-family: var(--xy-font-display);
-  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--xy-text-primary);
 }
 
 .dialog-current-version {
-  font-family: var(--xy-font-mono);
-  font-size: 0.72rem;
-  color: var(--xy-text-muted);
-  margin-left: 0.3rem;
+  margin-left: 0.4rem;
+  color: var(--xy-text-secondary);
 }
 
-.dialog-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.625rem;
+.dialog-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-toggle-hint {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--xy-text-muted);
 }
 
 .dialog-warning {
   display: flex;
-  align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--xy-warning-bg);
-  border: 1px solid var(--xy-warning-border);
-  border-radius: 6px;
-  font-size: 0.78rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--xy-warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--xy-warning) 22%, transparent);
   color: var(--xy-text-secondary);
-  line-height: 1.4;
+  font-size: 0.84rem;
 }
 
 .dialog-warning-icon {
-  flex-shrink: 0;
-  margin-top: 1px;
+  margin-top: 0.05rem;
 }
 
 .change-dialog-footer {
   border-top: 1px solid var(--xy-border);
-  background: var(--xy-surface-0);
-}
-
-.dialog-cancel-btn {
-  border: 1px solid var(--xy-border);
-  color: var(--xy-text-secondary);
-}
-
-.dialog-cancel-btn:hover {
-  border-color: var(--xy-text-muted);
-  color: var(--xy-text-primary);
-}
-
-/* Install progress */
-.install-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  border-radius: 6px;
-  background: var(--xy-surface-1);
-  border: 1px solid var(--xy-border);
-  margin-top: 0.5rem;
-}
-
-.install-progress-spinner {
-  flex-shrink: 0;
-}
-
-.install-progress-text {
-  font-size: 0.8rem;
-  color: var(--xy-text-secondary);
-}
-
-/* Install error */
-.install-error {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  border-radius: 6px;
-  background: var(--xy-surface-1);
-  border: 1px solid var(--xy-danger-border, var(--xy-border));
-  margin-top: 0.5rem;
-}
-
-.install-error-icon {
-  flex-shrink: 0;
-}
-
-.install-error-text {
-  font-size: 0.8rem;
-  color: var(--xy-text-secondary);
-  flex: 1;
-}
-
-.install-error-retry {
-  flex-shrink: 0;
+  padding-top: 0.75rem;
 }
 </style>

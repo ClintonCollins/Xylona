@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -30,22 +31,19 @@ func (inst *Instance) ResolveVersionData(ctx context.Context, gs *models.GameSer
 		return rawVersion, versiontracker.VersionState{}
 	}
 
-	tracker := versiontracker.ResolveTracker(
-		inst.resolverConfig,
-		gs.GameID,
-		gameUpdateCommand(gs.R.Game),
-		gs.R.Game.ServerSoftware.GetOr(""),
-	)
+	trackerInfo := inst.resolveTrackerContextForServer(gs)
+	tracker := versiontracker.ResolveTrackerWithContext(inst.resolverConfig, trackerInfo)
 	if tracker == nil {
 		inst.versionState.InitNoTracker(gs.ID)
 		return rawVersion, inst.versionState.Get(gs.ID)
 	}
 
 	trackerType := versiontracker.TrackerTypeName(tracker)
+	contextKey := trackerInfo.CacheKey()
 
 	for {
 		state, ok := inst.versionState.GetWithOK(gs.ID)
-		refreshInstalled, refreshLatest := inst.versionRefreshNeeds(state, ok, opts.ForceRefresh)
+		refreshInstalled, refreshLatest := inst.versionRefreshNeeds(state, ok, opts.ForceRefresh, trackerType, contextKey)
 		if !refreshInstalled && !refreshLatest {
 			return rawVersion, state
 		}
@@ -66,8 +64,56 @@ func (inst *Instance) ResolveVersionData(ctx context.Context, gs *models.GameSer
 	}
 }
 
-func (inst *Instance) versionRefreshNeeds(state versiontracker.VersionState, ok bool, force bool) (bool, bool) {
+func (inst *Instance) resolveTrackerContextForServer(gs *models.GameServer) versiontracker.TrackerContext {
+	if gs == nil {
+		return versiontracker.TrackerContext{}
+	}
+
+	updateCommand := ""
+	if gs.R.Game != nil {
+		updateCommand = gameUpdateCommand(gs.R.Game)
+	}
+	info := versiontracker.TrackerContext{
+		GameID:        gs.GameID,
+		UpdateCommand: updateCommand,
+	}
+
+	if gs.R.Game != nil {
+		info.ServerSoftware = gs.R.Game.ServerSoftware.GetOr("")
+		info.SteamAppID = strings.TrimSpace(gs.R.Game.SteamAppID)
+	}
+
+	if gs.R.Game != nil {
+		resolved, errResolve := updateproviders.ResolveModelConfig(gs.R.Game, gs)
+		if errResolve == nil {
+			info.ProviderKind = string(resolved.Provider.Kind)
+			info.ProviderSourceID = resolved.Provider.SourceID
+			info.Target = resolved.Target
+		}
+	}
+
+	return info
+}
+
+func (inst *Instance) resolveTrackerForServer(gs *models.GameServer) versiontracker.VersionTracker {
+	trackerInfo := inst.resolveTrackerContextForServer(gs)
+	return versiontracker.ResolveTrackerWithContext(inst.resolverConfig, trackerInfo)
+}
+
+func (inst *Instance) versionRefreshNeeds(
+	state versiontracker.VersionState,
+	ok bool,
+	force bool,
+	currentTrackerType string,
+	currentContextKey string,
+) (bool, bool) {
 	if force || !ok {
+		return true, true
+	}
+	if strings.TrimSpace(state.TrackerType) != strings.TrimSpace(currentTrackerType) {
+		return true, true
+	}
+	if strings.TrimSpace(state.ContextKey) != strings.TrimSpace(currentContextKey) {
 		return true, true
 	}
 
@@ -181,6 +227,8 @@ func (inst *Instance) refreshVersionState(ctx context.Context, gs *models.GameSe
 		LatestCheckTime:    latestCheckTime,
 		TrackerType:        trackerType,
 	}
+	trackerInfo := inst.resolveTrackerContextForServer(gs)
+	newState.ContextKey = trackerInfo.CacheKey()
 	versiontracker.EnrichVersionState(ctx, tracker, gs, &newState)
 
 	if newState.UpdateAvailable && !state.UpdateAvailable {

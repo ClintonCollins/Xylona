@@ -204,7 +204,7 @@ func (inst *Instance) checkAllServerVersions() {
 }
 
 func (inst *Instance) checkServerVersion(gs *models.GameServer, eb *eventbus.EventBus) {
-	tracker := versiontracker.ResolveTracker(inst.resolverConfig, gs.GameID, gameUpdateCommand(gs.R.Game), gs.R.Game.ServerSoftware.GetOr(""))
+	tracker := inst.resolveTrackerForServer(gs)
 	if tracker == nil {
 		inst.versionState.InitNoTracker(gs.ID)
 		inst.publishVersionState(gs, inst.versionState.Get(gs.ID))

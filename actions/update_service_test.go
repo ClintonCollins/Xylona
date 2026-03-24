@@ -16,6 +16,7 @@ import (
 	internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -113,7 +114,7 @@ func TestUpdateGameServerUsesMinecraftServerSoftwareProvider(t *testing.T) {
 		downloadVersion: "1.21.5-build-9",
 		markerPath:      filepath.Join(serverDir, "paper-1.21.5.jar"),
 	}
-	modproviders.RegisterProvider(provider)
+	withMinecraftUpdateProviderLookup(t, provider)
 
 	inst := &Instance{
 		ctx:                ctx,
@@ -128,8 +129,17 @@ func TestUpdateGameServerUsesMinecraftServerSoftwareProvider(t *testing.T) {
 		ServerExecutable: null.From("paper-1.21.4.jar"),
 	}
 	gameServer.R.Game = &models.Game{
-		ServerSoftware: null.From(`[{"id":"paper","name":"Paper","jar_source":"test-minecraft-update-provider"}]`),
+		ID: "minecraft",
 	}
+	setMinecraftTypedVariants(t, gameServer.R.Game, updateproviders.Variant{
+		ID:            "paper",
+		Name:          "Paper",
+		DefaultTarget: "1.21.5",
+		UpdateProvider: &updateproviders.ProviderConfig{
+			Kind:     updateproviders.ProviderKindPaperMC,
+			SourceID: "paper",
+		},
+	})
 
 	errUpdate := inst.UpdateGameServer(gameServer)
 	if errUpdate != nil {
@@ -195,11 +205,22 @@ func TestUpdateGameServerRejectsUnsupportedMinecraftVariant(t *testing.T) {
 		ServerExecutable: null.From("fabric-server.jar"),
 	}
 	gameServer.R.Game = &models.Game{
-		ServerSoftware: null.From(`[
-			{"id":"vanilla","name":"Vanilla","jar_source":null},
-			{"id":"fabric","name":"Fabric","jar_source":null}
-		]`),
+		ID: "minecraft",
 	}
+	setMinecraftTypedVariants(
+		t,
+		gameServer.R.Game,
+		updateproviders.Variant{
+			ID:            "vanilla",
+			Name:          "Vanilla",
+			UpdateProvider: &updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindMojang, SourceID: "vanilla"},
+		},
+		updateproviders.Variant{
+			ID:            "fabric",
+			Name:          "Fabric",
+			UpdateProvider: &updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindCommand},
+		},
+	)
 
 	errUpdate := inst.UpdateGameServer(gameServer)
 	if !errors.Is(errUpdate, ErrMinecraftVariantUpdateNotSupported) {
@@ -214,6 +235,66 @@ func TestUpdateGameServerRejectsUnsupportedMinecraftVariant(t *testing.T) {
 	_, errGetCmd := supervisorInst.GetCommandByID(gameServer.ID)
 	if !errors.Is(errGetCmd, supervisor.ErrCommandDoesNotExist) {
 		t.Fatalf("expected no supervised update command, got %v", errGetCmd)
+	}
+}
+
+func TestUpdateGameServerFallsBackFromInvalidStoredVanillaTarget(t *testing.T) {
+	ctx := context.Background()
+	supervisorInst, errNewSupervisor := supervisor.New(ctx)
+	if errNewSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errNewSupervisor)
+	}
+
+	serverDir := t.TempDir()
+	provider := &minecraftUpdateTestProvider{
+		providerID:      "test-mojang-provider",
+		latestVersion:   "1.21.5",
+		downloadVersion: "1.21.5",
+		markerPath:      filepath.Join(serverDir, "minecraft_server.jar"),
+	}
+	withMinecraftUpdateProviderLookupForKinds(t, provider, updateproviders.ProviderKindMojang)
+
+	inst := &Instance{
+		ctx:                ctx,
+		supervisorInstance: supervisorInst,
+	}
+	gameServer := &models.GameServer{
+		ID:               "minecraft-vanilla-invalid-target",
+		GameID:           "minecraft",
+		Directory:        serverDir,
+		UserID:           "user-1",
+		ServerSoftware:   null.From("vanilla"),
+		ServerExecutable: null.From("minecraft_server.jar"),
+		Branch:           "26.1",
+	}
+	gameServer.R.Game = &models.Game{
+		ID: "minecraft",
+	}
+	setMinecraftTypedVariants(t, gameServer.R.Game, updateproviders.Variant{
+		ID:   "vanilla",
+		Name: "Vanilla",
+		UpdateProvider: &updateproviders.ProviderConfig{
+			Kind:     updateproviders.ProviderKindMojang,
+			SourceID: "vanilla",
+		},
+	})
+
+	errUpdate := inst.UpdateGameServer(gameServer)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+
+	if provider.versionsSourceID != "vanilla" {
+		t.Errorf("GetVersions sourceID = %q, want %q", provider.versionsSourceID, "vanilla")
+	}
+	if provider.versionsGameVersion != "1.21.5" {
+		t.Errorf("GetVersions gameVersion = %q, want %q", provider.versionsGameVersion, "1.21.5")
+	}
+	if provider.downloadSourceID != "vanilla" {
+		t.Errorf("Download sourceID = %q, want %q", provider.downloadSourceID, "vanilla")
+	}
+	if provider.downloadVersionID != "1.21.5" {
+		t.Errorf("Download versionID = %q, want %q", provider.downloadVersionID, "1.21.5")
 	}
 }
 
@@ -376,7 +457,7 @@ func TestRunUpdateWithBackupIncludesMinecraftUpdateDetails(t *testing.T) {
 		downloadVersion: "1.21.5-build-9",
 		markerPath:      filepath.Join(serverDir, "paper-1.21.5-9.jar"),
 	}
-	modproviders.RegisterProvider(provider)
+	withMinecraftUpdateProviderLookup(t, provider)
 
 	inst := &Instance{
 		ctx:                ctx,
@@ -391,10 +472,17 @@ func TestRunUpdateWithBackupIncludesMinecraftUpdateDetails(t *testing.T) {
 		ServerExecutable: null.From("paper-1.21.4.jar"),
 	}
 	gameServer.R.Game = &models.Game{
-		ServerSoftware: null.From(
-			`[{"id":"paper","name":"Paper","jar_source":"test-minecraft-update-provider-detailed"}]`,
-		),
+		ID: "minecraft",
 	}
+	setMinecraftTypedVariants(t, gameServer.R.Game, updateproviders.Variant{
+		ID:            "paper",
+		Name:          "Paper",
+		DefaultTarget: "1.21.5",
+		UpdateProvider: &updateproviders.ProviderConfig{
+			Kind:     updateproviders.ProviderKindPaperMC,
+			SourceID: "paper",
+		},
+	})
 
 	outChan := make(chan *xylona.Message, 32)
 	shellCommand := supervisorInst.GetCommandByIDOrCreateShell(gameServer.ID)
@@ -517,6 +605,57 @@ func (p *minecraftUpdateTestProvider) ID() string {
 		return p.providerID
 	}
 	return "test-minecraft-update-provider"
+}
+
+func withMinecraftUpdateProviderLookup(t *testing.T, provider modproviders.ModProvider) {
+	t.Helper()
+
+	previousLookup := minecraftUpdateProviderLookup
+	minecraftUpdateProviderLookup = func(kind updateproviders.ProviderKind) (modproviders.ModProvider, bool) {
+		if kind == updateproviders.ProviderKindPaperMC {
+			return provider, true
+		}
+		return previousLookup(kind)
+	}
+	t.Cleanup(func() {
+		minecraftUpdateProviderLookup = previousLookup
+	})
+}
+
+func withMinecraftUpdateProviderLookupForKinds(
+	t *testing.T,
+	provider modproviders.ModProvider,
+	kinds ...updateproviders.ProviderKind,
+) {
+	t.Helper()
+
+	kindSet := make(map[updateproviders.ProviderKind]struct{}, len(kinds))
+	for _, kind := range kinds {
+		kindSet[kind] = struct{}{}
+	}
+
+	previousLookup := minecraftUpdateProviderLookup
+	minecraftUpdateProviderLookup = func(kind updateproviders.ProviderKind) (modproviders.ModProvider, bool) {
+		if _, ok := kindSet[kind]; ok {
+			return provider, true
+		}
+		return previousLookup(kind)
+	}
+	t.Cleanup(func() {
+		minecraftUpdateProviderLookup = previousLookup
+	})
+}
+
+func setMinecraftTypedVariants(t *testing.T, game *models.Game, variants ...updateproviders.Variant) {
+	t.Helper()
+
+	errSave := updateproviders.SaveGameConfigToModel(game, updateproviders.GameConfig{
+		UpdateProvider: updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindCommand},
+		Variants:       variants,
+	})
+	if errSave != nil {
+		t.Fatalf("SaveGameConfigToModel() error = %v", errSave)
+	}
 }
 
 func (p *minecraftUpdateTestProvider) Search(_ context.Context, _ string, _ modproviders.SearchParams) (modproviders.SearchResult, error) {

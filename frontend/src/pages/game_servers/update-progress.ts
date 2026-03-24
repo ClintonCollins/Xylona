@@ -20,9 +20,9 @@ function cloneStep(step: StepState): StepState {
   return { ...step }
 }
 
-export function buildUpdateStepLabels(params: { usesSteamcmd: boolean }): Partial<
-  Record<UpdateStep, string>
-> {
+export function buildUpdateStepLabels(params: {
+  usesSteamcmd: boolean
+}): Partial<Record<UpdateStep, string>> {
   if (!params.usesSteamcmd) {
     return {}
   }

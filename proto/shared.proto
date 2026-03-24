@@ -37,6 +37,53 @@ enum CommandProcessor {
   POWERSHELL = 4;
 }
 
+enum CommandType {
+  NONE = 0;
+  COMMAND = 1;
+  STEAMCMD = 2;
+  PAPERMC = 3;
+  MOJANG = 4;
+}
+
+enum UpdateProviderKind {
+  UPDATE_PROVIDER_KIND_NONE = 0;
+  UPDATE_PROVIDER_KIND_STEAMCMD = 1;
+  UPDATE_PROVIDER_KIND_PAPERMC = 2;
+  UPDATE_PROVIDER_KIND_MOJANG = 3;
+  UPDATE_PROVIDER_KIND_COMMAND = 4;
+}
+
+message UpdateProviderConfig {
+  UpdateProviderKind kind = 1;
+  string source_id = 2;
+}
+
+message ModSource {
+  string id = 1;
+  string search_params_json = 2;
+}
+
+message ModProfile {
+  string install_path = 1;
+  repeated ModSource sources = 2;
+}
+
+message Variant {
+  string id = 1;
+  string name = 2;
+  UpdateProviderConfig update_provider = 3;
+  string default_target = 4;
+  ModProfile mod_profile = 5;
+}
+
+message UpdateTargetOption {
+  string id = 1;
+  string label = 2;
+  string description = 3;
+  string latest_version = 4;
+  bool is_selected = 5;
+}
+
 message Game {
   string id = 1;
   string name = 2;
@@ -74,7 +121,16 @@ message Game {
   bool uses_steamcmd = 32;
   string steam_appid = 33;
   string config_schemas = 70; // JSON blob, parsed by application layer
-  string server_software = 71; // JSON blob, parsed by application layer
+  reserved 71;
+  reserved "server_software";
+  UpdateProviderConfig update_provider = 72;
+  string default_target = 73;
+  ModProfile mod_profile = 74;
+  repeated Variant variants = 75;
+  CommandType linux_install_type = 76;
+  CommandType linux_update_type = 77;
+  CommandType windows_install_type = 78;
+  CommandType windows_update_type = 79;
 }
 
 message SteamApp {
@@ -114,13 +170,6 @@ message GameServerPlayer {
   optional string steam_id = 3;
 }
 
-message SteamBranch {
-  string name = 1;
-  string build_id = 2;
-  string description = 3;
-  string time_updated = 4;
-}
-
 message GameServer {
   string id = 1;
   string user_id = 2;
@@ -150,8 +199,9 @@ message GameServer {
   string version = 26;
   int64 current_player_count = 27;
   repeated GameServerPlayer current_players = 28;
-  SteamBranch steam_branch = 29;
-  string branch = 30;
+  reserved 29;
+  reserved "steam_branch";
+  string selected_target = 30;
   string node_id = 31;
   string node_name = 32;
   string node_host = 33;
@@ -165,10 +215,15 @@ message GameServer {
   double io_write_rate = 41;
   int32 connection_count = 42;
   repeated string effective_permissions = 43;
-  string server_software = 44;
+  string selected_variant_id = 44;
   Game game = 45;
   string server_executable = 46;
   optional VersionInfo version_info = 47;
+  UpdateProviderConfig resolved_update_provider = 48;
+  ModProfile resolved_mod_profile = 49;
+  bool resolved_has_update = 50;
+  bool resolved_has_mod_support = 51;
+  bool selected_target_pinned = 52;
 }
 
 enum VersionStatus {
@@ -458,20 +513,6 @@ message NodeApiKey {
   string masked_key = 3;
   google.protobuf.Timestamp created_at = 4;
   google.protobuf.Timestamp updated_at = 5;
-}
-
-message ServerSoftwareOption {
-  string id = 1;
-  string name = 2;
-  string jar_source = 3;
-  bool has_mod_support = 4;
-}
-
-message SoftwareVersion {
-  string version_id = 1;
-  string version_string = 2;
-  int32 build_number = 3;
-  string channel = 4;
 }
 
 enum AlertEventType {

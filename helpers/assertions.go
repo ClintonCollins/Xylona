@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -63,7 +64,9 @@ func GameServerProtoToModel(gsProto *xylona.GameServer) *models.GameServer {
 		BackupDirectory:           gsProto.BackupDirectory,
 		MaxBackups:                gsProto.MaxBackups,
 		NodeID:                    gsProto.NodeId,
-		Branch:                    gsProto.Branch,
+		Branch:                    gsProto.SelectedTarget,
+		TargetPinned:              gsProto.SelectedTargetPinned,
+		ServerSoftware:            null.FromCond(gsProto.SelectedVariantId, gsProto.SelectedVariantId != ""),
 		CreatedAt:                 gsProto.CreatedAt.AsTime(),
 		UpdatedAt:                 gsProto.UpdatedAt.AsTime(),
 	}
@@ -110,10 +113,22 @@ func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.Vers
 		NodeHost:                  gsModel.R.Node.Host,
 		NodePort:                  gsModel.R.Node.Port,
 		Version:                   gsModel.Version,
-		Branch:                    gsModel.Branch,
-		ServerSoftware:            gsModel.ServerSoftware.GetOr(""),
+		SelectedTarget:            gsModel.Branch,
+		SelectedTargetPinned:      gsModel.TargetPinned,
+		SelectedVariantId:         gsModel.ServerSoftware.GetOr(""),
 		ServerExecutable:          gsModel.ServerExecutable.GetOr(""),
 		Game:                      gameProtoFromRelation(gsModel),
+	}
+	if gsModel.R.Game != nil {
+		resolvedConfig, errResolve := updateproviders.ResolveModelConfig(gsModel.R.Game, gsModel)
+		if errResolve != nil {
+			log.Warn().Err(errResolve).Str("game_server_id", gsModel.ID).Msg("failed to resolve typed game server config")
+		} else {
+			proto.ResolvedUpdateProvider = updateproviders.ProviderConfigToProto(resolvedConfig.Provider)
+			proto.ResolvedModProfile = updateproviders.ModProfileToProto(resolvedConfig.ModProfile)
+			proto.ResolvedHasUpdate = resolvedConfig.Provider.Kind != updateproviders.ProviderKindNone
+			proto.ResolvedHasModSupport = resolvedConfig.ModProfile != nil
+		}
 	}
 	if vsm != nil {
 		proto.VersionInfo = versionStateToVersionInfoProto(vsm.Get(gsModel.ID))
@@ -182,12 +197,39 @@ func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSette
 		MaxBackups:                omit.From(gsModel.MaxBackups),
 		NodeID:                    omit.From(gsModel.NodeID),
 		Branch:                    omit.From(gsModel.Branch),
+		TargetPinned:              omit.From(gsModel.TargetPinned),
 		CreatedAt:                 omit.From(gsModel.CreatedAt),
 		UpdatedAt:                 omit.From(gsModel.UpdatedAt),
 	}
 }
 
 func GameModelToProto(gameModel *models.Game) *xylona.Game {
+	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameModel)
+	if errConfig != nil {
+		log.Warn().Err(errConfig).Str("game_id", gameModel.ID).Msg("failed to load typed game config")
+	}
+
+	linuxInstallType := modelCommandTypeToProtoCommandType(
+		gameModel.LinuxInstallCommandType,
+		gameModel.LinuxInstallCommand,
+		gameConfig.UpdateProvider.Kind,
+	)
+	linuxUpdateType := modelCommandTypeToProtoCommandType(
+		gameModel.LinuxUpdateCommandType,
+		gameModel.LinuxUpdateCommand,
+		gameConfig.UpdateProvider.Kind,
+	)
+	windowsInstallType := modelCommandTypeToProtoCommandType(
+		gameModel.WindowsInstallCommandType,
+		gameModel.WindowsInstallCommand,
+		gameConfig.UpdateProvider.Kind,
+	)
+	windowsUpdateType := modelCommandTypeToProtoCommandType(
+		gameModel.WindowsUpdateCommandType,
+		gameModel.WindowsUpdateCommand,
+		gameConfig.UpdateProvider.Kind,
+	)
+
 	return &xylona.Game{
 		Id:                                gameModel.ID,
 		Name:                              gameModel.Name,
@@ -219,12 +261,40 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		UsesSteamcmd:                      gameModel.UsesSteamcmd,
 		SteamAppid:                        gameModel.SteamAppID,
 		ConfigSchemas:                     gameModel.ConfigSchemas.GetOr(""),
-		ServerSoftware:                    gameModel.ServerSoftware.GetOr(""),
+		UpdateProvider:                    updateproviders.ProviderConfigToProto(gameConfig.UpdateProvider),
+		DefaultTarget:                     gameConfig.DefaultTarget,
+		ModProfile:                        updateproviders.ModProfileToProto(gameConfig.ModProfile),
+		Variants:                          updateproviders.VariantsToProto(gameConfig.Variants),
+		LinuxInstallType:                  linuxInstallType,
+		LinuxUpdateType:                   linuxUpdateType,
+		WindowsInstallType:                windowsInstallType,
+		WindowsUpdateType:                 windowsUpdateType,
 	}
 }
 
 func GameProtoToModel(gameProto *xylona.Game) *models.Game {
-	return &models.Game{
+	linuxInstallCommand := commandValueForType(
+		gameProto.GetLinuxInstallType(),
+		gameProto.GetLinuxInstallCommand(),
+		gameProto.GetSteamAppid(),
+	)
+	linuxUpdateCommand := commandValueForType(
+		gameProto.GetLinuxUpdateType(),
+		gameProto.GetLinuxUpdateCommand(),
+		gameProto.GetSteamAppid(),
+	)
+	windowsInstallCommand := commandValueForType(
+		gameProto.GetWindowsInstallType(),
+		gameProto.GetWindowsInstallCommand(),
+		gameProto.GetSteamAppid(),
+	)
+	windowsUpdateCommand := commandValueForType(
+		gameProto.GetWindowsUpdateType(),
+		gameProto.GetWindowsUpdateCommand(),
+		gameProto.GetSteamAppid(),
+	)
+
+	gameModel := &models.Game{
 		ID:                                gameProto.Id,
 		Name:                              gameProto.Name,
 		DefaultPort:                       gameProto.DefaultPort,
@@ -234,17 +304,17 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		WindowsSupport:                    gameProto.WindowsSupport,
 		LinuxStartCommand:                 gameProto.LinuxStartCommand,
 		LinuxStopCommand:                  gameProto.LinuxStopCommand,
-		LinuxInstallCommand:               gameProto.LinuxInstallCommand,
-		LinuxInstallCommandType:           commandProcessorToCommandType(gameProto.LinuxInstallCommandProcessor),
-		LinuxUpdateCommand:                gameProto.LinuxUpdateCommand,
-		LinuxUpdateCommandType:            commandProcessorToCommandType(gameProto.LinuxUpdateCommandProcessor),
+		LinuxInstallCommand:               linuxInstallCommand,
+		LinuxInstallCommandType:           protoCommandTypeToModelCommandType(gameProto.GetLinuxInstallType(), gameProto.GetLinuxInstallCommandProcessor()),
+		LinuxUpdateCommand:                linuxUpdateCommand,
+		LinuxUpdateCommandType:            protoCommandTypeToModelCommandType(gameProto.GetLinuxUpdateType(), gameProto.GetLinuxUpdateCommandProcessor()),
 		LinuxWorkingDirectory:             gameProto.LinuxWorkingDirectory,
 		WindowsStartCommand:               gameProto.WindowsStartCommand,
 		WindowsStopCommand:                gameProto.WindowsStopCommand,
-		WindowsInstallCommand:             gameProto.WindowsInstallCommand,
-		WindowsInstallCommandType:         commandProcessorToCommandType(gameProto.WindowsInstallCommandProcessor),
-		WindowsUpdateCommand:              gameProto.WindowsUpdateCommand,
-		WindowsUpdateCommandType:          commandProcessorToCommandType(gameProto.WindowsUpdateCommandProcessor),
+		WindowsInstallCommand:             windowsInstallCommand,
+		WindowsInstallCommandType:         protoCommandTypeToModelCommandType(gameProto.GetWindowsInstallType(), gameProto.GetWindowsInstallCommandProcessor()),
+		WindowsUpdateCommand:              windowsUpdateCommand,
+		WindowsUpdateCommandType:          protoCommandTypeToModelCommandType(gameProto.GetWindowsUpdateType(), gameProto.GetWindowsUpdateCommandProcessor()),
 		WindowsWorkingDirectory:           gameProto.WindowsWorkingDirectory,
 		RequireDedicatedIP:                gameProto.RequireDedicatedIp,
 		BindsToAllIps:                     gameProto.BindsToAllIps,
@@ -252,14 +322,38 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		UpdatedAt:                         gameProto.UpdatedAt.AsTime(),
 		UsesSourceQuery:                   gameProto.UsesSourceQuery,
 		RequiresSteamGameServerLoginToken: gameProto.RequiresSteamGameServerLoginToken,
-		UsesSteamcmd:                      gameProto.UsesSteamcmd,
+		UsesSteamcmd:                      gameProto.UsesSteamcmd || hasSteamCommandType(gameProto),
 		SteamAppID:                        gameProto.SteamAppid,
 		ConfigSchemas:                     null.FromCond(gameProto.ConfigSchemas, gameProto.ConfigSchemas != ""),
-		ServerSoftware:                    null.FromCond(gameProto.ServerSoftware, gameProto.ServerSoftware != ""),
 	}
+
+	gameConfig := updateproviders.GameConfig{
+		UpdateProvider: updateproviders.ProviderConfigFromProto(gameProto.GetUpdateProvider()),
+		DefaultTarget:  strings.TrimSpace(gameProto.GetDefaultTarget()),
+		ModProfile:     updateproviders.ModProfileFromProto(gameProto.GetModProfile()),
+		Variants:       updateproviders.VariantsFromProto(gameProto.GetVariants()),
+	}
+	gameConfig = normalizeGameConfigForCommandTypes(gameProto, gameConfig)
+	errConfig := updateproviders.SaveGameConfigToModel(gameModel, gameConfig)
+	if errConfig != nil {
+		log.Warn().Err(errConfig).Str("game_id", gameProto.GetId()).Msg("failed to save typed game config")
+	}
+
+	return gameModel
 }
 
 func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
+	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameModel)
+	if errConfig != nil {
+		log.Warn().Err(errConfig).Str("game_id", gameModel.ID).Msg("failed to load typed game config for setter")
+	}
+	configModel := &models.Game{ServerSoftware: gameModel.ServerSoftware}
+	if errConfig == nil {
+		errSave := updateproviders.SaveGameConfigToModel(configModel, gameConfig)
+		if errSave != nil {
+			log.Warn().Err(errSave).Str("game_id", gameModel.ID).Msg("failed to marshal typed game config for setter")
+		}
+	}
 	return &models.GameSetter{
 		ID:                                omit.From(gameModel.ID),
 		Name:                              omit.From(gameModel.Name),
@@ -289,7 +383,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		WindowsUpdateCommandType:          omit.From(gameModel.WindowsUpdateCommandType),
 		WindowsWorkingDirectory:           omit.From(gameModel.WindowsWorkingDirectory),
 		ConfigSchemas:                     omitnull.FromNull(gameModel.ConfigSchemas),
-		ServerSoftware:                    omitnull.FromNull(gameModel.ServerSoftware),
+		ServerSoftware:                    omitnull.FromNull(configModel.ServerSoftware),
 		CreatedAt:                         omit.From(time.Now()),
 		UpdatedAt:                         omit.From(time.Now()),
 	}
@@ -361,6 +455,184 @@ func commandProcessorToCommandType(commandProcessor xylona.CommandProcessor) str
 		return "internal"
 	default:
 		return "direct"
+	}
+}
+
+func modelCommandTypeToProtoCommandType(commandType string, command string, providerKind updateproviders.ProviderKind) xylona.CommandType {
+	normalizedType := strings.TrimSpace(strings.ToLower(commandType))
+
+	switch normalizedType {
+	case "bash", "cmd", "powershell":
+		return xylona.CommandType_COMMAND
+	case "direct":
+		if providerKind == updateproviders.ProviderKindSteamCMD && looksLikeSteamCMDCommand(command) {
+			return xylona.CommandType_STEAMCMD
+		}
+		if strings.TrimSpace(command) == "" {
+			return xylona.CommandType_NONE
+		}
+		return xylona.CommandType_COMMAND
+	case "internal":
+		switch providerKind {
+		case updateproviders.ProviderKindSteamCMD:
+			return xylona.CommandType_STEAMCMD
+		case updateproviders.ProviderKindPaperMC:
+			return xylona.CommandType_PAPERMC
+		case updateproviders.ProviderKindMojang:
+			return xylona.CommandType_MOJANG
+		default:
+			return xylona.CommandType_COMMAND
+		}
+	case "steamcmd":
+		return xylona.CommandType_STEAMCMD
+	case "papermc":
+		return xylona.CommandType_PAPERMC
+	case "mojang":
+		return xylona.CommandType_MOJANG
+	case "none":
+		return xylona.CommandType_NONE
+	default:
+		if providerKind == updateproviders.ProviderKindSteamCMD && looksLikeSteamCMDCommand(command) {
+			return xylona.CommandType_STEAMCMD
+		}
+		if strings.TrimSpace(command) == "" {
+			return xylona.CommandType_NONE
+		}
+		return xylona.CommandType_COMMAND
+	}
+}
+
+func protoCommandTypeToModelCommandType(commandType xylona.CommandType, processor xylona.CommandProcessor) string {
+	switch commandType {
+	case xylona.CommandType_NONE:
+		return "direct"
+	case xylona.CommandType_COMMAND:
+		return commandProcessorToCommandType(processor)
+	case xylona.CommandType_STEAMCMD:
+		return "direct"
+	case xylona.CommandType_PAPERMC, xylona.CommandType_MOJANG:
+		return "internal"
+	default:
+		return commandProcessorToCommandType(processor)
+	}
+}
+
+func commandValueForType(commandType xylona.CommandType, existingCommand string, steamAppID string) string {
+	switch commandType {
+	case xylona.CommandType_NONE:
+		return ""
+	case xylona.CommandType_STEAMCMD:
+		generatedCommand := steamCMDCommand(steamAppID)
+		if generatedCommand != "" {
+			return generatedCommand
+		}
+		return strings.TrimSpace(existingCommand)
+	default:
+		return existingCommand
+	}
+}
+
+func steamCMDCommand(steamAppID string) string {
+	normalizedAppID := strings.TrimSpace(steamAppID)
+	if normalizedAppID == "" {
+		return ""
+	}
+
+	return "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update " +
+		normalizedAppID +
+		" validate +quit"
+}
+
+func looksLikeSteamCMDCommand(command string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(command)), "steamcmd")
+}
+
+func hasSteamCommandType(gameProto *xylona.Game) bool {
+	return gameProto.GetLinuxInstallType() == xylona.CommandType_STEAMCMD ||
+		gameProto.GetLinuxUpdateType() == xylona.CommandType_STEAMCMD ||
+		gameProto.GetWindowsInstallType() == xylona.CommandType_STEAMCMD ||
+		gameProto.GetWindowsUpdateType() == xylona.CommandType_STEAMCMD
+}
+
+func normalizeGameConfigForCommandTypes(gameProto *xylona.Game, gameConfig updateproviders.GameConfig) updateproviders.GameConfig {
+	if len(gameConfig.Variants) > 0 {
+		return gameConfig
+	}
+	if strings.TrimSpace(gameConfig.DefaultTarget) != "" {
+		return gameConfig
+	}
+
+	updateProviderKind := commandTypeToProviderKind(primaryUpdateCommandType(gameProto))
+	updateProvider := updateproviders.ProviderConfig{
+		Kind: updateProviderKind,
+	}
+
+	switch updateProviderKind {
+	case updateproviders.ProviderKindSteamCMD:
+		updateProvider.SourceID = strings.TrimSpace(gameProto.GetSteamAppid())
+	case updateproviders.ProviderKindPaperMC:
+		updateProvider.SourceID = defaultProviderSourceID(updateProviderKind, gameConfig.UpdateProvider.SourceID)
+	case updateproviders.ProviderKindMojang:
+		updateProvider.SourceID = defaultProviderSourceID(updateProviderKind, gameConfig.UpdateProvider.SourceID)
+	}
+
+	gameConfig.UpdateProvider = updateProvider
+	gameConfig.DefaultTarget = ""
+	return gameConfig
+}
+
+func primaryUpdateCommandType(gameProto *xylona.Game) xylona.CommandType {
+	if gameProto.GetLinuxSupport() {
+		linuxUpdateType := gameProto.GetLinuxUpdateType()
+		if linuxUpdateType != xylona.CommandType_NONE {
+			return linuxUpdateType
+		}
+	}
+
+	if gameProto.GetWindowsSupport() {
+		windowsUpdateType := gameProto.GetWindowsUpdateType()
+		if windowsUpdateType != xylona.CommandType_NONE {
+			return windowsUpdateType
+		}
+	}
+
+	if gameProto.GetLinuxSupport() {
+		return gameProto.GetLinuxInstallType()
+	}
+	if gameProto.GetWindowsSupport() {
+		return gameProto.GetWindowsInstallType()
+	}
+	return xylona.CommandType_NONE
+}
+
+func commandTypeToProviderKind(commandType xylona.CommandType) updateproviders.ProviderKind {
+	switch commandType {
+	case xylona.CommandType_COMMAND:
+		return updateproviders.ProviderKindCommand
+	case xylona.CommandType_STEAMCMD:
+		return updateproviders.ProviderKindSteamCMD
+	case xylona.CommandType_PAPERMC:
+		return updateproviders.ProviderKindPaperMC
+	case xylona.CommandType_MOJANG:
+		return updateproviders.ProviderKindMojang
+	default:
+		return updateproviders.ProviderKindNone
+	}
+}
+
+func defaultProviderSourceID(kind updateproviders.ProviderKind, current string) string {
+	trimmedCurrent := strings.TrimSpace(current)
+	if trimmedCurrent != "" {
+		return trimmedCurrent
+	}
+
+	switch kind {
+	case updateproviders.ProviderKindPaperMC:
+		return "paper"
+	case updateproviders.ProviderKindMojang:
+		return "vanilla"
+	default:
+		return ""
 	}
 }
 

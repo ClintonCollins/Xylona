@@ -1,4 +1,4 @@
-import type { GameServer, SteamBranch } from '@/proto/shared_pb'
+import { UpdateProviderKind, type GameServer, type UpdateTargetOption } from '@/proto/shared_pb'
 
 export interface SteamBranchDialogItem {
   label: string
@@ -13,8 +13,8 @@ export interface SteamBranchSelectionResult {
 }
 
 interface BranchLookupResponse {
-  branches: SteamBranch[]
-  currentBranch: string
+  targets: UpdateTargetOption[]
+  currentTarget: string
 }
 
 interface ChooseSteamBranchForUpdateOptions {
@@ -30,32 +30,29 @@ interface ChooseSteamBranchForUpdateOptions {
 }
 
 export function normalizeSteamBranch(branch: string): string {
-  const normalized = branch.trim()
-  if (normalized === '') {
-    return 'public'
-  }
-  return normalized
+  return normalizeTargetValue(UpdateProviderKind.STEAMCMD, branch)
 }
 
 export function canSelectSteamBranch(gameServer: GameServer): boolean {
-  const game = gameServer.game
-  if (!game?.usesSteamcmd) {
-    return false
+  const kind = gameServer.resolvedUpdateProvider?.kind
+  if (kind === UpdateProviderKind.STEAMCMD) {
+    return (gameServer.game?.steamAppid?.trim() ?? '') !== ''
   }
-
-  return game.steamAppid.trim() !== ''
+  return kind === UpdateProviderKind.PAPERMC || kind === UpdateProviderKind.MOJANG
 }
 
-export function buildSteamBranchDialogItems(branches: SteamBranch[]): SteamBranchDialogItem[] {
-  return branches.map((branch) => {
-    const name = normalizeSteamBranch(branch.name)
-    const label = branch.description.trim() || (name === 'public' ? 'Public' : name)
-    const buildSuffix = branch.buildId.trim() === '' ? '' : ` - Build ${branch.buildId.trim()}`
+export function buildSteamBranchDialogItems(
+  targets: UpdateTargetOption[],
+): SteamBranchDialogItem[] {
+  return targets.map((target) => {
+    const value = target.id.trim()
+    const buildSuffix =
+      target.latestVersion.trim() === '' ? '' : ` - Build ${target.latestVersion.trim()}`
 
     return {
-      label,
-      value: name,
-      caption: `Branch ${name}${buildSuffix}`,
+      label: target.label.trim() || value,
+      value,
+      caption: target.description.trim() || `Track ${value}${buildSuffix}`,
     }
   })
 }
@@ -82,7 +79,7 @@ export async function chooseSteamBranchForUpdate(
     }
   }
 
-  if (response.branches.length === 0) {
+  if (response.targets.length === 0) {
     return {
       metadataAvailable: false,
       cancelled: false,
@@ -90,14 +87,17 @@ export async function chooseSteamBranchForUpdate(
     }
   }
 
-  const currentBranch = normalizeSteamBranch(response.currentBranch || options.gameServer.branch)
-  const items = buildSteamBranchDialogItems(response.branches)
+  const providerKind = options.gameServer.resolvedUpdateProvider?.kind ?? UpdateProviderKind.NONE
+  const currentBranch = normalizeSteamBranch(
+    normalizeTargetValue(providerKind, response.currentTarget || options.gameServer.selectedTarget),
+  )
+  const items = buildSteamBranchDialogItems(response.targets)
   const selectedBranch = await new Promise<string | undefined>((resolve) => {
     options.openDialog({
       currentBranch,
       items,
       onOk: (value) => {
-        resolve(normalizeSteamBranch(value))
+        resolve(normalizeTargetValue(providerKind, value))
       },
       onDismiss: () => {
         resolve(undefined)
@@ -118,4 +118,12 @@ export async function chooseSteamBranchForUpdate(
     cancelled: false,
     steamBranch: selectedBranch,
   }
+}
+
+function normalizeTargetValue(kind: UpdateProviderKind, value: string): string {
+  const normalized = value.trim()
+  if (kind === UpdateProviderKind.STEAMCMD && normalized === '') {
+    return 'public'
+  }
+  return normalized
 }

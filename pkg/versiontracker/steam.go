@@ -244,12 +244,15 @@ func EnrichVersionState(ctx context.Context, tracker VersionTracker, gs *models.
 		state.LatestVersionLabel = state.LatestVersion
 	}
 
-	steamTracker, ok := tracker.(*SteamTracker)
-	if !ok {
-		return
+	switch typedTracker := tracker.(type) {
+	case *SteamTracker:
+		typedTracker.populateSteamLabels(ctx, gs, state, nil)
+	case *MinecraftTracker:
+		providerKind := typedTracker.resolvedProviderKind(gs)
+		target := typedTracker.resolvedTarget(gs)
+		state.InstalledVersionLabel = displayMinecraftVersion(providerKind, target, state.InstalledVersion)
+		state.LatestVersionLabel = displayMinecraftVersion(providerKind, target, state.LatestVersion)
 	}
-
-	steamTracker.populateSteamLabels(ctx, gs, state, nil)
 }
 
 func (s *SteamTracker) populateSteamLabels(ctx context.Context, gs *models.GameServer, state *VersionState, info *UpdateInfo) {

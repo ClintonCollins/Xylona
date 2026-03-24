@@ -17,6 +17,7 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -29,12 +30,12 @@ const PermissionGameServerMods = "game_server.mods"
 type serverModInfo struct {
 	gameServer *models.GameServer
 	game       *models.Game
-	software   *modmanager.ServerSoftware
-	modConfig  *modmanager.ModConfig
+	variantID  string
+	modProfile *updateproviders.ModProfile
 }
 
-// getServerModInfo fetches the game server, its game, parses server software
-// JSON, and returns the active software's mod config.
+// getServerModInfo fetches the game server, resolves the typed variant/update
+// config, and returns the effective mod profile for the server.
 func getServerModInfo(xs *XylonaService, gameServerID string) (*serverModInfo, error) {
 	gameServer, errGetServer := xs.db.GetGameServerByID(gameServerID)
 	if errGetServer != nil {
@@ -49,38 +50,25 @@ func getServerModInfo(xs *XylonaService, gameServerID string) (*serverModInfo, e
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
 	}
 
-	softwareJSON := game.ServerSoftware.GetOr("")
-	allSoftware, errParse := modmanager.ParseServerSoftware(softwareJSON)
-	if errParse != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse server software config"))
-	}
-
-	// Determine the active software ID from the game server's column.
-	activeSoftwareID := gameServer.ServerSoftware.GetOr("")
-	if activeSoftwareID == "" && len(allSoftware) > 0 {
-		activeSoftwareID = allSoftware[0].ID
-	}
-
-	sw, found := modmanager.GetSoftwareByID(allSoftware, activeSoftwareID)
-	if !found {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("server software not configured"))
+	resolved, errResolve := updateproviders.ResolveModelConfig(game, gameServer)
+	if errResolve != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to resolve server configuration"))
 	}
 
 	return &serverModInfo{
 		gameServer: gameServer,
 		game:       game,
-		software:   sw,
-		modConfig:  sw.ModConfig,
+		variantID:  resolved.VariantID,
+		modProfile: resolved.ModProfile,
 	}, nil
 }
 
-// getInstallPath returns the install path from the mod config.
-// If multiple mod types exist, the first one is used as default.
-func getInstallPath(modCfg *modmanager.ModConfig) string {
-	if modCfg == nil || len(modCfg.ModTypes) == 0 {
+// getInstallPath returns the install path from the effective mod profile.
+func getInstallPath(profile *updateproviders.ModProfile) string {
+	if profile == nil || profile.InstallPath == "" {
 		return "mods"
 	}
-	return modCfg.ModTypes[0].InstallPath
+	return profile.InstallPath
 }
 
 // modSearchResultToProto converts a provider search result to proto.
@@ -159,7 +147,7 @@ func (xs *XylonaService) SearchMods(
 		return nil, errInfo
 	}
 
-	if info.modConfig == nil {
+	if info.modProfile == nil {
 		return &connect.Response[xylona.SearchModsResponse]{
 			Msg: &xylona.SearchModsResponse{},
 		}, nil
@@ -168,11 +156,14 @@ func (xs *XylonaService) SearchMods(
 	// Build source configs for the search.
 	var sources []modmanager.SourceConfig
 	requestedSource := request.Msg.GetSource()
-	for _, src := range info.modConfig.Sources {
+	for _, src := range info.modProfile.Sources {
 		if requestedSource != "" && src.ID != requestedSource {
 			continue
 		}
-		sources = append(sources, src)
+		sources = append(sources, modmanager.SourceConfig{
+			ID:           src.ID,
+			SearchParams: updateproviders.SearchParams(src),
+		})
 	}
 
 	// Determine sort default based on whether a query is present.
@@ -270,10 +261,10 @@ func (xs *XylonaService) GetModDetails(
 	// Get search params from server's mod config if available.
 	var params modproviders.SearchParams
 	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
-	if errInfo == nil && info.modConfig != nil {
-		for _, src := range info.modConfig.Sources {
+	if errInfo == nil && info.modProfile != nil {
+		for _, src := range info.modProfile.Sources {
 			if src.ID == source {
-				params = src.SearchParams
+				params = updateproviders.SearchParams(src)
 				break
 			}
 		}
@@ -311,10 +302,10 @@ func (xs *XylonaService) GetModVersions(
 	// Get search params from server's mod config if available.
 	var params modproviders.SearchParams
 	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
-	if errInfo == nil && info.modConfig != nil {
-		for _, src := range info.modConfig.Sources {
+	if errInfo == nil && info.modProfile != nil {
+		for _, src := range info.modProfile.Sources {
 			if src.ID == source {
-				params = src.SearchParams
+				params = updateproviders.SearchParams(src)
 				break
 			}
 		}
@@ -358,11 +349,11 @@ func (xs *XylonaService) InstallMod(
 		return nil, errPerm
 	}
 
-	if info.modConfig == nil {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("mod support not configured for this server software"))
+	if info.modProfile == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("mod support is not configured for this variant"))
 	}
 
-	installPath := getInstallPath(info.modConfig)
+	installPath := getInstallPath(info.modProfile)
 
 	mod, errInstall := xs.modManager.Install(
 		ctx,
@@ -545,7 +536,11 @@ func (xs *XylonaService) SetModEnabled(
 		return nil, errPerm
 	}
 
-	installPath := getInstallPath(info.modConfig)
+	if info.modProfile == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("mod support is not configured for this variant"))
+	}
+
+	installPath := getInstallPath(info.modProfile)
 
 	if request.Msg.GetEnabled() {
 		errEnable := xs.modManager.Enable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)

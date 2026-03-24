@@ -31,12 +31,12 @@ describe('OperationProgressDialog', () => {
     const wrapper = mount(OperationProgressDialog, {
       props: {
         modelValue: true,
-        title: 'Changing Server Software',
-        subtitle: 'Xylona will apply the selected software and refresh the detected version.',
+        title: 'Changing Variant',
+        subtitle: 'Xylona will apply the selected variant and refresh the detected version.',
         steps: [
           {
-            step: 'software-apply',
-            label: 'Apply selected server software',
+            step: 'variant-apply',
+            label: 'Apply selected variant',
             status: StepStatus.IN_PROGRESS,
           },
         ],
@@ -50,8 +50,8 @@ describe('OperationProgressDialog', () => {
     })
 
     expect(wrapper.find('.q-dialog-stub').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Changing Server Software')
-    expect(wrapper.text()).toContain('Apply selected server software')
+    expect(wrapper.text()).toContain('Changing Variant')
+    expect(wrapper.text()).toContain('Apply selected variant')
     expect(wrapper.text()).toContain('Current')
     expect(wrapper.text()).toContain('1 line available')
     expect(wrapper.text()).toContain('Hide')

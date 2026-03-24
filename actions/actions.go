@@ -31,6 +31,7 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/placeholder"
 
@@ -47,6 +48,16 @@ var (
 	ErrInternalGameUpdateMissing          = errors.New("internal game updater is not registered")
 	ErrMinecraftVariantUpdateNotSupported = errors.New("updates are not supported for this Minecraft server software")
 	reSteamBranchableUpdate               = regexp.MustCompile(`(?i)(\+app_update\s+\d+)`)
+	minecraftUpdateProviderLookup         = func(kind updateproviders.ProviderKind) (modproviders.ModProvider, bool) {
+		switch kind {
+		case updateproviders.ProviderKindPaperMC:
+			return modproviders.GetProvider("papermc")
+		case updateproviders.ProviderKindMojang:
+			return modproviders.GetProvider("mojang")
+		default:
+			return nil, false
+		}
+	}
 )
 
 const (
@@ -761,62 +772,57 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 		return nil, fmt.Errorf("minecraft game relation not loaded")
 	}
 
-	allSoftware, errParse := modmanager.ParseServerSoftware(gameServer.R.Game.ServerSoftware.GetOr(""))
-	if errParse != nil {
-		return nil, fmt.Errorf("parse minecraft server software: %w", errParse)
+	resolved, errResolve := updateproviders.ResolveModelConfig(gameServer.R.Game, gameServer)
+	if errResolve != nil {
+		return nil, fmt.Errorf("resolve minecraft update config: %w", errResolve)
 	}
 
-	softwareID := strings.TrimSpace(gameServer.ServerSoftware.GetOr(""))
+	softwareID := strings.TrimSpace(resolved.VariantID)
 	if softwareID == "" {
 		softwareID = "vanilla"
 	}
 
-	sw, found := modmanager.GetSoftwareByID(allSoftware, softwareID)
-	if !found {
+	if resolved.Provider.Kind != updateproviders.ProviderKindPaperMC &&
+		resolved.Provider.Kind != updateproviders.ProviderKindMojang {
 		return nil, ErrMinecraftVariantUpdateNotSupported
 	}
 
-	providerID := modmanager.ProviderIDForGame(gameServer.GameID, *sw)
-	if providerID == "" {
-		return nil, ErrMinecraftVariantUpdateNotSupported
-	}
-
-	provider, ok := modproviders.GetProvider(providerID)
+	provider, ok := minecraftUpdateProviderLookup(resolved.Provider.Kind)
 	if !ok {
-		return nil, fmt.Errorf("jar source provider not found: %s", providerID)
+		return nil, fmt.Errorf("jar source provider not found for %s", resolved.Provider.Kind)
 	}
 
 	updateCtx, cancel := context.WithTimeout(inst.ctx, 10*time.Minute)
 	defer cancel()
 
-	details, errDetails := provider.GetModDetails(updateCtx, sw.ID, nil)
+	sourceID := strings.TrimSpace(resolved.Provider.SourceID)
+	if sourceID == "" {
+		switch resolved.Provider.Kind {
+		case updateproviders.ProviderKindPaperMC:
+			sourceID = softwareID
+		case updateproviders.ProviderKindMojang:
+			sourceID = "vanilla"
+		}
+	}
+
+	details, errDetails := provider.GetModDetails(updateCtx, sourceID, nil)
 	if errDetails != nil {
-		return nil, fmt.Errorf("get minecraft software versions: %w", errDetails)
+		return nil, fmt.Errorf("get minecraft variant versions: %w", errDetails)
 	}
 	if details == nil || len(details.Versions) == 0 {
-		return nil, fmt.Errorf("no versions available for minecraft software %s", sw.ID)
+		return nil, fmt.Errorf("no versions available for minecraft variant %s", sourceID)
 	}
 
-	latestVersion := details.Versions[0]
-	targetVersion := latestVersion.VersionString
+	targetVersion := resolvePreferredMinecraftTarget(details.Versions, resolved.Target)
 	if targetVersion == "" {
-		targetVersion = latestVersion.VersionID
-	}
-	if targetVersion == "" {
-		return nil, fmt.Errorf("no usable target version for minecraft software %s", sw.ID)
+		return nil, fmt.Errorf("no usable target version for minecraft variant %s", sourceID)
 	}
 
-	downloadVersionID := latestVersion.VersionID
-	if downloadVersionID == "" {
-		downloadVersionID = latestVersion.VersionString
-	}
-	downloadVersionName := latestVersion.VersionString
-	if downloadVersionName == "" {
-		downloadVersionName = downloadVersionID
-	}
-	plannedFileName := plannedDownloadFileName(latestVersion.DownloadURL)
+	downloadVersionID := targetVersion
+	downloadVersionName := targetVersion
+	plannedFileName := ""
 
-	builds, errBuilds := provider.GetVersions(updateCtx, sw.ID, targetVersion, nil)
+	builds, errBuilds := provider.GetVersions(updateCtx, sourceID, targetVersion, nil)
 	if errBuilds == nil && len(builds) > 0 {
 		selectedBuild := builds[len(builds)-1]
 		if selectedBuild.VersionID != "" {
@@ -833,9 +839,9 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 		downloadVersionName = downloadVersionID
 	}
 
-	softwareName := sw.Name
+	softwareName := strings.TrimSpace(resolved.VariantName)
 	if softwareName == "" {
-		softwareName = sw.ID
+		softwareName = strings.TrimSpace(sourceID)
 	}
 
 	return &minecraftUpdatePlan{
@@ -847,6 +853,31 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 		downloadVersionName: downloadVersionName,
 		plannedFileName:     plannedFileName,
 	}, nil
+}
+
+func resolvePreferredMinecraftTarget(versions []modproviders.ModVersion, preferred string) string {
+	normalizedPreferred := strings.TrimSpace(preferred)
+	if normalizedPreferred != "" {
+		for _, version := range versions {
+			if strings.TrimSpace(version.VersionID) == normalizedPreferred {
+				return normalizedPreferred
+			}
+			if strings.TrimSpace(version.VersionString) == normalizedPreferred {
+				return normalizedPreferred
+			}
+		}
+	}
+
+	if len(versions) == 0 {
+		return ""
+	}
+
+	latestVersion := versions[0]
+	targetVersion := strings.TrimSpace(latestVersion.VersionString)
+	if targetVersion == "" {
+		targetVersion = strings.TrimSpace(latestVersion.VersionID)
+	}
+	return targetVersion
 }
 
 func plannedDownloadFileName(downloadURL string) string {

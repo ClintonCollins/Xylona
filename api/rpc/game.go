@@ -10,9 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (xs *XylonaService) GetGame(ctx context.Context, request *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {
@@ -159,53 +157,4 @@ func (xs *XylonaService) ImportGame(_ context.Context, _ *connect.Request[xylona
 
 func (xs *XylonaService) ExportGame(_ context.Context, _ *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
-}
-
-func (xs *XylonaService) GetBranches(ctx context.Context, request *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
-	}
-
-	serverID := request.Msg.GetServerId()
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GetBranchesResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			if gameServer.R.Game == nil || !gameServer.R.Game.UsesSteamcmd || gameServer.R.Game.SteamAppID == "" {
-				return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("steam branches are unavailable for this server"))
-			}
-			if xs.steamCache == nil {
-				return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("steam cache is unavailable"))
-			}
-
-			releases, errReleases := xs.steamCache.FetchReleases(ctx, gameServer.R.Game.SteamAppID)
-			if errReleases != nil {
-				return nil, connect.NewError(connect.CodeUnavailable, errors.New("failed to load steam branch metadata"))
-			}
-
-			branches := make([]*xylona.SteamBranch, 0, len(releases))
-			for _, release := range releases {
-				branches = append(branches, &xylona.SteamBranch{
-					Name:        release.Name,
-					BuildId:     release.BuildID,
-					Description: release.DisplayLabel,
-					TimeUpdated: release.TimeUpdated,
-				})
-			}
-
-			return connect.NewResponse(&xylona.GetBranchesResponse{
-				Branches:      branches,
-				CurrentBranch: versiontracker.NormalizeSteamBranch(gameServer.Branch),
-			}), nil
-		},
-		func() (*connect.Response[xylona.GetBranchesResponse], error) {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("steam branch metadata is only available for local servers"))
-		},
-	)
 }

@@ -60,7 +60,9 @@ service Xylona {
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
   rpc QueryGameServer (QueryGameServerRequest) returns (QueryGameServerResponse) {}
 
-  rpc GetBranches (GetBranchesRequest) returns (GetBranchesResponse) {}
+  rpc GetUpdateTargets (GetUpdateTargetsRequest) returns (GetUpdateTargetsResponse) {}
+  rpc SetServerVariant (SetServerVariantRequest) returns (SetServerVariantResponse) {}
+  rpc GetVariantOperationStatus (GetVariantOperationStatusRequest) returns (GetVariantOperationStatusResponse) {}
   // File Operations
   rpc ListDirectoryFiles (ListDirectoryFilesRequest) returns (ListDirectoryFilesResponse) {}
   rpc GameServerFilesDelete (GameServerFilesDeleteRequest) returns (GameServerFilesDeleteResponse) {}
@@ -129,11 +131,6 @@ service Xylona {
   rpc SetModEnabled (SetModEnabledRequest) returns (SetModEnabledResponse) {}
   rpc PinModVersion (PinModVersionRequest) returns (PinModVersionResponse) {}
 
-  // Server software
-  rpc GetServerSoftwareOptions (GetServerSoftwareOptionsRequest) returns (GetServerSoftwareOptionsResponse) {}
-  rpc GetServerSoftwareVersions (GetServerSoftwareVersionsRequest) returns (GetServerSoftwareVersionsResponse) {}
-  rpc SetServerSoftware (SetServerSoftwareRequest) returns (SetServerSoftwareResponse) {}
-  rpc GetServerSoftwareStatus (GetServerSoftwareStatusRequest) returns (GetServerSoftwareStatusResponse) {}
   rpc GetModCategories (GetModCategoriesRequest) returns (GetModCategoriesResponse) {}
 
   // Version tracking
@@ -294,13 +291,14 @@ message NotificationStreamResponse {
   string error = 4;
 }
 
-message GetBranchesRequest {
-  string server_id = 1;
+message GetUpdateTargetsRequest {
+  string game_server_id = 1;
+  string variant_id = 2;
 }
 
-message GetBranchesResponse {
-  repeated SteamBranch branches = 1;
-  string current_branch = 2;
+message GetUpdateTargetsResponse {
+  repeated UpdateTargetOption targets = 1;
+  string current_target = 2;
 }
 
 message ListIPsRequest {}
@@ -366,9 +364,32 @@ message ExportGameResponse {
 
 message UpdateGameServerRequest {
   string server_id = 1;
-  string steam_branch = 2;
+  string target = 2;
 }
 message UpdateGameServerResponse {}
+
+message SetServerVariantRequest {
+  string game_server_id = 1;
+  string variant_id = 2;
+  string target = 3;
+  bool pin_target = 4;
+}
+
+message SetServerVariantResponse {
+  GameServer game_server = 1;
+  string status = 2;
+  int32 installed_mod_count = 3;
+}
+
+message GetVariantOperationStatusRequest {
+  string game_server_id = 1;
+}
+
+message GetVariantOperationStatusResponse {
+  string status = 1;
+  string error = 2;
+  string variant_id = 3;
+}
 
 message ReinstallGameServerRequest {
   string server_id = 1;
@@ -1004,42 +1025,6 @@ message GetModCategoriesRequest {
 }
 message GetModCategoriesResponse {
   repeated string categories = 1;
-}
-
-// Server software messages
-message GetServerSoftwareOptionsRequest {
-  string game_id = 1;
-}
-message GetServerSoftwareOptionsResponse {
-  repeated ServerSoftwareOption options = 1;
-}
-
-message GetServerSoftwareVersionsRequest {
-  string game_id = 1;
-  string software_id = 2;
-}
-message GetServerSoftwareVersionsResponse {
-  repeated SoftwareVersion versions = 1;
-}
-
-message SetServerSoftwareRequest {
-  string game_server_id = 1;
-  string software_id = 2;
-  string version_id = 3;
-}
-message SetServerSoftwareResponse {
-  GameServer game_server = 1;
-  string status = 2;
-  int32 installed_mod_count = 3;
-}
-
-message GetServerSoftwareStatusRequest {
-  string game_server_id = 1;
-}
-message GetServerSoftwareStatusResponse {
-  string status = 1;
-  string error = 2;
-  string software_id = 3;
 }
 
 // Version tracking enums and messages

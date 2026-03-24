@@ -1,9 +1,9 @@
 import { create } from '@bufbuild/protobuf'
 import { describe, expect, it } from 'vitest'
 
-import { VersionInfoSchema, VersionStatus } from '@/proto/shared_pb'
+import { UpdateProviderKind, VersionInfoSchema, VersionStatus } from '@/proto/shared_pb'
 
-import { resolveCanonicalVersionDisplay } from './version-display'
+import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './version-display'
 
 describe('resolveCanonicalVersionDisplay', () => {
   it('prefers checked installed and latest versions from version info', () => {
@@ -138,5 +138,22 @@ describe('resolveCanonicalVersionDisplay', () => {
       latestVersion: '22422094',
       updateAvailable: true,
     })
+  })
+
+  it('reports tracking latest for Mojang and Paper servers that are not pinned', () => {
+    expect(resolveVariantTrackingLabel(UpdateProviderKind.MOJANG, '', false)).toBe('Tracking latest')
+    expect(resolveVariantTrackingLabel(UpdateProviderKind.PAPERMC, '1.21.4', false)).toBe(
+      'Tracking latest',
+    )
+  })
+
+  it('reports the pinned target for Mojang and Paper servers', () => {
+    expect(resolveVariantTrackingLabel(UpdateProviderKind.MOJANG, '1.21.4', true)).toBe(
+      'Pinned to 1.21.4',
+    )
+  })
+
+  it('returns an empty label for non-Minecraft providers', () => {
+    expect(resolveVariantTrackingLabel(UpdateProviderKind.STEAMCMD, 'public', false)).toBe('')
   })
 })

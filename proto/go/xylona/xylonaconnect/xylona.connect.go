@@ -125,8 +125,13 @@ const (
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
 	// XylonaQueryGameServerProcedure is the fully-qualified name of the Xylona's QueryGameServer RPC.
 	XylonaQueryGameServerProcedure = "/xylona.Xylona/QueryGameServer"
-	// XylonaGetBranchesProcedure is the fully-qualified name of the Xylona's GetBranches RPC.
-	XylonaGetBranchesProcedure = "/xylona.Xylona/GetBranches"
+	// XylonaGetUpdateTargetsProcedure is the fully-qualified name of the Xylona's GetUpdateTargets RPC.
+	XylonaGetUpdateTargetsProcedure = "/xylona.Xylona/GetUpdateTargets"
+	// XylonaSetServerVariantProcedure is the fully-qualified name of the Xylona's SetServerVariant RPC.
+	XylonaSetServerVariantProcedure = "/xylona.Xylona/SetServerVariant"
+	// XylonaGetVariantOperationStatusProcedure is the fully-qualified name of the Xylona's
+	// GetVariantOperationStatus RPC.
+	XylonaGetVariantOperationStatusProcedure = "/xylona.Xylona/GetVariantOperationStatus"
 	// XylonaListDirectoryFilesProcedure is the fully-qualified name of the Xylona's ListDirectoryFiles
 	// RPC.
 	XylonaListDirectoryFilesProcedure = "/xylona.Xylona/ListDirectoryFiles"
@@ -259,18 +264,6 @@ const (
 	XylonaSetModEnabledProcedure = "/xylona.Xylona/SetModEnabled"
 	// XylonaPinModVersionProcedure is the fully-qualified name of the Xylona's PinModVersion RPC.
 	XylonaPinModVersionProcedure = "/xylona.Xylona/PinModVersion"
-	// XylonaGetServerSoftwareOptionsProcedure is the fully-qualified name of the Xylona's
-	// GetServerSoftwareOptions RPC.
-	XylonaGetServerSoftwareOptionsProcedure = "/xylona.Xylona/GetServerSoftwareOptions"
-	// XylonaGetServerSoftwareVersionsProcedure is the fully-qualified name of the Xylona's
-	// GetServerSoftwareVersions RPC.
-	XylonaGetServerSoftwareVersionsProcedure = "/xylona.Xylona/GetServerSoftwareVersions"
-	// XylonaSetServerSoftwareProcedure is the fully-qualified name of the Xylona's SetServerSoftware
-	// RPC.
-	XylonaSetServerSoftwareProcedure = "/xylona.Xylona/SetServerSoftware"
-	// XylonaGetServerSoftwareStatusProcedure is the fully-qualified name of the Xylona's
-	// GetServerSoftwareStatus RPC.
-	XylonaGetServerSoftwareStatusProcedure = "/xylona.Xylona/GetServerSoftwareStatus"
 	// XylonaGetModCategoriesProcedure is the fully-qualified name of the Xylona's GetModCategories RPC.
 	XylonaGetModCategoriesProcedure = "/xylona.Xylona/GetModCategories"
 	// XylonaGetVersionInfoProcedure is the fully-qualified name of the Xylona's GetVersionInfo RPC.
@@ -371,7 +364,9 @@ type XylonaClient interface {
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
-	GetBranches(context.Context, *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error)
+	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
+	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
+	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
 	// File Operations
 	ListDirectoryFiles(context.Context, *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error)
 	GameServerFilesDelete(context.Context, *connect.Request[xylona.GameServerFilesDeleteRequest]) (*connect.Response[xylona.GameServerFilesDeleteResponse], error)
@@ -431,11 +426,6 @@ type XylonaClient interface {
 	SetModAutoUpdate(context.Context, *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error)
 	SetModEnabled(context.Context, *connect.Request[xylona.SetModEnabledRequest]) (*connect.Response[xylona.SetModEnabledResponse], error)
 	PinModVersion(context.Context, *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error)
-	// Server software
-	GetServerSoftwareOptions(context.Context, *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error)
-	GetServerSoftwareVersions(context.Context, *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error)
-	SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error)
-	GetServerSoftwareStatus(context.Context, *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error)
 	GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error)
 	// Version tracking
 	GetVersionInfo(context.Context, *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error)
@@ -721,10 +711,22 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("QueryGameServer")),
 			connect.WithClientOptions(opts...),
 		),
-		getBranches: connect.NewClient[xylona.GetBranchesRequest, xylona.GetBranchesResponse](
+		getUpdateTargets: connect.NewClient[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse](
 			httpClient,
-			baseURL+XylonaGetBranchesProcedure,
-			connect.WithSchema(xylonaMethods.ByName("GetBranches")),
+			baseURL+XylonaGetUpdateTargetsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetUpdateTargets")),
+			connect.WithClientOptions(opts...),
+		),
+		setServerVariant: connect.NewClient[xylona.SetServerVariantRequest, xylona.SetServerVariantResponse](
+			httpClient,
+			baseURL+XylonaSetServerVariantProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetServerVariant")),
+			connect.WithClientOptions(opts...),
+		),
+		getVariantOperationStatus: connect.NewClient[xylona.GetVariantOperationStatusRequest, xylona.GetVariantOperationStatusResponse](
+			httpClient,
+			baseURL+XylonaGetVariantOperationStatusProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetVariantOperationStatus")),
 			connect.WithClientOptions(opts...),
 		),
 		listDirectoryFiles: connect.NewClient[xylona.ListDirectoryFilesRequest, xylona.ListDirectoryFilesResponse](
@@ -1027,30 +1029,6 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("PinModVersion")),
 			connect.WithClientOptions(opts...),
 		),
-		getServerSoftwareOptions: connect.NewClient[xylona.GetServerSoftwareOptionsRequest, xylona.GetServerSoftwareOptionsResponse](
-			httpClient,
-			baseURL+XylonaGetServerSoftwareOptionsProcedure,
-			connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareOptions")),
-			connect.WithClientOptions(opts...),
-		),
-		getServerSoftwareVersions: connect.NewClient[xylona.GetServerSoftwareVersionsRequest, xylona.GetServerSoftwareVersionsResponse](
-			httpClient,
-			baseURL+XylonaGetServerSoftwareVersionsProcedure,
-			connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareVersions")),
-			connect.WithClientOptions(opts...),
-		),
-		setServerSoftware: connect.NewClient[xylona.SetServerSoftwareRequest, xylona.SetServerSoftwareResponse](
-			httpClient,
-			baseURL+XylonaSetServerSoftwareProcedure,
-			connect.WithSchema(xylonaMethods.ByName("SetServerSoftware")),
-			connect.WithClientOptions(opts...),
-		),
-		getServerSoftwareStatus: connect.NewClient[xylona.GetServerSoftwareStatusRequest, xylona.GetServerSoftwareStatusResponse](
-			httpClient,
-			baseURL+XylonaGetServerSoftwareStatusProcedure,
-			connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareStatus")),
-			connect.WithClientOptions(opts...),
-		),
 		getModCategories: connect.NewClient[xylona.GetModCategoriesRequest, xylona.GetModCategoriesResponse](
 			httpClient,
 			baseURL+XylonaGetModCategoriesProcedure,
@@ -1217,7 +1195,9 @@ type xylonaClient struct {
 	updateGameServer                 *connect.Client[xylona.UpdateGameServerRequest, xylona.UpdateGameServerResponse]
 	listGameServers                  *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
 	queryGameServer                  *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
-	getBranches                      *connect.Client[xylona.GetBranchesRequest, xylona.GetBranchesResponse]
+	getUpdateTargets                 *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
+	setServerVariant                 *connect.Client[xylona.SetServerVariantRequest, xylona.SetServerVariantResponse]
+	getVariantOperationStatus        *connect.Client[xylona.GetVariantOperationStatusRequest, xylona.GetVariantOperationStatusResponse]
 	listDirectoryFiles               *connect.Client[xylona.ListDirectoryFilesRequest, xylona.ListDirectoryFilesResponse]
 	gameServerFilesDelete            *connect.Client[xylona.GameServerFilesDeleteRequest, xylona.GameServerFilesDeleteResponse]
 	gameServerFilesArchive           *connect.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesArchiveProgress]
@@ -1268,10 +1248,6 @@ type xylonaClient struct {
 	setModAutoUpdate                 *connect.Client[xylona.SetModAutoUpdateRequest, xylona.SetModAutoUpdateResponse]
 	setModEnabled                    *connect.Client[xylona.SetModEnabledRequest, xylona.SetModEnabledResponse]
 	pinModVersion                    *connect.Client[xylona.PinModVersionRequest, xylona.PinModVersionResponse]
-	getServerSoftwareOptions         *connect.Client[xylona.GetServerSoftwareOptionsRequest, xylona.GetServerSoftwareOptionsResponse]
-	getServerSoftwareVersions        *connect.Client[xylona.GetServerSoftwareVersionsRequest, xylona.GetServerSoftwareVersionsResponse]
-	setServerSoftware                *connect.Client[xylona.SetServerSoftwareRequest, xylona.SetServerSoftwareResponse]
-	getServerSoftwareStatus          *connect.Client[xylona.GetServerSoftwareStatusRequest, xylona.GetServerSoftwareStatusResponse]
 	getModCategories                 *connect.Client[xylona.GetModCategoriesRequest, xylona.GetModCategoriesResponse]
 	getVersionInfo                   *connect.Client[xylona.GetVersionInfoRequest, xylona.GetVersionInfoResponse]
 	checkForUpdate                   *connect.Client[xylona.CheckForUpdateRequest, xylona.CheckForUpdateResponse]
@@ -1499,9 +1475,19 @@ func (c *xylonaClient) QueryGameServer(ctx context.Context, req *connect.Request
 	return c.queryGameServer.CallUnary(ctx, req)
 }
 
-// GetBranches calls xylona.Xylona.GetBranches.
-func (c *xylonaClient) GetBranches(ctx context.Context, req *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
-	return c.getBranches.CallUnary(ctx, req)
+// GetUpdateTargets calls xylona.Xylona.GetUpdateTargets.
+func (c *xylonaClient) GetUpdateTargets(ctx context.Context, req *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error) {
+	return c.getUpdateTargets.CallUnary(ctx, req)
+}
+
+// SetServerVariant calls xylona.Xylona.SetServerVariant.
+func (c *xylonaClient) SetServerVariant(ctx context.Context, req *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error) {
+	return c.setServerVariant.CallUnary(ctx, req)
+}
+
+// GetVariantOperationStatus calls xylona.Xylona.GetVariantOperationStatus.
+func (c *xylonaClient) GetVariantOperationStatus(ctx context.Context, req *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error) {
+	return c.getVariantOperationStatus.CallUnary(ctx, req)
 }
 
 // ListDirectoryFiles calls xylona.Xylona.ListDirectoryFiles.
@@ -1754,26 +1740,6 @@ func (c *xylonaClient) PinModVersion(ctx context.Context, req *connect.Request[x
 	return c.pinModVersion.CallUnary(ctx, req)
 }
 
-// GetServerSoftwareOptions calls xylona.Xylona.GetServerSoftwareOptions.
-func (c *xylonaClient) GetServerSoftwareOptions(ctx context.Context, req *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error) {
-	return c.getServerSoftwareOptions.CallUnary(ctx, req)
-}
-
-// GetServerSoftwareVersions calls xylona.Xylona.GetServerSoftwareVersions.
-func (c *xylonaClient) GetServerSoftwareVersions(ctx context.Context, req *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error) {
-	return c.getServerSoftwareVersions.CallUnary(ctx, req)
-}
-
-// SetServerSoftware calls xylona.Xylona.SetServerSoftware.
-func (c *xylonaClient) SetServerSoftware(ctx context.Context, req *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error) {
-	return c.setServerSoftware.CallUnary(ctx, req)
-}
-
-// GetServerSoftwareStatus calls xylona.Xylona.GetServerSoftwareStatus.
-func (c *xylonaClient) GetServerSoftwareStatus(ctx context.Context, req *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error) {
-	return c.getServerSoftwareStatus.CallUnary(ctx, req)
-}
-
 // GetModCategories calls xylona.Xylona.GetModCategories.
 func (c *xylonaClient) GetModCategories(ctx context.Context, req *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error) {
 	return c.getModCategories.CallUnary(ctx, req)
@@ -1924,7 +1890,9 @@ type XylonaHandler interface {
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
-	GetBranches(context.Context, *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error)
+	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
+	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
+	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
 	// File Operations
 	ListDirectoryFiles(context.Context, *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error)
 	GameServerFilesDelete(context.Context, *connect.Request[xylona.GameServerFilesDeleteRequest]) (*connect.Response[xylona.GameServerFilesDeleteResponse], error)
@@ -1984,11 +1952,6 @@ type XylonaHandler interface {
 	SetModAutoUpdate(context.Context, *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error)
 	SetModEnabled(context.Context, *connect.Request[xylona.SetModEnabledRequest]) (*connect.Response[xylona.SetModEnabledResponse], error)
 	PinModVersion(context.Context, *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error)
-	// Server software
-	GetServerSoftwareOptions(context.Context, *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error)
-	GetServerSoftwareVersions(context.Context, *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error)
-	SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error)
-	GetServerSoftwareStatus(context.Context, *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error)
 	GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error)
 	// Version tracking
 	GetVersionInfo(context.Context, *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error)
@@ -2270,10 +2233,22 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("QueryGameServer")),
 		connect.WithHandlerOptions(opts...),
 	)
-	xylonaGetBranchesHandler := connect.NewUnaryHandler(
-		XylonaGetBranchesProcedure,
-		svc.GetBranches,
-		connect.WithSchema(xylonaMethods.ByName("GetBranches")),
+	xylonaGetUpdateTargetsHandler := connect.NewUnaryHandler(
+		XylonaGetUpdateTargetsProcedure,
+		svc.GetUpdateTargets,
+		connect.WithSchema(xylonaMethods.ByName("GetUpdateTargets")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetServerVariantHandler := connect.NewUnaryHandler(
+		XylonaSetServerVariantProcedure,
+		svc.SetServerVariant,
+		connect.WithSchema(xylonaMethods.ByName("SetServerVariant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetVariantOperationStatusHandler := connect.NewUnaryHandler(
+		XylonaGetVariantOperationStatusProcedure,
+		svc.GetVariantOperationStatus,
+		connect.WithSchema(xylonaMethods.ByName("GetVariantOperationStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListDirectoryFilesHandler := connect.NewUnaryHandler(
@@ -2576,30 +2551,6 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("PinModVersion")),
 		connect.WithHandlerOptions(opts...),
 	)
-	xylonaGetServerSoftwareOptionsHandler := connect.NewUnaryHandler(
-		XylonaGetServerSoftwareOptionsProcedure,
-		svc.GetServerSoftwareOptions,
-		connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareOptions")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaGetServerSoftwareVersionsHandler := connect.NewUnaryHandler(
-		XylonaGetServerSoftwareVersionsProcedure,
-		svc.GetServerSoftwareVersions,
-		connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareVersions")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaSetServerSoftwareHandler := connect.NewUnaryHandler(
-		XylonaSetServerSoftwareProcedure,
-		svc.SetServerSoftware,
-		connect.WithSchema(xylonaMethods.ByName("SetServerSoftware")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaGetServerSoftwareStatusHandler := connect.NewUnaryHandler(
-		XylonaGetServerSoftwareStatusProcedure,
-		svc.GetServerSoftwareStatus,
-		connect.WithSchema(xylonaMethods.ByName("GetServerSoftwareStatus")),
-		connect.WithHandlerOptions(opts...),
-	)
 	xylonaGetModCategoriesHandler := connect.NewUnaryHandler(
 		XylonaGetModCategoriesProcedure,
 		svc.GetModCategories,
@@ -2804,8 +2755,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaListGameServersHandler.ServeHTTP(w, r)
 		case XylonaQueryGameServerProcedure:
 			xylonaQueryGameServerHandler.ServeHTTP(w, r)
-		case XylonaGetBranchesProcedure:
-			xylonaGetBranchesHandler.ServeHTTP(w, r)
+		case XylonaGetUpdateTargetsProcedure:
+			xylonaGetUpdateTargetsHandler.ServeHTTP(w, r)
+		case XylonaSetServerVariantProcedure:
+			xylonaSetServerVariantHandler.ServeHTTP(w, r)
+		case XylonaGetVariantOperationStatusProcedure:
+			xylonaGetVariantOperationStatusHandler.ServeHTTP(w, r)
 		case XylonaListDirectoryFilesProcedure:
 			xylonaListDirectoryFilesHandler.ServeHTTP(w, r)
 		case XylonaGameServerFilesDeleteProcedure:
@@ -2906,14 +2861,6 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaSetModEnabledHandler.ServeHTTP(w, r)
 		case XylonaPinModVersionProcedure:
 			xylonaPinModVersionHandler.ServeHTTP(w, r)
-		case XylonaGetServerSoftwareOptionsProcedure:
-			xylonaGetServerSoftwareOptionsHandler.ServeHTTP(w, r)
-		case XylonaGetServerSoftwareVersionsProcedure:
-			xylonaGetServerSoftwareVersionsHandler.ServeHTTP(w, r)
-		case XylonaSetServerSoftwareProcedure:
-			xylonaSetServerSoftwareHandler.ServeHTTP(w, r)
-		case XylonaGetServerSoftwareStatusProcedure:
-			xylonaGetServerSoftwareStatusHandler.ServeHTTP(w, r)
 		case XylonaGetModCategoriesProcedure:
 			xylonaGetModCategoriesHandler.ServeHTTP(w, r)
 		case XylonaGetVersionInfoProcedure:
@@ -3127,8 +3074,16 @@ func (UnimplementedXylonaHandler) QueryGameServer(context.Context, *connect.Requ
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.QueryGameServer is not implemented"))
 }
 
-func (UnimplementedXylonaHandler) GetBranches(context.Context, *connect.Request[xylona.GetBranchesRequest]) (*connect.Response[xylona.GetBranchesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetBranches is not implemented"))
+func (UnimplementedXylonaHandler) GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetUpdateTargets is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetServerVariant is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetVariantOperationStatus is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListDirectoryFiles(context.Context, *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
@@ -3329,22 +3284,6 @@ func (UnimplementedXylonaHandler) SetModEnabled(context.Context, *connect.Reques
 
 func (UnimplementedXylonaHandler) PinModVersion(context.Context, *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.PinModVersion is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) GetServerSoftwareOptions(context.Context, *connect.Request[xylona.GetServerSoftwareOptionsRequest]) (*connect.Response[xylona.GetServerSoftwareOptionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetServerSoftwareOptions is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) GetServerSoftwareVersions(context.Context, *connect.Request[xylona.GetServerSoftwareVersionsRequest]) (*connect.Response[xylona.GetServerSoftwareVersionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetServerSoftwareVersions is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) SetServerSoftware(context.Context, *connect.Request[xylona.SetServerSoftwareRequest]) (*connect.Response[xylona.SetServerSoftwareResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetServerSoftware is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) GetServerSoftwareStatus(context.Context, *connect.Request[xylona.GetServerSoftwareStatusRequest]) (*connect.Response[xylona.GetServerSoftwareStatusResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetServerSoftwareStatus is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetModCategories(context.Context, *connect.Request[xylona.GetModCategoriesRequest]) (*connect.Response[xylona.GetModCategoriesResponse], error) {

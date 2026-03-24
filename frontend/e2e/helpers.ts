@@ -216,13 +216,12 @@ export async function loginAsUser(page: Page, username: string, password: string
 // Mod management API helpers
 // ---------------------------------------------------------------------------
 
-export async function apiSetServerSoftware(
+export async function apiSetServerVariant(
   cookies: ApiCookies,
   gameServerId: string,
-  softwareId: string,
-  versionId: string,
+  variantId: string,
 ): Promise<void> {
-  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/SetServerSoftware`, {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/SetServerVariant`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -231,13 +230,12 @@ export async function apiSetServerSoftware(
     },
     body: JSON.stringify({
       game_server_id: gameServerId,
-      software_id: softwareId,
-      version_id: versionId,
+      variant_id: variantId,
     }),
   })
   if (!resp.ok) {
     const body = await resp.text()
-    throw new Error(`SetServerSoftware failed: ${resp.status} ${body}`)
+    throw new Error(`SetServerVariant failed: ${resp.status} ${body}`)
   }
 }
 

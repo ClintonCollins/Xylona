@@ -474,8 +474,8 @@ async function processDirectoryEntry(
 ): Promise<FileSystemFileEntry[]> {
   return new Promise((resolveDirectory) => {
     webkitDirEntry.createReader().readEntries(async (entries: FileSystemEntry[]) => {
-      const allPromises: Promise<FileSystemFileEntry[]>[] = entries
-        .map((entry: FileSystemEntry) => {
+      const allPromises: Promise<FileSystemFileEntry[]>[] = entries.map(
+        (entry: FileSystemEntry) => {
           if (entry.isFile) {
             return processFileEntry(entry as FileSystemFileEntry)
           }
@@ -483,7 +483,8 @@ async function processDirectoryEntry(
             return processDirectoryEntry(entry as FileSystemDirectoryEntry)
           }
           return Promise.resolve([] as FileSystemFileEntry[])
-        })
+        },
+      )
 
       const results = await Promise.allSettled(allPromises)
       const allFilesCombined = results

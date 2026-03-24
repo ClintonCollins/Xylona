@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -458,6 +459,11 @@ func updatedJarName(gameServer *models.GameServer, plan *minecraftUpdatePlan) st
 func usesSteamCMDUpdate(gameServer *models.GameServer) bool {
 	if gameServer == nil || gameServer.R.Game == nil {
 		return false
+	}
+
+	resolved, errResolve := updateproviders.ResolveModelConfig(gameServer.R.Game, gameServer)
+	if errResolve == nil {
+		return resolved.Provider.Kind == updateproviders.ProviderKindSteamCMD
 	}
 
 	return gameServer.R.Game.UsesSteamcmd

@@ -77,25 +77,6 @@ function getServerID(): string {
   return route.params.id instanceof Array ? route.params.id[0] : route.params.id
 }
 
-function checkHasModSupport(serverSoftwareJson: string, activeServerSoftware: string): boolean {
-  if (!serverSoftwareJson) return false
-  try {
-    const options = JSON.parse(serverSoftwareJson) as Array<{
-      id: string
-      mod_config?: object | null
-    }>
-    if (!Array.isArray(options) || options.length === 0) return false
-    // If no active software set, check if any option has mod support
-    if (!activeServerSoftware) {
-      return options.some((o) => o.mod_config != null)
-    }
-    const active = options.find((o) => o.id === activeServerSoftware)
-    return active?.mod_config != null
-  } catch {
-    return false
-  }
-}
-
 async function configureTabs() {
   const serverID = getServerID()
   if (serverID === '') {
@@ -121,11 +102,7 @@ async function configureTabs() {
       permissions = gameServerResp.gameServer?.effectivePermissions ?? []
       const isOwner = gameServerResp.gameServer?.userId === currentUser.id
       isOwnerOrSuper = currentUser.superUser || isOwner
-
-      // Check if the game has mod support by parsing server_software JSON
-      const gameServerSoftware = gameServerResp.gameServer?.game?.serverSoftware ?? ''
-      const activeServerSoftware = gameServerResp.gameServer?.serverSoftware ?? ''
-      hasModSupport = checkHasModSupport(gameServerSoftware, activeServerSoftware)
+      hasModSupport = Boolean(gameServerResp.gameServer?.resolvedHasModSupport)
     } catch (unknownError: unknown) {
       const err = ConnectError.from(unknownError)
       console.error(err)

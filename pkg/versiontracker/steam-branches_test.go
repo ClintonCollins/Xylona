@@ -90,11 +90,6 @@ func TestSteamTracker_CheckForUpdate_FallsBackToRawBuildIDsWhenBranchMetadataUna
 		preferredAppID: "294420",
 		steamAPIURL:    apiServer.URL,
 		httpClient:     apiServer.Client(),
-		steamCache: steamcache.NewWithOptions(steamcache.ClientOptions{
-			HTTPClient:       apiServer.Client(),
-			DetailsURLFormat: "http://127.0.0.1:1/%s",
-			ReleaseFreshTTL:  time.Minute,
-		}),
 	}
 	gameServer := &models.GameServer{Directory: dir, Branch: "latest_experimental"}
 

@@ -66,6 +66,7 @@ const emit = defineEmits<{
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
   border-radius: 1rem;
+  background-clip: padding-box;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -74,6 +75,8 @@ const emit = defineEmits<{
 .operation-dialog-header {
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--xy-border);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
   background:
     linear-gradient(135deg, rgba(28, 183, 207, 0.08), transparent 60%), var(--xy-surface-0);
 }
@@ -99,6 +102,8 @@ const emit = defineEmits<{
 
 .operation-dialog-footer {
   border-top: 1px solid var(--xy-border);
-  background: var(--xy-surface-0);
+  background: transparent;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
 }
 </style>

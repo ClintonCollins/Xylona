@@ -38,8 +38,8 @@ func TestGameServerSteamBranchRoundTrip(t *testing.T) {
 	})
 
 	got := GameServerModelToProto(model, vsm)
-	if got.Branch != "latest_experimental" {
-		t.Fatalf("GameServerModelToProto().Branch = %q, want %q", got.Branch, "latest_experimental")
+	if got.SelectedTarget != "latest_experimental" {
+		t.Fatalf("GameServerModelToProto().SelectedTarget = %q, want %q", got.SelectedTarget, "latest_experimental")
 	}
 	if got.VersionInfo == nil {
 		t.Fatal("VersionInfo = nil, want populated steam version info")
@@ -77,6 +77,6 @@ func testSteamProtoGameServer(now time.Time) *xylona.GameServer {
 		Ip:        &xylona.IP{Address: "127.0.0.1"},
 		CreatedAt: timestamppb.New(now),
 		UpdatedAt: timestamppb.New(now),
-		Branch:    "latest_experimental",
+		SelectedTarget: "latest_experimental",
 	}
 }

@@ -68,9 +68,9 @@
           </div>
         </div>
 
-        <!-- Server Software -->
+        <!-- Variant -->
         <div class="sidebar-section">
-          <div class="sidebar-section-label">Server Software</div>
+          <div class="sidebar-section-label">Variant</div>
           <div class="software-card">
             <template v-if="hasSoftwareOptions">
               <div class="software-card-body">
@@ -86,14 +86,17 @@
                       {{ displayVersion }}
                     </span>
                   </div>
-                  <div v-if="!softwareNameRedundant" class="software-game">
-                    {{ gameServer.gameName }}
-                  </div>
+                <div v-if="!softwareNameRedundant" class="software-game">
+                  {{ gameServer.gameName }}
+                </div>
+                <div v-if="variantTrackingLabel" class="software-track-state">
+                  {{ variantTrackingLabel }}
                 </div>
               </div>
-              <div v-if="versionDisplay.updateAvailable" class="update-hint">
-                <span class="update-dot"></span>
-                {{ displayVersion }} &rarr; {{ versionDisplay.latestVersion }}
+            </div>
+            <div v-if="versionDisplay.updateAvailable" class="update-hint">
+              <span class="update-dot"></span>
+              {{ displayVersion }} &rarr; {{ versionDisplay.latestVersion }}
               </div>
               <div v-if="showChangeButton" class="software-card-footer">
                 <button class="change-btn" @click="softwareSelector?.openChangeDialog()">
@@ -349,10 +352,13 @@
     v-if="gameServer.gameId !== ''"
     ref="softwareSelector"
     :game-server-id="gameServerId"
-    :game-id="gameServer.gameId"
     :game-name="gameServer.gameName"
-    :current-software="gameServer.serverSoftware"
+    :current-software="gameServer.selectedVariantId"
     :current-version="displayVersion"
+    :current-target="gameServer.selectedTarget"
+    :current-target-pinned="gameServer.selectedTargetPinned"
+    :current-installed-version="gameServer.versionInfo?.installedVersion || gameServer.version"
+    :variants="gameServer.game?.variants ?? []"
     @software-changed="getGameServerDetails"
     @software-operation-state="onSoftwareOperationState" />
 
@@ -367,8 +373,8 @@
 
   <operation-progress-dialog
     v-model="softwareOperationOpen"
-    title="Changing Server Software"
-    subtitle="Xylona will apply the selected server software and refresh the detected version when it finishes."
+    title="Changing Variant"
+    subtitle="Xylona will apply the selected variant and refresh the detected version when it finishes."
     :steps="softwareOperationSteps"
     :context-facts="softwareOperationContextFacts"
     :output-lines="softwareOperationOutputLines"
@@ -406,9 +412,9 @@ import {
   StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
 import {
-  GetBranchesRequestSchema,
   GetGameServerRequest,
   GetGameServerRequestSchema,
+  GetUpdateTargetsRequestSchema,
   QueryGameServerRequest,
   QueryGameServerRequestSchema,
   QueryGameServerResponse,
@@ -442,11 +448,8 @@ import {
 } from '@/utils/shared'
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { resolveCanonicalVersionDisplay } from './version-display'
-import {
-  canSelectSteamBranch,
-  chooseSteamBranchForUpdate,
-} from './steam-branch-update'
+import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './version-display'
+import { canSelectSteamBranch, chooseSteamBranchForUpdate } from './steam-branch-update'
 
 const $q = useQuasar()
 const gameServerOutput = ref('')
@@ -609,14 +612,12 @@ const softwareDisplayName = computed(() => {
 })
 
 const hasSoftwareOptions = computed(() => {
-  return (softwareSelector.value?.softwareOptions?.length ?? 0) > 0
+  return (gameServer.value.game?.variants?.length ?? 0) > 0
 })
 
 const showChangeButton = computed(() => {
   if (!hasPermission('game_server.settings')) return false
-  const optionCount = softwareSelector.value?.softwareOptions?.length ?? 0
-  const versionCount = softwareSelector.value?.versions?.length ?? 0
-  return optionCount > 1 || versionCount > 0
+  return (gameServer.value.game?.variants?.length ?? 0) > 1
 })
 
 const softwareNameRedundant = computed(() => {
@@ -631,6 +632,14 @@ const versionDisplay = computed(() => {
 
 const displayVersion = computed(() => {
   return versionDisplay.value.installedVersion
+})
+
+const variantTrackingLabel = computed(() => {
+  return resolveVariantTrackingLabel(
+    gameServer.value.resolvedUpdateProvider?.kind,
+    gameServer.value.selectedTarget,
+    gameServer.value.selectedTargetPinned,
+  )
 })
 
 function hasPermission(perm: string): boolean {
@@ -850,12 +859,12 @@ function baseSoftwareOperationSteps(targetLabel: string): StepState[] {
     },
     {
       step: 'software-download',
-      label: `Downloading ${targetLabel}`,
+      label: `Applying ${targetLabel}`,
       status: StepStatus.IN_PROGRESS,
     },
     {
       step: 'software-apply',
-      label: 'Applying server software',
+      label: 'Refreshing variant state',
       status: StepStatus.PENDING,
     },
   ]
@@ -894,7 +903,7 @@ function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
 
   if (event.status === 'complete') {
     setSoftwareOperationStep('software-download', StepStatus.COMPLETED)
-    setSoftwareOperationStep('software-apply', StepStatus.COMPLETED, 'Server software changed')
+    setSoftwareOperationStep('software-apply', StepStatus.COMPLETED, 'Variant changed')
     softwareOperationComplete.value = true
     softwareOperationOpen.value = true
     return
@@ -904,7 +913,7 @@ function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
   setSoftwareOperationStep(
     'software-apply',
     StepStatus.FAILED,
-    event.error || 'Server software installation failed',
+    event.error || 'Variant change failed',
   )
   softwareOperationComplete.value = true
   softwareOperationOpen.value = true
@@ -997,14 +1006,14 @@ async function updateGameServer() {
     gameServerId: gameServerId.value,
     gameServer: gameServer.value,
     getBranches: async (serverId: string) => {
-      const request = create(GetBranchesRequestSchema, { serverId })
-      return GetXylonaClient().getBranches(request)
+      const request = create(GetUpdateTargetsRequestSchema, { gameServerId: serverId })
+      return GetXylonaClient().getUpdateTargets(request)
     },
     openDialog: ({ currentBranch, items, onOk, onDismiss }) => {
       let settled = false
       $q.dialog({
-        title: 'Choose Steam release branch',
-        message: 'Select which Steam branch this server should update to.',
+        title: 'Choose Update Target',
+        message: 'Select which release target this server should update to.',
         cancel: true,
         persistent: true,
         ok: {
@@ -1036,7 +1045,7 @@ async function updateGameServer() {
     $q.notify({
       type: 'xylona-warning',
       position: 'top',
-      caption: 'Steam release metadata is unavailable. Updating with the current preferred branch.',
+      caption: 'Update target metadata is unavailable. Updating with the current target.',
       icon: 'report_problem',
     })
   }
@@ -1048,7 +1057,7 @@ async function updateGameServer() {
   updateDialogOpen.value = true
   try {
     request.serverId = gameServerId.value
-    request.steamBranch = steamBranchSelection.steamBranch
+    request.target = steamBranchSelection.steamBranch
     await GetXylonaClient().updateGameServer(request)
   } catch (e) {
     updateInProgress.value = false
@@ -1395,6 +1404,13 @@ async function sendGameServerInput() {
   font-size: 0.7rem;
   color: var(--xy-text-muted);
   margin-top: 1px;
+}
+
+.software-track-state {
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: var(--xy-info);
+  letter-spacing: 0.01em;
 }
 
 .software-none {

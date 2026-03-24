@@ -31,6 +31,7 @@ type VersionState struct {
 	InstalledCheckTime    time.Time
 	LatestCheckTime       time.Time
 	TrackerType           string
+	ContextKey            string
 	InstalledVersionLabel string
 	LatestVersionLabel    string
 	InstalledBranch       string

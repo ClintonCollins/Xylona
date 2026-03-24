@@ -240,6 +240,15 @@ var GameServers = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		TargetPinned: column{
+			Name:      "target_pinned",
+			DBType:    "BOOLEAN",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameServerIndexes{
 		GameServerUserIDNameUniqueIndex: index{
@@ -349,11 +358,12 @@ type gameServerColumns struct {
 	NodeID                    column
 	ServerSoftware            column
 	ServerExecutable          column
+	TargetPinned              column
 }
 
 func (c gameServerColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.UserID, c.Name, c.GameID, c.StartCommand, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable,
+		c.ID, c.UserID, c.Name, c.GameID, c.StartCommand, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned,
 	}
 }
 
