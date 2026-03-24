@@ -6,6 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -27,17 +28,10 @@ func (xs *XylonaService) GetVersionInfo(ctx context.Context, req *connect.Reques
 				return nil, errPermission
 			}
 
-			// Trigger an immediate check if the state has not been set yet (default NO_TRACKER
-			// from an uninitialized map entry) or if it is explicitly unchecked.
-			allStates := xs.versionState.GetAll()
-			state, explicitlySet := allStates[gameServerID]
-			if !explicitlySet || state.Status == versiontracker.VersionStatusUnchecked {
-				xs.triggerVersionCheck(ctx, gameServerID)
-				state = xs.versionState.Get(gameServerID)
-			}
+			_, versionInfo := xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{})
 
 			return connect.NewResponse(&xylona.GetVersionInfoResponse{
-				VersionInfo: versionStateToProto(state),
+				VersionInfo: versionInfo,
 			}), nil
 		},
 		func() (*connect.Response[xylona.GetVersionInfoResponse], error) {
@@ -62,11 +56,12 @@ func (xs *XylonaService) CheckForUpdate(ctx context.Context, req *connect.Reques
 				return nil, errPermission
 			}
 
-			xs.triggerVersionCheck(ctx, gameServerID)
-			state := xs.versionState.Get(gameServerID)
+			_, versionInfo := xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{
+				ForceRefresh: true,
+			})
 
 			return connect.NewResponse(&xylona.CheckForUpdateResponse{
-				VersionInfo: versionStateToProto(state),
+				VersionInfo: versionInfo,
 			}), nil
 		},
 		func() (*connect.Response[xylona.CheckForUpdateResponse], error) {

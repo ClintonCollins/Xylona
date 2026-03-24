@@ -520,6 +520,7 @@ message RemoteServerSummary {
   google.protobuf.Timestamp last_remote_update = 18;
   google.protobuf.Timestamp last_synced_at = 19;
   bool is_stale = 20;
+  VersionInfo version_info = 21;
 }
 
 // AggregatedGameServer represents either a local or remote server in the unified view.

@@ -1,10 +1,12 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
     "lib": ["esnext", "dom", "DOM.Iterable"],
     "allowSyntheticDefaultImports": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "exclude": [

@@ -50,16 +50,15 @@ import (
 )
 
 type Configuration struct {
-	CookieHashKey      string `env:"COOKIE_HASH_KEY_BASE64"`
-	CookieBlockKey     string `env:"COOKIE_BLOCK_KEY_BASE64"`
-	JWTSecretKey       string `env:"JWT_SECRET_KEY_BASE64"`
-	DBFilePath         string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
-	LogLevel           string `env:"LOG_LEVEL" envDefault:"info"`
-	SecureCookies      bool   `env:"SECURE_COOKIES" envDefault:"false"`
-	HTTPPort           int    `env:"HTTP_PORT" envDefault:"8080"`
-	FederationPort     int    `env:"FEDERATION_PORT" envDefault:"8443"`
-	FederationCertPath string `env:"FEDERATION_CERT_PATH" envDefault:"./federation/node.crt"`
-	FederationKeyPath  string `env:"FEDERATION_KEY_PATH" envDefault:"./federation/node.key"`
+	CookieHashKey  string `env:"COOKIE_HASH_KEY_BASE64"`
+	CookieBlockKey string `env:"COOKIE_BLOCK_KEY_BASE64"`
+	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
+	DBFilePath     string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
+	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
+	SecureCookies  bool   `env:"SECURE_COOKIES" envDefault:"false"`
+	Host           string `env:"HOST" envDefault:""`
+	HTTPPort       int    `env:"HTTP_PORT" envDefault:"8080"`
+	FederationPort int    `env:"FEDERATION_PORT" envDefault:"8443"`
 	// DummyGameID enables the DummyTracker for E2E testing. When set, the game
 	// with this ID is treated as a trackable server returning a simulated 1.0.0→2.0.0
 	// update. Leave empty in production.
@@ -353,6 +352,7 @@ func main() {
 	steamCache := steamcache.New()
 
 	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie, federationMTLS)
+	actionsInst.SetVersionBroadcaster(wsInst)
 
 	router := chi.NewRouter()
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)
@@ -364,6 +364,7 @@ func main() {
 	}
 	syncEngine.SetStatusBroadcaster(wsInst)
 	syncEngine.SetMetricsBroadcaster(wsInst)
+	syncEngine.SetVersionBroadcaster(wsInst)
 	syncEngine.SetActionsInstance(actionsInst)
 	actionsInst.SetSyncEngine(syncEngine)
 
@@ -384,7 +385,7 @@ func main() {
 	router.Mount("/api/websocket", websocketHandler)
 
 	httpServer := &http.Server{
-		Addr:         fmt.Sprintf(":%d", config.HTTPPort),
+		Addr:         fmt.Sprintf("%s:%d", config.Host, config.HTTPPort),
 		Handler:      router,
 		ReadTimeout:  time.Hour * 6,
 		WriteTimeout: time.Hour * 6,
@@ -408,7 +409,7 @@ func main() {
 	})
 
 	federationServer := &http.Server{
-		Addr:         fmt.Sprintf(":%d", config.FederationPort),
+		Addr:         fmt.Sprintf("%s:%d", config.Host, config.FederationPort),
 		Handler:      federationRouter,
 		ReadTimeout:  time.Hour * 6,
 		WriteTimeout: time.Hour * 6,

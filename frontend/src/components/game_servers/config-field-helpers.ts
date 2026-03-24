@@ -1,4 +1,4 @@
-import { groupToTitle } from 'src/utils/config-import'
+import { groupToTitle } from '@/utils/config-import'
 
 /** Shared palette for category color assignment. */
 export const CATEGORY_COLORS = [

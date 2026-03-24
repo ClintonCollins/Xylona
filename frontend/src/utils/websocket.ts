@@ -74,7 +74,7 @@ export class ReconnectingWebSocket {
    * Send a message through the WebSocket.
    * If the WebSocket isn't open, this will throw (like native WebSocket).
    */
-  public send(data: string | ArrayBuffer | Blob | ArrayBufferView): void {
+  public send(data: string | BufferSource | Blob): void {
     if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket is not open')
     }
@@ -130,21 +130,22 @@ export class ReconnectingWebSocket {
    * Internal only.
    */
   private _connect(): void {
-    this._ws = this._protocols
+    const socket = this._protocols
       ? new WebSocket(this._url, this._protocols)
       : new WebSocket(this._url)
+    this._ws = socket
 
     // Handlers
-    this._ws.onopen = (event: Event) => {
+    socket.onopen = (event: Event) => {
       this._resolveOpenWaiters()
       if (this.onopen) {
-        this.onopen.call(this._ws, event)
+        this.onopen.call(socket, event)
       }
       // Start heartbeat once the connection is open
       this._startHeartbeat()
     }
 
-    this._ws.onmessage = (event: MessageEvent) => {
+    socket.onmessage = (event: MessageEvent) => {
       // Check for "pong"
       if (typeof event.data === 'string' && event.data === 'pong') {
         // Received expected pong
@@ -153,23 +154,23 @@ export class ReconnectingWebSocket {
       }
 
       if (this.onmessage) {
-        this.onmessage.call(this._ws, event)
+        this.onmessage.call(socket, event)
       }
     }
 
-    this._ws.onerror = (event: Event) => {
+    socket.onerror = (event: Event) => {
       if (this.onerror) {
-        this.onerror.call(this._ws, event)
+        this.onerror.call(socket, event)
       }
       // We rely on onclose to handle reconnection
     }
 
-    this._ws.onclose = (event: CloseEvent) => {
+    socket.onclose = (event: CloseEvent) => {
       // Stop heartbeat
       this._stopHeartbeat()
 
       if (this.onclose) {
-        this.onclose.call(this._ws, event)
+        this.onclose.call(socket, event)
       }
 
       // Attempt to reconnect only if it wasn't a manual close

@@ -257,7 +257,7 @@ import RenameFile from '@/components/game_servers/RenameFile.vue'
 import dayjs from 'dayjs'
 import { QMenu, useQuasar } from 'quasar'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { GameServer, GameServerSchema } from 'src/proto/shared_pb'
+import { GameServer, GameServerSchema } from '@/proto/shared_pb'
 import {
   DownloadFileRequest,
   DownloadFileRequestSchema,
@@ -266,14 +266,14 @@ import {
   ListDirectoryFilesRequest,
   ListDirectoryFilesRequestSchema,
   ListDirectoryFilesResponse,
-} from 'src/proto/gameserver_files_operations_pb'
+} from '@/proto/gameserver_files_operations_pb'
 import {
   bytesToSize,
   getColorFromFilenameExtension,
   getIconFromFilenameExtension,
   GetRelativeFilePath,
   GetXylonaClient,
-} from 'src/utils/shared'
+} from '@/utils/shared'
 import { computed, onMounted, ref, Ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Timestamp, timestampDate, TimestampSchema } from '@bufbuild/protobuf/wkt'

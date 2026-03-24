@@ -248,7 +248,7 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import type { Node } from 'src/proto/shared_pb'
+import type { Node } from '@/proto/shared_pb'
 import {
   type FederatedAccessGrantInfo,
   type GameServerAccessGrant,
@@ -265,12 +265,12 @@ import {
   RevokeFederatedAccessRequestSchema,
   RevokeGameServerAccessRequestSchema,
   type Role,
-} from 'src/proto/xylona_pb'
+} from '@/proto/xylona_pb'
 import {
   formatProtoTimestamp,
   hostFromBaseURL,
-} from 'src/components/game_servers/game-server-access-utils'
-import { GetXylonaClient } from 'src/utils/shared'
+} from '@/components/game_servers/game-server-access-utils'
+import { GetXylonaClient } from '@/utils/shared'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 

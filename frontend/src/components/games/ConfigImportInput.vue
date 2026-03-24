@@ -83,8 +83,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { detectAndParse, parseWithFormat } from 'src/utils/config-import'
-import type { ImportDetectionResult } from 'src/utils/config-import'
+import { detectAndParse, parseWithFormat } from '@/utils/config-import'
+import type { ImportDetectionResult } from '@/utils/config-import'
 
 const MAX_CONTENT_LENGTH = 1_048_576 // 1 MB
 const MAX_FILE_SIZE = 1_048_576 // 1 MB

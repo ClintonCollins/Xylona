@@ -1,12 +1,15 @@
 import { create } from '@bufbuild/protobuf'
 import { mount, VueWrapper } from '@vue/test-utils'
+import type { MountingOptions } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InstalledModSchema, ModSearchResultSchema } from '@/proto/shared_pb'
 import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
 import ModBrowse from './ModBrowse.vue'
 
 function makeSearchResult(overrides: Partial<ModSearchResult> = {}): ModSearchResult {
-  return create(ModSearchResultSchema, {
+  const result = create(ModSearchResultSchema)
+
+  Object.assign(result, {
     source: 'modrinth',
     sourceId: 'abc123',
     name: 'Fabric API',
@@ -15,13 +18,20 @@ function makeSearchResult(overrides: Partial<ModSearchResult> = {}): ModSearchRe
     iconUrl: '',
     downloads: 5000000n,
     latestVersion: '0.90.0',
+    compatibleVersions: [],
     isInstalled: false,
+    categories: [],
+    dateModified: '',
     ...overrides,
   })
+
+  return result
 }
 
 function makeInstalledMod(overrides: Partial<InstalledMod> = {}): InstalledMod {
-  return create(InstalledModSchema, {
+  const result = create(InstalledModSchema)
+
+  Object.assign(result, {
     id: 'mod-1',
     gameServerId: 'gs-1',
     source: 'modrinth',
@@ -30,12 +40,17 @@ function makeInstalledMod(overrides: Partial<InstalledMod> = {}): InstalledMod {
     modAuthor: 'FabricMC',
     installedVersion: '0.90.0',
     installedVersionId: 'v-1',
+    fileHash: '',
     autoUpdate: true,
     enabled: true,
+    pinnedVersion: '',
     updateAvailable: false,
     latestVersion: '0.90.0',
+    files: [],
     ...overrides,
   })
+
+  return result
 }
 
 // Mock the RPC client
@@ -56,6 +71,11 @@ vi.mock('vue-router', () => ({
   useRoute: () => ({ query: {} }),
   useRouter: () => ({ replace: mockReplace }),
 }))
+
+type TestStubs = Exclude<
+  NonNullable<NonNullable<MountingOptions<Record<string, never>>['global']>['stubs']>,
+  string[]
+>
 
 const QUASAR_STUBS = {
   'q-input': {
@@ -88,7 +108,7 @@ const QUASAR_STUBS = {
     emits: ['update:modelValue'],
     template: '<div class="q-pagination-stub" />',
   },
-} as Record<string, unknown>
+} satisfies TestStubs
 
 const DEFAULT_SOURCES = [
   { id: 'modrinth', searchParams: {} },

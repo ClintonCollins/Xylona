@@ -1,6 +1,7 @@
 import { RouteLocationNormalized, RouteRecordRaw } from 'vue-router'
-import { useUserAuthStore } from 'src/stores/xylona'
-import { CheckUserAuthenticatedResponse } from 'src/proto/xylona_pb'
+import { useUserAuthStore } from '@/stores/xylona'
+import { CheckUserAuthenticatedResponse } from '@/proto/xylona_pb'
+import { legacyGameServerEditRedirect } from './game-server-route-helpers'
 
 const requireSuperUser = async () => {
   const store = useUserAuthStore()
@@ -79,7 +80,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: '/game-servers/:id/edit',
-        component: () => import('pages/game_servers/GameServerEdit.vue'),
+        redirect: (to) => legacyGameServerEditRedirect(String(to.params.id)),
       },
       {
         path: '/game-servers/:id',

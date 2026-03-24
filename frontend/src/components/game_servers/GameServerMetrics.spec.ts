@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { create } from '@bufbuild/protobuf'
 import { Quasar } from 'quasar'
-import { GameServerSchema, Status } from 'src/proto/shared_pb'
+import { GameServerSchema, Status } from '@/proto/shared_pb'
 import {
   AllServersMetrics,
   AllServersMetricsSchema,
   GameServerMetricsSchema,
-} from 'src/proto/websocket_pb'
+} from '@/proto/websocket_pb'
 import { XylonaEventBus } from '@/utils/shared'
 import GameServerMetrics from './GameServerMetrics.vue'
 

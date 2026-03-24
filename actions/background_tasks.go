@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -208,62 +207,12 @@ func (inst *Instance) checkServerVersion(gs *models.GameServer, eb *eventbus.Eve
 	tracker := versiontracker.ResolveTracker(inst.resolverConfig, gs.GameID, gameUpdateCommand(gs.R.Game), gs.R.Game.ServerSoftware.GetOr(""))
 	if tracker == nil {
 		inst.versionState.InitNoTracker(gs.ID)
+		inst.publishVersionState(gs, inst.versionState.Get(gs.ID))
 		return
 	}
 	trackerType := versiontracker.TrackerTypeName(tracker)
-
-	inst.versionState.Set(gs.ID, versiontracker.VersionState{
-		Status:      versiontracker.VersionStatusChecking,
-		TrackerType: trackerType,
-	})
-
-	installed, errInstalled := tracker.GetInstalledVersion(inst.ctx, gs)
-	if errInstalled != nil {
-		log.Warn().Err(errInstalled).Str("game_server_id", gs.ID).
-			Msg("Version check: failed to get installed version")
-		inst.versionState.Set(gs.ID, versiontracker.VersionState{
-			Status:      versiontracker.VersionStatusError,
-			TrackerType: trackerType,
-		})
-		return
-	}
-
-	latest, errLatest := tracker.GetLatestVersion(inst.ctx, gs)
-	if errLatest != nil {
-		log.Warn().Err(errLatest).Str("game_server_id", gs.ID).
-			Msg("Version check: failed to get latest version")
-		inst.versionState.Set(gs.ID, versiontracker.VersionState{
-			Status:      versiontracker.VersionStatusError,
-			TrackerType: trackerType,
-		})
-		return
-	}
-
-	installed = strings.TrimSpace(installed)
-	latest = strings.TrimSpace(latest)
-	updateAvailable := installed != "" && latest != "" && installed != latest
-
-	newState := versiontracker.VersionState{
-		Status:           versiontracker.VersionStatusChecked,
-		TrackerType:      trackerType,
-		LastCheckTime:    time.Now(),
-		InstalledVersion: installed,
-		LatestVersion:    latest,
-		UpdateAvailable:  updateAvailable,
-	}
-
-	if updateAvailable {
-		prevState := inst.versionState.Get(gs.ID)
-		if !prevState.UpdateAvailable {
-			eb.Publish("server.update_available", gs.ID)
-			log.Info().Str("game_server_id", gs.ID).
-				Str("installed", installed).
-				Str("latest", latest).
-				Msg("Version check: update available")
-		}
-	}
-
-	inst.versionState.Set(gs.ID, newState)
+	_ = eb
+	inst.refreshVersionState(inst.ctx, gs, tracker, trackerType, true, true)
 }
 
 // backgroundJobCheckModUpdates runs every 6 hours, checks all game servers for

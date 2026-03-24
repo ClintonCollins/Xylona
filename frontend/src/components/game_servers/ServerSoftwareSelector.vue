@@ -159,11 +159,6 @@ const currentSoftwareDisplayName = computed(() => {
   return props.gameName || 'Unknown'
 })
 
-const currentSoftwareHasJarSource = computed(() => {
-  const found = softwareOptions.value.find((opt) => opt.id === props.currentSoftware)
-  return (found?.jarSource ?? '') !== ''
-})
-
 const selectedSoftwareHasJarSource = computed(() => {
   const found = softwareOptions.value.find((opt) => opt.id === selectedSoftwareId.value)
   return (found?.jarSource ?? '') !== ''
@@ -175,34 +170,12 @@ const canApply = computed(() => {
   return true
 })
 
-const latestVersion = computed(() => {
-  if (versions.value.length === 0) return ''
-  return versions.value[0].versionString || versions.value[0].versionId
-})
-
 const selectedVersionLabel = computed(() => {
   if (selectedVersionId.value === '') {
     return ''
   }
   const found = versions.value.find((version) => version.versionId === selectedVersionId.value)
   return found?.versionString || found?.versionId || selectedVersionId.value
-})
-
-const hasUpdate = computed(() => {
-  // Guard: don't show update available if version is unknown, empty,
-  // or if the current software has no jar source (nothing to update).
-  if (!props.currentVersion || !props.currentSoftware) return false
-  if (!currentSoftwareHasJarSource.value) return false
-  if (versions.value.length === 0) return false
-
-  // Only compare when the current version appears somewhere in the
-  // version list (same format). If it doesn't match any entry, the
-  // version is likely stale or from a different context — don't flag.
-  const versionStrings = versions.value.map((v) => v.versionString || v.versionId)
-  const currentInList = versionStrings.includes(props.currentVersion)
-  if (!currentInList) return false
-
-  return versionStrings[0] !== props.currentVersion
 })
 
 onMounted(async () => {
@@ -401,9 +374,6 @@ defineExpose({
   softwareOptions,
   versions,
   currentSoftwareDisplayName,
-  currentSoftwareHasJarSource,
-  hasUpdate,
-  latestVersion,
   openChangeDialog,
 })
 </script>

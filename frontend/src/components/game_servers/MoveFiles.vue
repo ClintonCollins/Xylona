@@ -49,7 +49,7 @@ import {
   GameServerFilesMoveRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
 import { File as xylonaFile } from '@/proto/gameserver_files_operations_pb'
-import { GetPathSeparator, GetRelativeFilePath, GetXylonaClient } from 'src/utils/shared'
+import { GetPathSeparator, GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
 import { computed, ref, Ref } from 'vue'
 
 const props = defineProps({

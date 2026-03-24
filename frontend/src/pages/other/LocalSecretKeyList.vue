@@ -78,7 +78,7 @@ import { useQuasar } from 'quasar'
 import { onMounted, Ref, ref } from 'vue'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { SecretKey } from '@/proto/shared_pb'
-import { ListLocalSecretKeysRequest, ListLocalSecretKeysRequestSchema } from 'src/proto/xylona_pb'
+import { ListLocalSecretKeysRequest, ListLocalSecretKeysRequestSchema } from '@/proto/xylona_pb'
 import SecretKeyDeleteDialog from '@/components/keys/SecretKeyDeleteDialog.vue'
 import SecretKeyFormDialog from '../../components/keys/SecretKeyFormDialog.vue'
 

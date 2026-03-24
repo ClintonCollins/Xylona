@@ -4,8 +4,8 @@ import { createConnectTransport } from '@connectrpc/connect-web'
 import { expect, Page } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
-import { CreateGameServerRequestSchema, GameServerSchema, IPSchema } from '../src/proto/shared_pb'
-import { Xylona } from '../src/proto/xylona_pb'
+import { CreateGameServerRequestSchema, GameServerSchema, IPSchema } from '@/proto/shared_pb'
+import { Xylona } from '@/proto/xylona_pb'
 
 export const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:9091'
 

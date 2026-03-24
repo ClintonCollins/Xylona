@@ -38,7 +38,7 @@ import {
   GameServer,
   RemoveGameServerRequest,
   RemoveGameServerRequestSchema,
-} from 'src/proto/shared_pb'
+} from '@/proto/shared_pb'
 
 const props = defineProps({
   gameServers: {

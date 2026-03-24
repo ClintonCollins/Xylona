@@ -11,6 +11,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -39,6 +40,23 @@ func (xs *XylonaService) getGameServerFromID(gameServerID string) (*models.GameS
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	return gameServer, nil
+}
+
+func (xs *XylonaService) getLocalGameServerStatus(gameServer *models.GameServer) xylona.Status {
+	if xs.supervisorInst != nil {
+		gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
+		if errGetCommand != nil {
+			return xylona.Status_OFFLINE
+		}
+		return gameServerCmd.Status()
+	}
+
+	status, ok := xylona.Status_value[gameServer.Status]
+	if !ok {
+		return xylona.Status_UNKNOWN
+	}
+
+	return xylona.Status(status)
 }
 
 // getRemoteNodeForServer looks up the remote node that owns the given server ID.

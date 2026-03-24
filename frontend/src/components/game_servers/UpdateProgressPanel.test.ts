@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import type { MountingOptions } from '@vue/test-utils'
 import { UpdateStep, StepStatus } from '@/proto/xylona_pb'
 import type { OperationContextFact, StepState } from './UpdateProgressPanel.types'
 import UpdateProgressPanel from './UpdateProgressPanel.vue'
 
+type TestStubs = Exclude<
+  NonNullable<NonNullable<MountingOptions<Record<string, never>>['global']>['stubs']>,
+  string[]
+>
+
 const QUASAR_STUBS = {
   'q-icon': { props: ['name', 'size', 'color'], template: '<i />' },
   'q-spinner': { props: ['color', 'size'], template: '<span class="q-spinner-stub" />' },
-} as Record<string, unknown>
+} satisfies TestStubs
 
 function mountPanel(
   steps: StepState[],

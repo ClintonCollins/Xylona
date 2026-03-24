@@ -33,7 +33,7 @@ import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
-import { useServerSoftwareInstall } from 'src/composables/useServerSoftwareInstall'
+import { useServerSoftwareInstall } from '@/composables/useServerSoftwareInstall'
 import { onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

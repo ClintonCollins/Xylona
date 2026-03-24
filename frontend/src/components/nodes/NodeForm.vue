@@ -211,7 +211,7 @@ import {
   ListNodesRequestSchema,
   PairNodeRequest,
   PairNodeRequestSchema,
-} from 'src/proto/xylona_pb'
+} from '@/proto/xylona_pb'
 const router = useRouter()
 const $q = useQuasar()
 

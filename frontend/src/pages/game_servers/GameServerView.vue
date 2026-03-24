@@ -9,11 +9,13 @@
           <span class="identity-bar-running">running</span>
           <span>{{ softwareDisplayName }}</span>
         </template>
-        <template v-if="gameServer.version && hasSoftwareOptions">
-          <span class="identity-bar-version" :class="{ 'version-outdated': softwareHasUpdate }">
-            {{ gameServer.version }}
-            <q-tooltip v-if="softwareHasUpdate">
-              Update available: {{ softwareLatestVersion }}
+        <template v-if="displayVersion && hasSoftwareOptions">
+          <span
+            class="identity-bar-version"
+            :class="{ 'version-outdated': versionDisplay.updateAvailable }">
+            {{ displayVersion }}
+            <q-tooltip v-if="versionDisplay.updateAvailable">
+              Update available: {{ versionDisplay.latestVersion }}
             </q-tooltip>
           </span>
         </template>
@@ -80,8 +82,8 @@
                     <span class="software-name">
                       {{ softwareNameRedundant ? gameServer.gameName : softwareDisplayName }}
                     </span>
-                    <span v-if="gameServer.version" class="software-version">
-                      {{ gameServer.version }}
+                    <span v-if="displayVersion" class="software-version">
+                      {{ displayVersion }}
                     </span>
                   </div>
                   <div v-if="!softwareNameRedundant" class="software-game">
@@ -89,20 +91,9 @@
                   </div>
                 </div>
               </div>
-              <div v-if="softwareHasUpdate" class="update-hint">
+              <div v-if="versionDisplay.updateAvailable" class="update-hint">
                 <span class="update-dot"></span>
-                Update available: {{ softwareLatestVersion }}
-              </div>
-              <div
-                v-if="
-                  !softwareHasUpdate &&
-                  gameServer.versionInfo?.status === VersionStatus.CHECKED &&
-                  gameServer.versionInfo?.updateAvailable
-                "
-                class="update-hint">
-                <span class="update-dot"></span>
-                {{ gameServer.versionInfo.installedVersion }} &rarr;
-                {{ gameServer.versionInfo.latestVersion }}
+                {{ displayVersion }} &rarr; {{ versionDisplay.latestVersion }}
               </div>
               <div v-if="showChangeButton" class="software-card-footer">
                 <button class="change-btn" @click="softwareSelector?.openChangeDialog()">
@@ -242,16 +233,19 @@
 
     <!-- Console wrapper -->
     <div class="console-wrapper" :class="{ expanded: consoleExpanded }">
-      <!-- Sidebar toggle tab -->
-      <button
-        class="sidebar-toggle"
-        aria-label="Toggle sidebar"
-        @click="sidebarCollapsed = !sidebarCollapsed">
-        {{ sidebarCollapsed ? '\u25BA' : '\u25C4' }}
-      </button>
-
       <!-- Console toolbar buttons -->
       <div class="console-toolbar-btns">
+        <q-btn
+          flat
+          square
+          dense
+          padding="xs"
+          class="console-toolbar-btn"
+          :icon="sidebarCollapsed ? 'chevron_right' : 'chevron_left'"
+          :aria-label="sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'"
+          @click="sidebarCollapsed = !sidebarCollapsed">
+          <q-tooltip>{{ sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar' }}</q-tooltip>
+        </q-btn>
         <q-btn
           flat
           square
@@ -358,7 +352,7 @@
     :game-id="gameServer.gameId"
     :game-name="gameServer.gameName"
     :current-software="gameServer.serverSoftware"
-    :current-version="gameServer.version"
+    :current-version="displayVersion"
     @software-changed="getGameServerDetails"
     @software-operation-state="onSoftwareOperationState" />
 
@@ -410,13 +404,10 @@ import {
   Status,
   StopGameServerRequest,
   StopGameServerRequestSchema,
-  VersionStatus,
-} from 'src/proto/shared_pb'
+} from '@/proto/shared_pb'
 import {
   GetGameServerRequest,
   GetGameServerRequestSchema,
-  GetVersionInfoRequest,
-  GetVersionInfoRequestSchema,
   QueryGameServerRequest,
   QueryGameServerRequestSchema,
   QueryGameServerResponse,
@@ -424,10 +415,10 @@ import {
   UpdateGameServerRequest,
   UpdateGameServerRequestSchema,
   UpdateStep,
-} from 'src/proto/xylona_pb'
-import type { UpdateProgress } from 'src/proto/xylona_pb'
-import { AllServersMetrics, Request, Request_Type, RequestSchema } from 'src/proto/websocket_pb'
-import { Code, ConnectError } from '@connectrpc/connect'
+} from '@/proto/xylona_pb'
+import type { UpdateProgress } from '@/proto/xylona_pb'
+import { AllServersMetrics, Request, Request_Type, RequestSchema } from '@/proto/websocket_pb'
+import { ConnectError } from '@connectrpc/connect'
 import { parseConsole } from '@/utils/console'
 import { canShowUpdateButton } from './game-server-update-capability'
 import {
@@ -445,6 +436,7 @@ import {
 } from '@/utils/shared'
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { resolveCanonicalVersionDisplay } from './version-display'
 
 const $q = useQuasar()
 const gameServerOutput = ref('')
@@ -623,12 +615,12 @@ const softwareNameRedundant = computed(() => {
   return swName === gameName || gameName.includes(swName) || swName.includes(gameName)
 })
 
-const softwareHasUpdate = computed(() => {
-  return softwareSelector.value?.hasUpdate ?? false
+const versionDisplay = computed(() => {
+  return resolveCanonicalVersionDisplay(gameServer.value.version, gameServer.value.versionInfo)
 })
 
-const softwareLatestVersion = computed(() => {
-  return softwareSelector.value?.latestVersion ?? ''
+const displayVersion = computed(() => {
+  return versionDisplay.value.installedVersion
 })
 
 function hasPermission(perm: string): boolean {
@@ -672,7 +664,6 @@ onMounted(async () => {
   void getGameServerDetails()
     .then(() => {
       void getGameServerOutput()
-      void getVersionInfo()
       streamGameServerOutput()
       listenForServerQueryInfo()
       void subscribeServerMetrics().catch((error) => {
@@ -689,6 +680,7 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('gameServerMetrics', onMetrics)
   XylonaEventBus.off('gameServerUpdateProgress', onUpdateProgress)
   XylonaEventBus.off('websocketConnected', onWebsocketReconnect)
+  XylonaEventBus.off('gameServerVersion')
   if (uptimeTicker !== null) {
     clearInterval(uptimeTicker)
     uptimeTicker = null
@@ -738,22 +730,6 @@ async function getGameServerDetails() {
       caption: 'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
-  }
-}
-
-async function getVersionInfo() {
-  const request: GetVersionInfoRequest = create(GetVersionInfoRequestSchema, {})
-  request.gameServerId = gameServerId.value
-  try {
-    const response = await GetXylonaClient().getVersionInfo(request)
-    if (response.versionInfo) {
-      gameServer.value.versionInfo = response.versionInfo
-    }
-  } catch (e) {
-    const err = ConnectError.from(e)
-    if (err.code !== Code.Unimplemented) {
-      console.error(e)
-    }
   }
 }
 
@@ -1077,6 +1053,14 @@ function streamGameServerOutput() {
       return
     }
     gameServer.value.status = serverStatus
+  })
+
+  XylonaEventBus.on('gameServerVersion', (serverID: string, version: string, versionInfo) => {
+    if (serverID !== gameServerId.value) {
+      return
+    }
+    gameServer.value.version = version
+    gameServer.value.versionInfo = versionInfo
   })
 
   // Stream game server output.
@@ -1565,34 +1549,6 @@ async function sendGameServerInput() {
   position: relative;
 }
 
-/* Sidebar toggle tab */
-.sidebar-toggle {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 18px;
-  height: 52px;
-  background: var(--xy-surface-2);
-  border: 1px solid var(--xy-border);
-  border-left: none;
-  border-radius: 0 5px 5px 0;
-  color: var(--xy-text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.6rem;
-  z-index: 10;
-  transition: all var(--xy-transition-fast);
-}
-
-.sidebar-toggle:hover {
-  color: var(--xy-accent);
-  background: var(--xy-surface-3);
-  width: 22px;
-}
-
 /* Console toolbar buttons */
 .console-toolbar-btns {
   position: absolute;
@@ -1621,7 +1577,7 @@ async function sendGameServerInput() {
 .console-scroll-area {
   flex: 1;
   min-height: 0;
-  padding-left: calc(var(--xy-space-md) + 22px);
+  padding-left: var(--xy-space-md);
   padding-right: var(--xy-space-sm);
   font-family: var(--xy-font-mono);
   font-size: 0.85rem;
@@ -1667,6 +1623,10 @@ async function sendGameServerInput() {
 
 .console-scroll-area :deep(#consoleCodeEl) {
   white-space: pre-wrap;
+}
+
+.console-scroll-area :deep(.q-scrollarea__content) {
+  padding-top: var(--xy-space-md);
 }
 
 /* Offline console output */
@@ -1783,10 +1743,6 @@ async function sendGameServerInput() {
   animation: console-expand 200ms cubic-bezier(0.25, 1, 0.5, 1) both;
 }
 
-.console-wrapper.expanded .sidebar-toggle {
-  display: none;
-}
-
 .console-wrapper.expanded .console-scroll-area {
   padding-left: var(--xy-space-sm);
 }
@@ -1809,7 +1765,7 @@ async function sendGameServerInput() {
 
 /* ===== Focus rings ===== */
 .change-btn:focus-visible,
-.sidebar-toggle:focus-visible {
+.console-toolbar-btn:focus-visible {
   outline: 2px solid var(--xy-primary);
   outline-offset: 2px;
 }

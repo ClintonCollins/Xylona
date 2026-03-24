@@ -83,6 +83,52 @@ func TestValidate_ValidManagedSources(t *testing.T) {
 	}
 }
 
+func TestValidate_ValidManagedSourceAliases(t *testing.T) {
+	input := `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"server-ip":"ip","server-port":"server_port","query-port":"query_port"}}]`
+	errs := ValidateConfigSchemas(input)
+	if len(errs) != 0 {
+		t.Errorf("ValidateConfigSchemas() returned %d errors for valid managed source aliases: %v", len(errs), errs)
+	}
+}
+
+func TestValidate_UnknownManagedSourceInSchemaProperty(t *testing.T) {
+	input := `[{
+		"path":"server.properties",
+		"format":"properties",
+		"category":"Core",
+		"schema":{
+			"type":"object",
+			"properties":{
+				"server-ip":{"type":"string","x-managed":{"source":"unknown.source"}}
+			}
+		}
+	}]`
+	errs := ValidateConfigSchemas(input)
+	if len(errs) == 0 {
+		t.Error("expected error for unknown x-managed source")
+	}
+}
+
+func TestValidate_ValidManagedSourceAliasesInSchemaProperty(t *testing.T) {
+	input := `[{
+		"path":"server.properties",
+		"format":"properties",
+		"category":"Core",
+		"schema":{
+			"type":"object",
+			"properties":{
+				"server-ip":{"type":"string","x-managed":{"source":"ip"}},
+				"server-port":{"type":"integer","x-managed":{"source":"server_port"}},
+				"query-port":{"type":"integer","x-managed":{"source":"query_port"}}
+			}
+		}
+	}]`
+	errs := ValidateConfigSchemas(input)
+	if len(errs) != 0 {
+		t.Errorf("ValidateConfigSchemas() returned %d errors for valid x-managed aliases: %v", len(errs), errs)
+	}
+}
+
 func TestValidate_XMLKeyModeOnNonXML(t *testing.T) {
 	input := `[{"path":"server.properties","format":"properties","category":"Core","xml_key_mode":{"mode":"elements"}}]`
 	errs := ValidateConfigSchemas(input)

@@ -41,6 +41,11 @@ type MetricsBroadcaster interface {
 	BroadcastRemoteServerMetrics(serverID string, metrics *xylona.GameServerMetrics)
 }
 
+// RemoteVersionBroadcaster is called when remote server version info changes in real-time.
+type RemoteVersionBroadcaster interface {
+	BroadcastGameServerVersion(serverID string, version string, versionInfo *xylona.VersionInfo)
+}
+
 // FederationSyncEngine manages periodic synchronization with peer nodes.
 type FederationSyncEngine struct {
 	ctx                context.Context
@@ -51,6 +56,7 @@ type FederationSyncEngine struct {
 	peerStops          map[string]context.CancelFunc
 	statusBroadcaster  StatusBroadcaster
 	metricsBroadcaster MetricsBroadcaster
+	versionBroadcaster RemoteVersionBroadcaster
 	actionsInst        *Instance
 }
 
@@ -79,6 +85,13 @@ func (e *FederationSyncEngine) SetMetricsBroadcaster(broadcaster MetricsBroadcas
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.metricsBroadcaster = broadcaster
+}
+
+// SetVersionBroadcaster sets the callback for real-time remote server version updates.
+func (e *FederationSyncEngine) SetVersionBroadcaster(broadcaster RemoteVersionBroadcaster) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.versionBroadcaster = broadcaster
 }
 
 // SetActionsInstance sets the actions instance for peer list operations.
@@ -347,6 +360,8 @@ func (e *FederationSyncEngine) runUpdatesStream(ctx context.Context, nodeID stri
 				e.handleStatusChange(node, evt.StatusChange)
 			case *xylona.FederationServerUpdateEvent_MetricsUpdate:
 				e.handleMetricsUpdate(evt.MetricsUpdate)
+			case *xylona.FederationServerUpdateEvent_VersionChange:
+				e.handleVersionChange(node, evt.VersionChange)
 			case *xylona.FederationServerUpdateEvent_Heartbeat:
 				log.Debug().Str("node_id", nodeID).Msg("Received heartbeat from peer")
 			}
@@ -678,6 +693,24 @@ func (e *FederationSyncEngine) handleMetricsUpdate(update *xylona.FederationServ
 
 	if broadcaster != nil {
 		broadcaster.BroadcastRemoteServerMetrics(update.ServerId, update.Metrics)
+	}
+}
+
+func (e *FederationSyncEngine) handleVersionChange(node *models.Node, change *xylona.FederationServerVersionChange) {
+	errUpdate := e.db.UpdateRemoteServerCacheVersion(node.ID, change.ServerId, change.Version)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).
+			Str("node_id", node.ID).
+			Str("server_id", change.ServerId).
+			Msg("Failed to update remote server cache version")
+	}
+
+	e.mu.RLock()
+	broadcaster := e.versionBroadcaster
+	e.mu.RUnlock()
+
+	if broadcaster != nil {
+		broadcaster.BroadcastGameServerVersion(change.ServerId, change.Version, change.VersionInfo)
 	}
 }
 

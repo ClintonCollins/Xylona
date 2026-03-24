@@ -137,6 +137,7 @@ message FederationServerSummary {
   double io_write_rate = 22;
   int32 connection_count = 23;
   int64 uptime_seconds = 24;
+  VersionInfo version_info = 25;
 }
 
 message FederationListServerSummariesResponse {
@@ -440,6 +441,7 @@ message FederationServerUpdateEvent {
     FederationServerStatusChange status_change = 2;
     FederationServerMetricsUpdate metrics_update = 3;
     FederationStreamHeartbeat heartbeat = 4;
+    FederationServerVersionChange version_change = 5;
   }
 }
 
@@ -461,6 +463,7 @@ message FederationServerState {
   string map_name = 11;
   string version = 12;
   GameServerMetrics metrics = 13;
+  VersionInfo version_info = 14;
 }
 
 message FederationServerStatusChange {
@@ -471,6 +474,12 @@ message FederationServerStatusChange {
 message FederationServerMetricsUpdate {
   string server_id = 1;
   GameServerMetrics metrics = 2;
+}
+
+message FederationServerVersionChange {
+  string server_id = 1;
+  string version = 2;
+  VersionInfo version_info = 3;
 }
 
 message FederationStreamHeartbeat {

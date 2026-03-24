@@ -336,7 +336,11 @@ import { useQuasar } from 'quasar'
 import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
 import type { SchemaFieldModel } from './ConfigSchemaFieldCard.vue'
 import ConfigImportInput from './ConfigImportInput.vue'
-import type { ImportDetectionResult, ImportedField } from 'src/utils/config-import'
+import {
+  toBackendManagedSource,
+  toFrontendManagedSource,
+} from '@/components/shared/placeholder-definitions'
+import type { ImportDetectionResult, ImportedField } from '@/utils/config-import'
 import { groupFields } from '../game_servers/config-field-helpers'
 
 interface SchemaProperty {
@@ -451,7 +455,7 @@ function schemaToFields(schema: JsonSchema): SchemaFieldModel[] {
       ? (prop['x-enum-labels'] as unknown[]).map(String).join(', ')
       : '',
     managed: !!prop['x-managed'],
-    managedSource: prop['x-managed']?.source || '',
+    managedSource: toFrontendManagedSource(prop['x-managed']?.source || ''),
     allowMultiple: !!prop['x-allow-multiple'],
     group: prop['x-group'] || '',
     order: prop['x-order'] ?? index,
@@ -516,7 +520,7 @@ function fieldsToSchema(): JsonSchema {
         .filter((s) => s)
     }
     if (field.managed && field.managedSource) {
-      prop['x-managed'] = { source: field.managedSource }
+      prop['x-managed'] = { source: toBackendManagedSource(field.managedSource) }
     }
     if (field.allowMultiple) {
       prop['x-allow-multiple'] = true
@@ -1062,6 +1066,20 @@ function normalizeSchema(schema: JsonSchema): JsonSchema {
     // Convert non-string enum values to strings
     if (Array.isArray(normalizedProp.enum)) {
       normalizedProp.enum = normalizedProp.enum.map((v: unknown) => String(v))
+    }
+
+    if (
+      normalizedProp['x-managed'] &&
+      typeof normalizedProp['x-managed'] === 'object' &&
+      normalizedProp['x-managed'] !== null &&
+      'source' in normalizedProp['x-managed']
+    ) {
+      const managedEntry = normalizedProp['x-managed'] as { source?: unknown }
+      if (typeof managedEntry.source === 'string') {
+        normalizedProp['x-managed'] = {
+          source: toBackendManagedSource(managedEntry.source),
+        }
+      }
     }
 
     normalized.properties[key] = normalizedProp

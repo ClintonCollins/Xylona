@@ -474,7 +474,7 @@ async function processDirectoryEntry(
 ): Promise<FileSystemFileEntry[]> {
   return new Promise((resolveDirectory) => {
     webkitDirEntry.createReader().readEntries(async (entries: FileSystemEntry[]) => {
-      const allPromises = entries
+      const allPromises: Promise<FileSystemFileEntry[]>[] = entries
         .map((entry: FileSystemEntry) => {
           if (entry.isFile) {
             return processFileEntry(entry as FileSystemFileEntry)
@@ -482,22 +482,24 @@ async function processDirectoryEntry(
           if (entry.isDirectory) {
             return processDirectoryEntry(entry as FileSystemDirectoryEntry)
           }
+          return Promise.resolve([] as FileSystemFileEntry[])
         })
-        .filter(Boolean) // Filter out any undefined values
 
       const results = await Promise.allSettled(allPromises)
       const allFilesCombined = results
-        .filter((result) => result.status === 'fulfilled')
-        .map((result) => (result as PromiseFulfilledResult<FileSystemFileEntry[]>).value)
-        .flat()
+        .filter(
+          (result): result is PromiseFulfilledResult<FileSystemFileEntry[]> =>
+            result.status === 'fulfilled',
+        )
+        .flatMap((result) => result.value)
 
       resolveDirectory(allFilesCombined)
     })
   })
 }
 
-async function processFileEntry(fileEntry: FileSystemFileEntry): Promise<FileSystemFileEntry> {
-  return fileEntry
+async function processFileEntry(fileEntry: FileSystemFileEntry): Promise<FileSystemFileEntry[]> {
+  return [fileEntry]
 }
 
 async function handleDropEvent(event: DragEvent) {
@@ -508,20 +510,18 @@ async function handleDropEvent(event: DragEvent) {
     const items = [...event.dataTransfer.items]
     fileUploaderDialog.value = true
     addingFiles.value = true
-    const directoryProcessors: (Promise<FileSystemFileEntry[]> | Promise<FileSystemFileEntry>)[] =
-      items.map((item: DataTransferItem) => {
-        // All the items should finally map to a Promise<File>
+    const directoryProcessors: Promise<FileSystemFileEntry[]>[] = items.map(
+      (item: DataTransferItem) => {
         const webkitEntry = item.webkitGetAsEntry()
         if (webkitEntry && webkitEntry.isDirectory) {
-          // If it's a directory, process it (this could include nested directories)
           return processDirectoryEntry(webkitEntry as FileSystemDirectoryEntry)
         }
         if (webkitEntry && webkitEntry.isFile) {
-          // If it's a file, process it directly
           return processFileEntry(webkitEntry as FileSystemFileEntry)
         }
-        return item.webkitGetAsEntry() as unknown as Promise<FileSystemFileEntry>
-      })
+        return Promise.resolve([] as FileSystemFileEntry[])
+      },
+    )
 
     const allFiles = (await Promise.all(directoryProcessors)).flat()
     addingFilesToUploaderViaFileContainerDrop.value = false

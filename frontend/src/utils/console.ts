@@ -1,4 +1,4 @@
-import { StringToColor } from 'src/utils/shared'
+import { StringToColor } from '@/utils/shared'
 
 const reURIMatch =
   /(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#/%=~_|$?!:,.]*\)|[A-Z0-9+&@#/%=~_|$])/gim

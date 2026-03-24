@@ -64,12 +64,6 @@
                   text-color="dark"
                   label="Missing"
                   class="file-badge" />
-                <q-badge
-                  v-else-if="file.managedFieldCount > 0"
-                  outline
-                  color="accent"
-                  :label="`${file.managedFieldCount} managed`"
-                  class="file-badge" />
               </q-item-section>
             </q-item>
           </q-list>

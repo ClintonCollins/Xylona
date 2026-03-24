@@ -6,8 +6,8 @@ import {
   CheckUserAuthenticatedResponse,
   LogoutRequestSchema,
   User,
-} from 'src/proto/xylona_pb'
-import { ConnectErrorToString, GetXylonaClient } from 'src/utils/shared'
+} from '@/proto/xylona_pb'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { Notify } from 'quasar'
 
 interface userAuthState {

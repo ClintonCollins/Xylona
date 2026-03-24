@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NodeResourceSnapshot } from 'src/proto/shared_pb'
+import { NodeResourceSnapshot } from '@/proto/shared_pb'
 import { bytesToSize } from '@/utils/shared'
 
 const props = defineProps<{

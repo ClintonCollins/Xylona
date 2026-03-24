@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted } from 'vue'
-import { XylonaEventBus } from 'src/utils/shared'
+import { XylonaEventBus } from '@/utils/shared'
 
 /**
  * Global composable that listens for server software install WebSocket events

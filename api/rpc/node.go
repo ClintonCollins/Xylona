@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -625,6 +626,9 @@ func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request 
 		if errGetCommand == nil {
 			gsProto.Status = gameServerCmd.Status()
 		}
+		gsProto.Version, gsProto.VersionInfo = xs.resolveLocalVersionData(ctx, gs, actions.VersionResolveOptions{
+			AllowAsync: true,
+		})
 		if user.SuperUser || gs.UserID == user.ID {
 			gsProto.EffectivePermissions = xs.allPermissionIDs
 		} else if perms, ok := localBulkPerms[gs.ID]; ok {
@@ -792,6 +796,7 @@ func (xs *XylonaService) fetchRemoteNodeSummaries(ctx context.Context, node *mod
 			LastRemoteUpdate: server.UpdatedAt,
 			LastSyncedAt:     lastSyncedAt,
 			IsStale:          false,
+			VersionInfo:      server.VersionInfo,
 		})
 	}
 

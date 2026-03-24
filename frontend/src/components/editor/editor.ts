@@ -1,4 +1,4 @@
-import MinecraftProperties from 'src/components/editor/languages/minecraft-properties'
+import MinecraftProperties from '@/components/editor/languages/minecraft-properties'
 
 export default function loadCustomEditorSettings() {
   // Register languages

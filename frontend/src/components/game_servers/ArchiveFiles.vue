@@ -71,7 +71,7 @@ import {
   GameServerFilesCompressionRequest,
   GameServerFilesCompressionRequestSchema,
   GameServerFilesCompressionType,
-} from 'src/proto/gameserver_files_operations_pb'
+} from '@/proto/gameserver_files_operations_pb'
 import {
   ArchiveTypeToExtension,
   ArchiveTypeToString,

@@ -37,30 +37,72 @@ type steamUpToDateResponse struct {
 // It reads appmanifest_*.acf files to determine the installed buildid and
 // queries the Steam UpToDateCheck API for the latest version.
 type SteamTracker struct {
-	httpClient  *http.Client
-	steamAPIURL string
+	httpClient     *http.Client
+	steamAPIURL    string
+	preferredAppID string
 }
 
 // NewSteamTracker creates a new SteamTracker using the real Steam API.
 func NewSteamTracker() *SteamTracker {
+	return NewSteamTrackerWithAppID("")
+}
+
+// NewSteamTrackerWithAppID creates a new SteamTracker with an optional
+// preferred Steam app ID to disambiguate manifests.
+func NewSteamTrackerWithAppID(appID string) *SteamTracker {
 	return &SteamTracker{
-		httpClient:  &http.Client{Timeout: 15 * time.Second},
-		steamAPIURL: "https://api.steampowered.com",
+		httpClient:     &http.Client{Timeout: 15 * time.Second},
+		steamAPIURL:    "https://api.steampowered.com",
+		preferredAppID: strings.TrimSpace(appID),
 	}
 }
 
-// findAppManifest returns the path to the first appmanifest_*.acf file found
-// in gs.Directory, or "" if none exists.
-func findAppManifest(dir string) (string, error) {
-	pattern := filepath.Join(dir, "appmanifest_*.acf")
-	matches, errGlob := filepath.Glob(pattern)
-	if errGlob != nil {
-		return "", fmt.Errorf("glob appmanifest: %w", errGlob)
+func findFirstExistingPath(paths []string) (string, error) {
+	for _, candidate := range paths {
+		info, errStat := os.Stat(candidate)
+		if errStat == nil && !info.IsDir() {
+			return candidate, nil
+		}
+		if errStat != nil && !os.IsNotExist(errStat) {
+			return "", fmt.Errorf("stat manifest %s: %w", candidate, errStat)
+		}
 	}
-	if len(matches) == 0 {
-		return "", nil
+	return "", nil
+}
+
+func globFirstManifest(patterns []string) (string, error) {
+	for _, pattern := range patterns {
+		matches, errGlob := filepath.Glob(pattern)
+		if errGlob != nil {
+			return "", fmt.Errorf("glob appmanifest: %w", errGlob)
+		}
+		if len(matches) > 0 {
+			return matches[0], nil
+		}
 	}
-	return matches[0], nil
+	return "", nil
+}
+
+// findAppManifest returns the most relevant appmanifest file for the server
+// directory, preferring a specific app ID when configured.
+func findAppManifest(dir string, preferredAppID string) (string, error) {
+	if preferredAppID != "" {
+		manifestPath, errFind := findFirstExistingPath([]string{
+			filepath.Join(dir, fmt.Sprintf("appmanifest_%s.acf", preferredAppID)),
+			filepath.Join(dir, "steamapps", fmt.Sprintf("appmanifest_%s.acf", preferredAppID)),
+		})
+		if errFind != nil {
+			return "", errFind
+		}
+		if manifestPath != "" {
+			return manifestPath, nil
+		}
+	}
+
+	return globFirstManifest([]string{
+		filepath.Join(dir, "appmanifest_*.acf"),
+		filepath.Join(dir, "steamapps", "appmanifest_*.acf"),
+	})
 }
 
 // readBuildID reads an ACF file and extracts the buildid value.
@@ -90,7 +132,7 @@ func extractAppID(acfPath string) string {
 // GetInstalledVersion returns the buildid from the appmanifest ACF file in
 // gs.Directory. Returns "" (no error) when no manifest is present.
 func (s *SteamTracker) GetInstalledVersion(_ context.Context, gs *models.GameServer) (string, error) {
-	acfPath, errFind := findAppManifest(gs.Directory)
+	acfPath, errFind := findAppManifest(gs.Directory, s.preferredAppID)
 	if errFind != nil {
 		return "", errFind
 	}
@@ -109,7 +151,7 @@ func (s *SteamTracker) GetInstalledVersion(_ context.Context, gs *models.GameSer
 // be determined (no manifest present) or when the API does not report a
 // required version.
 func (s *SteamTracker) GetLatestVersion(ctx context.Context, gs *models.GameServer) (string, error) {
-	acfPath, errFind := findAppManifest(gs.Directory)
+	acfPath, errFind := findAppManifest(gs.Directory, s.preferredAppID)
 	if errFind != nil {
 		return "", errFind
 	}

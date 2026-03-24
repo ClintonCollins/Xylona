@@ -50,6 +50,7 @@ type XylonaService struct {
 	steamCache                    *steamcache.Client
 	listCache                     *remoteServerListCache
 	remoteFederationClientFactory func(node *models.Node, serverID string) (xylonaconnect.FederationClient, error)
+	installGameServerFn           func(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error)
 	allPermissionIDs              []string
 	installTracker                *modmanager.InstallTracker
 	installBroadcast              ServerSoftwareInstallBroadcaster

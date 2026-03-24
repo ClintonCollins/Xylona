@@ -19,19 +19,20 @@ type SchemaDefinition struct {
 
 // SchemaProperty represents a single field in the JSON Schema.
 type SchemaProperty struct {
-	Type          string   `json:"type"`
-	Title         string   `json:"title"`
-	Description   string   `json:"description"`
-	Default       any      `json:"default"`
-	Enum          []string `json:"enum"`
-	EnumLabels    []string `json:"x-enum-labels"`
-	Minimum       *int64   `json:"minimum"`
-	Maximum       *int64   `json:"maximum"`
-	MaxLength     *int32   `json:"maxLength"`
-	Required      bool     `json:"required"`
-	AllowMultiple bool     `json:"x-allow-multiple"`
-	Group         string   `json:"x-group,omitempty"`
-	Order         *int32   `json:"x-order,omitempty"`
+	Type          string             `json:"type"`
+	Title         string             `json:"title"`
+	Description   string             `json:"description"`
+	Default       any                `json:"default"`
+	Enum          []string           `json:"enum"`
+	EnumLabels    []string           `json:"x-enum-labels"`
+	Minimum       *int64             `json:"minimum"`
+	Maximum       *int64             `json:"maximum"`
+	MaxLength     *int32             `json:"maxLength"`
+	Required      bool               `json:"required"`
+	AllowMultiple bool               `json:"x-allow-multiple"`
+	Group         string             `json:"x-group,omitempty"`
+	Order         *int32             `json:"x-order,omitempty"`
+	Managed       *managedFieldEntry `json:"x-managed,omitempty"`
 }
 
 // ConfigSchemaEntry represents a single entry in the config_schemas JSON array,
@@ -46,6 +47,10 @@ type ConfigSchemaEntry struct {
 	Schema              SchemaDefinition  `json:"schema"`
 }
 
+type managedFieldEntry struct {
+	Source string `json:"source"`
+}
+
 // ParseConfigSchemas parses the config_schemas JSON blob into a slice of entries.
 func ParseConfigSchemas(schemasJSON string) ([]ConfigSchemaEntry, error) {
 	if schemasJSON == "" {
@@ -56,7 +61,52 @@ func ParseConfigSchemas(schemasJSON string) ([]ConfigSchemaEntry, error) {
 	if errUnmarshal != nil {
 		return nil, fmt.Errorf("parsing config schemas: %w", errUnmarshal)
 	}
+	for i := range entries {
+		entries[i].Schema = normalizeSchemaManagedSources(entries[i].Schema)
+		entries[i].ManagedFields = mergeManagedFields(entries[i].ManagedFields, entries[i].Schema)
+	}
 	return entries, nil
+}
+
+func mergeManagedFields(existing map[string]string, schema SchemaDefinition) map[string]string {
+	managedFields := make(map[string]string)
+	for key, value := range existing {
+		managedFields[key] = normalizeManagedSource(value)
+	}
+
+	for key, prop := range schema.Properties {
+		if prop.Managed == nil || prop.Managed.Source == "" {
+			continue
+		}
+		if _, exists := managedFields[key]; exists {
+			continue
+		}
+		managedFields[key] = normalizeManagedSource(prop.Managed.Source)
+	}
+
+	if len(managedFields) == 0 {
+		return nil
+	}
+
+	return managedFields
+}
+
+func normalizeSchemaManagedSources(schema SchemaDefinition) SchemaDefinition {
+	if len(schema.Properties) == 0 {
+		return schema
+	}
+
+	normalizedSchema := schema
+	normalizedSchema.Properties = make(map[string]SchemaProperty, len(schema.Properties))
+	for key, prop := range schema.Properties {
+		if prop.Managed != nil && prop.Managed.Source != "" {
+			prop.Managed = &managedFieldEntry{Source: normalizeManagedSource(prop.Managed.Source)}
+		}
+
+		normalizedSchema.Properties[key] = prop
+	}
+
+	return normalizedSchema
 }
 
 // FieldData represents a config field matched to its schema definition.
@@ -106,7 +156,7 @@ func ServerSettingsResolver(ip string, port int64, queryPort int64) ManagedField
 		"game_server.query_port": strconv.FormatInt(queryPort, 10),
 	}
 	return func(source string) (string, bool) {
-		v, ok := sources[source]
+		v, ok := sources[normalizeManagedSource(source)]
 		return v, ok
 	}
 }
@@ -227,6 +277,7 @@ func buildFieldData(
 	// Check if this is a managed field.
 	source, isManaged := managedFields[key]
 	if isManaged {
+		source = normalizeManagedSource(source)
 		fd.IsManaged = true
 		fd.ManagedSource = source
 		resolvedValue, ok := resolver(source)

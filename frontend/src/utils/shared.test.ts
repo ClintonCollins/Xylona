@@ -1,13 +1,15 @@
+import { create } from '@bufbuild/protobuf'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Status } from 'src/proto/shared_pb'
-import { GameServerFilesCompressionType } from 'src/proto/gameserver_files_operations_pb'
-import { AllServersMetrics } from 'src/proto/websocket_pb'
+import { Status, VersionStatus } from '@/proto/shared_pb'
+import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
+import { AllServersMetrics, Message_Type, MessageSchema } from '@/proto/websocket_pb'
 
 import {
   ArchiveTypeToExtension,
   ArchiveTypeToString,
   bytesToSize,
   bytesToSize1,
+  dispatchWebsocketMessage,
   getColorFromFilenameExtension,
   GetPathSeparator,
   GetRelativeFilePath,
@@ -291,7 +293,7 @@ describe('XylonaEventBus remoteServerMetrics', () => {
     }
 
     // Emit the bulk event (simulating WebSocket message arrival).
-    XylonaEventBus.emit('gameServerMetrics', fakeMetrics as AllServersMetrics)
+    XylonaEventBus.emit('gameServerMetrics', fakeMetrics as unknown as AllServersMetrics)
 
     // The handler should have fanned out two remoteServerMetrics events,
     // one per server in the map.
@@ -311,8 +313,48 @@ describe('XylonaEventBus remoteServerMetrics', () => {
     XylonaEventBus.on('remoteServerMetrics', perServerHandler)
 
     const emptyMetrics = { servers: {} }
-    XylonaEventBus.emit('gameServerMetrics', emptyMetrics as AllServersMetrics)
+    XylonaEventBus.emit('gameServerMetrics', emptyMetrics as unknown as AllServersMetrics)
 
     expect(perServerHandler).not.toHaveBeenCalled()
+  })
+})
+
+describe('dispatchWebsocketMessage', () => {
+  afterEach(() => {
+    XylonaEventBus.off('gameServerVersion')
+  })
+
+  it('maps game server version websocket payloads into event bus updates', () => {
+    const handler = vi.fn()
+    XylonaEventBus.on('gameServerVersion', handler)
+
+    const handled = dispatchWebsocketMessage(
+      create(MessageSchema, {
+        type: Message_Type.GameServerVersion,
+        gameServerVersionUpdate: {
+          gameServerId: 'server-123',
+          version: '1.21.1',
+          versionInfo: {
+            status: VersionStatus.CHECKED,
+            installedVersion: '1.21.1',
+            latestVersion: '1.21.3',
+            updateAvailable: true,
+            lastCheckTime: 5n,
+            trackerType: 'minecraft',
+          },
+        },
+      }),
+    )
+
+    expect(handled).toBe(true)
+    expect(handler).toHaveBeenCalledWith(
+      'server-123',
+      '1.21.1',
+      expect.objectContaining({
+        installedVersion: '1.21.1',
+        latestVersion: '1.21.3',
+        updateAvailable: true,
+      }),
+    )
   })
 })

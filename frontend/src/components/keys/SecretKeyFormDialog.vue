@@ -84,7 +84,7 @@ import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { ConnectError } from '@connectrpc/connect'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { Ref, ref } from 'vue'
-import { CreateLocalSecretKeyRequest, CreateLocalSecretKeyRequestSchema } from 'src/proto/xylona_pb'
+import { CreateLocalSecretKeyRequest, CreateLocalSecretKeyRequestSchema } from '@/proto/xylona_pb'
 import { useClipboard } from '@vueuse/core'
 
 const formSubmitting = ref(false)

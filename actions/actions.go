@@ -63,6 +63,20 @@ type SyncEngine interface {
 	BroadcastPeerChange(changeType xylona.PeerChangeType, peer *xylona.PeerInfo, initiatedByNodeID string, initiatedByNodeName string)
 }
 
+// VersionBroadcaster pushes refreshed version information to connected clients.
+type VersionBroadcaster interface {
+	BroadcastGameServerVersion(serverID string, version string, versionInfo *xylona.VersionInfo)
+}
+
+type versionRefreshCall struct {
+	done chan struct{}
+}
+
+type VersionResolveOptions struct {
+	ForceRefresh bool
+	AllowAsync   bool
+}
+
 type Instance struct {
 	ctx                  context.Context
 	supervisorInstance   *supervisor.Instance
@@ -75,6 +89,11 @@ type Instance struct {
 	versionState         *versiontracker.VersionStateMap
 	resolverConfig       versiontracker.ResolverConfig
 	dummyTracker         *versiontracker.DummyTracker
+	versionBroadcaster   VersionBroadcaster
+	versionInstalledTTL  time.Duration
+	versionLatestTTL     time.Duration
+	versionRefreshMu     sync.Mutex
+	versionRefreshCalls  map[string]*versionRefreshCall
 }
 
 // SetSyncEngine sets the sync engine on the actions instance. This is called
@@ -92,6 +111,11 @@ func (inst *Instance) VersionState() *versiontracker.VersionStateMap {
 // SetDummyTracker sets the dummy tracker used for E2E update failure simulation.
 func (inst *Instance) SetDummyTracker(dt *versiontracker.DummyTracker) {
 	inst.dummyTracker = dt
+}
+
+// SetVersionBroadcaster sets the websocket-facing broadcaster for version changes.
+func (inst *Instance) SetVersionBroadcaster(b VersionBroadcaster) {
+	inst.versionBroadcaster = b
 }
 
 // CheckServerVersionByID loads the game server from the DB and runs a version check.
@@ -118,6 +142,9 @@ func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *sup
 		modManager:           modMgr,
 		versionState:         versionState,
 		resolverConfig:       resolverConfig,
+		versionInstalledTTL:  readVersionDurationEnv("XYLONA_VERSION_INSTALLED_TTL", 15*time.Second),
+		versionLatestTTL:     readVersionDurationEnv("XYLONA_VERSION_LATEST_TTL", 2*time.Minute),
+		versionRefreshCalls:  make(map[string]*versionRefreshCall),
 	}
 	go inst.backgroundJobQueryAllGameServers()
 	go inst.backgroundJobCheckModUpdates()

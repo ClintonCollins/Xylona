@@ -53,8 +53,8 @@ import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
 import {
   GameServerFilesDecompressionRequest,
   GameServerFilesDecompressionRequestSchema,
-} from 'src/proto/gameserver_files_operations_pb'
-import { bytesToSize, GetRelativeFilePath, GetXylonaClientCallback } from 'src/utils/shared'
+} from '@/proto/gameserver_files_operations_pb'
+import { bytesToSize, GetRelativeFilePath, GetXylonaClientCallback } from '@/utils/shared'
 import { ref } from 'vue'
 import { GameServerFilesExtractProgress } from '@/proto/shared_pb'
 

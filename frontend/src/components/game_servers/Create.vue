@@ -48,8 +48,8 @@ import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
 import {
   GameServerFileOrDirectoryCreateRequest,
   GameServerFileOrDirectoryCreateRequestSchema,
-} from 'src/proto/gameserver_files_operations_pb'
-import { GetRelativeFilePath, GetXylonaClient } from 'src/utils/shared'
+} from '@/proto/gameserver_files_operations_pb'
+import { GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
 import { ref, Ref } from 'vue'
 
 const props = defineProps({

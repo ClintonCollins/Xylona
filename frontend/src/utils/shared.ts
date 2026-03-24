@@ -1,10 +1,11 @@
 import { create, fromJsonString, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError, createCallbackClient, createClient } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
-import { UpdateProgress, Xylona } from 'src/proto/xylona_pb'
+import { UpdateProgress, Xylona } from '@/proto/xylona_pb'
 import { onMounted, ref } from 'vue'
-import { AllServersQueryInfo, Status } from 'src/proto/shared_pb'
-import { GameServerFilesCompressionType } from 'src/proto/gameserver_files_operations_pb'
+import type { VersionInfo } from '@/proto/shared_pb'
+import { AllServersQueryInfo, Status } from '@/proto/shared_pb'
+import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
 import {
   tabArchive,
   tabFileFilled,
@@ -39,6 +40,11 @@ const allAPIWebsockets: Map<string, ReconnectingWebSocket> = new Map<
 
 type XylonaEventBusEvents = {
   gameServerStatus: (gameServerId: string, status: Status) => void
+  gameServerVersion: (
+    gameServerId: string,
+    version: string,
+    versionInfo: VersionInfo | undefined,
+  ) => void
   gameServerConsoleOutput: (gameServerId: string, consoleOutput: string) => void
   gameServerConsoleOutputRequest: (gameServerId: string) => void
   gameServersQueryInfo: (queryInfo: AllServersQueryInfo) => void
@@ -109,6 +115,9 @@ export function GetOrCreateXylonaWebsocketClient(
     allAPIWebsockets.set(baseURL, apiWebsocket)
     setupWebsocket(apiWebsocket)
   }
+  if (!apiWebsocket) {
+    throw new Error(`WebSocket client was not initialized for ${baseURL}`)
+  }
   return apiWebsocket
 }
 
@@ -126,53 +135,8 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
       return
     }
     const out: Message = fromJsonString(MessageSchema, event.data)
-    switch (out.type) {
-      case Message_Type.GameServerStatus:
-        XylonaEventBus.emit(
-          'gameServerStatus',
-          out.gameServerStatusUpdate?.gameServerId,
-          out.gameServerStatusUpdate?.status,
-        )
-        break
-      case Message_Type.GameServerConsole:
-        XylonaEventBus.emit(
-          'gameServerConsoleOutput',
-          out.gameServerConsoleOutput?.gameServerId,
-          out.gameServerConsoleOutput?.output,
-        )
-        break
-      case Message_Type.ServerQueries:
-        XylonaEventBus.emit('gameServersQueryInfo', out.allServersQueryInfo)
-        break
-      case Message_Type.GameServerMetrics:
-        XylonaEventBus.emit('gameServerMetrics', out.allServersMetrics)
-        break
-      case Message_Type.NodeMetrics:
-        XylonaEventBus.emit('nodeMetrics', out.allNodeMetrics)
-        break
-      case Message_Type.ServerSoftwareInstall: {
-        const update = out.serverSoftwareInstallUpdate
-        if (update) {
-          XylonaEventBus.emit(
-            'serverSoftwareInstall',
-            update.gameServerId,
-            update.status,
-            update.error ?? '',
-            update.softwareId ?? '',
-          )
-        }
-        break
-      }
-      case Message_Type.GameServerUpdateProgress: {
-        const progress = out.updateProgress
-        if (progress) {
-          XylonaEventBus.emit('gameServerUpdateProgress', progress)
-        }
-        break
-      }
-      default:
-        console.debug(`${event.data}`)
-        return
+    if (!dispatchWebsocketMessage(out)) {
+      console.debug(`${event.data}`)
     }
   }
   apiWebsocket.onclose = (_event) => {
@@ -193,6 +157,78 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
 
     apiWebsocket?.send(toJsonString(RequestSchema, consoleOutputRequest))
   })
+}
+
+export function dispatchWebsocketMessage(out: Message): boolean {
+  switch (out.type) {
+    case Message_Type.GameServerStatus: {
+      const statusUpdate = out.gameServerStatusUpdate
+      if (statusUpdate) {
+        XylonaEventBus.emit('gameServerStatus', statusUpdate.gameServerId, statusUpdate.status)
+      }
+      return true
+    }
+    case Message_Type.GameServerVersion: {
+      const versionUpdate = out.gameServerVersionUpdate
+      if (versionUpdate) {
+        XylonaEventBus.emit(
+          'gameServerVersion',
+          versionUpdate.gameServerId,
+          versionUpdate.version,
+          versionUpdate.versionInfo,
+        )
+      }
+      return true
+    }
+    case Message_Type.GameServerConsole: {
+      const consoleOutput = out.gameServerConsoleOutput
+      if (consoleOutput) {
+        XylonaEventBus.emit(
+          'gameServerConsoleOutput',
+          consoleOutput.gameServerId,
+          consoleOutput.output,
+        )
+      }
+      return true
+    }
+    case Message_Type.ServerQueries:
+      if (out.allServersQueryInfo) {
+        XylonaEventBus.emit('gameServersQueryInfo', out.allServersQueryInfo)
+      }
+      return true
+    case Message_Type.GameServerMetrics:
+      if (out.allServersMetrics) {
+        XylonaEventBus.emit('gameServerMetrics', out.allServersMetrics)
+      }
+      return true
+    case Message_Type.NodeMetrics:
+      if (out.allNodeMetrics) {
+        XylonaEventBus.emit('nodeMetrics', out.allNodeMetrics)
+      }
+      return true
+    case Message_Type.ServerSoftwareInstall: {
+      const update = out.serverSoftwareInstallUpdate
+      if (update) {
+        XylonaEventBus.emit(
+          'serverSoftwareInstall',
+          update.gameServerId,
+          update.status,
+          update.error ?? '',
+          update.softwareId ?? '',
+        )
+      }
+      return true
+    }
+    case Message_Type.GameServerUpdateProgress: {
+      const progress = out.updateProgress
+      if (progress) {
+        XylonaEventBus.emit('gameServerUpdateProgress', progress)
+      }
+      return true
+    }
+    default:
+      return false
+  }
 }
 
 export function StringToColor(str: string): string {

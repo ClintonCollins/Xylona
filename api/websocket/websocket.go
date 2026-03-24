@@ -157,6 +157,15 @@ func getSessionConnectionID(s *melody.Session) (uuid.UUID, error) {
 	return connectionID, nil
 }
 
+func hasSessionConnectionState(s *melody.Session) bool {
+	_, userIDExists := s.Get(sessionKeyUserID)
+	if !userIDExists {
+		return false
+	}
+	_, connectionIDExists := s.Get(sessionKeyConnectionID)
+	return connectionIDExists
+}
+
 func (ws *WebSocket) getSessionGameServers(s *melody.Session) ([]*models.GameServer, error) {
 	ws.sessionLock.RLock()
 	defer ws.sessionLock.RUnlock()
@@ -244,7 +253,13 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	log.Debug().Msg("Websocket connected")
 	sessionCookies, errGetSession := gatekeeper.GetSessionFromCookies(s.Request.Cookies())
 	if errGetSession != nil {
-		log.Error().Err(errGetSession).Msg("Failed to get session from cookies")
+		log.Debug().
+			Err(errGetSession).
+			Str("method", s.Request.Method).
+			Str("url", s.Request.URL.String()).
+			Str("remote_addr", s.Request.RemoteAddr).
+			Str("user_agent", s.Request.UserAgent()).
+			Msg("Rejected websocket connection without session cookies")
 		_ = s.CloseWithMsg([]byte("Unauthorized"))
 		return
 	}
@@ -1124,6 +1139,42 @@ func (ws *WebSocket) BroadcastRemoteServerMetrics(serverID string, metrics *xylo
 	}
 }
 
+// BroadcastGameServerVersion sends refreshed version data to all connected WebSocket clients
+// that have access to the given server.
+func (ws *WebSocket) BroadcastGameServerVersion(serverID string, version string, versionInfo *xylona.VersionInfo) {
+	out := &xylona.Message{
+		Type: xylona.Message_GameServerVersion,
+		GameServerVersionUpdate: &xylona.GameServerVersionUpdate{
+			GameServerId: serverID,
+			Version:      version,
+			VersionInfo:  versionInfo,
+		},
+	}
+	byteOut, errMarshal := protojson.Marshal(out)
+	if errMarshal != nil {
+		log.Error().Err(errMarshal).Msg("Failed to marshal game server version update")
+		return
+	}
+
+	ws.userWebsocketConnectionsLock.RLock()
+	defer ws.userWebsocketConnectionsLock.RUnlock()
+
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			if conn.melodySession.IsClosed() {
+				continue
+			}
+			if !conn.hasGameServerAccess(serverID) {
+				continue
+			}
+			errWrite := conn.melodySession.Write(byteOut)
+			if errWrite != nil {
+				log.Debug().Err(errWrite).Msg("Failed to write version update to WebSocket")
+			}
+		}
+	}
+}
+
 // BroadcastUpdateProgress sends a game server update progress event to all
 // connected WebSocket clients that have access to the given server.
 func (ws *WebSocket) BroadcastUpdateProgress(serverID string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string) {
@@ -1239,6 +1290,16 @@ func (ws *WebSocket) deleteConnection(sess *melody.Session) {
 
 func (ws *WebSocket) handleDisconnect(s *melody.Session) {
 	log.Debug().Msg("Websocket disconnected")
+	if !hasSessionConnectionState(s) {
+		if s.IsClosed() {
+			return
+		}
+		errClose := s.Close()
+		if errClose != nil {
+			log.Error().Err(errClose).Msg("Failed to close websocket connection")
+		}
+		return
+	}
 	// Cancel any active remote console streams for this connection.
 	sessionConnection, errGetConnection := ws.getSessionConnection(s)
 	if errGetConnection == nil {

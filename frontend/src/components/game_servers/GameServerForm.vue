@@ -243,9 +243,7 @@
                 <q-icon name="task_alt" size="16px" />
               </div>
               <div class="deployment-ready-content">
-                <span class="deployment-ready-label font-display">
-                  Ready to Deploy
-                </span>
+                <span class="deployment-ready-label font-display"> Ready to Deploy </span>
                 <span class="deployment-ready-value">{{ deploymentReadyText }}</span>
               </div>
             </div>
@@ -322,7 +320,7 @@ import {
   GameServerSchema,
   IP,
   Node,
-} from 'src/proto/shared_pb'
+} from '@/proto/shared_pb'
 import {
   GetGameServerRequest,
   GetGameServerRequestSchema,
@@ -337,7 +335,7 @@ import {
   ListNodesResponse,
   ListUsersRequest,
   ListUsersRequestSchema,
-} from 'src/proto/xylona_pb'
+} from '@/proto/xylona_pb'
 
 const route = useRoute()
 const router = useRouter()
@@ -398,7 +396,7 @@ const formSubtitle = computed(() =>
 )
 const isMinecraftGame = computed(() => gameServer.value.gameId === 'minecraft')
 const maxMemoryStateMessage = computed(() =>
-  isMinecraftGame.value ? describeMinecraftMemoryState(maxMemoryModel.value) ?? '' : '',
+  isMinecraftGame.value ? (describeMinecraftMemoryState(maxMemoryModel.value) ?? '') : '',
 )
 const showMaxMemoryStateError = computed(
   () => isEditing.value && isMinecraftGame.value && maxMemoryStateMessage.value.length > 0,
@@ -408,7 +406,9 @@ const trimmedServerName = computed(() => gameServer.value.name?.trim() ?? '')
 
 const selectedGameName = computed(
   () =>
-    gamesMap.value.get(gameServer.value.gameId)?.name ?? gameServer.value.gameName ?? 'Choose a game',
+    gamesMap.value.get(gameServer.value.gameId)?.name ??
+    gameServer.value.gameName ??
+    'Choose a game',
 )
 
 const selectedNodeName = computed(
@@ -484,10 +484,9 @@ const deploymentReviewItems = computed(() => [
   },
   {
     label: 'Capacity',
-    value:
-      isMinecraftGame.value
-        ? `${maxPlayersModel.value || 0} slots / ${maxMemoryModel.value || 0} MB`
-        : `${maxPlayersModel.value || 0} slots / start ${setPlayersModel.value || 0}`,
+    value: isMinecraftGame.value
+      ? `${maxPlayersModel.value || 0} slots / ${maxMemoryModel.value || 0} MB`
+      : `${maxPlayersModel.value || 0} slots / start ${setPlayersModel.value || 0}`,
     icon: 'memory',
     warning:
       maxPlayersModel.value <= 0 ||
@@ -503,10 +502,9 @@ const deploymentWarningItems = computed(() =>
 const deploymentReady = computed(() => deploymentWarningItems.value.length === 0)
 
 const deploymentReadyText = computed(() => {
-  const capacitySummary =
-    isMinecraftGame.value
-      ? `${maxPlayersModel.value || 0} slots, ${maxMemoryModel.value || 0} MB`
-      : `${maxPlayersModel.value || 0} slots`
+  const capacitySummary = isMinecraftGame.value
+    ? `${maxPlayersModel.value || 0} slots, ${maxMemoryModel.value || 0} MB`
+    : `${maxPlayersModel.value || 0} slots`
 
   return `${trimmedServerName.value} for ${selectedGameName.value} on ${selectedNodeName.value} at ${selectedIPLabel.value}:${portModel.value || 0} with ${capacitySummary}`
 })
@@ -515,25 +513,17 @@ const serverNameRules = [
   (value: string | null | undefined) => validateRequiredText(value, 'Server Name'),
 ]
 
-const gameRules = [
-  (value: string | null | undefined) => validateRequiredSelection(value, 'Game'),
-]
+const gameRules = [(value: string | null | undefined) => validateRequiredSelection(value, 'Game')]
 
-const ownerRules = [
-  (value: string | null | undefined) => validateRequiredSelection(value, 'Owner'),
-]
+const ownerRules = [(value: string | null | undefined) => validateRequiredSelection(value, 'Owner')]
 
-const nodeRules = [
-  (value: string | null | undefined) => validateRequiredSelection(value, 'Node'),
-]
+const nodeRules = [(value: string | null | undefined) => validateRequiredSelection(value, 'Node')]
 
 const ipRules = [(value: IP | null | undefined) => validateRequiredValue(value, 'IP Address')]
 
 const portRules = [(value: number | string | bigint | null | undefined) => validatePort(value)]
 
-const queryPortRules = [
-  (value: number | string | bigint | null | undefined) => validatePort(value),
-]
+const queryPortRules = [(value: number | string | bigint | null | undefined) => validatePort(value)]
 
 const setPlayersRules = [
   (value: number | string | bigint | null | undefined) =>

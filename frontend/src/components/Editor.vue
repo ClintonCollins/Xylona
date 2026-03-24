@@ -47,7 +47,7 @@ import loadCustomEditorSettings, {
 import {
   GameServersFileEditRequest,
   GameServersFileEditRequestSchema,
-} from 'src/proto/gameserver_files_operations_pb'
+} from '@/proto/gameserver_files_operations_pb'
 import { GetXylonaClient } from '@/utils/shared'
 import { onMounted, onUnmounted, ref } from 'vue'
 import * as monaco from 'monaco-editor'

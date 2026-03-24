@@ -86,6 +86,59 @@ func TestSteamTracker_GetInstalledVersion_MalformedManifest(t *testing.T) {
 	}
 }
 
+func TestSteamTracker_GetInstalledVersion_FindsManifestInSteamAppsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	steamappsDir := filepath.Join(dir, "steamapps")
+	errMkdir := os.MkdirAll(steamappsDir, 0o755)
+	if errMkdir != nil {
+		t.Fatalf("failed to create steamapps directory: %v", errMkdir)
+	}
+	writeACF(t, steamappsDir, "appmanifest_730.acf", testACFContent)
+
+	tracker := NewSteamTracker()
+	gs := &models.GameServer{Directory: dir}
+
+	version, errGet := tracker.GetInstalledVersion(context.Background(), gs)
+	if errGet != nil {
+		t.Fatalf("unexpected error: %v", errGet)
+	}
+	if version != "7567790" {
+		t.Errorf("expected buildid 7567790 from steamapps manifest, got %q", version)
+	}
+}
+
+func TestSteamTracker_GetInstalledVersion_PrefersConfiguredAppIDWhenMultipleManifestsExist(t *testing.T) {
+	dir := t.TempDir()
+	steamappsDir := filepath.Join(dir, "steamapps")
+	errMkdir := os.MkdirAll(steamappsDir, 0o755)
+	if errMkdir != nil {
+		t.Fatalf("failed to create steamapps directory: %v", errMkdir)
+	}
+	writeACF(t, steamappsDir, "appmanifest_228980.acf", `"AppState"
+{
+	"appid"		"228980"
+	"buildid"		"19222509"
+}
+`)
+	writeACF(t, steamappsDir, "appmanifest_294420.acf", `"AppState"
+{
+	"appid"		"294420"
+	"buildid"		"21600865"
+}
+`)
+
+	tracker := NewSteamTrackerWithAppID("294420")
+	gs := &models.GameServer{Directory: dir}
+
+	version, errGet := tracker.GetInstalledVersion(context.Background(), gs)
+	if errGet != nil {
+		t.Fatalf("unexpected error: %v", errGet)
+	}
+	if version != "21600865" {
+		t.Errorf("expected buildid 21600865 from preferred app manifest, got %q", version)
+	}
+}
+
 func TestSteamTracker_GetLatestVersion_QueriesSteamAPI(t *testing.T) {
 	type steamResponse struct {
 		Response struct {

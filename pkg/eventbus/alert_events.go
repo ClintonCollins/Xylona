@@ -1,11 +1,16 @@
 package eventbus
 
-import "time"
+import (
+	"time"
+
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+)
 
 // Alert event topics — server events
 const (
 	TopicGameServerCrashed         = "game_server.crashed"
 	TopicGameServerStatusChanged   = "game_server.status_changed"
+	TopicGameServerVersionChanged  = "game_server.version_changed"
 	TopicGameServerCPUThreshold    = "game_server.cpu_threshold"
 	TopicGameServerMemoryThreshold = "game_server.memory_threshold"
 	TopicGameServerDiskThreshold   = "game_server.disk_threshold"
@@ -41,6 +46,13 @@ type StatusChangedEvent struct {
 	ServerNodeID string
 	OldStatus    string
 	NewStatus    string
+}
+
+// VersionChangedEvent is published when a game server's detected version state changes.
+type VersionChangedEvent struct {
+	ServerID    string
+	Version     string
+	VersionInfo *xylona.VersionInfo
 }
 
 // ThresholdEvent is published when a server metric crosses a threshold boundary.

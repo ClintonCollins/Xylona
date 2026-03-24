@@ -76,6 +76,7 @@ export function buildDisplayRows(
       isStale: remoteServer.isStale,
       sourceNodeId: sourceNodeID,
       version: remoteServer.version,
+      versionInfo: remoteServer.versionInfo,
     }
 
     if (!seenCompositeIDs.has(row.compositeId)) {

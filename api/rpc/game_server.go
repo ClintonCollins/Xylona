@@ -27,6 +27,24 @@ func fallbackNodeID(requestNodeID string, defaultNodeID string) string {
 	return trimmedNodeID
 }
 
+func mergeEditableGameServerUpdate(
+	existingGameServer *models.GameServer,
+	incomingGameServer *models.GameServer,
+	allowProvisioningChanges bool,
+) *models.GameServer {
+	if allowProvisioningChanges {
+		merged := *incomingGameServer
+		merged.ID = existingGameServer.ID
+		return &merged
+	}
+
+	merged := *existingGameServer
+	merged.Name = incomingGameServer.Name
+	merged.SetPlayers = incomingGameServer.SetPlayers
+	merged.StartCommand = incomingGameServer.StartCommand
+	return &merged
+}
+
 // findAvailablePort checks for port conflicts on the given IP and returns the next available port.
 // If the game requires a dedicated IP, no other game server should use the same IP at all.
 // excludeServerID can be set to skip a specific server (useful when editing an existing server).
@@ -55,18 +73,17 @@ func (xs *XylonaService) findAvailablePort(ip string, port int64, queryPort int6
 		}
 	}
 
-	// Collect all used ports on this IP (excluding the server being edited).
+	// Collect all used service ports on this IP (excluding the server being edited).
 	usedPorts := make(map[int64]bool)
 	for _, s := range existingServers {
 		if s.ID == excludeServerID {
 			continue
 		}
 		usedPorts[s.Port] = true
-		usedPorts[s.QueryPort] = true
 	}
 
-	// Auto-increment port if it conflicts.
-	for usedPorts[port] || usedPorts[queryPort] || (port == queryPort && port != 0) {
+	// Auto-increment the service port if it conflicts and keep the query port offset.
+	for usedPorts[port] {
 		port++
 		queryPort++
 		if port > 65535 || queryPort > 65535 {
@@ -83,12 +100,11 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	// Only superusers can create servers for other users.
-	targetUserID := request.Msg.GetGameServer().UserId
-	if targetUserID != callingUser.ID && !callingUser.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("cannot create servers for other users"))
+	if !callingUser.SuperUser {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("only superusers can create game servers"))
 	}
 
+	targetUserID := request.Msg.GetGameServer().UserId
 	user, errGetUser := xs.db.GetUserByID(targetUserID)
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
@@ -131,7 +147,11 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 	newGameServerModel.Port = availablePort
 	newGameServerModel.QueryPort = availableQueryPort
 
-	newGameServer, errInstallGameServer := xs.actionsInst.InstallGameServer(game, newGameServerModel, user)
+	installGameServer := xs.installGameServerFn
+	if installGameServer == nil {
+		installGameServer = xs.actionsInst.InstallGameServer
+	}
+	newGameServer, errInstallGameServer := installGameServer(game, newGameServerModel, user)
 	if errInstallGameServer != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
@@ -157,7 +177,8 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 				return nil, errPermission
 			}
 
-			gameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+			incomingGameServer := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+			gameServerModel := mergeEditableGameServerUpdate(existingGameServer, incomingGameServer, user.SuperUser)
 			gameServerModel.NodeID = fallbackNodeID(gameServerModel.NodeID, existingGameServer.NodeID)
 
 			_, errNode := xs.db.GetNodeByID(gameServerModel.NodeID)
@@ -536,7 +557,9 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 				gameServer.Status = gameServerCmd.Status().String()
 			}
 			gsProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
-			gsProto.Version = resolveGameServerVersion(gameServer)
+			gsProto.Version, gsProto.VersionInfo = xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{
+				AllowAsync: true,
+			})
 			if errGetCommand == nil {
 				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
 				gsProto.CpuPercent = int64(cpuPct)
@@ -633,16 +656,7 @@ func (xs *XylonaService) getRemoteGameServer(ctx context.Context, serverID strin
 }
 
 func resolveGameServerVersion(gs *models.GameServer) string {
-	switch gs.GameID {
-	case "minecraft":
-		version, errGetVersion := versiontracker.ReadMinecraftJarVersion(gs.Directory, gs.ServerExecutable.GetOr(""))
-		if errGetVersion != nil {
-			return gs.Version
-		}
-		return version
-	default:
-		return gs.Version
-	}
+	return versiontracker.ResolveCurrentVersion(gs)
 }
 
 func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {

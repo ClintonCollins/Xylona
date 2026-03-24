@@ -1,11 +1,12 @@
 import { create } from '@bufbuild/protobuf'
 import { mount } from '@vue/test-utils'
+import type { MountingOptions } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { InstalledModSchema } from '@/proto/shared_pb'
 import type { InstalledMod } from '@/proto/shared_pb'
 import InstalledModsTable from './InstalledModsTable.vue'
 
-function makeMod(overrides: Partial<Record<keyof InstalledMod, unknown>> = {}): InstalledMod {
+function makeMod(overrides: Partial<InstalledMod> = {}): InstalledMod {
   return create(InstalledModSchema, {
     id: 'mod-1',
     gameServerId: 'gs-1',
@@ -20,8 +21,13 @@ function makeMod(overrides: Partial<Record<keyof InstalledMod, unknown>> = {}): 
     updateAvailable: false,
     latestVersion: '0.90.0',
     ...overrides,
-  })
+  } as never)
 }
+
+type TestStubs = Exclude<
+  NonNullable<NonNullable<MountingOptions<Record<string, never>>['global']>['stubs']>,
+  string[]
+>
 
 const QUASAR_STUBS = {
   'q-input': {
@@ -57,7 +63,7 @@ const QUASAR_STUBS = {
   },
   'q-item-section': { template: '<span><slot /></span>' },
   'q-separator': { template: '<hr />' },
-} as Record<string, unknown>
+} satisfies TestStubs
 
 function mountTable(mods: InstalledMod[] = [], loading = false) {
   return mount(InstalledModsTable, {

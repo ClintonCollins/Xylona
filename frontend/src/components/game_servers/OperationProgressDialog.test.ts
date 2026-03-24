@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import type { MountingOptions } from '@vue/test-utils'
 import { UpdateStep, StepStatus } from '@/proto/xylona_pb'
 import OperationProgressDialog from './OperationProgressDialog.vue'
+
+type TestStubs = Exclude<
+  NonNullable<NonNullable<MountingOptions<Record<string, never>>['global']>['stubs']>,
+  string[]
+>
 
 const QUASAR_STUBS = {
   'q-dialog': {
@@ -18,7 +24,7 @@ const QUASAR_STUBS = {
     emits: ['click'],
     template: '<button @click="$emit(\'click\')">{{ label }}</button>',
   },
-} as Record<string, unknown>
+} satisfies TestStubs
 
 describe('OperationProgressDialog', () => {
   it('renders the timeline dialog with optional facts and output', () => {

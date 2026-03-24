@@ -47,6 +47,14 @@ describe('buildDisplayRows', () => {
           nodeName: 'Remote Node Name',
           nodeHost: 'https://remote.example.com',
           version: '0.217.46',
+          versionInfo: {
+            status: VersionStatus.CHECKED,
+            installedVersion: '0.217.46',
+            latestVersion: '0.218.15',
+            updateAvailable: true,
+            lastCheckTime: BigInt(0),
+            trackerType: 'steam',
+          },
           isStale: true,
         },
       },
@@ -62,6 +70,14 @@ describe('buildDisplayRows', () => {
           nodeName: 'Remote Node Name',
           nodeHost: 'https://remote.example.com',
           version: '0.217.46',
+          versionInfo: {
+            status: VersionStatus.CHECKED,
+            installedVersion: '0.217.46',
+            latestVersion: '0.218.15',
+            updateAvailable: true,
+            lastCheckTime: BigInt(0),
+            trackerType: 'steam',
+          },
           isStale: true,
         },
       },
@@ -97,7 +113,12 @@ describe('buildDisplayRows', () => {
       sourceNodeId: 'node-remote',
       version: '0.217.46',
     })
-    expect(rows[1].versionInfo).toBeUndefined()
+    expect(rows[1].versionInfo).toMatchObject({
+      status: VersionStatus.CHECKED,
+      installedVersion: '0.217.46',
+      latestVersion: '0.218.15',
+      updateAvailable: true,
+    })
   })
 
   it('falls back to remote node id and host when source node id and name are missing', () => {
@@ -113,6 +134,7 @@ describe('buildDisplayRows', () => {
           status: Status.UNKNOWN,
           nodeName: '',
           nodeHost: 'https://fallback.example.com',
+          version: '1.0.0',
           isStale: false,
         },
       },
@@ -164,6 +186,7 @@ describe('filterRowsByRemoteNodeIDs', () => {
         nodeName: 'Local Node',
         isStale: false,
         sourceNodeId: '',
+        version: '1.20.4',
       },
       {
         compositeId: 'node-remote-a/remote-1',
@@ -176,6 +199,7 @@ describe('filterRowsByRemoteNodeIDs', () => {
         nodeName: 'Remote A',
         isStale: false,
         sourceNodeId: 'node-remote-a',
+        version: '0.217.46',
       },
       {
         compositeId: 'node-remote-missing/remote-2',
@@ -188,6 +212,7 @@ describe('filterRowsByRemoteNodeIDs', () => {
         nodeName: 'Remote Missing',
         isStale: true,
         sourceNodeId: 'node-remote-missing',
+        version: '1.0.0',
       },
     ]
 
@@ -212,6 +237,7 @@ describe('filterRowsByRemoteNodeIDs', () => {
         nodeName: 'Remote A',
         isStale: false,
         sourceNodeId: 'node-remote-a',
+        version: '0.217.46',
       },
       {
         compositeId: 'node-remote-a/remote-1',
@@ -224,6 +250,7 @@ describe('filterRowsByRemoteNodeIDs', () => {
         nodeName: 'Remote A',
         isStale: true,
         sourceNodeId: 'node-remote-a',
+        version: '0.217.46',
       },
     ]
 

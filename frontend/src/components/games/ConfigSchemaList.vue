@@ -77,6 +77,23 @@
                   flat
                   dense
                   round
+                  size="sm"
+                  :icon="schema.generate_before_start ? 'toggle_on' : 'toggle_off'"
+                  :color="schema.generate_before_start ? 'info' : 'grey-6'"
+                  data-test="toggle-generate-before-start"
+                  @click="toggleGenerateBeforeStart(getGlobalIndex(String(category), index))">
+                  <q-tooltip>
+                    {{
+                      schema.generate_before_start
+                        ? "Don't create this file automatically on first start"
+                        : 'Create this file automatically on first start if it is missing'
+                    }}
+                  </q-tooltip>
+                </q-btn>
+                <q-btn
+                  flat
+                  dense
+                  round
                   icon="edit"
                   size="sm"
                   @click="$emit('editSchema', getGlobalIndex(String(category), index))">
@@ -221,6 +238,18 @@ function handleAddSchema(entry: ConfigSchemaEntry) {
   emit('update:modelValue', [...configSchemas.value, entry])
 }
 
+function toggleGenerateBeforeStart(globalIndex: number) {
+  if (globalIndex === -1) return
+
+  const updated = [...configSchemas.value]
+  updated[globalIndex] = {
+    ...updated[globalIndex],
+    generate_before_start: !updated[globalIndex].generate_before_start,
+  }
+
+  emit('update:modelValue', updated)
+}
+
 const formatOptions = [
   { label: 'Properties', value: 'properties' },
   { label: 'INI', value: 'ini' },
@@ -322,6 +351,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
 .schema-file-actions {
   display: flex;
   gap: 2px;
+  align-items: center;
 }
 
 .schema-format-edit {

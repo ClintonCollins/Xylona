@@ -20,6 +20,7 @@ function buildRow(id: string, status: Status): DisplayRow {
     nodeName: 'Local',
     isStale: false,
     sourceNodeId: '',
+    version: '1.0.0',
   }
 }
 

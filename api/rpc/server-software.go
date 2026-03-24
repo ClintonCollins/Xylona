@@ -191,7 +191,7 @@ func (xs *XylonaService) SetServerSoftware(
 	}
 
 	// Server must be stopped before changing software.
-	if gameServer.Status != xylona.Status_OFFLINE.String() {
+	if xs.getLocalGameServerStatus(gameServer) != xylona.Status_OFFLINE {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("server must be stopped before changing software"))
 	}
 
@@ -256,6 +256,9 @@ func (xs *XylonaService) SetServerSoftware(
 		// Broadcast completion so the frontend can react (tab recalculation, etc.)
 		if xs.installBroadcast != nil {
 			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusComplete, softwareID, "")
+		}
+		if xs.actionsInst != nil {
+			xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServerID)
 		}
 		logConsoleOutput(fmt.Sprintf("Server software changed to %s", selectedLabel))
 		return &connect.Response[xylona.SetServerSoftwareResponse]{
@@ -347,6 +350,9 @@ func (xs *XylonaService) SetServerSoftware(
 		logConsoleOutput(fmt.Sprintf("Server software changed to %s", selectedLabel))
 		if xs.installBroadcast != nil {
 			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServerID, modmanager.InstallStatusComplete, softwareID, "")
+		}
+		if xs.actionsInst != nil {
+			xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServerID)
 		}
 	}()
 

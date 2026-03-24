@@ -7,7 +7,7 @@ import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { UpdateProgress } from "./xylona_pb";
 import { file_xylona } from "./xylona_pb";
-import type { AllServersQueryInfo, NodeResourceSnapshot, Status } from "./shared_pb";
+import type { AllServersQueryInfo, NodeResourceSnapshot, Status, VersionInfo } from "./shared_pb";
 import { file_shared } from "./shared_pb";
 import type { Message as Message$1 } from "@bufbuild/protobuf";
 
@@ -15,7 +15,7 @@ import type { Message as Message$1 } from "@bufbuild/protobuf";
  * Describes the file websocket.proto.
  */
 export const file_websocket: GenFile = /*@__PURE__*/
-  fileDesc("Cg93ZWJzb2NrZXQucHJvdG8SBnh5bG9uYSJBChdHYW1lU2VydmVyQ29uc29sZU91dHB1dBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIOCgZvdXRwdXQYAiABKAkiUAoWR2FtZVNlcnZlclN0YXR1c1VwZGF0ZRIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIpkCCgdSZXF1ZXN0EhsKDmdhbWVfc2VydmVyX2lkGAEgASgJSACIAQESIgoEdHlwZRgCIAEoDjIULnh5bG9uYS5SZXF1ZXN0LlR5cGUiuQEKBFR5cGUSCwoHVW5rbm93bhAAEhgKFEdldEdhbWVTZXJ2ZXJDb25zb2xlEAESFwoTR2V0R2FtZVNlcnZlclN0YXR1cxACEhsKF1JlbW92ZUdhbWVTZXJ2ZXJDb25zb2xlEAMSGgoWUmVtb3ZlR2FtZVNlcnZlclN0YXR1cxAEEhoKFlN1YnNjcmliZVNlcnZlck1ldHJpY3MQBRIcChhVbnN1YnNjcmliZVNlcnZlck1ldHJpY3MQBkIRCg9fZ2FtZV9zZXJ2ZXJfaWQinwIKEUdhbWVTZXJ2ZXJNZXRyaWNzEhMKC2NwdV9wZXJjZW50GAEgASgBEhQKDG1lbW9yeV9ieXRlcxgCIAEoAxIZChFudW1iZXJfb2ZfdGhyZWFkcxgDIAEoBRIYChBkaXNrX3VzYWdlX2J5dGVzGAQgASgDEhYKDnVwdGltZV9zZWNvbmRzGAUgASgDEiAKGG1lbW9yeV93b3JraW5nX3NldF9ieXRlcxgGIAEoAxIWCg5tZW1vcnlfcGVyY2VudBgHIAEoARIRCgljcHVfY29yZXMYCCABKAUSFAoMaW9fcmVhZF9yYXRlGAkgASgBEhUKDWlvX3dyaXRlX3JhdGUYCiABKAESGAoQY29ubmVjdGlvbl9jb3VudBgLIAEoBSKXAQoRQWxsU2VydmVyc01ldHJpY3MSNwoHc2VydmVycxgBIAMoCzImLnh5bG9uYS5BbGxTZXJ2ZXJzTWV0cmljcy5TZXJ2ZXJzRW50cnkaSQoMU2VydmVyc0VudHJ5EgsKA2tleRgBIAEoCRIoCgV2YWx1ZRgCIAEoCzIZLnh5bG9uYS5HYW1lU2VydmVyTWV0cmljczoCOAEijgEKDkFsbE5vZGVNZXRyaWNzEjAKBW5vZGVzGAEgAygLMiEueHlsb25hLkFsbE5vZGVNZXRyaWNzLk5vZGVzRW50cnkaSgoKTm9kZXNFbnRyeRILCgNrZXkYASABKAkSKwoFdmFsdWUYAiABKAsyHC54eWxvbmEuTm9kZVJlc291cmNlU25hcHNob3Q6AjgBIosHCgdNZXNzYWdlEiIKBHR5cGUYASABKA4yFC54eWxvbmEuTWVzc2FnZS5UeXBlEkgKGmdhbWVfc2VydmVyX2NvbnNvbGVfb3V0cHV0GAIgASgLMh8ueHlsb25hLkdhbWVTZXJ2ZXJDb25zb2xlT3V0cHV0SACIAQESRgoZZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZRgDIAEoCzIeLnh5bG9uYS5HYW1lU2VydmVyU3RhdHVzVXBkYXRlSAGIAQESEAoIcmF3X2RhdGEYBCABKAkSQAoWYWxsX3NlcnZlcnNfcXVlcnlfaW5mbxgFIAEoCzIbLnh5bG9uYS5BbGxTZXJ2ZXJzUXVlcnlJbmZvSAKIAQESOwoTYWxsX3NlcnZlcnNfbWV0cmljcxgGIAEoCzIZLnh5bG9uYS5BbGxTZXJ2ZXJzTWV0cmljc0gDiAEBEjUKEGFsbF9ub2RlX21ldHJpY3MYByABKAsyFi54eWxvbmEuQWxsTm9kZU1ldHJpY3NIBIgBARJQCh5zZXJ2ZXJfc29mdHdhcmVfaW5zdGFsbF91cGRhdGUYCCABKAsyIy54eWxvbmEuU2VydmVyU29mdHdhcmVJbnN0YWxsVXBkYXRlSAWIAQESNAoPdXBkYXRlX3Byb2dyZXNzGAkgASgLMhYueHlsb25hLlVwZGF0ZVByb2dyZXNzSAaIAQEivQEKBFR5cGUSCwoHVW5rbm93bhAAEhUKEUdhbWVTZXJ2ZXJDb25zb2xlEAESFAoQR2FtZVNlcnZlclN0YXR1cxACEgcKA1JhdxADEhEKDVNlcnZlclF1ZXJpZXMQBBIVChFHYW1lU2VydmVyTWV0cmljcxAFEg8KC05vZGVNZXRyaWNzEAYSGQoVU2VydmVyU29mdHdhcmVJbnN0YWxsEAcSHAoYR2FtZVNlcnZlclVwZGF0ZVByb2dyZXNzEAhCHQobX2dhbWVfc2VydmVyX2NvbnNvbGVfb3V0cHV0QhwKGl9nYW1lX3NlcnZlcl9zdGF0dXNfdXBkYXRlQhkKF19hbGxfc2VydmVyc19xdWVyeV9pbmZvQhYKFF9hbGxfc2VydmVyc19tZXRyaWNzQhMKEV9hbGxfbm9kZV9tZXRyaWNzQiEKH19zZXJ2ZXJfc29mdHdhcmVfaW5zdGFsbF91cGRhdGVCEgoQX3VwZGF0ZV9wcm9ncmVzcyJpChtTZXJ2ZXJTb2Z0d2FyZUluc3RhbGxVcGRhdGUSFgoOZ2FtZV9zZXJ2ZXJfaWQYASABKAkSDgoGc3RhdHVzGAIgASgJEg0KBWVycm9yGAMgASgJEhMKC3NvZnR3YXJlX2lkGAQgASgJQjJaMGdpdGh1Yi5jb20vQ2xpbnRvbkNvbGxpbnMvWHlsb25hL3Byb3RvL2dvL3h5bG9uYWIGcHJvdG8z", [file_google_protobuf_timestamp, file_xylona, file_shared]);
+  fileDesc("Cg93ZWJzb2NrZXQucHJvdG8SBnh5bG9uYSJBChdHYW1lU2VydmVyQ29uc29sZU91dHB1dBIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIOCgZvdXRwdXQYAiABKAkiUAoWR2FtZVNlcnZlclN0YXR1c1VwZGF0ZRIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIeCgZzdGF0dXMYAiABKA4yDi54eWxvbmEuU3RhdHVzIm0KF0dhbWVTZXJ2ZXJWZXJzaW9uVXBkYXRlEhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEg8KB3ZlcnNpb24YAiABKAkSKQoMdmVyc2lvbl9pbmZvGAMgASgLMhMueHlsb25hLlZlcnNpb25JbmZvIpkCCgdSZXF1ZXN0EhsKDmdhbWVfc2VydmVyX2lkGAEgASgJSACIAQESIgoEdHlwZRgCIAEoDjIULnh5bG9uYS5SZXF1ZXN0LlR5cGUiuQEKBFR5cGUSCwoHVW5rbm93bhAAEhgKFEdldEdhbWVTZXJ2ZXJDb25zb2xlEAESFwoTR2V0R2FtZVNlcnZlclN0YXR1cxACEhsKF1JlbW92ZUdhbWVTZXJ2ZXJDb25zb2xlEAMSGgoWUmVtb3ZlR2FtZVNlcnZlclN0YXR1cxAEEhoKFlN1YnNjcmliZVNlcnZlck1ldHJpY3MQBRIcChhVbnN1YnNjcmliZVNlcnZlck1ldHJpY3MQBkIRCg9fZ2FtZV9zZXJ2ZXJfaWQinwIKEUdhbWVTZXJ2ZXJNZXRyaWNzEhMKC2NwdV9wZXJjZW50GAEgASgBEhQKDG1lbW9yeV9ieXRlcxgCIAEoAxIZChFudW1iZXJfb2ZfdGhyZWFkcxgDIAEoBRIYChBkaXNrX3VzYWdlX2J5dGVzGAQgASgDEhYKDnVwdGltZV9zZWNvbmRzGAUgASgDEiAKGG1lbW9yeV93b3JraW5nX3NldF9ieXRlcxgGIAEoAxIWCg5tZW1vcnlfcGVyY2VudBgHIAEoARIRCgljcHVfY29yZXMYCCABKAUSFAoMaW9fcmVhZF9yYXRlGAkgASgBEhUKDWlvX3dyaXRlX3JhdGUYCiABKAESGAoQY29ubmVjdGlvbl9jb3VudBgLIAEoBSKXAQoRQWxsU2VydmVyc01ldHJpY3MSNwoHc2VydmVycxgBIAMoCzImLnh5bG9uYS5BbGxTZXJ2ZXJzTWV0cmljcy5TZXJ2ZXJzRW50cnkaSQoMU2VydmVyc0VudHJ5EgsKA2tleRgBIAEoCRIoCgV2YWx1ZRgCIAEoCzIZLnh5bG9uYS5HYW1lU2VydmVyTWV0cmljczoCOAEijgEKDkFsbE5vZGVNZXRyaWNzEjAKBW5vZGVzGAEgAygLMiEueHlsb25hLkFsbE5vZGVNZXRyaWNzLk5vZGVzRW50cnkaSgoKTm9kZXNFbnRyeRILCgNrZXkYASABKAkSKwoFdmFsdWUYAiABKAsyHC54eWxvbmEuTm9kZVJlc291cmNlU25hcHNob3Q6AjgBIosICgdNZXNzYWdlEiIKBHR5cGUYASABKA4yFC54eWxvbmEuTWVzc2FnZS5UeXBlEkgKGmdhbWVfc2VydmVyX2NvbnNvbGVfb3V0cHV0GAIgASgLMh8ueHlsb25hLkdhbWVTZXJ2ZXJDb25zb2xlT3V0cHV0SACIAQESRgoZZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZRgDIAEoCzIeLnh5bG9uYS5HYW1lU2VydmVyU3RhdHVzVXBkYXRlSAGIAQESEAoIcmF3X2RhdGEYBCABKAkSQAoWYWxsX3NlcnZlcnNfcXVlcnlfaW5mbxgFIAEoCzIbLnh5bG9uYS5BbGxTZXJ2ZXJzUXVlcnlJbmZvSAKIAQESOwoTYWxsX3NlcnZlcnNfbWV0cmljcxgGIAEoCzIZLnh5bG9uYS5BbGxTZXJ2ZXJzTWV0cmljc0gDiAEBEjUKEGFsbF9ub2RlX21ldHJpY3MYByABKAsyFi54eWxvbmEuQWxsTm9kZU1ldHJpY3NIBIgBARJQCh5zZXJ2ZXJfc29mdHdhcmVfaW5zdGFsbF91cGRhdGUYCCABKAsyIy54eWxvbmEuU2VydmVyU29mdHdhcmVJbnN0YWxsVXBkYXRlSAWIAQESNAoPdXBkYXRlX3Byb2dyZXNzGAkgASgLMhYueHlsb25hLlVwZGF0ZVByb2dyZXNzSAaIAQESSAoaZ2FtZV9zZXJ2ZXJfdmVyc2lvbl91cGRhdGUYCiABKAsyHy54eWxvbmEuR2FtZVNlcnZlclZlcnNpb25VcGRhdGVIB4gBASLUAQoEVHlwZRILCgdVbmtub3duEAASFQoRR2FtZVNlcnZlckNvbnNvbGUQARIUChBHYW1lU2VydmVyU3RhdHVzEAISBwoDUmF3EAMSEQoNU2VydmVyUXVlcmllcxAEEhUKEUdhbWVTZXJ2ZXJNZXRyaWNzEAUSDwoLTm9kZU1ldHJpY3MQBhIZChVTZXJ2ZXJTb2Z0d2FyZUluc3RhbGwQBxIcChhHYW1lU2VydmVyVXBkYXRlUHJvZ3Jlc3MQCBIVChFHYW1lU2VydmVyVmVyc2lvbhAJQh0KG19nYW1lX3NlcnZlcl9jb25zb2xlX291dHB1dEIcChpfZ2FtZV9zZXJ2ZXJfc3RhdHVzX3VwZGF0ZUIZChdfYWxsX3NlcnZlcnNfcXVlcnlfaW5mb0IWChRfYWxsX3NlcnZlcnNfbWV0cmljc0ITChFfYWxsX25vZGVfbWV0cmljc0IhCh9fc2VydmVyX3NvZnR3YXJlX2luc3RhbGxfdXBkYXRlQhIKEF91cGRhdGVfcHJvZ3Jlc3NCHQobX2dhbWVfc2VydmVyX3ZlcnNpb25fdXBkYXRlImkKG1NlcnZlclNvZnR3YXJlSW5zdGFsbFVwZGF0ZRIWCg5nYW1lX3NlcnZlcl9pZBgBIAEoCRIOCgZzdGF0dXMYAiABKAkSDQoFZXJyb3IYAyABKAkSEwoLc29mdHdhcmVfaWQYBCABKAlCMlowZ2l0aHViLmNvbS9DbGludG9uQ29sbGlucy9YeWxvbmEvcHJvdG8vZ28veHlsb25hYgZwcm90bzM", [file_google_protobuf_timestamp, file_xylona, file_shared]);
 
 /**
  * @generated from message xylona.GameServerConsoleOutput
@@ -62,6 +62,33 @@ export const GameServerStatusUpdateSchema: GenMessage<GameServerStatusUpdate> = 
   messageDesc(file_websocket, 1);
 
 /**
+ * @generated from message xylona.GameServerVersionUpdate
+ */
+export type GameServerVersionUpdate = Message$1<"xylona.GameServerVersionUpdate"> & {
+  /**
+   * @generated from field: string game_server_id = 1;
+   */
+  gameServerId: string;
+
+  /**
+   * @generated from field: string version = 2;
+   */
+  version: string;
+
+  /**
+   * @generated from field: xylona.VersionInfo version_info = 3;
+   */
+  versionInfo?: VersionInfo;
+};
+
+/**
+ * Describes the message xylona.GameServerVersionUpdate.
+ * Use `create(GameServerVersionUpdateSchema)` to create a new message.
+ */
+export const GameServerVersionUpdateSchema: GenMessage<GameServerVersionUpdate> = /*@__PURE__*/
+  messageDesc(file_websocket, 2);
+
+/**
  * @generated from message xylona.Request
  */
 export type Request = Message$1<"xylona.Request"> & {
@@ -81,7 +108,7 @@ export type Request = Message$1<"xylona.Request"> & {
  * Use `create(RequestSchema)` to create a new message.
  */
 export const RequestSchema: GenMessage<Request> = /*@__PURE__*/
-  messageDesc(file_websocket, 2);
+  messageDesc(file_websocket, 3);
 
 /**
  * @generated from enum xylona.Request.Type
@@ -127,7 +154,7 @@ export enum Request_Type {
  * Describes the enum xylona.Request.Type.
  */
 export const Request_TypeSchema: GenEnum<Request_Type> = /*@__PURE__*/
-  enumDesc(file_websocket, 2, 0);
+  enumDesc(file_websocket, 3, 0);
 
 /**
  * @generated from message xylona.GameServerMetrics
@@ -194,7 +221,7 @@ export type GameServerMetrics = Message$1<"xylona.GameServerMetrics"> & {
  * Use `create(GameServerMetricsSchema)` to create a new message.
  */
 export const GameServerMetricsSchema: GenMessage<GameServerMetrics> = /*@__PURE__*/
-  messageDesc(file_websocket, 3);
+  messageDesc(file_websocket, 4);
 
 /**
  * @generated from message xylona.AllServersMetrics
@@ -211,7 +238,7 @@ export type AllServersMetrics = Message$1<"xylona.AllServersMetrics"> & {
  * Use `create(AllServersMetricsSchema)` to create a new message.
  */
 export const AllServersMetricsSchema: GenMessage<AllServersMetrics> = /*@__PURE__*/
-  messageDesc(file_websocket, 4);
+  messageDesc(file_websocket, 5);
 
 /**
  * @generated from message xylona.AllNodeMetrics
@@ -228,7 +255,7 @@ export type AllNodeMetrics = Message$1<"xylona.AllNodeMetrics"> & {
  * Use `create(AllNodeMetricsSchema)` to create a new message.
  */
 export const AllNodeMetricsSchema: GenMessage<AllNodeMetrics> = /*@__PURE__*/
-  messageDesc(file_websocket, 5);
+  messageDesc(file_websocket, 6);
 
 /**
  * @generated from message xylona.Message
@@ -278,6 +305,11 @@ export type Message = Message$1<"xylona.Message"> & {
    * @generated from field: optional xylona.UpdateProgress update_progress = 9;
    */
   updateProgress?: UpdateProgress;
+
+  /**
+   * @generated from field: optional xylona.GameServerVersionUpdate game_server_version_update = 10;
+   */
+  gameServerVersionUpdate?: GameServerVersionUpdate;
 };
 
 /**
@@ -285,7 +317,7 @@ export type Message = Message$1<"xylona.Message"> & {
  * Use `create(MessageSchema)` to create a new message.
  */
 export const MessageSchema: GenMessage<Message> = /*@__PURE__*/
-  messageDesc(file_websocket, 6);
+  messageDesc(file_websocket, 7);
 
 /**
  * @generated from enum xylona.Message.Type
@@ -335,13 +367,18 @@ export enum Message_Type {
    * @generated from enum value: GameServerUpdateProgress = 8;
    */
   GameServerUpdateProgress = 8,
+
+  /**
+   * @generated from enum value: GameServerVersion = 9;
+   */
+  GameServerVersion = 9,
 }
 
 /**
  * Describes the enum xylona.Message.Type.
  */
 export const Message_TypeSchema: GenEnum<Message_Type> = /*@__PURE__*/
-  enumDesc(file_websocket, 6, 0);
+  enumDesc(file_websocket, 7, 0);
 
 /**
  * @generated from message xylona.ServerSoftwareInstallUpdate
@@ -373,5 +410,5 @@ export type ServerSoftwareInstallUpdate = Message$1<"xylona.ServerSoftwareInstal
  * Use `create(ServerSoftwareInstallUpdateSchema)` to create a new message.
  */
 export const ServerSoftwareInstallUpdateSchema: GenMessage<ServerSoftwareInstallUpdate> = /*@__PURE__*/
-  messageDesc(file_websocket, 7);
+  messageDesc(file_websocket, 8);
 

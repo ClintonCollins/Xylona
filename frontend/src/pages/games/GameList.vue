@@ -103,7 +103,7 @@ import { useQuasar } from 'quasar'
 import { onMounted, Ref, ref } from 'vue'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { Game } from '@/proto/shared_pb'
-import { ListGamesRequest, ListGamesRequestSchema, ListGamesResponse } from 'src/proto/xylona_pb'
+import { ListGamesRequest, ListGamesRequestSchema, ListGamesResponse } from '@/proto/xylona_pb'
 
 const $q = useQuasar()
 const rows = ref([] as Game[])

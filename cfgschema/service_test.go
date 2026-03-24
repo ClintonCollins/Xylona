@@ -199,6 +199,135 @@ func TestMatchFields_ManagedFieldsResolved(t *testing.T) {
 	}
 }
 
+func TestMatchFields_ManagedFieldAliasesResolved(t *testing.T) {
+	entries := []cfgparse.ConfigEntry{
+		{Key: "server-port", Value: "25565"},
+		{Key: "query-port", Value: "25565"},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"server-port": {Type: "integer", Title: "Server Port"},
+			"query-port":  {Type: "integer", Title: "Query Port"},
+		},
+	}
+	managed := map[string]string{
+		"server-port": "server_port",
+		"query-port":  "query_port",
+	}
+
+	result := MatchFields(entries, schema, managed, ServerSettingsResolver("127.0.0.1", 25567, 25567))
+
+	if len(result.Fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(result.Fields))
+	}
+
+	if got := result.Fields[0].Value; got != "25567" {
+		t.Errorf("server-port value = %q, want %q", got, "25567")
+	}
+	if got := result.Fields[0].ManagedSource; got != "game_server.port" {
+		t.Errorf("server-port managed source = %q, want %q", got, "game_server.port")
+	}
+	if got := result.Fields[1].Value; got != "25567" {
+		t.Errorf("query-port value = %q, want %q", got, "25567")
+	}
+	if got := result.Fields[1].ManagedSource; got != "game_server.query_port" {
+		t.Errorf("query-port managed source = %q, want %q", got, "game_server.query_port")
+	}
+}
+
+func TestParseConfigSchemas_DerivesManagedFieldsFromSchemaProperties(t *testing.T) {
+	input := `[{
+		"path": "server.properties",
+		"format": "properties",
+		"category": "Core",
+		"schema": {
+			"type": "object",
+			"properties": {
+				"server-ip": {
+					"type": "string",
+					"title": "Server IP",
+					"x-managed": {"source": "game_server.ip"}
+				},
+				"server-port": {
+					"type": "integer",
+					"title": "Server Port",
+					"x-managed": {"source": "game_server.port"}
+				}
+			}
+		}
+	}]`
+
+	entries, errParse := ParseConfigSchemas(input)
+	if errParse != nil {
+		t.Fatalf("ParseConfigSchemas() error = %v", errParse)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("len(entries) = %d, want 1", len(entries))
+	}
+
+	if len(entries[0].ManagedFields) != 2 {
+		t.Fatalf("len(ManagedFields) = %d, want 2", len(entries[0].ManagedFields))
+	}
+	if got := entries[0].ManagedFields["server-ip"]; got != "game_server.ip" {
+		t.Errorf("ManagedFields[server-ip] = %q, want %q", got, "game_server.ip")
+	}
+	if got := entries[0].ManagedFields["server-port"]; got != "game_server.port" {
+		t.Errorf("ManagedFields[server-port] = %q, want %q", got, "game_server.port")
+	}
+}
+
+func TestParseConfigSchemas_CanonicalizesManagedSourceAliases(t *testing.T) {
+	input := `[{
+		"path": "server.properties",
+		"format": "properties",
+		"category": "Core",
+		"managed_fields": {
+			"server-ip": "ip"
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"server-port": {
+					"type": "integer",
+					"title": "Server Port",
+					"x-managed": {"source": "server_port"}
+				},
+				"query-port": {
+					"type": "integer",
+					"title": "Query Port",
+					"x-managed": {"source": "query_port"}
+				}
+			}
+		}
+	}]`
+
+	entries, errParse := ParseConfigSchemas(input)
+	if errParse != nil {
+		t.Fatalf("ParseConfigSchemas() error = %v", errParse)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("len(entries) = %d, want 1", len(entries))
+	}
+
+	if got := entries[0].ManagedFields["server-ip"]; got != "game_server.ip" {
+		t.Errorf("ManagedFields[server-ip] = %q, want %q", got, "game_server.ip")
+	}
+	if got := entries[0].ManagedFields["server-port"]; got != "game_server.port" {
+		t.Errorf("ManagedFields[server-port] = %q, want %q", got, "game_server.port")
+	}
+	if got := entries[0].ManagedFields["query-port"]; got != "game_server.query_port" {
+		t.Errorf("ManagedFields[query-port] = %q, want %q", got, "game_server.query_port")
+	}
+
+	if got := entries[0].Schema.Properties["server-port"].Managed.Source; got != "game_server.port" {
+		t.Errorf("Schema.Properties[server-port].Managed.Source = %q, want %q", got, "game_server.port")
+	}
+	if got := entries[0].Schema.Properties["query-port"].Managed.Source; got != "game_server.query_port" {
+		t.Errorf("Schema.Properties[query-port].Managed.Source = %q, want %q", got, "game_server.query_port")
+	}
+}
+
 func TestMatchFields_AllowMultipleCollectsValues(t *testing.T) {
 	entries := []cfgparse.ConfigEntry{
 		{Key: "level", Value: "world1", Index: 0},

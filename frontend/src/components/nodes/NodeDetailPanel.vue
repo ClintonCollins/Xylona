@@ -97,13 +97,13 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import { create } from '@bufbuild/protobuf'
 import { Timestamp, TimestampSchema } from '@bufbuild/protobuf/wkt'
-import { Node, NodeSystemInfo, NodeResourceSnapshot } from 'src/proto/shared_pb'
+import { Node, NodeSystemInfo, NodeResourceSnapshot } from '@/proto/shared_pb'
 import {
   GetNodeMetricsHistoryRequestSchema,
   GetNodeSystemInfoRequestSchema,
-} from 'src/proto/xylona_pb'
-import { AllNodeMetrics } from 'src/proto/websocket_pb'
-import { MetricsHistoryPoint } from 'src/proto/shared_pb'
+} from '@/proto/xylona_pb'
+import { AllNodeMetrics } from '@/proto/websocket_pb'
+import { MetricsHistoryPoint } from '@/proto/shared_pb'
 import { GetXylonaClient, bytesToSize, XylonaEventBus } from '@/utils/shared'
 import MetricsLineChart from '@/components/shared/MetricsLineChart.vue'
 import NodeResourceGauges from '@/components/nodes/NodeResourceGauges.vue'

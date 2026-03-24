@@ -38,6 +38,23 @@ export const managedSourceToPlaceholder: Record<string, string> = {
   rcon_password: 'RCON_PASSWORD',
 }
 
+const frontendManagedSourceToBackendSourceMap: Record<string, string> = {
+  ip: 'game_server.ip',
+  server_port: 'game_server.port',
+  query_port: 'game_server.query_port',
+  max_players: 'game_server.max_players',
+  server_name: 'game_server.server_name',
+  rcon_port: 'game_server.rcon_port',
+  rcon_password: 'game_server.rcon_password',
+}
+
+const backendManagedSourceToFrontendSourceMap = Object.fromEntries(
+  Object.entries(frontendManagedSourceToBackendSourceMap).map(([frontendSource, backendSource]) => [
+    backendSource,
+    frontendSource,
+  ]),
+) as Record<string, string>
+
 /** Maps full backend managed source keys (e.g. "game_server.port") to human-readable labels */
 export const managedSourceLabels: Record<string, string> = {
   'game_server.ip': 'IP Address',
@@ -52,6 +69,14 @@ export const managedSourceLabels: Record<string, string> = {
 /** Returns a human-readable label for a managed source key, or the raw key if unknown */
 export function getManagedSourceLabel(source: string): string {
   return managedSourceLabels[source] ?? source
+}
+
+export function toBackendManagedSource(source: string): string {
+  return frontendManagedSourceToBackendSourceMap[source] ?? source
+}
+
+export function toFrontendManagedSource(source: string): string {
+  return backendManagedSourceToFrontendSourceMap[source] ?? source
 }
 
 /** Managed source options for config schema field dropdown (excludes command-only placeholders) */

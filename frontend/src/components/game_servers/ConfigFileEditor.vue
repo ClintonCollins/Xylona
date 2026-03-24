@@ -154,7 +154,11 @@
             v-for="field in group.fields"
             :key="field.key"
             class="setting-row"
-            :class="{ 'setting-edited': editedValues.has(field.key) }">
+            :class="{
+              'setting-edited': editedValues.has(field.key),
+              'setting-managed': field.isManaged,
+            }"
+            :data-test="`config-row-${field.key}`">
             <!-- Setting name -->
             <td class="setting-key">
               <div class="setting-key-label">
@@ -177,7 +181,14 @@
             <!-- Setting value -->
             <td class="setting-value">
               <!-- Managed: read-only with lock icon and source label -->
-              <div v-if="field.isManaged" class="managed-field-display">
+              <div
+                v-if="field.isManaged"
+                class="managed-field-display"
+                data-test="managed-field-display">
+                <div class="managed-state-label">
+                  <q-icon name="admin_panel_settings" size="12px" color="accent" class="q-mr-xs" />
+                  Managed by server settings
+                </div>
                 <span class="managed-value font-mono">
                   {{ field.value || field.defaultValue }}
                   <q-icon name="lock" size="xs" color="accent" class="q-ml-xs">
@@ -1174,6 +1185,10 @@ watch(
   border-left-color: var(--xy-warning);
 }
 
+.setting-managed {
+  background-color: color-mix(in srgb, var(--xy-accent) 4%, transparent);
+}
+
 .setting-key {
   font-size: 0.8rem;
   font-weight: 600;
@@ -1206,12 +1221,35 @@ watch(
   width: 60%;
 }
 
+.managed-field-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 35%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-0));
+}
+
+.managed-state-label {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--xy-accent);
+}
+
 .managed-value {
   font-size: 0.8rem;
-  color: var(--xy-text-muted);
-  opacity: 0.6;
+  color: var(--xy-text-primary);
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+.managed-source-hint {
+  font-size: 0.72rem;
 }
 
 .inline-toggle {

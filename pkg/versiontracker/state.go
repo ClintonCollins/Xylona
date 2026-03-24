@@ -28,6 +28,8 @@ type VersionState struct {
 	LatestVersion    string
 	UpdateAvailable  bool
 	LastCheckTime    time.Time
+	InstalledCheckTime time.Time
+	LatestCheckTime    time.Time
 	TrackerType      string
 }
 
@@ -54,6 +56,14 @@ func (m *VersionStateMap) Get(serverID string) VersionState {
 		return VersionState{Status: VersionStatusNoTracker}
 	}
 	return state
+}
+
+// GetWithOK returns the VersionState and whether it was explicitly stored.
+func (m *VersionStateMap) GetWithOK(serverID string) (VersionState, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	state, ok := m.states[serverID]
+	return state, ok
 }
 
 // Set stores a VersionState for the given server ID.

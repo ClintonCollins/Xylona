@@ -165,6 +165,17 @@ func (c *Connection) UpdateRemoteServerCacheStatus(sourceNodeID string, remoteSe
 	return err
 }
 
+func (c *Connection) UpdateRemoteServerCacheVersion(sourceNodeID string, remoteServerID string, version string) error {
+	now := time.Now()
+	_, err := sqlite.RawQuery(
+		`UPDATE remote_server_cache
+		SET version = ?, last_synced_at = ?, is_stale = false, updated_at = ?
+		WHERE source_node_id = ? AND remote_server_id = ?`,
+		version, now, now, sourceNodeID, remoteServerID,
+	).Exec(c.ctx, c.DB)
+	return err
+}
+
 func (c *Connection) DeleteStaleRemoteServerCacheByNodeID(nodeID string, olderThan time.Time) error {
 	_, err := sqlite.RawQuery(
 		`DELETE FROM remote_server_cache WHERE node_id = ? AND is_stale = true AND updated_at < ?`,

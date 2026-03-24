@@ -16,13 +16,6 @@ var validFormats = map[string]bool{
 	"xml":        true,
 }
 
-// knownManagedSources lists the recognized managed field source paths.
-var knownManagedSources = map[string]bool{
-	"game_server.ip":         true,
-	"game_server.port":       true,
-	"game_server.query_port": true,
-}
-
 // configSchemaEntry represents a single entry in the config_schemas JSON array.
 type configSchemaEntry struct {
 	Path                string            `json:"path"`
@@ -80,7 +73,7 @@ func ValidateConfigSchemas(schemasJSON string) []string {
 		}
 
 		for key, source := range entry.ManagedFields {
-			if !knownManagedSources[source] {
+			if !isKnownManagedSource(source) {
 				errs = append(errs, fmt.Sprintf("%s: unknown managed field source %q for key %q", prefix, source, key))
 			}
 		}
@@ -101,11 +94,19 @@ func ValidateConfigSchemas(schemasJSON string) []string {
 				Properties map[string]struct {
 					Enum       []any    `json:"enum"`
 					EnumLabels []string `json:"x-enum-labels"`
+					Managed    *struct {
+						Source string `json:"source"`
+					} `json:"x-managed"`
 				} `json:"properties"`
 			}
 			errSchemaParse := json.Unmarshal(entry.Schema, &schemaDef)
 			if errSchemaParse == nil && schemaDef.Properties != nil {
 				for propKey, prop := range schemaDef.Properties {
+					if prop.Managed != nil && !isKnownManagedSource(prop.Managed.Source) {
+						errs = append(errs, fmt.Sprintf(
+							"%s: unknown managed field source %q for key %q",
+							prefix, prop.Managed.Source, propKey))
+					}
 					if len(prop.EnumLabels) > 0 && len(prop.Enum) == 0 {
 						errs = append(errs, fmt.Sprintf(
 							"%s: property %q has x-enum-labels but no enum values",

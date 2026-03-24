@@ -593,7 +593,7 @@ import {
   GetGameRequestSchema,
   GetGameResponse,
   UpdateGameConfigSchemasRequestSchema,
-} from 'src/proto/xylona_pb'
+} from '@/proto/xylona_pb'
 import { GetXylonaClient, ConnectErrorToString } from '@/utils/shared'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'

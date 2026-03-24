@@ -116,8 +116,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { GameServer, Status } from 'src/proto/shared_pb'
-import { AllServersMetrics } from 'src/proto/websocket_pb'
+import { GameServer, Status } from '@/proto/shared_pb'
+import { AllServersMetrics } from '@/proto/websocket_pb'
 import { XylonaEventBus, bytesToSize } from '@/utils/shared'
 
 const props = defineProps<{

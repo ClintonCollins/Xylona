@@ -297,6 +297,9 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 			Version:        resolveGameServerVersion(gs),
 			UpdatedAt:      timestamppb.New(gs.UpdatedAt),
 		}
+		summary.Version, summary.VersionInfo = fs.resolveLocalVersionData(ctx, gs, actions.VersionResolveOptions{
+			AllowAsync: true,
+		})
 		populateFederationSummaryMetrics(summary, fs.supervisorInst, gs.ID)
 		resp.Servers = append(resp.Servers, summary)
 	}
@@ -385,6 +388,9 @@ func (fs FederationService) GetServerDetail(ctx context.Context, request *connec
 		Version:     resolveGameServerVersion(gs),
 		UpdatedAt:   timestamppb.New(gs.UpdatedAt),
 	}
+	summary.Version, summary.VersionInfo = fs.resolveLocalVersionData(ctx, gs, actions.VersionResolveOptions{
+		AllowAsync: true,
+	})
 
 	populateFederationSummaryMetrics(summary, fs.supervisorInst, gs.ID)
 
@@ -702,6 +708,9 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 	serverRemovedCh := eventbus.Get().Subscribe(eventbus.TopicGameServerRemoved)
 	defer eventbus.Get().Unsubscribe(eventbus.TopicGameServerRemoved, serverRemovedCh)
 
+	serverVersionChangedCh := eventbus.Get().SubscribeReliable(eventbus.TopicGameServerVersionChanged)
+	defer eventbus.Get().Unsubscribe(eventbus.TopicGameServerVersionChanged, serverVersionChangedCh)
+
 	metricsTicker := time.NewTicker(streamMetricsInterval)
 	defer metricsTicker.Stop()
 
@@ -770,6 +779,23 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 				},
 			})
 			if errSendRemove != nil {
+				return nil
+			}
+		case rawEvent := <-serverVersionChangedCh:
+			versionEvent, ok := rawEvent.(eventbus.VersionChangedEvent)
+			if !ok {
+				continue
+			}
+			errVersion := stream.Send(&xylona.FederationServerUpdateEvent{
+				Event: &xylona.FederationServerUpdateEvent_VersionChange{
+					VersionChange: &xylona.FederationServerVersionChange{
+						ServerId:    versionEvent.ServerID,
+						Version:     versionEvent.Version,
+						VersionInfo: versionEvent.VersionInfo,
+					},
+				},
+			})
+			if errVersion != nil {
 				return nil
 			}
 		case update := <-statusChan:
@@ -857,6 +883,9 @@ func (fs FederationService) buildServerSnapshot() (*xylona.FederationServerSnaps
 			MapName:        gs.Map,
 			Version:        resolveGameServerVersion(gs),
 		}
+		serverState.Version, serverState.VersionInfo = fs.resolveLocalVersionData(fs.ctx, gs, actions.VersionResolveOptions{
+			AllowAsync: true,
+		})
 
 		serverState.Metrics = buildServerStateMetrics(fs.supervisorInst, gs.ID)
 		snapshot.Servers = append(snapshot.Servers, serverState)
@@ -1032,8 +1061,12 @@ func (fs FederationService) EditRemoteServer(ctx context.Context, request *conne
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
 
-	gameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
-	gameServerModel.ID = existingGS.ID
+	incomingGameServer := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+	gameServerModel := mergeEditableGameServerUpdate(
+		existingGS,
+		incomingGameServer,
+		helpers.FederatedActingIsSuperUser(request.Header()),
+	)
 	setter := helpers.GameServerModelToSetter(gameServerModel)
 	_, errUpdate := fs.db.UpdateGameServer(fs.db.DB, setter)
 	if errUpdate != nil {

@@ -35,6 +35,7 @@
           </template>
         </q-input>
         <q-btn
+          v-if="showCreateButton"
           color="primary"
           to="/game-servers/create"
           :disable="loading"
@@ -66,23 +67,22 @@
         <template #body-cell-status="props">
           <q-td :props="props">
             <status-badge style="margin-left: -1em" :status="props.row.statusEnum"></status-badge>
-            <version-badge :update-available="props.row.versionInfo?.updateAvailable ?? false" />
           </q-td>
         </template>
         <template #body-cell-version="props">
           <q-td :props="props">
-            <template v-if="props.row.versionInfo?.status === VersionStatus.CHECKED">
-              <span class="version-text">{{ props.row.versionInfo.installedVersion }}</span>
-              <template v-if="props.row.versionInfo.updateAvailable">
+            <template v-if="getVersionDisplay(props.row).checked">
+              <span class="version-text">{{ getVersionDisplay(props.row).installedVersion }}</span>
+              <template v-if="getVersionDisplay(props.row).updateAvailable">
                 <span class="version-arrow">→</span>
-                <span class="version-new">{{ props.row.versionInfo.latestVersion }}</span>
+                <span class="version-new">{{ getVersionDisplay(props.row).latestVersion }}</span>
               </template>
             </template>
-            <template v-else-if="props.row.versionInfo?.status === VersionStatus.CHECKING">
+            <template v-else-if="getVersionDisplay(props.row).checking">
               <q-spinner size="1em" color="primary" />
             </template>
-            <template v-else-if="getDisplayVersion(props.row)">
-              <span class="version-text">{{ getDisplayVersion(props.row) }}</span>
+            <template v-else-if="getVersionDisplay(props.row).installedVersion">
+              <span class="version-text">{{ getVersionDisplay(props.row).installedVersion }}</span>
             </template>
             <template v-else>
               <span class="version-na">—</span>
@@ -145,12 +145,11 @@
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { computed, onMounted, Ref, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
-import VersionBadge from '@/components/game_servers/VersionBadge.vue'
 import {
   Node,
   StartGameServerRequest,
@@ -158,7 +157,7 @@ import {
   Status,
   StopGameServerRequest,
   StopGameServerRequestSchema,
-  VersionStatus,
+  type VersionInfo,
 } from '@/proto/shared_pb'
 import { useStorage } from '@vueuse/core'
 import {
@@ -173,6 +172,8 @@ import {
   type DisplayRow,
 } from './server-list-cache'
 import { getStartableServers, getStoppableServers } from './server-list-actions'
+import { useUserAuthStore } from '@/stores/xylona'
+import { resolveCanonicalVersionDisplay } from './version-display'
 
 const aggregatedServers = ref([] as AggregatedGameServer[])
 const nodesByID = ref(new Map<string, Node>())
@@ -190,6 +191,8 @@ const initialPagination = useStorage('game-server-pagination', {
   rowsPerPage: 25,
   page: 1,
 })
+const authStore = useUserAuthStore()
+const showCreateButton = computed(() => authStore.user?.superUser ?? false)
 
 const liveDisplayRows = computed((): DisplayRow[] => {
   return buildDisplayRows(aggregatedServers.value, nodesByID.value)
@@ -217,6 +220,12 @@ const selectedGameServersForStop = computed(() => {
 onMounted(async () => {
   await getGameServers()
   watchServerStatusChanges()
+  watchServerVersionChanges()
+})
+
+onBeforeUnmount(() => {
+  XylonaEventBus.off('gameServerStatus', handleServerStatusUpdate)
+  XylonaEventBus.off('gameServerVersion', handleServerVersionUpdate)
 })
 
 async function getGameServers() {
@@ -283,9 +292,11 @@ async function getGameServers() {
 }
 
 function watchServerStatusChanges() {
-  XylonaEventBus.on('gameServerStatus', (serverID: string, serverStatus: Status) => {
-    setServerStatus(serverID, serverStatus)
-  })
+  XylonaEventBus.on('gameServerStatus', handleServerStatusUpdate)
+}
+
+function watchServerVersionChanges() {
+  XylonaEventBus.on('gameServerVersion', handleServerVersionUpdate)
 }
 
 async function deleteGameServerAction(row: DisplayRow | null) {
@@ -320,8 +331,39 @@ function setServerStatus(serverID: string, serverStatus: Status) {
   }
 }
 
+function setServerVersion(serverID: string, version: string, versionInfo?: VersionInfo) {
+  for (const row of cachedDisplayRows.value) {
+    if (row.id === serverID) {
+      row.version = version
+    }
+  }
+
+  for (const server of aggregatedServers.value) {
+    if (server.isLocal && server.localServer && server.localServer.id === serverID) {
+      server.localServer.version = version
+      server.localServer.versionInfo = versionInfo
+    }
+    if (!server.isLocal && server.remoteServer && server.remoteServer.remoteServerId === serverID) {
+      server.remoteServer.version = version
+      server.remoteServer.versionInfo = versionInfo
+    }
+  }
+}
+
+function handleServerStatusUpdate(serverID: string, serverStatus: Status) {
+  setServerStatus(serverID, serverStatus)
+}
+
+function handleServerVersionUpdate(serverID: string, version: string, versionInfo?: VersionInfo) {
+  setServerVersion(serverID, version, versionInfo)
+}
+
+function getVersionDisplay(row: DisplayRow) {
+  return resolveCanonicalVersionDisplay(row.version, row.versionInfo)
+}
+
 function getDisplayVersion(row: DisplayRow): string {
-  return row.versionInfo?.installedVersion || row.version
+  return getVersionDisplay(row).installedVersion
 }
 
 async function startSelectedGameServers() {
