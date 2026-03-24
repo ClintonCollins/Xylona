@@ -22,8 +22,18 @@ describe('operation-output', () => {
   it('routes offline output away from the console and into the active dialog', () => {
     expect(
       resolveOperationOutputRoute({
+        isServerOffline: false,
+        updateRequested: true,
+        updateInProgress: false,
+        softwareOperationInProgress: false,
+      }),
+    ).toBe('update')
+
+    expect(
+      resolveOperationOutputRoute({
         isServerOffline: true,
         updateInProgress: true,
+        updateRequested: false,
         softwareOperationInProgress: false,
       }),
     ).toBe('update')
@@ -32,6 +42,7 @@ describe('operation-output', () => {
       resolveOperationOutputRoute({
         isServerOffline: true,
         updateInProgress: false,
+        updateRequested: false,
         softwareOperationInProgress: true,
       }),
     ).toBe('software')
@@ -40,6 +51,7 @@ describe('operation-output', () => {
       resolveOperationOutputRoute({
         isServerOffline: true,
         updateInProgress: false,
+        updateRequested: false,
         softwareOperationInProgress: false,
       }),
     ).toBe('discard')

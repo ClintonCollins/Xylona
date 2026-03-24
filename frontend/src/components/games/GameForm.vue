@@ -100,7 +100,7 @@
               lazy-rules
               hint="Default server query port. e.g: 25565" />
             <q-input
-              v-model.number="game.steamAppid"
+              v-model="game.steamAppid"
               class="col-12 col-sm-6 col-md-4"
               outlined
               type="number"
@@ -600,6 +600,7 @@ import { useRouter } from 'vue-router'
 import { CommandProcessor, Game } from '@/proto/shared_pb'
 import ConfigSchemaList from './ConfigSchemaList.vue'
 import type { ConfigSchemaEntry } from './ConfigSchemaList.vue'
+import { normalizeSteamAppID } from './game-form-normalization'
 import { gamePresets, detectPreset, presetToJson } from '@/utils/game-presets'
 
 const $q = useQuasar()
@@ -1010,6 +1011,7 @@ async function addNewGame() {
   request.game = game.value
   request.game.defaultPort = BigInt(defaultPort.value ?? 0)
   request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
+  request.game.steamAppid = normalizeSteamAppID(request.game.steamAppid)
   try {
     await GetXylonaClient().addGame(request)
     savedSuccessfully.value = true
@@ -1037,6 +1039,7 @@ async function updateExistingGame() {
   request.game = game.value as Game
   request.game.defaultPort = BigInt(defaultPort.value ?? 0)
   request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
+  request.game.steamAppid = normalizeSteamAppID(request.game.steamAppid)
   try {
     await GetXylonaClient().editGame(request)
     savedSuccessfully.value = true

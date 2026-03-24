@@ -319,6 +319,8 @@ func TestGameModelToProto(t *testing.T) {
 		UpdatedAt:                         now,
 		UsesSourceQuery:                   true,
 		RequiresSteamGameServerLoginToken: true,
+		UsesSteamcmd:                      true,
+		SteamAppID:                        "294420",
 	}
 
 	got := GameModelToProto(input)
@@ -353,6 +355,12 @@ func TestGameModelToProto(t *testing.T) {
 	if !got.RequiresSteamGameServerLoginToken {
 		t.Errorf("RequiresSteamGameServerLoginToken = %v, want true", got.RequiresSteamGameServerLoginToken)
 	}
+	if !got.UsesSteamcmd {
+		t.Errorf("UsesSteamcmd = %v, want true", got.UsesSteamcmd)
+	}
+	if got.SteamAppid != "294420" {
+		t.Errorf("SteamAppid = %q, want %q", got.SteamAppid, "294420")
+	}
 }
 
 func TestGameProtoToModel(t *testing.T) {
@@ -370,6 +378,8 @@ func TestGameProtoToModel(t *testing.T) {
 		UpdatedAt:                         timestamppb.New(now),
 		UsesSourceQuery:                   true,
 		RequiresSteamGameServerLoginToken: true,
+		UsesSteamcmd:                      true,
+		SteamAppid:                        "294420",
 	}
 
 	got := GameProtoToModel(input)
@@ -394,6 +404,12 @@ func TestGameProtoToModel(t *testing.T) {
 	}
 	if !got.UsesSourceQuery {
 		t.Errorf("UsesSourceQuery = %v, want true", got.UsesSourceQuery)
+	}
+	if !got.UsesSteamcmd {
+		t.Errorf("UsesSteamcmd = %v, want true", got.UsesSteamcmd)
+	}
+	if got.SteamAppID != "294420" {
+		t.Errorf("SteamAppID = %q, want %q", got.SteamAppID, "294420")
 	}
 	if !got.CreatedAt.Equal(now) {
 		t.Errorf("CreatedAt = %v, want %v", got.CreatedAt, now)

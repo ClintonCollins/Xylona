@@ -124,11 +124,15 @@ func versionStateToProto(state versiontracker.VersionState) *xylona.VersionInfo 
 	}
 
 	return &xylona.VersionInfo{
-		InstalledVersion: state.InstalledVersion,
-		LatestVersion:    state.LatestVersion,
-		UpdateAvailable:  state.UpdateAvailable,
-		LastCheckTime:    lastCheckUnix,
-		TrackerType:      state.TrackerType,
-		Status:           protoStatus,
+		InstalledVersion:      state.InstalledVersion,
+		LatestVersion:         state.LatestVersion,
+		UpdateAvailable:       state.UpdateAvailable,
+		LastCheckTime:         lastCheckUnix,
+		TrackerType:           state.TrackerType,
+		Status:                protoStatus,
+		InstalledVersionLabel: state.InstalledVersionLabel,
+		LatestVersionLabel:    state.LatestVersionLabel,
+		InstalledBranch:       state.InstalledBranch,
+		LatestBranch:          state.LatestBranch,
 	}
 }

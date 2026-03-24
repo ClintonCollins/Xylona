@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -276,7 +277,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	broadcast(
 		xylona.UpdateStep_UPDATE_STEP_DOWNLOADING,
 		xylona.StepStatus_STEP_STATUS_IN_PROGRESS,
-		downloadStartMessage(updatePlan),
+		downloadStartMessage(gameServer, updatePlan),
 	)
 
 	// If the dummy tracker has failure simulation enabled, treat this as a failed update.
@@ -375,8 +376,11 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	}
 }
 
-func downloadStartMessage(plan *minecraftUpdatePlan) string {
+func downloadStartMessage(gameServer *models.GameServer, plan *minecraftUpdatePlan) string {
 	if plan == nil {
+		if usesSteamCMDUpdate(gameServer) {
+			return "Preparing SteamCMD update"
+		}
 		return "Downloading update"
 	}
 
@@ -392,6 +396,9 @@ func downloadStartMessage(plan *minecraftUpdatePlan) string {
 
 func downloadCompleteMessage(gameServer *models.GameServer, plan *minecraftUpdatePlan) string {
 	if plan == nil {
+		if usesSteamCMDUpdate(gameServer) {
+			return "SteamCMD session ready"
+		}
 		return "Download complete"
 	}
 
@@ -403,6 +410,13 @@ func downloadCompleteMessage(gameServer *models.GameServer, plan *minecraftUpdat
 
 func installStartMessage(gameServer *models.GameServer, plan *minecraftUpdatePlan) string {
 	if plan == nil {
+		if usesSteamCMDUpdate(gameServer) {
+			branch := versiontracker.NormalizeSteamBranch(gameServer.Branch)
+			if branch == "public" {
+				return "Running SteamCMD update"
+			}
+			return "Running SteamCMD update for branch " + branch
+		}
 		return "Installing update"
 	}
 
@@ -414,6 +428,9 @@ func installStartMessage(gameServer *models.GameServer, plan *minecraftUpdatePla
 
 func installCompleteMessage(gameServer *models.GameServer, plan *minecraftUpdatePlan, wasRunning bool) string {
 	if plan == nil {
+		if usesSteamCMDUpdate(gameServer) {
+			return "SteamCMD update complete"
+		}
 		if wasRunning {
 			return "Update installed"
 		}
@@ -436,6 +453,14 @@ func updatedJarName(gameServer *models.GameServer, plan *minecraftUpdatePlan) st
 		return plan.plannedFileName
 	}
 	return ""
+}
+
+func usesSteamCMDUpdate(gameServer *models.GameServer) bool {
+	if gameServer == nil || gameServer.R.Game == nil {
+		return false
+	}
+
+	return gameServer.R.Game.UsesSteamcmd
 }
 
 func waitForServerOnline(

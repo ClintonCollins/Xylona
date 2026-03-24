@@ -20,22 +20,45 @@ function cloneStep(step: StepState): StepState {
   return { ...step }
 }
 
-export function buildUpdateSteps(status: Status): StepState[] {
+export function buildUpdateStepLabels(params: { usesSteamcmd: boolean }): Partial<
+  Record<UpdateStep, string>
+> {
+  if (!params.usesSteamcmd) {
+    return {}
+  }
+
+  return {
+    [UpdateStep.DOWNLOADING]: 'Preparing SteamCMD',
+    [UpdateStep.INSTALLING]: 'Running SteamCMD',
+  }
+}
+
+export function buildUpdateSteps(
+  status: Status,
+  labels: Partial<Record<UpdateStep, string>> = {},
+): StepState[] {
   const wasRunning = status !== Status.OFFLINE && status !== Status.UNKNOWN
   const steps: StepState[] = []
+  const makeStep = (step: UpdateStep): StepState => {
+    const label = labels[step]
+    if (label) {
+      return { step, status: StepStatus.PENDING, label }
+    }
+    return { step, status: StepStatus.PENDING }
+  }
 
   if (wasRunning) {
-    steps.push({ step: UpdateStep.STOPPING, status: StepStatus.PENDING })
+    steps.push(makeStep(UpdateStep.STOPPING))
   }
 
   steps.push(
-    { step: UpdateStep.BACKING_UP, status: StepStatus.PENDING },
-    { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING },
-    { step: UpdateStep.INSTALLING, status: StepStatus.PENDING },
+    makeStep(UpdateStep.BACKING_UP),
+    makeStep(UpdateStep.DOWNLOADING),
+    makeStep(UpdateStep.INSTALLING),
   )
 
   if (wasRunning) {
-    steps.push({ step: UpdateStep.RESTARTING, status: StepStatus.PENDING })
+    steps.push(makeStep(UpdateStep.RESTARTING))
   }
 
   return steps
@@ -66,6 +89,9 @@ export function applyUpdateProgress(
 
   const existingIndex = nextSteps.findIndex((step) => step.step === progress.step)
   if (existingIndex >= 0) {
+    if (nextSteps[existingIndex].label) {
+      nextState.label = nextSteps[existingIndex].label
+    }
     nextSteps[existingIndex] = nextState
     return nextSteps
   }

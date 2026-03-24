@@ -23,14 +23,18 @@ const (
 
 // VersionState holds the version tracking state for a single game server.
 type VersionState struct {
-	Status           VersionStatus
-	InstalledVersion string
-	LatestVersion    string
-	UpdateAvailable  bool
-	LastCheckTime    time.Time
-	InstalledCheckTime time.Time
-	LatestCheckTime    time.Time
-	TrackerType      string
+	Status                VersionStatus
+	InstalledVersion      string
+	LatestVersion         string
+	UpdateAvailable       bool
+	LastCheckTime         time.Time
+	InstalledCheckTime    time.Time
+	LatestCheckTime       time.Time
+	TrackerType           string
+	InstalledVersionLabel string
+	LatestVersionLabel    string
+	InstalledBranch       string
+	LatestBranch          string
 }
 
 // VersionStateMap is a concurrent-safe map of server ID to VersionState.

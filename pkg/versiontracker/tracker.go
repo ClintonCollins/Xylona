@@ -9,9 +9,13 @@ import (
 
 // UpdateInfo describes an available update for a game server.
 type UpdateInfo struct {
-	InstalledVersion string
-	LatestVersion    string
-	UpdateAvailable  bool
+	InstalledVersion      string
+	LatestVersion         string
+	UpdateAvailable       bool
+	InstalledVersionLabel string
+	LatestVersionLabel    string
+	InstalledBranch       string
+	LatestBranch          string
 }
 
 // VersionTracker detects installed and latest versions for a game server.
@@ -30,6 +34,14 @@ type VersionTracker interface {
 
 func normalizeVersion(version string) string {
 	return strings.TrimSpace(version)
+}
+
+func NormalizeSteamBranch(branch string) string {
+	normalized := strings.TrimSpace(branch)
+	if normalized == "" {
+		return "public"
+	}
+	return normalized
 }
 
 func versionsEqual(installed string, latest string) bool {

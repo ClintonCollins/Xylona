@@ -955,6 +955,19 @@ func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *con
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
 	}
 
+	if gs.R.Game != nil && gs.R.Game.UsesSteamcmd {
+		branchToPersist := strings.TrimSpace(request.Msg.GetSteamBranch())
+		if branchToPersist == "" {
+			branchToPersist = gs.Branch
+		}
+
+		errPersist := fs.actionsInst.PersistSteamBranchSelection(gs, branchToPersist)
+		if errPersist != nil {
+			log.Error().Err(errPersist).Str("server_id", serverID).Msg("Failed to persist steam branch selection")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to persist steam branch selection"))
+		}
+	}
+
 	errUpdate := fs.actionsInst.UpdateGameServer(gs)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Str("server_id", serverID).Msg("Failed to update game server")

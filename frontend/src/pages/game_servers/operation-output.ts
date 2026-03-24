@@ -27,19 +27,20 @@ export function appendOperationOutputLines(
 
 export function resolveOperationOutputRoute(params: {
   isServerOffline: boolean
+  updateRequested: boolean
   updateInProgress: boolean
   softwareOperationInProgress: boolean
 }): OperationOutputRoute {
-  if (!params.isServerOffline) {
-    return 'console'
-  }
-
   if (params.softwareOperationInProgress) {
     return 'software'
   }
 
-  if (params.updateInProgress) {
+  if (params.updateRequested || params.updateInProgress) {
     return 'update'
+  }
+
+  if (!params.isServerOffline) {
+    return 'console'
   }
 
   return 'discard'

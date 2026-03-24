@@ -27,6 +27,27 @@ describe('resolveCanonicalVersionDisplay', () => {
     })
   })
 
+  it('prefers display labels when they are available', () => {
+    const display = resolveCanonicalVersionDisplay('21600865', {
+      ...create(VersionInfoSchema, {
+        status: VersionStatus.CHECKED,
+        installedVersion: '21600865',
+        installedVersionLabel: 'Public (21600865)',
+        latestVersion: '22422094',
+        latestVersionLabel: 'Unstable build (22422094)',
+        updateAvailable: true,
+        lastCheckTime: 0n,
+        trackerType: 'steamcmd',
+      }),
+    })
+
+    expect(display).toMatchObject({
+      installedVersion: 'Public (21600865)',
+      latestVersion: 'Unstable build (22422094)',
+      updateAvailable: true,
+    })
+  })
+
   it('falls back to the raw version when checked installed version is empty', () => {
     const display = resolveCanonicalVersionDisplay('1.20.1', {
       ...create(VersionInfoSchema, {
@@ -95,6 +116,27 @@ describe('resolveCanonicalVersionDisplay', () => {
       updateAvailable: false,
       checked: false,
       checking: false,
+    })
+  })
+
+  it('falls back from empty labels to the raw versions', () => {
+    const display = resolveCanonicalVersionDisplay('21600865', {
+      ...create(VersionInfoSchema, {
+        status: VersionStatus.CHECKED,
+        installedVersion: '21600865',
+        installedVersionLabel: '',
+        latestVersion: '22422094',
+        latestVersionLabel: '',
+        updateAvailable: true,
+        lastCheckTime: 0n,
+        trackerType: 'steamcmd',
+      }),
+    })
+
+    expect(display).toMatchObject({
+      installedVersion: '21600865',
+      latestVersion: '22422094',
+      updateAvailable: true,
     })
   })
 })

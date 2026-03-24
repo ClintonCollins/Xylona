@@ -430,6 +430,32 @@ assertDetailedOutput:
 	}
 }
 
+func TestSteamCMDUpdateMessagesUseSteamCMDSpecificWording(t *testing.T) {
+	gameServer := &models.GameServer{
+		Branch: "latest_experimental",
+	}
+	gameServer.R.Game = &models.Game{
+		UsesSteamcmd: true,
+	}
+
+	if got := downloadStartMessage(gameServer, nil); got != "Preparing SteamCMD update" {
+		t.Fatalf("downloadStartMessage() = %q, want %q", got, "Preparing SteamCMD update")
+	}
+	if got := downloadCompleteMessage(gameServer, nil); got != "SteamCMD session ready" {
+		t.Fatalf("downloadCompleteMessage() = %q, want %q", got, "SteamCMD session ready")
+	}
+	if got := installStartMessage(gameServer, nil); got != "Running SteamCMD update for branch latest_experimental" {
+		t.Fatalf(
+			"installStartMessage() = %q, want %q",
+			got,
+			"Running SteamCMD update for branch latest_experimental",
+		)
+	}
+	if got := installCompleteMessage(gameServer, nil, false); got != "SteamCMD update complete" {
+		t.Fatalf("installCompleteMessage() = %q, want %q", got, "SteamCMD update complete")
+	}
+}
+
 type recordedUpdateProgress struct {
 	step       xylona.UpdateStep
 	stepStatus xylona.StepStatus

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +46,7 @@ var (
 	ErrGameUpdateNotConfigured            = errors.New("game update is not configured")
 	ErrInternalGameUpdateMissing          = errors.New("internal game updater is not registered")
 	ErrMinecraftVariantUpdateNotSupported = errors.New("updates are not supported for this Minecraft server software")
+	reSteamBranchableUpdate               = regexp.MustCompile(`(?i)(\+app_update\s+\d+)`)
 )
 
 const (
@@ -665,7 +667,10 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 
 	preparedCommand := supervisor.PreparedCommand{
 		ID:                 gameServer.ID,
-		FullCommandAndArgs: placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
+		FullCommandAndArgs: appendSteamBranchToUpdateCommand(
+			placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
+			gameServer.Branch,
+		),
 		WorkingDirectory:   gameServer.Directory,
 		User:               gameServer.UserID,
 		GameServerID:       &gameServer.ID,
@@ -688,6 +693,51 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 		log.Error().Err(errStart).Str("Game Server ID", gameServer.ID).Msg("Failed to start update command")
 		return errStart
 	}
+	return nil
+}
+
+func normalizeSteamBranch(branch string) string {
+	return versiontracker.NormalizeSteamBranch(branch)
+}
+
+func appendSteamBranchToUpdateCommand(command string, branch string) string {
+	if !strings.Contains(strings.ToLower(command), "steamcmd") {
+		return command
+	}
+
+	normalizedBranch := normalizeSteamBranch(branch)
+	if normalizedBranch == "public" {
+		return command
+	}
+
+	if strings.Contains(strings.ToLower(command), " -beta ") {
+		return command
+	}
+
+	if reSteamBranchableUpdate.MatchString(command) {
+		return reSteamBranchableUpdate.ReplaceAllString(command, fmt.Sprintf("${1} -beta %s", normalizedBranch))
+	}
+
+	return command + " -beta " + normalizedBranch
+}
+
+func (inst *Instance) PersistSteamBranchSelection(gameServer *models.GameServer, branch string) error {
+	normalizedBranch := normalizeSteamBranch(branch)
+	gameServer.Branch = normalizedBranch
+
+	if inst.db == nil {
+		return nil
+	}
+
+	updated, errUpdate := inst.db.UpdateGameServer(inst.db.DB, &models.GameServerSetter{
+		ID:     omit.From(gameServer.ID),
+		Branch: omit.From(normalizedBranch),
+	})
+	if errUpdate != nil {
+		return errUpdate
+	}
+
+	gameServer.Branch = updated.Branch
 	return nil
 }
 

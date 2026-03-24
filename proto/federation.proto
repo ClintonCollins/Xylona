@@ -179,6 +179,7 @@ message FederationRemoteActionRequest {
   string server_id = 1;
   string acting_user_id = 2;
   string origin_node_id = 3;
+  string steam_branch = 4;
 }
 
 message FederationRemoteActionResponse {

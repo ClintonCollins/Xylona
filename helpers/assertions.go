@@ -63,6 +63,7 @@ func GameServerProtoToModel(gsProto *xylona.GameServer) *models.GameServer {
 		BackupDirectory:           gsProto.BackupDirectory,
 		MaxBackups:                gsProto.MaxBackups,
 		NodeID:                    gsProto.NodeId,
+		Branch:                    gsProto.Branch,
 		CreatedAt:                 gsProto.CreatedAt.AsTime(),
 		UpdatedAt:                 gsProto.UpdatedAt.AsTime(),
 	}
@@ -109,6 +110,7 @@ func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.Vers
 		NodeHost:                  gsModel.R.Node.Host,
 		NodePort:                  gsModel.R.Node.Port,
 		Version:                   gsModel.Version,
+		Branch:                    gsModel.Branch,
 		ServerSoftware:            gsModel.ServerSoftware.GetOr(""),
 		ServerExecutable:          gsModel.ServerExecutable.GetOr(""),
 		Game:                      gameProtoFromRelation(gsModel),
@@ -138,12 +140,16 @@ func versionStateToVersionInfoProto(state versiontracker.VersionState) *xylona.V
 	}
 
 	return &xylona.VersionInfo{
-		InstalledVersion: state.InstalledVersion,
-		LatestVersion:    state.LatestVersion,
-		UpdateAvailable:  state.UpdateAvailable,
-		LastCheckTime:    lastCheckUnix,
-		TrackerType:      state.TrackerType,
-		Status:           protoStatus,
+		InstalledVersion:      state.InstalledVersion,
+		LatestVersion:         state.LatestVersion,
+		UpdateAvailable:       state.UpdateAvailable,
+		LastCheckTime:         lastCheckUnix,
+		TrackerType:           state.TrackerType,
+		Status:                protoStatus,
+		InstalledVersionLabel: state.InstalledVersionLabel,
+		LatestVersionLabel:    state.LatestVersionLabel,
+		InstalledBranch:       state.InstalledBranch,
+		LatestBranch:          state.LatestBranch,
 	}
 }
 
@@ -175,6 +181,7 @@ func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSette
 		BackupDirectory:           omit.From(gsModel.BackupDirectory),
 		MaxBackups:                omit.From(gsModel.MaxBackups),
 		NodeID:                    omit.From(gsModel.NodeID),
+		Branch:                    omit.From(gsModel.Branch),
 		CreatedAt:                 omit.From(gsModel.CreatedAt),
 		UpdatedAt:                 omit.From(gsModel.UpdatedAt),
 	}
@@ -209,6 +216,8 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		UpdatedAt:                         timestamppb.New(gameModel.UpdatedAt),
 		UsesSourceQuery:                   gameModel.UsesSourceQuery,
 		RequiresSteamGameServerLoginToken: gameModel.RequiresSteamGameServerLoginToken,
+		UsesSteamcmd:                      gameModel.UsesSteamcmd,
+		SteamAppid:                        gameModel.SteamAppID,
 		ConfigSchemas:                     gameModel.ConfigSchemas.GetOr(""),
 		ServerSoftware:                    gameModel.ServerSoftware.GetOr(""),
 	}
@@ -243,6 +252,8 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		UpdatedAt:                         gameProto.UpdatedAt.AsTime(),
 		UsesSourceQuery:                   gameProto.UsesSourceQuery,
 		RequiresSteamGameServerLoginToken: gameProto.RequiresSteamGameServerLoginToken,
+		UsesSteamcmd:                      gameProto.UsesSteamcmd,
+		SteamAppID:                        gameProto.SteamAppid,
 		ConfigSchemas:                     null.FromCond(gameProto.ConfigSchemas, gameProto.ConfigSchemas != ""),
 		ServerSoftware:                    null.FromCond(gameProto.ServerSoftware, gameProto.ServerSoftware != ""),
 	}

@@ -15,9 +15,16 @@ export function resolveCanonicalVersionDisplay(
 ): CanonicalVersionDisplay {
   const checked = versionInfo?.status === VersionStatus.CHECKED
   const checking = versionInfo?.status === VersionStatus.CHECKING
-  const installedVersion = (versionInfo?.installedVersion || version || '').trim()
+  const installedVersion = (
+    versionInfo?.installedVersionLabel ||
+    versionInfo?.installedVersion ||
+    version ||
+    ''
+  ).trim()
   const latestVersion =
-    checked && versionInfo?.updateAvailable ? (versionInfo.latestVersion || '').trim() : ''
+    checked && versionInfo?.updateAvailable
+      ? (versionInfo.latestVersionLabel || versionInfo.latestVersion || '').trim()
+      : ''
 
   return {
     installedVersion,

@@ -4,6 +4,10 @@ package steamcache
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -126,5 +130,40 @@ func TestIntegration_FetchDetails_GameAppID(t *testing.T) {
 	}
 	if details.Type != "Game" {
 		t.Errorf("Type = %q, want %q", details.Type, "Game")
+	}
+}
+
+func TestIntegration_RefreshRecorded294420Fixture(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	if os.Getenv("XYLONA_REFRESH_STEAMCACHE_FIXTURES") == "" {
+		t.Skip("set XYLONA_REFRESH_STEAMCACHE_FIXTURES=1 to refresh recorded steamcache fixtures")
+	}
+
+	c := New()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, errRequest := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.steamcmd.net/v1/info/294420", nil)
+	if errRequest != nil {
+		t.Fatalf("http.NewRequestWithContext() error = %v", errRequest)
+	}
+
+	resp, errDo := c.client().Do(req)
+	if errDo != nil {
+		t.Fatalf("client.Do() error = %v", errDo)
+	}
+	defer resp.Body.Close()
+
+	body, errRead := io.ReadAll(resp.Body)
+	if errRead != nil {
+		t.Fatalf("io.ReadAll() error = %v", errRead)
+	}
+
+	fixturePath := filepath.Join("testdata", "steamcmd-294420.json")
+	errWrite := os.WriteFile(fixturePath, body, 0o644)
+	if errWrite != nil {
+		t.Fatalf("os.WriteFile(%q) error = %v", fixturePath, errWrite)
 	}
 }

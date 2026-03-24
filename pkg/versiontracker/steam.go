@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/steamcache"
 )
 
 var (
@@ -40,6 +41,7 @@ type SteamTracker struct {
 	httpClient     *http.Client
 	steamAPIURL    string
 	preferredAppID string
+	steamCache     *steamcache.Client
 }
 
 // NewSteamTracker creates a new SteamTracker using the real Steam API.
@@ -54,6 +56,7 @@ func NewSteamTrackerWithAppID(appID string) *SteamTracker {
 		httpClient:     &http.Client{Timeout: 15 * time.Second},
 		steamAPIURL:    "https://api.steampowered.com",
 		preferredAppID: strings.TrimSpace(appID),
+		steamCache:     steamcache.New(),
 	}
 }
 
@@ -151,16 +154,20 @@ func (s *SteamTracker) GetInstalledVersion(_ context.Context, gs *models.GameSer
 // be determined (no manifest present) or when the API does not report a
 // required version.
 func (s *SteamTracker) GetLatestVersion(ctx context.Context, gs *models.GameServer) (string, error) {
-	acfPath, errFind := findAppManifest(gs.Directory, s.preferredAppID)
-	if errFind != nil {
-		return "", errFind
+	appID, errAppID := s.resolveAppID(gs)
+	if errAppID != nil {
+		return "", errAppID
 	}
-	if acfPath == "" {
-		return "", nil
-	}
-	appID := extractAppID(acfPath)
 	if appID == "" {
 		return "", nil
+	}
+
+	releases, errReleases := s.fetchReleases(ctx, appID)
+	if errReleases == nil {
+		release := preferredSteamRelease(releases, NormalizeSteamBranch(gs.Branch))
+		if release != nil && strings.TrimSpace(release.BuildID) != "" {
+			return strings.TrimSpace(release.BuildID), nil
+		}
 	}
 
 	url := fmt.Sprintf("%s/ISteamApps/UpToDateCheck/v1/?appid=%s&version=0", s.steamAPIURL, appID)
@@ -208,9 +215,151 @@ func (s *SteamTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer
 	if installed == "" || latest == "" || versionsEqual(installed, latest) {
 		return nil, nil
 	}
-	return &UpdateInfo{
+
+	updateInfo := &UpdateInfo{
+		InstalledVersion:      installed,
+		LatestVersion:         latest,
+		UpdateAvailable:       true,
+		InstalledVersionLabel: installed,
+		LatestVersionLabel:    latest,
+	}
+
+	s.populateSteamLabels(ctx, gs, &VersionState{
 		InstalledVersion: installed,
 		LatestVersion:    latest,
-		UpdateAvailable:  true,
-	}, nil
+	}, updateInfo)
+
+	return updateInfo, nil
+}
+
+func EnrichVersionState(ctx context.Context, tracker VersionTracker, gs *models.GameServer, state *VersionState) {
+	if state == nil {
+		return
+	}
+
+	if state.InstalledVersionLabel == "" {
+		state.InstalledVersionLabel = state.InstalledVersion
+	}
+	if state.LatestVersionLabel == "" {
+		state.LatestVersionLabel = state.LatestVersion
+	}
+
+	steamTracker, ok := tracker.(*SteamTracker)
+	if !ok {
+		return
+	}
+
+	steamTracker.populateSteamLabels(ctx, gs, state, nil)
+}
+
+func (s *SteamTracker) populateSteamLabels(ctx context.Context, gs *models.GameServer, state *VersionState, info *UpdateInfo) {
+	appID, errAppID := s.resolveAppID(gs)
+	if errAppID != nil || appID == "" {
+		return
+	}
+
+	releases, errReleases := s.fetchReleases(ctx, appID)
+	if errReleases != nil || len(releases) == 0 {
+		return
+	}
+
+	selectedBranch := NormalizeSteamBranch(gs.Branch)
+
+	installedRelease := matchInstalledSteamRelease(releases, normalizeVersion(state.InstalledVersion), selectedBranch)
+	latestRelease := preferredSteamRelease(releases, selectedBranch)
+
+	if installedRelease != nil {
+		state.InstalledBranch = installedRelease.Name
+		state.InstalledVersionLabel = steamReleaseDisplay(*installedRelease)
+		if info != nil {
+			info.InstalledBranch = installedRelease.Name
+			info.InstalledVersionLabel = steamReleaseDisplay(*installedRelease)
+		}
+	}
+
+	if latestRelease != nil {
+		state.LatestBranch = latestRelease.Name
+		state.LatestVersionLabel = steamReleaseDisplay(*latestRelease)
+		if info != nil {
+			info.LatestBranch = latestRelease.Name
+			info.LatestVersionLabel = steamReleaseDisplay(*latestRelease)
+		}
+	}
+}
+
+func (s *SteamTracker) resolveAppID(gs *models.GameServer) (string, error) {
+	if strings.TrimSpace(s.preferredAppID) != "" {
+		return strings.TrimSpace(s.preferredAppID), nil
+	}
+
+	acfPath, errFind := findAppManifest(gs.Directory, s.preferredAppID)
+	if errFind != nil {
+		return "", errFind
+	}
+	if acfPath == "" {
+		return "", nil
+	}
+	return extractAppID(acfPath), nil
+}
+
+func (s *SteamTracker) fetchReleases(ctx context.Context, appID string) ([]steamcache.SteamRelease, error) {
+	if s.steamCache == nil {
+		return nil, fmt.Errorf("steam release metadata unavailable")
+	}
+	return s.steamCache.FetchReleases(ctx, appID)
+}
+
+func preferredSteamRelease(releases []steamcache.SteamRelease, branch string) *steamcache.SteamRelease {
+	for index := range releases {
+		if releases[index].Name == branch {
+			return &releases[index]
+		}
+	}
+	return nil
+}
+
+func matchInstalledSteamRelease(
+	releases []steamcache.SteamRelease,
+	buildID string,
+	selectedBranch string,
+) *steamcache.SteamRelease {
+	if buildID == "" {
+		return nil
+	}
+
+	selected := preferredSteamRelease(releases, selectedBranch)
+	if selected != nil && selected.BuildID == buildID {
+		return selected
+	}
+
+	for _, candidateName := range []string{"public", selectedBranch} {
+		for index := range releases {
+			if releases[index].Name == candidateName && releases[index].BuildID == buildID {
+				return &releases[index]
+			}
+		}
+	}
+
+	for index := range releases {
+		if releases[index].BuildID == buildID {
+			return &releases[index]
+		}
+	}
+
+	return nil
+}
+
+func steamReleaseDisplay(release steamcache.SteamRelease) string {
+	label := strings.TrimSpace(release.DisplayLabel)
+	if label == "" {
+		label = strings.TrimSpace(release.Name)
+	}
+	buildID := strings.TrimSpace(release.BuildID)
+	if buildID == "" {
+		return label
+	}
+	if label == "" {
+		return buildID
+	}
+	return fmt.Sprintf("%s (%s)", label, buildID)
 }

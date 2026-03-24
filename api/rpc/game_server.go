@@ -661,6 +661,7 @@ func resolveGameServerVersion(gs *models.GameServer) string {
 
 func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
+	selectedBranch := strings.TrimSpace(request.Msg.GetSteamBranch())
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -674,11 +675,23 @@ func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.
 				return nil, errPermission
 			}
 
+			if gameServer.R.Game != nil && gameServer.R.Game.UsesSteamcmd {
+				branchToPersist := selectedBranch
+				if branchToPersist == "" {
+					branchToPersist = gameServer.Branch
+				}
+
+				errPersist := xs.actionsInst.PersistSteamBranchSelection(gameServer, branchToPersist)
+				if errPersist != nil {
+					return nil, connect.NewError(connect.CodeInternal, errors.New("failed to persist steam branch selection"))
+				}
+			}
+
 			xs.actionsInst.UpdateGameServerWithBackup(gameServer, xs.updateBroadcast)
 			return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
 		},
 		func() (*connect.Response[xylona.UpdateGameServerResponse], error) {
-			return xs.updateRemoteGameServer(ctx, serverID, user)
+			return xs.updateRemoteGameServer(ctx, serverID, selectedBranch, user)
 		},
 	)
 }

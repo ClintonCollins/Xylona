@@ -186,6 +186,10 @@ message VersionInfo {
   int64 last_check_time = 4;
   string tracker_type = 5;
   VersionStatus status = 6;
+  string installed_version_label = 7;
+  string latest_version_label = 8;
+  string installed_branch = 9;
+  string latest_branch = 10;
 }
 
 message IP {

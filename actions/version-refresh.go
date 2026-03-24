@@ -181,6 +181,7 @@ func (inst *Instance) refreshVersionState(ctx context.Context, gs *models.GameSe
 		LatestCheckTime:    latestCheckTime,
 		TrackerType:        trackerType,
 	}
+	versiontracker.EnrichVersionState(ctx, tracker, gs, &newState)
 
 	if newState.UpdateAvailable && !state.UpdateAvailable {
 		eventbus.Get().Publish("server.update_available", gs.ID)
@@ -216,12 +217,16 @@ func versionStateToProto(state versiontracker.VersionState) *xylona.VersionInfo 
 	}
 
 	return &xylona.VersionInfo{
-		InstalledVersion: state.InstalledVersion,
-		LatestVersion:    state.LatestVersion,
-		UpdateAvailable:  state.UpdateAvailable,
-		LastCheckTime:    lastCheckUnix,
-		TrackerType:      state.TrackerType,
-		Status:           protoStatus,
+		InstalledVersion:      state.InstalledVersion,
+		LatestVersion:         state.LatestVersion,
+		UpdateAvailable:       state.UpdateAvailable,
+		LastCheckTime:         lastCheckUnix,
+		TrackerType:           state.TrackerType,
+		Status:                protoStatus,
+		InstalledVersionLabel: state.InstalledVersionLabel,
+		LatestVersionLabel:    state.LatestVersionLabel,
+		InstalledBranch:       state.InstalledBranch,
+		LatestBranch:          state.LatestBranch,
 	}
 }
 

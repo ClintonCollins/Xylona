@@ -295,11 +295,12 @@ message NotificationStreamResponse {
 }
 
 message GetBranchesRequest {
-  string game_id = 1;
+  string server_id = 1;
 }
 
 message GetBranchesResponse {
   repeated SteamBranch branches = 1;
+  string current_branch = 2;
 }
 
 message ListIPsRequest {}
@@ -365,6 +366,7 @@ message ExportGameResponse {
 
 message UpdateGameServerRequest {
   string server_id = 1;
+  string steam_branch = 2;
 }
 message UpdateGameServerResponse {}
 

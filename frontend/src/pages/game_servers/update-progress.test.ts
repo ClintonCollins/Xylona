@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest'
 
 import { Status } from '@/proto/shared_pb'
 import { StepStatus, UpdateProgressSchema, UpdateStep } from '@/proto/xylona_pb'
-import { applyUpdateProgress, buildUpdateSteps, isUpdateProgressTerminal } from './update-progress'
+import {
+  applyUpdateProgress,
+  buildUpdateStepLabels,
+  buildUpdateSteps,
+  isUpdateProgressTerminal,
+} from './update-progress'
 
 describe('buildUpdateSteps', () => {
   it('omits stopping and restarting for offline servers', () => {
@@ -21,6 +26,14 @@ describe('buildUpdateSteps', () => {
       { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING },
       { step: UpdateStep.INSTALLING, status: StepStatus.PENDING },
       { step: UpdateStep.RESTARTING, status: StepStatus.PENDING },
+    ])
+  })
+
+  it('can apply steamcmd-specific labels', () => {
+    expect(buildUpdateSteps(Status.OFFLINE, buildUpdateStepLabels({ usesSteamcmd: true }))).toEqual([
+      { step: UpdateStep.BACKING_UP, status: StepStatus.PENDING },
+      { step: UpdateStep.DOWNLOADING, status: StepStatus.PENDING, label: 'Preparing SteamCMD' },
+      { step: UpdateStep.INSTALLING, status: StepStatus.PENDING, label: 'Running SteamCMD' },
     ])
   })
 })

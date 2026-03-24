@@ -406,6 +406,7 @@ import {
   StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
 import {
+  GetBranchesRequestSchema,
   GetGameServerRequest,
   GetGameServerRequestSchema,
   QueryGameServerRequest,
@@ -426,7 +427,12 @@ import {
   normalizeOperationOutputChunk,
   resolveOperationOutputRoute,
 } from './operation-output'
-import { applyUpdateProgress, buildUpdateSteps, isUpdateProgressTerminal } from './update-progress'
+import {
+  applyUpdateProgress,
+  buildUpdateStepLabels,
+  buildUpdateSteps,
+  isUpdateProgressTerminal,
+} from './update-progress'
 import {
   ConnectErrorToString,
   GetOrCreateXylonaWebsocketClient,
@@ -437,6 +443,10 @@ import {
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { resolveCanonicalVersionDisplay } from './version-display'
+import {
+  canSelectSteamBranch,
+  chooseSteamBranchForUpdate,
+} from './steam-branch-update'
 
 const $q = useQuasar()
 const gameServerOutput = ref('')
@@ -470,7 +480,7 @@ const updatingServer = ref(false)
 const updateInProgress = ref(false)
 const updateDialogOpen = ref(false)
 const updateDialogComplete = ref(false)
-const updateSteps = ref<StepState[]>(buildUpdateSteps(Status.UNKNOWN))
+const updateSteps = ref<StepState[]>([])
 const updateOutputLines = ref<string[]>([])
 const softwareOperationOpen = ref(false)
 const softwareOperationComplete = ref(false)
@@ -799,7 +809,12 @@ async function stopGameServer() {
 
 function resetUpdateSteps() {
   updateDialogComplete.value = false
-  updateSteps.value = buildUpdateSteps(gameServer.value.status)
+  updateSteps.value = buildUpdateSteps(
+    gameServer.value.status,
+    buildUpdateStepLabels({
+      usesSteamcmd: Boolean(gameServer.value.game?.usesSteamcmd),
+    }),
+  )
   updateOutputLines.value = []
 }
 
@@ -906,6 +921,7 @@ function captureOperationOutput(output: string): boolean {
 
   const route = resolveOperationOutputRoute({
     isServerOffline: isServerOffline.value,
+    updateRequested: updatingServer.value,
     updateInProgress: updateInProgress.value,
     softwareOperationInProgress: softwareOperationInProgress.value,
   })
@@ -977,15 +993,66 @@ async function updateGameServer() {
     }
   }
 
+  const steamBranchSelection = await chooseSteamBranchForUpdate({
+    gameServerId: gameServerId.value,
+    gameServer: gameServer.value,
+    getBranches: async (serverId: string) => {
+      const request = create(GetBranchesRequestSchema, { serverId })
+      return GetXylonaClient().getBranches(request)
+    },
+    openDialog: ({ currentBranch, items, onOk, onDismiss }) => {
+      let settled = false
+      $q.dialog({
+        title: 'Choose Steam release branch',
+        message: 'Select which Steam branch this server should update to.',
+        cancel: true,
+        persistent: true,
+        ok: {
+          label: 'Update server',
+          color: 'primary',
+          unelevated: true,
+        },
+        options: {
+          type: 'radio',
+          model: currentBranch,
+          items,
+        },
+      })
+        .onOk((value) => {
+          settled = true
+          onOk(typeof value === 'string' && value.trim() !== '' ? value : currentBranch)
+        })
+        .onDismiss(() => {
+          if (!settled) {
+            onDismiss()
+          }
+        })
+    },
+  })
+  if (steamBranchSelection.cancelled) {
+    return
+  }
+  if (canSelectSteamBranch(gameServer.value) && !steamBranchSelection.metadataAvailable) {
+    $q.notify({
+      type: 'xylona-warning',
+      position: 'top',
+      caption: 'Steam release metadata is unavailable. Updating with the current preferred branch.',
+      icon: 'report_problem',
+    })
+  }
+
   const request: UpdateGameServerRequest = create(UpdateGameServerRequestSchema, {})
   updatingServer.value = true
+  resetUpdateSteps()
+  updateInProgress.value = true
+  updateDialogOpen.value = true
   try {
     request.serverId = gameServerId.value
+    request.steamBranch = steamBranchSelection.steamBranch
     await GetXylonaClient().updateGameServer(request)
-    resetUpdateSteps()
-    updateInProgress.value = true
-    updateDialogOpen.value = true
   } catch (e) {
+    updateInProgress.value = false
+    updateDialogOpen.value = false
     console.error(e)
     $q.notify({
       type: 'xylona-error',
