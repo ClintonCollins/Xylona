@@ -131,17 +131,6 @@ const navLinks = computed((): NavItem[] => {
     },
   ]
 
-  if (canViewNotifications.value) {
-    links.push({
-      title: 'Notifications',
-      icon: ionNotifications,
-      link: '/notifications',
-      expanded: true,
-      exact: false,
-      groupItems: [],
-    })
-  }
-
   const manageLinks: NavItem[] = [
     {
       title: 'Game Servers',
@@ -153,6 +142,17 @@ const navLinks = computed((): NavItem[] => {
       groupItems: [],
     },
   ]
+
+  if (canViewNotifications.value) {
+    manageLinks.push({
+      title: 'Notifications',
+      icon: ionNotifications,
+      link: '/notifications',
+      expanded: true,
+      exact: false,
+      groupItems: [],
+    })
+  }
 
   if (store.user?.superUser) {
     manageLinks.push(

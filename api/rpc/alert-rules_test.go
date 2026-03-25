@@ -16,7 +16,7 @@ import (
 
 type alertRulesFixture struct {
 	conn         *db.Connection
-	service      XylonaService
+	service      *XylonaService
 	secureCookie *securecookie.SecureCookie
 	channelID    string // notification channel belonging to user-alerts
 }
@@ -56,7 +56,7 @@ func newAlertRulesFixture(t *testing.T) *alertRulesFixture {
 		[]byte("0123456789abcdef"),
 	)
 
-	service := XylonaService{
+	service := &XylonaService{
 		ctx:          context.Background(),
 		db:           conn,
 		secureCookie: secureCookieInst,

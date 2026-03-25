@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,12 +13,13 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 type notifChanFixture struct {
 	conn         *db.Connection
-	service      XylonaService
+	service      *XylonaService
 	secureCookie *securecookie.SecureCookie
 }
 
@@ -55,7 +58,7 @@ func newNotifChanFixture(t *testing.T) *notifChanFixture {
 		[]byte("0123456789abcdef"),
 	)
 
-	service := XylonaService{
+	service := &XylonaService{
 		ctx:          context.Background(),
 		db:           conn,
 		secureCookie: secureCookieInst,
@@ -360,7 +363,7 @@ func TestCreateNotificationChannel_InvalidEmailRecipient(t *testing.T) {
 	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
 		Name:        "bad-email",
 		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
-		Config:      `{"to":"victim@example.com\r\nBcc: attacker@example.com"}`,
+		Config:      `{"to":"victim@example.com\r\nBcc: attacker@example.com","smtp_source":"node"}`,
 		Enabled:     true,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
@@ -371,6 +374,76 @@ func TestCreateNotificationChannel_InvalidEmailRecipient(t *testing.T) {
 	}
 	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
 		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+	}
+}
+
+func TestCreateNotificationChannel_CustomSMTPRequiresUser(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "missing-user",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_password":"secret","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+
+	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
+	if errCreate == nil {
+		t.Fatal("CreateNotificationChannel(custom missing smtp_user) expected error, got nil")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+	}
+}
+
+func TestCreateNotificationChannel_CustomSMTPRequiresPassword(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "missing-password",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+
+	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
+	if errCreate == nil {
+		t.Fatal("CreateNotificationChannel(custom missing smtp_password) expected error, got nil")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+	}
+}
+
+func TestCreateNotificationChannel_CustomSMTPSanitizesPasswordInResponse(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "custom-email",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_password":"secret123","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+
+	resp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
+	if errCreate != nil {
+		t.Fatalf("CreateNotificationChannel(custom smtp) error = %v", errCreate)
+	}
+
+	var config map[string]any
+	errUnmarshal := json.Unmarshal([]byte(resp.Msg.Channel.Config), &config)
+	if errUnmarshal != nil {
+		t.Fatalf("response config unmarshal error = %v", errUnmarshal)
+	}
+
+	if gotPassword, ok := config["smtp_password"].(string); !ok || gotPassword != "" {
+		t.Fatalf("smtp_password = %#v, want empty string", config["smtp_password"])
+	}
+	if gotConfigured, ok := config["smtp_password_configured"].(bool); !ok || !gotConfigured {
+		t.Fatalf("smtp_password_configured = %#v, want true", config["smtp_password_configured"])
 	}
 }
 
@@ -478,7 +551,7 @@ func TestListNotificationChannels_UserIsolation(t *testing.T) {
 	createReq1 := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
 		Name:        "super-channel",
 		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
-		Config:      `{"to":"super@example.com","smtp_host":"smtp.example.com","smtp_from":"alerts@example.com"}`,
+		Config:      `{"to":"super@example.com","smtp_source":"node"}`,
 		Enabled:     true,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq1, "user-super")
@@ -855,8 +928,92 @@ func TestListNotificationChannels_ManageKeepsConfigForEditing(t *testing.T) {
 	}
 }
 
+func TestGetLocalSMTPStatus_NoPermission(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	req := connect.NewRequest(&xylona.GetLocalSMTPStatusRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+
+	_, errGet := fixture.service.GetLocalSMTPStatus(context.Background(), req)
+	if errGet == nil {
+		t.Fatal("GetLocalSMTPStatus(no permission) expected error, got nil")
+	}
+	if connect.CodeOf(errGet) != connect.CodePermissionDenied {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errGet), connect.CodePermissionDenied)
+	}
+}
+
+func TestGetLocalSMTPStatus_ConfiguredState(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	req := connect.NewRequest(&xylona.GetLocalSMTPStatusRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+
+	resp, errGet := fixture.service.GetLocalSMTPStatus(context.Background(), req)
+	if errGet != nil {
+		t.Fatalf("GetLocalSMTPStatus(not configured) error = %v", errGet)
+	}
+	if resp.Msg.Configured {
+		t.Fatal("configured = true, want false")
+	}
+
+	errSet := fixture.conn.SetSystemConfig(systemSMTPConfigKey, `{"host":"smtp.example.com","port":587,"user":"mailer","password":"secret","fromAddress":"noreply@example.com","tlsEnabled":true}`)
+	if errSet != nil {
+		t.Fatalf("SetSystemConfig() error = %v", errSet)
+	}
+
+	resp, errGet = fixture.service.GetLocalSMTPStatus(context.Background(), req)
+	if errGet != nil {
+		t.Fatalf("GetLocalSMTPStatus(configured) error = %v", errGet)
+	}
+	if !resp.Msg.Configured {
+		t.Fatal("configured = false, want true")
+	}
+}
+
+func TestListNotificationChannels_ManageMasksEmailPasswordButKeepsMetadata(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "custom-email",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_password":"secret123","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-alerts")
+
+	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
+	}
+
+	listReq := connect.NewRequest(&xylona.ListNotificationChannelsRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listReq, "user-alerts")
+
+	resp, errList := fixture.service.ListNotificationChannels(context.Background(), listReq)
+	if errList != nil {
+		t.Fatalf("ListNotificationChannels() error = %v", errList)
+	}
+	if len(resp.Msg.Channels) != 1 {
+		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.Channels))
+	}
+
+	var config map[string]any
+	errUnmarshal := json.Unmarshal([]byte(resp.Msg.Channels[0].Config), &config)
+	if errUnmarshal != nil {
+		t.Fatalf("config unmarshal error = %v", errUnmarshal)
+	}
+
+	if gotPassword, ok := config["smtp_password"].(string); !ok || gotPassword != "" {
+		t.Fatalf("smtp_password = %#v, want empty string", config["smtp_password"])
+	}
+	if gotConfigured, ok := config["smtp_password_configured"].(bool); !ok || !gotConfigured {
+		t.Fatalf("smtp_password_configured = %#v, want true", config["smtp_password_configured"])
+	}
+}
+
 // ---------------------------------------------------------------------------
-// TestNotificationChannel (stub)
+// TestNotificationChannel
 // ---------------------------------------------------------------------------
 
 func TestTestNotificationChannel_Unauthenticated(t *testing.T) {
@@ -918,10 +1075,9 @@ func TestTestNotificationChannel_NotFound(t *testing.T) {
 	}
 }
 
-func TestTestNotificationChannel_Stub(t *testing.T) {
+func TestTestNotificationChannel_WebhookNotImplemented(t *testing.T) {
 	fixture := newNotifChanFixture(t)
 
-	// Create a channel first
 	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
 		Name:        "test-channel",
 		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
@@ -943,10 +1099,231 @@ func TestTestNotificationChannel_Stub(t *testing.T) {
 		t.Fatalf("TestNotificationChannel error = %v", errTest)
 	}
 	if testResp.Msg.Success {
-		t.Errorf("Success = true, want false (stub)")
+		t.Errorf("Success = true, want false (not implemented)")
 	}
 	if testResp.Msg.Error == "" {
-		t.Errorf("Error message is empty, expected non-empty stub message")
+		t.Errorf("Error message is empty, expected non-empty message")
+	}
+}
+
+func TestTestNotificationChannel_EmailCustomSendSuccess(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "custom-email",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_password":"secret123","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
+	}
+
+	fixture.service.testEmailSendFunc = func(_ context.Context, cfg *mailer.SMTPConfig, to string, subject string, _ string) error {
+		if cfg == nil {
+			t.Fatal("cfg = nil, want custom SMTP config")
+		}
+		if cfg.Host != "smtp.example.com" {
+			t.Errorf("cfg.Host = %q, want %q", cfg.Host, "smtp.example.com")
+		}
+		if cfg.User != "mailer" {
+			t.Errorf("cfg.User = %q, want %q", cfg.User, "mailer")
+		}
+		if cfg.Password != "secret123" {
+			t.Errorf("cfg.Password = %q, want %q", cfg.Password, "secret123")
+		}
+		if cfg.From != "noreply@example.com" {
+			t.Errorf("cfg.From = %q, want %q", cfg.From, "noreply@example.com")
+		}
+		if to != "alerts@example.com" {
+			t.Errorf("to = %q, want %q", to, "alerts@example.com")
+		}
+		if subject != "Xylona SMTP Test" {
+			t.Errorf("subject = %q, want %q", subject, "Xylona SMTP Test")
+		}
+		return nil
+	}
+
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
+
+	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+	if errTest != nil {
+		t.Fatalf("TestNotificationChannel() error = %v", errTest)
+	}
+	if !testResp.Msg.Success {
+		t.Fatalf("success = false, want true: %s", testResp.Msg.Error)
+	}
+}
+
+func TestTestNotificationChannel_EmailNodeSMTPSendSuccess(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	errSet := fixture.conn.SetSystemConfig(systemSMTPConfigKey, `{"host":"smtp.example.com","port":587,"user":"mailer","password":"node-secret","fromAddress":"noreply@example.com","tlsEnabled":true}`)
+	if errSet != nil {
+		t.Fatalf("SetSystemConfig() error = %v", errSet)
+	}
+
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "node-email",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"node"}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
+	}
+
+	fixture.service.testEmailSendFunc = func(_ context.Context, cfg *mailer.SMTPConfig, to string, _ string, _ string) error {
+		if cfg == nil {
+			t.Fatal("cfg = nil, want node SMTP config")
+		}
+		if cfg.Host != "smtp.example.com" {
+			t.Errorf("cfg.Host = %q, want %q", cfg.Host, "smtp.example.com")
+		}
+		if cfg.Password != "node-secret" {
+			t.Errorf("cfg.Password = %q, want %q", cfg.Password, "node-secret")
+		}
+		if to != "alerts@example.com" {
+			t.Errorf("to = %q, want %q", to, "alerts@example.com")
+		}
+		return nil
+	}
+
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
+
+	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+	if errTest != nil {
+		t.Fatalf("TestNotificationChannel() error = %v", errTest)
+	}
+	if !testResp.Msg.Success {
+		t.Fatalf("success = false, want true: %s", testResp.Msg.Error)
+	}
+}
+
+func TestTestNotificationChannel_EmailRateLimited(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "custom-email",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_password":"secret123","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
+	}
+
+	fixture.service.testEmailSendFunc = func(_ context.Context, _ *mailer.SMTPConfig, _ string, _ string, _ string) error {
+		return nil
+	}
+
+	for range 3 {
+		testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
+
+		testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+		if errTest != nil {
+			t.Fatalf("TestNotificationChannel() unexpected error before rate limit: %v", errTest)
+		}
+		if !testResp.Msg.Success {
+			t.Fatalf("success = false before rate limit: %s", testResp.Msg.Error)
+		}
+	}
+
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
+
+	_, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+	if errTest == nil {
+		t.Fatal("expected rate limit error, got nil")
+	}
+	if connect.CodeOf(errTest) != connect.CodeResourceExhausted {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errTest), connect.CodeResourceExhausted)
+	}
+}
+
+func TestTestNotificationChannel_EmailSendFailureReturnsMessage(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "custom-email",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_password":"secret123","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
+	}
+
+	fixture.service.testEmailSendFunc = func(_ context.Context, _ *mailer.SMTPConfig, _ string, _ string, _ string) error {
+		return errors.New("connection refused")
+	}
+
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
+
+	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+	if errTest != nil {
+		t.Fatalf("TestNotificationChannel() error = %v", errTest)
+	}
+	if testResp.Msg.Success {
+		t.Fatal("success = true, want false")
+	}
+	if testResp.Msg.Error != "connection refused" {
+		t.Errorf("error = %q, want %q", testResp.Msg.Error, "connection refused")
+	}
+}
+
+func TestUpdateNotificationChannel_CustomSMTPBlankPasswordPreservesStoredPassword(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "test-channel",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_password":"secret123","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("Create error = %v", errCreate)
+	}
+
+	updateReq := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
+		Id:      createResp.Msg.Channel.Id,
+		Name:    "test-channel",
+		Config:  `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_password":"","smtp_password_configured":true,"smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+		Enabled: false,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-super")
+
+	_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), updateReq)
+	if errUpdate != nil {
+		t.Fatalf("UpdateNotificationChannel() error = %v", errUpdate)
+	}
+
+	channel, errGet := fixture.conn.GetNotificationChannelByID(createResp.Msg.Channel.Id)
+	if errGet != nil {
+		t.Fatalf("GetNotificationChannelByID() error = %v", errGet)
+	}
+
+	if !strings.Contains(channel.Config, `"smtp_password":"secret123"`) {
+		t.Fatalf("stored config = %s, want preserved smtp_password", channel.Config)
 	}
 }
 

@@ -18,10 +18,47 @@ import (
 // systemSMTPConfigKey is the DB key used to store the serialized SMTP config.
 const systemSMTPConfigKey = "smtp_config"
 
-// maskedPasswordPlaceholder is the value returned by GetSystemSMTPConfig in
-// place of the real password. If SetSystemSMTPConfig receives this value, it
-// preserves the previously stored password rather than overwriting it.
-const maskedPasswordPlaceholder = "********"
+func systemSMTPConfigToMailer(config *xylona.SystemSMTPConfig) *mailer.SMTPConfig {
+	return &mailer.SMTPConfig{
+		Host:       config.GetHost(),
+		Port:       int(config.GetPort()),
+		User:       config.GetUser(),
+		Password:   config.GetPassword(),
+		From:       config.GetFromAddress(),
+		TLSEnabled: config.GetTlsEnabled(),
+	}
+}
+
+func systemSMTPConfigUsable(config *xylona.SystemSMTPConfig) bool {
+	if config == nil {
+		return false
+	}
+
+	return strings.TrimSpace(config.GetHost()) != "" &&
+		config.GetPort() >= 1 &&
+		config.GetPort() <= 65535 &&
+		strings.TrimSpace(config.GetUser()) != "" &&
+		strings.TrimSpace(config.GetPassword()) != "" &&
+		strings.TrimSpace(config.GetFromAddress()) != ""
+}
+
+func (xs *XylonaService) readStoredSystemSMTPConfig() (*xylona.SystemSMTPConfig, bool, error) {
+	jsonStr, errGet := xs.db.GetSystemConfig(systemSMTPConfigKey)
+	if errGet != nil {
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, false, nil
+		}
+		return nil, false, errGet
+	}
+
+	config := &xylona.SystemSMTPConfig{}
+	errUnmarshal := protojson.Unmarshal([]byte(jsonStr), config)
+	if errUnmarshal != nil {
+		return nil, false, errUnmarshal
+	}
+
+	return config, true, nil
+}
 
 func (xs *XylonaService) GetSystemSMTPConfig(
 	ctx context.Context,
@@ -35,30 +72,24 @@ func (xs *XylonaService) GetSystemSMTPConfig(
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser access required"))
 	}
 
-	jsonStr, errGet := xs.db.GetSystemConfig(systemSMTPConfigKey)
+	config, configured, errGet := xs.readStoredSystemSMTPConfig()
 	if errGet != nil {
-		if errors.Is(errGet, sql.ErrNoRows) {
-			return connect.NewResponse(&xylona.GetSystemSMTPConfigResponse{
-				Configured: false,
-			}), nil
-		}
 		log.Error().Err(errGet).Msg("failed to get SMTP config from DB")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
+	if !configured {
+		return connect.NewResponse(&xylona.GetSystemSMTPConfigResponse{
+			Configured: false,
+		}), nil
+	}
 
-	config := &xylona.SystemSMTPConfig{}
-	errUnmarshal := protojson.Unmarshal([]byte(jsonStr), config)
-	if errUnmarshal != nil {
-		log.Error().Err(errUnmarshal).Msg("failed to unmarshal SMTP config")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	if config.GetPassword() != "" {
-		config.Password = "********"
-	}
+	passwordConfigured := strings.TrimSpace(config.GetPassword()) != ""
+	config.Password = ""
 
 	return connect.NewResponse(&xylona.GetSystemSMTPConfigResponse{
-		Config:     config,
-		Configured: true,
+		Config:             config,
+		Configured:         true,
+		PasswordConfigured: passwordConfigured,
 	}), nil
 }
 
@@ -87,6 +118,10 @@ func (xs *XylonaService) SetSystemSMTPConfig(
 	if port < 1 || port > 65535 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("port must be between 1 and 65535"))
 	}
+	userName := strings.TrimSpace(config.GetUser())
+	if userName == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user is required"))
+	}
 	fromAddress := strings.TrimSpace(config.GetFromAddress())
 	if fromAddress == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("from_address is required"))
@@ -96,22 +131,17 @@ func (xs *XylonaService) SetSystemSMTPConfig(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("from_address must be a valid email address"))
 	}
 
-	// If the password is the masked placeholder, read the existing stored
-	// config and preserve the original password so a save-without-edit does
-	// not overwrite the real credential.
-	if config.GetPassword() == maskedPasswordPlaceholder {
-		existingJSON, errExisting := xs.db.GetSystemConfig(systemSMTPConfigKey)
-		if errExisting != nil && !errors.Is(errExisting, sql.ErrNoRows) {
+	password := strings.TrimSpace(config.GetPassword())
+	if password == "" {
+		existingConfig, configured, errExisting := xs.readStoredSystemSMTPConfig()
+		if errExisting != nil {
 			log.Error().Err(errExisting).Msg("failed to read existing SMTP config for password preservation")
 			return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 		}
-		if errExisting == nil {
-			existing := &xylona.SystemSMTPConfig{}
-			errUnmarshal := protojson.Unmarshal([]byte(existingJSON), existing)
-			if errUnmarshal == nil {
-				config.Password = existing.GetPassword()
-			}
+		if !configured || strings.TrimSpace(existingConfig.GetPassword()) == "" {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("password is required"))
 		}
+		config.Password = existingConfig.GetPassword()
 	}
 
 	jsonBytes, errMarshal := protojson.Marshal(config)
@@ -127,6 +157,38 @@ func (xs *XylonaService) SetSystemSMTPConfig(
 	}
 
 	return connect.NewResponse(&xylona.SetSystemSMTPConfigResponse{}), nil
+}
+
+func (xs *XylonaService) GetLocalSMTPStatus(
+	ctx context.Context,
+	request *connect.Request[xylona.GetLocalSMTPStatusRequest],
+) (*connect.Response[xylona.GetLocalSMTPStatusResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+	}
+
+	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	if errPerm != nil {
+		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+	if !allowed {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+	}
+
+	config, configured, errGet := xs.readStoredSystemSMTPConfig()
+	if errGet != nil {
+		log.Error().Err(errGet).Msg("failed to get local SMTP status")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	}
+	if !configured {
+		return connect.NewResponse(&xylona.GetLocalSMTPStatusResponse{Configured: false}), nil
+	}
+
+	return connect.NewResponse(&xylona.GetLocalSMTPStatusResponse{
+		Configured: systemSMTPConfigUsable(config),
+	}), nil
 }
 
 func (xs *XylonaService) TestSystemSMTP(
@@ -150,45 +212,21 @@ func (xs *XylonaService) TestSystemSMTP(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("to_address must be a valid email address"))
 	}
 
-	// Read the stored SMTP config from DB.
-	jsonStr, errGet := xs.db.GetSystemConfig(systemSMTPConfigKey)
+	protoConfig, configured, errGet := xs.readStoredSystemSMTPConfig()
 	if errGet != nil {
-		if errors.Is(errGet, sql.ErrNoRows) {
-			return connect.NewResponse(&xylona.TestSystemSMTPResponse{
-				Success: false,
-				Error:   "SMTP is not configured",
-			}), nil
-		}
 		log.Error().Err(errGet).Msg("failed to get SMTP config for test")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
-
-	protoConfig := &xylona.SystemSMTPConfig{}
-	errUnmarshal := protojson.Unmarshal([]byte(jsonStr), protoConfig)
-	if errUnmarshal != nil {
-		log.Error().Err(errUnmarshal).Msg("failed to unmarshal SMTP config for test")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	if !configured || !systemSMTPConfigUsable(protoConfig) {
+		return connect.NewResponse(&xylona.TestSystemSMTPResponse{
+			Success: false,
+			Error:   "SMTP is not configured",
+		}), nil
 	}
 
-	smtpCfg := &mailer.SMTPConfig{
-		Host:       protoConfig.GetHost(),
-		Port:       int(protoConfig.GetPort()),
-		User:       protoConfig.GetUser(),
-		Password:   protoConfig.GetPassword(),
-		From:       protoConfig.GetFromAddress(),
-		TLSEnabled: protoConfig.GetTlsEnabled(),
-	}
+	smtpCfg := systemSMTPConfigToMailer(protoConfig)
 
-	// Use injected send function for testing, or the real one in production.
-	sendFn := mailer.SendTestEmail
-	if xs.testEmailSendFunc != nil {
-		sendFn = func(ctx context.Context, cfg *mailer.SMTPConfig, to string) error {
-			return xs.testEmailSendFunc(ctx, cfg, to, "Xylona SMTP Test",
-				"This is a test email from Xylona to verify your SMTP configuration.")
-		}
-	}
-
-	errSend := sendFn(ctx, smtpCfg, toAddress)
+	errSend := xs.resolvedSendTestEmailFunc()(ctx, smtpCfg, toAddress)
 	if errSend != nil {
 		return connect.NewResponse(&xylona.TestSystemSMTPResponse{
 			Success: false,

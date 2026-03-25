@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"net/mail"
 	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/pkg/alerts"
+	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -56,10 +57,7 @@ func notificationChannelToProto(ch *models.NotificationChannel, includeSensitive
 		channelType = xylona.NotificationChannelType(channelTypeInt)
 	}
 
-	config := ch.Config
-	if !includeSensitiveConfig {
-		config = maskNotificationChannelConfig(ch.Config)
-	}
+	config := sanitizeNotificationChannelConfig(ch.ChannelType, ch.Config, includeSensitiveConfig)
 
 	return &xylona.NotificationChannel{
 		Id:          ch.ID,
@@ -71,6 +69,32 @@ func notificationChannelToProto(ch *models.NotificationChannel, includeSensitive
 		CreatedAt:   timestamppb.New(ch.CreatedAt),
 		UpdatedAt:   timestamppb.New(ch.UpdatedAt),
 	}
+}
+
+func sanitizeNotificationChannelConfig(channelType string, config string, includeSensitiveConfig bool) string {
+	if channelType == xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL.String() {
+		emailConfig, errParse := alerts.ParseEmailChannelConfig(config)
+		if errParse != nil {
+			return maskNotificationChannelConfig(config)
+		}
+
+		sanitizedJSON, errMarshal := emailConfig.Sanitized().Marshal()
+		if errMarshal != nil {
+			return maskNotificationChannelConfig(config)
+		}
+
+		if includeSensitiveConfig {
+			return sanitizedJSON
+		}
+
+		return maskNotificationChannelConfig(sanitizedJSON)
+	}
+
+	if includeSensitiveConfig {
+		return config
+	}
+
+	return maskNotificationChannelConfig(config)
 }
 
 func maskNotificationChannelConfig(config string) string {
@@ -128,12 +152,11 @@ func isSensitiveConfigKey(key string) bool {
 	return false
 }
 
-type notificationChannelEmailConfig struct {
-	To       string `json:"to"`
-	SMTPFrom string `json:"smtp_from"`
-}
-
-func validateNotificationChannelConfig(channelType string, rawConfig string) error {
+func normalizeNotificationChannelConfig(
+	channelType string,
+	rawConfig string,
+	existingChannel *models.NotificationChannel,
+) (string, error) {
 	switch channelType {
 	case xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD.String(),
 		xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_SLACK.String(),
@@ -141,37 +164,62 @@ func validateNotificationChannelConfig(channelType string, rawConfig string) err
 		var config webhooks.ChannelConfig
 		errUnmarshal := json.Unmarshal([]byte(rawConfig), &config)
 		if errUnmarshal != nil {
-			return errors.New("config must be valid JSON")
+			return "", errors.New("config must be valid JSON")
 		}
 		errValidate := webhooks.ValidateChannelConfig(config)
 		if errValidate != nil {
-			return errValidate
+			return "", errValidate
 		}
-		return webhooks.ValidateWebhookTarget(strings.TrimSpace(config.URL))
+		errTarget := webhooks.ValidateWebhookTarget(strings.TrimSpace(config.URL))
+		if errTarget != nil {
+			return "", errTarget
+		}
+		return rawConfig, nil
 	case xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL.String():
-		var config notificationChannelEmailConfig
-		errUnmarshal := json.Unmarshal([]byte(rawConfig), &config)
-		if errUnmarshal != nil {
-			return errors.New("config must be valid JSON")
+		emailConfig, errParse := alerts.ParseEmailChannelConfig(rawConfig)
+		if errParse != nil {
+			return "", errParse
 		}
-		toAddress := strings.TrimSpace(config.To)
-		if toAddress == "" {
-			return errors.New("email notification channels require a recipient address")
-		}
-		_, errParseTo := mail.ParseAddress(toAddress)
-		if errParseTo != nil {
-			return errors.New("email notification channels require a valid recipient address")
-		}
-		smtpFrom := strings.TrimSpace(config.SMTPFrom)
-		if smtpFrom != "" {
-			_, errParseFrom := mail.ParseAddress(smtpFrom)
-			if errParseFrom != nil {
-				return errors.New("email notification channels require a valid smtp_from address")
+
+		var existingEmailConfig alerts.EmailChannelConfig
+		if existingChannel != nil && existingChannel.ChannelType == channelType {
+			existingEmailConfig, errParse = alerts.ParseEmailChannelConfig(existingChannel.Config)
+			if errParse != nil {
+				return "", errParse
 			}
 		}
-		return nil
+
+		if emailConfig.SMTPSource == alerts.SMTPSourceNode {
+			emailConfig.SMTPHost = ""
+			emailConfig.SMTPPort = 0
+			emailConfig.SMTPUser = ""
+			emailConfig.SMTPPassword = ""
+			emailConfig.SMTPFrom = ""
+			emailConfig.SMTPTLSEnabled = false
+		}
+
+		requirePassword := emailConfig.SMTPSource == alerts.SMTPSourceCustom
+		if existingChannel != nil &&
+			emailConfig.SMTPSource == alerts.SMTPSourceCustom &&
+			emailConfig.SMTPPassword == "" &&
+			existingEmailConfig.SMTPPassword != "" {
+			emailConfig.SMTPPassword = existingEmailConfig.SMTPPassword
+			requirePassword = false
+		}
+
+		errValidate := emailConfig.Validate(requirePassword)
+		if errValidate != nil {
+			return "", errValidate
+		}
+
+		emailConfig.SMTPPasswordConfigured = false
+		normalizedJSON, errMarshal := emailConfig.Marshal()
+		if errMarshal != nil {
+			return "", errors.New("config must be valid JSON")
+		}
+		return normalizedJSON, nil
 	default:
-		return nil
+		return rawConfig, nil
 	}
 }
 
@@ -202,7 +250,7 @@ func (xs *XylonaService) CreateNotificationChannel(
 	if channelType == xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_UNSPECIFIED {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("channel_type is required"))
 	}
-	errValidate := validateNotificationChannelConfig(channelType.String(), request.Msg.GetConfig())
+	normalizedConfig, errValidate := normalizeNotificationChannelConfig(channelType.String(), request.Msg.GetConfig(), nil)
 	if errValidate != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
 	}
@@ -211,7 +259,7 @@ func (xs *XylonaService) CreateNotificationChannel(
 		user.ID,
 		name,
 		channelType.String(),
-		request.Msg.GetConfig(),
+		normalizedConfig,
 		request.Msg.GetEnabled(),
 	)
 	if errInsert != nil {
@@ -264,7 +312,7 @@ func (xs *XylonaService) UpdateNotificationChannel(
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("notification channel not found"))
 	}
 
-	errValidate := validateNotificationChannelConfig(existingChannel.ChannelType, request.Msg.GetConfig())
+	normalizedConfig, errValidate := normalizeNotificationChannelConfig(existingChannel.ChannelType, request.Msg.GetConfig(), existingChannel)
 	if errValidate != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
 	}
@@ -273,7 +321,7 @@ func (xs *XylonaService) UpdateNotificationChannel(
 		id,
 		user.ID,
 		name,
-		request.Msg.GetConfig(),
+		normalizedConfig,
 		request.Msg.GetEnabled(),
 	)
 	if errUpdate != nil {
@@ -406,9 +454,54 @@ func (xs *XylonaService) TestNotificationChannel(
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("notification channel not found"))
 	}
 
-	// Test delivery is not yet implemented. Return a stub response.
+	if channel.ChannelType != xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL.String() {
+		return connect.NewResponse(&xylona.TestNotificationChannelResponse{
+			Success: false,
+			Error:   "test delivery not yet implemented",
+		}), nil
+	}
+
+	limiterKey := user.ID + ":" + channel.ID
+	allowedByRateLimit := xs.getNotificationChannelTestLimiter().Allow(limiterKey)
+	if !allowedByRateLimit {
+		return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("test notification channel rate limit exceeded"))
+	}
+
+	emailConfig, errParse := alerts.ParseEmailChannelConfig(channel.Config)
+	if errParse != nil {
+		return connect.NewResponse(&xylona.TestNotificationChannelResponse{
+			Success: false,
+			Error:   errParse.Error(),
+		}), nil
+	}
+
+	var smtpCfg *mailer.SMTPConfig
+	if emailConfig.SMTPSource == alerts.SMTPSourceNode {
+		systemConfig, configured, errSystem := xs.readStoredSystemSMTPConfig()
+		if errSystem != nil {
+			log.Error().Err(errSystem).Msg("failed to resolve local SMTP config for notification channel test")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		}
+		if !configured || !systemSMTPConfigUsable(systemConfig) {
+			return connect.NewResponse(&xylona.TestNotificationChannelResponse{
+				Success: false,
+				Error:   "SMTP is not configured",
+			}), nil
+		}
+		smtpCfg = systemSMTPConfigToMailer(systemConfig)
+	} else {
+		smtpCfg = emailConfig.EffectiveSMTPConfig()
+	}
+
+	errSend := xs.resolvedSendTestEmailFunc()(ctx, smtpCfg, emailConfig.To)
+	if errSend != nil {
+		return connect.NewResponse(&xylona.TestNotificationChannelResponse{
+			Success: false,
+			Error:   errSend.Error(),
+		}), nil
+	}
+
 	return connect.NewResponse(&xylona.TestNotificationChannelResponse{
-		Success: false,
-		Error:   "test delivery not yet implemented",
+		Success: true,
 	}), nil
 }

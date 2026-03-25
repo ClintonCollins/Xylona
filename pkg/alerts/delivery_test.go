@@ -333,7 +333,7 @@ func TestDeliveryWorker_DispatchesToCorrectSender(t *testing.T) {
 		{
 			name:         "Email",
 			channelType:  ChannelTypeEmail,
-			config:       `{"to":"admin@example.com","smtp_host":"mail.example.com","smtp_port":587,"smtp_user":"user","smtp_password":"pass","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+			config:       `{"to":"admin@example.com","smtp_source":"custom","smtp_host":"mail.example.com","smtp_port":587,"smtp_user":"user","smtp_password":"pass","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
 			wantEmail:    true,
 			wantEmailTo:  "admin@example.com",
 			wantSMTPHost: "mail.example.com",
@@ -1004,8 +1004,7 @@ func TestParseEmailConfig(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var cfg emailChannelConfig
-			errParse := json.Unmarshal([]byte(tc.input), &cfg)
+			cfg, errParse := ParseEmailChannelConfig(tc.input)
 			if tc.wantErr {
 				if errParse == nil {
 					t.Error("expected error, got nil")

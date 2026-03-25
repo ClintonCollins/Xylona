@@ -149,6 +149,7 @@ service Xylona {
   rpc DeleteNotificationChannel (DeleteNotificationChannelRequest) returns (DeleteNotificationChannelResponse) {}
   rpc ListNotificationChannels (ListNotificationChannelsRequest) returns (ListNotificationChannelsResponse) {}
   rpc TestNotificationChannel (TestNotificationChannelRequest) returns (TestNotificationChannelResponse) {}
+  rpc GetLocalSMTPStatus (GetLocalSMTPStatusRequest) returns (GetLocalSMTPStatusResponse) {}
 
   // Alert Rules
   rpc CreateAlertRule (CreateAlertRuleRequest) returns (CreateAlertRuleResponse) {}
@@ -1135,6 +1136,11 @@ message TestNotificationChannelResponse {
   string error = 2;
 }
 
+message GetLocalSMTPStatusRequest {}
+message GetLocalSMTPStatusResponse {
+  bool configured = 1;
+}
+
 // --- Alert Rules ---
 
 message CreateAlertRuleRequest {
@@ -1195,6 +1201,7 @@ message GetSystemSMTPConfigRequest {}
 message GetSystemSMTPConfigResponse {
   SystemSMTPConfig config = 1;
   bool configured = 2;
+  bool password_configured = 3;
 }
 
 message SetSystemSMTPConfigRequest {

@@ -294,6 +294,9 @@ const (
 	// XylonaTestNotificationChannelProcedure is the fully-qualified name of the Xylona's
 	// TestNotificationChannel RPC.
 	XylonaTestNotificationChannelProcedure = "/xylona.Xylona/TestNotificationChannel"
+	// XylonaGetLocalSMTPStatusProcedure is the fully-qualified name of the Xylona's GetLocalSMTPStatus
+	// RPC.
+	XylonaGetLocalSMTPStatusProcedure = "/xylona.Xylona/GetLocalSMTPStatus"
 	// XylonaCreateAlertRuleProcedure is the fully-qualified name of the Xylona's CreateAlertRule RPC.
 	XylonaCreateAlertRuleProcedure = "/xylona.Xylona/CreateAlertRule"
 	// XylonaUpdateAlertRuleProcedure is the fully-qualified name of the Xylona's UpdateAlertRule RPC.
@@ -441,6 +444,7 @@ type XylonaClient interface {
 	DeleteNotificationChannel(context.Context, *connect.Request[xylona.DeleteNotificationChannelRequest]) (*connect.Response[xylona.DeleteNotificationChannelResponse], error)
 	ListNotificationChannels(context.Context, *connect.Request[xylona.ListNotificationChannelsRequest]) (*connect.Response[xylona.ListNotificationChannelsResponse], error)
 	TestNotificationChannel(context.Context, *connect.Request[xylona.TestNotificationChannelRequest]) (*connect.Response[xylona.TestNotificationChannelResponse], error)
+	GetLocalSMTPStatus(context.Context, *connect.Request[xylona.GetLocalSMTPStatusRequest]) (*connect.Response[xylona.GetLocalSMTPStatusResponse], error)
 	// Alert Rules
 	CreateAlertRule(context.Context, *connect.Request[xylona.CreateAlertRuleRequest]) (*connect.Response[xylona.CreateAlertRuleResponse], error)
 	UpdateAlertRule(context.Context, *connect.Request[xylona.UpdateAlertRuleRequest]) (*connect.Response[xylona.UpdateAlertRuleResponse], error)
@@ -1101,6 +1105,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("TestNotificationChannel")),
 			connect.WithClientOptions(opts...),
 		),
+		getLocalSMTPStatus: connect.NewClient[xylona.GetLocalSMTPStatusRequest, xylona.GetLocalSMTPStatusResponse](
+			httpClient,
+			baseURL+XylonaGetLocalSMTPStatusProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetLocalSMTPStatus")),
+			connect.WithClientOptions(opts...),
+		),
 		createAlertRule: connect.NewClient[xylona.CreateAlertRuleRequest, xylona.CreateAlertRuleResponse](
 			httpClient,
 			baseURL+XylonaCreateAlertRuleProcedure,
@@ -1260,6 +1270,7 @@ type xylonaClient struct {
 	deleteNotificationChannel        *connect.Client[xylona.DeleteNotificationChannelRequest, xylona.DeleteNotificationChannelResponse]
 	listNotificationChannels         *connect.Client[xylona.ListNotificationChannelsRequest, xylona.ListNotificationChannelsResponse]
 	testNotificationChannel          *connect.Client[xylona.TestNotificationChannelRequest, xylona.TestNotificationChannelResponse]
+	getLocalSMTPStatus               *connect.Client[xylona.GetLocalSMTPStatusRequest, xylona.GetLocalSMTPStatusResponse]
 	createAlertRule                  *connect.Client[xylona.CreateAlertRuleRequest, xylona.CreateAlertRuleResponse]
 	updateAlertRule                  *connect.Client[xylona.UpdateAlertRuleRequest, xylona.UpdateAlertRuleResponse]
 	deleteAlertRule                  *connect.Client[xylona.DeleteAlertRuleRequest, xylona.DeleteAlertRuleResponse]
@@ -1800,6 +1811,11 @@ func (c *xylonaClient) TestNotificationChannel(ctx context.Context, req *connect
 	return c.testNotificationChannel.CallUnary(ctx, req)
 }
 
+// GetLocalSMTPStatus calls xylona.Xylona.GetLocalSMTPStatus.
+func (c *xylonaClient) GetLocalSMTPStatus(ctx context.Context, req *connect.Request[xylona.GetLocalSMTPStatusRequest]) (*connect.Response[xylona.GetLocalSMTPStatusResponse], error) {
+	return c.getLocalSMTPStatus.CallUnary(ctx, req)
+}
+
 // CreateAlertRule calls xylona.Xylona.CreateAlertRule.
 func (c *xylonaClient) CreateAlertRule(ctx context.Context, req *connect.Request[xylona.CreateAlertRuleRequest]) (*connect.Response[xylona.CreateAlertRuleResponse], error) {
 	return c.createAlertRule.CallUnary(ctx, req)
@@ -1967,6 +1983,7 @@ type XylonaHandler interface {
 	DeleteNotificationChannel(context.Context, *connect.Request[xylona.DeleteNotificationChannelRequest]) (*connect.Response[xylona.DeleteNotificationChannelResponse], error)
 	ListNotificationChannels(context.Context, *connect.Request[xylona.ListNotificationChannelsRequest]) (*connect.Response[xylona.ListNotificationChannelsResponse], error)
 	TestNotificationChannel(context.Context, *connect.Request[xylona.TestNotificationChannelRequest]) (*connect.Response[xylona.TestNotificationChannelResponse], error)
+	GetLocalSMTPStatus(context.Context, *connect.Request[xylona.GetLocalSMTPStatusRequest]) (*connect.Response[xylona.GetLocalSMTPStatusResponse], error)
 	// Alert Rules
 	CreateAlertRule(context.Context, *connect.Request[xylona.CreateAlertRuleRequest]) (*connect.Response[xylona.CreateAlertRuleResponse], error)
 	UpdateAlertRule(context.Context, *connect.Request[xylona.UpdateAlertRuleRequest]) (*connect.Response[xylona.UpdateAlertRuleResponse], error)
@@ -2623,6 +2640,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("TestNotificationChannel")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetLocalSMTPStatusHandler := connect.NewUnaryHandler(
+		XylonaGetLocalSMTPStatusProcedure,
+		svc.GetLocalSMTPStatus,
+		connect.WithSchema(xylonaMethods.ByName("GetLocalSMTPStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaCreateAlertRuleHandler := connect.NewUnaryHandler(
 		XylonaCreateAlertRuleProcedure,
 		svc.CreateAlertRule,
@@ -2885,6 +2908,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaListNotificationChannelsHandler.ServeHTTP(w, r)
 		case XylonaTestNotificationChannelProcedure:
 			xylonaTestNotificationChannelHandler.ServeHTTP(w, r)
+		case XylonaGetLocalSMTPStatusProcedure:
+			xylonaGetLocalSMTPStatusHandler.ServeHTTP(w, r)
 		case XylonaCreateAlertRuleProcedure:
 			xylonaCreateAlertRuleHandler.ServeHTTP(w, r)
 		case XylonaUpdateAlertRuleProcedure:
@@ -3332,6 +3357,10 @@ func (UnimplementedXylonaHandler) ListNotificationChannels(context.Context, *con
 
 func (UnimplementedXylonaHandler) TestNotificationChannel(context.Context, *connect.Request[xylona.TestNotificationChannelRequest]) (*connect.Response[xylona.TestNotificationChannelResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.TestNotificationChannel is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetLocalSMTPStatus(context.Context, *connect.Request[xylona.GetLocalSMTPStatusRequest]) (*connect.Response[xylona.GetLocalSMTPStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetLocalSMTPStatus is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) CreateAlertRule(context.Context, *connect.Request[xylona.CreateAlertRuleRequest]) (*connect.Response[xylona.CreateAlertRuleResponse], error) {

@@ -51,22 +51,14 @@
             outlined
             dense
             label="Password"
-            :type="showPassword ? 'text' : 'password'"
+            type="password"
             autocomplete="new-password"
             :hint="
               hasExistingPassword
                 ? 'Password is configured. Leave blank to keep current password.'
                 : undefined
             "
-            aria-label="SMTP Password">
-            <template #append>
-              <q-icon
-                :name="showPassword ? 'visibility_off' : 'visibility'"
-                class="cursor-pointer"
-                :aria-label="showPassword ? 'Hide password' : 'Show password'"
-                @click="showPassword = !showPassword" />
-            </template>
-          </q-input>
+            aria-label="SMTP Password" />
         </div>
         <div class="col-12 col-md-6">
           <q-input
@@ -111,15 +103,12 @@ const saving = ref(false)
 const testing = ref(false)
 const configured = ref(false)
 
-const maskedPlaceholder = '********'
-
 const host = ref('')
 const port = ref(587)
 const user = ref('')
 const password = ref('')
 const fromAddress = ref('')
 const tlsEnabled = ref(true)
-const showPassword = ref(false)
 const hasExistingPassword = ref(false)
 
 const statusLabel = computed(() => (configured.value ? 'Configured' : 'Not Configured'))
@@ -150,7 +139,7 @@ async function loadConfig(): Promise<void> {
       host.value = response.config.host
       port.value = response.config.port || 587
       user.value = response.config.user
-      hasExistingPassword.value = response.config.password !== ''
+      hasExistingPassword.value = response.passwordConfigured
       password.value = ''
       fromAddress.value = response.config.fromAddress
       tlsEnabled.value = response.config.tlsEnabled
@@ -173,16 +162,13 @@ async function loadConfig(): Promise<void> {
 async function save(): Promise<void> {
   saving.value = true
   try {
-    const passwordToSend =
-      password.value !== '' ? password.value : hasExistingPassword.value ? maskedPlaceholder : ''
-
     await GetXylonaClient().setSystemSMTPConfig(
       create(SetSystemSMTPConfigRequestSchema, {
         config: create(SystemSMTPConfigSchema, {
           host: host.value,
           port: port.value,
           user: user.value,
-          password: passwordToSend,
+          password: password.value,
           fromAddress: fromAddress.value,
           tlsEnabled: tlsEnabled.value,
         }),

@@ -52,18 +52,6 @@ type EmailSender interface {
 	Send(ctx context.Context, to string, event webhooks.AlertEvent, perChannelConfig *mailer.SMTPConfig) error
 }
 
-// emailChannelConfig represents the JSON config stored for email notification
-// channels. It includes the recipient address and per-channel SMTP settings.
-type emailChannelConfig struct {
-	To             string `json:"to"`
-	SMTPHost       string `json:"smtp_host"`
-	SMTPPort       int    `json:"smtp_port"`
-	SMTPUser       string `json:"smtp_user"`
-	SMTPPassword   string `json:"smtp_password"`
-	SMTPFrom       string `json:"smtp_from"`
-	SMTPTLSEnabled bool   `json:"smtp_tls_enabled"`
-}
-
 type deliveryEventData struct {
 	CurrentValue *float64 `json:"current_value"`
 	NewStatus    *string  `json:"new_status,omitempty"`
@@ -255,24 +243,12 @@ func (p *DeliveryPool) dispatchWebhook(ctx context.Context, channel *models.Noti
 
 // dispatchEmail parses the email config and sends via the email sender.
 func (p *DeliveryPool) dispatchEmail(ctx context.Context, channel *models.NotificationChannel, event webhooks.AlertEvent) error {
-	var config emailChannelConfig
-	errParse := json.Unmarshal([]byte(channel.Config), &config)
+	config, errParse := ParseEmailChannelConfig(channel.Config)
 	if errParse != nil {
 		return fmt.Errorf("failed to parse email config: %w", errParse)
 	}
 
-	var smtpConfig *mailer.SMTPConfig
-	if config.SMTPHost != "" {
-		smtpConfig = &mailer.SMTPConfig{
-			Host:       config.SMTPHost,
-			Port:       config.SMTPPort,
-			User:       config.SMTPUser,
-			Password:   config.SMTPPassword,
-			From:       config.SMTPFrom,
-			TLSEnabled: config.SMTPTLSEnabled,
-		}
-	}
-
+	smtpConfig := config.EffectiveSMTPConfig()
 	return p.emailSend.Send(ctx, config.To, event, smtpConfig)
 }
 

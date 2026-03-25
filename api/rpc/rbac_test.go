@@ -26,7 +26,7 @@ var testSessionCounter atomic.Int64
 
 type rbacRPCFixture struct {
 	conn         *db.Connection
-	service      XylonaService
+	service      *XylonaService
 	secureCookie *securecookie.SecureCookie
 }
 
@@ -64,7 +64,7 @@ func newRBACRPCFixture(t *testing.T) *rbacRPCFixture {
 		[]byte("0123456789abcdef"),
 	)
 
-	service := XylonaService{
+	service := &XylonaService{
 		ctx:          context.Background(),
 		db:           conn,
 		secureCookie: secureCookieInst,

@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/gorilla/securecookie"
@@ -60,6 +61,8 @@ type XylonaService struct {
 	versionState                  *versiontracker.VersionStateMap
 	dummyTracker                  *versiontracker.DummyTracker
 	testEmailSendFunc             func(ctx context.Context, cfg *mailer.SMTPConfig, to string, subject string, body string) error
+	notificationChannelTestOnce    sync.Once
+	notificationChannelTestLimiter *notificationChannelTestRateLimiter
 }
 
 func NewXylonaService(
@@ -113,6 +116,23 @@ func NewXylonaService(
 		installTracker:   tracker,
 		versionState:     versionState,
 	}
+}
+
+func (xs *XylonaService) getNotificationChannelTestLimiter() *notificationChannelTestRateLimiter {
+	xs.notificationChannelTestOnce.Do(func() {
+		xs.notificationChannelTestLimiter = newNotificationChannelTestRateLimiter(3, 15*time.Minute)
+	})
+	return xs.notificationChannelTestLimiter
+}
+
+func (xs *XylonaService) resolvedSendTestEmailFunc() func(ctx context.Context, cfg *mailer.SMTPConfig, to string) error {
+	if xs.testEmailSendFunc != nil {
+		return func(ctx context.Context, cfg *mailer.SMTPConfig, to string) error {
+			return xs.testEmailSendFunc(ctx, cfg, to, "Xylona SMTP Test",
+				"This is a test email from Xylona to verify your SMTP configuration.")
+		}
+	}
+	return mailer.SendTestEmail
 }
 
 func (xs *XylonaService) SetSyncEngine(engine SyncEngine) {

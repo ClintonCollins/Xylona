@@ -66,6 +66,15 @@
             <q-td :props="props">
               <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
                 <q-btn
+                  v-if="props.row.channelType === NotificationChannelType.EMAIL"
+                  flat
+                  dense
+                  icon="send"
+                  aria-label="Test channel"
+                  @click="testChannel(props.row)">
+                  <q-tooltip>Test</q-tooltip>
+                </q-btn>
+                <q-btn
                   flat
                   dense
                   icon="edit"
@@ -314,24 +323,75 @@
               aria-label="Recipient email address"
               class="q-mb-md"
               :rules="[(val: string) => !!val || 'Email is required']" />
-            <q-input
-              v-model="channelForm.smtpHost"
+            <q-select
+              v-model="channelForm.smtpSource"
               outlined
               dense
-              label="SMTP Host"
-              aria-label="SMTP host"
-              class="q-mb-md" />
-            <q-input
-              v-model.number="channelForm.smtpPort"
-              outlined
-              dense
-              type="number"
-              label="SMTP Port"
-              aria-label="SMTP port"
-              class="q-mb-md" />
+              emit-value
+              map-options
+              label="SMTP Source"
+              :options="smtpSourceOptions"
+              class="q-mb-md"
+              aria-label="SMTP source" />
+            <div v-if="channelForm.smtpSource === 'node'" class="q-mb-md">
+              <q-badge
+                :color="nodeSMTPConfigured ? 'positive' : 'warning'"
+                :label="nodeSMTPConfigured ? 'Node SMTP configured' : 'Node SMTP not configured'" />
+              <div class="text-caption text-xy-secondary q-mt-sm">
+                Transport and from address come from Admin -> Node Settings.
+              </div>
+            </div>
+            <template v-else>
+              <q-input
+                v-model="channelForm.smtpHost"
+                outlined
+                dense
+                label="SMTP Host"
+                aria-label="SMTP host"
+                class="q-mb-md" />
+              <q-input
+                v-model.number="channelForm.smtpPort"
+                outlined
+                dense
+                type="number"
+                label="SMTP Port"
+                aria-label="SMTP port"
+                class="q-mb-md" />
+              <q-input
+                v-model="channelForm.smtpUser"
+                outlined
+                dense
+                label="SMTP Username"
+                aria-label="SMTP username"
+                class="q-mb-md" />
+              <q-input
+                v-model="channelForm.smtpPassword"
+                outlined
+                dense
+                type="password"
+                label="SMTP Password"
+                aria-label="SMTP password"
+                class="q-mb-md"
+                :hint="
+                  channelForm.hasExistingSmtpPassword
+                    ? 'Leave blank to keep the current password.'
+                    : undefined
+                " />
+              <q-input
+                v-model="channelForm.smtpFrom"
+                outlined
+                dense
+                label="SMTP From Address"
+                aria-label="SMTP from address"
+                class="q-mb-md" />
+              <q-toggle
+                v-model="channelForm.smtpTLSEnabled"
+                label="TLS Enabled"
+                aria-label="SMTP TLS enabled"
+                class="q-mb-md" />
+            </template>
           </template>
 
-          <q-toggle v-model="channelForm.enabled" label="Enabled" />
         </q-card-section>
 
         <q-card-actions align="right">
@@ -430,7 +490,7 @@ import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { ConnectError } from '@connectrpc/connect'
 import dayjs from 'dayjs'
 import { useQuasar } from 'quasar'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { NotificationChannelType, AlertEventType, DeliveryStatus } from '@/proto/shared_pb'
 import type {
   NotificationChannel,
@@ -443,11 +503,13 @@ import {
   CreateNotificationChannelRequestSchema,
   UpdateNotificationChannelRequestSchema,
   DeleteNotificationChannelRequestSchema,
+  GetLocalSMTPStatusRequestSchema,
   ListAlertRulesRequestSchema,
   UpdateAlertRuleRequestSchema,
   DeleteAlertRuleRequestSchema,
   GetAlertHistoryRequestSchema,
   ListGameServersRequestSchema,
+  TestNotificationChannelRequestSchema,
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canManageAlerts } from '@/utils/alert-permissions'
@@ -603,26 +665,70 @@ function confirmDeleteChannel(channel: NotificationChannel): void {
 const showChannelDialog = ref(false)
 const channelSaving = ref(false)
 const editingChannel = ref<NotificationChannel | null>(null)
+const nodeSMTPConfigured = ref(false)
+
+type SMTPSource = 'node' | 'custom'
 
 interface ChannelForm {
   name: string
   channelType: NotificationChannelType
   webhookUrl: string
   emailTo: string
+  smtpSource: SMTPSource
   smtpHost: string
   smtpPort: number
+  smtpUser: string
+  smtpPassword: string
+  hasExistingSmtpPassword: boolean
+  smtpFrom: string
+  smtpTLSEnabled: boolean
   enabled: boolean
 }
 
-const channelForm = ref<ChannelForm>({
-  name: '',
-  channelType: NotificationChannelType.WEBHOOK_DISCORD,
-  webhookUrl: '',
-  emailTo: '',
-  smtpHost: '',
-  smtpPort: 587,
-  enabled: true,
-})
+function defaultChannelForm(): ChannelForm {
+  return {
+    name: '',
+    channelType: NotificationChannelType.WEBHOOK_DISCORD,
+    webhookUrl: '',
+    emailTo: '',
+    smtpSource: 'node',
+    smtpHost: '',
+    smtpPort: 587,
+    smtpUser: '',
+    smtpPassword: '',
+    hasExistingSmtpPassword: false,
+    smtpFrom: '',
+    smtpTLSEnabled: true,
+    enabled: true,
+  }
+}
+
+const channelForm = ref<ChannelForm>(defaultChannelForm())
+
+const smtpSourceOptions = [
+  { label: 'Use Node Settings SMTP', value: 'node' },
+  { label: 'Use Custom SMTP', value: 'custom' },
+]
+
+async function loadLocalSMTPStatus(): Promise<void> {
+  try {
+    const response = await GetXylonaClient().getLocalSMTPStatus(
+      create(GetLocalSMTPStatusRequestSchema, {}),
+    )
+    nodeSMTPConfigured.value = response.configured
+  } catch {
+    nodeSMTPConfigured.value = false
+  }
+}
+
+watch(
+  () => channelForm.value.channelType,
+  async (channelType) => {
+    if (channelType === NotificationChannelType.EMAIL) {
+      await loadLocalSMTPStatus()
+    }
+  },
+)
 
 function openChannelDialog(channel: NotificationChannel | null): void {
   if (!hasAlertsManage.value) return
@@ -640,25 +746,31 @@ function openChannelDialog(channel: NotificationChannel | null): void {
         channelForm.value.webhookUrl = (config.url as string) || ''
       } else if (channel.channelType === NotificationChannelType.EMAIL) {
         channelForm.value.emailTo = (config.to as string) || ''
+        channelForm.value.smtpSource = ((config.smtp_source as SMTPSource) || 'node') as SMTPSource
         channelForm.value.smtpHost = (config.smtp_host as string) || ''
         channelForm.value.smtpPort = (config.smtp_port as number) || 587
+        channelForm.value.smtpUser = (config.smtp_user as string) || ''
+        channelForm.value.smtpPassword = ''
+        channelForm.value.hasExistingSmtpPassword = Boolean(config.smtp_password_configured)
+        channelForm.value.smtpFrom = (config.smtp_from as string) || ''
+        channelForm.value.smtpTLSEnabled =
+          typeof config.smtp_tls_enabled === 'boolean' ? Boolean(config.smtp_tls_enabled) : true
       }
     } catch {
-      channelForm.value.webhookUrl = ''
-      channelForm.value.emailTo = ''
-      channelForm.value.smtpHost = ''
-      channelForm.value.smtpPort = 587
+      const defaults = defaultChannelForm()
+      channelForm.value.webhookUrl = defaults.webhookUrl
+      channelForm.value.emailTo = defaults.emailTo
+      channelForm.value.smtpSource = defaults.smtpSource
+      channelForm.value.smtpHost = defaults.smtpHost
+      channelForm.value.smtpPort = defaults.smtpPort
+      channelForm.value.smtpUser = defaults.smtpUser
+      channelForm.value.smtpPassword = defaults.smtpPassword
+      channelForm.value.hasExistingSmtpPassword = defaults.hasExistingSmtpPassword
+      channelForm.value.smtpFrom = defaults.smtpFrom
+      channelForm.value.smtpTLSEnabled = defaults.smtpTLSEnabled
     }
   } else {
-    channelForm.value = {
-      name: '',
-      channelType: NotificationChannelType.WEBHOOK_DISCORD,
-      webhookUrl: '',
-      emailTo: '',
-      smtpHost: '',
-      smtpPort: 587,
-      enabled: true,
-    }
+    channelForm.value = defaultChannelForm()
   }
   showChannelDialog.value = true
 }
@@ -668,10 +780,22 @@ function buildConfigJson(): string {
     return JSON.stringify({ url: channelForm.value.webhookUrl })
   }
   if (channelForm.value.channelType === NotificationChannelType.EMAIL) {
+    if (channelForm.value.smtpSource === 'node') {
+      return JSON.stringify({
+        to: channelForm.value.emailTo,
+        smtp_source: 'node',
+      })
+    }
+
     return JSON.stringify({
       to: channelForm.value.emailTo,
+      smtp_source: 'custom',
       smtp_host: channelForm.value.smtpHost,
       smtp_port: channelForm.value.smtpPort,
+      smtp_user: channelForm.value.smtpUser,
+      smtp_password: channelForm.value.smtpPassword,
+      smtp_from: channelForm.value.smtpFrom,
+      smtp_tls_enabled: channelForm.value.smtpTLSEnabled,
     })
   }
   return '{}'
@@ -684,6 +808,20 @@ async function saveChannel(): Promise<void> {
     $q.notify({
       type: 'xylona-error',
       caption: 'Channel name is required',
+      position: 'top',
+      timeout: 3000,
+    })
+    return
+  }
+
+  if (
+    channelForm.value.channelType === NotificationChannelType.EMAIL &&
+    channelForm.value.smtpSource === 'node' &&
+    !nodeSMTPConfigured.value
+  ) {
+    $q.notify({
+      type: 'xylona-error',
+      caption: 'Node SMTP is not configured in Admin -> Node Settings',
       position: 'top',
       timeout: 3000,
     })
@@ -736,6 +874,38 @@ async function saveChannel(): Promise<void> {
     })
   } finally {
     channelSaving.value = false
+  }
+}
+
+async function testChannel(channel: NotificationChannel): Promise<void> {
+  try {
+    const response = await GetXylonaClient().testNotificationChannel(
+      create(TestNotificationChannelRequestSchema, { id: channel.id }),
+    )
+    if (response.success) {
+      $q.notify({
+        type: 'xylona-success',
+        caption: 'Test notification sent',
+        position: 'top',
+        timeout: 3000,
+      })
+      return
+    }
+
+    $q.notify({
+      type: 'xylona-error',
+      caption: response.error || 'Test notification failed',
+      position: 'top',
+      timeout: 5000,
+    })
+  } catch (unknownErr: unknown) {
+    const err = ConnectError.from(unknownErr)
+    $q.notify({
+      type: 'xylona-error',
+      caption: ConnectErrorToString(err),
+      position: 'top',
+      timeout: 5000,
+    })
   }
 }
 
@@ -1276,10 +1446,7 @@ function deliveryStatusColor(status: DeliveryStatus): string {
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 onMounted(async () => {
-  await loadGameServers()
-  await loadChannels()
-  await loadRules()
-  await loadHistory()
+  await Promise.all([loadGameServers(), loadChannels(), loadRules(), loadHistory()])
 })
 </script>
 
