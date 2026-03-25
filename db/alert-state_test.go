@@ -1,7 +1,10 @@
 package db
 
 import (
+	"sync"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func TestGetOrCreateAlertState_Creates(t *testing.T) {
@@ -169,5 +172,64 @@ func TestAlertState_CrossNodeIndependence(t *testing.T) {
 
 	if stateA.ID == stateB.ID {
 		t.Error("Same entity_id but different entity_node_id should create separate rows")
+	}
+}
+
+func TestGetOrCreateAlertState_ConcurrentCallsReuseSingleRow(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "as-concurrent.sqlite")
+	seedRBACFixture(t, conn)
+	seedNotificationChannel(t, conn, "chan-1", "user-owner")
+
+	rule, errRule := conn.InsertAlertRule("user-owner", "", "", "", "server.crash", "", "chan-1", true)
+	if errRule != nil {
+		t.Fatalf("InsertAlertRule() error = %v", errRule)
+	}
+
+	const goroutineCount = 20
+
+	start := make(chan struct{})
+	results := make(chan *models.AlertState, goroutineCount)
+	errs := make(chan error, goroutineCount)
+	var wg sync.WaitGroup
+
+	for range goroutineCount {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			state, errGet := conn.GetOrCreateAlertState(rule.ID, "server", "srv-1", "node-a")
+			if errGet != nil {
+				errs <- errGet
+				return
+			}
+			results <- state
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(results)
+	close(errs)
+
+	for errGet := range errs {
+		if errGet != nil {
+			t.Fatalf("GetOrCreateAlertState(concurrent) error = %v", errGet)
+		}
+	}
+
+	var firstID string
+	count := 0
+	for state := range results {
+		count++
+		if firstID == "" {
+			firstID = state.ID
+		}
+		if state.ID != firstID {
+			t.Fatalf("GetOrCreateAlertState(concurrent) returned mismatched IDs %q and %q", firstID, state.ID)
+		}
+	}
+
+	if count != goroutineCount {
+		t.Fatalf("GetOrCreateAlertState(concurrent) results = %d, want %d", count, goroutineCount)
 	}
 }

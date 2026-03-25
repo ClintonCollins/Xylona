@@ -78,6 +78,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   ionGameController,
   ionHome,
+  ionNotifications,
   ionPeople,
   ionServer,
   ionSettings,
@@ -86,10 +87,12 @@ import { laServerSolid } from '@quasar/extras/line-awesome'
 import { useRoute, useRouter } from 'vue-router'
 import { GetUnreadAdvisoryCountRequestSchema, User } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
+import { canViewAlerts } from '@/utils/alert-permissions'
 import { GetXylonaClient } from '@/utils/shared'
 
 const store = useUserAuthStore()
 const user = computed(() => store.user as User | null)
+const canViewNotifications = computed(() => canViewAlerts(store.user, store.initialResponse))
 const route = useRoute()
 const router = useRouter()
 
@@ -127,6 +130,17 @@ const navLinks = computed((): NavItem[] => {
       groupItems: [],
     },
   ]
+
+  if (canViewNotifications.value) {
+    links.push({
+      title: 'Notifications',
+      icon: ionNotifications,
+      link: '/notifications',
+      expanded: true,
+      exact: false,
+      groupItems: [],
+    })
+  }
 
   const manageLinks: NavItem[] = [
     {

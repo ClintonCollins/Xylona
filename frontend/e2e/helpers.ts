@@ -364,3 +364,153 @@ export async function apiSetDummyUpdateFailure(
     throw new Error(`SetDummyUpdateFailure failed: ${resp.status}`)
   }
 }
+
+// ---------------------------------------------------------------------------
+// Notification channel API helpers
+// ---------------------------------------------------------------------------
+
+export async function apiCreateNotificationChannel(
+  cookies: ApiCookies,
+  opts: {
+    name: string
+    channelType: number
+    config: string
+    enabled?: boolean
+  },
+): Promise<{ id: string; name: string }> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/CreateNotificationChannel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({
+      name: opts.name,
+      channel_type: opts.channelType,
+      config: opts.config,
+      enabled: opts.enabled ?? true,
+    }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`CreateNotificationChannel failed: ${resp.status} ${body}`)
+  }
+  const data = (await resp.json()) as { channel?: { id: string; name: string } }
+  return { id: data.channel?.id ?? '', name: data.channel?.name ?? '' }
+}
+
+export async function apiListNotificationChannels(
+  cookies: ApiCookies,
+): Promise<Array<{ id: string; name: string }>> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/ListNotificationChannels`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({}),
+  })
+  if (!resp.ok) return []
+  const data = (await resp.json()) as { channels?: Array<{ id: string; name: string }> }
+  return data.channels ?? []
+}
+
+export async function apiDeleteNotificationChannel(
+  cookies: ApiCookies,
+  channelId: string,
+): Promise<void> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/DeleteNotificationChannel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({ id: channelId }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`DeleteNotificationChannel failed: ${resp.status} ${body}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Alert rule API helpers
+// ---------------------------------------------------------------------------
+
+export async function apiCreateAlertRule(
+  cookies: ApiCookies,
+  opts: {
+    serverId: string
+    serverNodeId: string
+    eventType: number
+    notificationChannelId: string
+    condition?: string
+    enabled?: boolean
+  },
+): Promise<{ id: string }> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/CreateAlertRule`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({
+      server_id: opts.serverId,
+      server_node_id: opts.serverNodeId,
+      event_type: opts.eventType,
+      notification_channel_id: opts.notificationChannelId,
+      condition: opts.condition ?? '',
+      enabled: opts.enabled ?? true,
+    }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`CreateAlertRule failed: ${resp.status} ${body}`)
+  }
+  const data = (await resp.json()) as { rule?: { id: string } }
+  return { id: data.rule?.id ?? '' }
+}
+
+export async function apiListAlertRules(
+  cookies: ApiCookies,
+  serverId?: string,
+  serverNodeId?: string,
+): Promise<Array<{ id: string; event_type: number; notification_channel_id: string }>> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/ListAlertRules`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({
+      server_id: serverId ?? '',
+      server_node_id: serverNodeId ?? '',
+    }),
+  })
+  if (!resp.ok) return []
+  const data = (await resp.json()) as {
+    rules?: Array<{ id: string; event_type: number; notification_channel_id: string }>
+  }
+  return data.rules ?? []
+}
+
+export async function apiDeleteAlertRule(cookies: ApiCookies, ruleId: string): Promise<void> {
+  const resp = await fetch(`${BACKEND_URL}/xylona.Xylona/DeleteAlertRule`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      Cookie: cookies.raw,
+    },
+    body: JSON.stringify({ id: ruleId }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`DeleteAlertRule failed: ${resp.status} ${body}`)
+  }
+}

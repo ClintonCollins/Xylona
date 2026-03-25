@@ -11,6 +11,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func TestLoginCookieSecureAttribute(t *testing.T) {
@@ -294,6 +295,92 @@ func TestCheckUserAuthenticatedWithValidSession(t *testing.T) {
 	}
 	if resp.Msg.User.UserName != "check-auth-valid" {
 		t.Errorf("CheckUserAuthenticated().User.UserName = %q, want %q", resp.Msg.User.UserName, "check-auth-valid")
+	}
+}
+
+func TestCheckUserAuthenticatedIncludesGlobalPermissionIDs(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	user := createUserForRPCUserTests(t, fixture, "check-auth-permissions", false)
+
+	_, errRole := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role (id, name, description, is_system) VALUES (?, ?, ?, ?)`,
+		"role-alert-viewer", "Alert Viewer", "Can view alert history", false,
+	)
+	if errRole != nil {
+		t.Fatalf("failed to insert role: %v", errRole)
+	}
+
+	_, errManagePerm := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role_permission (role_id, permission_id) VALUES (?, ?)`,
+		"role-alert-viewer", "alerts.manage",
+	)
+	if errManagePerm != nil {
+		t.Fatalf("failed to insert alerts.manage role_permission: %v", errManagePerm)
+	}
+
+	_, errHistoryPerm := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role_permission (role_id, permission_id) VALUES (?, ?)`,
+		"role-alert-viewer", permissionAlertsViewHistory,
+	)
+	if errHistoryPerm != nil {
+		t.Fatalf("failed to insert alerts.view_history role_permission: %v", errHistoryPerm)
+	}
+
+	errAssign := fixture.conn.CreateUserRoleAssignment(
+		"assignment-check-auth-permissions",
+		user.Id,
+		"role-alert-viewer",
+		"",
+		"user-admin",
+	)
+	if errAssign != nil {
+		t.Fatalf("CreateUserRoleAssignment() error = %v", errAssign)
+	}
+
+	req := connect.NewRequest(&xylona.CheckUserAuthenticatedRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.Id)
+
+	resp, errCheck := fixture.service.CheckUserAuthenticated(context.Background(), req)
+	if errCheck != nil {
+		t.Fatalf("CheckUserAuthenticated() error = %v", errCheck)
+	}
+	if resp.Msg == nil {
+		t.Fatalf("CheckUserAuthenticated() returned nil message")
+	}
+
+	gotPerms := make(map[string]struct{}, len(resp.Msg.PermissionIds))
+	for _, permissionID := range resp.Msg.PermissionIds {
+		gotPerms[permissionID] = struct{}{}
+	}
+
+	for _, permissionID := range []string{"alerts.manage", permissionAlertsViewHistory} {
+		if _, ok := gotPerms[permissionID]; !ok {
+			t.Errorf("CheckUserAuthenticated().PermissionIds missing %q; got %v", permissionID, resp.Msg.PermissionIds)
+		}
+	}
+}
+
+func TestCheckUserAuthenticatedReturnsInternalErrorWhenPermissionLookupFails(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	user := createUserForRPCUserTests(t, fixture, "check-auth-permission-error", false)
+	fixture.service.permissionIDsForUserFn = func(_ *models.User) ([]string, error) {
+		return nil, errors.New("permission lookup failed")
+	}
+
+	req := connect.NewRequest(&xylona.CheckUserAuthenticatedRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.Id)
+
+	_, errCheck := fixture.service.CheckUserAuthenticated(context.Background(), req)
+	if errCheck == nil {
+		t.Fatal("CheckUserAuthenticated() error = nil, want internal error")
+	}
+	if connect.CodeOf(errCheck) != connect.CodeInternal {
+		t.Fatalf("CheckUserAuthenticated() code = %v, want %v", connect.CodeOf(errCheck), connect.CodeInternal)
 	}
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
@@ -41,8 +42,13 @@ import (
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/papermc"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/steamworkshop"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/thunderstore"
+	"github.com/ClintonCollins/Xylona/pkg/alerts"
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/pkg/webhooks"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/steamcache"
@@ -53,11 +59,15 @@ type Configuration struct {
 	CookieHashKey  string `env:"COOKIE_HASH_KEY_BASE64"`
 	CookieBlockKey string `env:"COOKIE_BLOCK_KEY_BASE64"`
 	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
-	DBFilePath     string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
-	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
-	SecureCookies  bool   `env:"SECURE_COOKIES" envDefault:"false"`
-	Host           string `env:"HOST" envDefault:""`
-	HTTPPort       int    `env:"HTTP_PORT" envDefault:"8080"`
+	// EncryptionKey is a dedicated base64-encoded key for encrypting sensitive DB
+	// fields (notification channel configs, node API keys). When empty, falls back
+	// to the first 32 bytes of the decoded JWT secret with a warning.
+	EncryptionKey string `env:"ENCRYPTION_KEY_BASE64" envDefault:""`
+	DBFilePath    string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
+	LogLevel      string `env:"LOG_LEVEL" envDefault:"info"`
+	SecureCookies bool   `env:"SECURE_COOKIES" envDefault:"false"`
+	Host          string `env:"HOST" envDefault:""`
+	HTTPPort      int    `env:"HTTP_PORT" envDefault:"8080"`
 	FederationPort int    `env:"FEDERATION_PORT" envDefault:"8443"`
 	// DummyGameID enables the DummyTracker for E2E testing. When set, the game
 	// with this ID is treated as a trackable server returning a simulated 1.0.0→2.0.0
@@ -178,6 +188,35 @@ func routerLogger(next http.Handler) http.Handler {
 	})
 }
 
+// dbSMTPConfigResolver implements mailer.SystemConfigResolver by reading the
+// system SMTP config from the database at send time. This ensures the mailer
+// always uses the most recently saved configuration.
+type dbSMTPConfigResolver struct {
+	db *dbpkg.Connection
+}
+
+func (r *dbSMTPConfigResolver) ResolveSystemSMTPConfig() (*mailer.SMTPConfig, error) {
+	jsonStr, errGet := r.db.GetSystemConfig("smtp_config")
+	if errGet != nil {
+		return nil, errGet
+	}
+
+	config := &xylona.SystemSMTPConfig{}
+	errUnmarshal := protojson.Unmarshal([]byte(jsonStr), config)
+	if errUnmarshal != nil {
+		return nil, fmt.Errorf("failed to unmarshal system SMTP config: %w", errUnmarshal)
+	}
+
+	return &mailer.SMTPConfig{
+		Host:       config.GetHost(),
+		Port:       int(config.GetPort()),
+		User:       config.GetUser(),
+		Password:   config.GetPassword(),
+		From:       config.GetFromAddress(),
+		TLSEnabled: config.GetTlsEnabled(),
+	}, nil
+}
+
 func main() {
 	config := Configuration{}
 	_ = godotenv.Load()
@@ -243,6 +282,38 @@ func main() {
 	if errMigrate != nil {
 		log.Fatal().Err(errMigrate).Msg("Error running migrations")
 		return
+	}
+
+	// Set encryption key for sensitive DB fields (notification channel configs,
+	// node API keys). Prefers a dedicated ENCRYPTION_KEY_BASE64 env var; falls
+	// back to the first 32 bytes of the JWT secret if not set.
+	if config.EncryptionKey != "" {
+		encKeyBytes, errDecodeEnc := base64.StdEncoding.DecodeString(config.EncryptionKey)
+		if errDecodeEnc != nil {
+			log.Fatal().Err(errDecodeEnc).Msg("Error decoding ENCRYPTION_KEY_BASE64")
+		}
+		if len(encKeyBytes) < 32 {
+			log.Fatal().Msg("ENCRYPTION_KEY_BASE64 must decode to at least 32 bytes")
+		}
+		dbInst.SetEncryptionKey(encKeyBytes[:32])
+
+		// Set JWT-derived key as fallback for data encrypted before the
+		// dedicated encryption key was configured.
+		jwtFallbackBytes, errDecodeJWTFallback := base64.StdEncoding.DecodeString(config.JWTSecretKey)
+		if errDecodeJWTFallback == nil && len(jwtFallbackBytes) >= 32 {
+			dbInst.SetFallbackEncryptionKey(jwtFallbackBytes[:32])
+		}
+	} else {
+		log.Warn().Msg("ENCRYPTION_KEY_BASE64 not set — falling back to JWT secret for DB encryption. " +
+			"Set a dedicated encryption key to decouple DB encryption from JWT rotation.")
+		jwtSecretBytes, errDecodeJWT := base64.StdEncoding.DecodeString(config.JWTSecretKey)
+		if errDecodeJWT != nil {
+			log.Fatal().Err(errDecodeJWT).Msg("Error decoding JWT secret key for encryption fallback")
+		}
+		if len(jwtSecretBytes) < 32 {
+			log.Fatal().Msg("JWT secret must decode to at least 32 bytes when used as encryption key fallback")
+		}
+		dbInst.SetEncryptionKey(jwtSecretBytes[:32])
 	}
 
 	settings, errSettings := dbInst.GetLocalSettings()
@@ -346,6 +417,17 @@ func main() {
 	}
 	superInst.StartMetricsPoller(ctx)
 	_ = actions.NewMetricsRecorder(ctx, dbInst, superInst, settings.NodeID, actionsInst)
+
+	// Alert system: start threshold poller + history pruner, evaluator, and delivery workers.
+	actionsInst.StartAlertJobs(settings.NodeID)
+	webhookSender := webhooks.NewSender()
+	smtpResolver := &dbSMTPConfigResolver{db: dbInst}
+	alertMailer := mailer.New(smtpResolver)
+	alertEvaluator, alertJobChan := alerts.NewEvaluator(dbInst, eventbus.Get(), dbInst)
+	alertEvaluator.Start(ctx)
+	alertDeliveryPool := alerts.NewDeliveryPool(dbInst, dbInst, webhookSender, alertMailer, alertJobChan)
+	alertDeliveryPool.Start(ctx)
+
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	setDetectedIPs(dbInst)
 
@@ -488,4 +570,6 @@ func main() {
 	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGTERM)
 	shutdownSignalType := <-shutdownSignalChannel
 	gracefulShutdown(ctxCancel, shutdownSignalType, httpServer, federationServer)
+	alertDeliveryPool.Wait()
+	log.Info().Msg("Alert delivery pool drained")
 }

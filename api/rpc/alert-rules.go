@@ -413,9 +413,9 @@ func (xs *XylonaService) ListAlertRules(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasAnyGlobalPermission(user, permissionAlertsManage, permissionAlertsViewHistory)
 	if errPerm != nil {
-		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
+		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alert permissions")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
@@ -443,9 +443,10 @@ func (xs *XylonaService) ListAlertRules(
 		}
 
 		var errGet error
-		rules, errGet = xs.db.GetAlertRulesByServerID(serverID, serverNodeID)
+		rules, errGet = xs.db.GetAlertRulesByUserAndServerID(user.ID, serverID, serverNodeID)
 		if errGet != nil {
 			log.Error().Err(errGet).
+				Str("user_id", user.ID).
 				Str("server_id", serverID).
 				Str("server_node_id", serverNodeID).
 				Msg("failed to list alert rules by server")
@@ -477,9 +478,9 @@ func (xs *XylonaService) GetAlertHistory(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasAnyGlobalPermission(user, permissionAlertsManage, permissionAlertsViewHistory)
 	if errPerm != nil {
-		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
+		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alert permissions")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
@@ -518,9 +519,14 @@ func (xs *XylonaService) GetAlertHistory(
 		}
 
 		var errGet error
-		entries, errGet = xs.db.GetAlertHistoryByServerID(serverID, serverNodeID, limit, offset)
+		if user.SuperUser {
+			entries, errGet = xs.db.GetAlertHistoryByServerID(serverID, serverNodeID, limit, offset)
+		} else {
+			entries, errGet = xs.db.GetAlertHistoryByUserAndServerID(user.ID, serverID, serverNodeID, limit, offset)
+		}
 		if errGet != nil {
 			log.Error().Err(errGet).
+				Str("user_id", user.ID).
 				Str("server_id", serverID).
 				Str("server_node_id", serverNodeID).
 				Msg("failed to get alert history by server")

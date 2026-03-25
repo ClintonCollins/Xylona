@@ -33,9 +33,16 @@ func (xs *XylonaService) CheckUserAuthenticated(ctx context.Context, request *co
 		return sessionUnauthenticatedResponse, nil //nolint:nilerr // intentionally returning unauthenticated response instead of propagating the auth error
 	}
 
+	permissionIDs, errPermissionIDs := xs.authenticatedPermissionIDs(user)
+	if errPermissionIDs != nil {
+		log.Error().Err(errPermissionIDs).Str("user_id", user.ID).Msg("Failed to load global permission IDs for authenticated user")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load permissions"))
+	}
+
 	return &connect.Response[xylona.CheckUserAuthenticatedResponse]{
 		Msg: &xylona.CheckUserAuthenticatedResponse{
 			Authenticated: true,
+			PermissionIds: permissionIDs,
 			User: &xylona.User{
 				Id:        user.ID,
 				UserName:  user.UserName,
@@ -48,6 +55,16 @@ func (xs *XylonaService) CheckUserAuthenticated(ctx context.Context, request *co
 			},
 		},
 	}, nil
+}
+
+func (xs *XylonaService) authenticatedPermissionIDs(user *models.User) ([]string, error) {
+	if xs.permissionIDsForUserFn != nil {
+		return xs.permissionIDsForUserFn(user)
+	}
+	if user.SuperUser {
+		return xs.allPermissionIDs, nil
+	}
+	return xs.db.GetUserGlobalPermissionIDs(user.ID)
 }
 
 func (xs *XylonaService) Login(ctx context.Context, request *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error) {

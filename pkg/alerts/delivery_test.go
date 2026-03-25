@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -646,6 +647,61 @@ func TestDeliveryWorker_GracefulShutdown(t *testing.T) {
 	pool.Wait()
 }
 
+func TestDeliveryWorker_DrainsBufferedJobsOnCancellation(t *testing.T) {
+	for iteration := range 20 {
+		channelStore := &mockChannelStore{
+			channels: map[string]*models.NotificationChannel{
+				"ch-1": {
+					ID:          "ch-1",
+					UserID:      "u1",
+					Name:        "discord-alerts",
+					ChannelType: webhooks.ChannelTypeDiscord,
+					Config:      `{"url":"https://discord.com/api/webhooks/test"}`,
+					Enabled:     1,
+				},
+			},
+		}
+		historyStore := newMockHistoryStore()
+		whSender := &mockWebhookSender{}
+		emailSender := &mockEmailSender{}
+
+		jobChan := make(chan DeliveryJob, 6)
+		for jobIndex := range 6 {
+			jobChan <- DeliveryJob{
+				RuleID:       fmt.Sprintf("r%d", jobIndex),
+				ChannelID:    "ch-1",
+				UserID:       "u1",
+				EventType:    "ALERT_EVENT_TYPE_CRASH",
+				EventData:    `{"exit_code":1}`,
+				ServerID:     "srv-1",
+				ServerNodeID: "node-a",
+			}
+		}
+
+		pool := NewDeliveryPool(channelStore, historyStore, whSender, emailSender, jobChan)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		pool.Start(ctx)
+		close(jobChan)
+		pool.Wait()
+
+		if len(whSender.getCalls()) != 6 {
+			t.Fatalf("iteration %d: webhook calls = %d, want 6", iteration, len(whSender.getCalls()))
+		}
+
+		records := historyStore.allRecords()
+		if len(records) != 6 {
+			t.Fatalf("iteration %d: history records = %d, want 6", iteration, len(records))
+		}
+		for _, rec := range records {
+			if rec.DeliveryStatus != deliveryStatusSent {
+				t.Fatalf("iteration %d: delivery status = %q, want %q", iteration, rec.DeliveryStatus, deliveryStatusSent)
+			}
+		}
+	}
+}
+
 func TestDeliveryWorker_MultipleJobsProcessed(t *testing.T) {
 	channelStore := &mockChannelStore{
 		channels: map[string]*models.NotificationChannel{
@@ -1052,6 +1108,40 @@ func TestBuildFieldsFromEventData(t *testing.T) {
 			fields := buildFieldsFromEventData(tc.input)
 			if len(fields) != tc.wantLen {
 				t.Errorf("buildFieldsFromEventData() returned %d fields, want %d; fields: %v", len(fields), tc.wantLen, fields)
+			}
+		})
+	}
+}
+
+func TestBuildFieldsFromEventData_PreservesExplicitZeroValues(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantFields map[string]string
+	}{
+		{
+			name:  "crash exit code zero",
+			input: `{"exit_code":0}`,
+			wantFields: map[string]string{
+				"exit_code": "0",
+			},
+		},
+		{
+			name:  "threshold zero values",
+			input: `{"current_value":0,"threshold":0,"direction":"entered"}`,
+			wantFields: map[string]string{
+				"current_value": "0",
+				"threshold":     "0",
+				"direction":     "entered",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fields := buildFieldsFromEventData(tc.input)
+			if !reflect.DeepEqual(fields, tc.wantFields) {
+				t.Fatalf("buildFieldsFromEventData() = %#v, want %#v", fields, tc.wantFields)
 			}
 		})
 	}

@@ -100,6 +100,29 @@ func (c *Connection) GetAlertRulesByServerID(serverID, serverNodeID string) ([]*
 	return rules, nil
 }
 
+// GetAlertRulesByUserAndServerID returns all alert rules owned by the given
+// user that match the server_id and server_node_id pair.
+func (c *Connection) GetAlertRulesByUserAndServerID(userID, serverID, serverNodeID string) ([]*models.AlertRule, error) {
+	rules, errGet := models.AlertRules.Query(
+		models.SelectWhere.AlertRules.UserID.EQ(userID),
+		models.SelectWhere.AlertRules.ServerID.EQ(serverID),
+		models.SelectWhere.AlertRules.ServerNodeID.EQ(serverNodeID),
+	).All(c.ctx, c.DB)
+	if errGet != nil {
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, nil
+		}
+		log.Error().Err(errGet).
+			Str("user_id", userID).
+			Str("server_id", serverID).
+			Str("server_node_id", serverNodeID).
+			Msg("Error querying alert rules by user and server ID")
+		return nil, errGet
+	}
+
+	return rules, nil
+}
+
 // GetEnabledAlertRulesByEventType returns all enabled alert rules that match
 // the given event type.
 func (c *Connection) GetEnabledAlertRulesByEventType(eventType string) ([]*models.AlertRule, error) {

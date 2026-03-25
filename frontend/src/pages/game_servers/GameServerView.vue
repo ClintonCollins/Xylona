@@ -86,17 +86,17 @@
                       {{ displayVersion }}
                     </span>
                   </div>
-                <div v-if="!softwareNameRedundant" class="software-game">
-                  {{ gameServer.gameName }}
-                </div>
-                <div v-if="variantTrackingLabel" class="software-track-state">
-                  {{ variantTrackingLabel }}
+                  <div v-if="!softwareNameRedundant" class="software-game">
+                    {{ gameServer.gameName }}
+                  </div>
+                  <div v-if="variantTrackingLabel" class="software-track-state">
+                    {{ variantTrackingLabel }}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div v-if="versionDisplay.updateAvailable" class="update-hint">
-              <span class="update-dot"></span>
-              {{ displayVersion }} &rarr; {{ versionDisplay.latestVersion }}
+              <div v-if="versionDisplay.updateAvailable" class="update-hint">
+                <span class="update-dot"></span>
+                {{ displayVersion }} &rarr; {{ versionDisplay.latestVersion }}
               </div>
               <div v-if="showChangeButton" class="software-card-footer">
                 <button class="change-btn" @click="softwareSelector?.openChangeDialog()">

@@ -197,6 +197,7 @@ message CheckUserAuthenticatedRequest {}
 message CheckUserAuthenticatedResponse {
   bool authenticated = 1;
   User user = 2;
+  repeated string permission_ids = 3;
 }
 
 message ListGameServersRequest {}

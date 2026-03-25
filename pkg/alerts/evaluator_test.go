@@ -3,6 +3,8 @@ package alerts
 import (
 	"encoding/json"
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -219,6 +221,18 @@ func TestEvaluateCondition(t *testing.T) {
 			want:      false,
 		},
 		{
+			name:      "threshold == matches nearly equal floating point value",
+			condition: null.From(`{"operator":"==","value":50}`),
+			eventData: eventData{CurrentValue: 50.0000004},
+			want:      true,
+		},
+		{
+			name:      "threshold = alias matches equal value",
+			condition: null.From(`{"operator":"=","value":50}`),
+			eventData: eventData{CurrentValue: 50},
+			want:      true,
+		},
+		{
 			name:      "status change matches listed status",
 			condition: null.From(`{"statuses":["offline"]}`),
 			eventData: eventData{NewStatus: "offline"},
@@ -272,6 +286,35 @@ func TestEvaluateCondition(t *testing.T) {
 				t.Errorf("evaluateCondition() = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestThresholdEventDataJSONPreservesZeroValues(t *testing.T) {
+	data := eventData{
+		CurrentValue: 0,
+		Threshold:    0,
+		Direction:    string(eventbus.ThresholdEntered),
+	}
+
+	payload, errMarshal := json.Marshal(data)
+	if errMarshal != nil {
+		t.Fatalf("json.Marshal(eventData) error = %v", errMarshal)
+	}
+
+	for _, fragment := range []string{`"current_value":0`, `"threshold":0`} {
+		if !strings.Contains(string(payload), fragment) {
+			t.Fatalf("payload = %q, want fragment %q", string(payload), fragment)
+		}
+	}
+}
+
+func TestMarshalEvaluatorEventData_PreservesCrashExitCodeZero(t *testing.T) {
+	payload, errMarshal := marshalEvaluatorEventData("ALERT_EVENT_TYPE_CRASH", eventData{ExitCode: 0})
+	if errMarshal != nil {
+		t.Fatalf("marshalEvaluatorEventData(crash) error = %v", errMarshal)
+	}
+	if !strings.Contains(string(payload), `"exit_code":0`) {
+		t.Fatalf("payload = %q, want %q", string(payload), `"exit_code":0`)
 	}
 }
 
@@ -698,7 +741,7 @@ func TestEvaluator_EndToEnd(t *testing.T) {
 		},
 	}
 
-	eval, jobChan := NewEvaluator(store, bus)
+	eval, jobChan := NewEvaluator(store, bus, nil)
 
 	ctx := t.Context()
 
@@ -745,7 +788,7 @@ func TestEvaluator_UnknownEventTypeDropped(t *testing.T) {
 		},
 	}
 
-	eval, jobChan := NewEvaluator(store, bus)
+	eval, jobChan := NewEvaluator(store, bus, nil)
 
 	ctx := t.Context()
 
@@ -762,6 +805,74 @@ func TestEvaluator_UnknownEventTypeDropped(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 		// Good — no job was produced.
 	}
+}
+
+// --- Dropped job recording tests ---
+
+// dropRecordingStore records InsertAlertHistory calls for verifying dropped job behavior.
+type dropRecordingStore struct {
+	mu      sync.Mutex
+	records []droppedRecord
+}
+
+type droppedRecord struct {
+	ruleID         string
+	eventType      string
+	deliveryStatus string
+}
+
+func (d *dropRecordingStore) InsertAlertHistory(ruleID, userID, serverID, serverNodeID, nodeID, eventType, eventData, channelType, deliveryStatus string) (*models.AlertHistory, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.records = append(d.records, droppedRecord{
+		ruleID:         ruleID,
+		eventType:      eventType,
+		deliveryStatus: deliveryStatus,
+	})
+	return &models.AlertHistory{ID: "drop-hist-1"}, nil
+}
+
+func TestRecordDroppedJob(t *testing.T) {
+	recorder := &dropRecordingStore{}
+	eval := &Evaluator{
+		dropRecorder: recorder,
+		jobChan:      make(chan DeliveryJob), // unbuffered, will not be used
+	}
+
+	job := DeliveryJob{
+		RuleID:    "rule-drop-1",
+		ChannelID: "ch-1",
+		UserID:    "user-1",
+		EventType: "ALERT_EVENT_TYPE_CRASH",
+		EventData: "{}",
+		ServerID:  "srv-1",
+	}
+
+	eval.recordDroppedJob(job)
+
+	recorder.mu.Lock()
+	records := recorder.records
+	recorder.mu.Unlock()
+
+	if len(records) != 1 {
+		t.Fatalf("expected 1 dropped record, got %d", len(records))
+	}
+	if records[0].ruleID != "rule-drop-1" {
+		t.Errorf("ruleID = %q, want %q", records[0].ruleID, "rule-drop-1")
+	}
+	if records[0].deliveryStatus != "DELIVERY_STATUS_FAILED" {
+		t.Errorf("deliveryStatus = %q, want %q", records[0].deliveryStatus, "DELIVERY_STATUS_FAILED")
+	}
+}
+
+func TestRecordDroppedJob_NilRecorder(t *testing.T) {
+	eval := &Evaluator{
+		dropRecorder: nil,
+		jobChan:      make(chan DeliveryJob),
+	}
+
+	// Should not panic.
+	eval.recordDroppedJob(DeliveryJob{RuleID: "r1"})
 }
 
 // --- topicToEventType tests ---

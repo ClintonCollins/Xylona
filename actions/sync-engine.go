@@ -13,6 +13,8 @@ import (
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/alerts"
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -362,6 +364,8 @@ func (e *FederationSyncEngine) runUpdatesStream(ctx context.Context, nodeID stri
 				e.handleMetricsUpdate(evt.MetricsUpdate)
 			case *xylona.FederationServerUpdateEvent_VersionChange:
 				e.handleVersionChange(node, evt.VersionChange)
+			case *xylona.FederationServerUpdateEvent_AlertEvent:
+				e.handleAlertEvent(nodeID, evt.AlertEvent)
 			case *xylona.FederationServerUpdateEvent_Heartbeat:
 				log.Debug().Str("node_id", nodeID).Msg("Received heartbeat from peer")
 			}
@@ -712,6 +716,21 @@ func (e *FederationSyncEngine) handleVersionChange(node *models.Node, change *xy
 	if broadcaster != nil {
 		broadcaster.BroadcastGameServerVersion(change.ServerId, change.Version, change.VersionInfo)
 	}
+}
+
+// handleAlertEvent processes a federation alert event received from a remote
+// peer by deserializing the payload and republishing it on the local event bus
+// so the local alert evaluator can evaluate rules against it.
+func (e *FederationSyncEngine) handleAlertEvent(nodeID string, evt *xylona.FederationAlertEvent) {
+	if _, ok := alerts.AlertProtoTypeToTopic[evt.EventType]; !ok {
+		log.Warn().
+			Str("node_id", nodeID).
+			Str("event_type", evt.EventType.String()).
+			Msg("Received federation alert event with unknown event type, skipping")
+		return
+	}
+
+	alerts.RepublishFederationAlertEvent(eventbus.Get(), evt)
 }
 
 // BroadcastPeerChange sends a NotifyPeerChange to all connected peers concurrently.

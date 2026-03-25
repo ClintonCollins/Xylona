@@ -443,7 +443,17 @@ message FederationServerUpdateEvent {
     FederationServerMetricsUpdate metrics_update = 3;
     FederationStreamHeartbeat heartbeat = 4;
     FederationServerVersionChange version_change = 5;
+    FederationAlertEvent alert_event = 6;
   }
+}
+
+message FederationAlertEvent {
+  optional string server_id = 1;
+  optional string server_node_id = 2;
+  optional string node_id = 3;
+  AlertEventType event_type = 4;
+  string event_data = 5;
+  google.protobuf.Timestamp timestamp = 6;
 }
 
 message FederationServerSnapshot {

@@ -124,14 +124,12 @@ func TestConcurrent_SubscribePublishUnsubscribe(t *testing.T) {
 	topic := "test.concurrent"
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			ch := eb.Subscribe(topic)
 			eb.Publish(topic, "msg")
 			eb.Unsubscribe(topic, ch)
-		}()
+		})
 	}
 	wg.Wait()
 }
@@ -178,7 +176,7 @@ func TestSubscribeReliable_HighThroughput(t *testing.T) {
 	defer eb.Unsubscribe(topic, ch)
 
 	count := 100
-	for i := 0; i < count; i++ {
+	for i := range count {
 		eb.Publish(topic, i)
 	}
 

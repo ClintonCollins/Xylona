@@ -10,6 +10,7 @@ import (
 	"github.com/aarondl/opt/omitnull"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/stephenafamo/bob/dialect/sqlite/im"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -19,20 +20,6 @@ import (
 // index on (alert_rule_id, entity_type, entity_id, entity_node_id) ensures
 // at most one row per combination.
 func (c *Connection) GetOrCreateAlertState(ruleID, entityType, entityID, entityNodeID string) (*models.AlertState, error) {
-	existing, errGet := models.AlertStates.Query(
-		models.SelectWhere.AlertStates.AlertRuleID.EQ(ruleID),
-		models.SelectWhere.AlertStates.EntityType.EQ(entityType),
-		models.SelectWhere.AlertStates.EntityID.EQ(entityID),
-		models.SelectWhere.AlertStates.EntityNodeID.EQ(entityNodeID),
-	).One(c.ctx, c.DB)
-	if errGet == nil {
-		return existing, nil
-	}
-	if !errors.Is(errGet, sql.ErrNoRows) {
-		log.Error().Err(errGet).Str("alert_rule_id", ruleID).Msg("Error querying alert state")
-		return nil, errGet
-	}
-
 	id := uuid.New().String()
 	setter := &models.AlertStateSetter{
 		ID:           omit.From(id),
@@ -43,13 +30,35 @@ func (c *Connection) GetOrCreateAlertState(ruleID, entityType, entityID, entityN
 		Triggered:    omit.From(int64(0)),
 	}
 
-	state, errInsert := models.AlertStates.Insert(setter).One(c.ctx, c.DB)
+	_, errInsert := models.AlertStates.Insert(
+		im.OnConflict(
+			models.AlertStates.Columns.AlertRuleID,
+			models.AlertStates.Columns.EntityType,
+			models.AlertStates.Columns.EntityID,
+			models.AlertStates.Columns.EntityNodeID,
+		).DoNothing(),
+		setter,
+	).Exec(c.ctx, c.DB)
 	if errInsert != nil {
 		log.Error().Err(errInsert).Str("alert_rule_id", ruleID).Msg("Error inserting alert state")
 		return nil, errInsert
 	}
 
-	return state, nil
+	existing, errGet := models.AlertStates.Query(
+		models.SelectWhere.AlertStates.AlertRuleID.EQ(ruleID),
+		models.SelectWhere.AlertStates.EntityType.EQ(entityType),
+		models.SelectWhere.AlertStates.EntityID.EQ(entityID),
+		models.SelectWhere.AlertStates.EntityNodeID.EQ(entityNodeID),
+	).One(c.ctx, c.DB)
+	if errGet != nil {
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, sql.ErrNoRows
+		}
+		log.Error().Err(errGet).Str("alert_rule_id", ruleID).Msg("Error querying alert state")
+		return nil, errGet
+	}
+
+	return existing, nil
 }
 
 // UpdateAlertStateTriggered sets the triggered flag on an alert state. When

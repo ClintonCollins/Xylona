@@ -211,13 +211,13 @@ func TestUpdateGameServerRejectsUnsupportedMinecraftVariant(t *testing.T) {
 		t,
 		gameServer.R.Game,
 		updateproviders.Variant{
-			ID:            "vanilla",
-			Name:          "Vanilla",
+			ID:             "vanilla",
+			Name:           "Vanilla",
 			UpdateProvider: &updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindMojang, SourceID: "vanilla"},
 		},
 		updateproviders.Variant{
-			ID:            "fabric",
-			Name:          "Fabric",
+			ID:             "fabric",
+			Name:           "Fabric",
 			UpdateProvider: &updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindCommand},
 		},
 	)

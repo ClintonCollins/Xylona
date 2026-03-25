@@ -38,6 +38,10 @@ type ServerCrashedEvent struct {
 	ServerNodeID string
 	ExitCode     int
 	Timestamp    time.Time
+	// Federated is true when this event was received from a remote peer via
+	// federation and republished locally. The federation stream checks this
+	// flag to avoid re-forwarding remote events back to peers.
+	Federated bool
 }
 
 // StatusChangedEvent is published when a game server's status transitions.
@@ -46,6 +50,8 @@ type StatusChangedEvent struct {
 	ServerNodeID string
 	OldStatus    string
 	NewStatus    string
+	// Federated is true when this event originated from a remote peer.
+	Federated bool
 }
 
 // VersionChangedEvent is published when a game server's detected version state changes.
@@ -62,6 +68,8 @@ type ThresholdEvent struct {
 	CurrentValue float64
 	Threshold    float64
 	Direction    ThresholdDirection
+	// Federated is true when this event originated from a remote peer.
+	Federated bool
 }
 
 // NodeThresholdEvent is published when a node-level metric crosses a threshold.
@@ -70,4 +78,6 @@ type NodeThresholdEvent struct {
 	CurrentValue float64
 	Threshold    float64
 	Direction    ThresholdDirection
+	// Federated is true when this event originated from a remote peer.
+	Federated bool
 }

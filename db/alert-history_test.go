@@ -183,6 +183,46 @@ func TestGetAlertHistoryByServerID(t *testing.T) {
 	}
 }
 
+func TestGetAlertHistoryByUserAndServerID(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "ah-byuserandserver.sqlite")
+	seedRBACFixture(t, conn)
+	seedNotificationChannel(t, conn, "chan-owner", "user-owner")
+	seedNotificationChannel(t, conn, "chan-other", "user-other")
+
+	ruleOwner, errRuleOwner := conn.InsertAlertRule("user-owner", "", "", "", "server.crash", "", "chan-owner", true)
+	if errRuleOwner != nil {
+		t.Fatalf("InsertAlertRule(owner) error = %v", errRuleOwner)
+	}
+	ruleOther, errRuleOther := conn.InsertAlertRule("user-other", "", "", "", "server.crash", "", "chan-other", true)
+	if errRuleOther != nil {
+		t.Fatalf("InsertAlertRule(other) error = %v", errRuleOther)
+	}
+
+	_, errOwner := conn.InsertAlertHistory(ruleOwner.ID, "user-owner", "server-local-1", "node-local", "", "server.crash", "", "discord", "sent")
+	if errOwner != nil {
+		t.Fatalf("InsertAlertHistory(owner) error = %v", errOwner)
+	}
+	_, errOtherUser := conn.InsertAlertHistory(ruleOther.ID, "user-other", "server-local-1", "node-local", "", "server.crash", "", "discord", "sent")
+	if errOtherUser != nil {
+		t.Fatalf("InsertAlertHistory(other user) error = %v", errOtherUser)
+	}
+	_, errOtherServer := conn.InsertAlertHistory(ruleOwner.ID, "user-owner", "server-other", "node-other", "", "server.crash", "", "discord", "sent")
+	if errOtherServer != nil {
+		t.Fatalf("InsertAlertHistory(other server) error = %v", errOtherServer)
+	}
+
+	results, errGet := conn.GetAlertHistoryByUserAndServerID("user-owner", "server-local-1", "node-local", 10, 0)
+	if errGet != nil {
+		t.Fatalf("GetAlertHistoryByUserAndServerID() error = %v", errGet)
+	}
+	if len(results) != 1 {
+		t.Fatalf("GetAlertHistoryByUserAndServerID() len = %d, want 1", len(results))
+	}
+	if results[0].UserID != "user-owner" {
+		t.Fatalf("GetAlertHistoryByUserAndServerID() user_id = %q, want %q", results[0].UserID, "user-owner")
+	}
+}
+
 func TestPruneAlertHistory(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "ah-prune.sqlite")
 	seedRBACFixture(t, conn)

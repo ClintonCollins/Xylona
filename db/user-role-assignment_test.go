@@ -415,3 +415,168 @@ func TestUserHasGlobalPermission(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUserGlobalPermissionIDs(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-role-assignment-global-perm-ids.sqlite")
+	seedRBACFixture(t, conn)
+
+	_, errRole := conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role (id, name, description, is_system) VALUES (?, ?, ?, ?)`,
+		"role-alert-auditor", "Alert Auditor", "Can view and manage alerts", false,
+	)
+	if errRole != nil {
+		t.Fatalf("failed to insert role: %v", errRole)
+	}
+
+	for _, permissionID := range []string{"alerts.manage", "alerts.view_history"} {
+		_, errRolePerm := conn.SQLDb.ExecContext(
+			context.Background(),
+			`INSERT INTO role_permission (role_id, permission_id) VALUES (?, ?)`,
+			"role-alert-auditor", permissionID,
+		)
+		if errRolePerm != nil {
+			t.Fatalf("failed to insert role_permission %q: %v", permissionID, errRolePerm)
+		}
+	}
+
+	errAssignGlobal := conn.CreateUserRoleAssignment(
+		"assign-global-alert-auditor",
+		"user-other",
+		"role-alert-auditor",
+		"",
+		"user-owner",
+	)
+	if errAssignGlobal != nil {
+		t.Fatalf("CreateUserRoleAssignment(global) error = %v", errAssignGlobal)
+	}
+
+	errAssignScoped := conn.CreateUserRoleAssignment(
+		"assign-scoped-alert-auditor",
+		"user-other",
+		"role-alert-auditor",
+		"server-local-1",
+		"user-owner",
+	)
+	if errAssignScoped != nil {
+		t.Fatalf("CreateUserRoleAssignment(scoped) error = %v", errAssignScoped)
+	}
+
+	permissionIDs, errPerms := conn.GetUserGlobalPermissionIDs("user-other")
+	if errPerms != nil {
+		t.Fatalf("GetUserGlobalPermissionIDs() error = %v", errPerms)
+	}
+
+	if len(permissionIDs) != 2 {
+		t.Fatalf("GetUserGlobalPermissionIDs() len = %d, want 2; got %v", len(permissionIDs), permissionIDs)
+	}
+
+	got := make(map[string]struct{}, len(permissionIDs))
+	for _, permissionID := range permissionIDs {
+		got[permissionID] = struct{}{}
+	}
+
+	for _, permissionID := range []string{"alerts.manage", "alerts.view_history"} {
+		if _, ok := got[permissionID]; !ok {
+			t.Errorf("GetUserGlobalPermissionIDs() missing %q; got %v", permissionID, permissionIDs)
+		}
+	}
+}
+
+func TestUserHasAnyGlobalPermission(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-role-assignment-any-global-perm.sqlite")
+	seedRBACFixture(t, conn)
+
+	_, errRole := conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role (id, name, description, is_system) VALUES (?, ?, ?, ?)`,
+		"role-alert-auditor-any", "Alert Auditor", "Can view alert history", false,
+	)
+	if errRole != nil {
+		t.Fatalf("failed to insert role: %v", errRole)
+	}
+
+	_, errManagePerm := conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role_permission (role_id, permission_id) VALUES (?, ?)`,
+		"role-alert-auditor-any", "alerts.manage",
+	)
+	if errManagePerm != nil {
+		t.Fatalf("failed to insert alerts.manage role_permission: %v", errManagePerm)
+	}
+
+	_, errViewPerm := conn.SQLDb.ExecContext(
+		context.Background(),
+		`INSERT INTO role_permission (role_id, permission_id) VALUES (?, ?)`,
+		"role-alert-auditor-any", "alerts.view_history",
+	)
+	if errViewPerm != nil {
+		t.Fatalf("failed to insert alerts.view_history role_permission: %v", errViewPerm)
+	}
+
+	errAssignGlobal := conn.CreateUserRoleAssignment(
+		"assign-global-any",
+		"user-other",
+		"role-alert-auditor-any",
+		"",
+		"user-owner",
+	)
+	if errAssignGlobal != nil {
+		t.Fatalf("CreateUserRoleAssignment(global) error = %v", errAssignGlobal)
+	}
+
+	errAssignScoped := conn.CreateUserRoleAssignment(
+		"assign-scoped-any",
+		"user-admin",
+		"role-alert-auditor-any",
+		"server-local-1",
+		"user-owner",
+	)
+	if errAssignScoped != nil {
+		t.Fatalf("CreateUserRoleAssignment(scoped) error = %v", errAssignScoped)
+	}
+
+	tests := []struct {
+		name          string
+		userID        string
+		permissionIDs []string
+		want          bool
+	}{
+		{
+			name:          "matches one of multiple global permissions",
+			userID:        "user-other",
+			permissionIDs: []string{"alerts.view_history", "nodes.view"},
+			want:          true,
+		},
+		{
+			name:          "returns false when none match",
+			userID:        "user-other",
+			permissionIDs: []string{"nodes.view", "nodes.manage"},
+			want:          false,
+		},
+		{
+			name:          "server scoped permissions do not satisfy global check",
+			userID:        "user-admin",
+			permissionIDs: []string{"alerts.manage", "alerts.view_history"},
+			want:          false,
+		},
+		{
+			name:          "empty permission list returns false",
+			userID:        "user-other",
+			permissionIDs: nil,
+			want:          false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, errPerm := conn.UserHasAnyGlobalPermission(tt.userID, tt.permissionIDs)
+			if errPerm != nil {
+				t.Fatalf("UserHasAnyGlobalPermission() error = %v", errPerm)
+			}
+			if got != tt.want {
+				t.Errorf("UserHasAnyGlobalPermission() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

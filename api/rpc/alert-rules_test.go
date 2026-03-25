@@ -206,8 +206,10 @@ func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 }
 
 // ptrStr returns a pointer to the given string value.
+//
+//go:fix inline
 func ptrStr(s string) *string {
-	return &s
+	return new(s)
 }
 
 // ---------------------------------------------------------------------------
@@ -457,7 +459,7 @@ func TestCreateAlertRule_ServerIDWithoutServerNodeID(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerId:              ptrStr("server-local-1"),
+		ServerId:              new("server-local-1"),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
 		NotificationChannelId: fixture.channelID,
 		Enabled:               true,
@@ -477,7 +479,7 @@ func TestCreateAlertRule_ServerNodeIDWithoutServerID(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerNodeId:          ptrStr("node-local"),
+		ServerNodeId:          new("node-local"),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
 		NotificationChannelId: fixture.channelID,
 		Enabled:               true,
@@ -497,9 +499,9 @@ func TestCreateAlertRule_ServerIDAndNodeIDBothSet(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerId:              ptrStr("server-local-1"),
-		ServerNodeId:          ptrStr("node-local"),
-		NodeId:                ptrStr("node-local"),
+		ServerId:              new("server-local-1"),
+		ServerNodeId:          new("node-local"),
+		NodeId:                new("node-local"),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
 		NotificationChannelId: fixture.channelID,
 		Enabled:               true,
@@ -519,8 +521,8 @@ func TestCreateAlertRule_NodeEventWithServerID(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerId:              ptrStr("server-local-1"),
-		ServerNodeId:          ptrStr("node-local"),
+		ServerId:              new("server-local-1"),
+		ServerNodeId:          new("node-local"),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
 		NotificationChannelId: fixture.channelID,
 		Enabled:               true,
@@ -540,7 +542,7 @@ func TestCreateAlertRule_ServerEventWithNodeID(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		NodeId:                ptrStr("node-local"),
+		NodeId:                new("node-local"),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
 		NotificationChannelId: fixture.channelID,
 		Enabled:               true,
@@ -673,8 +675,8 @@ func TestCreateAlertRule_ServerScoped(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerId:              ptrStr("server-local-1"),
-		ServerNodeId:          ptrStr("node-local"),
+		ServerId:              new("server-local-1"),
+		ServerNodeId:          new("node-local"),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CPU_THRESHOLD,
 		Condition:             ">90",
 		NotificationChannelId: fixture.channelID,
@@ -702,7 +704,7 @@ func TestCreateAlertRule_NodeScoped(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		NodeId:                ptrStr("node-local"),
+		NodeId:                new("node-local"),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
 		Condition:             ">95",
 		NotificationChannelId: fixture.channelID,
@@ -785,8 +787,8 @@ func TestListAlertRules_FilteredByServer(t *testing.T) {
 
 	// Create a rule scoped to server-local-1
 	createReq1 := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerId:              ptrStr("server-local-1"),
-		ServerNodeId:          ptrStr("node-local"),
+		ServerId:              new("server-local-1"),
+		ServerNodeId:          new("node-local"),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
 		NotificationChannelId: fixture.channelID,
 		Enabled:               true,
@@ -822,8 +824,8 @@ func TestListAlertRules_FilteredByServer(t *testing.T) {
 
 	// List filtered by server — should get 1
 	listFilterReq := connect.NewRequest(&xylona.ListAlertRulesRequest{
-		ServerId:     ptrStr("server-local-1"),
-		ServerNodeId: ptrStr("node-local"),
+		ServerId:     new("server-local-1"),
+		ServerNodeId: new("node-local"),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listFilterReq, "user-alerts")
 	listFilterResp, errListFilter := fixture.service.ListAlertRules(context.Background(), listFilterReq)
@@ -832,6 +834,63 @@ func TestListAlertRules_FilteredByServer(t *testing.T) {
 	}
 	if len(listFilterResp.Msg.Rules) != 1 {
 		t.Errorf("ListAlertRules(filtered) len = %d, want 1", len(listFilterResp.Msg.Rules))
+	}
+}
+
+func TestListAlertRules_FilteredByServerDoesNotLeakOtherUsersRules(t *testing.T) {
+	fixture := newAlertRulesFixture(t)
+
+	createOwnReq := connect.NewRequest(&xylona.CreateAlertRuleRequest{
+		ServerId:              new("server-local-1"),
+		ServerNodeId:          new("node-local"),
+		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+		NotificationChannelId: fixture.channelID,
+		Enabled:               true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createOwnReq, "user-alerts")
+
+	_, errCreateOwn := fixture.service.CreateAlertRule(context.Background(), createOwnReq)
+	if errCreateOwn != nil {
+		t.Fatalf("CreateAlertRule(user-alerts) error = %v", errCreateOwn)
+	}
+
+	superChannels, errSuperChannels := fixture.conn.GetNotificationChannelsByUserID("user-super")
+	if errSuperChannels != nil {
+		t.Fatalf("GetNotificationChannelsByUserID(user-super) error = %v", errSuperChannels)
+	}
+	if len(superChannels) == 0 {
+		t.Fatal("expected user-super to have at least one notification channel")
+	}
+
+	createSuperReq := connect.NewRequest(&xylona.CreateAlertRuleRequest{
+		ServerId:              new("server-local-1"),
+		ServerNodeId:          new("node-local"),
+		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_STATUS_CHANGE,
+		NotificationChannelId: superChannels[0].ID,
+		Enabled:               true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createSuperReq, "user-super")
+
+	_, errCreateSuper := fixture.service.CreateAlertRule(context.Background(), createSuperReq)
+	if errCreateSuper != nil {
+		t.Fatalf("CreateAlertRule(user-super) error = %v", errCreateSuper)
+	}
+
+	listReq := connect.NewRequest(&xylona.ListAlertRulesRequest{
+		ServerId:     new("server-local-1"),
+		ServerNodeId: new("node-local"),
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listReq, "user-alerts")
+
+	listResp, errList := fixture.service.ListAlertRules(context.Background(), listReq)
+	if errList != nil {
+		t.Fatalf("ListAlertRules(filtered) error = %v", errList)
+	}
+	if len(listResp.Msg.Rules) != 1 {
+		t.Fatalf("ListAlertRules(filtered) len = %d, want 1", len(listResp.Msg.Rules))
+	}
+	if listResp.Msg.Rules[0].UserId != "user-alerts" {
+		t.Fatalf("ListAlertRules(filtered) user_id = %q, want %q", listResp.Msg.Rules[0].UserId, "user-alerts")
 	}
 }
 
@@ -952,8 +1011,8 @@ func TestGetAlertHistory_FilteredByServer(t *testing.T) {
 
 	// Filter by server
 	req := connect.NewRequest(&xylona.GetAlertHistoryRequest{
-		ServerId:     ptrStr("server-local-1"),
-		ServerNodeId: ptrStr("node-local"),
+		ServerId:     new("server-local-1"),
+		ServerNodeId: new("node-local"),
 		Limit:        50,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
@@ -964,6 +1023,48 @@ func TestGetAlertHistory_FilteredByServer(t *testing.T) {
 	}
 	if len(resp.Msg.Entries) != 1 {
 		t.Errorf("GetAlertHistory(filtered) len = %d, want 1", len(resp.Msg.Entries))
+	}
+}
+
+func TestGetAlertHistory_FilteredByServerDoesNotLeakOtherUsersEntries(t *testing.T) {
+	fixture := newAlertRulesFixture(t)
+
+	_, errOwn := fixture.conn.InsertAlertHistory(
+		"", "user-alerts", "server-local-1", "node-local", "", "ALERT_EVENT_TYPE_CRASH",
+		`{"message":"own alert"}`,
+		"NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD",
+		"DELIVERY_STATUS_SENT",
+	)
+	if errOwn != nil {
+		t.Fatalf("InsertAlertHistory(user-alerts) error = %v", errOwn)
+	}
+
+	_, errOther := fixture.conn.InsertAlertHistory(
+		"", "user-super", "server-local-1", "node-local", "", "ALERT_EVENT_TYPE_STATUS_CHANGE",
+		`{"message":"other user alert"}`,
+		"NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD",
+		"DELIVERY_STATUS_SENT",
+	)
+	if errOther != nil {
+		t.Fatalf("InsertAlertHistory(user-super) error = %v", errOther)
+	}
+
+	req := connect.NewRequest(&xylona.GetAlertHistoryRequest{
+		ServerId:     new("server-local-1"),
+		ServerNodeId: new("node-local"),
+		Limit:        50,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+
+	resp, errResp := fixture.service.GetAlertHistory(context.Background(), req)
+	if errResp != nil {
+		t.Fatalf("GetAlertHistory(filtered) error = %v", errResp)
+	}
+	if len(resp.Msg.Entries) != 1 {
+		t.Fatalf("GetAlertHistory(filtered) len = %d, want 1", len(resp.Msg.Entries))
+	}
+	if resp.Msg.Entries[0].UserId != "user-alerts" {
+		t.Fatalf("GetAlertHistory(filtered) user_id = %q, want %q", resp.Msg.Entries[0].UserId, "user-alerts")
 	}
 }
 
@@ -1057,7 +1158,7 @@ func TestListAlertRules_HalfPairServerID(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.ListAlertRulesRequest{
-		ServerId: ptrStr("server-local-1"),
+		ServerId: new("server-local-1"),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
 
@@ -1074,7 +1175,7 @@ func TestGetAlertHistory_HalfPairServerID(t *testing.T) {
 	fixture := newAlertRulesFixture(t)
 
 	req := connect.NewRequest(&xylona.GetAlertHistoryRequest{
-		ServerId: ptrStr("server-local-1"),
+		ServerId: new("server-local-1"),
 		Limit:    50,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")

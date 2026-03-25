@@ -107,6 +107,7 @@ type Instance struct {
 	versionLatestTTL     time.Duration
 	versionRefreshMu     sync.Mutex
 	versionRefreshCalls  map[string]*versionRefreshCall
+	localNodeID          string
 }
 
 // SetSyncEngine sets the sync engine on the actions instance. This is called
@@ -129,6 +130,14 @@ func (inst *Instance) SetDummyTracker(dt *versiontracker.DummyTracker) {
 // SetVersionBroadcaster sets the websocket-facing broadcaster for version changes.
 func (inst *Instance) SetVersionBroadcaster(b VersionBroadcaster) {
 	inst.versionBroadcaster = b
+}
+
+// StartAlertJobs launches the alert-related background goroutines. Call this
+// after the node ID is known (i.e. after settings are loaded from the DB).
+func (inst *Instance) StartAlertJobs(localNodeID string) {
+	inst.localNodeID = localNodeID
+	go inst.backgroundJobThresholdPoller(localNodeID)
+	go inst.backgroundJobAlertHistoryPruner()
 }
 
 // CheckServerVersionByID loads the game server from the DB and runs a version check.
@@ -677,16 +686,16 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 	}
 
 	preparedCommand := supervisor.PreparedCommand{
-		ID:                 gameServer.ID,
+		ID: gameServer.ID,
 		FullCommandAndArgs: appendSteamBranchToUpdateCommand(
 			placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
 			gameServer.Branch,
 		),
-		WorkingDirectory:   gameServer.Directory,
-		User:               gameServer.UserID,
-		GameServerID:       &gameServer.ID,
-		Status:             xylona.Status_UPDATING,
-		ServiceID:          gameServer.GameID,
+		WorkingDirectory: gameServer.Directory,
+		User:             gameServer.UserID,
+		GameServerID:     &gameServer.ID,
+		Status:           xylona.Status_UPDATING,
+		ServiceID:        gameServer.GameID,
 		CallbackFunction: func(cmd *supervisor.Command) {
 			log.Info().Str("Game Server ID", gameServer.ID).Msg("Game server update completed")
 		},

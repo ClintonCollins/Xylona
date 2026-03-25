@@ -341,11 +341,9 @@ func TestResolveVersionDataCoalescesConcurrentRefreshes(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range 8 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			_, _ = inst.ResolveVersionData(context.Background(), gameServer, VersionResolveOptions{})
-		}()
+		})
 	}
 	wg.Wait()
 

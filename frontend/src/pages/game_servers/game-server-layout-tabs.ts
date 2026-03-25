@@ -64,6 +64,14 @@ export function buildGameServerTabs(
       requiredPermission: 'game_server.mods',
     })
   }
+  if (isOwnerOrSuper || has('alerts.manage') || has('alerts.view_history')) {
+    tabs.push({
+      name: 'Alerts',
+      to: `${basePath}/alerts`,
+      icon: 'notifications',
+      exact: true,
+    })
+  }
   if (isOwnerOrSuper) {
     tabs.push({
       name: 'Access',
@@ -100,6 +108,14 @@ export function getUnauthorizedRedirect(
     return consolePath
   }
   if (currentPath === `${basePath}/mods` && (!has('game_server.mods') || !hasModSupport)) {
+    return consolePath
+  }
+  if (
+    currentPath === `${basePath}/alerts` &&
+    !isOwnerOrSuper &&
+    !has('alerts.manage') &&
+    !has('alerts.view_history')
+  ) {
     return consolePath
   }
   if (currentPath === `${basePath}/access` && !isOwnerOrSuper) {

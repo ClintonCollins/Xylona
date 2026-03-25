@@ -141,7 +141,9 @@ describe('resolveCanonicalVersionDisplay', () => {
   })
 
   it('reports tracking latest for Mojang and Paper servers that are not pinned', () => {
-    expect(resolveVariantTrackingLabel(UpdateProviderKind.MOJANG, '', false)).toBe('Tracking latest')
+    expect(resolveVariantTrackingLabel(UpdateProviderKind.MOJANG, '', false)).toBe(
+      'Tracking latest',
+    )
     expect(resolveVariantTrackingLabel(UpdateProviderKind.PAPERMC, '1.21.4', false)).toBe(
       'Tracking latest',
     )

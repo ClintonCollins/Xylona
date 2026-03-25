@@ -1,14 +1,20 @@
 package webhooks
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 // testEvent returns a fully populated AlertEvent for use in tests.
@@ -30,6 +36,7 @@ func testEvent() AlertEvent {
 }
 
 // newTestSender creates a Sender with short timeouts suitable for testing.
+// SSRF checking is disabled because httptest servers bind to localhost.
 func newTestSender() *Sender {
 	return &Sender{
 		client:      &http.Client{Timeout: 2 * time.Second},
@@ -38,6 +45,7 @@ func newTestSender() *Sender {
 			MaxAttempts: 3,
 			BaseDelay:   time.Millisecond, // no real waiting in tests
 		},
+		ssrfCheckFn: nil, // skip SSRF for localhost test servers
 	}
 }
 
@@ -332,6 +340,51 @@ func TestSend_FailAfterMaxRetries(t *testing.T) {
 	}
 }
 
+func TestSend_RedactsWebhookURLInLogs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	var logBuffer bytes.Buffer
+	originalLogger := log.Logger
+	log.Logger = zerolog.New(&logBuffer)
+	t.Cleanup(func() {
+		log.Logger = originalLogger
+	})
+
+	sender := newTestSender()
+	config := ChannelConfig{URL: server.URL + "/api/webhooks/123/super-secret-token"}
+	errSend := sender.Send(context.Background(), ChannelTypeGeneric, config, testEvent())
+	if errSend == nil {
+		t.Fatal("expected send error, got nil")
+	}
+
+	logOutput := logBuffer.String()
+	if strings.Contains(logOutput, "super-secret-token") {
+		t.Fatalf("log output leaked webhook token: %s", logOutput)
+	}
+	if strings.Contains(logOutput, "/api/webhooks/123/super-secret-token") {
+		t.Fatalf("log output leaked webhook path: %s", logOutput)
+	}
+	if !strings.Contains(logOutput, server.URL) {
+		t.Fatalf("log output = %q, want redacted base URL %q", logOutput, server.URL)
+	}
+}
+
+func TestSend_RejectsUnsupportedWebhookURLScheme(t *testing.T) {
+	sender := newTestSender()
+	errSend := sender.Send(
+		context.Background(),
+		ChannelTypeGeneric,
+		ChannelConfig{URL: "file:///tmp/webhook"},
+		testEvent(),
+	)
+	if errSend == nil {
+		t.Fatal("expected invalid webhook URL error, got nil")
+	}
+}
+
 func TestSend_RateLimited(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -345,6 +398,7 @@ func TestSend_RateLimited(t *testing.T) {
 			MaxAttempts: 3,
 			BaseDelay:   time.Millisecond,
 		},
+		ssrfCheckFn: nil,
 	}
 
 	config := ChannelConfig{URL: server.URL}
@@ -365,6 +419,19 @@ func TestSend_RateLimited(t *testing.T) {
 	}
 }
 
+func TestRateLimiter_RemovesExpiredKeysAcrossChannels(t *testing.T) {
+	rl := newRateLimiter(10, time.Minute)
+	rl.windows["stale"] = []time.Time{time.Now().Add(-2 * time.Minute)}
+
+	allowed := rl.Allow("fresh")
+	if !allowed {
+		t.Fatal("Allow(fresh) = false, want true")
+	}
+	if _, exists := rl.windows["stale"]; exists {
+		t.Fatalf("stale rate limiter key was not removed: %#v", rl.windows)
+	}
+}
+
 func TestSend_Timeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Delay longer than the client timeout.
@@ -380,6 +447,7 @@ func TestSend_Timeout(t *testing.T) {
 			MaxAttempts: 1, // no retries for timeout test
 			BaseDelay:   time.Millisecond,
 		},
+		ssrfCheckFn: nil,
 	}
 
 	config := ChannelConfig{URL: server.URL}
@@ -451,6 +519,89 @@ func TestSend_NoRetryOn4xx(t *testing.T) {
 	got := int(attempts.Load())
 	if got != 1 {
 		t.Errorf("attempts = %d, want 1 (4xx should not retry)", got)
+	}
+}
+
+// --- SSRF protection tests ---
+
+func TestIsPrivateOrReservedIP(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+		want bool
+	}{
+		{"loopback IPv4", "127.0.0.1", true},
+		{"loopback IPv4 other", "127.0.0.2", true},
+		{"loopback IPv6", "::1", true},
+		{"private 10.x", "10.0.0.1", true},
+		{"private 172.16.x", "172.16.0.1", true},
+		{"private 172.31.x", "172.31.255.255", true},
+		{"private 192.168.x", "192.168.1.1", true},
+		{"link-local IPv4", "169.254.1.1", true},
+		{"cloud metadata", "169.254.169.254", true},
+		{"link-local IPv6", "fe80::1", true},
+		{"unique-local IPv6", "fd00::1", true},
+		{"unspecified IPv4", "0.0.0.0", true},
+		{"unspecified IPv6", "::", true},
+		{"public IPv4", "8.8.8.8", false},
+		{"public IPv4 other", "1.1.1.1", false},
+		{"non-private 172", "172.15.0.1", false},
+		{"non-private 172 upper", "172.32.0.1", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ip := net.ParseIP(tc.ip)
+			if ip == nil {
+				t.Fatalf("net.ParseIP(%q) returned nil", tc.ip)
+			}
+			got := isPrivateOrReservedIP(ip)
+			if got != tc.want {
+				t.Errorf("isPrivateOrReservedIP(%s) = %v, want %v", tc.ip, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestValidateWebhookTarget_BlocksLoopback(t *testing.T) {
+	errValidate := ValidateWebhookTarget("http://127.0.0.1:8080/hook")
+	if errValidate == nil {
+		t.Fatal("ValidateWebhookTarget(loopback) expected error, got nil")
+	}
+	if !errors.Is(errValidate, ErrSSRFBlocked) {
+		t.Errorf("error = %v, want ErrSSRFBlocked", errValidate)
+	}
+}
+
+func TestValidateWebhookTarget_BlocksPrivate(t *testing.T) {
+	errValidate := ValidateWebhookTarget("http://192.168.1.1:9000/webhook")
+	if errValidate == nil {
+		t.Fatal("ValidateWebhookTarget(private) expected error, got nil")
+	}
+	if !errors.Is(errValidate, ErrSSRFBlocked) {
+		t.Errorf("error = %v, want ErrSSRFBlocked", errValidate)
+	}
+}
+
+func TestValidateWebhookTarget_BlocksMetadata(t *testing.T) {
+	errValidate := ValidateWebhookTarget("http://169.254.169.254/latest/meta-data/")
+	if errValidate == nil {
+		t.Fatal("ValidateWebhookTarget(metadata) expected error, got nil")
+	}
+}
+
+func TestValidateWebhookTarget_AllowsPublic(t *testing.T) {
+	// Use IP literal to avoid DNS lookup in test.
+	errValidate := ValidateWebhookTarget("https://8.8.8.8/webhook")
+	if errValidate != nil {
+		t.Fatalf("ValidateWebhookTarget(public IP) error = %v", errValidate)
+	}
+}
+
+func TestValidateWebhookTarget_InvalidURL(t *testing.T) {
+	errValidate := ValidateWebhookTarget("://bad")
+	if errValidate == nil {
+		t.Fatal("ValidateWebhookTarget(invalid URL) expected error, got nil")
 	}
 }
 

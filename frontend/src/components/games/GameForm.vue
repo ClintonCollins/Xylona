@@ -594,8 +594,8 @@
           </div>
 
           <div v-if="managedModConfig" class="typed-config-managed text-xy-muted">
-            This game uses advanced mod configuration outside the simple editor. Hidden internal
-            mod settings will be preserved when you save this game.
+            This game uses advanced mod configuration outside the simple editor. Hidden internal mod
+            settings will be preserved when you save this game.
           </div>
 
           <div v-else class="typed-config-card">

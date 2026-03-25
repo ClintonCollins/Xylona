@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -309,14 +311,125 @@ func TestSetAndGetSystemSMTPConfig_RoundTrip(t *testing.T) {
 	if got.User != "smtpuser" {
 		t.Errorf("user = %q, want %q", got.User, "smtpuser")
 	}
-	if got.Password != "secret123" {
-		t.Errorf("password = %q, want %q", got.Password, "secret123")
+	if got.Password != "********" {
+		t.Errorf("password = %q, want %q", got.Password, "********")
 	}
 	if got.FromAddress != "noreply@example.com" {
 		t.Errorf("from_address = %q, want %q", got.FromAddress, "noreply@example.com")
 	}
 	if !got.TlsEnabled {
 		t.Errorf("tls_enabled = false, want true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SetSystemSMTPConfig — masked password preservation
+// ---------------------------------------------------------------------------
+
+func TestSetSystemSMTPConfig_MaskedPasswordPreservesOriginal(t *testing.T) {
+	fixture := newSMTPFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+
+	// Step 1: Save a config with a real password.
+	setReq := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
+		Config: &xylona.SystemSMTPConfig{
+			Host:        "smtp.example.com",
+			Port:        587,
+			User:        "smtpuser",
+			Password:    "realPassword123",
+			FromAddress: "noreply@example.com",
+			TlsEnabled:  true,
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, setReq, "user-super")
+
+	_, errSet := fixture.service.SetSystemSMTPConfig(context.Background(), setReq)
+	if errSet != nil {
+		t.Fatalf("SetSystemSMTPConfig(initial) error = %v", errSet)
+	}
+
+	// Step 2: Re-save with the masked placeholder (simulating the frontend
+	// round-trip where the user does not change the password).
+	updateReq := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
+		Config: &xylona.SystemSMTPConfig{
+			Host:        "smtp.example.com",
+			Port:        587,
+			User:        "smtpuser",
+			Password:    "********",
+			FromAddress: "noreply@example.com",
+			TlsEnabled:  true,
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-super")
+
+	_, errUpdate := fixture.service.SetSystemSMTPConfig(context.Background(), updateReq)
+	if errUpdate != nil {
+		t.Fatalf("SetSystemSMTPConfig(masked) error = %v", errUpdate)
+	}
+
+	// Step 3: Read back from DB directly to verify the real password is preserved.
+	jsonStr, errGet := fixture.conn.GetSystemConfig(systemSMTPConfigKey)
+	if errGet != nil {
+		t.Fatalf("GetSystemConfig() error = %v", errGet)
+	}
+
+	if !strings.Contains(jsonStr, "realPassword123") {
+		t.Errorf("stored config should contain original password, got: %s", jsonStr)
+	}
+	if strings.Contains(jsonStr, "********") {
+		t.Errorf("stored config should not contain masked password, got: %s", jsonStr)
+	}
+}
+
+func TestSetSystemSMTPConfig_NewPasswordOverwritesExisting(t *testing.T) {
+	fixture := newSMTPFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+
+	// Step 1: Save with initial password.
+	setReq := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
+		Config: &xylona.SystemSMTPConfig{
+			Host:        "smtp.example.com",
+			Port:        587,
+			User:        "smtpuser",
+			Password:    "oldPassword",
+			FromAddress: "noreply@example.com",
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, setReq, "user-super")
+
+	_, errSet := fixture.service.SetSystemSMTPConfig(context.Background(), setReq)
+	if errSet != nil {
+		t.Fatalf("SetSystemSMTPConfig(initial) error = %v", errSet)
+	}
+
+	// Step 2: Save with a new real password (not the mask).
+	updateReq := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
+		Config: &xylona.SystemSMTPConfig{
+			Host:        "smtp.example.com",
+			Port:        587,
+			User:        "smtpuser",
+			Password:    "brandNewPassword",
+			FromAddress: "noreply@example.com",
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-super")
+
+	_, errUpdate := fixture.service.SetSystemSMTPConfig(context.Background(), updateReq)
+	if errUpdate != nil {
+		t.Fatalf("SetSystemSMTPConfig(new password) error = %v", errUpdate)
+	}
+
+	// Step 3: Verify the new password is stored.
+	jsonStr, errGet := fixture.conn.GetSystemConfig(systemSMTPConfigKey)
+	if errGet != nil {
+		t.Fatalf("GetSystemConfig() error = %v", errGet)
+	}
+
+	if !strings.Contains(jsonStr, "brandNewPassword") {
+		t.Errorf("stored config should contain new password, got: %s", jsonStr)
+	}
+	if strings.Contains(jsonStr, "oldPassword") {
+		t.Errorf("stored config should not contain old password, got: %s", jsonStr)
 	}
 }
 
@@ -444,7 +557,7 @@ func TestSetSystemSMTPConfig_InvalidPort(t *testing.T) {
 	}
 }
 
-func TestTestSystemSMTP_Stub(t *testing.T) {
+func TestTestSystemSMTP_NotConfigured(t *testing.T) {
 	fixture := newSMTPFixture(t)
 
 	req := connect.NewRequest(&xylona.TestSystemSMTPRequest{
@@ -454,12 +567,106 @@ func TestTestSystemSMTP_Stub(t *testing.T) {
 
 	resp, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
 	if errTest != nil {
-		t.Fatalf("TestSystemSMTP(stub) error = %v", errTest)
+		t.Fatalf("TestSystemSMTP(not configured) error = %v", errTest)
 	}
 	if resp.Msg.Success {
 		t.Errorf("success = true, want false")
 	}
-	if resp.Msg.Error != "SMTP delivery not yet implemented" {
-		t.Errorf("error = %q, want %q", resp.Msg.Error, "SMTP delivery not yet implemented")
+	if resp.Msg.Error != "SMTP is not configured" {
+		t.Errorf("error = %q, want %q", resp.Msg.Error, "SMTP is not configured")
+	}
+}
+
+func TestTestSystemSMTP_SendSuccess(t *testing.T) {
+	fixture := newSMTPFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+
+	// Store an SMTP config first.
+	setReq := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
+		Config: &xylona.SystemSMTPConfig{
+			Host:        "smtp.example.com",
+			Port:        587,
+			User:        "smtpuser",
+			Password:    "secret",
+			FromAddress: "noreply@example.com",
+			TlsEnabled:  true,
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, setReq, "user-super")
+
+	_, errSet := fixture.service.SetSystemSMTPConfig(context.Background(), setReq)
+	if errSet != nil {
+		t.Fatalf("SetSystemSMTPConfig() error = %v", errSet)
+	}
+
+	// Inject a fake send function that succeeds.
+	fixture.service.testEmailSendFunc = func(_ context.Context, cfg *mailer.SMTPConfig, to string, subject string, _ string) error {
+		if cfg.Host != "smtp.example.com" {
+			t.Errorf("send config host = %q, want %q", cfg.Host, "smtp.example.com")
+		}
+		if to != "recipient@example.com" {
+			t.Errorf("send to = %q, want %q", to, "recipient@example.com")
+		}
+		if subject != "Xylona SMTP Test" {
+			t.Errorf("send subject = %q, want %q", subject, "Xylona SMTP Test")
+		}
+		return nil
+	}
+
+	req := connect.NewRequest(&xylona.TestSystemSMTPRequest{
+		ToAddress: "recipient@example.com",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+
+	resp, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
+	if errTest != nil {
+		t.Fatalf("TestSystemSMTP() error = %v", errTest)
+	}
+	if !resp.Msg.Success {
+		t.Errorf("success = false, want true")
+	}
+	if resp.Msg.Error != "" {
+		t.Errorf("error = %q, want empty", resp.Msg.Error)
+	}
+}
+
+func TestTestSystemSMTP_SendFailure(t *testing.T) {
+	fixture := newSMTPFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+
+	// Store an SMTP config first.
+	setReq := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
+		Config: &xylona.SystemSMTPConfig{
+			Host:        "smtp.example.com",
+			Port:        587,
+			FromAddress: "noreply@example.com",
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, setReq, "user-super")
+
+	_, errSet := fixture.service.SetSystemSMTPConfig(context.Background(), setReq)
+	if errSet != nil {
+		t.Fatalf("SetSystemSMTPConfig() error = %v", errSet)
+	}
+
+	// Inject a fake send function that fails.
+	fixture.service.testEmailSendFunc = func(_ context.Context, _ *mailer.SMTPConfig, _ string, _ string, _ string) error {
+		return errors.New("connection refused")
+	}
+
+	req := connect.NewRequest(&xylona.TestSystemSMTPRequest{
+		ToAddress: "recipient@example.com",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+
+	resp, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
+	if errTest != nil {
+		t.Fatalf("TestSystemSMTP() error = %v", errTest)
+	}
+	if resp.Msg.Success {
+		t.Errorf("success = true, want false")
+	}
+	if resp.Msg.Error != "connection refused" {
+		t.Errorf("error = %q, want %q", resp.Msg.Error, "connection refused")
 	}
 }

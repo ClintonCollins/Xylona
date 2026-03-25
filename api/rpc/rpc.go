@@ -10,6 +10,7 @@ import (
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -52,11 +53,13 @@ type XylonaService struct {
 	remoteFederationClientFactory func(node *models.Node, serverID string) (xylonaconnect.FederationClient, error)
 	installGameServerFn           func(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error)
 	allPermissionIDs              []string
+	permissionIDsForUserFn        func(user *models.User) ([]string, error)
 	installTracker                *modmanager.InstallTracker
 	installBroadcast              ServerSoftwareInstallBroadcaster
 	updateBroadcast               UpdateProgressBroadcaster
 	versionState                  *versiontracker.VersionStateMap
 	dummyTracker                  *versiontracker.DummyTracker
+	testEmailSendFunc             func(ctx context.Context, cfg *mailer.SMTPConfig, to string, subject string, body string) error
 }
 
 func NewXylonaService(

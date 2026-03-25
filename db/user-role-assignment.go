@@ -130,6 +130,42 @@ func (c *Connection) GetUserPermissionIDsForServer(userID string, gameServerID s
 	return permissionIDs, nil
 }
 
+func (c *Connection) GetUserGlobalPermissionIDs(userID string) ([]string, error) {
+	rows, errQuery := c.SQLDb.QueryContext(
+		c.ctx,
+		`SELECT DISTINCT rp.permission_id
+		FROM user_role_assignment ura
+		JOIN role_permission rp ON ura.role_id = rp.role_id
+		WHERE ura.user_id = ?
+		AND ura.game_server_id IS NULL`,
+		userID,
+	)
+	if errQuery != nil {
+		return nil, errQuery
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var permissionIDs []string
+	for rows.Next() {
+		var permissionID string
+		if errScan := rows.Scan(&permissionID); errScan != nil {
+			return nil, errScan
+		}
+		permissionIDs = append(permissionIDs, permissionID)
+	}
+	if errRows := rows.Err(); errRows != nil {
+		return nil, errRows
+	}
+
+	if permissionIDs == nil {
+		return []string{}, nil
+	}
+
+	return permissionIDs, nil
+}
+
 func (c *Connection) GetUserPermissionIDsForServers(userID string, gameServerIDs []string) (map[string][]string, error) {
 	result := make(map[string][]string)
 	if len(gameServerIDs) == 0 {
@@ -213,6 +249,39 @@ func (c *Connection) UserHasGlobalPermission(userID string, permissionID string)
 		AND ura.game_server_id IS NULL`,
 		userID, permissionID,
 	).Scan(&count)
+	if errQuery != nil {
+		return false, errQuery
+	}
+
+	return count > 0, nil
+}
+
+// UserHasAnyGlobalPermission checks whether the user has at least one of the
+// given permissions via globally-scoped role assignments (game_server_id IS NULL).
+func (c *Connection) UserHasAnyGlobalPermission(userID string, permissionIDs []string) (bool, error) {
+	if len(permissionIDs) == 0 {
+		return false, nil
+	}
+
+	placeholders := make([]string, len(permissionIDs))
+	args := make([]any, 0, len(permissionIDs)+1)
+	args = append(args, userID)
+	for idx, permissionID := range permissionIDs {
+		placeholders[idx] = "?"
+		args = append(args, permissionID)
+	}
+
+	query := fmt.Sprintf(
+		`SELECT COUNT(*)
+		FROM user_role_assignment ura
+		JOIN role_permission rp ON ura.role_id = rp.role_id
+		WHERE ura.user_id = ? AND rp.permission_id IN (%s)
+		AND ura.game_server_id IS NULL`,
+		strings.Join(placeholders, ", "),
+	)
+
+	var count int
+	errQuery := c.SQLDb.QueryRowContext(c.ctx, query, args...).Scan(&count)
 	if errQuery != nil {
 		return false, errQuery
 	}

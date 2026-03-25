@@ -1,6 +1,7 @@
 import { RouteLocationNormalized, RouteRecordRaw } from 'vue-router'
 import { useUserAuthStore } from '@/stores/xylona'
 import { CheckUserAuthenticatedResponse } from '@/proto/xylona_pb'
+import { canViewAlerts } from '@/utils/alert-permissions'
 import { legacyGameServerEditRedirect } from './game-server-route-helpers'
 
 const requireSuperUser = async () => {
@@ -10,6 +11,17 @@ const requireSuperUser = async () => {
     return { path: '/login' }
   }
   if (!resp.user.superUser) {
+    return { path: '/' }
+  }
+}
+
+const requireAlertAccess = async () => {
+  const store = useUserAuthStore()
+  const resp: CheckUserAuthenticatedResponse | null = await store.checkUserAuthenticated()
+  if (!resp || !resp.user || !resp.authenticated) {
+    return { path: '/login' }
+  }
+  if (!canViewAlerts(resp.user, resp)) {
     return { path: '/' }
   }
 }
@@ -112,6 +124,10 @@ const routes: RouteRecordRaw[] = [
             component: () => import('pages/game_servers/GameServerMods.vue'),
           },
           {
+            path: 'alerts',
+            component: () => import('pages/game_servers/GameServerAlerts.vue'),
+          },
+          {
             path: 'access',
             component: () => import('components/game_servers/GameServerAccess.vue'),
           },
@@ -140,6 +156,11 @@ const routes: RouteRecordRaw[] = [
         path: '/nodes/activity',
         component: () => import('pages/nodes/NodeActivity.vue'),
         beforeEnter: requireSuperUser,
+      },
+      {
+        path: '/notifications',
+        component: () => import('pages/other/Notifications.vue'),
+        beforeEnter: requireAlertAccess,
       },
       {
         path: '/secret-keys',

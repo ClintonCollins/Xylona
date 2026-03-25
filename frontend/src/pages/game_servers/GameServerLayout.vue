@@ -100,6 +100,17 @@ async function configureTabs() {
         }),
       )
       permissions = gameServerResp.gameServer?.effectivePermissions ?? []
+      // Merge global alert permissions into the server-scoped permissions
+      // so the Alerts tab and redirect logic can see them.
+      const globalPerms = authResponse?.permissionIds ?? []
+      const alertPerms = globalPerms.filter(
+        (p) => p === 'alerts.manage' || p === 'alerts.view_history',
+      )
+      for (const p of alertPerms) {
+        if (!permissions.includes(p)) {
+          permissions.push(p)
+        }
+      }
       const isOwner = gameServerResp.gameServer?.userId === currentUser.id
       isOwnerOrSuper = currentUser.superUser || isOwner
       hasModSupport = Boolean(gameServerResp.gameServer?.resolvedHasModSupport)

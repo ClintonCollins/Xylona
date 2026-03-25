@@ -294,13 +294,137 @@ func TestResolveConfig_NilSystemEmptyChannelReturnsNil(t *testing.T) {
 	}
 }
 
+// --- SystemConfigResolver tests ---
+
+type fakeSystemConfigResolver struct {
+	config *SMTPConfig
+	err    error
+}
+
+func (f *fakeSystemConfigResolver) ResolveSystemSMTPConfig() (*SMTPConfig, error) {
+	return f.config, f.err
+}
+
+func TestMailer_Send_SystemResolverUsedWhenNoPerChannelConfig(t *testing.T) {
+	var capturedConfig *SMTPConfig
+
+	resolver := &fakeSystemConfigResolver{
+		config: &SMTPConfig{
+			Host: "resolved-system.example.com",
+			Port: 587,
+			From: "system@example.com",
+		},
+	}
+
+	m := New(resolver)
+	m.retry = retryConfig{MaxAttempts: 1, BaseDelay: time.Millisecond}
+	m.sendFunc = func(_ context.Context, config *SMTPConfig, _ string, _ string, _ string) error {
+		capturedConfig = config
+		return nil
+	}
+
+	errSend := m.Send(context.Background(), "admin@example.com", testEvent(), nil)
+	if errSend != nil {
+		t.Fatalf("Send returned error: %v", errSend)
+	}
+
+	if capturedConfig == nil {
+		t.Fatal("capturedConfig is nil, expected resolved system config")
+	}
+	if capturedConfig.Host != "resolved-system.example.com" {
+		t.Errorf("config host = %q, want %q", capturedConfig.Host, "resolved-system.example.com")
+	}
+}
+
+func TestMailer_Send_ResolverErrorReturnsErrNoSMTPConfig(t *testing.T) {
+	resolver := &fakeSystemConfigResolver{
+		err: errors.New("db unavailable"),
+	}
+
+	m := New(resolver)
+	m.retry = retryConfig{MaxAttempts: 1, BaseDelay: time.Millisecond}
+
+	errSend := m.Send(context.Background(), "admin@example.com", testEvent(), nil)
+	if errSend == nil {
+		t.Fatal("expected error when resolver fails, got nil")
+	}
+	if !errors.Is(errSend, ErrNoSMTPConfig) {
+		t.Errorf("expected ErrNoSMTPConfig, got: %v", errSend)
+	}
+}
+
+func TestMailer_Send_ResolverReturnsNilConfig(t *testing.T) {
+	resolver := &fakeSystemConfigResolver{
+		config: nil,
+		err:    nil,
+	}
+
+	m := New(resolver)
+	m.retry = retryConfig{MaxAttempts: 1, BaseDelay: time.Millisecond}
+
+	errSend := m.Send(context.Background(), "admin@example.com", testEvent(), nil)
+	if errSend == nil {
+		t.Fatal("expected error when resolver returns nil config, got nil")
+	}
+	if !errors.Is(errSend, ErrNoSMTPConfig) {
+		t.Errorf("expected ErrNoSMTPConfig, got: %v", errSend)
+	}
+}
+
+func TestMailer_Send_NilResolverNoPerChannelConfig(t *testing.T) {
+	m := New(nil)
+	m.retry = retryConfig{MaxAttempts: 1, BaseDelay: time.Millisecond}
+
+	errSend := m.Send(context.Background(), "admin@example.com", testEvent(), nil)
+	if errSend == nil {
+		t.Fatal("expected error when resolver is nil and no per-channel config, got nil")
+	}
+	if !errors.Is(errSend, ErrNoSMTPConfig) {
+		t.Errorf("expected ErrNoSMTPConfig, got: %v", errSend)
+	}
+}
+
+func TestMailer_Send_PerChannelOverridesResolver(t *testing.T) {
+	var capturedConfig *SMTPConfig
+
+	resolver := &fakeSystemConfigResolver{
+		config: &SMTPConfig{
+			Host: "system.example.com",
+			Port: 25,
+			From: "system@example.com",
+		},
+	}
+
+	m := New(resolver)
+	m.retry = retryConfig{MaxAttempts: 1, BaseDelay: time.Millisecond}
+	m.sendFunc = func(_ context.Context, config *SMTPConfig, _ string, _ string, _ string) error {
+		capturedConfig = config
+		return nil
+	}
+
+	channelCfg := &SMTPConfig{
+		Host: "channel.example.com",
+		Port: 465,
+		From: "channel@example.com",
+	}
+
+	errSend := m.Send(context.Background(), "admin@example.com", testEvent(), channelCfg)
+	if errSend != nil {
+		t.Fatalf("Send returned error: %v", errSend)
+	}
+
+	if capturedConfig.Host != "channel.example.com" {
+		t.Errorf("config host = %q, want %q", capturedConfig.Host, "channel.example.com")
+	}
+}
+
 // --- Send tests using sendFunc injection ---
 
 func TestMailer_Send_Success(t *testing.T) {
 	var capturedTo, capturedSubject, capturedBody string
 	var capturedConfig *SMTPConfig
 
-	m := New(testSMTPConfig())
+	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
 	m.retry = retryConfig{
 		MaxAttempts: 3,
 		BaseDelay:   time.Millisecond,
@@ -337,7 +461,7 @@ func TestMailer_Send_Success(t *testing.T) {
 func TestMailer_Send_PerChannelConfigOverride(t *testing.T) {
 	var capturedConfig *SMTPConfig
 
-	m := New(testSMTPConfig())
+	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
 	m.retry = retryConfig{
 		MaxAttempts: 1,
 		BaseDelay:   time.Millisecond,
@@ -364,7 +488,7 @@ func TestMailer_Send_PerChannelConfigOverride(t *testing.T) {
 }
 
 func TestMailer_Send_NoConfigAvailable(t *testing.T) {
-	m := New(nil) // no system config
+	m := New(nil) // no system config resolver
 	m.retry = retryConfig{
 		MaxAttempts: 1,
 		BaseDelay:   time.Millisecond,
@@ -384,7 +508,7 @@ func TestMailer_Send_NoConfigAvailable(t *testing.T) {
 func TestMailer_Send_RetriesOnError(t *testing.T) {
 	attempts := 0
 
-	m := New(testSMTPConfig())
+	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
 	m.retry = retryConfig{
 		MaxAttempts: 3,
 		BaseDelay:   time.Millisecond,
@@ -410,7 +534,7 @@ func TestMailer_Send_RetriesOnError(t *testing.T) {
 func TestMailer_Send_FailsAfterMaxRetries(t *testing.T) {
 	attempts := 0
 
-	m := New(testSMTPConfig())
+	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
 	m.retry = retryConfig{
 		MaxAttempts: 3,
 		BaseDelay:   time.Millisecond,
@@ -437,7 +561,7 @@ func TestMailer_Send_FailsAfterMaxRetries(t *testing.T) {
 func TestMailer_Send_NoRetryOnSingleAttempt(t *testing.T) {
 	attempts := 0
 
-	m := New(testSMTPConfig())
+	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
 	m.retry = retryConfig{
 		MaxAttempts: 1,
 		BaseDelay:   time.Millisecond,
@@ -460,7 +584,7 @@ func TestMailer_Send_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	attempts := 0
 
-	m := New(testSMTPConfig())
+	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
 	m.retry = retryConfig{
 		MaxAttempts: 3,
 		BaseDelay:   time.Second, // long delay to allow cancellation
@@ -524,6 +648,85 @@ func TestBuildMessage_SpecialCharactersInSubject(t *testing.T) {
 	msg := buildMessage("from@test.com", "to@test.com", "Server Crashed \u2014 My Server", "body")
 	if !strings.Contains(msg, "Subject: Server Crashed \u2014 My Server") {
 		t.Errorf("subject not preserved, got:\n%s", msg)
+	}
+}
+
+func TestBuildMessage_StripsHeaderInjectionSequences(t *testing.T) {
+	msg := buildMessage(
+		"alerts@example.com\r\nBcc: victim@example.com",
+		"admin@example.com\r\nCc: spy@example.com",
+		"Alert\r\nX-Injected: yes",
+		"body",
+	)
+
+	for _, injectedHeader := range []string{"\r\nBcc:", "\r\nCc:", "\r\nX-Injected:"} {
+		if strings.Contains(msg, injectedHeader) {
+			t.Fatalf("message leaked injected header %q:\n%s", injectedHeader, msg)
+		}
+	}
+}
+
+// --- SendTestEmail tests ---
+
+func TestSendTestEmail_CallsSendFuncWithTestContent(t *testing.T) {
+	var capturedTo, capturedSubject, capturedBody string
+	var capturedConfig *SMTPConfig
+
+	fakeSend := func(_ context.Context, config *SMTPConfig, to string, subject string, body string) error {
+		capturedConfig = config
+		capturedTo = to
+		capturedSubject = subject
+		capturedBody = body
+		return nil
+	}
+
+	cfg := testSMTPConfig()
+	errSend := sendTestEmail(context.Background(), cfg, "recipient@example.com", fakeSend)
+	if errSend != nil {
+		t.Fatalf("sendTestEmail() error = %v", errSend)
+	}
+
+	if capturedTo != "recipient@example.com" {
+		t.Errorf("to = %q, want %q", capturedTo, "recipient@example.com")
+	}
+	if capturedSubject != "Xylona SMTP Test" {
+		t.Errorf("subject = %q, want %q", capturedSubject, "Xylona SMTP Test")
+	}
+	wantBody := "This is a test email from Xylona to verify your SMTP configuration."
+	if capturedBody != wantBody {
+		t.Errorf("body = %q, want %q", capturedBody, wantBody)
+	}
+	if capturedConfig.Host != cfg.Host {
+		t.Errorf("config.Host = %q, want %q", capturedConfig.Host, cfg.Host)
+	}
+}
+
+func TestSendTestEmail_PropagatesSendError(t *testing.T) {
+	fakeSend := func(_ context.Context, _ *SMTPConfig, _ string, _ string, _ string) error {
+		return errors.New("SMTP connection refused")
+	}
+
+	cfg := testSMTPConfig()
+	errSend := sendTestEmail(context.Background(), cfg, "recipient@example.com", fakeSend)
+	if errSend == nil {
+		t.Fatal("sendTestEmail() expected error, got nil")
+	}
+	if !strings.Contains(errSend.Error(), "SMTP connection refused") {
+		t.Errorf("error = %q, want to contain %q", errSend.Error(), "SMTP connection refused")
+	}
+}
+
+func TestSendTestEmail_NilConfigReturnsError(t *testing.T) {
+	fakeSend := func(_ context.Context, _ *SMTPConfig, _ string, _ string, _ string) error {
+		return nil
+	}
+
+	errSend := sendTestEmail(context.Background(), nil, "recipient@example.com", fakeSend)
+	if errSend == nil {
+		t.Fatal("sendTestEmail(nil config) expected error, got nil")
+	}
+	if !errors.Is(errSend, ErrNoSMTPConfig) {
+		t.Errorf("error = %v, want %v", errSend, ErrNoSMTPConfig)
 	}
 }
 

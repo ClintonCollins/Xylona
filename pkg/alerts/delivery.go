@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
@@ -17,6 +18,8 @@ import (
 
 // defaultWorkerCount is the number of goroutines in the delivery pool.
 const defaultWorkerCount = 3
+
+const shutdownDrainJobTimeout = 5 * time.Second
 
 // Channel type constant for email notifications.
 const ChannelTypeEmail = "NOTIFICATION_CHANNEL_TYPE_EMAIL"
@@ -59,6 +62,15 @@ type emailChannelConfig struct {
 	SMTPPassword   string `json:"smtp_password"`
 	SMTPFrom       string `json:"smtp_from"`
 	SMTPTLSEnabled bool   `json:"smtp_tls_enabled"`
+}
+
+type deliveryEventData struct {
+	CurrentValue *float64 `json:"current_value"`
+	NewStatus    *string  `json:"new_status,omitempty"`
+	OldStatus    *string  `json:"old_status,omitempty"`
+	ExitCode     *int     `json:"exit_code,omitempty"`
+	Threshold    *float64 `json:"threshold"`
+	Direction    *string  `json:"direction,omitempty"`
 }
 
 // DeliveryPool manages a pool of goroutines that consume DeliveryJob values
@@ -114,8 +126,15 @@ func (p *DeliveryPool) worker(ctx context.Context, id int) {
 	logger.Debug().Msg("Delivery worker started")
 
 	for {
+		if ctx.Err() != nil {
+			p.drainPendingJobs(logger)
+			logger.Debug().Msg("Delivery worker stopping (context cancelled)")
+			return
+		}
+
 		select {
 		case <-ctx.Done():
+			p.drainPendingJobs(logger)
 			logger.Debug().Msg("Delivery worker stopping (context cancelled)")
 			return
 		case job, ok := <-p.jobChan:
@@ -123,9 +142,36 @@ func (p *DeliveryPool) worker(ctx context.Context, id int) {
 				logger.Debug().Msg("Delivery worker stopping (channel closed)")
 				return
 			}
+			if ctx.Err() != nil {
+				p.processDrainedJob(job)
+				p.drainPendingJobs(logger)
+				logger.Debug().Msg("Delivery worker stopping (context cancelled)")
+				return
+			}
 			p.processJob(ctx, job)
 		}
 	}
+}
+
+func (p *DeliveryPool) drainPendingJobs(logger zerolog.Logger) {
+	for {
+		select {
+		case job, ok := <-p.jobChan:
+			if !ok {
+				return
+			}
+			p.processDrainedJob(job)
+		default:
+			logger.Debug().Msg("Delivery worker drained buffered jobs after cancellation")
+			return
+		}
+	}
+}
+
+func (p *DeliveryPool) processDrainedJob(job DeliveryJob) {
+	drainCtx, cancel := context.WithTimeout(context.Background(), shutdownDrainJobTimeout)
+	defer cancel()
+	p.processJob(drainCtx, job)
 }
 
 // processJob handles a single delivery job: resolves the channel, creates the
@@ -298,33 +344,33 @@ func severityForEventType(eventType string) webhooks.Severity {
 }
 
 // buildFieldsFromEventData parses the JSON event data and returns a
-// human-readable key-value map of non-zero fields suitable for inclusion in
-// the AlertEvent.
+// human-readable key-value map of fields suitable for inclusion in the
+// AlertEvent.
 func buildFieldsFromEventData(eventDataJSON string) map[string]string {
-	var data eventData
+	var data deliveryEventData
 	errUnmarshal := json.Unmarshal([]byte(eventDataJSON), &data)
 	if errUnmarshal != nil {
 		return nil
 	}
 
 	fields := make(map[string]string)
-	if data.CurrentValue != 0 {
-		fields["current_value"] = strconv.FormatFloat(data.CurrentValue, 'f', -1, 64)
+	if data.CurrentValue != nil {
+		fields["current_value"] = strconv.FormatFloat(*data.CurrentValue, 'f', -1, 64)
 	}
-	if data.Threshold != 0 {
-		fields["threshold"] = strconv.FormatFloat(data.Threshold, 'f', -1, 64)
+	if data.Threshold != nil {
+		fields["threshold"] = strconv.FormatFloat(*data.Threshold, 'f', -1, 64)
 	}
-	if data.NewStatus != "" {
-		fields["new_status"] = data.NewStatus
+	if data.NewStatus != nil && *data.NewStatus != "" {
+		fields["new_status"] = *data.NewStatus
 	}
-	if data.OldStatus != "" {
-		fields["old_status"] = data.OldStatus
+	if data.OldStatus != nil && *data.OldStatus != "" {
+		fields["old_status"] = *data.OldStatus
 	}
-	if data.ExitCode != 0 {
-		fields["exit_code"] = strconv.Itoa(data.ExitCode)
+	if data.ExitCode != nil {
+		fields["exit_code"] = strconv.Itoa(*data.ExitCode)
 	}
-	if data.Direction != "" {
-		fields["direction"] = data.Direction
+	if data.Direction != nil && *data.Direction != "" {
+		fields["direction"] = *data.Direction
 	}
 
 	if len(fields) == 0 {

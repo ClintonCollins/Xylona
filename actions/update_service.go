@@ -245,7 +245,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 		inst.StopGameServer(gameServer)
 		// Wait for server to fully stop (poll up to 30s).
 		stopped := false
-		for i := 0; i < 30; i++ {
+		for range 30 {
 			c, errGet := inst.supervisorInstance.GetCommandByID(serverID)
 			if errGet != nil {
 				stopped = true
@@ -304,7 +304,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 		)
 	}
 	// UpdateGameServer is async (starts a supervised process). Wait for it to complete.
-	for i := 0; i < 120; i++ {
+	for range 120 {
 		c, errGet := inst.supervisorInstance.GetCommandByID(serverID)
 		if errGet != nil {
 			break // Command finished and was removed.
@@ -475,7 +475,7 @@ func waitForServerOnline(
 	attempts int,
 	interval time.Duration,
 ) bool {
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		select {
 		case <-ctx.Done():
 			return false

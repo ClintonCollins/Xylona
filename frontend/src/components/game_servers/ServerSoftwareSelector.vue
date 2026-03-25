@@ -212,15 +212,12 @@ watch(
   },
 )
 
-watch(
-  selectedVariantId,
-  async (variantId) => {
-    if (!showChangeDialog.value) {
-      return
-    }
-    await loadVariantTargets(variantId)
-  },
-)
+watch(selectedVariantId, async (variantId) => {
+  if (!showChangeDialog.value) {
+    return
+  }
+  await loadVariantTargets(variantId)
+})
 
 function openChangeDialog(): void {
   selectedVariantId.value = props.currentSoftware
@@ -375,11 +372,19 @@ function resolveInitialTargetSelection(
   }
 
   const installedCandidate = installedTargetCandidate(variantId)
-  if (!props.currentTargetPinned && installedCandidate !== '' && availableTargets.includes(installedCandidate)) {
+  if (
+    !props.currentTargetPinned &&
+    installedCandidate !== '' &&
+    availableTargets.includes(installedCandidate)
+  ) {
     return installedCandidate
   }
 
-  if (props.currentTargetPinned && currentTarget !== '' && availableTargets.includes(currentTarget)) {
+  if (
+    props.currentTargetPinned &&
+    currentTarget !== '' &&
+    availableTargets.includes(currentTarget)
+  ) {
     return currentTarget
   }
 
@@ -457,7 +462,11 @@ async function loadVariantTargets(variantId: string, resetBaseline = false): Pro
 
     const currentTarget = response.currentTarget.trim()
     const availableTargets = targetOptions.value.map((target) => target.value)
-    selectedTarget.value = resolveInitialTargetSelection(trimmedVariantID, availableTargets, currentTarget)
+    selectedTarget.value = resolveInitialTargetSelection(
+      trimmedVariantID,
+      availableTargets,
+      currentTarget,
+    )
     if (resetBaseline) {
       initialTarget.value = selectedTarget.value
       initialPinTarget.value = selectedPinTarget.value

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"sort"
 	"strings"
@@ -49,24 +50,31 @@ var defaultRetryConfig = retryConfig{
 // dialTimeout is the connection timeout for SMTP dial operations.
 const dialTimeout = 10 * time.Second
 
+// SystemConfigResolver provides the current system SMTP configuration at send
+// time. This allows the mailer to pick up configuration changes without restart.
+type SystemConfigResolver interface {
+	ResolveSystemSMTPConfig() (*SMTPConfig, error)
+}
+
 // sendFunc is the function signature for sending an email via SMTP.
 // This allows injection of test doubles.
 type sendFunc func(ctx context.Context, config *SMTPConfig, to string, subject string, body string) error
 
 // Mailer delivers email notifications using SMTP.
 type Mailer struct {
-	systemConfig *SMTPConfig
-	retry        retryConfig
-	sendFunc     sendFunc
+	systemResolver SystemConfigResolver
+	retry          retryConfig
+	sendFunc       sendFunc
 }
 
-// New creates a Mailer with the given system-level SMTP configuration.
-// The system config is used as a fallback when no per-channel config is provided.
-func New(systemConfig *SMTPConfig) *Mailer {
+// New creates a Mailer with the given system config resolver. The resolver is
+// called at send time to get the current system SMTP config from the DB. Pass
+// nil if no system-level SMTP is available (per-channel config is still usable).
+func New(systemResolver SystemConfigResolver) *Mailer {
 	return &Mailer{
-		systemConfig: systemConfig,
-		retry:        defaultRetryConfig,
-		sendFunc:     sendSMTP,
+		systemResolver: systemResolver,
+		retry:          defaultRetryConfig,
+		sendFunc:       sendSMTP,
 	}
 }
 
@@ -74,7 +82,8 @@ func New(systemConfig *SMTPConfig) *Mailer {
 // If perChannelConfig is non-nil and has a non-empty Host, it takes precedence
 // over the system SMTP config.
 func (m *Mailer) Send(ctx context.Context, to string, event webhooks.AlertEvent, perChannelConfig *SMTPConfig) error {
-	config := resolveConfig(m.systemConfig, perChannelConfig)
+	systemConfig := m.resolveSystemConfig()
+	config := resolveConfig(systemConfig, perChannelConfig)
 	if config == nil {
 		return ErrNoSMTPConfig
 	}
@@ -186,26 +195,71 @@ func FormatBody(event webhooks.AlertEvent) string {
 	return b.String()
 }
 
+// testEmailSubject is the subject line used by SendTestEmail.
+const testEmailSubject = "Xylona SMTP Test"
+
+// testEmailBody is the body text used by SendTestEmail.
+const testEmailBody = "This is a test email from Xylona to verify your SMTP configuration."
+
+// SendTestEmail sends a one-shot test email using the provided SMTP config.
+// It uses the production sendSMTP path so the test exercises real SMTP delivery.
+func SendTestEmail(ctx context.Context, cfg *SMTPConfig, toAddress string) error {
+	return sendTestEmail(ctx, cfg, toAddress, sendSMTP)
+}
+
+// sendTestEmail is the internal implementation that accepts an injectable send
+// function for testing.
+func sendTestEmail(ctx context.Context, cfg *SMTPConfig, toAddress string, send sendFunc) error {
+	if cfg == nil {
+		return ErrNoSMTPConfig
+	}
+	return send(ctx, cfg, toAddress, testEmailSubject, testEmailBody)
+}
+
+var headerSanitizer = strings.NewReplacer("\r", "", "\n", "")
+
+func sanitizeHeader(value string) string {
+	return headerSanitizer.Replace(value)
+}
+
 // buildMessage constructs a raw RFC 2822 email message string.
 func buildMessage(from string, to string, subject string, body string) string {
+	safeFrom := sanitizeHeader(from)
+	safeTo := sanitizeHeader(to)
+	safeSubject := sanitizeHeader(subject)
+
 	var b strings.Builder
 	b.WriteString("From: ")
-	b.WriteString(from)
+	b.WriteString(safeFrom)
 	b.WriteString("\r\n")
 	b.WriteString("To: ")
-	b.WriteString(to)
+	b.WriteString(safeTo)
 	b.WriteString("\r\n")
 	b.WriteString("Date: ")
 	b.WriteString(time.Now().UTC().Format(time.RFC1123Z))
 	b.WriteString("\r\n")
 	b.WriteString("Subject: ")
-	b.WriteString(subject)
+	b.WriteString(safeSubject)
 	b.WriteString("\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	b.WriteString("\r\n")
 	b.WriteString(body)
 	return b.String()
+}
+
+// resolveSystemConfig calls the resolver to obtain the current system SMTP
+// config. Returns nil if no resolver is set or the resolver returns an error.
+func (m *Mailer) resolveSystemConfig() *SMTPConfig {
+	if m.systemResolver == nil {
+		return nil
+	}
+	config, errResolve := m.systemResolver.ResolveSystemSMTPConfig()
+	if errResolve != nil {
+		log.Warn().Err(errResolve).Msg("Failed to resolve system SMTP config")
+		return nil
+	}
+	return config
 }
 
 // resolveConfig returns the effective SMTP config to use. Per-channel config
@@ -221,18 +275,26 @@ func resolveConfig(systemConfig *SMTPConfig, perChannelConfig *SMTPConfig) *SMTP
 // sendSMTP is the production implementation that sends an email via SMTP.
 func sendSMTP(ctx context.Context, config *SMTPConfig, to string, subject string, body string) error {
 	msg := buildMessage(config.From, to, subject, body)
+	fromAddress, errFrom := mail.ParseAddress(strings.TrimSpace(config.From))
+	if errFrom != nil {
+		return fmt.Errorf("mailer: invalid from address: %w", errFrom)
+	}
+	toAddress, errTo := mail.ParseAddress(strings.TrimSpace(to))
+	if errTo != nil {
+		return fmt.Errorf("mailer: invalid recipient address: %w", errTo)
+	}
 	addr := config.Addr()
 
 	if config.TLSEnabled {
-		return sendWithTLS(ctx, config, to, msg, addr)
+		return sendWithTLS(ctx, config, fromAddress.Address, toAddress.Address, msg, addr)
 	}
 
-	return sendPlain(ctx, config, to, msg, addr)
+	return sendPlain(ctx, config, fromAddress.Address, toAddress.Address, msg, addr)
 }
 
 // sendWithTLS sends an email using an explicit TLS connection (SMTPS on port 465)
 // or STARTTLS on other ports.
-func sendWithTLS(ctx context.Context, config *SMTPConfig, to string, msg string, addr string) error {
+func sendWithTLS(ctx context.Context, config *SMTPConfig, from string, to string, msg string, addr string) error {
 	tlsConfig := &tls.Config{
 		ServerName: config.Host,
 		MinVersion: tls.VersionTLS12,
@@ -240,15 +302,15 @@ func sendWithTLS(ctx context.Context, config *SMTPConfig, to string, msg string,
 
 	// Port 465 uses implicit TLS (SMTPS).
 	if config.Port == 465 {
-		return sendImplicitTLS(ctx, config, to, msg, addr, tlsConfig)
+		return sendImplicitTLS(ctx, config, from, to, msg, addr, tlsConfig)
 	}
 
 	// Other ports (typically 587) use STARTTLS.
-	return sendSTARTTLS(ctx, config, to, msg, addr, tlsConfig)
+	return sendSTARTTLS(ctx, config, from, to, msg, addr, tlsConfig)
 }
 
 // sendImplicitTLS connects with TLS from the start (port 465 / SMTPS).
-func sendImplicitTLS(ctx context.Context, config *SMTPConfig, to string, msg string, addr string, tlsConfig *tls.Config) error {
+func sendImplicitTLS(ctx context.Context, config *SMTPConfig, from string, to string, msg string, addr string, tlsConfig *tls.Config) error {
 	dialer := &tls.Dialer{
 		NetDialer: &net.Dialer{Timeout: dialTimeout},
 		Config:    tlsConfig,
@@ -267,11 +329,11 @@ func sendImplicitTLS(ctx context.Context, config *SMTPConfig, to string, msg str
 		return fmt.Errorf("mailer: SMTP client creation failed: %w", errClient)
 	}
 
-	return completeDelivery(client, config, to, msg)
+	return completeDelivery(client, config, from, to, msg)
 }
 
 // sendSTARTTLS connects in plain text then upgrades to TLS via STARTTLS.
-func sendSTARTTLS(ctx context.Context, config *SMTPConfig, to string, msg string, addr string, tlsConfig *tls.Config) error {
+func sendSTARTTLS(ctx context.Context, config *SMTPConfig, from string, to string, msg string, addr string, tlsConfig *tls.Config) error {
 	netDialer := &net.Dialer{Timeout: dialTimeout}
 	conn, errDial := netDialer.DialContext(ctx, "tcp", addr)
 	if errDial != nil {
@@ -296,11 +358,11 @@ func sendSTARTTLS(ctx context.Context, config *SMTPConfig, to string, msg string
 		return fmt.Errorf("mailer: STARTTLS failed: %w", errStartTLS)
 	}
 
-	return completeDelivery(client, config, to, msg)
+	return completeDelivery(client, config, from, to, msg)
 }
 
 // sendPlain sends an email without any TLS.
-func sendPlain(ctx context.Context, config *SMTPConfig, to string, msg string, addr string) error {
+func sendPlain(ctx context.Context, config *SMTPConfig, from string, to string, msg string, addr string) error {
 	netDialer := &net.Dialer{Timeout: dialTimeout}
 	conn, errDial := netDialer.DialContext(ctx, "tcp", addr)
 	if errDial != nil {
@@ -316,12 +378,12 @@ func sendPlain(ctx context.Context, config *SMTPConfig, to string, msg string, a
 		return fmt.Errorf("mailer: SMTP client creation failed: %w", errClient)
 	}
 
-	return completeDelivery(client, config, to, msg)
+	return completeDelivery(client, config, from, to, msg)
 }
 
 // completeDelivery performs authentication (if configured) and sends the email
 // using the given SMTP client.
-func completeDelivery(client *smtp.Client, config *SMTPConfig, to string, msg string) error {
+func completeDelivery(client *smtp.Client, config *SMTPConfig, from string, to string, msg string) error {
 	defer func() {
 		errQuit := client.Quit()
 		if errQuit != nil {
@@ -337,7 +399,7 @@ func completeDelivery(client *smtp.Client, config *SMTPConfig, to string, msg st
 		}
 	}
 
-	errFrom := client.Mail(config.From)
+	errFrom := client.Mail(from)
 	if errFrom != nil {
 		return fmt.Errorf("mailer: MAIL FROM failed: %w", errFrom)
 	}

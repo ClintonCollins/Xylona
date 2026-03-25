@@ -711,6 +711,36 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 	serverVersionChangedCh := eventbus.Get().SubscribeReliable(eventbus.TopicGameServerVersionChanged)
 	defer eventbus.Get().Unsubscribe(eventbus.TopicGameServerVersionChanged, serverVersionChangedCh)
 
+	// Subscribe to all alert event topics and fan them into a single channel
+	// so we can forward alert events to the federated peer.
+	type alertMsg struct {
+		topic string
+		msg   any
+	}
+	alertCh := make(chan alertMsg, 256)
+	for _, topic := range allAlertTopics {
+		topicCh := eventbus.Get().SubscribeReliable(topic)
+		capturedTopic := topic
+		defer eventbus.Get().Unsubscribe(capturedTopic, topicCh)
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case raw, ok := <-topicCh:
+					if !ok {
+						return
+					}
+					select {
+					case alertCh <- alertMsg{topic: capturedTopic, msg: raw}:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
+		}()
+	}
+
 	metricsTicker := time.NewTicker(streamMetricsInterval)
 	defer metricsTicker.Stop()
 
@@ -832,6 +862,19 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 				if errMetrics != nil {
 					return nil
 				}
+			}
+		case alert := <-alertCh:
+			protoEvt, ok := serializeAlertEvent(alert.topic, alert.msg)
+			if !ok {
+				continue
+			}
+			errAlert := stream.Send(&xylona.FederationServerUpdateEvent{
+				Event: &xylona.FederationServerUpdateEvent_AlertEvent{
+					AlertEvent: protoEvt,
+				},
+			})
+			if errAlert != nil {
+				return nil
 			}
 		case <-heartbeatTicker.C:
 			errHeartbeat := stream.Send(&xylona.FederationServerUpdateEvent{

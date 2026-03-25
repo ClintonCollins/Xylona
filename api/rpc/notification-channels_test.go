@@ -72,6 +72,7 @@ func newNotifChanFixture(t *testing.T) *notifChanFixture {
 // seedNotifChanFixture creates:
 // - "user-super": superuser (bypasses permission checks)
 // - "user-alerts": non-super user with a global role carrying alerts.manage
+// - "user-history": non-super user with a global role carrying alerts.view_history
 // - "user-noperm": non-super user with no alert permissions
 func seedNotifChanFixture(t *testing.T, conn *db.Connection) {
 	t.Helper()
@@ -133,6 +134,16 @@ func seedNotifChanFixture(t *testing.T, conn *db.Connection) {
 		t.Fatalf("failed to insert noperm user: %v", errNoPerm)
 	}
 
+	// User with alerts.view_history via global role
+	_, errHistory := conn.SQLDb.ExecContext(ctx,
+		`INSERT INTO user (id, user_name, email, first_name, last_name, password_hash, super_user, last_login_at, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
+		"user-history", "historyuser", "history@example.com", "History", "User", "hash", false,
+	)
+	if errHistory != nil {
+		t.Fatalf("failed to insert history user: %v", errHistory)
+	}
+
 	// Create a custom role with alerts.manage permission
 	_, errRole := conn.SQLDb.ExecContext(ctx,
 		`INSERT INTO role (id, name, description, is_system) VALUES (?, ?, ?, ?)`,
@@ -150,6 +161,22 @@ func seedNotifChanFixture(t *testing.T, conn *db.Connection) {
 		t.Fatalf("failed to insert role_permission: %v", errRolePerm)
 	}
 
+	_, errHistoryRole := conn.SQLDb.ExecContext(ctx,
+		`INSERT INTO role (id, name, description, is_system) VALUES (?, ?, ?, ?)`,
+		"role-alert-history", "Alert History Viewer", "Can view alert history", false,
+	)
+	if errHistoryRole != nil {
+		t.Fatalf("failed to insert history role: %v", errHistoryRole)
+	}
+
+	_, errHistoryRolePerm := conn.SQLDb.ExecContext(ctx,
+		`INSERT INTO role_permission (role_id, permission_id) VALUES (?, ?)`,
+		"role-alert-history", "alerts.view_history",
+	)
+	if errHistoryRolePerm != nil {
+		t.Fatalf("failed to insert history role_permission: %v", errHistoryRolePerm)
+	}
+
 	// Assign global role to user-alerts (game_server_id IS NULL)
 	_, errAssign := conn.SQLDb.ExecContext(ctx,
 		`INSERT INTO user_role_assignment (id, user_id, role_id, game_server_id, granted_by) VALUES (?, ?, ?, NULL, ?)`,
@@ -157,6 +184,14 @@ func seedNotifChanFixture(t *testing.T, conn *db.Connection) {
 	)
 	if errAssign != nil {
 		t.Fatalf("failed to insert user_role_assignment: %v", errAssign)
+	}
+
+	_, errAssignHistory := conn.SQLDb.ExecContext(ctx,
+		`INSERT INTO user_role_assignment (id, user_id, role_id, game_server_id, granted_by) VALUES (?, ?, ?, NULL, ?)`,
+		"assign-history", "user-history", "role-alert-history", "user-super",
+	)
+	if errAssignHistory != nil {
+		t.Fatalf("failed to insert history user_role_assignment: %v", errAssignHistory)
 	}
 }
 
@@ -299,6 +334,46 @@ func TestCreateNotificationChannel_UnspecifiedType(t *testing.T) {
 	}
 }
 
+func TestCreateNotificationChannel_InvalidWebhookURLScheme(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "bad-webhook",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_GENERIC,
+		Config:      `{"url":"file:///tmp/webhook"}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+
+	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
+	if errCreate == nil {
+		t.Fatalf("CreateNotificationChannel(invalid webhook scheme) expected error, got nil")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+	}
+}
+
+func TestCreateNotificationChannel_InvalidEmailRecipient(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "bad-email",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+		Config:      `{"to":"victim@example.com\r\nBcc: attacker@example.com"}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+
+	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
+	if errCreate == nil {
+		t.Fatalf("CreateNotificationChannel(invalid email recipient) expected error, got nil")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // CRUD flow tests
 // ---------------------------------------------------------------------------
@@ -403,7 +478,7 @@ func TestListNotificationChannels_UserIsolation(t *testing.T) {
 	createReq1 := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
 		Name:        "super-channel",
 		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
-		Config:      `{"smtp":"smtp.example.com"}`,
+		Config:      `{"to":"super@example.com","smtp_host":"smtp.example.com","smtp_from":"alerts@example.com"}`,
 		Enabled:     true,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq1, "user-super")
@@ -607,6 +682,39 @@ func TestUpdateNotificationChannel_EmptyName(t *testing.T) {
 	}
 }
 
+func TestUpdateNotificationChannel_InvalidWebhookURLScheme(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "webhook-channel",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_GENERIC,
+		Config:      `{"url":"https://example.com/hook"}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+
+	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
+	}
+
+	updateReq := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
+		Id:      createResp.Msg.Channel.Id,
+		Name:    "webhook-channel",
+		Config:  `{"url":"gopher://127.0.0.1/internal"}`,
+		Enabled: true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-super")
+
+	_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), updateReq)
+	if errUpdate == nil {
+		t.Fatalf("UpdateNotificationChannel(invalid webhook scheme) expected error, got nil")
+	}
+	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
+		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
+	}
+}
+
 func TestDeleteNotificationChannel_Unauthenticated(t *testing.T) {
 	fixture := newNotifChanFixture(t)
 
@@ -681,6 +789,69 @@ func TestListNotificationChannels_NoPermission(t *testing.T) {
 	}
 	if connect.CodeOf(errList) != connect.CodePermissionDenied {
 		t.Errorf("code = %v, want %v", connect.CodeOf(errList), connect.CodePermissionDenied)
+	}
+}
+
+func TestListNotificationChannels_ViewHistoryMasksConfig(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	_, errInsert := fixture.conn.InsertNotificationChannel(
+		"user-history",
+		"history-view",
+		xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD.String(),
+		`{"url":"https://discord.com/api/webhooks/123/secret-token"}`,
+		true,
+	)
+	if errInsert != nil {
+		t.Fatalf("InsertNotificationChannel() error = %v", errInsert)
+	}
+
+	req := connect.NewRequest(&xylona.ListNotificationChannelsRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-history")
+
+	resp, errList := fixture.service.ListNotificationChannels(context.Background(), req)
+	if errList != nil {
+		t.Fatalf("ListNotificationChannels() error = %v", errList)
+	}
+	if len(resp.Msg.Channels) != 1 {
+		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.Channels))
+	}
+	if strings.Contains(resp.Msg.Channels[0].Config, "secret-token") {
+		t.Fatalf("Config = %q, want masked secret", resp.Msg.Channels[0].Config)
+	}
+	if !strings.Contains(resp.Msg.Channels[0].Config, `"url":"********"`) {
+		t.Fatalf("Config = %q, want masked url field", resp.Msg.Channels[0].Config)
+	}
+}
+
+func TestListNotificationChannels_ManageKeepsConfigForEditing(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+		Name:        "discord-alertuser",
+		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
+		Config:      `{"url":"https://discord.com/api/webhooks/1/original"}`,
+		Enabled:     true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-alerts")
+
+	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
+	}
+
+	listReq := connect.NewRequest(&xylona.ListNotificationChannelsRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listReq, "user-alerts")
+
+	resp, errList := fixture.service.ListNotificationChannels(context.Background(), listReq)
+	if errList != nil {
+		t.Fatalf("ListNotificationChannels() error = %v", errList)
+	}
+	if len(resp.Msg.Channels) != 1 {
+		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.Channels))
+	}
+	if resp.Msg.Channels[0].Config != `{"url":"https://discord.com/api/webhooks/1/original"}` {
+		t.Fatalf("Config = %q, want original config", resp.Msg.Channels[0].Config)
 	}
 }
 

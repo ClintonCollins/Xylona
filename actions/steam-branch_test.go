@@ -38,4 +38,3 @@ func TestAppendSteamBranchToUpdateCommand(t *testing.T) {
 		t.Fatalf("appendSteamBranchToUpdateCommand(latest_experimental) = %q, want %q", experimentalCmd, want)
 	}
 }
-

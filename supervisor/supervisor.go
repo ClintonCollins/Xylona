@@ -106,6 +106,13 @@ func (c *Command) Status() xylona.Status {
 	return c.status
 }
 
+// NodeID returns the node ID associated with this command.
+func (c *Command) NodeID() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.nodeID
+}
+
 func (c *Command) ServiceID() string {
 	c.RLock()
 	defer c.RUnlock()

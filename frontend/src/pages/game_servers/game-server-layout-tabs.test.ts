@@ -55,6 +55,26 @@ describe('buildGameServerTabs', () => {
     const tabs = buildGameServerTabs(serverID, perms, false)
     expect(tabs.map((t) => t.name)).not.toContain('Access')
   })
+
+  it('shows Alerts tab when user has alerts.manage permission', () => {
+    const tabs = buildGameServerTabs(serverID, ['alerts.manage'], false)
+    expect(tabs.map((t) => t.name)).toContain('Alerts')
+  })
+
+  it('shows Alerts tab when user has alerts.view_history permission', () => {
+    const tabs = buildGameServerTabs(serverID, ['alerts.view_history'], false)
+    expect(tabs.map((t) => t.name)).toContain('Alerts')
+  })
+
+  it('does not show Alerts tab without alerts permissions', () => {
+    const tabs = buildGameServerTabs(serverID, ['game_server.view'], false)
+    expect(tabs.map((t) => t.name)).not.toContain('Alerts')
+  })
+
+  it('shows Alerts tab for superuser even without alert permissions', () => {
+    const tabs = buildGameServerTabs(serverID, ['game_server.view'], true)
+    expect(tabs.map((t) => t.name)).toContain('Alerts')
+  })
 })
 
 describe('getUnauthorizedRedirect', () => {
@@ -154,6 +174,46 @@ describe('getUnauthorizedRedirect', () => {
       serverID,
       ['game_server.mods'],
       false,
+      true,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('redirects /alerts when missing alerts permissions', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/alerts`,
+      serverID,
+      ['game_server.view'],
+      false,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('returns null for /alerts when user has alerts.manage permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/alerts`,
+      serverID,
+      ['alerts.manage'],
+      false,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('returns null for /alerts when user has alerts.view_history permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/alerts`,
+      serverID,
+      ['alerts.view_history'],
+      false,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('returns null for /alerts when user is owner/super even without alert permissions', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/alerts`,
+      serverID,
+      ['game_server.view'],
       true,
     )
     expect(result).toBeNull()

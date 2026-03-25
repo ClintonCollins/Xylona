@@ -34,11 +34,11 @@ type DeliveryJob struct {
 // eventData is the normalized representation of event payload fields used for
 // condition evaluation. Only the fields relevant to the event type will be set.
 type eventData struct {
-	CurrentValue float64 `json:"current_value,omitempty"`
+	CurrentValue float64 `json:"current_value"`
 	NewStatus    string  `json:"new_status,omitempty"`
 	OldStatus    string  `json:"old_status,omitempty"`
 	ExitCode     int     `json:"exit_code,omitempty"`
-	Threshold    float64 `json:"threshold,omitempty"`
+	Threshold    float64 `json:"threshold"`
 	Direction    string  `json:"direction,omitempty"`
 }
 
@@ -70,22 +70,32 @@ func topicToEventType(topic string) (string, bool) {
 	return et, ok
 }
 
+// DropRecorder can record a failed history entry when a delivery job is dropped
+// because the job channel is full. This is an optional subset of HistoryStore.
+type DropRecorder interface {
+	InsertAlertHistory(ruleID, userID, serverID, serverNodeID, nodeID, eventType, eventData, channelType, deliveryStatus string) (*models.AlertHistory, error)
+}
+
 // Evaluator subscribes to event bus topics, matches rules from the DB, and
 // produces DeliveryJob values for the delivery workers.
 type Evaluator struct {
-	store   RuleStore
-	bus     *eventbus.EventBus
-	jobChan chan DeliveryJob
+	store        RuleStore
+	bus          *eventbus.EventBus
+	jobChan      chan DeliveryJob
+	dropRecorder DropRecorder
 }
 
 // NewEvaluator creates an Evaluator that reads rules from store and publishes
-// delivery jobs to the returned channel. The channel is buffered.
-func NewEvaluator(store RuleStore, bus *eventbus.EventBus) (*Evaluator, chan DeliveryJob) {
+// delivery jobs to the returned channel. The channel is buffered. The
+// dropRecorder is called when a job is dropped due to a full channel; pass nil
+// to only log drops without recording them.
+func NewEvaluator(store RuleStore, bus *eventbus.EventBus, dropRecorder DropRecorder) (*Evaluator, chan DeliveryJob) {
 	jobChan := make(chan DeliveryJob, 256)
 	return &Evaluator{
-		store:   store,
-		bus:     bus,
-		jobChan: jobChan,
+		store:        store,
+		bus:          bus,
+		jobChan:      jobChan,
+		dropRecorder: dropRecorder,
 	}, jobChan
 }
 
@@ -152,7 +162,7 @@ func (e *Evaluator) handleServerEvent(topic, eventType string, msg any) {
 		return
 	}
 
-	dataJSON, errMarshal := json.Marshal(data)
+	dataJSON, errMarshal := marshalEvaluatorEventData(eventType, data)
 	if errMarshal != nil {
 		log.Error().Err(errMarshal).Str("topic", topic).Msg("Failed to marshal event data")
 		return
@@ -169,6 +179,7 @@ func (e *Evaluator) handleServerEvent(topic, eventType string, msg any) {
 		case e.jobChan <- job:
 		default:
 			log.Warn().Str("rule_id", job.RuleID).Str("event_type", job.EventType).Msg("Delivery job channel full, dropping job")
+			e.recordDroppedJob(job)
 		}
 	}
 }
@@ -180,7 +191,7 @@ func (e *Evaluator) handleNodeEvent(topic, eventType string, msg any) {
 		return
 	}
 
-	dataJSON, errMarshal := json.Marshal(data)
+	dataJSON, errMarshal := marshalEvaluatorEventData(eventType, data)
 	if errMarshal != nil {
 		log.Error().Err(errMarshal).Str("topic", topic).Msg("Failed to marshal event data")
 		return
@@ -197,7 +208,31 @@ func (e *Evaluator) handleNodeEvent(topic, eventType string, msg any) {
 		case e.jobChan <- job:
 		default:
 			log.Warn().Str("rule_id", job.RuleID).Str("event_type", job.EventType).Msg("Delivery job channel full, dropping job")
+			e.recordDroppedJob(job)
 		}
+	}
+}
+
+// recordDroppedJob inserts a failed alert history record for a job that was
+// dropped because the delivery channel was full. This ensures the user can see
+// in their alert history that a notification was lost.
+func (e *Evaluator) recordDroppedJob(job DeliveryJob) {
+	if e.dropRecorder == nil {
+		return
+	}
+	_, errInsert := e.dropRecorder.InsertAlertHistory(
+		job.RuleID,
+		job.UserID,
+		job.ServerID,
+		job.ServerNodeID,
+		job.NodeID,
+		job.EventType,
+		job.EventData,
+		"", // channel type unknown — we never resolved it
+		"DELIVERY_STATUS_FAILED",
+	)
+	if errInsert != nil {
+		log.Error().Err(errInsert).Str("rule_id", job.RuleID).Msg("Failed to record dropped delivery job in alert history")
 	}
 }
 
@@ -239,6 +274,50 @@ func extractNodeEventData(msg any) (nodeID string, data eventData, ok bool) {
 		Threshold:    ev.Threshold,
 		Direction:    string(ev.Direction),
 	}, true
+}
+
+func marshalEvaluatorEventData(eventType string, data eventData) ([]byte, error) {
+	if isThresholdAlertEventType(eventType) {
+		return json.Marshal(ThresholdEventData{
+			CurrentValue: data.CurrentValue,
+			Threshold:    data.Threshold,
+			Direction:    data.Direction,
+		})
+	}
+
+	switch eventType {
+	case "ALERT_EVENT_TYPE_CRASH":
+		return json.Marshal(struct {
+			ExitCode int `json:"exit_code"`
+		}{
+			ExitCode: data.ExitCode,
+		})
+	case "ALERT_EVENT_TYPE_STATUS_CHANGE":
+		return json.Marshal(struct {
+			NewStatus string `json:"new_status,omitempty"`
+			OldStatus string `json:"old_status,omitempty"`
+		}{
+			NewStatus: data.NewStatus,
+			OldStatus: data.OldStatus,
+		})
+	default:
+		return json.Marshal(data)
+	}
+}
+
+func isThresholdAlertEventType(eventType string) bool {
+	switch eventType {
+	case "ALERT_EVENT_TYPE_CPU_THRESHOLD",
+		"ALERT_EVENT_TYPE_MEMORY_THRESHOLD",
+		"ALERT_EVENT_TYPE_DISK_THRESHOLD",
+		"ALERT_EVENT_TYPE_PLAYER_COUNT_THRESHOLD",
+		"ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD",
+		"ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD",
+		"ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD":
+		return true
+	default:
+		return false
+	}
 }
 
 // processServerEvent is the core rule-matching logic for server events. It is a
@@ -347,12 +426,10 @@ func matchesNode(rule *models.AlertRule, nodeID string) bool {
 	return true
 }
 
-// conditionJSON is the internal representation of a rule's condition field.
-// It supports both threshold conditions (operator + value) and status list
-// conditions (statuses).
-type conditionJSON struct {
+// statusConditionJSON is the internal representation of a rule's condition
+// field for status-list conditions.
+type statusConditionJSON struct {
 	Operator string   `json:"operator,omitempty"`
-	Value    float64  `json:"value,omitempty"`
 	Statuses []string `json:"statuses,omitempty"`
 }
 
@@ -365,7 +442,7 @@ func evaluateCondition(condition null.Val[string], data eventData) (bool, error)
 		return true, nil
 	}
 
-	var cond conditionJSON
+	var cond statusConditionJSON
 	errUnmarshal := json.Unmarshal([]byte(condStr), &cond)
 	if errUnmarshal != nil {
 		return false, fmt.Errorf("invalid condition JSON: %w", errUnmarshal)
@@ -376,30 +453,15 @@ func evaluateCondition(condition null.Val[string], data eventData) (bool, error)
 		return slices.Contains(cond.Statuses, data.NewStatus), nil
 	}
 
-	// Threshold condition.
+	// Threshold condition — delegate to the shared implementation.
 	if cond.Operator != "" {
-		return evaluateThreshold(cond.Operator, cond.Value, data.CurrentValue)
+		op, threshold, errParse := ParseConditionJSON(condStr)
+		if errParse != nil {
+			return false, errParse
+		}
+		return EvaluateThresholdOp(op, threshold, data.CurrentValue)
 	}
 
 	// No recognized condition fields — treat as unconditional match.
 	return true, nil
-}
-
-// evaluateThreshold compares the actual value against the threshold using the
-// given operator.
-func evaluateThreshold(operator string, threshold, actual float64) (bool, error) {
-	switch operator {
-	case ">=":
-		return actual >= threshold, nil
-	case ">":
-		return actual > threshold, nil
-	case "<=":
-		return actual <= threshold, nil
-	case "<":
-		return actual < threshold, nil
-	case "==":
-		return actual == threshold, nil
-	default:
-		return false, fmt.Errorf("unknown threshold operator: %q", operator)
-	}
 }

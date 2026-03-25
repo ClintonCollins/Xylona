@@ -106,6 +106,33 @@ func (c *Connection) GetAlertHistoryByServerID(serverID, serverNodeID string, li
 	return results, nil
 }
 
+// GetAlertHistoryByUserAndServerID returns alert history records for the given
+// user and server_id/server_node_id pair, ordered by created_at descending with
+// pagination.
+func (c *Connection) GetAlertHistoryByUserAndServerID(userID, serverID, serverNodeID string, limit, offset int) ([]*models.AlertHistory, error) {
+	results, errGet := models.AlertHistories.Query(
+		models.SelectWhere.AlertHistories.UserID.EQ(userID),
+		models.SelectWhere.AlertHistories.ServerID.EQ(serverID),
+		models.SelectWhere.AlertHistories.ServerNodeID.EQ(serverNodeID),
+		sm.OrderBy(models.AlertHistories.Columns.CreatedAt).Desc(),
+		sm.Limit(limit),
+		sm.Offset(offset),
+	).All(c.ctx, c.DB)
+	if errGet != nil {
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, nil
+		}
+		log.Error().Err(errGet).
+			Str("user_id", userID).
+			Str("server_id", serverID).
+			Str("server_node_id", serverNodeID).
+			Msg("Error querying alert history by user and server ID")
+		return nil, errGet
+	}
+
+	return results, nil
+}
+
 // GetAllAlertHistory returns all alert history records (regardless of user),
 // ordered by created_at descending with pagination. Intended for superuser access.
 func (c *Connection) GetAllAlertHistory(limit, offset int) ([]*models.AlertHistory, error) {

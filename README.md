@@ -44,13 +44,19 @@ cd Xylona
 
 3. Configure `sql/dbconfig.yml` with your database credentials.
 
+4. Set your signing and encryption secrets in the environment or `.env`:
+```bash
+JWT_SECRET_KEY_BASE64=<base64-encoded 32+ byte signing key>
+ENCRYPTION_KEY_BASE64=<base64-encoded 32+ byte encryption key>
+```
+`ENCRYPTION_KEY_BASE64` is strongly recommended. If it is omitted, Xylona falls back to the JWT secret for DB encryption and will log a warning at startup.
 
-4. Run the SQL migrations:
+5. Run the SQL migrations:
 ```bash
 task sql-migrate-up
 ```
 
-5. Start the server:
+6. Start the server:
 ```bash
 go build -o xylona && ./xylona
 ```
