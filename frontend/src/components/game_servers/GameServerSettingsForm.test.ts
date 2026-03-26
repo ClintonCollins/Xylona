@@ -158,7 +158,6 @@ describe('GameServerSettingsForm', () => {
         setMaxPlayers: 20n,
         maxPlayers: 20n,
         maxMemoryMb: 1024n,
-        startCommand: 'java -jar server.jar',
       }),
     })
 
@@ -193,7 +192,6 @@ describe('GameServerSettingsForm', () => {
         setMaxPlayers: 20n,
         maxPlayers: 20n,
         maxMemoryMb: 1024n,
-        startCommand: 'java -jar server.jar',
       }),
     })
 
@@ -210,8 +208,6 @@ describe('GameServerSettingsForm', () => {
 
     expect(wrapper.find('[data-testid="editable-name"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-set-players"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="editable-start-command"]').exists()).toBe(true)
-
     expect(wrapper.find('[data-testid="editable-game"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-owner"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-node"]').exists()).toBe(false)
@@ -238,7 +234,6 @@ describe('GameServerSettingsForm', () => {
         setMaxPlayers: 24n,
         maxPlayers: 24n,
         maxMemoryMb: 0n,
-        startCommand: './srcds_run',
       }),
     })
 

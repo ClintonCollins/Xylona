@@ -37,7 +37,6 @@ type Game struct {
 	SteamAppID                        string           `db:"steam_app_id" `
 	RequiresSteamGameServerLoginToken bool             `db:"requires_steam_game_server_login_token" `
 	LinuxSupport                      bool             `db:"linux_support" `
-	LinuxStartCommand                 string           `db:"linux_start_command" `
 	LinuxStopCommand                  string           `db:"linux_stop_command" `
 	LinuxInstallCommand               string           `db:"linux_install_command" `
 	LinuxInstallCommandType           string           `db:"linux_install_command_type" `
@@ -45,7 +44,6 @@ type Game struct {
 	LinuxUpdateCommandType            string           `db:"linux_update_command_type" `
 	LinuxWorkingDirectory             string           `db:"linux_working_directory" `
 	WindowsSupport                    bool             `db:"windows_support" `
-	WindowsStartCommand               string           `db:"windows_start_command" `
 	WindowsStopCommand                string           `db:"windows_stop_command" `
 	WindowsInstallCommand             string           `db:"windows_install_command" `
 	WindowsInstallCommandType         string           `db:"windows_install_command_type" `
@@ -57,6 +55,12 @@ type Game struct {
 	XylonaOfficial                    bool             `db:"xylona_official" `
 	ConfigSchemas                     null.Val[string] `db:"config_schemas" `
 	ServerSoftware                    null.Val[string] `db:"server_software" `
+	LinuxStartArgsTemplate            null.Val[string] `db:"linux_start_args_template" `
+	WindowsStartArgsTemplate          null.Val[string] `db:"windows_start_args_template" `
+	LinuxBaseCommand                  string           `db:"linux_base_command" `
+	WindowsBaseCommand                string           `db:"windows_base_command" `
+	StartArgBlocklist                 string           `db:"start_arg_blocklist" `
+	AllowStartArgEditing              bool             `db:"allow_start_arg_editing" `
 
 	R gameR `db:"-" `
 }
@@ -80,7 +84,7 @@ type gameR struct {
 func buildGameColumns(alias string) gameColumns {
 	return gameColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "binds_to_all_ips", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_start_command", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_start_command", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software",
+			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "binds_to_all_ips", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing",
 		).WithParent("game"),
 		tableAlias:                        alias,
 		ID:                                sqlite.Quote(alias, "id"),
@@ -95,7 +99,6 @@ func buildGameColumns(alias string) gameColumns {
 		SteamAppID:                        sqlite.Quote(alias, "steam_app_id"),
 		RequiresSteamGameServerLoginToken: sqlite.Quote(alias, "requires_steam_game_server_login_token"),
 		LinuxSupport:                      sqlite.Quote(alias, "linux_support"),
-		LinuxStartCommand:                 sqlite.Quote(alias, "linux_start_command"),
 		LinuxStopCommand:                  sqlite.Quote(alias, "linux_stop_command"),
 		LinuxInstallCommand:               sqlite.Quote(alias, "linux_install_command"),
 		LinuxInstallCommandType:           sqlite.Quote(alias, "linux_install_command_type"),
@@ -103,7 +106,6 @@ func buildGameColumns(alias string) gameColumns {
 		LinuxUpdateCommandType:            sqlite.Quote(alias, "linux_update_command_type"),
 		LinuxWorkingDirectory:             sqlite.Quote(alias, "linux_working_directory"),
 		WindowsSupport:                    sqlite.Quote(alias, "windows_support"),
-		WindowsStartCommand:               sqlite.Quote(alias, "windows_start_command"),
 		WindowsStopCommand:                sqlite.Quote(alias, "windows_stop_command"),
 		WindowsInstallCommand:             sqlite.Quote(alias, "windows_install_command"),
 		WindowsInstallCommandType:         sqlite.Quote(alias, "windows_install_command_type"),
@@ -115,6 +117,12 @@ func buildGameColumns(alias string) gameColumns {
 		XylonaOfficial:                    sqlite.Quote(alias, "xylona_official"),
 		ConfigSchemas:                     sqlite.Quote(alias, "config_schemas"),
 		ServerSoftware:                    sqlite.Quote(alias, "server_software"),
+		LinuxStartArgsTemplate:            sqlite.Quote(alias, "linux_start_args_template"),
+		WindowsStartArgsTemplate:          sqlite.Quote(alias, "windows_start_args_template"),
+		LinuxBaseCommand:                  sqlite.Quote(alias, "linux_base_command"),
+		WindowsBaseCommand:                sqlite.Quote(alias, "windows_base_command"),
+		StartArgBlocklist:                 sqlite.Quote(alias, "start_arg_blocklist"),
+		AllowStartArgEditing:              sqlite.Quote(alias, "allow_start_arg_editing"),
 	}
 }
 
@@ -133,7 +141,6 @@ type gameColumns struct {
 	SteamAppID                        sqlite.Expression
 	RequiresSteamGameServerLoginToken sqlite.Expression
 	LinuxSupport                      sqlite.Expression
-	LinuxStartCommand                 sqlite.Expression
 	LinuxStopCommand                  sqlite.Expression
 	LinuxInstallCommand               sqlite.Expression
 	LinuxInstallCommandType           sqlite.Expression
@@ -141,7 +148,6 @@ type gameColumns struct {
 	LinuxUpdateCommandType            sqlite.Expression
 	LinuxWorkingDirectory             sqlite.Expression
 	WindowsSupport                    sqlite.Expression
-	WindowsStartCommand               sqlite.Expression
 	WindowsStopCommand                sqlite.Expression
 	WindowsInstallCommand             sqlite.Expression
 	WindowsInstallCommandType         sqlite.Expression
@@ -153,6 +159,12 @@ type gameColumns struct {
 	XylonaOfficial                    sqlite.Expression
 	ConfigSchemas                     sqlite.Expression
 	ServerSoftware                    sqlite.Expression
+	LinuxStartArgsTemplate            sqlite.Expression
+	WindowsStartArgsTemplate          sqlite.Expression
+	LinuxBaseCommand                  sqlite.Expression
+	WindowsBaseCommand                sqlite.Expression
+	StartArgBlocklist                 sqlite.Expression
+	AllowStartArgEditing              sqlite.Expression
 }
 
 func (c gameColumns) Alias() string {
@@ -179,7 +191,6 @@ type GameSetter struct {
 	SteamAppID                        omit.Val[string]     `db:"steam_app_id" `
 	RequiresSteamGameServerLoginToken omit.Val[bool]       `db:"requires_steam_game_server_login_token" `
 	LinuxSupport                      omit.Val[bool]       `db:"linux_support" `
-	LinuxStartCommand                 omit.Val[string]     `db:"linux_start_command" `
 	LinuxStopCommand                  omit.Val[string]     `db:"linux_stop_command" `
 	LinuxInstallCommand               omit.Val[string]     `db:"linux_install_command" `
 	LinuxInstallCommandType           omit.Val[string]     `db:"linux_install_command_type" `
@@ -187,7 +198,6 @@ type GameSetter struct {
 	LinuxUpdateCommandType            omit.Val[string]     `db:"linux_update_command_type" `
 	LinuxWorkingDirectory             omit.Val[string]     `db:"linux_working_directory" `
 	WindowsSupport                    omit.Val[bool]       `db:"windows_support" `
-	WindowsStartCommand               omit.Val[string]     `db:"windows_start_command" `
 	WindowsStopCommand                omit.Val[string]     `db:"windows_stop_command" `
 	WindowsInstallCommand             omit.Val[string]     `db:"windows_install_command" `
 	WindowsInstallCommandType         omit.Val[string]     `db:"windows_install_command_type" `
@@ -199,10 +209,16 @@ type GameSetter struct {
 	XylonaOfficial                    omit.Val[bool]       `db:"xylona_official" `
 	ConfigSchemas                     omitnull.Val[string] `db:"config_schemas" `
 	ServerSoftware                    omitnull.Val[string] `db:"server_software" `
+	LinuxStartArgsTemplate            omitnull.Val[string] `db:"linux_start_args_template" `
+	WindowsStartArgsTemplate          omitnull.Val[string] `db:"windows_start_args_template" `
+	LinuxBaseCommand                  omit.Val[string]     `db:"linux_base_command" `
+	WindowsBaseCommand                omit.Val[string]     `db:"windows_base_command" `
+	StartArgBlocklist                 omit.Val[string]     `db:"start_arg_blocklist" `
+	AllowStartArgEditing              omit.Val[bool]       `db:"allow_start_arg_editing" `
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 32)
+	vals := make([]string, 0, 36)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -239,9 +255,6 @@ func (s GameSetter) SetColumns() []string {
 	if s.LinuxSupport.IsValue() {
 		vals = append(vals, "linux_support")
 	}
-	if s.LinuxStartCommand.IsValue() {
-		vals = append(vals, "linux_start_command")
-	}
 	if s.LinuxStopCommand.IsValue() {
 		vals = append(vals, "linux_stop_command")
 	}
@@ -262,9 +275,6 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if s.WindowsSupport.IsValue() {
 		vals = append(vals, "windows_support")
-	}
-	if s.WindowsStartCommand.IsValue() {
-		vals = append(vals, "windows_start_command")
 	}
 	if s.WindowsStopCommand.IsValue() {
 		vals = append(vals, "windows_stop_command")
@@ -298,6 +308,24 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if !s.ServerSoftware.IsUnset() {
 		vals = append(vals, "server_software")
+	}
+	if !s.LinuxStartArgsTemplate.IsUnset() {
+		vals = append(vals, "linux_start_args_template")
+	}
+	if !s.WindowsStartArgsTemplate.IsUnset() {
+		vals = append(vals, "windows_start_args_template")
+	}
+	if s.LinuxBaseCommand.IsValue() {
+		vals = append(vals, "linux_base_command")
+	}
+	if s.WindowsBaseCommand.IsValue() {
+		vals = append(vals, "windows_base_command")
+	}
+	if s.StartArgBlocklist.IsValue() {
+		vals = append(vals, "start_arg_blocklist")
+	}
+	if s.AllowStartArgEditing.IsValue() {
+		vals = append(vals, "allow_start_arg_editing")
 	}
 	return vals
 }
@@ -339,9 +367,6 @@ func (s GameSetter) Overwrite(t *Game) {
 	if s.LinuxSupport.IsValue() {
 		t.LinuxSupport = s.LinuxSupport.MustGet()
 	}
-	if s.LinuxStartCommand.IsValue() {
-		t.LinuxStartCommand = s.LinuxStartCommand.MustGet()
-	}
 	if s.LinuxStopCommand.IsValue() {
 		t.LinuxStopCommand = s.LinuxStopCommand.MustGet()
 	}
@@ -362,9 +387,6 @@ func (s GameSetter) Overwrite(t *Game) {
 	}
 	if s.WindowsSupport.IsValue() {
 		t.WindowsSupport = s.WindowsSupport.MustGet()
-	}
-	if s.WindowsStartCommand.IsValue() {
-		t.WindowsStartCommand = s.WindowsStartCommand.MustGet()
 	}
 	if s.WindowsStopCommand.IsValue() {
 		t.WindowsStopCommand = s.WindowsStopCommand.MustGet()
@@ -399,6 +421,24 @@ func (s GameSetter) Overwrite(t *Game) {
 	if !s.ServerSoftware.IsUnset() {
 		t.ServerSoftware = s.ServerSoftware.MustGetNull()
 	}
+	if !s.LinuxStartArgsTemplate.IsUnset() {
+		t.LinuxStartArgsTemplate = s.LinuxStartArgsTemplate.MustGetNull()
+	}
+	if !s.WindowsStartArgsTemplate.IsUnset() {
+		t.WindowsStartArgsTemplate = s.WindowsStartArgsTemplate.MustGetNull()
+	}
+	if s.LinuxBaseCommand.IsValue() {
+		t.LinuxBaseCommand = s.LinuxBaseCommand.MustGet()
+	}
+	if s.WindowsBaseCommand.IsValue() {
+		t.WindowsBaseCommand = s.WindowsBaseCommand.MustGet()
+	}
+	if s.StartArgBlocklist.IsValue() {
+		t.StartArgBlocklist = s.StartArgBlocklist.MustGet()
+	}
+	if s.AllowStartArgEditing.IsValue() {
+		t.AllowStartArgEditing = s.AllowStartArgEditing.MustGet()
+	}
 }
 
 func (s *GameSetter) Apply(q *dialect.InsertQuery) {
@@ -415,7 +455,7 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 32)
+		vals := make([]bob.Expression, 0, 36)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -464,10 +504,6 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.LinuxSupport.MustGet()))
 		}
 
-		if s.LinuxStartCommand.IsValue() {
-			vals = append(vals, sqlite.Arg(s.LinuxStartCommand.MustGet()))
-		}
-
 		if s.LinuxStopCommand.IsValue() {
 			vals = append(vals, sqlite.Arg(s.LinuxStopCommand.MustGet()))
 		}
@@ -494,10 +530,6 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 
 		if s.WindowsSupport.IsValue() {
 			vals = append(vals, sqlite.Arg(s.WindowsSupport.MustGet()))
-		}
-
-		if s.WindowsStartCommand.IsValue() {
-			vals = append(vals, sqlite.Arg(s.WindowsStartCommand.MustGet()))
 		}
 
 		if s.WindowsStopCommand.IsValue() {
@@ -544,6 +576,30 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.ServerSoftware.MustGetNull()))
 		}
 
+		if !s.LinuxStartArgsTemplate.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.LinuxStartArgsTemplate.MustGetNull()))
+		}
+
+		if !s.WindowsStartArgsTemplate.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.WindowsStartArgsTemplate.MustGetNull()))
+		}
+
+		if s.LinuxBaseCommand.IsValue() {
+			vals = append(vals, sqlite.Arg(s.LinuxBaseCommand.MustGet()))
+		}
+
+		if s.WindowsBaseCommand.IsValue() {
+			vals = append(vals, sqlite.Arg(s.WindowsBaseCommand.MustGet()))
+		}
+
+		if s.StartArgBlocklist.IsValue() {
+			vals = append(vals, sqlite.Arg(s.StartArgBlocklist.MustGet()))
+		}
+
+		if s.AllowStartArgEditing.IsValue() {
+			vals = append(vals, sqlite.Arg(s.AllowStartArgEditing.MustGet()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -557,7 +613,7 @@ func (s GameSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 32)
+	exprs := make([]bob.Expression, 0, 36)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -643,13 +699,6 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
-	if s.LinuxStartCommand.IsValue() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "linux_start_command")...),
-			sqlite.Arg(s.LinuxStartCommand),
-		}})
-	}
-
 	if s.LinuxStopCommand.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "linux_stop_command")...),
@@ -696,13 +745,6 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "windows_support")...),
 			sqlite.Arg(s.WindowsSupport),
-		}})
-	}
-
-	if s.WindowsStartCommand.IsValue() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "windows_start_command")...),
-			sqlite.Arg(s.WindowsStartCommand),
 		}})
 	}
 
@@ -780,6 +822,48 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "server_software")...),
 			sqlite.Arg(s.ServerSoftware),
+		}})
+	}
+
+	if !s.LinuxStartArgsTemplate.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "linux_start_args_template")...),
+			sqlite.Arg(s.LinuxStartArgsTemplate),
+		}})
+	}
+
+	if !s.WindowsStartArgsTemplate.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "windows_start_args_template")...),
+			sqlite.Arg(s.WindowsStartArgsTemplate),
+		}})
+	}
+
+	if s.LinuxBaseCommand.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "linux_base_command")...),
+			sqlite.Arg(s.LinuxBaseCommand),
+		}})
+	}
+
+	if s.WindowsBaseCommand.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "windows_base_command")...),
+			sqlite.Arg(s.WindowsBaseCommand),
+		}})
+	}
+
+	if s.StartArgBlocklist.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "start_arg_blocklist")...),
+			sqlite.Arg(s.StartArgBlocklist),
+		}})
+	}
+
+	if s.AllowStartArgEditing.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "allow_start_arg_editing")...),
+			sqlite.Arg(s.AllowStartArgEditing),
 		}})
 	}
 
@@ -1196,7 +1280,6 @@ type gameWhere[Q sqlite.Filterable] struct {
 	SteamAppID                        sqlite.WhereMod[Q, string]
 	RequiresSteamGameServerLoginToken sqlite.WhereMod[Q, bool]
 	LinuxSupport                      sqlite.WhereMod[Q, bool]
-	LinuxStartCommand                 sqlite.WhereMod[Q, string]
 	LinuxStopCommand                  sqlite.WhereMod[Q, string]
 	LinuxInstallCommand               sqlite.WhereMod[Q, string]
 	LinuxInstallCommandType           sqlite.WhereMod[Q, string]
@@ -1204,7 +1287,6 @@ type gameWhere[Q sqlite.Filterable] struct {
 	LinuxUpdateCommandType            sqlite.WhereMod[Q, string]
 	LinuxWorkingDirectory             sqlite.WhereMod[Q, string]
 	WindowsSupport                    sqlite.WhereMod[Q, bool]
-	WindowsStartCommand               sqlite.WhereMod[Q, string]
 	WindowsStopCommand                sqlite.WhereMod[Q, string]
 	WindowsInstallCommand             sqlite.WhereMod[Q, string]
 	WindowsInstallCommandType         sqlite.WhereMod[Q, string]
@@ -1216,6 +1298,12 @@ type gameWhere[Q sqlite.Filterable] struct {
 	XylonaOfficial                    sqlite.WhereMod[Q, bool]
 	ConfigSchemas                     sqlite.WhereNullMod[Q, string]
 	ServerSoftware                    sqlite.WhereNullMod[Q, string]
+	LinuxStartArgsTemplate            sqlite.WhereNullMod[Q, string]
+	WindowsStartArgsTemplate          sqlite.WhereNullMod[Q, string]
+	LinuxBaseCommand                  sqlite.WhereMod[Q, string]
+	WindowsBaseCommand                sqlite.WhereMod[Q, string]
+	StartArgBlocklist                 sqlite.WhereMod[Q, string]
+	AllowStartArgEditing              sqlite.WhereMod[Q, bool]
 }
 
 func (gameWhere[Q]) AliasedAs(alias string) gameWhere[Q] {
@@ -1236,7 +1324,6 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		SteamAppID:                        sqlite.Where[Q, string](cols.SteamAppID),
 		RequiresSteamGameServerLoginToken: sqlite.Where[Q, bool](cols.RequiresSteamGameServerLoginToken),
 		LinuxSupport:                      sqlite.Where[Q, bool](cols.LinuxSupport),
-		LinuxStartCommand:                 sqlite.Where[Q, string](cols.LinuxStartCommand),
 		LinuxStopCommand:                  sqlite.Where[Q, string](cols.LinuxStopCommand),
 		LinuxInstallCommand:               sqlite.Where[Q, string](cols.LinuxInstallCommand),
 		LinuxInstallCommandType:           sqlite.Where[Q, string](cols.LinuxInstallCommandType),
@@ -1244,7 +1331,6 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		LinuxUpdateCommandType:            sqlite.Where[Q, string](cols.LinuxUpdateCommandType),
 		LinuxWorkingDirectory:             sqlite.Where[Q, string](cols.LinuxWorkingDirectory),
 		WindowsSupport:                    sqlite.Where[Q, bool](cols.WindowsSupport),
-		WindowsStartCommand:               sqlite.Where[Q, string](cols.WindowsStartCommand),
 		WindowsStopCommand:                sqlite.Where[Q, string](cols.WindowsStopCommand),
 		WindowsInstallCommand:             sqlite.Where[Q, string](cols.WindowsInstallCommand),
 		WindowsInstallCommandType:         sqlite.Where[Q, string](cols.WindowsInstallCommandType),
@@ -1256,6 +1342,12 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		XylonaOfficial:                    sqlite.Where[Q, bool](cols.XylonaOfficial),
 		ConfigSchemas:                     sqlite.WhereNull[Q, string](cols.ConfigSchemas),
 		ServerSoftware:                    sqlite.WhereNull[Q, string](cols.ServerSoftware),
+		LinuxStartArgsTemplate:            sqlite.WhereNull[Q, string](cols.LinuxStartArgsTemplate),
+		WindowsStartArgsTemplate:          sqlite.WhereNull[Q, string](cols.WindowsStartArgsTemplate),
+		LinuxBaseCommand:                  sqlite.Where[Q, string](cols.LinuxBaseCommand),
+		WindowsBaseCommand:                sqlite.Where[Q, string](cols.WindowsBaseCommand),
+		StartArgBlocklist:                 sqlite.Where[Q, string](cols.StartArgBlocklist),
+		AllowStartArgEditing:              sqlite.Where[Q, bool](cols.AllowStartArgEditing),
 	}
 }
 

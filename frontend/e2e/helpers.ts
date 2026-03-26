@@ -4,8 +4,22 @@ import { createConnectTransport } from '@connectrpc/connect-web'
 import { expect, Page } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
-import { CreateGameServerRequestSchema, GameServerSchema, IPSchema } from '@/proto/shared_pb'
-import { Xylona } from '@/proto/xylona_pb'
+import {
+  CreateGameServerRequestSchema,
+  GameServerSchema,
+  IPSchema,
+  type Game,
+} from '@/proto/shared_pb'
+import {
+  AddGameRequestSchema,
+  CreateUserRequestSchema,
+  EditGameRequestSchema,
+  GetGameRequestSchema,
+  RemoveGameRequestSchema,
+  UpdateGameStartArgBlocklistRequestSchema,
+  UpdateGameStartArgsTemplateRequestSchema,
+  Xylona,
+} from '@/proto/xylona_pb'
 
 export const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:9091'
 
@@ -107,7 +121,6 @@ export async function apiCreateGameServer(
     name: string
     gameId: string
     userId?: string
-    startCommand: string
     directory: string
     ip?: string
     port?: number
@@ -120,7 +133,6 @@ export async function apiCreateGameServer(
       name: serverDef.name,
       gameId: serverDef.gameId,
       userId: serverDef.userId ?? '',
-      startCommand: serverDef.startCommand,
       directory: serverDef.directory,
       ip: create(IPSchema, { address: serverDef.ip ?? '0.0.0.0' }),
       port: BigInt(serverDef.port ?? 25565),
@@ -132,6 +144,137 @@ export async function apiCreateGameServer(
   const id = response.gameServer?.id
   if (!id) throw new Error('CreateGameServer returned no server ID')
   return id
+}
+
+export async function apiAddGame(cookies: ApiCookies, game: Game): Promise<Game> {
+  const response = await createAPIClient(cookies).addGame(
+    create(AddGameRequestSchema, {
+      game,
+    }),
+  )
+
+  if (!response.game) {
+    throw new Error('AddGame returned no game')
+  }
+
+  return response.game
+}
+
+export async function apiGetGame(cookies: ApiCookies, gameId: string): Promise<Game> {
+  const response = await createAPIClient(cookies).getGame(
+    create(GetGameRequestSchema, {
+      id: gameId,
+    }),
+  )
+
+  if (!response.game) {
+    throw new Error(`GetGame returned no game for ${gameId}`)
+  }
+
+  return response.game
+}
+
+export async function apiEditGame(cookies: ApiCookies, game: Game): Promise<Game> {
+  const response = await createAPIClient(cookies).editGame(
+    create(EditGameRequestSchema, {
+      gameId: game.id,
+      game,
+    }),
+  )
+
+  if (!response.game) {
+    throw new Error(`EditGame returned no game for ${game.id}`)
+  }
+
+  return response.game
+}
+
+export async function apiUpdateGameStartArgsTemplate(
+  cookies: ApiCookies,
+  input: {
+    gameId: string
+    platform: string
+    startArgsTemplate: string
+    baseCommand: string
+    allowStartArgEditing: boolean
+  },
+): Promise<Game> {
+  const response = await createAPIClient(cookies).updateGameStartArgsTemplate(
+    create(UpdateGameStartArgsTemplateRequestSchema, {
+      gameId: input.gameId,
+      platform: input.platform,
+      startArgsTemplate: input.startArgsTemplate,
+      baseCommand: input.baseCommand,
+      allowStartArgEditing: input.allowStartArgEditing,
+    }),
+  )
+
+  if (!response.game) {
+    throw new Error(`UpdateGameStartArgsTemplate returned no game for ${input.gameId}`)
+  }
+
+  return response.game
+}
+
+export async function apiUpdateGameStartArgBlocklist(
+  cookies: ApiCookies,
+  gameId: string,
+  startArgBlocklist: string,
+): Promise<Game> {
+  const response = await createAPIClient(cookies).updateGameStartArgBlocklist(
+    create(UpdateGameStartArgBlocklistRequestSchema, {
+      gameId,
+      startArgBlocklist,
+    }),
+  )
+
+  if (!response.game) {
+    throw new Error(`UpdateGameStartArgBlocklist returned no game for ${gameId}`)
+  }
+
+  return response.game
+}
+
+export async function apiRemoveGame(cookies: ApiCookies, gameId: string): Promise<void> {
+  await createAPIClient(cookies).removeGame(
+    create(RemoveGameRequestSchema, {
+      gameId,
+    }),
+  )
+}
+
+export async function apiCreateUser(
+  cookies: ApiCookies,
+  userDef: {
+    username: string
+    email: string
+    password: string
+    firstName: string
+    lastName: string
+    superUser?: boolean
+  },
+): Promise<TestUser> {
+  const response = await createAPIClient(cookies).createUser(
+    create(CreateUserRequestSchema, {
+      userName: userDef.username,
+      email: userDef.email,
+      password: userDef.password,
+      firstName: userDef.firstName,
+      lastName: userDef.lastName,
+      superUser: userDef.superUser ?? false,
+    }),
+  )
+
+  if (!response.user?.id) {
+    throw new Error(`CreateUser returned no user ID for ${userDef.username}`)
+  }
+
+  return {
+    id: response.user.id,
+    username: userDef.username,
+    password: userDef.password,
+    superUser: userDef.superUser ?? false,
+  }
 }
 
 export async function apiStartGameServer(cookies: ApiCookies, serverId: string): Promise<void> {

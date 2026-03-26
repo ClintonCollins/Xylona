@@ -223,24 +223,6 @@
 
             <!-- Windows Commands -->
             <div v-if="activePlatformResolved === 'windows'" class="platform-commands">
-              <!-- Start Command -->
-              <div class="cmd-block cmd-block--windows">
-                <div class="cmd-header">
-                  <span class="cmd-label">START COMMAND</span>
-                </div>
-                <div class="cmd-input-wrap">
-                  <div
-                    class="cmd-highlight font-mono"
-                    aria-hidden="true"
-                    v-html="highlightCommand(game.windowsStartCommand)"></div>
-                  <textarea
-                    v-model="game.windowsStartCommand"
-                    class="cmd-textarea font-mono"
-                    rows="2"
-                    placeholder="java -jar minecraft_server.jar"></textarea>
-                </div>
-              </div>
-
               <!-- Stop Command -->
               <div class="cmd-block cmd-block--windows">
                 <div class="cmd-header">
@@ -403,24 +385,6 @@
 
             <!-- Linux Commands -->
             <div v-if="activePlatformResolved === 'linux'" class="platform-commands">
-              <!-- Start Command -->
-              <div class="cmd-block cmd-block--linux">
-                <div class="cmd-header">
-                  <span class="cmd-label">START COMMAND</span>
-                </div>
-                <div class="cmd-input-wrap">
-                  <div
-                    class="cmd-highlight font-mono"
-                    aria-hidden="true"
-                    v-html="highlightCommand(game.linuxStartCommand)"></div>
-                  <textarea
-                    v-model="game.linuxStartCommand"
-                    class="cmd-textarea font-mono"
-                    rows="2"
-                    placeholder="java -jar minecraft_server.jar"></textarea>
-                </div>
-              </div>
-
               <!-- Stop Command -->
               <div class="cmd-block cmd-block--linux">
                 <div class="cmd-header">
@@ -581,6 +545,43 @@
           </template>
         </section>
 
+        <!-- Structured Start Command -->
+        <section class="form-section">
+          <div class="section-header">
+            <span class="section-bar" style="background-color: var(--xy-accent)"></span>
+            <span class="section-title font-display">Start Command</span>
+            <span class="section-line"></span>
+          </div>
+
+          <div class="structured-start-grid">
+            <start-args-template-editor
+              class="structured-start-grid__editor"
+              :linux-template="linuxStartArgsTemplate"
+              :windows-template="windowsStartArgsTemplate"
+              :linux-base-command="game.linuxBaseCommand"
+              :windows-base-command="game.windowsBaseCommand"
+              :linux-enabled="game.linuxSupport"
+              :windows-enabled="game.windowsSupport"
+              @update:linux-template="linuxStartArgsTemplate = $event"
+              @update:windows-template="windowsStartArgsTemplate = $event"
+              @update:linux-base-command="game.linuxBaseCommand = $event"
+              @update:windows-base-command="game.windowsBaseCommand = $event" />
+
+            <div class="structured-start-grid__side">
+              <q-toggle
+                v-model="game.allowStartArgEditing"
+                color="accent"
+                label="Allow server owners to edit start arguments" />
+              <blocklist-editor
+                :blocklist="startArgBlocklist"
+                @update:blocklist="startArgBlocklist = $event" />
+              <downstream-impact-panel
+                v-if="existingGame && !copyGame"
+                :servers="downstreamImpactServers" />
+            </div>
+          </div>
+        </section>
+
         <!-- Mods -->
         <section class="form-section">
           <div class="section-header">
@@ -685,6 +686,8 @@ import {
   GetGameRequest,
   GetGameRequestSchema,
   GetGameResponse,
+  ListGameServersRequestSchema,
+  type ListGameServersResponse,
   UpdateGameConfigSchemasRequestSchema,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient, ConnectErrorToString } from '@/utils/shared'
@@ -702,6 +705,18 @@ import {
 } from '@/proto/shared_pb'
 import ConfigSchemaList from './ConfigSchemaList.vue'
 import type { ConfigSchemaEntry } from './ConfigSchemaList.vue'
+import BlocklistEditor from './BlocklistEditor.vue'
+import DownstreamImpactPanel from './DownstreamImpactPanel.vue'
+import StartArgsTemplateEditor from './StartArgsTemplateEditor.vue'
+import {
+  parseStartArgBlocklist,
+  parseStartArgsPatches,
+  parseStartArgsTemplate,
+  serializeStartArgBlocklist,
+  serializeStartArgsTemplate,
+  type StartArgBlock,
+  type StartArgBlocklistEntry,
+} from '@/components/game_servers/start-args'
 import {
   applySimpleGameConfig,
   getCommandProcessorOptions,
@@ -800,6 +815,10 @@ const existingGame = ref(false)
 const copyGame = ref(false)
 const gameID = ref('')
 const configSchemas = ref<ConfigSchemaEntry[]>([])
+const linuxStartArgsTemplate = ref<StartArgBlock[]>([])
+const windowsStartArgsTemplate = ref<StartArgBlock[]>([])
+const startArgBlocklist = ref<StartArgBlocklistEntry[]>([])
+const downstreamImpactServers = ref<Array<{ name: string; patchCount: number }>>([])
 const modSourceOptions = getModSourceOptions()
 const managedTypedConfig = computed(() => isManagedGameConfig(game.value))
 const managedModConfig = computed(() => isManagedModConfig(game.value))
@@ -863,6 +882,18 @@ function syncSimpleGameConfig(): void {
   applySimpleGameConfig(game.value)
 }
 
+function syncStructuredStartArgsFromGame(): void {
+  linuxStartArgsTemplate.value = parseStartArgsTemplate(game.value.linuxStartArgsTemplate)
+  windowsStartArgsTemplate.value = parseStartArgsTemplate(game.value.windowsStartArgsTemplate)
+  startArgBlocklist.value = parseStartArgBlocklist(game.value.startArgBlocklist)
+}
+
+function syncStructuredStartArgsToGame(): void {
+  game.value.linuxStartArgsTemplate = serializeStartArgsTemplate(linuxStartArgsTemplate.value)
+  game.value.windowsStartArgsTemplate = serializeStartArgsTemplate(windowsStartArgsTemplate.value)
+  game.value.startArgBlocklist = serializeStartArgBlocklist(startArgBlocklist.value)
+}
+
 function commandTypeSummary(commandType: CommandType, operation: 'install' | 'update'): string {
   switch (commandType) {
     case CommandType.NONE:
@@ -907,6 +938,10 @@ function takeSnapshot(): string {
       defaultPort: defaultPort.value,
       defaultQueryPort: defaultQueryPort.value,
       configSchemas: configSchemas.value,
+      linuxStartArgsTemplate: linuxStartArgsTemplate.value,
+      windowsStartArgsTemplate: windowsStartArgsTemplate.value,
+      startArgBlocklist: startArgBlocklist.value,
+      downstreamImpactServers: downstreamImpactServers.value,
     },
     (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
   )
@@ -950,6 +985,12 @@ async function getGameDetailsFromID() {
       game.value.id = ''
       game.value.name = `${game.value.name} (Copy)`
     }
+    syncStructuredStartArgsFromGame()
+    if (existingGame.value && !copyGame.value) {
+      await loadDownstreamImpact(response.game.id)
+    } else {
+      downstreamImpactServers.value = []
+    }
     // Set initial platform tab based on loaded data
     if (game.value.windowsSupport) {
       activePlatform.value = 'windows'
@@ -969,6 +1010,29 @@ async function getGameDetailsFromID() {
     // Snapshot after load settles so isDirty compares against the loaded state
     await nextTick()
     initialSnapshot = takeSnapshot()
+  }
+}
+
+async function loadDownstreamImpact(gameId: string) {
+  try {
+    const response: ListGameServersResponse = await GetXylonaClient().listGameServers(
+      create(ListGameServersRequestSchema, {}),
+    )
+    downstreamImpactServers.value = response.gameServers
+      .filter((server) => server.gameId === gameId)
+      .map((server) => ({
+        name: server.name,
+        patchCount: parseStartArgsPatches(server.startArgsPatches).length,
+      }))
+  } catch (unknownErr: unknown) {
+    downstreamImpactServers.value = []
+    const err = ConnectError.from(unknownErr)
+    $q.notify({
+      type: 'xylona-warning',
+      caption: `Failed to load downstream impact: ${ConnectErrorToString(err)}`,
+      position: 'top',
+      timeout: 3500,
+    })
   }
 }
 
@@ -1012,17 +1076,28 @@ onMounted(async () => {
         if (game.value.linuxSupport) game.value.linuxUpdateCommand = wizardState.updateCommand
         if (game.value.windowsSupport) game.value.windowsUpdateCommand = wizardState.updateCommand
       }
-      if (wizardState.startCommand) {
-        if (game.value.linuxSupport) game.value.linuxStartCommand = wizardState.startCommand
-        if (game.value.windowsSupport) game.value.windowsStartCommand = wizardState.startCommand
+      if (wizardState.linuxBaseCommand) {
+        game.value.linuxBaseCommand = wizardState.linuxBaseCommand
+      }
+      if (wizardState.windowsBaseCommand) {
+        game.value.windowsBaseCommand = wizardState.windowsBaseCommand
+      }
+      if (wizardState.linuxStartArgsTemplate) {
+        game.value.linuxStartArgsTemplate = wizardState.linuxStartArgsTemplate
+      }
+      if (wizardState.windowsStartArgsTemplate) {
+        game.value.windowsStartArgsTemplate = wizardState.windowsStartArgsTemplate
       }
       ensureTypedGameConfig()
       syncSimpleGameConfig()
+      syncStructuredStartArgsFromGame()
+      downstreamImpactServers.value = []
       // Set platform tab to first enabled
       if (game.value.windowsSupport) activePlatform.value = 'windows'
       else if (game.value.linuxSupport) activePlatform.value = 'linux'
     }
     ensureTypedGameConfig()
+    syncStructuredStartArgsFromGame()
     // Snapshot after pre-fill settles
     await nextTick()
     initialSnapshot = takeSnapshot()
@@ -1100,6 +1175,7 @@ async function addNewGame() {
   const request: AddGameRequest = create(AddGameRequestSchema, {})
   game.value.steamAppid = normalizeSteamAppID(game.value.steamAppid)
   syncSimpleGameConfig()
+  syncStructuredStartArgsToGame()
   request.game = game.value
   request.game.defaultPort = BigInt(defaultPort.value ?? 0)
   request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
@@ -1129,6 +1205,7 @@ async function updateExistingGame() {
   const request: EditGameRequest = create(EditGameRequestSchema, {})
   game.value.steamAppid = normalizeSteamAppID(game.value.steamAppid)
   syncSimpleGameConfig()
+  syncStructuredStartArgsToGame()
   request.game = game.value as Game
   request.game.defaultPort = BigInt(defaultPort.value ?? 0)
   request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
@@ -1193,6 +1270,28 @@ async function updateExistingGame() {
   display: flex;
   flex-direction: column;
   gap: var(--xy-space-xs);
+}
+
+.structured-start-grid {
+  display: grid;
+  gap: var(--xy-space-lg);
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+}
+
+.structured-start-grid__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
+  padding: var(--xy-space-md);
+  border-radius: 10px;
+  border: 1px solid var(--xy-border);
+  background: var(--xy-surface-0);
+}
+
+@media (max-width: 1100px) {
+  .structured-start-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .game-form-breadcrumbs {

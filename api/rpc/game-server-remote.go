@@ -60,6 +60,10 @@ func (xs *XylonaService) editRemoteGameServer(ctx context.Context, serverID stri
 		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
 	}
 
+	if !actingUser.SuperUser {
+		redactGameServerForNonSuperuser(resp.Msg.GameServer)
+	}
+
 	return connect.NewResponse(&xylona.EditGameServerResponse{
 		Game_Server: resp.Msg.GameServer,
 	}), nil

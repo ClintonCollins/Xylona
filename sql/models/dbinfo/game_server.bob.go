@@ -51,15 +51,6 @@ var GameServers = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
-		StartCommand: column{
-			Name:      "start_command",
-			DBType:    "TEXT",
-			Default:   "",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
 		Status: column{
 			Name:      "status",
 			DBType:    "TEXT",
@@ -249,6 +240,15 @@ var GameServers = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		StartArgsPatches: column{
+			Name:      "start_args_patches",
+			DBType:    "TEXT",
+			Default:   "'[]'",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameServerIndexes{
 		GameServerUserIDNameUniqueIndex: index{
@@ -337,7 +337,6 @@ type gameServerColumns struct {
 	UserID                    column
 	Name                      column
 	GameID                    column
-	StartCommand              column
 	Status                    column
 	SetPlayers                column
 	MaxPlayers                column
@@ -359,11 +358,12 @@ type gameServerColumns struct {
 	ServerSoftware            column
 	ServerExecutable          column
 	TargetPinned              column
+	StartArgsPatches          column
 }
 
 func (c gameServerColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.UserID, c.Name, c.GameID, c.StartCommand, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned,
+		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches,
 	}
 }
 

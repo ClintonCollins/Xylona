@@ -169,10 +169,10 @@ func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 	// A local game server owned by user-alerts
 	_, errServer := conn.SQLDb.ExecContext(ctx,
 		`INSERT INTO game_server
-		 (id, user_id, name, game_id, start_command, status, set_players, max_players, map, ip, port, query_port, directory, node_id)
+		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"server-local-1", "user-alerts", "Test Server", "minecraft", "java -jar server.jar", "OFFLINE",
-		20, 20, "world", "127.0.0.1", 25565, 25565, t.TempDir(), "node-local",
+		"server-local-1", "user-alerts", "Test Server", "minecraft", "OFFLINE",
+		20, 20, "world", "127.0.0.1", 25565, 25565, t.TempDir(), "node-local", "[]",
 	)
 	if errServer != nil {
 		t.Fatalf("failed to insert game server: %v", errServer)

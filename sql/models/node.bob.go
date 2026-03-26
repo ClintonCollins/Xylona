@@ -46,6 +46,7 @@ type Node struct {
 	AllowInsecureTLS    bool                `db:"allow_insecure_tls" `
 	Departed            bool                `db:"departed" `
 	AutoPaired          bool                `db:"auto_paired" `
+	Os                  string              `db:"os" `
 
 	R nodeR `db:"-" `
 }
@@ -75,7 +76,7 @@ type nodeR struct {
 func buildNodeColumns(alias string) nodeColumns {
 	return nodeColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "name", "secret_key", "is_local", "host", "port", "base_url", "enabled", "last_seen_at", "last_sync_at", "last_sync_status", "health_status", "version", "protocol_version", "capabilities", "created_at", "updated_at", "sync_interval_seconds", "allow_insecure_tls", "departed", "auto_paired",
+			"id", "name", "secret_key", "is_local", "host", "port", "base_url", "enabled", "last_seen_at", "last_sync_at", "last_sync_status", "health_status", "version", "protocol_version", "capabilities", "created_at", "updated_at", "sync_interval_seconds", "allow_insecure_tls", "departed", "auto_paired", "os",
 		).WithParent("node"),
 		tableAlias:          alias,
 		ID:                  sqlite.Quote(alias, "id"),
@@ -99,6 +100,7 @@ func buildNodeColumns(alias string) nodeColumns {
 		AllowInsecureTLS:    sqlite.Quote(alias, "allow_insecure_tls"),
 		Departed:            sqlite.Quote(alias, "departed"),
 		AutoPaired:          sqlite.Quote(alias, "auto_paired"),
+		Os:                  sqlite.Quote(alias, "os"),
 	}
 }
 
@@ -126,6 +128,7 @@ type nodeColumns struct {
 	AllowInsecureTLS    sqlite.Expression
 	Departed            sqlite.Expression
 	AutoPaired          sqlite.Expression
+	Os                  sqlite.Expression
 }
 
 func (c nodeColumns) Alias() string {
@@ -161,10 +164,11 @@ type NodeSetter struct {
 	AllowInsecureTLS    omit.Val[bool]          `db:"allow_insecure_tls" `
 	Departed            omit.Val[bool]          `db:"departed" `
 	AutoPaired          omit.Val[bool]          `db:"auto_paired" `
+	Os                  omit.Val[string]        `db:"os" `
 }
 
 func (s NodeSetter) SetColumns() []string {
-	vals := make([]string, 0, 21)
+	vals := make([]string, 0, 22)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -227,6 +231,9 @@ func (s NodeSetter) SetColumns() []string {
 	}
 	if s.AutoPaired.IsValue() {
 		vals = append(vals, "auto_paired")
+	}
+	if s.Os.IsValue() {
+		vals = append(vals, "os")
 	}
 	return vals
 }
@@ -295,6 +302,9 @@ func (s NodeSetter) Overwrite(t *Node) {
 	if s.AutoPaired.IsValue() {
 		t.AutoPaired = s.AutoPaired.MustGet()
 	}
+	if s.Os.IsValue() {
+		t.Os = s.Os.MustGet()
+	}
 }
 
 func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
@@ -311,7 +321,7 @@ func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 21)
+		vals := make([]bob.Expression, 0, 22)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -396,6 +406,10 @@ func (s *NodeSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.AutoPaired.MustGet()))
 		}
 
+		if s.Os.IsValue() {
+			vals = append(vals, sqlite.Arg(s.Os.MustGet()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -409,7 +423,7 @@ func (s NodeSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s NodeSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 21)
+	exprs := make([]bob.Expression, 0, 22)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -555,6 +569,13 @@ func (s NodeSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "auto_paired")...),
 			sqlite.Arg(s.AutoPaired),
+		}})
+	}
+
+	if s.Os.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "os")...),
+			sqlite.Arg(s.Os),
 		}})
 	}
 
@@ -1488,6 +1509,7 @@ type nodeWhere[Q sqlite.Filterable] struct {
 	AllowInsecureTLS    sqlite.WhereMod[Q, bool]
 	Departed            sqlite.WhereMod[Q, bool]
 	AutoPaired          sqlite.WhereMod[Q, bool]
+	Os                  sqlite.WhereMod[Q, string]
 }
 
 func (nodeWhere[Q]) AliasedAs(alias string) nodeWhere[Q] {
@@ -1517,6 +1539,7 @@ func buildNodeWhere[Q sqlite.Filterable](cols nodeColumns) nodeWhere[Q] {
 		AllowInsecureTLS:    sqlite.Where[Q, bool](cols.AllowInsecureTLS),
 		Departed:            sqlite.Where[Q, bool](cols.Departed),
 		AutoPaired:          sqlite.Where[Q, bool](cols.AutoPaired),
+		Os:                  sqlite.Where[Q, string](cols.Os),
 	}
 }
 

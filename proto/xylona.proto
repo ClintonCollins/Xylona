@@ -11,6 +11,8 @@ service Xylona {
   // Game Operations
   rpc AddGame (AddGameRequest) returns (AddGameResponse) {}
   rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
+  rpc UpdateGameStartArgsTemplate (UpdateGameStartArgsTemplateRequest) returns (UpdateGameStartArgsTemplateResponse) {}
+  rpc UpdateGameStartArgBlocklist (UpdateGameStartArgBlocklistRequest) returns (UpdateGameStartArgBlocklistResponse) {}
   rpc GetGame (GetGameRequest) returns (GetGameResponse) {}
   rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
   rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
@@ -55,6 +57,7 @@ service Xylona {
   rpc SendGameServerInput (SendGameServerInputRequest) returns (SendGameServerInputResponse) {}
   rpc GetGameServer (GetGameServerRequest) returns (GetGameServerResponse) {}
   rpc UpdateGameServer (UpdateGameServerRequest) returns (UpdateGameServerResponse) {}
+  rpc UpdateGameServerStartArgs (UpdateGameServerStartArgsRequest) returns (UpdateGameServerStartArgsResponse) {}
   //  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
   //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
@@ -339,6 +342,27 @@ message EditGameResponse {
   Game game = 1;
 }
 
+message UpdateGameStartArgsTemplateRequest {
+  string game_id = 1;
+  string platform = 2;
+  string start_args_template = 3;
+  string base_command = 4;
+  bool allow_start_arg_editing = 5;
+}
+
+message UpdateGameStartArgsTemplateResponse {
+  Game game = 1;
+}
+
+message UpdateGameStartArgBlocklistRequest {
+  string game_id = 1;
+  string start_arg_blocklist = 2;
+}
+
+message UpdateGameStartArgBlocklistResponse {
+  Game game = 1;
+}
+
 message RemoveGameRequest {
   string game_id = 1;
 }
@@ -369,6 +393,15 @@ message UpdateGameServerRequest {
   string target = 2;
 }
 message UpdateGameServerResponse {}
+
+message UpdateGameServerStartArgsRequest {
+  string server_id = 1;
+  string start_args_patches = 2;
+}
+
+message UpdateGameServerStartArgsResponse {
+  GameServer game_server = 1;
+}
 
 message SetServerVariantRequest {
   string game_server_id = 1;

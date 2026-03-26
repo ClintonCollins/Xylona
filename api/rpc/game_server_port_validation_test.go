@@ -13,10 +13,10 @@ func TestFindAvailablePortIgnoresQueryPortConflicts(t *testing.T) {
 	_, errInsert := fixture.conn.SQLDb.ExecContext(
 		context.Background(),
 		`insert into game_server
-		 (id, user_id, name, game_id, start_command, status, set_players, max_players, map, ip, port, query_port, directory, node_id)
+		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
 		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"server-alt-1", "user-owner", "Alt One", "test-game", "start", "OFFLINE",
-		20, 20, "world", "127.0.0.2", 25565, 25565, "/tmp/server-alt-1", "node-local",
+		"server-alt-1", "user-owner", "Alt One", "test-game", "OFFLINE",
+		20, 20, "world", "127.0.0.2", 25565, 25565, "/tmp/server-alt-1", "node-local", "[]",
 	)
 	if errInsert != nil {
 		t.Fatalf("insert alt game server error = %v", errInsert)

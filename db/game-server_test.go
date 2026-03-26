@@ -20,10 +20,10 @@ func seedGameServerFixture(t *testing.T, conn *Connection) {
 	_, errServer := conn.SQLDb.ExecContext(
 		context.Background(),
 		`insert into game_server
-		 (id, user_id, name, game_id, start_command, status, set_players, max_players, map, ip, port, query_port, directory, node_id)
+		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
 		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"server-local-2", "user-other", "Local Two", "minecraft", "java -jar server.jar", "OFFLINE",
-		10, 10, "world", "127.0.0.1", 25566, 25566, "/tmp/server-local-2", "node-local",
+		"server-local-2", "user-other", "Local Two", "minecraft", "OFFLINE",
+		10, 10, "world", "127.0.0.1", 25566, 25566, "/tmp/server-local-2", "node-local", "[]",
 	)
 	if errServer != nil {
 		t.Fatalf("failed to insert second game server: %v", errServer)
@@ -156,22 +156,22 @@ func TestInsertGameServer(t *testing.T) {
 
 	now := time.Now().UTC()
 	setter := &models.GameServerSetter{
-		ID:           omit.From("server-new"),
-		UserID:       omit.From("user-owner"),
-		Name:         omit.From("New Server"),
-		GameID:       omit.From("minecraft"),
-		StartCommand: omit.From("java -jar server.jar"),
-		Status:       omit.From("OFFLINE"),
-		SetPlayers:   omit.From(int64(20)),
-		MaxPlayers:   omit.From(int64(20)),
-		Map:          omit.From("world"),
-		IP:           omit.From("127.0.0.1"),
-		Port:         omit.From(int64(25567)),
-		QueryPort:    omit.From(int64(25567)),
-		Directory:    omit.From("/tmp/server-new"),
-		NodeID:       omit.From("node-local"),
-		CreatedAt:    omit.From(now),
-		UpdatedAt:    omit.From(now),
+		ID:               omit.From("server-new"),
+		UserID:           omit.From("user-owner"),
+		Name:             omit.From("New Server"),
+		GameID:           omit.From("minecraft"),
+		StartArgsPatches: omit.From("[]"),
+		Status:           omit.From("OFFLINE"),
+		SetPlayers:       omit.From(int64(20)),
+		MaxPlayers:       omit.From(int64(20)),
+		Map:              omit.From("world"),
+		IP:               omit.From("127.0.0.1"),
+		Port:             omit.From(int64(25567)),
+		QueryPort:        omit.From(int64(25567)),
+		Directory:        omit.From("/tmp/server-new"),
+		NodeID:           omit.From("node-local"),
+		CreatedAt:        omit.From(now),
+		UpdatedAt:        omit.From(now),
 	}
 
 	server, errInsert := conn.InsertGameServer(conn.DB, setter)
@@ -192,21 +192,21 @@ func TestInsertGameServerDuplicateUserName(t *testing.T) {
 
 	now := time.Now().UTC()
 	setter := &models.GameServerSetter{
-		ID:           omit.From("server-dup"),
-		UserID:       omit.From("user-owner"),
-		Name:         omit.From("Local One"), // same name as seedRBACFixture's server
-		GameID:       omit.From("minecraft"),
-		StartCommand: omit.From("java -jar server.jar"),
-		Status:       omit.From("OFFLINE"),
-		SetPlayers:   omit.From(int64(20)),
-		MaxPlayers:   omit.From(int64(20)),
-		IP:           omit.From("127.0.0.1"),
-		Port:         omit.From(int64(25568)),
-		QueryPort:    omit.From(int64(25568)),
-		Directory:    omit.From("/tmp/server-dup"),
-		NodeID:       omit.From("node-local"),
-		CreatedAt:    omit.From(now),
-		UpdatedAt:    omit.From(now),
+		ID:               omit.From("server-dup"),
+		UserID:           omit.From("user-owner"),
+		Name:             omit.From("Local One"), // same name as seedRBACFixture's server
+		GameID:           omit.From("minecraft"),
+		StartArgsPatches: omit.From("[]"),
+		Status:           omit.From("OFFLINE"),
+		SetPlayers:       omit.From(int64(20)),
+		MaxPlayers:       omit.From(int64(20)),
+		IP:               omit.From("127.0.0.1"),
+		Port:             omit.From(int64(25568)),
+		QueryPort:        omit.From(int64(25568)),
+		Directory:        omit.From("/tmp/server-dup"),
+		NodeID:           omit.From("node-local"),
+		CreatedAt:        omit.From(now),
+		UpdatedAt:        omit.From(now),
 	}
 
 	_, errInsert := conn.InsertGameServer(conn.DB, setter)
@@ -221,21 +221,21 @@ func TestUpdateGameServer(t *testing.T) {
 
 	now := time.Now().UTC()
 	updateSetter := &models.GameServerSetter{
-		ID:           omit.From("server-local-1"),
-		Name:         omit.From("Updated Name"),
-		UserID:       omit.From("user-owner"),
-		GameID:       omit.From("minecraft"),
-		StartCommand: omit.From("java -jar server.jar"),
-		Status:       omit.From("OFFLINE"),
-		SetPlayers:   omit.From(int64(30)),
-		MaxPlayers:   omit.From(int64(30)),
-		Map:          omit.From("nether"),
-		IP:           omit.From("127.0.0.1"),
-		Port:         omit.From(int64(25565)),
-		QueryPort:    omit.From(int64(25565)),
-		Directory:    omit.From("/tmp/server-local-1"),
-		NodeID:       omit.From("node-local"),
-		UpdatedAt:    omit.From(now),
+		ID:               omit.From("server-local-1"),
+		Name:             omit.From("Updated Name"),
+		UserID:           omit.From("user-owner"),
+		GameID:           omit.From("minecraft"),
+		StartArgsPatches: omit.From("[]"),
+		Status:           omit.From("OFFLINE"),
+		SetPlayers:       omit.From(int64(30)),
+		MaxPlayers:       omit.From(int64(30)),
+		Map:              omit.From("nether"),
+		IP:               omit.From("127.0.0.1"),
+		Port:             omit.From(int64(25565)),
+		QueryPort:        omit.From(int64(25565)),
+		Directory:        omit.From("/tmp/server-local-1"),
+		NodeID:           omit.From("node-local"),
+		UpdatedAt:        omit.From(now),
 	}
 
 	updated, errUpdate := conn.UpdateGameServer(conn.DB, updateSetter)

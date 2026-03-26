@@ -142,7 +142,7 @@
         :owner="selectedOwnerName"
         :show-memory="isMinecraftGame" />
 
-      <section class="form-section" :class="{ 'form-section--last': !canEditProvisioning }">
+      <section class="form-section form-section--last">
         <div class="section-header">
           <span class="section-icon section-icon--warning">
             <q-icon name="memory" size="14px" />
@@ -185,25 +185,6 @@
             :error-message="maxMemoryStateMessage"
             reactive-rules
             lazy-rules />
-        </div>
-      </section>
-
-      <section class="form-section form-section--last">
-        <div class="section-header">
-          <span class="section-icon section-icon--accent">
-            <q-icon name="terminal" size="14px" />
-          </span>
-          <span class="section-title font-display">Runtime</span>
-          <span class="section-line"></span>
-        </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
-          <q-input
-            v-model="gameServer.startCommand"
-            data-testid="editable-start-command"
-            class="col-12"
-            outlined
-            type="text"
-            label="Start Command" />
         </div>
       </section>
     </q-form>

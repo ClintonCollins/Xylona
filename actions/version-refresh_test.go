@@ -380,10 +380,36 @@ func TestCheckAllServerVersionsDetectsOutOfBandMinecraftJarReplacement(t *testin
 
 	_, errGame := inst.db.SQLDb.ExecContext(
 		context.Background(),
-		`insert into game (id, name, default_port, default_query_port, default_max_players, linux_support, windows_support, linux_start_command, windows_start_command, created_at, updated_at, server_software)
-		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
+		`insert into game (
+			id,
+			name,
+			default_port,
+			default_query_port,
+			default_max_players,
+			linux_support,
+			windows_support,
+			linux_start_args_template,
+			windows_start_args_template,
+			linux_base_command,
+			windows_base_command,
+			created_at,
+			updated_at,
+			server_software
+		)
+		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
 		 on conflict(id) do update set server_software = excluded.server_software`,
-		"minecraft", "Minecraft", 25565, 25565, 20, true, true, "java -jar server.jar", "java -jar server.jar", `[{"id":"paper","name":"Paper","jar_source":"paper"}]`,
+		"minecraft",
+		"Minecraft",
+		25565,
+		25565,
+		20,
+		true,
+		true,
+		`[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}]`,
+		`[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}]`,
+		"java",
+		"java",
+		`[{"id":"paper","name":"Paper","jar_source":"paper"}]`,
 	)
 	if errGame != nil {
 		t.Fatalf("insert game: %v", errGame)
@@ -425,7 +451,7 @@ func TestCheckAllServerVersionsDetectsOutOfBandMinecraftJarReplacement(t *testin
 		UserID:           omit.From("user-1"),
 		Name:             omit.From("Local Minecraft"),
 		GameID:           omit.From("minecraft"),
-		StartCommand:     omit.From("java -jar server.jar"),
+		StartArgsPatches: omit.From("[]"),
 		Status:           omit.From("OFFLINE"),
 		SetPlayers:       omit.From(int64(20)),
 		MaxPlayers:       omit.From(int64(20)),

@@ -101,6 +101,17 @@ async function onAppSelected(app: { appId: string; name: string }): Promise<void
   }
 }
 
+function launchConfigForPlatform(platform: 'windows' | 'linux') {
+  if (!details.value?.launchConfigs?.length) {
+    return null
+  }
+
+  const exactMatch = details.value.launchConfigs.find(
+    (launchConfig) => launchConfig.os.toLowerCase() === platform,
+  )
+  return exactMatch ?? details.value.launchConfigs[0]
+}
+
 function continueToForm(): void {
   const appName = details.value
     ? stripDedicatedServer(details.value.name)
@@ -120,7 +131,10 @@ function continueToForm(): void {
       'steamcmd +force_install_dir {{INSTALL_DIR}} +login anonymous +app_update {{STEAM_APPID}} validate +quit',
     updateCommand:
       'steamcmd +force_install_dir {{INSTALL_DIR}} +login anonymous +app_update {{STEAM_APPID}} validate +quit',
-    startCommand: details.value?.launchConfigs?.[0]?.executable || '',
+    linuxBaseCommand: launchConfigForPlatform('linux')?.executable || '',
+    windowsBaseCommand: launchConfigForPlatform('windows')?.executable || '',
+    linuxStartArgsTemplate: '',
+    windowsStartArgsTemplate: '',
   }
 
   void router.push({

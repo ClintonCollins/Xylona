@@ -34,6 +34,9 @@ func TestGetNode(t *testing.T) {
 	if !resp.Msg.Node.Local {
 		t.Errorf("GetNode().Node.Local = false, want true")
 	}
+	if resp.Msg.Node.Os != "linux" {
+		t.Errorf("GetNode().Node.Os = %q, want %q", resp.Msg.Node.Os, "linux")
+	}
 
 	// Nonexistent ID → error
 	badRequest := connect.NewRequest(&xylona.GetNodeRequest{
@@ -65,6 +68,9 @@ func TestListNodes(t *testing.T) {
 	for _, node := range resp.Msg.Nodes {
 		if node.Id == "node-local" {
 			foundLocal = true
+			if node.Os != "linux" {
+				t.Errorf("ListNodes().Node.Os = %q, want %q", node.Os, "linux")
+			}
 			break
 		}
 	}

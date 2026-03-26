@@ -16,7 +16,13 @@ import {
 import GameForm from './GameForm.vue'
 
 const mocks = vi.hoisted(() => ({
+  addGame: vi.fn(),
+  editGame: vi.fn(),
   getGame: vi.fn(),
+  listGameServers: vi.fn(),
+  push: vi.fn(),
+  updateGameStartArgBlocklist: vi.fn(),
+  updateGameStartArgsTemplate: vi.fn(),
 }))
 
 vi.mock('@/utils/shared', async () => {
@@ -24,9 +30,12 @@ vi.mock('@/utils/shared', async () => {
   return {
     ...actual,
     GetXylonaClient: () => ({
+      addGame: mocks.addGame,
+      editGame: mocks.editGame,
       getGame: mocks.getGame,
-      addGame: vi.fn(),
-      editGame: vi.fn(),
+      listGameServers: mocks.listGameServers,
+      updateGameStartArgsTemplate: mocks.updateGameStartArgsTemplate,
+      updateGameStartArgBlocklist: mocks.updateGameStartArgBlocklist,
       updateGameConfigSchemas: vi.fn(),
     }),
   }
@@ -48,9 +57,20 @@ vi.mock('vue-router', async () => {
     ...actual,
     useRouter: () => ({
       back: vi.fn(),
-      push: vi.fn(),
+      push: mocks.push,
     }),
   }
+})
+
+const QFormStub = defineComponent({
+  name: 'QFormStub',
+  setup(_, { slots, expose }) {
+    expose({
+      validate: async () => true,
+    })
+
+    return () => slots.default?.()
+  },
 })
 
 const QInputStub = defineComponent({
@@ -71,18 +91,26 @@ function mountGameForm() {
     },
     global: {
       stubs: {
-        'q-form': { template: '<form><slot /></form>' },
+        'q-form': QFormStub,
         'q-input': QInputStub,
         'q-select': {
           template: '<div class="q-select-stub" v-bind="$attrs">{{ label }}<slot /></div>',
           props: ['label'],
         },
-        'q-btn': { template: '<button><slot />{{ label }}</button>', props: ['label'] },
+        'q-btn': {
+          template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot />{{ label }}</button>',
+          props: ['label'],
+          emits: ['click'],
+        },
         'q-icon': true,
         'q-badge': { template: '<span><slot />{{ label }}</span>', props: ['label'] },
+        'q-toggle': true,
         'q-spinner-dots': true,
         'router-link': { template: '<a><slot /></a>' },
         ConfigSchemaList: { template: '<div />' },
+        StartArgsTemplateEditor: { template: '<div data-testid="start-args-template-editor" />' },
+        BlocklistEditor: { template: '<div data-testid="blocklist-editor" />' },
+        DownstreamImpactPanel: { template: '<div data-testid="downstream-impact-panel" />' },
       },
     },
   })
@@ -98,7 +126,14 @@ describe('GameForm', () => {
       },
     )
 
+    mocks.addGame.mockReset()
+    mocks.editGame.mockReset()
     mocks.getGame.mockReset()
+    mocks.listGameServers.mockReset()
+    mocks.push.mockReset()
+    mocks.updateGameStartArgBlocklist.mockReset()
+    mocks.updateGameStartArgsTemplate.mockReset()
+    mocks.listGameServers.mockResolvedValue({ gameServers: [] })
   })
 
   it('keeps install controls editable for managed variant-backed games', async () => {
@@ -166,5 +201,52 @@ describe('GameForm', () => {
     expect(wrapper.text()).toContain('Install Path')
     expect(wrapper.text()).toContain('Mod Source')
     expect(wrapper.text()).toContain('Platform')
+  })
+
+  it('persists structured start args through editGame without follow-up RPCs', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+        linuxStartArgsTemplate: '[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"]}]',
+        windowsStartArgsTemplate:
+          '[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"]}]',
+        linuxBaseCommand: 'java',
+        windowsBaseCommand: 'java',
+      }),
+    })
+    mocks.editGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    const saveButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Save')
+
+    expect(saveButton).toBeDefined()
+    if (!saveButton) {
+      throw new Error('expected Save button to exist')
+    }
+
+    await saveButton.trigger('click')
+    await flushPromises()
+
+    expect(mocks.editGame).toHaveBeenCalledTimes(1)
+    expect(mocks.updateGameStartArgsTemplate).not.toHaveBeenCalled()
+    expect(mocks.updateGameStartArgBlocklist).not.toHaveBeenCalled()
+
+    const request = mocks.editGame.mock.calls[0][0]
+    expect(request.game.linuxStartArgsTemplate).toContain('"id":"jar"')
+    expect(request.game.windowsStartArgsTemplate).toContain('"id":"jar"')
+    expect(request.game.linuxBaseCommand).toBe('java')
+    expect(request.game.windowsBaseCommand).toBe('java')
   })
 })

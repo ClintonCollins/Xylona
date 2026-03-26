@@ -54,7 +54,8 @@ type Instance struct {
 type Command struct {
 	ID                            string
 	User                          string
-	FullCommandAndArgs            string
+	BaseCommand                   string
+	Args                          []string
 	InternalCommand               bool
 	nodeID                        string
 	internalCommandStdOut         io.Writer

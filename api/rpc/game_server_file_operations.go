@@ -7,9 +7,22 @@ import (
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func fileMutationError(err error) error {
+	if errors.Is(err, actions.ErrInvalidPath) {
+		return connect.NewError(connect.CodeInvalidArgument, errors.New("invalid path"))
+	}
+	if errors.Is(err, actions.ErrProtectedPath) {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("path is protected"))
+	}
+
+	log.Error().Err(err).Msg("file mutation failed")
+	return connect.NewError(connect.CodeInternal, errors.New("file operation failed"))
+}
 
 func (xs *XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, request *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
 	serverID := request.Msg.GameServerId
@@ -29,7 +42,7 @@ func (xs *XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, r
 			errCreate := xs.actionsInst.CreateFileOrDirectory(gameServer, request.Msg.GetFullFilePath(),
 				request.Msg.GetContent(), request.Msg.GetIsDirectory())
 			if errCreate != nil {
-				return nil, connect.NewError(connect.CodeInternal, errCreate)
+				return nil, fileMutationError(errCreate)
 			}
 			return &connect.Response[xylona.GameServerFileOrDirectoryCreateResponse]{Msg: &xylona.GameServerFileOrDirectoryCreateResponse{}}, nil
 		},
@@ -56,7 +69,7 @@ func (xs *XylonaService) GameServerFilesDelete(ctx context.Context, request *con
 
 			results, errDelete := xs.actionsInst.DeleteFiles(ctx, gameServer, request.Msg.GetFullFilePaths())
 			if errDelete != nil {
-				return nil, errDelete
+				return nil, fileMutationError(errDelete)
 			}
 			response := &xylona.GameServerFilesDeleteResponse{FullFilePaths: results}
 			return &connect.Response[xylona.GameServerFilesDeleteResponse]{Msg: response}, nil
@@ -104,7 +117,7 @@ func (xs *XylonaService) GameServerFilesArchive(ctx context.Context, request *co
 	lastResult, errCompress := xs.actionsInst.ArchiveFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
 		request.Msg.GetFullFilePaths(), request.Msg.GetCompressionType(), resultsChan)
 	if errCompress != nil {
-		return connect.NewError(connect.CodeInternal, errCompress)
+		return fileMutationError(errCompress)
 	}
 	errSend := c.Send(lastResult)
 	if errSend != nil {
@@ -155,7 +168,7 @@ func (xs *XylonaService) GameServerFilesExtract(ctx context.Context, request *co
 	_, errCompress := xs.actionsInst.ExtractFiles(ctx, gameServer, request.Msg.GetFullFilePath(),
 		request.Msg.GetDestinationBasePath(), resultsChan)
 	if errCompress != nil {
-		return connect.NewError(connect.CodeInternal, errCompress)
+		return fileMutationError(errCompress)
 	}
 	return nil
 }
@@ -178,7 +191,7 @@ func (xs *XylonaService) GameServerFilesCompress(ctx context.Context, request *c
 	results, errCompress := xs.actionsInst.ArchiveAndCompressFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
 		request.Msg.GetFullFilePaths(), request.Msg.GetCompressionType())
 	if errCompress != nil {
-		return nil, connect.NewError(connect.CodeInternal, errCompress)
+		return nil, fileMutationError(errCompress)
 	}
 	response := &xylona.GameServerFilesCompressionResponse{FullFilePath: results}
 	return &connect.Response[xylona.GameServerFilesCompressionResponse]{Msg: response}, nil
@@ -201,7 +214,7 @@ func (xs *XylonaService) GameServerFilesDecompress(ctx context.Context, request 
 
 	results, errDecompress := xs.actionsInst.ExtractArchive(ctx, gameServer, request.Msg.GetFullFilePath(), request.Msg.GetDestinationBasePath())
 	if errDecompress != nil {
-		return nil, connect.NewError(connect.CodeInternal, errDecompress)
+		return nil, fileMutationError(errDecompress)
 	}
 	response := &xylona.GameServerFilesDecompressionResponse{FullFilePaths: results}
 	return &connect.Response[xylona.GameServerFilesDecompressionResponse]{Msg: response}, nil
@@ -224,7 +237,7 @@ func (xs *XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, req
 
 			results, errDownload := xs.actionsInst.DownloadFileFromURL(ctx, gameServer, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
 			if errDownload != nil {
-				return nil, connect.NewError(connect.CodeInternal, errDownload)
+				return nil, fileMutationError(errDownload)
 			}
 			response := &xylona.GameServersFileDownloadFromURLResponse{FilePath: results}
 			return &connect.Response[xylona.GameServersFileDownloadFromURLResponse]{Msg: response}, nil
@@ -252,7 +265,7 @@ func (xs *XylonaService) GameServerFileRename(ctx context.Context, request *conn
 
 			newFilePath, errRename := xs.actionsInst.RenameFile(gameServer, request.Msg.GetOldPath(), request.Msg.GetNewPath())
 			if errRename != nil {
-				return nil, connect.NewError(connect.CodeInternal, errRename)
+				return nil, fileMutationError(errRename)
 			}
 			response := &xylona.GameServerFileRenameResponse{NewPath: newFilePath}
 			return &connect.Response[xylona.GameServerFileRenameResponse]{Msg: response}, nil
@@ -280,7 +293,7 @@ func (xs *XylonaService) GameServerFilesMove(ctx context.Context, request *conne
 
 			results, errMove := xs.actionsInst.MoveFiles(ctx, gameServer, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
 			if errMove != nil {
-				return nil, connect.NewError(connect.CodeInternal, errMove)
+				return nil, fileMutationError(errMove)
 			}
 			response := &xylona.GameServerFilesMoveResponse{FullFilePaths: results}
 			return &connect.Response[xylona.GameServerFilesMoveResponse]{Msg: response}, nil
@@ -308,7 +321,7 @@ func (xs *XylonaService) GameServersFileEdit(ctx context.Context, request *conne
 
 			errEdit := xs.actionsInst.EditFile(gameServer, request.Msg.GetFullFilePath(), request.Msg.GetContent())
 			if errEdit != nil {
-				return nil, connect.NewError(connect.CodeInternal, errEdit)
+				return nil, fileMutationError(errEdit)
 			}
 			return &connect.Response[xylona.GameServersFileEditResponse]{Msg: &xylona.GameServersFileEditResponse{}}, nil
 		},

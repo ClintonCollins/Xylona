@@ -156,10 +156,10 @@ func TestListServerSummariesFiltersByFederatedViewPermission(t *testing.T) {
 	_, errInsertServer := fixture.conn.SQLDb.ExecContext(
 		context.Background(),
 		`insert into game_server
-		 (id, user_id, name, game_id, start_command, status, set_players, max_players, map, ip, port, query_port, directory, node_id)
+		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
 		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"server-local-2", "user-owner", "Local Two", "minecraft", "java -jar server.jar", "OFFLINE",
-		20, 20, "world-two", "127.0.0.1", 25566, 25566, "/tmp/server-local-2", "node-local",
+		"server-local-2", "user-owner", "Local Two", "minecraft", "OFFLINE",
+		20, 20, "world-two", "127.0.0.1", 25566, 25566, "/tmp/server-local-2", "node-local", "[]",
 	)
 	if errInsertServer != nil {
 		t.Fatalf("failed to insert second local server: %v", errInsertServer)

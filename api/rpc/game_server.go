@@ -41,7 +41,6 @@ func mergeEditableGameServerUpdate(
 	merged := *existingGameServer
 	merged.Name = incomingGameServer.Name
 	merged.SetPlayers = incomingGameServer.SetPlayers
-	merged.StartCommand = incomingGameServer.StartCommand
 	return &merged
 }
 
@@ -215,7 +214,11 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 			}
 
-			response := &xylona.EditGameServerResponse{Game_Server: helpers.GameServerModelToProto(gameServerModel, xs.versionState)}
+			gameServerProto := helpers.GameServerModelToProto(gameServerModel, xs.versionState)
+			if !user.SuperUser {
+				redactGameServerForNonSuperuser(gameServerProto)
+			}
+			response := &xylona.EditGameServerResponse{Game_Server: gameServerProto}
 			return connect.NewResponse(response), nil
 		},
 		func() (*connect.Response[xylona.EditGameServerResponse], error) {
@@ -557,6 +560,9 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 				gameServer.Status = gameServerCmd.Status().String()
 			}
 			gsProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
+			if !user.SuperUser {
+				redactGameServerForNonSuperuser(gsProto)
+			}
 			gsProto.Version, gsProto.VersionInfo = xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{
 				AllowAsync: true,
 			})
@@ -649,6 +655,9 @@ func (xs *XylonaService) getRemoteGameServer(ctx context.Context, serverID strin
 		UptimeSeconds:         server.UptimeSeconds,
 	}
 	gs.EffectivePermissions = resp.Msg.EffectivePermissions
+	if !actingUser.SuperUser {
+		redactGameServerForNonSuperuser(gs)
+	}
 
 	return connect.NewResponse(&xylona.GetGameServerResponse{
 		GameServer: gs,
@@ -755,6 +764,9 @@ func (xs *XylonaService) ListGameServers(ctx context.Context, request *connect.R
 			gameServerProto.EffectivePermissions = xs.allPermissionIDs
 		} else if perms, ok := bulkPerms[gameServer.ID]; ok {
 			gameServerProto.EffectivePermissions = perms
+		}
+		if !user.SuperUser {
+			redactGameServerForNonSuperuser(gameServerProto)
 		}
 		gameServersProto[i] = gameServerProto
 	}

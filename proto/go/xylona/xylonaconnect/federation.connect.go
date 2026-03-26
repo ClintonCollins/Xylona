@@ -65,6 +65,9 @@ const (
 	// FederationEditRemoteServerProcedure is the fully-qualified name of the Federation's
 	// EditRemoteServer RPC.
 	FederationEditRemoteServerProcedure = "/xylona.Federation/EditRemoteServer"
+	// FederationUpdateRemoteServerStartArgsProcedure is the fully-qualified name of the Federation's
+	// UpdateRemoteServerStartArgs RPC.
+	FederationUpdateRemoteServerStartArgsProcedure = "/xylona.Federation/UpdateRemoteServerStartArgs"
 	// FederationRemoveRemoteServerProcedure is the fully-qualified name of the Federation's
 	// RemoveRemoteServer RPC.
 	FederationRemoveRemoteServerProcedure = "/xylona.Federation/RemoveRemoteServer"
@@ -169,6 +172,8 @@ type FederationClient interface {
 	CheckRemoteServerForUpdate(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error)
 	// EditRemoteServer edits a game server's configuration on this node.
 	EditRemoteServer(context.Context, *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error)
+	// UpdateRemoteServerStartArgs updates structured start-arg patches for a game server on this node.
+	UpdateRemoteServerStartArgs(context.Context, *connect.Request[xylona.FederationUpdateServerStartArgsRequest]) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error)
 	// RemoveRemoteServer removes a game server on this node.
 	RemoveRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error)
 	// StreamConsoleOutput streams real-time console output for a game server on this node.
@@ -282,6 +287,12 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			httpClient,
 			baseURL+FederationEditRemoteServerProcedure,
 			connect.WithSchema(federationMethods.ByName("EditRemoteServer")),
+			connect.WithClientOptions(opts...),
+		),
+		updateRemoteServerStartArgs: connect.NewClient[xylona.FederationUpdateServerStartArgsRequest, xylona.FederationUpdateServerStartArgsResponse](
+			httpClient,
+			baseURL+FederationUpdateRemoteServerStartArgsProcedure,
+			connect.WithSchema(federationMethods.ByName("UpdateRemoteServerStartArgs")),
 			connect.WithClientOptions(opts...),
 		),
 		removeRemoteServer: connect.NewClient[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse](
@@ -456,6 +467,7 @@ type federationClient struct {
 	getRemoteVersionInfo                  *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationVersionInfoResponse]
 	checkRemoteServerForUpdate            *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationVersionInfoResponse]
 	editRemoteServer                      *connect.Client[xylona.FederationEditServerRequest, xylona.FederationEditServerResponse]
+	updateRemoteServerStartArgs           *connect.Client[xylona.FederationUpdateServerStartArgsRequest, xylona.FederationUpdateServerStartArgsResponse]
 	removeRemoteServer                    *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
 	streamConsoleOutput                   *connect.Client[xylona.FederationStreamConsoleRequest, xylona.FederationConsoleOutputChunk]
 	sendConsoleInput                      *connect.Client[xylona.FederationSendConsoleInputRequest, xylona.FederationSendConsoleInputResponse]
@@ -537,6 +549,11 @@ func (c *federationClient) CheckRemoteServerForUpdate(ctx context.Context, req *
 // EditRemoteServer calls xylona.Federation.EditRemoteServer.
 func (c *federationClient) EditRemoteServer(ctx context.Context, req *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error) {
 	return c.editRemoteServer.CallUnary(ctx, req)
+}
+
+// UpdateRemoteServerStartArgs calls xylona.Federation.UpdateRemoteServerStartArgs.
+func (c *federationClient) UpdateRemoteServerStartArgs(ctx context.Context, req *connect.Request[xylona.FederationUpdateServerStartArgsRequest]) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error) {
+	return c.updateRemoteServerStartArgs.CallUnary(ctx, req)
 }
 
 // RemoveRemoteServer calls xylona.Federation.RemoveRemoteServer.
@@ -694,6 +711,8 @@ type FederationHandler interface {
 	CheckRemoteServerForUpdate(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error)
 	// EditRemoteServer edits a game server's configuration on this node.
 	EditRemoteServer(context.Context, *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error)
+	// UpdateRemoteServerStartArgs updates structured start-arg patches for a game server on this node.
+	UpdateRemoteServerStartArgs(context.Context, *connect.Request[xylona.FederationUpdateServerStartArgsRequest]) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error)
 	// RemoveRemoteServer removes a game server on this node.
 	RemoveRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error)
 	// StreamConsoleOutput streams real-time console output for a game server on this node.
@@ -803,6 +822,12 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 		FederationEditRemoteServerProcedure,
 		svc.EditRemoteServer,
 		connect.WithSchema(federationMethods.ByName("EditRemoteServer")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationUpdateRemoteServerStartArgsHandler := connect.NewUnaryHandler(
+		FederationUpdateRemoteServerStartArgsProcedure,
+		svc.UpdateRemoteServerStartArgs,
+		connect.WithSchema(federationMethods.ByName("UpdateRemoteServerStartArgs")),
 		connect.WithHandlerOptions(opts...),
 	)
 	federationRemoveRemoteServerHandler := connect.NewUnaryHandler(
@@ -985,6 +1010,8 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 			federationCheckRemoteServerForUpdateHandler.ServeHTTP(w, r)
 		case FederationEditRemoteServerProcedure:
 			federationEditRemoteServerHandler.ServeHTTP(w, r)
+		case FederationUpdateRemoteServerStartArgsProcedure:
+			federationUpdateRemoteServerStartArgsHandler.ServeHTTP(w, r)
 		case FederationRemoveRemoteServerProcedure:
 			federationRemoveRemoteServerHandler.ServeHTTP(w, r)
 		case FederationStreamConsoleOutputProcedure:
@@ -1088,6 +1115,10 @@ func (UnimplementedFederationHandler) CheckRemoteServerForUpdate(context.Context
 
 func (UnimplementedFederationHandler) EditRemoteServer(context.Context, *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.EditRemoteServer is not implemented"))
+}
+
+func (UnimplementedFederationHandler) UpdateRemoteServerStartArgs(context.Context, *connect.Request[xylona.FederationUpdateServerStartArgsRequest]) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.UpdateRemoteServerStartArgs is not implemented"))
 }
 
 func (UnimplementedFederationHandler) RemoveRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {

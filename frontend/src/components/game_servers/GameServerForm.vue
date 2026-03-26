@@ -165,7 +165,7 @@
 
         <section
           class="form-section form-section--animated"
-          :class="{ 'form-section--last': !isEditing }"
+          :class="{ 'form-section--last': isEditing }"
           style="--section-index: 3">
           <div class="section-header">
             <span class="section-icon section-icon--warning" data-testid="section-icon-capacity">
@@ -208,28 +208,6 @@
               reactive-rules
               lazy-rules
               hint="Set the RAM limit for this server." />
-          </div>
-        </section>
-
-        <section
-          v-if="isEditing"
-          class="form-section form-section--last form-section--animated"
-          style="--section-index: 4">
-          <div class="section-header">
-            <span class="section-icon section-icon--accent">
-              <q-icon name="terminal" size="14px" />
-            </span>
-            <span class="section-title font-display">Runtime</span>
-            <span class="section-line"></span>
-          </div>
-          <div class="row q-col-gutter-md q-gutter-y-md full-width">
-            <q-input
-              v-model="gameServer.startCommand"
-              class="col-12"
-              outlined
-              type="text"
-              label="Start Command"
-              hint="Only override this if the default launch command is wrong." />
           </div>
         </section>
 

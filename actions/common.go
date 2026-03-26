@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -60,12 +61,20 @@ func DefaultInstallPath() string {
 	return fmt.Sprintf("%s/Xylona", os.Getenv("USERPROFILE"))
 }
 
-func gameStartCommand(game *models.Game) string {
-	startCommand := game.LinuxStartCommand
+func gameBaseCommand(game *models.Game) string {
+	startCommand := game.LinuxBaseCommand
 	if OperatingSystem == Windows {
-		startCommand = game.WindowsStartCommand
+		startCommand = game.WindowsBaseCommand
 	}
 	return startCommand
+}
+
+func gameStartArgsTemplate(game *models.Game) string {
+	startTemplate := game.LinuxStartArgsTemplate.GetOr("")
+	if OperatingSystem == Windows {
+		startTemplate = game.WindowsStartArgsTemplate.GetOr("")
+	}
+	return startTemplate
 }
 
 func gameStopCommand(game *models.Game) string {
@@ -106,4 +115,29 @@ func gameUpdateCommandType(game *models.Game) string {
 		updateType = game.WindowsUpdateCommandType
 	}
 	return updateType
+}
+
+// splitCommandString preserves the legacy double-quote-only tokenization used for
+// install and update command strings. It does not support single quotes,
+// backslash escaping, or escaped double quotes inside arguments.
+//
+// TODO(GE-06 follow-up): remove this compatibility parser once install/update
+// command-string paths are replaced with structured argv or a proper tokenizer.
+func splitCommandString(command string) (string, []string) {
+	foundQuote := false
+	commandSplit := strings.FieldsFunc(command, func(r rune) bool {
+		if r == '"' {
+			foundQuote = !foundQuote
+		}
+		return r == ' ' && !foundQuote
+	})
+	for i, arg := range commandSplit {
+		if strings.HasPrefix(arg, `"`) && strings.HasSuffix(arg, `"`) {
+			commandSplit[i] = strings.Trim(arg, `"`)
+		}
+	}
+	if len(commandSplit) == 0 {
+		return "", nil
+	}
+	return commandSplit[0], commandSplit[1:]
 }

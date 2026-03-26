@@ -91,10 +91,10 @@ func (c *Connection) UpdateNodeSyncStatus(id string, syncStatus string, lastSync
 	return err
 }
 
-func (c *Connection) UpdateNodeIdentity(id string, version string, protocolVersion int32, capabilities string) error {
+func (c *Connection) UpdateNodeIdentity(id string, version string, protocolVersion int32, capabilities string, os string) error {
 	_, err := sqlite.RawQuery(
-		`UPDATE node SET version = ?, protocol_version = ?, capabilities = ?, updated_at = ? WHERE id = ?`,
-		version, protocolVersion, capabilities, time.Now(), id,
+		`UPDATE node SET version = ?, protocol_version = ?, capabilities = ?, os = ?, updated_at = ? WHERE id = ?`,
+		version, protocolVersion, capabilities, os, time.Now(), id,
 	).Exec(c.ctx, c.DB)
 	return err
 }

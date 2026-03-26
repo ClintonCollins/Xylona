@@ -39,6 +39,7 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/startargs"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
@@ -334,9 +335,9 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 }
 
 func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path, fileName string, fileSource io.Reader) error {
-	if path != "" && !filepath.IsLocal(path) {
-		log.Error().Err(errors.New("invalid path")).Msg("Path is not local")
-		return ErrInvalidPath
+	validatedPath, errPath := validateLocalServerPath(gameServer, path)
+	if errPath != nil {
+		return errPath
 	}
 
 	// Sanitize uploaded filename to prevent path traversal (e.g., "../../etc/passwd").
@@ -346,14 +347,20 @@ func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path
 		return ErrInvalidPath
 	}
 
-	gameServerDirPlusPath := filepath.Join(gameServer.Directory, path)
+	protectedRelativePath := filepath.Join(validatedPath, sanitizedFileName)
+	_, errProtected := validateWritableServerPath(gameServer, protectedRelativePath)
+	if errProtected != nil {
+		return errProtected
+	}
+
+	gameServerDirPlusPath := filepath.Join(gameServer.Directory, validatedPath)
 	errMkdirAll := os.MkdirAll(gameServerDirPlusPath, os.ModePerm)
 	if errMkdirAll != nil {
 		log.Error().Err(errMkdirAll).Msg("Failed to create directory")
 		return errMkdirAll
 	}
 
-	fullPath := filepath.Join(gameServer.Directory, path, sanitizedFileName)
+	fullPath := filepath.Join(gameServer.Directory, validatedPath, sanitizedFileName)
 	file, errCreateFile := os.Create(fullPath)
 	if errCreateFile != nil {
 		log.Error().Err(errCreateFile).Msg("Failed to create file")
@@ -473,7 +480,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		UserID:                    omit.From(owner.ID),
 		Name:                      omit.From(gameServer.Name),
 		GameID:                    omit.From(game.ID),
-		StartCommand:              omit.From(gameStartCommand(game)),
+		StartArgsPatches:          omit.From("[]"),
 		Status:                    omit.From(""),
 		SetPlayers:                omit.From(gameServer.SetPlayers),
 		MaxPlayers:                omit.From(gameServer.MaxPlayers),
@@ -496,14 +503,17 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	}
 
 	installVars := placeholder.BuildVarsFromGameServer(newGameServer)
+	installCommand := placeholder.Resolve(gameInstallCommand(game), installVars)
+	baseCommand, args := splitCommandString(installCommand)
 	preparedCommand := supervisor.PreparedCommand{
-		ID:                 newGameServer.ID,
-		FullCommandAndArgs: placeholder.Resolve(gameInstallCommand(game), installVars),
-		WorkingDirectory:   gameServer.Directory,
-		User:               gameServer.UserID,
-		GameServerID:       &gameServer.ID,
-		Status:             xylona.Status_INSTALLING,
-		ServiceID:          gameServer.GameID,
+		ID:               newGameServer.ID,
+		BaseCommand:      baseCommand,
+		Args:             args,
+		WorkingDirectory: gameServer.Directory,
+		User:             gameServer.UserID,
+		GameServerID:     &gameServer.ID,
+		Status:           xylona.Status_INSTALLING,
+		ServiceID:        gameServer.GameID,
 		CallbackFunction: func(cmd *supervisor.Command) {
 			errPostInstall := postInstallStep(newGameServer)
 			if errPostInstall != nil {
@@ -538,6 +548,62 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	return newGameServer, nil
 }
 
+func (inst *Instance) reportStartFailure(gameServer *models.GameServer, message string) {
+	log.Error().Str("game_server_id", gameServer.ID).Msg(message)
+
+	cmd := inst.supervisorInstance.GetCommandByIDOrCreateShell(gameServer.ID)
+	cmd.SendOutput(message)
+}
+
+func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServer) (string, []string, error) {
+	if gameServer.R.Game == nil {
+		return "", nil, fmt.Errorf("game relation not loaded")
+	}
+
+	templateJSON := strings.TrimSpace(gameStartArgsTemplate(gameServer.R.Game))
+	if templateJSON == "" {
+		return "", nil, fmt.Errorf("no start command template configured for this game. a superuser must set up the start command template before servers can be started")
+	}
+
+	template, errTemplate := startargs.ParseTemplate(templateJSON)
+	if errTemplate != nil {
+		return "", nil, fmt.Errorf("parse start args template: %w", errTemplate)
+	}
+
+	patches, errPatches := startargs.ParsePatches(gameServer.StartArgsPatches)
+	if errPatches != nil {
+		return "", nil, fmt.Errorf("parse start arg patches: %w", errPatches)
+	}
+
+	startVars := placeholder.BuildVarsFromGameServer(gameServer)
+	baseCommand := placeholder.ResolveToken(gameBaseCommand(gameServer.R.Game), startVars)
+	if strings.TrimSpace(baseCommand) == "" {
+		return "", nil, fmt.Errorf("no base command configured for this game")
+	}
+
+	args, _, errResolve := startargs.ResolveArgs(template, patches, startVars)
+	if errResolve != nil {
+		return "", nil, fmt.Errorf("resolve start args: %w", errResolve)
+	}
+
+	blocklistEntries, errBlocklist := startargs.ParseBlocklist(gameServer.R.Game.StartArgBlocklist)
+	if errBlocklist != nil {
+		return "", nil, fmt.Errorf("parse start arg blocklist: %w", errBlocklist)
+	}
+
+	compiledBlocklist, errCompile := startargs.CompileBlocklist(blocklistEntries)
+	if errCompile != nil {
+		return "", nil, fmt.Errorf("compile start arg blocklist: %w", errCompile)
+	}
+
+	violation := compiledBlocklist.Validate(args)
+	if violation != nil {
+		return "", nil, fmt.Errorf("blocked start argument %q: %s", violation.Token, violation.Reason)
+	}
+
+	return baseCommand, args, nil
+}
+
 func postInstallStep(gameServer *models.GameServer) error {
 	switch gameServer.GameID {
 	case "minecraft":
@@ -556,16 +622,21 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 	// Run mod auto-updates before launching the process.
 	inst.runModAutoUpdates(gameServer)
 
-	startVars := placeholder.BuildVarsFromGameServer(gameServer)
-	startCmd := placeholder.Resolve(gameServer.StartCommand, startVars)
+	baseCommand, args, errResolve := inst.resolveStructuredStartCommand(gameServer)
+	if errResolve != nil {
+		inst.reportStartFailure(gameServer, errResolve.Error())
+		return
+	}
+
 	preparedCommand := supervisor.PreparedCommand{
-		ID:                 gameServer.ID,
-		FullCommandAndArgs: startCmd,
-		WorkingDirectory:   gameServer.Directory,
-		User:               gameServer.UserID,
-		GameServerID:       &gameServer.ID,
-		Status:             xylona.Status_ONLINE,
-		ServiceID:          gameServer.GameID,
+		ID:               gameServer.ID,
+		BaseCommand:      baseCommand,
+		Args:             args,
+		WorkingDirectory: gameServer.Directory,
+		User:             gameServer.UserID,
+		GameServerID:     &gameServer.ID,
+		Status:           xylona.Status_ONLINE,
+		ServiceID:        gameServer.GameID,
 		CallbackFunction: func(cmd *supervisor.Command) {
 			// log.Info().Msg("Game server stopped")
 		},
@@ -686,11 +757,7 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 	}
 
 	preparedCommand := supervisor.PreparedCommand{
-		ID: gameServer.ID,
-		FullCommandAndArgs: appendSteamBranchToUpdateCommand(
-			placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
-			gameServer.Branch,
-		),
+		ID:               gameServer.ID,
 		WorkingDirectory: gameServer.Directory,
 		User:             gameServer.UserID,
 		GameServerID:     &gameServer.ID,
@@ -699,6 +766,13 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 		CallbackFunction: func(cmd *supervisor.Command) {
 			log.Info().Str("Game Server ID", gameServer.ID).Msg("Game server update completed")
 		},
+	}
+	if !internalUpdate {
+		updateCommand := appendSteamBranchToUpdateCommand(
+			placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
+			gameServer.Branch,
+		)
+		preparedCommand.BaseCommand, preparedCommand.Args = splitCommandString(updateCommand)
 	}
 
 	if internalUpdate {

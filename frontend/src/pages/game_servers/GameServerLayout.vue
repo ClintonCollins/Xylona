@@ -45,6 +45,8 @@ const windowWidth = WindowWidth()
 let currentPermissions: string[] = []
 let currentIsOwnerOrSuper = false
 let currentHasModSupport = false
+let currentAllowStartArgEditing = true
+let currentIsSuperUser = false
 
 onMounted(async () => {
   await configureTabs()
@@ -91,6 +93,8 @@ async function configureTabs() {
   let permissions: string[] = []
   let isOwnerOrSuper = false
   let hasModSupport = false
+  let allowStartArgEditing = true
+  let isSuperUser = false
 
   if (currentUser) {
     try {
@@ -112,8 +116,10 @@ async function configureTabs() {
         }
       }
       const isOwner = gameServerResp.gameServer?.userId === currentUser.id
+      isSuperUser = currentUser.superUser
       isOwnerOrSuper = currentUser.superUser || isOwner
       hasModSupport = Boolean(gameServerResp.gameServer?.resolvedHasModSupport)
+      allowStartArgEditing = gameServerResp.gameServer?.game?.allowStartArgEditing ?? true
     } catch (unknownError: unknown) {
       const err = ConnectError.from(unknownError)
       console.error(err)
@@ -123,9 +129,18 @@ async function configureTabs() {
   currentPermissions = permissions
   currentIsOwnerOrSuper = isOwnerOrSuper
   currentHasModSupport = hasModSupport
+  currentAllowStartArgEditing = allowStartArgEditing
+  currentIsSuperUser = isSuperUser
 
   navQTabsStore.changeTabs(
-    buildGameServerTabs(serverID, permissions, isOwnerOrSuper, hasModSupport),
+    buildGameServerTabs(
+      serverID,
+      permissions,
+      isOwnerOrSuper,
+      hasModSupport,
+      allowStartArgEditing,
+      isSuperUser,
+    ),
   )
 }
 
@@ -141,6 +156,8 @@ async function enforceRouteAccess() {
     currentPermissions,
     currentIsOwnerOrSuper,
     currentHasModSupport,
+    currentAllowStartArgEditing,
+    currentIsSuperUser,
   )
   if (redirectPath !== null && route.path !== redirectPath) {
     await router.replace(redirectPath)

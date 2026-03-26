@@ -36,7 +36,26 @@ describe('buildGameServerTabs', () => {
       'game_server.delete',
     ]
     const tabs = buildGameServerTabs(serverID, perms, false)
-    expect(tabs.map((t) => t.name)).toEqual(['Console', 'Files', 'Metrics', 'Settings'])
+    expect(tabs.map((t) => t.name)).toEqual([
+      'Console',
+      'Files',
+      'Metrics',
+      'Start Command',
+      'Settings',
+    ])
+  })
+
+  it('hides Start Command tab when editing is disabled for non-superusers', () => {
+    const tabs = buildGameServerTabs(
+      serverID,
+      ['game_server.view', 'game_server.settings'],
+      false,
+      false,
+      false,
+      false,
+    )
+
+    expect(tabs.map((t) => t.name)).not.toContain('Start Command')
   })
 
   it('shows Access tab only for owner/super', () => {
@@ -144,6 +163,19 @@ describe('getUnauthorizedRedirect', () => {
   it('returns null for console path regardless of permissions', () => {
     const result = getUnauthorizedRedirect(consolePath, serverID, [], false)
     expect(result).toBeNull()
+  })
+
+  it('redirects /start-command when editing is disabled for non-superusers', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/start-command`,
+      serverID,
+      ['game_server.settings'],
+      false,
+      false,
+      false,
+      false,
+    )
+    expect(result).toBe(consolePath)
   })
 
   it('redirects /mods when missing mods permission', () => {

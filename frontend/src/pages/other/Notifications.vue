@@ -391,7 +391,6 @@
                 class="q-mb-md" />
             </template>
           </template>
-
         </q-card-section>
 
         <q-card-actions align="right">

@@ -11,6 +11,8 @@ export function buildGameServerTabs(
   permissions: string[],
   isOwnerOrSuper: boolean,
   hasModSupport = false,
+  allowStartArgEditing = true,
+  isSuperUser = false,
 ): GameServerLayoutTab[] {
   const basePath = `/game-servers/${serverID}`
   const has = (perm: string) => permissions.includes(perm)
@@ -47,6 +49,15 @@ export function buildGameServerTabs(
     })
   }
   if (has('game_server.settings')) {
+    if (allowStartArgEditing || isSuperUser) {
+      tabs.push({
+        name: 'Start Command',
+        to: `${basePath}/start-command`,
+        icon: 'terminal',
+        exact: true,
+        requiredPermission: 'game_server.settings',
+      })
+    }
     tabs.push({
       name: 'Settings',
       to: `${basePath}/settings`,
@@ -90,6 +101,8 @@ export function getUnauthorizedRedirect(
   permissions: string[],
   isOwnerOrSuper: boolean,
   hasModSupport = false,
+  allowStartArgEditing = true,
+  isSuperUser = false,
 ): string | null {
   const basePath = `/game-servers/${serverID}`
   const consolePath = `${basePath}/console`
@@ -105,6 +118,12 @@ export function getUnauthorizedRedirect(
     return consolePath
   }
   if (currentPath === `${basePath}/settings` && !has('game_server.settings')) {
+    return consolePath
+  }
+  if (
+    currentPath === `${basePath}/start-command` &&
+    (!has('game_server.settings') || (!allowStartArgEditing && !isSuperUser))
+  ) {
     return consolePath
   }
   if (currentPath === `${basePath}/mods` && (!has('game_server.mods') || !hasModSupport)) {

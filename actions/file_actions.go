@@ -84,13 +84,11 @@ type fileExtractor struct {
 }
 
 func (inst *Instance) CreateFileOrDirectory(gameServer *models.GameServer, path string, content string, isDirectory bool) error {
-	path = strings.TrimPrefix(path, "/")
-	pathIsLocal := filepath.IsLocal(path)
-	if !pathIsLocal {
-		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-		return ErrInvalidPath
+	validatedPath, errPath := validateWritableServerPath(gameServer, path)
+	if errPath != nil {
+		return errPath
 	}
-	fullPath := filepath.Join(gameServer.Directory, path)
+	fullPath := filepath.Join(gameServer.Directory, validatedPath)
 	if isDirectory {
 		errMkdir := os.MkdirAll(fullPath, os.ModePerm)
 		if errMkdir != nil {
@@ -132,52 +130,52 @@ func (inst *Instance) DeleteFiles(ctx context.Context, gameServer *models.GameSe
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			file = strings.TrimPrefix(file, "/")
-			fileIsLocal := filepath.IsLocal(file)
-			if !fileIsLocal {
-				log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-				return nil, ErrInvalidPath
+			validatedPath, errPath := validateWritableServerPath(gameServer, file)
+			if errPath != nil {
+				return nil, errPath
 			}
-			fullPath := filepath.Join(gameServer.Directory, file)
+			fullPath := filepath.Join(gameServer.Directory, validatedPath)
 			errRemove := os.RemoveAll(fullPath)
 			if errRemove != nil {
 				log.Error().Err(errRemove).Msg("Failed to remove file")
 				continue
 			}
-			successfullyDeleted = append(successfullyDeleted, file)
+			successfullyDeleted = append(successfullyDeleted, validatedPath)
 		}
 	}
 	return successfullyDeleted, nil
 }
 
 func (inst *Instance) RenameFile(gameServer *models.GameServer, oldFilePath, newFilePath string) (string, error) {
-	oldFilePath = strings.TrimPrefix(oldFilePath, "/")
-	newFilePath = strings.TrimPrefix(newFilePath, "/")
-	oldFilePathIsLocal := filepath.IsLocal(oldFilePath)
-	newFilePathIsLocal := filepath.IsLocal(newFilePath)
-	if !oldFilePathIsLocal || !newFilePathIsLocal {
-		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-		return "", ErrInvalidPath
+	validatedOldPath, errOldPath := validateWritableServerPath(gameServer, oldFilePath)
+	if errOldPath != nil {
+		return "", errOldPath
 	}
-	oldFullPath := filepath.Join(gameServer.Directory, oldFilePath)
-	newFullPath := filepath.Join(gameServer.Directory, newFilePath)
+	validatedNewPath, errNewPath := validateWritableServerPath(gameServer, newFilePath)
+	if errNewPath != nil {
+		return "", errNewPath
+	}
+	oldFullPath := filepath.Join(gameServer.Directory, validatedOldPath)
+	newFullPath := filepath.Join(gameServer.Directory, validatedNewPath)
 	errRename := os.Rename(oldFullPath, newFullPath)
 	if errRename != nil {
 		log.Error().Err(errRename).Msg("Failed to rename file")
 		return "", errRename
 	}
-	return newFilePath, nil
+	return validatedNewPath, nil
 }
 
 func (inst *Instance) MoveFiles(ctx context.Context, gameServer *models.GameServer, files []string, destination string) ([]string, error) {
 	successfullyMoved := make([]string, 0, len(files))
-	destination = strings.TrimPrefix(destination, "/")
-	destinationIsLocal := filepath.IsLocal(destination)
-	if (!destinationIsLocal && destination != "") || destination == ".." {
+	validatedDestination, errDestination := validateLocalServerPath(gameServer, destination)
+	if errDestination != nil {
+		return nil, errDestination
+	}
+	if validatedDestination == ".." {
 		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
 		return nil, ErrInvalidPath
 	}
-	destinationFullPath := filepath.Join(gameServer.Directory, destination)
+	destinationFullPath := filepath.Join(gameServer.Directory, validatedDestination)
 	errMkdir := os.MkdirAll(destinationFullPath, os.ModePerm)
 	if errMkdir != nil {
 		log.Error().Err(errMkdir).Msg("Failed to create destination directory")
@@ -188,33 +186,34 @@ func (inst *Instance) MoveFiles(ctx context.Context, gameServer *models.GameServ
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			file = strings.TrimPrefix(file, "/")
-			fileIsLocal := filepath.IsLocal(file)
-			if !fileIsLocal {
-				log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-				return nil, ErrInvalidPath
+			validatedFilePath, errFilePath := validateWritableServerPath(gameServer, file)
+			if errFilePath != nil {
+				return nil, errFilePath
 			}
-			fullPath := filepath.Join(gameServer.Directory, file)
+			destinationFilePath := filepath.Join(validatedDestination, filepath.Base(validatedFilePath))
+			_, errProtected := validateWritableServerPath(gameServer, destinationFilePath)
+			if errProtected != nil {
+				return nil, errProtected
+			}
+			fullPath := filepath.Join(gameServer.Directory, validatedFilePath)
 			fileDestinationPath := filepath.Join(destinationFullPath, filepath.Base(file))
 			errRename := os.Rename(fullPath, fileDestinationPath)
 			if errRename != nil {
 				log.Error().Err(errRename).Msg("Failed to move file")
 				continue
 			}
-			successfullyMoved = append(successfullyMoved, file)
+			successfullyMoved = append(successfullyMoved, validatedFilePath)
 		}
 	}
 	return successfullyMoved, nil
 }
 
 func (inst *Instance) EditFile(gameServer *models.GameServer, filePath string, content string) error {
-	filePath = strings.TrimPrefix(filePath, "/")
-	filePathIsLocal := filepath.IsLocal(filePath)
-	if !filePathIsLocal {
-		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-		return ErrInvalidPath
+	validatedPath, errPath := validateWritableServerPath(gameServer, filePath)
+	if errPath != nil {
+		return errPath
 	}
-	fullPath := filepath.Join(gameServer.Directory, filePath)
+	fullPath := filepath.Join(gameServer.Directory, validatedPath)
 	file, errOpen := os.Create(fullPath)
 	if errOpen != nil {
 		log.Error().Err(errOpen).Msg("Failed to open file")
@@ -234,11 +233,9 @@ func (inst *Instance) EditFile(gameServer *models.GameServer, filePath string, c
 }
 
 func (inst *Instance) DownloadFileFromURL(ctx context.Context, gameServer *models.GameServer, rawURL, destinationDirectoryPath string) (string, error) {
-	destinationDirectoryPath = strings.TrimPrefix(destinationDirectoryPath, "/")
-	destinationDirectoryPathIsLocal := filepath.IsLocal(destinationDirectoryPath)
-	if !destinationDirectoryPathIsLocal {
-		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-		return "", ErrInvalidPath
+	validatedDestinationDirectory, errPath := validateLocalServerPath(gameServer, destinationDirectoryPath)
+	if errPath != nil {
+		return "", errPath
 	}
 
 	// Validate URL scheme to prevent SSRF via file://, gopher://, etc.
@@ -276,7 +273,13 @@ func (inst *Instance) DownloadFileFromURL(ctx context.Context, gameServer *model
 		_ = resp.Body.Close()
 	}()
 
-	destinationFullPath := filepath.Join(gameServer.Directory, destinationDirectoryPath, fileName)
+	protectedRelativePath := filepath.Join(validatedDestinationDirectory, fileName)
+	_, errProtected := validateWritableServerPath(gameServer, protectedRelativePath)
+	if errProtected != nil {
+		return "", errProtected
+	}
+
+	destinationFullPath := filepath.Join(gameServer.Directory, validatedDestinationDirectory, fileName)
 	file, errCreate := os.Create(destinationFullPath)
 	if errCreate != nil {
 		log.Error().Err(errCreate).Msg("Failed to create file")
@@ -298,8 +301,12 @@ func (inst *Instance) ArchiveFiles(ctx context.Context, gameServer *models.GameS
 	compression xylona.GameServerFilesCompressionType,
 	xylonaFileArchiveProgressChan chan *xylona.GameServerFilesArchiveProgress,
 ) (*xylona.GameServerFilesArchiveProgress, error) {
+	validatedArchivePath, errArchivePath := validateWritableServerPath(gameServer, fullArchivePath)
+	if errArchivePath != nil {
+		return nil, errArchivePath
+	}
 
-	archiveFullPath := filepath.Join(gameServer.Directory, fullArchivePath)
+	archiveFullPath := filepath.Join(gameServer.Directory, validatedArchivePath)
 
 	pathFilesMap := make(map[string]string)
 	for _, f := range fullFilePaths {
@@ -518,7 +525,11 @@ func attachReaderToArchiveFile(f archives.FileInfo, originalOpen func() (fs.File
 }
 
 func (inst *Instance) ArchiveAndCompressFiles(ctx context.Context, gameServer *models.GameServer, destinationArchivePath string, fullFilePaths []string, compression xylona.GameServerFilesCompressionType) (string, error) {
-	archivePath := filepath.Join(gameServer.Directory, destinationArchivePath)
+	validatedArchivePath, errArchivePath := validateWritableServerPath(gameServer, destinationArchivePath)
+	if errArchivePath != nil {
+		return "", errArchivePath
+	}
+	archivePath := filepath.Join(gameServer.Directory, validatedArchivePath)
 
 	pathFilesMap := make(map[string]string)
 	for _, f := range fullFilePaths {
@@ -595,7 +606,11 @@ func (inst *Instance) ExtractFiles(ctx context.Context, gameServer *models.GameS
 	xylonaFileExtractProgressChan chan *xylona.GameServerFilesExtractProgress,
 ) (*xylona.GameServerFilesExtractProgress, error) {
 	archiveFullPath := filepath.Join(gameServer.Directory, fullArchivePath)
-	fullDestinationPath := filepath.Join(gameServer.Directory, destinationPath)
+	validatedDestinationPath, errDestinationPath := validateLocalServerPath(gameServer, destinationPath)
+	if errDestinationPath != nil {
+		return nil, errDestinationPath
+	}
+	fullDestinationPath := filepath.Join(gameServer.Directory, validatedDestinationPath)
 
 	archiveFS, errFS := archives.FileSystem(ctx, archiveFullPath, nil)
 	if errFS != nil {
@@ -821,17 +836,17 @@ func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Reques
 }
 
 func (inst *Instance) ExtractArchive(ctx context.Context, gameServer *models.GameServer, archivePath string, destinationDirectoryPath string) ([]string, error) {
-	archivePath = strings.TrimPrefix(archivePath, "/")
-	destinationDirectoryPath = strings.TrimPrefix(destinationDirectoryPath, "/")
-	archivePathIsLocal := filepath.IsLocal(archivePath)
-	destinationDirectoryPathIsLocal := filepath.IsLocal(destinationDirectoryPath)
-	if !archivePathIsLocal || (!destinationDirectoryPathIsLocal && destinationDirectoryPath != "") {
-		log.Error().Str("archivePath", archivePath).Str("destinationPath", destinationDirectoryPath).Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-		return nil, ErrInvalidPath
+	validatedArchivePath, errArchivePath := validateLocalServerPath(gameServer, archivePath)
+	if errArchivePath != nil {
+		return nil, errArchivePath
+	}
+	validatedDestinationPath, errDestinationPath := validateLocalServerPath(gameServer, destinationDirectoryPath)
+	if errDestinationPath != nil {
+		return nil, errDestinationPath
 	}
 
-	archiveFullPath := filepath.Join(gameServer.Directory, archivePath)
-	destinationFullPath := filepath.Join(gameServer.Directory, destinationDirectoryPath)
+	archiveFullPath := filepath.Join(gameServer.Directory, validatedArchivePath)
+	destinationFullPath := filepath.Join(gameServer.Directory, validatedDestinationPath)
 	archiveName := filepath.Base(archiveFullPath)
 
 	archiveFile, errOpen := os.Open(archiveFullPath)
@@ -907,6 +922,15 @@ func (fx *fileExtractor) extractFileHandler(ctx context.Context, f archives.File
 		defer func() { _ = archivedFile.Close() }()
 
 		filePath := filepath.Join(fx.destinationPath, f.NameInArchive)
+		relativeOutputPath, errRelative := filepath.Rel(fx.gameServer.Directory, filePath)
+		if errRelative != nil {
+			log.Error().Str("Game Server ID", fx.gameServer.ID).Err(errRelative).Msg("Failed to resolve extracted file path")
+			return errRelative
+		}
+		_, errProtected := validateWritableServerPath(fx.gameServer, relativeOutputPath)
+		if errProtected != nil {
+			return errProtected
+		}
 		// If the file is a directory, we just need to create it. If it's a file, we need to create it and copy the contents.
 		if f.IsDir() {
 			// Create the directory.

@@ -16,6 +16,8 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+const federationDummyStartTemplateJSON = `[{"id":"heartbeat","order":0,"ownership":"system","tokens":["-heartbeat","5s"],"label":"Heartbeat"}]`
+
 func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPort, nodeBPort, nodeAFedPort, nodeBFedPort int) error {
 	log.Info().Msg("[Federation Setup] Starting federation E2E setup...")
 
@@ -213,12 +215,14 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 			Game: &xylona.Game{
 				Name:                           "E2E Federation Test Game",
 				LinuxSupport:                   true,
-				LinuxStartCommand:              dummyExePath,
+				LinuxStartArgsTemplate:         federationDummyStartTemplateJSON,
+				LinuxBaseCommand:               dummyExePath,
 				LinuxStopCommand:               "stop",
 				LinuxInstallCommand:            "echo installed",
 				LinuxInstallCommandProcessor:   xylona.CommandProcessor_BASH,
 				WindowsSupport:                 true,
-				WindowsStartCommand:            dummyExePath,
+				WindowsStartArgsTemplate:       federationDummyStartTemplateJSON,
+				WindowsBaseCommand:             dummyExePath,
 				WindowsStopCommand:             "stop",
 				WindowsInstallCommand:          `cmd /c "echo installed"`,
 				WindowsInstallCommandProcessor: xylona.CommandProcessor_CMD,
@@ -250,7 +254,6 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 				Name:          "E2E Federation Server",
 				GameId:        gameID,
 				UserId:        clientB.userID,
-				StartCommand:  dummyExePath + " -heartbeat 5s",
 				Directory:     gsDirPath,
 				Ip:            &xylona.IP{Address: serverIP},
 				Port:          25597,

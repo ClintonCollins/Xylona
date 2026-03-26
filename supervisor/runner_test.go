@@ -11,22 +11,32 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+func echoCommandArgs(output string) (string, []string) {
+	if runtime.GOOS == "windows" {
+		return "cmd", []string{"/c", "echo", output}
+	}
+	return "echo", []string{output}
+}
+
+func shellCommandArgs(command string) (string, []string) {
+	if runtime.GOOS == "windows" {
+		return "cmd", []string{"/c", command}
+	}
+	return "sh", []string{"-c", command}
+}
+
 func TestStartCommand(t *testing.T) {
 	ctx := t.Context()
 
 	inst, _ := New(ctx)
 
-	var fullCmd string
-	if runtime.GOOS == "windows" {
-		fullCmd = "cmd /c echo hello xylona"
-	} else {
-		fullCmd = "echo hello xylona"
-	}
+	baseCommand, args := echoCommandArgs("hello xylona")
 
 	pc := PreparedCommand{
-		ID:                 "test-cmd",
-		FullCommandAndArgs: fullCmd,
-		Status:             xylona.Status_ONLINE,
+		ID:          "test-cmd",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
 	}
 
 	cmd, err := inst.StartCommand(pc)
@@ -62,17 +72,13 @@ func TestCommandOutputListener(t *testing.T) {
 
 	inst, _ := New(ctx)
 
-	var fullCmd string
-	if runtime.GOOS == "windows" {
-		fullCmd = "cmd /c echo test-output"
-	} else {
-		fullCmd = "echo test-output"
-	}
+	baseCommand, args := echoCommandArgs("test-output")
 
 	pc := PreparedCommand{
-		ID:                 "test-listener",
-		FullCommandAndArgs: fullCmd,
-		Status:             xylona.Status_ONLINE,
+		ID:          "test-listener",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
 	}
 
 	cmd, _ := inst.StartCommand(pc)
@@ -120,9 +126,10 @@ func TestInitNewCommandPreservesInjectedOutputOnFirstReuse(t *testing.T) {
 
 	reusedCommand := inst.initNewCommand(
 		PreparedCommand{
-			ID:                 "buffered-server",
-			FullCommandAndArgs: "echo restarted",
-			Status:             xylona.Status_UPDATING,
+			ID:          "buffered-server",
+			BaseCommand: "echo",
+			Args:        []string{"restarted"},
+			Status:      xylona.Status_UPDATING,
 		},
 		persistentCommand,
 	)
@@ -148,9 +155,10 @@ func TestInitNewCommandClearsBufferWhenReuseIsNotPreserved(t *testing.T) {
 
 	reusedCommand := inst.initNewCommand(
 		PreparedCommand{
-			ID:                 "normal-reuse",
-			FullCommandAndArgs: "echo restarted",
-			Status:             xylona.Status_ONLINE,
+			ID:          "normal-reuse",
+			BaseCommand: "echo",
+			Args:        []string{"restarted"},
+			Status:      xylona.Status_ONLINE,
 		},
 		persistentCommand,
 	)
@@ -173,12 +181,7 @@ func TestCrashEventPublished(t *testing.T) {
 	defer eb.Unsubscribe(eventbus.TopicGameServerCrashed, crashCh)
 
 	// Command that prints output then exits with non-zero exit code.
-	var fullCmd string
-	if runtime.GOOS == "windows" {
-		fullCmd = `cmd /c "echo crashing & exit 42"`
-	} else {
-		fullCmd = `sh -c "echo crashing; exit 42"`
-	}
+	baseCommand, args := shellCommandArgs("echo crashing && exit 42")
 
 	// Use a callback to know when the process finishes, and use
 	// prepareCommandProcess directly to avoid a pre-existing race
@@ -186,10 +189,11 @@ func TestCrashEventPublished(t *testing.T) {
 	// StartCommand can read currentCMD.
 	done := make(chan struct{})
 	pc := PreparedCommand{
-		ID:                 "crash-test-server",
-		NodeID:             "test-node-1",
-		FullCommandAndArgs: fullCmd,
-		Status:             xylona.Status_ONLINE,
+		ID:          "crash-test-server",
+		NodeID:      "test-node-1",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
 		CallbackFunction: func(_ *Command) {
 			close(done)
 		},
@@ -242,22 +246,18 @@ func TestNoCrashEventOnCleanExit(t *testing.T) {
 	defer eb.Unsubscribe(eventbus.TopicGameServerCrashed, crashCh)
 
 	// Command that prints output then exits cleanly with exit code 0.
-	var fullCmd string
-	if runtime.GOOS == "windows" {
-		fullCmd = `cmd /c "echo clean & exit 0"`
-	} else {
-		fullCmd = `sh -c "echo clean; exit 0"`
-	}
+	baseCommand, args := shellCommandArgs("echo clean && exit 0")
 
 	// Use prepareCommandProcess directly to avoid a pre-existing race
 	// in StartCommand when very-short-lived processes exit before
 	// StartCommand can read currentCMD.
 	done := make(chan struct{})
 	pc := PreparedCommand{
-		ID:                 "clean-exit-server",
-		NodeID:             "test-node-2",
-		FullCommandAndArgs: fullCmd,
-		Status:             xylona.Status_ONLINE,
+		ID:          "clean-exit-server",
+		NodeID:      "test-node-2",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
 		CallbackFunction: func(_ *Command) {
 			close(done)
 		},
@@ -305,21 +305,17 @@ func TestStatusChangeEventPublished(t *testing.T) {
 	defer eb.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusCh)
 
 	// Command that exits quickly — we should see status transitions.
-	var fullCmd string
-	if runtime.GOOS == "windows" {
-		fullCmd = "cmd /c echo status-test"
-	} else {
-		fullCmd = "echo status-test"
-	}
+	baseCommand, args := echoCommandArgs("status-test")
 
 	// Use prepareCommandProcess directly to avoid a pre-existing race
 	// in StartCommand when very-short-lived processes exit before
 	// StartCommand can read currentCMD.
 	pc := PreparedCommand{
-		ID:                 "status-test-server",
-		NodeID:             "test-node-3",
-		FullCommandAndArgs: fullCmd,
-		Status:             xylona.Status_ONLINE,
+		ID:          "status-test-server",
+		NodeID:      "test-node-3",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
 	}
 
 	_, errStart := inst.prepareCommandProcess(pc)
@@ -415,10 +411,11 @@ func TestNodeIDThreadedThroughInitNewCommand(t *testing.T) {
 
 	// Test new command creation.
 	newCmd := inst.initNewCommand(PreparedCommand{
-		ID:                 "node-id-test",
-		NodeID:             "my-node-id",
-		FullCommandAndArgs: "echo test",
-		Status:             xylona.Status_ONLINE,
+		ID:          "node-id-test",
+		NodeID:      "my-node-id",
+		BaseCommand: "echo",
+		Args:        []string{"test"},
+		Status:      xylona.Status_ONLINE,
 	}, nil)
 
 	if newCmd.nodeID != "my-node-id" {
@@ -427,10 +424,11 @@ func TestNodeIDThreadedThroughInitNewCommand(t *testing.T) {
 
 	// Test reused persistent command gets nodeID updated.
 	reusedCmd := inst.initNewCommand(PreparedCommand{
-		ID:                 "node-id-test",
-		NodeID:             "updated-node-id",
-		FullCommandAndArgs: "echo test2",
-		Status:             xylona.Status_ONLINE,
+		ID:          "node-id-test",
+		NodeID:      "updated-node-id",
+		BaseCommand: "echo",
+		Args:        []string{"test2"},
+		Status:      xylona.Status_ONLINE,
 	}, newCmd)
 
 	if reusedCmd.nodeID != "updated-node-id" {

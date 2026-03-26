@@ -1,0 +1,359 @@
+<template>
+  <div class="start-args-page">
+    <div class="start-args-page__header">
+      <div>
+        <div class="start-args-page__eyebrow">Runtime</div>
+        <h1 class="start-args-page__title font-display">Start Command</h1>
+        <p class="start-args-page__copy text-xy-secondary">
+          Edit the structured launch arguments for this server and preview the resolved argv before
+          saving.
+        </p>
+      </div>
+      <div class="start-args-page__actions">
+        <q-btn
+          flat
+          label="Reset All"
+          :disable="saving || restarting || !isDirty || !canEditStartArgs"
+          @click="resetAll" />
+        <q-btn
+          flat
+          color="warning"
+          label="Save & Restart"
+          :loading="restarting"
+          :disable="saving || restarting || !isDirty || !canEditStartArgs"
+          @click="saveAndRestart" />
+        <q-btn
+          color="primary"
+          label="Save"
+          :loading="saving"
+          :disable="saving || restarting || !isDirty || !canEditStartArgs"
+          @click="saveOnly" />
+      </div>
+    </div>
+
+    <div v-if="loading" class="start-args-page__loading">
+      <q-spinner-dots size="40px" color="primary" />
+      <div class="text-xy-secondary q-mt-sm">Loading start command details...</div>
+    </div>
+
+    <div v-else class="start-args-page__body">
+      <q-banner
+        v-if="!effectiveAllowEditing"
+        class="start-args-page__warning"
+        rounded
+        inline-actions>
+        Start command editing is disabled for this game definition.
+      </q-banner>
+
+      <q-banner v-if="platformWarning" class="start-args-page__warning" rounded inline-actions>
+        {{ platformWarning }}
+      </q-banner>
+
+      <start-args-editor
+        :template="templateBlocks"
+        :patches="draftPatches"
+        :base-command="baseCommand"
+        :allow-editing="canEditStartArgs"
+        :blocklist="blocklistEntries"
+        @update:patches="draftPatches = $event" />
+
+      <resolved-command-preview
+        :base-command="baseCommand"
+        :resolved-blocks="resolvedPreview.resolvedBlocks" />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { create } from '@bufbuild/protobuf'
+import { ConnectError } from '@connectrpc/connect'
+import { useQuasar } from 'quasar'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+import StartArgsEditor from '@/components/game_servers/StartArgsEditor.vue'
+import ResolvedCommandPreview from '@/components/game_servers/ResolvedCommandPreview.vue'
+import {
+  buildPlaceholderVars,
+  parseStartArgBlocklist,
+  parseStartArgsPatches,
+  parseStartArgsTemplate,
+  resolveStartArgs,
+  serializeStartArgsPatches,
+  type StartArgPatch,
+} from '@/components/game_servers/start-args'
+import { RestartGameServerRequestSchema } from '@/proto/shared_pb'
+import {
+  GetGameServerRequestSchema,
+  ListNodesRequestSchema,
+  UpdateGameServerStartArgsRequestSchema,
+  type GetGameServerResponse,
+  type ListNodesResponse,
+} from '@/proto/xylona_pb'
+import { useUserAuthStore } from '@/stores/xylona'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { resolveStartArgsPlatform } from './start-args-platform'
+
+const $q = useQuasar()
+const route = useRoute()
+const router = useRouter()
+const authStore = useUserAuthStore()
+
+const gameServerId = ref(String(route.params.id ?? ''))
+const loading = ref(true)
+const saving = ref(false)
+const restarting = ref(false)
+const isSuperUser = ref(false)
+const gameServer = ref<GetGameServerResponse['gameServer']>()
+const nodeOsById = ref<Record<string, string>>({})
+const draftPatches = ref<StartArgPatch[]>([])
+const savedPatchesJson = ref('')
+
+const selectedPlatform = computed<'linux' | 'windows' | null>(() =>
+  resolveStartArgsPlatform(
+    nodeOsById.value[gameServer.value?.nodeId ?? ''],
+    Boolean(gameServer.value?.game?.linuxStartArgsTemplate),
+    Boolean(gameServer.value?.game?.windowsStartArgsTemplate),
+  ),
+)
+
+const templateBlocks = computed(() => {
+  const game = gameServer.value?.game
+  if (!game || selectedPlatform.value === null) {
+    return []
+  }
+
+  return parseStartArgsTemplate(
+    selectedPlatform.value === 'windows'
+      ? game.windowsStartArgsTemplate
+      : game.linuxStartArgsTemplate,
+  )
+})
+
+const baseCommand = computed(() => {
+  const game = gameServer.value?.game
+  if (!game || selectedPlatform.value === null) {
+    return ''
+  }
+
+  return selectedPlatform.value === 'windows' ? game.windowsBaseCommand : game.linuxBaseCommand
+})
+
+const blocklistEntries = computed(() =>
+  parseStartArgBlocklist(gameServer.value?.game?.startArgBlocklist ?? ''),
+)
+
+const effectiveAllowEditing = computed(
+  () => Boolean(gameServer.value?.game?.allowStartArgEditing) || isSuperUser.value,
+)
+
+const canEditStartArgs = computed(
+  () => effectiveAllowEditing.value && selectedPlatform.value !== null,
+)
+
+const resolvedPreview = computed(() =>
+  selectedPlatform.value === null
+    ? { args: [], resolvedBlocks: [] }
+    : resolveStartArgs(
+        templateBlocks.value,
+        draftPatches.value,
+        buildPlaceholderVars(gameServer.value ?? undefined),
+      ),
+)
+
+const isDirty = computed(
+  () => serializeStartArgsPatches(draftPatches.value) !== savedPatchesJson.value,
+)
+
+const platformWarning = computed(() => {
+  if (selectedPlatform.value === null) {
+    return 'Unable to determine this server platform. Reload node data before editing start arguments.'
+  }
+
+  if (baseCommand.value !== '' || templateBlocks.value.length > 0) {
+    return ''
+  }
+
+  return `No ${selectedPlatform.value} start template is configured for this game.`
+})
+
+onMounted(async () => {
+  await initialize()
+})
+
+async function initialize() {
+  loading.value = true
+
+  try {
+    const authResponse = await authStore.checkUserAuthenticated()
+    isSuperUser.value = authResponse?.user?.superUser ?? authStore.user?.superUser ?? false
+
+    await Promise.all([loadGameServer(), loadNodes()])
+
+    if (!effectiveAllowEditing.value) {
+      await router.replace(`/game-servers/${gameServerId.value}/console`)
+      return
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadGameServer() {
+  const response = await GetXylonaClient().getGameServer(
+    create(GetGameServerRequestSchema, {
+      id: gameServerId.value,
+    }),
+  )
+  gameServer.value = response.gameServer
+  savedPatchesJson.value = gameServer.value?.startArgsPatches ?? ''
+  draftPatches.value = parseStartArgsPatches(savedPatchesJson.value)
+}
+
+async function loadNodes() {
+  try {
+    const response: ListNodesResponse = await GetXylonaClient().listNodes(
+      create(ListNodesRequestSchema),
+    )
+    nodeOsById.value = Object.fromEntries(response.nodes.map((node) => [node.id, node.os]))
+  } catch {
+    nodeOsById.value = {}
+  }
+}
+
+async function saveOnly() {
+  await savePatches(false)
+}
+
+async function saveAndRestart() {
+  await savePatches(true)
+}
+
+async function savePatches(restartAfterSave: boolean) {
+  if (!gameServer.value) {
+    return
+  }
+
+  if (!canEditStartArgs.value) {
+    return
+  }
+
+  if (restartAfterSave) {
+    restarting.value = true
+  } else {
+    saving.value = true
+  }
+
+  try {
+    const response = await GetXylonaClient().updateGameServerStartArgs(
+      create(UpdateGameServerStartArgsRequestSchema, {
+        serverId: gameServerId.value,
+        startArgsPatches: serializeStartArgsPatches(draftPatches.value),
+      }),
+    )
+    gameServer.value = response.gameServer
+    savedPatchesJson.value = response.gameServer?.startArgsPatches ?? ''
+    draftPatches.value = parseStartArgsPatches(savedPatchesJson.value)
+
+    if (restartAfterSave) {
+      await GetXylonaClient().restartGameServer(
+        create(RestartGameServerRequestSchema, {
+          serverId: gameServerId.value,
+        }),
+      )
+      $q.notify({
+        type: 'positive',
+        position: 'top',
+        caption: 'Start arguments saved and server restart requested.',
+        icon: 'task_alt',
+      })
+      return
+    }
+
+    $q.notify({
+      type: 'positive',
+      position: 'top',
+      caption: 'Start arguments saved successfully.',
+      icon: 'task_alt',
+    })
+  } catch (unknownError: unknown) {
+    const err = ConnectError.from(unknownError)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: `Failed to save start arguments: ${ConnectErrorToString(err)}`,
+      icon: 'report_problem',
+    })
+  } finally {
+    saving.value = false
+    restarting.value = false
+  }
+}
+
+function resetAll() {
+  draftPatches.value = []
+}
+</script>
+
+<style scoped>
+.start-args-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-lg);
+  padding: var(--xy-space-lg);
+}
+
+.start-args-page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-lg);
+}
+
+.start-args-page__eyebrow {
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--xy-accent);
+}
+
+.start-args-page__title {
+  margin: 0;
+  font-size: clamp(1.2rem, 1rem + 0.7vw, 1.7rem);
+  color: var(--xy-text-primary);
+}
+
+.start-args-page__copy {
+  margin: 6px 0 0;
+  max-width: 66ch;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.start-args-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
+}
+
+.start-args-page__loading {
+  display: flex;
+  min-height: 280px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.start-args-page__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
+}
+
+.start-args-page__warning {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--xy-text-primary);
+}
+</style>

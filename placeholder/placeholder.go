@@ -81,23 +81,33 @@ func Resolve(template string, vars map[string]string) string {
 	if template == "" {
 		return ""
 	}
+	return ResolveToken(template, vars)
+}
+
+// ResolveToken replaces all {{PLACEHOLDER}} and legacy %GAMESERVER_*%
+// occurrences in a single token string. Unresolved placeholders resolve to
+// empty string and log a warning.
+func ResolveToken(token string, vars map[string]string) string {
+	if token == "" {
+		return ""
+	}
 	if vars == nil {
 		vars = map[string]string{}
 	}
 
 	// Resolve legacy %GAMESERVER_*% format first.
 	for legacy, newKey := range legacyMapping {
-		if strings.Contains(template, legacy) {
+		if strings.Contains(token, legacy) {
 			val, ok := vars[newKey]
 			if !ok {
 				log.Warn().Str("placeholder", legacy).Msg("Unresolved legacy placeholder")
 			}
-			template = strings.ReplaceAll(template, legacy, val)
+			token = strings.ReplaceAll(token, legacy, val)
 		}
 	}
 
 	// Resolve {{PLACEHOLDER}} format.
-	template = placeholderRegex.ReplaceAllStringFunc(template, func(match string) string {
+	token = placeholderRegex.ReplaceAllStringFunc(token, func(match string) string {
 		key := match[2 : len(match)-2]
 		val, ok := vars[key]
 		if !ok {
@@ -107,7 +117,22 @@ func Resolve(template string, vars map[string]string) string {
 		return val
 	})
 
-	return template
+	return token
+}
+
+// ResolveTokens resolves placeholders independently within each token and
+// preserves token boundaries.
+func ResolveTokens(tokens []string, vars map[string]string) []string {
+	if len(tokens) == 0 {
+		return nil
+	}
+
+	resolved := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		resolved = append(resolved, ResolveToken(token, vars))
+	}
+
+	return resolved
 }
 
 // BuildVarsFromGameServer creates a variable map from a game server instance.

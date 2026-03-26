@@ -177,6 +177,79 @@ func TestResolve_ServerExecutable(t *testing.T) {
 	}
 }
 
+func TestResolveToken(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+		vars  map[string]string
+		want  string
+	}{
+		{
+			name:  "standard replacement",
+			token: "{{PORT}}",
+			vars:  map[string]string{"PORT": "25565"},
+			want:  "25565",
+		},
+		{
+			name:  "embedded replacement",
+			token: "server-{{PORT}}.log",
+			vars:  map[string]string{"PORT": "25565"},
+			want:  "server-25565.log",
+		},
+		{
+			name:  "missing placeholder resolves to empty string",
+			token: "server-{{RCON_PORT}}.log",
+			vars:  map[string]string{},
+			want:  "server-.log",
+		},
+		{
+			name:  "multiple placeholders in one token",
+			token: "{{IP}}:{{PORT}}",
+			vars: map[string]string{
+				"IP":   "127.0.0.1",
+				"PORT": "25565",
+			},
+			want: "127.0.0.1:25565",
+		},
+		{
+			name:  "legacy placeholder still resolves",
+			token: "%GAMESERVER_PORT%",
+			vars:  map[string]string{"PORT": "25565"},
+			want:  "25565",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ResolveToken(tt.token, tt.vars)
+			if got != tt.want {
+				t.Errorf("ResolveToken() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveTokens(t *testing.T) {
+	tokens := []string{"-jar", "{{SERVER_EXECUTABLE}}", "--name=server-{{PORT}}"}
+	vars := map[string]string{
+		"SERVER_EXECUTABLE": "paper.jar",
+		"PORT":              "25565",
+	}
+
+	got := ResolveTokens(tokens, vars)
+	want := []string{"-jar", "paper.jar", "--name=server-25565"}
+
+	if len(got) != len(want) {
+		t.Fatalf("ResolveTokens() length = %d, want %d", len(got), len(want))
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("ResolveTokens()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 func TestLegacyMapping(t *testing.T) {
 	tests := []struct {
 		name   string

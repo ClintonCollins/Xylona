@@ -19,6 +19,7 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/sysinfo"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -219,6 +220,12 @@ func (fs FederationService) Handshake(ctx context.Context, request *connect.Requ
 		ProtocolVersion: version.FederationProtocolVersion,
 		Capabilities:    version.FederationCapabilities,
 		ServerTime:      timestamppb.New(time.Now()),
+	}
+	systemInfo, errSystemInfo := sysinfo.CollectSystemInfo()
+	if errSystemInfo != nil {
+		log.Warn().Err(errSystemInfo).Msg("Failed to collect system info for federation handshake")
+	} else {
+		resp.SystemInfo = sysInfoToProto(systemInfo)
 	}
 
 	log.Info().

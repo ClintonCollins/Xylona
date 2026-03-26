@@ -42,6 +42,9 @@ service Federation {
   // EditRemoteServer edits a game server's configuration on this node.
   rpc EditRemoteServer (FederationEditServerRequest) returns (FederationEditServerResponse) {}
 
+  // UpdateRemoteServerStartArgs updates structured start-arg patches for a game server on this node.
+  rpc UpdateRemoteServerStartArgs (FederationUpdateServerStartArgsRequest) returns (FederationUpdateServerStartArgsResponse) {}
+
   // RemoveRemoteServer removes a game server on this node.
   rpc RemoveRemoteServer (FederationRemoteActionRequest) returns (FederationRemoteActionResponse) {}
 
@@ -198,6 +201,19 @@ message FederationEditServerRequest {
 }
 
 message FederationEditServerResponse {
+  bool success = 1;
+  string error = 2;
+  GameServer game_server = 3;
+}
+
+message FederationUpdateServerStartArgsRequest {
+  string server_id = 1;
+  string start_args_patches = 2;
+  string acting_user_id = 3;
+  string origin_node_id = 4;
+}
+
+message FederationUpdateServerStartArgsResponse {
   bool success = 1;
   string error = 2;
   GameServer game_server = 3;

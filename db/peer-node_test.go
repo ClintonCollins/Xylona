@@ -18,7 +18,7 @@ func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
 		t.Fatalf("failed to insert node: %v", errInsert)
 	}
 
-	errUpdate := conn.UpdateNodeIdentity("node-1", "0.2.0", 2, "server_list,status_streaming")
+	errUpdate := conn.UpdateNodeIdentity("node-1", "0.2.0", 2, "server_list,status_streaming", "linux")
 	if errUpdate != nil {
 		t.Fatalf("UpdateNodeIdentity() error = %v", errUpdate)
 	}
@@ -27,12 +27,13 @@ func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
 	var gotVersion string
 	var gotProtocolVersion int
 	var gotCapabilities string
+	var gotOS string
 
 	errQuery := conn.SQLDb.QueryRow(`
-		SELECT name, version, protocol_version, capabilities
+		SELECT name, version, protocol_version, capabilities, os
 		FROM node
 		WHERE id = 'node-1'
-	`).Scan(&gotName, &gotVersion, &gotProtocolVersion, &gotCapabilities)
+	`).Scan(&gotName, &gotVersion, &gotProtocolVersion, &gotCapabilities, &gotOS)
 	if errQuery != nil {
 		t.Fatalf("failed to read node: %v", errQuery)
 	}
@@ -48,6 +49,9 @@ func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
 	}
 	if gotCapabilities != "server_list,status_streaming" {
 		t.Errorf("capabilities = %q, want %q", gotCapabilities, "server_list,status_streaming")
+	}
+	if gotOS != "linux" {
+		t.Errorf("os = %q, want %q", gotOS, "linux")
 	}
 }
 

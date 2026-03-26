@@ -22,7 +22,6 @@ func TestCreateGameServerRequiresSuperUserForAllCreates(t *testing.T) {
 			UserId:        "user-owner",
 			Name:          "Created Server",
 			GameId:        "minecraft",
-			StartCommand:  "java -jar server.jar",
 			SetMaxPlayers: 12,
 			MaxPlayers:    24,
 			Ip:            &xylona.IP{Address: "127.0.0.2"},
@@ -65,7 +64,6 @@ func TestCreateGameServerAllowsSuperUser(t *testing.T) {
 			UserId:        "user-owner",
 			Name:          "Created Server",
 			GameId:        "minecraft",
-			StartCommand:  "java -jar server.jar",
 			SetMaxPlayers: 18,
 			MaxPlayers:    32,
 			Ip:            &xylona.IP{Address: "127.0.0.2"},
@@ -141,7 +139,6 @@ func TestEditGameServerRestrictsProvisioningFieldsForNonSuperUsers(t *testing.T)
 			requestServer := helpers.GameServerModelToProto(existing, nil)
 			requestServer.Name = "Renamed Server"
 			requestServer.SetMaxPlayers = 14
-			requestServer.StartCommand = "custom-start.sh"
 			requestServer.UserId = "user-admin"
 			requestServer.GameId = "missing-game"
 			requestServer.NodeId = "missing-node"
@@ -171,9 +168,6 @@ func TestEditGameServerRestrictsProvisioningFieldsForNonSuperUsers(t *testing.T)
 			if response.Msg.GetGame_Server().GetSetMaxPlayers() != 14 {
 				t.Fatalf("EditGameServer().GameServer.SetMaxPlayers = %d, want %d", response.Msg.GetGame_Server().GetSetMaxPlayers(), 14)
 			}
-			if response.Msg.GetGame_Server().GetStartCommand() != "custom-start.sh" {
-				t.Fatalf("EditGameServer().GameServer.StartCommand = %q, want %q", response.Msg.GetGame_Server().GetStartCommand(), "custom-start.sh")
-			}
 			if response.Msg.GetGame_Server().GetGameId() != existing.GameID {
 				t.Fatalf("EditGameServer().GameServer.GameId = %q, want existing %q", response.Msg.GetGame_Server().GetGameId(), existing.GameID)
 			}
@@ -187,9 +181,6 @@ func TestEditGameServerRestrictsProvisioningFieldsForNonSuperUsers(t *testing.T)
 			}
 			if stored.SetPlayers != 14 {
 				t.Errorf("stored.SetPlayers = %d, want %d", stored.SetPlayers, 14)
-			}
-			if stored.StartCommand != "custom-start.sh" {
-				t.Errorf("stored.StartCommand = %q, want %q", stored.StartCommand, "custom-start.sh")
 			}
 			if stored.UserID != existing.UserID {
 				t.Errorf("stored.UserID = %q, want %q", stored.UserID, existing.UserID)
@@ -240,7 +231,6 @@ func TestEditGameServerAllowsSuperUserToChangeProvisioningFields(t *testing.T) {
 	requestServer.SetMaxPlayers = 22
 	requestServer.MaxPlayers = 48
 	requestServer.MaxMemoryMb = 3072
-	requestServer.StartCommand = "launch-test-game"
 
 	request := connect.NewRequest(&xylona.EditGameServerRequest{
 		ServerId:   existing.ID,
@@ -329,7 +319,6 @@ func TestFederationEditRemoteServerRestrictsProvisioningFieldsForNonSuperUsers(t
 	requestServer := helpers.GameServerModelToProto(existing, nil)
 	requestServer.Name = "Federated Rename"
 	requestServer.SetMaxPlayers = 16
-	requestServer.StartCommand = "remote-start"
 	requestServer.UserId = "user-admin"
 	requestServer.GameId = "missing-game"
 	requestServer.NodeId = "missing-node"
@@ -366,9 +355,6 @@ func TestFederationEditRemoteServerRestrictsProvisioningFieldsForNonSuperUsers(t
 	}
 	if stored.SetPlayers != 16 {
 		t.Errorf("stored.SetPlayers = %d, want %d", stored.SetPlayers, 16)
-	}
-	if stored.StartCommand != "remote-start" {
-		t.Errorf("stored.StartCommand = %q, want %q", stored.StartCommand, "remote-start")
 	}
 	if stored.GameID != existing.GameID {
 		t.Errorf("stored.GameID = %q, want %q", stored.GameID, existing.GameID)

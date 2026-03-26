@@ -44,17 +44,22 @@ func GameServerModelStatusToProtoStatus(status string) xylona.Status {
 
 // GameServerProtoToModel converts a *xylona.GameServer to a *models.GameServer
 func GameServerProtoToModel(gsProto *xylona.GameServer) *models.GameServer {
+	ipAddress := ""
+	if gsProto.Ip != nil {
+		ipAddress = gsProto.Ip.Address
+	}
+
 	return &models.GameServer{
 		ID:                        gsProto.Id,
 		UserID:                    gsProto.UserId,
 		Name:                      gsProto.Name,
 		GameID:                    gsProto.GameId,
-		StartCommand:              gsProto.StartCommand,
+		StartArgsPatches:          gsProto.StartArgsPatches,
 		Status:                    gsProto.Status.String(),
 		SetPlayers:                gsProto.SetMaxPlayers,
 		MaxPlayers:                gsProto.MaxPlayers,
 		Map:                       gsProto.Map,
-		IP:                        gsProto.Ip.Address,
+		IP:                        ipAddress,
 		Port:                      gsProto.Port,
 		QueryPort:                 gsProto.QueryPort,
 		Directory:                 gsProto.Directory,
@@ -67,6 +72,7 @@ func GameServerProtoToModel(gsProto *xylona.GameServer) *models.GameServer {
 		Branch:                    gsProto.SelectedTarget,
 		TargetPinned:              gsProto.SelectedTargetPinned,
 		ServerSoftware:            null.FromCond(gsProto.SelectedVariantId, gsProto.SelectedVariantId != ""),
+		ServerExecutable:          null.FromCond(gsProto.ServerExecutable, gsProto.ServerExecutable != ""),
 		CreatedAt:                 gsProto.CreatedAt.AsTime(),
 		UpdatedAt:                 gsProto.UpdatedAt.AsTime(),
 	}
@@ -90,7 +96,7 @@ func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.Vers
 		UserId:                    gsModel.UserID,
 		Name:                      gsModel.Name,
 		GameId:                    gsModel.GameID,
-		StartCommand:              gsModel.StartCommand,
+		StartArgsPatches:          gsModel.StartArgsPatches,
 		Status:                    GameServerModelStatusToProtoStatus(gsModel.Status),
 		SetMaxPlayers:             gsModel.SetPlayers,
 		MaxPlayers:                gsModel.MaxPlayers,
@@ -181,7 +187,7 @@ func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSette
 		UserID:                    omit.From(gsModel.UserID),
 		Name:                      omit.From(gsModel.Name),
 		GameID:                    omit.From(gsModel.GameID),
-		StartCommand:              omit.From(gsModel.StartCommand),
+		StartArgsPatches:          omit.From(gsModel.StartArgsPatches),
 		Status:                    omit.From(gsModel.Status),
 		SetPlayers:                omit.From(gsModel.SetPlayers),
 		MaxPlayers:                omit.From(gsModel.MaxPlayers),
@@ -197,6 +203,8 @@ func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSette
 		MaxBackups:                omit.From(gsModel.MaxBackups),
 		NodeID:                    omit.From(gsModel.NodeID),
 		Branch:                    omit.From(gsModel.Branch),
+		ServerSoftware:            omitnull.FromNull(gsModel.ServerSoftware),
+		ServerExecutable:          omitnull.FromNull(gsModel.ServerExecutable),
 		TargetPinned:              omit.From(gsModel.TargetPinned),
 		CreatedAt:                 omit.From(gsModel.CreatedAt),
 		UpdatedAt:                 omit.From(gsModel.UpdatedAt),
@@ -238,14 +246,12 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		DefaultMaxPlayers:                 gameModel.DefaultMaxPlayers,
 		LinuxSupport:                      gameModel.LinuxSupport,
 		WindowsSupport:                    gameModel.WindowsSupport,
-		LinuxStartCommand:                 gameModel.LinuxStartCommand,
 		LinuxStopCommand:                  gameModel.LinuxStopCommand,
 		LinuxInstallCommand:               gameModel.LinuxInstallCommand,
 		LinuxInstallCommandProcessor:      commandTypeToCommandProcessor(gameModel.LinuxInstallCommandType),
 		LinuxUpdateCommand:                gameModel.LinuxUpdateCommand,
 		LinuxUpdateCommandProcessor:       commandTypeToCommandProcessor(gameModel.LinuxUpdateCommandType),
 		LinuxWorkingDirectory:             gameModel.LinuxWorkingDirectory,
-		WindowsStartCommand:               gameModel.WindowsStartCommand,
 		WindowsStopCommand:                gameModel.WindowsStopCommand,
 		WindowsInstallCommand:             gameModel.WindowsInstallCommand,
 		WindowsInstallCommandProcessor:    commandTypeToCommandProcessor(gameModel.WindowsInstallCommandType),
@@ -261,6 +267,12 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		UsesSteamcmd:                      gameModel.UsesSteamcmd,
 		SteamAppid:                        gameModel.SteamAppID,
 		ConfigSchemas:                     gameModel.ConfigSchemas.GetOr(""),
+		LinuxStartArgsTemplate:            gameModel.LinuxStartArgsTemplate.GetOr(""),
+		WindowsStartArgsTemplate:          gameModel.WindowsStartArgsTemplate.GetOr(""),
+		LinuxBaseCommand:                  gameModel.LinuxBaseCommand,
+		WindowsBaseCommand:                gameModel.WindowsBaseCommand,
+		StartArgBlocklist:                 gameModel.StartArgBlocklist,
+		AllowStartArgEditing:              gameModel.AllowStartArgEditing,
 		UpdateProvider:                    updateproviders.ProviderConfigToProto(gameConfig.UpdateProvider),
 		DefaultTarget:                     gameConfig.DefaultTarget,
 		ModProfile:                        updateproviders.ModProfileToProto(gameConfig.ModProfile),
@@ -302,14 +314,12 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		DefaultMaxPlayers:                 gameProto.DefaultMaxPlayers,
 		LinuxSupport:                      gameProto.LinuxSupport,
 		WindowsSupport:                    gameProto.WindowsSupport,
-		LinuxStartCommand:                 gameProto.LinuxStartCommand,
 		LinuxStopCommand:                  gameProto.LinuxStopCommand,
 		LinuxInstallCommand:               linuxInstallCommand,
 		LinuxInstallCommandType:           protoCommandTypeToModelCommandType(gameProto.GetLinuxInstallType(), gameProto.GetLinuxInstallCommandProcessor()),
 		LinuxUpdateCommand:                linuxUpdateCommand,
 		LinuxUpdateCommandType:            protoCommandTypeToModelCommandType(gameProto.GetLinuxUpdateType(), gameProto.GetLinuxUpdateCommandProcessor()),
 		LinuxWorkingDirectory:             gameProto.LinuxWorkingDirectory,
-		WindowsStartCommand:               gameProto.WindowsStartCommand,
 		WindowsStopCommand:                gameProto.WindowsStopCommand,
 		WindowsInstallCommand:             windowsInstallCommand,
 		WindowsInstallCommandType:         protoCommandTypeToModelCommandType(gameProto.GetWindowsInstallType(), gameProto.GetWindowsInstallCommandProcessor()),
@@ -325,6 +335,12 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		UsesSteamcmd:                      gameProto.UsesSteamcmd || hasSteamCommandType(gameProto),
 		SteamAppID:                        gameProto.SteamAppid,
 		ConfigSchemas:                     null.FromCond(gameProto.ConfigSchemas, gameProto.ConfigSchemas != ""),
+		LinuxStartArgsTemplate:            null.FromCond(gameProto.GetLinuxStartArgsTemplate(), gameProto.GetLinuxStartArgsTemplate() != ""),
+		WindowsStartArgsTemplate:          null.FromCond(gameProto.GetWindowsStartArgsTemplate(), gameProto.GetWindowsStartArgsTemplate() != ""),
+		LinuxBaseCommand:                  gameProto.GetLinuxBaseCommand(),
+		WindowsBaseCommand:                gameProto.GetWindowsBaseCommand(),
+		StartArgBlocklist:                 gameProto.GetStartArgBlocklist(),
+		AllowStartArgEditing:              gameProto.GetAllowStartArgEditing(),
 	}
 
 	gameConfig := updateproviders.GameConfig{
@@ -367,7 +383,6 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		SteamAppID:                        omit.From(gameModel.SteamAppID),
 		RequiresSteamGameServerLoginToken: omit.From(gameModel.RequiresSteamGameServerLoginToken),
 		LinuxSupport:                      omit.From(gameModel.LinuxSupport),
-		LinuxStartCommand:                 omit.From(gameModel.LinuxStartCommand),
 		LinuxStopCommand:                  omit.From(gameModel.LinuxStopCommand),
 		LinuxInstallCommand:               omit.From(gameModel.LinuxInstallCommand),
 		LinuxInstallCommandType:           omit.From(gameModel.LinuxInstallCommandType),
@@ -375,7 +390,6 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		LinuxUpdateCommandType:            omit.From(gameModel.LinuxUpdateCommandType),
 		LinuxWorkingDirectory:             omit.From(gameModel.LinuxWorkingDirectory),
 		WindowsSupport:                    omit.From(gameModel.WindowsSupport),
-		WindowsStartCommand:               omit.From(gameModel.WindowsStartCommand),
 		WindowsStopCommand:                omit.From(gameModel.WindowsStopCommand),
 		WindowsInstallCommand:             omit.From(gameModel.WindowsInstallCommand),
 		WindowsInstallCommandType:         omit.From(gameModel.WindowsInstallCommandType),
@@ -384,6 +398,12 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		WindowsWorkingDirectory:           omit.From(gameModel.WindowsWorkingDirectory),
 		ConfigSchemas:                     omitnull.FromNull(gameModel.ConfigSchemas),
 		ServerSoftware:                    omitnull.FromNull(configModel.ServerSoftware),
+		LinuxStartArgsTemplate:            omitnull.FromNull(gameModel.LinuxStartArgsTemplate),
+		WindowsStartArgsTemplate:          omitnull.FromNull(gameModel.WindowsStartArgsTemplate),
+		LinuxBaseCommand:                  omit.From(gameModel.LinuxBaseCommand),
+		WindowsBaseCommand:                omit.From(gameModel.WindowsBaseCommand),
+		StartArgBlocklist:                 omit.From(gameModel.StartArgBlocklist),
+		AllowStartArgEditing:              omit.From(gameModel.AllowStartArgEditing),
 		CreatedAt:                         omit.From(time.Now()),
 		UpdatedAt:                         omit.From(time.Now()),
 	}
@@ -648,6 +668,7 @@ func NodeProtoToModel(nodeProto *xylona.Node) *models.Node {
 		IsLocal:          nodeProto.Local,
 		BaseURL:          strings.TrimSpace(nodeProto.BaseUrl),
 		AllowInsecureTLS: nodeProto.AllowInsecureTls,
+		Os:               strings.TrimSpace(nodeProto.Os),
 	}
 }
 
@@ -673,6 +694,7 @@ func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
 		AllowInsecureTls: nodeModel.AllowInsecureTLS,
 		Departed:         nodeModel.Departed,
 		AutoPaired:       nodeModel.AutoPaired,
+		Os:               nodeModel.Os,
 	}
 }
 
@@ -685,6 +707,7 @@ func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
 		Port:             omit.From(nodeModel.Port),
 		BaseURL:          omit.From(nodeModel.BaseURL),
 		AllowInsecureTLS: omit.From(nodeModel.AllowInsecureTLS),
+		Os:               omit.From(nodeModel.Os),
 	}
 }
 

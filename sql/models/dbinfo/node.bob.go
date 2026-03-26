@@ -204,6 +204,15 @@ var Nodes = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		Os: column{
+			Name:      "os",
+			DBType:    "TEXT",
+			Default:   "''",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: nodeIndexes{
 		NodeIsLocal: index{
@@ -280,11 +289,12 @@ type nodeColumns struct {
 	AllowInsecureTLS    column
 	Departed            column
 	AutoPaired          column
+	Os                  column
 }
 
 func (c nodeColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.Name, c.SecretKey, c.IsLocal, c.Host, c.Port, c.BaseURL, c.Enabled, c.LastSeenAt, c.LastSyncAt, c.LastSyncStatus, c.HealthStatus, c.Version, c.ProtocolVersion, c.Capabilities, c.CreatedAt, c.UpdatedAt, c.SyncIntervalSeconds, c.AllowInsecureTLS, c.Departed, c.AutoPaired,
+		c.ID, c.Name, c.SecretKey, c.IsLocal, c.Host, c.Port, c.BaseURL, c.Enabled, c.LastSeenAt, c.LastSyncAt, c.LastSyncStatus, c.HealthStatus, c.Version, c.ProtocolVersion, c.Capabilities, c.CreatedAt, c.UpdatedAt, c.SyncIntervalSeconds, c.AllowInsecureTLS, c.Departed, c.AutoPaired, c.Os,
 	}
 }
 

@@ -18,8 +18,8 @@ import (
 func minecraftE2EVariants() []*xylona.Variant {
 	return []*xylona.Variant{
 		{
-			Id:            "vanilla",
-			Name:          "Vanilla",
+			Id:   "vanilla",
+			Name: "Vanilla",
 			UpdateProvider: &xylona.UpdateProviderConfig{
 				Kind: xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND,
 			},
@@ -69,8 +69,8 @@ func minecraftE2EVariants() []*xylona.Variant {
 			},
 		},
 		{
-			Id:            "fabric",
-			Name:          "Fabric",
+			Id:   "fabric",
+			Name: "Fabric",
 			UpdateProvider: &xylona.UpdateProviderConfig{
 				Kind: xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND,
 			},
@@ -100,6 +100,8 @@ var testUserDefs = []struct {
 	{userName: "e2e-viewer", email: "e2e-viewer@test.local", password: "TestPassword123!", firstName: "E2E", lastName: "Viewer", superUser: false},
 	{userName: "e2e-noaccess", email: "e2e-noaccess@test.local", password: "TestPassword123!", firstName: "E2E", lastName: "NoAccess", superUser: false},
 }
+
+const e2eDummyStartTemplateJSON = `[{"id":"heartbeat","order":0,"ownership":"system","tokens":["-heartbeat","5s"],"label":"Heartbeat"}]`
 
 func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, adminPassword, e2eDir, projectRoot string) error {
 	backendURL := fmt.Sprintf("http://localhost:%d", httpPort)
@@ -276,14 +278,16 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 						Id:                             "e2e-test-game",
 						Name:                           "E2E Test Game",
 						LinuxSupport:                   true,
-						LinuxStartCommand:              dummyExePath,
+						LinuxStartArgsTemplate:         e2eDummyStartTemplateJSON,
+						LinuxBaseCommand:               dummyExePath,
 						LinuxStopCommand:               "stop",
 						LinuxInstallCommand:            "echo installed",
 						LinuxInstallCommandProcessor:   xylona.CommandProcessor_BASH,
 						LinuxUpdateCommand:             "echo updated",
 						LinuxUpdateCommandProcessor:    xylona.CommandProcessor_BASH,
 						WindowsSupport:                 true,
-						WindowsStartCommand:            dummyExePath,
+						WindowsStartArgsTemplate:       e2eDummyStartTemplateJSON,
+						WindowsBaseCommand:             dummyExePath,
 						WindowsStopCommand:             "stop",
 						WindowsInstallCommand:          `cmd /c "echo installed"`,
 						WindowsUpdateCommand:           `cmd /c "echo updated"`,
@@ -331,7 +335,6 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 					Name:          "E2E Test Server",
 					GameId:        game.Id,
 					UserId:        testOwnerUserID,
-					StartCommand:  dummyExePath + " -heartbeat 5s",
 					Directory:     gsDirPath,
 					Ip:            &xylona.IP{Address: ipAddress},
 					Port:          25599,
@@ -472,11 +475,13 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 					Game: &xylona.Game{
 						Name:                           "E2E No-Tracker Game",
 						LinuxSupport:                   true,
-						LinuxStartCommand:              dummyExePath,
+						LinuxStartArgsTemplate:         e2eDummyStartTemplateJSON,
+						LinuxBaseCommand:               dummyExePath,
 						LinuxInstallCommand:            "echo installed",
 						LinuxInstallCommandProcessor:   xylona.CommandProcessor_BASH,
 						WindowsSupport:                 true,
-						WindowsStartCommand:            dummyExePath,
+						WindowsStartArgsTemplate:       e2eDummyStartTemplateJSON,
+						WindowsBaseCommand:             dummyExePath,
 						WindowsInstallCommand:          `cmd /c "echo installed"`,
 						WindowsInstallCommandProcessor: xylona.CommandProcessor_CMD,
 						DefaultPort:                    25601,
@@ -518,7 +523,6 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 								Name:          "E2E No-Tracker Server",
 								GameId:        noTrackerGame.Id,
 								UserId:        client.userID,
-								StartCommand:  dummyExePath + " -heartbeat 5s",
 								Directory:     ntGsDirPath,
 								Ip:            &xylona.IP{Address: ipAddress2},
 								Port:          25601,

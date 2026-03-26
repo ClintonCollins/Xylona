@@ -29,7 +29,6 @@ type GameServer struct {
 	UserID                    string           `db:"user_id" `
 	Name                      string           `db:"name" `
 	GameID                    string           `db:"game_id" `
-	StartCommand              string           `db:"start_command" `
 	Status                    string           `db:"status" `
 	SetPlayers                int64            `db:"set_players" `
 	MaxPlayers                int64            `db:"max_players" `
@@ -51,6 +50,7 @@ type GameServer struct {
 	ServerSoftware            null.Val[string] `db:"server_software" `
 	ServerExecutable          null.Val[string] `db:"server_executable" `
 	TargetPinned              bool             `db:"target_pinned" `
+	StartArgsPatches          string           `db:"start_args_patches" `
 
 	R gameServerR `db:"-" `
 }
@@ -81,14 +81,13 @@ type gameServerR struct {
 func buildGameServerColumns(alias string) gameServerColumns {
 	return gameServerColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "user_id", "name", "game_id", "start_command", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned",
+			"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches",
 		).WithParent("game_server"),
 		tableAlias:                alias,
 		ID:                        sqlite.Quote(alias, "id"),
 		UserID:                    sqlite.Quote(alias, "user_id"),
 		Name:                      sqlite.Quote(alias, "name"),
 		GameID:                    sqlite.Quote(alias, "game_id"),
-		StartCommand:              sqlite.Quote(alias, "start_command"),
 		Status:                    sqlite.Quote(alias, "status"),
 		SetPlayers:                sqlite.Quote(alias, "set_players"),
 		MaxPlayers:                sqlite.Quote(alias, "max_players"),
@@ -110,6 +109,7 @@ func buildGameServerColumns(alias string) gameServerColumns {
 		ServerSoftware:            sqlite.Quote(alias, "server_software"),
 		ServerExecutable:          sqlite.Quote(alias, "server_executable"),
 		TargetPinned:              sqlite.Quote(alias, "target_pinned"),
+		StartArgsPatches:          sqlite.Quote(alias, "start_args_patches"),
 	}
 }
 
@@ -120,7 +120,6 @@ type gameServerColumns struct {
 	UserID                    sqlite.Expression
 	Name                      sqlite.Expression
 	GameID                    sqlite.Expression
-	StartCommand              sqlite.Expression
 	Status                    sqlite.Expression
 	SetPlayers                sqlite.Expression
 	MaxPlayers                sqlite.Expression
@@ -142,6 +141,7 @@ type gameServerColumns struct {
 	ServerSoftware            sqlite.Expression
 	ServerExecutable          sqlite.Expression
 	TargetPinned              sqlite.Expression
+	StartArgsPatches          sqlite.Expression
 }
 
 func (c gameServerColumns) Alias() string {
@@ -160,7 +160,6 @@ type GameServerSetter struct {
 	UserID                    omit.Val[string]     `db:"user_id" `
 	Name                      omit.Val[string]     `db:"name" `
 	GameID                    omit.Val[string]     `db:"game_id" `
-	StartCommand              omit.Val[string]     `db:"start_command" `
 	Status                    omit.Val[string]     `db:"status" `
 	SetPlayers                omit.Val[int64]      `db:"set_players" `
 	MaxPlayers                omit.Val[int64]      `db:"max_players" `
@@ -182,6 +181,7 @@ type GameServerSetter struct {
 	ServerSoftware            omitnull.Val[string] `db:"server_software" `
 	ServerExecutable          omitnull.Val[string] `db:"server_executable" `
 	TargetPinned              omit.Val[bool]       `db:"target_pinned" `
+	StartArgsPatches          omit.Val[string]     `db:"start_args_patches" `
 }
 
 func (s GameServerSetter) SetColumns() []string {
@@ -197,9 +197,6 @@ func (s GameServerSetter) SetColumns() []string {
 	}
 	if s.GameID.IsValue() {
 		vals = append(vals, "game_id")
-	}
-	if s.StartCommand.IsValue() {
-		vals = append(vals, "start_command")
 	}
 	if s.Status.IsValue() {
 		vals = append(vals, "status")
@@ -264,6 +261,9 @@ func (s GameServerSetter) SetColumns() []string {
 	if s.TargetPinned.IsValue() {
 		vals = append(vals, "target_pinned")
 	}
+	if s.StartArgsPatches.IsValue() {
+		vals = append(vals, "start_args_patches")
+	}
 	return vals
 }
 
@@ -279,9 +279,6 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	}
 	if s.GameID.IsValue() {
 		t.GameID = s.GameID.MustGet()
-	}
-	if s.StartCommand.IsValue() {
-		t.StartCommand = s.StartCommand.MustGet()
 	}
 	if s.Status.IsValue() {
 		t.Status = s.Status.MustGet()
@@ -346,6 +343,9 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	if s.TargetPinned.IsValue() {
 		t.TargetPinned = s.TargetPinned.MustGet()
 	}
+	if s.StartArgsPatches.IsValue() {
+		t.StartArgsPatches = s.StartArgsPatches.MustGet()
+	}
 }
 
 func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
@@ -377,10 +377,6 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 
 		if s.GameID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.GameID.MustGet()))
-		}
-
-		if s.StartCommand.IsValue() {
-			vals = append(vals, sqlite.Arg(s.StartCommand.MustGet()))
 		}
 
 		if s.Status.IsValue() {
@@ -467,6 +463,10 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.TargetPinned.MustGet()))
 		}
 
+		if s.StartArgsPatches.IsValue() {
+			vals = append(vals, sqlite.Arg(s.StartArgsPatches.MustGet()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -507,13 +507,6 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "game_id")...),
 			sqlite.Arg(s.GameID),
-		}})
-	}
-
-	if s.StartCommand.IsValue() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "start_command")...),
-			sqlite.Arg(s.StartCommand),
 		}})
 	}
 
@@ -661,6 +654,13 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "target_pinned")...),
 			sqlite.Arg(s.TargetPinned),
+		}})
+	}
+
+	if s.StartArgsPatches.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "start_args_patches")...),
+			sqlite.Arg(s.StartArgsPatches),
 		}})
 	}
 
@@ -1598,7 +1598,6 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	UserID                    sqlite.WhereMod[Q, string]
 	Name                      sqlite.WhereMod[Q, string]
 	GameID                    sqlite.WhereMod[Q, string]
-	StartCommand              sqlite.WhereMod[Q, string]
 	Status                    sqlite.WhereMod[Q, string]
 	SetPlayers                sqlite.WhereMod[Q, int64]
 	MaxPlayers                sqlite.WhereMod[Q, int64]
@@ -1620,6 +1619,7 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	ServerSoftware            sqlite.WhereNullMod[Q, string]
 	ServerExecutable          sqlite.WhereNullMod[Q, string]
 	TargetPinned              sqlite.WhereMod[Q, bool]
+	StartArgsPatches          sqlite.WhereMod[Q, string]
 }
 
 func (gameServerWhere[Q]) AliasedAs(alias string) gameServerWhere[Q] {
@@ -1632,7 +1632,6 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		UserID:                    sqlite.Where[Q, string](cols.UserID),
 		Name:                      sqlite.Where[Q, string](cols.Name),
 		GameID:                    sqlite.Where[Q, string](cols.GameID),
-		StartCommand:              sqlite.Where[Q, string](cols.StartCommand),
 		Status:                    sqlite.Where[Q, string](cols.Status),
 		SetPlayers:                sqlite.Where[Q, int64](cols.SetPlayers),
 		MaxPlayers:                sqlite.Where[Q, int64](cols.MaxPlayers),
@@ -1654,6 +1653,7 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		ServerSoftware:            sqlite.WhereNull[Q, string](cols.ServerSoftware),
 		ServerExecutable:          sqlite.WhereNull[Q, string](cols.ServerExecutable),
 		TargetPinned:              sqlite.Where[Q, bool](cols.TargetPinned),
+		StartArgsPatches:          sqlite.Where[Q, string](cols.StartArgsPatches),
 	}
 }
 

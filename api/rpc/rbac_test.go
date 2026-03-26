@@ -83,9 +83,9 @@ func seedRBACRPCFixture(t *testing.T, conn *db.Connection) {
 
 	_, errNode := conn.SQLDb.ExecContext(
 		context.Background(),
-		`insert into node (id, name, is_local, host, port, base_url, enabled)
-		 values (?, ?, ?, ?, ?, ?, ?)`,
-		"node-local", "Local Node", true, "localhost", 8080, "http://localhost:8080", true,
+		`insert into node (id, name, is_local, host, port, base_url, enabled, os)
+		 values (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"node-local", "Local Node", true, "localhost", 8080, "http://localhost:8080", true, "linux",
 	)
 	if errNode != nil {
 		t.Fatalf("failed to insert node: %v", errNode)
@@ -143,10 +143,10 @@ func seedRBACRPCFixture(t *testing.T, conn *db.Connection) {
 	_, errServer := conn.SQLDb.ExecContext(
 		context.Background(),
 		`insert into game_server
-		 (id, user_id, name, game_id, start_command, status, set_players, max_players, map, ip, port, query_port, directory, node_id)
+		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
 		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"server-local-1", "user-owner", "Local One", "minecraft", "java -jar server.jar", "OFFLINE",
-		20, 20, "world", "127.0.0.1", 25565, 25565, "/tmp/server-local-1", "node-local",
+		"server-local-1", "user-owner", "Local One", "minecraft", "OFFLINE",
+		20, 20, "world", "127.0.0.1", 25565, 25565, "/tmp/server-local-1", "node-local", "[]",
 	)
 	if errServer != nil {
 		t.Fatalf("failed to insert game server: %v", errServer)
@@ -161,9 +161,9 @@ func seedRemoteNodeForRBACRPCTests(t *testing.T, conn *db.Connection, nodeID str
 
 	_, errInsertNode := conn.SQLDb.ExecContext(
 		context.Background(),
-		`insert into node (id, name, is_local, host, port, base_url, enabled)
-			 values (?, ?, ?, ?, ?, ?, ?)`,
-		nodeID, "Remote Node", false, host, 8443, baseURL, true,
+		`insert into node (id, name, is_local, host, port, base_url, enabled, os)
+			 values (?, ?, ?, ?, ?, ?, ?, ?)`,
+		nodeID, "Remote Node", false, host, 8443, baseURL, true, "",
 	)
 	if errInsertNode != nil {
 		t.Fatalf("failed to insert remote node: %v", errInsertNode)

@@ -3,6 +3,8 @@ package actions
 import (
 	"testing"
 
+	"github.com/aarondl/opt/null"
+
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -70,13 +72,15 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 	})
 
 	game := &models.Game{
-		LinuxStartCommand:         "linux-start",
+		LinuxBaseCommand:         "linux-base",
+		LinuxStartArgsTemplate:   null.From("linux-template"),
 		LinuxStopCommand:          "linux-stop",
 		LinuxInstallCommand:       "linux-install",
 		LinuxInstallCommandType:   "bash",
 		LinuxUpdateCommand:        "linux-update",
 		LinuxUpdateCommandType:    "bash",
-		WindowsStartCommand:       "windows-start",
+		WindowsBaseCommand:        "windows-base",
+		WindowsStartArgsTemplate:  null.From("windows-template"),
 		WindowsStopCommand:        "windows-stop",
 		WindowsInstallCommand:     "windows-install",
 		WindowsInstallCommandType: "cmd",
@@ -87,7 +91,8 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 	tests := []struct {
 		name        string
 		os          OSType
-		wantStart   string
+		wantBase    string
+		wantTemplate string
 		wantStop    string
 		wantInstall string
 		wantType    string
@@ -97,7 +102,8 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 		{
 			name:        "linux uses unix commands",
 			os:          Linux,
-			wantStart:   "linux-start",
+			wantBase:    "linux-base",
+			wantTemplate: "linux-template",
 			wantStop:    "linux-stop",
 			wantInstall: "linux-install",
 			wantType:    "bash",
@@ -107,7 +113,8 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 		{
 			name:        "darwin uses unix commands",
 			os:          Darwin,
-			wantStart:   "linux-start",
+			wantBase:    "linux-base",
+			wantTemplate: "linux-template",
 			wantStop:    "linux-stop",
 			wantInstall: "linux-install",
 			wantType:    "bash",
@@ -117,7 +124,8 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 		{
 			name:        "windows uses windows commands",
 			os:          Windows,
-			wantStart:   "windows-start",
+			wantBase:    "windows-base",
+			wantTemplate: "windows-template",
 			wantStop:    "windows-stop",
 			wantInstall: "windows-install",
 			wantType:    "cmd",
@@ -130,8 +138,11 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			OperatingSystem = tt.os
 
-			if got := gameStartCommand(game); got != tt.wantStart {
-				t.Errorf("gameStartCommand() = %q, want %q", got, tt.wantStart)
+			if got := gameBaseCommand(game); got != tt.wantBase {
+				t.Errorf("gameBaseCommand() = %q, want %q", got, tt.wantBase)
+			}
+			if got := gameStartArgsTemplate(game); got != tt.wantTemplate {
+				t.Errorf("gameStartArgsTemplate() = %q, want %q", got, tt.wantTemplate)
 			}
 			if got := gameStopCommand(game); got != tt.wantStop {
 				t.Errorf("gameStopCommand() = %q, want %q", got, tt.wantStop)

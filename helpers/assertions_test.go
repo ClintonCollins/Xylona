@@ -57,7 +57,7 @@ func TestGameServerProtoToModel(t *testing.T) {
 		UserId:                    "user-1",
 		Name:                      "My Server",
 		GameId:                    "game-1",
-		StartCommand:              "./start.sh",
+		StartArgsPatches:          `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
 		Status:                    xylona.Status_ONLINE,
 		SetMaxPlayers:             32,
 		MaxPlayers:                64,
@@ -89,6 +89,9 @@ func TestGameServerProtoToModel(t *testing.T) {
 	}
 	if got.Name != "My Server" {
 		t.Errorf("Name = %q, want %q", got.Name, "My Server")
+	}
+	if got.StartArgsPatches != `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]` {
+		t.Errorf("StartArgsPatches = %q, want %q", got.StartArgsPatches, `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`)
 	}
 	if got.Status != "ONLINE" {
 		t.Errorf("Status = %q, want %q", got.Status, "ONLINE")
@@ -143,7 +146,7 @@ func TestGameServerModelToProto(t *testing.T) {
 			UserID:                    "user-1",
 			Name:                      "My Server",
 			GameID:                    "game-1",
-			StartCommand:              "./start.sh",
+			StartArgsPatches:          `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
 			Status:                    "ONLINE",
 			SetPlayers:                32,
 			MaxPlayers:                64,
@@ -172,6 +175,9 @@ func TestGameServerModelToProto(t *testing.T) {
 
 		if got.Id != "gs-1" {
 			t.Errorf("Id = %q, want %q", got.Id, "gs-1")
+		}
+		if got.StartArgsPatches != `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]` {
+			t.Errorf("StartArgsPatches = %q, want %q", got.StartArgsPatches, `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`)
 		}
 		if got.Status != xylona.Status_ONLINE {
 			t.Errorf("Status = %v, want %v", got.Status, xylona.Status_ONLINE)

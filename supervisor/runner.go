@@ -56,7 +56,8 @@ type PreparedCommand struct {
 	ID                 string
 	InternalCommand    bool
 	InternalGameServer *models.GameServer
-	FullCommandAndArgs string
+	BaseCommand        string
+	Args               []string
 	WorkingDirectory   string
 	User               string
 	NodeID             string
@@ -551,7 +552,8 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.User = preparedCommand.User
 		newCommand.nodeID = preparedCommand.NodeID
 		newCommand.outputListeners = persistentCommand.outputListeners
-		newCommand.FullCommandAndArgs = preparedCommand.FullCommandAndArgs
+		newCommand.BaseCommand = preparedCommand.BaseCommand
+		newCommand.Args = append([]string(nil), preparedCommand.Args...)
 		newCommand.unixStartedAt = time.Now().Unix()
 		newCommand.status = preparedCommand.Status
 		newCommand.serviceID = preparedCommand.ServiceID
@@ -570,7 +572,8 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand = &Command{
 			ID:                  preparedCommand.ID,
 			User:                preparedCommand.User,
-			FullCommandAndArgs:  preparedCommand.FullCommandAndArgs,
+			BaseCommand:         preparedCommand.BaseCommand,
+			Args:                append([]string(nil), preparedCommand.Args...),
 			nodeID:              preparedCommand.NodeID,
 			unixStartedAt:       time.Now().Unix(),
 			status:              preparedCommand.Status,
@@ -593,34 +596,15 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 	return newCommand
 }
 
-func getCommandAndArgsSplit(command string) []string {
-	foundQuote := false
-	commandSplit := strings.FieldsFunc(command, func(r rune) bool {
-		if r == '"' {
-			foundQuote = !foundQuote
-		}
-		return r == ' ' && !foundQuote
-	})
-	for i, arg := range commandSplit {
-		if strings.HasPrefix(arg, "\"") && strings.HasSuffix(arg, "\"") {
-			commandSplit[i] = strings.Trim(arg, "\"")
-		}
-	}
-	return commandSplit
-}
-
 func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedCommand) (*exec.Cmd, error) {
 	log.Debug().Str("Command ID", preparedCommand.ID).Msg("Setting up command")
-	commandSplit := getCommandAndArgsSplit(preparedCommand.FullCommandAndArgs)
-
-	if len(commandSplit) == 0 {
-		log.Error().Interface("Game server ID", preparedCommand.GameServerID).Str("Command", preparedCommand.FullCommandAndArgs).Msg("No command specified")
+	baseCommand := strings.TrimSpace(preparedCommand.BaseCommand)
+	if baseCommand == "" {
+		log.Error().Interface("Game server ID", preparedCommand.GameServerID).Msg("No command specified")
 		return nil, fmt.Errorf("no command provided")
 	}
-	command := commandSplit[0]
-	args := commandSplit[1:]
 
-	cmd := exec.CommandContext(newCommand.processCtx, command, args...)
+	cmd := exec.CommandContext(newCommand.processCtx, baseCommand, preparedCommand.Args...)
 	cmd.Dir = preparedCommand.WorkingDirectory
 
 	stdOutPipe, stdErrPipe, err := inst.setupCmdPipes(newCommand, cmd)

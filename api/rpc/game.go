@@ -14,7 +14,7 @@ import (
 )
 
 func (xs *XylonaService) GetGame(ctx context.Context, request *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
@@ -25,16 +25,21 @@ func (xs *XylonaService) GetGame(ctx context.Context, request *connect.Request[x
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
+	gameProto := helpers.GameModelToProto(game)
+	if !user.SuperUser {
+		redactGameForNonSuperuser(gameProto)
+	}
+
 	resp := &connect.Response[xylona.GetGameResponse]{
 		Msg: &xylona.GetGameResponse{
-			Game: helpers.GameModelToProto(game),
+			Game: gameProto,
 		},
 	}
 	return resp, nil
 }
 
 func (xs *XylonaService) ListGames(ctx context.Context, request *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
@@ -52,6 +57,9 @@ func (xs *XylonaService) ListGames(ctx context.Context, request *connect.Request
 	gamesProto := make([]*xylona.Game, len(games))
 	for i, game := range games {
 		gameProto := helpers.GameModelToProto(game)
+		if !user.SuperUser {
+			redactGameForNonSuperuser(gameProto)
+		}
 		gamesProto[i] = gameProto
 	}
 	resp := &connect.Response[xylona.ListGamesResponse]{
@@ -75,6 +83,10 @@ func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xyl
 		gameProto.Id = uuid.NewString()
 	}
 	gameModel := helpers.GameProtoToModel(gameProto)
+	errValidateStartArgs := validateStructuredStartArgsGameConfig(gameModel)
+	if errValidateStartArgs != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errValidateStartArgs)
+	}
 	gameSetter := helpers.GameModelToGameSetter(gameModel)
 	game, errInsertGame := xs.db.InsertGame(xs.db.DB, gameSetter)
 	if errInsertGame != nil {
@@ -106,6 +118,10 @@ func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xy
 
 	}
 	updatedGameModel := helpers.GameProtoToModel(gameProto)
+	errValidateStartArgs := validateStructuredStartArgsGameConfig(updatedGameModel)
+	if errValidateStartArgs != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errValidateStartArgs)
+	}
 	gameSetter := helpers.GameModelToGameSetter(updatedGameModel)
 	gameSetter.ID = omit.From(gameModel.ID)
 

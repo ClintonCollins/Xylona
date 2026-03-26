@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -11,13 +12,17 @@ import (
 
 func newTestGame(id, name string) *xylona.Game {
 	return &xylona.Game{
-		Id:                id,
-		Name:              name,
-		DefaultPort:       25565,
-		DefaultQueryPort:  25565,
-		DefaultMaxPlayers: 20,
-		LinuxSupport:      true,
-		LinuxStartCommand: "java -jar server.jar",
+		Id:                       id,
+		Name:                     name,
+		DefaultPort:              25565,
+		DefaultQueryPort:         25565,
+		DefaultMaxPlayers:        20,
+		LinuxSupport:             true,
+		LinuxStartArgsTemplate:   `[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}]`,
+		LinuxBaseCommand:         "java",
+		WindowsSupport:           true,
+		WindowsStartArgsTemplate: `[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}]`,
+		WindowsBaseCommand:       "java",
 	}
 }
 
@@ -170,6 +175,26 @@ func TestAddGameValidData(t *testing.T) {
 	}
 }
 
+func TestAddGameRejectsInvalidStructuredStartArgs(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	game := newTestGame("add-game-invalid-start-args", "Add Game Invalid Start Args")
+	game.StartArgBlocklist = `[{"pattern":"[","reason":"broken regex"}]`
+
+	req := connect.NewRequest(&xylona.AddGameRequest{
+		Game: game,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	_, errAdd := fixture.service.AddGame(context.Background(), req)
+	if errAdd == nil {
+		t.Fatalf("AddGame() error = nil, want invalid argument")
+	}
+	if connect.CodeOf(errAdd) != connect.CodeInvalidArgument {
+		t.Errorf("AddGame() code = %v, want %v", connect.CodeOf(errAdd), connect.CodeInvalidArgument)
+	}
+}
+
 func TestAddGameDuplicateID(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
@@ -218,6 +243,29 @@ func TestEditGameValidData(t *testing.T) {
 	}
 }
 
+func TestEditGameRejectsInvalidStructuredStartArgs(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	game := addGameForTests(t, fixture, "edit-game-invalid-start-args", "Edit Game Invalid Start Args")
+
+	updatedGame := newTestGame(game.Id, "Edit Game Invalid Start Args")
+	updatedGame.LinuxBaseCommand = ""
+
+	req := connect.NewRequest(&xylona.EditGameRequest{
+		GameId: game.Id,
+		Game:   updatedGame,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	_, errEdit := fixture.service.EditGame(context.Background(), req)
+	if errEdit == nil {
+		t.Fatalf("EditGame() error = nil, want invalid argument")
+	}
+	if connect.CodeOf(errEdit) != connect.CodeInvalidArgument {
+		t.Errorf("EditGame() code = %v, want %v", connect.CodeOf(errEdit), connect.CodeInvalidArgument)
+	}
+}
+
 func TestEditGameNonExistentID(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
@@ -233,6 +281,31 @@ func TestEditGameNonExistentID(t *testing.T) {
 	}
 	if connect.CodeOf(errEdit) != connect.CodeNotFound {
 		t.Errorf("EditGame() code = %v, want %v", connect.CodeOf(errEdit), connect.CodeNotFound)
+	}
+}
+
+func TestGetGameValheimSeedDoesNotUseKnownDefaultPassword(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	req := connect.NewRequest(&xylona.GetGameRequest{
+		Id: "valheim",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	resp, errGet := fixture.service.GetGame(context.Background(), req)
+	if errGet != nil {
+		t.Fatalf("GetGame(valheim) error = %v", errGet)
+	}
+
+	template := resp.Msg.GetGame().GetLinuxStartArgsTemplate()
+	if template == "" {
+		t.Fatalf("GetGame(valheim).Game.LinuxStartArgsTemplate = empty, want seeded template")
+	}
+	if containsKnownDefault := strings.Contains(template, `"changeme"`); containsKnownDefault {
+		t.Fatalf("GetGame(valheim).Game.LinuxStartArgsTemplate leaked known default password: %s", template)
+	}
+	if !strings.Contains(template, `{{SERVER_ID}}`) {
+		t.Fatalf("GetGame(valheim).Game.LinuxStartArgsTemplate = %s, want unique SERVER_ID placeholder", template)
 	}
 }
 

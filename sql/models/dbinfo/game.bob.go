@@ -123,15 +123,6 @@ var Games = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
-		LinuxStartCommand: column{
-			Name:      "linux_start_command",
-			DBType:    "TEXT",
-			Default:   "''",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
 		LinuxStopCommand: column{
 			Name:      "linux_stop_command",
 			DBType:    "TEXT",
@@ -190,15 +181,6 @@ var Games = Table[
 			Name:      "windows_support",
 			DBType:    "BOOLEAN",
 			Default:   "false",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		WindowsStartCommand: column{
-			Name:      "windows_start_command",
-			DBType:    "TEXT",
-			Default:   "''",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -303,6 +285,60 @@ var Games = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		LinuxStartArgsTemplate: column{
+			Name:      "linux_start_args_template",
+			DBType:    "TEXT",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		WindowsStartArgsTemplate: column{
+			Name:      "windows_start_args_template",
+			DBType:    "TEXT",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		LinuxBaseCommand: column{
+			Name:      "linux_base_command",
+			DBType:    "TEXT",
+			Default:   "''",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		WindowsBaseCommand: column{
+			Name:      "windows_base_command",
+			DBType:    "TEXT",
+			Default:   "''",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		StartArgBlocklist: column{
+			Name:      "start_arg_blocklist",
+			DBType:    "TEXT",
+			Default:   "'[]'",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		AllowStartArgEditing: column{
+			Name:      "allow_start_arg_editing",
+			DBType:    "BOOLEAN",
+			Default:   "TRUE",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameIndexes{
 		SqliteAutoindexGame1: index{
@@ -342,7 +378,6 @@ type gameColumns struct {
 	SteamAppID                        column
 	RequiresSteamGameServerLoginToken column
 	LinuxSupport                      column
-	LinuxStartCommand                 column
 	LinuxStopCommand                  column
 	LinuxInstallCommand               column
 	LinuxInstallCommandType           column
@@ -350,7 +385,6 @@ type gameColumns struct {
 	LinuxUpdateCommandType            column
 	LinuxWorkingDirectory             column
 	WindowsSupport                    column
-	WindowsStartCommand               column
 	WindowsStopCommand                column
 	WindowsInstallCommand             column
 	WindowsInstallCommandType         column
@@ -362,11 +396,17 @@ type gameColumns struct {
 	XylonaOfficial                    column
 	ConfigSchemas                     column
 	ServerSoftware                    column
+	LinuxStartArgsTemplate            column
+	WindowsStartArgsTemplate          column
+	LinuxBaseCommand                  column
+	WindowsBaseCommand                column
+	StartArgBlocklist                 column
+	AllowStartArgEditing              column
 }
 
 func (c gameColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.BindsToAllIps, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStartCommand, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStartCommand, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware,
+		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.BindsToAllIps, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware, c.LinuxStartArgsTemplate, c.WindowsStartArgsTemplate, c.LinuxBaseCommand, c.WindowsBaseCommand, c.StartArgBlocklist, c.AllowStartArgEditing,
 	}
 }
 

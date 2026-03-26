@@ -375,22 +375,22 @@ func TestRunUpdateWithBackupWritesProgressToConsoleBuffer(t *testing.T) {
 	}
 	gameServer.R.Game = &models.Game{}
 	_, errInsertServer := conn.InsertGameServer(conn.DB, &models.GameServerSetter{
-		ID:           omit.From(gameServer.ID),
-		UserID:       omit.From(gameServer.UserID),
-		Name:         omit.From("Console Progress Server"),
-		GameID:       omit.From(gameID),
-		StartCommand: omit.From("internal-update"),
-		Status:       omit.From("OFFLINE"),
-		SetPlayers:   omit.From(int64(20)),
-		MaxPlayers:   omit.From(int64(20)),
-		Map:          omit.From("world"),
-		IP:           omit.From("127.0.0.1"),
-		Port:         omit.From(int64(25565)),
-		QueryPort:    omit.From(int64(25565)),
-		Directory:    omit.From(serverDir),
-		NodeID:       omit.From("node-local"),
-		CreatedAt:    omit.From(now),
-		UpdatedAt:    omit.From(now),
+		ID:               omit.From(gameServer.ID),
+		UserID:           omit.From(gameServer.UserID),
+		Name:             omit.From("Console Progress Server"),
+		GameID:           omit.From(gameID),
+		StartArgsPatches: omit.From("[]"),
+		Status:           omit.From("OFFLINE"),
+		SetPlayers:       omit.From(int64(20)),
+		MaxPlayers:       omit.From(int64(20)),
+		Map:              omit.From("world"),
+		IP:               omit.From("127.0.0.1"),
+		Port:             omit.From(int64(25565)),
+		QueryPort:        omit.From(int64(25565)),
+		Directory:        omit.From(serverDir),
+		NodeID:           omit.From("node-local"),
+		CreatedAt:        omit.From(now),
+		UpdatedAt:        omit.From(now),
 	})
 	if errInsertServer != nil {
 		t.Fatalf("InsertGameServer() error = %v", errInsertServer)

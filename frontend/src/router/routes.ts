@@ -119,6 +119,10 @@ const routes: RouteRecordRaw[] = [
             component: () => import('pages/game_servers/GameServerSettings.vue'),
           },
           {
+            path: 'start-command',
+            component: () => import('pages/game_servers/GameServerStartArgs.vue'),
+          },
+          {
             path: 'mods',
             name: 'game-server-mods',
             component: () => import('pages/game_servers/GameServerMods.vue'),

@@ -95,7 +95,6 @@ test.describe('Federation remote server lifecycle', () => {
         name: 'E2E Temp Federation Delete',
         gameId: game.id,
         userId: adminUserIdB,
-        startCommand: 'echo test',
         directory: '.',
         port: 25596,
       },

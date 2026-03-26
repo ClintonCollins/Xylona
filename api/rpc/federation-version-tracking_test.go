@@ -565,10 +565,10 @@ func insertFederatedTestServer(t *testing.T, conn *db.Connection, serverID strin
 	_, errInsert := conn.SQLDb.ExecContext(
 		context.Background(),
 		`insert into game_server
-		 (id, user_id, name, game_id, start_command, status, set_players, max_players, map, ip, port, query_port, directory, node_id)
+		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
 		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		serverID, "user-owner", serverName, gameID, "java -jar server.jar", "OFFLINE",
-		20, 20, "world", "127.0.0.1", 25565, 25565, fmt.Sprintf("/tmp/%s", serverID), "node-local",
+		serverID, "user-owner", serverName, gameID, "OFFLINE",
+		20, 20, "world", "127.0.0.1", 25565, 25565, fmt.Sprintf("/tmp/%s", serverID), "node-local", "[]",
 	)
 	if errInsert != nil {
 		t.Fatalf("insert test game server: %v", errInsert)

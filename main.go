@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -354,6 +355,7 @@ func main() {
 		version.SystemVersion,
 		version.FederationProtocolVersion,
 		version.FederationCapabilities,
+		runtime.GOOS,
 	)
 	if errUpdateNodeIdentity != nil {
 		log.Fatal().Err(errUpdateNodeIdentity).Str("node_id", settings.NodeID).Msg("Failed to stamp local node identity")

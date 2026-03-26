@@ -99,7 +99,6 @@ export async function fedApiCreateGameServer(
     name: string
     gameId: string
     userId: string
-    startCommand: string
     directory: string
     ip?: string
     port?: number
@@ -118,7 +117,6 @@ export async function fedApiCreateGameServer(
         name: serverDef.name,
         gameId: serverDef.gameId,
         userId: serverDef.userId,
-        startCommand: serverDef.startCommand,
         directory: serverDef.directory,
         ip: { address: serverDef.ip ?? '' },
         port: serverDef.port ?? 25599,

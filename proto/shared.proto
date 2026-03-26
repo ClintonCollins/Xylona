@@ -92,7 +92,8 @@ message Game {
   int64 default_max_players = 5;
   bool linux_support = 6;
   bool windows_support = 7;
-  string linux_start_command = 8;
+  reserved 8;
+  reserved "linux_start_command";
   string linux_stop_command = 9;
   string linux_install_command = 10;
   string linux_update_command = 11;
@@ -100,7 +101,8 @@ message Game {
   reserved 13;
   reserved "linux_configuration_file_paths";
   bool linux_allow_backups = 14;
-  string windows_start_command = 15;
+  reserved 15;
+  reserved "windows_start_command";
   string windows_stop_command = 16;
   string windows_install_command = 17;
   string windows_update_command = 18;
@@ -131,6 +133,12 @@ message Game {
   CommandType linux_update_type = 77;
   CommandType windows_install_type = 78;
   CommandType windows_update_type = 79;
+  string linux_start_args_template = 80;
+  string windows_start_args_template = 81;
+  string linux_base_command = 82;
+  string windows_base_command = 83;
+  string start_arg_blocklist = 84;
+  bool allow_start_arg_editing = 85;
 }
 
 message SteamApp {
@@ -175,7 +183,8 @@ message GameServer {
   string user_id = 2;
   string name = 3;
   string game_id = 4;
-  string start_command = 5;
+  reserved 5;
+  reserved "start_command";
   Status status = 6;
   int64 set_max_players = 7;
   int64 max_players = 8;
@@ -224,6 +233,7 @@ message GameServer {
   bool resolved_has_update = 50;
   bool resolved_has_mod_support = 51;
   bool selected_target_pinned = 52;
+  string start_args_patches = 53;
 }
 
 enum VersionStatus {
@@ -372,6 +382,7 @@ message Node {
   bool allow_insecure_tls = 19;
   bool departed = 20;
   bool auto_paired = 21;
+  string os = 22;
 }
 
 message SecretKey {

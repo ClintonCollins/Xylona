@@ -436,6 +436,7 @@ func (e *FederationSyncEngine) healthCheckPeer(nodeID string) {
 		resp.Msg.Version,
 		resp.Msg.ProtocolVersion,
 		resp.Msg.Capabilities,
+		resp.Msg.GetSystemInfo().GetOs(),
 	)
 	if errIdentity != nil {
 		log.Error().Err(errIdentity).Str("node_id", nodeID).Msg("Failed to update node identity")

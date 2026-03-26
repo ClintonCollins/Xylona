@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 func TestNewInstance(t *testing.T) {
@@ -52,45 +54,19 @@ func TestGetCommandByID(t *testing.T) {
 	}
 }
 
-func TestGetCommandAndArgsSplit(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected []string
-	}{
-		{
-			name:     "simple command",
-			input:    "ls -la",
-			expected: []string{"ls", "-la"},
-		},
-		{
-			name:     "command with quotes",
-			input:    `echo "hello world"`,
-			expected: []string{"echo", "hello world"},
-		},
-		{
-			name:     "multiple spaces",
-			input:    "ls    -la",
-			expected: []string{"ls", "-la"},
-		},
-		{
-			name:     "quoted path",
-			input:    `"/path with spaces/bin" --arg`,
-			expected: []string{"/path with spaces/bin", "--arg"},
-		},
+func TestPrepareCommandProcessRequiresBaseCommand(t *testing.T) {
+	ctx := context.Background()
+
+	inst, errNew := New(ctx)
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor instance: %v", errNew)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getCommandAndArgsSplit(tt.input)
-			if len(got) != len(tt.expected) {
-				t.Fatalf("got %d args, want %d", len(got), len(tt.expected))
-			}
-			for i := range got {
-				if got[i] != tt.expected[i] {
-					t.Errorf("arg %d: got %q, want %q", i, got[i], tt.expected[i])
-				}
-			}
-		})
+	_, errPrepare := inst.prepareCommandProcess(PreparedCommand{
+		ID:     "missing-base-command",
+		Status: xylona.Status_ONLINE,
+	})
+	if errPrepare == nil {
+		t.Fatal("expected error for missing base command")
 	}
 }
