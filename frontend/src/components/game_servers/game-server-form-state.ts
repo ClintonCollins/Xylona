@@ -171,6 +171,14 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   const provisioningCapacity = computed(
     () => `${maxPlayersModel.value || 0} max / start ${setPlayersModel.value || 0}`,
   )
+  const serverExecutableSummary = computed(() => {
+    const executable = gameServer.value.serverExecutable?.trim() ?? ''
+    if (executable.length > 0) {
+      return executable
+    }
+
+    return 'Not set'
+  })
 
   const serverNameRules = [
     (value: string | null | undefined) => validateRequiredText(value, 'Server Name'),
@@ -475,6 +483,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     selectedGameName,
     selectedNodeName,
     selectedOwnerName,
+    serverExecutableSummary,
     serverNameRules,
     setPlayersModel,
     setPlayersRules,

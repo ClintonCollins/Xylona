@@ -23,6 +23,7 @@ var Registry = []Placeholder{
 	{Key: "IP", Label: "IP Address", Description: "The game server's bound IP address"},
 	{Key: "PORT", Label: "Server Port", Description: "The game server's port"},
 	{Key: "QUERY_PORT", Label: "Query Port", Description: "The query port"},
+	{Key: "MAX_MEMORY_MB", Label: "Game Server Memory (MB)", Description: "The game server's configured memory limit in megabytes"},
 	{Key: "MAX_PLAYERS", Label: "Max Players", Description: "Maximum player count"},
 	{Key: "SERVER_NAME", Label: "Server Name", Description: "The game server's display name"},
 	{Key: "RCON_PORT", Label: "RCON Port", Description: "The RCON port"},
@@ -38,6 +39,7 @@ var ManagedSourceMapping = map[string]string{
 	"ip":            "IP",
 	"server_port":   "PORT",
 	"query_port":    "QUERY_PORT",
+	"max_memory_mb": "MAX_MEMORY_MB",
 	"max_players":   "MAX_PLAYERS",
 	"server_name":   "SERVER_NAME",
 	"rcon_port":     "RCON_PORT",
@@ -47,9 +49,10 @@ var ManagedSourceMapping = map[string]string{
 // BackendManagedSourceMapping maps the backend managed source keys
 // (game_server.* format used in cfgschema) to placeholder keys.
 var BackendManagedSourceMapping = map[string]string{
-	"game_server.ip":         "IP",
-	"game_server.port":       "PORT",
-	"game_server.query_port": "QUERY_PORT",
+	"game_server.ip":            "IP",
+	"game_server.port":          "PORT",
+	"game_server.query_port":    "QUERY_PORT",
+	"game_server.max_memory_mb": "MAX_MEMORY_MB",
 }
 
 // legacyMapping maps old %GAMESERVER_*% format to new placeholder keys.
@@ -142,16 +145,16 @@ func ResolveTokens(tokens []string, vars map[string]string) []string {
 // model does not have those fields yet.
 func BuildVarsFromGameServer(gs *models.GameServer) map[string]string {
 	return map[string]string{
-		"IP":            gs.IP,
-		"PORT":          strconv.FormatInt(gs.Port, 10),
-		"QUERY_PORT":    strconv.FormatInt(gs.QueryPort, 10),
-		"MAX_PLAYERS":   fmt.Sprintf("%d", gs.MaxPlayers),
-		"SERVER_NAME":   gs.Name,
-		"INSTALL_DIR":   gs.Directory,
-		"SERVER_ID":     gs.ID,
-		"BACKUP_DIR":    gs.BackupDirectory,
-		"MAX_MEMORY_MB": fmt.Sprintf("%d", gs.MaxMemoryMB),
-		"SET_PLAYERS":      fmt.Sprintf("%d", gs.SetPlayers),
+		"IP":                gs.IP,
+		"PORT":              strconv.FormatInt(gs.Port, 10),
+		"QUERY_PORT":        strconv.FormatInt(gs.QueryPort, 10),
+		"MAX_PLAYERS":       fmt.Sprintf("%d", gs.MaxPlayers),
+		"SERVER_NAME":       gs.Name,
+		"INSTALL_DIR":       gs.Directory,
+		"SERVER_ID":         gs.ID,
+		"BACKUP_DIR":        gs.BackupDirectory,
+		"MAX_MEMORY_MB":     fmt.Sprintf("%d", gs.MaxMemoryMB),
+		"SET_PLAYERS":       fmt.Sprintf("%d", gs.SetPlayers),
 		"SERVER_EXECUTABLE": gs.ServerExecutable.GetOr(""),
 	}
 }

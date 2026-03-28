@@ -158,6 +158,7 @@ describe('GameServerSettingsForm', () => {
         setMaxPlayers: 20n,
         maxPlayers: 20n,
         maxMemoryMb: 1024n,
+        serverExecutable: 'paper.jar',
       }),
     })
 
@@ -170,6 +171,7 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="editable-ip"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-port"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-query-port"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="editable-server-executable"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-max-players"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-max-memory"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="readonly-provisioning"]').exists()).toBe(false)
@@ -192,6 +194,7 @@ describe('GameServerSettingsForm', () => {
         setMaxPlayers: 20n,
         maxPlayers: 20n,
         maxMemoryMb: 1024n,
+        serverExecutable: 'paper.jar',
       }),
     })
 
@@ -205,6 +208,7 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="readonly-connection"]').text()).toContain('127.0.0.1:25565')
     expect(wrapper.find('[data-testid="readonly-capacity"]').text()).toContain('20')
     expect(wrapper.find('[data-testid="readonly-max-memory"]').text()).toContain('1024')
+    expect(wrapper.find('[data-testid="readonly-server-executable"]').text()).toContain('paper.jar')
 
     expect(wrapper.find('[data-testid="editable-name"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-set-players"]').exists()).toBe(true)
@@ -214,6 +218,7 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="editable-ip"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-port"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-query-port"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="editable-server-executable"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-max-players"]').exists()).toBe(false)
   })
 

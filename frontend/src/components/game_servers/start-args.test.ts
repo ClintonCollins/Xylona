@@ -12,4 +12,14 @@ describe('buildPlaceholderVars', () => {
       SERVER_ID: 'server-123',
     })
   })
+
+  it('includes MAX_MEMORY_MB for memory-based placeholder resolution', () => {
+    expect(
+      buildPlaceholderVars({
+        maxMemoryMb: 4096n,
+      }),
+    ).toMatchObject({
+      MAX_MEMORY_MB: '4096',
+    })
+  })
 })

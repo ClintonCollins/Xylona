@@ -84,10 +84,14 @@ const QInputStub = defineComponent({
   template: '<div class="q-input-stub" v-bind="$attrs">{{ label }}</div>',
 })
 
-function mountGameForm() {
+function mountGameForm(
+  stubOverrides: Record<string, unknown> = {},
+  propOverrides: Record<string, unknown> = {},
+) {
   return mount(GameForm, {
     props: {
       existingGameId: 'minecraft',
+      ...propOverrides,
     },
     global: {
       stubs: {
@@ -98,7 +102,8 @@ function mountGameForm() {
           props: ['label'],
         },
         'q-btn': {
-          template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot />{{ label }}</button>',
+          template:
+            '<button v-bind="$attrs" @click="$emit(\'click\')"><slot />{{ label }}</button>',
           props: ['label'],
           emits: ['click'],
         },
@@ -111,6 +116,7 @@ function mountGameForm() {
         StartArgsTemplateEditor: { template: '<div data-testid="start-args-template-editor" />' },
         BlocklistEditor: { template: '<div data-testid="blocklist-editor" />' },
         DownstreamImpactPanel: { template: '<div data-testid="downstream-impact-panel" />' },
+        ...stubOverrides,
       },
     },
   })
@@ -125,6 +131,8 @@ describe('GameForm', () => {
         observe() {}
       },
     )
+
+    window.history.replaceState({}, '', '/')
 
     mocks.addGame.mockReset()
     mocks.editGame.mockReset()
@@ -210,7 +218,8 @@ describe('GameForm', () => {
         name: 'Minecraft',
         linuxSupport: true,
         windowsSupport: true,
-        linuxStartArgsTemplate: '[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"]}]',
+        linuxStartArgsTemplate:
+          '[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"]}]',
         windowsStartArgsTemplate:
           '[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"]}]',
         linuxBaseCommand: 'java',
@@ -227,9 +236,7 @@ describe('GameForm', () => {
     const wrapper = mountGameForm()
     await flushPromises()
 
-    const saveButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'Save')
+    const saveButton = wrapper.findAll('button').find((button) => button.text().trim() === 'Save')
 
     expect(saveButton).toBeDefined()
     if (!saveButton) {
@@ -242,11 +249,304 @@ describe('GameForm', () => {
     expect(mocks.editGame).toHaveBeenCalledTimes(1)
     expect(mocks.updateGameStartArgsTemplate).not.toHaveBeenCalled()
     expect(mocks.updateGameStartArgBlocklist).not.toHaveBeenCalled()
+    expect(mocks.push).not.toHaveBeenCalled()
 
     const request = mocks.editGame.mock.calls[0][0]
     expect(request.game.linuxStartArgsTemplate).toContain('"id":"jar"')
     expect(request.game.windowsStartArgsTemplate).toContain('"id":"jar"')
     expect(request.game.linuxBaseCommand).toBe('java')
     expect(request.game.windowsBaseCommand).toBe('java')
+  })
+
+  it('redirects newly created games into their edit page instead of the games list', async () => {
+    mocks.addGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+      }),
+    })
+
+    const wrapper = mountGameForm({}, { existingGameId: '' })
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text().trim() === 'Save')
+
+    expect(saveButton).toBeDefined()
+    if (!saveButton) {
+      throw new Error('expected Save button to exist')
+    }
+
+    await saveButton.trigger('click')
+    await flushPromises()
+
+    expect(mocks.addGame).toHaveBeenCalledTimes(1)
+    expect(mocks.push).toHaveBeenCalledWith({ path: '/games/minecraft/edit' })
+  })
+
+  it('organizes the editor into tabs and switches to runtime details on demand', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+        linuxStartArgsTemplate:
+          '[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"]}]',
+        windowsStartArgsTemplate:
+          '[{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"]}]',
+        linuxBaseCommand: 'java',
+        windowsBaseCommand: 'java',
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    const overviewPanel = wrapper.get('[data-testid="game-form-tab-panel-overview"]')
+    const runtimePanel = wrapper.get('[data-testid="game-form-tab-panel-runtime"]')
+
+    expect(overviewPanel.attributes('style') ?? '').not.toContain('display: none')
+    expect(runtimePanel.attributes('style') ?? '').toContain('display: none')
+
+    await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+
+    expect(overviewPanel.attributes('style') ?? '').toContain('display: none')
+    expect(runtimePanel.attributes('style') ?? '').not.toContain('display: none')
+  })
+
+  it('restores the last active tab from history state on reload', async () => {
+    window.history.replaceState({ xylonaGameFormTab: 'runtime' }, '', '/')
+
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    const overviewPanel = wrapper.get('[data-testid="game-form-tab-panel-overview"]')
+    const runtimePanel = wrapper.get('[data-testid="game-form-tab-panel-runtime"]')
+
+    expect(overviewPanel.attributes('style') ?? '').toContain('display: none')
+    expect(runtimePanel.attributes('style') ?? '').not.toContain('display: none')
+    expect(wrapper.get('[data-testid="game-form-tab-runtime"]').attributes('aria-selected')).toBe(
+      'true',
+    )
+  })
+
+  it('stores tab selections in history state', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+    expect(window.history.state?.xylonaGameFormTab).toBe('runtime')
+
+    await wrapper.get('[data-testid="game-form-tab-config"]').trigger('click')
+    expect(window.history.state?.xylonaGameFormTab).toBe('config')
+  })
+
+  it('treats runtime policy as an advanced section beneath the launch editor', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="start-args-template-editor"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="runtime-policy-toggle"]').attributes('aria-expanded')).toBe(
+      'false',
+    )
+    expect(wrapper.find('[data-testid="runtime-policy-panel"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="runtime-policy-toggle"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="runtime-policy-toggle"]').attributes('aria-expanded')).toBe(
+      'true',
+    )
+    expect(wrapper.get('[data-testid="runtime-policy-panel"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="blocklist-editor"]').exists()).toBe(true)
+  })
+
+  it('passes the loaded runtime baseline into the launch editor reset props', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+        linuxStartArgsTemplate:
+          '[{"id":"jar","order":0,"ownership":"system","label":"Jar","tokens":["-jar","server.jar"]}]',
+        windowsStartArgsTemplate:
+          '[{"id":"nogui","order":0,"ownership":"editable","label":"No GUI","tokens":["nogui"]}]',
+        linuxBaseCommand: 'java',
+        windowsBaseCommand: 'javaw',
+      }),
+    })
+
+    const wrapper = mountGameForm({
+      StartArgsTemplateEditor: defineComponent({
+        name: 'ResetAwareStartArgsTemplateEditorStub',
+        props: {
+          baselineLinuxBaseCommand: {
+            type: String,
+            default: '',
+          },
+          baselineLinuxTemplate: {
+            type: Array,
+            default: () => [],
+          },
+          baselineWindowsBaseCommand: {
+            type: String,
+            default: '',
+          },
+          baselineWindowsTemplate: {
+            type: Array,
+            default: () => [],
+          },
+        },
+        template: `
+          <div data-testid="start-args-template-editor">
+            <span data-testid="baseline-linux-command">{{ baselineLinuxBaseCommand }}</span>
+            <span data-testid="baseline-windows-command">{{ baselineWindowsBaseCommand }}</span>
+            <span data-testid="baseline-linux-count">{{ baselineLinuxTemplate.length }}</span>
+            <span data-testid="baseline-windows-count">{{ baselineWindowsTemplate.length }}</span>
+          </div>
+        `,
+      }),
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="baseline-linux-command"]').text()).toBe('java')
+    expect(wrapper.get('[data-testid="baseline-windows-command"]').text()).toBe('javaw')
+    expect(wrapper.get('[data-testid="baseline-linux-count"]').text()).toBe('1')
+    expect(wrapper.get('[data-testid="baseline-windows-count"]').text()).toBe('1')
+  })
+
+  it('gives the advanced runtime policy toggle a concise accessible label', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+
+    const toggle = wrapper.get('[data-testid="runtime-policy-toggle"]')
+    expect(toggle.attributes('aria-label')).toBe('Expand advanced runtime policy')
+    expect(toggle.attributes('aria-describedby')).toBe('runtime-policy-assistive-summary')
+
+    await toggle.trigger('click')
+
+    expect(toggle.attributes('aria-label')).toBe('Collapse advanced runtime policy')
+  })
+
+  it('removes the extra runtime header chrome and focuses on the launch editor', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+
+    expect(wrapper.find('.game-form-tab-note').exists()).toBe(false)
+
+    const runtimePanel = wrapper.get('[data-testid="game-form-tab-panel-runtime"]')
+    expect(runtimePanel.find('.section-header').exists()).toBe(false)
+    expect(runtimePanel.find('.section-help').exists()).toBe(false)
+    expect(runtimePanel.find('.game-form-sr-only').text()).toContain('Runtime')
+    expect(runtimePanel.get('[data-testid="start-args-template-editor"]').exists()).toBe(true)
+  })
+
+  it('connects tabs and panels with accessible relationships and headings', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    expect(wrapper.get('h1').text()).toContain('Editing Minecraft')
+
+    const panels = [
+      ['overview', 'Identity'],
+      ['runtime', 'Runtime'],
+      ['mods', 'Mods'],
+      ['config', 'Configuration Files'],
+    ] as const
+
+    for (const [tabId, sectionHeading] of panels) {
+      const tab = wrapper.get(`[data-testid="game-form-tab-${tabId}"]`)
+      const panel = wrapper.get(`[data-testid="game-form-tab-panel-${tabId}"]`)
+
+      expect(tab.attributes('id')).toBe(`game-form-tab-${tabId}`)
+      expect(tab.attributes('aria-controls')).toBe(`game-form-tab-panel-${tabId}`)
+      expect(panel.attributes('id')).toBe(`game-form-tab-panel-${tabId}`)
+      expect(panel.attributes('role')).toBe('tabpanel')
+      expect(panel.attributes('aria-labelledby')).toBe(`game-form-tab-${tabId}`)
+      expect(wrapper.findAll('h2').some((heading) => heading.text().includes(sectionHeading))).toBe(
+        true,
+      )
+    }
+  })
+
+  it('keeps install and update fields on the overview tab', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="game-form-tab-install"]').exists()).toBe(false)
+
+    const overviewPanel = wrapper.get('[data-testid="game-form-tab-panel-overview"]')
+    expect(overviewPanel.text()).toContain('Install & Update')
   })
 })

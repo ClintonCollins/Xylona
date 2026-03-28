@@ -80,6 +80,7 @@
                   size="sm"
                   :icon="schema.generate_before_start ? 'toggle_on' : 'toggle_off'"
                   :color="schema.generate_before_start ? 'info' : 'grey-6'"
+                  aria-label="Toggle generate before start"
                   data-test="toggle-generate-before-start"
                   @click="toggleGenerateBeforeStart(getGlobalIndex(String(category), index))">
                   <q-tooltip>
@@ -96,6 +97,7 @@
                   round
                   icon="edit"
                   size="sm"
+                  aria-label="Edit schema"
                   @click="$emit('editSchema', getGlobalIndex(String(category), index))">
                   <q-tooltip>Edit schema</q-tooltip>
                 </q-btn>
@@ -106,6 +108,7 @@
                   icon="delete"
                   size="sm"
                   color="negative"
+                  aria-label="Remove schema"
                   @click="removeSchema(getGlobalIndex(String(category), index))">
                   <q-tooltip>Remove</q-tooltip>
                 </q-btn>
@@ -166,14 +169,14 @@ const configSchemas = computed(() => props.modelValue)
 const showAddDialog = ref(false)
 
 const CATEGORY_COLORS = [
-  '#3B82F6',
-  '#22C55E',
-  '#F59E0B',
-  '#8B5CF6',
-  '#EF4444',
-  '#06B6D4',
-  '#EC4899',
-  '#F97316',
+  'var(--xy-category-1)',
+  'var(--xy-category-2)',
+  'var(--xy-category-3)',
+  'var(--xy-category-4)',
+  'var(--xy-category-5)',
+  'var(--xy-category-6)',
+  'var(--xy-category-7)',
+  'var(--xy-category-8)',
 ]
 
 const existingCategories = computed(() => [...new Set(configSchemas.value.map((s) => s.category))])

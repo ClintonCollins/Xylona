@@ -29,6 +29,10 @@
         <span class="readonly-provisioning-label">Capacity</span>
         <span class="readonly-provisioning-value">{{ capacity }}</span>
       </article>
+      <article class="readonly-provisioning-item" data-testid="readonly-server-executable">
+        <span class="readonly-provisioning-label">Executable</span>
+        <span class="readonly-provisioning-value">{{ executable }}</span>
+      </article>
       <article
         v-if="showMemory"
         class="readonly-provisioning-item"
@@ -44,6 +48,7 @@
 defineProps<{
   capacity: string
   connection: string
+  executable: string
   game: string
   memory: string
   node: string

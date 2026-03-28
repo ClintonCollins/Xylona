@@ -9,6 +9,11 @@ export const placeholders: PlaceholderDefinition[] = [
   { key: 'IP', label: 'IP Address', description: "The game server's bound IP address" },
   { key: 'PORT', label: 'Server Port', description: "The game server's port" },
   { key: 'QUERY_PORT', label: 'Query Port', description: 'The query port' },
+  {
+    key: 'MAX_MEMORY_MB',
+    label: 'Game Server Memory (MB)',
+    description: "The game server's configured memory limit in megabytes",
+  },
   { key: 'MAX_PLAYERS', label: 'Max Players', description: 'Maximum player count' },
   { key: 'SERVER_NAME', label: 'Server Name', description: "The game server's display name" },
   { key: 'RCON_PORT', label: 'RCON Port', description: 'The RCON port' },
@@ -25,6 +30,12 @@ export const placeholders: PlaceholderDefinition[] = [
     description: 'The Steam application ID',
     commandOnly: true,
   },
+  {
+    key: 'SERVER_EXECUTABLE',
+    label: 'Server Executable',
+    description: 'The server software executable filename (for example, paper-1.21.4-100.jar)',
+    commandOnly: true,
+  },
 ]
 
 /** Managed source key -> placeholder key mapping */
@@ -32,6 +43,7 @@ export const managedSourceToPlaceholder: Record<string, string> = {
   ip: 'IP',
   server_port: 'PORT',
   query_port: 'QUERY_PORT',
+  max_memory_mb: 'MAX_MEMORY_MB',
   max_players: 'MAX_PLAYERS',
   server_name: 'SERVER_NAME',
   rcon_port: 'RCON_PORT',
@@ -42,6 +54,7 @@ const frontendManagedSourceToBackendSourceMap: Record<string, string> = {
   ip: 'game_server.ip',
   server_port: 'game_server.port',
   query_port: 'game_server.query_port',
+  max_memory_mb: 'game_server.max_memory_mb',
   max_players: 'game_server.max_players',
   server_name: 'game_server.server_name',
   rcon_port: 'game_server.rcon_port',
@@ -60,10 +73,12 @@ export const managedSourceLabels: Record<string, string> = {
   'game_server.ip': 'IP Address',
   'game_server.port': 'Server Port',
   'game_server.query_port': 'Query Port',
+  'game_server.max_memory_mb': 'Game Server Memory (MB)',
   'game_server.max_players': 'Max Players',
   'game_server.server_name': 'Server Name',
   'game_server.rcon_port': 'RCON Port',
   'game_server.rcon_password': 'RCON Password',
+  server_executable: 'Server Executable',
 }
 
 /** Returns a human-readable label for a managed source key, or the raw key if unknown */
@@ -86,3 +101,21 @@ export const managedSourceOptions = placeholders
     const sourceKey = Object.entries(managedSourceToPlaceholder).find(([, v]) => v === p.key)?.[0]
     return { label: p.label, value: sourceKey ?? p.key.toLowerCase() }
   })
+
+const startArgManagedSourceToPlaceholder: Record<string, string> = {
+  'game_server.ip': 'IP',
+  'game_server.port': 'PORT',
+  'game_server.query_port': 'QUERY_PORT',
+  'game_server.max_memory_mb': 'MAX_MEMORY_MB',
+  server_executable: 'SERVER_EXECUTABLE',
+}
+
+const placeholderByKey = new Map(placeholders.map((placeholder) => [placeholder.key, placeholder]))
+
+export const startArgManagedSourceOptions = [
+  { label: 'Not set', value: '' },
+  ...Object.entries(startArgManagedSourceToPlaceholder).map(([sourceKey, placeholderKey]) => ({
+    label: placeholderByKey.get(placeholderKey)?.label ?? sourceKey,
+    value: sourceKey,
+  })),
+]

@@ -136,11 +136,32 @@
         v-else
         :capacity="provisioningCapacity"
         :connection="provisioningConnection"
+        :executable="serverExecutableSummary"
         :game="selectedGameName"
         :memory="`${maxMemoryModel || 0} MB`"
         :node="selectedNodeName"
         :owner="selectedOwnerName"
         :show-memory="isMinecraftGame" />
+
+      <section v-if="canEditProvisioning" class="form-section">
+        <div class="section-header">
+          <span class="section-icon section-icon--muted">
+            <q-icon name="terminal" size="14px" />
+          </span>
+          <span class="section-title font-display">Launch</span>
+          <span class="section-line"></span>
+        </div>
+        <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <q-input
+            v-model="gameServer.serverExecutable"
+            data-testid="editable-server-executable"
+            class="col-12 col-lg-6"
+            outlined
+            type="text"
+            label="Server Executable"
+            hint="Optional override for the {{SERVER_EXECUTABLE}} launch placeholder." />
+        </div>
+      </section>
 
       <section class="form-section form-section--last">
         <div class="section-header">
@@ -243,6 +264,7 @@ const {
   selectedGameName,
   selectedNodeName,
   selectedOwnerName,
+  serverExecutableSummary,
   serverNameRules,
   setPlayersModel,
   setPlayersRules,

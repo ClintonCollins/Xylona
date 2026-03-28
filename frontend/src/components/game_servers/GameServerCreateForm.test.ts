@@ -274,4 +274,21 @@ describe('GameServerCreateForm submit flow', () => {
       'Port 25565 is already in use on 216.177.177.228.',
     )
   })
+
+  it('shows a server executable field during provisioning', () => {
+    const wrapper = shallowMount(GameServerCreateForm, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          GameServerFormShell: GameServerFormShellStub,
+          QInput: QInputStub,
+          'q-input': QInputStub,
+          QSelect: QSelectStub,
+          'q-select': QSelectStub,
+        },
+      },
+    })
+
+    expect(wrapper.find('.q-input-stub[data-label="Server Executable"]').exists()).toBe(true)
+  })
 })

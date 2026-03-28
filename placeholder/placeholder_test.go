@@ -6,6 +6,23 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+func TestRegistryIncludesMaxMemoryMB(t *testing.T) {
+	found := false
+	for _, placeholder := range Registry {
+		if placeholder.Key != "MAX_MEMORY_MB" {
+			continue
+		}
+		found = true
+		if placeholder.Label != "Game Server Memory (MB)" {
+			t.Errorf("MAX_MEMORY_MB label = %q, want %q", placeholder.Label, "Game Server Memory (MB)")
+		}
+	}
+
+	if !found {
+		t.Fatal("MAX_MEMORY_MB missing from Registry")
+	}
+}
+
 func TestResolve(t *testing.T) {
 	tests := []struct {
 		name     string

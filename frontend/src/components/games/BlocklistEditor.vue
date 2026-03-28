@@ -1,6 +1,6 @@
 <template>
   <div class="blocklist-editor">
-    <div class="blocklist-editor__header">
+    <div v-if="showHeader" class="blocklist-editor__header">
       <div class="font-display blocklist-editor__title">Blocklist</div>
       <div class="text-xy-secondary blocklist-editor__copy">
         Prevent risky or reserved arguments from being saved at the server level.
@@ -28,7 +28,13 @@
           outlined
           label="Reason"
           @update:model-value="updateEntry(index, 'reason', String($event ?? ''))" />
-        <q-btn flat dense icon="delete" color="negative" @click="removeEntry(index)" />
+        <q-btn
+          flat
+          dense
+          icon="delete"
+          color="negative"
+          aria-label="Remove blocklist pattern"
+          @click="removeEntry(index)" />
       </article>
     </div>
 
@@ -54,9 +60,15 @@ import { ref } from 'vue'
 
 import type { StartArgBlocklistEntry } from '@/components/game_servers/start-args'
 
-const props = defineProps<{
-  blocklist: StartArgBlocklistEntry[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    blocklist: StartArgBlocklistEntry[]
+    showHeader?: boolean
+  }>(),
+  {
+    showHeader: true,
+  },
+)
 
 const emit = defineEmits<{
   'update:blocklist': [value: StartArgBlocklistEntry[]]
@@ -146,6 +158,11 @@ function isValidRegex(value: string) {
   gap: 12px;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
   align-items: start;
+}
+
+.blocklist-editor__row :deep(.q-btn) {
+  min-height: 40px;
+  min-width: 40px;
 }
 
 @media (max-width: 720px) {

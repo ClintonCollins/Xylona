@@ -54,10 +54,11 @@ type ResolvedBlock struct {
 }
 
 var ValidManagedSources = map[string]struct{}{
-	"game_server.port":       {},
-	"game_server.query_port": {},
-	"game_server.ip":         {},
-	"server_executable":      {},
+	"game_server.port":          {},
+	"game_server.query_port":    {},
+	"game_server.ip":            {},
+	"game_server.max_memory_mb": {},
+	"server_executable":         {},
 }
 
 func IsValidManagedSource(key string) bool {

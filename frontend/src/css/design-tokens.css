@@ -6,41 +6,42 @@
 
 :root {
   /* ---- Primitive Palette: Surfaces (cool-tinted) ---- */
-  --xy-base: #0D0E0F;
+  --xy-base: #0d0e0f;
   --xy-surface-0: #141516;
-  --xy-surface-1: #1A1C1D;
+  --xy-surface-1: #1a1c1d;
   --xy-surface-2: #222425;
-  --xy-surface-3: #2B2E2F;
-  --xy-surface-4: #383B3D;
+  --xy-surface-3: #2b2e2f;
+  --xy-surface-4: #383b3d;
 
   /* ---- Text ---- */
-  --xy-text-primary: #E0E4E6;
-  --xy-text-secondary: #979B9E;
-  --xy-text-muted: #858A8C;
+  --xy-text-primary: #e0e4e6;
+  --xy-text-secondary: #979b9e;
+  --xy-text-muted: #858a8c;
 
   /* ---- Borders ---- */
-  --xy-border: rgba(255, 255, 255, 0.10);
+  --xy-border: rgba(255, 255, 255, 0.1);
   --xy-border-active: rgba(59, 130, 246, 0.4);
+  --xy-border-hover: rgba(255, 255, 255, 0.18);
 
   /* ---- Semantic Colors (mirror Quasar SASS vars) ---- */
-  --xy-primary: #3B82F6;
-  --xy-primary-hover: #60A5FA;
+  --xy-primary: #3b82f6;
+  --xy-primary-hover: #60a5fa;
   --xy-primary-muted: rgba(59, 130, 246, 0.15);
-  --xy-accent: #1CB7CF;
-  --xy-accent-hover: #3DCDE3;
+  --xy-accent: #1cb7cf;
+  --xy-accent-hover: #3dcde3;
   --xy-accent-muted: rgba(28, 183, 207, 0.12);
-  --xy-success: #22C55E;
-  --xy-danger: #EF4444;
-  --xy-warning: #F59E0B;
-  --xy-info: #06B6D4;
-  --xy-success-hover: #2AE569;
-  --xy-success-darker: #16A34A;
-  --xy-danger-hover: #F87171;
-  --xy-danger-darker: #DC2626;
-  --xy-warning-hover: #FBBF24;
-  --xy-warning-darker: #D97706;
-  --xy-primary-darker: #2563EB;
-  --xy-purple: #8B5CF6;
+  --xy-success: #22c55e;
+  --xy-danger: #ef4444;
+  --xy-warning: #f59e0b;
+  --xy-info: #06b6d4;
+  --xy-success-hover: #2ae569;
+  --xy-success-darker: #16a34a;
+  --xy-danger-hover: #f87171;
+  --xy-danger-darker: #dc2626;
+  --xy-warning-hover: #fbbf24;
+  --xy-warning-darker: #d97706;
+  --xy-primary-darker: #2563eb;
+  --xy-purple: #8b5cf6;
 
   /* ---- Semantic Tint Backgrounds ---- */
   --xy-success-bg: rgba(34, 197, 94, 0.15);
@@ -68,21 +69,52 @@
   --xy-success-bg-soft: color-mix(in srgb, var(--xy-success) 8%, transparent);
   --xy-success-text-soft: color-mix(in srgb, var(--xy-success) 68%, var(--xy-text-primary) 32%);
   --xy-warning-border-soft: color-mix(in srgb, var(--xy-warning) 28%, var(--xy-border) 72%);
+  --xy-primary-bg-subtle: color-mix(in srgb, var(--xy-primary) 6%, transparent);
+  --xy-primary-border-soft: color-mix(in srgb, var(--xy-primary) 30%, transparent);
+  --xy-primary-glow-soft: color-mix(in srgb, var(--xy-primary) 40%, transparent);
+  --xy-platform-windows: #0078d4;
+  --xy-platform-windows-hover: #2196f3;
+  --xy-platform-linux: #e95420;
+  --xy-platform-linux-hover: #ff6e40;
+  --xy-category-1: var(--xy-primary);
+  --xy-category-2: var(--xy-success);
+  --xy-category-3: var(--xy-warning);
+  --xy-category-4: var(--xy-purple);
+  --xy-category-5: var(--xy-danger);
+  --xy-category-6: var(--xy-info);
+  --xy-category-7: #ec4899;
+  --xy-category-8: #f97316;
 
   /* ---- Text Roles ---- */
-  --xy-text-emphasis-soft: color-mix(in srgb, var(--xy-text-primary) 76%, var(--xy-text-secondary) 24%);
-  --xy-text-emphasis-strong: color-mix(in srgb, var(--xy-text-primary) 80%, var(--xy-text-secondary) 20%);
-  --xy-field-label-color: color-mix(in srgb, var(--xy-text-secondary) 88%, var(--xy-text-muted) 12%);
-  --xy-field-helper-color: color-mix(in srgb, var(--xy-text-secondary) 90%, var(--xy-text-muted) 10%);
+  --xy-text-emphasis-soft: color-mix(
+    in srgb,
+    var(--xy-text-primary) 76%,
+    var(--xy-text-secondary) 24%
+  );
+  --xy-text-emphasis-strong: color-mix(
+    in srgb,
+    var(--xy-text-primary) 80%,
+    var(--xy-text-secondary) 20%
+  );
+  --xy-field-label-color: color-mix(
+    in srgb,
+    var(--xy-text-secondary) 88%,
+    var(--xy-text-muted) 12%
+  );
+  --xy-field-helper-color: color-mix(
+    in srgb,
+    var(--xy-text-secondary) 90%,
+    var(--xy-text-muted) 10%
+  );
 
   /* ---- Spacing Scale ---- */
-  --xy-space-xs: 0.25rem;   /* 4px  */
-  --xy-space-sm: 0.5rem;    /* 8px  */
-  --xy-space-md: 1rem;      /* 16px */
-  --xy-space-lg: 1.5rem;    /* 24px */
-  --xy-space-xl: 2rem;      /* 32px */
-  --xy-space-2xl: 3rem;     /* 48px */
-  --xy-space-3xl: 4rem;     /* 64px */
+  --xy-space-xs: 0.25rem; /* 4px  */
+  --xy-space-sm: 0.5rem; /* 8px  */
+  --xy-space-md: 1rem; /* 16px */
+  --xy-space-lg: 1.5rem; /* 24px */
+  --xy-space-xl: 2rem; /* 32px */
+  --xy-space-2xl: 3rem; /* 48px */
+  --xy-space-3xl: 4rem; /* 64px */
 
   /* ---- Shadows ---- */
   --xy-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -112,35 +144,58 @@
   --xy-font-display: 'Goldman', sans-serif;
   --xy-font-brand: 'Zen Dots', sans-serif;
   --xy-font-mono: 'JetBrains Mono', 'Oxygen Mono', monospace;
-
 }
 
 /* ==========================================================================
    Surface Utility Classes
    ========================================================================== */
 
-.bg-xy-base { background-color: var(--xy-base); }
-.bg-xy-surface-0 { background-color: var(--xy-surface-0); }
-.bg-xy-surface-1 { background-color: var(--xy-surface-1); }
-.bg-xy-surface-2 { background-color: var(--xy-surface-2); }
-.bg-xy-surface-3 { background-color: var(--xy-surface-3); }
-.bg-xy-surface-4 { background-color: var(--xy-surface-4); }
+.bg-xy-base {
+  background-color: var(--xy-base);
+}
+.bg-xy-surface-0 {
+  background-color: var(--xy-surface-0);
+}
+.bg-xy-surface-1 {
+  background-color: var(--xy-surface-1);
+}
+.bg-xy-surface-2 {
+  background-color: var(--xy-surface-2);
+}
+.bg-xy-surface-3 {
+  background-color: var(--xy-surface-3);
+}
+.bg-xy-surface-4 {
+  background-color: var(--xy-surface-4);
+}
 
 /* ==========================================================================
    Text Utility Classes
    ========================================================================== */
 
-.text-xy-primary { color: var(--xy-text-primary); }
-.text-xy-secondary { color: var(--xy-text-secondary); }
-.text-xy-muted { color: var(--xy-text-muted); }
+.text-xy-primary {
+  color: var(--xy-text-primary);
+}
+.text-xy-secondary {
+  color: var(--xy-text-secondary);
+}
+.text-xy-muted {
+  color: var(--xy-text-muted);
+}
 
 /* ==========================================================================
    Font Utility Classes
    ========================================================================== */
 
-.font-display { font-family: var(--xy-font-display); }
-.font-brand { font-family: var(--xy-font-brand); }
-.font-mono { font-family: var(--xy-font-mono); }
+.font-display {
+  font-family: var(--xy-font-display);
+}
+.font-brand {
+  font-family: var(--xy-font-brand);
+}
+.font-mono {
+  font-family: var(--xy-font-mono);
+}
 
 /* ==========================================================================
    Semantic Tint Utility Classes
@@ -170,14 +225,30 @@
    Legacy Class Aliases (still referenced — migrate then remove)
    ========================================================================== */
 
-.bg-toolbar { background-color: var(--xy-surface-2); }
-.bg-success { background-color: var(--xy-success); }
-.bg-success-darker { background-color: var(--xy-success-darker); }
-.bg-alert-brighter { background-color: var(--xy-warning-hover); }
-.text-success-brighter { color: var(--xy-success-hover); }
-.text-error-brighter { color: var(--xy-danger-hover); }
-.text-alert-brighter { color: var(--xy-warning-hover); }
-.text-main-brighter { color: var(--xy-primary-hover); }
+.bg-toolbar {
+  background-color: var(--xy-surface-2);
+}
+.bg-success {
+  background-color: var(--xy-success);
+}
+.bg-success-darker {
+  background-color: var(--xy-success-darker);
+}
+.bg-alert-brighter {
+  background-color: var(--xy-warning-hover);
+}
+.text-success-brighter {
+  color: var(--xy-success-hover);
+}
+.text-error-brighter {
+  color: var(--xy-danger-hover);
+}
+.text-alert-brighter {
+  color: var(--xy-warning-hover);
+}
+.text-main-brighter {
+  color: var(--xy-primary-hover);
+}
 
 /* ==========================================================================
    Page Layout Utilities

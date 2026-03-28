@@ -111,7 +111,12 @@ async function createFixture(): Promise<StartArgsFixture> {
   })
 
   const game = await apiAddGame(adminCookies, buildTempGame(buildTemplateJson('5s')))
-  const serverDir = path.join(import.meta.dirname, '.e2e-data', 'bin', uniqueName('startargs-server'))
+  const serverDir = path.join(
+    import.meta.dirname,
+    '.e2e-data',
+    'bin',
+    uniqueName('startargs-server'),
+  )
   await fs.mkdir(serverDir, { recursive: true })
 
   const port = takePort()
@@ -159,10 +164,7 @@ async function cleanupFixture(fixture: StartArgsFixture | undefined) {
   await fs.rm(fixture.serverDir, { recursive: true, force: true })
 }
 
-async function openOwnerSession(
-  browser: Browser,
-  owner: TestUser,
-) {
+async function openOwnerSession(browser: Browser, owner: TestUser) {
   const context = await browser.newContext({
     storageState: { cookies: [], origins: [] },
     ignoreHTTPSErrors: true,

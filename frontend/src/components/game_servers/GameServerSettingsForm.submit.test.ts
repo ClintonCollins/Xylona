@@ -54,7 +54,14 @@ vi.mock('./game-server-form-state', () => ({
     formRef: null,
     formSubmitting: false,
     gameRules: [],
-    gameServer: { value: { id: 'server-local-1', name: 'Minecraft Server', gameId: 'minecraft' } },
+    gameServer: {
+      value: {
+        id: 'server-local-1',
+        name: 'Minecraft Server',
+        gameId: 'minecraft',
+        serverExecutable: 'paper.jar',
+      },
+    },
     initialize: mocks.initialize,
     ipRules: [],
     isMinecraftGame: true,
@@ -78,6 +85,7 @@ vi.mock('./game-server-form-state', () => ({
     selectedGameName: 'Minecraft',
     selectedNodeName: 'Local Node',
     selectedOwnerName: 'owner',
+    serverExecutableSummary: 'paper.jar',
     serverNameRules: [],
     setPlayersModel: 0,
     setPlayersRules: [],

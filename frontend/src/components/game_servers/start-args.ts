@@ -141,6 +141,7 @@ export function buildPlaceholderVars(gameServer: Partial<GameServer> | null | un
     IP: gameServer?.ip?.address ?? '',
     PORT: String(gameServer?.port ?? 0n),
     QUERY_PORT: String(gameServer?.queryPort ?? 0n),
+    MAX_MEMORY_MB: String(gameServer?.maxMemoryMb ?? 0n),
     MAX_PLAYERS: String(gameServer?.maxPlayers ?? 0n),
     SERVER_NAME: gameServer?.name ?? '',
     INSTALL_DIR: gameServer?.directory ?? '',

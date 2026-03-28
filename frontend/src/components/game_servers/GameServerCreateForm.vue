@@ -126,6 +126,25 @@
         </div>
       </section>
 
+      <section class="form-section">
+        <div class="section-header">
+          <span class="section-icon section-icon--muted">
+            <q-icon name="terminal" size="14px" />
+          </span>
+          <span class="section-title font-display">Launch</span>
+          <span class="section-line"></span>
+        </div>
+        <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <q-input
+            v-model="gameServer.serverExecutable"
+            class="col-12 col-lg-6"
+            outlined
+            type="text"
+            label="Server Executable"
+            hint="Optional override for the {{SERVER_EXECUTABLE}} launch placeholder." />
+        </div>
+      </section>
+
       <section class="form-section form-section--last">
         <div class="section-header">
           <span class="section-icon section-icon--warning">
