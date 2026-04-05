@@ -107,6 +107,16 @@
     var(--xy-text-muted) 10%
   );
 
+  /* ---- Layout ---- */
+  --xy-toolbar-height: 50px;
+
+  /* ---- Surface Gradients ---- */
+  --xy-surface-gradient-subtle: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.015),
+    transparent 42%
+  );
+
   /* ---- Spacing Scale ---- */
   --xy-space-xs: 0.25rem; /* 4px  */
   --xy-space-sm: 0.5rem; /* 8px  */

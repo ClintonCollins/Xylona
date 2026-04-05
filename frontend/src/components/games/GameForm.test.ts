@@ -113,7 +113,11 @@ function mountGameForm(
         'q-spinner-dots': true,
         'router-link': { template: '<a><slot /></a>' },
         ConfigSchemaList: { template: '<div />' },
-        StartArgsTemplateEditor: { template: '<div data-testid="start-args-template-editor" />' },
+        StartArgsTemplateEditor: {
+          props: ['mode'],
+          template:
+            '<div :data-testid="`start-args-template-editor-${mode || \'full\'}`"><slot /></div>',
+        },
         BlocklistEditor: { template: '<div data-testid="blocklist-editor" />' },
         DownstreamImpactPanel: { template: '<div data-testid="downstream-impact-panel" />' },
         ...stubOverrides,
@@ -359,6 +363,54 @@ describe('GameForm', () => {
     expect(window.history.state?.xylonaGameFormTab).toBe('config')
   })
 
+  it('supports arrow-key navigation between editor tabs', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    const overviewTab = wrapper.get('[data-testid="game-form-tab-overview"]')
+    const runtimeTab = wrapper.get('[data-testid="game-form-tab-runtime"]')
+    const overviewPanel = wrapper.get('[data-testid="game-form-tab-panel-overview"]')
+    const runtimePanel = wrapper.get('[data-testid="game-form-tab-panel-runtime"]')
+
+    await overviewTab.trigger('keydown', { key: 'ArrowRight' })
+
+    expect(overviewTab.attributes('aria-selected')).toBe('false')
+    expect(runtimeTab.attributes('aria-selected')).toBe('true')
+    expect(window.history.state?.xylonaGameFormTab).toBe('runtime')
+    expect(overviewPanel.attributes('style') ?? '').toContain('display: none')
+    expect(runtimePanel.attributes('style') ?? '').not.toContain('display: none')
+  })
+
+  it('uses a more instructive empty state for mod support setup', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="game-form-tab-mods"]').trigger('click')
+
+    expect(wrapper.text()).toContain(
+      'Mod support is off. Enable it to configure a download provider for this game.',
+    )
+    expect(wrapper.text()).toContain('Enable Mod Support')
+  })
+
   it('treats runtime policy as an advanced section beneath the launch editor', async () => {
     mocks.getGame.mockResolvedValue({
       game: create(GameSchema, {
@@ -374,11 +426,20 @@ describe('GameForm', () => {
 
     await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
 
-    expect(wrapper.get('[data-testid="start-args-template-editor"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="start-args-template-editor-preview"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="start-args-template-editor-advanced"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="runtime-policy-toggle"]').attributes('aria-expanded')).toBe(
       'false',
     )
     expect(wrapper.find('[data-testid="runtime-policy-panel"]').exists()).toBe(false)
+
+    const runtimeHTML = wrapper.get('[data-testid="game-form-tab-panel-runtime"]').html()
+    expect(runtimeHTML.indexOf('start-args-template-editor-preview')).toBeLessThan(
+      runtimeHTML.indexOf('runtime-policy-toggle'),
+    )
+    expect(runtimeHTML.indexOf('runtime-policy-toggle')).toBeLessThan(
+      runtimeHTML.indexOf('start-args-template-editor-advanced'),
+    )
 
     await wrapper.get('[data-testid="runtime-policy-toggle"]').trigger('click')
 
@@ -425,15 +486,18 @@ describe('GameForm', () => {
             type: Array,
             default: () => [],
           },
+          mode: {
+            type: String,
+            default: 'full',
+          },
         },
-        template: `
-          <div data-testid="start-args-template-editor">
-            <span data-testid="baseline-linux-command">{{ baselineLinuxBaseCommand }}</span>
-            <span data-testid="baseline-windows-command">{{ baselineWindowsBaseCommand }}</span>
-            <span data-testid="baseline-linux-count">{{ baselineLinuxTemplate.length }}</span>
-            <span data-testid="baseline-windows-count">{{ baselineWindowsTemplate.length }}</span>
-          </div>
-        `,
+        template:
+          '<div :data-testid="`start-args-template-editor-${mode || \'full\'}`">' +
+          '<span data-testid="baseline-linux-command">{{ baselineLinuxBaseCommand }}</span>' +
+          '<span data-testid="baseline-windows-command">{{ baselineWindowsBaseCommand }}</span>' +
+          '<span data-testid="baseline-linux-count">{{ baselineLinuxTemplate.length }}</span>' +
+          '<span data-testid="baseline-windows-count">{{ baselineWindowsTemplate.length }}</span>' +
+          '</div>',
       }),
     })
     await flushPromises()
@@ -462,12 +526,12 @@ describe('GameForm', () => {
     await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
 
     const toggle = wrapper.get('[data-testid="runtime-policy-toggle"]')
-    expect(toggle.attributes('aria-label')).toBe('Expand advanced runtime policy')
+    expect(toggle.attributes('aria-label')).toBe('Expand runtime guardrails')
     expect(toggle.attributes('aria-describedby')).toBe('runtime-policy-assistive-summary')
 
     await toggle.trigger('click')
 
-    expect(toggle.attributes('aria-label')).toBe('Collapse advanced runtime policy')
+    expect(toggle.attributes('aria-label')).toBe('Collapse runtime guardrails')
   })
 
   it('removes the extra runtime header chrome and focuses on the launch editor', async () => {
@@ -491,7 +555,12 @@ describe('GameForm', () => {
     expect(runtimePanel.find('.section-header').exists()).toBe(false)
     expect(runtimePanel.find('.section-help').exists()).toBe(false)
     expect(runtimePanel.find('.game-form-sr-only').text()).toContain('Runtime')
-    expect(runtimePanel.get('[data-testid="start-args-template-editor"]').exists()).toBe(true)
+    expect(runtimePanel.get('[data-testid="start-args-template-editor-preview"]').exists()).toBe(
+      true,
+    )
+    expect(runtimePanel.get('[data-testid="start-args-template-editor-advanced"]').exists()).toBe(
+      true,
+    )
   })
 
   it('connects tabs and panels with accessible relationships and headings', async () => {

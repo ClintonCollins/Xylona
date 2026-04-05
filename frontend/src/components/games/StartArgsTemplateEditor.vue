@@ -1,352 +1,329 @@
 <template>
-  <div class="template-editor" :class="`template-editor--${selectedPlatform}`">
+  <div
+    class="template-editor"
+    :class="`template-editor--${selectedPlatform}`"
+    :data-testid="rootTestId">
     <div v-if="availablePlatforms.length === 0" class="template-editor__empty text-xy-muted">
       Enable Linux or Windows support above to configure structured start arguments.
     </div>
-
     <template v-else>
-      <div v-if="availablePlatforms.length > 1" class="platform-tabs">
+      <div
+        v-if="showPlatformTabs && availablePlatforms.length > 1"
+        class="platform-tabs"
+        role="tablist"
+        aria-label="Platform launch sequence">
         <button
           v-for="platform in availablePlatforms"
           :key="platform"
           type="button"
+          role="tab"
           class="platform-tab"
           :class="{ 'platform-tab--active': selectedPlatform === platform }"
+          :aria-selected="selectedPlatform === platform"
           @click="selectedPlatform = platform">
           <q-icon
             :name="platform === 'windows' ? 'desktop_windows' : 'terminal'"
             size="14px"
             :class="
-              selectedPlatform === platform
-                ? platform === 'windows'
+              platform === 'windows'
+                ? selectedPlatform === 'windows'
                   ? 'platform-icon-windows-active'
-                  : 'platform-icon-linux-active'
-                : 'platform-icon-inactive'
+                  : 'platform-icon-inactive'
+                : selectedPlatform === 'linux'
+                  ? 'platform-icon-linux-active'
+                  : 'platform-icon-inactive'
             " />
           <span class="font-display">{{ platformLabel(platform) }}</span>
         </button>
       </div>
 
-      <section class="template-editor__command-shell">
-        <div class="template-editor__command-head">
-          <div>
-            <p class="template-editor__eyebrow">Runtime Command</p>
-            <h3 class="template-editor__title font-display">Structured launch sequence</h3>
-          </div>
-          <div class="template-editor__summary-pills">
-            <span class="template-editor__summary-pill">
-              {{ currentTemplate.length }} arg{{ currentTemplate.length === 1 ? '' : 's' }}
+      <section
+        v-if="showPreviewSection"
+        class="template-editor__card template-editor__card--preview">
+        <div class="template-editor__toolbar">
+          <div class="template-editor__toolbar-copy">
+            <p class="template-editor__eyebrow">Launch Sequence</p>
+            <span class="template-editor__toolbar-meta">
+              {{ platformLabel(selectedPlatform) }} ·
+              {{ argumentCountLabel(currentTemplate.length) }}
             </span>
-            <span class="template-editor__summary-pill"> {{ editableBlockCount }} editable </span>
+          </div>
+          <div class="template-editor__toolbar-actions">
+            <button
+              type="button"
+              class="template-editor__button template-editor__button--action"
+              data-testid="start-args-add-block"
+              @click="openAddDialog">
+              <q-icon name="add" size="16px" aria-hidden="true" />
+              Add argument
+            </button>
           </div>
         </div>
 
-        <div class="template-editor__command-toolbar">
-          <q-input
-            :model-value="currentBaseCommand"
-            class="template-editor__base-command"
-            outlined
-            stack-label
-            label="Base Command"
-            hint="Executed directly without shell parsing."
-            input-class="template-editor__base-command-input"
-            @update:model-value="updateBaseCommand(String($event ?? ''))">
-            <template #prepend>
-              <span class="template-editor__base-command-prompt" aria-hidden="true">
-                {{ selectedPlatform === 'windows' ? '>' : '$' }}
-              </span>
-            </template>
-          </q-input>
+        <section class="template-editor__command-shell" data-testid="start-args-preview-shell">
+          <div
+            class="template-editor__command-line"
+            @dragover.prevent="activatePreviewEnd"
+            @drop.prevent="dropAtPreviewEnd">
+            <span class="template-editor__prompt" aria-hidden="true">{{
+              selectedPlatform === 'windows' ? '>' : '$'
+            }}</span>
+            <label class="template-editor__base-command">
+              <span class="template-editor__sr-only">Base command</span>
+              <input
+                :value="currentBaseCommand"
+                type="text"
+                class="template-editor__base-command-input font-mono"
+                data-testid="start-args-base-command"
+                aria-label="Base command"
+                placeholder="Base command"
+                @input="updateBaseCommand(($event.target as HTMLInputElement).value)" />
+            </label>
 
-          <button
-            type="button"
-            class="template-editor__preview-toggle"
-            :aria-expanded="String(isPreviewExpanded)"
-            @click="togglePreview">
-            <span class="template-editor__preview-toggle-copy">
-              {{ isPreviewExpanded ? 'Hide launch preview' : 'Show launch preview' }}
-            </span>
-            <span class="template-editor__preview-toggle-state">
-              {{ isPreviewExpanded ? 'Expanded' : 'Collapsed' }}
-            </span>
-          </button>
-        </div>
+            <template v-if="currentTemplate.length > 0">
+              <template v-for="(block, index) in currentTemplate" :key="block.id">
+                <span
+                  v-if="dragInsertionIndex === index"
+                  class="template-editor__drop-marker"
+                  aria-hidden="true"></span>
 
-        <div v-if="isPreviewExpanded" class="template-editor__terminal">
-          <span class="template-editor__terminal-label">
-            {{ platformLabel(selectedPlatform) }} launch preview
-          </span>
-          <div class="template-editor__terminal-shell">
-            <span class="template-editor__terminal-prompt">
-              {{ selectedPlatform === 'windows' ? '>' : '$' }}
-            </span>
-            <code class="template-editor__terminal-command">
-              <template v-if="previewSegments.length > 0">
-                <component
-                  :is="segment.blockID ? 'button' : 'span'"
-                  v-for="segment in previewSegments"
-                  :key="segment.id"
-                  :type="segment.blockID ? 'button' : undefined"
-                  class="template-editor__preview-token"
-                  :class="previewTokenClass(segment)"
-                  :aria-label="segment.blockID ? previewSegmentAriaLabel(segment) : undefined"
-                  :tabindex="segment.blockID ? 0 : -1"
-                  :disabled="!segment.blockID"
-                  @click="
-                    segment.blockID
-                      ? selectBlock(segment.blockID, { scrollIntoView: true })
-                      : undefined
-                  ">
-                  {{ segment.text }}
-                </component>
+                <button
+                  :data-testid="`preview-chip-${block.id}`"
+                  type="button"
+                  class="template-editor__arg-chip"
+                  :class="previewChipClass(block, index)"
+                  :aria-label="previewSegmentAriaLabel(block, index)"
+                  :title="previewChipTitle(block)"
+                  draggable="true"
+                  :style="viewTransitionStyleForChip(block.id)"
+                  @click="openEditDialog(block.id, 'preview')"
+                  @dragstart="onPreviewDragStart(index, $event)"
+                  @dragover.prevent.stop="activatePreviewInsertion(index, $event)"
+                  @drop.prevent.stop="dropOnPreview(index, $event)"
+                  @dragend="onDragEnd">
+                  <q-icon
+                    name="drag_indicator"
+                    size="16px"
+                    class="template-editor__arg-chip-handle"
+                    aria-hidden="true" />
+                  <span class="template-editor__arg-chip-text font-mono">{{
+                    previewChipText(block)
+                  }}</span>
+                </button>
               </template>
+
               <span
-                v-else
-                class="template-editor__preview-token template-editor__preview-token--empty">
-                No command has been configured yet.
-              </span>
-            </code>
+                v-if="dragInsertionIndex === currentTemplate.length"
+                class="template-editor__drop-marker"
+                aria-hidden="true"></span>
+            </template>
+
+            <button
+              v-else
+              type="button"
+              class="template-editor__empty-chip"
+              data-testid="preview-empty-add"
+              @click="openAddDialog">
+              Add first runtime argument
+            </button>
           </div>
-        </div>
-      </section>
 
-      <section class="template-editor__workspace">
-        <div class="template-editor__inventory">
-          <div class="template-editor__section-head">
-            <div>
-              <p class="template-editor__eyebrow">Argument Inventory</p>
-              <h3 class="template-editor__section-title font-display">Order defines execution</h3>
-            </div>
-            <div class="template-editor__section-actions">
-              <button
-                v-if="isCompactViewport"
-                type="button"
-                class="template-editor__mobile-inventory-toggle"
-                :aria-expanded="String(showInventoryList)"
-                @click="toggleMobileInventory">
-                {{ showInventoryList ? 'Hide sequence' : 'Show sequence' }}
-              </button>
-              <span v-else class="template-editor__drag-cue">Drag rows to reorder</span>
-
+          <div class="template-editor__command-footer">
+            <span class="template-editor__command-hint">
+              Click an argument to edit it. Drag to reorder.
+            </span>
+            <div class="template-editor__command-tools">
               <button
                 type="button"
-                class="template-editor__utility-button"
+                class="template-editor__button template-editor__button--quiet"
                 data-testid="start-args-reset-order"
                 :disabled="!canResetOrder"
-                :aria-label="`Reset ${platformLabel(selectedPlatform)} argument order to the loaded sequence`"
                 @click="resetCurrentPlatformOrder">
                 Reset order
               </button>
-
               <button
                 type="button"
-                class="template-editor__utility-button"
+                class="template-editor__button template-editor__button--quiet"
                 data-testid="start-args-reset-platform"
                 :disabled="!canResetPlatform"
-                :aria-label="`Reset ${platformLabel(selectedPlatform)} launch setup to the loaded baseline`"
                 @click="resetCurrentPlatform">
-                Reset launch setup
+                Reset all
               </button>
             </div>
           </div>
-
-          <div v-if="currentTemplate.length === 0" class="template-editor__inventory-empty">
-            <p>No runtime arguments exist for this platform yet.</p>
-            <q-btn flat color="accent" icon="add" label="Add first argument" @click="addBlock" />
-          </div>
-
-          <template v-else-if="showInventoryList">
-            <div class="template-editor__inventory-header" aria-hidden="true">
-              <span>Order</span>
-              <span>Argument</span>
-              <span>State</span>
-              <span>Preview</span>
-            </div>
-
-            <div
-              class="template-editor__inventory-list"
-              role="list"
-              aria-label="Runtime argument inventory">
-              <template v-for="(block, index) in currentTemplate" :key="block.id">
-                <div
-                  class="template-editor__drop-slot"
-                  :class="{ 'template-editor__drop-slot--active': dragSlotIndex === index }"
-                  aria-hidden="true"></div>
-
-                <article
-                  :ref="(element) => setInventoryRowRef(block.id, element)"
-                  class="template-editor__inventory-row"
-                  :class="{
-                    'template-editor__inventory-row--selected': selectedBlockID === block.id,
-                    'template-editor__inventory-row--dragging': draggedIndex === index,
-                  }"
-                  @dragenter.prevent="onDragOver(index, $event)"
-                  @dragover.prevent="onDragOver(index, $event)"
-                  @drop.prevent="onDrop(index, $event)">
-                  <span
-                    class="template-editor__inventory-cell template-editor__inventory-cell--order">
-                    <button
-                      type="button"
-                      class="template-editor__drag-handle"
-                      aria-label="Drag to reorder argument"
-                      draggable="true"
-                      @click.stop
-                      @dragstart="onDragStart(index, $event)"
-                      @dragend="onDragEnd">
-                      <q-icon name="drag_handle" size="1.1rem" aria-hidden="true" />
-                    </button>
-                    <span class="template-editor__order-index">{{ index + 1 }}</span>
-                  </span>
-
-                  <button
-                    type="button"
-                    class="template-editor__inventory-select"
-                    :aria-label="inventorySelectAriaLabel(block, index)"
-                    :aria-pressed="String(selectedBlockID === block.id)"
-                    @click="selectBlock(block.id)">
-                    <span
-                      class="template-editor__inventory-cell template-editor__inventory-cell--argument">
-                      <strong>{{ blockTitle(block) }}</strong>
-                      <small>{{ inventoryNote(block) }}</small>
-                    </span>
-
-                    <span class="template-editor__inventory-cell">
-                      <span
-                        class="template-editor__ownership-pill"
-                        :class="ownershipPillClass(block.ownership)">
-                        {{ ownershipLabel(block.ownership) }}
-                      </span>
-                    </span>
-
-                    <span
-                      class="template-editor__inventory-cell template-editor__inventory-cell--preview">
-                      {{ inventoryPreview(block) }}
-                    </span>
-                  </button>
-                </article>
-              </template>
-
-              <div
-                class="template-editor__drop-slot"
-                :class="{
-                  'template-editor__drop-slot--active': dragSlotIndex === currentTemplate.length,
-                }"
-                aria-hidden="true"></div>
-            </div>
-          </template>
-
-          <div v-else class="template-editor__inventory-collapsed">
-            <span class="template-editor__inventory-collapsed-label">Editing now</span>
-            <strong>{{ selectedBlockTitle }}</strong>
-            <span>
-              Slot {{ selectedBlockIndex + 1 }} of {{ currentTemplate.length }}. Open the sequence
-              to switch or reorder arguments.
-            </span>
-          </div>
-        </div>
-
-        <aside class="template-editor__drawer">
-          <template v-if="selectedBlock">
-            <div ref="drawerHeadElement" class="template-editor__drawer-head">
-              <div>
-                <p class="template-editor__eyebrow">Selected Argument</p>
-                <div class="template-editor__selected-badge">Editing {{ selectedBlockTitle }}</div>
-              </div>
-              <span class="template-editor__drawer-order"> Slot {{ selectedBlockIndex + 1 }} </span>
-            </div>
-
-            <p class="template-editor__drawer-description">
-              {{ blockSubtitle(selectedBlock) }}
-            </p>
-
-            <div class="template-editor__drawer-actions">
-              <q-btn
-                flat
-                dense
-                icon="arrow_upward"
-                aria-label="Move argument up"
-                :disable="selectedBlockIndex <= 0"
-                @click="moveBlock(selectedBlockIndex, -1)" />
-              <q-btn
-                flat
-                dense
-                icon="arrow_downward"
-                aria-label="Move argument down"
-                :disable="selectedBlockIndex === currentTemplate.length - 1"
-                @click="moveBlock(selectedBlockIndex, 1)" />
-              <q-btn
-                flat
-                dense
-                icon="delete"
-                color="negative"
-                aria-label="Remove argument"
-                @click="removeBlock(selectedBlockIndex)" />
-              <q-btn flat dense icon="add" aria-label="Add argument" @click="addBlock" />
-            </div>
-
-            <div class="template-editor__drawer-fields">
-              <label class="template-editor__field">
-                <span class="template-editor__field-label">Mutability</span>
-                <select
-                  class="template-editor__select"
-                  :value="selectedBlock.ownership"
-                  @change="
-                    updateSelectedBlock({
-                      ownership: ($event.target as HTMLSelectElement).value as StartArgOwnership,
-                    })
-                  ">
-                  <option value="system">System</option>
-                  <option value="locked">Locked</option>
-                  <option value="editable">Editable</option>
-                </select>
-              </label>
-
-              <q-input
-                :model-value="selectedBlock.label ?? ''"
-                outlined
-                label="Label"
-                @update:model-value="updateSelectedBlock({ label: String($event ?? '') })" />
-
-              <q-input
-                :model-value="joinTokensInput(selectedBlock.tokens)"
-                type="textarea"
-                autogrow
-                outlined
-                label="Arguments"
-                hint="One argument per line."
-                @update:model-value="
-                  updateSelectedBlock({
-                    tokens: splitTokensInput(String($event ?? '')),
-                  })
-                " />
-
-              <q-select
-                v-if="selectedBlock.ownership === 'system'"
-                :model-value="selectedBlock.managedSource ?? ''"
-                outlined
-                emit-value
-                map-options
-                :options="startArgManagedSourceOptions"
-                label="Managed Source"
-                hint="Choose from the valid runtime placeholders."
-                @update:model-value="
-                  updateSelectedBlock({ managedSource: String($event ?? '') })
-                " />
-            </div>
-          </template>
-
-          <div v-else class="template-editor__drawer-empty">
-            <p>Select an argument to edit its details.</p>
-            <q-btn flat color="accent" icon="add" label="Add argument" @click="addBlock" />
-          </div>
-        </aside>
+        </section>
       </section>
+
+      <section
+        v-if="showAdvancedSection"
+        class="template-editor__card template-editor__card--advanced">
+        <button
+          type="button"
+          class="template-editor__advanced-toggle"
+          data-testid="start-args-advanced-panel-toggle"
+          :aria-expanded="String(isAdvancedExpanded)"
+          @click="toggleAdvanced">
+          <span class="template-editor__advanced-copy">
+            <span class="template-editor__eyebrow">Advanced Sequence</span>
+            <span class="template-editor__advanced-meta">
+              {{ argumentCountLabel(currentTemplate.length) }} · fallback ordering
+            </span>
+          </span>
+          <span class="template-editor__toggle-indicator font-display">
+            {{ isAdvancedExpanded ? 'Hide details' : 'Order details' }}
+            <q-icon :name="isAdvancedExpanded ? 'expand_less' : 'expand_more'" size="18px" />
+          </span>
+        </button>
+
+        <div
+          v-if="isAdvancedExpanded"
+          class="template-editor__sequence-list"
+          role="list"
+          aria-label="Advanced launch sequence inspector">
+          <article
+            v-for="(block, index) in currentTemplate"
+            :key="block.id"
+            class="template-editor__sequence-row"
+            :data-testid="`advanced-row-${block.id}`"
+            :class="{ 'template-editor__sequence-row--selected': selectedBlockID === block.id }">
+            <button
+              type="button"
+              class="template-editor__sequence-item"
+              :aria-label="inventorySelectAriaLabel(block, index)"
+              :aria-pressed="String(selectedBlockID === block.id)"
+              @click="openEditDialog(block.id, 'advanced')">
+              <span class="template-editor__order">{{ index + 1 }}</span>
+              <code class="template-editor__sequence-preview font-mono">
+                {{ inventoryPreview(block) }}
+              </code>
+            </button>
+            <span class="template-editor__state" :class="ownershipPillClass(block.ownership)">
+              {{ ownershipLabel(block.ownership) }}
+            </span>
+            <div class="template-editor__sequence-actions">
+              <div
+                class="template-editor__stepper"
+                :aria-label="`Reorder argument ${index + 1}`"
+                role="group">
+                <button
+                  type="button"
+                  class="template-editor__icon template-editor__icon--step"
+                  aria-label="Move argument up"
+                  :disabled="index <= 0"
+                  @click="moveBlock(index, -1)">
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  class="template-editor__icon template-editor__icon--step"
+                  aria-label="Move argument down"
+                  :disabled="index >= currentTemplate.length - 1"
+                  @click="moveBlock(index, 1)">
+                  ↓
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <q-dialog
+        :model-value="dialogOpen"
+        transition-show="fade"
+        transition-hide="fade"
+        @update:model-value="handleDialogModelChange">
+        <q-card v-if="dialogOpen" class="template-editor__dialog" data-testid="start-args-dialog">
+          <q-card-section class="template-editor__dialog-head">
+            <div class="template-editor__dialog-head-main">
+              <p class="template-editor__eyebrow">
+                {{ dialogMode === 'add' ? 'Add Argument' : 'Edit Argument' }}
+              </p>
+              <h3 class="template-editor__dialog-title font-display">{{ dialogTitle }}</h3>
+              <p class="template-editor__dialog-copy text-xy-secondary">{{ dialogSubtitle }}</p>
+              <div v-if="dialogMode === 'edit'" class="template-editor__dialog-hero">
+                <span
+                  class="template-editor__dialog-hero-chip"
+                  :class="dialogHeroChipClass"
+                  :style="dialogHeroTransitionStyle">
+                  <span class="template-editor__dialog-hero-text font-mono">
+                    {{ dialogHeroText }}
+                  </span>
+                </span>
+              </div>
+            </div>
+            <span class="template-editor__state" :class="ownershipPillClass(dialogDraft.ownership)">
+              {{ ownershipLabel(dialogDraft.ownership) }}
+            </span>
+          </q-card-section>
+
+          <q-card-section class="template-editor__dialog-body">
+            <q-select
+              :model-value="dialogDraft.ownership"
+              outlined
+              emit-value
+              map-options
+              :options="ownershipOptions"
+              label="Mutability"
+              data-testid="start-args-dialog-ownership"
+              @update:model-value="
+                dialogDraft.ownership = ($event as StartArgOwnership) ?? 'editable'
+              " />
+
+            <q-input
+              :model-value="dialogDraft.label"
+              outlined
+              label="Label"
+              data-testid="start-args-dialog-label"
+              @update:model-value="dialogDraft.label = String($event ?? '')" />
+
+            <q-input
+              :model-value="dialogDraft.tokensText"
+              type="textarea"
+              autogrow
+              outlined
+              label="Arguments"
+              hint="One argument per line. These become argv tokens exactly as written."
+              data-testid="tokens-input"
+              @update:model-value="dialogDraft.tokensText = String($event ?? '')" />
+
+            <q-select
+              v-if="dialogDraft.ownership === 'system'"
+              :model-value="dialogDraft.managedSource"
+              outlined
+              emit-value
+              map-options
+              :options="startArgManagedSourceOptions"
+              label="Managed Source"
+              hint="Choose from the valid runtime placeholders."
+              data-testid="start-args-dialog-managed-source"
+              @update:model-value="dialogDraft.managedSource = String($event ?? '')" />
+          </q-card-section>
+
+          <q-card-actions class="template-editor__dialog-actions" align="between">
+            <q-btn
+              v-if="dialogMode === 'edit'"
+              flat
+              color="negative"
+              label="Remove"
+              data-testid="start-args-remove-block"
+              @click="removeEditingBlock" />
+            <div class="template-editor__dialog-actions-main">
+              <q-btn flat label="Cancel" @click="closeDialog" />
+              <q-btn
+                color="primary"
+                :label="dialogMode === 'add' ? 'Add argument' : 'Save changes'"
+                data-testid="save-arg-button"
+                @click="saveDialog" />
+            </div>
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue'
 
 import type { StartArgBlock, StartArgOwnership } from '@/components/game_servers/start-args'
 import {
@@ -361,51 +338,171 @@ import {
 
 type Platform = 'linux' | 'windows'
 
-interface PreviewSegment {
-  id: string
-  blockID?: string
-  ownership: StartArgOwnership
-  text: string
+type ViewTransitionCapableDocument = Document & {
+  startViewTransition?: (updateCallback: () => void | Promise<void>) => { finished: Promise<void> }
 }
 
 const props = withDefaults(
   defineProps<{
+    activePlatform?: Platform
+    advancedExpanded?: boolean
     baselineLinuxBaseCommand?: string
     baselineLinuxTemplate?: StartArgBlock[]
+    baselineWindowsBaseCommand?: string
+    baselineWindowsTemplate?: StartArgBlock[]
     linuxBaseCommand: string
     linuxEnabled?: boolean
     linuxTemplate: StartArgBlock[]
-    baselineWindowsBaseCommand?: string
-    baselineWindowsTemplate?: StartArgBlock[]
+    mode?: 'full' | 'preview' | 'advanced'
     windowsBaseCommand: string
     windowsEnabled?: boolean
     windowsTemplate: StartArgBlock[]
   }>(),
-  {
-    linuxEnabled: true,
-    windowsEnabled: true,
-  },
+  { linuxEnabled: true, mode: 'full', windowsEnabled: true },
 )
 
 const emit = defineEmits<{
+  'update:activePlatform': [value: Platform]
+  'update:advancedExpanded': [value: boolean]
   'update:linuxBaseCommand': [value: string]
   'update:linuxTemplate': [value: StartArgBlock[]]
   'update:windowsBaseCommand': [value: string]
   'update:windowsTemplate': [value: StartArgBlock[]]
 }>()
 
+const ownershipOptions = [
+  { label: 'System', value: 'system' },
+  { label: 'Locked', value: 'locked' },
+  { label: 'Editable', value: 'editable' },
+] as const satisfies ReadonlyArray<{ label: string; value: StartArgOwnership }>
+
 const availablePlatforms = computed<Platform[]>(() => {
   const platforms: Platform[] = []
-  if (props.windowsEnabled) {
-    platforms.push('windows')
-  }
-  if (props.linuxEnabled) {
-    platforms.push('linux')
-  }
+  if (props.windowsEnabled) platforms.push('windows')
+  if (props.linuxEnabled) platforms.push('linux')
   return platforms
 })
 
-const selectedPlatform = ref<Platform>('windows')
+const internalPlatform = ref<Platform>('windows')
+const internalAdvancedExpanded = ref(false)
+const selectedBlockIDs = ref<Record<Platform, string | null>>({ linux: null, windows: null })
+const draggedIndex = ref<number | null>(null)
+const dragInsertionIndex = ref<number | null>(null)
+const dialogOpen = ref(false)
+const dialogMode = ref<'add' | 'edit'>('add')
+const dialogEditingBlockID = ref<string | null>(null)
+const activeViewTransitionName = ref<string | null>(null)
+const activeViewTransitionBlockID = ref<string | null>(null)
+
+const dialogDraft = reactive<{
+  label: string
+  managedSource: string
+  ownership: StartArgOwnership
+  tokensText: string
+}>({
+  label: '',
+  managedSource: '',
+  ownership: 'editable',
+  tokensText: '',
+})
+
+const instance = getCurrentInstance()
+const hasControlledAdvancedExpanded = computed(() => {
+  const vnodeProps = instance?.vnode.props ?? {}
+  return 'advancedExpanded' in vnodeProps || 'advanced-expanded' in vnodeProps
+})
+
+const selectedPlatform = computed<Platform>({
+  get: () => {
+    const candidate = props.activePlatform ?? internalPlatform.value
+    if (availablePlatforms.value.includes(candidate)) return candidate
+    return availablePlatforms.value[0] ?? 'windows'
+  },
+  set: (value) => {
+    internalPlatform.value = value
+    emit('update:activePlatform', value)
+  },
+})
+
+const isAdvancedExpanded = computed<boolean>({
+  get: () =>
+    hasControlledAdvancedExpanded.value
+      ? (props.advancedExpanded ?? false)
+      : internalAdvancedExpanded.value,
+  set: (value) => {
+    internalAdvancedExpanded.value = value
+    emit('update:advancedExpanded', value)
+  },
+})
+
+const currentBaseCommand = computed(() =>
+  selectedPlatform.value === 'windows' ? props.windowsBaseCommand : props.linuxBaseCommand,
+)
+const currentTemplate = computed(() =>
+  selectedPlatform.value === 'windows' ? props.windowsTemplate : props.linuxTemplate,
+)
+const otherPlatform = computed<Platform>(() =>
+  selectedPlatform.value === 'windows' ? 'linux' : 'windows',
+)
+const otherTemplate = computed(() =>
+  otherPlatform.value === 'windows' ? props.windowsTemplate : props.linuxTemplate,
+)
+const baselineBaseCommand = computed(() =>
+  selectedPlatform.value === 'windows'
+    ? (props.baselineWindowsBaseCommand ?? props.windowsBaseCommand)
+    : (props.baselineLinuxBaseCommand ?? props.linuxBaseCommand),
+)
+const baselineTemplate = computed(() =>
+  selectedPlatform.value === 'windows'
+    ? (props.baselineWindowsTemplate ?? props.windowsTemplate)
+    : (props.baselineLinuxTemplate ?? props.linuxTemplate),
+)
+const selectedBlockID = computed({
+  get: () => selectedBlockIDs.value[selectedPlatform.value],
+  set: (value: string | null) => {
+    selectedBlockIDs.value = { ...selectedBlockIDs.value, [selectedPlatform.value]: value }
+  },
+})
+const showPlatformTabs = computed(() => props.mode !== 'advanced')
+const showPreviewSection = computed(() => props.mode !== 'advanced')
+const showAdvancedSection = computed(() => props.mode !== 'preview')
+const rootTestId = computed(() => `start-args-template-editor-${props.mode}`)
+const canResetPlatform = computed(
+  () =>
+    currentBaseCommand.value !== baselineBaseCommand.value ||
+    templateSignature(currentTemplate.value) !== templateSignature(baselineTemplate.value),
+)
+const canResetOrder = computed(
+  () =>
+    templatesShareSameIDs(currentTemplate.value, baselineTemplate.value) &&
+    templateIDSequence(currentTemplate.value) !== templateIDSequence(baselineTemplate.value),
+)
+const dialogTitle = computed(() => {
+  if (dialogMode.value === 'add') return 'Add runtime argument'
+  return dialogDraft.label.trim() !== '' ? dialogDraft.label.trim() : 'Edit runtime argument'
+})
+const dialogSubtitle = computed(() => {
+  const preview = formatTokensInline(splitTokensInput(dialogDraft.tokensText)).trim()
+  if (preview !== '') return preview
+  return dialogMode.value === 'add'
+    ? 'Create a new argument at the end of the preview, then drag it into place.'
+    : 'Update the selected argument and keep the preview readable.'
+})
+const dialogHeroText = computed(() => {
+  const preview = formatTokensInline(splitTokensInput(dialogDraft.tokensText)).trim()
+  if (preview !== '') return preview
+
+  const label = dialogDraft.label.trim()
+  if (label !== '') return label
+
+  return 'Runtime argument'
+})
+const dialogHeroChipClass = computed(() => [`template-editor__arg-chip--${dialogDraft.ownership}`])
+const dialogHeroTransitionStyle = computed(() =>
+  activeViewTransitionName.value === null
+    ? undefined
+    : ({ viewTransitionName: activeViewTransitionName.value } as const),
+)
 
 watch(
   availablePlatforms,
@@ -416,141 +513,6 @@ watch(
   },
   { immediate: true },
 )
-
-const currentBaseCommand = computed(() =>
-  selectedPlatform.value === 'windows' ? props.windowsBaseCommand : props.linuxBaseCommand,
-)
-
-const currentTemplate = computed(() =>
-  selectedPlatform.value === 'windows' ? props.windowsTemplate : props.linuxTemplate,
-)
-
-const otherPlatform = computed<Platform>(() =>
-  selectedPlatform.value === 'windows' ? 'linux' : 'windows',
-)
-
-const otherTemplate = computed(() =>
-  otherPlatform.value === 'windows' ? props.windowsTemplate : props.linuxTemplate,
-)
-
-const baselineBaseCommand = computed(() => {
-  if (selectedPlatform.value === 'windows') {
-    return props.baselineWindowsBaseCommand ?? props.windowsBaseCommand
-  }
-
-  return props.baselineLinuxBaseCommand ?? props.linuxBaseCommand
-})
-
-const baselineTemplate = computed(() => {
-  if (selectedPlatform.value === 'windows') {
-    return props.baselineWindowsTemplate ?? props.windowsTemplate
-  }
-
-  return props.baselineLinuxTemplate ?? props.linuxTemplate
-})
-
-const isCompactViewport = ref(readCompactViewport())
-const selectedBlockIDs = ref<Record<Platform, string | null>>({
-  linux: null,
-  windows: null,
-})
-const previewExpandedByPlatform = ref<Record<Platform, boolean>>({
-  linux: !isCompactViewport.value,
-  windows: !isCompactViewport.value,
-})
-const mobileInventoryExpanded = ref(!isCompactViewport.value)
-const draggedIndex = ref<number | null>(null)
-const dragSlotIndex = ref<number | null>(null)
-const drawerHeadElement = ref<HTMLElement | null>(null)
-const inventoryRowElements = new Map<string, HTMLElement>()
-let viewportMediaQuery: MediaQueryList | null = null
-let viewportChangeHandler: ((event: MediaQueryListEvent) => void) | null = null
-
-const selectedBlockID = computed({
-  get() {
-    return selectedBlockIDs.value[selectedPlatform.value]
-  },
-  set(value: string | null) {
-    selectedBlockIDs.value = {
-      ...selectedBlockIDs.value,
-      [selectedPlatform.value]: value,
-    }
-  },
-})
-
-const selectedBlockIndex = computed(() =>
-  currentTemplate.value.findIndex((block) => block.id === selectedBlockID.value),
-)
-
-const selectedBlock = computed(() => {
-  if (selectedBlockIndex.value < 0) {
-    return null
-  }
-
-  return currentTemplate.value[selectedBlockIndex.value] ?? null
-})
-
-const selectedBlockTitle = computed(() => {
-  if (!selectedBlock.value) {
-    return 'No argument selected'
-  }
-
-  return blockTitle(selectedBlock.value)
-})
-
-const editableBlockCount = computed(
-  () => currentTemplate.value.filter((block) => block.ownership === 'editable').length,
-)
-
-const isPreviewExpanded = computed(() => previewExpandedByPlatform.value[selectedPlatform.value])
-
-const showInventoryList = computed(
-  () =>
-    currentTemplate.value.length === 0 || !isCompactViewport.value || mobileInventoryExpanded.value,
-)
-
-const canResetPlatform = computed(
-  () =>
-    currentBaseCommand.value !== baselineBaseCommand.value ||
-    templateSignature(currentTemplate.value) !== templateSignature(baselineTemplate.value),
-)
-
-const canResetOrder = computed(() => {
-  if (!templatesShareSameIDs(currentTemplate.value, baselineTemplate.value)) {
-    return false
-  }
-
-  return templateIDSequence(currentTemplate.value) !== templateIDSequence(baselineTemplate.value)
-})
-
-const previewSegments = computed<PreviewSegment[]>(() => {
-  const segments: PreviewSegment[] = []
-  const baseCommand = currentBaseCommand.value.trim()
-
-  if (baseCommand !== '') {
-    segments.push({
-      id: 'base-command',
-      ownership: 'system',
-      text: baseCommand,
-    })
-  }
-
-  currentTemplate.value.forEach((block) => {
-    const previewText = formatTokensInline(block.tokens).trim()
-    if (previewText === '') {
-      return
-    }
-
-    segments.push({
-      id: block.id,
-      blockID: block.id,
-      ownership: block.ownership,
-      text: previewText,
-    })
-  })
-
-  return segments
-})
 
 watch(
   currentTemplate,
@@ -563,9 +525,14 @@ watch(
     const currentSelection = selectedBlockID.value
     const hasSelection =
       currentSelection !== null && template.some((block) => block.id === currentSelection)
+    if (!hasSelection) selectedBlockID.value = template[0].id
 
-    if (!hasSelection) {
-      selectedBlockID.value = template[0].id
+    if (
+      dialogMode.value === 'edit' &&
+      dialogEditingBlockID.value !== null &&
+      !template.some((block) => block.id === dialogEditingBlockID.value)
+    ) {
+      closeDialog()
     }
   },
   { immediate: true, deep: true },
@@ -573,189 +540,80 @@ watch(
 
 watch(selectedPlatform, () => {
   onDragEnd()
-
-  if (isCompactViewport.value) {
-    mobileInventoryExpanded.value = false
-  }
+  closeDialog()
 })
 
 function platformLabel(platform: Platform) {
   return platform === 'windows' ? 'Windows' : 'Linux'
 }
 
-function readCompactViewport() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false
-  }
-
-  return window.matchMedia('(max-width: 780px)').matches
+function argumentCountLabel(count: number) {
+  return `${count} argument${count === 1 ? '' : 's'}`
 }
 
-function syncCompactViewport(isCompact: boolean) {
-  isCompactViewport.value = isCompact
-
-  if (isCompact) {
-    mobileInventoryExpanded.value = currentTemplate.value.length === 0
-    return
-  }
-
-  mobileInventoryExpanded.value = true
-}
-
-function ownershipLabel(ownership: StartArgOwnership) {
-  if (ownership === 'system') {
-    return 'System'
-  }
-
-  if (ownership === 'locked') {
-    return 'Locked'
-  }
-
-  return 'Editable'
-}
-
-function previewTokenClass(segment: PreviewSegment) {
+function previewChipClass(block: StartArgBlock, index: number) {
   return [
-    `template-editor__preview-token--${segment.ownership}`,
-    segment.blockID
-      ? 'template-editor__preview-segment-button'
-      : 'template-editor__preview-token--static',
-    segment.blockID && selectedBlockID.value === segment.blockID
-      ? 'template-editor__preview-segment-button--selected'
-      : '',
+    `template-editor__arg-chip--${block.ownership}`,
+    selectedBlockID.value === block.id ? 'template-editor__arg-chip--selected' : '',
+    draggedIndex.value === index ? 'template-editor__arg-chip--dragging' : '',
   ]
 }
 
-function previewSegmentAriaLabel(segment: PreviewSegment) {
-  if (!segment.blockID) {
-    return ''
+function previewSegmentAriaLabel(block: StartArgBlock, index: number) {
+  return `Edit argument ${index + 1}: ${previewChipTitle(block)}`
+}
+
+function viewTransitionStyleForChip(blockID: string) {
+  if (activeViewTransitionName.value === null || activeViewTransitionBlockID.value !== blockID) {
+    return undefined
   }
 
-  const blockIndex = currentTemplate.value.findIndex((block) => block.id === segment.blockID)
-  if (blockIndex < 0) {
-    return 'Edit launch argument'
-  }
+  return { viewTransitionName: activeViewTransitionName.value } as const
+}
 
-  const block = currentTemplate.value[blockIndex]
-  return `Edit argument ${blockIndex + 1}: ${blockTitle(block)}`
+function previewChipText(block: StartArgBlock) {
+  const preview = formatTokensInline(block.tokens).trim()
+  if (preview !== '') return preview
+  return blockTitle(block)
+}
+
+function previewChipTitle(block: StartArgBlock) {
+  const preview = formatTokensInline(block.tokens).trim()
+  if (preview !== '') return preview
+  return blockTitle(block)
+}
+
+function ownershipLabel(ownership: StartArgOwnership) {
+  if (ownership === 'system') return 'System'
+  if (ownership === 'locked') return 'Locked'
+  return 'Editable'
 }
 
 function ownershipPillClass(ownership: StartArgOwnership) {
-  return `template-editor__ownership-pill--${ownership}`
+  return `template-editor__state--${ownership}`
 }
 
 function blockTitle(block: StartArgBlock) {
-  const trimmedLabel = block.label?.trim() ?? ''
-  if (trimmedLabel !== '') {
-    return trimmedLabel
-  }
+  const label = block.label?.trim() ?? ''
+  if (label !== '') return label
 
   const managedSource = block.managedSource?.trim() ?? ''
-  if (managedSource !== '') {
-    return getManagedSourceLabel(managedSource)
-  }
+  if (managedSource !== '') return getManagedSourceLabel(managedSource)
 
   return block.tokens[0] ?? 'Untitled argument'
 }
 
-function blockSubtitle(block: StartArgBlock) {
-  const tokenPreview = formatTokensInline(block.tokens)
-  if (tokenPreview !== '') {
-    return tokenPreview
-  }
-
-  const managedSource = block.managedSource?.trim() ?? ''
-  if (managedSource !== '') {
-    return `Managed source: ${getManagedSourceLabel(managedSource)}`
-  }
-
-  return 'No arguments configured yet.'
-}
-
-function inventoryNote(block: StartArgBlock) {
-  const managedSource = block.managedSource?.trim() ?? ''
-
-  if (block.ownership === 'system') {
-    return managedSource !== ''
-      ? `System managed • ${getManagedSourceLabel(managedSource)}`
-      : 'System managed'
-  }
-
-  if (block.ownership === 'locked') {
-    return 'Required launch flag'
-  }
-
-  if (block.tokens.length <= 1) {
-    return 'Editable launch flag'
-  }
-
-  return `${block.tokens.length} launch arguments`
-}
-
 function inventoryPreview(block: StartArgBlock) {
-  const preview = formatTokensInline(block.tokens)
-
-  if (preview === '') {
-    return 'No arguments set'
-  }
-
-  if (preview.length <= 42) {
-    return preview
-  }
-
-  return `${preview.slice(0, 42)}…`
+  const preview = previewChipText(block)
+  return preview.length <= 80 ? preview : `${preview.slice(0, 80)}…`
 }
 
 function inventorySelectAriaLabel(block: StartArgBlock, index: number) {
-  return `Select argument ${index + 1}: ${blockTitle(block)} (${ownershipLabel(block.ownership)})`
+  return `Edit argument ${index + 1}: ${blockTitle(block)} (${ownershipLabel(block.ownership)})`
 }
 
-function setInventoryRowRef(blockID: string, element: Element | null) {
-  if (element instanceof HTMLElement) {
-    inventoryRowElements.set(blockID, element)
-    return
-  }
-
-  inventoryRowElements.delete(blockID)
-}
-
-async function scrollSelectedBlockIntoView(blockID: string) {
-  await nextTick()
-
-  inventoryRowElements.get(blockID)?.scrollIntoView?.({
-    block: 'nearest',
-    inline: 'nearest',
-    behavior: 'smooth',
-  })
-
-  drawerHeadElement.value?.scrollIntoView?.({
-    block: 'nearest',
-    inline: 'nearest',
-    behavior: 'smooth',
-  })
-}
-
-function selectBlock(blockID: string, options?: { scrollIntoView?: boolean }) {
-  selectedBlockID.value = blockID
-
-  if (isCompactViewport.value) {
-    mobileInventoryExpanded.value = false
-  }
-
-  if (options?.scrollIntoView) {
-    void scrollSelectedBlockIntoView(blockID)
-  }
-}
-
-function togglePreview() {
-  previewExpandedByPlatform.value = {
-    ...previewExpandedByPlatform.value,
-    [selectedPlatform.value]: !previewExpandedByPlatform.value[selectedPlatform.value],
-  }
-}
-
-function toggleMobileInventory() {
-  mobileInventoryExpanded.value = !mobileInventoryExpanded.value
+function toggleAdvanced() {
+  isAdvancedExpanded.value = !isAdvancedExpanded.value
 }
 
 function updateBaseCommand(value: string) {
@@ -767,111 +625,216 @@ function updateBaseCommand(value: string) {
   emit('update:linuxBaseCommand', value)
 }
 
-function updateSelectedBlock(patch: Partial<StartArgBlock>) {
-  if (selectedBlockIndex.value < 0) {
+function selectBlock(blockID: string | null) {
+  selectedBlockID.value = blockID
+}
+
+function openEditDialog(blockID: string, origin: 'preview' | 'advanced' = 'preview') {
+  const block = currentTemplate.value.find((candidate) => candidate.id === blockID)
+  if (!block) return
+
+  const applyOpen = () => {
+    selectBlock(blockID)
+    dialogMode.value = 'edit'
+    dialogEditingBlockID.value = blockID
+    dialogDraft.label = block.label ?? ''
+    dialogDraft.managedSource = block.managedSource ?? ''
+    dialogDraft.ownership = block.ownership
+    dialogDraft.tokensText = joinTokensInput(block.tokens ?? [])
+    dialogOpen.value = true
+  }
+
+  if (origin === 'preview') {
+    void runArgumentViewTransition(blockID, applyOpen)
     return
   }
 
-  updateBlock(selectedBlockIndex.value, patch)
+  applyOpen()
+}
+
+function openAddDialog() {
+  dialogMode.value = 'add'
+  dialogEditingBlockID.value = null
+  dialogDraft.label = ''
+  dialogDraft.managedSource = ''
+  dialogDraft.ownership = 'editable'
+  dialogDraft.tokensText = ''
+  dialogOpen.value = true
+}
+
+function closeDialog() {
+  const editingBlockID = dialogMode.value === 'edit' ? dialogEditingBlockID.value : null
+  const canMorphBack =
+    editingBlockID !== null && currentTemplate.value.some((block) => block.id === editingBlockID)
+
+  if (canMorphBack) {
+    void runArgumentViewTransition(editingBlockID, () => {
+      dialogOpen.value = false
+    })
+    return
+  }
+
+  dialogOpen.value = false
+}
+
+function handleDialogModelChange(value: boolean) {
+  if (!value) closeDialog()
+}
+
+function saveDialog() {
+  const patch = buildDialogBlockPatch()
+
+  if (dialogMode.value === 'add') {
+    const blockID = createBlockId()
+    const nextTemplate = normalizeTemplate([
+      ...currentTemplate.value,
+      {
+        id: blockID,
+        order: currentTemplate.value.length,
+        ownership: patch.ownership ?? 'editable',
+        label: patch.label ?? '',
+        managedSource: patch.managedSource ?? '',
+        tokens: patch.tokens ?? [],
+      },
+    ])
+    selectBlock(blockID)
+    emitTemplate(nextTemplate)
+    closeDialog()
+    return
+  }
+
+  const editingIndex = currentTemplate.value.findIndex(
+    (block) => block.id === dialogEditingBlockID.value,
+  )
+  if (editingIndex < 0) return
+
+  const editingBlockID = dialogEditingBlockID.value
+  if (editingBlockID !== null) {
+    void runArgumentViewTransition(editingBlockID, () => {
+      updateBlock(editingIndex, patch)
+      dialogOpen.value = false
+    })
+    return
+  }
+
+  updateBlock(editingIndex, patch)
+  dialogOpen.value = false
+}
+
+function removeEditingBlock() {
+  const editingIndex = currentTemplate.value.findIndex(
+    (block) => block.id === dialogEditingBlockID.value,
+  )
+  if (editingIndex < 0) return
+  dialogOpen.value = false
+  removeBlock(editingIndex)
+}
+
+async function runArgumentViewTransition(blockID: string, update: () => void | Promise<void>) {
+  const reduceMotion =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const transitionDocument =
+    typeof document !== 'undefined' ? (document as ViewTransitionCapableDocument) : null
+
+  if (reduceMotion || transitionDocument?.startViewTransition === undefined) {
+    await update()
+    return
+  }
+
+  activeViewTransitionName.value = 'runtime-arg-focus'
+  activeViewTransitionBlockID.value = blockID
+
+  const transition = transitionDocument.startViewTransition(async () => {
+    await update()
+    await nextTick()
+  })
+
+  try {
+    await transition.finished
+  } finally {
+    activeViewTransitionName.value = null
+    activeViewTransitionBlockID.value = null
+  }
+}
+
+function buildDialogBlockPatch(): Partial<StartArgBlock> {
+  const ownership = dialogDraft.ownership
+  return {
+    ownership,
+    label: dialogDraft.label,
+    managedSource: ownership === 'system' ? dialogDraft.managedSource : '',
+    tokens: splitTokensInput(dialogDraft.tokensText),
+  }
 }
 
 function updateBlock(index: number, patch: Partial<StartArgBlock>) {
   const targetBlock = currentTemplate.value[index]
-  if (!targetBlock) {
-    return
-  }
+  if (!targetBlock) return
 
-  const nextTemplate = applyPatchToTemplateByIndex(currentTemplate.value, index, patch)
-  emitTemplate(nextTemplate)
+  emitTemplate(applyPatchToTemplateByIndex(currentTemplate.value, index, patch))
   syncSharedBlockMetadata(targetBlock.id, patch)
 }
 
 function moveBlock(index: number, direction: -1 | 1) {
   const targetIndex = index + direction
-  if (targetIndex < 0 || targetIndex >= currentTemplate.value.length) {
-    return
-  }
-
+  if (targetIndex < 0 || targetIndex >= currentTemplate.value.length) return
   reorderBlock(index, targetIndex)
 }
 
 function reorderBlock(fromIndex: number, toIndex: number) {
-  if (fromIndex === toIndex) {
-    return
-  }
-
-  if (fromIndex < 0 || toIndex < 0) {
-    return
-  }
-
-  if (fromIndex >= currentTemplate.value.length || toIndex >= currentTemplate.value.length) {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= currentTemplate.value.length ||
+    toIndex >= currentTemplate.value.length
+  ) {
     return
   }
 
   const nextTemplate = [...currentTemplate.value]
   const [moved] = nextTemplate.splice(fromIndex, 1)
   nextTemplate.splice(toIndex, 0, moved)
-
   selectBlock(moved.id)
   emitTemplate(normalizeTemplate(nextTemplate))
 }
 
 function removeBlock(index: number) {
-  if (index < 0 || index >= currentTemplate.value.length) {
-    return
-  }
+  if (index < 0 || index >= currentTemplate.value.length) return
 
   const nextSelection =
     currentTemplate.value[index + 1]?.id ?? currentTemplate.value[index - 1]?.id ?? null
-  const nextTemplate = currentTemplate.value.filter((_, currentIndex) => currentIndex !== index)
-  selectedBlockID.value = nextSelection
-  emitTemplate(normalizeTemplate(nextTemplate))
-}
-
-function addBlock() {
-  const blockID = createBlockId()
-  const nextTemplate = normalizeTemplate([
-    ...currentTemplate.value,
-    {
-      id: blockID,
-      order: currentTemplate.value.length,
-      ownership: 'editable',
-      tokens: [],
-      label: '',
-      managedSource: '',
-    },
-  ])
-  selectedBlockID.value = blockID
-  emitTemplate(nextTemplate)
+  selectBlock(nextSelection)
+  emitTemplate(
+    normalizeTemplate(currentTemplate.value.filter((_, currentIndex) => currentIndex !== index)),
+  )
 }
 
 function resetCurrentPlatformOrder() {
-  if (!canResetOrder.value) {
-    return
-  }
+  if (!canResetOrder.value) return
 
   const currentBlocksByID = new Map(
     currentTemplate.value.map((block) => [block.id, cloneStartArgBlock(block)]),
   )
-  const reorderedBlocks = baselineTemplate.value
-    .map((block) => currentBlocksByID.get(block.id))
-    .filter((block): block is StartArgBlock => block !== undefined)
-
-  emitTemplate(normalizeTemplate(reorderedBlocks))
+  emitTemplate(
+    normalizeTemplate(
+      baselineTemplate.value
+        .map((block) => currentBlocksByID.get(block.id))
+        .filter((block): block is StartArgBlock => block !== undefined),
+    ),
+  )
 }
 
 function resetCurrentPlatform() {
-  if (!canResetPlatform.value) {
-    return
-  }
+  if (!canResetPlatform.value) return
 
   updateBaseCommand(baselineBaseCommand.value)
   emitTemplate(normalizeTemplate(cloneStartArgTemplate(baselineTemplate.value)))
 }
 
-function onDragStart(index: number, event: DragEvent) {
+function onPreviewDragStart(index: number, event: DragEvent) {
   draggedIndex.value = index
-  dragSlotIndex.value = index
+  dragInsertionIndex.value = index
 
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
@@ -879,41 +842,53 @@ function onDragStart(index: number, event: DragEvent) {
   }
 }
 
-function onDragOver(index: number, event: DragEvent) {
-  if (draggedIndex.value === null) {
-    return
-  }
-
-  dragSlotIndex.value = resolveDragSlot(index, event)
+function activatePreviewInsertion(targetIndex: number, event: DragEvent) {
+  if (draggedIndex.value === null) return
+  dragInsertionIndex.value = resolvePreviewInsertionIndex(targetIndex, event)
 }
 
-function onDrop(index: number, event: DragEvent) {
-  if (draggedIndex.value === null) {
-    return
+function activatePreviewEnd(event: DragEvent) {
+  if (draggedIndex.value === null) return
+
+  if (event.currentTarget === event.target) {
+    dragInsertionIndex.value = currentTemplate.value.length
   }
+}
+
+function dropOnPreview(targetIndex: number, event: DragEvent) {
+  completePreviewDrop(resolvePreviewInsertionIndex(targetIndex, event))
+}
+
+function dropAtPreviewEnd() {
+  completePreviewDrop(currentTemplate.value.length)
+}
+
+function completePreviewDrop(insertionIndex: number) {
+  if (draggedIndex.value === null) return
 
   const fromIndex = draggedIndex.value
-  const slotIndex = resolveDragSlot(index, event)
-  const targetIndex = slotIndex > fromIndex ? slotIndex - 1 : slotIndex
   onDragEnd()
-  reorderBlock(fromIndex, targetIndex)
+
+  const nextIndex = insertionIndex > fromIndex ? insertionIndex - 1 : insertionIndex
+  const boundedIndex = Math.max(0, Math.min(nextIndex, currentTemplate.value.length - 1))
+  reorderBlock(fromIndex, boundedIndex)
+}
+
+function resolvePreviewInsertionIndex(targetIndex: number, event: DragEvent) {
+  const currentTarget = event.currentTarget
+  if (!(currentTarget instanceof HTMLElement)) return targetIndex
+  if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return targetIndex
+
+  const bounds = currentTarget.getBoundingClientRect()
+  const useVerticalAxis = bounds.height > bounds.width
+  const midpoint = useVerticalAxis ? bounds.top + bounds.height / 2 : bounds.left + bounds.width / 2
+  const placeAfter = useVerticalAxis ? event.clientY > midpoint : event.clientX > midpoint
+  return placeAfter ? targetIndex + 1 : targetIndex
 }
 
 function onDragEnd() {
   draggedIndex.value = null
-  dragSlotIndex.value = null
-}
-
-function resolveDragSlot(index: number, event: DragEvent) {
-  const currentTarget = event.currentTarget
-  if (!(currentTarget instanceof HTMLElement)) {
-    return index
-  }
-
-  const bounds = currentTarget.getBoundingClientRect()
-  const pointerY = event.clientY
-  const midpoint = bounds.top + bounds.height / 2
-  return pointerY < midpoint ? index : index + 1
+  dragInsertionIndex.value = null
 }
 
 function emitTemplate(template: StartArgBlock[]) {
@@ -932,31 +907,14 @@ function emitTemplateForPlatform(platform: Platform, template: StartArgBlock[]) 
 const sharedBlockPatchKeys = ['ownership', 'label', 'managedSource'] as const
 
 function syncSharedBlockMetadata(blockID: string, patch: Partial<StartArgBlock>) {
-  const sharedPatch = extractSharedBlockPatch(patch)
-  if (Object.keys(sharedPatch).length === 0) {
-    return
+  const sharedPatch: Partial<StartArgBlock> = {}
+  for (const key of sharedBlockPatchKeys) {
+    if (Object.prototype.hasOwnProperty.call(patch, key)) sharedPatch[key] = patch[key]
   }
+  if (Object.keys(sharedPatch).length === 0) return
 
   const nextOtherTemplate = applyPatchToTemplateByID(otherTemplate.value, blockID, sharedPatch)
-  if (!nextOtherTemplate) {
-    return
-  }
-
-  emitTemplateForPlatform(otherPlatform.value, nextOtherTemplate)
-}
-
-function extractSharedBlockPatch(patch: Partial<StartArgBlock>) {
-  const sharedPatch: Partial<StartArgBlock> = {}
-
-  for (const key of sharedBlockPatchKeys) {
-    if (!Object.prototype.hasOwnProperty.call(patch, key)) {
-      continue
-    }
-
-    sharedPatch[key] = patch[key]
-  }
-
-  return sharedPatch
+  if (nextOtherTemplate) emitTemplateForPlatform(otherPlatform.value, nextOtherTemplate)
 }
 
 function applyPatchToTemplateByIndex(
@@ -977,16 +935,11 @@ function applyPatchToTemplateByID(
   patch: Partial<StartArgBlock>,
 ) {
   let found = false
-
   const nextTemplate = template.map((block, currentIndex) => {
-    if (block.id !== blockID) {
-      return normalizeBlock(block, currentIndex)
-    }
-
+    if (block.id !== blockID) return normalizeBlock(block, currentIndex)
     found = true
     return normalizeBlock({ ...block, ...patch }, currentIndex)
   })
-
   return found ? nextTemplate : null
 }
 
@@ -1013,10 +966,7 @@ function cloneStartArgTemplate(template: StartArgBlock[]) {
 }
 
 function cloneStartArgBlock(block: StartArgBlock): StartArgBlock {
-  return {
-    ...block,
-    tokens: [...block.tokens],
-  }
+  return { ...block, tokens: [...block.tokens] }
 }
 
 function templateSignature(template: StartArgBlock[]) {
@@ -1033,9 +983,7 @@ function templateSignature(template: StartArgBlock[]) {
 }
 
 function templatesShareSameIDs(current: StartArgBlock[], baseline: StartArgBlock[]) {
-  if (current.length !== baseline.length) {
-    return false
-  }
+  if (current.length !== baseline.length) return false
 
   const currentIDs = [...current.map((block) => block.id)].sort()
   const baselineIDs = [...baseline.map((block) => block.id)].sort()
@@ -1045,64 +993,82 @@ function templatesShareSameIDs(current: StartArgBlock[], baseline: StartArgBlock
 function templateIDSequence(template: StartArgBlock[]) {
   return template.map((block) => block.id).join('|')
 }
-
-onMounted(() => {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return
-  }
-
-  viewportMediaQuery = window.matchMedia('(max-width: 780px)')
-  viewportChangeHandler = (event: MediaQueryListEvent) => {
-    syncCompactViewport(event.matches)
-  }
-
-  syncCompactViewport(viewportMediaQuery.matches)
-  viewportMediaQuery.addEventListener('change', viewportChangeHandler)
-})
-
-onBeforeUnmount(() => {
-  if (viewportMediaQuery && viewportChangeHandler) {
-    viewportMediaQuery.removeEventListener('change', viewportChangeHandler)
-  }
-
-  viewportMediaQuery = null
-  viewportChangeHandler = null
-})
 </script>
 
 <style scoped>
 .template-editor {
+  --template-editor-platform: var(--xy-platform-windows);
   display: flex;
   flex-direction: column;
   gap: var(--xy-space-md);
-  --template-editor-platform-accent: var(--xy-primary);
-  --template-editor-platform-accent-emphasis: var(--xy-primary-hover);
 }
 
-.template-editor--windows {
-  --template-editor-platform-accent: var(--xy-platform-windows);
-  --template-editor-platform-accent-emphasis: var(--xy-platform-windows-hover);
+@keyframes template-editor-prompt-pulse {
+  0%,
+  100% {
+    text-shadow: 0 0 12px color-mix(in srgb, var(--template-editor-platform) 14%, transparent);
+    opacity: 0.92;
+  }
+  50% {
+    text-shadow: 0 0 24px color-mix(in srgb, var(--template-editor-platform) 28%, transparent);
+    opacity: 1;
+  }
+}
+
+@keyframes template-editor-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes template-editor-shell-glow {
+  0%,
+  100% {
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+  }
+  50% {
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.26);
+  }
 }
 
 .template-editor--linux {
-  --template-editor-platform-accent: var(--xy-platform-linux);
-  --template-editor-platform-accent-emphasis: var(--xy-platform-linux-hover);
+  --template-editor-platform: var(--xy-platform-linux);
 }
 
-.template-editor__empty {
-  padding: var(--xy-space-md);
-  border-radius: 10px;
+.template-editor__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.template-editor__empty,
+.template-editor__collapsed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-lg);
   border: 1px dashed var(--xy-border);
+  border-radius: 14px;
   background: var(--xy-surface-0);
 }
 
 .platform-tabs {
   display: inline-flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 8px;
   background: var(--xy-surface-0);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
 }
 
 .platform-tab {
@@ -1115,13 +1081,14 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--xy-text-muted);
-  font-size: 0.75rem;
-  font-family: inherit;
   cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--xy-text-muted);
   transition:
     background var(--xy-transition-fast),
-    color var(--xy-transition-fast);
+    color var(--xy-transition-fast),
+    box-shadow var(--xy-transition-fast);
+  font-family: inherit;
 }
 
 .platform-tab:hover {
@@ -1145,795 +1112,687 @@ onBeforeUnmount(() => {
   color: var(--xy-platform-linux);
 }
 
-.template-editor__field {
+.template-editor__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
+  padding: clamp(16px, 1.7vw, 22px);
+  border: 1px solid var(--xy-border);
+  border-radius: 18px;
+  background: var(--xy-surface-gradient-subtle), var(--xy-surface-1);
+  box-shadow: var(--xy-shadow-md);
+}
+
+.template-editor__card--advanced {
+  gap: 0.7rem;
+  padding: 14px 16px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--template-editor-platform) 3%, transparent),
+      transparent 42%
+    ),
+    var(--xy-surface-0);
+  box-shadow: none;
+}
+
+.template-editor__toolbar,
+.template-editor__shell-head,
+.template-editor__advanced-toggle,
+.template-editor__dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+}
+
+.template-editor__toolbar-copy,
+.template-editor__advanced-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.template-editor__dialog-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.template-editor__eyebrow {
+  margin: 0;
+  font-family: var(--xy-font-display);
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--xy-accent);
+}
+
+.template-editor__toolbar-meta,
+.template-editor__shell-copy,
+.template-editor__advanced-meta,
+.template-editor__dialog-copy {
+  color: var(--xy-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.template-editor__toolbar-meta,
+.template-editor__advanced-meta {
+  color: color-mix(in srgb, var(--template-editor-platform) 22%, var(--xy-text-secondary) 78%);
+}
+
+.template-editor__toolbar-actions,
+.template-editor__dialog-actions-main,
+.template-editor__sequence-actions,
+.template-editor__command-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.template-editor__button,
+.template-editor__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--xy-border);
+  background: var(--xy-surface-0);
+  color: var(--xy-text-secondary);
+  cursor: pointer;
+  transition:
+    border-color var(--xy-transition-fast),
+    color var(--xy-transition-fast),
+    background var(--xy-transition-fast),
+    transform 120ms ease-out,
+    box-shadow var(--xy-transition-fast);
+}
+
+.template-editor__button:hover,
+.template-editor__icon:hover {
+  border-color: var(--xy-border-hover);
+  color: var(--xy-text-primary);
+}
+
+.template-editor__button:disabled,
+.template-editor__icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.template-editor__button:active:not(:disabled),
+.template-editor__icon:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.template-editor__button--action,
+.template-editor__toggle-indicator {
+  min-height: 2.15rem;
+  padding: 0.38rem 0.78rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 30%, var(--xy-border));
+  background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-0) 92%);
+  color: color-mix(in srgb, var(--xy-accent) 38%, var(--xy-text-primary) 62%);
+}
+
+.template-editor__button--action:hover,
+.template-editor__toggle-indicator:hover {
+  border-color: color-mix(in srgb, var(--xy-accent) 42%, var(--xy-border));
+  background: color-mix(in srgb, var(--xy-accent) 11%, var(--xy-surface-0) 89%);
+}
+
+.template-editor__button--action :deep(.q-icon),
+.template-editor__toggle-indicator :deep(.q-icon) {
+  transition:
+    transform 180ms ease-out,
+    color var(--xy-transition-fast);
+}
+
+.template-editor__button--action:hover :deep(.q-icon),
+.template-editor__toggle-indicator:hover :deep(.q-icon) {
+  transform: scale(1.08);
+}
+
+.template-editor__button--quiet {
+  min-height: 34px;
+  padding: 0 12px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--xy-text-muted);
+}
+
+.template-editor__button--quiet:hover {
+  border-color: var(--xy-border);
+  background: color-mix(in srgb, var(--xy-surface-0) 70%, transparent);
+}
+
+.template-editor__command-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--template-editor-platform) 18%, var(--xy-border) 82%);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--template-editor-platform) 5%, rgba(255, 255, 255, 0.02)),
+      transparent 35%
+    ),
+    color-mix(in srgb, var(--template-editor-platform) 2%, var(--xy-surface-0) 98%);
+  animation: template-editor-shell-glow 4.6s ease-in-out infinite;
+}
+
+.template-editor__terminal-label {
+  font-family: var(--xy-font-display);
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--template-editor-platform) 72%, var(--xy-text-secondary) 28%);
+}
+
+.template-editor__command-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  min-height: 44px;
+}
+
+.template-editor__command-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+  padding-top: 8px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--template-editor-platform) 12%, var(--xy-border) 88%);
+}
+
+.template-editor__command-hint {
+  color: var(--xy-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.template-editor__prompt {
+  flex: 0 0 auto;
+  color: var(--template-editor-platform);
+  font-family: var(--xy-font-display);
+  font-size: 1rem;
+  animation: template-editor-prompt-pulse 2.8s ease-in-out infinite;
+}
+
+.template-editor__base-command {
+  flex: 0 0 auto;
+  min-width: 144px;
+}
+
+.template-editor__base-command-input {
+  width: min(192px, 38vw);
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--template-editor-platform) 14%, var(--xy-border) 86%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--template-editor-platform) 4%, var(--xy-surface-1) 96%);
+  color: var(--xy-text-primary);
+  font-size: 0.79rem;
+  outline: none;
+  transition:
+    border-color var(--xy-transition-fast),
+    box-shadow var(--xy-transition-fast);
+}
+
+.template-editor__base-command-input::placeholder {
+  color: var(--xy-text-muted);
+}
+
+.template-editor__base-command-input:focus {
+  border-color: color-mix(in srgb, var(--template-editor-platform) 56%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--template-editor-platform) 16%, transparent);
+}
+
+.template-editor__arg-chip,
+.template-editor__empty-chip {
+  --template-editor-chip-accent: var(--xy-success);
+  --template-editor-chip-text: var(--xy-text-primary);
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: min(220px, 34vw);
+  min-height: 32px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--template-editor-chip-accent) 12%, var(--xy-border) 88%);
+  border-radius: 4px;
+  background: color-mix(
+    in srgb,
+    var(--template-editor-chip-accent) 0.8%,
+    var(--xy-surface-0) 99.2%
+  );
+  color: var(--template-editor-chip-text);
+  cursor: pointer;
+  transition:
+    border-color var(--xy-transition-fast),
+    background var(--xy-transition-fast),
+    box-shadow var(--xy-transition-fast),
+    filter var(--xy-transition-fast);
+}
+
+.template-editor__arg-chip:hover,
+.template-editor__empty-chip:hover {
+  border-color: color-mix(in srgb, var(--template-editor-chip-accent) 18%, var(--xy-border) 82%);
+  background: color-mix(
+    in srgb,
+    var(--template-editor-chip-accent) 1.5%,
+    var(--xy-surface-0) 98.5%
+  );
+  filter: brightness(1.04);
+}
+
+.template-editor__arg-chip {
+  cursor: grab;
+}
+
+.template-editor__arg-chip:active {
+  cursor: grabbing;
+}
+
+.template-editor__arg-chip:focus-visible,
+.template-editor__empty-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--template-editor-chip-accent) 18%, transparent);
+}
+
+.template-editor__arg-chip--system {
+  --template-editor-chip-accent: var(--xy-warning);
+  --template-editor-chip-text: color-mix(
+    in srgb,
+    var(--xy-warning) 56%,
+    var(--xy-text-primary) 44%
+  );
+}
+
+.template-editor__arg-chip--locked {
+  --template-editor-chip-accent: var(--xy-danger);
+  --template-editor-chip-text: color-mix(in srgb, var(--xy-danger) 52%, var(--xy-text-primary) 48%);
+}
+
+.template-editor__arg-chip--editable {
+  --template-editor-chip-accent: var(--xy-success);
+  --template-editor-chip-text: color-mix(
+    in srgb,
+    var(--xy-success) 48%,
+    var(--xy-text-primary) 52%
+  );
+}
+
+.template-editor__arg-chip--selected {
+  border-color: color-mix(in srgb, var(--xy-text-primary) 12%, var(--xy-border) 88%);
+}
+
+.template-editor__arg-chip--dragging {
+  opacity: 0.55;
+}
+
+.template-editor__arg-chip-handle {
+  color: color-mix(in srgb, var(--template-editor-chip-accent) 66%, var(--xy-text-muted) 34%);
+  opacity: 0.24;
+  transition:
+    opacity var(--xy-transition-fast),
+    color var(--xy-transition-fast),
+    transform 180ms ease-out;
+}
+
+.template-editor__arg-chip:hover .template-editor__arg-chip-handle,
+.template-editor__arg-chip--selected .template-editor__arg-chip-handle {
+  opacity: 0.44;
+  transform: translateX(1px);
+}
+
+.template-editor__arg-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.77rem;
+}
+
+.template-editor__empty-chip {
+  --template-editor-chip-accent: var(--template-editor-platform);
+}
+
+.template-editor__drop-marker {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 28px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--template-editor-platform) 76%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--template-editor-platform) 14%, transparent);
+}
+
+.template-editor__advanced-toggle {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.template-editor__dialog-title {
+  margin: 0;
+  color: var(--xy-text-primary);
+  font-size: 1rem;
+}
+
+.template-editor__dialog-hero {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.template-editor__dialog-hero-chip {
+  --template-editor-chip-accent: var(--xy-success);
+  --template-editor-chip-text: var(--xy-text-primary);
+  display: inline-flex;
+  align-items: center;
+  max-width: min(100%, 28rem);
+  min-height: 34px;
+  padding: 0 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--template-editor-chip-accent) 16%, var(--xy-border) 84%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--template-editor-chip-accent) 3%, var(--xy-surface-0) 97%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 32px -28px color-mix(in srgb, var(--template-editor-chip-accent) 36%, transparent);
+  color: var(--template-editor-chip-text);
+}
+
+.template-editor__dialog-hero-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.79rem;
+}
+
+.template-editor__toggle-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  cursor: pointer;
+  transition:
+    border-color var(--xy-transition-fast),
+    background var(--xy-transition-fast),
+    color var(--xy-transition-fast);
+}
+
+.template-editor__sequence-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.template-editor__field-label {
-  font-size: 0.78rem;
-  color: var(--xy-text-secondary);
+.template-editor__sequence-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
 }
 
-.template-editor__select {
-  min-height: 42px;
-  border-radius: 8px;
+.template-editor__sequence-row--selected .template-editor__sequence-item {
+  border-color: color-mix(in srgb, var(--template-editor-platform) 42%, var(--xy-border) 58%);
+  background: color-mix(in srgb, var(--template-editor-platform) 3%, var(--xy-surface-0) 97%);
+}
+
+.template-editor__sequence-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 10px;
   border: 1px solid var(--xy-border);
-  background: var(--xy-surface-0);
-  color: var(--xy-text-primary);
-  padding: 0 12px;
-}
-
-.template-editor__command-shell,
-.template-editor__inventory,
-.template-editor__drawer {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--xy-space-md);
-  padding: clamp(0.95rem, 0.8rem + 0.5vw, 1.2rem);
-  border: 1px solid color-mix(in srgb, var(--xy-border) 82%, transparent);
-  border-radius: 16px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--xy-surface-2) 68%, transparent),
-    color-mix(in srgb, var(--xy-surface-1) 94%, transparent)
-  );
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--xy-text-primary) 5%, transparent);
-}
-
-.template-editor__command-shell {
-  gap: 0.9rem;
-}
-
-.template-editor__command-head,
-.template-editor__section-head,
-.template-editor__drawer-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--xy-space-sm);
-}
-
-.template-editor__eyebrow {
-  margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--template-editor-platform-accent) 84%, var(--xy-text-secondary));
-}
-
-.template-editor__title,
-.template-editor__section-title {
-  margin: 0.2rem 0 0;
-  color: var(--xy-text-primary);
-  font-size: clamp(1rem, 0.88rem + 0.5vw, 1.2rem);
-  letter-spacing: 0.03em;
-}
-
-.template-editor__summary-pills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.45rem;
-}
-
-.template-editor__section-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.45rem;
-}
-
-.template-editor__summary-pill,
-.template-editor__drag-cue,
-.template-editor__drawer-order,
-.template-editor__mobile-inventory-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2rem;
-  padding: 0.25rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 78%, transparent);
-  background: color-mix(in srgb, var(--xy-surface-0) 86%, transparent);
-  color: var(--xy-text-secondary);
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.template-editor__mobile-inventory-toggle,
-.template-editor__preview-toggle {
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.template-editor__mobile-inventory-toggle {
-  min-height: 44px;
-  padding: 0.5rem 0.9rem;
-}
-
-.template-editor__utility-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.4rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 78%, transparent);
-  background: color-mix(in srgb, var(--xy-surface-0) 82%, transparent);
-  color: color-mix(in srgb, var(--template-editor-platform-accent) 82%, var(--xy-text-primary));
-  font-family: inherit;
-  font-size: 0.77rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    border-color var(--xy-transition-fast),
-    background var(--xy-transition-fast),
-    color var(--xy-transition-fast),
-    transform var(--xy-transition-fast);
-}
-
-.template-editor__utility-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--template-editor-platform-accent) 42%, var(--xy-border));
-  background: color-mix(in srgb, var(--template-editor-platform-accent) 10%, var(--xy-surface-0));
-  color: color-mix(in srgb, var(--template-editor-platform-accent) 94%, var(--xy-text-primary));
-}
-
-.template-editor__utility-button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--template-editor-platform-accent) 58%, transparent);
-  outline-offset: 2px;
-}
-
-.template-editor__utility-button:disabled {
-  opacity: 0.48;
-  cursor: not-allowed;
-}
-
-.template-editor__command-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: start;
-}
-
-.template-editor__base-command {
-  min-width: 0;
-}
-
-.template-editor__base-command :deep(.q-field__control) {
-  min-height: 62px;
-  border-radius: 14px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--xy-surface-2) 42%, transparent),
-    color-mix(in srgb, var(--xy-surface-0) 94%, transparent)
-  );
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--xy-border) 90%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--xy-text-primary) 5%, transparent);
-  cursor: text;
-  overflow: hidden;
-  transition:
-    box-shadow var(--xy-transition-fast),
-    background var(--xy-transition-fast);
-}
-
-.template-editor__base-command :deep(.q-field__inner),
-.template-editor__base-command :deep(.q-field__control-container) {
-  background: transparent;
-  border-radius: inherit;
-}
-
-.template-editor__base-command :deep(.q-field__control::before) {
-  border: 0 !important;
-}
-
-.template-editor__base-command :deep(.q-field__control::after) {
-  border: 0 !important;
-}
-
-.template-editor__base-command:hover :deep(.q-field__control) {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--xy-surface-3) 50%, transparent),
-    color-mix(in srgb, var(--xy-surface-0) 94%, transparent)
-  );
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--template-editor-platform-accent) 18%, var(--xy-border)),
-    inset 0 1px 0 color-mix(in srgb, var(--xy-text-primary) 6%, transparent);
-}
-
-.template-editor__base-command.q-field--focused :deep(.q-field__control) {
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--template-editor-platform-accent) 52%, var(--xy-border)),
-    inset 0 1px 0 color-mix(in srgb, var(--xy-text-primary) 7%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--template-editor-platform-accent) 14%, transparent);
-}
-
-.template-editor__base-command :deep(.q-field__label) {
-  color: color-mix(in srgb, var(--template-editor-platform-accent) 64%, var(--xy-text-secondary));
-  font-size: 0.73rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.template-editor__base-command :deep(.q-field__prepend) {
-  position: relative;
-  padding-right: 0.5rem;
-  align-self: stretch;
-  display: inline-flex;
-  align-items: flex-end;
-  padding-bottom: 0.5rem;
-}
-
-.template-editor__base-command :deep(.q-field__prepend)::after {
-  content: '';
-  display: block;
-  width: 1px;
-  height: 1.35rem;
-  margin-left: 0.5rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--xy-border) 82%, transparent);
-}
-
-.template-editor__base-command :deep(.q-field__native),
-.template-editor__base-command :deep(.q-field__input),
-.template-editor__base-command-input {
-  color: var(--xy-text-primary);
-  font-family: var(--xy-font-mono);
-  font-size: 0.98rem;
-  letter-spacing: 0.02em;
-  padding-top: 1.35rem;
-  padding-bottom: 0.45rem;
-  caret-color: color-mix(
-    in srgb,
-    var(--template-editor-platform-accent) 82%,
-    var(--xy-text-primary)
-  );
-}
-
-.template-editor__base-command :deep(.q-field__bottom) {
-  padding-top: 0.4rem;
-}
-
-.template-editor__base-command :deep(.q-field__messages) {
-  color: color-mix(
-    in srgb,
-    var(--xy-text-secondary) 92%,
-    var(--template-editor-platform-accent) 12%
-  );
-  font-size: 0.74rem;
-  letter-spacing: 0.01em;
-}
-
-.template-editor__base-command-prompt {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.6rem;
-  height: 1.6rem;
-  padding: 0 0.4rem;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--template-editor-platform-accent) 12%, var(--xy-border));
-  background: color-mix(in srgb, var(--xy-surface-2) 74%, transparent);
-  color: color-mix(in srgb, var(--template-editor-platform-accent) 78%, var(--xy-text-primary));
-  font-family: var(--xy-font-mono);
-  font-size: 0.86rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.template-editor__preview-toggle {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0.15rem;
-  min-height: 56px;
-  min-width: 10.5rem;
-  padding: 0.65rem 0.95rem;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 72%, transparent);
-  background: color-mix(in srgb, var(--xy-surface-0) 82%, transparent);
-  color: var(--xy-text-primary);
-  text-align: left;
-}
-
-.template-editor__preview-toggle-copy {
-  font-size: 0.84rem;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.template-editor__preview-toggle-state {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--xy-text-muted);
-}
-
-.template-editor__terminal {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.template-editor__terminal-label {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--xy-text-muted);
-}
-
-.template-editor__terminal-shell {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.8rem;
-  align-items: flex-start;
-  padding: 0.95rem 1rem;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 70%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--xy-surface-0) 98%, transparent),
-    color-mix(in srgb, var(--xy-base) 92%, transparent)
-  );
-}
-
-.template-editor__terminal-prompt {
-  padding-top: 0.05rem;
-  color: var(--template-editor-platform-accent);
-  font-family: var(--xy-font-mono);
-  font-size: 0.95rem;
-}
-
-.template-editor__terminal-command {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  font-family: var(--xy-font-mono);
-  font-size: 0.92rem;
-  line-height: 1.55;
-}
-
-.template-editor__preview-token {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--xy-text-primary);
-  overflow-wrap: anywhere;
-}
-
-.template-editor__preview-token--static {
-  cursor: text;
-}
-
-.template-editor__preview-token--system {
-  color: var(--xy-warning);
-}
-
-.template-editor__preview-token--editable {
-  color: var(--xy-success);
-}
-
-.template-editor__preview-token--locked {
-  color: var(--xy-danger);
-}
-
-.template-editor__preview-token--empty {
-  color: var(--xy-text-muted);
-}
-
-.template-editor__preview-segment-button {
-  border-radius: 999px;
-  padding: 0.12rem 0.38rem;
-  cursor: pointer;
-  transition:
-    background-color var(--xy-transition-fast),
-    box-shadow var(--xy-transition-fast),
-    color var(--xy-transition-fast);
-}
-
-.template-editor__preview-segment-button:hover {
-  background: color-mix(in srgb, var(--template-editor-platform-accent) 16%, transparent);
-}
-
-.template-editor__preview-segment-button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--template-editor-platform-accent) 72%, transparent);
-}
-
-.template-editor__preview-segment-button--selected {
-  background: color-mix(in srgb, var(--template-editor-platform-accent) 18%, transparent);
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--template-editor-platform-accent) 34%, transparent);
-}
-
-.template-editor__drawer-description,
-.template-editor__inventory-cell--argument small {
-  color: var(--xy-text-secondary);
-  line-height: 1.45;
-}
-
-.template-editor__workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(19rem, 0.95fr);
-  gap: var(--xy-space-md);
-  align-items: start;
-}
-
-.template-editor__drawer {
-  position: sticky;
-  top: calc(var(--game-form-sticky-stack-offset, calc(50px + 4rem)) + var(--xy-space-sm));
-}
-
-.template-editor__inventory-header,
-.template-editor__inventory-row {
-  display: grid;
-  grid-template-columns: 7.5rem minmax(13rem, 1.2fr) 8rem minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.template-editor__inventory-header {
-  padding: 0 0.85rem 0.55rem;
-  color: var(--xy-text-muted);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.template-editor__inventory-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.template-editor__inventory-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: 7.5rem minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.85rem;
-  margin-block: 0.28rem;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 80%, transparent);
-  border-inline-start-width: 4px;
-  border-inline-start-color: transparent;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--xy-surface-0) 78%, transparent);
-  transition:
-    transform var(--xy-transition-fast),
-    border-color var(--xy-transition-fast),
-    background var(--xy-transition-fast);
-}
-
-.template-editor__inventory-row:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--template-editor-platform-accent) 24%, var(--xy-border));
-}
-
-.template-editor__inventory-row:focus-within {
-  outline: none;
-}
-
-.template-editor__inventory-row--selected {
-  border-color: color-mix(in srgb, var(--xy-border) 80%, transparent);
-  border-inline-start-color: var(--template-editor-platform-accent);
-  background: color-mix(in srgb, var(--xy-surface-1) 82%, transparent);
-}
-
-.template-editor__inventory-row--dragging {
-  opacity: 0.6;
-  transform: scale(0.988);
-  border-color: color-mix(in srgb, var(--template-editor-platform-accent) 28%, var(--xy-border));
-  background: color-mix(in srgb, var(--xy-surface-1) 68%, transparent);
-}
-
-.template-editor__drop-slot {
-  position: relative;
-  height: 0;
-  opacity: 0;
-  transition:
-    height var(--xy-transition-fast),
-    opacity var(--xy-transition-fast);
-  pointer-events: none;
-}
-
-.template-editor__drop-slot::before {
-  content: '';
-  position: absolute;
-  inset-block-start: 50%;
-  inset-inline: 1rem;
-  height: 3px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--template-editor-platform-accent) 86%, white);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--template-editor-platform-accent) 28%, transparent),
-    0 0 18px color-mix(in srgb, var(--template-editor-platform-accent) 20%, transparent);
-  transform: translateY(-50%) scaleX(0.92);
-}
-
-.template-editor__drop-slot--active {
-  height: 1rem;
-  opacity: 1;
-}
-
-.template-editor__inventory-cell {
-  min-width: 0;
-}
-
-.template-editor__inventory-select {
-  display: grid;
-  grid-template-columns: minmax(13rem, 1.2fr) 8rem minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: center;
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--xy-surface-0) 76%, transparent);
   color: inherit;
-  font: inherit;
-  text-align: left;
   cursor: pointer;
+  text-align: left;
 }
 
-.template-editor__inventory-select:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--template-editor-platform-accent) 62%, transparent);
-  outline-offset: 0.45rem;
-  border-radius: 10px;
+.template-editor__order {
+  color: color-mix(in srgb, var(--template-editor-platform) 44%, var(--xy-text-muted) 56%);
+  font-size: 0.7rem;
 }
 
-.template-editor__inventory-cell--order {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.template-editor__drag-handle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.55rem;
-  min-width: 2.55rem;
-  height: 2.55rem;
-  border: 1px solid color-mix(in srgb, var(--template-editor-platform-accent) 22%, var(--xy-border));
-  border-radius: 12px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--xy-surface-3) 88%, transparent),
-    color-mix(in srgb, var(--xy-surface-2) 96%, transparent)
-  );
-  color: color-mix(in srgb, var(--template-editor-platform-accent) 82%, var(--xy-text-primary));
-  cursor: grab;
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--xy-text-primary) 6%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--xy-base) 28%, transparent);
-  transition:
-    transform var(--xy-transition-fast),
-    border-color var(--xy-transition-fast),
-    background var(--xy-transition-fast),
-    color var(--xy-transition-fast);
-}
-
-.template-editor__drag-handle:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--template-editor-platform-accent) 46%, var(--xy-border));
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--template-editor-platform-accent) 16%, var(--xy-surface-3)),
-    color-mix(in srgb, var(--template-editor-platform-accent) 12%, var(--xy-surface-2))
-  );
-  color: color-mix(in srgb, var(--template-editor-platform-accent) 96%, var(--xy-text-primary));
-}
-
-.template-editor__drag-handle:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--template-editor-platform-accent) 62%, transparent);
-  outline-offset: 2px;
-}
-
-.template-editor__drag-handle:active {
-  cursor: grabbing;
-  transform: translateY(0);
-}
-
-.template-editor__order-index {
-  color: var(--xy-text-primary);
-  font-family: var(--xy-font-mono);
-}
-
-.template-editor__inventory-cell--argument {
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-}
-
-.template-editor__inventory-cell--argument strong,
-.template-editor__inventory-cell--preview {
-  color: var(--xy-text-primary);
-}
-
-.template-editor__inventory-cell--preview {
+.template-editor__sequence-preview {
   min-width: 0;
-  font-family: var(--xy-font-mono);
-  font-size: 0.85rem;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--xy-text-primary);
+  font-size: 0.76rem;
 }
 
-.template-editor__ownership-pill {
+.template-editor__state {
   display: inline-flex;
   align-items: center;
-  min-height: 1.8rem;
-  padding: 0.2rem 0.55rem;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 8px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 84%, transparent);
-  background: color-mix(in srgb, var(--xy-surface-2) 64%, transparent);
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.template-editor__ownership-pill--system {
-  color: var(--xy-warning);
-}
-
-.template-editor__ownership-pill--locked {
-  color: var(--xy-danger);
-}
-
-.template-editor__ownership-pill--editable {
-  color: var(--xy-success);
-}
-
-.template-editor__inventory-empty,
-.template-editor__drawer-empty,
-.template-editor__inventory-collapsed {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  align-items: flex-start;
-  padding: 1rem;
-  border-radius: 14px;
-  border: 1px dashed color-mix(in srgb, var(--xy-border) 78%, transparent);
-  background: color-mix(in srgb, var(--xy-surface-0) 74%, transparent);
+  border: 1px solid var(--xy-border);
+  background: var(--xy-surface-0);
   color: var(--xy-text-secondary);
-}
-
-.template-editor__inventory-collapsed {
-  gap: 0.3rem;
-}
-
-.template-editor__inventory-collapsed-label {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--template-editor-platform-accent) 84%, var(--xy-text-secondary));
 }
 
-.template-editor__selected-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.1rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--template-editor-platform-accent) 16%, transparent);
+.template-editor__stepper {
+  display: inline-grid;
+  grid-template-rows: 1fr 1fr;
+  border: 1px solid color-mix(in srgb, var(--template-editor-platform) 16%, var(--xy-border) 84%);
+  border-radius: 9px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--template-editor-platform) 3%, var(--xy-surface-0) 97%);
+}
+
+.template-editor__icon--step {
+  min-width: 30px;
+  min-height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.template-editor__icon--step + .template-editor__icon--step {
+  border-top: 1px solid color-mix(in srgb, var(--xy-border) 82%, transparent);
+}
+
+.template-editor__icon--step:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--template-editor-platform) 8%, var(--xy-surface-0) 92%);
+  color: color-mix(in srgb, var(--template-editor-platform) 44%, var(--xy-text-primary) 56%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-editor-panel-enter-active,
+  .template-editor-panel-leave-active,
+  .template-editor__command-shell,
+  .template-editor__prompt {
+    animation: none;
+  }
+
+  .template-editor__button,
+  .template-editor__icon,
+  .template-editor__button--action :deep(.q-icon),
+  .template-editor__toggle-indicator :deep(.q-icon),
+  .template-editor__arg-chip,
+  .template-editor__empty-chip,
+  .template-editor__arg-chip-handle {
+    transition: none;
+  }
+}
+
+.template-editor__state--system {
+  border-color: var(--xy-warning-border-soft);
+  background: color-mix(in srgb, var(--xy-warning) 10%, var(--xy-surface-0) 90%);
+  color: color-mix(in srgb, var(--xy-warning) 74%, var(--xy-text-primary) 26%);
+}
+
+.template-editor__state--locked {
+  border-color: color-mix(in srgb, var(--xy-danger) 34%, var(--xy-border) 66%);
+  background: color-mix(in srgb, var(--xy-danger) 10%, var(--xy-surface-0) 90%);
+  color: color-mix(in srgb, var(--xy-danger) 72%, var(--xy-text-primary) 28%);
+}
+
+.template-editor__state--editable {
+  border-color: var(--xy-success-border-soft);
+  background: color-mix(in srgb, var(--xy-success) 10%, var(--xy-surface-0) 90%);
+  color: var(--xy-success-text-soft);
+}
+
+.template-editor__dialog {
+  width: min(560px, calc(100vw - 32px));
+  border-radius: 18px;
+  background: var(--xy-surface-1);
   color: var(--xy-text-primary);
-  font-size: 0.88rem;
-  letter-spacing: 0.03em;
+  animation: template-editor-dialog-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.template-editor__drawer-description {
-  margin: 0;
+::view-transition-group(runtime-arg-focus) {
+  animation-duration: 260ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.template-editor__drawer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.template-editor__drawer-actions :deep(.q-btn) {
-  min-height: 2.5rem;
-  min-width: 2.5rem;
+::view-transition-old(runtime-arg-focus),
+::view-transition-new(runtime-arg-focus) {
+  height: 100%;
   border-radius: 10px;
 }
 
-.template-editor__drawer-fields {
-  display: grid;
-  gap: 0.85rem;
+.template-editor-panel-enter-active,
+.template-editor-panel-leave-active {
+  transition:
+    opacity 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.template-editor__drawer-fields :deep(.q-field) {
-  background: color-mix(in srgb, var(--xy-surface-0) 70%, transparent);
-  border-radius: 12px;
+.template-editor-panel-enter-from,
+.template-editor-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
-@media (max-width: 1080px) {
-  .template-editor__workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .template-editor__drawer {
-    position: relative;
-    top: auto;
-  }
+.template-editor__dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
 }
 
-@media (max-width: 780px) {
-  .template-editor {
-    gap: var(--xy-space-lg);
-  }
+.template-editor__dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+}
 
-  .platform-tabs {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .template-editor__command-head,
-  .template-editor__section-head,
-  .template-editor__drawer-head {
+@media (max-width: 900px) {
+  .template-editor__toolbar,
+  .template-editor__advanced-toggle,
+  .template-editor__dialog-head,
+  .template-editor__dialog-actions,
+  .template-editor__command-footer {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
   }
 
-  .template-editor__summary-pills,
-  .template-editor__section-actions {
-    justify-content: flex-start;
-  }
-
-  .template-editor__command-toolbar {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .template-editor__inventory-header {
-    display: none;
-  }
-
-  .template-editor__inventory-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.55rem;
-  }
-
-  .template-editor__inventory-select {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.55rem;
-  }
-
-  .template-editor__mobile-inventory-toggle,
-  .template-editor__preview-toggle {
+  .template-editor__toolbar-actions,
+  .template-editor__dialog-actions-main,
+  .template-editor__command-tools {
     width: 100%;
   }
 
-  .template-editor__inventory-cell--order {
-    justify-content: flex-start;
+  .template-editor__command-line {
+    align-items: flex-start;
+    overflow: visible;
   }
 
-  .template-editor__inventory-cell--preview {
+  .template-editor__prompt {
+    padding-top: 9px;
+  }
+
+  .template-editor__base-command {
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .template-editor__button {
+    min-height: 44px;
+  }
+
+  .template-editor__button--quiet {
+    min-height: 40px;
+  }
+
+  .template-editor__icon {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .template-editor__base-command-input {
+    width: 100%;
+  }
+
+  .template-editor__arg-chip,
+  .template-editor__empty-chip {
+    max-width: none;
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 44px;
+    padding-block: 8px;
+  }
+
+  .template-editor__arg-chip-text {
     white-space: normal;
     overflow: visible;
-    text-overflow: unset;
+    text-overflow: clip;
+    word-break: break-word;
   }
 
-  .template-editor__drawer-actions {
-    justify-content: flex-start;
+  .template-editor__command-hint {
+    display: none;
   }
 
-  .template-editor__drawer-head {
-    position: sticky;
-    top: var(--xy-space-sm);
-    z-index: 1;
-    padding-bottom: 0.25rem;
-    background: inherit;
+  .template-editor__sequence-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .template-editor__state {
+    display: none;
+  }
+
+  .template-editor__sequence-actions {
+    align-self: stretch;
+  }
+
+  .template-editor__stepper {
+    height: 100%;
+  }
+
+  .template-editor__icon--step {
+    min-width: 40px;
+    min-height: 44px;
   }
 }
 </style>

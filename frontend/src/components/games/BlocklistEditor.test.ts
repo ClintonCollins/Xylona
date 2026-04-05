@@ -56,6 +56,7 @@ describe('BlocklistEditor', () => {
         stubs: {
           'q-btn': QBtnStub,
           'q-input': QInputStub,
+          'q-icon': true,
         },
       },
     })

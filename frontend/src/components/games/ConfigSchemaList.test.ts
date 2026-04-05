@@ -26,6 +26,36 @@ const QBtnStub = defineComponent({
 })
 
 describe('ConfigSchemaList', () => {
+  it('turns the empty state into a quick onboarding checklist', () => {
+    const wrapper = mount(ConfigSchemaList, {
+      props: {
+        modelValue: [],
+      },
+      global: {
+        stubs: {
+          'q-btn': QBtnStub,
+          'q-list': { template: '<div><slot /></div>' },
+          'q-item': { template: '<div><slot /></div>' },
+          'q-item-section': { template: '<div><slot /></div>' },
+          'q-item-label': { template: '<div><slot /></div>' },
+          'q-icon': true,
+          'q-badge': { template: '<span><slot />{{ label }}</span>', props: ['label'] },
+          'q-popup-edit': { template: '<div><slot :value="modelValue" :set="() => {}" /></div>' },
+          'q-select': true,
+          'q-tooltip': true,
+          AddConfigFileDialog: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('No configuration files defined yet.')
+    expect(wrapper.text()).toContain('Start with the file operators edit most often.')
+    expect(wrapper.text()).toContain('Add the file path you want Xylona to manage.')
+    expect(wrapper.text()).toContain(
+      'Open the schema editor to mark managed fields, validation, and defaults.',
+    )
+  })
+
   it('toggles generate-before-start for an existing schema entry', async () => {
     const wrapper = mount(ConfigSchemaList, {
       props: {
@@ -107,5 +137,45 @@ describe('ConfigSchemaList', () => {
     expect(buttons[0].attributes('aria-label')).toBe('Toggle generate before start')
     expect(buttons[1].attributes('aria-label')).toBe('Edit schema')
     expect(buttons[2].attributes('aria-label')).toBe('Remove schema')
+  })
+
+  it('provides an explicit format edit trigger without relying on hover', () => {
+    const wrapper = mount(ConfigSchemaList, {
+      props: {
+        modelValue: [
+          {
+            path: 'server.properties',
+            format: 'properties',
+            category: 'Core',
+            generate_before_start: false,
+            schema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+        ],
+      },
+      global: {
+        stubs: {
+          'q-btn': QBtnStub,
+          'q-list': { template: '<div><slot /></div>' },
+          'q-item': { template: '<div><slot /></div>' },
+          'q-item-section': { template: '<div><slot /></div>' },
+          'q-item-label': { template: '<div><slot /></div>' },
+          'q-icon': true,
+          'q-badge': { template: '<span><slot />{{ label }}</span>', props: ['label'] },
+          'q-popup-edit': { template: '<div><slot :value="modelValue" :set="() => {}" /></div>' },
+          'q-select': true,
+          'q-tooltip': true,
+          AddConfigFileDialog: true,
+        },
+      },
+    })
+
+    const formatEditButton = wrapper.get('[data-testid="config-schema-format-edit-0"]')
+
+    expect(formatEditButton.attributes('aria-label')).toBe('Edit file format')
+    expect(formatEditButton.text()).toContain('properties')
+    expect(formatEditButton.text()).toContain('Edit format')
   })
 })

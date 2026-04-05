@@ -7,9 +7,14 @@
     <div class="game-form-header" :class="{ 'is-stuck': isStuck }">
       <div class="game-form-header-left">
         <nav class="game-form-breadcrumbs" aria-label="Breadcrumb">
-          <router-link to="/games" class="breadcrumb-link">Games</router-link>
-          <span class="breadcrumb-sep">/</span>
-          <span class="breadcrumb-current">{{ breadcrumbLabel }}</span>
+          <ol class="breadcrumb-list">
+            <li>
+              <router-link to="/games" class="breadcrumb-link">Games</router-link>
+            </li>
+            <li aria-current="page">
+              <span class="breadcrumb-current">{{ breadcrumbLabel }}</span>
+            </li>
+          </ol>
         </nav>
         <h1 class="game-form-title font-display">{{ formTitle }}</h1>
       </div>
@@ -53,18 +58,15 @@
                 :aria-controls="formTabPanelID(tab.id)"
                 :aria-selected="activeFormTab === tab.id"
                 :tabindex="activeFormTab === tab.id ? 0 : -1"
+                :title="tab.copy"
+                @keydown="handleFormTabKeydown($event, tab.id)"
                 @click="activeFormTab = tab.id">
                 <span class="game-form-tab__label font-display">{{ tab.label }}</span>
               </button>
             </div>
           </div>
 
-          <div v-if="activeFormTab !== 'runtime'" class="game-form-tab-note text-xy-secondary">
-            <span class="game-form-tab-note__eyebrow font-display">{{
-              activeFormTabMeta.label
-            }}</span>
-            <span class="game-form-tab-note__copy">{{ activeFormTabMeta.copy }}</span>
-          </div>
+          <!-- Tab descriptions available via tooltip on tab buttons -->
         </div>
 
         <div
@@ -73,75 +75,78 @@
           data-testid="game-form-tab-panel-overview"
           role="tabpanel"
           :aria-hidden="activeFormTab !== 'overview'"
+          :inert="activeFormTab !== 'overview'"
           :aria-labelledby="formTabID('overview')"
           class="game-form-tab-panel">
-          <!-- Identity -->
-          <section class="form-section">
-            <div class="section-header">
-              <span class="section-bar" style="background-color: var(--xy-accent)"></span>
-              <h2 class="section-title font-display">Identity</h2>
-              <span class="section-line"></span>
-            </div>
-            <div class="row q-col-gutter-md q-gutter-y-md full-width">
-              <q-input
-                v-model="game.id"
-                :disable="existingGame"
-                class="col-12 col-md-6"
-                outlined
-                type="text"
-                label="Unique ID *"
-                :rules="idRules"
-                reactive-rules
-                lazy-rules
-                hint="ID of the game all lowercase. e.g: minecraft" />
-              <q-input
-                v-model="game.name"
-                class="col-12 col-md-6"
-                outlined
-                type="text"
-                label="Name *"
-                :rules="nameRules"
-                reactive-rules
-                lazy-rules
-                hint="Name of the game. e.g: Minecraft" />
-            </div>
-          </section>
-
-          <!-- Networking -->
-          <section class="form-section">
-            <div class="section-header">
-              <span class="section-bar" style="background-color: var(--xy-primary)"></span>
-              <h2 class="section-title font-display">Networking</h2>
-              <span class="section-line"></span>
-            </div>
-            <div class="row q-col-gutter-md q-gutter-y-md full-width">
-              <q-input
-                v-model.number="defaultPort"
-                class="col-12 col-sm-6 col-md-4"
-                outlined
-                type="number"
-                label="Default Port *"
-                :rules="portRules"
-                reactive-rules
-                lazy-rules
-                hint="Default server port. e.g: 25565" />
-              <q-input
-                v-model.number="defaultQueryPort"
-                class="col-12 col-sm-6 col-md-4"
-                outlined
-                type="number"
-                label="Default Query Port *"
-                :rules="portRules"
-                reactive-rules
-                lazy-rules
-                hint="Default server query port. e.g: 25565" />
-              <q-input
-                v-model="game.steamAppid"
-                class="col-12 col-sm-6 col-md-4"
-                outlined
-                type="number"
-                label="Steam App ID"
-                hint="Steam AppID if it's available on steamcmd. e.g: 294420" />
+          <!-- Identity & Networking (dense metadata strip) -->
+          <section class="form-section form-section--compact">
+            <div class="overview-metadata">
+              <div class="overview-metadata-group">
+                <div class="section-header">
+                  <span class="section-bar" style="background-color: var(--xy-accent)"></span>
+                  <h2 class="section-title font-display">Identity</h2>
+                  <span class="section-line"></span>
+                </div>
+                <div class="row q-col-gutter-md q-gutter-y-md full-width">
+                  <q-input
+                    v-model="game.id"
+                    :disable="existingGame"
+                    class="col-12 col-sm-6"
+                    outlined
+                    type="text"
+                    label="Unique ID *"
+                    :rules="idRules"
+                    reactive-rules
+                    lazy-rules
+                    hint="ID of the game all lowercase. e.g: minecraft" />
+                  <q-input
+                    v-model="game.name"
+                    class="col-12 col-sm-6"
+                    outlined
+                    type="text"
+                    label="Name *"
+                    :rules="nameRules"
+                    reactive-rules
+                    lazy-rules
+                    hint="Name of the game. e.g: Minecraft" />
+                </div>
+              </div>
+              <div class="overview-metadata-group">
+                <div class="section-header">
+                  <span class="section-bar" style="background-color: var(--xy-primary)"></span>
+                  <h2 class="section-title font-display">Networking</h2>
+                  <span class="section-line"></span>
+                </div>
+                <div class="row q-col-gutter-md q-gutter-y-md full-width">
+                  <q-input
+                    v-model.number="defaultPort"
+                    class="col-12 col-sm-4"
+                    outlined
+                    type="number"
+                    label="Default Port *"
+                    :rules="portRules"
+                    reactive-rules
+                    lazy-rules
+                    hint="Default server port. e.g: 25565" />
+                  <q-input
+                    v-model.number="defaultQueryPort"
+                    class="col-12 col-sm-4"
+                    outlined
+                    type="number"
+                    label="Default Query Port *"
+                    :rules="portRules"
+                    reactive-rules
+                    lazy-rules
+                    hint="Default server query port. e.g: 25565" />
+                  <q-input
+                    v-model="game.steamAppid"
+                    class="col-12 col-sm-4"
+                    outlined
+                    type="number"
+                    label="Steam App ID"
+                    hint="Steam AppID if it's available on steamcmd. e.g: 294420" />
+                </div>
+              </div>
             </div>
           </section>
 
@@ -152,58 +157,79 @@
               <h2 class="section-title font-display">Features</h2>
               <span class="section-line"></span>
             </div>
-            <div class="feature-hint text-xy-muted">Click to toggle on or off</div>
-            <div class="feature-chips">
-              <button
-                type="button"
-                class="feature-chip"
-                :class="{ 'feature-chip--active': game.requireDedicatedIp }"
-                @click="game.requireDedicatedIp = !game.requireDedicatedIp">
-                <span class="feature-dot"></span>
-                <span class="feature-label">Requires Dedicated IP</span>
-              </button>
-              <button
-                type="button"
-                class="feature-chip"
-                :class="{ 'feature-chip--active': game.usesSourceQuery }"
-                @click="game.usesSourceQuery = !game.usesSourceQuery">
-                <span class="feature-dot"></span>
-                <span class="feature-label">Uses Source Query</span>
-              </button>
-              <button
-                type="button"
-                class="feature-chip"
-                :class="{ 'feature-chip--active': game.usesSteamcmd }"
-                @click="game.usesSteamcmd = !game.usesSteamcmd">
-                <span class="feature-dot"></span>
-                <span class="feature-label">Uses Steamcmd</span>
-              </button>
-              <button
-                type="button"
-                class="feature-chip"
-                :class="{ 'feature-chip--active': game.requiresSteamGameServerLoginToken }"
-                @click="
-                  game.requiresSteamGameServerLoginToken = !game.requiresSteamGameServerLoginToken
-                ">
-                <span class="feature-dot"></span>
-                <span class="feature-label">Steam Login Token Required</span>
-              </button>
-              <button
-                type="button"
-                class="feature-chip"
-                :class="{ 'feature-chip--active': game.windowsSupport }"
-                @click="game.windowsSupport = !game.windowsSupport">
-                <span class="feature-dot"></span>
-                <span class="feature-label">Windows Support</span>
-              </button>
-              <button
-                type="button"
-                class="feature-chip"
-                :class="{ 'feature-chip--active': game.linuxSupport }"
-                @click="game.linuxSupport = !game.linuxSupport">
-                <span class="feature-dot"></span>
-                <span class="feature-label">Linux Support</span>
-              </button>
+            <div class="feature-groups">
+              <div class="feature-group">
+                <span class="feature-group-label text-xy-muted font-display">Platform</span>
+                <div class="feature-chips">
+                  <button
+                    type="button"
+                    class="feature-chip"
+                    :class="{ 'feature-chip--active': game.windowsSupport }"
+                    :aria-pressed="game.windowsSupport"
+                    @click="game.windowsSupport = !game.windowsSupport">
+                    <span class="feature-dot"></span>
+                    <span class="feature-label">Windows Support</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="feature-chip"
+                    :class="{ 'feature-chip--active': game.linuxSupport }"
+                    :aria-pressed="game.linuxSupport"
+                    @click="game.linuxSupport = !game.linuxSupport">
+                    <span class="feature-dot"></span>
+                    <span class="feature-label">Linux Support</span>
+                  </button>
+                </div>
+              </div>
+              <div class="feature-group">
+                <span class="feature-group-label text-xy-muted font-display">Steam</span>
+                <div class="feature-chips">
+                  <button
+                    type="button"
+                    class="feature-chip"
+                    :class="{ 'feature-chip--active': game.usesSteamcmd }"
+                    :aria-pressed="game.usesSteamcmd"
+                    @click="game.usesSteamcmd = !game.usesSteamcmd">
+                    <span class="feature-dot"></span>
+                    <span class="feature-label">Uses Steamcmd</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="feature-chip"
+                    :class="{ 'feature-chip--active': game.requiresSteamGameServerLoginToken }"
+                    :aria-pressed="game.requiresSteamGameServerLoginToken"
+                    @click="
+                      game.requiresSteamGameServerLoginToken =
+                        !game.requiresSteamGameServerLoginToken
+                    ">
+                    <span class="feature-dot"></span>
+                    <span class="feature-label">Steam Login Token Required</span>
+                  </button>
+                </div>
+              </div>
+              <div class="feature-group">
+                <span class="feature-group-label text-xy-muted font-display">Network</span>
+                <div class="feature-chips">
+                  <button
+                    type="button"
+                    class="feature-chip"
+                    :class="{ 'feature-chip--active': game.requireDedicatedIp }"
+                    :aria-pressed="game.requireDedicatedIp"
+                    @click="game.requireDedicatedIp = !game.requireDedicatedIp">
+                    <span class="feature-dot"></span>
+                    <span class="feature-label">Requires Dedicated IP</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="feature-chip"
+                    :class="{ 'feature-chip--active': game.usesSourceQuery }"
+                    :aria-pressed="game.usesSourceQuery"
+                    @click="game.usesSourceQuery = !game.usesSourceQuery">
+                    <span class="feature-dot"></span>
+                    <span class="feature-label">Uses Source Query</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
           <!-- Platform Commands -->
@@ -223,11 +249,17 @@
 
             <!-- Platform tab switcher -->
             <template v-else>
-              <div v-if="game.windowsSupport && game.linuxSupport" class="platform-tabs">
+              <div
+                v-if="game.windowsSupport && game.linuxSupport"
+                class="platform-tabs"
+                role="tablist"
+                aria-label="Platform commands">
                 <button
                   type="button"
+                  role="tab"
                   class="platform-tab"
                   :class="{ 'platform-tab--active': activePlatform === 'windows' }"
+                  :aria-selected="activePlatform === 'windows'"
                   @click="activePlatform = 'windows'">
                   <q-icon
                     name="desktop_windows"
@@ -241,8 +273,10 @@
                 </button>
                 <button
                   type="button"
+                  role="tab"
                   class="platform-tab"
                   :class="{ 'platform-tab--active': activePlatform === 'linux' }"
+                  :aria-selected="activePlatform === 'linux'"
                   @click="activePlatform = 'linux'">
                   <q-icon
                     name="terminal"
@@ -275,6 +309,7 @@
                       v-model="game.windowsStopCommand"
                       class="cmd-textarea font-mono"
                       rows="1"
+                      aria-label="Windows stop command"
                       placeholder="/stop"></textarea>
                   </div>
                 </div>
@@ -289,6 +324,7 @@
                         <select
                           :value="game.windowsInstallType"
                           data-testid="windows-install-type"
+                          aria-label="Windows install command type"
                           class="cmd-type-select font-mono"
                           @change="
                             game.windowsInstallType = Number(
@@ -310,6 +346,7 @@
                         <select
                           :value="game.windowsInstallCommandProcessor"
                           data-testid="windows-install-shell"
+                          aria-label="Windows install shell"
                           class="cmd-type-select font-mono"
                           @change="
                             game.windowsInstallCommandProcessor = Number(
@@ -336,6 +373,7 @@
                       data-testid="windows-install-command"
                       class="cmd-textarea font-mono"
                       rows="2"
+                      aria-label="Windows install command"
                       placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
                   </div>
                   <div v-else class="cmd-internal font-mono">
@@ -353,6 +391,7 @@
                         <select
                           :value="game.windowsUpdateType"
                           data-testid="windows-update-type"
+                          aria-label="Windows update command type"
                           class="cmd-type-select font-mono"
                           @change="
                             game.windowsUpdateType = Number(
@@ -374,6 +413,7 @@
                         <select
                           :value="game.windowsUpdateCommandProcessor"
                           data-testid="windows-update-shell"
+                          aria-label="Windows update shell"
                           class="cmd-type-select font-mono"
                           @change="
                             game.windowsUpdateCommandProcessor = Number(
@@ -400,6 +440,7 @@
                       data-testid="windows-update-command"
                       class="cmd-textarea font-mono"
                       rows="2"
+                      aria-label="Windows update command"
                       placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
                   </div>
                   <div v-else class="cmd-internal font-mono">
@@ -416,6 +457,7 @@
                     v-model="game.windowsWorkingDirectory"
                     class="cmd-textarea font-mono"
                     rows="1"
+                    aria-label="Windows working directory"
                     placeholder="./server"></textarea>
                 </div>
               </div>
@@ -439,6 +481,7 @@
                       v-model="game.linuxStopCommand"
                       class="cmd-textarea font-mono"
                       rows="1"
+                      aria-label="Linux stop command"
                       placeholder="/stop"></textarea>
                   </div>
                 </div>
@@ -453,6 +496,7 @@
                         <select
                           :value="game.linuxInstallType"
                           data-testid="linux-install-type"
+                          aria-label="Linux install command type"
                           class="cmd-type-select font-mono"
                           @change="
                             game.linuxInstallType = Number(
@@ -474,6 +518,7 @@
                         <select
                           :value="game.linuxInstallCommandProcessor"
                           data-testid="linux-install-shell"
+                          aria-label="Linux install shell"
                           class="cmd-type-select font-mono"
                           @change="
                             game.linuxInstallCommandProcessor = Number(
@@ -500,6 +545,7 @@
                       data-testid="linux-install-command"
                       class="cmd-textarea font-mono"
                       rows="2"
+                      aria-label="Linux install command"
                       placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
                   </div>
                   <div v-else class="cmd-internal font-mono">
@@ -517,6 +563,7 @@
                         <select
                           :value="game.linuxUpdateType"
                           data-testid="linux-update-type"
+                          aria-label="Linux update command type"
                           class="cmd-type-select font-mono"
                           @change="
                             game.linuxUpdateType = Number(
@@ -536,6 +583,7 @@
                         <select
                           :value="game.linuxUpdateCommandProcessor"
                           data-testid="linux-update-shell"
+                          aria-label="Linux update shell"
                           class="cmd-type-select font-mono"
                           @change="
                             game.linuxUpdateCommandProcessor = Number(
@@ -562,6 +610,7 @@
                       data-testid="linux-update-command"
                       class="cmd-textarea font-mono"
                       rows="2"
+                      aria-label="Linux update command"
                       placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
                   </div>
                   <div v-else class="cmd-internal font-mono">
@@ -578,6 +627,7 @@
                     v-model="game.linuxWorkingDirectory"
                     class="cmd-textarea font-mono"
                     rows="1"
+                    aria-label="Linux working directory"
                     placeholder="./server"></textarea>
                 </div>
               </div>
@@ -591,6 +641,7 @@
           data-testid="game-form-tab-panel-runtime"
           role="tabpanel"
           :aria-hidden="activeFormTab !== 'runtime'"
+          :inert="activeFormTab !== 'runtime'"
           :aria-labelledby="formTabID('runtime')"
           class="game-form-tab-panel">
           <!-- Structured Start Command -->
@@ -599,7 +650,10 @@
 
             <div class="structured-start-stack">
               <start-args-template-editor
+                mode="preview"
                 class="structured-start-stack__editor"
+                :active-platform="activePlatformResolved ?? undefined"
+                :advanced-expanded="runtimeSequenceExpanded"
                 :baseline-linux-template="baselineLinuxStartArgsTemplate"
                 :baseline-windows-template="baselineWindowsStartArgsTemplate"
                 :baseline-linux-base-command="baselineLinuxBaseCommand"
@@ -610,6 +664,8 @@
                 :windows-base-command="game.windowsBaseCommand"
                 :linux-enabled="game.linuxSupport"
                 :windows-enabled="game.windowsSupport"
+                @update:active-platform="activePlatform = $event"
+                @update:advanced-expanded="updateRuntimeSequenceExpanded"
                 @update:linux-template="linuxStartArgsTemplate = $event"
                 @update:windows-template="windowsStartArgsTemplate = $event"
                 @update:linux-base-command="game.linuxBaseCommand = $event"
@@ -622,35 +678,28 @@
                   data-testid="runtime-policy-toggle"
                   :aria-label="
                     runtimePolicyExpanded
-                      ? 'Collapse advanced runtime policy'
-                      : 'Expand advanced runtime policy'
+                      ? 'Collapse runtime guardrails'
+                      : 'Expand runtime guardrails'
                   "
                   aria-describedby="runtime-policy-assistive-summary"
                   :aria-expanded="String(runtimePolicyExpanded)"
                   aria-controls="runtime-policy-panel"
-                  @click="runtimePolicyExpanded = !runtimePolicyExpanded">
+                  @click="toggleRuntimePolicy">
                   <div class="runtime-policy-toggle-copy">
-                    <span class="runtime-policy-eyebrow font-display">Advanced Runtime Policy</span>
-                    <strong class="runtime-policy-title font-display">
-                      Permissions, reserved flags, downstream impact
-                    </strong>
-                    <span class="runtime-policy-copy text-xy-muted">
-                      Keep runtime authoring focused here, then expand policy when you need
-                      governance controls.
+                    <span class="runtime-policy-eyebrow font-display">Runtime Guardrails</span>
+                    <span class="runtime-policy-summary-line text-xy-secondary">
+                      {{ runtimePolicySummary.join(' · ') }}
                     </span>
                   </div>
 
-                  <div class="runtime-policy-meta">
-                    <span
-                      v-for="item in runtimePolicySummary"
-                      :key="item"
-                      class="runtime-policy-pill">
-                      {{ item }}
+                  <div class="runtime-policy-header-actions">
+                    <span class="runtime-policy-toggle-indicator font-display">
+                      {{ runtimePolicyExpanded ? 'Hide details' : 'Review guardrails' }}
+                      <q-icon
+                        :name="runtimePolicyExpanded ? 'expand_less' : 'expand_more'"
+                        size="18px"
+                        color="accent" />
                     </span>
-                    <q-icon
-                      :name="runtimePolicyExpanded ? 'expand_less' : 'expand_more'"
-                      size="20px"
-                      color="accent" />
                   </div>
                 </button>
 
@@ -658,48 +707,107 @@
                   {{ runtimePolicyAssistiveSummary }}
                 </span>
 
-                <div
-                  v-if="runtimePolicyExpanded"
-                  id="runtime-policy-panel"
-                  data-testid="runtime-policy-panel"
-                  class="runtime-policy-content">
-                  <div class="runtime-policy-subsection">
-                    <div class="runtime-policy-subhead font-display">Owner editing</div>
-                    <div class="runtime-policy-subcopy text-xy-muted">
-                      Decide whether server owners can tune runtime arguments per server or keep
-                      them superuser-only.
-                    </div>
-                    <q-toggle
-                      v-model="game.allowStartArgEditing"
-                      color="accent"
-                      label="Allow server owners to edit runtime arguments" />
-                  </div>
-
-                  <div class="runtime-policy-subsection">
-                    <div class="runtime-policy-subhead font-display">
-                      Reserved argument patterns
-                    </div>
-                    <div class="runtime-policy-subcopy text-xy-muted">
-                      Protect security-sensitive or game-managed flags from being changed at the
-                      server level.
-                    </div>
-                    <blocklist-editor
-                      :blocklist="startArgBlocklist"
-                      :show-header="false"
-                      @update:blocklist="startArgBlocklist = $event" />
-                  </div>
-
+                <transition name="runtime-policy-panel">
                   <div
-                    v-if="existingGame && !copyGame"
-                    class="runtime-policy-subsection runtime-policy-subsection--impact">
-                    <div class="runtime-policy-subhead font-display">Downstream impact</div>
-                    <div class="runtime-policy-subcopy text-xy-muted">
-                      Review which servers inherit this runtime policy before you save.
+                    v-if="runtimePolicyExpanded"
+                    id="runtime-policy-panel"
+                    data-testid="runtime-policy-panel"
+                    class="runtime-policy-content">
+                    <div class="runtime-policy-layout">
+                      <div class="runtime-policy-subsection runtime-policy-subsection--reserved">
+                        <div class="runtime-policy-card-head">
+                          <div class="runtime-policy-card-copy">
+                            <div class="runtime-policy-subhead font-display">
+                              Reserved arguments
+                            </div>
+                            <div class="runtime-policy-subcopy text-xy-muted">
+                              Protect flags that inherited servers should never override.
+                            </div>
+                          </div>
+                          <span class="runtime-policy-quantity">
+                            {{
+                              `${startArgBlocklist.length} ${startArgBlocklist.length === 1 ? 'rule' : 'rules'}`
+                            }}
+                          </span>
+                        </div>
+                        <blocklist-editor
+                          :blocklist="startArgBlocklist"
+                          :show-header="false"
+                          @update:blocklist="startArgBlocklist = $event" />
+                      </div>
+
+                      <div class="runtime-policy-rail">
+                        <div class="runtime-policy-subsection runtime-policy-subsection--owner">
+                          <div class="runtime-policy-rail-head">
+                            <div class="runtime-policy-card-copy">
+                              <div class="runtime-policy-subhead font-display">Owner edits</div>
+                              <div class="runtime-policy-subcopy text-xy-muted">
+                                Only editable arguments can be tuned downstream.
+                              </div>
+                            </div>
+                            <q-toggle
+                              v-model="game.allowStartArgEditing"
+                              color="accent"
+                              aria-label="Allow owner edits" />
+                          </div>
+                          <div class="runtime-policy-mini-note text-xy-muted">
+                            {{
+                              game.allowStartArgEditing
+                                ? 'Enabled for editable arguments only.'
+                                : 'Only this game definition can change launch arguments.'
+                            }}
+                          </div>
+                        </div>
+
+                        <div
+                          v-if="existingGame && !copyGame"
+                          class="runtime-policy-subsection runtime-policy-subsection--impact">
+                          <div class="runtime-policy-card-head runtime-policy-card-head--stacked">
+                            <div class="runtime-policy-card-copy">
+                              <div class="runtime-policy-subhead font-display">
+                                Affected servers
+                              </div>
+                              <div class="runtime-policy-subcopy text-xy-muted">
+                                Review inherited servers before saving.
+                              </div>
+                            </div>
+                            <span class="runtime-policy-quantity">
+                              {{
+                                `${downstreamImpactServers.length} ${downstreamImpactServers.length === 1 ? 'server' : 'servers'}`
+                              }}
+                            </span>
+                          </div>
+                          <downstream-impact-panel
+                            :servers="downstreamImpactServers"
+                            :show-header="false" />
+                        </div>
+                      </div>
                     </div>
-                    <downstream-impact-panel :servers="downstreamImpactServers" />
                   </div>
-                </div>
+                </transition>
               </section>
+
+              <start-args-template-editor
+                mode="advanced"
+                class="structured-start-stack__advanced"
+                :active-platform="activePlatformResolved ?? undefined"
+                :advanced-expanded="runtimeSequenceExpanded"
+                :baseline-linux-template="baselineLinuxStartArgsTemplate"
+                :baseline-windows-template="baselineWindowsStartArgsTemplate"
+                :baseline-linux-base-command="baselineLinuxBaseCommand"
+                :baseline-windows-base-command="baselineWindowsBaseCommand"
+                :linux-template="linuxStartArgsTemplate"
+                :windows-template="windowsStartArgsTemplate"
+                :linux-base-command="game.linuxBaseCommand"
+                :windows-base-command="game.windowsBaseCommand"
+                :linux-enabled="game.linuxSupport"
+                :windows-enabled="game.windowsSupport"
+                @update:active-platform="activePlatform = $event"
+                @update:advanced-expanded="updateRuntimeSequenceExpanded"
+                @update:linux-template="linuxStartArgsTemplate = $event"
+                @update:windows-template="windowsStartArgsTemplate = $event"
+                @update:linux-base-command="game.linuxBaseCommand = $event"
+                @update:windows-base-command="game.windowsBaseCommand = $event" />
             </div>
           </section>
         </div>
@@ -710,6 +818,7 @@
           data-testid="game-form-tab-panel-mods"
           role="tabpanel"
           :aria-hidden="activeFormTab !== 'mods'"
+          :inert="activeFormTab !== 'mods'"
           :aria-labelledby="formTabID('mods')"
           class="game-form-tab-panel">
           <!-- Mods -->
@@ -719,73 +828,112 @@
               <h2 class="section-title font-display">Mods</h2>
               <span class="section-line"></span>
             </div>
-            <div class="section-help text-xy-muted">
-              Configure a single mod source for custom games. Built-in game variants and advanced
-              update wiring are managed internally.
-            </div>
-
-            <div v-if="managedModConfig" class="typed-config-managed text-xy-muted">
-              This game uses advanced mod configuration outside the simple editor. Hidden internal
-              mod settings will be preserved when you save this game.
-            </div>
-
-            <div v-else class="typed-config-card">
-              <div class="typed-config-header">
-                <div>
-                  <div class="typed-config-title font-display">Mod Support</div>
-                  <div class="typed-config-copy text-xy-muted">
-                    Optional install path plus one mod source for custom games.
+            <div :class="game.modProfile ? 'mods-layout' : 'mods-layout-single'">
+              <!-- Sidebar only visible when mods are enabled -->
+              <aside v-if="game.modProfile" class="mods-rail">
+                <div class="mods-rail-intro">
+                  <span class="mods-rail-eyebrow font-display">Setup Guide</span>
+                  <div class="mods-rail-title font-display">
+                    Define how servers pull mods beyond the base install.
+                  </div>
+                  <div class="mods-rail-copy text-xy-muted">
+                    Choose one source and one install folder. Paste the provider reference Xylona
+                    should use, such as a slug, workshop ID, or provider JSON payload.
                   </div>
                 </div>
-                <q-btn
-                  v-if="!game.modProfile"
-                  flat
-                  no-caps
-                  color="accent"
-                  label="Add Mod Support"
-                  @click="addGameModProfile" />
-                <q-btn
-                  v-else
-                  flat
-                  no-caps
-                  color="negative"
-                  label="Remove"
-                  @click="clearGameModProfile" />
-              </div>
+              </aside>
 
-              <div v-if="game.modProfile" class="typed-config-fields">
-                <q-input
-                  v-model="game.modProfile.installPath"
-                  outlined
-                  label="Install Path"
-                  hint="Where downloaded mods should be written"
-                  persistent-hint />
+              <div class="mods-workspace">
+                <div
+                  v-if="managedModConfig"
+                  class="typed-config-managed mods-workspace-card text-xy-muted">
+                  This game uses advanced mod configuration outside the simple editor. Hidden
+                  internal mod settings will be preserved when you save this game.
+                </div>
 
-                <q-select
-                  v-model="game.modProfile.sources[0].id"
-                  :options="modSourceOptions"
-                  emit-value
-                  map-options
-                  outlined
-                  label="Mod Source"
-                  @update:model-value="onModSourceProviderChanged(game.modProfile.sources[0])" />
+                <div v-else class="typed-config-card mods-workspace-card">
+                  <div class="typed-config-header mods-workspace-header">
+                    <div>
+                      <div class="typed-config-title font-display">Mod Support</div>
+                      <div class="typed-config-copy text-xy-muted">
+                        {{
+                          game.modProfile
+                            ? 'Configure the download provider and install path for server mods.'
+                            : 'Mod support is off. Enable it to configure a download provider for this game.'
+                        }}
+                      </div>
+                    </div>
+                    <q-btn
+                      v-if="!game.modProfile"
+                      flat
+                      no-caps
+                      color="accent"
+                      label="Enable Mod Support"
+                      @click="addGameModProfile" />
+                    <q-btn
+                      v-else
+                      flat
+                      no-caps
+                      color="negative"
+                      label="Remove"
+                      @click="clearGameModProfile" />
+                  </div>
 
-                <q-input
-                  :model-value="readModSourceDisplayValue(game.modProfile.sources[0])"
-                  outlined
-                  :type="
-                    getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'
-                      ? 'textarea'
-                      : 'text'
-                  "
-                  :autogrow="getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'"
-                  :label="getModSourceConfig(game.modProfile.sources[0].id).primaryLabel"
-                  :hint="getModSourceConfig(game.modProfile.sources[0].id).primaryHint"
-                  :placeholder="getModSourceConfig(game.modProfile.sources[0].id).placeholder"
-                  persistent-hint
-                  @update:model-value="
-                    updateModSourceDisplayValue(game.modProfile.sources[0], $event)
-                  " />
+                  <template v-if="game.modProfile">
+                    <div class="mods-status-row">
+                      <span class="mods-status-chip mods-status-chip--active">
+                        Support enabled
+                      </span>
+                      <span class="mods-status-chip"> Provider · {{ activeModSourceLabel }} </span>
+                      <span class="mods-status-chip">
+                        {{
+                          game.modProfile.installPath
+                            ? 'Install path ready'
+                            : 'Install path pending'
+                        }}
+                      </span>
+                    </div>
+
+                    <div class="typed-config-fields">
+                      <q-input
+                        v-model="game.modProfile.installPath"
+                        outlined
+                        label="Install Path"
+                        hint="Where downloaded mods should be written"
+                        persistent-hint />
+
+                      <q-select
+                        v-model="game.modProfile.sources[0].id"
+                        :options="modSourceOptions"
+                        emit-value
+                        map-options
+                        outlined
+                        label="Mod Source"
+                        @update:model-value="
+                          onModSourceProviderChanged(game.modProfile.sources[0])
+                        " />
+
+                      <q-input
+                        :model-value="readModSourceDisplayValue(game.modProfile.sources[0])"
+                        outlined
+                        :type="
+                          getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'
+                            ? 'textarea'
+                            : 'text'
+                        "
+                        :autogrow="
+                          getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'
+                        "
+                        :label="getModSourceConfig(game.modProfile.sources[0].id).primaryLabel"
+                        :hint="getModSourceConfig(game.modProfile.sources[0].id).primaryHint"
+                        :placeholder="getModSourceConfig(game.modProfile.sources[0].id).placeholder"
+                        persistent-hint
+                        @update:model-value="
+                          updateModSourceDisplayValue(game.modProfile.sources[0], $event)
+                        " />
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
           </section>
@@ -797,6 +945,7 @@
           data-testid="game-form-tab-panel-config"
           role="tabpanel"
           :aria-hidden="activeFormTab !== 'config'"
+          :inert="activeFormTab !== 'config'"
           :aria-labelledby="formTabID('config')"
           class="game-form-tab-panel">
           <!-- Configuration Files -->
@@ -913,10 +1062,82 @@ const formTabs: Array<{ id: GameFormTabID; label: string; copy: string }> = [
 
 const activeFormTab = ref<GameFormTabID>(readActiveFormTabFromHistory())
 const activePlatform = ref<Platform>('windows')
+const runtimeSequenceExpanded = ref(false)
 const runtimePolicyExpanded = ref(false)
-const activeFormTabMeta = computed(
-  () => formTabs.find((tab) => tab.id === activeFormTab.value) ?? formTabs[0],
-)
+function focusFormTab(tabID: GameFormTabID): void {
+  void nextTick(() => {
+    const tabElement = document.getElementById(formTabID(tabID))
+    if (!(tabElement instanceof HTMLButtonElement)) {
+      return
+    }
+
+    tabElement.focus()
+  })
+}
+
+function cycleFormTab(fromTabID: GameFormTabID, step: number): void {
+  const currentIndex = formTabs.findIndex((tab) => tab.id === fromTabID)
+  if (currentIndex === -1) {
+    return
+  }
+
+  const nextIndex = (currentIndex + step + formTabs.length) % formTabs.length
+  const nextTabID = formTabs[nextIndex].id
+  activeFormTab.value = nextTabID
+  focusFormTab(nextTabID)
+}
+
+function handleFormTabKeydown(event: KeyboardEvent, tabID: GameFormTabID): void {
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    event.preventDefault()
+    cycleFormTab(tabID, 1)
+    return
+  }
+
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    cycleFormTab(tabID, -1)
+    return
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault()
+    const firstTabID = formTabs[0].id
+    activeFormTab.value = firstTabID
+    focusFormTab(firstTabID)
+    return
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault()
+    const lastTabID = formTabs[formTabs.length - 1].id
+    activeFormTab.value = lastTabID
+    focusFormTab(lastTabID)
+  }
+}
+
+function isCompactRuntimeViewport(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false
+  }
+
+  return window.matchMedia('(max-width: 900px)').matches
+}
+
+function toggleRuntimePolicy(): void {
+  const nextValue = !runtimePolicyExpanded.value
+  runtimePolicyExpanded.value = nextValue
+  if (nextValue && isCompactRuntimeViewport()) {
+    runtimeSequenceExpanded.value = false
+  }
+}
+
+function updateRuntimeSequenceExpanded(value: boolean): void {
+  runtimeSequenceExpanded.value = value
+  if (value && isCompactRuntimeViewport()) {
+    runtimePolicyExpanded.value = false
+  }
+}
 
 function formTabID(tabID: GameFormTabID): string {
   return `game-form-tab-${tabID}`
@@ -1032,24 +1253,29 @@ const downstreamImpactServers = ref<Array<{ name: string; patchCount: number }>>
 const modSourceOptions = getModSourceOptions()
 const managedTypedConfig = computed(() => isManagedGameConfig(game.value))
 const managedModConfig = computed(() => isManagedModConfig(game.value))
+const activeModSourceLabel = computed(() => {
+  const sourceID = game.value.modProfile?.sources[0]?.id
+  if (!sourceID) {
+    return 'No provider'
+  }
+
+  return modSourceOptions.find((option) => option.value === sourceID)?.label ?? sourceID
+})
 const runtimePolicySummary = computed(() => {
   const summary = [
-    game.value.allowStartArgEditing ? 'Owners can edit' : 'Superuser only',
-    `${startArgBlocklist.value.length} reserved pattern${startArgBlocklist.value.length === 1 ? '' : 's'}`,
+    game.value.allowStartArgEditing ? 'Owners on' : 'Owners off',
+    `${startArgBlocklist.value.length} reserved`,
   ]
 
   if (existingGame.value && !copyGame.value) {
-    summary.push(
-      `${downstreamImpactServers.value.length} downstream server${downstreamImpactServers.value.length === 1 ? '' : 's'}`,
-    )
+    summary.push(`${downstreamImpactServers.value.length} affected`)
   }
 
   return summary
 })
 
 const runtimePolicyAssistiveSummary = computed(
-  () =>
-    `Permissions, reserved flags, and downstream impact. ${runtimePolicySummary.value.join('. ')}.`,
+  () => `Runtime guardrails. ${runtimePolicySummary.value.join('. ')}.`,
 )
 
 watch(
@@ -1155,9 +1381,14 @@ function commandTypeSummary(commandType: CommandType, operation: 'install' | 'up
 
 // --- Command syntax highlighting ---
 
+function escapeHTML(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 function highlightCommand(cmd: string): string {
   if (!cmd) return ''
-  return cmd.replace(/(\S+)/g, (token) => {
+  const escaped = escapeHTML(cmd)
+  return escaped.replace(/(\S+)/g, (token) => {
     // Flags: starts with - or + (JVM flags like -XX:+UseZGC)
     if (/^[-+]/.test(token)) {
       return `<span class="cmd-hl-flag">${token}</span>`
@@ -1508,7 +1739,7 @@ async function updateExistingGame() {
   border-bottom: 1px solid var(--xy-border);
   border-radius: 8px 8px 0 0;
   position: sticky;
-  top: 50px;
+  top: var(--xy-toolbar-height);
   z-index: 10;
   transition:
     border-color 0.2s ease,
@@ -1540,13 +1771,13 @@ async function updateExistingGame() {
 }
 
 .runtime-policy-panel {
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 82%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--xy-surface-2) 58%, transparent),
-    color-mix(in srgb, var(--xy-surface-1) 92%, transparent)
-  );
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 18px;
+  border: 1px solid var(--xy-border);
+  background: var(--xy-surface-gradient-subtle), var(--xy-surface-1);
+  box-shadow: var(--xy-shadow-md);
   overflow: hidden;
 }
 
@@ -1555,8 +1786,8 @@ async function updateExistingGame() {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--xy-space-md);
-  padding: clamp(0.95rem, 0.8rem + 0.4vw, 1.15rem);
+  gap: var(--xy-space-lg);
+  padding: 1rem 1rem 0.9rem;
   border: none;
   background: transparent;
   color: inherit;
@@ -1567,48 +1798,80 @@ async function updateExistingGame() {
 .runtime-policy-toggle-copy {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.22rem;
   min-width: 0;
 }
 
 .runtime-policy-eyebrow {
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--xy-accent);
 }
 
-.runtime-policy-title {
-  color: var(--xy-text-primary);
-  font-size: 1rem;
-  line-height: 1.2;
-}
-
-.runtime-policy-copy {
-  max-width: 56rem;
+.runtime-policy-summary-line {
+  max-width: 38rem;
+  font-size: 0.84rem;
   line-height: 1.45;
+  color: color-mix(in srgb, var(--xy-accent) 12%, var(--xy-text-secondary) 88%);
 }
 
-.runtime-policy-meta {
+.runtime-policy-header-actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.45rem;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
-.runtime-policy-pill {
+.runtime-policy-toggle-indicator {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
-  padding: 0.25rem 0.7rem;
+  gap: 0.42rem;
+  min-height: 2.15rem;
+  padding: 0.38rem 0.78rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 78%, transparent);
-  background: color-mix(in srgb, var(--xy-surface-0) 88%, transparent);
-  color: var(--xy-text-secondary);
-  font-size: 0.74rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 30%, var(--xy-border));
+  background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-0) 92%);
+  color: color-mix(in srgb, var(--xy-accent) 34%, var(--xy-text-primary) 66%);
+  cursor: pointer;
+  transition:
+    border-color var(--xy-transition-fast),
+    background var(--xy-transition-fast),
+    color var(--xy-transition-fast),
+    transform 120ms ease-out,
+    box-shadow var(--xy-transition-fast);
+}
+
+.runtime-policy-toggle:hover .runtime-policy-toggle-indicator {
+  border-color: color-mix(in srgb, var(--xy-accent) 42%, var(--xy-border));
+  background: color-mix(in srgb, var(--xy-accent) 11%, var(--xy-surface-0) 89%);
+}
+
+.runtime-policy-toggle:active .runtime-policy-toggle-indicator {
+  transform: translateY(1px);
+}
+
+.runtime-policy-toggle-indicator :deep(.q-icon) {
+  transition: transform 180ms ease-out;
+}
+
+.runtime-policy-toggle:hover .runtime-policy-toggle-indicator :deep(.q-icon) {
+  transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runtime-policy-panel-enter-active,
+  .runtime-policy-panel-leave-active,
+  .runtime-policy-toggle-indicator,
+  .runtime-policy-toggle-indicator :deep(.q-icon) {
+    transition: none;
+  }
+}
+
+.runtime-policy-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--xy-accent) 62%, transparent);
+  outline-offset: 2px;
 }
 
 .runtime-policy-sr-only {
@@ -1626,46 +1889,182 @@ async function updateExistingGame() {
 .runtime-policy-content {
   display: flex;
   flex-direction: column;
-  gap: var(--xy-space-md);
-  padding: 0 var(--xy-space-md) var(--xy-space-md);
+  gap: 0.7rem;
+  padding: 0 clamp(16px, 1.7vw, 22px) clamp(16px, 1.7vw, 22px);
   border-top: 1px solid color-mix(in srgb, var(--xy-border) 82%, transparent);
+}
+
+.runtime-policy-panel-enter-active,
+.runtime-policy-panel-leave-active {
+  transition:
+    opacity 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.runtime-policy-panel-enter-from,
+.runtime-policy-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.runtime-policy-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 292px);
+  gap: 0.8rem;
+  padding-top: 0.85rem;
+}
+
+.runtime-policy-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .runtime-policy-subsection {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
-  padding: var(--xy-space-md);
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 76%, transparent);
-  background: color-mix(in srgb, var(--xy-surface-0) 76%, transparent);
+  gap: 0.62rem;
+  padding: 0.82rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--xy-border) 72%, transparent);
+  background: color-mix(in srgb, var(--xy-surface-0) 66%, transparent);
+}
+
+.runtime-policy-subsection--impact {
+  border-color: color-mix(in srgb, var(--xy-info) 20%, var(--xy-border) 80%);
+  background: color-mix(in srgb, var(--xy-info) 4%, var(--xy-surface-0) 96%);
+}
+
+.runtime-policy-subsection--reserved {
+  min-width: 0;
+  border-color: color-mix(in srgb, var(--xy-accent) 18%, var(--xy-border) 82%);
+  background: color-mix(in srgb, var(--xy-accent) 3%, var(--xy-surface-0) 97%);
 }
 
 .runtime-policy-subhead {
   color: var(--xy-text-primary);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .runtime-policy-subcopy {
-  line-height: 1.45;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.runtime-policy-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.8rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 16%, var(--xy-border) 84%);
+  background: color-mix(in srgb, var(--xy-accent) 3%, var(--xy-surface-1) 97%);
+}
+
+.runtime-policy-rail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.runtime-policy-switch-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.runtime-policy-switch-title {
+  color: var(--xy-text-primary);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.runtime-policy-switch-note {
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.runtime-policy-mini-note {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.runtime-policy-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.runtime-policy-card-head--stacked {
+  align-items: center;
+}
+
+.runtime-policy-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.runtime-policy-quantity {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.16rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 32%, var(--xy-border));
+  background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-1) 92%);
+  color: color-mix(in srgb, var(--xy-accent) 24%, var(--xy-text-primary) 76%);
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {
   .runtime-policy-toggle {
     flex-direction: column;
+    gap: 0.85rem;
   }
 
-  .runtime-policy-meta {
-    justify-content: flex-start;
+  .runtime-policy-header-actions {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .runtime-policy-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .runtime-policy-switch-row,
+  .runtime-policy-rail-head,
+  .runtime-policy-card-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
 .game-form-breadcrumbs {
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.breadcrumb-list {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.72rem;
-  line-height: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.breadcrumb-list li + li::before {
+  content: '/';
+  color: var(--xy-text-muted);
+  opacity: 0.5;
+  margin-right: 4px;
 }
 
 .breadcrumb-link {
@@ -1676,11 +2075,6 @@ async function updateExistingGame() {
 
 .breadcrumb-link:hover {
   color: var(--xy-accent);
-}
-
-.breadcrumb-sep {
-  color: var(--xy-text-muted);
-  opacity: 0.5;
 }
 
 .breadcrumb-current {
@@ -1781,27 +2175,6 @@ async function updateExistingGame() {
   text-transform: none;
 }
 
-.game-form-tab-note {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--xy-space-sm);
-  min-height: 32px;
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.game-form-tab-note__eyebrow {
-  color: var(--xy-accent);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.game-form-tab-note__copy {
-  color: var(--xy-text-muted);
-}
-
 .game-form-tab-panel {
   min-width: 0;
 }
@@ -1830,9 +2203,29 @@ async function updateExistingGame() {
   padding-top: var(--xy-space-sm);
 }
 
+.form-section--compact {
+  padding-top: var(--xy-space-sm);
+  padding-bottom: var(--xy-space-md);
+}
+
 .form-section--last {
   border-bottom: none;
   padding-bottom: 0;
+}
+
+/* ---- Overview Metadata Strip ---- */
+
+.overview-metadata {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--xy-space-lg);
+}
+
+@media (max-width: 900px) {
+  .overview-metadata {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--xy-space-md);
+  }
 }
 
 .section-header {
@@ -1868,10 +2261,22 @@ async function updateExistingGame() {
 
 /* ---- Feature Chips ---- */
 
-.feature-hint {
-  font-size: 0.68rem;
-  margin-bottom: var(--xy-space-sm);
-  margin-top: calc(var(--xy-space-md) * -0.5);
+.feature-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-lg);
+}
+
+.feature-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-xs);
+}
+
+.feature-group-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .feature-chips {
@@ -1894,15 +2299,18 @@ async function updateExistingGame() {
   transition:
     background var(--xy-transition-fast),
     border-color var(--xy-transition-fast),
-    color var(--xy-transition-fast);
+    color var(--xy-transition-fast),
+    opacity var(--xy-transition-fast);
   color: var(--xy-text-muted);
   font-size: 0.8rem;
   font-family: inherit;
   line-height: 1.2;
+  opacity: 0.7;
 }
 
 .feature-chip:hover {
   border-color: var(--xy-border-hover);
+  opacity: 1;
 }
 
 .feature-dot {
@@ -1922,6 +2330,7 @@ async function updateExistingGame() {
   background: var(--xy-primary-bg-subtle);
   border-color: var(--xy-primary-border-soft);
   color: var(--xy-text-primary);
+  opacity: 1;
 }
 
 .feature-chip--active .feature-dot {
@@ -2032,7 +2441,7 @@ async function updateExistingGame() {
 }
 
 .cmd-label {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   color: var(--xy-text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2055,12 +2464,16 @@ async function updateExistingGame() {
   color: var(--xy-text-secondary);
   font-size: 0.65rem;
   min-height: 32px;
-  padding: 2px 8px;
+  padding: 2px 24px 2px 8px;
   cursor: pointer;
   outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23979b9e' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
   transition:
     border-color var(--xy-transition-fast),
-    color var(--xy-transition-fast);
+    color var(--xy-transition-fast),
+    box-shadow var(--xy-transition-fast);
 }
 
 .cmd-type-select:hover {
@@ -2069,6 +2482,7 @@ async function updateExistingGame() {
 
 .cmd-type-select:focus {
   border-color: var(--xy-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--xy-primary) 24%, transparent);
 }
 
 .cmd-type-select option {
@@ -2130,6 +2544,11 @@ async function updateExistingGame() {
   line-height: 1.5;
   position: relative;
   z-index: 1;
+  transition: box-shadow var(--xy-transition-fast);
+}
+
+.cmd-textarea:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--xy-primary);
 }
 
 .cmd-textarea::placeholder {
@@ -2172,6 +2591,171 @@ async function updateExistingGame() {
   line-height: 1.5;
 }
 
+/* ---- Mods Layout ---- */
+
+.mods-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: clamp(16px, 2vw, 26px);
+  align-items: start;
+}
+
+.mods-layout-single {
+  display: block;
+}
+
+.mods-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
+}
+
+.mods-rail-intro,
+.mods-rail-signal {
+  padding: clamp(14px, 1.6vw, 18px);
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--xy-info) 15%, var(--xy-border) 85%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--xy-info) 7%, transparent), transparent 64%),
+    var(--xy-surface-0);
+}
+
+.mods-rail-eyebrow,
+.mods-rail-signal-label {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--xy-info) 58%, var(--xy-text-secondary) 42%);
+}
+
+.mods-rail-title {
+  margin-top: 0.5rem;
+  color: var(--xy-text-primary);
+  font-size: 0.98rem;
+  line-height: 1.28;
+}
+
+.mods-rail-copy,
+.mods-rail-signal-copy {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.mods-rail-signals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mods-workspace {
+  min-width: 0;
+}
+
+.mods-workspace-card {
+  min-height: 100%;
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--xy-info) 12%, var(--xy-border) 88%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--xy-info) 4%, transparent), transparent 36%),
+    var(--xy-surface-0);
+}
+
+.mods-workspace-header {
+  gap: var(--xy-space-md);
+}
+
+.mods-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.mods-status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.95rem;
+  padding: 0.28rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid var(--xy-border);
+  background: color-mix(in srgb, var(--xy-surface-1) 86%, transparent);
+  color: var(--xy-text-secondary);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.mods-status-chip--active {
+  border-color: color-mix(in srgb, var(--xy-info) 28%, var(--xy-border) 72%);
+  background: color-mix(in srgb, var(--xy-info) 8%, var(--xy-surface-1) 92%);
+  color: color-mix(in srgb, var(--xy-info) 32%, var(--xy-text-primary) 68%);
+}
+
+.mods-quickstart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px dashed color-mix(in srgb, var(--xy-info) 22%, var(--xy-border) 78%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--xy-info) 4%, var(--xy-surface-1) 96%);
+}
+
+.mods-quickstart-title {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--xy-info) 42%, var(--xy-text-primary) 58%);
+}
+
+.mods-quickstart-copy,
+.mods-next-step {
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.mods-quickstart-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.mods-quickstart-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+}
+
+.mods-quickstart-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1rem;
+  min-height: 2.1rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--xy-info) 22%, var(--xy-border) 78%);
+  background: color-mix(in srgb, var(--xy-surface-0) 84%, transparent);
+  font-size: 0.74rem;
+  color: color-mix(in srgb, var(--xy-info) 48%, var(--xy-text-primary) 52%);
+}
+
+.mods-quickstart-step-copy {
+  padding-top: 0.25rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--xy-text-secondary);
+}
+
+.mods-next-step {
+  padding: 0.82rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--xy-info) 18%, var(--xy-border) 82%);
+  background: color-mix(in srgb, var(--xy-info) 5%, var(--xy-surface-1) 95%);
+}
+
 /* ---- Typed Game Config ---- */
 
 .typed-config-grid {
@@ -2208,6 +2792,10 @@ async function updateExistingGame() {
   margin-top: 0.15rem;
 }
 
+.typed-config-copy--secondary {
+  max-width: 34rem;
+}
+
 .typed-config-fields {
   display: flex;
   flex-direction: column;
@@ -2235,52 +2823,6 @@ async function updateExistingGame() {
   color: var(--xy-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-
-.variants-toolbar,
-.sources-header {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--xy-space-sm);
-  align-items: center;
-}
-
-.variants-toolbar {
-  margin-top: var(--xy-space-lg);
-  margin-bottom: var(--xy-space-md);
-}
-
-.variants-empty {
-  padding: var(--xy-space-md);
-  background: var(--xy-surface-0);
-  border: 1px dashed var(--xy-border);
-  border-radius: 10px;
-}
-
-.variant-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--xy-space-md);
-}
-
-.variant-card {
-  margin-top: 0;
-}
-
-.source-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--xy-space-sm);
-  padding: var(--xy-space-sm);
-  background: var(--xy-surface-1);
-  border: 1px solid var(--xy-border);
-  border-radius: 8px;
-}
-
-.source-actions,
-.sources-actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* ---- Preset Selector ---- */
@@ -2344,9 +2886,9 @@ async function updateExistingGame() {
     font-size: 0.76rem;
   }
 
-  .game-form-tab-note {
-    align-items: flex-start;
-    gap: 6px;
+  .feature-groups {
+    flex-direction: column;
+    gap: var(--xy-space-md);
   }
 
   .feature-chips {
@@ -2357,6 +2899,14 @@ async function updateExistingGame() {
   .feature-chip {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .mods-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mods-workspace {
+    order: -1;
   }
 
   .platform-tabs {

@@ -202,6 +202,6 @@ function clearResult(): void {
 
 .example-chip:hover {
   background: var(--xy-accent, #1cb7cf);
-  color: #fff;
+  color: var(--xy-text-emphasis-strong);
 }
 </style>
