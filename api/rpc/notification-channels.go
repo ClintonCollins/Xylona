@@ -469,10 +469,7 @@ func (xs *XylonaService) TestNotificationChannel(
 
 	emailConfig, errParse := alerts.ParseEmailChannelConfig(channel.Config)
 	if errParse != nil {
-		return connect.NewResponse(&xylona.TestNotificationChannelResponse{
-			Success: false,
-			Error:   errParse.Error(),
-		}), nil
+		return nil, connect.NewError(connect.CodeInternal, errParse)
 	}
 
 	var smtpCfg *mailer.SMTPConfig
@@ -495,10 +492,7 @@ func (xs *XylonaService) TestNotificationChannel(
 
 	errSend := xs.resolvedSendTestEmailFunc()(ctx, smtpCfg, emailConfig.To)
 	if errSend != nil {
-		return connect.NewResponse(&xylona.TestNotificationChannelResponse{
-			Success: false,
-			Error:   errSend.Error(),
-		}), nil
+		return nil, connect.NewError(connect.CodeUnavailable, errSend)
 	}
 
 	return connect.NewResponse(&xylona.TestNotificationChannelResponse{

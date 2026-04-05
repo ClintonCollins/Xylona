@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -24,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/gorilla/securecookie"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -34,8 +34,10 @@ import (
 	"github.com/ClintonCollins/Xylona/api/websocket"
 	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
 	dbpkg "github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/gsutils"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/alerts"
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/hangar"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/modrinth"
@@ -43,9 +45,6 @@ import (
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/papermc"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/steamworkshop"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/thunderstore"
-	"github.com/ClintonCollins/Xylona/pkg/alerts"
-	"github.com/ClintonCollins/Xylona/pkg/eventbus"
-	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
@@ -61,14 +60,13 @@ type Configuration struct {
 	CookieBlockKey string `env:"COOKIE_BLOCK_KEY_BASE64"`
 	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
 	// EncryptionKey is a dedicated base64-encoded key for encrypting sensitive DB
-	// fields (notification channel configs, node API keys). When empty, falls back
-	// to the first 32 bytes of the decoded JWT secret with a warning.
-	EncryptionKey string `env:"ENCRYPTION_KEY_BASE64" envDefault:""`
-	DBFilePath    string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
-	LogLevel      string `env:"LOG_LEVEL" envDefault:"info"`
-	SecureCookies bool   `env:"SECURE_COOKIES" envDefault:"false"`
-	Host          string `env:"HOST" envDefault:""`
-	HTTPPort      int    `env:"HTTP_PORT" envDefault:"8080"`
+	// fields (notification channel configs, node API keys).
+	EncryptionKey  string `env:"ENCRYPTION_KEY_BASE64"`
+	DBFilePath     string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
+	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
+	SecureCookies  bool   `env:"SECURE_COOKIES" envDefault:"false"`
+	Host           string `env:"HOST" envDefault:""`
+	HTTPPort       int    `env:"HTTP_PORT" envDefault:"8080"`
 	FederationPort int    `env:"FEDERATION_PORT" envDefault:"8443"`
 	// DummyGameID enables the DummyTracker for E2E testing. When set, the game
 	// with this ID is treated as a trackable server returning a simulated 1.0.0→2.0.0
@@ -168,6 +166,13 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		w.Header().Set("Content-Security-Policy",
+			`default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; `+
+				`img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; `+
+				`script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' ws: wss: https: http:`)
+		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			w.Header().Set("Strict-Transport-Security", `max-age=31536000; includeSubDomains`)
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -285,37 +290,18 @@ func main() {
 		return
 	}
 
-	// Set encryption key for sensitive DB fields (notification channel configs,
-	// node API keys). Prefers a dedicated ENCRYPTION_KEY_BASE64 env var; falls
-	// back to the first 32 bytes of the JWT secret if not set.
-	if config.EncryptionKey != "" {
-		encKeyBytes, errDecodeEnc := base64.StdEncoding.DecodeString(config.EncryptionKey)
-		if errDecodeEnc != nil {
-			log.Fatal().Err(errDecodeEnc).Msg("Error decoding ENCRYPTION_KEY_BASE64")
-		}
-		if len(encKeyBytes) < 32 {
-			log.Fatal().Msg("ENCRYPTION_KEY_BASE64 must decode to at least 32 bytes")
-		}
-		dbInst.SetEncryptionKey(encKeyBytes[:32])
-
-		// Set JWT-derived key as fallback for data encrypted before the
-		// dedicated encryption key was configured.
-		jwtFallbackBytes, errDecodeJWTFallback := base64.StdEncoding.DecodeString(config.JWTSecretKey)
-		if errDecodeJWTFallback == nil && len(jwtFallbackBytes) >= 32 {
-			dbInst.SetFallbackEncryptionKey(jwtFallbackBytes[:32])
-		}
-	} else {
-		log.Warn().Msg("ENCRYPTION_KEY_BASE64 not set — falling back to JWT secret for DB encryption. " +
-			"Set a dedicated encryption key to decouple DB encryption from JWT rotation.")
-		jwtSecretBytes, errDecodeJWT := base64.StdEncoding.DecodeString(config.JWTSecretKey)
-		if errDecodeJWT != nil {
-			log.Fatal().Err(errDecodeJWT).Msg("Error decoding JWT secret key for encryption fallback")
-		}
-		if len(jwtSecretBytes) < 32 {
-			log.Fatal().Msg("JWT secret must decode to at least 32 bytes when used as encryption key fallback")
-		}
-		dbInst.SetEncryptionKey(jwtSecretBytes[:32])
+	// Set the dedicated encryption key for sensitive DB fields.
+	if config.EncryptionKey == "" {
+		log.Fatal().Msg("ENCRYPTION_KEY_BASE64 must be set")
 	}
+	encKeyBytes, errDecodeEnc := base64.StdEncoding.DecodeString(config.EncryptionKey)
+	if errDecodeEnc != nil {
+		log.Fatal().Err(errDecodeEnc).Msg("Error decoding ENCRYPTION_KEY_BASE64")
+	}
+	if len(encKeyBytes) < 32 {
+		log.Fatal().Msg("ENCRYPTION_KEY_BASE64 must decode to at least 32 bytes")
+	}
+	dbInst.SetEncryptionKey(encKeyBytes[:32])
 
 	settings, errSettings := dbInst.GetLocalSettings()
 	if errSettings != nil {
@@ -452,7 +438,13 @@ func main() {
 	syncEngine.SetActionsInstance(actionsInst)
 	actionsInst.SetSyncEngine(syncEngine)
 
-	xylonaAPIPath, handler := xylonaconnect.NewXylonaHandler(xylonaService, connect.WithHandlerOptions())
+	xylonaAPIPath, handler := xylonaconnect.NewXylonaHandler(
+		xylonaService,
+		connect.WithInterceptors(
+			rpc.NewSessionAuthInterceptor(dbInst, secureCookie),
+			rpc.NewUnaryTimeoutInterceptor(60*time.Second),
+		),
+	)
 	federationService := rpc.NewFederationService(ctx, dbInst, actionsInst, superInst, versionState)
 	federationAPIPath, federationHandler := xylonaconnect.NewFederationHandler(federationService, connect.WithHandlerOptions())
 
@@ -465,20 +457,33 @@ func main() {
 	router.Use(routerLogger)
 	router.Use(securityHeaders)
 	router.Use(gatekeeper.AuthRateLimiter())
+	router.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		errPing := dbInst.SQLDb.PingContext(r.Context())
+		if errPing != nil {
+			log.Error().Err(errPing).Msg("Health check failed")
+			http.Error(w, "unhealthy", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	router.Handle("/metrics", promhttp.Handler())
 	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
 
 	httpServer := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", config.Host, config.HTTPPort),
-		Handler:      router,
-		ReadTimeout:  time.Hour * 6,
-		WriteTimeout: time.Hour * 6,
-		IdleTimeout:  time.Hour * 24,
+		Addr:              fmt.Sprintf("%s:%d", config.Host, config.HTTPPort),
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       time.Hour * 6,
+		WriteTimeout:      time.Hour * 6,
+		IdleTimeout:       time.Hour * 24,
 	}
 
 	federationRouter := chi.NewRouter()
 	federationRouter.Use(middleware.RealIP)
 	federationRouter.Use(routerLogger)
+	federationRouter.Use(securityHeaders)
 
 	// The complete-pairing endpoint is exempt from trust-store auth — the pairing token authenticates it.
 	federationRouter.Post("/federation/complete-pairing", rpc.CompletePairingHandler(dbInst, federationMTLS))
@@ -493,47 +498,14 @@ func main() {
 	})
 
 	federationServer := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", config.Host, config.FederationPort),
-		Handler:      federationRouter,
-		ReadTimeout:  time.Hour * 6,
-		WriteTimeout: time.Hour * 6,
-		IdleTimeout:  time.Hour * 24,
-		TLSConfig:    federationMTLS.ServerTLSConfig(),
+		Addr:              fmt.Sprintf("%s:%d", config.Host, config.FederationPort),
+		Handler:           federationRouter,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       time.Hour * 6,
+		WriteTimeout:      time.Hour * 6,
+		IdleTimeout:       time.Hour * 24,
+		TLSConfig:         federationMTLS.ServerTLSConfig(),
 	}
-
-	router.Get("/api/test/{appid}", func(w http.ResponseWriter, r *http.Request) {
-		appID := chi.URLParam(r, "appid")
-		branches, err := gsutils.SteamGetBranchesByAppID(appID)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to get branches")
-			http.Error(w, "Failed to get branches", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		errEncode := json.NewEncoder(w).Encode(branches)
-		if errEncode != nil {
-			log.Error().Err(errEncode).Msg("Failed to encode branches")
-			http.Error(w, "Failed to encode branches", http.StatusInternalServerError)
-			return
-		}
-	})
-
-	router.Get("/api/test/{appid}/latest", func(w http.ResponseWriter, r *http.Request) {
-		appID := chi.URLParam(r, "appid")
-		branch, errGetLatest := gsutils.SteamGetLatestVersionByAppID(appID)
-		if errGetLatest != nil {
-			log.Error().Err(errGetLatest).Msg("Failed to get latest version")
-			http.Error(w, "Failed to get latest version", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		errEncode := json.NewEncoder(w).Encode(branch)
-		if errEncode != nil {
-			log.Error().Err(errEncode).Msg("Failed to encode latest version")
-			http.Error(w, "Failed to encode latest version", http.StatusInternalServerError)
-			return
-		}
-	})
 
 	router.Group(func(r chi.Router) {
 		r.Use(gatekeeper.RequireSessionAuth(dbInst, secureCookie))

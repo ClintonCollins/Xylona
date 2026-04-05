@@ -228,10 +228,7 @@ func (xs *XylonaService) TestSystemSMTP(
 
 	errSend := xs.resolvedSendTestEmailFunc()(ctx, smtpCfg, toAddress)
 	if errSend != nil {
-		return connect.NewResponse(&xylona.TestSystemSMTPResponse{
-			Success: false,
-			Error:   errSend.Error(),
-		}), nil
+		return nil, connect.NewError(connect.CodeUnavailable, errSend)
 	}
 
 	return connect.NewResponse(&xylona.TestSystemSMTPResponse{

@@ -205,13 +205,6 @@ func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 	return channel.ID
 }
 
-// ptrStr returns a pointer to the given string value.
-//
-//go:fix inline
-func ptrStr(s string) *string {
-	return new(s)
-}
-
 // ---------------------------------------------------------------------------
 // Auth + permission gate tests
 // ---------------------------------------------------------------------------

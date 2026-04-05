@@ -298,3 +298,23 @@ func TestYAML_RegisteredInRegistry(t *testing.T) {
 		t.Errorf("Format() = %q, want %q", parser.Structured.Format(), "yaml")
 	}
 }
+
+func TestYAML_AliasCycleDetection(t *testing.T) {
+	sequence := &yaml.Node{
+		Kind: yaml.SequenceNode,
+		Tag:  "!!seq",
+	}
+	alias := &yaml.Node{
+		Kind:  yaml.AliasNode,
+		Alias: sequence,
+	}
+	sequence.Content = []*yaml.Node{alias}
+
+	_, errConvert := yamlNodeToConfig("root", sequence, make(map[*yaml.Node]struct{}))
+	if errConvert == nil {
+		t.Fatal("yamlNodeToConfig() error = nil, want alias cycle error")
+	}
+	if errConvert.Error() != "yaml alias cycle detected" {
+		t.Fatalf("yamlNodeToConfig() error = %q, want %q", errConvert.Error(), "yaml alias cycle detected")
+	}
+}

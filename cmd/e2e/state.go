@@ -49,22 +49,6 @@ func saveTestUsers(dir string, users []testUser) error {
 	return os.WriteFile(filepath.Join(authDir, "test-users.json"), data, 0o644)
 }
 
-func loadTestUsers(dir string) ([]testUser, error) {
-	data, errRead := os.ReadFile(filepath.Join(dir, ".auth", "test-users.json"))
-	if errRead != nil {
-		if os.IsNotExist(errRead) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("read test users: %w", errRead)
-	}
-	var users []testUser
-	errUnmarshal := json.Unmarshal(data, &users)
-	if errUnmarshal != nil {
-		return nil, fmt.Errorf("unmarshal test users: %w", errUnmarshal)
-	}
-	return users, nil
-}
-
 func saveTestState(dir string, state *testState) error {
 	authDir := filepath.Join(dir, ".auth")
 	errMkdir := os.MkdirAll(authDir, 0o755)
@@ -76,22 +60,6 @@ func saveTestState(dir string, state *testState) error {
 		return fmt.Errorf("marshal test state: %w", errMarshal)
 	}
 	return os.WriteFile(filepath.Join(authDir, "test-state.json"), data, 0o644)
-}
-
-func loadTestState(dir string) (*testState, error) {
-	data, errRead := os.ReadFile(filepath.Join(dir, ".auth", "test-state.json"))
-	if errRead != nil {
-		if os.IsNotExist(errRead) {
-			return &testState{}, nil
-		}
-		return nil, fmt.Errorf("read test state: %w", errRead)
-	}
-	var state testState
-	errUnmarshal := json.Unmarshal(data, &state)
-	if errUnmarshal != nil {
-		return nil, fmt.Errorf("unmarshal test state: %w", errUnmarshal)
-	}
-	return &state, nil
 }
 
 func saveFederationState(dir string, state *federationTestState) error {

@@ -101,10 +101,6 @@ func clearDummyVersionStates(states *versiontracker.VersionStateMap) {
 	}
 }
 
-func (xs *XylonaService) triggerVersionCheck(ctx context.Context, gameServerID string) {
-	xs.actionsInst.CheckServerVersionByID(ctx, gameServerID)
-}
-
 func versionStateToProto(state versiontracker.VersionState) *xylona.VersionInfo {
 	protoStatus := xylona.VersionStatus_VERSION_STATUS_NO_TRACKER
 	switch state.Status {

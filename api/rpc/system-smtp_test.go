@@ -707,14 +707,14 @@ func TestTestSystemSMTP_SendFailure(t *testing.T) {
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
 
-	resp, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
-	if errTest != nil {
-		t.Fatalf("TestSystemSMTP() error = %v", errTest)
+	_, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
+	if errTest == nil {
+		t.Fatal("TestSystemSMTP() error = nil, want non-nil")
 	}
-	if resp.Msg.Success {
-		t.Errorf("success = true, want false")
+	if connect.CodeOf(errTest) != connect.CodeUnavailable {
+		t.Fatalf("TestSystemSMTP() code = %v, want %v", connect.CodeOf(errTest), connect.CodeUnavailable)
 	}
-	if resp.Msg.Error != "connection refused" {
-		t.Errorf("error = %q, want %q", resp.Msg.Error, "connection refused")
+	if !strings.Contains(errTest.Error(), "connection refused") {
+		t.Errorf("error = %q, want to contain %q", errTest.Error(), "connection refused")
 	}
 }

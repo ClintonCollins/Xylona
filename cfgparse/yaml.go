@@ -44,7 +44,7 @@ func (p *YAMLParser) Parse(data []byte) (*ConfigNode, error) {
 		return root, nil
 	}
 
-	converted, errConvert := yamlNodeToConfig("", content)
+	converted, errConvert := yamlNodeToConfig("", content, make(map[*yaml.Node]struct{}))
 	if errConvert != nil {
 		return nil, fmt.Errorf("converting yaml tree: %w", errConvert)
 	}
@@ -81,7 +81,7 @@ func (p *YAMLParser) Write(root *ConfigNode) ([]byte, error) {
 }
 
 // yamlNodeToConfig converts a yaml.Node into a ConfigNode.
-func yamlNodeToConfig(key string, yn *yaml.Node) (*ConfigNode, error) {
+func yamlNodeToConfig(key string, yn *yaml.Node, aliasStack map[*yaml.Node]struct{}) (*ConfigNode, error) {
 	comment := mergeComments(yn)
 
 	switch yn.Kind {
@@ -95,7 +95,7 @@ func yamlNodeToConfig(key string, yn *yaml.Node) (*ConfigNode, error) {
 			keyNode := yn.Content[i]
 			valNode := yn.Content[i+1]
 
-			child, errChild := yamlNodeToConfig(keyNode.Value, valNode)
+			child, errChild := yamlNodeToConfig(keyNode.Value, valNode, aliasStack)
 			if errChild != nil {
 				return nil, errChild
 			}
@@ -115,7 +115,7 @@ func yamlNodeToConfig(key string, yn *yaml.Node) (*ConfigNode, error) {
 			Comment: comment,
 		}
 		for _, item := range yn.Content {
-			child, errChild := yamlNodeToConfig("", item)
+			child, errChild := yamlNodeToConfig("", item, aliasStack)
 			if errChild != nil {
 				return nil, errChild
 			}
@@ -143,8 +143,15 @@ func yamlNodeToConfig(key string, yn *yaml.Node) (*ConfigNode, error) {
 		return node, nil
 
 	case yaml.AliasNode:
-		// Resolve alias and convert the target.
-		return yamlNodeToConfig(key, yn.Alias)
+		if yn.Alias == nil {
+			return nil, fmt.Errorf("yaml alias has no target")
+		}
+		if _, exists := aliasStack[yn.Alias]; exists {
+			return nil, fmt.Errorf("yaml alias cycle detected")
+		}
+		aliasStack[yn.Alias] = struct{}{}
+		defer delete(aliasStack, yn.Alias)
+		return yamlNodeToConfig(key, yn.Alias, aliasStack)
 
 	default:
 		return nil, fmt.Errorf("unsupported yaml node kind: %d", yn.Kind)

@@ -37,10 +37,11 @@ type cachedPackages struct {
 
 // Provider implements modproviders.ModProvider for Thunderstore (thunderstore.io).
 type Provider struct {
-	httpClient *http.Client
-	baseURL    string
-	mu         sync.Mutex
-	cache      map[string]cachedPackages // keyed by community slug
+	httpClient      *http.Client
+	baseURL         string
+	mu              sync.Mutex
+	cache           map[string]cachedPackages // keyed by community slug
+	sourceCommunity map[string]string         // keyed by sourceID/full_name
 }
 
 // New creates a new Thunderstore provider with a default HTTP client that injects the
@@ -50,8 +51,9 @@ func New() *Provider {
 		httpClient: &http.Client{
 			Transport: &userAgentTransport{wrapped: http.DefaultTransport},
 		},
-		baseURL: defaultBaseURL,
-		cache:   make(map[string]cachedPackages),
+		baseURL:         defaultBaseURL,
+		cache:           make(map[string]cachedPackages),
+		sourceCommunity: make(map[string]string),
 	}
 }
 
@@ -142,6 +144,9 @@ func (p *Provider) getPackageList(ctx context.Context, community string) ([]pack
 	p.cache[community] = cachedPackages{
 		packages:  packages,
 		fetchedAt: time.Now(),
+	}
+	for _, pkg := range packages {
+		p.sourceCommunity[pkg.FullName] = community
 	}
 	p.mu.Unlock()
 
@@ -299,43 +304,17 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 // Download fetches the ZIP for the specified version and writes it to targetDir.
 // versionID is the version_number string (e.g., "0.9.12.0").
 func (p *Provider) Download(ctx context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
-	community := extractCommunity(nil)
-	if community == "" {
-		community = "valheim"
-	}
+        parts := strings.SplitN(sourceID, "-", 2)
+        if len(parts) != 2 {
+                return nil, fmt.Errorf("thunderstore download: invalid sourceID %q", sourceID)
+        }
 
-	packages, errList := p.getPackageList(ctx, community)
-	if errList != nil {
-		return nil, fmt.Errorf("thunderstore download %q: %w", sourceID, errList)
-	}
+        downloadURL := fmt.Sprintf("%s/package/download/%s/%s/%s/", p.baseURL, parts[0], parts[1], versionID)
 
-	var found *packageInfo
-	for i := range packages {
-		if packages[i].FullName == sourceID {
-			found = &packages[i]
-			break
-		}
-	}
-	if found == nil {
-		return nil, fmt.Errorf("thunderstore download: package %q not found", sourceID)
-	}
-
-	downloadURL := ""
-	for _, v := range found.Versions {
-		if v.VersionNumber == versionID {
-			downloadURL = v.DownloadURL
-			break
-		}
-	}
-	if downloadURL == "" {
-		return nil, fmt.Errorf("thunderstore download: version %q not found for package %q", versionID, sourceID)
-	}
-
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-	if errReq != nil {
-		return nil, fmt.Errorf("thunderstore download: build request: %w", errReq)
-	}
-
+        req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+        if errReq != nil {
+                return nil, fmt.Errorf("thunderstore download: build request: %w", errReq)
+        }
 	resp, errGet := p.httpClient.Do(req)
 	if errGet != nil {
 		return nil, fmt.Errorf("thunderstore download: GET %s: %w", downloadURL, errGet)

@@ -711,7 +711,9 @@ func (xs *XylonaService) ListGameServers(ctx context.Context, request *connect.R
 	}
 	if errGetGameServers != nil {
 		if errors.Is(errGetGameServers, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+			return connect.NewResponse(&xylona.ListGameServersResponse{
+				GameServers: []*xylona.GameServer{},
+			}), nil
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}

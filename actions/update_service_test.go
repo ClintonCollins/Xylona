@@ -694,7 +694,7 @@ func (p *minecraftUpdateTestProvider) Download(_ context.Context, sourceID strin
 }
 
 func (p *minecraftUpdateTestProvider) CheckForUpdate(_ context.Context, _ string, _ string) (*modproviders.ModVersion, error) {
-	return nil, nil
+	return &modproviders.ModVersion{}, nil
 }
 
 func (p *minecraftUpdateTestProvider) RequiresAPIKey() bool {

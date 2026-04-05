@@ -137,7 +137,7 @@ func (xs *XylonaService) SearchMods(
 	ctx context.Context,
 	request *connect.Request[xylona.SearchModsRequest],
 ) (*connect.Response[xylona.SearchModsResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
@@ -145,6 +145,10 @@ func (xs *XylonaService) SearchMods(
 	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
 	if errInfo != nil {
 		return nil, errInfo
+	}
+	errPerm := xs.ensureLocalServerPermission(user, info.gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
 	}
 
 	if info.modProfile == nil {

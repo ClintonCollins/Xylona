@@ -4,7 +4,10 @@ import (
 	"math"
 	"testing"
 
+	"connectrpc.com/connect"
+
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 func TestClampSearchTotalCount(t *testing.T) {
@@ -27,5 +30,22 @@ func TestClampSearchTotalCount(t *testing.T) {
 				t.Fatalf("clampSearchTotalCount(%d) = %d, want %d", tc.totalHits, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestSearchModsRequiresServerPermission(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	req := connect.NewRequest(&xylona.SearchModsRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-other")
+
+	_, errSearch := fixture.service.SearchMods(t.Context(), req)
+	if errSearch == nil {
+		t.Fatal("SearchMods() error = nil, want permission error")
+	}
+	if connect.CodeOf(errSearch) != connect.CodePermissionDenied {
+		t.Fatalf("SearchMods() code = %v, want %v", connect.CodeOf(errSearch), connect.CodePermissionDenied)
 	}
 }

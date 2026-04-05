@@ -48,6 +48,7 @@ var (
 	ErrGameUpdateNotConfigured            = errors.New("game update is not configured")
 	ErrInternalGameUpdateMissing          = errors.New("internal game updater is not registered")
 	ErrMinecraftVariantUpdateNotSupported = errors.New("updates are not supported for this Minecraft server software")
+	ErrNotMinecraftServer                 = errors.New("game server is not a minecraft server")
 	reSteamBranchableUpdate               = regexp.MustCompile(`(?i)(\+app_update\s+\d+)`)
 	minecraftUpdateProviderLookup         = func(kind updateproviders.ProviderKind) (modproviders.ModProvider, bool) {
 		switch kind {
@@ -849,7 +850,7 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 	gameServer *models.GameServer,
 ) (*minecraftUpdatePlan, error) {
 	if gameServer.GameID != "minecraft" {
-		return nil, nil
+		return nil, ErrNotMinecraftServer
 	}
 	if gameServer.R.Game == nil {
 		return nil, fmt.Errorf("minecraft game relation not loaded")
@@ -981,7 +982,7 @@ func plannedDownloadFileName(downloadURL string) string {
 
 func (inst *Instance) tryUpdateMinecraftServerSoftware(gameServer *models.GameServer) (bool, error) {
 	plan, errPlan := inst.resolveMinecraftUpdatePlan(gameServer)
-	if gameServer.GameID != "minecraft" {
+	if errors.Is(errPlan, ErrNotMinecraftServer) {
 		return false, nil
 	}
 	if errPlan != nil {

@@ -1276,15 +1276,15 @@ func TestTestNotificationChannel_EmailSendFailureReturnsMessage(t *testing.T) {
 	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
 
-	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
-	if errTest != nil {
-		t.Fatalf("TestNotificationChannel() error = %v", errTest)
+	_, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+	if errTest == nil {
+		t.Fatal("TestNotificationChannel() error = nil, want non-nil")
 	}
-	if testResp.Msg.Success {
-		t.Fatal("success = true, want false")
+	if connect.CodeOf(errTest) != connect.CodeUnavailable {
+		t.Fatalf("TestNotificationChannel() code = %v, want %v", connect.CodeOf(errTest), connect.CodeUnavailable)
 	}
-	if testResp.Msg.Error != "connection refused" {
-		t.Errorf("error = %q, want %q", testResp.Msg.Error, "connection refused")
+	if !strings.Contains(errTest.Error(), "connection refused") {
+		t.Errorf("error = %q, want to contain %q", errTest.Error(), "connection refused")
 	}
 }
 

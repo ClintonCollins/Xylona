@@ -2,6 +2,7 @@ package thunderstore
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -464,6 +465,81 @@ func TestCache_RefetchesAfterTTL(t *testing.T) {
 
 	if callCount != 2 {
 		t.Errorf("HTTP call count = %d, want 2 (stale cache should trigger re-fetch)", callCount)
+	}
+}
+
+func TestDownload_UsesResolvedCommunityForSource(t *testing.T) {
+	var packagePath string
+	var serverURL string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/c/lethal-company/api/v1/package/":
+			packagePath = r.URL.Path
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(fmt.Sprintf(`[
+				{
+					"name": "SharedMod",
+					"full_name": "Author-SharedMod",
+					"owner": "Author",
+					"package_url": "%s/c/lethal-company/p/Author/SharedMod/",
+					"date_created": "2021-01-01T00:00:00.000000Z",
+					"date_updated": "2021-01-01T00:00:00.000000Z",
+					"rating_score": 10,
+					"is_pinned": false,
+					"is_deprecated": false,
+					"total_downloads": 100,
+					"latest": {
+						"name": "SharedMod",
+						"full_name": "Author-SharedMod-1.0.0",
+						"description": "A shared mod",
+						"icon": "",
+						"version_number": "1.0.0",
+						"dependencies": [],
+						"download_url": "%s/download/sharedmod.zip",
+						"downloads": 100,
+						"date_created": "2021-01-01T00:00:00.000000Z",
+						"file_size": 7
+					},
+					"versions": [
+						{
+						"name": "SharedMod",
+						"full_name": "Author-SharedMod-1.0.0",
+						"description": "A shared mod",
+						"icon": "",
+						"version_number": "1.0.0",
+						"dependencies": [],
+						"download_url": "%s/download/sharedmod.zip",
+							"downloads": 100,
+							"date_created": "2021-01-01T00:00:00.000000Z",
+							"file_size": 7
+						}
+					]
+				}
+			]`, serverURL, serverURL, serverURL)))
+		case "/download/sharedmod.zip":
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write([]byte("payload"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	serverURL = srv.URL
+
+	p := newTestProvider(srv)
+	_, errDetails := p.GetModDetails(context.Background(), "Author-SharedMod", map[string]any{"community": "lethal-company"})
+	if errDetails != nil {
+		t.Fatalf("GetModDetails() error = %v", errDetails)
+	}
+
+	_, errDownload := p.Download(context.Background(), "Author-SharedMod", "1.0.0", t.TempDir())
+	if errDownload != nil {
+		t.Fatalf("Download() error = %v", errDownload)
+	}
+
+	if packagePath != "/c/lethal-company/api/v1/package/" {
+		t.Fatalf("Download() package path = %q, want %q", packagePath, "/c/lethal-company/api/v1/package/")
 	}
 }
 

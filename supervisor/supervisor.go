@@ -82,6 +82,7 @@ type Command struct {
 	processCtx                    context.Context
 	processCtxCancel              context.CancelFunc
 	toggleOutputType              chan struct{}
+	stopTimeout                   time.Duration
 	runAfterStartup               func(job *Command)
 	// Metrics fields (transient, not persisted to DB)
 	cpuPercent      float64

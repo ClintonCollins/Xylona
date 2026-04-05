@@ -196,7 +196,7 @@ func (m *MinecraftTracker) GetInstalledVersion(_ context.Context, gs *models.Gam
 
 	version, errJar := ReadMinecraftJarVersion(gs.Directory, gs.ServerExecutable.GetOr(""))
 	if errJar != nil {
-		return gs.Version, nil
+		return gs.Version, errJar
 	}
 	return version, nil
 }
@@ -390,10 +390,6 @@ func (m *MinecraftTracker) getMojangManifest(ctx context.Context) (mojangManifes
 		return mojangManifestResponse{}, fmt.Errorf("parse mojang manifest response: %w", errJSON)
 	}
 	return parsed, nil
-}
-
-func (m *MinecraftTracker) getLatestPaperTarget(ctx context.Context, project string) (string, error) {
-	return m.resolvePaperTarget(ctx, project, "")
 }
 
 func (m *MinecraftTracker) resolvePaperTarget(ctx context.Context, project string, preferred string) (string, error) {

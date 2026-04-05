@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -67,6 +68,9 @@ type PreparedCommand struct {
 	GameServerID       *string
 	CallbackFunction   func(*Command)
 	Status             xylona.Status
+	// StopTimeout overrides the default 15-second graceful-stop timeout.
+	// When zero the default is used.
+	StopTimeout        time.Duration
 }
 
 func (imt inputType) String() string {
@@ -78,6 +82,15 @@ func (imt inputType) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+const defaultStopTimeout = 15 * time.Second
+
+func (c *Command) effectiveStopTimeout() time.Duration {
+	if c.stopTimeout > 0 {
+		return c.stopTimeout
+	}
+	return defaultStopTimeout
 }
 
 func formatXylonaMessage(message string) string {
@@ -123,7 +136,7 @@ func (c *Command) Stop(stopInputCommand string) {
 	case <-c.instanceCtx.Done():
 		log.Debug().Str("Game Server ID", c.ID).Msg("Xylona shutdown signal received. Closing job.")
 		return
-	case <-time.After(time.Second * 15):
+	case <-time.After(c.effectiveStopTimeout()):
 		c.RLock()
 		log.Warn().Str("ID", c.ID).Str("User", c.User).Msg("Timeout waiting for command to stop")
 		c.RUnlock()
@@ -152,12 +165,37 @@ func (c *Command) readJobOut() {
 	if c.currentCMD == nil && !c.InternalCommand {
 		return
 	}
-	disableOutput := false
+	var disableOutput atomic.Bool
+	scannerDone := make(chan struct{}, 2)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
+		defer wg.Done()
+		scannersFinished := 0
+		for {
+			if scannersFinished == 2 {
+				return
+			}
+			select {
+			case <-c.instanceCtx.Done():
+				return
+			case <-c.processCtx.Done():
+				return
+			case <-scannerDone:
+				scannersFinished++
+			case <-c.toggleOutputType:
+				disableOutput.Store(!disableOutput.Load())
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		defer func() {
+			scannerDone <- struct{}{}
+		}()
 		scannerStdOut := bufio.NewScanner(c.stdout)
 		scannerStdOut.Split(bufio.ScanLines)
 		for scannerStdOut.Scan() {
@@ -168,13 +206,12 @@ func (c *Command) readJobOut() {
 			select {
 			case <-c.instanceCtx.Done():
 				log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
+				return
 			case <-c.processCtx.Done():
 				log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
 				return
-			case <-c.toggleOutputType:
-				disableOutput = !disableOutput
 			default:
-				if disableOutput {
+				if disableOutput.Load() {
 					continue
 				}
 				stdOut := scannerStdOut.Text()
@@ -182,10 +219,13 @@ func (c *Command) readJobOut() {
 				c.sendJobNotification(stdOut)
 			}
 		}
-		wg.Done()
 	}()
 
 	go func() {
+		defer wg.Done()
+		defer func() {
+			scannerDone <- struct{}{}
+		}()
 		scannerStdErr := bufio.NewScanner(c.stderr)
 		scannerStdErr.Split(bufio.ScanLines)
 		for scannerStdErr.Scan() {
@@ -196,13 +236,12 @@ func (c *Command) readJobOut() {
 			select {
 			case <-c.instanceCtx.Done():
 				log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
+				return
 			case <-c.processCtx.Done():
 				log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
 				return
-			case <-c.toggleOutputType:
-				disableOutput = !disableOutput
 			default:
-				if disableOutput {
+				if disableOutput.Load() {
 					continue
 				}
 				stdErr := scannerStdErr.Text()
@@ -210,7 +249,6 @@ func (c *Command) readJobOut() {
 				c.sendJobNotification(stdErr)
 			}
 		}
-		wg.Done()
 	}()
 
 	wg.Wait()
@@ -273,7 +311,9 @@ func (c *Command) readTelnetOutput() {
 }
 
 func (c *Command) handleOutputListeners(payload *xylona.Message) {
-	listenerIDsToRemove := make([]string, 0)
+	var listenerIDsToRemove []string
+	var removeLock sync.Mutex
+
 	c.outputListenersLock.RLock()
 	errGroup, ctx := errgroup.WithContext(c.instanceCtx)
 	for id, listener := range c.outputListeners {
@@ -290,13 +330,17 @@ func (c *Command) handleOutputListeners(payload *xylona.Message) {
 			// Give the channel receiver 500 milliseconds to handle the output, otherwise we discard the message.
 			case <-time.After(time.Second * 1):
 				// log.Debug().Msg("Had to wait for listener.")
+				removeLock.Lock()
 				listenerIDsToRemove = append(listenerIDsToRemove, id)
+				removeLock.Unlock()
 				return nil
 			}
 			return nil
 		})
 	}
 	c.outputListenersLock.RUnlock()
+	_ = errGroup.Wait()
+
 	for _, id := range listenerIDsToRemove {
 		log.Debug().Str("ID", id).Msg("Removing output listener")
 		c.RemoveOutputListener(id)
@@ -407,6 +451,12 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 		}
 		command.sendJobStatusNotification(xylona.Status_OFFLINE, command.status)
 		defer func() {
+			if pipeWriter, ok := command.internalCommandStdOut.(*io.PipeWriter); ok {
+				_ = pipeWriter.Close()
+			}
+			if pipeWriter, ok := command.internalCommandStdErr.(*io.PipeWriter); ok {
+				_ = pipeWriter.Close()
+			}
 			oldStatus := command.Status()
 			command.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
 			command.Lock()
@@ -551,6 +601,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		preserveBufferedOutputOnReuse := newCommand.preserveBufferedOutputOnReuse
 		newCommand.User = preparedCommand.User
 		newCommand.nodeID = preparedCommand.NodeID
+		newCommand.stopTimeout = preparedCommand.StopTimeout
 		newCommand.outputListeners = persistentCommand.outputListeners
 		newCommand.BaseCommand = preparedCommand.BaseCommand
 		newCommand.Args = append([]string(nil), preparedCommand.Args...)
@@ -575,6 +626,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			BaseCommand:         preparedCommand.BaseCommand,
 			Args:                append([]string(nil), preparedCommand.Args...),
 			nodeID:              preparedCommand.NodeID,
+			stopTimeout:         preparedCommand.StopTimeout,
 			unixStartedAt:       time.Now().Unix(),
 			status:              preparedCommand.Status,
 			serviceID:           preparedCommand.ServiceID,
@@ -656,7 +708,7 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 			if errAuth != nil {
 				log.Error().Err(errAuth).Msg("Error authenticating telnet")
 				command.stdInWriter = io.Discard
-				return nil, errDial
+				return nil, errAuth
 			}
 			log.Debug().Int("bytes written", b).Msg("Wrote password to telnet")
 		}
