@@ -31,6 +31,7 @@ type legacySourceConfig struct {
 	SearchParams map[string]any `json:"search_params"`
 }
 
+// LoadGameConfigFromModel loads a game's persisted update-provider config.
 func LoadGameConfigFromModel(game *models.Game) (GameConfig, error) {
 	if game == nil {
 		return GameConfig{}, nil
@@ -58,6 +59,7 @@ func LoadGameConfigFromModel(game *models.Game) (GameConfig, error) {
 	return normalizeGameConfig(cfg), nil
 }
 
+// SaveGameConfigToModel stores a normalized game config on the model.
 func SaveGameConfigToModel(game *models.Game, cfg GameConfig) error {
 	if game == nil {
 		return nil
@@ -78,6 +80,7 @@ func SaveGameConfigToModel(game *models.Game, cfg GameConfig) error {
 	return nil
 }
 
+// ResolveModelConfig loads and resolves effective config from game and server models.
 func ResolveModelConfig(game *models.Game, server *models.GameServer) (ResolvedConfig, error) {
 	cfg, errConfig := LoadGameConfigFromModel(game)
 	if errConfig != nil {
@@ -93,6 +96,7 @@ func ResolveModelConfig(game *models.Game, server *models.GameServer) (ResolvedC
 	return resolved, nil
 }
 
+// LoadServerConfigFromModel loads per-server overrides from a server model.
 func LoadServerConfigFromModel(server *models.GameServer) ServerConfig {
 	if server == nil {
 		return ServerConfig{}
@@ -110,6 +114,7 @@ func LoadServerConfigFromModel(server *models.GameServer) ServerConfig {
 	}
 }
 
+// SaveServerConfigToModel stores per-server overrides on a server model.
 func SaveServerConfigToModel(server *models.GameServer, cfg ServerConfig, provider ProviderKind) {
 	if server == nil {
 		return
@@ -191,6 +196,7 @@ func normalizeTarget(kind ProviderKind, target string) string {
 	return trimmed
 }
 
+// NormalizeSteamTarget normalizes Steam branch targets to the persisted form.
 func NormalizeSteamTarget(target string) string {
 	return normalizeTarget(ProviderKindSteamCMD, target)
 }

@@ -1,3 +1,4 @@
+// Command dummy_game_server provides a small controllable process for tests.
 package main
 
 import (
@@ -86,20 +87,20 @@ func main() {
 	}()
 
 	// Main select loop
-	if *heartbeat > 0 {
-		ticker := time.NewTicker(*heartbeat)
-		defer ticker.Stop()
-		for {
-			select {
-			case code := <-shutdownCh:
-				os.Exit(code) //nolint:gocritic // intentional exit in signal handler; ticker defer cleanup is irrelevant
-			case <-ticker.C:
-				uptime := time.Since(startTime).Round(time.Millisecond)
-				fmt.Printf("[dummy-game-server] heartbeat pid=%d uptime=%s\n", pid, uptime)
-			}
-		}
-	} else {
+	if *heartbeat <= 0 {
 		code := <-shutdownCh
 		os.Exit(code)
+	}
+
+	ticker := time.NewTicker(*heartbeat)
+	defer ticker.Stop()
+	for {
+		select {
+		case code := <-shutdownCh:
+			os.Exit(code) //nolint:gocritic // intentional exit in signal handler; ticker defer cleanup is irrelevant
+		case <-ticker.C:
+			uptime := time.Since(startTime).Round(time.Millisecond)
+			fmt.Printf("[dummy-game-server] heartbeat pid=%d uptime=%s\n", pid, uptime)
+		}
 	}
 }

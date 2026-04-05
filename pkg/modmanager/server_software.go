@@ -2,6 +2,7 @@ package modmanager
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -42,7 +43,7 @@ func ParseServerSoftware(jsonStr string) ([]ServerSoftware, error) {
 	var software []ServerSoftware
 	errUnmarshal := json.Unmarshal([]byte(trimmed), &software)
 	if errUnmarshal != nil {
-		return nil, errUnmarshal
+		return nil, fmt.Errorf("modmanager: parse server software: %w", errUnmarshal)
 	}
 	return software, nil
 }

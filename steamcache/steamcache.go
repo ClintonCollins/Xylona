@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -60,6 +61,7 @@ type SteamRelease struct {
 	DepotManifestIDs map[string]string
 }
 
+// ClientOptions customizes Steam app and release lookups.
 type ClientOptions struct {
 	HTTPClient       *http.Client
 	DetailsURLFormat string
@@ -89,6 +91,7 @@ func New() *Client {
 	return NewWithOptions(ClientOptions{})
 }
 
+// NewWithOptions creates a client with the provided transport and cache settings.
 func NewWithOptions(options ClientOptions) *Client {
 	detailsURLFmt := options.DetailsURLFormat
 	if detailsURLFmt == "" {
@@ -185,6 +188,7 @@ func (c *Client) FetchDetails(ctx context.Context, appID string) (*SteamAppDetai
 	return details, nil
 }
 
+// FetchReleases returns normalized Steam branch metadata for an app.
 func (c *Client) FetchReleases(ctx context.Context, appID string) ([]SteamRelease, error) {
 	now := time.Now()
 	if cached, ok := c.getCachedReleases(appID); ok {
@@ -281,9 +285,7 @@ func cloneReleases(releases []SteamRelease) []SteamRelease {
 		cloned[i] = release
 		if release.DepotManifestIDs != nil {
 			cloned[i].DepotManifestIDs = make(map[string]string, len(release.DepotManifestIDs))
-			for depotID, manifestID := range release.DepotManifestIDs {
-				cloned[i].DepotManifestIDs[depotID] = manifestID
-			}
+			maps.Copy(cloned[i].DepotManifestIDs, release.DepotManifestIDs)
 		}
 	}
 	return cloned
@@ -333,8 +335,8 @@ func parseSteamReleases(appData steamCmdAppData) ([]SteamRelease, error) {
 		}
 
 		for branchName, manifest := range depot.Manifests {
-			release, ok := releasesByName[branchName]
-			if !ok {
+			release, releaseExists := releasesByName[branchName]
+			if !releaseExists {
 				continue
 			}
 			if manifest.GID != "" {
@@ -430,7 +432,7 @@ type steamCmdAppData struct {
 		Type   string `json:"type"`
 	} `json:"common"`
 	Config struct {
-		InstallDir string                        `json:"installdir"`
+		InstallDir string                         `json:"installdir"`
 		Launch     map[string]steamCmdLaunchEntry `json:"launch"`
 	} `json:"config"`
 	Depots map[string]json.RawMessage `json:"depots"`

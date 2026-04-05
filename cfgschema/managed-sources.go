@@ -1,3 +1,4 @@
+// Package cfgschema provides config schema parsing and field matching helpers.
 package cfgschema
 
 var managedSourceAliases = map[string]string{

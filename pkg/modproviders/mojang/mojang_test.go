@@ -2,6 +2,7 @@ package mojang
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,14 +22,19 @@ func TestGetModDetails_ReturnsReleaseVersionsNewestFirst(t *testing.T) {
 		switch r.URL.Path {
 		case "/mc/game/version_manifest.json":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{
-				"latest":{"release":"1.21.5"},
-				"versions":[
-					{"id":"1.21.5","type":"release","url":"` + r.Host + `/versions/1.21.5.json"},
-					{"id":"24w12a","type":"snapshot","url":"` + r.Host + `/versions/24w12a.json"},
-					{"id":"1.21.4","type":"release","url":"` + r.Host + `/versions/1.21.4.json"}
-				]
-			}`))
+			payload := map[string]any{
+				"latest": map[string]string{"release": "1.21.5"},
+				"versions": []map[string]string{
+					{"id": "1.21.5", "type": "release", "url": r.Host + `/versions/1.21.5.json`},
+					{"id": "24w12a", "type": "snapshot", "url": r.Host + `/versions/24w12a.json`},
+					{"id": "1.21.4", "type": "release", "url": r.Host + `/versions/1.21.4.json`},
+				},
+			}
+			errEncode := json.NewEncoder(w).Encode(payload)
+			if errEncode != nil {
+				http.Error(w, errEncode.Error(), http.StatusInternalServerError)
+				return
+			}
 		default:
 			http.NotFound(w, r)
 		}

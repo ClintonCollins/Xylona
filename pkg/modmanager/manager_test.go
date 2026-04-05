@@ -2,6 +2,7 @@ package modmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,13 +57,13 @@ func (m *mockProvider) Download(_ context.Context, _ string, _ string, targetDir
 	// Write actual files to disk for tests that verify filesystem operations.
 	for _, f := range m.downloadedFiles {
 		fullPath := filepath.Join(targetDir, f.Path)
-		errMkdir := os.MkdirAll(filepath.Dir(fullPath), 0o755)
+		errMkdir := os.MkdirAll(filepath.Dir(fullPath), 0o750)
 		if errMkdir != nil {
-			return nil, errMkdir
+			return nil, fmt.Errorf("mock provider: create directory: %w", errMkdir)
 		}
-		errWrite := os.WriteFile(fullPath, []byte("mock-content"), 0o644)
+		errWrite := os.WriteFile(fullPath, []byte("mock-content"), 0o600)
 		if errWrite != nil {
-			return nil, errWrite
+			return nil, fmt.Errorf("mock provider: write file: %w", errWrite)
 		}
 	}
 	return m.downloadedFiles, nil
@@ -623,7 +624,7 @@ func TestRunAutoUpdatesContinuesOnFailure(t *testing.T) {
 
 	pid := newUniqueProviderID()
 	mock := newMockProvider(pid)
-	mock.checkForUpdateErr = fmt.Errorf("simulated API failure")
+	mock.checkForUpdateErr = errors.New("simulated API failure")
 	modproviders.RegisterProvider(mock)
 
 	mgr := New(conn)

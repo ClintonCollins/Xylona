@@ -25,7 +25,7 @@ func (c *Connection) GetSystemConfig(key string) (string, error) {
 		if !errors.Is(errGet, sql.ErrNoRows) {
 			log.Error().Err(errGet).Str("key", key).Msg("Error querying system config")
 		}
-		return "", errGet
+		return "", fmt.Errorf("get system config: %w", errGet)
 	}
 
 	decrypted, usedFallback, errDecrypt := c.decryptConfig(config.Value)
@@ -70,7 +70,7 @@ func (c *Connection) SetSystemConfig(key, value string) error {
 	encrypted, errEncrypt := c.encryptConfig(value)
 	if errEncrypt != nil {
 		log.Error().Err(errEncrypt).Str("key", key).Msg("Error encrypting system config")
-		return errEncrypt
+		return fmt.Errorf("encrypt system config: %w", errEncrypt)
 	}
 
 	now := time.Now().UTC()
@@ -89,7 +89,7 @@ func (c *Connection) SetSystemConfig(key, value string) error {
 	).One(c.ctx, c.DB)
 	if errUpsert != nil {
 		log.Error().Err(errUpsert).Str("key", key).Msg("Error upserting system config")
-		return errUpsert
+		return fmt.Errorf("set system config: %w", errUpsert)
 	}
 
 	return nil

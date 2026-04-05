@@ -1,3 +1,4 @@
+// Package cfgparse parses and serializes supported configuration file formats.
 package cfgparse
 
 import (

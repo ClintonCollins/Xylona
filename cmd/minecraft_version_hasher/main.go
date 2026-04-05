@@ -1,7 +1,9 @@
+// Package main builds a local Minecraft server version hash manifest.
 package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/signal"
 	"path"
@@ -18,11 +20,11 @@ type MinecraftVersionManifestJSON struct {
 		Jvm  []any `json:"jvm"`
 	} `json:"arguments"`
 	AssetIndex struct {
-		Id        string `json:"id"`
+		ID        string `json:"id"`
 		Sha1      string `json:"sha1"`
 		Size      int    `json:"size"`
 		TotalSize int    `json:"totalSize"`
-		Url       string `json:"url"`
+		URL       string `json:"url"`
 	} `json:"assetIndex"`
 	Assets          string `json:"assets"`
 	ComplianceLevel int    `json:"complianceLevel"`
@@ -30,25 +32,25 @@ type MinecraftVersionManifestJSON struct {
 		Client struct {
 			Sha1 string `json:"sha1"`
 			Size int    `json:"size"`
-			Url  string `json:"url"`
+			URL  string `json:"url"`
 		} `json:"client"`
 		ClientMappings struct {
 			Sha1 string `json:"sha1"`
 			Size int    `json:"size"`
-			Url  string `json:"url"`
+			URL  string `json:"url"`
 		} `json:"client_mappings"`
 		Server struct {
 			Sha1 string `json:"sha1"`
 			Size int    `json:"size"`
-			Url  string `json:"url"`
+			URL  string `json:"url"`
 		} `json:"server"`
 		ServerMappings struct {
 			Sha1 string `json:"sha1"`
 			Size int    `json:"size"`
-			Url  string `json:"url"`
+			URL  string `json:"url"`
 		} `json:"server_mappings"`
 	} `json:"downloads"`
-	Id          string `json:"id"`
+	ID          string `json:"id"`
 	JavaVersion struct {
 		Component    string `json:"component"`
 		MajorVersion int    `json:"majorVersion"`
@@ -59,32 +61,32 @@ type MinecraftVersionManifestJSON struct {
 				Path string `json:"path"`
 				Sha1 string `json:"sha1"`
 				Size int    `json:"size"`
-				Url  string `json:"url"`
+				URL  string `json:"url"`
 			} `json:"artifact"`
 			Classifiers struct {
 				NativesMacos struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
-					Url  string `json:"url"`
+					URL  string `json:"url"`
 				} `json:"natives-macos,omitzero"`
 				NativesLinux struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
-					Url  string `json:"url"`
+					URL  string `json:"url"`
 				} `json:"natives-linux,omitzero"`
 				NativesWindows struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
-					Url  string `json:"url"`
+					URL  string `json:"url"`
 				} `json:"natives-windows,omitzero"`
 				NativesOsx struct {
 					Path string `json:"path"`
 					Sha1 string `json:"sha1"`
 					Size int    `json:"size"`
-					Url  string `json:"url"`
+					URL  string `json:"url"`
 				} `json:"natives-osx,omitzero"`
 			} `json:"classifiers,omitzero"`
 		} `json:"downloads"`
@@ -108,10 +110,10 @@ type MinecraftVersionManifestJSON struct {
 		Client struct {
 			Argument string `json:"argument"`
 			File     struct {
-				Id   string `json:"id"`
+				ID   string `json:"id"`
 				Sha1 string `json:"sha1"`
 				Size int    `json:"size"`
-				Url  string `json:"url"`
+				URL  string `json:"url"`
 			} `json:"file"`
 			Type string `json:"type"`
 		} `json:"client"`
@@ -183,7 +185,7 @@ func saveServerVersionsToFile(serverInfos []*MinecraftServerInfo) error {
 
 	f, errCreate := os.Create("server_versions.json")
 	if errCreate != nil {
-		return errCreate
+		return fmt.Errorf("create server versions file: %w", errCreate)
 	}
 	defer func() {
 		_ = f.Close()
@@ -191,11 +193,11 @@ func saveServerVersionsToFile(serverInfos []*MinecraftServerInfo) error {
 
 	b, errMarshalIndent := json.MarshalIndent(serverInfos, "", "  ")
 	if errMarshalIndent != nil {
-		return errMarshalIndent
+		return fmt.Errorf("marshal server versions: %w", errMarshalIndent)
 	}
 	_, errWrite := f.Write(b)
 	if errWrite != nil {
-		return errWrite
+		return fmt.Errorf("write server versions file: %w", errWrite)
 	}
 	// errEncode := json.NewEncoder(f).Encode(serverInfos)
 	// if errEncode != nil {
@@ -208,7 +210,7 @@ func getAllServerVersionsInformation(shutdownSignalChannel chan os.Signal) ([]*M
 	files, errReadDir := os.ReadDir("versions")
 	if errReadDir != nil {
 		pterm.Error.Println("Failed to read versions directory")
-		return nil, errReadDir
+		return nil, fmt.Errorf("read versions directory: %w", errReadDir)
 	}
 	var serverInfos []*MinecraftServerInfo
 	for _, file := range files {
@@ -234,7 +236,7 @@ func getAllServerVersionsInformation(shutdownSignalChannel chan os.Signal) ([]*M
 func getMinecraftServerInformation(fileName string) (*MinecraftServerInfo, error) {
 	f, errOpen := os.Open(path.Join("versions", fileName))
 	if errOpen != nil {
-		return nil, errOpen
+		return nil, fmt.Errorf("open version manifest %s: %w", fileName, errOpen)
 	}
 	defer func() {
 		_ = f.Close()
@@ -243,13 +245,13 @@ func getMinecraftServerInformation(fileName string) (*MinecraftServerInfo, error
 	minecraftManifest := MinecraftVersionManifestJSON{}
 	errDecode := json.NewDecoder(f).Decode(&minecraftManifest)
 	if errDecode != nil {
-		return nil, errDecode
+		return nil, fmt.Errorf("decode version manifest %s: %w", fileName, errDecode)
 	}
 
 	serverInfo := &MinecraftServerInfo{
-		ID:          minecraftManifest.Id,
+		ID:          minecraftManifest.ID,
 		Sha1:        minecraftManifest.Downloads.Server.Sha1,
-		DownloadURL: minecraftManifest.Downloads.Server.Url,
+		DownloadURL: minecraftManifest.Downloads.Server.URL,
 		Size:        minecraftManifest.Downloads.Server.Size,
 		Type:        minecraftManifest.Type,
 		ReleaseTime: minecraftManifest.ReleaseTime,

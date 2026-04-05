@@ -6,7 +6,7 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-// Alert event topics — server events
+// Alert event topics — server events.
 const (
 	TopicGameServerCrashed         = "game_server.crashed"
 	TopicGameServerStatusChanged   = "game_server.status_changed"
@@ -17,7 +17,7 @@ const (
 	TopicGameServerPlayerThreshold = "game_server.player_threshold"
 )
 
-// Alert event topics — node events
+// Alert event topics — node events.
 const (
 	TopicNodeCPUThreshold    = "node.cpu_threshold"
 	TopicNodeMemoryThreshold = "node.memory_threshold"
@@ -27,6 +27,8 @@ const (
 // ThresholdDirection indicates whether a threshold was entered or resolved.
 type ThresholdDirection string
 
+// ThresholdDirection values describe whether a threshold condition was entered
+// or resolved.
 const (
 	ThresholdEntered  ThresholdDirection = "entered"
 	ThresholdResolved ThresholdDirection = "resolved"

@@ -33,7 +33,7 @@ const testACFMalformed = `"AppState"
 func writeACF(t *testing.T, dir, filename, content string) {
 	t.Helper()
 	path := filepath.Join(dir, filename)
-	errWrite := os.WriteFile(path, []byte(content), 0o644)
+	errWrite := os.WriteFile(path, []byte(content), 0o600)
 	if errWrite != nil {
 		t.Fatalf("failed to write ACF file: %v", errWrite)
 	}
@@ -89,7 +89,7 @@ func TestSteamTracker_GetInstalledVersion_MalformedManifest(t *testing.T) {
 func TestSteamTracker_GetInstalledVersion_FindsManifestInSteamAppsDirectory(t *testing.T) {
 	dir := t.TempDir()
 	steamappsDir := filepath.Join(dir, "steamapps")
-	errMkdir := os.MkdirAll(steamappsDir, 0o755)
+	errMkdir := os.MkdirAll(steamappsDir, 0o750)
 	if errMkdir != nil {
 		t.Fatalf("failed to create steamapps directory: %v", errMkdir)
 	}
@@ -110,7 +110,7 @@ func TestSteamTracker_GetInstalledVersion_FindsManifestInSteamAppsDirectory(t *t
 func TestSteamTracker_GetInstalledVersion_PrefersConfiguredAppIDWhenMultipleManifestsExist(t *testing.T) {
 	dir := t.TempDir()
 	steamappsDir := filepath.Join(dir, "steamapps")
-	errMkdir := os.MkdirAll(steamappsDir, 0o755)
+	errMkdir := os.MkdirAll(steamappsDir, 0o750)
 	if errMkdir != nil {
 		t.Fatalf("failed to create steamapps directory: %v", errMkdir)
 	}
@@ -152,7 +152,7 @@ func TestSteamTracker_GetLatestVersion_QueriesSteamAPI(t *testing.T) {
 	resp.Response.UpToDate = false
 	resp.Response.RequiredVersion = 99999999
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		errEncode := json.NewEncoder(w).Encode(resp)
 		if errEncode != nil {
@@ -206,7 +206,7 @@ func TestSteamTracker_CheckForUpdate_UpdateAvailable(t *testing.T) {
 	resp.Response.Success = true
 	resp.Response.RequiredVersion = 2000
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		errEncode := json.NewEncoder(w).Encode(resp)
 		if errEncode != nil {
@@ -261,7 +261,7 @@ func TestSteamTracker_CheckForUpdate_UpToDate(t *testing.T) {
 	resp.Response.Success = true
 	resp.Response.RequiredVersion = 7567790
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		errEncode := json.NewEncoder(w).Encode(resp)
 		if errEncode != nil {
@@ -283,8 +283,11 @@ func TestSteamTracker_CheckForUpdate_UpToDate(t *testing.T) {
 	if errCheck != nil {
 		t.Fatalf("unexpected error: %v", errCheck)
 	}
-	if info != nil {
-		t.Errorf("expected nil UpdateInfo when up to date, got %+v", info)
+	if info == nil {
+		t.Fatal("expected non-nil UpdateInfo when up to date")
+	}
+	if info.UpdateAvailable {
+		t.Errorf("expected UpdateAvailable = false when up to date, got %+v", info)
 	}
 }
 
@@ -298,7 +301,10 @@ func TestSteamTracker_CheckForUpdate_NoManifest(t *testing.T) {
 	if errCheck != nil {
 		t.Fatalf("unexpected error: %v", errCheck)
 	}
-	if info != nil {
-		t.Errorf("expected nil UpdateInfo when no manifest, got %+v", info)
+	if info == nil {
+		t.Fatal("expected non-nil UpdateInfo when no manifest is present")
+	}
+	if info.UpdateAvailable {
+		t.Errorf("expected UpdateAvailable = false when no manifest is present, got %+v", info)
 	}
 }

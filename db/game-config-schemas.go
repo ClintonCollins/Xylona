@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/rs/zerolog/log"
 )
@@ -11,6 +12,7 @@ import (
 // configuration files.
 const PermissionGameServerConfig = "game_server.config"
 
+// GetGameConfigSchemas returns the raw config schema JSON for a game.
 func (c *Connection) GetGameConfigSchemas(gameID string) (string, error) {
 	var schemas sql.NullString
 	errGetSchemas := c.SQLDb.QueryRowContext(c.ctx,
@@ -18,10 +20,10 @@ func (c *Connection) GetGameConfigSchemas(gameID string) (string, error) {
 	).Scan(&schemas)
 	if errGetSchemas != nil {
 		if errors.Is(errGetSchemas, sql.ErrNoRows) {
-			return "", errGetSchemas
+			return "", fmt.Errorf("get game config schemas: %w", errGetSchemas)
 		}
 		log.Error().Err(errGetSchemas).Str("game_id", gameID).Msg("Error getting config schemas")
-		return "", errGetSchemas
+		return "", fmt.Errorf("get game config schemas: %w", errGetSchemas)
 	}
 	if !schemas.Valid {
 		return "", nil
@@ -29,6 +31,7 @@ func (c *Connection) GetGameConfigSchemas(gameID string) (string, error) {
 	return schemas.String, nil
 }
 
+// UpdateGameConfigSchemas stores config schema JSON for a game.
 func (c *Connection) UpdateGameConfigSchemas(gameID string, schemasJSON string) error {
 	var value any
 	if schemasJSON == "" {
@@ -41,7 +44,7 @@ func (c *Connection) UpdateGameConfigSchemas(gameID string, schemasJSON string) 
 	)
 	if errUpdateSchemas != nil {
 		log.Error().Err(errUpdateSchemas).Str("game_id", gameID).Msg("Error updating config schemas")
-		return errUpdateSchemas
+		return fmt.Errorf("update game config schemas: %w", errUpdateSchemas)
 	}
 	return nil
 }

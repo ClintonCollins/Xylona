@@ -1,9 +1,12 @@
+// Package updateproviders defines persisted update-provider configuration.
 package updateproviders
 
 import "fmt"
 
+// ProviderKind identifies the backend used to resolve server updates.
 type ProviderKind string
 
+// ProviderKind values identify the supported update backends.
 const (
 	ProviderKindNone     ProviderKind = "none"
 	ProviderKindSteamCMD ProviderKind = "steamcmd"
@@ -12,21 +15,25 @@ const (
 	ProviderKindCommand  ProviderKind = "command"
 )
 
+// ProviderConfig configures a game's or variant's update provider.
 type ProviderConfig struct {
 	Kind     ProviderKind `json:"kind"`
 	SourceID string       `json:"source_id,omitempty"`
 }
 
+// ModSource identifies a mod provider source and its serialized search params.
 type ModSource struct {
 	ID               string `json:"id"`
 	SearchParamsJSON string `json:"search_params_json,omitempty"`
 }
 
+// ModProfile describes how mods should be installed for a game or variant.
 type ModProfile struct {
 	InstallPath string      `json:"install_path"`
 	Sources     []ModSource `json:"sources,omitempty"`
 }
 
+// Variant describes an installable server-software variant for a game.
 type Variant struct {
 	ID             string          `json:"id"`
 	Name           string          `json:"name"`
@@ -35,6 +42,7 @@ type Variant struct {
 	ModProfile     *ModProfile     `json:"mod_profile,omitempty"`
 }
 
+// GameConfig stores update-provider defaults defined at the game level.
 type GameConfig struct {
 	UpdateProvider ProviderConfig `json:"update_provider"`
 	DefaultTarget  string         `json:"default_target,omitempty"`
@@ -42,12 +50,14 @@ type GameConfig struct {
 	Variants       []Variant      `json:"variants,omitempty"`
 }
 
+// ServerConfig stores per-server update-provider overrides.
 type ServerConfig struct {
 	VariantID    string `json:"variant_id,omitempty"`
 	Target       string `json:"target,omitempty"`
 	TargetPinned bool   `json:"target_pinned,omitempty"`
 }
 
+// ResolvedConfig is the effective update configuration for a specific server.
 type ResolvedConfig struct {
 	VariantID   string
 	VariantName string
@@ -56,6 +66,7 @@ type ResolvedConfig struct {
 	ModProfile  *ModProfile
 }
 
+// ResolveConfig combines game defaults with server-specific overrides.
 func ResolveConfig(game GameConfig, server ServerConfig) (ResolvedConfig, error) {
 	resolved := ResolvedConfig{
 		Provider:   game.UpdateProvider,
@@ -99,6 +110,7 @@ func ResolveConfig(game GameConfig, server ServerConfig) (ResolvedConfig, error)
 	return resolved, nil
 }
 
+// ResetTargetForVariant returns the target that should be restored for a variant.
 func ResetTargetForVariant(game GameConfig, variantID string) (string, error) {
 	if variantID == "" && len(game.Variants) == 1 {
 		variantID = game.Variants[0].ID

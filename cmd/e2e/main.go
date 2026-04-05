@@ -41,18 +41,15 @@ func main() {
 
 	case "single-teardown":
 		fs := flag.NewFlagSet("single-teardown", flag.ExitOnError)
-		httpPort := fs.Int("http-port", 9091, "Backend HTTP port for E2E")
-		adminUsername := fs.String("admin-username", "admin", "Admin username")
-		adminPassword := fs.String("admin-password", "admin", "Admin password")
+		fs.Int("http-port", 9091, "Backend HTTP port for E2E")
+		fs.String("admin-username", "admin", "Admin username")
+		fs.String("admin-password", "admin", "Admin password")
 		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
 		errParse := fs.Parse(os.Args[2:])
 		if errParse != nil {
 			log.Fatal().Err(errParse).Msg("Failed to parse flags")
 		}
-		errRun := runSingleTeardown(ctx, *httpPort, *adminUsername, *adminPassword, *e2eDir)
-		if errRun != nil {
-			log.Fatal().Err(errRun).Msg("Single teardown failed")
-		}
+		runSingleTeardown(*e2eDir)
 
 	case "federation-setup":
 		fs := flag.NewFlagSet("federation-setup", flag.ExitOnError)
@@ -81,10 +78,7 @@ func main() {
 		if errParse != nil {
 			log.Fatal().Err(errParse).Msg("Failed to parse flags")
 		}
-		errRun := runFederationTeardown(ctx, *e2eDir, *keepData, *nodeAPort, *nodeBPort)
-		if errRun != nil {
-			log.Fatal().Err(errRun).Msg("Federation teardown failed")
-		}
+		runFederationTeardown(ctx, *e2eDir, *keepData, *nodeAPort, *nodeBPort)
 
 	case "seed":
 		fs := flag.NewFlagSet("seed", flag.ExitOnError)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -102,20 +103,18 @@ func (inst *Instance) proxyRemoteFileGet(ctx context.Context, target fileRequest
 
 	bodyBytes, errMarshal := protojson.Marshal(&payload)
 	if errMarshal != nil {
-		return errMarshal
+		return fmt.Errorf("actions: marshal remote file get request: %w", errMarshal)
 	}
 
-	remoteURL, errRemoteURL := inst.remoteFederationFileURL(target.remoteNode, fileGetPath)
-	if errRemoteURL != nil {
-		return errRemoteURL
-	}
-	req, errRequest := http.NewRequestWithContext(ctx, http.MethodPost, remoteURL, bytes.NewReader(bodyBytes))
-	if errRequest != nil {
-		return errRequest
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	return inst.proxyRemoteFileRequest(req, target.remoteNode, w)
+	return inst.proxyRemoteFileRequest(
+		ctx,
+		target.remoteNode,
+		http.MethodPost,
+		fileGetPath,
+		"application/json",
+		bytes.NewReader(bodyBytes),
+		w,
+	)
 }
 
 func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRequestTarget, filePath string, w http.ResponseWriter) error {
@@ -123,28 +122,26 @@ func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRe
 	writer := multipart.NewWriter(body)
 	errGameServerID := writer.WriteField("gameServerId", target.remoteServerID)
 	if errGameServerID != nil {
-		return errGameServerID
+		return fmt.Errorf("actions: write remote game server ID field: %w", errGameServerID)
 	}
 	errPath := writer.WriteField("path", filePath)
 	if errPath != nil {
-		return errPath
+		return fmt.Errorf("actions: write remote path field: %w", errPath)
 	}
 	errClose := writer.Close()
 	if errClose != nil {
-		return errClose
+		return fmt.Errorf("actions: close remote download multipart writer: %w", errClose)
 	}
 
-	remoteURL, errRemoteURL := inst.remoteFederationFileURL(target.remoteNode, fileDownloadPath)
-	if errRemoteURL != nil {
-		return errRemoteURL
-	}
-	req, errRequest := http.NewRequestWithContext(ctx, http.MethodPost, remoteURL, body)
-	if errRequest != nil {
-		return errRequest
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	return inst.proxyRemoteFileRequest(req, target.remoteNode, w)
+	return inst.proxyRemoteFileRequest(
+		ctx,
+		target.remoteNode,
+		http.MethodPost,
+		fileDownloadPath,
+		writer.FormDataContentType(),
+		body,
+		w,
+	)
 }
 
 func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequestTarget, destinationPath string, fileName string, fileSource io.Reader, w http.ResponseWriter) error {
@@ -203,28 +200,47 @@ func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequ
 		}
 	}()
 
-	remoteURL, errRemoteURL := inst.remoteFederationFileURL(target.remoteNode, fileUploadPath)
-	if errRemoteURL != nil {
-		return errRemoteURL
-	}
-	req, errRequest := http.NewRequestWithContext(ctx, http.MethodPost, remoteURL, pipedReader)
-	if errRequest != nil {
-		return errRequest
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	return inst.proxyRemoteFileRequest(req, target.remoteNode, w)
+	return inst.proxyRemoteFileRequest(
+		ctx,
+		target.remoteNode,
+		http.MethodPost,
+		fileUploadPath,
+		writer.FormDataContentType(),
+		pipedReader,
+		w,
+	)
 }
 
-func (inst *Instance) proxyRemoteFileRequest(req *http.Request, remoteNode *models.Node, w http.ResponseWriter) error {
+func (inst *Instance) proxyRemoteFileRequest(
+	ctx context.Context,
+	remoteNode *models.Node,
+	method string,
+	path string,
+	contentType string,
+	body io.Reader,
+	w http.ResponseWriter,
+) error {
 	httpClient, errClient := inst.remoteFederationHTTPClient(remoteNode)
 	if errClient != nil {
 		return errClient
 	}
 
+	remoteURL, errRemoteURL := inst.remoteFederationFileURL(remoteNode, path)
+	if errRemoteURL != nil {
+		return errRemoteURL
+	}
+
+	req, errRequest := http.NewRequestWithContext(ctx, method, remoteURL, body)
+	if errRequest != nil {
+		return fmt.Errorf("actions: create remote file proxy request: %w", errRequest)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
 	resp, errDo := httpClient.Do(req)
 	if errDo != nil {
-		return errDo
+		return fmt.Errorf("actions: execute remote file proxy request: %w", errDo)
 	}
 	defer func() {
 		errClose := resp.Body.Close()
@@ -272,7 +288,7 @@ func (inst *Instance) remoteFederationFileURL(remoteNode *models.Node, path stri
 
 	federationBaseURL, errFederationURL := inst.federationMTLS.FederationBaseURLWithPort(remoteNode.BaseURL, inst.remoteFederationPort(remoteNode))
 	if errFederationURL != nil {
-		return "", errFederationURL
+		return "", fmt.Errorf("actions: build remote federation base URL: %w", errFederationURL)
 	}
 	return strings.TrimSuffix(federationBaseURL, "/") + path, nil
 }
@@ -290,7 +306,7 @@ func (inst *Instance) remoteFederationHTTPClient(remoteNode *models.Node) (*http
 		inst.db,
 	)
 	if errClient != nil {
-		return nil, errClient
+		return nil, fmt.Errorf("actions: create remote federation HTTP client: %w", errClient)
 	}
 	return httpClient, nil
 }

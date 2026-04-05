@@ -56,16 +56,16 @@ func (xs *XylonaService) editRemoteGameServer(ctx context.Context, serverID stri
 		return nil, wrapRemoteRPCError(errEdit, "failed to edit remote server")
 	}
 
-	if !resp.Msg.Success {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
+	if !resp.Msg.GetSuccess() {
+		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
 	}
 
 	if !actingUser.SuperUser {
-		redactGameServerForNonSuperuser(resp.Msg.GameServer)
+		redactGameServerForNonSuperuser(resp.Msg.GetGameServer())
 	}
 
 	return connect.NewResponse(&xylona.EditGameServerResponse{
-		Game_Server: resp.Msg.GameServer,
+		Game_Server: resp.Msg.GetGameServer(),
 	}), nil
 }
 
@@ -95,8 +95,8 @@ func (xs *XylonaService) removeRemoteGameServer(ctx context.Context, serverID st
 		return nil, wrapRemoteRPCError(errRemove, "failed to remove remote server")
 	}
 
-	if !resp.Msg.Success {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
+	if !resp.Msg.GetSuccess() {
+		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
 	}
 
 	// Clean up only the removed server from cache.
@@ -135,8 +135,8 @@ func (xs *XylonaService) updateRemoteGameServer(ctx context.Context, serverID st
 		return nil, wrapRemoteRPCError(errUpdate, "failed to update remote server")
 	}
 
-	if !resp.Msg.Success {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
+	if !resp.Msg.GetSuccess() {
+		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
 	}
 
 	return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
@@ -232,7 +232,7 @@ func (xs *XylonaService) listRemoteDirectoryFiles(ctx context.Context, serverID 
 	}
 
 	return connect.NewResponse(&xylona.ListDirectoryFilesResponse{
-		Files: resp.Msg.Files,
+		Files: resp.Msg.GetFiles(),
 	}), nil
 }
 
@@ -295,7 +295,7 @@ func (xs *XylonaService) deleteRemoteFiles(ctx context.Context, serverID string,
 	}
 
 	return connect.NewResponse(&xylona.GameServerFilesDeleteResponse{
-		FullFilePaths: resp.Msg.FullFilePaths,
+		FullFilePaths: resp.Msg.GetFullFilePaths(),
 	}), nil
 }
 
@@ -328,7 +328,7 @@ func (xs *XylonaService) renameRemoteFile(ctx context.Context, serverID string, 
 	}
 
 	return connect.NewResponse(&xylona.GameServerFileRenameResponse{
-		NewPath: resp.Msg.NewPath,
+		NewPath: resp.Msg.GetNewPath(),
 	}), nil
 }
 
@@ -361,7 +361,7 @@ func (xs *XylonaService) moveRemoteFiles(ctx context.Context, serverID string, f
 	}
 
 	return connect.NewResponse(&xylona.GameServerFilesMoveResponse{
-		FullFilePaths: resp.Msg.FullFilePaths,
+		FullFilePaths: resp.Msg.GetFullFilePaths(),
 	}), nil
 }
 
@@ -424,7 +424,7 @@ func (xs *XylonaService) queryRemoteGameServer(ctx context.Context, serverID str
 	}
 
 	return connect.NewResponse(&xylona.QueryGameServerResponse{
-		QueryInfo: resp.Msg.QueryInfo,
+		QueryInfo: resp.Msg.GetQueryInfo(),
 	}), nil
 }
 
@@ -457,6 +457,6 @@ func (xs *XylonaService) downloadRemoteFileFromURL(ctx context.Context, serverID
 	}
 
 	return connect.NewResponse(&xylona.GameServersFileDownloadFromURLResponse{
-		FilePath: resp.Msg.FilePath,
+		FilePath: resp.Msg.GetFilePath(),
 	}), nil
 }

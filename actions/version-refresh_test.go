@@ -282,7 +282,7 @@ func TestRefreshVersionStatePreservesPartialDataAndReportsError(t *testing.T) {
 			if stored.LatestVersion != tc.wantLatest {
 				t.Fatalf("latest version = %q, want %q", stored.LatestVersion, tc.wantLatest)
 			}
-			if stored.UpdateAvailable != true {
+			if !stored.UpdateAvailable {
 				t.Fatalf("update available = %v, want true", stored.UpdateAvailable)
 			}
 			if tc.wantInstalledUpdate && !stored.InstalledCheckTime.After(initialState.InstalledCheckTime) {

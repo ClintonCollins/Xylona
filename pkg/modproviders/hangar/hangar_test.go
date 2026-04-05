@@ -2,12 +2,15 @@ package hangar
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 )
 
 // newTestProvider creates a Provider that routes all requests to the given httptest.Server.
@@ -87,7 +90,7 @@ func TestSearch_WithPlatformParam(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	params := modproviders_SearchParams{"platform": "PAPER"}
+	params := modprovidersSearchParams{"platform": "PAPER"}
 	_, errSearch := p.Search(context.Background(), "test", params)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
@@ -324,8 +327,8 @@ func TestCheckForUpdate_NoVersions(t *testing.T) {
 
 	p := newTestProvider(srv)
 	v, errCheck := p.CheckForUpdate(context.Background(), "SomeAuthor/obscure-plugin", "1.20.1")
-	if errCheck != nil {
-		t.Fatalf("CheckForUpdate() error = %v", errCheck)
+	if !errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
+		t.Fatalf("CheckForUpdate() error = %v, want %v", errCheck, modproviders.ErrNoUpdateAvailable)
 	}
 	if v != nil {
 		t.Errorf("CheckForUpdate() = %+v, want nil when no versions", v)
@@ -338,11 +341,11 @@ func TestCheckForUpdate_NoVersions(t *testing.T) {
 
 func TestSplitSourceID(t *testing.T) {
 	tests := []struct {
-		name        string
-		sourceID    string
-		wantAuthor  string
-		wantSlug    string
-		wantErr     bool
+		name       string
+		sourceID   string
+		wantAuthor string
+		wantSlug   string
+		wantErr    bool
 	}{
 		{
 			name:       "valid author/slug",
@@ -381,7 +384,6 @@ func TestSplitSourceID(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			author, slug, errSplit := splitSourceID(tt.sourceID)
 			if (errSplit != nil) != tt.wantErr {
@@ -406,17 +408,16 @@ func TestSplitSourceID(t *testing.T) {
 func TestExtractPlatform(t *testing.T) {
 	tests := []struct {
 		name   string
-		params modproviders_SearchParams
+		params modprovidersSearchParams
 		want   string
 	}{
 		{name: "nil params", params: nil, want: ""},
-		{name: "no platform key", params: modproviders_SearchParams{"other": "val"}, want: ""},
-		{name: "platform PAPER", params: modproviders_SearchParams{"platform": "PAPER"}, want: "PAPER"},
-		{name: "non-string platform", params: modproviders_SearchParams{"platform": 42}, want: ""},
+		{name: "no platform key", params: modprovidersSearchParams{"other": "val"}, want: ""},
+		{name: "platform PAPER", params: modprovidersSearchParams{"platform": "PAPER"}, want: "PAPER"},
+		{name: "non-string platform", params: modprovidersSearchParams{"platform": 42}, want: ""},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractPlatform(tt.params)
 			if got != tt.want {
@@ -448,8 +449,8 @@ func TestRequiresAPIKey(t *testing.T) {
 // Helpers
 // --------------------------------------------------------------------------
 
-// modproviders_SearchParams is a local alias to avoid import cycles in tests.
-type modproviders_SearchParams = map[string]any
+// modprovidersSearchParams is a local alias to avoid import cycles in tests.
+type modprovidersSearchParams = map[string]any
 
 func containsString(s, substr string) bool {
 	return strings.Contains(s, substr)

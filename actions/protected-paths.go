@@ -11,6 +11,7 @@ import (
 	"github.com/ClintonCollins/Xylona/startargs"
 )
 
+// ErrProtectedPath is returned when a write targets a protected server file.
 var ErrProtectedPath = errors.New("path is protected")
 
 func validateLocalServerPath(gameServer *models.GameServer, relativePath string) (string, error) {

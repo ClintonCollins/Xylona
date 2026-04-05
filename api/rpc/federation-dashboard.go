@@ -7,12 +7,13 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/sysinfo"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 // FederationGetNodeSystemInfo returns system info for the local node.
-func (fs FederationService) FederationGetNodeSystemInfo(ctx context.Context, request *connect.Request[xylona.FederationGetNodeSystemInfoRequest]) (*connect.Response[xylona.FederationGetNodeSystemInfoResponse], error) {
+func (fs FederationService) FederationGetNodeSystemInfo(ctx context.Context, _ *connect.Request[xylona.FederationGetNodeSystemInfoRequest]) (*connect.Response[xylona.FederationGetNodeSystemInfoResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
@@ -29,7 +30,7 @@ func (fs FederationService) FederationGetNodeSystemInfo(ctx context.Context, req
 }
 
 // FederationGetNodeResourceSnapshot returns a live resource snapshot for the local node.
-func (fs FederationService) FederationGetNodeResourceSnapshot(ctx context.Context, request *connect.Request[xylona.FederationGetNodeResourceSnapshotRequest]) (*connect.Response[xylona.FederationGetNodeResourceSnapshotResponse], error) {
+func (fs FederationService) FederationGetNodeResourceSnapshot(ctx context.Context, _ *connect.Request[xylona.FederationGetNodeResourceSnapshotRequest]) (*connect.Response[xylona.FederationGetNodeResourceSnapshotResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
@@ -117,7 +118,7 @@ func (fs FederationService) FederationGetGameServerMetricsHistory(ctx context.Co
 			MemoryBytes:    row.MemoryBytes,
 			MemoryPercent:  row.MemoryPercent,
 			DiskUsageBytes: row.DiskUsageBytes,
-			PlayerCount:    int32(row.PlayerCount),
+			PlayerCount:    helpers.ClampInt32FromInt(row.PlayerCount),
 		})
 	}
 

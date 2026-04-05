@@ -191,9 +191,9 @@ func populateNodeAlertEvent(evt *xylona.FederationAlertEvent, msg any) bool {
 // RepublishFederationAlertEvent republishes a federation alert event on the
 // local event bus so alert evaluation can process it without creating loops.
 func RepublishFederationAlertEvent(bus *eventbus.EventBus, evt *xylona.FederationAlertEvent) {
-	topic, ok := AlertProtoTypeToTopic[evt.EventType]
+	topic, ok := AlertProtoTypeToTopic[evt.GetEventType()]
 	if !ok {
-		log.Warn().Str("event_type", evt.EventType.String()).
+		log.Warn().Str("event_type", evt.GetEventType().String()).
 			Msg("Received federation alert event with unknown event type, skipping republish")
 		return
 	}
@@ -213,14 +213,14 @@ func republishServerAlertEvent(bus *eventbus.EventBus, topic string, evt *xylona
 	switch topic {
 	case eventbus.TopicGameServerCrashed:
 		var data crashEventData
-		errUnmarshal := json.Unmarshal([]byte(evt.EventData), &data)
+		errUnmarshal := json.Unmarshal([]byte(evt.GetEventData()), &data)
 		if errUnmarshal != nil {
 			log.Error().Err(errUnmarshal).Str("topic", topic).Msg("Failed to unmarshal federated crash event data")
 			return
 		}
 		ts := time.Now()
-		if evt.Timestamp != nil {
-			ts = evt.Timestamp.AsTime()
+		if evt.GetTimestamp() != nil {
+			ts = evt.GetTimestamp().AsTime()
 		}
 		bus.Publish(topic, eventbus.ServerCrashedEvent{
 			ServerID:     serverID,
@@ -232,7 +232,7 @@ func republishServerAlertEvent(bus *eventbus.EventBus, topic string, evt *xylona
 
 	case eventbus.TopicGameServerStatusChanged:
 		var data statusEventData
-		errUnmarshal := json.Unmarshal([]byte(evt.EventData), &data)
+		errUnmarshal := json.Unmarshal([]byte(evt.GetEventData()), &data)
 		if errUnmarshal != nil {
 			log.Error().Err(errUnmarshal).Str("topic", topic).Msg("Failed to unmarshal federated status event data")
 			return
@@ -250,7 +250,7 @@ func republishServerAlertEvent(bus *eventbus.EventBus, topic string, evt *xylona
 		eventbus.TopicGameServerDiskThreshold,
 		eventbus.TopicGameServerPlayerThreshold:
 		var data ThresholdEventData
-		errUnmarshal := json.Unmarshal([]byte(evt.EventData), &data)
+		errUnmarshal := json.Unmarshal([]byte(evt.GetEventData()), &data)
 		if errUnmarshal != nil {
 			log.Error().Err(errUnmarshal).Str("topic", topic).Msg("Failed to unmarshal federated threshold event data")
 			return
@@ -271,7 +271,7 @@ func republishServerAlertEvent(bus *eventbus.EventBus, topic string, evt *xylona
 
 func republishNodeAlertEvent(bus *eventbus.EventBus, topic string, evt *xylona.FederationAlertEvent) {
 	var data ThresholdEventData
-	errUnmarshal := json.Unmarshal([]byte(evt.EventData), &data)
+	errUnmarshal := json.Unmarshal([]byte(evt.GetEventData()), &data)
 	if errUnmarshal != nil {
 		log.Error().Err(errUnmarshal).Str("topic", topic).Msg("Failed to unmarshal federated node threshold event data")
 		return

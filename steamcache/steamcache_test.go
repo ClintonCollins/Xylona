@@ -9,7 +9,7 @@ import (
 )
 
 func TestFetchDetails_ParsesSteamCmdResponse(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := steamCmdResponse{
 			Data: map[string]steamCmdAppData{
 				"896660": {
@@ -25,7 +25,7 @@ func TestFetchDetails_ParsesSteamCmdResponse(t *testing.T) {
 						Type:   "Tool",
 					},
 					Config: struct {
-						InstallDir string                        `json:"installdir"`
+						InstallDir string                         `json:"installdir"`
 						Launch     map[string]steamCmdLaunchEntry `json:"launch"`
 					}{
 						InstallDir: "Valheim dedicated server",
@@ -44,7 +44,10 @@ func TestFetchDetails_ParsesSteamCmdResponse(t *testing.T) {
 			},
 			Status: "success",
 		}
-		json.NewEncoder(w).Encode(resp)
+		errEncode := json.NewEncoder(w).Encode(resp)
+		if errEncode != nil {
+			t.Fatalf("Encode() error = %v", errEncode)
+		}
 	}))
 	defer server.Close()
 
@@ -84,7 +87,7 @@ func TestFetchDetails_ParsesSteamCmdResponse(t *testing.T) {
 }
 
 func TestFetchDetails_LinuxOnlyApp(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := steamCmdResponse{
 			Data: map[string]steamCmdAppData{
 				"123": {
@@ -102,7 +105,10 @@ func TestFetchDetails_LinuxOnlyApp(t *testing.T) {
 			},
 			Status: "success",
 		}
-		json.NewEncoder(w).Encode(resp)
+		errEncode := json.NewEncoder(w).Encode(resp)
+		if errEncode != nil {
+			t.Fatalf("Encode() error = %v", errEncode)
+		}
 	}))
 	defer server.Close()
 
@@ -120,7 +126,7 @@ func TestFetchDetails_LinuxOnlyApp(t *testing.T) {
 }
 
 func TestFetchDetails_HandlesHTTPError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -133,12 +139,15 @@ func TestFetchDetails_HandlesHTTPError(t *testing.T) {
 }
 
 func TestFetchDetails_HandlesMissingAppData(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := steamCmdResponse{
 			Data:   map[string]steamCmdAppData{},
 			Status: "success",
 		}
-		json.NewEncoder(w).Encode(resp)
+		errEncode := json.NewEncoder(w).Encode(resp)
+		if errEncode != nil {
+			t.Fatalf("Encode() error = %v", errEncode)
+		}
 	}))
 	defer server.Close()
 
@@ -158,7 +167,7 @@ func TestFetchDetails_HandlesServerDown(t *testing.T) {
 }
 
 func TestFetchDetails_MultipleLaunchConfigs(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := steamCmdResponse{
 			Data: map[string]steamCmdAppData{
 				"100": {
@@ -173,7 +182,7 @@ func TestFetchDetails_MultipleLaunchConfigs(t *testing.T) {
 						Type:   "Tool",
 					},
 					Config: struct {
-						InstallDir string                        `json:"installdir"`
+						InstallDir string                         `json:"installdir"`
 						Launch     map[string]steamCmdLaunchEntry `json:"launch"`
 					}{
 						InstallDir: "multi_server",
@@ -196,7 +205,10 @@ func TestFetchDetails_MultipleLaunchConfigs(t *testing.T) {
 			},
 			Status: "success",
 		}
-		json.NewEncoder(w).Encode(resp)
+		errEncode := json.NewEncoder(w).Encode(resp)
+		if errEncode != nil {
+			t.Fatalf("Encode() error = %v", errEncode)
+		}
 	}))
 	defer server.Close()
 

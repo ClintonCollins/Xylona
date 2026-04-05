@@ -49,6 +49,7 @@ type FederationService struct {
 	allPermissionIDs []string
 }
 
+// NewFederationService constructs the federation RPC service implementation.
 func NewFederationService(
 	ctx context.Context,
 	dbInst *db.Connection,
@@ -181,6 +182,7 @@ func (fs FederationService) authorizeFederatedPermission(
 	return nil
 }
 
+// Handshake returns local node metadata to an authenticated federation peer.
 func (fs FederationService) Handshake(ctx context.Context, request *connect.Request[xylona.FederationHandshakeRequest]) (*connect.Response[xylona.FederationHandshakeResponse], error) {
 	peerIdentity, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -235,6 +237,7 @@ func (fs FederationService) Handshake(ctx context.Context, request *connect.Requ
 	return connect.NewResponse(resp), nil
 }
 
+// ListServerSummaries lists local server summaries for an authenticated federation peer.
 func (fs FederationService) ListServerSummaries(ctx context.Context, request *connect.Request[xylona.FederationListServerSummariesRequest]) (*connect.Response[xylona.FederationListServerSummariesResponse], error) {
 	peerIdentity, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -314,6 +317,7 @@ func (fs FederationService) ListServerSummaries(ctx context.Context, request *co
 	return connect.NewResponse(resp), nil
 }
 
+// ListUserSummaries lists local user summaries for an authenticated federation peer.
 func (fs FederationService) ListUserSummaries(ctx context.Context, request *connect.Request[xylona.FederationListUserSummariesRequest]) (*connect.Response[xylona.FederationListUserSummariesResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -336,7 +340,7 @@ func (fs FederationService) ListUserSummaries(ctx context.Context, request *conn
 		if user.SuperUser {
 			continue
 		}
-		if limit > 0 && len(resp.Users) >= limit {
+		if limit > 0 && len(resp.GetUsers()) >= limit {
 			break
 		}
 
@@ -354,6 +358,7 @@ func (fs FederationService) ListUserSummaries(ctx context.Context, request *conn
 	return connect.NewResponse(resp), nil
 }
 
+// GetServerDetail returns detailed information for a federated game server.
 func (fs FederationService) GetServerDetail(ctx context.Context, request *connect.Request[xylona.FederationGetServerDetailRequest]) (*connect.Response[xylona.FederationGetServerDetailResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -430,12 +435,12 @@ func populateFederationSummaryMetrics(summary *xylona.FederationServerSummary, s
 	}
 	cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := cmd.Metrics()
 	summary.CpuPercent = int64(cpuPct)
-	summary.MemoryBytes = int64(memVMS)
-	summary.MemoryWorkingSetBytes = int64(memRSS)
+	summary.MemoryBytes = helpers.ClampInt64FromUint64(memVMS)
+	summary.MemoryWorkingSetBytes = helpers.ClampInt64FromUint64(memRSS)
 	summary.MemoryPercent = float64(memPct)
 	summary.CpuCores = cpuCores
 	summary.NumberOfThreads = threads
-	summary.DiskUsageBytes = int64(diskBytes)
+	summary.DiskUsageBytes = helpers.ClampInt64FromUint64(diskBytes)
 	summary.IoReadRate = ioRead
 	summary.IoWriteRate = ioWrite
 	summary.ConnectionCount = connCount
@@ -445,6 +450,7 @@ func populateFederationSummaryMetrics(summary *xylona.FederationServerSummary, s
 	}
 }
 
+// StartRemoteServer starts a local game server on behalf of a federated peer.
 func (fs FederationService) StartRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -476,6 +482,7 @@ func (fs FederationService) StartRemoteServer(ctx context.Context, request *conn
 	}), nil
 }
 
+// StopRemoteServer stops a local game server on behalf of a federated peer.
 func (fs FederationService) StopRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -507,6 +514,7 @@ func (fs FederationService) StopRemoteServer(ctx context.Context, request *conne
 	}), nil
 }
 
+// RestartRemoteServer restarts a local game server on behalf of a federated peer.
 func (fs FederationService) RestartRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -539,6 +547,7 @@ func (fs FederationService) RestartRemoteServer(ctx context.Context, request *co
 	}), nil
 }
 
+// StreamConsoleOutput streams console output for a local game server to a federated peer.
 func (fs FederationService) StreamConsoleOutput(ctx context.Context, request *connect.Request[xylona.FederationStreamConsoleRequest], stream *connect.ServerStream[xylona.FederationConsoleOutputChunk]) error {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -574,12 +583,12 @@ func (fs FederationService) StreamConsoleOutput(ctx context.Context, request *co
 		case <-fs.ctx.Done():
 			return nil
 		case msg := <-outputChan:
-			if msg.GameServerConsoleOutput == nil {
+			if msg.GetGameServerConsoleOutput() == nil {
 				continue
 			}
 			errSend := stream.Send(&xylona.FederationConsoleOutputChunk{
 				ServerId: serverID,
-				Output:   msg.GameServerConsoleOutput.Output,
+				Output:   msg.GetGameServerConsoleOutput().GetOutput(),
 			})
 			if errSend != nil {
 				log.Debug().Err(errSend).Str("server_id", serverID).Msg("Federation console stream send failed")
@@ -589,6 +598,7 @@ func (fs FederationService) StreamConsoleOutput(ctx context.Context, request *co
 	}
 }
 
+// SendConsoleInput forwards console input from a federated peer to a local server.
 func (fs FederationService) SendConsoleInput(ctx context.Context, request *connect.Request[xylona.FederationSendConsoleInputRequest]) (*connect.Response[xylona.FederationSendConsoleInputResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -633,6 +643,7 @@ func (fs FederationService) SendConsoleInput(ctx context.Context, request *conne
 	}), nil
 }
 
+// ReadConsoleBuffer returns buffered console output for a local game server.
 func (fs FederationService) ReadConsoleBuffer(ctx context.Context, request *connect.Request[xylona.FederationReadConsoleBufferRequest]) (*connect.Response[xylona.FederationReadConsoleBufferResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -659,7 +670,8 @@ func (fs FederationService) ReadConsoleBuffer(ctx context.Context, request *conn
 	}), nil
 }
 
-func (fs FederationService) StreamServerUpdates(ctx context.Context, request *connect.Request[xylona.FederationStreamServerUpdatesRequest], stream *connect.ServerStream[xylona.FederationServerUpdateEvent]) error {
+// StreamServerUpdates streams local server state changes to an authenticated federation peer.
+func (fs FederationService) StreamServerUpdates(ctx context.Context, _ *connect.Request[xylona.FederationStreamServerUpdatesRequest], stream *connect.ServerStream[xylona.FederationServerUpdateEvent]) error {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
@@ -676,7 +688,7 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 		},
 	})
 	if errSend != nil {
-		return errSend
+		return fmt.Errorf("rpc: send federation snapshot: %w", errSend)
 	}
 
 	// Register a status listener on each game server's supervisor command so we
@@ -702,10 +714,10 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 
 	// Initialize previous metrics from the snapshot so the first tick only
 	// sends updates for servers whose metrics actually changed.
-	previousMetrics := make(map[string]*xylona.GameServerMetrics, len(snapshot.Servers))
-	for _, srv := range snapshot.Servers {
-		if srv.Metrics != nil {
-			previousMetrics[srv.ServerId] = srv.Metrics
+	previousMetrics := make(map[string]*xylona.GameServerMetrics, len(snapshot.GetServers()))
+	for _, srv := range snapshot.GetServers() {
+		if srv.GetMetrics() != nil {
+			previousMetrics[srv.GetServerId()] = srv.GetMetrics()
 		}
 	}
 
@@ -725,10 +737,15 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 		msg   any
 	}
 	alertCh := make(chan alertMsg, 256)
+	type alertSubscription struct {
+		topic string
+		ch    chan any
+	}
+	subscriptions := make([]alertSubscription, 0, len(allAlertTopics))
 	for _, topic := range allAlertTopics {
 		topicCh := eventbus.Get().SubscribeReliable(topic)
+		subscriptions = append(subscriptions, alertSubscription{topic: topic, ch: topicCh})
 		capturedTopic := topic
-		defer eventbus.Get().Unsubscribe(capturedTopic, topicCh)
 		go func() {
 			for {
 				select {
@@ -747,6 +764,11 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 			}
 		}()
 	}
+	defer func() {
+		for _, subscription := range subscriptions {
+			eventbus.Get().Unsubscribe(subscription.topic, subscription.ch)
+		}
+	}()
 
 	metricsTicker := time.NewTicker(streamMetricsInterval)
 	defer metricsTicker.Stop()
@@ -777,10 +799,10 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 				log.Error().Err(errNewSnapshot).Msg("failed to build snapshot after server create")
 				continue
 			}
-			previousMetrics = make(map[string]*xylona.GameServerMetrics, len(newSnapshot.Servers))
-			for _, srv := range newSnapshot.Servers {
-				if srv.Metrics != nil {
-					previousMetrics[srv.ServerId] = srv.Metrics
+			previousMetrics = make(map[string]*xylona.GameServerMetrics, len(newSnapshot.GetServers()))
+			for _, srv := range newSnapshot.GetServers() {
+				if srv.GetMetrics() != nil {
+					previousMetrics[srv.GetServerId()] = srv.GetMetrics()
 				}
 			}
 			errSendCreate := stream.Send(&xylona.FederationServerUpdateEvent{
@@ -804,10 +826,10 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 				log.Error().Err(errNewSnapshot).Msg("failed to build snapshot after server remove")
 				continue
 			}
-			previousMetrics = make(map[string]*xylona.GameServerMetrics, len(newSnapshot.Servers))
-			for _, srv := range newSnapshot.Servers {
-				if srv.Metrics != nil {
-					previousMetrics[srv.ServerId] = srv.Metrics
+			previousMetrics = make(map[string]*xylona.GameServerMetrics, len(newSnapshot.GetServers()))
+			for _, srv := range newSnapshot.GetServers() {
+				if srv.GetMetrics() != nil {
+					previousMetrics[srv.GetServerId()] = srv.GetMetrics()
 				}
 			}
 			errSendRemove := stream.Send(&xylona.FederationServerUpdateEvent{
@@ -839,8 +861,8 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, request *co
 			errStatus := stream.Send(&xylona.FederationServerUpdateEvent{
 				Event: &xylona.FederationServerUpdateEvent_StatusChange{
 					StatusChange: &xylona.FederationServerStatusChange{
-						ServerId: update.GameServerId,
-						Status:   update.Status,
+						ServerId: update.GetGameServerId(),
+						Status:   update.GetStatus(),
 					},
 				},
 			})
@@ -926,9 +948,9 @@ func (fs FederationService) buildServerSnapshot() (*xylona.FederationServerSnaps
 			GameName:       gameName,
 			GameId:         gs.GameID,
 			IpAddress:      gs.IP,
-			Port:           int32(gs.Port),
-			QueryPort:      int32(gs.QueryPort),
-			MaxPlayers:     int32(gs.MaxPlayers),
+			Port:           helpers.ClampInt32FromInt64(gs.Port),
+			QueryPort:      helpers.ClampInt32FromInt64(gs.QueryPort),
+			MaxPlayers:     helpers.ClampInt32FromInt64(gs.MaxPlayers),
 			CurrentPlayers: 0,
 			MapName:        gs.Map,
 			Version:        resolveGameServerVersion(gs),
@@ -957,12 +979,12 @@ func buildServerStateMetrics(supervisorInst *supervisor.Instance, serverID strin
 	cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := cmd.Metrics()
 	metrics := &xylona.GameServerMetrics{
 		CpuPercent:            cpuPct,
-		MemoryBytes:           int64(memVMS),
-		MemoryWorkingSetBytes: int64(memRSS),
+		MemoryBytes:           helpers.ClampInt64FromUint64(memVMS),
+		MemoryWorkingSetBytes: helpers.ClampInt64FromUint64(memRSS),
 		MemoryPercent:         float64(memPct),
 		CpuCores:              cpuCores,
 		NumberOfThreads:       threads,
-		DiskUsageBytes:        int64(diskBytes),
+		DiskUsageBytes:        helpers.ClampInt64FromUint64(diskBytes),
 		IoReadRate:            ioRead,
 		IoWriteRate:           ioWrite,
 		ConnectionCount:       connCount,
@@ -981,6 +1003,7 @@ func (fs FederationService) getVersionState(serverID string) versiontracker.Vers
 	return fs.versionState.Get(serverID)
 }
 
+// UpdateRemoteServer updates a local game server on behalf of a federated peer.
 func (fs FederationService) UpdateRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1032,6 +1055,7 @@ func federationUpdateErrorCode(err error) connect.Code {
 	}
 }
 
+// GetRemoteVersionInfo returns version metadata for a local server to a federated peer.
 func (fs FederationService) GetRemoteVersionInfo(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1067,6 +1091,7 @@ func (fs FederationService) GetRemoteVersionInfo(ctx context.Context, request *c
 	}), nil
 }
 
+// CheckRemoteServerForUpdate refreshes version metadata for a local server.
 func (fs FederationService) CheckRemoteServerForUpdate(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationVersionInfoResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1099,6 +1124,7 @@ func (fs FederationService) CheckRemoteServerForUpdate(ctx context.Context, requ
 	}), nil
 }
 
+// EditRemoteServer edits a local game server on behalf of a federated peer.
 func (fs FederationService) EditRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1134,6 +1160,7 @@ func (fs FederationService) EditRemoteServer(ctx context.Context, request *conne
 	}), nil
 }
 
+// RemoveRemoteServer deletes a local game server on behalf of a federated peer.
 func (fs FederationService) RemoveRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1169,6 +1196,7 @@ func (fs FederationService) RemoveRemoteServer(ctx context.Context, request *con
 	}), nil
 }
 
+// ListRemoteDirectoryFiles lists files for a local server directory over federation.
 func (fs FederationService) ListRemoteDirectoryFiles(ctx context.Context, request *connect.Request[xylona.FederationListDirectoryFilesRequest]) (*connect.Response[xylona.FederationListDirectoryFilesResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1202,6 +1230,7 @@ func (fs FederationService) ListRemoteDirectoryFiles(ctx context.Context, reques
 	}), nil
 }
 
+// EditRemoteFile edits a local file over federation.
 func (fs FederationService) EditRemoteFile(ctx context.Context, request *connect.Request[xylona.FederationEditFileRequest]) (*connect.Response[xylona.FederationEditFileResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1229,6 +1258,7 @@ func (fs FederationService) EditRemoteFile(ctx context.Context, request *connect
 	}), nil
 }
 
+// DeleteRemoteFiles deletes local files over federation.
 func (fs FederationService) DeleteRemoteFiles(ctx context.Context, request *connect.Request[xylona.FederationDeleteFilesRequest]) (*connect.Response[xylona.FederationDeleteFilesResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1257,6 +1287,7 @@ func (fs FederationService) DeleteRemoteFiles(ctx context.Context, request *conn
 	}), nil
 }
 
+// RenameRemoteFile renames a local file over federation.
 func (fs FederationService) RenameRemoteFile(ctx context.Context, request *connect.Request[xylona.FederationRenameFileRequest]) (*connect.Response[xylona.FederationRenameFileResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1285,6 +1316,7 @@ func (fs FederationService) RenameRemoteFile(ctx context.Context, request *conne
 	}), nil
 }
 
+// MoveRemoteFiles moves local files over federation.
 func (fs FederationService) MoveRemoteFiles(ctx context.Context, request *connect.Request[xylona.FederationMoveFilesRequest]) (*connect.Response[xylona.FederationMoveFilesResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1313,6 +1345,7 @@ func (fs FederationService) MoveRemoteFiles(ctx context.Context, request *connec
 	}), nil
 }
 
+// CreateRemoteFileOrDirectory creates a local file or directory over federation.
 func (fs FederationService) CreateRemoteFileOrDirectory(ctx context.Context, request *connect.Request[xylona.FederationCreateFileOrDirectoryRequest]) (*connect.Response[xylona.FederationCreateFileOrDirectoryResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1340,6 +1373,7 @@ func (fs FederationService) CreateRemoteFileOrDirectory(ctx context.Context, req
 	}), nil
 }
 
+// DownloadRemoteFileFromURL downloads a file into a local server over federation.
 func (fs FederationService) DownloadRemoteFileFromURL(ctx context.Context, request *connect.Request[xylona.FederationDownloadFileFromURLRequest]) (*connect.Response[xylona.FederationDownloadFileFromURLResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1368,6 +1402,7 @@ func (fs FederationService) DownloadRemoteFileFromURL(ctx context.Context, reque
 	}), nil
 }
 
+// QueryRemoteServer performs a live query against a local server for a federated peer.
 func (fs FederationService) QueryRemoteServer(ctx context.Context, request *connect.Request[xylona.FederationQueryServerRequest]) (*connect.Response[xylona.FederationQueryServerResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1389,7 +1424,7 @@ func (fs FederationService) QueryRemoteServer(ctx context.Context, request *conn
 	}
 
 	allServerQueries := fs.actionsInst.GetServerQueries()
-	queryInfo, exists := allServerQueries.Servers[gs.ID]
+	queryInfo, exists := allServerQueries.GetServers()[gs.ID]
 	if !exists {
 		var queryType xylona.ServerQuery_Type
 		if gs.GameID == "minecraft" {
@@ -1401,8 +1436,8 @@ func (fs FederationService) QueryRemoteServer(ctx context.Context, request *conn
 			ServerId:   gs.ID,
 			ServerName: gs.Name,
 			Type:       queryType,
-			Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: uint32(gs.MaxPlayers)},
-			Source:     &xylona.SourceQueryInfo{Players: 0, MaxPlayers: uint32(gs.MaxPlayers)},
+			Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
+			Source:     &xylona.SourceQueryInfo{Players: 0, MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
 		}
 	}
 
@@ -1411,6 +1446,7 @@ func (fs FederationService) QueryRemoteServer(ctx context.Context, request *conn
 	}), nil
 }
 
+// ListRemoteGameServerAccessGrants lists local direct access grants over federation.
 func (fs FederationService) ListRemoteGameServerAccessGrants(ctx context.Context, request *connect.Request[xylona.FederationListGameServerAccessGrantsRequest]) (*connect.Response[xylona.FederationListGameServerAccessGrantsResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1445,6 +1481,7 @@ func (fs FederationService) ListRemoteGameServerAccessGrants(ctx context.Context
 	return connect.NewResponse(resp), nil
 }
 
+// GrantRemoteGameServerAccess creates a local direct access grant over federation.
 func (fs FederationService) GrantRemoteGameServerAccess(ctx context.Context, request *connect.Request[xylona.FederationGrantGameServerAccessRequest]) (*connect.Response[xylona.FederationGrantGameServerAccessResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1535,6 +1572,7 @@ func (fs FederationService) GrantRemoteGameServerAccess(ctx context.Context, req
 	}), nil
 }
 
+// RevokeRemoteGameServerAccess removes a local direct access grant over federation.
 func (fs FederationService) RevokeRemoteGameServerAccess(ctx context.Context, request *connect.Request[xylona.FederationRevokeGameServerAccessRequest]) (*connect.Response[xylona.FederationRevokeGameServerAccessResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1573,6 +1611,7 @@ func (fs FederationService) RevokeRemoteGameServerAccess(ctx context.Context, re
 	return connect.NewResponse(&xylona.FederationRevokeGameServerAccessResponse{}), nil
 }
 
+// ListRemoteFederatedAccessGrants lists local federated access grants over federation.
 func (fs FederationService) ListRemoteFederatedAccessGrants(ctx context.Context, request *connect.Request[xylona.FederationListFederatedAccessGrantsRequest]) (*connect.Response[xylona.FederationListFederatedAccessGrantsResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1607,6 +1646,7 @@ func (fs FederationService) ListRemoteFederatedAccessGrants(ctx context.Context,
 	return connect.NewResponse(resp), nil
 }
 
+// GrantRemoteFederatedAccess creates a local federated access grant over federation.
 func (fs FederationService) GrantRemoteFederatedAccess(ctx context.Context, request *connect.Request[xylona.FederationGrantFederatedAccessRequest]) (*connect.Response[xylona.FederationGrantFederatedAccessResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1712,6 +1752,7 @@ func (fs FederationService) GrantRemoteFederatedAccess(ctx context.Context, requ
 	}), nil
 }
 
+// RevokeRemoteFederatedAccess removes a local federated access grant over federation.
 func (fs FederationService) RevokeRemoteFederatedAccess(ctx context.Context, request *connect.Request[xylona.FederationRevokeFederatedAccessRequest]) (*connect.Response[xylona.FederationRevokeFederatedAccessResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
@@ -1826,13 +1867,13 @@ func (fs FederationService) resolveGrantorUserIDForServer(header http.Header, se
 			return actingUserID, nil
 		}
 		if !errors.Is(errGetUser, sql.ErrNoRows) {
-			return "", errGetUser
+			return "", fmt.Errorf("rpc: load acting grantor user: %w", errGetUser)
 		}
 	}
 
 	gameServer, errGetServer := fs.db.GetGameServerByID(serverID)
 	if errGetServer != nil {
-		return "", errGetServer
+		return "", fmt.Errorf("rpc: load game server for grantor resolution: %w", errGetServer)
 	}
 
 	return gameServer.UserID, nil

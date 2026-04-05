@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/sysinfo"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -110,11 +111,11 @@ func (mr *MetricsRecorder) recordNodeMetrics() {
 		NodeID:                 mr.localNodeID,
 		CPUPercent:             snapshot.CPUPercent,
 		MemoryPercent:          snapshot.MemoryPercent,
-		MemoryUsedBytes:        int64(snapshot.MemoryUsed),
-		MemoryTotalBytes:       int64(snapshot.MemoryTotal),
+		MemoryUsedBytes:        helpers.ClampInt64FromUint64(snapshot.MemoryUsed),
+		MemoryTotalBytes:       helpers.ClampInt64FromUint64(snapshot.MemoryTotal),
 		DiskPercent:            snapshot.DiskPercent,
-		DiskUsedBytes:          int64(snapshot.DiskUsed),
-		DiskTotalBytes:         int64(snapshot.DiskTotal),
+		DiskUsedBytes:          helpers.ClampInt64FromUint64(snapshot.DiskUsed),
+		DiskTotalBytes:         helpers.ClampInt64FromUint64(snapshot.DiskTotal),
 		GameServerCount:        gameServerCount,
 		RunningGameServerCount: runningCount,
 		UserCount:              userCount,
@@ -136,13 +137,7 @@ func (mr *MetricsRecorder) recordGameServerMetrics() {
 	commands := mr.supervisorInst.ListCommands()
 
 	for _, cmd := range commands {
-		// Get the pointer for accurate metrics reading.
-		cmdPtr, errGet := mr.supervisorInst.GetCommandByID(cmd.ID)
-		if errGet != nil {
-			continue
-		}
-
-		cpuPercent, memoryRSS, _, memoryPercent, _, _, diskUsageBytes, ioReadRate, ioWriteRate, connectionCount := cmdPtr.Metrics()
+		cpuPercent, memoryRSS, _, memoryPercent, _, _, diskUsageBytes, ioReadRate, ioWriteRate, connectionCount := cmd.Metrics()
 
 		playerCount := 0
 		if mr.playerCounts != nil {
@@ -153,9 +148,9 @@ func (mr *MetricsRecorder) recordGameServerMetrics() {
 			ID:              uuid.New().String(),
 			GameServerID:    cmd.ID,
 			CPUPercent:      cpuPercent,
-			MemoryBytes:     int64(memoryRSS),
+			MemoryBytes:     helpers.ClampInt64FromUint64(memoryRSS),
 			MemoryPercent:   float64(memoryPercent),
-			DiskUsageBytes:  int64(diskUsageBytes),
+			DiskUsageBytes:  helpers.ClampInt64FromUint64(diskUsageBytes),
 			IOReadRate:      ioReadRate,
 			IOWriteRate:     ioWriteRate,
 			ConnectionCount: int(connectionCount),

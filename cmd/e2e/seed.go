@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/aarondl/opt/omit"
@@ -25,7 +26,7 @@ func runSeed(dbPath, username, password, migrationsDir string) error {
 	migrate.SetTable("migrations")
 	totalMigrations, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
 	if errMigrate != nil {
-		return errMigrate
+		return fmt.Errorf("run migrations: %w", errMigrate)
 	}
 	if totalMigrations > 0 {
 		log.Info().Msgf("Applied %d migrations", totalMigrations)
@@ -34,13 +35,13 @@ func runSeed(dbPath, username, password, migrationsDir string) error {
 	// Hash the password with bcrypt.
 	hashedPassword, errHash := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if errHash != nil {
-		return errHash
+		return fmt.Errorf("hash seed password: %w", errHash)
 	}
 
 	// Generate a unique user ID.
 	userID, errID := helpers.GenerateUniqueID()
 	if errID != nil {
-		return errID
+		return fmt.Errorf("generate seed user ID: %w", errID)
 	}
 
 	now := time.Now()
@@ -58,7 +59,7 @@ func runSeed(dbPath, username, password, migrationsDir string) error {
 		UpdatedAt:    omit.From(now),
 	})
 	if errCreate != nil {
-		return errCreate
+		return fmt.Errorf("create seed user: %w", errCreate)
 	}
 
 	log.Info().Str("username", username).Str("id", userID.String()).Msg("Created admin superuser")
@@ -66,7 +67,7 @@ func runSeed(dbPath, username, password, migrationsDir string) error {
 	// Create default local settings with a generated node ID.
 	nodeID, errNodeID := helpers.GenerateUniqueID()
 	if errNodeID != nil {
-		return errNodeID
+		return fmt.Errorf("generate node ID: %w", errNodeID)
 	}
 
 	settings := &models.LocalSetting{
@@ -75,7 +76,7 @@ func runSeed(dbPath, username, password, migrationsDir string) error {
 	}
 	errSettings := conn.UpdateLocalSettings(settings)
 	if errSettings != nil {
-		return errSettings
+		return fmt.Errorf("update local settings: %w", errSettings)
 	}
 
 	log.Info().Str("node_id", nodeID.String()).Msg("Created local settings with node ID")

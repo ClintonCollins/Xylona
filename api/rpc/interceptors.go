@@ -25,13 +25,15 @@ type sessionAuthInterceptor struct {
 	secureCookie *securecookie.SecureCookie
 }
 
-func NewSessionAuthInterceptor(db *db.Connection, secureCookie *securecookie.SecureCookie) connect.Interceptor {
+// NewSessionAuthInterceptor enforces session authentication for protected RPC procedures.
+func NewSessionAuthInterceptor(database *db.Connection, secureCookie *securecookie.SecureCookie) connect.Interceptor {
 	return &sessionAuthInterceptor{
-		db:           db,
+		db:           database,
 		secureCookie: secureCookie,
 	}
 }
 
+// NewUnaryTimeoutInterceptor applies a default timeout to unary RPC handlers.
 func NewUnaryTimeoutInterceptor(timeout time.Duration) connect.Interceptor {
 	return connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {

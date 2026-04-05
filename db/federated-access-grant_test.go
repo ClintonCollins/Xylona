@@ -9,7 +9,7 @@ import (
 func TestCreateFederatedAccessGrantAndQueries(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federated-grant.sqlite")
 	seedRBACFixture(t, conn)
-	seedRemoteNodeForFederatedTests(t, conn, "node-remote-1")
+	seedRemoteNodeForFederatedTests(t, conn)
 
 	errCreateGrant := conn.CreateFederatedAccessGrant(
 		"fed-grant-1",
@@ -52,7 +52,7 @@ func TestCreateFederatedAccessGrantAndQueries(t *testing.T) {
 func TestCreateFederatedAccessGrantUniqueConstraint(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federated-grant-unique.sqlite")
 	seedRBACFixture(t, conn)
-	seedRemoteNodeForFederatedTests(t, conn, "node-remote-1")
+	seedRemoteNodeForFederatedTests(t, conn)
 
 	errFirst := conn.CreateFederatedAccessGrant(
 		"fed-grant-unique-1",
@@ -84,7 +84,7 @@ func TestCreateFederatedAccessGrantUniqueConstraint(t *testing.T) {
 func TestFederatedUserHasPermissionOnServer(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federated-grant-permission.sqlite")
 	seedRBACFixture(t, conn)
-	seedRemoteNodeForFederatedTests(t, conn, "node-remote-1")
+	seedRemoteNodeForFederatedTests(t, conn)
 
 	errCreateGrant := conn.CreateFederatedAccessGrant(
 		"fed-grant-perm-1",
@@ -157,7 +157,7 @@ func TestFederatedUserHasPermissionOnServer(t *testing.T) {
 func TestGetFederatedUserPermissionIDsForServer(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federated-grant-perm-ids.sqlite")
 	seedRBACFixture(t, conn)
-	seedRemoteNodeForFederatedTests(t, conn, "node-remote-1")
+	seedRemoteNodeForFederatedTests(t, conn)
 
 	// No grants yet — should return empty
 	perms, errPerms := conn.GetFederatedUserPermissionIDsForServer("node-remote-1", "remote-user-1", "server-local-1")
@@ -190,7 +190,7 @@ func TestGetFederatedUserPermissionIDsForServer(t *testing.T) {
 func TestDeleteFederatedAccessGrant(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federated-grant-delete.sqlite")
 	seedRBACFixture(t, conn)
-	seedRemoteNodeForFederatedTests(t, conn, "node-remote-1")
+	seedRemoteNodeForFederatedTests(t, conn)
 
 	errCreateGrant := conn.CreateFederatedAccessGrant(
 		"fed-grant-delete-1",
@@ -219,7 +219,7 @@ func TestDeleteFederatedAccessGrant(t *testing.T) {
 func TestFederatedAccessGrantCascadesOnGameServerDelete(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federated-grant-cascade.sqlite")
 	seedRBACFixture(t, conn)
-	seedRemoteNodeForFederatedTests(t, conn, "node-remote-1")
+	seedRemoteNodeForFederatedTests(t, conn)
 
 	errCreateGrant := conn.CreateFederatedAccessGrant(
 		"fed-grant-cascade-1",
@@ -252,7 +252,7 @@ func TestFederatedAccessGrantCascadesOnGameServerDelete(t *testing.T) {
 func TestCreateFederatedAccessGrantMissingReference(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federated-grant-fk.sqlite")
 	seedRBACFixture(t, conn)
-	seedRemoteNodeForFederatedTests(t, conn, "node-remote-1")
+	seedRemoteNodeForFederatedTests(t, conn)
 
 	errCreateGrant := conn.CreateFederatedAccessGrant(
 		"fed-grant-fk-1",
@@ -268,9 +268,10 @@ func TestCreateFederatedAccessGrantMissingReference(t *testing.T) {
 	}
 }
 
-func seedRemoteNodeForFederatedTests(t *testing.T, conn *Connection, nodeID string) {
+func seedRemoteNodeForFederatedTests(t *testing.T, conn *Connection) {
 	t.Helper()
 
+	nodeID := "node-remote-1"
 	_, errInsertNode := conn.SQLDb.ExecContext(
 		conn.ctx,
 		`insert into node (id, name, is_local, host, port, base_url, enabled)

@@ -1,7 +1,9 @@
+// Package query provides Source and Minecraft server query helpers.
 package query
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"time"
@@ -10,10 +12,12 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/rumblefrog/go-a2s"
 
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 var (
+	// ErrMinecraftServerUnreachable indicates no supported query protocol succeeded.
 	ErrMinecraftServerUnreachable = errors.New("minecraft server unreachable")
 )
 
@@ -47,11 +51,12 @@ var (
 //	Version    string `json:"Version"`
 // }
 
+// Source queries a Source-engine server and returns its info payload.
 func Source(host string, port int) (*xylona.SourceQueryInfo, error) {
 	conn, errNewClient := a2s.NewClient(net.JoinHostPort(host, strconv.Itoa(port)), a2s.TimeoutOption(time.Second*1))
 
 	if errNewClient != nil {
-		return nil, errNewClient
+		return nil, fmt.Errorf("create source query client for %s:%d: %w", host, port, errNewClient)
 	}
 
 	defer func(client *a2s.Client) {
@@ -64,7 +69,7 @@ func Source(host string, port int) (*xylona.SourceQueryInfo, error) {
 	info, errQuery := conn.QueryInfo()
 
 	if errQuery != nil {
-		return nil, errQuery
+		return nil, fmt.Errorf("query source server %s:%d: %w", host, port, errQuery)
 	}
 	sourceInfo := &xylona.SourceQueryInfo{
 		Protocol:   uint32(info.Protocol),
@@ -88,6 +93,7 @@ func Source(host string, port int) (*xylona.SourceQueryInfo, error) {
 	return sourceInfo, nil
 }
 
+// Minecraft queries a Minecraft server using the supported ping protocols.
 func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 	conn := minequery.NewPinger(minequery.WithTimeout(time.Second * 1))
 	respQuery, errQuery := conn.QueryFull(host, port)
@@ -96,8 +102,8 @@ func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 			Motd:            respQuery.MOTD,
 			GameType:        respQuery.GameType,
 			Map:             respQuery.Map,
-			NumberOfPlayers: uint32(respQuery.OnlinePlayers),
-			MaxPlayers:      uint32(respQuery.MaxPlayers),
+			NumberOfPlayers: helpers.ClampUint32FromInt(respQuery.OnlinePlayers),
+			MaxPlayers:      helpers.ClampUint32FromInt(respQuery.MaxPlayers),
 			PlayerList:      respQuery.SamplePlayers,
 			ServerVersion:   respQuery.Version,
 		}, nil
@@ -110,10 +116,10 @@ func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 		}
 		return &xylona.MinecraftQueryInfo{
 			Motd:            resp17.Description.String(),
-			NumberOfPlayers: uint32(resp17.OnlinePlayers),
-			MaxPlayers:      uint32(resp17.MaxPlayers),
+			NumberOfPlayers: helpers.ClampUint32FromInt(resp17.OnlinePlayers),
+			MaxPlayers:      helpers.ClampUint32FromInt(resp17.MaxPlayers),
 			PlayerList:      playerList,
-			ProtocolVersion: uint32(resp17.ProtocolVersion),
+			ProtocolVersion: helpers.ClampUint32FromInt(resp17.ProtocolVersion),
 			ServerVersion:   resp17.VersionName,
 		}, nil
 	}
@@ -121,9 +127,9 @@ func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 	if errPing16 == nil {
 		return &xylona.MinecraftQueryInfo{
 			Motd:            resp16.MOTD,
-			NumberOfPlayers: uint32(resp16.OnlinePlayers),
-			MaxPlayers:      uint32(resp16.MaxPlayers),
-			ProtocolVersion: uint32(resp16.ProtocolVersion),
+			NumberOfPlayers: helpers.ClampUint32FromInt(resp16.OnlinePlayers),
+			MaxPlayers:      helpers.ClampUint32FromInt(resp16.MaxPlayers),
+			ProtocolVersion: helpers.ClampUint32FromInt(resp16.ProtocolVersion),
 			ServerVersion:   resp16.ServerVersion,
 		}, nil
 	}
@@ -131,8 +137,8 @@ func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 	if errPingBeta == nil {
 		return &xylona.MinecraftQueryInfo{
 			Motd:            respBeta.MOTD,
-			NumberOfPlayers: uint32(respBeta.OnlinePlayers),
-			MaxPlayers:      uint32(respBeta.MaxPlayers),
+			NumberOfPlayers: helpers.ClampUint32FromInt(respBeta.OnlinePlayers),
+			MaxPlayers:      helpers.ClampUint32FromInt(respBeta.MaxPlayers),
 		}, nil
 	}
 	return nil, ErrMinecraftServerUnreachable

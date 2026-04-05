@@ -50,11 +50,11 @@ func TestGrantRemoteGameServerAccessFallsBackGrantorToOwner(t *testing.T) {
 	if errGrant != nil {
 		t.Fatalf("GrantRemoteGameServerAccess() error = %v", errGrant)
 	}
-	if response == nil || response.Msg == nil || response.Msg.Grant == nil {
+	if response == nil || response.Msg == nil || response.Msg.GetGrant() == nil {
 		t.Fatalf("GrantRemoteGameServerAccess() returned empty response")
 	}
 
-	assignment, errGetAssignment := fixture.conn.GetUserRoleAssignmentByID(response.Msg.Grant.Id)
+	assignment, errGetAssignment := fixture.conn.GetUserRoleAssignmentByID(response.Msg.GetGrant().GetId())
 	if errGetAssignment != nil {
 		t.Fatalf("GetUserRoleAssignmentByID() error = %v", errGetAssignment)
 	}
@@ -142,11 +142,11 @@ func TestGrantRemoteFederatedAccessFallsBackGrantorToOwner(t *testing.T) {
 	if errGrant != nil {
 		t.Fatalf("GrantRemoteFederatedAccess() error = %v", errGrant)
 	}
-	if response == nil || response.Msg == nil || response.Msg.Grant == nil {
+	if response == nil || response.Msg == nil || response.Msg.GetGrant() == nil {
 		t.Fatalf("GrantRemoteFederatedAccess() returned empty response")
 	}
 
-	grantModel, errGetGrant := fixture.conn.GetFederatedAccessGrantByID(response.Msg.Grant.Id)
+	grantModel, errGetGrant := fixture.conn.GetFederatedAccessGrantByID(response.Msg.GetGrant().GetId())
 	if errGetGrant != nil {
 		t.Fatalf("GetFederatedAccessGrantByID() error = %v", errGetGrant)
 	}

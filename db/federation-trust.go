@@ -3,12 +3,14 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/stephenafamo/bob/dialect/sqlite"
 
 	"github.com/ClintonCollins/Xylona/helpers"
 )
 
+// FederationLocalIdentity stores the local node's federation identity material.
 type FederationLocalIdentity struct {
 	NodeID          string
 	CertPEM         string
@@ -16,6 +18,7 @@ type FederationLocalIdentity struct {
 	CertFingerprint string
 }
 
+// FederationTrustedPeer stores trust metadata for a remote federation peer.
 type FederationTrustedPeer struct {
 	NodeID          string
 	PeerNodeID      string
@@ -24,6 +27,7 @@ type FederationTrustedPeer struct {
 	Revoked         bool
 }
 
+// UpsertFederationLocalIdentity stores the local federation identity.
 func (c *Connection) UpsertFederationLocalIdentity(nodeID string, certPEM string, keyPEM string, certFingerprint string) error {
 	_, errExec := sqlite.RawQuery(
 		`insert into federation_local_identity
@@ -42,9 +46,13 @@ func (c *Connection) UpsertFederationLocalIdentity(nodeID string, certPEM string
 		keyPEM,
 		certFingerprint,
 	).Exec(c.ctx, c.DB)
-	return errExec
+	if errExec != nil {
+		return fmt.Errorf("upsert federation local identity: %w", errExec)
+	}
+	return nil
 }
 
+// GetFederationLocalIdentity returns the stored local federation identity.
 func (c *Connection) GetFederationLocalIdentity() (*FederationLocalIdentity, error) {
 	identity := &FederationLocalIdentity{}
 	errQuery := c.SQLDb.QueryRowContext(
@@ -59,11 +67,12 @@ func (c *Connection) GetFederationLocalIdentity() (*FederationLocalIdentity, err
 		&identity.CertFingerprint,
 	)
 	if errQuery != nil {
-		return nil, errQuery
+		return nil, fmt.Errorf("get federation local identity: %w", errQuery)
 	}
 	return identity, nil
 }
 
+// UpsertFederationTrustedPeer stores or updates trust metadata for a peer.
 func (c *Connection) UpsertFederationTrustedPeer(nodeID string, peerNodeID string, peerFingerprint string, enabled bool, revoked bool) error {
 	_, errExec := sqlite.RawQuery(
 		`insert into federation_trusted_peer
@@ -81,9 +90,13 @@ func (c *Connection) UpsertFederationTrustedPeer(nodeID string, peerNodeID strin
 		enabled,
 		revoked,
 	).Exec(c.ctx, c.DB)
-	return errExec
+	if errExec != nil {
+		return fmt.Errorf("upsert federation trusted peer: %w", errExec)
+	}
+	return nil
 }
 
+// GetFederationTrustedPeerByNodeID returns a trusted peer by node ID.
 func (c *Connection) GetFederationTrustedPeerByNodeID(nodeID string) (*FederationTrustedPeer, error) {
 	return c.getFederationTrustedPeer(
 		`select node_id, peer_node_id, peer_fingerprint, enabled, revoked
@@ -93,6 +106,7 @@ func (c *Connection) GetFederationTrustedPeerByNodeID(nodeID string) (*Federatio
 	)
 }
 
+// GetFederationTrustedPeerByFingerprint returns a trusted peer by fingerprint.
 func (c *Connection) GetFederationTrustedPeerByFingerprint(peerFingerprint string) (*FederationTrustedPeer, error) {
 	return c.getFederationTrustedPeer(
 		`select node_id, peer_node_id, peer_fingerprint, enabled, revoked
@@ -102,6 +116,7 @@ func (c *Connection) GetFederationTrustedPeerByFingerprint(peerFingerprint strin
 	)
 }
 
+// RevokeFederationTrustedPeer updates a peer's revoked state.
 func (c *Connection) RevokeFederationTrustedPeer(nodeID string, revoked bool) error {
 	_, errExec := sqlite.RawQuery(
 		`update federation_trusted_peer
@@ -110,9 +125,13 @@ func (c *Connection) RevokeFederationTrustedPeer(nodeID string, revoked bool) er
 		revoked,
 		nodeID,
 	).Exec(c.ctx, c.DB)
-	return errExec
+	if errExec != nil {
+		return fmt.Errorf("revoke federation trusted peer: %w", errExec)
+	}
+	return nil
 }
 
+// SetFederationTrustedPeerEnabled updates whether a peer is enabled.
 func (c *Connection) SetFederationTrustedPeerEnabled(nodeID string, enabled bool) error {
 	_, errExec := sqlite.RawQuery(
 		`update federation_trusted_peer
@@ -121,10 +140,13 @@ func (c *Connection) SetFederationTrustedPeerEnabled(nodeID string, enabled bool
 		enabled,
 		nodeID,
 	).Exec(c.ctx, c.DB)
-	return errExec
+	if errExec != nil {
+		return fmt.Errorf("set federation trusted peer enabled: %w", errExec)
+	}
+	return nil
 }
 
-// GetFederationTrustedPeerLookup returns the trusted peer info in the format needed by helpers.TrustedPeerLookup.
+// GetFederationTrustedPeerLookup returns the trust info needed for outbound mTLS.
 func (c *Connection) GetFederationTrustedPeerLookup(nodeID string) (*helpers.TrustedPeerInfo, error) {
 	peer, errPeer := c.GetFederationTrustedPeerByNodeID(nodeID)
 	if errPeer != nil {
@@ -149,9 +171,9 @@ func (c *Connection) getFederationTrustedPeer(query string, arg string) (*Federa
 	)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
-			return nil, sql.ErrNoRows
+			return nil, fmt.Errorf("get federation trusted peer: %w", sql.ErrNoRows)
 		}
-		return nil, errQuery
+		return nil, fmt.Errorf("get federation trusted peer: %w", errQuery)
 	}
 	return peer, nil
 }

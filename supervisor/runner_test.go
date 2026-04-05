@@ -92,7 +92,7 @@ func TestCommandOutputListener(t *testing.T) {
 	for !found {
 		select {
 		case msg := <-outChan:
-			if msg.GameServerConsoleOutput != nil && strings.Contains(msg.GameServerConsoleOutput.Output, "test-output") {
+			if msg.GetGameServerConsoleOutput() != nil && strings.Contains(msg.GetGameServerConsoleOutput().GetOutput(), "test-output") {
 				found = true
 			}
 		case <-timeout:

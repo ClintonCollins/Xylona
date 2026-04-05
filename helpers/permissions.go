@@ -1,9 +1,12 @@
 package helpers
 
 import (
+	"fmt"
+
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// PermissionLookup defines the permission checks needed by HasPermission.
 type PermissionLookup interface {
 	UserHasPermissionOnServer(userID string, gameServerID string, permissionID string) (bool, error)
 }
@@ -20,5 +23,9 @@ func HasPermission(permissionLookup PermissionLookup, user *models.User, gameSer
 	if user.ID == gameServerOwnerUserID {
 		return true, nil
 	}
-	return permissionLookup.UserHasPermissionOnServer(user.ID, gameServerID, permissionID)
+	allowed, errPermission := permissionLookup.UserHasPermissionOnServer(user.ID, gameServerID, permissionID)
+	if errPermission != nil {
+		return false, fmt.Errorf("check permission %s for user %s on server %s: %w", permissionID, user.ID, gameServerID, errPermission)
+	}
+	return allowed, nil
 }

@@ -138,11 +138,11 @@ func TestCreateListGetUser(t *testing.T) {
 	if errCreateUser != nil {
 		t.Fatalf("CreateUser() error = %v", errCreateUser)
 	}
-	if createResponse.Msg == nil || createResponse.Msg.User == nil {
+	if createResponse.Msg == nil || createResponse.Msg.GetUser() == nil {
 		t.Fatalf("CreateUser() returned empty response")
 	}
 
-	createdUserID := createResponse.Msg.User.Id
+	createdUserID := createResponse.Msg.GetUser().GetId()
 
 	listRequest := connect.NewRequest(&xylona.ListUsersRequest{})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listRequest, "user-admin")
@@ -151,13 +151,13 @@ func TestCreateListGetUser(t *testing.T) {
 	if errListUsers != nil {
 		t.Fatalf("ListUsers() error = %v", errListUsers)
 	}
-	if len(listResponse.Msg.Users) < 1 {
+	if len(listResponse.Msg.GetUsers()) < 1 {
 		t.Fatalf("ListUsers() returned no users")
 	}
 
 	foundCreatedUser := false
-	for _, user := range listResponse.Msg.Users {
-		if user.Id == createdUserID {
+	for _, user := range listResponse.Msg.GetUsers() {
+		if user.GetId() == createdUserID {
 			foundCreatedUser = true
 			break
 		}
@@ -175,11 +175,11 @@ func TestCreateListGetUser(t *testing.T) {
 	if errGetUser != nil {
 		t.Fatalf("GetUser() error = %v", errGetUser)
 	}
-	if getResponse.Msg == nil || getResponse.Msg.User == nil {
+	if getResponse.Msg == nil || getResponse.Msg.GetUser() == nil {
 		t.Fatalf("GetUser() returned empty response")
 	}
-	if getResponse.Msg.User.UserName != "user-crud" {
-		t.Errorf("GetUser().UserName = %q, want %q", getResponse.Msg.User.UserName, "user-crud")
+	if getResponse.Msg.GetUser().GetUserName() != "user-crud" {
+		t.Errorf("GetUser().UserName = %q, want %q", getResponse.Msg.GetUser().GetUserName(), "user-crud")
 	}
 }
 
@@ -187,14 +187,14 @@ func TestUpdateUserWithoutPasswordKeepsPasswordHash(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
 	createdUser := createUserForRPCUserTests(t, fixture, "user-update-no-pass", false)
-	createdModel, errGetCreatedUser := fixture.conn.GetUserByID(createdUser.Id)
+	createdModel, errGetCreatedUser := fixture.conn.GetUserByID(createdUser.GetId())
 	if errGetCreatedUser != nil {
 		t.Fatalf("GetUserByID(created) error = %v", errGetCreatedUser)
 	}
 	initialPasswordHash := createdModel.PasswordHash
 
 	updateRequest := connect.NewRequest(&xylona.UpdateUserRequest{
-		Id:        createdUser.Id,
+		Id:        createdUser.GetId(),
 		UserName:  "user-update-no-pass",
 		Email:     "user-update-no-pass@example.com",
 		FirstName: "Updated",
@@ -207,14 +207,14 @@ func TestUpdateUserWithoutPasswordKeepsPasswordHash(t *testing.T) {
 	if errUpdateUser != nil {
 		t.Fatalf("UpdateUser() error = %v", errUpdateUser)
 	}
-	if updateResponse.Msg == nil || updateResponse.Msg.User == nil {
+	if updateResponse.Msg == nil || updateResponse.Msg.GetUser() == nil {
 		t.Fatalf("UpdateUser() returned empty response")
 	}
-	if !updateResponse.Msg.User.SuperUser {
-		t.Errorf("UpdateUser().User.SuperUser = %v, want %v", updateResponse.Msg.User.SuperUser, true)
+	if !updateResponse.Msg.GetUser().GetSuperUser() {
+		t.Errorf("UpdateUser().User.SuperUser = %v, want %v", updateResponse.Msg.GetUser().GetSuperUser(), true)
 	}
 
-	updatedModel, errGetUpdatedUser := fixture.conn.GetUserByID(createdUser.Id)
+	updatedModel, errGetUpdatedUser := fixture.conn.GetUserByID(createdUser.GetId())
 	if errGetUpdatedUser != nil {
 		t.Fatalf("GetUserByID(updated) error = %v", errGetUpdatedUser)
 	}
@@ -227,14 +227,14 @@ func TestUpdateUserWithPasswordRehashesPassword(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
 	createdUser := createUserForRPCUserTests(t, fixture, "user-update-pass", false)
-	createdModel, errGetCreatedUser := fixture.conn.GetUserByID(createdUser.Id)
+	createdModel, errGetCreatedUser := fixture.conn.GetUserByID(createdUser.GetId())
 	if errGetCreatedUser != nil {
 		t.Fatalf("GetUserByID(created) error = %v", errGetCreatedUser)
 	}
 	initialPasswordHash := createdModel.PasswordHash
 
 	updateRequest := connect.NewRequest(&xylona.UpdateUserRequest{
-		Id:        createdUser.Id,
+		Id:        createdUser.GetId(),
 		UserName:  "user-update-pass",
 		Email:     "user-update-pass@example.com",
 		FirstName: "Updated",
@@ -249,7 +249,7 @@ func TestUpdateUserWithPasswordRehashesPassword(t *testing.T) {
 		t.Fatalf("UpdateUser() error = %v", errUpdateUser)
 	}
 
-	updatedModel, errGetUpdatedUser := fixture.conn.GetUserByID(createdUser.Id)
+	updatedModel, errGetUpdatedUser := fixture.conn.GetUserByID(createdUser.GetId())
 	if errGetUpdatedUser != nil {
 		t.Fatalf("GetUserByID(updated) error = %v", errGetUpdatedUser)
 	}
@@ -291,7 +291,7 @@ func TestDeleteUser(t *testing.T) {
 	createdUser := createUserForRPCUserTests(t, fixture, "user-delete-rpc", false)
 
 	deleteRequest := connect.NewRequest(&xylona.DeleteUserRequest{
-		Id: createdUser.Id,
+		Id: createdUser.GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteRequest, "user-admin")
 
@@ -300,7 +300,7 @@ func TestDeleteUser(t *testing.T) {
 		t.Fatalf("DeleteUser() error = %v", errDeleteUser)
 	}
 
-	_, errGetUser := fixture.conn.GetUserByID(createdUser.Id)
+	_, errGetUser := fixture.conn.GetUserByID(createdUser.GetId())
 	if !errors.Is(errGetUser, sql.ErrNoRows) {
 		t.Errorf("GetUserByID() error = %v, want %v", errGetUser, sql.ErrNoRows)
 	}
@@ -359,11 +359,11 @@ func createUserForRPCUserTests(t *testing.T, fixture *rbacRPCFixture, userName s
 	if errCreateUser != nil {
 		t.Fatalf("CreateUser() error = %v", errCreateUser)
 	}
-	if response.Msg == nil || response.Msg.User == nil {
+	if response.Msg == nil || response.Msg.GetUser() == nil {
 		t.Fatalf("CreateUser() returned empty response")
 	}
 
-	return response.Msg.User
+	return response.Msg.GetUser()
 }
 
 func TestCreateUserDuplicateUsername(t *testing.T) {

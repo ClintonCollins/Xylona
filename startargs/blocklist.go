@@ -1,3 +1,4 @@
+// Package startargs parses, resolves, and validates managed server start arguments.
 package startargs
 
 import (
@@ -5,6 +6,7 @@ import (
 	"regexp"
 )
 
+// CompiledBlocklist is a regex-ready blocklist for validating argument tokens.
 type CompiledBlocklist struct {
 	entries []compiledEntry
 }
@@ -15,12 +17,14 @@ type compiledEntry struct {
 	reason  string
 }
 
+// BlocklistViolation describes the first blocked token encountered during validation.
 type BlocklistViolation struct {
 	Token   string
 	Pattern string
 	Reason  string
 }
 
+// CompileBlocklist compiles blocklist entries into regular expressions.
 func CompileBlocklist(entries []BlocklistEntry) (*CompiledBlocklist, error) {
 	compiled := &CompiledBlocklist{
 		entries: make([]compiledEntry, 0, len(entries)),
@@ -42,6 +46,7 @@ func CompileBlocklist(entries []BlocklistEntry) (*CompiledBlocklist, error) {
 	return compiled, nil
 }
 
+// Validate returns the first token that matches the compiled blocklist.
 func (bl *CompiledBlocklist) Validate(tokens []string) *BlocklistViolation {
 	if bl == nil {
 		return nil

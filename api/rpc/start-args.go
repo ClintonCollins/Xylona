@@ -39,7 +39,7 @@ func redactGameServerForNonSuperuser(gameServer *xylona.GameServer) {
 		return
 	}
 
-	redactGameForNonSuperuser(gameServer.Game)
+	redactGameForNonSuperuser(gameServer.GetGame())
 }
 
 func normalizeStartArgsPlatform(platform string) (string, error) {
@@ -48,7 +48,7 @@ func normalizeStartArgsPlatform(platform string) (string, error) {
 	case "linux", "windows":
 		return normalized, nil
 	default:
-		return "", fmt.Errorf("platform must be linux or windows")
+		return "", errors.New("platform must be linux or windows")
 	}
 }
 
@@ -101,7 +101,7 @@ func validateTemplateBlocks(blocks []startargs.ArgBlock) error {
 	for _, block := range blocks {
 		blockID := strings.TrimSpace(block.ID)
 		if blockID == "" {
-			return fmt.Errorf("template block id is required")
+			return errors.New("template block id is required")
 		}
 		if _, exists := seenIDs[blockID]; exists {
 			return fmt.Errorf("duplicate template block id %q", blockID)
@@ -157,7 +157,7 @@ func validateSharedTemplateIDs(primary []startargs.ArgBlock, secondary []startar
 func validateGameTemplateUpdate(game *models.Game, platform string, templateJSON string, baseCommand string) error {
 	templateBlocks, errTemplate := startargs.ParseTemplate(templateJSON)
 	if errTemplate != nil {
-		return errTemplate
+		return fmt.Errorf("rpc: parse start args template: %w", errTemplate)
 	}
 	errValidateTemplate := validateTemplateBlocks(templateBlocks)
 	if errValidateTemplate != nil {
@@ -175,7 +175,7 @@ func validateGameTemplateUpdate(game *models.Game, platform string, templateJSON
 
 	otherBlocks, errOther := startargs.ParseTemplate(templateJSONForPlatform(game, otherPlatform))
 	if errOther != nil {
-		return errOther
+		return fmt.Errorf("rpc: parse other platform start args template: %w", errOther)
 	}
 
 	return validateSharedTemplateIDs(templateBlocks, otherBlocks)
@@ -184,11 +184,14 @@ func validateGameTemplateUpdate(game *models.Game, platform string, templateJSON
 func validateGameBlocklistUpdate(blocklistJSON string) error {
 	blocklistEntries, errParse := startargs.ParseBlocklist(blocklistJSON)
 	if errParse != nil {
-		return errParse
+		return fmt.Errorf("rpc: parse start arg blocklist: %w", errParse)
 	}
 
 	_, errCompile := startargs.CompileBlocklist(blocklistEntries)
-	return errCompile
+	if errCompile != nil {
+		return fmt.Errorf("rpc: compile start arg blocklist: %w", errCompile)
+	}
+	return nil
 }
 
 func validateStructuredStartArgsGameConfig(game *models.Game) error {
@@ -237,7 +240,7 @@ func validateServerPatchStructure(template []startargs.ArgBlock, patches []start
 	for _, patch := range patches {
 		patchID := strings.TrimSpace(patch.ID)
 		if patchID == "" {
-			return fmt.Errorf("patch id is required")
+			return errors.New("patch id is required")
 		}
 
 		switch patch.Op {
@@ -290,7 +293,7 @@ func validateGameServerStartArgsUpdate(gameServer *models.GameServer, patchesJSO
 	templateJSON := templateJSONForPlatform(gameServer.R.Game, platform)
 	templateBlocks, errTemplate := startargs.ParseTemplate(templateJSON)
 	if errTemplate != nil {
-		return errTemplate
+		return fmt.Errorf("rpc: parse game server start args template: %w", errTemplate)
 	}
 	if len(templateBlocks) == 0 && normalizeStartArgsPatchesJSON(patchesJSON) == emptyStartArgsPatchesJSON {
 		return nil
@@ -301,7 +304,7 @@ func validateGameServerStartArgsUpdate(gameServer *models.GameServer, patchesJSO
 
 	patches, errPatches := startargs.ParsePatches(normalizeStartArgsPatchesJSON(patchesJSON))
 	if errPatches != nil {
-		return errPatches
+		return fmt.Errorf("rpc: parse game server start args patches: %w", errPatches)
 	}
 	errValidateStructure := validateServerPatchStructure(templateBlocks, patches)
 	if errValidateStructure != nil {
@@ -310,17 +313,17 @@ func validateGameServerStartArgsUpdate(gameServer *models.GameServer, patchesJSO
 
 	blocklistEntries, errBlocklist := startargs.ParseBlocklist(gameServer.R.Game.StartArgBlocklist)
 	if errBlocklist != nil {
-		return errBlocklist
+		return fmt.Errorf("rpc: parse game server start arg blocklist: %w", errBlocklist)
 	}
 	compiledBlocklist, errCompile := startargs.CompileBlocklist(blocklistEntries)
 	if errCompile != nil {
-		return errCompile
+		return fmt.Errorf("rpc: compile game server start arg blocklist: %w", errCompile)
 	}
 
 	vars := placeholder.BuildVarsFromGameServer(gameServer)
 	resolvedArgs, _, errResolve := startargs.ResolveArgs(templateBlocks, patches, vars)
 	if errResolve != nil {
-		return errResolve
+		return fmt.Errorf("rpc: resolve game server start args: %w", errResolve)
 	}
 
 	violation := compiledBlocklist.Validate(resolvedArgs)
@@ -331,6 +334,7 @@ func validateGameServerStartArgsUpdate(gameServer *models.GameServer, patchesJSO
 	return nil
 }
 
+// UpdateGameStartArgsTemplate updates the structured start args template for a game.
 func (xs *XylonaService) UpdateGameStartArgsTemplate(
 	_ context.Context,
 	request *connect.Request[xylona.UpdateGameStartArgsTemplateRequest],
@@ -385,6 +389,7 @@ func (xs *XylonaService) UpdateGameStartArgsTemplate(
 	}), nil
 }
 
+// UpdateGameStartArgBlocklist updates the blocked start argument list for a game.
 func (xs *XylonaService) UpdateGameStartArgBlocklist(
 	_ context.Context,
 	request *connect.Request[xylona.UpdateGameStartArgBlocklistRequest],
@@ -426,6 +431,7 @@ func (xs *XylonaService) UpdateGameStartArgBlocklist(
 	}), nil
 }
 
+// UpdateGameServerStartArgs updates structured start args patches for a server.
 func (xs *XylonaService) UpdateGameServerStartArgs(
 	ctx context.Context,
 	request *connect.Request[xylona.UpdateGameServerStartArgsRequest],
@@ -510,15 +516,16 @@ func (xs *XylonaService) updateRemoteGameServerStartArgs(
 		return nil, wrapRemoteRPCError(errUpdate, "failed to update remote server start args")
 	}
 
-	if !resp.Msg.Success {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
+	if !resp.Msg.GetSuccess() {
+		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
 	}
 
 	return connect.NewResponse(&xylona.UpdateGameServerStartArgsResponse{
-		GameServer: resp.Msg.GameServer,
+		GameServer: resp.Msg.GetGameServer(),
 	}), nil
 }
 
+// UpdateRemoteServerStartArgs updates structured start args patches over federation.
 func (fs FederationService) UpdateRemoteServerStartArgs(
 	ctx context.Context,
 	request *connect.Request[xylona.FederationUpdateServerStartArgsRequest],

@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -39,14 +40,14 @@ var configExtensions = map[string]bool{
 // .update-backup/ in the server's directory.
 func backupServerFiles(gs *models.GameServer) error {
 	backupDir := filepath.Join(gs.Directory, ".update-backup")
-	errMkdir := os.MkdirAll(backupDir, 0755)
+	errMkdir := os.MkdirAll(backupDir, 0o750)
 	if errMkdir != nil {
-		return errMkdir
+		return fmt.Errorf("actions: create backup directory: %w", errMkdir)
 	}
 
 	entries, errRead := os.ReadDir(gs.Directory)
 	if errRead != nil {
-		return errRead
+		return fmt.Errorf("actions: read server directory: %w", errRead)
 	}
 
 	// Determine whether we back up a named executable or all executables.
@@ -109,12 +110,12 @@ func restoreServerFiles(gs *models.GameServer) error {
 		return nil
 	}
 	if errStat != nil {
-		return errStat
+		return fmt.Errorf("actions: stat backup directory: %w", errStat)
 	}
 
 	entries, errRead := os.ReadDir(backupDir)
 	if errRead != nil {
-		return errRead
+		return fmt.Errorf("actions: read backup directory: %w", errRead)
 	}
 
 	for _, entry := range entries {
@@ -132,7 +133,7 @@ func restoreServerFiles(gs *models.GameServer) error {
 
 	errRemove := os.RemoveAll(backupDir)
 	if errRemove != nil {
-		return errRemove
+		return fmt.Errorf("actions: remove backup directory: %w", errRemove)
 	}
 
 	return nil
@@ -177,7 +178,7 @@ func isExecutableFile(entry os.DirEntry) bool {
 func copyFile(src, dst string) error {
 	srcFile, errOpen := os.Open(src)
 	if errOpen != nil {
-		return errOpen
+		return fmt.Errorf("actions: open source file %s: %w", src, errOpen)
 	}
 	defer func() {
 		_ = srcFile.Close()
@@ -185,19 +186,22 @@ func copyFile(src, dst string) error {
 
 	srcInfo, errStat := srcFile.Stat()
 	if errStat != nil {
-		return errStat
+		return fmt.Errorf("actions: stat source file %s: %w", src, errStat)
 	}
 
 	dstFile, errCreate := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, srcInfo.Mode())
 	if errCreate != nil {
-		return errCreate
+		return fmt.Errorf("actions: create destination file %s: %w", dst, errCreate)
 	}
 	defer func() {
 		_ = dstFile.Close()
 	}()
 
 	_, errCopy := io.Copy(dstFile, srcFile)
-	return errCopy
+	if errCopy != nil {
+		return fmt.Errorf("actions: copy %s to %s: %w", src, dst, errCopy)
+	}
+	return nil
 }
 
 // UpdateGameServerWithBackup stops the server (if running), backs up config

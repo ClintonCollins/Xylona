@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// IsProtectedServerPath reports whether a relative path targets protected binaries.
 func IsProtectedServerPath(relativePath string, baseCommand string, serverExecutable string) bool {
 	normalizedPath := normalizeRelativePath(relativePath)
 	if normalizedPath == "" {

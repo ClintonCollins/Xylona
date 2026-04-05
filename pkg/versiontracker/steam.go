@@ -3,6 +3,7 @@ package versiontracker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -178,7 +179,7 @@ func (s *SteamTracker) GetLatestVersion(ctx context.Context, gs *models.GameServ
 
 	resp, errDo := s.httpClient.Do(req)
 	if errDo != nil {
-		return "", fmt.Errorf("Steam API request: %w", errDo)
+		return "", fmt.Errorf("steam API request: %w", errDo)
 	}
 	defer func() {
 		errClose := resp.Body.Close()
@@ -200,7 +201,6 @@ func (s *SteamTracker) GetLatestVersion(ctx context.Context, gs *models.GameServ
 }
 
 // CheckForUpdate compares the installed buildid against the Steam latest version.
-// Returns nil when versions match or either version cannot be determined.
 func (s *SteamTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer) (*UpdateInfo, error) {
 	installed, errInstalled := s.GetInstalledVersion(ctx, gs)
 	if errInstalled != nil {
@@ -212,14 +212,11 @@ func (s *SteamTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer
 	}
 	installed = normalizeVersion(installed)
 	latest = normalizeVersion(latest)
-	if installed == "" || latest == "" || versionsEqual(installed, latest) {
-		return nil, nil
-	}
 
 	updateInfo := &UpdateInfo{
 		InstalledVersion:      installed,
 		LatestVersion:         latest,
-		UpdateAvailable:       true,
+		UpdateAvailable:       installed != "" && latest != "" && !versionsEqual(installed, latest),
 		InstalledVersionLabel: installed,
 		LatestVersionLabel:    latest,
 	}
@@ -232,6 +229,7 @@ func (s *SteamTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer
 	return updateInfo, nil
 }
 
+// EnrichVersionState fills user-facing labels and branch metadata onto a version state.
 func EnrichVersionState(ctx context.Context, tracker VersionTracker, gs *models.GameServer, state *VersionState) {
 	if state == nil {
 		return
@@ -307,9 +305,15 @@ func (s *SteamTracker) resolveAppID(gs *models.GameServer) (string, error) {
 
 func (s *SteamTracker) fetchReleases(ctx context.Context, appID string) ([]steamcache.SteamRelease, error) {
 	if s.steamCache == nil {
-		return nil, fmt.Errorf("steam release metadata unavailable")
+		return nil, errors.New("steam release metadata unavailable")
 	}
-	return s.steamCache.FetchReleases(ctx, appID)
+
+	releases, errFetch := s.steamCache.FetchReleases(ctx, appID)
+	if errFetch != nil {
+		return nil, fmt.Errorf("fetch steam releases: %w", errFetch)
+	}
+
+	return releases, nil
 }
 
 func preferredSteamRelease(releases []steamcache.SteamRelease, branch string) *steamcache.SteamRelease {

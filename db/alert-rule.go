@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aarondl/opt/null"
@@ -51,7 +52,7 @@ func (c *Connection) InsertAlertRule(userID, serverID, serverNodeID, nodeID, eve
 	rule, errInsert := models.AlertRules.Insert(setter).One(c.ctx, c.DB)
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Error inserting alert rule")
-		return nil, errInsert
+		return nil, fmt.Errorf("insert alert rule: %w", errInsert)
 	}
 
 	return rule, nil
@@ -61,7 +62,7 @@ func (c *Connection) InsertAlertRule(userID, serverID, serverNodeID, nodeID, eve
 func (c *Connection) GetAlertRuleByID(id string) (*models.AlertRule, error) {
 	rule, errGet := models.FindAlertRule(c.ctx, c.DB, id)
 	if errGet != nil {
-		return nil, errGet
+		return nil, fmt.Errorf("get alert rule by ID: %w", errGet)
 	}
 	return rule, nil
 }
@@ -76,7 +77,7 @@ func (c *Connection) GetAlertRulesByUserID(userID string) ([]*models.AlertRule, 
 			return nil, nil
 		}
 		log.Error().Err(errGet).Str("user_id", userID).Msg("Error querying alert rules by user ID")
-		return nil, errGet
+		return nil, fmt.Errorf("get alert rules by user ID: %w", errGet)
 	}
 
 	return rules, nil
@@ -94,7 +95,7 @@ func (c *Connection) GetAlertRulesByServerID(serverID, serverNodeID string) ([]*
 			return nil, nil
 		}
 		log.Error().Err(errGet).Str("server_id", serverID).Str("server_node_id", serverNodeID).Msg("Error querying alert rules by server ID")
-		return nil, errGet
+		return nil, fmt.Errorf("get alert rules by server ID: %w", errGet)
 	}
 
 	return rules, nil
@@ -117,7 +118,7 @@ func (c *Connection) GetAlertRulesByUserAndServerID(userID, serverID, serverNode
 			Str("server_id", serverID).
 			Str("server_node_id", serverNodeID).
 			Msg("Error querying alert rules by user and server ID")
-		return nil, errGet
+		return nil, fmt.Errorf("get alert rules by user and server ID: %w", errGet)
 	}
 
 	return rules, nil
@@ -135,7 +136,7 @@ func (c *Connection) GetEnabledAlertRulesByEventType(eventType string) ([]*model
 			return nil, nil
 		}
 		log.Error().Err(errGet).Str("event_type", eventType).Msg("Error querying enabled alert rules by event type")
-		return nil, errGet
+		return nil, fmt.Errorf("get enabled alert rules by event type: %w", errGet)
 	}
 
 	return rules, nil
@@ -169,7 +170,7 @@ func (c *Connection) UpdateAlertRule(id, userID, serverID, serverNodeID, nodeID,
 	).Exec(c.ctx, c.DB)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Str("alert_rule_id", id).Msg("Error updating alert rule")
-		return errUpdate
+		return fmt.Errorf("update alert rule: %w", errUpdate)
 	}
 
 	return nil
@@ -184,7 +185,7 @@ func (c *Connection) DeleteAlertRule(id, userID string) error {
 	).Exec(c.ctx, c.DB)
 	if errDelete != nil {
 		log.Error().Err(errDelete).Str("alert_rule_id", id).Msg("Error deleting alert rule")
-		return errDelete
+		return fmt.Errorf("delete alert rule: %w", errDelete)
 	}
 	return nil
 }

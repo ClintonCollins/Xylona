@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aarondl/opt/null"
@@ -41,7 +42,7 @@ func (c *Connection) GetOrCreateAlertState(ruleID, entityType, entityID, entityN
 	).Exec(c.ctx, c.DB)
 	if errInsert != nil {
 		log.Error().Err(errInsert).Str("alert_rule_id", ruleID).Msg("Error inserting alert state")
-		return nil, errInsert
+		return nil, fmt.Errorf("insert alert state: %w", errInsert)
 	}
 
 	existing, errGet := models.AlertStates.Query(
@@ -52,10 +53,10 @@ func (c *Connection) GetOrCreateAlertState(ruleID, entityType, entityID, entityN
 	).One(c.ctx, c.DB)
 	if errGet != nil {
 		if errors.Is(errGet, sql.ErrNoRows) {
-			return nil, sql.ErrNoRows
+			return nil, fmt.Errorf("get alert state: %w", sql.ErrNoRows)
 		}
 		log.Error().Err(errGet).Str("alert_rule_id", ruleID).Msg("Error querying alert state")
-		return nil, errGet
+		return nil, fmt.Errorf("get alert state: %w", errGet)
 	}
 
 	return existing, nil
@@ -88,7 +89,7 @@ func (c *Connection) UpdateAlertStateTriggered(id string, triggered bool) error 
 	).Exec(c.ctx, c.DB)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Str("alert_state_id", id).Bool("triggered", triggered).Msg("Error updating alert state triggered")
-		return errUpdate
+		return fmt.Errorf("update alert state triggered: %w", errUpdate)
 	}
 
 	return nil

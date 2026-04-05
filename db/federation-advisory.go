@@ -15,7 +15,7 @@ import (
 func (c *Connection) InsertFederationAdvisory(setter *models.FederationAdvisorySetter) (*models.FederationAdvisory, error) {
 	advisory, errInsert := models.FederationAdvisories.Insert(setter).One(c.ctx, c.DB)
 	if errInsert != nil {
-		return nil, errInsert
+		return nil, fmt.Errorf("insert federation advisory: %w", errInsert)
 	}
 	return advisory, nil
 }
@@ -32,7 +32,7 @@ func (c *Connection) ListFederationAdvisories(unreadOnly bool, limit, offset int
 func (c *Connection) listAdvisoriesAll(limit, offset int) ([]*models.FederationAdvisory, int64, error) {
 	total, errCount := models.FederationAdvisories.Query().Count(c.ctx, c.DB)
 	if errCount != nil {
-		return nil, 0, errCount
+		return nil, 0, fmt.Errorf("count federation advisories: %w", errCount)
 	}
 
 	advisories, errQuery := models.FederationAdvisories.Query(
@@ -41,7 +41,7 @@ func (c *Connection) listAdvisoriesAll(limit, offset int) ([]*models.FederationA
 		sm.Offset(offset),
 	).All(c.ctx, c.DB)
 	if errQuery != nil {
-		return nil, 0, errQuery
+		return nil, 0, fmt.Errorf("list federation advisories: %w", errQuery)
 	}
 
 	return advisories, total, nil
@@ -52,7 +52,7 @@ func (c *Connection) listAdvisoriesFiltered(limit, offset int) ([]*models.Federa
 
 	total, errCount := models.FederationAdvisories.Query(unreadFilter).Count(c.ctx, c.DB)
 	if errCount != nil {
-		return nil, 0, errCount
+		return nil, 0, fmt.Errorf("count unread federation advisories: %w", errCount)
 	}
 
 	advisories, errQuery := models.FederationAdvisories.Query(
@@ -62,7 +62,7 @@ func (c *Connection) listAdvisoriesFiltered(limit, offset int) ([]*models.Federa
 		sm.Offset(offset),
 	).All(c.ctx, c.DB)
 	if errQuery != nil {
-		return nil, 0, errQuery
+		return nil, 0, fmt.Errorf("list unread federation advisories: %w", errQuery)
 	}
 
 	return advisories, total, nil
@@ -80,7 +80,10 @@ func (c *Connection) MarkAdvisoriesRead(ids []string) error {
 			readSetter.UpdateMod(),
 			models.UpdateWhere.FederationAdvisories.Read.EQ(false),
 		).All(c.ctx, c.DB)
-		return errExec
+		if errExec != nil {
+			return fmt.Errorf("mark all federation advisories read: %w", errExec)
+		}
+		return nil
 	}
 
 	placeholders := make([]string, len(ids))
@@ -95,7 +98,10 @@ func (c *Connection) MarkAdvisoriesRead(ids []string) error {
 		strings.Join(placeholders, ", "),
 	)
 	_, errExec := sqlite.RawQuery(query, args...).Exec(c.ctx, c.DB)
-	return errExec
+	if errExec != nil {
+		return fmt.Errorf("mark federation advisories read: %w", errExec)
+	}
+	return nil
 }
 
 // GetUnreadAdvisoryCount returns the number of unread federation advisories.
@@ -104,7 +110,7 @@ func (c *Connection) GetUnreadAdvisoryCount() (int64, error) {
 		models.SelectWhere.FederationAdvisories.Read.EQ(false),
 	).Count(c.ctx, c.DB)
 	if errCount != nil {
-		return 0, errCount
+		return 0, fmt.Errorf("count unread federation advisories: %w", errCount)
 	}
 	return count, nil
 }

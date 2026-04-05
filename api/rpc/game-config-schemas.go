@@ -6,12 +6,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"connectrpc.com/connect"
 
 	"github.com/ClintonCollins/Xylona/cfgparse"
 	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -134,8 +136,8 @@ func (xs *XylonaService) getGameServerConfigFilesLocal(
 		_, errStat := os.Stat(filePath)
 		existsOnDisk := errStat == nil
 
-		fieldCount := int32(len(entry.Schema.Properties))
-		managedCount := int32(len(entry.ManagedFields))
+		fieldCount := helpers.ClampInt32FromInt(len(entry.Schema.Properties))
+		managedCount := helpers.ClampInt32FromInt(len(entry.ManagedFields))
 
 		configFiles = append(configFiles, &xylona.ConfigFileInfo{
 			Path:                entry.Path,
@@ -351,14 +353,14 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 	var fields []cfgschema.FieldData
 	for _, pf := range msg.GetFields() {
 		fd := cfgschema.FieldData{
-			Key:               pf.Key,
-			Value:             pf.Value,
-			Title:             pf.Title,
-			FieldType:         pf.FieldType,
-			IsManaged:         pf.IsManaged,
-			IsMissingFromFile: pf.IsMissingFromFile,
-			AllowMultiple:     pf.AllowMultiple,
-			Values:            pf.Values,
+			Key:               pf.GetKey(),
+			Value:             pf.GetValue(),
+			Title:             pf.GetTitle(),
+			FieldType:         pf.GetFieldType(),
+			IsManaged:         pf.GetIsManaged(),
+			IsMissingFromFile: pf.GetIsMissingFromFile(),
+			AllowMultiple:     pf.GetAllowMultiple(),
+			Values:            pf.GetValues(),
 		}
 		if pf.Minimum != nil {
 			fd.Minimum = pf.Minimum
@@ -400,8 +402,19 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("structured format editing not yet supported"))
 	}
 
+	relativePath := strings.TrimPrefix(schemaEntry.Path, string(filepath.Separator))
+	if relativePath != "" && !filepath.IsLocal(relativePath) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid config file path"))
+	}
+
+	cleanGameServerDir := filepath.Clean(gameServer.Directory)
+	filePath := filepath.Clean(filepath.Join(cleanGameServerDir, relativePath))
+	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
+	if filePath != cleanGameServerDir && !strings.HasPrefix(filePath, gameServerDirPrefix) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("config file path escapes server directory"))
+	}
+
 	// Read existing file.
-	filePath := filepath.Join(gameServer.Directory, msg.GetFilePath())
 	var existingEntries []cfgparse.ConfigEntry
 
 	fileData, errRead := os.ReadFile(filePath)
@@ -416,9 +429,9 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 	var advancedFields []cfgschema.AdvancedFieldData
 	for _, af := range msg.GetAdvancedFields() {
 		advancedFields = append(advancedFields, cfgschema.AdvancedFieldData{
-			Key:     af.Key,
-			Value:   af.Value,
-			Section: af.Section,
+			Key:     af.GetKey(),
+			Value:   af.GetValue(),
+			Section: af.GetSection(),
 		})
 	}
 
@@ -432,12 +445,12 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 
 	// Ensure parent directory exists.
 	dir := filepath.Dir(filePath)
-	errMkdir := os.MkdirAll(dir, 0o755)
+	errMkdir := os.MkdirAll(dir, 0o750)
 	if errMkdir != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create directory"))
 	}
 
-	errWriteFile := os.WriteFile(filePath, output, 0o644)
+	errWriteFile := os.WriteFile(filePath, output, 0o600) //nolint:gosec // filePath is validated as local and constrained to gameServer.Directory above.
 	if errWriteFile != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to write config file"))
 	}

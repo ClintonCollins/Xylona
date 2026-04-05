@@ -112,7 +112,7 @@ func TestGetAlertHistoryByUserID(t *testing.T) {
 		t.Fatalf("InsertAlertRule(other) error = %v", errRuleOther)
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, errInsert := conn.InsertAlertHistory(ruleOwner.ID, "user-owner", "", "", "", "server.crash", "", "discord", "sent")
 		if errInsert != nil {
 			t.Fatalf("InsertAlertHistory(owner %d) error = %v", i, errInsert)
@@ -235,7 +235,8 @@ func TestPruneAlertHistory(t *testing.T) {
 
 	// Insert old record.
 	oldTime := time.Now().UTC().Add(-48 * time.Hour).Format("2006-01-02 15:04:05")
-	_, errOld := conn.SQLDb.Exec(
+	_, errOld := conn.SQLDb.ExecContext(
+		conn.ctx,
 		`INSERT INTO alert_history (id, alert_rule_id, user_id, event_type, channel_type, delivery_status, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		"old-1", rule.ID, "user-owner", "server.crash", "discord", "sent", oldTime,

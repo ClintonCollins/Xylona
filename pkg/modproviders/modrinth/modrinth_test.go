@@ -2,6 +2,7 @@ package modrinth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -281,8 +282,8 @@ func TestCheckForUpdate_NoVersions(t *testing.T) {
 
 	p := newTestProvider(srv)
 	v, errCheck := p.CheckForUpdate(context.Background(), "obscure-mod", "1.20.1")
-	if errCheck != nil {
-		t.Fatalf("CheckForUpdate() error = %v", errCheck)
+	if !errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
+		t.Fatalf("CheckForUpdate() error = %v, want %v", errCheck, modproviders.ErrNoUpdateAvailable)
 	}
 	if v != nil {
 		t.Errorf("CheckForUpdate() = %+v, want nil when no versions", v)
@@ -377,21 +378,26 @@ func TestDownload_UsesLimitReader(t *testing.T) {
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/version/"):
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{
-				"id": "v-limited",
+			payload := map[string]any{
+				"id":             "v-limited",
 				"version_number": "1.0.0",
-				"game_versions": ["1.20.1"],
-				"loaders": [],
-				"files": [
+				"game_versions":  []string{"1.20.1"},
+				"loaders":        []string{},
+				"files": []map[string]any{
 					{
-						"url": "` + "http://" + r.Host + `/download/mod.jar",
-						"hashes": {"sha256": "abc"},
-						"size": ` + fmt.Sprintf("%d", testBodySize) + `,
-						"primary": true
-					}
-				],
-				"dependencies": []
-			}`))
+						"url":     "http://" + r.Host + `/download/mod.jar`,
+						"hashes":  map[string]string{"sha256": "abc"},
+						"size":    testBodySize,
+						"primary": true,
+					},
+				},
+				"dependencies": []string{},
+			}
+			errEncode := json.NewEncoder(w).Encode(payload)
+			if errEncode != nil {
+				http.Error(w, errEncode.Error(), http.StatusInternalServerError)
+				return
+			}
 		case r.URL.Path == "/download/mod.jar":
 			w.Header().Set("Content-Type", "application/octet-stream")
 			buf := make([]byte, testBodySize)

@@ -1,3 +1,4 @@
+// Package thunderstore implements the Thunderstore mod provider.
 package thunderstore
 
 import (
@@ -67,7 +68,7 @@ func (t *userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error
 	cloned.Header.Set("User-Agent", userAgent)
 	resp, errRT := t.wrapped.RoundTrip(cloned)
 	if errRT != nil {
-		return nil, errRT
+		return nil, fmt.Errorf("round trip request: %w", errRT)
 	}
 	return resp, nil
 }
@@ -243,10 +244,7 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 		return nil, fmt.Errorf("thunderstore get mod details: package %q not found in community %q", sourceID, community)
 	}
 
-	versions, errVersions := p.versionsFromPackage(found)
-	if errVersions != nil {
-		log.Warn().Err(errVersions).Str("sourceID", sourceID).Msg("thunderstore: failed to map versions for mod details")
-	}
+	versions := p.versionsFromPackage(found)
 
 	return &modproviders.ModDetails{
 		Source:      providerID,
@@ -268,7 +266,7 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 // GetVersions returns all versions for a package.
 // sourceID is the full_name (e.g., "ValheimPlus-ValheimPlus").
 // gameVersion is ignored for Thunderstore as versions carry no game version metadata.
-func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion string, params modproviders.SearchParams) ([]modproviders.ModVersion, error) {
+func (p *Provider) GetVersions(ctx context.Context, sourceID string, _ string, params modproviders.SearchParams) ([]modproviders.ModVersion, error) {
 	community := extractCommunity(params)
 	if community == "" {
 		community = "valheim"
@@ -290,10 +288,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 		return nil, fmt.Errorf("thunderstore get versions: package %q not found in community %q", sourceID, community)
 	}
 
-	versions, errVersions := p.versionsFromPackage(found)
-	if errVersions != nil {
-		return nil, fmt.Errorf("thunderstore get versions %q: %w", sourceID, errVersions)
-	}
+	versions := p.versionsFromPackage(found)
 	return versions, nil
 }
 
@@ -304,17 +299,17 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 // Download fetches the ZIP for the specified version and writes it to targetDir.
 // versionID is the version_number string (e.g., "0.9.12.0").
 func (p *Provider) Download(ctx context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
-        parts := strings.SplitN(sourceID, "-", 2)
-        if len(parts) != 2 {
-                return nil, fmt.Errorf("thunderstore download: invalid sourceID %q", sourceID)
-        }
+	parts := strings.SplitN(sourceID, "-", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("thunderstore download: invalid sourceID %q", sourceID)
+	}
 
-        downloadURL := fmt.Sprintf("%s/package/download/%s/%s/%s/", p.baseURL, parts[0], parts[1], versionID)
+	downloadURL := fmt.Sprintf("%s/package/download/%s/%s/%s/", p.baseURL, parts[0], parts[1], versionID)
 
-        req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-        if errReq != nil {
-                return nil, fmt.Errorf("thunderstore download: build request: %w", errReq)
-        }
+	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if errReq != nil {
+		return nil, fmt.Errorf("thunderstore download: build request: %w", errReq)
+	}
 	resp, errGet := p.httpClient.Do(req)
 	if errGet != nil {
 		return nil, fmt.Errorf("thunderstore download: GET %s: %w", downloadURL, errGet)
@@ -378,7 +373,7 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 		return nil, fmt.Errorf("thunderstore check for update %q: %w", sourceID, errVersions)
 	}
 	if len(versions) == 0 {
-		return nil, nil
+		return nil, modproviders.ErrNoUpdateAvailable
 	}
 	v := versions[0]
 	return &v, nil
@@ -417,7 +412,7 @@ func (p *Provider) getJSON(ctx context.Context, endpoint string, dest any) error
 }
 
 // versionsFromPackage maps the embedded versions array of a packageInfo into ModVersion entries.
-func (p *Provider) versionsFromPackage(pkg *packageInfo) ([]modproviders.ModVersion, error) {
+func (p *Provider) versionsFromPackage(pkg *packageInfo) []modproviders.ModVersion {
 	versions := make([]modproviders.ModVersion, 0, len(pkg.Versions))
 	for _, v := range pkg.Versions {
 		deps := make([]modproviders.ModDependency, 0, len(v.Dependencies))
@@ -435,7 +430,7 @@ func (p *Provider) versionsFromPackage(pkg *packageInfo) ([]modproviders.ModVers
 			Dependencies:  deps,
 		})
 	}
-	return versions, nil
+	return versions
 }
 
 // extractCommunity pulls the community string from SearchParams["community"].

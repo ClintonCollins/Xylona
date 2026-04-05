@@ -125,7 +125,6 @@ func TestRequiresAPIKey(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			p := &mockProvider{id: "test-apikey-" + tt.name, requiresAPIKey: tt.requiresAPIKey}
 			if got := p.RequiresAPIKey(); got != tt.requiresAPIKey {

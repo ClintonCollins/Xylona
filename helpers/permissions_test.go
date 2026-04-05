@@ -14,7 +14,7 @@ type permissionLookupStub struct {
 	called bool
 }
 
-func (p *permissionLookupStub) UserHasPermissionOnServer(userID string, gameServerID string, permissionID string) (bool, error) {
+func (p *permissionLookupStub) UserHasPermissionOnServer(_ string, _ string, _ string) (bool, error) {
 	p.called = true
 	return p.result, p.err
 }

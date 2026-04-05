@@ -56,7 +56,7 @@ func TestLoadGameConfigFromModel_LegacyServerSoftwareJSON(t *testing.T) {
 
 func TestLoadGameConfigFromModel_DerivesSteamCMDDefaults(t *testing.T) {
 	game := &models.Game{
-		ID:          "7_days_to_die",
+		ID:           "7_days_to_die",
 		UsesSteamcmd: true,
 	}
 

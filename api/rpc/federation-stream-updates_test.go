@@ -103,12 +103,12 @@ func TestStreamServerUpdates_SnapshotOnConnect(t *testing.T) {
 		t.Fatalf("expected first event to be a Snapshot, got %T", event.GetEvent())
 	}
 
-	if len(snapshot.Servers) == 0 {
+	if len(snapshot.GetServers()) == 0 {
 		t.Fatal("snapshot contains no servers, expected at least one")
 	}
 
-	if snapshot.Servers[0].ServerId != "server-local-1" {
-		t.Errorf("first server ID = %q, want %q", snapshot.Servers[0].ServerId, "server-local-1")
+	if snapshot.GetServers()[0].GetServerId() != "server-local-1" {
+		t.Errorf("first server ID = %q, want %q", snapshot.GetServers()[0].GetServerId(), "server-local-1")
 	}
 }
 
@@ -211,12 +211,12 @@ func TestStreamServerUpdates_StatusChangeEvent(t *testing.T) {
 		t.Fatalf("expected StatusChange event, got %T", event.GetEvent())
 	}
 
-	if statusChange.ServerId != "server-local-1" {
-		t.Errorf("StatusChange server ID = %q, want %q", statusChange.ServerId, "server-local-1")
+	if statusChange.GetServerId() != "server-local-1" {
+		t.Errorf("StatusChange server ID = %q, want %q", statusChange.GetServerId(), "server-local-1")
 	}
 
-	if statusChange.Status != xylona.Status_ONLINE {
-		t.Errorf("StatusChange status = %v, want %v", statusChange.Status, xylona.Status_ONLINE)
+	if statusChange.GetStatus() != xylona.Status_ONLINE {
+		t.Errorf("StatusChange status = %v, want %v", statusChange.GetStatus(), xylona.Status_ONLINE)
 	}
 }
 
@@ -356,8 +356,8 @@ func TestStreamServerUpdates_MetricsUpdate(t *testing.T) {
 
 		receivedMetrics = true
 
-		if metricsUpdate.ServerId != "server-local-1" {
-			t.Errorf("MetricsUpdate server ID = %q, want %q", metricsUpdate.ServerId, "server-local-1")
+		if metricsUpdate.GetServerId() != "server-local-1" {
+			t.Errorf("MetricsUpdate server ID = %q, want %q", metricsUpdate.GetServerId(), "server-local-1")
 		}
 
 		metrics := metricsUpdate.GetMetrics()
@@ -365,8 +365,8 @@ func TestStreamServerUpdates_MetricsUpdate(t *testing.T) {
 			t.Fatal("MetricsUpdate event has nil metrics")
 		}
 
-		if math.Abs(metrics.CpuPercent-50.0) > 0.1 {
-			t.Errorf("MetricsUpdate CPU percent = %v, want approximately 50.0", metrics.CpuPercent)
+		if math.Abs(metrics.GetCpuPercent()-50.0) > 0.1 {
+			t.Errorf("MetricsUpdate CPU percent = %v, want approximately 50.0", metrics.GetCpuPercent())
 		}
 	}
 }
@@ -531,7 +531,7 @@ func TestStreamServerUpdates_SnapshotOnServerCreate(t *testing.T) {
 	if initialSnapshot == nil {
 		t.Fatal("first message was not a snapshot")
 	}
-	initialCount := len(initialSnapshot.Servers)
+	initialCount := len(initialSnapshot.GetServers())
 
 	// Give the handler time to register its eventbus subscription (if it does).
 	// Then publish a game-server-created event.
@@ -577,8 +577,8 @@ func TestStreamServerUpdates_SnapshotOnServerCreate(t *testing.T) {
 		// contain the same servers as the initial snapshot (the DB hasn't changed
 		// so the count should match). The key assertion is that we received a
 		// snapshot at all — proving the handler reacts to the eventbus topic.
-		if len(snapshot.Servers) < initialCount {
-			t.Errorf("re-sent snapshot has %d servers, want at least %d", len(snapshot.Servers), initialCount)
+		if len(snapshot.GetServers()) < initialCount {
+			t.Errorf("re-sent snapshot has %d servers, want at least %d", len(snapshot.GetServers()), initialCount)
 		}
 	}
 }

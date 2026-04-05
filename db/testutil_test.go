@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stephenafamo/scan"
+	"github.com/stephenafamo/bob"
 )
 
 func withTxRollback(t *testing.T, db *sql.DB, fn func(t *testing.T, tx *sql.Tx)) {
@@ -31,7 +31,7 @@ func withConnectionTxRollback(t *testing.T, conn *Connection, fn func(t *testing
 
 	withTxRollback(t, conn.SQLDb, func(t *testing.T, tx *sql.Tx) {
 		originalExecutor := conn.DB
-		conn.DB = txBobExecutor{tx: tx}
+		conn.DB = bob.NewTx(tx)
 
 		t.Cleanup(func() {
 			conn.DB = originalExecutor
@@ -39,16 +39,4 @@ func withConnectionTxRollback(t *testing.T, conn *Connection, fn func(t *testing
 
 		fn(t, tx)
 	})
-}
-
-type txBobExecutor struct {
-	tx *sql.Tx
-}
-
-func (e txBobExecutor) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	return e.tx.ExecContext(ctx, query, args...)
-}
-
-func (e txBobExecutor) QueryContext(ctx context.Context, query string, args ...any) (scan.Rows, error) {
-	return e.tx.QueryContext(ctx, query, args...)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+// ProviderConfigToProto converts a provider config to its protobuf form.
 func ProviderConfigToProto(cfg ProviderConfig) *xylona.UpdateProviderConfig {
 	return &xylona.UpdateProviderConfig{
 		Kind:     providerKindToProto(cfg.Kind),
@@ -14,6 +15,7 @@ func ProviderConfigToProto(cfg ProviderConfig) *xylona.UpdateProviderConfig {
 	}
 }
 
+// ProviderConfigFromProto converts a protobuf provider config to its local form.
 func ProviderConfigFromProto(proto *xylona.UpdateProviderConfig) ProviderConfig {
 	if proto == nil {
 		return ProviderConfig{}
@@ -25,6 +27,7 @@ func ProviderConfigFromProto(proto *xylona.UpdateProviderConfig) ProviderConfig 
 	}
 }
 
+// ModProfileToProto converts a mod profile to protobuf form.
 func ModProfileToProto(profile *ModProfile) *xylona.ModProfile {
 	if profile == nil {
 		return nil
@@ -44,6 +47,7 @@ func ModProfileToProto(profile *ModProfile) *xylona.ModProfile {
 	}
 }
 
+// ModProfileFromProto converts a protobuf mod profile to local form.
 func ModProfileFromProto(proto *xylona.ModProfile) *ModProfile {
 	if proto == nil {
 		return nil
@@ -63,6 +67,7 @@ func ModProfileFromProto(proto *xylona.ModProfile) *ModProfile {
 	}
 }
 
+// VariantsToProto converts variants to protobuf form.
 func VariantsToProto(variants []Variant) []*xylona.Variant {
 	protoVariants := make([]*xylona.Variant, 0, len(variants))
 	for _, variant := range variants {
@@ -81,6 +86,7 @@ func VariantsToProto(variants []Variant) []*xylona.Variant {
 	return protoVariants
 }
 
+// VariantsFromProto converts protobuf variants to local form.
 func VariantsFromProto(protoVariants []*xylona.Variant) []Variant {
 	variants := make([]Variant, 0, len(protoVariants))
 	for _, protoVariant := range protoVariants {
@@ -100,6 +106,7 @@ func VariantsFromProto(protoVariants []*xylona.Variant) []Variant {
 	return variants
 }
 
+// SearchParams decodes serialized search parameters for a mod source.
 func SearchParams(source ModSource) map[string]any {
 	raw := strings.TrimSpace(source.SearchParamsJSON)
 	if raw == "" {

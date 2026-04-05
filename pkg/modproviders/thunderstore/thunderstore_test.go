@@ -2,6 +2,7 @@ package thunderstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 )
 
 // newTestProvider creates a Provider that routes all requests to the given httptest.Server.
@@ -389,8 +392,8 @@ func TestCheckForUpdate_NoVersions(t *testing.T) {
 
 	p := newTestProvider(srv)
 	v, errCheck := p.CheckForUpdate(context.Background(), "Author-EmptyMod", "")
-	if errCheck != nil {
-		t.Fatalf("CheckForUpdate() error = %v", errCheck)
+	if !errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
+		t.Fatalf("CheckForUpdate() error = %v, want %v", errCheck, modproviders.ErrNoUpdateAvailable)
 	}
 	if v != nil {
 		t.Errorf("CheckForUpdate() = %+v, want nil when no versions", v)
@@ -477,7 +480,7 @@ func TestDownload_UsesResolvedCommunityForSource(t *testing.T) {
 		case "/c/lethal-company/api/v1/package/":
 			packagePath = r.URL.Path
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(fmt.Sprintf(`[
+			_, _ = fmt.Fprintf(w, `[
 				{
 					"name": "SharedMod",
 					"full_name": "Author-SharedMod",
@@ -516,7 +519,7 @@ func TestDownload_UsesResolvedCommunityForSource(t *testing.T) {
 						}
 					]
 				}
-			]`, serverURL, serverURL, serverURL)))
+			]`, serverURL, serverURL, serverURL)
 		case "/download/sharedmod.zip":
 			w.Header().Set("Content-Type", "application/octet-stream")
 			_, _ = w.Write([]byte("payload"))
@@ -560,7 +563,6 @@ func TestExtractCommunity(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractCommunity(tt.params)
 			if got != tt.want {

@@ -3,6 +3,7 @@ package rpc
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -181,9 +182,9 @@ func normalizePairingToken(token string) string {
 	return strings.ReplaceAll(strings.TrimSpace(token), "-", "")
 }
 
-// ProbePeerAndCompletePairing probes the remote federation port, presents a pairing token,
+// probePeerAndCompletePairing probes the remote federation port, presents a pairing token,
 // and returns the remote node's identity and fingerprint. This is called from addRemoteNode.
-func ProbePeerAndCompletePairing(
+func probePeerAndCompletePairing(
 	federationMTLS *helpers.FederationMTLS,
 	remoteBaseURL string,
 	pairingToken string,
@@ -202,19 +203,19 @@ func ProbePeerAndCompletePairing(
 	// Get the federation URL for the remote node.
 	federationBaseURL, errFederationURL := federationMTLS.FederationBaseURLWithPort(remoteBaseURL, remoteFederationPort)
 	if errFederationURL != nil {
-		return nil, "", errFederationURL
+		return nil, "", fmt.Errorf("rpc: build remote federation base URL: %w", errFederationURL)
 	}
 
 	// Probe the remote server's certificate fingerprint.
 	remoteFingerprint, errProbe := federationMTLS.ProbeServerFingerprintWithPort(remoteBaseURL, remoteFederationPort, federationRequestTimeout)
 	if errProbe != nil {
-		return nil, "", errProbe
+		return nil, "", fmt.Errorf("rpc: probe remote federation fingerprint: %w", errProbe)
 	}
 
 	// Get our own fingerprint to send in the request.
 	localFingerprint, errLocal := federationMTLS.LocalFingerprint()
 	if errLocal != nil {
-		return nil, "", errLocal
+		return nil, "", fmt.Errorf("rpc: load local federation fingerprint: %w", errLocal)
 	}
 
 	// Create an HTTP client that trusts the probed fingerprint for this one request.
@@ -226,7 +227,7 @@ func ProbePeerAndCompletePairing(
 		"", // We don't know their node ID yet.
 	)
 	if errClient != nil {
-		return nil, "", errClient
+		return nil, "", fmt.Errorf("rpc: create pairing HTTP client: %w", errClient)
 	}
 
 	reqBody := completePairingRequest{
@@ -238,13 +239,13 @@ func ProbePeerAndCompletePairing(
 
 	bodyBytes, errMarshal := json.Marshal(reqBody)
 	if errMarshal != nil {
-		return nil, "", errMarshal
+		return nil, "", fmt.Errorf("rpc: marshal pairing request: %w", errMarshal)
 	}
 
 	pairingURL := strings.TrimSuffix(federationBaseURL, "/") + federationPairingPath
 	resp, errDo := httpClient.Post(pairingURL, "application/json", strings.NewReader(string(bodyBytes))) //nolint:noctx // TODO: refactor to use http.NewRequestWithContext
 	if errDo != nil {
-		return nil, "", errDo
+		return nil, "", fmt.Errorf("rpc: send pairing request: %w", errDo)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -253,7 +254,7 @@ func ProbePeerAndCompletePairing(
 	var pairingResp completePairingResponse
 	errDecode := json.NewDecoder(resp.Body).Decode(&pairingResp)
 	if errDecode != nil {
-		return nil, "", errDecode
+		return nil, "", fmt.Errorf("rpc: decode pairing response: %w", errDecode)
 	}
 
 	if !pairingResp.Success {

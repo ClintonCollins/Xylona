@@ -40,8 +40,8 @@ func TestSerializeFederationAlertEventServerCrashed(t *testing.T) {
 		t.Fatal("SerializeFederationAlertEvent returned false for valid crash event")
 	}
 
-	if evt.EventType != xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH {
-		t.Errorf("EventType = %v, want ALERT_EVENT_TYPE_CRASH", evt.EventType)
+	if evt.GetEventType() != xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH {
+		t.Errorf("EventType = %v, want ALERT_EVENT_TYPE_CRASH", evt.GetEventType())
 	}
 	if evt.GetServerId() != "srv-1" {
 		t.Errorf("ServerId = %q, want %q", evt.GetServerId(), "srv-1")
@@ -54,7 +54,7 @@ func TestSerializeFederationAlertEventServerCrashed(t *testing.T) {
 	}
 
 	var data alertTestCrashEventData
-	errUnmarshal := json.Unmarshal([]byte(evt.EventData), &data)
+	errUnmarshal := json.Unmarshal([]byte(evt.GetEventData()), &data)
 	if errUnmarshal != nil {
 		t.Fatalf("Failed to unmarshal event_data: %v", errUnmarshal)
 	}
@@ -62,11 +62,11 @@ func TestSerializeFederationAlertEventServerCrashed(t *testing.T) {
 		t.Errorf("event_data exit_code = %d, want 42", data.ExitCode)
 	}
 
-	if evt.Timestamp == nil {
+	if evt.GetTimestamp() == nil {
 		t.Fatal("Timestamp is nil")
 	}
-	if !evt.Timestamp.AsTime().Equal(ts) {
-		t.Errorf("Timestamp = %v, want %v", evt.Timestamp.AsTime(), ts)
+	if !evt.GetTimestamp().AsTime().Equal(ts) {
+		t.Errorf("Timestamp = %v, want %v", evt.GetTimestamp().AsTime(), ts)
 	}
 }
 
@@ -83,15 +83,15 @@ func TestSerializeFederationAlertEventStatusChanged(t *testing.T) {
 		t.Fatal("SerializeFederationAlertEvent returned false for valid status event")
 	}
 
-	if evt.EventType != xylona.AlertEventType_ALERT_EVENT_TYPE_STATUS_CHANGE {
-		t.Errorf("EventType = %v, want ALERT_EVENT_TYPE_STATUS_CHANGE", evt.EventType)
+	if evt.GetEventType() != xylona.AlertEventType_ALERT_EVENT_TYPE_STATUS_CHANGE {
+		t.Errorf("EventType = %v, want ALERT_EVENT_TYPE_STATUS_CHANGE", evt.GetEventType())
 	}
 	if evt.GetServerId() != "srv-2" {
 		t.Errorf("ServerId = %q, want %q", evt.GetServerId(), "srv-2")
 	}
 
 	var data alertTestStatusEventData
-	errUnmarshal := json.Unmarshal([]byte(evt.EventData), &data)
+	errUnmarshal := json.Unmarshal([]byte(evt.GetEventData()), &data)
 	if errUnmarshal != nil {
 		t.Fatalf("Failed to unmarshal event_data: %v", errUnmarshal)
 	}
@@ -151,8 +151,8 @@ func TestSerializeFederationAlertEventServerThreshold(t *testing.T) {
 				t.Fatal("SerializeFederationAlertEvent returned false for valid threshold event")
 			}
 
-			if evt.EventType != tc.wantType {
-				t.Errorf("EventType = %v, want %v", evt.EventType, tc.wantType)
+			if evt.GetEventType() != tc.wantType {
+				t.Errorf("EventType = %v, want %v", evt.GetEventType(), tc.wantType)
 			}
 			if evt.GetServerId() != "srv-thr" {
 				t.Errorf("ServerId = %q, want %q", evt.GetServerId(), "srv-thr")
@@ -162,7 +162,7 @@ func TestSerializeFederationAlertEventServerThreshold(t *testing.T) {
 			}
 
 			var data alertTestThresholdEventData
-			errUnmarshal := json.Unmarshal([]byte(evt.EventData), &data)
+			errUnmarshal := json.Unmarshal([]byte(evt.GetEventData()), &data)
 			if errUnmarshal != nil {
 				t.Fatalf("Failed to unmarshal event_data: %v", errUnmarshal)
 			}
@@ -216,8 +216,8 @@ func TestSerializeFederationAlertEventNodeThreshold(t *testing.T) {
 				t.Fatal("SerializeFederationAlertEvent returned false for valid node threshold event")
 			}
 
-			if evt.EventType != tc.wantType {
-				t.Errorf("EventType = %v, want %v", evt.EventType, tc.wantType)
+			if evt.GetEventType() != tc.wantType {
+				t.Errorf("EventType = %v, want %v", evt.GetEventType(), tc.wantType)
 			}
 			if evt.GetNodeId() != "node-42" {
 				t.Errorf("NodeId = %q, want %q", evt.GetNodeId(), "node-42")
@@ -230,7 +230,7 @@ func TestSerializeFederationAlertEventNodeThreshold(t *testing.T) {
 			}
 
 			var data alertTestThresholdEventData
-			errUnmarshal := json.Unmarshal([]byte(evt.EventData), &data)
+			errUnmarshal := json.Unmarshal([]byte(evt.GetEventData()), &data)
 			if errUnmarshal != nil {
 				t.Fatalf("Failed to unmarshal event_data: %v", errUnmarshal)
 			}
@@ -256,8 +256,8 @@ func TestSerializeFederationAlertEventThresholdZeroValuesPreserved(t *testing.T)
 	}
 
 	for _, fragment := range []string{`"current_value":0`, `"threshold":0`} {
-		if !strings.Contains(evt.EventData, fragment) {
-			t.Fatalf("EventData = %q, want fragment %q", evt.EventData, fragment)
+		if !strings.Contains(evt.GetEventData(), fragment) {
+			t.Fatalf("EventData = %q, want fragment %q", evt.GetEventData(), fragment)
 		}
 	}
 }
@@ -456,7 +456,7 @@ func TestRoundTripNodeThreshold(t *testing.T) {
 	}
 }
 
-func TestRepublishUnknownEventType(t *testing.T) {
+func TestRepublishUnknownEventType(_ *testing.T) {
 	localBus := eventbus.Get()
 	evt := &xylona.FederationAlertEvent{
 		EventType: xylona.AlertEventType_ALERT_EVENT_TYPE_UNSPECIFIED,

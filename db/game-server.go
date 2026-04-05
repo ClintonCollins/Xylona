@@ -1,12 +1,15 @@
 package db
 
 import (
+	"fmt"
+
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// GetAllGameServers returns all game servers.
 func (c *Connection) GetAllGameServers() ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(
 		models.Preload.GameServer.IP(),
@@ -15,11 +18,12 @@ func (c *Connection) GetAllGameServers() ([]*models.GameServer, error) {
 		models.Preload.GameServer.Node(),
 	).All(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get all game servers: %w", err)
 	}
 	return gameServers, nil
 }
 
+// GetGameServersByUser returns game servers owned by a user.
 func (c *Connection) GetGameServersByUser(userID string) ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.UserID.EQ(userID),
@@ -29,11 +33,12 @@ func (c *Connection) GetGameServersByUser(userID string) ([]*models.GameServer, 
 		models.Preload.GameServer.Node(),
 	).All(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get game servers by user: %w", err)
 	}
 	return gameServers, nil
 }
 
+// GetGameServerByID returns a game server by ID.
 func (c *Connection) GetGameServerByID(gameServerID string) (*models.GameServer, error) {
 	gameServer, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.ID.EQ(gameServerID),
@@ -43,23 +48,25 @@ func (c *Connection) GetGameServerByID(gameServerID string) (*models.GameServer,
 		models.Preload.GameServer.Node(),
 	).One(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get game server by ID: %w", err)
 	}
 	return gameServer, nil
 }
 
+// InsertGameServer inserts a new game server record.
 func (c *Connection) InsertGameServer(exec bob.Executor, gameServerSetter *models.GameServerSetter) (*models.GameServer, error) {
 	gameServer, err := models.GameServers.Insert(gameServerSetter).One(c.ctx, exec)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("insert game server: %w", err)
 	}
 	return gameServer, nil
 }
 
+// UpdateGameServer updates an existing game server record.
 func (c *Connection) UpdateGameServer(exec bob.Executor, gameServerSetter *models.GameServerSetter) (*models.GameServer, error) {
 	_, err := models.GameServers.Update(models.UpdateWhere.GameServers.ID.EQ(gameServerSetter.ID.MustGet()), gameServerSetter.UpdateMod()).One(c.ctx, exec)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("update game server: %w", err)
 	}
 	gameServer, errUpdatedGame := c.GetGameServerByID(gameServerSetter.ID.MustGet())
 	if errUpdatedGame != nil {
@@ -68,9 +75,14 @@ func (c *Connection) UpdateGameServer(exec bob.Executor, gameServerSetter *model
 	return gameServer, nil
 }
 
+// DeleteGameServer deletes a game server by ID.
 func (c *Connection) DeleteGameServer(gameServerID string) error {
 	gs := models.GameServerSlice{&models.GameServer{ID: gameServerID}}
-	return gs.DeleteAll(c.ctx, c.DB)
+	errWrap := gs.DeleteAll(c.ctx, c.DB)
+	if errWrap != nil {
+		return fmt.Errorf("delete game server: %w", errWrap)
+	}
+	return nil
 }
 
 // GetGameServersAccessibleByUser returns game servers that a user either owns
@@ -90,7 +102,7 @@ func (c *Connection) GetGameServersAccessibleByUser(userID string) ([]*models.Ga
 		userID,
 	)
 	if errQuery != nil {
-		return nil, errQuery
+		return nil, fmt.Errorf("query granted game server IDs: %w", errQuery)
 	}
 	defer func() {
 		if errClose := rows.Close(); errClose != nil {
@@ -108,15 +120,16 @@ func (c *Connection) GetGameServersAccessibleByUser(userID string) ([]*models.Ga
 	for rows.Next() {
 		var id string
 		if errScan := rows.Scan(&id); errScan != nil {
-			return nil, errScan
+			return nil, fmt.Errorf("scan granted game server ID: %w", errScan)
 		}
 		if _, alreadyOwned := ownedIDs[id]; alreadyOwned {
 			continue
 		}
 		grantedIDs = append(grantedIDs, id)
 	}
-	if errRows := rows.Err(); errRows != nil {
-		return nil, errRows
+	errRows := rows.Err()
+	if errRows != nil {
+		return nil, fmt.Errorf("iterate granted game server IDs: %w", errRows)
 	}
 
 	if len(grantedIDs) == 0 {
@@ -132,12 +145,13 @@ func (c *Connection) GetGameServersAccessibleByUser(userID string) ([]*models.Ga
 		models.Preload.GameServer.Node(),
 	).All(c.ctx, c.DB)
 	if errGranted != nil {
-		return nil, errGranted
+		return nil, fmt.Errorf("get granted game servers: %w", errGranted)
 	}
 
 	return append(ownedServers, grantedServers...), nil
 }
 
+// GetGameServersByIP returns game servers bound to an IP address.
 func (c *Connection) GetGameServersByIP(ip string) ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.IP.EQ(ip),
@@ -147,11 +161,12 @@ func (c *Connection) GetGameServersByIP(ip string) ([]*models.GameServer, error)
 		models.Preload.GameServer.Node(),
 	).All(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get game servers by IP: %w", err)
 	}
 	return gameServers, nil
 }
 
+// GetGameServersByGameID returns all servers for a game definition.
 func (c *Connection) GetGameServersByGameID(gameID string) ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(
 		models.SelectWhere.GameServers.GameID.EQ(gameID),
@@ -161,7 +176,7 @@ func (c *Connection) GetGameServersByGameID(gameID string) ([]*models.GameServer
 		models.Preload.GameServer.Node(),
 	).All(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get game servers by game ID: %w", err)
 	}
 	return gameServers, nil
 }

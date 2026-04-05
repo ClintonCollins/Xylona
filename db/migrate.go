@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"embed"
+	"fmt"
 
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
@@ -20,5 +21,8 @@ func RunMigrations(sqlDB *sql.DB, migrationFS embed.FS, root string) error {
 	if totalMigrations > 0 {
 		log.Debug().Msgf("Applied %d migrations", totalMigrations)
 	}
-	return errMigrate
+	if errMigrate != nil {
+		return fmt.Errorf("run migrations: %w", errMigrate)
+	}
+	return nil
 }

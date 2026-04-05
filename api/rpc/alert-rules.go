@@ -251,8 +251,9 @@ func (xs *XylonaService) validateServerAccess(user *models.User, serverID, serve
 	return nil
 }
 
+// CreateAlertRule creates a new alert rule for the caller.
 func (xs *XylonaService) CreateAlertRule(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.CreateAlertRuleRequest],
 ) (*connect.Response[xylona.CreateAlertRuleResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -260,7 +261,7 @@ func (xs *XylonaService) CreateAlertRule(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasGlobalPermission(user)
 	if errPerm != nil {
 		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -301,8 +302,9 @@ func (xs *XylonaService) CreateAlertRule(
 	}), nil
 }
 
+// UpdateAlertRule updates an existing alert rule.
 func (xs *XylonaService) UpdateAlertRule(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.UpdateAlertRuleRequest],
 ) (*connect.Response[xylona.UpdateAlertRuleResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -310,7 +312,7 @@ func (xs *XylonaService) UpdateAlertRule(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasGlobalPermission(user)
 	if errPerm != nil {
 		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -372,8 +374,9 @@ func (xs *XylonaService) UpdateAlertRule(
 	}), nil
 }
 
+// DeleteAlertRule removes an alert rule by ID.
 func (xs *XylonaService) DeleteAlertRule(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.DeleteAlertRuleRequest],
 ) (*connect.Response[xylona.DeleteAlertRuleResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -381,7 +384,7 @@ func (xs *XylonaService) DeleteAlertRule(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasGlobalPermission(user)
 	if errPerm != nil {
 		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -404,8 +407,9 @@ func (xs *XylonaService) DeleteAlertRule(
 	return connect.NewResponse(&xylona.DeleteAlertRuleResponse{}), nil
 }
 
+// ListAlertRules returns the alert rules visible to the caller.
 func (xs *XylonaService) ListAlertRules(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.ListAlertRulesRequest],
 ) (*connect.Response[xylona.ListAlertRulesResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -432,9 +436,10 @@ func (xs *XylonaService) ListAlertRules(
 	var rules []*models.AlertRule
 
 	// If server filter is provided, query by server
-	if hasServerID {
-		serverID := *request.Msg.ServerId
-		serverNodeID := *request.Msg.ServerNodeId
+	switch {
+	case hasServerID:
+		serverID := request.Msg.GetServerId()
+		serverNodeID := request.Msg.GetServerNodeId()
 
 		// Verify access to the server
 		errAccess := xs.validateServerAccess(user, serverID, serverNodeID)
@@ -452,7 +457,7 @@ func (xs *XylonaService) ListAlertRules(
 				Msg("failed to list alert rules by server")
 			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list alert rules"))
 		}
-	} else {
+	default:
 		var errGet error
 		rules, errGet = xs.db.GetAlertRulesByUserID(user.ID)
 		if errGet != nil {
@@ -469,8 +474,9 @@ func (xs *XylonaService) ListAlertRules(
 	return connect.NewResponse(resp), nil
 }
 
+// GetAlertHistory returns recent alert history entries visible to the caller.
 func (xs *XylonaService) GetAlertHistory(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.GetAlertHistoryRequest],
 ) (*connect.Response[xylona.GetAlertHistoryResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -508,9 +514,10 @@ func (xs *XylonaService) GetAlertHistory(
 	var entries []*models.AlertHistory
 
 	// If server filter is provided, query by server
-	if hasServerID {
-		serverID := *request.Msg.ServerId
-		serverNodeID := *request.Msg.ServerNodeId
+	switch {
+	case hasServerID:
+		serverID := request.Msg.GetServerId()
+		serverNodeID := request.Msg.GetServerNodeId()
 
 		// Verify access to the server
 		errAccess := xs.validateServerAccess(user, serverID, serverNodeID)
@@ -532,7 +539,7 @@ func (xs *XylonaService) GetAlertHistory(
 				Msg("failed to get alert history by server")
 			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get alert history"))
 		}
-	} else if user.SuperUser {
+	case user.SuperUser:
 		// Superusers see all history
 		var errGet error
 		entries, errGet = xs.db.GetAllAlertHistory(limit, offset)
@@ -540,7 +547,7 @@ func (xs *XylonaService) GetAlertHistory(
 			log.Error().Err(errGet).Msg("failed to get all alert history")
 			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get alert history"))
 		}
-	} else {
+	default:
 		var errGet error
 		entries, errGet = xs.db.GetAlertHistoryByUserID(user.ID, limit, offset)
 		if errGet != nil {

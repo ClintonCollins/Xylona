@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/cfgparse"
+	"github.com/ClintonCollins/Xylona/helpers"
 )
 
 // SchemaDefinition represents a parsed JSON Schema for a config file.
@@ -317,7 +318,7 @@ func MergeAndWrite(
 	existingEntries []cfgparse.ConfigEntry,
 	updatedFields []FieldData,
 	advancedFields []AdvancedFieldData,
-	schema SchemaDefinition,
+	_ SchemaDefinition,
 ) []cfgparse.ConfigEntry {
 	// Build a map of updated field values.
 	fieldValues := map[string]FieldData{}
@@ -331,47 +332,48 @@ func MergeAndWrite(
 
 	for _, e := range existingEntries {
 		fd, inSchema := fieldValues[e.Key]
-		if inSchema && !updated[e.Key] {
-			if fd.IsManaged {
-				// Managed fields keep their resolved values.
+		switch {
+		case inSchema && !updated[e.Key] && fd.IsManaged:
+			// Managed fields keep their resolved values.
+			result = append(result, cfgparse.ConfigEntry{
+				Key:     e.Key,
+				Value:   fd.Value,
+				Index:   e.Index,
+				Section: e.Section,
+				Comment: e.Comment,
+			})
+			updated[e.Key] = true
+		case inSchema && !updated[e.Key] && fd.AllowMultiple && len(fd.Values) > 0:
+			// Write all values for allow-multiple fields.
+			for i, v := range fd.Values {
 				result = append(result, cfgparse.ConfigEntry{
 					Key:     e.Key,
-					Value:   fd.Value,
-					Index:   e.Index,
+					Value:   v,
+					Index:   i,
 					Section: e.Section,
-					Comment: e.Comment,
-				})
-			} else if fd.AllowMultiple && len(fd.Values) > 0 {
-				// Write all values for allow-multiple fields.
-				for i, v := range fd.Values {
-					result = append(result, cfgparse.ConfigEntry{
-						Key:     e.Key,
-						Value:   v,
-						Index:   i,
-						Section: e.Section,
-						Comment: func() string {
-							if i == 0 {
-								return e.Comment
-							}
-							return ""
-						}(),
-					})
-				}
-			} else {
-				result = append(result, cfgparse.ConfigEntry{
-					Key:     e.Key,
-					Value:   fd.Value,
-					Index:   e.Index,
-					Section: e.Section,
-					Comment: e.Comment,
+					Comment: func() string {
+						if i == 0 {
+							return e.Comment
+						}
+						return ""
+					}(),
 				})
 			}
 			updated[e.Key] = true
-		} else if inSchema && updated[e.Key] {
+		case inSchema && !updated[e.Key]:
+			result = append(result, cfgparse.ConfigEntry{
+				Key:     e.Key,
+				Value:   fd.Value,
+				Index:   e.Index,
+				Section: e.Section,
+				Comment: e.Comment,
+			})
+			updated[e.Key] = true
+		case inSchema && updated[e.Key]:
 			// Skip duplicate entries for keys we've already processed
 			// (unless allow-multiple, handled above).
 			continue
-		} else {
+		default:
 			// Not in schema — check if it's in advanced fields.
 			advFound := false
 			for _, af := range advancedFields {
@@ -471,7 +473,7 @@ func ValidateFields(fields []FieldData, schema SchemaDefinition) []ValidationErr
 			}
 
 		case "string":
-			if prop.MaxLength != nil && int32(len(value)) > *prop.MaxLength {
+			if prop.MaxLength != nil && helpers.ClampInt32FromInt(len(value)) > *prop.MaxLength {
 				errs = append(errs, ValidationError{
 					Field:   f.Key,
 					Message: fmt.Sprintf("value length %d exceeds maximum %d", len(value), *prop.MaxLength),

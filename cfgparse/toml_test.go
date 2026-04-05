@@ -177,7 +177,7 @@ func TestTOML_RoundTrip(t *testing.T) {
 			t.Errorf("round-tripped missing key %q", k)
 			continue
 		}
-		if fmt_v(want) != fmt_v(got) {
+		if fmtV(want) != fmtV(got) {
 			t.Errorf("key %q: got %v, want %v", k, got, want)
 		}
 	}
@@ -225,8 +225,8 @@ func findChild(node *ConfigNode, key string) *ConfigNode {
 	return nil
 }
 
-// fmt_v formats a value for comparison in round-trip tests.
-func fmt_v(v any) string {
+// fmtV formats a value for comparison in round-trip tests.
+func fmtV(v any) string {
 	return toString(v)
 }
 

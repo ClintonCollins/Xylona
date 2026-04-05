@@ -72,8 +72,8 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 	})
 
 	game := &models.Game{
-		LinuxBaseCommand:         "linux-base",
-		LinuxStartArgsTemplate:   null.From("linux-template"),
+		LinuxBaseCommand:          "linux-base",
+		LinuxStartArgsTemplate:    null.From("linux-template"),
 		LinuxStopCommand:          "linux-stop",
 		LinuxInstallCommand:       "linux-install",
 		LinuxInstallCommandType:   "bash",
@@ -89,48 +89,48 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		os          OSType
-		wantBase    string
+		name         string
+		os           OSType
+		wantBase     string
 		wantTemplate string
-		wantStop    string
-		wantInstall string
-		wantType    string
-		wantUpdate  string
-		wantUpdType string
+		wantStop     string
+		wantInstall  string
+		wantType     string
+		wantUpdate   string
+		wantUpdType  string
 	}{
 		{
-			name:        "linux uses unix commands",
-			os:          Linux,
-			wantBase:    "linux-base",
+			name:         "linux uses unix commands",
+			os:           Linux,
+			wantBase:     "linux-base",
 			wantTemplate: "linux-template",
-			wantStop:    "linux-stop",
-			wantInstall: "linux-install",
-			wantType:    "bash",
-			wantUpdate:  "linux-update",
-			wantUpdType: "bash",
+			wantStop:     "linux-stop",
+			wantInstall:  "linux-install",
+			wantType:     "bash",
+			wantUpdate:   "linux-update",
+			wantUpdType:  "bash",
 		},
 		{
-			name:        "darwin uses unix commands",
-			os:          Darwin,
-			wantBase:    "linux-base",
+			name:         "darwin uses unix commands",
+			os:           Darwin,
+			wantBase:     "linux-base",
 			wantTemplate: "linux-template",
-			wantStop:    "linux-stop",
-			wantInstall: "linux-install",
-			wantType:    "bash",
-			wantUpdate:  "linux-update",
-			wantUpdType: "bash",
+			wantStop:     "linux-stop",
+			wantInstall:  "linux-install",
+			wantType:     "bash",
+			wantUpdate:   "linux-update",
+			wantUpdType:  "bash",
 		},
 		{
-			name:        "windows uses windows commands",
-			os:          Windows,
-			wantBase:    "windows-base",
+			name:         "windows uses windows commands",
+			os:           Windows,
+			wantBase:     "windows-base",
 			wantTemplate: "windows-template",
-			wantStop:    "windows-stop",
-			wantInstall: "windows-install",
-			wantType:    "cmd",
-			wantUpdate:  "windows-update",
-			wantUpdType: "cmd",
+			wantStop:     "windows-stop",
+			wantInstall:  "windows-install",
+			wantType:     "cmd",
+			wantUpdate:   "windows-update",
+			wantUpdType:  "cmd",
 		},
 	}
 

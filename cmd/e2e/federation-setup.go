@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -50,7 +51,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 
 	// Create directories.
 	for _, dir := range []string{federationDir, nodeADir, nodeBDir, gsDir} {
-		errMkdir := os.MkdirAll(dir, 0o755)
+		errMkdir := os.MkdirAll(dir, 0o750)
 		if errMkdir != nil {
 			return fmt.Errorf("create directory %s: %w", dir, errMkdir)
 		}
@@ -100,10 +101,10 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 
 	// Write PID files.
 	if nodeACmd.Process != nil {
-		_ = os.WriteFile(filepath.Join(federationDir, "node-a.pid"), []byte(strconv.Itoa(nodeACmd.Process.Pid)), 0o644)
+		_ = os.WriteFile(filepath.Join(federationDir, "node-a.pid"), []byte(strconv.Itoa(nodeACmd.Process.Pid)), 0o600)
 	}
 	if nodeBCmd.Process != nil {
-		_ = os.WriteFile(filepath.Join(federationDir, "node-b.pid"), []byte(strconv.Itoa(nodeBCmd.Process.Pid)), 0o644)
+		_ = os.WriteFile(filepath.Join(federationDir, "node-b.pid"), []byte(strconv.Itoa(nodeBCmd.Process.Pid)), 0o600)
 	}
 
 	// Everything after process start is wrapped so we kill child processes on failure.
@@ -141,14 +142,14 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		}
 
 		var localNodeA, localNodeB *xylona.Node
-		for _, n := range nodesAResp.Msg.Nodes {
-			if n.Local {
+		for _, n := range nodesAResp.Msg.GetNodes() {
+			if n.GetLocal() {
 				localNodeA = n
 				break
 			}
 		}
-		for _, n := range nodesBResp.Msg.Nodes {
-			if n.Local {
+		for _, n := range nodesBResp.Msg.GetNodes() {
+			if n.GetLocal() {
 				localNodeB = n
 				break
 			}
@@ -158,7 +159,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		if localNodeA != nil {
 			_, errEdit := clientA.rpc.EditNode(ctx, connect.NewRequest(&xylona.EditNodeRequest{
 				Node: &xylona.Node{
-					Id:               localNodeA.Id,
+					Id:               localNodeA.GetId(),
 					Name:             "Node A",
 					BaseUrl:          nodeAURL,
 					AllowInsecureTls: true,
@@ -173,7 +174,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		if localNodeB != nil {
 			_, errEdit := clientB.rpc.EditNode(ctx, connect.NewRequest(&xylona.EditNodeRequest{
 				Node: &xylona.Node{
-					Id:               localNodeB.Id,
+					Id:               localNodeB.GetId(),
 					Name:             "Node B",
 					BaseUrl:          nodeBURL,
 					AllowInsecureTls: true,
@@ -191,12 +192,12 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		if errPairing != nil {
 			return fmt.Errorf("generate pairing object: %w", errPairing)
 		}
-		log.Info().Msgf("[Federation Setup] Got pairing object from Node B: baseUrl=%s", pairingResp.Msg.BaseUrl)
+		log.Info().Msgf("[Federation Setup] Got pairing object from Node B: baseUrl=%s", pairingResp.Msg.GetBaseUrl())
 
 		pairResp, errPair := clientA.rpc.PairNode(ctx, connect.NewRequest(&xylona.PairNodeRequest{
 			RemoteBaseUrl:          nodeBURL,
-			RemoteSecretKey:        pairingResp.Msg.PairingToken,
-			RemoteMtlsPort:         pairingResp.Msg.MtlsPort,
+			RemoteSecretKey:        pairingResp.Msg.GetPairingToken(),
+			RemoteMtlsPort:         pairingResp.Msg.GetMtlsPort(),
 			LocalBaseUrl:           nodeAURL,
 			RemoteName:             "Node B",
 			LocalName:              "Node A",
@@ -206,7 +207,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		if errPair != nil {
 			return fmt.Errorf("pair nodes: %w", errPair)
 		}
-		log.Info().Msgf("[Federation Setup] Pairing complete. Reciprocal added: %v", pairResp.Msg.ReciprocalAdded)
+		log.Info().Msgf("[Federation Setup] Pairing complete. Reciprocal added: %v", pairResp.Msg.GetReciprocalAdded())
 
 		// Add test game on Node B.
 		log.Info().Msg("[Federation Setup] Creating test game on Node B...")
@@ -233,7 +234,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		if errAddGame != nil {
 			return fmt.Errorf("add game on node B: %w", errAddGame)
 		}
-		gameID := addGameResp.Msg.Game.Id
+		gameID := addGameResp.Msg.GetGame().GetId()
 
 		// Get available IPs on Node B.
 		ipsResp, errIPs := clientB.rpc.ListIPs(ctx, connect.NewRequest(&xylona.ListIPsRequest{}))
@@ -241,8 +242,8 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 			return fmt.Errorf("list IPs on node B: %w", errIPs)
 		}
 		serverIP := "0.0.0.0"
-		if len(ipsResp.Msg.Ips) > 0 {
-			serverIP = ipsResp.Msg.Ips[0].Address
+		if len(ipsResp.Msg.GetIps()) > 0 {
+			serverIP = ipsResp.Msg.GetIps()[0].GetAddress()
 		}
 		log.Info().Msgf("[Federation Setup] Using IP: %s", serverIP)
 
@@ -264,7 +265,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		if errCreate != nil {
 			return fmt.Errorf("create game server on node B: %w", errCreate)
 		}
-		serverID := createResp.Msg.GameServer.Id
+		serverID := createResp.Msg.GetGameServer().GetId()
 
 		log.Info().Msg("[Federation Setup] Starting game server on Node B...")
 		_, errStart := clientB.rpc.StartGameServer(ctx, connect.NewRequest(&xylona.StartGameServerRequest{
@@ -306,8 +307,8 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		for time.Now().Before(syncDeadline) {
 			aggResp, errAgg := clientA.rpc.ListAggregatedGameServers(ctx, connect.NewRequest(&xylona.ListAggregatedGameServersRequest{}))
 			if errAgg == nil {
-				for _, s := range aggResp.Msg.Servers {
-					if !s.IsLocal {
+				for _, s := range aggResp.Msg.GetServers() {
+					if !s.GetIsLocal() {
 						synced = true
 						break
 					}
@@ -319,7 +320,7 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 			time.Sleep(2 * time.Second)
 		}
 		if !synced {
-			return fmt.Errorf("federation sync timed out after 60s")
+			return errors.New("federation sync timed out after 60s")
 		}
 		log.Info().Msg("[Federation Setup] Remote server visible on Node A")
 
@@ -340,8 +341,8 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 				continue
 			}
 			userID := ""
-			if resp.Msg.User != nil {
-				userID = resp.Msg.User.Id
+			if resp.Msg.GetUser() != nil {
+				userID = resp.Msg.GetUser().GetId()
 			}
 			fedTestUsers = append(fedTestUsers, testUser{
 				ID:        userID,
@@ -356,9 +357,9 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		updatedNodesA, errUpdatedNodes := clientA.rpc.ListNodes(ctx, connect.NewRequest(&xylona.ListNodesRequest{}))
 		var pairedNodeIDOnA string
 		if errUpdatedNodes == nil {
-			for _, n := range updatedNodesA.Msg.Nodes {
-				if !n.Local {
-					pairedNodeIDOnA = n.Id
+			for _, n := range updatedNodesA.Msg.GetNodes() {
+				if !n.GetLocal() {
+					pairedNodeIDOnA = n.GetId()
 					break
 				}
 			}
@@ -367,10 +368,10 @@ func runFederationSetup(ctx context.Context, e2eDir, projectRoot string, nodeAPo
 		// Save federation state.
 		var nodeAID, nodeBID string
 		if localNodeA != nil {
-			nodeAID = localNodeA.Id
+			nodeAID = localNodeA.GetId()
 		}
 		if localNodeB != nil {
-			nodeBID = localNodeB.Id
+			nodeBID = localNodeB.GetId()
 		}
 
 		errSave := saveFederationState(e2eDir, &federationTestState{
@@ -418,7 +419,14 @@ func killProcess(cmd *exec.Cmd) {
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
-	killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(cmd.Process.Pid), "/F", "/T") //nolint:noctx
+
+	pid := cmd.Process.Pid
+	if pid <= 0 {
+		return
+	}
+
+	//nolint:gosec,noctx // PID comes from os.Process and taskkill has no context-aware API on Windows.
+	killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T")
 	errKill := killCmd.Run()
 	if errKill != nil {
 		_ = cmd.Process.Kill()

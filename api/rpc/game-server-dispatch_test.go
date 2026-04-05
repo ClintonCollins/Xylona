@@ -52,7 +52,7 @@ func TestDispatchLocalOrRemoteRemoteHandlerOnNotFound(t *testing.T) {
 	resp, errDispatch := dispatchLocalOrRemote(
 		nil,
 		sql.ErrNoRows,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.StartGameServerResponse], error) {
+		func(_ *models.GameServer) (*connect.Response[xylona.StartGameServerResponse], error) {
 			localCalled = true
 			return nil, errors.New("unexpected local call")
 		},
@@ -80,7 +80,7 @@ func TestDispatchLocalOrRemoteInternalErrorOnLookupFailure(t *testing.T) {
 	resp, errDispatch := dispatchLocalOrRemote(
 		nil,
 		errors.New("boom"),
-		func(gameServer *models.GameServer) (*connect.Response[xylona.StartGameServerResponse], error) {
+		func(_ *models.GameServer) (*connect.Response[xylona.StartGameServerResponse], error) {
 			return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
 		},
 		func() (*connect.Response[xylona.StartGameServerResponse], error) {
@@ -103,7 +103,7 @@ func TestDispatchLocalOrRemoteInternalErrorOnNilLocalServer(t *testing.T) {
 	resp, errDispatch := dispatchLocalOrRemote(
 		nil,
 		nil,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.StartGameServerResponse], error) {
+		func(_ *models.GameServer) (*connect.Response[xylona.StartGameServerResponse], error) {
 			return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
 		},
 		func() (*connect.Response[xylona.StartGameServerResponse], error) {

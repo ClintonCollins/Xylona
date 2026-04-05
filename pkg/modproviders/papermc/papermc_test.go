@@ -2,12 +2,15 @@ package papermc
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 )
 
 // newTestProvider creates a Provider that routes all requests to the given httptest.Server.
@@ -299,8 +302,8 @@ func TestCheckForUpdate_NoBuilds(t *testing.T) {
 
 	p := newTestProvider(srv)
 	v, errCheck := p.CheckForUpdate(context.Background(), "paper", "1.21.4")
-	if errCheck != nil {
-		t.Fatalf("CheckForUpdate() error = %v", errCheck)
+	if !errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
+		t.Fatalf("CheckForUpdate() error = %v, want %v", errCheck, modproviders.ErrNoUpdateAvailable)
 	}
 	if v != nil {
 		t.Errorf("CheckForUpdate() = %+v, want nil when no builds", v)
@@ -466,24 +469,23 @@ func TestParseVersionID(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "no hyphen",
-			versionID:   "1214100",
-			wantErr:     true,
+			name:      "no hyphen",
+			versionID: "1214100",
+			wantErr:   true,
 		},
 		{
-			name:        "non-integer build",
-			versionID:   "1.21.4-abc",
-			wantErr:     true,
+			name:      "non-integer build",
+			versionID: "1.21.4-abc",
+			wantErr:   true,
 		},
 		{
-			name:        "empty string",
-			versionID:   "",
-			wantErr:     true,
+			name:      "empty string",
+			versionID: "",
+			wantErr:   true,
 		},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			version, build, errParse := parseVersionID(tt.versionID)
 			if (errParse != nil) != tt.wantErr {

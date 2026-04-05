@@ -94,7 +94,7 @@ func TestConnection_ShouldReceiveMetrics_AfterUnsubscribe(t *testing.T) {
 	}
 }
 
-func TestConnection_ShouldReceiveMetrics_ConcurrentAccess(t *testing.T) {
+func TestConnection_ShouldReceiveMetrics_ConcurrentAccess(_ *testing.T) {
 	c := newTestConnection()
 
 	// Pre-populate a subscription

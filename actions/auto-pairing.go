@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -18,7 +20,7 @@ import (
 func (inst *Instance) BuildLocalPeerList() ([]*xylona.PeerInfo, error) {
 	nodes, errNodes := inst.db.GetEnabledRemoteNodes()
 	if errNodes != nil {
-		return nil, errNodes
+		return nil, fmt.Errorf("actions: list enabled remote nodes: %w", errNodes)
 	}
 
 	peers := make([]*xylona.PeerInfo, 0, len(nodes))
@@ -33,7 +35,7 @@ func (inst *Instance) BuildLocalPeerList() ([]*xylona.PeerInfo, error) {
 			Name:            node.Name,
 			BaseUrl:         node.BaseURL,
 			CertFingerprint: trust.PeerFingerprint,
-			FederationPort:  int32(node.Port),
+			FederationPort:  helpers.ClampInt32FromInt64(node.Port),
 		})
 	}
 	return peers, nil
@@ -49,11 +51,11 @@ func (inst *Instance) ProcessReceivedPeerList(peers []*xylona.PeerInfo, introduc
 
 	for _, peer := range peers {
 		// Skip self.
-		if peer.NodeId == localSettings.NodeID {
+		if peer.GetNodeId() == localSettings.NodeID {
 			continue
 		}
 		// Skip already-known nodes.
-		_, errGet := inst.db.GetNodeByID(peer.NodeId)
+		_, errGet := inst.db.GetNodeByID(peer.GetNodeId())
 		if errGet == nil {
 			continue
 		}
@@ -65,33 +67,33 @@ func (inst *Instance) ProcessReceivedPeerList(peers []*xylona.PeerInfo, introduc
 // startAutoPairing creates a node record and trust entry for an introduced peer.
 func (inst *Instance) startAutoPairing(peer *xylona.PeerInfo, introducerNodeID string) {
 	// Idempotency check.
-	_, errGet := inst.db.GetNodeByID(peer.NodeId)
+	_, errGet := inst.db.GetNodeByID(peer.GetNodeId())
 	if errGet == nil {
 		return // Already exists.
 	}
 
 	// Insert node record.
 	_, errInsert := inst.db.InsertRemoteNode(&models.NodeSetter{
-		ID:         omit.From(peer.NodeId),
-		Name:       omit.From(peer.Name),
+		ID:         omit.From(peer.GetNodeId()),
+		Name:       omit.From(peer.GetName()),
 		IsLocal:    omit.From(false),
 		Host:       omit.From(""),
-		BaseURL:    omit.From(peer.BaseUrl),
-		Port:       omit.From(int64(peer.FederationPort)),
+		BaseURL:    omit.From(peer.GetBaseUrl()),
+		Port:       omit.From(int64(peer.GetFederationPort())),
 		Enabled:    omit.From(true),
 		AutoPaired: omit.From(true),
 	})
 	if errInsert != nil {
-		log.Error().Err(errInsert).Str("node_id", peer.NodeId).Msg("Failed to insert auto-paired node")
+		log.Error().Err(errInsert).Str("node_id", peer.GetNodeId()).Msg("Failed to insert auto-paired node")
 		return
 	}
 
 	// Trust the fingerprint.
-	errTrust := inst.db.UpsertFederationTrustedPeer(peer.NodeId, peer.NodeId, peer.CertFingerprint, true, false)
+	errTrust := inst.db.UpsertFederationTrustedPeer(peer.GetNodeId(), peer.GetNodeId(), peer.GetCertFingerprint(), true, false)
 	if errTrust != nil {
-		log.Error().Err(errTrust).Str("node_id", peer.NodeId).Msg("Failed to trust auto-paired node fingerprint")
+		log.Error().Err(errTrust).Str("node_id", peer.GetNodeId()).Msg("Failed to trust auto-paired node fingerprint")
 		// Roll back node insert.
-		_ = inst.db.DeleteNodeByID(peer.NodeId)
+		_ = inst.db.DeleteNodeByID(peer.GetNodeId())
 		return
 	}
 
@@ -106,12 +108,12 @@ func (inst *Instance) startAutoPairing(peer *xylona.PeerInfo, introducerNodeID s
 		ID:                 omit.From(uuid.NewString()),
 		Type:               omit.From("NODE_AUTO_PAIRED"),
 		Title:              omit.From("Node auto-paired"),
-		Message:            omit.From(peer.Name + " was auto-paired via introduction from " + introducerName),
+		Message:            omit.From(peer.GetName() + " was auto-paired via introduction from " + introducerName),
 		SourceNodeID:       omit.From(introducerNodeID),
 		SourceNodeName:     omit.From(introducerName),
-		SubjectNodeID:      omit.From(peer.NodeId),
-		SubjectNodeName:    omit.From(peer.Name),
-		SubjectNodeBaseURL: omit.From(peer.BaseUrl),
+		SubjectNodeID:      omit.From(peer.GetNodeId()),
+		SubjectNodeName:    omit.From(peer.GetName()),
+		SubjectNodeBaseURL: omit.From(peer.GetBaseUrl()),
 		Read:               omit.From(false),
 	})
 	if errAdvisory != nil {
@@ -119,28 +121,28 @@ func (inst *Instance) startAutoPairing(peer *xylona.PeerInfo, introducerNodeID s
 	}
 
 	log.Info().
-		Str("node_id", peer.NodeId).
-		Str("node_name", peer.Name).
+		Str("node_id", peer.GetNodeId()).
+		Str("node_name", peer.GetName()).
 		Str("introducer", introducerName).
 		Msg("Auto-paired with introduced node")
 }
 
 // HandlePeerChange processes a NotifyPeerChangeRequest from a peer.
 func (inst *Instance) HandlePeerChange(msg *xylona.NotifyPeerChangeRequest) {
-	switch msg.ChangeType {
+	switch msg.GetChangeType() {
 	case xylona.PeerChangeType_PEER_CHANGE_TYPE_NODE_JOINED:
-		go inst.startAutoPairing(msg.Peer, msg.InitiatedByNodeId)
+		go inst.startAutoPairing(msg.GetPeer(), msg.GetInitiatedByNodeId())
 
 	case xylona.PeerChangeType_PEER_CHANGE_TYPE_NODE_REVOKED:
 		inst.handleNodeRevoked(msg)
 
 	case xylona.PeerChangeType_PEER_CHANGE_TYPE_NODE_DEPARTED:
-		inst.HandleNodeDeparture(msg.Peer.NodeId, "")
+		inst.HandleNodeDeparture(msg.GetPeer().GetNodeId(), "")
 	}
 }
 
 func (inst *Instance) handleNodeRevoked(msg *xylona.NotifyPeerChangeRequest) {
-	nodeID := msg.Peer.NodeId
+	nodeID := msg.GetPeer().GetNodeId()
 
 	// Remove sync worker if sync engine is available.
 	if inst.syncEngine != nil {
@@ -159,19 +161,19 @@ func (inst *Instance) handleNodeRevoked(msg *xylona.NotifyPeerChangeRequest) {
 		ID:                 omit.From(uuid.NewString()),
 		Type:               omit.From("NODE_REVOKED"),
 		Title:              omit.From("Node removed from federation"),
-		Message:            omit.From(msg.Peer.Name + " was removed by " + msg.InitiatedByNodeName),
-		SourceNodeID:       omit.From(msg.InitiatedByNodeId),
-		SourceNodeName:     omit.From(msg.InitiatedByNodeName),
+		Message:            omit.From(msg.GetPeer().GetName() + " was removed by " + msg.GetInitiatedByNodeName()),
+		SourceNodeID:       omit.From(msg.GetInitiatedByNodeId()),
+		SourceNodeName:     omit.From(msg.GetInitiatedByNodeName()),
 		SubjectNodeID:      omit.From(nodeID),
-		SubjectNodeName:    omit.From(msg.Peer.Name),
-		SubjectNodeBaseURL: omit.From(msg.Peer.BaseUrl),
+		SubjectNodeName:    omit.From(msg.GetPeer().GetName()),
+		SubjectNodeBaseURL: omit.From(msg.GetPeer().GetBaseUrl()),
 		Read:               omit.From(false),
 	})
 	if errAdvisory != nil {
 		log.Error().Err(errAdvisory).Msg("Failed to create revocation advisory")
 	}
 
-	log.Info().Str("node_id", nodeID).Str("revoked_by", msg.InitiatedByNodeName).Msg("Revoked node removed from federation")
+	log.Info().Str("node_id", nodeID).Str("revoked_by", msg.GetInitiatedByNodeName()).Msg("Revoked node removed from federation")
 }
 
 // HandleNodeDeparture removes a departing node and logs an advisory.
@@ -220,13 +222,13 @@ func (inst *Instance) HandleNodeDeparture(nodeID string, reason string) {
 func (inst *Instance) LeaveFederation() error {
 	localSettings, errSettings := inst.db.GetLocalSettings()
 	if errSettings != nil {
-		return errSettings
+		return fmt.Errorf("actions: get local settings for federation departure: %w", errSettings)
 	}
 
 	// Set departed flag.
 	errDeparted := inst.db.SetNodeDeparted(localSettings.NodeID, true)
 	if errDeparted != nil {
-		return errDeparted
+		return fmt.Errorf("actions: mark local node departed: %w", errDeparted)
 	}
 
 	// Broadcast NotifyDeparture to all peers (fire-and-forget).
@@ -307,6 +309,6 @@ func (inst *Instance) ExchangePeerListWithNode(nodeID string) {
 	}
 
 	// Process received peers for auto-pairing.
-	inst.ProcessReceivedPeerList(resp.Msg.Peers, nodeID)
-	log.Info().Str("node_id", nodeID).Int("remote_peers", len(resp.Msg.Peers)).Msg("Peer list exchanged with newly paired node")
+	inst.ProcessReceivedPeerList(resp.Msg.GetPeers(), nodeID)
+	log.Info().Str("node_id", nodeID).Int("remote_peers", len(resp.Msg.GetPeers())).Msg("Peer list exchanged with newly paired node")
 }

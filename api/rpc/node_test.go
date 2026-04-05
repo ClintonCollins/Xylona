@@ -22,20 +22,20 @@ func TestGetNode(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetNode() error = %v", errGet)
 	}
-	if resp.Msg == nil || resp.Msg.Node == nil {
+	if resp.Msg == nil || resp.Msg.GetNode() == nil {
 		t.Fatalf("GetNode() returned empty response")
 	}
-	if resp.Msg.Node.Id != "node-local" {
-		t.Errorf("GetNode().Node.Id = %q, want %q", resp.Msg.Node.Id, "node-local")
+	if resp.Msg.GetNode().GetId() != "node-local" {
+		t.Errorf("GetNode().Node.Id = %q, want %q", resp.Msg.GetNode().GetId(), "node-local")
 	}
-	if resp.Msg.Node.Name != "Local Node" {
-		t.Errorf("GetNode().Node.Name = %q, want %q", resp.Msg.Node.Name, "Local Node")
+	if resp.Msg.GetNode().GetName() != "Local Node" {
+		t.Errorf("GetNode().Node.Name = %q, want %q", resp.Msg.GetNode().GetName(), "Local Node")
 	}
-	if !resp.Msg.Node.Local {
+	if !resp.Msg.GetNode().GetLocal() {
 		t.Errorf("GetNode().Node.Local = false, want true")
 	}
-	if resp.Msg.Node.Os != "linux" {
-		t.Errorf("GetNode().Node.Os = %q, want %q", resp.Msg.Node.Os, "linux")
+	if resp.Msg.GetNode().GetOs() != "linux" {
+		t.Errorf("GetNode().Node.Os = %q, want %q", resp.Msg.GetNode().GetOs(), "linux")
 	}
 
 	// Nonexistent ID → error
@@ -60,16 +60,16 @@ func TestListNodes(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("ListNodes() error = %v", errList)
 	}
-	if resp.Msg == nil || len(resp.Msg.Nodes) == 0 {
+	if resp.Msg == nil || len(resp.Msg.GetNodes()) == 0 {
 		t.Fatalf("ListNodes() returned no nodes")
 	}
 
 	foundLocal := false
-	for _, node := range resp.Msg.Nodes {
-		if node.Id == "node-local" {
+	for _, node := range resp.Msg.GetNodes() {
+		if node.GetId() == "node-local" {
 			foundLocal = true
-			if node.Os != "linux" {
-				t.Errorf("ListNodes().Node.Os = %q, want %q", node.Os, "linux")
+			if node.GetOs() != "linux" {
+				t.Errorf("ListNodes().Node.Os = %q, want %q", node.GetOs(), "linux")
 			}
 			break
 		}
@@ -96,11 +96,11 @@ func TestEditNode(t *testing.T) {
 	if errEdit != nil {
 		t.Fatalf("EditNode() error = %v", errEdit)
 	}
-	if resp.Msg == nil || resp.Msg.Node == nil {
+	if resp.Msg == nil || resp.Msg.GetNode() == nil {
 		t.Fatalf("EditNode() returned empty response")
 	}
-	if resp.Msg.Node.Name != "Updated Local Node" {
-		t.Errorf("EditNode().Node.Name = %q, want %q", resp.Msg.Node.Name, "Updated Local Node")
+	if resp.Msg.GetNode().GetName() != "Updated Local Node" {
+		t.Errorf("EditNode().Node.Name = %q, want %q", resp.Msg.GetNode().GetName(), "Updated Local Node")
 	}
 
 	// Verify persistence
@@ -110,8 +110,8 @@ func TestEditNode(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetNode() after edit error = %v", errGet)
 	}
-	if getResp.Msg.Node.Name != "Updated Local Node" {
-		t.Errorf("GetNode() after edit Name = %q, want %q", getResp.Msg.Node.Name, "Updated Local Node")
+	if getResp.Msg.GetNode().GetName() != "Updated Local Node" {
+		t.Errorf("GetNode() after edit Name = %q, want %q", getResp.Msg.GetNode().GetName(), "Updated Local Node")
 	}
 }
 
@@ -160,16 +160,16 @@ func TestCreateAndDeleteLocalSecretKey(t *testing.T) {
 	if createResp.Msg == nil {
 		t.Fatalf("CreateLocalSecretKey() returned nil message")
 	}
-	if createResp.Msg.Id == 0 {
+	if createResp.Msg.GetId() == 0 {
 		t.Errorf("CreateLocalSecretKey().Id is zero")
 	}
-	if createResp.Msg.SecretKey == "" {
+	if createResp.Msg.GetSecretKey() == "" {
 		t.Errorf("CreateLocalSecretKey().SecretKey is empty")
 	}
 
 	// Delete the key
 	deleteReq := connect.NewRequest(&xylona.DeleteLocalSecretKeyRequest{
-		Id: createResp.Msg.Id,
+		Id: createResp.Msg.GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteReq, "user-admin")
 
@@ -204,16 +204,16 @@ func TestListLocalSecretKeys(t *testing.T) {
 	}
 
 	foundKey := false
-	for _, key := range listResp.Msg.SecretKeys {
-		if key.Id == createResp.Msg.Id {
+	for _, key := range listResp.Msg.GetSecretKeys() {
+		if key.GetId() == createResp.Msg.GetId() {
 			foundKey = true
-			if key.Name != "list-test-key" {
-				t.Errorf("SecretKey.Name = %q, want %q", key.Name, "list-test-key")
+			if key.GetName() != "list-test-key" {
+				t.Errorf("SecretKey.Name = %q, want %q", key.GetName(), "list-test-key")
 			}
 			break
 		}
 	}
 	if !foundKey {
-		t.Errorf("ListLocalSecretKeys() did not include created key %d", createResp.Msg.Id)
+		t.Errorf("ListLocalSecretKeys() did not include created key %d", createResp.Msg.GetId())
 	}
 }

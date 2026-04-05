@@ -1,6 +1,8 @@
+// Package federation provides helpers for cross-node federation requests.
 package federation
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -18,7 +20,7 @@ func ApplyActingIdentityHeadersForUser(dbConn *db.Connection, header http.Header
 
 	localSettings, errSettings := dbConn.GetLocalSettings()
 	if errSettings != nil {
-		return errSettings
+		return fmt.Errorf("load local settings for acting identity: %w", errSettings)
 	}
 
 	helpers.ApplyFederatedActingIdentityHeaders(header, actingUser, localSettings.NodeID)
@@ -34,7 +36,7 @@ func ApplyActingIdentityHeadersForUserID(dbConn *db.Connection, header http.Head
 
 	user, errGetUser := dbConn.GetUserByID(trimmedUserID)
 	if errGetUser != nil {
-		return errGetUser
+		return fmt.Errorf("load acting user %s: %w", trimmedUserID, errGetUser)
 	}
 
 	return ApplyActingIdentityHeadersForUser(dbConn, header, user)

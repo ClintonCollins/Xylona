@@ -68,7 +68,7 @@ func TestSystemConfig_Encryption(t *testing.T) {
 
 	// Read the raw stored value — must NOT equal plaintext.
 	var storedValue string
-	errScan := conn.SQLDb.QueryRow(`SELECT value FROM system_config WHERE key = ?`, "smtp_password").Scan(&storedValue)
+	errScan := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT value FROM system_config WHERE key = ?`, "smtp_password").Scan(&storedValue)
 	if errScan != nil {
 		t.Fatalf("QueryRow() error = %v", errScan)
 	}

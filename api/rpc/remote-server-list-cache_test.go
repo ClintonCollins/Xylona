@@ -31,7 +31,7 @@ func TestRemoteServerListCacheGetOrFetchCachesFreshResults(t *testing.T) {
 		}, nil
 	}
 
-	first, usedStaleFirst, errFirst := cache.getOrFetch("node-1", fetch)
+	first, usedStaleFirst, errFirst := cache.getOrFetch("node-2", fetch)
 	if errFirst != nil {
 		t.Fatalf("getOrFetch() first call error = %v", errFirst)
 	}
@@ -48,7 +48,7 @@ func TestRemoteServerListCacheGetOrFetchCachesFreshResults(t *testing.T) {
 	// Mutate caller-owned data and verify cache returns an isolated copy.
 	first[0].DisplayName = "Mutated"
 
-	second, usedStaleSecond, errSecond := cache.getOrFetch("node-1", fetch)
+	second, usedStaleSecond, errSecond := cache.getOrFetch("node-2", fetch)
 	if errSecond != nil {
 		t.Fatalf("getOrFetch() second call error = %v", errSecond)
 	}
@@ -58,7 +58,7 @@ func TestRemoteServerListCacheGetOrFetchCachesFreshResults(t *testing.T) {
 	if fetchCalls != 1 {
 		t.Fatalf("fetchCalls after second call = %d, want 1", fetchCalls)
 	}
-	if got := second[0].DisplayName; got != "Alpha" {
+	if got := second[0].GetDisplayName(); got != "Alpha" {
 		t.Fatalf("second[0].DisplayName = %q, want %q", got, "Alpha")
 	}
 }
@@ -100,7 +100,7 @@ func TestRemoteServerListCacheGetOrFetchUsesStaleDataOnRefreshFailure(t *testing
 	if len(servers) != 1 {
 		t.Fatalf("len(servers) = %d, want 1", len(servers))
 	}
-	if !servers[0].IsStale {
+	if !servers[0].GetIsStale() {
 		t.Fatalf("servers[0].IsStale = false, want true")
 	}
 }
@@ -221,32 +221,32 @@ func TestMarkRemoteServerSummariesStalePreservesExistingSyncTime(t *testing.T) {
 	if len(stale) != 2 {
 		t.Fatalf("len(stale) = %d, want 2", len(stale))
 	}
-	if !stale[0].IsStale || !stale[1].IsStale {
+	if !stale[0].GetIsStale() || !stale[1].GetIsStale() {
 		t.Fatalf("all stale summaries must be marked stale: %#v", stale)
 	}
-	if stale[0].Status != xylona.Status_OFFLINE || stale[1].Status != xylona.Status_OFFLINE {
+	if stale[0].GetStatus() != xylona.Status_OFFLINE || stale[1].GetStatus() != xylona.Status_OFFLINE {
 		t.Fatalf("stale summaries must be forced offline: %#v", stale)
 	}
 
-	if stale[0].LastSyncedAt == nil {
+	if stale[0].GetLastSyncedAt() == nil {
 		t.Fatalf("stale[0].LastSyncedAt = nil, want existing timestamp")
 	}
-	if !stale[0].LastSyncedAt.AsTime().Equal(existingSyncedAt.AsTime()) {
-		t.Fatalf("stale[0].LastSyncedAt = %v, want %v", stale[0].LastSyncedAt.AsTime(), existingSyncedAt.AsTime())
+	if !stale[0].GetLastSyncedAt().AsTime().Equal(existingSyncedAt.AsTime()) {
+		t.Fatalf("stale[0].LastSyncedAt = %v, want %v", stale[0].GetLastSyncedAt().AsTime(), existingSyncedAt.AsTime())
 	}
 
-	if stale[1].LastSyncedAt == nil {
+	if stale[1].GetLastSyncedAt() == nil {
 		t.Fatalf("stale[1].LastSyncedAt = nil, want fetchedAt timestamp")
 	}
-	if !stale[1].LastSyncedAt.AsTime().Equal(fetchedAt) {
-		t.Fatalf("stale[1].LastSyncedAt = %v, want %v", stale[1].LastSyncedAt.AsTime(), fetchedAt)
+	if !stale[1].GetLastSyncedAt().AsTime().Equal(fetchedAt) {
+		t.Fatalf("stale[1].LastSyncedAt = %v, want %v", stale[1].GetLastSyncedAt().AsTime(), fetchedAt)
 	}
 
 	// Ensure source data is unchanged.
-	if source[0].IsStale || source[1].IsStale {
+	if source[0].GetIsStale() || source[1].GetIsStale() {
 		t.Fatalf("source summaries were mutated: %#v", source)
 	}
-	if source[0].Status != xylona.Status_ONLINE || source[1].Status != xylona.Status_UNKNOWN {
+	if source[0].GetStatus() != xylona.Status_ONLINE || source[1].GetStatus() != xylona.Status_UNKNOWN {
 		t.Fatalf("source statuses were mutated: %#v", source)
 	}
 }
@@ -299,7 +299,7 @@ func TestRemoteServerListCacheGetOrFetchConcurrentReadsReturnIsolatedCopies(t *t
 			}
 
 			servers[0].DisplayName = fmt.Sprintf("mutated-%d", workerID)
-			if servers[0].LastSyncedAt != nil {
+			if servers[0].GetLastSyncedAt() != nil {
 				servers[0].LastSyncedAt.Seconds = int64(workerID)
 			}
 		}()
@@ -326,10 +326,10 @@ func TestRemoteServerListCacheGetOrFetchConcurrentReadsReturnIsolatedCopies(t *t
 	if len(servers) != 1 || servers[0] == nil {
 		t.Fatalf("post-concurrency server list = %#v, want one non-nil entry", servers)
 	}
-	if servers[0].DisplayName != "Alpha" {
-		t.Fatalf("cached display name mutated across callers: got %q, want %q", servers[0].DisplayName, "Alpha")
+	if servers[0].GetDisplayName() != "Alpha" {
+		t.Fatalf("cached display name mutated across callers: got %q, want %q", servers[0].GetDisplayName(), "Alpha")
 	}
-	if servers[0].LastSyncedAt.AsTime().Unix() != now.Unix() {
-		t.Fatalf("cached last synced time mutated across callers: got %d, want %d", servers[0].LastSyncedAt.Seconds, now.Unix())
+	if servers[0].GetLastSyncedAt().AsTime().Unix() != now.Unix() {
+		t.Fatalf("cached last synced time mutated across callers: got %d, want %d", servers[0].GetLastSyncedAt().GetSeconds(), now.Unix())
 	}
 }

@@ -124,7 +124,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 
 	// Prepare data directory for the E2E backend instance.
 	dataDir := filepath.Join(e2eDir, ".e2e-data")
-	errMkdir := os.MkdirAll(dataDir, 0o755)
+	errMkdir := os.MkdirAll(dataDir, 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("create data dir: %w", errMkdir)
 	}
@@ -169,7 +169,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 	// Write PID file for teardown.
 	if backendCmd.Process != nil {
 		pidFile := filepath.Join(dataDir, "xylona.pid")
-		_ = os.WriteFile(pidFile, []byte(strconv.Itoa(backendCmd.Process.Pid)), 0o644)
+		_ = os.WriteFile(pidFile, []byte(strconv.Itoa(backendCmd.Process.Pid)), 0o600)
 	}
 
 	// Everything after process start is wrapped so we kill the process on failure.
@@ -213,8 +213,8 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 				continue
 			}
 			userID := ""
-			if resp.Msg.User != nil {
-				userID = resp.Msg.User.Id
+			if resp.Msg.GetUser() != nil {
+				userID = resp.Msg.GetUser().GetId()
 			}
 			createdUsers = append(createdUsers, testUser{
 				ID:        userID,
@@ -235,7 +235,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 		if errList != nil {
 			return fmt.Errorf("list game servers: %w", errList)
 		}
-		gameServers := listResp.Msg.GameServers
+		gameServers := listResp.Msg.GetGameServers()
 
 		var testGameID string
 		var testServerID string
@@ -262,8 +262,8 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			}
 
 			var game *xylona.Game
-			for _, g := range gamesResp.Msg.Games {
-				if g.Name == "E2E Test Game" {
+			for _, g := range gamesResp.Msg.GetGames() {
+				if g.GetName() == "E2E Test Game" {
 					game = g
 					break
 				}
@@ -303,16 +303,16 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 				if errAdd != nil {
 					return fmt.Errorf("add game: %w", errAdd)
 				}
-				game = addResp.Msg.Game
-				testGameID = game.Id
-				log.Info().Msgf("[E2E Setup] Created test game: %s", game.Id)
+				game = addResp.Msg.GetGame()
+				testGameID = game.GetId()
+				log.Info().Msgf("[E2E Setup] Created test game: %s", game.GetId())
 			} else {
-				testGameID = game.Id
+				testGameID = game.GetId()
 			}
 
 			// Create a working directory for the game server.
 			gsDir := filepath.Join(dataDir, "bin", "test-server")
-			errMkdirGS := os.MkdirAll(gsDir, 0o755)
+			errMkdirGS := os.MkdirAll(gsDir, 0o750)
 			if errMkdirGS != nil {
 				return fmt.Errorf("create game server dir: %w", errMkdirGS)
 			}
@@ -323,8 +323,8 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 				return fmt.Errorf("list IPs: %w", errIPs)
 			}
 			ipAddress := "0.0.0.0"
-			if len(ipsResp.Msg.Ips) > 0 {
-				ipAddress = ipsResp.Msg.Ips[0].Address
+			if len(ipsResp.Msg.GetIps()) > 0 {
+				ipAddress = ipsResp.Msg.GetIps()[0].GetAddress()
 			}
 
 			gsDirPath := strings.ReplaceAll(gsDir, "\\", "/")
@@ -333,7 +333,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			createResp, errCreate := client.rpc.CreateGameServer(ctx, connect.NewRequest(&xylona.CreateGameServerRequest{
 				GameServer: &xylona.GameServer{
 					Name:          "E2E Test Server",
-					GameId:        game.Id,
+					GameId:        game.GetId(),
 					UserId:        testOwnerUserID,
 					Directory:     gsDirPath,
 					Ip:            &xylona.IP{Address: ipAddress},
@@ -345,7 +345,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			if errCreate != nil {
 				return fmt.Errorf("create game server: %w", errCreate)
 			}
-			testServerID = createResp.Msg.GameServer.Id
+			testServerID = createResp.Msg.GetGameServer().GetId()
 			log.Info().Msgf("[E2E Setup] Created game server: %s", testServerID)
 
 			// Select the Paper variant so the Mods tab is available.
@@ -375,12 +375,12 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			if errList != nil {
 				log.Warn().Err(errList).Msg("[E2E Setup] Warning: could not re-list game servers")
 			} else {
-				gameServers = listResp.Msg.GameServers
+				gameServers = listResp.Msg.GetGameServers()
 			}
 		} else {
-			testServerID = gameServers[0].Id
-			testGameID = gameServers[0].GameId
-			log.Info().Msgf("[E2E Setup] Using existing game server: %s", gameServers[0].Name)
+			testServerID = gameServers[0].GetId()
+			testGameID = gameServers[0].GetGameId()
+			log.Info().Msgf("[E2E Setup] Using existing game server: %s", gameServers[0].GetName())
 		}
 
 		// Ensure the game has variants configured for mod management tests.
@@ -391,9 +391,9 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			}))
 			if errGetGame != nil {
 				log.Warn().Err(errGetGame).Msg("[E2E Setup] Warning: could not fetch game")
-			} else if gameResp.Msg.Game != nil && len(gameResp.Msg.Game.Variants) == 0 {
+			} else if gameResp.Msg.GetGame() != nil && len(gameResp.Msg.GetGame().GetVariants()) == 0 {
 				log.Info().Msg("[E2E Setup] Updating game with typed variant config...")
-				gameToUpdate := gameResp.Msg.Game
+				gameToUpdate := gameResp.Msg.GetGame()
 				gameToUpdate.UpdateProvider = &xylona.UpdateProviderConfig{
 					Kind: xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND,
 				}
@@ -416,7 +416,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 			}))
 			if errGetGS != nil {
 				log.Warn().Err(errGetGS).Msg("[E2E Setup] Warning: could not fetch game server")
-			} else if gsResp.Msg.GameServer != nil && gsResp.Msg.GameServer.SelectedVariantId == "" {
+			} else if gsResp.Msg.GetGameServer() != nil && gsResp.Msg.GetGameServer().GetSelectedVariantId() == "" {
 				log.Info().Msg("[E2E Setup] Setting server variant to Paper...")
 				_, errSetVariant := client.rpc.SetServerVariant(ctx, connect.NewRequest(&xylona.SetServerVariantRequest{
 					GameServerId: testServerID,
@@ -464,8 +464,8 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 		gamesResp2, errGames2 := client.rpc.ListGames(ctx, connect.NewRequest(&xylona.ListGamesRequest{}))
 		if errGames2 == nil {
 			var noTrackerGame *xylona.Game
-			for _, g := range gamesResp2.Msg.Games {
-				if g.Name == "E2E No-Tracker Game" {
+			for _, g := range gamesResp2.Msg.GetGames() {
+				if g.GetName() == "E2E No-Tracker Game" {
 					noTrackerGame = g
 					break
 				}
@@ -491,22 +491,22 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 				if errAdd2 != nil {
 					log.Warn().Err(errAdd2).Msg("[E2E Setup] Warning: could not create no-tracker game")
 				} else {
-					noTrackerGame = addResp2.Msg.Game
-					log.Info().Msgf("[E2E Setup] Created no-tracker game: %s", noTrackerGame.Id)
+					noTrackerGame = addResp2.Msg.GetGame()
+					log.Info().Msgf("[E2E Setup] Created no-tracker game: %s", noTrackerGame.GetId())
 				}
 			}
 			if noTrackerGame != nil {
 				ntGsDir := filepath.Join(dataDir, "bin", "no-tracker-server")
-				errMkdirNT := os.MkdirAll(ntGsDir, 0o755)
+				errMkdirNT := os.MkdirAll(ntGsDir, 0o750)
 				if errMkdirNT != nil {
 					log.Warn().Err(errMkdirNT).Msg("[E2E Setup] Warning: could not create no-tracker server dir")
 				} else {
 					// Check if a no-tracker server already exists.
 					listResp3, errList3 := client.rpc.ListGameServers(ctx, connect.NewRequest(&xylona.ListGameServersRequest{}))
 					if errList3 == nil {
-						for _, gs := range listResp3.Msg.GameServers {
-							if gs.Name == "E2E No-Tracker Server" {
-								noTrackerServerID = gs.Id
+						for _, gs := range listResp3.Msg.GetGameServers() {
+							if gs.GetName() == "E2E No-Tracker Server" {
+								noTrackerServerID = gs.GetId()
 								break
 							}
 						}
@@ -514,14 +514,14 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 					if noTrackerServerID == "" {
 						ipsResp2, errIPs2 := client.rpc.ListIPs(ctx, connect.NewRequest(&xylona.ListIPsRequest{}))
 						ipAddress2 := "0.0.0.0"
-						if errIPs2 == nil && len(ipsResp2.Msg.Ips) > 0 {
-							ipAddress2 = ipsResp2.Msg.Ips[0].Address
+						if errIPs2 == nil && len(ipsResp2.Msg.GetIps()) > 0 {
+							ipAddress2 = ipsResp2.Msg.GetIps()[0].GetAddress()
 						}
 						ntGsDirPath := strings.ReplaceAll(ntGsDir, "\\", "/")
 						createResp2, errCreate2 := client.rpc.CreateGameServer(ctx, connect.NewRequest(&xylona.CreateGameServerRequest{
 							GameServer: &xylona.GameServer{
 								Name:          "E2E No-Tracker Server",
-								GameId:        noTrackerGame.Id,
+								GameId:        noTrackerGame.GetId(),
 								UserId:        client.userID,
 								Directory:     ntGsDirPath,
 								Ip:            &xylona.IP{Address: ipAddress2},
@@ -533,7 +533,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 						if errCreate2 != nil {
 							log.Warn().Err(errCreate2).Msg("[E2E Setup] Warning: could not create no-tracker server")
 						} else {
-							noTrackerServerID = createResp2.Msg.GameServer.Id
+							noTrackerServerID = createResp2.Msg.GetGameServer().GetId()
 							log.Info().Msgf("[E2E Setup] Created no-tracker server: %s", noTrackerServerID)
 						}
 					}
@@ -555,7 +555,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 		// Assign RBAC roles if game servers exist.
 		if len(gameServers) > 0 {
 			firstServer := gameServers[0]
-			log.Info().Msgf("[E2E Setup] Assigning RBAC roles on game server: %s", firstServer.Name)
+			log.Info().Msgf("[E2E Setup] Assigning RBAC roles on game server: %s", firstServer.GetName())
 
 			for _, user := range createdUsers {
 				if user.SuperUser {
@@ -572,14 +572,14 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 				}
 
 				_, errGrant := client.rpc.GrantGameServerAccess(ctx, connect.NewRequest(&xylona.GrantGameServerAccessRequest{
-					GameServerId: firstServer.Id,
+					GameServerId: firstServer.GetId(),
 					UserId:       user.ID,
 					RoleId:       roleID,
 				}))
 				if errGrant != nil {
 					log.Warn().Err(errGrant).Msgf("[E2E Setup] Warning: could not grant access to %s", user.Username)
 				} else {
-					log.Info().Msgf("[E2E Setup] Granted %s on %s to %s", roleID, firstServer.Name, user.Username)
+					log.Info().Msgf("[E2E Setup] Granted %s on %s to %s", roleID, firstServer.GetName(), user.Username)
 				}
 			}
 		} else {

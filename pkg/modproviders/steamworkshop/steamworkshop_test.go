@@ -19,9 +19,9 @@ func newTestProvider(srv *httptest.Server) *Provider {
 
 // newTestProviderWithKey creates a Provider with an API key and routes all requests
 // to the given httptest.Server.
-func newTestProviderWithKey(srv *httptest.Server, apiKey string) *Provider {
+func newTestProviderWithKey(srv *httptest.Server) *Provider {
 	p := newTestProvider(srv)
-	p.apiKey = apiKey
+	p.apiKey = "fake-api-key"
 	return p
 }
 
@@ -98,7 +98,7 @@ func TestSearch_WithAPIKey_ReturnsResults(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := newTestProviderWithKey(srv, "fake-api-key")
+	p := newTestProviderWithKey(srv)
 	searchResult, errSearch := p.Search(context.Background(), "helicopter", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
@@ -160,7 +160,7 @@ func TestSearch_HTTPError_ReturnsError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := newTestProviderWithKey(srv, "fake-api-key")
+	p := newTestProviderWithKey(srv)
 	_, errSearch := p.Search(context.Background(), "helicopter", nil)
 	if errSearch == nil {
 		t.Fatal("Search() error = nil, want non-nil on HTTP 429")
@@ -176,7 +176,7 @@ func TestSearch_WithAppID_IncludesInRequest(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := newTestProviderWithKey(srv, "fake-api-key")
+	p := newTestProviderWithKey(srv)
 	params := map[string]any{"app_id": "108600"}
 	_, errSearch := p.Search(context.Background(), "mod", params)
 	if errSearch != nil {
@@ -194,7 +194,7 @@ func TestSearch_EmptyResults_ReturnsEmptySlice(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := newTestProviderWithKey(srv, "fake-api-key")
+	p := newTestProviderWithKey(srv)
 	searchResult, errSearch := p.Search(context.Background(), "nonexistent", nil)
 	if errSearch != nil {
 		t.Fatalf("Search() error = %v", errSearch)
@@ -422,7 +422,6 @@ func TestParseFileSize_Valid(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got := parseFileSize(tt.input)
 			if got != tt.want {
@@ -437,16 +436,16 @@ func TestCopyDirContents_CopiesFiles(t *testing.T) {
 	dstDir := t.TempDir()
 
 	// Write test files to src.
-	errWrite1 := os.WriteFile(filepath.Join(srcDir, "mod.lua"), []byte("-- mod script"), 0o644)
+	errWrite1 := os.WriteFile(filepath.Join(srcDir, "mod.lua"), []byte("-- mod script"), 0o600)
 	if errWrite1 != nil {
 		t.Fatalf("write test file: %v", errWrite1)
 	}
 	subDir := filepath.Join(srcDir, "textures")
-	errMkdir := os.MkdirAll(subDir, 0o755)
+	errMkdir := os.MkdirAll(subDir, 0o750)
 	if errMkdir != nil {
 		t.Fatalf("create subdir: %v", errMkdir)
 	}
-	errWrite2 := os.WriteFile(filepath.Join(subDir, "icon.png"), []byte("fake png"), 0o644)
+	errWrite2 := os.WriteFile(filepath.Join(subDir, "icon.png"), []byte("fake png"), 0o600)
 	if errWrite2 != nil {
 		t.Fatalf("write test file in subdir: %v", errWrite2)
 	}

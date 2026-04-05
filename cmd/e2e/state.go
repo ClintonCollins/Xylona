@@ -38,20 +38,33 @@ type federationTestState struct {
 
 func saveTestUsers(dir string, users []testUser) error {
 	authDir := filepath.Join(dir, ".auth")
-	errMkdir := os.MkdirAll(authDir, 0o755)
+	errMkdir := os.MkdirAll(authDir, 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("create auth dir: %w", errMkdir)
 	}
-	data, errMarshal := json.MarshalIndent(users, "", "  ")
+	serializedUsers := make([]map[string]any, 0, len(users))
+	for _, user := range users {
+		serializedUsers = append(serializedUsers, map[string]any{
+			"id":        user.ID,
+			"username":  user.Username,
+			"password":  user.Password,
+			"superUser": user.SuperUser,
+		})
+	}
+	data, errMarshal := json.MarshalIndent(serializedUsers, "", "  ")
 	if errMarshal != nil {
 		return fmt.Errorf("marshal test users: %w", errMarshal)
 	}
-	return os.WriteFile(filepath.Join(authDir, "test-users.json"), data, 0o644)
+	errWrite := os.WriteFile(filepath.Join(authDir, "test-users.json"), data, 0o600)
+	if errWrite != nil {
+		return fmt.Errorf("write test users: %w", errWrite)
+	}
+	return nil
 }
 
 func saveTestState(dir string, state *testState) error {
 	authDir := filepath.Join(dir, ".auth")
-	errMkdir := os.MkdirAll(authDir, 0o755)
+	errMkdir := os.MkdirAll(authDir, 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("create auth dir: %w", errMkdir)
 	}
@@ -59,12 +72,16 @@ func saveTestState(dir string, state *testState) error {
 	if errMarshal != nil {
 		return fmt.Errorf("marshal test state: %w", errMarshal)
 	}
-	return os.WriteFile(filepath.Join(authDir, "test-state.json"), data, 0o644)
+	errWrite := os.WriteFile(filepath.Join(authDir, "test-state.json"), data, 0o600)
+	if errWrite != nil {
+		return fmt.Errorf("write test state: %w", errWrite)
+	}
+	return nil
 }
 
 func saveFederationState(dir string, state *federationTestState) error {
 	fedDir := filepath.Join(dir, ".federation")
-	errMkdir := os.MkdirAll(fedDir, 0o755)
+	errMkdir := os.MkdirAll(fedDir, 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("create federation dir: %w", errMkdir)
 	}
@@ -72,7 +89,11 @@ func saveFederationState(dir string, state *federationTestState) error {
 	if errMarshal != nil {
 		return fmt.Errorf("marshal federation state: %w", errMarshal)
 	}
-	return os.WriteFile(filepath.Join(fedDir, "state.json"), data, 0o644)
+	errWrite := os.WriteFile(filepath.Join(fedDir, "state.json"), data, 0o600)
+	if errWrite != nil {
+		return fmt.Errorf("write federation state: %w", errWrite)
+	}
+	return nil
 }
 
 func loadFederationState(dir string) (*federationTestState, error) {

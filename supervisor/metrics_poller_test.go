@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestStartMetricsPoller_StopsOnContextCancel(t *testing.T) {
+func TestStartMetricsPoller_StopsOnContextCancel(_ *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	inst := &Instance{
 		ctx:             ctx,

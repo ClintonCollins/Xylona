@@ -1,3 +1,5 @@
+// Package actions contains the control-plane business logic for game server
+// lifecycle, file operations, synchronization, and background jobs.
 package actions
 
 import (
@@ -44,13 +46,22 @@ import (
 )
 
 var (
-	ErrInvalidPath                        = errors.New("invalid path")
-	ErrGameUpdateNotConfigured            = errors.New("game update is not configured")
-	ErrInternalGameUpdateMissing          = errors.New("internal game updater is not registered")
+	// ErrInvalidPath is returned when a requested file path escapes the server root.
+	ErrInvalidPath = errors.New("invalid path")
+	// ErrGameUpdateNotConfigured is returned when a game has no configured updater.
+	ErrGameUpdateNotConfigured = errors.New("game update is not configured")
+	// ErrInternalGameUpdateMissing is returned when an internal updater is unavailable.
+	ErrInternalGameUpdateMissing = errors.New("internal game updater is not registered")
+	// ErrMinecraftVariantUpdateNotSupported is returned when a Minecraft variant cannot be updated automatically.
 	ErrMinecraftVariantUpdateNotSupported = errors.New("updates are not supported for this Minecraft server software")
-	ErrNotMinecraftServer                 = errors.New("game server is not a minecraft server")
-	reSteamBranchableUpdate               = regexp.MustCompile(`(?i)(\+app_update\s+\d+)`)
-	minecraftUpdateProviderLookup         = func(kind updateproviders.ProviderKind) (modproviders.ModProvider, bool) {
+	// ErrNotMinecraftServer is returned when a non-Minecraft server is used with Minecraft-only flows.
+	ErrNotMinecraftServer             = errors.New("game server is not a minecraft server")
+	errGameRelationNotLoaded          = errors.New("game relation not loaded")
+	errStartCommandTemplateMissing    = errors.New("no start command template configured for this game. a superuser must set up the start command template before servers can be started")
+	errBaseCommandMissing             = errors.New("no base command configured for this game")
+	errMinecraftGameRelationNotLoaded = errors.New("minecraft game relation not loaded")
+	reSteamBranchableUpdate           = regexp.MustCompile(`(?i)(\+app_update\s+\d+)`)
+	minecraftUpdateProviderLookup     = func(kind updateproviders.ProviderKind) (modproviders.ModProvider, bool) {
 		switch kind {
 		case updateproviders.ProviderKindPaperMC:
 			return modproviders.GetProvider("papermc")
@@ -62,6 +73,7 @@ var (
 	}
 )
 
+// Supported shell command types for install and update actions.
 const (
 	CommandTypeDirect     = "direct"
 	CommandTypeBash       = "bash"
@@ -87,11 +99,13 @@ type versionRefreshCall struct {
 	done chan struct{}
 }
 
+// VersionResolveOptions controls synchronous versus asynchronous version refresh behavior.
 type VersionResolveOptions struct {
 	ForceRefresh bool
 	AllowAsync   bool
 }
 
+// Instance coordinates game server lifecycle, files, federation, and background jobs.
 type Instance struct {
 	ctx                  context.Context
 	supervisorInstance   *supervisor.Instance
@@ -155,13 +169,14 @@ func (inst *Instance) CheckServerVersionByID(_ context.Context, gameServerID str
 	inst.checkServerVersion(gs, eb)
 }
 
-func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS, modMgr *modmanager.ModManager, versionState *versiontracker.VersionStateMap, resolverConfig versiontracker.ResolverConfig) *Instance {
+// NewInstance creates an actions instance and starts background polling jobs.
+func NewInstance(ctx context.Context, database *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *helpers.FederationMTLS, modMgr *modmanager.ModManager, versionState *versiontracker.VersionStateMap, resolverConfig versiontracker.ResolverConfig) *Instance {
 	inst := &Instance{
 		ctx:                  ctx,
 		supervisorInstance:   supervisorInstance,
 		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
 		serverQueriesMutex:   &sync.RWMutex{},
-		db:                   db,
+		db:                   database,
 		federationMTLS:       federationMTLS,
 		modManager:           modMgr,
 		versionState:         versionState,
@@ -176,12 +191,13 @@ func NewInstance(ctx context.Context, db *db.Connection, supervisorInstance *sup
 	return inst
 }
 
+// GetServerQueries returns the latest query snapshot for all tracked servers.
 func (inst *Instance) GetServerQueries() *xylona.AllServersQueryInfo {
 	inst.serverQueriesMutex.RLock()
 	defer inst.serverQueriesMutex.RUnlock()
 	allServerQueryInfo := &xylona.AllServersQueryInfo{Servers: make(map[string]*xylona.ServerQuery)}
 	for _, serverQuery := range inst.serverQueriesInfoMap {
-		allServerQueryInfo.Servers[serverQuery.ServerId] = serverQuery
+		allServerQueryInfo.Servers[serverQuery.GetServerId()] = serverQuery
 	}
 	return allServerQueryInfo
 }
@@ -195,30 +211,31 @@ func (inst *Instance) GetPlayerCount(gameServerID string) int {
 	if !ok {
 		return 0
 	}
-	if sq.Minecraft != nil {
-		return int(sq.Minecraft.NumberOfPlayers)
+	if sq.GetMinecraft() != nil {
+		return int(sq.GetMinecraft().GetNumberOfPlayers())
 	}
-	if sq.Source != nil {
-		return int(sq.Source.Players)
+	if sq.GetSource() != nil {
+		return int(sq.GetSource().GetPlayers())
 	}
 	return 0
 }
 
-func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path string) ([]*xylona.File, error) {
+// ListGameServerFiles lists files and directories for a relative server path.
+func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, relativePath string) ([]*xylona.File, error) {
 	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
-	if path != "" && !filepath.IsLocal(path) {
+	if relativePath != "" && !filepath.IsLocal(relativePath) {
 		log.Error().Err(errors.New("invalid path")).Msg("Path is not local")
 		return nil, ErrInvalidPath
 	}
-	fullPath := filepath.Join(gameServer.Directory, path)
+	fullPath := filepath.Join(gameServer.Directory, relativePath)
 	files, errReadDir := os.ReadDir(fullPath)
 	if errReadDir != nil {
 		if errors.Is(errReadDir, os.ErrNotExist) {
 			log.Error().Err(errReadDir).Msg("Path does not exist")
-			return nil, errReadDir
+			return nil, fmt.Errorf("actions: read server directory: %w", errReadDir)
 		}
 		log.Error().Err(errReadDir).Msg("Failed to read directory")
-		return nil, errReadDir
+		return nil, fmt.Errorf("actions: read server directory: %w", errReadDir)
 	}
 
 	xylonaFiles := make([]*xylona.File, 0, len(files))
@@ -226,29 +243,29 @@ func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path st
 		fileInfo, errFileInfo := file.Info()
 		if errFileInfo != nil {
 			log.Error().Err(errFileInfo).Msg("Failed to get file info")
-			return nil, errFileInfo
+			return nil, fmt.Errorf("actions: stat directory entry: %w", errFileInfo)
 		}
 		size := fileInfo.Size()
 		if fileInfo.IsDir() {
-			var totalSize int64 = 0
+			var totalSize int64
 
-			err := filepath.WalkDir(filepath.Join(fullPath, file.Name()), func(path string, d os.DirEntry, err error) error {
-				if err != nil {
-					return err
+			err := filepath.WalkDir(filepath.Join(fullPath, file.Name()), func(_ string, d os.DirEntry, walkErr error) error {
+				if walkErr != nil {
+					return walkErr
 				}
 				if !d.IsDir() {
-					info, err := d.Info()
-					if err != nil {
-						return err
+					entryInfo, errInfo := d.Info()
+					if errInfo != nil {
+						return fmt.Errorf("actions: stat nested directory entry: %w", errInfo)
 					}
-					totalSize += info.Size()
+					totalSize += entryInfo.Size()
 				}
 				return nil
 			})
 
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to walk through directory")
-				return nil, err
+				return nil, fmt.Errorf("actions: walk directory: %w", err)
 			}
 			size = totalSize
 		}
@@ -263,6 +280,7 @@ func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, path st
 	return xylonaFiles, nil
 }
 
+// DownloadGameServerFile handles multipart uploads into a game server directory.
 func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Request) {
 	multiReader, err := r.MultipartReader()
 	if err != nil {
@@ -272,7 +290,7 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 	foundGameServerID := false
 	foundPath := false
 	gameServerID := ""
-	path := ""
+	relativePath := ""
 	for {
 		part, errNext := multiReader.NextPart()
 		if errNext == io.EOF {
@@ -298,7 +316,7 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 				http.Error(w, "Error reading path", http.StatusBadRequest)
 				return
 			}
-			path = string(pathBytes)
+			relativePath = string(pathBytes)
 			foundPath = true
 		case "file":
 			if !foundGameServerID || !foundPath {
@@ -315,7 +333,7 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 			}
 
 			if target.isLocal() {
-				errDownload := inst.downloadGameServerFile(target.gameServer, path, filename, part)
+				errDownload := inst.saveUploadedGameServerFile(target.gameServer, relativePath, filename, part)
 				if errDownload != nil {
 					log.Error().Err(errDownload).Msg("Failed to download file")
 					http.Error(w, "Failed to download file", http.StatusInternalServerError)
@@ -324,7 +342,7 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 				continue
 			}
 
-			errProxy := inst.proxyRemoteFileUpload(r.Context(), target, path, filename, part, w)
+			errProxy := inst.proxyRemoteFileUpload(r.Context(), target, relativePath, filename, part, w)
 			if errProxy != nil {
 				log.Error().Err(errProxy).Msg("Failed to proxy remote file upload")
 				http.Error(w, "Failed to upload file", http.StatusInternalServerError)
@@ -335,8 +353,8 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path, fileName string, fileSource io.Reader) error {
-	validatedPath, errPath := validateLocalServerPath(gameServer, path)
+func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, relativePath, fileName string, fileSource io.Reader) error {
+	validatedPath, errPath := validateLocalServerPath(gameServer, relativePath)
 	if errPath != nil {
 		return errPath
 	}
@@ -354,18 +372,30 @@ func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path
 		return errProtected
 	}
 
-	gameServerDirPlusPath := filepath.Join(gameServer.Directory, validatedPath)
-	errMkdirAll := os.MkdirAll(gameServerDirPlusPath, os.ModePerm)
-	if errMkdirAll != nil {
-		log.Error().Err(errMkdirAll).Msg("Failed to create directory")
-		return errMkdirAll
+	cleanGameServerDir := filepath.Clean(gameServer.Directory)
+	gameServerDirPlusPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath))
+	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
+	if gameServerDirPlusPath != cleanGameServerDir && !strings.HasPrefix(gameServerDirPlusPath, gameServerDirPrefix) {
+		log.Error().Str("path", gameServerDirPlusPath).Msg("Upload directory escaped game server root")
+		return ErrInvalidPath
 	}
 
-	fullPath := filepath.Join(gameServer.Directory, validatedPath, sanitizedFileName)
+	errMkdirAll := os.MkdirAll(gameServerDirPlusPath, 0o750)
+	if errMkdirAll != nil {
+		log.Error().Err(errMkdirAll).Msg("Failed to create directory")
+		return fmt.Errorf("actions: create upload directory: %w", errMkdirAll)
+	}
+
+	fullPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath, sanitizedFileName))
+	if fullPath != cleanGameServerDir && !strings.HasPrefix(fullPath, gameServerDirPrefix) {
+		log.Error().Str("path", fullPath).Msg("Upload file path escaped game server root")
+		return ErrInvalidPath
+	}
+
 	file, errCreateFile := os.Create(fullPath)
 	if errCreateFile != nil {
 		log.Error().Err(errCreateFile).Msg("Failed to create file")
-		return errCreateFile
+		return fmt.Errorf("actions: create uploaded file: %w", errCreateFile)
 	}
 	defer func() {
 		_ = file.Close()
@@ -374,35 +404,42 @@ func (inst *Instance) downloadGameServerFile(gameServer *models.GameServer, path
 	_, errCopy := io.Copy(file, fileSource)
 	if errCopy != nil {
 		log.Error().Err(errCopy).Msg("Failed to copy file")
-		return errCopy
+		return fmt.Errorf("actions: write uploaded file: %w", errCopy)
 	}
 
 	return nil
 }
 
-func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path string, writer io.Writer, setHeaders, setAsAttachment bool) error {
-	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
-	if path != "" && !filepath.IsLocal(path) {
-		log.Error().Err(errors.New("invalid path")).Msg("Path is not local")
+// GetGameServerFile streams a local game server file to the provided writer.
+func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativePath string, writer io.Writer, setHeaders, setAsAttachment bool) error {
+	validatedPath, errPath := validateLocalServerPath(gameServer, relativePath)
+	if errPath != nil {
+		return errPath
+	}
+
+	cleanGameServerDir := filepath.Clean(gameServer.Directory)
+	fullPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath))
+	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
+	if fullPath != cleanGameServerDir && !strings.HasPrefix(fullPath, gameServerDirPrefix) {
+		log.Error().Str("path", fullPath).Msg("Read path escaped game server root")
 		return ErrInvalidPath
 	}
-	// log.Debug().Msgf("Path %s is local: %t", path, filepath.IsLocal(path))
-	fullPath := filepath.Join(gameServer.Directory, path)
+
 	file, errReadFile := os.Open(fullPath)
 	if errReadFile != nil {
 		if errors.Is(errReadFile, os.ErrNotExist) {
 			log.Error().Err(errReadFile).Msg("File does not exist")
-			return errReadFile
+			return fmt.Errorf("actions: open game server file: %w", errReadFile)
 		}
 		log.Error().Err(errReadFile).Msg("Failed to read file")
-		return errReadFile
+		return fmt.Errorf("actions: open game server file: %w", errReadFile)
 	}
 	defer func() { _ = file.Close() }()
 
 	fileInfo, errFileInfo := file.Stat()
 	if errFileInfo != nil {
 		log.Error().Err(errFileInfo).Msg("Failed to get file info")
-		return errFileInfo
+		return fmt.Errorf("actions: stat game server file: %w", errFileInfo)
 	}
 
 	if setHeaders {
@@ -435,7 +472,7 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path stri
 	_, errCopy := io.Copy(writer, file)
 	if errCopy != nil {
 		log.Error().Err(errCopy).Msg("Failed to copy file")
-		return errCopy
+		return fmt.Errorf("actions: stream game server file: %w", errCopy)
 	}
 	return nil
 }
@@ -443,14 +480,15 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, path stri
 func (inst *Instance) createGameServerDirectory(gameServer *models.GameServer, owner *models.User) (string, error) {
 	gsNameSlug := slug.Make(gameServer.Name)
 	gameServerDir := filepath.Join(DefaultInstallPath(), owner.UserName, gsNameSlug)
-	errMakePath := os.MkdirAll(gameServerDir, os.ModePerm)
+	errMakePath := os.MkdirAll(gameServerDir, 0o750)
 	if errMakePath != nil {
 		log.Error().Err(errMakePath).Msg("Failed to create game server directory")
-		return "", errMakePath
+		return "", fmt.Errorf("actions: create game server directory: %w", errMakePath)
 	}
 	return gameServerDir, nil
 }
 
+// InstallGameServer creates the server record, schedules install, and starts post-install startup.
 func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error) {
 	gameServerDir, errCreateGameServerDir := inst.createGameServerDirectory(gameServer, owner)
 	if errCreateGameServerDir != nil {
@@ -462,7 +500,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	t, errTx := inst.db.SQLDb.BeginTx(inst.ctx, nil)
 	if errTx != nil {
 		log.Error().Err(errTx).Msg("Failed to start transaction")
-		return nil, errTx
+		return nil, fmt.Errorf("actions: begin install transaction: %w", errTx)
 	}
 	tx := bob.NewTx(t)
 
@@ -473,7 +511,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	node, errGetNode := inst.db.GetNodeByID(gameServer.NodeID)
 	if errGetNode != nil {
 		log.Error().Err(errGetNode).Msg("Failed to get node")
-		return nil, errGetNode
+		return nil, fmt.Errorf("actions: get node for install: %w", errGetNode)
 	}
 
 	newGameServer, errInsert := inst.db.InsertGameServer(tx, &models.GameServerSetter{
@@ -500,7 +538,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	newGameServer.R.Node = node
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Failed to insert game server")
-		return nil, errInsert
+		return nil, fmt.Errorf("actions: insert game server: %w", errInsert)
 	}
 
 	installVars := placeholder.BuildVarsFromGameServer(newGameServer)
@@ -515,7 +553,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		GameServerID:     &gameServer.ID,
 		Status:           xylona.Status_INSTALLING,
 		ServiceID:        gameServer.GameID,
-		CallbackFunction: func(cmd *supervisor.Command) {
+		CallbackFunction: func(_ *supervisor.Command) {
 			errPostInstall := postInstallStep(newGameServer)
 			if errPostInstall != nil {
 				log.Error().Err(errPostInstall).Msg("Failed to perform post install step")
@@ -534,13 +572,13 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	_, err := inst.supervisorInstance.StartCommand(preparedCommand)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to start install command")
-		return nil, err
+		return nil, fmt.Errorf("actions: start install command: %w", err)
 	}
 
 	errCommit := tx.Commit(inst.ctx)
 	if errCommit != nil {
 		log.Error().Str("Game Server ID", gameServer.ID).Err(errCommit).Msg("Failed to commit transaction")
-		return nil, errCommit
+		return nil, fmt.Errorf("actions: commit install transaction: %w", errCommit)
 	}
 
 	eb := eventbus.Get()
@@ -558,12 +596,12 @@ func (inst *Instance) reportStartFailure(gameServer *models.GameServer, message 
 
 func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServer) (string, []string, error) {
 	if gameServer.R.Game == nil {
-		return "", nil, fmt.Errorf("game relation not loaded")
+		return "", nil, errGameRelationNotLoaded
 	}
 
 	templateJSON := strings.TrimSpace(gameStartArgsTemplate(gameServer.R.Game))
 	if templateJSON == "" {
-		return "", nil, fmt.Errorf("no start command template configured for this game. a superuser must set up the start command template before servers can be started")
+		return "", nil, errStartCommandTemplateMissing
 	}
 
 	template, errTemplate := startargs.ParseTemplate(templateJSON)
@@ -579,7 +617,7 @@ func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServe
 	startVars := placeholder.BuildVarsFromGameServer(gameServer)
 	baseCommand := placeholder.ResolveToken(gameBaseCommand(gameServer.R.Game), startVars)
 	if strings.TrimSpace(baseCommand) == "" {
-		return "", nil, fmt.Errorf("no base command configured for this game")
+		return "", nil, errBaseCommandMissing
 	}
 
 	args, _, errResolve := startargs.ResolveArgs(template, patches, startVars)
@@ -617,6 +655,7 @@ func postInstallStep(gameServer *models.GameServer) error {
 	}
 }
 
+// StartGameServer resolves and starts the configured runtime command for a server.
 func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 	// Run pre-start config enforcement before launching the process.
 	inst.runConfigPreStart(gameServer)
@@ -638,7 +677,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 		GameServerID:     &gameServer.ID,
 		Status:           xylona.Status_ONLINE,
 		ServiceID:        gameServer.GameID,
-		CallbackFunction: func(cmd *supervisor.Command) {
+		CallbackFunction: func(_ *supervisor.Command) {
 			// log.Info().Msg("Game server stopped")
 		},
 	}
@@ -715,6 +754,7 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 	}
 }
 
+// StopGameServer stops a running game server using its configured stop command.
 func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
 	if err != nil {
@@ -726,6 +766,7 @@ func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 	gameServerCommand.Stop(gameStopCommand(gameServer.R.Game))
 }
 
+// UpdateGameServer starts the configured update flow for a game server.
 func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 	gameServerCommand, errGetCommand := inst.supervisorInstance.GetCommandByID(gameServer.ID)
 	if errGetCommand == nil {
@@ -764,7 +805,7 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 		GameServerID:     &gameServer.ID,
 		Status:           xylona.Status_UPDATING,
 		ServiceID:        gameServer.GameID,
-		CallbackFunction: func(cmd *supervisor.Command) {
+		CallbackFunction: func(_ *supervisor.Command) {
 			log.Info().Str("Game Server ID", gameServer.ID).Msg("Game server update completed")
 		},
 	}
@@ -786,7 +827,7 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 	_, errStart := inst.supervisorInstance.StartCommand(preparedCommand)
 	if errStart != nil {
 		log.Error().Err(errStart).Str("Game Server ID", gameServer.ID).Msg("Failed to start update command")
-		return errStart
+		return fmt.Errorf("actions: start update command: %w", errStart)
 	}
 	return nil
 }
@@ -816,6 +857,7 @@ func appendSteamBranchToUpdateCommand(command string, branch string) string {
 	return command + " -beta " + normalizedBranch
 }
 
+// PersistSteamBranchSelection stores the selected Steam branch on the server record.
 func (inst *Instance) PersistSteamBranchSelection(gameServer *models.GameServer, branch string) error {
 	normalizedBranch := normalizeSteamBranch(branch)
 	gameServer.Branch = normalizedBranch
@@ -829,7 +871,7 @@ func (inst *Instance) PersistSteamBranchSelection(gameServer *models.GameServer,
 		Branch: omit.From(normalizedBranch),
 	})
 	if errUpdate != nil {
-		return errUpdate
+		return fmt.Errorf("actions: persist steam branch selection: %w", errUpdate)
 	}
 
 	gameServer.Branch = updated.Branch
@@ -853,7 +895,7 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 		return nil, ErrNotMinecraftServer
 	}
 	if gameServer.R.Game == nil {
-		return nil, fmt.Errorf("minecraft game relation not loaded")
+		return nil, errMinecraftGameRelationNotLoaded
 	}
 
 	resolved, errResolve := updateproviders.ResolveModelConfig(gameServer.R.Game, gameServer)
@@ -1052,6 +1094,7 @@ func primaryDownloadedFile(files []modproviders.DownloadedFile) string {
 	return ""
 }
 
+// ReadGameServerBuffer returns the buffered console output for a running server.
 func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string {
 	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
 	if err != nil {
@@ -1061,6 +1104,7 @@ func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string
 	return gameServerCommand.GetOutputBuffer()
 }
 
+// RemoveGameServer deletes a server and optionally tolerates file cleanup failures.
 func (inst *Instance) RemoveGameServer(gameServer *models.GameServer, force bool) error {
 	err := inst.PurgeAllGameServerFiles(gameServer)
 	if err != nil {
@@ -1073,18 +1117,19 @@ func (inst *Instance) RemoveGameServer(gameServer *models.GameServer, force bool
 	err = inst.db.DeleteGameServer(gameServer.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to remove game server from database")
-		return err
+		return fmt.Errorf("actions: delete game server: %w", err)
 	}
 	eb := eventbus.Get()
 	eb.Publish("game_server_removed", gameServer)
 	return nil
 }
 
+// PurgeAllGameServerFiles deletes the server's working directory.
 func (inst *Instance) PurgeAllGameServerFiles(gameServer *models.GameServer) error {
 	err := os.RemoveAll(gameServer.Directory)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to delete game server files")
-		return err
+		return fmt.Errorf("actions: delete game server files: %w", err)
 	}
 	return nil
 }

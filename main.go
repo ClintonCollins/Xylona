@@ -1,3 +1,5 @@
+// Package main wires together the Xylona application server, embedded frontend,
+// and background services.
 package main
 
 import (
@@ -10,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -75,7 +78,7 @@ type Configuration struct {
 }
 
 func setupLogger() func() {
-	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
+	zerolog.CallerMarshalFunc = func(_ uintptr, file string, line int) string {
 		short := file
 		for i := len(file) - 1; i > 0; i-- {
 			if file[i] == '/' {
@@ -88,7 +91,8 @@ func setupLogger() func() {
 	}
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr}
 	if logFile := os.Getenv("E2E_LOG_FILE"); logFile != "" {
-		f, errOpen := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		cleanLogFile := filepath.Clean(logFile)
+		f, errOpen := os.OpenFile(cleanLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 		if errOpen == nil {
 			multi := zerolog.MultiLevelWriter(consoleWriter, f)
 			log.Logger = zerolog.New(multi).With().Caller().Timestamp().Logger()
@@ -96,7 +100,7 @@ func setupLogger() func() {
 			return func() {
 				errClose := f.Close()
 				if errClose != nil {
-					log.Error().Err(errClose).Str("file", logFile).Msg("Failed to close E2E log file")
+					log.Error().Err(errClose).Str("file", cleanLogFile).Msg("Failed to close E2E log file")
 				}
 			}
 		}
@@ -204,7 +208,7 @@ type dbSMTPConfigResolver struct {
 func (r *dbSMTPConfigResolver) ResolveSystemSMTPConfig() (*mailer.SMTPConfig, error) {
 	jsonStr, errGet := r.db.GetSystemConfig("smtp_config")
 	if errGet != nil {
-		return nil, errGet
+		return nil, fmt.Errorf("main: load SMTP config: %w", errGet)
 	}
 
 	config := &xylona.SystemSMTPConfig{}

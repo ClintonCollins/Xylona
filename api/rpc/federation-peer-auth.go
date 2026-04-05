@@ -17,12 +17,14 @@ type federationPeerIdentityContextKey string
 
 const federationPeerIdentityKey federationPeerIdentityContextKey = "federation-peer-identity"
 
+// FederationPeerIdentity describes the authenticated remote peer on a federation request.
 type FederationPeerIdentity struct {
 	NodeID      string
 	PeerNodeID  string
 	Fingerprint string
 }
 
+// FederationPeerAuthMiddleware authenticates inbound federation requests using mTLS state.
 func FederationPeerAuthMiddleware(dbInst *db.Connection) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -23,6 +23,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// GetUpdateTargets lists selectable update targets for a server variant.
 func (xs *XylonaService) GetUpdateTargets(
 	ctx context.Context,
 	request *connect.Request[xylona.GetUpdateTargetsRequest],
@@ -81,6 +82,7 @@ func (xs *XylonaService) GetUpdateTargets(
 	}), nil
 }
 
+// GetVariantOperationStatus returns the current variant install operation state.
 func (xs *XylonaService) GetVariantOperationStatus(
 	_ context.Context,
 	request *connect.Request[xylona.GetVariantOperationStatusRequest],
@@ -109,6 +111,7 @@ func (xs *XylonaService) GetVariantOperationStatus(
 	}), nil
 }
 
+// SetServerVariant changes the selected server software variant for a server.
 func (xs *XylonaService) SetServerVariant(
 	_ context.Context,
 	request *connect.Request[xylona.SetServerVariantRequest],
@@ -173,7 +176,7 @@ func (xs *XylonaService) SetServerVariant(
 		log.Error().Err(errMods).Str("server_id", gameServer.ID).Msg("Failed to list installed mods")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list installed mods"))
 	}
-	modCount := int32(len(installedMods))
+	modCount := helpers.ClampInt32FromInt(len(installedMods))
 
 	if !variantRequiresDownload(resolved.Provider.Kind) {
 		updated, errUpdate := xs.persistVariantSelection(
@@ -394,7 +397,7 @@ func (xs *XylonaService) persistVariantSelection(
 
 	updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 	if errUpdate != nil {
-		return nil, errUpdate
+		return nil, fmt.Errorf("rpc: persist variant selection: %w", errUpdate)
 	}
 	return updated, nil
 }

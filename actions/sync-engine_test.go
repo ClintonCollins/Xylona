@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestHandleAlertEventRepublishesFederatedEvents(t *testing.T) {
@@ -25,8 +26,8 @@ func TestHandleAlertEventRepublishesFederatedEvents(t *testing.T) {
 			topic: eventbus.TopicGameServerCrashed,
 			event: &xylona.FederationAlertEvent{
 				EventType:    xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-				ServerId:     stringPtr("srv-1"),
-				ServerNodeId: stringPtr("node-1"),
+				ServerId:     new("srv-1"),
+				ServerNodeId: new("node-1"),
 				EventData:    `{"exit_code":137}`,
 				Timestamp:    timestamppb.New(ts),
 			},
@@ -49,8 +50,8 @@ func TestHandleAlertEventRepublishesFederatedEvents(t *testing.T) {
 			topic: eventbus.TopicGameServerStatusChanged,
 			event: &xylona.FederationAlertEvent{
 				EventType:    xylona.AlertEventType_ALERT_EVENT_TYPE_STATUS_CHANGE,
-				ServerId:     stringPtr("srv-2"),
-				ServerNodeId: stringPtr("node-2"),
+				ServerId:     new("srv-2"),
+				ServerNodeId: new("node-2"),
 				EventData:    `{"old_status":"ONLINE","new_status":"OFFLINE"}`,
 			},
 			assertion: func(t *testing.T, got any) {
@@ -69,8 +70,8 @@ func TestHandleAlertEventRepublishesFederatedEvents(t *testing.T) {
 			topic: eventbus.TopicGameServerCPUThreshold,
 			event: &xylona.FederationAlertEvent{
 				EventType:    xylona.AlertEventType_ALERT_EVENT_TYPE_CPU_THRESHOLD,
-				ServerId:     stringPtr("srv-3"),
-				ServerNodeId: stringPtr("node-3"),
+				ServerId:     new("srv-3"),
+				ServerNodeId: new("node-3"),
 				EventData:    `{"current_value":95.5,"threshold":90,"direction":"entered"}`,
 			},
 			assertion: func(t *testing.T, got any) {
@@ -89,7 +90,7 @@ func TestHandleAlertEventRepublishesFederatedEvents(t *testing.T) {
 			topic: eventbus.TopicNodeCPUThreshold,
 			event: &xylona.FederationAlertEvent{
 				EventType: xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
-				NodeId:    stringPtr("node-4"),
+				NodeId:    new("node-4"),
 				EventData: `{"current_value":91.5,"threshold":90,"direction":"entered"}`,
 			},
 			assertion: func(t *testing.T, got any) {
@@ -120,8 +121,4 @@ func TestHandleAlertEventRepublishesFederatedEvents(t *testing.T) {
 			}
 		})
 	}
-}
-
-func stringPtr(value string) *string {
-	return &value
 }

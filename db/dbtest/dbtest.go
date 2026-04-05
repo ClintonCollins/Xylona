@@ -1,3 +1,4 @@
+// Package dbtest provides migrated SQLite helpers for database tests.
 package dbtest
 
 import (

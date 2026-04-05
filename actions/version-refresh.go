@@ -25,6 +25,7 @@ func readVersionDurationEnv(envKey string, fallback time.Duration) time.Duration
 	return parsed
 }
 
+// ResolveVersionData returns the raw version string plus cached or refreshed version metadata.
 func (inst *Instance) ResolveVersionData(ctx context.Context, gs *models.GameServer, opts VersionResolveOptions) (string, versiontracker.VersionState) {
 	rawVersion := versiontracker.ResolveCurrentVersion(gs)
 	if inst.versionState == nil {

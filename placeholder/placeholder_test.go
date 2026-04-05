@@ -197,31 +197,31 @@ func TestResolve_ServerExecutable(t *testing.T) {
 func TestResolveToken(t *testing.T) {
 	tests := []struct {
 		name  string
-		token string
+		input string
 		vars  map[string]string
 		want  string
 	}{
 		{
 			name:  "standard replacement",
-			token: "{{PORT}}",
+			input: "{{PORT}}",
 			vars:  map[string]string{"PORT": "25565"},
 			want:  "25565",
 		},
 		{
 			name:  "embedded replacement",
-			token: "server-{{PORT}}.log",
+			input: "server-{{PORT}}.log",
 			vars:  map[string]string{"PORT": "25565"},
 			want:  "server-25565.log",
 		},
 		{
 			name:  "missing placeholder resolves to empty string",
-			token: "server-{{RCON_PORT}}.log",
+			input: "server-{{RCON_PORT}}.log",
 			vars:  map[string]string{},
 			want:  "server-.log",
 		},
 		{
 			name:  "multiple placeholders in one token",
-			token: "{{IP}}:{{PORT}}",
+			input: "{{IP}}:{{PORT}}",
 			vars: map[string]string{
 				"IP":   "127.0.0.1",
 				"PORT": "25565",
@@ -230,7 +230,7 @@ func TestResolveToken(t *testing.T) {
 		},
 		{
 			name:  "legacy placeholder still resolves",
-			token: "%GAMESERVER_PORT%",
+			input: "%GAMESERVER_PORT%",
 			vars:  map[string]string{"PORT": "25565"},
 			want:  "25565",
 		},
@@ -238,7 +238,7 @@ func TestResolveToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ResolveToken(tt.token, tt.vars)
+			got := ResolveToken(tt.input, tt.vars)
 			if got != tt.want {
 				t.Errorf("ResolveToken() = %q, want %q", got, tt.want)
 			}

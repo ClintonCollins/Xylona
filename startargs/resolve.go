@@ -6,6 +6,7 @@ import (
 	"github.com/ClintonCollins/Xylona/placeholder"
 )
 
+// ResolveArgs applies patches and placeholder resolution to a start-args template.
 func ResolveArgs(template []ArgBlock, patches []Patch, vars map[string]string) ([]string, []ResolvedBlock, error) {
 	if len(template) == 0 {
 		return []string{}, nil, nil

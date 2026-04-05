@@ -79,7 +79,7 @@ func newAlertRulesFixture(t *testing.T) *alertRulesFixture {
 // - "user-noperm": non-super user with no alert permissions
 // - "server-local-1": a local game server owned by user-alerts
 // - a notification channel belonging to user-alerts (returned ID)
-// - a notification channel belonging to user-super (for cross-user tests)
+// - a notification channel belonging to user-super (for cross-user tests).
 func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 	t.Helper()
 
@@ -571,30 +571,30 @@ func TestAlertRuleCRUD(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("CreateAlertRule() error = %v", errCreate)
 	}
-	if createResp.Msg == nil || createResp.Msg.Rule == nil {
+	if createResp.Msg == nil || createResp.Msg.GetRule() == nil {
 		t.Fatalf("CreateAlertRule() returned nil rule")
 	}
-	rule := createResp.Msg.Rule
-	if rule.Id == "" {
+	rule := createResp.Msg.GetRule()
+	if rule.GetId() == "" {
 		t.Errorf("CreateAlertRule() returned empty ID")
 	}
-	if rule.UserId != "user-alerts" {
-		t.Errorf("user_id = %q, want %q", rule.UserId, "user-alerts")
+	if rule.GetUserId() != "user-alerts" {
+		t.Errorf("user_id = %q, want %q", rule.GetUserId(), "user-alerts")
 	}
-	if rule.EventType != xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH {
-		t.Errorf("event_type = %v, want CRASH", rule.EventType)
+	if rule.GetEventType() != xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH {
+		t.Errorf("event_type = %v, want CRASH", rule.GetEventType())
 	}
-	if rule.NotificationChannelId != fixture.channelID {
-		t.Errorf("notification_channel_id = %q, want %q", rule.NotificationChannelId, fixture.channelID)
+	if rule.GetNotificationChannelId() != fixture.channelID {
+		t.Errorf("notification_channel_id = %q, want %q", rule.GetNotificationChannelId(), fixture.channelID)
 	}
-	if !rule.Enabled {
+	if !rule.GetEnabled() {
 		t.Errorf("enabled = false, want true")
 	}
 	if rule.ServerId != nil {
-		t.Errorf("server_id = %q, want nil", *rule.ServerId)
+		t.Errorf("server_id = %q, want nil", rule.GetServerId())
 	}
 	if rule.NodeId != nil {
-		t.Errorf("node_id = %q, want nil", *rule.NodeId)
+		t.Errorf("node_id = %q, want nil", rule.GetNodeId())
 	}
 
 	// List — should contain the new rule
@@ -605,16 +605,16 @@ func TestAlertRuleCRUD(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("ListAlertRules() error = %v", errList)
 	}
-	if len(listResp.Msg.Rules) != 1 {
-		t.Fatalf("ListAlertRules() len = %d, want 1", len(listResp.Msg.Rules))
+	if len(listResp.Msg.GetRules()) != 1 {
+		t.Fatalf("ListAlertRules() len = %d, want 1", len(listResp.Msg.GetRules()))
 	}
-	if listResp.Msg.Rules[0].Id != rule.Id {
-		t.Errorf("listed rule ID = %q, want %q", listResp.Msg.Rules[0].Id, rule.Id)
+	if listResp.Msg.GetRules()[0].GetId() != rule.GetId() {
+		t.Errorf("listed rule ID = %q, want %q", listResp.Msg.GetRules()[0].GetId(), rule.GetId())
 	}
 
 	// Update — change to STATUS_CHANGE, disable
 	updateReq := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
-		Id:                    rule.Id,
+		Id:                    rule.GetId(),
 		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_STATUS_CHANGE,
 		Condition:             "status=OFFLINE",
 		NotificationChannelId: fixture.channelID,
@@ -626,23 +626,23 @@ func TestAlertRuleCRUD(t *testing.T) {
 	if errUpdate != nil {
 		t.Fatalf("UpdateAlertRule() error = %v", errUpdate)
 	}
-	if updateResp.Msg == nil || updateResp.Msg.Rule == nil {
+	if updateResp.Msg == nil || updateResp.Msg.GetRule() == nil {
 		t.Fatalf("UpdateAlertRule() returned nil rule")
 	}
-	updated := updateResp.Msg.Rule
-	if updated.EventType != xylona.AlertEventType_ALERT_EVENT_TYPE_STATUS_CHANGE {
-		t.Errorf("event_type = %v, want STATUS_CHANGE", updated.EventType)
+	updated := updateResp.Msg.GetRule()
+	if updated.GetEventType() != xylona.AlertEventType_ALERT_EVENT_TYPE_STATUS_CHANGE {
+		t.Errorf("event_type = %v, want STATUS_CHANGE", updated.GetEventType())
 	}
-	if updated.Condition != "status=OFFLINE" {
-		t.Errorf("condition = %q, want %q", updated.Condition, "status=OFFLINE")
+	if updated.GetCondition() != "status=OFFLINE" {
+		t.Errorf("condition = %q, want %q", updated.GetCondition(), "status=OFFLINE")
 	}
-	if updated.Enabled {
+	if updated.GetEnabled() {
 		t.Errorf("enabled = true, want false")
 	}
 
 	// Delete
 	deleteReq := connect.NewRequest(&xylona.DeleteAlertRuleRequest{
-		Id: rule.Id,
+		Id: rule.GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteReq, "user-alerts")
 
@@ -659,8 +659,8 @@ func TestAlertRuleCRUD(t *testing.T) {
 	if errList2 != nil {
 		t.Fatalf("ListAlertRules() after delete error = %v", errList2)
 	}
-	if len(listResp2.Msg.Rules) != 0 {
-		t.Errorf("ListAlertRules() after delete len = %d, want 0", len(listResp2.Msg.Rules))
+	if len(listResp2.Msg.GetRules()) != 0 {
+		t.Errorf("ListAlertRules() after delete len = %d, want 0", len(listResp2.Msg.GetRules()))
 	}
 }
 
@@ -681,11 +681,11 @@ func TestCreateAlertRule_ServerScoped(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("CreateAlertRule(server-scoped) error = %v", errCreate)
 	}
-	rule := resp.Msg.Rule
-	if rule.ServerId == nil || *rule.ServerId != "server-local-1" {
+	rule := resp.Msg.GetRule()
+	if rule.ServerId == nil || rule.GetServerId() != "server-local-1" {
 		t.Errorf("server_id = %v, want %q", rule.ServerId, "server-local-1")
 	}
-	if rule.ServerNodeId == nil || *rule.ServerNodeId != "node-local" {
+	if rule.ServerNodeId == nil || rule.GetServerNodeId() != "node-local" {
 		t.Errorf("server_node_id = %v, want %q", rule.ServerNodeId, "node-local")
 	}
 	if rule.NodeId != nil {
@@ -709,8 +709,8 @@ func TestCreateAlertRule_NodeScoped(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("CreateAlertRule(node-scoped) error = %v", errCreate)
 	}
-	rule := resp.Msg.Rule
-	if rule.NodeId == nil || *rule.NodeId != "node-local" {
+	rule := resp.Msg.GetRule()
+	if rule.NodeId == nil || rule.GetNodeId() != "node-local" {
 		t.Errorf("node_id = %v, want %q", rule.NodeId, "node-local")
 	}
 	if rule.ServerId != nil {
@@ -734,7 +734,7 @@ func TestCreateAlertRule_AllNodesNodeEvent(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("CreateAlertRule(all-nodes) error = %v", errCreate)
 	}
-	rule := resp.Msg.Rule
+	rule := resp.Msg.GetRule()
 	if rule.NodeId != nil {
 		t.Errorf("node_id = %v, want nil (all-nodes)", rule.NodeId)
 	}
@@ -766,8 +766,8 @@ func TestCreateAlertRule_SuperUser(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("CreateAlertRule(superuser) error = %v", errCreate)
 	}
-	if resp.Msg.Rule.UserId != "user-super" {
-		t.Errorf("user_id = %q, want %q", resp.Msg.Rule.UserId, "user-super")
+	if resp.Msg.GetRule().GetUserId() != "user-super" {
+		t.Errorf("user_id = %q, want %q", resp.Msg.GetRule().GetUserId(), "user-super")
 	}
 }
 
@@ -811,8 +811,8 @@ func TestListAlertRules_FilteredByServer(t *testing.T) {
 	if errListAll != nil {
 		t.Fatalf("ListAlertRules(all) error = %v", errListAll)
 	}
-	if len(listAllResp.Msg.Rules) != 2 {
-		t.Errorf("ListAlertRules(all) len = %d, want 2", len(listAllResp.Msg.Rules))
+	if len(listAllResp.Msg.GetRules()) != 2 {
+		t.Errorf("ListAlertRules(all) len = %d, want 2", len(listAllResp.Msg.GetRules()))
 	}
 
 	// List filtered by server — should get 1
@@ -825,8 +825,8 @@ func TestListAlertRules_FilteredByServer(t *testing.T) {
 	if errListFilter != nil {
 		t.Fatalf("ListAlertRules(filtered) error = %v", errListFilter)
 	}
-	if len(listFilterResp.Msg.Rules) != 1 {
-		t.Errorf("ListAlertRules(filtered) len = %d, want 1", len(listFilterResp.Msg.Rules))
+	if len(listFilterResp.Msg.GetRules()) != 1 {
+		t.Errorf("ListAlertRules(filtered) len = %d, want 1", len(listFilterResp.Msg.GetRules()))
 	}
 }
 
@@ -879,11 +879,11 @@ func TestListAlertRules_FilteredByServerDoesNotLeakOtherUsersRules(t *testing.T)
 	if errList != nil {
 		t.Fatalf("ListAlertRules(filtered) error = %v", errList)
 	}
-	if len(listResp.Msg.Rules) != 1 {
-		t.Fatalf("ListAlertRules(filtered) len = %d, want 1", len(listResp.Msg.Rules))
+	if len(listResp.Msg.GetRules()) != 1 {
+		t.Fatalf("ListAlertRules(filtered) len = %d, want 1", len(listResp.Msg.GetRules()))
 	}
-	if listResp.Msg.Rules[0].UserId != "user-alerts" {
-		t.Fatalf("ListAlertRules(filtered) user_id = %q, want %q", listResp.Msg.Rules[0].UserId, "user-alerts")
+	if listResp.Msg.GetRules()[0].GetUserId() != "user-alerts" {
+		t.Fatalf("ListAlertRules(filtered) user_id = %q, want %q", listResp.Msg.GetRules()[0].GetUserId(), "user-alerts")
 	}
 }
 
@@ -926,8 +926,8 @@ func TestGetAlertHistory_Basic(t *testing.T) {
 	if errHist != nil {
 		t.Fatalf("GetAlertHistory() error = %v", errHist)
 	}
-	if len(histResp.Msg.Entries) != 2 {
-		t.Errorf("GetAlertHistory() len = %d, want 2", len(histResp.Msg.Entries))
+	if len(histResp.Msg.GetEntries()) != 2 {
+		t.Errorf("GetAlertHistory() len = %d, want 2", len(histResp.Msg.GetEntries()))
 	}
 }
 
@@ -958,8 +958,8 @@ func TestGetAlertHistory_Pagination(t *testing.T) {
 	if errResp1 != nil {
 		t.Fatalf("GetAlertHistory(page1) error = %v", errResp1)
 	}
-	if len(resp1.Msg.Entries) != 2 {
-		t.Errorf("GetAlertHistory(page1) len = %d, want 2", len(resp1.Msg.Entries))
+	if len(resp1.Msg.GetEntries()) != 2 {
+		t.Errorf("GetAlertHistory(page1) len = %d, want 2", len(resp1.Msg.GetEntries()))
 	}
 
 	// Page 2: limit=2, offset=2
@@ -973,8 +973,8 @@ func TestGetAlertHistory_Pagination(t *testing.T) {
 	if errResp2 != nil {
 		t.Fatalf("GetAlertHistory(page2) error = %v", errResp2)
 	}
-	if len(resp2.Msg.Entries) != 1 {
-		t.Errorf("GetAlertHistory(page2) len = %d, want 1", len(resp2.Msg.Entries))
+	if len(resp2.Msg.GetEntries()) != 1 {
+		t.Errorf("GetAlertHistory(page2) len = %d, want 1", len(resp2.Msg.GetEntries()))
 	}
 }
 
@@ -1014,8 +1014,8 @@ func TestGetAlertHistory_FilteredByServer(t *testing.T) {
 	if errResp != nil {
 		t.Fatalf("GetAlertHistory(filtered) error = %v", errResp)
 	}
-	if len(resp.Msg.Entries) != 1 {
-		t.Errorf("GetAlertHistory(filtered) len = %d, want 1", len(resp.Msg.Entries))
+	if len(resp.Msg.GetEntries()) != 1 {
+		t.Errorf("GetAlertHistory(filtered) len = %d, want 1", len(resp.Msg.GetEntries()))
 	}
 }
 
@@ -1053,11 +1053,11 @@ func TestGetAlertHistory_FilteredByServerDoesNotLeakOtherUsersEntries(t *testing
 	if errResp != nil {
 		t.Fatalf("GetAlertHistory(filtered) error = %v", errResp)
 	}
-	if len(resp.Msg.Entries) != 1 {
-		t.Fatalf("GetAlertHistory(filtered) len = %d, want 1", len(resp.Msg.Entries))
+	if len(resp.Msg.GetEntries()) != 1 {
+		t.Fatalf("GetAlertHistory(filtered) len = %d, want 1", len(resp.Msg.GetEntries()))
 	}
-	if resp.Msg.Entries[0].UserId != "user-alerts" {
-		t.Fatalf("GetAlertHistory(filtered) user_id = %q, want %q", resp.Msg.Entries[0].UserId, "user-alerts")
+	if resp.Msg.GetEntries()[0].GetUserId() != "user-alerts" {
+		t.Fatalf("GetAlertHistory(filtered) user_id = %q, want %q", resp.Msg.GetEntries()[0].GetUserId(), "user-alerts")
 	}
 }
 
@@ -1078,7 +1078,7 @@ func TestGetAlertHistory_DefaultLimit(t *testing.T) {
 	}
 	if resp.Msg.Entries == nil {
 		// entries should be non-nil (empty slice or nil is fine)
-		_ = resp.Msg.Entries
+		_ = resp.Msg.GetEntries()
 	}
 }
 
@@ -1221,8 +1221,8 @@ func TestGetAlertHistory_SuperuserSeesAll(t *testing.T) {
 	if errResp != nil {
 		t.Fatalf("GetAlertHistory(superuser) error = %v", errResp)
 	}
-	if len(resp.Msg.Entries) != 2 {
-		t.Errorf("GetAlertHistory(superuser) len = %d, want 2", len(resp.Msg.Entries))
+	if len(resp.Msg.GetEntries()) != 2 {
+		t.Errorf("GetAlertHistory(superuser) len = %d, want 2", len(resp.Msg.GetEntries()))
 	}
 
 	// Non-superuser should only see their own
@@ -1235,7 +1235,7 @@ func TestGetAlertHistory_SuperuserSeesAll(t *testing.T) {
 	if errResp2 != nil {
 		t.Fatalf("GetAlertHistory(user-alerts) error = %v", errResp2)
 	}
-	if len(resp2.Msg.Entries) != 1 {
-		t.Errorf("GetAlertHistory(user-alerts) len = %d, want 1", len(resp2.Msg.Entries))
+	if len(resp2.Msg.GetEntries()) != 1 {
+		t.Errorf("GetAlertHistory(user-alerts) len = %d, want 1", len(resp2.Msg.GetEntries()))
 	}
 }

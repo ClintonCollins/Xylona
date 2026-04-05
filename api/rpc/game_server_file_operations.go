@@ -24,8 +24,9 @@ func fileMutationError(err error) error {
 	return connect.NewError(connect.CodeInternal, errors.New("file operation failed"))
 }
 
+// GameServersFileOrDirectoryCreate creates a file or directory for a game server.
 func (xs *XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, request *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
-	serverID := request.Msg.GameServerId
+	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -52,8 +53,9 @@ func (xs *XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, r
 	)
 }
 
+// GameServerFilesDelete deletes files or directories for a game server.
 func (xs *XylonaService) GameServerFilesDelete(ctx context.Context, request *connect.Request[xylona.GameServerFilesDeleteRequest]) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
-	serverID := request.Msg.GameServerId
+	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -80,13 +82,14 @@ func (xs *XylonaService) GameServerFilesDelete(ctx context.Context, request *con
 	)
 }
 
+// GameServerFilesArchive streams archive progress for a game server file selection.
 func (xs *XylonaService) GameServerFilesArchive(ctx context.Context, request *connect.Request[xylona.GameServerFilesCompressionRequest], c *connect.ServerStream[xylona.GameServerFilesArchiveProgress]) error {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
+	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
 	if errGetGameServer != nil {
 		return errGetGameServer
 	}
@@ -127,13 +130,14 @@ func (xs *XylonaService) GameServerFilesArchive(ctx context.Context, request *co
 	return nil
 }
 
+// GameServerFilesExtract streams archive extraction progress for a game server.
 func (xs *XylonaService) GameServerFilesExtract(ctx context.Context, request *connect.Request[xylona.GameServerFilesDecompressionRequest], c *connect.ServerStream[xylona.GameServerFilesExtractProgress]) error {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
+	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
 	if errGetGameServer != nil {
 		return errGetGameServer
 	}
@@ -173,13 +177,14 @@ func (xs *XylonaService) GameServerFilesExtract(ctx context.Context, request *co
 	return nil
 }
 
+// GameServerFilesCompress creates a compressed archive for game server files.
 func (xs *XylonaService) GameServerFilesCompress(ctx context.Context, request *connect.Request[xylona.GameServerFilesCompressionRequest]) (*connect.Response[xylona.GameServerFilesCompressionResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
+	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
@@ -197,13 +202,14 @@ func (xs *XylonaService) GameServerFilesCompress(ctx context.Context, request *c
 	return &connect.Response[xylona.GameServerFilesCompressionResponse]{Msg: response}, nil
 }
 
+// GameServerFilesDecompress extracts an archive for a game server.
 func (xs *XylonaService) GameServerFilesDecompress(ctx context.Context, request *connect.Request[xylona.GameServerFilesDecompressionRequest]) (*connect.Response[xylona.GameServerFilesDecompressionResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GameServerId)
+	gameServer, errGetGameServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
 	}
@@ -220,8 +226,9 @@ func (xs *XylonaService) GameServerFilesDecompress(ctx context.Context, request 
 	return &connect.Response[xylona.GameServerFilesDecompressionResponse]{Msg: response}, nil
 }
 
+// GameServerFilesDownloadFromURL downloads a file into a game server directory.
 func (xs *XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, request *connect.Request[xylona.GameServersFileDownloadFromURLRequest]) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
-	serverID := request.Msg.GameServerId
+	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -248,8 +255,9 @@ func (xs *XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, req
 	)
 }
 
+// GameServerFileRename renames a file for a game server.
 func (xs *XylonaService) GameServerFileRename(ctx context.Context, request *connect.Request[xylona.GameServerFileRenameRequest]) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
-	serverID := request.Msg.GameServerId
+	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -276,8 +284,9 @@ func (xs *XylonaService) GameServerFileRename(ctx context.Context, request *conn
 	)
 }
 
+// GameServerFilesMove moves files for a game server.
 func (xs *XylonaService) GameServerFilesMove(ctx context.Context, request *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
-	serverID := request.Msg.GameServerId
+	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -304,8 +313,9 @@ func (xs *XylonaService) GameServerFilesMove(ctx context.Context, request *conne
 	)
 }
 
+// GameServersFileEdit edits a file for a game server.
 func (xs *XylonaService) GameServersFileEdit(ctx context.Context, request *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error) {
-	serverID := request.Msg.GameServerId
+	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))

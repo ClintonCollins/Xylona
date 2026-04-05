@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,7 +20,7 @@ func TestWebSocket_UnauthenticatedSessionDoesNotLogErrors(t *testing.T) {
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
 		userWebsocketConnectionsLock: &sync.RWMutex{},
 	}
-	request := httptest.NewRequest(http.MethodGet, "/api/websocket", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/websocket", nil)
 	request.RemoteAddr = "127.0.0.1:54321"
 	request.Header.Set("User-Agent", "test-agent")
 	session := &melody.Session{Request: request}

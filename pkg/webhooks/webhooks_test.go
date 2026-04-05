@@ -40,7 +40,7 @@ func testEvent() AlertEvent {
 func newTestSender() *Sender {
 	return &Sender{
 		client:      &http.Client{Timeout: 2 * time.Second},
-		rateLimiter: newRateLimiter(10, time.Minute),
+		rateLimiter: newRateLimiter(10),
 		retry: retryConfig{
 			MaxAttempts: 3,
 			BaseDelay:   time.Millisecond, // no real waiting in tests
@@ -393,7 +393,7 @@ func TestSend_RateLimited(t *testing.T) {
 
 	sender := &Sender{
 		client:      &http.Client{Timeout: 2 * time.Second},
-		rateLimiter: newRateLimiter(10, time.Minute),
+		rateLimiter: newRateLimiter(10),
 		retry: retryConfig{
 			MaxAttempts: 3,
 			BaseDelay:   time.Millisecond,
@@ -420,7 +420,7 @@ func TestSend_RateLimited(t *testing.T) {
 }
 
 func TestRateLimiter_RemovesExpiredKeysAcrossChannels(t *testing.T) {
-	rl := newRateLimiter(10, time.Minute)
+	rl := newRateLimiter(10)
 	rl.windows["stale"] = []time.Time{time.Now().Add(-2 * time.Minute)}
 
 	allowed := rl.Allow("fresh")
@@ -442,7 +442,7 @@ func TestSend_Timeout(t *testing.T) {
 
 	sender := &Sender{
 		client:      &http.Client{Timeout: 50 * time.Millisecond},
-		rateLimiter: newRateLimiter(100, time.Minute),
+		rateLimiter: newRateLimiter(100),
 		retry: retryConfig{
 			MaxAttempts: 1, // no retries for timeout test
 			BaseDelay:   time.Millisecond,

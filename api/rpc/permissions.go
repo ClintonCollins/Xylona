@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"connectrpc.com/connect"
@@ -31,7 +32,11 @@ func (xs *XylonaService) ensureLocalServerPermission(user *models.User, gameServ
 
 func (xs *XylonaService) applyFederatedActingIdentity(header http.Header, actingUser *models.User) error {
 	// Intentionally a no-op when there is no authenticated acting user.
-	return federation.ApplyActingIdentityHeadersForUser(xs.db, header, actingUser)
+	errApply := federation.ApplyActingIdentityHeadersForUser(xs.db, header, actingUser)
+	if errApply != nil {
+		return fmt.Errorf("rpc: apply federated acting identity: %w", errApply)
+	}
+	return nil
 }
 
 // computeEffectivePermissions returns the permission IDs the given user

@@ -89,15 +89,15 @@ func (c *Connection) reencryptNodeAPIKey(serviceName, plaintext string) {
 		Msg("Migrated node API key to primary encryption key")
 }
 
-// InsertOrUpdateNodeApiKey upserts a node API key by service name.
+// InsertOrUpdateNodeAPIKey upserts a node API key by service name.
 // The API key is encrypted before storage when an encryption key is configured.
-func (c *Connection) InsertOrUpdateNodeApiKey(exec bob.Executor, setter *models.NodeAPIKeySetter) (*models.NodeAPIKey, error) {
+func (c *Connection) InsertOrUpdateNodeAPIKey(exec bob.Executor, setter *models.NodeAPIKeySetter) (*models.NodeAPIKey, error) {
 	// Encrypt the API key before storing.
 	if setter.APIKey.IsValue() {
 		encrypted, errEncrypt := c.encryptAPIKey(setter.APIKey.MustGet())
 		if errEncrypt != nil {
 			log.Error().Err(errEncrypt).Msg("Error encrypting node API key")
-			return nil, errEncrypt
+			return nil, fmt.Errorf("encrypt node API key: %w", errEncrypt)
 		}
 		setter.APIKey = omit.From(encrypted)
 	}
@@ -110,7 +110,7 @@ func (c *Connection) InsertOrUpdateNodeApiKey(exec bob.Executor, setter *models.
 	).One(c.ctx, exec)
 	if errUpsert != nil {
 		log.Error().Err(errUpsert).Msg("Error upserting node API key")
-		return nil, errUpsert
+		return nil, fmt.Errorf("insert or update node API key: %w", errUpsert)
 	}
 
 	// Decrypt for the caller. No re-encrypt needed here since we just wrote
@@ -124,17 +124,17 @@ func (c *Connection) InsertOrUpdateNodeApiKey(exec bob.Executor, setter *models.
 	return key, nil
 }
 
-// GetNodeApiKeys fetches all node API keys, decrypting them before returning.
+// GetNodeAPIKeys fetches all node API keys, decrypting them before returning.
 // Any keys decrypted via fallback key are transparently re-encrypted under
 // the primary key.
-func (c *Connection) GetNodeApiKeys() ([]*models.NodeAPIKey, error) {
+func (c *Connection) GetNodeAPIKeys() ([]*models.NodeAPIKey, error) {
 	keys, errGet := models.NodeAPIKeys.Query().All(c.ctx, c.DB)
 	if errGet != nil {
 		if errors.Is(errGet, sql.ErrNoRows) {
 			return nil, nil
 		}
 		log.Error().Err(errGet).Msg("Error querying node API keys")
-		return nil, errGet
+		return nil, fmt.Errorf("get node API keys: %w", errGet)
 	}
 
 	for _, k := range keys {
@@ -151,16 +151,16 @@ func (c *Connection) GetNodeApiKeys() ([]*models.NodeAPIKey, error) {
 	return keys, nil
 }
 
-// GetNodeApiKeyByServiceName fetches a node API key by service name,
+// GetNodeAPIKeyByServiceName fetches a node API key by service name,
 // decrypting it before returning. If the key was decrypted using the fallback
 // key, it is transparently re-encrypted under the primary key.
-func (c *Connection) GetNodeApiKeyByServiceName(serviceName string) (*models.NodeAPIKey, error) {
+func (c *Connection) GetNodeAPIKeyByServiceName(serviceName string) (*models.NodeAPIKey, error) {
 	key, errGet := models.NodeAPIKeys.Query(models.SelectWhere.NodeAPIKeys.ServiceName.EQ(serviceName)).One(c.ctx, c.DB)
 	if errGet != nil {
 		if !errors.Is(errGet, sql.ErrNoRows) {
 			log.Error().Err(errGet).Msg("Error querying node API key by service name")
 		}
-		return nil, errGet
+		return nil, fmt.Errorf("get node API key by service name: %w", errGet)
 	}
 
 	usedFallback, errDecrypt := c.decryptNodeAPIKey(key)
@@ -176,15 +176,15 @@ func (c *Connection) GetNodeApiKeyByServiceName(serviceName string) (*models.Nod
 	return key, nil
 }
 
-// DeleteNodeApiKeyByServiceName deletes a node API key by service name.
-func (c *Connection) DeleteNodeApiKeyByServiceName(serviceName string) error {
+// DeleteNodeAPIKeyByServiceName deletes a node API key by service name.
+func (c *Connection) DeleteNodeAPIKeyByServiceName(serviceName string) error {
 	_, errExec := sqlite.RawQuery(
 		`DELETE FROM node_api_key WHERE service_name = ?`,
 		serviceName,
 	).Exec(c.ctx, c.DB)
 	if errExec != nil {
 		log.Error().Err(errExec).Msg("Error deleting node API key")
-		return errExec
+		return fmt.Errorf("delete node API key by service name: %w", errExec)
 	}
 	return nil
 }

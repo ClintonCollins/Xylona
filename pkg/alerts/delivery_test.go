@@ -182,10 +182,10 @@ func (m *mockEmailSender) getCalls() []emailCall {
 
 // --- helper to wait for mock state ---
 
-// waitFor polls fn until it returns true or the timeout expires.
-func waitFor(t *testing.T, timeout time.Duration, fn func() bool) {
+// waitFor polls fn until it returns true or a fixed timeout expires.
+func waitFor(t *testing.T, fn func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(timeout)
+	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		if fn() {
 			return
@@ -232,7 +232,7 @@ func TestDeliveryWorker_PicksUpJob(t *testing.T) {
 	}
 
 	// Wait for the webhook sender to receive the call.
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		return len(whSender.getCalls()) == 1
 	})
 
@@ -285,7 +285,7 @@ func TestDeliveryWorker_ResolvesChannelFromStore(t *testing.T) {
 		ServerID:  "srv-1",
 	}
 
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		return len(whSender.getCalls()) == 1
 	})
 
@@ -376,7 +376,7 @@ func TestDeliveryWorker_DispatchesToCorrectSender(t *testing.T) {
 			}
 
 			if tc.wantWebhook {
-				waitFor(t, 5*time.Second, func() bool {
+				waitFor(t, func() bool {
 					return len(whSender.getCalls()) == 1
 				})
 				calls := whSender.getCalls()
@@ -386,7 +386,7 @@ func TestDeliveryWorker_DispatchesToCorrectSender(t *testing.T) {
 			}
 
 			if tc.wantEmail {
-				waitFor(t, 5*time.Second, func() bool {
+				waitFor(t, func() bool {
 					return len(emailSender.getCalls()) == 1
 				})
 				calls := emailSender.getCalls()
@@ -439,7 +439,7 @@ func TestDeliveryWorker_UpdatesHistoryOnSuccess(t *testing.T) {
 	}
 
 	// Wait for the history record to be updated.
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		records := historyStore.allRecords()
 		for _, rec := range records {
 			if rec.DeliveryStatus == deliveryStatusSent {
@@ -499,7 +499,7 @@ func TestDeliveryWorker_UpdatesHistoryOnFailure(t *testing.T) {
 		ServerNodeID: "node-a",
 	}
 
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		records := historyStore.allRecords()
 		for _, rec := range records {
 			if rec.DeliveryStatus == deliveryStatusFailed {
@@ -548,7 +548,7 @@ func TestDeliveryWorker_HandlesChannelLookupError(t *testing.T) {
 	}
 
 	// The history should record a FAILED status because the channel lookup failed.
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		records := historyStore.allRecords()
 		for _, rec := range records {
 			if rec.DeliveryStatus == deliveryStatusFailed {
@@ -606,7 +606,7 @@ func TestDeliveryWorker_HandlesUnsupportedChannelType(t *testing.T) {
 		ServerID:  "srv-1",
 	}
 
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		records := historyStore.allRecords()
 		for _, rec := range records {
 			if rec.DeliveryStatus == deliveryStatusFailed {
@@ -625,7 +625,7 @@ func TestDeliveryWorker_HandlesUnsupportedChannelType(t *testing.T) {
 	}
 }
 
-func TestDeliveryWorker_GracefulShutdown(t *testing.T) {
+func TestDeliveryWorker_GracefulShutdown(_ *testing.T) {
 	channelStore := &mockChannelStore{
 		channels: map[string]*models.NotificationChannel{},
 	}
@@ -739,7 +739,7 @@ func TestDeliveryWorker_MultipleJobsProcessed(t *testing.T) {
 		}
 	}
 
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		return len(whSender.getCalls()) == jobCount
 	})
 
@@ -747,7 +747,7 @@ func TestDeliveryWorker_MultipleJobsProcessed(t *testing.T) {
 		t.Errorf("webhook calls = %d, want %d", len(whSender.getCalls()), jobCount)
 	}
 
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		records := historyStore.allRecords()
 		sent := 0
 		for _, rec := range records {
@@ -798,7 +798,7 @@ func TestDeliveryWorker_BuildsAlertEventFields(t *testing.T) {
 		ServerNodeID: "node-a",
 	}
 
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		return len(whSender.getCalls()) == 1
 	})
 
@@ -857,7 +857,7 @@ func TestDeliveryWorker_CrashEventSeverity(t *testing.T) {
 		ServerNodeID: "node-a",
 	}
 
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		return len(whSender.getCalls()) == 1
 	})
 
@@ -900,7 +900,7 @@ func TestDeliveryWorker_StatusChangeEventSeverity(t *testing.T) {
 		ServerID:  "srv-1",
 	}
 
-	waitFor(t, 5*time.Second, func() bool {
+	waitFor(t, func() bool {
 		return len(whSender.getCalls()) == 1
 	})
 

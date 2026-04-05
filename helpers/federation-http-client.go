@@ -6,8 +6,13 @@ import (
 	"time"
 )
 
+// NewFederationHTTPClient creates a federation HTTP client with optional insecure TLS and timeout settings.
 func NewFederationHTTPClient(timeout time.Duration, allowInsecureTLS bool) *http.Client {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	baseTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		baseTransport = &http.Transport{}
+	}
+	transport := baseTransport.Clone()
 	tlsConfig := &tls.Config{}
 	if transport.TLSClientConfig != nil {
 		tlsConfig = transport.TLSClientConfig.Clone()

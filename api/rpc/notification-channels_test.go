@@ -76,7 +76,7 @@ func newNotifChanFixture(t *testing.T) *notifChanFixture {
 // - "user-super": superuser (bypasses permission checks)
 // - "user-alerts": non-super user with a global role carrying alerts.manage
 // - "user-history": non-super user with a global role carrying alerts.view_history
-// - "user-noperm": non-super user with no alert permissions
+// - "user-noperm": non-super user with no alert permissions.
 func seedNotifChanFixture(t *testing.T, conn *db.Connection) {
 	t.Helper()
 
@@ -256,17 +256,17 @@ func TestCreateNotificationChannel_SuperUser(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("CreateNotificationChannel(superuser) error = %v", errCreate)
 	}
-	if resp.Msg == nil || resp.Msg.Channel == nil {
+	if resp.Msg == nil || resp.Msg.GetChannel() == nil {
 		t.Fatalf("CreateNotificationChannel(superuser) returned nil channel")
 	}
-	if resp.Msg.Channel.Name != "discord-super" {
-		t.Errorf("name = %q, want %q", resp.Msg.Channel.Name, "discord-super")
+	if resp.Msg.GetChannel().GetName() != "discord-super" {
+		t.Errorf("name = %q, want %q", resp.Msg.GetChannel().GetName(), "discord-super")
 	}
-	if resp.Msg.Channel.ChannelType != xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD {
-		t.Errorf("channel_type = %v, want WEBHOOK_DISCORD", resp.Msg.Channel.ChannelType)
+	if resp.Msg.GetChannel().GetChannelType() != xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD {
+		t.Errorf("channel_type = %v, want WEBHOOK_DISCORD", resp.Msg.GetChannel().GetChannelType())
 	}
-	if resp.Msg.Channel.UserId != "user-super" {
-		t.Errorf("user_id = %q, want %q", resp.Msg.Channel.UserId, "user-super")
+	if resp.Msg.GetChannel().GetUserId() != "user-super" {
+		t.Errorf("user_id = %q, want %q", resp.Msg.GetChannel().GetUserId(), "user-super")
 	}
 }
 
@@ -285,11 +285,11 @@ func TestCreateNotificationChannel_GlobalPermission(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("CreateNotificationChannel(global perm) error = %v", errCreate)
 	}
-	if resp.Msg == nil || resp.Msg.Channel == nil {
+	if resp.Msg == nil || resp.Msg.GetChannel() == nil {
 		t.Fatalf("CreateNotificationChannel(global perm) returned nil channel")
 	}
-	if resp.Msg.Channel.UserId != "user-alerts" {
-		t.Errorf("user_id = %q, want %q", resp.Msg.Channel.UserId, "user-alerts")
+	if resp.Msg.GetChannel().GetUserId() != "user-alerts" {
+		t.Errorf("user_id = %q, want %q", resp.Msg.GetChannel().GetUserId(), "user-alerts")
 	}
 }
 
@@ -434,7 +434,7 @@ func TestCreateNotificationChannel_CustomSMTPSanitizesPasswordInResponse(t *test
 	}
 
 	var config map[string]any
-	errUnmarshal := json.Unmarshal([]byte(resp.Msg.Channel.Config), &config)
+	errUnmarshal := json.Unmarshal([]byte(resp.Msg.GetChannel().GetConfig()), &config)
 	if errUnmarshal != nil {
 		t.Fatalf("response config unmarshal error = %v", errUnmarshal)
 	}
@@ -467,17 +467,17 @@ func TestNotificationChannelCRUD(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("Create error = %v", errCreate)
 	}
-	channel := createResp.Msg.Channel
-	if channel.Id == "" {
+	channel := createResp.Msg.GetChannel()
+	if channel.GetId() == "" {
 		t.Fatalf("Create returned empty ID")
 	}
-	if !channel.Enabled {
+	if !channel.GetEnabled() {
 		t.Errorf("Enabled = false, want true")
 	}
-	if channel.CreatedAt == nil {
+	if channel.GetCreatedAt() == nil {
 		t.Errorf("CreatedAt is nil")
 	}
-	if channel.UpdatedAt == nil {
+	if channel.GetUpdatedAt() == nil {
 		t.Errorf("UpdatedAt is nil")
 	}
 
@@ -489,16 +489,16 @@ func TestNotificationChannelCRUD(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("List error = %v", errList)
 	}
-	if len(listResp.Msg.Channels) != 1 {
-		t.Fatalf("List returned %d channels, want 1", len(listResp.Msg.Channels))
+	if len(listResp.Msg.GetChannels()) != 1 {
+		t.Fatalf("List returned %d channels, want 1", len(listResp.Msg.GetChannels()))
 	}
-	if listResp.Msg.Channels[0].Id != channel.Id {
-		t.Errorf("List[0].Id = %q, want %q", listResp.Msg.Channels[0].Id, channel.Id)
+	if listResp.Msg.GetChannels()[0].GetId() != channel.GetId() {
+		t.Errorf("List[0].Id = %q, want %q", listResp.Msg.GetChannels()[0].GetId(), channel.GetId())
 	}
 
 	// Update
 	updateReq := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
-		Id:      channel.Id,
+		Id:      channel.GetId(),
 		Name:    "renamed-channel",
 		Config:  `{"url":"https://example.com/hook2"}`,
 		Enabled: false,
@@ -509,16 +509,16 @@ func TestNotificationChannelCRUD(t *testing.T) {
 	if errUpdate != nil {
 		t.Fatalf("Update error = %v", errUpdate)
 	}
-	if updateResp.Msg.Channel.Name != "renamed-channel" {
-		t.Errorf("Update name = %q, want %q", updateResp.Msg.Channel.Name, "renamed-channel")
+	if updateResp.Msg.GetChannel().GetName() != "renamed-channel" {
+		t.Errorf("Update name = %q, want %q", updateResp.Msg.GetChannel().GetName(), "renamed-channel")
 	}
-	if updateResp.Msg.Channel.Enabled {
+	if updateResp.Msg.GetChannel().GetEnabled() {
 		t.Errorf("Update Enabled = true, want false")
 	}
 
 	// Delete
 	deleteReq := connect.NewRequest(&xylona.DeleteNotificationChannelRequest{
-		Id: channel.Id,
+		Id: channel.GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteReq, "user-alerts")
 
@@ -535,8 +535,8 @@ func TestNotificationChannelCRUD(t *testing.T) {
 	if errList2 != nil {
 		t.Fatalf("List after delete error = %v", errList2)
 	}
-	if len(listResp2.Msg.Channels) != 0 {
-		t.Errorf("List after delete returned %d channels, want 0", len(listResp2.Msg.Channels))
+	if len(listResp2.Msg.GetChannels()) != 0 {
+		t.Errorf("List after delete returned %d channels, want 0", len(listResp2.Msg.GetChannels()))
 	}
 }
 
@@ -583,8 +583,8 @@ func TestListNotificationChannels_UserIsolation(t *testing.T) {
 	if errListSuper != nil {
 		t.Fatalf("List for super error = %v", errListSuper)
 	}
-	if len(listSuperResp.Msg.Channels) != 1 {
-		t.Errorf("Super sees %d channels, want 1", len(listSuperResp.Msg.Channels))
+	if len(listSuperResp.Msg.GetChannels()) != 1 {
+		t.Errorf("Super sees %d channels, want 1", len(listSuperResp.Msg.GetChannels()))
 	}
 
 	// Alert user sees only their channel
@@ -595,8 +595,8 @@ func TestListNotificationChannels_UserIsolation(t *testing.T) {
 	if errListAlerts != nil {
 		t.Fatalf("List for alerts user error = %v", errListAlerts)
 	}
-	if len(listAlertsResp.Msg.Channels) != 1 {
-		t.Errorf("Alert user sees %d channels, want 1", len(listAlertsResp.Msg.Channels))
+	if len(listAlertsResp.Msg.GetChannels()) != 1 {
+		t.Errorf("Alert user sees %d channels, want 1", len(listAlertsResp.Msg.GetChannels()))
 	}
 }
 
@@ -620,7 +620,7 @@ func TestUpdateNotificationChannel_CrossUserIsolation(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("Create error = %v", errCreate)
 	}
-	channelID := createResp.Msg.Channel.Id
+	channelID := createResp.Msg.GetChannel().GetId()
 
 	// user-alerts tries to update it → should get NotFound
 	updateReq := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
@@ -656,7 +656,7 @@ func TestDeleteNotificationChannel_CrossUserIsolation(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("Create error = %v", errCreate)
 	}
-	channelID := createResp.Msg.Channel.Id
+	channelID := createResp.Msg.GetChannel().GetId()
 
 	// user-alerts tries to delete it → should silently no-op (DB scopes by user_id)
 	deleteReq := connect.NewRequest(&xylona.DeleteNotificationChannelRequest{Id: channelID})
@@ -675,8 +675,8 @@ func TestDeleteNotificationChannel_CrossUserIsolation(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("List error = %v", errList)
 	}
-	if len(listResp.Msg.Channels) != 1 {
-		t.Errorf("expected channel to survive cross-user delete, got %d channels", len(listResp.Msg.Channels))
+	if len(listResp.Msg.GetChannels()) != 1 {
+		t.Errorf("expected channel to survive cross-user delete, got %d channels", len(listResp.Msg.GetChannels()))
 	}
 }
 
@@ -772,7 +772,7 @@ func TestUpdateNotificationChannel_InvalidWebhookURLScheme(t *testing.T) {
 	}
 
 	updateReq := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
-		Id:      createResp.Msg.Channel.Id,
+		Id:      createResp.Msg.GetChannel().GetId(),
 		Name:    "webhook-channel",
 		Config:  `{"url":"gopher://127.0.0.1/internal"}`,
 		Enabled: true,
@@ -886,14 +886,14 @@ func TestListNotificationChannels_ViewHistoryMasksConfig(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("ListNotificationChannels() error = %v", errList)
 	}
-	if len(resp.Msg.Channels) != 1 {
-		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.Channels))
+	if len(resp.Msg.GetChannels()) != 1 {
+		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.GetChannels()))
 	}
-	if strings.Contains(resp.Msg.Channels[0].Config, "secret-token") {
-		t.Fatalf("Config = %q, want masked secret", resp.Msg.Channels[0].Config)
+	if strings.Contains(resp.Msg.GetChannels()[0].GetConfig(), "secret-token") {
+		t.Fatalf("Config = %q, want masked secret", resp.Msg.GetChannels()[0].GetConfig())
 	}
-	if !strings.Contains(resp.Msg.Channels[0].Config, `"url":"********"`) {
-		t.Fatalf("Config = %q, want masked url field", resp.Msg.Channels[0].Config)
+	if !strings.Contains(resp.Msg.GetChannels()[0].GetConfig(), `"url":"********"`) {
+		t.Fatalf("Config = %q, want masked url field", resp.Msg.GetChannels()[0].GetConfig())
 	}
 }
 
@@ -920,11 +920,11 @@ func TestListNotificationChannels_ManageKeepsConfigForEditing(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("ListNotificationChannels() error = %v", errList)
 	}
-	if len(resp.Msg.Channels) != 1 {
-		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.Channels))
+	if len(resp.Msg.GetChannels()) != 1 {
+		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.GetChannels()))
 	}
-	if resp.Msg.Channels[0].Config != `{"url":"https://discord.com/api/webhooks/1/original"}` {
-		t.Fatalf("Config = %q, want original config", resp.Msg.Channels[0].Config)
+	if resp.Msg.GetChannels()[0].GetConfig() != `{"url":"https://discord.com/api/webhooks/1/original"}` {
+		t.Fatalf("Config = %q, want original config", resp.Msg.GetChannels()[0].GetConfig())
 	}
 }
 
@@ -953,7 +953,7 @@ func TestGetLocalSMTPStatus_ConfiguredState(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetLocalSMTPStatus(not configured) error = %v", errGet)
 	}
-	if resp.Msg.Configured {
+	if resp.Msg.GetConfigured() {
 		t.Fatal("configured = true, want false")
 	}
 
@@ -966,7 +966,7 @@ func TestGetLocalSMTPStatus_ConfiguredState(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetLocalSMTPStatus(configured) error = %v", errGet)
 	}
-	if !resp.Msg.Configured {
+	if !resp.Msg.GetConfigured() {
 		t.Fatal("configured = false, want true")
 	}
 }
@@ -994,12 +994,12 @@ func TestListNotificationChannels_ManageMasksEmailPasswordButKeepsMetadata(t *te
 	if errList != nil {
 		t.Fatalf("ListNotificationChannels() error = %v", errList)
 	}
-	if len(resp.Msg.Channels) != 1 {
-		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.Channels))
+	if len(resp.Msg.GetChannels()) != 1 {
+		t.Fatalf("ListNotificationChannels() len = %d, want 1", len(resp.Msg.GetChannels()))
 	}
 
 	var config map[string]any
-	errUnmarshal := json.Unmarshal([]byte(resp.Msg.Channels[0].Config), &config)
+	errUnmarshal := json.Unmarshal([]byte(resp.Msg.GetChannels()[0].GetConfig()), &config)
 	if errUnmarshal != nil {
 		t.Fatalf("config unmarshal error = %v", errUnmarshal)
 	}
@@ -1091,17 +1091,17 @@ func TestTestNotificationChannel_WebhookNotImplemented(t *testing.T) {
 		t.Fatalf("Create error = %v", errCreate)
 	}
 
-	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
 
 	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
 	if errTest != nil {
 		t.Fatalf("TestNotificationChannel error = %v", errTest)
 	}
-	if testResp.Msg.Success {
+	if testResp.Msg.GetSuccess() {
 		t.Errorf("Success = true, want false (not implemented)")
 	}
-	if testResp.Msg.Error == "" {
+	if testResp.Msg.GetError() == "" {
 		t.Errorf("Error message is empty, expected non-empty message")
 	}
 }
@@ -1147,15 +1147,15 @@ func TestTestNotificationChannel_EmailCustomSendSuccess(t *testing.T) {
 		return nil
 	}
 
-	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
 
 	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
 	if errTest != nil {
 		t.Fatalf("TestNotificationChannel() error = %v", errTest)
 	}
-	if !testResp.Msg.Success {
-		t.Fatalf("success = false, want true: %s", testResp.Msg.Error)
+	if !testResp.Msg.GetSuccess() {
+		t.Fatalf("success = false, want true: %s", testResp.Msg.GetError())
 	}
 }
 
@@ -1196,15 +1196,15 @@ func TestTestNotificationChannel_EmailNodeSMTPSendSuccess(t *testing.T) {
 		return nil
 	}
 
-	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
 
 	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
 	if errTest != nil {
 		t.Fatalf("TestNotificationChannel() error = %v", errTest)
 	}
-	if !testResp.Msg.Success {
-		t.Fatalf("success = false, want true: %s", testResp.Msg.Error)
+	if !testResp.Msg.GetSuccess() {
+		t.Fatalf("success = false, want true: %s", testResp.Msg.GetError())
 	}
 }
 
@@ -1229,19 +1229,19 @@ func TestTestNotificationChannel_EmailRateLimited(t *testing.T) {
 	}
 
 	for range 3 {
-		testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+		testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
 		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
 
 		testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
 		if errTest != nil {
 			t.Fatalf("TestNotificationChannel() unexpected error before rate limit: %v", errTest)
 		}
-		if !testResp.Msg.Success {
-			t.Fatalf("success = false before rate limit: %s", testResp.Msg.Error)
+		if !testResp.Msg.GetSuccess() {
+			t.Fatalf("success = false before rate limit: %s", testResp.Msg.GetError())
 		}
 	}
 
-	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
 
 	_, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
@@ -1273,7 +1273,7 @@ func TestTestNotificationChannel_EmailSendFailureReturnsMessage(t *testing.T) {
 		return errors.New("connection refused")
 	}
 
-	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
 
 	_, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
@@ -1305,7 +1305,7 @@ func TestUpdateNotificationChannel_CustomSMTPBlankPasswordPreservesStoredPasswor
 	}
 
 	updateReq := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
-		Id:      createResp.Msg.Channel.Id,
+		Id:      createResp.Msg.GetChannel().GetId(),
 		Name:    "test-channel",
 		Config:  `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_password":"","smtp_password_configured":true,"smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
 		Enabled: false,
@@ -1317,7 +1317,7 @@ func TestUpdateNotificationChannel_CustomSMTPBlankPasswordPreservesStoredPasswor
 		t.Fatalf("UpdateNotificationChannel() error = %v", errUpdate)
 	}
 
-	channel, errGet := fixture.conn.GetNotificationChannelByID(createResp.Msg.Channel.Id)
+	channel, errGet := fixture.conn.GetNotificationChannelByID(createResp.Msg.GetChannel().GetId())
 	if errGet != nil {
 		t.Fatalf("GetNotificationChannelByID() error = %v", errGet)
 	}
@@ -1345,7 +1345,7 @@ func TestTestNotificationChannel_CrossUserIsolation(t *testing.T) {
 	}
 
 	// user-alerts tries to test it → should get NotFound
-	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.Channel.Id})
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-alerts")
 
 	_, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)

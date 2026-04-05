@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
@@ -149,7 +150,7 @@ func TestNewNodeHTTPClientPinsPeerFingerprint(t *testing.T) {
 		t.Fatalf("NewFederationMTLS() client error = %v", errClient)
 	}
 
-	httpClient, federationBaseURL, errPinned := clientMTLS.NewNodeHTTPClient(
+	pinnedHTTPClient, federationBaseURL, errPinned := clientMTLS.NewNodeHTTPClient(
 		2*time.Second,
 		testServer.URL,
 		serverFingerprint,
@@ -159,7 +160,11 @@ func TestNewNodeHTTPClientPinsPeerFingerprint(t *testing.T) {
 		t.Fatalf("NewNodeHTTPClient() error = %v", errPinned)
 	}
 
-	resp, errGet := httpClient.Get(federationBaseURL)
+	req, errReq := http.NewRequestWithContext(context.Background(), http.MethodGet, federationBaseURL, nil)
+	if errReq != nil {
+		t.Fatalf("http.NewRequestWithContext() error = %v", errReq)
+	}
+	resp, errGet := pinnedHTTPClient.Do(req)
 	if errGet != nil {
 		t.Fatalf("httpClient.Get() with pinned fingerprint error = %v", errGet)
 	}
@@ -180,7 +185,11 @@ func TestNewNodeHTTPClientPinsPeerFingerprint(t *testing.T) {
 		t.Fatalf("NewNodeHTTPClient() bad fingerprint setup error = %v", errBadClient)
 	}
 
-	badResp, errBadGet := badClient.Get(badFederationBaseURL)
+	badReq, errBadReq := http.NewRequestWithContext(context.Background(), http.MethodGet, badFederationBaseURL, nil)
+	if errBadReq != nil {
+		t.Fatalf("http.NewRequestWithContext() error = %v", errBadReq)
+	}
+	badResp, errBadGet := badClient.Do(badReq)
 	if badResp != nil {
 		_ = badResp.Body.Close()
 	}
@@ -233,7 +242,7 @@ func TestNewNodeHTTPClientWithPortOverride(t *testing.T) {
 		t.Fatalf("NewFederationMTLS() client error = %v", errClient)
 	}
 
-	httpClient, federationBaseURL, errPinned := clientMTLS.NewNodeHTTPClientWithPort(
+	pinnedHTTPClient, federationBaseURL, errPinned := clientMTLS.NewNodeHTTPClientWithPort(
 		2*time.Second,
 		testServer.URL,
 		actualPort,
@@ -244,7 +253,11 @@ func TestNewNodeHTTPClientWithPortOverride(t *testing.T) {
 		t.Fatalf("NewNodeHTTPClientWithPort() error = %v", errPinned)
 	}
 
-	resp, errGet := httpClient.Get(federationBaseURL)
+	req, errReq := http.NewRequestWithContext(context.Background(), http.MethodGet, federationBaseURL, nil)
+	if errReq != nil {
+		t.Fatalf("http.NewRequestWithContext() error = %v", errReq)
+	}
+	resp, errGet := pinnedHTTPClient.Do(req)
 	if errGet != nil {
 		t.Fatalf("httpClient.Get() error = %v", errGet)
 	}

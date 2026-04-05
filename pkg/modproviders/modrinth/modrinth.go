@@ -1,3 +1,4 @@
+// Package modrinth implements the Modrinth mod provider.
 package modrinth
 
 import (
@@ -53,7 +54,7 @@ func (t *userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error
 	cloned.Header.Set("User-Agent", userAgent)
 	resp, errRT := t.wrapped.RoundTrip(cloned)
 	if errRT != nil {
-		return nil, errRT
+		return nil, fmt.Errorf("round trip request: %w", errRT)
 	}
 	return resp, nil
 }
@@ -216,8 +217,8 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 // --------------------------------------------------------------------------
 
 type modrinthVersionFile struct {
-	URL     string `json:"url"`
-	Hashes  struct {
+	URL    string `json:"url"`
+	Hashes struct {
 		SHA256 string `json:"sha256"`
 	} `json:"hashes"`
 	Size    int64 `json:"size"`
@@ -299,7 +300,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 // --------------------------------------------------------------------------
 
 // Download fetches the primary file for the given version and writes it to targetDir.
-func (p *Provider) Download(ctx context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (p *Provider) Download(ctx context.Context, _ string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
 	endpoint := fmt.Sprintf("%s/version/%s", p.baseURL, url.PathEscape(versionID))
 
 	var v modrinthVersion
@@ -383,7 +384,7 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 		return nil, fmt.Errorf("modrinth check for update %q: %w", sourceID, errVersions)
 	}
 	if len(versions) == 0 {
-		return nil, nil
+		return nil, modproviders.ErrNoUpdateAvailable
 	}
 	v := versions[0]
 	return &v, nil
@@ -466,8 +467,9 @@ func buildFacets(params modproviders.SearchParams) string {
 		case []any:
 			inner = make([]string, 0, len(v))
 			for _, item := range v {
-				if s, ok := item.(string); ok {
-					inner = append(inner, category+":"+s)
+				itemString, itemOK := item.(string)
+				if itemOK {
+					inner = append(inner, category+":"+itemString)
 				}
 			}
 		default:
@@ -515,8 +517,9 @@ func extractLoaders(params modproviders.SearchParams) []string {
 	case []any:
 		result := make([]string, 0, len(v))
 		for _, item := range v {
-			if s, ok := item.(string); ok {
-				result = append(result, s)
+			itemString, itemOK := item.(string)
+			if itemOK {
+				result = append(result, itemString)
 			}
 		}
 		return result
@@ -625,4 +628,3 @@ func primaryFileFor(files []modrinthVersionFile) modrinthVersionFile {
 	}
 	return modrinthVersionFile{}
 }
-

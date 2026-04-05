@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -88,9 +89,9 @@ func TestCollectProcessMetrics_RealProcess(t *testing.T) {
 	var sleepExec *exec.Cmd
 	if runtime.GOOS == "windows" {
 		// ping works without stdin in non-TTY contexts; -n 10 runs for ~10 seconds.
-		sleepExec = exec.Command("ping", "-n", "10", "127.0.0.1")
+		sleepExec = exec.CommandContext(context.Background(), "ping", "-n", "10", "127.0.0.1")
 	} else {
-		sleepExec = exec.Command("sleep", "30")
+		sleepExec = exec.CommandContext(context.Background(), "sleep", "30")
 	}
 
 	if errStart := sleepExec.Start(); errStart != nil {

@@ -1,3 +1,4 @@
+// Package version exposes Xylona build and protocol version information.
 package version
 
 import (
@@ -7,7 +8,10 @@ import (
 
 var softwareVersionStamp string
 
+// SoftwareVersion is the application version reported to users and peers.
 var SoftwareVersion = resolveSoftwareVersion(softwareVersionStamp, readBuildInfo())
+
+// SystemVersion is the runtime version string exposed in system info responses.
 var SystemVersion = SoftwareVersion
 
 const (

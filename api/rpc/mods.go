@@ -625,11 +625,9 @@ func (xs *XylonaService) PinModVersion(
 	}
 
 	version := request.Msg.GetVersion()
-	pinnedVersion := omitnull.Val[string]{}
+	pinnedVersion := omitnull.FromNull(null.Val[string]{})
 	if version != "" {
 		pinnedVersion = omitnull.From(version)
-	} else {
-		pinnedVersion = omitnull.FromNull(null.Val[string]{})
 	}
 	setter := &models.InstalledModSetter{
 		PinnedVersion: pinnedVersion,

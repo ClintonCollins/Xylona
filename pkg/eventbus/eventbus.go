@@ -1,3 +1,4 @@
+// Package eventbus provides a process-local pub/sub bus for internal events.
 package eventbus
 
 import (
@@ -11,6 +12,7 @@ var (
 	busOnce sync.Once
 )
 
+// Core event bus topics and buffer settings.
 const (
 	TopicGameServerCreated = "game_server_created"
 	TopicGameServerRemoved = "game_server_removed"
@@ -18,12 +20,14 @@ const (
 	ReliableBufferSize = 1024
 )
 
+// EventBus manages topic subscriptions and message delivery.
 type EventBus struct {
 	subscribers   map[string][]chan any
 	reliableChans map[chan any]bool
 	mu            sync.RWMutex
 }
 
+// Get returns the singleton event bus instance.
 func Get() *EventBus {
 	busOnce.Do(func() {
 		bus = &EventBus{
@@ -34,6 +38,7 @@ func Get() *EventBus {
 	return bus
 }
 
+// Subscribe registers an unbuffered subscriber for the given topic.
 func (e *EventBus) Subscribe(event string) chan any {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -57,6 +62,7 @@ func (e *EventBus) SubscribeReliable(event string) chan any {
 	return subscriber
 }
 
+// Publish delivers data to all subscribers of the given topic.
 func (e *EventBus) Publish(event string, data any) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -71,6 +77,7 @@ func (e *EventBus) Publish(event string, data any) {
 	}
 }
 
+// Unsubscribe removes a subscriber from the topic and closes its channel.
 func (e *EventBus) Unsubscribe(event string, subscriber chan any) {
 	e.mu.Lock()
 	defer e.mu.Unlock()

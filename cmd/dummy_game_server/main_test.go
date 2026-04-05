@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -34,10 +35,11 @@ func TestMain(m *testing.M) {
 	}
 	binaryPath = tmp + "/" + binaryName
 
-	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
+	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", binaryPath, ".")
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to build binary: %v\n", err)
+	errRun := cmd.Run()
+	if errRun != nil {
+		fmt.Fprintf(os.Stderr, "failed to build binary: %v\n", errRun)
 		os.Exit(1) //nolint:gocritic // standard TestMain exit; defer cleanup is intentionally skipped on build failure
 	}
 
@@ -48,7 +50,7 @@ func TestMain(m *testing.M) {
 // returns stdout, stderr, and the exit code.
 func runServer(t *testing.T, stdin string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
-	cmd := exec.Command(binaryPath, args...)
+	cmd := exec.CommandContext(context.Background(), binaryPath, args...)
 	cmd.Stdin = strings.NewReader(stdin)
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
@@ -67,9 +69,9 @@ func runServer(t *testing.T, stdin string, args ...string) (stdout, stderr strin
 
 // runServerWithPipe runs the server with a controlled stdin pipe so tests can
 // delay sending commands.
-func runServerWithPipe(t *testing.T, args ...string) (stdinWriter io.WriteCloser, stdoutReader io.Reader, stderrReader io.Reader, wait func() int) {
+func runServerWithPipe(t *testing.T, args ...string) (stdinWriter io.WriteCloser, stdoutBuf *bytes.Buffer, wait func() int) {
 	t.Helper()
-	cmd := exec.Command(binaryPath, args...)
+	cmd := exec.CommandContext(context.Background(), binaryPath, args...)
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatalf("failed to get stdin pipe: %v", err)
@@ -77,14 +79,15 @@ func runServerWithPipe(t *testing.T, args ...string) (stdinWriter io.WriteCloser
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("failed to start server: %v", err)
+	errStart := cmd.Start()
+	if errStart != nil {
+		t.Fatalf("failed to start server: %v", errStart)
 	}
-	return stdinPipe, &outBuf, &errBuf, func() int {
-		err := cmd.Wait()
-		if err != nil {
+	return stdinPipe, &outBuf, func() int {
+		errWait := cmd.Wait()
+		if errWait != nil {
 			var exitErr *exec.ExitError
-			if errors.As(err, &exitErr) {
+			if errors.As(errWait, &exitErr) {
 				return exitErr.ExitCode()
 			}
 		}
@@ -186,7 +189,7 @@ func TestStatusCommand(t *testing.T) {
 
 // TestStatusUptimeIncreases verifies uptime in status is non-zero after a delay.
 func TestStatusUptimeIncreases(t *testing.T) {
-	stdin, _, _, wait := runServerWithPipe(t, "-heartbeat=0")
+	stdin, _, wait := runServerWithPipe(t, "-heartbeat=0")
 	time.Sleep(250 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "status")
 	_, _ = fmt.Fprintln(stdin, "stop")
@@ -306,7 +309,7 @@ func TestUnknownCommand(t *testing.T) {
 
 // TestHeartbeatEnabled verifies heartbeat lines appear when -heartbeat is set.
 func TestHeartbeatEnabled(t *testing.T) {
-	stdin, stdoutBuf, _, wait := runServerWithPipe(t, "-heartbeat=100ms")
+	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(350 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
 	_ = stdin.Close()
@@ -314,7 +317,7 @@ func TestHeartbeatEnabled(t *testing.T) {
 	if exitCode != 0 {
 		t.Errorf("heartbeat: expected exit code 0, got %d", exitCode)
 	}
-	stdout := stdoutBuf.(*bytes.Buffer).String()
+	stdout := stdoutBuf.String()
 	var heartbeatLines []string
 	for l := range strings.SplitSeq(stdout, "\n") {
 		if strings.Contains(l, "heartbeat") {
@@ -337,7 +340,7 @@ func TestHeartbeatEnabled(t *testing.T) {
 
 // TestHeartbeatDisabled verifies no heartbeat lines appear when -heartbeat=0.
 func TestHeartbeatDisabled(t *testing.T) {
-	stdin, stdoutBuf, _, wait := runServerWithPipe(t, "-heartbeat=0")
+	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=0")
 	time.Sleep(200 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
 	_ = stdin.Close()
@@ -345,7 +348,7 @@ func TestHeartbeatDisabled(t *testing.T) {
 	if exitCode != 0 {
 		t.Errorf("heartbeat disabled: expected exit code 0, got %d", exitCode)
 	}
-	stdout := stdoutBuf.(*bytes.Buffer).String()
+	stdout := stdoutBuf.String()
 	for l := range strings.SplitSeq(stdout, "\n") {
 		if strings.Contains(l, "heartbeat") {
 			t.Errorf("heartbeat disabled: unexpected heartbeat line: %q", l)
@@ -358,7 +361,7 @@ func TestHeartbeatDefaultIs5s(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping long-running heartbeat default test in short mode")
 	}
-	stdin, stdoutBuf, _, wait := runServerWithPipe(t)
+	stdin, stdoutBuf, wait := runServerWithPipe(t)
 	// After 5.5s at least one heartbeat should have fired.
 	time.Sleep(5500 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
@@ -367,7 +370,7 @@ func TestHeartbeatDefaultIs5s(t *testing.T) {
 	if exitCode != 0 {
 		t.Errorf("default heartbeat: expected exit code 0, got %d", exitCode)
 	}
-	stdout := stdoutBuf.(*bytes.Buffer).String()
+	stdout := stdoutBuf.String()
 	var count int
 	for l := range strings.SplitSeq(stdout, "\n") {
 		if strings.Contains(l, "heartbeat") {
@@ -381,12 +384,12 @@ func TestHeartbeatDefaultIs5s(t *testing.T) {
 
 // TestHeartbeatPIDMatchesBanner verifies heartbeat PID matches startup banner PID.
 func TestHeartbeatPIDMatchesBanner(t *testing.T) {
-	stdin, stdoutBuf, _, wait := runServerWithPipe(t, "-heartbeat=100ms")
+	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(250 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
 	_ = stdin.Close()
 	wait()
-	stdout := stdoutBuf.(*bytes.Buffer).String()
+	stdout := stdoutBuf.String()
 	var bannerPID, heartbeatPID string
 	for l := range strings.SplitSeq(stdout, "\n") {
 		if strings.Contains(l, "started pid=") {
@@ -538,12 +541,12 @@ func TestScannerBufferOverflow(t *testing.T) {
 
 // TestHeartbeatUptimeMonotonic verifies heartbeat uptime values increase over time.
 func TestHeartbeatUptimeMonotonic(t *testing.T) {
-	stdin, stdoutBuf, _, wait := runServerWithPipe(t, "-heartbeat=100ms")
+	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(500 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
 	_ = stdin.Close()
 	wait()
-	stdout := stdoutBuf.(*bytes.Buffer).String()
+	stdout := stdoutBuf.String()
 
 	var uptimes []time.Duration
 	for l := range strings.SplitSeq(stdout, "\n") {
@@ -607,7 +610,7 @@ func TestLargeEchoMessage(t *testing.T) {
 
 // TestInvalidFlagExitsNonZero verifies invalid flag values cause non-zero exit.
 func TestInvalidFlagExitsNonZero(t *testing.T) {
-	cmd := exec.Command(binaryPath, "-heartbeat=notaduration")
+	cmd := exec.CommandContext(context.Background(), binaryPath, "-heartbeat=notaduration")
 	err := cmd.Run()
 	if err == nil {
 		t.Error("expected non-zero exit for invalid flag, got exit 0")

@@ -10,6 +10,7 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+// ExchangePeerList exchanges known peer metadata with another federation node.
 func (fs FederationService) ExchangePeerList(
 	ctx context.Context,
 	request *connect.Request[xylona.ExchangePeerListRequest],
@@ -33,6 +34,7 @@ func (fs FederationService) ExchangePeerList(
 	}), nil
 }
 
+// NotifyPeerChange processes a peer change broadcast from another federation node.
 func (fs FederationService) NotifyPeerChange(
 	ctx context.Context,
 	request *connect.Request[xylona.NotifyPeerChangeRequest],
@@ -47,6 +49,7 @@ func (fs FederationService) NotifyPeerChange(
 	return connect.NewResponse(&xylona.NotifyPeerChangeResponse{}), nil
 }
 
+// NotifyDeparture records a remote node departure notification.
 func (fs FederationService) NotifyDeparture(
 	ctx context.Context,
 	request *connect.Request[xylona.NotifyDepartureRequest],

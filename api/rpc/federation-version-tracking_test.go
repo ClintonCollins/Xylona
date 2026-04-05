@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -75,28 +76,28 @@ func TestGetRemoteVersionInfoReturnsVersionState(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetRemoteVersionInfo() error = %v", errGet)
 	}
-	if response == nil || response.Msg == nil || response.Msg.VersionInfo == nil {
+	if response == nil || response.Msg == nil || response.Msg.GetVersionInfo() == nil {
 		t.Fatalf("GetRemoteVersionInfo() returned empty response")
 	}
 
-	got := response.Msg.VersionInfo
-	if got.InstalledVersion != "1.20.4" {
-		t.Errorf("InstalledVersion = %q, want %q", got.InstalledVersion, "1.20.4")
+	got := response.Msg.GetVersionInfo()
+	if got.GetInstalledVersion() != "1.20.4" {
+		t.Errorf("InstalledVersion = %q, want %q", got.GetInstalledVersion(), "1.20.4")
 	}
-	if got.LatestVersion != "1.21.1" {
-		t.Errorf("LatestVersion = %q, want %q", got.LatestVersion, "1.21.1")
+	if got.GetLatestVersion() != "1.21.1" {
+		t.Errorf("LatestVersion = %q, want %q", got.GetLatestVersion(), "1.21.1")
 	}
-	if !got.UpdateAvailable {
+	if !got.GetUpdateAvailable() {
 		t.Error("UpdateAvailable = false, want true")
 	}
-	if got.TrackerType != "minecraft" {
-		t.Errorf("TrackerType = %q, want %q", got.TrackerType, "minecraft")
+	if got.GetTrackerType() != "minecraft" {
+		t.Errorf("TrackerType = %q, want %q", got.GetTrackerType(), "minecraft")
 	}
-	if got.Status != xylona.VersionStatus_VERSION_STATUS_CHECKED {
-		t.Errorf("Status = %v, want %v", got.Status, xylona.VersionStatus_VERSION_STATUS_CHECKED)
+	if got.GetStatus() != xylona.VersionStatus_VERSION_STATUS_CHECKED {
+		t.Errorf("Status = %v, want %v", got.GetStatus(), xylona.VersionStatus_VERSION_STATUS_CHECKED)
 	}
-	if got.LastCheckTime != lastCheck.Unix() {
-		t.Errorf("LastCheckTime = %d, want %d", got.LastCheckTime, lastCheck.Unix())
+	if got.GetLastCheckTime() != lastCheck.Unix() {
+		t.Errorf("LastCheckTime = %d, want %d", got.GetLastCheckTime(), lastCheck.Unix())
 	}
 }
 
@@ -212,7 +213,7 @@ func TestFederationUpdateErrorCode(t *testing.T) {
 		},
 		{
 			name: "unexpected errors stay internal",
-			err:  fmt.Errorf("unexpected update failure"),
+			err:  errors.New("unexpected update failure"),
 			want: connect.CodeInternal,
 		},
 	}
@@ -314,14 +315,14 @@ func TestGetVersionInfoDelegatesToFederatedServer(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetVersionInfo() error = %v", errGet)
 	}
-	if response == nil || response.Msg == nil || response.Msg.VersionInfo == nil {
+	if response == nil || response.Msg == nil || response.Msg.GetVersionInfo() == nil {
 		t.Fatalf("GetVersionInfo() returned empty response")
 	}
-	if response.Msg.VersionInfo.TrackerType != "minecraft" {
-		t.Errorf("TrackerType = %q, want %q", response.Msg.VersionInfo.TrackerType, "minecraft")
+	if response.Msg.GetVersionInfo().GetTrackerType() != "minecraft" {
+		t.Errorf("TrackerType = %q, want %q", response.Msg.GetVersionInfo().GetTrackerType(), "minecraft")
 	}
-	if response.Msg.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_CHECKED {
-		t.Errorf("Status = %v, want %v", response.Msg.VersionInfo.Status, xylona.VersionStatus_VERSION_STATUS_CHECKED)
+	if response.Msg.GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_CHECKED {
+		t.Errorf("Status = %v, want %v", response.Msg.GetVersionInfo().GetStatus(), xylona.VersionStatus_VERSION_STATUS_CHECKED)
 	}
 }
 
@@ -419,24 +420,24 @@ func TestCheckForUpdateDelegatesToFederatedServer(t *testing.T) {
 	if errCheck != nil {
 		t.Fatalf("CheckForUpdate() error = %v", errCheck)
 	}
-	if response == nil || response.Msg == nil || response.Msg.VersionInfo == nil {
+	if response == nil || response.Msg == nil || response.Msg.GetVersionInfo() == nil {
 		t.Fatalf("CheckForUpdate() returned empty response")
 	}
 
-	got := response.Msg.VersionInfo
-	if got.Status != xylona.VersionStatus_VERSION_STATUS_CHECKED {
-		t.Errorf("Status = %v, want %v", got.Status, xylona.VersionStatus_VERSION_STATUS_CHECKED)
+	got := response.Msg.GetVersionInfo()
+	if got.GetStatus() != xylona.VersionStatus_VERSION_STATUS_CHECKED {
+		t.Errorf("Status = %v, want %v", got.GetStatus(), xylona.VersionStatus_VERSION_STATUS_CHECKED)
 	}
-	if got.TrackerType != "dummy" {
-		t.Errorf("TrackerType = %q, want %q", got.TrackerType, "dummy")
+	if got.GetTrackerType() != "dummy" {
+		t.Errorf("TrackerType = %q, want %q", got.GetTrackerType(), "dummy")
 	}
-	if got.InstalledVersion != "1.0.0" {
-		t.Errorf("InstalledVersion = %q, want %q", got.InstalledVersion, "1.0.0")
+	if got.GetInstalledVersion() != "1.0.0" {
+		t.Errorf("InstalledVersion = %q, want %q", got.GetInstalledVersion(), "1.0.0")
 	}
-	if got.LatestVersion != "2.0.0" {
-		t.Errorf("LatestVersion = %q, want %q", got.LatestVersion, "2.0.0")
+	if got.GetLatestVersion() != "2.0.0" {
+		t.Errorf("LatestVersion = %q, want %q", got.GetLatestVersion(), "2.0.0")
 	}
-	if !got.UpdateAvailable {
+	if !got.GetUpdateAvailable() {
 		t.Error("UpdateAvailable = false, want true")
 	}
 }

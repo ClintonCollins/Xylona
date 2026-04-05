@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Install status values tracked for in-progress and recent installs.
 const (
 	InstallStatusIdle       = "idle"
 	InstallStatusInstalling = "installing"

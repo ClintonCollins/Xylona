@@ -21,10 +21,10 @@ func TestResolveArgs(t *testing.T) {
 		wantOriginalTokens map[string][]string
 	}{
 		{
-			name:     "empty template returns empty args",
-			template: nil,
-			patches:  nil,
-			vars:     nil,
+			name:           "empty template returns empty args",
+			template:       nil,
+			patches:        nil,
+			vars:           nil,
 			wantArgs:       []string{},
 			wantProvenance: []string{},
 		},

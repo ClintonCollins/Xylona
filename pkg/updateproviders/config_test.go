@@ -141,8 +141,8 @@ func TestResolveConfigIgnoresStoredTargetsForPaperMCVariants(t *testing.T) {
 	}
 
 	resolved, errResolve := ResolveConfig(game, ServerConfig{
-		VariantID: "paper",
-		Target:    "1.21.5",
+		VariantID:    "paper",
+		Target:       "1.21.5",
 		TargetPinned: false,
 	})
 	if errResolve != nil {
@@ -225,7 +225,7 @@ func TestResetTargetForVariantUsesVariantDefault(t *testing.T) {
 		},
 		Variants: []Variant{
 			{
-				ID:   "paper",
+				ID: "paper",
 				UpdateProvider: &ProviderConfig{
 					Kind: ProviderKindPaperMC,
 				},

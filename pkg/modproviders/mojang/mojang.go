@@ -1,3 +1,4 @@
+// Package mojang provides update-provider access to official Minecraft releases.
 package mojang
 
 import (
@@ -46,6 +47,7 @@ type versionDetails struct {
 	} `json:"downloads"`
 }
 
+// Provider implements the Mojang update-provider integration.
 type Provider struct {
 	httpClient  *http.Client
 	manifestURL string
@@ -55,6 +57,7 @@ func init() {
 	modproviders.RegisterProvider(New())
 }
 
+// New creates a Mojang update provider.
 func New() *Provider {
 	return &Provider{
 		httpClient: &http.Client{
@@ -65,14 +68,17 @@ func New() *Provider {
 	}
 }
 
+// ID returns the stable provider identifier.
 func (p *Provider) ID() string {
 	return providerID
 }
 
+// Search returns no results because Mojang only exposes direct version lookups.
 func (p *Provider) Search(_ context.Context, _ string, _ modproviders.SearchParams) (modproviders.SearchResult, error) {
 	return modproviders.SearchResult{}, nil
 }
 
+// GetModDetails returns the available official Minecraft server releases.
 func (p *Provider) GetModDetails(ctx context.Context, sourceID string, _ modproviders.SearchParams) (*modproviders.ModDetails, error) {
 	manifest, errManifest := p.getManifest(ctx)
 	if errManifest != nil {
@@ -100,7 +106,8 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, _ modprov
 	}, nil
 }
 
-func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion string, _ modproviders.SearchParams) ([]modproviders.ModVersion, error) {
+// GetVersions returns the downloadable server jar for a specific game version.
+func (p *Provider) GetVersions(ctx context.Context, _ string, gameVersion string, _ modproviders.SearchParams) ([]modproviders.ModVersion, error) {
 	if gameVersion == "" {
 		return nil, nil
 	}
@@ -130,6 +137,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 	}, nil
 }
 
+// Download fetches the Mojang server jar for the requested version.
 func (p *Provider) Download(ctx context.Context, _ string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
 	versionURL, errVersionURL := p.versionManifestURL(ctx, versionID)
 	if errVersionURL != nil {
@@ -195,18 +203,20 @@ func (p *Provider) Download(ctx context.Context, _ string, versionID string, tar
 	}, nil
 }
 
+// CheckForUpdate returns the latest available official Minecraft release.
 func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, _ string) (*modproviders.ModVersion, error) {
 	details, errDetails := p.GetModDetails(ctx, sourceID, nil)
 	if errDetails != nil {
 		return nil, errDetails
 	}
 	if details == nil || len(details.Versions) == 0 {
-		return nil, nil
+		return nil, modproviders.ErrNoUpdateAvailable
 	}
 	latest := details.Versions[0]
 	return &latest, nil
 }
 
+// RequiresAPIKey reports whether this provider needs an API key.
 func (p *Provider) RequiresAPIKey() bool {
 	return false
 }

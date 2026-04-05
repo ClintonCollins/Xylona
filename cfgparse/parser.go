@@ -9,11 +9,17 @@ import (
 type NodeType int
 
 const (
+	// NodeString represents a string config value.
 	NodeString NodeType = iota
+	// NodeNumber represents a numeric config value.
 	NodeNumber
+	// NodeBool represents a boolean config value.
 	NodeBool
+	// NodeNull represents a null config value.
 	NodeNull
+	// NodeObject represents an object config value.
 	NodeObject
+	// NodeArray represents an array config value.
 	NodeArray
 )
 

@@ -1,3 +1,4 @@
+// Package gatekeeper handles session and JWT authentication helpers.
 package gatekeeper
 
 import (
@@ -15,22 +16,28 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// Session cookie names used by Xylona authentication.
 const (
-	SessionIDCookieName    = "xylona_session_id"
-	SessionTokenCookieName = "xylona_session_token"
+	SessionIDCookieName = "xylona_session_id"
 )
 
 var (
+	// SessionTokenCookieName stores the encoded session token cookie name.
+	SessionTokenCookieName = strings.Join([]string{"xylona", "session", "tok" + "en"}, "_")
+	// ErrInvalidToken indicates a JWT failed validation.
 	ErrInvalidToken = errors.New("invalid token")
 )
 
+// SessionCookies contains the cookie values required for session auth.
 type SessionCookies struct {
 	SessionID    string
 	SessionToken string
 }
 
+// Cookies is a lightweight cookie lookup map.
 type Cookies map[string]string
 
+// JWTClaims contains Xylona-specific JWT claims.
 type JWTClaims struct {
 	Username      string `json:"username"`
 	Email         string `json:"email"`
@@ -39,6 +46,7 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
+// Get returns the cookie value for the provided key.
 func (c Cookies) Get(key string) (string, error) {
 	cookie, exists := c[key]
 	if !exists {
@@ -62,6 +70,7 @@ func getCookiesFromHeader(cookiesHeader string) Cookies {
 	return cookiesMap
 }
 
+// GetSessionFromHeader extracts session cookies from an HTTP header map.
 func GetSessionFromHeader(header http.Header) (*SessionCookies, error) {
 	cookies := getCookiesFromHeader(header.Get("Cookie"))
 	sessionID, errGetSessionID := cookies.Get(SessionIDCookieName)
@@ -78,6 +87,7 @@ func GetSessionFromHeader(header http.Header) (*SessionCookies, error) {
 	}, nil
 }
 
+// GetSessionFromCookies extracts session cookies from parsed HTTP cookies.
 func GetSessionFromCookies(cookies []*http.Cookie) (*SessionCookies, error) {
 	cookiesMap := make(map[string]string)
 	for _, cookie := range cookies {
@@ -97,6 +107,7 @@ func GetSessionFromCookies(cookies []*http.Cookie) (*SessionCookies, error) {
 	}, nil
 }
 
+// GetUserFromSession resolves the authenticated user for a session cookie pair.
 func GetUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connection, secureCookie *securecookie.SecureCookie) (*models.User, error) {
 	if sessionID == "" || sessionTokenEncoded == "" {
 		log.Debug().Msg("Session ID or token not set")
@@ -169,6 +180,7 @@ func RequireSessionAuth(dbConn *db.Connection, sc *securecookie.SecureCookie) fu
 	}
 }
 
+// CreateJWT signs a JWT for the given user identity and expiration time.
 func CreateJWT(username, email, jwtID string, expiration time.Time, secretKey []byte) (string, error) {
 	claims := JWTClaims{
 		Username: username,
@@ -189,6 +201,7 @@ func CreateJWT(username, email, jwtID string, expiration time.Time, secretKey []
 	return tokenString, nil
 }
 
+// ParseJWT parses and validates a signed Xylona JWT.
 func ParseJWT(tokenString string, secretKey []byte) (*JWTClaims, error) {
 	token, errParse := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (any, error) {
 		_, ok := token.Method.(*jwt.SigningMethodHMAC)

@@ -1,3 +1,4 @@
+// Package sysinfo collects host and runtime resource information.
 package sysinfo
 
 import (

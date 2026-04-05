@@ -8,9 +8,12 @@ import (
 )
 
 const (
+	// FederationActingUserIDHeader identifies the proxied acting user in federation requests.
 	FederationActingUserIDHeader = "X-Xylona-Acting-User-ID"
+	// FederationOriginNodeIDHeader identifies the source node for a proxied federation request.
 	FederationOriginNodeIDHeader = "X-Xylona-Origin-Node-ID"
-	FederationActingSuperHeader  = "X-Xylona-Acting-Super-User"
+	// FederationActingSuperHeader marks a proxied federation request as coming from a superuser.
+	FederationActingSuperHeader = "X-Xylona-Acting-Super-User"
 )
 
 // ApplyFederatedActingIdentityHeaders applies acting-user identity headers for a proxied federation request.
@@ -29,10 +32,12 @@ func ApplyFederatedActingIdentityHeaders(header http.Header, actingUser *models.
 	}
 }
 
+// GetFederatedActingIdentity returns the acting user ID and origin node ID from federation headers.
 func GetFederatedActingIdentity(header http.Header) (string, string) {
 	return header.Get(FederationActingUserIDHeader), header.Get(FederationOriginNodeIDHeader)
 }
 
+// FederatedActingIsSuperUser reports whether the federated acting identity is marked as a superuser.
 func FederatedActingIsSuperUser(header http.Header) bool {
 	return strings.EqualFold(strings.TrimSpace(header.Get(FederationActingSuperHeader)), "true")
 }

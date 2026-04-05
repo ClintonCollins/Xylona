@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -54,7 +55,10 @@ func (c *Connection) InsertNodeMetricsHistory(row *NodeMetricsRow) error {
 		row.DiskPercent, row.DiskUsedBytes, row.DiskTotalBytes, row.GameServerCount, row.RunningGameServerCount,
 		row.UserCount, fmtTime(row.RecordedAt),
 	)
-	return errExec
+	if errExec != nil {
+		return fmt.Errorf("insert node metrics history: %w", errExec)
+	}
+	return nil
 }
 
 // InsertGameServerMetricsHistory inserts a game server metrics snapshot.
@@ -65,7 +69,10 @@ func (c *Connection) InsertGameServerMetricsHistory(row *GameServerMetricsRow) e
 		row.DiskUsageBytes, row.IOReadRate, row.IOWriteRate, row.ConnectionCount, row.PlayerCount,
 		fmtTime(row.RecordedAt),
 	)
-	return errExec
+	if errExec != nil {
+		return fmt.Errorf("insert game server metrics history: %w", errExec)
+	}
+	return nil
 }
 
 // GetNodeMetricsHistory returns node metrics within the given time range.
@@ -75,7 +82,7 @@ func (c *Connection) GetNodeMetricsHistory(nodeID string, since, until time.Time
 		nodeID, fmtTime(since), fmtTime(until),
 	)
 	if errQuery != nil {
-		return nil, errQuery
+		return nil, fmt.Errorf("query node metrics history: %w", errQuery)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -89,16 +96,21 @@ func (c *Connection) GetNodeMetricsHistory(nodeID string, since, until time.Time
 			&row.GameServerCount, &row.RunningGameServerCount, &row.UserCount, &recordedAtStr,
 		)
 		if errScan != nil {
-			return nil, errScan
+			return nil, fmt.Errorf("scan node metrics history row: %w", errScan)
 		}
 		parsedTime, errParse := time.Parse(sqliteDatetimeFormat, recordedAtStr)
 		if errParse != nil {
-			return nil, errParse
+			return nil, fmt.Errorf("parse node metrics history timestamp: %w", errParse)
 		}
 		row.RecordedAt = parsedTime.UTC()
 		results = append(results, row)
 	}
-	return results, rows.Err()
+	errRows := rows.Err()
+	if errRows != nil {
+		return nil, fmt.Errorf("iterate node metrics history: %w", errRows)
+	}
+
+	return results, nil
 }
 
 // GetGameServerMetricsHistory returns game server metrics within the given time range.
@@ -108,7 +120,7 @@ func (c *Connection) GetGameServerMetricsHistory(gameServerID string, since, unt
 		gameServerID, fmtTime(since), fmtTime(until),
 	)
 	if errQuery != nil {
-		return nil, errQuery
+		return nil, fmt.Errorf("query game server metrics history: %w", errQuery)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -122,16 +134,21 @@ func (c *Connection) GetGameServerMetricsHistory(gameServerID string, since, unt
 			&row.PlayerCount, &recordedAtStr,
 		)
 		if errScan != nil {
-			return nil, errScan
+			return nil, fmt.Errorf("scan game server metrics history row: %w", errScan)
 		}
 		parsedTime, errParse := time.Parse(sqliteDatetimeFormat, recordedAtStr)
 		if errParse != nil {
-			return nil, errParse
+			return nil, fmt.Errorf("parse game server metrics history timestamp: %w", errParse)
 		}
 		row.RecordedAt = parsedTime.UTC()
 		results = append(results, row)
 	}
-	return results, rows.Err()
+	errRows := rows.Err()
+	if errRows != nil {
+		return nil, fmt.Errorf("iterate game server metrics history: %w", errRows)
+	}
+
+	return results, nil
 }
 
 // DeleteNodeMetricsHistoryOlderThan deletes node metrics older than the given time.
@@ -140,9 +157,13 @@ func (c *Connection) DeleteNodeMetricsHistoryOlderThan(olderThan time.Time) (int
 		`DELETE FROM node_metrics_history WHERE recorded_at < ?`, fmtTime(olderThan),
 	)
 	if errExec != nil {
-		return 0, errExec
+		return 0, fmt.Errorf("delete old node metrics history: %w", errExec)
 	}
-	return result.RowsAffected()
+	rowsAffected, errRowsAffected := result.RowsAffected()
+	if errRowsAffected != nil {
+		return 0, fmt.Errorf("delete old node metrics history rows affected: %w", errRowsAffected)
+	}
+	return rowsAffected, nil
 }
 
 // DeleteGameServerMetricsHistoryOlderThan deletes game server metrics older than the given time.
@@ -151,9 +172,13 @@ func (c *Connection) DeleteGameServerMetricsHistoryOlderThan(olderThan time.Time
 		`DELETE FROM game_server_metrics_history WHERE recorded_at < ?`, fmtTime(olderThan),
 	)
 	if errExec != nil {
-		return 0, errExec
+		return 0, fmt.Errorf("delete old game server metrics history: %w", errExec)
 	}
-	return result.RowsAffected()
+	rowsAffected, errRowsAffected := result.RowsAffected()
+	if errRowsAffected != nil {
+		return 0, fmt.Errorf("delete old game server metrics history rows affected: %w", errRowsAffected)
+	}
+	return rowsAffected, nil
 }
 
 // RollupNodeMetricsToHourly aggregates minute-granularity data older than cutoff into hourly averages,
@@ -183,7 +208,7 @@ func (c *Connection) RollupNodeMetricsToHourly(cutoff time.Time) error {
 		cutoffStr,
 	)
 	if errExec != nil {
-		return errExec
+		return fmt.Errorf("roll up node metrics to hourly: %w", errExec)
 	}
 
 	// Delete the original fine-grained rows that were rolled up.
@@ -192,7 +217,10 @@ func (c *Connection) RollupNodeMetricsToHourly(cutoff time.Time) error {
 		`DELETE FROM node_metrics_history WHERE recorded_at < ? AND strftime('%M:%S', recorded_at) != '00:00'`,
 		cutoffStr,
 	)
-	return errDelete
+	if errDelete != nil {
+		return fmt.Errorf("delete rolled-up node metrics history: %w", errDelete)
+	}
+	return nil
 }
 
 // RollupGameServerMetricsToHourly aggregates minute-granularity data older than cutoff into hourly averages.
@@ -219,12 +247,15 @@ func (c *Connection) RollupGameServerMetricsToHourly(cutoff time.Time) error {
 		cutoffStr,
 	)
 	if errExec != nil {
-		return errExec
+		return fmt.Errorf("roll up game server metrics to hourly: %w", errExec)
 	}
 
 	_, errDelete := c.SQLDb.ExecContext(c.ctx,
 		`DELETE FROM game_server_metrics_history WHERE recorded_at < ? AND strftime('%M:%S', recorded_at) != '00:00'`,
 		cutoffStr,
 	)
-	return errDelete
+	if errDelete != nil {
+		return fmt.Errorf("delete rolled-up game server metrics history: %w", errDelete)
+	}
+	return nil
 }

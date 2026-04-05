@@ -1,14 +1,13 @@
 package main
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 )
 
-func runSingleTeardown(_ context.Context, _ int, _, _, e2eDir string) error {
+func runSingleTeardown(e2eDir string) {
 	log.Info().Msg("[E2E Teardown] Starting cleanup...")
 
 	dataDir := filepath.Join(e2eDir, ".e2e-data")
@@ -32,5 +31,4 @@ func runSingleTeardown(_ context.Context, _ int, _, _, e2eDir string) error {
 	releaseLock(e2eDir, "single")
 
 	log.Info().Msg("[E2E Teardown] Teardown complete")
-	return nil
 }

@@ -75,7 +75,8 @@ func TestPairingTokenExpired(t *testing.T) {
 	}
 
 	// Manually expire the token.
-	_, errExpire := conn.SQLDb.Exec(
+	_, errExpire := conn.SQLDb.ExecContext(
+		conn.ctx,
 		`update federation_pairing_token set expires_at = ? where token_hash = ?`,
 		time.Now().Add(-1*time.Hour),
 		hashPairingToken(plaintext),
@@ -160,7 +161,8 @@ func TestCleanupExpiredPairingTokens(t *testing.T) {
 	}
 
 	// Expire the second one.
-	_, errExpire := conn.SQLDb.Exec(
+	_, errExpire := conn.SQLDb.ExecContext(
+		conn.ctx,
 		`update federation_pairing_token set expires_at = ? where used = false`,
 		time.Now().Add(-1*time.Hour),
 	)
@@ -175,7 +177,7 @@ func TestCleanupExpiredPairingTokens(t *testing.T) {
 
 	// Both should be gone (one used, one expired).
 	var count int
-	errCount := conn.SQLDb.QueryRow(`select count(*) from federation_pairing_token`).Scan(&count)
+	errCount := conn.SQLDb.QueryRowContext(conn.ctx, `select count(*) from federation_pairing_token`).Scan(&count)
 	if errCount != nil {
 		t.Fatalf("count query error = %v", errCount)
 	}

@@ -3,6 +3,7 @@ package cfgschema
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -29,7 +30,18 @@ func processPreStartEntry(serverDir string, entry ConfigSchemaEntry, resolver Ma
 		return
 	}
 
-	filePath := filepath.Join(serverDir, entry.Path)
+	relativePath := strings.TrimPrefix(entry.Path, string(filepath.Separator))
+	if relativePath != "" && !filepath.IsLocal(relativePath) {
+		log.Warn().Str("path", entry.Path).Msg("Pre-start: invalid config path, skipping")
+		return
+	}
+
+	cleanServerDir := filepath.Clean(serverDir)
+	filePath := filepath.Clean(filepath.Join(cleanServerDir, relativePath))
+	if filePath != cleanServerDir && !strings.HasPrefix(filePath, cleanServerDir+string(filepath.Separator)) {
+		log.Warn().Str("path", entry.Path).Msg("Pre-start: config path escapes server directory, skipping")
+		return
+	}
 
 	fileData, errRead := os.ReadFile(filePath)
 	fileExists := errRead == nil
@@ -82,14 +94,14 @@ func processPreStartEntry(serverDir string, entry ConfigSchemaEntry, resolver Ma
 
 	// Ensure parent directory exists.
 	dir := filepath.Dir(filePath)
-	errMkdir := os.MkdirAll(dir, 0o755)
+	errMkdir := os.MkdirAll(dir, 0o750)
 	if errMkdir != nil {
 		log.Warn().Err(errMkdir).Str("path", dir).
 			Msg("Pre-start: failed to create directory")
 		return
 	}
 
-	errWriteFile := os.WriteFile(filePath, output, 0o644)
+	errWriteFile := os.WriteFile(filePath, output, 0o600) //nolint:gosec // filePath is validated as a local path and constrained to serverDir above.
 	if errWriteFile != nil {
 		log.Warn().Err(errWriteFile).Str("path", entry.Path).
 			Msg("Pre-start: failed to write config file")

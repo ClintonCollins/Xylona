@@ -4,7 +4,8 @@ import (
 	"testing"
 )
 
-func int32Ptr(v int32) *int32 { return &v }
+//go:fix inline
+func int32Ptr(v int32) *int32 { return new(v) }
 
 func TestSortFieldsBySchema_RespectsXOrder(t *testing.T) {
 	fields := []FieldData{
@@ -149,9 +150,9 @@ func TestSortedPropertyKeys_SortsByOrder(t *testing.T) {
 func TestSortedPropertyKeys_NilOrderFallsBackToAlphabetical(t *testing.T) {
 	schema := SchemaDefinition{
 		Properties: map[string]SchemaProperty{
-			"zebra":    {},
-			"apple":    {},
-			"mango":    {},
+			"zebra": {},
+			"apple": {},
+			"mango": {},
 		},
 	}
 

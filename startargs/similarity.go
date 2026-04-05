@@ -5,6 +5,7 @@ import (
 	"unicode"
 )
 
+// FindSimilarArg finds an existing block that likely matches a new argument block.
 func FindSimilarArg(newTokens []string, existingBlocks []ArgBlock) *ArgBlock {
 	if len(newTokens) == 0 || len(existingBlocks) == 0 {
 		return nil

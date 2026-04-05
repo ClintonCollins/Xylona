@@ -67,7 +67,7 @@ func TestVersionStateMap_GetAll(t *testing.T) {
 	}
 }
 
-func TestVersionStateMap_ConcurrentAccess(t *testing.T) {
+func TestVersionStateMap_ConcurrentAccess(_ *testing.T) {
 	m := NewVersionStateMap()
 	var wg sync.WaitGroup
 	for i := range 100 {

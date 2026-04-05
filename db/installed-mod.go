@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
@@ -16,7 +17,7 @@ func (c *Connection) InsertInstalledMod(exec bob.Executor, setter *models.Instal
 	mod, errInsert := models.InstalledMods.Insert(setter).One(c.ctx, exec)
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Error inserting installed mod")
-		return nil, errInsert
+		return nil, fmt.Errorf("insert installed mod: %w", errInsert)
 	}
 	return mod, nil
 }
@@ -28,7 +29,7 @@ func (c *Connection) GetInstalledModByID(id string) (*models.InstalledMod, error
 		if !errors.Is(errGet, sql.ErrNoRows) {
 			log.Error().Err(errGet).Msg("Error querying installed mod")
 		}
-		return nil, errGet
+		return nil, fmt.Errorf("get installed mod by ID: %w", errGet)
 	}
 	return mod, nil
 }
@@ -41,7 +42,7 @@ func (c *Connection) GetInstalledModsByGameServerID(gameServerID string) ([]*mod
 			return nil, nil
 		}
 		log.Error().Err(errGet).Msg("Error querying installed mods by game server ID")
-		return nil, errGet
+		return nil, fmt.Errorf("get installed mods by game server ID: %w", errGet)
 	}
 	return mods, nil
 }
@@ -51,7 +52,7 @@ func (c *Connection) UpdateInstalledMod(exec bob.Executor, mod *models.Installed
 	errUpdate := mod.Update(c.ctx, exec, setter)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Error updating installed mod")
-		return nil, errUpdate
+		return nil, fmt.Errorf("update installed mod: %w", errUpdate)
 	}
 	updated, errGet := c.GetInstalledModByID(mod.ID)
 	if errGet != nil {
@@ -69,7 +70,7 @@ func (c *Connection) UpdateInstalledModInTx(exec bob.Executor, mod *models.Insta
 	errUpdate := mod.Update(c.ctx, exec, setter)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Error updating installed mod in transaction")
-		return errUpdate
+		return fmt.Errorf("update installed mod in transaction: %w", errUpdate)
 	}
 	return nil
 }
@@ -77,7 +78,11 @@ func (c *Connection) UpdateInstalledModInTx(exec bob.Executor, mod *models.Insta
 // DeleteInstalledModByID deletes an installed mod by ID.
 func (c *Connection) DeleteInstalledModByID(id string) error {
 	mods := models.InstalledModSlice{&models.InstalledMod{ID: id}}
-	return mods.DeleteAll(c.ctx, c.DB)
+	errWrap := mods.DeleteAll(c.ctx, c.DB)
+	if errWrap != nil {
+		return fmt.Errorf("delete installed mod by ID: %w", errWrap)
+	}
+	return nil
 }
 
 // InsertInstalledModFile inserts a file record for an installed mod.
@@ -85,7 +90,7 @@ func (c *Connection) InsertInstalledModFile(exec bob.Executor, setter *models.In
 	file, errInsert := models.InstalledModFiles.Insert(setter).One(c.ctx, exec)
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Error inserting installed mod file")
-		return nil, errInsert
+		return nil, fmt.Errorf("insert installed mod file: %w", errInsert)
 	}
 	return file, nil
 }
@@ -98,7 +103,7 @@ func (c *Connection) GetInstalledModFilesByModID(modID string) ([]*models.Instal
 			return nil, nil
 		}
 		log.Error().Err(errGet).Msg("Error querying installed mod files")
-		return nil, errGet
+		return nil, fmt.Errorf("get installed mod files by mod ID: %w", errGet)
 	}
 	return files, nil
 }
@@ -111,7 +116,7 @@ func (c *Connection) DeleteInstalledModFilesByModID(exec bob.Executor, modID str
 	).Exec(c.ctx, exec)
 	if errExec != nil {
 		log.Error().Err(errExec).Msg("Error deleting installed mod files")
-		return errExec
+		return fmt.Errorf("delete installed mod files by mod ID: %w", errExec)
 	}
 	return nil
 }

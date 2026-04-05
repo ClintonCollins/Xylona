@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aarondl/opt/omit"
@@ -37,7 +38,7 @@ func (c *Connection) InsertAlertHistory(ruleID, userID, serverID, serverNodeID, 
 	history, errInsert := models.AlertHistories.Insert(setter).One(c.ctx, c.DB)
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Error inserting alert history")
-		return nil, errInsert
+		return nil, fmt.Errorf("insert alert history: %w", errInsert)
 	}
 
 	return history, nil
@@ -58,7 +59,7 @@ func (c *Connection) UpdateAlertHistoryDeliveryStatus(id, status, deliveryError 
 	).Exec(c.ctx, c.DB)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Str("alert_history_id", id).Msg("Error updating alert history delivery status")
-		return errUpdate
+		return fmt.Errorf("update alert history delivery status: %w", errUpdate)
 	}
 
 	return nil
@@ -78,7 +79,7 @@ func (c *Connection) GetAlertHistoryByUserID(userID string, limit, offset int) (
 			return nil, nil
 		}
 		log.Error().Err(errGet).Str("user_id", userID).Msg("Error querying alert history by user ID")
-		return nil, errGet
+		return nil, fmt.Errorf("get alert history by user ID: %w", errGet)
 	}
 
 	return results, nil
@@ -100,7 +101,7 @@ func (c *Connection) GetAlertHistoryByServerID(serverID, serverNodeID string, li
 			return nil, nil
 		}
 		log.Error().Err(errGet).Str("server_id", serverID).Str("server_node_id", serverNodeID).Msg("Error querying alert history by server ID")
-		return nil, errGet
+		return nil, fmt.Errorf("get alert history by server ID: %w", errGet)
 	}
 
 	return results, nil
@@ -127,7 +128,7 @@ func (c *Connection) GetAlertHistoryByUserAndServerID(userID, serverID, serverNo
 			Str("server_id", serverID).
 			Str("server_node_id", serverNodeID).
 			Msg("Error querying alert history by user and server ID")
-		return nil, errGet
+		return nil, fmt.Errorf("get alert history by user and server ID: %w", errGet)
 	}
 
 	return results, nil
@@ -146,7 +147,7 @@ func (c *Connection) GetAllAlertHistory(limit, offset int) ([]*models.AlertHisto
 			return nil, nil
 		}
 		log.Error().Err(errGet).Msg("Error querying all alert history")
-		return nil, errGet
+		return nil, fmt.Errorf("get all alert history: %w", errGet)
 	}
 
 	return results, nil
@@ -161,7 +162,11 @@ func (c *Connection) PruneAlertHistory(olderThan time.Time) (int64, error) {
 	)
 	if errExec != nil {
 		log.Error().Err(errExec).Msg("Error pruning alert history")
-		return 0, errExec
+		return 0, fmt.Errorf("prune alert history: %w", errExec)
 	}
-	return result.RowsAffected()
+	rowsAffected, errRowsAffected := result.RowsAffected()
+	if errRowsAffected != nil {
+		return 0, fmt.Errorf("prune alert history rows affected: %w", errRowsAffected)
+	}
+	return rowsAffected, nil
 }

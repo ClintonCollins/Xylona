@@ -2,6 +2,7 @@ version: "2"
 
 run:
   go: "1.26"
+  timeout: 5m
 
 linters:
   default: standard
@@ -26,37 +27,72 @@ linters:
     - fatcontext
     - recvcheck
     - nilnil
-#    - gosec
+    - gosec
+    - rowserrcheck
+    - godot
+    - ineffassign
+    - predeclared
+    - protogetter
+    - revive
+    - unparam
+    - wrapcheck
+    - iotamixing
+    - errcheck
+    - bidichk
   settings:
     errcheck:
-      check-type-assertions: false
+      check-type-assertions: true
       check-blank: false
-      exclude-functions:
-        - (io.Closer).Close
     gocritic:
       disabled-checks:
-        - ifElseChain
         - singleCaseSwitch
         - assignOp
-        - appendAssign
+      enabled-checks:
+        - badLock
+        - deferInLoop
+        - evalOrder
+        - externalErrorReassign
+        - exposedSyncMutex
+        - whyNoLint
+        - redundantSprint
+        - ptrToRefParam
+    revive:
+      enable-default-rules: true
+      rules:
+        # Disable default rule subsumed by early-return
+        - name: indent-error-flow
+          disabled: true
+        # Bug catchers
+        - name: atomic
+        - name: datarace
+        - name: defer
+        - name: modifies-value-receiver
+        - name: time-equal
+        - name: time-date
+        - name: constant-logical-expr
+        - name: struct-tag
+        # Code quality
+        - name: early-return
+        - name: empty-block
+        - name: import-shadowing
+        - name: duplicated-imports
+        - name: redundant-import-alias
+        - name: bool-literal-in-expr
+        - name: use-errors-new
+        - name: unnecessary-stmt
+        - name: get-return
+        - name: confusing-naming
+    govet:
+      enable:
+        - shadow
+      settings:
+        shadow:
+          strict: true
   exclusions:
     generated: strict
     presets:
       - common-false-positives
       - std-error-handling
-    paths:
-      - proto/go/xylona/
-      - sql/models/
-      - cmd/minecraft_version_hasher/versions/
-    rules:
-      - path: "magefiles/"
-        linters:
-          - errcheck
-        text: "fmt\\.Print"
-      - path: "_test\\.go"
-        linters:
-          - errcheck
-          - noctx
 
 formatters:
   enable:

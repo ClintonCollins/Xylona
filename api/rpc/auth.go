@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -21,7 +22,8 @@ import (
 
 const defaultSessionDuration = 30 * 24 * time.Hour
 
-func (xs *XylonaService) CheckUserAuthenticated(ctx context.Context, request *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
+// CheckUserAuthenticated returns the current authenticated user and permissions.
+func (xs *XylonaService) CheckUserAuthenticated(_ context.Context, request *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
 	sessionUnauthenticatedResponse := &connect.Response[xylona.CheckUserAuthenticatedResponse]{
 		Msg: &xylona.CheckUserAuthenticatedResponse{
 			Authenticated: false,
@@ -64,10 +66,15 @@ func (xs *XylonaService) authenticatedPermissionIDs(user *models.User) ([]string
 	if user.SuperUser {
 		return xs.allPermissionIDs, nil
 	}
-	return xs.db.GetUserGlobalPermissionIDs(user.ID)
+	permissionIDs, errGet := xs.db.GetUserGlobalPermissionIDs(user.ID)
+	if errGet != nil {
+		return nil, fmt.Errorf("rpc: load user permission IDs: %w", errGet)
+	}
+	return permissionIDs, nil
 }
 
-func (xs *XylonaService) Login(ctx context.Context, request *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error) {
+// Login authenticates a user and creates session cookies.
+func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error) {
 	userName := request.Msg.GetUserName()
 	password := request.Msg.GetPassword()
 
@@ -144,7 +151,8 @@ func (xs *XylonaService) Login(ctx context.Context, request *connect.Request[xyl
 	return resp, nil
 }
 
-func (xs *XylonaService) Logout(ctx context.Context, request *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error) {
+// Logout clears the current user session cookies.
+func (xs *XylonaService) Logout(_ context.Context, request *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error) {
 	sessionCookies, errGetSession := gatekeeper.GetSessionFromHeader(request.Header())
 	if errGetSession == nil {
 		errDeleteSession := xs.db.DeleteUserSession(sessionCookies.SessionID)

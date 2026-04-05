@@ -59,7 +59,7 @@ func TestPruneAlertHistoryOnce(t *testing.T) {
 			}
 
 			before := time.Now()
-			_, errPrune := pruneAlertHistoryOnce(fake)
+			errPrune := pruneAlertHistoryOnce(fake)
 			after := time.Now()
 
 			if tc.wantErrNil && errPrune != nil {
@@ -94,7 +94,7 @@ func TestPruneAlertHistoryOnce(t *testing.T) {
 func TestPruneAlertHistoryOnceCutoffIs90Days(t *testing.T) {
 	fake := &fakeHistoryPruner{returnN: 3}
 	before := time.Now()
-	_, _ = pruneAlertHistoryOnce(fake)
+	_ = pruneAlertHistoryOnce(fake)
 	after := time.Now()
 
 	if len(fake.calls) == 0 {

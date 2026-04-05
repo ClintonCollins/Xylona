@@ -79,7 +79,7 @@ func TestListRemoteNodeSummariesUsesStaleCacheForSuperUser(t *testing.T) {
 	if len(summaries) != 1 {
 		t.Fatalf("len(summaries) = %d, want 1", len(summaries))
 	}
-	if summaries[0].Status != xylona.Status_OFFLINE {
-		t.Fatalf("summaries[0].Status = %v, want %v for stale fallback", summaries[0].Status, xylona.Status_OFFLINE)
+	if summaries[0].GetStatus() != xylona.Status_OFFLINE {
+		t.Fatalf("summaries[0].Status = %v, want %v for stale fallback", summaries[0].GetStatus(), xylona.Status_OFFLINE)
 	}
 }

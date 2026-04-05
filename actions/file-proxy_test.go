@@ -5,11 +5,12 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,8 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+var errUnexpectedLookup = errors.New("unexpected lookup")
 
 // newMTLSFileProxyTestSetup creates an mTLS-configured Instance with a TLS test server.
 // The handler argument is installed on the remote TLS server.
@@ -56,12 +59,12 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 
 	// Extract the actual port from the test server URL to create the client mTLS with the correct federation port.
 	serverURL := testServer.URL // e.g., "https://127.0.0.1:PORT"
-	colonIdx := strings.LastIndex(serverURL, ":")
-	serverPort := 0
-	if colonIdx >= 0 {
-		fmt.Sscanf(serverURL[colonIdx+1:], "%d", &serverPort)
+	parsedURL, errParseURL := url.Parse(serverURL)
+	if errParseURL != nil {
+		t.Fatalf("failed to parse test server URL %q: %v", serverURL, errParseURL)
 	}
-	if serverPort == 0 {
+	serverPort, errParsePort := strconv.Atoi(parsedURL.Port())
+	if errParsePort != nil || serverPort == 0 {
 		t.Fatalf("failed to extract port from test server URL: %s", serverURL)
 	}
 
@@ -77,12 +80,12 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 	// Set up a test DB with the trust entry.
 	conn := dbtest.NewMigratedConnection(t, "file-proxy-test.sqlite")
 
-	_, _ = conn.SQLDb.Exec(`insert into node (id, name, is_local, host, port) values ('remote-node-1', 'Remote Node 1', 0, '', 0)`)
+	_, _ = conn.SQLDb.ExecContext(context.Background(), `insert into node (id, name, is_local, host, port) values ('remote-node-1', 'Remote Node 1', 0, '', 0)`)
 
 	// Get the server fingerprint from its certificate.
 	serverFPFromCert := helpers.CertificateFingerprint(testServer.Certificate())
 
-	_, errInsertTrust := conn.SQLDb.Exec(`
+	_, errInsertTrust := conn.SQLDb.ExecContext(context.Background(), `
 		insert into federation_trusted_peer (node_id, peer_node_id, peer_fingerprint, enabled, revoked)
 		values ('remote-node-1', 'server-node', ?, true, false)
 	`, serverFPFromCert)
@@ -123,11 +126,11 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 			},
 			remoteCacheLookup: func(string) (*models.RemoteServerCache, error) {
 				t.Fatalf("remote cache lookup should not be called when local server exists")
-				panic("unreachable")
+				return nil, errUnexpectedLookup
 			},
 			remoteNodeLookup: func(string) (*models.Node, error) {
 				t.Fatalf("remote node lookup should not be called when local server exists")
-				panic("unreachable")
+				return nil, errUnexpectedLookup
 			},
 			wantLocal: true,
 		},
@@ -164,11 +167,11 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 			},
 			remoteCacheLookup: func(string) (*models.RemoteServerCache, error) {
 				t.Fatalf("remote cache lookup should not be called when local lookup fails")
-				panic("unreachable")
+				return nil, errUnexpectedLookup
 			},
 			remoteNodeLookup: func(string) (*models.Node, error) {
 				t.Fatalf("remote node lookup should not be called when local lookup fails")
-				panic("unreachable")
+				return nil, errUnexpectedLookup
 			},
 			wantErr: errDBUnavailable,
 		},
@@ -182,7 +185,7 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 			},
 			remoteNodeLookup: func(string) (*models.Node, error) {
 				t.Fatalf("remote node lookup should not be called when remote cache is missing")
-				panic("unreachable")
+				return nil, errUnexpectedLookup
 			},
 			wantErr: sql.ErrNoRows,
 		},
@@ -231,11 +234,11 @@ func TestProxyRemoteFileGet(t *testing.T) {
 			t.Fatalf("failed to decode request body: %v", errDecode)
 		}
 
-		if request.GameServerId != "remote-server-id" {
-			t.Fatalf("request.GameServerId = %q, want %q", request.GameServerId, "remote-server-id")
+		if request.GetGameServerId() != "remote-server-id" {
+			t.Fatalf("request.GameServerId = %q, want %q", request.GetGameServerId(), "remote-server-id")
 		}
-		if request.Path != "server.properties" {
-			t.Fatalf("request.Path = %q, want %q", request.Path, "server.properties")
+		if request.GetPath() != "server.properties" {
+			t.Fatalf("request.Path = %q, want %q", request.GetPath(), "server.properties")
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
@@ -267,6 +270,7 @@ func TestProxyRemoteFileDownload(t *testing.T) {
 			t.Fatalf("request path = %q, want %q", r.URL.Path, fileDownloadPath)
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 		errParse := r.ParseMultipartForm(1024)
 		if errParse != nil {
 			t.Fatalf("failed to parse multipart form: %v", errParse)

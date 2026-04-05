@@ -7,7 +7,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// UpdateInfo describes an available update for a game server.
+// UpdateInfo describes the result of an update check for a game server.
 type UpdateInfo struct {
 	InstalledVersion      string
 	LatestVersion         string
@@ -28,7 +28,7 @@ type VersionTracker interface {
 	GetLatestVersion(ctx context.Context, gameServer *models.GameServer) (string, error)
 
 	// CheckForUpdate compares installed vs latest and returns update info.
-	// Returns nil if up-to-date or version cannot be determined.
+	// UpdateAvailable reports whether a newer version was found.
 	CheckForUpdate(ctx context.Context, gameServer *models.GameServer) (*UpdateInfo, error)
 }
 
@@ -36,6 +36,7 @@ func normalizeVersion(version string) string {
 	return strings.TrimSpace(version)
 }
 
+// NormalizeSteamBranch returns the default public branch when no branch is configured.
 func NormalizeSteamBranch(branch string) string {
 	normalized := strings.TrimSpace(branch)
 	if normalized == "" {

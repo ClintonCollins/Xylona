@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -18,7 +19,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs *XylonaService) CreateUser(ctx context.Context, request *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error) {
+// CreateUser creates a new local user account.
+func (xs *XylonaService) CreateUser(_ context.Context, request *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error) {
 	_, errRequireSuperUser := xs.requireSuperUserForUserManagement(request.Header())
 	if errRequireSuperUser != nil {
 		return nil, errRequireSuperUser
@@ -75,7 +77,8 @@ func (xs *XylonaService) CreateUser(ctx context.Context, request *connect.Reques
 	}), nil
 }
 
-func (xs *XylonaService) ListUsers(ctx context.Context, request *connect.Request[xylona.ListUsersRequest]) (*connect.Response[xylona.ListUsersResponse], error) {
+// ListUsers returns all local user accounts.
+func (xs *XylonaService) ListUsers(_ context.Context, request *connect.Request[xylona.ListUsersRequest]) (*connect.Response[xylona.ListUsersResponse], error) {
 	_, errRequireSuperUser := xs.requireSuperUserForUserManagement(request.Header())
 	if errRequireSuperUser != nil {
 		return nil, errRequireSuperUser
@@ -103,7 +106,8 @@ func (xs *XylonaService) ListUsers(ctx context.Context, request *connect.Request
 	}), nil
 }
 
-func (xs *XylonaService) GetUser(ctx context.Context, request *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error) {
+// GetUser returns a local user account by ID.
+func (xs *XylonaService) GetUser(_ context.Context, request *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error) {
 	_, errRequireSuperUser := xs.requireSuperUserForUserManagement(request.Header())
 	if errRequireSuperUser != nil {
 		return nil, errRequireSuperUser
@@ -128,7 +132,8 @@ func (xs *XylonaService) GetUser(ctx context.Context, request *connect.Request[x
 	}), nil
 }
 
-func (xs *XylonaService) UpdateUser(ctx context.Context, request *connect.Request[xylona.UpdateUserRequest]) (*connect.Response[xylona.UpdateUserResponse], error) {
+// UpdateUser updates a local user account.
+func (xs *XylonaService) UpdateUser(_ context.Context, request *connect.Request[xylona.UpdateUserRequest]) (*connect.Response[xylona.UpdateUserResponse], error) {
 	actingUser, errRequireSuperUser := xs.requireSuperUserForUserManagement(request.Header())
 	if errRequireSuperUser != nil {
 		return nil, errRequireSuperUser
@@ -214,7 +219,8 @@ func (xs *XylonaService) UpdateUser(ctx context.Context, request *connect.Reques
 	}), nil
 }
 
-func (xs *XylonaService) DeleteUser(ctx context.Context, request *connect.Request[xylona.DeleteUserRequest]) (*connect.Response[xylona.DeleteUserResponse], error) {
+// DeleteUser deletes a local user account.
+func (xs *XylonaService) DeleteUser(_ context.Context, request *connect.Request[xylona.DeleteUserRequest]) (*connect.Response[xylona.DeleteUserResponse], error) {
 	actingUser, errRequireSuperUser := xs.requireSuperUserForUserManagement(request.Header())
 	if errRequireSuperUser != nil {
 		return nil, errRequireSuperUser
@@ -274,5 +280,9 @@ func (xs *XylonaService) requireSuperUserForUserManagement(header http.Header) (
 }
 
 func (xs *XylonaService) countSuperUsers() (int, error) {
-	return xs.db.CountSuperUsers()
+	count, errCount := xs.db.CountSuperUsers()
+	if errCount != nil {
+		return 0, fmt.Errorf("rpc: count superusers: %w", errCount)
+	}
+	return count, nil
 }

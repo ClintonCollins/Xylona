@@ -14,7 +14,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs *XylonaService) ListIPs(ctx context.Context, request *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
+// ListIPs returns all configured IP addresses.
+func (xs *XylonaService) ListIPs(_ context.Context, request *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -35,6 +36,7 @@ func (xs *XylonaService) ListIPs(ctx context.Context, request *connect.Request[x
 	return response, nil
 }
 
+// AddIP creates a new configured IP address.
 func (xs *XylonaService) AddIP(_ context.Context, request *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -65,6 +67,7 @@ func (xs *XylonaService) AddIP(_ context.Context, request *connect.Request[xylon
 	return &connect.Response[xylona.AddIPResponse]{Msg: &xylona.AddIPResponse{}}, nil
 }
 
+// RemoveIP deletes a configured IP address.
 func (xs *XylonaService) RemoveIP(_ context.Context, request *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"connectrpc.com/connect"
@@ -19,9 +20,9 @@ import (
 func sysInfoToProto(info *sysinfo.SystemInfo) *xylona.NodeSystemInfo {
 	return &xylona.NodeSystemInfo{
 		CpuModel:         info.CPUModel,
-		CpuCores:         int32(info.CPUCores),
-		CpuThreads:       int32(info.CPUThreads),
-		TotalMemoryBytes: int64(info.TotalMemory),
+		CpuCores:         helpers.ClampInt32FromInt(info.CPUCores),
+		CpuThreads:       helpers.ClampInt32FromInt(info.CPUThreads),
+		TotalMemoryBytes: helpers.ClampInt64FromUint64(info.TotalMemory),
 		Os:               info.OS,
 		OsVersion:        info.OSVersion,
 		Architecture:     info.Architecture,
@@ -33,14 +34,14 @@ func snapshotToProto(snap *sysinfo.ResourceSnapshot, gsCount, runningCount, user
 	return &xylona.NodeResourceSnapshot{
 		CpuPercent:             snap.CPUPercent,
 		MemoryPercent:          snap.MemoryPercent,
-		MemoryUsedBytes:        int64(snap.MemoryUsed),
-		MemoryTotalBytes:       int64(snap.MemoryTotal),
+		MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
+		MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.MemoryTotal),
 		DiskPercent:            snap.DiskPercent,
-		DiskUsedBytes:          int64(snap.DiskUsed),
-		DiskTotalBytes:         int64(snap.DiskTotal),
-		GameServerCount:        int32(gsCount),
-		RunningGameServerCount: int32(runningCount),
-		UserCount:              int32(userCount),
+		DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
+		DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
+		GameServerCount:        helpers.ClampInt32FromInt(gsCount),
+		RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+		UserCount:              helpers.ClampInt32FromInt(userCount),
 		RecordedAt:             timestamppb.Now(),
 	}
 }
@@ -186,7 +187,7 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 			nodeProto := helpers.NodeModelToProto(node)
 			// The local node never has its health_status set by the sync engine
 			// (which only monitors remote nodes), so override it here.
-			if nodeProto.HealthStatus == "" {
+			if nodeProto.GetHealthStatus() == "" {
 				nodeProto.HealthStatus = "healthy"
 			}
 
@@ -333,7 +334,7 @@ func (xs *XylonaService) GetGameServerMetricsHistory(ctx context.Context, reques
 			return xs.queryLocalGameServerMetricsHistory(gameServerID, since, until)
 		},
 		func() (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
-			return xs.getRemoteGameServerMetricsHistory(ctx, gameServerID, since, until, user, request.Msg)
+			return xs.getRemoteGameServerMetricsHistory(ctx, gameServerID, user, request.Msg)
 		},
 	)
 }
@@ -352,7 +353,7 @@ func (xs *XylonaService) queryLocalGameServerMetricsHistory(gameServerID string,
 			MemoryBytes:    row.MemoryBytes,
 			MemoryPercent:  row.MemoryPercent,
 			DiskUsageBytes: row.DiskUsageBytes,
-			PlayerCount:    int32(row.PlayerCount),
+			PlayerCount:    helpers.ClampInt32FromInt(row.PlayerCount),
 		})
 	}
 
@@ -361,7 +362,7 @@ func (xs *XylonaService) queryLocalGameServerMetricsHistory(gameServerID string,
 	}), nil
 }
 
-func (xs *XylonaService) getRemoteGameServerMetricsHistory(ctx context.Context, serverID string, since, until time.Time, actingUser *models.User, originalMsg *xylona.GetGameServerMetricsHistoryRequest) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+func (xs *XylonaService) getRemoteGameServerMetricsHistory(ctx context.Context, serverID string, actingUser *models.User, originalMsg *xylona.GetGameServerMetricsHistoryRequest) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	peerNode, remoteCache, errGetPeer := xs.getRemoteNodeForServer(serverID)
 	if errGetPeer != nil {
 		return nil, errGetPeer
@@ -398,7 +399,7 @@ func (xs *XylonaService) getRemoteGameServerMetricsHistory(ctx context.Context, 
 func (xs *XylonaService) collectLocalSnapshot() (*sysinfo.ResourceSnapshot, int, int, int, error) {
 	snapshot, errSnap := sysinfo.CollectResourceSnapshot()
 	if errSnap != nil {
-		return nil, 0, 0, 0, errSnap
+		return nil, 0, 0, 0, fmt.Errorf("rpc: collect local resource snapshot: %w", errSnap)
 	}
 
 	gsCount, errGS := xs.db.CountGameServers()

@@ -173,44 +173,44 @@ func TestGameServerModelToProto(t *testing.T) {
 
 		got := GameServerModelToProto(input, nil)
 
-		if got.Id != "gs-1" {
-			t.Errorf("Id = %q, want %q", got.Id, "gs-1")
+		if got.GetId() != "gs-1" {
+			t.Errorf("Id = %q, want %q", got.GetId(), "gs-1")
 		}
-		if got.StartArgsPatches != `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]` {
-			t.Errorf("StartArgsPatches = %q, want %q", got.StartArgsPatches, `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`)
+		if got.GetStartArgsPatches() != `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]` {
+			t.Errorf("StartArgsPatches = %q, want %q", got.GetStartArgsPatches(), `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`)
 		}
-		if got.Status != xylona.Status_ONLINE {
-			t.Errorf("Status = %v, want %v", got.Status, xylona.Status_ONLINE)
+		if got.GetStatus() != xylona.Status_ONLINE {
+			t.Errorf("Status = %v, want %v", got.GetStatus(), xylona.Status_ONLINE)
 		}
-		if got.GameName != "Counter-Strike" {
-			t.Errorf("GameName = %q, want %q", got.GameName, "Counter-Strike")
+		if got.GetGameName() != "Counter-Strike" {
+			t.Errorf("GameName = %q, want %q", got.GetGameName(), "Counter-Strike")
 		}
-		if got.UserName != "admin" {
-			t.Errorf("UserName = %q, want %q", got.UserName, "admin")
+		if got.GetUserName() != "admin" {
+			t.Errorf("UserName = %q, want %q", got.GetUserName(), "admin")
 		}
-		if got.NodeName != "Node-1" {
-			t.Errorf("NodeName = %q, want %q", got.NodeName, "Node-1")
+		if got.GetNodeName() != "Node-1" {
+			t.Errorf("NodeName = %q, want %q", got.GetNodeName(), "Node-1")
 		}
-		if got.NodeHost != "node1.example.com" {
-			t.Errorf("NodeHost = %q, want %q", got.NodeHost, "node1.example.com")
+		if got.GetNodeHost() != "node1.example.com" {
+			t.Errorf("NodeHost = %q, want %q", got.GetNodeHost(), "node1.example.com")
 		}
-		if got.NodePort != 8080 {
-			t.Errorf("NodePort = %d, want %d", got.NodePort, 8080)
+		if got.GetNodePort() != 8080 {
+			t.Errorf("NodePort = %d, want %d", got.GetNodePort(), 8080)
 		}
-		if got.Version != "1.0.0" {
-			t.Errorf("Version = %q, want %q", got.Version, "1.0.0")
+		if got.GetVersion() != "1.0.0" {
+			t.Errorf("Version = %q, want %q", got.GetVersion(), "1.0.0")
 		}
-		if got.SelectedTarget != "1.21.4" {
-			t.Errorf("SelectedTarget = %q, want %q", got.SelectedTarget, "1.21.4")
+		if got.GetSelectedTarget() != "1.21.4" {
+			t.Errorf("SelectedTarget = %q, want %q", got.GetSelectedTarget(), "1.21.4")
 		}
-		if !got.SelectedTargetPinned {
-			t.Errorf("SelectedTargetPinned = %v, want true", got.SelectedTargetPinned)
+		if !got.GetSelectedTargetPinned() {
+			t.Errorf("SelectedTargetPinned = %v, want true", got.GetSelectedTargetPinned())
 		}
-		if got.Ip == nil {
+		if got.GetIp() == nil {
 			t.Fatalf("Ip should not be nil")
 		}
-		if got.Ip.Address != "192.168.1.1" {
-			t.Errorf("Ip.Address = %q, want %q", got.Ip.Address, "192.168.1.1")
+		if got.GetIp().GetAddress() != "192.168.1.1" {
+			t.Errorf("Ip.Address = %q, want %q", got.GetIp().GetAddress(), "192.168.1.1")
 		}
 	})
 
@@ -223,8 +223,8 @@ func TestGameServerModelToProto(t *testing.T) {
 		input.R.Node = &models.Node{Name: "Node-2"}
 
 		got := GameServerModelToProto(input, nil)
-		if got.GameName != "" {
-			t.Errorf("GameName = %q, want empty string", got.GameName)
+		if got.GetGameName() != "" {
+			t.Errorf("GameName = %q, want empty string", got.GetGameName())
 		}
 	})
 
@@ -237,8 +237,8 @@ func TestGameServerModelToProto(t *testing.T) {
 		input.R.Node = &models.Node{Name: "Node-3"}
 
 		got := GameServerModelToProto(input, nil)
-		if got.UserName != "" {
-			t.Errorf("UserName = %q, want empty string", got.UserName)
+		if got.GetUserName() != "" {
+			t.Errorf("UserName = %q, want empty string", got.GetUserName())
 		}
 	})
 
@@ -249,14 +249,14 @@ func TestGameServerModelToProto(t *testing.T) {
 		}
 
 		got := GameServerModelToProto(input, nil)
-		if got.NodeName != "" {
-			t.Errorf("NodeName = %q, want empty string", got.NodeName)
+		if got.GetNodeName() != "" {
+			t.Errorf("NodeName = %q, want empty string", got.GetNodeName())
 		}
-		if got.NodeHost != "" {
-			t.Errorf("NodeHost = %q, want empty string", got.NodeHost)
+		if got.GetNodeHost() != "" {
+			t.Errorf("NodeHost = %q, want empty string", got.GetNodeHost())
 		}
-		if got.NodePort != 0 {
-			t.Errorf("NodePort = %d, want 0", got.NodePort)
+		if got.GetNodePort() != 0 {
+			t.Errorf("NodePort = %d, want 0", got.GetNodePort())
 		}
 	})
 }
@@ -362,53 +362,53 @@ func TestGameModelToProto(t *testing.T) {
 
 	got := GameModelToProto(input)
 
-	if got.Id != "game-1" {
-		t.Errorf("Id = %q, want %q", got.Id, "game-1")
+	if got.GetId() != "game-1" {
+		t.Errorf("Id = %q, want %q", got.GetId(), "game-1")
 	}
-	if got.Name != "Minecraft" {
-		t.Errorf("Name = %q, want %q", got.Name, "Minecraft")
+	if got.GetName() != "Minecraft" {
+		t.Errorf("Name = %q, want %q", got.GetName(), "Minecraft")
 	}
-	if got.DefaultPort != 25565 {
-		t.Errorf("DefaultPort = %d, want %d", got.DefaultPort, 25565)
+	if got.GetDefaultPort() != 25565 {
+		t.Errorf("DefaultPort = %d, want %d", got.GetDefaultPort(), 25565)
 	}
-	if got.LinuxInstallType != xylona.CommandType_COMMAND {
-		t.Errorf("LinuxInstallType = %v, want COMMAND", got.LinuxInstallType)
+	if got.GetLinuxInstallType() != xylona.CommandType_COMMAND {
+		t.Errorf("LinuxInstallType = %v, want COMMAND", got.GetLinuxInstallType())
 	}
-	if got.LinuxInstallCommandProcessor != xylona.CommandProcessor_BASH {
-		t.Errorf("LinuxInstallCommandProcessor = %v, want BASH", got.LinuxInstallCommandProcessor)
+	if got.GetLinuxInstallCommandProcessor() != xylona.CommandProcessor_BASH {
+		t.Errorf("LinuxInstallCommandProcessor = %v, want BASH", got.GetLinuxInstallCommandProcessor())
 	}
-	if got.LinuxUpdateType != xylona.CommandType_NONE {
-		t.Errorf("LinuxUpdateType = %v, want NONE", got.LinuxUpdateType)
+	if got.GetLinuxUpdateType() != xylona.CommandType_NONE {
+		t.Errorf("LinuxUpdateType = %v, want NONE", got.GetLinuxUpdateType())
 	}
-	if got.LinuxUpdateCommandProcessor != xylona.CommandProcessor_DIRECT {
-		t.Errorf("LinuxUpdateCommandProcessor = %v, want DIRECT", got.LinuxUpdateCommandProcessor)
+	if got.GetLinuxUpdateCommandProcessor() != xylona.CommandProcessor_DIRECT {
+		t.Errorf("LinuxUpdateCommandProcessor = %v, want DIRECT", got.GetLinuxUpdateCommandProcessor())
 	}
-	if got.WindowsInstallType != xylona.CommandType_COMMAND {
-		t.Errorf("WindowsInstallType = %v, want COMMAND", got.WindowsInstallType)
+	if got.GetWindowsInstallType() != xylona.CommandType_COMMAND {
+		t.Errorf("WindowsInstallType = %v, want COMMAND", got.GetWindowsInstallType())
 	}
-	if got.WindowsInstallCommandProcessor != xylona.CommandProcessor_POWERSHELL {
-		t.Errorf("WindowsInstallCommandProcessor = %v, want POWERSHELL", got.WindowsInstallCommandProcessor)
+	if got.GetWindowsInstallCommandProcessor() != xylona.CommandProcessor_POWERSHELL {
+		t.Errorf("WindowsInstallCommandProcessor = %v, want POWERSHELL", got.GetWindowsInstallCommandProcessor())
 	}
-	if got.WindowsUpdateType != xylona.CommandType_COMMAND {
-		t.Errorf("WindowsUpdateType = %v, want COMMAND", got.WindowsUpdateType)
+	if got.GetWindowsUpdateType() != xylona.CommandType_COMMAND {
+		t.Errorf("WindowsUpdateType = %v, want COMMAND", got.GetWindowsUpdateType())
 	}
-	if got.WindowsUpdateCommandProcessor != xylona.CommandProcessor_CMD {
-		t.Errorf("WindowsUpdateCommandProcessor = %v, want CMD", got.WindowsUpdateCommandProcessor)
+	if got.GetWindowsUpdateCommandProcessor() != xylona.CommandProcessor_CMD {
+		t.Errorf("WindowsUpdateCommandProcessor = %v, want CMD", got.GetWindowsUpdateCommandProcessor())
 	}
-	if !got.RequireDedicatedIp {
-		t.Errorf("RequireDedicatedIp = %v, want true", got.RequireDedicatedIp)
+	if !got.GetRequireDedicatedIp() {
+		t.Errorf("RequireDedicatedIp = %v, want true", got.GetRequireDedicatedIp())
 	}
-	if !got.UsesSourceQuery {
-		t.Errorf("UsesSourceQuery = %v, want true", got.UsesSourceQuery)
+	if !got.GetUsesSourceQuery() {
+		t.Errorf("UsesSourceQuery = %v, want true", got.GetUsesSourceQuery())
 	}
-	if !got.RequiresSteamGameServerLoginToken {
-		t.Errorf("RequiresSteamGameServerLoginToken = %v, want true", got.RequiresSteamGameServerLoginToken)
+	if !got.GetRequiresSteamGameServerLoginToken() {
+		t.Errorf("RequiresSteamGameServerLoginToken = %v, want true", got.GetRequiresSteamGameServerLoginToken())
 	}
-	if !got.UsesSteamcmd {
-		t.Errorf("UsesSteamcmd = %v, want true", got.UsesSteamcmd)
+	if !got.GetUsesSteamcmd() {
+		t.Errorf("UsesSteamcmd = %v, want true", got.GetUsesSteamcmd())
 	}
-	if got.SteamAppid != "294420" {
-		t.Errorf("SteamAppid = %q, want %q", got.SteamAppid, "294420")
+	if got.GetSteamAppid() != "294420" {
+		t.Errorf("SteamAppid = %q, want %q", got.GetSteamAppid(), "294420")
 	}
 }
 
@@ -487,9 +487,9 @@ func TestCommandTypeRoundtrip(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gameModel := &models.Game{LinuxInstallCommandType: tt.commandType}
 			proto := GameModelToProto(gameModel)
-			if proto.LinuxInstallCommandProcessor != tt.wantProcessor {
+			if proto.GetLinuxInstallCommandProcessor() != tt.wantProcessor {
 				t.Errorf("commandTypeToCommandProcessor(%q) = %v, want %v",
-					tt.commandType, proto.LinuxInstallCommandProcessor, tt.wantProcessor)
+					tt.commandType, proto.GetLinuxInstallCommandProcessor(), tt.wantProcessor)
 			}
 
 			gameProto := &xylona.Game{
@@ -570,13 +570,13 @@ func TestGameModelToProtoMapsInstallAndUpdateTypes(t *testing.T) {
 			}
 
 			got := GameModelToProto(gameModel)
-			if got.LinuxInstallType != tt.wantType {
-				t.Fatalf("LinuxInstallType = %v, want %v", got.LinuxInstallType, tt.wantType)
+			if got.GetLinuxInstallType() != tt.wantType {
+				t.Fatalf("LinuxInstallType = %v, want %v", got.GetLinuxInstallType(), tt.wantType)
 			}
-			if got.LinuxInstallCommandProcessor != tt.wantCommandProcessor {
+			if got.GetLinuxInstallCommandProcessor() != tt.wantCommandProcessor {
 				t.Fatalf(
 					"LinuxInstallCommandProcessor = %v, want %v",
-					got.LinuxInstallCommandProcessor,
+					got.GetLinuxInstallCommandProcessor(),
 					tt.wantCommandProcessor,
 				)
 			}
@@ -709,23 +709,23 @@ func TestUserModelToProto(t *testing.T) {
 
 	got := UserModelToProto(input)
 
-	if got.Id != "user-1" {
-		t.Errorf("Id = %q, want %q", got.Id, "user-1")
+	if got.GetId() != "user-1" {
+		t.Errorf("Id = %q, want %q", got.GetId(), "user-1")
 	}
-	if got.UserName != "admin" {
-		t.Errorf("UserName = %q, want %q", got.UserName, "admin")
+	if got.GetUserName() != "admin" {
+		t.Errorf("UserName = %q, want %q", got.GetUserName(), "admin")
 	}
-	if got.Email != "admin@example.com" {
-		t.Errorf("Email = %q, want %q", got.Email, "admin@example.com")
+	if got.GetEmail() != "admin@example.com" {
+		t.Errorf("Email = %q, want %q", got.GetEmail(), "admin@example.com")
 	}
-	if !got.SuperUser {
-		t.Errorf("SuperUser = %v, want true", got.SuperUser)
+	if !got.GetSuperUser() {
+		t.Errorf("SuperUser = %v, want true", got.GetSuperUser())
 	}
-	if got.LastLogin == nil {
+	if got.GetLastLogin() == nil {
 		t.Fatalf("LastLogin should not be nil")
 	}
-	if !got.LastLogin.AsTime().Equal(now) {
-		t.Errorf("LastLogin = %v, want %v", got.LastLogin.AsTime(), now)
+	if !got.GetLastLogin().AsTime().Equal(now) {
+		t.Errorf("LastLogin = %v, want %v", got.GetLastLogin().AsTime(), now)
 	}
 }
 
@@ -773,8 +773,8 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 
 	t.Run("nil vsm leaves VersionInfo nil", func(t *testing.T) {
 		got := GameServerModelToProto(baseInput(), nil)
-		if got.VersionInfo != nil {
-			t.Errorf("VersionInfo = %v, want nil when vsm is nil", got.VersionInfo)
+		if got.GetVersionInfo() != nil {
+			t.Errorf("VersionInfo = %v, want nil when vsm is nil", got.GetVersionInfo())
 		}
 	})
 
@@ -782,11 +782,11 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 		vsm := versiontracker.NewVersionStateMap()
 		vsm.InitNoTracker("gs-vi-1")
 		got := GameServerModelToProto(baseInput(), vsm)
-		if got.VersionInfo == nil {
+		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
-		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_NO_TRACKER {
-			t.Errorf("Status = %v, want VERSION_STATUS_NO_TRACKER", got.VersionInfo.Status)
+		if got.GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_NO_TRACKER {
+			t.Errorf("Status = %v, want VERSION_STATUS_NO_TRACKER", got.GetVersionInfo().GetStatus())
 		}
 	})
 
@@ -794,14 +794,14 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 		vsm := versiontracker.NewVersionStateMap()
 		vsm.InitUnchecked("gs-vi-1", "dummy")
 		got := GameServerModelToProto(baseInput(), vsm)
-		if got.VersionInfo == nil {
+		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
-		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_UNCHECKED {
-			t.Errorf("Status = %v, want VERSION_STATUS_UNCHECKED", got.VersionInfo.Status)
+		if got.GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_UNCHECKED {
+			t.Errorf("Status = %v, want VERSION_STATUS_UNCHECKED", got.GetVersionInfo().GetStatus())
 		}
-		if got.VersionInfo.TrackerType != "dummy" {
-			t.Errorf("TrackerType = %q, want %q", got.VersionInfo.TrackerType, "dummy")
+		if got.GetVersionInfo().GetTrackerType() != "dummy" {
+			t.Errorf("TrackerType = %q, want %q", got.GetVersionInfo().GetTrackerType(), "dummy")
 		}
 	})
 
@@ -817,26 +817,26 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 			TrackerType:      "minecraft",
 		})
 		got := GameServerModelToProto(baseInput(), vsm)
-		if got.VersionInfo == nil {
+		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
-		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_CHECKED {
-			t.Errorf("Status = %v, want VERSION_STATUS_CHECKED", got.VersionInfo.Status)
+		if got.GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_CHECKED {
+			t.Errorf("Status = %v, want VERSION_STATUS_CHECKED", got.GetVersionInfo().GetStatus())
 		}
-		if got.VersionInfo.InstalledVersion != "1.0.0" {
-			t.Errorf("InstalledVersion = %q, want %q", got.VersionInfo.InstalledVersion, "1.0.0")
+		if got.GetVersionInfo().GetInstalledVersion() != "1.0.0" {
+			t.Errorf("InstalledVersion = %q, want %q", got.GetVersionInfo().GetInstalledVersion(), "1.0.0")
 		}
-		if got.VersionInfo.LatestVersion != "1.1.0" {
-			t.Errorf("LatestVersion = %q, want %q", got.VersionInfo.LatestVersion, "1.1.0")
+		if got.GetVersionInfo().GetLatestVersion() != "1.1.0" {
+			t.Errorf("LatestVersion = %q, want %q", got.GetVersionInfo().GetLatestVersion(), "1.1.0")
 		}
-		if !got.VersionInfo.UpdateAvailable {
-			t.Errorf("UpdateAvailable = %v, want true", got.VersionInfo.UpdateAvailable)
+		if !got.GetVersionInfo().GetUpdateAvailable() {
+			t.Errorf("UpdateAvailable = %v, want true", got.GetVersionInfo().GetUpdateAvailable())
 		}
-		if got.VersionInfo.LastCheckTime != checkTime.Unix() {
-			t.Errorf("LastCheckTime = %d, want %d", got.VersionInfo.LastCheckTime, checkTime.Unix())
+		if got.GetVersionInfo().GetLastCheckTime() != checkTime.Unix() {
+			t.Errorf("LastCheckTime = %d, want %d", got.GetVersionInfo().GetLastCheckTime(), checkTime.Unix())
 		}
-		if got.VersionInfo.TrackerType != "minecraft" {
-			t.Errorf("TrackerType = %q, want %q", got.VersionInfo.TrackerType, "minecraft")
+		if got.GetVersionInfo().GetTrackerType() != "minecraft" {
+			t.Errorf("TrackerType = %q, want %q", got.GetVersionInfo().GetTrackerType(), "minecraft")
 		}
 	})
 
@@ -847,11 +847,11 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 			TrackerType: "steam",
 		})
 		got := GameServerModelToProto(baseInput(), vsm)
-		if got.VersionInfo == nil {
+		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
-		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_ERROR {
-			t.Errorf("Status = %v, want VERSION_STATUS_ERROR", got.VersionInfo.Status)
+		if got.GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_ERROR {
+			t.Errorf("Status = %v, want VERSION_STATUS_ERROR", got.GetVersionInfo().GetStatus())
 		}
 	})
 
@@ -862,11 +862,11 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 			TrackerType: "steam",
 		})
 		got := GameServerModelToProto(baseInput(), vsm)
-		if got.VersionInfo == nil {
+		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
-		if got.VersionInfo.Status != xylona.VersionStatus_VERSION_STATUS_CHECKING {
-			t.Errorf("Status = %v, want VERSION_STATUS_CHECKING", got.VersionInfo.Status)
+		if got.GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_CHECKING {
+			t.Errorf("Status = %v, want VERSION_STATUS_CHECKING", got.GetVersionInfo().GetStatus())
 		}
 	})
 
@@ -877,11 +877,11 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 			LastCheckTime: time.Time{},
 		})
 		got := GameServerModelToProto(baseInput(), vsm)
-		if got.VersionInfo == nil {
+		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
-		if got.VersionInfo.LastCheckTime != 0 {
-			t.Errorf("LastCheckTime = %d, want 0 for zero time", got.VersionInfo.LastCheckTime)
+		if got.GetVersionInfo().GetLastCheckTime() != 0 {
+			t.Errorf("LastCheckTime = %d, want 0 for zero time", got.GetVersionInfo().GetLastCheckTime())
 		}
 	})
 }
@@ -920,14 +920,14 @@ func TestIPModelToProto(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := IPModelToProto(tt.input)
-			if got.Address != tt.wantAddress {
-				t.Errorf("Address = %q, want %q", got.Address, tt.wantAddress)
+			if got.GetAddress() != tt.wantAddress {
+				t.Errorf("Address = %q, want %q", got.GetAddress(), tt.wantAddress)
 			}
-			if got.Usable != tt.wantUsable {
-				t.Errorf("Usable = %v, want %v", got.Usable, tt.wantUsable)
+			if got.GetUsable() != tt.wantUsable {
+				t.Errorf("Usable = %v, want %v", got.GetUsable(), tt.wantUsable)
 			}
-			if got.External != tt.wantExternal {
-				t.Errorf("External = %v, want %v", got.External, tt.wantExternal)
+			if got.GetExternal() != tt.wantExternal {
+				t.Errorf("External = %v, want %v", got.GetExternal(), tt.wantExternal)
 			}
 		})
 	}

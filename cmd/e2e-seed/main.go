@@ -1,3 +1,4 @@
+// Command e2e-seed seeds a Xylona database for end-to-end tests.
 package main
 
 import (

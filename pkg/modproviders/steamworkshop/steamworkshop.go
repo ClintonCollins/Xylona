@@ -1,3 +1,4 @@
+// Package steamworkshop implements the Steam Workshop mod provider.
 package steamworkshop
 
 import (
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,25 +80,25 @@ type steamTag struct {
 }
 
 type steamPublishedFileDetail struct {
-	PublishedFileID      string     `json:"publishedfileid"`
-	Result               int        `json:"result"`
-	Creator              string     `json:"creator"`
-	ConsumerAppID        int        `json:"consumer_appid"`
-	FileSize             string     `json:"file_size"`
-	PreviewURL           string     `json:"preview_url"`
-	Title                string     `json:"title"`
-	FileDescription      string     `json:"file_description"`
-	TimeCreated          int64      `json:"time_created"`
-	TimeUpdated          int64      `json:"time_updated"`
-	Subscriptions        int64      `json:"subscriptions"`
-	LifetimeSubscriptions int64     `json:"lifetime_subscriptions"`
-	Tags                 []steamTag `json:"tags"`
+	PublishedFileID       string     `json:"publishedfileid"`
+	Result                int        `json:"result"`
+	Creator               string     `json:"creator"`
+	ConsumerAppID         int        `json:"consumer_appid"`
+	FileSize              string     `json:"file_size"`
+	PreviewURL            string     `json:"preview_url"`
+	Title                 string     `json:"title"`
+	FileDescription       string     `json:"file_description"`
+	TimeCreated           int64      `json:"time_created"`
+	TimeUpdated           int64      `json:"time_updated"`
+	Subscriptions         int64      `json:"subscriptions"`
+	LifetimeSubscriptions int64      `json:"lifetime_subscriptions"`
+	Tags                  []steamTag `json:"tags"`
 }
 
 type steamPublishedFileDetailsResponse struct {
 	Response struct {
-		Result              int                        `json:"result"`
-		ResultCount         int                        `json:"resultcount"`
+		Result               int                        `json:"result"`
+		ResultCount          int                        `json:"resultcount"`
 		PublishedFileDetails []steamPublishedFileDetail `json:"publishedfiledetails"`
 	} `json:"response"`
 }
@@ -116,7 +118,7 @@ type steamQueryFilesResponse struct {
 // An API key is required; returns an error if none is set.
 func (p *Provider) Search(ctx context.Context, query string, params modproviders.SearchParams) (modproviders.SearchResult, error) {
 	if p.apiKey == "" {
-		return modproviders.SearchResult{}, errors.New("Steam Workshop search requires an API key")
+		return modproviders.SearchResult{}, errors.New("steam Workshop search requires an API key")
 	}
 
 	appID := extractAppID(params)
@@ -235,9 +237,25 @@ func (p *Provider) Download(ctx context.Context, sourceID string, _ string, targ
 		return nil, fmt.Errorf("steam workshop download: could not determine app ID for workshop item %q", sourceID)
 	}
 
-	cmd := exec.CommandContext(ctx, p.steamCMDPath,
+	parsedAppID, errAppID := strconv.ParseUint(appID, 10, 32)
+	if errAppID != nil || parsedAppID == 0 {
+		return nil, fmt.Errorf("steam workshop download: invalid app ID %q for workshop item %q", appID, sourceID)
+	}
+
+	parsedSourceID, errSourceID := strconv.ParseUint(sourceID, 10, 64)
+	if errSourceID != nil || parsedSourceID == 0 {
+		return nil, fmt.Errorf("steam workshop download: invalid workshop item ID %q", sourceID)
+	}
+
+	steamCMDPath := filepath.Clean(p.steamCMDPath)
+	steamCMDBinary := strings.ToLower(filepath.Base(steamCMDPath))
+	if steamCMDBinary != "steamcmd" && steamCMDBinary != "steamcmd.exe" {
+		return nil, fmt.Errorf("steam workshop download: invalid steamcmd binary path %q", p.steamCMDPath)
+	}
+
+	cmd := exec.CommandContext(ctx, steamCMDPath,
 		"+login", "anonymous",
-		"+workshop_download_item", appID, sourceID,
+		"+workshop_download_item", strconv.FormatUint(parsedAppID, 10), strconv.FormatUint(parsedSourceID, 10),
 		"+quit",
 	)
 
@@ -247,10 +265,10 @@ func (p *Provider) Download(ctx context.Context, sourceID string, _ string, targ
 			sourceID, appID, errRun, string(output))
 	}
 
-	steamappsDir := filepath.Dir(p.steamCMDPath)
-	contentDir := filepath.Join(steamappsDir, "steamapps", "workshop", "content", appID, sourceID)
+	steamappsDir := filepath.Dir(steamCMDPath)
+	contentDir := filepath.Join(steamappsDir, "steamapps", "workshop", "content", strconv.FormatUint(parsedAppID, 10), strconv.FormatUint(parsedSourceID, 10))
 
-	errMkdir := os.MkdirAll(targetDir, 0o755)
+	errMkdir := os.MkdirAll(targetDir, 0o750)
 	if errMkdir != nil {
 		return nil, fmt.Errorf("steam workshop download: create target dir %s: %w", targetDir, errMkdir)
 	}
@@ -276,7 +294,7 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, _ string
 		return nil, fmt.Errorf("steam workshop check for update %q: %w", sourceID, errVersions)
 	}
 	if len(versions) == 0 {
-		return nil, nil
+		return nil, modproviders.ErrNoUpdateAvailable
 	}
 	v := versions[0]
 	return &v, nil
@@ -444,7 +462,7 @@ func copyDirContents(src, dst string) ([]modproviders.DownloadedFile, error) {
 
 		destPath := filepath.Join(dst, rel)
 		destDir := filepath.Dir(destPath)
-		errMkdir := os.MkdirAll(destDir, 0o755)
+		errMkdir := os.MkdirAll(destDir, 0o750)
 		if errMkdir != nil {
 			return fmt.Errorf("create directory %s: %w", destDir, errMkdir)
 		}
@@ -462,7 +480,7 @@ func copyDirContents(src, dst string) ([]modproviders.DownloadedFile, error) {
 		return nil
 	})
 	if errWalk != nil {
-		return nil, errWalk
+		return nil, fmt.Errorf("walk copied workshop files: %w", errWalk)
 	}
 
 	return downloaded, nil

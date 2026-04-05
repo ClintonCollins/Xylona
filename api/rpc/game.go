@@ -13,7 +13,8 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-func (xs *XylonaService) GetGame(ctx context.Context, request *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {
+// GetGame returns a single game definition by ID.
+func (xs *XylonaService) GetGame(_ context.Context, request *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -38,7 +39,8 @@ func (xs *XylonaService) GetGame(ctx context.Context, request *connect.Request[x
 	return resp, nil
 }
 
-func (xs *XylonaService) ListGames(ctx context.Context, request *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
+// ListGames returns all game definitions visible to the caller.
+func (xs *XylonaService) ListGames(_ context.Context, request *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -70,6 +72,7 @@ func (xs *XylonaService) ListGames(ctx context.Context, request *connect.Request
 	return resp, nil
 }
 
+// AddGame creates a new game definition.
 func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xylona.AddGameRequest]) (*connect.Response[xylona.AddGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -78,8 +81,8 @@ func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xyl
 	if !user.SuperUser {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
 	}
-	gameProto := request.Msg.Game
-	if gameProto.Id == "" {
+	gameProto := request.Msg.GetGame()
+	if gameProto.GetId() == "" {
 		gameProto.Id = uuid.NewString()
 	}
 	gameModel := helpers.GameProtoToModel(gameProto)
@@ -100,6 +103,7 @@ func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xyl
 	return resp, nil
 }
 
+// EditGame updates an existing game definition.
 func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xylona.EditGameRequest]) (*connect.Response[xylona.EditGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -108,7 +112,7 @@ func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xy
 	if !user.SuperUser {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
 	}
-	gameProto := request.Msg.Game
+	gameProto := request.Msg.GetGame()
 	gameModel, errGetGameModel := xs.db.GetGameByID(gameProto.GetId())
 	if errGetGameModel != nil {
 		if errors.Is(errGetGameModel, sql.ErrNoRows) {
@@ -137,7 +141,8 @@ func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xy
 	return resp, nil
 }
 
-func (xs *XylonaService) RemoveGame(ctx context.Context, request *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error) {
+// RemoveGame deletes a game definition when no servers still use it.
+func (xs *XylonaService) RemoveGame(_ context.Context, request *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -167,10 +172,12 @@ func (xs *XylonaService) RemoveGame(ctx context.Context, request *connect.Reques
 	return &connect.Response[xylona.RemoveGameResponse]{Msg: &xylona.RemoveGameResponse{}}, nil
 }
 
+// ImportGame is reserved for future game import support.
 func (xs *XylonaService) ImportGame(_ context.Context, _ *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
 }
 
+// ExportGame is reserved for future game export support.
 func (xs *XylonaService) ExportGame(_ context.Context, _ *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
 }

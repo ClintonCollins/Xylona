@@ -1,3 +1,4 @@
+// Package webhooks formats and delivers alert notifications to webhook targets.
 package webhooks
 
 import (
@@ -20,6 +21,7 @@ import (
 // Severity represents the severity level of an alert event.
 type Severity int
 
+// Severity values classify alert urgency for outbound webhook payloads.
 const (
 	SeverityInfo Severity = iota
 	SeverityWarning
@@ -122,7 +124,7 @@ type Sender struct {
 func NewSender() *Sender {
 	return &Sender{
 		client:      &http.Client{Timeout: 10 * time.Second},
-		rateLimiter: newRateLimiter(10, time.Minute),
+		rateLimiter: newRateLimiter(10),
 		retry:       defaultRetryConfig,
 		ssrfCheckFn: ValidateWebhookTarget,
 	}
@@ -200,15 +202,15 @@ func (s *Sender) Send(ctx context.Context, channelType string, config ChannelCon
 // doPost performs a single HTTP POST request and returns the result.
 // It re-validates the target against SSRF before dialing in case DNS changed
 // since the initial validation.
-func (s *Sender) doPost(ctx context.Context, url string, body []byte) error {
+func (s *Sender) doPost(ctx context.Context, targetURL string, body []byte) error {
 	if s.ssrfCheckFn != nil {
-		errSSRF := s.ssrfCheckFn(url)
+		errSSRF := s.ssrfCheckFn(targetURL)
 		if errSSRF != nil {
 			return errSSRF
 		}
 	}
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	req, errReq := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if errReq != nil {
 		return fmt.Errorf("webhooks: failed to create request: %w", errReq)
 	}
@@ -300,7 +302,7 @@ func isPrivateOrReservedIP(ip net.IP) bool {
 func ValidateWebhookTarget(rawURL string) error {
 	parsedURL, errParse := url.Parse(rawURL)
 	if errParse != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidWebhookURL, errParse)
+		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, errParse)
 	}
 
 	hostname := parsedURL.Hostname()
@@ -318,9 +320,9 @@ func ValidateWebhookTarget(rawURL string) error {
 	}
 
 	// Resolve hostname to IPs.
-	addrs, errLookup := net.LookupHost(hostname)
+	addrs, errLookup := net.DefaultResolver.LookupHost(context.Background(), hostname)
 	if errLookup != nil {
-		return fmt.Errorf("%w: DNS resolution failed: %v", ErrInvalidWebhookURL, errLookup)
+		return fmt.Errorf("%w: DNS resolution failed: %w", ErrInvalidWebhookURL, errLookup)
 	}
 
 	for _, addr := range addrs {
@@ -344,7 +346,7 @@ func ValidateChannelConfig(config ChannelConfig) error {
 	}
 	parsedURL, errParse := url.Parse(rawURL)
 	if errParse != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidWebhookURL, errParse)
+		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, errParse)
 	}
 	scheme := strings.ToLower(parsedURL.Scheme)
 	if scheme != "http" && scheme != "https" {
@@ -401,11 +403,11 @@ type rateLimiter struct {
 	window   time.Duration
 }
 
-func newRateLimiter(maxCount int, window time.Duration) *rateLimiter {
+func newRateLimiter(maxCount int) *rateLimiter {
 	return &rateLimiter{
 		windows:  make(map[string][]time.Time),
 		maxCount: maxCount,
-		window:   window,
+		window:   time.Minute,
 	}
 }
 

@@ -22,7 +22,7 @@ func TestLogout(t *testing.T) {
 	user := createUserForRPCUserTests(t, fixture, "logoutuser", false)
 
 	req := connect.NewRequest(&xylona.LogoutRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.Id)
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.GetId())
 
 	// Get session ID from header to verify deletion later
 	cookies := getCookiesFromHeader(req.Header().Get("Cookie"))

@@ -1,6 +1,7 @@
 package cfgparse
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -144,10 +145,10 @@ func yamlNodeToConfig(key string, yn *yaml.Node, aliasStack map[*yaml.Node]struc
 
 	case yaml.AliasNode:
 		if yn.Alias == nil {
-			return nil, fmt.Errorf("yaml alias has no target")
+			return nil, errors.New("yaml alias has no target")
 		}
 		if _, exists := aliasStack[yn.Alias]; exists {
-			return nil, fmt.Errorf("yaml alias cycle detected")
+			return nil, errors.New("yaml alias cycle detected")
 		}
 		aliasStack[yn.Alias] = struct{}{}
 		defer delete(aliasStack, yn.Alias)

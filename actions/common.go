@@ -11,8 +11,10 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// OSType identifies the current host operating system.
 type OSType string
 
+// Supported host operating systems for local actions.
 const (
 	Windows OSType = "windows"
 	Linux   OSType = "linux"
@@ -20,6 +22,7 @@ const (
 )
 
 var (
+	// OperatingSystem stores the detected host operating system.
 	OperatingSystem OSType
 )
 
@@ -45,6 +48,7 @@ func detectOperatingSystem(goos string) (OSType, bool) {
 	}
 }
 
+// DefaultInstallPath returns the default root directory for managed servers.
 func DefaultInstallPath() string {
 	if OperatingSystem == Linux || OperatingSystem == Darwin {
 		home := os.Getenv("HOME")

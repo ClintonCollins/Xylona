@@ -1,3 +1,4 @@
+// Package placeholder resolves named template placeholders used across Xylona.
 package placeholder
 
 import (

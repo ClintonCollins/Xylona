@@ -33,11 +33,11 @@ func TestAddStatusListener_ReceivesStatusChanges(t *testing.T) {
 
 	select {
 	case update := <-ch:
-		if update.GameServerId != "test-id" {
-			t.Errorf("expected server ID %q, got %q", "test-id", update.GameServerId)
+		if update.GetGameServerId() != "test-id" {
+			t.Errorf("expected server ID %q, got %q", "test-id", update.GetGameServerId())
 		}
-		if update.Status != xylona.Status_ONLINE {
-			t.Errorf("expected status ONLINE, got %v", update.Status)
+		if update.GetStatus() != xylona.Status_ONLINE {
+			t.Errorf("expected status ONLINE, got %v", update.GetStatus())
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for status update")

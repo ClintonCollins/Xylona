@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -83,7 +84,10 @@ func TestUpdateGameServerRunsInternalUpdaterWhenNoShellCommandConfigured(t *test
 	}
 	gameServer.R.Game = &models.Game{}
 
-	inst.UpdateGameServer(gameServer)
+	errUpdate := inst.UpdateGameServer(gameServer)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
 
 	deadline := time.Now().Add(2 * time.Second)
 	for {
@@ -408,8 +412,8 @@ func TestRunUpdateWithBackupWritesProgressToConsoleBuffer(t *testing.T) {
 	for {
 		select {
 		case msg := <-outChan:
-			if msg != nil && msg.GameServerConsoleOutput != nil {
-				streamedOutput.WriteString(msg.GameServerConsoleOutput.Output)
+			if msg != nil && msg.GetGameServerConsoleOutput() != nil {
+				streamedOutput.WriteString(msg.GetGameServerConsoleOutput().GetOutput())
 			}
 		default:
 			goto assertOutput
@@ -496,8 +500,8 @@ func TestRunUpdateWithBackupIncludesMinecraftUpdateDetails(t *testing.T) {
 	for {
 		select {
 		case msg := <-outChan:
-			if msg != nil && msg.GameServerConsoleOutput != nil {
-				streamedOutput.WriteString(msg.GameServerConsoleOutput.Output)
+			if msg != nil && msg.GetGameServerConsoleOutput() != nil {
+				streamedOutput.WriteString(msg.GetGameServerConsoleOutput().GetOutput())
 			}
 		default:
 			goto assertDetailedOutput
@@ -585,7 +589,11 @@ func (g internalUpdateTestGame) Install(_ *models.GameServer, _, _ io.Writer) er
 }
 
 func (g internalUpdateTestGame) Update(_ *models.GameServer, _, _ io.Writer) error {
-	return os.WriteFile(g.markerPath, []byte("updated"), 0o644)
+	errWrite := os.WriteFile(g.markerPath, []byte("updated"), 0o600)
+	if errWrite != nil {
+		return fmt.Errorf("write update marker: %w", errWrite)
+	}
+	return nil
 }
 
 type minecraftUpdateTestProvider struct {
@@ -685,8 +693,8 @@ func (p *minecraftUpdateTestProvider) Download(_ context.Context, sourceID strin
 	p.downloadVersionID = versionID
 	relativePath := filepath.Base(p.markerPath)
 	fullPath := filepath.Join(targetDir, relativePath)
-	if errWrite := os.WriteFile(fullPath, []byte("updated"), 0o644); errWrite != nil {
-		return nil, errWrite
+	if errWrite := os.WriteFile(fullPath, []byte("updated"), 0o600); errWrite != nil {
+		return nil, fmt.Errorf("write downloaded file: %w", errWrite)
 	}
 	return []modproviders.DownloadedFile{
 		{Path: relativePath, IsPrimary: true},

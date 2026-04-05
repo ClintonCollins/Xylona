@@ -821,7 +821,7 @@ type droppedRecord struct {
 	deliveryStatus string
 }
 
-func (d *dropRecordingStore) InsertAlertHistory(ruleID, userID, serverID, serverNodeID, nodeID, eventType, eventData, channelType, deliveryStatus string) (*models.AlertHistory, error) {
+func (d *dropRecordingStore) InsertAlertHistory(ruleID, _ string, _, _, _, eventType, _, _, deliveryStatus string) (*models.AlertHistory, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.records = append(d.records, droppedRecord{
@@ -865,7 +865,7 @@ func TestRecordDroppedJob(t *testing.T) {
 	}
 }
 
-func TestRecordDroppedJob_NilRecorder(t *testing.T) {
+func TestRecordDroppedJob_NilRecorder(_ *testing.T) {
 	eval := &Evaluator{
 		dropRecorder: nil,
 		jobChan:      make(chan DeliveryJob),

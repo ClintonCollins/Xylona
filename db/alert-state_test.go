@@ -193,9 +193,7 @@ func TestGetOrCreateAlertState_ConcurrentCallsReuseSingleRow(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range goroutineCount {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-start
 			state, errGet := conn.GetOrCreateAlertState(rule.ID, "server", "srv-1", "node-a")
 			if errGet != nil {
@@ -203,7 +201,7 @@ func TestGetOrCreateAlertState_ConcurrentCallsReuseSingleRow(t *testing.T) {
 				return
 			}
 			results <- state
-		}()
+		})
 	}
 
 	close(start)

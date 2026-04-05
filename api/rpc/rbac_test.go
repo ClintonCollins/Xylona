@@ -261,20 +261,20 @@ func TestGrantGameServerAccessAuthorizationAndShape(t *testing.T) {
 				if errGrant != nil {
 					t.Fatalf("GrantGameServerAccess() error = %v", errGrant)
 				}
-				if response == nil || response.Msg == nil || response.Msg.Grant == nil {
+				if response == nil || response.Msg == nil || response.Msg.GetGrant() == nil {
 					t.Fatalf("GrantGameServerAccess() returned empty response")
 				}
-				if response.Msg.Grant.GameServerId != "server-local-1" {
-					t.Errorf("GrantGameServerAccess().Grant.GameServerId = %q, want %q", response.Msg.Grant.GameServerId, "server-local-1")
+				if response.Msg.GetGrant().GetGameServerId() != "server-local-1" {
+					t.Errorf("GrantGameServerAccess().Grant.GameServerId = %q, want %q", response.Msg.GetGrant().GetGameServerId(), "server-local-1")
 				}
-				if response.Msg.Grant.RoleId != tt.roleID {
-					t.Errorf("GrantGameServerAccess().Grant.RoleId = %q, want %q", response.Msg.Grant.RoleId, tt.roleID)
+				if response.Msg.GetGrant().GetRoleId() != tt.roleID {
+					t.Errorf("GrantGameServerAccess().Grant.RoleId = %q, want %q", response.Msg.GetGrant().GetRoleId(), tt.roleID)
 				}
-				if response.Msg.Grant.UserId != tt.targetID {
-					t.Errorf("GrantGameServerAccess().Grant.UserId = %q, want %q", response.Msg.Grant.UserId, tt.targetID)
+				if response.Msg.GetGrant().GetUserId() != tt.targetID {
+					t.Errorf("GrantGameServerAccess().Grant.UserId = %q, want %q", response.Msg.GetGrant().GetUserId(), tt.targetID)
 				}
-				if response.Msg.Grant.UserName == "" || response.Msg.Grant.RoleName == "" || response.Msg.Grant.GrantedByUserName == "" {
-					t.Errorf("GrantGameServerAccess() response missing expected display fields: %+v", response.Msg.Grant)
+				if response.Msg.GetGrant().GetUserName() == "" || response.Msg.GetGrant().GetRoleName() == "" || response.Msg.GetGrant().GetGrantedByUserName() == "" {
+					t.Errorf("GrantGameServerAccess() response missing expected display fields: %+v", response.Msg.GetGrant())
 				}
 				return
 			}
@@ -303,7 +303,7 @@ func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("GrantGameServerAccess() setup error = %v", errCreate)
 	}
-	grantID := createResponse.Msg.Grant.Id
+	grantID := createResponse.Msg.GetGrant().GetId()
 
 	denyRequest := connect.NewRequest(&xylona.RevokeGameServerAccessRequest{
 		GrantId:      grantID,
@@ -365,12 +365,13 @@ func TestGrantFederatedAccessAuthorizationAndShape(t *testing.T) {
 		},
 	}
 
+	remoteUserSuffixes := []string{"a", "b", "c"}
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			request := connect.NewRequest(&xylona.GrantFederatedAccessRequest{
 				GameServerId:   "server-local-1",
 				RemoteNodeId:   "node-remote-1",
-				RemoteUserId:   "remote-user-" + string(rune('a'+i)),
+				RemoteUserId:   "remote-user-" + remoteUserSuffixes[i],
 				RemoteUserName: "Remote User",
 				RoleId:         tt.roleID,
 			})
@@ -381,20 +382,20 @@ func TestGrantFederatedAccessAuthorizationAndShape(t *testing.T) {
 				if errGrant != nil {
 					t.Fatalf("GrantFederatedAccess() error = %v", errGrant)
 				}
-				if response == nil || response.Msg == nil || response.Msg.Grant == nil {
+				if response == nil || response.Msg == nil || response.Msg.GetGrant() == nil {
 					t.Fatalf("GrantFederatedAccess() returned empty response")
 				}
-				if response.Msg.Grant.GameServerId != "server-local-1" {
-					t.Errorf("GrantFederatedAccess().Grant.GameServerId = %q, want %q", response.Msg.Grant.GameServerId, "server-local-1")
+				if response.Msg.GetGrant().GetGameServerId() != "server-local-1" {
+					t.Errorf("GrantFederatedAccess().Grant.GameServerId = %q, want %q", response.Msg.GetGrant().GetGameServerId(), "server-local-1")
 				}
-				if response.Msg.Grant.RemoteNodeId != "node-remote-1" {
-					t.Errorf("GrantFederatedAccess().Grant.RemoteNodeId = %q, want %q", response.Msg.Grant.RemoteNodeId, "node-remote-1")
+				if response.Msg.GetGrant().GetRemoteNodeId() != "node-remote-1" {
+					t.Errorf("GrantFederatedAccess().Grant.RemoteNodeId = %q, want %q", response.Msg.GetGrant().GetRemoteNodeId(), "node-remote-1")
 				}
-				if response.Msg.Grant.RoleId != tt.roleID {
-					t.Errorf("GrantFederatedAccess().Grant.RoleId = %q, want %q", response.Msg.Grant.RoleId, tt.roleID)
+				if response.Msg.GetGrant().GetRoleId() != tt.roleID {
+					t.Errorf("GrantFederatedAccess().Grant.RoleId = %q, want %q", response.Msg.GetGrant().GetRoleId(), tt.roleID)
 				}
-				if response.Msg.Grant.RoleName == "" || response.Msg.Grant.GrantedByUserName == "" {
-					t.Errorf("GrantFederatedAccess() response missing expected display fields: %+v", response.Msg.Grant)
+				if response.Msg.GetGrant().GetRoleName() == "" || response.Msg.GetGrant().GetGrantedByUserName() == "" {
+					t.Errorf("GrantFederatedAccess() response missing expected display fields: %+v", response.Msg.GetGrant())
 				}
 				return
 			}
@@ -459,13 +460,13 @@ func TestListRoles(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("ListRoles() error = %v", errList)
 	}
-	if resp.Msg == nil || len(resp.Msg.Roles) == 0 {
+	if resp.Msg == nil || len(resp.Msg.GetRoles()) == 0 {
 		t.Fatalf("ListRoles() returned no roles")
 	}
 
 	foundSystem := false
-	for _, role := range resp.Msg.Roles {
-		if role.IsSystem {
+	for _, role := range resp.Msg.GetRoles() {
+		if role.GetIsSystem() {
 			foundSystem = true
 			break
 		}
@@ -496,7 +497,7 @@ func TestListPermissions(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("ListPermissions() error = %v", errList)
 	}
-	if resp.Msg == nil || len(resp.Msg.Permissions) == 0 {
+	if resp.Msg == nil || len(resp.Msg.GetPermissions()) == 0 {
 		t.Fatalf("ListPermissions() returned no permissions")
 	}
 }
@@ -541,8 +542,8 @@ func TestCreateRole(t *testing.T) {
 		t.Fatalf("ListPermissions() error = %v", errListPerm)
 	}
 	var validPermIDs []string
-	if len(listPermResp.Msg.Permissions) > 0 {
-		validPermIDs = append(validPermIDs, listPermResp.Msg.Permissions[0].Id)
+	if len(listPermResp.Msg.GetPermissions()) > 0 {
+		validPermIDs = append(validPermIDs, listPermResp.Msg.GetPermissions()[0].GetId())
 	}
 
 	// Super user creates role with valid permissions → success
@@ -557,13 +558,13 @@ func TestCreateRole(t *testing.T) {
 	if errCreate != nil {
 		t.Fatalf("CreateRole() error = %v", errCreate)
 	}
-	if createResp.Msg == nil || createResp.Msg.Role == nil {
+	if createResp.Msg == nil || createResp.Msg.GetRole() == nil {
 		t.Fatalf("CreateRole() returned empty response")
 	}
-	if createResp.Msg.Role.Name != "custom-role" {
-		t.Errorf("CreateRole().Role.Name = %q, want %q", createResp.Msg.Role.Name, "custom-role")
+	if createResp.Msg.GetRole().GetName() != "custom-role" {
+		t.Errorf("CreateRole().Role.Name = %q, want %q", createResp.Msg.GetRole().GetName(), "custom-role")
 	}
-	if createResp.Msg.Role.IsSystem {
+	if createResp.Msg.GetRole().GetIsSystem() {
 		t.Errorf("CreateRole().Role.IsSystem = true, want false")
 	}
 
@@ -652,7 +653,7 @@ func TestDeleteRole(t *testing.T) {
 	}
 
 	deleteReq := connect.NewRequest(&xylona.DeleteRoleRequest{
-		RoleId: createResp.Msg.Role.Id,
+		RoleId: createResp.Msg.GetRole().GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteReq, "user-admin")
 

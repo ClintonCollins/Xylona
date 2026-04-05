@@ -12,7 +12,7 @@ func TestRunPreStart_ManagedFieldsOverwritten(t *testing.T) {
 
 	// Create a properties file with an old IP.
 	content := "server-ip=0.0.0.0\nserver-port=25565\nmotd=Hello\n"
-	errWrite := os.WriteFile(filepath.Join(dir, "server.properties"), []byte(content), 0o644)
+	errWrite := os.WriteFile(filepath.Join(dir, "server.properties"), []byte(content), 0o600)
 	if errWrite != nil {
 		t.Fatalf("setup write error: %v", errWrite)
 	}
@@ -110,7 +110,7 @@ func TestRunPreStart_NonManagedFieldsUntouched(t *testing.T) {
 	dir := t.TempDir()
 
 	content := "motd=Custom MOTD\nserver-port=25565\n"
-	errWrite := os.WriteFile(filepath.Join(dir, "server.properties"), []byte(content), 0o644)
+	errWrite := os.WriteFile(filepath.Join(dir, "server.properties"), []byte(content), 0o600)
 	if errWrite != nil {
 		t.Fatalf("setup write error: %v", errWrite)
 	}
@@ -143,7 +143,7 @@ func TestRunPreStart_CorruptedFileDoesNotBlock(t *testing.T) {
 	// Write a binary/corrupted file — properties parser should still handle it
 	// gracefully (properties format is very lenient, so we use a format that
 	// would actually fail). For this test, just verify no panic.
-	errWrite := os.WriteFile(filepath.Join(dir, "server.properties"), []byte("key=value\n"), 0o644)
+	errWrite := os.WriteFile(filepath.Join(dir, "server.properties"), []byte("key=value\n"), 0o600)
 	if errWrite != nil {
 		t.Fatalf("setup write error: %v", errWrite)
 	}

@@ -3,6 +3,7 @@ package rpc
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -20,13 +21,13 @@ func (xs *XylonaService) getUserFromHeader(header http.Header) (*models.User, er
 	sessionCookies, errGetSession := gatekeeper.GetSessionFromHeader(header)
 	if errGetSession != nil {
 		log.Debug().Err(errGetSession).Msg("Error getting session")
-		return nil, errGetSession
+		return nil, fmt.Errorf("rpc: get session from header: %w", errGetSession)
 	}
 
 	user, errGetUser := gatekeeper.GetUserFromSession(sessionCookies.SessionID, sessionCookies.SessionToken, xs.db, xs.secureCookie)
 	if errGetUser != nil {
 		log.Debug().Err(errGetUser).Msg("Error getting user")
-		return nil, errGetUser
+		return nil, fmt.Errorf("rpc: get user from session: %w", errGetUser)
 	}
 	return user, nil
 }
@@ -111,7 +112,7 @@ func (xs *XylonaService) newRemoteFederationClient(node *models.Node) (xylonacon
 		xs.db,
 	)
 	if errClient != nil {
-		return nil, errClient
+		return nil, fmt.Errorf("rpc: create remote federation client: %w", errClient)
 	}
 
 	return xylonaconnect.NewFederationClient(httpClient, federationBaseURL), nil

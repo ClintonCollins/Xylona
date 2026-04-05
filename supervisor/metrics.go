@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"runtime"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/v4/process"
+
+	"github.com/ClintonCollins/Xylona/helpers"
 )
 
 // collectProcessMetrics reads normalized CPU%, working set (RSS), private memory (VMS),
@@ -32,7 +35,7 @@ func (c *Command) collectProcessMetrics() {
 		return
 	}
 
-	pid := int32(cmd.Process.Pid)
+	pid := helpers.ClampInt32FromInt(cmd.Process.Pid)
 	proc, errNewProcess := process.NewProcess(pid)
 	if errNewProcess != nil {
 		log.Debug().Err(errNewProcess).Int32("pid", pid).Msg("Failed to create process handle for metrics")
@@ -79,7 +82,7 @@ func (c *Command) collectProcessMetrics() {
 		totalIOWrite += ioCounters.WriteBytes
 	}
 	if conns, errConns := proc.Connections(); errConns == nil {
-		totalConns += int32(len(conns))
+		totalConns += helpers.ClampInt32FromInt(len(conns))
 	}
 
 	// Sum child process metrics for process-tree coverage.
@@ -104,7 +107,7 @@ func (c *Command) collectProcessMetrics() {
 				totalIOWrite += childIO.WriteBytes
 			}
 			if childConns, errChildConns := child.Connections(); errChildConns == nil {
-				totalConns += int32(len(childConns))
+				totalConns += helpers.ClampInt32FromInt(len(childConns))
 			}
 		}
 	}
@@ -137,7 +140,7 @@ func (c *Command) collectProcessMetrics() {
 
 	c.Lock()
 	c.cpuPercent = totalCPU
-	c.cpuCores = int32(numCPU)
+	c.cpuCores = helpers.ClampInt32FromInt(numCPU)
 	c.memoryRSS = totalRSS
 	c.memoryVMS = totalVMS
 	c.memoryPercent = totalMemPct
@@ -164,13 +167,13 @@ func calculateDirSize(directory string) (uint64, error) {
 		if !d.IsDir() {
 			info, errInfo := d.Info()
 			if errInfo == nil {
-				total += uint64(info.Size())
+				total += helpers.ClampUint64FromInt64(info.Size())
 			}
 		}
 		return nil
 	})
 	if errWalk != nil {
-		return 0, errWalk
+		return 0, fmt.Errorf("supervisor: walk working directory: %w", errWalk)
 	}
 	return total, nil
 }

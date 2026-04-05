@@ -30,29 +30,36 @@ import (
 
 type inputType int
 
-const (
-	maxOutputBufferBytes = 1024 << 10
+const maxOutputBufferBytes = 1024 << 10
 
+// Input types supported for command input wiring.
+const (
 	InputTypeStdIn inputType = iota
 	InputTypeTelnet
 )
 
 var (
+	// MessageStartingServer is emitted when Xylona begins launching a server.
 	MessageStartingServer = formatXylonaMessage("Starting server...")
+	// MessageStoppingServer is emitted when Xylona begins stopping a server.
 	MessageStoppingServer = formatXylonaMessage("Stopping server...")
-	MessageStoppedServer  = formatXylonaMessage("Server stopped.")
+	// MessageStoppedServer is emitted after a server has stopped.
+	MessageStoppedServer = formatXylonaMessage("Server stopped.")
 )
 
+// TelnetCredentials contains telnet connection settings for server input.
 type TelnetCredentials struct {
 	Port     int
 	Password string
 }
 
+// InputMethod describes how input is sent to a managed command.
 type InputMethod struct {
 	Type              inputType
 	TelnetCredentials *TelnetCredentials
 }
 
+// PreparedCommand contains all inputs needed to launch or reuse a command.
 type PreparedCommand struct {
 	ID                 string
 	InternalCommand    bool
@@ -70,7 +77,7 @@ type PreparedCommand struct {
 	Status             xylona.Status
 	// StopTimeout overrides the default 15-second graceful-stop timeout.
 	// When zero the default is used.
-	StopTimeout        time.Duration
+	StopTimeout time.Duration
 }
 
 func (imt inputType) String() string {
@@ -97,6 +104,7 @@ func formatXylonaMessage(message string) string {
 	return fmt.Sprintf("[%s] [Xylona]: %s", time.Now().Format("2006-01-02 15:04:05"), message)
 }
 
+// StartCommand prepares, launches, and tracks a command execution.
 func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, error) {
 	cmd, err := inst.prepareCommandProcess(preparedCommand)
 	if err != nil {
@@ -108,6 +116,7 @@ func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, e
 	return cmd, nil
 }
 
+// Stop requests that the command shut down gracefully, then forces cancelation on timeout.
 func (c *Command) Stop(stopInputCommand string) {
 	if c.currentCMD == nil {
 		return
@@ -144,12 +153,13 @@ func (c *Command) Stop(stopInputCommand string) {
 	}
 }
 
-func (inst *Instance) ListCommands() []Command {
+// ListCommands returns the currently tracked commands.
+func (inst *Instance) ListCommands() []*Command {
 	inst.RLock()
 	defer inst.RUnlock()
-	var commands []Command
+	commands := make([]*Command, 0, len(inst.runningCommands))
 	for _, p := range inst.runningCommands {
-		commands = append(commands, *p)
+		commands = append(commands, p)
 	}
 	return commands
 }
@@ -550,7 +560,7 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 	persistentCommand, exists := inst.runningCommands[preparedCommand.ID]
 	if exists {
 		if persistentCommand.currentCMD != nil {
-			return nil, fmt.Errorf("command is already running")
+			return nil, ErrCommandAlreadyRunning
 		}
 	}
 
@@ -653,7 +663,7 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 	baseCommand := strings.TrimSpace(preparedCommand.BaseCommand)
 	if baseCommand == "" {
 		log.Error().Interface("Game server ID", preparedCommand.GameServerID).Msg("No command specified")
-		return nil, fmt.Errorf("no command provided")
+		return nil, ErrNoCommandProvided
 	}
 
 	cmd := exec.CommandContext(newCommand.processCtx, baseCommand, preparedCommand.Args...)
@@ -676,7 +686,7 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		stdInPipe, errStdInPipe := cmd.StdinPipe()
 		if errStdInPipe != nil {
 			log.Error().Err(errStdInPipe).Msg("Unable to get StdInPipe")
-			return nil, errStdInPipe
+			return nil, fmt.Errorf("create stdin pipe: %w", errStdInPipe)
 		}
 		newCommand.stdInWriter = stdInPipe
 	}
@@ -699,7 +709,7 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 		if errDial != nil {
 			log.Error().Err(errDial).Msg("Error dialing telnet")
 			command.stdInWriter = io.Discard
-			return nil, errDial
+			return nil, fmt.Errorf("dial telnet: %w", errDial)
 		}
 		log.Debug().Msg("Telnet connection successful")
 		log.Debug().Msg("Writing password to telnet")
@@ -708,7 +718,7 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 			if errAuth != nil {
 				log.Error().Err(errAuth).Msg("Error authenticating telnet")
 				command.stdInWriter = io.Discard
-				return nil, errAuth
+				return nil, fmt.Errorf("authenticate telnet: %w", errAuth)
 			}
 			log.Debug().Int("bytes written", b).Msg("Wrote password to telnet")
 		}
@@ -751,17 +761,18 @@ func (inst *Instance) setupCmdPipes(newCommand *Command, cmd *exec.Cmd) (io.Read
 	stdOutPipe, errStdOutPipe := cmd.StdoutPipe()
 	if errStdOutPipe != nil {
 		log.Error().Err(errStdOutPipe).Msg("Unable to get StdOutPipe")
-		return nil, nil, errStdOutPipe
+		return nil, nil, fmt.Errorf("create stdout pipe: %w", errStdOutPipe)
 	}
 
 	stdErrPipe, errStdErrPipe := cmd.StderrPipe()
 	if errStdErrPipe != nil {
 		log.Error().Err(errStdErrPipe).Msg("Unable to get StdErrPipe")
-		return nil, nil, errStdErrPipe
+		return nil, nil, fmt.Errorf("create stderr pipe: %w", errStdErrPipe)
 	}
 	return stdOutPipe, stdErrPipe, nil
 }
 
+// GetCommandByID returns a tracked command by ID.
 func (inst *Instance) GetCommandByID(commandID string) (*Command, error) {
 	inst.RLock()
 	defer inst.RUnlock()
@@ -773,6 +784,7 @@ func (inst *Instance) GetCommandByID(commandID string) (*Command, error) {
 	return proc, nil
 }
 
+// GetCommandByIDOrCreateShell returns a tracked command or creates an offline shell placeholder.
 func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
 	persistentCommand, exists := inst.runningCommands[commandID]
 	if !exists {
@@ -813,7 +825,7 @@ func (c *Command) SendInput(input string) error {
 	log.Debug().Str("Command ID", c.ID).Str("Input", input).Msg("Sending input")
 	b, wErr := fmt.Fprintf(c.stdInWriter, "%s\n", input)
 	if wErr != nil {
-		return wErr
+		return fmt.Errorf("write command input: %w", wErr)
 	}
 	log.Debug().Str("Command ID", c.ID).Int("bytes written", b).Msg("Wrote input")
 	return nil
@@ -828,6 +840,7 @@ func (c *Command) pushToOutputBuffer(output string) {
 	c.outBuffer += output + "\n"
 }
 
+// GetOutputBuffer returns the buffered command output.
 func (c *Command) GetOutputBuffer() string {
 	c.RLock()
 	defer c.RUnlock()

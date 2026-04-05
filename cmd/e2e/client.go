@@ -41,8 +41,8 @@ func newAuthenticatedClient(ctx context.Context, baseURL, username, password str
 	if errLogin != nil {
 		return nil, fmt.Errorf("login as %s at %s: %w", username, baseURL, errLogin)
 	}
-	if resp.Msg.User != nil {
-		client.userID = resp.Msg.User.Id
+	if resp.Msg.GetUser() != nil {
+		client.userID = resp.Msg.GetUser().GetId()
 	}
 	return client, nil
 }

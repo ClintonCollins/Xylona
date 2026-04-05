@@ -1,3 +1,4 @@
+// Package gsutils contains helpers for working with external game-server utilities.
 package gsutils
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// SteamAppBranch describes a Steam depot branch entry returned by the SteamCMD API.
 type SteamAppBranch struct {
 	Name        string `json:"name,omitempty"`
 	BuildID     string `json:"buildid,omitempty"`
@@ -29,9 +31,15 @@ var (
 
 func (x xylonaTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Add("User-Agent", "Xylona/0.1 (https://github.com/ClintonCollins/Xylona)")
-	return http.DefaultTransport.RoundTrip(req)
+	resp, errRoundTrip := http.DefaultTransport.RoundTrip(req)
+	if errRoundTrip != nil {
+		return nil, fmt.Errorf("round trip request: %w", errRoundTrip)
+	}
+
+	return resp, nil
 }
 
+// SteamGetLatestVersionByAppID returns the latest version string for the public Steam branch.
 func SteamGetLatestVersionByAppID(appID string) (string, error) {
 	branchMap, errGetBranchMap := SteamGetBranchesByAppID(appID)
 	if errGetBranchMap != nil {
@@ -65,10 +73,11 @@ func SteamGetLatestVersionByAppID(appID string) (string, error) {
 	return latestVersion, nil
 }
 
+// SteamGetBranchesByAppID returns Steam depot branch metadata keyed by branch name.
 func SteamGetBranchesByAppID(appID string) (map[string]SteamAppBranch, error) {
 	resp, err := httpClient.Get("https://api.steamcmd.net/v1/info/" + appID) //nolint:noctx // TODO: refactor to use http.NewRequestWithContext
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get steam app branches for %s: %w", appID, err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -77,14 +86,14 @@ func SteamGetBranchesByAppID(appID string) (map[string]SteamAppBranch, error) {
 	body, errReadBody := io.ReadAll(resp.Body)
 	if errReadBody != nil {
 		log.Error().Err(errReadBody).Msg("Failed to read body")
-		return nil, errReadBody
+		return nil, fmt.Errorf("read steam app branches response body for %s: %w", appID, errReadBody)
 	}
 
-	gJsonMatcher := fmt.Sprintf("data.%s.depots.branches", appID)
-	branches := gjson.GetBytes(body, gJsonMatcher)
+	gJSONMatcher := fmt.Sprintf("data.%s.depots.branches", appID)
+	branches := gjson.GetBytes(body, gJSONMatcher)
 	if !branches.Exists() {
-		log.Error().Str("JSON matcher", gJsonMatcher).Msg("Failed to get branches. Branches not found.")
-		return nil, fmt.Errorf("failed to get branches")
+		log.Error().Str("JSON matcher", gJSONMatcher).Msg("Failed to get branches. Branches not found.")
+		return nil, errors.New("failed to get branches")
 	}
 
 	branchMap := make(map[string]SteamAppBranch)

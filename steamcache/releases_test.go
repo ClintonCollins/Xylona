@@ -13,17 +13,19 @@ import (
 
 func TestFetchReleases_ParsesRecordedSevenDaysToDieFixture(t *testing.T) {
 	fixture := readSteamcacheFixture(t, "steamcmd-294420.json")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(fixture)
 	}))
 	defer server.Close()
 
 	client := &Client{
-		detailsURLFmt:    server.URL + "/%s",
-		httpClient:       server.Client(),
-		releaseFreshTTL:  time.Minute,
-		releaseStaleTTL:  time.Hour,
-		localReleaseFunc: func(context.Context, string) ([]SteamRelease, error) { return nil, errors.New("unexpected local fallback") },
+		detailsURLFmt:   server.URL + "/%s",
+		httpClient:      server.Client(),
+		releaseFreshTTL: time.Minute,
+		releaseStaleTTL: time.Hour,
+		localReleaseFunc: func(context.Context, string) ([]SteamRelease, error) {
+			return nil, errors.New("unexpected local fallback")
+		},
 	}
 
 	releases, errFetch := client.FetchReleases(context.Background(), "294420")
@@ -64,7 +66,7 @@ func TestFetchReleases_ParsesRecordedSevenDaysToDieFixture(t *testing.T) {
 func TestFetchReleases_UsesStaleCacheOnAPIFailure(t *testing.T) {
 	fixture := readSteamcacheFixture(t, "steamcmd-294420.json")
 	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		requests++
 		if requests == 1 {
 			_, _ = w.Write(fixture)
@@ -75,11 +77,13 @@ func TestFetchReleases_UsesStaleCacheOnAPIFailure(t *testing.T) {
 	defer server.Close()
 
 	client := &Client{
-		detailsURLFmt:    server.URL + "/%s",
-		httpClient:       server.Client(),
-		releaseFreshTTL:  0,
-		releaseStaleTTL:  time.Hour,
-		localReleaseFunc: func(context.Context, string) ([]SteamRelease, error) { return nil, errors.New("unexpected local fallback") },
+		detailsURLFmt:   server.URL + "/%s",
+		httpClient:      server.Client(),
+		releaseFreshTTL: 0,
+		releaseStaleTTL: time.Hour,
+		localReleaseFunc: func(context.Context, string) ([]SteamRelease, error) {
+			return nil, errors.New("unexpected local fallback")
+		},
 	}
 
 	initial, errInitial := client.FetchReleases(context.Background(), "294420")
@@ -100,7 +104,7 @@ func TestFetchReleases_UsesStaleCacheOnAPIFailure(t *testing.T) {
 }
 
 func TestFetchReleases_UsesLocalFallbackWhenAPIUnavailable(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "down", http.StatusBadGateway)
 	}))
 	defer server.Close()

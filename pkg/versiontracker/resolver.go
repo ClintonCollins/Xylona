@@ -7,6 +7,7 @@ import (
 
 var reSteamCMDAppUpdate = regexp.MustCompile(`(?i)\+app_update\s+(\d+)`)
 
+// TrackerContext contains the inputs used to resolve a version tracker.
 type TrackerContext struct {
 	GameID           string
 	UpdateCommand    string
@@ -17,6 +18,7 @@ type TrackerContext struct {
 	SteamAppID       string
 }
 
+// CacheKey returns a stable cache key for the tracker resolution context.
 func (info TrackerContext) CacheKey() string {
 	parts := []string{
 		strings.ToLower(strings.TrimSpace(info.GameID)),
@@ -51,6 +53,7 @@ func ResolveTracker(cfg ResolverConfig, gameID string, updateCommand string, ser
 	})
 }
 
+// ResolveTrackerWithContext selects the most appropriate tracker for the full context.
 func ResolveTrackerWithContext(cfg ResolverConfig, info TrackerContext) VersionTracker {
 	if cfg.CustomTrackerFactory != nil {
 		if tracker := cfg.CustomTrackerFactory(info); tracker != nil {

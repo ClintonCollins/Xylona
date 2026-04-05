@@ -1,3 +1,5 @@
+// Package supervisor manages game server process lifecycles and runtime
+// metrics.
 package supervisor
 
 import (
@@ -15,8 +17,10 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// Runtime identifies the host OS runtime used for process supervision.
 type Runtime string
 
+// Supported host runtimes for the process supervisor.
 const (
 	RuntimeLinux   Runtime = "linux"
 	RuntimeWindows Runtime = "windows"
@@ -25,10 +29,16 @@ const (
 )
 
 var (
+	// ErrCommandDoesNotExist is returned when a command lookup misses.
 	ErrCommandDoesNotExist = errors.New("command does not exist")
+	// ErrCommandAlreadyRunning is returned when a command is already active.
+	ErrCommandAlreadyRunning = errors.New("command is already running")
+	// ErrNoCommandProvided is returned when a start request has no executable.
+	ErrNoCommandProvided = errors.New("no command provided")
 )
 
 var (
+	// CurrentRuntime is the runtime detected from the current host OS.
 	CurrentRuntime = setRuntime()
 )
 
@@ -45,12 +55,14 @@ func setRuntime() Runtime {
 	}
 }
 
+// Instance tracks running commands within a Xylona supervisor.
 type Instance struct {
 	ctx             context.Context
 	runningCommands map[string]*Command
-	*sync.RWMutex
+	RWMutex         *sync.RWMutex
 }
 
+// Command represents a managed process or internal task execution.
 type Command struct {
 	ID                            string
 	User                          string
@@ -99,9 +111,50 @@ type Command struct {
 	lastIOWrite     uint64  // previous cumulative write bytes
 	lastIOPollTime  time.Time
 	connectionCount int32 // active TCP/UDP connections
-	*sync.RWMutex
+	RWMutex         *sync.RWMutex
 }
 
+// Lock acquires the instance mutex.
+func (i *Instance) Lock() {
+	i.RWMutex.Lock()
+}
+
+// Unlock releases the instance mutex.
+func (i *Instance) Unlock() {
+	i.RWMutex.Unlock()
+}
+
+// RLock acquires the instance read mutex.
+func (i *Instance) RLock() {
+	i.RWMutex.RLock()
+}
+
+// RUnlock releases the instance read mutex.
+func (i *Instance) RUnlock() {
+	i.RWMutex.RUnlock()
+}
+
+// Lock acquires the command mutex.
+func (c *Command) Lock() {
+	c.RWMutex.Lock()
+}
+
+// Unlock releases the command mutex.
+func (c *Command) Unlock() {
+	c.RWMutex.Unlock()
+}
+
+// RLock acquires the command read mutex.
+func (c *Command) RLock() {
+	c.RWMutex.RLock()
+}
+
+// RUnlock releases the command read mutex.
+func (c *Command) RUnlock() {
+	c.RWMutex.RUnlock()
+}
+
+// Status returns the command's current status.
 func (c *Command) Status() xylona.Status {
 	c.RLock()
 	defer c.RUnlock()
@@ -115,12 +168,14 @@ func (c *Command) NodeID() string {
 	return c.nodeID
 }
 
+// ServiceID returns the service ID associated with the command.
 func (c *Command) ServiceID() string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.serviceID
 }
 
+// UnixStartedAt returns the UNIX timestamp when the command started.
 func (c *Command) UnixStartedAt() int64 {
 	c.RLock()
 	defer c.RUnlock()
@@ -135,36 +190,42 @@ func (c *Command) Metrics() (cpuPercent float64, memoryRSS uint64, memoryVMS uin
 	return c.cpuPercent, c.memoryRSS, c.memoryVMS, c.memoryPercent, c.cpuCores, c.numThreads, c.diskUsageBytes, c.ioReadRate, c.ioWriteRate, c.connectionCount
 }
 
+// WorkingDir returns the command's working directory.
 func (c *Command) WorkingDir() string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.workingDir
 }
 
+// AddOutputListener registers an output listener for command console messages.
 func (c *Command) AddOutputListener(id string, outChan chan *xylona.Message) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
 	c.outputListeners[id] = outChan
 }
 
+// RemoveOutputListener removes an output listener by ID.
 func (c *Command) RemoveOutputListener(id string) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
 	delete(c.outputListeners, id)
 }
 
+// AddStatusListener registers a listener for command status updates.
 func (c *Command) AddStatusListener(id string, ch chan *xylona.GameServerStatusUpdate) {
 	c.statusListenersLock.Lock()
 	defer c.statusListenersLock.Unlock()
 	c.statusListeners[id] = ch
 }
 
+// RemoveStatusListener removes a status listener by ID.
 func (c *Command) RemoveStatusListener(id string) {
 	c.statusListenersLock.Lock()
 	defer c.statusListenersLock.Unlock()
 	delete(c.statusListeners, id)
 }
 
+// New creates a new process supervisor instance.
 func New(ctx context.Context) (*Instance, error) {
 	inst := &Instance{
 		ctx:             ctx,

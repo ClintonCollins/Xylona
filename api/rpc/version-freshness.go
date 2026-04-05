@@ -22,7 +22,7 @@ func (xs *XylonaService) resolveLocalVersionData(ctx context.Context, gameServer
 	return version, versionStateToProto(xs.versionState.Get(gameServer.ID))
 }
 
-func (fs *FederationService) resolveLocalVersionData(ctx context.Context, gameServer *models.GameServer, opts actions.VersionResolveOptions) (string, *xylona.VersionInfo) {
+func (fs FederationService) resolveLocalVersionData(ctx context.Context, gameServer *models.GameServer, opts actions.VersionResolveOptions) (string, *xylona.VersionInfo) {
 	if fs.actionsInst != nil {
 		version, state := fs.actionsInst.ResolveVersionData(ctx, gameServer, opts)
 		return version, versionStateToProto(state)

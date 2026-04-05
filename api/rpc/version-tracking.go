@@ -12,6 +12,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// GetVersionInfo returns cached or resolved version metadata for a game server.
 func (xs *XylonaService) GetVersionInfo(ctx context.Context, req *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error) {
 	user, errUser := xs.getUserFromHeader(req.Header())
 	if errUser != nil {
@@ -40,6 +41,7 @@ func (xs *XylonaService) GetVersionInfo(ctx context.Context, req *connect.Reques
 	)
 }
 
+// CheckForUpdate refreshes version metadata for a game server.
 func (xs *XylonaService) CheckForUpdate(ctx context.Context, req *connect.Request[xylona.CheckForUpdateRequest]) (*connect.Response[xylona.CheckForUpdateResponse], error) {
 	user, errUser := xs.getUserFromHeader(req.Header())
 	if errUser != nil {
@@ -70,6 +72,7 @@ func (xs *XylonaService) CheckForUpdate(ctx context.Context, req *connect.Reques
 	)
 }
 
+// SetDummyUpdateFailure toggles simulated update failures for dummy tracker tests.
 func (xs *XylonaService) SetDummyUpdateFailure(_ context.Context, req *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error) {
 	_, errUser := xs.getUserFromHeader(req.Header())
 	if errUser != nil {

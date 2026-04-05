@@ -278,7 +278,7 @@ func extractNodeEventData(msg any) (nodeID string, data eventData, ok bool) {
 
 func marshalEvaluatorEventData(eventType string, data eventData) ([]byte, error) {
 	if isThresholdAlertEventType(eventType) {
-		return json.Marshal(ThresholdEventData{
+		return marshalAlertEventData("threshold", ThresholdEventData{
 			CurrentValue: data.CurrentValue,
 			Threshold:    data.Threshold,
 			Direction:    data.Direction,
@@ -287,13 +287,13 @@ func marshalEvaluatorEventData(eventType string, data eventData) ([]byte, error)
 
 	switch eventType {
 	case "ALERT_EVENT_TYPE_CRASH":
-		return json.Marshal(struct {
+		return marshalAlertEventData("crash", struct {
 			ExitCode int `json:"exit_code"`
 		}{
 			ExitCode: data.ExitCode,
 		})
 	case "ALERT_EVENT_TYPE_STATUS_CHANGE":
-		return json.Marshal(struct {
+		return marshalAlertEventData("status change", struct {
 			NewStatus string `json:"new_status,omitempty"`
 			OldStatus string `json:"old_status,omitempty"`
 		}{
@@ -301,8 +301,16 @@ func marshalEvaluatorEventData(eventType string, data eventData) ([]byte, error)
 			OldStatus: data.OldStatus,
 		})
 	default:
-		return json.Marshal(data)
+		return marshalAlertEventData("generic", data)
 	}
+}
+
+func marshalAlertEventData(eventName string, payload any) ([]byte, error) {
+	jsonBytes, errMarshal := json.Marshal(payload)
+	if errMarshal != nil {
+		return nil, fmt.Errorf("marshal %s alert event data: %w", eventName, errMarshal)
+	}
+	return jsonBytes, nil
 }
 
 func isThresholdAlertEventType(eventType string) bool {

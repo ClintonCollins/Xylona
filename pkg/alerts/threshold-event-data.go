@@ -2,6 +2,7 @@ package alerts
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 )
@@ -50,7 +51,7 @@ func EvaluateThresholdOp(op string, threshold, actual float64) (bool, error) {
 // missing the operator field.
 func ParseConditionJSON(conditionJSON string) (operator string, threshold float64, err error) {
 	if conditionJSON == "" {
-		return "", 0, fmt.Errorf("condition JSON is empty")
+		return "", 0, errors.New("condition JSON is empty")
 	}
 	var cond conditionPayload
 	errUnmarshal := json.Unmarshal([]byte(conditionJSON), &cond)
@@ -58,7 +59,7 @@ func ParseConditionJSON(conditionJSON string) (operator string, threshold float6
 		return "", 0, fmt.Errorf("invalid condition JSON: %w", errUnmarshal)
 	}
 	if cond.Operator == "" {
-		return "", 0, fmt.Errorf("condition has no operator")
+		return "", 0, errors.New("condition has no operator")
 	}
 	return cond.Operator, cond.Value, nil
 }

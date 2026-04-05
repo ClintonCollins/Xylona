@@ -1,6 +1,7 @@
 package versiontracker
 
 import (
+	"maps"
 	"sync"
 	"time"
 )
@@ -98,9 +99,7 @@ func (m *VersionStateMap) GetAll() map[string]VersionState {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	result := make(map[string]VersionState, len(m.states))
-	for k, v := range m.states {
-		result[k] = v
-	}
+	maps.Copy(result, m.states)
 	return result
 }
 

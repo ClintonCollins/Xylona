@@ -2,9 +2,11 @@ package actions
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"math"
-	"math/rand"
+	"math/big"
 	"sync"
 	"time"
 
@@ -51,7 +53,6 @@ type RemoteVersionBroadcaster interface {
 // FederationSyncEngine manages periodic synchronization with peer nodes.
 type FederationSyncEngine struct {
 	ctx                context.Context
-	cancel             context.CancelFunc
 	db                 *db.Connection
 	federationMTLS     *helpers.FederationMTLS
 	mu                 sync.RWMutex
@@ -62,11 +63,10 @@ type FederationSyncEngine struct {
 	actionsInst        *Instance
 }
 
+// NewFederationSyncEngine creates and starts the federation sync engine.
 func NewFederationSyncEngine(ctx context.Context, dbInst *db.Connection, federationMTLS *helpers.FederationMTLS) *FederationSyncEngine {
-	engineCtx, engineCancel := context.WithCancel(ctx)
 	engine := &FederationSyncEngine{
-		ctx:            engineCtx,
-		cancel:         engineCancel,
+		ctx:            ctx,
 		db:             dbInst,
 		federationMTLS: federationMTLS,
 		peerStops:      make(map[string]context.CancelFunc),
@@ -99,6 +99,19 @@ func (e *FederationSyncEngine) SetVersionBroadcaster(broadcaster RemoteVersionBr
 // SetActionsInstance sets the actions instance for peer list operations.
 func (e *FederationSyncEngine) SetActionsInstance(inst *Instance) {
 	e.actionsInst = inst
+}
+
+func randomJitter(maxDelay time.Duration) time.Duration {
+	if maxDelay <= 0 {
+		return 0
+	}
+
+	maxNanos := big.NewInt(maxDelay.Nanoseconds())
+	jitter, errJitter := rand.Int(rand.Reader, maxNanos)
+	if errJitter != nil {
+		return 0
+	}
+	return time.Duration(jitter.Int64())
 }
 
 func (e *FederationSyncEngine) start() {
@@ -211,6 +224,7 @@ func (e *FederationSyncEngine) startPeerWorker(nodeID string) {
 		return
 	}
 
+	//nolint:gosec // The cancel func is stored for later worker teardown in RemovePeer/reconcilePeerWorkers.
 	peerCtx, peerCancel := context.WithCancel(e.ctx)
 	e.peerStops[nodeID] = peerCancel
 
@@ -237,7 +251,7 @@ func (e *FederationSyncEngine) RemovePeer(peerNodeID string) {
 
 func (e *FederationSyncEngine) peerSyncLoop(ctx context.Context, nodeID string) {
 	// Add jitter to avoid all peers syncing at the same time.
-	jitter := time.Duration(rand.Int63n(int64(10 * time.Second)))
+	jitter := randomJitter(10 * time.Second)
 	time.Sleep(jitter)
 
 	// Initial sync.
@@ -278,7 +292,7 @@ func (e *FederationSyncEngine) streamPeerStatuses(ctx context.Context, nodeID st
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(5*time.Second + time.Duration(rand.Int63n(int64(3*time.Second)))):
+		case <-time.After(5*time.Second + randomJitter(3*time.Second)):
 		}
 	}
 }
@@ -355,7 +369,7 @@ func (e *FederationSyncEngine) runUpdatesStream(ctx context.Context, nodeID stri
 			}
 			staleTimer.Reset(90 * time.Second)
 
-			switch evt := result.msg.Event.(type) {
+			switch evt := result.msg.GetEvent().(type) {
 			case *xylona.FederationServerUpdateEvent_Snapshot:
 				e.handleSnapshot(node, evt.Snapshot)
 			case *xylona.FederationServerUpdateEvent_StatusChange:
@@ -415,7 +429,7 @@ func (e *FederationSyncEngine) healthCheckPeer(nodeID string) {
 	}
 
 	// Check if the peer has departed the federation.
-	if resp.Msg.Departed {
+	if resp.Msg.GetDeparted() {
 		log.Info().Str("node_id", nodeID).Msg("Peer has departed the federation, removing")
 		_ = e.db.DeleteNodeByID(nodeID)
 		e.RemovePeer(nodeID)
@@ -433,9 +447,9 @@ func (e *FederationSyncEngine) healthCheckPeer(nodeID string) {
 	// Update identity if it changed.
 	errIdentity := e.db.UpdateNodeIdentity(
 		nodeID,
-		resp.Msg.Version,
-		resp.Msg.ProtocolVersion,
-		resp.Msg.Capabilities,
+		resp.Msg.GetVersion(),
+		resp.Msg.GetProtocolVersion(),
+		resp.Msg.GetCapabilities(),
 		resp.Msg.GetSystemInfo().GetOs(),
 	)
 	if errIdentity != nil {
@@ -531,7 +545,7 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 	}
 
 	// Upsert all server summaries from the node.
-	for _, server := range resp.Msg.Servers {
+	for _, server := range resp.Msg.GetServers() {
 		newID, errID := helpers.GenerateUniqueID()
 		if errID != nil {
 			log.Error().Err(errID).Msg("Failed to generate ID for remote server cache")
@@ -542,24 +556,24 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 			newID.String(),
 			node.ID,
 			nodeID,
-			server.ServerId,
-			server.DisplayName,
-			server.Status.String(),
-			server.GameName,
-			server.GameId,
-			server.IpAddress,
-			int32(server.Port),
-			int32(server.QueryPort),
-			int32(server.MaxPlayers),
-			int32(server.CurrentPlayers),
-			server.MapName,
-			server.Version,
+			server.GetServerId(),
+			server.GetDisplayName(),
+			server.GetStatus().String(),
+			server.GetGameName(),
+			server.GetGameId(),
+			server.GetIpAddress(),
+			helpers.ClampInt32FromInt64(server.GetPort()),
+			helpers.ClampInt32FromInt64(server.GetQueryPort()),
+			helpers.ClampInt32FromInt64(server.GetMaxPlayers()),
+			helpers.ClampInt32FromInt64(server.GetCurrentPlayers()),
+			server.GetMapName(),
+			server.GetVersion(),
 			node.Name,
 			node.BaseURL,
-			server.UpdatedAt.AsTime(),
+			server.GetUpdatedAt().AsTime(),
 		)
 		if errUpsert != nil {
-			log.Error().Err(errUpsert).Str("server_id", server.ServerId).Msg("Failed to upsert remote server cache")
+			log.Error().Err(errUpsert).Str("server_id", server.GetServerId()).Msg("Failed to upsert remote server cache")
 		}
 	}
 
@@ -574,7 +588,7 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 	}
 
 	log.Debug().Str("node_id", nodeID).Str("node_name", node.Name).
-		Int("server_count", len(resp.Msg.Servers)).Msg("Successfully synced server summaries from node")
+		Int("server_count", len(resp.Msg.GetServers())).Msg("Successfully synced server summaries from node")
 }
 
 func newFederationClient(dbConn *db.Connection, federationMTLS *helpers.FederationMTLS, node *models.Node, timeout time.Duration) (xylonaconnect.FederationClient, error) {
@@ -595,7 +609,7 @@ func newFederationClient(dbConn *db.Connection, federationMTLS *helpers.Federati
 		dbConn,
 	)
 	if errClient != nil {
-		return nil, errClient
+		return nil, fmt.Errorf("actions: create federation client: %w", errClient)
 	}
 
 	return xylonaconnect.NewFederationClient(httpClient, federationBaseURL), nil
@@ -630,13 +644,13 @@ func calculateBackoff(retryCount int64) time.Duration {
 	base := time.Duration(math.Pow(2, float64(retryCount))) * time.Second
 	base = min(base, maxRetryBackoff)
 	// Add jitter.
-	jitter := time.Duration(rand.Int63n(int64(5 * time.Second)))
+	jitter := randomJitter(5 * time.Second)
 	return base + jitter
 }
 
 // handleSnapshot processes a full server snapshot from a peer node.
 func (e *FederationSyncEngine) handleSnapshot(node *models.Node, snapshot *xylona.FederationServerSnapshot) {
-	for _, server := range snapshot.Servers {
+	for _, server := range snapshot.GetServers() {
 		newID, errID := helpers.GenerateUniqueID()
 		if errID != nil {
 			log.Error().Err(errID).Msg("Failed to generate ID for remote server cache during snapshot")
@@ -649,35 +663,35 @@ func (e *FederationSyncEngine) handleSnapshot(node *models.Node, snapshot *xylon
 			newID.String(),
 			node.ID,
 			node.ID,
-			server.ServerId,
-			server.DisplayName,
-			server.Status.String(),
-			server.GameName,
-			server.GameId,
-			server.IpAddress,
-			server.Port,
-			server.QueryPort,
-			server.MaxPlayers,
-			server.CurrentPlayers,
-			server.MapName,
-			server.Version,
+			server.GetServerId(),
+			server.GetDisplayName(),
+			server.GetStatus().String(),
+			server.GetGameName(),
+			server.GetGameId(),
+			server.GetIpAddress(),
+			server.GetPort(),
+			server.GetQueryPort(),
+			server.GetMaxPlayers(),
+			server.GetCurrentPlayers(),
+			server.GetMapName(),
+			server.GetVersion(),
 			node.Name,
 			node.BaseURL,
 			lastRemoteUpdate,
 		)
 		if errUpsert != nil {
-			log.Error().Err(errUpsert).Str("server_id", server.ServerId).Msg("Failed to upsert remote server cache from snapshot")
+			log.Error().Err(errUpsert).Str("server_id", server.GetServerId()).Msg("Failed to upsert remote server cache from snapshot")
 		}
 	}
 }
 
 // handleStatusChange processes a single server status change from a peer node.
 func (e *FederationSyncEngine) handleStatusChange(node *models.Node, change *xylona.FederationServerStatusChange) {
-	errUpdate := e.db.UpdateRemoteServerCacheStatus(node.ID, change.ServerId, change.Status.String())
+	errUpdate := e.db.UpdateRemoteServerCacheStatus(node.ID, change.GetServerId(), change.GetStatus().String())
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).
 			Str("node_id", node.ID).
-			Str("server_id", change.ServerId).
+			Str("server_id", change.GetServerId()).
 			Msg("Failed to update remote server cache status")
 	}
 
@@ -686,7 +700,7 @@ func (e *FederationSyncEngine) handleStatusChange(node *models.Node, change *xyl
 	e.mu.RUnlock()
 
 	if broadcaster != nil {
-		broadcaster.BroadcastRemoteServerStatus(change.ServerId, change.Status)
+		broadcaster.BroadcastRemoteServerStatus(change.GetServerId(), change.GetStatus())
 	}
 }
 
@@ -697,16 +711,16 @@ func (e *FederationSyncEngine) handleMetricsUpdate(update *xylona.FederationServ
 	e.mu.RUnlock()
 
 	if broadcaster != nil {
-		broadcaster.BroadcastRemoteServerMetrics(update.ServerId, update.Metrics)
+		broadcaster.BroadcastRemoteServerMetrics(update.GetServerId(), update.GetMetrics())
 	}
 }
 
 func (e *FederationSyncEngine) handleVersionChange(node *models.Node, change *xylona.FederationServerVersionChange) {
-	errUpdate := e.db.UpdateRemoteServerCacheVersion(node.ID, change.ServerId, change.Version)
+	errUpdate := e.db.UpdateRemoteServerCacheVersion(node.ID, change.GetServerId(), change.GetVersion())
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).
 			Str("node_id", node.ID).
-			Str("server_id", change.ServerId).
+			Str("server_id", change.GetServerId()).
 			Msg("Failed to update remote server cache version")
 	}
 
@@ -715,7 +729,7 @@ func (e *FederationSyncEngine) handleVersionChange(node *models.Node, change *xy
 	e.mu.RUnlock()
 
 	if broadcaster != nil {
-		broadcaster.BroadcastGameServerVersion(change.ServerId, change.Version, change.VersionInfo)
+		broadcaster.BroadcastGameServerVersion(change.GetServerId(), change.GetVersion(), change.GetVersionInfo())
 	}
 }
 
@@ -723,10 +737,10 @@ func (e *FederationSyncEngine) handleVersionChange(node *models.Node, change *xy
 // peer by deserializing the payload and republishing it on the local event bus
 // so the local alert evaluator can evaluate rules against it.
 func (e *FederationSyncEngine) handleAlertEvent(nodeID string, evt *xylona.FederationAlertEvent) {
-	if _, ok := alerts.AlertProtoTypeToTopic[evt.EventType]; !ok {
+	if _, ok := alerts.AlertProtoTypeToTopic[evt.GetEventType()]; !ok {
 		log.Warn().
 			Str("node_id", nodeID).
-			Str("event_type", evt.EventType.String()).
+			Str("event_type", evt.GetEventType().String()).
 			Msg("Received federation alert event with unknown event type, skipping")
 		return
 	}
@@ -757,7 +771,7 @@ func (e *FederationSyncEngine) BroadcastPeerChange(
 	var wg sync.WaitGroup
 	for _, node := range nodes {
 		// Don't notify the node the change is about.
-		if node.ID == peer.NodeId {
+		if node.ID == peer.GetNodeId() {
 			continue
 		}
 		wg.Add(1)
@@ -822,7 +836,7 @@ func (e *FederationSyncEngine) reconcilePeerListOnReconnect(nodeID string) {
 	}
 
 	// Process received peer list for auto-pairing.
-	e.actionsInst.ProcessReceivedPeerList(resp.Msg.Peers, nodeID)
+	e.actionsInst.ProcessReceivedPeerList(resp.Msg.GetPeers(), nodeID)
 
-	log.Info().Str("node_id", nodeID).Int("remote_peers", len(resp.Msg.Peers)).Msg("Peer list exchanged on reconnect")
+	log.Info().Str("node_id", nodeID).Int("remote_peers", len(resp.Msg.GetPeers())).Msg("Peer list exchanged on reconnect")
 }

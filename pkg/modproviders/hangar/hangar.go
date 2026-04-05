@@ -1,3 +1,4 @@
+// Package hangar implements the Hangar mod provider.
 package hangar
 
 import (
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -54,7 +56,7 @@ func (t *userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error
 	cloned.Header.Set("User-Agent", userAgent)
 	resp, errRT := t.wrapped.RoundTrip(cloned)
 	if errRT != nil {
-		return nil, errRT
+		return nil, fmt.Errorf("round trip request: %w", errRT)
 	}
 	return resp, nil
 }
@@ -93,9 +95,9 @@ type hangarSettingsLicense struct {
 }
 
 type hangarProjectSettings struct {
-	Tags    []string               `json:"tags"`
-	Links   []hangarSettingsLink   `json:"links"`
-	License hangarSettingsLicense  `json:"license"`
+	Tags    []string              `json:"tags"`
+	Links   []hangarSettingsLink  `json:"links"`
+	License hangarSettingsLicense `json:"license"`
 }
 
 type hangarProject struct {
@@ -138,13 +140,13 @@ type hangarPluginDependency struct {
 }
 
 type hangarVersion struct {
-	Name                string                            `json:"name"`
-	Description         string                            `json:"description"`
-	Stats               hangarVersionStats                `json:"stats"`
-	CreatedAt           string                            `json:"createdAt"`
-	Downloads           map[string]hangarPlatformDownload `json:"downloads"`
-	PlatformDependencies map[string][]string              `json:"platformDependencies"`
-	PluginDependencies  map[string][]hangarPluginDependency `json:"pluginDependencies"`
+	Name                 string                              `json:"name"`
+	Description          string                              `json:"description"`
+	Stats                hangarVersionStats                  `json:"stats"`
+	CreatedAt            string                              `json:"createdAt"`
+	Downloads            map[string]hangarPlatformDownload   `json:"downloads"`
+	PlatformDependencies map[string][]string                 `json:"platformDependencies"`
+	PluginDependencies   map[string][]hangarPluginDependency `json:"pluginDependencies"`
 }
 
 type hangarVersionsResponse struct {
@@ -422,7 +424,7 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 		return nil, fmt.Errorf("hangar check for update %q: %w", sourceID, errVersions)
 	}
 	if len(versions) == 0 {
-		return nil, nil
+		return nil, modproviders.ErrNoUpdateAvailable
 	}
 	v := versions[0]
 	return &v, nil
@@ -518,12 +520,7 @@ func collectGameVersions(platformDependencies map[string][]string) []string {
 
 // containsGameVersion returns true if needle is present in the slice.
 func containsGameVersion(versions []string, needle string) bool {
-	for _, v := range versions {
-		if v == needle {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(versions, needle)
 }
 
 // getStringParam safely reads a string value from SearchParams.

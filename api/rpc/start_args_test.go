@@ -31,7 +31,7 @@ func TestUpdateGameStartArgsTemplateRedactsHiddenFieldsForNonSuperUser(t *testin
 
 	templateJSON := `[{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx4G"],"label":"Heap"}]`
 	updateReq := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
-		GameId:               game.Id,
+		GameId:               game.GetId(),
 		Platform:             "linux",
 		StartArgsTemplate:    templateJSON,
 		BaseCommand:          "java",
@@ -53,7 +53,7 @@ func TestUpdateGameStartArgsTemplateRedactsHiddenFieldsForNonSuperUser(t *testin
 		t.Fatalf("UpdateGameStartArgsTemplate().Game.AllowStartArgEditing = true, want false")
 	}
 
-	getReq := connect.NewRequest(&xylona.GetGameRequest{Id: game.Id})
+	getReq := connect.NewRequest(&xylona.GetGameRequest{Id: game.GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-owner")
 
 	getResp, errGet := fixture.service.GetGame(context.Background(), getReq)
@@ -73,7 +73,7 @@ func TestUpdateGameStartArgsTemplateRedactsHiddenFieldsForNonSuperUser(t *testin
 		t.Fatalf("GetGame(non-superuser).Game.AllowStartArgEditing = true, want false")
 	}
 
-	getAdminReq := connect.NewRequest(&xylona.GetGameRequest{Id: game.Id})
+	getAdminReq := connect.NewRequest(&xylona.GetGameRequest{Id: game.GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getAdminReq, "user-admin")
 
 	getAdminResp, errGetAdmin := fixture.service.GetGame(context.Background(), getAdminReq)
@@ -90,7 +90,7 @@ func TestUpdateGameStartArgBlocklistRejectsInvalidRegex(t *testing.T) {
 	game := addGameForTests(t, fixture, "start-args-blocklist-game", "Structured Args Blocklist Game")
 
 	req := connect.NewRequest(&xylona.UpdateGameStartArgBlocklistRequest{
-		GameId:            game.Id,
+		GameId:            game.GetId(),
 		StartArgBlocklist: `[{"pattern":"[","reason":"broken"}]`,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
@@ -107,14 +107,14 @@ func TestUpdateGameStartArgBlocklistRejectsInvalidRegex(t *testing.T) {
 func TestUpdateGameServerStartArgsRequiresEditingEnabledForNonSuperUser(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	game := addGameForTests(t, fixture, "start-args-server-game", "Structured Args Server Game")
-	insertStartArgsTestServer(t, fixture, "server-start-args-1", game.Id)
+	insertStartArgsTestServer(t, fixture, "server-start-args-1", game.GetId())
 
 	templateJSON := `[
 		{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"],"label":"Heap"},
 		{"id":"jar","order":2,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}
 	]`
 	updateReq := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
-		GameId:               game.Id,
+		GameId:               game.GetId(),
 		Platform:             "linux",
 		StartArgsTemplate:    templateJSON,
 		BaseCommand:          "java",
@@ -159,10 +159,10 @@ func TestUpdateGameServerStartArgsRequiresEditingEnabledForNonSuperUser(t *testi
 func TestUpdateGameServerStartArgsRejectsBlockedResolvedArgs(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	game := addGameForTests(t, fixture, "start-args-blocked-game", "Structured Args Blocked Game")
-	insertStartArgsTestServer(t, fixture, "server-start-args-2", game.Id)
+	insertStartArgsTestServer(t, fixture, "server-start-args-2", game.GetId())
 
 	templateReq := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
-		GameId: game.Id,
+		GameId:   game.GetId(),
 		Platform: "linux",
 		StartArgsTemplate: `[
 			{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"],"label":"Heap"},
@@ -179,7 +179,7 @@ func TestUpdateGameServerStartArgsRejectsBlockedResolvedArgs(t *testing.T) {
 	}
 
 	blocklistReq := connect.NewRequest(&xylona.UpdateGameStartArgBlocklistRequest{
-		GameId:            game.Id,
+		GameId:            game.GetId(),
 		StartArgBlocklist: `[{"pattern":"^-Xmx32G$","reason":"too much memory"}]`,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, blocklistReq, "user-admin")

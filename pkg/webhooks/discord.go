@@ -1,3 +1,4 @@
+// Package webhooks formats and delivers alert notifications to webhook targets.
 package webhooks
 
 import (

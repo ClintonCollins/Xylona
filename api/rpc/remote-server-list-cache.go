@@ -105,7 +105,12 @@ func cloneRemoteServerSummary(summary *xylona.RemoteServerSummary) *xylona.Remot
 	if summary == nil {
 		return nil
 	}
-	return proto.Clone(summary).(*xylona.RemoteServerSummary)
+	cloned := proto.Clone(summary)
+	remoteSummary, ok := cloned.(*xylona.RemoteServerSummary)
+	if !ok {
+		return nil
+	}
+	return remoteSummary
 }
 
 func markRemoteServerSummariesStale(summaries []*xylona.RemoteServerSummary, fetchedAt time.Time) []*xylona.RemoteServerSummary {
@@ -119,7 +124,7 @@ func markRemoteServerSummariesStale(summaries []*xylona.RemoteServerSummary, fet
 		summary.IsStale = true
 		// Prevent stale data from showing servers as online when a remote node is unreachable.
 		summary.Status = xylona.Status_OFFLINE
-		if summary.LastSyncedAt == nil || summary.LastSyncedAt.AsTime().IsZero() {
+		if summary.GetLastSyncedAt() == nil || summary.GetLastSyncedAt().AsTime().IsZero() {
 			summary.LastSyncedAt = defaultSyncedAt
 		}
 	}

@@ -13,7 +13,7 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-func runFederationTeardown(ctx context.Context, e2eDir string, keepData bool, nodeAPort, nodeBPort int) error {
+func runFederationTeardown(ctx context.Context, e2eDir string, keepData bool, nodeAPort, nodeBPort int) {
 	log.Info().Msg("[Federation Teardown] Starting federation cleanup...")
 
 	federationDir := filepath.Join(e2eDir, ".federation")
@@ -121,5 +121,4 @@ func runFederationTeardown(ctx context.Context, e2eDir string, keepData bool, no
 	releaseLock(e2eDir, "federation")
 
 	log.Info().Msg("[Federation Teardown] Teardown complete")
-	return nil
 }

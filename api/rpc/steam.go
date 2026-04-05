@@ -10,6 +10,7 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+// SearchSteamApps returns an empty result because Steam app search is no longer supported.
 func (xs *XylonaService) SearchSteamApps(_ context.Context, request *connect.Request[xylona.SearchSteamAppsRequest]) (*connect.Response[xylona.SearchSteamAppsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -24,6 +25,7 @@ func (xs *XylonaService) SearchSteamApps(_ context.Context, request *connect.Req
 	}, nil
 }
 
+// GetSteamAppDetails returns cached Steam metadata for the requested AppID.
 func (xs *XylonaService) GetSteamAppDetails(ctx context.Context, request *connect.Request[xylona.GetSteamAppDetailsRequest]) (*connect.Response[xylona.GetSteamAppDetailsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {

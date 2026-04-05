@@ -1,3 +1,4 @@
+// Package papermc implements the PaperMC-compatible mod provider.
 package papermc
 
 import (
@@ -61,7 +62,7 @@ func (t *userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error
 	cloned.Header.Set("User-Agent", userAgent)
 	resp, errRT := t.wrapped.RoundTrip(cloned)
 	if errRT != nil {
-		return nil, errRT
+		return nil, fmt.Errorf("round trip request: %w", errRT)
 	}
 	return resp, nil
 }
@@ -154,7 +155,7 @@ func (p *Provider) Search(ctx context.Context, _ string, _ modproviders.SearchPa
 
 // GetModDetails returns details about a PaperMC project, including its available
 // versions. sourceID is the project name (e.g., "paper", "folia").
-func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params modproviders.SearchParams) (*modproviders.ModDetails, error) {
+func (p *Provider) GetModDetails(ctx context.Context, sourceID string, _ modproviders.SearchParams) (*modproviders.ModDetails, error) {
 	endpoint := fmt.Sprintf("%s/projects/%s", p.baseURLFor(sourceID), sourceID)
 
 	var projectResp projectVersionsResponse
@@ -335,7 +336,7 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 		return nil, fmt.Errorf("papermc check for update %q: %w", sourceID, errVersions)
 	}
 	if len(versions) == 0 {
-		return nil, nil
+		return nil, modproviders.ErrNoUpdateAvailable
 	}
 	// Builds are returned in ascending order; the last one is the latest.
 	v := versions[len(versions)-1]

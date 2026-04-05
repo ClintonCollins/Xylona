@@ -1,3 +1,4 @@
+// Package alerts evaluates alert rules and delivers resulting notifications.
 package alerts
 
 import (
@@ -21,7 +22,7 @@ const defaultWorkerCount = 3
 
 const shutdownDrainJobTimeout = 5 * time.Second
 
-// Channel type constant for email notifications.
+// ChannelTypeEmail identifies email notification channels.
 const ChannelTypeEmail = "NOTIFICATION_CHANNEL_TYPE_EMAIL"
 
 // Delivery status constants matching proto enum string values.
@@ -238,7 +239,11 @@ func (p *DeliveryPool) dispatchWebhook(ctx context.Context, channel *models.Noti
 		return fmt.Errorf("failed to parse webhook config: %w", errParse)
 	}
 
-	return p.webhookSend.Send(ctx, channel.ChannelType, config, event)
+	errSend := p.webhookSend.Send(ctx, channel.ChannelType, config, event)
+	if errSend != nil {
+		return fmt.Errorf("send webhook notification: %w", errSend)
+	}
+	return nil
 }
 
 // dispatchEmail parses the email config and sends via the email sender.
@@ -249,7 +254,11 @@ func (p *DeliveryPool) dispatchEmail(ctx context.Context, channel *models.Notifi
 	}
 
 	smtpConfig := config.EffectiveSMTPConfig()
-	return p.emailSend.Send(ctx, config.To, event, smtpConfig)
+	errSend := p.emailSend.Send(ctx, config.To, event, smtpConfig)
+	if errSend != nil {
+		return fmt.Errorf("send email notification: %w", errSend)
+	}
+	return nil
 }
 
 // insertFailedHistory creates a new alert history record with a failed status

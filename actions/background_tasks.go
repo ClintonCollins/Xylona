@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/query"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
@@ -64,7 +65,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 						ServerId:   gs.ID,
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Minecraft,
-						Minecraft:  &xylona.MinecraftQueryInfo{MaxPlayers: uint32(gs.MaxPlayers)},
+						Minecraft:  &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
 					}
 					inst.serverQueriesMutex.Unlock()
 					return nil
@@ -72,7 +73,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 				info, err := query.Minecraft(gs.IP, int(gs.QueryPort))
 				if err != nil {
 					log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query minecraft server")
-					info = &xylona.MinecraftQueryInfo{MaxPlayers: uint32(gs.MaxPlayers)}
+					info = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
 				}
 				inst.serverQueriesMutex.Lock()
 				inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
@@ -90,7 +91,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 						ServerId:   gs.ID,
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Source,
-						Source:     &xylona.SourceQueryInfo{MaxPlayers: uint32(gs.MaxPlayers)},
+						Source:     &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
 					}
 					inst.serverQueriesMutex.Unlock()
 					return nil
@@ -98,7 +99,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 				info, err := query.Source(gs.IP, int(gs.QueryPort))
 				if err != nil {
 					log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query source server")
-					info = &xylona.SourceQueryInfo{MaxPlayers: uint32(gs.MaxPlayers)}
+					info = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
 				}
 				inst.serverQueriesMutex.Lock()
 				inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{

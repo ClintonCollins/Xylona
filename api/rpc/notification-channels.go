@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -26,15 +27,15 @@ const permissionAlertsManage = "alerts.manage"
 // to alert rules, history, and notification channel names.
 const permissionAlertsViewHistory = "alerts.view_history"
 
-// hasGlobalPermission returns true if the user is a superuser or holds the
-// specified permission via a globally-scoped role assignment (game_server_id IS NULL).
-func (xs *XylonaService) hasGlobalPermission(user *models.User, permissionID string) (bool, error) {
+// hasGlobalPermission returns true if the user is a superuser or holds
+// alerts.manage via a globally-scoped role assignment (game_server_id IS NULL).
+func (xs *XylonaService) hasGlobalPermission(user *models.User) (bool, error) {
 	if user.SuperUser {
 		return true, nil
 	}
-	hasPerm, errCheck := xs.db.UserHasGlobalPermission(user.ID, permissionID)
+	hasPerm, errCheck := xs.db.UserHasGlobalPermission(user.ID, permissionAlertsManage)
 	if errCheck != nil {
-		return false, errCheck
+		return false, fmt.Errorf("rpc: check global alerts.manage permission: %w", errCheck)
 	}
 	return hasPerm, nil
 }
@@ -45,7 +46,11 @@ func (xs *XylonaService) hasAnyGlobalPermission(user *models.User, permissionIDs
 	if user.SuperUser {
 		return true, nil
 	}
-	return xs.db.UserHasAnyGlobalPermission(user.ID, permissionIDs)
+	hasPerm, errCheck := xs.db.UserHasAnyGlobalPermission(user.ID, permissionIDs)
+	if errCheck != nil {
+		return false, fmt.Errorf("rpc: check global alert permissions: %w", errCheck)
+	}
+	return hasPerm, nil
 }
 
 // notificationChannelToProto converts a DB model notification channel to its
@@ -168,24 +173,24 @@ func normalizeNotificationChannelConfig(
 		}
 		errValidate := webhooks.ValidateChannelConfig(config)
 		if errValidate != nil {
-			return "", errValidate
+			return "", fmt.Errorf("rpc: validate webhook channel config: %w", errValidate)
 		}
 		errTarget := webhooks.ValidateWebhookTarget(strings.TrimSpace(config.URL))
 		if errTarget != nil {
-			return "", errTarget
+			return "", fmt.Errorf("rpc: validate webhook target: %w", errTarget)
 		}
 		return rawConfig, nil
 	case xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL.String():
 		emailConfig, errParse := alerts.ParseEmailChannelConfig(rawConfig)
 		if errParse != nil {
-			return "", errParse
+			return "", fmt.Errorf("rpc: parse email notification channel config: %w", errParse)
 		}
 
 		var existingEmailConfig alerts.EmailChannelConfig
 		if existingChannel != nil && existingChannel.ChannelType == channelType {
 			existingEmailConfig, errParse = alerts.ParseEmailChannelConfig(existingChannel.Config)
 			if errParse != nil {
-				return "", errParse
+				return "", fmt.Errorf("rpc: parse existing email notification channel config: %w", errParse)
 			}
 		}
 
@@ -209,7 +214,7 @@ func normalizeNotificationChannelConfig(
 
 		errValidate := emailConfig.Validate(requirePassword)
 		if errValidate != nil {
-			return "", errValidate
+			return "", fmt.Errorf("rpc: validate email notification channel config: %w", errValidate)
 		}
 
 		emailConfig.SMTPPasswordConfigured = false
@@ -223,8 +228,9 @@ func normalizeNotificationChannelConfig(
 	}
 }
 
+// CreateNotificationChannel creates a new alert notification channel.
 func (xs *XylonaService) CreateNotificationChannel(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.CreateNotificationChannelRequest],
 ) (*connect.Response[xylona.CreateNotificationChannelResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -232,7 +238,7 @@ func (xs *XylonaService) CreateNotificationChannel(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasGlobalPermission(user)
 	if errPerm != nil {
 		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -272,8 +278,9 @@ func (xs *XylonaService) CreateNotificationChannel(
 	}), nil
 }
 
+// UpdateNotificationChannel updates an existing alert notification channel.
 func (xs *XylonaService) UpdateNotificationChannel(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.UpdateNotificationChannelRequest],
 ) (*connect.Response[xylona.UpdateNotificationChannelResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -281,7 +288,7 @@ func (xs *XylonaService) UpdateNotificationChannel(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasGlobalPermission(user)
 	if errPerm != nil {
 		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -349,8 +356,9 @@ func (xs *XylonaService) UpdateNotificationChannel(
 	}), nil
 }
 
+// DeleteNotificationChannel removes an alert notification channel.
 func (xs *XylonaService) DeleteNotificationChannel(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.DeleteNotificationChannelRequest],
 ) (*connect.Response[xylona.DeleteNotificationChannelResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -358,7 +366,7 @@ func (xs *XylonaService) DeleteNotificationChannel(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasGlobalPermission(user)
 	if errPerm != nil {
 		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -381,8 +389,9 @@ func (xs *XylonaService) DeleteNotificationChannel(
 	return connect.NewResponse(&xylona.DeleteNotificationChannelResponse{}), nil
 }
 
+// ListNotificationChannels lists the caller's alert notification channels.
 func (xs *XylonaService) ListNotificationChannels(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.ListNotificationChannelsRequest],
 ) (*connect.Response[xylona.ListNotificationChannelsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -399,7 +408,7 @@ func (xs *XylonaService) ListNotificationChannels(
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
 	}
 
-	includeSensitiveConfig, errManagePerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	includeSensitiveConfig, errManagePerm := xs.hasGlobalPermission(user)
 	if errManagePerm != nil {
 		log.Error().Err(errManagePerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission for config masking")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -419,6 +428,7 @@ func (xs *XylonaService) ListNotificationChannels(
 	return connect.NewResponse(resp), nil
 }
 
+// TestNotificationChannel sends a test message through a notification channel.
 func (xs *XylonaService) TestNotificationChannel(
 	ctx context.Context,
 	request *connect.Request[xylona.TestNotificationChannelRequest],
@@ -428,7 +438,7 @@ func (xs *XylonaService) TestNotificationChannel(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasGlobalPermission(user)
 	if errPerm != nil {
 		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -469,7 +479,7 @@ func (xs *XylonaService) TestNotificationChannel(
 
 	emailConfig, errParse := alerts.ParseEmailChannelConfig(channel.Config)
 	if errParse != nil {
-		return nil, connect.NewError(connect.CodeInternal, errParse)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("rpc: parse stored email notification channel config: %w", errParse))
 	}
 
 	var smtpCfg *mailer.SMTPConfig

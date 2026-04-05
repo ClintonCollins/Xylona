@@ -36,7 +36,6 @@ func (d *DummyTracker) GetLatestVersion(_ context.Context, _ *models.GameServer)
 }
 
 // CheckForUpdate compares installed vs latest and returns update info.
-// Returns nil if versions match (up-to-date).
 func (d *DummyTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer) (*UpdateInfo, error) {
 	installed, errInstalled := d.GetInstalledVersion(ctx, gs)
 	if errInstalled != nil {
@@ -46,13 +45,10 @@ func (d *DummyTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer
 	if errLatest != nil {
 		return nil, errLatest
 	}
-	if installed == latest {
-		return nil, nil
-	}
 	return &UpdateInfo{
 		InstalledVersion: installed,
 		LatestVersion:    latest,
-		UpdateAvailable:  true,
+		UpdateAvailable:  installed != latest,
 	}, nil
 }
 

@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/stephenafamo/bob/dialect/sqlite"
@@ -10,47 +11,53 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// ErrAmbiguousRemoteServerCache indicates a cache lookup matched multiple rows.
 var ErrAmbiguousRemoteServerCache = errors.New("ambiguous remote server cache lookup")
 
+// GetAllRemoteServerCaches returns all remote server cache rows.
 func (c *Connection) GetAllRemoteServerCaches() ([]*models.RemoteServerCache, error) {
 	servers, err := models.RemoteServerCaches.Query().All(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get all remote server caches: %w", err)
 	}
 	return servers, nil
 }
 
+// GetRemoteServerCachesByNodeID returns cache rows for a source node.
 func (c *Connection) GetRemoteServerCachesByNodeID(nodeID string) ([]*models.RemoteServerCache, error) {
 	servers, err := models.RemoteServerCaches.Query(
 		models.SelectWhere.RemoteServerCaches.NodeID.EQ(nodeID),
 	).All(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get remote server caches by node ID: %w", err)
 	}
 	return servers, nil
 }
 
+// GetRemoteServerCacheByCompositeKey returns a cache row by source node and server ID.
 func (c *Connection) GetRemoteServerCacheByCompositeKey(sourceNodeID string, remoteServerID string) (*models.RemoteServerCache, error) {
 	server, err := models.RemoteServerCaches.Query(
 		models.SelectWhere.RemoteServerCaches.SourceNodeID.EQ(sourceNodeID),
 		models.SelectWhere.RemoteServerCaches.RemoteServerID.EQ(remoteServerID),
 	).One(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get remote server cache by composite key: %w", err)
 	}
 	return server, nil
 }
 
+// GetRemoteServerCacheByID returns a cache row by ID.
 func (c *Connection) GetRemoteServerCacheByID(id string) (*models.RemoteServerCache, error) {
 	server, err := models.RemoteServerCaches.Query(
 		models.SelectWhere.RemoteServerCaches.ID.EQ(id),
 	).One(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get remote server cache by ID: %w", err)
 	}
 	return server, nil
 }
 
+// UpsertRemoteServerCache inserts or updates a remote server cache row.
 func (c *Connection) UpsertRemoteServerCache(
 	id string,
 	sourceNodeID string,
@@ -100,48 +107,68 @@ func (c *Connection) UpsertRemoteServerCache(
 		ipAddress, port, queryPort, maxPlayers, currentPlayers, mapName, version, nodeName, nodeHost,
 		lastRemoteUpdate, now, now, now,
 	).Exec(c.ctx, c.DB)
-	return err
+	if err != nil {
+		return fmt.Errorf("upsert remote server cache: %w", err)
+	}
+	return nil
 }
 
+// MarkRemoteServerCacheStaleByNodeID marks cache rows stale for a node.
 func (c *Connection) MarkRemoteServerCacheStaleByNodeID(nodeID string) error {
 	_, err := sqlite.RawQuery(
 		`UPDATE remote_server_cache SET is_stale = true, updated_at = ? WHERE node_id = ?`,
 		time.Now(), nodeID,
 	).Exec(c.ctx, c.DB)
-	return err
+	if err != nil {
+		return fmt.Errorf("mark remote server cache stale by node ID: %w", err)
+	}
+	return nil
 }
 
+// DeleteRemoteServerCacheByNodeID deletes cache rows for a source node.
 func (c *Connection) DeleteRemoteServerCacheByNodeID(nodeID string) error {
 	_, err := sqlite.RawQuery(
 		`DELETE FROM remote_server_cache WHERE node_id = ?`,
 		nodeID,
 	).Exec(c.ctx, c.DB)
-	return err
+	if err != nil {
+		return fmt.Errorf("delete remote server cache by node ID: %w", err)
+	}
+	return nil
 }
 
+// DeleteRemoteServerCacheByCompositeKey deletes a cache row by composite key.
 func (c *Connection) DeleteRemoteServerCacheByCompositeKey(sourceNodeID string, remoteServerID string) error {
 	_, err := sqlite.RawQuery(
 		`DELETE FROM remote_server_cache WHERE source_node_id = ? AND remote_server_id = ?`,
 		sourceNodeID, remoteServerID,
 	).Exec(c.ctx, c.DB)
-	return err
+	if err != nil {
+		return fmt.Errorf("delete remote server cache by composite key: %w", err)
+	}
+	return nil
 }
 
+// DeleteOrphanedRemoteServerCacheByNodeReferences deletes cache rows with missing nodes.
 func (c *Connection) DeleteOrphanedRemoteServerCacheByNodeReferences() error {
 	_, err := sqlite.RawQuery(
 		`DELETE FROM remote_server_cache
 		WHERE node_id NOT IN (SELECT id FROM node WHERE is_local = false)
 		   OR source_node_id NOT IN (SELECT id FROM node WHERE is_local = false)`,
 	).Exec(c.ctx, c.DB)
-	return err
+	if err != nil {
+		return fmt.Errorf("delete orphaned remote server cache by node references: %w", err)
+	}
+	return nil
 }
 
+// GetRemoteServerCacheByRemoteServerID returns a cache row by remote server ID.
 func (c *Connection) GetRemoteServerCacheByRemoteServerID(remoteServerID string) (*models.RemoteServerCache, error) {
 	servers, err := models.RemoteServerCaches.Query(
 		models.SelectWhere.RemoteServerCaches.RemoteServerID.EQ(remoteServerID),
 	).All(c.ctx, c.DB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get remote server cache by remote server ID: %w", err)
 	}
 
 	if len(servers) == 0 {
@@ -154,6 +181,7 @@ func (c *Connection) GetRemoteServerCacheByRemoteServerID(remoteServerID string)
 	return servers[0], nil
 }
 
+// UpdateRemoteServerCacheStatus updates cached server status.
 func (c *Connection) UpdateRemoteServerCacheStatus(sourceNodeID string, remoteServerID string, status string) error {
 	now := time.Now()
 	_, err := sqlite.RawQuery(
@@ -162,9 +190,13 @@ func (c *Connection) UpdateRemoteServerCacheStatus(sourceNodeID string, remoteSe
 		WHERE source_node_id = ? AND remote_server_id = ?`,
 		status, now, now, sourceNodeID, remoteServerID,
 	).Exec(c.ctx, c.DB)
-	return err
+	if err != nil {
+		return fmt.Errorf("update remote server cache status: %w", err)
+	}
+	return nil
 }
 
+// UpdateRemoteServerCacheVersion updates cached server version data.
 func (c *Connection) UpdateRemoteServerCacheVersion(sourceNodeID string, remoteServerID string, version string) error {
 	now := time.Now()
 	_, err := sqlite.RawQuery(
@@ -173,13 +205,20 @@ func (c *Connection) UpdateRemoteServerCacheVersion(sourceNodeID string, remoteS
 		WHERE source_node_id = ? AND remote_server_id = ?`,
 		version, now, now, sourceNodeID, remoteServerID,
 	).Exec(c.ctx, c.DB)
-	return err
+	if err != nil {
+		return fmt.Errorf("update remote server cache version: %w", err)
+	}
+	return nil
 }
 
+// DeleteStaleRemoteServerCacheByNodeID deletes stale cache rows for a node.
 func (c *Connection) DeleteStaleRemoteServerCacheByNodeID(nodeID string, olderThan time.Time) error {
 	_, err := sqlite.RawQuery(
 		`DELETE FROM remote_server_cache WHERE node_id = ? AND is_stale = true AND updated_at < ?`,
 		nodeID, olderThan,
 	).Exec(c.ctx, c.DB)
-	return err
+	if err != nil {
+		return fmt.Errorf("delete stale remote server cache by node ID: %w", err)
+	}
+	return nil
 }

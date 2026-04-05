@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -15,7 +16,7 @@ func postMinecraftInstall(gameServer *models.GameServer) error {
 	f, errFile := os.Create(path.Join(dir, "eula.txt"))
 	if errFile != nil {
 		log.Error().Err(errFile).Msg("Failed to open eula.txt")
-		return errFile
+		return fmt.Errorf("actions: create eula.txt: %w", errFile)
 	}
 	defer func() {
 		errClose := f.Close()
@@ -26,7 +27,7 @@ func postMinecraftInstall(gameServer *models.GameServer) error {
 	_, errWrite := f.WriteString("eula=true")
 	if errWrite != nil {
 		log.Error().Err(errWrite).Msg("Failed to write to eula.txt")
-		return errWrite
+		return fmt.Errorf("actions: write eula.txt: %w", errWrite)
 	}
 	return nil
 }
@@ -36,7 +37,7 @@ func post7DaysToDieInstall(gameServer *models.GameServer) error {
 	readConfig, errRead := os.Open(path.Join(gameServer.Directory, "serverconfig.xml"))
 	if errRead != nil {
 		log.Error().Err(errRead).Msg("Failed to open serverconfig.xml")
-		return errRead
+		return fmt.Errorf("actions: open serverconfig.xml: %w", errRead)
 	}
 	defer func() {
 		errClose := readConfig.Close()
@@ -47,7 +48,7 @@ func post7DaysToDieInstall(gameServer *models.GameServer) error {
 	writeConfig, errWrite := os.Create(path.Join(gameServer.Directory, "settings.xml"))
 	if errWrite != nil {
 		log.Error().Err(errWrite).Msg("Failed to open settings.xml")
-		return errWrite
+		return fmt.Errorf("actions: create settings.xml: %w", errWrite)
 	}
 	defer func() {
 		errClose := writeConfig.Close()
@@ -58,7 +59,7 @@ func post7DaysToDieInstall(gameServer *models.GameServer) error {
 	_, errCopy := io.Copy(writeConfig, readConfig)
 	if errCopy != nil {
 		log.Error().Err(errCopy).Msg("Failed to copy serverconfig.xml to settings.xml")
-		return errCopy
+		return fmt.Errorf("actions: copy serverconfig.xml to settings.xml: %w", errCopy)
 	}
 
 	return nil

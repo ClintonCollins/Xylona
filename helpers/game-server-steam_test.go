@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestGameServerSteamBranchRoundTrip(t *testing.T) {
@@ -38,23 +39,23 @@ func TestGameServerSteamBranchRoundTrip(t *testing.T) {
 	})
 
 	got := GameServerModelToProto(model, vsm)
-	if got.SelectedTarget != "latest_experimental" {
-		t.Fatalf("GameServerModelToProto().SelectedTarget = %q, want %q", got.SelectedTarget, "latest_experimental")
+	if got.GetSelectedTarget() != "latest_experimental" {
+		t.Fatalf("GameServerModelToProto().SelectedTarget = %q, want %q", got.GetSelectedTarget(), "latest_experimental")
 	}
-	if got.VersionInfo == nil {
+	if got.GetVersionInfo() == nil {
 		t.Fatal("VersionInfo = nil, want populated steam version info")
 	}
-	if got.VersionInfo.InstalledVersionLabel != "Public (21600865)" {
-		t.Fatalf("InstalledVersionLabel = %q, want %q", got.VersionInfo.InstalledVersionLabel, "Public (21600865)")
+	if got.GetVersionInfo().GetInstalledVersionLabel() != "Public (21600865)" {
+		t.Fatalf("InstalledVersionLabel = %q, want %q", got.GetVersionInfo().GetInstalledVersionLabel(), "Public (21600865)")
 	}
-	if got.VersionInfo.LatestVersionLabel != "Unstable build (22422094)" {
-		t.Fatalf("LatestVersionLabel = %q, want %q", got.VersionInfo.LatestVersionLabel, "Unstable build (22422094)")
+	if got.GetVersionInfo().GetLatestVersionLabel() != "Unstable build (22422094)" {
+		t.Fatalf("LatestVersionLabel = %q, want %q", got.GetVersionInfo().GetLatestVersionLabel(), "Unstable build (22422094)")
 	}
-	if got.VersionInfo.InstalledBranch != "public" {
-		t.Fatalf("InstalledBranch = %q, want %q", got.VersionInfo.InstalledBranch, "public")
+	if got.GetVersionInfo().GetInstalledBranch() != "public" {
+		t.Fatalf("InstalledBranch = %q, want %q", got.GetVersionInfo().GetInstalledBranch(), "public")
 	}
-	if got.VersionInfo.LatestBranch != "latest_experimental" {
-		t.Fatalf("LatestBranch = %q, want %q", got.VersionInfo.LatestBranch, "latest_experimental")
+	if got.GetVersionInfo().GetLatestBranch() != "latest_experimental" {
+		t.Fatalf("LatestBranch = %q, want %q", got.GetVersionInfo().GetLatestBranch(), "latest_experimental")
 	}
 
 	setter := GameServerModelToSetter(model)
@@ -69,14 +70,14 @@ func TestGameServerSteamBranchRoundTrip(t *testing.T) {
 
 func testSteamProtoGameServer(now time.Time) *xylona.GameServer {
 	return &xylona.GameServer{
-		Id:        "steam-server-1",
-		UserId:    "user-1",
-		Name:      "Steam Server",
-		GameId:    "7dtd",
-		Status:    xylona.Status_OFFLINE,
-		Ip:        &xylona.IP{Address: "127.0.0.1"},
-		CreatedAt: timestamppb.New(now),
-		UpdatedAt: timestamppb.New(now),
+		Id:             "steam-server-1",
+		UserId:         "user-1",
+		Name:           "Steam Server",
+		GameId:         "7dtd",
+		Status:         xylona.Status_OFFLINE,
+		Ip:             &xylona.IP{Address: "127.0.0.1"},
+		CreatedAt:      timestamppb.New(now),
+		UpdatedAt:      timestamppb.New(now),
 		SelectedTarget: "latest_experimental",
 	}
 }

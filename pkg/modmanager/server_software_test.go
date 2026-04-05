@@ -55,7 +55,6 @@ func TestParseServerSoftware(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseServerSoftware(tt.input)
 			if (err != nil) != tt.wantErr {
@@ -139,7 +138,6 @@ func TestGetSoftwareByID(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := GetSoftwareByID(software, tt.id)
 			if ok != tt.wantOK {

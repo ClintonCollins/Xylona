@@ -59,20 +59,20 @@ func TestNodeModelToProtoFederation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NodeModelToProto(tt.input)
-			if got.Id != tt.wantID {
-				t.Errorf("NodeModelToProto().Id = %v, want %v", got.Id, tt.wantID)
+			if got.GetId() != tt.wantID {
+				t.Errorf("NodeModelToProto().Id = %v, want %v", got.GetId(), tt.wantID)
 			}
-			if got.Name != tt.wantName {
-				t.Errorf("NodeModelToProto().Name = %v, want %v", got.Name, tt.wantName)
+			if got.GetName() != tt.wantName {
+				t.Errorf("NodeModelToProto().Name = %v, want %v", got.GetName(), tt.wantName)
 			}
-			if got.BaseUrl != tt.wantURL {
-				t.Errorf("NodeModelToProto().BaseUrl = %v, want %v", got.BaseUrl, tt.wantURL)
+			if got.GetBaseUrl() != tt.wantURL {
+				t.Errorf("NodeModelToProto().BaseUrl = %v, want %v", got.GetBaseUrl(), tt.wantURL)
 			}
-			if got.Enabled != tt.input.Enabled {
-				t.Errorf("NodeModelToProto().Enabled = %v, want %v", got.Enabled, tt.input.Enabled)
+			if got.GetEnabled() != tt.input.Enabled {
+				t.Errorf("NodeModelToProto().Enabled = %v, want %v", got.GetEnabled(), tt.input.Enabled)
 			}
-			if got.HealthStatus != tt.input.HealthStatus {
-				t.Errorf("NodeModelToProto().HealthStatus = %v, want %v", got.HealthStatus, tt.input.HealthStatus)
+			if got.GetHealthStatus() != tt.input.HealthStatus {
+				t.Errorf("NodeModelToProto().HealthStatus = %v, want %v", got.GetHealthStatus(), tt.input.HealthStatus)
 			}
 		})
 	}
@@ -151,20 +151,20 @@ func TestRemoteServerCacheModelToProto(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := RemoteServerCacheModelToProto(tt.input)
-			if got.Id != tt.wantID {
-				t.Errorf("RemoteServerCacheModelToProto().Id = %v, want %v", got.Id, tt.wantID)
+			if got.GetId() != tt.wantID {
+				t.Errorf("RemoteServerCacheModelToProto().Id = %v, want %v", got.GetId(), tt.wantID)
 			}
-			if got.DisplayName != tt.wantName {
-				t.Errorf("RemoteServerCacheModelToProto().DisplayName = %v, want %v", got.DisplayName, tt.wantName)
+			if got.GetDisplayName() != tt.wantName {
+				t.Errorf("RemoteServerCacheModelToProto().DisplayName = %v, want %v", got.GetDisplayName(), tt.wantName)
 			}
-			if got.Status != tt.wantStatus {
-				t.Errorf("RemoteServerCacheModelToProto().Status = %v, want %v", got.Status, tt.wantStatus)
+			if got.GetStatus() != tt.wantStatus {
+				t.Errorf("RemoteServerCacheModelToProto().Status = %v, want %v", got.GetStatus(), tt.wantStatus)
 			}
-			if got.IsStale != tt.wantStale {
-				t.Errorf("RemoteServerCacheModelToProto().IsStale = %v, want %v", got.IsStale, tt.wantStale)
+			if got.GetIsStale() != tt.wantStale {
+				t.Errorf("RemoteServerCacheModelToProto().IsStale = %v, want %v", got.GetIsStale(), tt.wantStale)
 			}
-			if got.SourceNodeId != tt.input.SourceNodeID {
-				t.Errorf("RemoteServerCacheModelToProto().SourceNodeId = %v, want %v", got.SourceNodeId, tt.input.SourceNodeID)
+			if got.GetSourceNodeId() != tt.input.SourceNodeID {
+				t.Errorf("RemoteServerCacheModelToProto().SourceNodeId = %v, want %v", got.GetSourceNodeId(), tt.input.SourceNodeID)
 			}
 		})
 	}
@@ -282,44 +282,44 @@ func TestRemoteServerCacheToProto(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := RemoteServerCacheToProto(tt.cache, tt.node)
-			if got.Id != tt.wantID {
-				t.Errorf("RemoteServerCacheToProto().Id = %v, want %v", got.Id, tt.wantID)
+			if got.GetId() != tt.wantID {
+				t.Errorf("RemoteServerCacheToProto().Id = %v, want %v", got.GetId(), tt.wantID)
 			}
-			if got.Name != tt.wantName {
-				t.Errorf("RemoteServerCacheToProto().Name = %v, want %v", got.Name, tt.wantName)
+			if got.GetName() != tt.wantName {
+				t.Errorf("RemoteServerCacheToProto().Name = %v, want %v", got.GetName(), tt.wantName)
 			}
-			if got.Status != tt.wantStatus {
-				t.Errorf("RemoteServerCacheToProto().Status = %v, want %v", got.Status, tt.wantStatus)
+			if got.GetStatus() != tt.wantStatus {
+				t.Errorf("RemoteServerCacheToProto().Status = %v, want %v", got.GetStatus(), tt.wantStatus)
 			}
-			if got.NodeId != tt.wantNodeID {
-				t.Errorf("RemoteServerCacheToProto().NodeId = %v, want %v", got.NodeId, tt.wantNodeID)
+			if got.GetNodeId() != tt.wantNodeID {
+				t.Errorf("RemoteServerCacheToProto().NodeId = %v, want %v", got.GetNodeId(), tt.wantNodeID)
 			}
-			if got.Port != tt.wantPort {
-				t.Errorf("RemoteServerCacheToProto().Port = %v, want %v", got.Port, tt.wantPort)
+			if got.GetPort() != tt.wantPort {
+				t.Errorf("RemoteServerCacheToProto().Port = %v, want %v", got.GetPort(), tt.wantPort)
 			}
-			if got.NodeName != tt.node.Name {
-				t.Errorf("RemoteServerCacheToProto().NodeName = %v, want %v", got.NodeName, tt.node.Name)
+			if got.GetNodeName() != tt.node.Name {
+				t.Errorf("RemoteServerCacheToProto().NodeName = %v, want %v", got.GetNodeName(), tt.node.Name)
 			}
-			if got.NodeHost != tt.node.BaseURL {
-				t.Errorf("RemoteServerCacheToProto().NodeHost = %v, want %v", got.NodeHost, tt.node.BaseURL)
+			if got.GetNodeHost() != tt.node.BaseURL {
+				t.Errorf("RemoteServerCacheToProto().NodeHost = %v, want %v", got.GetNodeHost(), tt.node.BaseURL)
 			}
-			if got.GameId != tt.cache.GameID {
-				t.Errorf("RemoteServerCacheToProto().GameId = %v, want %v", got.GameId, tt.cache.GameID)
+			if got.GetGameId() != tt.cache.GameID {
+				t.Errorf("RemoteServerCacheToProto().GameId = %v, want %v", got.GetGameId(), tt.cache.GameID)
 			}
-			if got.GameName != tt.cache.GameName {
-				t.Errorf("RemoteServerCacheToProto().GameName = %v, want %v", got.GameName, tt.cache.GameName)
+			if got.GetGameName() != tt.cache.GameName {
+				t.Errorf("RemoteServerCacheToProto().GameName = %v, want %v", got.GetGameName(), tt.cache.GameName)
 			}
-			if got.Ip == nil {
+			if got.GetIp() == nil {
 				t.Fatalf("RemoteServerCacheToProto().Ip should not be nil")
 			}
-			if got.Ip.Address != tt.cache.IPAddress {
-				t.Errorf("RemoteServerCacheToProto().Ip.Address = %v, want %v", got.Ip.Address, tt.cache.IPAddress)
+			if got.GetIp().GetAddress() != tt.cache.IPAddress {
+				t.Errorf("RemoteServerCacheToProto().Ip.Address = %v, want %v", got.GetIp().GetAddress(), tt.cache.IPAddress)
 			}
-			if got.MaxPlayers != tt.cache.MaxPlayers {
-				t.Errorf("RemoteServerCacheToProto().MaxPlayers = %v, want %v", got.MaxPlayers, tt.cache.MaxPlayers)
+			if got.GetMaxPlayers() != tt.cache.MaxPlayers {
+				t.Errorf("RemoteServerCacheToProto().MaxPlayers = %v, want %v", got.GetMaxPlayers(), tt.cache.MaxPlayers)
 			}
-			if got.CurrentPlayerCount != tt.cache.CurrentPlayers {
-				t.Errorf("RemoteServerCacheToProto().CurrentPlayerCount = %v, want %v", got.CurrentPlayerCount, tt.cache.CurrentPlayers)
+			if got.GetCurrentPlayerCount() != tt.cache.CurrentPlayers {
+				t.Errorf("RemoteServerCacheToProto().CurrentPlayerCount = %v, want %v", got.GetCurrentPlayerCount(), tt.cache.CurrentPlayers)
 			}
 		})
 	}
@@ -339,17 +339,17 @@ func TestNodeModelToProtoTimestamps(t *testing.T) {
 
 	got := NodeModelToProto(input)
 
-	if got.LastSeenAt == nil {
+	if got.GetLastSeenAt() == nil {
 		t.Fatalf("NodeModelToProto().LastSeenAt should not be nil")
 	}
-	if got.LastSyncAt == nil {
+	if got.GetLastSyncAt() == nil {
 		t.Fatalf("NodeModelToProto().LastSyncAt should not be nil")
 	}
-	if got.CreatedAt == nil {
+	if got.GetCreatedAt() == nil {
 		t.Fatalf("NodeModelToProto().CreatedAt should not be nil")
 	}
 
-	gotLastSeen := got.LastSeenAt.AsTime()
+	gotLastSeen := got.GetLastSeenAt().AsTime()
 	if gotLastSeen.Unix() != now.Unix() {
 		t.Errorf("LastSeenAt = %v, want %v", gotLastSeen, now)
 	}

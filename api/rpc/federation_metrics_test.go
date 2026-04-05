@@ -89,59 +89,59 @@ func TestGetServerDetailPopulatesMetricsFromSupervisor(t *testing.T) {
 	if errDetail != nil {
 		t.Fatalf("GetServerDetail() error = %v", errDetail)
 	}
-	if response.Msg == nil || response.Msg.Server == nil {
+	if response.Msg == nil || response.Msg.GetServer() == nil {
 		t.Fatalf("GetServerDetail() returned empty server")
 	}
 
-	s := response.Msg.Server
+	s := response.Msg.GetServer()
 
 	// CpuPercent is stored as int64(cpuPct) in the handler (truncated).
 	wantCPUPercentInt := int64(wantCPUPercent)
-	if s.CpuPercent != wantCPUPercentInt {
-		t.Errorf("CpuPercent = %d, want %d", s.CpuPercent, wantCPUPercentInt)
+	if s.GetCpuPercent() != wantCPUPercentInt {
+		t.Errorf("CpuPercent = %d, want %d", s.GetCpuPercent(), wantCPUPercentInt)
 	}
 
 	// MemoryBytes maps to memoryVMS (private committed memory).
-	if s.MemoryBytes != int64(wantMemoryVMS) {
-		t.Errorf("MemoryBytes = %d, want %d", s.MemoryBytes, int64(wantMemoryVMS))
+	if s.GetMemoryBytes() != int64(wantMemoryVMS) {
+		t.Errorf("MemoryBytes = %d, want %d", s.GetMemoryBytes(), int64(wantMemoryVMS))
 	}
 
 	// MemoryWorkingSetBytes maps to memoryRSS.
-	if s.MemoryWorkingSetBytes != int64(wantMemoryRSS) {
-		t.Errorf("MemoryWorkingSetBytes = %d, want %d", s.MemoryWorkingSetBytes, int64(wantMemoryRSS))
+	if s.GetMemoryWorkingSetBytes() != int64(wantMemoryRSS) {
+		t.Errorf("MemoryWorkingSetBytes = %d, want %d", s.GetMemoryWorkingSetBytes(), int64(wantMemoryRSS))
 	}
 
-	if s.MemoryPercent != float64(wantMemoryPercent) {
-		t.Errorf("MemoryPercent = %v, want %v", s.MemoryPercent, float64(wantMemoryPercent))
+	if s.GetMemoryPercent() != float64(wantMemoryPercent) {
+		t.Errorf("MemoryPercent = %v, want %v", s.GetMemoryPercent(), float64(wantMemoryPercent))
 	}
 
-	if s.CpuCores != wantCPUCores {
-		t.Errorf("CpuCores = %d, want %d", s.CpuCores, wantCPUCores)
+	if s.GetCpuCores() != wantCPUCores {
+		t.Errorf("CpuCores = %d, want %d", s.GetCpuCores(), wantCPUCores)
 	}
 
-	if s.NumberOfThreads != wantNumThreads {
-		t.Errorf("NumberOfThreads = %d, want %d", s.NumberOfThreads, wantNumThreads)
+	if s.GetNumberOfThreads() != wantNumThreads {
+		t.Errorf("NumberOfThreads = %d, want %d", s.GetNumberOfThreads(), wantNumThreads)
 	}
 
-	if s.DiskUsageBytes != int64(wantDiskUsageBytes) {
-		t.Errorf("DiskUsageBytes = %d, want %d", s.DiskUsageBytes, int64(wantDiskUsageBytes))
+	if s.GetDiskUsageBytes() != int64(wantDiskUsageBytes) {
+		t.Errorf("DiskUsageBytes = %d, want %d", s.GetDiskUsageBytes(), int64(wantDiskUsageBytes))
 	}
 
-	if s.IoReadRate != wantIOReadRate {
-		t.Errorf("IoReadRate = %v, want %v", s.IoReadRate, wantIOReadRate)
+	if s.GetIoReadRate() != wantIOReadRate {
+		t.Errorf("IoReadRate = %v, want %v", s.GetIoReadRate(), wantIOReadRate)
 	}
 
-	if s.IoWriteRate != wantIOWriteRate {
-		t.Errorf("IoWriteRate = %v, want %v", s.IoWriteRate, wantIOWriteRate)
+	if s.GetIoWriteRate() != wantIOWriteRate {
+		t.Errorf("IoWriteRate = %v, want %v", s.GetIoWriteRate(), wantIOWriteRate)
 	}
 
-	if s.ConnectionCount != wantConnectionCount {
-		t.Errorf("ConnectionCount = %d, want %d", s.ConnectionCount, wantConnectionCount)
+	if s.GetConnectionCount() != wantConnectionCount {
+		t.Errorf("ConnectionCount = %d, want %d", s.GetConnectionCount(), wantConnectionCount)
 	}
 
 	// UptimeSeconds must be at least 59 (we started 60 s ago; allow 1 s slack).
-	if s.UptimeSeconds < 59 {
-		t.Errorf("UptimeSeconds = %d, want >= 59", s.UptimeSeconds)
+	if s.GetUptimeSeconds() < 59 {
+		t.Errorf("UptimeSeconds = %d, want >= 59", s.GetUptimeSeconds())
 	}
 }
 
@@ -191,38 +191,38 @@ func TestGetServerDetailReturnsZeroMetricsWhenNoSupervisorCommand(t *testing.T) 
 	if errDetail != nil {
 		t.Fatalf("GetServerDetail() error = %v", errDetail)
 	}
-	if response.Msg == nil || response.Msg.Server == nil {
+	if response.Msg == nil || response.Msg.GetServer() == nil {
 		t.Fatalf("GetServerDetail() returned empty server")
 	}
 
-	s := response.Msg.Server
+	s := response.Msg.GetServer()
 
-	if s.CpuPercent != 0 {
-		t.Errorf("CpuPercent = %d, want 0", s.CpuPercent)
+	if s.GetCpuPercent() != 0 {
+		t.Errorf("CpuPercent = %d, want 0", s.GetCpuPercent())
 	}
-	if s.MemoryBytes != 0 {
-		t.Errorf("MemoryBytes = %d, want 0", s.MemoryBytes)
+	if s.GetMemoryBytes() != 0 {
+		t.Errorf("MemoryBytes = %d, want 0", s.GetMemoryBytes())
 	}
-	if s.MemoryWorkingSetBytes != 0 {
-		t.Errorf("MemoryWorkingSetBytes = %d, want 0", s.MemoryWorkingSetBytes)
+	if s.GetMemoryWorkingSetBytes() != 0 {
+		t.Errorf("MemoryWorkingSetBytes = %d, want 0", s.GetMemoryWorkingSetBytes())
 	}
-	if s.MemoryPercent != 0 {
-		t.Errorf("MemoryPercent = %v, want 0", s.MemoryPercent)
+	if s.GetMemoryPercent() != 0 {
+		t.Errorf("MemoryPercent = %v, want 0", s.GetMemoryPercent())
 	}
-	if s.DiskUsageBytes != 0 {
-		t.Errorf("DiskUsageBytes = %d, want 0", s.DiskUsageBytes)
+	if s.GetDiskUsageBytes() != 0 {
+		t.Errorf("DiskUsageBytes = %d, want 0", s.GetDiskUsageBytes())
 	}
-	if s.IoReadRate != 0 {
-		t.Errorf("IoReadRate = %v, want 0", s.IoReadRate)
+	if s.GetIoReadRate() != 0 {
+		t.Errorf("IoReadRate = %v, want 0", s.GetIoReadRate())
 	}
-	if s.IoWriteRate != 0 {
-		t.Errorf("IoWriteRate = %v, want 0", s.IoWriteRate)
+	if s.GetIoWriteRate() != 0 {
+		t.Errorf("IoWriteRate = %v, want 0", s.GetIoWriteRate())
 	}
-	if s.ConnectionCount != 0 {
-		t.Errorf("ConnectionCount = %d, want 0", s.ConnectionCount)
+	if s.GetConnectionCount() != 0 {
+		t.Errorf("ConnectionCount = %d, want 0", s.GetConnectionCount())
 	}
-	if s.UptimeSeconds != 0 {
-		t.Errorf("UptimeSeconds = %d, want 0", s.UptimeSeconds)
+	if s.GetUptimeSeconds() != 0 {
+		t.Errorf("UptimeSeconds = %d, want 0", s.GetUptimeSeconds())
 	}
 }
 
@@ -266,15 +266,15 @@ func TestGetServerDetailMetricsNilSupervisor(t *testing.T) {
 	if errDetail != nil {
 		t.Fatalf("GetServerDetail() with nil supervisor error = %v", errDetail)
 	}
-	if response.Msg == nil || response.Msg.Server == nil {
+	if response.Msg == nil || response.Msg.GetServer() == nil {
 		t.Fatalf("GetServerDetail() returned empty server")
 	}
 
-	s := response.Msg.Server
+	s := response.Msg.GetServer()
 
-	if s.CpuPercent != 0 || s.MemoryBytes != 0 || s.UptimeSeconds != 0 {
+	if s.GetCpuPercent() != 0 || s.GetMemoryBytes() != 0 || s.GetUptimeSeconds() != 0 {
 		t.Errorf("expected all metrics to be zero with nil supervisor, got cpu=%d mem=%d uptime=%d",
-			s.CpuPercent, s.MemoryBytes, s.UptimeSeconds)
+			s.GetCpuPercent(), s.GetMemoryBytes(), s.GetUptimeSeconds())
 	}
 }
 
@@ -337,13 +337,13 @@ func TestGetServerDetailMetricsFieldMapping(t *testing.T) {
 		t.Fatalf("GetServerDetail() error = %v", errDetail)
 	}
 
-	s := response.Msg.Server
+	s := response.Msg.GetServer()
 
-	if s.MemoryWorkingSetBytes != int64(rssValue) {
-		t.Errorf("MemoryWorkingSetBytes = %d, want %d (RSS/working set)", s.MemoryWorkingSetBytes, int64(rssValue))
+	if s.GetMemoryWorkingSetBytes() != int64(rssValue) {
+		t.Errorf("MemoryWorkingSetBytes = %d, want %d (RSS/working set)", s.GetMemoryWorkingSetBytes(), int64(rssValue))
 	}
-	if s.MemoryBytes != int64(vmsValue) {
-		t.Errorf("MemoryBytes = %d, want %d (VMS/private committed)", s.MemoryBytes, int64(vmsValue))
+	if s.GetMemoryBytes() != int64(vmsValue) {
+		t.Errorf("MemoryBytes = %d, want %d (VMS/private committed)", s.GetMemoryBytes(), int64(vmsValue))
 	}
 }
 
@@ -443,13 +443,13 @@ func TestListServerSummariesPopulatesMetrics(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("ListServerSummaries() error = %v", errList)
 	}
-	if response.Msg == nil || len(response.Msg.Servers) == 0 {
+	if response.Msg == nil || len(response.Msg.GetServers()) == 0 {
 		t.Fatalf("ListServerSummaries() returned no servers")
 	}
 
 	var found *xylona.FederationServerSummary
-	for _, s := range response.Msg.Servers {
-		if s.ServerId == "server-local-1" {
+	for _, s := range response.Msg.GetServers() {
+		if s.GetServerId() == "server-local-1" {
 			found = s
 			break
 		}
@@ -459,38 +459,38 @@ func TestListServerSummariesPopulatesMetrics(t *testing.T) {
 	}
 
 	wantCPUPercentInt := int64(wantCPUPercent)
-	if found.CpuPercent != wantCPUPercentInt {
-		t.Errorf("CpuPercent = %d, want %d", found.CpuPercent, wantCPUPercentInt)
+	if found.GetCpuPercent() != wantCPUPercentInt {
+		t.Errorf("CpuPercent = %d, want %d", found.GetCpuPercent(), wantCPUPercentInt)
 	}
-	if found.MemoryBytes != int64(wantMemoryVMS) {
-		t.Errorf("MemoryBytes = %d, want %d", found.MemoryBytes, int64(wantMemoryVMS))
+	if found.GetMemoryBytes() != int64(wantMemoryVMS) {
+		t.Errorf("MemoryBytes = %d, want %d", found.GetMemoryBytes(), int64(wantMemoryVMS))
 	}
-	if found.MemoryWorkingSetBytes != int64(wantMemoryRSS) {
-		t.Errorf("MemoryWorkingSetBytes = %d, want %d", found.MemoryWorkingSetBytes, int64(wantMemoryRSS))
+	if found.GetMemoryWorkingSetBytes() != int64(wantMemoryRSS) {
+		t.Errorf("MemoryWorkingSetBytes = %d, want %d", found.GetMemoryWorkingSetBytes(), int64(wantMemoryRSS))
 	}
-	if found.MemoryPercent != float64(wantMemoryPercent) {
-		t.Errorf("MemoryPercent = %v, want %v", found.MemoryPercent, float64(wantMemoryPercent))
+	if found.GetMemoryPercent() != float64(wantMemoryPercent) {
+		t.Errorf("MemoryPercent = %v, want %v", found.GetMemoryPercent(), float64(wantMemoryPercent))
 	}
-	if found.CpuCores != wantCPUCores {
-		t.Errorf("CpuCores = %d, want %d", found.CpuCores, wantCPUCores)
+	if found.GetCpuCores() != wantCPUCores {
+		t.Errorf("CpuCores = %d, want %d", found.GetCpuCores(), wantCPUCores)
 	}
-	if found.NumberOfThreads != wantNumThreads {
-		t.Errorf("NumberOfThreads = %d, want %d", found.NumberOfThreads, wantNumThreads)
+	if found.GetNumberOfThreads() != wantNumThreads {
+		t.Errorf("NumberOfThreads = %d, want %d", found.GetNumberOfThreads(), wantNumThreads)
 	}
-	if found.DiskUsageBytes != int64(wantDiskUsageBytes) {
-		t.Errorf("DiskUsageBytes = %d, want %d", found.DiskUsageBytes, int64(wantDiskUsageBytes))
+	if found.GetDiskUsageBytes() != int64(wantDiskUsageBytes) {
+		t.Errorf("DiskUsageBytes = %d, want %d", found.GetDiskUsageBytes(), int64(wantDiskUsageBytes))
 	}
-	if found.IoReadRate != wantIOReadRate {
-		t.Errorf("IoReadRate = %v, want %v", found.IoReadRate, wantIOReadRate)
+	if found.GetIoReadRate() != wantIOReadRate {
+		t.Errorf("IoReadRate = %v, want %v", found.GetIoReadRate(), wantIOReadRate)
 	}
-	if found.IoWriteRate != wantIOWriteRate {
-		t.Errorf("IoWriteRate = %v, want %v", found.IoWriteRate, wantIOWriteRate)
+	if found.GetIoWriteRate() != wantIOWriteRate {
+		t.Errorf("IoWriteRate = %v, want %v", found.GetIoWriteRate(), wantIOWriteRate)
 	}
-	if found.ConnectionCount != wantConnectionCount {
-		t.Errorf("ConnectionCount = %d, want %d", found.ConnectionCount, wantConnectionCount)
+	if found.GetConnectionCount() != wantConnectionCount {
+		t.Errorf("ConnectionCount = %d, want %d", found.GetConnectionCount(), wantConnectionCount)
 	}
-	if found.UptimeSeconds < 59 {
-		t.Errorf("UptimeSeconds = %d, want >= 59", found.UptimeSeconds)
+	if found.GetUptimeSeconds() < 59 {
+		t.Errorf("UptimeSeconds = %d, want >= 59", found.GetUptimeSeconds())
 	}
 }
 
@@ -523,13 +523,13 @@ func TestListServerSummariesZeroMetricsWhenOffline(t *testing.T) {
 	if errList != nil {
 		t.Fatalf("ListServerSummaries() error = %v", errList)
 	}
-	if response.Msg == nil || len(response.Msg.Servers) == 0 {
+	if response.Msg == nil || len(response.Msg.GetServers()) == 0 {
 		t.Fatalf("ListServerSummaries() returned no servers")
 	}
 
 	var found *xylona.FederationServerSummary
-	for _, s := range response.Msg.Servers {
-		if s.ServerId == "server-local-1" {
+	for _, s := range response.Msg.GetServers() {
+		if s.GetServerId() == "server-local-1" {
 			found = s
 			break
 		}
@@ -538,20 +538,20 @@ func TestListServerSummariesZeroMetricsWhenOffline(t *testing.T) {
 		t.Fatalf("ListServerSummaries() did not return server-local-1")
 	}
 
-	if found.CpuPercent != 0 {
-		t.Errorf("CpuPercent = %d, want 0", found.CpuPercent)
+	if found.GetCpuPercent() != 0 {
+		t.Errorf("CpuPercent = %d, want 0", found.GetCpuPercent())
 	}
-	if found.MemoryBytes != 0 {
-		t.Errorf("MemoryBytes = %d, want 0", found.MemoryBytes)
+	if found.GetMemoryBytes() != 0 {
+		t.Errorf("MemoryBytes = %d, want 0", found.GetMemoryBytes())
 	}
-	if found.MemoryWorkingSetBytes != 0 {
-		t.Errorf("MemoryWorkingSetBytes = %d, want 0", found.MemoryWorkingSetBytes)
+	if found.GetMemoryWorkingSetBytes() != 0 {
+		t.Errorf("MemoryWorkingSetBytes = %d, want 0", found.GetMemoryWorkingSetBytes())
 	}
-	if found.DiskUsageBytes != 0 {
-		t.Errorf("DiskUsageBytes = %d, want 0", found.DiskUsageBytes)
+	if found.GetDiskUsageBytes() != 0 {
+		t.Errorf("DiskUsageBytes = %d, want 0", found.GetDiskUsageBytes())
 	}
-	if found.UptimeSeconds != 0 {
-		t.Errorf("UptimeSeconds = %d, want 0", found.UptimeSeconds)
+	if found.GetUptimeSeconds() != 0 {
+		t.Errorf("UptimeSeconds = %d, want 0", found.GetUptimeSeconds())
 	}
 }
 

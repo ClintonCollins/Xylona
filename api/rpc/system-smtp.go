@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/mail"
 	"strings"
 
@@ -48,20 +49,21 @@ func (xs *XylonaService) readStoredSystemSMTPConfig() (*xylona.SystemSMTPConfig,
 		if errors.Is(errGet, sql.ErrNoRows) {
 			return nil, false, nil
 		}
-		return nil, false, errGet
+		return nil, false, fmt.Errorf("rpc: load stored SMTP config: %w", errGet)
 	}
 
 	config := &xylona.SystemSMTPConfig{}
 	errUnmarshal := protojson.Unmarshal([]byte(jsonStr), config)
 	if errUnmarshal != nil {
-		return nil, false, errUnmarshal
+		return nil, false, fmt.Errorf("rpc: unmarshal stored SMTP config: %w", errUnmarshal)
 	}
 
 	return config, true, nil
 }
 
+// GetSystemSMTPConfig returns the stored system SMTP configuration for superusers.
 func (xs *XylonaService) GetSystemSMTPConfig(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.GetSystemSMTPConfigRequest],
 ) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -93,8 +95,9 @@ func (xs *XylonaService) GetSystemSMTPConfig(
 	}), nil
 }
 
+// SetSystemSMTPConfig stores the system SMTP configuration for superusers.
 func (xs *XylonaService) SetSystemSMTPConfig(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.SetSystemSMTPConfigRequest],
 ) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -159,8 +162,9 @@ func (xs *XylonaService) SetSystemSMTPConfig(
 	return connect.NewResponse(&xylona.SetSystemSMTPConfigResponse{}), nil
 }
 
+// GetLocalSMTPStatus reports whether the node SMTP configuration is usable.
 func (xs *XylonaService) GetLocalSMTPStatus(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.GetLocalSMTPStatusRequest],
 ) (*connect.Response[xylona.GetLocalSMTPStatusResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -168,7 +172,7 @@ func (xs *XylonaService) GetLocalSMTPStatus(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 
-	allowed, errPerm := xs.hasGlobalPermission(user, permissionAlertsManage)
+	allowed, errPerm := xs.hasGlobalPermission(user)
 	if errPerm != nil {
 		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -191,6 +195,7 @@ func (xs *XylonaService) GetLocalSMTPStatus(
 	}), nil
 }
 
+// TestSystemSMTP sends a test email using the stored system SMTP configuration.
 func (xs *XylonaService) TestSystemSMTP(
 	ctx context.Context,
 	request *connect.Request[xylona.TestSystemSMTPRequest],

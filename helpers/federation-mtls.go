@@ -26,6 +26,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// FederationMTLS manages local federation certificates and trusted outbound clients.
 type FederationMTLS struct {
 	federationPort int
 	certPath       string
@@ -33,6 +34,7 @@ type FederationMTLS struct {
 	certificate    tls.Certificate
 }
 
+// NewFederationMTLS loads or creates the on-disk federation certificate pair for a node.
 func NewFederationMTLS(nodeID string, federationPort int, certPath string, keyPath string) (*FederationMTLS, string, error) {
 	errEnsure := ensureFederationCertificateFiles(nodeID, certPath, keyPath)
 	if errEnsure != nil {
@@ -41,7 +43,7 @@ func NewFederationMTLS(nodeID string, federationPort int, certPath string, keyPa
 
 	certificate, errLoad := tls.LoadX509KeyPair(certPath, keyPath)
 	if errLoad != nil {
-		return nil, "", errLoad
+		return nil, "", fmt.Errorf("load federation key pair: %w", errLoad)
 	}
 
 	fingerprint, errFingerprint := certificateFingerprintFromTLSCertificate(certificate)
@@ -57,6 +59,7 @@ func NewFederationMTLS(nodeID string, federationPort int, certPath string, keyPa
 	}, fingerprint, nil
 }
 
+// NewFederationMTLSFromPEM constructs a FederationMTLS instance from in-memory PEM data.
 func NewFederationMTLSFromPEM(federationPort int, certPEM []byte, keyPEM []byte) (*FederationMTLS, string, error) {
 	if len(certPEM) == 0 || len(keyPEM) == 0 {
 		return nil, "", errors.New("certificate and key PEM are required")
@@ -64,7 +67,7 @@ func NewFederationMTLSFromPEM(federationPort int, certPEM []byte, keyPEM []byte)
 
 	certificate, errLoad := tls.X509KeyPair(certPEM, keyPEM)
 	if errLoad != nil {
-		return nil, "", errLoad
+		return nil, "", fmt.Errorf("load federation key pair from PEM: %w", errLoad)
 	}
 
 	fingerprint, errFingerprint := certificateFingerprintFromTLSCertificate(certificate)
@@ -78,30 +81,36 @@ func NewFederationMTLSFromPEM(federationPort int, certPEM []byte, keyPEM []byte)
 	}, fingerprint, nil
 }
 
+// GenerateFederationCertificatePEM creates a self-signed federation certificate and key pair.
 func GenerateFederationCertificatePEM(nodeID string) ([]byte, []byte, error) {
-	certPEM, keyPEM, errGenerate := generateFederationCertificatePEM(nodeID)
+	certPEM, keyPEM, errGenerate := buildFederationCertificatePEM(nodeID)
 	if errGenerate != nil {
 		return nil, nil, errGenerate
 	}
 	return certPEM, keyPEM, nil
 }
 
+// CertPath returns the configured certificate path when the certificate is file-backed.
 func (m *FederationMTLS) CertPath() string {
 	return m.certPath
 }
 
+// KeyPath returns the configured private-key path when the key is file-backed.
 func (m *FederationMTLS) KeyPath() string {
 	return m.keyPath
 }
 
+// FederationPort returns the configured federation listener port.
 func (m *FederationMTLS) FederationPort() int {
 	return m.federationPort
 }
 
+// FederationBaseURL returns the HTTPS federation base URL for the configured federation port.
 func (m *FederationMTLS) FederationBaseURL(baseURL string) (string, error) {
 	return m.FederationBaseURLWithPort(baseURL, m.federationPort)
 }
 
+// FederationBaseURLWithPort returns the HTTPS federation base URL for a specific federation port.
 func (m *FederationMTLS) FederationBaseURLWithPort(baseURL string, federationPort int) (string, error) {
 	parsedURL, errParse := url.Parse(strings.TrimSpace(baseURL))
 	if errParse != nil {
@@ -125,6 +134,7 @@ func (m *FederationMTLS) FederationBaseURLWithPort(baseURL string, federationPor
 	return federationURL.String(), nil
 }
 
+// ServerTLSConfig returns the TLS configuration used by the local federation server.
 func (m *FederationMTLS) ServerTLSConfig() *tls.Config {
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS13,
@@ -133,10 +143,12 @@ func (m *FederationMTLS) ServerTLSConfig() *tls.Config {
 	}
 }
 
+// NewNodeHTTPClient creates a federation HTTP client for a specific node using the default federation port.
 func (m *FederationMTLS) NewNodeHTTPClient(timeout time.Duration, nodeBaseURL string, expectedPeerFingerprint string, expectedPeerNodeID string) (*http.Client, string, error) {
 	return m.NewNodeHTTPClientWithPort(timeout, nodeBaseURL, m.federationPort, expectedPeerFingerprint, expectedPeerNodeID)
 }
 
+// NewNodeHTTPClientWithPort creates a federation HTTP client pinned to a peer fingerprint and port.
 func (m *FederationMTLS) NewNodeHTTPClientWithPort(
 	timeout time.Duration,
 	nodeBaseURL string,
@@ -160,7 +172,11 @@ func (m *FederationMTLS) NewNodeHTTPClientWithPort(
 
 	normalizedExpectedNodeID := strings.TrimSpace(expectedPeerNodeID)
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	baseTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		baseTransport = &http.Transport{}
+	}
+	transport := baseTransport.Clone()
 	tlsConfig := &tls.Config{
 		MinVersion:         tls.VersionTLS13,
 		Certificates:       []tls.Certificate{m.certificate},
@@ -197,10 +213,12 @@ func (m *FederationMTLS) NewNodeHTTPClientWithPort(
 	return client, federationBaseURL, nil
 }
 
+// ProbeServerFingerprint probes a node and returns the presented certificate fingerprint.
 func (m *FederationMTLS) ProbeServerFingerprint(nodeBaseURL string, timeout time.Duration) (string, error) {
 	return m.ProbeServerFingerprintWithPort(nodeBaseURL, m.federationPort, timeout)
 }
 
+// ProbeServerFingerprintWithPort probes a node on a specific federation port and returns its certificate fingerprint.
 func (m *FederationMTLS) ProbeServerFingerprintWithPort(nodeBaseURL string, federationPort int, timeout time.Duration) (string, error) {
 	if federationPort <= 0 {
 		federationPort = m.federationPort
@@ -233,7 +251,7 @@ func (m *FederationMTLS) ProbeServerFingerprintWithPort(nodeBaseURL string, fede
 
 	conn, errDial := tls.DialWithDialer(dialer, "tcp", parsedURL.Host, tlsConfig) //nolint:noctx // tls.DialWithDialer doesn't have a context variant that fits here
 	if errDial != nil {
-		return "", errDial
+		return "", fmt.Errorf("dial federation peer %s: %w", parsedURL.Host, errDial)
 	}
 	defer func() {
 		_ = conn.Close()
@@ -272,6 +290,7 @@ func (m *FederationMTLS) NewTrustedPeerHTTPClient(
 	return m.NewTrustedPeerHTTPClientWithPort(timeout, nodeID, nodeBaseURL, m.federationPort, trustLookup)
 }
 
+// NewTrustedPeerHTTPClientWithPort creates an mTLS HTTP client for a trusted remote node on a specific federation port.
 func (m *FederationMTLS) NewTrustedPeerHTTPClientWithPort(
 	timeout time.Duration,
 	nodeID string,
@@ -285,7 +304,7 @@ func (m *FederationMTLS) NewTrustedPeerHTTPClientWithPort(
 
 	peer, errPeer := trustLookup.GetFederationTrustedPeerLookup(nodeID)
 	if errPeer != nil {
-		return nil, "", errPeer
+		return nil, "", fmt.Errorf("lookup federation trusted peer %s: %w", nodeID, errPeer)
 	}
 	if !peer.Enabled || peer.Revoked {
 		return nil, "", errors.New("remote federation peer is disabled or revoked")
@@ -294,6 +313,7 @@ func (m *FederationMTLS) NewTrustedPeerHTTPClientWithPort(
 	return m.NewNodeHTTPClientWithPort(timeout, nodeBaseURL, federationPort, peer.PeerFingerprint, peer.PeerNodeID)
 }
 
+// CertificateFingerprint returns the SHA-256 fingerprint for a certificate.
 func CertificateFingerprint(certificate *x509.Certificate) string {
 	fingerprint := sha256.Sum256(certificate.Raw)
 	return hex.EncodeToString(fingerprint[:])
@@ -306,7 +326,7 @@ func certificateFingerprintFromTLSCertificate(certificate tls.Certificate) (stri
 
 	parsedCertificate, errParse := x509.ParseCertificate(certificate.Certificate[0])
 	if errParse != nil {
-		return "", errParse
+		return "", fmt.Errorf("parse federation certificate: %w", errParse)
 	}
 
 	return CertificateFingerprint(parsedCertificate), nil
@@ -334,33 +354,33 @@ func ensureFederationCertificateFiles(nodeID string, certPath string, keyPath st
 
 	errMkdirCert := os.MkdirAll(filepath.Dir(certPath), 0700)
 	if errMkdirCert != nil {
-		return errMkdirCert
+		return fmt.Errorf("create certificate directory %s: %w", filepath.Dir(certPath), errMkdirCert)
 	}
 	errMkdirKey := os.MkdirAll(filepath.Dir(keyPath), 0700)
 	if errMkdirKey != nil {
-		return errMkdirKey
+		return fmt.Errorf("create key directory %s: %w", filepath.Dir(keyPath), errMkdirKey)
 	}
 
-	certPEM, keyPEM, errGenerate := generateFederationCertificatePEM(nodeID)
+	certPEM, keyPEM, errGenerate := buildFederationCertificatePEM(nodeID)
 	if errGenerate != nil {
 		return errGenerate
 	}
 
 	errWriteCert := os.WriteFile(certPath, certPEM, 0600)
 	if errWriteCert != nil {
-		return errWriteCert
+		return fmt.Errorf("write federation certificate %s: %w", certPath, errWriteCert)
 	}
 	errWriteKey := os.WriteFile(keyPath, keyPEM, 0600)
 	if errWriteKey != nil {
 		// Clean up the cert file to avoid leaving an inconsistent state on disk.
 		_ = os.Remove(certPath)
-		return errWriteKey
+		return fmt.Errorf("write federation key %s: %w", keyPath, errWriteKey)
 	}
 
 	return nil
 }
 
-func generateFederationCertificatePEM(nodeID string) ([]byte, []byte, error) {
+func buildFederationCertificatePEM(nodeID string) ([]byte, []byte, error) {
 	nodeID = strings.TrimSpace(nodeID)
 	if nodeID == "" {
 		return nil, nil, errors.New("node ID is required")
@@ -368,13 +388,13 @@ func generateFederationCertificatePEM(nodeID string) ([]byte, []byte, error) {
 
 	privateKey, errGenerateKey := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if errGenerateKey != nil {
-		return nil, nil, errGenerateKey
+		return nil, nil, fmt.Errorf("generate federation private key: %w", errGenerateKey)
 	}
 
 	serialLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, errSerial := rand.Int(rand.Reader, serialLimit)
 	if errSerial != nil {
-		return nil, nil, errSerial
+		return nil, nil, fmt.Errorf("generate certificate serial number: %w", errSerial)
 	}
 
 	now := time.Now().UTC()
@@ -393,7 +413,7 @@ func generateFederationCertificatePEM(nodeID string) ([]byte, []byte, error) {
 
 	derBytes, errCreateCertificate := x509.CreateCertificate(rand.Reader, certificateTemplate, certificateTemplate, &privateKey.PublicKey, privateKey)
 	if errCreateCertificate != nil {
-		return nil, nil, errCreateCertificate
+		return nil, nil, fmt.Errorf("create federation certificate: %w", errCreateCertificate)
 	}
 
 	certPEM := pem.EncodeToMemory(&pem.Block{
@@ -406,7 +426,7 @@ func generateFederationCertificatePEM(nodeID string) ([]byte, []byte, error) {
 
 	keyBytes, errMarshalKey := x509.MarshalECPrivateKey(privateKey)
 	if errMarshalKey != nil {
-		return nil, nil, errMarshalKey
+		return nil, nil, fmt.Errorf("marshal federation private key: %w", errMarshalKey)
 	}
 	keyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "EC PRIVATE KEY",
@@ -424,6 +444,7 @@ func fileExists(path string) bool {
 	return errStat == nil
 }
 
+// LocalFingerprint returns the SHA-256 fingerprint of the local federation certificate.
 func (m *FederationMTLS) LocalFingerprint() (string, error) {
 	fingerprint, errFingerprint := certificateFingerprintFromTLSCertificate(m.certificate)
 	if errFingerprint != nil {

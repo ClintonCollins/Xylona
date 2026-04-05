@@ -1,3 +1,4 @@
+// Package rpc implements the ConnectRPC service handlers for Xylona.
 package rpc
 
 import (
@@ -39,35 +40,37 @@ type UpdateProgressBroadcaster interface {
 	BroadcastUpdateProgress(serverID string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string)
 }
 
+// XylonaService implements the primary ConnectRPC service for the panel API.
 type XylonaService struct {
-	ctx                           context.Context
-	db                            *db.Connection
-	actionsInst                   *actions.Instance
-	supervisorInst                *supervisor.Instance
-	federationMTLS                *helpers.FederationMTLS
-	secureCookie                  *securecookie.SecureCookie
-	secureCookies                 bool
-	syncEngine                    SyncEngine
-	modManager                    *modmanager.ModManager
-	steamCache                    *steamcache.Client
-	listCache                     *remoteServerListCache
-	remoteFederationClientFactory func(node *models.Node, serverID string) (xylonaconnect.FederationClient, error)
-	installGameServerFn           func(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error)
-	allPermissionIDs              []string
-	permissionIDsForUserFn        func(user *models.User) ([]string, error)
-	installTracker                *modmanager.InstallTracker
-	installBroadcast              ServerSoftwareInstallBroadcaster
-	updateBroadcast               UpdateProgressBroadcaster
-	versionState                  *versiontracker.VersionStateMap
-	dummyTracker                  *versiontracker.DummyTracker
-	testEmailSendFunc             func(ctx context.Context, cfg *mailer.SMTPConfig, to string, subject string, body string) error
+	ctx                            context.Context
+	db                             *db.Connection
+	actionsInst                    *actions.Instance
+	supervisorInst                 *supervisor.Instance
+	federationMTLS                 *helpers.FederationMTLS
+	secureCookie                   *securecookie.SecureCookie
+	secureCookies                  bool
+	syncEngine                     SyncEngine
+	modManager                     *modmanager.ModManager
+	steamCache                     *steamcache.Client
+	listCache                      *remoteServerListCache
+	remoteFederationClientFactory  func(node *models.Node, serverID string) (xylonaconnect.FederationClient, error)
+	installGameServerFn            func(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error)
+	allPermissionIDs               []string
+	permissionIDsForUserFn         func(user *models.User) ([]string, error)
+	installTracker                 *modmanager.InstallTracker
+	installBroadcast               ServerSoftwareInstallBroadcaster
+	updateBroadcast                UpdateProgressBroadcaster
+	versionState                   *versiontracker.VersionStateMap
+	dummyTracker                   *versiontracker.DummyTracker
+	testEmailSendFunc              func(ctx context.Context, cfg *mailer.SMTPConfig, to string, subject string, body string) error
 	notificationChannelTestOnce    sync.Once
 	notificationChannelTestLimiter *notificationChannelTestRateLimiter
 }
 
+// NewXylonaService constructs the main RPC service implementation.
 func NewXylonaService(
 	ctx context.Context,
-	db *db.Connection,
+	database *db.Connection,
 	actionsInst *actions.Instance,
 	supervisorInst *supervisor.Instance,
 	secureCookie *securecookie.SecureCookie,
@@ -77,7 +80,7 @@ func NewXylonaService(
 	modMgr *modmanager.ModManager,
 	versionState *versiontracker.VersionStateMap,
 ) *XylonaService {
-	allPerms, errPerms := db.GetAllPermissions()
+	allPerms, errPerms := database.GetAllPermissions()
 	if errPerms != nil {
 		log.Fatal().Err(errPerms).Msg("Failed to load permission IDs")
 	}
@@ -103,7 +106,7 @@ func NewXylonaService(
 
 	return &XylonaService{
 		ctx:              ctx,
-		db:               db,
+		db:               database,
 		actionsInst:      actionsInst,
 		federationMTLS:   federationMTLS,
 		secureCookie:     secureCookie,
@@ -135,6 +138,7 @@ func (xs *XylonaService) resolvedSendTestEmailFunc() func(ctx context.Context, c
 	return mailer.SendTestEmail
 }
 
+// SetSyncEngine configures the federation sync engine used by the RPC layer.
 func (xs *XylonaService) SetSyncEngine(engine SyncEngine) {
 	xs.syncEngine = engine
 }

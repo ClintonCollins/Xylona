@@ -41,7 +41,7 @@ func (h *federationSummaryTestHandler) SetStatus(status xylona.Status) {
 }
 
 func (h *federationSummaryTestHandler) ListServerSummaries(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.FederationListServerSummariesRequest],
 ) (*connect.Response[xylona.FederationListServerSummariesResponse], error) {
 	actingUserID, originNodeID := helpers.GetFederatedActingIdentity(request.Header())
@@ -148,7 +148,8 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		AllowInsecureTLS: false,
 	}
 
-	_, errInsertNode := conn.SQLDb.Exec(
+	_, errInsertNode := conn.SQLDb.ExecContext(
+		context.Background(),
 		`INSERT INTO node (id, name, is_local, host, port, base_url, enabled) VALUES (?, ?, 0, '', 0, ?, 1)`,
 		node.ID, node.Name, node.BaseURL,
 	)
@@ -156,7 +157,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		t.Fatalf("failed to insert node row: %v", errInsertNode)
 	}
 
-	_, errInsertTrust := conn.SQLDb.Exec(`
+	_, errInsertTrust := conn.SQLDb.ExecContext(context.Background(), `
 		INSERT INTO federation_trusted_peer (node_id, peer_node_id, peer_fingerprint, enabled, revoked)
 		VALUES (?, ?, ?, 1, 0)
 	`, node.ID, "remote-peer-node", serverFingerprint)
@@ -180,7 +181,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 	if len(firstSummaries) != 1 {
 		t.Fatalf("len(firstSummaries) = %d, want 1", len(firstSummaries))
 	}
-	if gotStatus := firstSummaries[0].Status; gotStatus != xylona.Status_OFFLINE {
+	if gotStatus := firstSummaries[0].GetStatus(); gotStatus != xylona.Status_OFFLINE {
 		t.Fatalf("first summary status = %v, want %v", gotStatus, xylona.Status_OFFLINE)
 	}
 
@@ -196,7 +197,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 	if len(secondSummaries) != 1 {
 		t.Fatalf("len(secondSummaries) = %d, want 1", len(secondSummaries))
 	}
-	if gotStatus := secondSummaries[0].Status; gotStatus != xylona.Status_ONLINE {
+	if gotStatus := secondSummaries[0].GetStatus(); gotStatus != xylona.Status_ONLINE {
 		t.Fatalf("second summary status = %v, want %v (live fetch should bypass fresh cache)", gotStatus, xylona.Status_ONLINE)
 	}
 
@@ -205,7 +206,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		cachedCount  int
 	)
 	const cacheStatusQuery = `SELECT status FROM remote_server_cache WHERE source_node_id = ? AND remote_server_id = ?`
-	errCacheStatus := conn.SQLDb.QueryRow(cacheStatusQuery, node.ID, "server-1").Scan(&cachedStatus)
+	errCacheStatus := conn.SQLDb.QueryRowContext(context.Background(), cacheStatusQuery, node.ID, "server-1").Scan(&cachedStatus)
 	if errCacheStatus != nil {
 		t.Fatalf("failed to read cached status: %v", errCacheStatus)
 	}
@@ -214,7 +215,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 	}
 
 	const cacheCountQuery = `SELECT COUNT(*) FROM remote_server_cache WHERE source_node_id = ? AND remote_server_id = ?`
-	errCacheCount := conn.SQLDb.QueryRow(cacheCountQuery, node.ID, "server-1").Scan(&cachedCount)
+	errCacheCount := conn.SQLDb.QueryRowContext(context.Background(), cacheCountQuery, node.ID, "server-1").Scan(&cachedCount)
 	if errCacheCount != nil {
 		t.Fatalf("failed to count cached rows: %v", errCacheCount)
 	}

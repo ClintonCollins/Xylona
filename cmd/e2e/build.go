@@ -1,3 +1,4 @@
+// Command e2e contains the Xylona end-to-end orchestration helpers.
 package main
 
 import (
@@ -24,7 +25,7 @@ func buildDummyGameServer(projectRoot, outputPath string) error {
 	}
 
 	// Ensure output directory exists.
-	errMkdir := os.MkdirAll(filepath.Dir(outputPath), 0o755)
+	errMkdir := os.MkdirAll(filepath.Dir(outputPath), 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("create output dir: %w", errMkdir)
 	}
@@ -34,12 +35,16 @@ func buildDummyGameServer(projectRoot, outputPath string) error {
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	errRun := cmd.Run()
+	if errRun != nil {
+		return fmt.Errorf("build dummy game server: %w", errRun)
+	}
+	return nil
 }
 
 func buildXylona(projectRoot, outputPath string) error {
 	log.Info().Msg("[Federation Setup] Building Xylona binary...")
-	errMkdir := os.MkdirAll(filepath.Dir(outputPath), 0o755)
+	errMkdir := os.MkdirAll(filepath.Dir(outputPath), 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("create output dir: %w", errMkdir)
 	}
@@ -47,7 +52,11 @@ func buildXylona(projectRoot, outputPath string) error {
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	errRun := cmd.Run()
+	if errRun != nil {
+		return fmt.Errorf("build xylona binary: %w", errRun)
+	}
+	return nil
 }
 
 func buildFrontend(projectRoot string) error {
@@ -56,7 +65,11 @@ func buildFrontend(projectRoot string) error {
 	cmd.Dir = filepath.Join(projectRoot, "frontend")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	errRun := cmd.Run()
+	if errRun != nil {
+		return fmt.Errorf("build frontend SPA: %w", errRun)
+	}
+	return nil
 }
 
 // cleanFrontendDist removes the built SPA files from frontend/dist so stale
@@ -75,7 +88,7 @@ func cleanFrontendDist(e2eDir string) {
 	}
 
 	// Write a .gitkeep so embed.go's "all:frontend/dist" has at least one file.
-	errKeep := os.WriteFile(filepath.Join(distDir, ".gitkeep"), []byte(""), 0o644)
+	errKeep := os.WriteFile(filepath.Join(distDir, ".gitkeep"), []byte(""), 0o600)
 	if errKeep != nil {
 		log.Warn().Err(errKeep).Msg("Could not write .gitkeep to frontend/dist")
 		return

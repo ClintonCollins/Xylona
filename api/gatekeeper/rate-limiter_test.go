@@ -1,13 +1,14 @@
 package gatekeeper
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
 func TestAuthRateLimiter(t *testing.T) {
-	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -16,7 +17,7 @@ func TestAuthRateLimiter(t *testing.T) {
 
 		var lastStatus int
 		for range 15 {
-			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/Login", nil)
 			req.RemoteAddr = "192.0.2.1:12345"
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
@@ -33,7 +34,7 @@ func TestAuthRateLimiter(t *testing.T) {
 		handler := AuthRateLimiter()(okHandler)
 
 		for i := range 20 {
-			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/GetGameServers", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/GetGameServers", nil)
 			req.RemoteAddr = "192.0.2.2:12345"
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
@@ -50,7 +51,7 @@ func TestAuthRateLimiter(t *testing.T) {
 
 		for i := range 20 {
 			for _, addr := range []string{"127.0.0.1:12345", "[::1]:12345"} {
-				req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
+				req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/Login", nil)
 				req.RemoteAddr = addr
 				rec := httptest.NewRecorder()
 				handler.ServeHTTP(rec, req)
@@ -67,7 +68,7 @@ func TestAuthRateLimiter(t *testing.T) {
 		handler := AuthRateLimiter()(okHandler)
 
 		for i := range 10 {
-			req := httptest.NewRequest(http.MethodPost, "/xylona.Xylona/Login", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/Login", nil)
 			req.RemoteAddr = "192.0.2.3:12345"
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)

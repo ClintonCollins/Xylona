@@ -1,3 +1,4 @@
+// Package websocket provides Xylona's websocket server and subscription flows.
 package websocket
 
 import (
@@ -40,6 +41,13 @@ const (
 	sessionKeyGamesServers  = "gameServers"
 )
 
+var (
+	errSessionUsernameMissing     = errors.New("failed to get username from session")
+	errSessionUserIDMissing       = errors.New("failed to get user ID from session")
+	errSessionConnectionIDMissing = errors.New("failed to get connection ID from session")
+	errSessionGameServersMissing  = errors.New("failed to get game servers from session")
+)
+
 type connection struct {
 	id                           uuid.UUID
 	melodySession                *melody.Session
@@ -72,12 +80,7 @@ func (c *connection) hasGameServerAccess(serverID string) bool {
 
 	c.RLock()
 	defer c.RUnlock()
-	for _, id := range c.allGameServerIDs {
-		if id == serverID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(c.allGameServerIDs, serverID)
 }
 
 func (c *connection) currentlySuperUser() bool {
@@ -115,6 +118,7 @@ func (c *connection) currentlySuperUser() bool {
 	return user.SuperUser
 }
 
+// WebSocket coordinates websocket sessions and broadcasts real-time updates.
 type WebSocket struct {
 	melody                       *melody.Melody
 	supervisor                   *supervisor.Instance
@@ -133,27 +137,36 @@ type WebSocket struct {
 func getSessionUsername(s *melody.Session) (string, error) {
 	u, usernameExists := s.Get(sessionKeyUserName)
 	if !usernameExists {
-		return "", fmt.Errorf("failed to get username from session")
+		return "", errSessionUsernameMissing
 	}
-	username := u.(string)
+	username, ok := u.(string)
+	if !ok {
+		return "", errSessionUsernameMissing
+	}
 	return username, nil
 }
 
 func getSessionUserID(s *melody.Session) (string, error) {
 	u, userIDExists := s.Get(sessionKeyUserID)
 	if !userIDExists {
-		return "", fmt.Errorf("failed to get user ID from session")
+		return "", errSessionUserIDMissing
 	}
-	userID := u.(string)
+	userID, ok := u.(string)
+	if !ok {
+		return "", errSessionUserIDMissing
+	}
 	return userID, nil
 }
 
 func getSessionConnectionID(s *melody.Session) (uuid.UUID, error) {
 	c, connectionIDExists := s.Get(sessionKeyConnectionID)
 	if !connectionIDExists {
-		return uuid.Nil, fmt.Errorf("failed to get connection ID from session")
+		return uuid.Nil, errSessionConnectionIDMissing
 	}
-	connectionID := c.(uuid.UUID)
+	connectionID, ok := c.(uuid.UUID)
+	if !ok {
+		return uuid.Nil, errSessionConnectionIDMissing
+	}
 	return connectionID, nil
 }
 
@@ -171,9 +184,12 @@ func (ws *WebSocket) getSessionGameServers(s *melody.Session) ([]*models.GameSer
 	defer ws.sessionLock.RUnlock()
 	gs, gameServersExists := s.Get(sessionKeyGamesServers)
 	if !gameServersExists {
-		return nil, fmt.Errorf("failed to get game servers from session")
+		return nil, errSessionGameServersMissing
 	}
-	gameServers := gs.([]*models.GameServer)
+	gameServers, ok := gs.([]*models.GameServer)
+	if !ok {
+		return nil, errSessionGameServersMissing
+	}
 	return gameServers, nil
 }
 
@@ -211,11 +227,12 @@ func (ws *WebSocket) getSessionConnection(s *melody.Session) (*connection, error
 	return sessionConnection, nil
 }
 
+// NewInstance builds the websocket manager and returns its HTTP upgrade handler.
 func NewInstance(
 	ctx context.Context,
 	supervisorInst *supervisor.Instance,
 	actionsInst *actions.Instance,
-	db *db.Connection,
+	database *db.Connection,
 	secureCookie *securecookie.SecureCookie,
 	federationMTLS *helpers.FederationMTLS,
 ) (*WebSocket, http.HandlerFunc) {
@@ -224,7 +241,7 @@ func NewInstance(
 		melody:                       m,
 		supervisor:                   supervisorInst,
 		actions:                      actionsInst,
-		db:                           db,
+		db:                           database,
 		federationMTLS:               federationMTLS,
 		ctx:                          ctx,
 		secureCookie:                 secureCookie,
@@ -395,45 +412,44 @@ func (ws *WebSocket) listenForGameServersRemoved(s *melody.Session) {
 
 // queryEqual checks if two ServerQuery objects are equal. Used to save websocket traffic.
 func queryEqual(x, y *xylona.ServerQuery) bool {
-	if x.ServerId != y.ServerId || x.ServerName != y.ServerName || x.Type != y.Type {
+	if x.GetServerId() != y.GetServerId() || x.GetServerName() != y.GetServerName() || x.GetType() != y.GetType() {
 		return false
 	}
-	switch x.Type {
+	switch x.GetType() {
 	case xylona.ServerQuery_Minecraft:
-		xm := x.Minecraft
-		ym := y.Minecraft
-		return xm.Motd == ym.Motd &&
-			xm.GameType == ym.GameType &&
-			xm.Map == ym.Map &&
-			xm.NumberOfPlayers == ym.NumberOfPlayers &&
-			xm.MaxPlayers == ym.MaxPlayers &&
-			slices.Equal(xm.PlayerList, ym.PlayerList) &&
-			xm.ProtocolVersion == ym.ProtocolVersion &&
-			xm.ServerVersion == ym.ServerVersion
+		xm := x.GetMinecraft()
+		ym := y.GetMinecraft()
+		return xm.GetMotd() == ym.GetMotd() &&
+			xm.GetGameType() == ym.GetGameType() &&
+			xm.GetMap() == ym.GetMap() &&
+			xm.GetNumberOfPlayers() == ym.GetNumberOfPlayers() &&
+			xm.GetMaxPlayers() == ym.GetMaxPlayers() &&
+			slices.Equal(xm.GetPlayerList(), ym.GetPlayerList()) &&
+			xm.GetProtocolVersion() == ym.GetProtocolVersion() &&
+			xm.GetServerVersion() == ym.GetServerVersion()
 	case xylona.ServerQuery_Source:
-		xs := x.Source
-		ys := y.Source
-		return xs.Name == ys.Name &&
-			xs.Map == ys.Map &&
-			xs.Game == ys.Game &&
-			xs.AppId == ys.AppId &&
-			xs.SteamId == ys.SteamId &&
-			xs.GameId == ys.GameId &&
-			xs.Players == ys.Players &&
-			xs.MaxPlayers == ys.MaxPlayers &&
-			xs.Bots == ys.Bots &&
-			xs.ServerOs == ys.ServerOs &&
-			xs.Visibility == ys.Visibility &&
-			xs.Vac == ys.Vac &&
-			xs.Version == ys.Version &&
-			xs.Protocol == ys.Protocol
+		xs := x.GetSource()
+		ys := y.GetSource()
+		return xs.GetName() == ys.GetName() &&
+			xs.GetMap() == ys.GetMap() &&
+			xs.GetGame() == ys.GetGame() &&
+			xs.GetAppId() == ys.GetAppId() &&
+			xs.GetSteamId() == ys.GetSteamId() &&
+			xs.GetGameId() == ys.GetGameId() &&
+			xs.GetPlayers() == ys.GetPlayers() &&
+			xs.GetMaxPlayers() == ys.GetMaxPlayers() &&
+			xs.GetBots() == ys.GetBots() &&
+			xs.GetServerOs() == ys.GetServerOs() &&
+			xs.GetVisibility() == ys.GetVisibility() &&
+			xs.GetVac() == ys.GetVac() &&
+			xs.GetVersion() == ys.GetVersion() &&
+			xs.GetProtocol() == ys.GetProtocol()
 	}
 	return false
 }
 
-func (ws *WebSocket) AddGameServerToUserID() {
-
-}
+// AddGameServerToUserID reserves a hook for future ownership cache updates.
+func (ws *WebSocket) AddGameServerToUserID() {}
 
 // newFederationClientForNode creates a trusted-peer mTLS federation client for
 // the given remote node, mirroring newRemoteFederationClient in api/rpc/common.go.
@@ -446,7 +462,7 @@ func (ws *WebSocket) newFederationClientForNode(node *models.Node) (xylonaconnec
 		15*time.Second, node.ID, node.BaseURL, federationPort, ws.db,
 	)
 	if errClient != nil {
-		return nil, errClient
+		return nil, fmt.Errorf("websocket: create trusted federation client: %w", errClient)
 	}
 	return xylonaconnect.NewFederationClient(httpClient, baseURL), nil
 }
@@ -456,15 +472,15 @@ func metricsEqual(a, b *xylona.GameServerMetrics) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
-	return int64(a.CpuPercent) == int64(b.CpuPercent) &&
-		a.MemoryBytes == b.MemoryBytes &&
-		a.MemoryWorkingSetBytes == b.MemoryWorkingSetBytes &&
-		a.NumberOfThreads == b.NumberOfThreads &&
-		a.DiskUsageBytes == b.DiskUsageBytes &&
-		a.UptimeSeconds == b.UptimeSeconds &&
-		int64(a.IoReadRate) == int64(b.IoReadRate) &&
-		int64(a.IoWriteRate) == int64(b.IoWriteRate) &&
-		a.ConnectionCount == b.ConnectionCount
+	return int64(a.GetCpuPercent()) == int64(b.GetCpuPercent()) &&
+		a.GetMemoryBytes() == b.GetMemoryBytes() &&
+		a.GetMemoryWorkingSetBytes() == b.GetMemoryWorkingSetBytes() &&
+		a.GetNumberOfThreads() == b.GetNumberOfThreads() &&
+		a.GetDiskUsageBytes() == b.GetDiskUsageBytes() &&
+		a.GetUptimeSeconds() == b.GetUptimeSeconds() &&
+		int64(a.GetIoReadRate()) == int64(b.GetIoReadRate()) &&
+		int64(a.GetIoWriteRate()) == int64(b.GetIoWriteRate()) &&
+		a.GetConnectionCount() == b.GetConnectionCount()
 }
 
 // startRemoteNodeMetricsPoller runs a shared background poller that refreshes
@@ -568,14 +584,14 @@ func (ws *WebSocket) collectLocalNodeSnapshot() *xylona.NodeResourceSnapshot {
 	return &xylona.NodeResourceSnapshot{
 		CpuPercent:             snapshot.CPUPercent,
 		MemoryPercent:          snapshot.MemoryPercent,
-		MemoryUsedBytes:        int64(snapshot.MemoryUsed),
-		MemoryTotalBytes:       int64(snapshot.MemoryTotal),
+		MemoryUsedBytes:        helpers.ClampInt64FromUint64(snapshot.MemoryUsed),
+		MemoryTotalBytes:       helpers.ClampInt64FromUint64(snapshot.MemoryTotal),
 		DiskPercent:            snapshot.DiskPercent,
-		DiskUsedBytes:          int64(snapshot.DiskUsed),
-		DiskTotalBytes:         int64(snapshot.DiskTotal),
-		GameServerCount:        int32(gsCount),
-		RunningGameServerCount: int32(runningCount),
-		UserCount:              int32(userCount),
+		DiskUsedBytes:          helpers.ClampInt64FromUint64(snapshot.DiskUsed),
+		DiskTotalBytes:         helpers.ClampInt64FromUint64(snapshot.DiskTotal),
+		GameServerCount:        helpers.ClampInt32FromInt(gsCount),
+		RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+		UserCount:              helpers.ClampInt32FromInt(userCount),
 		RecordedAt:             timestamppb.Now(),
 	}
 }
@@ -585,12 +601,12 @@ func nodeSnapshotEqual(a, b *xylona.NodeResourceSnapshot) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
-	return int64(a.CpuPercent) == int64(b.CpuPercent) &&
-		a.MemoryUsedBytes == b.MemoryUsedBytes &&
-		a.DiskUsedBytes == b.DiskUsedBytes &&
-		a.GameServerCount == b.GameServerCount &&
-		a.RunningGameServerCount == b.RunningGameServerCount &&
-		a.UserCount == b.UserCount
+	return int64(a.GetCpuPercent()) == int64(b.GetCpuPercent()) &&
+		a.GetMemoryUsedBytes() == b.GetMemoryUsedBytes() &&
+		a.GetDiskUsedBytes() == b.GetDiskUsedBytes() &&
+		a.GetGameServerCount() == b.GetGameServerCount() &&
+		a.GetRunningGameServerCount() == b.GetRunningGameServerCount() &&
+		a.GetUserCount() == b.GetUserCount()
 }
 
 type nodeMetricsLoopAction int
@@ -726,12 +742,12 @@ func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
 				}
 				current := &xylona.GameServerMetrics{
 					CpuPercent:            cpuPct,
-					MemoryBytes:           int64(memVMS),
-					MemoryWorkingSetBytes: int64(memRSS),
+					MemoryBytes:           helpers.ClampInt64FromUint64(memVMS),
+					MemoryWorkingSetBytes: helpers.ClampInt64FromUint64(memRSS),
 					MemoryPercent:         float64(memPct),
 					CpuCores:              cpuCores,
 					NumberOfThreads:       threads,
-					DiskUsageBytes:        int64(diskBytes),
+					DiskUsageBytes:        helpers.ClampInt64FromUint64(diskBytes),
 					IoReadRate:            ioRead,
 					IoWriteRate:           ioWrite,
 					ConnectionCount:       connCount,
@@ -791,7 +807,7 @@ func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session) {
 			}
 			for _, gameServer := range gameServers {
 				// Get the current query info for the game server.
-				serverQuery, exists := allQueryInfo.Servers[gameServer.ID]
+				serverQuery, exists := allQueryInfo.GetServers()[gameServer.ID]
 				if !exists {
 					continue
 				}
@@ -911,14 +927,14 @@ func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *mode
 			return
 		case output := <-streamChan:
 			// Only write game server console output if this connection is subscribed.
-			if output.Type == xylona.Message_GameServerConsole {
+			if output.GetType() == xylona.Message_GameServerConsole {
 				sessionConnection, errGetSessionConnection := ws.getSessionConnection(s)
 				if errGetSessionConnection != nil {
 					log.Error().Err(errGetSessionConnection).Msg("Failed to get session connection")
 					continue
 				}
 				sessionConnection.RLock()
-				_, exists := sessionConnection.requestedGameServerOutputIDs[output.GameServerConsoleOutput.GameServerId]
+				_, exists := sessionConnection.requestedGameServerOutputIDs[output.GetGameServerConsoleOutput().GetGameServerId()]
 				sessionConnection.RUnlock()
 				if !exists {
 					log.Debug().Str("User", user.UserName).Msg("Not subscribed to game server console output")
@@ -958,7 +974,11 @@ func (ws *WebSocket) addGameServerNotificationListener(s *melody.Session, gameSe
 }
 
 func (ws *WebSocket) applyFederatedActingIdentity(header http.Header, userID string) error {
-	return federation.ApplyActingIdentityHeadersForUserID(ws.db, header, userID)
+	errApply := federation.ApplyActingIdentityHeadersForUserID(ws.db, header, userID)
+	if errApply != nil {
+		return fmt.Errorf("websocket: apply federated acting identity: %w", errApply)
+	}
+	return nil
 }
 
 func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connection, serverID string) {
@@ -1054,7 +1074,7 @@ func (ws *WebSocket) startRemoteConsoleStream(s *melody.Session, conn *connectio
 			Type: xylona.Message_GameServerConsole,
 			GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
 				GameServerId: serverID,
-				Output:       chunk.Output,
+				Output:       chunk.GetOutput(),
 			},
 		}
 
@@ -1105,6 +1125,7 @@ func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, status xylona.
 	}
 }
 
+// BroadcastRemoteServerMetrics sends a remote metrics update to subscribed clients.
 func (ws *WebSocket) BroadcastRemoteServerMetrics(serverID string, metrics *xylona.GameServerMetrics) {
 	out := &xylona.Message{
 		Type: xylona.Message_GameServerMetrics,
@@ -1347,13 +1368,13 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		log.Error().Err(errUnmarshal).Msg("Failed to unmarshal websocket message")
 		return
 	}
-	switch websocketRequest.Type {
+	switch websocketRequest.GetType() {
 	case xylona.Request_GetGameServerConsole:
 		if websocketRequest.GameServerId == nil {
 			log.Error().Msg("Game server ID not set")
 			return
 		}
-		serverID := *websocketRequest.GameServerId
+		serverID := websocketRequest.GetGameServerId()
 		sessionConnection.Lock()
 		sessionConnection.requestedGameServerOutputIDs[serverID] = struct{}{}
 		sessionConnection.Unlock()
@@ -1378,7 +1399,7 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		if websocketRequest.GameServerId == nil {
 			return
 		}
-		serverID := *websocketRequest.GameServerId
+		serverID := websocketRequest.GetGameServerId()
 		sessionConnection.Lock()
 		sessionConnection.subscribedMetricsServerIDs[serverID] = struct{}{}
 		sessionConnection.Unlock()
@@ -1387,7 +1408,7 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		if websocketRequest.GameServerId == nil {
 			return
 		}
-		serverID := *websocketRequest.GameServerId
+		serverID := websocketRequest.GetGameServerId()
 		sessionConnection.Lock()
 		delete(sessionConnection.subscribedMetricsServerIDs, serverID)
 		sessionConnection.Unlock()

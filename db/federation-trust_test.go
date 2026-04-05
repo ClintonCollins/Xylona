@@ -69,7 +69,7 @@ func TestFederationLocalIdentityCRUD(t *testing.T) {
 func TestFederationTrustedPeerCRUD(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federation-trusted-peer.sqlite")
 
-	_, errInsertNode := conn.SQLDb.Exec(`
+	_, errInsertNode := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO node (id, name, host, port) VALUES ('remote-node-row-1', 'Remote Node', '', 0)
 	`)
 	if errInsertNode != nil {
@@ -150,7 +150,7 @@ func TestFederationTrustedPeerCRUD(t *testing.T) {
 func TestFederationTrustedPeerRevokeAndEnable(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "federation-revoke-enable.sqlite")
 
-	_, errInsertNode := conn.SQLDb.Exec(`
+	_, errInsertNode := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO node (id, name, host, port) VALUES ('node-1', 'Test Node', '', 0)
 	`)
 	if errInsertNode != nil {

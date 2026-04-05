@@ -96,7 +96,7 @@ func TestUnsubscribe_StopsDelivery(t *testing.T) {
 	}
 }
 
-func TestPublish_NoSubscribers_NoPanic(t *testing.T) {
+func TestPublish_NoSubscribers_NoPanic(_ *testing.T) {
 	eb := Get()
 	// Should not panic or block
 	eb.Publish("test.no_subs", "orphan")
@@ -119,7 +119,7 @@ func TestPublish_NonBlocking_DropsOnFullChannel(t *testing.T) {
 	}
 }
 
-func TestConcurrent_SubscribePublishUnsubscribe(t *testing.T) {
+func TestConcurrent_SubscribePublishUnsubscribe(_ *testing.T) {
 	eb := Get()
 	topic := "test.concurrent"
 

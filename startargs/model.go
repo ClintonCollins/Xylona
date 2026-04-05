@@ -5,14 +5,17 @@ import (
 	"fmt"
 )
 
+// Ownership controls whether an argument block is system-managed or user-editable.
 type Ownership string
 
+// Ownership values describe who controls a block within the start-args editor.
 const (
 	OwnershipSystem   Ownership = "system"
 	OwnershipLocked   Ownership = "locked"
 	OwnershipEditable Ownership = "editable"
 )
 
+// ArgBlock is a single managed block of start-argument tokens.
 type ArgBlock struct {
 	ID            string    `json:"id"`
 	Order         int       `json:"order"`
@@ -22,14 +25,17 @@ type ArgBlock struct {
 	ManagedSource string    `json:"managed_source,omitempty"`
 }
 
+// PatchOp identifies how a patch changes an argument block.
 type PatchOp string
 
+// PatchOp values describe the supported patch operations.
 const (
 	PatchOpEdit   PatchOp = "edit"
 	PatchOpRemove PatchOp = "remove"
 	PatchOpAdd    PatchOp = "add"
 )
 
+// Patch describes a change applied to a managed argument template.
 type Patch struct {
 	ID      string   `json:"id"`
 	Op      PatchOp  `json:"op"`
@@ -38,11 +44,13 @@ type Patch struct {
 	AfterID *string  `json:"afterId"`
 }
 
+// BlocklistEntry defines a forbidden argument pattern and its reason.
 type BlocklistEntry struct {
 	Pattern string `json:"pattern"`
 	Reason  string `json:"reason"`
 }
 
+// ResolvedBlock is an argument block after placeholder resolution and patching.
 type ResolvedBlock struct {
 	ID             string    `json:"id"`
 	Ownership      Ownership `json:"ownership"`
@@ -53,6 +61,7 @@ type ResolvedBlock struct {
 	OriginalTokens []string  `json:"original_tokens,omitempty"`
 }
 
+// ValidManagedSources lists managed-source keys supported by the start-args editor.
 var ValidManagedSources = map[string]struct{}{
 	"game_server.port":          {},
 	"game_server.query_port":    {},
@@ -61,11 +70,13 @@ var ValidManagedSources = map[string]struct{}{
 	"server_executable":         {},
 }
 
+// IsValidManagedSource reports whether the key is supported for managed substitution.
 func IsValidManagedSource(key string) bool {
 	_, ok := ValidManagedSources[key]
 	return ok
 }
 
+// ParseTemplate decodes a JSON start-argument template.
 func ParseTemplate(jsonStr string) ([]ArgBlock, error) {
 	if jsonStr == "" {
 		return nil, nil
@@ -80,6 +91,7 @@ func ParseTemplate(jsonStr string) ([]ArgBlock, error) {
 	return blocks, nil
 }
 
+// ParsePatches decodes a JSON list of start-argument patches.
 func ParsePatches(jsonStr string) ([]Patch, error) {
 	if jsonStr == "" {
 		return nil, nil
@@ -94,6 +106,7 @@ func ParsePatches(jsonStr string) ([]Patch, error) {
 	return patches, nil
 }
 
+// ParseBlocklist decodes a JSON blocklist for start-argument validation.
 func ParseBlocklist(jsonStr string) ([]BlocklistEntry, error) {
 	if jsonStr == "" {
 		return nil, nil

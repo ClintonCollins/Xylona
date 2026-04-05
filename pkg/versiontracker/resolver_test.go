@@ -12,9 +12,9 @@ func TestResolveTracker(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		info           TrackerContext
-		wantType       string
+		name     string
+		info     TrackerContext
+		wantType string
 	}{
 		{
 			name: "dummy game ID returns DummyTracker",
@@ -31,7 +31,7 @@ func TestResolveTracker(t *testing.T) {
 				ProviderKind:  "steamcmd",
 				SteamAppID:    "896660",
 			},
-			wantType:      "steam",
+			wantType: "steam",
 		},
 		{
 			name: "typed papermc provider returns MinecraftTracker",

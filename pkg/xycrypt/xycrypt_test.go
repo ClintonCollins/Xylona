@@ -194,7 +194,7 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 	}{
 		{name: "short string", plaintext: "sk-abc123"},
 		{name: "empty string", plaintext: ""},
-		{name: "long API key", plaintext: "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdef"},
+		{name: "long API key", plaintext: "svc_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdef"},
 		{name: "special characters", plaintext: "key+with/special=chars&symbols!@#$%^"},
 		{name: "unicode", plaintext: "api-key-with-unicode-\u00e9\u00e8\u00ea"},
 	}

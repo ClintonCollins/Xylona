@@ -1,3 +1,4 @@
+// Package versiontracker resolves installed and latest versions for managed servers.
 package versiontracker
 
 import "github.com/ClintonCollins/Xylona/sql/models"

@@ -48,7 +48,7 @@ func TestNewConnectionEnablesForeignKeys(t *testing.T) {
 	})
 
 	var foreignKeysEnabled int
-	errForeignKeys := conn.SQLDb.QueryRow(`PRAGMA foreign_keys`).Scan(&foreignKeysEnabled)
+	errForeignKeys := conn.SQLDb.QueryRowContext(conn.ctx, `PRAGMA foreign_keys`).Scan(&foreignKeysEnabled)
 	if errForeignKeys != nil {
 		t.Fatalf("failed to query PRAGMA foreign_keys: %v", errForeignKeys)
 	}
@@ -56,16 +56,16 @@ func TestNewConnectionEnablesForeignKeys(t *testing.T) {
 		t.Fatalf("PRAGMA foreign_keys = %d, want 1", foreignKeysEnabled)
 	}
 
-	_, errCreateParent := conn.SQLDb.Exec(`CREATE TABLE parent (id TEXT PRIMARY KEY NOT NULL)`)
+	_, errCreateParent := conn.SQLDb.ExecContext(conn.ctx, `CREATE TABLE parent (id TEXT PRIMARY KEY NOT NULL)`)
 	if errCreateParent != nil {
 		t.Fatalf("failed to create parent table: %v", errCreateParent)
 	}
-	_, errCreateChild := conn.SQLDb.Exec(`CREATE TABLE child (parent_id TEXT REFERENCES parent (id))`)
+	_, errCreateChild := conn.SQLDb.ExecContext(conn.ctx, `CREATE TABLE child (parent_id TEXT REFERENCES parent (id))`)
 	if errCreateChild != nil {
 		t.Fatalf("failed to create child table: %v", errCreateChild)
 	}
 
-	_, errInsertChild := conn.SQLDb.Exec(`INSERT INTO child (parent_id) VALUES ('missing-parent')`)
+	_, errInsertChild := conn.SQLDb.ExecContext(conn.ctx, `INSERT INTO child (parent_id) VALUES ('missing-parent')`)
 	if errInsertChild == nil {
 		t.Fatalf("expected foreign key insert to fail, but it succeeded")
 	}

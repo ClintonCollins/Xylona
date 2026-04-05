@@ -27,41 +27,41 @@ func MetricsChanged(prev, curr *xylona.GameServerMetrics) bool {
 	}
 
 	// Uptime always triggers (monotonically increasing, used for display).
-	if curr.UptimeSeconds != prev.UptimeSeconds {
+	if curr.GetUptimeSeconds() != prev.GetUptimeSeconds() {
 		return true
 	}
 
 	// Integer fields -- any change is meaningful.
-	if curr.NumberOfThreads != prev.NumberOfThreads {
+	if curr.GetNumberOfThreads() != prev.GetNumberOfThreads() {
 		return true
 	}
-	if curr.ConnectionCount != prev.ConnectionCount {
+	if curr.GetConnectionCount() != prev.GetConnectionCount() {
 		return true
 	}
-	if curr.CpuCores != prev.CpuCores {
+	if curr.GetCpuCores() != prev.GetCpuCores() {
 		return true
 	}
 
 	// Float/int fields with thresholds.
-	if math.Abs(curr.CpuPercent-prev.CpuPercent) >= cpuPercentThreshold {
+	if math.Abs(curr.GetCpuPercent()-prev.GetCpuPercent()) >= cpuPercentThreshold {
 		return true
 	}
-	if absInt64(curr.MemoryBytes-prev.MemoryBytes) >= memoryBytesThreshold {
+	if absInt64(curr.GetMemoryBytes()-prev.GetMemoryBytes()) >= memoryBytesThreshold {
 		return true
 	}
-	if absInt64(curr.MemoryWorkingSetBytes-prev.MemoryWorkingSetBytes) >= memoryWorkingSetThreshold {
+	if absInt64(curr.GetMemoryWorkingSetBytes()-prev.GetMemoryWorkingSetBytes()) >= memoryWorkingSetThreshold {
 		return true
 	}
-	if math.Abs(curr.MemoryPercent-prev.MemoryPercent) >= memoryPercentThreshold {
+	if math.Abs(curr.GetMemoryPercent()-prev.GetMemoryPercent()) >= memoryPercentThreshold {
 		return true
 	}
-	if absInt64(curr.DiskUsageBytes-prev.DiskUsageBytes) >= diskUsageBytesThreshold {
+	if absInt64(curr.GetDiskUsageBytes()-prev.GetDiskUsageBytes()) >= diskUsageBytesThreshold {
 		return true
 	}
-	if math.Abs(curr.IoReadRate-prev.IoReadRate) >= ioRateThreshold {
+	if math.Abs(curr.GetIoReadRate()-prev.GetIoReadRate()) >= ioRateThreshold {
 		return true
 	}
-	if math.Abs(curr.IoWriteRate-prev.IoWriteRate) >= ioRateThreshold {
+	if math.Abs(curr.GetIoWriteRate()-prev.GetIoWriteRate()) >= ioRateThreshold {
 		return true
 	}
 

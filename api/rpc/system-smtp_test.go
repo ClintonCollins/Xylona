@@ -75,7 +75,7 @@ func newSMTPFixture(t *testing.T) *smtpFixture {
 // - "node-local": local node
 // - local_settings pointing to node-local
 // - "user-super": superuser
-// - "user-regular": non-super user
+// - "user-regular": non-super user.
 func seedSMTPFixture(t *testing.T, conn *db.Connection) {
 	t.Helper()
 
@@ -255,11 +255,11 @@ func TestGetSystemSMTPConfig_NotConfigured(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetSystemSMTPConfig(not configured) error = %v", errGet)
 	}
-	if resp.Msg.Configured {
+	if resp.Msg.GetConfigured() {
 		t.Errorf("configured = true, want false")
 	}
-	if resp.Msg.Config != nil {
-		t.Errorf("config = %v, want nil", resp.Msg.Config)
+	if resp.Msg.GetConfig() != nil {
+		t.Errorf("config = %v, want nil", resp.Msg.GetConfig())
 	}
 }
 
@@ -294,33 +294,33 @@ func TestSetAndGetSystemSMTPConfig_RoundTrip(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetSystemSMTPConfig() error = %v", errGet)
 	}
-	if !resp.Msg.Configured {
+	if !resp.Msg.GetConfigured() {
 		t.Fatalf("configured = false, want true")
 	}
 
-	got := resp.Msg.Config
+	got := resp.Msg.GetConfig()
 	if got == nil {
 		t.Fatalf("config = nil, want non-nil")
 	}
-	if got.Host != "smtp.example.com" {
-		t.Errorf("host = %q, want %q", got.Host, "smtp.example.com")
+	if got.GetHost() != "smtp.example.com" {
+		t.Errorf("host = %q, want %q", got.GetHost(), "smtp.example.com")
 	}
-	if got.Port != 465 {
-		t.Errorf("port = %d, want %d", got.Port, 465)
+	if got.GetPort() != 465 {
+		t.Errorf("port = %d, want %d", got.GetPort(), 465)
 	}
-	if got.User != "smtpuser" {
-		t.Errorf("user = %q, want %q", got.User, "smtpuser")
+	if got.GetUser() != "smtpuser" {
+		t.Errorf("user = %q, want %q", got.GetUser(), "smtpuser")
 	}
-	if got.Password != "" {
-		t.Errorf("password = %q, want empty string", got.Password)
+	if got.GetPassword() != "" {
+		t.Errorf("password = %q, want empty string", got.GetPassword())
 	}
-	if got.FromAddress != "noreply@example.com" {
-		t.Errorf("from_address = %q, want %q", got.FromAddress, "noreply@example.com")
+	if got.GetFromAddress() != "noreply@example.com" {
+		t.Errorf("from_address = %q, want %q", got.GetFromAddress(), "noreply@example.com")
 	}
-	if !got.TlsEnabled {
+	if !got.GetTlsEnabled() {
 		t.Errorf("tls_enabled = false, want true")
 	}
-	if !resp.Msg.PasswordConfigured {
+	if !resp.Msg.GetPasswordConfigured() {
 		t.Errorf("password_configured = false, want true")
 	}
 }
@@ -615,11 +615,11 @@ func TestTestSystemSMTP_NotConfigured(t *testing.T) {
 	if errTest != nil {
 		t.Fatalf("TestSystemSMTP(not configured) error = %v", errTest)
 	}
-	if resp.Msg.Success {
+	if resp.Msg.GetSuccess() {
 		t.Errorf("success = true, want false")
 	}
-	if resp.Msg.Error != "SMTP is not configured" {
-		t.Errorf("error = %q, want %q", resp.Msg.Error, "SMTP is not configured")
+	if resp.Msg.GetError() != "SMTP is not configured" {
+		t.Errorf("error = %q, want %q", resp.Msg.GetError(), "SMTP is not configured")
 	}
 }
 
@@ -668,11 +668,11 @@ func TestTestSystemSMTP_SendSuccess(t *testing.T) {
 	if errTest != nil {
 		t.Fatalf("TestSystemSMTP() error = %v", errTest)
 	}
-	if !resp.Msg.Success {
+	if !resp.Msg.GetSuccess() {
 		t.Errorf("success = false, want true")
 	}
-	if resp.Msg.Error != "" {
-		t.Errorf("error = %q, want empty", resp.Msg.Error)
+	if resp.Msg.GetError() != "" {
+		t.Errorf("error = %q, want empty", resp.Msg.GetError())
 	}
 }
 

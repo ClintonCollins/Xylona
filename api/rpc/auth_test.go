@@ -109,7 +109,7 @@ func TestLogoutCookieSecureAttribute(t *testing.T) {
 			user := createUserForRPCUserTests(t, fixture, "logoutsecure", false)
 
 			req := connect.NewRequest(&xylona.LogoutRequest{})
-			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.Id)
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.GetId())
 
 			resp, errLogout := xs.Logout(context.Background(), req)
 			if errLogout != nil {
@@ -154,14 +154,14 @@ func TestLoginValidCredentials(t *testing.T) {
 	if errLogin != nil {
 		t.Fatalf("Login() error = %v", errLogin)
 	}
-	if resp.Msg == nil || resp.Msg.User == nil {
+	if resp.Msg == nil || resp.Msg.GetUser() == nil {
 		t.Fatalf("Login() returned empty response")
 	}
-	if resp.Msg.User.Id != user.Id {
-		t.Errorf("Login().User.Id = %q, want %q", resp.Msg.User.Id, user.Id)
+	if resp.Msg.GetUser().GetId() != user.GetId() {
+		t.Errorf("Login().User.Id = %q, want %q", resp.Msg.GetUser().GetId(), user.GetId())
 	}
-	if resp.Msg.User.UserName != "login-valid" {
-		t.Errorf("Login().User.UserName = %q, want %q", resp.Msg.User.UserName, "login-valid")
+	if resp.Msg.GetUser().GetUserName() != "login-valid" {
+		t.Errorf("Login().User.UserName = %q, want %q", resp.Msg.GetUser().GetUserName(), "login-valid")
 	}
 
 	setCookies := resp.Header().Values("Set-Cookie")
@@ -229,7 +229,7 @@ func TestLogoutWithValidSession(t *testing.T) {
 	user := createUserForRPCUserTests(t, fixture, "logout-valid", false)
 
 	req := connect.NewRequest(&xylona.LogoutRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.Id)
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.GetId())
 
 	cookies := getCookiesFromHeader(req.Header().Get("Cookie"))
 	sessionID := cookies[gatekeeper.SessionIDCookieName]
@@ -275,7 +275,7 @@ func TestCheckUserAuthenticatedWithValidSession(t *testing.T) {
 	user := createUserForRPCUserTests(t, fixture, "check-auth-valid", false)
 
 	req := connect.NewRequest(&xylona.CheckUserAuthenticatedRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.Id)
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.GetId())
 
 	resp, errCheck := fixture.service.CheckUserAuthenticated(context.Background(), req)
 	if errCheck != nil {
@@ -284,17 +284,17 @@ func TestCheckUserAuthenticatedWithValidSession(t *testing.T) {
 	if resp.Msg == nil {
 		t.Fatalf("CheckUserAuthenticated() returned nil message")
 	}
-	if !resp.Msg.Authenticated {
+	if !resp.Msg.GetAuthenticated() {
 		t.Errorf("CheckUserAuthenticated().Authenticated = false, want true")
 	}
-	if resp.Msg.User == nil {
+	if resp.Msg.GetUser() == nil {
 		t.Fatalf("CheckUserAuthenticated().User is nil")
 	}
-	if resp.Msg.User.Id != user.Id {
-		t.Errorf("CheckUserAuthenticated().User.Id = %q, want %q", resp.Msg.User.Id, user.Id)
+	if resp.Msg.GetUser().GetId() != user.GetId() {
+		t.Errorf("CheckUserAuthenticated().User.Id = %q, want %q", resp.Msg.GetUser().GetId(), user.GetId())
 	}
-	if resp.Msg.User.UserName != "check-auth-valid" {
-		t.Errorf("CheckUserAuthenticated().User.UserName = %q, want %q", resp.Msg.User.UserName, "check-auth-valid")
+	if resp.Msg.GetUser().GetUserName() != "check-auth-valid" {
+		t.Errorf("CheckUserAuthenticated().User.UserName = %q, want %q", resp.Msg.GetUser().GetUserName(), "check-auth-valid")
 	}
 }
 
@@ -332,7 +332,7 @@ func TestCheckUserAuthenticatedIncludesGlobalPermissionIDs(t *testing.T) {
 
 	errAssign := fixture.conn.CreateUserRoleAssignment(
 		"assignment-check-auth-permissions",
-		user.Id,
+		user.GetId(),
 		"role-alert-viewer",
 		"",
 		"user-admin",
@@ -342,7 +342,7 @@ func TestCheckUserAuthenticatedIncludesGlobalPermissionIDs(t *testing.T) {
 	}
 
 	req := connect.NewRequest(&xylona.CheckUserAuthenticatedRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.Id)
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.GetId())
 
 	resp, errCheck := fixture.service.CheckUserAuthenticated(context.Background(), req)
 	if errCheck != nil {
@@ -352,14 +352,14 @@ func TestCheckUserAuthenticatedIncludesGlobalPermissionIDs(t *testing.T) {
 		t.Fatalf("CheckUserAuthenticated() returned nil message")
 	}
 
-	gotPerms := make(map[string]struct{}, len(resp.Msg.PermissionIds))
-	for _, permissionID := range resp.Msg.PermissionIds {
+	gotPerms := make(map[string]struct{}, len(resp.Msg.GetPermissionIds()))
+	for _, permissionID := range resp.Msg.GetPermissionIds() {
 		gotPerms[permissionID] = struct{}{}
 	}
 
 	for _, permissionID := range []string{"alerts.manage", permissionAlertsViewHistory} {
 		if _, ok := gotPerms[permissionID]; !ok {
-			t.Errorf("CheckUserAuthenticated().PermissionIds missing %q; got %v", permissionID, resp.Msg.PermissionIds)
+			t.Errorf("CheckUserAuthenticated().PermissionIds missing %q; got %v", permissionID, resp.Msg.GetPermissionIds())
 		}
 	}
 }
@@ -373,7 +373,7 @@ func TestCheckUserAuthenticatedReturnsInternalErrorWhenPermissionLookupFails(t *
 	}
 
 	req := connect.NewRequest(&xylona.CheckUserAuthenticatedRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.Id)
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.GetId())
 
 	_, errCheck := fixture.service.CheckUserAuthenticated(context.Background(), req)
 	if errCheck == nil {
@@ -396,10 +396,10 @@ func TestCheckUserAuthenticatedWithoutSession(t *testing.T) {
 	if resp.Msg == nil {
 		t.Fatalf("CheckUserAuthenticated() returned nil message")
 	}
-	if resp.Msg.Authenticated {
+	if resp.Msg.GetAuthenticated() {
 		t.Errorf("CheckUserAuthenticated().Authenticated = true, want false")
 	}
-	if resp.Msg.User != nil {
+	if resp.Msg.GetUser() != nil {
 		t.Errorf("CheckUserAuthenticated().User should be nil for unauthenticated request")
 	}
 }

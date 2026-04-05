@@ -38,11 +38,11 @@ func addGameForTests(t *testing.T, fixture *rbacRPCFixture, id, name string) *xy
 	if errAdd != nil {
 		t.Fatalf("AddGame() setup error = %v", errAdd)
 	}
-	if resp.Msg == nil || resp.Msg.Game == nil {
+	if resp.Msg == nil || resp.Msg.GetGame() == nil {
 		t.Fatalf("AddGame() returned empty response")
 	}
 
-	return resp.Msg.Game
+	return resp.Msg.GetGame()
 }
 
 func TestGetGameValidID(t *testing.T) {
@@ -51,7 +51,7 @@ func TestGetGameValidID(t *testing.T) {
 	game := addGameForTests(t, fixture, "test-game-get", "Test Game Get")
 
 	req := connect.NewRequest(&xylona.GetGameRequest{
-		Id: game.Id,
+		Id: game.GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
@@ -59,14 +59,14 @@ func TestGetGameValidID(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetGame() error = %v", errGet)
 	}
-	if resp.Msg == nil || resp.Msg.Game == nil {
+	if resp.Msg == nil || resp.Msg.GetGame() == nil {
 		t.Fatalf("GetGame() returned empty response")
 	}
-	if resp.Msg.Game.Id != game.Id {
-		t.Errorf("GetGame().Game.Id = %q, want %q", resp.Msg.Game.Id, game.Id)
+	if resp.Msg.GetGame().GetId() != game.GetId() {
+		t.Errorf("GetGame().Game.Id = %q, want %q", resp.Msg.GetGame().GetId(), game.GetId())
 	}
-	if resp.Msg.Game.Name != "Test Game Get" {
-		t.Errorf("GetGame().Game.Name = %q, want %q", resp.Msg.Game.Name, "Test Game Get")
+	if resp.Msg.GetGame().GetName() != "Test Game Get" {
+		t.Errorf("GetGame().Game.Name = %q, want %q", resp.Msg.GetGame().GetName(), "Test Game Get")
 	}
 }
 
@@ -101,7 +101,7 @@ func TestListGamesReturnsSeededGames(t *testing.T) {
 		t.Fatalf("ListGames() returned nil message")
 	}
 	// The initial migration seeds games, so there should be at least some.
-	baselineCount := len(resp.Msg.Games)
+	baselineCount := len(resp.Msg.GetGames())
 	if baselineCount == 0 {
 		t.Errorf("ListGames() returned 0 games, expected seeded games from migration")
 	}
@@ -117,7 +117,7 @@ func TestListGamesIncludesAdded(t *testing.T) {
 	if errBaseline != nil {
 		t.Fatalf("ListGames() baseline error = %v", errBaseline)
 	}
-	baselineCount := len(baselineResp.Msg.Games)
+	baselineCount := len(baselineResp.Msg.GetGames())
 
 	_ = addGameForTests(t, fixture, "list-game-1", "List Game 1")
 	_ = addGameForTests(t, fixture, "list-game-2", "List Game 2")
@@ -134,8 +134,8 @@ func TestListGamesIncludesAdded(t *testing.T) {
 		t.Fatalf("ListGames() returned nil message")
 	}
 	wantCount := baselineCount + 3
-	if len(resp.Msg.Games) != wantCount {
-		t.Errorf("ListGames() returned %d games, want %d", len(resp.Msg.Games), wantCount)
+	if len(resp.Msg.GetGames()) != wantCount {
+		t.Errorf("ListGames() returned %d games, want %d", len(resp.Msg.GetGames()), wantCount)
 	}
 }
 
@@ -151,27 +151,27 @@ func TestAddGameValidData(t *testing.T) {
 	if errAdd != nil {
 		t.Fatalf("AddGame() error = %v", errAdd)
 	}
-	if resp.Msg == nil || resp.Msg.Game == nil {
+	if resp.Msg == nil || resp.Msg.GetGame() == nil {
 		t.Fatalf("AddGame() returned empty response")
 	}
-	if resp.Msg.Game.Name != "Add Game Valid" {
-		t.Errorf("AddGame().Game.Name = %q, want %q", resp.Msg.Game.Name, "Add Game Valid")
+	if resp.Msg.GetGame().GetName() != "Add Game Valid" {
+		t.Errorf("AddGame().Game.Name = %q, want %q", resp.Msg.GetGame().GetName(), "Add Game Valid")
 	}
-	if resp.Msg.Game.DefaultPort != 25565 {
-		t.Errorf("AddGame().Game.DefaultPort = %d, want %d", resp.Msg.Game.DefaultPort, 25565)
+	if resp.Msg.GetGame().GetDefaultPort() != 25565 {
+		t.Errorf("AddGame().Game.DefaultPort = %d, want %d", resp.Msg.GetGame().GetDefaultPort(), 25565)
 	}
 
 	// Verify game is persisted via GetGame.
 	getReq := connect.NewRequest(&xylona.GetGameRequest{
-		Id: resp.Msg.Game.Id,
+		Id: resp.Msg.GetGame().GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-admin")
 	getResp, errGet := fixture.service.GetGame(context.Background(), getReq)
 	if errGet != nil {
 		t.Fatalf("GetGame() after AddGame error = %v", errGet)
 	}
-	if getResp.Msg.Game.Name != "Add Game Valid" {
-		t.Errorf("GetGame().Game.Name = %q, want %q", getResp.Msg.Game.Name, "Add Game Valid")
+	if getResp.Msg.GetGame().GetName() != "Add Game Valid" {
+		t.Errorf("GetGame().Game.Name = %q, want %q", getResp.Msg.GetGame().GetName(), "Add Game Valid")
 	}
 }
 
@@ -219,11 +219,11 @@ func TestEditGameValidData(t *testing.T) {
 
 	game := addGameForTests(t, fixture, "edit-game", "Edit Game Original")
 
-	updatedGame := newTestGame(game.Id, "Edit Game Updated")
+	updatedGame := newTestGame(game.GetId(), "Edit Game Updated")
 	updatedGame.DefaultPort = 27015
 
 	req := connect.NewRequest(&xylona.EditGameRequest{
-		GameId: game.Id,
+		GameId: game.GetId(),
 		Game:   updatedGame,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
@@ -232,14 +232,14 @@ func TestEditGameValidData(t *testing.T) {
 	if errEdit != nil {
 		t.Fatalf("EditGame() error = %v", errEdit)
 	}
-	if resp.Msg == nil || resp.Msg.Game == nil {
+	if resp.Msg == nil || resp.Msg.GetGame() == nil {
 		t.Fatalf("EditGame() returned empty response")
 	}
-	if resp.Msg.Game.Name != "Edit Game Updated" {
-		t.Errorf("EditGame().Game.Name = %q, want %q", resp.Msg.Game.Name, "Edit Game Updated")
+	if resp.Msg.GetGame().GetName() != "Edit Game Updated" {
+		t.Errorf("EditGame().Game.Name = %q, want %q", resp.Msg.GetGame().GetName(), "Edit Game Updated")
 	}
-	if resp.Msg.Game.DefaultPort != 27015 {
-		t.Errorf("EditGame().Game.DefaultPort = %d, want %d", resp.Msg.Game.DefaultPort, 27015)
+	if resp.Msg.GetGame().GetDefaultPort() != 27015 {
+		t.Errorf("EditGame().Game.DefaultPort = %d, want %d", resp.Msg.GetGame().GetDefaultPort(), 27015)
 	}
 }
 
@@ -248,11 +248,11 @@ func TestEditGameRejectsInvalidStructuredStartArgs(t *testing.T) {
 
 	game := addGameForTests(t, fixture, "edit-game-invalid-start-args", "Edit Game Invalid Start Args")
 
-	updatedGame := newTestGame(game.Id, "Edit Game Invalid Start Args")
+	updatedGame := newTestGame(game.GetId(), "Edit Game Invalid Start Args")
 	updatedGame.LinuxBaseCommand = ""
 
 	req := connect.NewRequest(&xylona.EditGameRequest{
-		GameId: game.Id,
+		GameId: game.GetId(),
 		Game:   updatedGame,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
@@ -315,7 +315,7 @@ func TestRemoveGameValidID(t *testing.T) {
 	game := addGameForTests(t, fixture, "remove-game", "Remove Game")
 
 	req := connect.NewRequest(&xylona.RemoveGameRequest{
-		GameId: game.Id,
+		GameId: game.GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
 
@@ -326,7 +326,7 @@ func TestRemoveGameValidID(t *testing.T) {
 
 	// Verify game is actually deleted.
 	getReq := connect.NewRequest(&xylona.GetGameRequest{
-		Id: game.Id,
+		Id: game.GetId(),
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-admin")
 	_, errGet := fixture.service.GetGame(context.Background(), getReq)

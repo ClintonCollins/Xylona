@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"strings"
@@ -36,7 +37,7 @@ func (c *Connection) GeneratePairingToken(targetURL string) (string, error) {
 	tokenBytes := make([]byte, pairingTokenLength)
 	_, errRead := rand.Read(tokenBytes)
 	if errRead != nil {
-		return "", errRead
+		return "", fmt.Errorf("generate pairing token bytes: %w", errRead)
 	}
 	plaintext := hex.EncodeToString(tokenBytes)
 	tokenHash := hashPairingToken(plaintext)
@@ -53,7 +54,7 @@ func (c *Connection) GeneratePairingToken(targetURL string) (string, error) {
 		expiresAt,
 	).Exec(c.ctx, c.DB)
 	if errExec != nil {
-		return "", errExec
+		return "", fmt.Errorf("store pairing token: %w", errExec)
 	}
 
 	return plaintext, nil
@@ -62,16 +63,16 @@ func (c *Connection) GeneratePairingToken(targetURL string) (string, error) {
 // ValidateAndConsumePairingToken checks the token against stored hashes. It returns the
 // matching row if valid, non-expired, and unused, then marks it as used.
 func (c *Connection) ValidateAndConsumePairingToken(plaintext string) (*FederationPairingToken, error) {
-	return c.validateAndConsumePairingToken(plaintext, "", false)
+	return c.validateAndConsumePairingTokenForExpectedTarget(plaintext, "", false)
 }
 
 // ValidateAndConsumePairingTokenForTarget checks a token and binds it to an expected target URL when present.
 // If the token row contains a target_url, expectedTargetURL must normalize to the same value.
 func (c *Connection) ValidateAndConsumePairingTokenForTarget(plaintext string, expectedTargetURL string) (*FederationPairingToken, error) {
-	return c.validateAndConsumePairingToken(plaintext, expectedTargetURL, true)
+	return c.validateAndConsumePairingTokenForExpectedTarget(plaintext, expectedTargetURL, true)
 }
 
-func (c *Connection) validateAndConsumePairingToken(
+func (c *Connection) validateAndConsumePairingTokenForExpectedTarget(
 	plaintext string,
 	expectedTargetURL string,
 	enforceTargetURL bool,
@@ -84,7 +85,7 @@ func (c *Connection) validateAndConsumePairingToken(
 
 	tx, errBegin := c.SQLDb.BeginTx(c.ctx, nil)
 	if errBegin != nil {
-		return nil, errBegin
+		return nil, fmt.Errorf("begin pairing token validation transaction: %w", errBegin)
 	}
 	defer func() {
 		_ = tx.Rollback()
@@ -109,7 +110,7 @@ func (c *Connection) validateAndConsumePairingToken(
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			return nil, errors.New("invalid pairing token")
 		}
-		return nil, errQuery
+		return nil, fmt.Errorf("query pairing token: %w", errQuery)
 	}
 
 	if token.Used {
@@ -140,12 +141,12 @@ func (c *Connection) validateAndConsumePairingToken(
 		now,
 	)
 	if errMark != nil {
-		return nil, errMark
+		return nil, fmt.Errorf("mark pairing token used: %w", errMark)
 	}
 
 	rowsAffected, errRowsAffected := result.RowsAffected()
 	if errRowsAffected != nil {
-		return nil, errRowsAffected
+		return nil, fmt.Errorf("mark pairing token used rows affected: %w", errRowsAffected)
 	}
 	if rowsAffected != 1 {
 		return nil, errors.New("pairing token is no longer valid")
@@ -153,7 +154,7 @@ func (c *Connection) validateAndConsumePairingToken(
 
 	errCommit := tx.Commit()
 	if errCommit != nil {
-		return nil, errCommit
+		return nil, fmt.Errorf("commit pairing token validation transaction: %w", errCommit)
 	}
 
 	return token, nil
@@ -165,7 +166,10 @@ func (c *Connection) CleanupExpiredPairingTokens() error {
 		`delete from federation_pairing_token
 		 where used = true or expires_at < current_timestamp`,
 	).Exec(c.ctx, c.DB)
-	return errExec
+	if errExec != nil {
+		return fmt.Errorf("cleanup expired pairing tokens: %w", errExec)
+	}
+	return nil
 }
 
 func hashPairingToken(plaintext string) string {

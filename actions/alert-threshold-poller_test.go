@@ -179,12 +179,12 @@ func (f *fakePlayerCountProvider) GetPlayerCount(gameServerID string) int {
 
 // --- Helper constructors ---
 
-func makeCondition(operator string, value float64) null.Val[string] {
+func makeCondition(value float64) null.Val[string] {
 	type cond struct {
 		Operator string  `json:"operator"`
 		Value    float64 `json:"value"`
 	}
-	b, _ := json.Marshal(cond{Operator: operator, Value: value})
+	b, _ := json.Marshal(cond{Operator: ">=", Value: value})
 	return null.From(string(b))
 }
 
@@ -247,7 +247,7 @@ func TestThresholdPollerOKToTriggered(t *testing.T) {
 	stateStore := newFakeAlertStateStore()
 
 	rule := makeRule("rule-cpu-1", "ALERT_EVENT_TYPE_CPU_THRESHOLD",
-		makeCondition(">=", 80), null.From("server-1"))
+		makeCondition(80), null.From("server-1"))
 	ruleStore.addRule(rule)
 
 	serverProv := &fakeServerMetricsProvider{
@@ -310,7 +310,7 @@ func TestThresholdPollerTriggeredToOK(t *testing.T) {
 	stateStore := newFakeAlertStateStore()
 
 	rule := makeRule("rule-mem-1", "ALERT_EVENT_TYPE_MEMORY_THRESHOLD",
-		makeCondition(">=", 70), null.From("server-2"))
+		makeCondition(70), null.From("server-2"))
 	ruleStore.addRule(rule)
 
 	// Pre-seed state as already triggered.
@@ -374,7 +374,7 @@ func TestThresholdPollerNoStateChangeNoEvent(t *testing.T) {
 	stateStore := newFakeAlertStateStore()
 
 	rule := makeRule("rule-cpu-2", "ALERT_EVENT_TYPE_CPU_THRESHOLD",
-		makeCondition(">=", 50), null.From("server-3"))
+		makeCondition(50), null.From("server-3"))
 	ruleStore.addRule(rule)
 
 	// Pre-seed as already triggered.
@@ -427,7 +427,7 @@ func TestThresholdPollerAllServersRule(t *testing.T) {
 
 	// NULL ServerID = all servers.
 	rule := makeRule("rule-all-cpu", "ALERT_EVENT_TYPE_CPU_THRESHOLD",
-		makeCondition(">=", 60), null.Val[string]{})
+		makeCondition(60), null.Val[string]{})
 	ruleStore.addRule(rule)
 
 	serverProv := &fakeServerMetricsProvider{
@@ -486,7 +486,7 @@ func TestThresholdPollerNodeRuleEvaluated(t *testing.T) {
 	stateStore := newFakeAlertStateStore()
 
 	rule := makeRule("rule-node-cpu", "ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD",
-		makeCondition(">=", 50), null.Val[string]{})
+		makeCondition(50), null.Val[string]{})
 	rule.NodeID = null.From("node-x")
 	ruleStore.addRule(rule)
 
@@ -599,7 +599,7 @@ func TestThresholdPollerPlayerCountRule(t *testing.T) {
 	stateStore := newFakeAlertStateStore()
 
 	rule := makeRule("rule-players-1", "ALERT_EVENT_TYPE_PLAYER_COUNT_THRESHOLD",
-		makeCondition(">=", 10), null.From("server-4"))
+		makeCondition(10), null.From("server-4"))
 	ruleStore.addRule(rule)
 
 	serverProv := &fakeServerMetricsProvider{
@@ -651,7 +651,7 @@ func TestThresholdPollerDisabledRuleSkipped(t *testing.T) {
 	stateStore := newFakeAlertStateStore()
 
 	rule := makeRule("rule-disabled", "ALERT_EVENT_TYPE_CPU_THRESHOLD",
-		makeCondition(">=", 1), null.From("server-5"))
+		makeCondition(1), null.From("server-5"))
 	rule.Enabled = 0 // disabled
 	ruleStore.addRule(rule)
 
@@ -697,7 +697,7 @@ func TestThresholdPollerStateCaching(t *testing.T) {
 	stateStore := newFakeAlertStateStore()
 
 	rule := makeRule("rule-cache-test", "ALERT_EVENT_TYPE_CPU_THRESHOLD",
-		makeCondition(">=", 80), null.From("server-cache"))
+		makeCondition(80), null.From("server-cache"))
 	ruleStore.addRule(rule)
 
 	serverProv := &fakeServerMetricsProvider{
@@ -755,7 +755,7 @@ func TestThresholdPollerStateCacheInvalidatedOnRuleRefresh(t *testing.T) {
 	stateStore := newFakeAlertStateStore()
 
 	rule := makeRule("rule-invalidate", "ALERT_EVENT_TYPE_CPU_THRESHOLD",
-		makeCondition(">=", 80), null.From("server-inv"))
+		makeCondition(80), null.From("server-inv"))
 	ruleStore.addRule(rule)
 
 	serverProv := &fakeServerMetricsProvider{

@@ -1,9 +1,12 @@
+// Package modmanager coordinates mod provider downloads, installed-mod state,
+// and filesystem operations for game servers.
 package modmanager
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -50,7 +53,7 @@ func (m *ModManager) Install(
 	}
 
 	targetDir := filepath.Join(serverDir, installPath)
-	errMkdir := os.MkdirAll(targetDir, 0o755)
+	errMkdir := os.MkdirAll(targetDir, 0o750)
 	if errMkdir != nil {
 		return nil, fmt.Errorf("modmanager: create install directory: %w", errMkdir)
 	}
@@ -156,7 +159,7 @@ func (m *ModManager) Install(
 }
 
 // Uninstall removes mod files from disk and deletes DB records.
-func (m *ModManager) Uninstall(ctx context.Context, modID, serverDir string) error {
+func (m *ModManager) Uninstall(_ context.Context, modID, serverDir string) error {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -337,7 +340,6 @@ func (m *ModManager) CheckUpdates(
 	g, gCtx := errgroup.WithContext(ctx)
 
 	for _, mod := range mods {
-		mod := mod
 		g.Go(func() error {
 			provider, ok := modproviders.GetProvider(mod.Source)
 			if !ok {
@@ -346,6 +348,9 @@ func (m *ModManager) CheckUpdates(
 
 			version, errCheck := provider.CheckForUpdate(gCtx, mod.SourceID, gameVersion)
 			if errCheck != nil {
+				if errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
+					return nil
+				}
 				log.Warn().Err(errCheck).
 					Str("mod", mod.ModName).
 					Str("source", mod.Source).
@@ -364,7 +369,7 @@ func (m *ModManager) CheckUpdates(
 
 	errWait := g.Wait()
 	if errWait != nil {
-		return nil, errWait
+		return nil, fmt.Errorf("modmanager: wait for update checks: %w", errWait)
 	}
 
 	return updates, nil
@@ -402,6 +407,9 @@ func (m *ModManager) RunAutoUpdates(
 
 		version, errCheck := provider.CheckForUpdate(ctx, mod.SourceID, gameVersion)
 		if errCheck != nil {
+			if errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
+				continue
+			}
 			log.Warn().Err(errCheck).Str("mod", mod.ModName).Msg("Failed to check for auto-update")
 			statusFn(fmt.Sprintf("Failed to check update for %s: %s", mod.ModName, errCheck.Error()))
 			continue
@@ -427,7 +435,7 @@ func (m *ModManager) RunAutoUpdates(
 }
 
 // Enable moves mod files back from the disabled directory.
-func (m *ModManager) Enable(ctx context.Context, modID, serverDir, installPath string) error {
+func (m *ModManager) Enable(_ context.Context, modID, serverDir, installPath string) error {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -464,7 +472,7 @@ func (m *ModManager) Enable(ctx context.Context, modID, serverDir, installPath s
 }
 
 // Disable moves mod files to a disabled subdirectory.
-func (m *ModManager) Disable(ctx context.Context, modID, serverDir, installPath string) error {
+func (m *ModManager) Disable(_ context.Context, modID, serverDir, installPath string) error {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -476,7 +484,7 @@ func (m *ModManager) Disable(ctx context.Context, modID, serverDir, installPath 
 	}
 
 	disabledDir := filepath.Join(serverDir, installPath, "disabled")
-	errMkdir := os.MkdirAll(disabledDir, 0o755)
+	errMkdir := os.MkdirAll(disabledDir, 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("modmanager: create disabled directory: %w", errMkdir)
 	}
@@ -524,7 +532,6 @@ func (m *ModManager) SearchAll(
 	g, gCtx := errgroup.WithContext(ctx)
 
 	for _, src := range sources {
-		src := src
 		g.Go(func() error {
 			provider, ok := modproviders.GetProvider(src.ID)
 			if !ok {
@@ -534,9 +541,7 @@ func (m *ModManager) SearchAll(
 
 			// Merge well-known keys into a copy of the source's SearchParams.
 			params := make(modproviders.SearchParams, len(src.SearchParams)+5)
-			for k, v := range src.SearchParams {
-				params[k] = v
-			}
+			maps.Copy(params, src.SearchParams)
 			if sortBy != "" {
 				params[modproviders.ParamSortBy] = sortBy
 			}
@@ -573,7 +578,7 @@ func (m *ModManager) SearchAll(
 
 	errWait := g.Wait()
 	if errWait != nil {
-		return nil, 0, errWait
+		return nil, 0, fmt.Errorf("modmanager: wait for provider searches: %w", errWait)
 	}
 	if hasUnknownTotal {
 		return allResults, modproviders.UnknownTotalHits, nil

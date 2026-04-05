@@ -78,7 +78,10 @@ func TestDummyTracker_AfterUpdate_VersionChanges(t *testing.T) {
 	if errCheck != nil {
 		t.Fatalf("unexpected error: %v", errCheck)
 	}
-	if info != nil {
-		t.Error("expected nil UpdateInfo after update (up to date)")
+	if info == nil {
+		t.Fatal("expected non-nil UpdateInfo after update")
+	}
+	if info.UpdateAvailable {
+		t.Error("expected UpdateAvailable to be false after update")
 	}
 }

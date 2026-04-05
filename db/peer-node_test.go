@@ -10,7 +10,7 @@ import (
 func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "peer-node.sqlite")
 
-	_, errInsert := conn.SQLDb.Exec(fmt.Sprintf(`
+	_, errInsert := conn.SQLDb.ExecContext(conn.ctx, fmt.Sprintf(`
 		INSERT INTO node (id, name, host, port, version, protocol_version, capabilities)
 		VALUES ('node-1', 'Custom Remote Name', '', 0, '%s', %d, 'server_list')
 	`, version.SoftwareVersion, version.FederationProtocolVersion))
@@ -29,7 +29,7 @@ func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
 	var gotCapabilities string
 	var gotOS string
 
-	errQuery := conn.SQLDb.QueryRow(`
+	errQuery := conn.SQLDb.QueryRowContext(conn.ctx, `
 		SELECT name, version, protocol_version, capabilities, os
 		FROM node
 		WHERE id = 'node-1'
@@ -58,7 +58,7 @@ func TestUpdateNodeIdentityDoesNotOverwriteName(t *testing.T) {
 func TestGetNodeSyncIntervalSeconds(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "peer-node-sync-interval.sqlite")
 
-	_, errInsert := conn.SQLDb.Exec(`
+	_, errInsert := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO node (id, name, host, port, sync_interval_seconds)
 		VALUES ('node-1', 'Test Node', '', 0, 25)
 	`)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"sync"
@@ -24,7 +25,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (xs *XylonaService) GetNode(ctx context.Context, request *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
+// GetNode returns a node by ID.
+func (xs *XylonaService) GetNode(_ context.Context, request *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -37,7 +39,8 @@ func (xs *XylonaService) GetNode(ctx context.Context, request *connect.Request[x
 	return connect.NewResponse(&xylona.GetNodeResponse{Node: helpers.NodeModelToProto(node)}), nil
 }
 
-func (xs *XylonaService) ListNodes(ctx context.Context, request *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
+// ListNodes returns all configured nodes.
+func (xs *XylonaService) ListNodes(_ context.Context, request *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -54,7 +57,8 @@ func (xs *XylonaService) ListNodes(ctx context.Context, request *connect.Request
 	return connect.NewResponse(resp), nil
 }
 
-func (xs *XylonaService) AddNode(ctx context.Context, request *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
+// AddNode adds a remote node using a pairing token.
+func (xs *XylonaService) AddNode(_ context.Context, request *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -74,11 +78,12 @@ func (xs *XylonaService) AddNode(ctx context.Context, request *connect.Request[x
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("pairing token is required"))
 	}
 
-	return xs.addRemoteNode(ctx, nodeProto.GetName(), baseURL, nodeProto.GetAllowInsecureTls(), pairingToken, "", int(nodeProto.GetPort()))
+	return xs.addRemoteNode(nodeProto.GetName(), baseURL, nodeProto.GetAllowInsecureTls(), pairingToken, "", int(nodeProto.GetPort()))
 }
 
+// GenerateNodePairingObject creates a pairing token and local metadata for node pairing.
 func (xs *XylonaService) GenerateNodePairingObject(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.GenerateNodePairingObjectRequest],
 ) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -130,6 +135,7 @@ func (xs *XylonaService) GenerateNodePairingObject(
 	}), nil
 }
 
+// PairNode performs reciprocal pairing between two panels.
 func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -201,9 +207,7 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 	var reciprocalNode *xylona.Node
 	remoteAddResp, errRemoteAdd := remoteClient.AddNode(remoteCtx, remoteAddRequest)
 	if errRemoteAdd != nil {
-		if connect.CodeOf(errRemoteAdd) == connect.CodeAlreadyExists {
-			remoteAlreadyHadNode = true
-		} else {
+		if connect.CodeOf(errRemoteAdd) != connect.CodeAlreadyExists {
 			log.Warn().
 				Err(errRemoteAdd).
 				Str("remote_base_url", remoteBaseURL).
@@ -211,12 +215,12 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 				Msg("Pairing failed while adding this panel to remote node")
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("failed to add this panel on remote node"))
 		}
+		remoteAlreadyHadNode = true
 	} else {
 		reciprocalNode = remoteAddResp.Msg.GetNode()
 	}
 
 	localAddResp, errLocalAdd := xs.addRemoteNode(
-		ctx,
 		remoteNodeName,
 		remoteBaseURL,
 		remoteAllowInsecureTLS,
@@ -226,13 +230,7 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 	)
 	var localNode *xylona.Node
 	if errLocalAdd != nil {
-		if connect.CodeOf(errLocalAdd) == connect.CodeAlreadyExists {
-			existingRemoteNode, errGetExistingRemoteNode := xs.db.GetRemoteNodeByBaseURL(remoteBaseURL)
-			if errGetExistingRemoteNode != nil {
-				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load existing remote node"))
-			}
-			localNode = helpers.NodeModelToProto(existingRemoteNode)
-		} else {
+		if connect.CodeOf(errLocalAdd) != connect.CodeAlreadyExists {
 			if reciprocalNode != nil && reciprocalNode.GetId() != "" {
 				rollbackCtx, cancelRollback := context.WithTimeout(ctx, federationRequestTimeout)
 				defer cancelRollback()
@@ -249,6 +247,11 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 			}
 			return nil, errLocalAdd
 		}
+		existingRemoteNode, errGetExistingRemoteNode := xs.db.GetRemoteNodeByBaseURL(remoteBaseURL)
+		if errGetExistingRemoteNode != nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load existing remote node"))
+		}
+		localNode = helpers.NodeModelToProto(existingRemoteNode)
 	} else {
 		localNode = localAddResp.Msg.GetNode()
 	}
@@ -268,7 +271,6 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 }
 
 func (xs *XylonaService) addRemoteNode(
-	ctx context.Context,
 	name string,
 	baseURL string,
 	allowInsecureTLS bool,
@@ -307,7 +309,7 @@ func (xs *XylonaService) addRemoteNode(
 	}
 
 	// Use the pairing token to authenticate with the remote peer and exchange fingerprints.
-	pairingResp, remoteFingerprint, errPairing := ProbePeerAndCompletePairing(
+	pairingResp, remoteFingerprint, errPairing := probePeerAndCompletePairing(
 		xs.federationMTLS,
 		normalizedBaseURL,
 		pairingToken,
@@ -414,7 +416,7 @@ func (xs *XylonaService) addRemoteNode(
 			Name:            node.Name,
 			BaseUrl:         node.BaseURL,
 			CertFingerprint: remoteFingerprint,
-			FederationPort:  int32(node.Port),
+			FederationPort:  helpers.ClampInt32FromInt64(node.Port),
 		}
 
 		// Notify existing peers about the new node.
@@ -445,7 +447,7 @@ func (xs *XylonaService) resolveLocalPairingBaseURL(preferredBaseURL string) (st
 		if errors.Is(errSettings, sql.ErrNoRows) {
 			return "", nil
 		}
-		return "", errSettings
+		return "", fmt.Errorf("rpc: load local settings for pairing base URL: %w", errSettings)
 	}
 
 	localNode, errLocalNode := xs.db.GetNodeByID(localSettings.NodeID)
@@ -453,7 +455,7 @@ func (xs *XylonaService) resolveLocalPairingBaseURL(preferredBaseURL string) (st
 		if errors.Is(errLocalNode, sql.ErrNoRows) {
 			return "", nil
 		}
-		return "", errLocalNode
+		return "", fmt.Errorf("rpc: load local node for pairing base URL: %w", errLocalNode)
 	}
 
 	baseURL := strings.TrimSpace(localNode.BaseURL)
@@ -463,7 +465,8 @@ func (xs *XylonaService) resolveLocalPairingBaseURL(preferredBaseURL string) (st
 	return normalizeBaseURL(baseURL)
 }
 
-func (xs *XylonaService) RemoveNode(ctx context.Context, request *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
+// RemoveNode removes a configured node and its cached data.
+func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -503,7 +506,7 @@ func (xs *XylonaService) RemoveNode(ctx context.Context, request *connect.Reques
 				Name:            node.Name,
 				BaseUrl:         node.BaseURL,
 				CertFingerprint: fingerprint,
-				FederationPort:  int32(node.Port),
+				FederationPort:  helpers.ClampInt32FromInt64(node.Port),
 			},
 			localSettings.NodeID,
 			localName,
@@ -531,7 +534,8 @@ func (xs *XylonaService) RemoveNode(ctx context.Context, request *connect.Reques
 	return connect.NewResponse(&xylona.RemoveNodeResponse{}), nil
 }
 
-func (xs *XylonaService) EditNode(ctx context.Context, request *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
+// EditNode updates a configured node.
+func (xs *XylonaService) EditNode(_ context.Context, request *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -550,7 +554,8 @@ func (xs *XylonaService) EditNode(ctx context.Context, request *connect.Request[
 	return connect.NewResponse(&xylona.EditNodeResponse{Node: helpers.NodeModelToProto(node)}), nil
 }
 
-func (xs *XylonaService) SyncNode(ctx context.Context, request *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
+// SyncNode triggers an immediate sync for a remote node.
+func (xs *XylonaService) SyncNode(_ context.Context, request *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -577,6 +582,7 @@ func (xs *XylonaService) SyncNode(ctx context.Context, request *connect.Request[
 	}), nil
 }
 
+// ListAggregatedGameServers lists local and remote servers visible to the caller.
 func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -703,7 +709,7 @@ func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request 
 			if summary == nil {
 				continue
 			}
-			compositeKey := summary.SourceNodeId + "/" + summary.RemoteServerId
+			compositeKey := summary.GetSourceNodeId() + "/" + summary.GetRemoteServerId()
 			if _, duplicate := seenRemote[compositeKey]; duplicate {
 				continue
 			}
@@ -766,37 +772,37 @@ func (xs *XylonaService) fetchRemoteNodeSummaries(ctx context.Context, node *mod
 
 	resp, errList := client.ListServerSummaries(remoteCtx, req)
 	if errList != nil {
-		return nil, errList
+		return nil, fmt.Errorf("rpc: list remote server summaries: %w", errList)
 	}
 
 	lastSyncedAt := timestamppb.New(time.Now())
-	summaries := make([]*xylona.RemoteServerSummary, 0, len(resp.Msg.Servers))
-	for _, server := range resp.Msg.Servers {
+	summaries := make([]*xylona.RemoteServerSummary, 0, len(resp.Msg.GetServers()))
+	for _, server := range resp.Msg.GetServers() {
 		if server == nil {
 			continue
 		}
 		summaries = append(summaries, &xylona.RemoteServerSummary{
-			Id:               node.ID + "/" + server.ServerId,
+			Id:               node.ID + "/" + server.GetServerId(),
 			SourceNodeId:     node.ID,
 			NodeId:           node.ID,
-			RemoteServerId:   server.ServerId,
-			DisplayName:      server.DisplayName,
-			Status:           server.Status,
-			GameName:         server.GameName,
-			GameId:           server.GameId,
-			IpAddress:        server.IpAddress,
-			Port:             server.Port,
-			QueryPort:        server.QueryPort,
-			MaxPlayers:       server.MaxPlayers,
-			CurrentPlayers:   server.CurrentPlayers,
-			MapName:          server.MapName,
-			Version:          server.Version,
+			RemoteServerId:   server.GetServerId(),
+			DisplayName:      server.GetDisplayName(),
+			Status:           server.GetStatus(),
+			GameName:         server.GetGameName(),
+			GameId:           server.GetGameId(),
+			IpAddress:        server.GetIpAddress(),
+			Port:             server.GetPort(),
+			QueryPort:        server.GetQueryPort(),
+			MaxPlayers:       server.GetMaxPlayers(),
+			CurrentPlayers:   server.GetCurrentPlayers(),
+			MapName:          server.GetMapName(),
+			Version:          server.GetVersion(),
 			NodeName:         node.Name,
 			NodeHost:         node.BaseURL,
-			LastRemoteUpdate: server.UpdatedAt,
+			LastRemoteUpdate: server.GetUpdatedAt(),
 			LastSyncedAt:     lastSyncedAt,
 			IsStale:          false,
-			VersionInfo:      server.VersionInfo,
+			VersionInfo:      server.GetVersionInfo(),
 		})
 	}
 
@@ -814,52 +820,52 @@ func (xs *XylonaService) syncRemoteServerCacheSummaries(node *models.Node, summa
 			log.Warn().
 				Err(errID).
 				Str("node_id", node.ID).
-				Str("remote_server_id", summary.RemoteServerId).
+				Str("remote_server_id", summary.GetRemoteServerId()).
 				Msg("Failed to generate remote cache ID while syncing remote summaries")
 			continue
 		}
 
-		sourceNodeID := strings.TrimSpace(summary.SourceNodeId)
+		sourceNodeID := strings.TrimSpace(summary.GetSourceNodeId())
 		if sourceNodeID == "" {
 			sourceNodeID = node.ID
 		}
 
-		cacheNodeID := strings.TrimSpace(summary.NodeId)
+		cacheNodeID := strings.TrimSpace(summary.GetNodeId())
 		if cacheNodeID == "" {
 			cacheNodeID = node.ID
 		}
 
-		nodeName := strings.TrimSpace(summary.NodeName)
+		nodeName := strings.TrimSpace(summary.GetNodeName())
 		if nodeName == "" {
 			nodeName = node.Name
 		}
 
-		nodeHost := strings.TrimSpace(summary.NodeHost)
+		nodeHost := strings.TrimSpace(summary.GetNodeHost())
 		if nodeHost == "" {
 			nodeHost = node.BaseURL
 		}
 
 		lastRemoteUpdate := time.Now()
-		if summary.LastRemoteUpdate != nil && !summary.LastRemoteUpdate.AsTime().IsZero() {
-			lastRemoteUpdate = summary.LastRemoteUpdate.AsTime()
+		if summary.GetLastRemoteUpdate() != nil && !summary.GetLastRemoteUpdate().AsTime().IsZero() {
+			lastRemoteUpdate = summary.GetLastRemoteUpdate().AsTime()
 		}
 
 		errUpsertCache := xs.db.UpsertRemoteServerCache(
 			newID.String(),
 			sourceNodeID,
 			cacheNodeID,
-			summary.RemoteServerId,
-			summary.DisplayName,
-			summary.Status.String(),
-			summary.GameName,
-			summary.GameId,
-			summary.IpAddress,
-			int32(summary.Port),
-			int32(summary.QueryPort),
-			int32(summary.MaxPlayers),
-			int32(summary.CurrentPlayers),
-			summary.MapName,
-			summary.Version,
+			summary.GetRemoteServerId(),
+			summary.GetDisplayName(),
+			summary.GetStatus().String(),
+			summary.GetGameName(),
+			summary.GetGameId(),
+			summary.GetIpAddress(),
+			helpers.ClampInt32FromInt64(summary.GetPort()),
+			helpers.ClampInt32FromInt64(summary.GetQueryPort()),
+			helpers.ClampInt32FromInt64(summary.GetMaxPlayers()),
+			helpers.ClampInt32FromInt64(summary.GetCurrentPlayers()),
+			summary.GetMapName(),
+			summary.GetVersion(),
 			nodeName,
 			nodeHost,
 			lastRemoteUpdate,
@@ -868,12 +874,13 @@ func (xs *XylonaService) syncRemoteServerCacheSummaries(node *models.Node, summa
 			log.Warn().
 				Err(errUpsertCache).
 				Str("node_id", node.ID).
-				Str("remote_server_id", summary.RemoteServerId).
+				Str("remote_server_id", summary.GetRemoteServerId()).
 				Msg("Failed to upsert remote server cache from live remote summary")
 		}
 	}
 }
 
+// VerifyNode verifies a node secret key and returns the local node identity.
 func (xs *XylonaService) VerifyNode(ctx context.Context, request *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {
 	secretKey := request.Msg.GetSecretKey()
 	secretKeyHash, err := xycrypt.GenerateHashFromString(secretKey, xycrypt.DefaultHashParameters)
@@ -900,7 +907,8 @@ func (xs *XylonaService) VerifyNode(ctx context.Context, request *connect.Reques
 	}), nil
 }
 
-func (xs *XylonaService) ListLocalSecretKeys(ctx context.Context, request *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
+// ListLocalSecretKeys lists locally managed secret keys.
+func (xs *XylonaService) ListLocalSecretKeys(_ context.Context, request *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -926,7 +934,8 @@ func (xs *XylonaService) ListLocalSecretKeys(ctx context.Context, request *conne
 	return connect.NewResponse(resp), nil
 }
 
-func (xs *XylonaService) CreateLocalSecretKey(ctx context.Context, request *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
+// CreateLocalSecretKey creates a new local secret key.
+func (xs *XylonaService) CreateLocalSecretKey(_ context.Context, request *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -934,7 +943,7 @@ func (xs *XylonaService) CreateLocalSecretKey(ctx context.Context, request *conn
 	if !user.SuperUser {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
 	}
-	localSecretKey, key, errCreateSecretKey := xs.createLocalSecretKey(request.Msg.GetName())
+	localSecretKey, key, errCreateSecretKey := xs.buildLocalSecretKey(request.Msg.GetName())
 	if errCreateSecretKey != nil {
 		log.Error().Err(errCreateSecretKey).Msg("Unable to create local secret key.")
 		return nil, connect.NewError(connect.CodeInternal, errCreateSecretKey)
@@ -953,7 +962,8 @@ func (xs *XylonaService) CreateLocalSecretKey(ctx context.Context, request *conn
 	return connect.NewResponse(resp), nil
 }
 
-func (xs *XylonaService) DeleteLocalSecretKey(ctx context.Context, request *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error) {
+// DeleteLocalSecretKey deletes a local secret key.
+func (xs *XylonaService) DeleteLocalSecretKey(_ context.Context, request *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -1001,15 +1011,15 @@ func normalizeFederationPort(rawPort int64) (int, error) {
 	return int(rawPort), nil
 }
 
-func (xs *XylonaService) createLocalSecretKey(name string) (*models.LocalSecretKey, string, error) {
+func (xs *XylonaService) buildLocalSecretKey(name string) (*models.LocalSecretKey, string, error) {
 	key, errGenerateKey := helpers.GenerateRandomString(64)
 	if errGenerateKey != nil {
-		return nil, "", errGenerateKey
+		return nil, "", fmt.Errorf("rpc: generate local secret key: %w", errGenerateKey)
 	}
 
 	secretKeyHash, errHashSecret := xycrypt.GenerateHashFromString(key, xycrypt.DefaultHashParameters)
 	if errHashSecret != nil {
-		return nil, "", errHashSecret
+		return nil, "", fmt.Errorf("rpc: hash local secret key: %w", errHashSecret)
 	}
 
 	now := time.Now()
@@ -1023,7 +1033,7 @@ func (xs *XylonaService) createLocalSecretKey(name string) (*models.LocalSecretK
 
 	localSecretKey, errInsertKey := xs.db.InsertSecretKey(newKeySetter)
 	if errInsertKey != nil {
-		return nil, "", errInsertKey
+		return nil, "", fmt.Errorf("rpc: insert local secret key: %w", errInsertKey)
 	}
 
 	return localSecretKey, key, nil

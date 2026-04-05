@@ -56,7 +56,8 @@ func newSyncEngineTestDB(t *testing.T) *db.Connection {
 func insertRemoteNode(t *testing.T, conn *db.Connection, id string, name string) {
 	t.Helper()
 
-	_, errInsert := conn.SQLDb.Exec(
+	_, errInsert := conn.SQLDb.ExecContext(
+		context.Background(),
 		`INSERT INTO node (id, name, is_local, host, port) VALUES (?, ?, 0, '', 0)`,
 		id, name,
 	)
@@ -70,7 +71,8 @@ func insertRemoteServerCache(t *testing.T, conn *db.Connection, id, sourceNodeID
 	t.Helper()
 
 	now := time.Now()
-	_, errInsert := conn.SQLDb.Exec(
+	_, errInsert := conn.SQLDb.ExecContext(
+		context.Background(),
 		`INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		id, sourceNodeID, nodeID, remoteServerID, status, now, now,
@@ -91,7 +93,6 @@ func TestHandleSnapshot_UpsertsServers(t *testing.T) {
 
 	engine := &FederationSyncEngine{
 		ctx:       ctx,
-		cancel:    cancel,
 		db:        conn,
 		peerStops: make(map[string]context.CancelFunc),
 	}
@@ -138,7 +139,8 @@ func TestHandleSnapshot_UpsertsServers(t *testing.T) {
 	engine.handleSnapshot(node, snapshot)
 
 	// Query the remote_server_cache table and verify both servers are present.
-	rows, errRows := conn.SQLDb.Query(
+	rows, errRows := conn.SQLDb.QueryContext(
+		context.Background(),
 		`SELECT remote_server_id, display_name, status, game_name FROM remote_server_cache ORDER BY remote_server_id`,
 	)
 	if errRows != nil {
@@ -216,7 +218,6 @@ func TestHandleStatusChange_UpdatesCacheAndBroadcasts(t *testing.T) {
 
 	engine := &FederationSyncEngine{
 		ctx:               ctx,
-		cancel:            cancel,
 		db:                conn,
 		peerStops:         make(map[string]context.CancelFunc),
 		statusBroadcaster: broadcaster,
@@ -236,7 +237,8 @@ func TestHandleStatusChange_UpdatesCacheAndBroadcasts(t *testing.T) {
 
 	// Verify the DB cache was updated.
 	var updatedStatus string
-	errScan := conn.SQLDb.QueryRow(
+	errScan := conn.SQLDb.QueryRowContext(
+		context.Background(),
 		`SELECT status FROM remote_server_cache WHERE source_node_id = ? AND remote_server_id = ?`,
 		"remote-node-1", "server-aaa",
 	).Scan(&updatedStatus)
@@ -269,7 +271,6 @@ func TestHandleMetricsUpdate_CallsBroadcaster(t *testing.T) {
 
 	engine := &FederationSyncEngine{
 		ctx:                ctx,
-		cancel:             cancel,
 		peerStops:          make(map[string]context.CancelFunc),
 		metricsBroadcaster: broadcaster,
 	}
@@ -296,10 +297,10 @@ func TestHandleMetricsUpdate_CallsBroadcaster(t *testing.T) {
 	if broadcaster.calls[0].metrics == nil {
 		t.Fatalf("broadcast metrics is nil, want non-nil")
 	}
-	if broadcaster.calls[0].metrics.CpuPercent != 45.2 {
-		t.Errorf("broadcast CpuPercent = %f, want %f", broadcaster.calls[0].metrics.CpuPercent, 45.2)
+	if broadcaster.calls[0].metrics.GetCpuPercent() != 45.2 {
+		t.Errorf("broadcast CpuPercent = %f, want %f", broadcaster.calls[0].metrics.GetCpuPercent(), 45.2)
 	}
-	if broadcaster.calls[0].metrics.MemoryBytes != 1024*1024*512 {
-		t.Errorf("broadcast MemoryBytes = %d, want %d", broadcaster.calls[0].metrics.MemoryBytes, 1024*1024*512)
+	if broadcaster.calls[0].metrics.GetMemoryBytes() != 1024*1024*512 {
+		t.Errorf("broadcast MemoryBytes = %d, want %d", broadcaster.calls[0].metrics.GetMemoryBytes(), 1024*1024*512)
 	}
 }

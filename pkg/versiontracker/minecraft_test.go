@@ -456,8 +456,11 @@ func TestMinecraftTracker_CheckForUpdate_UpToDate(t *testing.T) {
 	if errCheck != nil {
 		t.Fatalf("unexpected error: %v", errCheck)
 	}
-	if info != nil {
-		t.Errorf("expected nil UpdateInfo (up to date), got %+v", info)
+	if info == nil {
+		t.Fatal("expected non-nil UpdateInfo")
+	}
+	if info.UpdateAvailable {
+		t.Errorf("expected UpdateAvailable = false for up-to-date server, got %+v", info)
 	}
 }
 
@@ -479,8 +482,11 @@ func TestMinecraftTracker_CheckForUpdate_NoJarFallsBackToDBVersion(t *testing.T)
 	if errCheck != nil {
 		t.Fatalf("unexpected error: %v", errCheck)
 	}
-	if info != nil {
-		t.Fatalf("expected nil UpdateInfo after trimming, got %+v", info)
+	if info == nil {
+		t.Fatal("expected non-nil UpdateInfo")
+	}
+	if info.UpdateAvailable {
+		t.Fatalf("expected UpdateAvailable = false after trimming, got %+v", info)
 	}
 }
 
@@ -501,8 +507,11 @@ func TestMinecraftTracker_CheckForUpdate_EmptyInstalled(t *testing.T) {
 	if errCheck != nil {
 		t.Fatalf("unexpected error: %v", errCheck)
 	}
-	if info != nil {
-		t.Errorf("expected nil UpdateInfo (can't determine), got %+v", info)
+	if info == nil {
+		t.Fatal("expected non-nil UpdateInfo")
+	}
+	if info.UpdateAvailable {
+		t.Errorf("expected UpdateAvailable = false when installed version is unknown, got %+v", info)
 	}
 }
 
@@ -523,7 +532,10 @@ func TestMinecraftTracker_CheckForUpdate_EmptyLatest(t *testing.T) {
 	if errCheck != nil {
 		t.Fatalf("unexpected error: %v", errCheck)
 	}
-	if info != nil {
-		t.Errorf("expected nil UpdateInfo (can't determine latest), got %+v", info)
+	if info == nil {
+		t.Fatal("expected non-nil UpdateInfo")
+	}
+	if info.UpdateAvailable {
+		t.Errorf("expected UpdateAvailable = false when latest version is unknown, got %+v", info)
 	}
 }

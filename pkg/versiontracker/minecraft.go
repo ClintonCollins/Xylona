@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -215,19 +216,19 @@ func ReadMinecraftJarVersion(dir string, executable string) (string, error) {
 
 	var lastErr error
 	for _, candidate := range candidates {
-		version, errRead := readMinecraftJarVersion(filepath.Join(dir, candidate))
+		version, errRead := readMinecraftJarVersionFile(filepath.Join(dir, candidate))
 		if errRead == nil {
 			return version, nil
 		}
 		lastErr = errRead
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("no minecraft jar candidates found")
+		lastErr = errors.New("no minecraft jar candidates found")
 	}
 	return "", lastErr
 }
 
-func readMinecraftJarVersion(jarPath string) (string, error) {
+func readMinecraftJarVersionFile(jarPath string) (string, error) {
 	zr, errOpen := zip.OpenReader(jarPath)
 	if errOpen != nil {
 		return "", fmt.Errorf("open jar: %w", errOpen)
@@ -247,21 +248,19 @@ func readMinecraftJarVersion(jarPath string) (string, error) {
 		if errFile != nil {
 			return "", fmt.Errorf("open version.json: %w", errFile)
 		}
-		defer func() {
-			errClose := rc.Close()
-			if errClose != nil {
-				log.Warn().Err(errClose).Msg("failed to close version.json reader")
-			}
-		}()
 
 		var ver minecraftVersionJSON
 		errDecode := json.NewDecoder(rc).Decode(&ver)
+		errClose := rc.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("failed to close version.json reader")
+		}
 		if errDecode != nil {
 			return "", fmt.Errorf("decode version.json: %w", errDecode)
 		}
 		return ver.Name, nil
 	}
-	return "", fmt.Errorf("version.json not found in jar")
+	return "", errors.New("version.json not found in jar")
 }
 
 // GetLatestVersion queries the PaperMC API and returns the most recent version available
@@ -503,7 +502,6 @@ func (m *MinecraftTracker) getLatestPaperBuildVersion(ctx context.Context, proje
 }
 
 // CheckForUpdate compares the installed version against the latest available version.
-// Returns nil if either version cannot be determined, or if the server is already up to date.
 func (m *MinecraftTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer) (*UpdateInfo, error) {
 	installed, errInstalled := m.GetInstalledVersion(ctx, gs)
 	if errInstalled != nil {
@@ -515,16 +513,10 @@ func (m *MinecraftTracker) CheckForUpdate(ctx context.Context, gs *models.GameSe
 	}
 	installed = normalizeVersion(installed)
 	latest = normalizeVersion(latest)
-	if installed == "" || latest == "" {
-		return nil, nil
-	}
-	if versionsEqual(installed, latest) {
-		return nil, nil
-	}
 	return &UpdateInfo{
 		InstalledVersion:      installed,
 		LatestVersion:         latest,
-		UpdateAvailable:       true,
+		UpdateAvailable:       installed != "" && latest != "" && !versionsEqual(installed, latest),
 		InstalledVersionLabel: displayMinecraftVersion(m.resolvedProviderKind(gs), m.resolvedTarget(gs), installed),
 		LatestVersionLabel:    displayMinecraftVersion(m.resolvedProviderKind(gs), m.resolvedTarget(gs), latest),
 	}, nil

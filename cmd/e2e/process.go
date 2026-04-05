@@ -42,7 +42,7 @@ func startNode(name, workDir, logDir, xylonaExe string, httpPort, fedPort int, e
 		return nil, errJWT
 	}
 
-	cmd := exec.Command(xylonaExe) //nolint:noctx
+	cmd := exec.Command(xylonaExe) //nolint:noctx // the test server process intentionally outlives the caller context until teardown.
 	cmd.Dir = workDir
 	baseEnv := []string{
 		"DB_FILE_PATH=" + filepath.Join(workDir, "data.sqlite"),
@@ -110,7 +110,8 @@ func killByPIDFile(pidFile, label string) {
 	log.Info().Msgf("[Teardown] Killing %s (PID %d)...", label, pid)
 
 	if runtime.GOOS == "windows" {
-		killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T") //nolint:noctx
+		//nolint:gosec,noctx // PID is parsed as a positive integer from our own pid file; taskkill has no context-aware API on Windows.
+		killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T")
 		errKill := killCmd.Run()
 		if errKill != nil {
 			proc, errFind := os.FindProcess(pid)
@@ -137,7 +138,7 @@ func waitForReady(ctx context.Context, url string, timeout time.Duration) error 
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("wait for ready cancelled: %w", ctx.Err())
 		default:
 		}
 

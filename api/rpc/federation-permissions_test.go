@@ -201,11 +201,11 @@ func TestListServerSummariesFiltersByFederatedViewPermission(t *testing.T) {
 		t.Fatalf("ListServerSummaries() error = %v", errList)
 	}
 
-	if len(response.Msg.Servers) != 1 {
-		t.Fatalf("len(response.Msg.Servers) = %d, want 1", len(response.Msg.Servers))
+	if len(response.Msg.GetServers()) != 1 {
+		t.Fatalf("len(response.Msg.Servers) = %d, want 1", len(response.Msg.GetServers()))
 	}
-	if response.Msg.Servers[0].ServerId != "server-local-1" {
-		t.Fatalf("response.Msg.Servers[0].ServerId = %q, want %q", response.Msg.Servers[0].ServerId, "server-local-1")
+	if response.Msg.GetServers()[0].GetServerId() != "server-local-1" {
+		t.Fatalf("response.Msg.Servers[0].ServerId = %q, want %q", response.Msg.GetServers()[0].GetServerId(), "server-local-1")
 	}
 
 	requestNoActingIdentity := connect.NewRequest(&xylona.FederationListServerSummariesRequest{})
@@ -213,8 +213,8 @@ func TestListServerSummariesFiltersByFederatedViewPermission(t *testing.T) {
 	if errNoIdentity != nil {
 		t.Fatalf("ListServerSummaries(no identity) error = %v", errNoIdentity)
 	}
-	if len(responseNoIdentity.Msg.Servers) != 2 {
-		t.Fatalf("len(responseNoIdentity.Msg.Servers) = %d, want 2", len(responseNoIdentity.Msg.Servers))
+	if len(responseNoIdentity.Msg.GetServers()) != 2 {
+		t.Fatalf("len(responseNoIdentity.Msg.Servers) = %d, want 2", len(responseNoIdentity.Msg.GetServers()))
 	}
 
 	requestSuper := connect.NewRequest(&xylona.FederationListServerSummariesRequest{})
@@ -225,8 +225,8 @@ func TestListServerSummariesFiltersByFederatedViewPermission(t *testing.T) {
 	if errSuper != nil {
 		t.Fatalf("ListServerSummaries(super) error = %v", errSuper)
 	}
-	if len(responseSuper.Msg.Servers) != 2 {
-		t.Fatalf("len(responseSuper.Msg.Servers) = %d, want 2", len(responseSuper.Msg.Servers))
+	if len(responseSuper.Msg.GetServers()) != 2 {
+		t.Fatalf("len(responseSuper.Msg.Servers) = %d, want 2", len(responseSuper.Msg.GetServers()))
 	}
 }
 
@@ -262,11 +262,11 @@ func TestListServerSummariesTreatsPersistedOnlineAsOfflineWhenCommandMissing(t *
 	if errList != nil {
 		t.Fatalf("ListServerSummaries() error = %v", errList)
 	}
-	if len(response.Msg.Servers) != 1 {
-		t.Fatalf("len(response.Msg.Servers) = %d, want 1", len(response.Msg.Servers))
+	if len(response.Msg.GetServers()) != 1 {
+		t.Fatalf("len(response.Msg.Servers) = %d, want 1", len(response.Msg.GetServers()))
 	}
-	if response.Msg.Servers[0].Status != xylona.Status_OFFLINE {
-		t.Fatalf("response.Msg.Servers[0].Status = %v, want %v", response.Msg.Servers[0].Status, xylona.Status_OFFLINE)
+	if response.Msg.GetServers()[0].GetStatus() != xylona.Status_OFFLINE {
+		t.Fatalf("response.Msg.Servers[0].Status = %v, want %v", response.Msg.GetServers()[0].GetStatus(), xylona.Status_OFFLINE)
 	}
 }
 
@@ -321,10 +321,10 @@ func TestGetServerDetailTreatsPersistedOnlineAsOfflineWhenCommandMissing(t *test
 	if errDetail != nil {
 		t.Fatalf("GetServerDetail() error = %v", errDetail)
 	}
-	if response.Msg == nil || response.Msg.Server == nil {
+	if response.Msg == nil || response.Msg.GetServer() == nil {
 		t.Fatalf("GetServerDetail() returned empty server")
 	}
-	if response.Msg.Server.Status != xylona.Status_OFFLINE {
-		t.Fatalf("response.Msg.Server.Status = %v, want %v", response.Msg.Server.Status, xylona.Status_OFFLINE)
+	if response.Msg.GetServer().GetStatus() != xylona.Status_OFFLINE {
+		t.Fatalf("response.Msg.Server.Status = %v, want %v", response.Msg.GetServer().GetStatus(), xylona.Status_OFFLINE)
 	}
 }

@@ -199,14 +199,14 @@ func TestListIPsReturnsAllIPs(t *testing.T) {
 		t.Fatalf("ListIPs() error = %v", errListIPs)
 	}
 
-	if len(listResponse.Msg.Ips) < 2 {
-		t.Fatalf("ListIPs() returned %d IPs, want at least 2", len(listResponse.Msg.Ips))
+	if len(listResponse.Msg.GetIps()) < 2 {
+		t.Fatalf("ListIPs() returned %d IPs, want at least 2", len(listResponse.Msg.GetIps()))
 	}
 
 	foundSeeded := false
 	foundAdded := false
-	for _, ip := range listResponse.Msg.Ips {
-		switch ip.Address {
+	for _, ip := range listResponse.Msg.GetIps() {
+		switch ip.GetAddress() {
 		case "127.0.0.1":
 			foundSeeded = true
 		case "10.10.10.10":

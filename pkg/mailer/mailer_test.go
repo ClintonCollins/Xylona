@@ -681,7 +681,7 @@ func TestSendTestEmail_CallsSendFuncWithTestContent(t *testing.T) {
 	}
 
 	cfg := testSMTPConfig()
-	errSend := sendTestEmail(context.Background(), cfg, "recipient@example.com", fakeSend)
+	errSend := sendTestEmailWithSender(context.Background(), cfg, "recipient@example.com", fakeSend)
 	if errSend != nil {
 		t.Fatalf("sendTestEmail() error = %v", errSend)
 	}
@@ -707,7 +707,7 @@ func TestSendTestEmail_PropagatesSendError(t *testing.T) {
 	}
 
 	cfg := testSMTPConfig()
-	errSend := sendTestEmail(context.Background(), cfg, "recipient@example.com", fakeSend)
+	errSend := sendTestEmailWithSender(context.Background(), cfg, "recipient@example.com", fakeSend)
 	if errSend == nil {
 		t.Fatal("sendTestEmail() expected error, got nil")
 	}
@@ -721,7 +721,7 @@ func TestSendTestEmail_NilConfigReturnsError(t *testing.T) {
 		return nil
 	}
 
-	errSend := sendTestEmail(context.Background(), nil, "recipient@example.com", fakeSend)
+	errSend := sendTestEmailWithSender(context.Background(), nil, "recipient@example.com", fakeSend)
 	if errSend == nil {
 		t.Fatal("sendTestEmail(nil config) expected error, got nil")
 	}

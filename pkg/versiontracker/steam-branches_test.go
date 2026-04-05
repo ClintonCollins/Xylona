@@ -15,7 +15,7 @@ import (
 
 func TestSteamTracker_CheckForUpdate_UsesPreferredSteamBranchMetadata(t *testing.T) {
 	fixture := mustReadSteamTrackerFixture(t, "steamcmd-294420.json")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(fixture)
 	}))
 	defer server.Close()
@@ -81,7 +81,7 @@ func TestSteamTracker_CheckForUpdate_FallsBackToRawBuildIDsWhenBranchMetadataUna
 }
 `)
 
-	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"response":{"success":true,"required_version":22000000}}`))
 	}))
 	defer apiServer.Close()

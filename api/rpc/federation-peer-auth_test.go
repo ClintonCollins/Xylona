@@ -1,7 +1,9 @@
 package rpc
 
 import (
+	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -27,7 +29,7 @@ func TestFederationPeerAuthMiddlewareAcceptsTrustedPeer(t *testing.T) {
 		t.Fatalf("failed to insert remote node row: %v", errInsertNode)
 	}
 
-	_, errInsertTrust := conn.SQLDb.Exec(`
+	_, errInsertTrust := conn.SQLDb.ExecContext(context.Background(), `
 		insert into federation_trusted_peer (node_id, peer_node_id, peer_fingerprint, enabled, revoked)
 		values (?, ?, ?, 1, 0)
 	`, "remote-node-row", "peer-node-id", clientFingerprint)
@@ -70,7 +72,11 @@ func TestFederationPeerAuthMiddlewareAcceptsTrustedPeer(t *testing.T) {
 			},
 		},
 	}
-	resp, errGet := httpClient.Get(testServer.URL)
+	req, errReq := http.NewRequestWithContext(context.Background(), http.MethodGet, testServer.URL, nil)
+	if errReq != nil {
+		t.Fatalf("http.NewRequestWithContext() error = %v", errReq)
+	}
+	resp, errGet := httpClient.Do(req)
 	if errGet != nil {
 		t.Fatalf("GET trusted peer request error = %v", errGet)
 	}
@@ -96,7 +102,7 @@ func TestFederationPeerAuthMiddlewareRejectsUnknownPeer(t *testing.T) {
 	clientCertificate := loadTLSCertificate(t, filepath.Join(t.TempDir(), "client.crt"), filepath.Join(t.TempDir(), "client.key"), "peer-node-id")
 	serverCertificate := loadTLSCertificate(t, filepath.Join(t.TempDir(), "server.crt"), filepath.Join(t.TempDir(), "server.key"), "server-node-id")
 
-	handler := FederationPeerAuthMiddleware(conn)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := FederationPeerAuthMiddleware(conn)(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Fatalf("handler should not be invoked for unknown peer certificate")
 	}))
 
@@ -118,7 +124,11 @@ func TestFederationPeerAuthMiddlewareRejectsUnknownPeer(t *testing.T) {
 			},
 		},
 	}
-	resp, errGet := httpClient.Get(testServer.URL)
+	req, errReq := http.NewRequestWithContext(context.Background(), http.MethodGet, testServer.URL, nil)
+	if errReq != nil {
+		t.Fatalf("http.NewRequestWithContext() error = %v", errReq)
+	}
+	resp, errGet := httpClient.Do(req)
 	if errGet != nil {
 		t.Fatalf("GET unknown peer request error = %v", errGet)
 	}
@@ -141,12 +151,15 @@ func newFederationAuthTestConnection(t *testing.T) *db.Connection {
 func insertRemoteNodeForFederationAuth(t *testing.T, conn *db.Connection, nodeID string) error {
 	t.Helper()
 
-	_, errInsert := conn.SQLDb.Exec(`
+	_, errInsert := conn.SQLDb.ExecContext(context.Background(), `
 		insert into node (
 			id, name, is_local, host, port, base_url, enabled, health_status, last_sync_status, version, protocol_version, capabilities, sync_interval_seconds, allow_insecure_tls
 		) values (?, 'Remote Node', 0, '', 0, 'https://node.example.com', 1, 'healthy', '', '', 0, '', 60, 0)
 	`, nodeID)
-	return errInsert
+	if errInsert != nil {
+		return fmt.Errorf("rpc: insert remote node for federation auth: %w", errInsert)
+	}
+	return nil
 }
 
 func loadTLSCertificate(t *testing.T, certPath string, keyPath string, nodeID string) tls.Certificate {

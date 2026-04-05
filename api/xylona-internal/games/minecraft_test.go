@@ -1,6 +1,7 @@
 package games
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -32,7 +33,7 @@ func TestMinecraftUpdateReplacesServerJar(t *testing.T) {
 			return binaryResponse([]byte("new server jar")), nil
 		default:
 			t.Fatalf("unexpected URL requested: %s", req.URL.String())
-			return nil, nil
+			return nil, errors.New("unexpected URL requested")
 		}
 	})
 	t.Cleanup(func() {
@@ -41,7 +42,7 @@ func TestMinecraftUpdateReplacesServerJar(t *testing.T) {
 
 	serverDir := t.TempDir()
 	jarPath := filepath.Join(serverDir, "minecraft_server.jar")
-	errWrite := os.WriteFile(jarPath, []byte("old server jar"), 0o644)
+	errWrite := os.WriteFile(jarPath, []byte("old server jar"), 0o600)
 	if errWrite != nil {
 		t.Fatalf("os.WriteFile(%q) error = %v", jarPath, errWrite)
 	}

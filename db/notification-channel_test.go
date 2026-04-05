@@ -126,7 +126,7 @@ func TestNotificationChannel_ConfigEncryption(t *testing.T) {
 
 	// Read the raw stored value directly — it must NOT equal the plaintext.
 	var storedConfig string
-	errScan := conn.SQLDb.QueryRow(`SELECT config FROM notification_channel WHERE id = ?`, channel.ID).Scan(&storedConfig)
+	errScan := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT config FROM notification_channel WHERE id = ?`, channel.ID).Scan(&storedConfig)
 	if errScan != nil {
 		t.Fatalf("QueryRow() error = %v", errScan)
 	}

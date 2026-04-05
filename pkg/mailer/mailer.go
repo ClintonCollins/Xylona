@@ -1,3 +1,4 @@
+// Package mailer delivers email notifications through SMTP.
 package mailer
 
 import (
@@ -204,12 +205,12 @@ const testEmailBody = "This is a test email from Xylona to verify your SMTP conf
 // SendTestEmail sends a one-shot test email using the provided SMTP config.
 // It uses the production sendSMTP path so the test exercises real SMTP delivery.
 func SendTestEmail(ctx context.Context, cfg *SMTPConfig, toAddress string) error {
-	return sendTestEmail(ctx, cfg, toAddress, sendSMTP)
+	return sendTestEmailWithSender(ctx, cfg, toAddress, sendSMTP)
 }
 
-// sendTestEmail is the internal implementation that accepts an injectable send
+// sendTestEmailWithSender is the internal implementation that accepts an injectable send
 // function for testing.
-func sendTestEmail(ctx context.Context, cfg *SMTPConfig, toAddress string, send sendFunc) error {
+func sendTestEmailWithSender(ctx context.Context, cfg *SMTPConfig, toAddress string, send sendFunc) error {
 	if cfg == nil {
 		return ErrNoSMTPConfig
 	}

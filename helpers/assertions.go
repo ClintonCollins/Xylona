@@ -1,3 +1,4 @@
+// Package helpers contains shared model, protobuf, permission, and filesystem helpers.
 package helpers
 
 import (
@@ -10,12 +11,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// GameServerModelStatusToProtoStatus converts a persisted game server status string to the protobuf enum.
 func GameServerModelStatusToProtoStatus(status string) xylona.Status {
 	statusNormalized := strings.TrimSpace(strings.ToUpper(status))
 	switch statusNormalized {
@@ -42,42 +44,43 @@ func GameServerModelStatusToProtoStatus(status string) xylona.Status {
 	return xylona.Status_UNKNOWN
 }
 
-// GameServerProtoToModel converts a *xylona.GameServer to a *models.GameServer
+// GameServerProtoToModel converts a game server protobuf message to a database model.
 func GameServerProtoToModel(gsProto *xylona.GameServer) *models.GameServer {
 	ipAddress := ""
-	if gsProto.Ip != nil {
-		ipAddress = gsProto.Ip.Address
+	if gsProto.GetIp() != nil {
+		ipAddress = gsProto.GetIp().GetAddress()
 	}
 
 	return &models.GameServer{
-		ID:                        gsProto.Id,
-		UserID:                    gsProto.UserId,
-		Name:                      gsProto.Name,
-		GameID:                    gsProto.GameId,
-		StartArgsPatches:          gsProto.StartArgsPatches,
-		Status:                    gsProto.Status.String(),
-		SetPlayers:                gsProto.SetMaxPlayers,
-		MaxPlayers:                gsProto.MaxPlayers,
-		Map:                       gsProto.Map,
+		ID:                        gsProto.GetId(),
+		UserID:                    gsProto.GetUserId(),
+		Name:                      gsProto.GetName(),
+		GameID:                    gsProto.GetGameId(),
+		StartArgsPatches:          gsProto.GetStartArgsPatches(),
+		Status:                    gsProto.GetStatus().String(),
+		SetPlayers:                gsProto.GetSetMaxPlayers(),
+		MaxPlayers:                gsProto.GetMaxPlayers(),
+		Map:                       gsProto.GetMap(),
 		IP:                        ipAddress,
-		Port:                      gsProto.Port,
-		QueryPort:                 gsProto.QueryPort,
-		Directory:                 gsProto.Directory,
-		MaxMemoryMB:               gsProto.MaxMemoryMb,
-		BackupsEnabled:            gsProto.BackupsEnabled,
-		SteamGameServerLoginToken: gsProto.SteamGameServerLoginToken,
-		BackupDirectory:           gsProto.BackupDirectory,
-		MaxBackups:                gsProto.MaxBackups,
-		NodeID:                    gsProto.NodeId,
-		Branch:                    gsProto.SelectedTarget,
-		TargetPinned:              gsProto.SelectedTargetPinned,
-		ServerSoftware:            null.FromCond(gsProto.SelectedVariantId, gsProto.SelectedVariantId != ""),
-		ServerExecutable:          null.FromCond(gsProto.ServerExecutable, gsProto.ServerExecutable != ""),
-		CreatedAt:                 gsProto.CreatedAt.AsTime(),
-		UpdatedAt:                 gsProto.UpdatedAt.AsTime(),
+		Port:                      gsProto.GetPort(),
+		QueryPort:                 gsProto.GetQueryPort(),
+		Directory:                 gsProto.GetDirectory(),
+		MaxMemoryMB:               gsProto.GetMaxMemoryMb(),
+		BackupsEnabled:            gsProto.GetBackupsEnabled(),
+		SteamGameServerLoginToken: gsProto.GetSteamGameServerLoginToken(),
+		BackupDirectory:           gsProto.GetBackupDirectory(),
+		MaxBackups:                gsProto.GetMaxBackups(),
+		NodeID:                    gsProto.GetNodeId(),
+		Branch:                    gsProto.GetSelectedTarget(),
+		TargetPinned:              gsProto.GetSelectedTargetPinned(),
+		ServerSoftware:            null.FromCond(gsProto.GetSelectedVariantId(), gsProto.GetSelectedVariantId() != ""),
+		ServerExecutable:          null.FromCond(gsProto.GetServerExecutable(), gsProto.GetServerExecutable() != ""),
+		CreatedAt:                 gsProto.GetCreatedAt().AsTime(),
+		UpdatedAt:                 gsProto.GetUpdatedAt().AsTime(),
 	}
 }
 
+// GameServerModelToProto converts a game server database model to a protobuf message.
 func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.VersionStateMap) *xylona.GameServer {
 	gameName := ""
 	if gsModel.R.Game != nil {
@@ -181,6 +184,7 @@ func gameProtoFromRelation(gsModel *models.GameServer) *xylona.Game {
 	return GameModelToProto(gsModel.R.Game)
 }
 
+// GameServerModelToSetter converts a game server model to a bob setter.
 func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSetter {
 	return &models.GameServerSetter{
 		ID:                        omit.From(gsModel.ID),
@@ -211,6 +215,7 @@ func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSette
 	}
 }
 
+// GameModelToProto converts a game database model to a protobuf message.
 func GameModelToProto(gameModel *models.Game) *xylona.Game {
 	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameModel)
 	if errConfig != nil {
@@ -284,6 +289,7 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 	}
 }
 
+// GameProtoToModel converts a game protobuf message to a database model.
 func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 	linuxInstallCommand := commandValueForType(
 		gameProto.GetLinuxInstallType(),
@@ -307,34 +313,34 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 	)
 
 	gameModel := &models.Game{
-		ID:                                gameProto.Id,
-		Name:                              gameProto.Name,
-		DefaultPort:                       gameProto.DefaultPort,
-		DefaultQueryPort:                  gameProto.DefaultQueryPort,
-		DefaultMaxPlayers:                 gameProto.DefaultMaxPlayers,
-		LinuxSupport:                      gameProto.LinuxSupport,
-		WindowsSupport:                    gameProto.WindowsSupport,
-		LinuxStopCommand:                  gameProto.LinuxStopCommand,
+		ID:                                gameProto.GetId(),
+		Name:                              gameProto.GetName(),
+		DefaultPort:                       gameProto.GetDefaultPort(),
+		DefaultQueryPort:                  gameProto.GetDefaultQueryPort(),
+		DefaultMaxPlayers:                 gameProto.GetDefaultMaxPlayers(),
+		LinuxSupport:                      gameProto.GetLinuxSupport(),
+		WindowsSupport:                    gameProto.GetWindowsSupport(),
+		LinuxStopCommand:                  gameProto.GetLinuxStopCommand(),
 		LinuxInstallCommand:               linuxInstallCommand,
 		LinuxInstallCommandType:           protoCommandTypeToModelCommandType(gameProto.GetLinuxInstallType(), gameProto.GetLinuxInstallCommandProcessor()),
 		LinuxUpdateCommand:                linuxUpdateCommand,
 		LinuxUpdateCommandType:            protoCommandTypeToModelCommandType(gameProto.GetLinuxUpdateType(), gameProto.GetLinuxUpdateCommandProcessor()),
-		LinuxWorkingDirectory:             gameProto.LinuxWorkingDirectory,
-		WindowsStopCommand:                gameProto.WindowsStopCommand,
+		LinuxWorkingDirectory:             gameProto.GetLinuxWorkingDirectory(),
+		WindowsStopCommand:                gameProto.GetWindowsStopCommand(),
 		WindowsInstallCommand:             windowsInstallCommand,
 		WindowsInstallCommandType:         protoCommandTypeToModelCommandType(gameProto.GetWindowsInstallType(), gameProto.GetWindowsInstallCommandProcessor()),
 		WindowsUpdateCommand:              windowsUpdateCommand,
 		WindowsUpdateCommandType:          protoCommandTypeToModelCommandType(gameProto.GetWindowsUpdateType(), gameProto.GetWindowsUpdateCommandProcessor()),
-		WindowsWorkingDirectory:           gameProto.WindowsWorkingDirectory,
-		RequireDedicatedIP:                gameProto.RequireDedicatedIp,
-		BindsToAllIps:                     gameProto.BindsToAllIps,
-		CreatedAt:                         gameProto.CreatedAt.AsTime(),
-		UpdatedAt:                         gameProto.UpdatedAt.AsTime(),
-		UsesSourceQuery:                   gameProto.UsesSourceQuery,
-		RequiresSteamGameServerLoginToken: gameProto.RequiresSteamGameServerLoginToken,
-		UsesSteamcmd:                      gameProto.UsesSteamcmd || hasSteamCommandType(gameProto),
-		SteamAppID:                        gameProto.SteamAppid,
-		ConfigSchemas:                     null.FromCond(gameProto.ConfigSchemas, gameProto.ConfigSchemas != ""),
+		WindowsWorkingDirectory:           gameProto.GetWindowsWorkingDirectory(),
+		RequireDedicatedIP:                gameProto.GetRequireDedicatedIp(),
+		BindsToAllIps:                     gameProto.GetBindsToAllIps(),
+		CreatedAt:                         gameProto.GetCreatedAt().AsTime(),
+		UpdatedAt:                         gameProto.GetUpdatedAt().AsTime(),
+		UsesSourceQuery:                   gameProto.GetUsesSourceQuery(),
+		RequiresSteamGameServerLoginToken: gameProto.GetRequiresSteamGameServerLoginToken(),
+		UsesSteamcmd:                      gameProto.GetUsesSteamcmd() || hasSteamCommandType(gameProto),
+		SteamAppID:                        gameProto.GetSteamAppid(),
+		ConfigSchemas:                     null.FromCond(gameProto.GetConfigSchemas(), gameProto.GetConfigSchemas() != ""),
 		LinuxStartArgsTemplate:            null.FromCond(gameProto.GetLinuxStartArgsTemplate(), gameProto.GetLinuxStartArgsTemplate() != ""),
 		WindowsStartArgsTemplate:          null.FromCond(gameProto.GetWindowsStartArgsTemplate(), gameProto.GetWindowsStartArgsTemplate() != ""),
 		LinuxBaseCommand:                  gameProto.GetLinuxBaseCommand(),
@@ -358,6 +364,7 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 	return gameModel
 }
 
+// GameModelToGameSetter converts a game model to a bob setter.
 func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameModel)
 	if errConfig != nil {
@@ -409,6 +416,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 	}
 }
 
+// UserModelToProto converts a user database model to a protobuf message.
 func UserModelToProto(userModel *models.User) *xylona.User {
 	return &xylona.User{
 		Id:        userModel.ID,
@@ -422,20 +430,22 @@ func UserModelToProto(userModel *models.User) *xylona.User {
 	}
 }
 
+// UserProtoToModel converts a user protobuf message to a database model.
 func UserProtoToModel(userProto *xylona.User) *models.User {
 	return &models.User{
-		ID:           userProto.Id,
-		UserName:     userProto.UserName,
-		Email:        userProto.Email,
-		FirstName:    userProto.FirstName,
-		LastName:     userProto.LastName,
-		SuperUser:    userProto.SuperUser,
-		LastLoginAt:  userProto.LastLogin.AsTime(),
-		CreatedAt:    userProto.CreatedAt.AsTime(),
+		ID:           userProto.GetId(),
+		UserName:     userProto.GetUserName(),
+		Email:        userProto.GetEmail(),
+		FirstName:    userProto.GetFirstName(),
+		LastName:     userProto.GetLastName(),
+		SuperUser:    userProto.GetSuperUser(),
+		LastLoginAt:  userProto.GetLastLogin().AsTime(),
+		CreatedAt:    userProto.GetCreatedAt().AsTime(),
 		PasswordHash: "",
 	}
 }
 
+// IPModelToProto converts an IP database model to a protobuf message.
 func IPModelToProto(ipModel *models.IP) *xylona.IP {
 	return &xylona.IP{
 		Address:  ipModel.Address,
@@ -656,22 +666,24 @@ func defaultProviderSourceID(kind updateproviders.ProviderKind, current string) 
 	}
 }
 
+// NodeProtoToModel converts a node protobuf message to a database model.
 func NodeProtoToModel(nodeProto *xylona.Node) *models.Node {
-	secretKey := strings.TrimSpace(nodeProto.SecretKey)
+	secretKey := strings.TrimSpace(nodeProto.GetSecretKey())
 
 	return &models.Node{
-		ID:               nodeProto.Id,
-		Name:             strings.TrimSpace(nodeProto.Name),
-		Host:             strings.TrimSpace(nodeProto.Host),
-		Port:             nodeProto.Port,
+		ID:               nodeProto.GetId(),
+		Name:             strings.TrimSpace(nodeProto.GetName()),
+		Host:             strings.TrimSpace(nodeProto.GetHost()),
+		Port:             nodeProto.GetPort(),
 		SecretKey:        null.FromCond(secretKey, secretKey != ""),
-		IsLocal:          nodeProto.Local,
-		BaseURL:          strings.TrimSpace(nodeProto.BaseUrl),
-		AllowInsecureTLS: nodeProto.AllowInsecureTls,
-		Os:               strings.TrimSpace(nodeProto.Os),
+		IsLocal:          nodeProto.GetLocal(),
+		BaseURL:          strings.TrimSpace(nodeProto.GetBaseUrl()),
+		AllowInsecureTLS: nodeProto.GetAllowInsecureTls(),
+		Os:               strings.TrimSpace(nodeProto.GetOs()),
 	}
 }
 
+// NodeModelToProto converts a node database model to a protobuf message.
 func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
 	return &xylona.Node{
 		Id:               nodeModel.ID,
@@ -698,6 +710,7 @@ func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
 	}
 }
 
+// NodeModelToSetter converts a node model to a bob setter.
 func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
 	return &models.NodeSetter{
 		ID:               omit.From(nodeModel.ID),
@@ -713,6 +726,7 @@ func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
 
 // RemoteServerCacheToProto converts a cached remote server record into a GameServer proto,
 // suitable for use in GetGameServerResponse when the peer is unreachable.
+// RemoteServerCacheToProto converts cached remote server data to a game server protobuf message.
 func RemoteServerCacheToProto(rsc *models.RemoteServerCache, node *models.Node) *xylona.GameServer {
 	return &xylona.GameServer{
 		Id:                 rsc.RemoteServerID,
@@ -734,6 +748,7 @@ func RemoteServerCacheToProto(rsc *models.RemoteServerCache, node *models.Node) 
 	}
 }
 
+// InstalledModModelToProto converts an installed mod model to a protobuf message.
 func InstalledModModelToProto(mod *models.InstalledMod) *xylona.InstalledMod {
 	return &xylona.InstalledMod{
 		Id:                 mod.ID,
@@ -755,6 +770,7 @@ func InstalledModModelToProto(mod *models.InstalledMod) *xylona.InstalledMod {
 	}
 }
 
+// InstalledModFileModelToProto converts an installed mod file model to a protobuf message.
 func InstalledModFileModelToProto(file *models.InstalledModFile) *xylona.InstalledModFile {
 	return &xylona.InstalledModFile{
 		Id:             file.ID,
@@ -766,7 +782,8 @@ func InstalledModFileModelToProto(file *models.InstalledModFile) *xylona.Install
 	}
 }
 
-func NodeApiKeyModelToProto(key *models.NodeAPIKey) *xylona.NodeApiKey {
+// NodeAPIKeyModelToProto converts a node API key model to a protobuf message.
+func NodeAPIKeyModelToProto(key *models.NodeAPIKey) *xylona.NodeApiKey {
 	maskedKey := "****"
 	if len(key.APIKey) >= 4 {
 		maskedKey = key.APIKey[:4] + "****"
@@ -780,6 +797,7 @@ func NodeApiKeyModelToProto(key *models.NodeAPIKey) *xylona.NodeApiKey {
 	}
 }
 
+// RemoteServerCacheModelToProto converts a remote server cache model to a summary protobuf message.
 func RemoteServerCacheModelToProto(rsc *models.RemoteServerCache) *xylona.RemoteServerSummary {
 	return &xylona.RemoteServerSummary{
 		Id:               rsc.ID,

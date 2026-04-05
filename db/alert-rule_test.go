@@ -268,7 +268,8 @@ func TestAlertRule_CheckConstraint_ServerPair(t *testing.T) {
 	seedNotificationChannel(t, conn, "chan-1", "user-owner")
 
 	// Insert via raw SQL with server_id set but server_node_id NULL — should fail CHECK.
-	_, errExec := conn.SQLDb.Exec(
+	_, errExec := conn.SQLDb.ExecContext(
+		conn.ctx,
 		`INSERT INTO alert_rule (id, user_id, server_id, server_node_id, event_type, notification_channel_id, enabled, created_at, updated_at)
 		 VALUES (?, ?, ?, NULL, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		"bad-rule-1", "user-owner", "some-server", "server.crash", "chan-1",
@@ -288,7 +289,8 @@ func TestAlertRule_CheckConstraint_MutualExclusive(t *testing.T) {
 	seedNotificationChannel(t, conn, "chan-1", "user-owner")
 
 	// Insert via raw SQL with both server_id and node_id set — should fail CHECK.
-	_, errExec := conn.SQLDb.Exec(
+	_, errExec := conn.SQLDb.ExecContext(
+		conn.ctx,
 		`INSERT INTO alert_rule (id, user_id, server_id, server_node_id, node_id, event_type, notification_channel_id, enabled, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		"bad-rule-2", "user-owner", "some-server", "some-node", "node-local", "server.crash", "chan-1",

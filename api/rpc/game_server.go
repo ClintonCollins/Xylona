@@ -50,7 +50,7 @@ func mergeEditableGameServerUpdate(
 func (xs *XylonaService) findAvailablePort(ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
 	existingServers, errGetServers := xs.db.GetGameServersByIP(ip)
 	if errGetServers != nil {
-		return 0, 0, errGetServers
+		return 0, 0, fmt.Errorf("rpc: list game servers by IP: %w", errGetServers)
 	}
 
 	// If the game requires a dedicated IP, no other server should use this IP.
@@ -93,7 +93,8 @@ func (xs *XylonaService) findAvailablePort(ip string, port int64, queryPort int6
 	return port, queryPort, nil
 }
 
-func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
+// CreateGameServer creates a new local game server.
+func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
 	callingUser, errCallingUser := xs.getUserFromHeader(request.Header())
 	if errCallingUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
@@ -103,7 +104,7 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("only superusers can create game servers"))
 	}
 
-	targetUserID := request.Msg.GetGameServer().UserId
+	targetUserID := request.Msg.GetGameServer().GetUserId()
 	user, errGetUser := xs.db.GetUserByID(targetUserID)
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
@@ -111,7 +112,7 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
-	game, errGetGame := xs.db.GetGameByID(request.Msg.GetGameServer().GameId)
+	game, errGetGame := xs.db.GetGameByID(request.Msg.GetGameServer().GetGameId())
 	if errGetGame != nil {
 		if errors.Is(errGetGame, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
@@ -161,6 +162,7 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 	return connect.NewResponse(response), nil
 }
 
+// EditGameServer updates an existing local game server.
 func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -227,6 +229,7 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 	)
 }
 
+// RemoveGameServer deletes a local or remote game server.
 func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -255,6 +258,7 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 	)
 }
 
+// StartGameServer starts a local or remote game server.
 func (xs *XylonaService) StartGameServer(ctx context.Context, request *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -306,13 +310,14 @@ func (xs *XylonaService) startRemoteGameServer(ctx context.Context, serverID str
 		return nil, wrapRemoteRPCError(errStart, "failed to start remote server")
 	}
 
-	if !resp.Msg.Success {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
+	if !resp.Msg.GetSuccess() {
+		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
 	}
 
 	return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
 }
 
+// StopGameServer stops a local or remote game server.
 func (xs *XylonaService) StopGameServer(ctx context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -364,13 +369,14 @@ func (xs *XylonaService) stopRemoteGameServer(ctx context.Context, serverID stri
 		return nil, wrapRemoteRPCError(errStop, "failed to stop remote server")
 	}
 
-	if !resp.Msg.Success {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.Error))
+	if !resp.Msg.GetSuccess() {
+		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
 	}
 
 	return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
 }
 
+// ReadGameServerOutput returns buffered console output for a local or remote server.
 func (xs *XylonaService) ReadGameServerOutput(ctx context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -426,10 +432,11 @@ func (xs *XylonaService) readRemoteGameServerOutput(ctx context.Context, serverI
 	}
 
 	return connect.NewResponse(&xylona.ReadGameServerOutputResponse{
-		Output: resp.Msg.Output,
+		Output: resp.Msg.GetOutput(),
 	}), nil
 }
 
+// SendGameServerInput sends console input to a local or remote server.
 func (xs *XylonaService) SendGameServerInput(ctx context.Context, request *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -495,13 +502,14 @@ func (xs *XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID
 		return nil, wrapRemoteRPCError(errSend, "failed to send remote input")
 	}
 
-	if !resp.Msg.Success {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(resp.Msg.Error))
+	if !resp.Msg.GetSuccess() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(resp.Msg.GetError()))
 	}
 
 	return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
 }
 
+// ListDirectoryFiles lists files in a local or remote server directory.
 func (xs *XylonaService) ListDirectoryFiles(ctx context.Context, request *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
 	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -538,6 +546,7 @@ func (xs *XylonaService) ListDirectoryFiles(ctx context.Context, request *connec
 	)
 }
 
+// GetGameServer returns details for a local or remote game server.
 func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error) {
 	serverID := request.Msg.GetId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -569,12 +578,12 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 			if errGetCommand == nil {
 				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
 				gsProto.CpuPercent = int64(cpuPct)
-				gsProto.MemoryBytes = int64(memVMS)
-				gsProto.MemoryWorkingSetBytes = int64(memRSS)
+				gsProto.MemoryBytes = helpers.ClampInt64FromUint64(memVMS)
+				gsProto.MemoryWorkingSetBytes = helpers.ClampInt64FromUint64(memRSS)
 				gsProto.MemoryPercent = float64(memPct)
 				gsProto.CpuCores = cpuCores
 				gsProto.NumberOfThreads = int64(threads)
-				gsProto.DiskUsageBytes = int64(diskBytes)
+				gsProto.DiskUsageBytes = helpers.ClampInt64FromUint64(diskBytes)
 				gsProto.IoReadRate = ioRead
 				gsProto.IoWriteRate = ioWrite
 				gsProto.ConnectionCount = connCount
@@ -624,37 +633,37 @@ func (xs *XylonaService) getRemoteGameServer(ctx context.Context, serverID strin
 		}), nil
 	}
 
-	server := resp.Msg.Server
+	server := resp.Msg.GetServer()
 	gs := &xylona.GameServer{
-		Id:                    server.ServerId,
-		Name:                  server.DisplayName,
-		GameId:                server.GameId,
-		Status:                server.Status,
-		Ip:                    &xylona.IP{Address: server.IpAddress},
-		Port:                  server.Port,
-		QueryPort:             server.QueryPort,
-		SetMaxPlayers:         server.MaxPlayers,
-		MaxPlayers:            server.MaxPlayers,
-		CurrentPlayerCount:    server.CurrentPlayers,
-		Map:                   server.MapName,
-		Version:               server.Version,
-		GameName:              server.GameName,
+		Id:                    server.GetServerId(),
+		Name:                  server.GetDisplayName(),
+		GameId:                server.GetGameId(),
+		Status:                server.GetStatus(),
+		Ip:                    &xylona.IP{Address: server.GetIpAddress()},
+		Port:                  server.GetPort(),
+		QueryPort:             server.GetQueryPort(),
+		SetMaxPlayers:         server.GetMaxPlayers(),
+		MaxPlayers:            server.GetMaxPlayers(),
+		CurrentPlayerCount:    server.GetCurrentPlayers(),
+		Map:                   server.GetMapName(),
+		Version:               server.GetVersion(),
+		GameName:              server.GetGameName(),
 		NodeId:                peerNode.ID,
 		NodeName:              peerNode.Name,
 		NodeHost:              peerNode.BaseURL,
-		CpuPercent:            server.CpuPercent,
-		MemoryBytes:           server.MemoryBytes,
-		MemoryWorkingSetBytes: server.MemoryWorkingSetBytes,
-		MemoryPercent:         server.MemoryPercent,
-		CpuCores:              server.CpuCores,
-		NumberOfThreads:       int64(server.NumberOfThreads),
-		DiskUsageBytes:        server.DiskUsageBytes,
-		IoReadRate:            server.IoReadRate,
-		IoWriteRate:           server.IoWriteRate,
-		ConnectionCount:       server.ConnectionCount,
-		UptimeSeconds:         server.UptimeSeconds,
+		CpuPercent:            server.GetCpuPercent(),
+		MemoryBytes:           server.GetMemoryBytes(),
+		MemoryWorkingSetBytes: server.GetMemoryWorkingSetBytes(),
+		MemoryPercent:         server.GetMemoryPercent(),
+		CpuCores:              server.GetCpuCores(),
+		NumberOfThreads:       int64(server.GetNumberOfThreads()),
+		DiskUsageBytes:        server.GetDiskUsageBytes(),
+		IoReadRate:            server.GetIoReadRate(),
+		IoWriteRate:           server.GetIoWriteRate(),
+		ConnectionCount:       server.GetConnectionCount(),
+		UptimeSeconds:         server.GetUptimeSeconds(),
 	}
-	gs.EffectivePermissions = resp.Msg.EffectivePermissions
+	gs.EffectivePermissions = resp.Msg.GetEffectivePermissions()
 	if !actingUser.SuperUser {
 		redactGameServerForNonSuperuser(gs)
 	}
@@ -668,6 +677,7 @@ func resolveGameServerVersion(gs *models.GameServer) string {
 	return versiontracker.ResolveCurrentVersion(gs)
 }
 
+// UpdateGameServer updates a local or remote game server.
 func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	selectedTarget := strings.TrimSpace(request.Msg.GetTarget())
@@ -697,7 +707,8 @@ func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.
 	)
 }
 
-func (xs *XylonaService) ListGameServers(ctx context.Context, request *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {
+// ListGameServers lists all game servers visible to the caller.
+func (xs *XylonaService) ListGameServers(_ context.Context, request *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {
 	user, err := xs.getUserFromHeader(request.Header())
 	if err != nil {
 		return nil, err
@@ -748,12 +759,12 @@ func (xs *XylonaService) ListGameServers(ctx context.Context, request *connect.R
 		if errGetCommand == nil {
 			cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
 			gameServerProto.CpuPercent = int64(cpuPct)
-			gameServerProto.MemoryBytes = int64(memVMS)
-			gameServerProto.MemoryWorkingSetBytes = int64(memRSS)
+			gameServerProto.MemoryBytes = helpers.ClampInt64FromUint64(memVMS)
+			gameServerProto.MemoryWorkingSetBytes = helpers.ClampInt64FromUint64(memRSS)
 			gameServerProto.MemoryPercent = float64(memPct)
 			gameServerProto.CpuCores = cpuCores
 			gameServerProto.NumberOfThreads = int64(threads)
-			gameServerProto.DiskUsageBytes = int64(diskBytes)
+			gameServerProto.DiskUsageBytes = helpers.ClampInt64FromUint64(diskBytes)
 			gameServerProto.IoReadRate = ioRead
 			gameServerProto.IoWriteRate = ioWrite
 			gameServerProto.ConnectionCount = connCount
@@ -778,6 +789,7 @@ func (xs *XylonaService) ListGameServers(ctx context.Context, request *connect.R
 	return connect.NewResponse(response), nil
 }
 
+// QueryGameServer performs a live query against a local or remote game server.
 func (xs *XylonaService) QueryGameServer(ctx context.Context, request *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -794,7 +806,7 @@ func (xs *XylonaService) QueryGameServer(ctx context.Context, request *connect.R
 			}
 
 			allServerQueries := xs.actionsInst.GetServerQueries()
-			queryInfo, exists := allServerQueries.Servers[gameServer.ID]
+			queryInfo, exists := allServerQueries.GetServers()[gameServer.ID]
 			if !exists {
 				var queryType xylona.ServerQuery_Type
 				if gameServer.GameID == "minecraft" {
@@ -806,10 +818,10 @@ func (xs *XylonaService) QueryGameServer(ctx context.Context, request *connect.R
 					ServerId:   gameServer.ID,
 					ServerName: gameServer.Name,
 					Type:       queryType,
-					Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: uint32(gameServer.MaxPlayers)},
+					Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers)},
 					Source: &xylona.SourceQueryInfo{
 						Players:    0,
-						MaxPlayers: uint32(gameServer.MaxPlayers),
+						MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers),
 					},
 				}}
 				return connect.NewResponse(resp), nil

@@ -25,7 +25,7 @@ func TestSteamTracker_Integration_RealAPI(t *testing.T) {
 	"buildid"		"0"
 }
 `
-	errWrite := os.WriteFile(filepath.Join(dir, "appmanifest_740.acf"), []byte(acfContent), 0o644)
+	errWrite := os.WriteFile(filepath.Join(dir, "appmanifest_740.acf"), []byte(acfContent), 0o600)
 	if errWrite != nil {
 		t.Fatalf("failed to write ACF: %v", errWrite)
 	}

@@ -7,9 +7,11 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+// ListFederationAdvisories returns federation advisory entries visible to the caller.
 func (xs *XylonaService) ListFederationAdvisories(
 	_ context.Context,
 	request *connect.Request[xylona.ListFederationAdvisoriesRequest],
@@ -52,10 +54,11 @@ func (xs *XylonaService) ListFederationAdvisories(
 
 	return connect.NewResponse(&xylona.ListFederationAdvisoriesResponse{
 		Advisories: protoAdvisories,
-		TotalCount: int32(total),
+		TotalCount: helpers.ClampInt32FromInt64(total),
 	}), nil
 }
 
+// MarkAdvisoriesRead marks the requested federation advisories as read.
 func (xs *XylonaService) MarkAdvisoriesRead(
 	_ context.Context,
 	request *connect.Request[xylona.MarkAdvisoriesReadRequest],
@@ -72,6 +75,7 @@ func (xs *XylonaService) MarkAdvisoriesRead(
 	return connect.NewResponse(&xylona.MarkAdvisoriesReadResponse{}), nil
 }
 
+// GetUnreadAdvisoryCount returns the number of unread federation advisories.
 func (xs *XylonaService) GetUnreadAdvisoryCount(
 	_ context.Context,
 	request *connect.Request[xylona.GetUnreadAdvisoryCountRequest],
@@ -86,10 +90,11 @@ func (xs *XylonaService) GetUnreadAdvisoryCount(
 		return nil, connect.NewError(connect.CodeInternal, errCount)
 	}
 	return connect.NewResponse(&xylona.GetUnreadAdvisoryCountResponse{
-		Count: int32(count),
+		Count: helpers.ClampInt32FromInt64(count),
 	}), nil
 }
 
+// LeaveFederation removes the local node from the current federation mesh.
 func (xs *XylonaService) LeaveFederation(
 	_ context.Context,
 	request *connect.Request[xylona.LeaveFederationRequest],

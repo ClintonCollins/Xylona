@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
+
+var errRuleConditionMissing = errors.New("rule has no condition set")
 
 const (
 	// thresholdPollInterval is how often the poller ticks.
@@ -66,14 +69,10 @@ func (s *supervisorMetricsProvider) ListServerMetrics() []serverMetricsSnapshot 
 	commands := s.inst.ListCommands()
 	out := make([]serverMetricsSnapshot, 0, len(commands))
 	for _, cmd := range commands {
-		ptr, errGet := s.inst.GetCommandByID(cmd.ID)
-		if errGet != nil {
-			continue
-		}
-		cpuPercent, _, _, memoryPercent, _, _, diskBytes, _, _, _ := ptr.Metrics()
+		cpuPercent, _, _, memoryPercent, _, _, diskBytes, _, _, _ := cmd.Metrics()
 		out = append(out, serverMetricsSnapshot{
 			serverID:      cmd.ID,
-			nodeID:        ptr.NodeID(),
+			nodeID:        cmd.NodeID(),
 			cpuPercent:    cpuPercent,
 			memoryPercent: float64(memoryPercent),
 			diskBytes:     diskBytes,
@@ -91,7 +90,7 @@ type sysinfoNodeMetricsProvider struct {
 func (s *sysinfoNodeMetricsProvider) CollectNodeMetrics() (nodeID string, cpuPercent, memoryPercent, diskPercent float64, err error) {
 	snap, errSnap := sysinfo.CollectResourceSnapshot()
 	if errSnap != nil {
-		return "", 0, 0, 0, errSnap
+		return "", 0, 0, 0, fmt.Errorf("actions: collect node metrics: %w", errSnap)
 	}
 	return s.nodeID, snap.CPUPercent, snap.MemoryPercent, snap.DiskPercent, nil
 }
@@ -176,7 +175,7 @@ func (p *thresholdPoller) getOrCreateStateCached(ruleID, entityType, entityID, e
 	}
 	state, errState := p.stateStore.GetOrCreateAlertState(ruleID, entityType, entityID, entityNodeID)
 	if errState != nil {
-		return nil, errState
+		return nil, fmt.Errorf("actions: load alert state: %w", errState)
 	}
 	entry := &cachedAlertState{
 		id:        state.ID,
@@ -484,11 +483,11 @@ func (p *thresholdPoller) evaluateNodeRules() {
 func parseCondition(condition interface{ Get() (string, bool) }) (threshold float64, operator string, err error) {
 	condStr, isSet := condition.Get()
 	if !isSet || condStr == "" {
-		return 0, "", fmt.Errorf("rule has no condition set")
+		return 0, "", errRuleConditionMissing
 	}
 	op, thresh, errParse := alerts.ParseConditionJSON(condStr)
 	if errParse != nil {
-		return 0, "", errParse
+		return 0, "", fmt.Errorf("actions: parse alert rule condition: %w", errParse)
 	}
 	return thresh, op, nil
 }

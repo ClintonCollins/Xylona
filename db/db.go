@@ -1,3 +1,4 @@
+// Package db provides Xylona's SQLite data-access layer.
 package db
 
 import (
@@ -9,9 +10,10 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // Register the SQLite driver.
 )
 
+// Connection wraps the SQLite database and ORM executor used by Xylona.
 type Connection struct {
 	ctx                   context.Context
 	SQLDb                 *sql.DB
@@ -54,6 +56,7 @@ func sqliteDSNWithPragma(path string, pragma string) string {
 	return sqliteDSNWithPragmas(path, pragma)
 }
 
+// NewConnection opens the SQLite database and verifies the required pragmas.
 func NewConnection(ctx context.Context, path string) *Connection {
 	dsn := sqliteDSNWithPragmas(path,
 		"foreign_keys(1)",

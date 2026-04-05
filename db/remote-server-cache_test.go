@@ -44,7 +44,7 @@ func TestGetRemoteServerCacheByRemoteServerID(t *testing.T) {
 			conn := newRBACMigratedConnection(t, "remote-server-cache-lookup.sqlite")
 
 			// Insert node rows required by foreign keys.
-			_, errInsertNodes := conn.SQLDb.Exec(`
+			_, errInsertNodes := conn.SQLDb.ExecContext(conn.ctx, `
 				INSERT INTO node (id, name, host, port) VALUES
 					('source-1', 'Source 1', '', 0),
 					('source-2', 'Source 2', '', 0),
@@ -56,7 +56,7 @@ func TestGetRemoteServerCacheByRemoteServerID(t *testing.T) {
 			}
 
 			if tt.insertRowsSQL != "" {
-				_, errInsert := conn.SQLDb.Exec(tt.insertRowsSQL)
+				_, errInsert := conn.SQLDb.ExecContext(conn.ctx, tt.insertRowsSQL)
 				if errInsert != nil {
 					t.Fatalf("failed to insert test rows: %v", errInsert)
 				}
@@ -84,7 +84,7 @@ func TestDeleteRemoteServerCacheByCompositeKey(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "remote-server-cache.sqlite")
 
 	// Insert node rows required by foreign keys.
-	_, errInsertNodes := conn.SQLDb.Exec(`
+	_, errInsertNodes := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO node (id, name, host, port) VALUES
 			('node-1', 'Node 1', '', 0)
 	`)
@@ -92,7 +92,7 @@ func TestDeleteRemoteServerCacheByCompositeKey(t *testing.T) {
 		t.Fatalf("failed to insert node rows: %v", errInsertNodes)
 	}
 
-	_, errInsert := conn.SQLDb.Exec(`
+	_, errInsert := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id)
 		VALUES
 			('cache-1', 'node-1', 'node-1', 'server-a'),
@@ -108,7 +108,7 @@ func TestDeleteRemoteServerCacheByCompositeKey(t *testing.T) {
 	}
 
 	var count int
-	errCount := conn.SQLDb.QueryRow(`SELECT COUNT(*) FROM remote_server_cache`).Scan(&count)
+	errCount := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT COUNT(*) FROM remote_server_cache`).Scan(&count)
 	if errCount != nil {
 		t.Fatalf("failed to count rows: %v", errCount)
 	}
@@ -117,7 +117,7 @@ func TestDeleteRemoteServerCacheByCompositeKey(t *testing.T) {
 	}
 
 	var remainingRemoteServerID string
-	errRemaining := conn.SQLDb.QueryRow(`SELECT remote_server_id FROM remote_server_cache LIMIT 1`).Scan(&remainingRemoteServerID)
+	errRemaining := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT remote_server_id FROM remote_server_cache LIMIT 1`).Scan(&remainingRemoteServerID)
 	if errRemaining != nil {
 		t.Fatalf("failed to fetch remaining row: %v", errRemaining)
 	}
@@ -129,7 +129,7 @@ func TestDeleteRemoteServerCacheByCompositeKey(t *testing.T) {
 func TestDeleteOrphanedRemoteServerCacheByNodeReferences(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "remote-server-cache-orphan-cleanup.sqlite")
 
-	_, errInsertNodes := conn.SQLDb.Exec(`
+	_, errInsertNodes := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO node (id, name, is_local, host, port) VALUES
 			('remote-1', 'Remote 1', 0, '', 0),
 			('remote-2', 'Remote 2', 0, '', 0),
@@ -142,7 +142,7 @@ func TestDeleteOrphanedRemoteServerCacheByNodeReferences(t *testing.T) {
 	// Insert cache rows. Rows referencing 'missing-node' would violate FK constraints
 	// in the migrated schema, so we insert only valid references and test deletion
 	// of rows whose source_node_id does not match a non-local node.
-	_, errInsertCache := conn.SQLDb.Exec(`
+	_, errInsertCache := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id) VALUES
 			('cache-1', 'remote-1', 'remote-1', 'server-valid'),
 			('cache-4', 'local-1', 'local-1', 'server-local-ref')
@@ -156,7 +156,7 @@ func TestDeleteOrphanedRemoteServerCacheByNodeReferences(t *testing.T) {
 		t.Fatalf("DeleteOrphanedRemoteServerCacheByNodeReferences() error = %v", errDelete)
 	}
 
-	rows, errRows := conn.SQLDb.Query(`SELECT remote_server_id FROM remote_server_cache ORDER BY remote_server_id`)
+	rows, errRows := conn.SQLDb.QueryContext(conn.ctx, `SELECT remote_server_id FROM remote_server_cache ORDER BY remote_server_id`)
 	if errRows != nil {
 		t.Fatalf("failed to query remaining remote_server_cache rows: %v", errRows)
 	}
@@ -191,7 +191,7 @@ func TestUpdateRemoteServerCacheStatusMarksRowFresh(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "remote-server-cache-update-status.sqlite")
 
 	// Insert node row required by foreign keys.
-	_, errInsertNode := conn.SQLDb.Exec(`
+	_, errInsertNode := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO node (id, name, host, port) VALUES ('source-1', 'Source 1', '', 0)
 	`)
 	if errInsertNode != nil {
@@ -199,7 +199,7 @@ func TestUpdateRemoteServerCacheStatusMarksRowFresh(t *testing.T) {
 	}
 
 	previousUpdate := time.Now().Add(-10 * time.Minute)
-	_, errInsert := conn.SQLDb.Exec(`
+	_, errInsert := conn.SQLDb.ExecContext(conn.ctx, `
 		INSERT INTO remote_server_cache (id, source_node_id, node_id, remote_server_id, status, last_synced_at, is_stale, updated_at)
 		VALUES
 			('cache-1', 'source-1', 'source-1', 'server-a', 'OFFLINE', NULL, 1, ?),
@@ -221,7 +221,7 @@ func TestUpdateRemoteServerCacheStatusMarksRowFresh(t *testing.T) {
 		updatedAt    time.Time
 	)
 
-	errQueryUpdated := conn.SQLDb.QueryRow(`
+	errQueryUpdated := conn.SQLDb.QueryRowContext(conn.ctx, `
 		SELECT status, last_synced_at, is_stale, updated_at
 		FROM remote_server_cache
 		WHERE source_node_id = ? AND remote_server_id = ?
@@ -249,7 +249,7 @@ func TestUpdateRemoteServerCacheStatusMarksRowFresh(t *testing.T) {
 		unchangedIsStale      bool
 	)
 
-	errQueryUnchanged := conn.SQLDb.QueryRow(`
+	errQueryUnchanged := conn.SQLDb.QueryRowContext(conn.ctx, `
 		SELECT status, last_synced_at, is_stale
 		FROM remote_server_cache
 		WHERE source_node_id = ? AND remote_server_id = ?

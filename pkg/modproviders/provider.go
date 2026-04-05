@@ -1,3 +1,4 @@
+// Package modproviders defines provider interfaces and shared types for mod sources.
 package modproviders
 
 import (
@@ -14,8 +15,12 @@ const MaxModDownloadSize = 500 * 1024 * 1024 // 500 MB
 // known or not pagination-safe.
 const UnknownTotalHits = -1
 
-// ErrDownloadTooLarge is returned when a download exceeds MaxModDownloadSize.
-var ErrDownloadTooLarge = errors.New("modproviders: download exceeds maximum allowed size")
+var (
+	// ErrDownloadTooLarge is returned when a download exceeds MaxModDownloadSize.
+	ErrDownloadTooLarge = errors.New("modproviders: download exceeds maximum allowed size")
+	// ErrNoUpdateAvailable indicates no compatible version is available to compare or install.
+	ErrNoUpdateAvailable = errors.New("modproviders: no update available")
+)
 
 // Well-known SearchParams keys. Providers read these from the map alongside
 // any game-specific params configured in the server software definition.
@@ -112,7 +117,7 @@ type ModProvider interface {
 	// Download fetches the mod file(s) to the target directory.
 	Download(ctx context.Context, sourceID string, versionID string, targetDir string) ([]DownloadedFile, error)
 
-	// CheckForUpdate returns the newest available version compatible with the game version.
+	// CheckForUpdate returns the newest compatible version or ErrNoUpdateAvailable.
 	CheckForUpdate(ctx context.Context, sourceID string, gameVersion string) (*ModVersion, error)
 
 	// RequiresAPIKey reports whether this provider needs an API key to function.

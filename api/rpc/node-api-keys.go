@@ -18,6 +18,8 @@ import (
 
 // ListNodeApiKeys returns all node API keys with masked values.
 // Requires superuser.
+//
+//revive:disable-next-line:var-naming // Matches the generated ConnectRPC method name from the proto schema.
 func (xs *XylonaService) ListNodeApiKeys(
 	_ context.Context,
 	request *connect.Request[xylona.ListNodeApiKeysRequest],
@@ -30,7 +32,7 @@ func (xs *XylonaService) ListNodeApiKeys(
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
 	}
 
-	keys, errGet := xs.db.GetNodeApiKeys()
+	keys, errGet := xs.db.GetNodeAPIKeys()
 	if errGet != nil {
 		log.Error().Err(errGet).Msg("Failed to list node API keys")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list API keys"))
@@ -38,7 +40,7 @@ func (xs *XylonaService) ListNodeApiKeys(
 
 	var protoKeys []*xylona.NodeApiKey
 	for _, k := range keys {
-		protoKeys = append(protoKeys, helpers.NodeApiKeyModelToProto(k))
+		protoKeys = append(protoKeys, helpers.NodeAPIKeyModelToProto(k))
 	}
 
 	return &connect.Response[xylona.ListNodeApiKeysResponse]{
@@ -50,6 +52,8 @@ func (xs *XylonaService) ListNodeApiKeys(
 
 // SetNodeApiKey creates or updates a node API key.
 // Requires superuser.
+//
+//revive:disable-next-line:var-naming // Matches the generated ConnectRPC method name from the proto schema.
 func (xs *XylonaService) SetNodeApiKey(
 	_ context.Context,
 	request *connect.Request[xylona.SetNodeApiKeyRequest],
@@ -81,7 +85,7 @@ func (xs *XylonaService) SetNodeApiKey(
 		UpdatedAt:   omit.From(now),
 	}
 
-	key, errUpsert := xs.db.InsertOrUpdateNodeApiKey(xs.db.DB, setter)
+	key, errUpsert := xs.db.InsertOrUpdateNodeAPIKey(xs.db.DB, setter)
 	if errUpsert != nil {
 		log.Error().Err(errUpsert).Msg("Failed to upsert node API key")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to save API key"))
@@ -89,13 +93,15 @@ func (xs *XylonaService) SetNodeApiKey(
 
 	return &connect.Response[xylona.SetNodeApiKeyResponse]{
 		Msg: &xylona.SetNodeApiKeyResponse{
-			ApiKey: helpers.NodeApiKeyModelToProto(key),
+			ApiKey: helpers.NodeAPIKeyModelToProto(key),
 		},
 	}, nil
 }
 
 // DeleteNodeApiKey deletes a node API key by service name.
 // Requires superuser.
+//
+//revive:disable-next-line:var-naming // Matches the generated ConnectRPC method name from the proto schema.
 func (xs *XylonaService) DeleteNodeApiKey(
 	_ context.Context,
 	request *connect.Request[xylona.DeleteNodeApiKeyRequest],
@@ -113,7 +119,7 @@ func (xs *XylonaService) DeleteNodeApiKey(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("service_name is required"))
 	}
 
-	errDelete := xs.db.DeleteNodeApiKeyByServiceName(serviceName)
+	errDelete := xs.db.DeleteNodeAPIKeyByServiceName(serviceName)
 	if errDelete != nil {
 		log.Error().Err(errDelete).Msg("Failed to delete node API key")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete API key"))

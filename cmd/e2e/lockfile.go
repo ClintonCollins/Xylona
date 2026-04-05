@@ -72,7 +72,7 @@ func acquireLock(e2eDir, suite string, ports map[string]int) error {
 	if errMarshal != nil {
 		return fmt.Errorf("marshal lock info: %w", errMarshal)
 	}
-	errWrite := os.WriteFile(lockPath, encoded, 0o644)
+	errWrite := os.WriteFile(lockPath, encoded, 0o600)
 	if errWrite != nil {
 		return fmt.Errorf("write lock file: %w", errWrite)
 	}
@@ -107,7 +107,12 @@ func processIsAlive(pid int) bool {
 
 // processIsAliveWindows uses tasklist to check if a PID exists on Windows.
 func processIsAliveWindows(pid int) bool {
-	cmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/NH") //nolint:noctx
+	if pid <= 0 {
+		return false
+	}
+
+	//nolint:gosec,noctx // PID is validated numeric input and tasklist has no context-aware API on Windows.
+	cmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/NH")
 	out, errRun := cmd.Output()
 	if errRun != nil {
 		return false
