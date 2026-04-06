@@ -10,6 +10,8 @@ import (
 )
 
 func TestGetNode(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	// Get seeded local node
@@ -51,6 +53,8 @@ func TestGetNode(t *testing.T) {
 }
 
 func TestListNodes(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	request := connect.NewRequest(&xylona.ListNodesRequest{})
@@ -80,6 +84,8 @@ func TestListNodes(t *testing.T) {
 }
 
 func TestEditNode(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	request := connect.NewRequest(&xylona.EditNodeRequest{
@@ -116,6 +122,8 @@ func TestEditNode(t *testing.T) {
 }
 
 func TestRemoveNode(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	// Seed a remote node to delete (don't delete the local one needed by other tests)
@@ -145,6 +153,8 @@ func TestRemoveNode(t *testing.T) {
 }
 
 func TestCreateAndDeleteLocalSecretKey(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	// Create a secret key
@@ -180,6 +190,8 @@ func TestCreateAndDeleteLocalSecretKey(t *testing.T) {
 }
 
 func TestListLocalSecretKeys(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	// Create a key first

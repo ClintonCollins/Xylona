@@ -189,34 +189,55 @@ func TestStreamServerUpdates_StatusChangeEvent(t *testing.T) {
 		t.Fatal("first message was not a snapshot")
 	}
 
-	// Trigger a status change on the supervisor command after a brief delay to
-	// give the handler time to register its status listener.
+	done := make(chan struct{})
+	defer close(done)
 	go func() {
-		time.Sleep(100 * time.Millisecond)
-		supervisor.TriggerStatusNotification(supervisorInst, "server-local-1", xylona.Status_OFFLINE, xylona.Status_ONLINE)
+		ticker := time.NewTicker(25 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				supervisor.TriggerStatusNotification(supervisorInst, "server-local-1", xylona.Status_OFFLINE, xylona.Status_ONLINE)
+			}
+		}
 	}()
 
-	// The next message on the stream should be a StatusChange event.
-	if !stream.Receive() {
-		t.Fatalf("expected to receive status change event, but stream ended: %v", stream.Err())
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	for {
+		recvDone := make(chan bool, 1)
+		go func() {
+			recvDone <- stream.Receive()
+		}()
 
-	event := stream.Msg()
-	if event == nil {
-		t.Fatal("received nil event message")
-	}
+		select {
+		case <-ctx.Done():
+			t.Fatal("timed out waiting for status change event")
+		case ok := <-recvDone:
+			if !ok {
+				t.Fatalf("stream ended while waiting for status change event: %v", stream.Err())
+			}
+		}
 
-	statusChange := event.GetStatusChange()
-	if statusChange == nil {
-		t.Fatalf("expected StatusChange event, got %T", event.GetEvent())
-	}
+		event := stream.Msg()
+		if event == nil {
+			t.Fatal("received nil event message")
+		}
 
-	if statusChange.GetServerId() != "server-local-1" {
-		t.Errorf("StatusChange server ID = %q, want %q", statusChange.GetServerId(), "server-local-1")
-	}
+		statusChange := event.GetStatusChange()
+		if statusChange == nil {
+			continue
+		}
 
-	if statusChange.GetStatus() != xylona.Status_ONLINE {
-		t.Errorf("StatusChange status = %v, want %v", statusChange.GetStatus(), xylona.Status_ONLINE)
+		if statusChange.GetServerId() != "server-local-1" {
+			t.Errorf("StatusChange server ID = %q, want %q", statusChange.GetServerId(), "server-local-1")
+		}
+		if statusChange.GetStatus() != xylona.Status_ONLINE {
+			t.Errorf("StatusChange status = %v, want %v", statusChange.GetStatus(), xylona.Status_ONLINE)
+		}
+		break
 	}
 }
 
@@ -226,7 +247,7 @@ func TestStreamServerUpdates_StatusChangeEvent(t *testing.T) {
 func TestStreamServerUpdates_MetricsUpdate(t *testing.T) {
 	// Speed up the metrics ticker for testing.
 	origInterval := streamMetricsInterval
-	streamMetricsInterval = 500 * time.Millisecond
+	streamMetricsInterval = 250 * time.Millisecond
 	t.Cleanup(func() { streamMetricsInterval = origInterval })
 
 	fixture := newRBACRPCFixture(t)
@@ -303,32 +324,25 @@ func TestStreamServerUpdates_MetricsUpdate(t *testing.T) {
 		t.Fatal("first message was not a snapshot")
 	}
 
-	// Update metrics to clearly different values after a brief delay so the
-	// handler has time to start its ticker loop.
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		supervisor.UpdateCommandMetrics(
-			supervisorInst,
-			"server-local-1",
-			50.0,  // cpuPercent — changed from 10.0
-			8192,  // memoryRSS — changed from 1024
-			16384, // memoryVMS — changed from 2048
-			5.0,   // memoryPercent — changed from 1.0
-			4,     // cpuCores — unchanged
-			12,    // numThreads — changed from 8
-			65536, // diskUsageBytes — changed from 4096
-			500.0, // ioReadRate — changed from 100.0
-			250.0, // ioWriteRate — changed from 50.0
-			10,    // connectionCount — changed from 2
-		)
-	}()
+	// Update metrics to clearly different values and wait for the next metrics event.
+	supervisor.UpdateCommandMetrics(
+		supervisorInst,
+		"server-local-1",
+		50.0,  // cpuPercent — changed from 10.0
+		8192,  // memoryRSS — changed from 1024
+		16384, // memoryVMS — changed from 2048
+		5.0,   // memoryPercent — changed from 1.0
+		4,     // cpuCores — unchanged
+		12,    // numThreads — changed from 8
+		65536, // diskUsageBytes — changed from 4096
+		500.0, // ioReadRate — changed from 100.0
+		250.0, // ioWriteRate — changed from 50.0
+		10,    // connectionCount — changed from 2
+	)
 
-	// Wait for a MetricsUpdate event (allow up to 5 seconds).
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-
-	receivedMetrics := false
-	for !receivedMetrics {
+	for {
 		recvDone := make(chan bool, 1)
 		go func() {
 			recvDone <- stream.Receive()
@@ -350,11 +364,8 @@ func TestStreamServerUpdates_MetricsUpdate(t *testing.T) {
 
 		metricsUpdate := event.GetMetricsUpdate()
 		if metricsUpdate == nil {
-			// Might be a different event type (e.g. snapshot); keep waiting.
 			continue
 		}
-
-		receivedMetrics = true
 
 		if metricsUpdate.GetServerId() != "server-local-1" {
 			t.Errorf("MetricsUpdate server ID = %q, want %q", metricsUpdate.GetServerId(), "server-local-1")
@@ -368,6 +379,7 @@ func TestStreamServerUpdates_MetricsUpdate(t *testing.T) {
 		if math.Abs(metrics.GetCpuPercent()-50.0) > 0.1 {
 			t.Errorf("MetricsUpdate CPU percent = %v, want approximately 50.0", metrics.GetCpuPercent())
 		}
+		break
 	}
 }
 
@@ -377,7 +389,7 @@ func TestStreamServerUpdates_MetricsUpdate(t *testing.T) {
 func TestStreamServerUpdates_Heartbeat(t *testing.T) {
 	// Speed up the heartbeat ticker for testing.
 	origInterval := streamHeartbeatInterval
-	streamHeartbeatInterval = 500 * time.Millisecond
+	streamHeartbeatInterval = 250 * time.Millisecond
 	t.Cleanup(func() { streamHeartbeatInterval = origInterval })
 
 	fixture := newRBACRPCFixture(t)
@@ -436,12 +448,9 @@ func TestStreamServerUpdates_Heartbeat(t *testing.T) {
 		t.Fatal("first message was not a snapshot")
 	}
 
-	// Wait for a Heartbeat event (allow up to 5 seconds).
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-
-	receivedHeartbeat := false
-	for !receivedHeartbeat {
+	for {
 		recvDone := make(chan bool, 1)
 		go func() {
 			recvDone <- stream.Receive()
@@ -462,12 +471,9 @@ func TestStreamServerUpdates_Heartbeat(t *testing.T) {
 		}
 
 		heartbeat := event.GetHeartbeat()
-		if heartbeat == nil {
-			// Might be a different event type; keep waiting.
-			continue
+		if heartbeat != nil {
+			break
 		}
-
-		receivedHeartbeat = true
 	}
 }
 
@@ -533,19 +539,25 @@ func TestStreamServerUpdates_SnapshotOnServerCreate(t *testing.T) {
 	}
 	initialCount := len(initialSnapshot.GetServers())
 
-	// Give the handler time to register its eventbus subscription (if it does).
-	// Then publish a game-server-created event.
+	// Publish create notifications while waiting for a re-sent snapshot.
+	done := make(chan struct{})
+	defer close(done)
 	go func() {
-		time.Sleep(200 * time.Millisecond)
-		eventbus.Get().Publish(eventbus.TopicGameServerCreated, "new-server-id")
+		ticker := time.NewTicker(25 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				eventbus.Get().Publish(eventbus.TopicGameServerCreated, "new-server-id")
+			}
+		}
 	}()
 
-	// Wait for a new Snapshot event triggered by the create notification.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-
-	receivedSnapshot := false
-	for !receivedSnapshot {
+	for {
 		recvDone := make(chan bool, 1)
 		go func() {
 			recvDone <- stream.Receive()
@@ -567,11 +579,8 @@ func TestStreamServerUpdates_SnapshotOnServerCreate(t *testing.T) {
 
 		snapshot := event.GetSnapshot()
 		if snapshot == nil {
-			// Might be a heartbeat or metrics event; keep waiting.
 			continue
 		}
-
-		receivedSnapshot = true
 
 		// The handler should have re-sent a full snapshot. At minimum it should
 		// contain the same servers as the initial snapshot (the DB hasn't changed
@@ -580,5 +589,6 @@ func TestStreamServerUpdates_SnapshotOnServerCreate(t *testing.T) {
 		if len(snapshot.GetServers()) < initialCount {
 			t.Errorf("re-sent snapshot has %d servers, want at least %d", len(snapshot.GetServers()), initialCount)
 		}
+		break
 	}
 }

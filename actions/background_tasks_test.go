@@ -10,6 +10,8 @@ import (
 )
 
 func TestCheckServerVersionSetsResolvedTrackerType(t *testing.T) {
+	t.Parallel()
+
 	inst := &Instance{
 		ctx:          context.Background(),
 		versionState: versiontracker.NewVersionStateMap(),
@@ -37,6 +39,8 @@ func TestCheckServerVersionSetsResolvedTrackerType(t *testing.T) {
 }
 
 func TestCheckServerVersionPopulatesVersionsWhenUpdateAvailable(t *testing.T) {
+	t.Parallel()
+
 	dummy := versiontracker.NewDummyTracker()
 	inst := &Instance{
 		ctx:          context.Background(),
@@ -68,6 +72,8 @@ func TestCheckServerVersionPopulatesVersionsWhenUpdateAvailable(t *testing.T) {
 }
 
 func TestCheckServerVersionPopulatesVersionsWhenUpToDate(t *testing.T) {
+	t.Parallel()
+
 	dummy := versiontracker.NewDummyTracker()
 	dummy.MarkUpdated() // installed=2.0.0, latest=2.0.0 — no update
 	inst := &Instance{

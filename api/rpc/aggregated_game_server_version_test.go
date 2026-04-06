@@ -17,6 +17,8 @@ import (
 )
 
 func TestListAggregatedGameServers_UsesResolvedLocalVersion(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	supervisorInst, errSupervisor := supervisor.New(context.Background())

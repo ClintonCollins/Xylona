@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
 	"github.com/gorilla/securecookie"
-	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
@@ -26,30 +24,7 @@ type notifChanFixture struct {
 func newNotifChanFixture(t *testing.T) *notifChanFixture {
 	t.Helper()
 
-	dbPath := filepath.Join(t.TempDir(), "notif-chan-rpc.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		errClose := conn.SQLDb.Close()
-		if errClose != nil {
-			t.Errorf("failed to close test db: %v", errClose)
-		}
-	})
-
-	migrationSource := &migrate.FileMigrationSource{
-		Dir: filepath.Join("..", "..", "sql", "migrations"),
-	}
-	migrate.SetTable("migrations")
-	_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
-	if errMigrate != nil {
-		t.Fatalf("failed to apply migrations: %v", errMigrate)
-	}
-	_, errAlterGame := conn.SQLDb.ExecContext(
-		context.Background(),
-		`alter table game add column binds_to_all_ips boolean not null default false`,
-	)
-	if errAlterGame != nil && !strings.Contains(strings.ToLower(errAlterGame.Error()), "duplicate column name") {
-		t.Fatalf("failed to ensure game.binds_to_all_ips column: %v", errAlterGame)
-	}
+	conn := newRPCFixtureConnection(t, "notif-chan-rpc.sqlite")
 
 	seedNotifChanFixture(t, conn)
 
@@ -202,42 +177,173 @@ func seedNotifChanFixture(t *testing.T, conn *db.Connection) {
 // Auth + permission gate tests
 // ---------------------------------------------------------------------------
 
-func TestCreateNotificationChannel_Unauthenticated(t *testing.T) {
+func TestNotificationChannelRPC_Unauthenticated(t *testing.T) {
+	t.Parallel()
+
 	fixture := newNotifChanFixture(t)
 
-	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "test",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
-		Config:      `{"url":"https://discord.com/api/webhooks/1/abc"}`,
-		Enabled:     true,
-	})
-
-	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateNotificationChannel(unauthenticated) expected error, got nil")
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "create",
+			call: func() error {
+				req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+					Name:        "test",
+					ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
+					Config:      `{"url":"https://discord.com/api/webhooks/1/abc"}`,
+					Enabled:     true,
+				})
+				_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
+				return errCreate
+			},
+		},
+		{
+			name: "update",
+			call: func() error {
+				req := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
+					Id:   "some-id",
+					Name: "x",
+				})
+				_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), req)
+				return errUpdate
+			},
+		},
+		{
+			name: "delete",
+			call: func() error {
+				req := connect.NewRequest(&xylona.DeleteNotificationChannelRequest{Id: "x"})
+				_, errDelete := fixture.service.DeleteNotificationChannel(context.Background(), req)
+				return errDelete
+			},
+		},
+		{
+			name: "list",
+			call: func() error {
+				req := connect.NewRequest(&xylona.ListNotificationChannelsRequest{})
+				_, errList := fixture.service.ListNotificationChannels(context.Background(), req)
+				return errList
+			},
+		},
+		{
+			name: "test channel",
+			call: func() error {
+				req := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: "x"})
+				_, errTest := fixture.service.TestNotificationChannel(context.Background(), req)
+				return errTest
+			},
+		},
+		{
+			name: "get local smtp status",
+			call: func() error {
+				req := connect.NewRequest(&xylona.GetLocalSMTPStatusRequest{})
+				_, errGet := fixture.service.GetLocalSMTPStatus(context.Background(), req)
+				return errGet
+			},
+		},
 	}
-	if connect.CodeOf(errCreate) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeUnauthenticated)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errCall := tt.call()
+			if errCall == nil {
+				t.Fatalf("%s expected error, got nil", tt.name)
+			}
+
+			code := connect.CodeOf(errCall)
+			if code != connect.CodeUnauthenticated {
+				t.Errorf("%s code = %v, want %v", tt.name, code, connect.CodeUnauthenticated)
+			}
+		})
 	}
 }
 
-func TestCreateNotificationChannel_NoPermission(t *testing.T) {
+func TestNotificationChannelRPC_NoPermission(t *testing.T) {
+	t.Parallel()
+
 	fixture := newNotifChanFixture(t)
 
-	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "test",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
-		Config:      `{"url":"https://discord.com/api/webhooks/1/abc"}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateNotificationChannel(no permission) expected error, got nil")
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "create",
+			call: func() error {
+				req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+					Name:        "test",
+					ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
+					Config:      `{"url":"https://discord.com/api/webhooks/1/abc"}`,
+					Enabled:     true,
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
+				return errCreate
+			},
+		},
+		{
+			name: "update",
+			call: func() error {
+				req := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
+					Id:   "some-id",
+					Name: "x",
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), req)
+				return errUpdate
+			},
+		},
+		{
+			name: "delete",
+			call: func() error {
+				req := connect.NewRequest(&xylona.DeleteNotificationChannelRequest{Id: "x"})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errDelete := fixture.service.DeleteNotificationChannel(context.Background(), req)
+				return errDelete
+			},
+		},
+		{
+			name: "list",
+			call: func() error {
+				req := connect.NewRequest(&xylona.ListNotificationChannelsRequest{})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errList := fixture.service.ListNotificationChannels(context.Background(), req)
+				return errList
+			},
+		},
+		{
+			name: "test channel",
+			call: func() error {
+				req := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: "x"})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errTest := fixture.service.TestNotificationChannel(context.Background(), req)
+				return errTest
+			},
+		},
+		{
+			name: "get local smtp status",
+			call: func() error {
+				req := connect.NewRequest(&xylona.GetLocalSMTPStatusRequest{})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errGet := fixture.service.GetLocalSMTPStatus(context.Background(), req)
+				return errGet
+			},
+		},
 	}
-	if connect.CodeOf(errCreate) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodePermissionDenied)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errCall := tt.call()
+			if errCall == nil {
+				t.Fatalf("%s expected error, got nil", tt.name)
+			}
+
+			code := connect.CodeOf(errCall)
+			if code != connect.CodePermissionDenied {
+				t.Errorf("%s code = %v, want %v", tt.name, code, connect.CodePermissionDenied)
+			}
+		})
 	}
 }
 
@@ -684,41 +790,6 @@ func TestDeleteNotificationChannel_CrossUserIsolation(t *testing.T) {
 // Update + Delete permission and validation
 // ---------------------------------------------------------------------------
 
-func TestUpdateNotificationChannel_Unauthenticated(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
-		Id:   "some-id",
-		Name: "x",
-	})
-
-	_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), req)
-	if errUpdate == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errUpdate) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeUnauthenticated)
-	}
-}
-
-func TestUpdateNotificationChannel_NoPermission(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
-		Id:   "some-id",
-		Name: "x",
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), req)
-	if errUpdate == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errUpdate) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodePermissionDenied)
-	}
-}
-
 func TestUpdateNotificationChannel_EmptyID(t *testing.T) {
 	fixture := newNotifChanFixture(t)
 
@@ -788,35 +859,6 @@ func TestUpdateNotificationChannel_InvalidWebhookURLScheme(t *testing.T) {
 	}
 }
 
-func TestDeleteNotificationChannel_Unauthenticated(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.DeleteNotificationChannelRequest{Id: "x"})
-
-	_, errDelete := fixture.service.DeleteNotificationChannel(context.Background(), req)
-	if errDelete == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errDelete) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errDelete), connect.CodeUnauthenticated)
-	}
-}
-
-func TestDeleteNotificationChannel_NoPermission(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.DeleteNotificationChannelRequest{Id: "x"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errDelete := fixture.service.DeleteNotificationChannel(context.Background(), req)
-	if errDelete == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errDelete) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errDelete), connect.CodePermissionDenied)
-	}
-}
-
 func TestDeleteNotificationChannel_EmptyID(t *testing.T) {
 	fixture := newNotifChanFixture(t)
 
@@ -835,35 +877,6 @@ func TestDeleteNotificationChannel_EmptyID(t *testing.T) {
 // ---------------------------------------------------------------------------
 // ListNotificationChannels auth
 // ---------------------------------------------------------------------------
-
-func TestListNotificationChannels_Unauthenticated(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.ListNotificationChannelsRequest{})
-
-	_, errList := fixture.service.ListNotificationChannels(context.Background(), req)
-	if errList == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errList) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errList), connect.CodeUnauthenticated)
-	}
-}
-
-func TestListNotificationChannels_NoPermission(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.ListNotificationChannelsRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errList := fixture.service.ListNotificationChannels(context.Background(), req)
-	if errList == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errList) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errList), connect.CodePermissionDenied)
-	}
-}
 
 func TestListNotificationChannels_ViewHistoryMasksConfig(t *testing.T) {
 	fixture := newNotifChanFixture(t)
@@ -925,21 +938,6 @@ func TestListNotificationChannels_ManageKeepsConfigForEditing(t *testing.T) {
 	}
 	if resp.Msg.GetChannels()[0].GetConfig() != `{"url":"https://discord.com/api/webhooks/1/original"}` {
 		t.Fatalf("Config = %q, want original config", resp.Msg.GetChannels()[0].GetConfig())
-	}
-}
-
-func TestGetLocalSMTPStatus_NoPermission(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.GetLocalSMTPStatusRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errGet := fixture.service.GetLocalSMTPStatus(context.Background(), req)
-	if errGet == nil {
-		t.Fatal("GetLocalSMTPStatus(no permission) expected error, got nil")
-	}
-	if connect.CodeOf(errGet) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errGet), connect.CodePermissionDenied)
 	}
 }
 
@@ -1015,35 +1013,6 @@ func TestListNotificationChannels_ManageMasksEmailPasswordButKeepsMetadata(t *te
 // ---------------------------------------------------------------------------
 // TestNotificationChannel
 // ---------------------------------------------------------------------------
-
-func TestTestNotificationChannel_Unauthenticated(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: "x"})
-
-	_, errTest := fixture.service.TestNotificationChannel(context.Background(), req)
-	if errTest == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errTest) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errTest), connect.CodeUnauthenticated)
-	}
-}
-
-func TestTestNotificationChannel_NoPermission(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: "x"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errTest := fixture.service.TestNotificationChannel(context.Background(), req)
-	if errTest == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errTest) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errTest), connect.CodePermissionDenied)
-	}
-}
 
 func TestTestNotificationChannel_EmptyID(t *testing.T) {
 	fixture := newNotifChanFixture(t)

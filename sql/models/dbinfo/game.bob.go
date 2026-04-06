@@ -69,6 +69,15 @@ var Games = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		BindsToAllIps: column{
+			Name:      "binds_to_all_ips",
+			DBType:    "BOOLEAN",
+			Default:   "false",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 		UsesSourceQuery: column{
 			Name:      "uses_source_query",
 			DBType:    "BOOLEAN",
@@ -231,15 +240,6 @@ var Games = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
-		BindsToAllIps: column{
-			Name:      "binds_to_all_ips",
-			DBType:    "BOOLEAN",
-			Default:   "false",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
 		CreatedAt: column{
 			Name:      "created_at",
 			DBType:    "DATETIME",
@@ -372,6 +372,7 @@ type gameColumns struct {
 	DefaultQueryPort                  column
 	DefaultMaxPlayers                 column
 	RequireDedicatedIP                column
+	BindsToAllIps                     column
 	UsesSourceQuery                   column
 	UsesSteamcmd                      column
 	SteamAppID                        column
@@ -390,7 +391,6 @@ type gameColumns struct {
 	WindowsUpdateCommand              column
 	WindowsUpdateCommandType          column
 	WindowsWorkingDirectory           column
-	BindsToAllIps                     column
 	CreatedAt                         column
 	UpdatedAt                         column
 	XylonaOfficial                    column
@@ -406,7 +406,7 @@ type gameColumns struct {
 
 func (c gameColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.BindsToAllIps, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware, c.LinuxStartArgsTemplate, c.WindowsStartArgsTemplate, c.LinuxBaseCommand, c.WindowsBaseCommand, c.StartArgBlocklist, c.AllowStartArgEditing,
+		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.BindsToAllIps, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware, c.LinuxStartArgsTemplate, c.WindowsStartArgsTemplate, c.LinuxBaseCommand, c.WindowsBaseCommand, c.StartArgBlocklist, c.AllowStartArgEditing,
 	}
 }
 

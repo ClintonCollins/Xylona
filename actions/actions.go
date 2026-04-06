@@ -130,6 +130,7 @@ type Instance struct {
 	versionRefreshMu     sync.Mutex
 	versionRefreshCalls  map[string]*versionRefreshCall
 	localNodeID          string
+	restartState         *restartStateMap
 }
 
 // SetSyncEngine sets the sync engine on the actions instance. This is called
@@ -195,6 +196,7 @@ func NewInstance(ctx context.Context, database *db.Connection, supervisorInstanc
 		versionInstalledTTL:  readVersionDurationEnv("XYLONA_VERSION_INSTALLED_TTL", 15*time.Second),
 		versionLatestTTL:     readVersionDurationEnv("XYLONA_VERSION_LATEST_TTL", 2*time.Minute),
 		versionRefreshCalls:  make(map[string]*versionRefreshCall),
+		restartState:         &restartStateMap{},
 	}
 	go inst.backgroundJobQueryAllGameServers()
 	go inst.backgroundJobCheckModUpdates()
@@ -688,8 +690,8 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 		GameServerID:     &gameServer.ID,
 		Status:           xylona.Status_ONLINE,
 		ServiceID:        gameServer.GameID,
-		CallbackFunction: func(_ *supervisor.Command) {
-			// log.Info().Msg("Game server stopped")
+		CallbackFunction: func(cmd *supervisor.Command) {
+			inst.handleServerExit(cmd, gameServer.ID)
 		},
 	}
 	log.Debug().Msg("Checking input method during startup action")
@@ -706,8 +708,13 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 
 	_, err := inst.supervisorInstance.StartCommand(preparedCommand)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to start game server")
+		log.Error().Err(err).Str("game_server_id", gameServer.ID).
+			Msg("Failed to start game server")
+		inst.supervisorInstance.SendConsoleOutput(gameServer.ID,
+			"Failed to start server: "+err.Error())
+		return
 	}
+	inst.restartState.recordStarted(gameServer.ID)
 }
 
 func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {

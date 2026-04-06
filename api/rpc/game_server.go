@@ -41,6 +41,9 @@ func mergeEditableGameServerUpdate(
 		merged = *existingGameServer
 		merged.Name = incomingGameServer.Name
 		merged.SetPlayers = incomingGameServer.SetPlayers
+		merged.AutoRestartEnabled = incomingGameServer.AutoRestartEnabled
+		merged.AutoRestartMaxRetries = incomingGameServer.AutoRestartMaxRetries
+		merged.AutoRestartCooldownSeconds = incomingGameServer.AutoRestartCooldownSeconds
 	}
 
 	// Backup settings are managed exclusively through UpdateBackupSettings.

@@ -15,6 +15,8 @@ import (
 )
 
 func TestFederationPeerAuthMiddlewareAcceptsTrustedPeer(t *testing.T) {
+	t.Parallel()
+
 	conn := newFederationAuthTestConnection(t)
 
 	clientCertPath := filepath.Join(t.TempDir(), "client.crt")
@@ -92,6 +94,8 @@ func TestFederationPeerAuthMiddlewareAcceptsTrustedPeer(t *testing.T) {
 }
 
 func TestFederationPeerAuthMiddlewareRejectsUnknownPeer(t *testing.T) {
+	t.Parallel()
+
 	conn := newFederationAuthTestConnection(t)
 
 	errInsertNode := insertRemoteNodeForFederationAuth(t, conn, "remote-node-row")

@@ -69,15 +69,6 @@ var GameServerBackups = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
-		ArchiveRoot: column{
-			Name:      "archive_root",
-			DBType:    "TEXT",
-			Default:   "",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
 		ArchiveFormat: column{
 			Name:      "archive_format",
 			DBType:    "TEXT",
@@ -138,6 +129,15 @@ var GameServerBackups = Table[
 			Default:   "NULL",
 			Comment:   "",
 			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ArchiveRoot: column{
+			Name:      "archive_root",
+			DBType:    "TEXT",
+			Default:   "''",
+			Comment:   "",
+			Nullable:  false,
 			Generated: false,
 			AutoIncr:  false,
 		},
@@ -261,7 +261,6 @@ type gameServerBackupColumns struct {
 	CreatedBy       column
 	TriggerSource   column
 	ArchivePath     column
-	ArchiveRoot     column
 	ArchiveFormat   column
 	Status          column
 	SizeBytes       column
@@ -269,11 +268,12 @@ type gameServerBackupColumns struct {
 	ErrorMessage    column
 	CreatedAt       column
 	CompletedAt     column
+	ArchiveRoot     column
 }
 
 func (c gameServerBackupColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.GameServerID, c.NodeID, c.CreatedBy, c.TriggerSource, c.ArchivePath, c.ArchiveRoot, c.ArchiveFormat, c.Status, c.SizeBytes, c.RetentionExempt, c.ErrorMessage, c.CreatedAt, c.CompletedAt,
+		c.ID, c.GameServerID, c.NodeID, c.CreatedBy, c.TriggerSource, c.ArchivePath, c.ArchiveFormat, c.Status, c.SizeBytes, c.RetentionExempt, c.ErrorMessage, c.CreatedAt, c.CompletedAt, c.ArchiveRoot,
 	}
 }
 

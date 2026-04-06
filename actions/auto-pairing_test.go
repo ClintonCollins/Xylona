@@ -10,6 +10,8 @@ import (
 )
 
 func TestBuildLocalPeerList_Empty(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	peers, errBuild := inst.BuildLocalPeerList()
 	if errBuild != nil {
@@ -21,6 +23,8 @@ func TestBuildLocalPeerList_Empty(t *testing.T) {
 }
 
 func TestProcessReceivedPeerList_SkipsKnownNodes(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	// Insert a known remote node.
 	_, errInsert := inst.db.InsertRemoteNode(&models.NodeSetter{
@@ -58,6 +62,8 @@ func TestProcessReceivedPeerList_SkipsKnownNodes(t *testing.T) {
 }
 
 func TestHandleNodeDeparture(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 
 	// Insert a remote node that will depart.

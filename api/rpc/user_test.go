@@ -13,6 +13,8 @@ import (
 )
 
 func TestUserManagementRequiresSuperUser(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	tests := []struct {
@@ -122,6 +124,8 @@ func TestUserManagementRequiresSuperUser(t *testing.T) {
 }
 
 func TestCreateListGetUser(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	createRequest := connect.NewRequest(&xylona.CreateUserRequest{
@@ -184,6 +188,8 @@ func TestCreateListGetUser(t *testing.T) {
 }
 
 func TestUpdateUserWithoutPasswordKeepsPasswordHash(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	createdUser := createUserForRPCUserTests(t, fixture, "user-update-no-pass", false)
@@ -224,6 +230,8 @@ func TestUpdateUserWithoutPasswordKeepsPasswordHash(t *testing.T) {
 }
 
 func TestUpdateUserWithPasswordRehashesPassword(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	createdUser := createUserForRPCUserTests(t, fixture, "user-update-pass", false)
@@ -264,6 +272,8 @@ func TestUpdateUserWithPasswordRehashesPassword(t *testing.T) {
 }
 
 func TestUpdateUserPreventsDemotingLastSuperUser(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	updateRequest := connect.NewRequest(&xylona.UpdateUserRequest{
@@ -286,6 +296,8 @@ func TestUpdateUserPreventsDemotingLastSuperUser(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	createdUser := createUserForRPCUserTests(t, fixture, "user-delete-rpc", false)
@@ -307,6 +319,8 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestDeleteUserPreventsSelfDelete(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	_ = createUserForRPCUserTests(t, fixture, "user-extra-super", true)
@@ -326,6 +340,8 @@ func TestDeleteUserPreventsSelfDelete(t *testing.T) {
 }
 
 func TestDeleteUserPreventsDeletingLastSuperUser(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	deleteRequest := connect.NewRequest(&xylona.DeleteUserRequest{
@@ -367,6 +383,8 @@ func createUserForRPCUserTests(t *testing.T, fixture *rbacRPCFixture, userName s
 }
 
 func TestCreateUserDuplicateUsername(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	_ = createUserForRPCUserTests(t, fixture, "dup-username", false)
@@ -390,6 +408,8 @@ func TestCreateUserDuplicateUsername(t *testing.T) {
 }
 
 func TestCreateUserEmptyFields(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	tests := []struct {
@@ -426,6 +446,8 @@ func TestCreateUserEmptyFields(t *testing.T) {
 }
 
 func TestGetUserNotFound(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	request := connect.NewRequest(&xylona.GetUserDetailsRequest{
@@ -443,6 +465,8 @@ func TestGetUserNotFound(t *testing.T) {
 }
 
 func TestUpdateUserNotFound(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	request := connect.NewRequest(&xylona.UpdateUserRequest{
@@ -464,6 +488,8 @@ func TestUpdateUserNotFound(t *testing.T) {
 }
 
 func TestDeleteUserNotFound(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	// Need a second super user so the fixture admin can delete

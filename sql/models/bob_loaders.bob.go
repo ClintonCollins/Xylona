@@ -29,6 +29,7 @@ type preloaders struct {
 	InstalledMod             installedModPreloader
 	InstalledModFile         installedModFilePreloader
 	IP                       ipPreloader
+	Log                      logPreloader
 	Node                     nodePreloader
 	NodeMetricsHistory       nodeMetricsHistoryPreloader
 	NodeSyncQueue            nodeSyncQueuePreloader
@@ -41,6 +42,7 @@ type preloaders struct {
 	ScheduledTask            scheduledTaskPreloader
 	ScheduledTaskLog         scheduledTaskLogPreloader
 	User                     userPreloader
+	UserAPIKey               userAPIKeyPreloader
 	UserRoleAssignment       userRoleAssignmentPreloader
 	UserSession              userSessionPreloader
 }
@@ -59,6 +61,7 @@ func getPreloaders() preloaders {
 		InstalledMod:             buildInstalledModPreloader(),
 		InstalledModFile:         buildInstalledModFilePreloader(),
 		IP:                       buildIPPreloader(),
+		Log:                      buildLogPreloader(),
 		Node:                     buildNodePreloader(),
 		NodeMetricsHistory:       buildNodeMetricsHistoryPreloader(),
 		NodeSyncQueue:            buildNodeSyncQueuePreloader(),
@@ -71,6 +74,7 @@ func getPreloaders() preloaders {
 		ScheduledTask:            buildScheduledTaskPreloader(),
 		ScheduledTaskLog:         buildScheduledTaskLogPreloader(),
 		User:                     buildUserPreloader(),
+		UserAPIKey:               buildUserAPIKeyPreloader(),
 		UserRoleAssignment:       buildUserRoleAssignmentPreloader(),
 		UserSession:              buildUserSessionPreloader(),
 	}
@@ -95,6 +99,7 @@ type thenLoaders[Q orm.Loadable] struct {
 	InstalledMod             installedModThenLoader[Q]
 	InstalledModFile         installedModFileThenLoader[Q]
 	IP                       ipThenLoader[Q]
+	Log                      logThenLoader[Q]
 	Node                     nodeThenLoader[Q]
 	NodeMetricsHistory       nodeMetricsHistoryThenLoader[Q]
 	NodeSyncQueue            nodeSyncQueueThenLoader[Q]
@@ -107,6 +112,7 @@ type thenLoaders[Q orm.Loadable] struct {
 	ScheduledTask            scheduledTaskThenLoader[Q]
 	ScheduledTaskLog         scheduledTaskLogThenLoader[Q]
 	User                     userThenLoader[Q]
+	UserAPIKey               userAPIKeyThenLoader[Q]
 	UserRoleAssignment       userRoleAssignmentThenLoader[Q]
 	UserSession              userSessionThenLoader[Q]
 }
@@ -125,6 +131,7 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		InstalledMod:             buildInstalledModThenLoader[Q](),
 		InstalledModFile:         buildInstalledModFileThenLoader[Q](),
 		IP:                       buildIPThenLoader[Q](),
+		Log:                      buildLogThenLoader[Q](),
 		Node:                     buildNodeThenLoader[Q](),
 		NodeMetricsHistory:       buildNodeMetricsHistoryThenLoader[Q](),
 		NodeSyncQueue:            buildNodeSyncQueueThenLoader[Q](),
@@ -137,6 +144,7 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		ScheduledTask:            buildScheduledTaskThenLoader[Q](),
 		ScheduledTaskLog:         buildScheduledTaskLogThenLoader[Q](),
 		User:                     buildUserThenLoader[Q](),
+		UserAPIKey:               buildUserAPIKeyThenLoader[Q](),
 		UserRoleAssignment:       buildUserRoleAssignmentThenLoader[Q](),
 		UserSession:              buildUserSessionThenLoader[Q](),
 	}

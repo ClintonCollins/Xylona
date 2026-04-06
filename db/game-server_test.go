@@ -31,6 +31,8 @@ func seedGameServerFixture(t *testing.T, conn *Connection) {
 }
 
 func TestGetAllGameServers(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-all.sqlite")
 	seedGameServerFixture(t, conn)
 
@@ -44,6 +46,8 @@ func TestGetAllGameServers(t *testing.T) {
 }
 
 func TestGetGameServerByID(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-by-id.sqlite")
 	seedGameServerFixture(t, conn)
 
@@ -59,17 +63,9 @@ func TestGetGameServerByID(t *testing.T) {
 	}
 }
 
-func TestGetGameServerByIDNotFound(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "gs-not-found.sqlite")
-	seedRBACFixture(t, conn)
-
-	_, errGet := conn.GetGameServerByID("nonexistent")
-	if !errors.Is(errGet, sql.ErrNoRows) {
-		t.Errorf("GetGameServerByID() error = %v, want %v", errGet, sql.ErrNoRows)
-	}
-}
-
 func TestGetGameServersByUser(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-by-user.sqlite")
 	seedGameServerFixture(t, conn)
 
@@ -85,20 +81,9 @@ func TestGetGameServersByUser(t *testing.T) {
 	}
 }
 
-func TestGetGameServersByUserNoResults(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "gs-by-user-empty.sqlite")
-	seedRBACFixture(t, conn)
-
-	servers, errGet := conn.GetGameServersByUser("user-admin")
-	if errGet != nil {
-		t.Fatalf("GetGameServersByUser() error = %v", errGet)
-	}
-	if len(servers) != 0 {
-		t.Errorf("GetGameServersByUser() len = %d, want 0", len(servers))
-	}
-}
-
 func TestGetGameServersByIP(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-by-ip.sqlite")
 	seedGameServerFixture(t, conn)
 
@@ -111,20 +96,9 @@ func TestGetGameServersByIP(t *testing.T) {
 	}
 }
 
-func TestGetGameServersByIPNoResults(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "gs-by-ip-empty.sqlite")
-	seedRBACFixture(t, conn)
-
-	servers, errGet := conn.GetGameServersByIP("10.0.0.1")
-	if errGet != nil {
-		t.Fatalf("GetGameServersByIP() error = %v", errGet)
-	}
-	if len(servers) != 0 {
-		t.Errorf("GetGameServersByIP() len = %d, want 0", len(servers))
-	}
-}
-
 func TestGetGameServersByGameID(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-by-game.sqlite")
 	seedGameServerFixture(t, conn)
 
@@ -137,20 +111,74 @@ func TestGetGameServersByGameID(t *testing.T) {
 	}
 }
 
-func TestGetGameServersByGameIDNoResults(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "gs-by-game-empty.sqlite")
-	seedRBACFixture(t, conn)
+func TestGameServerQuery_NoResults(t *testing.T) {
+	t.Parallel()
 
-	servers, errGet := conn.GetGameServersByGameID("nonexistent-game")
-	if errGet != nil {
-		t.Fatalf("GetGameServersByGameID() error = %v", errGet)
+	tests := []struct {
+		name string
+		run  func(t *testing.T, conn *Connection)
+	}{
+		{
+			name: "by id not found",
+			run: func(t *testing.T, conn *Connection) {
+				_, errGet := conn.GetGameServerByID("nonexistent")
+				if !errors.Is(errGet, sql.ErrNoRows) {
+					t.Errorf("GetGameServerByID() error = %v, want %v", errGet, sql.ErrNoRows)
+				}
+			},
+		},
+		{
+			name: "by user empty",
+			run: func(t *testing.T, conn *Connection) {
+				servers, errGet := conn.GetGameServersByUser("user-admin")
+				if errGet != nil {
+					t.Fatalf("GetGameServersByUser() error = %v", errGet)
+				}
+				if len(servers) != 0 {
+					t.Errorf("GetGameServersByUser() len = %d, want 0", len(servers))
+				}
+			},
+		},
+		{
+			name: "by ip empty",
+			run: func(t *testing.T, conn *Connection) {
+				servers, errGet := conn.GetGameServersByIP("10.0.0.1")
+				if errGet != nil {
+					t.Fatalf("GetGameServersByIP() error = %v", errGet)
+				}
+				if len(servers) != 0 {
+					t.Errorf("GetGameServersByIP() len = %d, want 0", len(servers))
+				}
+			},
+		},
+		{
+			name: "by game id empty",
+			run: func(t *testing.T, conn *Connection) {
+				servers, errGet := conn.GetGameServersByGameID("nonexistent-game")
+				if errGet != nil {
+					t.Fatalf("GetGameServersByGameID() error = %v", errGet)
+				}
+				if len(servers) != 0 {
+					t.Errorf("GetGameServersByGameID() len = %d, want 0", len(servers))
+				}
+			},
+		},
 	}
-	if len(servers) != 0 {
-		t.Errorf("GetGameServersByGameID() len = %d, want 0", len(servers))
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			conn := newRBACMigratedConnection(t, "gs-no-results.sqlite")
+			seedRBACFixture(t, conn)
+			tt.run(t, conn)
+		})
 	}
 }
 
 func TestInsertGameServer(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-insert.sqlite")
 	seedRBACFixture(t, conn)
 
@@ -187,6 +215,8 @@ func TestInsertGameServer(t *testing.T) {
 }
 
 func TestInsertGameServerDuplicateUserName(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-dup-name.sqlite")
 	seedRBACFixture(t, conn)
 
@@ -216,6 +246,8 @@ func TestInsertGameServerDuplicateUserName(t *testing.T) {
 }
 
 func TestUpdateGameServer(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-update.sqlite")
 	seedRBACFixture(t, conn)
 
@@ -254,6 +286,8 @@ func TestUpdateGameServer(t *testing.T) {
 }
 
 func TestDeleteGameServer(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-delete.sqlite")
 	seedRBACFixture(t, conn)
 
@@ -269,6 +303,8 @@ func TestDeleteGameServer(t *testing.T) {
 }
 
 func TestGetGameServersAccessibleByUser(t *testing.T) {
+	t.Parallel()
+
 	conn := newRBACMigratedConnection(t, "gs-accessible.sqlite")
 	seedRBACFixture(t, conn)
 

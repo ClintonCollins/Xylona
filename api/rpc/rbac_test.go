@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,7 +12,6 @@ import (
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
 	"github.com/gorilla/securecookie"
-	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
@@ -33,29 +30,7 @@ type rbacRPCFixture struct {
 func newRBACRPCFixture(t *testing.T) *rbacRPCFixture {
 	t.Helper()
 
-	dbPath := filepath.Join(t.TempDir(), "rbac-rpc.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close test db: %v", errClose)
-		}
-	})
-
-	migrationSource := &migrate.FileMigrationSource{
-		Dir: filepath.Join("..", "..", "sql", "migrations"),
-	}
-	migrate.SetTable("migrations")
-	_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
-	if errMigrate != nil {
-		t.Fatalf("failed to apply migrations: %v", errMigrate)
-	}
-	_, errAlterGame := conn.SQLDb.ExecContext(
-		context.Background(),
-		`alter table game add column binds_to_all_ips boolean not null default false`,
-	)
-	if errAlterGame != nil && !strings.Contains(strings.ToLower(errAlterGame.Error()), "duplicate column name") {
-		t.Fatalf("failed to ensure game.binds_to_all_ips column: %v", errAlterGame)
-	}
+	conn := newRPCFixtureConnection(t, "rbac-rpc.sqlite")
 
 	seedRBACRPCFixture(t, conn)
 

@@ -17,11 +17,7 @@ import {
   GameServerBackupStatus,
   GameServerBackupTriggerSource,
 } from '@/proto/shared_pb'
-import type {
-  BackupProgress,
-  GameServerBackup,
-  GameServerBackupOverview,
-} from '@/proto/shared_pb'
+import type { BackupProgress, GameServerBackup, GameServerBackupOverview } from '@/proto/shared_pb'
 import {
   CreateGameServerBackupRequestSchema,
   DeleteGameServerBackupRequestSchema,

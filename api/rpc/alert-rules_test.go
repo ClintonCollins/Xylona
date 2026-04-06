@@ -2,13 +2,10 @@ package rpc
 
 import (
 	"context"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
 	"github.com/gorilla/securecookie"
-	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -24,30 +21,7 @@ type alertRulesFixture struct {
 func newAlertRulesFixture(t *testing.T) *alertRulesFixture {
 	t.Helper()
 
-	dbPath := filepath.Join(t.TempDir(), "alert-rules-rpc.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		errClose := conn.SQLDb.Close()
-		if errClose != nil {
-			t.Errorf("failed to close test db: %v", errClose)
-		}
-	})
-
-	migrationSource := &migrate.FileMigrationSource{
-		Dir: filepath.Join("..", "..", "sql", "migrations"),
-	}
-	migrate.SetTable("migrations")
-	_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
-	if errMigrate != nil {
-		t.Fatalf("failed to apply migrations: %v", errMigrate)
-	}
-	_, errAlterGame := conn.SQLDb.ExecContext(
-		context.Background(),
-		`alter table game add column binds_to_all_ips boolean not null default false`,
-	)
-	if errAlterGame != nil && !strings.Contains(strings.ToLower(errAlterGame.Error()), "duplicate column name") {
-		t.Fatalf("failed to ensure game.binds_to_all_ips column: %v", errAlterGame)
-	}
+	conn := newRPCFixtureConnection(t, "alert-rules-rpc.sqlite")
 
 	channelID := seedAlertRulesFixture(t, conn)
 
@@ -209,170 +183,158 @@ func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 // Auth + permission gate tests
 // ---------------------------------------------------------------------------
 
-func TestCreateAlertRule_Unauthenticated(t *testing.T) {
+func TestAlertRuleRPC_Unauthenticated(t *testing.T) {
+	t.Parallel()
+
 	fixture := newAlertRulesFixture(t)
 
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(unauthenticated) expected error, got nil")
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "create",
+			call: func() error {
+				req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
+					EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+					NotificationChannelId: fixture.channelID,
+					Enabled:               true,
+				})
+				_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
+				return errCreate
+			},
+		},
+		{
+			name: "update",
+			call: func() error {
+				req := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
+					Id:                    "some-id",
+					EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+					NotificationChannelId: fixture.channelID,
+					Enabled:               true,
+				})
+				_, errUpdate := fixture.service.UpdateAlertRule(context.Background(), req)
+				return errUpdate
+			},
+		},
+		{
+			name: "delete",
+			call: func() error {
+				req := connect.NewRequest(&xylona.DeleteAlertRuleRequest{Id: "some-id"})
+				_, errDelete := fixture.service.DeleteAlertRule(context.Background(), req)
+				return errDelete
+			},
+		},
+		{
+			name: "list",
+			call: func() error {
+				req := connect.NewRequest(&xylona.ListAlertRulesRequest{})
+				_, errList := fixture.service.ListAlertRules(context.Background(), req)
+				return errList
+			},
+		},
+		{
+			name: "history",
+			call: func() error {
+				req := connect.NewRequest(&xylona.GetAlertHistoryRequest{})
+				_, errGet := fixture.service.GetAlertHistory(context.Background(), req)
+				return errGet
+			},
+		},
 	}
-	if connect.CodeOf(errCreate) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeUnauthenticated)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errCall := tt.call()
+			if errCall == nil {
+				t.Fatalf("%s expected error, got nil", tt.name)
+			}
+
+			code := connect.CodeOf(errCall)
+			if code != connect.CodeUnauthenticated {
+				t.Errorf("%s code = %v, want %v", tt.name, code, connect.CodeUnauthenticated)
+			}
+		})
 	}
 }
 
-func TestCreateAlertRule_NoPermission(t *testing.T) {
+func TestAlertRuleRPC_NoPermission(t *testing.T) {
+	t.Parallel()
+
 	fixture := newAlertRulesFixture(t)
 
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(no permission) expected error, got nil")
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "create",
+			call: func() error {
+				req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
+					EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+					NotificationChannelId: fixture.channelID,
+					Enabled:               true,
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
+				return errCreate
+			},
+		},
+		{
+			name: "update",
+			call: func() error {
+				req := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
+					Id:                    "some-id",
+					EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+					NotificationChannelId: fixture.channelID,
+					Enabled:               true,
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errUpdate := fixture.service.UpdateAlertRule(context.Background(), req)
+				return errUpdate
+			},
+		},
+		{
+			name: "delete",
+			call: func() error {
+				req := connect.NewRequest(&xylona.DeleteAlertRuleRequest{Id: "some-id"})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errDelete := fixture.service.DeleteAlertRule(context.Background(), req)
+				return errDelete
+			},
+		},
+		{
+			name: "list",
+			call: func() error {
+				req := connect.NewRequest(&xylona.ListAlertRulesRequest{})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errList := fixture.service.ListAlertRules(context.Background(), req)
+				return errList
+			},
+		},
+		{
+			name: "history",
+			call: func() error {
+				req := connect.NewRequest(&xylona.GetAlertHistoryRequest{})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
+				_, errGet := fixture.service.GetAlertHistory(context.Background(), req)
+				return errGet
+			},
+		},
 	}
-	if connect.CodeOf(errCreate) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodePermissionDenied)
-	}
-}
 
-func TestUpdateAlertRule_Unauthenticated(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errCall := tt.call()
+			if errCall == nil {
+				t.Fatalf("%s expected error, got nil", tt.name)
+			}
 
-	req := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
-		Id:                    "some-id",
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-
-	_, errUpdate := fixture.service.UpdateAlertRule(context.Background(), req)
-	if errUpdate == nil {
-		t.Fatalf("UpdateAlertRule(unauthenticated) expected error, got nil")
-	}
-	if connect.CodeOf(errUpdate) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeUnauthenticated)
-	}
-}
-
-func TestUpdateAlertRule_NoPermission(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
-		Id:                    "some-id",
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errUpdate := fixture.service.UpdateAlertRule(context.Background(), req)
-	if errUpdate == nil {
-		t.Fatalf("UpdateAlertRule(no permission) expected error, got nil")
-	}
-	if connect.CodeOf(errUpdate) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodePermissionDenied)
-	}
-}
-
-func TestDeleteAlertRule_Unauthenticated(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.DeleteAlertRuleRequest{
-		Id: "some-id",
-	})
-
-	_, errDelete := fixture.service.DeleteAlertRule(context.Background(), req)
-	if errDelete == nil {
-		t.Fatalf("DeleteAlertRule(unauthenticated) expected error, got nil")
-	}
-	if connect.CodeOf(errDelete) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errDelete), connect.CodeUnauthenticated)
-	}
-}
-
-func TestDeleteAlertRule_NoPermission(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.DeleteAlertRuleRequest{
-		Id: "some-id",
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errDelete := fixture.service.DeleteAlertRule(context.Background(), req)
-	if errDelete == nil {
-		t.Fatalf("DeleteAlertRule(no permission) expected error, got nil")
-	}
-	if connect.CodeOf(errDelete) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errDelete), connect.CodePermissionDenied)
-	}
-}
-
-func TestListAlertRules_Unauthenticated(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.ListAlertRulesRequest{})
-
-	_, errList := fixture.service.ListAlertRules(context.Background(), req)
-	if errList == nil {
-		t.Fatalf("ListAlertRules(unauthenticated) expected error, got nil")
-	}
-	if connect.CodeOf(errList) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errList), connect.CodeUnauthenticated)
-	}
-}
-
-func TestListAlertRules_NoPermission(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.ListAlertRulesRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errList := fixture.service.ListAlertRules(context.Background(), req)
-	if errList == nil {
-		t.Fatalf("ListAlertRules(no permission) expected error, got nil")
-	}
-	if connect.CodeOf(errList) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errList), connect.CodePermissionDenied)
-	}
-}
-
-func TestGetAlertHistory_Unauthenticated(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.GetAlertHistoryRequest{})
-
-	_, errGet := fixture.service.GetAlertHistory(context.Background(), req)
-	if errGet == nil {
-		t.Fatalf("GetAlertHistory(unauthenticated) expected error, got nil")
-	}
-	if connect.CodeOf(errGet) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errGet), connect.CodeUnauthenticated)
-	}
-}
-
-func TestGetAlertHistory_NoPermission(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.GetAlertHistoryRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-noperm")
-
-	_, errGet := fixture.service.GetAlertHistory(context.Background(), req)
-	if errGet == nil {
-		t.Fatalf("GetAlertHistory(no permission) expected error, got nil")
-	}
-	if connect.CodeOf(errGet) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errGet), connect.CodePermissionDenied)
+			code := connect.CodeOf(errCall)
+			if code != connect.CodePermissionDenied {
+				t.Errorf("%s code = %v, want %v", tt.name, code, connect.CodePermissionDenied)
+			}
+		})
 	}
 }
 

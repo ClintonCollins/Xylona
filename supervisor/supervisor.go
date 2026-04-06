@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ziutek/telnet"
@@ -96,6 +97,7 @@ type Command struct {
 	toggleOutputType              chan struct{}
 	stopTimeout                   time.Duration
 	runAfterStartup               func(job *Command)
+	intentionalStop               atomic.Bool
 	// Metrics fields (transient, not persisted to DB)
 	cpuPercent      float64
 	cpuCores        int32
@@ -180,6 +182,11 @@ func (c *Command) UnixStartedAt() int64 {
 	c.RLock()
 	defer c.RUnlock()
 	return c.unixStartedAt
+}
+
+// IntentionalStop reports whether Stop was explicitly called on this command.
+func (c *Command) IntentionalStop() bool {
+	return c.intentionalStop.Load()
 }
 
 // Metrics returns the core metrics snapshot for the command's process tree.

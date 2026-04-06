@@ -31,7 +31,6 @@ type GameServerBackup struct {
 	CreatedBy       null.Val[string]    `db:"created_by" `
 	TriggerSource   string              `db:"trigger_source" `
 	ArchivePath     string              `db:"archive_path" `
-	ArchiveRoot     string              `db:"archive_root" `
 	ArchiveFormat   string              `db:"archive_format" `
 	Status          string              `db:"status" `
 	SizeBytes       int64               `db:"size_bytes" `
@@ -39,6 +38,7 @@ type GameServerBackup struct {
 	ErrorMessage    null.Val[string]    `db:"error_message" `
 	CreatedAt       time.Time           `db:"created_at" `
 	CompletedAt     null.Val[time.Time] `db:"completed_at" `
+	ArchiveRoot     string              `db:"archive_root" `
 
 	R gameServerBackupR `db:"-" `
 }
@@ -62,7 +62,7 @@ type gameServerBackupR struct {
 func buildGameServerBackupColumns(alias string) gameServerBackupColumns {
 	return gameServerBackupColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "game_server_id", "node_id", "created_by", "trigger_source", "archive_path", "archive_root", "archive_format", "status", "size_bytes", "retention_exempt", "error_message", "created_at", "completed_at",
+			"id", "game_server_id", "node_id", "created_by", "trigger_source", "archive_path", "archive_format", "status", "size_bytes", "retention_exempt", "error_message", "created_at", "completed_at", "archive_root",
 		).WithParent("game_server_backup"),
 		tableAlias:      alias,
 		ID:              sqlite.Quote(alias, "id"),
@@ -71,7 +71,6 @@ func buildGameServerBackupColumns(alias string) gameServerBackupColumns {
 		CreatedBy:       sqlite.Quote(alias, "created_by"),
 		TriggerSource:   sqlite.Quote(alias, "trigger_source"),
 		ArchivePath:     sqlite.Quote(alias, "archive_path"),
-		ArchiveRoot:     sqlite.Quote(alias, "archive_root"),
 		ArchiveFormat:   sqlite.Quote(alias, "archive_format"),
 		Status:          sqlite.Quote(alias, "status"),
 		SizeBytes:       sqlite.Quote(alias, "size_bytes"),
@@ -79,6 +78,7 @@ func buildGameServerBackupColumns(alias string) gameServerBackupColumns {
 		ErrorMessage:    sqlite.Quote(alias, "error_message"),
 		CreatedAt:       sqlite.Quote(alias, "created_at"),
 		CompletedAt:     sqlite.Quote(alias, "completed_at"),
+		ArchiveRoot:     sqlite.Quote(alias, "archive_root"),
 	}
 }
 
@@ -91,7 +91,6 @@ type gameServerBackupColumns struct {
 	CreatedBy       sqlite.Expression
 	TriggerSource   sqlite.Expression
 	ArchivePath     sqlite.Expression
-	ArchiveRoot     sqlite.Expression
 	ArchiveFormat   sqlite.Expression
 	Status          sqlite.Expression
 	SizeBytes       sqlite.Expression
@@ -99,6 +98,7 @@ type gameServerBackupColumns struct {
 	ErrorMessage    sqlite.Expression
 	CreatedAt       sqlite.Expression
 	CompletedAt     sqlite.Expression
+	ArchiveRoot     sqlite.Expression
 }
 
 func (c gameServerBackupColumns) Alias() string {
@@ -119,7 +119,6 @@ type GameServerBackupSetter struct {
 	CreatedBy       omitnull.Val[string]    `db:"created_by" `
 	TriggerSource   omit.Val[string]        `db:"trigger_source" `
 	ArchivePath     omit.Val[string]        `db:"archive_path" `
-	ArchiveRoot     omit.Val[string]        `db:"archive_root" `
 	ArchiveFormat   omit.Val[string]        `db:"archive_format" `
 	Status          omit.Val[string]        `db:"status" `
 	SizeBytes       omit.Val[int64]         `db:"size_bytes" `
@@ -127,6 +126,7 @@ type GameServerBackupSetter struct {
 	ErrorMessage    omitnull.Val[string]    `db:"error_message" `
 	CreatedAt       omit.Val[time.Time]     `db:"created_at" `
 	CompletedAt     omitnull.Val[time.Time] `db:"completed_at" `
+	ArchiveRoot     omit.Val[string]        `db:"archive_root" `
 }
 
 func (s GameServerBackupSetter) SetColumns() []string {
@@ -149,9 +149,6 @@ func (s GameServerBackupSetter) SetColumns() []string {
 	if s.ArchivePath.IsValue() {
 		vals = append(vals, "archive_path")
 	}
-	if s.ArchiveRoot.IsValue() {
-		vals = append(vals, "archive_root")
-	}
 	if s.ArchiveFormat.IsValue() {
 		vals = append(vals, "archive_format")
 	}
@@ -172,6 +169,9 @@ func (s GameServerBackupSetter) SetColumns() []string {
 	}
 	if !s.CompletedAt.IsUnset() {
 		vals = append(vals, "completed_at")
+	}
+	if s.ArchiveRoot.IsValue() {
+		vals = append(vals, "archive_root")
 	}
 	return vals
 }
@@ -195,9 +195,6 @@ func (s GameServerBackupSetter) Overwrite(t *GameServerBackup) {
 	if s.ArchivePath.IsValue() {
 		t.ArchivePath = s.ArchivePath.MustGet()
 	}
-	if s.ArchiveRoot.IsValue() {
-		t.ArchiveRoot = s.ArchiveRoot.MustGet()
-	}
 	if s.ArchiveFormat.IsValue() {
 		t.ArchiveFormat = s.ArchiveFormat.MustGet()
 	}
@@ -218,6 +215,9 @@ func (s GameServerBackupSetter) Overwrite(t *GameServerBackup) {
 	}
 	if !s.CompletedAt.IsUnset() {
 		t.CompletedAt = s.CompletedAt.MustGetNull()
+	}
+	if s.ArchiveRoot.IsValue() {
+		t.ArchiveRoot = s.ArchiveRoot.MustGet()
 	}
 }
 
@@ -260,10 +260,6 @@ func (s *GameServerBackupSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.ArchivePath.MustGet()))
 		}
 
-		if s.ArchiveRoot.IsValue() {
-			vals = append(vals, sqlite.Arg(s.ArchiveRoot.MustGet()))
-		}
-
 		if s.ArchiveFormat.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ArchiveFormat.MustGet()))
 		}
@@ -290,6 +286,10 @@ func (s *GameServerBackupSetter) Apply(q *dialect.InsertQuery) {
 
 		if !s.CompletedAt.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.CompletedAt.MustGetNull()))
+		}
+
+		if s.ArchiveRoot.IsValue() {
+			vals = append(vals, sqlite.Arg(s.ArchiveRoot.MustGet()))
 		}
 
 		if len(vals) == 0 {
@@ -349,13 +349,6 @@ func (s GameServerBackupSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
-	if s.ArchiveRoot.IsValue() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "archive_root")...),
-			sqlite.Arg(s.ArchiveRoot),
-		}})
-	}
-
 	if s.ArchiveFormat.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "archive_format")...),
@@ -402,6 +395,13 @@ func (s GameServerBackupSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "completed_at")...),
 			sqlite.Arg(s.CompletedAt),
+		}})
+	}
+
+	if s.ArchiveRoot.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "archive_root")...),
+			sqlite.Arg(s.ArchiveRoot),
 		}})
 	}
 
@@ -772,7 +772,6 @@ type gameServerBackupWhere[Q sqlite.Filterable] struct {
 	CreatedBy       sqlite.WhereNullMod[Q, string]
 	TriggerSource   sqlite.WhereMod[Q, string]
 	ArchivePath     sqlite.WhereMod[Q, string]
-	ArchiveRoot     sqlite.WhereMod[Q, string]
 	ArchiveFormat   sqlite.WhereMod[Q, string]
 	Status          sqlite.WhereMod[Q, string]
 	SizeBytes       sqlite.WhereMod[Q, int64]
@@ -780,6 +779,7 @@ type gameServerBackupWhere[Q sqlite.Filterable] struct {
 	ErrorMessage    sqlite.WhereNullMod[Q, string]
 	CreatedAt       sqlite.WhereMod[Q, time.Time]
 	CompletedAt     sqlite.WhereNullMod[Q, time.Time]
+	ArchiveRoot     sqlite.WhereMod[Q, string]
 }
 
 func (gameServerBackupWhere[Q]) AliasedAs(alias string) gameServerBackupWhere[Q] {
@@ -794,7 +794,6 @@ func buildGameServerBackupWhere[Q sqlite.Filterable](cols gameServerBackupColumn
 		CreatedBy:       sqlite.WhereNull[Q, string](cols.CreatedBy),
 		TriggerSource:   sqlite.Where[Q, string](cols.TriggerSource),
 		ArchivePath:     sqlite.Where[Q, string](cols.ArchivePath),
-		ArchiveRoot:     sqlite.Where[Q, string](cols.ArchiveRoot),
 		ArchiveFormat:   sqlite.Where[Q, string](cols.ArchiveFormat),
 		Status:          sqlite.Where[Q, string](cols.Status),
 		SizeBytes:       sqlite.Where[Q, int64](cols.SizeBytes),
@@ -802,6 +801,7 @@ func buildGameServerBackupWhere[Q sqlite.Filterable](cols gameServerBackupColumn
 		ErrorMessage:    sqlite.WhereNull[Q, string](cols.ErrorMessage),
 		CreatedAt:       sqlite.Where[Q, time.Time](cols.CreatedAt),
 		CompletedAt:     sqlite.WhereNull[Q, time.Time](cols.CompletedAt),
+		ArchiveRoot:     sqlite.Where[Q, string](cols.ArchiveRoot),
 	}
 }
 

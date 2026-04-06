@@ -3,6 +3,8 @@ package actions
 import "testing"
 
 func TestNormalizeSteamBranch(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name  string
 		input string
@@ -25,6 +27,8 @@ func TestNormalizeSteamBranch(t *testing.T) {
 }
 
 func TestAppendSteamBranchToUpdateCommand(t *testing.T) {
+	t.Parallel()
+
 	base := "steamcmd +login anonymous +app_update 294420 validate +quit"
 
 	publicCmd := appendSteamBranchToUpdateCommand(base, "public")

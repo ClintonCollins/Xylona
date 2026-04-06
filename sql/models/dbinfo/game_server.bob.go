@@ -189,7 +189,7 @@ var GameServers = Table[
 		CreatedAt: column{
 			Name:      "created_at",
 			DBType:    "DATETIME",
-			Default:   "current_timestamp",
+			Default:   "CURRENT_TIMESTAMP",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -198,7 +198,7 @@ var GameServers = Table[
 		UpdatedAt: column{
 			Name:      "updated_at",
 			DBType:    "DATETIME",
-			Default:   "current_timestamp",
+			Default:   "CURRENT_TIMESTAMP",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -244,6 +244,33 @@ var GameServers = Table[
 			Name:      "start_args_patches",
 			DBType:    "TEXT",
 			Default:   "'[]'",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		AutoRestartEnabled: column{
+			Name:      "auto_restart_enabled",
+			DBType:    "BOOLEAN",
+			Default:   "false",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		AutoRestartMaxRetries: column{
+			Name:      "auto_restart_max_retries",
+			DBType:    "INTEGER",
+			Default:   "3",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		AutoRestartCooldownSeconds: column{
+			Name:      "auto_restart_cooldown_seconds",
+			DBType:    "INTEGER",
+			Default:   "30",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -333,37 +360,40 @@ var GameServers = Table[
 }
 
 type gameServerColumns struct {
-	ID                        column
-	UserID                    column
-	Name                      column
-	GameID                    column
-	Status                    column
-	SetPlayers                column
-	MaxPlayers                column
-	Map                       column
-	IP                        column
-	Port                      column
-	QueryPort                 column
-	Directory                 column
-	MaxMemoryMB               column
-	BackupsEnabled            column
-	SteamGameServerLoginToken column
-	BackupDirectory           column
-	MaxBackups                column
-	Version                   column
-	Branch                    column
-	CreatedAt                 column
-	UpdatedAt                 column
-	NodeID                    column
-	ServerSoftware            column
-	ServerExecutable          column
-	TargetPinned              column
-	StartArgsPatches          column
+	ID                         column
+	UserID                     column
+	Name                       column
+	GameID                     column
+	Status                     column
+	SetPlayers                 column
+	MaxPlayers                 column
+	Map                        column
+	IP                         column
+	Port                       column
+	QueryPort                  column
+	Directory                  column
+	MaxMemoryMB                column
+	BackupsEnabled             column
+	SteamGameServerLoginToken  column
+	BackupDirectory            column
+	MaxBackups                 column
+	Version                    column
+	Branch                     column
+	CreatedAt                  column
+	UpdatedAt                  column
+	NodeID                     column
+	ServerSoftware             column
+	ServerExecutable           column
+	TargetPinned               column
+	StartArgsPatches           column
+	AutoRestartEnabled         column
+	AutoRestartMaxRetries      column
+	AutoRestartCooldownSeconds column
 }
 
 func (c gameServerColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches,
+		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches, c.AutoRestartEnabled, c.AutoRestartMaxRetries, c.AutoRestartCooldownSeconds,
 	}
 }
 

@@ -234,6 +234,9 @@ message GameServer {
   bool resolved_has_mod_support = 51;
   bool selected_target_pinned = 52;
   string start_args_patches = 53;
+  bool auto_restart_enabled = 54;
+  int64 auto_restart_max_retries = 55;
+  int64 auto_restart_cooldown_seconds = 56;
 }
 
 enum VersionStatus {

@@ -2,6 +2,9 @@ package db
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -13,11 +16,24 @@ import (
 // setTableOnce guards the global migrate.SetTable call, which would race if
 // multiple tests call newRBACMigratedConnection concurrently.
 var setTableOnce sync.Once
+var rbacTemplateOnce sync.Once
+var rbacTemplatePath string
+var rbacTemplateErr error
 
 func newRBACMigratedConnection(t *testing.T, sqliteFileName string) *Connection {
 	t.Helper()
 
+	templatePath, errTemplate := ensureRBACMigratedTemplate()
+	if errTemplate != nil {
+		t.Fatalf("failed to create migrated sqlite template: %v", errTemplate)
+	}
+
 	dbPath := filepath.Join(t.TempDir(), sqliteFileName)
+	errCopy := copyTestSQLiteDB(templatePath, dbPath)
+	if errCopy != nil {
+		t.Fatalf("failed to copy migrated sqlite template: %v", errCopy)
+	}
+
 	conn := NewConnection(context.Background(), dbPath)
 	t.Cleanup(func() {
 		if errClose := conn.SQLDb.Close(); errClose != nil {
@@ -25,16 +41,72 @@ func newRBACMigratedConnection(t *testing.T, sqliteFileName string) *Connection 
 		}
 	})
 
-	migrationSource := &migrate.FileMigrationSource{
-		Dir: filepath.Join("..", "sql", "migrations"),
+	return conn
+}
+
+func ensureRBACMigratedTemplate() (string, error) {
+	rbacTemplateOnce.Do(func() {
+		templateFile, errCreate := os.CreateTemp("", "xylona-db-rbac-template-*.sqlite")
+		if errCreate != nil {
+			rbacTemplateErr = errCreate
+			return
+		}
+		rbacTemplatePath = templateFile.Name()
+
+		errCloseTemplate := templateFile.Close()
+		if errCloseTemplate != nil {
+			rbacTemplateErr = errCloseTemplate
+			return
+		}
+
+		conn := NewConnection(context.Background(), rbacTemplatePath)
+
+		migrationSource := &migrate.FileMigrationSource{
+			Dir: filepath.Join("..", "sql", "migrations"),
+		}
+		setTableOnce.Do(func() { migrate.SetTable("migrations") })
+		_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
+		if errMigrate != nil {
+			rbacTemplateErr = errMigrate
+		}
+
+		errCloseConn := conn.SQLDb.Close()
+		if errCloseConn != nil && rbacTemplateErr == nil {
+			rbacTemplateErr = errCloseConn
+		}
+	})
+
+	return rbacTemplatePath, rbacTemplateErr
+}
+
+func copyTestSQLiteDB(sourcePath string, destinationPath string) error {
+	sourceFile, errSource := os.Open(sourcePath)
+	if errSource != nil {
+		return fmt.Errorf("open source sqlite file: %w", errSource)
 	}
-	setTableOnce.Do(func() { migrate.SetTable("migrations") })
-	_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
-	if errMigrate != nil {
-		t.Fatalf("failed to apply migrations: %v", errMigrate)
+	defer func() {
+		_ = sourceFile.Close()
+	}()
+
+	destinationFile, errDestination := os.Create(destinationPath)
+	if errDestination != nil {
+		return fmt.Errorf("create destination sqlite file: %w", errDestination)
+	}
+	defer func() {
+		_ = destinationFile.Close()
+	}()
+
+	_, errCopy := io.Copy(destinationFile, sourceFile)
+	if errCopy != nil {
+		return fmt.Errorf("copy sqlite template file: %w", errCopy)
 	}
 
-	return conn
+	errSync := destinationFile.Sync()
+	if errSync != nil {
+		return fmt.Errorf("sync destination sqlite file: %w", errSync)
+	}
+
+	return nil
 }
 
 func seedRBACFixture(t *testing.T, conn *Connection) {

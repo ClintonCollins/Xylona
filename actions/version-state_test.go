@@ -7,6 +7,8 @@ import (
 )
 
 func TestInstanceVersionStateReturnsStoredMap(t *testing.T) {
+	t.Parallel()
+
 	vsm := versiontracker.NewVersionStateMap()
 	inst := &Instance{
 		versionState: vsm,
@@ -19,6 +21,8 @@ func TestInstanceVersionStateReturnsStoredMap(t *testing.T) {
 }
 
 func TestInstanceVersionStateReturnsNilWhenUnset(t *testing.T) {
+	t.Parallel()
+
 	inst := &Instance{}
 
 	got := inst.VersionState()

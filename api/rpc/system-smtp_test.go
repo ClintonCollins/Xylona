@@ -3,13 +3,11 @@ package rpc
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
 	"github.com/gorilla/securecookie"
-	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
@@ -25,30 +23,7 @@ type smtpFixture struct {
 func newSMTPFixture(t *testing.T) *smtpFixture {
 	t.Helper()
 
-	dbPath := filepath.Join(t.TempDir(), "smtp-rpc.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
-	t.Cleanup(func() {
-		errClose := conn.SQLDb.Close()
-		if errClose != nil {
-			t.Errorf("failed to close test db: %v", errClose)
-		}
-	})
-
-	migrationSource := &migrate.FileMigrationSource{
-		Dir: filepath.Join("..", "..", "sql", "migrations"),
-	}
-	migrate.SetTable("migrations")
-	_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
-	if errMigrate != nil {
-		t.Fatalf("failed to apply migrations: %v", errMigrate)
-	}
-	_, errAlterGame := conn.SQLDb.ExecContext(
-		context.Background(),
-		`alter table game add column binds_to_all_ips boolean not null default false`,
-	)
-	if errAlterGame != nil && !strings.Contains(strings.ToLower(errAlterGame.Error()), "duplicate column name") {
-		t.Fatalf("failed to ensure game.binds_to_all_ips column: %v", errAlterGame)
-	}
+	conn := newRPCFixtureConnection(t, "smtp-rpc.sqlite")
 
 	seedSMTPFixture(t, conn)
 
@@ -130,114 +105,122 @@ func seedSMTPFixture(t *testing.T, conn *db.Connection) {
 // GetSystemSMTPConfig — auth tests
 // ---------------------------------------------------------------------------
 
-func TestGetSystemSMTPConfig_Unauthenticated(t *testing.T) {
+func TestSystemSMTPRPC_Unauthenticated(t *testing.T) {
+	t.Parallel()
+
 	fixture := newSMTPFixture(t)
 
-	req := connect.NewRequest(&xylona.GetSystemSMTPConfigRequest{})
-
-	_, errGet := fixture.service.GetSystemSMTPConfig(context.Background(), req)
-	if errGet == nil {
-		t.Fatalf("GetSystemSMTPConfig(unauthenticated) expected error, got nil")
-	}
-	if connect.CodeOf(errGet) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errGet), connect.CodeUnauthenticated)
-	}
-}
-
-func TestGetSystemSMTPConfig_NonSuperuser(t *testing.T) {
-	fixture := newSMTPFixture(t)
-
-	req := connect.NewRequest(&xylona.GetSystemSMTPConfigRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-regular")
-
-	_, errGet := fixture.service.GetSystemSMTPConfig(context.Background(), req)
-	if errGet == nil {
-		t.Fatalf("GetSystemSMTPConfig(non-super) expected error, got nil")
-	}
-	if connect.CodeOf(errGet) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errGet), connect.CodePermissionDenied)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// SetSystemSMTPConfig — auth tests
-// ---------------------------------------------------------------------------
-
-func TestSetSystemSMTPConfig_Unauthenticated(t *testing.T) {
-	fixture := newSMTPFixture(t)
-
-	req := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
-		Config: &xylona.SystemSMTPConfig{
-			Host:        "mail.example.com",
-			Port:        587,
-			FromAddress: "noreply@example.com",
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "get config",
+			call: func() error {
+				req := connect.NewRequest(&xylona.GetSystemSMTPConfigRequest{})
+				_, errGet := fixture.service.GetSystemSMTPConfig(context.Background(), req)
+				return errGet
+			},
 		},
-	})
-
-	_, errSet := fixture.service.SetSystemSMTPConfig(context.Background(), req)
-	if errSet == nil {
-		t.Fatalf("SetSystemSMTPConfig(unauthenticated) expected error, got nil")
-	}
-	if connect.CodeOf(errSet) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errSet), connect.CodeUnauthenticated)
-	}
-}
-
-func TestSetSystemSMTPConfig_NonSuperuser(t *testing.T) {
-	fixture := newSMTPFixture(t)
-
-	req := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
-		Config: &xylona.SystemSMTPConfig{
-			Host:        "mail.example.com",
-			Port:        587,
-			FromAddress: "noreply@example.com",
+		{
+			name: "set config",
+			call: func() error {
+				req := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
+					Config: &xylona.SystemSMTPConfig{
+						Host:        "mail.example.com",
+						Port:        587,
+						FromAddress: "noreply@example.com",
+					},
+				})
+				_, errSet := fixture.service.SetSystemSMTPConfig(context.Background(), req)
+				return errSet
+			},
 		},
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-regular")
-
-	_, errSet := fixture.service.SetSystemSMTPConfig(context.Background(), req)
-	if errSet == nil {
-		t.Fatalf("SetSystemSMTPConfig(non-super) expected error, got nil")
+		{
+			name: "test smtp",
+			call: func() error {
+				req := connect.NewRequest(&xylona.TestSystemSMTPRequest{
+					ToAddress: "test@example.com",
+				})
+				_, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
+				return errTest
+			},
+		},
 	}
-	if connect.CodeOf(errSet) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errSet), connect.CodePermissionDenied)
-	}
-}
 
-// ---------------------------------------------------------------------------
-// TestSystemSMTP — auth tests
-// ---------------------------------------------------------------------------
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errCall := tt.call()
+			if errCall == nil {
+				t.Fatalf("%s expected error, got nil", tt.name)
+			}
 
-func TestTestSystemSMTP_Unauthenticated(t *testing.T) {
-	fixture := newSMTPFixture(t)
-
-	req := connect.NewRequest(&xylona.TestSystemSMTPRequest{
-		ToAddress: "test@example.com",
-	})
-
-	_, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
-	if errTest == nil {
-		t.Fatalf("TestSystemSMTP(unauthenticated) expected error, got nil")
-	}
-	if connect.CodeOf(errTest) != connect.CodeUnauthenticated {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errTest), connect.CodeUnauthenticated)
+			code := connect.CodeOf(errCall)
+			if code != connect.CodeUnauthenticated {
+				t.Errorf("%s code = %v, want %v", tt.name, code, connect.CodeUnauthenticated)
+			}
+		})
 	}
 }
 
-func TestTestSystemSMTP_NonSuperuser(t *testing.T) {
+func TestSystemSMTPRPC_NonSuperuser(t *testing.T) {
+	t.Parallel()
+
 	fixture := newSMTPFixture(t)
 
-	req := connect.NewRequest(&xylona.TestSystemSMTPRequest{
-		ToAddress: "test@example.com",
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-regular")
-
-	_, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
-	if errTest == nil {
-		t.Fatalf("TestSystemSMTP(non-super) expected error, got nil")
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "get config",
+			call: func() error {
+				req := connect.NewRequest(&xylona.GetSystemSMTPConfigRequest{})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-regular")
+				_, errGet := fixture.service.GetSystemSMTPConfig(context.Background(), req)
+				return errGet
+			},
+		},
+		{
+			name: "set config",
+			call: func() error {
+				req := connect.NewRequest(&xylona.SetSystemSMTPConfigRequest{
+					Config: &xylona.SystemSMTPConfig{
+						Host:        "mail.example.com",
+						Port:        587,
+						FromAddress: "noreply@example.com",
+					},
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-regular")
+				_, errSet := fixture.service.SetSystemSMTPConfig(context.Background(), req)
+				return errSet
+			},
+		},
+		{
+			name: "test smtp",
+			call: func() error {
+				req := connect.NewRequest(&xylona.TestSystemSMTPRequest{
+					ToAddress: "test@example.com",
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-regular")
+				_, errTest := fixture.service.TestSystemSMTP(context.Background(), req)
+				return errTest
+			},
+		},
 	}
-	if connect.CodeOf(errTest) != connect.CodePermissionDenied {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errTest), connect.CodePermissionDenied)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errCall := tt.call()
+			if errCall == nil {
+				t.Fatalf("%s expected error, got nil", tt.name)
+			}
+
+			code := connect.CodeOf(errCall)
+			if code != connect.CodePermissionDenied {
+				t.Errorf("%s code = %v, want %v", tt.name, code, connect.CodePermissionDenied)
+			}
+		})
 	}
 }
 

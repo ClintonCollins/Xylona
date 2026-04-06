@@ -15,6 +15,8 @@ import (
 )
 
 func TestLoginCookieSecureAttribute(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		secureCookies bool
@@ -80,6 +82,8 @@ func TestLoginCookieSecureAttribute(t *testing.T) {
 }
 
 func TestLogoutCookieSecureAttribute(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		secureCookies bool
@@ -141,6 +145,8 @@ func TestLogoutCookieSecureAttribute(t *testing.T) {
 }
 
 func TestLoginValidCredentials(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	user := createUserForRPCUserTests(t, fixture, "login-valid", false)
@@ -188,6 +194,8 @@ func TestLoginValidCredentials(t *testing.T) {
 }
 
 func TestLoginInvalidPassword(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	_ = createUserForRPCUserTests(t, fixture, "login-badpass", false)
@@ -207,6 +215,8 @@ func TestLoginInvalidPassword(t *testing.T) {
 }
 
 func TestLoginNonExistentUser(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	req := connect.NewRequest(&xylona.LoginRequest{
@@ -224,6 +234,8 @@ func TestLoginNonExistentUser(t *testing.T) {
 }
 
 func TestLogoutWithValidSession(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	user := createUserForRPCUserTests(t, fixture, "logout-valid", false)
@@ -254,6 +266,8 @@ func TestLogoutWithValidSession(t *testing.T) {
 }
 
 func TestLogoutWithoutSessionCookies(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	req := connect.NewRequest(&xylona.LogoutRequest{})
@@ -270,6 +284,8 @@ func TestLogoutWithoutSessionCookies(t *testing.T) {
 }
 
 func TestCheckUserAuthenticatedWithValidSession(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	user := createUserForRPCUserTests(t, fixture, "check-auth-valid", false)
@@ -299,6 +315,8 @@ func TestCheckUserAuthenticatedWithValidSession(t *testing.T) {
 }
 
 func TestCheckUserAuthenticatedIncludesGlobalPermissionIDs(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	user := createUserForRPCUserTests(t, fixture, "check-auth-permissions", false)
@@ -365,6 +383,8 @@ func TestCheckUserAuthenticatedIncludesGlobalPermissionIDs(t *testing.T) {
 }
 
 func TestCheckUserAuthenticatedReturnsInternalErrorWhenPermissionLookupFails(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	user := createUserForRPCUserTests(t, fixture, "check-auth-permission-error", false)
@@ -385,6 +405,8 @@ func TestCheckUserAuthenticatedReturnsInternalErrorWhenPermissionLookupFails(t *
 }
 
 func TestCheckUserAuthenticatedWithoutSession(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	req := connect.NewRequest(&xylona.CheckUserAuthenticatedRequest{})

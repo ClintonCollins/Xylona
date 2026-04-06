@@ -215,20 +215,6 @@ var Nodes = Table[
 		},
 	},
 	Indexes: nodeIndexes{
-		NodeBaseURLUnique: index{
-			Type: "c",
-			Name: "node_base_url_unique",
-			Columns: []indexColumn{
-				{
-					Name:         "base_url",
-					Desc:         null.FromCond(false, true),
-					IsExpression: false,
-				},
-			},
-			Unique:  true,
-			Comment: "",
-			Partial: true,
-		},
 		NodeIsLocal: index{
 			Type: "c",
 			Name: "node_is_local",
@@ -242,6 +228,20 @@ var Nodes = Table[
 			Unique:  false,
 			Comment: "",
 			Partial: false,
+		},
+		NodeBaseURLUnique: index{
+			Type: "c",
+			Name: "node_base_url_unique",
+			Columns: []indexColumn{
+				{
+					Name:         "base_url",
+					Desc:         null.FromCond(false, true),
+					IsExpression: false,
+				},
+			},
+			Unique:  true,
+			Comment: "",
+			Partial: true,
 		},
 		SqliteAutoindexNode1: index{
 			Type: "pk",
@@ -299,14 +299,14 @@ func (c nodeColumns) AsSlice() []column {
 }
 
 type nodeIndexes struct {
-	NodeBaseURLUnique    index
 	NodeIsLocal          index
+	NodeBaseURLUnique    index
 	SqliteAutoindexNode1 index
 }
 
 func (i nodeIndexes) AsSlice() []index {
 	return []index{
-		i.NodeBaseURLUnique, i.NodeIsLocal, i.SqliteAutoindexNode1,
+		i.NodeIsLocal, i.NodeBaseURLUnique, i.SqliteAutoindexNode1,
 	}
 }
 

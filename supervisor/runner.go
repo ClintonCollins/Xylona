@@ -118,6 +118,7 @@ func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, e
 
 // Stop requests that the command shut down gracefully, then forces cancelation on timeout.
 func (c *Command) Stop(stopInputCommand string) {
+	c.intentionalStop.Store(true)
 	if c.currentCMD == nil {
 		return
 	}
@@ -636,6 +637,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			newCommand.outBuffer = ""
 		}
 		newCommand.preserveBufferedOutputOnReuse = false
+		newCommand.intentionalStop.Store(false)
 		newCommand.instanceCtx = inst.ctx
 		newCommand.processCtx = processCtx
 		newCommand.processCtxCancel = processCtxCancel

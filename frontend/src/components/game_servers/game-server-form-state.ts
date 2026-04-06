@@ -108,6 +108,38 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     },
   })
 
+  const autoRestartMaxRetriesModel = computed({
+    get: () => Number(gameServer.value.autoRestartMaxRetries ?? 3n),
+    set: (value: number | string | null | undefined) => {
+      gameServer.value.autoRestartMaxRetries = toBigInt(value)
+    },
+  })
+
+  const autoRestartCooldownModel = computed({
+    get: () => Number(gameServer.value.autoRestartCooldownSeconds ?? 30n),
+    set: (value: number | string | null | undefined) => {
+      gameServer.value.autoRestartCooldownSeconds = toBigInt(value)
+    },
+  })
+
+  const autoRestartMaxRetriesRules = [
+    (value: number | string | bigint | null | undefined) => {
+      const num = Number(value)
+      if (!Number.isFinite(num) || num < 1) return 'Minimum 1 retry'
+      if (num > 20) return 'Maximum 20 retries'
+      return true
+    },
+  ]
+
+  const autoRestartCooldownRules = [
+    (value: number | string | bigint | null | undefined) => {
+      const num = Number(value)
+      if (!Number.isFinite(num) || num < 10) return 'Minimum 10 seconds'
+      if (num > 3600) return 'Maximum 3600 seconds (1 hour)'
+      return true
+    },
+  ]
+
   const maxMemoryStateMessage = computed(() =>
     isMinecraftGame.value ? (describeMinecraftMemoryState(maxMemoryModel.value) ?? '') : '',
   )
@@ -448,6 +480,10 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   }
 
   return {
+    autoRestartCooldownModel,
+    autoRestartCooldownRules,
+    autoRestartMaxRetriesModel,
+    autoRestartMaxRetriesRules,
     availableGames,
     availableIPs,
     availableUsers,

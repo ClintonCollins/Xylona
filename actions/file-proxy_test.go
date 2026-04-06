@@ -108,6 +108,8 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 }
 
 func TestResolveFileRequestTargetWithLookups(t *testing.T) {
+	t.Parallel()
+
 	errDBUnavailable := errors.New("db unavailable")
 
 	tests := []struct {
@@ -193,6 +195,8 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			target, errResolve := resolveFileRequestTargetWithLookups("server-id", tt.localLookup, tt.remoteCacheLookup, tt.remoteNodeLookup)
 			if tt.wantErr != nil {
 				if errResolve == nil {
@@ -218,6 +222,8 @@ func TestResolveFileRequestTargetWithLookups(t *testing.T) {
 }
 
 func TestProxyRemoteFileGet(t *testing.T) {
+	t.Parallel()
+
 	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != fileGetPath {
 			t.Fatalf("request path = %q, want %q", r.URL.Path, fileGetPath)
@@ -265,6 +271,8 @@ func TestProxyRemoteFileGet(t *testing.T) {
 }
 
 func TestProxyRemoteFileDownload(t *testing.T) {
+	t.Parallel()
+
 	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != fileDownloadPath {
 			t.Fatalf("request path = %q, want %q", r.URL.Path, fileDownloadPath)
@@ -306,6 +314,8 @@ func TestProxyRemoteFileDownload(t *testing.T) {
 }
 
 func TestProxyRemoteFileUpload(t *testing.T) {
+	t.Parallel()
+
 	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != fileUploadPath {
 			t.Fatalf("request path = %q, want %q", r.URL.Path, fileUploadPath)
@@ -392,6 +402,8 @@ func TestProxyRemoteFileUpload(t *testing.T) {
 }
 
 func TestProxyRemoteFileGetForwardsErrorStatusAndHeaders(t *testing.T) {
+	t.Parallel()
+
 	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Remote-Reason", "upstream-failure")
 		w.Header().Set("Connection", "keep-alive")
@@ -429,6 +441,8 @@ func TestProxyRemoteFileGetForwardsErrorStatusAndHeaders(t *testing.T) {
 }
 
 func TestProxyRemoteFileGetRespectsCanceledContext(t *testing.T) {
+	t.Parallel()
+
 	inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
@@ -453,6 +467,8 @@ func TestProxyRemoteFileGetRespectsCanceledContext(t *testing.T) {
 }
 
 func TestWriteGameServerLookupError(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		lookupErr  error
@@ -475,6 +491,8 @@ func TestWriteGameServerLookupError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			responseRecorder := httptest.NewRecorder()
 
 			writeGameServerLookupError(responseRecorder, tt.lookupErr)

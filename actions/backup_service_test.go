@@ -25,6 +25,8 @@ import (
 )
 
 func TestCreateManualBackupRejectsBackupDirectoryInsideServerTree(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 	fixture.gameServer.BackupDirectory = filepath.Join(fixture.gameServer.Directory, "backups")
@@ -36,6 +38,8 @@ func TestCreateManualBackupRejectsBackupDirectoryInsideServerTree(t *testing.T) 
 }
 
 func TestCreateManualBackupRejectsPerServerArchivePathInsideServerTree(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -54,6 +58,8 @@ func TestCreateManualBackupRejectsPerServerArchivePathInsideServerTree(t *testin
 }
 
 func TestCreateManualBackupNormalizesWhitespaceInBackupDirectory(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 	fixture.gameServer.BackupDirectory = `  ` + fixture.backupRoot + `  `
@@ -119,6 +125,8 @@ func TestCreateManualBackupUsesUniqueArchivePathWhenTimestampCollides(t *testing
 }
 
 func TestResolveUniqueBackupArchivePathFailsAfterMaxAttempts(t *testing.T) {
+	t.Parallel()
+
 	backupRoot := t.TempDir()
 	gameServerID := "server-local-1"
 	fixedNow := time.Date(2026, 4, 6, 12, 34, 56, 123456789, time.UTC)
@@ -154,6 +162,8 @@ func TestResolveUniqueBackupArchivePathFailsAfterMaxAttempts(t *testing.T) {
 }
 
 func TestBackupRestoreUserFacingMessage(t *testing.T) {
+	t.Parallel()
+
 	message, ok := BackupRestoreUserFacingMessage(errBackupNotCompleted)
 	if !ok {
 		t.Fatal("BackupRestoreUserFacingMessage(errBackupNotCompleted) ok = false, want true")
@@ -181,6 +191,8 @@ func TestBackupRestoreUserFacingMessage(t *testing.T) {
 }
 
 func TestCreateManualBackupCreatesZipAndCatalogRow(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -389,6 +401,8 @@ func TestCreateManualBackupRemovesArchiveWhenWriteAndReconciliationFail(t *testi
 }
 
 func TestCreateScheduledBackupBroadcastsCoherentProgressSequence(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 	fixture.gameServer.MaxBackups = 1
@@ -439,6 +453,8 @@ func TestCreateScheduledBackupBroadcastsCoherentProgressSequence(t *testing.T) {
 }
 
 func TestCreateScheduledBackupPrunesOnlyScheduledArtifacts(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 	fixture.gameServer.MaxBackups = 1
@@ -638,6 +654,8 @@ func TestCreateScheduledBackupLeavesRowWhenPruneRowDeleteFails(t *testing.T) {
 }
 
 func TestDeleteGameServerBackupRejectsBackupFromDifferentNode(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -674,6 +692,8 @@ func TestDeleteGameServerBackupRejectsBackupFromDifferentNode(t *testing.T) {
 }
 
 func TestRestoreGameServerBackupAllowsHistoricalArchiveAfterBackupRootChange(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -725,6 +745,8 @@ func TestRestoreGameServerBackupAllowsHistoricalArchiveAfterBackupRootChange(t *
 }
 
 func TestRestoreGameServerBackupRejectsBlankArchiveRootAfterMigration(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -775,6 +797,8 @@ func TestRestoreGameServerBackupRejectsBlankArchiveRootAfterMigration(t *testing
 }
 
 func TestCreateScheduledBackupPrunesHistoricalBackupsAfterBackupRootChange(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 	fixture.gameServer.MaxBackups = 1
@@ -826,6 +850,8 @@ func TestCreateScheduledBackupPrunesHistoricalBackupsAfterBackupRootChange(t *te
 }
 
 func TestRestoreGameServerBackupExactDeletesExtraFiles(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -886,6 +912,8 @@ func TestRestoreGameServerBackupExactDeletesExtraFiles(t *testing.T) {
 }
 
 func TestRestoreGameServerBackupExactPreservesEmptyDirectory(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -939,6 +967,8 @@ func TestRestoreGameServerBackupExactPreservesEmptyDirectory(t *testing.T) {
 }
 
 func TestRestoreGameServerBackupPreservesNonWritableDirectoryPermissions(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS == "windows" {
 		t.Skip("directory permission assertions are not reliable on Windows")
 	}
@@ -1009,6 +1039,8 @@ func TestRestoreGameServerBackupPreservesNonWritableDirectoryPermissions(t *test
 }
 
 func TestRestoreGameServerBackupExactPreservesNonWritableDirectoryPermissionsAfterRemovingStaleFile(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS == "windows" {
 		t.Skip("directory permission assertions are not reliable on Windows")
 	}
@@ -1087,6 +1119,8 @@ func TestRestoreGameServerBackupExactPreservesNonWritableDirectoryPermissionsAft
 }
 
 func TestRestoreGameServerBackupExactReplacesConflictingDestinationTypes(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -1179,6 +1213,8 @@ func TestRestoreGameServerBackupExactReplacesConflictingDestinationTypes(t *test
 }
 
 func TestRestoreGameServerBackupRejectsPathTraversal(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -1216,6 +1252,8 @@ func TestRestoreGameServerBackupRejectsPathTraversal(t *testing.T) {
 }
 
 func TestRestoreGameServerBackupRejectsCorruptedCRCEntry(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -1320,6 +1358,8 @@ func TestRestoreGameServerBackupBroadcastsFailedProgressWhenStagingDirectoryCrea
 }
 
 func TestRestoreGameServerBackupRejectsDestinationSymlink(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -1406,6 +1446,8 @@ func TestRestoreGameServerBackupFailsWhenRestoreCopyFinalizationFails(t *testing
 }
 
 func TestRestoreGameServerBackupReplacesExistingFileWithBackedUpContentAndMode(t *testing.T) {
+	t.Parallel()
+
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -1458,6 +1500,8 @@ func TestRestoreGameServerBackupReplacesExistingFileWithBackedUpContentAndMode(t
 }
 
 func TestValidateBackupZipEntryPathPreservesWhitespace(t *testing.T) {
+	t.Parallel()
+
 	got, errValidate := validateBackupZipEntryPath(" folder/ keep .txt ")
 	if errValidate != nil {
 		t.Fatalf("validateBackupZipEntryPath() error = %v", errValidate)
@@ -1468,6 +1512,8 @@ func TestValidateBackupZipEntryPathPreservesWhitespace(t *testing.T) {
 }
 
 func TestValidateBackupPathsAllowColonInFileName(t *testing.T) {
+	t.Parallel()
+
 	relativePath := "logs/latest:1.txt"
 
 	gotRelativePath, errValidate := validateBackupRelativePath(relativePath)

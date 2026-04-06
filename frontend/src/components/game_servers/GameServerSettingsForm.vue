@@ -209,6 +209,49 @@
         </div>
       </section>
 
+      <section class="form-section" data-testid="auto-restart-section">
+        <div class="section-header">
+          <span class="section-icon section-icon--success">
+            <q-icon name="restart_alt" size="14px" />
+          </span>
+          <span class="section-title font-display">Auto-Restart</span>
+          <span class="section-line"></span>
+        </div>
+        <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <div class="col-12">
+            <q-toggle
+              v-model="gameServer.autoRestartEnabled"
+              label="Restart server automatically on unexpected exit"
+              color="primary"
+              data-testid="auto-restart-enabled" />
+          </div>
+          <q-input
+            v-if="gameServer.autoRestartEnabled"
+            v-model.number="autoRestartMaxRetriesModel"
+            data-testid="auto-restart-max-retries"
+            class="col-12 col-sm-6"
+            outlined
+            type="number"
+            label="Max Retries"
+            hint="Maximum restart attempts before giving up (resets after 5 min of stable uptime)."
+            :rules="autoRestartMaxRetriesRules"
+            reactive-rules
+            lazy-rules />
+          <q-input
+            v-if="gameServer.autoRestartEnabled"
+            v-model.number="autoRestartCooldownModel"
+            data-testid="auto-restart-cooldown"
+            class="col-12 col-sm-6"
+            outlined
+            type="number"
+            label="Base Cooldown (seconds)"
+            hint="Initial delay before first retry. Doubles with each subsequent attempt."
+            :rules="autoRestartCooldownRules"
+            reactive-rules
+            lazy-rules />
+        </div>
+      </section>
+
       <section class="form-section form-section--last" data-testid="backup-settings-section">
         <div class="section-header">
           <span class="section-icon section-icon--primary">
@@ -218,12 +261,17 @@
           <span class="section-line"></span>
         </div>
 
-        <div v-if="backupSettingsLoading" class="text-caption text-muted" data-testid="backup-settings-loading">
+        <div
+          v-if="backupSettingsLoading"
+          class="text-caption text-muted"
+          data-testid="backup-settings-loading">
           Loading backup settings...
         </div>
 
         <template v-else>
-          <div v-if="backupOverview.canManageSettings" class="row q-col-gutter-md q-gutter-y-md full-width">
+          <div
+            v-if="backupOverview.canManageSettings"
+            class="row q-col-gutter-md q-gutter-y-md full-width">
             <div class="col-12">
               <q-toggle
                 :model-value="backupSettings.backupsEnabled"
@@ -271,7 +319,10 @@
             </div>
           </div>
 
-          <div v-else class="row q-col-gutter-md q-gutter-y-sm full-width" data-testid="backup-settings-readonly">
+          <div
+            v-else
+            class="row q-col-gutter-md q-gutter-y-sm full-width"
+            data-testid="backup-settings-readonly">
             <div class="col-12 col-md-6">
               <div class="text-caption text-muted">Status</div>
               <div class="text-body2 text-primary">
@@ -326,6 +377,10 @@ const backupSettingsLoading = ref(true)
 const backupSettingsSaving = ref(false)
 
 const {
+  autoRestartCooldownModel,
+  autoRestartCooldownRules,
+  autoRestartMaxRetriesModel,
+  autoRestartMaxRetriesRules,
   availableGames,
   availableIPs,
   availableUsers,

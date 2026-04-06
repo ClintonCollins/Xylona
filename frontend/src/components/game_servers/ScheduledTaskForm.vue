@@ -48,7 +48,11 @@ interface ScheduleBuilder {
 }
 
 const frequencyOptions: { label: string; value: Frequency; description: string }[] = [
-  { label: 'Every N minutes', value: 'every_minutes', description: 'Run at a fixed minute interval' },
+  {
+    label: 'Every N minutes',
+    value: 'every_minutes',
+    description: 'Run at a fixed minute interval',
+  },
   { label: 'Every N hours', value: 'every_hours', description: 'Run at a fixed hourly interval' },
   { label: 'Daily', value: 'daily', description: 'Run once a day at a specific time' },
   { label: 'Weekly', value: 'weekly', description: 'Run on selected days at a specific time' },

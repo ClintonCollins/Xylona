@@ -15,6 +15,8 @@ import (
 )
 
 func TestListScheduledTasksRedactsConsoleCommandWithoutConsolePermission(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	assignScheduledTaskRole(t, fixture, "user-other", "role-scheduled-task-reader", permissionScheduledTasks)
@@ -80,6 +82,8 @@ func TestListScheduledTasksRedactsConsoleCommandWithoutConsolePermission(t *test
 }
 
 func TestGetScheduledTaskLogsRedactsConsoleMessagesWithoutConsolePermission(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	assignScheduledTaskRole(t, fixture, "user-other", "role-scheduled-log-reader", permissionScheduledTasks)
@@ -159,6 +163,8 @@ func TestGetScheduledTaskLogsRedactsConsoleMessagesWithoutConsolePermission(t *t
 }
 
 func TestCreateScheduledTaskBackupRequiresBackupPermission(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	assignScheduledTaskRole(t, fixture, "user-other", "role-scheduled-task-backup-base", permissionScheduledTasks)
@@ -186,6 +192,8 @@ func TestCreateScheduledTaskBackupRequiresBackupPermission(t *testing.T) {
 }
 
 func TestCreateScheduledTaskBackupRejectsDisabledBackups(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
@@ -219,6 +227,8 @@ func TestCreateScheduledTaskBackupRejectsDisabledBackups(t *testing.T) {
 }
 
 func TestCreateScheduledTaskBackupRejectsInvalidBackupDirectory(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-local-1")
@@ -259,6 +269,8 @@ func TestCreateScheduledTaskBackupRejectsInvalidBackupDirectory(t *testing.T) {
 }
 
 func TestCreateScheduledTaskBackupSucceeds(t *testing.T) {
+	t.Parallel()
+
 	fixture := newRBACRPCFixture(t)
 
 	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
