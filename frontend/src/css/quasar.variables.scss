@@ -591,7 +591,7 @@ $table-box-shadow-dark          : $dark-shadow-2 !default;
 $toolbar-min-height             : 50px !default;
 $toolbar-padding                : 0 12px !default;
 $toolbar-inset-size             : 58px !default;
-$toolbar-title-font-size        : 21px !default;
+$toolbar-title-font-size        : 1.3125rem !default;
 $toolbar-title-font-weight      : normal !default;
 $toolbar-title-letter-spacing   : .01em !default;
 $toolbar-title-padding          : 0 12px !default;
@@ -618,12 +618,12 @@ $tooltip-mobile-fontsize        : 14px !default;
 
 $option-focus-transition        : .22s cubic-bezier(0,0,.2,1) !default;
 
-$input-font-size                : 14px !default;
+$input-font-size                : 0.875rem !default;
 $input-text-color               : rgba(0,0,0,.87) !default;
 $input-label-color              : rgba(0,0,0,.6) !default;
 $input-autofill-color           : inherit !default;
 
-$img-loading-font-size          : 50px !default;
+$img-loading-font-size          : 3.125rem !default;
 $img-content-position           : absolute !default;
 $img-content-padding            : 16px !default;
 $img-content-color              : #fff !default;

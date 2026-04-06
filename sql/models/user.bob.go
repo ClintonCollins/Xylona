@@ -56,6 +56,7 @@ type userR struct {
 	GameServers                    GameServerSlice           // fk_game_server_3
 	Logs                           LogSlice                  // fk_log_2
 	NotificationChannels           NotificationChannelSlice  // fk_notification_channel_0
+	CreatedByScheduledTasks        ScheduledTaskSlice        // fk_scheduled_task_0
 	UserAPIKeys                    UserAPIKeySlice           // fk_user_api_key_0
 	GrantedByUserRoleAssignments   UserRoleAssignmentSlice   // fk_user_role_assignment_0
 	UserRoleAssignments            UserRoleAssignmentSlice   // fk_user_role_assignment_3
@@ -668,6 +669,25 @@ func (os UserSlice) NotificationChannels(mods ...bob.Mod[*dialect.SelectQuery]) 
 	)...)
 }
 
+// CreatedByScheduledTasks starts a query for related objects on scheduled_task
+func (o *User) CreatedByScheduledTasks(mods ...bob.Mod[*dialect.SelectQuery]) ScheduledTasksQuery {
+	return ScheduledTasks.Query(append(mods,
+		sm.Where(ScheduledTasks.Columns.CreatedBy.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) CreatedByScheduledTasks(mods ...bob.Mod[*dialect.SelectQuery]) ScheduledTasksQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return ScheduledTasks.Query(append(mods,
+		sm.Where(sqlite.Group(ScheduledTasks.Columns.CreatedBy).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // UserAPIKeys starts a query for related objects on user_api_key
 func (o *User) UserAPIKeys(mods ...bob.Mod[*dialect.SelectQuery]) UserAPIKeysQuery {
 	return UserAPIKeys.Query(append(mods,
@@ -1152,6 +1172,74 @@ func (user0 *User) AttachNotificationChannels(ctx context.Context, exec bob.Exec
 	return nil
 }
 
+func insertUserCreatedByScheduledTasks0(ctx context.Context, exec bob.Executor, scheduledTasks1 []*ScheduledTaskSetter, user0 *User) (ScheduledTaskSlice, error) {
+	for i := range scheduledTasks1 {
+		scheduledTasks1[i].CreatedBy = omit.From(user0.ID)
+	}
+
+	ret, err := ScheduledTasks.Insert(bob.ToMods(scheduledTasks1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserCreatedByScheduledTasks0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserCreatedByScheduledTasks0(ctx context.Context, exec bob.Executor, count int, scheduledTasks1 ScheduledTaskSlice, user0 *User) (ScheduledTaskSlice, error) {
+	setter := &ScheduledTaskSetter{
+		CreatedBy: omit.From(user0.ID),
+	}
+
+	err := scheduledTasks1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserCreatedByScheduledTasks0: %w", err)
+	}
+
+	return scheduledTasks1, nil
+}
+
+func (user0 *User) InsertCreatedByScheduledTasks(ctx context.Context, exec bob.Executor, related ...*ScheduledTaskSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	scheduledTasks1, err := insertUserCreatedByScheduledTasks0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.CreatedByScheduledTasks = append(user0.R.CreatedByScheduledTasks, scheduledTasks1...)
+
+	for _, rel := range scheduledTasks1 {
+		rel.R.CreatedByUser = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachCreatedByScheduledTasks(ctx context.Context, exec bob.Executor, related ...*ScheduledTask) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	scheduledTasks1 := ScheduledTaskSlice(related)
+
+	_, err = attachUserCreatedByScheduledTasks0(ctx, exec, len(related), scheduledTasks1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.CreatedByScheduledTasks = append(user0.R.CreatedByScheduledTasks, scheduledTasks1...)
+
+	for _, rel := range related {
+		rel.R.CreatedByUser = user0
+	}
+
+	return nil
+}
+
 func insertUserUserAPIKeys0(ctx context.Context, exec bob.Executor, userAPIKeys1 []*UserAPIKeySetter, user0 *User) (UserAPIKeySlice, error) {
 	for i := range userAPIKeys1 {
 		userAPIKeys1[i].UserID = omitnull.From(user0.ID)
@@ -1546,6 +1634,20 @@ func (o *User) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "CreatedByScheduledTasks":
+		rels, ok := retrieved.(ScheduledTaskSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.CreatedByScheduledTasks = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.CreatedByUser = o
+			}
+		}
+		return nil
 	case "UserAPIKeys":
 		rels, ok := retrieved.(UserAPIKeySlice)
 		if !ok {
@@ -1620,6 +1722,7 @@ type userThenLoader[Q orm.Loadable] struct {
 	GameServers                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Logs                           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	NotificationChannels           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	CreatedByScheduledTasks        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserAPIKeys                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GrantedByUserRoleAssignments   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserRoleAssignments            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1644,6 +1747,9 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 	}
 	type NotificationChannelsLoadInterface interface {
 		LoadNotificationChannels(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type CreatedByScheduledTasksLoadInterface interface {
+		LoadCreatedByScheduledTasks(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type UserAPIKeysLoadInterface interface {
 		LoadUserAPIKeys(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1693,6 +1799,12 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 			"NotificationChannels",
 			func(ctx context.Context, exec bob.Executor, retrieved NotificationChannelsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadNotificationChannels(ctx, exec, mods...)
+			},
+		),
+		CreatedByScheduledTasks: thenLoadBuilder[Q](
+			"CreatedByScheduledTasks",
+			func(ctx context.Context, exec bob.Executor, retrieved CreatedByScheduledTasksLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCreatedByScheduledTasks(ctx, exec, mods...)
 			},
 		),
 		UserAPIKeys: thenLoadBuilder[Q](
@@ -2091,6 +2203,67 @@ func (os UserSlice) LoadNotificationChannels(ctx context.Context, exec bob.Execu
 	return nil
 }
 
+// LoadCreatedByScheduledTasks loads the user's CreatedByScheduledTasks into the .R struct
+func (o *User) LoadCreatedByScheduledTasks(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.CreatedByScheduledTasks = nil
+
+	related, err := o.CreatedByScheduledTasks(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.CreatedByUser = o
+	}
+
+	o.R.CreatedByScheduledTasks = related
+	return nil
+}
+
+// LoadCreatedByScheduledTasks loads the user's CreatedByScheduledTasks into the .R struct
+func (os UserSlice) LoadCreatedByScheduledTasks(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	scheduledTasks, err := os.CreatedByScheduledTasks(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.CreatedByScheduledTasks = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range scheduledTasks {
+
+			if !(o.ID == rel.CreatedBy) {
+				continue
+			}
+
+			rel.R.CreatedByUser = o
+
+			o.R.CreatedByScheduledTasks = append(o.R.CreatedByScheduledTasks, rel)
+		}
+	}
+
+	return nil
+}
+
 // LoadUserAPIKeys loads the user's UserAPIKeys into the .R struct
 func (o *User) LoadUserAPIKeys(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2346,6 +2519,7 @@ type userJoins[Q dialect.Joinable] struct {
 	GameServers                    modAs[Q, gameServerColumns]
 	Logs                           modAs[Q, logColumns]
 	NotificationChannels           modAs[Q, notificationChannelColumns]
+	CreatedByScheduledTasks        modAs[Q, scheduledTaskColumns]
 	UserAPIKeys                    modAs[Q, userAPIKeyColumns]
 	GrantedByUserRoleAssignments   modAs[Q, userRoleAssignmentColumns]
 	UserRoleAssignments            modAs[Q, userRoleAssignmentColumns]
@@ -2437,6 +2611,20 @@ func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[
 				{
 					mods = append(mods, dialect.Join[Q](typ, NotificationChannels.Name().As(to.Alias())).On(
 						to.UserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		CreatedByScheduledTasks: modAs[Q, scheduledTaskColumns]{
+			c: ScheduledTasks.Columns,
+			f: func(to scheduledTaskColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, ScheduledTasks.Name().As(to.Alias())).On(
+						to.CreatedBy.EQ(cols.ID),
 					))
 				}
 

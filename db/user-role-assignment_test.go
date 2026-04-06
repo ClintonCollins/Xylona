@@ -285,8 +285,8 @@ func TestGetUserPermissionIDsForServer(t *testing.T) {
 		if errPerms != nil {
 			t.Fatalf("GetUserPermissionIDsForServer() error = %v", errPerms)
 		}
-		if len(perms) != 5 {
-			t.Errorf("GetUserPermissionIDsForServer() len = %d, want 5; got %v", len(perms), perms)
+		if len(perms) != 6 {
+			t.Errorf("GetUserPermissionIDsForServer() len = %d, want 6; got %v", len(perms), perms)
 		}
 	})
 }
@@ -326,8 +326,8 @@ func TestGetUserPermissionIDsForServers(t *testing.T) {
 		if !ok {
 			t.Fatalf("GetUserPermissionIDsForServers() missing key server-local-1; got %v", result)
 		}
-		if len(perms) != 5 {
-			t.Errorf("GetUserPermissionIDsForServers()[server-local-1] len = %d, want 5; got %v", len(perms), perms)
+		if len(perms) != 6 {
+			t.Errorf("GetUserPermissionIDsForServers()[server-local-1] len = %d, want 6; got %v", len(perms), perms)
 		}
 
 		if _, exists := result["nonexistent-server"]; exists {

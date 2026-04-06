@@ -151,7 +151,7 @@ export default () => {
       { token: 'custom-date', foreground: '008800' },
     ],
     colors: {
-      'editor.foreground': '#000000',
+      'editor.foreground': '#e0e4e6',
     },
   })
   const SERVER_PROPERTY_KEYWORDS = [

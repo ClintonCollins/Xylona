@@ -352,8 +352,8 @@ function resetAll() {
 }
 
 .start-args-page__warning {
-  background: rgba(245, 158, 11, 0.14);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: var(--xy-warning-bg-soft);
+  border: 1px solid var(--xy-warning-border);
   color: var(--xy-text-primary);
 }
 </style>

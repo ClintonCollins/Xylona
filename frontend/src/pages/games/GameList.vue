@@ -1,7 +1,7 @@
 <template>
   <q-page class="xy-page-content">
     <div class="xy-page-header">
-      <div class="xy-page-title">Games</div>
+      <h1 class="xy-page-title">Games</h1>
       <div class="xy-page-actions">
         <q-input
           v-model="search"

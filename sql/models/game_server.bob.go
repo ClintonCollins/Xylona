@@ -75,6 +75,7 @@ type gameServerR struct {
 	GameServerMetricsHistories GameServerMetricsHistorySlice // fk_game_server_metrics_history_0
 	InstalledMods              InstalledModSlice             // fk_installed_mod_0
 	Logs                       LogSlice                      // fk_log_0
+	ScheduledTasks             ScheduledTaskSlice            // fk_scheduled_task_1
 	UserRoleAssignments        UserRoleAssignmentSlice       // fk_user_role_assignment_1
 }
 
@@ -1042,6 +1043,25 @@ func (os GameServerSlice) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery 
 	)...)
 }
 
+// ScheduledTasks starts a query for related objects on scheduled_task
+func (o *GameServer) ScheduledTasks(mods ...bob.Mod[*dialect.SelectQuery]) ScheduledTasksQuery {
+	return ScheduledTasks.Query(append(mods,
+		sm.Where(ScheduledTasks.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) ScheduledTasks(mods ...bob.Mod[*dialect.SelectQuery]) ScheduledTasksQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return ScheduledTasks.Query(append(mods,
+		sm.Where(sqlite.Group(ScheduledTasks.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // UserRoleAssignments starts a query for related objects on user_role_assignment
 func (o *GameServer) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) UserRoleAssignmentsQuery {
 	return UserRoleAssignments.Query(append(mods,
@@ -1525,6 +1545,74 @@ func (gameServer0 *GameServer) AttachLogs(ctx context.Context, exec bob.Executor
 	return nil
 }
 
+func insertGameServerScheduledTasks0(ctx context.Context, exec bob.Executor, scheduledTasks1 []*ScheduledTaskSetter, gameServer0 *GameServer) (ScheduledTaskSlice, error) {
+	for i := range scheduledTasks1 {
+		scheduledTasks1[i].GameServerID = omit.From(gameServer0.ID)
+	}
+
+	ret, err := ScheduledTasks.Insert(bob.ToMods(scheduledTasks1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerScheduledTasks0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerScheduledTasks0(ctx context.Context, exec bob.Executor, count int, scheduledTasks1 ScheduledTaskSlice, gameServer0 *GameServer) (ScheduledTaskSlice, error) {
+	setter := &ScheduledTaskSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := scheduledTasks1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerScheduledTasks0: %w", err)
+	}
+
+	return scheduledTasks1, nil
+}
+
+func (gameServer0 *GameServer) InsertScheduledTasks(ctx context.Context, exec bob.Executor, related ...*ScheduledTaskSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	scheduledTasks1, err := insertGameServerScheduledTasks0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.ScheduledTasks = append(gameServer0.R.ScheduledTasks, scheduledTasks1...)
+
+	for _, rel := range scheduledTasks1 {
+		rel.R.GameServer = gameServer0
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachScheduledTasks(ctx context.Context, exec bob.Executor, related ...*ScheduledTask) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	scheduledTasks1 := ScheduledTaskSlice(related)
+
+	_, err = attachGameServerScheduledTasks0(ctx, exec, len(related), scheduledTasks1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.ScheduledTasks = append(gameServer0.R.ScheduledTasks, scheduledTasks1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+	}
+
+	return nil
+}
+
 func insertGameServerUserRoleAssignments0(ctx context.Context, exec bob.Executor, userRoleAssignments1 []*UserRoleAssignmentSetter, gameServer0 *GameServer) (UserRoleAssignmentSlice, error) {
 	for i := range userRoleAssignments1 {
 		userRoleAssignments1[i].GameServerID = omitnull.From(gameServer0.ID)
@@ -1767,6 +1855,20 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "ScheduledTasks":
+		rels, ok := retrieved.(ScheduledTaskSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.ScheduledTasks = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+			}
+		}
+		return nil
 	case "UserRoleAssignments":
 		rels, ok := retrieved.(UserRoleAssignmentSlice)
 		if !ok {
@@ -1859,6 +1961,7 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Logs                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	ScheduledTasks             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserRoleAssignments        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
@@ -1886,6 +1989,9 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 	type LogsLoadInterface interface {
 		LoadLogs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type ScheduledTasksLoadInterface interface {
+		LoadScheduledTasks(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type UserRoleAssignmentsLoadInterface interface {
 		LoadUserRoleAssignments(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1938,6 +2044,12 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 			"Logs",
 			func(ctx context.Context, exec bob.Executor, retrieved LogsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadLogs(ctx, exec, mods...)
+			},
+		),
+		ScheduledTasks: thenLoadBuilder[Q](
+			"ScheduledTasks",
+			func(ctx context.Context, exec bob.Executor, retrieved ScheduledTasksLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadScheduledTasks(ctx, exec, mods...)
 			},
 		),
 		UserRoleAssignments: thenLoadBuilder[Q](
@@ -2404,6 +2516,67 @@ func (os GameServerSlice) LoadLogs(ctx context.Context, exec bob.Executor, mods 
 	return nil
 }
 
+// LoadScheduledTasks loads the gameServer's ScheduledTasks into the .R struct
+func (o *GameServer) LoadScheduledTasks(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.ScheduledTasks = nil
+
+	related, err := o.ScheduledTasks(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+	}
+
+	o.R.ScheduledTasks = related
+	return nil
+}
+
+// LoadScheduledTasks loads the gameServer's ScheduledTasks into the .R struct
+func (os GameServerSlice) LoadScheduledTasks(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	scheduledTasks, err := os.ScheduledTasks(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.ScheduledTasks = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range scheduledTasks {
+
+			if !(o.ID == rel.GameServerID) {
+				continue
+			}
+
+			rel.R.GameServer = o
+
+			o.R.ScheduledTasks = append(o.R.ScheduledTasks, rel)
+		}
+	}
+
+	return nil
+}
+
 // LoadUserRoleAssignments loads the gameServer's UserRoleAssignments into the .R struct
 func (o *GameServer) LoadUserRoleAssignments(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2478,6 +2651,7 @@ type gameServerJoins[Q dialect.Joinable] struct {
 	GameServerMetricsHistories modAs[Q, gameServerMetricsHistoryColumns]
 	InstalledMods              modAs[Q, installedModColumns]
 	Logs                       modAs[Q, logColumns]
+	ScheduledTasks             modAs[Q, scheduledTaskColumns]
 	UserRoleAssignments        modAs[Q, userRoleAssignmentColumns]
 }
 
@@ -2593,6 +2767,20 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, Logs.Name().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		ScheduledTasks: modAs[Q, scheduledTaskColumns]{
+			c: ScheduledTasks.Columns,
+			f: func(to scheduledTaskColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, ScheduledTasks.Name().As(to.Alias())).On(
 						to.GameServerID.EQ(cols.ID),
 					))
 				}

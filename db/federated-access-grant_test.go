@@ -177,13 +177,13 @@ func TestGetFederatedUserPermissionIDsForServer(t *testing.T) {
 		t.Fatalf("CreateFederatedAccessGrant() error = %v", errGrant)
 	}
 
-	// operator has: view, start, stop, restart, console = 5 permissions
+	// operator has: view, start, stop, restart, console, scheduled_tasks = 6 permissions
 	perms, errPerms = conn.GetFederatedUserPermissionIDsForServer("node-remote-1", "remote-user-1", "server-local-1")
 	if errPerms != nil {
 		t.Fatalf("GetFederatedUserPermissionIDsForServer() after grant error = %v", errPerms)
 	}
-	if len(perms) != 5 {
-		t.Errorf("expected 5 permissions for operator, got %d: %v", len(perms), perms)
+	if len(perms) != 6 {
+		t.Errorf("expected 6 permissions for operator, got %d: %v", len(perms), perms)
 	}
 }
 

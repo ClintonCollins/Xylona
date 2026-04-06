@@ -75,6 +75,15 @@ export function buildGameServerTabs(
       requiredPermission: 'game_server.mods',
     })
   }
+  if (has('game_server.scheduled_tasks')) {
+    tabs.push({
+      name: 'Schedules',
+      to: `${basePath}/schedules`,
+      icon: 'schedule',
+      exact: true,
+      requiredPermission: 'game_server.scheduled_tasks',
+    })
+  }
   if (isOwnerOrSuper || has('alerts.manage') || has('alerts.view_history')) {
     tabs.push({
       name: 'Alerts',
@@ -127,6 +136,9 @@ export function getUnauthorizedRedirect(
     return consolePath
   }
   if (currentPath === `${basePath}/mods` && (!has('game_server.mods') || !hasModSupport)) {
+    return consolePath
+  }
+  if (currentPath === `${basePath}/schedules` && !has('game_server.scheduled_tasks')) {
     return consolePath
   }
   if (

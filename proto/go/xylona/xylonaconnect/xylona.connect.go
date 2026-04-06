@@ -324,6 +324,21 @@ const (
 	XylonaSetSystemSMTPConfigProcedure = "/xylona.Xylona/SetSystemSMTPConfig"
 	// XylonaTestSystemSMTPProcedure is the fully-qualified name of the Xylona's TestSystemSMTP RPC.
 	XylonaTestSystemSMTPProcedure = "/xylona.Xylona/TestSystemSMTP"
+	// XylonaListScheduledTasksProcedure is the fully-qualified name of the Xylona's ListScheduledTasks
+	// RPC.
+	XylonaListScheduledTasksProcedure = "/xylona.Xylona/ListScheduledTasks"
+	// XylonaCreateScheduledTaskProcedure is the fully-qualified name of the Xylona's
+	// CreateScheduledTask RPC.
+	XylonaCreateScheduledTaskProcedure = "/xylona.Xylona/CreateScheduledTask"
+	// XylonaUpdateScheduledTaskProcedure is the fully-qualified name of the Xylona's
+	// UpdateScheduledTask RPC.
+	XylonaUpdateScheduledTaskProcedure = "/xylona.Xylona/UpdateScheduledTask"
+	// XylonaDeleteScheduledTaskProcedure is the fully-qualified name of the Xylona's
+	// DeleteScheduledTask RPC.
+	XylonaDeleteScheduledTaskProcedure = "/xylona.Xylona/DeleteScheduledTask"
+	// XylonaGetScheduledTaskLogsProcedure is the fully-qualified name of the Xylona's
+	// GetScheduledTaskLogs RPC.
+	XylonaGetScheduledTaskLogsProcedure = "/xylona.Xylona/GetScheduledTaskLogs"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
@@ -468,6 +483,12 @@ type XylonaClient interface {
 	GetSystemSMTPConfig(context.Context, *connect.Request[xylona.GetSystemSMTPConfigRequest]) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error)
 	SetSystemSMTPConfig(context.Context, *connect.Request[xylona.SetSystemSMTPConfigRequest]) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error)
 	TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error)
+	// Scheduled Tasks
+	ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error)
+	CreateScheduledTask(context.Context, *connect.Request[xylona.CreateScheduledTaskRequest]) (*connect.Response[xylona.CreateScheduledTaskResponse], error)
+	UpdateScheduledTask(context.Context, *connect.Request[xylona.UpdateScheduledTaskRequest]) (*connect.Response[xylona.UpdateScheduledTaskResponse], error)
+	DeleteScheduledTask(context.Context, *connect.Request[xylona.DeleteScheduledTaskRequest]) (*connect.Response[xylona.DeleteScheduledTaskResponse], error)
+	GetScheduledTaskLogs(context.Context, *connect.Request[xylona.GetScheduledTaskLogsRequest]) (*connect.Response[xylona.GetScheduledTaskLogsResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -1189,6 +1210,36 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("TestSystemSMTP")),
 			connect.WithClientOptions(opts...),
 		),
+		listScheduledTasks: connect.NewClient[xylona.ListScheduledTasksRequest, xylona.ListScheduledTasksResponse](
+			httpClient,
+			baseURL+XylonaListScheduledTasksProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListScheduledTasks")),
+			connect.WithClientOptions(opts...),
+		),
+		createScheduledTask: connect.NewClient[xylona.CreateScheduledTaskRequest, xylona.CreateScheduledTaskResponse](
+			httpClient,
+			baseURL+XylonaCreateScheduledTaskProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CreateScheduledTask")),
+			connect.WithClientOptions(opts...),
+		),
+		updateScheduledTask: connect.NewClient[xylona.UpdateScheduledTaskRequest, xylona.UpdateScheduledTaskResponse](
+			httpClient,
+			baseURL+XylonaUpdateScheduledTaskProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateScheduledTask")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteScheduledTask: connect.NewClient[xylona.DeleteScheduledTaskRequest, xylona.DeleteScheduledTaskResponse](
+			httpClient,
+			baseURL+XylonaDeleteScheduledTaskProcedure,
+			connect.WithSchema(xylonaMethods.ByName("DeleteScheduledTask")),
+			connect.WithClientOptions(opts...),
+		),
+		getScheduledTaskLogs: connect.NewClient[xylona.GetScheduledTaskLogsRequest, xylona.GetScheduledTaskLogsResponse](
+			httpClient,
+			baseURL+XylonaGetScheduledTaskLogsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetScheduledTaskLogs")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1312,6 +1363,11 @@ type xylonaClient struct {
 	getSystemSMTPConfig              *connect.Client[xylona.GetSystemSMTPConfigRequest, xylona.GetSystemSMTPConfigResponse]
 	setSystemSMTPConfig              *connect.Client[xylona.SetSystemSMTPConfigRequest, xylona.SetSystemSMTPConfigResponse]
 	testSystemSMTP                   *connect.Client[xylona.TestSystemSMTPRequest, xylona.TestSystemSMTPResponse]
+	listScheduledTasks               *connect.Client[xylona.ListScheduledTasksRequest, xylona.ListScheduledTasksResponse]
+	createScheduledTask              *connect.Client[xylona.CreateScheduledTaskRequest, xylona.CreateScheduledTaskResponse]
+	updateScheduledTask              *connect.Client[xylona.UpdateScheduledTaskRequest, xylona.UpdateScheduledTaskResponse]
+	deleteScheduledTask              *connect.Client[xylona.DeleteScheduledTaskRequest, xylona.DeleteScheduledTaskResponse]
+	getScheduledTaskLogs             *connect.Client[xylona.GetScheduledTaskLogsRequest, xylona.GetScheduledTaskLogsResponse]
 }
 
 // AddGame calls xylona.Xylona.AddGame.
@@ -1904,6 +1960,31 @@ func (c *xylonaClient) TestSystemSMTP(ctx context.Context, req *connect.Request[
 	return c.testSystemSMTP.CallUnary(ctx, req)
 }
 
+// ListScheduledTasks calls xylona.Xylona.ListScheduledTasks.
+func (c *xylonaClient) ListScheduledTasks(ctx context.Context, req *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error) {
+	return c.listScheduledTasks.CallUnary(ctx, req)
+}
+
+// CreateScheduledTask calls xylona.Xylona.CreateScheduledTask.
+func (c *xylonaClient) CreateScheduledTask(ctx context.Context, req *connect.Request[xylona.CreateScheduledTaskRequest]) (*connect.Response[xylona.CreateScheduledTaskResponse], error) {
+	return c.createScheduledTask.CallUnary(ctx, req)
+}
+
+// UpdateScheduledTask calls xylona.Xylona.UpdateScheduledTask.
+func (c *xylonaClient) UpdateScheduledTask(ctx context.Context, req *connect.Request[xylona.UpdateScheduledTaskRequest]) (*connect.Response[xylona.UpdateScheduledTaskResponse], error) {
+	return c.updateScheduledTask.CallUnary(ctx, req)
+}
+
+// DeleteScheduledTask calls xylona.Xylona.DeleteScheduledTask.
+func (c *xylonaClient) DeleteScheduledTask(ctx context.Context, req *connect.Request[xylona.DeleteScheduledTaskRequest]) (*connect.Response[xylona.DeleteScheduledTaskResponse], error) {
+	return c.deleteScheduledTask.CallUnary(ctx, req)
+}
+
+// GetScheduledTaskLogs calls xylona.Xylona.GetScheduledTaskLogs.
+func (c *xylonaClient) GetScheduledTaskLogs(ctx context.Context, req *connect.Request[xylona.GetScheduledTaskLogsRequest]) (*connect.Response[xylona.GetScheduledTaskLogsResponse], error) {
+	return c.getScheduledTaskLogs.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// Game Operations
@@ -2046,6 +2127,12 @@ type XylonaHandler interface {
 	GetSystemSMTPConfig(context.Context, *connect.Request[xylona.GetSystemSMTPConfigRequest]) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error)
 	SetSystemSMTPConfig(context.Context, *connect.Request[xylona.SetSystemSMTPConfigRequest]) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error)
 	TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error)
+	// Scheduled Tasks
+	ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error)
+	CreateScheduledTask(context.Context, *connect.Request[xylona.CreateScheduledTaskRequest]) (*connect.Response[xylona.CreateScheduledTaskResponse], error)
+	UpdateScheduledTask(context.Context, *connect.Request[xylona.UpdateScheduledTaskRequest]) (*connect.Response[xylona.UpdateScheduledTaskResponse], error)
+	DeleteScheduledTask(context.Context, *connect.Request[xylona.DeleteScheduledTaskRequest]) (*connect.Response[xylona.DeleteScheduledTaskResponse], error)
+	GetScheduledTaskLogs(context.Context, *connect.Request[xylona.GetScheduledTaskLogsRequest]) (*connect.Response[xylona.GetScheduledTaskLogsResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -2763,6 +2850,36 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("TestSystemSMTP")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaListScheduledTasksHandler := connect.NewUnaryHandler(
+		XylonaListScheduledTasksProcedure,
+		svc.ListScheduledTasks,
+		connect.WithSchema(xylonaMethods.ByName("ListScheduledTasks")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaCreateScheduledTaskHandler := connect.NewUnaryHandler(
+		XylonaCreateScheduledTaskProcedure,
+		svc.CreateScheduledTask,
+		connect.WithSchema(xylonaMethods.ByName("CreateScheduledTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateScheduledTaskHandler := connect.NewUnaryHandler(
+		XylonaUpdateScheduledTaskProcedure,
+		svc.UpdateScheduledTask,
+		connect.WithSchema(xylonaMethods.ByName("UpdateScheduledTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaDeleteScheduledTaskHandler := connect.NewUnaryHandler(
+		XylonaDeleteScheduledTaskProcedure,
+		svc.DeleteScheduledTask,
+		connect.WithSchema(xylonaMethods.ByName("DeleteScheduledTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetScheduledTaskLogsHandler := connect.NewUnaryHandler(
+		XylonaGetScheduledTaskLogsProcedure,
+		svc.GetScheduledTaskLogs,
+		connect.WithSchema(xylonaMethods.ByName("GetScheduledTaskLogs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaAddGameProcedure:
@@ -3001,6 +3118,16 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaSetSystemSMTPConfigHandler.ServeHTTP(w, r)
 		case XylonaTestSystemSMTPProcedure:
 			xylonaTestSystemSMTPHandler.ServeHTTP(w, r)
+		case XylonaListScheduledTasksProcedure:
+			xylonaListScheduledTasksHandler.ServeHTTP(w, r)
+		case XylonaCreateScheduledTaskProcedure:
+			xylonaCreateScheduledTaskHandler.ServeHTTP(w, r)
+		case XylonaUpdateScheduledTaskProcedure:
+			xylonaUpdateScheduledTaskHandler.ServeHTTP(w, r)
+		case XylonaDeleteScheduledTaskProcedure:
+			xylonaDeleteScheduledTaskHandler.ServeHTTP(w, r)
+		case XylonaGetScheduledTaskLogsProcedure:
+			xylonaGetScheduledTaskLogsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3480,4 +3607,24 @@ func (UnimplementedXylonaHandler) SetSystemSMTPConfig(context.Context, *connect.
 
 func (UnimplementedXylonaHandler) TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.TestSystemSMTP is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListScheduledTasks is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CreateScheduledTask(context.Context, *connect.Request[xylona.CreateScheduledTaskRequest]) (*connect.Response[xylona.CreateScheduledTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CreateScheduledTask is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateScheduledTask(context.Context, *connect.Request[xylona.UpdateScheduledTaskRequest]) (*connect.Response[xylona.UpdateScheduledTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateScheduledTask is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) DeleteScheduledTask(context.Context, *connect.Request[xylona.DeleteScheduledTaskRequest]) (*connect.Response[xylona.DeleteScheduledTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteScheduledTask is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetScheduledTaskLogs(context.Context, *connect.Request[xylona.GetScheduledTaskLogsRequest]) (*connect.Response[xylona.GetScheduledTaskLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetScheduledTaskLogs is not implemented"))
 }

@@ -52,6 +52,8 @@ type joins[Q dialect.Joinable] struct {
 	RemoteServerCaches         joinSet[remoteServerCacheJoins[Q]]
 	Roles                      joinSet[roleJoins[Q]]
 	RolePermissions            joinSet[rolePermissionJoins[Q]]
+	ScheduledTasks             joinSet[scheduledTaskJoins[Q]]
+	ScheduledTaskLogs          joinSet[scheduledTaskLogJoins[Q]]
 	Users                      joinSet[userJoins[Q]]
 	UserAPIKeys                joinSet[userAPIKeyJoins[Q]]
 	UserRoleAssignments        joinSet[userRoleAssignmentJoins[Q]]
@@ -89,6 +91,8 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		RemoteServerCaches:         buildJoinSet[remoteServerCacheJoins[Q]](RemoteServerCaches.Columns, buildRemoteServerCacheJoins),
 		Roles:                      buildJoinSet[roleJoins[Q]](Roles.Columns, buildRoleJoins),
 		RolePermissions:            buildJoinSet[rolePermissionJoins[Q]](RolePermissions.Columns, buildRolePermissionJoins),
+		ScheduledTasks:             buildJoinSet[scheduledTaskJoins[Q]](ScheduledTasks.Columns, buildScheduledTaskJoins),
+		ScheduledTaskLogs:          buildJoinSet[scheduledTaskLogJoins[Q]](ScheduledTaskLogs.Columns, buildScheduledTaskLogJoins),
 		Users:                      buildJoinSet[userJoins[Q]](Users.Columns, buildUserJoins),
 		UserAPIKeys:                buildJoinSet[userAPIKeyJoins[Q]](UserAPIKeys.Columns, buildUserAPIKeyJoins),
 		UserRoleAssignments:        buildJoinSet[userRoleAssignmentJoins[Q]](UserRoleAssignments.Columns, buildUserRoleAssignmentJoins),

@@ -3,7 +3,7 @@
     <div v-if="!detailNode">
       <div class="xy-page-header">
         <div>
-          <div class="xy-page-title">Nodes</div>
+          <h1 class="xy-page-title">Nodes</h1>
           <div class="text-caption text-xy-secondary" style="margin-top: 2px">
             {{ rows.length }} {{ rows.length === 1 ? 'node' : 'nodes' }}
             <template v-if="totalServers > 0">
@@ -49,9 +49,9 @@
           hide-header-in-grid>
           <template #body-cell-name="props">
             <q-td :props="props">
-              <a class="table-link" href="#" @click.prevent="openDetail(props.row)">
+              <button class="table-link" type="button" @click="openDetail(props.row)">
                 {{ props.row.name || 'Unnamed' }}
-              </a>
+              </button>
               <q-badge v-if="props.row.local" color="primary" class="q-ml-sm" label="local" />
               <q-badge v-else class="badge-remote q-ml-sm" label="remote" />
               <q-badge v-if="props.row.autoPaired" class="badge-auto q-ml-xs" label="auto" />

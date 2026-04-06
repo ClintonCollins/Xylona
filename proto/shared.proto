@@ -608,3 +608,34 @@ message SystemSMTPConfig {
   string from_address = 5;
   bool tls_enabled = 6;
 }
+
+// --- Scheduled Tasks ---
+
+message ScheduledTask {
+  string id = 1;
+  string game_server_id = 2;
+  string created_by = 3;
+  string name = 4;
+  string task_type = 5;
+  string cron_expression = 6;
+  string timezone = 7;
+  optional string console_command = 8;
+  bool enabled = 9;
+  optional google.protobuf.Timestamp last_run_at = 10;
+  optional google.protobuf.Timestamp next_run_at = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  string cron_description = 14;
+}
+
+message ScheduledTaskLog {
+  string id = 1;
+  string scheduled_task_id = 2;
+  string game_server_id = 3;
+  string task_type = 4;
+  string status = 5;
+  optional string message = 6;
+  google.protobuf.Timestamp started_at = 7;
+  optional google.protobuf.Timestamp finished_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+}

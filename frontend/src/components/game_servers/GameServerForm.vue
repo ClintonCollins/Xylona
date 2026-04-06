@@ -1262,7 +1262,7 @@ async function submitGameServer() {
 :deep(.server-form-shell .q-field:hover .q-field__control),
 :deep(.server-form-shell .q-field--focused .q-field__control) {
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--xy-shadow-xl);
 }
 
 :deep(.server-form-shell .q-field__native),

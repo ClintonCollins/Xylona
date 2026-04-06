@@ -131,7 +131,7 @@ async function login() {
 }
 
 .login-brand-tagline {
-  font-family: var(--xy-font-display);
+  font-family: var(--xy-font-body);
   font-size: clamp(1rem, 2vw, 1.4rem);
   color: var(--xy-text-muted);
   letter-spacing: 0.08em;

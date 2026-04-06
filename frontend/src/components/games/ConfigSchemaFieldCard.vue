@@ -1,6 +1,13 @@
 <template>
   <q-card class="field-card" flat bordered>
-    <q-card-section class="field-card-header" @click="expanded = !expanded">
+    <q-card-section
+      class="field-card-header"
+      role="button"
+      tabindex="0"
+      :aria-expanded="expanded"
+      @click="expanded = !expanded"
+      @keydown.enter="expanded = !expanded"
+      @keydown.space.prevent="expanded = !expanded">
       <div class="field-card-summary">
         <q-icon
           :name="expanded ? 'expand_less' : 'expand_more'"

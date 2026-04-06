@@ -48,6 +48,7 @@ import (
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/papermc"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/steamworkshop"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/thunderstore"
+	"github.com/ClintonCollins/Xylona/pkg/scheduler"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
@@ -420,6 +421,23 @@ func main() {
 	alertDeliveryPool := alerts.NewDeliveryPool(dbInst, dbInst, webhookSender, alertMailer, alertJobChan)
 	alertDeliveryPool.Start(ctx)
 
+	// Scheduled tasks scheduler.
+	superAdapter := scheduler.NewSupervisorAdapter(superInst)
+	taskScheduler, errScheduler := scheduler.New(ctx, dbInst, actionsInst, superAdapter)
+	if errScheduler != nil {
+		log.Fatal().Err(errScheduler).Msg("Failed to create task scheduler")
+	}
+	errSchedulerStart := taskScheduler.Start()
+	if errSchedulerStart != nil {
+		log.Fatal().Err(errSchedulerStart).Msg("Failed to start task scheduler")
+	}
+	defer func() {
+		errStop := taskScheduler.Stop()
+		if errStop != nil {
+			log.Error().Err(errStop).Msg("Error stopping task scheduler")
+		}
+	}()
+
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	setDetectedIPs(dbInst)
 
@@ -431,6 +449,7 @@ func main() {
 	router := chi.NewRouter()
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)
 	xylonaService.SetSyncEngine(syncEngine)
+	xylonaService.SetScheduler(taskScheduler)
 	xylonaService.SetInstallBroadcaster(wsInst)
 	xylonaService.SetUpdateBroadcaster(wsInst)
 	if dummyTracker != nil {

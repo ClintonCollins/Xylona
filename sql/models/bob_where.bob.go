@@ -47,6 +47,8 @@ func Where[Q sqlite.Filterable]() struct {
 	RevokedJWTS                revokedJWTWhere[Q]
 	Roles                      roleWhere[Q]
 	RolePermissions            rolePermissionWhere[Q]
+	ScheduledTasks             scheduledTaskWhere[Q]
+	ScheduledTaskLogs          scheduledTaskLogWhere[Q]
 	SystemConfigs              systemConfigWhere[Q]
 	Users                      userWhere[Q]
 	UserAPIKeys                userAPIKeyWhere[Q]
@@ -84,6 +86,8 @@ func Where[Q sqlite.Filterable]() struct {
 		RevokedJWTS                revokedJWTWhere[Q]
 		Roles                      roleWhere[Q]
 		RolePermissions            rolePermissionWhere[Q]
+		ScheduledTasks             scheduledTaskWhere[Q]
+		ScheduledTaskLogs          scheduledTaskLogWhere[Q]
 		SystemConfigs              systemConfigWhere[Q]
 		Users                      userWhere[Q]
 		UserAPIKeys                userAPIKeyWhere[Q]
@@ -120,6 +124,8 @@ func Where[Q sqlite.Filterable]() struct {
 		RevokedJWTS:                buildRevokedJWTWhere[Q](RevokedJWTS.Columns),
 		Roles:                      buildRoleWhere[Q](Roles.Columns),
 		RolePermissions:            buildRolePermissionWhere[Q](RolePermissions.Columns),
+		ScheduledTasks:             buildScheduledTaskWhere[Q](ScheduledTasks.Columns),
+		ScheduledTaskLogs:          buildScheduledTaskLogWhere[Q](ScheduledTaskLogs.Columns),
 		SystemConfigs:              buildSystemConfigWhere[Q](SystemConfigs.Columns),
 		Users:                      buildUserWhere[Q](Users.Columns),
 		UserAPIKeys:                buildUserAPIKeyWhere[Q](UserAPIKeys.Columns),

@@ -18,57 +18,59 @@
   </q-header>
 
   <q-drawer v-model="leftDrawerOpen" show-if-above bordered class="bg-xy-surface-2">
-    <q-list class="nav-list q-mt-md">
-      <template v-for="(link, index) in navLinks" :key="link.title">
-        <div v-if="link.section && index > 0" class="xy-nav-divider"></div>
-        <q-item-label v-if="link.section" header class="nav-section-label">{{
-          link.section
-        }}</q-item-label>
-        <q-item
-          v-if="link.groupItems.length === 0"
-          :class="
-            overrideActiveLink(link.link)
-              ? 'q-router-link--exact-active q-router-link--active'
-              : null
-          "
-          clickable
-          :to="link.link"
-          :exact="link.exact">
-          <q-item-section v-if="link.icon" avatar>
-            <q-icon :name="link.icon" />
-          </q-item-section>
-
-          <q-item-section>
-            <q-item-label>
-              {{ link.title }}
-              <q-badge
-                v-if="link.title === 'Nodes' && unreadAdvisoryCount > 0"
-                color="primary"
-                floating
-                rounded
-                :label="unreadAdvisoryCount" />
-            </q-item-label>
-          </q-item-section>
-        </q-item>
-        <q-expansion-item v-else v-model="link.expanded" :icon="link.icon" :label="link.title">
+    <nav aria-label="Main navigation">
+      <q-list class="nav-list q-mt-md">
+        <template v-for="(link, index) in navLinks" :key="link.title">
+          <div v-if="link.section && index > 0" class="xy-nav-divider"></div>
+          <q-item-label v-if="link.section" header class="nav-section-label">{{
+            link.section
+          }}</q-item-label>
           <q-item
-            v-for="l in link.groupItems"
-            :key="l.title"
-            :inset-level="0.3"
+            v-if="link.groupItems.length === 0"
+            :class="
+              overrideActiveLink(link.link)
+                ? 'q-router-link--exact-active q-router-link--active'
+                : null
+            "
             clickable
-            :to="l.link"
-            :exact="l.exact">
-            <q-item-section v-if="l.icon" avatar>
-              <q-icon :name="l.icon" />
+            :to="link.link"
+            :exact="link.exact">
+            <q-item-section v-if="link.icon" avatar>
+              <q-icon :name="link.icon" />
             </q-item-section>
 
             <q-item-section>
-              <q-item-label>{{ l.title }}</q-item-label>
+              <q-item-label>
+                {{ link.title }}
+                <q-badge
+                  v-if="link.title === 'Nodes' && unreadAdvisoryCount > 0"
+                  color="primary"
+                  floating
+                  rounded
+                  :label="unreadAdvisoryCount" />
+              </q-item-label>
             </q-item-section>
           </q-item>
-        </q-expansion-item>
-      </template>
-    </q-list>
+          <q-expansion-item v-else v-model="link.expanded" :icon="link.icon" :label="link.title">
+            <q-item
+              v-for="l in link.groupItems"
+              :key="l.title"
+              :inset-level="0.3"
+              clickable
+              :to="l.link"
+              :exact="l.exact">
+              <q-item-section v-if="l.icon" avatar>
+                <q-icon :name="l.icon" />
+              </q-item-section>
+
+              <q-item-section>
+                <q-item-label>{{ l.title }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-expansion-item>
+        </template>
+      </q-list>
+    </nav>
   </q-drawer>
 </template>
 

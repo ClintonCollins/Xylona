@@ -1444,11 +1444,11 @@ async function sendGameServerInput() {
   0%,
   100% {
     opacity: 1;
-    box-shadow: 0 0 0 rgba(245, 158, 11, 0);
+    box-shadow: 0 0 0 transparent;
   }
   50% {
     opacity: 0.6;
-    box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+    box-shadow: 0 0 6px var(--xy-warning-border);
   }
 }
 
@@ -1610,17 +1610,17 @@ async function sendGameServerInput() {
 
 .fill-low {
   background: var(--xy-success);
-  box-shadow: 0 0 4px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 4px var(--xy-success-border);
 }
 
 .fill-mid {
   background: var(--xy-warning);
-  box-shadow: 0 0 4px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 0 4px var(--xy-warning-border);
 }
 
 .fill-high {
   background: var(--xy-danger);
-  box-shadow: 0 0 4px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 4px var(--xy-danger-border);
 }
 
 /* ===== Console Wrapper ===== */
@@ -1785,7 +1785,7 @@ async function sendGameServerInput() {
 }
 
 .console-input-wrapper:focus-within {
-  border-top-color: rgba(28, 183, 207, 0.3);
+  border-top-color: var(--xy-accent-border);
   background: color-mix(in srgb, var(--xy-surface-1) 95%, var(--xy-accent) 5%);
 }
 

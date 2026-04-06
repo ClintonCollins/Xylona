@@ -186,8 +186,8 @@ function clearResult(): void {
 }
 
 .lookup-result-card {
-  background: var(--xy-surface-1, #1a1d1e);
-  border-color: var(--xy-border, #2a2d2f);
+  background: var(--xy-surface-1);
+  border-color: var(--xy-border);
 }
 
 .example-chip {
@@ -195,13 +195,13 @@ function clearResult(): void {
   padding: 2px 8px;
   margin: 2px 4px;
   border-radius: 4px;
-  background: var(--xy-surface-2, #1e2021);
+  background: var(--xy-surface-2);
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .example-chip:hover {
-  background: var(--xy-accent, #1cb7cf);
+  background: var(--xy-accent);
   color: var(--xy-text-emphasis-strong);
 }
 </style>

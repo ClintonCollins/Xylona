@@ -387,34 +387,27 @@ export function getIconFromFilenameExtension(fileName: string): string {
   }
 }
 
+/** Maps file extensions to icon colors. */
+const FILE_TYPE_COLORS: Record<string, string> = {
+  json: '#74c639',
+  txt: '#94c2e6',
+  log: '#818181',
+  settings: '#f59e0b',
+  jar: '#f0db4f',
+  zip: '#f0db4f',
+  xz: '#3e9b00',
+  gz: '#674753',
+  bz2: '#757de7',
+  zst: '#f07f4f',
+}
+
+const FILE_TYPE_COLOR_DEFAULT = '#f5f5f5'
+
 export function getColorFromFilenameExtension(fileName: string): string {
   const fileNameSplit = fileName.split('.')
   if (fileNameSplit.length <= 1) {
-    return 'whitesmoke'
+    return FILE_TYPE_COLOR_DEFAULT
   }
   const extension = fileNameSplit[fileNameSplit.length - 1]
-  switch (extension) {
-    case 'json':
-      return '#74c639'
-    case 'txt':
-      return '#94c2e6'
-    case 'log':
-      return '#818181'
-    case 'settings':
-      return 'orange'
-    case 'jar':
-      return '#f0db4f'
-    case 'zip':
-      return '#f0db4f'
-    case 'xz':
-      return '#3e9b00'
-    case 'gz':
-      return '#674753'
-    case 'bz2':
-      return '#757de7'
-    case 'zst':
-      return '#f07f4f'
-    default:
-      return 'whitesmoke'
-  }
+  return FILE_TYPE_COLORS[extension] ?? FILE_TYPE_COLOR_DEFAULT
 }

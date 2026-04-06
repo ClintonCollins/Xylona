@@ -24,6 +24,11 @@ const (
 	TopicNodeDiskThreshold   = "node.disk_threshold"
 )
 
+// Scheduled task events.
+const (
+	TopicScheduledTaskExecuted = "scheduled_task.executed"
+)
+
 // ThresholdDirection indicates whether a threshold was entered or resolved.
 type ThresholdDirection string
 
@@ -72,6 +77,16 @@ type ThresholdEvent struct {
 	Direction    ThresholdDirection
 	// Federated is true when this event originated from a remote peer.
 	Federated bool
+}
+
+// ScheduledTaskExecutedEvent is published after a scheduled task runs.
+type ScheduledTaskExecutedEvent struct {
+	TaskID       string
+	GameServerID string
+	TaskType     string
+	Status       string
+	Message      string
+	Timestamp    time.Time
 }
 
 // NodeThresholdEvent is published when a node-level metric crosses a threshold.

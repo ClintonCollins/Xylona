@@ -330,24 +330,28 @@ function entryStatusClass(status: StepStatus): string {
   align-items: center;
   gap: 0.75rem;
   padding: 0.8rem 0.9rem;
-  border: 1px solid rgba(28, 183, 207, 0.12);
+  border: 1px solid var(--xy-accent-muted);
   border-radius: 0.95rem;
-  background: linear-gradient(90deg, rgba(28, 183, 207, 0.05), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(90deg, rgba(28, 183, 207, 0.05), var(--xy-surface-overlay-soft));
 }
 
 .operation-active-band--complete {
-  border-color: rgba(34, 197, 94, 0.14);
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.045), rgba(255, 255, 255, 0.02));
+  border-color: var(--xy-success-bg-soft);
+  background: linear-gradient(90deg, var(--xy-success-bg-faint), var(--xy-surface-overlay-soft));
 }
 
 .operation-active-band--failed {
-  border-color: rgba(239, 68, 68, 0.16);
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(255, 255, 255, 0.02));
+  border-color: var(--xy-danger-bg-faint);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.05), var(--xy-surface-overlay-soft));
 }
 
 .operation-active-band--pending {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015));
+  border-color: var(--xy-border);
+  background: linear-gradient(
+    90deg,
+    var(--xy-surface-overlay-soft),
+    var(--xy-surface-overlay-faint)
+  );
 }
 
 .operation-active-pulse {
@@ -355,22 +359,22 @@ function entryStatusClass(status: StepStatus): string {
   height: 0.55rem;
   border-radius: 999px;
   background: var(--xy-accent);
-  box-shadow: 0 0 0 0.35rem rgba(28, 183, 207, 0.07);
+  box-shadow: 0 0 0 0.35rem var(--xy-accent-glow-soft);
 }
 
 .operation-active-band--complete .operation-active-pulse {
   background: var(--xy-success);
-  box-shadow: 0 0 0 0.35rem rgba(34, 197, 94, 0.08);
+  box-shadow: 0 0 0 0.35rem var(--xy-success-bg-faint);
 }
 
 .operation-active-band--failed .operation-active-pulse {
   background: var(--xy-danger);
-  box-shadow: 0 0 0 0.35rem rgba(239, 68, 68, 0.08);
+  box-shadow: 0 0 0 0.35rem var(--xy-danger-bg-faint);
 }
 
 .operation-active-band--pending .operation-active-pulse {
   background: rgba(255, 255, 255, 0.42);
-  box-shadow: 0 0 0 0.35rem rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 0.35rem var(--xy-surface-sheen-soft);
 }
 
 .operation-active-label {
@@ -397,7 +401,7 @@ function entryStatusClass(status: StepStatus): string {
 .operation-active-state {
   padding: 0.35rem 0.6rem;
   border-radius: 999px;
-  background: rgba(28, 183, 207, 0.07);
+  background: var(--xy-accent-glow-soft);
   color: var(--xy-text-secondary);
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -405,15 +409,15 @@ function entryStatusClass(status: StepStatus): string {
 }
 
 .operation-active-band--complete .operation-active-state {
-  background: rgba(34, 197, 94, 0.08);
+  background: var(--xy-success-bg-faint);
 }
 
 .operation-active-band--failed .operation-active-state {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--xy-danger-bg-faint);
 }
 
 .operation-active-band--pending .operation-active-state {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--xy-surface-sheen-soft);
 }
 
 .operation-timeline-layout {
@@ -432,7 +436,11 @@ function entryStatusClass(status: StepStatus): string {
 .operation-output-toggle {
   border: 1px solid var(--xy-border);
   border-radius: 1.15rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+  background: linear-gradient(
+    180deg,
+    var(--xy-surface-overlay-soft),
+    var(--xy-surface-overlay-faint)
+  );
 }
 
 .operation-timeline-shell {
@@ -494,7 +502,7 @@ function entryStatusClass(status: StepStatus): string {
   top: 0;
   bottom: -0.7rem;
   width: 1px;
-  background: linear-gradient(180deg, rgba(28, 183, 207, 0.2), rgba(255, 255, 255, 0.06));
+  background: linear-gradient(180deg, rgba(28, 183, 207, 0.2), var(--xy-border));
 }
 
 .operation-timeline-entry:last-child .operation-timeline-marker::before {
@@ -509,7 +517,7 @@ function entryStatusClass(status: StepStatus): string {
   margin-top: 0.28rem;
   border-radius: 999px;
   background: var(--xy-surface-1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--xy-border-hover);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -517,17 +525,17 @@ function entryStatusClass(status: StepStatus): string {
 
 .operation-timeline-entry--complete .operation-timeline-pin {
   border-color: var(--xy-success);
-  background: rgba(34, 197, 94, 0.18);
+  background: var(--xy-syntax-green-bg);
 }
 
 .operation-timeline-entry--failed .operation-timeline-pin {
   border-color: var(--xy-danger);
-  background: rgba(239, 68, 68, 0.16);
+  background: var(--xy-danger-bg);
 }
 
 .operation-timeline-entry--live .operation-timeline-pin {
   border-color: var(--xy-accent);
-  background: rgba(28, 183, 207, 0.08);
+  background: var(--xy-success-bg-faint);
 }
 
 .operation-timeline-spinner,
@@ -538,13 +546,13 @@ function entryStatusClass(status: StepStatus): string {
 
 .operation-timeline-detail {
   padding: 1rem 1.05rem 1.05rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--xy-border);
   border-radius: 1rem;
   background: rgba(0, 0, 0, 0.16);
 }
 
 .operation-timeline-entry--live .operation-timeline-detail {
-  border-color: rgba(28, 183, 207, 0.1);
+  border-color: var(--xy-accent-muted);
   background: linear-gradient(180deg, rgba(28, 183, 207, 0.035), rgba(0, 0, 0, 0.16));
 }
 
@@ -602,7 +610,7 @@ function entryStatusClass(status: StepStatus): string {
 .operation-context-item {
   padding: 0.7rem 0.75rem;
   border-radius: 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--xy-surface-sheen-soft);
   background: rgba(0, 0, 0, 0.16);
 }
 
@@ -643,7 +651,7 @@ function entryStatusClass(status: StepStatus): string {
 }
 
 .operation-output-toggle:not(:disabled):hover {
-  border-color: rgba(28, 183, 207, 0.22);
+  border-color: var(--xy-accent-border-soft);
 }
 
 .operation-output-title {

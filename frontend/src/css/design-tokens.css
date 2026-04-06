@@ -16,7 +16,7 @@
   /* ---- Text ---- */
   --xy-text-primary: #e0e4e6;
   --xy-text-secondary: #979b9e;
-  --xy-text-muted: #858a8c;
+  --xy-text-muted: #9a9fa1;
 
   /* ---- Borders ---- */
   --xy-border: rgba(255, 255, 255, 0.1);
@@ -117,7 +117,33 @@
     transparent 42%
   );
 
+  /* ---- Syntax Highlighting ---- */
+  --xy-syntax-purple: #dbd0ff;
+  --xy-syntax-purple-bg: rgba(124, 92, 255, 0.18);
+  --xy-syntax-purple-border: rgba(124, 92, 255, 0.34);
+  --xy-syntax-amber: #ffe0a3;
+  --xy-syntax-amber-bg: rgba(245, 158, 11, 0.18);
+  --xy-syntax-amber-border: rgba(245, 158, 11, 0.3);
+  --xy-syntax-cyan: #9ddfff;
+  --xy-syntax-cyan-bg: rgba(28, 183, 207, 0.18);
+  --xy-syntax-cyan-border: rgba(28, 183, 207, 0.3);
+  --xy-syntax-green: #b7f5c5;
+  --xy-syntax-green-bg: rgba(34, 197, 94, 0.18);
+  --xy-syntax-green-border: rgba(34, 197, 94, 0.3);
+
+  /* ---- Text on Color ---- */
+  --xy-text-on-color: #ffffff;
+
+  /* ---- Semantic Tint Variants (faint / soft) ---- */
+  --xy-warning-bg-faint: rgba(245, 158, 11, 0.08);
+  --xy-warning-bg-soft: rgba(245, 158, 11, 0.14);
+  --xy-success-bg-faint: rgba(34, 197, 94, 0.08);
+  --xy-danger-bg-faint: rgba(239, 68, 68, 0.08);
+  --xy-accent-bg: rgba(28, 183, 207, 0.15);
+  --xy-accent-border: rgba(28, 183, 207, 0.3);
+
   /* ---- Spacing Scale ---- */
+  --xy-space-2xs: 0.125rem; /* 2px  */
   --xy-space-xs: 0.25rem; /* 4px  */
   --xy-space-sm: 0.5rem; /* 8px  */
   --xy-space-md: 1rem; /* 16px */
@@ -130,6 +156,8 @@
   --xy-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --xy-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
   --xy-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --xy-shadow-xl: 0 10px 24px rgba(0, 0, 0, 0.45);
+  --xy-shadow-2xl: 0 16px 34px rgba(0, 0, 0, 0.5);
 
   /* ---- Transitions ---- */
   --xy-transition-fast: 0.15s ease;
@@ -202,6 +230,9 @@
 }
 .font-brand {
   font-family: var(--xy-font-brand);
+}
+.font-body {
+  font-family: var(--xy-font-body);
 }
 .font-mono {
   font-family: var(--xy-font-mono);

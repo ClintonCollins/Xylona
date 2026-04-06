@@ -498,8 +498,8 @@ function createPatchId() {
 }
 
 .start-args-editor__banner {
-  background: rgba(245, 158, 11, 0.14);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: var(--xy-warning-bg-soft);
+  border: 1px solid var(--xy-warning-border);
   color: var(--xy-text-primary);
 }
 
@@ -595,28 +595,28 @@ function createPatchId() {
 }
 
 .start-args-editor__badge--system {
-  color: #dbd0ff;
-  background: rgba(124, 92, 255, 0.18);
-  border-color: rgba(124, 92, 255, 0.34);
+  color: var(--xy-syntax-purple);
+  background: var(--xy-syntax-purple-bg);
+  border-color: var(--xy-syntax-purple-border);
 }
 
 .start-args-editor__badge--locked,
 .start-args-editor__badge--edited {
-  color: #ffe0a3;
-  background: rgba(245, 158, 11, 0.18);
-  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--xy-syntax-amber);
+  background: var(--xy-syntax-amber-bg);
+  border-color: var(--xy-syntax-amber-border);
 }
 
 .start-args-editor__badge--default {
-  color: #9ddfff;
-  background: rgba(28, 183, 207, 0.18);
-  border-color: rgba(28, 183, 207, 0.3);
+  color: var(--xy-syntax-cyan);
+  background: var(--xy-syntax-cyan-bg);
+  border-color: var(--xy-syntax-cyan-border);
 }
 
 .start-args-editor__badge--added {
-  color: #b7f5c5;
-  background: rgba(34, 197, 94, 0.18);
-  border-color: rgba(34, 197, 94, 0.3);
+  color: var(--xy-syntax-green);
+  background: var(--xy-syntax-green-bg);
+  border-color: var(--xy-syntax-green-border);
 }
 
 @media (max-width: 720px) {

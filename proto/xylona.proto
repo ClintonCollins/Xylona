@@ -167,6 +167,13 @@ service Xylona {
   rpc GetSystemSMTPConfig (GetSystemSMTPConfigRequest) returns (GetSystemSMTPConfigResponse) {}
   rpc SetSystemSMTPConfig (SetSystemSMTPConfigRequest) returns (SetSystemSMTPConfigResponse) {}
   rpc TestSystemSMTP (TestSystemSMTPRequest) returns (TestSystemSMTPResponse) {}
+
+  // Scheduled Tasks
+  rpc ListScheduledTasks (ListScheduledTasksRequest) returns (ListScheduledTasksResponse) {}
+  rpc CreateScheduledTask (CreateScheduledTaskRequest) returns (CreateScheduledTaskResponse) {}
+  rpc UpdateScheduledTask (UpdateScheduledTaskRequest) returns (UpdateScheduledTaskResponse) {}
+  rpc DeleteScheduledTask (DeleteScheduledTaskRequest) returns (DeleteScheduledTaskResponse) {}
+  rpc GetScheduledTaskLogs (GetScheduledTaskLogsRequest) returns (GetScheduledTaskLogsResponse) {}
 }
 
 message LoginRequest {
@@ -1248,4 +1255,53 @@ message TestSystemSMTPRequest {
 message TestSystemSMTPResponse {
   bool success = 1;
   string error = 2;
+}
+
+// --- Scheduled Tasks ---
+
+message ListScheduledTasksRequest {
+  string game_server_id = 1;
+}
+message ListScheduledTasksResponse {
+  repeated ScheduledTask tasks = 1;
+}
+
+message CreateScheduledTaskRequest {
+  string game_server_id = 1;
+  string name = 2;
+  string task_type = 3;
+  string cron_expression = 4;
+  string timezone = 5;
+  optional string console_command = 6;
+  bool enabled = 7;
+}
+message CreateScheduledTaskResponse {
+  ScheduledTask task = 1;
+}
+
+message UpdateScheduledTaskRequest {
+  string id = 1;
+  string name = 2;
+  string task_type = 3;
+  string cron_expression = 4;
+  string timezone = 5;
+  optional string console_command = 6;
+  bool enabled = 7;
+}
+message UpdateScheduledTaskResponse {
+  ScheduledTask task = 1;
+}
+
+message DeleteScheduledTaskRequest {
+  string id = 1;
+}
+message DeleteScheduledTaskResponse {}
+
+message GetScheduledTaskLogsRequest {
+  string scheduled_task_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+message GetScheduledTaskLogsResponse {
+  repeated ScheduledTaskLog logs = 1;
 }

@@ -47,7 +47,7 @@ const navItems = computed(() => {
 }
 
 .brand-subtitle {
-  font-family: var(--xy-font-display);
+  font-family: var(--xy-font-body);
   font-size: 0.85rem;
   color: var(--xy-text-muted);
   letter-spacing: 0.1em;

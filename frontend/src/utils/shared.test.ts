@@ -176,16 +176,16 @@ describe('getColorFromFilenameExtension', () => {
     expect(getColorFromFilenameExtension('server.log')).toBe('#818181')
   })
 
-  it('returns orange for .settings files', () => {
-    expect(getColorFromFilenameExtension('user.settings')).toBe('orange')
+  it('returns amber for .settings files', () => {
+    expect(getColorFromFilenameExtension('user.settings')).toBe('#f59e0b')
   })
 
-  it('returns "whitesmoke" for unknown extensions', () => {
-    expect(getColorFromFilenameExtension('binary.dat')).toBe('whitesmoke')
+  it('returns default color for unknown extensions', () => {
+    expect(getColorFromFilenameExtension('binary.dat')).toBe('#f5f5f5')
   })
 
-  it('returns "whitesmoke" for files without extension', () => {
-    expect(getColorFromFilenameExtension('Makefile')).toBe('whitesmoke')
+  it('returns default color for files without extension', () => {
+    expect(getColorFromFilenameExtension('Makefile')).toBe('#f5f5f5')
   })
 })
 

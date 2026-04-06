@@ -246,6 +246,7 @@ import { ConnectError } from '@connectrpc/connect'
 import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
 import { GetModCategoriesRequestSchema, SearchModsRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { sourceBadgeStyle, sourceLabel, sourceDisplayName } from '@/utils/mod-sources'
 
 const VALID_SORT_VALUES = ['downloads', 'updated', 'newest', 'relevance'] as const
 const PAGE_SIZE_OPTIONS = [12, 20, 40, 60] as const
@@ -590,28 +591,6 @@ function isModInstalled(source: string, sourceId: string): boolean {
 
 // --- Display helpers ---
 
-const SOURCE_BADGES: Record<string, { bg: string; letter: string; name: string }> = {
-  modrinth: { bg: '#1BD96A', letter: 'M', name: 'Modrinth' },
-  hangar: { bg: '#2196F3', letter: 'H', name: 'Hangar' },
-  thunderstore: { bg: '#0066FF', letter: 'T', name: 'Thunderstore' },
-  steam_workshop: { bg: '#1B2838', letter: 'S', name: 'Steam Workshop' },
-  papermc: { bg: '#2196F3', letter: 'P', name: 'PaperMC' },
-}
-
-function sourceBadgeStyle(source: string): Record<string, string> {
-  const config = SOURCE_BADGES[source]
-  if (!config) return { backgroundColor: 'var(--xy-surface-3)', color: 'var(--xy-text-primary)' }
-  return { backgroundColor: config.bg, color: '#FFFFFF' }
-}
-
-function sourceLabel(source: string): string {
-  return SOURCE_BADGES[source]?.letter ?? source.charAt(0).toUpperCase()
-}
-
-function sourceDisplayName(source: string): string {
-  return SOURCE_BADGES[source]?.name ?? source
-}
-
 function iconGradient(name: string): string {
   let hash = 0
   for (let i = 0; i < name.length; i++) {
@@ -871,7 +850,7 @@ function formatRelativeDate(dateStr: string): string {
   justify-content: center;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--xy-text-on-color);
 }
 
 /* ---- Card content ---- */

@@ -78,7 +78,7 @@ const emit = defineEmits<{
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
   background:
-    linear-gradient(135deg, rgba(28, 183, 207, 0.08), transparent 60%), var(--xy-surface-0);
+    linear-gradient(135deg, var(--xy-accent-glow-soft), transparent 60%), var(--xy-surface-0);
 }
 
 .operation-dialog-title {

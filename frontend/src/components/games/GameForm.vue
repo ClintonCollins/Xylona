@@ -1829,27 +1829,18 @@ async function updateExistingGame() {
   align-items: center;
   gap: 0.42rem;
   min-height: 2.15rem;
-  padding: 0.38rem 0.78rem;
+  padding: 0.38rem 0.42rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--xy-accent) 30%, var(--xy-border));
-  background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-0) 92%);
-  color: color-mix(in srgb, var(--xy-accent) 34%, var(--xy-text-primary) 66%);
+  border: none;
+  background: transparent;
+  color: var(--xy-accent);
+  font-size: 0.82rem;
   cursor: pointer;
-  transition:
-    border-color var(--xy-transition-fast),
-    background var(--xy-transition-fast),
-    color var(--xy-transition-fast),
-    transform 120ms ease-out,
-    box-shadow var(--xy-transition-fast);
+  transition: color var(--xy-transition-fast);
 }
 
 .runtime-policy-toggle:hover .runtime-policy-toggle-indicator {
-  border-color: color-mix(in srgb, var(--xy-accent) 42%, var(--xy-border));
-  background: color-mix(in srgb, var(--xy-accent) 11%, var(--xy-surface-0) 89%);
-}
-
-.runtime-policy-toggle:active .runtime-policy-toggle-indicator {
-  transform: translateY(1px);
+  color: var(--xy-accent-hover);
 }
 
 .runtime-policy-toggle-indicator :deep(.q-icon) {
@@ -1857,7 +1848,7 @@ async function updateExistingGame() {
 }
 
 .runtime-policy-toggle:hover .runtime-policy-toggle-indicator :deep(.q-icon) {
-  transform: scale(1.08);
+  transform: scale(1.12);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1924,21 +1915,19 @@ async function updateExistingGame() {
   display: flex;
   flex-direction: column;
   gap: 0.62rem;
-  padding: 0.82rem;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--xy-border) 72%, transparent);
-  background: color-mix(in srgb, var(--xy-surface-0) 66%, transparent);
+  padding: 0.82rem 0;
 }
 
-.runtime-policy-subsection--impact {
-  border-color: color-mix(in srgb, var(--xy-info) 20%, var(--xy-border) 80%);
-  background: color-mix(in srgb, var(--xy-info) 4%, var(--xy-surface-0) 96%);
+.runtime-policy-subsection + .runtime-policy-subsection {
+  border-top: 1px solid var(--xy-border);
 }
 
 .runtime-policy-subsection--reserved {
   min-width: 0;
-  border-color: color-mix(in srgb, var(--xy-accent) 18%, var(--xy-border) 82%);
-  background: color-mix(in srgb, var(--xy-accent) 3%, var(--xy-surface-0) 97%);
+}
+
+.runtime-policy-subsection--impact {
+  /* no override needed -- inherits flat style */
 }
 
 .runtime-policy-subhead {

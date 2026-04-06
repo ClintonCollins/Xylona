@@ -14,6 +14,7 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/pkg/scheduler"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
@@ -65,6 +66,7 @@ type XylonaService struct {
 	testEmailSendFunc              func(ctx context.Context, cfg *mailer.SMTPConfig, to string, subject string, body string) error
 	notificationChannelTestOnce    sync.Once
 	notificationChannelTestLimiter *notificationChannelTestRateLimiter
+	taskScheduler                  *scheduler.Scheduler
 }
 
 // NewXylonaService constructs the main RPC service implementation.

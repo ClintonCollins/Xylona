@@ -49,14 +49,14 @@
             </span>
           </div>
           <div class="template-editor__toolbar-actions">
-            <button
-              type="button"
-              class="template-editor__button template-editor__button--action"
+            <q-btn
+              color="primary"
+              icon="add"
+              label="Add argument"
+              no-caps
+              dense
               data-testid="start-args-add-block"
-              @click="openAddDialog">
-              <q-icon name="add" size="16px" aria-hidden="true" />
-              Add argument
-            </button>
+              @click="openAddDialog" />
           </div>
         </div>
 
@@ -1029,10 +1029,10 @@ function templateIDSequence(template: StartArgBlock[]) {
 @keyframes template-editor-shell-glow {
   0%,
   100% {
-    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+    box-shadow: var(--xy-shadow-2xl);
   }
   50% {
-    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.26);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -1126,6 +1126,7 @@ function templateIDSequence(template: StartArgBlock[]) {
 .template-editor__card--advanced {
   gap: 0.7rem;
   padding: 14px 16px;
+  border-color: color-mix(in srgb, var(--xy-border) 60%, transparent);
   background:
     linear-gradient(
       180deg,
@@ -1231,32 +1232,26 @@ function templateIDSequence(template: StartArgBlock[]) {
   transform: translateY(1px);
 }
 
-.template-editor__button--action,
 .template-editor__toggle-indicator {
   min-height: 2.15rem;
-  padding: 0.38rem 0.78rem;
+  padding: 0.38rem 0.42rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--xy-accent) 30%, var(--xy-border));
-  background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-0) 92%);
-  color: color-mix(in srgb, var(--xy-accent) 38%, var(--xy-text-primary) 62%);
+  border: none;
+  background: transparent;
+  color: var(--xy-accent);
+  font-size: 0.82rem;
 }
 
-.template-editor__button--action:hover,
 .template-editor__toggle-indicator:hover {
-  border-color: color-mix(in srgb, var(--xy-accent) 42%, var(--xy-border));
-  background: color-mix(in srgb, var(--xy-accent) 11%, var(--xy-surface-0) 89%);
+  color: var(--xy-accent-hover);
 }
 
-.template-editor__button--action :deep(.q-icon),
 .template-editor__toggle-indicator :deep(.q-icon) {
-  transition:
-    transform 180ms ease-out,
-    color var(--xy-transition-fast);
+  transition: transform 180ms ease-out;
 }
 
-.template-editor__button--action:hover :deep(.q-icon),
 .template-editor__toggle-indicator:hover :deep(.q-icon) {
-  transform: scale(1.08);
+  transform: scale(1.12);
 }
 
 .template-editor__button--quiet {
@@ -1634,7 +1629,6 @@ function templateIDSequence(template: StartArgBlock[]) {
 
   .template-editor__button,
   .template-editor__icon,
-  .template-editor__button--action :deep(.q-icon),
   .template-editor__toggle-indicator :deep(.q-icon),
   .template-editor__arg-chip,
   .template-editor__empty-chip,

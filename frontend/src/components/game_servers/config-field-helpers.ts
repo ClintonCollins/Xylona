@@ -1,15 +1,19 @@
 import { groupToTitle } from '@/utils/config-import'
 
-/** Shared palette for category color assignment. */
+/**
+ * Shared palette for category color assignment.
+ * These mirror --xy-category-1 through --xy-category-8 from design-tokens.css
+ * but are kept as hex for direct use in canvas/chart contexts.
+ */
 export const CATEGORY_COLORS = [
-  '#3B82F6', // blue
-  '#22C55E', // green
-  '#F59E0B', // amber
-  '#8B5CF6', // purple
-  '#EF4444', // red
-  '#06B6D4', // cyan
-  '#EC4899', // pink
-  '#F97316', // orange
+  '#3B82F6', // --xy-category-1 (primary / blue)
+  '#22C55E', // --xy-category-2 (success / green)
+  '#F59E0B', // --xy-category-3 (warning / amber)
+  '#8B5CF6', // --xy-category-4 (purple)
+  '#EF4444', // --xy-category-5 (danger / red)
+  '#06B6D4', // --xy-category-6 (info / cyan)
+  '#EC4899', // --xy-category-7 (pink)
+  '#F97316', // --xy-category-8 (orange)
 ]
 
 /**

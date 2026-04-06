@@ -38,6 +38,8 @@ type preloaders struct {
 	RemoteServerCache        remoteServerCachePreloader
 	Role                     rolePreloader
 	RolePermission           rolePermissionPreloader
+	ScheduledTask            scheduledTaskPreloader
+	ScheduledTaskLog         scheduledTaskLogPreloader
 	User                     userPreloader
 	UserAPIKey               userAPIKeyPreloader
 	UserRoleAssignment       userRoleAssignmentPreloader
@@ -67,6 +69,8 @@ func getPreloaders() preloaders {
 		RemoteServerCache:        buildRemoteServerCachePreloader(),
 		Role:                     buildRolePreloader(),
 		RolePermission:           buildRolePermissionPreloader(),
+		ScheduledTask:            buildScheduledTaskPreloader(),
+		ScheduledTaskLog:         buildScheduledTaskLogPreloader(),
 		User:                     buildUserPreloader(),
 		UserAPIKey:               buildUserAPIKeyPreloader(),
 		UserRoleAssignment:       buildUserRoleAssignmentPreloader(),
@@ -102,6 +106,8 @@ type thenLoaders[Q orm.Loadable] struct {
 	RemoteServerCache        remoteServerCacheThenLoader[Q]
 	Role                     roleThenLoader[Q]
 	RolePermission           rolePermissionThenLoader[Q]
+	ScheduledTask            scheduledTaskThenLoader[Q]
+	ScheduledTaskLog         scheduledTaskLogThenLoader[Q]
 	User                     userThenLoader[Q]
 	UserAPIKey               userAPIKeyThenLoader[Q]
 	UserRoleAssignment       userRoleAssignmentThenLoader[Q]
@@ -131,6 +137,8 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		RemoteServerCache:        buildRemoteServerCacheThenLoader[Q](),
 		Role:                     buildRoleThenLoader[Q](),
 		RolePermission:           buildRolePermissionThenLoader[Q](),
+		ScheduledTask:            buildScheduledTaskThenLoader[Q](),
+		ScheduledTaskLog:         buildScheduledTaskLogThenLoader[Q](),
 		User:                     buildUserThenLoader[Q](),
 		UserAPIKey:               buildUserAPIKeyThenLoader[Q](),
 		UserRoleAssignment:       buildUserRoleAssignmentThenLoader[Q](),

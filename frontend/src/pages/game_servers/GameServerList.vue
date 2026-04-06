@@ -1,7 +1,7 @@
 <template>
   <q-page class="xy-page-content">
     <div class="xy-page-header">
-      <div class="xy-page-title">Game Servers</div>
+      <h1 class="xy-page-title">Game Servers</h1>
       <div class="xy-page-actions">
         <q-btn
           v-if="selectedGameServers.length >= 1"

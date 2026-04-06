@@ -191,6 +191,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { InstalledMod } from '@/proto/shared_pb'
+import { sourceBadgeStyle, sourceLabel, sourceDisplayName } from '@/utils/mod-sources'
 
 interface Props {
   installedMods: InstalledMod[]
@@ -222,28 +223,6 @@ const filteredMods = computed((): InstalledMod[] => {
 const updatesAvailable = computed((): number => {
   return props.installedMods.filter((mod) => mod.updateAvailable && mod.enabled).length
 })
-
-const SOURCE_BADGES: Record<string, { bg: string; letter: string; name: string }> = {
-  modrinth: { bg: '#1BD96A', letter: 'M', name: 'Modrinth' },
-  hangar: { bg: '#2196F3', letter: 'H', name: 'Hangar' },
-  thunderstore: { bg: '#0066FF', letter: 'T', name: 'Thunderstore' },
-  steam_workshop: { bg: '#1B2838', letter: 'S', name: 'Steam Workshop' },
-  papermc: { bg: '#2196F3', letter: 'P', name: 'PaperMC' },
-}
-
-function sourceBadgeStyle(source: string): Record<string, string> {
-  const config = SOURCE_BADGES[source]
-  if (!config) return { backgroundColor: 'var(--xy-surface-3)', color: 'var(--xy-text-primary)' }
-  return { backgroundColor: config.bg, color: '#FFFFFF' }
-}
-
-function sourceLabel(source: string): string {
-  return SOURCE_BADGES[source]?.letter ?? source.charAt(0).toUpperCase()
-}
-
-function sourceDisplayName(source: string): string {
-  return SOURCE_BADGES[source]?.name ?? source
-}
 
 function iconGradient(name: string): string {
   // Simple hash-based gradient from the mod name
@@ -421,7 +400,7 @@ function iconGradient(name: string): string {
   justify-content: center;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--xy-text-on-color);
   flex-shrink: 0;
 }
 
@@ -562,7 +541,7 @@ function iconGradient(name: string): string {
   transition:
     left 0.2s ease,
     background-color 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--xy-shadow-sm);
 }
 
 .toggle-track--active .toggle-thumb {

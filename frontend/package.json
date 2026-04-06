@@ -35,6 +35,7 @@
     "@vueuse/core": "^14.2.1",
     "axios": "^1.13.6",
     "chart.js": "^4.5.1",
+    "cronstrue": "^3.14.0",
     "dayjs": "^1.11.20",
     "ini": "^6.0.0",
     "monaco-editor": "^0.55.1",

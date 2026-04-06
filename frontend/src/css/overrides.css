@@ -35,7 +35,7 @@ a.q-item:hover {
 /* ---- Toolbar Title ---- */
 .q-toolbar__title {
     font-family: var(--xy-font-brand);
-    font-size: 1.5em;
+    font-size: 1.5rem;
     color: var(--xy-accent);
 }
 
@@ -173,7 +173,7 @@ a.q-item:hover {
 .q-btn:focus-visible > .q-focus-helper,
 .q-item:focus-visible > .q-focus-helper,
 .q-tab:focus-visible > .q-focus-helper {
-    opacity: 0.15;
+    opacity: 0.25;
     background: var(--xy-primary);
 }
 

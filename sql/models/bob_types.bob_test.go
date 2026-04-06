@@ -98,6 +98,12 @@ var _ bob.HookableType = &Role{}
 // Make sure the type RolePermission runs hooks after queries
 var _ bob.HookableType = &RolePermission{}
 
+// Make sure the type ScheduledTask runs hooks after queries
+var _ bob.HookableType = &ScheduledTask{}
+
+// Make sure the type ScheduledTaskLog runs hooks after queries
+var _ bob.HookableType = &ScheduledTaskLog{}
+
 // Make sure the type SystemConfig runs hooks after queries
 var _ bob.HookableType = &SystemConfig{}
 

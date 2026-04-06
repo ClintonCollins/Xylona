@@ -7,6 +7,11 @@
         ref="editorRef"
         class="placeholder-input__editor"
         contenteditable="true"
+        role="textbox"
+        :aria-label="placeholder"
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
+        :aria-expanded="showAutocomplete && filteredPlaceholders.length > 0 ? 'true' : 'false'"
         :data-placeholder="placeholder"
         @input="onInput"
         @focus="onFocus"
@@ -69,14 +74,19 @@
     <div
       v-if="showAutocomplete && filteredPlaceholders.length > 0"
       ref="autocompleteRef"
+      role="listbox"
       class="placeholder-input__autocomplete"
       :style="autocompletePosition">
       <div
         v-for="(ph, idx) in filteredPlaceholders"
         :key="ph.key"
+        role="option"
+        tabindex="0"
         class="placeholder-input__autocomplete-item"
         :class="{ 'placeholder-input__autocomplete-item--active': idx === activeAutocompleteIndex }"
-        @mousedown.prevent="selectAutocomplete(ph.key)">
+        :aria-selected="idx === activeAutocompleteIndex"
+        @mousedown.prevent="selectAutocomplete(ph.key)"
+        @keydown.enter="selectAutocomplete(ph.key)">
         <span class="font-mono" style="font-size: 0.8rem; color: var(--xy-accent)">
           {{ ph.key }}
         </span>

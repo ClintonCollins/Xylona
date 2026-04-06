@@ -128,24 +128,24 @@ async function copyCommand() {
 }
 
 .resolved-preview__token--system {
-  color: #dbd0ff;
-  background: rgba(124, 92, 255, 0.18);
+  color: var(--xy-syntax-purple);
+  background: var(--xy-syntax-purple-bg);
 }
 
 .resolved-preview__token--locked,
 .resolved-preview__token--edited {
-  color: #ffe0a3;
-  background: rgba(245, 158, 11, 0.18);
+  color: var(--xy-syntax-amber);
+  background: var(--xy-syntax-amber-bg);
 }
 
 .resolved-preview__token--default {
-  color: #9ddfff;
-  background: rgba(28, 183, 207, 0.18);
+  color: var(--xy-syntax-cyan);
+  background: var(--xy-syntax-cyan-bg);
 }
 
 .resolved-preview__token--added {
-  color: #b7f5c5;
-  background: rgba(34, 197, 94, 0.18);
+  color: var(--xy-syntax-green);
+  background: var(--xy-syntax-green-bg);
 }
 
 .resolved-preview__legend {
