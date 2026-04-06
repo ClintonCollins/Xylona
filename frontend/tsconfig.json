@@ -5,6 +5,16 @@
     "target": "esnext",
     "lib": ["esnext", "dom", "DOM.Iterable"],
     "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "allowUnusedLabels": false,
+    "noUncheckedSideEffectImports": false,
+    "noFallthroughCasesInSwitch": true,
+    "allowUnreachableCode": false,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "erasableSyntaxOnly": true,
     "paths": {
       "@/*": ["./src/*"]
     }
