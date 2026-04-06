@@ -38,6 +38,7 @@ type joins[Q dialect.Joinable] struct {
 	FederationTrustedPeers     joinSet[federationTrustedPeerJoins[Q]]
 	Games                      joinSet[gameJoins[Q]]
 	GameServers                joinSet[gameServerJoins[Q]]
+	GameServerBackups          joinSet[gameServerBackupJoins[Q]]
 	GameServerMetricsHistories joinSet[gameServerMetricsHistoryJoins[Q]]
 	InstalledMods              joinSet[installedModJoins[Q]]
 	InstalledModFiles          joinSet[installedModFileJoins[Q]]
@@ -77,6 +78,7 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		FederationTrustedPeers:     buildJoinSet[federationTrustedPeerJoins[Q]](FederationTrustedPeers.Columns, buildFederationTrustedPeerJoins),
 		Games:                      buildJoinSet[gameJoins[Q]](Games.Columns, buildGameJoins),
 		GameServers:                buildJoinSet[gameServerJoins[Q]](GameServers.Columns, buildGameServerJoins),
+		GameServerBackups:          buildJoinSet[gameServerBackupJoins[Q]](GameServerBackups.Columns, buildGameServerBackupJoins),
 		GameServerMetricsHistories: buildJoinSet[gameServerMetricsHistoryJoins[Q]](GameServerMetricsHistories.Columns, buildGameServerMetricsHistoryJoins),
 		InstalledMods:              buildJoinSet[installedModJoins[Q]](InstalledMods.Columns, buildInstalledModJoins),
 		InstalledModFiles:          buildJoinSet[installedModFileJoins[Q]](InstalledModFiles.Columns, buildInstalledModFileJoins),

@@ -72,6 +72,7 @@ type gameServerR struct {
 	IP                         *IP                           // fk_game_server_1
 	Game                       *Game                         // fk_game_server_2
 	User                       *User                         // fk_game_server_3
+	GameServerBackups          GameServerBackupSlice         // fk_game_server_backup_0
 	GameServerMetricsHistories GameServerMetricsHistorySlice // fk_game_server_metrics_history_0
 	InstalledMods              InstalledModSlice             // fk_installed_mod_0
 	Logs                       LogSlice                      // fk_log_0
@@ -986,6 +987,25 @@ func (os GameServerSlice) User(mods ...bob.Mod[*dialect.SelectQuery]) UsersQuery
 	)...)
 }
 
+// GameServerBackups starts a query for related objects on game_server_backup
+func (o *GameServer) GameServerBackups(mods ...bob.Mod[*dialect.SelectQuery]) GameServerBackupsQuery {
+	return GameServerBackups.Query(append(mods,
+		sm.Where(GameServerBackups.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerBackups(mods ...bob.Mod[*dialect.SelectQuery]) GameServerBackupsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerBackups.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerBackups.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // GameServerMetricsHistories starts a query for related objects on game_server_metrics_history
 func (o *GameServer) GameServerMetricsHistories(mods ...bob.Mod[*dialect.SelectQuery]) GameServerMetricsHistoriesQuery {
 	return GameServerMetricsHistories.Query(append(mods,
@@ -1337,6 +1357,74 @@ func (gameServer0 *GameServer) AttachUser(ctx context.Context, exec bob.Executor
 	gameServer0.R.User = user1
 
 	user1.R.GameServers = append(user1.R.GameServers, gameServer0)
+
+	return nil
+}
+
+func insertGameServerGameServerBackups0(ctx context.Context, exec bob.Executor, gameServerBackups1 []*GameServerBackupSetter, gameServer0 *GameServer) (GameServerBackupSlice, error) {
+	for i := range gameServerBackups1 {
+		gameServerBackups1[i].GameServerID = omit.From(gameServer0.ID)
+	}
+
+	ret, err := GameServerBackups.Insert(bob.ToMods(gameServerBackups1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerBackups0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerBackups0(ctx context.Context, exec bob.Executor, count int, gameServerBackups1 GameServerBackupSlice, gameServer0 *GameServer) (GameServerBackupSlice, error) {
+	setter := &GameServerBackupSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerBackups1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerBackups0: %w", err)
+	}
+
+	return gameServerBackups1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerBackups(ctx context.Context, exec bob.Executor, related ...*GameServerBackupSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerBackups1, err := insertGameServerGameServerBackups0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerBackups = append(gameServer0.R.GameServerBackups, gameServerBackups1...)
+
+	for _, rel := range gameServerBackups1 {
+		rel.R.GameServer = gameServer0
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerBackups(ctx context.Context, exec bob.Executor, related ...*GameServerBackup) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerBackups1 := GameServerBackupSlice(related)
+
+	_, err = attachGameServerGameServerBackups0(ctx, exec, len(related), gameServerBackups1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerBackups = append(gameServer0.R.GameServerBackups, gameServerBackups1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+	}
 
 	return nil
 }
@@ -1813,6 +1901,20 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 			rel.R.GameServers = GameServerSlice{o}
 		}
 		return nil
+	case "GameServerBackups":
+		rels, ok := retrieved.(GameServerBackupSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerBackups = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+			}
+		}
+		return nil
 	case "GameServerMetricsHistories":
 		rels, ok := retrieved.(GameServerMetricsHistorySlice)
 		if !ok {
@@ -1958,6 +2060,7 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 	IP                         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Game                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	User                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerBackups          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Logs                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1980,6 +2083,9 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 	type UserLoadInterface interface {
 		LoadUser(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerBackupsLoadInterface interface {
+		LoadGameServerBackups(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type GameServerMetricsHistoriesLoadInterface interface {
 		LoadGameServerMetricsHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -2026,6 +2132,12 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 			"User",
 			func(ctx context.Context, exec bob.Executor, retrieved UserLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadUser(ctx, exec, mods...)
+			},
+		),
+		GameServerBackups: thenLoadBuilder[Q](
+			"GameServerBackups",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerBackupsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerBackups(ctx, exec, mods...)
 			},
 		),
 		GameServerMetricsHistories: thenLoadBuilder[Q](
@@ -2324,6 +2436,67 @@ func (os GameServerSlice) LoadUser(ctx context.Context, exec bob.Executor, mods 
 
 			o.R.User = rel
 			break
+		}
+	}
+
+	return nil
+}
+
+// LoadGameServerBackups loads the gameServer's GameServerBackups into the .R struct
+func (o *GameServer) LoadGameServerBackups(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerBackups = nil
+
+	related, err := o.GameServerBackups(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+	}
+
+	o.R.GameServerBackups = related
+	return nil
+}
+
+// LoadGameServerBackups loads the gameServer's GameServerBackups into the .R struct
+func (os GameServerSlice) LoadGameServerBackups(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerBackups, err := os.GameServerBackups(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerBackups = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range gameServerBackups {
+
+			if !(o.ID == rel.GameServerID) {
+				continue
+			}
+
+			rel.R.GameServer = o
+
+			o.R.GameServerBackups = append(o.R.GameServerBackups, rel)
 		}
 	}
 
@@ -2648,6 +2821,7 @@ type gameServerJoins[Q dialect.Joinable] struct {
 	IP                         modAs[Q, ipColumns]
 	Game                       modAs[Q, gameColumns]
 	User                       modAs[Q, userColumns]
+	GameServerBackups          modAs[Q, gameServerBackupColumns]
 	GameServerMetricsHistories modAs[Q, gameServerMetricsHistoryColumns]
 	InstalledMods              modAs[Q, installedModColumns]
 	Logs                       modAs[Q, logColumns]
@@ -2726,6 +2900,20 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 				{
 					mods = append(mods, dialect.Join[Q](typ, Users.Name().As(to.Alias())).On(
 						to.ID.EQ(cols.UserID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerBackups: modAs[Q, gameServerBackupColumns]{
+			c: GameServerBackups.Columns,
+			f: func(to gameServerBackupColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerBackups.Name().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
 					))
 				}
 

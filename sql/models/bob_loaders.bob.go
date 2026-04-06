@@ -24,6 +24,7 @@ type preloaders struct {
 	FederationTrustedPeer    federationTrustedPeerPreloader
 	Game                     gamePreloader
 	GameServer               gameServerPreloader
+	GameServerBackup         gameServerBackupPreloader
 	GameServerMetricsHistory gameServerMetricsHistoryPreloader
 	InstalledMod             installedModPreloader
 	InstalledModFile         installedModFilePreloader
@@ -55,6 +56,7 @@ func getPreloaders() preloaders {
 		FederationTrustedPeer:    buildFederationTrustedPeerPreloader(),
 		Game:                     buildGamePreloader(),
 		GameServer:               buildGameServerPreloader(),
+		GameServerBackup:         buildGameServerBackupPreloader(),
 		GameServerMetricsHistory: buildGameServerMetricsHistoryPreloader(),
 		InstalledMod:             buildInstalledModPreloader(),
 		InstalledModFile:         buildInstalledModFilePreloader(),
@@ -92,6 +94,7 @@ type thenLoaders[Q orm.Loadable] struct {
 	FederationTrustedPeer    federationTrustedPeerThenLoader[Q]
 	Game                     gameThenLoader[Q]
 	GameServer               gameServerThenLoader[Q]
+	GameServerBackup         gameServerBackupThenLoader[Q]
 	GameServerMetricsHistory gameServerMetricsHistoryThenLoader[Q]
 	InstalledMod             installedModThenLoader[Q]
 	InstalledModFile         installedModFileThenLoader[Q]
@@ -123,6 +126,7 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		FederationTrustedPeer:    buildFederationTrustedPeerThenLoader[Q](),
 		Game:                     buildGameThenLoader[Q](),
 		GameServer:               buildGameServerThenLoader[Q](),
+		GameServerBackup:         buildGameServerBackupThenLoader[Q](),
 		GameServerMetricsHistory: buildGameServerMetricsHistoryThenLoader[Q](),
 		InstalledMod:             buildInstalledModThenLoader[Q](),
 		InstalledModFile:         buildInstalledModFileThenLoader[Q](),

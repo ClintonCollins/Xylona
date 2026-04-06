@@ -38,6 +38,9 @@ var _ bob.HookableType = &Game{}
 // Make sure the type GameServer runs hooks after queries
 var _ bob.HookableType = &GameServer{}
 
+// Make sure the type GameServerBackup runs hooks after queries
+var _ bob.HookableType = &GameServerBackup{}
+
 // Make sure the type GameServerMetricsHistory runs hooks after queries
 var _ bob.HookableType = &GameServerMetricsHistory{}
 
