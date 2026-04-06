@@ -3,7 +3,7 @@ import { Code, ConnectError, createCallbackClient, createClient } from '@connect
 import { createConnectTransport } from '@connectrpc/connect-web'
 import { UpdateProgress, Xylona } from '@/proto/xylona_pb'
 import { onMounted, ref } from 'vue'
-import type { VersionInfo } from '@/proto/shared_pb'
+import type { BackupProgress, VersionInfo } from '@/proto/shared_pb'
 import { AllServersQueryInfo, Status } from '@/proto/shared_pb'
 import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
 import {
@@ -60,6 +60,7 @@ type XylonaEventBusEvents = {
     softwareId: string,
   ) => void
   gameServerUpdateProgress: (progress: UpdateProgress) => void
+  gameServerBackupProgress: (progress: BackupProgress) => void
 }
 
 /**
@@ -223,6 +224,13 @@ export function dispatchWebsocketMessage(out: Message): boolean {
       const progress = out.updateProgress
       if (progress) {
         XylonaEventBus.emit('gameServerUpdateProgress', progress)
+      }
+      return true
+    }
+    case Message_Type.GameServerBackupProgress: {
+      const progress = out.backupProgress
+      if (progress) {
+        XylonaEventBus.emit('gameServerBackupProgress', progress)
       }
       return true
     }

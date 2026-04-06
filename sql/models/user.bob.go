@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/aarondl/opt/omit"
-	"github.com/aarondl/opt/omitnull"
 	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/sqlite"
 	"github.com/stephenafamo/bob/dialect/sqlite/dialect"
@@ -54,10 +53,8 @@ type userR struct {
 	AlertRules                     AlertRuleSlice            // fk_alert_rule_2
 	GrantedByFederatedAccessGrants FederatedAccessGrantSlice // fk_federated_access_grant_0
 	GameServers                    GameServerSlice           // fk_game_server_3
-	Logs                           LogSlice                  // fk_log_2
 	NotificationChannels           NotificationChannelSlice  // fk_notification_channel_0
 	CreatedByScheduledTasks        ScheduledTaskSlice        // fk_scheduled_task_0
-	UserAPIKeys                    UserAPIKeySlice           // fk_user_api_key_0
 	GrantedByUserRoleAssignments   UserRoleAssignmentSlice   // fk_user_role_assignment_0
 	UserRoleAssignments            UserRoleAssignmentSlice   // fk_user_role_assignment_3
 	UserSessions                   UserSessionSlice          // fk_user_session_0
@@ -631,25 +628,6 @@ func (os UserSlice) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServe
 	)...)
 }
 
-// Logs starts a query for related objects on log
-func (o *User) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
-	return Logs.Query(append(mods,
-		sm.Where(Logs.Columns.UserID.EQ(sqlite.Arg(o.ID))),
-	)...)
-}
-
-func (os UserSlice) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
-	PKArgSlice := make([]bob.Expression, len(os))
-	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
-	}
-	PKArgExpr := sqlite.Group(PKArgSlice...)
-
-	return Logs.Query(append(mods,
-		sm.Where(sqlite.Group(Logs.Columns.UserID).OP("IN", PKArgExpr)),
-	)...)
-}
-
 // NotificationChannels starts a query for related objects on notification_channel
 func (o *User) NotificationChannels(mods ...bob.Mod[*dialect.SelectQuery]) NotificationChannelsQuery {
 	return NotificationChannels.Query(append(mods,
@@ -685,25 +663,6 @@ func (os UserSlice) CreatedByScheduledTasks(mods ...bob.Mod[*dialect.SelectQuery
 
 	return ScheduledTasks.Query(append(mods,
 		sm.Where(sqlite.Group(ScheduledTasks.Columns.CreatedBy).OP("IN", PKArgExpr)),
-	)...)
-}
-
-// UserAPIKeys starts a query for related objects on user_api_key
-func (o *User) UserAPIKeys(mods ...bob.Mod[*dialect.SelectQuery]) UserAPIKeysQuery {
-	return UserAPIKeys.Query(append(mods,
-		sm.Where(UserAPIKeys.Columns.UserID.EQ(sqlite.Arg(o.ID))),
-	)...)
-}
-
-func (os UserSlice) UserAPIKeys(mods ...bob.Mod[*dialect.SelectQuery]) UserAPIKeysQuery {
-	PKArgSlice := make([]bob.Expression, len(os))
-	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
-	}
-	PKArgExpr := sqlite.Group(PKArgSlice...)
-
-	return UserAPIKeys.Query(append(mods,
-		sm.Where(sqlite.Group(UserAPIKeys.Columns.UserID).OP("IN", PKArgExpr)),
 	)...)
 }
 
@@ -1036,74 +995,6 @@ func (user0 *User) AttachGameServers(ctx context.Context, exec bob.Executor, rel
 	return nil
 }
 
-func insertUserLogs0(ctx context.Context, exec bob.Executor, logs1 []*LogSetter, user0 *User) (LogSlice, error) {
-	for i := range logs1 {
-		logs1[i].UserID = omitnull.From(user0.ID)
-	}
-
-	ret, err := Logs.Insert(bob.ToMods(logs1...)).All(ctx, exec)
-	if err != nil {
-		return ret, fmt.Errorf("insertUserLogs0: %w", err)
-	}
-
-	return ret, nil
-}
-
-func attachUserLogs0(ctx context.Context, exec bob.Executor, count int, logs1 LogSlice, user0 *User) (LogSlice, error) {
-	setter := &LogSetter{
-		UserID: omitnull.From(user0.ID),
-	}
-
-	err := logs1.UpdateAll(ctx, exec, *setter)
-	if err != nil {
-		return nil, fmt.Errorf("attachUserLogs0: %w", err)
-	}
-
-	return logs1, nil
-}
-
-func (user0 *User) InsertLogs(ctx context.Context, exec bob.Executor, related ...*LogSetter) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-
-	logs1, err := insertUserLogs0(ctx, exec, related, user0)
-	if err != nil {
-		return err
-	}
-
-	user0.R.Logs = append(user0.R.Logs, logs1...)
-
-	for _, rel := range logs1 {
-		rel.R.User = user0
-	}
-	return nil
-}
-
-func (user0 *User) AttachLogs(ctx context.Context, exec bob.Executor, related ...*Log) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	logs1 := LogSlice(related)
-
-	_, err = attachUserLogs0(ctx, exec, len(related), logs1, user0)
-	if err != nil {
-		return err
-	}
-
-	user0.R.Logs = append(user0.R.Logs, logs1...)
-
-	for _, rel := range related {
-		rel.R.User = user0
-	}
-
-	return nil
-}
-
 func insertUserNotificationChannels0(ctx context.Context, exec bob.Executor, notificationChannels1 []*NotificationChannelSetter, user0 *User) (NotificationChannelSlice, error) {
 	for i := range notificationChannels1 {
 		notificationChannels1[i].UserID = omit.From(user0.ID)
@@ -1235,74 +1126,6 @@ func (user0 *User) AttachCreatedByScheduledTasks(ctx context.Context, exec bob.E
 
 	for _, rel := range related {
 		rel.R.CreatedByUser = user0
-	}
-
-	return nil
-}
-
-func insertUserUserAPIKeys0(ctx context.Context, exec bob.Executor, userAPIKeys1 []*UserAPIKeySetter, user0 *User) (UserAPIKeySlice, error) {
-	for i := range userAPIKeys1 {
-		userAPIKeys1[i].UserID = omitnull.From(user0.ID)
-	}
-
-	ret, err := UserAPIKeys.Insert(bob.ToMods(userAPIKeys1...)).All(ctx, exec)
-	if err != nil {
-		return ret, fmt.Errorf("insertUserUserAPIKeys0: %w", err)
-	}
-
-	return ret, nil
-}
-
-func attachUserUserAPIKeys0(ctx context.Context, exec bob.Executor, count int, userAPIKeys1 UserAPIKeySlice, user0 *User) (UserAPIKeySlice, error) {
-	setter := &UserAPIKeySetter{
-		UserID: omitnull.From(user0.ID),
-	}
-
-	err := userAPIKeys1.UpdateAll(ctx, exec, *setter)
-	if err != nil {
-		return nil, fmt.Errorf("attachUserUserAPIKeys0: %w", err)
-	}
-
-	return userAPIKeys1, nil
-}
-
-func (user0 *User) InsertUserAPIKeys(ctx context.Context, exec bob.Executor, related ...*UserAPIKeySetter) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-
-	userAPIKeys1, err := insertUserUserAPIKeys0(ctx, exec, related, user0)
-	if err != nil {
-		return err
-	}
-
-	user0.R.UserAPIKeys = append(user0.R.UserAPIKeys, userAPIKeys1...)
-
-	for _, rel := range userAPIKeys1 {
-		rel.R.User = user0
-	}
-	return nil
-}
-
-func (user0 *User) AttachUserAPIKeys(ctx context.Context, exec bob.Executor, related ...*UserAPIKey) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	userAPIKeys1 := UserAPIKeySlice(related)
-
-	_, err = attachUserUserAPIKeys0(ctx, exec, len(related), userAPIKeys1, user0)
-	if err != nil {
-		return err
-	}
-
-	user0.R.UserAPIKeys = append(user0.R.UserAPIKeys, userAPIKeys1...)
-
-	for _, rel := range related {
-		rel.R.User = user0
 	}
 
 	return nil
@@ -1606,20 +1429,6 @@ func (o *User) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
-	case "Logs":
-		rels, ok := retrieved.(LogSlice)
-		if !ok {
-			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
-		}
-
-		o.R.Logs = rels
-
-		for _, rel := range rels {
-			if rel != nil {
-				rel.R.User = o
-			}
-		}
-		return nil
 	case "NotificationChannels":
 		rels, ok := retrieved.(NotificationChannelSlice)
 		if !ok {
@@ -1645,20 +1454,6 @@ func (o *User) Preload(name string, retrieved any) error {
 		for _, rel := range rels {
 			if rel != nil {
 				rel.R.CreatedByUser = o
-			}
-		}
-		return nil
-	case "UserAPIKeys":
-		rels, ok := retrieved.(UserAPIKeySlice)
-		if !ok {
-			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
-		}
-
-		o.R.UserAPIKeys = rels
-
-		for _, rel := range rels {
-			if rel != nil {
-				rel.R.User = o
 			}
 		}
 		return nil
@@ -1720,10 +1515,8 @@ type userThenLoader[Q orm.Loadable] struct {
 	AlertRules                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GrantedByFederatedAccessGrants func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServers                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	Logs                           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	NotificationChannels           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	CreatedByScheduledTasks        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserAPIKeys                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GrantedByUserRoleAssignments   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserRoleAssignments            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserSessions                   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1742,17 +1535,11 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 	type GameServersLoadInterface interface {
 		LoadGameServers(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
-	type LogsLoadInterface interface {
-		LoadLogs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
-	}
 	type NotificationChannelsLoadInterface interface {
 		LoadNotificationChannels(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type CreatedByScheduledTasksLoadInterface interface {
 		LoadCreatedByScheduledTasks(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
-	}
-	type UserAPIKeysLoadInterface interface {
-		LoadUserAPIKeys(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type GrantedByUserRoleAssignmentsLoadInterface interface {
 		LoadGrantedByUserRoleAssignments(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1789,12 +1576,6 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 				return retrieved.LoadGameServers(ctx, exec, mods...)
 			},
 		),
-		Logs: thenLoadBuilder[Q](
-			"Logs",
-			func(ctx context.Context, exec bob.Executor, retrieved LogsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
-				return retrieved.LoadLogs(ctx, exec, mods...)
-			},
-		),
 		NotificationChannels: thenLoadBuilder[Q](
 			"NotificationChannels",
 			func(ctx context.Context, exec bob.Executor, retrieved NotificationChannelsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
@@ -1805,12 +1586,6 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 			"CreatedByScheduledTasks",
 			func(ctx context.Context, exec bob.Executor, retrieved CreatedByScheduledTasksLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadCreatedByScheduledTasks(ctx, exec, mods...)
-			},
-		),
-		UserAPIKeys: thenLoadBuilder[Q](
-			"UserAPIKeys",
-			func(ctx context.Context, exec bob.Executor, retrieved UserAPIKeysLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
-				return retrieved.LoadUserAPIKeys(ctx, exec, mods...)
 			},
 		),
 		GrantedByUserRoleAssignments: thenLoadBuilder[Q](
@@ -2078,70 +1853,6 @@ func (os UserSlice) LoadGameServers(ctx context.Context, exec bob.Executor, mods
 	return nil
 }
 
-// LoadLogs loads the user's Logs into the .R struct
-func (o *User) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if o == nil {
-		return nil
-	}
-
-	// Reset the relationship
-	o.R.Logs = nil
-
-	related, err := o.Logs(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, rel := range related {
-		rel.R.User = o
-	}
-
-	o.R.Logs = related
-	return nil
-}
-
-// LoadLogs loads the user's Logs into the .R struct
-func (os UserSlice) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if len(os) == 0 {
-		return nil
-	}
-
-	logs, err := os.Logs(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		o.R.Logs = nil
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		for _, rel := range logs {
-
-			if !rel.UserID.IsValue() {
-				continue
-			}
-			if !(rel.UserID.IsValue() && o.ID == rel.UserID.MustGet()) {
-				continue
-			}
-
-			rel.R.User = o
-
-			o.R.Logs = append(o.R.Logs, rel)
-		}
-	}
-
-	return nil
-}
-
 // LoadNotificationChannels loads the user's NotificationChannels into the .R struct
 func (o *User) LoadNotificationChannels(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2258,70 +1969,6 @@ func (os UserSlice) LoadCreatedByScheduledTasks(ctx context.Context, exec bob.Ex
 			rel.R.CreatedByUser = o
 
 			o.R.CreatedByScheduledTasks = append(o.R.CreatedByScheduledTasks, rel)
-		}
-	}
-
-	return nil
-}
-
-// LoadUserAPIKeys loads the user's UserAPIKeys into the .R struct
-func (o *User) LoadUserAPIKeys(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if o == nil {
-		return nil
-	}
-
-	// Reset the relationship
-	o.R.UserAPIKeys = nil
-
-	related, err := o.UserAPIKeys(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, rel := range related {
-		rel.R.User = o
-	}
-
-	o.R.UserAPIKeys = related
-	return nil
-}
-
-// LoadUserAPIKeys loads the user's UserAPIKeys into the .R struct
-func (os UserSlice) LoadUserAPIKeys(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if len(os) == 0 {
-		return nil
-	}
-
-	userAPIKeys, err := os.UserAPIKeys(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		o.R.UserAPIKeys = nil
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		for _, rel := range userAPIKeys {
-
-			if !rel.UserID.IsValue() {
-				continue
-			}
-			if !(rel.UserID.IsValue() && o.ID == rel.UserID.MustGet()) {
-				continue
-			}
-
-			rel.R.User = o
-
-			o.R.UserAPIKeys = append(o.R.UserAPIKeys, rel)
 		}
 	}
 
@@ -2517,10 +2164,8 @@ type userJoins[Q dialect.Joinable] struct {
 	AlertRules                     modAs[Q, alertRuleColumns]
 	GrantedByFederatedAccessGrants modAs[Q, federatedAccessGrantColumns]
 	GameServers                    modAs[Q, gameServerColumns]
-	Logs                           modAs[Q, logColumns]
 	NotificationChannels           modAs[Q, notificationChannelColumns]
 	CreatedByScheduledTasks        modAs[Q, scheduledTaskColumns]
-	UserAPIKeys                    modAs[Q, userAPIKeyColumns]
 	GrantedByUserRoleAssignments   modAs[Q, userRoleAssignmentColumns]
 	UserRoleAssignments            modAs[Q, userRoleAssignmentColumns]
 	UserSessions                   modAs[Q, userSessionColumns]
@@ -2589,20 +2234,6 @@ func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[
 				return mods
 			},
 		},
-		Logs: modAs[Q, logColumns]{
-			c: Logs.Columns,
-			f: func(to logColumns) bob.Mod[Q] {
-				mods := make(mods.QueryMods[Q], 0, 1)
-
-				{
-					mods = append(mods, dialect.Join[Q](typ, Logs.Name().As(to.Alias())).On(
-						to.UserID.EQ(cols.ID),
-					))
-				}
-
-				return mods
-			},
-		},
 		NotificationChannels: modAs[Q, notificationChannelColumns]{
 			c: NotificationChannels.Columns,
 			f: func(to notificationChannelColumns) bob.Mod[Q] {
@@ -2625,20 +2256,6 @@ func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[
 				{
 					mods = append(mods, dialect.Join[Q](typ, ScheduledTasks.Name().As(to.Alias())).On(
 						to.CreatedBy.EQ(cols.ID),
-					))
-				}
-
-				return mods
-			},
-		},
-		UserAPIKeys: modAs[Q, userAPIKeyColumns]{
-			c: UserAPIKeys.Columns,
-			f: func(to userAPIKeyColumns) bob.Mod[Q] {
-				mods := make(mods.QueryMods[Q], 0, 1)
-
-				{
-					mods = append(mods, dialect.Join[Q](typ, UserAPIKeys.Name().As(to.Alias())).On(
-						to.UserID.EQ(cols.ID),
 					))
 				}
 

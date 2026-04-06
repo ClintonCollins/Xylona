@@ -25,12 +25,18 @@ type DB interface {
 	InsertScheduledTaskLog(scheduledTaskID, gameServerID, taskType, status, message string, startedAt time.Time, finishedAt *time.Time) (*models.ScheduledTaskLog, error)
 	PruneScheduledTaskLogs(olderThan time.Time, maxPerTask int) (int64, error)
 	GetGameServerByID(gameServerID string) (*models.GameServer, error)
+	GetNodeByID(id string) (*models.Node, error)
 }
 
 // ActionsExecutor abstracts the actions layer for game server lifecycle operations.
 type ActionsExecutor interface {
 	StartGameServer(gameServer *models.GameServer)
 	StopGameServer(gameServer *models.GameServer)
+}
+
+// BackupExecutor abstracts the actions layer for scheduled backup creation.
+type BackupExecutor interface {
+	CreateScheduledBackup(gameServer *models.GameServer) (*models.GameServerBackup, error)
 }
 
 // SupervisorCommand abstracts a supervisor.Command for reading status and
@@ -51,15 +57,16 @@ type Scheduler struct {
 	scheduler gocron.Scheduler
 	db        DB
 	actions   ActionsExecutor
+	backup    BackupExecutor
 	super     SupervisorAccessor
 	mu        sync.RWMutex
 	jobs      map[string]uuid.UUID // scheduled_task.id → gocron job UUID
 }
 
 // New creates a Scheduler. Call Start() to begin executing tasks.
-func New(ctx context.Context, database DB, actions ActionsExecutor, super SupervisorAccessor) (*Scheduler, error) {
+func New(ctx context.Context, database DB, actions ActionsExecutor, backup BackupExecutor, super SupervisorAccessor) (*Scheduler, error) {
 	gs, errNew := gocron.NewScheduler(
-		gocron.WithStopTimeout(30 * time.Second),
+		gocron.WithStopTimeout(schedulerStopTimeout),
 	)
 	if errNew != nil {
 		return nil, fmt.Errorf("create gocron scheduler: %w", errNew)
@@ -70,6 +77,7 @@ func New(ctx context.Context, database DB, actions ActionsExecutor, super Superv
 		scheduler: gs,
 		db:        database,
 		actions:   actions,
+		backup:    backup,
 		super:     super,
 		jobs:      make(map[string]uuid.UUID),
 	}, nil

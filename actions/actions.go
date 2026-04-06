@@ -95,6 +95,11 @@ type VersionBroadcaster interface {
 	BroadcastGameServerVersion(serverID string, version string, versionInfo *xylona.VersionInfo)
 }
 
+// BackupProgressBroadcaster pushes backup lifecycle updates to connected clients.
+type BackupProgressBroadcaster interface {
+	BroadcastBackupProgress(serverID string, progress *xylona.BackupProgress)
+}
+
 type versionRefreshCall struct {
 	done chan struct{}
 }
@@ -119,6 +124,7 @@ type Instance struct {
 	resolverConfig       versiontracker.ResolverConfig
 	dummyTracker         *versiontracker.DummyTracker
 	versionBroadcaster   VersionBroadcaster
+	backupBroadcaster    BackupProgressBroadcaster
 	versionInstalledTTL  time.Duration
 	versionLatestTTL     time.Duration
 	versionRefreshMu     sync.Mutex
@@ -146,6 +152,11 @@ func (inst *Instance) SetDummyTracker(dt *versiontracker.DummyTracker) {
 // SetVersionBroadcaster sets the websocket-facing broadcaster for version changes.
 func (inst *Instance) SetVersionBroadcaster(b VersionBroadcaster) {
 	inst.versionBroadcaster = b
+}
+
+// SetBackupProgressBroadcaster sets the websocket-facing broadcaster for backup progress.
+func (inst *Instance) SetBackupProgressBroadcaster(b BackupProgressBroadcaster) {
+	inst.backupBroadcaster = b
 }
 
 // StartAlertJobs launches the alert-related background goroutines. Call this

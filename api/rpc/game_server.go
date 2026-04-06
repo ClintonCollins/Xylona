@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -32,16 +33,43 @@ func mergeEditableGameServerUpdate(
 	incomingGameServer *models.GameServer,
 	allowProvisioningChanges bool,
 ) *models.GameServer {
+	var merged models.GameServer
 	if allowProvisioningChanges {
-		merged := *incomingGameServer
+		merged = *incomingGameServer
 		merged.ID = existingGameServer.ID
-		return &merged
+	} else {
+		merged = *existingGameServer
+		merged.Name = incomingGameServer.Name
+		merged.SetPlayers = incomingGameServer.SetPlayers
 	}
 
-	merged := *existingGameServer
-	merged.Name = incomingGameServer.Name
-	merged.SetPlayers = incomingGameServer.SetPlayers
+	// Backup settings are managed exclusively through UpdateBackupSettings.
+	merged.BackupsEnabled = existingGameServer.BackupsEnabled
+	merged.BackupDirectory = existingGameServer.BackupDirectory
+	merged.MaxBackups = existingGameServer.MaxBackups
 	return &merged
+}
+
+func normalizeBackupRetention(maxBackups int64) int64 {
+	if maxBackups > 0 {
+		return maxBackups
+	}
+
+	return actions.DefaultScheduledBackupRetention
+}
+
+func defaultBackupDirectoryForServer(serverDirectory string) string {
+	trimmedDirectory := strings.TrimSpace(serverDirectory)
+	if trimmedDirectory == "" {
+		return actions.DefaultBackupDirectory()
+	}
+
+	parentDirectory := filepath.Dir(filepath.Clean(trimmedDirectory))
+	if parentDirectory == "." || parentDirectory == "" {
+		return actions.DefaultBackupDirectory()
+	}
+
+	return filepath.Join(parentDirectory, "backups")
 }
 
 // findAvailablePort checks for port conflicts on the given IP and returns the next available port.
@@ -136,6 +164,15 @@ func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Re
 		}
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to validate node"))
 	}
+
+	newGameServerModel.BackupsEnabled = true
+	newGameServerModel.MaxBackups = normalizeBackupRetention(newGameServerModel.MaxBackups)
+
+	backupDirectory := strings.TrimSpace(newGameServerModel.BackupDirectory)
+	if backupDirectory == "" {
+		backupDirectory = defaultBackupDirectoryForServer(newGameServerModel.Directory)
+	}
+	newGameServerModel.BackupDirectory = backupDirectory
 
 	// Check for port conflicts and auto-increment if necessary.
 	availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(

@@ -29,6 +29,7 @@ const submitting = ref(false)
 
 const taskTypeOptions = [
   { label: 'Restart Server', value: 'restart' },
+  { label: 'Backup Server', value: 'backup' },
   { label: 'Console Command', value: 'console_command' },
 ]
 

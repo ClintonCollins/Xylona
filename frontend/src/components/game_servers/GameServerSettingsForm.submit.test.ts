@@ -7,6 +7,9 @@ import GameServerSettingsForm from './GameServerSettingsForm.vue'
 const mocks = vi.hoisted(() => ({
   back: vi.fn(),
   editGameServer: vi.fn(),
+  getGameServerBackupOverview: vi.fn(),
+  getBackupSettings: vi.fn(),
+  updateBackupSettings: vi.fn(),
   initialize: vi.fn(),
   notify: vi.fn(),
   push: vi.fn(),
@@ -21,6 +24,9 @@ vi.mock('@/utils/shared', async () => {
     ...actual,
     GetXylonaClient: () => ({
       editGameServer: mocks.editGameServer,
+      getGameServerBackupOverview: mocks.getGameServerBackupOverview,
+      getBackupSettings: mocks.getBackupSettings,
+      updateBackupSettings: mocks.updateBackupSettings,
     }),
   }
 })
@@ -104,6 +110,9 @@ describe('GameServerSettingsForm submit flow', () => {
   beforeEach(() => {
     mocks.back.mockReset()
     mocks.editGameServer.mockReset()
+    mocks.getGameServerBackupOverview.mockReset()
+    mocks.getBackupSettings.mockReset()
+    mocks.updateBackupSettings.mockReset()
     mocks.initialize.mockReset()
     mocks.notify.mockReset()
     mocks.push.mockReset()
@@ -112,6 +121,31 @@ describe('GameServerSettingsForm submit flow', () => {
     mocks.validateBeforeSave.mockReset()
     mocks.validateBeforeSave.mockResolvedValue(true)
     mocks.editGameServer.mockResolvedValue({ gameServer: { id: 'server-local-1' } })
+    mocks.getGameServerBackupOverview.mockResolvedValue({
+      overview: {
+        enabled: true,
+        operationsAllowed: true,
+        canManageSettings: false,
+        localServer: true,
+        backupDirectoryConfigured: true,
+        scheduledBackupCount: 0,
+      },
+    })
+    mocks.getBackupSettings.mockResolvedValue({
+      settings: {
+        backupsEnabled: true,
+        backupDirectory: 'C:\\\\backups',
+        maxBackups: 10n,
+        defaultBackupDirectory: 'C:\\\\default-backups',
+      },
+    })
+    mocks.updateBackupSettings.mockResolvedValue({
+      settings: {
+        backupsEnabled: true,
+        backupDirectory: 'C:\\\\backups',
+        maxBackups: 10n,
+      },
+    })
   })
 
   it('notifies success without redirecting after save', async () => {

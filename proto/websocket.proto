@@ -70,6 +70,7 @@ message Message {
     ServerSoftwareInstall = 7;
     GameServerUpdateProgress = 8;
     GameServerVersion = 9;
+    GameServerBackupProgress = 10;
   }
   Type type = 1;
   optional GameServerConsoleOutput game_server_console_output = 2;
@@ -81,6 +82,7 @@ message Message {
   optional ServerSoftwareInstallUpdate server_software_install_update = 8;
   optional UpdateProgress update_progress = 9;
   optional GameServerVersionUpdate game_server_version_update = 10;
+  optional BackupProgress backup_progress = 11;
 }
 
 message ServerSoftwareInstallUpdate {

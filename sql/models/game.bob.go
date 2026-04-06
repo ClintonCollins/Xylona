@@ -31,7 +31,6 @@ type Game struct {
 	DefaultQueryPort                  int64            `db:"default_query_port" `
 	DefaultMaxPlayers                 int64            `db:"default_max_players" `
 	RequireDedicatedIP                bool             `db:"require_dedicated_ip" `
-	BindsToAllIps                     bool             `db:"binds_to_all_ips" `
 	UsesSourceQuery                   bool             `db:"uses_source_query" `
 	UsesSteamcmd                      bool             `db:"uses_steamcmd" `
 	SteamAppID                        string           `db:"steam_app_id" `
@@ -50,6 +49,7 @@ type Game struct {
 	WindowsUpdateCommand              string           `db:"windows_update_command" `
 	WindowsUpdateCommandType          string           `db:"windows_update_command_type" `
 	WindowsWorkingDirectory           string           `db:"windows_working_directory" `
+	BindsToAllIps                     bool             `db:"binds_to_all_ips" `
 	CreatedAt                         time.Time        `db:"created_at" `
 	UpdatedAt                         time.Time        `db:"updated_at" `
 	XylonaOfficial                    bool             `db:"xylona_official" `
@@ -78,13 +78,12 @@ type GamesQuery = *sqlite.ViewQuery[*Game, GameSlice]
 // gameR is where relationships are stored.
 type gameR struct {
 	GameServers GameServerSlice // fk_game_server_2
-	Logs        LogSlice        // fk_log_1
 }
 
 func buildGameColumns(alias string) gameColumns {
 	return gameColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "binds_to_all_ips", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing",
+			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing",
 		).WithParent("game"),
 		tableAlias:                        alias,
 		ID:                                sqlite.Quote(alias, "id"),
@@ -93,7 +92,6 @@ func buildGameColumns(alias string) gameColumns {
 		DefaultQueryPort:                  sqlite.Quote(alias, "default_query_port"),
 		DefaultMaxPlayers:                 sqlite.Quote(alias, "default_max_players"),
 		RequireDedicatedIP:                sqlite.Quote(alias, "require_dedicated_ip"),
-		BindsToAllIps:                     sqlite.Quote(alias, "binds_to_all_ips"),
 		UsesSourceQuery:                   sqlite.Quote(alias, "uses_source_query"),
 		UsesSteamcmd:                      sqlite.Quote(alias, "uses_steamcmd"),
 		SteamAppID:                        sqlite.Quote(alias, "steam_app_id"),
@@ -112,6 +110,7 @@ func buildGameColumns(alias string) gameColumns {
 		WindowsUpdateCommand:              sqlite.Quote(alias, "windows_update_command"),
 		WindowsUpdateCommandType:          sqlite.Quote(alias, "windows_update_command_type"),
 		WindowsWorkingDirectory:           sqlite.Quote(alias, "windows_working_directory"),
+		BindsToAllIps:                     sqlite.Quote(alias, "binds_to_all_ips"),
 		CreatedAt:                         sqlite.Quote(alias, "created_at"),
 		UpdatedAt:                         sqlite.Quote(alias, "updated_at"),
 		XylonaOfficial:                    sqlite.Quote(alias, "xylona_official"),
@@ -135,7 +134,6 @@ type gameColumns struct {
 	DefaultQueryPort                  sqlite.Expression
 	DefaultMaxPlayers                 sqlite.Expression
 	RequireDedicatedIP                sqlite.Expression
-	BindsToAllIps                     sqlite.Expression
 	UsesSourceQuery                   sqlite.Expression
 	UsesSteamcmd                      sqlite.Expression
 	SteamAppID                        sqlite.Expression
@@ -154,6 +152,7 @@ type gameColumns struct {
 	WindowsUpdateCommand              sqlite.Expression
 	WindowsUpdateCommandType          sqlite.Expression
 	WindowsWorkingDirectory           sqlite.Expression
+	BindsToAllIps                     sqlite.Expression
 	CreatedAt                         sqlite.Expression
 	UpdatedAt                         sqlite.Expression
 	XylonaOfficial                    sqlite.Expression
@@ -185,7 +184,6 @@ type GameSetter struct {
 	DefaultQueryPort                  omit.Val[int64]      `db:"default_query_port" `
 	DefaultMaxPlayers                 omit.Val[int64]      `db:"default_max_players" `
 	RequireDedicatedIP                omit.Val[bool]       `db:"require_dedicated_ip" `
-	BindsToAllIps                     omit.Val[bool]       `db:"binds_to_all_ips" `
 	UsesSourceQuery                   omit.Val[bool]       `db:"uses_source_query" `
 	UsesSteamcmd                      omit.Val[bool]       `db:"uses_steamcmd" `
 	SteamAppID                        omit.Val[string]     `db:"steam_app_id" `
@@ -204,6 +202,7 @@ type GameSetter struct {
 	WindowsUpdateCommand              omit.Val[string]     `db:"windows_update_command" `
 	WindowsUpdateCommandType          omit.Val[string]     `db:"windows_update_command_type" `
 	WindowsWorkingDirectory           omit.Val[string]     `db:"windows_working_directory" `
+	BindsToAllIps                     omit.Val[bool]       `db:"binds_to_all_ips" `
 	CreatedAt                         omit.Val[time.Time]  `db:"created_at" `
 	UpdatedAt                         omit.Val[time.Time]  `db:"updated_at" `
 	XylonaOfficial                    omit.Val[bool]       `db:"xylona_official" `
@@ -236,9 +235,6 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if s.RequireDedicatedIP.IsValue() {
 		vals = append(vals, "require_dedicated_ip")
-	}
-	if s.BindsToAllIps.IsValue() {
-		vals = append(vals, "binds_to_all_ips")
 	}
 	if s.UsesSourceQuery.IsValue() {
 		vals = append(vals, "uses_source_query")
@@ -293,6 +289,9 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if s.WindowsWorkingDirectory.IsValue() {
 		vals = append(vals, "windows_working_directory")
+	}
+	if s.BindsToAllIps.IsValue() {
+		vals = append(vals, "binds_to_all_ips")
 	}
 	if s.CreatedAt.IsValue() {
 		vals = append(vals, "created_at")
@@ -349,9 +348,6 @@ func (s GameSetter) Overwrite(t *Game) {
 	if s.RequireDedicatedIP.IsValue() {
 		t.RequireDedicatedIP = s.RequireDedicatedIP.MustGet()
 	}
-	if s.BindsToAllIps.IsValue() {
-		t.BindsToAllIps = s.BindsToAllIps.MustGet()
-	}
 	if s.UsesSourceQuery.IsValue() {
 		t.UsesSourceQuery = s.UsesSourceQuery.MustGet()
 	}
@@ -405,6 +401,9 @@ func (s GameSetter) Overwrite(t *Game) {
 	}
 	if s.WindowsWorkingDirectory.IsValue() {
 		t.WindowsWorkingDirectory = s.WindowsWorkingDirectory.MustGet()
+	}
+	if s.BindsToAllIps.IsValue() {
+		t.BindsToAllIps = s.BindsToAllIps.MustGet()
 	}
 	if s.CreatedAt.IsValue() {
 		t.CreatedAt = s.CreatedAt.MustGet()
@@ -480,10 +479,6 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.RequireDedicatedIP.MustGet()))
 		}
 
-		if s.BindsToAllIps.IsValue() {
-			vals = append(vals, sqlite.Arg(s.BindsToAllIps.MustGet()))
-		}
-
 		if s.UsesSourceQuery.IsValue() {
 			vals = append(vals, sqlite.Arg(s.UsesSourceQuery.MustGet()))
 		}
@@ -554,6 +549,10 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 
 		if s.WindowsWorkingDirectory.IsValue() {
 			vals = append(vals, sqlite.Arg(s.WindowsWorkingDirectory.MustGet()))
+		}
+
+		if s.BindsToAllIps.IsValue() {
+			vals = append(vals, sqlite.Arg(s.BindsToAllIps.MustGet()))
 		}
 
 		if s.CreatedAt.IsValue() {
@@ -654,13 +653,6 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "require_dedicated_ip")...),
 			sqlite.Arg(s.RequireDedicatedIP),
-		}})
-	}
-
-	if s.BindsToAllIps.IsValue() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "binds_to_all_ips")...),
-			sqlite.Arg(s.BindsToAllIps),
 		}})
 	}
 
@@ -787,6 +779,13 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "windows_working_directory")...),
 			sqlite.Arg(s.WindowsWorkingDirectory),
+		}})
+	}
+
+	if s.BindsToAllIps.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "binds_to_all_ips")...),
+			sqlite.Arg(s.BindsToAllIps),
 		}})
 	}
 
@@ -1112,25 +1111,6 @@ func (os GameSlice) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServe
 	)...)
 }
 
-// Logs starts a query for related objects on log
-func (o *Game) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
-	return Logs.Query(append(mods,
-		sm.Where(Logs.Columns.GameID.EQ(sqlite.Arg(o.ID))),
-	)...)
-}
-
-func (os GameSlice) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
-	PKArgSlice := make([]bob.Expression, len(os))
-	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
-	}
-	PKArgExpr := sqlite.Group(PKArgSlice...)
-
-	return Logs.Query(append(mods,
-		sm.Where(sqlite.Group(Logs.Columns.GameID).OP("IN", PKArgExpr)),
-	)...)
-}
-
 func insertGameGameServers0(ctx context.Context, exec bob.Executor, gameServers1 []*GameServerSetter, game0 *Game) (GameServerSlice, error) {
 	for i := range gameServers1 {
 		gameServers1[i].GameID = omit.From(game0.ID)
@@ -1199,74 +1179,6 @@ func (game0 *Game) AttachGameServers(ctx context.Context, exec bob.Executor, rel
 	return nil
 }
 
-func insertGameLogs0(ctx context.Context, exec bob.Executor, logs1 []*LogSetter, game0 *Game) (LogSlice, error) {
-	for i := range logs1 {
-		logs1[i].GameID = omitnull.From(game0.ID)
-	}
-
-	ret, err := Logs.Insert(bob.ToMods(logs1...)).All(ctx, exec)
-	if err != nil {
-		return ret, fmt.Errorf("insertGameLogs0: %w", err)
-	}
-
-	return ret, nil
-}
-
-func attachGameLogs0(ctx context.Context, exec bob.Executor, count int, logs1 LogSlice, game0 *Game) (LogSlice, error) {
-	setter := &LogSetter{
-		GameID: omitnull.From(game0.ID),
-	}
-
-	err := logs1.UpdateAll(ctx, exec, *setter)
-	if err != nil {
-		return nil, fmt.Errorf("attachGameLogs0: %w", err)
-	}
-
-	return logs1, nil
-}
-
-func (game0 *Game) InsertLogs(ctx context.Context, exec bob.Executor, related ...*LogSetter) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-
-	logs1, err := insertGameLogs0(ctx, exec, related, game0)
-	if err != nil {
-		return err
-	}
-
-	game0.R.Logs = append(game0.R.Logs, logs1...)
-
-	for _, rel := range logs1 {
-		rel.R.Game = game0
-	}
-	return nil
-}
-
-func (game0 *Game) AttachLogs(ctx context.Context, exec bob.Executor, related ...*Log) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	logs1 := LogSlice(related)
-
-	_, err = attachGameLogs0(ctx, exec, len(related), logs1, game0)
-	if err != nil {
-		return err
-	}
-
-	game0.R.Logs = append(game0.R.Logs, logs1...)
-
-	for _, rel := range related {
-		rel.R.Game = game0
-	}
-
-	return nil
-}
-
 type gameWhere[Q sqlite.Filterable] struct {
 	ID                                sqlite.WhereMod[Q, string]
 	Name                              sqlite.WhereMod[Q, string]
@@ -1274,7 +1186,6 @@ type gameWhere[Q sqlite.Filterable] struct {
 	DefaultQueryPort                  sqlite.WhereMod[Q, int64]
 	DefaultMaxPlayers                 sqlite.WhereMod[Q, int64]
 	RequireDedicatedIP                sqlite.WhereMod[Q, bool]
-	BindsToAllIps                     sqlite.WhereMod[Q, bool]
 	UsesSourceQuery                   sqlite.WhereMod[Q, bool]
 	UsesSteamcmd                      sqlite.WhereMod[Q, bool]
 	SteamAppID                        sqlite.WhereMod[Q, string]
@@ -1293,6 +1204,7 @@ type gameWhere[Q sqlite.Filterable] struct {
 	WindowsUpdateCommand              sqlite.WhereMod[Q, string]
 	WindowsUpdateCommandType          sqlite.WhereMod[Q, string]
 	WindowsWorkingDirectory           sqlite.WhereMod[Q, string]
+	BindsToAllIps                     sqlite.WhereMod[Q, bool]
 	CreatedAt                         sqlite.WhereMod[Q, time.Time]
 	UpdatedAt                         sqlite.WhereMod[Q, time.Time]
 	XylonaOfficial                    sqlite.WhereMod[Q, bool]
@@ -1318,7 +1230,6 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		DefaultQueryPort:                  sqlite.Where[Q, int64](cols.DefaultQueryPort),
 		DefaultMaxPlayers:                 sqlite.Where[Q, int64](cols.DefaultMaxPlayers),
 		RequireDedicatedIP:                sqlite.Where[Q, bool](cols.RequireDedicatedIP),
-		BindsToAllIps:                     sqlite.Where[Q, bool](cols.BindsToAllIps),
 		UsesSourceQuery:                   sqlite.Where[Q, bool](cols.UsesSourceQuery),
 		UsesSteamcmd:                      sqlite.Where[Q, bool](cols.UsesSteamcmd),
 		SteamAppID:                        sqlite.Where[Q, string](cols.SteamAppID),
@@ -1337,6 +1248,7 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		WindowsUpdateCommand:              sqlite.Where[Q, string](cols.WindowsUpdateCommand),
 		WindowsUpdateCommandType:          sqlite.Where[Q, string](cols.WindowsUpdateCommandType),
 		WindowsWorkingDirectory:           sqlite.Where[Q, string](cols.WindowsWorkingDirectory),
+		BindsToAllIps:                     sqlite.Where[Q, bool](cols.BindsToAllIps),
 		CreatedAt:                         sqlite.Where[Q, time.Time](cols.CreatedAt),
 		UpdatedAt:                         sqlite.Where[Q, time.Time](cols.UpdatedAt),
 		XylonaOfficial:                    sqlite.Where[Q, bool](cols.XylonaOfficial),
@@ -1371,20 +1283,6 @@ func (o *Game) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
-	case "Logs":
-		rels, ok := retrieved.(LogSlice)
-		if !ok {
-			return fmt.Errorf("game cannot load %T as %q", retrieved, name)
-		}
-
-		o.R.Logs = rels
-
-		for _, rel := range rels {
-			if rel != nil {
-				rel.R.Game = o
-			}
-		}
-		return nil
 	default:
 		return fmt.Errorf("game has no relationship %q", name)
 	}
@@ -1398,15 +1296,11 @@ func buildGamePreloader() gamePreloader {
 
 type gameThenLoader[Q orm.Loadable] struct {
 	GameServers func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	Logs        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildGameThenLoader[Q orm.Loadable]() gameThenLoader[Q] {
 	type GameServersLoadInterface interface {
 		LoadGameServers(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
-	}
-	type LogsLoadInterface interface {
-		LoadLogs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 
 	return gameThenLoader[Q]{
@@ -1414,12 +1308,6 @@ func buildGameThenLoader[Q orm.Loadable]() gameThenLoader[Q] {
 			"GameServers",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServersLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServers(ctx, exec, mods...)
-			},
-		),
-		Logs: thenLoadBuilder[Q](
-			"Logs",
-			func(ctx context.Context, exec bob.Executor, retrieved LogsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
-				return retrieved.LoadLogs(ctx, exec, mods...)
 			},
 		),
 	}
@@ -1486,74 +1374,9 @@ func (os GameSlice) LoadGameServers(ctx context.Context, exec bob.Executor, mods
 	return nil
 }
 
-// LoadLogs loads the game's Logs into the .R struct
-func (o *Game) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if o == nil {
-		return nil
-	}
-
-	// Reset the relationship
-	o.R.Logs = nil
-
-	related, err := o.Logs(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, rel := range related {
-		rel.R.Game = o
-	}
-
-	o.R.Logs = related
-	return nil
-}
-
-// LoadLogs loads the game's Logs into the .R struct
-func (os GameSlice) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if len(os) == 0 {
-		return nil
-	}
-
-	logs, err := os.Logs(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		o.R.Logs = nil
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		for _, rel := range logs {
-
-			if !rel.GameID.IsValue() {
-				continue
-			}
-			if !(rel.GameID.IsValue() && o.ID == rel.GameID.MustGet()) {
-				continue
-			}
-
-			rel.R.Game = o
-
-			o.R.Logs = append(o.R.Logs, rel)
-		}
-	}
-
-	return nil
-}
-
 type gameJoins[Q dialect.Joinable] struct {
 	typ         string
 	GameServers modAs[Q, gameServerColumns]
-	Logs        modAs[Q, logColumns]
 }
 
 func (j gameJoins[Q]) aliasedAs(alias string) gameJoins[Q] {
@@ -1570,20 +1393,6 @@ func buildGameJoins[Q dialect.Joinable](cols gameColumns, typ string) gameJoins[
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServers.Name().As(to.Alias())).On(
-						to.GameID.EQ(cols.ID),
-					))
-				}
-
-				return mods
-			},
-		},
-		Logs: modAs[Q, logColumns]{
-			c: Logs.Columns,
-			f: func(to logColumns) bob.Mod[Q] {
-				mods := make(mods.QueryMods[Q], 0, 1)
-
-				{
-					mods = append(mods, dialect.Join[Q](typ, Logs.Name().As(to.Alias())).On(
 						to.GameID.EQ(cols.ID),
 					))
 				}

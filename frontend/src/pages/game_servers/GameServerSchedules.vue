@@ -29,11 +29,13 @@ const editingTask = ref<ScheduledTask | undefined>(undefined)
 
 const taskTypeLabels: Record<string, string> = {
   restart: 'Restart Server',
+  backup: 'Backup Server',
   console_command: 'Console Command',
 }
 
 const taskTypeIcons: Record<string, string> = {
   restart: 'restart_alt',
+  backup: 'backup',
   console_command: 'terminal',
 }
 

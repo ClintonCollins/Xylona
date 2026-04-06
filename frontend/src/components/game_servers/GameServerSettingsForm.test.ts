@@ -3,11 +3,21 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-import { GameSchema, GameServerSchema, IPSchema, NodeSchema } from '@/proto/shared_pb'
+import {
+  BackupSettingsSchema,
+  GameSchema,
+  GameServerBackupOverviewSchema,
+  GameServerSchema,
+  IPSchema,
+  NodeSchema,
+} from '@/proto/shared_pb'
 import GameServerSettingsForm from './GameServerSettingsForm.vue'
 
 const mocks = vi.hoisted(() => ({
   getGameServer: vi.fn(),
+  getGameServerBackupOverview: vi.fn(),
+  getBackupSettings: vi.fn(),
+  updateBackupSettings: vi.fn(),
   listGames: vi.fn(),
   listNodes: vi.fn(),
   listUsers: vi.fn(),
@@ -20,6 +30,9 @@ vi.mock('@/utils/shared', async () => {
     ...actual,
     GetXylonaClient: () => ({
       getGameServer: mocks.getGameServer,
+      getGameServerBackupOverview: mocks.getGameServerBackupOverview,
+      getBackupSettings: mocks.getBackupSettings,
+      updateBackupSettings: mocks.updateBackupSettings,
       listGames: mocks.listGames,
       listNodes: mocks.listNodes,
       listUsers: mocks.listUsers,
@@ -87,6 +100,7 @@ function mountSettingsForm(canEditProvisioning: boolean) {
         'q-icon': true,
         'q-spinner-dots': true,
         'q-inner-loading': true,
+        'q-toggle': { template: '<input type="checkbox" />' },
         'router-link': { template: '<a><slot /></a>' },
       },
     },
@@ -104,6 +118,9 @@ describe('GameServerSettingsForm', () => {
     )
 
     mocks.getGameServer.mockReset()
+    mocks.getGameServerBackupOverview.mockReset()
+    mocks.getBackupSettings.mockReset()
+    mocks.updateBackupSettings.mockReset()
     mocks.listGames.mockReset()
     mocks.listNodes.mockReset()
     mocks.listUsers.mockReset()
@@ -138,6 +155,24 @@ describe('GameServerSettingsForm', () => {
           address: '127.0.0.1',
         }),
       ],
+    })
+    mocks.getGameServerBackupOverview.mockResolvedValue({
+      overview: create(GameServerBackupOverviewSchema, {
+        enabled: true,
+        operationsAllowed: true,
+        canManageSettings: true,
+        localServer: true,
+        backupDirectoryConfigured: true,
+        scheduledBackupCount: 0,
+      }),
+    })
+    mocks.getBackupSettings.mockResolvedValue({
+      settings: create(BackupSettingsSchema, {
+        backupsEnabled: true,
+        backupDirectory: 'C:\\\\backups',
+        maxBackups: 10n,
+        defaultBackupDirectory: 'C:\\\\default-backups',
+      }),
     })
   })
 
@@ -175,9 +210,22 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="editable-max-players"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-max-memory"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="readonly-provisioning"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="backup-settings-enabled"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="save-backup-settings"]').exists()).toBe(true)
   })
 
   it('shows read-only provisioning context and only editable operational fields for non-superusers', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: create(GameServerBackupOverviewSchema, {
+        enabled: true,
+        operationsAllowed: true,
+        canManageSettings: false,
+        localServer: true,
+        backupDirectoryConfigured: true,
+        scheduledBackupCount: 0,
+      }),
+    })
+
     mocks.getGameServer.mockResolvedValue({
       gameServer: create(GameServerSchema, {
         id: 'server-local-1',
@@ -220,6 +268,8 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="editable-query-port"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-server-executable"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-max-players"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="backup-settings-readonly"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="save-backup-settings"]').exists()).toBe(false)
   })
 
   it('hides minecraft memory context when the server is not minecraft', async () => {

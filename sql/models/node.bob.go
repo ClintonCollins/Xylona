@@ -67,6 +67,7 @@ type nodeR struct {
 	RemoteNodeFederatedAccessGrants FederatedAccessGrantSlice // fk_federated_access_grant_2
 	FederationTrustedPeer           *FederationTrustedPeer    // fk_federation_trusted_peer_0
 	GameServers                     GameServerSlice           // fk_game_server_0
+	GameServerBackups               GameServerBackupSlice     // fk_game_server_backup_0
 	NodeMetricsHistories            NodeMetricsHistorySlice   // fk_node_metrics_history_0
 	NodeSyncQueues                  NodeSyncQueueSlice        // fk_node_sync_queue_0
 	PeerSyncStates                  PeerSyncStateSlice        // fk_peer_sync_state_0
@@ -881,6 +882,25 @@ func (os NodeSlice) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServe
 	)...)
 }
 
+// GameServerBackups starts a query for related objects on game_server_backup
+func (o *Node) GameServerBackups(mods ...bob.Mod[*dialect.SelectQuery]) GameServerBackupsQuery {
+	return GameServerBackups.Query(append(mods,
+		sm.Where(GameServerBackups.Columns.NodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) GameServerBackups(mods ...bob.Mod[*dialect.SelectQuery]) GameServerBackupsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerBackups.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerBackups.Columns.NodeID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // NodeMetricsHistories starts a query for related objects on node_metrics_history
 func (o *Node) NodeMetricsHistories(mods ...bob.Mod[*dialect.SelectQuery]) NodeMetricsHistoriesQuery {
 	return NodeMetricsHistories.Query(append(mods,
@@ -1207,6 +1227,74 @@ func (node0 *Node) AttachGameServers(ctx context.Context, exec bob.Executor, rel
 	}
 
 	node0.R.GameServers = append(node0.R.GameServers, gameServers1...)
+
+	for _, rel := range related {
+		rel.R.Node = node0
+	}
+
+	return nil
+}
+
+func insertNodeGameServerBackups0(ctx context.Context, exec bob.Executor, gameServerBackups1 []*GameServerBackupSetter, node0 *Node) (GameServerBackupSlice, error) {
+	for i := range gameServerBackups1 {
+		gameServerBackups1[i].NodeID = omit.From(node0.ID)
+	}
+
+	ret, err := GameServerBackups.Insert(bob.ToMods(gameServerBackups1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodeGameServerBackups0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodeGameServerBackups0(ctx context.Context, exec bob.Executor, count int, gameServerBackups1 GameServerBackupSlice, node0 *Node) (GameServerBackupSlice, error) {
+	setter := &GameServerBackupSetter{
+		NodeID: omit.From(node0.ID),
+	}
+
+	err := gameServerBackups1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodeGameServerBackups0: %w", err)
+	}
+
+	return gameServerBackups1, nil
+}
+
+func (node0 *Node) InsertGameServerBackups(ctx context.Context, exec bob.Executor, related ...*GameServerBackupSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerBackups1, err := insertNodeGameServerBackups0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.GameServerBackups = append(node0.R.GameServerBackups, gameServerBackups1...)
+
+	for _, rel := range gameServerBackups1 {
+		rel.R.Node = node0
+	}
+	return nil
+}
+
+func (node0 *Node) AttachGameServerBackups(ctx context.Context, exec bob.Executor, related ...*GameServerBackup) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerBackups1 := GameServerBackupSlice(related)
+
+	_, err = attachNodeGameServerBackups0(ctx, exec, len(related), gameServerBackups1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.GameServerBackups = append(node0.R.GameServerBackups, gameServerBackups1...)
 
 	for _, rel := range related {
 		rel.R.Node = node0
@@ -1603,6 +1691,20 @@ func (o *Node) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "GameServerBackups":
+		rels, ok := retrieved.(GameServerBackupSlice)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerBackups = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.Node = o
+			}
+		}
+		return nil
 	case "NodeMetricsHistories":
 		rels, ok := retrieved.(NodeMetricsHistorySlice)
 		if !ok {
@@ -1691,6 +1793,7 @@ type nodeThenLoader[Q orm.Loadable] struct {
 	RemoteNodeFederatedAccessGrants func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	FederationTrustedPeer           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServers                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerBackups               func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	NodeMetricsHistories            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	NodeSyncQueues                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	PeerSyncStates                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1709,6 +1812,9 @@ func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
 	}
 	type GameServersLoadInterface interface {
 		LoadGameServers(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerBackupsLoadInterface interface {
+		LoadGameServerBackups(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type NodeMetricsHistoriesLoadInterface interface {
 		LoadNodeMetricsHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1746,6 +1852,12 @@ func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
 			"GameServers",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServersLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServers(ctx, exec, mods...)
+			},
+		),
+		GameServerBackups: thenLoadBuilder[Q](
+			"GameServerBackups",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerBackupsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerBackups(ctx, exec, mods...)
 			},
 		),
 		NodeMetricsHistories: thenLoadBuilder[Q](
@@ -2013,6 +2125,67 @@ func (os NodeSlice) LoadGameServers(ctx context.Context, exec bob.Executor, mods
 	return nil
 }
 
+// LoadGameServerBackups loads the node's GameServerBackups into the .R struct
+func (o *Node) LoadGameServerBackups(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerBackups = nil
+
+	related, err := o.GameServerBackups(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.Node = o
+	}
+
+	o.R.GameServerBackups = related
+	return nil
+}
+
+// LoadGameServerBackups loads the node's GameServerBackups into the .R struct
+func (os NodeSlice) LoadGameServerBackups(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerBackups, err := os.GameServerBackups(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerBackups = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range gameServerBackups {
+
+			if !(o.ID == rel.NodeID) {
+				continue
+			}
+
+			rel.R.Node = o
+
+			o.R.GameServerBackups = append(o.R.GameServerBackups, rel)
+		}
+	}
+
+	return nil
+}
+
 // LoadNodeMetricsHistories loads the node's NodeMetricsHistories into the .R struct
 func (o *Node) LoadNodeMetricsHistories(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2263,6 +2436,7 @@ type nodeJoins[Q dialect.Joinable] struct {
 	RemoteNodeFederatedAccessGrants modAs[Q, federatedAccessGrantColumns]
 	FederationTrustedPeer           modAs[Q, federationTrustedPeerColumns]
 	GameServers                     modAs[Q, gameServerColumns]
+	GameServerBackups               modAs[Q, gameServerBackupColumns]
 	NodeMetricsHistories            modAs[Q, nodeMetricsHistoryColumns]
 	NodeSyncQueues                  modAs[Q, nodeSyncQueueColumns]
 	PeerSyncStates                  modAs[Q, peerSyncStateColumns]
@@ -2325,6 +2499,20 @@ func buildNodeJoins[Q dialect.Joinable](cols nodeColumns, typ string) nodeJoins[
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServers.Name().As(to.Alias())).On(
+						to.NodeID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerBackups: modAs[Q, gameServerBackupColumns]{
+			c: GameServerBackups.Columns,
+			f: func(to gameServerBackupColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerBackups.Name().As(to.Alias())).On(
 						to.NodeID.EQ(cols.ID),
 					))
 				}

@@ -31,10 +31,11 @@ type GameServerBackup struct {
 	CreatedBy       null.Val[string]    `db:"created_by" `
 	TriggerSource   string              `db:"trigger_source" `
 	ArchivePath     string              `db:"archive_path" `
+	ArchiveRoot     string              `db:"archive_root" `
 	ArchiveFormat   string              `db:"archive_format" `
 	Status          string              `db:"status" `
 	SizeBytes       int64               `db:"size_bytes" `
-	RetentionExempt int64               `db:"retention_exempt" `
+	RetentionExempt bool                `db:"retention_exempt" `
 	ErrorMessage    null.Val[string]    `db:"error_message" `
 	CreatedAt       time.Time           `db:"created_at" `
 	CompletedAt     null.Val[time.Time] `db:"completed_at" `
@@ -54,13 +55,14 @@ type GameServerBackupsQuery = *sqlite.ViewQuery[*GameServerBackup, GameServerBac
 
 // gameServerBackupR is where relationships are stored.
 type gameServerBackupR struct {
-	GameServer *GameServer // fk_game_server_backup_0
+	Node       *Node       // fk_game_server_backup_0
+	GameServer *GameServer // fk_game_server_backup_1
 }
 
 func buildGameServerBackupColumns(alias string) gameServerBackupColumns {
 	return gameServerBackupColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "game_server_id", "node_id", "created_by", "trigger_source", "archive_path", "archive_format", "status", "size_bytes", "retention_exempt", "error_message", "created_at", "completed_at",
+			"id", "game_server_id", "node_id", "created_by", "trigger_source", "archive_path", "archive_root", "archive_format", "status", "size_bytes", "retention_exempt", "error_message", "created_at", "completed_at",
 		).WithParent("game_server_backup"),
 		tableAlias:      alias,
 		ID:              sqlite.Quote(alias, "id"),
@@ -69,6 +71,7 @@ func buildGameServerBackupColumns(alias string) gameServerBackupColumns {
 		CreatedBy:       sqlite.Quote(alias, "created_by"),
 		TriggerSource:   sqlite.Quote(alias, "trigger_source"),
 		ArchivePath:     sqlite.Quote(alias, "archive_path"),
+		ArchiveRoot:     sqlite.Quote(alias, "archive_root"),
 		ArchiveFormat:   sqlite.Quote(alias, "archive_format"),
 		Status:          sqlite.Quote(alias, "status"),
 		SizeBytes:       sqlite.Quote(alias, "size_bytes"),
@@ -88,6 +91,7 @@ type gameServerBackupColumns struct {
 	CreatedBy       sqlite.Expression
 	TriggerSource   sqlite.Expression
 	ArchivePath     sqlite.Expression
+	ArchiveRoot     sqlite.Expression
 	ArchiveFormat   sqlite.Expression
 	Status          sqlite.Expression
 	SizeBytes       sqlite.Expression
@@ -115,17 +119,18 @@ type GameServerBackupSetter struct {
 	CreatedBy       omitnull.Val[string]    `db:"created_by" `
 	TriggerSource   omit.Val[string]        `db:"trigger_source" `
 	ArchivePath     omit.Val[string]        `db:"archive_path" `
+	ArchiveRoot     omit.Val[string]        `db:"archive_root" `
 	ArchiveFormat   omit.Val[string]        `db:"archive_format" `
 	Status          omit.Val[string]        `db:"status" `
 	SizeBytes       omit.Val[int64]         `db:"size_bytes" `
-	RetentionExempt omit.Val[int64]         `db:"retention_exempt" `
+	RetentionExempt omit.Val[bool]          `db:"retention_exempt" `
 	ErrorMessage    omitnull.Val[string]    `db:"error_message" `
 	CreatedAt       omit.Val[time.Time]     `db:"created_at" `
 	CompletedAt     omitnull.Val[time.Time] `db:"completed_at" `
 }
 
 func (s GameServerBackupSetter) SetColumns() []string {
-	vals := make([]string, 0, 13)
+	vals := make([]string, 0, 14)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -143,6 +148,9 @@ func (s GameServerBackupSetter) SetColumns() []string {
 	}
 	if s.ArchivePath.IsValue() {
 		vals = append(vals, "archive_path")
+	}
+	if s.ArchiveRoot.IsValue() {
+		vals = append(vals, "archive_root")
 	}
 	if s.ArchiveFormat.IsValue() {
 		vals = append(vals, "archive_format")
@@ -187,6 +195,9 @@ func (s GameServerBackupSetter) Overwrite(t *GameServerBackup) {
 	if s.ArchivePath.IsValue() {
 		t.ArchivePath = s.ArchivePath.MustGet()
 	}
+	if s.ArchiveRoot.IsValue() {
+		t.ArchiveRoot = s.ArchiveRoot.MustGet()
+	}
 	if s.ArchiveFormat.IsValue() {
 		t.ArchiveFormat = s.ArchiveFormat.MustGet()
 	}
@@ -224,7 +235,7 @@ func (s *GameServerBackupSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 13)
+		vals := make([]bob.Expression, 0, 14)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -247,6 +258,10 @@ func (s *GameServerBackupSetter) Apply(q *dialect.InsertQuery) {
 
 		if s.ArchivePath.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ArchivePath.MustGet()))
+		}
+
+		if s.ArchiveRoot.IsValue() {
+			vals = append(vals, sqlite.Arg(s.ArchiveRoot.MustGet()))
 		}
 
 		if s.ArchiveFormat.IsValue() {
@@ -290,7 +305,7 @@ func (s GameServerBackupSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerBackupSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 13)
+	exprs := make([]bob.Expression, 0, 14)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -331,6 +346,13 @@ func (s GameServerBackupSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "archive_path")...),
 			sqlite.Arg(s.ArchivePath),
+		}})
+	}
+
+	if s.ArchiveRoot.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "archive_root")...),
+			sqlite.Arg(s.ArchiveRoot),
 		}})
 	}
 
@@ -609,6 +631,25 @@ func (o GameServerBackupSlice) ReloadAll(ctx context.Context, exec bob.Executor)
 	return nil
 }
 
+// Node starts a query for related objects on node
+func (o *GameServerBackup) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
+	return Nodes.Query(append(mods,
+		sm.Where(Nodes.Columns.ID.EQ(sqlite.Arg(o.NodeID))),
+	)...)
+}
+
+func (os GameServerBackupSlice) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.NodeID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return Nodes.Query(append(mods,
+		sm.Where(sqlite.Group(Nodes.Columns.ID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // GameServer starts a query for related objects on game_server
 func (o *GameServerBackup) GameServer(mods ...bob.Mod[*dialect.SelectQuery]) GameServersQuery {
 	return GameServers.Query(append(mods,
@@ -626,6 +667,54 @@ func (os GameServerBackupSlice) GameServer(mods ...bob.Mod[*dialect.SelectQuery]
 	return GameServers.Query(append(mods,
 		sm.Where(sqlite.Group(GameServers.Columns.ID).OP("IN", PKArgExpr)),
 	)...)
+}
+
+func attachGameServerBackupNode0(ctx context.Context, exec bob.Executor, count int, gameServerBackup0 *GameServerBackup, node1 *Node) (*GameServerBackup, error) {
+	setter := &GameServerBackupSetter{
+		NodeID: omit.From(node1.ID),
+	}
+
+	err := gameServerBackup0.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerBackupNode0: %w", err)
+	}
+
+	return gameServerBackup0, nil
+}
+
+func (gameServerBackup0 *GameServerBackup) InsertNode(ctx context.Context, exec bob.Executor, related *NodeSetter) error {
+	var err error
+
+	node1, err := Nodes.Insert(related).One(ctx, exec)
+	if err != nil {
+		return fmt.Errorf("inserting related objects: %w", err)
+	}
+
+	_, err = attachGameServerBackupNode0(ctx, exec, 1, gameServerBackup0, node1)
+	if err != nil {
+		return err
+	}
+
+	gameServerBackup0.R.Node = node1
+
+	node1.R.GameServerBackups = append(node1.R.GameServerBackups, gameServerBackup0)
+
+	return nil
+}
+
+func (gameServerBackup0 *GameServerBackup) AttachNode(ctx context.Context, exec bob.Executor, node1 *Node) error {
+	var err error
+
+	_, err = attachGameServerBackupNode0(ctx, exec, 1, gameServerBackup0, node1)
+	if err != nil {
+		return err
+	}
+
+	gameServerBackup0.R.Node = node1
+
+	node1.R.GameServerBackups = append(node1.R.GameServerBackups, gameServerBackup0)
+
+	return nil
 }
 
 func attachGameServerBackupGameServer0(ctx context.Context, exec bob.Executor, count int, gameServerBackup0 *GameServerBackup, gameServer1 *GameServer) (*GameServerBackup, error) {
@@ -683,10 +772,11 @@ type gameServerBackupWhere[Q sqlite.Filterable] struct {
 	CreatedBy       sqlite.WhereNullMod[Q, string]
 	TriggerSource   sqlite.WhereMod[Q, string]
 	ArchivePath     sqlite.WhereMod[Q, string]
+	ArchiveRoot     sqlite.WhereMod[Q, string]
 	ArchiveFormat   sqlite.WhereMod[Q, string]
 	Status          sqlite.WhereMod[Q, string]
 	SizeBytes       sqlite.WhereMod[Q, int64]
-	RetentionExempt sqlite.WhereMod[Q, int64]
+	RetentionExempt sqlite.WhereMod[Q, bool]
 	ErrorMessage    sqlite.WhereNullMod[Q, string]
 	CreatedAt       sqlite.WhereMod[Q, time.Time]
 	CompletedAt     sqlite.WhereNullMod[Q, time.Time]
@@ -704,10 +794,11 @@ func buildGameServerBackupWhere[Q sqlite.Filterable](cols gameServerBackupColumn
 		CreatedBy:       sqlite.WhereNull[Q, string](cols.CreatedBy),
 		TriggerSource:   sqlite.Where[Q, string](cols.TriggerSource),
 		ArchivePath:     sqlite.Where[Q, string](cols.ArchivePath),
+		ArchiveRoot:     sqlite.Where[Q, string](cols.ArchiveRoot),
 		ArchiveFormat:   sqlite.Where[Q, string](cols.ArchiveFormat),
 		Status:          sqlite.Where[Q, string](cols.Status),
 		SizeBytes:       sqlite.Where[Q, int64](cols.SizeBytes),
-		RetentionExempt: sqlite.Where[Q, int64](cols.RetentionExempt),
+		RetentionExempt: sqlite.Where[Q, bool](cols.RetentionExempt),
 		ErrorMessage:    sqlite.WhereNull[Q, string](cols.ErrorMessage),
 		CreatedAt:       sqlite.Where[Q, time.Time](cols.CreatedAt),
 		CompletedAt:     sqlite.WhereNull[Q, time.Time](cols.CompletedAt),
@@ -720,6 +811,18 @@ func (o *GameServerBackup) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
+	case "Node":
+		rel, ok := retrieved.(*Node)
+		if !ok {
+			return fmt.Errorf("gameServerBackup cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.Node = rel
+
+		if rel != nil {
+			rel.R.GameServerBackups = GameServerBackupSlice{o}
+		}
+		return nil
 	case "GameServer":
 		rel, ok := retrieved.(*GameServer)
 		if !ok {
@@ -738,11 +841,25 @@ func (o *GameServerBackup) Preload(name string, retrieved any) error {
 }
 
 type gameServerBackupPreloader struct {
+	Node       func(...sqlite.PreloadOption) sqlite.Preloader
 	GameServer func(...sqlite.PreloadOption) sqlite.Preloader
 }
 
 func buildGameServerBackupPreloader() gameServerBackupPreloader {
 	return gameServerBackupPreloader{
+		Node: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*Node, NodeSlice](sqlite.PreloadRel{
+				Name: "Node",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        GameServerBackups,
+						To:          Nodes,
+						FromColumns: []string{"node_id"},
+						ToColumns:   []string{"id"},
+					},
+				},
+			}, Nodes.Columns.Names(), opts...)
+		},
 		GameServer: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
 			return sqlite.Preload[*GameServer, GameServerSlice](sqlite.PreloadRel{
 				Name: "GameServer",
@@ -760,15 +877,25 @@ func buildGameServerBackupPreloader() gameServerBackupPreloader {
 }
 
 type gameServerBackupThenLoader[Q orm.Loadable] struct {
+	Node       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServer func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildGameServerBackupThenLoader[Q orm.Loadable]() gameServerBackupThenLoader[Q] {
+	type NodeLoadInterface interface {
+		LoadNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type GameServerLoadInterface interface {
 		LoadGameServer(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 
 	return gameServerBackupThenLoader[Q]{
+		Node: thenLoadBuilder[Q](
+			"Node",
+			func(ctx context.Context, exec bob.Executor, retrieved NodeLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadNode(ctx, exec, mods...)
+			},
+		),
 		GameServer: thenLoadBuilder[Q](
 			"GameServer",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
@@ -776,6 +903,58 @@ func buildGameServerBackupThenLoader[Q orm.Loadable]() gameServerBackupThenLoade
 			},
 		),
 	}
+}
+
+// LoadNode loads the gameServerBackup's Node into the .R struct
+func (o *GameServerBackup) LoadNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.Node = nil
+
+	related, err := o.Node(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.GameServerBackups = GameServerBackupSlice{o}
+
+	o.R.Node = related
+	return nil
+}
+
+// LoadNode loads the gameServerBackup's Node into the .R struct
+func (os GameServerBackupSlice) LoadNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	nodes, err := os.Node(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range nodes {
+
+			if !(o.NodeID == rel.ID) {
+				continue
+			}
+
+			rel.R.GameServerBackups = append(rel.R.GameServerBackups, o)
+
+			o.R.Node = rel
+			break
+		}
+	}
+
+	return nil
 }
 
 // LoadGameServer loads the gameServerBackup's GameServer into the .R struct
@@ -832,6 +1011,7 @@ func (os GameServerBackupSlice) LoadGameServer(ctx context.Context, exec bob.Exe
 
 type gameServerBackupJoins[Q dialect.Joinable] struct {
 	typ        string
+	Node       modAs[Q, nodeColumns]
 	GameServer modAs[Q, gameServerColumns]
 }
 
@@ -842,6 +1022,20 @@ func (j gameServerBackupJoins[Q]) aliasedAs(alias string) gameServerBackupJoins[
 func buildGameServerBackupJoins[Q dialect.Joinable](cols gameServerBackupColumns, typ string) gameServerBackupJoins[Q] {
 	return gameServerBackupJoins[Q]{
 		typ: typ,
+		Node: modAs[Q, nodeColumns]{
+			c: Nodes.Columns,
+			f: func(to nodeColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, Nodes.Name().As(to.Alias())).On(
+						to.ID.EQ(cols.NodeID),
+					))
+				}
+
+				return mods
+			},
+		},
 		GameServer: modAs[Q, gameServerColumns]{
 			c: GameServers.Columns,
 			f: func(to gameServerColumns) bob.Mod[Q] {

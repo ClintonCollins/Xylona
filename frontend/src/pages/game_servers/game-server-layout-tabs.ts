@@ -84,6 +84,15 @@ export function buildGameServerTabs(
       requiredPermission: 'game_server.scheduled_tasks',
     })
   }
+  if (has('game_server.backup')) {
+    tabs.push({
+      name: 'Backups',
+      to: `${basePath}/backups`,
+      icon: 'archive',
+      exact: true,
+      requiredPermission: 'game_server.backup',
+    })
+  }
   if (isOwnerOrSuper || has('alerts.manage') || has('alerts.view_history')) {
     tabs.push({
       name: 'Alerts',
@@ -139,6 +148,9 @@ export function getUnauthorizedRedirect(
     return consolePath
   }
   if (currentPath === `${basePath}/schedules` && !has('game_server.scheduled_tasks')) {
+    return consolePath
+  }
+  if (currentPath === `${basePath}/backups` && !has('game_server.backup')) {
     return consolePath
   }
   if (

@@ -2,12 +2,16 @@ package rpc
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func TestListScheduledTasksRedactsConsoleCommandWithoutConsolePermission(t *testing.T) {
@@ -151,6 +155,149 @@ func TestGetScheduledTaskLogsRedactsConsoleMessagesWithoutConsolePermission(t *t
 	}
 	if consoleResponse.Msg.GetLogs()[0].GetMessage() != "sent command: say secret" {
 		t.Fatalf("GetScheduledTaskLogs(console) message = %q, want %q", consoleResponse.Msg.GetLogs()[0].GetMessage(), "sent command: say secret")
+	}
+}
+
+func TestCreateScheduledTaskBackupRequiresBackupPermission(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	assignScheduledTaskRole(t, fixture, "user-other", "role-scheduled-task-backup-base", permissionScheduledTasks)
+
+	request := connect.NewRequest(&xylona.CreateScheduledTaskRequest{
+		GameServerId:   "server-local-1",
+		Name:           "Nightly Backup",
+		TaskType:       "backup",
+		CronExpression: "0 3 * * *",
+		Timezone:       "UTC",
+		Enabled:        true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-other")
+
+	_, errCreate := fixture.service.CreateScheduledTask(context.Background(), request)
+	if errCreate == nil {
+		t.Fatal("CreateScheduledTask(backup) error = nil, want permission denied")
+	}
+	if connect.CodeOf(errCreate) != connect.CodePermissionDenied {
+		t.Fatalf("CreateScheduledTask(backup) code = %v, want %v", connect.CodeOf(errCreate), connect.CodePermissionDenied)
+	}
+	if !strings.Contains(errCreate.Error(), permissionBackup) {
+		t.Fatalf("CreateScheduledTask(backup) error = %q, want mention of %q", errCreate.Error(), permissionBackup)
+	}
+}
+
+func TestCreateScheduledTaskBackupRejectsDisabledBackups(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:             omit.From("server-local-1"),
+		BackupsEnabled: omit.From(false),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.CreateScheduledTaskRequest{
+		GameServerId:   "server-local-1",
+		Name:           "Nightly Backup",
+		TaskType:       "backup",
+		CronExpression: "0 3 * * *",
+		Timezone:       "UTC",
+		Enabled:        true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errCreate := fixture.service.CreateScheduledTask(context.Background(), request)
+	if errCreate == nil {
+		t.Fatal("CreateScheduledTask(backup disabled) error = nil, want failed precondition")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeFailedPrecondition {
+		t.Fatalf("CreateScheduledTask(backup disabled) code = %v, want %v", connect.CodeOf(errCreate), connect.CodeFailedPrecondition)
+	}
+	if errCreate.Error() != "failed_precondition: Backups are disabled for this server." {
+		t.Fatalf("CreateScheduledTask(backup disabled) error = %q, want exact disabled message", errCreate.Error())
+	}
+}
+
+func TestCreateScheduledTaskBackupRejectsInvalidBackupDirectory(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-local-1")
+	if errGetServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGetServer)
+	}
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From(filepath.Join(gameServer.Directory, "backups")),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.CreateScheduledTaskRequest{
+		GameServerId:   "server-local-1",
+		Name:           "Nightly Backup",
+		TaskType:       "backup",
+		CronExpression: "0 3 * * *",
+		Timezone:       "UTC",
+		Enabled:        true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errCreate := fixture.service.CreateScheduledTask(context.Background(), request)
+	if errCreate == nil {
+		t.Fatal("CreateScheduledTask(invalid backup directory) error = nil, want failed precondition")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeFailedPrecondition {
+		t.Fatalf("CreateScheduledTask(invalid backup directory) code = %v, want %v", connect.CodeOf(errCreate), connect.CodeFailedPrecondition)
+	}
+	if errCreate.Error() != "failed_precondition: Backup directory is not valid for this server." {
+		t.Fatalf("CreateScheduledTask(invalid backup directory) error = %q, want invalid directory message", errCreate.Error())
+	}
+}
+
+func TestCreateScheduledTaskBackupSucceeds(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From("/srv/xylona-backups"),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.CreateScheduledTaskRequest{
+		GameServerId:   "server-local-1",
+		Name:           "Nightly Backup",
+		TaskType:       "backup",
+		CronExpression: "0 3 * * *",
+		Timezone:       "UTC",
+		Enabled:        true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errCreate := fixture.service.CreateScheduledTask(context.Background(), request)
+	if errCreate != nil {
+		t.Fatalf("CreateScheduledTask(backup) error = %v", errCreate)
+	}
+	if response.Msg.GetTask() == nil {
+		t.Fatal("CreateScheduledTask(backup) returned nil task")
+	}
+	if response.Msg.GetTask().GetTaskType() != "backup" {
+		t.Fatalf("CreateScheduledTask(backup).Task.TaskType = %q, want %q", response.Msg.GetTask().GetTaskType(), "backup")
+	}
+
+	storedTask, errGetTask := fixture.conn.GetScheduledTaskByID(response.Msg.GetTask().GetId())
+	if errGetTask != nil {
+		t.Fatalf("GetScheduledTaskByID() error = %v", errGetTask)
+	}
+	if storedTask.TaskType != "backup" {
+		t.Fatalf("GetScheduledTaskByID().TaskType = %q, want %q", storedTask.TaskType, "backup")
 	}
 }
 

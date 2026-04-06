@@ -339,6 +339,27 @@ const (
 	// XylonaGetScheduledTaskLogsProcedure is the fully-qualified name of the Xylona's
 	// GetScheduledTaskLogs RPC.
 	XylonaGetScheduledTaskLogsProcedure = "/xylona.Xylona/GetScheduledTaskLogs"
+	// XylonaGetGameServerBackupOverviewProcedure is the fully-qualified name of the Xylona's
+	// GetGameServerBackupOverview RPC.
+	XylonaGetGameServerBackupOverviewProcedure = "/xylona.Xylona/GetGameServerBackupOverview"
+	// XylonaGetBackupSettingsProcedure is the fully-qualified name of the Xylona's GetBackupSettings
+	// RPC.
+	XylonaGetBackupSettingsProcedure = "/xylona.Xylona/GetBackupSettings"
+	// XylonaUpdateBackupSettingsProcedure is the fully-qualified name of the Xylona's
+	// UpdateBackupSettings RPC.
+	XylonaUpdateBackupSettingsProcedure = "/xylona.Xylona/UpdateBackupSettings"
+	// XylonaListGameServerBackupsProcedure is the fully-qualified name of the Xylona's
+	// ListGameServerBackups RPC.
+	XylonaListGameServerBackupsProcedure = "/xylona.Xylona/ListGameServerBackups"
+	// XylonaCreateGameServerBackupProcedure is the fully-qualified name of the Xylona's
+	// CreateGameServerBackup RPC.
+	XylonaCreateGameServerBackupProcedure = "/xylona.Xylona/CreateGameServerBackup"
+	// XylonaDeleteGameServerBackupProcedure is the fully-qualified name of the Xylona's
+	// DeleteGameServerBackup RPC.
+	XylonaDeleteGameServerBackupProcedure = "/xylona.Xylona/DeleteGameServerBackup"
+	// XylonaRestoreGameServerBackupProcedure is the fully-qualified name of the Xylona's
+	// RestoreGameServerBackup RPC.
+	XylonaRestoreGameServerBackupProcedure = "/xylona.Xylona/RestoreGameServerBackup"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
@@ -489,6 +510,14 @@ type XylonaClient interface {
 	UpdateScheduledTask(context.Context, *connect.Request[xylona.UpdateScheduledTaskRequest]) (*connect.Response[xylona.UpdateScheduledTaskResponse], error)
 	DeleteScheduledTask(context.Context, *connect.Request[xylona.DeleteScheduledTaskRequest]) (*connect.Response[xylona.DeleteScheduledTaskResponse], error)
 	GetScheduledTaskLogs(context.Context, *connect.Request[xylona.GetScheduledTaskLogsRequest]) (*connect.Response[xylona.GetScheduledTaskLogsResponse], error)
+	// Backups
+	GetGameServerBackupOverview(context.Context, *connect.Request[xylona.GetGameServerBackupOverviewRequest]) (*connect.Response[xylona.GetGameServerBackupOverviewResponse], error)
+	GetBackupSettings(context.Context, *connect.Request[xylona.GetBackupSettingsRequest]) (*connect.Response[xylona.GetBackupSettingsResponse], error)
+	UpdateBackupSettings(context.Context, *connect.Request[xylona.UpdateBackupSettingsRequest]) (*connect.Response[xylona.UpdateBackupSettingsResponse], error)
+	ListGameServerBackups(context.Context, *connect.Request[xylona.ListGameServerBackupsRequest]) (*connect.Response[xylona.ListGameServerBackupsResponse], error)
+	CreateGameServerBackup(context.Context, *connect.Request[xylona.CreateGameServerBackupRequest]) (*connect.Response[xylona.CreateGameServerBackupResponse], error)
+	DeleteGameServerBackup(context.Context, *connect.Request[xylona.DeleteGameServerBackupRequest]) (*connect.Response[xylona.DeleteGameServerBackupResponse], error)
+	RestoreGameServerBackup(context.Context, *connect.Request[xylona.RestoreGameServerBackupRequest]) (*connect.Response[xylona.RestoreGameServerBackupResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -1240,6 +1269,48 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("GetScheduledTaskLogs")),
 			connect.WithClientOptions(opts...),
 		),
+		getGameServerBackupOverview: connect.NewClient[xylona.GetGameServerBackupOverviewRequest, xylona.GetGameServerBackupOverviewResponse](
+			httpClient,
+			baseURL+XylonaGetGameServerBackupOverviewProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameServerBackupOverview")),
+			connect.WithClientOptions(opts...),
+		),
+		getBackupSettings: connect.NewClient[xylona.GetBackupSettingsRequest, xylona.GetBackupSettingsResponse](
+			httpClient,
+			baseURL+XylonaGetBackupSettingsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetBackupSettings")),
+			connect.WithClientOptions(opts...),
+		),
+		updateBackupSettings: connect.NewClient[xylona.UpdateBackupSettingsRequest, xylona.UpdateBackupSettingsResponse](
+			httpClient,
+			baseURL+XylonaUpdateBackupSettingsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateBackupSettings")),
+			connect.WithClientOptions(opts...),
+		),
+		listGameServerBackups: connect.NewClient[xylona.ListGameServerBackupsRequest, xylona.ListGameServerBackupsResponse](
+			httpClient,
+			baseURL+XylonaListGameServerBackupsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListGameServerBackups")),
+			connect.WithClientOptions(opts...),
+		),
+		createGameServerBackup: connect.NewClient[xylona.CreateGameServerBackupRequest, xylona.CreateGameServerBackupResponse](
+			httpClient,
+			baseURL+XylonaCreateGameServerBackupProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CreateGameServerBackup")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteGameServerBackup: connect.NewClient[xylona.DeleteGameServerBackupRequest, xylona.DeleteGameServerBackupResponse](
+			httpClient,
+			baseURL+XylonaDeleteGameServerBackupProcedure,
+			connect.WithSchema(xylonaMethods.ByName("DeleteGameServerBackup")),
+			connect.WithClientOptions(opts...),
+		),
+		restoreGameServerBackup: connect.NewClient[xylona.RestoreGameServerBackupRequest, xylona.RestoreGameServerBackupResponse](
+			httpClient,
+			baseURL+XylonaRestoreGameServerBackupProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RestoreGameServerBackup")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1368,6 +1439,13 @@ type xylonaClient struct {
 	updateScheduledTask              *connect.Client[xylona.UpdateScheduledTaskRequest, xylona.UpdateScheduledTaskResponse]
 	deleteScheduledTask              *connect.Client[xylona.DeleteScheduledTaskRequest, xylona.DeleteScheduledTaskResponse]
 	getScheduledTaskLogs             *connect.Client[xylona.GetScheduledTaskLogsRequest, xylona.GetScheduledTaskLogsResponse]
+	getGameServerBackupOverview      *connect.Client[xylona.GetGameServerBackupOverviewRequest, xylona.GetGameServerBackupOverviewResponse]
+	getBackupSettings                *connect.Client[xylona.GetBackupSettingsRequest, xylona.GetBackupSettingsResponse]
+	updateBackupSettings             *connect.Client[xylona.UpdateBackupSettingsRequest, xylona.UpdateBackupSettingsResponse]
+	listGameServerBackups            *connect.Client[xylona.ListGameServerBackupsRequest, xylona.ListGameServerBackupsResponse]
+	createGameServerBackup           *connect.Client[xylona.CreateGameServerBackupRequest, xylona.CreateGameServerBackupResponse]
+	deleteGameServerBackup           *connect.Client[xylona.DeleteGameServerBackupRequest, xylona.DeleteGameServerBackupResponse]
+	restoreGameServerBackup          *connect.Client[xylona.RestoreGameServerBackupRequest, xylona.RestoreGameServerBackupResponse]
 }
 
 // AddGame calls xylona.Xylona.AddGame.
@@ -1985,6 +2063,41 @@ func (c *xylonaClient) GetScheduledTaskLogs(ctx context.Context, req *connect.Re
 	return c.getScheduledTaskLogs.CallUnary(ctx, req)
 }
 
+// GetGameServerBackupOverview calls xylona.Xylona.GetGameServerBackupOverview.
+func (c *xylonaClient) GetGameServerBackupOverview(ctx context.Context, req *connect.Request[xylona.GetGameServerBackupOverviewRequest]) (*connect.Response[xylona.GetGameServerBackupOverviewResponse], error) {
+	return c.getGameServerBackupOverview.CallUnary(ctx, req)
+}
+
+// GetBackupSettings calls xylona.Xylona.GetBackupSettings.
+func (c *xylonaClient) GetBackupSettings(ctx context.Context, req *connect.Request[xylona.GetBackupSettingsRequest]) (*connect.Response[xylona.GetBackupSettingsResponse], error) {
+	return c.getBackupSettings.CallUnary(ctx, req)
+}
+
+// UpdateBackupSettings calls xylona.Xylona.UpdateBackupSettings.
+func (c *xylonaClient) UpdateBackupSettings(ctx context.Context, req *connect.Request[xylona.UpdateBackupSettingsRequest]) (*connect.Response[xylona.UpdateBackupSettingsResponse], error) {
+	return c.updateBackupSettings.CallUnary(ctx, req)
+}
+
+// ListGameServerBackups calls xylona.Xylona.ListGameServerBackups.
+func (c *xylonaClient) ListGameServerBackups(ctx context.Context, req *connect.Request[xylona.ListGameServerBackupsRequest]) (*connect.Response[xylona.ListGameServerBackupsResponse], error) {
+	return c.listGameServerBackups.CallUnary(ctx, req)
+}
+
+// CreateGameServerBackup calls xylona.Xylona.CreateGameServerBackup.
+func (c *xylonaClient) CreateGameServerBackup(ctx context.Context, req *connect.Request[xylona.CreateGameServerBackupRequest]) (*connect.Response[xylona.CreateGameServerBackupResponse], error) {
+	return c.createGameServerBackup.CallUnary(ctx, req)
+}
+
+// DeleteGameServerBackup calls xylona.Xylona.DeleteGameServerBackup.
+func (c *xylonaClient) DeleteGameServerBackup(ctx context.Context, req *connect.Request[xylona.DeleteGameServerBackupRequest]) (*connect.Response[xylona.DeleteGameServerBackupResponse], error) {
+	return c.deleteGameServerBackup.CallUnary(ctx, req)
+}
+
+// RestoreGameServerBackup calls xylona.Xylona.RestoreGameServerBackup.
+func (c *xylonaClient) RestoreGameServerBackup(ctx context.Context, req *connect.Request[xylona.RestoreGameServerBackupRequest]) (*connect.Response[xylona.RestoreGameServerBackupResponse], error) {
+	return c.restoreGameServerBackup.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// Game Operations
@@ -2133,6 +2246,14 @@ type XylonaHandler interface {
 	UpdateScheduledTask(context.Context, *connect.Request[xylona.UpdateScheduledTaskRequest]) (*connect.Response[xylona.UpdateScheduledTaskResponse], error)
 	DeleteScheduledTask(context.Context, *connect.Request[xylona.DeleteScheduledTaskRequest]) (*connect.Response[xylona.DeleteScheduledTaskResponse], error)
 	GetScheduledTaskLogs(context.Context, *connect.Request[xylona.GetScheduledTaskLogsRequest]) (*connect.Response[xylona.GetScheduledTaskLogsResponse], error)
+	// Backups
+	GetGameServerBackupOverview(context.Context, *connect.Request[xylona.GetGameServerBackupOverviewRequest]) (*connect.Response[xylona.GetGameServerBackupOverviewResponse], error)
+	GetBackupSettings(context.Context, *connect.Request[xylona.GetBackupSettingsRequest]) (*connect.Response[xylona.GetBackupSettingsResponse], error)
+	UpdateBackupSettings(context.Context, *connect.Request[xylona.UpdateBackupSettingsRequest]) (*connect.Response[xylona.UpdateBackupSettingsResponse], error)
+	ListGameServerBackups(context.Context, *connect.Request[xylona.ListGameServerBackupsRequest]) (*connect.Response[xylona.ListGameServerBackupsResponse], error)
+	CreateGameServerBackup(context.Context, *connect.Request[xylona.CreateGameServerBackupRequest]) (*connect.Response[xylona.CreateGameServerBackupResponse], error)
+	DeleteGameServerBackup(context.Context, *connect.Request[xylona.DeleteGameServerBackupRequest]) (*connect.Response[xylona.DeleteGameServerBackupResponse], error)
+	RestoreGameServerBackup(context.Context, *connect.Request[xylona.RestoreGameServerBackupRequest]) (*connect.Response[xylona.RestoreGameServerBackupResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -2880,6 +3001,48 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("GetScheduledTaskLogs")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetGameServerBackupOverviewHandler := connect.NewUnaryHandler(
+		XylonaGetGameServerBackupOverviewProcedure,
+		svc.GetGameServerBackupOverview,
+		connect.WithSchema(xylonaMethods.ByName("GetGameServerBackupOverview")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetBackupSettingsHandler := connect.NewUnaryHandler(
+		XylonaGetBackupSettingsProcedure,
+		svc.GetBackupSettings,
+		connect.WithSchema(xylonaMethods.ByName("GetBackupSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateBackupSettingsHandler := connect.NewUnaryHandler(
+		XylonaUpdateBackupSettingsProcedure,
+		svc.UpdateBackupSettings,
+		connect.WithSchema(xylonaMethods.ByName("UpdateBackupSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListGameServerBackupsHandler := connect.NewUnaryHandler(
+		XylonaListGameServerBackupsProcedure,
+		svc.ListGameServerBackups,
+		connect.WithSchema(xylonaMethods.ByName("ListGameServerBackups")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaCreateGameServerBackupHandler := connect.NewUnaryHandler(
+		XylonaCreateGameServerBackupProcedure,
+		svc.CreateGameServerBackup,
+		connect.WithSchema(xylonaMethods.ByName("CreateGameServerBackup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaDeleteGameServerBackupHandler := connect.NewUnaryHandler(
+		XylonaDeleteGameServerBackupProcedure,
+		svc.DeleteGameServerBackup,
+		connect.WithSchema(xylonaMethods.ByName("DeleteGameServerBackup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRestoreGameServerBackupHandler := connect.NewUnaryHandler(
+		XylonaRestoreGameServerBackupProcedure,
+		svc.RestoreGameServerBackup,
+		connect.WithSchema(xylonaMethods.ByName("RestoreGameServerBackup")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaAddGameProcedure:
@@ -3128,6 +3291,20 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaDeleteScheduledTaskHandler.ServeHTTP(w, r)
 		case XylonaGetScheduledTaskLogsProcedure:
 			xylonaGetScheduledTaskLogsHandler.ServeHTTP(w, r)
+		case XylonaGetGameServerBackupOverviewProcedure:
+			xylonaGetGameServerBackupOverviewHandler.ServeHTTP(w, r)
+		case XylonaGetBackupSettingsProcedure:
+			xylonaGetBackupSettingsHandler.ServeHTTP(w, r)
+		case XylonaUpdateBackupSettingsProcedure:
+			xylonaUpdateBackupSettingsHandler.ServeHTTP(w, r)
+		case XylonaListGameServerBackupsProcedure:
+			xylonaListGameServerBackupsHandler.ServeHTTP(w, r)
+		case XylonaCreateGameServerBackupProcedure:
+			xylonaCreateGameServerBackupHandler.ServeHTTP(w, r)
+		case XylonaDeleteGameServerBackupProcedure:
+			xylonaDeleteGameServerBackupHandler.ServeHTTP(w, r)
+		case XylonaRestoreGameServerBackupProcedure:
+			xylonaRestoreGameServerBackupHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3627,4 +3804,32 @@ func (UnimplementedXylonaHandler) DeleteScheduledTask(context.Context, *connect.
 
 func (UnimplementedXylonaHandler) GetScheduledTaskLogs(context.Context, *connect.Request[xylona.GetScheduledTaskLogsRequest]) (*connect.Response[xylona.GetScheduledTaskLogsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetScheduledTaskLogs is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameServerBackupOverview(context.Context, *connect.Request[xylona.GetGameServerBackupOverviewRequest]) (*connect.Response[xylona.GetGameServerBackupOverviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerBackupOverview is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetBackupSettings(context.Context, *connect.Request[xylona.GetBackupSettingsRequest]) (*connect.Response[xylona.GetBackupSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetBackupSettings is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateBackupSettings(context.Context, *connect.Request[xylona.UpdateBackupSettingsRequest]) (*connect.Response[xylona.UpdateBackupSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateBackupSettings is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListGameServerBackups(context.Context, *connect.Request[xylona.ListGameServerBackupsRequest]) (*connect.Response[xylona.ListGameServerBackupsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListGameServerBackups is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CreateGameServerBackup(context.Context, *connect.Request[xylona.CreateGameServerBackupRequest]) (*connect.Response[xylona.CreateGameServerBackupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CreateGameServerBackup is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) DeleteGameServerBackup(context.Context, *connect.Request[xylona.DeleteGameServerBackupRequest]) (*connect.Response[xylona.DeleteGameServerBackupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteGameServerBackup is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RestoreGameServerBackup(context.Context, *connect.Request[xylona.RestoreGameServerBackupRequest]) (*connect.Response[xylona.RestoreGameServerBackupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RestoreGameServerBackup is not implemented"))
 }

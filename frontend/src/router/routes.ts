@@ -136,6 +136,10 @@ const routes: RouteRecordRaw[] = [
             component: () => import('pages/game_servers/GameServerSchedules.vue'),
           },
           {
+            path: 'backups',
+            component: () => import('pages/game_servers/GameServerBackups.vue'),
+          },
+          {
             path: 'access',
             component: () => import('components/game_servers/GameServerAccess.vue'),
           },

@@ -104,6 +104,8 @@ func requiredPermissionsForTaskType(taskType string) []string {
 		return []string{"game_server.restart"}
 	case "console_command":
 		return []string{"game_server.console"}
+	case "backup":
+		return []string{permissionBackup}
 	default:
 		return nil
 	}
@@ -115,8 +117,8 @@ func validateScheduledTaskInput(name, taskType, cronExpression, timezone, consol
 	if name == "" {
 		return errors.New("name is required")
 	}
-	if taskType != "restart" && taskType != "console_command" {
-		return errors.New("task_type must be 'restart' or 'console_command'")
+	if taskType != "restart" && taskType != "console_command" && taskType != "backup" {
+		return errors.New("task_type must be 'restart', 'console_command', or 'backup'")
 	}
 	if cronExpression == "" {
 		return errors.New("cron_expression is required")
@@ -240,6 +242,13 @@ func (xs *XylonaService) CreateScheduledTask(
 		}
 	}
 
+	if taskType == "backup" {
+		operationsAllowed, disabledReason := backupOperationsAllowed(gameServer)
+		if !operationsAllowed {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
+		}
+	}
+
 	// Validate input.
 	errValidate := validateScheduledTaskInput(
 		request.Msg.GetName(),
@@ -328,6 +337,13 @@ func (xs *XylonaService) UpdateScheduledTask(
 		if errActionPerm != nil {
 			return nil, connect.NewError(connect.CodePermissionDenied,
 				fmt.Errorf("a '%s' task requires '%s' permission", taskType, perm))
+		}
+	}
+
+	if taskType == "backup" {
+		operationsAllowed, disabledReason := backupOperationsAllowed(gameServer)
+		if !operationsAllowed {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 		}
 	}
 

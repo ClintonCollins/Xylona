@@ -42,7 +42,13 @@ describe('buildGameServerTabs', () => {
       'Metrics',
       'Start Command',
       'Settings',
+      'Backups',
     ])
+  })
+
+  it('shows Backups tab when user has backup permission', () => {
+    const tabs = buildGameServerTabs(serverID, ['game_server.backup'], false)
+    expect(tabs.map((t) => t.name)).toContain('Backups')
   })
 
   it('hides Start Command tab when editing is disabled for non-superusers', () => {
@@ -162,6 +168,26 @@ describe('getUnauthorizedRedirect', () => {
 
   it('returns null for console path regardless of permissions', () => {
     const result = getUnauthorizedRedirect(consolePath, serverID, [], false)
+    expect(result).toBeNull()
+  })
+
+  it('redirects /backups when missing backup permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/backups`,
+      serverID,
+      ['game_server.view'],
+      false,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('returns null for /backups when user has backup permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/backups`,
+      serverID,
+      ['game_server.backup'],
+      false,
+    )
     expect(result).toBeNull()
   })
 

@@ -1,0 +1,610 @@
+package rpc
+
+import (
+	"archive/zip"
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"connectrpc.com/connect"
+	"github.com/aarondl/opt/omit"
+
+	"github.com/ClintonCollins/Xylona/actions"
+	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/supervisor"
+)
+
+func TestGetBackupSettingsRequiresBackupPermission(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.GetBackupSettingsRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-other")
+
+	_, errGet := fixture.service.GetBackupSettings(context.Background(), request)
+	if errGet == nil {
+		t.Fatal("GetBackupSettings(without backup permission) error = nil, want permission denied")
+	}
+	if connect.CodeOf(errGet) != connect.CodePermissionDenied {
+		t.Fatalf("GetBackupSettings(without backup permission) code = %v, want %v", connect.CodeOf(errGet), connect.CodePermissionDenied)
+	}
+}
+
+func TestGetBackupSettingsRedactsDirectoryForNonSuperuser(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From("/srv/backups"),
+		MaxBackups:      omit.From(int64(7)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.GetBackupSettingsRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetBackupSettings(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetBackupSettings(non-superuser) error = %v", errGet)
+	}
+
+	settings := response.Msg.GetSettings()
+	if settings == nil {
+		t.Fatal("GetBackupSettings(non-superuser) returned nil settings")
+	}
+	if !settings.GetBackupsEnabled() {
+		t.Fatal("GetBackupSettings(non-superuser).BackupsEnabled = false, want true")
+	}
+	if settings.GetBackupDirectory() != "" {
+		t.Fatalf("GetBackupSettings(non-superuser).BackupDirectory = %q, want empty", settings.GetBackupDirectory())
+	}
+	if settings.GetMaxBackups() != 7 {
+		t.Fatalf("GetBackupSettings(non-superuser).MaxBackups = %d, want %d", settings.GetMaxBackups(), 7)
+	}
+}
+
+func TestGetBackupSettingsDefaultsDirectoryForSuperuserWhenBlank(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-local-1")
+	if errGetServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGetServer)
+	}
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(false),
+		BackupDirectory: omit.From(""),
+		MaxBackups:      omit.From(int64(0)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.GetBackupSettingsRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	response, errGet := fixture.service.GetBackupSettings(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetBackupSettings(superuser) error = %v", errGet)
+	}
+
+	settings := response.Msg.GetSettings()
+	if settings == nil {
+		t.Fatal("GetBackupSettings(superuser) returned nil settings")
+	}
+
+	wantBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+	if settings.GetBackupDirectory() != wantBackupDirectory {
+		t.Fatalf("GetBackupSettings(superuser).BackupDirectory = %q, want %q", settings.GetBackupDirectory(), wantBackupDirectory)
+	}
+	if settings.GetDefaultBackupDirectory() != wantBackupDirectory {
+		t.Fatalf(
+			"GetBackupSettings(superuser).DefaultBackupDirectory = %q, want %q",
+			settings.GetDefaultBackupDirectory(),
+			wantBackupDirectory,
+		)
+	}
+}
+
+func TestGetGameServerBackupOverviewReturnsDisabledState(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.GetGameServerBackupOverviewRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetGameServerBackupOverview(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServerBackupOverview() error = %v", errGet)
+	}
+
+	overview := response.Msg.GetOverview()
+	if overview == nil {
+		t.Fatal("GetGameServerBackupOverview() returned nil overview")
+	}
+	if overview.GetEnabled() {
+		t.Fatal("GetGameServerBackupOverview().Enabled = true, want false")
+	}
+	if overview.GetOperationsAllowed() {
+		t.Fatal("GetGameServerBackupOverview().OperationsAllowed = true, want false")
+	}
+	if overview.GetDisabledReason() != backupDisabledReasonBackupsDisabled {
+		t.Fatalf("GetGameServerBackupOverview().DisabledReason = %q, want %q", overview.GetDisabledReason(), backupDisabledReasonBackupsDisabled)
+	}
+	if overview.GetScheduledBackupCount() != 0 {
+		t.Fatalf("GetGameServerBackupOverview().ScheduledBackupCount = %d, want %d", overview.GetScheduledBackupCount(), 0)
+	}
+	if overview.GetCanManageSettings() {
+		t.Fatal("GetGameServerBackupOverview().CanManageSettings = true, want false")
+	}
+	if !overview.GetLocalServer() {
+		t.Fatal("GetGameServerBackupOverview().LocalServer = false, want true")
+	}
+}
+
+func TestCreateGameServerBackupRequiresBackupPermission(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.CreateGameServerBackupRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-other")
+
+	_, errCreate := fixture.service.CreateGameServerBackup(context.Background(), request)
+	if errCreate == nil {
+		t.Fatal("CreateGameServerBackup() error = nil, want permission denied")
+	}
+	if connect.CodeOf(errCreate) != connect.CodePermissionDenied {
+		t.Fatalf("CreateGameServerBackup() code = %v, want %v", connect.CodeOf(errCreate), connect.CodePermissionDenied)
+	}
+}
+
+func TestCreateGameServerBackupRejectsUnsafeBackupDirectory(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-local-1")
+	if errGetServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGetServer)
+	}
+
+	unsafeBackupDirectory := filepath.Join(gameServer.Directory, "backups")
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From(unsafeBackupDirectory),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.CreateGameServerBackupRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errCreate := fixture.service.CreateGameServerBackup(context.Background(), request)
+	if errCreate == nil {
+		t.Fatal("CreateGameServerBackup() error = nil, want failed precondition")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeFailedPrecondition {
+		t.Fatalf("CreateGameServerBackup() code = %v, want %v", connect.CodeOf(errCreate), connect.CodeFailedPrecondition)
+	}
+	if errCreate.Error() != "failed_precondition: Backup directory is not valid for this server." {
+		t.Fatalf("CreateGameServerBackup() error = %q, want invalid directory message", errCreate.Error())
+	}
+}
+
+func TestGetGameServerRedactsBackupDirectoryForNonSuperuser(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+	fixture.service.supervisorInst = supervisorInst
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From("/srv/backups"),
+		MaxBackups:      omit.From(int64(7)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.GetGameServerRequest{
+		Id: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetGameServer(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServer() error = %v", errGet)
+	}
+
+	gameServer := response.Msg.GetGameServer()
+	if gameServer == nil {
+		t.Fatal("GetGameServer() returned nil game server")
+	}
+	if !gameServer.GetBackupsEnabled() {
+		t.Fatal("GetGameServer().BackupsEnabled = false, want true")
+	}
+	if gameServer.GetBackupDirectory() != "" {
+		t.Fatalf("GetGameServer().BackupDirectory = %q, want empty", gameServer.GetBackupDirectory())
+	}
+	if gameServer.GetMaxBackups() != 7 {
+		t.Fatalf("GetGameServer().MaxBackups = %d, want %d", gameServer.GetMaxBackups(), 7)
+	}
+}
+
+func TestDeleteGameServerBackupRejectsDifferentNode(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From("/srv/backups"),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	_, errNode := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into node (id, name, is_local, host, port, base_url, enabled, os)
+		 values (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"node-remote", "Remote Node", false, "remotehost", 9080, "http://remotehost:9080", true, "linux",
+	)
+	if errNode != nil {
+		t.Fatalf("insert node-remote error = %v", errNode)
+	}
+
+	backup, errCreate := fixture.conn.CreateGameServerBackup(db.CreateGameServerBackupParams{
+		GameServerID:    "server-local-1",
+		NodeID:          "node-remote",
+		CreatedBy:       "user-owner",
+		TriggerSource:   "manual",
+		ArchivePath:     "/srv/backups/server-local-1/cross-node.zip",
+		ArchiveRoot:     "/srv/backups",
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       12,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC),
+	})
+	if errCreate != nil {
+		t.Fatalf("CreateGameServerBackup() error = %v", errCreate)
+	}
+
+	request := connect.NewRequest(&xylona.DeleteGameServerBackupRequest{
+		GameServerId: "server-local-1",
+		BackupId:     backup.ID,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errDelete := fixture.service.DeleteGameServerBackup(context.Background(), request)
+	if errDelete == nil {
+		t.Fatal("DeleteGameServerBackup() error = nil, want failed precondition")
+	}
+	if connect.CodeOf(errDelete) != connect.CodeFailedPrecondition {
+		t.Fatalf("DeleteGameServerBackup() code = %v, want %v", connect.CodeOf(errDelete), connect.CodeFailedPrecondition)
+	}
+}
+
+func TestRestoreGameServerBackupAllowsHistoricalArchiveWithBlankCurrentBackupDirectory(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	serverDir := filepath.Join(t.TempDir(), "server-local-1")
+	errMkdirServer := os.MkdirAll(serverDir, 0o750)
+	if errMkdirServer != nil {
+		t.Fatalf("MkdirAll(serverDir) error = %v", errMkdirServer)
+	}
+
+	errWrite := os.WriteFile(filepath.Join(serverDir, "state.txt"), []byte("before"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
+	}
+
+	archiveRoot := filepath.Join(t.TempDir(), "historical-backups")
+	archiveDir := filepath.Join(archiveRoot, "server-local-1")
+	errMkdirArchive := os.MkdirAll(archiveDir, 0o750)
+	if errMkdirArchive != nil {
+		t.Fatalf("MkdirAll(archiveDir) error = %v", errMkdirArchive)
+	}
+
+	archivePath := filepath.Join(archiveDir, "restore.zip")
+	writeTestBackupZip(t, archivePath, map[string]string{
+		"state.txt": "after",
+	})
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		Directory:       omit.From(serverDir),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From(""),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	backup, errCreateBackup := fixture.conn.CreateGameServerBackup(db.CreateGameServerBackupParams{
+		GameServerID:    "server-local-1",
+		NodeID:          "node-local",
+		CreatedBy:       "user-owner",
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     archiveRoot,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       12,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 6, 10, 0, 0, 0, time.UTC),
+	})
+	if errCreateBackup != nil {
+		t.Fatalf("CreateGameServerBackup() error = %v", errCreateBackup)
+	}
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(),
+		fixture.conn,
+		supervisorInst,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	request := connect.NewRequest(&xylona.RestoreGameServerBackupRequest{
+		GameServerId: "server-local-1",
+		BackupId:     backup.ID,
+		RestoreMode:  xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_OVERLAY,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errRestore := fixture.service.RestoreGameServerBackup(context.Background(), request)
+	if errRestore != nil {
+		t.Fatalf("RestoreGameServerBackup() error = %v", errRestore)
+	}
+
+	restoredContents, errRead := os.ReadFile(filepath.Join(serverDir, "state.txt"))
+	if errRead != nil {
+		t.Fatalf("ReadFile(state.txt) error = %v", errRead)
+	}
+	if string(restoredContents) != "after" {
+		t.Fatalf("state.txt = %q, want %q", string(restoredContents), "after")
+	}
+}
+
+func TestRestoreGameServerBackupHidesInternalRestoreErrors(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	serverDir := filepath.Join(t.TempDir(), "server-local-1")
+	errMkdirServer := os.MkdirAll(serverDir, 0o750)
+	if errMkdirServer != nil {
+		t.Fatalf("MkdirAll(serverDir) error = %v", errMkdirServer)
+	}
+
+	archiveRoot := filepath.Join(t.TempDir(), "historical-backups")
+	archivePath := filepath.Join(archiveRoot, "server-local-1", "missing.zip")
+	errMkdirArchive := os.MkdirAll(filepath.Dir(archivePath), 0o750)
+	if errMkdirArchive != nil {
+		t.Fatalf("MkdirAll(archivePath dir) error = %v", errMkdirArchive)
+	}
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		Directory:       omit.From(serverDir),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From(archiveRoot),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	backup, errCreateBackup := fixture.conn.CreateGameServerBackup(db.CreateGameServerBackupParams{
+		GameServerID:    "server-local-1",
+		NodeID:          "node-local",
+		CreatedBy:       "user-owner",
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     archiveRoot,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       12,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 6, 10, 0, 0, 0, time.UTC),
+	})
+	if errCreateBackup != nil {
+		t.Fatalf("CreateGameServerBackup() error = %v", errCreateBackup)
+	}
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(),
+		fixture.conn,
+		supervisorInst,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	request := connect.NewRequest(&xylona.RestoreGameServerBackupRequest{
+		GameServerId: "server-local-1",
+		BackupId:     backup.ID,
+		RestoreMode:  xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_OVERLAY,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errRestore := fixture.service.RestoreGameServerBackup(context.Background(), request)
+	if errRestore == nil {
+		t.Fatal("RestoreGameServerBackup() error = nil, want internal error")
+	}
+	if connect.CodeOf(errRestore) != connect.CodeInternal {
+		t.Fatalf("RestoreGameServerBackup() code = %v, want %v", connect.CodeOf(errRestore), connect.CodeInternal)
+	}
+	if errRestore.Error() != "internal: failed to restore backup" {
+		t.Fatalf("RestoreGameServerBackup() error = %q, want generic internal restore message", errRestore.Error())
+	}
+}
+
+func TestUpdateBackupSettingsRejectsUnsafeBackupDirectory(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-local-1")
+	if errGetServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGetServer)
+	}
+
+	request := connect.NewRequest(&xylona.UpdateBackupSettingsRequest{
+		GameServerId:    "server-local-1",
+		BackupsEnabled:  true,
+		BackupDirectory: filepath.Join(gameServer.Directory, "backups"),
+		MaxBackups:      5,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	_, errUpdate := fixture.service.UpdateBackupSettings(context.Background(), request)
+	if errUpdate == nil {
+		t.Fatal("UpdateBackupSettings() error = nil, want invalid argument")
+	}
+	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
+		t.Fatalf("UpdateBackupSettings() code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
+	}
+	if errUpdate.Error() != "invalid_argument: Backup directory is not valid for this server." {
+		t.Fatalf("UpdateBackupSettings() error = %q, want invalid directory message", errUpdate.Error())
+	}
+}
+
+func TestUpdateBackupSettingsDefaultsBackupDirectoryWhenEnablingLegacyServer(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-local-1")
+	if errGetServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGetServer)
+	}
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(false),
+		BackupDirectory: omit.From(""),
+		MaxBackups:      omit.From(int64(0)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.UpdateBackupSettingsRequest{
+		GameServerId:    "server-local-1",
+		BackupsEnabled:  true,
+		BackupDirectory: "",
+		MaxBackups:      0,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	response, errUpdate := fixture.service.UpdateBackupSettings(context.Background(), request)
+	if errUpdate != nil {
+		t.Fatalf("UpdateBackupSettings() error = %v", errUpdate)
+	}
+
+	settings := response.Msg.GetSettings()
+	if settings == nil {
+		t.Fatal("UpdateBackupSettings() returned nil settings")
+	}
+
+	wantBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+	if !settings.GetBackupsEnabled() {
+		t.Fatal("UpdateBackupSettings().Settings.BackupsEnabled = false, want true")
+	}
+	if settings.GetBackupDirectory() != wantBackupDirectory {
+		t.Fatalf(
+			"UpdateBackupSettings().Settings.BackupDirectory = %q, want %q",
+			settings.GetBackupDirectory(),
+			wantBackupDirectory,
+		)
+	}
+	if settings.GetMaxBackups() != actions.DefaultScheduledBackupRetention {
+		t.Fatalf(
+			"UpdateBackupSettings().Settings.MaxBackups = %d, want %d",
+			settings.GetMaxBackups(),
+			actions.DefaultScheduledBackupRetention,
+		)
+	}
+
+	updatedGameServer, errGetUpdatedServer := fixture.conn.GetGameServerByID("server-local-1")
+	if errGetUpdatedServer != nil {
+		t.Fatalf("GetGameServerByID(updated) error = %v", errGetUpdatedServer)
+	}
+	if !updatedGameServer.BackupsEnabled {
+		t.Fatal("updated game server BackupsEnabled = false, want true")
+	}
+	if updatedGameServer.BackupDirectory != wantBackupDirectory {
+		t.Fatalf("updated game server BackupDirectory = %q, want %q", updatedGameServer.BackupDirectory, wantBackupDirectory)
+	}
+	if updatedGameServer.MaxBackups != actions.DefaultScheduledBackupRetention {
+		t.Fatalf(
+			"updated game server MaxBackups = %d, want %d",
+			updatedGameServer.MaxBackups,
+			actions.DefaultScheduledBackupRetention,
+		)
+	}
+}
+
+func writeTestBackupZip(t *testing.T, archivePath string, files map[string]string) {
+	t.Helper()
+
+	archiveFile, errCreate := os.Create(archivePath)
+	if errCreate != nil {
+		t.Fatalf("Create(%s) error = %v", archivePath, errCreate)
+	}
+
+	zipWriter := zip.NewWriter(archiveFile)
+	for name, contents := range files {
+		fileWriter, errCreateEntry := zipWriter.Create(name)
+		if errCreateEntry != nil {
+			t.Fatalf("zip.Create(%s) error = %v", name, errCreateEntry)
+		}
+
+		_, errWriteEntry := fileWriter.Write([]byte(contents))
+		if errWriteEntry != nil {
+			t.Fatalf("zip write(%s) error = %v", name, errWriteEntry)
+		}
+	}
+
+	errCloseZip := zipWriter.Close()
+	if errCloseZip != nil {
+		t.Fatalf("zipWriter.Close() error = %v", errCloseZip)
+	}
+
+	errCloseFile := archiveFile.Close()
+	if errCloseFile != nil {
+		t.Fatalf("Close(%s) error = %v", archivePath, errCloseFile)
+	}
+}

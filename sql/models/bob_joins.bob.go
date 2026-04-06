@@ -43,7 +43,6 @@ type joins[Q dialect.Joinable] struct {
 	InstalledMods              joinSet[installedModJoins[Q]]
 	InstalledModFiles          joinSet[installedModFileJoins[Q]]
 	Ips                        joinSet[ipJoins[Q]]
-	Logs                       joinSet[logJoins[Q]]
 	Nodes                      joinSet[nodeJoins[Q]]
 	NodeMetricsHistories       joinSet[nodeMetricsHistoryJoins[Q]]
 	NodeSyncQueues             joinSet[nodeSyncQueueJoins[Q]]
@@ -56,7 +55,6 @@ type joins[Q dialect.Joinable] struct {
 	ScheduledTasks             joinSet[scheduledTaskJoins[Q]]
 	ScheduledTaskLogs          joinSet[scheduledTaskLogJoins[Q]]
 	Users                      joinSet[userJoins[Q]]
-	UserAPIKeys                joinSet[userAPIKeyJoins[Q]]
 	UserRoleAssignments        joinSet[userRoleAssignmentJoins[Q]]
 	UserSessions               joinSet[userSessionJoins[Q]]
 }
@@ -83,7 +81,6 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		InstalledMods:              buildJoinSet[installedModJoins[Q]](InstalledMods.Columns, buildInstalledModJoins),
 		InstalledModFiles:          buildJoinSet[installedModFileJoins[Q]](InstalledModFiles.Columns, buildInstalledModFileJoins),
 		Ips:                        buildJoinSet[ipJoins[Q]](Ips.Columns, buildIPJoins),
-		Logs:                       buildJoinSet[logJoins[Q]](Logs.Columns, buildLogJoins),
 		Nodes:                      buildJoinSet[nodeJoins[Q]](Nodes.Columns, buildNodeJoins),
 		NodeMetricsHistories:       buildJoinSet[nodeMetricsHistoryJoins[Q]](NodeMetricsHistories.Columns, buildNodeMetricsHistoryJoins),
 		NodeSyncQueues:             buildJoinSet[nodeSyncQueueJoins[Q]](NodeSyncQueues.Columns, buildNodeSyncQueueJoins),
@@ -96,7 +93,6 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		ScheduledTasks:             buildJoinSet[scheduledTaskJoins[Q]](ScheduledTasks.Columns, buildScheduledTaskJoins),
 		ScheduledTaskLogs:          buildJoinSet[scheduledTaskLogJoins[Q]](ScheduledTaskLogs.Columns, buildScheduledTaskLogJoins),
 		Users:                      buildJoinSet[userJoins[Q]](Users.Columns, buildUserJoins),
-		UserAPIKeys:                buildJoinSet[userAPIKeyJoins[Q]](UserAPIKeys.Columns, buildUserAPIKeyJoins),
 		UserRoleAssignments:        buildJoinSet[userRoleAssignmentJoins[Q]](UserRoleAssignments.Columns, buildUserRoleAssignmentJoins),
 		UserSessions:               buildJoinSet[userSessionJoins[Q]](UserSessions.Columns, buildUserSessionJoins),
 	}

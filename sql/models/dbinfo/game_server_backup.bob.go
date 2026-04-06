@@ -69,6 +69,15 @@ var GameServerBackups = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		ArchiveRoot: column{
+			Name:      "archive_root",
+			DBType:    "TEXT",
+			Default:   "",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 		ArchiveFormat: column{
 			Name:      "archive_format",
 			DBType:    "TEXT",
@@ -98,8 +107,8 @@ var GameServerBackups = Table[
 		},
 		RetentionExempt: column{
 			Name:      "retention_exempt",
-			DBType:    "INTEGER",
-			Default:   "0",
+			DBType:    "BOOLEAN",
+			Default:   "false",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -134,6 +143,20 @@ var GameServerBackups = Table[
 		},
 	},
 	Indexes: gameServerBackupIndexes{
+		IdxGameServerBackupNodeID: index{
+			Type: "c",
+			Name: "idx_game_server_backup_node_id",
+			Columns: []indexColumn{
+				{
+					Name:         "node_id",
+					Desc:         null.FromCond(false, true),
+					IsExpression: false,
+				},
+			},
+			Unique:  false,
+			Comment: "",
+			Partial: false,
+		},
 		IdxGameServerBackupServerRetention: index{
 			Type: "c",
 			Name: "idx_game_server_backup_server_retention",
@@ -211,6 +234,15 @@ var GameServerBackups = Table[
 		FKGameServerBackup0: foreignKey{
 			constraint: constraint{
 				Name:    "fk_game_server_backup_0",
+				Columns: []string{"node_id"},
+				Comment: "",
+			},
+			ForeignTable:   "node",
+			ForeignColumns: []string{"id"},
+		},
+		FKGameServerBackup1: foreignKey{
+			constraint: constraint{
+				Name:    "fk_game_server_backup_1",
 				Columns: []string{"game_server_id"},
 				Comment: "",
 			},
@@ -229,6 +261,7 @@ type gameServerBackupColumns struct {
 	CreatedBy       column
 	TriggerSource   column
 	ArchivePath     column
+	ArchiveRoot     column
 	ArchiveFormat   column
 	Status          column
 	SizeBytes       column
@@ -240,11 +273,12 @@ type gameServerBackupColumns struct {
 
 func (c gameServerBackupColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.GameServerID, c.NodeID, c.CreatedBy, c.TriggerSource, c.ArchivePath, c.ArchiveFormat, c.Status, c.SizeBytes, c.RetentionExempt, c.ErrorMessage, c.CreatedAt, c.CompletedAt,
+		c.ID, c.GameServerID, c.NodeID, c.CreatedBy, c.TriggerSource, c.ArchivePath, c.ArchiveRoot, c.ArchiveFormat, c.Status, c.SizeBytes, c.RetentionExempt, c.ErrorMessage, c.CreatedAt, c.CompletedAt,
 	}
 }
 
 type gameServerBackupIndexes struct {
+	IdxGameServerBackupNodeID          index
 	IdxGameServerBackupServerRetention index
 	IdxGameServerBackupServerCreatedAt index
 	SqliteAutoindexGameServerBackup1   index
@@ -252,17 +286,18 @@ type gameServerBackupIndexes struct {
 
 func (i gameServerBackupIndexes) AsSlice() []index {
 	return []index{
-		i.IdxGameServerBackupServerRetention, i.IdxGameServerBackupServerCreatedAt, i.SqliteAutoindexGameServerBackup1,
+		i.IdxGameServerBackupNodeID, i.IdxGameServerBackupServerRetention, i.IdxGameServerBackupServerCreatedAt, i.SqliteAutoindexGameServerBackup1,
 	}
 }
 
 type gameServerBackupForeignKeys struct {
 	FKGameServerBackup0 foreignKey
+	FKGameServerBackup1 foreignKey
 }
 
 func (f gameServerBackupForeignKeys) AsSlice() []foreignKey {
 	return []foreignKey{
-		f.FKGameServerBackup0,
+		f.FKGameServerBackup0, f.FKGameServerBackup1,
 	}
 }
 

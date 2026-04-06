@@ -72,10 +72,9 @@ type gameServerR struct {
 	IP                         *IP                           // fk_game_server_1
 	Game                       *Game                         // fk_game_server_2
 	User                       *User                         // fk_game_server_3
-	GameServerBackups          GameServerBackupSlice         // fk_game_server_backup_0
+	GameServerBackups          GameServerBackupSlice         // fk_game_server_backup_1
 	GameServerMetricsHistories GameServerMetricsHistorySlice // fk_game_server_metrics_history_0
 	InstalledMods              InstalledModSlice             // fk_installed_mod_0
-	Logs                       LogSlice                      // fk_log_0
 	ScheduledTasks             ScheduledTaskSlice            // fk_scheduled_task_1
 	UserRoleAssignments        UserRoleAssignmentSlice       // fk_user_role_assignment_1
 }
@@ -1044,25 +1043,6 @@ func (os GameServerSlice) InstalledMods(mods ...bob.Mod[*dialect.SelectQuery]) I
 	)...)
 }
 
-// Logs starts a query for related objects on log
-func (o *GameServer) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
-	return Logs.Query(append(mods,
-		sm.Where(Logs.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
-	)...)
-}
-
-func (os GameServerSlice) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
-	PKArgSlice := make([]bob.Expression, len(os))
-	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
-	}
-	PKArgExpr := sqlite.Group(PKArgSlice...)
-
-	return Logs.Query(append(mods,
-		sm.Where(sqlite.Group(Logs.Columns.GameServerID).OP("IN", PKArgExpr)),
-	)...)
-}
-
 // ScheduledTasks starts a query for related objects on scheduled_task
 func (o *GameServer) ScheduledTasks(mods ...bob.Mod[*dialect.SelectQuery]) ScheduledTasksQuery {
 	return ScheduledTasks.Query(append(mods,
@@ -1565,74 +1545,6 @@ func (gameServer0 *GameServer) AttachInstalledMods(ctx context.Context, exec bob
 	return nil
 }
 
-func insertGameServerLogs0(ctx context.Context, exec bob.Executor, logs1 []*LogSetter, gameServer0 *GameServer) (LogSlice, error) {
-	for i := range logs1 {
-		logs1[i].GameServerID = omitnull.From(gameServer0.ID)
-	}
-
-	ret, err := Logs.Insert(bob.ToMods(logs1...)).All(ctx, exec)
-	if err != nil {
-		return ret, fmt.Errorf("insertGameServerLogs0: %w", err)
-	}
-
-	return ret, nil
-}
-
-func attachGameServerLogs0(ctx context.Context, exec bob.Executor, count int, logs1 LogSlice, gameServer0 *GameServer) (LogSlice, error) {
-	setter := &LogSetter{
-		GameServerID: omitnull.From(gameServer0.ID),
-	}
-
-	err := logs1.UpdateAll(ctx, exec, *setter)
-	if err != nil {
-		return nil, fmt.Errorf("attachGameServerLogs0: %w", err)
-	}
-
-	return logs1, nil
-}
-
-func (gameServer0 *GameServer) InsertLogs(ctx context.Context, exec bob.Executor, related ...*LogSetter) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-
-	logs1, err := insertGameServerLogs0(ctx, exec, related, gameServer0)
-	if err != nil {
-		return err
-	}
-
-	gameServer0.R.Logs = append(gameServer0.R.Logs, logs1...)
-
-	for _, rel := range logs1 {
-		rel.R.GameServer = gameServer0
-	}
-	return nil
-}
-
-func (gameServer0 *GameServer) AttachLogs(ctx context.Context, exec bob.Executor, related ...*Log) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	logs1 := LogSlice(related)
-
-	_, err = attachGameServerLogs0(ctx, exec, len(related), logs1, gameServer0)
-	if err != nil {
-		return err
-	}
-
-	gameServer0.R.Logs = append(gameServer0.R.Logs, logs1...)
-
-	for _, rel := range related {
-		rel.R.GameServer = gameServer0
-	}
-
-	return nil
-}
-
 func insertGameServerScheduledTasks0(ctx context.Context, exec bob.Executor, scheduledTasks1 []*ScheduledTaskSetter, gameServer0 *GameServer) (ScheduledTaskSlice, error) {
 	for i := range scheduledTasks1 {
 		scheduledTasks1[i].GameServerID = omit.From(gameServer0.ID)
@@ -1943,20 +1855,6 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
-	case "Logs":
-		rels, ok := retrieved.(LogSlice)
-		if !ok {
-			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
-		}
-
-		o.R.Logs = rels
-
-		for _, rel := range rels {
-			if rel != nil {
-				rel.R.GameServer = o
-			}
-		}
-		return nil
 	case "ScheduledTasks":
 		rels, ok := retrieved.(ScheduledTaskSlice)
 		if !ok {
@@ -2063,7 +1961,6 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 	GameServerBackups          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	Logs                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	ScheduledTasks             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserRoleAssignments        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
@@ -2092,9 +1989,6 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 	type InstalledModsLoadInterface interface {
 		LoadInstalledMods(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
-	}
-	type LogsLoadInterface interface {
-		LoadLogs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type ScheduledTasksLoadInterface interface {
 		LoadScheduledTasks(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -2150,12 +2044,6 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 			"InstalledMods",
 			func(ctx context.Context, exec bob.Executor, retrieved InstalledModsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadInstalledMods(ctx, exec, mods...)
-			},
-		),
-		Logs: thenLoadBuilder[Q](
-			"Logs",
-			func(ctx context.Context, exec bob.Executor, retrieved LogsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
-				return retrieved.LoadLogs(ctx, exec, mods...)
 			},
 		),
 		ScheduledTasks: thenLoadBuilder[Q](
@@ -2625,70 +2513,6 @@ func (os GameServerSlice) LoadInstalledMods(ctx context.Context, exec bob.Execut
 	return nil
 }
 
-// LoadLogs loads the gameServer's Logs into the .R struct
-func (o *GameServer) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if o == nil {
-		return nil
-	}
-
-	// Reset the relationship
-	o.R.Logs = nil
-
-	related, err := o.Logs(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, rel := range related {
-		rel.R.GameServer = o
-	}
-
-	o.R.Logs = related
-	return nil
-}
-
-// LoadLogs loads the gameServer's Logs into the .R struct
-func (os GameServerSlice) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if len(os) == 0 {
-		return nil
-	}
-
-	logs, err := os.Logs(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		o.R.Logs = nil
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		for _, rel := range logs {
-
-			if !rel.GameServerID.IsValue() {
-				continue
-			}
-			if !(rel.GameServerID.IsValue() && o.ID == rel.GameServerID.MustGet()) {
-				continue
-			}
-
-			rel.R.GameServer = o
-
-			o.R.Logs = append(o.R.Logs, rel)
-		}
-	}
-
-	return nil
-}
-
 // LoadScheduledTasks loads the gameServer's ScheduledTasks into the .R struct
 func (o *GameServer) LoadScheduledTasks(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2824,7 +2648,6 @@ type gameServerJoins[Q dialect.Joinable] struct {
 	GameServerBackups          modAs[Q, gameServerBackupColumns]
 	GameServerMetricsHistories modAs[Q, gameServerMetricsHistoryColumns]
 	InstalledMods              modAs[Q, installedModColumns]
-	Logs                       modAs[Q, logColumns]
 	ScheduledTasks             modAs[Q, scheduledTaskColumns]
 	UserRoleAssignments        modAs[Q, userRoleAssignmentColumns]
 }
@@ -2941,20 +2764,6 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, InstalledMods.Name().As(to.Alias())).On(
-						to.GameServerID.EQ(cols.ID),
-					))
-				}
-
-				return mods
-			},
-		},
-		Logs: modAs[Q, logColumns]{
-			c: Logs.Columns,
-			f: func(to logColumns) bob.Mod[Q] {
-				mods := make(mods.QueryMods[Q], 0, 1)
-
-				{
-					mods = append(mods, dialect.Join[Q](typ, Logs.Name().As(to.Alias())).On(
 						to.GameServerID.EQ(cols.ID),
 					))
 				}

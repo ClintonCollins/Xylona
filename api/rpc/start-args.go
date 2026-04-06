@@ -39,6 +39,8 @@ func redactGameServerForNonSuperuser(gameServer *xylona.GameServer) {
 		return
 	}
 
+	gameServer.BackupDirectory = ""
+
 	redactGameForNonSuperuser(gameServer.GetGame())
 }
 
@@ -474,8 +476,13 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update game server"))
 			}
 
+			gameServerProto := helpers.GameServerModelToProto(updated, xs.versionState)
+			if !user.SuperUser {
+				redactGameServerForNonSuperuser(gameServerProto)
+			}
+
 			return connect.NewResponse(&xylona.UpdateGameServerStartArgsResponse{
-				GameServer: helpers.GameServerModelToProto(updated, xs.versionState),
+				GameServer: gameServerProto,
 			}), nil
 		},
 		func() (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error) {
@@ -520,8 +527,13 @@ func (xs *XylonaService) updateRemoteGameServerStartArgs(
 		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
 	}
 
+	gameServerProto := resp.Msg.GetGameServer()
+	if actingUser != nil && !actingUser.SuperUser {
+		redactGameServerForNonSuperuser(gameServerProto)
+	}
+
 	return connect.NewResponse(&xylona.UpdateGameServerStartArgsResponse{
-		GameServer: resp.Msg.GetGameServer(),
+		GameServer: gameServerProto,
 	}), nil
 }
 
@@ -578,8 +590,13 @@ func (fs FederationService) UpdateRemoteServerStartArgs(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update game server"))
 	}
 
+	gameServerProto := helpers.GameServerModelToProto(updated, fs.versionState)
+	if !helpers.FederatedActingIsSuperUser(request.Header()) {
+		redactGameServerForNonSuperuser(gameServerProto)
+	}
+
 	return connect.NewResponse(&xylona.FederationUpdateServerStartArgsResponse{
 		Success:    true,
-		GameServer: helpers.GameServerModelToProto(updated, fs.versionState),
+		GameServer: gameServerProto,
 	}), nil
 }

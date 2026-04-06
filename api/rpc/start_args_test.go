@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func insertStartArgsTestServer(t *testing.T, fixture *rbacRPCFixture, serverID string, gameID string) {
@@ -201,5 +203,61 @@ func TestUpdateGameServerStartArgsRejectsBlockedResolvedArgs(t *testing.T) {
 	}
 	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
 		t.Fatalf("UpdateGameServerStartArgs() code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
+	}
+}
+
+func TestUpdateGameServerStartArgsRedactsBackupDirectoryForNonSuperUser(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	game := addGameForTests(t, fixture, "start-args-redaction-game", "Structured Args Redaction Game")
+	insertStartArgsTestServer(t, fixture, "server-start-args-3", game.GetId())
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-start-args-3"),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From("/srv/start-args-backups"),
+		MaxBackups:      omit.From(int64(9)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	templateReq := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
+		GameId:   game.GetId(),
+		Platform: "linux",
+		StartArgsTemplate: `[
+			{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"],"label":"Heap"},
+			{"id":"jar","order":2,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}
+		]`,
+		BaseCommand:          "java",
+		AllowStartArgEditing: true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, templateReq, "user-admin")
+
+	_, errTemplate := fixture.service.UpdateGameStartArgsTemplate(context.Background(), templateReq)
+	if errTemplate != nil {
+		t.Fatalf("UpdateGameStartArgsTemplate() setup error = %v", errTemplate)
+	}
+
+	req := connect.NewRequest(&xylona.UpdateGameServerStartArgsRequest{
+		ServerId:         "server-start-args-3",
+		StartArgsPatches: `[{"id":"heap","op":"edit","tokens":["-Xmx3G"],"afterId":null}]`,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-owner")
+
+	resp, errUpdate := fixture.service.UpdateGameServerStartArgs(context.Background(), req)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServerStartArgs(non-superuser) error = %v", errUpdate)
+	}
+	if resp.Msg.GetGameServer().GetStartArgsPatches() != `[{"id":"heap","op":"edit","tokens":["-Xmx3G"],"afterId":null}]` {
+		t.Fatalf("UpdateGameServerStartArgs(non-superuser).GameServer.StartArgsPatches = %q, want persisted patches", resp.Msg.GetGameServer().GetStartArgsPatches())
+	}
+	if !resp.Msg.GetGameServer().GetBackupsEnabled() {
+		t.Fatal("UpdateGameServerStartArgs(non-superuser).GameServer.BackupsEnabled = false, want true")
+	}
+	if resp.Msg.GetGameServer().GetBackupDirectory() != "" {
+		t.Fatalf("UpdateGameServerStartArgs(non-superuser).GameServer.BackupDirectory = %q, want empty", resp.Msg.GetGameServer().GetBackupDirectory())
+	}
+	if resp.Msg.GetGameServer().GetMaxBackups() != 9 {
+		t.Fatalf("UpdateGameServerStartArgs(non-superuser).GameServer.MaxBackups = %d, want %d", resp.Msg.GetGameServer().GetMaxBackups(), 9)
 	}
 }

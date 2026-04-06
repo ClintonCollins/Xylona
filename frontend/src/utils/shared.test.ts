@@ -1,6 +1,11 @@
 import { create } from '@bufbuild/protobuf'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Status, VersionStatus } from '@/proto/shared_pb'
+import {
+  BackupProgressOperation,
+  BackupProgressPhase,
+  Status,
+  VersionStatus,
+} from '@/proto/shared_pb'
 import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
 import { AllServersMetrics, Message_Type, MessageSchema } from '@/proto/websocket_pb'
 
@@ -322,6 +327,7 @@ describe('XylonaEventBus remoteServerMetrics', () => {
 describe('dispatchWebsocketMessage', () => {
   afterEach(() => {
     XylonaEventBus.off('gameServerVersion')
+    XylonaEventBus.off('gameServerBackupProgress')
   })
 
   it('maps game server version websocket payloads into event bus updates', () => {
@@ -354,6 +360,37 @@ describe('dispatchWebsocketMessage', () => {
         installedVersion: '1.21.1',
         latestVersion: '1.21.3',
         updateAvailable: true,
+      }),
+    )
+  })
+
+  it('maps game server backup progress websocket payloads into event bus updates', () => {
+    const handler = vi.fn()
+    XylonaEventBus.on('gameServerBackupProgress', handler)
+
+    const handled = dispatchWebsocketMessage(
+      create(MessageSchema, {
+        type: Message_Type.GameServerBackupProgress,
+        backupProgress: {
+          gameServerId: 'server-123',
+          backupId: 'backup-456',
+          operation: BackupProgressOperation.CREATE,
+          phase: BackupProgressPhase.ARCHIVING,
+          percent: 52,
+          message: 'Archiving world data',
+        },
+      }),
+    )
+
+    expect(handled).toBe(true)
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gameServerId: 'server-123',
+        backupId: 'backup-456',
+        operation: BackupProgressOperation.CREATE,
+        phase: BackupProgressPhase.ARCHIVING,
+        percent: 52,
+        message: 'Archiving world data',
       }),
     )
   })

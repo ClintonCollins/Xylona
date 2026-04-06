@@ -59,9 +59,6 @@ var _ bob.HookableType = &LocalSecretKey{}
 // Make sure the type LocalSetting runs hooks after queries
 var _ bob.HookableType = &LocalSetting{}
 
-// Make sure the type Log runs hooks after queries
-var _ bob.HookableType = &Log{}
-
 // Make sure the type Migration runs hooks after queries
 var _ bob.HookableType = &Migration{}
 
@@ -76,9 +73,6 @@ var _ bob.HookableType = &NodeMetricsHistory{}
 
 // Make sure the type NodeSyncQueue runs hooks after queries
 var _ bob.HookableType = &NodeSyncQueue{}
-
-// Make sure the type Notification runs hooks after queries
-var _ bob.HookableType = &Notification{}
 
 // Make sure the type NotificationChannel runs hooks after queries
 var _ bob.HookableType = &NotificationChannel{}
@@ -112,9 +106,6 @@ var _ bob.HookableType = &SystemConfig{}
 
 // Make sure the type User runs hooks after queries
 var _ bob.HookableType = &User{}
-
-// Make sure the type UserAPIKey runs hooks after queries
-var _ bob.HookableType = &UserAPIKey{}
 
 // Make sure the type UserRoleAssignment runs hooks after queries
 var _ bob.HookableType = &UserRoleAssignment{}

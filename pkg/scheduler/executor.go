@@ -17,6 +17,10 @@ const (
 	statusSkipped  = "skipped"
 	statusTimedOut = "timed_out"
 
+	// schedulerStopTimeout gives long-running local backup jobs time to finish
+	// cleanly before Shutdown returns a timeout error.
+	schedulerStopTimeout = 30 * time.Minute
+
 	// restartStopTimeout is how long to wait for a server to reach OFFLINE
 	// after a stop command before giving up.
 	restartStopTimeout = 30 * time.Second
@@ -56,6 +60,8 @@ func (s *Scheduler) executeTask(taskID string) {
 		status, message = s.executeRestart(task)
 	case "console_command":
 		status, message = s.executeConsoleCommand(task)
+	case "backup":
+		status, message = s.executeBackup(task)
 	default:
 		status = statusFailed
 		message = fmt.Sprintf("unknown task type: %s", task.TaskType)
@@ -172,4 +178,41 @@ func (s *Scheduler) executeConsoleCommand(task *models.ScheduledTask) (string, s
 	}
 
 	return statusSuccess, "console command sent"
+}
+
+func (s *Scheduler) executeBackup(task *models.ScheduledTask) (string, string) {
+	if s.backup == nil {
+		return statusFailed, "backup executor is not configured"
+	}
+
+	gameServer, errGetGS := s.db.GetGameServerByID(task.GameServerID)
+	if errGetGS != nil {
+		return statusFailed, fmt.Sprintf("failed to load game server: %s", errGetGS)
+	}
+
+	node, errGetNode := s.db.GetNodeByID(gameServer.NodeID)
+	if errGetNode != nil {
+		return statusFailed, fmt.Sprintf("failed to load game server node: %s", errGetNode)
+	}
+	if !node.IsLocal {
+		return statusFailed, "scheduled backups only run on local servers"
+	}
+
+	backup, errCreateBackup := s.backup.CreateScheduledBackup(gameServer)
+	if errCreateBackup != nil {
+		if backup != nil {
+			backupID := backup.ID
+			if backupID == "" {
+				backupID = "unknown"
+			}
+			return statusFailed, fmt.Sprintf(
+				"scheduled backup %s created, but post-backup work failed: %s",
+				backupID,
+				errCreateBackup,
+			)
+		}
+		return statusFailed, fmt.Sprintf("failed to create scheduled backup: %s", errCreateBackup)
+	}
+
+	return statusSuccess, "scheduled backup created"
 }

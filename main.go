@@ -423,7 +423,7 @@ func main() {
 
 	// Scheduled tasks scheduler.
 	superAdapter := scheduler.NewSupervisorAdapter(superInst)
-	taskScheduler, errScheduler := scheduler.New(ctx, dbInst, actionsInst, superAdapter)
+	taskScheduler, errScheduler := scheduler.New(ctx, dbInst, actionsInst, actionsInst, superAdapter)
 	if errScheduler != nil {
 		log.Fatal().Err(errScheduler).Msg("Failed to create task scheduler")
 	}

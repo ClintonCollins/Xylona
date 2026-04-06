@@ -639,3 +639,81 @@ message ScheduledTaskLog {
   optional google.protobuf.Timestamp finished_at = 8;
   google.protobuf.Timestamp created_at = 9;
 }
+
+enum GameServerBackupStatus {
+  GAME_SERVER_BACKUP_STATUS_UNSPECIFIED = 0;
+  GAME_SERVER_BACKUP_STATUS_PENDING = 1;
+  GAME_SERVER_BACKUP_STATUS_COMPLETED = 2;
+  GAME_SERVER_BACKUP_STATUS_FAILED = 3;
+}
+
+enum GameServerBackupTriggerSource {
+  GAME_SERVER_BACKUP_TRIGGER_SOURCE_UNSPECIFIED = 0;
+  GAME_SERVER_BACKUP_TRIGGER_SOURCE_MANUAL = 1;
+  GAME_SERVER_BACKUP_TRIGGER_SOURCE_SCHEDULED = 2;
+}
+
+enum BackupRestoreMode {
+  BACKUP_RESTORE_MODE_UNSPECIFIED = 0;
+  BACKUP_RESTORE_MODE_OVERLAY = 1;
+  BACKUP_RESTORE_MODE_EXACT = 2;
+}
+
+enum BackupProgressOperation {
+  BACKUP_PROGRESS_OPERATION_UNSPECIFIED = 0;
+  BACKUP_PROGRESS_OPERATION_CREATE = 1;
+  BACKUP_PROGRESS_OPERATION_RESTORE = 2;
+}
+
+enum BackupProgressPhase {
+  BACKUP_PROGRESS_PHASE_UNSPECIFIED = 0;
+  BACKUP_PROGRESS_PHASE_PREPARING = 1;
+  BACKUP_PROGRESS_PHASE_ARCHIVING = 2;
+  BACKUP_PROGRESS_PHASE_STAGING = 3;
+  BACKUP_PROGRESS_PHASE_APPLYING = 4;
+  BACKUP_PROGRESS_PHASE_PRUNING = 5;
+  BACKUP_PROGRESS_PHASE_COMPLETE = 6;
+  BACKUP_PROGRESS_PHASE_FAILED = 7;
+}
+
+message GameServerBackup {
+  string id = 1;
+  string game_server_id = 2;
+  string node_id = 3;
+  optional string created_by = 4;
+  GameServerBackupTriggerSource trigger_source = 5;
+  string archive_path = 6;
+  string archive_format = 7;
+  GameServerBackupStatus status = 8;
+  int64 size_bytes = 9;
+  bool retention_exempt = 10;
+  optional string error_message = 11;
+  google.protobuf.Timestamp created_at = 12;
+  optional google.protobuf.Timestamp completed_at = 13;
+}
+
+message GameServerBackupOverview {
+  bool enabled = 1;
+  bool operations_allowed = 2;
+  bool can_manage_settings = 3;
+  bool local_server = 4;
+  bool backup_directory_configured = 5;
+  int32 scheduled_backup_count = 6;
+  string disabled_reason = 7;
+}
+
+message BackupSettings {
+  bool backups_enabled = 1;
+  string backup_directory = 2;
+  int64 max_backups = 3;
+  string default_backup_directory = 4;
+}
+
+message BackupProgress {
+  string game_server_id = 1;
+  string backup_id = 2;
+  BackupProgressOperation operation = 3;
+  BackupProgressPhase phase = 4;
+  int32 percent = 5;
+  string message = 6;
+}
