@@ -14,13 +14,15 @@ import (
 func newTestInstance(t *testing.T) *Instance {
 	t.Helper()
 
+	ctx, cancel := context.WithCancel(context.Background())
 	dbPath := filepath.Join(t.TempDir(), "test-actions.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
+	conn := db.NewConnection(ctx, dbPath)
 	t.Cleanup(func() {
 		if errClose := conn.SQLDb.Close(); errClose != nil {
 			t.Errorf("failed to close test database: %v", errClose)
 		}
 	})
+	t.Cleanup(cancel)
 
 	migrationSource := &migrate.FileMigrationSource{
 		Dir: filepath.Join("..", "sql", "migrations"),
@@ -31,5 +33,5 @@ func newTestInstance(t *testing.T) *Instance {
 		t.Fatalf("failed to apply migrations: %v", errMigrate)
 	}
 
-	return NewInstance(context.Background(), conn, nil, nil, nil, nil, versiontracker.ResolverConfig{})
+	return NewInstance(ctx, conn, nil, nil, nil, versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{})
 }

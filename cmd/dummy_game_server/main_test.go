@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -20,11 +21,51 @@ import (
 // We use `go run` or build once in TestMain.
 var binaryPath string
 
+func resolveGoBinary() string {
+	goBinary, errLookPath := exec.LookPath("go")
+	if errLookPath == nil {
+		return goBinary
+	}
+
+	goBinaryName := "go"
+	if runtime.GOOS == "windows" {
+		goBinaryName += ".exe"
+	}
+
+	var candidates []string
+
+	goRoot, okGoRoot := os.LookupEnv("GOROOT")
+	if okGoRoot && goRoot != "" {
+		candidates = append(candidates, filepath.Join(goRoot, "bin", goBinaryName))
+	}
+
+	if runtime.GOOS == "windows" {
+		programFiles, okProgramFiles := os.LookupEnv("ProgramFiles")
+		if okProgramFiles && programFiles != "" {
+			candidates = append(candidates, filepath.Join(programFiles, "Go", "bin", goBinaryName))
+		}
+
+		candidates = append(candidates,
+			filepath.Join(`C:\Program Files`, "Go", "bin", goBinaryName),
+			filepath.Join(`C:\Go`, "bin", goBinaryName),
+		)
+	}
+
+	for _, candidate := range candidates {
+		_, errStat := os.Stat(candidate)
+		if errStat == nil {
+			return candidate
+		}
+	}
+
+	return "go"
+}
+
 func TestMain(m *testing.M) {
 	// Build the binary once for all tests.
 	tmp, err := os.MkdirTemp("", "dummy_game_server_test_*")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
 		os.Exit(1)
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
@@ -33,13 +74,13 @@ func TestMain(m *testing.M) {
 	if runtime.GOOS == "windows" {
 		binaryName += ".exe"
 	}
-	binaryPath = tmp + "/" + binaryName
+	binaryPath = filepath.Join(tmp, binaryName)
 
-	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", binaryPath, ".")
+	cmd := exec.CommandContext(context.Background(), resolveGoBinary(), "build", "-o", binaryPath, ".") //nolint:gosec // test helper executes the local Go toolchain to build the fixture binary
 	cmd.Stderr = os.Stderr
 	errRun := cmd.Run()
 	if errRun != nil {
-		fmt.Fprintf(os.Stderr, "failed to build binary: %v\n", errRun)
+		_, _ = fmt.Fprintf(os.Stderr, "failed to build binary: %v\n", errRun)
 		os.Exit(1) //nolint:gocritic // standard TestMain exit; defer cleanup is intentionally skipped on build failure
 	}
 
@@ -97,6 +138,8 @@ func runServerWithPipe(t *testing.T, args ...string) (stdinWriter io.WriteCloser
 
 // TestStartupBanner verifies the banner is printed on stdout with a valid PID.
 func TestStartupBanner(t *testing.T) {
+	t.Parallel()
+
 	stdout, _, exitCode := runServer(t, "stop\n", "-heartbeat=0")
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0, got %d", exitCode)
@@ -121,6 +164,8 @@ func TestStartupBanner(t *testing.T) {
 
 // TestStopCommand verifies the stop command exits with code 0 and prints goodbye.
 func TestStopCommand(t *testing.T) {
+	t.Parallel()
+
 	stdout, _, exitCode := runServer(t, "stop\n", "-heartbeat=0")
 	if exitCode != 0 {
 		t.Errorf("stop: expected exit code 0, got %d", exitCode)
@@ -132,6 +177,8 @@ func TestStopCommand(t *testing.T) {
 
 // TestEchoCommand verifies the echo command outputs exactly the provided message.
 func TestEchoCommand(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		input string
@@ -144,6 +191,8 @@ func TestEchoCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			stdout, _, exitCode := runServer(t, tt.input, "-heartbeat=0")
 			if exitCode != 0 {
 				t.Fatalf("unexpected exit code %d", exitCode)
@@ -166,6 +215,8 @@ func TestEchoCommand(t *testing.T) {
 
 // TestStatusCommand verifies the status output contains pid=, uptime=, status=running.
 func TestStatusCommand(t *testing.T) {
+	t.Parallel()
+
 	stdout, _, exitCode := runServer(t, "status\nstop\n", "-heartbeat=0")
 	if exitCode != 0 {
 		t.Fatalf("unexpected exit code %d", exitCode)
@@ -189,6 +240,8 @@ func TestStatusCommand(t *testing.T) {
 
 // TestStatusUptimeIncreases verifies uptime in status is non-zero after a delay.
 func TestStatusUptimeIncreases(t *testing.T) {
+	t.Parallel()
+
 	stdin, _, wait := runServerWithPipe(t, "-heartbeat=0")
 	time.Sleep(250 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "status")
@@ -209,6 +262,8 @@ func TestStatusUptimeIncreases(t *testing.T) {
 
 // TestCrashCommand verifies crash exits with code 1.
 func TestCrashCommand(t *testing.T) {
+	t.Parallel()
+
 	stdout, stderr, exitCode := runServer(t, "crash\n", "-heartbeat=0")
 	if exitCode != 1 {
 		t.Errorf("crash: expected exit code 1, got %d", exitCode)
@@ -221,6 +276,8 @@ func TestCrashCommand(t *testing.T) {
 
 // TestStderrCommand verifies the stderr command writes to stderr, not stdout.
 func TestStderrCommand(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		msg     string
@@ -232,6 +289,8 @@ func TestStderrCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var input string
 			if tt.msg != "" {
 				input = fmt.Sprintf("stderr %s\nstop\n", tt.msg)
@@ -256,6 +315,8 @@ func TestStderrCommand(t *testing.T) {
 
 // TestFloodCommand verifies the flood command outputs exactly 100 flood lines on stdout.
 func TestFloodCommand(t *testing.T) {
+	t.Parallel()
+
 	stdout, stderr, exitCode := runServer(t, "flood\nstop\n", "-heartbeat=0")
 	if exitCode != 0 {
 		t.Fatalf("unexpected exit code %d", exitCode)
@@ -284,6 +345,8 @@ func TestFloodCommand(t *testing.T) {
 
 // TestUnknownCommand verifies unknown commands print an "unknown command" response.
 func TestUnknownCommand(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		cmd  string
@@ -295,6 +358,8 @@ func TestUnknownCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			input := fmt.Sprintf("%s\nstop\n", tt.cmd)
 			stdout, _, exitCode := runServer(t, input, "-heartbeat=0")
 			if exitCode != 0 {
@@ -309,6 +374,8 @@ func TestUnknownCommand(t *testing.T) {
 
 // TestHeartbeatEnabled verifies heartbeat lines appear when -heartbeat is set.
 func TestHeartbeatEnabled(t *testing.T) {
+	t.Parallel()
+
 	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(350 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
@@ -340,6 +407,8 @@ func TestHeartbeatEnabled(t *testing.T) {
 
 // TestHeartbeatDisabled verifies no heartbeat lines appear when -heartbeat=0.
 func TestHeartbeatDisabled(t *testing.T) {
+	t.Parallel()
+
 	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=0")
 	time.Sleep(200 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
@@ -358,6 +427,8 @@ func TestHeartbeatDisabled(t *testing.T) {
 
 // TestHeartbeatDefaultIs5s verifies the default heartbeat interval is 5 seconds.
 func TestHeartbeatDefaultIs5s(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping long-running heartbeat default test in short mode")
 	}
@@ -384,6 +455,8 @@ func TestHeartbeatDefaultIs5s(t *testing.T) {
 
 // TestHeartbeatPIDMatchesBanner verifies heartbeat PID matches startup banner PID.
 func TestHeartbeatPIDMatchesBanner(t *testing.T) {
+	t.Parallel()
+
 	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(250 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
@@ -412,6 +485,8 @@ func TestHeartbeatPIDMatchesBanner(t *testing.T) {
 
 // TestStartupDelay verifies the -startup-delay flag delays the startup banner.
 func TestStartupDelay(t *testing.T) {
+	t.Parallel()
+
 	start := time.Now()
 	stdout, _, exitCode := runServer(t, "stop\n", "-heartbeat=0", "-startup-delay=400ms")
 	elapsed := time.Since(start)
@@ -428,6 +503,8 @@ func TestStartupDelay(t *testing.T) {
 
 // TestStartupDelayZero verifies -startup-delay=0 has no meaningful delay.
 func TestStartupDelayZero(t *testing.T) {
+	t.Parallel()
+
 	start := time.Now()
 	_, _, exitCode := runServer(t, "stop\n", "-heartbeat=0", "-startup-delay=0")
 	elapsed := time.Since(start)
@@ -441,6 +518,8 @@ func TestStartupDelayZero(t *testing.T) {
 
 // TestEOFShutdown verifies that closing stdin (EOF) triggers a graceful shutdown with exit 0.
 func TestEOFShutdown(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		stdin string
@@ -450,6 +529,8 @@ func TestEOFShutdown(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			stdout, _, exitCode := runServer(t, tt.stdin, "-heartbeat=0")
 			if exitCode != 0 {
 				t.Errorf("EOF: expected exit code 0, got %d", exitCode)
@@ -463,6 +544,8 @@ func TestEOFShutdown(t *testing.T) {
 
 // TestBlankLinesIgnored verifies blank and whitespace-only lines are not treated as commands.
 func TestBlankLinesIgnored(t *testing.T) {
+	t.Parallel()
+
 	stdout, _, exitCode := runServer(t, "\n\n   \n\t\nstop\n", "-heartbeat=0")
 	if exitCode != 0 {
 		t.Fatalf("unexpected exit code %d", exitCode)
@@ -474,6 +557,8 @@ func TestBlankLinesIgnored(t *testing.T) {
 
 // TestCommandCaseSensitivity verifies commands are case-sensitive.
 func TestCommandCaseSensitivity(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		cmd  string
@@ -485,6 +570,8 @@ func TestCommandCaseSensitivity(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			input := fmt.Sprintf("%s\nstop\n", tt.cmd)
 			stdout, _, exitCode := runServer(t, input, "-heartbeat=0")
 			if exitCode != 0 {
@@ -499,6 +586,8 @@ func TestCommandCaseSensitivity(t *testing.T) {
 
 // TestMultipleCommands verifies multiple commands in sequence are all processed.
 func TestMultipleCommands(t *testing.T) {
+	t.Parallel()
+
 	input := "echo alpha\necho beta\nstatus\necho gamma\nstop\n"
 	stdout, _, exitCode := runServer(t, input, "-heartbeat=0")
 	if exitCode != 0 {
@@ -513,6 +602,8 @@ func TestMultipleCommands(t *testing.T) {
 
 // TestCrashNoStdout verifies crash does not print additional lines to stdout after banner.
 func TestCrashNoStdout(t *testing.T) {
+	t.Parallel()
+
 	stdout, _, exitCode := runServer(t, "crash\n", "-heartbeat=0")
 	if exitCode != 1 {
 		t.Errorf("crash: expected exit code 1, got %d", exitCode)
@@ -527,6 +618,8 @@ func TestCrashNoStdout(t *testing.T) {
 // TestScannerBufferOverflow tests behavior when a stdin line exceeds bufio.Scanner's 64KB limit.
 // The scanner error must be reported on stderr and exit non-zero — not silently treated as EOF.
 func TestScannerBufferOverflow(t *testing.T) {
+	t.Parallel()
+
 	// Generate a line just over the 64KB scanner default limit.
 	oversizedLine := "echo " + strings.Repeat("A", 65540)
 	input := oversizedLine + "\nstop\n"
@@ -541,6 +634,8 @@ func TestScannerBufferOverflow(t *testing.T) {
 
 // TestHeartbeatUptimeMonotonic verifies heartbeat uptime values increase over time.
 func TestHeartbeatUptimeMonotonic(t *testing.T) {
+	t.Parallel()
+
 	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=100ms")
 	time.Sleep(500 * time.Millisecond)
 	_, _ = fmt.Fprintln(stdin, "stop")
@@ -576,6 +671,8 @@ func TestHeartbeatUptimeMonotonic(t *testing.T) {
 
 // TestFloodThenStop verifies flood followed by stop works correctly.
 func TestFloodThenStop(t *testing.T) {
+	t.Parallel()
+
 	stdout, _, exitCode := runServer(t, "flood\nstop\n", "-heartbeat=0")
 	if exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", exitCode)
@@ -596,6 +693,8 @@ func TestFloodThenStop(t *testing.T) {
 
 // TestLargeEchoMessage verifies echo handles messages up to the scanner limit.
 func TestLargeEchoMessage(t *testing.T) {
+	t.Parallel()
+
 	// 10000 chars is well within the 64KB scanner limit.
 	bigMsg := strings.Repeat("X", 10000)
 	input := fmt.Sprintf("echo %s\nstop\n", bigMsg)
@@ -610,6 +709,8 @@ func TestLargeEchoMessage(t *testing.T) {
 
 // TestInvalidFlagExitsNonZero verifies invalid flag values cause non-zero exit.
 func TestInvalidFlagExitsNonZero(t *testing.T) {
+	t.Parallel()
+
 	cmd := exec.CommandContext(context.Background(), binaryPath, "-heartbeat=notaduration")
 	err := cmd.Run()
 	if err == nil {

@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -543,6 +545,57 @@ func TestDownload_UsesResolvedCommunityForSource(t *testing.T) {
 
 	if packagePath != "/c/lethal-company/api/v1/package/" {
 		t.Fatalf("Download() package path = %q, want %q", packagePath, "/c/lethal-company/api/v1/package/")
+	}
+}
+
+func TestDownload_RejectsOversizedPackageList(t *testing.T) {
+	const oversizedPackageListBytes = (32 << 20) + 1
+
+	var requestedDownload atomic.Bool
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/c/lethal-company/api/v1/package/":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `[`)
+
+			chunk := strings.Repeat(" ", 1024)
+			remaining := oversizedPackageListBytes - 2
+
+			for remaining > 0 {
+				if remaining < len(chunk) {
+					chunk = chunk[:remaining]
+				}
+
+				_, _ = io.WriteString(w, chunk)
+				remaining -= len(chunk)
+			}
+
+			_, _ = io.WriteString(w, `]`)
+		case "/package/download/Author/SharedMod/1.0.0/":
+			requestedDownload.Store(true)
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write([]byte("payload"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv)
+	p.mu.Lock()
+	p.sourceCommunity["Author-SharedMod"] = "lethal-company"
+	p.mu.Unlock()
+
+	_, errDownload := p.Download(context.Background(), "Author-SharedMod", "1.0.0", t.TempDir())
+	if errDownload == nil {
+		t.Fatal("Download() error = nil, want non-nil for oversized package list")
+	}
+	if !strings.Contains(errDownload.Error(), "response exceeded") {
+		t.Fatalf("Download() error = %v, want package list response exceeded error", errDownload)
+	}
+	if requestedDownload.Load() {
+		t.Fatal("Download() fetched the version archive, want failure before download request")
 	}
 }
 

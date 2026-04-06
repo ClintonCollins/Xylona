@@ -362,7 +362,6 @@ func TestCheckAllServerVersionsDetectsOutOfBandMinecraftJarReplacement(t *testin
 		},
 	}
 	broadcaster := &mockVersionBroadcaster{}
-	inst.versionState = versiontracker.NewVersionStateMap()
 	inst.versionInstalledTTL = 15 * time.Second
 	inst.versionLatestTTL = 2 * time.Minute
 	inst.resolverConfig = versiontracker.ResolverConfig{

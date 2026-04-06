@@ -164,6 +164,19 @@ func (inst *Instance) ListCommands() []*Command {
 	return commands
 }
 
+func (c *Command) jobOutputReaders() (io.Reader, io.Reader, bool) {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.currentCMD == nil && !c.InternalCommand {
+		return nil, nil, false
+	}
+	if c.stdout == nil || c.stderr == nil {
+		return nil, nil, false
+	}
+	return c.stdout, c.stderr, true
+}
+
 // readJobOut reads the output of the current command execution.
 // It scans the combined output, splits it by lines, and processes each line.
 // It pushes each line to the output buffer and handles the output listeners.
@@ -172,7 +185,8 @@ func (inst *Instance) ListCommands() []*Command {
 // It closes the job notification after reading all the output.
 func (c *Command) readJobOut() {
 	log.Debug().Str("Game Server ID", c.ID).Msg("Reading job output")
-	if c.currentCMD == nil && !c.InternalCommand {
+	stdoutReader, stderrReader, ok := c.jobOutputReaders()
+	if !ok {
 		return
 	}
 	var disableOutput atomic.Bool
@@ -206,7 +220,7 @@ func (c *Command) readJobOut() {
 		defer func() {
 			scannerDone <- struct{}{}
 		}()
-		scannerStdOut := bufio.NewScanner(c.stdout)
+		scannerStdOut := bufio.NewScanner(stdoutReader)
 		scannerStdOut.Split(bufio.ScanLines)
 		for scannerStdOut.Scan() {
 			if scannerStdOut.Err() != nil {
@@ -236,7 +250,7 @@ func (c *Command) readJobOut() {
 		defer func() {
 			scannerDone <- struct{}{}
 		}()
-		scannerStdErr := bufio.NewScanner(c.stderr)
+		scannerStdErr := bufio.NewScanner(stderrReader)
 		scannerStdErr.Split(bufio.ScanLines)
 		for scannerStdErr.Scan() {
 			if scannerStdErr.Err() != nil {

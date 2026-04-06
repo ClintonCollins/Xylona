@@ -52,6 +52,8 @@ func newTestSender() *Sender {
 // --- Formatting tests ---
 
 func TestFormatDiscord_CrashEvent(t *testing.T) {
+	t.Parallel()
+
 	event := testEvent()
 	payload := FormatDiscord(event)
 
@@ -97,6 +99,8 @@ func TestFormatDiscord_CrashEvent(t *testing.T) {
 }
 
 func TestFormatDiscord_SeverityColors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		severity Severity
@@ -109,6 +113,8 @@ func TestFormatDiscord_SeverityColors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			event := AlertEvent{
 				EventType: "ALERT_EVENT_TYPE_STATUS_CHANGE",
 				Message:   "test",
@@ -125,6 +131,8 @@ func TestFormatDiscord_SeverityColors(t *testing.T) {
 }
 
 func TestFormatSlack_CrashEvent(t *testing.T) {
+	t.Parallel()
+
 	event := testEvent()
 	payload := FormatSlack(event)
 
@@ -177,6 +185,8 @@ func TestFormatSlack_CrashEvent(t *testing.T) {
 }
 
 func TestFormatGeneric_CrashEvent(t *testing.T) {
+	t.Parallel()
+
 	event := testEvent()
 	payload := FormatGeneric(event)
 
@@ -212,6 +222,8 @@ func TestFormatGeneric_CrashEvent(t *testing.T) {
 // --- Delivery tests ---
 
 func TestSend_Discord_Success(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("Content-Type = %q, want application/json", r.Header.Get("Content-Type"))
@@ -239,6 +251,8 @@ func TestSend_Discord_Success(t *testing.T) {
 }
 
 func TestSend_Slack_Success(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload SlackPayload
 		errDecode := json.NewDecoder(r.Body).Decode(&payload)
@@ -262,6 +276,8 @@ func TestSend_Slack_Success(t *testing.T) {
 }
 
 func TestSend_Generic_Success(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload GenericPayload
 		errDecode := json.NewDecoder(r.Body).Decode(&payload)
@@ -285,6 +301,8 @@ func TestSend_Generic_Success(t *testing.T) {
 }
 
 func TestSend_RetryOn5xx(t *testing.T) {
+	t.Parallel()
+
 	var attempts atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -311,6 +329,8 @@ func TestSend_RetryOn5xx(t *testing.T) {
 }
 
 func TestSend_FailAfterMaxRetries(t *testing.T) {
+	t.Parallel()
+
 	var attempts atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -373,6 +393,8 @@ func TestSend_RedactsWebhookURLInLogs(t *testing.T) {
 }
 
 func TestSend_RejectsUnsupportedWebhookURLScheme(t *testing.T) {
+	t.Parallel()
+
 	sender := newTestSender()
 	errSend := sender.Send(
 		context.Background(),
@@ -386,6 +408,8 @@ func TestSend_RejectsUnsupportedWebhookURLScheme(t *testing.T) {
 }
 
 func TestSend_RateLimited(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -420,6 +444,8 @@ func TestSend_RateLimited(t *testing.T) {
 }
 
 func TestRateLimiter_RemovesExpiredKeysAcrossChannels(t *testing.T) {
+	t.Parallel()
+
 	rl := newRateLimiter(10)
 	rl.windows["stale"] = []time.Time{time.Now().Add(-2 * time.Minute)}
 
@@ -433,6 +459,8 @@ func TestRateLimiter_RemovesExpiredKeysAcrossChannels(t *testing.T) {
 }
 
 func TestSend_Timeout(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Delay longer than the client timeout.
 		time.Sleep(500 * time.Millisecond)
@@ -466,6 +494,8 @@ func TestSend_Timeout(t *testing.T) {
 }
 
 func TestSend_DeliveryErrorDetails(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error": "invalid payload"}`))
@@ -492,6 +522,8 @@ func TestSend_DeliveryErrorDetails(t *testing.T) {
 }
 
 func TestSend_NoRetryOn4xx(t *testing.T) {
+	t.Parallel()
+
 	var attempts atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -525,6 +557,8 @@ func TestSend_NoRetryOn4xx(t *testing.T) {
 // --- SSRF protection tests ---
 
 func TestIsPrivateOrReservedIP(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		ip   string
@@ -551,6 +585,8 @@ func TestIsPrivateOrReservedIP(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			ip := net.ParseIP(tc.ip)
 			if ip == nil {
 				t.Fatalf("net.ParseIP(%q) returned nil", tc.ip)
@@ -564,6 +600,8 @@ func TestIsPrivateOrReservedIP(t *testing.T) {
 }
 
 func TestValidateWebhookTarget_BlocksLoopback(t *testing.T) {
+	t.Parallel()
+
 	errValidate := ValidateWebhookTarget("http://127.0.0.1:8080/hook")
 	if errValidate == nil {
 		t.Fatal("ValidateWebhookTarget(loopback) expected error, got nil")
@@ -574,6 +612,8 @@ func TestValidateWebhookTarget_BlocksLoopback(t *testing.T) {
 }
 
 func TestValidateWebhookTarget_BlocksPrivate(t *testing.T) {
+	t.Parallel()
+
 	errValidate := ValidateWebhookTarget("http://192.168.1.1:9000/webhook")
 	if errValidate == nil {
 		t.Fatal("ValidateWebhookTarget(private) expected error, got nil")
@@ -584,6 +624,8 @@ func TestValidateWebhookTarget_BlocksPrivate(t *testing.T) {
 }
 
 func TestValidateWebhookTarget_BlocksMetadata(t *testing.T) {
+	t.Parallel()
+
 	errValidate := ValidateWebhookTarget("http://169.254.169.254/latest/meta-data/")
 	if errValidate == nil {
 		t.Fatal("ValidateWebhookTarget(metadata) expected error, got nil")
@@ -591,6 +633,8 @@ func TestValidateWebhookTarget_BlocksMetadata(t *testing.T) {
 }
 
 func TestValidateWebhookTarget_AllowsPublic(t *testing.T) {
+	t.Parallel()
+
 	// Use IP literal to avoid DNS lookup in test.
 	errValidate := ValidateWebhookTarget("https://8.8.8.8/webhook")
 	if errValidate != nil {
@@ -599,6 +643,8 @@ func TestValidateWebhookTarget_AllowsPublic(t *testing.T) {
 }
 
 func TestValidateWebhookTarget_InvalidURL(t *testing.T) {
+	t.Parallel()
+
 	errValidate := ValidateWebhookTarget("://bad")
 	if errValidate == nil {
 		t.Fatal("ValidateWebhookTarget(invalid URL) expected error, got nil")
@@ -608,6 +654,8 @@ func TestValidateWebhookTarget_InvalidURL(t *testing.T) {
 // --- Human-readable title tests ---
 
 func TestEventTypeTitle(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		eventType string
 		want      string
@@ -626,6 +674,8 @@ func TestEventTypeTitle(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.eventType, func(t *testing.T) {
+			t.Parallel()
+
 			got := EventTypeTitle(tc.eventType)
 			if got != tc.want {
 				t.Errorf("EventTypeTitle(%q) = %q, want %q", tc.eventType, got, tc.want)

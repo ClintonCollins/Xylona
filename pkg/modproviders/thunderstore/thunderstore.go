@@ -2,6 +2,7 @@
 package thunderstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -24,6 +25,9 @@ const (
 	userAgent      = "Xylona/1.0 (github.com/ClintonCollins/Xylona)"
 	providerID     = "thunderstore"
 	cacheTTL       = 5 * time.Minute
+	// maxPackageListResponseBytes bounds Thunderstore community package-list payloads
+	// to keep a single API response from exhausting process memory.
+	maxPackageListResponseBytes = 32 << 20
 )
 
 func init() {
@@ -299,12 +303,18 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, _ string, p
 // Download fetches the ZIP for the specified version and writes it to targetDir.
 // versionID is the version_number string (e.g., "0.9.12.0").
 func (p *Provider) Download(ctx context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
-	parts := strings.SplitN(sourceID, "-", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("thunderstore download: invalid sourceID %q", sourceID)
+	downloadURL, errResolve := p.resolveVersionDownloadURL(ctx, sourceID, versionID)
+	if errResolve != nil {
+		return nil, fmt.Errorf("thunderstore download: %w", errResolve)
 	}
+	if downloadURL == "" {
+		parts := strings.SplitN(sourceID, "-", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("thunderstore download: invalid sourceID %q", sourceID)
+		}
 
-	downloadURL := fmt.Sprintf("%s/package/download/%s/%s/%s/", p.baseURL, parts[0], parts[1], versionID)
+		downloadURL = fmt.Sprintf("%s/package/download/%s/%s/%s/", p.baseURL, parts[0], parts[1], versionID)
+	}
 
 	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if errReq != nil {
@@ -404,11 +414,58 @@ func (p *Provider) getJSON(ctx context.Context, endpoint string, dest any) error
 		return fmt.Errorf("GET %s: unexpected status %d", endpoint, resp.StatusCode)
 	}
 
-	errDecode := json.NewDecoder(resp.Body).Decode(dest)
+	limitedBody := io.LimitReader(resp.Body, maxPackageListResponseBytes+1)
+	body, errRead := io.ReadAll(limitedBody)
+	if errRead != nil {
+		return fmt.Errorf("read response from %s: %w", endpoint, errRead)
+	}
+	if len(body) > maxPackageListResponseBytes {
+		return fmt.Errorf("response exceeded %d bytes for %s", maxPackageListResponseBytes, endpoint)
+	}
+
+	errDecode := json.NewDecoder(bytes.NewReader(body)).Decode(dest)
 	if errDecode != nil {
 		return fmt.Errorf("decode response from %s: %w", endpoint, errDecode)
 	}
 	return nil
+}
+
+func (p *Provider) resolveVersionDownloadURL(ctx context.Context, sourceID string, versionID string) (string, error) {
+	p.mu.Lock()
+	community := p.sourceCommunity[sourceID]
+	p.mu.Unlock()
+
+	if strings.TrimSpace(community) == "" {
+		return "", nil
+	}
+
+	packages, errList := p.getPackageList(ctx, community)
+	if errList != nil {
+		return "", fmt.Errorf("resolve package list for community %q: %w", community, errList)
+	}
+
+	for _, pkg := range packages {
+		if pkg.FullName != sourceID {
+			continue
+		}
+		for _, version := range pkg.Versions {
+			if version.VersionNumber != versionID {
+				continue
+			}
+
+			downloadURL := strings.TrimSpace(version.DownloadURL)
+			if downloadURL == "" {
+				return "", nil
+			}
+			if strings.HasPrefix(downloadURL, "/") {
+				return p.baseURL + downloadURL, nil
+			}
+			return downloadURL, nil
+		}
+		return "", nil
+	}
+
+	return "", nil
 }
 
 // versionsFromPackage maps the embedded versions array of a packageInfo into ModVersion entries.

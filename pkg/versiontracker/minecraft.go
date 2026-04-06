@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -186,7 +187,7 @@ func displayMinecraftVersion(providerKind string, target string, version string)
 }
 
 // GetInstalledVersion extracts the Minecraft version from the active server jar by reading
-// version.json inside the jar. Falls back to the database Version field if the jar cannot be read.
+// version.json inside the jar. Falls back to the database Version field when the jar is missing.
 func (m *MinecraftTracker) GetInstalledVersion(_ context.Context, gs *models.GameServer) (string, error) {
 	if strings.EqualFold(m.resolvedProviderKind(gs), "papermc") {
 		parsed := parsePaperExecutableVersion(gs.ServerExecutable.GetOr(""))
@@ -197,6 +198,9 @@ func (m *MinecraftTracker) GetInstalledVersion(_ context.Context, gs *models.Gam
 
 	version, errJar := ReadMinecraftJarVersion(gs.Directory, gs.ServerExecutable.GetOr(""))
 	if errJar != nil {
+		if errors.Is(errJar, os.ErrNotExist) {
+			return gs.Version, nil
+		}
 		return gs.Version, errJar
 	}
 	return version, nil

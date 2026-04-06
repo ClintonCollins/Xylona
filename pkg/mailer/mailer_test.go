@@ -56,6 +56,8 @@ func testSMTPConfig() *SMTPConfig {
 // --- Subject formatting tests ---
 
 func TestFormatSubject(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		event webhooks.AlertEvent
@@ -101,6 +103,8 @@ func TestFormatSubject(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := FormatSubject(tc.event)
 			if got != tc.want {
 				t.Errorf("FormatSubject() = %q, want %q", got, tc.want)
@@ -112,6 +116,8 @@ func TestFormatSubject(t *testing.T) {
 // --- Body formatting tests ---
 
 func TestFormatBody_CrashEvent(t *testing.T) {
+	t.Parallel()
+
 	event := testEvent()
 	body := FormatBody(event)
 
@@ -157,6 +163,8 @@ func TestFormatBody_CrashEvent(t *testing.T) {
 }
 
 func TestFormatBody_NodeEvent(t *testing.T) {
+	t.Parallel()
+
 	event := testNodeEvent()
 	body := FormatBody(event)
 
@@ -177,6 +185,8 @@ func TestFormatBody_NodeEvent(t *testing.T) {
 }
 
 func TestFormatBody_NoFields(t *testing.T) {
+	t.Parallel()
+
 	event := webhooks.AlertEvent{
 		EventType:  "ALERT_EVENT_TYPE_STATUS_CHANGE",
 		ServerName: "Test Server",
@@ -201,6 +211,8 @@ func TestFormatBody_NoFields(t *testing.T) {
 }
 
 func TestFormatBody_FieldsAreSorted(t *testing.T) {
+	t.Parallel()
+
 	event := webhooks.AlertEvent{
 		EventType: "ALERT_EVENT_TYPE_CRASH",
 		Message:   "test",
@@ -229,6 +241,8 @@ func TestFormatBody_FieldsAreSorted(t *testing.T) {
 // --- Config resolution tests ---
 
 func TestResolveConfig_PerChannelOverridesSystem(t *testing.T) {
+	t.Parallel()
+
 	systemCfg := &SMTPConfig{
 		Host: "system.example.com",
 		Port: 25,
@@ -250,6 +264,8 @@ func TestResolveConfig_PerChannelOverridesSystem(t *testing.T) {
 }
 
 func TestResolveConfig_FallbackToSystem(t *testing.T) {
+	t.Parallel()
+
 	systemCfg := &SMTPConfig{
 		Host: "system.example.com",
 		Port: 25,
@@ -263,6 +279,8 @@ func TestResolveConfig_FallbackToSystem(t *testing.T) {
 }
 
 func TestResolveConfig_EmptyHostFallsBackToSystem(t *testing.T) {
+	t.Parallel()
+
 	systemCfg := &SMTPConfig{
 		Host: "system.example.com",
 		Port: 25,
@@ -280,6 +298,8 @@ func TestResolveConfig_EmptyHostFallsBackToSystem(t *testing.T) {
 }
 
 func TestResolveConfig_BothNilReturnsNil(t *testing.T) {
+	t.Parallel()
+
 	got := resolveConfig(nil, nil)
 	if got != nil {
 		t.Errorf("expected nil when both configs are nil, got %+v", got)
@@ -287,6 +307,8 @@ func TestResolveConfig_BothNilReturnsNil(t *testing.T) {
 }
 
 func TestResolveConfig_NilSystemEmptyChannelReturnsNil(t *testing.T) {
+	t.Parallel()
+
 	channelCfg := &SMTPConfig{Host: ""}
 	got := resolveConfig(nil, channelCfg)
 	if got != nil {
@@ -306,6 +328,8 @@ func (f *fakeSystemConfigResolver) ResolveSystemSMTPConfig() (*SMTPConfig, error
 }
 
 func TestMailer_Send_SystemResolverUsedWhenNoPerChannelConfig(t *testing.T) {
+	t.Parallel()
+
 	var capturedConfig *SMTPConfig
 
 	resolver := &fakeSystemConfigResolver{
@@ -337,6 +361,8 @@ func TestMailer_Send_SystemResolverUsedWhenNoPerChannelConfig(t *testing.T) {
 }
 
 func TestMailer_Send_ResolverErrorReturnsErrNoSMTPConfig(t *testing.T) {
+	t.Parallel()
+
 	resolver := &fakeSystemConfigResolver{
 		err: errors.New("db unavailable"),
 	}
@@ -354,6 +380,8 @@ func TestMailer_Send_ResolverErrorReturnsErrNoSMTPConfig(t *testing.T) {
 }
 
 func TestMailer_Send_ResolverReturnsNilConfig(t *testing.T) {
+	t.Parallel()
+
 	resolver := &fakeSystemConfigResolver{
 		config: nil,
 		err:    nil,
@@ -372,6 +400,8 @@ func TestMailer_Send_ResolverReturnsNilConfig(t *testing.T) {
 }
 
 func TestMailer_Send_NilResolverNoPerChannelConfig(t *testing.T) {
+	t.Parallel()
+
 	m := New(nil)
 	m.retry = retryConfig{MaxAttempts: 1, BaseDelay: time.Millisecond}
 
@@ -385,6 +415,8 @@ func TestMailer_Send_NilResolverNoPerChannelConfig(t *testing.T) {
 }
 
 func TestMailer_Send_PerChannelOverridesResolver(t *testing.T) {
+	t.Parallel()
+
 	var capturedConfig *SMTPConfig
 
 	resolver := &fakeSystemConfigResolver{
@@ -421,6 +453,8 @@ func TestMailer_Send_PerChannelOverridesResolver(t *testing.T) {
 // --- Send tests using sendFunc injection ---
 
 func TestMailer_Send_Success(t *testing.T) {
+	t.Parallel()
+
 	var capturedTo, capturedSubject, capturedBody string
 	var capturedConfig *SMTPConfig
 
@@ -459,6 +493,8 @@ func TestMailer_Send_Success(t *testing.T) {
 }
 
 func TestMailer_Send_PerChannelConfigOverride(t *testing.T) {
+	t.Parallel()
+
 	var capturedConfig *SMTPConfig
 
 	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
@@ -488,6 +524,8 @@ func TestMailer_Send_PerChannelConfigOverride(t *testing.T) {
 }
 
 func TestMailer_Send_NoConfigAvailable(t *testing.T) {
+	t.Parallel()
+
 	m := New(nil) // no system config resolver
 	m.retry = retryConfig{
 		MaxAttempts: 1,
@@ -506,6 +544,8 @@ func TestMailer_Send_NoConfigAvailable(t *testing.T) {
 // --- Retry tests ---
 
 func TestMailer_Send_RetriesOnError(t *testing.T) {
+	t.Parallel()
+
 	attempts := 0
 
 	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
@@ -532,6 +572,8 @@ func TestMailer_Send_RetriesOnError(t *testing.T) {
 }
 
 func TestMailer_Send_FailsAfterMaxRetries(t *testing.T) {
+	t.Parallel()
+
 	attempts := 0
 
 	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
@@ -559,6 +601,8 @@ func TestMailer_Send_FailsAfterMaxRetries(t *testing.T) {
 }
 
 func TestMailer_Send_NoRetryOnSingleAttempt(t *testing.T) {
+	t.Parallel()
+
 	attempts := 0
 
 	m := New(&fakeSystemConfigResolver{config: testSMTPConfig()})
@@ -581,6 +625,8 @@ func TestMailer_Send_NoRetryOnSingleAttempt(t *testing.T) {
 }
 
 func TestMailer_Send_ContextCancellation(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	attempts := 0
 
@@ -611,6 +657,8 @@ func TestMailer_Send_ContextCancellation(t *testing.T) {
 // --- SMTP message building tests ---
 
 func TestBuildMessage(t *testing.T) {
+	t.Parallel()
+
 	config := testSMTPConfig()
 	msg := buildMessage(config.From, "admin@example.com", "Test Subject", "Test body content")
 
@@ -645,6 +693,8 @@ func TestBuildMessage(t *testing.T) {
 }
 
 func TestBuildMessage_SpecialCharactersInSubject(t *testing.T) {
+	t.Parallel()
+
 	msg := buildMessage("from@test.com", "to@test.com", "Server Crashed \u2014 My Server", "body")
 	if !strings.Contains(msg, "Subject: Server Crashed \u2014 My Server") {
 		t.Errorf("subject not preserved, got:\n%s", msg)
@@ -652,6 +702,8 @@ func TestBuildMessage_SpecialCharactersInSubject(t *testing.T) {
 }
 
 func TestBuildMessage_StripsHeaderInjectionSequences(t *testing.T) {
+	t.Parallel()
+
 	msg := buildMessage(
 		"alerts@example.com\r\nBcc: victim@example.com",
 		"admin@example.com\r\nCc: spy@example.com",
@@ -669,6 +721,8 @@ func TestBuildMessage_StripsHeaderInjectionSequences(t *testing.T) {
 // --- SendTestEmail tests ---
 
 func TestSendTestEmail_CallsSendFuncWithTestContent(t *testing.T) {
+	t.Parallel()
+
 	var capturedTo, capturedSubject, capturedBody string
 	var capturedConfig *SMTPConfig
 
@@ -702,6 +756,8 @@ func TestSendTestEmail_CallsSendFuncWithTestContent(t *testing.T) {
 }
 
 func TestSendTestEmail_PropagatesSendError(t *testing.T) {
+	t.Parallel()
+
 	fakeSend := func(_ context.Context, _ *SMTPConfig, _ string, _ string, _ string) error {
 		return errors.New("SMTP connection refused")
 	}
@@ -717,6 +773,8 @@ func TestSendTestEmail_PropagatesSendError(t *testing.T) {
 }
 
 func TestSendTestEmail_NilConfigReturnsError(t *testing.T) {
+	t.Parallel()
+
 	fakeSend := func(_ context.Context, _ *SMTPConfig, _ string, _ string, _ string) error {
 		return nil
 	}
@@ -733,6 +791,8 @@ func TestSendTestEmail_NilConfigReturnsError(t *testing.T) {
 // --- SMTPConfig address formatting test ---
 
 func TestSMTPConfig_Addr(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		host string
@@ -746,6 +806,8 @@ func TestSMTPConfig_Addr(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			cfg := &SMTPConfig{Host: tc.host, Port: tc.port}
 			got := cfg.Addr()
 			if got != tc.want {
@@ -758,6 +820,8 @@ func TestSMTPConfig_Addr(t *testing.T) {
 // --- Severity string in body test ---
 
 func TestFormatBody_AllSeverities(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		severity webhooks.Severity
@@ -770,6 +834,8 @@ func TestFormatBody_AllSeverities(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			event := webhooks.AlertEvent{
 				EventType: "ALERT_EVENT_TYPE_CRASH",
 				Message:   "test",
