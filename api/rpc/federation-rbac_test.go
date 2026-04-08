@@ -8,7 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -43,8 +43,8 @@ func TestGrantRemoteGameServerAccessFallsBackGrantorToOwner(t *testing.T) {
 		UserId:       "user-other",
 		RoleId:       "viewer",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "external-user-id")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote-peer")
 
 	response, errGrant := server.GrantRemoteGameServerAccess(federationPeerTestContext(), request)
 	if errGrant != nil {
@@ -95,8 +95,8 @@ func TestRevokeRemoteGameServerAccessDeletesGrant(t *testing.T) {
 	request := connect.NewRequest(&xylona.FederationRevokeGameServerAccessRequest{
 		GrantId: "grant-to-revoke",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "external-user-id")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote-peer")
 
 	_, errRevoke := server.RevokeRemoteGameServerAccess(federationPeerTestContext(), request)
 	if errRevoke != nil {
@@ -135,8 +135,8 @@ func TestGrantRemoteFederatedAccessFallsBackGrantorToOwner(t *testing.T) {
 		RemoteUserName: "Remote User",
 		RoleId:         "viewer",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "external-user-id")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote-peer")
 
 	response, errGrant := server.GrantRemoteFederatedAccess(federationPeerTestContext(), request)
 	if errGrant != nil {

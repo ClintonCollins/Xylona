@@ -19,7 +19,7 @@ func dispatchLocalOrRemote[T any](
 ) (*connect.Response[T], error) {
 	if errLookup == nil {
 		if gameServer == nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+			return nil, internalErr()
 		}
 		return localHandler(gameServer)
 	}
@@ -28,7 +28,7 @@ func dispatchLocalOrRemote[T any](
 		return remoteHandler()
 	}
 
-	return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	return nil, internalErr()
 }
 
 func dispatchGameServerRequest[T any](

@@ -10,7 +10,7 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers"
+	fedhelpers "github.com/ClintonCollins/Xylona/helpers/federation"
 )
 
 func newActingIdentityTestDB(t *testing.T) *db.Connection {
@@ -115,14 +115,14 @@ func TestApplyActingIdentityHeadersForUserID(t *testing.T) {
 				t.Fatalf("ApplyActingIdentityHeadersForUserID() error = %v", errApply)
 			}
 
-			gotUserID, gotNodeID := helpers.GetFederatedActingIdentity(header)
+			gotUserID, gotNodeID := fedhelpers.GetActingIdentity(header)
 			if gotUserID != tt.wantUserID {
 				t.Errorf("acting user header = %q, want %q", gotUserID, tt.wantUserID)
 			}
 			if gotNodeID != tt.wantNodeID {
 				t.Errorf("origin node header = %q, want %q", gotNodeID, tt.wantNodeID)
 			}
-			if gotSuper := helpers.FederatedActingIsSuperUser(header); gotSuper != tt.wantSuper {
+			if gotSuper := fedhelpers.ActingIsSuperUser(header); gotSuper != tt.wantSuper {
 				t.Errorf("super user header = %v, want %v", gotSuper, tt.wantSuper)
 			}
 		})

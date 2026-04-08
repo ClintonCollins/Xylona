@@ -38,6 +38,7 @@ import (
 	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
 	dbpkg "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/pkg/alerts"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
@@ -228,6 +229,140 @@ func (r *dbSMTPConfigResolver) ResolveSystemSMTPConfig() (*mailer.SMTPConfig, er
 	}, nil
 }
 
+// setupDatabase opens the database connection, runs migrations, and configures
+// the encryption key for sensitive fields. It returns the ready-to-use
+// connection or a fatal-level error.
+func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, error) {
+	dbInst := dbpkg.NewConnection(ctx, cfg.DBFilePath)
+
+	errMigrate := dbpkg.RunMigrations(dbInst.SQLDb, EmbeddedMigrations, "sql/migrations")
+	if errMigrate != nil {
+		return nil, fmt.Errorf("setupDatabase: run migrations: %w", errMigrate)
+	}
+
+	if cfg.EncryptionKey == "" {
+		return nil, errors.New("setupDatabase: ENCRYPTION_KEY_BASE64 must be set")
+	}
+	encKeyBytes, errDecodeEnc := base64.StdEncoding.DecodeString(cfg.EncryptionKey)
+	if errDecodeEnc != nil {
+		return nil, fmt.Errorf("setupDatabase: decode ENCRYPTION_KEY_BASE64: %w", errDecodeEnc)
+	}
+	if len(encKeyBytes) < 32 {
+		return nil, errors.New("setupDatabase: ENCRYPTION_KEY_BASE64 must decode to at least 32 bytes")
+	}
+	dbInst.SetEncryptionKey(encKeyBytes[:32])
+
+	return dbInst, nil
+}
+
+// setupFederationIdentity loads or generates the federation mTLS identity and
+// persists it to the database. It returns the mTLS instance, the local node ID,
+// and the local settings.
+func setupFederationIdentity(ctx context.Context, dbInst *dbpkg.Connection, cfg Configuration) (*federation.MTLS, *models.LocalSetting, error) {
+	_ = ctx // reserved for future use
+
+	settings, errSettings := dbInst.GetLocalSettings()
+	if errSettings != nil {
+		if !errors.Is(errSettings, sql.ErrNoRows) {
+			return nil, nil, fmt.Errorf("setupFederationIdentity: get local settings: %w", errSettings)
+		}
+		// Create default settings.
+		log.Warn().Msg("No settings found. Generating a node ID and default settings.")
+		newID, errID := helpers.GenerateUniqueID()
+		if errID != nil {
+			return nil, nil, fmt.Errorf("setupFederationIdentity: generate unique ID: %w", errID)
+		}
+		settings = &models.LocalSetting{
+			ID:     1,
+			NodeID: newID.String(),
+		}
+		errInsert := dbInst.UpdateLocalSettings(settings)
+		if errInsert != nil {
+			return nil, nil, fmt.Errorf("setupFederationIdentity: insert local settings: %w", errInsert)
+		}
+		log.Info().Msgf("Generated ID for this node: %s", settings.NodeID)
+	}
+
+	// Update node ID in the database to be a real and unique ID.
+	node, errGetNode := dbInst.GetNodeByID("1")
+	if errGetNode != nil && !errors.Is(errGetNode, sql.ErrNoRows) {
+		return nil, nil, fmt.Errorf("setupFederationIdentity: get node: %w", errGetNode)
+	}
+	if node != nil {
+		_, errExec := dbInst.SQLDb.Exec(`update node set id = ? where id = 1`, settings.NodeID) //nolint:noctx // startup migration, context not meaningful
+		if errExec != nil {
+			return nil, nil, fmt.Errorf("setupFederationIdentity: update node ID: %w", errExec)
+		}
+	}
+	errUpdateNodeIdentity := dbInst.UpdateNodeIdentity(
+		settings.NodeID,
+		version.SystemVersion,
+		version.FederationProtocolVersion,
+		version.FederationCapabilities,
+		runtime.GOOS,
+	)
+	if errUpdateNodeIdentity != nil {
+		return nil, nil, fmt.Errorf("setupFederationIdentity: stamp local node identity: %w", errUpdateNodeIdentity)
+	}
+
+	localIdentity, errLocalIdentity := dbInst.GetFederationLocalIdentity()
+	if errLocalIdentity != nil && !errors.Is(errLocalIdentity, sql.ErrNoRows) {
+		return nil, nil, fmt.Errorf("setupFederationIdentity: load federation local identity: %w", errLocalIdentity)
+	}
+
+	var certPEM []byte
+	var keyPEM []byte
+	if errLocalIdentity == nil {
+		certPEM = []byte(localIdentity.CertPEM)
+		keyPEM = []byte(localIdentity.KeyPEM)
+	}
+
+	federationMTLS, localCertFingerprint, errFederationMTLS := federation.NewMTLSFromPEM(cfg.FederationPort, certPEM, keyPEM)
+	if errFederationMTLS != nil {
+		log.Warn().
+			Err(errFederationMTLS).
+			Msg("No usable federation certificate in database; generating a new in-database identity")
+
+		var errGenerateFederationPEM error
+		certPEM, keyPEM, errGenerateFederationPEM = federation.GenerateCertificatePEM(settings.NodeID)
+		if errGenerateFederationPEM != nil {
+			return nil, nil, fmt.Errorf("setupFederationIdentity: generate federation mTLS identity: %w", errGenerateFederationPEM)
+		}
+
+		federationMTLS, localCertFingerprint, errFederationMTLS = federation.NewMTLSFromPEM(cfg.FederationPort, certPEM, keyPEM)
+		if errFederationMTLS != nil {
+			return nil, nil, fmt.Errorf("setupFederationIdentity: init federation mTLS from generated cert: %w", errFederationMTLS)
+		}
+	}
+
+	errPersistFederationIdentity := dbInst.UpsertFederationLocalIdentity(
+		settings.NodeID,
+		string(certPEM),
+		string(keyPEM),
+		localCertFingerprint,
+	)
+	if errPersistFederationIdentity != nil {
+		return nil, nil, fmt.Errorf("setupFederationIdentity: persist federation local identity: %w", errPersistFederationIdentity)
+	}
+
+	return federationMTLS, settings, nil
+}
+
+// setupAlertSystem initializes the alert evaluator and delivery pool. The
+// caller must call alertDeliveryPool.Wait() during shutdown to drain pending
+// deliveries.
+func setupAlertSystem(ctx context.Context, dbInst *dbpkg.Connection, actionsInst *actions.Instance, localNodeID string) *alerts.DeliveryPool {
+	actionsInst.StartAlertJobs(localNodeID)
+	webhookSender := webhooks.NewSender()
+	smtpResolver := &dbSMTPConfigResolver{db: dbInst}
+	alertMailer := mailer.New(smtpResolver)
+	alertEvaluator, alertJobChan := alerts.NewEvaluator(dbInst, eventbus.Get(), dbInst)
+	alertEvaluator.Start(ctx)
+	alertDeliveryPool := alerts.NewDeliveryPool(dbInst, dbInst, webhookSender, alertMailer, alertJobChan)
+	alertDeliveryPool.Start(ctx)
+	return alertDeliveryPool
+}
+
 func main() {
 	config := Configuration{}
 	_ = godotenv.Load()
@@ -286,110 +421,15 @@ func main() {
 	if errSupervisor != nil {
 		log.Fatal().Err(errSupervisor).Msg("Failed to create supervisor instance")
 	}
-	dbInst := dbpkg.NewConnection(ctx, config.DBFilePath)
 
-	// Run database migrations
-	errMigrate := dbpkg.RunMigrations(dbInst.SQLDb, EmbeddedMigrations, "sql/migrations")
-	if errMigrate != nil {
-		log.Fatal().Err(errMigrate).Msg("Error running migrations")
-		return
+	dbInst, errDB := setupDatabase(ctx, config)
+	if errDB != nil {
+		log.Fatal().Err(errDB).Msg("Failed to set up database")
 	}
 
-	// Set the dedicated encryption key for sensitive DB fields.
-	if config.EncryptionKey == "" {
-		log.Fatal().Msg("ENCRYPTION_KEY_BASE64 must be set")
-	}
-	encKeyBytes, errDecodeEnc := base64.StdEncoding.DecodeString(config.EncryptionKey)
-	if errDecodeEnc != nil {
-		log.Fatal().Err(errDecodeEnc).Msg("Error decoding ENCRYPTION_KEY_BASE64")
-	}
-	if len(encKeyBytes) < 32 {
-		log.Fatal().Msg("ENCRYPTION_KEY_BASE64 must decode to at least 32 bytes")
-	}
-	dbInst.SetEncryptionKey(encKeyBytes[:32])
-
-	settings, errSettings := dbInst.GetLocalSettings()
-	if errSettings != nil {
-		if !errors.Is(errSettings, sql.ErrNoRows) {
-			log.Fatal().Err(errSettings).Msg("Failed to get local settings")
-		}
-		// Create default settings
-		log.Warn().Msg("No settings found. Generating a node ID and default settings.")
-		newID, errID := helpers.GenerateUniqueID()
-		if errID != nil {
-			log.Fatal().Err(errID).Msg("Failed to generate unique ID")
-		}
-		settings = &models.LocalSetting{
-			ID:     1,
-			NodeID: newID.String(),
-		}
-		errInsert := dbInst.UpdateLocalSettings(settings)
-		if errInsert != nil {
-			log.Fatal().Err(errInsert).Msg("Failed to insert local settings")
-		}
-		log.Info().Msgf("Generated ID for this node: %s", settings.NodeID)
-	}
-
-	// Update node ID in the database to be a real and unique ID.
-	node, errGetNode := dbInst.GetNodeByID("1")
-	if errGetNode != nil && !errors.Is(errGetNode, sql.ErrNoRows) {
-		log.Fatal().Err(errGetNode).Msg("Failed to get node")
-	}
-	if node != nil {
-		_, errExec := dbInst.SQLDb.Exec(`update node set id = ? where id = 1`, settings.NodeID) //nolint:noctx // startup migration, context not meaningful
-		if errExec != nil {
-			log.Fatal().Err(errExec).Msg("Failed to update node ID")
-		}
-	}
-	errUpdateNodeIdentity := dbInst.UpdateNodeIdentity(
-		settings.NodeID,
-		version.SystemVersion,
-		version.FederationProtocolVersion,
-		version.FederationCapabilities,
-		runtime.GOOS,
-	)
-	if errUpdateNodeIdentity != nil {
-		log.Fatal().Err(errUpdateNodeIdentity).Str("node_id", settings.NodeID).Msg("Failed to stamp local node identity")
-	}
-
-	localIdentity, errLocalIdentity := dbInst.GetFederationLocalIdentity()
-	if errLocalIdentity != nil && !errors.Is(errLocalIdentity, sql.ErrNoRows) {
-		log.Fatal().Err(errLocalIdentity).Msg("Failed to load federation local identity")
-	}
-
-	var certPEM []byte
-	var keyPEM []byte
-	if errLocalIdentity == nil {
-		certPEM = []byte(localIdentity.CertPEM)
-		keyPEM = []byte(localIdentity.KeyPEM)
-	}
-
-	federationMTLS, localCertFingerprint, errFederationMTLS := helpers.NewFederationMTLSFromPEM(config.FederationPort, certPEM, keyPEM)
-	if errFederationMTLS != nil {
-		log.Warn().
-			Err(errFederationMTLS).
-			Msg("No usable federation certificate in database; generating a new in-database identity")
-
-		var errGenerateFederationPEM error
-		certPEM, keyPEM, errGenerateFederationPEM = helpers.GenerateFederationCertificatePEM(settings.NodeID)
-		if errGenerateFederationPEM != nil {
-			log.Fatal().Err(errGenerateFederationPEM).Msg("Failed to generate federation mTLS identity")
-		}
-
-		federationMTLS, localCertFingerprint, errFederationMTLS = helpers.NewFederationMTLSFromPEM(config.FederationPort, certPEM, keyPEM)
-		if errFederationMTLS != nil {
-			log.Fatal().Err(errFederationMTLS).Msg("Failed to initialize federation mTLS identity from generated certificate")
-		}
-	}
-
-	errPersistFederationIdentity := dbInst.UpsertFederationLocalIdentity(
-		settings.NodeID,
-		string(certPEM),
-		string(keyPEM),
-		localCertFingerprint,
-	)
-	if errPersistFederationIdentity != nil {
-		log.Fatal().Err(errPersistFederationIdentity).Msg("Failed to persist federation local identity")
+	federationMTLS, settings, errFederation := setupFederationIdentity(ctx, dbInst, config)
+	if errFederation != nil {
+		log.Fatal().Err(errFederation).Msg("Failed to set up federation identity")
 	}
 
 	modMgr := modmanager.New(dbInst)
@@ -411,15 +451,7 @@ func main() {
 	superInst.StartMetricsPoller(ctx)
 	_ = actions.NewMetricsRecorder(ctx, dbInst, superInst, settings.NodeID, actionsInst)
 
-	// Alert system: start threshold poller + history pruner, evaluator, and delivery workers.
-	actionsInst.StartAlertJobs(settings.NodeID)
-	webhookSender := webhooks.NewSender()
-	smtpResolver := &dbSMTPConfigResolver{db: dbInst}
-	alertMailer := mailer.New(smtpResolver)
-	alertEvaluator, alertJobChan := alerts.NewEvaluator(dbInst, eventbus.Get(), dbInst)
-	alertEvaluator.Start(ctx)
-	alertDeliveryPool := alerts.NewDeliveryPool(dbInst, dbInst, webhookSender, alertMailer, alertJobChan)
-	alertDeliveryPool.Start(ctx)
+	alertDeliveryPool := setupAlertSystem(ctx, dbInst, actionsInst, settings.NodeID)
 
 	// Scheduled tasks scheduler.
 	superAdapter := scheduler.NewSupervisorAdapter(superInst)

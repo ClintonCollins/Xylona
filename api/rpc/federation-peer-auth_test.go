@@ -11,7 +11,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 )
 
 func TestFederationPeerAuthMiddlewareAcceptsTrustedPeer(t *testing.T) {
@@ -21,7 +21,7 @@ func TestFederationPeerAuthMiddlewareAcceptsTrustedPeer(t *testing.T) {
 
 	clientCertPath := filepath.Join(t.TempDir(), "client.crt")
 	clientKeyPath := filepath.Join(t.TempDir(), "client.key")
-	clientMTLS, clientFingerprint, errClientMTLS := helpers.NewFederationMTLS("peer-node-id", 1, clientCertPath, clientKeyPath)
+	clientMTLS, clientFingerprint, errClientMTLS := federation.NewMTLS("peer-node-id", 1, clientCertPath, clientKeyPath)
 	if errClientMTLS != nil {
 		t.Fatalf("NewFederationMTLS() client error = %v", errClientMTLS)
 	}
@@ -170,7 +170,7 @@ func loadTLSCertificate(t *testing.T, certPath string, keyPath string, nodeID st
 	t.Helper()
 
 	if nodeID != "" {
-		_, _, errMTLS := helpers.NewFederationMTLS(nodeID, 1, certPath, keyPath)
+		_, _, errMTLS := federation.NewMTLS(nodeID, 1, certPath, keyPath)
 		if errMTLS != nil {
 			t.Fatalf("NewFederationMTLS() error = %v", errMTLS)
 		}

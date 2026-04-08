@@ -32,13 +32,13 @@ func (xs *XylonaService) CreateUser(_ context.Context, request *connect.Request[
 	lastName := strings.TrimSpace(request.Msg.GetLastName())
 	password := request.Msg.GetPassword()
 	if userName == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_name is required"))
+		return nil, invalidArg("user_name is required")
 	}
 	if email == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email is required"))
+		return nil, invalidArg("email is required")
 	}
 	if strings.TrimSpace(password) == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("password is required"))
+		return nil, invalidArg("password is required")
 	}
 
 	passwordHash, errHashPassword := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -115,16 +115,16 @@ func (xs *XylonaService) GetUser(_ context.Context, request *connect.Request[xyl
 
 	userID := strings.TrimSpace(request.Msg.GetId())
 	if userID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	targetUser, errGetUser := xs.db.GetUserByID(userID)
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("user not found"))
+			return nil, notFoundErr()
 		}
 		log.Error().Err(errGetUser).Str("user_id", userID).Msg("failed to get user")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	return connect.NewResponse(&xylona.GetUserDetailsResponse{
@@ -146,22 +146,22 @@ func (xs *XylonaService) UpdateUser(_ context.Context, request *connect.Request[
 	lastName := strings.TrimSpace(request.Msg.GetLastName())
 
 	if userID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 	if userName == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_name is required"))
+		return nil, invalidArg("user_name is required")
 	}
 	if email == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email is required"))
+		return nil, invalidArg("email is required")
 	}
 
 	targetUser, errGetTargetUser := xs.db.GetUserByID(userID)
 	if errGetTargetUser != nil {
 		if errors.Is(errGetTargetUser, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("user not found"))
+			return nil, notFoundErr()
 		}
 		log.Error().Err(errGetTargetUser).Str("user_id", userID).Msg("failed to load target user")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	if targetUser.SuperUser && !request.Msg.GetSuperUser() && actingUser.ID == targetUser.ID {
@@ -188,7 +188,7 @@ func (xs *XylonaService) UpdateUser(_ context.Context, request *connect.Request[
 	password := request.Msg.GetPassword()
 	if password != "" {
 		if strings.TrimSpace(password) == "" {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("password cannot be empty"))
+			return nil, invalidArg("password cannot be empty")
 		}
 
 		passwordHash, errHashPassword := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -228,16 +228,16 @@ func (xs *XylonaService) DeleteUser(_ context.Context, request *connect.Request[
 
 	userID := strings.TrimSpace(request.Msg.GetId())
 	if userID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	targetUser, errGetTargetUser := xs.db.GetUserByID(userID)
 	if errGetTargetUser != nil {
 		if errors.Is(errGetTargetUser, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("user not found"))
+			return nil, notFoundErr()
 		}
 		log.Error().Err(errGetTargetUser).Str("user_id", userID).Msg("failed to load target user for delete")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	if targetUser.SuperUser {
@@ -258,10 +258,10 @@ func (xs *XylonaService) DeleteUser(_ context.Context, request *connect.Request[
 	errDeleteUser := xs.db.DeleteUser(userID)
 	if errDeleteUser != nil {
 		if errors.Is(errDeleteUser, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("user not found"))
+			return nil, notFoundErr()
 		}
 		log.Error().Err(errDeleteUser).Str("user_id", userID).Msg("failed to delete user")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	return connect.NewResponse(&xylona.DeleteUserResponse{}), nil
@@ -270,10 +270,10 @@ func (xs *XylonaService) DeleteUser(_ context.Context, request *connect.Request[
 func (xs *XylonaService) requireSuperUserForUserManagement(header http.Header) (*models.User, error) {
 	user, errUser := xs.getUserFromHeader(header)
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	return user, nil

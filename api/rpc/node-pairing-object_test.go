@@ -6,7 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -35,7 +35,7 @@ func TestGenerateNodePairingObjectRejectsInvalidTargetURL(t *testing.T) {
 	certPath := filepath.Join(temporaryDirectory, "node.crt")
 	keyPath := filepath.Join(temporaryDirectory, "node.key")
 
-	federationMTLS, _, errCreateMTLS := helpers.NewFederationMTLS("local-node-id", 8443, certPath, keyPath)
+	federationMTLS, _, errCreateMTLS := federation.NewMTLS("local-node-id", 8443, certPath, keyPath)
 	if errCreateMTLS != nil {
 		t.Fatalf("NewFederationMTLS() error = %v", errCreateMTLS)
 	}

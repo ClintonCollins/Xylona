@@ -30,7 +30,7 @@ func (xs *XylonaService) GetUpdateTargets(
 ) (*connect.Response[xylona.GetUpdateTargetsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
@@ -44,12 +44,12 @@ func (xs *XylonaService) GetUpdateTargets(
 	}
 
 	if gameServer.R.Game == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("game relation not loaded"))
+		return nil, internalErrf("game relation not loaded")
 	}
 
 	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameServer.R.Game)
 	if errConfig != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load update configuration"))
+		return nil, internalErrf("failed to load update configuration")
 	}
 
 	serverConfig := updateproviders.LoadServerConfigFromModel(gameServer)
@@ -68,7 +68,7 @@ func (xs *XylonaService) GetUpdateTargets(
 
 	resolved, errResolve := updateproviders.ResolveConfig(gameConfig, serverConfig)
 	if errResolve != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to resolve update configuration"))
+		return nil, internalErrf("failed to resolve update configuration")
 	}
 
 	targets, errTargets := xs.listUpdateTargets(ctx, gameServer, resolved)
@@ -89,7 +89,7 @@ func (xs *XylonaService) GetVariantOperationStatus(
 ) (*connect.Response[xylona.GetVariantOperationStatusResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
@@ -118,7 +118,7 @@ func (xs *XylonaService) SetServerVariant(
 ) (*connect.Response[xylona.SetServerVariantResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
@@ -141,12 +141,12 @@ func (xs *XylonaService) SetServerVariant(
 
 	game := gameServer.R.Game
 	if game == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("game relation not loaded"))
+		return nil, internalErrf("game relation not loaded")
 	}
 
 	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(game)
 	if errConfig != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load variant configuration"))
+		return nil, internalErrf("failed to load variant configuration")
 	}
 
 	variantID := strings.TrimSpace(request.Msg.GetVariantId())
@@ -187,7 +187,7 @@ func (xs *XylonaService) SetServerVariant(
 			omitnull.Val[string]{},
 		)
 		if errUpdate != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update variant"))
+			return nil, internalErrf("failed to update variant")
 		}
 		if xs.actionsInst != nil {
 			xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServer.ID)

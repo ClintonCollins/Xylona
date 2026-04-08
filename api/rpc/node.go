@@ -19,6 +19,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
@@ -29,7 +30,7 @@ import (
 func (xs *XylonaService) GetNode(_ context.Context, request *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	nodeID := request.Msg.GetNodeId()
 	node, err := xs.db.GetNodeByID(nodeID)
@@ -43,7 +44,7 @@ func (xs *XylonaService) GetNode(_ context.Context, request *connect.Request[xyl
 func (xs *XylonaService) ListNodes(_ context.Context, request *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	nodes, err := xs.db.GetAllNodes()
 	if err != nil {
@@ -58,27 +59,27 @@ func (xs *XylonaService) ListNodes(_ context.Context, request *connect.Request[x
 }
 
 // AddNode adds a remote node using a pairing token.
-func (xs *XylonaService) AddNode(_ context.Context, request *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
+func (xs *XylonaService) AddNode(ctx context.Context, request *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	nodeProto := request.Msg.GetNode()
 
 	baseURL := strings.TrimSpace(nodeProto.GetBaseUrl())
 	if baseURL == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("base URL is required; local nodes are created automatically"))
+		return nil, invalidArg("base URL is required; local nodes are created automatically")
 	}
 
 	pairingToken := strings.TrimSpace(nodeProto.GetSecretKey())
 	if pairingToken == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("pairing token is required"))
+		return nil, invalidArg("pairing token is required")
 	}
 
-	return xs.addRemoteNode(nodeProto.GetName(), baseURL, nodeProto.GetAllowInsecureTls(), pairingToken, "", int(nodeProto.GetPort()))
+	return xs.addRemoteNode(ctx, nodeProto.GetName(), baseURL, nodeProto.GetAllowInsecureTls(), pairingToken, "", int(nodeProto.GetPort()))
 }
 
 // GenerateNodePairingObject creates a pairing token and local metadata for node pairing.
@@ -88,13 +89,13 @@ func (xs *XylonaService) GenerateNodePairingObject(
 ) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	if xs.federationMTLS == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("federation mTLS is not configured"))
+		return nil, internalErrf("federation mTLS is not configured")
 	}
 
 	normalizedTargetURL := ""
@@ -103,18 +104,18 @@ func (xs *XylonaService) GenerateNodePairingObject(
 		var errNormalizeTargetURL error
 		normalizedTargetURL, errNormalizeTargetURL = normalizeBaseURL(targetURL)
 		if errNormalizeTargetURL != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid target URL"))
+			return nil, invalidArg("invalid target URL")
 		}
 	}
 
 	localSettings, errSettings := xs.db.GetLocalSettings()
 	if errSettings != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local settings"))
+		return nil, internalErrf("failed to get local settings")
 	}
 
 	localNode, errLocalNode := xs.db.GetNodeByID(localSettings.NodeID)
 	if errLocalNode != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local node"))
+		return nil, internalErrf("failed to get local node")
 	}
 
 	normalizedLocalBaseURL, errNormalizeLocalBaseURL := normalizeBaseURL(localNode.BaseURL)
@@ -139,14 +140,14 @@ func (xs *XylonaService) GenerateNodePairingObject(
 func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	remoteBaseURL, errNormalizeRemoteBaseURL := normalizeBaseURL(request.Msg.GetRemoteBaseUrl())
 	if errNormalizeRemoteBaseURL != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid remote base URL"))
+		return nil, invalidArg("invalid remote base URL")
 	}
 
 	remoteFederationPort, errNormalizeRemoteFederationPort := normalizeFederationPort(request.Msg.GetRemoteMtlsPort())
@@ -156,11 +157,11 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 
 	localBaseURL, errNormalizeLocalBaseURL := normalizeBaseURL(request.Msg.GetLocalBaseUrl())
 	if errNormalizeLocalBaseURL != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid local base URL"))
+		return nil, invalidArg("invalid local base URL")
 	}
 
 	if remoteBaseURL == localBaseURL {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("remote and local URLs must be different"))
+		return nil, invalidArg("remote and local URLs must be different")
 	}
 
 	remoteNodeName := strings.TrimSpace(request.Msg.GetRemoteName())
@@ -170,7 +171,7 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 
 	remotePairingToken := strings.TrimSpace(request.Msg.GetRemoteSecretKey())
 	if remotePairingToken == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("remote pairing token is required"))
+		return nil, invalidArg("remote pairing token is required")
 	}
 
 	localPairingToken, errGenerateLocalPairingToken := xs.db.GeneratePairingToken(remoteBaseURL)
@@ -182,7 +183,7 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to generate local pairing token"))
 	}
 
-	httpClient := helpers.NewFederationHTTPClient(federationRequestTimeout, remoteAllowInsecureTLS)
+	httpClient := federation.NewHTTPClient(federationRequestTimeout, remoteAllowInsecureTLS)
 	remoteClient := xylonaconnect.NewXylonaClient(httpClient, remoteBaseURL)
 
 	localFederationPort := int64(0)
@@ -221,6 +222,7 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 	}
 
 	localAddResp, errLocalAdd := xs.addRemoteNode(
+		ctx,
 		remoteNodeName,
 		remoteBaseURL,
 		remoteAllowInsecureTLS,
@@ -249,7 +251,7 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 		}
 		existingRemoteNode, errGetExistingRemoteNode := xs.db.GetRemoteNodeByBaseURL(remoteBaseURL)
 		if errGetExistingRemoteNode != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load existing remote node"))
+			return nil, internalErrf("failed to load existing remote node")
 		}
 		localNode = helpers.NodeModelToProto(existingRemoteNode)
 	} else {
@@ -271,6 +273,7 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 }
 
 func (xs *XylonaService) addRemoteNode(
+	ctx context.Context,
 	name string,
 	baseURL string,
 	allowInsecureTLS bool,
@@ -280,16 +283,16 @@ func (xs *XylonaService) addRemoteNode(
 ) (*connect.Response[xylona.AddNodeResponse], error) {
 	normalizedBaseURL, errNormalizeBaseURL := normalizeBaseURL(baseURL)
 	if errNormalizeBaseURL != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid base URL"))
+		return nil, invalidArg("invalid base URL")
 	}
 
 	if xs.federationMTLS == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("federation mTLS is not configured"))
+		return nil, internalErrf("federation mTLS is not configured")
 	}
 
 	pairingToken = normalizePairingToken(pairingToken)
 	if pairingToken == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("pairing token is required"))
+		return nil, invalidArg("pairing token is required")
 	}
 
 	// Check for duplicate base URL.
@@ -310,6 +313,7 @@ func (xs *XylonaService) addRemoteNode(
 
 	// Use the pairing token to authenticate with the remote peer and exchange fingerprints.
 	pairingResp, remoteFingerprint, errPairing := probePeerAndCompletePairing(
+		ctx,
 		xs.federationMTLS,
 		normalizedBaseURL,
 		pairingToken,
@@ -327,15 +331,15 @@ func (xs *XylonaService) addRemoteNode(
 	// Prevent self-registration.
 	localSettings, errSettings := xs.db.GetLocalSettings()
 	if errSettings != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local settings"))
+		return nil, internalErrf("failed to get local settings")
 	}
 	if pairingResp.NodeID == localSettings.NodeID {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot add self as a peer node"))
+		return nil, invalidArg("cannot add self as a peer node")
 	}
 
 	newID, errID := helpers.GenerateUniqueID()
 	if errID != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to generate ID"))
+		return nil, internalErrf("failed to generate ID")
 	}
 
 	name = strings.TrimSpace(name)
@@ -469,17 +473,17 @@ func (xs *XylonaService) resolveLocalPairingBaseURL(preferredBaseURL string) (st
 func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	nodeID := request.Msg.GetNodeId()
 
 	// Get node info before deletion for the broadcast.
 	node, errGetNode := xs.db.GetNodeByID(nodeID)
 	if errGetNode != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("node not found"))
+		return nil, notFoundErr()
 	}
 
 	// Broadcast NODE_REVOKED to all remaining peers BEFORE local deletion.
@@ -538,10 +542,10 @@ func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[
 func (xs *XylonaService) EditNode(_ context.Context, request *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	nodeModel := helpers.NodeProtoToModel(request.Msg.GetNode())
 	node, err := xs.db.UpdateNode(nodeModel, helpers.NodeModelToSetter(nodeModel))
@@ -558,19 +562,16 @@ func (xs *XylonaService) EditNode(_ context.Context, request *connect.Request[xy
 func (xs *XylonaService) SyncNode(_ context.Context, request *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	nodeID := request.Msg.GetNodeId()
 
 	_, err := xs.db.GetRemoteNodeByID(nodeID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("node not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get node"))
+		return nil, dbLookupMsg(err, "failed to get node")
 	}
 
 	if xs.syncEngine != nil {
@@ -605,7 +606,7 @@ func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request 
 		localServers, errLocal = xs.db.GetGameServersAccessibleByUser(user.ID)
 	}
 	if errLocal != nil && !errors.Is(errLocal, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local game servers"))
+		return nil, internalErrf("failed to get local game servers")
 	}
 
 	localBulkPerms := map[string][]string{}
@@ -911,10 +912,10 @@ func (xs *XylonaService) VerifyNode(ctx context.Context, request *connect.Reques
 func (xs *XylonaService) ListLocalSecretKeys(_ context.Context, request *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	secretKeys, err := xs.db.GetAllSecretKeys()
 	if err != nil {
@@ -938,10 +939,10 @@ func (xs *XylonaService) ListLocalSecretKeys(_ context.Context, request *connect
 func (xs *XylonaService) CreateLocalSecretKey(_ context.Context, request *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	localSecretKey, key, errCreateSecretKey := xs.buildLocalSecretKey(request.Msg.GetName())
 	if errCreateSecretKey != nil {
@@ -966,10 +967,10 @@ func (xs *XylonaService) CreateLocalSecretKey(_ context.Context, request *connec
 func (xs *XylonaService) DeleteLocalSecretKey(_ context.Context, request *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	id := request.Msg.GetId()
 	err := xs.db.DeleteSecretKeyByID(id)

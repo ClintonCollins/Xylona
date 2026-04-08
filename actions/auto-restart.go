@@ -99,6 +99,9 @@ func (inst *Instance) handleServerExit(cmd *supervisor.Command, serverID string)
 	// Exponential backoff: baseCooldown * 2^attempt, capped to avoid overflow.
 	shift := min(attempt, 6) // cap at 64x base cooldown
 	delay := baseCooldown * (1 << shift)
+	if attempt == 0 {
+		delay = 1 * time.Second
+	}
 
 	msg := fmt.Sprintf(
 		"Server exited unexpectedly. Restarting in %s (attempt %d/%d)...",

@@ -128,34 +128,28 @@ func (xs *XylonaService) findAvailablePort(ip string, port int64, queryPort int6
 func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
 	callingUser, errCallingUser := xs.getUserFromHeader(request.Header())
 	if errCallingUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	if !callingUser.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("only superusers can create game servers"))
+		return nil, permissionDenied("only superusers can create game servers")
 	}
 
 	targetUserID := request.Msg.GetGameServer().GetUserId()
 	user, errGetUser := xs.db.GetUserByID(targetUserID)
 	if errGetUser != nil {
-		if errors.Is(errGetUser, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, dbLookup(errGetUser)
 	}
 	game, errGetGame := xs.db.GetGameByID(request.Msg.GetGameServer().GetGameId())
 	if errGetGame != nil {
-		if errors.Is(errGetGame, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, dbLookup(errGetGame)
 	}
 
 	newGameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
 	if strings.TrimSpace(newGameServerModel.NodeID) == "" {
 		localSettings, errSettings := xs.db.GetLocalSettings()
 		if errSettings != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to resolve local node"))
+			return nil, internalErrf("failed to resolve local node")
 		}
 		newGameServerModel.NodeID = fallbackNodeID(newGameServerModel.NodeID, localSettings.NodeID)
 	}
@@ -163,9 +157,9 @@ func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Re
 	_, errNode := xs.db.GetNodeByID(newGameServerModel.NodeID)
 	if errNode != nil {
 		if errors.Is(errNode, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid node"))
+			return nil, invalidArg("invalid node")
 		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to validate node"))
+		return nil, internalErrf("failed to validate node")
 	}
 
 	newGameServerModel.BackupsEnabled = true
@@ -193,7 +187,7 @@ func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Re
 	}
 	newGameServer, errInstallGameServer := installGameServer(game, newGameServerModel, user)
 	if errInstallGameServer != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	response := &xylona.CreateGameServerResponse{
@@ -207,7 +201,7 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -225,18 +219,15 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 			_, errNode := xs.db.GetNodeByID(gameServerModel.NodeID)
 			if errNode != nil {
 				if errors.Is(errNode, sql.ErrNoRows) {
-					return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid node"))
+					return nil, invalidArg("invalid node")
 				}
-				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to validate node"))
+				return nil, internalErrf("failed to validate node")
 			}
 
 			// Check for port conflicts when IP or port changed.
 			game, errGetGame := xs.db.GetGameByID(gameServerModel.GameID)
 			if errGetGame != nil {
-				if errors.Is(errGetGame, sql.ErrNoRows) {
-					return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
-				}
-				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+				return nil, dbLookup(errGetGame)
 			}
 
 			if gameServerModel.IP != existingGameServer.IP || gameServerModel.Port != existingGameServer.Port || gameServerModel.QueryPort != existingGameServer.QueryPort {
@@ -253,7 +244,7 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 			setter := helpers.GameServerModelToSetter(gameServerModel)
 			_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 			if errUpdate != nil {
-				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+				return nil, internalErr()
 			}
 
 			gameServerProto := helpers.GameServerModelToProto(gameServerModel, xs.versionState)
@@ -274,7 +265,7 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -288,7 +279,7 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 			xs.actionsInst.StopGameServer(gameServer)
 			errRemove := xs.actionsInst.RemoveGameServer(gameServer, true)
 			if errRemove != nil {
-				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+				return nil, internalErr()
 			}
 			return connect.NewResponse(&xylona.RemoveGameServerResponse{}), nil
 		},
@@ -303,7 +294,7 @@ func (xs *XylonaService) StartGameServer(ctx context.Context, request *connect.R
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -351,7 +342,7 @@ func (xs *XylonaService) startRemoteGameServer(ctx context.Context, serverID str
 	}
 
 	if !resp.Msg.GetSuccess() {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
+		return nil, internalErrf(resp.Msg.GetError())
 	}
 
 	return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
@@ -362,7 +353,7 @@ func (xs *XylonaService) StopGameServer(ctx context.Context, request *connect.Re
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -410,7 +401,7 @@ func (xs *XylonaService) stopRemoteGameServer(ctx context.Context, serverID stri
 	}
 
 	if !resp.Msg.GetSuccess() {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
+		return nil, internalErrf(resp.Msg.GetError())
 	}
 
 	return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
@@ -421,7 +412,7 @@ func (xs *XylonaService) ReadGameServerOutput(ctx context.Context, request *conn
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -481,7 +472,7 @@ func (xs *XylonaService) SendGameServerInput(ctx context.Context, request *conne
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -554,7 +545,7 @@ func (xs *XylonaService) ListDirectoryFiles(ctx context.Context, request *connec
 	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -568,12 +559,12 @@ func (xs *XylonaService) ListDirectoryFiles(ctx context.Context, request *connec
 			files, errListGameServerFiles := xs.actionsInst.ListGameServerFiles(gameServer, request.Msg.GetPath())
 			if errListGameServerFiles != nil {
 				if errors.Is(errListGameServerFiles, actions.ErrInvalidPath) {
-					return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid path"))
+					return nil, invalidArg("invalid path")
 				}
 				if errors.Is(errListGameServerFiles, os.ErrNotExist) {
-					return nil, connect.NewError(connect.CodeNotFound, errors.New("invalid path"))
+					return nil, notFoundErr()
 				}
-				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+				return nil, internalErr()
 			}
 			response := &xylona.ListDirectoryFilesResponse{
 				Files: files,
@@ -591,7 +582,7 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 	serverID := request.Msg.GetId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -723,7 +714,7 @@ func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.
 	selectedTarget := strings.TrimSpace(request.Msg.GetTarget())
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,
@@ -766,7 +757,7 @@ func (xs *XylonaService) ListGameServers(_ context.Context, request *connect.Req
 				GameServers: []*xylona.GameServer{},
 			}), nil
 		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	bulkPerms := map[string][]string{}
@@ -834,7 +825,7 @@ func (xs *XylonaService) QueryGameServer(ctx context.Context, request *connect.R
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	return dispatchGameServerRequest(
 		xs,

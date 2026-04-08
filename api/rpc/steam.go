@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
@@ -14,7 +13,7 @@ import (
 func (xs *XylonaService) SearchSteamApps(_ context.Context, request *connect.Request[xylona.SearchSteamAppsRequest]) (*connect.Response[xylona.SearchSteamAppsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	// Search is no longer supported — the Steam APIs that provided app list
@@ -29,7 +28,7 @@ func (xs *XylonaService) SearchSteamApps(_ context.Context, request *connect.Req
 func (xs *XylonaService) GetSteamAppDetails(ctx context.Context, request *connect.Request[xylona.GetSteamAppDetailsRequest]) (*connect.Response[xylona.GetSteamAppDetailsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	appID := request.Msg.GetAppId()

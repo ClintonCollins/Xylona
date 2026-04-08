@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers"
+	fedhelpers "github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -23,7 +23,7 @@ func ApplyActingIdentityHeadersForUser(dbConn *db.Connection, header http.Header
 		return fmt.Errorf("load local settings for acting identity: %w", errSettings)
 	}
 
-	helpers.ApplyFederatedActingIdentityHeaders(header, actingUser, localSettings.NodeID)
+	fedhelpers.ApplyActingIdentityHeaders(header, actingUser, localSettings.NodeID)
 	return nil
 }
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stephenafamo/bob/dialect/sqlite"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 )
 
 // FederationLocalIdentity stores the local node's federation identity material.
@@ -147,12 +147,12 @@ func (c *Connection) SetFederationTrustedPeerEnabled(nodeID string, enabled bool
 }
 
 // GetFederationTrustedPeerLookup returns the trust info needed for outbound mTLS.
-func (c *Connection) GetFederationTrustedPeerLookup(nodeID string) (*helpers.TrustedPeerInfo, error) {
+func (c *Connection) GetFederationTrustedPeerLookup(nodeID string) (*federation.TrustedPeerInfo, error) {
 	peer, errPeer := c.GetFederationTrustedPeerByNodeID(nodeID)
 	if errPeer != nil {
 		return nil, errPeer
 	}
-	return &helpers.TrustedPeerInfo{
+	return &federation.TrustedPeerInfo{
 		PeerNodeID:      peer.PeerNodeID,
 		PeerFingerprint: peer.PeerFingerprint,
 		Enabled:         peer.Enabled,

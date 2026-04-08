@@ -42,17 +42,17 @@ func getServerModInfo(xs *XylonaService, gameServerID string) (*serverModInfo, e
 		if errors.Is(errGetServer, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not found"))
 		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game server"))
+		return nil, internalErrf("failed to get game server")
 	}
 
 	game, errGetGame := xs.db.GetGameByID(gameServer.GameID)
 	if errGetGame != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
+		return nil, internalErrf("failed to get game")
 	}
 
 	resolved, errResolve := updateproviders.ResolveModelConfig(game, gameServer)
 	if errResolve != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to resolve server configuration"))
+		return nil, internalErrf("failed to resolve server configuration")
 	}
 
 	return &serverModInfo{
@@ -139,7 +139,7 @@ func (xs *XylonaService) SearchMods(
 ) (*connect.Response[xylona.SearchModsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
@@ -203,7 +203,7 @@ func (xs *XylonaService) SearchMods(
 	)
 	if errSearch != nil {
 		log.Error().Err(errSearch).Msg("Failed to search mods")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("search failed"))
+		return nil, internalErrf("search failed")
 	}
 
 	// Check which mods are already installed.
@@ -253,7 +253,7 @@ func (xs *XylonaService) GetModDetails(
 ) (*connect.Response[xylona.GetModDetailsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	source := request.Msg.GetSource()
@@ -294,7 +294,7 @@ func (xs *XylonaService) GetModVersions(
 ) (*connect.Response[xylona.GetModVersionsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	source := request.Msg.GetSource()
@@ -340,7 +340,7 @@ func (xs *XylonaService) InstallMod(
 ) (*connect.Response[xylona.InstallModResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
@@ -370,7 +370,7 @@ func (xs *XylonaService) InstallMod(
 	)
 	if errInstall != nil {
 		log.Error().Err(errInstall).Msg("Failed to install mod")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to install mod"))
+		return nil, internalErrf("failed to install mod")
 	}
 
 	return &connect.Response[xylona.InstallModResponse]{
@@ -387,7 +387,7 @@ func (xs *XylonaService) UninstallMod(
 ) (*connect.Response[xylona.UninstallModResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
@@ -403,7 +403,7 @@ func (xs *XylonaService) UninstallMod(
 	errUninstall := xs.modManager.Uninstall(ctx, request.Msg.GetInstalledModId(), gameServer.Directory)
 	if errUninstall != nil {
 		log.Error().Err(errUninstall).Msg("Failed to uninstall mod")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to uninstall mod"))
+		return nil, internalErrf("failed to uninstall mod")
 	}
 
 	return &connect.Response[xylona.UninstallModResponse]{
@@ -418,7 +418,7 @@ func (xs *XylonaService) UpdateMod(
 ) (*connect.Response[xylona.UpdateModResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
@@ -434,7 +434,7 @@ func (xs *XylonaService) UpdateMod(
 	updated, errUpdate := xs.modManager.Update(ctx, request.Msg.GetInstalledModId(), request.Msg.GetVersionId(), gameServer.Directory)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Failed to update mod")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update mod"))
+		return nil, internalErrf("failed to update mod")
 	}
 
 	return &connect.Response[xylona.UpdateModResponse]{
@@ -451,13 +451,13 @@ func (xs *XylonaService) ListInstalledMods(
 ) (*connect.Response[xylona.ListInstalledModsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	mods, errGet := xs.db.GetInstalledModsByGameServerID(request.Msg.GetGameServerId())
 	if errGet != nil {
 		log.Error().Err(errGet).Msg("Failed to get installed mods")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list installed mods"))
+		return nil, internalErrf("failed to list installed mods")
 	}
 
 	var protoMods []*xylona.InstalledMod
@@ -479,7 +479,7 @@ func (xs *XylonaService) SetModAutoUpdate(
 ) (*connect.Response[xylona.SetModAutoUpdateResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
@@ -510,7 +510,7 @@ func (xs *XylonaService) SetModAutoUpdate(
 	updated, errUpdate := xs.db.UpdateInstalledMod(xs.db.DB, mod, setter)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Failed to set mod auto-update")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update mod"))
+		return nil, internalErrf("failed to update mod")
 	}
 
 	return &connect.Response[xylona.SetModAutoUpdateResponse]{
@@ -527,7 +527,7 @@ func (xs *XylonaService) SetModEnabled(
 ) (*connect.Response[xylona.SetModEnabledResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	info, errInfo := getServerModInfo(xs, request.Msg.GetGameServerId())
@@ -550,20 +550,20 @@ func (xs *XylonaService) SetModEnabled(
 		errEnable := xs.modManager.Enable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
 		if errEnable != nil {
 			log.Error().Err(errEnable).Msg("Failed to enable mod")
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to enable mod"))
+			return nil, internalErrf("failed to enable mod")
 		}
 	} else {
 		errDisable := xs.modManager.Disable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
 		if errDisable != nil {
 			log.Error().Err(errDisable).Msg("Failed to disable mod")
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to disable mod"))
+			return nil, internalErrf("failed to disable mod")
 		}
 	}
 
 	// Re-fetch the updated mod.
 	mod, errGet := xs.db.GetInstalledModByID(request.Msg.GetInstalledModId())
 	if errGet != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to fetch updated mod"))
+		return nil, internalErrf("failed to fetch updated mod")
 	}
 
 	return &connect.Response[xylona.SetModEnabledResponse]{
@@ -582,7 +582,7 @@ func (xs *XylonaService) GetModCategories(
 ) (*connect.Response[xylona.GetModCategoriesResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	categories := []string{
@@ -606,7 +606,7 @@ func (xs *XylonaService) PinModVersion(
 ) (*connect.Response[xylona.PinModVersionResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
@@ -637,7 +637,7 @@ func (xs *XylonaService) PinModVersion(
 	updated, errUpdate := xs.db.UpdateInstalledMod(xs.db.DB, mod, setter)
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Failed to pin mod version")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update mod"))
+		return nil, internalErrf("failed to update mod")
 	}
 
 	return &connect.Response[xylona.PinModVersionResponse]{

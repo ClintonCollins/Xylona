@@ -15,7 +15,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
@@ -69,8 +69,8 @@ func TestGetRemoteVersionInfoReturnsVersionState(t *testing.T) {
 	request := connect.NewRequest(&xylona.FederationRemoteActionRequest{
 		ServerId: "server-local-1",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "external-user-id")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote-peer")
 
 	response, errGet := client.GetRemoteVersionInfo(context.Background(), request)
 	if errGet != nil {
@@ -178,8 +178,8 @@ func TestUpdateRemoteServerReturnsErrorForUnsupportedMinecraftVariant(t *testing
 	request := connect.NewRequest(&xylona.FederationRemoteActionRequest{
 		ServerId: "server-local-1",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "external-user-id")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "external-user-id")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote-peer")
 
 	_, errUpdate := client.UpdateRemoteServer(context.Background(), request)
 	if errUpdate == nil {
@@ -223,6 +223,45 @@ func TestFederationUpdateErrorCode(t *testing.T) {
 			got := federationUpdateErrorCode(tt.err)
 			if got != tt.want {
 				t.Fatalf("federationUpdateErrorCode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFederationUpdateError(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		wantCode    connect.Code
+		wantMessage string
+	}{
+		{
+			name:        "precondition failures keep their message",
+			err:         actions.ErrGameUpdateNotConfigured,
+			wantCode:    connect.CodeFailedPrecondition,
+			wantMessage: actions.ErrGameUpdateNotConfigured.Error(),
+		},
+		{
+			name:        "internal failures are sanitized",
+			err:         errors.New("disk path C:/secret exploded"),
+			wantCode:    connect.CodeInternal,
+			wantMessage: "failed to update game server",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := federationUpdateError(tt.err)
+			if connect.CodeOf(err) != tt.wantCode {
+				t.Fatalf("federationUpdateError() code = %v, want %v", connect.CodeOf(err), tt.wantCode)
+			}
+
+			connectErr := new(connect.Error)
+			if !errors.As(err, &connectErr) {
+				t.Fatalf("federationUpdateError() = %T, want *connect.Error", err)
+			}
+			if connectErr.Message() != tt.wantMessage {
+				t.Fatalf("federationUpdateError() message = %q, want %q", connectErr.Message(), tt.wantMessage)
 			}
 		})
 	}

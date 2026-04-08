@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 )
 
 const (
@@ -37,7 +38,7 @@ type completePairingResponse struct {
 // This endpoint does NOT require mTLS trust-store validation — the pairing token
 // authenticates the request. It accepts any client certificate presented during TLS,
 // validates the pairing token, and then establishes mutual trust.
-func CompletePairingHandler(dbInst *db.Connection, federationMTLS *helpers.FederationMTLS) http.HandlerFunc {
+func CompletePairingHandler(dbInst *db.Connection, federationMTLS *federation.MTLS) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -73,7 +74,7 @@ func CompletePairingHandler(dbInst *db.Connection, federationMTLS *helpers.Feder
 
 		// Also verify the presented client certificate fingerprint matches the claimed one.
 		presentedCert := r.TLS.PeerCertificates[0]
-		presentedFingerprint := helpers.CertificateFingerprint(presentedCert)
+		presentedFingerprint := federation.CertificateFingerprint(presentedCert)
 		if !fingerprintsEqual(presentedFingerprint, peerFingerprint) {
 			log.Warn().
 				Str("presented", presentedFingerprint).
@@ -185,7 +186,8 @@ func normalizePairingToken(token string) string {
 // probePeerAndCompletePairing probes the remote federation port, presents a pairing token,
 // and returns the remote node's identity and fingerprint. This is called from addRemoteNode.
 func probePeerAndCompletePairing(
-	federationMTLS *helpers.FederationMTLS,
+	ctx context.Context,
+	federationMTLS *federation.MTLS,
 	remoteBaseURL string,
 	pairingToken string,
 	localBaseURL string,
@@ -243,7 +245,12 @@ func probePeerAndCompletePairing(
 	}
 
 	pairingURL := strings.TrimSuffix(federationBaseURL, "/") + federationPairingPath
-	resp, errDo := httpClient.Post(pairingURL, "application/json", strings.NewReader(string(bodyBytes))) //nolint:noctx // TODO: refactor to use http.NewRequestWithContext
+	req, errNewReq := http.NewRequestWithContext(ctx, http.MethodPost, pairingURL, strings.NewReader(string(bodyBytes)))
+	if errNewReq != nil {
+		return nil, "", fmt.Errorf("rpc: create pairing request: %w", errNewReq)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, errDo := httpClient.Do(req)
 	if errDo != nil {
 		return nil, "", fmt.Errorf("rpc: send pairing request: %w", errDo)
 	}

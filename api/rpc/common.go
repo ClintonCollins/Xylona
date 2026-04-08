@@ -35,10 +35,7 @@ func (xs *XylonaService) getUserFromHeader(header http.Header) (*models.User, er
 func (xs *XylonaService) getGameServerFromID(gameServerID string) (*models.GameServer, error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(gameServerID)
 	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, dbLookup(errGetGameServer)
 	}
 	return gameServer, nil
 }
@@ -73,7 +70,7 @@ func (xs *XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, 
 			return nil, nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("ambiguous remote server mapping"))
 		}
 		if errors.Is(errGetRemote, sql.ErrNoRows) {
-			return nil, nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
+			return nil, nil, notFoundErr()
 		}
 		log.Error().Err(errGetRemote).Str("server_id", serverID).Msg("Failed to load remote server cache entry")
 		return nil, nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -92,7 +89,7 @@ func (xs *XylonaService) getRemoteNodeForServer(serverID string) (*models.Node, 
 			}
 			return nil, nil, connect.NewError(connect.CodeNotFound, errors.New("not found"))
 		}
-		return nil, nil, connect.NewError(connect.CodeInternal, errors.New("remote node not found"))
+		return nil, nil, internalErrf("remote node not found")
 	}
 
 	return node, remoteCache, nil

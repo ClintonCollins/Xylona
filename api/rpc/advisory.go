@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -18,7 +17,7 @@ func (xs *XylonaService) ListFederationAdvisories(
 ) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	limit := request.Msg.GetLimit()
@@ -65,7 +64,7 @@ func (xs *XylonaService) MarkAdvisoriesRead(
 ) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	errMark := xs.db.MarkAdvisoriesRead(request.Msg.GetAdvisoryIds())
@@ -82,7 +81,7 @@ func (xs *XylonaService) GetUnreadAdvisoryCount(
 ) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	count, errCount := xs.db.GetUnreadAdvisoryCount()
@@ -101,10 +100,10 @@ func (xs *XylonaService) LeaveFederation(
 ) (*connect.Response[xylona.LeaveFederationResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	errLeave := xs.actionsInst.LeaveFederation()

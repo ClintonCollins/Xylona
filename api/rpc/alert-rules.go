@@ -149,25 +149,25 @@ func (xs *XylonaService) validateAlertRuleRequest(
 ) (serverID, serverNodeID, nodeID string, err error) {
 	// Validate event_type != UNSPECIFIED
 	if eventType == xylona.AlertEventType_ALERT_EVENT_TYPE_UNSPECIFIED {
-		return "", "", "", connect.NewError(connect.CodeInvalidArgument, errors.New("event_type is required"))
+		return "", "", "", invalidArg("event_type is required")
 	}
 
 	// Validate notification_channel_id is not empty
 	if strings.TrimSpace(notificationChannelID) == "" {
-		return "", "", "", connect.NewError(connect.CodeInvalidArgument, errors.New("notification_channel_id is required"))
+		return "", "", "", invalidArg("notification_channel_id is required")
 	}
 
 	// Validate notification_channel_id belongs to the user
 	channel, errGetChannel := xs.db.GetNotificationChannelByID(notificationChannelID)
 	if errGetChannel != nil {
 		if errors.Is(errGetChannel, sql.ErrNoRows) {
-			return "", "", "", connect.NewError(connect.CodeInvalidArgument, errors.New("notification channel not found"))
+			return "", "", "", invalidArg("notification channel not found")
 		}
 		log.Error().Err(errGetChannel).Str("channel_id", notificationChannelID).Msg("failed to fetch notification channel")
 		return "", "", "", connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if channel.UserID != user.ID {
-		return "", "", "", connect.NewError(connect.CodeInvalidArgument, errors.New("notification channel not found"))
+		return "", "", "", invalidArg("notification channel not found")
 	}
 
 	// Extract optional fields
@@ -183,23 +183,23 @@ func (xs *XylonaService) validateAlertRuleRequest(
 
 	// Pair consistency: serverID and serverNodeID must both be set or both empty
 	if (serverID != "" && serverNodeID == "") || (serverID == "" && serverNodeID != "") {
-		return "", "", "", connect.NewError(connect.CodeInvalidArgument, errors.New("server_id and server_node_id must both be provided or both omitted"))
+		return "", "", "", invalidArg("server_id and server_node_id must both be provided or both omitted")
 	}
 
 	// Mutual exclusivity: serverID and nodeID cannot both be set
 	if serverID != "" && nodeID != "" {
-		return "", "", "", connect.NewError(connect.CodeInvalidArgument, errors.New("server_id and node_id are mutually exclusive"))
+		return "", "", "", invalidArg("server_id and node_id are mutually exclusive")
 	}
 
 	// Event-type scoping validation
 	if isNodeEventType(eventType) {
 		if serverID != "" || serverNodeID != "" {
-			return "", "", "", connect.NewError(connect.CodeInvalidArgument, errors.New("node event types must not have server_id/server_node_id"))
+			return "", "", "", invalidArg("node event types must not have server_id/server_node_id")
 		}
 	}
 	if isServerEventType(eventType) {
 		if nodeID != "" {
-			return "", "", "", connect.NewError(connect.CodeInvalidArgument, errors.New("server event types must not have node_id"))
+			return "", "", "", invalidArg("server event types must not have node_id")
 		}
 	}
 
@@ -222,7 +222,7 @@ func (xs *XylonaService) validateServerAccess(user *models.User, serverID, serve
 	localNodeID, errLocal := xs.db.GetLocalNodeID()
 	if errLocal != nil {
 		log.Error().Err(errLocal).Msg("failed to get local node ID")
-		return connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return internalErr()
 	}
 
 	if serverNodeID == localNodeID {
@@ -258,7 +258,7 @@ func (xs *XylonaService) CreateAlertRule(
 ) (*connect.Response[xylona.CreateAlertRuleResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasGlobalPermission(user)
@@ -267,7 +267,7 @@ func (xs *XylonaService) CreateAlertRule(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	serverID, serverNodeID, nodeID, errValidate := xs.validateAlertRuleRequest(
@@ -309,7 +309,7 @@ func (xs *XylonaService) UpdateAlertRule(
 ) (*connect.Response[xylona.UpdateAlertRuleResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasGlobalPermission(user)
@@ -318,12 +318,12 @@ func (xs *XylonaService) UpdateAlertRule(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	id := strings.TrimSpace(request.Msg.GetId())
 	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	serverID, serverNodeID, nodeID, errValidate := xs.validateAlertRuleRequest(
@@ -381,7 +381,7 @@ func (xs *XylonaService) DeleteAlertRule(
 ) (*connect.Response[xylona.DeleteAlertRuleResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasGlobalPermission(user)
@@ -390,12 +390,12 @@ func (xs *XylonaService) DeleteAlertRule(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	id := strings.TrimSpace(request.Msg.GetId())
 	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	errDelete := xs.db.DeleteAlertRule(id, user.ID)
@@ -414,7 +414,7 @@ func (xs *XylonaService) ListAlertRules(
 ) (*connect.Response[xylona.ListAlertRulesResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasAnyGlobalPermission(user, permissionAlertsManage, permissionAlertsViewHistory)
@@ -423,14 +423,14 @@ func (xs *XylonaService) ListAlertRules(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	// Pair consistency for server filter
 	hasServerID := request.Msg.ServerId != nil
 	hasServerNodeID := request.Msg.ServerNodeId != nil
 	if hasServerID != hasServerNodeID {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("server_id and server_node_id must both be provided or both omitted"))
+		return nil, invalidArg("server_id and server_node_id must both be provided or both omitted")
 	}
 
 	var rules []*models.AlertRule
@@ -481,7 +481,7 @@ func (xs *XylonaService) GetAlertHistory(
 ) (*connect.Response[xylona.GetAlertHistoryResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasAnyGlobalPermission(user, permissionAlertsManage, permissionAlertsViewHistory)
@@ -490,7 +490,7 @@ func (xs *XylonaService) GetAlertHistory(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	// Clamp limit to 1-100, default 50
@@ -508,7 +508,7 @@ func (xs *XylonaService) GetAlertHistory(
 	hasServerID := request.Msg.ServerId != nil
 	hasServerNodeID := request.Msg.ServerNodeId != nil
 	if hasServerID != hasServerNodeID {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("server_id and server_node_id must both be provided or both omitted"))
+		return nil, invalidArg("server_id and server_node_id must both be provided or both omitted")
 	}
 
 	var entries []*models.AlertHistory

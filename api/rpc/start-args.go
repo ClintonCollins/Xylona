@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"runtime"
@@ -14,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/placeholder"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -343,10 +343,10 @@ func (xs *XylonaService) UpdateGameStartArgsTemplate(
 ) (*connect.Response[xylona.UpdateGameStartArgsTemplateResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	platform, errPlatform := normalizeStartArgsPlatform(request.Msg.GetPlatform())
@@ -356,10 +356,7 @@ func (xs *XylonaService) UpdateGameStartArgsTemplate(
 
 	gameModel, errGetGame := xs.db.GetGameByID(request.Msg.GetGameId())
 	if errGetGame != nil {
-		if errors.Is(errGetGame, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, dbLookup(errGetGame)
 	}
 
 	templateJSON := strings.TrimSpace(request.Msg.GetStartArgsTemplate())
@@ -398,18 +395,15 @@ func (xs *XylonaService) UpdateGameStartArgBlocklist(
 ) (*connect.Response[xylona.UpdateGameStartArgBlocklistResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	gameModel, errGetGame := xs.db.GetGameByID(request.Msg.GetGameId())
 	if errGetGame != nil {
-		if errors.Is(errGetGame, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, dbLookup(errGetGame)
 	}
 
 	blocklistJSON := strings.TrimSpace(request.Msg.GetStartArgBlocklist())
@@ -441,7 +435,7 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	normalizedPatches := normalizeStartArgsPatchesJSON(request.Msg.GetStartArgsPatches())
@@ -456,10 +450,10 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 			}
 
 			if gameServer.R.Game == nil {
-				return nil, connect.NewError(connect.CodeInternal, errors.New("game relation missing"))
+				return nil, internalErrf("game relation missing")
 			}
 			if !user.SuperUser && !gameServer.R.Game.AllowStartArgEditing {
-				return nil, connect.NewError(connect.CodePermissionDenied, errors.New("start arg editing is disabled for this game"))
+				return nil, permissionDenied("start arg editing is disabled for this game")
 			}
 
 			errValidate := validateGameServerStartArgsUpdate(gameServer, normalizedPatches)
@@ -473,7 +467,7 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 			}
 			updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 			if errUpdate != nil {
-				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update game server"))
+				return nil, internalErrf("failed to update game server")
 			}
 
 			gameServerProto := helpers.GameServerModelToProto(updated, xs.versionState)
@@ -524,7 +518,7 @@ func (xs *XylonaService) updateRemoteGameServerStartArgs(
 	}
 
 	if !resp.Msg.GetSuccess() {
-		return nil, connect.NewError(connect.CodeInternal, errors.New(resp.Msg.GetError()))
+		return nil, internalErrf(resp.Msg.GetError())
 	}
 
 	gameServerProto := resp.Msg.GetGameServer()
@@ -544,7 +538,7 @@ func (fs FederationService) UpdateRemoteServerStartArgs(
 ) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+		return nil, permissionDenied("authentication failed")
 	}
 
 	serverID := request.Msg.GetServerId()
@@ -562,17 +556,14 @@ func (fs FederationService) UpdateRemoteServerStartArgs(
 
 	gameServer, errGet := fs.db.GetGameServerByID(serverID)
 	if errGet != nil {
-		if errors.Is(errGet, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("server not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game server"))
+		return nil, dbLookupMsg(errGet, "failed to get game server")
 	}
 
 	if gameServer.R.Game == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("game relation missing"))
+		return nil, internalErrf("game relation missing")
 	}
-	if !helpers.FederatedActingIsSuperUser(request.Header()) && !gameServer.R.Game.AllowStartArgEditing {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("start arg editing is disabled for this game"))
+	if !federation.ActingIsSuperUser(request.Header()) && !gameServer.R.Game.AllowStartArgEditing {
+		return nil, permissionDenied("start arg editing is disabled for this game")
 	}
 
 	normalizedPatches := normalizeStartArgsPatchesJSON(request.Msg.GetStartArgsPatches())
@@ -587,11 +578,11 @@ func (fs FederationService) UpdateRemoteServerStartArgs(
 	}
 	updated, errUpdate := fs.db.UpdateGameServer(fs.db.DB, setter)
 	if errUpdate != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update game server"))
+		return nil, internalErrf("failed to update game server")
 	}
 
 	gameServerProto := helpers.GameServerModelToProto(updated, fs.versionState)
-	if !helpers.FederatedActingIsSuperUser(request.Header()) {
+	if !federation.ActingIsSuperUser(request.Header()) {
 		redactGameServerForNonSuperuser(gameServerProto)
 	}
 

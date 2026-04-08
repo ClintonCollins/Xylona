@@ -7,7 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
@@ -82,8 +82,8 @@ func TestGetServerDetailPopulatesMetricsFromSupervisor(t *testing.T) {
 	request := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
 		ServerId: "server-local-1",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "user-owner")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-metrics-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "user-owner")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-metrics-peer")
 
 	response, errDetail := service.GetServerDetail(peerCtx, request)
 	if errDetail != nil {
@@ -184,8 +184,8 @@ func TestGetServerDetailReturnsZeroMetricsWhenNoSupervisorCommand(t *testing.T) 
 	request := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
 		ServerId: "server-local-1",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "user-owner")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-zero-metrics-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "user-owner")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-zero-metrics-peer")
 
 	response, errDetail := service.GetServerDetail(peerCtx, request)
 	if errDetail != nil {
@@ -259,8 +259,8 @@ func TestGetServerDetailMetricsNilSupervisor(t *testing.T) {
 	request := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
 		ServerId: "server-local-1",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "user-owner")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-nil-sup-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "user-owner")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-nil-sup-peer")
 
 	response, errDetail := service.GetServerDetail(peerCtx, request)
 	if errDetail != nil {
@@ -329,8 +329,8 @@ func TestGetServerDetailMetricsFieldMapping(t *testing.T) {
 	request := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
 		ServerId: "server-local-1",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "user-owner")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-field-map-peer")
+	request.Header().Set(federation.ActingUserIDHeader, "user-owner")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-field-map-peer")
 
 	response, errDetail := service.GetServerDetail(peerCtx, request)
 	if errDetail != nil {
@@ -372,9 +372,9 @@ func TestGetServerDetailNotFound(t *testing.T) {
 	})
 	// Use super-user path to bypass per-server permission check so the test
 	// reaches the DB lookup rather than failing at the permission gate.
-	request.Header().Set(helpers.FederationActingUserIDHeader, "user-admin")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-notfound-peer")
-	request.Header().Set(helpers.FederationActingSuperHeader, "true")
+	request.Header().Set(federation.ActingUserIDHeader, "user-admin")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-notfound-peer")
+	request.Header().Set(federation.ActingSuperHeader, "true")
 
 	_, errDetail := service.GetServerDetail(peerCtx, request)
 	if errDetail == nil {

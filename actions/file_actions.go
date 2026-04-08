@@ -12,15 +12,19 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dsnet/compress/bzip2"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/go-chi/chi/v5"
+	"github.com/gosimple/slug"
 	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archives"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -1013,4 +1017,282 @@ func (fx *fileExtractor) extractFileHandler(ctx context.Context, f archives.File
 		}
 		return nil
 	}
+}
+
+// ListGameServerFiles lists files and directories for a relative server path.
+func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, relativePath string) ([]*xylona.File, error) {
+	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
+	if relativePath != "" && !filepath.IsLocal(relativePath) {
+		log.Error().Err(errors.New("invalid path")).Msg("Path is not local")
+		return nil, ErrInvalidPath
+	}
+	fullPath := filepath.Join(gameServer.Directory, relativePath)
+	files, errReadDir := os.ReadDir(fullPath)
+	if errReadDir != nil {
+		if errors.Is(errReadDir, os.ErrNotExist) {
+			log.Error().Err(errReadDir).Msg("Path does not exist")
+			return nil, fmt.Errorf("actions: read server directory: %w", errReadDir)
+		}
+		log.Error().Err(errReadDir).Msg("Failed to read directory")
+		return nil, fmt.Errorf("actions: read server directory: %w", errReadDir)
+	}
+
+	xylonaFiles := make([]*xylona.File, 0, len(files))
+	for _, file := range files {
+		fileInfo, errFileInfo := file.Info()
+		if errFileInfo != nil {
+			log.Error().Err(errFileInfo).Msg("Failed to get file info")
+			return nil, fmt.Errorf("actions: stat directory entry: %w", errFileInfo)
+		}
+		size := fileInfo.Size()
+		if fileInfo.IsDir() {
+			var totalSize int64
+
+			err := filepath.WalkDir(filepath.Join(fullPath, file.Name()), func(_ string, d os.DirEntry, walkErr error) error {
+				if walkErr != nil {
+					return walkErr
+				}
+				if !d.IsDir() {
+					entryInfo, errInfo := d.Info()
+					if errInfo != nil {
+						return fmt.Errorf("actions: stat nested directory entry: %w", errInfo)
+					}
+					totalSize += entryInfo.Size()
+				}
+				return nil
+			})
+
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to walk through directory")
+				return nil, fmt.Errorf("actions: walk directory: %w", err)
+			}
+			size = totalSize
+		}
+		xylonaFiles = append(xylonaFiles, &xylona.File{
+			Name:         fileInfo.Name(),
+			Size:         size,
+			IsDirectory:  fileInfo.IsDir(),
+			LastModified: timestamppb.New(fileInfo.ModTime()),
+		})
+	}
+
+	return xylonaFiles, nil
+}
+
+// DownloadGameServerFile handles multipart uploads into a game server directory.
+func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Request) {
+	multiReader, err := r.MultipartReader()
+	if err != nil {
+		http.Error(w, "Error creating multipart reader", http.StatusBadRequest)
+		return
+	}
+	foundGameServerID := false
+	foundPath := false
+	gameServerID := ""
+	relativePath := ""
+	for {
+		part, errNext := multiReader.NextPart()
+		if errNext == io.EOF {
+			break
+		} else if errNext != nil {
+			http.Error(w, "Error reading next part", http.StatusBadRequest)
+			return
+		}
+		switch part.FormName() {
+		case "gameServerId":
+			gameServerIDBytes, errRead := io.ReadAll(io.LimitReader(part, 10<<10))
+			if errRead != nil {
+				log.Error().Err(errRead).Msg("Failed to read game server ID")
+				http.Error(w, "Error reading game server ID", http.StatusBadRequest)
+				return
+			}
+			gameServerID = string(gameServerIDBytes)
+			foundGameServerID = true
+		case "path":
+			pathBytes, errRead := io.ReadAll(io.LimitReader(part, 1<<20))
+			if errRead != nil {
+				log.Error().Err(errRead).Msg("Failed to read path")
+				http.Error(w, "Error reading path", http.StatusBadRequest)
+				return
+			}
+			relativePath = string(pathBytes)
+			foundPath = true
+		case "file":
+			if !foundGameServerID || !foundPath {
+				log.Error().Msg("Game server ID and path must be specified")
+				http.Error(w, "Game server ID and path must be specified", http.StatusBadRequest)
+				return
+			}
+			filename := part.FileName()
+			target, errResolve := inst.resolveFileRequestTarget(gameServerID)
+			if errResolve != nil {
+				log.Error().Err(errResolve).Msg("Failed to get game server")
+				writeGameServerLookupError(w, errResolve)
+				return
+			}
+
+			if target.isLocal() {
+				errDownload := inst.saveUploadedGameServerFile(target.gameServer, relativePath, filename, part)
+				if errDownload != nil {
+					log.Error().Err(errDownload).Msg("Failed to download file")
+					http.Error(w, "Failed to download file", http.StatusInternalServerError)
+					return
+				}
+				continue
+			}
+
+			errProxy := inst.proxyRemoteFileUpload(r.Context(), target, relativePath, filename, part, w)
+			if errProxy != nil {
+				log.Error().Err(errProxy).Msg("Failed to proxy remote file upload")
+				http.Error(w, "Failed to upload file", http.StatusInternalServerError)
+				return
+			}
+			continue
+		}
+	}
+}
+
+func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, relativePath, fileName string, fileSource io.Reader) error {
+	validatedPath, errPath := validateLocalServerPath(gameServer, relativePath)
+	if errPath != nil {
+		return errPath
+	}
+
+	// Sanitize uploaded filename to prevent path traversal (e.g., "../../etc/passwd").
+	sanitizedFileName := filepath.Base(fileName)
+	if sanitizedFileName == "." || sanitizedFileName == string(filepath.Separator) {
+		log.Error().Str("fileName", fileName).Msg("Invalid file name")
+		return ErrInvalidPath
+	}
+
+	protectedRelativePath := filepath.Join(validatedPath, sanitizedFileName)
+	_, errProtected := validateWritableServerPath(gameServer, protectedRelativePath)
+	if errProtected != nil {
+		return errProtected
+	}
+
+	cleanGameServerDir := filepath.Clean(gameServer.Directory)
+	gameServerDirPlusPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath))
+	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
+	if gameServerDirPlusPath != cleanGameServerDir && !strings.HasPrefix(gameServerDirPlusPath, gameServerDirPrefix) {
+		log.Error().Str("path", gameServerDirPlusPath).Msg("Upload directory escaped game server root")
+		return ErrInvalidPath
+	}
+
+	errMkdirAll := os.MkdirAll(gameServerDirPlusPath, 0o750)
+	if errMkdirAll != nil {
+		log.Error().Err(errMkdirAll).Msg("Failed to create directory")
+		return fmt.Errorf("actions: create upload directory: %w", errMkdirAll)
+	}
+
+	fullPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath, sanitizedFileName))
+	if fullPath != cleanGameServerDir && !strings.HasPrefix(fullPath, gameServerDirPrefix) {
+		log.Error().Str("path", fullPath).Msg("Upload file path escaped game server root")
+		return ErrInvalidPath
+	}
+
+	file, errCreateFile := os.Create(fullPath)
+	if errCreateFile != nil {
+		log.Error().Err(errCreateFile).Msg("Failed to create file")
+		return fmt.Errorf("actions: create uploaded file: %w", errCreateFile)
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	_, errCopy := io.Copy(file, fileSource)
+	if errCopy != nil {
+		log.Error().Err(errCopy).Msg("Failed to copy file")
+		return fmt.Errorf("actions: write uploaded file: %w", errCopy)
+	}
+
+	return nil
+}
+
+// GetGameServerFile streams a local game server file to the provided writer.
+func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativePath string, writer io.Writer, setHeaders, setAsAttachment bool) error {
+	validatedPath, errPath := validateLocalServerPath(gameServer, relativePath)
+	if errPath != nil {
+		return errPath
+	}
+
+	cleanGameServerDir := filepath.Clean(gameServer.Directory)
+	fullPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath))
+	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
+	if fullPath != cleanGameServerDir && !strings.HasPrefix(fullPath, gameServerDirPrefix) {
+		log.Error().Str("path", fullPath).Msg("Read path escaped game server root")
+		return ErrInvalidPath
+	}
+
+	file, errReadFile := os.Open(fullPath)
+	if errReadFile != nil {
+		if errors.Is(errReadFile, os.ErrNotExist) {
+			log.Error().Err(errReadFile).Msg("File does not exist")
+			return fmt.Errorf("actions: open game server file: %w", errReadFile)
+		}
+		log.Error().Err(errReadFile).Msg("Failed to read file")
+		return fmt.Errorf("actions: open game server file: %w", errReadFile)
+	}
+	defer func() { _ = file.Close() }()
+
+	fileInfo, errFileInfo := file.Stat()
+	if errFileInfo != nil {
+		log.Error().Err(errFileInfo).Msg("Failed to get file info")
+		return fmt.Errorf("actions: stat game server file: %w", errFileInfo)
+	}
+
+	if setHeaders {
+		w, ok := writer.(http.ResponseWriter)
+		if !ok {
+			log.Error().Msg("Writer is not an http.ResponseWriter")
+			return errors.New("writer is not an http.ResponseWriter")
+		}
+
+		mimeType, errDetect := mimetype.DetectFile(fullPath)
+		if errDetect != nil {
+			w.Header().Set("Content-Type", "application/octet-stream")
+		} else {
+			w.Header().Set("Content-Type", mimeType.String())
+		}
+
+		w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
+		if setAsAttachment {
+			// Sanitize filename to prevent header injection via quotes or newlines.
+			safeName := strings.Map(func(r rune) rune {
+				if r == '"' || r == '\\' || r == '\n' || r == '\r' {
+					return '_'
+				}
+				return r
+			}, fileInfo.Name())
+			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safeName))
+		}
+	}
+
+	_, errCopy := io.Copy(writer, file)
+	if errCopy != nil {
+		log.Error().Err(errCopy).Msg("Failed to copy file")
+		return fmt.Errorf("actions: stream game server file: %w", errCopy)
+	}
+	return nil
+}
+
+func (inst *Instance) createGameServerDirectory(gameServer *models.GameServer, owner *models.User) (string, error) {
+	gsNameSlug := slug.Make(gameServer.Name)
+	gameServerDir := filepath.Join(DefaultInstallPath(), owner.UserName, gsNameSlug)
+	errMakePath := os.MkdirAll(gameServerDir, 0o750)
+	if errMakePath != nil {
+		log.Error().Err(errMakePath).Msg("Failed to create game server directory")
+		return "", fmt.Errorf("actions: create game server directory: %w", errMakePath)
+	}
+	return gameServerDir, nil
+}
+
+// PurgeAllGameServerFiles deletes the server's working directory.
+func (inst *Instance) PurgeAllGameServerFiles(gameServer *models.GameServer) error {
+	err := os.RemoveAll(gameServer.Directory)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to delete game server files")
+		return fmt.Errorf("actions: delete game server files: %w", err)
+	}
+	return nil
 }

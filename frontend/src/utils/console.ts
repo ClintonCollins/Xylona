@@ -8,7 +8,6 @@ const reInfo = /^INFO|INF/gm
 const reWarn = /^WARNING|WARN|WRN/gm
 const reError = /ERROR/gm
 const reXylonaMessage = /\[(\d+-\d+-\d+\s\d+:\d+:\d+)]\s\[(Xylona)]/gm
-const _reMinecraftVersion = /Starting\sminecraft\sserver\sversion\s(.+)$/gim
 
 type MinecraftPlayer = {
   username: string

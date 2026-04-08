@@ -1,5 +1,4 @@
 <template>
-  <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: highlightCommand() syntax highlighting -->
   <div class="game-form-wrapper full-width">
     <!-- Sentinel for sticky detection -->
     <div ref="stickySentinel" class="sticky-sentinel"></div>
@@ -78,561 +77,7 @@
           :inert="activeFormTab !== 'overview'"
           :aria-labelledby="formTabID('overview')"
           class="game-form-tab-panel">
-          <!-- Identity & Networking (dense metadata strip) -->
-          <section class="form-section form-section--compact">
-            <div class="overview-metadata">
-              <div class="overview-metadata-group">
-                <div class="section-header">
-                  <span class="section-bar" style="background-color: var(--xy-accent)"></span>
-                  <h2 class="section-title font-display">Identity</h2>
-                  <span class="section-line"></span>
-                </div>
-                <div class="row q-col-gutter-md q-gutter-y-md full-width">
-                  <q-input
-                    v-model="game.id"
-                    :disable="existingGame"
-                    class="col-12 col-sm-6"
-                    outlined
-                    type="text"
-                    label="Unique ID *"
-                    :rules="idRules"
-                    reactive-rules
-                    lazy-rules
-                    hint="ID of the game all lowercase. e.g: minecraft" />
-                  <q-input
-                    v-model="game.name"
-                    class="col-12 col-sm-6"
-                    outlined
-                    type="text"
-                    label="Name *"
-                    :rules="nameRules"
-                    reactive-rules
-                    lazy-rules
-                    hint="Name of the game. e.g: Minecraft" />
-                </div>
-              </div>
-              <div class="overview-metadata-group">
-                <div class="section-header">
-                  <span class="section-bar" style="background-color: var(--xy-primary)"></span>
-                  <h2 class="section-title font-display">Networking</h2>
-                  <span class="section-line"></span>
-                </div>
-                <div class="row q-col-gutter-md q-gutter-y-md full-width">
-                  <q-input
-                    v-model.number="defaultPort"
-                    class="col-12 col-sm-4"
-                    outlined
-                    type="number"
-                    label="Default Port *"
-                    :rules="portRules"
-                    reactive-rules
-                    lazy-rules
-                    hint="Default server port. e.g: 25565" />
-                  <q-input
-                    v-model.number="defaultQueryPort"
-                    class="col-12 col-sm-4"
-                    outlined
-                    type="number"
-                    label="Default Query Port *"
-                    :rules="portRules"
-                    reactive-rules
-                    lazy-rules
-                    hint="Default server query port. e.g: 25565" />
-                  <q-input
-                    v-model="game.steamAppid"
-                    class="col-12 col-sm-4"
-                    outlined
-                    type="number"
-                    label="Steam App ID"
-                    hint="Steam AppID if it's available on steamcmd. e.g: 294420" />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- Features -->
-          <section class="form-section">
-            <div class="section-header">
-              <span class="section-bar" style="background-color: var(--xy-success)"></span>
-              <h2 class="section-title font-display">Features</h2>
-              <span class="section-line"></span>
-            </div>
-            <div class="feature-groups">
-              <div class="feature-group">
-                <span class="feature-group-label text-xy-muted font-display">Platform</span>
-                <div class="feature-chips">
-                  <button
-                    type="button"
-                    class="feature-chip"
-                    :class="{ 'feature-chip--active': game.windowsSupport }"
-                    :aria-pressed="game.windowsSupport"
-                    @click="game.windowsSupport = !game.windowsSupport">
-                    <span class="feature-dot"></span>
-                    <span class="feature-label">Windows Support</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="feature-chip"
-                    :class="{ 'feature-chip--active': game.linuxSupport }"
-                    :aria-pressed="game.linuxSupport"
-                    @click="game.linuxSupport = !game.linuxSupport">
-                    <span class="feature-dot"></span>
-                    <span class="feature-label">Linux Support</span>
-                  </button>
-                </div>
-              </div>
-              <div class="feature-group">
-                <span class="feature-group-label text-xy-muted font-display">Steam</span>
-                <div class="feature-chips">
-                  <button
-                    type="button"
-                    class="feature-chip"
-                    :class="{ 'feature-chip--active': game.usesSteamcmd }"
-                    :aria-pressed="game.usesSteamcmd"
-                    @click="game.usesSteamcmd = !game.usesSteamcmd">
-                    <span class="feature-dot"></span>
-                    <span class="feature-label">Uses Steamcmd</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="feature-chip"
-                    :class="{ 'feature-chip--active': game.requiresSteamGameServerLoginToken }"
-                    :aria-pressed="game.requiresSteamGameServerLoginToken"
-                    @click="
-                      game.requiresSteamGameServerLoginToken =
-                        !game.requiresSteamGameServerLoginToken
-                    ">
-                    <span class="feature-dot"></span>
-                    <span class="feature-label">Steam Login Token Required</span>
-                  </button>
-                </div>
-              </div>
-              <div class="feature-group">
-                <span class="feature-group-label text-xy-muted font-display">Network</span>
-                <div class="feature-chips">
-                  <button
-                    type="button"
-                    class="feature-chip"
-                    :class="{ 'feature-chip--active': game.requireDedicatedIp }"
-                    :aria-pressed="game.requireDedicatedIp"
-                    @click="game.requireDedicatedIp = !game.requireDedicatedIp">
-                    <span class="feature-dot"></span>
-                    <span class="feature-label">Requires Dedicated IP</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="feature-chip"
-                    :class="{ 'feature-chip--active': game.usesSourceQuery }"
-                    :aria-pressed="game.usesSourceQuery"
-                    @click="game.usesSourceQuery = !game.usesSourceQuery">
-                    <span class="feature-dot"></span>
-                    <span class="feature-label">Uses Source Query</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-          <!-- Platform Commands -->
-          <section class="form-section form-section--last">
-            <div class="section-header">
-              <span class="section-bar" style="background-color: var(--xy-warning)"></span>
-              <h2 class="section-title font-display">Install &amp; Update</h2>
-              <span class="section-line"></span>
-            </div>
-
-            <!-- No platforms enabled -->
-            <div
-              v-if="!game.windowsSupport && !game.linuxSupport"
-              class="platform-empty text-xy-muted">
-              Enable Windows or Linux support above to configure commands.
-            </div>
-
-            <!-- Platform tab switcher -->
-            <template v-else>
-              <div
-                v-if="game.windowsSupport && game.linuxSupport"
-                class="platform-tabs"
-                role="tablist"
-                aria-label="Platform commands">
-                <button
-                  type="button"
-                  role="tab"
-                  class="platform-tab"
-                  :class="{ 'platform-tab--active': activePlatform === 'windows' }"
-                  :aria-selected="activePlatform === 'windows'"
-                  @click="activePlatform = 'windows'">
-                  <q-icon
-                    name="desktop_windows"
-                    size="14px"
-                    :class="
-                      activePlatform === 'windows'
-                        ? 'platform-icon-windows-active'
-                        : 'platform-icon-inactive'
-                    " />
-                  <span class="font-display">Windows</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  class="platform-tab"
-                  :class="{ 'platform-tab--active': activePlatform === 'linux' }"
-                  :aria-selected="activePlatform === 'linux'"
-                  @click="activePlatform = 'linux'">
-                  <q-icon
-                    name="terminal"
-                    size="14px"
-                    :class="
-                      activePlatform === 'linux'
-                        ? 'platform-icon-linux-active'
-                        : 'platform-icon-inactive'
-                    " />
-                  <span class="font-display">Linux</span>
-                </button>
-              </div>
-
-              <!-- Windows Commands -->
-              <div v-if="activePlatformResolved === 'windows'" class="platform-commands">
-                <!-- Stop Command -->
-                <div class="cmd-block cmd-block--windows">
-                  <div class="cmd-header">
-                    <span class="cmd-label">STOP COMMAND</span>
-                    <q-badge class="cmd-badge font-mono" color="transparent" text-color="grey-6">
-                      stdin
-                    </q-badge>
-                  </div>
-                  <div class="cmd-input-wrap">
-                    <div
-                      class="cmd-highlight font-mono"
-                      aria-hidden="true"
-                      v-html="highlightCommand(game.windowsStopCommand)"></div>
-                    <textarea
-                      v-model="game.windowsStopCommand"
-                      class="cmd-textarea font-mono"
-                      rows="1"
-                      aria-label="Windows stop command"
-                      placeholder="/stop"></textarea>
-                  </div>
-                </div>
-
-                <!-- Install Command -->
-                <div class="cmd-block cmd-block--windows">
-                  <div class="cmd-header">
-                    <span class="cmd-label">INSTALL COMMAND</span>
-                    <div class="cmd-type-row">
-                      <div class="cmd-type-group">
-                        <span class="cmd-type-label">Type</span>
-                        <select
-                          :value="game.windowsInstallType"
-                          data-testid="windows-install-type"
-                          aria-label="Windows install command type"
-                          class="cmd-type-select font-mono"
-                          @change="
-                            game.windowsInstallType = Number(
-                              ($event.target as HTMLSelectElement).value,
-                            ) as CommandType
-                          ">
-                          <option
-                            v-for="opt in commandTypeOptions"
-                            :key="opt.value"
-                            :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </div>
-                      <div
-                        v-if="isCommandTypeCommand(game.windowsInstallType)"
-                        class="cmd-type-group">
-                        <span class="cmd-type-label">Shell</span>
-                        <select
-                          :value="game.windowsInstallCommandProcessor"
-                          data-testid="windows-install-shell"
-                          aria-label="Windows install shell"
-                          class="cmd-type-select font-mono"
-                          @change="
-                            game.windowsInstallCommandProcessor = Number(
-                              ($event.target as HTMLSelectElement).value,
-                            ) as CommandProcessor
-                          ">
-                          <option
-                            v-for="opt in windowsCommandProcessorOptions"
-                            :key="opt.value"
-                            :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="isCommandTypeCommand(game.windowsInstallType)" class="cmd-input-wrap">
-                    <div
-                      class="cmd-highlight font-mono"
-                      aria-hidden="true"
-                      v-html="highlightCommand(game.windowsInstallCommand)"></div>
-                    <textarea
-                      v-model="game.windowsInstallCommand"
-                      data-testid="windows-install-command"
-                      class="cmd-textarea font-mono"
-                      rows="2"
-                      aria-label="Windows install command"
-                      placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
-                  </div>
-                  <div v-else class="cmd-internal font-mono">
-                    {{ commandTypeSummary(game.windowsInstallType, 'install') }}
-                  </div>
-                </div>
-
-                <!-- Update Command -->
-                <div class="cmd-block cmd-block--windows">
-                  <div class="cmd-header">
-                    <span class="cmd-label">UPDATE COMMAND</span>
-                    <div class="cmd-type-row">
-                      <div class="cmd-type-group">
-                        <span class="cmd-type-label">Type</span>
-                        <select
-                          :value="game.windowsUpdateType"
-                          data-testid="windows-update-type"
-                          aria-label="Windows update command type"
-                          class="cmd-type-select font-mono"
-                          @change="
-                            game.windowsUpdateType = Number(
-                              ($event.target as HTMLSelectElement).value,
-                            ) as CommandType
-                          ">
-                          <option
-                            v-for="opt in commandTypeOptions"
-                            :key="opt.value"
-                            :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </div>
-                      <div
-                        v-if="isCommandTypeCommand(game.windowsUpdateType)"
-                        class="cmd-type-group">
-                        <span class="cmd-type-label">Shell</span>
-                        <select
-                          :value="game.windowsUpdateCommandProcessor"
-                          data-testid="windows-update-shell"
-                          aria-label="Windows update shell"
-                          class="cmd-type-select font-mono"
-                          @change="
-                            game.windowsUpdateCommandProcessor = Number(
-                              ($event.target as HTMLSelectElement).value,
-                            ) as CommandProcessor
-                          ">
-                          <option
-                            v-for="opt in windowsCommandProcessorOptions"
-                            :key="opt.value"
-                            :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="isCommandTypeCommand(game.windowsUpdateType)" class="cmd-input-wrap">
-                    <div
-                      class="cmd-highlight font-mono"
-                      aria-hidden="true"
-                      v-html="highlightCommand(game.windowsUpdateCommand)"></div>
-                    <textarea
-                      v-model="game.windowsUpdateCommand"
-                      data-testid="windows-update-command"
-                      class="cmd-textarea font-mono"
-                      rows="2"
-                      aria-label="Windows update command"
-                      placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
-                  </div>
-                  <div v-else class="cmd-internal font-mono">
-                    {{ commandTypeSummary(game.windowsUpdateType, 'update') }}
-                  </div>
-                </div>
-
-                <!-- Working Directory -->
-                <div class="cmd-block cmd-block--windows">
-                  <div class="cmd-header">
-                    <span class="cmd-label">WORKING DIRECTORY</span>
-                  </div>
-                  <textarea
-                    v-model="game.windowsWorkingDirectory"
-                    class="cmd-textarea font-mono"
-                    rows="1"
-                    aria-label="Windows working directory"
-                    placeholder="./server"></textarea>
-                </div>
-              </div>
-
-              <!-- Linux Commands -->
-              <div v-if="activePlatformResolved === 'linux'" class="platform-commands">
-                <!-- Stop Command -->
-                <div class="cmd-block cmd-block--linux">
-                  <div class="cmd-header">
-                    <span class="cmd-label">STOP COMMAND</span>
-                    <q-badge class="cmd-badge font-mono" color="transparent" text-color="grey-6">
-                      stdin
-                    </q-badge>
-                  </div>
-                  <div class="cmd-input-wrap">
-                    <div
-                      class="cmd-highlight font-mono"
-                      aria-hidden="true"
-                      v-html="highlightCommand(game.linuxStopCommand)"></div>
-                    <textarea
-                      v-model="game.linuxStopCommand"
-                      class="cmd-textarea font-mono"
-                      rows="1"
-                      aria-label="Linux stop command"
-                      placeholder="/stop"></textarea>
-                  </div>
-                </div>
-
-                <!-- Install Command -->
-                <div class="cmd-block cmd-block--linux">
-                  <div class="cmd-header">
-                    <span class="cmd-label">INSTALL COMMAND</span>
-                    <div class="cmd-type-row">
-                      <div class="cmd-type-group">
-                        <span class="cmd-type-label">Type</span>
-                        <select
-                          :value="game.linuxInstallType"
-                          data-testid="linux-install-type"
-                          aria-label="Linux install command type"
-                          class="cmd-type-select font-mono"
-                          @change="
-                            game.linuxInstallType = Number(
-                              ($event.target as HTMLSelectElement).value,
-                            ) as CommandType
-                          ">
-                          <option
-                            v-for="opt in commandTypeOptions"
-                            :key="opt.value"
-                            :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </div>
-                      <div
-                        v-if="isCommandTypeCommand(game.linuxInstallType)"
-                        class="cmd-type-group">
-                        <span class="cmd-type-label">Shell</span>
-                        <select
-                          :value="game.linuxInstallCommandProcessor"
-                          data-testid="linux-install-shell"
-                          aria-label="Linux install shell"
-                          class="cmd-type-select font-mono"
-                          @change="
-                            game.linuxInstallCommandProcessor = Number(
-                              ($event.target as HTMLSelectElement).value,
-                            ) as CommandProcessor
-                          ">
-                          <option
-                            v-for="opt in linuxCommandProcessorOptions"
-                            :key="opt.value"
-                            :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="isCommandTypeCommand(game.linuxInstallType)" class="cmd-input-wrap">
-                    <div
-                      class="cmd-highlight font-mono"
-                      aria-hidden="true"
-                      v-html="highlightCommand(game.linuxInstallCommand)"></div>
-                    <textarea
-                      v-model="game.linuxInstallCommand"
-                      data-testid="linux-install-command"
-                      class="cmd-textarea font-mono"
-                      rows="2"
-                      aria-label="Linux install command"
-                      placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
-                  </div>
-                  <div v-else class="cmd-internal font-mono">
-                    {{ commandTypeSummary(game.linuxInstallType, 'install') }}
-                  </div>
-                </div>
-
-                <!-- Update Command -->
-                <div class="cmd-block cmd-block--linux">
-                  <div class="cmd-header">
-                    <span class="cmd-label">UPDATE COMMAND</span>
-                    <div class="cmd-type-row">
-                      <div class="cmd-type-group">
-                        <span class="cmd-type-label">Type</span>
-                        <select
-                          :value="game.linuxUpdateType"
-                          data-testid="linux-update-type"
-                          aria-label="Linux update command type"
-                          class="cmd-type-select font-mono"
-                          @change="
-                            game.linuxUpdateType = Number(
-                              ($event.target as HTMLSelectElement).value,
-                            ) as CommandType
-                          ">
-                          <option
-                            v-for="opt in commandTypeOptions"
-                            :key="opt.value"
-                            :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </div>
-                      <div v-if="isCommandTypeCommand(game.linuxUpdateType)" class="cmd-type-group">
-                        <span class="cmd-type-label">Shell</span>
-                        <select
-                          :value="game.linuxUpdateCommandProcessor"
-                          data-testid="linux-update-shell"
-                          aria-label="Linux update shell"
-                          class="cmd-type-select font-mono"
-                          @change="
-                            game.linuxUpdateCommandProcessor = Number(
-                              ($event.target as HTMLSelectElement).value,
-                            ) as CommandProcessor
-                          ">
-                          <option
-                            v-for="opt in linuxCommandProcessorOptions"
-                            :key="opt.value"
-                            :value="opt.value">
-                            {{ opt.label }}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="isCommandTypeCommand(game.linuxUpdateType)" class="cmd-input-wrap">
-                    <div
-                      class="cmd-highlight font-mono"
-                      aria-hidden="true"
-                      v-html="highlightCommand(game.linuxUpdateCommand)"></div>
-                    <textarea
-                      v-model="game.linuxUpdateCommand"
-                      data-testid="linux-update-command"
-                      class="cmd-textarea font-mono"
-                      rows="2"
-                      aria-label="Linux update command"
-                      placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
-                  </div>
-                  <div v-else class="cmd-internal font-mono">
-                    {{ commandTypeSummary(game.linuxUpdateType, 'update') }}
-                  </div>
-                </div>
-
-                <!-- Working Directory -->
-                <div class="cmd-block cmd-block--linux">
-                  <div class="cmd-header">
-                    <span class="cmd-label">WORKING DIRECTORY</span>
-                  </div>
-                  <textarea
-                    v-model="game.linuxWorkingDirectory"
-                    class="cmd-textarea font-mono"
-                    rows="1"
-                    aria-label="Linux working directory"
-                    placeholder="./server"></textarea>
-                </div>
-              </div>
-            </template>
-          </section>
+          <game-form-overview-tab />
         </div>
 
         <div
@@ -644,172 +89,7 @@
           :inert="activeFormTab !== 'runtime'"
           :aria-labelledby="formTabID('runtime')"
           class="game-form-tab-panel">
-          <!-- Structured Start Command -->
-          <section class="form-section form-section--last">
-            <h2 class="game-form-sr-only">Runtime</h2>
-
-            <div class="structured-start-stack">
-              <start-args-template-editor
-                mode="preview"
-                class="structured-start-stack__editor"
-                :active-platform="activePlatformResolved ?? undefined"
-                :advanced-expanded="runtimeSequenceExpanded"
-                :baseline-linux-template="baselineLinuxStartArgsTemplate"
-                :baseline-windows-template="baselineWindowsStartArgsTemplate"
-                :baseline-linux-base-command="baselineLinuxBaseCommand"
-                :baseline-windows-base-command="baselineWindowsBaseCommand"
-                :linux-template="linuxStartArgsTemplate"
-                :windows-template="windowsStartArgsTemplate"
-                :linux-base-command="game.linuxBaseCommand"
-                :windows-base-command="game.windowsBaseCommand"
-                :linux-enabled="game.linuxSupport"
-                :windows-enabled="game.windowsSupport"
-                @update:active-platform="activePlatform = $event"
-                @update:advanced-expanded="updateRuntimeSequenceExpanded"
-                @update:linux-template="linuxStartArgsTemplate = $event"
-                @update:windows-template="windowsStartArgsTemplate = $event"
-                @update:linux-base-command="game.linuxBaseCommand = $event"
-                @update:windows-base-command="game.windowsBaseCommand = $event" />
-
-              <section class="runtime-policy-panel">
-                <button
-                  type="button"
-                  class="runtime-policy-toggle"
-                  data-testid="runtime-policy-toggle"
-                  :aria-label="
-                    runtimePolicyExpanded
-                      ? 'Collapse runtime guardrails'
-                      : 'Expand runtime guardrails'
-                  "
-                  aria-describedby="runtime-policy-assistive-summary"
-                  :aria-expanded="String(runtimePolicyExpanded)"
-                  aria-controls="runtime-policy-panel"
-                  @click="toggleRuntimePolicy">
-                  <div class="runtime-policy-toggle-copy">
-                    <span class="runtime-policy-eyebrow font-display">Runtime Guardrails</span>
-                    <span class="runtime-policy-summary-line text-xy-secondary">
-                      {{ runtimePolicySummary.join(' · ') }}
-                    </span>
-                  </div>
-
-                  <div class="runtime-policy-header-actions">
-                    <span class="runtime-policy-toggle-indicator font-display">
-                      {{ runtimePolicyExpanded ? 'Hide details' : 'Review guardrails' }}
-                      <q-icon
-                        :name="runtimePolicyExpanded ? 'expand_less' : 'expand_more'"
-                        size="18px"
-                        color="accent" />
-                    </span>
-                  </div>
-                </button>
-
-                <span id="runtime-policy-assistive-summary" class="runtime-policy-sr-only">
-                  {{ runtimePolicyAssistiveSummary }}
-                </span>
-
-                <transition name="runtime-policy-panel">
-                  <div
-                    v-if="runtimePolicyExpanded"
-                    id="runtime-policy-panel"
-                    data-testid="runtime-policy-panel"
-                    class="runtime-policy-content">
-                    <div class="runtime-policy-layout">
-                      <div class="runtime-policy-subsection runtime-policy-subsection--reserved">
-                        <div class="runtime-policy-card-head">
-                          <div class="runtime-policy-card-copy">
-                            <div class="runtime-policy-subhead font-display">
-                              Reserved arguments
-                            </div>
-                            <div class="runtime-policy-subcopy text-xy-muted">
-                              Protect flags that inherited servers should never override.
-                            </div>
-                          </div>
-                          <span class="runtime-policy-quantity">
-                            {{
-                              `${startArgBlocklist.length} ${startArgBlocklist.length === 1 ? 'rule' : 'rules'}`
-                            }}
-                          </span>
-                        </div>
-                        <blocklist-editor
-                          :blocklist="startArgBlocklist"
-                          :show-header="false"
-                          @update:blocklist="startArgBlocklist = $event" />
-                      </div>
-
-                      <div class="runtime-policy-rail">
-                        <div class="runtime-policy-subsection runtime-policy-subsection--owner">
-                          <div class="runtime-policy-rail-head">
-                            <div class="runtime-policy-card-copy">
-                              <div class="runtime-policy-subhead font-display">Owner edits</div>
-                              <div class="runtime-policy-subcopy text-xy-muted">
-                                Only editable arguments can be tuned downstream.
-                              </div>
-                            </div>
-                            <q-toggle
-                              v-model="game.allowStartArgEditing"
-                              color="accent"
-                              aria-label="Allow owner edits" />
-                          </div>
-                          <div class="runtime-policy-mini-note text-xy-muted">
-                            {{
-                              game.allowStartArgEditing
-                                ? 'Enabled for editable arguments only.'
-                                : 'Only this game definition can change launch arguments.'
-                            }}
-                          </div>
-                        </div>
-
-                        <div
-                          v-if="existingGame && !copyGame"
-                          class="runtime-policy-subsection runtime-policy-subsection--impact">
-                          <div class="runtime-policy-card-head runtime-policy-card-head--stacked">
-                            <div class="runtime-policy-card-copy">
-                              <div class="runtime-policy-subhead font-display">
-                                Affected servers
-                              </div>
-                              <div class="runtime-policy-subcopy text-xy-muted">
-                                Review inherited servers before saving.
-                              </div>
-                            </div>
-                            <span class="runtime-policy-quantity">
-                              {{
-                                `${downstreamImpactServers.length} ${downstreamImpactServers.length === 1 ? 'server' : 'servers'}`
-                              }}
-                            </span>
-                          </div>
-                          <downstream-impact-panel
-                            :servers="downstreamImpactServers"
-                            :show-header="false" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </transition>
-              </section>
-
-              <start-args-template-editor
-                mode="advanced"
-                class="structured-start-stack__advanced"
-                :active-platform="activePlatformResolved ?? undefined"
-                :advanced-expanded="runtimeSequenceExpanded"
-                :baseline-linux-template="baselineLinuxStartArgsTemplate"
-                :baseline-windows-template="baselineWindowsStartArgsTemplate"
-                :baseline-linux-base-command="baselineLinuxBaseCommand"
-                :baseline-windows-base-command="baselineWindowsBaseCommand"
-                :linux-template="linuxStartArgsTemplate"
-                :windows-template="windowsStartArgsTemplate"
-                :linux-base-command="game.linuxBaseCommand"
-                :windows-base-command="game.windowsBaseCommand"
-                :linux-enabled="game.linuxSupport"
-                :windows-enabled="game.windowsSupport"
-                @update:active-platform="activePlatform = $event"
-                @update:advanced-expanded="updateRuntimeSequenceExpanded"
-                @update:linux-template="linuxStartArgsTemplate = $event"
-                @update:windows-template="windowsStartArgsTemplate = $event"
-                @update:linux-base-command="game.linuxBaseCommand = $event"
-                @update:windows-base-command="game.windowsBaseCommand = $event" />
-            </div>
-          </section>
+          <game-form-runtime-tab />
         </div>
 
         <div
@@ -821,122 +101,7 @@
           :inert="activeFormTab !== 'mods'"
           :aria-labelledby="formTabID('mods')"
           class="game-form-tab-panel">
-          <!-- Mods -->
-          <section class="form-section form-section--last">
-            <div class="section-header">
-              <span class="section-bar" style="background-color: var(--xy-info)"></span>
-              <h2 class="section-title font-display">Mods</h2>
-              <span class="section-line"></span>
-            </div>
-            <div :class="game.modProfile ? 'mods-layout' : 'mods-layout-single'">
-              <!-- Sidebar only visible when mods are enabled -->
-              <aside v-if="game.modProfile" class="mods-rail">
-                <div class="mods-rail-intro">
-                  <span class="mods-rail-eyebrow font-display">Setup Guide</span>
-                  <div class="mods-rail-title font-display">
-                    Define how servers pull mods beyond the base install.
-                  </div>
-                  <div class="mods-rail-copy text-xy-muted">
-                    Choose one source and one install folder. Paste the provider reference Xylona
-                    should use, such as a slug, workshop ID, or provider JSON payload.
-                  </div>
-                </div>
-              </aside>
-
-              <div class="mods-workspace">
-                <div
-                  v-if="managedModConfig"
-                  class="typed-config-managed mods-workspace-card text-xy-muted">
-                  This game uses advanced mod configuration outside the simple editor. Hidden
-                  internal mod settings will be preserved when you save this game.
-                </div>
-
-                <div v-else class="typed-config-card mods-workspace-card">
-                  <div class="typed-config-header mods-workspace-header">
-                    <div>
-                      <div class="typed-config-title font-display">Mod Support</div>
-                      <div class="typed-config-copy text-xy-muted">
-                        {{
-                          game.modProfile
-                            ? 'Configure the download provider and install path for server mods.'
-                            : 'Mod support is off. Enable it to configure a download provider for this game.'
-                        }}
-                      </div>
-                    </div>
-                    <q-btn
-                      v-if="!game.modProfile"
-                      flat
-                      no-caps
-                      color="accent"
-                      label="Enable Mod Support"
-                      @click="addGameModProfile" />
-                    <q-btn
-                      v-else
-                      flat
-                      no-caps
-                      color="negative"
-                      label="Remove"
-                      @click="clearGameModProfile" />
-                  </div>
-
-                  <template v-if="game.modProfile">
-                    <div class="mods-status-row">
-                      <span class="mods-status-chip mods-status-chip--active">
-                        Support enabled
-                      </span>
-                      <span class="mods-status-chip"> Provider · {{ activeModSourceLabel }} </span>
-                      <span class="mods-status-chip">
-                        {{
-                          game.modProfile.installPath
-                            ? 'Install path ready'
-                            : 'Install path pending'
-                        }}
-                      </span>
-                    </div>
-
-                    <div class="typed-config-fields">
-                      <q-input
-                        v-model="game.modProfile.installPath"
-                        outlined
-                        label="Install Path"
-                        hint="Where downloaded mods should be written"
-                        persistent-hint />
-
-                      <q-select
-                        v-model="game.modProfile.sources[0].id"
-                        :options="modSourceOptions"
-                        emit-value
-                        map-options
-                        outlined
-                        label="Mod Source"
-                        @update:model-value="
-                          onModSourceProviderChanged(game.modProfile.sources[0])
-                        " />
-
-                      <q-input
-                        :model-value="readModSourceDisplayValue(game.modProfile.sources[0])"
-                        outlined
-                        :type="
-                          getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'
-                            ? 'textarea'
-                            : 'text'
-                        "
-                        :autogrow="
-                          getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'
-                        "
-                        :label="getModSourceConfig(game.modProfile.sources[0].id).primaryLabel"
-                        :hint="getModSourceConfig(game.modProfile.sources[0].id).primaryHint"
-                        :placeholder="getModSourceConfig(game.modProfile.sources[0].id).placeholder"
-                        persistent-hint
-                        @update:model-value="
-                          updateModSourceDisplayValue(game.modProfile.sources[0], $event)
-                        " />
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </div>
-          </section>
+          <game-form-mods-tab />
         </div>
 
         <div
@@ -948,15 +113,7 @@
           :inert="activeFormTab !== 'config'"
           :aria-labelledby="formTabID('config')"
           class="game-form-tab-panel">
-          <!-- Configuration Files -->
-          <section class="form-section form-section--last">
-            <div class="section-header">
-              <span class="section-bar" style="background-color: var(--xy-purple)"></span>
-              <h2 class="section-title font-display">Configuration Files</h2>
-              <span class="section-line"></span>
-            </div>
-            <config-schema-list v-model="configSchemas" @edit-schema="navigateToSchemaEditor" />
-          </section>
+          <game-form-config-tab />
         </div>
       </q-form>
     </div>
@@ -980,11 +137,10 @@ import {
   UpdateGameConfigSchemasRequestSchema,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient, ConnectErrorToString } from '@/utils/shared'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, Ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, Ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   CommandType,
-  CommandProcessor,
   Game,
   GameSchema,
   type ModSource,
@@ -992,11 +148,17 @@ import {
   ModSourceSchema,
   UpdateProviderConfigSchema,
 } from '@/proto/shared_pb'
-import ConfigSchemaList from './ConfigSchemaList.vue'
-import type { ConfigSchemaEntry } from './ConfigSchemaList.vue'
-import BlocklistEditor from './BlocklistEditor.vue'
-import DownstreamImpactPanel from './DownstreamImpactPanel.vue'
-import StartArgsTemplateEditor from './StartArgsTemplateEditor.vue'
+import type { ConfigSchemaEntry } from './config-schema-types'
+import GameFormOverviewTab from './GameFormOverviewTab.vue'
+import GameFormRuntimeTab from './GameFormRuntimeTab.vue'
+import GameFormModsTab from './GameFormModsTab.vue'
+import GameFormConfigTab from './GameFormConfigTab.vue'
+import {
+  gameFormContextKey,
+  type GameFormContext,
+  type Platform,
+  type GameFormTabID,
+} from './GameFormTypes'
 import {
   parseStartArgBlocklist,
   parseStartArgsPatches,
@@ -1033,8 +195,6 @@ const submitting = ref(false)
 const savedSuccessfully = ref(false)
 let initialSnapshot = ''
 
-type Platform = 'windows' | 'linux'
-type GameFormTabID = 'overview' | 'runtime' | 'mods' | 'config'
 const gameFormTabHistoryStateKey = 'xylonaGameFormTab'
 
 const formTabs: Array<{ id: GameFormTabID; label: string; copy: string }> = [
@@ -1277,6 +437,52 @@ const runtimePolicySummary = computed(() => {
 const runtimePolicyAssistiveSummary = computed(
   () => `Runtime guardrails. ${runtimePolicySummary.value.join('. ')}.`,
 )
+
+// Provide form context to tab child components
+provide(gameFormContextKey, {
+  game,
+  existingGame,
+  copyGame,
+  defaultPort,
+  defaultQueryPort,
+  activePlatform,
+  activePlatformResolved,
+  idRules,
+  nameRules,
+  portRules,
+  commandTypeOptions,
+  linuxCommandProcessorOptions,
+  windowsCommandProcessorOptions,
+  isCommandTypeCommand,
+  commandTypeSummary,
+  highlightCommand,
+  linuxStartArgsTemplate,
+  windowsStartArgsTemplate,
+  startArgBlocklist,
+  baselineLinuxBaseCommand,
+  baselineWindowsBaseCommand,
+  baselineLinuxStartArgsTemplate,
+  baselineWindowsStartArgsTemplate,
+  runtimeSequenceExpanded,
+  runtimePolicyExpanded,
+  runtimePolicySummary,
+  runtimePolicyAssistiveSummary,
+  toggleRuntimePolicy,
+  updateRuntimeSequenceExpanded,
+  downstreamImpactServers,
+  modSourceOptions,
+  managedModConfig,
+  activeModSourceLabel,
+  addGameModProfile,
+  clearGameModProfile,
+  onModSourceProviderChanged,
+  readModSourceDisplayValue,
+  updateModSourceDisplayValue,
+  getModSourceConfig,
+  configSchemas,
+  navigateToSchemaEditor,
+  managedTypedConfig,
+} satisfies GameFormContext)
 
 watch(
   activeFormTab,
@@ -1721,7 +927,8 @@ async function updateExistingGame() {
 }
 </script>
 
-<style scoped>
+<!-- Unscoped so child tab components inherit styles. Class names are well-namespaced. -->
+<style>
 .game-form-wrapper {
   width: 100%;
   --game-form-sticky-stack-offset: calc(50px + 4rem);

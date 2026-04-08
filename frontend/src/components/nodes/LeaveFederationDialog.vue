@@ -32,11 +32,10 @@
 
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { Notify } from 'quasar'
-import { ref } from 'vue'
+import { useApiCall } from '@/composables/useApiCall'
 import { LeaveFederationRequestSchema } from '@/proto/xylona_pb'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 
 defineProps<{
   peerCount: number
@@ -47,12 +46,23 @@ const emit = defineEmits<{
 }>()
 
 const dialogOpen = defineModel<boolean>({ default: false })
-const leaving = ref(false)
+
+const { loading: leaving, execute: executeLeave } = useApiCall(
+  () => GetXylonaClient().leaveFederation(create(LeaveFederationRequestSchema, {})),
+  {
+    notify: (opts) =>
+      Notify.create({
+        ...opts,
+        timeout: 0,
+        closeBtn: 'Dismiss',
+        icon: 'report_problem',
+      }),
+  },
+)
 
 async function confirmLeave() {
-  leaving.value = true
-  try {
-    await GetXylonaClient().leaveFederation(create(LeaveFederationRequestSchema, {}))
+  const result = await executeLeave()
+  if (result !== undefined) {
     dialogOpen.value = false
     Notify.create({
       type: 'positive',
@@ -61,19 +71,6 @@ async function confirmLeave() {
       icon: 'check_circle',
     })
     emit('left')
-  } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    Notify.create({
-      type: 'xylona-error',
-      position: 'top',
-      caption: ConnectErrorToString(err),
-      timeout: 0,
-      closeBtn: 'Dismiss',
-      icon: 'report_problem',
-    })
-    console.error(err.message)
-  } finally {
-    leaving.value = false
   }
 }
 </script>

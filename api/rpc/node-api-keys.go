@@ -26,10 +26,10 @@ func (xs *XylonaService) ListNodeApiKeys(
 ) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	keys, errGet := xs.db.GetNodeAPIKeys()
@@ -60,20 +60,20 @@ func (xs *XylonaService) SetNodeApiKey(
 ) (*connect.Response[xylona.SetNodeApiKeyResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	serviceName := strings.TrimSpace(request.Msg.GetServiceName())
 	apiKey := strings.TrimSpace(request.Msg.GetApiKey())
 
 	if serviceName == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("service_name is required"))
+		return nil, invalidArg("service_name is required")
 	}
 	if apiKey == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("api_key is required"))
+		return nil, invalidArg("api_key is required")
 	}
 
 	now := time.Now().UTC()
@@ -108,15 +108,15 @@ func (xs *XylonaService) DeleteNodeApiKey(
 ) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	serviceName := strings.TrimSpace(request.Msg.GetServiceName())
 	if serviceName == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("service_name is required"))
+		return nil, invalidArg("service_name is required")
 	}
 
 	errDelete := xs.db.DeleteNodeAPIKeyByServiceName(serviceName)

@@ -53,7 +53,7 @@ func (xs *XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser access required"))
+		return nil, permissionDenied("superuser access required")
 	}
 
 	nodeID := request.Msg.GetNodeId()
@@ -61,7 +61,7 @@ func (xs *XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect
 	// Check if this is a remote node request.
 	localNodeID, errLocal := xs.db.GetLocalNodeID()
 	if errLocal != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local node ID"))
+		return nil, internalErrf("failed to get local node ID")
 	}
 
 	if nodeID != "" && nodeID != localNodeID {
@@ -76,7 +76,7 @@ func (xs *XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect
 
 		client, errClient := xs.newRemoteFederationClient(node)
 		if errClient != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create federation client"))
+			return nil, internalErrf("failed to create federation client")
 		}
 
 		resp, errRPC := client.FederationGetNodeSystemInfo(ctx, connect.NewRequest(&xylona.FederationGetNodeSystemInfoRequest{}))
@@ -93,7 +93,7 @@ func (xs *XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect
 	// Local node.
 	info, errInfo := sysinfo.CollectSystemInfo()
 	if errInfo != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to collect system info"))
+		return nil, internalErrf("failed to collect system info")
 	}
 
 	return connect.NewResponse(&xylona.GetNodeSystemInfoResponse{
@@ -108,13 +108,13 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser access required"))
+		return nil, permissionDenied("superuser access required")
 	}
 
 	nodeID := request.Msg.GetNodeId()
 	localNodeID, errLocal := xs.db.GetLocalNodeID()
 	if errLocal != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local node ID"))
+		return nil, internalErrf("failed to get local node ID")
 	}
 
 	if nodeID != "" && nodeID != localNodeID {
@@ -128,7 +128,7 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 
 		client, errClient := xs.newRemoteFederationClient(node)
 		if errClient != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create federation client"))
+			return nil, internalErrf("failed to create federation client")
 		}
 
 		resp, errRPC := client.FederationGetNodeResourceSnapshot(ctx, connect.NewRequest(&xylona.FederationGetNodeResourceSnapshotRequest{}))
@@ -144,7 +144,7 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 
 	snapshot, gsCount, runningCount, userCount, errCollect := xs.collectLocalSnapshot()
 	if errCollect != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to collect resource snapshot"))
+		return nil, internalErrf("failed to collect resource snapshot")
 	}
 
 	return connect.NewResponse(&xylona.GetNodeResourceSnapshotResponse{
@@ -159,7 +159,7 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser access required"))
+		return nil, permissionDenied("superuser access required")
 	}
 
 	var summaries []*xylona.DashboardNodeSummary
@@ -167,7 +167,7 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 	// Local node.
 	allNodes, errNodes := xs.db.GetAllNodes()
 	if errNodes != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list nodes"))
+		return nil, internalErrf("failed to list nodes")
 	}
 
 	for _, node := range allNodes {
@@ -244,7 +244,7 @@ func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *con
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser access required"))
+		return nil, permissionDenied("superuser access required")
 	}
 
 	nodeID := request.Msg.GetNodeId()
@@ -253,7 +253,7 @@ func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *con
 
 	localNodeID, errLocal := xs.db.GetLocalNodeID()
 	if errLocal != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local node ID"))
+		return nil, internalErrf("failed to get local node ID")
 	}
 
 	if nodeID != "" && nodeID != localNodeID {
@@ -267,7 +267,7 @@ func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *con
 
 		client, errClient := xs.newRemoteFederationClient(node)
 		if errClient != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create federation client"))
+			return nil, internalErrf("failed to create federation client")
 		}
 
 		resp, errRPC := client.FederationGetNodeMetricsHistory(ctx, connect.NewRequest(&xylona.FederationGetNodeMetricsHistoryRequest{
@@ -275,7 +275,7 @@ func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *con
 			Until: request.Msg.GetUntil(),
 		}))
 		if errRPC != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote node metrics history"))
+			return nil, internalErrf("failed to get remote node metrics history")
 		}
 
 		return connect.NewResponse(&xylona.GetNodeMetricsHistoryResponse{
@@ -285,7 +285,7 @@ func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *con
 
 	rows, errQuery := xs.db.GetNodeMetricsHistory(localNodeID, since, until)
 	if errQuery != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to query node metrics history"))
+		return nil, internalErrf("failed to query node metrics history")
 	}
 
 	var points []*xylona.MetricsHistoryPoint
@@ -324,10 +324,10 @@ func (xs *XylonaService) GetGameServerMetricsHistory(ctx context.Context, reques
 			if !user.SuperUser && gameServer.UserID != user.ID {
 				allowed, errPerm := helpers.HasPermission(xs.db, user, gameServerID, gameServer.UserID, "game_server.metrics")
 				if errPerm != nil {
-					return nil, connect.NewError(connect.CodeInternal, errors.New("failed to check permissions"))
+					return nil, internalErrf("failed to check permissions")
 				}
 				if !allowed {
-					return nil, connect.NewError(connect.CodePermissionDenied, errors.New("access denied"))
+					return nil, permissionDenied("access denied")
 				}
 			}
 
@@ -342,7 +342,7 @@ func (xs *XylonaService) GetGameServerMetricsHistory(ctx context.Context, reques
 func (xs *XylonaService) queryLocalGameServerMetricsHistory(gameServerID string, since, until time.Time) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	rows, errQuery := xs.db.GetGameServerMetricsHistory(gameServerID, since, until)
 	if errQuery != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to query game server metrics history"))
+		return nil, internalErrf("failed to query game server metrics history")
 	}
 
 	var points []*xylona.GameServerMetricsHistoryPoint

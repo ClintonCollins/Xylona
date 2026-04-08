@@ -7,7 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
@@ -112,13 +112,13 @@ func TestAuthorizeFederatedPermission(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			header := http.Header{}
 			if tt.actingUserID != "" {
-				header.Set(helpers.FederationActingUserIDHeader, tt.actingUserID)
+				header.Set(federation.ActingUserIDHeader, tt.actingUserID)
 			}
 			if tt.originNodeID != "" {
-				header.Set(helpers.FederationOriginNodeIDHeader, tt.originNodeID)
+				header.Set(federation.OriginNodeIDHeader, tt.originNodeID)
 			}
 			if tt.superHeader != "" {
-				header.Set(helpers.FederationActingSuperHeader, tt.superHeader)
+				header.Set(federation.ActingSuperHeader, tt.superHeader)
 			}
 
 			testCtx := context.Background()
@@ -193,8 +193,8 @@ func TestListServerSummariesFiltersByFederatedViewPermission(t *testing.T) {
 	})
 
 	request := connect.NewRequest(&xylona.FederationListServerSummariesRequest{})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "user-owner")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote")
+	request.Header().Set(federation.ActingUserIDHeader, "user-owner")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote")
 
 	response, errList := service.ListServerSummaries(peerCtx, request)
 	if errList != nil {
@@ -218,9 +218,9 @@ func TestListServerSummariesFiltersByFederatedViewPermission(t *testing.T) {
 	}
 
 	requestSuper := connect.NewRequest(&xylona.FederationListServerSummariesRequest{})
-	requestSuper.Header().Set(helpers.FederationActingUserIDHeader, "user-admin")
-	requestSuper.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote")
-	requestSuper.Header().Set(helpers.FederationActingSuperHeader, "true")
+	requestSuper.Header().Set(federation.ActingUserIDHeader, "user-admin")
+	requestSuper.Header().Set(federation.OriginNodeIDHeader, "node-remote")
+	requestSuper.Header().Set(federation.ActingSuperHeader, "true")
 	responseSuper, errSuper := service.ListServerSummaries(peerCtx, requestSuper)
 	if errSuper != nil {
 		t.Fatalf("ListServerSummaries(super) error = %v", errSuper)
@@ -314,8 +314,8 @@ func TestGetServerDetailTreatsPersistedOnlineAsOfflineWhenCommandMissing(t *test
 	request := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
 		ServerId: "server-local-1",
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "user-owner")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote")
+	request.Header().Set(federation.ActingUserIDHeader, "user-owner")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote")
 
 	response, errDetail := service.GetServerDetail(peerCtx, request)
 	if errDetail != nil {

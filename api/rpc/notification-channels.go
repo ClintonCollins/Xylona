@@ -235,7 +235,7 @@ func (xs *XylonaService) CreateNotificationChannel(
 ) (*connect.Response[xylona.CreateNotificationChannelResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasGlobalPermission(user)
@@ -244,17 +244,17 @@ func (xs *XylonaService) CreateNotificationChannel(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	name := strings.TrimSpace(request.Msg.GetName())
 	if name == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
+		return nil, invalidArg("name is required")
 	}
 
 	channelType := request.Msg.GetChannelType()
 	if channelType == xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_UNSPECIFIED {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("channel_type is required"))
+		return nil, invalidArg("channel_type is required")
 	}
 	normalizedConfig, errValidate := normalizeNotificationChannelConfig(channelType.String(), request.Msg.GetConfig(), nil)
 	if errValidate != nil {
@@ -285,7 +285,7 @@ func (xs *XylonaService) UpdateNotificationChannel(
 ) (*connect.Response[xylona.UpdateNotificationChannelResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasGlobalPermission(user)
@@ -294,17 +294,17 @@ func (xs *XylonaService) UpdateNotificationChannel(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	id := strings.TrimSpace(request.Msg.GetId())
 	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	name := strings.TrimSpace(request.Msg.GetName())
 	if name == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
+		return nil, invalidArg("name is required")
 	}
 
 	existingChannel, errGetExisting := xs.db.GetNotificationChannelByID(id)
@@ -363,7 +363,7 @@ func (xs *XylonaService) DeleteNotificationChannel(
 ) (*connect.Response[xylona.DeleteNotificationChannelResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasGlobalPermission(user)
@@ -372,12 +372,12 @@ func (xs *XylonaService) DeleteNotificationChannel(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	id := strings.TrimSpace(request.Msg.GetId())
 	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	errDelete := xs.db.DeleteNotificationChannel(id, user.ID)
@@ -396,7 +396,7 @@ func (xs *XylonaService) ListNotificationChannels(
 ) (*connect.Response[xylona.ListNotificationChannelsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasAnyGlobalPermission(user, permissionAlertsManage, permissionAlertsViewHistory)
@@ -405,7 +405,7 @@ func (xs *XylonaService) ListNotificationChannels(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	includeSensitiveConfig, errManagePerm := xs.hasGlobalPermission(user)
@@ -435,7 +435,7 @@ func (xs *XylonaService) TestNotificationChannel(
 ) (*connect.Response[xylona.TestNotificationChannelResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasGlobalPermission(user)
@@ -444,12 +444,12 @@ func (xs *XylonaService) TestNotificationChannel(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	id := strings.TrimSpace(request.Msg.GetId())
 	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	channel, errGet := xs.db.GetNotificationChannelByID(id)

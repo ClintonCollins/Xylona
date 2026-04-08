@@ -160,17 +160,17 @@ func (xs *XylonaService) ListScheduledTasks(
 ) (*connect.Response[xylona.ListScheduledTasksResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	serverID := request.Msg.GetGameServerId()
 	if serverID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 
 	gameServer, errGS := xs.db.GetGameServerByID(serverID)
 	if errGS != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not found"))
+		return nil, notFoundErr()
 	}
 
 	errPerm := xs.ensureLocalServerPermission(user, gameServer, permissionScheduledTasks)
@@ -207,17 +207,17 @@ func (xs *XylonaService) CreateScheduledTask(
 ) (*connect.Response[xylona.CreateScheduledTaskResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	serverID := request.Msg.GetGameServerId()
 	if serverID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 
 	gameServer, errGS := xs.db.GetGameServerByID(serverID)
 	if errGS != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not found"))
+		return nil, notFoundErr()
 	}
 
 	// Check base scheduled_tasks permission.
@@ -301,22 +301,22 @@ func (xs *XylonaService) UpdateScheduledTask(
 ) (*connect.Response[xylona.UpdateScheduledTaskResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	taskID := request.Msg.GetId()
 	if taskID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	existing, errExisting := xs.db.GetScheduledTaskByID(taskID)
 	if errExisting != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("scheduled task not found"))
+		return nil, notFoundErr()
 	}
 
 	gameServer, errGS := xs.db.GetGameServerByID(existing.GameServerID)
 	if errGS != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not found"))
+		return nil, notFoundErr()
 	}
 
 	errPerm := xs.ensureLocalServerPermission(user, gameServer, permissionScheduledTasks)
@@ -394,22 +394,22 @@ func (xs *XylonaService) DeleteScheduledTask(
 ) (*connect.Response[xylona.DeleteScheduledTaskResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	taskID := request.Msg.GetId()
 	if taskID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("id is required"))
+		return nil, invalidArg("id is required")
 	}
 
 	existing, errExisting := xs.db.GetScheduledTaskByID(taskID)
 	if errExisting != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("scheduled task not found"))
+		return nil, notFoundErr()
 	}
 
 	gameServer, errGS := xs.db.GetGameServerByID(existing.GameServerID)
 	if errGS != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not found"))
+		return nil, notFoundErr()
 	}
 
 	errPerm := xs.ensureLocalServerPermission(user, gameServer, permissionScheduledTasks)
@@ -440,22 +440,22 @@ func (xs *XylonaService) GetScheduledTaskLogs(
 ) (*connect.Response[xylona.GetScheduledTaskLogsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	scheduledTaskID := request.Msg.GetScheduledTaskId()
 	if scheduledTaskID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("scheduled_task_id is required"))
+		return nil, invalidArg("scheduled_task_id is required")
 	}
 
 	task, errTask := xs.db.GetScheduledTaskByID(scheduledTaskID)
 	if errTask != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("scheduled task not found"))
+		return nil, notFoundErr()
 	}
 
 	gameServer, errGS := xs.db.GetGameServerByID(task.GameServerID)
 	if errGS != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not found"))
+		return nil, notFoundErr()
 	}
 
 	errPerm := xs.ensureLocalServerPermission(user, gameServer, permissionScheduledTasks)

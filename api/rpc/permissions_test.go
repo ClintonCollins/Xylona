@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -56,14 +56,14 @@ func TestApplyFederatedActingIdentity(t *testing.T) {
 				t.Fatalf("applyFederatedActingIdentity() error = %v", errApply)
 			}
 
-			gotActingUserID, gotOriginNodeID := helpers.GetFederatedActingIdentity(header)
+			gotActingUserID, gotOriginNodeID := federation.GetActingIdentity(header)
 			if gotActingUserID != tt.wantActingUserID {
 				t.Errorf("acting user id = %q, want %q", gotActingUserID, tt.wantActingUserID)
 			}
 			if gotOriginNodeID != tt.wantOriginNodeID {
 				t.Errorf("origin node id = %q, want %q", gotOriginNodeID, tt.wantOriginNodeID)
 			}
-			gotSuperUser := helpers.FederatedActingIsSuperUser(header)
+			gotSuperUser := federation.ActingIsSuperUser(header)
 			if gotSuperUser != tt.wantSuperUser {
 				t.Errorf("acting super-user = %v, want %v", gotSuperUser, tt.wantSuperUser)
 			}

@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"strings"
 
@@ -171,10 +170,7 @@ func countScheduledBackups(tasks []*models.ScheduledTask) int32 {
 func (xs *XylonaService) getGameServerForBackupRPC(gameServerID string) (*models.GameServer, error) {
 	gameServer, errGetGameServer := xs.db.GetGameServerByID(gameServerID)
 	if errGetGameServer != nil {
-		if errors.Is(errGetGameServer, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load game server"))
+		return nil, dbLookupMsg(errGetGameServer, "failed to load game server")
 	}
 
 	return gameServer, nil
@@ -183,13 +179,10 @@ func (xs *XylonaService) getGameServerForBackupRPC(gameServerID string) (*models
 func (xs *XylonaService) getBackupByIDForGameServer(gameServerID string, backupID string) (*models.GameServerBackup, error) {
 	backup, errGetBackup := xs.db.GetGameServerBackupByID(backupID)
 	if errGetBackup != nil {
-		if errors.Is(errGetBackup, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("backup not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load backup"))
+		return nil, dbLookupMsg(errGetBackup, "failed to load backup")
 	}
 	if backup.GameServerID != gameServerID {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("backup does not belong to this server"))
+		return nil, invalidArg("backup does not belong to this server")
 	}
 
 	return backup, nil
@@ -202,12 +195,12 @@ func (xs *XylonaService) GetGameServerBackupOverview(
 ) (*connect.Response[xylona.GetGameServerBackupOverviewResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
 	if gameServerID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
@@ -222,7 +215,7 @@ func (xs *XylonaService) GetGameServerBackupOverview(
 
 	scheduledTasks, errGetTasks := xs.db.GetScheduledTasksByGameServerID(gameServerID)
 	if errGetTasks != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to load scheduled tasks"))
+		return nil, internalErrf("failed to load scheduled tasks")
 	}
 
 	operationsAllowed, disabledReason := backupOperationsAllowed(gameServer)
@@ -248,12 +241,12 @@ func (xs *XylonaService) GetBackupSettings(
 ) (*connect.Response[xylona.GetBackupSettingsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
 	if gameServerID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
@@ -278,15 +271,15 @@ func (xs *XylonaService) UpdateBackupSettings(
 ) (*connect.Response[xylona.UpdateBackupSettingsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
 	if gameServerID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
@@ -308,7 +301,7 @@ func (xs *XylonaService) UpdateBackupSettings(
 			if !backupDirectoryConfigured(&updatedGameServer) {
 				reason = backupDisabledReasonNotConfigured
 			}
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(reason))
+			return nil, invalidArg(reason)
 		}
 	}
 
@@ -323,7 +316,7 @@ func (xs *XylonaService) UpdateBackupSettings(
 
 	updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 	if errUpdate != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update backup settings"))
+		return nil, internalErrf("failed to update backup settings")
 	}
 
 	return connect.NewResponse(&xylona.UpdateBackupSettingsResponse{
@@ -338,12 +331,12 @@ func (xs *XylonaService) ListGameServerBackups(
 ) (*connect.Response[xylona.ListGameServerBackupsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
 	if gameServerID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
@@ -358,7 +351,7 @@ func (xs *XylonaService) ListGameServerBackups(
 
 	backups, errListBackups := xs.db.ListGameServerBackupsByGameServerID(gameServerID)
 	if errListBackups != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list backups"))
+		return nil, internalErrf("failed to list backups")
 	}
 
 	protoBackups := make([]*xylona.GameServerBackup, 0, len(backups))
@@ -378,12 +371,12 @@ func (xs *XylonaService) CreateGameServerBackup(
 ) (*connect.Response[xylona.CreateGameServerBackupResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
 	if gameServerID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
@@ -401,12 +394,12 @@ func (xs *XylonaService) CreateGameServerBackup(
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 	}
 	if xs.actionsInst == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("backup service unavailable"))
+		return nil, internalErrf("backup service unavailable")
 	}
 
 	backup, errCreateBackup := xs.actionsInst.CreateManualBackup(gameServer, user.ID)
 	if errCreateBackup != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create backup"))
+		return nil, internalErrf("failed to create backup")
 	}
 
 	return connect.NewResponse(&xylona.CreateGameServerBackupResponse{
@@ -421,16 +414,16 @@ func (xs *XylonaService) DeleteGameServerBackup(
 ) (*connect.Response[xylona.DeleteGameServerBackupResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
 	if gameServerID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 	backupID := request.Msg.GetBackupId()
 	if backupID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("backup_id is required"))
+		return nil, invalidArg("backup_id is required")
 	}
 
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
@@ -455,12 +448,12 @@ func (xs *XylonaService) DeleteGameServerBackup(
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("backup belongs to a different node"))
 	}
 	if xs.actionsInst == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("backup service unavailable"))
+		return nil, internalErrf("backup service unavailable")
 	}
 
 	errDeleteBackup := xs.actionsInst.DeleteGameServerBackup(gameServer, backup)
 	if errDeleteBackup != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete backup"))
+		return nil, internalErrf("failed to delete backup")
 	}
 
 	return connect.NewResponse(&xylona.DeleteGameServerBackupResponse{}), nil
@@ -473,16 +466,16 @@ func (xs *XylonaService) RestoreGameServerBackup(
 ) (*connect.Response[xylona.RestoreGameServerBackupResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
 	if gameServerID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("game_server_id is required"))
+		return nil, invalidArg("game_server_id is required")
 	}
 	backupID := request.Msg.GetBackupId()
 	if backupID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("backup_id is required"))
+		return nil, invalidArg("backup_id is required")
 	}
 
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
@@ -500,7 +493,7 @@ func (xs *XylonaService) RestoreGameServerBackup(
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 	}
 	if xs.actionsInst == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("backup service unavailable"))
+		return nil, internalErrf("backup service unavailable")
 	}
 
 	backup, errGetBackup := xs.getBackupByIDForGameServer(gameServerID, backupID)

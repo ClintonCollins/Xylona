@@ -123,7 +123,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import type { QForm } from 'quasar'
-import type { ConfigSchemaEntry } from './ConfigSchemaList.vue'
+import type { ConfigSchemaEntry } from './config-schema-types'
 import ConfigImportInput from './ConfigImportInput.vue'
 import type { ImportDetectionResult, ImportedField } from '@/utils/config-import'
 

@@ -154,9 +154,14 @@
                     round
                     icon="edit"
                     class="schema-row-action"
+                    :disable="!props.canEditSchemas"
                     aria-label="Edit schema"
                     @click="$emit('editSchema', getGlobalIndex(String(category), index))">
-                    <q-tooltip>Edit schema</q-tooltip>
+                    <q-tooltip>{{
+                      props.canEditSchemas
+                        ? 'Edit schema'
+                        : 'Save the game first to edit config schemas.'
+                    }}</q-tooltip>
                   </q-btn>
                   <q-btn
                     flat
@@ -186,35 +191,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import AddConfigFileDialog from './AddConfigFileDialog.vue'
+import type { ConfigSchemaEntry } from './config-schema-types'
 
-export interface ConfigSchemaEntry {
-  path: string
-  format: string
-  category: string
-  generate_before_start: boolean
-  xml_key_mode?: {
-    mode: string
-    element: string
-    key_attr: string
-    value_attr: string
-  }
-  schema?: {
-    type: string
-    properties: Record<string, SchemaProperty>
-  }
-}
-
-interface SchemaProperty {
-  type?: string
-  'x-managed'?: {
-    source: string
-  }
-  [key: string]: unknown
-}
-
-const props = defineProps<{
-  modelValue: ConfigSchemaEntry[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: ConfigSchemaEntry[]
+    canEditSchemas?: boolean
+  }>(),
+  {
+    canEditSchemas: true,
+  },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [schemas: ConfigSchemaEntry[]]

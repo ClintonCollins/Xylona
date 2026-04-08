@@ -1,4 +1,4 @@
-package helpers
+package federation
 
 import (
 	"crypto/ecdsa"
@@ -26,16 +26,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// FederationMTLS manages local federation certificates and trusted outbound clients.
-type FederationMTLS struct {
+// MTLS manages local federation certificates and trusted outbound clients.
+type MTLS struct {
 	federationPort int
 	certPath       string
 	keyPath        string
 	certificate    tls.Certificate
 }
 
-// NewFederationMTLS loads or creates the on-disk federation certificate pair for a node.
-func NewFederationMTLS(nodeID string, federationPort int, certPath string, keyPath string) (*FederationMTLS, string, error) {
+// NewMTLS loads or creates the on-disk federation certificate pair for a node.
+func NewMTLS(nodeID string, federationPort int, certPath string, keyPath string) (*MTLS, string, error) {
 	errEnsure := ensureFederationCertificateFiles(nodeID, certPath, keyPath)
 	if errEnsure != nil {
 		return nil, "", errEnsure
@@ -51,7 +51,7 @@ func NewFederationMTLS(nodeID string, federationPort int, certPath string, keyPa
 		return nil, "", errFingerprint
 	}
 
-	return &FederationMTLS{
+	return &MTLS{
 		federationPort: federationPort,
 		certPath:       certPath,
 		keyPath:        keyPath,
@@ -59,8 +59,8 @@ func NewFederationMTLS(nodeID string, federationPort int, certPath string, keyPa
 	}, fingerprint, nil
 }
 
-// NewFederationMTLSFromPEM constructs a FederationMTLS instance from in-memory PEM data.
-func NewFederationMTLSFromPEM(federationPort int, certPEM []byte, keyPEM []byte) (*FederationMTLS, string, error) {
+// NewMTLSFromPEM constructs a MTLS instance from in-memory PEM data.
+func NewMTLSFromPEM(federationPort int, certPEM []byte, keyPEM []byte) (*MTLS, string, error) {
 	if len(certPEM) == 0 || len(keyPEM) == 0 {
 		return nil, "", errors.New("certificate and key PEM are required")
 	}
@@ -75,14 +75,14 @@ func NewFederationMTLSFromPEM(federationPort int, certPEM []byte, keyPEM []byte)
 		return nil, "", errFingerprint
 	}
 
-	return &FederationMTLS{
+	return &MTLS{
 		federationPort: federationPort,
 		certificate:    certificate,
 	}, fingerprint, nil
 }
 
-// GenerateFederationCertificatePEM creates a self-signed federation certificate and key pair.
-func GenerateFederationCertificatePEM(nodeID string) ([]byte, []byte, error) {
+// GenerateCertificatePEM creates a self-signed federation certificate and key pair.
+func GenerateCertificatePEM(nodeID string) ([]byte, []byte, error) {
 	certPEM, keyPEM, errGenerate := buildFederationCertificatePEM(nodeID)
 	if errGenerate != nil {
 		return nil, nil, errGenerate
@@ -91,27 +91,27 @@ func GenerateFederationCertificatePEM(nodeID string) ([]byte, []byte, error) {
 }
 
 // CertPath returns the configured certificate path when the certificate is file-backed.
-func (m *FederationMTLS) CertPath() string {
+func (m *MTLS) CertPath() string {
 	return m.certPath
 }
 
 // KeyPath returns the configured private-key path when the key is file-backed.
-func (m *FederationMTLS) KeyPath() string {
+func (m *MTLS) KeyPath() string {
 	return m.keyPath
 }
 
 // FederationPort returns the configured federation listener port.
-func (m *FederationMTLS) FederationPort() int {
+func (m *MTLS) FederationPort() int {
 	return m.federationPort
 }
 
 // FederationBaseURL returns the HTTPS federation base URL for the configured federation port.
-func (m *FederationMTLS) FederationBaseURL(baseURL string) (string, error) {
+func (m *MTLS) FederationBaseURL(baseURL string) (string, error) {
 	return m.FederationBaseURLWithPort(baseURL, m.federationPort)
 }
 
 // FederationBaseURLWithPort returns the HTTPS federation base URL for a specific federation port.
-func (m *FederationMTLS) FederationBaseURLWithPort(baseURL string, federationPort int) (string, error) {
+func (m *MTLS) FederationBaseURLWithPort(baseURL string, federationPort int) (string, error) {
 	parsedURL, errParse := url.Parse(strings.TrimSpace(baseURL))
 	if errParse != nil {
 		return "", errors.New("invalid base URL")
@@ -135,7 +135,7 @@ func (m *FederationMTLS) FederationBaseURLWithPort(baseURL string, federationPor
 }
 
 // ServerTLSConfig returns the TLS configuration used by the local federation server.
-func (m *FederationMTLS) ServerTLSConfig() *tls.Config {
+func (m *MTLS) ServerTLSConfig() *tls.Config {
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{m.certificate},
@@ -144,12 +144,12 @@ func (m *FederationMTLS) ServerTLSConfig() *tls.Config {
 }
 
 // NewNodeHTTPClient creates a federation HTTP client for a specific node using the default federation port.
-func (m *FederationMTLS) NewNodeHTTPClient(timeout time.Duration, nodeBaseURL string, expectedPeerFingerprint string, expectedPeerNodeID string) (*http.Client, string, error) {
+func (m *MTLS) NewNodeHTTPClient(timeout time.Duration, nodeBaseURL string, expectedPeerFingerprint string, expectedPeerNodeID string) (*http.Client, string, error) {
 	return m.NewNodeHTTPClientWithPort(timeout, nodeBaseURL, m.federationPort, expectedPeerFingerprint, expectedPeerNodeID)
 }
 
 // NewNodeHTTPClientWithPort creates a federation HTTP client pinned to a peer fingerprint and port.
-func (m *FederationMTLS) NewNodeHTTPClientWithPort(
+func (m *MTLS) NewNodeHTTPClientWithPort(
 	timeout time.Duration,
 	nodeBaseURL string,
 	federationPort int,
@@ -214,12 +214,12 @@ func (m *FederationMTLS) NewNodeHTTPClientWithPort(
 }
 
 // ProbeServerFingerprint probes a node and returns the presented certificate fingerprint.
-func (m *FederationMTLS) ProbeServerFingerprint(nodeBaseURL string, timeout time.Duration) (string, error) {
+func (m *MTLS) ProbeServerFingerprint(nodeBaseURL string, timeout time.Duration) (string, error) {
 	return m.ProbeServerFingerprintWithPort(nodeBaseURL, m.federationPort, timeout)
 }
 
 // ProbeServerFingerprintWithPort probes a node on a specific federation port and returns its certificate fingerprint.
-func (m *FederationMTLS) ProbeServerFingerprintWithPort(nodeBaseURL string, federationPort int, timeout time.Duration) (string, error) {
+func (m *MTLS) ProbeServerFingerprintWithPort(nodeBaseURL string, federationPort int, timeout time.Duration) (string, error) {
 	if federationPort <= 0 {
 		federationPort = m.federationPort
 	}
@@ -281,7 +281,7 @@ type TrustedPeerInfo struct {
 // NewTrustedPeerHTTPClient creates an mTLS HTTP client for a trusted remote node.
 // It looks up the peer in the trust store, verifies it is enabled and not revoked,
 // and returns a client configured with fingerprint-pinned TLS.
-func (m *FederationMTLS) NewTrustedPeerHTTPClient(
+func (m *MTLS) NewTrustedPeerHTTPClient(
 	timeout time.Duration,
 	nodeID string,
 	nodeBaseURL string,
@@ -291,7 +291,7 @@ func (m *FederationMTLS) NewTrustedPeerHTTPClient(
 }
 
 // NewTrustedPeerHTTPClientWithPort creates an mTLS HTTP client for a trusted remote node on a specific federation port.
-func (m *FederationMTLS) NewTrustedPeerHTTPClientWithPort(
+func (m *MTLS) NewTrustedPeerHTTPClientWithPort(
 	timeout time.Duration,
 	nodeID string,
 	nodeBaseURL string,
@@ -445,7 +445,7 @@ func fileExists(path string) bool {
 }
 
 // LocalFingerprint returns the SHA-256 fingerprint of the local federation certificate.
-func (m *FederationMTLS) LocalFingerprint() (string, error) {
+func (m *MTLS) LocalFingerprint() (string, error) {
 	fingerprint, errFingerprint := certificateFingerprintFromTLSCertificate(m.certificate)
 	if errFingerprint != nil {
 		return "", fmt.Errorf("failed to get local certificate fingerprint: %w", errFingerprint)

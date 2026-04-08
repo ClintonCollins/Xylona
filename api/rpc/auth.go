@@ -83,7 +83,7 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 		if errors.Is(errGetUser, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
 		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	errCompare := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
@@ -103,7 +103,7 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 	newSession, errSession := xs.db.CreateUserSession(x)
 
 	if errSession != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	resp := &connect.Response[xylona.LoginResponse]{
@@ -123,7 +123,7 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 
 	encodedSession, errEncodeSession := xs.secureCookie.Encode(gatekeeper.SessionTokenCookieName, newSession.Token)
 	if errEncodeSession != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	tokenCookie := &http.Cookie{

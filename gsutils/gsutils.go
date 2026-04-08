@@ -2,6 +2,7 @@
 package gsutils
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -40,8 +41,8 @@ func (x xylonaTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // SteamGetLatestVersionByAppID returns the latest version string for the public Steam branch.
-func SteamGetLatestVersionByAppID(appID string) (string, error) {
-	branchMap, errGetBranchMap := SteamGetBranchesByAppID(appID)
+func SteamGetLatestVersionByAppID(ctx context.Context, appID string) (string, error) {
+	branchMap, errGetBranchMap := SteamGetBranchesByAppID(ctx, appID)
 	if errGetBranchMap != nil {
 		log.Error().Err(errGetBranchMap).Msg("Failed to get branch map")
 		return "", errGetBranchMap
@@ -74,8 +75,12 @@ func SteamGetLatestVersionByAppID(appID string) (string, error) {
 }
 
 // SteamGetBranchesByAppID returns Steam depot branch metadata keyed by branch name.
-func SteamGetBranchesByAppID(appID string) (map[string]SteamAppBranch, error) {
-	resp, err := httpClient.Get("https://api.steamcmd.net/v1/info/" + appID) //nolint:noctx // TODO: refactor to use http.NewRequestWithContext
+func SteamGetBranchesByAppID(ctx context.Context, appID string) (map[string]SteamAppBranch, error) {
+	req, errNewReq := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.steamcmd.net/v1/info/"+appID, nil)
+	if errNewReq != nil {
+		return nil, fmt.Errorf("create steam app branches request for %s: %w", appID, errNewReq)
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get steam app branches for %s: %w", appID, err)
 	}

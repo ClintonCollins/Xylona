@@ -127,6 +127,7 @@ func gameUpdateCommandType(game *models.Game) string {
 //
 // TODO(GE-06 follow-up): remove this compatibility parser once install/update
 // command-string paths are replaced with structured argv or a proper tokenizer.
+// Still actively called from InstallGameServer and UpdateGameServer in actions.go.
 func splitCommandString(command string) (string, []string) {
 	foundQuote := false
 	commandSplit := strings.FieldsFunc(command, func(r rune) bool {

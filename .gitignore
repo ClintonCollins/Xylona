@@ -21,3 +21,5 @@ data.sqlite
 /.e2e-data/
 /coverage
 .mockups/
+/refactor.md
+/refactor-remaining.md

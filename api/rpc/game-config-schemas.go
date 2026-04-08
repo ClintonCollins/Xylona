@@ -26,10 +26,10 @@ func (xs *XylonaService) GetGameConfigSchemas(
 ) (*connect.Response[xylona.GetGameConfigSchemasResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	schemas, errGet := xs.db.GetGameConfigSchemas(request.Msg.GetGameId())
@@ -37,7 +37,7 @@ func (xs *XylonaService) GetGameConfigSchemas(
 		if errors.Is(errGet, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
 		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 
 	return &connect.Response[xylona.GetGameConfigSchemasResponse]{
@@ -55,10 +55,10 @@ func (xs *XylonaService) UpdateGameConfigSchemas(
 ) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 
 	schemasJSON := request.Msg.GetConfigSchemasJson()
@@ -76,7 +76,7 @@ func (xs *XylonaService) UpdateGameConfigSchemas(
 
 	errUpdate := xs.db.UpdateGameConfigSchemas(request.Msg.GetGameId(), schemasJSON)
 	if errUpdate != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update config schemas"))
+		return nil, internalErrf("failed to update config schemas")
 	}
 
 	return &connect.Response[xylona.UpdateGameConfigSchemasResponse]{
@@ -94,7 +94,7 @@ func (xs *XylonaService) GetGameServerConfigFiles(
 ) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	serverID := request.Msg.GetGameServerId()
@@ -121,13 +121,13 @@ func (xs *XylonaService) getGameServerConfigFilesLocal(
 ) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
 	game, errGame := xs.db.GetGameByID(gameServer.GameID)
 	if errGame != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
+		return nil, internalErrf("failed to get game")
 	}
 
 	schemasJSON := game.ConfigSchemas.GetOr("")
 	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse config schemas"))
+		return nil, internalErrf("failed to parse config schemas")
 	}
 
 	var configFiles []*xylona.ConfigFileInfo
@@ -165,7 +165,7 @@ func (xs *XylonaService) GetGameServerConfigFile(
 ) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	serverID := request.Msg.GetGameServerId()
@@ -193,13 +193,13 @@ func (xs *XylonaService) getGameServerConfigFileLocal(
 ) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
 	game, errGame := xs.db.GetGameByID(gameServer.GameID)
 	if errGame != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
+		return nil, internalErrf("failed to get game")
 	}
 
 	schemasJSON := game.ConfigSchemas.GetOr("")
 	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse config schemas"))
+		return nil, internalErrf("failed to parse config schemas")
 	}
 
 	// Find the matching schema entry.
@@ -217,7 +217,7 @@ func (xs *XylonaService) getGameServerConfigFileLocal(
 	// Get parser.
 	p, errGetParser := cfgparse.GetParser(schemaEntry.Format)
 	if errGetParser != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("unsupported format"))
+		return nil, internalErrf("unsupported format")
 	}
 
 	// Read and parse the file.
@@ -228,7 +228,7 @@ func (xs *XylonaService) getGameServerConfigFileLocal(
 	if errRead == nil && p.IsFlat() {
 		parsed, errRead = p.Flat.Parse(fileData)
 		if errRead != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse config file"))
+			return nil, internalErrf("failed to parse config file")
 		}
 	}
 
@@ -300,7 +300,7 @@ func (xs *XylonaService) UpdateGameServerConfigFile(
 ) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	serverID := request.Msg.GetGameServerId()
@@ -328,13 +328,13 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 ) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
 	game, errGame := xs.db.GetGameByID(gameServer.GameID)
 	if errGame != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
+		return nil, internalErrf("failed to get game")
 	}
 
 	schemasJSON := game.ConfigSchemas.GetOr("")
 	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse config schemas"))
+		return nil, internalErrf("failed to parse config schemas")
 	}
 
 	// Find the matching schema entry.
@@ -395,7 +395,7 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 	// Get parser.
 	p, errGetParser := cfgparse.GetParser(schemaEntry.Format)
 	if errGetParser != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("unsupported format"))
+		return nil, internalErrf("unsupported format")
 	}
 
 	if !p.IsFlat() {
@@ -404,14 +404,14 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 
 	relativePath := strings.TrimPrefix(schemaEntry.Path, string(filepath.Separator))
 	if relativePath != "" && !filepath.IsLocal(relativePath) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid config file path"))
+		return nil, invalidArg("invalid config file path")
 	}
 
 	cleanGameServerDir := filepath.Clean(gameServer.Directory)
 	filePath := filepath.Clean(filepath.Join(cleanGameServerDir, relativePath))
 	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
 	if filePath != cleanGameServerDir && !strings.HasPrefix(filePath, gameServerDirPrefix) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("config file path escapes server directory"))
+		return nil, invalidArg("config file path escapes server directory")
 	}
 
 	// Read existing file.
@@ -421,7 +421,7 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 	if errRead == nil {
 		existingEntries, errRead = p.Flat.Parse(fileData)
 		if errRead != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse existing config file"))
+			return nil, internalErrf("failed to parse existing config file")
 		}
 	}
 
@@ -440,19 +440,19 @@ func (xs *XylonaService) updateGameServerConfigFileLocal(
 
 	output, errWrite := p.Flat.Write(merged)
 	if errWrite != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to write config file"))
+		return nil, internalErrf("failed to write config file")
 	}
 
 	// Ensure parent directory exists.
 	dir := filepath.Dir(filePath)
 	errMkdir := os.MkdirAll(dir, 0o750)
 	if errMkdir != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create directory"))
+		return nil, internalErrf("failed to create directory")
 	}
 
 	errWriteFile := os.WriteFile(filePath, output, 0o600) //nolint:gosec // filePath is validated as local and constrained to gameServer.Directory above.
 	if errWriteFile != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to write config file"))
+		return nil, internalErrf("failed to write config file")
 	}
 
 	return &connect.Response[xylona.UpdateGameServerConfigFileResponse]{
@@ -469,7 +469,7 @@ func (xs *XylonaService) GenerateGameServerConfigFile(
 ) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	serverID := request.Msg.GetGameServerId()
@@ -497,13 +497,13 @@ func (xs *XylonaService) generateGameServerConfigFileLocal(
 ) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
 	game, errGame := xs.db.GetGameByID(gameServer.GameID)
 	if errGame != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get game"))
+		return nil, internalErrf("failed to get game")
 	}
 
 	schemasJSON := game.ConfigSchemas.GetOr("")
 	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to parse config schemas"))
+		return nil, internalErrf("failed to parse config schemas")
 	}
 
 	var schemaEntry *cfgschema.ConfigSchemaEntry

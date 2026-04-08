@@ -1,4 +1,4 @@
-package helpers
+package federation
 
 import (
 	"context"
@@ -12,18 +12,18 @@ import (
 	"time"
 )
 
-func TestNewFederationMTLSFromPEM(t *testing.T) {
-	certPEM, keyPEM, errGenerate := GenerateFederationCertificatePEM("node-a")
+func TestNewMTLSFromPEM(t *testing.T) {
+	certPEM, keyPEM, errGenerate := GenerateCertificatePEM("node-a")
 	if errGenerate != nil {
-		t.Fatalf("GenerateFederationCertificatePEM() error = %v", errGenerate)
+		t.Fatalf("GenerateCertificatePEM() error = %v", errGenerate)
 	}
 
-	mtlsConfig, fingerprint, errCreate := NewFederationMTLSFromPEM(8443, certPEM, keyPEM)
+	mtlsConfig, fingerprint, errCreate := NewMTLSFromPEM(8443, certPEM, keyPEM)
 	if errCreate != nil {
-		t.Fatalf("NewFederationMTLSFromPEM() error = %v", errCreate)
+		t.Fatalf("NewMTLSFromPEM() error = %v", errCreate)
 	}
 	if mtlsConfig == nil {
-		t.Fatalf("NewFederationMTLSFromPEM() returned nil config")
+		t.Fatalf("NewMTLSFromPEM() returned nil config")
 	}
 	if fingerprint == "" {
 		t.Fatalf("fingerprint should not be empty")
@@ -38,24 +38,24 @@ func TestNewFederationMTLSFromPEM(t *testing.T) {
 	}
 }
 
-func TestNewFederationMTLSGeneratesAndReusesCertificate(t *testing.T) {
+func TestNewMTLSGeneratesAndReusesCertificate(t *testing.T) {
 	certPath := filepath.Join(t.TempDir(), "federation", "node.crt")
 	keyPath := filepath.Join(t.TempDir(), "federation", "node.key")
 
-	mtlsConfig, firstFingerprint, errCreate := NewFederationMTLS("node-a", 8443, certPath, keyPath)
+	mtlsConfig, firstFingerprint, errCreate := NewMTLS("node-a", 8443, certPath, keyPath)
 	if errCreate != nil {
-		t.Fatalf("NewFederationMTLS() first call error = %v", errCreate)
+		t.Fatalf("NewMTLS() first call error = %v", errCreate)
 	}
 	if mtlsConfig == nil {
-		t.Fatalf("NewFederationMTLS() returned nil config")
+		t.Fatalf("NewMTLS() returned nil config")
 	}
 	if firstFingerprint == "" {
 		t.Fatalf("fingerprint should not be empty")
 	}
 
-	secondConfig, secondFingerprint, errSecond := NewFederationMTLS("node-a", 8443, certPath, keyPath)
+	secondConfig, secondFingerprint, errSecond := NewMTLS("node-a", 8443, certPath, keyPath)
 	if errSecond != nil {
-		t.Fatalf("NewFederationMTLS() second call error = %v", errSecond)
+		t.Fatalf("NewMTLS() second call error = %v", errSecond)
 	}
 	if secondConfig == nil {
 		t.Fatalf("second config should not be nil")
@@ -66,14 +66,14 @@ func TestNewFederationMTLSGeneratesAndReusesCertificate(t *testing.T) {
 }
 
 func TestFederationBaseURLUsesDedicatedPort(t *testing.T) {
-	mtlsConfig, _, errCreate := NewFederationMTLS(
+	mtlsConfig, _, errCreate := NewMTLS(
 		"node-a",
 		9443,
 		filepath.Join(t.TempDir(), "node.crt"),
 		filepath.Join(t.TempDir(), "node.key"),
 	)
 	if errCreate != nil {
-		t.Fatalf("NewFederationMTLS() error = %v", errCreate)
+		t.Fatalf("NewMTLS() error = %v", errCreate)
 	}
 
 	gotURL, errBaseURL := mtlsConfig.FederationBaseURL("http://panel.example.com:8080/path")
@@ -87,14 +87,14 @@ func TestFederationBaseURLUsesDedicatedPort(t *testing.T) {
 }
 
 func TestFederationBaseURLWithPortOverridesDefault(t *testing.T) {
-	mtlsConfig, _, errCreate := NewFederationMTLS(
+	mtlsConfig, _, errCreate := NewMTLS(
 		"node-a",
 		9443,
 		filepath.Join(t.TempDir(), "node.crt"),
 		filepath.Join(t.TempDir(), "node.key"),
 	)
 	if errCreate != nil {
-		t.Fatalf("NewFederationMTLS() error = %v", errCreate)
+		t.Fatalf("NewMTLS() error = %v", errCreate)
 	}
 
 	gotURL, errBaseURL := mtlsConfig.FederationBaseURLWithPort("http://panel.example.com:8080/path", 12443)
@@ -110,9 +110,9 @@ func TestFederationBaseURLWithPortOverridesDefault(t *testing.T) {
 func TestNewNodeHTTPClientPinsPeerFingerprint(t *testing.T) {
 	serverCertPath := filepath.Join(t.TempDir(), "peer.crt")
 	serverKeyPath := filepath.Join(t.TempDir(), "peer.key")
-	serverMTLS, serverFingerprint, errServer := NewFederationMTLS("peer-node-id", 1, serverCertPath, serverKeyPath)
+	serverMTLS, serverFingerprint, errServer := NewMTLS("peer-node-id", 1, serverCertPath, serverKeyPath)
 	if errServer != nil {
-		t.Fatalf("NewFederationMTLS() server error = %v", errServer)
+		t.Fatalf("NewMTLS() server error = %v", errServer)
 	}
 
 	serverCertificate, errLoadServerCert := tls.LoadX509KeyPair(serverMTLS.CertPath(), serverMTLS.KeyPath())
@@ -140,14 +140,14 @@ func TestNewNodeHTTPClientPinsPeerFingerprint(t *testing.T) {
 		t.Fatalf("failed to parse test server port: %v", errPort)
 	}
 
-	clientMTLS, _, errClient := NewFederationMTLS(
+	clientMTLS, _, errClient := NewMTLS(
 		"client-node-id",
 		portNumber,
 		filepath.Join(t.TempDir(), "client.crt"),
 		filepath.Join(t.TempDir(), "client.key"),
 	)
 	if errClient != nil {
-		t.Fatalf("NewFederationMTLS() client error = %v", errClient)
+		t.Fatalf("NewMTLS() client error = %v", errClient)
 	}
 
 	pinnedHTTPClient, federationBaseURL, errPinned := clientMTLS.NewNodeHTTPClient(
@@ -201,9 +201,9 @@ func TestNewNodeHTTPClientPinsPeerFingerprint(t *testing.T) {
 func TestNewNodeHTTPClientWithPortOverride(t *testing.T) {
 	serverCertPath := filepath.Join(t.TempDir(), "peer.crt")
 	serverKeyPath := filepath.Join(t.TempDir(), "peer.key")
-	serverMTLS, serverFingerprint, errServer := NewFederationMTLS("peer-node-id", 1, serverCertPath, serverKeyPath)
+	serverMTLS, serverFingerprint, errServer := NewMTLS("peer-node-id", 1, serverCertPath, serverKeyPath)
 	if errServer != nil {
-		t.Fatalf("NewFederationMTLS() server error = %v", errServer)
+		t.Fatalf("NewMTLS() server error = %v", errServer)
 	}
 
 	serverCertificate, errLoadServerCert := tls.LoadX509KeyPair(serverMTLS.CertPath(), serverMTLS.KeyPath())
@@ -232,14 +232,14 @@ func TestNewNodeHTTPClientWithPortOverride(t *testing.T) {
 	}
 
 	// Set an intentionally incorrect default federation port.
-	clientMTLS, _, errClient := NewFederationMTLS(
+	clientMTLS, _, errClient := NewMTLS(
 		"client-node-id",
 		9443,
 		filepath.Join(t.TempDir(), "client.crt"),
 		filepath.Join(t.TempDir(), "client.key"),
 	)
 	if errClient != nil {
-		t.Fatalf("NewFederationMTLS() client error = %v", errClient)
+		t.Fatalf("NewMTLS() client error = %v", errClient)
 	}
 
 	pinnedHTTPClient, federationBaseURL, errPinned := clientMTLS.NewNodeHTTPClientWithPort(

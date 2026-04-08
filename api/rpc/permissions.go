@@ -25,7 +25,7 @@ func (xs *XylonaService) ensureLocalServerPermission(user *models.User, gameServ
 		return connect.NewError(connect.CodeInternal, errors.New("failed to check permissions"))
 	}
 	if !allowed {
-		return connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return permissionDenied("insufficient permissions")
 	}
 	return nil
 }

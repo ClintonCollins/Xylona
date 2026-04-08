@@ -17,14 +17,11 @@ import (
 func (xs *XylonaService) GetGame(_ context.Context, request *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	game, errGetGame := xs.db.GetGameByID(request.Msg.GetId())
 	if errGetGame != nil {
-		if errors.Is(errGetGame, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, dbLookup(errGetGame)
 	}
 	gameProto := helpers.GameModelToProto(game)
 	if !user.SuperUser {
@@ -43,7 +40,7 @@ func (xs *XylonaService) GetGame(_ context.Context, request *connect.Request[xyl
 func (xs *XylonaService) ListGames(_ context.Context, request *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	games, errGetGames := xs.db.GetGames()
 	if errGetGames != nil {
@@ -54,7 +51,7 @@ func (xs *XylonaService) ListGames(_ context.Context, request *connect.Request[x
 				},
 			}, nil
 		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, internalErr()
 	}
 	gamesProto := make([]*xylona.Game, len(games))
 	for i, game := range games {
@@ -76,10 +73,10 @@ func (xs *XylonaService) ListGames(_ context.Context, request *connect.Request[x
 func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xylona.AddGameRequest]) (*connect.Response[xylona.AddGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	gameProto := request.Msg.GetGame()
 	if gameProto.GetId() == "" {
@@ -107,19 +104,15 @@ func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xyl
 func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xylona.EditGameRequest]) (*connect.Response[xylona.EditGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	gameProto := request.Msg.GetGame()
 	gameModel, errGetGameModel := xs.db.GetGameByID(gameProto.GetId())
 	if errGetGameModel != nil {
-		if errors.Is(errGetGameModel, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-
+		return nil, dbLookup(errGetGameModel)
 	}
 	updatedGameModel := helpers.GameProtoToModel(gameProto)
 	errValidateStartArgs := validateStructuredStartArgsGameConfig(updatedGameModel)
@@ -145,17 +138,14 @@ func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xy
 func (xs *XylonaService) RemoveGame(_ context.Context, request *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	game, errGetGame := xs.db.GetGameByID(request.Msg.GetGameId())
 	if errGetGame != nil {
-		if errors.Is(errGetGame, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+		return nil, dbLookup(errGetGame)
 	}
 	// Check if any servers use the game.
 	gameServers, errGetGameServers := xs.db.GetGameServersByGameID(game.ID)

@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -16,12 +15,12 @@ import (
 func (fs FederationService) FederationGetNodeSystemInfo(ctx context.Context, _ *connect.Request[xylona.FederationGetNodeSystemInfoRequest]) (*connect.Response[xylona.FederationGetNodeSystemInfoResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+		return nil, permissionDenied("authentication failed")
 	}
 
 	info, errInfo := sysinfo.CollectSystemInfo()
 	if errInfo != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to collect system info"))
+		return nil, internalErrf("failed to collect system info")
 	}
 
 	return connect.NewResponse(&xylona.FederationGetNodeSystemInfoResponse{
@@ -33,12 +32,12 @@ func (fs FederationService) FederationGetNodeSystemInfo(ctx context.Context, _ *
 func (fs FederationService) FederationGetNodeResourceSnapshot(ctx context.Context, _ *connect.Request[xylona.FederationGetNodeResourceSnapshotRequest]) (*connect.Response[xylona.FederationGetNodeResourceSnapshotResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+		return nil, permissionDenied("authentication failed")
 	}
 
 	snapshot, errSnap := sysinfo.CollectResourceSnapshot()
 	if errSnap != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to collect resource snapshot"))
+		return nil, internalErrf("failed to collect resource snapshot")
 	}
 
 	gsCount, _ := fs.db.CountGameServers()
@@ -61,12 +60,12 @@ func (fs FederationService) FederationGetNodeResourceSnapshot(ctx context.Contex
 func (fs FederationService) FederationGetNodeMetricsHistory(ctx context.Context, request *connect.Request[xylona.FederationGetNodeMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetNodeMetricsHistoryResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+		return nil, permissionDenied("authentication failed")
 	}
 
 	localNodeID, errLocal := fs.db.GetLocalNodeID()
 	if errLocal != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get local node ID"))
+		return nil, internalErrf("failed to get local node ID")
 	}
 
 	since := request.Msg.GetSince().AsTime()
@@ -74,7 +73,7 @@ func (fs FederationService) FederationGetNodeMetricsHistory(ctx context.Context,
 
 	rows, errQuery := fs.db.GetNodeMetricsHistory(localNodeID, since, until)
 	if errQuery != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to query metrics history"))
+		return nil, internalErrf("failed to query metrics history")
 	}
 
 	var points []*xylona.MetricsHistoryPoint
@@ -98,7 +97,7 @@ func (fs FederationService) FederationGetNodeMetricsHistory(ctx context.Context,
 func (fs FederationService) FederationGetGameServerMetricsHistory(ctx context.Context, request *connect.Request[xylona.FederationGetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.FederationGetGameServerMetricsHistoryResponse], error) {
 	_, errAuth := fs.authenticateRequest(ctx)
 	if errAuth != nil {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("authentication failed"))
+		return nil, permissionDenied("authentication failed")
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
@@ -107,7 +106,7 @@ func (fs FederationService) FederationGetGameServerMetricsHistory(ctx context.Co
 
 	rows, errQuery := fs.db.GetGameServerMetricsHistory(gameServerID, since, until)
 	if errQuery != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to query game server metrics history"))
+		return nil, internalErrf("failed to query game server metrics history")
 	}
 
 	var points []*xylona.GameServerMetricsHistoryPoint

@@ -178,4 +178,43 @@ describe('ConfigSchemaList', () => {
     expect(formatEditButton.text()).toContain('properties')
     expect(formatEditButton.text()).toContain('Edit format')
   })
+
+  it('disables schema editing until the game has been saved', () => {
+    const wrapper = mount(ConfigSchemaList, {
+      props: {
+        modelValue: [
+          {
+            path: 'server.properties',
+            format: 'properties',
+            category: 'Core',
+            generate_before_start: false,
+            schema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+        ],
+        canEditSchemas: false,
+      },
+      global: {
+        stubs: {
+          'q-btn': QBtnStub,
+          'q-list': { template: '<div><slot /></div>' },
+          'q-item': { template: '<div><slot /></div>' },
+          'q-item-section': { template: '<div><slot /></div>' },
+          'q-item-label': { template: '<div><slot /></div>' },
+          'q-icon': true,
+          'q-badge': { template: '<span><slot />{{ label }}</span>', props: ['label'] },
+          'q-popup-edit': { template: '<div><slot :value="modelValue" :set="() => {}" /></div>' },
+          'q-select': true,
+          'q-tooltip': true,
+          AddConfigFileDialog: true,
+        },
+      },
+    })
+
+    const buttons = wrapper.findAll('.schema-file-actions button')
+    expect(buttons).toHaveLength(3)
+    expect(buttons[1].attributes('disabled')).toBeDefined()
+  })
 })

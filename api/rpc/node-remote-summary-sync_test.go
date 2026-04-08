@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/db/dbtest"
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -44,8 +44,8 @@ func (h *federationSummaryTestHandler) ListServerSummaries(
 	_ context.Context,
 	request *connect.Request[xylona.FederationListServerSummariesRequest],
 ) (*connect.Response[xylona.FederationListServerSummariesResponse], error) {
-	actingUserID, originNodeID := helpers.GetFederatedActingIdentity(request.Header())
-	actingIsSuper := request.Header().Get(helpers.FederationActingSuperHeader)
+	actingUserID, originNodeID := federation.GetActingIdentity(request.Header())
+	actingIsSuper := request.Header().Get(federation.ActingSuperHeader)
 
 	h.mu.Lock()
 	status := h.status
@@ -88,7 +88,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 	testHandler := &federationSummaryTestHandler{}
 	testHandler.SetStatus(xylona.Status_OFFLINE)
 
-	serverMTLS, serverFingerprint, errServerMTLS := helpers.NewFederationMTLS(
+	serverMTLS, serverFingerprint, errServerMTLS := federation.NewMTLS(
 		"remote-peer-node",
 		1,
 		filepath.Join(t.TempDir(), "server.crt"),
@@ -100,7 +100,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 
 	clientMTLSPath := filepath.Join(t.TempDir(), "client.crt")
 	clientKeyPath := filepath.Join(t.TempDir(), "client.key")
-	_, _, errClientMTLS := helpers.NewFederationMTLS("local-node", 1, clientMTLSPath, clientKeyPath)
+	_, _, errClientMTLS := federation.NewMTLS("local-node", 1, clientMTLSPath, clientKeyPath)
 	if errClientMTLS != nil {
 		t.Fatalf("NewFederationMTLS() client error = %v", errClientMTLS)
 	}
@@ -131,7 +131,7 @@ func TestListRemoteNodeSummariesFetchesLiveStatusAndSyncsRemoteCache(t *testing.
 		t.Fatalf("failed to parse server port: %v", errParsePort)
 	}
 
-	clientMTLS, _, errClientConfig := helpers.NewFederationMTLS(
+	clientMTLS, _, errClientConfig := federation.NewMTLS(
 		"local-node",
 		serverPort,
 		clientMTLSPath,

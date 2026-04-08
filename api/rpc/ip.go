@@ -18,12 +18,12 @@ import (
 func (xs *XylonaService) ListIPs(_ context.Context, request *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	ips, err := xs.db.GetAllIPs()
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("no IPs found"))
+			return nil, notFoundErr()
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -40,17 +40,17 @@ func (xs *XylonaService) ListIPs(_ context.Context, request *connect.Request[xyl
 func (xs *XylonaService) AddIP(_ context.Context, request *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	ipProto := request.Msg.GetIp()
 	if ipProto == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ip is required"))
+		return nil, invalidArg("ip is required")
 	}
 	if net.ParseIP(ipProto.GetAddress()) == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid IP address format"))
+		return nil, invalidArg("invalid IP address format")
 	}
 
 	ipSetter := &models.IPSetter{
@@ -71,24 +71,24 @@ func (xs *XylonaService) AddIP(_ context.Context, request *connect.Request[xylon
 func (xs *XylonaService) RemoveIP(_ context.Context, request *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser required"))
+		return nil, permissionDenied("superuser required")
 	}
 	ipProto := request.Msg.GetIp()
 	if ipProto == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ip is required"))
+		return nil, invalidArg("ip is required")
 	}
 	address := ipProto.GetAddress()
 	if address == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("ip address is required"))
+		return nil, invalidArg("ip address is required")
 	}
 
 	_, errGetIP := xs.db.GetIPByAddress(address)
 	if errGetIP != nil {
 		if errors.Is(errGetIP, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("IP not found"))
+			return nil, notFoundErr()
 		}
 		return nil, connect.NewError(connect.CodeInternal, errGetIP)
 	}

@@ -7,10 +7,14 @@ import (
 	"net/http"
 	"strings"
 
+	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 type federationPeerIdentityContextKey string
@@ -38,7 +42,7 @@ func FederationPeerAuthMiddleware(dbInst *db.Connection) func(http.Handler) http
 			}
 
 			peerCertificate := r.TLS.PeerCertificates[0]
-			peerFingerprint := helpers.CertificateFingerprint(peerCertificate)
+			peerFingerprint := federation.CertificateFingerprint(peerCertificate)
 
 			trustedPeer, errGetTrustedPeer := dbInst.GetFederationTrustedPeerByFingerprint(peerFingerprint)
 			if errGetTrustedPeer != nil {
@@ -126,4 +130,110 @@ func federationPeerIdentityFromContext(ctx context.Context) (FederationPeerIdent
 		return FederationPeerIdentity{}, false
 	}
 	return identity, true
+}
+
+func (fs FederationService) authenticateRequest(ctx context.Context) (FederationPeerIdentity, error) {
+	identity, okIdentity := federationPeerIdentityFromContext(ctx)
+	if !okIdentity {
+		return FederationPeerIdentity{}, errors.New("federation peer identity is required")
+	}
+	if strings.TrimSpace(identity.NodeID) == "" {
+		return FederationPeerIdentity{}, errors.New("federation peer node configuration is required")
+	}
+	return identity, nil
+}
+
+func (fs FederationService) resolveFederatedServerStatus(gameServer *models.GameServer) xylona.Status {
+	status := helpers.GameServerModelStatusToProtoStatus(gameServer.Status)
+	if fs.supervisorInst == nil {
+		if status == xylona.Status_ONLINE {
+			return xylona.Status_OFFLINE
+		}
+		return status
+	}
+
+	gameServerCmd, errGetCommand := fs.supervisorInst.GetCommandByID(gameServer.ID)
+	if errGetCommand == nil {
+		return gameServerCmd.Status()
+	}
+
+	// Prevent stale persisted ONLINE from surviving process restarts.
+	if status == xylona.Status_ONLINE {
+		return xylona.Status_OFFLINE
+	}
+
+	return status
+}
+
+func (fs FederationService) authorizeFederatedPermission(
+	ctx context.Context,
+	header http.Header,
+	actingUserID string,
+	originNodeID string,
+	serverID string,
+	permissionID string,
+) error {
+	peerIdentity, okIdentity := federationPeerIdentityFromContext(ctx)
+	if !okIdentity || strings.TrimSpace(peerIdentity.NodeID) == "" {
+		log.Warn().
+			Str("server_id", serverID).
+			Str("permission_id", permissionID).
+			Msg("federation request missing authenticated peer identity")
+		return permissionDenied("authenticated federation peer identity is required")
+	}
+
+	if strings.TrimSpace(actingUserID) == "" || strings.TrimSpace(originNodeID) == "" {
+		headerUserID, headerOriginNodeID := federation.GetActingIdentity(header)
+		actingUserID = strings.TrimSpace(headerUserID)
+		originNodeID = strings.TrimSpace(headerOriginNodeID)
+	}
+
+	if actingUserID == "" {
+		log.Warn().
+			Str("server_id", serverID).
+			Str("permission_id", permissionID).
+			Msg("federation request missing acting user identity, denying by default")
+		return permissionDenied("acting user identity is required for federated actions")
+	}
+
+	if originNodeID != "" && originNodeID != peerIdentity.NodeID && originNodeID != peerIdentity.PeerNodeID {
+		log.Warn().
+			Str("server_id", serverID).
+			Str("permission_id", permissionID).
+			Str("origin_node_id", originNodeID).
+			Str("authenticated_node_id", peerIdentity.NodeID).
+			Str("authenticated_peer_node_id", peerIdentity.PeerNodeID).
+			Msg("federation request acting origin does not match authenticated peer")
+		return permissionDenied("acting origin node is invalid")
+	}
+
+	if federation.ActingIsSuperUser(header) {
+		if originNodeID == "" {
+			log.Warn().
+				Str("server_id", serverID).
+				Str("permission_id", permissionID).
+				Str("acting_user_id", actingUserID).
+				Msg("federation super-user request missing origin node")
+			return permissionDenied("acting origin node is required for super-user federated actions")
+		}
+		return nil
+	}
+
+	allowed, errPermission := fs.db.FederatedUserHasPermissionOnServer(peerIdentity.NodeID, actingUserID, serverID, permissionID)
+	if errPermission != nil {
+		log.Error().
+			Err(errPermission).
+			Str("server_id", serverID).
+			Str("origin_node_id", originNodeID).
+			Str("authenticated_node_id", peerIdentity.NodeID).
+			Str("acting_user_id", actingUserID).
+			Str("permission_id", permissionID).
+			Msg("failed to verify federated permission")
+		return connect.NewError(connect.CodeInternal, errors.New("failed to verify federated permission"))
+	}
+	if !allowed {
+		return permissionDenied("federated user does not have permission")
+	}
+
+	return nil
 }

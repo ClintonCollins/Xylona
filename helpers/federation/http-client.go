@@ -1,4 +1,4 @@
-package helpers
+package federation
 
 import (
 	"crypto/tls"
@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// NewFederationHTTPClient creates a federation HTTP client with optional insecure TLS and timeout settings.
-func NewFederationHTTPClient(timeout time.Duration, allowInsecureTLS bool) *http.Client {
+// NewHTTPClient creates a federation HTTP client with optional insecure TLS and timeout settings.
+func NewHTTPClient(timeout time.Duration, allowInsecureTLS bool) *http.Client {
 	baseTransport, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
 		baseTransport = &http.Transport{}

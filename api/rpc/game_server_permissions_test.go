@@ -9,6 +9,7 @@ import (
 	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -332,8 +333,8 @@ func TestFederationEditRemoteServerRestrictsProvisioningFieldsForNonSuperUsers(t
 		ServerId:   existing.ID,
 		GameServer: requestServer,
 	})
-	request.Header().Set(helpers.FederationActingUserIDHeader, "user-owner")
-	request.Header().Set(helpers.FederationOriginNodeIDHeader, "node-remote")
+	request.Header().Set(federation.ActingUserIDHeader, "user-owner")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote")
 
 	response, errEdit := service.EditRemoteServer(peerCtx, request)
 	if errEdit != nil {

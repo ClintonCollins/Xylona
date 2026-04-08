@@ -18,7 +18,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/db/dbtest"
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -36,7 +36,7 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 	// Create server mTLS identity (using a placeholder port; the real port comes from the test server).
 	serverCertPath := filepath.Join(tmpDir, "server.crt")
 	serverKeyPath := filepath.Join(tmpDir, "server.key")
-	serverMTLS, serverFP, errServer := helpers.NewFederationMTLS("server-node", 1, serverCertPath, serverKeyPath)
+	serverMTLS, serverFP, errServer := federation.NewMTLS("server-node", 1, serverCertPath, serverKeyPath)
 	if errServer != nil {
 		t.Fatalf("NewFederationMTLS(server) error = %v", errServer)
 	}
@@ -71,7 +71,7 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 	// Create client mTLS identity using the actual test server port.
 	clientCertPath := filepath.Join(tmpDir, "client.crt")
 	clientKeyPath := filepath.Join(tmpDir, "client.key")
-	clientMTLS, clientFP, errClient := helpers.NewFederationMTLS("client-node", serverPort, clientCertPath, clientKeyPath)
+	clientMTLS, clientFP, errClient := federation.NewMTLS("client-node", serverPort, clientCertPath, clientKeyPath)
 	if errClient != nil {
 		t.Fatalf("NewFederationMTLS(client) error = %v", errClient)
 	}
@@ -83,7 +83,7 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 	_, _ = conn.SQLDb.ExecContext(context.Background(), `insert into node (id, name, is_local, host, port) values ('remote-node-1', 'Remote Node 1', 0, '', 0)`)
 
 	// Get the server fingerprint from its certificate.
-	serverFPFromCert := helpers.CertificateFingerprint(testServer.Certificate())
+	serverFPFromCert := federation.CertificateFingerprint(testServer.Certificate())
 
 	_, errInsertTrust := conn.SQLDb.ExecContext(context.Background(), `
 		insert into federation_trusted_peer (node_id, peer_node_id, peer_fingerprint, enabled, revoked)

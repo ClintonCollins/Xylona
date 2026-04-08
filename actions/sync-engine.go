@@ -15,6 +15,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/pkg/alerts"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -54,7 +55,7 @@ type RemoteVersionBroadcaster interface {
 type FederationSyncEngine struct {
 	ctx                context.Context
 	db                 *db.Connection
-	federationMTLS     *helpers.FederationMTLS
+	federationMTLS     *federation.MTLS
 	mu                 sync.RWMutex
 	peerStops          map[string]context.CancelFunc
 	statusBroadcaster  StatusBroadcaster
@@ -64,7 +65,7 @@ type FederationSyncEngine struct {
 }
 
 // NewFederationSyncEngine creates and starts the federation sync engine.
-func NewFederationSyncEngine(ctx context.Context, dbInst *db.Connection, federationMTLS *helpers.FederationMTLS) *FederationSyncEngine {
+func NewFederationSyncEngine(ctx context.Context, dbInst *db.Connection, federationMTLS *federation.MTLS) *FederationSyncEngine {
 	engine := &FederationSyncEngine{
 		ctx:            ctx,
 		db:             dbInst,
@@ -591,7 +592,7 @@ func (e *FederationSyncEngine) syncPeerOnce(nodeID string) {
 		Int("server_count", len(resp.Msg.GetServers())).Msg("Successfully synced server summaries from node")
 }
 
-func newFederationClient(dbConn *db.Connection, federationMTLS *helpers.FederationMTLS, node *models.Node, timeout time.Duration) (xylonaconnect.FederationClient, error) {
+func newFederationClient(dbConn *db.Connection, federationMTLS *federation.MTLS, node *models.Node, timeout time.Duration) (xylonaconnect.FederationClient, error) {
 	if federationMTLS == nil {
 		return nil, errors.New("federation mTLS is not configured")
 	}

@@ -68,10 +68,10 @@ func (xs *XylonaService) GetSystemSMTPConfig(
 ) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser access required"))
+		return nil, permissionDenied("superuser access required")
 	}
 
 	config, configured, errGet := xs.readStoredSystemSMTPConfig()
@@ -102,36 +102,36 @@ func (xs *XylonaService) SetSystemSMTPConfig(
 ) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser access required"))
+		return nil, permissionDenied("superuser access required")
 	}
 
 	config := request.Msg.GetConfig()
 	if config == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("config is required"))
+		return nil, invalidArg("config is required")
 	}
 
 	host := strings.TrimSpace(config.GetHost())
 	if host == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("host is required"))
+		return nil, invalidArg("host is required")
 	}
 	port := config.GetPort()
 	if port < 1 || port > 65535 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("port must be between 1 and 65535"))
+		return nil, invalidArg("port must be between 1 and 65535")
 	}
 	userName := strings.TrimSpace(config.GetUser())
 	if userName == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user is required"))
+		return nil, invalidArg("user is required")
 	}
 	fromAddress := strings.TrimSpace(config.GetFromAddress())
 	if fromAddress == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("from_address is required"))
+		return nil, invalidArg("from_address is required")
 	}
 	_, errParseFrom := mail.ParseAddress(fromAddress)
 	if errParseFrom != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("from_address must be a valid email address"))
+		return nil, invalidArg("from_address must be a valid email address")
 	}
 
 	password := strings.TrimSpace(config.GetPassword())
@@ -142,7 +142,7 @@ func (xs *XylonaService) SetSystemSMTPConfig(
 			return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 		}
 		if !configured || strings.TrimSpace(existingConfig.GetPassword()) == "" {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("password is required"))
+			return nil, invalidArg("password is required")
 		}
 		config.Password = existingConfig.GetPassword()
 	}
@@ -169,7 +169,7 @@ func (xs *XylonaService) GetLocalSMTPStatus(
 ) (*connect.Response[xylona.GetLocalSMTPStatusResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 
 	allowed, errPerm := xs.hasGlobalPermission(user)
@@ -178,7 +178,7 @@ func (xs *XylonaService) GetLocalSMTPStatus(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 	if !allowed {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("insufficient permissions"))
+		return nil, permissionDenied("insufficient permissions")
 	}
 
 	config, configured, errGet := xs.readStoredSystemSMTPConfig()
@@ -202,19 +202,19 @@ func (xs *XylonaService) TestSystemSMTP(
 ) (*connect.Response[xylona.TestSystemSMTPResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
+		return nil, unauthenticated()
 	}
 	if !user.SuperUser {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("superuser access required"))
+		return nil, permissionDenied("superuser access required")
 	}
 
 	toAddress := strings.TrimSpace(request.Msg.GetToAddress())
 	if toAddress == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("to_address is required"))
+		return nil, invalidArg("to_address is required")
 	}
 	_, errParseTo := mail.ParseAddress(toAddress)
 	if errParseTo != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("to_address must be a valid email address"))
+		return nil, invalidArg("to_address must be a valid email address")
 	}
 
 	protoConfig, configured, errGet := xs.readStoredSystemSMTPConfig()

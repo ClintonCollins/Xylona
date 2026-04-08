@@ -11,7 +11,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/scheduler"
@@ -47,7 +47,7 @@ type XylonaService struct {
 	db                             *db.Connection
 	actionsInst                    *actions.Instance
 	supervisorInst                 *supervisor.Instance
-	federationMTLS                 *helpers.FederationMTLS
+	federationMTLS                 *federation.MTLS
 	secureCookie                   *securecookie.SecureCookie
 	secureCookies                  bool
 	syncEngine                     SyncEngine
@@ -76,7 +76,7 @@ func NewXylonaService(
 	actionsInst *actions.Instance,
 	supervisorInst *supervisor.Instance,
 	secureCookie *securecookie.SecureCookie,
-	federationMTLS *helpers.FederationMTLS,
+	federationMTLS *federation.MTLS,
 	secureCookies bool,
 	steamCache *steamcache.Client,
 	modMgr *modmanager.ModManager,
