@@ -31,6 +31,7 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
+import { registerServerName } from '@/utils/game-server-notifications'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
 import { useServerSoftwareInstall } from '@/composables/useServerSoftwareInstall'
@@ -103,6 +104,7 @@ async function configureTabs() {
           id: serverID,
         }),
       )
+      registerServerName(serverID, gameServerResp.gameServer?.name ?? '')
       permissions = gameServerResp.gameServer?.effectivePermissions ?? []
       // Merge global alert permissions into the server-scoped permissions
       // so the Alerts tab and redirect logic can see them.

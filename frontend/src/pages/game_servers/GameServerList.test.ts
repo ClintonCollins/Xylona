@@ -13,6 +13,7 @@ import GameServerList from './GameServerList.vue'
 const mocks = vi.hoisted(() => ({
   listAggregatedGameServers: vi.fn(),
   listNodes: vi.fn(),
+  registerServerContext: vi.fn(),
 }))
 
 vi.mock('@/utils/shared', async () => {
@@ -30,6 +31,10 @@ vi.mock('@/utils/shared', async () => {
     },
   }
 })
+
+vi.mock('@/utils/game-server-notifications', () => ({
+  registerServerContext: mocks.registerServerContext,
+}))
 
 vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
@@ -66,6 +71,7 @@ describe('GameServerList', () => {
     setActivePinia(createPinia())
     mocks.listAggregatedGameServers.mockReset()
     mocks.listNodes.mockReset()
+    mocks.registerServerContext.mockReset()
     mocks.listAggregatedGameServers.mockResolvedValue({ servers: [] })
     mocks.listNodes.mockResolvedValue({
       nodes: [

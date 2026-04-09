@@ -6,11 +6,12 @@ import { nextTick } from 'vue'
 import { UpdateProviderKind, VariantSchema } from '@/proto/shared_pb'
 import ServerSoftwareSelector from './ServerSoftwareSelector.vue'
 
-const mocks = {
+const mocks = vi.hoisted(() => ({
   getVariantOperationStatus: vi.fn(),
   getUpdateTargets: vi.fn(),
   setServerVariant: vi.fn(),
-}
+  recordLifecycleIntent: vi.fn(),
+}))
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
@@ -22,6 +23,10 @@ vi.mock('@/utils/shared', () => ({
     on: vi.fn(),
     off: vi.fn(),
   },
+}))
+
+vi.mock('@/utils/game-server-notifications', () => ({
+  recordLifecycleIntent: mocks.recordLifecycleIntent,
 }))
 
 vi.mock('quasar', async () => {
@@ -56,6 +61,7 @@ describe('ServerSoftwareSelector', () => {
     mocks.getVariantOperationStatus.mockReset()
     mocks.getUpdateTargets.mockReset()
     mocks.setServerVariant.mockReset()
+    mocks.recordLifecycleIntent.mockReset()
     mocks.getVariantOperationStatus.mockResolvedValue({ status: 'idle' })
     mocks.getUpdateTargets.mockResolvedValue({
       currentTarget: '',
@@ -128,6 +134,42 @@ describe('ServerSoftwareSelector', () => {
       }),
     )
     expect(wrapper.emitted('software-changed')).toBeTruthy()
+  })
+
+  it('records an install intent when the variant change continues asynchronously', async () => {
+    mocks.setServerVariant.mockResolvedValue({
+      status: 'installing',
+    })
+
+    const wrapper = mount(ServerSoftwareSelector, {
+      props: {
+        gameServerId: 'server-1',
+        gameName: 'Minecraft',
+        currentSoftware: 'vanilla',
+        variants: [
+          create(VariantSchema, { id: 'vanilla', name: 'Vanilla' }),
+          create(VariantSchema, { id: 'paper', name: 'Paper' }),
+        ],
+      },
+      global: {
+        stubs,
+      },
+    })
+
+    await Promise.resolve()
+
+    const vm = wrapper.vm as InstanceType<typeof ServerSoftwareSelector> & {
+      openChangeDialog: () => void
+      selectedVariantId: string
+      applyVariant: () => Promise<void>
+    }
+
+    vm.openChangeDialog()
+    vm.selectedVariantId = 'paper'
+    await vm.applyVariant()
+
+    expect(mocks.recordLifecycleIntent).toHaveBeenCalledWith('server-1', 'install')
+    expect(wrapper.emitted('software-changed')).toBeFalsy()
   })
 
   it('includes the selected target when variant target metadata is available', async () => {

@@ -19,7 +19,12 @@ import {
   GameServerBackupStatus,
   GameServerBackupTriggerSource,
 } from '@/proto/shared_pb'
-import type { BackupProgress, BackupSettings, GameServerBackup, GameServerBackupOverview } from '@/proto/shared_pb'
+import type {
+  BackupProgress,
+  BackupSettings,
+  GameServerBackup,
+  GameServerBackupOverview,
+} from '@/proto/shared_pb'
 import {
   CreateGameServerBackupRequestSchema,
   DeleteGameServerBackupRequestSchema,
@@ -28,6 +33,7 @@ import {
   ListGameServerBackupsRequestSchema,
   RestoreGameServerBackupRequestSchema,
 } from '@/proto/xylona_pb'
+import { recordLifecycleIntent } from '@/utils/game-server-notifications'
 import { bytesToSize, ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 
 const $q = useQuasar()
@@ -361,14 +367,7 @@ async function submitBackupCreate(backupName: string): Promise<void> {
     } else {
       await loadBackups()
     }
-    $q.notify({
-      type: 'xylona-success',
-      caption: response.backup
-        ? `Backup started: ${archiveFileName(response.backup.archivePath)}`
-        : 'Backup started',
-      position: 'top',
-      timeout: 3000,
-    })
+    recordLifecycleIntent(gameServerId.value, 'backup')
   } catch (unknownErr: unknown) {
     notifyError('Failed to create backup', unknownErr)
   } finally {
@@ -394,6 +393,7 @@ async function restoreBackup(mode: BackupRestoreMode): Promise<void> {
   restoringBackupId.value = backup.id
   showRestoreDialog.value = false
   try {
+    recordLifecycleIntent(gameServerId.value, 'restore')
     await GetXylonaClient().restoreGameServerBackup(
       create(RestoreGameServerBackupRequestSchema, {
         gameServerId: gameServerId.value,
@@ -402,12 +402,6 @@ async function restoreBackup(mode: BackupRestoreMode): Promise<void> {
       }),
     )
     await loadBackups()
-    $q.notify({
-      type: 'xylona-success',
-      caption: `Restore completed: ${archiveFileName(backup.archivePath)}`,
-      position: 'top',
-      timeout: 3000,
-    })
   } catch (unknownErr: unknown) {
     notifyError('Failed to restore backup', unknownErr)
   } finally {
@@ -438,7 +432,7 @@ function confirmDelete(backup: GameServerBackup): void {
       $q.notify({
         type: 'xylona-success',
         caption: 'Backup deleted',
-        position: 'top',
+        position: 'top-right',
         timeout: 3000,
       })
     } catch (unknownErr: unknown) {
@@ -516,7 +510,7 @@ async function uploadBackup(): Promise<void> {
     $q.notify({
       type: 'xylona-success',
       caption: 'Backup uploaded',
-      position: 'top',
+      position: 'top-right',
       timeout: 3000,
     })
   } catch (unknownErr: unknown) {
@@ -551,7 +545,7 @@ function notifyError(prefix: string, unknownErr: unknown): void {
   $q.notify({
     type: 'xylona-error',
     caption: `${prefix}: ${ConnectErrorToString(err)}`,
-    position: 'top',
+    position: 'top-right',
     timeout: 5000,
   })
 }
@@ -600,7 +594,9 @@ function progressForBackup(backup: GameServerBackup): BackupProgress | null {
 }
 
 function isActiveBackup(backup: GameServerBackup): boolean {
-  return latestProgress.value?.backupId === backup.id && backup.status === GameServerBackupStatus.PENDING
+  return (
+    latestProgress.value?.backupId === backup.id && backup.status === GameServerBackupStatus.PENDING
+  )
 }
 
 function mergeBackupWithProgress(backup: GameServerBackup): GameServerBackup {
@@ -636,7 +632,9 @@ function mergeBackupWithProgress(backup: GameServerBackup): GameServerBackup {
 
 function upsertBackupRow(backup: GameServerBackup): void {
   const mergedBackup = mergeBackupWithProgress(backup)
-  const existingIndex = backups.value.findIndex((currentBackup) => currentBackup.id === mergedBackup.id)
+  const existingIndex = backups.value.findIndex(
+    (currentBackup) => currentBackup.id === mergedBackup.id,
+  )
   if (existingIndex === -1) {
     backups.value = [mergedBackup, ...backups.value]
     return
@@ -871,7 +869,9 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         no-data-label="No backups yet. Manual and scheduled backups will appear here.">
         <template #body-cell-archive="props">
           <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
-            <div class="backups-page__archive-cell" :class="{ 'backups-page__archive-cell--active': isActiveBackup(props.row) }">
+            <div
+              class="backups-page__archive-cell"
+              :class="{ 'backups-page__archive-cell--active': isActiveBackup(props.row) }">
               <div class="backups-page__archive-name">
                 {{ archiveFileName(props.row.archivePath) }}
               </div>
@@ -933,12 +933,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
               :data-testid="`download-backup-${props.row.id}`"
               target="_blank"
               rel="noopener">
-              <q-btn
-                flat
-                dense
-                icon="download"
-                size="sm"
-                aria-label="Download backup">
+              <q-btn flat dense icon="download" size="sm" aria-label="Download backup">
                 <q-tooltip>Download</q-tooltip>
               </q-btn>
             </a>
@@ -981,8 +976,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         <q-card-section>
           <div class="backups-page__section-title">Upload Backup Archive</div>
           <div class="backups-page__section-copy">
-            Import a `.zip` backup into this server's managed backup history so it can be
-            restored later from this page.
+            Import a `.zip` backup into this server's managed backup history so it can be restored
+            later from this page.
           </div>
         </q-card-section>
         <q-card-section class="backups-page__upload-section">
@@ -1221,7 +1216,11 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   bottom: 0.15rem;
   width: 2px;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--xy-accent), color-mix(in srgb, var(--xy-accent) 30%, transparent));
+  background: linear-gradient(
+    180deg,
+    var(--xy-accent),
+    color-mix(in srgb, var(--xy-accent) 30%, transparent)
+  );
 }
 
 .backups-page__archive-path,

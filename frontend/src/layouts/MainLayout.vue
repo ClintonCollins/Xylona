@@ -9,4 +9,11 @@
 
 <script setup lang="ts">
 import Navigation from '@/components/Navigation.vue'
+import { onMounted } from 'vue'
+
+import { initGameServerNotificationService } from '@/utils/game-server-notifications'
+
+onMounted(() => {
+  initGameServerNotificationService()
+})
 </script>

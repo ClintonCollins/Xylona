@@ -147,6 +147,7 @@ import { useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
+import { registerServerContext } from '@/utils/game-server-notifications'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -245,7 +246,7 @@ async function getGameServers() {
       console.error(serversResult.reason)
       $q.notify({
         type: 'xylona-error',
-        position: 'top',
+        position: 'top-right',
         caption:
           'Failed to load game servers: ' +
           ConnectErrorToString(ConnectError.from(serversResult.reason)),
@@ -264,7 +265,7 @@ async function getGameServers() {
       console.error(nodesResult.reason)
       $q.notify({
         type: 'xylona-error',
-        position: 'top',
+        position: 'top-right',
         caption:
           'Failed to load nodes: ' + ConnectErrorToString(ConnectError.from(nodesResult.reason)),
         icon: 'report_problem',
@@ -273,6 +274,12 @@ async function getGameServers() {
     }
 
     if (serversResult.status === 'fulfilled') {
+      registerServerContext(
+        buildDisplayRows(serversResult.value.servers, nodesByID.value).map((row) => ({
+          id: row.id,
+          name: row.displayName,
+        })),
+      )
       // Strip versionInfo before caching: VersionInfo contains bigint fields that
       // JSON.stringify cannot serialize. Version info is re-fetched fresh from the
       // server on each page load, so caching it provides no benefit.
@@ -372,7 +379,6 @@ async function startSelectedGameServers() {
   }
 
   loading.value = true
-  let successCount = 0
   const failedServerNames: string[] = []
 
   try {
@@ -381,8 +387,6 @@ async function startSelectedGameServers() {
       request.serverId = selectedServer.id
       try {
         await GetXylonaClient().startGameServer(request)
-        setServerStatus(selectedServer.id, Status.ONLINE)
-        successCount++
       } catch (errStart) {
         failedServerNames.push(selectedServer.displayName)
         console.error(errStart)
@@ -394,20 +398,11 @@ async function startSelectedGameServers() {
 
   selectedGameServers.value = []
 
-  if (successCount > 0) {
-    $q.notify({
-      caption: `Started ${successCount} game server${successCount === 1 ? '' : 's'}.`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
-  }
-
   if (failedServerNames.length > 0) {
     $q.notify({
       caption: `Failed to start: ${failedServerNames.join(', ')}`,
       type: 'xylona-error',
-      position: 'top',
+      position: 'top-right',
       timeout: 5000,
     })
   }
@@ -421,7 +416,6 @@ async function stopSelectedGameServers() {
   }
 
   loading.value = true
-  let successCount = 0
   const failedServerNames: string[] = []
 
   try {
@@ -430,8 +424,6 @@ async function stopSelectedGameServers() {
       request.serverId = selectedServer.id
       try {
         await GetXylonaClient().stopGameServer(request)
-        setServerStatus(selectedServer.id, Status.OFFLINE)
-        successCount++
       } catch (errStop) {
         failedServerNames.push(selectedServer.displayName)
         console.error(errStop)
@@ -443,20 +435,11 @@ async function stopSelectedGameServers() {
 
   selectedGameServers.value = []
 
-  if (successCount > 0) {
-    $q.notify({
-      caption: `Stopped ${successCount} game server${successCount === 1 ? '' : 's'}.`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
-  }
-
   if (failedServerNames.length > 0) {
     $q.notify({
       caption: `Failed to stop: ${failedServerNames.join(', ')}`,
       type: 'xylona-error',
-      position: 'top',
+      position: 'top-right',
       timeout: 5000,
     })
   }

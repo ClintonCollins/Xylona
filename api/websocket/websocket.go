@@ -214,9 +214,11 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	ws.userWebsocketConnections[user.ID][wsConnection.id] = wsConnection
 	ws.userWebsocketConnectionsLock.Unlock()
 
-	gameServers, errGetServers := ws.db.GetGameServersByUser(user.ID)
+	// Mirror the RPC visibility model so access-filtered websocket broadcasts
+	// reach delegated users with server-scoped RBAC grants as well as owners.
+	gameServers, errGetServers := ws.db.GetGameServersAccessibleByUser(user.ID)
 	if errGetServers != nil {
-		log.Error().Err(errGetServers).Msg("Failed to get game servers by user")
+		log.Error().Err(errGetServers).Msg("Failed to get game servers accessible by user")
 		return
 	}
 

@@ -446,6 +446,7 @@ import {
   XylonaEventBus,
   bytesToSize,
 } from '@/utils/shared'
+import { recordLifecycleIntent, registerServerName } from '@/utils/game-server-notifications'
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './version-display'
@@ -741,11 +742,12 @@ async function getGameServerDetails() {
       return
     }
     gameServer.value = response.gameServer
+    registerServerName(gameServerId.value, response.gameServer.name)
   } catch (e) {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top',
+      position: 'top-right',
       caption: 'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -771,7 +773,7 @@ async function queryGameServer() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top',
+      position: 'top-right',
       caption: 'Failed to query game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -788,7 +790,7 @@ async function startGameServer() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top',
+      position: 'top-right',
       caption: 'Failed to start game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -807,7 +809,7 @@ async function stopGameServer() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top',
+      position: 'top-right',
       caption: 'Failed to stop game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1043,8 +1045,8 @@ async function updateGameServer() {
   }
   if (canSelectSteamBranch(gameServer.value) && !steamBranchSelection.metadataAvailable) {
     $q.notify({
-      type: 'xylona-warning',
-      position: 'top',
+      type: 'xylona-info',
+      position: 'top-right',
       caption: 'Update target metadata is unavailable. Updating with the current target.',
       icon: 'report_problem',
     })
@@ -1059,13 +1061,14 @@ async function updateGameServer() {
     request.serverId = gameServerId.value
     request.target = steamBranchSelection.steamBranch
     await GetXylonaClient().updateGameServer(request)
+    recordLifecycleIntent(gameServerId.value, 'update')
   } catch (e) {
     updateInProgress.value = false
     updateDialogOpen.value = false
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top',
+      position: 'top-right',
       caption: 'Failed to update game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1216,7 +1219,7 @@ async function sendGameServerInput() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top',
+      position: 'top-right',
       caption: 'Failed to send command: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })

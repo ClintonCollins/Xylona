@@ -175,3 +175,53 @@ func TestNodeMetricsLoopActionSkipsTickWhenSuperUserRevoked(t *testing.T) {
 		t.Fatalf("determineNodeMetricsLoopAction() = %v, want %v", action, nodeMetricsLoopActionSkip)
 	}
 }
+
+func TestWebSocket_GameServerConnectionsWithAccess(t *testing.T) {
+	ws := &WebSocket{
+		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
+		userWebsocketConnectionsLock: &sync.RWMutex{},
+	}
+
+	allowed := newTestConnection()
+	allowed.userID = "user-1"
+	allowed.allGameServerIDs = []string{"server-1"}
+
+	denied := newTestConnection()
+	denied.userID = "user-2"
+	denied.allGameServerIDs = []string{"server-2"}
+
+	superUser := newTestConnection()
+	superUser.userID = "user-3"
+	superUser.isSuperUser = true
+
+	ws.userWebsocketConnections[allowed.userID] = map[uuid.UUID]*connection{
+		allowed.id: allowed,
+	}
+	ws.userWebsocketConnections[denied.userID] = map[uuid.UUID]*connection{
+		denied.id: denied,
+	}
+	ws.userWebsocketConnections[superUser.userID] = map[uuid.UUID]*connection{
+		superUser.id: superUser,
+	}
+
+	connections := ws.gameServerConnectionsWithAccess("server-1")
+
+	if len(connections) != 2 {
+		t.Fatalf("gameServerConnectionsWithAccess() len = %d, want 2", len(connections))
+	}
+
+	seen := make(map[uuid.UUID]struct{}, len(connections))
+	for _, conn := range connections {
+		seen[conn.id] = struct{}{}
+	}
+
+	if _, ok := seen[allowed.id]; !ok {
+		t.Fatal("expected allowed connection to receive install broadcasts")
+	}
+	if _, ok := seen[superUser.id]; !ok {
+		t.Fatal("expected superuser connection to receive install broadcasts")
+	}
+	if _, ok := seen[denied.id]; ok {
+		t.Fatal("expected unauthorized connection to be excluded from install broadcasts")
+	}
+}

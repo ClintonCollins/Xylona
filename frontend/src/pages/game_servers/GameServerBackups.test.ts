@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   restoreGameServerBackup: vi.fn(),
   eventOn: vi.fn(),
   eventOff: vi.fn(),
+  recordLifecycleIntent: vi.fn(),
 }))
 
 vi.mock('axios')
@@ -62,6 +63,10 @@ vi.mock('@/utils/shared', () => ({
     on: mocks.eventOn,
     off: mocks.eventOff,
   },
+}))
+
+vi.mock('@/utils/game-server-notifications', () => ({
+  recordLifecycleIntent: mocks.recordLifecycleIntent,
 }))
 
 vi.mock('vue-router', () => ({
@@ -119,6 +124,17 @@ const QInputStub = defineComponent({
   emits: ['update:modelValue'],
   template:
     '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+})
+
+const BackupRestoreDialogStub = defineComponent({
+  name: 'BackupRestoreDialogStub',
+  props: {
+    modelValue: { type: Boolean, default: false },
+  },
+  emits: ['update:modelValue', 'restore'],
+  template: `<div v-if="modelValue" class="backup-restore-dialog-stub">
+    <button data-testid="confirm-restore-backup" @click="$emit('restore', 1)">Confirm Restore</button>
+  </div>`,
 })
 
 function makeOverview(overrides: Partial<GameServerBackupOverview> = {}) {
@@ -199,7 +215,7 @@ function mountBackups() {
         'q-table': QTableStub,
         'q-td': { template: '<div class="q-td-stub"><slot /></div>' },
         'q-tooltip': { template: '<span class="q-tooltip-stub"><slot /></span>' },
-        BackupRestoreDialog: { template: '<div class="backup-restore-dialog-stub" />' },
+        BackupRestoreDialog: BackupRestoreDialogStub,
         'router-link': {
           props: ['to'],
           template: '<a class="router-link-stub" :data-to="String(to)"><slot /></a>',
@@ -302,11 +318,7 @@ describe('GameServerBackups', () => {
       gameServerId: 'test-server-123',
     })
     expect(wrapper.text()).toContain('Pending')
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        caption: expect.stringContaining('Backup started'),
-      }),
-    )
+    expect(mocks.recordLifecycleIntent).toHaveBeenCalledWith('test-server-123', 'backup')
   })
 
   it('renders a download link for completed backups', async () => {
@@ -466,6 +478,40 @@ describe('GameServerBackups', () => {
 
     expect(mocks.createGameServerBackup).toHaveBeenCalledTimes(1)
     expect(mocks.createGameServerBackup.mock.calls[0]?.[0].backupName).toBe('Friday Night Save')
+  })
+
+  it('records restore intent before awaiting the restore RPC', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview(),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({
+      backups: [makeBackup()],
+    })
+
+    let resolveRestore: (() => void) | undefined
+    mocks.restoreGameServerBackup.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRestore = () => resolve({})
+        }),
+    )
+    mocks.listGameServerBackups.mockResolvedValueOnce({
+      backups: [makeBackup()],
+    })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="Restore backup"]').trigger('click')
+    await wrapper.get('[data-testid="confirm-restore-backup"]').trigger('click')
+
+    expect(mocks.recordLifecycleIntent).toHaveBeenCalledWith('test-server-123', 'restore')
+    expect(mocks.recordLifecycleIntent.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.restoreGameServerBackup.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    )
+
+    resolveRestore?.()
+    await flushPromises()
   })
 
   it('surfaces upload failures without closing the upload dialog', async () => {

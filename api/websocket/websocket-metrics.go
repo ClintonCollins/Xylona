@@ -98,6 +98,22 @@ func determineNodeMetricsLoopAction(conn *connection, errConnection error) nodeM
 	return nodeMetricsLoopActionSend
 }
 
+func (ws *WebSocket) gameServerConnectionsWithAccess(serverID string) []*connection {
+	ws.userWebsocketConnectionsLock.RLock()
+	defer ws.userWebsocketConnectionsLock.RUnlock()
+
+	connections := make([]*connection, 0)
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			if !conn.hasGameServerAccess(serverID) {
+				continue
+			}
+			connections = append(connections, conn)
+		}
+	}
+	return connections
+}
+
 // sendNodeMetrics sends node resource metrics to a superuser connection every 5 seconds.
 func (ws *WebSocket) sendNodeMetrics(s *melody.Session) {
 	previousSnapshots := make(map[string]*xylona.NodeResourceSnapshot)
@@ -358,21 +374,13 @@ func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, status xylona.
 		return
 	}
 
-	ws.userWebsocketConnectionsLock.RLock()
-	defer ws.userWebsocketConnectionsLock.RUnlock()
-
-	for _, userConnections := range ws.userWebsocketConnections {
-		for _, conn := range userConnections {
-			if conn.melodySession.IsClosed() {
-				continue
-			}
-			if !conn.hasGameServerAccess(serverID) {
-				continue
-			}
-			errWrite := conn.melodySession.Write(byteOut)
-			if errWrite != nil {
-				log.Debug().Err(errWrite).Msg("Failed to write remote status update to WebSocket")
-			}
+	for _, conn := range ws.gameServerConnectionsWithAccess(serverID) {
+		if conn.melodySession.IsClosed() {
+			continue
+		}
+		errWrite := conn.melodySession.Write(byteOut)
+		if errWrite != nil {
+			log.Debug().Err(errWrite).Msg("Failed to write remote status update to WebSocket")
 		}
 	}
 }
@@ -429,21 +437,13 @@ func (ws *WebSocket) BroadcastGameServerVersion(serverID string, version string,
 		return
 	}
 
-	ws.userWebsocketConnectionsLock.RLock()
-	defer ws.userWebsocketConnectionsLock.RUnlock()
-
-	for _, userConnections := range ws.userWebsocketConnections {
-		for _, conn := range userConnections {
-			if conn.melodySession.IsClosed() {
-				continue
-			}
-			if !conn.hasGameServerAccess(serverID) {
-				continue
-			}
-			errWrite := conn.melodySession.Write(byteOut)
-			if errWrite != nil {
-				log.Debug().Err(errWrite).Msg("Failed to write version update to WebSocket")
-			}
+	for _, conn := range ws.gameServerConnectionsWithAccess(serverID) {
+		if conn.melodySession.IsClosed() {
+			continue
+		}
+		errWrite := conn.melodySession.Write(byteOut)
+		if errWrite != nil {
+			log.Debug().Err(errWrite).Msg("Failed to write version update to WebSocket")
 		}
 	}
 }
@@ -465,21 +465,13 @@ func (ws *WebSocket) BroadcastUpdateProgress(serverID string, step xylona.Update
 		log.Error().Err(errMarshal).Msg("Failed to marshal update progress message")
 		return
 	}
-	ws.userWebsocketConnectionsLock.RLock()
-	defer ws.userWebsocketConnectionsLock.RUnlock()
-
-	for _, userConnections := range ws.userWebsocketConnections {
-		for _, conn := range userConnections {
-			if conn.melodySession.IsClosed() {
-				continue
-			}
-			if !conn.hasGameServerAccess(serverID) {
-				continue
-			}
-			errWrite := conn.melodySession.Write(byteOut)
-			if errWrite != nil {
-				log.Debug().Err(errWrite).Msg("Failed to write update progress to WebSocket")
-			}
+	for _, conn := range ws.gameServerConnectionsWithAccess(serverID) {
+		if conn.melodySession.IsClosed() {
+			continue
+		}
+		errWrite := conn.melodySession.Write(byteOut)
+		if errWrite != nil {
+			log.Debug().Err(errWrite).Msg("Failed to write update progress to WebSocket")
 		}
 	}
 }
@@ -501,29 +493,19 @@ func (ws *WebSocket) BroadcastBackupProgress(serverID string, progress *xylona.B
 		return
 	}
 
-	ws.userWebsocketConnectionsLock.RLock()
-	defer ws.userWebsocketConnectionsLock.RUnlock()
-
-	for _, userConnections := range ws.userWebsocketConnections {
-		for _, conn := range userConnections {
-			if conn.melodySession.IsClosed() {
-				continue
-			}
-			if !conn.hasGameServerAccess(serverID) {
-				continue
-			}
-			errWrite := conn.melodySession.Write(byteOut)
-			if errWrite != nil {
-				log.Debug().Err(errWrite).Msg("Failed to write backup progress update to WebSocket")
-			}
+	for _, conn := range ws.gameServerConnectionsWithAccess(serverID) {
+		if conn.melodySession.IsClosed() {
+			continue
+		}
+		errWrite := conn.melodySession.Write(byteOut)
+		if errWrite != nil {
+			log.Debug().Err(errWrite).Msg("Failed to write backup progress update to WebSocket")
 		}
 	}
 }
 
 // BroadcastServerSoftwareInstall sends a server software install status update
-// to all connected WebSocket clients. Authorization is enforced at the RPC
-// level, so we broadcast to all authenticated connections here -- the frontend
-// composable filters by game server ID.
+// to all connected WebSocket clients that have access to the given server.
 func (ws *WebSocket) BroadcastServerSoftwareInstall(serverID string, status string, softwareID string, errMsg string) {
 	out := &xylona.Message{
 		Type: xylona.Message_ServerSoftwareInstall,
@@ -540,18 +522,13 @@ func (ws *WebSocket) BroadcastServerSoftwareInstall(serverID string, status stri
 		return
 	}
 
-	ws.userWebsocketConnectionsLock.RLock()
-	defer ws.userWebsocketConnectionsLock.RUnlock()
-
-	for _, userConnections := range ws.userWebsocketConnections {
-		for _, conn := range userConnections {
-			if conn.melodySession.IsClosed() {
-				continue
-			}
-			errWrite := conn.melodySession.Write(byteOut)
-			if errWrite != nil {
-				log.Debug().Err(errWrite).Msg("Failed to write software install update to WebSocket")
-			}
+	for _, conn := range ws.gameServerConnectionsWithAccess(serverID) {
+		if conn.melodySession.IsClosed() {
+			continue
+		}
+		errWrite := conn.melodySession.Write(byteOut)
+		if errWrite != nil {
+			log.Debug().Err(errWrite).Msg("Failed to write software install update to WebSocket")
 		}
 	}
 }
