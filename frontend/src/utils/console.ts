@@ -1,5 +1,7 @@
 import { StringToColor } from '@/utils/shared'
 
+// These regexes intentionally live at module scope for reuse. Any future
+// exec()/test() call against a stateful regex must reset lastIndex first.
 const reURIMatch =
   /(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#/%=~_|$?!:,.]*\)|[A-Z0-9+&@#/%=~_|$])/gim
 const reServerStop = /Server stopped.+$/gim
@@ -9,6 +11,31 @@ const reWarn = /^WARNING|WARN|WRN/gm
 const reError = /ERROR/gm
 const reXylonaMessage = /\[(\d+-\d+-\d+\s\d+:\d+:\d+)]\s\[(Xylona)]/gm
 
+// V-Rising console regex
+const reVRisingServer = /^\[Server]/gm
+const reVRisingCompress = /^\[CompressModificationIdsOnLoadSystem]/gm
+const reVRisingPersistence = /^PersistenceV2/gm
+const reVRisingFinishedSaving = /(?<=Finished Saving to\s').+(?='.)/gm
+
+// 7 Days to Die console regex
+const re7dTimestamp = /^(\d+-\d+-\d+)T(\d+:\d+:\d+)( \d+.\d+)\s(INF)/gim
+const re7dInfoLine = /^(.+\s)(INF\s)/gim
+const re7dOS = /^(.+)(OS):(.+)$/gim
+const re7dCPU = /^(.+)(CPU):(.+)$/gim
+const re7dRAM = /^(.+)(RAM):(.+)$/gim
+const re7dGPU = /^(.+)(GPU):(.+)$/gim
+const re7dSystemInfo = /^(.+)(System information)/gim
+const re7dVersion = /(Version)(:\s)(.+)$/gim
+const re7dHelpCommands = /^\s(.+)\s=&gt;/gim
+
+// Minecraft console regex
+const reMcServerInfo = /(^.+)(\[.+INFO])/gm
+const reMcServerWarn = /(^.+)(\[.+WARN])/gm
+const reMcServerError = /(^.+)(\[.+ERROR])/gm
+const reMcTimestamp = /\[\d+:\d+:\d+]/gim
+const reMcPlayerJoin = /^\[.+]\s\[User Authenticator.+]:\sUUID of player\s(.+)\sis\s(.+)/gim
+const reMcPlayerLeave = /^\[.+]\s\[.+]:\s(.+)\sleft the game/gim
+
 type MinecraftPlayer = {
   username: string
   color: string
@@ -16,6 +43,11 @@ type MinecraftPlayer = {
 }
 
 const minecraftPlayerMap: Map<string, MinecraftPlayer> = new Map<string, MinecraftPlayer>()
+
+function execRegex(regex: RegExp, data: string): RegExpExecArray | null {
+  regex.lastIndex = 0
+  return regex.exec(data)
+}
 
 export function parseConsole(game: string, data: string): string {
   data = data.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -45,14 +77,10 @@ export function parseConsole(game: string, data: string): string {
 }
 
 function parseVRisingConsole(data: string): string {
-  const reServer = /^\[Server]/gm
-  const reCompress = /^\[CompressModificationIdsOnLoadSystem]/gm
-  const rePersistence = /^PersistenceV2/gm
-  const reFinishedSaving = /(?<=Finished Saving to\s').+(?='.)/gm
-  data = data.replaceAll(reServer, "<span class='text-green-6'>$&</span>")
-  data = data.replaceAll(reCompress, "<span class='text-orange-6'>$&</span>")
-  data = data.replaceAll(rePersistence, "<span class='text-blue-6'>$&</span>")
-  data = data.replaceAll(reFinishedSaving, "<span class='text-purple-4'>$&</span>")
+  data = data.replaceAll(reVRisingServer, "<span class='text-green-6'>$&</span>")
+  data = data.replaceAll(reVRisingCompress, "<span class='text-orange-6'>$&</span>")
+  data = data.replaceAll(reVRisingPersistence, "<span class='text-blue-6'>$&</span>")
+  data = data.replaceAll(reVRisingFinishedSaving, "<span class='text-purple-4'>$&</span>")
   return data
 }
 
@@ -65,56 +93,39 @@ function parseDefaultConsole(data: string): string {
 }
 
 function parse7DaysToDieConsole(data: string): string {
-  const reTimestamp = /^(\d+-\d+-\d+)T(\d+:\d+:\d+)( \d+.\d+)\s(INF)/gim
-  const reInfo = /^(.+\s)(INF\s)/gim
-  const reOS = /^(.+)(OS):(.+)$/gim
-  const reCPU = /^(.+)(CPU):(.+)$/gim
-  const reRAM = /^(.+)(RAM):(.+)$/gim
-  const reGPU = /^(.+)(GPU):(.+)$/gim
-  const reSystemInfo = /^(.+)(System information)/gim
-  const reVersion = /(Version)(:\s)(.+)$/gim
-  const reHelpCommands = /^\s(.+)\s=&gt;/gim
-
-  data = data.replaceAll(reTimestamp, `<span class='text-grey-6'>[$1 $2]</span> $4`)
-  data = data.replaceAll(reInfo, "<span class='text-green-6'>$1$2</span>")
+  data = data.replaceAll(re7dTimestamp, `<span class='text-grey-6'>[$1 $2]</span> $4`)
+  data = data.replaceAll(re7dInfoLine, "<span class='text-green-6'>$1$2</span>")
   data = data.replaceAll('[Steamworks.NET]', '<span class="text-yellow-7">[Steamworks.NET]</span>')
   data = data.replaceAll(
-    reOS,
+    re7dOS,
     "$1<span class='text-orange-4'>$2</span>:<span class='text-cyan-5'>$3</span>",
   )
   data = data.replaceAll(
-    reCPU,
+    re7dCPU,
     "$1<span class='text-orange-4'>$2</span>:<span class='text-cyan-5'>$3</span>",
   )
   data = data.replaceAll(
-    reRAM,
+    re7dRAM,
     "$1<span class='text-orange-4'>$2</span>:<span class='text-cyan-5'>$3</span>",
   )
   data = data.replaceAll(
-    reGPU,
+    re7dGPU,
     "$1<span class='text-orange-4'>$2</span>:<span class='text-cyan-5'>$3</span>",
   )
-  data = data.replaceAll(reSystemInfo, "$1<span class='text-orange-4'>$2</span>")
+  data = data.replaceAll(re7dSystemInfo, "$1<span class='text-orange-4'>$2</span>")
   data = data.replaceAll(
-    reVersion,
+    re7dVersion,
     "<span class='text-orange-4'>$1</span>$2<span class='text-cyan-5'>$3</span>",
   )
-  data = data.replaceAll(reHelpCommands, "<span class='text-purple-3'> $1</span> =&gt;")
+  data = data.replaceAll(re7dHelpCommands, "<span class='text-purple-3'> $1</span> =&gt;")
   data = data.replaceAll('[MODS]', '<span class="text-yellow-7">[MODS]</span>')
   data = data.replaceAll('[EAC]', '<span class="text-red-3">[EAC]</span>')
   return data
 }
 
 function parseMinecraftConsole(data: string): string {
-  const reServerInfo = /(^.+)(\[.+INFO])/gm
-  const reServerWarn = /(^.+)(\[.+WARN])/gm
-  const reServerError = /(^.+)(\[.+ERROR])/gm
-  const reTimestamp = /\[\d+:\d+:\d+]/gim
-  const rePlayerJoin = /^\[.+]\s\[User Authenticator.+]:\sUUID of player\s(.+)\sis\s(.+)/gim
-  const rePlayerLeave = /^\[.+]\s\[.+]:\s(.+)\sleft the game/gim
-
-  const playerJoin = rePlayerJoin.exec(data)
-  const playerLeave = rePlayerLeave.exec(data)
+  const playerJoin = execRegex(reMcPlayerJoin, data)
+  const playerLeave = execRegex(reMcPlayerLeave, data)
 
   data = data.replace(reURIMatch, "<a class='console-url' href='$&' target='_blank'>$&</a>")
 
@@ -135,9 +146,9 @@ function parseMinecraftConsole(data: string): string {
     minecraftPlayerMap.delete(playerLeave[1])
   }
 
-  data = data.replace(reServerInfo, "$1<span class='text-green-6'>$2</span>")
-  data = data.replace(reServerWarn, "$1<span class='text-yellow-5'>$2</span>")
-  data = data.replace(reServerError, "$1<span class='text-red-5'>$2</span>")
-  data = data.replace(reTimestamp, "<span class='text-grey-6'>$&</span>")
+  data = data.replace(reMcServerInfo, "$1<span class='text-green-6'>$2</span>")
+  data = data.replace(reMcServerWarn, "$1<span class='text-yellow-5'>$2</span>")
+  data = data.replace(reMcServerError, "$1<span class='text-red-5'>$2</span>")
+  data = data.replace(reMcTimestamp, "<span class='text-grey-6'>$&</span>")
   return data
 }

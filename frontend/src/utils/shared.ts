@@ -2,7 +2,7 @@ import { create, fromJsonString, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError, createCallbackClient, createClient } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
 import { UpdateProgress, Xylona } from '@/proto/xylona_pb'
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { BackupProgress, VersionInfo } from '@/proto/shared_pb'
 import { AllServersQueryInfo, Status } from '@/proto/shared_pb'
 import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
@@ -47,6 +47,7 @@ type XylonaEventBusEvents = {
   ) => void
   gameServerConsoleOutput: (gameServerId: string, consoleOutput: string) => void
   gameServerConsoleOutputRequest: (gameServerId: string) => void
+  gameServerConsoleOutputRemoveRequest: (gameServerId: string) => void
   gameServersQueryInfo: (queryInfo: AllServersQueryInfo) => void
   gameServerMetrics: (metrics: AllServersMetrics) => void
   remoteServerMetrics: (gameServerId: string, metrics: GameServerMetrics) => void
@@ -150,10 +151,19 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
     // Let the ReconnectingWebSocket handle the rest.
   }
 
+  // These listeners intentionally live for the websocket instance lifetime.
+  // GetOrCreateXylonaWebsocketClient() only calls setupWebsocket() once per URL.
   // Handle MessageBus events
   XylonaEventBus.on('gameServerConsoleOutputRequest', (gameServerId: string) => {
     const consoleOutputRequest: Request = create(RequestSchema, {})
     consoleOutputRequest.type = Request_Type.GetGameServerConsole
+    consoleOutputRequest.gameServerId = gameServerId
+
+    apiWebsocket?.send(toJsonString(RequestSchema, consoleOutputRequest))
+  })
+  XylonaEventBus.on('gameServerConsoleOutputRemoveRequest', (gameServerId: string) => {
+    const consoleOutputRequest: Request = create(RequestSchema, {})
+    consoleOutputRequest.type = Request_Type.RemoveGameServerConsole
     consoleOutputRequest.gameServerId = gameServerId
 
     apiWebsocket?.send(toJsonString(RequestSchema, consoleOutputRequest))
@@ -281,8 +291,11 @@ export function WindowWidth() {
   }
 
   onMounted(() => {
-    window.addEventListener('resize', () => updateWindowWidth())
-    window.removeEventListener('resize', () => updateWindowWidth())
+    window.addEventListener('resize', updateWindowWidth)
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('resize', updateWindowWidth)
   })
 
   return windowWidth

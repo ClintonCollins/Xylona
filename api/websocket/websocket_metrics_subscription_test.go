@@ -115,6 +115,21 @@ func TestConnection_ShouldReceiveMetrics_ConcurrentAccess(_ *testing.T) {
 	<-done
 }
 
+func TestConnection_ConsumeRequestedGameServerOutputIDs_ClearsSubscriptions(t *testing.T) {
+	c := newTestConnection()
+	c.requestedGameServerOutputIDs["server-1"] = struct{}{}
+	c.requestedGameServerOutputIDs["server-2"] = struct{}{}
+
+	consumed := c.consumeRequestedGameServerOutputIDs()
+
+	if len(consumed) != 2 {
+		t.Fatalf("consumeRequestedGameServerOutputIDs() len = %d, want 2", len(consumed))
+	}
+	if len(c.requestedGameServerOutputIDs) != 0 {
+		t.Fatalf("requestedGameServerOutputIDs len = %d, want 0 after consume", len(c.requestedGameServerOutputIDs))
+	}
+}
+
 func TestConnection_HasGameServerAccess_RevalidatesRevokedSuperUser(t *testing.T) {
 	c := newTestConnection()
 	c.userID = "user-1"

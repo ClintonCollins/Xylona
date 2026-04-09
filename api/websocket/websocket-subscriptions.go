@@ -1,8 +1,8 @@
 package websocket
 
 import (
+	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/olahol/melody"
 	"github.com/rs/zerolog/log"
@@ -39,6 +39,10 @@ func (ws *WebSocket) listenForGameServerRemoved(s *melody.Session) {
 				}
 			}
 			ws.setSessionGameServers(s, gameServers)
+			sessionConn, errConn := ws.getSessionConnection(s)
+			if errConn == nil {
+				sessionConn.removeGameServerAccess(gameServer.ID)
+			}
 		}
 	}
 }
@@ -59,8 +63,30 @@ func (ws *WebSocket) listenForGameServerCreated(s *melody.Session) {
 				log.Error().Msg("Failed to cast data to game server")
 				continue
 			}
+
+			// Re-check whether this session's user actually has access to the
+			// newly created server before adding it to the session or access list.
+			sessionConn, errConn := ws.getSessionConnection(s)
+			if errConn != nil {
+				continue
+			}
+			accessible, errAccess := ws.db.GetGameServersAccessibleByUser(sessionConn.userID)
+			if errAccess != nil {
+				log.Error().Err(errAccess).Msg("Failed to check user access for new game server")
+				continue
+			}
+			hasAccess := false
+			for _, gs := range accessible {
+				if gs.ID == gameServer.ID {
+					hasAccess = true
+					break
+				}
+			}
+			if !hasAccess && !sessionConn.currentlySuperUser() {
+				continue
+			}
+
 			go ws.sendUserGameServerStatus(s, gameServer)
-			go ws.subscribeUserToOwnedGameServerNotifications(s, gameServer)
 			gameServers, err := ws.getSessionGameServers(s)
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to get game servers from session")
@@ -68,38 +94,9 @@ func (ws *WebSocket) listenForGameServerCreated(s *melody.Session) {
 			}
 			gameServers = append(gameServers, gameServer)
 			ws.setSessionGameServers(s, gameServers)
+			sessionConn.addGameServerAccess(gameServer.ID)
 		}
 	}
-}
-
-func (ws *WebSocket) subscribeUserToOwnedGameServerNotifications(s *melody.Session, gameServer *models.GameServer) {
-	errAddGameServerOutputListener := ws.addGameServerNotificationListener(s, gameServer.ID)
-	if errAddGameServerOutputListener != nil {
-		log.Debug().Err(errAddGameServerOutputListener).Msg("Failed to get game server console")
-		errWrite := s.Write(fmt.Appendf(nil, "Failed to get game server console: %s", errAddGameServerOutputListener))
-		if errWrite != nil {
-			log.Error().Err(errWrite).Msg("Failed to write websocket message")
-		}
-		return
-	}
-}
-
-func (ws *WebSocket) addGameServerNotificationListener(s *melody.Session, gameServerID string) error {
-	sessionConnection, errGetSessionConnection := ws.getSessionConnection(s)
-	if errGetSessionConnection != nil {
-		log.Error().Err(errGetSessionConnection).Msg("Failed to get session connection")
-		return errors.New("failed to get session connection")
-	}
-	listenerID := sessionConnection.id.String()
-
-	gameServer, errGetGameServer := ws.db.GetGameServerByID(gameServerID)
-	if errGetGameServer != nil {
-		log.Error().Err(errGetGameServer).Msg("Failed to get game server by ID")
-		return errors.New("game server not found")
-	}
-	command := ws.supervisor.GetCommandByIDOrCreateShell(gameServer.ID)
-	command.AddOutputListener(listenerID, sessionConnection.outputStreamChannel)
-	return nil
 }
 
 func (ws *WebSocket) closeCommandOutputListeners(s *melody.Session) {
@@ -108,12 +105,18 @@ func (ws *WebSocket) closeCommandOutputListeners(s *melody.Session) {
 		// log.Error().Err(errGetConnection).Msg("Failed to get session connection")
 		return
 	}
-	gameServerIDs := sessionConnection.allGameServerIDs
+	gameServerIDs := sessionConnection.consumeRequestedGameServerOutputIDs()
+
 	for _, gameServerID := range gameServerIDs {
-		if gameServerID == "" {
-			return
+		gameServer, errGetServer := ws.db.GetGameServerByID(gameServerID)
+		if errGetServer != nil {
+			if errors.Is(errGetServer, sql.ErrNoRows) {
+				continue
+			}
+			log.Error().Err(errGetServer).Str("server_id", gameServerID).Msg("Failed to get game server for console listener cleanup")
+			continue
 		}
-		command := ws.supervisor.GetCommandByIDOrCreateShell(gameServerID)
+		command := ws.supervisor.GetCommandByIDOrCreateShell(gameServer.ID)
 		command.RemoveOutputListener(sessionConnection.id.String())
 	}
 }

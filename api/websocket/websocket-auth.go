@@ -69,6 +69,8 @@ func (c *connection) shouldReceiveMetrics(serverID string) bool {
 // hasGameServerAccess returns true if the connection has access to the given game server ID.
 // Superusers have access to all game servers.
 func (c *connection) hasGameServerAccess(serverID string) bool {
+	// currentlySuperUser() must run before taking the slice RLock because it may
+	// refresh cached state under the connection write lock.
 	if c.currentlySuperUser() {
 		return true
 	}
@@ -76,6 +78,24 @@ func (c *connection) hasGameServerAccess(serverID string) bool {
 	c.RLock()
 	defer c.RUnlock()
 	return slices.Contains(c.allGameServerIDs, serverID)
+}
+
+// addGameServerAccess adds a server ID to the connection's accessible server set.
+func (c *connection) addGameServerAccess(serverID string) {
+	c.Lock()
+	defer c.Unlock()
+	if !slices.Contains(c.allGameServerIDs, serverID) {
+		c.allGameServerIDs = append(c.allGameServerIDs, serverID)
+	}
+}
+
+// removeGameServerAccess removes a server ID from the connection's accessible server set.
+func (c *connection) removeGameServerAccess(serverID string) {
+	c.Lock()
+	defer c.Unlock()
+	c.allGameServerIDs = slices.DeleteFunc(c.allGameServerIDs, func(id string) bool {
+		return id == serverID
+	})
 }
 
 func (c *connection) currentlySuperUser() bool {

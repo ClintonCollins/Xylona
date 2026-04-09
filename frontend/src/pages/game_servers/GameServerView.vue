@@ -304,8 +304,9 @@
             role="log"
             aria-live="polite"
             aria-label="Game server console output"
-            class="q-pb-md"
-            v-html="gameServerOutput"></code>
+            class="q-pb-md">
+            <span v-for="line in consoleLines" :key="line.id" v-html="line.html"></span>
+          </code>
           <!-- eslint-enable vue/no-v-html -->
         </q-scroll-area>
       </template>
@@ -428,6 +429,7 @@ import { AllServersMetrics, Request, Request_Type, RequestSchema } from '@/proto
 import { ConnectError } from '@connectrpc/connect'
 import { parseConsole } from '@/utils/console'
 import { canShowUpdateButton } from './game-server-update-capability'
+import { splitConsoleChunk, trimConsoleLines, type ConsoleLine } from './console-buffer'
 import {
   appendOperationOutputLines,
   normalizeOperationOutputChunk,
@@ -453,7 +455,10 @@ import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './v
 import { canSelectSteamBranch, chooseSteamBranchForUpdate } from './steam-branch-update'
 
 const $q = useQuasar()
-const gameServerOutput = ref('')
+const consoleLines = ref<ConsoleLine[]>([])
+let consoleLineIdCounter = 0
+let pendingConsoleChunks: string[] = []
+let consoleRafId: number | null = null
 const route = useRoute()
 const gameServer: Ref<GameServer> = ref(create(GameServerSchema)) as Ref<GameServer>
 const serverInput = ref('')
@@ -475,6 +480,44 @@ function scrollConsoleToBottom() {
   const container = el?.querySelector('.q-scrollarea__container') as HTMLElement | null
   if (container) {
     container.scrollTop = container.scrollHeight
+  }
+}
+
+function appendConsoleOutput(rawOutput: string) {
+  const parsed = parseConsole(gameServer.value.gameId, rawOutput)
+  if (parsed.length === 0) return
+  pendingConsoleChunks.push(parsed)
+  if (consoleRafId === null) {
+    consoleRafId = requestAnimationFrame(flushConsolePending)
+  }
+}
+
+function flushConsolePending() {
+  consoleRafId = null
+  if (pendingConsoleChunks.length === 0) return
+
+  const newLines = pendingConsoleChunks.flatMap((html) =>
+    splitConsoleChunk(html).map((lineHtml) => ({
+      id: consoleLineIdCounter++,
+      html: lineHtml,
+    })),
+  )
+  pendingConsoleChunks = []
+
+  if (newLines.length === 0) {
+    return
+  }
+
+  consoleLines.value.push(...newLines)
+
+  const trimmedConsole = trimConsoleLines(consoleLines.value, maxConsoleCharacters)
+  consoleLines.value = trimmedConsole.lines
+  if (trimmedConsole.truncated) {
+    consoleTruncated.value = true
+  }
+
+  if (consoleAutoScroll.value) {
+    void nextTick(scrollConsoleToBottom)
   }
 }
 
@@ -513,7 +556,7 @@ const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 const isServerOffline = computed(
   () => gameServer.value.status === Status.OFFLINE || gameServer.value.status === Status.UNKNOWN,
 )
-const hasConsoleOutput = computed(() => gameServerOutput.value.trim().length > 0)
+const hasConsoleOutput = computed(() => consoleLines.value.length > 0)
 const softwareOperationInProgress = computed(() =>
   softwareOperationSteps.value.some((step) => step.status === StepStatus.IN_PROGRESS),
 )
@@ -694,8 +737,13 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (consoleRafId !== null) {
+    cancelAnimationFrame(consoleRafId)
+    consoleRafId = null
+  }
   document.removeEventListener('keydown', onEscapeKey)
   unsubscribeServerMetrics()
+  unsubscribeConsoleOutputStream()
 
   XylonaEventBus.off('gameServerMetrics', onMetrics)
   XylonaEventBus.off('gameServerUpdateProgress', onUpdateProgress)
@@ -725,6 +773,14 @@ function unsubscribeServerMetrics() {
   request.type = Request_Type.UnsubscribeServerMetrics
   request.gameServerId = gameServerId.value
   ws.send(toJsonString(RequestSchema, request))
+}
+
+function unsubscribeConsoleOutputStream() {
+  const ws = GetOrCreateXylonaWebsocketClient()
+  if (!ws.isOpen()) {
+    return
+  }
+  XylonaEventBus.emit('gameServerConsoleOutputRemoveRequest', gameServerId.value)
 }
 
 async function requestConsoleOutputStream() {
@@ -1086,15 +1142,7 @@ async function getGameServerOutput() {
     if (captureOperationOutput(response.output)) {
       return
     }
-    const combined = gameServerOutput.value + parseConsole(gameServer.value.gameId, response.output)
-    if (combined.length > maxConsoleCharacters) {
-      consoleTruncated.value = true
-    }
-    gameServerOutput.value = combined.slice(-maxConsoleCharacters)
-    if (!consoleAutoScroll.value) {
-      return
-    }
-    void nextTick(scrollConsoleToBottom)
+    appendConsoleOutput(response.output)
   } catch (e) {
     console.error(e)
   }
@@ -1150,15 +1198,7 @@ function streamGameServerOutput() {
     if (captureOperationOutput(output)) {
       return
     }
-    const combined = gameServerOutput.value + parseConsole(gameServer.value.gameId, output)
-    if (combined.length > maxConsoleCharacters) {
-      consoleTruncated.value = true
-    }
-    gameServerOutput.value = combined.slice(-maxConsoleCharacters)
-    if (!consoleAutoScroll.value) {
-      return
-    }
-    void nextTick(scrollConsoleToBottom)
+    appendConsoleOutput(output)
   })
 
   // Listen for update progress events before any initial websocket request so

@@ -55,6 +55,19 @@ type connection struct {
 	*sync.RWMutex
 }
 
+func (c *connection) consumeRequestedGameServerOutputIDs() []string {
+	c.Lock()
+	defer c.Unlock()
+
+	gameServerIDs := make([]string, 0, len(c.requestedGameServerOutputIDs))
+	for gameServerID := range c.requestedGameServerOutputIDs {
+		gameServerIDs = append(gameServerIDs, gameServerID)
+	}
+	clear(c.requestedGameServerOutputIDs)
+
+	return gameServerIDs
+}
+
 // WebSocket coordinates websocket sessions and broadcasts real-time updates.
 type WebSocket struct {
 	melody                       *melody.Melody
@@ -230,7 +243,6 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 	ws.setSessionGameServers(s, gameServers)
 	for _, gameServer := range gameServers {
 		go ws.sendUserGameServerStatus(s, gameServer)
-		go ws.subscribeUserToOwnedGameServerNotifications(s, gameServer)
 	}
 
 	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
@@ -389,14 +401,27 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			return
 		}
 		serverID := websocketRequest.GetGameServerId()
+		if !sessionConnection.hasGameServerAccess(serverID) {
+			log.Warn().Str("User", username).Str("server_id", serverID).
+				Msg("Rejected console subscription: user does not have access to server")
+			return
+		}
+
 		sessionConnection.Lock()
 		sessionConnection.requestedGameServerOutputIDs[serverID] = struct{}{}
 		sessionConnection.Unlock()
 
-		// Check if this is a remote server and start a federation console stream.
-		_, errGetLocal := ws.db.GetGameServerByID(serverID)
+		localGameServer, errGetLocal := ws.db.GetGameServerByID(serverID)
+		if errGetLocal == nil {
+			command := ws.supervisor.GetCommandByIDOrCreateShell(localGameServer.ID)
+			command.AddOutputListener(sessionConnection.id.String(), sessionConnection.outputStreamChannel)
+		}
 		if errGetLocal != nil && errors.Is(errGetLocal, sql.ErrNoRows) {
 			go ws.startRemoteConsoleStream(s, sessionConnection, serverID)
+		}
+		if errGetLocal != nil && !errors.Is(errGetLocal, sql.ErrNoRows) {
+			log.Error().Err(errGetLocal).Str("server_id", serverID).Msg("Failed to get game server for console stream")
+			return
 		}
 
 		rawData := &xylona.Message{
@@ -409,6 +434,33 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			return
 		}
 		_ = s.Write(b)
+	case xylona.Request_RemoveGameServerConsole:
+		if websocketRequest.GameServerId == nil {
+			return
+		}
+		serverID := websocketRequest.GetGameServerId()
+		sessionConnection.Lock()
+		delete(sessionConnection.requestedGameServerOutputIDs, serverID)
+		sessionConnection.Unlock()
+
+		gameServer, errGetServer := ws.db.GetGameServerByID(serverID)
+		if errGetServer == nil {
+			command := ws.supervisor.GetCommandByIDOrCreateShell(gameServer.ID)
+			command.RemoveOutputListener(sessionConnection.id.String())
+		}
+		if errGetServer != nil && !errors.Is(errGetServer, sql.ErrNoRows) {
+			log.Error().Err(errGetServer).Str("server_id", serverID).Msg("Failed to remove game server console listener")
+		}
+
+		sessionConnection.Lock()
+		cancelRemote, remoteExists := sessionConnection.remoteConsoleCancels[serverID]
+		if remoteExists {
+			delete(sessionConnection.remoteConsoleCancels, serverID)
+		}
+		sessionConnection.Unlock()
+		if remoteExists {
+			cancelRemote()
+		}
 	case xylona.Request_SubscribeServerMetrics:
 		if websocketRequest.GameServerId == nil {
 			return
