@@ -3,6 +3,7 @@ import { create } from '@bufbuild/protobuf'
 import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { ConnectError } from '@connectrpc/connect'
+import axios from 'axios'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
@@ -40,6 +41,11 @@ const restoringBackupId = ref('')
 const restoreTarget = ref<GameServerBackup | null>(null)
 const showRestoreDialog = ref(false)
 const latestProgress = ref<BackupProgress | null>(null)
+const showUploadBackupDialog = ref(false)
+const uploadingBackup = ref(false)
+const uploadProgress = ref(0)
+const uploadError = ref('')
+const uploadFile = ref<File | null>(null)
 
 const columns = [
   {
@@ -103,6 +109,8 @@ const scheduledBackupsLink = computed(() => `/game-servers/${gameServerId.value}
 const createAllowed = computed(() => overview.value.operationsAllowed)
 const restoreAllowed = computed(() => overview.value.enabled && overview.value.localServer)
 const deleteAllowed = computed(() => overview.value.localServer)
+const uploadAllowed = computed(() => overview.value.operationsAllowed)
+const uploadReady = computed(() => uploadFile.value !== null)
 
 const showStateAlert = computed(() => {
   if (loading.value) {
@@ -260,6 +268,10 @@ async function createBackup(): Promise<void> {
   }
 }
 
+function backupDownloadHref(backup: GameServerBackup): string {
+  return `/api/backups/download/${encodeURIComponent(gameServerId.value)}/${encodeURIComponent(backup.id)}`
+}
+
 function openRestoreDialog(backup: GameServerBackup): void {
   restoreTarget.value = backup
   showRestoreDialog.value = true
@@ -325,6 +337,103 @@ function confirmDelete(backup: GameServerBackup): void {
       deletingBackupId.value = ''
     }
   })
+}
+
+function openUploadBackupDialog(): void {
+  resetUploadDialog()
+  showUploadBackupDialog.value = true
+}
+
+function closeUploadBackupDialog(): void {
+  if (uploadingBackup.value) {
+    return
+  }
+
+  showUploadBackupDialog.value = false
+  resetUploadDialog()
+}
+
+function resetUploadDialog(): void {
+  uploadFile.value = null
+  uploadProgress.value = 0
+  uploadError.value = ''
+}
+
+function onUploadFileChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const selectedFile = input.files?.[0] ?? null
+  uploadFile.value = selectedFile
+  uploadError.value = ''
+  uploadProgress.value = 0
+}
+
+async function uploadBackup(): Promise<void> {
+  if (!uploadFile.value) {
+    uploadError.value = 'Choose a .zip backup archive to upload.'
+    return
+  }
+
+  uploadingBackup.value = true
+  uploadError.value = ''
+  uploadProgress.value = 0
+
+  const formData = new FormData()
+  formData.append('gameServerId', gameServerId.value)
+  formData.append('file', uploadFile.value)
+
+  try {
+    await axios.post('/api/backups/upload', formData, {
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        const totalBytes = progressEvent.total ?? uploadFile.value?.size ?? 0
+        if (totalBytes <= 0) {
+          return
+        }
+
+        uploadProgress.value = Math.max(
+          0,
+          Math.min(100, Math.round((progressEvent.loaded / totalBytes) * 100)),
+        )
+      },
+    })
+
+    showUploadBackupDialog.value = false
+    resetUploadDialog()
+    await loadBackups()
+    $q.notify({
+      type: 'xylona-success',
+      caption: 'Backup uploaded',
+      position: 'top',
+      timeout: 3000,
+    })
+  } catch (unknownErr: unknown) {
+    uploadError.value = formatUploadError(unknownErr)
+  } finally {
+    uploadingBackup.value = false
+  }
+}
+
+function formatUploadError(unknownErr: unknown): string {
+  const errWithResponse = unknownErr as { response?: { data?: unknown } } | null
+  const responseData = errWithResponse?.response?.data
+  if (typeof responseData === 'string' && responseData.trim() !== '') {
+    return responseData
+  }
+
+  if (axios.isAxiosError(unknownErr)) {
+    if (unknownErr.message) {
+      return unknownErr.message
+    }
+  }
+
+  if (unknownErr instanceof Error && unknownErr.message.trim() !== '') {
+    return unknownErr.message
+  }
+
+  return 'Failed to upload backup archive.'
 }
 
 function notifyError(prefix: string, unknownErr: unknown): void {
@@ -446,6 +555,16 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       </div>
       <div class="xy-page-actions">
         <q-btn
+          data-testid="open-upload-backup-dialog"
+          color="secondary"
+          icon="upload_file"
+          label="Upload Backup"
+          no-caps
+          :disable="loading || !uploadAllowed"
+          :loading="uploadingBackup"
+          @click="openUploadBackupDialog" />
+        <q-btn
+          data-testid="open-create-backup-dialog"
           color="primary"
           icon="archive"
           label="Create Backup"
@@ -573,6 +692,22 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
         <template #body-cell-actions="props">
           <q-td :props="props">
+            <a
+              v-if="props.row.status === GameServerBackupStatus.COMPLETED"
+              :href="backupDownloadHref(props.row)"
+              class="backups-page__download-link"
+              :data-testid="`download-backup-${props.row.id}`"
+              target="_blank"
+              rel="noopener">
+              <q-btn
+                flat
+                dense
+                icon="download"
+                size="sm"
+                aria-label="Download backup">
+                <q-tooltip>Download</q-tooltip>
+              </q-btn>
+            </a>
             <q-btn
               flat
               dense
@@ -606,6 +741,57 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       :backup="restoreTarget"
       :loading="restoringBackupId !== ''"
       @restore="restoreBackup" />
+
+    <q-dialog v-model="showUploadBackupDialog" persistent>
+      <q-card data-testid="upload-backup-dialog" class="backups-page__upload-dialog">
+        <q-card-section>
+          <div class="backups-page__section-title">Upload Backup Archive</div>
+          <div class="backups-page__section-copy">
+            Import a `.zip` backup into this server's managed backup history so it can be
+            restored later from this page.
+          </div>
+        </q-card-section>
+        <q-card-section class="backups-page__upload-section">
+          <input
+            data-testid="upload-backup-file-input"
+            class="backups-page__upload-input"
+            type="file"
+            accept=".zip,application/zip"
+            :disabled="uploadingBackup"
+            @change="onUploadFileChange" />
+          <div v-if="uploadFile" class="backups-page__upload-file">
+            Selected archive: {{ uploadFile.name }}
+          </div>
+          <div v-if="uploadingBackup || uploadProgress > 0" class="backups-page__upload-progress">
+            <div class="backups-page__progress-meta">Uploading · {{ uploadProgress }}%</div>
+            <q-linear-progress
+              rounded
+              size="10px"
+              color="accent"
+              track-color="dark"
+              :value="Math.max(0, Math.min(1, uploadProgress / 100))" />
+          </div>
+          <div v-if="uploadError" class="backups-page__upload-error">{{ uploadError }}</div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn
+            data-testid="cancel-upload-backup"
+            flat
+            no-caps
+            label="Cancel"
+            :disable="uploadingBackup"
+            @click="closeUploadBackupDialog" />
+          <q-btn
+            data-testid="confirm-upload-backup"
+            color="primary"
+            no-caps
+            label="Upload Backup"
+            :disable="!uploadReady"
+            :loading="uploadingBackup"
+            @click="uploadBackup" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
@@ -674,6 +860,11 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   text-decoration: none;
 }
 
+.backups-page__download-link {
+  display: inline-flex;
+  text-decoration: none;
+}
+
 .backups-page__progress {
   display: flex;
   flex-direction: column;
@@ -702,6 +893,36 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 .backups-page__retention-copy {
   color: var(--xy-text-muted);
   font-size: 0.85rem;
+}
+
+.backups-page__upload-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+}
+
+.backups-page__upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.backups-page__upload-input {
+  color: var(--xy-text-primary);
+}
+
+.backups-page__upload-file {
+  color: var(--xy-text-muted);
+  font-size: 0.9rem;
+}
+
+.backups-page__upload-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.backups-page__upload-error {
+  color: var(--xy-danger);
+  font-size: 0.9rem;
 }
 
 .backups-page__retention-copy {

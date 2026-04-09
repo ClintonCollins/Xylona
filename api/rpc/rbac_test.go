@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -185,6 +186,41 @@ func addSessionCookieHeader[T any](
 	if sessionCookies.SessionID != sessionID {
 		t.Fatalf("parsed session id = %q, want %q", sessionCookies.SessionID, sessionID)
 	}
+}
+
+func addSessionCookieHeaderHTTP(
+	t *testing.T,
+	conn *db.Connection,
+	secureCookieInst *securecookie.SecureCookie,
+	request *http.Request,
+	userID string,
+) {
+	t.Helper()
+
+	now := time.Now().UTC()
+	seq := testSessionCounter.Add(1)
+	sessionID := fmt.Sprintf("session-%s-%d", userID, seq)
+	sessionToken := "a"
+
+	_, errCreateSession := conn.CreateUserSession(&models.UserSessionSetter{
+		ID:        omit.From(sessionID),
+		UserID:    omit.From(userID),
+		Token:     omit.From(sessionToken),
+		ExpiresAt: omit.From(now.Add(24 * time.Hour)),
+	})
+	if errCreateSession != nil {
+		t.Fatalf("failed to create user session: %v", errCreateSession)
+	}
+
+	encodedToken, errEncode := secureCookieInst.Encode(gatekeeper.SessionTokenCookieName, sessionToken)
+	if errEncode != nil {
+		t.Fatalf("failed to encode session token: %v", errEncode)
+	}
+
+	request.Header.Set(
+		"Cookie",
+		gatekeeper.SessionIDCookieName+"="+sessionID+"; "+gatekeeper.SessionTokenCookieName+"="+encodedToken,
+	)
 }
 
 func TestGrantGameServerAccessAuthorizationAndShape(t *testing.T) {

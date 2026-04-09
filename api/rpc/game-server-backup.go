@@ -281,7 +281,6 @@ func (xs *XylonaService) UpdateBackupSettings(
 	if gameServerID == "" {
 		return nil, invalidArg("game_server_id is required")
 	}
-
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
@@ -397,7 +396,7 @@ func (xs *XylonaService) CreateGameServerBackup(
 		return nil, internalErrf("backup service unavailable")
 	}
 
-	backup, errCreateBackup := xs.actionsInst.CreateManualBackup(gameServer, user.ID)
+	backup, errCreateBackup := xs.actionsInst.CreateManualBackup(gameServer, user.ID, "")
 	if errCreateBackup != nil {
 		return nil, internalErrf("failed to create backup")
 	}

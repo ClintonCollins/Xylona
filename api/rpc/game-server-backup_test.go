@@ -2,7 +2,11 @@ package rpc
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
@@ -122,6 +127,14 @@ func TestGetBackupSettingsDefaultsDirectoryForSuperuserWhenBlank(t *testing.T) {
 
 func TestGetGameServerBackupOverviewReturnsDisabledState(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:             omit.From("server-local-1"),
+		BackupsEnabled: omit.From(false),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
 
 	request := connect.NewRequest(&xylona.GetGameServerBackupOverviewRequest{
 		GameServerId: "server-local-1",
@@ -577,8 +590,264 @@ func TestUpdateBackupSettingsDefaultsBackupDirectoryWhenEnablingLegacyServer(t *
 	}
 }
 
+func TestDownloadGameServerBackupArchiveStreamsCompletedArchive(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	archiveRoot := filepath.Join(t.TempDir(), "backups")
+	archivePath := filepath.Join(archiveRoot, "server-local-1", "download.zip")
+	writeTestBackupZip(t, archivePath, map[string]string{
+		"world.txt": "seed-data",
+	})
+
+	backup, errCreateBackup := fixture.conn.CreateGameServerBackup(db.CreateGameServerBackupParams{
+		GameServerID:    "server-local-1",
+		NodeID:          "node-local",
+		CreatedBy:       "user-owner",
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     archiveRoot,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       12,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 6, 10, 0, 0, 0, time.UTC),
+	})
+	if errCreateBackup != nil {
+		t.Fatalf("CreateGameServerBackup() error = %v", errCreateBackup)
+	}
+
+	request := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/api/backups/download/server-local-1/"+backup.ID,
+		nil,
+	)
+	request = withBackupDownloadRouteParams(request, "server-local-1", backup.ID)
+	addSessionCookieHeaderHTTP(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	responseRecorder := httptest.NewRecorder()
+	fixture.service.DownloadGameServerBackupArchive(responseRecorder, request)
+
+	response := responseRecorder.Result()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("DownloadGameServerBackupArchive() status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	contentDisposition := response.Header.Get("Content-Disposition")
+	if contentDisposition != `attachment; filename="download.zip"` {
+		t.Fatalf("Content-Disposition = %q, want %q", contentDisposition, `attachment; filename="download.zip"`)
+	}
+	if response.Header.Get("Content-Type") != "application/zip" {
+		t.Fatalf("Content-Type = %q, want %q", response.Header.Get("Content-Type"), "application/zip")
+	}
+}
+
+func TestDownloadGameServerBackupArchiveRejectsMissingPermission(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	archiveRoot := filepath.Join(t.TempDir(), "backups")
+	archivePath := filepath.Join(archiveRoot, "server-local-1", "download.zip")
+	writeTestBackupZip(t, archivePath, map[string]string{
+		"world.txt": "seed-data",
+	})
+
+	backup, errCreateBackup := fixture.conn.CreateGameServerBackup(db.CreateGameServerBackupParams{
+		GameServerID:    "server-local-1",
+		NodeID:          "node-local",
+		CreatedBy:       "user-owner",
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     archiveRoot,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       12,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 6, 10, 0, 0, 0, time.UTC),
+	})
+	if errCreateBackup != nil {
+		t.Fatalf("CreateGameServerBackup() error = %v", errCreateBackup)
+	}
+
+	request := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/api/backups/download/server-local-1/"+backup.ID,
+		nil,
+	)
+	request = withBackupDownloadRouteParams(request, "server-local-1", backup.ID)
+	addSessionCookieHeaderHTTP(t, fixture.conn, fixture.secureCookie, request, "user-other")
+
+	responseRecorder := httptest.NewRecorder()
+	fixture.service.DownloadGameServerBackupArchive(responseRecorder, request)
+
+	response := responseRecorder.Result()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("DownloadGameServerBackupArchive() status = %d, want %d", response.StatusCode, http.StatusForbidden)
+	}
+}
+
+func TestUploadGameServerBackupArchiveImportsZip(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	serverDir := filepath.Join(t.TempDir(), "server-local-1")
+	backupRoot := filepath.Join(t.TempDir(), "backups")
+
+	errMkdirServer := os.MkdirAll(serverDir, 0o750)
+	if errMkdirServer != nil {
+		t.Fatalf("MkdirAll(serverDir) error = %v", errMkdirServer)
+	}
+	errMkdirBackup := os.MkdirAll(backupRoot, 0o750)
+	if errMkdirBackup != nil {
+		t.Fatalf("MkdirAll(backupRoot) error = %v", errMkdirBackup)
+	}
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		Directory:       omit.From(serverDir),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From(backupRoot),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(),
+		fixture.conn,
+		supervisorInst,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+	errWriteField := writer.WriteField("gameServerId", "server-local-1")
+	if errWriteField != nil {
+		t.Fatalf("WriteField(gameServerId) error = %v", errWriteField)
+	}
+	fileWriter, errCreateFormFile := writer.CreateFormFile("file", "Friday Night Save.zip")
+	if errCreateFormFile != nil {
+		t.Fatalf("CreateFormFile() error = %v", errCreateFormFile)
+	}
+	zipContents := buildTestZipBytes(t, map[string]string{
+		"world.txt": "uploaded-state",
+	})
+	_, errWriteFile := fileWriter.Write(zipContents)
+	if errWriteFile != nil {
+		t.Fatalf("form file write error = %v", errWriteFile)
+	}
+	errCloseWriter := writer.Close()
+	if errCloseWriter != nil {
+		t.Fatalf("writer.Close() error = %v", errCloseWriter)
+	}
+
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/backups/upload", &requestBody)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	addSessionCookieHeaderHTTP(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	responseRecorder := httptest.NewRecorder()
+	fixture.service.UploadGameServerBackupArchive(responseRecorder, request)
+
+	response := responseRecorder.Result()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("UploadGameServerBackupArchive() status = %d, want %d", response.StatusCode, http.StatusCreated)
+	}
+
+	backups, errList := fixture.conn.ListGameServerBackupsByGameServerID("server-local-1")
+	if errList != nil {
+		t.Fatalf("ListGameServerBackupsByGameServerID() error = %v", errList)
+	}
+	if len(backups) != 1 {
+		t.Fatalf("backup count = %d, want %d", len(backups), 1)
+	}
+	if filepath.Base(backups[0].ArchivePath) != "Friday-Night-Save.zip" {
+		t.Fatalf("archive base = %q, want %q", filepath.Base(backups[0].ArchivePath), "Friday-Night-Save.zip")
+	}
+}
+
+func TestUploadGameServerBackupArchiveRejectsInvalidZip(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	serverDir := filepath.Join(t.TempDir(), "server-local-1")
+	backupRoot := filepath.Join(t.TempDir(), "backups")
+
+	errMkdirServer := os.MkdirAll(serverDir, 0o750)
+	if errMkdirServer != nil {
+		t.Fatalf("MkdirAll(serverDir) error = %v", errMkdirServer)
+	}
+	errMkdirBackup := os.MkdirAll(backupRoot, 0o750)
+	if errMkdirBackup != nil {
+		t.Fatalf("MkdirAll(backupRoot) error = %v", errMkdirBackup)
+	}
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		Directory:       omit.From(serverDir),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From(backupRoot),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(),
+		fixture.conn,
+		supervisorInst,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+	errWriteField := writer.WriteField("gameServerId", "server-local-1")
+	if errWriteField != nil {
+		t.Fatalf("WriteField(gameServerId) error = %v", errWriteField)
+	}
+	fileWriter, errCreateFormFile := writer.CreateFormFile("file", "invalid.zip")
+	if errCreateFormFile != nil {
+		t.Fatalf("CreateFormFile() error = %v", errCreateFormFile)
+	}
+	_, errWriteFile := fileWriter.Write([]byte("not-a-zip"))
+	if errWriteFile != nil {
+		t.Fatalf("form file write error = %v", errWriteFile)
+	}
+	errCloseWriter := writer.Close()
+	if errCloseWriter != nil {
+		t.Fatalf("writer.Close() error = %v", errCloseWriter)
+	}
+
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/backups/upload", &requestBody)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	addSessionCookieHeaderHTTP(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	responseRecorder := httptest.NewRecorder()
+	fixture.service.UploadGameServerBackupArchive(responseRecorder, request)
+
+	response := responseRecorder.Result()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("UploadGameServerBackupArchive() status = %d, want %d", response.StatusCode, http.StatusBadRequest)
+	}
+}
+
 func writeTestBackupZip(t *testing.T, archivePath string, files map[string]string) {
 	t.Helper()
+
+	errMkdirAll := os.MkdirAll(filepath.Dir(archivePath), 0o750)
+	if errMkdirAll != nil {
+		t.Fatalf("MkdirAll(%s) error = %v", filepath.Dir(archivePath), errMkdirAll)
+	}
 
 	archiveFile, errCreate := os.Create(archivePath)
 	if errCreate != nil {
@@ -607,4 +876,38 @@ func writeTestBackupZip(t *testing.T, archivePath string, files map[string]strin
 	if errCloseFile != nil {
 		t.Fatalf("Close(%s) error = %v", archivePath, errCloseFile)
 	}
+}
+
+func withBackupDownloadRouteParams(request *http.Request, gameServerID string, backupID string) *http.Request {
+	routeContext := chi.NewRouteContext()
+	routeContext.URLParams.Add("gameServerId", gameServerID)
+	routeContext.URLParams.Add("backupId", backupID)
+
+	requestContext := context.WithValue(request.Context(), chi.RouteCtxKey, routeContext)
+	return request.WithContext(requestContext)
+}
+
+func buildTestZipBytes(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+
+	var buffer bytes.Buffer
+	zipWriter := zip.NewWriter(&buffer)
+	for name, contents := range files {
+		fileWriter, errCreateEntry := zipWriter.Create(name)
+		if errCreateEntry != nil {
+			t.Fatalf("zip.Create(%s) error = %v", name, errCreateEntry)
+		}
+
+		_, errWriteEntry := fileWriter.Write([]byte(contents))
+		if errWriteEntry != nil {
+			t.Fatalf("zip write(%s) error = %v", name, errWriteEntry)
+		}
+	}
+
+	errCloseZip := zipWriter.Close()
+	if errCloseZip != nil {
+		t.Fatalf("zipWriter.Close() error = %v", errCloseZip)
+	}
+
+	return buffer.Bytes()
 }

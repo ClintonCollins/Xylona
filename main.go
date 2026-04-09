@@ -564,6 +564,8 @@ func main() {
 
 	router.Group(func(r chi.Router) {
 		r.Use(gatekeeper.RequireSessionAuth(dbInst, secureCookie))
+		r.Get("/api/backups/download/{gameServerId}/{backupId}", xylonaService.DownloadGameServerBackupArchive)
+		r.Post("/api/backups/upload", xylonaService.UploadGameServerBackupArchive)
 		r.Post("/api/file/get", actionsInst.StreamFileToUser)
 		r.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
 		r.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
