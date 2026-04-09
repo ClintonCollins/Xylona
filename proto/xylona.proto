@@ -1352,6 +1352,7 @@ message ListGameServerBackupsResponse {
 
 message CreateGameServerBackupRequest {
   string game_server_id = 1;
+  string backup_name = 2;
 }
 
 message CreateGameServerBackupResponse {

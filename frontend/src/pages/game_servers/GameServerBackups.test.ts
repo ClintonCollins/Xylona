@@ -5,6 +5,9 @@ import { defineComponent } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  type BackupProgress,
+  BackupProgressOperation,
+  BackupProgressPhase,
   type BackupSettings,
   BackupSettingsSchema,
   type GameServerBackup,
@@ -158,6 +161,19 @@ function makeBackup(overrides: Partial<GameServerBackup> = {}) {
   })
 }
 
+function makeBackupProgress(overrides: Partial<BackupProgress> = {}) {
+  return {
+    gameServerId: 'test-server-123',
+    backupId: 'backup-1',
+    operation: BackupProgressOperation.CREATE,
+    phase: BackupProgressPhase.ARCHIVING,
+    percent: 50,
+    sizeBytes: 2048n,
+    message: 'Archiving game server files',
+    ...overrides,
+  } satisfies BackupProgress
+}
+
 function mountBackups() {
   return mount(GameServerBackups, {
     global: {
@@ -174,7 +190,11 @@ function mountBackups() {
         'q-dialog': QDialogStub,
         'q-icon': { template: '<i class="q-icon-stub" />' },
         'q-input': QInputStub,
-        'q-linear-progress': { template: '<div class="q-linear-progress-stub" />' },
+        'q-linear-progress': {
+          props: ['indeterminate', 'value'],
+          template:
+            '<div class="q-linear-progress-stub" :data-indeterminate="String(!!indeterminate)" :data-value="String(value ?? \'\')" />',
+        },
         'q-separator': { template: '<hr />' },
         'q-table': QTableStub,
         'q-td': { template: '<div class="q-td-stub"><slot /></div>' },
@@ -255,22 +275,38 @@ describe('GameServerBackups', () => {
     })
     mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
     mocks.createGameServerBackup.mockResolvedValueOnce({
-      backup: makeBackup(),
+      backup: makeBackup({
+        status: GameServerBackupStatus.PENDING,
+        sizeBytes: 0n,
+        completedAt: undefined,
+      }),
     })
-    mocks.listGameServerBackups.mockResolvedValueOnce({
-      backups: [makeBackup()],
-    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
+
+    let onOkHandler: ((value: string) => void | Promise<void>) | undefined
+    mocks.dialog.mockImplementationOnce(() => ({
+      onOk(handler: (value: string) => void | Promise<void>) {
+        onOkHandler = handler
+      },
+    }))
 
     const wrapper = mountBackups()
     await flushPromises()
 
     await wrapper.get('[data-testid="open-create-backup-dialog"]').trigger('click')
+    await onOkHandler?.('')
     await flushPromises()
 
     expect(mocks.createGameServerBackup).toHaveBeenCalledTimes(1)
     expect(mocks.createGameServerBackup.mock.calls[0][0]).toMatchObject({
       gameServerId: 'test-server-123',
     })
+    expect(wrapper.text()).toContain('Pending')
+    expect(mocks.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caption: expect.stringContaining('Backup started'),
+      }),
+    )
   })
 
   it('renders a download link for completed backups', async () => {
@@ -314,6 +350,122 @@ describe('GameServerBackups', () => {
 
     expect(mockedAxios.post).toHaveBeenCalledTimes(1)
     expect(mocks.listGameServerBackups).toHaveBeenCalledTimes(2)
+  })
+
+  it('patches a pending backup row with live progress updates', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview(),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({
+      backups: [
+        makeBackup({
+          status: GameServerBackupStatus.PENDING,
+          sizeBytes: 0n,
+          completedAt: undefined,
+        }),
+      ],
+    })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    const backupProgressHandler = mocks.eventOn.mock.calls.find(
+      ([eventName]) => eventName === 'gameServerBackupProgress',
+    )?.[1] as ((progress: BackupProgress) => void) | undefined
+
+    expect(backupProgressHandler).toBeDefined()
+
+    backupProgressHandler?.(makeBackupProgress())
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Archiving')
+    expect(wrapper.text()).toContain('2048 Bytes')
+    expect(wrapper.text()).not.toContain('50%')
+    expect(wrapper.get('.backups-page__live-strip').text()).toContain('Backup running')
+    expect(wrapper.get('.backups-page__live-strip').text()).toContain('server-20260406.zip')
+  })
+
+  it('clears live progress after deleting a pending backup', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview(),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({
+      backups: [
+        makeBackup({
+          status: GameServerBackupStatus.PENDING,
+          sizeBytes: 0n,
+          completedAt: undefined,
+        }),
+      ],
+    })
+    mocks.deleteGameServerBackup.mockResolvedValueOnce({})
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
+
+    let onOkHandler: (() => void | Promise<void>) | undefined
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    const backupProgressHandler = mocks.eventOn.mock.calls.find(
+      ([eventName]) => eventName === 'gameServerBackupProgress',
+    )?.[1] as ((progress: BackupProgress) => void) | undefined
+
+    expect(backupProgressHandler).toBeDefined()
+
+    backupProgressHandler?.(makeBackupProgress())
+    await flushPromises()
+
+    expect(wrapper.find('.backups-page__live-strip').exists()).toBe(true)
+
+    mocks.dialog.mockImplementationOnce(() => ({
+      onOk(handler: () => void | Promise<void>) {
+        onOkHandler = handler
+      },
+    }))
+
+    await wrapper.get('button[aria-label="Delete backup"]').trigger('click')
+    await onOkHandler?.()
+    await flushPromises()
+
+    expect(mocks.deleteGameServerBackup).toHaveBeenCalledTimes(1)
+    expect(mocks.listGameServerBackups).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('.backups-page__live-strip').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('server-20260406.zip')
+  })
+
+  it('prompts for a manual backup name before starting a backup', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview(),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
+    mocks.createGameServerBackup.mockResolvedValueOnce({
+      backup: makeBackup({
+        archivePath: 'C:\\backups\\Friday-Night-Save.zip',
+        status: GameServerBackupStatus.PENDING,
+        sizeBytes: 0n,
+        completedAt: undefined,
+      }),
+    })
+
+    let onOkHandler: ((value: string) => void | Promise<void>) | undefined
+    mocks.dialog.mockImplementationOnce(() => ({
+      onOk(handler: (value: string) => void | Promise<void>) {
+        onOkHandler = handler
+      },
+    }))
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="open-create-backup-dialog"]').trigger('click')
+    expect(mocks.dialog).toHaveBeenCalledTimes(1)
+    expect(mocks.createGameServerBackup).not.toHaveBeenCalled()
+
+    await onOkHandler?.('Friday Night Save')
+    await flushPromises()
+
+    expect(mocks.createGameServerBackup).toHaveBeenCalledTimes(1)
+    expect(mocks.createGameServerBackup.mock.calls[0]?.[0].backupName).toBe('Friday Night Save')
   })
 
   it('surfaces upload failures without closing the upload dialog', async () => {

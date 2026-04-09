@@ -377,6 +377,11 @@ func (xs *XylonaService) CreateGameServerBackup(
 	if gameServerID == "" {
 		return nil, invalidArg("game_server_id is required")
 	}
+	backupName := strings.TrimSpace(request.Msg.GetBackupName())
+	errValidateName := actions.ValidateManualBackupName(backupName)
+	if errValidateName != nil {
+		return nil, invalidArg(errValidateName.Error())
+	}
 
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
 	if errGetGameServer != nil {
@@ -396,8 +401,14 @@ func (xs *XylonaService) CreateGameServerBackup(
 		return nil, internalErrf("backup service unavailable")
 	}
 
-	backup, errCreateBackup := xs.actionsInst.CreateManualBackup(gameServer, user.ID, "")
+	backup, errCreateBackup := xs.actionsInst.CreateManualBackup(gameServer, user.ID, backupName)
 	if errCreateBackup != nil {
+		if errors.Is(errCreateBackup, actions.ErrInvalidManualBackupName) {
+			return nil, invalidArg(errCreateBackup.Error())
+		}
+		if errors.Is(errCreateBackup, actions.ErrManualBackupNameAlreadyExists) {
+			return nil, invalidArg(errCreateBackup.Error())
+		}
 		return nil, internalErrf("failed to create backup")
 	}
 

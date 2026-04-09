@@ -80,6 +80,11 @@ type versionRefreshCall struct {
 	done chan struct{}
 }
 
+type backupCreateCall struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
 // VersionResolveOptions controls synchronous versus asynchronous version refresh behavior.
 type VersionResolveOptions struct {
 	ForceRefresh bool
@@ -105,6 +110,8 @@ type Instance struct {
 	versionLatestTTL     time.Duration
 	versionRefreshMu     sync.Mutex
 	versionRefreshCalls  map[string]*versionRefreshCall
+	backupCreateMu       sync.Mutex
+	backupCreateCalls    map[string]*backupCreateCall
 	localNodeID          string
 	restartState         *restartStateMap
 }
@@ -172,6 +179,7 @@ func NewInstance(ctx context.Context, database *db.Connection, supervisorInstanc
 		versionInstalledTTL:  readVersionDurationEnv("XYLONA_VERSION_INSTALLED_TTL", 15*time.Second),
 		versionLatestTTL:     readVersionDurationEnv("XYLONA_VERSION_LATEST_TTL", 2*time.Minute),
 		versionRefreshCalls:  make(map[string]*versionRefreshCall),
+		backupCreateCalls:    make(map[string]*backupCreateCall),
 		restartState:         &restartStateMap{},
 	}
 	go inst.backgroundJobQueryAllGameServers()

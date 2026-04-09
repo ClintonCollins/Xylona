@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -57,6 +58,97 @@ func TestCreateManualBackupRejectsPerServerArchivePathInsideServerTree(t *testin
 	}
 }
 
+func TestCreateManualBackupReturnsPendingBackupBeforeArchiveCompletes(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	errWrite := os.WriteFile(filepath.Join(fixture.gameServer.Directory, "world.txt"), []byte("seed-data"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(world.txt) error = %v", errWrite)
+	}
+
+	started := make(chan struct{}, 1)
+	release := make(chan struct{})
+
+	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
+	writeBackupArchiveFunc = func(serverDirectory string, archivePath string, onProgress backupArchiveProgressFunc, _ backupArchiveCancelFunc) (int64, error) {
+		started <- struct{}{}
+		<-release
+		return previousWriteBackupArchiveFunc(serverDirectory, archivePath, onProgress, nil)
+	}
+	t.Cleanup(func() {
+		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
+	})
+
+	done := make(chan *models.GameServerBackup, 1)
+	errs := make(chan error, 1)
+	go func() {
+		backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
+		if errCreate != nil {
+			errs <- errCreate
+			return
+		}
+		done <- backup
+	}()
+
+	var backup *models.GameServerBackup
+	select {
+	case errCreate := <-errs:
+		t.Fatalf("CreateManualBackup() error = %v", errCreate)
+	case backup = <-done:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("CreateManualBackup() did not return before archive worker completed")
+	}
+
+	if backup.Status != "pending" {
+		t.Fatalf("CreateManualBackup().Status = %q, want %q", backup.Status, "pending")
+	}
+	if backup.SizeBytes != 0 {
+		t.Fatalf("CreateManualBackup().SizeBytes = %d, want %d", backup.SizeBytes, 0)
+	}
+	_, completedAtSet := backup.CompletedAt.Get()
+	if completedAtSet {
+		t.Fatal("CreateManualBackup().CompletedAt was set, want nil while pending")
+	}
+
+	select {
+	case <-started:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("background archive worker did not start")
+	}
+
+	storedPending, errGet := inst.db.GetGameServerBackupByID(backup.ID)
+	if errGet != nil {
+		t.Fatalf("GetGameServerBackupByID(pending) error = %v", errGet)
+	}
+	if storedPending.Status != "pending" {
+		t.Fatalf("stored pending backup status = %q, want %q", storedPending.Status, "pending")
+	}
+
+	close(release)
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		storedCompleted, errStored := inst.db.GetGameServerBackupByID(backup.ID)
+		if errStored != nil {
+			t.Fatalf("GetGameServerBackupByID(completed) error = %v", errStored)
+		}
+		if storedCompleted.Status == "completed" {
+			if storedCompleted.SizeBytes <= 0 {
+				t.Fatalf("completed backup size = %d, want > 0", storedCompleted.SizeBytes)
+			}
+			_, finalCompletedAtSet := storedCompleted.CompletedAt.Get()
+			if !finalCompletedAtSet {
+				t.Fatal("completed backup missing CompletedAt timestamp")
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatal("manual backup did not complete in background")
+}
+
 func TestCreateManualBackupNormalizesWhitespaceInBackupDirectory(t *testing.T) {
 	t.Parallel()
 
@@ -81,7 +173,8 @@ func TestCreateManualBackupNormalizesWhitespaceInBackupDirectory(t *testing.T) {
 	if strings.Contains(backup.ArchivePath, `  `) {
 		t.Fatalf("CreateManualBackup().ArchivePath = %q, want trimmed backup path", backup.ArchivePath)
 	}
-	if _, errStat := os.Stat(backup.ArchivePath); errStat != nil {
+	completedBackup := fixture.waitForBackupCompletion(t, backup.ID)
+	if _, errStat := os.Stat(completedBackup.ArchivePath); errStat != nil {
 		t.Fatalf("Stat(ArchivePath) error = %v", errStat)
 	}
 }
@@ -97,10 +190,7 @@ func TestCreateManualBackupUsesProvidedNameInArchivePath(t *testing.T) {
 		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "Friday Night / Save #1")
-	if errCreate != nil {
-		t.Fatalf("CreateManualBackup() error = %v", errCreate)
-	}
+	backup := fixture.createCompletedManualBackup(t, "Friday Night / Save #1")
 
 	archiveBaseName := filepath.Base(backup.ArchivePath)
 	if archiveBaseName != "Friday-Night-Save-1.zip" {
@@ -144,7 +234,8 @@ func TestCreateManualBackupUsesUniqueArchivePathWhenTimestampCollides(t *testing
 	if _, errStat := os.Stat(existingArchivePath); errStat != nil {
 		t.Fatalf("Stat(existingArchivePath) error = %v", errStat)
 	}
-	if _, errStat := os.Stat(backup.ArchivePath); errStat != nil {
+	completedBackup := fixture.waitForBackupCompletion(t, backup.ID)
+	if _, errStat := os.Stat(completedBackup.ArchivePath); errStat != nil {
 		t.Fatalf("Stat(new ArchivePath) error = %v", errStat)
 	}
 }
@@ -172,6 +263,39 @@ func TestCreateManualBackupRejectsDuplicateProvidedName(t *testing.T) {
 		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
 	}
 
+	firstBackup := fixture.createCompletedManualBackup(t, "Friday Night Save")
+	if filepath.Base(firstBackup.ArchivePath) != "Friday-Night-Save.zip" {
+		t.Fatalf("CreateManualBackup(first).ArchivePath base = %q, want %q", filepath.Base(firstBackup.ArchivePath), "Friday-Night-Save.zip")
+	}
+
+	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "Friday Night Save")
+	if !errors.Is(errCreate, ErrManualBackupNameAlreadyExists) {
+		t.Fatalf("CreateManualBackup(duplicate) error = %v, want %v", errCreate, ErrManualBackupNameAlreadyExists)
+	}
+}
+
+func TestCreateManualBackupRejectsDuplicateProvidedNameWhilePending(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	errWrite := os.WriteFile(filepath.Join(fixture.gameServer.Directory, "state.txt"), []byte("current-state"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
+	}
+
+	started := make(chan struct{}, 1)
+	release := make(chan struct{})
+
+	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
+	writeBackupArchiveFunc = func(serverDirectory string, archivePath string, onProgress backupArchiveProgressFunc, _ backupArchiveCancelFunc) (int64, error) {
+		started <- struct{}{}
+		<-release
+		return previousWriteBackupArchiveFunc(serverDirectory, archivePath, onProgress, nil)
+	}
+	t.Cleanup(func() {
+		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
+	})
+
 	firstBackup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "Friday Night Save")
 	if errCreate != nil {
 		t.Fatalf("CreateManualBackup(first) error = %v", errCreate)
@@ -180,10 +304,19 @@ func TestCreateManualBackupRejectsDuplicateProvidedName(t *testing.T) {
 		t.Fatalf("CreateManualBackup(first).ArchivePath base = %q, want %q", filepath.Base(firstBackup.ArchivePath), "Friday-Night-Save.zip")
 	}
 
+	select {
+	case <-started:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("background archive worker did not start")
+	}
+
 	_, errCreate = inst.CreateManualBackup(fixture.gameServer, fixture.userID, "Friday Night Save")
 	if !errors.Is(errCreate, ErrManualBackupNameAlreadyExists) {
-		t.Fatalf("CreateManualBackup(duplicate) error = %v, want %v", errCreate, ErrManualBackupNameAlreadyExists)
+		t.Fatalf("CreateManualBackup(duplicate pending) error = %v, want %v", errCreate, ErrManualBackupNameAlreadyExists)
 	}
+
+	close(release)
+	fixture.waitForBackupCompletion(t, firstBackup.ID)
 }
 
 func TestResolveUniqueBackupArchivePathFailsAfterMaxAttempts(t *testing.T) {
@@ -293,8 +426,8 @@ func TestCreateManualBackupCreatesZipAndCatalogRow(t *testing.T) {
 	if !backup.RetentionExempt {
 		t.Fatal("CreateManualBackup().RetentionExempt = false, want true")
 	}
-	if backup.Status != "completed" {
-		t.Fatalf("CreateManualBackup().Status = %q, want %q", backup.Status, "completed")
+	if backup.Status != "pending" {
+		t.Fatalf("CreateManualBackup().Status = %q, want %q", backup.Status, "pending")
 	}
 	if backup.NodeID != fixture.nodeID {
 		t.Fatalf("CreateManualBackup().NodeID = %q, want %q", backup.NodeID, fixture.nodeID)
@@ -309,37 +442,50 @@ func TestCreateManualBackupCreatesZipAndCatalogRow(t *testing.T) {
 	if !strings.HasSuffix(filepath.Base(backup.ArchivePath), "-manual.zip") {
 		t.Fatalf("CreateManualBackup().ArchivePath base = %q, want suffix %q", filepath.Base(backup.ArchivePath), "-manual.zip")
 	}
-	if backup.SizeBytes == 0 {
-		t.Fatal("CreateManualBackup().SizeBytes = 0, want > 0")
-	}
-	if runtime.GOOS != "windows" {
-		archiveInfo, errStat := os.Stat(backup.ArchivePath)
-		if errStat != nil {
-			t.Fatalf("Stat(ArchivePath) error = %v", errStat)
-		}
-		if archiveInfo.Mode().Perm() != 0o600 {
-			t.Fatalf("ArchivePath mode = %o, want %o", archiveInfo.Mode().Perm(), 0o600)
-		}
+	if backup.SizeBytes != 0 {
+		t.Fatalf("CreateManualBackup().SizeBytes = %d, want %d", backup.SizeBytes, 0)
 	}
 
-	archiveEntries := readBackupArchiveEntries(t, backup.ArchivePath)
-	if archiveEntries["config/server.properties"] != "motd=Alpha Base\n" {
-		t.Fatalf("archive entry config/server.properties = %q, want %q", archiveEntries["config/server.properties"], "motd=Alpha Base\n")
-	}
-	if archiveEntries["world.txt"] != "seed-data" {
-		t.Fatalf("archive entry world.txt = %q, want %q", archiveEntries["world.txt"], "seed-data")
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		stored, errGet := inst.db.GetGameServerBackupByID(backup.ID)
+		if errGet != nil {
+			t.Fatalf("GetGameServerBackupByID() error = %v", errGet)
+		}
+		if stored.Status != "completed" {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		if runtime.GOOS != "windows" {
+			archiveInfo, errStat := os.Stat(stored.ArchivePath)
+			if errStat != nil {
+				t.Fatalf("Stat(ArchivePath) error = %v", errStat)
+			}
+			if archiveInfo.Mode().Perm() != 0o600 {
+				t.Fatalf("ArchivePath mode = %o, want %o", archiveInfo.Mode().Perm(), 0o600)
+			}
+		}
+
+		archiveEntries := readBackupArchiveEntries(t, stored.ArchivePath)
+		if archiveEntries["config/server.properties"] != "motd=Alpha Base\n" {
+			t.Fatalf("archive entry config/server.properties = %q, want %q", archiveEntries["config/server.properties"], "motd=Alpha Base\n")
+		}
+		if archiveEntries["world.txt"] != "seed-data" {
+			t.Fatalf("archive entry world.txt = %q, want %q", archiveEntries["world.txt"], "seed-data")
+		}
+		if stored.ArchivePath != backup.ArchivePath {
+			t.Fatalf("stored.ArchivePath = %q, want %q", stored.ArchivePath, backup.ArchivePath)
+		}
+		if createdBy, ok := stored.CreatedBy.Get(); !ok || createdBy != fixture.userID {
+			t.Fatalf("stored.CreatedBy = (%q, %v), want (%q, true)", createdBy, ok, fixture.userID)
+		}
+		if stored.SizeBytes == 0 {
+			t.Fatal("completed backup SizeBytes = 0, want > 0")
+		}
+		return
 	}
 
-	stored, errGet := inst.db.GetGameServerBackupByID(backup.ID)
-	if errGet != nil {
-		t.Fatalf("GetGameServerBackupByID() error = %v", errGet)
-	}
-	if stored.ArchivePath != backup.ArchivePath {
-		t.Fatalf("stored.ArchivePath = %q, want %q", stored.ArchivePath, backup.ArchivePath)
-	}
-	if createdBy, ok := stored.CreatedBy.Get(); !ok || createdBy != fixture.userID {
-		t.Fatalf("stored.CreatedBy = (%q, %v), want (%q, true)", createdBy, ok, fixture.userID)
-	}
+	t.Fatal("CreateManualBackup() did not complete within timeout")
 }
 
 func TestImportUploadedBackupCreatesCompletedCatalogRow(t *testing.T) {
@@ -375,7 +521,8 @@ func TestImportUploadedBackupCreatesCompletedCatalogRow(t *testing.T) {
 	if filepath.Base(backup.ArchivePath) != "Friday-Night-Save.zip" {
 		t.Fatalf("ImportUploadedBackup().ArchivePath base = %q, want %q", filepath.Base(backup.ArchivePath), "Friday-Night-Save.zip")
 	}
-	if _, errStat := os.Stat(backup.ArchivePath); errStat != nil {
+	completedBackup := fixture.waitForBackupCompletion(t, backup.ID)
+	if _, errStat := os.Stat(completedBackup.ArchivePath); errStat != nil {
 		t.Fatalf("Stat(ArchivePath) error = %v", errStat)
 	}
 	if _, errStat := os.Stat(uploadedPath); !errors.Is(errStat, os.ErrNotExist) {
@@ -459,32 +606,34 @@ func TestCreateManualBackupCleansUpWhenFinalizationFails(t *testing.T) {
 	broadcaster := &recordingBackupProgressBroadcaster{}
 	inst.SetBackupProgressBroadcaster(broadcaster)
 
-	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
-	if errCreate == nil {
-		t.Fatal("CreateManualBackup() error = nil, want finalization failure")
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
+	if errCreate != nil {
+		t.Fatalf("CreateManualBackup() error = %v", errCreate)
 	}
-	if !strings.Contains(errCreate.Error(), "finalize backup row after archive write") {
-		t.Fatalf("CreateManualBackup() error = %v, want finalization context", errCreate)
-	}
-	if !broadcaster.containsPhase(xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED) {
-		t.Fatalf("backup progress missing failed phase: %v", broadcaster.events)
+	if backup.Status != "pending" {
+		t.Fatalf("CreateManualBackup().Status = %q, want %q", backup.Status, "pending")
 	}
 
-	backups, errList := inst.db.ListGameServerBackupsByGameServerID(fixture.gameServer.ID)
-	if errList != nil {
-		t.Fatalf("ListGameServerBackupsByGameServerID() error = %v", errList)
-	}
-	if len(backups) != 0 {
-		t.Fatalf("ListGameServerBackupsByGameServerID() len = %d, want 0", len(backups))
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		backups, errList := inst.db.ListGameServerBackupsByGameServerID(fixture.gameServer.ID)
+		if errList != nil {
+			t.Fatalf("ListGameServerBackupsByGameServerID() error = %v", errList)
+		}
+		if broadcaster.containsPhase(xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED) && len(backups) == 0 {
+			archivePaths, errGlob := filepath.Glob(filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "*.zip"))
+			if errGlob != nil {
+				t.Fatalf("Glob() error = %v", errGlob)
+			}
+			if len(archivePaths) != 0 {
+				t.Fatalf("remaining backup archives = %v, want none", archivePaths)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
-	archivePaths, errGlob := filepath.Glob(filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "*.zip"))
-	if errGlob != nil {
-		t.Fatalf("Glob() error = %v", errGlob)
-	}
-	if len(archivePaths) != 0 {
-		t.Fatalf("remaining backup archives = %v, want none", archivePaths)
-	}
+	t.Fatalf("backup progress missing failed cleanup phase: %v", broadcaster.events)
 }
 
 func TestCreateManualBackupRemovesArchiveWhenWriteAndReconciliationFail(t *testing.T) {
@@ -497,7 +646,7 @@ func TestCreateManualBackupRemovesArchiveWhenWriteAndReconciliationFail(t *testi
 	}
 
 	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
-	writeBackupArchiveFunc = func(_ string, archivePath string) (int64, error) {
+	writeBackupArchiveFunc = func(_ string, archivePath string, _ backupArchiveProgressFunc, _ backupArchiveCancelFunc) (int64, error) {
 		errMkdir := os.MkdirAll(filepath.Dir(archivePath), 0o750)
 		if errMkdir != nil {
 			return 0, fmt.Errorf("mkdir partial archive dir: %w", errMkdir)
@@ -527,32 +676,34 @@ func TestCreateManualBackupRemovesArchiveWhenWriteAndReconciliationFail(t *testi
 		updateGameServerBackupResult = previousUpdateBackupResult
 	})
 
-	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
-	if errCreate == nil {
-		t.Fatal("CreateManualBackup() error = nil, want archive write failure")
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
+	if errCreate != nil {
+		t.Fatalf("CreateManualBackup() error = %v", errCreate)
 	}
-	if !strings.Contains(errCreate.Error(), "forced archive write failure") {
-		t.Fatalf("CreateManualBackup() error = %v, want archive write failure context", errCreate)
-	}
-	if !strings.Contains(errCreate.Error(), "forced failed reconciliation error") {
-		t.Fatalf("CreateManualBackup() error = %v, want reconciliation failure context", errCreate)
+	if backup.Status != "pending" {
+		t.Fatalf("CreateManualBackup().Status = %q, want %q", backup.Status, "pending")
 	}
 
-	backups, errList := inst.db.ListGameServerBackupsByGameServerID(fixture.gameServer.ID)
-	if errList != nil {
-		t.Fatalf("ListGameServerBackupsByGameServerID() error = %v", errList)
-	}
-	if len(backups) != 0 {
-		t.Fatalf("ListGameServerBackupsByGameServerID() len = %d, want 0", len(backups))
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		backups, errList := inst.db.ListGameServerBackupsByGameServerID(fixture.gameServer.ID)
+		if errList != nil {
+			t.Fatalf("ListGameServerBackupsByGameServerID() error = %v", errList)
+		}
+		if len(backups) == 0 {
+			archivePaths, errGlob := filepath.Glob(filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "*.zip"))
+			if errGlob != nil {
+				t.Fatalf("Glob() error = %v", errGlob)
+			}
+			if len(archivePaths) != 0 {
+				t.Fatalf("remaining backup archives = %v, want none", archivePaths)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
-	archivePaths, errGlob := filepath.Glob(filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "*.zip"))
-	if errGlob != nil {
-		t.Fatalf("Glob() error = %v", errGlob)
-	}
-	if len(archivePaths) != 0 {
-		t.Fatalf("remaining backup archives = %v, want none", archivePaths)
-	}
+	t.Fatal("background create failure did not clean up backup row")
 }
 
 func TestCreateScheduledBackupBroadcastsCoherentProgressSequence(t *testing.T) {
@@ -593,6 +744,7 @@ func TestCreateScheduledBackupBroadcastsCoherentProgressSequence(t *testing.T) {
 	}
 
 	gotPhases := broadcaster.phases()
+	gotPhases = slices.Compact(gotPhases)
 	wantPhases := []xylona.BackupProgressPhase{
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PREPARING,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_ARCHIVING,
@@ -604,6 +756,51 @@ func TestCreateScheduledBackupBroadcastsCoherentProgressSequence(t *testing.T) {
 	}
 	if broadcaster.containsPhase(xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED) {
 		t.Fatalf("backup progress unexpectedly contained failed phase: %v", broadcaster.events)
+	}
+}
+
+func TestCreateScheduledBackupCoalescesArchiveProgressUpdates(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	errWrite := os.WriteFile(filepath.Join(fixture.gameServer.Directory, "state.txt"), []byte("current-state"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
+	}
+
+	broadcaster := &recordingBackupProgressBroadcaster{}
+	inst.SetBackupProgressBroadcaster(broadcaster)
+
+	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
+	writeBackupArchiveFunc = func(_ string, _ string, onProgress backupArchiveProgressFunc, _ backupArchiveCancelFunc) (int64, error) {
+		var sizeBytes int64
+		for range 4096 {
+			sizeBytes += 1024
+			if onProgress != nil {
+				onProgress(sizeBytes)
+			}
+		}
+
+		return sizeBytes, nil
+	}
+	t.Cleanup(func() {
+		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
+	})
+
+	backup, errCreate := inst.CreateScheduledBackup(fixture.gameServer)
+	if errCreate != nil {
+		t.Fatalf("CreateScheduledBackup() error = %v", errCreate)
+	}
+	if backup.SizeBytes != 4096*1024 {
+		t.Fatalf("CreateScheduledBackup().SizeBytes = %d, want %d", backup.SizeBytes, 4096*1024)
+	}
+
+	gotArchivingEvents := broadcaster.phaseCount(xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_ARCHIVING)
+	if gotArchivingEvents > 3 {
+		t.Fatalf("archiving progress events = %d, want at most %d", gotArchivingEvents, 3)
+	}
+	if len(broadcaster.events) > 6 {
+		t.Fatalf("backup progress event count = %d, want at most %d", len(broadcaster.events), 6)
 	}
 }
 
@@ -846,6 +1043,87 @@ func TestDeleteGameServerBackupRejectsBackupFromDifferentNode(t *testing.T) {
 	}
 }
 
+func TestDeleteGameServerBackupCancelsPendingBackup(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	errWrite := os.WriteFile(filepath.Join(fixture.gameServer.Directory, "state.txt"), []byte("current-state"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
+	}
+
+	broadcaster := &recordingBackupProgressBroadcaster{}
+	inst.SetBackupProgressBroadcaster(broadcaster)
+
+	started := make(chan struct{}, 1)
+	cancelObserved := make(chan struct{}, 1)
+
+	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
+	writeBackupArchiveFunc = func(_ string, archivePath string, _ backupArchiveProgressFunc, checkCancel backupArchiveCancelFunc) (int64, error) {
+		errMkdir := os.MkdirAll(filepath.Dir(archivePath), 0o750)
+		if errMkdir != nil {
+			return 0, fmt.Errorf("mkdir partial archive dir: %w", errMkdir)
+		}
+
+		errPartial := os.WriteFile(archivePath, []byte("partial"), 0o600)
+		if errPartial != nil {
+			return 0, fmt.Errorf("write partial archive: %w", errPartial)
+		}
+
+		started <- struct{}{}
+
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			errCancel := checkCancel()
+			if errCancel == nil {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+
+			cancelObserved <- struct{}{}
+			return 0, errCancel
+		}
+
+		return 0, errors.New("backup cancel was not observed")
+	}
+	t.Cleanup(func() {
+		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
+	})
+
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
+	if errCreate != nil {
+		t.Fatalf("CreateManualBackup() error = %v", errCreate)
+	}
+
+	select {
+	case <-started:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("background archive worker did not start")
+	}
+
+	errDelete := inst.DeleteGameServerBackup(fixture.gameServer, backup)
+	if errDelete != nil {
+		t.Fatalf("DeleteGameServerBackup() error = %v", errDelete)
+	}
+
+	select {
+	case <-cancelObserved:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("backup cancel was not observed")
+	}
+
+	_, errGet := inst.db.GetGameServerBackupByID(backup.ID)
+	if !errors.Is(errGet, sql.ErrNoRows) {
+		t.Fatalf("GetGameServerBackupByID() error = %v, want %v", errGet, sql.ErrNoRows)
+	}
+	if _, errStat := os.Stat(backup.ArchivePath); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat(backup.ArchivePath) error = %v, want %v", errStat, os.ErrNotExist)
+	}
+	if broadcaster.containsPhase(xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED) {
+		t.Fatalf("backup progress unexpectedly contained failed phase after cancel: %v", broadcaster.events)
+	}
+}
+
 func TestRestoreGameServerBackupAllowsHistoricalArchiveAfterBackupRootChange(t *testing.T) {
 	t.Parallel()
 
@@ -1082,10 +1360,7 @@ func TestRestoreGameServerBackupExactPreservesEmptyDirectory(t *testing.T) {
 		t.Fatalf("WriteFile(keep.txt) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
-	if errCreate != nil {
-		t.Fatalf("CreateManualBackup() error = %v", errCreate)
-	}
+	backup := fixture.createCompletedManualBackup(t, "")
 
 	errRemove := os.RemoveAll(emptyDirectoryPath)
 	if errRemove != nil {
@@ -1296,10 +1571,7 @@ func TestRestoreGameServerBackupExactReplacesConflictingDestinationTypes(t *test
 		t.Fatalf("WriteFile(file-target.txt) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
-	if errCreate != nil {
-		t.Fatalf("CreateManualBackup() error = %v", errCreate)
-	}
+	backup := fixture.createCompletedManualBackup(t, "")
 
 	errRemove := os.RemoveAll(filepath.Join(fixture.gameServer.Directory, "dir-target"))
 	if errRemove != nil {
@@ -1612,10 +1884,7 @@ func TestRestoreGameServerBackupReplacesExistingFileWithBackedUpContentAndMode(t
 		t.Fatalf("WriteFile(replace.txt original) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
-	if errCreate != nil {
-		t.Fatalf("CreateManualBackup() error = %v", errCreate)
-	}
+	backup := fixture.createCompletedManualBackup(t, "")
 
 	errChmod := os.Chmod(originalPath, 0o600)
 	if errChmod != nil {
@@ -1817,6 +2086,35 @@ func (f backupServiceFixture) createBackupRow(t *testing.T, params db.CreateGame
 	return backup
 }
 
+func (f backupServiceFixture) waitForBackupCompletion(t *testing.T, backupID string) *models.GameServerBackup {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		backup, errGet := f.inst.db.GetGameServerBackupByID(backupID)
+		if errGet == nil {
+			if backup.Status == "completed" {
+				return backup
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("backup %q did not reach status %q within timeout", backupID, "completed")
+	return nil
+}
+
+func (f backupServiceFixture) createCompletedManualBackup(t *testing.T, name string) *models.GameServerBackup {
+	t.Helper()
+
+	backup, errCreate := f.inst.CreateManualBackup(f.gameServer, f.userID, name)
+	if errCreate != nil {
+		t.Fatalf("CreateManualBackup() error = %v", errCreate)
+	}
+
+	return f.waitForBackupCompletion(t, backup.ID)
+}
+
 func createTestZipArchive(t *testing.T, archivePath string, entries map[string]string) {
 	t.Helper()
 
@@ -2010,13 +2308,18 @@ func readBackupArchiveEntries(t *testing.T, archivePath string) map[string]strin
 
 type recordingBackupProgressBroadcaster struct {
 	events []*xylona.BackupProgress
+	mu     sync.Mutex
 }
 
 func (b *recordingBackupProgressBroadcaster) BroadcastBackupProgress(_ string, progress *xylona.BackupProgress) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.events = append(b.events, progress)
 }
 
 func (b *recordingBackupProgressBroadcaster) phases() []xylona.BackupProgressPhase {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	phases := make([]xylona.BackupProgressPhase, 0, len(b.events))
 	for _, event := range b.events {
 		phases = append(phases, event.GetPhase())
@@ -2025,10 +2328,26 @@ func (b *recordingBackupProgressBroadcaster) phases() []xylona.BackupProgressPha
 }
 
 func (b *recordingBackupProgressBroadcaster) containsPhase(phase xylona.BackupProgressPhase) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	for _, event := range b.events {
 		if event.GetPhase() == phase {
 			return true
 		}
 	}
 	return false
+}
+
+func (b *recordingBackupProgressBroadcaster) phaseCount(phase xylona.BackupProgressPhase) int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	count := 0
+	for _, event := range b.events {
+		if event.GetPhase() == phase {
+			count++
+		}
+	}
+
+	return count
 }

@@ -477,6 +477,7 @@ func main() {
 
 	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie, federationMTLS)
 	actionsInst.SetVersionBroadcaster(wsInst)
+	actionsInst.SetBackupProgressBroadcaster(wsInst)
 
 	router := chi.NewRouter()
 	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)

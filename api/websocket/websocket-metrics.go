@@ -484,6 +484,42 @@ func (ws *WebSocket) BroadcastUpdateProgress(serverID string, step xylona.Update
 	}
 }
 
+// BroadcastBackupProgress sends a backup progress event to all connected WebSocket clients
+// that have access to the given server.
+func (ws *WebSocket) BroadcastBackupProgress(serverID string, progress *xylona.BackupProgress) {
+	if progress == nil {
+		return
+	}
+
+	out := &xylona.Message{
+		Type:           xylona.Message_GameServerBackupProgress,
+		BackupProgress: progress,
+	}
+	byteOut, errMarshal := protojson.Marshal(out)
+	if errMarshal != nil {
+		log.Error().Err(errMarshal).Msg("Failed to marshal backup progress message")
+		return
+	}
+
+	ws.userWebsocketConnectionsLock.RLock()
+	defer ws.userWebsocketConnectionsLock.RUnlock()
+
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			if conn.melodySession.IsClosed() {
+				continue
+			}
+			if !conn.hasGameServerAccess(serverID) {
+				continue
+			}
+			errWrite := conn.melodySession.Write(byteOut)
+			if errWrite != nil {
+				log.Debug().Err(errWrite).Msg("Failed to write backup progress update to WebSocket")
+			}
+		}
+	}
+}
+
 // BroadcastServerSoftwareInstall sends a server software install status update
 // to all connected WebSocket clients. Authorization is enforced at the RPC
 // level, so we broadcast to all authenticated connections here -- the frontend

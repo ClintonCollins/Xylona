@@ -131,6 +131,27 @@ func (c *Connection) UpdateGameServerBackupResult(id string, params UpdateGameSe
 	return c.GetGameServerBackupByID(id)
 }
 
+// UpdateGameServerBackupProgress updates the in-flight size for a pending backup row.
+func (c *Connection) UpdateGameServerBackupProgress(id string, sizeBytes int64) (*models.GameServerBackup, error) {
+	setter := &models.GameServerBackupSetter{
+		Status:       omit.From("pending"),
+		SizeBytes:    omit.From(sizeBytes),
+		CompletedAt:  omitnull.FromNull(null.Val[time.Time]{}),
+		ErrorMessage: omitnull.FromNull(null.Val[string]{}),
+	}
+
+	_, errUpdate := models.GameServerBackups.Update(
+		models.UpdateWhere.GameServerBackups.ID.EQ(id),
+		setter.UpdateMod(),
+	).Exec(c.ctx, c.DB)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).Str("id", id).Msg("Error updating game server backup progress")
+		return nil, fmt.Errorf("update game server backup progress: %w", errUpdate)
+	}
+
+	return c.GetGameServerBackupByID(id)
+}
+
 // DeleteGameServerBackup deletes a game server backup row by ID.
 func (c *Connection) DeleteGameServerBackup(id string) error {
 	_, errDelete := models.GameServerBackups.Delete(

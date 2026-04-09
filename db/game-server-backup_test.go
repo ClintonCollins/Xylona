@@ -229,6 +229,44 @@ func TestUpdateGameServerBackupResult(t *testing.T) {
 	}
 }
 
+func TestUpdateGameServerBackupProgress(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "gs-backup-progress.sqlite")
+	seedRBACFixture(t, conn)
+
+	createdAt := time.Date(2026, 4, 1, 9, 0, 0, 0, time.UTC)
+	backup, errCreate := conn.CreateGameServerBackup(CreateGameServerBackupParams{
+		GameServerID:    "server-local-1",
+		NodeID:          "node-local",
+		CreatedBy:       "user-owner",
+		TriggerSource:   "manual",
+		ArchivePath:     "/backups/server-local-1/pending.zip",
+		ArchiveRoot:     "/backups",
+		ArchiveFormat:   "zip",
+		Status:          "pending",
+		SizeBytes:       0,
+		RetentionExempt: true,
+		CreatedAt:       createdAt,
+	})
+	if errCreate != nil {
+		t.Fatalf("CreateGameServerBackup() error = %v", errCreate)
+	}
+
+	updated, errUpdate := conn.UpdateGameServerBackupProgress(backup.ID, 4096)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServerBackupProgress() error = %v", errUpdate)
+	}
+	if updated.Status != "pending" {
+		t.Errorf("UpdateGameServerBackupProgress().Status = %q, want %q", updated.Status, "pending")
+	}
+	if updated.SizeBytes != 4096 {
+		t.Errorf("UpdateGameServerBackupProgress().SizeBytes = %d, want %d", updated.SizeBytes, 4096)
+	}
+	_, completedAtSet := updated.CompletedAt.Get()
+	if completedAtSet {
+		t.Error("UpdateGameServerBackupProgress().CompletedAt was set, want nil")
+	}
+}
+
 func TestDeleteGameServerBackup(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "gs-backup-delete.sqlite")
 	seedRBACFixture(t, conn)

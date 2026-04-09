@@ -223,6 +223,85 @@ func TestCreateGameServerBackupRejectsUnsafeBackupDirectory(t *testing.T) {
 	}
 }
 
+func TestCreateGameServerBackupUsesRequestedBackupName(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	serverDir := filepath.Join(t.TempDir(), "server-local-1")
+	backupRoot := filepath.Join(t.TempDir(), "backups")
+
+	errMkdirServer := os.MkdirAll(serverDir, 0o750)
+	if errMkdirServer != nil {
+		t.Fatalf("MkdirAll(serverDir) error = %v", errMkdirServer)
+	}
+	errMkdirBackup := os.MkdirAll(backupRoot, 0o750)
+	if errMkdirBackup != nil {
+		t.Fatalf("MkdirAll(backupRoot) error = %v", errMkdirBackup)
+	}
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		Directory:       omit.From(serverDir),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From(backupRoot),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(),
+		fixture.conn,
+		supervisorInst,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	request := connect.NewRequest(&xylona.CreateGameServerBackupRequest{
+		GameServerId: "server-local-1",
+		BackupName:   "Friday Night Save",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errCreate := fixture.service.CreateGameServerBackup(context.Background(), request)
+	if errCreate != nil {
+		t.Fatalf("CreateGameServerBackup() error = %v", errCreate)
+	}
+	if response.Msg.GetBackup() == nil {
+		t.Fatal("CreateGameServerBackup().Backup = nil")
+	}
+	if filepath.Base(response.Msg.GetBackup().GetArchivePath()) != "Friday-Night-Save.zip" {
+		t.Fatalf(
+			"CreateGameServerBackup().Backup.ArchivePath base = %q, want %q",
+			filepath.Base(response.Msg.GetBackup().GetArchivePath()),
+			"Friday-Night-Save.zip",
+		)
+	}
+}
+
+func TestCreateGameServerBackupRejectsInvalidBackupName(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.CreateGameServerBackupRequest{
+		GameServerId: "server-local-1",
+		BackupName:   "!!!",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errCreate := fixture.service.CreateGameServerBackup(context.Background(), request)
+	if errCreate == nil {
+		t.Fatal("CreateGameServerBackup() error = nil, want invalid argument")
+	}
+	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+		t.Fatalf("CreateGameServerBackup() code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+	}
+}
+
 func TestGetGameServerRedactsBackupDirectoryForNonSuperuser(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 

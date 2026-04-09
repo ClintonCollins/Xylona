@@ -44,11 +44,13 @@ const restoringBackupId = ref('')
 const restoreTarget = ref<GameServerBackup | null>(null)
 const showRestoreDialog = ref(false)
 const latestProgress = ref<BackupProgress | null>(null)
+const progressByBackupId = ref<Record<string, BackupProgress>>({})
 const showUploadBackupDialog = ref(false)
 const uploadingBackup = ref(false)
 const uploadProgress = ref(0)
 const uploadError = ref('')
 const uploadFile = ref<File | null>(null)
+const materializingBackupIds = new Set<string>()
 
 const columns = [
   {
@@ -76,19 +78,22 @@ const columns = [
     field: (row: GameServerBackup) => formatBackupSize(row.sizeBytes),
     align: 'left' as const,
     sortable: true,
+    style: 'width: 8.5rem',
   },
   {
     name: 'createdAt',
     label: 'Completed',
-    field: (row: GameServerBackup) => formatTimestamp(row.completedAt ?? row.createdAt),
+    field: (row: GameServerBackup) => formatCompletedTimestamp(row),
     align: 'left' as const,
     sortable: true,
+    style: 'width: 11rem',
   },
   {
     name: 'actions',
     label: 'Actions',
     field: '',
     align: 'right' as const,
+    style: 'width: 7rem',
   },
 ]
 
@@ -179,14 +184,32 @@ const stateAlertMessage = computed(() => {
 
 const latestProgressTitle = computed(() => {
   if (latestProgress.value?.operation === BackupProgressOperation.RESTORE) {
-    return 'Restore in Progress'
+    return 'Restore running'
   }
 
-  return 'Backup in Progress'
+  return 'Backup running'
 })
 
 const latestProgressPhaseLabel = computed(() => {
   return formatProgressPhase(latestProgress.value?.phase ?? BackupProgressPhase.UNSPECIFIED)
+})
+
+const activeBackup = computed(() => {
+  const progress = latestProgress.value
+  if (!progress) {
+    return null
+  }
+
+  return backups.value.find((backup) => backup.id === progress.backupId) ?? null
+})
+
+const activeProgressArchiveName = computed(() => {
+  const backup = activeBackup.value
+  if (!backup) {
+    return ''
+  }
+
+  return archiveFileName(backup.archivePath)
 })
 
 const progressIsTerminal = computed(() => {
@@ -198,6 +221,10 @@ const progressIsTerminal = computed(() => {
   return (
     progress.phase === BackupProgressPhase.COMPLETE || progress.phase === BackupProgressPhase.FAILED
   )
+})
+
+const showLiveProgressStrip = computed(() => {
+  return latestProgress.value !== null && !progressIsTerminal.value
 })
 
 onMounted(async () => {
@@ -240,7 +267,23 @@ async function loadBackups(): Promise<void> {
       gameServerId: gameServerId.value,
     }),
   )
-  backups.value = response.backups
+  const currentBackupIds = new Set(response.backups.map((backup) => backup.id))
+  const nextProgressByBackupId = { ...progressByBackupId.value }
+  for (const backupId of Object.keys(nextProgressByBackupId)) {
+    if (!currentBackupIds.has(backupId)) {
+      delete nextProgressByBackupId[backupId]
+    }
+  }
+  backups.value = response.backups.map((backup) => {
+    if (backup.status !== GameServerBackupStatus.PENDING) {
+      delete nextProgressByBackupId[backup.id]
+    }
+    return mergeBackupWithProgress(backup)
+  })
+  progressByBackupId.value = nextProgressByBackupId
+  if (latestProgress.value && !currentBackupIds.has(latestProgress.value.backupId)) {
+    latestProgress.value = null
+  }
 }
 
 async function loadBackupSettings(): Promise<void> {
@@ -263,6 +306,20 @@ function onBackupProgress(progress: BackupProgress): void {
   }
 
   latestProgress.value = progress
+  progressByBackupId.value = {
+    ...progressByBackupId.value,
+    [progress.backupId]: progress,
+  }
+
+  const existingBackup = backups.value.find((backup) => backup.id === progress.backupId)
+  if (existingBackup) {
+    upsertBackupRow(mergeBackupWithProgress(existingBackup))
+  } else if (!materializingBackupIds.has(progress.backupId)) {
+    materializingBackupIds.add(progress.backupId)
+    void loadBackups().finally(() => {
+      materializingBackupIds.delete(progress.backupId)
+    })
+  }
 
   if (
     progress.phase === BackupProgressPhase.COMPLETE ||
@@ -274,19 +331,41 @@ function onBackupProgress(progress: BackupProgress): void {
 }
 
 async function createBackup(): Promise<void> {
+  $q.dialog({
+    title: 'Create Backup',
+    message: 'Name this manual backup. Leave it blank to use a timestamped archive name.',
+    prompt: {
+      model: '',
+      type: 'text',
+      outlined: true,
+    },
+    cancel: { flat: true, label: 'Cancel' },
+    ok: { color: 'primary', label: 'Start Backup' },
+    persistent: true,
+  }).onOk(async (backupName: string) => {
+    await submitBackupCreate(backupName)
+  })
+}
+
+async function submitBackupCreate(backupName: string): Promise<void> {
   creatingBackup.value = true
   try {
     const response = await GetXylonaClient().createGameServerBackup(
       create(CreateGameServerBackupRequestSchema, {
         gameServerId: gameServerId.value,
+        backupName: backupName.trim(),
       }),
     )
-    await loadBackups()
+    if (response.backup) {
+      upsertBackupRow(response.backup)
+    } else {
+      await loadBackups()
+    }
     $q.notify({
       type: 'xylona-success',
       caption: response.backup
-        ? `Backup created: ${archiveFileName(response.backup.archivePath)}`
-        : 'Backup created',
+        ? `Backup started: ${archiveFileName(response.backup.archivePath)}`
+        : 'Backup started',
       position: 'top',
       timeout: 3000,
     })
@@ -353,6 +432,8 @@ function confirmDelete(backup: GameServerBackup): void {
           backupId: backup.id,
         }),
       )
+      clearBackupProgress(backup.id)
+      backups.value = backups.value.filter((currentBackup) => currentBackup.id !== backup.id)
       await loadBackups()
       $q.notify({
         type: 'xylona-success',
@@ -514,6 +595,76 @@ function formatBackupSize(sizeBytes: bigint): string {
   return bytesToSize(numericSize)
 }
 
+function progressForBackup(backup: GameServerBackup): BackupProgress | null {
+  return progressByBackupId.value[backup.id] ?? null
+}
+
+function isActiveBackup(backup: GameServerBackup): boolean {
+  return latestProgress.value?.backupId === backup.id && backup.status === GameServerBackupStatus.PENDING
+}
+
+function mergeBackupWithProgress(backup: GameServerBackup): GameServerBackup {
+  const progress = progressForBackup(backup)
+  if (!progress) {
+    return backup
+  }
+
+  const mergedBackup = {
+    ...backup,
+    sizeBytes: progress.sizeBytes > backup.sizeBytes ? progress.sizeBytes : backup.sizeBytes,
+  }
+
+  if (backup.status !== GameServerBackupStatus.PENDING) {
+    return mergedBackup
+  }
+
+  if (progress.phase === BackupProgressPhase.COMPLETE) {
+    return {
+      ...mergedBackup,
+      status: GameServerBackupStatus.COMPLETED,
+    }
+  }
+  if (progress.phase === BackupProgressPhase.FAILED) {
+    return {
+      ...mergedBackup,
+      status: GameServerBackupStatus.FAILED,
+    }
+  }
+
+  return mergedBackup
+}
+
+function upsertBackupRow(backup: GameServerBackup): void {
+  const mergedBackup = mergeBackupWithProgress(backup)
+  const existingIndex = backups.value.findIndex((currentBackup) => currentBackup.id === mergedBackup.id)
+  if (existingIndex === -1) {
+    backups.value = [mergedBackup, ...backups.value]
+    return
+  }
+
+  backups.value = backups.value.map((currentBackup, index) =>
+    index === existingIndex ? mergedBackup : currentBackup,
+  )
+}
+
+function clearBackupProgress(backupId: string): void {
+  const nextProgressByBackupId = { ...progressByBackupId.value }
+  delete nextProgressByBackupId[backupId]
+  progressByBackupId.value = nextProgressByBackupId
+
+  if (latestProgress.value?.backupId === backupId) {
+    latestProgress.value = null
+  }
+}
+
+function formatCompletedTimestamp(backup: GameServerBackup): string {
+  if (backup.status === GameServerBackupStatus.PENDING) {
+    return '-'
+  }
+
+  return formatTimestamp(backup.completedAt)
+}
+
 function formatSource(triggerSource: GameServerBackupTriggerSource): string {
   switch (triggerSource) {
     case GameServerBackupTriggerSource.MANUAL:
@@ -523,6 +674,18 @@ function formatSource(triggerSource: GameServerBackupTriggerSource): string {
     default:
       return 'Unknown'
   }
+}
+
+function sourceCopy(backup: GameServerBackup): string {
+  if (backup.retentionExempt) {
+    return 'Never auto-pruned'
+  }
+
+  if (backup.triggerSource === GameServerBackupTriggerSource.SCHEDULED) {
+    return 'Managed by schedule retention'
+  }
+
+  return ''
 }
 
 function formatStatus(status: GameServerBackupStatus): string {
@@ -549,6 +712,39 @@ function statusColor(status: GameServerBackupStatus): string {
     default:
       return 'grey'
   }
+}
+
+function statusLabel(backup: GameServerBackup): string {
+  const progress = progressForBackup(backup)
+  if (progress && backup.status === GameServerBackupStatus.PENDING) {
+    return formatProgressPhase(progress.phase)
+  }
+
+  return formatStatus(backup.status)
+}
+
+function statusBadgeColor(backup: GameServerBackup): string {
+  const progress = progressForBackup(backup)
+  if (progress && backup.status === GameServerBackupStatus.PENDING) {
+    if (progress.phase === BackupProgressPhase.FAILED) {
+      return 'negative'
+    }
+    if (progress.phase === BackupProgressPhase.COMPLETE) {
+      return 'positive'
+    }
+    return 'warning'
+  }
+
+  return statusColor(backup.status)
+}
+
+function statusCopy(backup: GameServerBackup): string {
+  const progress = progressForBackup(backup)
+  if (progress?.message && backup.status === GameServerBackupStatus.PENDING) {
+    return progress.message
+  }
+
+  return backup.errorMessage ?? ''
 }
 
 function formatProgressPhase(phase: BackupProgressPhase): string {
@@ -633,26 +829,21 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       </q-card-section>
     </q-card>
 
-    <q-card v-if="latestProgress" flat bordered class="backups-page__section">
-      <q-card-section class="backups-page__progress">
-        <div class="backups-page__section-title">{{ latestProgressTitle }}</div>
-        <div class="backups-page__progress-meta">
-          {{ latestProgressPhaseLabel }} · {{ latestProgress.percent }}%
+    <div v-if="showLiveProgressStrip" class="backups-page__live-strip">
+      <div class="backups-page__live-dot" aria-hidden="true"></div>
+      <div class="backups-page__live-copy">
+        <div class="backups-page__live-title">{{ latestProgressTitle }}</div>
+        <div v-if="activeProgressArchiveName" class="backups-page__live-archive">
+          {{ activeProgressArchiveName }}
         </div>
-        <q-linear-progress
-          rounded
-          size="10px"
-          color="accent"
-          track-color="dark"
-          :value="Math.max(0, Math.min(1, latestProgress.percent / 100))" />
-        <div class="backups-page__progress-copy">
-          {{ latestProgress.message || 'Working on the selected backup operation.' }}
+        <div class="backups-page__live-meta">
+          <span class="backups-page__live-phase">{{ latestProgressPhaseLabel }}</span>
+          <span class="backups-page__live-message">
+            {{ latestProgress.message || 'Working on the selected backup operation.' }}
+          </span>
         </div>
-        <div v-if="progressIsTerminal" class="backups-page__progress-terminal">
-          Latest update received from the server.
-        </div>
-      </q-card-section>
-    </q-card>
+      </div>
+    </div>
 
     <q-card flat bordered class="backups-page__section">
       <q-card-section class="backups-page__section-header">
@@ -679,8 +870,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         class="xy-standalone-table"
         no-data-label="No backups yet. Manual and scheduled backups will appear here.">
         <template #body-cell-archive="props">
-          <q-td :props="props">
-            <div class="backups-page__archive-cell">
+          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+            <div class="backups-page__archive-cell" :class="{ 'backups-page__archive-cell--active': isActiveBackup(props.row) }">
               <div class="backups-page__archive-name">
                 {{ archiveFileName(props.row.archivePath) }}
               </div>
@@ -690,41 +881,51 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         </template>
 
         <template #body-cell-source="props">
-          <q-td :props="props">
-            <div class="row items-center no-wrap">
-              <q-badge outline color="secondary" :label="formatSource(props.row.triggerSource)" />
-              <span v-if="props.row.retentionExempt" class="backups-page__retention-copy">
-                Manual backups are never auto-pruned
+          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+            <div class="backups-page__meta-cell">
+              <q-badge
+                outline
+                color="secondary"
+                class="backups-page__meta-badge"
+                :label="formatSource(props.row.triggerSource)" />
+              <span v-if="sourceCopy(props.row)" class="backups-page__source-copy">
+                {{ sourceCopy(props.row) }}
               </span>
             </div>
           </q-td>
         </template>
 
         <template #body-cell-status="props">
-          <q-td :props="props">
+          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
             <div class="backups-page__status-cell">
               <q-badge
-                :color="statusColor(props.row.status)"
-                :label="formatStatus(props.row.status)" />
-              <div v-if="props.row.errorMessage" class="backups-page__status-copy">
-                {{ props.row.errorMessage }}
+                class="backups-page__status-badge"
+                :color="statusBadgeColor(props.row)"
+                :label="statusLabel(props.row)" />
+              <div v-if="statusCopy(props.row)" class="backups-page__status-copy">
+                {{ statusCopy(props.row) }}
               </div>
             </div>
           </q-td>
         </template>
 
         <template #body-cell-size="props">
-          <q-td :props="props">{{ formatBackupSize(props.row.sizeBytes) }}</q-td>
+          <q-td
+            :props="props"
+            class="backups-page__size-cell"
+            :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+            {{ formatBackupSize(props.row.sizeBytes) }}
+          </q-td>
         </template>
 
         <template #body-cell-createdAt="props">
-          <q-td :props="props">{{
-            formatTimestamp(props.row.completedAt ?? props.row.createdAt)
-          }}</q-td>
+          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+            {{ formatCompletedTimestamp(props.row) }}
+          </q-td>
         </template>
 
         <template #body-cell-actions="props">
-          <q-td :props="props">
+          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
             <a
               v-if="props.row.status === GameServerBackupStatus.COMPLETED"
               :href="backupDownloadHref(props.row)"
@@ -915,20 +1116,88 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   text-decoration: none;
 }
 
-.backups-page__progress {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+.backups-page__live-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 16%, var(--xy-border));
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--xy-accent) 7%, transparent), transparent 38%),
+    color-mix(in srgb, var(--xy-surface-2) 75%, transparent);
 }
 
-.backups-page__progress-meta,
-.backups-page__progress-copy,
-.backups-page__progress-terminal {
+.backups-page__live-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--xy-accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--xy-accent) 34%, transparent);
+  animation: backups-page-live-pulse 1.6s ease-out infinite;
+}
+
+.backups-page__live-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.backups-page__live-title {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-display);
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.backups-page__live-archive {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--xy-text-secondary) 92%, var(--xy-accent) 8%);
+  font-family: var(--xy-font-body);
+  font-size: 0.88rem;
+}
+
+.backups-page__live-meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem 0.85rem;
   color: var(--xy-text-muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.backups-page__live-phase {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--xy-warning) 28%, var(--xy-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--xy-warning) 10%, transparent);
+  color: color-mix(in srgb, var(--xy-warning) 78%, var(--xy-text-primary));
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.backups-page__live-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .backups-page__archive-cell,
-.backups-page__status-cell {
+.backups-page__status-cell,
+.backups-page__meta-cell {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -936,13 +1205,80 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
 .backups-page__archive-name {
   color: var(--xy-text-primary);
+  line-height: 1.35;
+}
+
+.backups-page__archive-cell--active {
+  position: relative;
+  padding-left: 0.9rem;
+}
+
+.backups-page__archive-cell--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  bottom: 0.15rem;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--xy-accent), color-mix(in srgb, var(--xy-accent) 30%, transparent));
 }
 
 .backups-page__archive-path,
 .backups-page__status-copy,
-.backups-page__retention-copy {
+.backups-page__source-copy {
   color: var(--xy-text-muted);
   font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.backups-page__archive-path {
+  overflow-wrap: anywhere;
+}
+
+.backups-page__meta-badge,
+.backups-page__status-badge {
+  align-self: flex-start;
+}
+
+.backups-page__cell--active {
+  background: color-mix(in srgb, var(--xy-accent) 5%, transparent);
+}
+
+.backups-page__status-cell {
+  min-width: 15rem;
+}
+
+.backups-page__status-copy {
+  max-width: 18rem;
+}
+
+.backups-page__size-cell {
+  min-width: 8.5rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+:deep(.xy-standalone-table th),
+:deep(.xy-standalone-table td) {
+  vertical-align: top;
+}
+
+@keyframes backups-page-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--xy-accent) 38%, transparent);
+    opacity: 0.95;
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--xy-accent) 0%, transparent);
+    opacity: 1;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--xy-accent) 0%, transparent);
+    opacity: 0.95;
+  }
 }
 
 .backups-page__upload-dialog {
@@ -975,10 +1311,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   font-size: 0.9rem;
 }
 
-.backups-page__retention-copy {
-  margin-left: 0.5rem;
-}
-
 @media (max-width: 900px) {
   .backups-page__section-header {
     flex-direction: column;
@@ -987,6 +1319,36 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
   .backups-page__schedule-link {
     width: 100%;
+  }
+
+  .backups-page__live-strip {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .backups-page__live-dot {
+    display: none;
+  }
+
+  .backups-page__live-archive {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .backups-page__live-meta {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+
+  .backups-page__live-message {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .backups-page__status-cell {
+    min-width: 0;
   }
 }
 </style>

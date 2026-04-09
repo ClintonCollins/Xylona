@@ -2,6 +2,7 @@ package actions
 
 import (
 	"archive/zip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -20,6 +22,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+type backupArchiveProgressFunc func(sizeBytes int64)
+
 const (
 	// DefaultScheduledBackupRetention is the scheduled-backup keep count used
 	// when a server has no explicit retention configured.
@@ -27,12 +31,14 @@ const (
 	maxBackupArchiveResolveAttempts = 1000
 	maxBackupExtractEntrySizeBytes  = 8 << 30
 	maxManualBackupNameLength       = 80
+	backupProgressUpdateInterval    = 750 * time.Millisecond
 )
 
 var (
 	errBackupsDisabled              = errors.New("backups are disabled for this game server")
 	errBackupDirectoryNotConfigured = errors.New("backup directory is not configured for this game server")
 	errBackupDirectoryInsideServer  = errors.New("backup directory cannot be inside the game server directory")
+	errBackupCreateCancelled        = errors.New("backup creation cancelled")
 	errBackupRestoreRequiresOffline = errors.New("game server must be offline to restore a backup")
 	errBackupNodeMismatch           = errors.New("backup belongs to a different node")
 	errBackupNotCompleted           = errors.New("backup is not completed")
@@ -73,6 +79,12 @@ var (
 	) (*models.GameServerBackup, error) {
 		return conn.UpdateGameServerBackupResult(backupID, params)
 	}
+	updateGameServerBackupProgress = func(conn *db.Connection, backupID string, sizeBytes int64) (*models.GameServerBackup, error) {
+		return conn.UpdateGameServerBackupProgress(backupID, sizeBytes)
+	}
+	listGameServerBackupsByGameServerID = func(conn *db.Connection, gameServerID string) ([]*models.GameServerBackup, error) {
+		return conn.ListGameServerBackupsByGameServerID(gameServerID)
+	}
 	deleteGameServerBackupRow = func(conn *db.Connection, backupID string) error {
 		return conn.DeleteGameServerBackup(backupID)
 	}
@@ -92,19 +104,13 @@ func ValidateManualBackupName(name string) error {
 
 // CreateManualBackup writes a zip archive and records a retention-exempt manual backup row.
 func (inst *Instance) CreateManualBackup(gameServer *models.GameServer, createdBy string, name string) (*models.GameServerBackup, error) {
-	backup, errCreate := inst.createBackup(gameServer, "manual", createdBy, true, name)
+	backup, errCreate := inst.prepareBackup(gameServer, "manual", createdBy, true, name)
 	if errCreate != nil {
 		return nil, errCreate
 	}
 
-	inst.broadcastBackupProgress(
-		gameServer.ID,
-		backup.ID,
-		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
-		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
-		100,
-		"Backup complete",
-	)
+	backupCtx, backupDone := inst.registerBackupCreate(backup.ID)
+	go inst.completeManualBackup(backupCtx, backupDone, gameServer, backup)
 
 	return backup, nil
 }
@@ -147,6 +153,12 @@ func (inst *Instance) ImportUploadedBackup(
 	)
 	if errArchivePath != nil {
 		return nil, fmt.Errorf("actions: resolve imported backup archive path: %w", errArchivePath)
+	}
+	if archiveBaseName != "" {
+		errEnsurePath := ensureBackupArchivePathAvailable(inst.db, gameServer.ID, archivePath)
+		if errEnsurePath != nil {
+			return nil, errEnsurePath
+		}
 	}
 
 	parentDir := filepath.Dir(archivePath)
@@ -196,9 +208,14 @@ func (inst *Instance) ImportUploadedBackup(
 
 // CreateScheduledBackup writes a zip archive and prunes older scheduled artifacts beyond retention.
 func (inst *Instance) CreateScheduledBackup(gameServer *models.GameServer) (*models.GameServerBackup, error) {
-	backup, errCreate := inst.createBackup(gameServer, "scheduled", "", false, "")
+	backup, errCreate := inst.prepareBackup(gameServer, "scheduled", "", false, "")
 	if errCreate != nil {
 		return nil, errCreate
+	}
+
+	completedBackup, errComplete := inst.executeBackupCreate(inst.ctx, gameServer, backup)
+	if errComplete != nil {
+		return nil, errComplete
 	}
 
 	keepCount := int(gameServer.MaxBackups)
@@ -208,35 +225,38 @@ func (inst *Instance) CreateScheduledBackup(gameServer *models.GameServer) (*mod
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
-		backup.ID,
+		completedBackup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PRUNING,
 		90,
+		completedBackup.SizeBytes,
 		"Pruning scheduled backups",
 	)
 	errPrune := inst.pruneScheduledBackups(gameServer, keepCount)
 	if errPrune != nil {
 		inst.broadcastBackupProgress(
 			gameServer.ID,
-			backup.ID,
+			completedBackup.ID,
 			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
 			100,
+			completedBackup.SizeBytes,
 			"Failed to prune scheduled backups",
 		)
-		return backup, errPrune
+		return completedBackup, errPrune
 	}
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
-		backup.ID,
+		completedBackup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
 		100,
+		completedBackup.SizeBytes,
 		"Backup complete",
 	)
 
-	return backup, nil
+	return completedBackup, nil
 }
 
 // DeleteGameServerBackup deletes a backup row and its archive when it belongs to the current server node.
@@ -246,6 +266,11 @@ func (inst *Instance) DeleteGameServerBackup(gameServer *models.GameServer, back
 	}
 	if backup.GameServerID != gameServer.ID {
 		return fmt.Errorf("actions: backup does not belong to game server %s", gameServer.ID)
+	}
+
+	backupDone := inst.cancelBackupCreate(backup.ID)
+	if backupDone != nil {
+		<-backupDone
 	}
 
 	archivePath, errArchivePath := resolveValidatedBackupArchivePath(gameServer, backup)
@@ -266,7 +291,7 @@ func (inst *Instance) DeleteGameServerBackup(gameServer *models.GameServer, back
 	return nil
 }
 
-func (inst *Instance) createBackup(
+func (inst *Instance) prepareBackup(
 	gameServer *models.GameServer,
 	triggerSource string,
 	createdBy string,
@@ -282,6 +307,13 @@ func (inst *Instance) createBackup(
 	archivePath, errPath := resolveUniqueBackupArchivePath(backupDirectory, gameServer.ID, now, triggerSource, backupName)
 	if errPath != nil {
 		return nil, fmt.Errorf("actions: resolve backup archive path: %w", errPath)
+	}
+	trimmedBackupName := strings.TrimSpace(backupName)
+	if trimmedBackupName != "" {
+		errEnsurePath := ensureBackupArchivePathAvailable(inst.db, gameServer.ID, archivePath)
+		if errEnsurePath != nil {
+			return nil, errEnsurePath
+		}
 	}
 	backup, errCreateRow := createGameServerBackupRow(inst.db, db.CreateGameServerBackupParams{
 		GameServerID:    gameServer.ID,
@@ -301,16 +333,53 @@ func (inst *Instance) createBackup(
 		return nil, fmt.Errorf("actions: create backup row: %w", errCreateRow)
 	}
 
+	return backup, nil
+}
+
+func (inst *Instance) completeManualBackup(backupCtx context.Context, backupDone func(), gameServer *models.GameServer, backup *models.GameServerBackup) {
+	if inst == nil || gameServer == nil || backup == nil {
+		return
+	}
+	if backupDone != nil {
+		defer backupDone()
+	}
+
+	completedBackup, errComplete := inst.executeBackupCreate(backupCtx, gameServer, backup)
+	if errComplete != nil {
+		if errors.Is(errComplete, errBackupCreateCancelled) {
+			return
+		}
+		log.Error().
+			Err(errComplete).
+			Str("game_server_id", gameServer.ID).
+			Str("backup_id", backup.ID).
+			Msg("Manual backup failed in background")
+		return
+	}
+
+	inst.broadcastBackupProgress(
+		gameServer.ID,
+		completedBackup.ID,
+		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
+		100,
+		completedBackup.SizeBytes,
+		"Backup complete",
+	)
+}
+
+func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer *models.GameServer, backup *models.GameServerBackup) (*models.GameServerBackup, error) {
 	inst.broadcastBackupProgress(
 		gameServer.ID,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PREPARING,
 		5,
+		0,
 		"Preparing backup archive",
 	)
 
-	parentDir := filepath.Dir(archivePath)
+	parentDir := filepath.Dir(backup.ArchivePath)
 	errMkdir := os.MkdirAll(parentDir, 0o750)
 	if errMkdir != nil {
 		return nil, inst.failBackupCreate(backup, gameServer.ID, fmt.Errorf("actions: create backup directory: %w", errMkdir))
@@ -322,12 +391,23 @@ func (inst *Instance) createBackup(
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_ARCHIVING,
 		50,
+		0,
 		"Archiving game server files",
 	)
-	sizeBytes, errArchive := writeBackupArchiveFunc(gameServer.Directory, archivePath)
+
+	progressReporter := newBackupProgressReporter(inst, gameServer.ID, backup.ID)
+
+	sizeBytes, errArchive := writeBackupArchiveFunc(gameServer.Directory, backup.ArchivePath, progressReporter.Observe, func() error {
+		return backupCreateCancelErr(backupCtx)
+	})
 	if errArchive != nil {
+		progressReporter.Abort()
+		if errors.Is(errArchive, errBackupCreateCancelled) {
+			return nil, errBackupCreateCancelled
+		}
 		return nil, inst.failBackupCreate(backup, gameServer.ID, errArchive)
 	}
+	progressReporter.Close(sizeBytes)
 
 	completedAt := time.Now().UTC()
 	updatedBackup, errUpdate := updateGameServerBackupResult(inst.db, backup.ID, db.UpdateGameServerBackupResultParams{
@@ -379,6 +459,7 @@ func (inst *Instance) RestoreGameServerBackup(
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PREPARING,
 		5,
+		backup.SizeBytes,
 		"Preparing backup restore",
 	)
 
@@ -391,6 +472,7 @@ func (inst *Instance) RestoreGameServerBackup(
 			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
 			100,
+			backup.SizeBytes,
 			"Restore failed",
 		)
 		return fmt.Errorf("actions: create restore staging directory: %w", errTemp)
@@ -405,6 +487,7 @@ func (inst *Instance) RestoreGameServerBackup(
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_STAGING,
 		45,
+		backup.SizeBytes,
 		"Extracting backup archive",
 	)
 	errExtract := extractBackupArchive(archivePath, stagingDir)
@@ -415,6 +498,7 @@ func (inst *Instance) RestoreGameServerBackup(
 			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
 			100,
+			backup.SizeBytes,
 			"Restore failed",
 		)
 		return errExtract
@@ -426,6 +510,7 @@ func (inst *Instance) RestoreGameServerBackup(
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_APPLYING,
 		80,
+		backup.SizeBytes,
 		"Applying backup contents",
 	)
 	errApply := applyBackupRestore(stagingDir, gameServer.Directory, restoreMode)
@@ -436,6 +521,7 @@ func (inst *Instance) RestoreGameServerBackup(
 			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
 			100,
+			backup.SizeBytes,
 			"Restore failed",
 		)
 		return errApply
@@ -447,6 +533,7 @@ func (inst *Instance) RestoreGameServerBackup(
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
 		100,
+		backup.SizeBytes,
 		"Restore complete",
 	)
 
@@ -636,6 +723,48 @@ func resolveUniqueBackupArchivePath(
 	return "", fmt.Errorf("exhausted backup archive path candidates after %d attempts", maxBackupArchiveResolveAttempts)
 }
 
+func ensureBackupArchivePathAvailable(conn *db.Connection, gameServerID string, archivePath string) error {
+	backups, errList := listGameServerBackupsByGameServerID(conn, gameServerID)
+	if errList != nil {
+		return fmt.Errorf("actions: list backups while checking archive path: %w", errList)
+	}
+	if backupArchivePathClaimed(backups, archivePath) {
+		return ErrManualBackupNameAlreadyExists
+	}
+
+	return nil
+}
+
+func backupArchivePathClaimed(backups []*models.GameServerBackup, archivePath string) bool {
+	if len(backups) == 0 {
+		return false
+	}
+
+	resolvedArchivePath, errArchivePath := resolvePathForComparison(archivePath)
+	if errArchivePath != nil {
+		resolvedArchivePath = filepath.Clean(strings.TrimSpace(archivePath))
+	}
+
+	for _, backup := range backups {
+		if backup == nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(backup.Status), "failed") {
+			continue
+		}
+
+		resolvedExistingPath, errExistingPath := resolvePathForComparison(backup.ArchivePath)
+		if errExistingPath != nil {
+			resolvedExistingPath = filepath.Clean(strings.TrimSpace(backup.ArchivePath))
+		}
+		if strings.EqualFold(resolvedArchivePath, resolvedExistingPath) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func normalizeManualBackupName(name string) (string, error) {
 	trimmedName := strings.TrimSpace(name)
 	if trimmedName == "" {
@@ -745,16 +874,32 @@ func isWindowsReservedArchiveBaseName(name string) bool {
 	}
 }
 
-func writeBackupArchive(serverDirectory string, archivePath string) (int64, error) {
+type backupArchiveCancelFunc func() error
+
+func writeBackupArchive(serverDirectory string, archivePath string, onProgress backupArchiveProgressFunc, checkCancel backupArchiveCancelFunc) (int64, error) {
 	outputFile, errCreate := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if errCreate != nil {
 		return 0, fmt.Errorf("actions: create backup archive: %w", errCreate)
 	}
 
-	zipWriter := zip.NewWriter(outputFile)
+	archiveWriter := io.Writer(outputFile)
+	if onProgress != nil {
+		archiveWriter = &countingWriter{
+			writer: outputFile,
+			onWrite: func(sizeBytes int64) {
+				onProgress(sizeBytes)
+			},
+		}
+	}
+
+	zipWriter := zip.NewWriter(archiveWriter)
 	cleanServerDirectory := filepath.Clean(serverDirectory)
 	cleanArchivePath := filepath.Clean(archivePath)
 	errWalk := filepath.WalkDir(cleanServerDirectory, func(currentPath string, entry fs.DirEntry, walkErr error) error {
+		errCancel := checkBackupArchiveCancelled(checkCancel)
+		if errCancel != nil {
+			return errCancel
+		}
 		if walkErr != nil {
 			return fmt.Errorf("actions: walk backup source: %w", walkErr)
 		}
@@ -790,7 +935,7 @@ func writeBackupArchive(serverDirectory string, archivePath string) (int64, erro
 			return nil
 		}
 
-		return addFileToZipArchive(zipWriter, cleanCurrentPath, archiveEntryPath, info)
+		return addFileToZipArchive(zipWriter, cleanCurrentPath, archiveEntryPath, info, checkCancel)
 	})
 
 	errCloseZip := zipWriter.Close()
@@ -811,6 +956,250 @@ func writeBackupArchive(serverDirectory string, archivePath string) (int64, erro
 	}
 
 	return archiveInfo.Size(), nil
+}
+
+func checkBackupArchiveCancelled(checkCancel backupArchiveCancelFunc) error {
+	if checkCancel == nil {
+		return nil
+	}
+
+	errCancel := checkCancel()
+	if errCancel != nil {
+		return errCancel
+	}
+
+	return nil
+}
+
+type countingWriter struct {
+	writer  io.Writer
+	total   int64
+	onWrite func(sizeBytes int64)
+}
+
+func (w *countingWriter) Write(p []byte) (int, error) {
+	written, errWrite := w.writer.Write(p)
+	if written > 0 {
+		w.total += int64(written)
+		if w.onWrite != nil {
+			w.onWrite(w.total)
+		}
+	}
+
+	if errWrite != nil {
+		return written, fmt.Errorf("write counted bytes: %w", errWrite)
+	}
+
+	return written, nil
+}
+
+type cancelableReader struct {
+	reader      io.Reader
+	checkCancel backupArchiveCancelFunc
+}
+
+func (r *cancelableReader) Read(p []byte) (int, error) {
+	errCancel := checkBackupArchiveCancelled(r.checkCancel)
+	if errCancel != nil {
+		return 0, errCancel
+	}
+
+	readBytes, errRead := r.reader.Read(p)
+	if readBytes > 0 {
+		errCancel = checkBackupArchiveCancelled(r.checkCancel)
+		if errCancel != nil {
+			return readBytes, errCancel
+		}
+	}
+
+	if errRead != nil {
+		if errors.Is(errRead, io.EOF) {
+			return readBytes, io.EOF
+		}
+		return readBytes, fmt.Errorf("read cancelable backup stream: %w", errRead)
+	}
+
+	return readBytes, nil
+}
+
+type backupProgressReporter struct {
+	inst         *Instance
+	gameServerID string
+	backupID     string
+	mu           sync.Mutex
+	latestBytes  int64
+	flushedBytes int64
+	closed       bool
+	flushOnStop  bool
+	stopCh       chan struct{}
+	doneCh       chan struct{}
+}
+
+func newBackupProgressReporter(inst *Instance, gameServerID string, backupID string) *backupProgressReporter {
+	reporter := &backupProgressReporter{
+		inst:         inst,
+		gameServerID: gameServerID,
+		backupID:     backupID,
+		stopCh:       make(chan struct{}),
+		doneCh:       make(chan struct{}),
+	}
+
+	go reporter.run()
+
+	return reporter
+}
+
+func (r *backupProgressReporter) Observe(sizeBytes int64) {
+	if sizeBytes <= 0 {
+		return
+	}
+
+	r.mu.Lock()
+	if sizeBytes > r.latestBytes {
+		r.latestBytes = sizeBytes
+	}
+	r.mu.Unlock()
+}
+
+func (r *backupProgressReporter) Close(finalSizeBytes int64) {
+	r.shutdown(true, finalSizeBytes)
+}
+
+func (r *backupProgressReporter) Abort() {
+	r.shutdown(false, 0)
+}
+
+func (r *backupProgressReporter) shutdown(flush bool, finalSizeBytes int64) {
+	if r == nil {
+		return
+	}
+
+	if flush {
+		r.Observe(finalSizeBytes)
+	}
+
+	r.mu.Lock()
+	if r.closed {
+		doneCh := r.doneCh
+		r.mu.Unlock()
+		<-doneCh
+		return
+	}
+	r.closed = true
+	r.flushOnStop = flush
+	close(r.stopCh)
+	doneCh := r.doneCh
+	r.mu.Unlock()
+
+	<-doneCh
+}
+
+func (r *backupProgressReporter) run() {
+	ticker := time.NewTicker(backupProgressUpdateInterval)
+	defer ticker.Stop()
+	defer close(r.doneCh)
+
+	for {
+		select {
+		case <-ticker.C:
+			r.flush()
+		case <-r.stopCh:
+			if r.shouldFlushOnStop() {
+				r.flush()
+			}
+			return
+		}
+	}
+}
+
+func (r *backupProgressReporter) shouldFlushOnStop() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.flushOnStop
+}
+
+func (r *backupProgressReporter) flush() {
+	r.mu.Lock()
+	latestBytes := r.latestBytes
+	if latestBytes <= r.flushedBytes {
+		r.mu.Unlock()
+		return
+	}
+	r.flushedBytes = latestBytes
+	r.mu.Unlock()
+
+	_, errUpdate := updateGameServerBackupProgress(r.inst.db, r.backupID, latestBytes)
+	if errUpdate != nil {
+		log.Error().
+			Err(errUpdate).
+			Str("backup_id", r.backupID).
+			Msg("Failed to persist in-flight backup progress")
+	}
+
+	r.inst.broadcastBackupProgress(
+		r.gameServerID,
+		r.backupID,
+		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_ARCHIVING,
+		50,
+		latestBytes,
+		"Archiving game server files",
+	)
+}
+
+func backupCreateCancelErr(backupCtx context.Context) error {
+	if backupCtx == nil {
+		return nil
+	}
+
+	errCtx := backupCtx.Err()
+	if errCtx != nil {
+		return errors.Join(errBackupCreateCancelled, errCtx)
+	}
+
+	return nil
+}
+
+func (inst *Instance) registerBackupCreate(backupID string) (context.Context, func()) {
+	if inst == nil {
+		return context.Background(), nil
+	}
+
+	backupCtx, cancelBackup := context.WithCancel(inst.ctx)
+	call := &backupCreateCall{
+		cancel: cancelBackup,
+		done:   make(chan struct{}),
+	}
+
+	inst.backupCreateMu.Lock()
+	inst.backupCreateCalls[backupID] = call
+	inst.backupCreateMu.Unlock()
+
+	return backupCtx, func() {
+		cancelBackup()
+		inst.backupCreateMu.Lock()
+		delete(inst.backupCreateCalls, backupID)
+		close(call.done)
+		inst.backupCreateMu.Unlock()
+	}
+}
+
+func (inst *Instance) cancelBackupCreate(backupID string) <-chan struct{} {
+	if inst == nil {
+		return nil
+	}
+
+	inst.backupCreateMu.Lock()
+	call := inst.backupCreateCalls[backupID]
+	inst.backupCreateMu.Unlock()
+	if call == nil {
+		return nil
+	}
+
+	call.cancel()
+
+	return call.done
 }
 
 func moveUploadedBackupArchive(sourcePath string, destinationPath string) error {
@@ -888,7 +1277,12 @@ func addDirectoryToZipArchive(zipWriter *zip.Writer, archiveEntryPath string, in
 	return nil
 }
 
-func addFileToZipArchive(zipWriter *zip.Writer, sourcePath string, archiveEntryPath string, info fs.FileInfo) error {
+func addFileToZipArchive(zipWriter *zip.Writer, sourcePath string, archiveEntryPath string, info fs.FileInfo, checkCancel backupArchiveCancelFunc) error {
+	errCancel := checkBackupArchiveCancelled(checkCancel)
+	if errCancel != nil {
+		return errCancel
+	}
+
 	header, errHeader := zip.FileInfoHeader(info)
 	if errHeader != nil {
 		return fmt.Errorf("actions: create zip header: %w", errHeader)
@@ -909,7 +1303,10 @@ func addFileToZipArchive(zipWriter *zip.Writer, sourcePath string, archiveEntryP
 		_ = sourceFile.Close()
 	}()
 
-	_, errCopy := io.Copy(archiveWriter, sourceFile)
+	_, errCopy := io.Copy(archiveWriter, &cancelableReader{
+		reader:      sourceFile,
+		checkCancel: checkCancel,
+	})
 	if errCopy != nil {
 		return fmt.Errorf("actions: write zip entry: %w", errCopy)
 	}
@@ -1598,6 +1995,7 @@ func (inst *Instance) handleBackupFinalizationFailure(
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
 		100,
+		backup.SizeBytes,
 		"Backup failed",
 	)
 
@@ -1657,6 +2055,7 @@ func (inst *Instance) failBackupCreate(backup *models.GameServerBackup, gameServ
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
 		100,
+		backup.SizeBytes,
 		"Backup failed",
 	)
 
@@ -1669,6 +2068,7 @@ func (inst *Instance) broadcastBackupProgress(
 	operation xylona.BackupProgressOperation,
 	phase xylona.BackupProgressPhase,
 	percent int32,
+	sizeBytes int64,
 	message string,
 ) {
 	if inst == nil || inst.backupBroadcaster == nil {
@@ -1681,6 +2081,7 @@ func (inst *Instance) broadcastBackupProgress(
 		Operation:    operation,
 		Phase:        phase,
 		Percent:      percent,
+		SizeBytes:    sizeBytes,
 		Message:      message,
 	})
 }

@@ -51,11 +51,18 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 	for _, gameServer := range gameServers {
 		gs := gameServer
 		errGroup.Go(func() error {
-			gameServerCmd, errGetCommand := inst.supervisorInstance.GetCommandByID(gs.ID)
-			if errGetCommand != nil {
+			if inst.supervisorInstance == nil {
 				gs.Status = xylona.Status_OFFLINE.String()
 			} else {
-				gs.Status = gameServerCmd.Status().String()
+				gameServerCmd, errGetCommand := inst.supervisorInstance.GetCommandByID(gs.ID)
+				if errGetCommand != nil {
+					gs.Status = xylona.Status_OFFLINE.String()
+				} else {
+					gs.Status = gameServerCmd.Status().String()
+				}
+			}
+			if gs.Status == "" {
+				gs.Status = xylona.Status_OFFLINE.String()
 			}
 			switch getQueryInfoType(gs.R.Game) {
 			case xylona.ServerQuery_Minecraft:

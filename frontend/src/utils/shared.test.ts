@@ -377,6 +377,7 @@ describe('dispatchWebsocketMessage', () => {
           operation: BackupProgressOperation.CREATE,
           phase: BackupProgressPhase.ARCHIVING,
           percent: 52,
+          sizeBytes: 2048n,
           message: 'Archiving world data',
         },
       }),
@@ -390,6 +391,7 @@ describe('dispatchWebsocketMessage', () => {
         operation: BackupProgressOperation.CREATE,
         phase: BackupProgressPhase.ARCHIVING,
         percent: 52,
+        sizeBytes: 2048n,
         message: 'Archiving world data',
       }),
     )
