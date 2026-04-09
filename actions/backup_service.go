@@ -26,6 +26,7 @@ const (
 	DefaultScheduledBackupRetention = 5
 	maxBackupArchiveResolveAttempts = 1000
 	maxBackupExtractEntrySizeBytes  = 8 << 30
+	maxManualBackupNameLength       = 80
 )
 
 var (
@@ -36,9 +37,16 @@ var (
 	errBackupNodeMismatch           = errors.New("backup belongs to a different node")
 	errBackupNotCompleted           = errors.New("backup is not completed")
 	errUnsupportedBackupArchive     = errors.New("unsupported backup archive format")
+	errInvalidUploadedBackupArchive = errors.New("backup archive is invalid")
 	errInvalidBackupArchivePath     = errors.New("invalid backup archive path")
-	errRestoreDestinationSymlink    = errors.New("restore destination contains a symlink")
-	backupRestoreUserFacingErrors   = []error{
+	// ErrInvalidManualBackupName reports a manual backup name that cannot be
+	// safely turned into an archive filename.
+	ErrInvalidManualBackupName = errors.New("backup name is invalid")
+	// ErrManualBackupNameAlreadyExists reports that a manual backup name maps to
+	// an archive filename that already exists for the server.
+	ErrManualBackupNameAlreadyExists = errors.New("backup name already exists")
+	errRestoreDestinationSymlink     = errors.New("restore destination contains a symlink")
+	backupRestoreUserFacingErrors    = []error{
 		errBackupsDisabled,
 		errBackupRestoreRequiresOffline,
 		errBackupNodeMismatch,
@@ -75,9 +83,16 @@ func DefaultBackupDirectory() string {
 	return filepath.Join(DefaultInstallPath(), "backups")
 }
 
+// ValidateManualBackupName checks whether a user-supplied manual backup name can
+// be safely converted into an archive filename.
+func ValidateManualBackupName(name string) error {
+	_, errNormalize := normalizeManualBackupName(name)
+	return errNormalize
+}
+
 // CreateManualBackup writes a zip archive and records a retention-exempt manual backup row.
-func (inst *Instance) CreateManualBackup(gameServer *models.GameServer, createdBy string) (*models.GameServerBackup, error) {
-	backup, errCreate := inst.createBackup(gameServer, "manual", createdBy, true)
+func (inst *Instance) CreateManualBackup(gameServer *models.GameServer, createdBy string, name string) (*models.GameServerBackup, error) {
+	backup, errCreate := inst.createBackup(gameServer, "manual", createdBy, true, name)
 	if errCreate != nil {
 		return nil, errCreate
 	}
@@ -94,9 +109,94 @@ func (inst *Instance) CreateManualBackup(gameServer *models.GameServer, createdB
 	return backup, nil
 }
 
+// ImportUploadedBackup validates and imports an uploaded zip archive into the managed backup catalog.
+func (inst *Instance) ImportUploadedBackup(
+	gameServer *models.GameServer,
+	createdBy string,
+	uploadedArchivePath string,
+	originalFilename string,
+) (*models.GameServerBackup, error) {
+	backupDirectory, errValidate := validateBackupCreateSettings(gameServer)
+	if errValidate != nil {
+		return nil, errValidate
+	}
+
+	fileExtension := filepath.Ext(strings.TrimSpace(originalFilename))
+	if !strings.EqualFold(fileExtension, ".zip") {
+		return nil, errUnsupportedBackupArchive
+	}
+
+	errValidateArchive := validateUploadedBackupArchive(uploadedArchivePath)
+	if errValidateArchive != nil {
+		return nil, errValidateArchive
+	}
+
+	archiveBaseName := strings.TrimSpace(strings.TrimSuffix(filepath.Base(originalFilename), fileExtension))
+	errValidateName := ValidateManualBackupName(archiveBaseName)
+	if errValidateName != nil {
+		archiveBaseName = ""
+	}
+
+	now := backupNowFunc().UTC()
+	archivePath, errArchivePath := resolveUniqueBackupArchivePath(
+		backupDirectory,
+		gameServer.ID,
+		now,
+		"manual",
+		archiveBaseName,
+	)
+	if errArchivePath != nil {
+		return nil, fmt.Errorf("actions: resolve imported backup archive path: %w", errArchivePath)
+	}
+
+	parentDir := filepath.Dir(archivePath)
+	errMkdir := os.MkdirAll(parentDir, 0o750)
+	if errMkdir != nil {
+		return nil, fmt.Errorf("actions: create imported backup directory: %w", errMkdir)
+	}
+
+	archiveInfo, errStat := os.Stat(uploadedArchivePath)
+	if errStat != nil {
+		return nil, fmt.Errorf("actions: stat uploaded backup archive: %w", errStat)
+	}
+
+	errMove := moveUploadedBackupArchive(uploadedArchivePath, archivePath)
+	if errMove != nil {
+		return nil, fmt.Errorf("actions: move uploaded backup archive: %w", errMove)
+	}
+
+	completedAt := now
+	backup, errCreateRow := createGameServerBackupRow(inst.db, db.CreateGameServerBackupParams{
+		GameServerID:    gameServer.ID,
+		NodeID:          gameServer.NodeID,
+		CreatedBy:       createdBy,
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     backupDirectory,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       archiveInfo.Size(),
+		RetentionExempt: true,
+		CreatedAt:       now,
+		CompletedAt:     &completedAt,
+	})
+	if errCreateRow != nil {
+		errRemoveArchive := os.Remove(archivePath)
+		if errRemoveArchive != nil && !errors.Is(errRemoveArchive, os.ErrNotExist) {
+			return nil, errors.Join(
+				fmt.Errorf("actions: create imported backup row: %w", errCreateRow),
+				fmt.Errorf("actions: remove imported backup archive after row failure: %w", errRemoveArchive),
+			)
+		}
+		return nil, fmt.Errorf("actions: create imported backup row: %w", errCreateRow)
+	}
+
+	return backup, nil
+}
+
 // CreateScheduledBackup writes a zip archive and prunes older scheduled artifacts beyond retention.
 func (inst *Instance) CreateScheduledBackup(gameServer *models.GameServer) (*models.GameServerBackup, error) {
-	backup, errCreate := inst.createBackup(gameServer, "scheduled", "", false)
+	backup, errCreate := inst.createBackup(gameServer, "scheduled", "", false, "")
 	if errCreate != nil {
 		return nil, errCreate
 	}
@@ -171,6 +271,7 @@ func (inst *Instance) createBackup(
 	triggerSource string,
 	createdBy string,
 	retentionExempt bool,
+	backupName string,
 ) (*models.GameServerBackup, error) {
 	backupDirectory, errValidate := validateBackupCreateSettings(gameServer)
 	if errValidate != nil {
@@ -178,7 +279,7 @@ func (inst *Instance) createBackup(
 	}
 
 	now := backupNowFunc().UTC()
-	archivePath, errPath := resolveUniqueBackupArchivePath(backupDirectory, gameServer.ID, now, triggerSource)
+	archivePath, errPath := resolveUniqueBackupArchivePath(backupDirectory, gameServer.ID, now, triggerSource, backupName)
 	if errPath != nil {
 		return nil, fmt.Errorf("actions: resolve backup archive path: %w", errPath)
 	}
@@ -392,6 +493,11 @@ func validateBackupRestoreSettings(inst *Instance, gameServer *models.GameServer
 	return nil
 }
 
+// ResolveManagedBackupArchivePath resolves and validates a backup archive path for callers outside this package.
+func ResolveManagedBackupArchivePath(gameServer *models.GameServer, backup *models.GameServerBackup) (string, error) {
+	return resolveValidatedBackupArchivePath(gameServer, backup)
+}
+
 func resolveValidatedBackupArchivePath(gameServer *models.GameServer, backup *models.GameServerBackup) (string, error) {
 	if backup == nil {
 		return "", errInvalidBackupArchivePath
@@ -449,10 +555,36 @@ func isGameServerOffline(inst *Instance, gameServer *models.GameServer) bool {
 	return strings.EqualFold(gameServer.Status, xylona.Status_OFFLINE.String())
 }
 
-func buildBackupArchivePath(backupDirectory string, gameServerID string, now time.Time, triggerSource string) string {
+func buildBackupArchivePath(
+	backupDirectory string,
+	gameServerID string,
+	now time.Time,
+	triggerSource string,
+	backupName string,
+) (string, error) {
+	fileName, errFileName := buildBackupArchiveFileName(now, triggerSource, backupName)
+	if errFileName != nil {
+		return "", errFileName
+	}
+
+	return filepath.Join(buildBackupArchiveDirectory(backupDirectory, gameServerID), fileName), nil
+}
+
+func buildBackupArchiveFileName(now time.Time, triggerSource string, backupName string) (string, error) {
 	timestamp := now.UTC().Format("20060102T150405.000000000Z")
-	fileName := timestamp + "-" + triggerSource + ".zip"
-	return filepath.Join(buildBackupArchiveDirectory(backupDirectory, gameServerID), fileName)
+	normalizedName, errNormalize := normalizeManualBackupName(backupName)
+	if errNormalize != nil {
+		return "", errNormalize
+	}
+	if normalizedName == "" {
+		return timestamp + "-" + triggerSource + ".zip", nil
+	}
+
+	if strings.EqualFold(filepath.Ext(normalizedName), ".zip") {
+		return normalizedName, nil
+	}
+
+	return normalizedName + ".zip", nil
 }
 
 func buildBackupArchiveDirectory(backupDirectory string, gameServerID string) string {
@@ -464,8 +596,24 @@ func resolveUniqueBackupArchivePath(
 	gameServerID string,
 	now time.Time,
 	triggerSource string,
+	backupName string,
 ) (string, error) {
-	basePath := buildBackupArchivePath(backupDirectory, gameServerID, now, triggerSource)
+	basePath, errBasePath := buildBackupArchivePath(backupDirectory, gameServerID, now, triggerSource, backupName)
+	if errBasePath != nil {
+		return "", errBasePath
+	}
+	if strings.TrimSpace(backupName) != "" {
+		_, errStat := os.Stat(basePath)
+		if errors.Is(errStat, os.ErrNotExist) {
+			return basePath, nil
+		}
+		if errStat != nil {
+			return "", fmt.Errorf("stat backup archive candidate: %w", errStat)
+		}
+
+		return "", ErrManualBackupNameAlreadyExists
+	}
+
 	baseDirectory := filepath.Dir(basePath)
 	baseName := strings.TrimSuffix(filepath.Base(basePath), ".zip")
 
@@ -486,6 +634,115 @@ func resolveUniqueBackupArchivePath(
 	}
 
 	return "", fmt.Errorf("exhausted backup archive path candidates after %d attempts", maxBackupArchiveResolveAttempts)
+}
+
+func normalizeManualBackupName(name string) (string, error) {
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		return "", nil
+	}
+
+	var builder strings.Builder
+	builder.Grow(len(trimmedName))
+	lastSeparator := false
+
+	for _, currentRune := range trimmedName {
+		if isAllowedManualBackupNameRune(currentRune) {
+			builder.WriteRune(currentRune)
+			lastSeparator = false
+			continue
+		}
+		if !lastSeparator {
+			builder.WriteByte('-')
+			lastSeparator = true
+		}
+	}
+
+	normalizedName := strings.Trim(builder.String(), " .-_")
+	if len(normalizedName) > maxManualBackupNameLength {
+		normalizedName = strings.Trim(normalizedName[:maxManualBackupNameLength], " .-_")
+	}
+	if normalizedName == "" {
+		return "", ErrInvalidManualBackupName
+	}
+	if isWindowsReservedArchiveBaseName(normalizedName) {
+		normalizedName += "-backup"
+	}
+
+	return normalizedName, nil
+}
+
+func validateUploadedBackupArchive(uploadedArchivePath string) error {
+	archiveReader, errOpen := zip.OpenReader(uploadedArchivePath)
+	if errOpen != nil {
+		return errInvalidUploadedBackupArchive
+	}
+	defer func() {
+		_ = archiveReader.Close()
+	}()
+
+	for _, file := range archiveReader.File {
+		_, errValidate := validateBackupZipEntryPath(file.Name)
+		if errValidate != nil {
+			return errInvalidUploadedBackupArchive
+		}
+		if file.UncompressedSize64 > uint64(maxBackupExtractEntrySizeBytes) {
+			return errInvalidUploadedBackupArchive
+		}
+
+		fileInfo := file.FileInfo()
+		if fileInfo.IsDir() {
+			continue
+		}
+
+		archiveFile, errOpenFile := file.Open()
+		if errOpenFile != nil {
+			return errInvalidUploadedBackupArchive
+		}
+
+		limitedArchiveReader := io.LimitReader(archiveFile, maxBackupExtractEntrySizeBytes+1)
+		bytesCopied, errCopy := io.Copy(io.Discard, limitedArchiveReader)
+		errCloseArchiveFile := archiveFile.Close()
+		if bytesCopied > maxBackupExtractEntrySizeBytes || errCopy != nil || errCloseArchiveFile != nil {
+			return errInvalidUploadedBackupArchive
+		}
+	}
+
+	return nil
+}
+
+func isAllowedManualBackupNameRune(currentRune rune) bool {
+	switch {
+	case currentRune >= 'a' && currentRune <= 'z':
+		return true
+	case currentRune >= 'A' && currentRune <= 'Z':
+		return true
+	case currentRune >= '0' && currentRune <= '9':
+		return true
+	case currentRune == '-':
+		return true
+	case currentRune == '_':
+		return true
+	case currentRune == '.':
+		return true
+	default:
+		return false
+	}
+}
+
+func isWindowsReservedArchiveBaseName(name string) bool {
+	upperName := strings.ToUpper(strings.TrimSpace(strings.TrimSuffix(name, filepath.Ext(name))))
+
+	switch upperName {
+	case "CON", "PRN", "AUX", "NUL":
+		return true
+	case "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9":
+		return true
+	case "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
+		return true
+	default:
+		return false
+	}
 }
 
 func writeBackupArchive(serverDirectory string, archivePath string) (int64, error) {
@@ -554,6 +811,56 @@ func writeBackupArchive(serverDirectory string, archivePath string) (int64, erro
 	}
 
 	return archiveInfo.Size(), nil
+}
+
+func moveUploadedBackupArchive(sourcePath string, destinationPath string) error {
+	errRename := os.Rename(sourcePath, destinationPath)
+	if errRename == nil {
+		return nil
+	}
+
+	sourceFile, errOpenSource := os.Open(sourcePath)
+	if errOpenSource != nil {
+		return fmt.Errorf("open uploaded archive: %w", errOpenSource)
+	}
+	defer func() {
+		_ = sourceFile.Close()
+	}()
+
+	destinationFile, errCreateDestination := os.OpenFile(destinationPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if errCreateDestination != nil {
+		return fmt.Errorf("create destination archive: %w", errCreateDestination)
+	}
+
+	_, errCopy := io.Copy(destinationFile, sourceFile)
+	errCloseDestination := destinationFile.Close()
+	if errCopy != nil {
+		errRemoveDestination := os.Remove(destinationPath)
+		if errRemoveDestination != nil && !errors.Is(errRemoveDestination, os.ErrNotExist) {
+			return errors.Join(
+				fmt.Errorf("copy uploaded archive: %w", errCopy),
+				fmt.Errorf("remove partial destination archive: %w", errRemoveDestination),
+			)
+		}
+		return fmt.Errorf("copy uploaded archive: %w", errCopy)
+	}
+	if errCloseDestination != nil {
+		errRemoveDestination := os.Remove(destinationPath)
+		if errRemoveDestination != nil && !errors.Is(errRemoveDestination, os.ErrNotExist) {
+			return errors.Join(
+				fmt.Errorf("close destination archive: %w", errCloseDestination),
+				fmt.Errorf("remove destination archive after close failure: %w", errRemoveDestination),
+			)
+		}
+		return fmt.Errorf("close destination archive: %w", errCloseDestination)
+	}
+
+	errRemoveSource := os.Remove(sourcePath)
+	if errRemoveSource != nil {
+		return fmt.Errorf("remove uploaded temp archive: %w", errRemoveSource)
+	}
+
+	return nil
 }
 
 func cleanupPartialBackupArchive(archivePath string, cause error) error {

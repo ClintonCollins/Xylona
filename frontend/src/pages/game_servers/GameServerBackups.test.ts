@@ -1,9 +1,12 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
+import axios from 'axios'
 import { defineComponent } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  type BackupSettings,
+  BackupSettingsSchema,
   type GameServerBackup,
   type GameServerBackupOverview,
   GameServerBackupOverviewSchema,
@@ -17,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   notify: vi.fn(),
   dialog: vi.fn(),
   getGameServerBackupOverview: vi.fn(),
+  getBackupSettings: vi.fn(),
   listGameServerBackups: vi.fn(),
   createGameServerBackup: vi.fn(),
   deleteGameServerBackup: vi.fn(),
@@ -24,6 +28,10 @@ const mocks = vi.hoisted(() => ({
   eventOn: vi.fn(),
   eventOff: vi.fn(),
 }))
+
+vi.mock('axios')
+
+const mockedAxios = vi.mocked(axios, true)
 
 vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
@@ -39,6 +47,7 @@ vi.mock('quasar', async () => {
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
     getGameServerBackupOverview: mocks.getGameServerBackupOverview,
+    getBackupSettings: mocks.getBackupSettings,
     listGameServerBackups: mocks.listGameServerBackups,
     createGameServerBackup: mocks.createGameServerBackup,
     deleteGameServerBackup: mocks.deleteGameServerBackup,
@@ -88,7 +97,25 @@ const QBtnStub = defineComponent({
   },
   emits: ['click'],
   template:
-    '<button :disabled="disable || loading" @click="$emit(\'click\')">{{ label || icon }}<slot /></button>',
+    '<button v-bind="$attrs" :disabled="disable || loading" @click="$emit(\'click\')">{{ label || icon }}<slot /></button>',
+})
+
+const QDialogStub = defineComponent({
+  name: 'QDialogStub',
+  props: {
+    modelValue: { type: Boolean, default: false },
+  },
+  template: '<div v-if="modelValue" class="q-dialog-stub"><slot /></div>',
+})
+
+const QInputStub = defineComponent({
+  name: 'QInputStub',
+  props: {
+    modelValue: { type: String, default: '' },
+  },
+  emits: ['update:modelValue'],
+  template:
+    '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 })
 
 function makeOverview(overrides: Partial<GameServerBackupOverview> = {}) {
@@ -100,6 +127,16 @@ function makeOverview(overrides: Partial<GameServerBackupOverview> = {}) {
     backupDirectoryConfigured: true,
     scheduledBackupCount: 0,
     disabledReason: '',
+    ...overrides,
+  })
+}
+
+function makeBackupSettings(overrides: Partial<BackupSettings> = {}) {
+  return create(BackupSettingsSchema, {
+    backupsEnabled: true,
+    backupDirectory: 'C:\\backups',
+    maxBackups: 5n,
+    defaultBackupDirectory: 'C:\\backups',
     ...overrides,
   })
 }
@@ -134,8 +171,9 @@ function mountBackups() {
         'q-card': { template: '<div class="q-card-stub"><slot /></div>' },
         'q-card-actions': { template: '<div class="q-card-actions-stub"><slot /></div>' },
         'q-card-section': { template: '<div class="q-card-section-stub"><slot /></div>' },
-        'q-dialog': { template: '<div class="q-dialog-stub"><slot /></div>' },
+        'q-dialog': QDialogStub,
         'q-icon': { template: '<i class="q-icon-stub" />' },
+        'q-input': QInputStub,
         'q-linear-progress': { template: '<div class="q-linear-progress-stub" />' },
         'q-separator': { template: '<hr />' },
         'q-table': QTableStub,
@@ -156,6 +194,10 @@ describe('GameServerBackups', () => {
     mocks.dialog.mockReturnValue({
       onOk: () => undefined,
     })
+    mocks.getBackupSettings.mockResolvedValue({
+      settings: makeBackupSettings(),
+    })
+    mockedAxios.post.mockReset()
   })
 
   afterEach(() => {
@@ -199,6 +241,12 @@ describe('GameServerBackups', () => {
     expect(wrapper.text()).toContain('server-20260406.zip')
     expect(wrapper.text()).toContain('Manual')
     expect(wrapper.text()).toContain('Completed')
+    expect(wrapper.get('[data-testid="backup-history-summary"]').text()).toContain(
+      '1 / 5 backups stored',
+    )
+    expect(wrapper.get('[data-testid="backup-history-summary"]').text()).toContain(
+      '1024 Bytes total',
+    )
   })
 
   it('creates a manual backup from the page action', async () => {
@@ -216,19 +264,84 @@ describe('GameServerBackups', () => {
     const wrapper = mountBackups()
     await flushPromises()
 
-    const createButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Create Backup'))
-    expect(createButton).toBeDefined()
-    if (!createButton) {
-      throw new Error('Create Backup button not found')
-    }
-    await createButton.trigger('click')
+    await wrapper.get('[data-testid="open-create-backup-dialog"]').trigger('click')
     await flushPromises()
 
     expect(mocks.createGameServerBackup).toHaveBeenCalledTimes(1)
     expect(mocks.createGameServerBackup.mock.calls[0][0]).toMatchObject({
       gameServerId: 'test-server-123',
     })
+  })
+
+  it('renders a download link for completed backups', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview(),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({
+      backups: [makeBackup()],
+    })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    const downloadLink = wrapper.get('[data-testid="download-backup-backup-1"]')
+    expect(downloadLink.attributes('href')).toBe('/api/backups/download/test-server-123/backup-1')
+  })
+
+  it('uploads a backup archive and refreshes backup history', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview(),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
+    mockedAxios.post.mockResolvedValueOnce({ status: 201, data: '' } as never)
+    mocks.listGameServerBackups.mockResolvedValueOnce({
+      backups: [makeBackup()],
+    })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="open-upload-backup-dialog"]').trigger('click')
+    const file = new File(['backup-bytes'], 'Friday Night Save.zip', { type: 'application/zip' })
+    const input = wrapper.get('[data-testid="upload-backup-file-input"]')
+    Object.defineProperty(input.element, 'files', {
+      value: [file],
+      configurable: true,
+    })
+    await input.trigger('change')
+    await wrapper.get('[data-testid="confirm-upload-backup"]').trigger('click')
+    await flushPromises()
+
+    expect(mockedAxios.post).toHaveBeenCalledTimes(1)
+    expect(mocks.listGameServerBackups).toHaveBeenCalledTimes(2)
+  })
+
+  it('surfaces upload failures without closing the upload dialog', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview(),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
+    mockedAxios.post.mockRejectedValueOnce({
+      response: {
+        data: 'invalid zip archive',
+      },
+    })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="open-upload-backup-dialog"]').trigger('click')
+    const file = new File(['backup-bytes'], 'broken.zip', { type: 'application/zip' })
+    const input = wrapper.get('[data-testid="upload-backup-file-input"]')
+    Object.defineProperty(input.element, 'files', {
+      value: [file],
+      configurable: true,
+    })
+    await input.trigger('change')
+    await wrapper.get('[data-testid="confirm-upload-backup"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('invalid zip archive')
+    expect(wrapper.find('[data-testid="upload-backup-dialog"]').exists()).toBe(true)
   })
 })

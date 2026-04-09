@@ -31,7 +31,7 @@ func TestCreateManualBackupRejectsBackupDirectoryInsideServerTree(t *testing.T) 
 	fixture := newBackupServiceFixture(t, inst)
 	fixture.gameServer.BackupDirectory = filepath.Join(fixture.gameServer.Directory, "backups")
 
-	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if !errors.Is(errCreate, errBackupDirectoryInsideServer) {
 		t.Fatalf("CreateManualBackup() error = %v, want %v", errCreate, errBackupDirectoryInsideServer)
 	}
@@ -51,7 +51,7 @@ func TestCreateManualBackupRejectsPerServerArchivePathInsideServerTree(t *testin
 	fixture.gameServer.Directory = collidingServerDirectory
 	fixture.gameServer.BackupDirectory = filepath.Dir(collidingServerDirectory)
 
-	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if !errors.Is(errCreate, errBackupDirectoryInsideServer) {
 		t.Fatalf("CreateManualBackup() error = %v, want %v", errCreate, errBackupDirectoryInsideServer)
 	}
@@ -69,7 +69,7 @@ func TestCreateManualBackupNormalizesWhitespaceInBackupDirectory(t *testing.T) {
 		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate != nil {
 		t.Fatalf("CreateManualBackup() error = %v", errCreate)
 	}
@@ -83,6 +83,28 @@ func TestCreateManualBackupNormalizesWhitespaceInBackupDirectory(t *testing.T) {
 	}
 	if _, errStat := os.Stat(backup.ArchivePath); errStat != nil {
 		t.Fatalf("Stat(ArchivePath) error = %v", errStat)
+	}
+}
+
+func TestCreateManualBackupUsesProvidedNameInArchivePath(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	errWrite := os.WriteFile(filepath.Join(fixture.gameServer.Directory, "state.txt"), []byte("current-state"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
+	}
+
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "Friday Night / Save #1")
+	if errCreate != nil {
+		t.Fatalf("CreateManualBackup() error = %v", errCreate)
+	}
+
+	archiveBaseName := filepath.Base(backup.ArchivePath)
+	if archiveBaseName != "Friday-Night-Save-1.zip" {
+		t.Fatalf("CreateManualBackup().ArchivePath base = %q, want %q", archiveBaseName, "Friday-Night-Save-1.zip")
 	}
 }
 
@@ -104,12 +126,15 @@ func TestCreateManualBackupUsesUniqueArchivePathWhenTimestampCollides(t *testing
 		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
 	}
 
-	existingArchivePath := buildBackupArchivePath(fixture.backupRoot, fixture.gameServer.ID, fixedNow, "manual")
+	existingArchivePath, errArchivePath := buildBackupArchivePath(fixture.backupRoot, fixture.gameServer.ID, fixedNow, "manual", "")
+	if errArchivePath != nil {
+		t.Fatalf("buildBackupArchivePath() error = %v", errArchivePath)
+	}
 	createTestZipArchive(t, existingArchivePath, map[string]string{
 		"existing.txt": "existing",
 	})
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate != nil {
 		t.Fatalf("CreateManualBackup() error = %v", errCreate)
 	}
@@ -124,6 +149,43 @@ func TestCreateManualBackupUsesUniqueArchivePathWhenTimestampCollides(t *testing
 	}
 }
 
+func TestCreateManualBackupRejectsInvalidProvidedName(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "!!!")
+	if !errors.Is(errCreate, ErrInvalidManualBackupName) {
+		t.Fatalf("CreateManualBackup() error = %v, want %v", errCreate, ErrInvalidManualBackupName)
+	}
+}
+
+func TestCreateManualBackupRejectsDuplicateProvidedName(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	errWrite := os.WriteFile(filepath.Join(fixture.gameServer.Directory, "state.txt"), []byte("current-state"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
+	}
+
+	firstBackup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "Friday Night Save")
+	if errCreate != nil {
+		t.Fatalf("CreateManualBackup(first) error = %v", errCreate)
+	}
+	if filepath.Base(firstBackup.ArchivePath) != "Friday-Night-Save.zip" {
+		t.Fatalf("CreateManualBackup(first).ArchivePath base = %q, want %q", filepath.Base(firstBackup.ArchivePath), "Friday-Night-Save.zip")
+	}
+
+	_, errCreate = inst.CreateManualBackup(fixture.gameServer, fixture.userID, "Friday Night Save")
+	if !errors.Is(errCreate, ErrManualBackupNameAlreadyExists) {
+		t.Fatalf("CreateManualBackup(duplicate) error = %v, want %v", errCreate, ErrManualBackupNameAlreadyExists)
+	}
+}
+
 func TestResolveUniqueBackupArchivePathFailsAfterMaxAttempts(t *testing.T) {
 	t.Parallel()
 
@@ -131,7 +193,10 @@ func TestResolveUniqueBackupArchivePathFailsAfterMaxAttempts(t *testing.T) {
 	gameServerID := "server-local-1"
 	fixedNow := time.Date(2026, 4, 6, 12, 34, 56, 123456789, time.UTC)
 
-	basePath := buildBackupArchivePath(backupRoot, gameServerID, fixedNow, "manual")
+	basePath, errBasePath := buildBackupArchivePath(backupRoot, gameServerID, fixedNow, "manual", "")
+	if errBasePath != nil {
+		t.Fatalf("buildBackupArchivePath() error = %v", errBasePath)
+	}
 	baseDirectory := filepath.Dir(basePath)
 	baseName := strings.TrimSuffix(filepath.Base(basePath), ".zip")
 	errMkdir := os.MkdirAll(baseDirectory, 0o750)
@@ -152,7 +217,7 @@ func TestResolveUniqueBackupArchivePathFailsAfterMaxAttempts(t *testing.T) {
 		}
 	}
 
-	_, errResolve := resolveUniqueBackupArchivePath(backupRoot, gameServerID, fixedNow, "manual")
+	_, errResolve := resolveUniqueBackupArchivePath(backupRoot, gameServerID, fixedNow, "manual", "")
 	if errResolve == nil {
 		t.Fatal("resolveUniqueBackupArchivePath() error = nil, want exhausted candidates error")
 	}
@@ -217,7 +282,7 @@ func TestCreateManualBackupCreatesZipAndCatalogRow(t *testing.T) {
 		t.Fatalf("WriteFile(world.txt) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate != nil {
 		t.Fatalf("CreateManualBackup() error = %v", errCreate)
 	}
@@ -277,6 +342,96 @@ func TestCreateManualBackupCreatesZipAndCatalogRow(t *testing.T) {
 	}
 }
 
+func TestImportUploadedBackupCreatesCompletedCatalogRow(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	uploadedPath := filepath.Join(t.TempDir(), "Friday Night Save.zip")
+	createTestZipArchive(t, uploadedPath, map[string]string{
+		"world.txt": "uploaded-state",
+	})
+
+	backup, errImport := inst.ImportUploadedBackup(
+		fixture.gameServer,
+		fixture.userID,
+		uploadedPath,
+		"Friday Night Save.zip",
+	)
+	if errImport != nil {
+		t.Fatalf("ImportUploadedBackup() error = %v", errImport)
+	}
+
+	if backup.Status != "completed" {
+		t.Fatalf("ImportUploadedBackup().Status = %q, want %q", backup.Status, "completed")
+	}
+	if backup.TriggerSource != "manual" {
+		t.Fatalf("ImportUploadedBackup().TriggerSource = %q, want %q", backup.TriggerSource, "manual")
+	}
+	if !backup.RetentionExempt {
+		t.Fatal("ImportUploadedBackup().RetentionExempt = false, want true")
+	}
+	if filepath.Base(backup.ArchivePath) != "Friday-Night-Save.zip" {
+		t.Fatalf("ImportUploadedBackup().ArchivePath base = %q, want %q", filepath.Base(backup.ArchivePath), "Friday-Night-Save.zip")
+	}
+	if _, errStat := os.Stat(backup.ArchivePath); errStat != nil {
+		t.Fatalf("Stat(ArchivePath) error = %v", errStat)
+	}
+	if _, errStat := os.Stat(uploadedPath); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat(uploadedPath) error = %v, want %v", errStat, os.ErrNotExist)
+	}
+}
+
+func TestImportUploadedBackupFallsBackToTimestampNameWhenFilenameIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	uploadedPath := filepath.Join(t.TempDir(), "!!!.zip")
+	createTestZipArchive(t, uploadedPath, map[string]string{
+		"world.txt": "uploaded-state",
+	})
+
+	backup, errImport := inst.ImportUploadedBackup(
+		fixture.gameServer,
+		fixture.userID,
+		uploadedPath,
+		"!!!.zip",
+	)
+	if errImport != nil {
+		t.Fatalf("ImportUploadedBackup() error = %v", errImport)
+	}
+
+	if !strings.HasSuffix(filepath.Base(backup.ArchivePath), "-manual.zip") {
+		t.Fatalf("ImportUploadedBackup().ArchivePath base = %q, want timestamped manual suffix", filepath.Base(backup.ArchivePath))
+	}
+}
+
+func TestImportUploadedBackupRejectsInvalidZip(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	uploadedPath := filepath.Join(t.TempDir(), "broken.zip")
+	errWrite := os.WriteFile(uploadedPath, []byte("not-a-zip"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(broken.zip) error = %v", errWrite)
+	}
+
+	_, errImport := inst.ImportUploadedBackup(
+		fixture.gameServer,
+		fixture.userID,
+		uploadedPath,
+		"broken.zip",
+	)
+	if errImport == nil {
+		t.Fatal("ImportUploadedBackup() error = nil, want invalid zip error")
+	}
+}
+
 func TestCreateManualBackupCleansUpWhenFinalizationFails(t *testing.T) {
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
@@ -304,7 +459,7 @@ func TestCreateManualBackupCleansUpWhenFinalizationFails(t *testing.T) {
 	broadcaster := &recordingBackupProgressBroadcaster{}
 	inst.SetBackupProgressBroadcaster(broadcaster)
 
-	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate == nil {
 		t.Fatal("CreateManualBackup() error = nil, want finalization failure")
 	}
@@ -372,7 +527,7 @@ func TestCreateManualBackupRemovesArchiveWhenWriteAndReconciliationFail(t *testi
 		updateGameServerBackupResult = previousUpdateBackupResult
 	})
 
-	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate == nil {
 		t.Fatal("CreateManualBackup() error = nil, want archive write failure")
 	}
@@ -927,7 +1082,7 @@ func TestRestoreGameServerBackupExactPreservesEmptyDirectory(t *testing.T) {
 		t.Fatalf("WriteFile(keep.txt) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate != nil {
 		t.Fatalf("CreateManualBackup() error = %v", errCreate)
 	}
@@ -1141,7 +1296,7 @@ func TestRestoreGameServerBackupExactReplacesConflictingDestinationTypes(t *test
 		t.Fatalf("WriteFile(file-target.txt) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate != nil {
 		t.Fatalf("CreateManualBackup() error = %v", errCreate)
 	}
@@ -1457,7 +1612,7 @@ func TestRestoreGameServerBackupReplacesExistingFileWithBackedUpContentAndMode(t
 		t.Fatalf("WriteFile(replace.txt original) error = %v", errWrite)
 	}
 
-	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID)
+	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate != nil {
 		t.Fatalf("CreateManualBackup() error = %v", errCreate)
 	}
