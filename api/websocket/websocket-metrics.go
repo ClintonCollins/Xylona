@@ -343,8 +343,9 @@ func (ws *WebSocket) sendUserGameServerStatus(s *melody.Session, gameServer *mod
 	out := &xylona.Message{
 		Type: xylona.Message_GameServerStatus,
 		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
-			GameServerId: gameServer.ID,
-			Status:       status,
+			GameServerId:   gameServer.ID,
+			Status:         status,
+			GameServerName: gameServer.Name,
 		},
 	}
 	byteOut, errMarshal := protojson.Marshal(out)
@@ -359,18 +360,18 @@ func (ws *WebSocket) sendUserGameServerStatus(s *melody.Session, gameServer *mod
 	}
 }
 
-// BroadcastRemoteServerStatus sends a status update for a remote server to all connected WebSocket clients.
-func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, status xylona.Status) {
+func (ws *WebSocket) broadcastGameServerStatus(serverID string, serverName string, status xylona.Status) {
 	out := &xylona.Message{
 		Type: xylona.Message_GameServerStatus,
 		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
-			GameServerId: serverID,
-			Status:       status,
+			GameServerId:   serverID,
+			Status:         status,
+			GameServerName: serverName,
 		},
 	}
 	byteOut, errMarshal := protojson.Marshal(out)
 	if errMarshal != nil {
-		log.Error().Err(errMarshal).Msg("Failed to marshal remote server status update")
+		log.Error().Err(errMarshal).Msg("Failed to marshal game server status update")
 		return
 	}
 
@@ -380,9 +381,14 @@ func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, status xylona.
 		}
 		errWrite := conn.melodySession.Write(byteOut)
 		if errWrite != nil {
-			log.Debug().Err(errWrite).Msg("Failed to write remote status update to WebSocket")
+			log.Debug().Err(errWrite).Msg("Failed to write game server status update to WebSocket")
 		}
 	}
+}
+
+// BroadcastRemoteServerStatus sends a status update for a remote server to all connected WebSocket clients.
+func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, serverName string, status xylona.Status) {
+	ws.broadcastGameServerStatus(serverID, serverName, status)
 }
 
 // BroadcastRemoteServerMetrics sends a remote metrics update to subscribed clients.
@@ -450,14 +456,21 @@ func (ws *WebSocket) BroadcastGameServerVersion(serverID string, version string,
 
 // BroadcastUpdateProgress sends a game server update progress event to all
 // connected WebSocket clients that have access to the given server.
-func (ws *WebSocket) BroadcastUpdateProgress(serverID string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string) {
+func (ws *WebSocket) BroadcastUpdateProgress(
+	serverID string,
+	serverName string,
+	step xylona.UpdateStep,
+	stepStatus xylona.StepStatus,
+	message string,
+) {
 	out := &xylona.Message{
 		Type: xylona.Message_GameServerUpdateProgress,
 		UpdateProgress: &xylona.UpdateProgress{
-			GameServerId: serverID,
-			Step:         step,
-			StepStatus:   stepStatus,
-			Message:      message,
+			GameServerId:   serverID,
+			Step:           step,
+			StepStatus:     stepStatus,
+			Message:        message,
+			GameServerName: serverName,
 		},
 	}
 	byteOut, errMarshal := protojson.Marshal(out)
@@ -506,14 +519,21 @@ func (ws *WebSocket) BroadcastBackupProgress(serverID string, progress *xylona.B
 
 // BroadcastServerSoftwareInstall sends a server software install status update
 // to all connected WebSocket clients that have access to the given server.
-func (ws *WebSocket) BroadcastServerSoftwareInstall(serverID string, status string, softwareID string, errMsg string) {
+func (ws *WebSocket) BroadcastServerSoftwareInstall(
+	serverID string,
+	serverName string,
+	status string,
+	softwareID string,
+	errMsg string,
+) {
 	out := &xylona.Message{
 		Type: xylona.Message_ServerSoftwareInstall,
 		ServerSoftwareInstallUpdate: &xylona.ServerSoftwareInstallUpdate{
-			GameServerId: serverID,
-			Status:       status,
-			Error:        errMsg,
-			SoftwareId:   softwareID,
+			GameServerId:   serverID,
+			Status:         status,
+			Error:          errMsg,
+			SoftwareId:     softwareID,
+			GameServerName: serverName,
 		},
 	}
 	byteOut, errMarshal := protojson.Marshal(out)

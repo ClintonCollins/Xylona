@@ -1102,6 +1102,7 @@ message UpdateProgress {
   UpdateStep step = 2;
   StepStatus step_status = 3;
   string message = 4;
+  string game_server_name = 5;
 }
 
 message GetVersionInfoRequest {

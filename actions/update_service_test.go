@@ -374,6 +374,7 @@ func TestRunUpdateWithBackupWritesProgressToConsoleBuffer(t *testing.T) {
 	gameServer := &models.GameServer{
 		ID:        "server-console-progress",
 		GameID:    gameID,
+		Name:      "Console Progress Server",
 		Directory: serverDir,
 		UserID:    "user-1",
 	}
@@ -445,6 +446,9 @@ assertOutput:
 			t.Errorf("unexpected progress step %v recorded for offline update", unexpectedStep)
 		}
 	}
+	if !broadcaster.AllServerNamesMatch(gameServer.Name) {
+		t.Errorf("progress server names = %v, want all %q", broadcaster.ServerNames(), gameServer.Name)
+	}
 }
 
 func TestRunUpdateWithBackupIncludesMinecraftUpdateDetails(t *testing.T) {
@@ -470,6 +474,7 @@ func TestRunUpdateWithBackupIncludesMinecraftUpdateDetails(t *testing.T) {
 	gameServer := &models.GameServer{
 		ID:               "minecraft-detailed-update",
 		GameID:           "minecraft",
+		Name:             "Minecraft Detailed Update",
 		Directory:        serverDir,
 		UserID:           "user-1",
 		ServerSoftware:   null.From("paper"),
@@ -520,6 +525,9 @@ assertDetailedOutput:
 			t.Errorf("output buffer missing %q in %q", expected, output)
 		}
 	}
+	if !broadcaster.AllServerNamesMatch(gameServer.Name) {
+		t.Errorf("progress server names = %v, want all %q", broadcaster.ServerNames(), gameServer.Name)
+	}
 }
 
 func TestSteamCMDUpdateMessagesUseSteamCMDSpecificWording(t *testing.T) {
@@ -549,6 +557,7 @@ func TestSteamCMDUpdateMessagesUseSteamCMDSpecificWording(t *testing.T) {
 }
 
 type recordedUpdateProgress struct {
+	serverName string
 	step       xylona.UpdateStep
 	stepStatus xylona.StepStatus
 	message    string
@@ -560,11 +569,13 @@ type recordingUpdateProgressBroadcaster struct {
 
 func (b *recordingUpdateProgressBroadcaster) BroadcastUpdateProgress(
 	_ string,
+	serverName string,
 	step xylona.UpdateStep,
 	stepStatus xylona.StepStatus,
 	message string,
 ) {
 	b.events = append(b.events, recordedUpdateProgress{
+		serverName: serverName,
 		step:       step,
 		stepStatus: stepStatus,
 		message:    message,
@@ -578,6 +589,23 @@ func (b *recordingUpdateProgressBroadcaster) ContainsStep(step xylona.UpdateStep
 		}
 	}
 	return false
+}
+
+func (b *recordingUpdateProgressBroadcaster) ServerNames() []string {
+	names := make([]string, 0, len(b.events))
+	for _, event := range b.events {
+		names = append(names, event.serverName)
+	}
+	return names
+}
+
+func (b *recordingUpdateProgressBroadcaster) AllServerNamesMatch(name string) bool {
+	for _, event := range b.events {
+		if event.serverName != name {
+			return false
+		}
+	}
+	return true
 }
 
 type internalUpdateTestGame struct {

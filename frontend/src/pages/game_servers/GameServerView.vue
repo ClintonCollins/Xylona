@@ -448,7 +448,7 @@ import {
   XylonaEventBus,
   bytesToSize,
 } from '@/utils/shared'
-import { recordLifecycleIntent, registerServerName } from '@/utils/game-server-notifications'
+import { recordLifecycleIntent } from '@/utils/game-server-notifications'
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './version-display'
@@ -798,7 +798,6 @@ async function getGameServerDetails() {
       return
     }
     gameServer.value = response.gameServer
-    registerServerName(gameServerId.value, response.gameServer.name)
   } catch (e) {
     console.error(e)
     $q.notify({
@@ -1175,12 +1174,15 @@ function onWebsocketReconnect() {
 
 function streamGameServerOutput() {
   // Listen for game server status changes.
-  XylonaEventBus.on('gameServerStatus', (serverID: string, serverStatus: Status) => {
-    if (serverID !== gameServerId.value) {
-      return
-    }
-    gameServer.value.status = serverStatus
-  })
+  XylonaEventBus.on(
+    'gameServerStatus',
+    (serverID: string, _serverName: string, serverStatus: Status) => {
+      if (serverID !== gameServerId.value) {
+        return
+      }
+      gameServer.value.status = serverStatus
+    },
+  )
 
   XylonaEventBus.on('gameServerVersion', (serverID: string, version: string, versionInfo) => {
     if (serverID !== gameServerId.value) {

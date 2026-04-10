@@ -9,7 +9,13 @@ import { XylonaEventBus } from '@/utils/shared'
 export function useServerSoftwareInstall(
   onInstallEvent?: (gameServerId: string, status: string, softwareId: string) => void,
 ) {
-  function handleEvent(gameServerId: string, status: string, _error: string, softwareId: string) {
+  function handleEvent(
+    gameServerId: string,
+    _gameServerName: string,
+    status: string,
+    _error: string,
+    softwareId: string,
+  ) {
     onInstallEvent?.(gameServerId, status, softwareId)
   }
 

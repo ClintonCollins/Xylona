@@ -19,7 +19,7 @@ import (
 // UpdateProgressBroadcaster receives update progress events.
 // Implemented by the WebSocket layer.
 type UpdateProgressBroadcaster interface {
-	BroadcastUpdateProgress(serverID string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string)
+	BroadcastUpdateProgress(serverID string, serverName string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string)
 }
 
 // configExtensions is the set of file extensions treated as config files for
@@ -239,7 +239,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 			inst.supervisorInstance.SendConsoleOutput(serverID, msg)
 		}
 		if broadcaster != nil {
-			broadcaster.BroadcastUpdateProgress(serverID, step, status, msg)
+			broadcaster.BroadcastUpdateProgress(serverID, gameServer.Name, step, status, msg)
 		}
 	}
 
@@ -514,7 +514,7 @@ func (inst *Instance) rollbackUpdate(gameServer *models.GameServer, wasRunning b
 			inst.supervisorInstance.SendConsoleOutput(serverID, msg)
 		}
 		if broadcaster != nil {
-			broadcaster.BroadcastUpdateProgress(serverID, step, status, msg)
+			broadcaster.BroadcastUpdateProgress(serverID, gameServer.Name, step, status, msg)
 		}
 	}
 

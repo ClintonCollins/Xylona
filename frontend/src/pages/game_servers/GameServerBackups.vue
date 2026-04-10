@@ -33,7 +33,6 @@ import {
   ListGameServerBackupsRequestSchema,
   RestoreGameServerBackupRequestSchema,
 } from '@/proto/xylona_pb'
-import { recordLifecycleIntent } from '@/utils/game-server-notifications'
 import { bytesToSize, ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 
 const $q = useQuasar()
@@ -367,7 +366,6 @@ async function submitBackupCreate(backupName: string): Promise<void> {
     } else {
       await loadBackups()
     }
-    recordLifecycleIntent(gameServerId.value, 'backup')
   } catch (unknownErr: unknown) {
     notifyError('Failed to create backup', unknownErr)
   } finally {
@@ -393,7 +391,6 @@ async function restoreBackup(mode: BackupRestoreMode): Promise<void> {
   restoringBackupId.value = backup.id
   showRestoreDialog.value = false
   try {
-    recordLifecycleIntent(gameServerId.value, 'restore')
     await GetXylonaClient().restoreGameServerBackup(
       create(RestoreGameServerBackupRequestSchema, {
         gameServerId: gameServerId.value,

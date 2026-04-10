@@ -14,13 +14,15 @@ func (c *Command) closeJobNotification() {
 }
 
 func (c *Command) sendJobStatusNotification(oldStatus, newStatus xylona.Status) {
-	c.handleOutputListeners(&xylona.Message{
-		Type: xylona.Message_GameServerStatus,
-		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{
-			GameServerId: c.ID,
-			Status:       newStatus,
-		},
-	})
+	gameServerName := c.GameServerName()
+	nodeID := c.NodeID()
+
+	// Status updates are delivered via two dedicated channels:
+	//  1. handleStatusListeners — federation StreamServerUpdates (per-server)
+	//  2. eventbus publish below — WebSocket broadcastGameServerStatus (all clients)
+	// They are NOT sent through handleOutputListeners because that channel is
+	// reserved for console text. Sending status frames through it would cause
+	// duplicate delivery to console-subscribed clients.
 	c.handleStatusListeners(newStatus)
 
 	// Publish status change to the event bus for alert evaluation.
@@ -29,7 +31,8 @@ func (c *Command) sendJobStatusNotification(oldStatus, newStatus xylona.Status) 
 		eb := eventbus.Get()
 		eb.Publish(eventbus.TopicGameServerStatusChanged, eventbus.StatusChangedEvent{
 			ServerID:     c.ID,
-			ServerNodeID: c.nodeID,
+			ServerName:   gameServerName,
+			ServerNodeID: nodeID,
 			OldStatus:    oldStatus.String(),
 			NewStatus:    newStatus.String(),
 		})
@@ -37,9 +40,11 @@ func (c *Command) sendJobStatusNotification(oldStatus, newStatus xylona.Status) 
 }
 
 func (c *Command) handleStatusListeners(status xylona.Status) {
+	gameServerName := c.GameServerName()
 	update := &xylona.GameServerStatusUpdate{
-		GameServerId: c.ID,
-		Status:       status,
+		GameServerId:   c.ID,
+		Status:         status,
+		GameServerName: gameServerName,
 	}
 	listenerIDsToRemove := make([]string, 0)
 	c.statusListenersLock.RLock()

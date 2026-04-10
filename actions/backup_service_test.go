@@ -757,6 +757,9 @@ func TestCreateScheduledBackupBroadcastsCoherentProgressSequence(t *testing.T) {
 	if broadcaster.containsPhase(xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED) {
 		t.Fatalf("backup progress unexpectedly contained failed phase: %v", broadcaster.events)
 	}
+	if !broadcaster.allServerNamesMatch(fixture.gameServer.Name) {
+		t.Fatalf("backup progress server names = %v, want all %q", broadcaster.serverNames(), fixture.gameServer.Name)
+	}
 }
 
 func TestCreateScheduledBackupCoalescesArchiveProgressUpdates(t *testing.T) {
@@ -1782,6 +1785,9 @@ func TestRestoreGameServerBackupBroadcastsFailedProgressWhenStagingDirectoryCrea
 	if !slices.Equal(gotPhases, wantPhases) {
 		t.Fatalf("backup progress phases = %v, want %v", gotPhases, wantPhases)
 	}
+	if !broadcaster.allServerNamesMatch(fixture.gameServer.Name) {
+		t.Fatalf("backup progress server names = %v, want all %q", broadcaster.serverNames(), fixture.gameServer.Name)
+	}
 }
 
 func TestRestoreGameServerBackupRejectsDestinationSymlink(t *testing.T) {
@@ -2350,4 +2356,29 @@ func (b *recordingBackupProgressBroadcaster) phaseCount(phase xylona.BackupProgr
 	}
 
 	return count
+}
+
+func (b *recordingBackupProgressBroadcaster) serverNames() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	names := make([]string, 0, len(b.events))
+	for _, event := range b.events {
+		names = append(names, event.GetGameServerName())
+	}
+
+	return names
+}
+
+func (b *recordingBackupProgressBroadcaster) allServerNamesMatch(name string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	for _, event := range b.events {
+		if event.GetGameServerName() != name {
+			return false
+		}
+	}
+
+	return true
 }

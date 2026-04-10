@@ -8,8 +8,47 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func (ws *WebSocket) subscribeLocalGameServerStatusChanges() {
+	eb := eventbus.Get()
+	statusChanged := eb.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
+	defer eb.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusChanged)
+
+	ws.listenForLocalGameServerStatusChanges(statusChanged)
+}
+
+func (ws *WebSocket) listenForLocalGameServerStatusChanges(statusChanged <-chan any) {
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case data, ok := <-statusChanged:
+			if !ok {
+				return
+			}
+
+			statusEvent, ok := data.(eventbus.StatusChangedEvent)
+			if !ok {
+				log.Error().Msg("Failed to cast status event to StatusChangedEvent")
+				continue
+			}
+			if statusEvent.Federated {
+				continue
+			}
+
+			statusValue, statusExists := xylona.Status_value[statusEvent.NewStatus]
+			if !statusExists {
+				log.Warn().Str("status", statusEvent.NewStatus).Msg("Unknown game server status update")
+				continue
+			}
+
+			ws.broadcastGameServerStatus(statusEvent.ServerID, statusEvent.ServerName, xylona.Status(statusValue))
+		}
+	}
+}
 
 func (ws *WebSocket) listenForGameServerRemoved(s *melody.Session) {
 	eb := eventbus.Get()

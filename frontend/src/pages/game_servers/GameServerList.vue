@@ -147,7 +147,6 @@ import { useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
-import { registerServerContext } from '@/utils/game-server-notifications'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -274,12 +273,6 @@ async function getGameServers() {
     }
 
     if (serversResult.status === 'fulfilled') {
-      registerServerContext(
-        buildDisplayRows(serversResult.value.servers, nodesByID.value).map((row) => ({
-          id: row.id,
-          name: row.displayName,
-        })),
-      )
       // Strip versionInfo before caching: VersionInfo contains bigint fields that
       // JSON.stringify cannot serialize. Version info is re-fetched fresh from the
       // server on each page load, so caching it provides no benefit.
@@ -357,7 +350,7 @@ function setServerVersion(serverID: string, version: string, versionInfo?: Versi
   }
 }
 
-function handleServerStatusUpdate(serverID: string, serverStatus: Status) {
+function handleServerStatusUpdate(serverID: string, _serverName: string, serverStatus: Status) {
   setServerStatus(serverID, serverStatus)
 }
 

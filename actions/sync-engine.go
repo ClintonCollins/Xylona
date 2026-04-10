@@ -38,7 +38,7 @@ const (
 
 // StatusBroadcaster is called when a remote server status changes in real-time.
 type StatusBroadcaster interface {
-	BroadcastRemoteServerStatus(serverID string, status xylona.Status)
+	BroadcastRemoteServerStatus(serverID string, serverName string, status xylona.Status)
 }
 
 // MetricsBroadcaster is called when remote server metrics are received in real-time.
@@ -701,7 +701,7 @@ func (e *FederationSyncEngine) handleStatusChange(node *models.Node, change *xyl
 	e.mu.RUnlock()
 
 	if broadcaster != nil {
-		broadcaster.BroadcastRemoteServerStatus(change.GetServerId(), change.GetStatus())
+		broadcaster.BroadcastRemoteServerStatus(change.GetServerId(), change.GetDisplayName(), change.GetStatus())
 	}
 }
 

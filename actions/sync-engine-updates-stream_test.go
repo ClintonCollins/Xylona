@@ -19,14 +19,15 @@ type mockStatusBroadcaster struct {
 }
 
 type statusBroadcastCall struct {
-	serverID string
-	status   xylona.Status
+	serverID   string
+	serverName string
+	status     xylona.Status
 }
 
-func (m *mockStatusBroadcaster) BroadcastRemoteServerStatus(serverID string, status xylona.Status) {
+func (m *mockStatusBroadcaster) BroadcastRemoteServerStatus(serverID string, serverName string, status xylona.Status) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.calls = append(m.calls, statusBroadcastCall{serverID: serverID, status: status})
+	m.calls = append(m.calls, statusBroadcastCall{serverID: serverID, serverName: serverName, status: status})
 }
 
 // mockMetricsBroadcaster records BroadcastRemoteServerMetrics calls for test assertions.
@@ -229,8 +230,9 @@ func TestHandleStatusChange_UpdatesCacheAndBroadcasts(t *testing.T) {
 	}
 
 	statusChange := &xylona.FederationServerStatusChange{
-		ServerId: "server-aaa",
-		Status:   xylona.Status_ONLINE,
+		ServerId:    "server-aaa",
+		Status:      xylona.Status_ONLINE,
+		DisplayName: "Minecraft Survival",
 	}
 
 	engine.handleStatusChange(node, statusChange)
@@ -257,6 +259,9 @@ func TestHandleStatusChange_UpdatesCacheAndBroadcasts(t *testing.T) {
 	}
 	if broadcaster.calls[0].serverID != "server-aaa" {
 		t.Errorf("broadcast serverID = %q, want %q", broadcaster.calls[0].serverID, "server-aaa")
+	}
+	if broadcaster.calls[0].serverName != "Minecraft Survival" {
+		t.Errorf("broadcast serverName = %q, want %q", broadcaster.calls[0].serverName, "Minecraft Survival")
 	}
 	if broadcaster.calls[0].status != xylona.Status_ONLINE {
 		t.Errorf("broadcast status = %v, want %v", broadcaster.calls[0].status, xylona.Status_ONLINE)

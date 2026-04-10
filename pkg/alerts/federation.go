@@ -65,8 +65,9 @@ type crashEventData struct {
 }
 
 type statusEventData struct {
-	OldStatus string `json:"old_status,omitempty"`
-	NewStatus string `json:"new_status,omitempty"`
+	ServerName string `json:"server_name,omitempty"`
+	OldStatus  string `json:"old_status,omitempty"`
+	NewStatus  string `json:"new_status,omitempty"`
 }
 
 // IsFederatedEvent returns true if the event was received from a remote peer
@@ -134,8 +135,9 @@ func populateServerAlertEvent(evt *xylona.FederationAlertEvent, topic string, ms
 		evt.ServerId = &ev.ServerID
 		evt.ServerNodeId = &ev.ServerNodeID
 		dataJSON, errMarshal := json.Marshal(statusEventData{
-			OldStatus: ev.OldStatus,
-			NewStatus: ev.NewStatus,
+			ServerName: ev.ServerName,
+			OldStatus:  ev.OldStatus,
+			NewStatus:  ev.NewStatus,
 		})
 		if errMarshal != nil {
 			log.Error().Err(errMarshal).Str("topic", topic).Msg("Failed to marshal status event data for federation")
@@ -239,6 +241,7 @@ func republishServerAlertEvent(bus *eventbus.EventBus, topic string, evt *xylona
 		}
 		bus.Publish(topic, eventbus.StatusChangedEvent{
 			ServerID:     serverID,
+			ServerName:   data.ServerName,
 			ServerNodeID: serverNodeID,
 			OldStatus:    data.OldStatus,
 			NewStatus:    data.NewStatus,

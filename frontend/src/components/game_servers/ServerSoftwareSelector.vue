@@ -108,7 +108,6 @@ import {
   GetVariantOperationStatusRequestSchema,
   SetServerVariantRequestSchema,
 } from '@/proto/xylona_pb'
-import { recordLifecycleIntent } from '@/utils/game-server-notifications'
 import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import type { ServerSoftwareOperationEvent } from './ServerSoftwareSelector.types'
 
@@ -271,7 +270,6 @@ async function applyVariant(): Promise<void> {
 
     if (response.status === 'installing') {
       installStatus.value = 'installing'
-      recordLifecycleIntent(props.gameServerId, 'install')
       emitOperationState('installing', selectedVariantId.value)
       return
     }
@@ -395,6 +393,7 @@ function resolveInitialTargetSelection(
 
 function handleInstallEvent(
   gameServerId: string,
+  _gameServerName: string,
   status: string,
   error: string,
   softwareId: string,

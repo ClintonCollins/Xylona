@@ -14,6 +14,7 @@ message GameServerConsoleOutput {
 message GameServerStatusUpdate {
   string game_server_id = 1;
   Status status = 2;
+  string game_server_name = 3;
 }
 
 message GameServerVersionUpdate {
@@ -90,4 +91,5 @@ message ServerSoftwareInstallUpdate {
   string status = 2;
   string error = 3;
   string software_id = 4;
+  string game_server_name = 5;
 }

@@ -225,6 +225,7 @@ func (inst *Instance) CreateScheduledBackup(gameServer *models.GameServer) (*mod
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		completedBackup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PRUNING,
@@ -236,6 +237,7 @@ func (inst *Instance) CreateScheduledBackup(gameServer *models.GameServer) (*mod
 	if errPrune != nil {
 		inst.broadcastBackupProgress(
 			gameServer.ID,
+			gameServer.Name,
 			completedBackup.ID,
 			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
@@ -248,6 +250,7 @@ func (inst *Instance) CreateScheduledBackup(gameServer *models.GameServer) (*mod
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		completedBackup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
@@ -359,6 +362,7 @@ func (inst *Instance) completeManualBackup(backupCtx context.Context, backupDone
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		completedBackup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
@@ -371,6 +375,7 @@ func (inst *Instance) completeManualBackup(backupCtx context.Context, backupDone
 func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer *models.GameServer, backup *models.GameServerBackup) (*models.GameServerBackup, error) {
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PREPARING,
@@ -382,11 +387,17 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 	parentDir := filepath.Dir(backup.ArchivePath)
 	errMkdir := os.MkdirAll(parentDir, 0o750)
 	if errMkdir != nil {
-		return nil, inst.failBackupCreate(backup, gameServer.ID, fmt.Errorf("actions: create backup directory: %w", errMkdir))
+		return nil, inst.failBackupCreate(
+			backup,
+			gameServer.ID,
+			gameServer.Name,
+			fmt.Errorf("actions: create backup directory: %w", errMkdir),
+		)
 	}
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_ARCHIVING,
@@ -395,7 +406,7 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 		"Archiving game server files",
 	)
 
-	progressReporter := newBackupProgressReporter(inst, gameServer.ID, backup.ID)
+	progressReporter := newBackupProgressReporter(inst, gameServer.ID, gameServer.Name, backup.ID)
 
 	sizeBytes, errArchive := writeBackupArchiveFunc(gameServer.Directory, backup.ArchivePath, progressReporter.Observe, func() error {
 		return backupCreateCancelErr(backupCtx)
@@ -405,7 +416,7 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 		if errors.Is(errArchive, errBackupCreateCancelled) {
 			return nil, errBackupCreateCancelled
 		}
-		return nil, inst.failBackupCreate(backup, gameServer.ID, errArchive)
+		return nil, inst.failBackupCreate(backup, gameServer.ID, gameServer.Name, errArchive)
 	}
 	progressReporter.Close(sizeBytes)
 
@@ -417,7 +428,7 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 		CompletedAt:  &completedAt,
 	})
 	if errUpdate != nil {
-		return nil, inst.handleBackupFinalizationFailure(backup, gameServer.ID, errUpdate)
+		return nil, inst.handleBackupFinalizationFailure(backup, gameServer.ID, gameServer.Name, errUpdate)
 	}
 
 	return updatedBackup, nil
@@ -455,6 +466,7 @@ func (inst *Instance) RestoreGameServerBackup(
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PREPARING,
@@ -468,6 +480,7 @@ func (inst *Instance) RestoreGameServerBackup(
 	if errTemp != nil {
 		inst.broadcastBackupProgress(
 			gameServer.ID,
+			gameServer.Name,
 			backup.ID,
 			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
@@ -483,6 +496,7 @@ func (inst *Instance) RestoreGameServerBackup(
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_STAGING,
@@ -494,6 +508,7 @@ func (inst *Instance) RestoreGameServerBackup(
 	if errExtract != nil {
 		inst.broadcastBackupProgress(
 			gameServer.ID,
+			gameServer.Name,
 			backup.ID,
 			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
@@ -506,6 +521,7 @@ func (inst *Instance) RestoreGameServerBackup(
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_APPLYING,
@@ -517,6 +533,7 @@ func (inst *Instance) RestoreGameServerBackup(
 	if errApply != nil {
 		inst.broadcastBackupProgress(
 			gameServer.ID,
+			gameServer.Name,
 			backup.ID,
 			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
@@ -529,6 +546,7 @@ func (inst *Instance) RestoreGameServerBackup(
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
+		gameServer.Name,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
@@ -1023,25 +1041,32 @@ func (r *cancelableReader) Read(p []byte) (int, error) {
 }
 
 type backupProgressReporter struct {
-	inst         *Instance
-	gameServerID string
-	backupID     string
-	mu           sync.Mutex
-	latestBytes  int64
-	flushedBytes int64
-	closed       bool
-	flushOnStop  bool
-	stopCh       chan struct{}
-	doneCh       chan struct{}
+	inst           *Instance
+	gameServerID   string
+	gameServerName string
+	backupID       string
+	mu             sync.Mutex
+	latestBytes    int64
+	flushedBytes   int64
+	closed         bool
+	flushOnStop    bool
+	stopCh         chan struct{}
+	doneCh         chan struct{}
 }
 
-func newBackupProgressReporter(inst *Instance, gameServerID string, backupID string) *backupProgressReporter {
+func newBackupProgressReporter(
+	inst *Instance,
+	gameServerID string,
+	gameServerName string,
+	backupID string,
+) *backupProgressReporter {
 	reporter := &backupProgressReporter{
-		inst:         inst,
-		gameServerID: gameServerID,
-		backupID:     backupID,
-		stopCh:       make(chan struct{}),
-		doneCh:       make(chan struct{}),
+		inst:           inst,
+		gameServerID:   gameServerID,
+		gameServerName: gameServerName,
+		backupID:       backupID,
+		stopCh:         make(chan struct{}),
+		doneCh:         make(chan struct{}),
 	}
 
 	go reporter.run()
@@ -1139,6 +1164,7 @@ func (r *backupProgressReporter) flush() {
 
 	r.inst.broadcastBackupProgress(
 		r.gameServerID,
+		r.gameServerName,
 		r.backupID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_ARCHIVING,
@@ -1942,6 +1968,7 @@ func (inst *Instance) pruneScheduledBackups(gameServer *models.GameServer, keepC
 func (inst *Instance) handleBackupFinalizationFailure(
 	backup *models.GameServerBackup,
 	gameServerID string,
+	gameServerName string,
 	finalizeErr error,
 ) error {
 	terminalErr := fmt.Errorf("actions: finalize backup row after archive write: %w", finalizeErr)
@@ -1991,6 +2018,7 @@ func (inst *Instance) handleBackupFinalizationFailure(
 
 	inst.broadcastBackupProgress(
 		gameServerID,
+		gameServerName,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
@@ -2002,7 +2030,12 @@ func (inst *Instance) handleBackupFinalizationFailure(
 	return terminalErr
 }
 
-func (inst *Instance) failBackupCreate(backup *models.GameServerBackup, gameServerID string, cause error) error {
+func (inst *Instance) failBackupCreate(
+	backup *models.GameServerBackup,
+	gameServerID string,
+	gameServerName string,
+	cause error,
+) error {
 	terminalErr := cause
 
 	completedAt := time.Now().UTC()
@@ -2051,6 +2084,7 @@ func (inst *Instance) failBackupCreate(backup *models.GameServerBackup, gameServ
 
 	inst.broadcastBackupProgress(
 		gameServerID,
+		gameServerName,
 		backup.ID,
 		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
@@ -2064,6 +2098,7 @@ func (inst *Instance) failBackupCreate(backup *models.GameServerBackup, gameServ
 
 func (inst *Instance) broadcastBackupProgress(
 	gameServerID string,
+	gameServerName string,
 	backupID string,
 	operation xylona.BackupProgressOperation,
 	phase xylona.BackupProgressPhase,
@@ -2076,12 +2111,13 @@ func (inst *Instance) broadcastBackupProgress(
 	}
 
 	inst.backupBroadcaster.BroadcastBackupProgress(gameServerID, &xylona.BackupProgress{
-		GameServerId: gameServerID,
-		BackupId:     backupID,
-		Operation:    operation,
-		Phase:        phase,
-		Percent:      percent,
-		SizeBytes:    sizeBytes,
-		Message:      message,
+		GameServerId:   gameServerID,
+		GameServerName: gameServerName,
+		BackupId:       backupID,
+		Operation:      operation,
+		Phase:          phase,
+		Percent:        percent,
+		SizeBytes:      sizeBytes,
+		Message:        message,
 	})
 }

@@ -18,6 +18,10 @@ import (
 func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistentCommand *Command) *Command {
 	var newCommand *Command
 	processCtx, processCtxCancel := context.WithCancel(inst.ctx)
+	gameServerName := preparedCommand.GameServerName
+	if gameServerName == "" && preparedCommand.InternalGameServer != nil {
+		gameServerName = preparedCommand.InternalGameServer.Name
+	}
 	if persistentCommand != nil {
 		log.Debug().Str("Command ID", persistentCommand.ID).Msg("Reusing persistent command")
 		newCommand = persistentCommand
@@ -29,6 +33,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.outputListeners = persistentCommand.outputListeners
 		newCommand.BaseCommand = preparedCommand.BaseCommand
 		newCommand.Args = append([]string(nil), preparedCommand.Args...)
+		newCommand.gameServerName = gameServerName
 		newCommand.unixStartedAt = time.Now().Unix()
 		newCommand.status = preparedCommand.Status
 		newCommand.serviceID = preparedCommand.ServiceID
@@ -50,6 +55,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			User:                preparedCommand.User,
 			BaseCommand:         preparedCommand.BaseCommand,
 			Args:                append([]string(nil), preparedCommand.Args...),
+			gameServerName:      gameServerName,
 			nodeID:              preparedCommand.NodeID,
 			stopTimeout:         preparedCommand.StopTimeout,
 			unixStartedAt:       time.Now().Unix(),

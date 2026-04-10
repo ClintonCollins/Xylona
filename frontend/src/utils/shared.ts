@@ -39,7 +39,7 @@ const allAPIWebsockets: Map<string, ReconnectingWebSocket> = new Map<
 >()
 
 type XylonaEventBusEvents = {
-  gameServerStatus: (gameServerId: string, status: Status) => void
+  gameServerStatus: (gameServerId: string, gameServerName: string, status: Status) => void
   gameServerVersion: (
     gameServerId: string,
     version: string,
@@ -56,6 +56,7 @@ type XylonaEventBusEvents = {
   websocketDisconnected: () => void
   serverSoftwareInstall: (
     gameServerId: string,
+    gameServerName: string,
     status: string,
     error: string,
     softwareId: string,
@@ -175,7 +176,12 @@ export function dispatchWebsocketMessage(out: Message): boolean {
     case Message_Type.GameServerStatus: {
       const statusUpdate = out.gameServerStatusUpdate
       if (statusUpdate) {
-        XylonaEventBus.emit('gameServerStatus', statusUpdate.gameServerId, statusUpdate.status)
+        XylonaEventBus.emit(
+          'gameServerStatus',
+          statusUpdate.gameServerId,
+          statusUpdate.gameServerName,
+          statusUpdate.status,
+        )
       }
       return true
     }
@@ -223,6 +229,7 @@ export function dispatchWebsocketMessage(out: Message): boolean {
         XylonaEventBus.emit(
           'serverSoftwareInstall',
           update.gameServerId,
+          update.gameServerName,
           update.status,
           update.error ?? '',
           update.softwareId ?? '',

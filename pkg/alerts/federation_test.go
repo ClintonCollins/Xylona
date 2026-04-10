@@ -333,6 +333,7 @@ func TestRoundTripStatusChanged(t *testing.T) {
 
 	original := eventbus.StatusChangedEvent{
 		ServerID:     "srv-rt-2",
+		ServerName:   "Alpha",
 		ServerNodeID: "node-rt-2",
 		OldStatus:    "ONLINE",
 		NewStatus:    "CRASHED",
@@ -353,6 +354,9 @@ func TestRoundTripStatusChanged(t *testing.T) {
 		}
 		if evt.ServerID != original.ServerID {
 			t.Errorf("ServerID = %q, want %q", evt.ServerID, original.ServerID)
+		}
+		if evt.ServerName != original.ServerName {
+			t.Errorf("ServerName = %q, want %q", evt.ServerName, original.ServerName)
 		}
 		if evt.ServerNodeID != original.ServerNodeID {
 			t.Errorf("ServerNodeID = %q, want %q", evt.ServerNodeID, original.ServerNodeID)

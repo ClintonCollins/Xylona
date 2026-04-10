@@ -26,6 +26,7 @@ func newTestCommand(t *testing.T) *Command {
 
 func TestAddStatusListener_ReceivesStatusChanges(t *testing.T) {
 	cmd := newTestCommand(t)
+	cmd.gameServerName = "Alpha"
 	ch := make(chan *xylona.GameServerStatusUpdate, 8)
 	cmd.AddStatusListener("test-listener", ch)
 
@@ -38,6 +39,9 @@ func TestAddStatusListener_ReceivesStatusChanges(t *testing.T) {
 		}
 		if update.GetStatus() != xylona.Status_ONLINE {
 			t.Errorf("expected status ONLINE, got %v", update.GetStatus())
+		}
+		if update.GetGameServerName() != "Alpha" {
+			t.Errorf("expected game server name %q, got %q", "Alpha", update.GetGameServerName())
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for status update")

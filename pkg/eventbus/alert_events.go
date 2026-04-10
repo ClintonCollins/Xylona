@@ -54,6 +54,7 @@ type ServerCrashedEvent struct {
 // StatusChangedEvent is published when a game server's status transitions.
 type StatusChangedEvent struct {
 	ServerID     string
+	ServerName   string
 	ServerNodeID string
 	OldStatus    string
 	NewStatus    string

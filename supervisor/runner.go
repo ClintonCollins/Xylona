@@ -58,6 +58,7 @@ type InputMethod struct {
 // PreparedCommand contains all inputs needed to launch or reuse a command.
 type PreparedCommand struct {
 	ID                 string
+	GameServerName     string
 	InternalCommand    bool
 	InternalGameServer *models.GameServer
 	BaseCommand        string

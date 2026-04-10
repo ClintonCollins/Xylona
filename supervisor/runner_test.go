@@ -168,6 +168,32 @@ func TestInitNewCommandClearsBufferWhenReuseIsNotPreserved(t *testing.T) {
 	}
 }
 
+func TestInitNewCommandUpdatesGameServerNameOnReuse(t *testing.T) {
+	ctx := context.Background()
+
+	inst, errNew := New(ctx)
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor: %v", errNew)
+	}
+
+	persistentCommand := inst.GetCommandByIDOrCreateShell("named-reuse")
+
+	reusedCommand := inst.initNewCommand(
+		PreparedCommand{
+			ID:             "named-reuse",
+			GameServerName: "Alpha",
+			BaseCommand:    "echo",
+			Args:           []string{"restarted"},
+			Status:         xylona.Status_ONLINE,
+		},
+		persistentCommand,
+	)
+
+	if reusedCommand.gameServerName != "Alpha" {
+		t.Fatalf("gameServerName = %q, want %q", reusedCommand.gameServerName, "Alpha")
+	}
+}
+
 func TestCrashEventPublished(t *testing.T) {
 	ctx := t.Context()
 

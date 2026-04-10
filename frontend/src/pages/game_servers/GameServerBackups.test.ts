@@ -30,7 +30,6 @@ const mocks = vi.hoisted(() => ({
   restoreGameServerBackup: vi.fn(),
   eventOn: vi.fn(),
   eventOff: vi.fn(),
-  recordLifecycleIntent: vi.fn(),
 }))
 
 vi.mock('axios')
@@ -63,10 +62,6 @@ vi.mock('@/utils/shared', () => ({
     on: mocks.eventOn,
     off: mocks.eventOff,
   },
-}))
-
-vi.mock('@/utils/game-server-notifications', () => ({
-  recordLifecycleIntent: mocks.recordLifecycleIntent,
 }))
 
 vi.mock('vue-router', () => ({
@@ -318,7 +313,6 @@ describe('GameServerBackups', () => {
       gameServerId: 'test-server-123',
     })
     expect(wrapper.text()).toContain('Pending')
-    expect(mocks.recordLifecycleIntent).toHaveBeenCalledWith('test-server-123', 'backup')
   })
 
   it('renders a download link for completed backups', async () => {
@@ -504,11 +498,6 @@ describe('GameServerBackups', () => {
 
     await wrapper.get('button[aria-label="Restore backup"]').trigger('click')
     await wrapper.get('[data-testid="confirm-restore-backup"]').trigger('click')
-
-    expect(mocks.recordLifecycleIntent).toHaveBeenCalledWith('test-server-123', 'restore')
-    expect(mocks.recordLifecycleIntent.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.restoreGameServerBackup.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
-    )
 
     resolveRestore?.()
     await flushPromises()

@@ -35,7 +35,6 @@ const lastKnownStatusByServer = new Map<string, Status>()
 const activeOperationByServer = new Map<string, 'update'>()
 const activeUpdateTimersByServer = new Map<string, ReturnType<typeof setTimeout>>()
 const localIntentTimersByKey = new Map<string, ReturnType<typeof setTimeout>>()
-const serverNameById = new Map<string, string>()
 const updateStepsByServer = new Map<string, ReturnType<typeof buildUpdateSteps>>()
 
 function enterHydrationWindow(): void {
@@ -67,31 +66,32 @@ function showToast(type: 'xylona-success' | 'xylona-error' | 'xylona-info', capt
   })
 }
 
-function shortenServerID(serverID: string): string {
-  if (serverID.length <= 8) {
-    return serverID
+function buildCaption(serverName: string, result: string): string {
+  const name = serverName.trim()
+  if (name === '') {
+    return result
   }
-  return `${serverID.slice(0, 8)}...`
+  return `${name} — ${result}`
 }
 
-function resolveServerName(serverID: string): string {
-  const knownName = serverNameById.get(serverID)?.trim()
-  if (knownName) {
-    return knownName
-  }
-  return shortenServerID(serverID)
-}
-
-function buildCaption(serverID: string, result: string): string {
-  return `${resolveServerName(serverID)} — ${result}`
-}
-
-function buildFailureCaption(serverID: string, label: string, message: string): string {
+function buildFailureCaption(serverName: string, label: string, message: string): string {
   const trimmedMessage = message.trim()
   if (trimmedMessage === '') {
-    return buildCaption(serverID, `${label} failed`)
+    return buildCaption(serverName, `${label} failed`)
   }
-  return buildCaption(serverID, `${label} failed: ${trimmedMessage}`)
+  return buildCaption(serverName, `${label} failed: ${trimmedMessage}`)
+}
+
+function showServerToast(
+  type: 'xylona-success' | 'xylona-error' | 'xylona-info',
+  serverName: string,
+  result: string,
+): void {
+  showToast(type, buildCaption(serverName.trim(), result))
+}
+
+function showServerFailureToast(serverName: string, label: string, message: string): void {
+  showToast('xylona-error', buildFailureCaption(serverName.trim(), label, message))
 }
 
 function localIntentKey(serverID: string, kind: GameServerLifecycleIntent): string {
@@ -108,6 +108,10 @@ function trackLocalIntent(serverID: string, kind: GameServerLifecycleIntent): vo
     localIntentTimersByKey.delete(key)
   }, localIntentTtlMs)
   localIntentTimersByKey.set(key, nextTimer)
+}
+
+function hasTrackedIntent(serverID: string, kind: GameServerLifecycleIntent): boolean {
+  return localIntentTimersByKey.has(localIntentKey(serverID, kind))
 }
 
 function clearActiveUpdate(serverID: string): void {
@@ -139,7 +143,7 @@ function handleWebsocketConnected(): void {
   enterHydrationWindow()
 }
 
-function handleGameServerStatus(serverID: string, status: Status): void {
+function handleGameServerStatus(serverID: string, serverName: string, status: Status): void {
   if (serverID.trim() === '') {
     return
   }
@@ -158,10 +162,10 @@ function handleGameServerStatus(serverID: string, status: Status): void {
   }
 
   if (status === Status.ONLINE) {
-    showToast('xylona-success', buildCaption(serverID, 'Server started'))
+    showServerToast('xylona-success', serverName, 'Server started')
   }
   if (status === Status.OFFLINE) {
-    showToast('xylona-info', buildCaption(serverID, 'Server stopped'))
+    showServerToast('xylona-info', serverName, 'Server stopped')
   }
 }
 
@@ -188,6 +192,15 @@ function handleUpdateProgress(progress: UpdateProgress): void {
 
   markUpdateActive(serverID)
 
+  // Update started toasts come from the first authoritative progress event so
+  // initiating tabs and observer tabs both see the same lifecycle signal.
+  if (progress.stepStatus === StepStatus.IN_PROGRESS && !hasTrackedIntent(serverID, 'update')) {
+    trackLocalIntent(serverID, 'update')
+    showServerToast('xylona-info', progress.gameServerName, 'Update started')
+  } else if (progress.stepStatus === StepStatus.IN_PROGRESS) {
+    trackLocalIntent(serverID, 'update')
+  }
+
   const currentStatus = lastKnownStatusByServer.get(serverID) ?? Status.UNKNOWN
   const currentSteps = updateStepsByServer.get(serverID) ?? buildUpdateSteps(currentStatus)
   const nextSteps = applyUpdateProgress(currentSteps, progress)
@@ -201,11 +214,11 @@ function handleUpdateProgress(progress: UpdateProgress): void {
   clearLifecycleIntent(serverID, 'update')
 
   if (updateSucceeded(progress, nextSteps)) {
-    showToast('xylona-success', buildCaption(serverID, 'Update completed'))
+    showServerToast('xylona-success', progress.gameServerName, 'Update completed')
     return
   }
 
-  showToast('xylona-error', buildFailureCaption(serverID, 'Update', progress.message))
+  showServerFailureToast(progress.gameServerName, 'Update', progress.message)
 }
 
 function handleBackupProgress(progress: BackupProgress): void {
@@ -214,29 +227,36 @@ function handleBackupProgress(progress: BackupProgress): void {
     return
   }
 
-  if (
-    progress.phase !== BackupProgressPhase.COMPLETE &&
-    progress.phase !== BackupProgressPhase.FAILED
-  ) {
-    return
-  }
-
   const isBackup = progress.operation !== BackupProgressOperation.RESTORE
   const label = isBackup ? 'Backup' : 'Restore'
   const intent = isBackup ? 'backup' : 'restore'
 
-  clearLifecycleIntent(serverID, intent)
-
-  if (progress.phase === BackupProgressPhase.COMPLETE) {
-    showToast('xylona-success', buildCaption(serverID, `${label} completed`))
+  if (
+    progress.phase !== BackupProgressPhase.COMPLETE &&
+    progress.phase !== BackupProgressPhase.FAILED
+  ) {
+    if (!hasTrackedIntent(serverID, intent)) {
+      trackLocalIntent(serverID, intent)
+      showServerToast('xylona-info', progress.gameServerName, `${label} started`)
+      return
+    }
+    trackLocalIntent(serverID, intent)
     return
   }
 
-  showToast('xylona-error', buildFailureCaption(serverID, label, progress.message))
+  clearLifecycleIntent(serverID, intent)
+
+  if (progress.phase === BackupProgressPhase.COMPLETE) {
+    showServerToast('xylona-success', progress.gameServerName, `${label} completed`)
+    return
+  }
+
+  showServerFailureToast(progress.gameServerName, label, progress.message)
 }
 
 function handleServerSoftwareInstall(
   serverID: string,
+  serverName: string,
   status: string,
   error: string,
   _softwareID: string,
@@ -247,18 +267,24 @@ function handleServerSoftwareInstall(
   }
 
   if (status === 'installing') {
+    if (!hasTrackedIntent(trimmedServerID, 'install')) {
+      trackLocalIntent(trimmedServerID, 'install')
+      showServerToast('xylona-info', serverName, 'Install started')
+      return
+    }
+    trackLocalIntent(trimmedServerID, 'install')
     return
   }
 
   clearLifecycleIntent(trimmedServerID, 'install')
 
   if (status === 'complete') {
-    showToast('xylona-success', buildCaption(trimmedServerID, 'Install completed'))
+    showServerToast('xylona-success', serverName, 'Install completed')
     return
   }
 
   if (status === 'failed') {
-    showToast('xylona-error', buildFailureCaption(trimmedServerID, 'Install', error))
+    showServerFailureToast(serverName, 'Install', error)
   }
 }
 
@@ -277,30 +303,17 @@ export function initGameServerNotificationService(): void {
   XylonaEventBus.on('serverSoftwareInstall', handleServerSoftwareInstall)
 }
 
-export function recordLifecycleIntent(serverID: string, kind: GameServerLifecycleIntent): void {
+export function recordLifecycleIntent(serverID: string, kind: 'update'): void {
   const trimmedServerID = serverID.trim()
   if (trimmedServerID === '') {
     return
   }
 
-  trackLocalIntent(trimmedServerID, kind)
-
-  switch (kind) {
-    case 'update':
-      markUpdateActive(trimmedServerID)
-      showToast('xylona-info', buildCaption(trimmedServerID, 'Update started'))
-      return
-    case 'backup':
-      showToast('xylona-info', buildCaption(trimmedServerID, 'Backup started'))
-      return
-    case 'restore':
-      showToast('xylona-info', buildCaption(trimmedServerID, 'Restore started'))
-      return
-    case 'install':
-      showToast('xylona-info', buildCaption(trimmedServerID, 'Install started'))
-      return
-    default:
-      return
+  // Update intents need eager suppression because their status transitions
+  // can arrive before progress events. Backup, restore, and install started
+  // toasts are driven by their first authoritative progress payload instead.
+  if (kind === 'update') {
+    markUpdateActive(trimmedServerID)
   }
 }
 
@@ -322,21 +335,6 @@ export function clearLifecycleIntent(serverID: string, kind?: GameServerLifecycl
     }
     localIntentTimersByKey.delete(key)
   }
-}
-
-export function registerServerContext(servers: Array<{ id: string; name: string }>): void {
-  for (const server of servers) {
-    registerServerName(server.id, server.name)
-  }
-}
-
-export function registerServerName(serverID: string, name: string): void {
-  const trimmedServerID = serverID.trim()
-  const trimmedName = name.trim()
-  if (trimmedServerID === '' || trimmedName === '') {
-    return
-  }
-  serverNameById.set(trimmedServerID, trimmedName)
 }
 
 export function resetGameServerNotificationServiceForTests(): void {
@@ -367,6 +365,5 @@ export function resetGameServerNotificationServiceForTests(): void {
   }
   activeUpdateTimersByServer.clear()
   localIntentTimersByKey.clear()
-  serverNameById.clear()
   updateStepsByServer.clear()
 }

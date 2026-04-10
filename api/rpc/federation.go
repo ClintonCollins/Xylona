@@ -645,8 +645,9 @@ func (fs FederationService) StreamServerUpdates(ctx context.Context, _ *connect.
 			errStatus := stream.Send(&xylona.FederationServerUpdateEvent{
 				Event: &xylona.FederationServerUpdateEvent_StatusChange{
 					StatusChange: &xylona.FederationServerStatusChange{
-						ServerId: update.GetGameServerId(),
-						Status:   update.GetStatus(),
+						ServerId:    update.GetGameServerId(),
+						Status:      update.GetStatus(),
+						DisplayName: update.GetGameServerName(),
 					},
 				},
 			})

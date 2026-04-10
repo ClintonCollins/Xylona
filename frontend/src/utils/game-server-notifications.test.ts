@@ -5,8 +5,6 @@ import { StepStatus, UpdateStep, type UpdateProgress } from '@/proto/xylona_pb'
 import {
   initGameServerNotificationService,
   recordLifecycleIntent,
-  registerServerContext,
-  registerServerName,
   resetGameServerNotificationServiceForTests,
 } from './game-server-notifications'
 
@@ -75,9 +73,14 @@ function expectAllToastsInTopRight() {
   }
 }
 
+function emitStatus(serverID: string, serverName: string, status: Status): void {
+  mocks.eventBus.emit('gameServerStatus', serverID, serverName, status)
+}
+
 function makeUpdateProgress(overrides: Partial<UpdateProgress> = {}): UpdateProgress {
   return {
     gameServerId: 'server-1',
+    gameServerName: 'Alpha',
     step: UpdateStep.STOPPING,
     stepStatus: StepStatus.IN_PROGRESS,
     message: 'Working',
@@ -100,28 +103,27 @@ describe('game-server-notifications', () => {
 
   it('suppresses hydration status toasts and dedupes repeated status events', () => {
     initGameServerNotificationService()
-    registerServerName('server-1', 'Alpha')
 
     mocks.eventBus.emit('websocketConnected')
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.ONLINE)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
 
     expect(mocks.notifyCreate).not.toHaveBeenCalled()
 
     vi.advanceTimersByTime(2_000)
 
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.ONLINE)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
     expect(mocks.notifyCreate).not.toHaveBeenCalled()
 
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.OFFLINE)
+    emitStatus('server-1', 'Alpha', Status.OFFLINE)
     expectLatestToast({
       type: 'xylona-info',
       caption: 'Alpha — Server stopped',
     })
 
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.OFFLINE)
+    emitStatus('server-1', 'Alpha', Status.OFFLINE)
     expect(mocks.notifyCreate).toHaveBeenCalledTimes(1)
 
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.ONLINE)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
     expectLatestToast({
       type: 'xylona-success',
       caption: 'Alpha — Server started',
@@ -130,40 +132,57 @@ describe('game-server-notifications', () => {
     expectAllToastsInTopRight()
   })
 
-  it('emits actor-scoped started toasts for long-running lifecycle actions', () => {
-    registerServerContext([{ id: 'server-1', name: 'Alpha' }])
-
+  it('does not emit a started toast from a local update lifecycle intent', () => {
     recordLifecycleIntent('server-1', 'update')
-    recordLifecycleIntent('server-1', 'backup')
-    recordLifecycleIntent('server-1', 'restore')
-    recordLifecycleIntent('server-1', 'install')
 
-    expect(mocks.notifyCreate).toHaveBeenCalledTimes(4)
-    expect(mocks.notifyCreate.mock.calls.map(([options]) => options.caption)).toEqual([
-      'Alpha — Update started',
-      'Alpha — Backup started',
-      'Alpha — Restore started',
-      'Alpha — Install started',
-    ])
+    expect(mocks.notifyCreate).not.toHaveBeenCalled()
+  })
 
+  it('emits a started backup toast from live progress in observer windows', () => {
+    initGameServerNotificationService()
+
+    mocks.eventBus.emit('gameServerBackupProgress', {
+      gameServerId: 'server-1',
+      gameServerName: 'Alpha',
+      backupId: 'backup-1',
+      operation: BackupProgressOperation.CREATE,
+      phase: BackupProgressPhase.PREPARING,
+      percent: 0,
+      sizeBytes: 0n,
+      message: 'Preparing files',
+    })
+
+    expectLatestToast({
+      type: 'xylona-info',
+      caption: 'Alpha — Backup started',
+    })
+
+    mocks.eventBus.emit('gameServerBackupProgress', {
+      gameServerId: 'server-1',
+      gameServerName: 'Alpha',
+      backupId: 'backup-1',
+      operation: BackupProgressOperation.CREATE,
+      phase: BackupProgressPhase.ARCHIVING,
+      percent: 40,
+      sizeBytes: 2048n,
+      message: 'Archiving world data',
+    })
+
+    expect(mocks.notifyCreate).toHaveBeenCalledTimes(1)
     expectAllToastsInTopRight()
   })
 
-  it('suppresses status toasts during updates and emits a terminal completion toast', () => {
+  it('suppresses status toasts during updates and emits authoritative update toasts', () => {
     initGameServerNotificationService()
-    registerServerName('server-1', 'Alpha')
 
     mocks.eventBus.emit('websocketConnected')
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.ONLINE)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
     vi.advanceTimersByTime(2_000)
 
     recordLifecycleIntent('server-1', 'update')
-    expectLatestToast({
-      type: 'xylona-info',
-      caption: 'Alpha — Update started',
-    })
+    emitStatus('server-1', 'Alpha', Status.OFFLINE)
+    expect(mocks.notifyCreate).not.toHaveBeenCalled()
 
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.OFFLINE)
     mocks.eventBus.emit(
       'gameServerUpdateProgress',
       makeUpdateProgress({
@@ -172,8 +191,13 @@ describe('game-server-notifications', () => {
         message: 'Stopping server',
       }),
     )
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.ONLINE)
 
+    expectLatestToast({
+      type: 'xylona-info',
+      caption: 'Alpha — Update started',
+    })
+
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
     expect(mocks.notifyCreate).toHaveBeenCalledTimes(1)
 
     mocks.eventBus.emit(
@@ -193,12 +217,11 @@ describe('game-server-notifications', () => {
     expectAllToastsInTopRight()
   })
 
-  it('recovers start and stop toasts if an update never emits a terminal event', () => {
+  it('recovers status toasts if an update never emits a terminal event', () => {
     initGameServerNotificationService()
-    registerServerName('server-1', 'Alpha')
 
     mocks.eventBus.emit('websocketConnected')
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.ONLINE)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
     vi.advanceTimersByTime(2_000)
 
     recordLifecycleIntent('server-1', 'update')
@@ -210,13 +233,13 @@ describe('game-server-notifications', () => {
         message: 'Stopping server',
       }),
     )
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.OFFLINE)
+    emitStatus('server-1', 'Alpha', Status.OFFLINE)
 
     expect(mocks.notifyCreate).toHaveBeenCalledTimes(1)
 
     vi.advanceTimersByTime(10 * 60 * 1000)
 
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.ONLINE)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
 
     expectLatestToast({
       type: 'xylona-success',
@@ -227,10 +250,9 @@ describe('game-server-notifications', () => {
 
   it('emits terminal update failures for observer tabs too', () => {
     initGameServerNotificationService()
-    registerServerName('server-1', 'Alpha')
 
     mocks.eventBus.emit('websocketConnected')
-    mocks.eventBus.emit('gameServerStatus', 'server-1', Status.ONLINE)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
     vi.advanceTimersByTime(2_000)
 
     mocks.eventBus.emit(
@@ -255,16 +277,15 @@ describe('game-server-notifications', () => {
       caption: 'Alpha — Update failed: Disk full',
       timeout: 0,
     })
-
     expectAllToastsInTopRight()
   })
 
-  it('emits backup, restore, and install terminal toasts with fallback names', () => {
+  it('emits backup, restore, and install toasts from payload-supplied names', () => {
     initGameServerNotificationService()
-    registerServerName('server-1', 'Alpha')
 
     mocks.eventBus.emit('gameServerBackupProgress', {
       gameServerId: 'server-1',
+      gameServerName: 'Alpha',
       backupId: 'backup-1',
       operation: BackupProgressOperation.CREATE,
       phase: BackupProgressPhase.COMPLETE,
@@ -278,7 +299,8 @@ describe('game-server-notifications', () => {
     })
 
     mocks.eventBus.emit('gameServerBackupProgress', {
-      gameServerId: 'server-1234567890',
+      gameServerId: 'server-2',
+      gameServerName: 'Bravo',
       backupId: 'backup-2',
       operation: BackupProgressOperation.RESTORE,
       phase: BackupProgressPhase.FAILED,
@@ -288,14 +310,17 @@ describe('game-server-notifications', () => {
     })
     expectLatestToast({
       type: 'xylona-error',
-      caption: 'server-1... — Restore failed: Archive missing',
+      caption: 'Bravo — Restore failed: Archive missing',
       timeout: 0,
     })
 
-    mocks.eventBus.emit('serverSoftwareInstall', 'server-1', 'installing', '', 'paper')
-    expect(mocks.notifyCreate).toHaveBeenCalledTimes(2)
+    mocks.eventBus.emit('serverSoftwareInstall', 'server-1', 'Alpha', 'installing', '', 'paper')
+    expectLatestToast({
+      type: 'xylona-info',
+      caption: 'Alpha — Install started',
+    })
 
-    mocks.eventBus.emit('serverSoftwareInstall', 'server-1', 'complete', '', 'paper')
+    mocks.eventBus.emit('serverSoftwareInstall', 'server-1', 'Alpha', 'complete', '', 'paper')
     expectLatestToast({
       type: 'xylona-success',
       caption: 'Alpha — Install completed',
@@ -303,17 +328,43 @@ describe('game-server-notifications', () => {
 
     mocks.eventBus.emit(
       'serverSoftwareInstall',
-      'server-1234567890',
+      'server-2',
+      'Bravo',
       'failed',
       'SteamCMD failed',
       'paper',
     )
     expectLatestToast({
       type: 'xylona-error',
-      caption: 'server-1... — Install failed: SteamCMD failed',
+      caption: 'Bravo — Install failed: SteamCMD failed',
       timeout: 0,
     })
 
     expectAllToastsInTopRight()
+  })
+
+  it('falls back to result text when payloads omit the server name', () => {
+    initGameServerNotificationService()
+
+    mocks.eventBus.emit('gameServerBackupProgress', {
+      gameServerId: 'server-1',
+      gameServerName: '   ',
+      backupId: 'backup-1',
+      operation: BackupProgressOperation.CREATE,
+      phase: BackupProgressPhase.COMPLETE,
+      percent: 100,
+      sizeBytes: 2048n,
+      message: '',
+    })
+    expectLatestToast({
+      type: 'xylona-success',
+      caption: 'Backup completed',
+    })
+
+    mocks.eventBus.emit('serverSoftwareInstall', 'server-1', '   ', 'complete', '', 'paper')
+    expectLatestToast({
+      type: 'xylona-success',
+      caption: 'Install completed',
+    })
   })
 })

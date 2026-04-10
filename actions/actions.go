@@ -246,6 +246,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	baseCommand, args := splitCommandString(installCommand)
 	preparedCommand := supervisor.PreparedCommand{
 		ID:               newGameServer.ID,
+		GameServerName:   newGameServer.Name,
 		BaseCommand:      baseCommand,
 		Args:             args,
 		WorkingDirectory: gameServer.Directory,
@@ -370,6 +371,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 
 	preparedCommand := supervisor.PreparedCommand{
 		ID:               gameServer.ID,
+		GameServerName:   gameServer.Name,
 		BaseCommand:      baseCommand,
 		Args:             args,
 		WorkingDirectory: gameServer.Directory,
@@ -505,6 +507,7 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 
 	preparedCommand := supervisor.PreparedCommand{
 		ID:               gameServer.ID,
+		GameServerName:   gameServer.Name,
 		WorkingDirectory: gameServer.Directory,
 		User:             gameServer.UserID,
 		GameServerID:     &gameServer.ID,

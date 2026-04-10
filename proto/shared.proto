@@ -720,4 +720,5 @@ message BackupProgress {
   int32 percent = 5;
   string message = 6;
   int64 size_bytes = 7;
+  string game_server_name = 8;
 }

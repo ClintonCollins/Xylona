@@ -209,7 +209,13 @@ func (xs *XylonaService) SetServerVariant(
 	logConsoleOutput(fmt.Sprintf("Starting variant change to %s", variantDisplayName(resolved)))
 
 	if xs.installBroadcast != nil {
-		xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusInstalling, variantID, "")
+		xs.installBroadcast.BroadcastServerSoftwareInstall(
+			gameServer.ID,
+			gameServer.Name,
+			modmanager.InstallStatusInstalling,
+			variantID,
+			"",
+		)
 	}
 
 	go xs.applyVariantDownload(gameServer, variantID, resolved, persistedTarget, persistedTargetPinned, logConsoleOutput)
@@ -310,7 +316,13 @@ func (xs *XylonaService) applyVariantDownload(
 		errMsg := "variant update provider not found"
 		xs.installTracker.SetFailed(gameServer.ID, errMsg)
 		if xs.installBroadcast != nil {
-			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusFailed, variantID, errMsg)
+			xs.installBroadcast.BroadcastServerSoftwareInstall(
+				gameServer.ID,
+				gameServer.Name,
+				modmanager.InstallStatusFailed,
+				variantID,
+				errMsg,
+			)
 		}
 		return
 	}
@@ -320,7 +332,13 @@ func (xs *XylonaService) applyVariantDownload(
 		xs.installTracker.SetFailed(gameServer.ID, errDownloadID.Error())
 		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errDownloadID.Error()))
 		if xs.installBroadcast != nil {
-			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusFailed, variantID, errDownloadID.Error())
+			xs.installBroadcast.BroadcastServerSoftwareInstall(
+				gameServer.ID,
+				gameServer.Name,
+				modmanager.InstallStatusFailed,
+				variantID,
+				errDownloadID.Error(),
+			)
 		}
 		return
 	}
@@ -331,7 +349,13 @@ func (xs *XylonaService) applyVariantDownload(
 		xs.installTracker.SetFailed(gameServer.ID, errDownload.Error())
 		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errDownload.Error()))
 		if xs.installBroadcast != nil {
-			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusFailed, variantID, errDownload.Error())
+			xs.installBroadcast.BroadcastServerSoftwareInstall(
+				gameServer.ID,
+				gameServer.Name,
+				modmanager.InstallStatusFailed,
+				variantID,
+				errDownload.Error(),
+			)
 		}
 		return
 	}
@@ -358,7 +382,13 @@ func (xs *XylonaService) applyVariantDownload(
 		xs.installTracker.SetFailed(gameServer.ID, errUpdate.Error())
 		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errUpdate.Error()))
 		if xs.installBroadcast != nil {
-			xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusFailed, variantID, errUpdate.Error())
+			xs.installBroadcast.BroadcastServerSoftwareInstall(
+				gameServer.ID,
+				gameServer.Name,
+				modmanager.InstallStatusFailed,
+				variantID,
+				errUpdate.Error(),
+			)
 		}
 		return
 	}
@@ -371,7 +401,13 @@ func (xs *XylonaService) applyVariantDownload(
 	xs.installTracker.SetComplete(gameServer.ID)
 	logConsoleOutput(fmt.Sprintf("Variant changed to %s", variantDisplayName(resolved)))
 	if xs.installBroadcast != nil {
-		xs.installBroadcast.BroadcastServerSoftwareInstall(gameServer.ID, modmanager.InstallStatusComplete, variantID, "")
+		xs.installBroadcast.BroadcastServerSoftwareInstall(
+			gameServer.ID,
+			gameServer.Name,
+			modmanager.InstallStatusComplete,
+			variantID,
+			"",
+		)
 	}
 	if xs.actionsInst != nil {
 		xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServer.ID)

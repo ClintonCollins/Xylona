@@ -33,12 +33,12 @@ type SyncEngine interface {
 
 // ServerSoftwareInstallBroadcaster broadcasts server software install events.
 type ServerSoftwareInstallBroadcaster interface {
-	BroadcastServerSoftwareInstall(serverID string, status string, softwareID string, errMsg string)
+	BroadcastServerSoftwareInstall(serverID string, serverName string, status string, softwareID string, errMsg string)
 }
 
 // UpdateProgressBroadcaster broadcasts update progress events to WebSocket clients.
 type UpdateProgressBroadcaster interface {
-	BroadcastUpdateProgress(serverID string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string)
+	BroadcastUpdateProgress(serverID string, serverName string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string)
 }
 
 // XylonaService implements the primary ConnectRPC service for the panel API.

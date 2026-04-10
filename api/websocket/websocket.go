@@ -158,6 +158,7 @@ func NewInstance(
 	m.HandleConnect(inst.handleConnect)
 	m.HandleDisconnect(inst.handleDisconnect)
 	m.HandleMessage(inst.handleMessage)
+	go inst.subscribeLocalGameServerStatusChanges()
 	go inst.startRemoteNodeMetricsPoller()
 	return inst, inst.handleRequest
 }

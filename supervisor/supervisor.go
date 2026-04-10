@@ -70,6 +70,7 @@ type Command struct {
 	BaseCommand                   string
 	Args                          []string
 	InternalCommand               bool
+	gameServerName                string
 	nodeID                        string
 	internalCommandStdOut         io.Writer
 	internalCommandStdErr         io.Writer
@@ -168,6 +169,13 @@ func (c *Command) NodeID() string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.nodeID
+}
+
+// GameServerName returns the game server name associated with this command.
+func (c *Command) GameServerName() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.gameServerName
 }
 
 // ServiceID returns the service ID associated with the command.
