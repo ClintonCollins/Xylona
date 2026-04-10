@@ -2,12 +2,12 @@
 // @generated from file shared.proto (package xylona, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2'
-import { enumDesc, fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2'
-import type { Timestamp } from '@bufbuild/protobuf/wkt'
-import { file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
-import { file_gameserver_files_operations } from './gameserver_files_operations_pb'
-import type { Message } from '@bufbuild/protobuf'
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import { file_gameserver_files_operations } from "./gameserver_files_operations_pb";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file shared.proto.

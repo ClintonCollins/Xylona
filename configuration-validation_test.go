@@ -43,6 +43,13 @@ func TestValidateConfiguration(t *testing.T) {
 			wantErrPart: `decode JWT_SECRET_KEY_BASE64`,
 		},
 		{
+			name: `cookie block key wrong length`,
+			mutate: func(config *Configuration) {
+				config.CookieBlockKey = encodeSecretForTest(10)
+			},
+			wantErrPart: `COOKIE_BLOCK_KEY_BASE64 must decode to 16, 24, or 32 bytes, got 10`,
+		},
+		{
 			name: `invalid timeout`,
 			mutate: func(config *Configuration) {
 				config.HTTPReadTimeout = 0
@@ -69,7 +76,7 @@ func TestValidateConfiguration(t *testing.T) {
 
 func TestValidateConfigurationReturnsDecodedCookieKeys(t *testing.T) {
 	config := validConfigurationForTest()
-	hashKey := encodeSecretForTest(64)
+	hashKey := encodeSecretForTest(48)
 	blockKey := encodeSecretForTest(32)
 	config.CookieHashKey = hashKey
 	config.CookieBlockKey = blockKey

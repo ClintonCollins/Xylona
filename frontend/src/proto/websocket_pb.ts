@@ -2,14 +2,14 @@
 // @generated from file websocket.proto (package xylona, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2'
-import { enumDesc, fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2'
-import { file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
-import type { UpdateProgress } from './xylona_pb'
-import { file_xylona } from './xylona_pb'
-import type { AllServersQueryInfo, BackupProgress, NodeResourceSnapshot, Status, VersionInfo } from './shared_pb'
-import { file_shared } from './shared_pb'
-import type { Message as Message$1 } from '@bufbuild/protobuf'
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { UpdateProgress } from "./xylona_pb";
+import { file_xylona } from "./xylona_pb";
+import type { AllServersQueryInfo, BackupProgress, NodeResourceSnapshot, Status, VersionInfo } from "./shared_pb";
+import { file_shared } from "./shared_pb";
+import type { Message as Message$1 } from "@bufbuild/protobuf";
 
 /**
  * Describes the file websocket.proto.

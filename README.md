@@ -45,7 +45,7 @@ pnpm --dir frontend install
 Set your signing and encryption secrets in the environment or `.env`:
 
 ```bash
-COOKIE_HASH_KEY_BASE64=<base64-encoded 64-byte securecookie hash key>
+COOKIE_HASH_KEY_BASE64=<base64-encoded securecookie hash key; 32 or 64 bytes recommended>
 COOKIE_BLOCK_KEY_BASE64=<base64-encoded 32-byte securecookie block key>
 JWT_SECRET_KEY_BASE64=<base64-encoded 32+ byte signing key>
 ENCRYPTION_KEY_BASE64=<base64-encoded 32+ byte encryption key>

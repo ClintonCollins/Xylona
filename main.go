@@ -368,6 +368,9 @@ func main() {
 	}
 
 	cleanupLogger := setupLogger()
+	if len(validatedConfig.cookieHashKey) != 32 && len(validatedConfig.cookieHashKey) != 64 {
+		log.Warn().Int("decoded_bytes", len(validatedConfig.cookieHashKey)).Msg("COOKIE_HASH_KEY_BASE64 uses a non-recommended securecookie hash key size; 32 or 64 bytes is recommended")
+	}
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
@@ -528,10 +531,12 @@ func main() {
 	// Handle SIGINT and SIGTERM
 	shutdownSignalChannel := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGTERM)
+	var startupFailed bool
 	select {
 	case errStartup := <-startupErrCh:
 		shutdownServers(ctxCancel, httpServer, federationServer)
-		log.Fatal().Err(errStartup).Msg("Startup failed")
+		log.Error().Err(errStartup).Msg("Startup failed")
+		startupFailed = true
 	case shutdownSignalType := <-shutdownSignalChannel:
 		gracefulShutdown(ctxCancel, shutdownSignalType, httpServer, federationServer)
 	}
@@ -542,4 +547,7 @@ func main() {
 		log.Error().Err(errStopScheduler).Msg("Error stopping task scheduler")
 	}
 	cleanupLogger()
+	if startupFailed {
+		os.Exit(1)
+	}
 }

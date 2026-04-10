@@ -38,10 +38,12 @@ func validateConfiguration(config Configuration) (*validatedConfiguration, error
 	if errDecodeHashKey != nil {
 		return nil, errDecodeHashKey
 	}
-
 	cookieBlockKey, errDecodeBlockKey := decodeBase64ConfigurationValue(`COOKIE_BLOCK_KEY_BASE64`, config.CookieBlockKey)
 	if errDecodeBlockKey != nil {
 		return nil, errDecodeBlockKey
+	}
+	if len(cookieBlockKey) != 16 && len(cookieBlockKey) != 24 && len(cookieBlockKey) != 32 {
+		return nil, fmt.Errorf(`COOKIE_BLOCK_KEY_BASE64 must decode to 16, 24, or 32 bytes, got %d`, len(cookieBlockKey))
 	}
 
 	_, errDecodeJWTKey := decodeBase64ConfigurationValue(`JWT_SECRET_KEY_BASE64`, config.JWTSecretKey)
