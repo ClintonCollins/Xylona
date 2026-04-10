@@ -1,5 +1,5 @@
-import type { InjectionKey, Ref, ComputedRef } from 'vue'
-import type { Game, ModSource, CommandType } from '@/proto/shared_pb'
+import type { ComputedRef, InjectionKey, Ref } from 'vue'
+import type { CommandType, Game, ModSource } from '@/proto/shared_pb'
 import type { StartArgBlock, StartArgBlocklistEntry } from '@/components/game_servers/start-args'
 import type { ConfigSchemaEntry } from './config-schema-types'
 

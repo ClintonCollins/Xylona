@@ -16,8 +16,8 @@
           Protect only game-managed flags.
         </div>
       </div>
-      <button type="button" class="blocklist-editor__action" @click="openComposer">
-        <q-icon name="add" size="16px" aria-hidden="true" />
+      <button class="blocklist-editor__action" type="button" @click="openComposer">
+        <q-icon aria-hidden="true" name="add" size="16px" />
         Add protected argument
       </button>
     </div>
@@ -36,34 +36,34 @@
         </div>
         <div class="blocklist-editor__row-fields">
           <q-input
-            :model-value="entry.pattern"
-            class="blocklist-editor__field blocklist-editor__field--pattern"
-            outlined
-            dense
-            hide-bottom-space
-            aria-label="Pattern"
-            placeholder="-javaagent:"
             :error="!isValidRegex(entry.pattern)"
+            :model-value="entry.pattern"
+            aria-label="Pattern"
+            class="blocklist-editor__field blocklist-editor__field--pattern"
+            dense
             error-message="Invalid regex"
+            hide-bottom-space
+            outlined
+            placeholder="-javaagent:"
             @update:model-value="updateEntry(index, 'pattern', String($event ?? ''))" />
           <q-input
             :model-value="entry.reason"
+            aria-label="Reason"
             class="blocklist-editor__field blocklist-editor__field--reason"
-            outlined
             dense
             hide-bottom-space
-            aria-label="Reason"
+            outlined
             placeholder="Why this flag stays protected"
             @update:model-value="updateEntry(index, 'reason', String($event ?? ''))" />
         </div>
         <q-btn
-          flat
-          dense
-          round
-          icon="delete"
-          color="negative"
-          class="blocklist-editor__delete"
           aria-label="Remove blocklist pattern"
+          class="blocklist-editor__delete"
+          color="negative"
+          dense
+          flat
+          icon="delete"
+          round
           @click="removeEntry(index)" />
       </article>
     </div>
@@ -78,37 +78,37 @@
       <div class="blocklist-editor__composer-fields">
         <q-input
           v-model="draftPattern"
-          class="blocklist-editor__field blocklist-editor__field--pattern"
-          outlined
-          dense
-          hide-bottom-space
-          aria-label="Pattern"
-          placeholder="-javaagent:"
           :error="draftPattern !== '' && !isValidRegex(draftPattern)"
-          error-message="Invalid regex" />
+          aria-label="Pattern"
+          class="blocklist-editor__field blocklist-editor__field--pattern"
+          dense
+          error-message="Invalid regex"
+          hide-bottom-space
+          outlined
+          placeholder="-javaagent:" />
         <q-input
           v-model="draftReason"
+          aria-label="Reason"
           class="blocklist-editor__field blocklist-editor__field--reason"
-          outlined
           dense
           hide-bottom-space
-          aria-label="Reason"
+          outlined
           placeholder="Why this flag stays protected" />
       </div>
       <div class="blocklist-editor__composer-actions">
-        <q-btn flat no-caps color="secondary" label="Cancel" @click="closeComposer" />
+        <q-btn color="secondary" flat label="Cancel" no-caps @click="closeComposer" />
         <q-btn
-          color="accent"
-          no-caps
-          label="Add rule"
           :disable="draftPattern.trim() === '' || !isValidRegex(draftPattern)"
+          color="accent"
+          label="Add rule"
+          no-caps
           @click="addEntry" />
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { ref } from 'vue'
 
 import type { StartArgBlocklistEntry } from '@/components/game_servers/start-args'

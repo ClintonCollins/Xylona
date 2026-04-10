@@ -1,9 +1,9 @@
 <template>
   <q-dialog
     v-model="showDialog"
-    persistent
+    aria-labelledby="dialog-title"
     backdrop-filter="brightness(25%)"
-    aria-labelledby="dialog-title">
+    persistent>
     <q-card class="full-width">
       <q-card-section>
         <div id="dialog-title" class="text-h6">{{ extractTitle }}</div>
@@ -13,11 +13,11 @@
           <div class="row wrap q-col-gutter-md justify-between">
             <q-input
               v-model="fullDestinationPath"
+              :autofocus="true"
               class="col-12"
-              outlined
               hint="Leave this blank to extract to the current directory."
               label="Folder to extract files to"
-              :autofocus="true" />
+              outlined />
           </div>
         </q-form>
       </q-card-section>
@@ -31,22 +31,22 @@
             <div class="text-caption"></div>
             <div class="text-caption">{{ filesExtracted }} / {{ totalFiles }} files extracted</div>
             <div class="text-caption">{{ currentExtractFile }}</div>
-            <q-linear-progress :value="submitProgress" color="primary" stripe size="lg" />
+            <q-linear-progress :value="submitProgress" color="primary" size="lg" stripe />
           </div>
         </q-card-section>
       </q-card-section>
       <q-card-actions v-if="!extractSubmitting" align="right">
-        <q-btn label="Cancel" color="primary" flat @click="showDialog = false" />
-        <q-btn label="Extract" color="primary" @click="extractFiles()" />
+        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
+        <q-btn color="primary" label="Extract" @click="extractFiles()" />
       </q-card-actions>
       <q-card-actions v-else align="right">
-        <q-btn label="Cancel" color="negative" @click="abortExtract" />
+        <q-btn color="negative" label="Cancel" @click="abortExtract" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'

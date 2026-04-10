@@ -1,9 +1,9 @@
 <template>
   <q-dialog
     v-model="showDialog"
-    persistent
+    aria-labelledby="dialog-title"
     backdrop-filter="brightness(25%)"
-    aria-labelledby="dialog-title">
+    persistent>
     <q-card>
       <q-card-section>
         <div id="dialog-title" class="text-h6 text-error">Delete Files</div>
@@ -21,15 +21,15 @@
                 :key="file.name"
                 class="q-pl-xl">
                 <span v-if="file.isDirectory">
-                  <q-icon size="xs" color="amber" :name="tabFolderFilled" left></q-icon>
+                  <q-icon :name="tabFolderFilled" color="amber" left size="xs"></q-icon>
                   <span class="file-name">{{ file.name }}</span>
                 </span>
                 <span v-else>
                   <q-icon
-                    size="xs"
-                    :style="'color:' + getColorFromFilenameExtension(file.name)"
                     :name="getIconFromFilenameExtension(file.name)"
-                    left></q-icon>
+                    :style="'color:' + getColorFromFilenameExtension(file.name)"
+                    left
+                    size="xs"></q-icon>
                   <span class="file-name">{{ file.name }}</span>
                 </span>
               </div>
@@ -38,19 +38,21 @@
         </q-form>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="neutral" flat @click="showDialog = false" />
-        <q-btn label="Delete" class="bg-error" @click="deleteFiles" />
+        <q-btn color="neutral" flat label="Cancel" @click="showDialog = false" />
+        <q-btn class="bg-error" label="Delete" @click="deleteFiles" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import {
   File as XylonaFile,
+  GameServerFilesDeleteRequest,
   GameServerFilesDeleteRequestSchema,
+  GameServerFilesDeleteResponse,
 } from '@/proto/gameserver_files_operations_pb'
 import {
   getColorFromFilenameExtension,
@@ -58,10 +60,6 @@ import {
   GetXylonaClient,
 } from '@/utils/shared'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import {
-  GameServerFilesDeleteRequest,
-  GameServerFilesDeleteResponse,
-} from '@/proto/gameserver_files_operations_pb'
 import { Ref, ref } from 'vue'
 
 const $q = useQuasar()

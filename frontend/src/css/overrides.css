@@ -6,78 +6,78 @@
 
 /* ---- Navigation Items ---- */
 a.q-item {
-    font-weight: 400;
-    font-size: 1.1rem;
-    font-family: var(--xy-font-display);
-    height: 100%;
-    padding-top: 12px;
-    padding-bottom: 12px;
-    border-left: 3px solid transparent;
-    transition: border-color var(--xy-transition-fast), background-color var(--xy-transition-fast);
+  font-weight: 400;
+  font-size: 1.1rem;
+  font-family: var(--xy-font-display);
+  height: 100%;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-left: 3px solid transparent;
+  transition: border-color var(--xy-transition-fast), background-color var(--xy-transition-fast);
 }
 
 a.q-item:hover {
-    border-left-color: var(--xy-surface-4);
-    background-color: rgba(255, 255, 255, 0.03);
+  border-left-color: var(--xy-surface-4);
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 .q-item.q-router-link--active {
-    color: var(--xy-accent);
-    background-color: var(--xy-accent-muted);
-    border-left: 3px solid var(--xy-accent);
+  color: var(--xy-accent);
+  background-color: var(--xy-accent-muted);
+  border-left: 3px solid var(--xy-accent);
 }
 
 /* ---- Toolbar ---- */
 .q-header .q-toolbar {
-    border-bottom: 1px solid var(--xy-border);
+  border-bottom: 1px solid var(--xy-border);
 }
 
 /* ---- Toolbar Title ---- */
 .q-toolbar__title {
-    font-family: var(--xy-font-brand);
-    font-size: 1.5rem;
-    color: var(--xy-accent);
+  font-family: var(--xy-font-brand);
+  font-size: 1.5rem;
+  color: var(--xy-accent);
 }
 
 /* ---- Input Fields ---- */
 .q-field__inner {
-    background-color: var(--xy-surface-1);
+  background-color: var(--xy-surface-1);
 }
 
 .q-field--outlined .q-field__control::before {
-    border-color: var(--xy-border);
-    transition: border-color var(--xy-transition-base);
+  border-color: var(--xy-border);
+  transition: border-color var(--xy-transition-base);
 }
 
 .q-field__control:hover::before {
-    border-color: var(--xy-text-muted) !important;
+  border-color: var(--xy-text-muted) !important;
 }
 
 .q-field--focused .q-field__control::before,
 .q-field--focused .q-field__control::after {
-    border-color: var(--xy-border-active) !important;
+  border-color: var(--xy-border-active) !important;
 }
 
 /* ---- Buttons ---- */
 .q-btn {
-    font-family: var(--xy-font-display);
-    text-transform: none;
+  font-family: var(--xy-font-display);
+  text-transform: none;
 }
 
 .q-btn.bg-success:hover:not(.disabled) {
-    background-color: var(--xy-success-hover);
+  background-color: var(--xy-success-hover);
 }
 
 .q-btn.bg-error:hover:not(.disabled) {
-    background-color: var(--xy-danger-hover);
+  background-color: var(--xy-danger-hover);
 }
 
 .q-btn.bg-positive:hover:not(.disabled) {
-    background-color: var(--xy-primary-hover);
+  background-color: var(--xy-primary-hover);
 }
 
 .q-btn.disabled {
-    opacity: 0.6 !important;
+  opacity: 0.6 !important;
 }
 
 /* ---- Menus (select dropdowns, context menus) ---- */
@@ -103,61 +103,61 @@ a.q-item:hover {
 
 /* ---- Cards ---- */
 .q-card.q-dark {
-    background-color: var(--xy-surface-1);
-    border: 1px solid var(--xy-border);
-    border-radius: 8px;
-    box-shadow: var(--xy-shadow-md);
+  background-color: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
+  box-shadow: var(--xy-shadow-md);
 }
 
 /* ---- Tables ---- */
 .q-table tbody td {
-    font-size: 1rem;
+  font-size: 1rem;
 }
 
 .q-table thead th {
-    background-color: var(--xy-surface-2);
+  background-color: var(--xy-surface-2);
 }
 
 /* Standalone table surface (no card wrapper) */
 .q-table--flat.xy-standalone-table {
-    background-color: var(--xy-surface-0);
-    border: 1px solid var(--xy-border);
-    border-radius: 8px;
-    overflow: hidden;
+  background-color: var(--xy-surface-0);
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 /* ---- Progress Bar Dark Track Override ---- */
 .body--dark .q-linear-progress__track {
-    background-color: var(--xy-surface-3) !important;
-    opacity: 1;
+  background-color: var(--xy-surface-3) !important;
+  opacity: 1;
 }
 
 /* ---- Layout Background ---- */
 .q-layout {
-    background: var(--xy-base);
-    background-attachment: fixed;
+  background: var(--xy-base);
+  background-attachment: fixed;
 }
 
 /* ---- Table Hover Text Visibility ---- */
 .q-table tbody tr:hover td {
-    color: var(--xy-text-primary);
+  color: var(--xy-text-primary);
 }
 
 /* ---- Dialog Backdrop ---- */
 .q-dialog__backdrop {
-    background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.7);
 }
 
 /* ---- Drawer ---- */
 .q-drawer.q-drawer--dark {
-    background-color: var(--xy-surface-2);
-    border-right: 1px solid var(--xy-border);
+  background-color: var(--xy-surface-2);
+  border-right: 1px solid var(--xy-border);
 }
 
 /* ---- Focus Visible ---- */
 :focus-visible {
-    outline: 2px solid var(--xy-primary);
-    outline-offset: 2px;
+  outline: 2px solid var(--xy-primary);
+  outline-offset: 2px;
 }
 
 /* Quasar buttons/items handle their own focus ring via .q-focus-helper;
@@ -166,39 +166,39 @@ a.q-item:hover {
 .q-item:focus-visible,
 .q-tab:focus-visible,
 .q-field__control:focus-visible {
-    outline: none;
+  outline: none;
 }
 
 /* Show ring on Quasar's internal focus helper instead */
 .q-btn:focus-visible > .q-focus-helper,
 .q-item:focus-visible > .q-focus-helper,
 .q-tab:focus-visible > .q-focus-helper {
-    opacity: 0.25;
-    background: var(--xy-primary);
+  opacity: 0.25;
+  background: var(--xy-primary);
 }
 
 /* ---- Focus Helper ---- */
 .q-focus-helper {
-    color: var(--xy-surface-2);
+  color: var(--xy-surface-2);
 }
 
 /* ---- Scrollbar Styling ---- */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--xy-surface-0);
+  background: var(--xy-surface-0);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--xy-surface-4);
-    border-radius: 4px;
+  background: var(--xy-surface-4);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--xy-text-muted);
+  background: var(--xy-text-muted);
 }
 
 /* ---- Rounded Input Helper ---- */
@@ -206,12 +206,12 @@ a.q-item:hover {
 .rounded-input > .q-field__control,
 .rounded-input > .q-field__inner,
 .rounded-input > .q-field__control-container {
-    border-radius: 12px;
+  border-radius: 12px;
 }
 
 .rounded-input > .q-field--outlined::before,
 .rounded-input > .q-field__control::before,
 .rounded-input > .q-field__inner::before,
 .rounded-input > .q-field__control-container::before {
-    border-radius: 12px;
+  border-radius: 12px;
 }

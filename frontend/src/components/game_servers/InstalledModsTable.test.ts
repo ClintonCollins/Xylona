@@ -1,9 +1,9 @@
 import { create } from '@bufbuild/protobuf'
-import { mount } from '@vue/test-utils'
 import type { MountingOptions } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import { InstalledModSchema } from '@/proto/shared_pb'
 import type { InstalledMod } from '@/proto/shared_pb'
+import { InstalledModSchema } from '@/proto/shared_pb'
 import InstalledModsTable from './InstalledModsTable.vue'
 
 function makeMod(overrides: Partial<InstalledMod> = {}): InstalledMod {
@@ -216,8 +216,8 @@ describe('InstalledModsTable', () => {
 
     const badges = wrapper.findAll('.source-badge')
     expect(badges).toHaveLength(2)
-    expect(badges[0].text()).toBe('M')
-    expect(badges[1].text()).toBe('H')
+    expect(badges[0]?.text()).toBe('M')
+    expect(badges[1]?.text()).toBe('H')
   })
 
   it('emits update when single update button is clicked', async () => {

@@ -3,11 +3,11 @@
     <q-expansion-item
       v-model="expanded"
       dense
-      header-class="advanced-header"
-      expand-icon-class="text-xy-muted">
+      expand-icon-class="text-xy-muted"
+      header-class="advanced-header">
       <template #header>
         <q-item-section avatar>
-          <q-icon name="code" color="warning" size="sm" aria-hidden="true" />
+          <q-icon aria-hidden="true" color="warning" name="code" size="sm" />
         </q-item-section>
         <q-item-section>
           <q-item-label class="advanced-title font-display"> Advanced Fields </q-item-label>
@@ -18,9 +18,9 @@
       </template>
 
       <div class="advanced-content">
-        <q-banner dense class="advanced-banner q-mb-sm">
+        <q-banner class="advanced-banner q-mb-sm" dense>
           <template #avatar>
-            <q-icon name="info" color="warning" size="xs" aria-hidden="true" />
+            <q-icon aria-hidden="true" color="warning" name="info" size="xs" />
           </template>
           These fields exist in the config file but aren't defined in the schema. They will be
           preserved when saving.
@@ -35,20 +35,20 @@
               <q-input
                 v-model="field.key"
                 :aria-label="`Field key: ${field.key}`"
-                dense
-                outlined
-                readonly
                 class="advanced-key"
-                input-class="font-mono advanced-input-text">
+                dense
+                input-class="font-mono advanced-input-text"
+                outlined
+                readonly>
               </q-input>
               <span class="advanced-equals text-xy-muted">=</span>
               <q-input
                 v-model="field.value"
                 :aria-label="`Value for ${field.key}`"
-                dense
-                outlined
                 class="advanced-value"
+                dense
                 input-class="font-mono advanced-input-text"
+                outlined
                 @update:model-value="emitUpdate">
               </q-input>
             </div>
@@ -59,7 +59,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { ref, watch } from 'vue'
 import type { AdvancedField } from '@/proto/xylona_pb'
 

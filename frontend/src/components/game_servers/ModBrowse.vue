@@ -4,51 +4,51 @@
     <div class="browse-toolbar">
       <q-input
         v-model="searchQuery"
-        dense
-        outlined
-        placeholder="Search mods..."
         aria-label="Search mods"
         class="browse-search-input"
         clearable
+        dense
+        outlined
+        placeholder="Search mods..."
         @clear="searchQuery = ''"
         @update:model-value="debouncedSearch">
         <template #prepend>
-          <q-icon name="search" size="xs" class="text-xy-muted" aria-hidden="true" />
+          <q-icon aria-hidden="true" class="text-xy-muted" name="search" size="xs" />
         </template>
       </q-input>
 
       <q-select
         v-model="sortBy"
         :options="sortOptions"
+        aria-label="Sort by"
+        class="browse-sort-select"
         dense
-        outlined
         emit-value
         map-options
-        aria-label="Sort by"
-        class="browse-sort-select" />
+        outlined />
 
-      <div class="source-chips" role="group" aria-label="Filter by source">
+      <div aria-label="Filter by source" class="source-chips" role="group">
         <q-btn
+          :class="{ 'chip-inactive': activeSource !== '' }"
+          :color="activeSource === '' ? 'primary' : undefined"
           :outline="activeSource !== ''"
           :unelevated="activeSource === ''"
-          :color="activeSource === '' ? 'primary' : undefined"
-          :class="{ 'chip-inactive': activeSource !== '' }"
-          size="sm"
           dense
-          no-caps
           label="All"
+          no-caps
+          size="sm"
           @click="setActiveSource('')" />
         <q-btn
           v-for="src in sources"
           :key="src.id"
+          :class="{ 'chip-inactive': activeSource !== src.id }"
           :outline="activeSource !== src.id"
           :unelevated="activeSource === src.id"
-          size="sm"
           dense
           no-caps
-          :class="{ 'chip-inactive': activeSource !== src.id }"
+          size="sm"
           @click="setActiveSource(src.id)">
-          <span class="source-chip-badge" :style="sourceBadgeStyle(src.id)" aria-hidden="true">
+          <span :style="sourceBadgeStyle(src.id)" aria-hidden="true" class="source-chip-badge">
             {{ sourceLabel(src.id) }}
           </span>
           <span class="source-chip-name">{{ sourceDisplayName(src.id) }}</span>
@@ -57,14 +57,14 @@
 
       <q-btn
         v-if="hasActiveFilters"
-        flat
+        aria-label="Reset all filters"
+        class="reset-filters-btn"
         dense
-        no-caps
-        size="sm"
+        flat
         icon="filter_list_off"
         label="Reset"
-        class="reset-filters-btn"
-        aria-label="Reset all filters"
+        no-caps
+        size="sm"
         @click="resetFilters" />
     </div>
 
@@ -76,27 +76,27 @@
         v-if="versionSelectOptions.length > 0"
         v-model="gameVersionFilter"
         :options="versionSelectOptions"
-        dense
-        outlined
-        emit-value
-        map-options
-        clearable
         aria-label="Filter by game version"
         class="browse-version-input"
+        clearable
+        dense
+        emit-value
+        map-options
+        outlined
         @clear="gameVersionFilter = ''" />
 
       <q-select
         v-if="availableCategories.length > 0"
         v-model="categoryFilter"
         :options="availableCategories"
-        dense
-        outlined
-        multiple
-        use-chips
-        emit-value
         aria-label="Filter by category"
+        class="browse-category-select"
+        dense
+        emit-value
+        multiple
+        outlined
         placeholder="Categories"
-        class="browse-category-select" />
+        use-chips />
     </div>
 
     <!-- Loading state -->
@@ -107,7 +107,7 @@
 
     <!-- Empty: no results -->
     <div v-else-if="hasSearched && results.length === 0" class="browse-empty">
-      <q-icon name="search_off" size="3rem" class="text-xy-muted" aria-hidden="true" />
+      <q-icon aria-hidden="true" class="text-xy-muted" name="search_off" size="3rem" />
       <div class="browse-empty-title text-xy-secondary">No mods found</div>
       <div class="browse-empty-subtitle text-xy-muted">
         Try a different search term or source filter.
@@ -120,24 +120,24 @@
         <button
           v-for="mod in results"
           :key="`${mod.source}-${mod.sourceId}`"
-          type="button"
-          class="mod-card"
           :aria-label="`View details for ${mod.name}`"
+          class="mod-card"
+          type="button"
           @click="emit('view-details', mod.source, mod.sourceId)">
           <!-- Icon -->
           <div class="mod-card-icon-wrapper">
             <img
               v-if="mod.iconUrl"
-              :src="mod.iconUrl"
               :alt="`${mod.name} icon`"
+              :src="mod.iconUrl"
               class="mod-card-icon-img"
               loading="lazy"
               @error="($event.target as HTMLImageElement).style.display = 'none'" />
             <div
               v-if="!mod.iconUrl"
-              class="mod-card-icon-fallback"
               :style="{ background: iconGradient(mod.name) }"
-              aria-hidden="true">
+              aria-hidden="true"
+              class="mod-card-icon-fallback">
               {{ mod.name.charAt(0).toUpperCase() }}
             </div>
           </div>
@@ -147,9 +147,9 @@
             <div class="mod-card-header">
               <span class="mod-card-name">{{ mod.name }}</span>
               <span
-                class="source-badge"
                 :style="sourceBadgeStyle(mod.source)"
-                :title="sourceDisplayName(mod.source)">
+                :title="sourceDisplayName(mod.source)"
+                class="source-badge">
                 {{ sourceLabel(mod.source) }}
               </span>
             </div>
@@ -168,27 +168,27 @@
           <div class="mod-card-footer">
             <div class="mod-card-footer-left">
               <span class="mod-card-downloads text-xy-muted">
-                <q-icon name="download" size="xs" aria-hidden="true" />
+                <q-icon aria-hidden="true" name="download" size="xs" />
                 {{ formatDownloads(mod.downloads) }}
               </span>
               <span v-if="mod.dateModified" class="mod-card-updated text-xy-muted">
-                <q-icon name="schedule" size="xs" aria-hidden="true" />
+                <q-icon aria-hidden="true" name="schedule" size="xs" />
                 {{ formatRelativeDate(mod.dateModified) }}
               </span>
             </div>
 
             <span v-if="isModInstalled(mod.source, mod.sourceId)" class="installed-badge">
-              <q-icon name="check_circle" size="xs" aria-hidden="true" />
+              <q-icon aria-hidden="true" name="check_circle" size="xs" />
               Installed
             </span>
             <q-btn
               v-else
               color="primary"
-              size="sm"
               dense
-              no-caps
-              label="Install"
               icon="add"
+              label="Install"
+              no-caps
+              size="sm"
               @click="onInstallClick($event, mod.source, mod.sourceId)" />
           </div>
         </button>
@@ -199,29 +199,29 @@
         <q-select
           v-model="pageSize"
           :options="pageSizeOptions"
+          aria-label="Results per page"
+          class="page-size-select"
           dense
-          outlined
           emit-value
           map-options
-          aria-label="Results per page"
-          class="page-size-select" />
+          outlined />
 
         <q-pagination
           v-if="hasKnownTotalCount"
-          :model-value="currentPage"
           :max="totalPages"
           :max-pages="7"
-          direction-links
+          :model-value="currentPage"
+          active-color="primary"
+          active-design="unelevated"
+          active-text-color="white"
+          aria-label="Page navigation"
           boundary-links
+          class="browse-pagination"
+          direction-links
           icon-first="first_page"
           icon-last="last_page"
-          icon-prev="chevron_left"
           icon-next="chevron_right"
-          active-design="unelevated"
-          active-color="primary"
-          active-text-color="white"
-          class="browse-pagination"
-          aria-label="Page navigation"
+          icon-prev="chevron_left"
           @update:model-value="onPageChange" />
 
         <span class="browse-result-count text-xy-muted">
@@ -232,13 +232,13 @@
 
     <!-- Error banner -->
     <div v-if="errorMessage" class="browse-error">
-      <q-icon name="error" size="sm" color="negative" aria-hidden="true" />
+      <q-icon aria-hidden="true" color="negative" name="error" size="sm" />
       <span>{{ errorMessage }}</span>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
@@ -246,7 +246,7 @@ import { ConnectError } from '@connectrpc/connect'
 import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
 import { GetModCategoriesRequestSchema, SearchModsRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { sourceBadgeStyle, sourceLabel, sourceDisplayName } from '@/utils/mod-sources'
+import { sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-sources'
 
 const VALID_SORT_VALUES = ['downloads', 'updated', 'newest', 'relevance'] as const
 const PAGE_SIZE_OPTIONS = [12, 20, 40, 60] as const

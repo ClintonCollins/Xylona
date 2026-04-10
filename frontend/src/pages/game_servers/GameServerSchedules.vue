@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
@@ -9,9 +9,9 @@ import dayjs from 'dayjs'
 import cronstrue from 'cronstrue'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import {
+  DeleteScheduledTaskRequestSchema,
   ListScheduledTasksRequestSchema,
   UpdateScheduledTaskRequestSchema,
-  DeleteScheduledTaskRequestSchema,
 } from '@/proto/xylona_pb'
 import type { ScheduledTask } from '@/proto/shared_pb'
 import ScheduledTaskForm from '@/components/game_servers/ScheduledTaskForm.vue'
@@ -222,19 +222,19 @@ function confirmDelete(task: ScheduledTask): void {
     </div>
 
     <q-table
-      :rows="tasks"
       :columns="columns"
-      row-key="id"
-      flat
       :loading="loading"
       :pagination="{ rowsPerPage: 0 }"
-      hide-pagination
+      :rows="tasks"
       class="xy-standalone-table"
-      no-data-label="No scheduled tasks yet. Create one to automate server actions.">
+      flat
+      hide-pagination
+      no-data-label="No scheduled tasks yet. Create one to automate server actions."
+      row-key="id">
       <template #body-cell-taskType="props">
         <q-td :props="props">
           <div class="row items-center no-wrap">
-            <q-icon :name="taskTypeIcons[props.row.taskType] ?? 'help'" size="xs" class="q-mr-sm" />
+            <q-icon :name="taskTypeIcons[props.row.taskType] ?? 'help'" class="q-mr-sm" size="xs" />
             {{ taskTypeLabels[props.row.taskType] ?? props.row.taskType }}
           </div>
         </q-td>
@@ -252,21 +252,21 @@ function confirmDelete(task: ScheduledTask): void {
       <template #body-cell-actions="props">
         <q-td :props="props">
           <q-btn
-            flat
+            aria-label="Edit task"
             dense
+            flat
             icon="edit"
             size="sm"
-            aria-label="Edit task"
             @click="openEditDialog(props.row)">
             <q-tooltip>Edit</q-tooltip>
           </q-btn>
           <q-btn
-            flat
+            aria-label="Delete task"
+            color="negative"
             dense
+            flat
             icon="delete"
             size="sm"
-            color="negative"
-            aria-label="Delete task"
             @click="confirmDelete(props.row)">
             <q-tooltip>Delete</q-tooltip>
           </q-btn>
@@ -275,11 +275,11 @@ function confirmDelete(task: ScheduledTask): void {
     </q-table>
 
     <scheduled-task-form
-      :show-dialog="showFormDialog"
-      :game-server-id="gameServerId"
       :existing-task="editingTask"
-      @submit="onFormSubmit"
-      @close="closeFormDialog" />
+      :game-server-id="gameServerId"
+      :show-dialog="showFormDialog"
+      @close="closeFormDialog"
+      @submit="onFormSubmit" />
   </div>
 </template>
 

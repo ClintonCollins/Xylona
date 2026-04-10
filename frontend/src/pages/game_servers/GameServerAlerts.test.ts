@@ -3,15 +3,15 @@ import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AlertHistoryEntry, AlertRule, NotificationChannel } from '@/proto/shared_pb'
 import {
+  AlertEventType,
+  AlertHistoryEntrySchema,
+  AlertRuleSchema,
+  DeliveryStatus,
   NotificationChannelSchema,
   NotificationChannelType,
-  AlertEventType,
-  DeliveryStatus,
-  AlertRuleSchema,
-  AlertHistoryEntrySchema,
 } from '@/proto/shared_pb'
-import type { NotificationChannel, AlertRule, AlertHistoryEntry } from '@/proto/shared_pb'
 import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import GameServerAlerts from './GameServerAlerts.vue'
@@ -252,8 +252,8 @@ describe('GameServerAlerts', () => {
 
     const tabs = wrapper.findAll('.q-tab-stub')
     expect(tabs).toHaveLength(2)
-    expect(tabs[0].text()).toBe('Alert Rules')
-    expect(tabs[1].text()).toBe('Alert History')
+    expect(tabs[0]?.text()).toBe('Alert Rules')
+    expect(tabs[1]?.text()).toBe('Alert History')
   })
 
   it('loads rules, history, and channels on mount', async () => {

@@ -2,8 +2,8 @@
   <div class="operation-timeline-panel">
     <div
       v-if="statusStep"
-      class="operation-active-band"
-      :class="`operation-active-band--${statusTone}`">
+      :class="`operation-active-band--${statusTone}`"
+      class="operation-active-band">
       <div class="operation-active-pulse"></div>
       <div class="operation-active-copy">
         <div class="operation-active-label">{{ statusLabel }}</div>
@@ -16,8 +16,8 @@
     </div>
 
     <div
-      class="operation-timeline-layout"
-      :class="{ 'operation-timeline-layout--with-rail': hasContextFacts }">
+      :class="{ 'operation-timeline-layout--with-rail': hasContextFacts }"
+      class="operation-timeline-layout">
       <section class="operation-timeline-shell">
         <div class="operation-timeline-head">
           <div>
@@ -32,8 +32,8 @@
           <article
             v-for="(stepState, index) in steps"
             :key="stepState.step"
-            class="operation-timeline-entry"
-            :class="entryStatusClass(stepState.status)">
+            :class="entryStatusClass(stepState.status)"
+            class="operation-timeline-entry">
             <div class="operation-timeline-stamp">{{ stepStamp(stepState, index) }}</div>
             <div class="operation-timeline-marker">
               <div class="operation-timeline-pin">
@@ -60,8 +60,8 @@
               <div class="operation-timeline-kind">{{ stepKind(stepState) }}</div>
               <div class="operation-timeline-name">{{ stepLabel(stepState) }}</div>
               <div
-                class="operation-timeline-desc"
-                :class="{ 'operation-timeline-desc--placeholder': !stepDescription(stepState) }">
+                :class="{ 'operation-timeline-desc--placeholder': !stepDescription(stepState) }"
+                class="operation-timeline-desc">
                 {{ stepDescription(stepState) || ' ' }}
               </div>
             </div>
@@ -85,17 +85,17 @@
 
     <button
       v-if="showOutputSection"
-      type="button"
-      class="operation-output-toggle"
       :disabled="!hasOutputLines"
+      class="operation-output-toggle"
+      type="button"
       @click="outputExpanded = !outputExpanded">
       <div>
         <div class="operation-output-title">Operation Output</div>
         <div class="operation-output-copy">{{ outputSummary }}</div>
       </div>
       <div
-        class="operation-output-caret"
-        :class="{ 'operation-output-caret--open': outputExpanded }">
+        :class="{ 'operation-output-caret--open': outputExpanded }"
+        class="operation-output-caret">
         ⌄
       </div>
     </button>
@@ -110,9 +110,9 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, ref } from 'vue'
-import { UpdateStep, StepStatus } from '@/proto/xylona_pb'
+import { StepStatus, UpdateStep } from '@/proto/xylona_pb'
 import type { OperationContextFact, StepState } from './UpdateProgressPanel.types'
 
 const props = withDefaults(

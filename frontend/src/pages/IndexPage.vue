@@ -5,16 +5,16 @@
       <div class="brand-subtitle">Game Server Control Panel</div>
       <div class="nav-grid">
         <router-link v-for="item in navItems" :key="item.to" :to="item.to" class="nav-card">
-          <q-icon :name="item.icon" size="1.5rem" class="nav-card-icon" />
+          <q-icon :name="item.icon" class="nav-card-icon" size="1.5rem" />
           <span class="nav-card-label">{{ item.label }}</span>
-          <q-icon name="chevron_right" size="xs" class="nav-card-arrow" />
+          <q-icon class="nav-card-arrow" name="chevron_right" size="xs" />
         </router-link>
       </div>
     </div>
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed } from 'vue'
 import { useUserAuthStore } from '@/stores/xylona'
 

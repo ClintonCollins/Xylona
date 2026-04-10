@@ -5,9 +5,9 @@ import { Status, VersionStatus } from '@/proto/shared_pb'
 import type { AggregatedGameServer } from '@/proto/xylona_pb'
 import {
   buildDisplayRows,
+  type DisplayRow,
   extractRemoteNodeIDs,
   filterRowsByRemoteNodeIDs,
-  type DisplayRow,
 } from './server-list-cache'
 
 describe('buildDisplayRows', () => {
@@ -99,7 +99,7 @@ describe('buildDisplayRows', () => {
       nodeName: 'Local Node',
       version: '1.20.4',
     })
-    expect(rows[0].versionInfo).toMatchObject({
+    expect(rows[0]?.versionInfo).toMatchObject({
       status: VersionStatus.CHECKED,
       installedVersion: '1.0.0',
       updateAvailable: true,
@@ -113,7 +113,7 @@ describe('buildDisplayRows', () => {
       sourceNodeId: 'node-remote',
       version: '0.217.46',
     })
-    expect(rows[1].versionInfo).toMatchObject({
+    expect(rows[1]?.versionInfo).toMatchObject({
       status: VersionStatus.CHECKED,
       installedVersion: '0.217.46',
       latestVersion: '0.218.15',
@@ -256,6 +256,6 @@ describe('filterRowsByRemoteNodeIDs', () => {
 
     const filteredRows = filterRowsByRemoteNodeIDs(rows, new Set(['node-remote-a']))
     expect(filteredRows).toHaveLength(1)
-    expect(filteredRows[0].displayName).toBe('First Value')
+    expect(filteredRows[0]?.displayName).toBe('First Value')
   })
 })

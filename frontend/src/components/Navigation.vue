@@ -1,28 +1,28 @@
 <template>
   <q-header>
     <q-toolbar class="bg-toolbar">
-      <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
+      <q-btn aria-label="Menu" dense flat icon="menu" round @click="toggleLeftDrawer" />
 
       <q-toolbar-title> Xylona </q-toolbar-title>
 
       <div>{{ user?.userName }}</div>
       <q-btn
-        flat
-        round
-        dense
-        icon="logout"
-        class="q-ml-sm"
         aria-label="Logout"
+        class="q-ml-sm"
+        dense
+        flat
+        icon="logout"
+        round
         @click="logoutUser" />
     </q-toolbar>
   </q-header>
 
-  <q-drawer v-model="leftDrawerOpen" show-if-above bordered class="bg-xy-surface-2">
+  <q-drawer v-model="leftDrawerOpen" bordered class="bg-xy-surface-2" show-if-above>
     <nav aria-label="Main navigation">
       <q-list class="nav-list q-mt-md">
         <template v-for="(link, index) in navLinks" :key="link.title">
           <div v-if="link.section && index > 0" class="xy-nav-divider"></div>
-          <q-item-label v-if="link.section" header class="nav-section-label">{{
+          <q-item-label v-if="link.section" class="nav-section-label" header>{{
             link.section
           }}</q-item-label>
           <q-item
@@ -32,9 +32,9 @@
                 ? 'q-router-link--exact-active q-router-link--active'
                 : null
             "
-            clickable
+            :exact="link.exact"
             :to="link.link"
-            :exact="link.exact">
+            clickable>
             <q-item-section v-if="link.icon" avatar>
               <q-icon :name="link.icon" />
             </q-item-section>
@@ -44,10 +44,10 @@
                 {{ link.title }}
                 <q-badge
                   v-if="link.title === 'Nodes' && unreadAdvisoryCount > 0"
+                  :label="unreadAdvisoryCount"
                   color="primary"
                   floating
-                  rounded
-                  :label="unreadAdvisoryCount" />
+                  rounded />
               </q-item-label>
             </q-item-section>
           </q-item>
@@ -55,10 +55,10 @@
             <q-item
               v-for="l in link.groupItems"
               :key="l.title"
+              :exact="l.exact"
               :inset-level="0.3"
-              clickable
               :to="l.link"
-              :exact="l.exact">
+              clickable>
               <q-item-section v-if="l.icon" avatar>
                 <q-icon :name="l.icon" />
               </q-item-section>
@@ -74,7 +74,7 @@
   </q-drawer>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {

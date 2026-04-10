@@ -1,9 +1,9 @@
 <template>
-  <q-list separator dense>
+  <q-list dense separator>
     <q-item>
       <q-item-section>
         <q-item-label>CPU</q-item-label>
-        <q-linear-progress :value="cpuPercent / 100" :color="cpuColor" rounded class="q-mt-xs" />
+        <q-linear-progress :color="cpuColor" :value="cpuPercent / 100" class="q-mt-xs" rounded />
       </q-item-section>
       <q-item-section side> {{ cpuPercent.toFixed(1) }}% </q-item-section>
     </q-item>
@@ -11,10 +11,10 @@
       <q-item-section>
         <q-item-label>Memory</q-item-label>
         <q-linear-progress
-          :value="memoryPercent / 100"
           :color="memoryColor"
-          rounded
-          class="q-mt-xs" />
+          :value="memoryPercent / 100"
+          class="q-mt-xs"
+          rounded />
       </q-item-section>
       <q-item-section side>
         {{ bytesToSize(memoryUsed) }} / {{ bytesToSize(memoryTotal) }}
@@ -23,7 +23,7 @@
     <q-item>
       <q-item-section>
         <q-item-label>Disk</q-item-label>
-        <q-linear-progress :value="diskPercent / 100" :color="diskColor" rounded class="q-mt-xs" />
+        <q-linear-progress :color="diskColor" :value="diskPercent / 100" class="q-mt-xs" rounded />
       </q-item-section>
       <q-item-section side>
         {{ bytesToSize(diskUsed) }} / {{ bytesToSize(diskTotal) }}
@@ -32,7 +32,7 @@
   </q-list>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed } from 'vue'
 import { NodeResourceSnapshot } from '@/proto/shared_pb'
 import { bytesToSize } from '@/utils/shared'

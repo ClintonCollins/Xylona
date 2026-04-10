@@ -96,7 +96,7 @@ describe('ConfigSchemaList', () => {
 
     const payload = emitted?.[0]?.[0] as Array<{ generate_before_start: boolean }>
     expect(payload).toHaveLength(1)
-    expect(payload[0].generate_before_start).toBe(true)
+    expect(payload[0]?.generate_before_start).toBe(true)
   })
 
   it('labels icon-only row actions for assistive technology', () => {
@@ -134,9 +134,9 @@ describe('ConfigSchemaList', () => {
 
     const buttons = wrapper.findAll('.schema-file-actions button')
     expect(buttons).toHaveLength(3)
-    expect(buttons[0].attributes('aria-label')).toBe('Toggle generate before start')
-    expect(buttons[1].attributes('aria-label')).toBe('Edit schema')
-    expect(buttons[2].attributes('aria-label')).toBe('Remove schema')
+    expect(buttons[0]?.attributes('aria-label')).toBe('Toggle generate before start')
+    expect(buttons[1]?.attributes('aria-label')).toBe('Edit schema')
+    expect(buttons[2]?.attributes('aria-label')).toBe('Remove schema')
   })
 
   it('provides an explicit format edit trigger without relying on hover', () => {
@@ -215,6 +215,6 @@ describe('ConfigSchemaList', () => {
 
     const buttons = wrapper.findAll('.schema-file-actions button')
     expect(buttons).toHaveLength(3)
-    expect(buttons[1].attributes('disabled')).toBeDefined()
+    expect(buttons[1]?.attributes('disabled')).toBeDefined()
   })
 })

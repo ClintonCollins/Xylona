@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BackupProgressOperation, BackupProgressPhase, Status } from '@/proto/shared_pb'
-import { StepStatus, UpdateStep, type UpdateProgress } from '@/proto/xylona_pb'
+import { StepStatus, type UpdateProgress, UpdateStep } from '@/proto/xylona_pb'
 import {
   initGameServerNotificationService,
   recordLifecycleIntent,

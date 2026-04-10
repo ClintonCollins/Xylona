@@ -2,17 +2,27 @@
 // @generated from file federation.proto (package xylona, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { AlertEventType, GameServer, GameServerMetricsHistoryPoint, MetricsHistoryPoint, NodeResourceSnapshot, NodeSystemInfo, ServerQuery, Status, VersionInfo } from "./shared_pb";
-import { file_shared } from "./shared_pb";
-import type { File } from "./gameserver_files_operations_pb";
-import { file_gameserver_files_operations } from "./gameserver_files_operations_pb";
-import type { GameServerMetrics } from "./websocket_pb";
-import { file_websocket } from "./websocket_pb";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile, GenMessage, GenService } from '@bufbuild/protobuf/codegenv2'
+import { enumDesc, fileDesc, messageDesc, serviceDesc } from '@bufbuild/protobuf/codegenv2'
+import type { Timestamp } from '@bufbuild/protobuf/wkt'
+import { file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
+import type {
+  AlertEventType,
+  GameServer,
+  GameServerMetricsHistoryPoint,
+  MetricsHistoryPoint,
+  NodeResourceSnapshot,
+  NodeSystemInfo,
+  ServerQuery,
+  Status,
+  VersionInfo
+} from './shared_pb'
+import { file_shared } from './shared_pb'
+import type { File } from './gameserver_files_operations_pb'
+import { file_gameserver_files_operations } from './gameserver_files_operations_pb'
+import type { GameServerMetrics } from './websocket_pb'
+import { file_websocket } from './websocket_pb'
+import type { Message } from '@bufbuild/protobuf'
 
 /**
  * Describes the file federation.proto.

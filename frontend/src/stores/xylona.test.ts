@@ -1,22 +1,25 @@
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'
-import { useUserAuthStore } from './xylona'
+import { useToolbarNavQTabsStore, useUserAuthStore } from './xylona'
 
 const mocks = vi.hoisted(() => ({
+  buildXylonaErrorNotification: vi.fn(),
   checkUserAuthenticated: vi.fn(),
+  connectErrorMessage: vi.fn(),
   logout: vi.fn(),
 }))
 
-vi.mock('@/utils/shared', () => ({
-  GetXylonaClient: () => ({
-    checkUserAuthenticated: mocks.checkUserAuthenticated,
-    logout: mocks.logout,
-  }),
-  ConnectErrorToString: (err: ConnectError) => err.message,
+vi.mock('@/api/auth', () => ({
+  checkUserAuthenticated: mocks.checkUserAuthenticated,
+  logout: mocks.logout,
+}))
+
+vi.mock('@/api/connect-errors', () => ({
+  buildXylonaErrorNotification: mocks.buildXylonaErrorNotification,
+  connectErrorMessage: mocks.connectErrorMessage,
 }))
 
 vi.mock('quasar', () => ({
@@ -28,7 +31,9 @@ vi.mock('quasar', () => ({
 describe('useUserAuthStore — checkUserAuthenticated', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    mocks.buildXylonaErrorNotification.mockReset()
     mocks.checkUserAuthenticated.mockReset()
+    mocks.connectErrorMessage.mockReset()
     mocks.logout.mockReset()
   })
 
@@ -64,8 +69,17 @@ describe('useUserAuthStore — checkUserAuthenticated', () => {
 
   it('failure: resets initialFetch to false and shows Notify error', async () => {
     const { Notify } = await import('quasar')
-    const error = new ConnectError('connection refused')
+    const error = new Error('connection refused')
     mocks.checkUserAuthenticated.mockRejectedValueOnce(error)
+    mocks.connectErrorMessage.mockReturnValue('connection refused')
+    mocks.buildXylonaErrorNotification.mockReturnValue({
+      type: 'xylona-error',
+      caption: 'connection refused',
+      position: 'top',
+      timeout: 0,
+      closeBtn: 'Dismiss',
+      icon: 'report_problem',
+    })
 
     const store = useUserAuthStore()
     const result = await store.checkUserAuthenticated()
@@ -73,6 +87,11 @@ describe('useUserAuthStore — checkUserAuthenticated', () => {
     expect(result).toBeNull()
     expect(store.initialFetch).toBe(false)
     expect(store.user).toBeNull()
+    expect(mocks.buildXylonaErrorNotification).toHaveBeenCalledWith('connection refused', {
+      timeout: 0,
+      closeBtn: 'Dismiss',
+      icon: 'report_problem',
+    })
     expect(Notify.create).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'xylona-error',
@@ -110,7 +129,9 @@ describe('useUserAuthStore — checkUserAuthenticated', () => {
 describe('useUserAuthStore — logout', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    mocks.buildXylonaErrorNotification.mockReset()
     mocks.checkUserAuthenticated.mockReset()
+    mocks.connectErrorMessage.mockReset()
     mocks.logout.mockReset()
   })
 
@@ -140,8 +161,9 @@ describe('useUserAuthStore — logout', () => {
 
   it('failure: logs error and does not crash', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const error = new ConnectError('logout failed')
+    const error = new Error('logout failed')
     mocks.logout.mockRejectedValueOnce(error)
+    mocks.connectErrorMessage.mockReturnValue('logout failed')
 
     const store = useUserAuthStore()
     const user = create(UserSchema, {
@@ -153,11 +175,77 @@ describe('useUserAuthStore — logout', () => {
     // Should not throw
     await store.logout()
 
-    expect(consoleSpy).toHaveBeenCalledWith('Logout error:', expect.any(String))
+    expect(consoleSpy).toHaveBeenCalledWith('Logout error:', 'logout failed')
 
     // User should NOT be cleared since the API call failed
     expect(store.user).not.toBeNull()
 
     consoleSpy.mockRestore()
+  })
+})
+
+describe('useUserAuthStore — state helpers', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    mocks.buildXylonaErrorNotification.mockReset()
+    mocks.checkUserAuthenticated.mockReset()
+    mocks.connectErrorMessage.mockReset()
+    mocks.logout.mockReset()
+  })
+
+  it('initializes with empty auth state', () => {
+    const store = useUserAuthStore()
+
+    expect(store.user).toBeNull()
+    expect(store.initialFetch).toBe(false)
+    expect(store.initialResponse).toBeNull()
+  })
+
+  it('sets authenticated user data', () => {
+    const store = useUserAuthStore()
+    const user = create(UserSchema, {
+      id: 'user-1',
+      userName: 'admin',
+      email: 'admin@example.com',
+      firstName: 'Admin',
+      lastName: 'User',
+      superUser: true,
+    })
+
+    store.setUser(user)
+
+    expect(store.user).toMatchObject({
+      id: 'user-1',
+      userName: 'admin',
+      email: 'admin@example.com',
+      superUser: true,
+    })
+  })
+})
+
+describe('useToolbarNavQTabsStore', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('initializes with empty tabs', () => {
+    const store = useToolbarNavQTabsStore()
+
+    expect(store.selectedTab).toBe('')
+    expect(store.tabs).toEqual([])
+  })
+
+  it('replaces tabs with the provided configuration', () => {
+    const store = useToolbarNavQTabsStore()
+
+    store.changeTabs([
+      { name: 'Home', to: '/', exact: true, icon: 'home' },
+      { name: 'Servers', to: '/servers', exact: false, icon: 'dns' },
+    ])
+
+    expect(store.tabs).toEqual([
+      { name: 'Home', to: '/', exact: true, icon: 'home' },
+      { name: 'Servers', to: '/servers', exact: false, icon: 'dns' },
+    ])
   })
 })

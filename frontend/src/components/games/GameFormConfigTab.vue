@@ -12,7 +12,7 @@
   </section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { inject } from 'vue'
 import ConfigSchemaList from './ConfigSchemaList.vue'
 import { gameFormContextKey } from './GameFormTypes'

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import { ref } from 'vue'
 import { GetXylonaClient } from '@/utils/shared'
 import { create } from '@bufbuild/protobuf'
@@ -83,15 +83,15 @@ function clearResult(): void {
     <p class="text-body2 q-mb-md" style="color: var(--xy-text-secondary)">
       Enter the Steam AppID for the game's <strong>dedicated server</strong>. You can find this on
       the game's
-      <a href="https://steamdb.info/" target="_blank" rel="noopener" style="color: var(--xy-accent)"
+      <a href="https://steamdb.info/" rel="noopener" style="color: var(--xy-accent)" target="_blank"
         >SteamDB page</a
       >
       or the
       <a
         href="https://developer.valvesoftware.com/wiki/Dedicated_Servers_List"
-        target="_blank"
         rel="noopener"
         style="color: var(--xy-accent)"
+        target="_blank"
         >Valve Dedicated Servers List</a
       >.
     </p>
@@ -99,14 +99,14 @@ function clearResult(): void {
     <div class="row items-center q-gutter-sm">
       <q-input
         v-model="appIdInput"
-        outlined
-        label="Dedicated Server AppID"
-        placeholder="e.g. 896660 (Valheim), 294420 (7DTD)"
-        type="number"
-        class="col"
-        :loading="loading"
         :error="lookupError.length > 0"
         :error-message="lookupError"
+        :loading="loading"
+        class="col"
+        label="Dedicated Server AppID"
+        outlined
+        placeholder="e.g. 896660 (Valheim), 294420 (7DTD)"
+        type="number"
         @keydown.enter="lookupAppId">
         <template #prepend>
           <q-icon name="mdi-steam" />
@@ -114,21 +114,21 @@ function clearResult(): void {
       </q-input>
 
       <q-btn
-        unelevated
+        :disable="appIdInput.trim().length === 0"
+        :loading="loading"
         color="primary"
         label="Look Up"
-        :loading="loading"
-        :disable="appIdInput.trim().length === 0"
+        unelevated
         @click="lookupAppId" />
     </div>
 
     <!-- Lookup Result -->
-    <q-card v-if="lookupResult" flat bordered class="q-mt-md lookup-result-card">
+    <q-card v-if="lookupResult" bordered class="q-mt-md lookup-result-card" flat>
       <q-card-section>
         <div class="row items-center q-gutter-sm q-mb-sm">
-          <q-icon name="mdi-check-circle" color="positive" size="sm" />
+          <q-icon color="positive" name="mdi-check-circle" size="sm" />
           <span class="text-subtitle1 text-weight-medium">{{ lookupResult.name }}</span>
-          <q-badge color="grey-8" :label="'AppID: ' + lookupResult.appId" />
+          <q-badge :label="'AppID: ' + lookupResult.appId" color="grey-8" />
         </div>
 
         <div class="row q-gutter-md text-body2" style="color: var(--xy-text-secondary)">
@@ -148,13 +148,13 @@ function clearResult(): void {
       </q-card-section>
 
       <q-card-actions align="right">
-        <q-btn flat dense no-caps label="Clear" color="negative" @click="clearResult" />
+        <q-btn color="negative" dense flat label="Clear" no-caps @click="clearResult" />
         <q-btn
-          unelevated
-          dense
-          no-caps
-          label="Use This Server"
           color="primary"
+          dense
+          label="Use This Server"
+          no-caps
+          unelevated
           @click="confirmSelection" />
       </q-card-actions>
     </q-card>

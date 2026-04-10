@@ -9,14 +9,14 @@
     </div>
 
     <q-table
-      flat
-      class="xy-standalone-table"
-      :rows="apiKeys"
       :columns="columns"
-      row-key="serviceName"
       :loading="loading"
+      :rows="apiKeys"
+      :rows-per-page-options="[0]"
+      class="xy-standalone-table"
+      flat
       hide-pagination
-      :rows-per-page-options="[0]">
+      row-key="serviceName">
       <template #body-cell-serviceName="slotProps">
         <q-td :props="slotProps">
           {{ getServiceLabel(slotProps.row.serviceName) }}
@@ -31,20 +31,20 @@
         <q-td :props="slotProps">
           <div class="q-gutter-xs">
             <q-btn
-              flat
-              dense
-              class="text-main-brighter"
-              icon="edit"
               aria-label="Edit API key"
+              class="text-main-brighter"
+              dense
+              flat
+              icon="edit"
               @click="startEdit(slotProps.row)">
               <q-tooltip>Edit key</q-tooltip>
             </q-btn>
             <q-btn
-              flat
-              dense
-              class="text-error-brighter"
-              icon="delete"
               aria-label="Delete API key"
+              class="text-error-brighter"
+              dense
+              flat
+              icon="delete"
               @click="confirmDelete(slotProps.row)">
               <q-tooltip>Delete key</q-tooltip>
             </q-btn>
@@ -53,7 +53,7 @@
       </template>
       <template #no-data>
         <div class="full-width column items-center q-pa-lg text-xy-secondary">
-          <q-icon name="vpn_key" size="3rem" class="q-mb-sm text-xy-muted" />
+          <q-icon class="q-mb-sm text-xy-muted" name="vpn_key" size="3rem" />
           <div class="text-subtitle1">No API keys configured</div>
           <div class="text-caption text-xy-muted">
             Add an API key to enable external service integrations.
@@ -63,10 +63,10 @@
     </q-table>
 
     <div class="q-mt-md">
-      <q-btn v-if="!showForm" color="primary" label="Add Key" icon="add" @click="startAdd" />
+      <q-btn v-if="!showForm" color="primary" icon="add" label="Add Key" @click="startAdd" />
     </div>
 
-    <q-card v-if="showForm" flat class="q-mt-md q-pa-md xy-surface-1">
+    <q-card v-if="showForm" class="q-mt-md q-pa-md xy-surface-1" flat>
       <div class="text-subtitle2 q-mb-sm">
         {{ editingServiceName ? 'Edit API Key' : 'Add API Key' }}
       </div>
@@ -74,37 +74,37 @@
         <div class="col-12 col-sm-4">
           <q-select
             v-model="formServiceName"
+            :disable="!!editingServiceName"
             :options="availableServices"
-            label="Service"
-            outlined
+            :rules="[(val: string) => !!val || 'Service is required']"
             dense
             emit-value
+            label="Service"
             map-options
-            :disable="!!editingServiceName"
-            :rules="[(val: string) => !!val || 'Service is required']" />
+            outlined />
         </div>
         <div class="col-12 col-sm-8">
           <q-input
             v-model="formApiKey"
+            :rules="[(val: string) => !!val || 'API key is required']"
+            dense
             label="API Key"
             outlined
-            dense
-            type="password"
-            :rules="[(val: string) => !!val || 'API key is required']" />
+            type="password" />
         </div>
       </div>
       <div class="q-mt-sm q-gutter-sm">
         <q-btn
+          :disable="!formServiceName || !formApiKey"
+          :loading="saving"
           color="primary"
           label="Save"
-          :loading="saving"
-          :disable="!formServiceName || !formApiKey"
           @click="saveKey" />
-        <q-btn flat label="Cancel" color="neutral" @click="cancelForm" />
+        <q-btn color="neutral" flat label="Cancel" @click="cancelForm" />
       </div>
     </q-card>
 
-    <q-dialog v-model="showDeleteDialog" persistent backdrop-filter="brightness(15%)">
+    <q-dialog v-model="showDeleteDialog" backdrop-filter="brightness(15%)" persistent>
       <q-card>
         <q-card-section>
           <div class="text-h6 text-error">Delete API Key</div>
@@ -117,15 +117,15 @@
           </p>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn label="Cancel" color="neutral" flat @click="showDeleteDialog = false" />
-          <q-btn label="Delete" class="bg-error" :loading="deleting" @click="deleteKey" />
+          <q-btn color="neutral" flat label="Cancel" @click="showDeleteDialog = false" />
+          <q-btn :loading="deleting" class="bg-error" label="Delete" @click="deleteKey" />
         </q-card-actions>
       </q-card>
     </q-dialog>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { Notify } from 'quasar'

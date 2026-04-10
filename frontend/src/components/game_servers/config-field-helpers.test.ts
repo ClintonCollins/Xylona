@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupFields, filterFields } from './config-field-helpers'
+import { filterFields, groupFields } from './config-field-helpers'
 
 function makeField(key: string, group: string, title = '', value = '') {
   return { key, group, title, value }
@@ -14,18 +14,18 @@ describe('groupFields', () => {
     ]
     const groups = groupFields(fields)
     expect(groups).toHaveLength(2)
-    expect(groups[0].name).toBe('network')
-    expect(groups[0].fields).toHaveLength(2)
-    expect(groups[1].name).toBe('gameplay')
-    expect(groups[1].fields).toHaveLength(1)
+    expect(groups[0]?.name).toBe('network')
+    expect(groups[0]?.fields).toHaveLength(2)
+    expect(groups[1]?.name).toBe('gameplay')
+    expect(groups[1]?.fields).toHaveLength(1)
   })
 
   it('puts ungrouped fields in General at the top', () => {
     const fields = [makeField('port', 'network'), makeField('motd', '')]
     const groups = groupFields(fields)
-    expect(groups[0].name).toBe('')
-    expect(groups[0].displayName).toBe('General')
-    expect(groups[1].name).toBe('network')
+    expect(groups[0]?.name).toBe('')
+    expect(groups[0]?.displayName).toBe('General')
+    expect(groups[1]?.name).toBe('network')
   })
 
   it('preserves first-occurrence group order', () => {
@@ -35,15 +35,15 @@ describe('groupFields', () => {
       makeField('motd', 'gameplay'),
     ]
     const groups = groupFields(fields)
-    expect(groups[0].name).toBe('gameplay')
-    expect(groups[1].name).toBe('network')
+    expect(groups[0]?.name).toBe('gameplay')
+    expect(groups[1]?.name).toBe('network')
   })
 
   it('handles all fields ungrouped', () => {
     const fields = [makeField('port', ''), makeField('motd', '')]
     const groups = groupFields(fields)
     expect(groups).toHaveLength(1)
-    expect(groups[0].displayName).toBe('General')
+    expect(groups[0]?.displayName).toBe('General')
   })
 
   it('handles empty fields array', () => {
@@ -63,15 +63,15 @@ describe('groupFields', () => {
   it('puts General first even with explicit groupOrder', () => {
     const fields = [makeField('motd', ''), makeField('port', 'network')]
     const groups = groupFields(fields, ['network'])
-    expect(groups[0].name).toBe('')
-    expect(groups[0].displayName).toBe('General')
-    expect(groups[1].name).toBe('network')
+    expect(groups[0]?.name).toBe('')
+    expect(groups[0]?.displayName).toBe('General')
+    expect(groups[1]?.name).toBe('network')
   })
 
   it('appends unlisted groups after explicitly ordered ones', () => {
     const fields = [makeField('a', 'alpha'), makeField('b', 'beta'), makeField('g', 'gamma')]
     const groups = groupFields(fields, ['beta'])
-    expect(groups[0].name).toBe('beta')
+    expect(groups[0]?.name).toBe('beta')
     expect(groups.slice(1).map((g) => g.name)).toEqual(['alpha', 'gamma'])
   })
 
@@ -90,15 +90,15 @@ describe('groupFields', () => {
     const fields = [makeField('port', 'network')]
     const groups = groupFields(fields, ['missing', 'network'])
     expect(groups).toHaveLength(1)
-    expect(groups[0].name).toBe('network')
+    expect(groups[0]?.name).toBe('network')
   })
 
   it('handles all fields in one group with groupOrder', () => {
     const fields = [makeField('port', 'net'), makeField('ip', 'net')]
     const groups = groupFields(fields, ['net'])
     expect(groups).toHaveLength(1)
-    expect(groups[0].name).toBe('net')
-    expect(groups[0].fields).toHaveLength(2)
+    expect(groups[0]?.name).toBe('net')
+    expect(groups[0]?.fields).toHaveLength(2)
   })
 })
 
@@ -110,7 +110,7 @@ describe('filterFields', () => {
     ]
     const result = filterFields(fields, 'port')
     expect(result).toHaveLength(1)
-    expect(result[0].key).toBe('server-port')
+    expect(result[0]?.key).toBe('server-port')
   })
 
   it('filters by title substring', () => {
@@ -120,7 +120,7 @@ describe('filterFields', () => {
     ]
     const result = filterFields(fields, 'message')
     expect(result).toHaveLength(1)
-    expect(result[0].key).toBe('motd')
+    expect(result[0]?.key).toBe('motd')
   })
 
   it('filters by value substring', () => {
@@ -130,7 +130,7 @@ describe('filterFields', () => {
     ]
     const result = filterFields(fields, 'hello')
     expect(result).toHaveLength(1)
-    expect(result[0].key).toBe('motd')
+    expect(result[0]?.key).toBe('motd')
   })
 
   it('is case-insensitive', () => {

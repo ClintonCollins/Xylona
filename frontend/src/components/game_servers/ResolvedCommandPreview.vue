@@ -7,7 +7,7 @@
           This is the exact argv Xylona will launch after placeholders resolve.
         </div>
       </div>
-      <q-btn flat color="accent" label="Copy" @click="copyCommand" />
+      <q-btn color="accent" flat label="Copy" @click="copyCommand" />
     </div>
 
     <div class="resolved-preview__command">
@@ -16,8 +16,8 @@
         <code
           v-for="(token, tokenIndex) in block.resolvedTokens"
           :key="`${block.id}-${tokenIndex}`"
-          class="resolved-preview__token"
-          :class="tokenClass(block.provenance)">
+          :class="tokenClass(block.provenance)"
+          class="resolved-preview__token">
           {{ token }}
         </code>
       </template>
@@ -28,14 +28,14 @@
         v-for="item in legendItems"
         :key="item.provenance"
         class="resolved-preview__legend-item">
-        <span class="resolved-preview__legend-dot" :class="tokenClass(item.provenance)"></span>
+        <span :class="tokenClass(item.provenance)" class="resolved-preview__legend-dot"></span>
         {{ item.label }}
       </span>
     </div>
   </section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed } from 'vue'
 import { copyToClipboard, useQuasar } from 'quasar'
 

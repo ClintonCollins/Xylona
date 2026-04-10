@@ -41,17 +41,17 @@
             </div>
             <q-btn
               v-if="!game.modProfile"
-              flat
-              no-caps
               color="accent"
+              flat
               label="Enable Mod Support"
+              no-caps
               @click="addGameModProfile" />
             <q-btn
               v-else
-              flat
-              no-caps
               color="negative"
+              flat
               label="Remove"
+              no-caps
               @click="clearGameModProfile" />
           </div>
 
@@ -67,32 +67,32 @@
             <div class="typed-config-fields">
               <q-input
                 v-model="game.modProfile.installPath"
-                outlined
-                label="Install Path"
                 hint="Where downloaded mods should be written"
+                label="Install Path"
+                outlined
                 persistent-hint />
 
               <q-select
                 v-model="game.modProfile.sources[0].id"
                 :options="modSourceOptions"
                 emit-value
+                label="Mod Source"
                 map-options
                 outlined
-                label="Mod Source"
                 @update:model-value="onModSourceProviderChanged(game.modProfile.sources[0])" />
 
               <q-input
+                :autogrow="getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'"
+                :hint="getModSourceConfig(game.modProfile.sources[0].id).primaryHint"
+                :label="getModSourceConfig(game.modProfile.sources[0].id).primaryLabel"
                 :model-value="readModSourceDisplayValue(game.modProfile.sources[0])"
-                outlined
+                :placeholder="getModSourceConfig(game.modProfile.sources[0].id).placeholder"
                 :type="
                   getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'
                     ? 'textarea'
                     : 'text'
                 "
-                :autogrow="getModSourceConfig(game.modProfile.sources[0].id).mode === 'json'"
-                :label="getModSourceConfig(game.modProfile.sources[0].id).primaryLabel"
-                :hint="getModSourceConfig(game.modProfile.sources[0].id).primaryHint"
-                :placeholder="getModSourceConfig(game.modProfile.sources[0].id).placeholder"
+                outlined
                 persistent-hint
                 @update:model-value="
                   updateModSourceDisplayValue(game.modProfile.sources[0], $event)
@@ -105,7 +105,7 @@
   </section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { inject } from 'vue'
 import { gameFormContextKey } from './GameFormTypes'
 

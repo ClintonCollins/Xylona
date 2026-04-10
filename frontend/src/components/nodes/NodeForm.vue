@@ -11,33 +11,33 @@
           <template v-if="existingNodeId">
             <q-input
               v-model="node.name"
+              :hint="remoteNameHint"
+              :label="nameLabel"
+              autofocus
               class="col-12 col-xl-6"
               outlined
-              type="text"
-              autofocus
-              :label="nameLabel"
-              :hint="remoteNameHint"></q-input>
+              type="text"></q-input>
             <template v-if="!isRemote">
               <q-input
                 v-model="node.host"
                 class="col-12 col-xl-6"
+                label="Host"
                 outlined
-                type="text"
-                label="Host"></q-input>
+                type="text"></q-input>
               <q-input
                 v-model.number="port"
                 class="col-12 col-xl-6"
+                label="Port"
                 outlined
-                type="text"
-                label="Port"></q-input>
+                type="text"></q-input>
               <q-input
                 v-model="node.baseUrl"
                 class="col-12 col-xl-6"
-                outlined
-                type="url"
+                hint="Public URL used for node pairing"
                 label="Base URL"
+                outlined
                 placeholder="https://panel.example.com"
-                hint="Public URL used for node pairing"></q-input>
+                type="url"></q-input>
               <div class="col-12">
                 <q-toggle
                   v-model="node.allowInsecureTls"
@@ -48,18 +48,18 @@
               <q-input
                 v-model="node.baseUrl"
                 class="col-12 col-xl-6"
-                outlined
-                type="url"
+                hint="Full URL including protocol and port"
                 label="Base URL"
+                outlined
                 placeholder="http://192.168.1.100:8080"
-                hint="Full URL including protocol and port"></q-input>
+                type="url"></q-input>
               <q-input
                 v-model="node.secretKey"
                 class="col-12 col-xl-6"
-                outlined
-                type="text"
+                hint="The secret key generated on the remote node"
                 label="Secret Key"
-                hint="The secret key generated on the remote node"></q-input>
+                outlined
+                type="text"></q-input>
               <div class="col-12">
                 <q-toggle
                   v-model="node.allowInsecureTls"
@@ -71,35 +71,35 @@
             <div class="col-12">
               <q-btn-toggle
                 v-model="addMode"
-                spread
-                no-caps
-                unelevated
+                :options="addModeOptions"
                 class="btn-toggle-neutral"
+                no-caps
+                spread
                 toggle-color="primary"
-                :options="addModeOptions"></q-btn-toggle>
+                unelevated></q-btn-toggle>
             </div>
             <template v-if="addMode === 'copy'">
               <div class="col-12 text-subtitle2">Copy Node Details</div>
               <q-input
-                class="col-12"
-                outlined
-                type="textarea"
-                autogrow
-                label="Node Details JSON"
                 :model-value="generatedPairingPayload"
-                readonly></q-input>
+                autogrow
+                class="col-12"
+                label="Node Details JSON"
+                outlined
+                readonly
+                type="textarea"></q-input>
               <div class="col-12 row q-gutter-sm">
                 <q-btn
-                  outline
-                  color="primary"
                   :label="generatedPairingKey ? 'Regenerate JSON' : 'Generate JSON'"
                   :loading="pairingKeySubmitting"
+                  color="primary"
+                  outline
                   @click="generatePairingKey(false)"></q-btn>
                 <q-btn
-                  outline
+                  :disable="generatedPairingPayload === ''"
                   color="primary"
                   label="Copy JSON"
-                  :disable="generatedPairingPayload === ''"
+                  outline
                   @click="copyPairingPayload"></q-btn>
               </div>
             </template>
@@ -107,20 +107,20 @@
               <div class="col-12 text-subtitle2">Paste Node Details</div>
               <q-input
                 v-model="node.name"
-                class="col-12 col-xl-6"
-                outlined
-                type="text"
                 autofocus
+                class="col-12 col-xl-6"
+                hint="Leave blank to use the remote node's name"
                 label="Remote Name (Optional)"
-                hint="Leave blank to use the remote node's name"></q-input>
+                outlined
+                type="text"></q-input>
               <q-input
                 v-model="pairingPayloadInput"
-                class="col-12"
-                outlined
-                type="textarea"
                 autogrow
+                class="col-12"
+                hint="Paste the JSON copied from the remote panel"
                 label="Remote Panel Pairing JSON"
-                hint="Paste the JSON copied from the remote panel"></q-input>
+                outlined
+                type="textarea"></q-input>
               <div class="col-12">
                 <q-toggle
                   v-model="pairingRemoteAllowInsecureTLS"
@@ -128,9 +128,9 @@
               </div>
               <div class="col-12 row q-gutter-sm">
                 <q-btn
-                  outline
                   color="primary"
                   label="Validate JSON"
+                  outline
                   @click="validatePairingPayload(true)"></q-btn>
               </div>
               <div v-if="parsedPairingPayload" class="col-12 text-caption">
@@ -140,20 +140,20 @@
           </template>
         </div>
         <div v-if="errorMessage" class="q-mt-md">
-          <q-banner dense class="bg-xy-danger-tint">
+          <q-banner class="bg-xy-danger-tint" dense>
             {{ errorMessage }}
           </q-banner>
         </div>
       </q-form>
     </q-card-section>
     <q-separator></q-separator>
-    <q-card-actions class="q-pa-md" align="right">
+    <q-card-actions align="right" class="q-pa-md">
       <q-btn flat label="Cancel" @click="cancel"></q-btn>
       <q-btn
         v-if="showSaveButton"
         :label="submitLabel"
-        color="primary"
         :loading="formSubmitting"
+        color="primary"
         @click="submitNode"></q-btn>
     </q-card-actions>
     <q-inner-loading
@@ -176,9 +176,9 @@
         <q-card-actions align="right">
           <q-btn v-close-popup flat label="Cancel"></q-btn>
           <q-btn
+            :loading="formSubmitting"
             color="primary"
             label="Pair Nodes"
-            :loading="formSubmitting"
             @click="confirmPairNode"></q-btn>
         </q-card-actions>
       </q-card>
@@ -186,7 +186,7 @@
   </q-card>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useClipboard } from '@vueuse/core'
@@ -197,9 +197,9 @@ import { useRouter } from 'vue-router'
 import { NodeSchema } from '@/proto/shared_pb'
 import {
   createNodePairingPayload,
+  type NodePairingPayload,
   normalizeNodePairingBaseURL,
   parseNodePairingPayload,
-  type NodePairingPayload,
 } from '@/utils/node-pairing'
 import {
   EditNodeRequest,
@@ -212,6 +212,7 @@ import {
   PairNodeRequest,
   PairNodeRequestSchema,
 } from '@/proto/xylona_pb'
+
 const router = useRouter()
 const $q = useQuasar()
 

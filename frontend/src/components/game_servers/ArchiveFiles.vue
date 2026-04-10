@@ -1,9 +1,9 @@
 <template>
   <q-dialog
     v-model="showDialog"
-    persistent
+    aria-labelledby="dialog-title"
     backdrop-filter="brightness(25%)"
-    aria-labelledby="dialog-title">
+    persistent>
     <q-card class="full-width">
       <q-card-section>
         <div id="dialog-title" class="text-h6">{{ archiveTitle }}</div>
@@ -13,12 +13,12 @@
           <div class="row wrap q-col-gutter-md justify-between">
             <q-select
               v-model="archiveType"
-              class="col-12"
-              outlined
-              emit-value
-              map-options
               :options="archiveTypeOptions"
+              class="col-12"
+              emit-value
               label="Archive Type"
+              map-options
+              outlined
               @update:model-value="archiveSuffix = ArchiveTypeToExtension(archiveType)">
               <template #prepend>
                 <q-icon name="event" />
@@ -26,14 +26,14 @@
             </q-select>
             <q-input
               v-model="archiveName"
-              placeholder="example-archive"
-              name="archive-name"
-              aria-autocomplete="none"
-              class="col-12"
               :suffix="archiveSuffix"
-              outlined
+              aria-autocomplete="none"
+              autofocus
+              class="col-12"
               label="Archive name"
-              autofocus />
+              name="archive-name"
+              outlined
+              placeholder="example-archive" />
           </div>
         </q-form>
       </q-card-section>
@@ -47,22 +47,22 @@
             <div class="text-caption"></div>
             <div class="text-caption">{{ filesArchived }} / {{ totalFiles }} files archived</div>
             <div class="text-caption">{{ currentArchiveFile }}</div>
-            <q-linear-progress :value="submitProgress" color="primary" stripe size="lg" />
+            <q-linear-progress :value="submitProgress" color="primary" size="lg" stripe />
           </div>
         </q-card-section>
       </q-card-section>
       <q-card-actions v-if="!archiveSubmitting" align="right">
-        <q-btn label="Cancel" color="primary" flat @click="showDialog = false" />
-        <q-btn label="Archive" color="primary" @click="archiveFiles()" />
+        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
+        <q-btn color="primary" label="Archive" @click="archiveFiles()" />
       </q-card-actions>
       <q-card-actions v-else align="right">
-        <q-btn label="Cancel" color="negative" @click="abortArchive" />
+        <q-btn color="negative" label="Cancel" @click="abortArchive" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
@@ -72,12 +72,7 @@ import {
   GameServerFilesCompressionRequestSchema,
   GameServerFilesCompressionType,
 } from '@/proto/gameserver_files_operations_pb'
-import {
-  ArchiveTypeToExtension,
-  ArchiveTypeToString,
-  bytesToSize,
-  GetXylonaClientCallback,
-} from '@/utils/shared'
+import { ArchiveTypeToExtension, ArchiveTypeToString, bytesToSize, GetXylonaClientCallback, } from '@/utils/shared'
 import { ref } from 'vue'
 
 const props = defineProps({

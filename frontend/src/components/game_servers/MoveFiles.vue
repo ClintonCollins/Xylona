@@ -1,9 +1,9 @@
 <template>
   <q-dialog
     v-model="showDialog"
-    persistent
+    aria-labelledby="dialog-title"
     backdrop-filter="brightness(25%)"
-    aria-labelledby="dialog-title">
+    persistent>
     <q-card class="full-width">
       <q-card-section>
         <div id="dialog-title" class="text-h6">Move files</div>
@@ -13,19 +13,19 @@
           <div class="row wrap q-col-gutter-md justify-between">
             <q-select
               v-model="destinationDirectory"
+              :options="moveOptions"
               class="col-12"
-              outlined
-              emit-value
-              map-options
-              use-input
-              new-value-mode="add-unique"
               clearable
-              hide-selected
+              emit-value
               fill-input
+              hide-selected
               hint="Press enter after typing a new directory name to create it and move files to it."
               input-debounce="0"
-              :options="moveOptions"
-              label="Destination directory">
+              label="Destination directory"
+              map-options
+              new-value-mode="add-unique"
+              outlined
+              use-input>
               <template #prepend>
                 <q-icon name="folder" />
               </template>
@@ -34,21 +34,21 @@
         </q-form>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="primary" flat @click="showDialog = false" />
-        <q-btn label="Submit" color="primary" @click="moveFiles" />
+        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
+        <q-btn color="primary" label="Submit" @click="moveFiles" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import {
+  File as xylonaFile,
   GameServerFilesMoveRequest,
   GameServerFilesMoveRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
-import { File as xylonaFile } from '@/proto/gameserver_files_operations_pb'
 import { GetPathSeparator, GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
 import { computed, ref, Ref } from 'vue'
 

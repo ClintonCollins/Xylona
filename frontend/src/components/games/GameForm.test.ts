@@ -69,7 +69,7 @@ const QFormStub = defineComponent({
       validate: async () => true,
     })
 
-    return () => slots.default?.()
+    return () => slots['default']?.()
   },
 })
 
@@ -255,7 +255,11 @@ describe('GameForm', () => {
     expect(mocks.updateGameStartArgBlocklist).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()
 
-    const request = mocks.editGame.mock.calls[0][0]
+    const editGameCall = mocks.editGame.mock.calls[0]
+    if (!editGameCall) {
+      throw new Error('expected editGame to be called')
+    }
+    const request = editGameCall[0]
     expect(request.game.linuxStartArgsTemplate).toContain('"id":"jar"')
     expect(request.game.windowsStartArgsTemplate).toContain('"id":"jar"')
     expect(request.game.linuxBaseCommand).toBe('java')
@@ -426,8 +430,8 @@ describe('GameForm', () => {
 
     await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
 
-    expect(wrapper.get('[data-testid="start-args-template-editor-preview"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="start-args-template-editor-advanced"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="start-args-template-editor-preview"]')).toBeTruthy()
+    expect(wrapper.get('[data-testid="start-args-template-editor-advanced"]')).toBeTruthy()
     expect(wrapper.get('[data-testid="runtime-policy-toggle"]').attributes('aria-expanded')).toBe(
       'false',
     )
@@ -446,8 +450,8 @@ describe('GameForm', () => {
     expect(wrapper.get('[data-testid="runtime-policy-toggle"]').attributes('aria-expanded')).toBe(
       'true',
     )
-    expect(wrapper.get('[data-testid="runtime-policy-panel"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="blocklist-editor"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="runtime-policy-panel"]')).toBeTruthy()
+    expect(wrapper.get('[data-testid="blocklist-editor"]')).toBeTruthy()
   })
 
   it('passes the loaded runtime baseline into the launch editor reset props', async () => {
@@ -555,12 +559,8 @@ describe('GameForm', () => {
     expect(runtimePanel.find('.section-header').exists()).toBe(false)
     expect(runtimePanel.find('.section-help').exists()).toBe(false)
     expect(runtimePanel.find('.game-form-sr-only').text()).toContain('Runtime')
-    expect(runtimePanel.get('[data-testid="start-args-template-editor-preview"]').exists()).toBe(
-      true,
-    )
-    expect(runtimePanel.get('[data-testid="start-args-template-editor-advanced"]').exists()).toBe(
-      true,
-    )
+    expect(runtimePanel.get('[data-testid="start-args-template-editor-preview"]')).toBeTruthy()
+    expect(runtimePanel.get('[data-testid="start-args-template-editor-advanced"]')).toBeTruthy()
   })
 
   it('connects tabs and panels with accessible relationships and headings', async () => {

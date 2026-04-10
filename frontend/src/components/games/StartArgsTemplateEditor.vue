@@ -1,29 +1,27 @@
 <template>
   <div
-    class="template-editor"
     :class="`template-editor--${selectedPlatform}`"
-    :data-testid="rootTestId">
+    :data-testid="rootTestId"
+    class="template-editor">
     <div v-if="availablePlatforms.length === 0" class="template-editor__empty text-xy-muted">
       Enable Linux or Windows support above to configure structured start arguments.
     </div>
     <template v-else>
       <div
         v-if="showPlatformTabs && availablePlatforms.length > 1"
+        aria-label="Platform launch sequence"
         class="platform-tabs"
-        role="tablist"
-        aria-label="Platform launch sequence">
+        role="tablist">
         <button
           v-for="platform in availablePlatforms"
           :key="platform"
-          type="button"
-          role="tab"
-          class="platform-tab"
-          :class="{ 'platform-tab--active': selectedPlatform === platform }"
           :aria-selected="selectedPlatform === platform"
+          :class="{ 'platform-tab--active': selectedPlatform === platform }"
+          class="platform-tab"
+          role="tab"
+          type="button"
           @click="selectedPlatform = platform">
           <q-icon
-            :name="platform === 'windows' ? 'desktop_windows' : 'terminal'"
-            size="14px"
             :class="
               platform === 'windows'
                 ? selectedPlatform === 'windows'
@@ -32,7 +30,9 @@
                 : selectedPlatform === 'linux'
                   ? 'platform-icon-linux-active'
                   : 'platform-icon-inactive'
-            " />
+            "
+            :name="platform === 'windows' ? 'desktop_windows' : 'terminal'"
+            size="14px" />
           <span class="font-display">{{ platformLabel(platform) }}</span>
         </button>
       </div>
@@ -51,11 +51,11 @@
           <div class="template-editor__toolbar-actions">
             <q-btn
               color="primary"
+              data-testid="start-args-add-block"
+              dense
               icon="add"
               label="Add argument"
               no-caps
-              dense
-              data-testid="start-args-add-block"
               @click="openAddDialog" />
           </div>
         </div>
@@ -65,18 +65,18 @@
             class="template-editor__command-line"
             @dragover.prevent="activatePreviewEnd"
             @drop.prevent="dropAtPreviewEnd">
-            <span class="template-editor__prompt" aria-hidden="true">{{
+            <span aria-hidden="true" class="template-editor__prompt">{{
               selectedPlatform === 'windows' ? '>' : '$'
             }}</span>
             <label class="template-editor__base-command">
               <span class="template-editor__sr-only">Base command</span>
               <input
                 :value="currentBaseCommand"
-                type="text"
+                aria-label="Base command"
                 class="template-editor__base-command-input font-mono"
                 data-testid="start-args-base-command"
-                aria-label="Base command"
                 placeholder="Base command"
+                type="text"
                 @input="updateBaseCommand(($event.target as HTMLInputElement).value)" />
             </label>
 
@@ -84,28 +84,28 @@
               <template v-for="(block, index) in currentTemplate" :key="block.id">
                 <span
                   v-if="dragInsertionIndex === index"
-                  class="template-editor__drop-marker"
-                  aria-hidden="true"></span>
+                  aria-hidden="true"
+                  class="template-editor__drop-marker"></span>
 
                 <button
-                  :data-testid="`preview-chip-${block.id}`"
-                  type="button"
-                  class="template-editor__arg-chip"
-                  :class="previewChipClass(block, index)"
                   :aria-label="previewSegmentAriaLabel(block, index)"
-                  :title="previewChipTitle(block)"
-                  draggable="true"
+                  :class="previewChipClass(block, index)"
+                  :data-testid="`preview-chip-${block.id}`"
                   :style="viewTransitionStyleForChip(block.id)"
+                  :title="previewChipTitle(block)"
+                  class="template-editor__arg-chip"
+                  draggable="true"
+                  type="button"
                   @click="openEditDialog(block.id, 'preview')"
+                  @dragend="onDragEnd"
                   @dragstart="onPreviewDragStart(index, $event)"
                   @dragover.prevent.stop="activatePreviewInsertion(index, $event)"
-                  @drop.prevent.stop="dropOnPreview(index, $event)"
-                  @dragend="onDragEnd">
+                  @drop.prevent.stop="dropOnPreview(index, $event)">
                   <q-icon
-                    name="drag_indicator"
-                    size="16px"
+                    aria-hidden="true"
                     class="template-editor__arg-chip-handle"
-                    aria-hidden="true" />
+                    name="drag_indicator"
+                    size="16px" />
                   <span class="template-editor__arg-chip-text font-mono">{{
                     previewChipText(block)
                   }}</span>
@@ -114,15 +114,15 @@
 
               <span
                 v-if="dragInsertionIndex === currentTemplate.length"
-                class="template-editor__drop-marker"
-                aria-hidden="true"></span>
+                aria-hidden="true"
+                class="template-editor__drop-marker"></span>
             </template>
 
             <button
               v-else
-              type="button"
               class="template-editor__empty-chip"
               data-testid="preview-empty-add"
+              type="button"
               @click="openAddDialog">
               Add first runtime argument
             </button>
@@ -134,18 +134,18 @@
             </span>
             <div class="template-editor__command-tools">
               <button
-                type="button"
+                :disabled="!canResetOrder"
                 class="template-editor__button template-editor__button--quiet"
                 data-testid="start-args-reset-order"
-                :disabled="!canResetOrder"
+                type="button"
                 @click="resetCurrentPlatformOrder">
                 Reset order
               </button>
               <button
-                type="button"
+                :disabled="!canResetPlatform"
                 class="template-editor__button template-editor__button--quiet"
                 data-testid="start-args-reset-platform"
-                :disabled="!canResetPlatform"
+                type="button"
                 @click="resetCurrentPlatform">
                 Reset all
               </button>
@@ -158,10 +158,10 @@
         v-if="showAdvancedSection"
         class="template-editor__card template-editor__card--advanced">
         <button
-          type="button"
+          :aria-expanded="String(isAdvancedExpanded)"
           class="template-editor__advanced-toggle"
           data-testid="start-args-advanced-panel-toggle"
-          :aria-expanded="String(isAdvancedExpanded)"
+          type="button"
           @click="toggleAdvanced">
           <span class="template-editor__advanced-copy">
             <span class="template-editor__eyebrow">Advanced Sequence</span>
@@ -177,47 +177,47 @@
 
         <div
           v-if="isAdvancedExpanded"
+          aria-label="Advanced launch sequence inspector"
           class="template-editor__sequence-list"
-          role="list"
-          aria-label="Advanced launch sequence inspector">
+          role="list">
           <article
             v-for="(block, index) in currentTemplate"
             :key="block.id"
-            class="template-editor__sequence-row"
+            :class="{ 'template-editor__sequence-row--selected': selectedBlockID === block.id }"
             :data-testid="`advanced-row-${block.id}`"
-            :class="{ 'template-editor__sequence-row--selected': selectedBlockID === block.id }">
+            class="template-editor__sequence-row">
             <button
-              type="button"
-              class="template-editor__sequence-item"
               :aria-label="inventorySelectAriaLabel(block, index)"
               :aria-pressed="String(selectedBlockID === block.id)"
+              class="template-editor__sequence-item"
+              type="button"
               @click="openEditDialog(block.id, 'advanced')">
               <span class="template-editor__order">{{ index + 1 }}</span>
               <code class="template-editor__sequence-preview font-mono">
                 {{ inventoryPreview(block) }}
               </code>
             </button>
-            <span class="template-editor__state" :class="ownershipPillClass(block.ownership)">
+            <span :class="ownershipPillClass(block.ownership)" class="template-editor__state">
               {{ ownershipLabel(block.ownership) }}
             </span>
             <div class="template-editor__sequence-actions">
               <div
-                class="template-editor__stepper"
                 :aria-label="`Reorder argument ${index + 1}`"
+                class="template-editor__stepper"
                 role="group">
                 <button
-                  type="button"
-                  class="template-editor__icon template-editor__icon--step"
-                  aria-label="Move argument up"
                   :disabled="index <= 0"
+                  aria-label="Move argument up"
+                  class="template-editor__icon template-editor__icon--step"
+                  type="button"
                   @click="moveBlock(index, -1)">
                   ↑
                 </button>
                 <button
-                  type="button"
-                  class="template-editor__icon template-editor__icon--step"
-                  aria-label="Move argument down"
                   :disabled="index >= currentTemplate.length - 1"
+                  aria-label="Move argument down"
+                  class="template-editor__icon template-editor__icon--step"
+                  type="button"
                   @click="moveBlock(index, 1)">
                   ↓
                 </button>
@@ -229,8 +229,8 @@
 
       <q-dialog
         :model-value="dialogOpen"
-        transition-show="fade"
         transition-hide="fade"
+        transition-show="fade"
         @update:model-value="handleDialogModelChange">
         <q-card v-if="dialogOpen" class="template-editor__dialog" data-testid="start-args-dialog">
           <q-card-section class="template-editor__dialog-head">
@@ -242,16 +242,16 @@
               <p class="template-editor__dialog-copy text-xy-secondary">{{ dialogSubtitle }}</p>
               <div v-if="dialogMode === 'edit'" class="template-editor__dialog-hero">
                 <span
-                  class="template-editor__dialog-hero-chip"
                   :class="dialogHeroChipClass"
-                  :style="dialogHeroTransitionStyle">
+                  :style="dialogHeroTransitionStyle"
+                  class="template-editor__dialog-hero-chip">
                   <span class="template-editor__dialog-hero-text font-mono">
                     {{ dialogHeroText }}
                   </span>
                 </span>
               </div>
             </div>
-            <span class="template-editor__state" :class="ownershipPillClass(dialogDraft.ownership)">
+            <span :class="ownershipPillClass(dialogDraft.ownership)" class="template-editor__state">
               {{ ownershipLabel(dialogDraft.ownership) }}
             </span>
           </q-card-section>
@@ -259,59 +259,59 @@
           <q-card-section class="template-editor__dialog-body">
             <q-select
               :model-value="dialogDraft.ownership"
-              outlined
-              emit-value
-              map-options
               :options="ownershipOptions"
-              label="Mutability"
               data-testid="start-args-dialog-ownership"
+              emit-value
+              label="Mutability"
+              map-options
+              outlined
               @update:model-value="
                 dialogDraft.ownership = ($event as StartArgOwnership) ?? 'editable'
               " />
 
             <q-input
               :model-value="dialogDraft.label"
-              outlined
-              label="Label"
               data-testid="start-args-dialog-label"
+              label="Label"
+              outlined
               @update:model-value="dialogDraft.label = String($event ?? '')" />
 
             <q-input
               :model-value="dialogDraft.tokensText"
-              type="textarea"
               autogrow
-              outlined
-              label="Arguments"
-              hint="One argument per line. These become argv tokens exactly as written."
               data-testid="tokens-input"
+              hint="One argument per line. These become argv tokens exactly as written."
+              label="Arguments"
+              outlined
+              type="textarea"
               @update:model-value="dialogDraft.tokensText = String($event ?? '')" />
 
             <q-select
               v-if="dialogDraft.ownership === 'system'"
               :model-value="dialogDraft.managedSource"
-              outlined
-              emit-value
-              map-options
               :options="startArgManagedSourceOptions"
-              label="Managed Source"
-              hint="Choose from the valid runtime placeholders."
               data-testid="start-args-dialog-managed-source"
+              emit-value
+              hint="Choose from the valid runtime placeholders."
+              label="Managed Source"
+              map-options
+              outlined
               @update:model-value="dialogDraft.managedSource = String($event ?? '')" />
           </q-card-section>
 
-          <q-card-actions class="template-editor__dialog-actions" align="between">
+          <q-card-actions align="between" class="template-editor__dialog-actions">
             <q-btn
               v-if="dialogMode === 'edit'"
-              flat
               color="negative"
-              label="Remove"
               data-testid="start-args-remove-block"
+              flat
+              label="Remove"
               @click="removeEditingBlock" />
             <div class="template-editor__dialog-actions-main">
               <q-btn flat label="Cancel" @click="closeDialog" />
               <q-btn
-                color="primary"
                 :label="dialogMode === 'add' ? 'Add argument' : 'Save changes'"
+                color="primary"
                 data-testid="save-arg-button"
                 @click="saveDialog" />
             </div>
@@ -322,19 +322,12 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue'
 
 import type { StartArgBlock, StartArgOwnership } from '@/components/game_servers/start-args'
-import {
-  formatTokensInline,
-  joinTokensInput,
-  splitTokensInput,
-} from '@/components/game_servers/start-args'
-import {
-  getManagedSourceLabel,
-  startArgManagedSourceOptions,
-} from '@/components/shared/placeholder-definitions'
+import { formatTokensInline, joinTokensInput, splitTokensInput, } from '@/components/game_servers/start-args'
+import { getManagedSourceLabel, startArgManagedSourceOptions, } from '@/components/shared/placeholder-definitions'
 
 type Platform = 'linux' | 'windows'
 

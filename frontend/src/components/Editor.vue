@@ -5,25 +5,25 @@
         <div class="row justify-end q-gutter-md">
           <q-select
             v-model="editorTheme"
+            :options="editorOptions"
+            autocomplete="false"
             class="editor-select"
             dense
-            outlined
-            map-options
             emit-value
-            autocomplete="false"
-            :options="editorOptions"
             label="Theme"
+            map-options
+            outlined
             @update:model-value="editorThemeChanged" />
           <q-select
             v-model="selectedLanguage"
+            :options="LanguageOptions"
+            autocomplete="false"
             class="editor-select"
             dense
-            outlined
-            map-options
             emit-value
-            autocomplete="false"
-            :options="LanguageOptions"
             label="Language"
+            map-options
+            outlined
             @update:model-value="editorLanguageChanged" />
         </div>
       </div>
@@ -31,13 +31,13 @@
     </q-card-section>
 
     <q-card-actions align="right">
-      <q-btn v-close-popup flat label="Cancel" color="neutral" />
-      <q-btn v-close-popup label="Save" class="q-btn bg-main" @click="saveFile" />
+      <q-btn v-close-popup color="neutral" flat label="Cancel" />
+      <q-btn v-close-popup class="q-btn bg-main" label="Save" @click="saveFile" />
     </q-card-actions>
   </q-card>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { QCard, useQuasar } from 'quasar'
 import loadCustomEditorSettings, {

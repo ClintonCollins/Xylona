@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
 
 describe('buildGameServerTabs', () => {

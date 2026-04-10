@@ -14,30 +14,30 @@
             <q-form class="login-form" greedy @submit.prevent="login">
               <q-input
                 v-model="username"
-                outlined
-                label="Username"
-                color="primary"
                 :rules="[(val: string) => !!val || 'Username is required']"
+                autofocus
+                color="primary"
+                label="Username"
                 lazy-rules
-                autofocus />
+                outlined />
               <q-input
                 v-model="password"
-                outlined
+                :rules="[(val: string) => !!val || 'Password is required']"
                 class="q-mt-md"
-                type="password"
                 color="primary"
                 label="Password"
-                :rules="[(val: string) => !!val || 'Password is required']"
-                lazy-rules />
+                lazy-rules
+                outlined
+                type="password" />
               <q-btn
+                :disable="loggingIn"
+                :loading="loggingIn"
+                class="full-width login-btn q-mt-lg"
                 color="primary"
-                size="lg"
                 label="Sign in"
                 no-caps
-                type="submit"
-                :loading="loggingIn"
-                :disable="loggingIn"
-                class="full-width login-btn q-mt-lg" />
+                size="lg"
+                type="submit" />
             </q-form>
           </div>
         </div>
@@ -46,7 +46,7 @@
   </q-layout>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { Code, ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 

@@ -3,12 +3,12 @@
     <div>
       <div class="error-code">404</div>
       <div class="error-message">Nothing here</div>
-      <q-btn class="q-mt-xl" color="primary" unelevated to="/" label="Go Home" no-caps />
+      <q-btn class="q-mt-xl" color="primary" label="Go Home" no-caps to="/" unelevated />
     </div>
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script lang="ts" setup></script>
 
 <style scoped>
 .error-page {

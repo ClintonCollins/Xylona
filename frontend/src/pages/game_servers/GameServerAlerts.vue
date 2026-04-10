@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
@@ -10,16 +10,16 @@ import { useUserAuthStore } from '@/stores/xylona'
 import { canManageAlerts } from '@/utils/alert-permissions'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import {
-  GetGameServerRequestSchema,
-  ListAlertRulesRequestSchema,
   CreateAlertRuleRequestSchema,
-  UpdateAlertRuleRequestSchema,
   DeleteAlertRuleRequestSchema,
   GetAlertHistoryRequestSchema,
+  GetGameServerRequestSchema,
+  ListAlertRulesRequestSchema,
   ListNotificationChannelsRequestSchema,
+  UpdateAlertRuleRequestSchema,
 } from '@/proto/xylona_pb'
-import { AlertEventType, NotificationChannelType, DeliveryStatus } from '@/proto/shared_pb'
-import type { AlertRule, AlertHistoryEntry, NotificationChannel } from '@/proto/shared_pb'
+import type { AlertHistoryEntry, AlertRule, NotificationChannel } from '@/proto/shared_pb'
+import { AlertEventType, DeliveryStatus, NotificationChannelType } from '@/proto/shared_pb'
 
 const $q = useQuasar()
 const authStore = useUserAuthStore()
@@ -576,14 +576,14 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
   <div class="alerts-page">
     <q-tabs
       v-model="activeTab"
-      dense
-      class="alerts-tabs"
       active-color="primary"
-      indicator-color="primary"
       align="left"
+      class="alerts-tabs"
+      dense
+      indicator-color="primary"
       narrow-indicator>
-      <q-tab name="rules" label="Alert Rules" />
-      <q-tab name="history" label="Alert History" />
+      <q-tab label="Alert Rules" name="rules" />
+      <q-tab label="Alert History" name="history" />
     </q-tabs>
 
     <q-separator />
@@ -593,16 +593,16 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
       <q-tab-panel name="rules">
         <div class="q-pa-md">
           <div class="row items-center q-mb-md">
-            <q-icon name="notifications" size="sm" color="primary" class="q-mr-sm" />
+            <q-icon class="q-mr-sm" color="primary" name="notifications" size="sm" />
             <div class="text-h6">Alert Rules</div>
             <q-space />
             <q-btn
               v-if="hasAlertsManage"
+              :disable="channels.length === 0"
               color="primary"
               icon="add"
               label="Create Rule"
               no-caps
-              :disable="channels.length === 0"
               @click="openCreateDialog">
               <q-tooltip v-if="channels.length === 0">
                 Create a notification channel first
@@ -615,11 +615,11 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             class="q-mb-md bg-warning text-dark"
             rounded>
             <template #avatar>
-              <q-icon name="warning" color="dark" />
+              <q-icon color="dark" name="warning" />
             </template>
             No notification channels configured.
             <template v-if="hasAlertsManage">
-              <router-link to="/notifications" class="text-dark text-weight-bold">
+              <router-link class="text-dark text-weight-bold" to="/notifications">
                 Create a notification channel
               </router-link>
               before adding alert rules.
@@ -631,15 +631,15 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           </q-banner>
 
           <q-table
-            :rows="alertRules"
             :columns="rulesColumns"
-            row-key="id"
-            flat
             :loading="rulesLoading"
             :pagination="{ rowsPerPage: 0 }"
-            hide-pagination
+            :rows="alertRules"
             class="xy-standalone-table"
-            no-data-label="No alert rules configured for this server">
+            flat
+            hide-pagination
+            no-data-label="No alert rules configured for this server"
+            row-key="id">
             <template #body-cell-enabled="props">
               <q-td :props="props">
                 <q-toggle
@@ -658,21 +658,21 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               <q-td :props="props">
                 <template v-if="hasAlertsManage">
                   <q-btn
-                    flat
+                    aria-label="Edit rule"
                     dense
+                    flat
                     icon="edit"
                     size="sm"
-                    aria-label="Edit rule"
                     @click="openEditDialog(props.row)">
                     <q-tooltip>Edit</q-tooltip>
                   </q-btn>
                   <q-btn
-                    flat
+                    aria-label="Delete rule"
+                    color="negative"
                     dense
+                    flat
                     icon="delete"
                     size="sm"
-                    color="negative"
-                    aria-label="Delete rule"
                     @click="confirmDeleteRule(props.row)">
                     <q-tooltip>Delete</q-tooltip>
                   </q-btn>
@@ -687,33 +687,33 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
       <q-tab-panel name="history">
         <div class="q-pa-md">
           <div class="row items-center q-mb-md">
-            <q-icon name="history" size="sm" color="primary" class="q-mr-sm" />
+            <q-icon class="q-mr-sm" color="primary" name="history" size="sm" />
             <div class="text-h6">Alert History</div>
             <q-space />
             <q-select
               v-model="historyEventTypeFilter"
               :options="historyFilterOptions"
+              class="q-mr-sm"
               dense
-              outlined
               emit-value
-              map-options
               label="Filter by event"
-              style="min-width: 200px"
-              class="q-mr-sm" />
-            <q-btn flat icon="refresh" aria-label="Refresh history" @click="loadHistory">
+              map-options
+              outlined
+              style="min-width: 200px" />
+            <q-btn aria-label="Refresh history" flat icon="refresh" @click="loadHistory">
               <q-tooltip>Refresh</q-tooltip>
             </q-btn>
           </div>
 
           <q-table
-            :rows="filteredHistory"
             :columns="historyColumns"
-            row-key="id"
-            flat
             :loading="historyLoading"
             :pagination="{ page: historyPage, rowsPerPage: historyRowsPerPage }"
+            :rows="filteredHistory"
             class="xy-standalone-table"
-            no-data-label="No alert history for this server">
+            flat
+            no-data-label="No alert history for this server"
+            row-key="id">
             <template #body-cell-deliveryStatus="props">
               <q-td :props="props">
                 <q-badge
@@ -727,11 +727,11 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           </q-table>
           <div v-if="historyHasMore" class="row justify-center q-mt-md">
             <q-btn
-              flat
+              :loading="historyLoading"
               color="primary"
+              flat
               label="Load More"
               no-caps
-              :loading="historyLoading"
               @click="loadMoreHistory" />
           </div>
         </div>
@@ -749,32 +749,32 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           <q-select
             v-model="ruleForm.eventType"
             :options="serverEventTypes"
-            label="Event Type"
-            emit-value
-            map-options
-            outlined
+            class="q-mb-md"
             dense
-            class="q-mb-md" />
+            emit-value
+            label="Event Type"
+            map-options
+            outlined />
 
           <!-- Threshold condition fields -->
           <div v-if="isThresholdType" class="row q-gutter-sm q-mb-md">
             <q-select
               v-model="thresholdOperator"
               :options="thresholdOperators"
-              label="Operator"
-              emit-value
-              map-options
-              outlined
+              class="col-4"
               dense
-              class="col-4" />
+              emit-value
+              label="Operator"
+              map-options
+              outlined />
             <q-input
               v-model.number="thresholdValue"
-              type="number"
+              :suffix="thresholdUnit"
+              class="col"
+              dense
               label="Value"
               outlined
-              dense
-              :suffix="thresholdUnit"
-              class="col" />
+              type="number" />
           </div>
 
           <!-- Status change condition fields -->
@@ -787,23 +787,23 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           <q-select
             v-model="ruleForm.notificationChannelId"
             :options="channels.map((c) => ({ label: c.name, value: c.id }))"
-            label="Notification Channel"
-            emit-value
-            map-options
-            outlined
+            class="q-mb-md"
             dense
-            class="q-mb-md" />
+            emit-value
+            label="Notification Channel"
+            map-options
+            outlined />
 
-          <q-toggle v-model="ruleForm.enabled" label="Enabled" color="positive" />
+          <q-toggle v-model="ruleForm.enabled" color="positive" label="Enabled" />
         </q-card-section>
 
         <q-card-actions align="right">
           <q-btn flat label="Cancel" no-caps @click="showRuleDialog = false" />
           <q-btn
-            color="primary"
-            :label="editingRule ? 'Save' : 'Create'"
-            no-caps
             :disable="!ruleForm.notificationChannelId"
+            :label="editingRule ? 'Save' : 'Create'"
+            color="primary"
+            no-caps
             @click="saveRule" />
         </q-card-actions>
       </q-card>

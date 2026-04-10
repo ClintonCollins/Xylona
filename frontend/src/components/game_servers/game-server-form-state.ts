@@ -1,10 +1,17 @@
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { computed, ref } from 'vue'
 import type { QForm } from 'quasar'
 import { useQuasar } from 'quasar'
 
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { buildXylonaErrorNotification, connectErrorMessage } from '@/api/connect-errors'
+import {
+  getGameServer,
+  listGames,
+  listIPs,
+  listNodes,
+  listUsers,
+  type ProvisioningOption,
+} from '@/api/game-server-provisioning'
 import {
   describeMinecraftMemoryState,
   validateMaxMemory,
@@ -16,21 +23,6 @@ import {
   validateRequiredValue,
 } from './game-server-form-validation'
 import { Game, GameServerSchema, IP, Node } from '@/proto/shared_pb'
-import {
-  GetGameServerRequest,
-  GetGameServerRequestSchema,
-  ListGamesRequest,
-  ListGamesRequestSchema,
-  ListGamesResponse,
-  ListIPsRequest,
-  ListIPsRequestSchema,
-  ListIPsResponse,
-  ListNodesRequest,
-  ListNodesRequestSchema,
-  ListNodesResponse,
-  ListUsersRequest,
-  ListUsersRequestSchema,
-} from '@/proto/xylona_pb'
 
 export interface GameServerFormStateOptions {
   existingGameServerId?: string
@@ -41,8 +33,8 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   const $q = useQuasar()
 
   const gameServer = ref(create(GameServerSchema, {}))
-  const availableGames = ref<Array<Record<string, string>>>([])
-  const availableUsers = ref<Array<Record<string, string>>>([])
+  const availableGames = ref<ProvisioningOption[]>([])
+  const availableUsers = ref<ProvisioningOption[]>([])
   const availableIPs = ref<Array<IP>>([])
   const gamesMap = ref(new Map<string, Game>())
   const nodes = ref<Array<Node>>([])
@@ -323,40 +315,29 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
       return
     }
 
-    const request: GetGameServerRequest = create(GetGameServerRequestSchema, {})
-
     try {
-      request.id = existingGameServerId
-      const response = await GetXylonaClient().getGameServer(request)
-      if (response.gameServer === undefined) {
+      const existingGameServer = await getGameServer(existingGameServerId)
+      if (existingGameServer === undefined) {
         return
       }
 
-      gameServer.value = response.gameServer
+      gameServer.value = existingGameServer
     } catch (e) {
       console.error(e)
       $q.notify({
-        type: 'xylona-error',
-        position: 'top',
-        caption:
-          'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
+        ...buildXylonaErrorNotification(
+          connectErrorMessage(e, 'Failed to load game server details'),
+        ),
         icon: 'report_problem',
       })
     }
   }
 
   async function getGames() {
-    const request: ListGamesRequest = create(ListGamesRequestSchema, {})
-
     try {
-      availableGames.value = []
-      gamesMap.value = new Map<string, Game>()
-
-      const response: ListGamesResponse = await GetXylonaClient().listGames(request)
-      response.games.forEach((game) => {
-        availableGames.value.push({ label: game.name, value: game.id })
-        gamesMap.value.set(game.id, game)
-      })
+      const provisioningGames = await listGames()
+      availableGames.value = provisioningGames.options
+      gamesMap.value = new Map(provisioningGames.games.map((game) => [game.id, game]))
 
       if (availableGames.value.length === 0) {
         return
@@ -371,7 +352,12 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
         return
       }
 
-      const firstGame = gamesMap.value.get(availableGames.value[0].value)
+      const firstAvailableGame = availableGames.value[0]
+      if (!firstAvailableGame) {
+        return
+      }
+
+      const firstGame = gamesMap.value.get(firstAvailableGame.value)
       if (!firstGame) {
         return
       }
@@ -380,20 +366,15 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     } catch (e) {
       console.error(e)
       $q.notify({
-        type: 'xylona-error',
-        position: 'top',
-        caption: 'Failed to load games: ' + ConnectErrorToString(ConnectError.from(e)),
+        ...buildXylonaErrorNotification(connectErrorMessage(e, 'Failed to load games')),
         icon: 'report_problem',
       })
     }
   }
 
   async function getNodes() {
-    const request: ListNodesRequest = create(ListNodesRequestSchema, {})
-
     try {
-      const response: ListNodesResponse = await GetXylonaClient().listNodes(request)
-      nodes.value = response.nodes.slice()
+      nodes.value = await listNodes()
 
       if (gameServer.value.nodeId) {
         return
@@ -406,74 +387,65 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
         return
       }
 
-      if (nodes.value.length > 0) {
-        gameServer.value.nodeId = nodes.value[0].id
-        gameServer.value.nodeName = nodes.value[0].name
+      const firstNode = nodes.value[0]
+      if (firstNode) {
+        gameServer.value.nodeId = firstNode.id
+        gameServer.value.nodeName = firstNode.name
       }
     } catch (unknownError: unknown) {
       console.error(unknownError)
       $q.notify({
-        type: 'xylona-error',
-        position: 'top',
-        caption: 'Failed to load nodes: ' + ConnectErrorToString(ConnectError.from(unknownError)),
+        ...buildXylonaErrorNotification(connectErrorMessage(unknownError, 'Failed to load nodes')),
         icon: 'report_problem',
       })
     }
   }
 
   async function getUsers() {
-    const request: ListUsersRequest = create(ListUsersRequestSchema, {})
-
     try {
-      const response = await GetXylonaClient().listUsers(request)
-      availableUsers.value = response.users.map((user) => ({
-        label: user.userName,
-        value: user.id,
-      }))
+      availableUsers.value = await listUsers()
 
       if (availableUsers.value.length === 0 || gameServer.value.userId) {
         return
       }
 
-      gameServer.value.userId = availableUsers.value[0].value
-      gameServer.value.userName = availableUsers.value[0].label
+      const firstUser = availableUsers.value[0]
+      if (!firstUser) {
+        return
+      }
+
+      gameServer.value.userId = firstUser.value
+      gameServer.value.userName = firstUser.label
     } catch (e) {
       console.error(e)
       $q.notify({
-        type: 'xylona-error',
-        position: 'top',
-        caption: 'Failed to load users: ' + ConnectErrorToString(ConnectError.from(e)),
+        ...buildXylonaErrorNotification(connectErrorMessage(e, 'Failed to load users')),
         icon: 'report_problem',
       })
     }
   }
 
   async function getIPs() {
-    const request: ListIPsRequest = create(ListIPsRequestSchema, {})
-
     try {
-      const response: ListIPsResponse = await GetXylonaClient().listIPs(request)
-      availableIPs.value = response.ips.slice()
+      availableIPs.value = await listIPs()
 
       if (gameServer.value.ip?.address) {
         return
       }
 
-      const preferredExternalIP = response.ips.find((ip) => ip.external)
+      const preferredExternalIP = availableIPs.value.find((ip) => ip.external)
       if (preferredExternalIP) {
         gameServer.value.ip = preferredExternalIP
         return
       }
 
-      if (response.ips.length > 0) {
-        gameServer.value.ip = response.ips[0]
+      if (availableIPs.value.length > 0) {
+        gameServer.value.ip = availableIPs.value[0]
       }
     } catch (e) {
       console.error(e)
       $q.notify({
-        type: 'xylona-error',
-        position: 'top',
-        caption: 'Failed to load IP addresses: ' + ConnectErrorToString(ConnectError.from(e)),
+        ...buildXylonaErrorNotification(connectErrorMessage(e, 'Failed to load IP addresses')),
         icon: 'report_problem',
       })
     }

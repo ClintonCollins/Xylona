@@ -1,18 +1,18 @@
 <template>
-  <div class="config-sidebar" :class="{ collapsed: isCollapsed && !isMobile }">
+  <div :class="{ collapsed: isCollapsed && !isMobile }" class="config-sidebar">
     <!-- Expanded view -->
-    <div class="sidebar-expanded" :inert="isCollapsed && !isMobile ? true : undefined">
+    <div :inert="isCollapsed && !isMobile ? true : undefined" class="sidebar-expanded">
       <div class="sidebar-header">
         <div class="sidebar-title font-display">Config Files</div>
         <q-btn
           v-if="!isMobile"
-          flat
-          dense
-          round
-          icon="chevron_left"
-          size="sm"
-          class="collapse-btn"
           aria-label="Collapse sidebar"
+          class="collapse-btn"
+          dense
+          flat
+          icon="chevron_left"
+          round
+          size="sm"
           @click="isCollapsed = true">
           <q-tooltip>Collapse sidebar</q-tooltip>
         </q-btn>
@@ -28,25 +28,25 @@
         <div v-for="(files, category) in groupedFiles" :key="category" class="category-group">
           <div v-if="categoryCount > 1" class="category-header">
             <span
-              class="category-dot"
-              :style="{ backgroundColor: getCategoryColor(String(category)) }"></span>
+              :style="{ backgroundColor: getCategoryColor(String(category)) }"
+              class="category-dot"></span>
             <span class="category-name">{{ category }}</span>
           </div>
 
-          <q-list dense class="category-files">
+          <q-list class="category-files" dense>
             <q-item
               v-for="file in files"
               :key="file.path"
-              clickable
               :active="selectedPath === file.path"
+              :class="{ 'file-missing': !file.existsOnDisk }"
               active-class="file-active"
               class="file-item"
-              :class="{ 'file-missing': !file.existsOnDisk }"
+              clickable
               @click="$emit('select', file.path, !file.existsOnDisk)">
-              <q-item-section side class="file-icon-section">
+              <q-item-section class="file-icon-section" side>
                 <q-icon
-                  :name="file.existsOnDisk ? 'description' : 'note_add'"
                   :color="file.existsOnDisk ? undefined : 'warning'"
+                  :name="file.existsOnDisk ? 'description' : 'note_add'"
                   size="xs" />
               </q-item-section>
               <q-item-section>
@@ -60,10 +60,10 @@
               <q-item-section side>
                 <q-badge
                   v-if="!file.existsOnDisk"
+                  class="file-badge"
                   color="warning"
-                  text-color="dark"
                   label="Missing"
-                  class="file-badge" />
+                  text-color="dark" />
               </q-item-section>
             </q-item>
           </q-list>
@@ -72,15 +72,15 @@
     </div>
 
     <!-- Collapsed view (always in DOM for smooth transition) -->
-    <div class="sidebar-collapsed" :inert="!isCollapsed || isMobile ? true : undefined">
+    <div :inert="!isCollapsed || isMobile ? true : undefined" class="sidebar-collapsed">
       <q-btn
-        flat
-        dense
-        round
-        icon="chevron_right"
-        size="sm"
-        class="expand-btn"
         aria-label="Expand sidebar"
+        class="expand-btn"
+        dense
+        flat
+        icon="chevron_right"
+        round
+        size="sm"
         @click="isCollapsed = false">
         <q-tooltip>Expand sidebar</q-tooltip>
       </q-btn>
@@ -91,13 +91,13 @@
         <q-btn
           v-for="file in configFiles"
           :key="file.path"
-          flat
-          dense
-          class="collapsed-file-btn"
           :class="{
             'collapsed-active': selectedPath === file.path,
             'collapsed-missing': !file.existsOnDisk,
           }"
+          class="collapsed-file-btn"
+          dense
+          flat
           @click="$emit('select', file.path, !file.existsOnDisk)">
           <span class="collapsed-abbr font-mono">{{ getAbbreviation(file.path) }}</span>
           <q-tooltip>{{ file.path }}</q-tooltip>
@@ -107,11 +107,11 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useQuasar } from 'quasar'
 import type { ConfigFileInfo } from '@/proto/xylona_pb'
-import { CATEGORY_COLORS, buildCategoryColorMap } from './config-field-helpers'
+import { buildCategoryColorMap, CATEGORY_COLORS } from './config-field-helpers'
 
 const $q = useQuasar()
 const isMobile = computed(() => $q.screen.lt.md)

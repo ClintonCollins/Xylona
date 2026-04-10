@@ -1,12 +1,12 @@
 import { Notify } from 'quasar'
 
 import {
+  type BackupProgress,
   BackupProgressOperation,
   BackupProgressPhase,
   Status,
-  type BackupProgress,
 } from '@/proto/shared_pb'
-import { StepStatus, UpdateStep, type UpdateProgress } from '@/proto/xylona_pb'
+import { StepStatus, type UpdateProgress, UpdateStep } from '@/proto/xylona_pb'
 import {
   applyUpdateProgress,
   buildUpdateSteps,

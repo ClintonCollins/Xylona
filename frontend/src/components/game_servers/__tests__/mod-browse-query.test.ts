@@ -8,7 +8,7 @@
  * Since they are not exported from the component, we re-implement them here
  * as standalone functions matching the component's exact behavior.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // --- Constants matching ModBrowse.vue ---
 const VALID_SORT_VALUES = ['downloads', 'updated', 'newest', 'relevance'] as const
@@ -48,35 +48,38 @@ function parseQueryParams(q: Record<string, string | string[] | undefined>): Par
     currentPage: 1,
   }
 
-  if (typeof q.q === 'string' && q.q !== '') {
-    result.searchQuery = q.q
+  if (typeof q['q'] === 'string' && q['q'] !== '') {
+    result.searchQuery = q['q']
   }
 
-  if (typeof q.sort === 'string' && (VALID_SORT_VALUES as readonly string[]).includes(q.sort)) {
-    if (q.sort === 'relevance' && result.searchQuery.trim() === '') {
+  if (
+    typeof q['sort'] === 'string' &&
+    (VALID_SORT_VALUES as readonly string[]).includes(q['sort'])
+  ) {
+    if (q['sort'] === 'relevance' && result.searchQuery.trim() === '') {
       result.sortBy = 'downloads'
     } else {
-      result.sortBy = q.sort
+      result.sortBy = q['sort']
     }
   }
 
-  if (typeof q.source === 'string') {
-    result.activeSource = q.source
+  if (typeof q['source'] === 'string') {
+    result.activeSource = q['source']
   }
 
-  if (typeof q.version === 'string') {
-    result.gameVersionFilter = q.version
+  if (typeof q['version'] === 'string') {
+    result.gameVersionFilter = q['version']
   }
 
-  const rawCats = q.categories
+  const rawCats = q['categories']
   if (Array.isArray(rawCats)) {
     result.categoryFilter = rawCats.filter((c): c is string => typeof c === 'string' && c !== '')
   } else if (typeof rawCats === 'string' && rawCats !== '') {
     result.categoryFilter = [rawCats]
   }
 
-  if (typeof q.page === 'string') {
-    const parsed = parseInt(q.page, 10)
+  if (typeof q['page'] === 'string') {
+    const parsed = parseInt(q['page'], 10)
     if (!isNaN(parsed) && parsed > 0) {
       result.currentPage = parsed
     }

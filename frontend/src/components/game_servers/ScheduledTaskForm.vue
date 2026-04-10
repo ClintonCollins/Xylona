@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -403,31 +403,31 @@ async function handleSubmit(): Promise<void> {
       <q-card-section class="q-pt-none">
         <q-input
           v-model="form.name"
-          label="Name"
-          outlined
-          dense
-          maxlength="80"
           :rules="[(v: string) => !!v.trim() || 'Name is required']"
-          class="q-mb-md" />
+          class="q-mb-md"
+          dense
+          label="Name"
+          maxlength="80"
+          outlined />
 
         <q-select
           v-model="form.taskType"
           :options="taskTypeOptions"
-          label="Task Type"
-          emit-value
-          map-options
-          outlined
+          class="q-mb-md"
           dense
-          class="q-mb-md" />
+          emit-value
+          label="Task Type"
+          map-options
+          outlined />
 
         <q-input
           v-if="showConsoleCommand"
           v-model="form.consoleCommand"
-          label="Console Command"
-          outlined
-          dense
           :rules="[(v: string) => !!v.trim() || 'Console command is required']"
-          class="q-mb-md" />
+          class="q-mb-md"
+          dense
+          label="Console Command"
+          outlined />
 
         <!-- ── Schedule Builder Section ────────────────────────── -->
         <div class="schedule-builder-section">
@@ -438,36 +438,36 @@ async function handleSubmit(): Promise<void> {
             <q-select
               v-model="builder.frequency"
               :options="frequencyOptions"
-              label="Frequency"
-              emit-value
-              map-options
-              outlined
+              class="q-mb-sm"
               dense
-              class="q-mb-sm" />
+              emit-value
+              label="Frequency"
+              map-options
+              outlined />
 
             <!-- Every N minutes -->
             <q-select
               v-if="builder.frequency === 'every_minutes'"
               v-model="builder.minuteInterval"
               :options="minuteIntervalOptions"
-              label="Interval"
-              emit-value
-              map-options
-              outlined
+              class="q-mb-sm"
               dense
-              class="q-mb-sm" />
+              emit-value
+              label="Interval"
+              map-options
+              outlined />
 
             <!-- Every N hours -->
             <q-select
               v-if="builder.frequency === 'every_hours'"
               v-model="builder.hourInterval"
               :options="hourIntervalOptions"
-              label="Interval"
-              emit-value
-              map-options
-              outlined
+              class="q-mb-sm"
               dense
-              class="q-mb-sm" />
+              emit-value
+              label="Interval"
+              map-options
+              outlined />
 
             <!-- Time picker (daily / weekly / monthly) -->
             <div
@@ -480,22 +480,22 @@ async function handleSubmit(): Promise<void> {
               <q-select
                 v-model="builder.timeHour"
                 :options="hourOptions"
-                label="Hour"
-                emit-value
-                map-options
-                outlined
+                class="time-select"
                 dense
-                class="time-select" />
+                emit-value
+                label="Hour"
+                map-options
+                outlined />
               <span class="time-separator">:</span>
               <q-select
                 v-model="builder.timeMinute"
                 :options="minuteOptions"
-                label="Minute"
-                emit-value
-                map-options
-                outlined
+                class="time-select"
                 dense
-                class="time-select" />
+                emit-value
+                label="Minute"
+                map-options
+                outlined />
             </div>
 
             <!-- Weekday picker (weekly) -->
@@ -503,14 +503,14 @@ async function handleSubmit(): Promise<void> {
               <q-btn
                 v-for="(label, idx) in weekdayLabels"
                 :key="idx"
-                :label="label"
-                no-caps
-                dense
-                :unelevated="isWeekdayActive(idx)"
-                :outline="!isWeekdayActive(idx)"
-                :color="isWeekdayActive(idx) ? 'primary' : undefined"
-                class="weekday-btn"
                 :class="{ 'weekday-btn--active': isWeekdayActive(idx) }"
+                :color="isWeekdayActive(idx) ? 'primary' : undefined"
+                :label="label"
+                :outline="!isWeekdayActive(idx)"
+                :unelevated="isWeekdayActive(idx)"
+                class="weekday-btn"
+                dense
+                no-caps
                 @click="toggleWeekday(idx)" />
             </div>
             <div
@@ -524,44 +524,44 @@ async function handleSubmit(): Promise<void> {
               v-if="builder.frequency === 'monthly'"
               v-model="builder.monthDay"
               :options="monthDayOptions"
-              label="Day of Month"
-              emit-value
-              map-options
-              outlined
+              class="q-mb-sm"
               dense
-              class="q-mb-sm" />
+              emit-value
+              label="Day of Month"
+              map-options
+              outlined />
           </template>
 
           <!-- Advanced cron input -->
           <template v-else>
             <q-input
               v-model="form.cronExpression"
-              label="Cron Expression"
-              outlined
+              :rules="[(v: string) => !!v.trim() || 'Cron expression is required']"
+              class="q-mb-sm"
               dense
               hint="5-field format: minute hour day month weekday"
-              :rules="[(v: string) => !!v.trim() || 'Cron expression is required']"
-              class="q-mb-sm" />
+              label="Cron Expression"
+              outlined />
           </template>
 
           <!-- Advanced toggle -->
           <div class="advanced-toggle-row">
             <q-btn
-              flat
-              dense
-              no-caps
-              size="sm"
               :icon="useAdvancedCron ? 'tune' : 'code'"
               :label="useAdvancedCron ? 'Use visual builder' : 'Advanced: cron expression'"
               class="advanced-toggle-btn"
+              dense
+              flat
+              no-caps
+              size="sm"
               @click="useAdvancedCron = !useAdvancedCron" />
           </div>
 
           <!-- Schedule preview -->
           <div
-            class="schedule-preview"
-            :class="{ 'schedule-preview--invalid': cronPreview === 'Invalid cron expression' }">
-            <q-icon name="schedule" size="xs" class="q-mr-xs" />
+            :class="{ 'schedule-preview--invalid': cronPreview === 'Invalid cron expression' }"
+            class="schedule-preview">
+            <q-icon class="q-mr-xs" name="schedule" size="xs" />
             {{ cronPreview || 'Configure a schedule above' }}
           </div>
         </div>
@@ -569,12 +569,12 @@ async function handleSubmit(): Promise<void> {
         <q-select
           v-model="form.timezone"
           :options="timezoneOptions"
+          class="q-mb-md"
+          dense
+          input-debounce="100"
           label="Timezone"
           outlined
-          dense
           use-input
-          input-debounce="100"
-          class="q-mb-md"
           @filter="
             (val: string, update: (fn: () => void) => void) => {
               update(() => {
@@ -583,17 +583,17 @@ async function handleSubmit(): Promise<void> {
             }
           " />
 
-        <q-toggle v-model="form.enabled" label="Enabled" color="positive" />
+        <q-toggle v-model="form.enabled" color="positive" label="Enabled" />
       </q-card-section>
 
       <q-card-actions align="right">
         <q-btn flat label="Cancel" no-caps @click="emit('close')" />
         <q-btn
-          color="primary"
-          :label="isEditing ? 'Save' : 'Create'"
-          no-caps
-          :loading="submitting"
           :disable="!isFormValid"
+          :label="isEditing ? 'Save' : 'Create'"
+          :loading="submitting"
+          color="primary"
+          no-caps
           @click="handleSubmit" />
       </q-card-actions>
     </q-card>

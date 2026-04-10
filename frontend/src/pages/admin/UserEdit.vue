@@ -14,27 +14,27 @@
                 <q-input
                   v-model="userName"
                   class="col-12 col-xl-6"
+                  label="Username"
                   outlined
-                  type="text"
-                  label="Username"></q-input>
+                  type="text"></q-input>
                 <q-input
                   v-model="email"
                   class="col-12 col-xl-6"
+                  label="Email"
                   outlined
-                  type="email"
-                  label="Email"></q-input>
+                  type="email"></q-input>
                 <q-input
                   v-model="firstName"
                   class="col-12 col-xl-6"
+                  label="First Name"
                   outlined
-                  type="text"
-                  label="First Name"></q-input>
+                  type="text"></q-input>
                 <q-input
                   v-model="lastName"
                   class="col-12 col-xl-6"
+                  label="Last Name"
                   outlined
-                  type="text"
-                  label="Last Name"></q-input>
+                  type="text"></q-input>
               </div>
 
               <div class="row q-col-gutter-x-sm full-width">
@@ -47,30 +47,30 @@
                 <q-input
                   v-model="password"
                   class="col-12 col-xl-6"
+                  label="New Password (Optional)"
                   outlined
-                  type="password"
-                  label="New Password (Optional)"></q-input>
+                  type="password"></q-input>
                 <q-input
                   v-model="confirmPassword"
                   class="col-12 col-xl-6"
+                  label="Confirm Password"
                   outlined
-                  type="password"
-                  label="Confirm Password"></q-input>
+                  type="password"></q-input>
               </div>
             </div>
           </q-form>
         </q-card-section>
         <q-separator></q-separator>
-        <q-card-actions class="q-pa-md" align="right">
+        <q-card-actions align="right" class="q-pa-md">
           <q-btn flat label="Cancel" @click="router.push({ path: '/admin/users' })"></q-btn>
-          <q-btn label="Save" color="primary" :loading="submitting" @click="submit"></q-btn>
+          <q-btn :loading="submitting" color="primary" label="Save" @click="submit"></q-btn>
         </q-card-actions>
       </q-card>
     </div>
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
 import { onMounted, ref } from 'vue'

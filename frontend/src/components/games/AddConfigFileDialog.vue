@@ -11,31 +11,31 @@
         <q-form ref="formRef" class="column q-gutter-y-md">
           <q-input
             v-model="entry.path"
-            outlined
+            :rules="[(val: string) => !!val || 'Path is required']"
             dense
-            label="File Path"
             hint="Relative to server directory, e.g. server.properties"
-            :rules="[(val: string) => !!val || 'Path is required']">
+            label="File Path"
+            outlined>
           </q-input>
 
           <q-select
             v-model="entry.format"
-            outlined
-            dense
-            label="Format"
             :options="formatOptions"
+            :rules="[(val: string) => !!val || 'Format is required']"
+            dense
             emit-value
+            label="Format"
             map-options
-            :rules="[(val: string) => !!val || 'Format is required']">
+            outlined>
           </q-select>
 
           <q-input
             v-model="entry.category"
-            outlined
+            :rules="[(val: string) => !!val || 'Category is required']"
             dense
-            label="Category"
             hint="Group related files together, e.g. Core, Plugins"
-            :rules="[(val: string) => !!val || 'Category is required']">
+            label="Category"
+            outlined>
             <template #append>
               <q-icon v-if="filteredCategories.length > 0" name="arrow_drop_down" />
             </template>
@@ -54,9 +54,9 @@
 
           <q-toggle
             v-model="entry.generate_before_start"
-            label="Generate before start"
+            color="primary"
             dense
-            color="primary">
+            label="Generate before start">
             <q-tooltip>
               Create this file from schema defaults when it doesn't exist and the server starts
             </q-tooltip>
@@ -75,35 +75,35 @@
             <q-option-group
               v-model="xmlKeyMode.mode"
               :options="xmlModeOptions"
-              type="radio"
+              color="primary"
               dense
               inline
-              color="primary" />
+              type="radio" />
 
             <div
               v-if="xmlKeyMode.mode === 'attributes'"
               class="xml-attr-fields column q-gutter-y-sm q-mt-sm">
               <q-input
                 v-model="xmlKeyMode.element"
-                outlined
+                :rules="[(val: string) => !!val || 'Element name is required for attributes mode']"
                 dense
-                label="Element Name"
                 hint="e.g. property"
-                :rules="[(val: string) => !!val || 'Element name is required for attributes mode']">
+                label="Element Name"
+                outlined>
               </q-input>
               <q-input
                 v-model="xmlKeyMode.key_attr"
-                outlined
                 dense
+                hint="e.g. name"
                 label="Key Attribute"
-                hint="e.g. name">
+                outlined>
               </q-input>
               <q-input
                 v-model="xmlKeyMode.value_attr"
-                outlined
                 dense
+                hint="e.g. value"
                 label="Value Attribute"
-                hint="e.g. value">
+                outlined>
               </q-input>
             </div>
           </div>
@@ -120,7 +120,7 @@
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, reactive, ref, watch } from 'vue'
 import type { QForm } from 'quasar'
 import type { ConfigSchemaEntry } from './config-schema-types'

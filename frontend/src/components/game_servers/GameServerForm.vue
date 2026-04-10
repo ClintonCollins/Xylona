@@ -3,11 +3,11 @@
     <div ref="stickySentinel" class="sticky-sentinel"></div>
 
     <div
-      class="server-form-header"
-      :class="{ 'is-stuck': isStuck, 'is-compact': isCompactEditHeader }">
+      :class="{ 'is-stuck': isStuck, 'is-compact': isCompactEditHeader }"
+      class="server-form-header">
       <div class="server-form-header-left">
         <div v-if="!isCompactEditHeader" class="server-form-breadcrumbs">
-          <router-link to="/game-servers" class="breadcrumb-link">Game Servers</router-link>
+          <router-link class="breadcrumb-link" to="/game-servers">Game Servers</router-link>
           <span class="breadcrumb-sep">/</span>
           <span class="breadcrumb-current">{{ breadcrumbLabel }}</span>
         </div>
@@ -18,20 +18,20 @@
       </div>
 
       <div class="server-form-header-actions">
-        <q-btn flat label="Cancel" :disable="formSubmitting" @click="cancel" />
+        <q-btn :disable="formSubmitting" flat label="Cancel" @click="cancel" />
         <q-btn
-          class="server-form-save-btn"
           :class="{ 'server-form-save-btn--ready': deploymentReady }"
-          label="Save"
-          color="primary"
-          :loading="formSubmitting"
           :disable="loading"
+          :loading="formSubmitting"
+          class="server-form-save-btn"
+          color="primary"
+          label="Save"
           @click="submitGameServer" />
       </div>
     </div>
 
     <div v-if="loading" class="server-form-loading">
-      <q-spinner-dots size="40px" color="primary" />
+      <q-spinner-dots color="primary" size="40px" />
       <div class="text-xy-secondary q-mt-sm">Loading server options...</div>
     </div>
 
@@ -40,7 +40,7 @@
         Fields marked <span class="server-form-guidance-mark">*</span> are required.
       </div>
 
-      <q-form ref="formRef" greedy class="server-form-layout">
+      <q-form ref="formRef" class="server-form-layout" greedy>
         <section class="form-section form-section--animated" style="--section-index: 0">
           <div class="section-header">
             <span class="section-icon section-icon--accent" data-testid="section-icon-identity">
@@ -52,30 +52,30 @@
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <q-input
               v-model="gameServer.name"
-              class="col-12 col-md-6"
-              outlined
-              type="text"
-              autofocus
-              label="Server Name *"
               :rules="serverNameRules"
-              reactive-rules
+              autofocus
+              class="col-12 col-md-6"
+              hint="Use the name players will recognize."
+              label="Server Name *"
               lazy-rules
               maxlength="80"
-              hint="Use the name players will recognize." />
+              outlined
+              reactive-rules
+              type="text" />
             <q-select
               v-model="gameServer.gameId"
-              class="col-12 col-md-6"
-              outlined
-              label="Game *"
-              emit-value
               :options="availableGames"
-              option-label="label"
-              map-options
-              options-selected-class="selected-option"
               :rules="gameRules"
-              reactive-rules
-              lazy-rules
+              class="col-12 col-md-6"
+              emit-value
               hint="Changing the game updates the default ports and player limits."
+              label="Game *"
+              lazy-rules
+              map-options
+              option-label="label"
+              options-selected-class="selected-option"
+              outlined
+              reactive-rules
               @update:model-value="onGameSelected" />
           </div>
         </section>
@@ -91,43 +91,43 @@
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <q-select
               v-model="gameServer.userId"
-              class="col-12 col-md-4"
-              outlined
-              label="Owner *"
-              emit-value
               :options="availableUsers"
-              option-label="label"
-              map-options
-              options-selected-class="selected-option"
               :rules="ownerRules"
-              reactive-rules
-              lazy-rules />
+              class="col-12 col-md-4"
+              emit-value
+              label="Owner *"
+              lazy-rules
+              map-options
+              option-label="label"
+              options-selected-class="selected-option"
+              outlined
+              reactive-rules />
             <q-select
               v-model="gameServer.nodeId"
-              class="col-12 col-md-4"
-              outlined
-              label="Node *"
-              emit-value
               :options="nodes"
-              option-label="name"
+              :rules="nodeRules"
+              class="col-12 col-md-4"
+              emit-value
+              label="Node *"
+              lazy-rules
               map-options
+              option-label="name"
               option-value="id"
               options-selected-class="selected-option"
-              :rules="nodeRules"
-              reactive-rules
-              lazy-rules />
+              outlined
+              reactive-rules />
             <q-select
               v-model="gameServer.ip"
-              class="col-12 col-md-4"
-              outlined
-              label="IP Address *"
               :options="availableIPs"
+              :rules="ipRules"
+              class="col-12 col-md-4"
+              hint="Choose the address players will use."
+              label="IP Address *"
+              lazy-rules
               option-label="address"
               options-selected-class="selected-option"
-              :rules="ipRules"
-              reactive-rules
-              lazy-rules
-              hint="Choose the address players will use." />
+              outlined
+              reactive-rules />
           </div>
         </section>
 
@@ -142,30 +142,30 @@
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <q-input
               v-model.number="portModel"
-              class="col-12 col-sm-6"
-              outlined
-              type="number"
-              label="Port *"
               :rules="portRules"
-              reactive-rules
+              class="col-12 col-sm-6"
+              hint="Players connect here. Use 1 to 65535."
+              label="Port *"
               lazy-rules
-              hint="Players connect here. Use 1 to 65535." />
+              outlined
+              reactive-rules
+              type="number" />
             <q-input
               v-model.number="queryPortModel"
-              class="col-12 col-sm-6"
-              outlined
-              type="number"
-              label="Query Port *"
               :rules="queryPortRules"
-              reactive-rules
+              class="col-12 col-sm-6"
+              hint="Used for status queries. Use 1 to 65535."
+              label="Query Port *"
               lazy-rules
-              hint="Used for status queries. Use 1 to 65535." />
+              outlined
+              reactive-rules
+              type="number" />
           </div>
         </section>
 
         <section
-          class="form-section form-section--animated"
           :class="{ 'form-section--last': isEditing }"
+          class="form-section form-section--animated"
           style="--section-index: 3">
           <div class="section-header">
             <span class="section-icon section-icon--warning" data-testid="section-icon-capacity">
@@ -177,37 +177,37 @@
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <q-input
               v-model.number="setPlayersModel"
-              class="col-12 col-sm-6 col-lg-4"
-              outlined
-              type="number"
-              label="Set Players *"
               :rules="setPlayersRules"
-              reactive-rules
+              class="col-12 col-sm-6 col-lg-4"
+              hint="Initial player limit reported by the server."
+              label="Set Players *"
               lazy-rules
-              hint="Initial player limit reported by the server." />
+              outlined
+              reactive-rules
+              type="number" />
             <q-input
               v-model.number="maxPlayersModel"
-              class="col-12 col-sm-6 col-lg-4"
-              outlined
-              type="number"
-              label="Max Players *"
               :rules="maxPlayersRules"
-              reactive-rules
+              class="col-12 col-sm-6 col-lg-4"
+              hint="Maximum concurrent players."
+              label="Max Players *"
               lazy-rules
-              hint="Maximum concurrent players." />
+              outlined
+              reactive-rules
+              type="number" />
             <q-input
               v-if="isMinecraftGame"
               v-model.number="maxMemoryModel"
-              class="col-12 col-lg-4"
-              outlined
-              type="number"
-              label="Max Memory MB *"
-              :rules="maxMemoryRules"
               :error="showMaxMemoryStateError"
               :error-message="maxMemoryStateMessage"
-              reactive-rules
+              :rules="maxMemoryRules"
+              class="col-12 col-lg-4"
+              hint="Set the RAM limit for this server."
+              label="Max Memory MB *"
               lazy-rules
-              hint="Set the RAM limit for this server." />
+              outlined
+              reactive-rules
+              type="number" />
           </div>
         </section>
 
@@ -215,7 +215,7 @@
           v-if="!isEditing"
           class="form-section form-section--summary form-section--animated"
           style="--section-index: 4">
-          <Transition name="deployment-state" mode="out-in">
+          <Transition mode="out-in" name="deployment-state">
             <div v-if="deploymentReady" key="ready" class="deployment-ready">
               <div class="deployment-ready-icon">
                 <q-icon name="task_alt" size="16px" />
@@ -234,7 +234,7 @@
                 <div class="deployment-review-copy">
                   <span class="deployment-review-title font-display">
                     Needs Attention
-                    <span class="deployment-review-dot" aria-hidden="true"></span>
+                    <span aria-hidden="true" class="deployment-review-dot"></span>
                   </span>
                   <span class="deployment-review-subtitle text-xy-muted">
                     Only blocking or conflicting setup appears here.
@@ -269,7 +269,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import type { QForm } from 'quasar'

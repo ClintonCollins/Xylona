@@ -36,11 +36,14 @@ function tryAttributeMode(root: Element): ParserAdapterResult | null {
   const children = Array.from(root.children)
   if (children.length < 2) return null
 
-  const tagName = children[0].tagName
+  const firstChild = children[0]
+  if (!firstChild) return null
+
+  const tagName = firstChild.tagName
   const allSameTag = children.every((el) => el.tagName === tagName)
   if (!allSameTag) return null
 
-  const firstAttrs = Array.from(children[0].attributes).map((a) => a.name)
+  const firstAttrs = Array.from(firstChild.attributes).map((a) => a.name)
   if (firstAttrs.length < 2) return null
 
   const consistent = children.every((el) => {
@@ -51,6 +54,7 @@ function tryAttributeMode(root: Element): ParserAdapterResult | null {
 
   const keyAttr = firstAttrs[0]
   const valueAttr = firstAttrs[1]
+  if (keyAttr === undefined || valueAttr === undefined) return null
 
   const fields: ImportedField[] = []
   for (const child of children) {

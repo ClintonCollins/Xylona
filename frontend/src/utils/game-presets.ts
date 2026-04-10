@@ -1,14 +1,14 @@
 import { create } from '@bufbuild/protobuf'
 
 import {
-  ModProfileSchema,
-  UpdateProviderConfigSchema,
-  UpdateProviderKind,
-  VariantSchema,
   type Game,
   type ModProfile,
+  ModProfileSchema,
   type UpdateProviderConfig,
+  UpdateProviderConfigSchema,
+  UpdateProviderKind,
   type Variant,
+  VariantSchema,
 } from '@/proto/shared_pb'
 
 export interface GamePreset {
@@ -264,6 +264,7 @@ export function detectPreset(
   game: Pick<Game, 'updateProvider' | 'defaultTarget' | 'modProfile' | 'variants'>,
 ): string {
   const serializedGame = serializeGameConfig(game)
+  const nonePreset = gamePresets[gamePresets.length - 1]
 
   for (const preset of gamePresets) {
     if (serializePresetConfig(preset) === serializedGame) {
@@ -271,7 +272,7 @@ export function detectPreset(
     }
   }
 
-  return serializedGame === serializePresetConfig(gamePresets[gamePresets.length - 1])
+  return nonePreset !== undefined && serializedGame === serializePresetConfig(nonePreset)
     ? 'none'
     : 'custom'
 }

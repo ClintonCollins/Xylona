@@ -4,24 +4,24 @@
     <div class="mods-toolbar">
       <q-input
         v-model="filterText"
-        dense
-        outlined
-        placeholder="Filter mods..."
         aria-label="Filter installed mods"
         class="mods-filter-input"
         clearable
+        dense
+        outlined
+        placeholder="Filter mods..."
         @clear="filterText = ''">
         <template #prepend>
-          <q-icon name="search" size="xs" class="text-xy-muted" aria-hidden="true" />
+          <q-icon aria-hidden="true" class="text-xy-muted" name="search" size="xs" />
         </template>
       </q-input>
       <q-btn
         v-if="updatesAvailable > 0"
         color="primary"
-        label="Update All"
         icon="system_update_alt"
-        size="sm"
+        label="Update All"
         no-caps
+        size="sm"
         @click="emit('update-all')" />
     </div>
 
@@ -33,7 +33,7 @@
 
     <!-- Empty state -->
     <div v-else-if="installedMods.length === 0" class="mods-empty">
-      <q-icon name="extension_off" size="3rem" class="text-xy-muted" aria-hidden="true" />
+      <q-icon aria-hidden="true" class="text-xy-muted" name="extension_off" size="3rem" />
       <div class="mods-empty-title text-xy-secondary">No mods installed</div>
       <div class="mods-empty-subtitle text-xy-muted">Browse available mods to get started.</div>
     </div>
@@ -62,18 +62,18 @@
           <tr
             v-for="mod in filteredMods"
             :key="mod.id"
-            class="mod-row"
             :class="{
               'mod-row--update': mod.updateAvailable,
               'mod-row--disabled': !mod.enabled,
-            }">
+            }"
+            class="mod-row">
             <!-- Mod name + author -->
             <td class="col-mod">
               <div class="mod-identity">
                 <div
-                  class="mod-icon"
                   :style="{ background: iconGradient(mod.modName) }"
-                  aria-hidden="true">
+                  aria-hidden="true"
+                  class="mod-icon">
                   {{ mod.modName.charAt(0).toUpperCase() }}
                 </div>
                 <div class="mod-info">
@@ -85,7 +85,7 @@
 
             <!-- Source badge -->
             <td class="col-source">
-              <span class="source-badge" :style="sourceBadgeStyle(mod.source)">
+              <span :style="sourceBadgeStyle(mod.source)" class="source-badge">
                 {{ sourceLabel(mod.source) }}
               </span>
               <span class="source-name text-xy-muted">{{ sourceDisplayName(mod.source) }}</span>
@@ -94,8 +94,8 @@
             <!-- Version -->
             <td class="col-version">
               <span
-                class="version-text font-mono"
-                :class="{ 'version-text--update': mod.updateAvailable }">
+                :class="{ 'version-text--update': mod.updateAvailable }"
+                class="version-text font-mono">
                 {{ mod.installedVersion }}
               </span>
             </td>
@@ -103,20 +103,20 @@
             <!-- Status -->
             <td class="col-status">
               <span v-if="!mod.enabled" class="status-disabled text-xy-muted">
-                <q-icon name="block" size="xs" aria-hidden="true" />
+                <q-icon aria-hidden="true" name="block" size="xs" />
                 Disabled
               </span>
               <q-btn
                 v-else-if="mod.updateAvailable"
-                color="primary"
-                size="sm"
-                dense
-                no-caps
                 :label="`Update to ${mod.latestVersion}`"
+                color="primary"
+                dense
                 icon="upgrade"
+                no-caps
+                size="sm"
                 @click="emit('update', mod.id)" />
               <span v-else class="status-up-to-date">
-                <q-icon name="check_circle" size="xs" color="positive" aria-hidden="true" />
+                <q-icon aria-hidden="true" color="positive" name="check_circle" size="xs" />
                 Up to date
               </span>
             </td>
@@ -124,15 +124,15 @@
             <!-- Auto-update toggle -->
             <td class="col-auto">
               <label
+                :aria-checked="Boolean(mod.autoUpdate)"
                 class="q-toggle auto-update-toggle"
-                role="switch"
-                :aria-checked="Boolean(mod.autoUpdate)">
+                role="switch">
                 <input
-                  type="checkbox"
-                  :checked="Boolean(mod.autoUpdate)"
                   :aria-label="`Auto-update ${mod.modName}`"
+                  :checked="Boolean(mod.autoUpdate)"
+                  type="checkbox"
                   @change="emit('toggle-auto-update', mod.id, !mod.autoUpdate)" />
-                <span class="toggle-track" :class="{ 'toggle-track--active': mod.autoUpdate }">
+                <span :class="{ 'toggle-track--active': mod.autoUpdate }" class="toggle-track">
                   <span class="toggle-thumb" />
                 </span>
               </label>
@@ -141,12 +141,12 @@
             <!-- Actions overflow menu -->
             <td class="col-actions">
               <q-btn
-                flat
+                :aria-label="`Actions for ${mod.modName}`"
                 dense
-                round
+                flat
                 icon="more_vert"
-                size="sm"
-                :aria-label="`Actions for ${mod.modName}`">
+                round
+                size="sm">
                 <q-menu>
                   <q-list dense style="min-width: 160px">
                     <q-item
@@ -169,11 +169,11 @@
                     <q-separator />
                     <q-item
                       v-close-popup
-                      clickable
                       class="text-negative"
+                      clickable
                       @click="emit('uninstall', mod.id)">
                       <q-item-section side>
-                        <q-icon name="delete" size="xs" color="negative" />
+                        <q-icon color="negative" name="delete" size="xs" />
                       </q-item-section>
                       <q-item-section>Uninstall</q-item-section>
                     </q-item>
@@ -188,10 +188,10 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, ref } from 'vue'
 import type { InstalledMod } from '@/proto/shared_pb'
-import { sourceBadgeStyle, sourceLabel, sourceDisplayName } from '@/utils/mod-sources'
+import { sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-sources'
 
 interface Props {
   installedMods: InstalledMod[]

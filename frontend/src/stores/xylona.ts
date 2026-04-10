@@ -1,14 +1,12 @@
-import { ConnectError } from '@connectrpc/connect'
-import { create } from '@bufbuild/protobuf'
 import { defineStore } from 'pinia'
-import {
-  CheckUserAuthenticatedRequestSchema,
-  CheckUserAuthenticatedResponse,
-  LogoutRequestSchema,
-  User,
-} from '@/proto/xylona_pb'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { Notify } from 'quasar'
+
+import {
+  checkUserAuthenticated as checkUserAuthenticatedApi,
+  logout as logoutApi,
+} from '@/api/auth'
+import { buildXylonaErrorNotification, connectErrorMessage } from '@/api/connect-errors'
+import { CheckUserAuthenticatedResponse, User } from '@/proto/xylona_pb'
 
 interface userAuthState {
   user: User | null
@@ -32,10 +30,7 @@ export const useUserAuthStore = defineStore('userAuth', {
       }
       this.initialFetch = true
       try {
-        const response: CheckUserAuthenticatedResponse =
-          await GetXylonaClient().checkUserAuthenticated(
-            create(CheckUserAuthenticatedRequestSchema),
-          )
+        const response: CheckUserAuthenticatedResponse = await checkUserAuthenticatedApi()
         this.initialResponse = response
         if (response.user) {
           this.user = response.user
@@ -43,28 +38,26 @@ export const useUserAuthStore = defineStore('userAuth', {
         }
       } catch (unknownError: unknown) {
         this.initialFetch = false
-        const err = ConnectError.from(unknownError)
-        Notify.create({
-          type: 'xylona-error',
-          position: 'top',
-          caption: ConnectErrorToString(err),
-          timeout: 0,
-          closeBtn: 'Dismiss',
-          icon: 'report_problem',
-        })
-        console.error(err.message)
+        const message = connectErrorMessage(unknownError)
+        Notify.create(
+          buildXylonaErrorNotification(message, {
+            timeout: 0,
+            closeBtn: 'Dismiss',
+            icon: 'report_problem',
+          }),
+        )
+        console.error(message)
       }
       return null
     },
     async logout(): Promise<void> {
       try {
-        await GetXylonaClient().logout(create(LogoutRequestSchema))
+        await logoutApi()
         this.user = null
         this.initialFetch = false
         this.initialResponse = null
       } catch (unknownError: unknown) {
-        const err = ConnectError.from(unknownError)
-        console.error('Logout error:', err.message)
+        console.error('Logout error:', connectErrorMessage(unknownError))
       }
     },
   },

@@ -1,7 +1,6 @@
 import { create, fromJsonString, toJsonString } from '@bufbuild/protobuf'
-import { Code, ConnectError, createCallbackClient, createClient } from '@connectrpc/connect'
-import { createConnectTransport } from '@connectrpc/connect-web'
-import { UpdateProgress, Xylona } from '@/proto/xylona_pb'
+import type { ConnectError } from '@connectrpc/connect'
+import { UpdateProgress } from '@/proto/xylona_pb'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { BackupProgress, VersionInfo } from '@/proto/shared_pb'
 import { AllServersQueryInfo, Status } from '@/proto/shared_pb'
@@ -28,9 +27,11 @@ import {
   RequestSchema,
 } from '../proto/websocket_pb'
 import { EventBus } from 'quasar'
+
+import { getXylonaClient, getXylonaClientCallback } from '@/api/connect-client'
+import { connectErrorToString } from '@/api/connect-errors'
 import { ReconnectingWebSocket } from './websocket'
 
-export const LocalXylonaAPIBaseURL: string = `${window.location.protocol}//${window.location.host}`
 export const LocalXylonaWebsocketBaseURL: string = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/websocket`
 
 const allAPIWebsockets: Map<string, ReconnectingWebSocket> = new Map<
@@ -81,27 +82,11 @@ XylonaEventBus.on('gameServerMetrics', (metrics: AllServersMetrics) => {
 })
 
 export function GetXylonaClient(nodeAddress: string = window.location.host) {
-  const baseURL =
-    nodeAddress === window.location.host
-      ? LocalXylonaAPIBaseURL
-      : `${window.location.protocol}//${nodeAddress}`
-  const transport = createConnectTransport({
-    baseUrl: baseURL,
-    fetch: (input, init) => fetch(input, { ...init, credentials: 'include' }),
-  })
-  return createClient(Xylona, transport)
+  return getXylonaClient(nodeAddress)
 }
 
 export function GetXylonaClientCallback(nodeAddress: string = window.location.host) {
-  const baseURL =
-    nodeAddress === window.location.host
-      ? LocalXylonaAPIBaseURL
-      : `${window.location.protocol}//${nodeAddress}`
-  const transport = createConnectTransport({
-    baseUrl: baseURL,
-    fetch: (input, init) => fetch(input, { ...init, credentials: 'include' }),
-  })
-  return createCallbackClient(Xylona, transport)
+  return getXylonaClientCallback(nodeAddress)
 }
 
 export function GetOrCreateXylonaWebsocketClient(
@@ -375,12 +360,7 @@ export function bytesToSize(bytes: number): string {
 }
 
 export function ConnectErrorToString(err: ConnectError): string {
-  switch (err.code) {
-    case Code.Unavailable:
-      return 'Unable to connect to Xylona backend.'
-    default:
-      return err.message
-  }
+  return connectErrorToString(err)
 }
 
 export function getIconFromFilenameExtension(fileName: string): string {
@@ -436,6 +416,6 @@ export function getColorFromFilenameExtension(fileName: string): string {
   if (fileNameSplit.length <= 1) {
     return FILE_TYPE_COLOR_DEFAULT
   }
-  const extension = fileNameSplit[fileNameSplit.length - 1]
+  const extension = fileNameSplit[fileNameSplit.length - 1] ?? ''
   return FILE_TYPE_COLORS[extension] ?? FILE_TYPE_COLOR_DEFAULT
 }

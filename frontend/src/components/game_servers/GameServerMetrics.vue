@@ -1,5 +1,5 @@
 <template>
-  <div class="q-mt-md" :class="{ 'metrics-offline': !isOnline }">
+  <div :class="{ 'metrics-offline': !isOnline }" class="q-mt-md">
     <div class="row items-center q-mb-sm">
       <div class="text-subtitle2">Resource Usage</div>
       <q-space />
@@ -19,11 +19,11 @@
                   ></q-item-label
                 >
                 <q-linear-progress
-                  :value="isOnline ? cpuPercent / 100 : 0"
-                  :color="isOnline ? cpuColor : undefined"
                   :class="{ 'progress-disabled': !isOnline }"
-                  rounded
-                  class="q-mt-xs" />
+                  :color="isOnline ? cpuColor : undefined"
+                  :value="isOnline ? cpuPercent / 100 : 0"
+                  class="q-mt-xs"
+                  rounded />
               </q-item-section>
               <q-item-section side>
                 {{ isOnline ? cpuPercent.toFixed(1) + '%' : '--' }}
@@ -45,11 +45,11 @@
                 <q-item-label>Private</q-item-label>
                 <q-linear-progress
                   v-if="maxMemoryBytes > 0"
-                  :value="isOnline ? memoryRatio : 0"
-                  :color="isOnline ? memoryColor : undefined"
                   :class="{ 'progress-disabled': !isOnline }"
-                  rounded
-                  class="q-mt-xs" />
+                  :color="isOnline ? memoryColor : undefined"
+                  :value="isOnline ? memoryRatio : 0"
+                  class="q-mt-xs"
+                  rounded />
               </q-item-section>
               <q-item-section side>
                 <span v-if="isOnline"
@@ -114,11 +114,11 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { GameServer, Status } from '@/proto/shared_pb'
 import { AllServersMetrics } from '@/proto/websocket_pb'
-import { XylonaEventBus, bytesToSize } from '@/utils/shared'
+import { bytesToSize, XylonaEventBus } from '@/utils/shared'
 
 const props = defineProps<{
   gameServerId: string

@@ -8,26 +8,26 @@
 
       <q-card-section class="operation-dialog-body">
         <update-progress-panel
-          :steps="steps"
           :context-facts="contextFacts"
           :output-lines="outputLines"
+          :show-navigate-away-message="showNavigateAwayMessage"
           :show-output-area="showOutputArea"
-          :show-navigate-away-message="showNavigateAwayMessage" />
+          :steps="steps" />
       </q-card-section>
 
-      <q-card-actions class="operation-dialog-footer" align="right">
+      <q-card-actions align="right" class="operation-dialog-footer">
         <q-btn
+          :label="complete ? 'Close' : 'Hide'"
+          color="primary"
           flat
           no-caps
-          color="primary"
-          :label="complete ? 'Close' : 'Hide'"
           @click="emit('update:modelValue', false)" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import UpdateProgressPanel from './UpdateProgressPanel.vue'
 import type { OperationContextFact, StepState } from './UpdateProgressPanel.types'
 

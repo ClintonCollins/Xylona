@@ -2,12 +2,12 @@
   <q-card-section>
     <game-server-settings-form
       v-if="canEditProvisioning !== undefined"
-      :game-server-id="gameServerID"
-      :can-edit-provisioning="canEditProvisioning"></game-server-settings-form>
+      :can-edit-provisioning="canEditProvisioning"
+      :game-server-id="gameServerID"></game-server-settings-form>
   </q-card-section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 

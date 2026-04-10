@@ -1,9 +1,9 @@
 <template>
   <q-dialog
     v-model="showDialog"
-    persistent
+    aria-labelledby="dialog-title"
     backdrop-filter="brightness(25%)"
-    aria-labelledby="dialog-title">
+    persistent>
     <q-card class="full-width">
       <q-card-section>
         <div id="dialog-title" class="text-h6">Create new file or directory</div>
@@ -13,36 +13,36 @@
           <div class="row wrap q-col-gutter-md justify-between">
             <q-select
               v-model="fileDirType"
-              class="col-12"
-              outlined
-              emit-value
-              map-options
               :options="options"
-              label="File or Directory">
+              class="col-12"
+              emit-value
+              label="File or Directory"
+              map-options
+              outlined>
               <template #prepend>
                 <q-icon name="event" />
               </template>
             </q-select>
             <q-input
               v-model="fileName"
-              name="fileName"
               aria-autocomplete="none"
+              autofocus
               class="col-12"
-              outlined
               label="Name"
-              autofocus />
+              name="fileName"
+              outlined />
           </div>
         </q-form>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="primary" flat @click="showDialog = false" />
-        <q-btn label="Submit" color="primary" @click="createFileOrDirectory" />
+        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
+        <q-btn color="primary" label="Submit" @click="createFileOrDirectory" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
 import {

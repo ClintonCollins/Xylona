@@ -2,15 +2,84 @@
 // @generated from file xylona.proto (package xylona, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { GameServerFileOrDirectoryCreateRequestSchema, GameServerFileOrDirectoryCreateResponseSchema, GameServerFileRenameRequestSchema, GameServerFileRenameResponseSchema, GameServerFilesCompressionRequestSchema, GameServerFilesCompressionResponseSchema, GameServerFilesDecompressionRequestSchema, GameServerFilesDecompressionResponseSchema, GameServerFilesDeleteRequestSchema, GameServerFilesDeleteResponseSchema, GameServerFilesMoveRequestSchema, GameServerFilesMoveResponseSchema, GameServersFileDownloadFromURLRequestSchema, GameServersFileDownloadFromURLResponseSchema, GameServersFileEditRequestSchema, GameServersFileEditResponseSchema, ListDirectoryFilesRequestSchema, ListDirectoryFilesResponseSchema } from "./gameserver_files_operations_pb";
-import { file_gameserver_files_operations } from "./gameserver_files_operations_pb";
-import type { AlertEventType, AlertHistoryEntry, AlertRule, BackupRestoreMode, BackupSettings, CreateGameServerRequestSchema, CreateGameServerResponseSchema, EditGameServerRequestSchema, EditGameServerResponseSchema, Error, Game, GameServer, GameServerBackup, GameServerBackupOverview, GameServerFilesArchiveProgressSchema, GameServerFilesExtractProgressSchema, GameServerMetricsHistoryPoint, InstalledMod, IP, MetricsHistoryPoint, ModDetails, ModSearchResult, ModVersion, Node, NodeApiKey, NodeResourceSnapshot, NodeSystemInfo, NotificationChannel, NotificationChannelType, ReadGameServerOutputRequestSchema, ReadGameServerOutputResponseSchema, RemoveGameServerRequestSchema, RemoveGameServerResponseSchema, ScheduledTask, ScheduledTaskLog, SecretKey, SendGameServerInputRequestSchema, SendGameServerInputResponseSchema, ServerQuery, StartGameServerRequestSchema, StartGameServerResponseSchema, Status, SteamApp, SteamAppDetails, StopGameServerRequestSchema, StopGameServerResponseSchema, SystemSMTPConfig, UpdateTargetOption, VersionInfo } from "./shared_pb";
-import { file_shared } from "./shared_pb";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile, GenMessage, GenService } from '@bufbuild/protobuf/codegenv2'
+import { enumDesc, fileDesc, messageDesc, serviceDesc } from '@bufbuild/protobuf/codegenv2'
+import type { Timestamp } from '@bufbuild/protobuf/wkt'
+import { file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
+import type {
+  GameServerFileOrDirectoryCreateRequestSchema,
+  GameServerFileOrDirectoryCreateResponseSchema,
+  GameServerFileRenameRequestSchema,
+  GameServerFileRenameResponseSchema,
+  GameServerFilesCompressionRequestSchema,
+  GameServerFilesCompressionResponseSchema,
+  GameServerFilesDecompressionRequestSchema,
+  GameServerFilesDecompressionResponseSchema,
+  GameServerFilesDeleteRequestSchema,
+  GameServerFilesDeleteResponseSchema,
+  GameServerFilesMoveRequestSchema,
+  GameServerFilesMoveResponseSchema,
+  GameServersFileDownloadFromURLRequestSchema,
+  GameServersFileDownloadFromURLResponseSchema,
+  GameServersFileEditRequestSchema,
+  GameServersFileEditResponseSchema,
+  ListDirectoryFilesRequestSchema,
+  ListDirectoryFilesResponseSchema
+} from './gameserver_files_operations_pb'
+import { file_gameserver_files_operations } from './gameserver_files_operations_pb'
+import type {
+  AlertEventType,
+  AlertHistoryEntry,
+  AlertRule,
+  BackupRestoreMode,
+  BackupSettings,
+  CreateGameServerRequestSchema,
+  CreateGameServerResponseSchema,
+  EditGameServerRequestSchema,
+  EditGameServerResponseSchema,
+  Error,
+  Game,
+  GameServer,
+  GameServerBackup,
+  GameServerBackupOverview,
+  GameServerFilesArchiveProgressSchema,
+  GameServerFilesExtractProgressSchema,
+  GameServerMetricsHistoryPoint,
+  InstalledMod,
+  IP,
+  MetricsHistoryPoint,
+  ModDetails,
+  ModSearchResult,
+  ModVersion,
+  Node,
+  NodeApiKey,
+  NodeResourceSnapshot,
+  NodeSystemInfo,
+  NotificationChannel,
+  NotificationChannelType,
+  ReadGameServerOutputRequestSchema,
+  ReadGameServerOutputResponseSchema,
+  RemoveGameServerRequestSchema,
+  RemoveGameServerResponseSchema,
+  ScheduledTask,
+  ScheduledTaskLog,
+  SecretKey,
+  SendGameServerInputRequestSchema,
+  SendGameServerInputResponseSchema,
+  ServerQuery,
+  StartGameServerRequestSchema,
+  StartGameServerResponseSchema,
+  Status,
+  SteamApp,
+  SteamAppDetails,
+  StopGameServerRequestSchema,
+  StopGameServerResponseSchema,
+  SystemSMTPConfig,
+  UpdateTargetOption,
+  VersionInfo
+} from './shared_pb'
+import { file_shared } from './shared_pb'
+import type { Message } from '@bufbuild/protobuf'
 
 /**
  * Describes the file xylona.proto.

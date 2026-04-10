@@ -9,7 +9,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import NodeApiKeySettings from '@/components/admin/NodeApiKeySettings.vue'
 import SMTPSettings from '@/components/admin/SMTPSettings.vue'
 </script>

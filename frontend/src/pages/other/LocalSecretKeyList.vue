@@ -5,13 +5,13 @@
       <div class="xy-page-actions">
         <q-input
           v-model="search"
+          aria-label="Search secret keys"
+          class="xy-search-input"
+          color="primary"
+          debounce="300"
           dense
           outlined
-          debounce="300"
-          color="primary"
-          placeholder="Search..."
-          aria-label="Search secret keys"
-          class="xy-search-input">
+          placeholder="Search...">
           <template #append>
             <q-icon name="search" />
           </template>
@@ -23,24 +23,24 @@
       <q-table
         v-model:pagination="initialPagination"
         v-model:selected="selected"
-        flat
-        class="xy-standalone-table"
+        :columns="columns"
+        :filter="search"
         :grid="$q.screen.lt.md"
         :rows="rows"
-        :columns="columns"
+        class="xy-standalone-table"
+        flat
+        hide-header-in-grid
         row-key="name"
-        selection="multiple"
-        :filter="search"
-        hide-header-in-grid>
+        selection="multiple">
         <template #body-cell-actions="props">
           <q-td :props="props">
             <div class="q-gutter-xs">
               <span>
                 <q-btn
-                  flat
-                  class="text-error-brighter"
                   :icon="tabTrash"
                   aria-label="Delete secret key"
+                  class="text-error-brighter"
+                  flat
                   @click="deleteSecretKeyAction(props.row)">
                   <q-tooltip>Delete secret key</q-tooltip>
                 </q-btn>
@@ -50,7 +50,7 @@
         </template>
         <template #no-data>
           <div class="full-width column items-center q-pa-lg text-xy-secondary">
-            <q-icon name="vpn_key" size="3rem" class="q-mb-sm text-xy-muted" />
+            <q-icon class="q-mb-sm text-xy-muted" name="vpn_key" size="3rem" />
             <div class="text-subtitle1">No secret keys</div>
             <div class="text-caption text-xy-muted">Generate a secret key for node pairing.</div>
           </div>
@@ -67,7 +67,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useStorage } from '@vueuse/core'

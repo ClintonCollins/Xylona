@@ -1,4 +1,4 @@
-import { UpdateStep, StepStatus } from '@/proto/xylona_pb'
+import { StepStatus, UpdateStep } from '@/proto/xylona_pb'
 
 export interface StepState {
   step: UpdateStep | string

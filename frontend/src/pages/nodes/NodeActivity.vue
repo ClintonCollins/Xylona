@@ -2,7 +2,7 @@
   <q-page class="xy-page-content">
     <div class="xy-page-header">
       <div class="row items-center">
-        <q-btn flat dense round icon="arrow_back" aria-label="Back to nodes" to="/nodes" />
+        <q-btn aria-label="Back to nodes" dense flat icon="arrow_back" round to="/nodes" />
         <div class="xy-page-title q-ml-sm">Federation Activity</div>
       </div>
     </div>
@@ -10,7 +10,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import FederationAdvisoryList from '@/components/nodes/FederationAdvisoryList.vue'
 </script>
 

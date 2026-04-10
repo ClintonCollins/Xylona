@@ -5,10 +5,10 @@
     <q-card-section>
       <div class="row items-center justify-between">
         <div class="text-h6">
-          <q-icon name="admin_panel_settings" size="sm" class="text-xy-muted q-mr-xs" />
+          <q-icon class="text-xy-muted q-mr-xs" name="admin_panel_settings" size="sm" />
           Access Management
         </div>
-        <q-btn flat icon="refresh" label="Refresh" :loading="loading" @click="loadData"></q-btn>
+        <q-btn :loading="loading" flat icon="refresh" label="Refresh" @click="loadData"></q-btn>
       </div>
       <q-banner v-if="isRemoteServer" class="bg-info text-white q-mt-md">
         Managing remote server access through federation proxy ({{
@@ -20,55 +20,55 @@
     <q-card-section class="q-pt-none">
       <div class="access-panel access-panel--local">
         <div class="access-section-header access-section-header--local">
-          <q-icon name="person" size="xs" color="primary" class="q-mr-xs" />
+          <q-icon class="q-mr-xs" color="primary" name="person" size="xs" />
           <span>Local Access</span>
           <q-badge
             v-if="localGrants.length > 0"
             :label="localGrants.length"
-            color="primary"
-            class="q-ml-sm" />
+            class="q-ml-sm"
+            color="primary" />
         </div>
         <div class="row q-col-gutter-md q-mb-md">
           <div class="col-12 col-md-4">
             <q-select
               v-model="selectedLocalUserID"
-              outlined
+              :options="localUserOptions"
               dense
               emit-value
+              label="User"
               map-options
-              :options="localUserOptions"
-              label="User"></q-select>
+              outlined></q-select>
           </div>
           <div class="col-12 col-md-4">
             <q-select
               v-model="selectedLocalRoleID"
-              outlined
+              :options="roleOptions"
+              aria-label="Local role"
               dense
               emit-value
-              map-options
-              :options="roleOptions"
               label="Role"
-              aria-label="Local role"></q-select>
+              map-options
+              outlined></q-select>
           </div>
           <div class="col-12 col-md-4">
             <q-btn
+              :disable="!selectedLocalUserID || !selectedLocalRoleID"
+              :loading="grantingLocal"
               class="full-width"
               color="primary"
               label="Grant Local Access"
-              :loading="grantingLocal"
-              :disable="!selectedLocalUserID || !selectedLocalRoleID"
               @click="grantLocalAccess"></q-btn>
           </div>
         </div>
 
-        <q-list bordered separator aria-live="polite" class="grant-list">
+        <q-list aria-live="polite" bordered class="grant-list" separator>
           <q-item v-if="localGrants.length === 0">
             <q-item-section class="empty-state q-pa-lg">
               <q-icon
+                class="q-mb-sm"
+                color="primary"
                 name="shield"
                 size="40px"
-                color="primary"
-                class="q-mb-sm"
                 style="opacity: 0.3" />
               <div class="text-xy-secondary text-body1">No local access grants</div>
               <div class="text-caption text-xy-muted">
@@ -79,27 +79,27 @@
           <transition-group name="grant">
             <q-item v-for="grant in localGrants" :key="grant.id" class="grant-item">
               <q-item-section avatar>
-                <q-icon name="person" color="primary" />
+                <q-icon color="primary" name="person" />
               </q-item-section>
               <q-item-section>
                 <q-item-label class="grant-username">{{ grant.userName }}</q-item-label>
                 <q-item-label caption>
                   <q-badge
                     :label="grant.roleName"
-                    outline
+                    class="q-mr-xs role-badge"
                     color="primary"
-                    class="q-mr-xs role-badge" />
+                    outline />
                   Granted by {{ grant.grantedByUserName }} on
                   {{ formatTimestamp(grant.createdAt) }}
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-btn
-                  flat
+                  :loading="revokingLocalGrantID === grant.id"
                   color="negative"
+                  flat
                   icon="delete"
                   label="Revoke"
-                  :loading="revokingLocalGrantID === grant.id"
                   @click="confirmRevokeLocal(grant)"></q-btn>
               </q-item-section>
             </q-item>
@@ -111,68 +111,68 @@
     <q-card-section>
       <div class="access-panel access-panel--federated">
         <div class="access-section-header access-section-header--federated">
-          <q-icon name="hub" size="xs" color="accent" class="q-mr-xs" />
+          <q-icon class="q-mr-xs" color="accent" name="hub" size="xs" />
           <span>Federated Access</span>
           <q-badge
             v-if="federatedGrants.length > 0"
             :label="federatedGrants.length"
-            color="accent"
-            class="q-ml-sm" />
+            class="q-ml-sm"
+            color="accent" />
         </div>
         <div class="row q-col-gutter-md q-mb-md">
           <div class="col-12 col-md-3">
             <q-select
               v-model="selectedFederatedNodeID"
-              outlined
+              :options="remoteNodeOptions"
               dense
               emit-value
+              label="Remote Node"
               map-options
-              :options="remoteNodeOptions"
-              label="Remote Node"></q-select>
+              outlined></q-select>
           </div>
           <div class="col-12 col-md-3">
             <q-select
               v-model="selectedRemoteUserID"
-              outlined
+              :disable="selectedFederatedNodeID === ''"
+              :loading="loadingRemoteUsers"
+              :options="remoteUserOptions"
               dense
               emit-value
-              map-options
-              :options="remoteUserOptions"
               label="Remote User"
-              :loading="loadingRemoteUsers"
-              :disable="selectedFederatedNodeID === ''"
-              no-options-label="No remote users found"></q-select>
+              map-options
+              no-options-label="No remote users found"
+              outlined></q-select>
           </div>
           <div class="col-12 col-md-3">
             <q-select
               v-model="selectedFederatedRoleID"
-              outlined
+              :options="roleOptions"
+              aria-label="Federated role"
               dense
               emit-value
-              map-options
-              :options="roleOptions"
               label="Role"
-              aria-label="Federated role"></q-select>
+              map-options
+              outlined></q-select>
           </div>
           <div class="col-12 col-md-3">
             <q-btn
+              :disable="!canGrantFederated"
+              :loading="grantingFederated"
               class="full-width"
               color="primary"
               label="Grant Federated Access"
-              :loading="grantingFederated"
-              :disable="!canGrantFederated"
               @click="grantFederatedAccess"></q-btn>
           </div>
         </div>
 
-        <q-list bordered separator aria-live="polite" class="grant-list">
+        <q-list aria-live="polite" bordered class="grant-list" separator>
           <q-item v-if="federatedGrants.length === 0">
             <q-item-section class="empty-state q-pa-lg">
               <q-icon
+                class="q-mb-sm"
+                color="accent"
                 name="cloud_off"
                 size="40px"
-                color="accent"
-                class="q-mb-sm"
                 style="opacity: 0.3" />
               <div class="text-xy-secondary text-body1">No federated access grants</div>
               <div class="text-caption text-xy-muted">
@@ -183,7 +183,7 @@
           <transition-group name="grant">
             <q-item v-for="grant in federatedGrants" :key="grant.id" class="grant-item">
               <q-item-section avatar>
-                <q-icon name="hub" color="accent" />
+                <q-icon color="accent" name="hub" />
               </q-item-section>
               <q-item-section>
                 <q-item-label class="grant-username">
@@ -195,20 +195,20 @@
                 <q-item-label caption>
                   <q-badge
                     :label="grant.roleName"
-                    outline
+                    class="q-mr-xs role-badge"
                     color="accent"
-                    class="q-mr-xs role-badge" />
+                    outline />
                   Granted by {{ grant.grantedByUserName }} on
                   {{ formatTimestamp(grant.createdAt) }}
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-btn
-                  flat
+                  :loading="revokingFederatedGrantID === grant.id"
                   color="negative"
+                  flat
                   icon="delete"
                   label="Revoke"
-                  :loading="revokingFederatedGrantID === grant.id"
                   @click="confirmRevokeFederated(grant)"></q-btn>
               </q-item-section>
             </q-item>
@@ -219,10 +219,10 @@
   </template>
 
   <q-dialog v-model="revokeDialogVisible" aria-labelledby="revoke-dialog-title">
-    <q-card style="min-width: min(400px, 90vw)" class="revoke-dialog">
+    <q-card class="revoke-dialog" style="min-width: min(400px, 90vw)">
       <q-card-section class="revoke-dialog-header">
         <div class="row items-center no-wrap">
-          <q-icon name="warning" size="sm" color="negative" class="q-mr-sm" />
+          <q-icon class="q-mr-sm" color="negative" name="warning" size="sm" />
           <div id="revoke-dialog-title" class="text-h6">Revoke Access</div>
         </div>
       </q-card-section>
@@ -234,17 +234,17 @@
       <q-card-actions align="right" class="q-pa-md">
         <q-btn v-close-popup flat label="Cancel"></q-btn>
         <q-btn
-          color="negative"
-          label="Revoke Access"
-          icon="delete"
           :loading="revokingLocalGrantID !== '' || revokingFederatedGrantID !== ''"
+          color="negative"
+          icon="delete"
+          label="Revoke Access"
           @click="executeRevoke"></q-btn>
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'

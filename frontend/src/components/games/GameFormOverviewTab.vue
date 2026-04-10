@@ -13,24 +13,24 @@
           <q-input
             v-model="game.id"
             :disable="existingGame"
-            class="col-12 col-sm-6"
-            outlined
-            type="text"
-            label="Unique ID *"
             :rules="idRules"
-            reactive-rules
+            class="col-12 col-sm-6"
+            hint="ID of the game all lowercase. e.g: minecraft"
+            label="Unique ID *"
             lazy-rules
-            hint="ID of the game all lowercase. e.g: minecraft" />
+            outlined
+            reactive-rules
+            type="text" />
           <q-input
             v-model="game.name"
-            class="col-12 col-sm-6"
-            outlined
-            type="text"
-            label="Name *"
             :rules="nameRules"
-            reactive-rules
+            class="col-12 col-sm-6"
+            hint="Name of the game. e.g: Minecraft"
+            label="Name *"
             lazy-rules
-            hint="Name of the game. e.g: Minecraft" />
+            outlined
+            reactive-rules
+            type="text" />
         </div>
       </div>
       <div class="overview-metadata-group">
@@ -42,31 +42,31 @@
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
           <q-input
             v-model.number="defaultPort"
-            class="col-12 col-sm-4"
-            outlined
-            type="number"
-            label="Default Port *"
             :rules="portRules"
-            reactive-rules
+            class="col-12 col-sm-4"
+            hint="Default server port. e.g: 25565"
+            label="Default Port *"
             lazy-rules
-            hint="Default server port. e.g: 25565" />
+            outlined
+            reactive-rules
+            type="number" />
           <q-input
             v-model.number="defaultQueryPort"
-            class="col-12 col-sm-4"
-            outlined
-            type="number"
-            label="Default Query Port *"
             :rules="portRules"
-            reactive-rules
+            class="col-12 col-sm-4"
+            hint="Default server query port. e.g: 25565"
+            label="Default Query Port *"
             lazy-rules
-            hint="Default server query port. e.g: 25565" />
+            outlined
+            reactive-rules
+            type="number" />
           <q-input
             v-model="game.steamAppid"
             class="col-12 col-sm-4"
-            outlined
-            type="number"
+            hint="Steam AppID if it's available on steamcmd. e.g: 294420"
             label="Steam App ID"
-            hint="Steam AppID if it's available on steamcmd. e.g: 294420" />
+            outlined
+            type="number" />
         </div>
       </div>
     </div>
@@ -84,19 +84,19 @@
         <span class="feature-group-label text-xy-muted font-display">Platform</span>
         <div class="feature-chips">
           <button
-            type="button"
-            class="feature-chip"
-            :class="{ 'feature-chip--active': game.windowsSupport }"
             :aria-pressed="game.windowsSupport"
+            :class="{ 'feature-chip--active': game.windowsSupport }"
+            class="feature-chip"
+            type="button"
             @click="game.windowsSupport = !game.windowsSupport">
             <span class="feature-dot"></span>
             <span class="feature-label">Windows Support</span>
           </button>
           <button
-            type="button"
-            class="feature-chip"
-            :class="{ 'feature-chip--active': game.linuxSupport }"
             :aria-pressed="game.linuxSupport"
+            :class="{ 'feature-chip--active': game.linuxSupport }"
+            class="feature-chip"
+            type="button"
             @click="game.linuxSupport = !game.linuxSupport">
             <span class="feature-dot"></span>
             <span class="feature-label">Linux Support</span>
@@ -107,19 +107,19 @@
         <span class="feature-group-label text-xy-muted font-display">Steam</span>
         <div class="feature-chips">
           <button
-            type="button"
-            class="feature-chip"
-            :class="{ 'feature-chip--active': game.usesSteamcmd }"
             :aria-pressed="game.usesSteamcmd"
+            :class="{ 'feature-chip--active': game.usesSteamcmd }"
+            class="feature-chip"
+            type="button"
             @click="game.usesSteamcmd = !game.usesSteamcmd">
             <span class="feature-dot"></span>
             <span class="feature-label">Uses Steamcmd</span>
           </button>
           <button
-            type="button"
-            class="feature-chip"
-            :class="{ 'feature-chip--active': game.requiresSteamGameServerLoginToken }"
             :aria-pressed="game.requiresSteamGameServerLoginToken"
+            :class="{ 'feature-chip--active': game.requiresSteamGameServerLoginToken }"
+            class="feature-chip"
+            type="button"
             @click="
               game.requiresSteamGameServerLoginToken = !game.requiresSteamGameServerLoginToken
             ">
@@ -132,19 +132,19 @@
         <span class="feature-group-label text-xy-muted font-display">Network</span>
         <div class="feature-chips">
           <button
-            type="button"
-            class="feature-chip"
-            :class="{ 'feature-chip--active': game.requireDedicatedIp }"
             :aria-pressed="game.requireDedicatedIp"
+            :class="{ 'feature-chip--active': game.requireDedicatedIp }"
+            class="feature-chip"
+            type="button"
             @click="game.requireDedicatedIp = !game.requireDedicatedIp">
             <span class="feature-dot"></span>
             <span class="feature-label">Requires Dedicated IP</span>
           </button>
           <button
-            type="button"
-            class="feature-chip"
-            :class="{ 'feature-chip--active': game.usesSourceQuery }"
             :aria-pressed="game.usesSourceQuery"
+            :class="{ 'feature-chip--active': game.usesSourceQuery }"
+            class="feature-chip"
+            type="button"
             @click="game.usesSourceQuery = !game.usesSourceQuery">
             <span class="feature-dot"></span>
             <span class="feature-label">Uses Source Query</span>
@@ -171,39 +171,39 @@
     <template v-else>
       <div
         v-if="game.windowsSupport && game.linuxSupport"
+        aria-label="Platform commands"
         class="platform-tabs"
-        role="tablist"
-        aria-label="Platform commands">
+        role="tablist">
         <button
-          type="button"
-          role="tab"
-          class="platform-tab"
-          :class="{ 'platform-tab--active': activePlatform === 'windows' }"
           :aria-selected="activePlatform === 'windows'"
+          :class="{ 'platform-tab--active': activePlatform === 'windows' }"
+          class="platform-tab"
+          role="tab"
+          type="button"
           @click="activePlatform = 'windows'">
           <q-icon
-            name="desktop_windows"
-            size="14px"
             :class="
               activePlatform === 'windows'
                 ? 'platform-icon-windows-active'
                 : 'platform-icon-inactive'
-            " />
+            "
+            name="desktop_windows"
+            size="14px" />
           <span class="font-display">Windows</span>
         </button>
         <button
-          type="button"
-          role="tab"
-          class="platform-tab"
-          :class="{ 'platform-tab--active': activePlatform === 'linux' }"
           :aria-selected="activePlatform === 'linux'"
+          :class="{ 'platform-tab--active': activePlatform === 'linux' }"
+          class="platform-tab"
+          role="tab"
+          type="button"
           @click="activePlatform = 'linux'">
           <q-icon
-            name="terminal"
-            size="14px"
             :class="
               activePlatform === 'linux' ? 'platform-icon-linux-active' : 'platform-icon-inactive'
-            " />
+            "
+            name="terminal"
+            size="14px" />
           <span class="font-display">Linux</span>
         </button>
       </div>
@@ -220,15 +220,15 @@
           </div>
           <div class="cmd-input-wrap">
             <div
-              class="cmd-highlight font-mono"
               aria-hidden="true"
+              class="cmd-highlight font-mono"
               v-html="highlightCommand(game.windowsStopCommand)"></div>
             <textarea
               v-model="game.windowsStopCommand"
-              class="cmd-textarea font-mono"
-              rows="1"
               aria-label="Windows stop command"
-              placeholder="/stop"></textarea>
+              class="cmd-textarea font-mono"
+              placeholder="/stop"
+              rows="1"></textarea>
           </div>
         </div>
 
@@ -241,9 +241,9 @@
                 <span class="cmd-type-label">Type</span>
                 <select
                   :value="game.windowsInstallType"
-                  data-testid="windows-install-type"
                   aria-label="Windows install command type"
                   class="cmd-type-select font-mono"
+                  data-testid="windows-install-type"
                   @change="
                     game.windowsInstallType = Number(
                       ($event.target as HTMLSelectElement).value,
@@ -258,9 +258,9 @@
                 <span class="cmd-type-label">Shell</span>
                 <select
                   :value="game.windowsInstallCommandProcessor"
-                  data-testid="windows-install-shell"
                   aria-label="Windows install shell"
                   class="cmd-type-select font-mono"
+                  data-testid="windows-install-shell"
                   @change="
                     game.windowsInstallCommandProcessor = Number(
                       ($event.target as HTMLSelectElement).value,
@@ -278,16 +278,16 @@
           </div>
           <div v-if="isCommandTypeCommand(game.windowsInstallType)" class="cmd-input-wrap">
             <div
-              class="cmd-highlight font-mono"
               aria-hidden="true"
+              class="cmd-highlight font-mono"
               v-html="highlightCommand(game.windowsInstallCommand)"></div>
             <textarea
               v-model="game.windowsInstallCommand"
-              data-testid="windows-install-command"
-              class="cmd-textarea font-mono"
-              rows="2"
               aria-label="Windows install command"
-              placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
+              class="cmd-textarea font-mono"
+              data-testid="windows-install-command"
+              placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
+              rows="2"></textarea>
           </div>
           <div v-else class="cmd-internal font-mono">
             {{ commandTypeSummary(game.windowsInstallType, 'install') }}
@@ -303,9 +303,9 @@
                 <span class="cmd-type-label">Type</span>
                 <select
                   :value="game.windowsUpdateType"
-                  data-testid="windows-update-type"
                   aria-label="Windows update command type"
                   class="cmd-type-select font-mono"
+                  data-testid="windows-update-type"
                   @change="
                     game.windowsUpdateType = Number(
                       ($event.target as HTMLSelectElement).value,
@@ -320,9 +320,9 @@
                 <span class="cmd-type-label">Shell</span>
                 <select
                   :value="game.windowsUpdateCommandProcessor"
-                  data-testid="windows-update-shell"
                   aria-label="Windows update shell"
                   class="cmd-type-select font-mono"
+                  data-testid="windows-update-shell"
                   @change="
                     game.windowsUpdateCommandProcessor = Number(
                       ($event.target as HTMLSelectElement).value,
@@ -340,16 +340,16 @@
           </div>
           <div v-if="isCommandTypeCommand(game.windowsUpdateType)" class="cmd-input-wrap">
             <div
-              class="cmd-highlight font-mono"
               aria-hidden="true"
+              class="cmd-highlight font-mono"
               v-html="highlightCommand(game.windowsUpdateCommand)"></div>
             <textarea
               v-model="game.windowsUpdateCommand"
-              data-testid="windows-update-command"
-              class="cmd-textarea font-mono"
-              rows="2"
               aria-label="Windows update command"
-              placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
+              class="cmd-textarea font-mono"
+              data-testid="windows-update-command"
+              placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
+              rows="2"></textarea>
           </div>
           <div v-else class="cmd-internal font-mono">
             {{ commandTypeSummary(game.windowsUpdateType, 'update') }}
@@ -363,10 +363,10 @@
           </div>
           <textarea
             v-model="game.windowsWorkingDirectory"
-            class="cmd-textarea font-mono"
-            rows="1"
             aria-label="Windows working directory"
-            placeholder="./server"></textarea>
+            class="cmd-textarea font-mono"
+            placeholder="./server"
+            rows="1"></textarea>
         </div>
       </div>
 
@@ -382,15 +382,15 @@
           </div>
           <div class="cmd-input-wrap">
             <div
-              class="cmd-highlight font-mono"
               aria-hidden="true"
+              class="cmd-highlight font-mono"
               v-html="highlightCommand(game.linuxStopCommand)"></div>
             <textarea
               v-model="game.linuxStopCommand"
-              class="cmd-textarea font-mono"
-              rows="1"
               aria-label="Linux stop command"
-              placeholder="/stop"></textarea>
+              class="cmd-textarea font-mono"
+              placeholder="/stop"
+              rows="1"></textarea>
           </div>
         </div>
 
@@ -403,9 +403,9 @@
                 <span class="cmd-type-label">Type</span>
                 <select
                   :value="game.linuxInstallType"
-                  data-testid="linux-install-type"
                   aria-label="Linux install command type"
                   class="cmd-type-select font-mono"
+                  data-testid="linux-install-type"
                   @change="
                     game.linuxInstallType = Number(
                       ($event.target as HTMLSelectElement).value,
@@ -420,9 +420,9 @@
                 <span class="cmd-type-label">Shell</span>
                 <select
                   :value="game.linuxInstallCommandProcessor"
-                  data-testid="linux-install-shell"
                   aria-label="Linux install shell"
                   class="cmd-type-select font-mono"
+                  data-testid="linux-install-shell"
                   @change="
                     game.linuxInstallCommandProcessor = Number(
                       ($event.target as HTMLSelectElement).value,
@@ -440,16 +440,16 @@
           </div>
           <div v-if="isCommandTypeCommand(game.linuxInstallType)" class="cmd-input-wrap">
             <div
-              class="cmd-highlight font-mono"
               aria-hidden="true"
+              class="cmd-highlight font-mono"
               v-html="highlightCommand(game.linuxInstallCommand)"></div>
             <textarea
               v-model="game.linuxInstallCommand"
-              data-testid="linux-install-command"
-              class="cmd-textarea font-mono"
-              rows="2"
               aria-label="Linux install command"
-              placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
+              class="cmd-textarea font-mono"
+              data-testid="linux-install-command"
+              placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
+              rows="2"></textarea>
           </div>
           <div v-else class="cmd-internal font-mono">
             {{ commandTypeSummary(game.linuxInstallType, 'install') }}
@@ -465,9 +465,9 @@
                 <span class="cmd-type-label">Type</span>
                 <select
                   :value="game.linuxUpdateType"
-                  data-testid="linux-update-type"
                   aria-label="Linux update command type"
                   class="cmd-type-select font-mono"
+                  data-testid="linux-update-type"
                   @change="
                     game.linuxUpdateType = Number(
                       ($event.target as HTMLSelectElement).value,
@@ -482,9 +482,9 @@
                 <span class="cmd-type-label">Shell</span>
                 <select
                   :value="game.linuxUpdateCommandProcessor"
-                  data-testid="linux-update-shell"
                   aria-label="Linux update shell"
                   class="cmd-type-select font-mono"
+                  data-testid="linux-update-shell"
                   @change="
                     game.linuxUpdateCommandProcessor = Number(
                       ($event.target as HTMLSelectElement).value,
@@ -502,16 +502,16 @@
           </div>
           <div v-if="isCommandTypeCommand(game.linuxUpdateType)" class="cmd-input-wrap">
             <div
-              class="cmd-highlight font-mono"
               aria-hidden="true"
+              class="cmd-highlight font-mono"
               v-html="highlightCommand(game.linuxUpdateCommand)"></div>
             <textarea
               v-model="game.linuxUpdateCommand"
-              data-testid="linux-update-command"
-              class="cmd-textarea font-mono"
-              rows="2"
               aria-label="Linux update command"
-              placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"></textarea>
+              class="cmd-textarea font-mono"
+              data-testid="linux-update-command"
+              placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
+              rows="2"></textarea>
           </div>
           <div v-else class="cmd-internal font-mono">
             {{ commandTypeSummary(game.linuxUpdateType, 'update') }}
@@ -525,19 +525,19 @@
           </div>
           <textarea
             v-model="game.linuxWorkingDirectory"
-            class="cmd-textarea font-mono"
-            rows="1"
             aria-label="Linux working directory"
-            placeholder="./server"></textarea>
+            class="cmd-textarea font-mono"
+            placeholder="./server"
+            rows="1"></textarea>
         </div>
       </div>
     </template>
   </section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { inject } from 'vue'
-import { CommandType, CommandProcessor } from '@/proto/shared_pb'
+import { CommandProcessor, CommandType } from '@/proto/shared_pb'
 import { gameFormContextKey } from './GameFormTypes'
 
 const ctx = inject(gameFormContextKey)

@@ -175,7 +175,9 @@ describe('StartArgsTemplateEditor', () => {
     await wrapper.get('[data-testid="preview-chip-second"]').trigger('click')
 
     expect(wrapper.get('[data-testid="start-args-dialog"]').text()).toContain('Max heap size')
-    expect(wrapper.get('[data-testid="tokens-input"] textarea').element.value).toBe('-Xmx2G')
+    expect(
+      (wrapper.get('[data-testid="tokens-input"] textarea').element as HTMLTextAreaElement).value,
+    ).toBe('-Xmx2G')
   })
 
   it('adds a new argument from the static add button and appends it to the template', async () => {
@@ -190,8 +192,9 @@ describe('StartArgsTemplateEditor', () => {
     expect(emissions).toBeTruthy()
 
     const updatedTemplate = emissions?.at(-1)?.[0] as StartArgBlock[]
+    const addedBlock = updatedTemplate[2]
     expect(updatedTemplate).toHaveLength(3)
-    expect(updatedTemplate[2]).toMatchObject({
+    expect(addedBlock).toMatchObject({
       label: 'No GUI',
       ownership: 'editable',
       tokens: ['-nogui'],
@@ -202,8 +205,13 @@ describe('StartArgsTemplateEditor', () => {
     const wrapper = mountEditor({ windowsEnabled: false })
     const chips = wrapper.findAll('.template-editor__arg-chip')
     const dataTransfer = { effectAllowed: '', setData: vi.fn() }
+    const firstChip = chips[0]
+    const secondChip = chips[1]
+    if (!firstChip || !secondChip) {
+      throw new Error('expected template chips to exist')
+    }
 
-    vi.spyOn(chips[0].element, 'getBoundingClientRect').mockReturnValue({
+    vi.spyOn(firstChip.element, 'getBoundingClientRect').mockReturnValue({
       bottom: 40,
       height: 40,
       left: 0,
@@ -215,9 +223,9 @@ describe('StartArgsTemplateEditor', () => {
       toJSON: () => ({}),
     })
 
-    await chips[1].trigger('dragstart', { dataTransfer })
-    await chips[0].trigger('dragover', { clientX: 0, clientY: 20 })
-    await chips[0].trigger('drop', { clientX: 0, clientY: 20 })
+    await secondChip.trigger('dragstart', { dataTransfer })
+    await firstChip.trigger('dragover', { clientX: 0, clientY: 20 })
+    await firstChip.trigger('drop', { clientX: 0, clientY: 20 })
 
     const emissions = wrapper.emitted('update:linuxTemplate')
     expect(emissions).toBeTruthy()
@@ -290,9 +298,8 @@ describe('StartArgsTemplateEditor', () => {
     await wrapper.get('[data-testid="start-args-reset-platform"]').trigger('click')
 
     expect(wrapper.emitted('update:linuxBaseCommand')?.at(-1)).toEqual(['java'])
-    expect((wrapper.emitted('update:linuxTemplate')?.at(-1)?.[0] as StartArgBlock[])[0].label).toBe(
-      'Min heap',
-    )
+    const resetTemplate = wrapper.emitted('update:linuxTemplate')?.at(-1)?.[0] as StartArgBlock[]
+    expect(resetTemplate[0]?.label).toBe('Min heap')
   })
 
   it('syncs shared block metadata across both platforms when edited in the dialog', async () => {

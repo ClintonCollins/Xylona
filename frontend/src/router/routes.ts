@@ -92,7 +92,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: '/game-servers/:id/edit',
-        redirect: (to) => legacyGameServerEditRedirect(String(to.params.id)),
+        redirect: (to) => legacyGameServerEditRedirect(String(to.params['id'])),
       },
       {
         path: '/game-servers/:id',

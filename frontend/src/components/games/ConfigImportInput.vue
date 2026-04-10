@@ -2,20 +2,20 @@
   <div class="config-import-input">
     <!-- Text area with drop zone -->
     <div
-      class="import-drop-zone"
       :class="{ 'drop-active': isDragging }"
+      class="import-drop-zone"
       @dragenter.prevent="isDragging = true"
       @dragover.prevent
       @dragleave.prevent="isDragging = false"
       @drop.prevent="handleDrop">
       <q-input
         v-model="content"
-        type="textarea"
-        outlined
-        dense
-        placeholder="Paste configuration file contents here..."
-        input-class="font-mono import-textarea"
         :maxlength="MAX_CONTENT_LENGTH"
+        dense
+        input-class="font-mono import-textarea"
+        outlined
+        placeholder="Paste configuration file contents here..."
+        type="textarea"
         @update:model-value="handleContentChange" />
       <div v-if="isDragging" class="drop-overlay">
         <q-icon name="upload_file" size="32px" />
@@ -26,30 +26,30 @@
     <!-- Browse file button -->
     <div class="import-actions">
       <q-btn
-        flat
+        class="text-xy-secondary"
         dense
-        size="sm"
+        flat
         icon="upload_file"
         label="Browse file"
-        class="text-xy-secondary"
+        size="sm"
         @click="fileInput?.click()" />
-      <input ref="fileInput" type="file" hidden @change="handleFileSelect" />
+      <input ref="fileInput" hidden type="file" @change="handleFileSelect" />
     </div>
 
     <!-- Detection status -->
     <div v-if="content.trim()" class="import-status">
       <template v-if="detecting">
-        <q-spinner-dots size="16px" color="primary" />
+        <q-spinner-dots color="primary" size="16px" />
         <span class="text-xy-secondary">Detecting format...</span>
       </template>
 
       <template v-else-if="sizeError">
-        <q-icon name="error" size="16px" color="negative" />
+        <q-icon color="negative" name="error" size="16px" />
         <span class="text-negative">{{ sizeError }}</span>
       </template>
 
       <template v-else-if="detectionResult?.format">
-        <q-icon name="check_circle" size="16px" color="positive" />
+        <q-icon color="positive" name="check_circle" size="16px" />
         <span class="text-positive">
           Detected <strong>{{ detectionResult.format.toUpperCase() }}</strong> —
           {{ detectionResult.fields.length }} field{{
@@ -60,7 +60,7 @@
       </template>
 
       <template v-else-if="detectionResult && !detectionResult.format">
-        <q-icon name="info" size="16px" class="text-xy-muted" />
+        <q-icon class="text-xy-muted" name="info" size="16px" />
         <span class="text-xy-muted">Format not detected automatically</span>
       </template>
 
@@ -70,21 +70,21 @@
         <q-btn
           v-for="alt in detectionResult.alternativeFormats"
           :key="alt.format"
-          flat
-          dense
-          size="xs"
           :label="`${alt.format.toUpperCase()} (${alt.fieldCount} fields)`"
           class="alt-format-btn"
+          dense
+          flat
+          size="xs"
           @click="selectAlternative(alt.format)" />
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { ref } from 'vue'
-import { detectAndParse, parseWithFormat } from '@/utils/config-import'
 import type { ImportDetectionResult } from '@/utils/config-import'
+import { detectAndParse, parseWithFormat } from '@/utils/config-import'
 
 const MAX_CONTENT_LENGTH = 1_048_576 // 1 MB
 const MAX_FILE_SIZE = 1_048_576 // 1 MB

@@ -1,9 +1,9 @@
 import { create } from '@bufbuild/protobuf'
-import { mount, VueWrapper } from '@vue/test-utils'
 import type { MountingOptions } from '@vue/test-utils'
+import { mount, VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { InstalledModSchema, ModSearchResultSchema } from '@/proto/shared_pb'
 import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
+import { InstalledModSchema, ModSearchResultSchema } from '@/proto/shared_pb'
 import ModBrowse from './ModBrowse.vue'
 
 function makeSearchResult(overrides: Partial<ModSearchResult> = {}): ModSearchResult {

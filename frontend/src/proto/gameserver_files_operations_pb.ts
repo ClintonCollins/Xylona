@@ -2,11 +2,11 @@
 // @generated from file gameserver_files_operations.proto (package xylona, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_any, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2'
+import { enumDesc, fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2'
+import type { Timestamp } from '@bufbuild/protobuf/wkt'
+import { file_google_protobuf_any, file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
+import type { Message } from '@bufbuild/protobuf'
 
 /**
  * Describes the file gameserver_files_operations.proto.

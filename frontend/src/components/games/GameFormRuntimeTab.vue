@@ -4,20 +4,20 @@
 
     <div class="structured-start-stack">
       <start-args-template-editor
-        mode="preview"
-        class="structured-start-stack__editor"
         :active-platform="activePlatformResolved ?? undefined"
         :advanced-expanded="runtimeSequenceExpanded"
-        :baseline-linux-template="baselineLinuxStartArgsTemplate"
-        :baseline-windows-template="baselineWindowsStartArgsTemplate"
         :baseline-linux-base-command="baselineLinuxBaseCommand"
+        :baseline-linux-template="baselineLinuxStartArgsTemplate"
         :baseline-windows-base-command="baselineWindowsBaseCommand"
-        :linux-template="linuxStartArgsTemplate"
-        :windows-template="windowsStartArgsTemplate"
+        :baseline-windows-template="baselineWindowsStartArgsTemplate"
         :linux-base-command="game.linuxBaseCommand"
-        :windows-base-command="game.windowsBaseCommand"
         :linux-enabled="game.linuxSupport"
+        :linux-template="linuxStartArgsTemplate"
+        :windows-base-command="game.windowsBaseCommand"
         :windows-enabled="game.windowsSupport"
+        :windows-template="windowsStartArgsTemplate"
+        class="structured-start-stack__editor"
+        mode="preview"
         @update:active-platform="activePlatform = $event"
         @update:advanced-expanded="updateRuntimeSequenceExpanded"
         @update:linux-template="linuxStartArgsTemplate = $event"
@@ -27,15 +27,15 @@
 
       <section class="runtime-policy-panel">
         <button
-          type="button"
-          class="runtime-policy-toggle"
-          data-testid="runtime-policy-toggle"
+          :aria-expanded="String(runtimePolicyExpanded)"
           :aria-label="
             runtimePolicyExpanded ? 'Collapse runtime guardrails' : 'Expand runtime guardrails'
           "
-          aria-describedby="runtime-policy-assistive-summary"
-          :aria-expanded="String(runtimePolicyExpanded)"
           aria-controls="runtime-policy-panel"
+          aria-describedby="runtime-policy-assistive-summary"
+          class="runtime-policy-toggle"
+          data-testid="runtime-policy-toggle"
+          type="button"
           @click="toggleRuntimePolicy">
           <div class="runtime-policy-toggle-copy">
             <span class="runtime-policy-eyebrow font-display">Runtime Guardrails</span>
@@ -49,8 +49,8 @@
               {{ runtimePolicyExpanded ? 'Hide details' : 'Review guardrails' }}
               <q-icon
                 :name="runtimePolicyExpanded ? 'expand_less' : 'expand_more'"
-                size="18px"
-                color="accent" />
+                color="accent"
+                size="18px" />
             </span>
           </div>
         </button>
@@ -63,8 +63,8 @@
           <div
             v-if="runtimePolicyExpanded"
             id="runtime-policy-panel"
-            data-testid="runtime-policy-panel"
-            class="runtime-policy-content">
+            class="runtime-policy-content"
+            data-testid="runtime-policy-panel">
             <div class="runtime-policy-layout">
               <div class="runtime-policy-subsection runtime-policy-subsection--reserved">
                 <div class="runtime-policy-card-head">
@@ -97,8 +97,8 @@
                     </div>
                     <q-toggle
                       v-model="game.allowStartArgEditing"
-                      color="accent"
-                      aria-label="Allow owner edits" />
+                      aria-label="Allow owner edits"
+                      color="accent" />
                   </div>
                   <div class="runtime-policy-mini-note text-xy-muted">
                     {{
@@ -136,20 +136,20 @@
       </section>
 
       <start-args-template-editor
-        mode="advanced"
-        class="structured-start-stack__advanced"
         :active-platform="activePlatformResolved ?? undefined"
         :advanced-expanded="runtimeSequenceExpanded"
-        :baseline-linux-template="baselineLinuxStartArgsTemplate"
-        :baseline-windows-template="baselineWindowsStartArgsTemplate"
         :baseline-linux-base-command="baselineLinuxBaseCommand"
+        :baseline-linux-template="baselineLinuxStartArgsTemplate"
         :baseline-windows-base-command="baselineWindowsBaseCommand"
-        :linux-template="linuxStartArgsTemplate"
-        :windows-template="windowsStartArgsTemplate"
+        :baseline-windows-template="baselineWindowsStartArgsTemplate"
         :linux-base-command="game.linuxBaseCommand"
-        :windows-base-command="game.windowsBaseCommand"
         :linux-enabled="game.linuxSupport"
+        :linux-template="linuxStartArgsTemplate"
+        :windows-base-command="game.windowsBaseCommand"
         :windows-enabled="game.windowsSupport"
+        :windows-template="windowsStartArgsTemplate"
+        class="structured-start-stack__advanced"
+        mode="advanced"
         @update:active-platform="activePlatform = $event"
         @update:advanced-expanded="updateRuntimeSequenceExpanded"
         @update:linux-template="linuxStartArgsTemplate = $event"
@@ -160,7 +160,7 @@
   </section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { inject } from 'vue'
 import BlocklistEditor from './BlocklistEditor.vue'
 import DownstreamImpactPanel from './DownstreamImpactPanel.vue'

@@ -2,7 +2,7 @@
   <router-view />
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { onMounted } from 'vue'
 import { GetOrCreateXylonaWebsocketClient } from './utils/shared'
 

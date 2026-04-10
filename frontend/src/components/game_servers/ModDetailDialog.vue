@@ -2,8 +2,8 @@
   <q-dialog
     :model-value="show"
     maximized
-    transition-show="slide-up"
     transition-hide="slide-down"
+    transition-show="slide-up"
     @update:model-value="(val: boolean) => emit('update:show', val)">
     <q-card class="mod-detail-dialog">
       <!-- Loading -->
@@ -14,7 +14,7 @@
 
       <!-- Error -->
       <div v-else-if="errorMessage" class="mod-detail-error">
-        <q-icon name="error" size="2rem" color="negative" aria-hidden="true" />
+        <q-icon aria-hidden="true" color="negative" name="error" size="2rem" />
         <div class="text-xy-secondary">{{ errorMessage }}</div>
         <q-btn color="primary" label="Close" no-caps @click="emit('update:show', false)" />
       </div>
@@ -27,14 +27,14 @@
             <div class="mod-detail-icon-wrapper">
               <img
                 v-if="details.iconUrl"
-                :src="details.iconUrl"
                 :alt="`${details.name} icon`"
+                :src="details.iconUrl"
                 class="mod-detail-icon-img" />
               <div
                 v-else
-                class="mod-detail-icon-fallback"
                 :style="{ background: iconGradient(details.name) }"
-                aria-hidden="true">
+                aria-hidden="true"
+                class="mod-detail-icon-fallback">
                 {{ details.name.charAt(0).toUpperCase() }}
               </div>
             </div>
@@ -43,24 +43,24 @@
               <div class="mod-detail-title-row">
                 <h2 class="mod-detail-name">{{ details.name }}</h2>
                 <span
-                  class="source-badge"
                   :style="sourceBadgeStyle(details.source)"
-                  :title="sourceDisplayName(details.source)">
+                  :title="sourceDisplayName(details.source)"
+                  class="source-badge">
                   {{ sourceLabel(details.source) }}
                 </span>
               </div>
               <div class="mod-detail-author text-xy-muted">by {{ details.author }}</div>
               <div class="mod-detail-stats">
                 <span class="mod-detail-stat text-xy-muted">
-                  <q-icon name="download" size="xs" aria-hidden="true" />
+                  <q-icon aria-hidden="true" name="download" size="xs" />
                   {{ formatDownloads(details.downloads) }} downloads
                 </span>
                 <span v-if="details.license" class="mod-detail-stat text-xy-muted">
-                  <q-icon name="gavel" size="xs" aria-hidden="true" />
+                  <q-icon aria-hidden="true" name="gavel" size="xs" />
                   {{ details.license }}
                 </span>
                 <span v-if="details.updatedAt" class="mod-detail-stat text-xy-muted">
-                  <q-icon name="update" size="xs" aria-hidden="true" />
+                  <q-icon aria-hidden="true" name="update" size="xs" />
                   Updated {{ formatDate(details.updatedAt) }}
                 </span>
               </div>
@@ -68,11 +68,11 @@
           </div>
 
           <q-btn
-            flat
-            dense
-            round
-            icon="close"
             aria-label="Close"
+            dense
+            flat
+            icon="close"
+            round
             @click="emit('update:show', false)" />
         </q-card-section>
 
@@ -81,15 +81,15 @@
         <!-- Tabs -->
         <q-tabs
           v-model="activeTab"
-          dense
+          active-color="primary"
           align="left"
           class="mod-detail-tabs"
-          active-color="primary"
+          dense
           indicator-color="primary"
           narrow-indicator>
-          <q-tab name="description" label="Description" no-caps />
-          <q-tab name="versions" label="Versions" no-caps />
-          <q-tab v-if="details.galleryImages.length > 0" name="gallery" label="Gallery" no-caps />
+          <q-tab label="Description" name="description" no-caps />
+          <q-tab label="Versions" name="versions" no-caps />
+          <q-tab v-if="details.galleryImages.length > 0" label="Gallery" name="gallery" no-caps />
         </q-tabs>
 
         <q-separator />
@@ -97,15 +97,15 @@
         <!-- Tab panels -->
         <q-tab-panels v-model="activeTab" animated class="mod-detail-panels">
           <!-- Description tab -->
-          <q-tab-panel name="description" class="mod-detail-description-panel">
+          <q-tab-panel class="mod-detail-description-panel" name="description">
             <!-- Categories -->
             <div v-if="details.categories.length > 0" class="mod-detail-categories">
               <q-badge
                 v-for="cat in details.categories"
                 :key="cat"
+                :label="cat"
                 color="grey-9"
-                text-color="grey-4"
-                :label="cat" />
+                text-color="grey-4" />
             </div>
 
             <!-- Dependencies -->
@@ -115,8 +115,8 @@
                 <span
                   v-for="dep in currentVersionDeps"
                   :key="dep.sourceId"
-                  class="mod-detail-dep-chip"
-                  :class="{ 'dep-required': dep.required }">
+                  :class="{ 'dep-required': dep.required }"
+                  class="mod-detail-dep-chip">
                   {{ dep.name || dep.sourceId }}
                   <span v-if="dep.required" class="dep-required-label">required</span>
                 </span>
@@ -129,7 +129,7 @@
           </q-tab-panel>
 
           <!-- Versions tab -->
-          <q-tab-panel name="versions" class="mod-detail-versions-panel">
+          <q-tab-panel class="mod-detail-versions-panel" name="versions">
             <div
               v-if="versions.length === 0"
               class="text-xy-muted"
@@ -139,8 +139,8 @@
             <div
               v-for="ver in versions"
               :key="ver.versionId"
-              class="mod-version-row"
-              :class="{ 'mod-version-row--selected': selectedVersionId === ver.versionId }">
+              :class="{ 'mod-version-row--selected': selectedVersionId === ver.versionId }"
+              class="mod-version-row">
               <div class="mod-version-info">
                 <span class="mod-version-string font-mono">{{ ver.versionString }}</span>
                 <span v-if="ver.gameVersions.length > 0" class="mod-version-game text-xy-muted">
@@ -159,11 +159,11 @@
                 </span>
                 <q-btn
                   :color="selectedVersionId === ver.versionId ? 'positive' : 'primary'"
-                  size="sm"
+                  :icon="selectedVersionId === ver.versionId ? 'check' : undefined"
+                  :label="selectedVersionId === ver.versionId ? 'Selected' : 'Select'"
                   dense
                   no-caps
-                  :label="selectedVersionId === ver.versionId ? 'Selected' : 'Select'"
-                  :icon="selectedVersionId === ver.versionId ? 'check' : undefined"
+                  size="sm"
                   @click="selectedVersionId = ver.versionId" />
               </div>
               <div v-if="ver.changelog" class="mod-version-changelog text-xy-muted">
@@ -175,14 +175,14 @@
           <!-- Gallery tab -->
           <q-tab-panel
             v-if="details.galleryImages.length > 0"
-            name="gallery"
-            class="mod-detail-gallery-panel">
+            class="mod-detail-gallery-panel"
+            name="gallery">
             <div class="mod-gallery-grid">
               <img
                 v-for="(img, idx) in details.galleryImages"
                 :key="idx"
-                :src="img"
                 :alt="`${details.name} screenshot ${idx + 1}`"
+                :src="img"
                 class="mod-gallery-img"
                 loading="lazy" />
             </div>
@@ -195,43 +195,43 @@
           <q-select
             v-model="selectedVersionId"
             :options="versionOptions"
-            dense
-            outlined
-            emit-value
-            map-options
-            label="Version"
             class="mod-detail-version-select"
+            dense
+            emit-value
+            label="Version"
+            map-options
+            option-label="label"
             option-value="value"
-            option-label="label" />
+            outlined />
 
           <q-space />
 
           <q-btn
             v-if="details.sourceUrl"
-            flat
-            no-caps
+            :href="details.sourceUrl"
             color="primary"
+            flat
             icon="open_in_new"
             label="View on Source"
-            type="a"
-            :href="details.sourceUrl"
+            no-caps
+            rel="noopener noreferrer"
             target="_blank"
-            rel="noopener noreferrer" />
+            type="a" />
 
           <q-btn
             v-if="isInstalled"
             color="positive"
-            no-caps
-            label="Already Installed"
+            disable
             icon="check_circle"
-            disable />
+            label="Already Installed"
+            no-caps />
           <q-btn
             v-else
-            color="primary"
-            no-caps
-            label="Install"
-            icon="download"
             :disable="!selectedVersionId"
+            color="primary"
+            icon="download"
+            label="Install"
+            no-caps
             @click="handleInstall" />
         </q-card-actions>
       </template>
@@ -239,7 +239,7 @@
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -247,7 +247,7 @@ import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import type { ModDependency, ModDetails, ModVersion } from '@/proto/shared_pb'
 import { GetModDetailsRequestSchema, GetModVersionsRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { sourceBadgeStyle, sourceLabel, sourceDisplayName } from '@/utils/mod-sources'
+import { sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-sources'
 
 interface Props {
   show: boolean

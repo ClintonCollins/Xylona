@@ -1,21 +1,21 @@
 <template>
-  <div class="placeholder-input" :class="{ 'placeholder-input--focused': isFocused }">
+  <div :class="{ 'placeholder-input--focused': isFocused }" class="placeholder-input">
     <label v-if="label" class="placeholder-input__label">{{ label }}</label>
 
     <div class="placeholder-input__container">
       <div
         ref="editorRef"
+        :aria-expanded="showAutocomplete && filteredPlaceholders.length > 0 ? 'true' : 'false'"
+        :aria-label="placeholder"
+        :data-placeholder="placeholder"
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
         class="placeholder-input__editor"
         contenteditable="true"
         role="textbox"
-        :aria-label="placeholder"
-        aria-autocomplete="list"
-        aria-haspopup="listbox"
-        :aria-expanded="showAutocomplete && filteredPlaceholders.length > 0 ? 'true' : 'false'"
-        :data-placeholder="placeholder"
-        @input="onInput"
-        @focus="onFocus"
         @blur="onBlur"
+        @focus="onFocus"
+        @input="onInput"
         @keydown="onKeydown"
         @paste="onPaste"></div>
 
@@ -24,10 +24,10 @@
         v-show="isEmpty || isFocused"
         ref="hintBtnRef"
         class="placeholder-input__hint-btn"
-        type="button"
         tabindex="-1"
-        @mousedown.prevent
-        @click="showReferencePanel = !showReferencePanel">
+        type="button"
+        @click="showReferencePanel = !showReferencePanel"
+        @mousedown.prevent>
         <q-icon name="mdi-code-braces" size="14px" />
         <span>Variables</span>
       </button>
@@ -35,11 +35,11 @@
       <!-- Reference panel popup -->
       <q-popup-proxy
         v-model="showReferencePanel"
+        :offset="[0, 4]"
         :target="hintBtnRef"
         anchor="bottom left"
-        self="top left"
-        :offset="[0, 4]"
-        no-parent-event>
+        no-parent-event
+        self="top left">
         <q-card class="placeholder-input__reference-panel">
           <q-card-section class="q-pa-sm">
             <div class="text-overline q-mb-xs" style="font-size: 0.65rem; letter-spacing: 0.1em">
@@ -49,11 +49,11 @@
               <q-item
                 v-for="ph in availablePlaceholders"
                 :key="ph.key"
-                clickable
                 class="placeholder-input__reference-item"
+                clickable
                 @click="insertPlaceholderFromPanel(ph.key)">
                 <q-item-section side>
-                  <q-icon name="mdi-plus-circle-outline" size="16px" color="accent" />
+                  <q-icon color="accent" name="mdi-plus-circle-outline" size="16px" />
                 </q-item-section>
                 <q-item-section>
                   <q-item-label class="font-mono" style="font-size: 0.8rem">{{
@@ -74,17 +74,17 @@
     <div
       v-if="showAutocomplete && filteredPlaceholders.length > 0"
       ref="autocompleteRef"
-      role="listbox"
+      :style="autocompletePosition"
       class="placeholder-input__autocomplete"
-      :style="autocompletePosition">
+      role="listbox">
       <div
         v-for="(ph, idx) in filteredPlaceholders"
         :key="ph.key"
+        :aria-selected="idx === activeAutocompleteIndex"
+        :class="{ 'placeholder-input__autocomplete-item--active': idx === activeAutocompleteIndex }"
+        class="placeholder-input__autocomplete-item"
         role="option"
         tabindex="0"
-        class="placeholder-input__autocomplete-item"
-        :class="{ 'placeholder-input__autocomplete-item--active': idx === activeAutocompleteIndex }"
-        :aria-selected="idx === activeAutocompleteIndex"
         @mousedown.prevent="selectAutocomplete(ph.key)"
         @keydown.enter="selectAutocomplete(ph.key)">
         <span class="font-mono" style="font-size: 0.8rem; color: var(--xy-accent)">
@@ -96,10 +96,10 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { placeholders } from '@/components/shared/placeholder-definitions'
+<script lang="ts" setup>
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { PlaceholderDefinition } from '@/components/shared/placeholder-definitions'
+import { placeholders } from '@/components/shared/placeholder-definitions'
 
 const props = defineProps<{
   modelValue: string
@@ -497,7 +497,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
+<style lang="scss" scoped>
 .placeholder-input {
   position: relative;
 }

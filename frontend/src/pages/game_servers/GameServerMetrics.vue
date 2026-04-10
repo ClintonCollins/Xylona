@@ -1,7 +1,7 @@
 <template>
   <q-card-section>
     <div class="row items-center">
-      <q-icon name="insights" size="sm" color="primary" class="q-mr-sm" />
+      <q-icon class="q-mr-sm" color="primary" name="insights" size="sm" />
       <div class="text-h6">Metrics History</div>
     </div>
   </q-card-section>
@@ -10,7 +10,7 @@
   </q-card-section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import GameServerMetricsHistory from '@/components/game_servers/GameServerMetricsHistory.vue'

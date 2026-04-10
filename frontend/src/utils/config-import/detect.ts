@@ -1,4 +1,4 @@
-import type { ImportDetectionResult, ParseResult, ParserAdapter } from './types'
+import type { ImportDetectionResult, ParserAdapter, ParseResult } from './types'
 import { jsonParser } from './parsers/json'
 import { xmlParser } from './parsers/xml'
 import { tomlParser } from './parsers/toml'
@@ -141,10 +141,14 @@ export function detect(content: string): ImportDetectionResult {
   results.sort((a, b) => b.score - a.score)
 
   const best = results[0]
-  const secondBest = results.length > 1 ? results[1] : null
+  if (!best) {
+    return { format: null, fields: [], alternativeFormats: [], filename: null }
+  }
+
+  const secondBest = results[1]
 
   // Ambiguous if second-best is within 80% of best
-  const isAmbiguous = secondBest !== null && secondBest.score >= best.score * 0.8
+  const isAmbiguous = secondBest !== undefined && secondBest.score >= best.score * 0.8
 
   const alternativeFormats = isAmbiguous
     ? results.slice(1).map((r) => ({ format: r.format, fieldCount: r.fields.length }))

@@ -11,8 +11,8 @@
         </template>
         <template v-if="displayVersion && hasSoftwareOptions">
           <span
-            class="identity-bar-version"
-            :class="{ 'version-outdated': versionDisplay.updateAvailable }">
+            :class="{ 'version-outdated': versionDisplay.updateAvailable }"
+            class="identity-bar-version">
             {{ displayVersion }}
             <q-tooltip v-if="versionDisplay.updateAvailable">
               Update available: {{ versionDisplay.latestVersion }}
@@ -25,9 +25,9 @@
     <status-badge :status="gameServer.status" />
   </div>
 
-  <div class="main-area" :class="{ 'main-area-expanded': consoleExpanded }">
+  <div :class="{ 'main-area-expanded': consoleExpanded }" class="main-area">
     <!-- Sidebar -->
-    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
+    <aside :class="{ collapsed: sidebarCollapsed }" class="sidebar">
       <div class="sidebar-content">
         <!-- Controls -->
         <div class="sidebar-section">
@@ -55,9 +55,9 @@
             </q-btn>
             <q-btn
               v-if="showUpdateButton"
-              class="update-server-btn"
               :disable="disableUpdateButton || !hasPermission('game_server.settings')"
               :loading="updatingServer"
+              class="update-server-btn"
               color="primary"
               label="Update"
               @click="updateGameServer">
@@ -142,7 +142,7 @@
         <!-- Resource Usage -->
         <div class="sidebar-section">
           <div class="sidebar-section-label">Resource Usage</div>
-          <div class="metrics-preview" :class="{ 'metrics-offline': !isServerOnline }">
+          <div :class="{ 'metrics-offline': !isServerOnline }" class="metrics-preview">
             <!-- Compute -->
             <div class="metrics-group">
               <div class="metrics-group-label">Compute</div>
@@ -158,9 +158,9 @@
                 </div>
                 <div class="metric-bar">
                   <div
-                    class="metric-bar-fill"
                     :class="cpuBarClass"
-                    :style="{ width: isServerOnline ? metricsCpu + '%' : '0%' }"></div>
+                    :style="{ width: isServerOnline ? metricsCpu + '%' : '0%' }"
+                    class="metric-bar-fill"></div>
                 </div>
               </div>
               <div class="metric-row">
@@ -187,11 +187,11 @@
                 </div>
                 <div v-if="metricsMaxMemory > 0" class="metric-bar">
                   <div
-                    class="metric-bar-fill"
                     :class="memoryBarClass"
                     :style="{
                       width: isServerOnline ? metricsMemoryRatio * 100 + '%' : '0%',
-                    }"></div>
+                    }"
+                    class="metric-bar-fill"></div>
                 </div>
               </div>
               <div v-if="isServerOnline && metricsMemoryPercent > 0" class="metric-row">
@@ -235,43 +235,43 @@
     </aside>
 
     <!-- Console wrapper -->
-    <div class="console-wrapper" :class="{ expanded: consoleExpanded }">
+    <div :class="{ expanded: consoleExpanded }" class="console-wrapper">
       <!-- Console toolbar buttons -->
       <div class="console-toolbar-btns">
         <q-btn
-          flat
-          square
-          dense
-          padding="xs"
-          class="console-toolbar-btn"
-          :icon="sidebarCollapsed ? 'chevron_right' : 'chevron_left'"
           :aria-label="sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'"
+          :icon="sidebarCollapsed ? 'chevron_right' : 'chevron_left'"
+          class="console-toolbar-btn"
+          dense
+          flat
+          padding="xs"
+          square
           @click="sidebarCollapsed = !sidebarCollapsed">
           <q-tooltip>{{ sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar' }}</q-tooltip>
         </q-btn>
         <q-btn
-          flat
-          square
-          dense
-          padding="xs"
-          class="console-toolbar-btn"
-          :class="{ 'console-toolbar-btn-off': !consoleAutoScroll }"
-          icon="vertical_align_bottom"
           :aria-label="consoleAutoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'"
+          :class="{ 'console-toolbar-btn-off': !consoleAutoScroll }"
           :text-color="consoleAutoScroll ? 'info' : undefined"
+          class="console-toolbar-btn"
+          dense
+          flat
+          icon="vertical_align_bottom"
+          padding="xs"
+          square
           @click="toggleAutoScroll">
           <q-tooltip>{{
             consoleAutoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'
           }}</q-tooltip>
         </q-btn>
         <q-btn
-          flat
-          square
-          dense
-          padding="xs"
-          class="console-toolbar-btn"
           :icon="tabMaximize"
           aria-label="Toggle fullscreen console"
+          class="console-toolbar-btn"
+          dense
+          flat
+          padding="xs"
+          square
           text-color="info"
           @click="consoleExpanded = !consoleExpanded" />
       </div>
@@ -301,10 +301,10 @@
           <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: game server console output -->
           <code
             id="consoleCodeEl"
-            role="log"
-            aria-live="polite"
             aria-label="Game server console output"
-            class="q-pb-md">
+            aria-live="polite"
+            class="q-pb-md"
+            role="log">
             <span v-for="line in consoleLines" :key="line.id" v-html="line.html"></span>
           </code>
           <!-- eslint-enable vue/no-v-html -->
@@ -312,31 +312,31 @@
       </template>
 
       <!-- Console input -->
-      <div class="console-input-wrapper" :class="{ 'console-input-disabled': isServerOffline }">
+      <div :class="{ 'console-input-disabled': isServerOffline }" class="console-input-wrapper">
         <span class="console-prompt">&gt;</span>
         <q-input
           id="consoleInput"
           v-model="serverInput"
-          autofocus
-          placeholder="Enter command..."
-          dense
-          square
-          borderless
-          name="consoleInput"
-          class="console-input-field"
           :disable="!hasPermission('game_server.console') || isServerOffline"
+          autofocus
+          borderless
+          class="console-input-field"
+          dense
+          name="consoleInput"
+          placeholder="Enter command..."
+          square
           @keyup.enter="sendGameServerInput"
           @keyup.up="navigateConsoleInputHistory('up')"
           @keyup.down="navigateConsoleInputHistory('down')">
           <template #append>
             <q-btn
-              flat
+              :disable="!hasPermission('game_server.console') || isServerOffline"
+              aria-label="Send command"
               color="primary"
+              flat
               icon="send"
               name="send"
               type="submit"
-              aria-label="Send command"
-              :disable="!hasPermission('game_server.console') || isServerOffline"
               @click="sendGameServerInput">
               <q-tooltip v-if="!hasPermission('game_server.console')">
                 Requires console permission
@@ -352,47 +352,44 @@
   <server-software-selector
     v-if="gameServer.gameId !== ''"
     ref="softwareSelector"
-    :game-server-id="gameServerId"
-    :game-name="gameServer.gameName"
+    :current-installed-version="gameServer.versionInfo?.installedVersion || gameServer.version"
     :current-software="gameServer.selectedVariantId"
-    :current-version="displayVersion"
     :current-target="gameServer.selectedTarget"
     :current-target-pinned="gameServer.selectedTargetPinned"
-    :current-installed-version="gameServer.versionInfo?.installedVersion || gameServer.version"
+    :current-version="displayVersion"
+    :game-name="gameServer.gameName"
+    :game-server-id="gameServerId"
     :variants="gameServer.game?.variants ?? []"
     @software-changed="getGameServerDetails"
     @software-operation-state="onSoftwareOperationState" />
 
   <operation-progress-dialog
     v-model="updateDialogOpen"
-    title="Updating Server"
-    subtitle="Xylona will apply the update and only restart the server if it was already running."
-    :steps="updateSteps"
+    :complete="updateDialogComplete"
     :output-lines="updateOutputLines"
     :show-output-area="true"
-    :complete="updateDialogComplete" />
+    :steps="updateSteps"
+    subtitle="Xylona will apply the update and only restart the server if it was already running."
+    title="Updating Server" />
 
   <operation-progress-dialog
     v-model="softwareOperationOpen"
-    title="Changing Variant"
-    subtitle="Xylona will apply the selected variant and refresh the detected version when it finishes."
-    :steps="softwareOperationSteps"
+    :complete="softwareOperationComplete"
     :context-facts="softwareOperationContextFacts"
     :output-lines="softwareOperationOutputLines"
     :show-output-area="true"
-    :complete="softwareOperationComplete" />
+    :steps="softwareOperationSteps"
+    subtitle="Xylona will apply the selected variant and refresh the detected version when it finishes."
+    title="Changing Variant" />
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create, toJsonString } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import OperationProgressDialog from '@/components/game_servers/OperationProgressDialog.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
-import type {
-  OperationContextFact,
-  StepState,
-} from '@/components/game_servers/UpdateProgressPanel.types'
+import type { OperationContextFact, StepState, } from '@/components/game_servers/UpdateProgressPanel.types'
 import type { ServerSoftwareOperationEvent } from '@/components/game_servers/ServerSoftwareSelector.types'
 import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
@@ -412,6 +409,7 @@ import {
   StopGameServerRequest,
   StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
+import type { UpdateProgress } from '@/proto/xylona_pb'
 import {
   GetGameServerRequest,
   GetGameServerRequestSchema,
@@ -424,12 +422,11 @@ import {
   UpdateGameServerRequestSchema,
   UpdateStep,
 } from '@/proto/xylona_pb'
-import type { UpdateProgress } from '@/proto/xylona_pb'
 import { AllServersMetrics, Request, Request_Type, RequestSchema } from '@/proto/websocket_pb'
 import { ConnectError } from '@connectrpc/connect'
 import { parseConsole } from '@/utils/console'
 import { canShowUpdateButton } from './game-server-update-capability'
-import { splitConsoleChunk, trimConsoleLines, type ConsoleLine } from './console-buffer'
+import { type ConsoleLine, splitConsoleChunk, trimConsoleLines } from './console-buffer'
 import {
   appendOperationOutputLines,
   normalizeOperationOutputChunk,
@@ -442,11 +439,11 @@ import {
   isUpdateProgressTerminal,
 } from './update-progress'
 import {
+  bytesToSize,
   ConnectErrorToString,
   GetOrCreateXylonaWebsocketClient,
   GetXylonaClient,
   XylonaEventBus,
-  bytesToSize,
 } from '@/utils/shared'
 import { recordLifecycleIntent } from '@/utils/game-server-notifications'
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'

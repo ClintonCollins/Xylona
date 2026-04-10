@@ -2,24 +2,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useApiCall } from './useApiCall'
 
 const mocks = vi.hoisted(() => ({
-  connectErrorFrom: vi.fn(),
-  connectErrorToString: vi.fn(),
+  buildXylonaErrorNotification: vi.fn(),
+  connectErrorMessage: vi.fn(),
 }))
 
-vi.mock('@connectrpc/connect', () => ({
-  ConnectError: {
-    from: mocks.connectErrorFrom,
-  },
-}))
-
-vi.mock('@/utils/shared', () => ({
-  ConnectErrorToString: mocks.connectErrorToString,
+vi.mock('@/api/connect-errors', () => ({
+  buildXylonaErrorNotification: mocks.buildXylonaErrorNotification,
+  connectErrorMessage: mocks.connectErrorMessage,
 }))
 
 describe('useApiCall', () => {
   afterEach(() => {
-    mocks.connectErrorFrom.mockReset()
-    mocks.connectErrorToString.mockReset()
+    mocks.buildXylonaErrorNotification.mockReset()
+    mocks.connectErrorMessage.mockReset()
   })
 
   it('returns the result on success with error staying null', async () => {
@@ -53,9 +48,7 @@ describe('useApiCall', () => {
 
   it('returns undefined and sets error on failure', async () => {
     const rawError = new Error('network failure')
-    const connectErr = { code: 2, message: 'network failure' }
-    mocks.connectErrorFrom.mockReturnValue(connectErr)
-    mocks.connectErrorToString.mockReturnValue('network failure')
+    mocks.connectErrorMessage.mockReturnValue('network failure')
 
     const apiFn = vi.fn().mockRejectedValue(rawError)
     const { loading, error, execute } = useApiCall(apiFn)
@@ -65,14 +58,18 @@ describe('useApiCall', () => {
     expect(result).toBeUndefined()
     expect(error.value).toBe('network failure')
     expect(loading.value).toBe(false)
-    expect(mocks.connectErrorFrom).toHaveBeenCalledWith(rawError)
-    expect(mocks.connectErrorToString).toHaveBeenCalledWith(connectErr)
+    expect(mocks.connectErrorMessage).toHaveBeenCalledWith(rawError, undefined)
   })
 
   it('calls notify with xylona-error format on error', async () => {
-    const connectErr = { code: 2, message: 'fail' }
-    mocks.connectErrorFrom.mockReturnValue(connectErr)
-    mocks.connectErrorToString.mockReturnValue('Something broke')
+    const notification = {
+      type: 'xylona-error',
+      caption: 'Something broke',
+      position: 'top',
+      timeout: 5000,
+    }
+    mocks.connectErrorMessage.mockReturnValue('Something broke')
+    mocks.buildXylonaErrorNotification.mockReturnValue(notification)
 
     const notify = vi.fn()
     const apiFn = vi.fn().mockRejectedValue(new Error('fail'))
@@ -80,18 +77,19 @@ describe('useApiCall', () => {
 
     await execute()
 
-    expect(notify).toHaveBeenCalledWith({
-      type: 'xylona-error',
-      caption: 'Something broke',
-      position: 'top',
-      timeout: 5000,
-    })
+    expect(mocks.buildXylonaErrorNotification).toHaveBeenCalledWith('Something broke')
+    expect(notify).toHaveBeenCalledWith(notification)
   })
 
   it('prepends errorPrefix to both error ref and notify caption', async () => {
-    const connectErr = { code: 2, message: 'fail' }
-    mocks.connectErrorFrom.mockReturnValue(connectErr)
-    mocks.connectErrorToString.mockReturnValue('not found')
+    const notification = {
+      type: 'xylona-error',
+      caption: 'Failed to delete game: not found',
+      position: 'top',
+      timeout: 5000,
+    }
+    mocks.connectErrorMessage.mockReturnValue('Failed to delete game: not found')
+    mocks.buildXylonaErrorNotification.mockReturnValue(notification)
 
     const notify = vi.fn()
     const apiFn = vi.fn().mockRejectedValue(new Error('fail'))
@@ -103,6 +101,10 @@ describe('useApiCall', () => {
     await execute()
 
     expect(error.value).toBe('Failed to delete game: not found')
+    expect(mocks.connectErrorMessage).toHaveBeenCalledWith(
+      expect.any(Error),
+      'Failed to delete game',
+    )
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({
         caption: 'Failed to delete game: not found',
@@ -111,9 +113,7 @@ describe('useApiCall', () => {
   })
 
   it('resets error between successive calls', async () => {
-    const connectErr = { code: 2, message: 'fail' }
-    mocks.connectErrorFrom.mockReturnValue(connectErr)
-    mocks.connectErrorToString.mockReturnValue('bad request')
+    mocks.connectErrorMessage.mockReturnValue('bad request')
 
     const apiFn = vi.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValueOnce('ok')
     const { error, execute } = useApiCall(apiFn)

@@ -1,9 +1,9 @@
 <template>
   <q-dialog
     v-model="showDialog"
-    persistent
+    aria-labelledby="dialog-title"
     backdrop-filter="brightness(25%)"
-    aria-labelledby="dialog-title">
+    persistent>
     <q-card class="full-width">
       <q-card-section>
         <div id="dialog-title" class="text-h6">Rename {{ oldFileName }}</div>
@@ -13,26 +13,26 @@
           <div class="row wrap q-col-gutter-md justify-between">
             <q-input
               v-model="newFileName"
-              name="newFileName"
               aria-autocomplete="none"
+              autofocus
               class="col-12"
-              outlined
               label="New name"
-              autofocus />
+              name="newFileName"
+              outlined />
           </div>
         </q-form>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="primary" flat @click="showDialog = false" />
-        <q-btn label="Submit" color="primary" @click="renameFile" />
+        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
+        <q-btn color="primary" label="Submit" @click="renameFile" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
+import { useQuasar } from 'quasar'
 import {
   GameServerFileRenameRequest,
   GameServerFileRenameRequestSchema,

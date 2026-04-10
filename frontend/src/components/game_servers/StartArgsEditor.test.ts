@@ -148,7 +148,11 @@ describe('StartArgsEditor', () => {
 
     await wrapper.get('[data-testid="add-arg-button"]').trigger('click')
     const textareas = wrapper.findAll('textarea')
-    await textareas[0].setValue('-Dmy.flag=true')
+    const tokensTextarea = textareas[0]
+    if (!tokensTextarea) {
+      throw new Error('expected tokens textarea to exist')
+    }
+    await tokensTextarea.setValue('-Dmy.flag=true')
     await wrapper.get('[data-testid="save-arg-button"]').trigger('click')
 
     const emitted = wrapper.emitted('update:patches')

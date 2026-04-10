@@ -1,4 +1,4 @@
-import { UpdateProviderKind, type GameServer, type UpdateTargetOption } from '@/proto/shared_pb'
+import { type GameServer, UpdateProviderKind, type UpdateTargetOption } from '@/proto/shared_pb'
 
 export interface SteamBranchDialogItem {
   label: string

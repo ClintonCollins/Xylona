@@ -1,11 +1,11 @@
 <template>
-  <span class="server-status-badge" :class="badgeClass">
-    <span class="status-dot" :class="dotClass"></span>
+  <span :class="badgeClass" class="server-status-badge">
+    <span :class="dotClass" class="status-dot"></span>
     {{ label }}
   </span>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { Status } from '@/proto/shared_pb'
 import { computed, PropType } from 'vue'
 

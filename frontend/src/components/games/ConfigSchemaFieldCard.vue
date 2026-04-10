@@ -1,31 +1,31 @@
 <template>
-  <q-card class="field-card" flat bordered>
+  <q-card bordered class="field-card" flat>
     <q-card-section
+      :aria-expanded="expanded"
       class="field-card-header"
       role="button"
       tabindex="0"
-      :aria-expanded="expanded"
       @click="expanded = !expanded"
       @keydown.enter="expanded = !expanded"
       @keydown.space.prevent="expanded = !expanded">
       <div class="field-card-summary">
         <q-icon
           :name="expanded ? 'expand_less' : 'expand_more'"
-          size="sm"
-          class="text-xy-muted expand-icon" />
+          class="text-xy-muted expand-icon"
+          size="sm" />
         <span class="field-card-key font-mono">{{ field.key || '(unnamed)' }}</span>
         <q-badge
           v-if="field.type"
-          outline
-          color="primary"
           :label="field.type"
-          class="field-type-badge" />
+          class="field-type-badge"
+          color="primary"
+          outline />
         <q-badge
           v-if="field.managed"
-          outline
+          class="field-managed-badge"
           color="accent"
           label="Managed"
-          class="field-managed-badge" />
+          outline />
         <span
           v-if="field.title && field.title !== field.key"
           class="field-card-label text-xy-secondary">
@@ -34,26 +34,26 @@
       </div>
       <div class="field-card-actions" @click.stop>
         <q-btn
-          flat
-          dense
-          round
-          icon="arrow_upward"
-          size="xs"
           class="text-xy-muted"
+          dense
+          flat
+          icon="arrow_upward"
+          round
+          size="xs"
           @click="$emit('move-up')">
           <q-tooltip>Move up</q-tooltip>
         </q-btn>
         <q-btn
-          flat
-          dense
-          round
-          icon="arrow_downward"
-          size="xs"
           class="text-xy-muted"
+          dense
+          flat
+          icon="arrow_downward"
+          round
+          size="xs"
           @click="$emit('move-down')">
           <q-tooltip>Move down</q-tooltip>
         </q-btn>
-        <q-btn flat dense round icon="delete" size="sm" color="negative" @click="$emit('remove')">
+        <q-btn color="negative" dense flat icon="delete" round size="sm" @click="$emit('remove')">
           <q-tooltip>Remove field</q-tooltip>
         </q-btn>
       </div>
@@ -67,47 +67,47 @@
             <div class="row q-col-gutter-sm">
               <q-input
                 v-model="field.key"
-                outlined
-                dense
-                label="Key"
                 class="col-6"
+                dense
                 input-class="font-mono"
+                label="Key"
+                outlined
                 @update:model-value="emitUpdate" />
               <q-input
                 v-model="field.title"
-                outlined
+                class="col-6"
                 dense
                 label="Display Label"
-                class="col-6"
+                outlined
                 @update:model-value="emitUpdate" />
             </div>
 
             <div class="row q-col-gutter-sm">
               <q-select
                 v-model="field.type"
-                outlined
-                dense
-                label="Type"
                 :options="typeOptions"
-                emit-value
-                map-options
                 class="col-6"
+                dense
+                emit-value
+                label="Type"
+                map-options
+                outlined
                 @update:model-value="handleTypeChange" />
               <q-input
                 v-model="field.description"
-                outlined
+                class="col-6"
                 dense
                 label="Description"
-                class="col-6"
+                outlined
                 @update:model-value="emitUpdate" />
             </div>
 
             <q-input
               v-model="field.defaultValue"
-              outlined
               dense
-              label="Default Value"
               input-class="font-mono"
+              label="Default Value"
+              outlined
               @update:model-value="emitUpdate" />
 
             <!-- Validation rules -->
@@ -116,38 +116,38 @@
               <div class="row q-col-gutter-sm">
                 <q-toggle
                   v-model="field.required"
+                  class="col-auto"
                   dense
                   label="Required"
-                  class="col-auto"
                   @update:model-value="emitUpdate" />
 
                 <q-input
                   v-if="field.type === 'integer' || field.type === 'number'"
                   v-model.number="field.minimum"
-                  outlined
-                  dense
-                  type="number"
-                  label="Minimum"
                   class="col"
+                  dense
+                  label="Minimum"
+                  outlined
+                  type="number"
                   @update:model-value="emitUpdate" />
                 <q-input
                   v-if="field.type === 'integer' || field.type === 'number'"
                   v-model.number="field.maximum"
-                  outlined
-                  dense
-                  type="number"
-                  label="Maximum"
                   class="col"
+                  dense
+                  label="Maximum"
+                  outlined
+                  type="number"
                   @update:model-value="emitUpdate" />
 
                 <q-input
                   v-if="field.type === 'string'"
                   v-model.number="field.maxLength"
-                  outlined
-                  dense
-                  type="number"
-                  label="Max Length"
                   class="col"
+                  dense
+                  label="Max Length"
+                  outlined
+                  type="number"
                   @update:model-value="emitUpdate" />
               </div>
             </div>
@@ -158,18 +158,18 @@
               class="enum-section">
               <q-input
                 v-model="field.enumOptionsStr"
-                outlined
                 dense
-                label="Enum Options"
                 hint="Comma-separated list of allowed values (leave empty for free-text)"
+                label="Enum Options"
+                outlined
                 @update:model-value="emitUpdate" />
               <q-input
                 v-if="field.enumOptionsStr"
                 v-model="field.enumLabelsStr"
-                outlined
                 dense
-                label="Enum Labels"
                 hint="Comma-separated display labels matching each enum value (optional)"
+                label="Enum Labels"
+                outlined
                 @update:model-value="emitUpdate" />
             </div>
 
@@ -178,20 +178,20 @@
               <div class="row items-center q-gutter-sm">
                 <q-toggle
                   v-model="field.managed"
+                  color="accent"
                   dense
                   label="Managed"
-                  color="accent"
                   @update:model-value="emitUpdate" />
                 <q-select
                   v-if="field.managed"
                   v-model="field.managedSource"
-                  outlined
-                  dense
-                  label="Source"
                   :options="managedSourceOptions"
-                  emit-value
-                  map-options
                   class="managed-source-select"
+                  dense
+                  emit-value
+                  label="Source"
+                  map-options
+                  outlined
                   @update:model-value="emitUpdate" />
               </div>
             </div>
@@ -209,7 +209,7 @@
   </q-card>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { reactive, ref, watch } from 'vue'
 import { managedSourceOptions } from '@/components/shared/placeholder-definitions'
 

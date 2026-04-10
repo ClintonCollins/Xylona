@@ -5,61 +5,61 @@
       <div class="xy-page-actions">
         <q-input
           v-model="search"
+          aria-label="Search users"
+          class="xy-search-input"
+          color="primary"
+          debounce="300"
           dense
           outlined
-          debounce="300"
-          color="primary"
-          placeholder="Search..."
-          aria-label="Search users"
-          class="xy-search-input">
+          placeholder="Search...">
           <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
-        <q-btn color="primary" to="/admin/users/create" label="Add User" />
+        <q-btn color="primary" label="Add User" to="/admin/users/create" />
       </div>
     </div>
     <div>
       <q-table
         v-model:pagination="initialPagination"
         v-model:selected="selected"
-        flat
-        class="xy-standalone-table"
-        :grid="$q.screen.lt.md"
-        :rows="rows"
         :columns="columns"
-        row-key="id"
-        selection="multiple"
         :filter="search"
+        :grid="$q.screen.lt.md"
         :loading="loading"
-        hide-header-in-grid>
+        :rows="rows"
+        class="xy-standalone-table"
+        flat
+        hide-header-in-grid
+        row-key="id"
+        selection="multiple">
         <template #body-cell-userName="props">
           <q-td :props="props">
-            <router-link class="table-link" :to="'/admin/users/' + props.row.id + '/edit'">
+            <router-link :to="'/admin/users/' + props.row.id + '/edit'" class="table-link">
               {{ props.row.userName }}
             </router-link>
           </q-td>
         </template>
         <template #body-cell-superUser="props">
           <q-td :props="props">
-            <q-icon v-if="props.row.superUser" name="check" size="md" color="positive" />
-            <q-icon v-else name="close" size="md" color="negative" />
+            <q-icon v-if="props.row.superUser" color="positive" name="check" size="md" />
+            <q-icon v-else color="negative" name="close" size="md" />
           </q-td>
         </template>
         <template #body-cell-actions="props">
           <q-td :props="props">
             <div class="q-gutter-xs">
               <router-link :to="'/admin/users/' + props.row.id + '/edit'">
-                <q-btn flat class="text-main-brighter" :icon="tabSettings" aria-label="Edit user">
+                <q-btn :icon="tabSettings" aria-label="Edit user" class="text-main-brighter" flat>
                   <q-tooltip>Edit user</q-tooltip>
                 </q-btn>
               </router-link>
               <span>
                 <q-btn
-                  flat
-                  class="text-error-brighter"
                   :icon="tabTrash"
                   aria-label="Delete user"
+                  class="text-error-brighter"
+                  flat
                   @click="deleteUserAction(props.row)">
                   <q-tooltip>Delete user</q-tooltip>
                 </q-btn>
@@ -69,7 +69,7 @@
         </template>
         <template #no-data>
           <div class="full-width column items-center q-pa-lg text-xy-secondary">
-            <q-icon name="people" size="3rem" class="q-mb-sm text-xy-muted" />
+            <q-icon class="q-mb-sm text-xy-muted" name="people" size="3rem" />
             <div class="text-subtitle1">No users found</div>
             <div class="text-caption text-xy-muted">Create a user to get started.</div>
           </div>
@@ -83,7 +83,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useStorage } from '@vueuse/core'
@@ -94,8 +94,12 @@ import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import UserDeleteDialog from '@/components/admin/UserDeleteDialog.vue'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { User } from '@/proto/xylona_pb'
-import { ListUsersRequest, ListUsersRequestSchema, ListUsersResponse } from '@/proto/xylona_pb'
+import {
+  ListUsersRequest,
+  ListUsersRequestSchema,
+  ListUsersResponse,
+  User,
+} from '@/proto/xylona_pb'
 
 const $q = useQuasar()
 const rows = ref([] as User[])

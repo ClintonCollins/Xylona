@@ -2,13 +2,13 @@
   <div class="advisory-list">
     <div class="advisory-header">
       <div class="advisory-tabs">
-        <button class="advisory-tab" :class="{ active: filter === 'all' }" @click="filter = 'all'">
+        <button :class="{ active: filter === 'all' }" class="advisory-tab" @click="filter = 'all'">
           All
           <span v-if="totalCount > 0" class="advisory-tab-count">{{ totalCount }}</span>
         </button>
         <button
-          class="advisory-tab"
           :class="{ active: filter === 'unread' }"
+          class="advisory-tab"
           @click="filter = 'unread'">
           Unread
           <span v-if="unreadCount > 0" class="advisory-tab-count advisory-tab-count--unread">{{
@@ -18,11 +18,11 @@
       </div>
       <q-btn
         v-if="unreadCount > 0"
-        flat
-        dense
         color="primary"
-        label="Mark all read"
+        dense
+        flat
         icon="done_all"
+        label="Mark all read"
         @click="markAllRead" />
     </div>
 
@@ -31,7 +31,7 @@
     </div>
 
     <div v-else-if="filteredAdvisories.length === 0" class="advisory-empty">
-      <q-icon name="notifications_none" size="3rem" class="advisory-empty-icon" />
+      <q-icon class="advisory-empty-icon" name="notifications_none" size="3rem" />
       <div class="advisory-empty-title">No advisories</div>
       <div class="advisory-empty-subtitle">
         {{ filter === 'unread' ? 'All caught up.' : 'Federation activity will appear here.' }}
@@ -42,9 +42,9 @@
       <div
         v-for="advisory in filteredAdvisories"
         :key="advisory.id"
-        class="advisory-item"
         :class="{ 'advisory-item--read': advisory.read }"
-        :style="{ borderLeftColor: advisoryBorderColor(advisory.type) }">
+        :style="{ borderLeftColor: advisoryBorderColor(advisory.type) }"
+        class="advisory-item">
         <div class="advisory-item-header">
           <span class="advisory-item-title">{{ advisory.title }}</span>
           <span class="advisory-item-time">{{ relativeTime(advisory.createdAt) }}</span>
@@ -63,7 +63,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { Notify } from 'quasar'

@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="showDialog" persistent backdrop-filter="brightness(15%)">
+  <q-dialog v-model="showDialog" backdrop-filter="brightness(15%)" persistent>
     <q-card>
       <q-card-section>
         <div class="text-h6 text-error">Delete User</div>
@@ -13,20 +13,19 @@
         </div>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="neutral" flat @click="showDialog = false" />
-        <q-btn label="Delete" class="bg-error" @click="deleteUser" />
+        <q-btn color="neutral" flat label="Cancel" @click="showDialog = false" />
+        <q-btn class="bg-error" label="Delete" @click="deleteUser" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { PropType } from 'vue'
 import { GetXylonaClient } from '@/utils/shared'
-import { User } from '@/proto/xylona_pb'
-import { DeleteUserRequest, DeleteUserRequestSchema } from '@/proto/xylona_pb'
+import { DeleteUserRequest, DeleteUserRequestSchema, User } from '@/proto/xylona_pb'
 
 const props = defineProps({
   user: {

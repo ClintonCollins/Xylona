@@ -44,7 +44,7 @@
   </section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 defineProps<{
   capacity: string
   connection: string

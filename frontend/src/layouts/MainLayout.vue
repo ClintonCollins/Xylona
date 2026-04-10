@@ -7,7 +7,7 @@
   </q-layout>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import Navigation from '@/components/Navigation.vue'
 import { onMounted } from 'vue'
 

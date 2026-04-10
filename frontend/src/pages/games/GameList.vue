@@ -5,71 +5,71 @@
       <div class="xy-page-actions">
         <q-input
           v-model="search"
+          aria-label="Search games"
+          class="xy-search-input"
+          color="primary"
+          debounce="300"
           dense
           outlined
-          debounce="300"
-          color="primary"
-          placeholder="Search..."
-          aria-label="Search games"
-          class="xy-search-input">
+          placeholder="Search...">
           <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
-        <q-btn color="primary" to="/games/new" label="Add Game" />
+        <q-btn color="primary" label="Add Game" to="/games/new" />
       </div>
     </div>
     <div>
       <q-table
         v-model:pagination="initialPagination"
         v-model:selected="selected"
-        flat
-        class="xy-standalone-table"
+        :columns="columns"
+        :filter="search"
         :grid="$q.screen.lt.md"
         :rows="rows"
-        :columns="columns"
+        class="xy-standalone-table"
+        flat
+        hide-header-in-grid
         row-key="name"
-        selection="multiple"
-        :filter="search"
-        hide-header-in-grid>
+        selection="multiple">
         <template #body-cell-name="props">
           <q-td :props="props">
-            <router-link class="table-link" :to="'/games/' + props.row.id + '/edit'"
+            <router-link :to="'/games/' + props.row.id + '/edit'" class="table-link"
               >{{ props.row.name }}
             </router-link>
           </q-td>
         </template>
         <template #body-cell-windows_support="props">
           <q-td :props="props">
-            <q-icon v-if="props.row.windowsSupport" name="check" size="md" color="positive" />
-            <q-icon v-else name="close" size="md" color="negative" />
+            <q-icon v-if="props.row.windowsSupport" color="positive" name="check" size="md" />
+            <q-icon v-else color="negative" name="close" size="md" />
           </q-td>
         </template>
         <template #body-cell-linux_support="props">
           <q-td :props="props">
-            <q-icon v-if="props.row.linuxSupport" name="check" size="md" color="positive" />
-            <q-icon v-else name="close" size="md" color="negative" />
+            <q-icon v-if="props.row.linuxSupport" color="positive" name="check" size="md" />
+            <q-icon v-else color="negative" name="close" size="md" />
           </q-td>
         </template>
         <template #body-cell-actions="props">
           <q-td :props="props">
             <div class="q-gutter-xs">
               <router-link :to="'/games/' + props.row.id + '/edit'">
-                <q-btn flat class="text-main-brighter" :icon="tabSettings" aria-label="Edit game">
+                <q-btn :icon="tabSettings" aria-label="Edit game" class="text-main-brighter" flat>
                   <q-tooltip>Edit game</q-tooltip>
                 </q-btn>
               </router-link>
               <router-link :to="'/games/' + props.row.id + '/copy'">
-                <q-btn flat class="text-success-brighter" :icon="tabCopy" aria-label="Copy game">
+                <q-btn :icon="tabCopy" aria-label="Copy game" class="text-success-brighter" flat>
                   <q-tooltip>Copy game</q-tooltip>
                 </q-btn>
               </router-link>
               <span>
                 <q-btn
-                  flat
-                  class="text-error-brighter"
                   :icon="tabTrash"
                   aria-label="Delete game"
+                  class="text-error-brighter"
+                  flat
                   @click="deleteGameAction(props.row)">
                   <q-tooltip>Delete game</q-tooltip>
                 </q-btn>
@@ -79,7 +79,7 @@
         </template>
         <template #no-data>
           <div class="full-width column items-center q-pa-lg text-xy-secondary">
-            <q-icon name="sports_esports" size="3rem" class="q-mb-sm text-xy-muted" />
+            <q-icon class="q-mb-sm text-xy-muted" name="sports_esports" size="3rem" />
             <div class="text-subtitle1">No games found</div>
             <div class="text-caption text-xy-muted">Add a game to get started.</div>
           </div>
@@ -93,7 +93,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { useStorage } from '@vueuse/core'
 import GameDeleteDialog from '@/components/games/GameDeleteDialog.vue'

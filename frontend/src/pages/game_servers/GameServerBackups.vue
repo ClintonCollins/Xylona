@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
@@ -10,20 +10,15 @@ import { useQuasar } from 'quasar'
 import dayjs from 'dayjs'
 
 import BackupRestoreDialog from '@/components/game_servers/BackupRestoreDialog.vue'
+import type { BackupProgress, BackupSettings, GameServerBackup, GameServerBackupOverview, } from '@/proto/shared_pb'
 import {
-  BackupSettingsSchema,
   BackupProgressOperation,
   BackupProgressPhase,
   BackupRestoreMode,
+  BackupSettingsSchema,
   GameServerBackupOverviewSchema,
   GameServerBackupStatus,
   GameServerBackupTriggerSource,
-} from '@/proto/shared_pb'
-import type {
-  BackupProgress,
-  BackupSettings,
-  GameServerBackup,
-  GameServerBackupOverview,
 } from '@/proto/shared_pb'
 import {
   CreateGameServerBackupRequestSchema,
@@ -775,40 +770,40 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       </div>
       <div class="xy-page-actions">
         <q-btn
-          data-testid="open-upload-backup-dialog"
+          :disable="loading || !uploadAllowed"
+          :loading="uploadingBackup"
           color="secondary"
+          data-testid="open-upload-backup-dialog"
           icon="upload_file"
           label="Upload Backup"
           no-caps
-          :disable="loading || !uploadAllowed"
-          :loading="uploadingBackup"
           @click="openUploadBackupDialog" />
         <q-btn
-          data-testid="open-create-backup-dialog"
+          :disable="loading || !createAllowed"
+          :loading="creatingBackup"
           color="primary"
+          data-testid="open-create-backup-dialog"
           icon="archive"
           label="Create Backup"
           no-caps
-          :disable="loading || !createAllowed"
-          :loading="creatingBackup"
           @click="createBackup" />
       </div>
     </div>
 
     <q-banner
       v-if="showStateAlert"
-      rounded
-      dense
+      :class="`backups-page__banner--${stateAlertColor}`"
       class="backups-page__banner"
-      :class="`backups-page__banner--${stateAlertColor}`">
+      dense
+      rounded>
       <template #avatar>
-        <q-icon :name="stateAlertIcon" :color="stateAlertColor" />
+        <q-icon :color="stateAlertColor" :name="stateAlertIcon" />
       </template>
       <div class="backups-page__banner-title">{{ stateAlertTitle }}</div>
       <div class="backups-page__banner-copy">{{ stateAlertMessage }}</div>
     </q-banner>
 
-    <q-card flat bordered class="backups-page__section">
+    <q-card bordered class="backups-page__section" flat>
       <q-card-section class="backups-page__section-header">
         <div>
           <div class="backups-page__section-title">Automated Backups</div>
@@ -818,14 +813,14 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
             server.
           </div>
         </div>
-        <router-link class="backups-page__schedule-link" :to="scheduledBackupsLink">
-          <q-btn no-caps outline color="primary" icon="schedule" :label="scheduleShortcutLabel" />
+        <router-link :to="scheduledBackupsLink" class="backups-page__schedule-link">
+          <q-btn :label="scheduleShortcutLabel" color="primary" icon="schedule" no-caps outline />
         </router-link>
       </q-card-section>
     </q-card>
 
     <div v-if="showLiveProgressStrip" class="backups-page__live-strip">
-      <div class="backups-page__live-dot" aria-hidden="true"></div>
+      <div aria-hidden="true" class="backups-page__live-dot"></div>
       <div class="backups-page__live-copy">
         <div class="backups-page__live-title">{{ latestProgressTitle }}</div>
         <div v-if="activeProgressArchiveName" class="backups-page__live-archive">
@@ -840,14 +835,14 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       </div>
     </div>
 
-    <q-card flat bordered class="backups-page__section">
+    <q-card bordered class="backups-page__section" flat>
       <q-card-section class="backups-page__section-header">
         <div>
           <div class="backups-page__section-title">Backup History</div>
           <div class="backups-page__section-copy">
             Manual and scheduled backups appear here with restore and cleanup actions.
           </div>
-          <div data-testid="backup-history-summary" class="backups-page__summary-row">
+          <div class="backups-page__summary-row" data-testid="backup-history-summary">
             <div class="backups-page__summary-pill">{{ backupUsageSummary }}</div>
             <div class="backups-page__summary-pill">{{ totalBackupSizeSummary }}</div>
           </div>
@@ -855,20 +850,20 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       </q-card-section>
       <q-separator />
       <q-table
-        :rows="sortedBackups"
         :columns="columns"
-        row-key="id"
-        flat
         :loading="loading"
         :pagination="{ rowsPerPage: 0 }"
-        hide-pagination
+        :rows="sortedBackups"
         class="xy-standalone-table"
-        no-data-label="No backups yet. Manual and scheduled backups will appear here.">
+        flat
+        hide-pagination
+        no-data-label="No backups yet. Manual and scheduled backups will appear here."
+        row-key="id">
         <template #body-cell-archive="props">
-          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+          <q-td :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }" :props="props">
             <div
-              class="backups-page__archive-cell"
-              :class="{ 'backups-page__archive-cell--active': isActiveBackup(props.row) }">
+              :class="{ 'backups-page__archive-cell--active': isActiveBackup(props.row) }"
+              class="backups-page__archive-cell">
               <div class="backups-page__archive-name">
                 {{ archiveFileName(props.row.archivePath) }}
               </div>
@@ -878,13 +873,13 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         </template>
 
         <template #body-cell-source="props">
-          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+          <q-td :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }" :props="props">
             <div class="backups-page__meta-cell">
               <q-badge
-                outline
-                color="secondary"
+                :label="formatSource(props.row.triggerSource)"
                 class="backups-page__meta-badge"
-                :label="formatSource(props.row.triggerSource)" />
+                color="secondary"
+                outline />
               <span v-if="sourceCopy(props.row)" class="backups-page__source-copy">
                 {{ sourceCopy(props.row) }}
               </span>
@@ -893,12 +888,12 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         </template>
 
         <template #body-cell-status="props">
-          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+          <q-td :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }" :props="props">
             <div class="backups-page__status-cell">
               <q-badge
-                class="backups-page__status-badge"
                 :color="statusBadgeColor(props.row)"
-                :label="statusLabel(props.row)" />
+                :label="statusLabel(props.row)"
+                class="backups-page__status-badge" />
               <div v-if="statusCopy(props.row)" class="backups-page__status-copy">
                 {{ statusCopy(props.row) }}
               </div>
@@ -908,52 +903,52 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
         <template #body-cell-size="props">
           <q-td
+            :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }"
             :props="props"
-            class="backups-page__size-cell"
-            :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+            class="backups-page__size-cell">
             {{ formatBackupSize(props.row.sizeBytes) }}
           </q-td>
         </template>
 
         <template #body-cell-createdAt="props">
-          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+          <q-td :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }" :props="props">
             {{ formatCompletedTimestamp(props.row) }}
           </q-td>
         </template>
 
         <template #body-cell-actions="props">
-          <q-td :props="props" :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }">
+          <q-td :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }" :props="props">
             <a
               v-if="props.row.status === GameServerBackupStatus.COMPLETED"
+              :data-testid="`download-backup-${props.row.id}`"
               :href="backupDownloadHref(props.row)"
               class="backups-page__download-link"
-              :data-testid="`download-backup-${props.row.id}`"
-              target="_blank"
-              rel="noopener">
-              <q-btn flat dense icon="download" size="sm" aria-label="Download backup">
+              rel="noopener"
+              target="_blank">
+              <q-btn aria-label="Download backup" dense flat icon="download" size="sm">
                 <q-tooltip>Download</q-tooltip>
               </q-btn>
             </a>
             <q-btn
-              flat
-              dense
-              icon="settings_backup_restore"
-              size="sm"
-              aria-label="Restore backup"
               :disable="!restoreAllowed || props.row.status !== GameServerBackupStatus.COMPLETED"
               :loading="restoringBackupId === props.row.id"
+              aria-label="Restore backup"
+              dense
+              flat
+              icon="settings_backup_restore"
+              size="sm"
               @click="openRestoreDialog(props.row)">
               <q-tooltip>Restore</q-tooltip>
             </q-btn>
             <q-btn
-              flat
-              dense
-              icon="delete"
-              size="sm"
-              color="negative"
-              aria-label="Delete backup"
               :disable="!deleteAllowed"
               :loading="deletingBackupId === props.row.id"
+              aria-label="Delete backup"
+              color="negative"
+              dense
+              flat
+              icon="delete"
+              size="sm"
               @click="confirmDelete(props.row)">
               <q-tooltip>Delete</q-tooltip>
             </q-btn>
@@ -969,7 +964,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       @restore="restoreBackup" />
 
     <q-dialog v-model="showUploadBackupDialog" persistent>
-      <q-card data-testid="upload-backup-dialog" class="backups-page__upload-dialog">
+      <q-card class="backups-page__upload-dialog" data-testid="upload-backup-dialog">
         <q-card-section>
           <div class="backups-page__section-title">Upload Backup Archive</div>
           <div class="backups-page__section-copy">
@@ -979,11 +974,11 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         </q-card-section>
         <q-card-section class="backups-page__upload-section">
           <input
-            data-testid="upload-backup-file-input"
-            class="backups-page__upload-input"
-            type="file"
-            accept=".zip,application/zip"
             :disabled="uploadingBackup"
+            accept=".zip,application/zip"
+            class="backups-page__upload-input"
+            data-testid="upload-backup-file-input"
+            type="file"
             @change="onUploadFileChange" />
           <div v-if="uploadFile" class="backups-page__upload-file">
             Selected archive: {{ uploadFile.name }}
@@ -991,29 +986,29 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
           <div v-if="uploadingBackup || uploadProgress > 0" class="backups-page__upload-progress">
             <div class="backups-page__progress-meta">Uploading · {{ uploadProgress }}%</div>
             <q-linear-progress
+              :value="Math.max(0, Math.min(1, uploadProgress / 100))"
+              color="accent"
               rounded
               size="10px"
-              color="accent"
-              track-color="dark"
-              :value="Math.max(0, Math.min(1, uploadProgress / 100))" />
+              track-color="dark" />
           </div>
           <div v-if="uploadError" class="backups-page__upload-error">{{ uploadError }}</div>
         </q-card-section>
         <q-card-actions align="right">
           <q-btn
+            :disable="uploadingBackup"
             data-testid="cancel-upload-backup"
             flat
-            no-caps
             label="Cancel"
-            :disable="uploadingBackup"
+            no-caps
             @click="closeUploadBackupDialog" />
           <q-btn
-            data-testid="confirm-upload-backup"
-            color="primary"
-            no-caps
-            label="Upload Backup"
             :disable="!uploadReady"
             :loading="uploadingBackup"
+            color="primary"
+            data-testid="confirm-upload-backup"
+            label="Upload Backup"
+            no-caps
             @click="uploadBackup" />
         </q-card-actions>
       </q-card>

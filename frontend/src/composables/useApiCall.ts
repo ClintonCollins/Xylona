@@ -1,9 +1,13 @@
 import { ref, type Ref } from 'vue'
-import { ConnectError } from '@connectrpc/connect'
-import { ConnectErrorToString } from '@/utils/shared'
+
+import {
+  buildXylonaErrorNotification,
+  connectErrorMessage,
+  type XylonaErrorNotification,
+} from '@/api/connect-errors'
 
 export interface UseApiCallOptions {
-  notify?: (opts: { type: string; caption: string; position: string; timeout: number }) => void
+  notify?: (opts: XylonaErrorNotification) => void
   errorPrefix?: string
 }
 
@@ -32,18 +36,10 @@ export function useApiCall<T, Args extends unknown[] = []>(
         return undefined
       }
 
-      const connectErr = ConnectError.from(e)
-      const message = options?.errorPrefix
-        ? `${options.errorPrefix}: ${ConnectErrorToString(connectErr)}`
-        : ConnectErrorToString(connectErr)
+      const message = connectErrorMessage(e, options?.errorPrefix)
       error.value = message
       if (options?.notify) {
-        options.notify({
-          type: 'xylona-error',
-          caption: message,
-          position: 'top',
-          timeout: 5000,
-        })
+        options.notify(buildXylonaErrorNotification(message))
       }
       return undefined
     } finally {

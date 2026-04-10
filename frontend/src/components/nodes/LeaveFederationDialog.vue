@@ -20,22 +20,23 @@
       <q-card-actions align="right">
         <q-btn v-close-popup flat label="Cancel" />
         <q-btn
+          :loading="leaving"
+          color="negative"
           flat
           label="Leave Federation"
-          color="negative"
-          :loading="leaving"
           @click="confirmLeave" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { Notify } from 'quasar'
+
+import { getXylonaClient } from '@/api/connect-client'
 import { useApiCall } from '@/composables/useApiCall'
 import { LeaveFederationRequestSchema } from '@/proto/xylona_pb'
-import { GetXylonaClient } from '@/utils/shared'
 
 defineProps<{
   peerCount: number
@@ -48,7 +49,7 @@ const emit = defineEmits<{
 const dialogOpen = defineModel<boolean>({ default: false })
 
 const { loading: leaving, execute: executeLeave } = useApiCall(
-  () => GetXylonaClient().leaveFederation(create(LeaveFederationRequestSchema, {})),
+  () => getXylonaClient().leaveFederation(create(LeaveFederationRequestSchema, {})),
   {
     notify: (opts) =>
       Notify.create({

@@ -5,68 +5,68 @@
       <div class="xy-page-actions">
         <q-btn
           v-if="selectedGameServers.length >= 1"
-          color="positive"
           :disable="loading || selectedGameServersForStart.length < 1"
+          color="positive"
           label="Start selected"
           @click="startSelectedGameServers" />
         <q-btn
           v-if="selectedGameServers.length >= 1"
-          color="warning"
           :disable="loading || selectedGameServersForStop.length < 1"
+          color="warning"
           label="Stop selected"
           @click="stopSelectedGameServers" />
         <q-btn
           v-if="selectedGameServers.length >= 1"
-          color="negative"
           :disable="loading"
+          color="negative"
           label="Remove game server"
           @click="deleteGameServerAction(null)" />
         <q-input
           v-model="search"
+          aria-label="Search game servers"
+          class="xy-search-input"
+          color="primary"
+          debounce="300"
           dense
           outlined
-          debounce="300"
-          color="primary"
-          placeholder="Search..."
-          aria-label="Search game servers"
-          class="xy-search-input">
+          placeholder="Search...">
           <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
         <q-btn
           v-if="showCreateButton"
-          color="primary"
-          to="/game-servers/create"
           :disable="loading"
-          label="Create Game Server" />
+          color="primary"
+          label="Create Game Server"
+          to="/game-servers/create" />
       </div>
     </div>
     <div>
       <q-table
         v-model:pagination="initialPagination"
         v-model:selected="selectedGameServers"
-        flat
-        class="xy-standalone-table"
-        :grid="$q.screen.lt.md"
-        :rows="displayRows"
         :columns="columns"
-        row-key="compositeId"
-        selection="multiple"
         :filter="search"
+        :grid="$q.screen.lt.md"
         :loading="loading"
-        hide-header-in-grid>
+        :rows="displayRows"
+        class="xy-standalone-table"
+        flat
+        hide-header-in-grid
+        row-key="compositeId"
+        selection="multiple">
         <template #body-cell-name="props">
           <q-td :props="props">
-            <router-link class="table-link" :to="'/game-servers/' + props.row.id + '/console'">
+            <router-link :to="'/game-servers/' + props.row.id + '/console'" class="table-link">
               {{ props.row.displayName }}
             </router-link>
-            <q-badge v-if="props.row.isStale" color="warning" class="q-ml-xs" label="stale" />
+            <q-badge v-if="props.row.isStale" class="q-ml-xs" color="warning" label="stale" />
           </q-td>
         </template>
         <template #body-cell-status="props">
           <q-td :props="props">
-            <status-badge style="margin-left: -1em" :status="props.row.statusEnum"></status-badge>
+            <status-badge :status="props.row.statusEnum" style="margin-left: -1em"></status-badge>
           </q-td>
         </template>
         <template #body-cell-version="props">
@@ -79,7 +79,7 @@
               </template>
             </template>
             <template v-else-if="getVersionDisplay(props.row).checking">
-              <q-spinner size="1em" color="primary" />
+              <q-spinner color="primary" size="1em" />
             </template>
             <template v-else-if="getVersionDisplay(props.row).installedVersion">
               <span class="version-text">{{ getVersionDisplay(props.row).installedVersion }}</span>
@@ -105,19 +105,19 @@
             <div class="q-gutter-xs">
               <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
                 <q-btn
-                  flat
-                  class="text-main-brighter"
                   :icon="tabSettings"
-                  aria-label="Edit game server">
+                  aria-label="Edit game server"
+                  class="text-main-brighter"
+                  flat>
                   <q-tooltip>Edit game server</q-tooltip>
                 </q-btn>
               </router-link>
               <span>
                 <q-btn
-                  flat
-                  class="text-error-brighter"
                   :icon="tabTrash"
                   aria-label="Delete game server"
+                  class="text-error-brighter"
+                  flat
                   @click="deleteGameServerAction(props.row)">
                   <q-tooltip>Delete game server</q-tooltip>
                 </q-btn>
@@ -127,7 +127,7 @@
         </template>
         <template #no-data>
           <div class="full-width column items-center q-pa-lg text-xy-secondary">
-            <q-icon name="dns" size="3rem" class="q-mb-sm text-xy-muted" />
+            <q-icon class="q-mb-sm text-xy-muted" name="dns" size="3rem" />
             <div class="text-subtitle1">No game servers</div>
             <div class="text-caption text-xy-muted">Create a game server to get started.</div>
           </div>
@@ -141,7 +141,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
@@ -167,9 +167,9 @@ import {
 } from '@/proto/xylona_pb'
 import {
   buildDisplayRows,
+  type DisplayRow,
   extractRemoteNodeIDs,
   filterRowsByRemoteNodeIDs,
-  type DisplayRow,
 } from './server-list-cache'
 import { getStartableServers, getStoppableServers } from './server-list-actions'
 import { useUserAuthStore } from '@/stores/xylona'

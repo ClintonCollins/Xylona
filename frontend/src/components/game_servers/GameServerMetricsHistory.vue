@@ -1,7 +1,7 @@
 <template>
   <div>
     <div v-if="!loading && historyPoints.length === 0" class="empty-state">
-      <q-icon name="show_chart" size="48px" class="text-xy-muted" />
+      <q-icon class="text-xy-muted" name="show_chart" size="48px" />
       <div class="text-subtitle1 q-mt-sm text-xy-secondary">No Metrics Data</div>
       <div class="text-caption text-xy-muted">
         Metrics are recorded every 60 seconds while the server is running.
@@ -10,26 +10,26 @@
     <div v-if="historyPoints.length > 0" class="row q-col-gutter-md">
       <div class="col-12 col-md-6">
         <metrics-line-chart
-          title="CPU Usage"
-          :labels="chartLabels"
           :datasets="cpuDatasets"
-          y-axis-suffix="%"
+          :labels="chartLabels"
           :y-axis-max="100"
+          title="CPU Usage"
+          y-axis-suffix="%"
           @range-change="onRangeChange" />
       </div>
       <div class="col-12 col-md-6">
         <metrics-line-chart
-          title="Memory Usage"
-          :labels="chartLabels"
           :datasets="memoryDatasets"
+          :labels="chartLabels"
+          title="Memory Usage"
           y-axis-suffix=" MB"
           @range-change="onRangeChange" />
       </div>
       <div class="col-12 col-md-6">
         <metrics-line-chart
-          title="Player Count"
-          :labels="chartLabels"
           :datasets="playerDatasets"
+          :labels="chartLabels"
+          title="Player Count"
           @range-change="onRangeChange" />
       </div>
     </div>
@@ -37,12 +37,12 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import { Notify } from 'quasar'
 import { create } from '@bufbuild/protobuf'
-import { TimestampSchema, Timestamp } from '@bufbuild/protobuf/wkt'
+import { Timestamp, TimestampSchema } from '@bufbuild/protobuf/wkt'
 import { GameServerMetricsHistoryPoint } from '@/proto/shared_pb'
 import { GetGameServerMetricsHistoryRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'

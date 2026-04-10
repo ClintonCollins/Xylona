@@ -1,9 +1,9 @@
 <template>
   <q-dialog
     v-model="showDialog"
-    persistent
+    aria-labelledby="dialog-title"
     backdrop-filter="brightness(15%)"
-    aria-labelledby="dialog-title">
+    persistent>
     <q-card v-if="!showKey" class="full-width">
       <q-card-section>
         <div class="row">
@@ -15,18 +15,18 @@
           <div class="row wrap q-col-gutter-md justify-between">
             <q-input
               v-model="keyName"
-              class="col-12"
-              outlined
-              type="text"
               autofocus
-              label="Name"></q-input>
+              class="col-12"
+              label="Name"
+              outlined
+              type="text"></q-input>
           </div>
         </q-form>
       </q-card-section>
       <q-separator></q-separator>
-      <q-card-actions class="q-pa-md" align="right">
+      <q-card-actions align="right" class="q-pa-md">
         <q-btn flat label="Cancel" @click="cancel"></q-btn>
-        <q-btn label="Save" color="primary" @click="createSecretKey"></q-btn>
+        <q-btn color="primary" label="Save" @click="createSecretKey"></q-btn>
       </q-card-actions>
       <q-inner-loading
         :showing="formSubmitting"
@@ -45,24 +45,24 @@
             <q-input
               v-model="keyName"
               class="col-12"
-              outlined
-              type="text"
+              disable
               label="Name"
-              disable></q-input>
+              outlined
+              type="text"></q-input>
             <q-input
               v-model="key"
               autogrow
               class="col-12"
-              outlined
-              type="text"
               label="Secret Key"
-              readonly>
+              outlined
+              readonly
+              type="text">
               <template #append>
                 <q-btn
+                  :icon="ionClipboard"
+                  class="cursor-pointer"
                   flat
                   size="small"
-                  class="cursor-pointer"
-                  :icon="ionClipboard"
                   @click="copy(key)"></q-btn>
               </template>
             </q-input>
@@ -70,14 +70,14 @@
         </q-form>
       </q-card-section>
       <q-separator></q-separator>
-      <q-card-actions class="q-pa-md" align="right">
+      <q-card-actions align="right" class="q-pa-md">
         <q-btn flat label="Close" @click="showDialog = false"></q-btn>
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ionClipboard } from '@quasar/extras/ionicons-v7'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'

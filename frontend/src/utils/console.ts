@@ -130,11 +130,15 @@ function parseMinecraftConsole(data: string): string {
   data = data.replace(reURIMatch, "<a class='console-url' href='$&' target='_blank'>$&</a>")
 
   if (playerJoin && playerJoin.length > 1) {
-    minecraftPlayerMap.set(playerJoin[1], {
-      username: playerJoin[1],
-      color: StringToColor(playerJoin[1]),
-      uid: playerJoin[2],
-    })
+    const username = playerJoin[1]
+    const uid = playerJoin[2]
+    if (username !== undefined && uid !== undefined) {
+      minecraftPlayerMap.set(username, {
+        username,
+        color: StringToColor(username),
+        uid,
+      })
+    }
   }
   minecraftPlayerMap.forEach((player: MinecraftPlayer, username: string) => {
     data = data.replaceAll(
@@ -143,7 +147,10 @@ function parseMinecraftConsole(data: string): string {
     )
   })
   if (playerLeave) {
-    minecraftPlayerMap.delete(playerLeave[1])
+    const username = playerLeave[1]
+    if (username !== undefined) {
+      minecraftPlayerMap.delete(username)
+    }
   }
 
   data = data.replace(reMcServerInfo, "$1<span class='text-green-6'>$2</span>")

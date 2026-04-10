@@ -1,14 +1,14 @@
 <template>
   <div
-    class="server-form-shell full-width"
     :class="{ 'server-form-shell--compact': compactHeader }"
-    :data-testid="testId">
+    :data-testid="testId"
+    class="server-form-shell full-width">
     <div ref="stickySentinel" class="sticky-sentinel"></div>
 
-    <div class="server-form-header" :class="{ 'is-stuck': isStuck, 'is-compact': compactHeader }">
+    <div :class="{ 'is-stuck': isStuck, 'is-compact': compactHeader }" class="server-form-header">
       <div class="server-form-header-left">
         <div v-if="!compactHeader && breadcrumbLabel" class="server-form-breadcrumbs">
-          <router-link to="/game-servers" class="breadcrumb-link">Game Servers</router-link>
+          <router-link class="breadcrumb-link" to="/game-servers">Game Servers</router-link>
           <span class="breadcrumb-sep">/</span>
           <span class="breadcrumb-current">{{ breadcrumbLabel }}</span>
         </div>
@@ -19,20 +19,20 @@
       </div>
 
       <div class="server-form-header-actions">
-        <q-btn flat label="Cancel" :disable="formSubmitting" @click="$emit('cancel')" />
+        <q-btn :disable="formSubmitting" flat label="Cancel" @click="$emit('cancel')" />
         <q-btn
-          class="server-form-save-btn"
           :class="{ 'server-form-save-btn--ready': saveReady }"
-          :label="saveLabel"
-          color="primary"
-          :loading="formSubmitting"
           :disable="saveDisabled"
+          :label="saveLabel"
+          :loading="formSubmitting"
+          class="server-form-save-btn"
+          color="primary"
           @click="$emit('save')" />
       </div>
     </div>
 
     <div v-if="loading" class="server-form-loading">
-      <q-spinner-dots size="40px" color="primary" />
+      <q-spinner-dots color="primary" size="40px" />
       <div class="text-xy-secondary q-mt-sm">{{ loadingText }}</div>
     </div>
 
@@ -44,13 +44,13 @@
     </div>
 
     <q-inner-loading
-      :showing="formSubmitting"
       :label="submittingLabel"
+      :showing="formSubmitting"
       label-class="text-primary" />
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 withDefaults(

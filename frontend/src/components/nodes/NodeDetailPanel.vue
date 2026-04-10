@@ -6,12 +6,12 @@
         <node-resource-gauges :snapshot="snapshot" />
         <div class="row q-mt-sm q-gutter-md text-caption">
           <div>
-            <q-icon name="dns" size="xs" class="q-mr-xs" />
+            <q-icon class="q-mr-xs" name="dns" size="xs" />
             {{ snapshot.gameServerCount ?? 0 }} servers ({{ snapshot.runningGameServerCount ?? 0 }}
             running)
           </div>
           <div>
-            <q-icon name="people" size="xs" class="q-mr-xs" />
+            <q-icon class="q-mr-xs" name="people" size="xs" />
             {{ snapshot.userCount ?? 0 }} users
           </div>
         </div>
@@ -19,7 +19,7 @@
 
       <div v-if="currentSystemInfo" class="q-mb-md">
         <div class="text-subtitle2 q-mb-sm">System Information</div>
-        <q-list separator dense>
+        <q-list dense separator>
           <q-item v-if="currentSystemInfo.cpuModel">
             <q-item-section>CPU</q-item-section>
             <q-item-section side
@@ -53,37 +53,37 @@
       <div class="row q-col-gutter-md">
         <div class="col-12 col-md-6">
           <metrics-line-chart
-            title="CPU Usage"
-            :labels="chartLabels"
             :datasets="cpuDatasets"
-            y-axis-suffix="%"
+            :labels="chartLabels"
             :y-axis-max="100"
+            title="CPU Usage"
+            y-axis-suffix="%"
             @range-change="onRangeChange" />
         </div>
         <div class="col-12 col-md-6">
           <metrics-line-chart
-            title="Memory Usage (%)"
-            :labels="chartLabels"
             :datasets="memoryPercentDatasets"
-            y-axis-suffix="%"
+            :labels="chartLabels"
             :y-axis-max="100"
+            title="Memory Usage (%)"
+            y-axis-suffix="%"
             @range-change="onRangeChange" />
         </div>
         <div class="col-12 col-md-6">
           <metrics-line-chart
-            title="Memory Usage (GB)"
-            :labels="chartLabels"
             :datasets="memoryBytesDatasets"
+            :labels="chartLabels"
+            title="Memory Usage (GB)"
             y-axis-suffix=" GB"
             @range-change="onRangeChange" />
         </div>
         <div class="col-12 col-md-6">
           <metrics-line-chart
-            title="Disk Usage"
-            :labels="chartLabels"
             :datasets="diskDatasets"
-            y-axis-suffix="%"
+            :labels="chartLabels"
             :y-axis-max="100"
+            title="Disk Usage"
+            y-axis-suffix="%"
             @range-change="onRangeChange" />
         </div>
       </div>
@@ -92,19 +92,18 @@
   </q-card>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import { create } from '@bufbuild/protobuf'
 import { Timestamp, TimestampSchema } from '@bufbuild/protobuf/wkt'
-import { Node, NodeSystemInfo, NodeResourceSnapshot } from '@/proto/shared_pb'
+import { MetricsHistoryPoint, Node, NodeResourceSnapshot, NodeSystemInfo } from '@/proto/shared_pb'
 import {
   GetNodeMetricsHistoryRequestSchema,
   GetNodeSystemInfoRequestSchema,
 } from '@/proto/xylona_pb'
 import { AllNodeMetrics } from '@/proto/websocket_pb'
-import { MetricsHistoryPoint } from '@/proto/shared_pb'
-import { GetXylonaClient, bytesToSize, XylonaEventBus } from '@/utils/shared'
+import { bytesToSize, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import MetricsLineChart from '@/components/shared/MetricsLineChart.vue'
 import NodeResourceGauges from '@/components/nodes/NodeResourceGauges.vue'
 

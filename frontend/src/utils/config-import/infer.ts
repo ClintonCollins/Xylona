@@ -84,7 +84,7 @@ export function keyToTitle(key: string): string {
 
   // Use the last segment of dot-path keys
   const segments = key.split('.')
-  const lastSegment = segments[segments.length - 1]
+  const lastSegment = segments[segments.length - 1] ?? ''
 
   // Split on hyphens, underscores, or camelCase boundaries
   const words = lastSegment

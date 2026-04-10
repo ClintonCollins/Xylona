@@ -6,7 +6,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import GameForm from '@/components/games/GameForm.vue'
 import { ref } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'

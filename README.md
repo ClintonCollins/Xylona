@@ -1,59 +1,60 @@
 # Xylona
 
-Xylona is a very simple control panel for running game servers on the local machine. It's designed to be 
-cross-platform and easy to use.
+Xylona is a self-hosted game server control panel built to stay approachable for first-time admins while still feeling fast for repeat operators. The backend is written in Go and embeds the Quasar/Vue frontend into a single binary for production builds.
 
-## Warning
-This project is in its early stages and is not yet ready for production use. Use at your own risk.
+## Status
+
+Xylona is still evolving quickly. Expect active iteration, and treat upgrades the way you would any fast-moving self-hosted control-plane project: verify, back up, and test before promoting to a production environment.
 
 ## Features
 
-- Start, stop, and restart game servers.
-- View server logs.
-- Configure server settings.
-- Manage server files.
-- View server status.
-
-
-## Using Xylona
-
-1. Download the latest release from the release page.
-
+- Start, stop, and restart game servers
+- View console output and runtime status
+- Manage files and backups
+- Configure game and server settings
+- Administer users, permissions, nodes, and federation
 
 ## Development
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
-
 ### Prerequisites
 
-- [Go 1.22+](https://go.dev/doc/install)
-- [pnpm](https://pnpm.io/installation)
-- [Taskfile](https://taskfile.dev/installation/)
+- [Go 1.26.1](https://go.dev/doc/install)
+- [Node.js 22 LTS](https://nodejs.org/)
+- [pnpm 10.32.1](https://pnpm.io/installation)
+- [golangci-lint](https://golangci-lint.run/welcome/install/)
+- [Mage](https://magefile.org/) for build, codegen, and E2E helpers
 
-### Backend
+Optional tooling:
 
-1. Clone the repository:
+- `sql-migrate` if you need to create or run migration commands manually
+- `buf` if you need to regenerate protobuf clients
+- `goreleaser` if you want to run `mage Build`
+
+### Clone And Install
+
 ```bash
 git clone https://github.com/ClintonCollins/Xylona.git
 ```
 
-2. Navigate to the project directory:
 ```bash
-cd Xylona
+pnpm --dir frontend install
 ```
 
-3. Configure `sql/dbconfig.yml` with your database credentials.
+### Runtime Configuration
 
-4. Set your signing and encryption secrets in the environment or `.env`:
+Set your signing and encryption secrets in the environment or `.env`:
+
 ```bash
 COOKIE_HASH_KEY_BASE64=<base64-encoded 64-byte securecookie hash key>
 COOKIE_BLOCK_KEY_BASE64=<base64-encoded 32-byte securecookie block key>
 JWT_SECRET_KEY_BASE64=<base64-encoded 32+ byte signing key>
 ENCRYPTION_KEY_BASE64=<base64-encoded 32+ byte encryption key>
 ```
-`ENCRYPTION_KEY_BASE64` is strongly recommended. If it is omitted, Xylona falls back to the JWT secret for DB encryption and will log a warning at startup.
+
+`ENCRYPTION_KEY_BASE64` is strongly recommended. If it is omitted, Xylona falls back to the JWT secret for database encryption and logs a warning.
 
 Optional runtime controls:
+
 ```bash
 METRICS_ENABLED=false
 HTTP_READ_TIMEOUT=15m
@@ -63,88 +64,140 @@ FEDERATION_READ_TIMEOUT=15m
 FEDERATION_WRITE_TIMEOUT=15m
 FEDERATION_IDLE_TIMEOUT=30m
 ```
+
 Metrics are disabled by default. Enable them explicitly when you intend to expose a Prometheus scrape target.
 
-5. Run the SQL migrations:
+### Backend Workflow
+
+Xylona uses SQLite locally and applies embedded SQL migrations automatically on startup. You do not need `sql/dbconfig.yml`, and you do not need a manual migration step just to boot the app.
+
+The Go binary embeds `frontend/dist`, so build the frontend bundle once before compiling or running the backend:
+
 ```bash
-task sql-migrate-up
+pnpm --dir frontend run build
 ```
 
-6. Start the server:
 ```bash
-go build -o xylona && ./xylona
+go run .
 ```
 
-The server will start on `localhost:8080`.
+For a compiled binary:
 
-### Frontend
-
-1. Navigate to the `frontend` directory:
 ```bash
-cd frontend
+go build -o xylona
 ```
-2. Install the dependencies:
-```bash
-pnpm install
-```
-3. Start the development server:
-```bash
-pnpm run dev
-```
-The development server will start on `localhost:3000`.
 
-### E2E Testing
+The default app bind is `localhost:8080`.
 
-#### Single-Node Tests
-Requires a running backend on `:8080`:
+### Frontend Workflow
+
+Run the backend in one terminal, then start the Quasar dev server in another:
+
+```bash
+pnpm --dir frontend run dev
+```
+
+The frontend dev server proxies API traffic to the backend using the project proxy configuration. The frontend build targets modern evergreen browsers with native `BigInt` support, including Safari 14+.
+
+### Common Commands
+
+Backend:
+
+```bash
+go test -race -count=1 ./...
+```
+
+```bash
+golangci-lint run ./...
+```
+
+Frontend:
+
+```bash
+pnpm --dir frontend run lint
+```
+
+```bash
+pnpm --dir frontend run test
+```
+
+```bash
+pnpm --dir frontend run build
+```
+
+Mage helpers:
+
+```bash
+mage Build
+```
+
+```bash
+mage GenerateProto
+```
+
+```bash
+mage GenerateModels
+```
+
+```bash
+mage SQLMigrateNew <name>
+```
+
+```bash
+mage SQLMigrateUp
+```
+
+```bash
+mage SQLMigrateDown
+```
+
+## E2E Testing
+
+Single-node suite:
+
 ```bash
 pnpm --dir frontend run e2e
-# Or: mage E2E
 ```
 
-#### Federation Tests
-Fully self-contained — builds binaries, starts two Xylona nodes, pairs them, and runs tests:
+```bash
+mage E2E
+```
+
+Federation suite:
+
 ```bash
 pnpm --dir frontend run e2e:federation
-# Or: mage E2EFederation
 ```
 
-#### Debugging
 ```bash
-# Run in headed mode to watch the browser
+mage E2EFederation
+```
+
+Useful variants:
+
+```bash
 mage E2EHeaded
+```
+
+```bash
 mage E2EFederationHeaded
+```
 
-# Keep federation data after test run
-E2E_KEEP_DATA=1 pnpm --dir frontend run e2e:federation
-
-# View HTML reports
+```bash
 mage E2EReport
+```
+
+```bash
 mage E2EFederationReport
 ```
 
-#### E2E Orchestrator
-All setup and teardown logic lives in a Go CLI tool (`cmd/e2e`). The TypeScript Playwright configs call it automatically, but you can run it directly:
-```bash
-# Seed a fresh database with an admin user
-go run ./cmd/e2e seed -db <path> -username admin -password admin
+Set `E2E_KEEP_DATA=1` to preserve federation test data for debugging.
 
-# Run single-node setup/teardown manually
-go run ./cmd/e2e single-setup --backend-url http://localhost:8080
-go run ./cmd/e2e single-teardown --backend-url http://localhost:8080
-```
+## Before Opening A PR
 
-### Recommendations
-
-It's suggested to install Docker and Docker Compose to run Caddy in a container. This will make it easy to proxy
-requests between the backend and frontend.
-
-1. Navigate to `docker` directory:
-```bash
-cd xylona/docker
-```
-2. Start the Caddy container:
-```bash
-docker-compose up -d
-```
-3. Access the frontend at `https://localhost`
+- Run `golangci-lint run ./...`
+- Run `go test -race -count=1 ./...`
+- Run `pnpm --dir frontend run lint`
+- Run `pnpm --dir frontend run test`
+- Run `pnpm --dir frontend run build`
+- Rebuild generated code with `mage GenerateProto` or `mage GenerateModels` only when you changed the corresponding sources

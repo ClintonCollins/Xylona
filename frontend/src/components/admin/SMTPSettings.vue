@@ -12,78 +12,78 @@
       <q-badge :color="configured ? 'positive' : 'warning'" :label="statusLabel" />
     </div>
 
-    <q-skeleton v-if="loading" type="rect" height="200px" />
+    <q-skeleton v-if="loading" height="200px" type="rect" />
 
     <template v-else>
       <div class="row q-col-gutter-md">
         <div class="col-12 col-md-6">
           <q-input
             v-model="host"
-            outlined
+            aria-label="SMTP Host"
             dense
             label="SMTP Host"
-            placeholder="smtp.example.com"
-            aria-label="SMTP Host" />
+            outlined
+            placeholder="smtp.example.com" />
         </div>
         <div class="col-12 col-md-6">
           <q-input
             v-model.number="port"
-            outlined
+            :rules="[portRule]"
+            aria-label="SMTP Port"
             dense
             label="Port"
-            type="number"
+            outlined
             placeholder="587"
-            :rules="[portRule]"
-            aria-label="SMTP Port" />
+            type="number" />
         </div>
         <div class="col-12 col-md-6">
           <q-input
             v-model="user"
-            outlined
+            aria-label="SMTP Username"
+            autocomplete="off"
             dense
             label="Username"
-            autocomplete="off"
-            aria-label="SMTP Username" />
+            outlined />
         </div>
         <div class="col-12 col-md-6">
           <q-input
             v-model="password"
-            outlined
-            dense
-            label="Password"
-            type="password"
-            autocomplete="new-password"
             :hint="
               hasExistingPassword
                 ? 'Password is configured. Leave blank to keep current password.'
                 : undefined
             "
-            aria-label="SMTP Password" />
+            aria-label="SMTP Password"
+            autocomplete="new-password"
+            dense
+            label="Password"
+            outlined
+            type="password" />
         </div>
         <div class="col-12 col-md-6">
           <q-input
             v-model="fromAddress"
-            outlined
+            aria-label="From email address"
             dense
             label="From Address"
-            type="email"
+            outlined
             placeholder="noreply@example.com"
-            aria-label="From email address" />
+            type="email" />
         </div>
         <div class="col-12 col-md-6 self-center">
-          <q-toggle v-model="tlsEnabled" label="TLS Enabled" aria-label="Enable TLS" />
+          <q-toggle v-model="tlsEnabled" aria-label="Enable TLS" label="TLS Enabled" />
         </div>
       </div>
 
       <div class="q-mt-md q-gutter-sm">
-        <q-btn color="primary" label="Save" :loading="saving" @click="save" />
-        <q-btn outline label="Send Test Email" :loading="testing" @click="testSMTP" />
+        <q-btn :loading="saving" color="primary" label="Save" @click="save" />
+        <q-btn :loading="testing" label="Send Test Email" outline @click="testSMTP" />
       </div>
     </template>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { Notify, useQuasar } from 'quasar'

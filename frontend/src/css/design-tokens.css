@@ -191,18 +191,23 @@
 .bg-xy-base {
   background-color: var(--xy-base);
 }
+
 .bg-xy-surface-0 {
   background-color: var(--xy-surface-0);
 }
+
 .bg-xy-surface-1 {
   background-color: var(--xy-surface-1);
 }
+
 .bg-xy-surface-2 {
   background-color: var(--xy-surface-2);
 }
+
 .bg-xy-surface-3 {
   background-color: var(--xy-surface-3);
 }
+
 .bg-xy-surface-4 {
   background-color: var(--xy-surface-4);
 }
@@ -214,9 +219,11 @@
 .text-xy-primary {
   color: var(--xy-text-primary);
 }
+
 .text-xy-secondary {
   color: var(--xy-text-secondary);
 }
+
 .text-xy-muted {
   color: var(--xy-text-muted);
 }
@@ -228,12 +235,15 @@
 .font-display {
   font-family: var(--xy-font-display);
 }
+
 .font-brand {
   font-family: var(--xy-font-brand);
 }
+
 .font-body {
   font-family: var(--xy-font-body);
 }
+
 .font-mono {
   font-family: var(--xy-font-mono);
 }
@@ -269,24 +279,31 @@
 .bg-toolbar {
   background-color: var(--xy-surface-2);
 }
+
 .bg-success {
   background-color: var(--xy-success);
 }
+
 .bg-success-darker {
   background-color: var(--xy-success-darker);
 }
+
 .bg-alert-brighter {
   background-color: var(--xy-warning-hover);
 }
+
 .text-success-brighter {
   color: var(--xy-success-hover);
 }
+
 .text-error-brighter {
   color: var(--xy-danger-hover);
 }
+
 .text-alert-brighter {
   color: var(--xy-warning-hover);
 }
+
 .text-main-brighter {
   color: var(--xy-primary-hover);
 }

@@ -2,9 +2,9 @@
   <div>
     <q-dialog
       v-model="showChangeDialog"
-      persistent
+      aria-labelledby="variant-change-title"
       backdrop-filter="brightness(15%)"
-      aria-labelledby="variant-change-title">
+      persistent>
       <q-card class="change-dialog-card">
         <q-card-section class="change-dialog-header">
           <div id="variant-change-title" class="change-dialog-title">Change Variant</div>
@@ -16,7 +16,7 @@
         <q-card-section class="change-dialog-body">
           <div class="dialog-current">
             <div class="dialog-current-icon">
-              <q-icon name="layers" size="16px" color="accent" />
+              <q-icon color="accent" name="layers" size="16px" />
             </div>
             <div>
               <div class="dialog-current-label">Currently active</div>
@@ -32,43 +32,43 @@
           <div class="dialog-field">
             <q-select
               v-model="selectedVariantId"
-              outlined
-              dense
-              label="Variant"
-              emit-value
-              map-options
+              :disable="saving || installStatus === 'installing'"
               :display-value="selectedVariantName || undefined"
               :options="variantSelectOptions"
-              :disable="saving || installStatus === 'installing'"
-              options-selected-class="selected-option" />
+              dense
+              emit-value
+              label="Variant"
+              map-options
+              options-selected-class="selected-option"
+              outlined />
           </div>
 
           <div v-if="targetOptions.length > 0" class="dialog-field">
             <q-select
               v-model="selectedTarget"
-              outlined
-              dense
-              label="Version"
-              emit-value
-              map-options
-              :options="targetOptions"
               :disable="saving || loadingTargets || installStatus === 'installing'"
-              options-selected-class="selected-option" />
+              :options="targetOptions"
+              dense
+              emit-value
+              label="Version"
+              map-options
+              options-selected-class="selected-option"
+              outlined />
           </div>
 
           <div v-if="showPinTargetToggle" class="dialog-field">
             <q-toggle
               v-model="selectedPinTarget"
+              :disable="saving || loadingTargets || installStatus === 'installing'"
               color="primary"
-              label="Stick to selected version"
-              :disable="saving || loadingTargets || installStatus === 'installing'" />
+              label="Stick to selected version" />
             <div class="dialog-toggle-hint">
               When off, Xylona installs this version now and keeps tracking the latest release.
             </div>
           </div>
 
           <div class="dialog-warning">
-            <q-icon name="warning" size="16px" color="warning" class="dialog-warning-icon" />
+            <q-icon class="dialog-warning-icon" color="warning" name="warning" size="16px" />
             <span>
               Switching variants may change update behavior and mod compatibility. The server must
               stay offline while Xylona applies the new variant.
@@ -76,19 +76,19 @@
           </div>
         </q-card-section>
 
-        <q-card-actions class="change-dialog-footer" align="right">
+        <q-card-actions align="right" class="change-dialog-footer">
           <q-btn
-            flat
-            no-caps
-            label="Cancel"
             class="dialog-cancel-btn"
+            flat
+            label="Cancel"
+            no-caps
             @click="cancelChangeDialog" />
           <q-btn
-            no-caps
-            label="Apply"
-            color="primary"
-            :loading="saving"
             :disable="!canApply || installStatus === 'installing'"
+            :loading="saving"
+            color="primary"
+            label="Apply"
+            no-caps
             @click="applyVariant" />
         </q-card-actions>
       </q-card>
@@ -96,7 +96,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'

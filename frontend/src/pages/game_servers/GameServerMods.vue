@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
@@ -6,16 +6,16 @@ import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import {
+  GetGameServerRequestSchema,
+  GetModVersionsRequestSchema,
+  GetUpdateTargetsRequestSchema,
+  InstallModRequestSchema,
   ListInstalledModsRequestSchema,
-  UpdateModRequestSchema,
-  UninstallModRequestSchema,
+  PinModVersionRequestSchema,
   SetModAutoUpdateRequestSchema,
   SetModEnabledRequestSchema,
-  PinModVersionRequestSchema,
-  InstallModRequestSchema,
-  GetModVersionsRequestSchema,
-  GetGameServerRequestSchema,
-  GetUpdateTargetsRequestSchema,
+  UninstallModRequestSchema,
+  UpdateModRequestSchema,
 } from '@/proto/xylona_pb'
 import type { InstalledMod, ModVersion } from '@/proto/shared_pb'
 import InstalledModsTable from '@/components/game_servers/InstalledModsTable.vue'
@@ -534,14 +534,14 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
   <div class="mods-page">
     <q-tabs
       v-model="activeTab"
-      dense
-      class="mods-tabs"
       active-color="primary"
-      indicator-color="primary"
       align="left"
+      class="mods-tabs"
+      dense
+      indicator-color="primary"
       narrow-indicator>
-      <q-tab name="installed" label="Installed" />
-      <q-tab name="browse" label="Browse" />
+      <q-tab label="Installed" name="installed" />
+      <q-tab label="Browse" name="browse" />
     </q-tabs>
 
     <q-separator />
@@ -551,8 +551,8 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
         <installed-mods-table
           :installed-mods="installedMods"
           :loading="loading"
-          @update="handleUpdate"
           @uninstall="handleUninstall"
+          @update="handleUpdate"
           @toggle-auto-update="handleToggleAutoUpdate"
           @toggle-enabled="handleToggleEnabled"
           @pin-version="handlePinVersion"
@@ -561,12 +561,12 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 
       <q-tab-panel name="browse">
         <mod-browse
+          :available-versions="availableVersions"
           :game-server-id="gameServerId"
           :installed-mods="installedMods"
           :sources="modSources"
-          :available-versions="availableVersions"
-          @view-details="handleViewDetails"
-          @install="handleInstallFromBrowse" />
+          @install="handleInstallFromBrowse"
+          @view-details="handleViewDetails" />
       </q-tab-panel>
     </q-tab-panels>
 
@@ -574,19 +574,19 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
     <mod-detail-dialog
       v-model:show="showDetailDialog"
       :game-server-id="gameServerId"
+      :is-installed="detailIsInstalled"
       :source="detailSource"
       :source-id="detailSourceId"
-      :is-installed="detailIsInstalled"
       @install="handleInstallFromDetail" />
 
     <!-- Install confirmation dialog -->
     <mod-install-dialog
       v-model:show="showInstallDialog"
+      :dependencies="installDeps"
+      :file-size="installFileSize"
+      :installed-mods="installedMods"
       :mod-name="installModName"
       :mod-version="installModVersion"
-      :file-size="installFileSize"
-      :dependencies="installDeps"
-      :installed-mods="installedMods"
       @confirm="handleInstallConfirm" />
   </div>
 </template>

@@ -24,25 +24,25 @@
           </span>
         </div>
 
-        <button type="button" class="downstream-impact__toggle" @click="expanded = !expanded">
+        <button class="downstream-impact__toggle" type="button" @click="expanded = !expanded">
           {{ expanded ? 'Hide server list' : `Review ${servers.length} servers` }}
         </button>
       </div>
 
       <div
         v-if="expanded"
+        aria-label="Affected servers"
         class="downstream-impact__list"
-        role="list"
-        aria-label="Affected servers">
+        role="list">
         <article v-for="server in visibleServers" :key="server.name" class="downstream-impact__row">
-          <div class="downstream-impact__name" :title="server.name">{{ server.name }}</div>
+          <div :title="server.name" class="downstream-impact__name">{{ server.name }}</div>
           <div
-            class="downstream-impact__detail text-xy-secondary"
             :class="
               server.patchCount === 0
                 ? 'downstream-impact__detail--default'
                 : 'downstream-impact__detail--customized'
-            ">
+            "
+            class="downstream-impact__detail text-xy-secondary">
             {{ server.patchCount === 0 ? 'all defaults' : `${server.patchCount} customized` }}
           </div>
         </article>
@@ -51,7 +51,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, ref } from 'vue'
 
 type DownstreamServer = {

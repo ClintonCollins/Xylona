@@ -114,7 +114,7 @@ describe('GameConfigSchema', () => {
     await flushPromises()
 
     expect(mocks.updateGameConfigSchemas).toHaveBeenCalledTimes(1)
-    expect(mocks.updateGameConfigSchemas.mock.calls[0][0].configSchemasJson).toContain(
+    expect(mocks.updateGameConfigSchemas.mock.calls[0]?.[0].configSchemasJson).toContain(
       '"generate_before_start":true',
     )
   })

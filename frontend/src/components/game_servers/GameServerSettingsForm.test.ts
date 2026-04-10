@@ -1,7 +1,7 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   BackupSettingsSchema,
@@ -24,19 +24,22 @@ const mocks = vi.hoisted(() => ({
   listIPs: vi.fn(),
 }))
 
+vi.mock('@/api/game-server-provisioning', () => ({
+  getGameServer: mocks.getGameServer,
+  listGames: mocks.listGames,
+  listNodes: mocks.listNodes,
+  listUsers: mocks.listUsers,
+  listIPs: mocks.listIPs,
+}))
+
 vi.mock('@/utils/shared', async () => {
   const actual = await vi.importActual<typeof import('@/utils/shared')>('@/utils/shared')
   return {
     ...actual,
     GetXylonaClient: () => ({
-      getGameServer: mocks.getGameServer,
       getGameServerBackupOverview: mocks.getGameServerBackupOverview,
       getBackupSettings: mocks.getBackupSettings,
       updateBackupSettings: mocks.updateBackupSettings,
-      listGames: mocks.listGames,
-      listNodes: mocks.listNodes,
-      listUsers: mocks.listUsers,
-      listIPs: mocks.listIPs,
       editGameServer: vi.fn(),
     }),
   }
@@ -136,26 +139,21 @@ describe('GameServerSettingsForm', () => {
           defaultMaxPlayers: 20n,
         }),
       ],
+      options: [{ label: 'Minecraft', value: 'minecraft' }],
     })
-    mocks.listNodes.mockResolvedValue({
-      nodes: [
-        create(NodeSchema, {
-          id: 'node-local',
-          name: 'Local Node',
-          local: true,
-        }),
-      ],
-    })
-    mocks.listUsers.mockResolvedValue({
-      users: [{ id: 'user-owner', userName: 'owner' }],
-    })
-    mocks.listIPs.mockResolvedValue({
-      ips: [
-        create(IPSchema, {
-          address: '127.0.0.1',
-        }),
-      ],
-    })
+    mocks.listNodes.mockResolvedValue([
+      create(NodeSchema, {
+        id: 'node-local',
+        name: 'Local Node',
+        local: true,
+      }),
+    ])
+    mocks.listUsers.mockResolvedValue([{ label: 'owner', value: 'user-owner' }])
+    mocks.listIPs.mockResolvedValue([
+      create(IPSchema, {
+        address: '127.0.0.1',
+      }),
+    ])
     mocks.getGameServerBackupOverview.mockResolvedValue({
       overview: create(GameServerBackupOverviewSchema, {
         enabled: true,
@@ -177,8 +175,8 @@ describe('GameServerSettingsForm', () => {
   })
 
   it('shows full editable provisioning controls for superusers', async () => {
-    mocks.getGameServer.mockResolvedValue({
-      gameServer: create(GameServerSchema, {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
         id: 'server-local-1',
         name: 'Local One',
         userId: 'user-owner',
@@ -195,7 +193,7 @@ describe('GameServerSettingsForm', () => {
         maxMemoryMb: 1024n,
         serverExecutable: 'paper.jar',
       }),
-    })
+    )
 
     const wrapper = mountSettingsForm(true)
     await flushPromises()
@@ -226,8 +224,8 @@ describe('GameServerSettingsForm', () => {
       }),
     })
 
-    mocks.getGameServer.mockResolvedValue({
-      gameServer: create(GameServerSchema, {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
         id: 'server-local-1',
         name: 'Local One',
         userId: 'user-owner',
@@ -244,7 +242,7 @@ describe('GameServerSettingsForm', () => {
         maxMemoryMb: 1024n,
         serverExecutable: 'paper.jar',
       }),
-    })
+    )
 
     const wrapper = mountSettingsForm(false)
     await flushPromises()
@@ -273,8 +271,8 @@ describe('GameServerSettingsForm', () => {
   })
 
   it('hides minecraft memory context when the server is not minecraft', async () => {
-    mocks.getGameServer.mockResolvedValue({
-      gameServer: create(GameServerSchema, {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
         id: 'server-local-1',
         name: 'TF2 Server',
         userId: 'user-owner',
@@ -290,7 +288,7 @@ describe('GameServerSettingsForm', () => {
         maxPlayers: 24n,
         maxMemoryMb: 0n,
       }),
-    })
+    )
 
     const wrapper = mountSettingsForm(false)
     await flushPromises()

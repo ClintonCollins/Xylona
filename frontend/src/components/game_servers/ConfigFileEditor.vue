@@ -8,13 +8,13 @@
           <div class="editor-meta">
             <q-badge
               v-if="category"
-              outline
-              :style="{ borderColor: categoryColor, color: categoryColor }"
               :label="category"
-              class="editor-category-badge" />
+              :style="{ borderColor: categoryColor, color: categoryColor }"
+              class="editor-category-badge"
+              outline />
             <span class="text-xy-muted editor-meta-text">{{ format }}</span>
             <span v-if="editedValues.size > 0" class="editor-modified-count">
-              <span class="modified-dot" aria-hidden="true"></span>
+              <span aria-hidden="true" class="modified-dot"></span>
               {{ editedValues.size }} modified
             </span>
           </div>
@@ -22,25 +22,25 @@
         <div class="editor-header-actions">
           <q-btn
             v-if="isMissing"
-            type="button"
-            outline
-            color="warning"
-            label="Generate File"
-            icon="note_add"
-            size="sm"
             :loading="generating"
+            color="warning"
+            icon="note_add"
+            label="Generate File"
+            outline
+            size="sm"
+            type="button"
             @click="$emit('generate')" />
           <q-btn
             v-else
-            type="button"
-            :color="saveSuccess ? 'positive' : 'primary'"
-            :label="saveSuccess ? 'Saved' : 'Save'"
-            :icon="saveSuccess ? 'check' : 'save'"
-            size="sm"
-            :loading="saving"
-            :disable="!hasChanges && !saveSuccess"
-            class="save-btn"
             :class="{ 'save-success': saveSuccess }"
+            :color="saveSuccess ? 'positive' : 'primary'"
+            :disable="!hasChanges && !saveSuccess"
+            :icon="saveSuccess ? 'check' : 'save'"
+            :label="saveSuccess ? 'Saved' : 'Save'"
+            :loading="saving"
+            class="save-btn"
+            size="sm"
+            type="button"
             @click.prevent.stop="handleSave">
             <q-tooltip>{{ hasChanges ? 'Save changes (Ctrl+S)' : 'No changes to save' }}</q-tooltip>
           </q-btn>
@@ -54,14 +54,14 @@
           v-for="group in allGroups"
           :key="group.name"
           :ref="(el) => setTabRef(group.name, el as HTMLElement | null)"
-          role="tab"
           :aria-selected="activeGroup === group.name"
-          class="group-tab"
           :class="{
             active: activeGroup === group.name,
             dimmed: searchQuery && !filteredGroupCounts.has(group.name),
           }"
           :style="{ '--tab-accent': groupAccentColor(group.name) }"
+          class="group-tab"
+          role="tab"
           @click="scrollToGroup(group.name)">
           {{ group.displayName }}
           <span class="tab-count">{{
@@ -70,16 +70,16 @@
         </button>
         <div
           ref="tabIndicatorRef"
-          class="tab-indicator"
           :style="{ background: groupAccentColor(activeGroup) }"
-          aria-hidden="true" />
+          aria-hidden="true"
+          class="tab-indicator" />
       </div>
 
       <!-- Validation errors -->
       <Transition name="validation-slide">
-        <q-banner v-if="validationErrors.length > 0" role="alert" dense class="validation-banner">
+        <q-banner v-if="validationErrors.length > 0" class="validation-banner" dense role="alert">
           <template #avatar>
-            <q-icon name="error_outline" color="negative" size="sm" aria-hidden="true" />
+            <q-icon aria-hidden="true" color="negative" name="error_outline" size="sm" />
           </template>
           <div class="validation-errors">
             <div v-for="(error, i) in validationErrors" :key="i" class="validation-error-item">
@@ -93,16 +93,16 @@
       <div v-if="fields.length > 0" class="editor-controls">
         <q-input
           v-model="searchQuery"
-          dense
-          outlined
           :placeholder="`Filter ${fields.length} settings...`"
           aria-label="Search configuration fields"
           class="search-input"
           clearable
-          @keydown.enter.prevent
-          @clear="searchQuery = ''">
+          dense
+          outlined
+          @clear="searchQuery = ''"
+          @keydown.enter.prevent>
           <template #prepend>
-            <q-icon name="search" size="xs" class="text-xy-muted" aria-hidden="true" />
+            <q-icon aria-hidden="true" class="text-xy-muted" name="search" size="xs" />
           </template>
         </q-input>
       </div>
@@ -118,17 +118,17 @@
       </div>
 
       <div v-else-if="filteredFields.length === 0 && searchQuery" class="no-fields text-xy-muted">
-        <q-icon name="search_off" size="28px" class="q-mb-sm" />
+        <q-icon class="q-mb-sm" name="search_off" size="28px" />
         <div>
           No settings match "<strong class="text-xy-secondary">{{ searchQuery }}</strong
           >"
         </div>
         <q-btn
-          flat
-          dense
-          size="sm"
-          label="Clear filter"
           class="q-mt-sm"
+          dense
+          flat
+          label="Clear filter"
+          size="sm"
           @click="searchQuery = ''" />
       </div>
 
@@ -141,7 +141,7 @@
             </td>
           </tr>
           <!-- Sticky group header -->
-          <tr class="group-header-row" :style="{ '--group-accent': groupAccentColor(group.name) }">
+          <tr :style="{ '--group-accent': groupAccentColor(group.name) }" class="group-header-row">
             <td colspan="2">
               <div class="group-header-inner">
                 <span class="group-header-title">{{ group.displayName }}</span>
@@ -153,24 +153,24 @@
           <tr
             v-for="field in group.fields"
             :key="field.key"
-            class="setting-row"
             :class="{
               'setting-edited': editedValues.has(field.key),
               'setting-managed': field.isManaged,
             }"
-            :data-test="`config-row-${field.key}`">
+            :data-test="`config-row-${field.key}`"
+            class="setting-row">
             <!-- Setting name -->
             <td class="setting-key">
               <div class="setting-key-label">
                 {{ field.title || field.key }}
-                <q-badge v-if="field.isManaged" color="accent" class="managed-badge">
-                  <q-icon name="lock" size="10px" class="q-mr-xs" />
+                <q-badge v-if="field.isManaged" class="managed-badge" color="accent">
+                  <q-icon class="q-mr-xs" name="lock" size="10px" />
                   Managed
                 </q-badge>
                 <span
                   v-if="field.required && !field.isManaged"
-                  class="field-required"
                   aria-label="required"
+                  class="field-required"
                   >*</span
                 >
               </div>
@@ -186,12 +186,12 @@
                 class="managed-field-display"
                 data-test="managed-field-display">
                 <div class="managed-state-label">
-                  <q-icon name="admin_panel_settings" size="12px" color="accent" class="q-mr-xs" />
+                  <q-icon class="q-mr-xs" color="accent" name="admin_panel_settings" size="12px" />
                   Managed by server settings
                 </div>
                 <span class="managed-value font-mono">
                   {{ field.value || field.defaultValue }}
-                  <q-icon name="lock" size="xs" color="accent" class="q-ml-xs">
+                  <q-icon class="q-ml-xs" color="accent" name="lock" size="xs">
                     <q-tooltip
                       >Automatically set from server settings — edit it there instead</q-tooltip
                     >
@@ -208,14 +208,14 @@
               <div v-else-if="field.fieldType === 'boolean'" class="inline-toggle">
                 <q-toggle
                   :id="fieldId(field.key)"
+                  :aria-label="field.title || field.key"
+                  :color="getFieldValue(field) === 'true' ? 'positive' : 'primary'"
                   :model-value="getFieldValue(field) === 'true'"
                   dense
-                  :color="getFieldValue(field) === 'true' ? 'positive' : 'primary'"
-                  :aria-label="field.title || field.key"
                   @update:model-value="(val: boolean) => setFieldValue(field.key, String(val))" />
                 <span
-                  class="toggle-label"
-                  :class="getFieldValue(field) === 'true' ? 'toggle-on' : ''">
+                  :class="getFieldValue(field) === 'true' ? 'toggle-on' : ''"
+                  class="toggle-label">
                   {{ getFieldValue(field) === 'true' ? 'Enabled' : 'Disabled' }}
                 </span>
               </div>
@@ -224,20 +224,20 @@
               <q-select
                 v-else-if="field.enumOptions.length > 0"
                 :id="fieldId(field.key)"
+                :aria-label="field.title || field.key"
                 :model-value="getFieldValue(field)"
                 :options="enumFilteredOptions(field)"
-                :aria-label="field.title || field.key"
-                dense
-                outlined
-                emit-value
-                map-options
-                use-input
-                hide-selected
-                fill-input
-                input-debounce="0"
-                new-value-mode="add"
-                hint="Select or type a custom value"
                 class="inline-input"
+                dense
+                emit-value
+                fill-input
+                hide-selected
+                hint="Select or type a custom value"
+                input-debounce="0"
+                map-options
+                new-value-mode="add"
+                outlined
+                use-input
                 @filter="
                   (val: string, update: (fn: () => void) => void) => enumFilter(field, val, update)
                 "
@@ -248,17 +248,17 @@
               <q-input
                 v-else-if="field.fieldType === 'integer' || field.fieldType === 'number'"
                 :id="fieldId(field.key)"
-                :model-value="getFieldValue(field)"
                 :aria-label="field.title || field.key"
-                dense
-                outlined
-                type="number"
-                :min="field.minimum ?? undefined"
-                :max="field.maximum ?? undefined"
                 :hint="getNumberHint(field)"
+                :max="field.maximum ?? undefined"
+                :min="field.minimum ?? undefined"
+                :model-value="getFieldValue(field)"
                 :rules="getNumberRules(field)"
                 class="inline-input"
+                dense
                 input-class="font-mono"
+                outlined
+                type="number"
                 @keydown.enter.prevent
                 @update:model-value="
                   (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
@@ -268,14 +268,14 @@
               <q-input
                 v-else
                 :id="fieldId(field.key)"
-                :model-value="getFieldValue(field)"
                 :aria-label="field.title || field.key"
-                dense
-                outlined
                 :maxlength="field.maxLength ?? undefined"
+                :model-value="getFieldValue(field)"
                 :rules="getStringRules(field)"
                 class="inline-input"
+                dense
                 input-class="font-mono"
+                outlined
                 @keydown.enter.prevent
                 @update:model-value="
                   (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
@@ -291,12 +291,12 @@
   </form>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import type { ConfigFieldData, ConfigValidationError, AdvancedField } from '@/proto/xylona_pb'
+import type { AdvancedField, ConfigFieldData, ConfigValidationError } from '@/proto/xylona_pb'
 import { getManagedSourceLabel } from '@/components/shared/placeholder-definitions'
 import ConfigAdvancedFields from './ConfigAdvancedFields.vue'
-import { groupFields, filterFields } from './config-field-helpers'
+import { filterFields, groupFields } from './config-field-helpers'
 
 const props = defineProps<{
   filePath: string

@@ -14,7 +14,7 @@
       </div>
     </div>
 
-    <q-banner v-if="!allowEditing" class="start-args-editor__banner" rounded inline-actions dense>
+    <q-banner v-if="!allowEditing" class="start-args-editor__banner" dense inline-actions rounded>
       Start command editing is disabled for this game definition.
     </q-banner>
 
@@ -22,8 +22,8 @@
       <article
         v-for="(block, index) in displayBlocks"
         :key="block.id"
-        class="start-args-editor__row"
-        :data-testid="`arg-row-${block.id}`">
+        :data-testid="`arg-row-${block.id}`"
+        class="start-args-editor__row">
         <div class="start-args-editor__row-main">
           <div class="start-args-editor__row-meta">
             <q-badge :class="badgeClass(block.provenance)" :label="badgeLabel(block.provenance)" />
@@ -40,44 +40,44 @@
         <div class="start-args-editor__actions">
           <q-btn
             v-if="canEdit(block)"
-            flat
-            dense
-            size="sm"
-            icon="edit"
             :data-testid="`edit-${block.id}`"
+            dense
+            flat
+            icon="edit"
+            size="sm"
             @click="openEditDialog(block)" />
           <q-btn
             v-if="canRemove(block)"
-            flat
-            dense
-            size="sm"
-            icon="delete"
-            color="negative"
             :data-testid="`remove-${block.id}`"
+            color="negative"
+            dense
+            flat
+            icon="delete"
+            size="sm"
             @click="removeBlock(block)" />
           <q-btn
             v-if="canReset(block)"
-            flat
-            dense
-            size="sm"
-            icon="restart_alt"
             :data-testid="`reset-${block.id}`"
+            dense
+            flat
+            icon="restart_alt"
+            size="sm"
             @click="resetBlock(block)" />
           <q-btn
             v-if="canMoveUp(index, block)"
-            flat
-            dense
-            size="sm"
-            icon="arrow_upward"
             :data-testid="`move-up-${block.id}`"
+            dense
+            flat
+            icon="arrow_upward"
+            size="sm"
             @click="moveAddedBlock(index, -1)" />
           <q-btn
             v-if="canMoveDown(index, block)"
-            flat
-            dense
-            size="sm"
-            icon="arrow_downward"
             :data-testid="`move-down-${block.id}`"
+            dense
+            flat
+            icon="arrow_downward"
+            size="sm"
             @click="moveAddedBlock(index, 1)" />
         </div>
       </article>
@@ -85,11 +85,11 @@
 
     <div v-if="allowEditing" class="start-args-editor__footer">
       <q-btn
-        flat
         color="accent"
+        data-testid="add-arg-button"
+        flat
         icon="add"
         label="Add argument"
-        data-testid="add-arg-button"
         @click="openAddDialog" />
     </div>
 
@@ -106,11 +106,11 @@
           <q-input v-model="formState.label" label="Label" outlined />
           <q-input
             v-model="formState.tokensText"
-            label="Tokens"
-            type="textarea"
             autogrow
+            data-testid="tokens-input"
+            label="Tokens"
             outlined
-            data-testid="tokens-input" />
+            type="textarea" />
           <q-banner v-if="formError" class="bg-negative text-white rounded-borders" dense>
             {{ formError }}
           </q-banner>
@@ -119,8 +119,8 @@
         <q-card-actions align="right">
           <q-btn flat label="Cancel" @click="closeDialog" />
           <q-btn
-            color="primary"
             :label="dialogMode === 'add' ? 'Add argument' : 'Save changes'"
+            color="primary"
             data-testid="save-arg-button"
             @click="saveDialog" />
         </q-card-actions>
@@ -132,21 +132,16 @@
       :new-tokens="pendingSimilarTokens"
       :show="similarDialogOpen"
       @cancel="clearSimilarDialog"
-      @add-both="confirmAddBoth"
-      @replace="replaceExistingArg" />
+      @replace="replaceExistingArg"
+      @add-both="confirmAddBoth" />
   </section>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, reactive, ref } from 'vue'
 
 import SimilarArgDialog from './SimilarArgDialog.vue'
-import type {
-  ResolvedStartArgBlock,
-  StartArgBlock,
-  StartArgBlocklistEntry,
-  StartArgPatch,
-} from './start-args'
+import type { ResolvedStartArgBlock, StartArgBlock, StartArgBlocklistEntry, StartArgPatch, } from './start-args'
 import {
   applyAddAction,
   clonePatches,

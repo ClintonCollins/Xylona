@@ -14,7 +14,6 @@
     "allowUnreachableCode": false,
     "noUncheckedIndexedAccess": true,
     "noPropertyAccessFromIndexSignature": true,
-    "erasableSyntaxOnly": true,
     "paths": {
       "@/*": ["./src/*"]
     }

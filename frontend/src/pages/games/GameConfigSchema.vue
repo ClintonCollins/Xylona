@@ -1,7 +1,7 @@
 <template>
   <div class="xy-page-content">
     <div v-if="loading" class="schema-loading">
-      <q-spinner-dots size="40px" color="primary" />
+      <q-spinner-dots color="primary" size="40px" />
     </div>
 
     <template v-else>
@@ -14,9 +14,9 @@
         </div>
         <q-toggle
           v-model="generateBeforeStart"
+          color="primary"
           data-test="generate-toggle"
-          label="Create on first start if missing"
-          color="primary">
+          label="Create on first start if missing">
           <q-tooltip>
             Create this config file from schema defaults when it does not exist and the server
             starts
@@ -27,23 +27,20 @@
       <config-schema-editor
         :file-path="filePath"
         :schema="schema"
-        @save="handleSave"
-        @back="router.back()" />
+        @back="router.back()"
+        @save="handleSave" />
     </template>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { GetXylonaClient, ConnectErrorToString } from '@/utils/shared'
-import {
-  GetGameConfigSchemasRequestSchema,
-  UpdateGameConfigSchemasRequestSchema,
-} from '@/proto/xylona_pb'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { GetGameConfigSchemasRequestSchema, UpdateGameConfigSchemasRequestSchema, } from '@/proto/xylona_pb'
 import ConfigSchemaEditor from '@/components/games/ConfigSchemaEditor.vue'
 
 interface SchemaProperty {

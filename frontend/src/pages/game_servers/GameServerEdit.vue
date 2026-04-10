@@ -4,7 +4,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import GameServerForm from '@/components/game_servers/GameServerForm.vue'
 import { Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'

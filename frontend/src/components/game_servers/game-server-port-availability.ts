@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf'
-import { computed, onUnmounted, ref, watch } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 
 import { GetXylonaClient } from '@/utils/shared'
 import type { Game, GameServer } from '@/proto/shared_pb'
@@ -49,9 +49,10 @@ export function evaluateGameServerPortAvailability(options: PortAvailabilityEval
   )
 
   if (options.selectedGame?.requireDedicatedIp && matchingServers.length > 0) {
+    const conflictingServer = matchingServers[0]
     return {
       state: 'conflict',
-      message: `${options.selectedGame.name || 'This game'} requires a dedicated IP, but ${normalizedIP} is already assigned to ${matchingServers[0].name || 'another server'}.`,
+      message: `${options.selectedGame.name || 'This game'} requires a dedicated IP, but ${normalizedIP} is already assigned to ${conflictingServer?.name || 'another server'}.`,
     }
   }
 

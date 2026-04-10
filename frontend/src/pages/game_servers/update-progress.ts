@@ -89,8 +89,9 @@ export function applyUpdateProgress(
 
   const existingIndex = nextSteps.findIndex((step) => step.step === progress.step)
   if (existingIndex >= 0) {
-    if (nextSteps[existingIndex].label) {
-      nextState.label = nextSteps[existingIndex].label
+    const existingStep = nextSteps[existingIndex]
+    if (existingStep?.label) {
+      nextState.label = existingStep.label
     }
     nextSteps[existingIndex] = nextState
     return nextSteps

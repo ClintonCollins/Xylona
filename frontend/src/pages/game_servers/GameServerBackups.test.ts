@@ -8,6 +8,7 @@ import {
   type BackupProgress,
   BackupProgressOperation,
   BackupProgressPhase,
+  BackupProgressSchema,
   type BackupSettings,
   BackupSettingsSchema,
   type GameServerBackup,
@@ -132,7 +133,9 @@ const BackupRestoreDialogStub = defineComponent({
   </div>`,
 })
 
-function makeOverview(overrides: Partial<GameServerBackupOverview> = {}) {
+type MessageOverrides<T> = Partial<Omit<T, '$typeName' | '$unknown'>>
+
+function makeOverview(overrides: MessageOverrides<GameServerBackupOverview> = {}) {
   return create(GameServerBackupOverviewSchema, {
     enabled: true,
     operationsAllowed: true,
@@ -145,7 +148,7 @@ function makeOverview(overrides: Partial<GameServerBackupOverview> = {}) {
   })
 }
 
-function makeBackupSettings(overrides: Partial<BackupSettings> = {}) {
+function makeBackupSettings(overrides: MessageOverrides<BackupSettings> = {}) {
   return create(BackupSettingsSchema, {
     backupsEnabled: true,
     backupDirectory: 'C:\\backups',
@@ -155,7 +158,7 @@ function makeBackupSettings(overrides: Partial<BackupSettings> = {}) {
   })
 }
 
-function makeBackup(overrides: Partial<GameServerBackup> = {}) {
+function makeBackup(overrides: MessageOverrides<GameServerBackup> = {}) {
   return create(GameServerBackupSchema, {
     id: 'backup-1',
     gameServerId: 'test-server-123',
@@ -172,8 +175,8 @@ function makeBackup(overrides: Partial<GameServerBackup> = {}) {
   })
 }
 
-function makeBackupProgress(overrides: Partial<BackupProgress> = {}) {
-  return {
+function makeBackupProgress(overrides: MessageOverrides<BackupProgress> = {}) {
+  return create(BackupProgressSchema, {
     gameServerId: 'test-server-123',
     backupId: 'backup-1',
     operation: BackupProgressOperation.CREATE,
@@ -182,7 +185,7 @@ function makeBackupProgress(overrides: Partial<BackupProgress> = {}) {
     sizeBytes: 2048n,
     message: 'Archiving game server files',
     ...overrides,
-  } satisfies BackupProgress
+  })
 }
 
 function mountBackups() {
@@ -309,7 +312,7 @@ describe('GameServerBackups', () => {
     await flushPromises()
 
     expect(mocks.createGameServerBackup).toHaveBeenCalledTimes(1)
-    expect(mocks.createGameServerBackup.mock.calls[0][0]).toMatchObject({
+    expect(mocks.createGameServerBackup.mock.calls[0]?.[0]).toMatchObject({
       gameServerId: 'test-server-123',
     })
     expect(wrapper.text()).toContain('Pending')

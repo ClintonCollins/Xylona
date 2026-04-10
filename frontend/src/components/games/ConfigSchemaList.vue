@@ -17,11 +17,11 @@
           >
         </span>
         <q-btn
-          outline
           color="primary"
-          label="Add Config File"
           icon="add"
+          label="Add Config File"
           no-caps
+          outline
           @click="showAddDialog = true" />
       </div>
     </div>
@@ -63,8 +63,8 @@
           <div class="schema-category-header">
             <div class="schema-category-heading">
               <span
-                class="category-dot"
-                :style="{ backgroundColor: getCategoryColor(String(category)) }"></span>
+                :style="{ backgroundColor: getCategoryColor(String(category)) }"
+                class="category-dot"></span>
               <span class="category-label">{{ category }}</span>
             </div>
 
@@ -81,10 +81,10 @@
             </div>
           </div>
 
-          <q-list separator class="schema-file-list">
+          <q-list class="schema-file-list" separator>
             <q-item v-for="(schema, index) in files" :key="schema.path" class="schema-file-item">
               <q-item-section avatar top>
-                <q-icon name="description" size="sm" class="text-xy-secondary schema-file-icon" />
+                <q-icon class="text-xy-secondary schema-file-icon" name="description" size="sm" />
               </q-item-section>
               <q-item-section>
                 <q-item-label class="font-mono schema-file-path">{{ schema.path }}</q-item-label>
@@ -99,21 +99,21 @@
                     ">
                     <button
                       :data-testid="`config-schema-format-edit-${getGlobalIndex(String(category), index)}`"
-                      type="button"
+                      aria-label="Edit file format"
                       class="schema-format-edit"
-                      aria-label="Edit file format">
+                      type="button">
                       <span class="schema-format-value">{{ schema.format }}</span>
                       <span class="schema-format-action">Edit format</span>
-                      <q-icon name="edit" size="12px" class="format-edit-icon" />
+                      <q-icon class="format-edit-icon" name="edit" size="12px" />
                     </button>
                     <q-select
                       v-model="scope.value"
                       :options="formatOptions"
+                      autofocus
+                      dense
                       emit-value
                       map-options
-                      dense
                       outlined
-                      autofocus
                       @update:model-value="scope.set" />
                   </q-popup-edit>
                   <span v-if="getFieldCount(schema)" class="schema-file-stat">
@@ -124,22 +124,22 @@
                   </span>
                   <q-badge
                     v-if="schema.generate_before_start"
-                    outline
+                    class="schema-gen-badge"
                     color="info"
                     label="gen-on-start"
-                    class="schema-gen-badge" />
+                    outline />
                 </q-item-label>
               </q-item-section>
               <q-item-section side top>
                 <div class="schema-file-actions">
                   <q-btn
+                    :color="schema.generate_before_start ? 'info' : 'grey-6'"
+                    :icon="schema.generate_before_start ? 'toggle_on' : 'toggle_off'"
+                    aria-label="Toggle generate before start"
+                    class="schema-row-action"
+                    data-test="toggle-generate-before-start"
                     flat
                     round
-                    class="schema-row-action"
-                    :icon="schema.generate_before_start ? 'toggle_on' : 'toggle_off'"
-                    :color="schema.generate_before_start ? 'info' : 'grey-6'"
-                    aria-label="Toggle generate before start"
-                    data-test="toggle-generate-before-start"
                     @click="toggleGenerateBeforeStart(getGlobalIndex(String(category), index))">
                     <q-tooltip>
                       {{
@@ -150,12 +150,12 @@
                     </q-tooltip>
                   </q-btn>
                   <q-btn
-                    flat
-                    round
-                    icon="edit"
-                    class="schema-row-action"
                     :disable="!props.canEditSchemas"
                     aria-label="Edit schema"
+                    class="schema-row-action"
+                    flat
+                    icon="edit"
+                    round
                     @click="$emit('editSchema', getGlobalIndex(String(category), index))">
                     <q-tooltip>{{
                       props.canEditSchemas
@@ -164,12 +164,12 @@
                     }}</q-tooltip>
                   </q-btn>
                   <q-btn
-                    flat
-                    round
-                    icon="delete"
+                    aria-label="Remove schema"
                     class="schema-row-action schema-row-action--destructive"
                     color="negative"
-                    aria-label="Remove schema"
+                    flat
+                    icon="delete"
+                    round
                     @click="removeSchema(getGlobalIndex(String(category), index))">
                     <q-tooltip>Remove</q-tooltip>
                   </q-btn>
@@ -188,7 +188,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, ref } from 'vue'
 import AddConfigFileDialog from './AddConfigFileDialog.vue'
 import type { ConfigSchemaEntry } from './config-schema-types'

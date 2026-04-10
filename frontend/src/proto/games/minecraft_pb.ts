@@ -2,10 +2,10 @@
 // @generated from file games/minecraft.proto (package games, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import { file_google_protobuf_any, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2'
+import { fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2'
+import { file_google_protobuf_any, file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt'
+import type { Message } from '@bufbuild/protobuf'
 
 /**
  * Describes the file games/minecraft.proto.

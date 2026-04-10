@@ -22,14 +22,14 @@
 
       <q-card-actions align="right">
         <q-btn flat label="Cancel" @click="$emit('cancel')" />
-        <q-btn flat color="warning" label="Add both" @click="$emit('add-both')" />
+        <q-btn color="warning" flat label="Add both" @click="$emit('add-both')" />
         <q-btn color="primary" label="Replace existing" @click="$emit('replace')" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed } from 'vue'
 
 import type { ResolvedStartArgBlock } from './start-args'

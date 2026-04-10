@@ -6,15 +6,15 @@
 
     <q-tabs
       v-model="activeTab"
-      dense
-      class="notifications-tabs"
       active-color="primary"
-      indicator-color="primary"
       align="left"
+      class="notifications-tabs"
+      dense
+      indicator-color="primary"
       narrow-indicator>
-      <q-tab name="channels" label="Channels" />
-      <q-tab name="rules" label="Alert Rules" />
-      <q-tab name="history" label="Alert History" />
+      <q-tab label="Channels" name="channels" />
+      <q-tab label="Alert Rules" name="rules" />
+      <q-tab label="Alert History" name="history" />
     </q-tabs>
 
     <q-separator />
@@ -26,21 +26,21 @@
           <q-btn
             v-if="hasAlertsManage"
             color="primary"
-            label="Add Channel"
             icon="add"
+            label="Add Channel"
             no-caps
             @click="openChannelDialog(null)" />
         </div>
         <q-table
-          flat
-          class="xy-standalone-table"
-          :rows="channels"
           :columns="channelColumns"
-          row-key="id"
-          :loading="channelsLoading"
-          :rows-per-page-options="[10, 25, 50]"
           :grid="$q.screen.lt.md"
-          hide-header-in-grid>
+          :loading="channelsLoading"
+          :rows="channels"
+          :rows-per-page-options="[10, 25, 50]"
+          class="xy-standalone-table"
+          flat
+          hide-header-in-grid
+          row-key="id">
           <template #body-cell-channelType="props">
             <q-td :props="props">
               <q-badge
@@ -53,8 +53,8 @@
               <q-toggle
                 v-if="hasAlertsManage"
                 :model-value="props.row.enabled"
-                color="positive"
                 aria-label="Toggle channel enabled"
+                color="positive"
                 @update:model-value="toggleChannelEnabled(props.row)" />
               <q-badge
                 v-else
@@ -67,27 +67,27 @@
               <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
                 <q-btn
                   v-if="props.row.channelType === NotificationChannelType.EMAIL"
-                  flat
-                  dense
-                  icon="send"
                   aria-label="Test channel"
+                  dense
+                  flat
+                  icon="send"
                   @click="testChannel(props.row)">
                   <q-tooltip>Test</q-tooltip>
                 </q-btn>
                 <q-btn
-                  flat
-                  dense
-                  icon="edit"
                   aria-label="Edit channel"
+                  dense
+                  flat
+                  icon="edit"
                   @click="openChannelDialog(props.row)">
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
                 <q-btn
-                  flat
-                  dense
-                  icon="delete"
-                  class="text-error-brighter"
                   aria-label="Delete channel"
+                  class="text-error-brighter"
+                  dense
+                  flat
+                  icon="delete"
                   @click="confirmDeleteChannel(props.row)">
                   <q-tooltip>Delete</q-tooltip>
                 </q-btn>
@@ -96,7 +96,7 @@
           </template>
           <template #no-data>
             <div class="full-width column items-center q-pa-lg text-xy-secondary">
-              <q-icon name="notifications_off" size="3rem" class="q-mb-sm text-xy-muted" />
+              <q-icon class="q-mb-sm text-xy-muted" name="notifications_off" size="3rem" />
               <div class="text-subtitle1">No notification channels</div>
               <div class="text-caption text-xy-muted">
                 {{
@@ -115,29 +115,29 @@
         <div class="tab-toolbar">
           <q-select
             v-model="rulesEventFilter"
-            dense
-            outlined
-            clearable
-            emit-value
-            map-options
-            label="Filter by event type"
             :options="eventTypeOptions"
+            aria-label="Filter alert rules by event type"
             class="filter-select"
-            aria-label="Filter alert rules by event type" />
+            clearable
+            dense
+            emit-value
+            label="Filter by event type"
+            map-options
+            outlined />
         </div>
         <q-table
-          flat
-          class="xy-standalone-table"
-          :rows="filteredRules"
           :columns="ruleColumns"
-          row-key="id"
-          :loading="rulesLoading"
-          :rows-per-page-options="[10, 25, 50]"
           :grid="$q.screen.lt.md"
-          hide-header-in-grid>
+          :loading="rulesLoading"
+          :rows="filteredRules"
+          :rows-per-page-options="[10, 25, 50]"
+          class="xy-standalone-table"
+          flat
+          hide-header-in-grid
+          row-key="id">
           <template #body-cell-eventType="props">
             <q-td :props="props">
-              <q-badge color="primary" :label="eventTypeLabel(props.row.eventType)" />
+              <q-badge :label="eventTypeLabel(props.row.eventType)" color="primary" />
             </q-td>
           </template>
           <template #body-cell-server="props">
@@ -155,8 +155,8 @@
               <q-toggle
                 v-if="hasAlertsManage"
                 :model-value="props.row.enabled"
-                color="positive"
                 aria-label="Toggle rule enabled"
+                color="positive"
                 @update:model-value="toggleRuleEnabled(props.row)" />
               <q-badge
                 v-else
@@ -168,19 +168,19 @@
             <q-td :props="props">
               <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
                 <q-btn
-                  flat
-                  dense
-                  icon="edit"
                   aria-label="Edit rule"
+                  dense
+                  flat
+                  icon="edit"
                   @click="openRuleEditDialog(props.row)">
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
                 <q-btn
-                  flat
-                  dense
-                  icon="delete"
-                  class="text-error-brighter"
                   aria-label="Delete alert rule"
+                  class="text-error-brighter"
+                  dense
+                  flat
+                  icon="delete"
                   @click="confirmDeleteRule(props.row)">
                   <q-tooltip>Delete</q-tooltip>
                 </q-btn>
@@ -189,7 +189,7 @@
           </template>
           <template #no-data>
             <div class="full-width column items-center q-pa-lg text-xy-secondary">
-              <q-icon name="rule" size="3rem" class="q-mb-sm text-xy-muted" />
+              <q-icon class="q-mb-sm text-xy-muted" name="rule" size="3rem" />
               <div class="text-subtitle1">No alert rules</div>
               <div class="text-caption text-xy-muted">
                 Create alert rules from individual game server pages.
@@ -204,29 +204,29 @@
         <div class="tab-toolbar">
           <q-select
             v-model="historyEventFilter"
-            dense
-            outlined
-            clearable
-            emit-value
-            map-options
-            label="Filter by event type"
             :options="eventTypeOptions"
+            aria-label="Filter alert history by event type"
             class="filter-select"
-            aria-label="Filter alert history by event type" />
+            clearable
+            dense
+            emit-value
+            label="Filter by event type"
+            map-options
+            outlined />
         </div>
         <q-table
-          flat
-          class="xy-standalone-table"
-          :rows="filteredHistory"
           :columns="historyColumns"
-          row-key="id"
-          :loading="historyLoading"
-          :rows-per-page-options="[10, 25, 50]"
           :grid="$q.screen.lt.md"
-          hide-header-in-grid>
+          :loading="historyLoading"
+          :rows="filteredHistory"
+          :rows-per-page-options="[10, 25, 50]"
+          class="xy-standalone-table"
+          flat
+          hide-header-in-grid
+          row-key="id">
           <template #body-cell-eventType="props">
             <q-td :props="props">
-              <q-badge color="primary" :label="eventTypeLabel(props.row.eventType)" />
+              <q-badge :label="eventTypeLabel(props.row.eventType)" color="primary" />
             </q-td>
           </template>
           <template #body-cell-server="props">
@@ -253,7 +253,7 @@
           </template>
           <template #no-data>
             <div class="full-width column items-center q-pa-lg text-xy-secondary">
-              <q-icon name="history" size="3rem" class="q-mb-sm text-xy-muted" />
+              <q-icon class="q-mb-sm text-xy-muted" name="history" size="3rem" />
               <div class="text-subtitle1">No alert history</div>
               <div class="text-caption text-xy-muted">
                 Alert events will appear here once rules are triggered.
@@ -263,11 +263,11 @@
         </q-table>
         <div v-if="historyHasMore" class="row justify-center q-mt-md">
           <q-btn
-            flat
+            :loading="historyLoading"
             color="primary"
+            flat
             label="Load More"
             no-caps
-            :loading="historyLoading"
             @click="loadMoreHistory" />
         </div>
       </q-tab-panel>
@@ -283,56 +283,56 @@
         <q-card-section class="q-pt-none">
           <q-input
             v-model="channelForm.name"
-            outlined
-            dense
-            label="Name"
+            :rules="[(val: string) => !!val || 'Name is required']"
             aria-label="Channel name"
             class="q-mb-md"
-            :rules="[(val: string) => !!val || 'Name is required']" />
+            dense
+            label="Name"
+            outlined />
 
           <q-select
             v-model="channelForm.channelType"
-            outlined
+            :disable="!!editingChannel"
+            :options="channelTypeOptions"
+            aria-label="Channel type"
+            class="q-mb-md"
             dense
             emit-value
-            map-options
             label="Channel Type"
-            :options="channelTypeOptions"
-            :disable="!!editingChannel"
-            class="q-mb-md"
-            aria-label="Channel type" />
+            map-options
+            outlined />
 
           <!-- Webhook config -->
           <q-input
             v-if="isWebhookType(channelForm.channelType)"
             v-model="channelForm.webhookUrl"
-            outlined
-            dense
-            label="Webhook URL"
+            :rules="[(val: string) => !!val || 'Webhook URL is required']"
             aria-label="Webhook URL"
             class="q-mb-md"
-            :rules="[(val: string) => !!val || 'Webhook URL is required']" />
+            dense
+            label="Webhook URL"
+            outlined />
 
           <!-- Email config -->
           <template v-if="channelForm.channelType === NotificationChannelType.EMAIL">
             <q-input
               v-model="channelForm.emailTo"
-              outlined
-              dense
-              label="Recipient Email"
+              :rules="[(val: string) => !!val || 'Email is required']"
               aria-label="Recipient email address"
               class="q-mb-md"
-              :rules="[(val: string) => !!val || 'Email is required']" />
+              dense
+              label="Recipient Email"
+              outlined />
             <q-select
               v-model="channelForm.smtpSource"
-              outlined
+              :options="smtpSourceOptions"
+              aria-label="SMTP source"
+              class="q-mb-md"
               dense
               emit-value
-              map-options
               label="SMTP Source"
-              :options="smtpSourceOptions"
-              class="q-mb-md"
-              aria-label="SMTP source" />
+              map-options
+              outlined />
             <div v-if="channelForm.smtpSource === 'node'" class="q-mb-md">
               <q-badge
                 :color="nodeSMTPConfigured ? 'positive' : 'warning'"
@@ -344,51 +344,51 @@
             <template v-else>
               <q-input
                 v-model="channelForm.smtpHost"
-                outlined
+                aria-label="SMTP host"
+                class="q-mb-md"
                 dense
                 label="SMTP Host"
-                aria-label="SMTP host"
-                class="q-mb-md" />
+                outlined />
               <q-input
                 v-model.number="channelForm.smtpPort"
-                outlined
-                dense
-                type="number"
-                label="SMTP Port"
                 aria-label="SMTP port"
-                class="q-mb-md" />
+                class="q-mb-md"
+                dense
+                label="SMTP Port"
+                outlined
+                type="number" />
               <q-input
                 v-model="channelForm.smtpUser"
-                outlined
+                aria-label="SMTP username"
+                class="q-mb-md"
                 dense
                 label="SMTP Username"
-                aria-label="SMTP username"
-                class="q-mb-md" />
+                outlined />
               <q-input
                 v-model="channelForm.smtpPassword"
-                outlined
-                dense
-                type="password"
-                label="SMTP Password"
-                aria-label="SMTP password"
-                class="q-mb-md"
                 :hint="
                   channelForm.hasExistingSmtpPassword
                     ? 'Leave blank to keep the current password.'
                     : undefined
-                " />
+                "
+                aria-label="SMTP password"
+                class="q-mb-md"
+                dense
+                label="SMTP Password"
+                outlined
+                type="password" />
               <q-input
                 v-model="channelForm.smtpFrom"
-                outlined
+                aria-label="SMTP from address"
+                class="q-mb-md"
                 dense
                 label="SMTP From Address"
-                aria-label="SMTP from address"
-                class="q-mb-md" />
+                outlined />
               <q-toggle
                 v-model="channelForm.smtpTLSEnabled"
-                label="TLS Enabled"
                 aria-label="SMTP TLS enabled"
-                class="q-mb-md" />
+                class="q-mb-md"
+                label="TLS Enabled" />
             </template>
           </template>
         </q-card-section>
@@ -396,10 +396,10 @@
         <q-card-actions align="right">
           <q-btn flat label="Cancel" no-caps @click="showChannelDialog = false" />
           <q-btn
-            color="primary"
             :label="editingChannel ? 'Save' : 'Create'"
-            no-caps
             :loading="channelSaving"
+            color="primary"
+            no-caps
             @click="saveChannel" />
         </q-card-actions>
       </q-card>
@@ -415,36 +415,36 @@
         <q-card-section class="q-pt-none">
           <q-select
             v-model="ruleForm.eventType"
-            outlined
+            :options="eventTypeOptions"
+            aria-label="Event type"
+            class="q-mb-md"
             dense
             emit-value
-            map-options
             label="Event Type"
-            :options="eventTypeOptions"
-            class="q-mb-md"
-            aria-label="Event type" />
+            map-options
+            outlined />
 
           <!-- Threshold condition fields -->
           <div v-if="isThresholdType" class="row q-gutter-sm q-mb-md">
             <q-select
               v-model="ruleForm.thresholdOperator"
-              outlined
+              :options="thresholdOperators"
+              aria-label="Threshold operator"
+              class="col-4"
               dense
               emit-value
-              map-options
               label="Operator"
-              :options="thresholdOperators"
-              class="col-4"
-              aria-label="Threshold operator" />
+              map-options
+              outlined />
             <q-input
               v-model.number="ruleForm.thresholdValue"
-              outlined
-              dense
-              type="number"
-              label="Value"
               :suffix="thresholdUnit"
+              aria-label="Threshold value"
               class="col"
-              aria-label="Threshold value" />
+              dense
+              label="Value"
+              outlined
+              type="number" />
           </div>
 
           <!-- Status change condition fields -->
@@ -456,14 +456,14 @@
 
           <q-select
             v-model="ruleForm.notificationChannelId"
-            outlined
+            :options="channels.map((c) => ({ label: c.name, value: c.id }))"
+            aria-label="Notification channel"
+            class="q-mb-md"
             dense
             emit-value
-            map-options
             label="Notification Channel"
-            :options="channels.map((c) => ({ label: c.name, value: c.id }))"
-            class="q-mb-md"
-            aria-label="Notification channel" />
+            map-options
+            outlined />
 
           <q-toggle v-model="ruleForm.enabled" label="Enabled" />
         </q-card-section>
@@ -471,11 +471,11 @@
         <q-card-actions align="right">
           <q-btn flat label="Cancel" no-caps @click="showRuleDialog = false" />
           <q-btn
+            :disable="!ruleForm.notificationChannelId"
+            :loading="ruleSaving"
             color="primary"
             label="Save"
             no-caps
-            :loading="ruleSaving"
-            :disable="!ruleForm.notificationChannelId"
             @click="saveRule" />
         </q-card-actions>
       </q-card>
@@ -483,32 +483,27 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { ConnectError } from '@connectrpc/connect'
 import dayjs from 'dayjs'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
-import { NotificationChannelType, AlertEventType, DeliveryStatus } from '@/proto/shared_pb'
-import type {
-  NotificationChannel,
-  AlertRule,
-  AlertHistoryEntry,
-  GameServer,
-} from '@/proto/shared_pb'
+import type { AlertHistoryEntry, AlertRule, GameServer, NotificationChannel, } from '@/proto/shared_pb'
+import { AlertEventType, DeliveryStatus, NotificationChannelType } from '@/proto/shared_pb'
 import {
-  ListNotificationChannelsRequestSchema,
   CreateNotificationChannelRequestSchema,
-  UpdateNotificationChannelRequestSchema,
+  DeleteAlertRuleRequestSchema,
   DeleteNotificationChannelRequestSchema,
+  GetAlertHistoryRequestSchema,
   GetLocalSMTPStatusRequestSchema,
   ListAlertRulesRequestSchema,
-  UpdateAlertRuleRequestSchema,
-  DeleteAlertRuleRequestSchema,
-  GetAlertHistoryRequestSchema,
   ListGameServersRequestSchema,
+  ListNotificationChannelsRequestSchema,
   TestNotificationChannelRequestSchema,
+  UpdateAlertRuleRequestSchema,
+  UpdateNotificationChannelRequestSchema,
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canManageAlerts } from '@/utils/alert-permissions'

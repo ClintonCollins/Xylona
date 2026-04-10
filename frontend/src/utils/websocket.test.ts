@@ -47,6 +47,9 @@ describe('ReconnectingWebSocket.waitForOpen', () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket
     const socket = new ReconnectingWebSocket('ws://localhost/test')
     const fake = FakeWebSocket.instances[0]
+    if (!fake) {
+      throw new Error('expected websocket instance to exist')
+    }
 
     fake.triggerOpen()
 
@@ -58,6 +61,9 @@ describe('ReconnectingWebSocket.waitForOpen', () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket
     const socket = new ReconnectingWebSocket('ws://localhost/test')
     const fake = FakeWebSocket.instances[0]
+    if (!fake) {
+      throw new Error('expected websocket instance to exist')
+    }
 
     const waitForOpen = socket.waitForOpen()
     fake.triggerOpen()
@@ -102,7 +108,11 @@ describe('ReconnectingWebSocket.waitForOpen', () => {
     await vi.advanceTimersByTimeAsync(5000)
     expect(FakeWebSocket.instances).toHaveLength(2)
 
-    FakeWebSocket.instances[1].triggerOpen()
+    const reconnectedSocket = FakeWebSocket.instances[1]
+    if (!reconnectedSocket) {
+      throw new Error('expected reconnected websocket instance to exist')
+    }
+    reconnectedSocket.triggerOpen()
 
     await assertion
   })

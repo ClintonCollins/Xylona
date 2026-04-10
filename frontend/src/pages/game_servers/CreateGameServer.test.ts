@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { create as createProto } from '@bufbuild/protobuf'
 import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'

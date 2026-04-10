@@ -5,29 +5,29 @@
       <q-space />
       <q-btn-toggle
         v-model="selectedRange"
-        flat
-        dense
-        no-caps
-        toggle-color="primary"
         :options="rangeOptions"
-        class="text-caption" />
+        class="text-caption"
+        dense
+        flat
+        no-caps
+        toggle-color="primary" />
     </div>
     <line-chart :data="chartData" :options="chartOptions" style="max-height: 180px" />
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import {
-  Chart as ChartJS,
   CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
   LinearScale,
-  PointElement,
   LineElement,
+  PointElement,
   Title,
   Tooltip,
-  Legend,
-  Filler,
 } from 'chart.js'
 import { Line as LineChart } from 'vue-chartjs'
 

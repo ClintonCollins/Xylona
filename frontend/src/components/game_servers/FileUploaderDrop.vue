@@ -3,30 +3,30 @@
     ref="dragAndDropZone"
     @dragenter="props.targetElement && dragEnterEvent($event, props.targetElement)"
     @dragleave="props.targetElement && dragLeaveEvent($event, props.targetElement)"
-    @drop="props.targetElement && dragDropEvent($event, props.targetElement)"
-    @dragover="$event.preventDefault()">
+    @dragover="$event.preventDefault()"
+    @drop="props.targetElement && dragDropEvent($event, props.targetElement)">
     <slot></slot>
   </section>
   <q-dialog
     v-model="fileUploaderDialog"
-    backdrop-filter="brightness(25%)"
     aria-labelledby="dialog-title"
+    backdrop-filter="brightness(25%)"
     @hide="uploader.close()">
     <q-card
       id="fileUploaderCard"
       class="fileUploaderDialogCard q-px-lg"
       @dragenter="dragEnterEvent($event, 'fileUploaderCard')"
       @dragleave="dragLeaveEvent($event, 'fileUploaderCard')"
-      @drop="dragDropEvent($event, 'fileUploaderCard')"
-      @dragover="$event.preventDefault()">
+      @dragover="$event.preventDefault()"
+      @drop="dragDropEvent($event, 'fileUploaderCard')">
       <q-card-section>
         <div id="dialog-title" class="text-h6">File Upload (You can drag and drop files below)</div>
         <q-toolbar class="bg-xy-surface-2 q-py-sm">
           <q-btn
             v-if="uploader.files.size > 0"
             :icon="tabClearAll"
-            class="text-white bg-alert-brighter"
             aria-label="Clear all files"
+            class="text-white bg-alert-brighter"
             @click="uploader.removeQueuedFiles()">
             <q-tooltip>Clear All</q-tooltip>
           </q-btn>
@@ -44,20 +44,20 @@
           </div>
           <q-btn
             v-if="uploader.queuedFilesCount > 0 && uploader.canUpload"
-            class="text-white bg-success-darker"
             :icon="tabOutlineUpload"
             aria-label="Upload all files"
+            class="text-white bg-success-darker"
             @click="uploader.upload()">
             <q-tooltip>Upload Files</q-tooltip>
           </q-btn>
 
           <q-btn
             v-if="uploader.isUploading"
-            icon="clear"
             aria-label="Abort upload"
-            round
             dense
             flat
+            icon="clear"
+            round
             @click="uploader.abort()">
             <q-tooltip>Abort Upload</q-tooltip>
           </q-btn>
@@ -70,16 +70,16 @@
               v-show="uploader.files.size <= maxNumberOfFilesToDisplay"
               :key="file.key">
               <q-item-section v-if="file.status === FileStatus.Queued" avatar>
-                <q-icon size="lg" :name="tabDots" class="text-primary-brighter" />
+                <q-icon :name="tabDots" class="text-primary-brighter" size="lg" />
               </q-item-section>
               <q-item-section v-else-if="file.status === FileStatus.Error" avatar>
-                <q-icon size="lg" :name="tabAlertTriangle" class="text-error-brighter" />
+                <q-icon :name="tabAlertTriangle" class="text-error-brighter" size="lg" />
               </q-item-section>
               <q-item-section v-else-if="file.status === FileStatus.Uploaded" avatar>
-                <q-icon size="lg" :name="tabCheck" class="text-success-brighter" />
+                <q-icon :name="tabCheck" class="text-success-brighter" size="lg" />
               </q-item-section>
               <q-item-section v-else-if="file.status === FileStatus.Aborted" avatar>
-                <q-icon size="lg" :name="tabBarrierBlock" class="text-alert-brighter" />
+                <q-icon :name="tabBarrierBlock" class="text-alert-brighter" size="lg" />
               </q-item-section>
               <q-item-section>
                 <q-item-label class="full-width ellipsis">
@@ -93,15 +93,15 @@
                 </q-item-label>
               </q-item-section>
 
-              <q-item-section top side>
+              <q-item-section side top>
                 <q-btn
+                  :aria-label="file.status === FileStatus.Error ? 'Retry upload' : 'Remove file'"
+                  :icon="file.status === FileStatus.Error ? tabX : tabTrash"
                   class="gt-xs"
-                  size="1rem"
+                  color="negative"
                   flat
                   round
-                  color="negative"
-                  :icon="file.status === FileStatus.Error ? tabX : tabTrash"
-                  :aria-label="file.status === FileStatus.Error ? 'Retry upload' : 'Remove file'"
+                  size="1rem"
                   @click="uploader.removeFile(file)" />
               </q-item-section>
             </q-item>
@@ -136,11 +136,11 @@
         </div>
       </q-card-section>
       <q-card-actions align="right" class="">
-        <q-btn flat label="Close" class="text-xy-secondary" @click="uploader.close()" />
+        <q-btn class="text-xy-secondary" flat label="Close" @click="uploader.close()" />
         <q-btn
-          label="Upload"
-          class="bg-success"
           :disable="!uploader.canUpload || uploader.queuedFilesCount <= 0"
+          class="bg-success"
+          label="Upload"
           @click="uploader.upload()" />
       </q-card-actions>
       <q-inner-loading :showing="addingFiles">
@@ -150,7 +150,7 @@
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { ref, Ref } from 'vue'
 import { bytesToSize } from '@/utils/shared'
 import axios, { AxiosProgressEvent, AxiosRequestConfig } from 'axios'

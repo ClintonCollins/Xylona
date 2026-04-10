@@ -20,39 +20,39 @@
         <div class="xy-page-actions">
           <q-input
             v-model="search"
+            aria-label="Search nodes"
+            class="xy-search-input"
+            color="primary"
+            debounce="300"
             dense
             outlined
-            debounce="300"
-            color="primary"
-            placeholder="Search..."
-            aria-label="Search nodes"
-            class="xy-search-input">
+            placeholder="Search...">
             <template #append>
               <q-icon name="search" />
             </template>
           </q-input>
-          <q-btn flat color="primary" to="/nodes/activity" label="Activity" icon="notifications" />
-          <q-btn color="primary" to="/nodes/add" label="Add Node" />
+          <q-btn color="primary" flat icon="notifications" label="Activity" to="/nodes/activity" />
+          <q-btn color="primary" label="Add Node" to="/nodes/add" />
         </div>
       </div>
       <div>
         <q-table
           v-model:pagination="initialPagination"
-          flat
-          class="xy-standalone-table"
-          :grid="$q.screen.lt.md"
-          :rows="rows"
           :columns="columns"
-          row-key="id"
           :filter="search"
+          :grid="$q.screen.lt.md"
           :loading="loading"
-          hide-header-in-grid>
+          :rows="rows"
+          class="xy-standalone-table"
+          flat
+          hide-header-in-grid
+          row-key="id">
           <template #body-cell-name="props">
             <q-td :props="props">
               <button class="table-link" type="button" @click="openDetail(props.row)">
                 {{ props.row.name || 'Unnamed' }}
               </button>
-              <q-badge v-if="props.row.local" color="primary" class="q-ml-sm" label="local" />
+              <q-badge v-if="props.row.local" class="q-ml-sm" color="primary" label="local" />
               <q-badge v-else class="badge-remote q-ml-sm" label="remote" />
               <q-badge v-if="props.row.autoPaired" class="badge-auto q-ml-xs" label="auto" />
             </q-td>
@@ -140,13 +140,13 @@
                 <span v-else class="text-xy-muted">Never</span>
                 <q-badge
                   v-if="props.row.lastSyncStatus === 'error'"
-                  color="negative"
                   class="q-ml-sm"
+                  color="negative"
                   label="error" />
                 <q-badge
                   v-else-if="props.row.lastSyncStatus === 'success'"
-                  color="positive"
                   class="q-ml-sm"
+                  color="positive"
                   label="ok" />
               </template>
               <span v-else class="text-xy-muted">&mdash;</span>
@@ -156,30 +156,30 @@
             <q-td :props="props">
               <div v-if="!props.row.local" class="q-gutter-xs">
                 <q-btn
-                  flat
-                  dense
-                  color="primary"
-                  icon="sync"
                   aria-label="Sync node"
+                  color="primary"
+                  dense
+                  flat
+                  icon="sync"
                   @click="syncNode(props.row)">
                   <q-tooltip>Sync now</q-tooltip>
                 </q-btn>
                 <router-link :to="'/nodes/' + props.row.id + '/edit'">
                   <q-btn
-                    flat
-                    dense
-                    class="text-main-brighter"
                     :icon="tabSettings"
-                    aria-label="Edit node">
+                    aria-label="Edit node"
+                    class="text-main-brighter"
+                    dense
+                    flat>
                     <q-tooltip>Edit node</q-tooltip>
                   </q-btn>
                 </router-link>
                 <q-btn
-                  flat
-                  dense
-                  class="text-error-brighter"
                   :icon="tabTrash"
                   aria-label="Delete node"
+                  class="text-error-brighter"
+                  dense
+                  flat
                   @click="deleteNodeAction(props.row)">
                   <q-tooltip>Remove node</q-tooltip>
                 </q-btn>
@@ -187,11 +187,11 @@
               <div v-else class="q-gutter-xs">
                 <router-link :to="'/nodes/' + props.row.id + '/edit'">
                   <q-btn
-                    flat
-                    dense
-                    class="text-main-brighter"
                     :icon="tabSettings"
-                    aria-label="Edit node">
+                    aria-label="Edit node"
+                    class="text-main-brighter"
+                    dense
+                    flat>
                     <q-tooltip>Edit node</q-tooltip>
                   </q-btn>
                 </router-link>
@@ -200,7 +200,7 @@
           </template>
           <template #no-data>
             <div class="full-width column items-center q-pa-lg text-xy-secondary">
-              <q-icon name="dns" size="3rem" class="q-mb-sm text-xy-muted" />
+              <q-icon class="q-mb-sm text-xy-muted" name="dns" size="3rem" />
               <div class="text-subtitle1">No nodes found</div>
               <div class="text-caption text-xy-muted">
                 Add a remote node to get started with federation.
@@ -215,54 +215,54 @@
       <div class="xy-page-header">
         <div class="row items-center">
           <q-btn
-            flat
-            dense
-            round
-            icon="arrow_back"
             aria-label="Back to nodes"
+            dense
+            flat
+            icon="arrow_back"
+            round
             @click="detailNode = null" />
           <div class="text-h6 q-ml-sm">{{ detailNode.name || 'Node Details' }}</div>
-          <q-badge v-if="detailNode.local" color="primary" class="q-ml-sm" label="local" />
+          <q-badge v-if="detailNode.local" class="q-ml-sm" color="primary" label="local" />
           <q-badge v-else class="badge-remote q-ml-sm" label="remote" />
         </div>
         <div v-if="!detailNode.local" class="xy-page-actions">
           <q-btn
-            flat
-            dense
             color="primary"
+            dense
+            flat
             icon="sync"
             label="Sync"
             @click="syncNode(detailNode)" />
           <q-btn
-            flat
-            dense
-            class="text-main-brighter"
             :icon="tabSettings"
-            label="Edit"
-            :to="'/nodes/' + detailNode.id + '/edit'" />
-          <q-btn
-            flat
+            :to="'/nodes/' + detailNode.id + '/edit'"
+            class="text-main-brighter"
             dense
-            class="text-error-brighter"
+            flat
+            label="Edit" />
+          <q-btn
             :icon="tabTrash"
+            class="text-error-brighter"
+            dense
+            flat
             label="Remove"
             @click="deleteNodeAction(detailNode)" />
         </div>
         <div v-else class="xy-page-actions">
           <q-btn
-            flat
-            dense
-            class="text-main-brighter"
             :icon="tabSettings"
-            label="Edit"
-            :to="'/nodes/' + detailNode.id + '/edit'" />
+            :to="'/nodes/' + detailNode.id + '/edit'"
+            class="text-main-brighter"
+            dense
+            flat
+            label="Edit" />
         </div>
       </div>
 
       <node-detail-panel
         :node="detailNode"
-        :system-info="getNodeSummary(detailNode.id)?.systemInfo"
-        :snapshot="getSnapshot(detailNode.id)" />
+        :snapshot="getSnapshot(detailNode.id)"
+        :system-info="getNodeSummary(detailNode.id)?.systemInfo" />
     </div>
 
     <q-dialog v-model="showDeleteDialog" aria-labelledby="dialog-title">
@@ -277,14 +277,14 @@
         </q-card-section>
         <q-card-actions align="right">
           <q-btn v-close-popup flat label="Cancel" />
-          <q-btn flat label="Remove" color="negative" @click="confirmDelete" />
+          <q-btn color="negative" flat label="Remove" @click="confirmDelete" />
         </q-card-actions>
       </q-card>
     </q-dialog>
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useStorage } from '@vueuse/core'
@@ -292,11 +292,11 @@ import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import {
+  bytesToSize,
   ConnectErrorToString,
   GetOrCreateXylonaWebsocketClient,
   GetXylonaClient,
   XylonaEventBus,
-  bytesToSize,
 } from '@/utils/shared'
 import { Node, NodeResourceSnapshot } from '@/proto/shared_pb'
 import { AllNodeMetrics } from '@/proto/websocket_pb'

@@ -6,6 +6,7 @@ data.sqlite
 /cmd/minecraft_version_hasher/test_jars/
 /cmd/minecraft_version_hasher/versions/
 /dist/
+/node_modules/
 /notes.txt
 /data.sqlite-shm
 /data.sqlite-wal

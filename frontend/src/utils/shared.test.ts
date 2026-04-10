@@ -16,9 +16,9 @@ import {
   bytesToSize1,
   dispatchWebsocketMessage,
   getColorFromFilenameExtension,
+  getIconFromFilenameExtension,
   GetPathSeparator,
   GetRelativeFilePath,
-  getIconFromFilenameExtension,
   StatusToString,
   XylonaEventBus,
 } from './shared'

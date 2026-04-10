@@ -3,10 +3,10 @@
     <file-uploader-drop
       v-model:file-uploader-dialog="fileUploaderDialog"
       :game-server-id="gameServerId"
-      :path-separator="pathSeparator"
       :path="path"
-      :upload-u-r-l="uploadURL"
+      :path-separator="pathSeparator"
       :target-element="fileListContainer"
+      :upload-u-r-l="uploadURL"
       @uploaded-files="listDirectoryFiles(path)">
       <div
         ref="fileListContainer"
@@ -38,48 +38,48 @@
             </span>
             <q-btn
               v-if="renameButtonEnabled"
-              flat
               dense
+              flat
               icon="edit"
               label="Rename"
               @click="renameFilesDialog = true" />
             <q-btn
               v-if="moveButtonEnabled"
-              flat
               dense
+              flat
               icon="drive_file_move"
               label="Move"
               @click="moveFilesDialog = true" />
             <q-btn
               v-if="zipButtonEnabled"
-              flat
               dense
+              flat
               icon="archive"
               label="Archive"
               @click="archiveFilesDialog = true" />
             <q-btn
               v-if="extractButtonEnabled"
-              flat
               dense
+              flat
               icon="unarchive"
               label="Extract"
               @click="extractFilesDialog = true" />
             <q-btn
               v-if="deleteButtonEnabled"
-              flat
-              dense
               color="negative"
+              dense
+              flat
               icon="delete"
               label="Delete"
               @click="deleteFilesDialog = true" />
           </div>
           <q-space />
           <q-btn
-            flat
+            class="gt-xs"
             dense
+            flat
             icon="link"
             label="URL Upload"
-            class="gt-xs"
             @click="fileUploaderDialog = true" />
         </div>
         <div class="row q-py-sm">
@@ -87,9 +87,9 @@
             <q-input
               v-model="path"
               :prefix="gameServer.directory + pathSeparator"
-              outlined
-              dense
               aria-label="File path"
+              dense
+              outlined
               @keydown.prevent.enter="updatePathFromInput"></q-input>
           </div>
         </div>
@@ -103,7 +103,7 @@
         </div>
         <q-separator class="q-my-sm"></q-separator>
         <div v-if="directories.length === 0 && files.length === 0" class="file-empty-state">
-          <q-icon name="folder_open" size="3rem" class="text-xy-muted q-mb-sm" />
+          <q-icon class="text-xy-muted q-mb-sm" name="folder_open" size="3rem" />
           <div class="text-subtitle1 text-xy-secondary">This directory is empty</div>
           <div class="text-caption text-xy-muted q-mt-xs">
             Upload files or create new ones using the toolbar above.
@@ -113,8 +113,8 @@
           <div
             v-for="directory in directories"
             :key="directory.name"
-            class="row file-list-body-row q-px-sm"
-            :class="fileIsSelectedClass(directory)">
+            :class="fileIsSelectedClass(directory)"
+            class="row file-list-body-row q-px-sm">
             <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
               <q-checkbox
                 v-if="directory.name !== '..'"
@@ -128,7 +128,7 @@
               @click="clickDirectory(directory)"
               @keydown.enter="clickDirectory(directory)"
               @keydown.space.prevent="clickDirectory(directory)">
-              <q-icon size="xs" color="amber" :name="tabFolderFilled" left></q-icon>
+              <q-icon :name="tabFolderFilled" color="amber" left size="xs"></q-icon>
               <span class="file-name">{{ directory.name }}</span>
             </div>
             <div class="col-xs-5 col-sm-3 file-list-cell">
@@ -141,9 +141,9 @@
           <div
             v-for="file in files"
             :key="file.name"
-            class="row file-list-body-row q-px-sm"
             :class="fileIsSelectedClass(file)"
             :data-file-name="file.name"
+            class="row file-list-body-row q-px-sm"
             draggable="false">
             <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
               <q-checkbox v-model="selectedFiles" :val="file"></q-checkbox>
@@ -156,17 +156,17 @@
               @keydown.enter="clickFile(file)"
               @keydown.space.prevent="clickFile(file)">
               <q-icon
-                size="xs"
-                :style="'color:' + getColorFromFilenameExtension(file.name)"
                 :name="getIconFromFilenameExtension(file.name)"
-                left></q-icon>
+                :style="'color:' + getColorFromFilenameExtension(file.name)"
+                left
+                size="xs"></q-icon>
               <span class="file-name">{{ file.name }}</span>
             </div>
             <div class="col-xs-5 col-sm-3 file-list-cell">{{ bytesToSize(Number(file.size)) }}</div>
             <div class="col-xs-3 file-list-cell gt-sm">{{ toTimestamp(file.lastModified) }}</div>
           </div>
         </div>
-        <q-menu ref="contextMenu" touch-position context-menu>
+        <q-menu ref="contextMenu" context-menu touch-position>
           <q-list>
             <q-item v-ripple clickable @click="selectAllFiles = true">
               <q-item-section> Select All</q-item-section>
@@ -179,32 +179,32 @@
       </div>
     </file-uploader-drop>
   </q-card-section>
-  <q-dialog v-model="editorModal" no-shake persistent backdrop-filter="blur(6px) brightness(15%)">
+  <q-dialog v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)" no-shake persistent>
     <editor
       v-model:code-input="editorFileContent"
       :file-name="editorFilename"
-      :game-server-id="gameServerId"
       :full-file-path="editorFilePath"
+      :game-server-id="gameServerId"
       @submit="refreshFileList"></editor>
   </q-dialog>
   <archive-files
-    v-model:show-dialog="archiveFilesDialog"
     v-model:archive-name="archiveName"
-    :path-separator="pathSeparator"
-    :path="path"
-    :selected-files="selectedFiles"
+    v-model:show-dialog="archiveFilesDialog"
     :game-server-id="gameServerId"
-    @submit="refreshFileList"
-    @cancel="archiveFilesDialog = false">
+    :path="path"
+    :path-separator="pathSeparator"
+    :selected-files="selectedFiles"
+    @cancel="archiveFilesDialog = false"
+    @submit="refreshFileList">
   </archive-files>
   <extract-files
     v-model:show-dialog="extractFilesDialog"
-    :game-server-path="gameServer.directory"
-    :game-server-id="gameServerId"
-    :path="path"
     :full-archive-path="GetRelativeFilePath(gameServer.directory, path, selectedFiles[0]?.name)"
-    @submit="refreshFileList"
-    @cancel="extractFilesDialog = false">
+    :game-server-id="gameServerId"
+    :game-server-path="gameServer.directory"
+    :path="path"
+    @cancel="extractFilesDialog = false"
+    @submit="refreshFileList">
   </extract-files>
   <create
     v-model:show-dialog="createFilesDialog"
@@ -215,37 +215,35 @@
   </create>
   <rename-file
     v-model:show-dialog="renameFilesDialog"
+    :game-server-id="gameServerId"
+    :game-server-path="gameServer.directory"
     :old-file-name="selectedFiles[0]?.name"
     :path="path"
-    :game-server-path="gameServer.directory"
-    :game-server-id="gameServerId"
     @submit="refreshFileList">
   </rename-file>
   <move-files
     v-model:show-dialog="moveFilesDialog"
-    :path="path"
-    :game-server-path="gameServer.directory"
     :game-server-id="gameServerId"
-    :selected-files="selectedFiles"
+    :game-server-path="gameServer.directory"
     :neighboring-directories-in-path="directories.map((f) => f.name)"
+    :path="path"
+    :selected-files="selectedFiles"
     @submit="refreshFileList">
   </move-files>
   <delete-game-server-files-dialog
     v-model:show-dialog="deleteFilesDialog"
-    :files-to-delete="selectedFiles"
     :current-path="path"
-    :path-separator="pathSeparator"
+    :files-to-delete="selectedFiles"
     :game-server-i-d="gameServerId"
+    :path-separator="pathSeparator"
     @files-deleted="refreshFileList()">
   </delete-game-server-files-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
-import { defineAsyncComponent } from 'vue'
-
-const Editor = defineAsyncComponent(() => import('@/components/Editor.vue'))
+import { computed, defineAsyncComponent, onMounted, ref, Ref, watch } from 'vue'
 import ArchiveFiles from '@/components/game_servers/ArchiveFiles.vue'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in template as <create>
 import Create from '@/components/game_servers/Create.vue'
@@ -274,10 +272,11 @@ import {
   GetRelativeFilePath,
   GetXylonaClient,
 } from '@/utils/shared'
-import { computed, onMounted, ref, Ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Timestamp, timestampDate, TimestampSchema } from '@bufbuild/protobuf/wkt'
 import { GetGameServerRequest, GetGameServerRequestSchema } from '@/proto/xylona_pb'
+
+const Editor = defineAsyncComponent(() => import('@/components/Editor.vue'))
 
 const $q = useQuasar()
 const uploadURL: Ref<string> = ref('/api/file/upload')

@@ -3,12 +3,12 @@
     <!-- Sentinel for sticky detection -->
     <div ref="stickySentinel" class="sticky-sentinel"></div>
     <!-- Header -->
-    <div class="game-form-header" :class="{ 'is-stuck': isStuck }">
+    <div :class="{ 'is-stuck': isStuck }" class="game-form-header">
       <div class="game-form-header-left">
-        <nav class="game-form-breadcrumbs" aria-label="Breadcrumb">
+        <nav aria-label="Breadcrumb" class="game-form-breadcrumbs">
           <ol class="breadcrumb-list">
             <li>
-              <router-link to="/games" class="breadcrumb-link">Games</router-link>
+              <router-link class="breadcrumb-link" to="/games">Games</router-link>
             </li>
             <li aria-current="page">
               <span class="breadcrumb-current">{{ breadcrumbLabel }}</span>
@@ -20,23 +20,23 @@
       <div class="game-form-header-actions">
         <router-link
           v-if="!existingGame && !copyGame"
-          to="/games/new"
-          class="game-form-guided-link text-caption">
+          class="game-form-guided-link text-caption"
+          to="/games/new">
           Use guided setup
         </router-link>
-        <q-btn flat label="Cancel" :disable="submitting" @click="handleCancel" />
+        <q-btn :disable="submitting" flat label="Cancel" @click="handleCancel" />
         <q-btn
-          label="Save"
-          color="primary"
-          :loading="submitting"
           :disable="loading"
+          :loading="submitting"
+          color="primary"
+          label="Save"
           @click="submit" />
       </div>
     </div>
 
     <!-- Loading state -->
     <div v-if="loading" class="game-form-loading">
-      <q-spinner-dots size="40px" color="primary" />
+      <q-spinner-dots color="primary" size="40px" />
       <div class="text-xy-secondary q-mt-sm">Loading game details...</div>
     </div>
 
@@ -44,22 +44,22 @@
       <q-form ref="formRef">
         <div class="game-form-tabs-panel">
           <div class="game-form-tabs-shell">
-            <div class="game-form-tabs" role="tablist" aria-label="Game editor sections">
+            <div aria-label="Game editor sections" class="game-form-tabs" role="tablist">
               <button
                 v-for="tab in formTabs"
                 :id="formTabID(tab.id)"
                 :key="tab.id"
-                :data-testid="`game-form-tab-${tab.id}`"
-                type="button"
-                role="tab"
-                class="game-form-tab"
-                :class="{ 'game-form-tab--active': activeFormTab === tab.id }"
                 :aria-controls="formTabPanelID(tab.id)"
                 :aria-selected="activeFormTab === tab.id"
+                :class="{ 'game-form-tab--active': activeFormTab === tab.id }"
+                :data-testid="`game-form-tab-${tab.id}`"
                 :tabindex="activeFormTab === tab.id ? 0 : -1"
                 :title="tab.copy"
-                @keydown="handleFormTabKeydown($event, tab.id)"
-                @click="activeFormTab = tab.id">
+                class="game-form-tab"
+                role="tab"
+                type="button"
+                @click="activeFormTab = tab.id"
+                @keydown="handleFormTabKeydown($event, tab.id)">
                 <span class="game-form-tab__label font-display">{{ tab.label }}</span>
               </button>
             </div>
@@ -71,48 +71,48 @@
         <div
           v-show="activeFormTab === 'overview'"
           :id="formTabPanelID('overview')"
-          data-testid="game-form-tab-panel-overview"
-          role="tabpanel"
           :aria-hidden="activeFormTab !== 'overview'"
-          :inert="activeFormTab !== 'overview'"
           :aria-labelledby="formTabID('overview')"
-          class="game-form-tab-panel">
+          :inert="activeFormTab !== 'overview'"
+          class="game-form-tab-panel"
+          data-testid="game-form-tab-panel-overview"
+          role="tabpanel">
           <game-form-overview-tab />
         </div>
 
         <div
           v-show="activeFormTab === 'runtime'"
           :id="formTabPanelID('runtime')"
-          data-testid="game-form-tab-panel-runtime"
-          role="tabpanel"
           :aria-hidden="activeFormTab !== 'runtime'"
-          :inert="activeFormTab !== 'runtime'"
           :aria-labelledby="formTabID('runtime')"
-          class="game-form-tab-panel">
+          :inert="activeFormTab !== 'runtime'"
+          class="game-form-tab-panel"
+          data-testid="game-form-tab-panel-runtime"
+          role="tabpanel">
           <game-form-runtime-tab />
         </div>
 
         <div
           v-show="activeFormTab === 'mods'"
           :id="formTabPanelID('mods')"
-          data-testid="game-form-tab-panel-mods"
-          role="tabpanel"
           :aria-hidden="activeFormTab !== 'mods'"
-          :inert="activeFormTab !== 'mods'"
           :aria-labelledby="formTabID('mods')"
-          class="game-form-tab-panel">
+          :inert="activeFormTab !== 'mods'"
+          class="game-form-tab-panel"
+          data-testid="game-form-tab-panel-mods"
+          role="tabpanel">
           <game-form-mods-tab />
         </div>
 
         <div
           v-show="activeFormTab === 'config'"
           :id="formTabPanelID('config')"
-          data-testid="game-form-tab-panel-config"
-          role="tabpanel"
           :aria-hidden="activeFormTab !== 'config'"
-          :inert="activeFormTab !== 'config'"
           :aria-labelledby="formTabID('config')"
-          class="game-form-tab-panel">
+          :inert="activeFormTab !== 'config'"
+          class="game-form-tab-panel"
+          data-testid="game-form-tab-panel-config"
+          role="tabpanel">
           <game-form-config-tab />
         </div>
       </q-form>
@@ -120,10 +120,10 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useQuasar, QForm } from 'quasar'
+import { QForm, useQuasar } from 'quasar'
 import {
   AddGameRequest,
   AddGameRequestSchema,
@@ -136,15 +136,15 @@ import {
   type ListGameServersResponse,
   UpdateGameConfigSchemasRequestSchema,
 } from '@/proto/xylona_pb'
-import { GetXylonaClient, ConnectErrorToString } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, Ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   CommandType,
   Game,
   GameSchema,
-  type ModSource,
   ModProfileSchema,
+  type ModSource,
   ModSourceSchema,
   UpdateProviderConfigSchema,
 } from '@/proto/shared_pb'
@@ -154,10 +154,10 @@ import GameFormRuntimeTab from './GameFormRuntimeTab.vue'
 import GameFormModsTab from './GameFormModsTab.vue'
 import GameFormConfigTab from './GameFormConfigTab.vue'
 import {
-  gameFormContextKey,
   type GameFormContext,
-  type Platform,
+  gameFormContextKey,
   type GameFormTabID,
+  type Platform,
 } from './GameFormTypes'
 import {
   parseStartArgBlocklist,

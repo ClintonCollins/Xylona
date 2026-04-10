@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="editor-header">
       <div class="editor-header-info">
-        <q-btn flat dense round icon="arrow_back" size="sm" @click="$emit('back')" />
+        <q-btn dense flat icon="arrow_back" round size="sm" @click="$emit('back')" />
         <div>
           <div class="editor-title font-display">Schema Editor</div>
           <div class="editor-subtitle text-xy-secondary font-mono">{{ filePath }}</div>
@@ -12,15 +12,15 @@
       <div class="editor-header-actions">
         <q-btn-toggle
           v-model="mode"
-          flat
-          dense
-          toggle-color="primary"
           :options="[
             { label: 'Form Builder', value: 'form' },
             { label: 'Raw JSON', value: 'json' },
           ]"
-          class="mode-toggle" />
-        <q-btn color="primary" label="Save Schema" icon="save" size="sm" @click="handleSave" />
+          class="mode-toggle"
+          dense
+          flat
+          toggle-color="primary" />
+        <q-btn color="primary" icon="save" label="Save Schema" size="sm" @click="handleSave" />
       </div>
     </div>
 
@@ -32,14 +32,14 @@
         <div class="toolbar-left">
           <q-checkbox
             v-if="fields.length > 0"
-            :model-value="visibleFields.length > 0 && selectedFields.length >= visibleFields.length"
             :indeterminate-value="true"
+            :model-value="visibleFields.length > 0 && selectedFields.length >= visibleFields.length"
             :model-value-indeterminate="
               selectedFields.length > 0 && selectedFields.length < visibleFields.length
             "
+            class="select-all-checkbox"
             dense
             size="sm"
-            class="select-all-checkbox"
             @update:model-value="toggleSelectAll">
             <q-tooltip>{{
               selectedFields.length >= visibleFields.length ? 'Deselect all' : 'Select all'
@@ -50,36 +50,36 @@
           </span>
           <q-btn
             v-if="fields.length > 0"
-            flat
-            dense
-            round
-            icon="unfold_more"
-            size="xs"
             class="text-xy-muted"
+            dense
+            flat
+            icon="unfold_more"
+            round
+            size="xs"
             @click="forceExpanded = true">
             <q-tooltip>Expand all</q-tooltip>
           </q-btn>
           <q-btn
             v-if="fields.length > 0"
-            flat
-            dense
-            round
-            icon="unfold_less"
-            size="xs"
             class="text-xy-muted"
+            dense
+            flat
+            icon="unfold_less"
+            round
+            size="xs"
             @click="forceExpanded = false">
             <q-tooltip>Collapse all</q-tooltip>
           </q-btn>
         </div>
         <div class="toolbar-actions">
           <q-btn
-            outline
             color="accent"
-            label="Import Fields"
             icon="upload_file"
+            label="Import Fields"
+            outline
             size="sm"
             @click="showImportDialog = true" />
-          <q-btn outline color="primary" label="Add Field" icon="add" size="sm" @click="addField" />
+          <q-btn color="primary" icon="add" label="Add Field" outline size="sm" @click="addField" />
         </div>
       </div>
 
@@ -87,42 +87,42 @@
       <div v-if="fields.length > 0" class="schema-search">
         <q-input
           v-model="searchQuery"
+          class="schema-search-input"
+          clearable
           dense
           outlined
           placeholder="Search fields..."
-          class="schema-search-input"
-          clearable
           @clear="searchQuery = ''">
           <template #prepend>
-            <q-icon name="search" size="xs" class="text-xy-muted" />
+            <q-icon class="text-xy-muted" name="search" size="xs" />
           </template>
         </q-input>
         <q-btn-toggle
           v-model="managedFilter"
-          flat
-          dense
-          no-caps
-          toggle-color="accent"
-          size="xs"
           :options="[
             { label: 'All', value: 'all' },
             { label: 'Managed', value: 'managed' },
             { label: 'Unmanaged', value: 'unmanaged' },
           ]"
-          class="schema-filter-toggle" />
+          class="schema-filter-toggle"
+          dense
+          flat
+          no-caps
+          size="xs"
+          toggle-color="accent" />
         <q-btn-toggle
           v-model="requiredFilter"
-          flat
-          dense
-          no-caps
-          toggle-color="accent"
-          size="xs"
           :options="[
             { label: 'All', value: 'all' },
             { label: 'Required', value: 'required' },
             { label: 'Optional', value: 'optional' },
           ]"
-          class="schema-filter-toggle" />
+          class="schema-filter-toggle"
+          dense
+          flat
+          no-caps
+          size="xs"
+          toggle-color="accent" />
         <span v-if="hasActiveFilters" class="text-xy-muted schema-search-count">
           {{ filteredFields.length }} / {{ fields.length }}
         </span>
@@ -135,29 +135,29 @@
         </span>
         <q-input
           v-model="bulkGroupName"
+          class="bulk-group-input"
           dense
           outlined
           placeholder="Group name..."
-          class="bulk-group-input"
           @keyup.enter="applyBulkGroup">
           <template #append>
             <q-btn
-              flat
-              dense
-              round
-              icon="check"
-              size="xs"
-              color="primary"
               :disable="!bulkGroupName.trim()"
+              color="primary"
+              dense
+              flat
+              icon="check"
+              round
+              size="xs"
               @click="applyBulkGroup">
               <q-tooltip>Apply group</q-tooltip>
             </q-btn>
           </template>
           <q-menu
             v-if="bulkGroupSuggestions.length > 0"
+            :model-value="bulkGroupSuggestions.length > 0"
             fit
-            no-parent-event
-            :model-value="bulkGroupSuggestions.length > 0">
+            no-parent-event>
             <q-list dense>
               <q-item
                 v-for="g in bulkGroupSuggestions"
@@ -170,23 +170,23 @@
           </q-menu>
         </q-input>
         <q-btn
-          flat
-          dense
-          size="xs"
-          label="Clear group"
           class="text-xy-muted"
+          dense
+          flat
+          label="Clear group"
+          size="xs"
           @click="clearBulkGroup" />
         <q-btn
-          flat
-          dense
-          size="xs"
-          label="Deselect all"
           class="text-xy-muted"
+          dense
+          flat
+          label="Deselect all"
+          size="xs"
           @click="selectedFields = []" />
       </div>
 
       <div v-if="fields.length === 0" class="form-builder-empty">
-        <q-icon name="playlist_add" size="48px" class="text-xy-muted q-mb-md" />
+        <q-icon class="text-xy-muted q-mb-md" name="playlist_add" size="48px" />
         <div class="text-xy-secondary">No fields defined yet</div>
         <div class="text-caption text-xy-muted q-mt-xs">
           Add fields to define the configuration schema for this file.
@@ -197,50 +197,50 @@
         <template v-for="group in displayGroups" :key="group.name">
           <div
             v-if="group.fields.length > 0"
-            class="schema-field-group"
             :class="{ 'drag-over-group': dragOverGroup === group.name }"
-            @dragover.prevent="onGroupDragOver($event, group.name)"
+            class="schema-field-group"
             @dragleave="onGroupDragLeave($event, group.name)"
+            @dragover.prevent="onGroupDragOver($event, group.name)"
             @drop.prevent="onGroupDrop(group.name)">
             <div
-              class="schema-group-header"
-              :draggable="group.name !== ''"
               :class="{ dragging: draggedGroup === group.name }"
+              :draggable="group.name !== ''"
+              class="schema-group-header"
               @click="toggleGroupExpand(group.name)"
-              @dragstart="onGroupDragStart($event, group.name)"
-              @dragend="onGroupDragEnd">
+              @dragend="onGroupDragEnd"
+              @dragstart="onGroupDragStart($event, group.name)">
               <q-icon
                 v-if="group.name"
+                class="text-xy-muted drag-handle"
                 name="drag_indicator"
                 size="xs"
-                class="text-xy-muted drag-handle"
                 @click.stop />
               <q-icon
                 :name="isGroupExpanded(group.name) ? 'expand_more' : 'chevron_right'"
-                size="xs"
-                class="text-xy-muted" />
+                class="text-xy-muted"
+                size="xs" />
               <span class="schema-group-title">{{ group.displayName }}</span>
               <span class="schema-group-count text-xy-muted">{{ group.fields.length }}</span>
               <div class="schema-group-actions" @click.stop>
                 <q-btn
                   v-if="group.name"
-                  flat
-                  dense
-                  round
-                  icon="arrow_upward"
-                  size="xs"
                   class="text-xy-muted group-move-btn"
+                  dense
+                  flat
+                  icon="arrow_upward"
+                  round
+                  size="xs"
                   @click="moveGroupUp(group.name)">
                   <q-tooltip>Move group up</q-tooltip>
                 </q-btn>
                 <q-btn
                   v-if="group.name"
-                  flat
-                  dense
-                  round
-                  icon="arrow_downward"
-                  size="xs"
                   class="text-xy-muted group-move-btn"
+                  dense
+                  flat
+                  icon="arrow_downward"
+                  round
+                  size="xs"
                   @click="moveGroupDown(group.name)">
                   <q-tooltip>Move group down</q-tooltip>
                 </q-btn>
@@ -250,35 +250,35 @@
               <div
                 v-for="(field, index) in group.fields"
                 :key="field.key || index"
-                draggable="true"
-                class="field-select-row"
                 :class="{
                   dragging: draggedField === field,
                   'drag-over-above': dragOverField === field && dragOverPosition === 'above',
                   'drag-over-below': dragOverField === field && dragOverPosition === 'below',
                 }"
-                @dragstart="onFieldDragStart($event, field, group.name)"
+                class="field-select-row"
+                draggable="true"
                 @dragend="onFieldDragEnd"
-                @dragover.prevent="onFieldDragOver($event, field, group.name)"
                 @dragleave="onFieldDragLeave"
+                @dragstart="onFieldDragStart($event, field, group.name)"
+                @dragover.prevent="onFieldDragOver($event, field, group.name)"
                 @drop.prevent="onFieldDrop(field, group.name)">
                 <q-icon
+                  class="text-xy-muted drag-handle field-drag-handle"
                   name="drag_indicator"
-                  size="xs"
-                  class="text-xy-muted drag-handle field-drag-handle" />
+                  size="xs" />
                 <q-checkbox
                   :model-value="isFieldSelected(field)"
+                  class="field-select-checkbox"
                   dense
                   size="sm"
-                  class="field-select-checkbox"
                   @update:model-value="toggleFieldSelection(field)" />
                 <config-schema-field-card
-                  :model-value="field"
-                  :force-expanded="forceExpanded"
                   :available-groups="availableGroups"
+                  :force-expanded="forceExpanded"
+                  :model-value="field"
                   class="field-select-card"
-                  @update:model-value="updateFieldByRef(field, $event)"
                   @remove="removeFieldByRef(field)"
+                  @update:model-value="updateFieldByRef(field, $event)"
                   @move-up="moveFieldUp(field)"
                   @move-down="moveFieldDown(field)" />
               </div>
@@ -300,7 +300,7 @@
           <q-separator />
           <q-card-actions align="right" class="q-pa-md">
             <q-btn flat label="Cancel" @click="showImportDialog = false" />
-            <q-btn color="primary" label="Import" :disable="!pendingImport" @click="applyImport" />
+            <q-btn :disable="!pendingImport" color="primary" label="Import" @click="applyImport" />
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -309,12 +309,12 @@
     <!-- Raw JSON Mode -->
     <div v-else class="json-editor">
       <div
-        class="json-status-bar"
         :class="{
           'json-valid': jsonValid && jsonWarnings.length === 0,
           'json-warning': jsonValid && jsonWarnings.length > 0,
           'json-invalid': !jsonValid,
-        }">
+        }"
+        class="json-status-bar">
         <q-icon
           :name="!jsonValid ? 'error' : jsonWarnings.length > 0 ? 'warning' : 'check_circle'"
           size="xs" />
@@ -330,16 +330,13 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useQuasar } from 'quasar'
-import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
 import type { SchemaFieldModel } from './ConfigSchemaFieldCard.vue'
+import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
 import ConfigImportInput from './ConfigImportInput.vue'
-import {
-  toBackendManagedSource,
-  toFrontendManagedSource,
-} from '@/components/shared/placeholder-definitions'
+import { toBackendManagedSource, toFrontendManagedSource, } from '@/components/shared/placeholder-definitions'
 import type { ImportDetectionResult, ImportedField } from '@/utils/config-import'
 import { groupFields } from '../game_servers/config-field-helpers'
 

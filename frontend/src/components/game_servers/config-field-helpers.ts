@@ -24,7 +24,8 @@ export function buildCategoryColorMap(configFiles: { category: string }[]): Map<
   const map = new Map<string, string>()
   const categories = [...new Set(configFiles.map((f) => f.category || 'Uncategorized'))]
   categories.forEach((cat, i) => {
-    map.set(cat, CATEGORY_COLORS[i % CATEGORY_COLORS.length])
+    const color = CATEGORY_COLORS[i % CATEGORY_COLORS.length] ?? CATEGORY_COLORS[0] ?? '#3B82F6'
+    map.set(cat, color)
   })
   return map
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { mount } from '@vue/test-utils'
 import type { MountingOptions } from '@vue/test-utils'
-import { UpdateStep, StepStatus } from '@/proto/xylona_pb'
+import { mount } from '@vue/test-utils'
+import { StepStatus, UpdateStep } from '@/proto/xylona_pb'
 import OperationProgressDialog from './OperationProgressDialog.vue'
 
 type TestStubs = Exclude<

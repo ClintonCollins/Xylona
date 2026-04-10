@@ -1,9 +1,8 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { create as createProto } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
 
 import { NodeSchema } from '@/proto/shared_pb'
 import { UserSchema } from '@/proto/xylona_pb'

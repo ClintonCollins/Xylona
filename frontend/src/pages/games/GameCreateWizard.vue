@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { ref, onMounted } from 'vue'
+<script lang="ts" setup>
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -164,16 +164,16 @@ function platformText(): string {
   <q-page class="wizard-page">
     <div class="wizard-container">
       <!-- Step: Select type -->
-      <transition name="wizard-fade" mode="out-in">
+      <transition mode="out-in" name="wizard-fade">
         <div v-if="step === 'select'" key="select" class="wizard-step">
           <h1 class="wizard-title">Add a Game</h1>
           <p class="wizard-subtitle">Choose how you want to set up your game server.</p>
 
           <div class="selection-cards">
             <button
+              aria-label="SteamCMD setup"
               class="selection-card"
               type="button"
-              aria-label="SteamCMD setup"
               @click="selectSteamCMD">
               <div class="selection-card__icon">
                 <q-icon name="mdi-steam" size="3rem" />
@@ -185,9 +185,9 @@ function platformText(): string {
             </button>
 
             <button
+              aria-label="Custom setup"
               class="selection-card"
               type="button"
-              aria-label="Custom setup"
               @click="selectCustom">
               <div class="selection-card__icon">
                 <q-icon name="mdi-cog" size="3rem" />
@@ -200,8 +200,8 @@ function platformText(): string {
           <div class="wizard-footer">
             <q-toggle
               :model-value="alwaysAdvanced"
-              label="Always use advanced mode"
               color="accent"
+              label="Always use advanced mode"
               @update:model-value="onAlwaysAdvancedChange" />
           </div>
         </div>
@@ -210,11 +210,11 @@ function platformText(): string {
         <div v-else-if="step === 'search'" key="search" class="wizard-step">
           <div class="wizard-step-header">
             <q-btn
-              flat
-              round
-              icon="mdi-arrow-left"
-              color="grey-5"
               aria-label="Back to selection"
+              color="grey-5"
+              flat
+              icon="mdi-arrow-left"
+              round
               @click="goBackToSelect" />
             <h2 class="wizard-step-title">Search Steam Apps</h2>
           </div>
@@ -229,11 +229,11 @@ function platformText(): string {
         <div v-else-if="step === 'preview'" key="preview" class="wizard-step">
           <div class="wizard-step-header">
             <q-btn
-              flat
-              round
-              icon="mdi-arrow-left"
-              color="grey-5"
               aria-label="Back to search"
+              color="grey-5"
+              flat
+              icon="mdi-arrow-left"
+              round
               @click="goBackToSearch" />
             <h2 class="wizard-step-title">Review Details</h2>
           </div>
@@ -249,7 +249,7 @@ function platformText(): string {
             v-if="detailsError && !detailsLoading"
             class="q-mb-md bg-warning text-dark rounded-borders">
             <template #avatar>
-              <q-icon name="mdi-alert-circle-outline" color="dark" />
+              <q-icon color="dark" name="mdi-alert-circle-outline" />
             </template>
             {{ detailsError }}
           </q-banner>
@@ -258,7 +258,7 @@ function platformText(): string {
           <div v-if="!detailsLoading" class="preview-content">
             <div class="preview-card">
               <div class="preview-card__header">
-                <q-icon name="mdi-steam" size="1.5rem" class="text-accent" />
+                <q-icon class="text-accent" name="mdi-steam" size="1.5rem" />
                 <span class="preview-card__app-id">App ID: {{ selectedApp?.appId }}</span>
               </div>
 
@@ -273,14 +273,14 @@ function platformText(): string {
                   <template v-if="details">
                     <q-icon
                       v-if="details.windowsSupport"
+                      class="q-mr-xs"
                       name="mdi-microsoft-windows"
-                      size="1.2rem"
-                      class="q-mr-xs" />
+                      size="1.2rem" />
                     <q-icon
                       v-if="details.linuxSupport"
+                      class="q-mr-xs"
                       name="mdi-linux"
-                      size="1.2rem"
-                      class="q-mr-xs" />
+                      size="1.2rem" />
                     {{ platformText() }}
                   </template>
                   <template v-else>Unknown</template>
@@ -303,7 +303,7 @@ function platformText(): string {
             </div>
 
             <div class="preview-info">
-              <q-icon name="mdi-information-outline" size="1rem" class="text-accent q-mr-xs" />
+              <q-icon class="text-accent q-mr-xs" name="mdi-information-outline" size="1rem" />
               <span class="text-xy-secondary text-caption">
                 These details will be used to pre-fill the game creation form. You can edit
                 everything on the next page.
@@ -312,11 +312,11 @@ function platformText(): string {
 
             <div class="preview-actions">
               <q-btn
-                unelevated
                 color="primary"
-                label="Continue"
                 icon-right="mdi-arrow-right"
+                label="Continue"
                 no-caps
+                unelevated
                 @click="continueToForm" />
             </div>
           </div>
@@ -326,7 +326,7 @@ function platformText(): string {
   </q-page>
 </template>
 
-<style scoped lang="scss">
+<style lang="scss" scoped>
 .wizard-page {
   display: flex;
   justify-content: center;

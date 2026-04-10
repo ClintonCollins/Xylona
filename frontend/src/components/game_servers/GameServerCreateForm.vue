@@ -1,16 +1,16 @@
 <template>
   <game-server-form-shell
-    breadcrumb-label="New Server"
     :form-submitting="formSubmitting"
-    guidance="Fields marked * are required."
-    header-title="Create Game Server"
     :loading="loading"
     :save-disabled="loading"
     :save-ready="createDeploymentReady"
+    breadcrumb-label="New Server"
+    guidance="Fields marked * are required."
+    header-title="Create Game Server"
     subtitle="Set the server route and limits. The footer only flags what still blocks save."
     @cancel="cancel"
     @save="submitGameServer">
-    <q-form ref="formRef" greedy class="server-form-layout">
+    <q-form ref="formRef" class="server-form-layout" greedy>
       <section class="form-section">
         <div class="section-header">
           <span class="section-icon section-icon--accent">
@@ -22,27 +22,27 @@
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
           <q-input
             v-model="gameServer.name"
-            class="col-12 col-md-6"
-            outlined
-            type="text"
-            autofocus
-            label="Server Name *"
             :rules="serverNameRules"
-            reactive-rules
+            autofocus
+            class="col-12 col-md-6"
+            label="Server Name *"
             lazy-rules
-            maxlength="80" />
+            maxlength="80"
+            outlined
+            reactive-rules
+            type="text" />
           <q-select
             v-model="gameServer.gameId"
-            class="col-12 col-md-6"
-            outlined
-            label="Game *"
-            emit-value
             :options="availableGames"
-            option-label="label"
-            map-options
             :rules="gameRules"
-            reactive-rules
+            class="col-12 col-md-6"
+            emit-value
+            label="Game *"
             lazy-rules
+            map-options
+            option-label="label"
+            outlined
+            reactive-rules
             @update:model-value="onGameSelected" />
         </div>
       </section>
@@ -58,39 +58,39 @@
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
           <q-select
             v-model="gameServer.userId"
-            class="col-12 col-md-4"
-            outlined
-            label="Owner *"
-            emit-value
             :options="availableUsers"
-            option-label="label"
-            map-options
             :rules="ownerRules"
-            reactive-rules
-            lazy-rules />
+            class="col-12 col-md-4"
+            emit-value
+            label="Owner *"
+            lazy-rules
+            map-options
+            option-label="label"
+            outlined
+            reactive-rules />
           <q-select
             v-model="gameServer.nodeId"
-            class="col-12 col-md-4"
-            outlined
-            label="Node *"
-            emit-value
             :options="nodes"
-            option-label="name"
-            map-options
-            option-value="id"
             :rules="nodeRules"
-            reactive-rules
-            lazy-rules />
+            class="col-12 col-md-4"
+            emit-value
+            label="Node *"
+            lazy-rules
+            map-options
+            option-label="name"
+            option-value="id"
+            outlined
+            reactive-rules />
           <q-select
             v-model="gameServer.ip"
-            class="col-12 col-md-4"
-            outlined
-            label="IP Address *"
             :options="availableIPs"
-            option-label="address"
             :rules="ipRules"
-            reactive-rules
-            lazy-rules />
+            class="col-12 col-md-4"
+            label="IP Address *"
+            lazy-rules
+            option-label="address"
+            outlined
+            reactive-rules />
         </div>
       </section>
 
@@ -105,24 +105,24 @@
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
           <q-input
             v-model.number="portModel"
-            class="col-12 col-sm-6"
-            outlined
-            type="number"
-            label="Port *"
-            :rules="portRules"
             :error="showPortAvailabilityError"
             :error-message="portAvailabilityErrorMessage"
+            :rules="portRules"
+            class="col-12 col-sm-6"
+            label="Port *"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
           <q-input
             v-model.number="queryPortModel"
-            class="col-12 col-sm-6"
-            outlined
-            type="number"
-            label="Query Port *"
             :rules="queryPortRules"
+            class="col-12 col-sm-6"
+            label="Query Port *"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
         </div>
       </section>
 
@@ -138,10 +138,10 @@
           <q-input
             v-model="gameServer.serverExecutable"
             class="col-12 col-lg-6"
-            outlined
-            type="text"
+            hint="Optional override for the {{SERVER_EXECUTABLE}} launch placeholder."
             label="Server Executable"
-            hint="Optional override for the {{SERVER_EXECUTABLE}} launch placeholder." />
+            outlined
+            type="text" />
         </div>
       </section>
 
@@ -156,37 +156,37 @@
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
           <q-input
             v-model.number="setPlayersModel"
-            class="col-12 col-sm-6 col-lg-4"
-            outlined
-            type="number"
-            label="Set Players *"
             :rules="setPlayersRules"
+            class="col-12 col-sm-6 col-lg-4"
+            label="Set Players *"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
           <q-input
             v-model.number="maxPlayersModel"
-            class="col-12 col-sm-6 col-lg-4"
-            outlined
-            type="number"
-            label="Max Players *"
             :rules="maxPlayersRules"
+            class="col-12 col-sm-6 col-lg-4"
+            label="Max Players *"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
           <q-input
             v-if="isMinecraftGame"
             v-model.number="maxMemoryModel"
-            class="col-12 col-lg-4"
-            outlined
-            type="number"
-            label="Max Memory MB *"
             :rules="maxMemoryRules"
+            class="col-12 col-lg-4"
+            label="Max Memory MB *"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
         </div>
       </section>
 
       <section class="form-section form-section--summary">
-        <Transition name="deployment-state" mode="out-in">
+        <Transition mode="out-in" name="deployment-state">
           <div v-if="createDeploymentReady" key="ready" class="deployment-ready">
             <div class="deployment-ready-icon">
               <q-icon name="task_alt" size="16px" />
@@ -205,7 +205,7 @@
               <div class="deployment-review-copy">
                 <span class="deployment-review-title font-display">
                   Needs Attention
-                  <span class="deployment-review-dot" aria-hidden="true"></span>
+                  <span aria-hidden="true" class="deployment-review-dot"></span>
                 </span>
                 <span class="deployment-review-subtitle text-xy-muted">
                   Only blocking or conflicting setup appears here.
@@ -234,7 +234,7 @@
   </game-server-form-shell>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'

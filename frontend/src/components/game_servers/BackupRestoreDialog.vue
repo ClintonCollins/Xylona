@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import type { GameServerBackup } from '@/proto/shared_pb'
 import { BackupRestoreMode } from '@/proto/shared_pb'
 
@@ -56,16 +56,16 @@ function getArchiveName(archivePath: string): string {
       </q-card-section>
 
       <q-card-section class="backup-restore-dialog__body">
-        <q-banner rounded dense class="backup-restore-dialog__banner">
+        <q-banner class="backup-restore-dialog__banner" dense rounded>
           <template #avatar>
-            <q-icon name="warning" color="warning" />
+            <q-icon color="warning" name="warning" />
           </template>
           Restore replaces live files on disk. The server must already be offline before restore can
           start.
         </q-banner>
 
         <div class="backup-restore-dialog__option-list">
-          <q-card flat bordered class="backup-restore-dialog__option">
+          <q-card bordered class="backup-restore-dialog__option" flat>
             <q-card-section>
               <div class="backup-restore-dialog__option-title">Overlay Restore</div>
               <div class="backup-restore-dialog__option-copy">
@@ -75,15 +75,15 @@ function getArchiveName(archivePath: string): string {
             </q-card-section>
             <q-card-actions align="right">
               <q-btn
-                color="primary"
-                no-caps
                 :loading="loading"
+                color="primary"
                 label="Restore As Overlay"
+                no-caps
                 @click="emitRestore(BackupRestoreMode.OVERLAY)" />
             </q-card-actions>
           </q-card>
 
-          <q-card flat bordered class="backup-restore-dialog__option">
+          <q-card bordered class="backup-restore-dialog__option" flat>
             <q-card-section>
               <div class="backup-restore-dialog__option-title">Exact Restore</div>
               <div class="backup-restore-dialog__option-copy">
@@ -93,10 +93,10 @@ function getArchiveName(archivePath: string): string {
             </q-card-section>
             <q-card-actions align="right">
               <q-btn
-                color="warning"
-                no-caps
                 :loading="loading"
+                color="warning"
                 label="Restore Exactly"
+                no-caps
                 @click="emitRestore(BackupRestoreMode.EXACT)" />
             </q-card-actions>
           </q-card>
@@ -105,11 +105,11 @@ function getArchiveName(archivePath: string): string {
 
       <q-card-actions align="right">
         <q-btn
-          flat
-          no-caps
-          color="primary"
-          label="Cancel"
           :disable="loading"
+          color="primary"
+          flat
+          label="Cancel"
+          no-caps
           @click="closeDialog" />
       </q-card-actions>
     </q-card>

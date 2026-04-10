@@ -2,13 +2,13 @@
   <div class="config-page">
     <!-- Loading state -->
     <div v-if="loading" class="config-loading">
-      <q-spinner-dots size="40px" color="primary" />
+      <q-spinner-dots color="primary" size="40px" />
       <div class="text-xy-secondary q-mt-sm">Loading configuration...</div>
     </div>
 
     <!-- No schemas defined -->
     <div v-else-if="configFiles.length === 0" class="config-empty">
-      <q-icon name="tune" size="48px" class="text-xy-muted q-mb-md" />
+      <q-icon class="text-xy-muted q-mb-md" name="tune" size="48px" />
       <div class="text-subtitle1 text-xy-secondary">No config files for this game yet</div>
       <div class="text-caption text-xy-muted q-mt-sm">
         A superuser can define config schemas on the game to enable structured editing here.
@@ -25,7 +25,7 @@
       <div class="config-editor-panel">
         <!-- No file selected -->
         <div v-if="!selectedFilePath" class="config-placeholder">
-          <q-icon name="arrow_back" size="32px" class="text-xy-muted q-mb-sm" />
+          <q-icon class="text-xy-muted q-mb-sm" name="arrow_back" size="32px" />
           <div class="text-xy-secondary">Choose a config file to start editing</div>
         </div>
 
@@ -33,51 +33,48 @@
         <config-file-editor
           v-else
           ref="editorRef"
-          :file-path="selectedFilePath"
-          :format="selectedFileFormat"
+          :advanced-fields="fileAdvancedFields"
           :category="selectedFileCategory"
           :category-color="selectedFileCategoryColor"
           :fields="fileFields"
-          :advanced-fields="fileAdvancedFields"
-          :validation-errors="validationErrors"
+          :file-path="selectedFilePath"
+          :format="selectedFileFormat"
+          :generating="generating"
           :is-missing="selectedFileIsMissing"
           :saving="saving"
-          :generating="generating"
-          @save="handleSave"
+          :validation-errors="validationErrors"
           @generate="handleGenerate"
+          @save="handleSave"
           @update-advanced="handleUpdateAdvanced" />
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { GetXylonaClient, ConnectErrorToString } from '@/utils/shared'
-import {
-  GetGameServerConfigFilesRequestSchema,
-  GetGameServerConfigFileRequestSchema,
-  UpdateGameServerConfigFileRequestSchema,
-  GenerateGameServerConfigFileRequestSchema,
-  ConfigFieldDataSchema,
-} from '@/proto/xylona_pb'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import type {
-  ConfigFileInfo,
-  ConfigFieldData,
   AdvancedField,
-  ConfigValidationError,
   AdvancedField as AdvancedFieldType,
+  ConfigFieldData,
+  ConfigFileInfo,
+  ConfigValidationError,
+} from '@/proto/xylona_pb'
+import {
+  ConfigFieldDataSchema,
+  GenerateGameServerConfigFileRequestSchema,
+  GetGameServerConfigFileRequestSchema,
+  GetGameServerConfigFilesRequestSchema,
+  UpdateGameServerConfigFileRequestSchema,
 } from '@/proto/xylona_pb'
 import ConfigFileSidebar from '@/components/game_servers/ConfigFileSidebar.vue'
 import ConfigFileEditor from '@/components/game_servers/ConfigFileEditor.vue'
-import {
-  CATEGORY_COLORS,
-  buildCategoryColorMap,
-} from '@/components/game_servers/config-field-helpers'
+import { buildCategoryColorMap, CATEGORY_COLORS, } from '@/components/game_servers/config-field-helpers'
 
 const $q = useQuasar()
 const route = useRoute()

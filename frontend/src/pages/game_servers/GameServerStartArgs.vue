@@ -11,28 +11,28 @@
       </div>
       <div class="start-args-page__actions">
         <q-btn
+          :disable="saving || restarting || !isDirty || !canEditStartArgs"
           flat
           label="Reset All"
-          :disable="saving || restarting || !isDirty || !canEditStartArgs"
           @click="resetAll" />
         <q-btn
-          flat
-          color="warning"
-          label="Save & Restart"
-          :loading="restarting"
           :disable="saving || restarting || !isDirty || !canEditStartArgs"
+          :loading="restarting"
+          color="warning"
+          flat
+          label="Save & Restart"
           @click="saveAndRestart" />
         <q-btn
+          :disable="saving || restarting || !isDirty || !canEditStartArgs"
+          :loading="saving"
           color="primary"
           label="Save"
-          :loading="saving"
-          :disable="saving || restarting || !isDirty || !canEditStartArgs"
           @click="saveOnly" />
       </div>
     </div>
 
     <div v-if="loading" class="start-args-page__loading">
-      <q-spinner-dots size="40px" color="primary" />
+      <q-spinner-dots color="primary" size="40px" />
       <div class="text-xy-secondary q-mt-sm">Loading start command details...</div>
     </div>
 
@@ -40,21 +40,21 @@
       <q-banner
         v-if="!effectiveAllowEditing"
         class="start-args-page__warning"
-        rounded
-        inline-actions>
+        inline-actions
+        rounded>
         Start command editing is disabled for this game definition.
       </q-banner>
 
-      <q-banner v-if="platformWarning" class="start-args-page__warning" rounded inline-actions>
+      <q-banner v-if="platformWarning" class="start-args-page__warning" inline-actions rounded>
         {{ platformWarning }}
       </q-banner>
 
       <start-args-editor
-        :template="templateBlocks"
-        :patches="draftPatches"
-        :base-command="baseCommand"
         :allow-editing="canEditStartArgs"
+        :base-command="baseCommand"
         :blocklist="blocklistEntries"
+        :patches="draftPatches"
+        :template="templateBlocks"
         @update:patches="draftPatches = $event" />
 
       <resolved-command-preview
@@ -64,7 +64,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
@@ -85,10 +85,10 @@ import {
 import { RestartGameServerRequestSchema } from '@/proto/shared_pb'
 import {
   GetGameServerRequestSchema,
-  ListNodesRequestSchema,
-  UpdateGameServerStartArgsRequestSchema,
   type GetGameServerResponse,
+  ListNodesRequestSchema,
   type ListNodesResponse,
+  UpdateGameServerStartArgsRequestSchema,
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'

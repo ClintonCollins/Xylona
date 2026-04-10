@@ -1,16 +1,16 @@
 <template>
   <game-server-form-shell
-    compact-header
     :form-submitting="formSubmitting"
-    header-title="Server Settings"
     :loading="loading"
     :save-disabled="loading"
+    compact-header
+    header-title="Server Settings"
     loading-text="Loading server settings..."
     test-id="settings-form-shell"
     @cancel="cancel"
     @save="submitGameServer">
-    <q-form ref="formRef" greedy class="server-form-layout">
-      <section class="form-section" :class="{ 'form-section--last': !canEditProvisioning }">
+    <q-form ref="formRef" class="server-form-layout" greedy>
+      <section :class="{ 'form-section--last': !canEditProvisioning }" class="form-section">
         <div class="section-header">
           <span class="section-icon section-icon--accent">
             <q-icon name="badge" size="14px" />
@@ -21,29 +21,29 @@
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
           <q-input
             v-model="gameServer.name"
-            data-testid="editable-name"
-            class="col-12 col-md-6"
-            outlined
-            type="text"
-            label="Server Name *"
             :rules="serverNameRules"
-            reactive-rules
+            class="col-12 col-md-6"
+            data-testid="editable-name"
+            label="Server Name *"
             lazy-rules
-            maxlength="80" />
+            maxlength="80"
+            outlined
+            reactive-rules
+            type="text" />
           <q-select
             v-if="canEditProvisioning"
             v-model="gameServer.gameId"
-            data-testid="editable-game"
-            class="col-12 col-md-6"
-            outlined
-            label="Game *"
-            emit-value
             :options="availableGames"
-            option-label="label"
-            map-options
             :rules="gameRules"
-            reactive-rules
+            class="col-12 col-md-6"
+            data-testid="editable-game"
+            emit-value
+            label="Game *"
             lazy-rules
+            map-options
+            option-label="label"
+            outlined
+            reactive-rules
             @update:model-value="onGameSelected" />
         </div>
       </section>
@@ -60,42 +60,42 @@
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <q-select
               v-model="gameServer.userId"
-              data-testid="editable-owner"
-              class="col-12 col-md-4"
-              outlined
-              label="Owner *"
-              emit-value
               :options="availableUsers"
-              option-label="label"
-              map-options
               :rules="ownerRules"
-              reactive-rules
-              lazy-rules />
+              class="col-12 col-md-4"
+              data-testid="editable-owner"
+              emit-value
+              label="Owner *"
+              lazy-rules
+              map-options
+              option-label="label"
+              outlined
+              reactive-rules />
             <q-select
               v-model="gameServer.nodeId"
-              data-testid="editable-node"
-              class="col-12 col-md-4"
-              outlined
-              label="Node *"
-              emit-value
               :options="nodes"
-              option-label="name"
-              map-options
-              option-value="id"
               :rules="nodeRules"
-              reactive-rules
-              lazy-rules />
+              class="col-12 col-md-4"
+              data-testid="editable-node"
+              emit-value
+              label="Node *"
+              lazy-rules
+              map-options
+              option-label="name"
+              option-value="id"
+              outlined
+              reactive-rules />
             <q-select
               v-model="gameServer.ip"
-              data-testid="editable-ip"
-              class="col-12 col-md-4"
-              outlined
-              label="IP Address *"
               :options="availableIPs"
-              option-label="address"
               :rules="ipRules"
-              reactive-rules
-              lazy-rules />
+              class="col-12 col-md-4"
+              data-testid="editable-ip"
+              label="IP Address *"
+              lazy-rules
+              option-label="address"
+              outlined
+              reactive-rules />
           </div>
         </section>
 
@@ -110,24 +110,24 @@
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <q-input
               v-model.number="portModel"
-              data-testid="editable-port"
-              class="col-12 col-sm-6"
-              outlined
-              type="number"
-              label="Port *"
               :rules="portRules"
+              class="col-12 col-sm-6"
+              data-testid="editable-port"
+              label="Port *"
+              lazy-rules
+              outlined
               reactive-rules
-              lazy-rules />
+              type="number" />
             <q-input
               v-model.number="queryPortModel"
-              data-testid="editable-query-port"
-              class="col-12 col-sm-6"
-              outlined
-              type="number"
-              label="Query Port *"
               :rules="queryPortRules"
+              class="col-12 col-sm-6"
+              data-testid="editable-query-port"
+              label="Query Port *"
+              lazy-rules
+              outlined
               reactive-rules
-              lazy-rules />
+              type="number" />
           </div>
         </section>
       </template>
@@ -154,12 +154,12 @@
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
           <q-input
             v-model="gameServer.serverExecutable"
-            data-testid="editable-server-executable"
             class="col-12 col-lg-6"
-            outlined
-            type="text"
+            data-testid="editable-server-executable"
+            hint="Optional override for the {{SERVER_EXECUTABLE}} launch placeholder."
             label="Server Executable"
-            hint="Optional override for the {{SERVER_EXECUTABLE}} launch placeholder." />
+            outlined
+            type="text" />
         </div>
       </section>
 
@@ -174,38 +174,38 @@
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
           <q-input
             v-model.number="setPlayersModel"
-            data-testid="editable-set-players"
-            class="col-12 col-sm-6 col-lg-4"
-            outlined
-            type="number"
-            label="Set Players *"
             :rules="setPlayersRules"
+            class="col-12 col-sm-6 col-lg-4"
+            data-testid="editable-set-players"
+            label="Set Players *"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
           <q-input
             v-if="canEditProvisioning"
             v-model.number="maxPlayersModel"
-            data-testid="editable-max-players"
-            class="col-12 col-sm-6 col-lg-4"
-            outlined
-            type="number"
-            label="Max Players *"
             :rules="maxPlayersRules"
+            class="col-12 col-sm-6 col-lg-4"
+            data-testid="editable-max-players"
+            label="Max Players *"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
           <q-input
             v-if="canEditProvisioning && isMinecraftGame"
             v-model.number="maxMemoryModel"
-            data-testid="editable-max-memory"
-            class="col-12 col-lg-4"
-            outlined
-            type="number"
-            label="Max Memory MB *"
-            :rules="maxMemoryRules"
             :error="showMaxMemoryStateError"
             :error-message="maxMemoryStateMessage"
+            :rules="maxMemoryRules"
+            class="col-12 col-lg-4"
+            data-testid="editable-max-memory"
+            label="Max Memory MB *"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
         </div>
       </section>
 
@@ -221,34 +221,34 @@
           <div class="col-12">
             <q-toggle
               v-model="gameServer.autoRestartEnabled"
-              label="Restart server automatically on unexpected exit"
               color="primary"
-              data-testid="auto-restart-enabled" />
+              data-testid="auto-restart-enabled"
+              label="Restart server automatically on unexpected exit" />
           </div>
           <q-input
             v-if="gameServer.autoRestartEnabled"
             v-model.number="autoRestartMaxRetriesModel"
-            data-testid="auto-restart-max-retries"
-            class="col-12 col-sm-6"
-            outlined
-            type="number"
-            label="Max Retries"
-            hint="Maximum restart attempts before giving up (resets after 5 min of stable uptime)."
             :rules="autoRestartMaxRetriesRules"
+            class="col-12 col-sm-6"
+            data-testid="auto-restart-max-retries"
+            hint="Maximum restart attempts before giving up (resets after 5 min of stable uptime)."
+            label="Max Retries"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
           <q-input
             v-if="gameServer.autoRestartEnabled"
             v-model.number="autoRestartCooldownModel"
-            data-testid="auto-restart-cooldown"
-            class="col-12 col-sm-6"
-            outlined
-            type="number"
-            label="Base Cooldown (seconds)"
-            hint="Initial delay before first retry. Doubles with each subsequent attempt."
             :rules="autoRestartCooldownRules"
+            class="col-12 col-sm-6"
+            data-testid="auto-restart-cooldown"
+            hint="Initial delay before first retry. Doubles with each subsequent attempt."
+            label="Base Cooldown (seconds)"
+            lazy-rules
+            outlined
             reactive-rules
-            lazy-rules />
+            type="number" />
         </div>
       </section>
 
@@ -275,9 +275,9 @@
             <div class="col-12">
               <q-toggle
                 :model-value="backupSettings.backupsEnabled"
-                label="Enable Backups"
                 color="primary"
                 data-testid="backup-settings-enabled"
+                label="Enable Backups"
                 @update:model-value="backupSettings.backupsEnabled = $event" />
             </div>
 
@@ -285,20 +285,20 @@
               :model-value="backupSettings.backupDirectory"
               class="col-12 col-lg-8"
               data-testid="backup-settings-directory"
-              outlined
               dense
               label="Backup Directory"
+              outlined
               @update:model-value="backupSettings.backupDirectory = $event" />
 
             <q-input
               :model-value="String(backupSettings.maxBackups)"
               class="col-12 col-sm-6 col-lg-4"
               data-testid="backup-settings-max-backups"
-              outlined
               dense
-              type="number"
-              min="0"
               label="Max Automated Backups"
+              min="0"
+              outlined
+              type="number"
               @update:model-value="updateBackupMaxBackups($event)" />
 
             <div
@@ -310,11 +310,11 @@
 
             <div class="col-12 row justify-end">
               <q-btn
-                color="primary"
-                no-caps
-                label="Save Backup Settings"
-                data-testid="save-backup-settings"
                 :loading="backupSettingsSaving"
+                color="primary"
+                data-testid="save-backup-settings"
+                label="Save Backup Settings"
+                no-caps
                 @click="saveBackupSettings" />
             </div>
           </div>
@@ -340,7 +340,7 @@
   </game-server-form-shell>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
@@ -351,13 +351,13 @@ import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import GameServerFormShell from './GameServerFormShell.vue'
 import GameServerProvisioningContext from './GameServerProvisioningContext.vue'
 import { useGameServerFormState } from './game-server-form-state'
+import type { BackupSettings, GameServerBackupOverview } from '@/proto/shared_pb'
 import {
   BackupSettingsSchema,
   EditGameServerRequest,
   EditGameServerRequestSchema,
   GameServerBackupOverviewSchema,
 } from '@/proto/shared_pb'
-import type { BackupSettings, GameServerBackupOverview } from '@/proto/shared_pb'
 import {
   GetBackupSettingsRequestSchema,
   GetGameServerBackupOverviewRequestSchema,

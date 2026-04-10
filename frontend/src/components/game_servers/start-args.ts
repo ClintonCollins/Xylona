@@ -288,18 +288,24 @@ export function findSimilarArg<
     return null
   }
 
-  const newPrefix = flagPrefix(newTokens[0])
+  const firstNewToken = newTokens[0]
+  if (firstNewToken === undefined) {
+    return null
+  }
+
+  const newPrefix = flagPrefix(firstNewToken)
   if (!newPrefix) {
     return existingBlocks.find((block) => equalTokens(newTokens, block.tokens)) ?? null
   }
 
   return (
     existingBlocks.find((block) => {
-      if (block.tokens.length === 0) {
+      const firstExistingToken = block.tokens[0]
+      if (firstExistingToken === undefined) {
         return false
       }
 
-      const existingPrefix = flagPrefix(block.tokens[0])
+      const existingPrefix = flagPrefix(firstExistingToken)
       return existingPrefix !== '' && existingPrefix === newPrefix
     }) ?? null
   )
@@ -364,26 +370,26 @@ function normalizeTemplateBlock(entry: unknown, index: number): StartArgBlock | 
     return null
   }
 
-  if (typeof entry.id !== 'string' || entry.id.trim() === '') {
+  if (typeof entry['id'] !== 'string' || entry['id'].trim() === '') {
     return null
   }
 
-  const tokens = normalizeTokens(entry.tokens)
+  const tokens = normalizeTokens(entry['tokens'])
   if (tokens.length === 0) {
     return null
   }
 
   return {
-    id: entry.id,
-    order: typeof entry.order === 'number' ? entry.order : index,
-    ownership: normalizeOwnership(entry.ownership),
+    id: entry['id'],
+    order: typeof entry['order'] === 'number' ? entry['order'] : index,
+    ownership: normalizeOwnership(entry['ownership']),
     tokens,
-    label: typeof entry.label === 'string' ? entry.label : '',
+    label: typeof entry['label'] === 'string' ? entry['label'] : '',
     managedSource:
-      typeof entry.managed_source === 'string'
-        ? entry.managed_source
-        : typeof entry.managedSource === 'string'
-          ? entry.managedSource
+      typeof entry['managed_source'] === 'string'
+        ? entry['managed_source']
+        : typeof entry['managedSource'] === 'string'
+          ? entry['managedSource']
           : '',
   }
 }
@@ -393,21 +399,25 @@ function normalizePatch(entry: unknown): StartArgPatch | null {
     return null
   }
 
-  if (typeof entry.id !== 'string' || entry.id.trim() === '') {
+  if (typeof entry['id'] !== 'string' || entry['id'].trim() === '') {
     return null
   }
 
-  if (!isPatchOp(entry.op)) {
+  if (!isPatchOp(entry['op'])) {
     return null
   }
 
   return {
-    id: entry.id,
-    op: entry.op,
-    tokens: normalizeTokens(entry.tokens),
-    label: typeof entry.label === 'string' ? entry.label : '',
+    id: entry['id'],
+    op: entry['op'],
+    tokens: normalizeTokens(entry['tokens']),
+    label: typeof entry['label'] === 'string' ? entry['label'] : '',
     afterId:
-      typeof entry.afterId === 'string' ? entry.afterId : entry.afterId === null ? null : undefined,
+      typeof entry['afterId'] === 'string'
+        ? entry['afterId']
+        : entry['afterId'] === null
+          ? null
+          : undefined,
   }
 }
 
@@ -416,13 +426,13 @@ function normalizeBlocklistEntry(entry: unknown): StartArgBlocklistEntry | null 
     return null
   }
 
-  if (typeof entry.pattern !== 'string' || entry.pattern.trim() === '') {
+  if (typeof entry['pattern'] !== 'string' || entry['pattern'].trim() === '') {
     return null
   }
 
   return {
-    pattern: entry.pattern,
-    reason: typeof entry.reason === 'string' ? entry.reason : 'Blocked by game definition',
+    pattern: entry['pattern'],
+    reason: typeof entry['reason'] === 'string' ? entry['reason'] : 'Blocked by game definition',
   }
 }
 
@@ -487,7 +497,7 @@ function flagPrefix(token: string): string {
   }
 
   for (let i = 0; i < token.length; i += 1) {
-    const current = token[i]
+    const current = token.charAt(i)
     if (/[0-9=]/u.test(current)) {
       return token.slice(0, i)
     }

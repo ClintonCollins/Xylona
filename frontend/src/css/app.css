@@ -1,110 +1,110 @@
 @import "design-tokens.css";
 
 .selected-option {
-    color: var(--xy-info);
-    font-weight: 700;
-    background-color: var(--xy-surface-2);
+  color: var(--xy-info);
+  font-weight: 700;
+  background-color: var(--xy-surface-2);
 }
 
 .selected-option:hover {
-    background-color: var(--xy-surface-3);
+  background-color: var(--xy-surface-3);
 }
 
 a {
-    text-decoration: none;
+  text-decoration: none;
 }
 
 .table-link {
-    text-decoration: none;
-    color: var(--xy-accent);
-    font-weight: 700;
-    background: none;
-    border: none;
-    padding: 0;
-    font-family: inherit;
-    font-size: inherit;
-    cursor: pointer;
+  text-decoration: none;
+  color: var(--xy-accent);
+  font-weight: 700;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
 }
 
 .table-link:hover {
-    color: var(--xy-primary-hover);
+  color: var(--xy-primary-hover);
 }
 
 .console-url {
-    color: var(--xy-accent);
-    font-weight: 400;
-    text-decoration: underline;
+  color: var(--xy-accent);
+  font-weight: 400;
+  text-decoration: underline;
 }
 
 .console-url:hover {
-    color: var(--xy-primary-hover);
+  color: var(--xy-primary-hover);
 }
 
 .copy-clipboard {
-    cursor: pointer;
+  cursor: pointer;
 }
 
 .copy-clipboard:hover {
-    color: var(--xy-accent);
+  color: var(--xy-accent);
 }
 
 .xylona-notification {
-    font-size: 1.1rem;
-    border: none;
-    border-left: 3px solid;
-    border-radius: 0 8px 8px 0;
-    padding-top: var(--xy-space-sm);
-    padding-bottom: var(--xy-space-sm);
-    background-color: var(--xy-surface-2);
+  font-size: 1.1rem;
+  border: none;
+  border-left: 3px solid;
+  border-radius: 0 8px 8px 0;
+  padding-top: var(--xy-space-sm);
+  padding-bottom: var(--xy-space-sm);
+  background-color: var(--xy-surface-2);
 }
 
 .notification-title {
-    font-family: var(--xy-font-brand);
+  font-family: var(--xy-font-brand);
 }
 
 .xylona-notification .q-notification__caption {
-    color: var(--xy-text-primary);
-    font-size: 1rem;
-    font-weight: 400;
-    opacity: 1;
+  color: var(--xy-text-primary);
+  font-size: 1rem;
+  font-weight: 400;
+  opacity: 1;
 }
 
 .notification-success {
-    background-color: var(--xy-success-bg);
-    border-left-color: var(--xy-success);
+  background-color: var(--xy-success-bg);
+  border-left-color: var(--xy-success);
 }
 
 .notification-success .q-notification__icon {
-    color: var(--xy-success);
-    font-size: 2rem;
+  color: var(--xy-success);
+  font-size: 2rem;
 }
 
 .notification-error {
-    background-color: var(--xy-danger-bg);
-    border-left-color: var(--xy-danger);
+  background-color: var(--xy-danger-bg);
+  border-left-color: var(--xy-danger);
 }
 
 .notification-error .q-notification__icon {
-    color: var(--xy-danger);
-    font-size: 2rem;
+  color: var(--xy-danger);
+  font-size: 2rem;
 }
 
 .notification-alert {
-    background-color: var(--xy-warning-bg);
-    border-left-color: var(--xy-warning);
+  background-color: var(--xy-warning-bg);
+  border-left-color: var(--xy-warning);
 }
 
 .notification-alert .q-notification__icon {
-    color: var(--xy-warning);
-    font-size: 2rem;
+  color: var(--xy-warning);
+  font-size: 2rem;
 }
 
 .notification-info {
-    background-color: var(--xy-info-bg);
-    border-left-color: var(--xy-info);
+  background-color: var(--xy-info-bg);
+  border-left-color: var(--xy-info);
 }
 
 .notification-info .q-notification__icon {
-    color: var(--xy-info);
-    font-size: 2rem;
+  color: var(--xy-info);
+  font-size: 2rem;
 }

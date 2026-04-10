@@ -6,7 +6,7 @@
     <q-card class="mod-install-dialog">
       <q-card-section class="mod-install-header">
         <div class="mod-install-title">
-          <q-icon name="download" size="sm" color="primary" aria-hidden="true" />
+          <q-icon aria-hidden="true" color="primary" name="download" size="sm" />
           <h3>Install Mod</h3>
         </div>
       </q-card-section>
@@ -40,17 +40,17 @@
             <label
               v-for="dep in depItems"
               :key="dep.sourceId"
-              class="mod-install-dep-row"
               :class="{
                 'dep-installed': dep.isInstalled,
                 'dep-required': dep.required && !dep.isInstalled,
-              }">
+              }"
+              class="mod-install-dep-row">
               <q-checkbox
                 v-model="dep.selected"
-                dense
+                :aria-label="`Install dependency ${dep.name}`"
                 :disable="dep.isInstalled"
                 color="primary"
-                :aria-label="`Install dependency ${dep.name}`" />
+                dense />
 
               <div class="dep-info">
                 <span class="dep-name">{{ dep.name || dep.sourceId }}</span>
@@ -59,7 +59,7 @@
               </div>
 
               <span v-if="dep.isInstalled" class="dep-installed-badge">
-                <q-icon name="check_circle" size="xs" color="positive" aria-hidden="true" />
+                <q-icon aria-hidden="true" color="positive" name="check_circle" size="xs" />
                 Installed
               </span>
             </label>
@@ -70,14 +70,14 @@
       <q-separator />
 
       <q-card-actions align="right" class="mod-install-actions">
-        <q-btn flat no-caps label="Cancel" @click="emit('update:show', false)" />
-        <q-btn color="primary" no-caps label="Install" icon="download" @click="handleConfirm" />
+        <q-btn flat label="Cancel" no-caps @click="emit('update:show', false)" />
+        <q-btn color="primary" icon="download" label="Install" no-caps @click="handleConfirm" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { ref, watch } from 'vue'
 import type { InstalledMod, ModDependency } from '@/proto/shared_pb'
 

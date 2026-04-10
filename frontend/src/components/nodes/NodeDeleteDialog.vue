@@ -1,9 +1,9 @@
 <template>
   <q-dialog
     v-model="showDialog"
-    persistent
+    aria-labelledby="dialog-title"
     backdrop-filter="brightness(15%)"
-    aria-labelledby="dialog-title">
+    persistent>
     <q-card>
       <q-card-section>
         <div id="dialog-title" class="text-h6 text-error">Delete Node</div>
@@ -17,14 +17,14 @@
         </div>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn label="Cancel" color="neutral" flat @click="showDialog = false" />
-        <q-btn label="Delete" class="bg-error" @click="deleteNode" />
+        <q-btn color="neutral" flat label="Cancel" @click="showDialog = false" />
+        <q-btn class="bg-error" label="Delete" @click="deleteNode" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { GetXylonaClient } from '@/utils/shared'

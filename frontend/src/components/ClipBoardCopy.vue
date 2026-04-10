@@ -1,26 +1,26 @@
 <template>
   <div
-    role="button"
-    tabindex="0"
     aria-label="Copy to clipboard"
     class="copy-clipboard"
+    role="button"
+    tabindex="0"
     @click="copyValue(props.clipBoardValue)"
     @keydown.enter="copyValue(props.clipBoardValue)"
     @keydown.space.prevent="copyValue(props.clipBoardValue)">
     {{ props.displayText }}
     <!-- eslint-disable vue/no-v-text-v-html-on-component, vue/no-v-html -- accepted per CLAUDE.md -->
     <q-tooltip
-      class="clipboard-tooltip"
       :anchor="props.tooltipAnchor"
-      :self="props.tooltipSelf"
       :offset="[10, 10]"
+      :self="props.tooltipSelf"
+      class="clipboard-tooltip"
       @before-show="resetClipboardCopy"
       v-html="clipboardInnerHTML"></q-tooltip>
     <!-- eslint-enable vue/no-v-text-v-html-on-component, vue/no-v-html -->
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { copyToClipboard, QTooltip } from 'quasar'
 import { ref } from 'vue'
 

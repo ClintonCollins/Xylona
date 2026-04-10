@@ -62,7 +62,11 @@ describe('UserDeleteDialog', () => {
     expect(wrapper.text()).toContain('user-one')
 
     const buttons = wrapper.findAll('button')
-    await buttons[1].trigger('click')
+    const confirmButton = buttons[1]
+    if (!confirmButton) {
+      throw new Error('expected confirm button to exist')
+    }
+    await confirmButton.trigger('click')
     await Promise.resolve()
 
     expect(mocks.deleteUser).toHaveBeenCalledTimes(1)
@@ -103,7 +107,11 @@ describe('UserDeleteDialog', () => {
     })
 
     const buttons = wrapper.findAll('button')
-    await buttons[1].trigger('click')
+    const confirmButton = buttons[1]
+    if (!confirmButton) {
+      throw new Error('expected confirm button to exist')
+    }
+    await confirmButton.trigger('click')
     await Promise.resolve()
 
     expect(wrapper.emitted('submit')).toEqual([[true]])

@@ -3,20 +3,20 @@
     <q-card class="full-width game-server-card">
       <q-tabs
         v-if="navQTabsStore.tabs.length > 0"
-        class="game-server-tabs"
         active-color="primary"
-        indicator-color="primary"
         align="left"
+        class="game-server-tabs"
+        indicator-color="primary"
+        mobile-arrows
         narrow-indicator
-        no-caps
-        mobile-arrows>
+        no-caps>
         <q-route-tab
           v-for="tab in navQTabsStore.tabs"
           :key="tab.name"
-          :to="tab.to"
-          :label="tab.name"
           :exact="tab.exact"
-          :icon="tab.icon" />
+          :icon="tab.icon"
+          :label="tab.name"
+          :to="tab.to" />
       </q-tabs>
       <q-separator v-if="navQTabsStore.tabs.length > 0" />
       <div class="game-server-content">
@@ -26,7 +26,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { GetGameServerRequestSchema } from '@/proto/xylona_pb'

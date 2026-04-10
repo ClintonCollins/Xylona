@@ -6,7 +6,7 @@
   </q-page>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import NodeForm from '@/components/nodes/NodeForm.vue'
