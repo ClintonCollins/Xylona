@@ -26,7 +26,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/gorilla/securecookie"
 	"github.com/joho/godotenv"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -66,13 +65,20 @@ type Configuration struct {
 	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
 	// EncryptionKey is a dedicated base64-encoded key for encrypting sensitive DB
 	// fields (notification channel configs, node API keys).
-	EncryptionKey  string `env:"ENCRYPTION_KEY_BASE64"`
-	DBFilePath     string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
-	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
-	SecureCookies  bool   `env:"SECURE_COOKIES" envDefault:"false"`
-	Host           string `env:"HOST" envDefault:""`
-	HTTPPort       int    `env:"HTTP_PORT" envDefault:"8080"`
-	FederationPort int    `env:"FEDERATION_PORT" envDefault:"8443"`
+	EncryptionKey          string        `env:"ENCRYPTION_KEY_BASE64"`
+	DBFilePath             string        `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
+	LogLevel               string        `env:"LOG_LEVEL" envDefault:"info"`
+	SecureCookies          bool          `env:"SECURE_COOKIES" envDefault:"false"`
+	MetricsEnabled         bool          `env:"METRICS_ENABLED" envDefault:"false"`
+	Host                   string        `env:"HOST" envDefault:""`
+	HTTPPort               int           `env:"HTTP_PORT" envDefault:"8080"`
+	HTTPReadTimeout        time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"15m"`
+	HTTPWriteTimeout       time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"15m"`
+	HTTPIdleTimeout        time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"30m"`
+	FederationPort         int           `env:"FEDERATION_PORT" envDefault:"8443"`
+	FederationReadTimeout  time.Duration `env:"FEDERATION_READ_TIMEOUT" envDefault:"15m"`
+	FederationWriteTimeout time.Duration `env:"FEDERATION_WRITE_TIMEOUT" envDefault:"15m"`
+	FederationIdleTimeout  time.Duration `env:"FEDERATION_IDLE_TIMEOUT" envDefault:"30m"`
 	// DummyGameID enables the DummyTracker for E2E testing. When set, the game
 	// with this ID is treated as a trackable server returning a simulated 1.0.0→2.0.0
 	// update. Leave empty in production.
@@ -356,52 +362,16 @@ func main() {
 	if errParseConfig != nil {
 		log.Fatal().Err(errParseConfig).Msg("Error parsing config")
 	}
+	validatedConfig, errValidateConfig := validateConfiguration(config)
+	if errValidateConfig != nil {
+		log.Fatal().Err(errValidateConfig).Msg("Invalid runtime configuration")
+	}
+
 	cleanupLogger := setupLogger()
-	defer cleanupLogger()
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
-	defer ctxCancel()
 
-	foundCookieError := false
-	if config.CookieHashKey == "" {
-		log.Error().Msg("Cookie hash key not set.")
-		newCookieHashKey := securecookie.GenerateRandomKey(64)
-		encodedHashKey := base64.StdEncoding.EncodeToString(newCookieHashKey)
-		log.Info().Str("newCookieHashKey", encodedHashKey).Msg("Generated cookie hash key")
-		foundCookieError = true
-	}
-	if config.CookieBlockKey == "" {
-		log.Error().Msg("Cookie block key not set.")
-		newCookieBlockKey := securecookie.GenerateRandomKey(32)
-		encodedBlockKey := base64.StdEncoding.EncodeToString(newCookieBlockKey)
-		log.Info().Str("newCookieBlockKey", encodedBlockKey).Msg("Generated cookie block key")
-		foundCookieError = true
-	}
-	if foundCookieError {
-		//nolint:gocritic // log.Fatal calls os.Exit; deferred ctxCancel is intentionally skipped on fatal startup error
-		log.Fatal().Msg("Cookie keys not set correctly. You can use the generated key(s)" +
-			" above to set the environment variables: COOKIE_HASH_KEY_BASE64 and COOKIE_BLOCK_KEY_BASE64")
-	}
-
-	if config.JWTSecretKey == "" {
-		log.Error().Msg("JWT secret key not set.")
-		newJWTSecretKey := securecookie.GenerateRandomKey(64)
-		encodedJWTSecretKey := base64.StdEncoding.EncodeToString(newJWTSecretKey)
-		log.Info().Str("newJWTSecretKey", encodedJWTSecretKey).Msg("Generated JWT secret key")
-		log.Fatal().Msg("JWT secret key not set correctly. You can use the generated key above to set" +
-			" the environment variable: JWT_SECRET_KEY_BASE64")
-	}
-
-	cookieHashKey, errDecodeHashKey := base64.StdEncoding.DecodeString(config.CookieHashKey)
-	if errDecodeHashKey != nil {
-		log.Fatal().Err(errDecodeHashKey).Msg("Error decoding cookie hash key")
-	}
-	cookieBlockKey, errDecodeBlockKey := base64.StdEncoding.DecodeString(config.CookieBlockKey)
-	if errDecodeBlockKey != nil {
-		log.Fatal().Err(errDecodeBlockKey).Msg("Error decoding cookie block key")
-	}
-
-	secureCookie := securecookie.New(cookieHashKey, cookieBlockKey)
+	secureCookie := securecookie.New(validatedConfig.cookieHashKey, validatedConfig.cookieBlockKey)
 
 	superInst, errSupervisor := supervisor.New(ctx)
 	if errSupervisor != nil {
@@ -449,12 +419,6 @@ func main() {
 	if errSchedulerStart != nil {
 		log.Fatal().Err(errSchedulerStart).Msg("Failed to start task scheduler")
 	}
-	defer func() {
-		errStop := taskScheduler.Stop()
-		if errStop != nil {
-			log.Error().Err(errStop).Msg("Error stopping task scheduler")
-		}
-	}()
 
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	setDetectedIPs(dbInst)
@@ -509,18 +473,11 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	router.Handle("/metrics", promhttp.Handler())
+	registerMetricsRoute(router, config)
 	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
 
-	httpServer := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", config.Host, config.HTTPPort),
-		Handler:           router,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       time.Hour * 6,
-		WriteTimeout:      time.Hour * 6,
-		IdleTimeout:       time.Hour * 24,
-	}
+	httpServer := newHTTPServer(config, router)
 
 	federationRouter := chi.NewRouter()
 	federationRouter.Use(middleware.RealIP)
@@ -539,15 +496,7 @@ func main() {
 		r.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
 	})
 
-	federationServer := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", config.Host, config.FederationPort),
-		Handler:           federationRouter,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       time.Hour * 6,
-		WriteTimeout:      time.Hour * 6,
-		IdleTimeout:       time.Hour * 24,
-		TLSConfig:         federationMTLS.ServerTLSConfig(),
-	}
+	federationServer := newFederationServer(config, federationRouter, federationMTLS.ServerTLSConfig())
 
 	router.Group(func(r chi.Router) {
 		r.Use(gatekeeper.RequireSessionAuth(dbInst, secureCookie))
@@ -588,4 +537,9 @@ func main() {
 	}
 	alertDeliveryPool.Wait()
 	log.Info().Msg("Alert delivery pool drained")
+	errStopScheduler := taskScheduler.Stop()
+	if errStopScheduler != nil {
+		log.Error().Err(errStopScheduler).Msg("Error stopping task scheduler")
+	}
+	cleanupLogger()
 }

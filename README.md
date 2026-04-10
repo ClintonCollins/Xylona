@@ -46,10 +46,24 @@ cd Xylona
 
 4. Set your signing and encryption secrets in the environment or `.env`:
 ```bash
+COOKIE_HASH_KEY_BASE64=<base64-encoded 64-byte securecookie hash key>
+COOKIE_BLOCK_KEY_BASE64=<base64-encoded 32-byte securecookie block key>
 JWT_SECRET_KEY_BASE64=<base64-encoded 32+ byte signing key>
 ENCRYPTION_KEY_BASE64=<base64-encoded 32+ byte encryption key>
 ```
 `ENCRYPTION_KEY_BASE64` is strongly recommended. If it is omitted, Xylona falls back to the JWT secret for DB encryption and will log a warning at startup.
+
+Optional runtime controls:
+```bash
+METRICS_ENABLED=false
+HTTP_READ_TIMEOUT=15m
+HTTP_WRITE_TIMEOUT=15m
+HTTP_IDLE_TIMEOUT=30m
+FEDERATION_READ_TIMEOUT=15m
+FEDERATION_WRITE_TIMEOUT=15m
+FEDERATION_IDLE_TIMEOUT=30m
+```
+Metrics are disabled by default. Enable them explicitly when you intend to expose a Prometheus scrape target.
 
 5. Run the SQL migrations:
 ```bash
