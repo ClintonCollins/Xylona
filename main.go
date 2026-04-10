@@ -136,21 +136,7 @@ func setDetectedIPs(db *dbpkg.Connection) {
 func gracefulShutdown(ctxCancel context.CancelFunc, shutdownSignalType os.Signal, servers ...*http.Server) {
 	log.Info().Str("Signal", shutdownSignalType.String()).
 		Msgf("Received signal: %s. Shutting down.", shutdownSignalType)
-	ctxCancel()
-	log.Debug().Msg("Graceful shutdown context cancelled")
-	shutdownCtx, shutdownCtxCancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer shutdownCtxCancel()
-
-	for _, server := range servers {
-		if server == nil {
-			continue
-		}
-		errShutdown := server.Shutdown(shutdownCtx)
-		if errShutdown != nil {
-			log.Error().Err(errShutdown).Str("addr", server.Addr).Msg("Failed to shutdown server")
-		}
-	}
-	log.Info().Msg("Xylona control panel backend fully stopped.")
+	shutdownServers(ctxCancel, servers...)
 }
 
 func handleSPAFunc(frontendFS fs.FS) func(w http.ResponseWriter, r *http.Request) {
@@ -575,24 +561,17 @@ func main() {
 	router.HandleFunc("/*", handleSPAFunc(frontendFS))
 
 	// Start the web server
+	startupErrCh := make(chan error, 2)
 	go func() {
 		log.Info().Int("port", config.HTTPPort).Msg("Starting Xylona web server")
-		errListenAndServe := httpServer.ListenAndServe()
-		if errListenAndServe != nil {
-			if !errors.Is(errListenAndServe, http.ErrServerClosed) {
-				log.Error().Err(errListenAndServe).Msg("Failed to start Xylona web server")
-			}
-		}
+		startServer(ctxCancel, "start Xylona web server", httpServer.ListenAndServe, startupErrCh)
 	}()
 
 	go func() {
 		log.Info().Int("port", config.FederationPort).Msg("Starting Xylona federation mTLS server")
-		errListenAndServeTLS := federationServer.ListenAndServeTLS("", "")
-		if errListenAndServeTLS != nil {
-			if !errors.Is(errListenAndServeTLS, http.ErrServerClosed) {
-				log.Error().Err(errListenAndServeTLS).Msg("Failed to start Xylona federation mTLS server")
-			}
-		}
+		startServer(ctxCancel, "start Xylona federation mTLS server", func() error {
+			return federationServer.ListenAndServeTLS("", "")
+		}, startupErrCh)
 	}()
 
 	games.RegisterInternalGames()
@@ -600,8 +579,13 @@ func main() {
 	// Handle SIGINT and SIGTERM
 	shutdownSignalChannel := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGTERM)
-	shutdownSignalType := <-shutdownSignalChannel
-	gracefulShutdown(ctxCancel, shutdownSignalType, httpServer, federationServer)
+	select {
+	case errStartup := <-startupErrCh:
+		shutdownServers(ctxCancel, httpServer, federationServer)
+		log.Fatal().Err(errStartup).Msg("Startup failed")
+	case shutdownSignalType := <-shutdownSignalChannel:
+		gracefulShutdown(ctxCancel, shutdownSignalType, httpServer, federationServer)
+	}
 	alertDeliveryPool.Wait()
 	log.Info().Msg("Alert delivery pool drained")
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -200,7 +201,12 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	t, errTx := inst.db.SQLDb.BeginTx(inst.ctx, nil)
 	if errTx != nil {
 		log.Error().Err(errTx).Msg("Failed to start transaction")
-		return nil, fmt.Errorf("actions: begin install transaction: %w", errTx)
+		errInstall := fmt.Errorf("actions: begin install transaction: %w", errTx)
+		errCleanup := inst.cleanupFailedInstall("", gameServerDir)
+		if errCleanup != nil {
+			return nil, errors.Join(errInstall, errCleanup)
+		}
+		return nil, errInstall
 	}
 	tx := bob.NewTx(t)
 
@@ -211,7 +217,12 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	node, errGetNode := inst.db.GetNodeByID(gameServer.NodeID)
 	if errGetNode != nil {
 		log.Error().Err(errGetNode).Msg("Failed to get node")
-		return nil, fmt.Errorf("actions: get node for install: %w", errGetNode)
+		errInstall := fmt.Errorf("actions: get node for install: %w", errGetNode)
+		errCleanup := inst.cleanupFailedInstall("", gameServerDir)
+		if errCleanup != nil {
+			return nil, errors.Join(errInstall, errCleanup)
+		}
+		return nil, errInstall
 	}
 
 	newGameServer, errInsert := inst.db.InsertGameServer(tx, &models.GameServerSetter{
@@ -235,10 +246,26 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		MaxBackups:                omit.From(gameServer.MaxBackups),
 		NodeID:                    omit.From(gameServer.NodeID),
 	})
-	newGameServer.R.Node = node
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Failed to insert game server")
-		return nil, fmt.Errorf("actions: insert game server: %w", errInsert)
+		errInstall := fmt.Errorf("actions: insert game server: %w", errInsert)
+		errCleanup := inst.cleanupFailedInstall("", gameServerDir)
+		if errCleanup != nil {
+			return nil, errors.Join(errInstall, errCleanup)
+		}
+		return nil, errInstall
+	}
+	newGameServer.R.Node = node
+
+	errCommit := tx.Commit(inst.ctx)
+	if errCommit != nil {
+		log.Error().Str("Game Server ID", gameServer.ID).Err(errCommit).Msg("Failed to commit transaction")
+		errInstall := fmt.Errorf("actions: commit install transaction: %w", errCommit)
+		errCleanup := inst.cleanupFailedInstall("", gameServerDir)
+		if errCleanup != nil {
+			return nil, errors.Join(errInstall, errCleanup)
+		}
+		return nil, errInstall
 	}
 
 	installVars := placeholder.BuildVarsFromGameServer(newGameServer)
@@ -249,11 +276,11 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		GameServerName:   newGameServer.Name,
 		BaseCommand:      baseCommand,
 		Args:             args,
-		WorkingDirectory: gameServer.Directory,
-		User:             gameServer.UserID,
-		GameServerID:     &gameServer.ID,
+		WorkingDirectory: newGameServer.Directory,
+		User:             newGameServer.UserID,
+		GameServerID:     &newGameServer.ID,
 		Status:           xylona.Status_INSTALLING,
-		ServiceID:        gameServer.GameID,
+		ServiceID:        newGameServer.GameID,
 		CallbackFunction: func(_ *supervisor.Command) {
 			errPostInstall := postInstallStep(newGameServer)
 			if errPostInstall != nil {
@@ -273,19 +300,40 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	_, err := inst.supervisorInstance.StartCommand(preparedCommand)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to start install command")
-		return nil, fmt.Errorf("actions: start install command: %w", err)
-	}
-
-	errCommit := tx.Commit(inst.ctx)
-	if errCommit != nil {
-		log.Error().Str("Game Server ID", gameServer.ID).Err(errCommit).Msg("Failed to commit transaction")
-		return nil, fmt.Errorf("actions: commit install transaction: %w", errCommit)
+		errInstall := fmt.Errorf("actions: start install command: %w", err)
+		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory)
+		if errCleanup != nil {
+			return nil, errors.Join(errInstall, errCleanup)
+		}
+		return nil, errInstall
 	}
 
 	eb := eventbus.Get()
 	eb.Publish("game_server_created", newGameServer)
 
 	return newGameServer, nil
+}
+
+func (inst *Instance) cleanupFailedInstall(gameServerID string, gameServerDir string) error {
+	var errCleanup error
+
+	if gameServerID != "" {
+		errDeleteGameServer := inst.db.DeleteGameServer(gameServerID)
+		if errDeleteGameServer != nil {
+			log.Error().Err(errDeleteGameServer).Str("game_server_id", gameServerID).Msg("Failed to delete game server after install failure")
+			errCleanup = errors.Join(errCleanup, fmt.Errorf("actions: delete failed install game server: %w", errDeleteGameServer))
+		}
+	}
+
+	if gameServerDir != "" {
+		errDeleteGameServerFiles := os.RemoveAll(gameServerDir)
+		if errDeleteGameServerFiles != nil {
+			log.Error().Err(errDeleteGameServerFiles).Str("game_server_dir", gameServerDir).Msg("Failed to remove game server directory after install failure")
+			errCleanup = errors.Join(errCleanup, fmt.Errorf("actions: delete failed install directory: %w", errDeleteGameServerFiles))
+		}
+	}
+
+	return errCleanup
 }
 
 func (inst *Instance) reportStartFailure(gameServer *models.GameServer, message string) {
