@@ -350,7 +350,7 @@ import { useRouter } from 'vue-router'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import GameServerFormShell from './GameServerFormShell.vue'
 import GameServerProvisioningContext from './GameServerProvisioningContext.vue'
-import { useGameServerFormState } from './game-server-form-state'
+import { useGameServerFormState } from './useGameServerFormState'
 import type { BackupSettings, GameServerBackupOverview } from '@/proto/shared_pb'
 import {
   BackupSettingsSchema,

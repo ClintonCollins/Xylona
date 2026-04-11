@@ -52,7 +52,7 @@ vi.mock('vue-router', async () => {
   }
 })
 
-vi.mock('./game-server-form-state', () => ({
+vi.mock('./useGameServerFormState', () => ({
   useGameServerFormState: () => ({
     availableGames: [],
     availableIPs: [],

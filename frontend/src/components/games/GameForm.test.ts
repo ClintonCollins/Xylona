@@ -394,6 +394,40 @@ describe('GameForm', () => {
     expect(runtimePanel.attributes('style') ?? '').not.toContain('display: none')
   })
 
+  it('supports Home and End keyboard navigation between editor tabs', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    const overviewTab = wrapper.get('[data-testid="game-form-tab-overview"]')
+    const runtimeTab = wrapper.get('[data-testid="game-form-tab-runtime"]')
+    const configTab = wrapper.get('[data-testid="game-form-tab-config"]')
+    const runtimeTabElement = runtimeTab.element as HTMLButtonElement
+    const configTabElement = configTab.element as HTMLButtonElement
+
+    runtimeTabElement.focus()
+    await runtimeTab.trigger('keydown', { key: 'End' })
+    await flushPromises()
+
+    expect(configTab.attributes('aria-selected')).toBe('true')
+    expect(window.history.state?.xylonaGameFormTab).toBe('config')
+
+    configTabElement.focus()
+    await configTab.trigger('keydown', { key: 'Home' })
+    await flushPromises()
+
+    expect(overviewTab.attributes('aria-selected')).toBe('true')
+    expect(window.history.state?.xylonaGameFormTab).toBe('overview')
+  })
+
   it('uses a more instructive empty state for mod support setup', async () => {
     mocks.getGame.mockResolvedValue({
       game: create(GameSchema, {
@@ -452,6 +486,95 @@ describe('GameForm', () => {
     )
     expect(wrapper.get('[data-testid="runtime-policy-panel"]')).toBeTruthy()
     expect(wrapper.get('[data-testid="blocklist-editor"]')).toBeTruthy()
+  })
+
+  it('keeps runtime guardrails and the advanced runtime sequence mutually exclusive on compact viewports', async () => {
+    const originalMatchMedia = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(max-width: 900px)',
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        addListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        removeEventListener: vi.fn(),
+        removeListener: vi.fn(),
+      })),
+    })
+
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    try {
+      const wrapper = mountGameForm({
+        StartArgsTemplateEditor: defineComponent({
+          name: 'CompactViewportStartArgsTemplateEditorStub',
+          props: {
+            advancedExpanded: {
+              type: Boolean,
+              default: false,
+            },
+            mode: {
+              type: String,
+              default: 'full',
+            },
+          },
+          emits: ['update:advanced-expanded'],
+          template:
+            '<div :data-testid="`start-args-template-editor-${mode || \'full\'}`" :data-advanced-expanded="String(advancedExpanded)">' +
+            '<button :data-testid="`start-args-template-editor-${mode || \'full\'}-expand`" type="button" @click="$emit(\'update:advanced-expanded\', true)">Expand advanced sequence</button>' +
+            '<button :data-testid="`start-args-template-editor-${mode || \'full\'}-collapse`" type="button" @click="$emit(\'update:advanced-expanded\', false)">Collapse advanced sequence</button>' +
+            '</div>',
+        }),
+      })
+      await flushPromises()
+
+      await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+
+      const advancedEditor = wrapper.get('[data-testid="start-args-template-editor-advanced"]')
+      const runtimePolicyToggle = wrapper.get('[data-testid="runtime-policy-toggle"]')
+
+      expect(advancedEditor.attributes('data-advanced-expanded')).toBe('false')
+      expect(runtimePolicyToggle.attributes('aria-expanded')).toBe('false')
+
+      await wrapper
+        .get('[data-testid="start-args-template-editor-advanced-expand"]')
+        .trigger('click')
+      await flushPromises()
+
+      expect(advancedEditor.attributes('data-advanced-expanded')).toBe('true')
+      expect(runtimePolicyToggle.attributes('aria-expanded')).toBe('false')
+
+      await runtimePolicyToggle.trigger('click')
+      await flushPromises()
+
+      expect(runtimePolicyToggle.attributes('aria-expanded')).toBe('true')
+      expect(advancedEditor.attributes('data-advanced-expanded')).toBe('false')
+
+      await wrapper
+        .get('[data-testid="start-args-template-editor-advanced-expand"]')
+        .trigger('click')
+      await flushPromises()
+
+      expect(advancedEditor.attributes('data-advanced-expanded')).toBe('true')
+      expect(runtimePolicyToggle.attributes('aria-expanded')).toBe('false')
+      expect(wrapper.find('[data-testid="runtime-policy-panel"]').exists()).toBe(false)
+    } finally {
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: originalMatchMedia,
+      })
+    }
   })
 
   it('passes the loaded runtime baseline into the launch editor reset props', async () => {

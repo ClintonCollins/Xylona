@@ -55,7 +55,7 @@ vi.mock('vue-router', async () => {
   }
 })
 
-vi.mock('./game-server-form-state', () => ({
+vi.mock('./useGameServerFormState', () => ({
   useGameServerFormState: () => ({
     availableGames: ref([]),
     availableIPs: ref([]),
@@ -93,7 +93,7 @@ vi.mock('./game-server-form-state', () => ({
   }),
 }))
 
-vi.mock('./game-server-port-availability', () => ({
+vi.mock('./useGameServerPortAvailability', () => ({
   useGameServerPortAvailability: () => ({
     ensurePortAvailabilityBeforeSave: mocks.ensurePortAvailabilityBeforeSave,
     portAvailabilityBlocking: portAvailabilityState.blocking,

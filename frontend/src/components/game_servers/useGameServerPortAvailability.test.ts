@@ -6,7 +6,7 @@ import { defineComponent, ref } from 'vue'
 import {
   evaluateGameServerPortAvailability,
   useGameServerPortAvailability,
-} from './game-server-port-availability'
+} from './useGameServerPortAvailability'
 import { GameSchema, GameServerSchema, IPSchema } from '@/proto/shared_pb'
 
 const mocks = vi.hoisted(() => ({

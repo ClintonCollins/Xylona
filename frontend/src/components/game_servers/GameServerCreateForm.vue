@@ -243,8 +243,8 @@ import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import GameServerFormShell from './GameServerFormShell.vue'
-import { useGameServerPortAvailability } from './game-server-port-availability'
-import { useGameServerFormState } from './game-server-form-state'
+import { useGameServerPortAvailability } from './useGameServerPortAvailability'
+import { useGameServerFormState } from './useGameServerFormState'
 import { CreateGameServerRequest, CreateGameServerRequestSchema } from '@/proto/shared_pb'
 
 const router = useRouter()
