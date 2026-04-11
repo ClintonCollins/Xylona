@@ -23,6 +23,21 @@ func (c *Connection) GetAllGameServers() ([]*models.GameServer, error) {
 	return gameServers, nil
 }
 
+// GetGameServersByNodeID returns all game servers assigned to a specific node.
+func (c *Connection) GetGameServersByNodeID(nodeID string) ([]*models.GameServer, error) {
+	gameServers, err := models.GameServers.Query(
+		models.SelectWhere.GameServers.NodeID.EQ(nodeID),
+		models.Preload.GameServer.IP(),
+		models.Preload.GameServer.Game(),
+		models.Preload.GameServer.User(),
+		models.Preload.GameServer.Node(),
+	).All(c.ctx, c.DB)
+	if err != nil {
+		return nil, fmt.Errorf("get game servers by node ID: %w", err)
+	}
+	return gameServers, nil
+}
+
 // GetGameServersByUser returns game servers owned by a user.
 func (c *Connection) GetGameServersByUser(userID string) ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(

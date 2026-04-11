@@ -470,6 +470,11 @@ func run() int {
 		return startupFailure(cleanup, ctxCancel, errDB, "Failed to set up database")
 	}
 
+	errRuntimeSecurity := validateStartupRuntimeSecurity(config, dbInst)
+	if errRuntimeSecurity != nil {
+		return startupFailure(cleanup, ctxCancel, errRuntimeSecurity, "Runtime security validation failed")
+	}
+
 	federationMTLS, settings, errFederation := setupFederationIdentity(ctx, dbInst, config)
 	if errFederation != nil {
 		return startupFailure(cleanup, ctxCancel, errFederation, "Failed to set up federation identity")

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -89,6 +90,7 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 
 	cmd := exec.CommandContext(newCommand.processCtx, baseCommand, preparedCommand.Args...)
 	cmd.Dir = preparedCommand.WorkingDirectory
+	cmd.Env = buildChildEnvironment(CurrentRuntime, os.Environ())
 
 	stdOutPipe, stdErrPipe, err := inst.setupCmdPipes(newCommand, cmd)
 	if err != nil {
