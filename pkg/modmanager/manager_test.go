@@ -16,18 +16,18 @@ import (
 
 // mockProvider implements modproviders.ModProvider for testing.
 type mockProvider struct {
-	id                string
-	searchResults     []modproviders.ModSearchResult
-	searchTotalHits   int
-	details           *modproviders.ModDetails
-	versions          []modproviders.ModVersion
-	downloadedFiles   []modproviders.DownloadedFile
+	id                    string
+	searchResults         []modproviders.ModSearchResult
+	searchTotalHits       int
+	details               *modproviders.ModDetails
+	versions              []modproviders.ModVersion
+	downloadedFiles       []modproviders.DownloadedFile
 	downloadErrAfterWrite error
-	updateVersion     *modproviders.ModVersion
-	searchErr         error
-	detailsErr        error
-	downloadErr       error
-	checkForUpdateErr error
+	updateVersion         *modproviders.ModVersion
+	searchErr             error
+	detailsErr            error
+	downloadErr           error
+	checkForUpdateErr     error
 }
 
 func (m *mockProvider) ID() string { return m.id }

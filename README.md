@@ -48,10 +48,10 @@ Set your signing and encryption secrets in the environment or `.env`:
 COOKIE_HASH_KEY_BASE64=<base64-encoded securecookie hash key; 32 or 64 bytes recommended>
 COOKIE_BLOCK_KEY_BASE64=<base64-encoded 32-byte securecookie block key>
 JWT_SECRET_KEY_BASE64=<base64-encoded 32+ byte signing key>
-ENCRYPTION_KEY_BASE64=<base64-encoded 32-byte encryption key>
+ENCRYPTION_KEY_BASE64=<base64-encoded encryption key; 32 bytes recommended, first 32 bytes used>
 ```
 
-`ENCRYPTION_KEY_BASE64` is required. Xylona does not fall back to the JWT secret for database encryption, and startup fails if the key is missing or does not decode to exactly 32 bytes.
+`ENCRYPTION_KEY_BASE64` is required. Xylona does not fall back to the JWT secret for new database encryption, and startup fails if the key is missing or does not decode to at least 32 bytes. For compatibility with older deployments, Xylona uses the first 32 decoded bytes as the AES-256 key and can use the first 32 decoded bytes of `JWT_SECRET_KEY_BASE64` only as a legacy decryption fallback while it re-encrypts older stored secrets under `ENCRYPTION_KEY_BASE64`.
 
 User passwords use bcrypt in the auth and user RPC paths. `pkg/xycrypt` provides AES-GCM encryption for stored secrets such as node API keys, and its Argon2id helpers are used for non-password secret tokens such as local and federation secret keys.
 

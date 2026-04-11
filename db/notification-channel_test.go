@@ -173,6 +173,50 @@ func TestNotificationChannel_ConfigEncryption(t *testing.T) {
 	}
 }
 
+func TestNotificationChannelFallbackKey(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "nc-fallback.sqlite")
+	seedRBACFixture(t, conn)
+
+	oldKey, errOld := xycrypt.GenerateEncryptionKey()
+	if errOld != nil {
+		t.Fatalf("GenerateEncryptionKey(old) error = %v", errOld)
+	}
+	newKey, errNew := xycrypt.GenerateEncryptionKey()
+	if errNew != nil {
+		t.Fatalf("GenerateEncryptionKey(new) error = %v", errNew)
+	}
+
+	conn.SetEncryptionKey(oldKey)
+	channel, errInsert := conn.InsertNotificationChannel("user-owner", "Fallback Channel", "discord", `{"webhook":"https://fallback.example.com/hook"}`, true)
+	if errInsert != nil {
+		t.Fatalf("InsertNotificationChannel() error = %v", errInsert)
+	}
+
+	conn.SetEncryptionKey(newKey)
+	conn.SetFallbackEncryptionKey(oldKey)
+
+	fetched, errGet := conn.GetNotificationChannelByID(channel.ID)
+	if errGet != nil {
+		t.Fatalf("GetNotificationChannelByID() with fallback error = %v", errGet)
+	}
+	if fetched.Config != `{"webhook":"https://fallback.example.com/hook"}` {
+		t.Errorf("GetNotificationChannelByID().Config = %q, want legacy plaintext", fetched.Config)
+	}
+
+	conn.SetFallbackEncryptionKey(nil)
+
+	all, errAll := conn.GetNotificationChannelsByUserID("user-owner")
+	if errAll != nil {
+		t.Fatalf("GetNotificationChannelsByUserID() after re-encrypt error = %v", errAll)
+	}
+	if len(all) != 1 {
+		t.Fatalf("GetNotificationChannelsByUserID() len = %d, want 1", len(all))
+	}
+	if all[0].Config != `{"webhook":"https://fallback.example.com/hook"}` {
+		t.Errorf("GetNotificationChannelsByUserID()[0].Config = %q, want legacy plaintext", all[0].Config)
+	}
+}
+
 func TestLegacyNotificationChannelCiphertextIsNotMigrated(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "nc-legacy.sqlite")
 	seedRBACFixture(t, conn)

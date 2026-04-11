@@ -306,11 +306,20 @@ func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, e
 		_ = dbInst.SQLDb.Close()
 		return nil, fmt.Errorf("setupDatabase: decode ENCRYPTION_KEY_BASE64: %w", errDecodeEnc)
 	}
-	if len(encKeyBytes) != xycrypt.EncryptionKeySize {
+	if len(encKeyBytes) < xycrypt.EncryptionKeySize {
 		_ = dbInst.SQLDb.Close()
-		return nil, fmt.Errorf("setupDatabase: ENCRYPTION_KEY_BASE64 must decode to exactly %d bytes", xycrypt.EncryptionKeySize)
+		return nil, fmt.Errorf("setupDatabase: ENCRYPTION_KEY_BASE64 must decode to at least %d bytes", xycrypt.EncryptionKeySize)
 	}
-	dbInst.SetEncryptionKey(encKeyBytes)
+	// Preserve compatibility with older deployments that supplied longer
+	// secrets while still pinning AES-256 to a 32-byte key.
+	dbInst.SetEncryptionKey(encKeyBytes[:xycrypt.EncryptionKeySize])
+
+	if cfg.JWTSecretKey != "" {
+		jwtFallbackBytes, errDecodeJWTFallback := base64.StdEncoding.DecodeString(cfg.JWTSecretKey)
+		if errDecodeJWTFallback == nil && len(jwtFallbackBytes) >= xycrypt.EncryptionKeySize {
+			dbInst.SetFallbackEncryptionKey(jwtFallbackBytes[:xycrypt.EncryptionKeySize])
+		}
+	}
 
 	errValidateExistingEncryptedSecrets := dbInst.ValidateEncryptedSecretStorageWithoutFederationLocalIdentity()
 	if errValidateExistingEncryptedSecrets != nil {

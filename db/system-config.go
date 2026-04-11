@@ -14,7 +14,9 @@ import (
 )
 
 // GetSystemConfig retrieves a system config value by key, decrypting it
-// before returning. Returns sql.ErrNoRows if the key does not exist.
+// before returning. Returns sql.ErrNoRows if the key does not exist. When the
+// fallback key is used, the value is transparently re-encrypted under the
+// primary key.
 func (c *Connection) GetSystemConfig(key string) (string, error) {
 	config, errGet := models.SystemConfigs.Query(
 		models.SelectWhere.SystemConfigs.Key.EQ(key),
@@ -26,13 +28,38 @@ func (c *Connection) GetSystemConfig(key string) (string, error) {
 		return "", fmt.Errorf("get system config: %w", errGet)
 	}
 
-	decrypted, errDecrypt := c.decryptConfig(config.Value)
+	decrypted, usedFallback, errDecrypt := c.decryptConfig(config.Value)
 	if errDecrypt != nil {
 		log.Error().Err(errDecrypt).Str("key", key).Msg("Error decrypting system config")
 		return "", fmt.Errorf("decrypt system config %q: %w", key, errDecrypt)
 	}
+	if usedFallback {
+		c.reencryptSystemConfig(key, decrypted)
+	}
 
 	return decrypted, nil
+}
+
+func (c *Connection) reencryptSystemConfig(key, plaintext string) {
+	encrypted, errEncrypt := c.encryptConfig(plaintext)
+	if errEncrypt != nil {
+		log.Warn().Err(errEncrypt).Str("key", key).
+			Msg("Failed to re-encrypt system config under primary key")
+		return
+	}
+
+	_, errUpdate := c.SQLDb.ExecContext(
+		c.ctx,
+		`UPDATE system_config SET value = ?, updated_at = ? WHERE key = ?`,
+		encrypted,
+		time.Now().UTC(),
+		key,
+	)
+	if errUpdate != nil {
+		log.Warn().Err(errUpdate).Str("key", key).
+			Msg("Failed to persist re-encrypted system config")
+		return
+	}
 }
 
 // SetSystemConfig sets a system config value by key, encrypting it before

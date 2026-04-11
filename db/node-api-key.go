@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aarondl/opt/omit"
 	"github.com/rs/zerolog/log"
@@ -27,27 +28,58 @@ func (c *Connection) encryptAPIKey(plaintext string) (string, error) {
 	return encrypted, nil
 }
 
-// decryptAPIKey decrypts an API key with the configured encryption key.
-func (c *Connection) decryptAPIKey(stored string) (string, error) {
+// decryptAPIKey decrypts an API key with the configured encryption key. The
+// second return value reports whether the fallback key was used.
+func (c *Connection) decryptAPIKey(stored string) (string, bool, error) {
 	if len(c.encryptionKey) == 0 {
-		return stored, nil
+		return stored, false, nil
 	}
 	decrypted, errDecrypt := xycrypt.Decrypt(c.encryptionKey, stored)
 	if errDecrypt == nil {
-		return decrypted, nil
+		return decrypted, false, nil
 	}
 
-	return "", fmt.Errorf("decrypt API key: %w", errDecrypt)
+	if len(c.fallbackEncryptionKey) > 0 {
+		decryptedFallback, errDecryptFallback := xycrypt.Decrypt(c.fallbackEncryptionKey, stored)
+		if errDecryptFallback == nil {
+			return decryptedFallback, true, nil
+		}
+	}
+
+	return "", false, fmt.Errorf("decrypt API key: %w", errDecrypt)
 }
 
 // decryptNodeAPIKey decrypts the APIKey field of a NodeAPIKey model in place.
-func (c *Connection) decryptNodeAPIKey(key *models.NodeAPIKey) error {
-	decrypted, errDecrypt := c.decryptAPIKey(key.APIKey)
+// The return value reports whether the fallback key was used.
+func (c *Connection) decryptNodeAPIKey(key *models.NodeAPIKey) (bool, error) {
+	decrypted, usedFallback, errDecrypt := c.decryptAPIKey(key.APIKey)
 	if errDecrypt != nil {
-		return errDecrypt
+		return false, errDecrypt
 	}
 	key.APIKey = decrypted
-	return nil
+	return usedFallback, nil
+}
+
+func (c *Connection) reencryptNodeAPIKey(serviceName, plaintext string) {
+	encrypted, errEncrypt := c.encryptAPIKey(plaintext)
+	if errEncrypt != nil {
+		log.Warn().Err(errEncrypt).Str("service", serviceName).
+			Msg("Failed to re-encrypt node API key under primary key")
+		return
+	}
+
+	_, errUpdate := c.SQLDb.ExecContext(
+		c.ctx,
+		`UPDATE node_api_key SET api_key = ?, updated_at = ? WHERE service_name = ?`,
+		encrypted,
+		time.Now().UTC(),
+		serviceName,
+	)
+	if errUpdate != nil {
+		log.Warn().Err(errUpdate).Str("service", serviceName).
+			Msg("Failed to persist re-encrypted node API key")
+		return
+	}
 }
 
 // InsertOrUpdateNodeAPIKey upserts a node API key by service name.
@@ -75,7 +107,7 @@ func (c *Connection) InsertOrUpdateNodeAPIKey(exec bob.Executor, setter *models.
 	}
 
 	// Decrypt for the caller before returning the newly written value.
-	errDecrypt := c.decryptNodeAPIKey(key)
+	_, errDecrypt := c.decryptNodeAPIKey(key)
 	if errDecrypt != nil {
 		log.Error().Err(errDecrypt).Msg("Error decrypting node API key after upsert")
 		return nil, errDecrypt
@@ -96,10 +128,13 @@ func (c *Connection) GetNodeAPIKeys() ([]*models.NodeAPIKey, error) {
 	}
 
 	for _, k := range keys {
-		errDecrypt := c.decryptNodeAPIKey(k)
+		usedFallback, errDecrypt := c.decryptNodeAPIKey(k)
 		if errDecrypt != nil {
 			log.Error().Err(errDecrypt).Str("service", k.ServiceName).Msg("Error decrypting node API key")
 			return nil, errDecrypt
+		}
+		if usedFallback {
+			c.reencryptNodeAPIKey(k.ServiceName, k.APIKey)
 		}
 	}
 
@@ -117,10 +152,13 @@ func (c *Connection) GetNodeAPIKeyByServiceName(serviceName string) (*models.Nod
 		return nil, fmt.Errorf("get node API key by service name: %w", errGet)
 	}
 
-	errDecrypt := c.decryptNodeAPIKey(key)
+	usedFallback, errDecrypt := c.decryptNodeAPIKey(key)
 	if errDecrypt != nil {
 		log.Error().Err(errDecrypt).Str("service", serviceName).Msg("Error decrypting node API key")
 		return nil, errDecrypt
+	}
+	if usedFallback {
+		c.reencryptNodeAPIKey(serviceName, key.APIKey)
 	}
 
 	return key, nil

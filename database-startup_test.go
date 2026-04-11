@@ -45,13 +45,18 @@ func makeStartupTestConfig(dbPath string, key []byte) Configuration {
 	}
 }
 
-func TestSetupDatabaseRejectsNon32ByteEncryptionKey(t *testing.T) {
+func makeStartupTestConfigWithJWT(dbPath string, encryptionKey []byte, jwtKey []byte) Configuration {
+	cfg := makeStartupTestConfig(dbPath, encryptionKey)
+	cfg.JWTSecretKey = base64.StdEncoding.EncodeToString(jwtKey)
+	return cfg
+}
+
+func TestSetupDatabaseRejectsShortEncryptionKey(t *testing.T) {
 	testCases := []struct {
 		name string
 		size int
 	}{
 		{name: "too short", size: 31},
-		{name: "too long", size: 33},
 	}
 
 	for _, tt := range testCases {
@@ -63,10 +68,99 @@ func TestSetupDatabaseRejectsNon32ByteEncryptionKey(t *testing.T) {
 			if errSetup == nil {
 				t.Fatal("setupDatabase() error = nil, want error")
 			}
-			if !strings.Contains(errSetup.Error(), "exactly 32 bytes") {
-				t.Fatalf("setupDatabase() error = %v, want exact length error", errSetup)
+			if !strings.Contains(errSetup.Error(), "at least 32 bytes") {
+				t.Fatalf("setupDatabase() error = %v, want minimum length error", errSetup)
 			}
 		})
+	}
+}
+
+func TestSetupDatabaseAcceptsLongEncryptionKeyByTruncatingTo32Bytes(t *testing.T) {
+	dbPath := newStartupTestDatabasePath(t, "setup-database-long-key.sqlite")
+	longKey := []byte(strings.Repeat("a", 33))
+
+	dbInstFirst, errSetupFirst := setupDatabase(context.Background(), makeStartupTestConfig(dbPath, longKey))
+	if errSetupFirst != nil {
+		t.Fatalf("setupDatabase(first) error = %v", errSetupFirst)
+	}
+	errSetConfig := dbInstFirst.SetSystemConfig("smtp_config", `{"host":"smtp.example.com"}`)
+	if errSetConfig != nil {
+		t.Fatalf("SetSystemConfig() error = %v", errSetConfig)
+	}
+
+	errCloseFirst := dbInstFirst.SQLDb.Close()
+	if errCloseFirst != nil {
+		t.Fatalf("Close(first connection) error = %v", errCloseFirst)
+	}
+
+	dbInstSecond, errSetupSecond := setupDatabase(context.Background(), makeStartupTestConfig(dbPath, longKey[:xycrypt.EncryptionKeySize]))
+	if errSetupSecond != nil {
+		t.Fatalf("setupDatabase(second) error = %v", errSetupSecond)
+	}
+	t.Cleanup(func() {
+		_ = dbInstSecond.SQLDb.Close()
+	})
+
+	gotConfig, errGetConfig := dbInstSecond.GetSystemConfig("smtp_config")
+	if errGetConfig != nil {
+		t.Fatalf("GetSystemConfig() error = %v", errGetConfig)
+	}
+	if gotConfig != `{"host":"smtp.example.com"}` {
+		t.Fatalf("GetSystemConfig() = %q, want original config", gotConfig)
+	}
+}
+
+func TestSetupDatabaseMigratesLegacyJWTEncryptedSystemConfig(t *testing.T) {
+	dbPath := newStartupTestDatabasePath(t, "setup-database-jwt-fallback.sqlite")
+	conn := newStartupTestConnection(t, dbPath)
+
+	legacyJWTKey, errLegacyJWTKey := xycrypt.GenerateEncryptionKey()
+	if errLegacyJWTKey != nil {
+		t.Fatalf("GenerateEncryptionKey(legacy JWT) error = %v", errLegacyJWTKey)
+	}
+	newEncryptionKey, errNewEncryptionKey := xycrypt.GenerateEncryptionKey()
+	if errNewEncryptionKey != nil {
+		t.Fatalf("GenerateEncryptionKey(new encryption) error = %v", errNewEncryptionKey)
+	}
+	wrongJWTKey, errWrongJWTKey := xycrypt.GenerateEncryptionKey()
+	if errWrongJWTKey != nil {
+		t.Fatalf("GenerateEncryptionKey(wrong JWT) error = %v", errWrongJWTKey)
+	}
+
+	conn.SetEncryptionKey(legacyJWTKey)
+	errSetConfig := conn.SetSystemConfig("smtp_config", `{"host":"smtp.example.com"}`)
+	if errSetConfig != nil {
+		t.Fatalf("SetSystemConfig() error = %v", errSetConfig)
+	}
+
+	errCloseSeed := conn.SQLDb.Close()
+	if errCloseSeed != nil {
+		t.Fatalf("Close(seed connection) error = %v", errCloseSeed)
+	}
+
+	dbInstFirst, errSetupFirst := setupDatabase(context.Background(), makeStartupTestConfigWithJWT(dbPath, newEncryptionKey, legacyJWTKey))
+	if errSetupFirst != nil {
+		t.Fatalf("setupDatabase(first) error = %v", errSetupFirst)
+	}
+	errCloseFirst := dbInstFirst.SQLDb.Close()
+	if errCloseFirst != nil {
+		t.Fatalf("Close(first connection) error = %v", errCloseFirst)
+	}
+
+	dbInstSecond, errSetupSecond := setupDatabase(context.Background(), makeStartupTestConfigWithJWT(dbPath, newEncryptionKey, wrongJWTKey))
+	if errSetupSecond != nil {
+		t.Fatalf("setupDatabase(second) error = %v", errSetupSecond)
+	}
+	t.Cleanup(func() {
+		_ = dbInstSecond.SQLDb.Close()
+	})
+
+	gotConfig, errGetConfig := dbInstSecond.GetSystemConfig("smtp_config")
+	if errGetConfig != nil {
+		t.Fatalf("GetSystemConfig() error = %v", errGetConfig)
+	}
+	if gotConfig != `{"host":"smtp.example.com"}` {
+		t.Fatalf("GetSystemConfig() = %q, want original config", gotConfig)
 	}
 }
 

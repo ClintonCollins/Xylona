@@ -264,6 +264,47 @@ func TestEncryptedUpsertUpdatesExisting(t *testing.T) {
 	}
 }
 
+func TestDecryptAPIKey_FallbackKey(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "nak-fallback.sqlite")
+
+	oldKey, errOld := xycrypt.GenerateEncryptionKey()
+	if errOld != nil {
+		t.Fatalf("GenerateEncryptionKey(old) error = %v", errOld)
+	}
+	newKey, errNew := xycrypt.GenerateEncryptionKey()
+	if errNew != nil {
+		t.Fatalf("GenerateEncryptionKey(new) error = %v", errNew)
+	}
+
+	conn.SetEncryptionKey(oldKey)
+	setter := makeNodeAPIKeySetter("key-fb-1", "steam", "secret-steam-key")
+	_, errUpsert := conn.InsertOrUpdateNodeAPIKey(conn.DB, setter)
+	if errUpsert != nil {
+		t.Fatalf("InsertOrUpdateNodeAPIKey() error = %v", errUpsert)
+	}
+
+	conn.SetEncryptionKey(newKey)
+	conn.SetFallbackEncryptionKey(oldKey)
+
+	fetched, errGet := conn.GetNodeAPIKeyByServiceName("steam")
+	if errGet != nil {
+		t.Fatalf("GetNodeAPIKeyByServiceName() with fallback error = %v", errGet)
+	}
+	if fetched.APIKey != "secret-steam-key" {
+		t.Errorf("APIKey = %q, want %q", fetched.APIKey, "secret-steam-key")
+	}
+
+	conn.SetFallbackEncryptionKey(nil)
+
+	fetchedAgain, errGetAgain := conn.GetNodeAPIKeyByServiceName("steam")
+	if errGetAgain != nil {
+		t.Fatalf("GetNodeAPIKeyByServiceName() after re-encrypt error = %v", errGetAgain)
+	}
+	if fetchedAgain.APIKey != "secret-steam-key" {
+		t.Errorf("APIKey after re-encrypt = %q, want %q", fetchedAgain.APIKey, "secret-steam-key")
+	}
+}
+
 func TestLegacyNodeAPIKeyCiphertextIsNotMigrated(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "nak-legacy.sqlite")
 

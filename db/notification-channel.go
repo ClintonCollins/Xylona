@@ -28,17 +28,47 @@ func (c *Connection) encryptConfig(plaintext string) (string, error) {
 }
 
 // decryptConfig decrypts a notification channel config value with the
-// configured encryption key.
-func (c *Connection) decryptConfig(ciphertext string) (string, error) {
+// configured encryption key. The second return value reports whether the
+// fallback key was used.
+func (c *Connection) decryptConfig(ciphertext string) (string, bool, error) {
 	if len(c.encryptionKey) == 0 {
-		return ciphertext, nil
+		return ciphertext, false, nil
 	}
 	decrypted, errDecrypt := xycrypt.Decrypt(c.encryptionKey, ciphertext)
 	if errDecrypt == nil {
-		return decrypted, nil
+		return decrypted, false, nil
 	}
 
-	return "", fmt.Errorf("decrypt config: %w", errDecrypt)
+	if len(c.fallbackEncryptionKey) > 0 {
+		decryptedFallback, errDecryptFallback := xycrypt.Decrypt(c.fallbackEncryptionKey, ciphertext)
+		if errDecryptFallback == nil {
+			return decryptedFallback, true, nil
+		}
+	}
+
+	return "", false, fmt.Errorf("decrypt config: %w", errDecrypt)
+}
+
+func (c *Connection) reencryptNotificationChannelConfig(channelID, plaintext string) {
+	encrypted, errEncrypt := c.encryptConfig(plaintext)
+	if errEncrypt != nil {
+		log.Warn().Err(errEncrypt).Str("notification_channel_id", channelID).
+			Msg("Failed to re-encrypt notification channel config under primary key")
+		return
+	}
+
+	_, errUpdate := c.SQLDb.ExecContext(
+		c.ctx,
+		`UPDATE notification_channel SET config = ?, updated_at = ? WHERE id = ?`,
+		encrypted,
+		time.Now().UTC(),
+		channelID,
+	)
+	if errUpdate != nil {
+		log.Warn().Err(errUpdate).Str("notification_channel_id", channelID).
+			Msg("Failed to persist re-encrypted notification channel config")
+		return
+	}
 }
 
 // InsertNotificationChannel creates a new notification channel record. The
@@ -92,12 +122,15 @@ func (c *Connection) GetNotificationChannelByID(id string) (*models.Notification
 		return nil, fmt.Errorf("get notification channel by ID: %w", errGet)
 	}
 
-	decrypted, errDecrypt := c.decryptConfig(channel.Config)
+	decrypted, usedFallback, errDecrypt := c.decryptConfig(channel.Config)
 	if errDecrypt != nil {
 		log.Error().Err(errDecrypt).Str("notification_channel_id", id).Msg("Error decrypting notification channel config")
 		return nil, errDecrypt
 	}
 	channel.Config = decrypted
+	if usedFallback {
+		c.reencryptNotificationChannelConfig(id, decrypted)
+	}
 
 	return channel, nil
 }
@@ -115,12 +148,15 @@ func (c *Connection) GetNotificationChannelsByUserID(userID string) ([]*models.N
 	}
 
 	for _, ch := range channels {
-		decrypted, errDecrypt := c.decryptConfig(ch.Config)
+		decrypted, usedFallback, errDecrypt := c.decryptConfig(ch.Config)
 		if errDecrypt != nil {
 			log.Error().Err(errDecrypt).Str("notification_channel_id", ch.ID).Msg("Error decrypting notification channel config")
 			return nil, errDecrypt
 		}
 		ch.Config = decrypted
+		if usedFallback {
+			c.reencryptNotificationChannelConfig(ch.ID, decrypted)
+		}
 	}
 
 	return channels, nil

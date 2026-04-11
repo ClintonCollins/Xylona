@@ -384,7 +384,7 @@
 </template>
 
 <script lang="ts" setup>
-import { create, toJsonString } from '@bufbuild/protobuf'
+import { create } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import OperationProgressDialog from '@/components/game_servers/OperationProgressDialog.vue'
@@ -397,7 +397,6 @@ import type { ServerSoftwareOperationEvent } from '@/components/game_servers/Ser
 import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
-  AllServersQueryInfo,
   GameServer,
   GameServerSchema,
   ReadGameServerOutputRequest,
@@ -405,7 +404,6 @@ import {
   ReadGameServerOutputResponse,
   SendGameServerInputRequest,
   SendGameServerInputRequestSchema,
-  ServerQuery_Type,
   StartGameServerRequest,
   StartGameServerRequestSchema,
   Status,
@@ -417,15 +415,11 @@ import {
   GetGameServerRequest,
   GetGameServerRequestSchema,
   GetUpdateTargetsRequestSchema,
-  QueryGameServerRequest,
-  QueryGameServerRequestSchema,
-  QueryGameServerResponse,
   StepStatus,
   UpdateGameServerRequest,
   UpdateGameServerRequestSchema,
   UpdateStep,
 } from '@/proto/xylona_pb'
-import { AllServersMetrics, Request, Request_Type, RequestSchema } from '@/proto/websocket_pb'
 import { ConnectError } from '@connectrpc/connect'
 import { parseConsole } from '@/utils/console'
 import { canShowUpdateButton } from './game-server-update-capability'
@@ -453,6 +447,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './version-display'
 import { canSelectSteamBranch, chooseSteamBranchForUpdate } from './steam-branch-update'
+import { useGameServerMetricsPreview } from './useGameServerMetricsPreview'
+import { useGameServerQueryStatusVersion } from './useGameServerQueryStatusVersion'
 
 const $q = useQuasar()
 const consoleLines = ref<ConsoleLine[]>([])
@@ -536,21 +532,32 @@ const softwareOperationOutputLines = ref<string[]>([])
 const softwareOperationContextFacts = ref<OperationContextFact[]>([])
 const maxOperationOutputLines = 80
 
-const currentPlayerCount: Ref<number> = ref(0)
-const maxPlayerCount: Ref<number> = ref(0)
-
-// Metrics state (lifted from GameServerMetrics for compact sidebar display)
-const metricsCpu = ref(0)
-const metricsCpuCores = ref(0)
-const metricsMemory = ref(0)
-const metricsMemoryPercent = ref(0)
-const metricsThreads = ref(0)
-const metricsDisk = ref(0)
-const metricsIoReadRate = ref(0)
-const metricsIoWriteRate = ref(0)
-const metricsConnections = ref(0)
-const metricsUptimeSeconds = ref(0)
-let uptimeTicker: ReturnType<typeof setInterval> | null = null
+const {
+  cpuBarClass,
+  formatRate,
+  formattedUptime,
+  memoryBarClass,
+  metricsConnections,
+  metricsCpu,
+  metricsCpuCores,
+  metricsDisk,
+  metricsIoReadRate,
+  metricsIoWriteRate,
+  metricsMaxMemory,
+  metricsMemory,
+  metricsMemoryPercent,
+  metricsMemoryRatio,
+  metricsThreads,
+  startMetricsPreviewLifecycle,
+} = useGameServerMetricsPreview({
+  gameServer,
+  gameServerId,
+})
+const { currentPlayerCount, maxPlayerCount, queryGameServer, startQueryStatusVersionLifecycle } =
+  useGameServerQueryStatusVersion({
+    gameServer,
+    gameServerId,
+  })
 
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 const isServerOffline = computed(
@@ -567,48 +574,6 @@ const showConsolePlaceholder = computed(
     !updateInProgress.value &&
     !softwareOperationInProgress.value,
 )
-
-const metricsMaxMemory = computed(() => Number(gameServer.value.maxMemoryMb) * 1024 * 1024)
-const metricsMemoryRatio = computed(() => {
-  if (metricsMaxMemory.value <= 0) return 0
-  return Math.min(metricsMemory.value / metricsMaxMemory.value, 1)
-})
-
-const cpuBarClass = computed(() => {
-  if (metricsCpu.value >= 80) return 'fill-high'
-  if (metricsCpu.value >= 50) return 'fill-mid'
-  return 'fill-low'
-})
-
-const memoryBarClass = computed(() => {
-  if (metricsMemoryRatio.value >= 0.8) return 'fill-high'
-  if (metricsMemoryRatio.value >= 0.5) return 'fill-mid'
-  return 'fill-low'
-})
-
-const formattedUptime = computed(() => {
-  const total = metricsUptimeSeconds.value
-  if (total <= 0) return '0s'
-  const days = Math.floor(total / 86400)
-  const hours = Math.floor((total % 86400) / 3600)
-  const minutes = Math.floor((total % 3600) / 60)
-  const seconds = total % 60
-  const parts: string[] = []
-  if (days > 0) parts.push(`${days}d`)
-  if (hours > 0) parts.push(`${hours}h`)
-  if (minutes > 0) parts.push(`${minutes}m`)
-  if (parts.length === 0 || seconds > 0) parts.push(`${seconds}s`)
-  return parts.join(' ')
-})
-
-function formatRate(bytesPerSec: number): string {
-  if (bytesPerSec <= 0) return '0 B/s'
-  if (bytesPerSec >= 1024 * 1024 * 1024)
-    return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(1)} GB/s`
-  if (bytesPerSec >= 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`
-  if (bytesPerSec >= 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`
-  return `${bytesPerSec.toFixed(0)} B/s`
-}
 
 const connectionAddress = computed(() => {
   const ip = gameServer.value.ip?.address ?? ''
@@ -692,21 +657,6 @@ function hasPermission(perm: string): boolean {
   return perms.length === 0 || perms.includes(perm)
 }
 
-function onMetrics(metrics: AllServersMetrics) {
-  const serverMetrics = metrics.servers[gameServerId.value]
-  if (!serverMetrics) return
-  metricsCpu.value = serverMetrics.cpuPercent
-  metricsCpuCores.value = serverMetrics.cpuCores
-  metricsMemory.value = Number(serverMetrics.memoryBytes)
-  metricsMemoryPercent.value = serverMetrics.memoryPercent
-  metricsThreads.value = serverMetrics.numberOfThreads
-  metricsDisk.value = Number(serverMetrics.diskUsageBytes)
-  metricsIoReadRate.value = serverMetrics.ioReadRate
-  metricsIoWriteRate.value = serverMetrics.ioWriteRate
-  metricsConnections.value = serverMetrics.connectionCount
-  metricsUptimeSeconds.value = Number(serverMetrics.uptimeSeconds)
-}
-
 function handleMobileSidebar() {
   if (window.innerWidth < 1024) {
     sidebarCollapsed.value = true
@@ -717,21 +667,12 @@ onMounted(async () => {
   document.addEventListener('keydown', onEscapeKey)
   handleMobileSidebar()
 
-  XylonaEventBus.on('gameServerMetrics', onMetrics)
-  uptimeTicker = setInterval(() => {
-    if (gameServer.value.status === Status.ONLINE && metricsUptimeSeconds.value > 0) {
-      metricsUptimeSeconds.value++
-    }
-  }, 1000)
-
   void getGameServerDetails()
     .then(() => {
       void getGameServerOutput()
       streamGameServerOutput()
-      listenForServerQueryInfo()
-      void subscribeServerMetrics().catch((error) => {
-        console.error('Failed to subscribe to server metrics', error)
-      })
+      startQueryStatusVersionLifecycle()
+      startMetricsPreviewLifecycle()
     })
     .then(queryGameServer)
 })
@@ -742,41 +683,12 @@ onBeforeUnmount(() => {
     consoleRafId = null
   }
   document.removeEventListener('keydown', onEscapeKey)
-  unsubscribeServerMetrics()
   unsubscribeConsoleOutputStream()
 
-  XylonaEventBus.off('gameServerMetrics', onMetrics)
   XylonaEventBus.off('gameServerUpdateProgress', onUpdateProgress)
   XylonaEventBus.off('websocketConnected', onWebsocketReconnect)
-  XylonaEventBus.off('gameServersQueryInfo', onServerQueryInfo)
-  XylonaEventBus.off('gameServerStatus', onServerStatusUpdate)
-  XylonaEventBus.off('gameServerVersion', onServerVersionUpdate)
   XylonaEventBus.off('gameServerConsoleOutput', onServerConsoleOutput)
-  if (uptimeTicker !== null) {
-    clearInterval(uptimeTicker)
-    uptimeTicker = null
-  }
 })
-
-async function subscribeServerMetrics() {
-  const ws = GetOrCreateXylonaWebsocketClient()
-  const request: Request = create(RequestSchema, {})
-  request.type = Request_Type.SubscribeServerMetrics
-  request.gameServerId = gameServerId.value
-  await ws.waitForOpen(10_000)
-  ws.send(toJsonString(RequestSchema, request))
-}
-
-function unsubscribeServerMetrics() {
-  const ws = GetOrCreateXylonaWebsocketClient()
-  if (!ws.isOpen()) {
-    return
-  }
-  const request: Request = create(RequestSchema, {})
-  request.type = Request_Type.UnsubscribeServerMetrics
-  request.gameServerId = gameServerId.value
-  ws.send(toJsonString(RequestSchema, request))
-}
 
 function unsubscribeConsoleOutputStream() {
   const ws = GetOrCreateXylonaWebsocketClient()
@@ -807,32 +719,6 @@ async function getGameServerDetails() {
       type: 'xylona-error',
       position: 'top-right',
       caption: 'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
-  }
-}
-
-async function queryGameServer() {
-  const request: QueryGameServerRequest = create(QueryGameServerRequestSchema, {})
-  try {
-    request.serverId = gameServerId.value
-    const resp: QueryGameServerResponse = await GetXylonaClient().queryGameServer(request)
-    switch (resp.queryInfo?.type) {
-      case ServerQuery_Type.Minecraft:
-        currentPlayerCount.value = resp.queryInfo.minecraft.numberOfPlayers
-        maxPlayerCount.value = resp.queryInfo.minecraft.maxPlayers
-        break
-      case ServerQuery_Type.Source:
-        currentPlayerCount.value = resp.queryInfo.source.players
-        maxPlayerCount.value = resp.queryInfo.source.maxPlayers
-        break
-    }
-  } catch (e) {
-    console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top-right',
-      caption: 'Failed to query game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
   }
@@ -1150,46 +1036,10 @@ async function getGameServerOutput() {
   }
 }
 
-function onServerQueryInfo(allServersQueryInfo: AllServersQueryInfo) {
-  const queryInfo = allServersQueryInfo.servers[gameServerId.value]
-  if (queryInfo === undefined) {
-    return
-  }
-  switch (queryInfo.type) {
-    case ServerQuery_Type.Minecraft:
-      currentPlayerCount.value = queryInfo.minecraft.numberOfPlayers
-      maxPlayerCount.value = queryInfo.minecraft.maxPlayers
-      break
-    case ServerQuery_Type.Source:
-      currentPlayerCount.value = queryInfo.source.players
-      maxPlayerCount.value = queryInfo.source.maxPlayers
-      break
-  }
-}
-
-function listenForServerQueryInfo() {
-  XylonaEventBus.on('gameServersQueryInfo', onServerQueryInfo)
-}
-
 function onWebsocketReconnect() {
   void requestConsoleOutputStream().catch((error) => {
     console.error('Failed to resubscribe to game server console output', error)
   })
-}
-
-function onServerStatusUpdate(serverID: string, _serverName: string, serverStatus: Status) {
-  if (serverID !== gameServerId.value) {
-    return
-  }
-  gameServer.value.status = serverStatus
-}
-
-function onServerVersionUpdate(serverID: string, version: string, versionInfo?: VersionInfo) {
-  if (serverID !== gameServerId.value) {
-    return
-  }
-  gameServer.value.version = version
-  gameServer.value.versionInfo = versionInfo
 }
 
 function onServerConsoleOutput(serverID: string, output: string) {
@@ -1203,10 +1053,6 @@ function onServerConsoleOutput(serverID: string, output: string) {
 }
 
 function streamGameServerOutput() {
-  // Listen for game server status changes.
-  XylonaEventBus.on('gameServerStatus', onServerStatusUpdate)
-  XylonaEventBus.on('gameServerVersion', onServerVersionUpdate)
-
   // Stream game server output.
   XylonaEventBus.on('gameServerConsoleOutput', onServerConsoleOutput)
 

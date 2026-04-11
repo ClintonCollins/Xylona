@@ -4,6 +4,7 @@ package modmanager
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"maps"
@@ -69,6 +70,21 @@ func createDownloadStagingDir(targetDir string) (string, error) {
 	}
 
 	return stagingDir, nil
+}
+
+func logRemoveAllError(path string, purpose string) {
+	errRemoveAll := os.RemoveAll(path)
+	if errRemoveAll != nil {
+		log.Warn().Err(errRemoveAll).Str("path", path).Msg(purpose)
+	}
+}
+
+func logRollbackError(err error, msg string) {
+	if err == nil || errors.Is(err, sql.ErrTxDone) {
+		return
+	}
+
+	log.Warn().Err(err).Msg(msg)
 }
 
 func cleanupPromotedFiles(moves []fileMove) error {
@@ -209,7 +225,7 @@ func (m *ModManager) Install(
 		return nil, errStagingDir
 	}
 	defer func() {
-		_ = os.RemoveAll(stagingDir)
+		logRemoveAllError(stagingDir, "Failed to remove mod install staging directory")
 	}()
 
 	downloaded, errDownload := provider.Download(ctx, sourceID, versionID, stagingDir)
@@ -265,7 +281,7 @@ func (m *ModManager) Install(
 	tx := bob.NewTx(t)
 
 	defer func() {
-		_ = tx.Rollback(ctx)
+		logRollbackError(tx.Rollback(ctx), "Failed to rollback mod install transaction")
 	}()
 
 	modSetter := &models.InstalledModSetter{
@@ -387,7 +403,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		return nil, errStagingDir
 	}
 	defer func() {
-		_ = os.RemoveAll(stagingDir)
+		logRemoveAllError(stagingDir, "Failed to remove mod update staging directory")
 	}()
 
 	downloaded, errDownload := provider.Download(ctx, mod.SourceID, versionID, stagingDir)
@@ -403,7 +419,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		return nil, fmt.Errorf("modmanager: create rollback directory: %w", errRollbackDir)
 	}
 	defer func() {
-		_ = os.RemoveAll(rollbackDir)
+		logRemoveAllError(rollbackDir, "Failed to remove mod update rollback directory")
 	}()
 
 	rollbackMoves, errRollbackMoves := moveExistingFilesToRollback(serverDir, installSubdir, oldFiles, rollbackDir)
@@ -452,7 +468,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 	tx := bob.NewTx(t)
 
 	defer func() {
-		_ = tx.Rollback(ctx)
+		logRollbackError(tx.Rollback(ctx), "Failed to rollback mod update transaction")
 	}()
 
 	// Delete old file records and insert new ones.
@@ -461,7 +477,11 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		errCleanup := cleanupPromotedFiles(promotedMoves)
 		errRestore := restoreMovedFiles(rollbackMoves)
 		if errCleanup != nil || errRestore != nil {
-			return nil, fmt.Errorf("modmanager: delete old file records: %w; cleanup promoted files: %v; restore old files: %v", errDeleteFiles, errCleanup, errRestore)
+			return nil, errors.Join(
+				fmt.Errorf("modmanager: delete old file records: %w", errDeleteFiles),
+				errCleanup,
+				errRestore,
+			)
 		}
 		return nil, fmt.Errorf("modmanager: delete old file records: %w", errDeleteFiles)
 	}
@@ -502,7 +522,11 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		errCleanup := cleanupPromotedFiles(promotedMoves)
 		errRestore := restoreMovedFiles(rollbackMoves)
 		if errCleanup != nil || errRestore != nil {
-			return nil, fmt.Errorf("modmanager: update mod record: %w; cleanup promoted files: %v; restore old files: %v", errUpdate, errCleanup, errRestore)
+			return nil, errors.Join(
+				fmt.Errorf("modmanager: update mod record: %w", errUpdate),
+				errCleanup,
+				errRestore,
+			)
 		}
 		return nil, fmt.Errorf("modmanager: update mod record: %w", errUpdate)
 	}
@@ -512,7 +536,11 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		errCleanup := cleanupPromotedFiles(promotedMoves)
 		errRestore := restoreMovedFiles(rollbackMoves)
 		if errCleanup != nil || errRestore != nil {
-			return nil, fmt.Errorf("modmanager: commit update transaction: %w; cleanup promoted files: %v; restore old files: %v", errCommit, errCleanup, errRestore)
+			return nil, errors.Join(
+				fmt.Errorf("modmanager: commit update transaction: %w", errCommit),
+				errCleanup,
+				errRestore,
+			)
 		}
 		return nil, fmt.Errorf("modmanager: commit update transaction: %w", errCommit)
 	}

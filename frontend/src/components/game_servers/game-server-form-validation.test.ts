@@ -1,7 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -51,15 +47,74 @@ type ValidationParityMemoryCase = {
   expected: string
 }
 
-const validationParityFixture = JSON.parse(
-  readFileSync(
-    join(
-      dirname(fileURLToPath(import.meta.url)),
-      '../../../../testdata/game-server-validation-parity.json',
-    ),
-    'utf8',
-  ),
-) as ValidationParityFixture
+const validationParityFixture: ValidationParityFixture = {
+  port: [
+    {
+      name: 'rejects ports below the valid range',
+      value: 0,
+      expected: 'Port must be between 1 and 65535',
+    },
+    {
+      name: 'accepts a typical minecraft server port',
+      value: 25565,
+      expected: 'ok',
+    },
+  ],
+  playerCount: [
+    {
+      name: 'rejects values below the configured minimum',
+      label: 'Max Players',
+      minimum: 1,
+      value: 0,
+      expected: 'Max Players must be 1 or greater',
+    },
+    {
+      name: 'accepts an in-range player count',
+      label: 'Max Players',
+      minimum: 1,
+      value: 32,
+      expected: 'ok',
+    },
+  ],
+  playerCountAtMost: [
+    {
+      name: 'defers while the related maximum is still unset',
+      label: 'Set Players',
+      maximumLabel: 'Max Players',
+      value: 4,
+      maximum: null,
+      expected: 'ok',
+    },
+    {
+      name: 'rejects values above the related maximum',
+      label: 'Set Players',
+      maximumLabel: 'Max Players',
+      value: 12,
+      maximum: 10,
+      expected: 'Set Players cannot exceed Max Players',
+    },
+    {
+      name: 'accepts values within the related maximum',
+      label: 'Set Players',
+      maximumLabel: 'Max Players',
+      value: 10,
+      maximum: 10,
+      expected: 'ok',
+    },
+  ],
+  maxMemory: [
+    {
+      name: 'rejects limits below the minimum',
+      value: 64,
+      expected: 'Max Memory MB must be at least 128',
+    },
+    {
+      name: 'accepts a valid memory limit',
+      value: 2048,
+      expected: 'ok',
+    },
+  ],
+}
 
 function assertValidationParityResult(result: true | string, expected: string) {
   const actual = result === true ? 'ok' : result

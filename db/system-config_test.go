@@ -101,6 +101,47 @@ func TestSystemConfig_Encryption(t *testing.T) {
 	}
 }
 
+func TestDecryptConfig_FallbackKey(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "sc-fallback.sqlite")
+
+	oldKey, errOld := xycrypt.GenerateEncryptionKey()
+	if errOld != nil {
+		t.Fatalf("GenerateEncryptionKey(old) error = %v", errOld)
+	}
+	newKey, errNew := xycrypt.GenerateEncryptionKey()
+	if errNew != nil {
+		t.Fatalf("GenerateEncryptionKey(new) error = %v", errNew)
+	}
+
+	conn.SetEncryptionKey(oldKey)
+	plaintext := `{"secret":"fallback-test-value"}`
+	errSet := conn.SetSystemConfig("test_fallback", plaintext)
+	if errSet != nil {
+		t.Fatalf("SetSystemConfig() with old key error = %v", errSet)
+	}
+
+	conn.SetEncryptionKey(newKey)
+	conn.SetFallbackEncryptionKey(oldKey)
+
+	decrypted, errGet := conn.GetSystemConfig("test_fallback")
+	if errGet != nil {
+		t.Fatalf("GetSystemConfig() with fallback error = %v", errGet)
+	}
+	if decrypted != plaintext {
+		t.Errorf("GetSystemConfig() = %q, want %q", decrypted, plaintext)
+	}
+
+	conn.SetFallbackEncryptionKey(nil)
+
+	decryptedAgain, errGetAgain := conn.GetSystemConfig("test_fallback")
+	if errGetAgain != nil {
+		t.Fatalf("GetSystemConfig() after re-encrypt error = %v", errGetAgain)
+	}
+	if decryptedAgain != plaintext {
+		t.Errorf("GetSystemConfig() after re-encrypt = %q, want %q", decryptedAgain, plaintext)
+	}
+}
+
 func TestLegacySystemConfigCiphertextIsNotMigrated(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "sc-legacy.sqlite")
 

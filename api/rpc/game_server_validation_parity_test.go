@@ -1,11 +1,7 @@
 package rpc
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -51,7 +47,7 @@ type validationParityMemoryCase struct {
 }
 
 func TestValidateGameServerSubmissionParity(t *testing.T) {
-	fixture := loadValidationParityFixture(t)
+	fixture := makeValidationParityFixture()
 	game := &models.Game{ID: `minecraft`}
 
 	for _, tt := range fixture.Port {
@@ -97,28 +93,79 @@ func TestValidateGameServerSubmissionParity(t *testing.T) {
 	})
 }
 
-func loadValidationParityFixture(t *testing.T) validationParityFixture {
-	t.Helper()
-
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller(0) failed")
+func makeValidationParityFixture() validationParityFixture {
+	return validationParityFixture{
+		Port: []validationParityPortCase{
+			{
+				Name:     `rejects ports below the valid range`,
+				Value:    0,
+				Expected: `Port must be between 1 and 65535`,
+			},
+			{
+				Name:     `accepts a typical minecraft server port`,
+				Value:    25565,
+				Expected: `ok`,
+			},
+		},
+		PlayerCount: []validationParityCountCase{
+			{
+				Name:     `rejects values below the configured minimum`,
+				Label:    `Max Players`,
+				Minimum:  1,
+				Value:    0,
+				Expected: `Max Players must be 1 or greater`,
+			},
+			{
+				Name:     `accepts an in-range player count`,
+				Label:    `Max Players`,
+				Minimum:  1,
+				Value:    32,
+				Expected: `ok`,
+			},
+		},
+		PlayerCountAtMost: []validationParityAtMostCase{
+			{
+				Name:         `defers while the related maximum is still unset`,
+				Label:        `Set Players`,
+				MaximumLabel: `Max Players`,
+				Value:        4,
+				Maximum:      nil,
+				Expected:     `ok`,
+			},
+			{
+				Name:         `rejects values above the related maximum`,
+				Label:        `Set Players`,
+				MaximumLabel: `Max Players`,
+				Value:        12,
+				Maximum:      int64Ptr(10),
+				Expected:     `Set Players cannot exceed Max Players`,
+			},
+			{
+				Name:         `accepts values within the related maximum`,
+				Label:        `Set Players`,
+				MaximumLabel: `Max Players`,
+				Value:        10,
+				Maximum:      int64Ptr(10),
+				Expected:     `ok`,
+			},
+		},
+		MaxMemory: []validationParityMemoryCase{
+			{
+				Name:     `rejects limits below the minimum`,
+				Value:    64,
+				Expected: `Max Memory MB must be at least 128`,
+			},
+			{
+				Name:     `accepts a valid memory limit`,
+				Value:    2048,
+				Expected: `ok`,
+			},
+		},
 	}
+}
 
-	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), `..`, `..`))
-	fixturePath := filepath.Join(repoRoot, `testdata`, `game-server-validation-parity.json`)
-
-	data, errRead := os.ReadFile(fixturePath)
-	if errRead != nil {
-		t.Fatalf("ReadFile(%s) error = %v", fixturePath, errRead)
-	}
-
-	var fixture validationParityFixture
-	if errUnmarshal := json.Unmarshal(data, &fixture); errUnmarshal != nil {
-		t.Fatalf("Unmarshal(%s) error = %v", fixturePath, errUnmarshal)
-	}
-
-	return fixture
+func int64Ptr(v int64) *int64 {
+	return &v
 }
 
 func assertValidationParityResult(t *testing.T, err error, expected string) {

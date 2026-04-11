@@ -63,9 +63,12 @@ func (c *Connection) validateEncryptedSystemConfig() error {
 			return fmt.Errorf("validate encrypted system config: scan row: %w", errScan)
 		}
 
-		_, errDecrypt := c.decryptConfig(value)
+		decrypted, usedFallback, errDecrypt := c.decryptConfig(value)
 		if errDecrypt != nil {
 			return fmt.Errorf("validate encrypted system config %q: %w", key, errDecrypt)
+		}
+		if usedFallback {
+			c.reencryptSystemConfig(key, decrypted)
 		}
 	}
 
@@ -94,9 +97,12 @@ func (c *Connection) validateEncryptedNotificationChannels() error {
 			return fmt.Errorf("validate encrypted notification channels: scan row: %w", errScan)
 		}
 
-		_, errDecrypt := c.decryptConfig(config)
+		decrypted, usedFallback, errDecrypt := c.decryptConfig(config)
 		if errDecrypt != nil {
 			return fmt.Errorf("validate encrypted notification channel %q: %w", id, errDecrypt)
+		}
+		if usedFallback {
+			c.reencryptNotificationChannelConfig(id, decrypted)
 		}
 	}
 
@@ -125,9 +131,12 @@ func (c *Connection) validateEncryptedNodeAPIKeys() error {
 			return fmt.Errorf("validate encrypted node API keys: scan row: %w", errScan)
 		}
 
-		_, errDecrypt := c.decryptAPIKey(apiKey)
+		decrypted, usedFallback, errDecrypt := c.decryptAPIKey(apiKey)
 		if errDecrypt != nil {
 			return fmt.Errorf("validate encrypted node API key %q: %w", serviceName, errDecrypt)
+		}
+		if usedFallback {
+			c.reencryptNodeAPIKey(serviceName, decrypted)
 		}
 	}
 
