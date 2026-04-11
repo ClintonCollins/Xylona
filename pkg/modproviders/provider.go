@@ -20,6 +20,12 @@ var (
 	ErrDownloadTooLarge = errors.New("modproviders: download exceeds maximum allowed size")
 	// ErrNoUpdateAvailable indicates no compatible version is available to compare or install.
 	ErrNoUpdateAvailable = errors.New("modproviders: no update available")
+	// ErrMissingIntegrityMetadata is returned when a provider that should supply
+	// integrity metadata omits it for a downloadable artifact.
+	ErrMissingIntegrityMetadata = errors.New("modproviders: missing integrity metadata")
+	// ErrIntegrityMismatch is returned when a downloaded artifact does not match
+	// the provider-advertised integrity metadata.
+	ErrIntegrityMismatch = errors.New("modproviders: integrity verification failed")
 )
 
 // Well-known SearchParams keys. Providers read these from the map alongside

@@ -349,9 +349,24 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 		return nil, fmt.Errorf("hangar download: version %q not found for %q", versionID, sourceID)
 	}
 
-	downloadURL, _ := primaryDownloadFor(targetVersion.Downloads, "")
+	var targetDownload hangarPlatformDownload
+	targetDownloadFound := false
+	for _, download := range targetVersion.Downloads {
+		targetDownload = download
+		targetDownloadFound = true
+		break
+	}
+	if !targetDownloadFound {
+		return nil, fmt.Errorf("hangar download: no download URL found for version %q of %q", versionID, sourceID)
+	}
+
+	downloadURL := targetDownload.DownloadURL
 	if downloadURL == "" {
 		return nil, fmt.Errorf("hangar download: no download URL found for version %q of %q", versionID, sourceID)
+	}
+	expectedSHA256 := targetDownload.FileInfo.SHA256
+	if expectedSHA256 == "" {
+		return nil, fmt.Errorf("hangar download: missing SHA-256 for version %q of %q: %w", versionID, sourceID, modproviders.ErrMissingIntegrityMetadata)
 	}
 
 	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
@@ -402,6 +417,9 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 	}
 
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))
+	if !strings.EqualFold(hash, expectedSHA256) {
+		return nil, fmt.Errorf("hangar download: SHA-256 mismatch for %s: got %s, want %s: %w", fileName, hash, expectedSHA256, modproviders.ErrIntegrityMismatch)
+	}
 
 	return []modproviders.DownloadedFile{
 		{

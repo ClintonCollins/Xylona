@@ -311,8 +311,11 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))
 
-	if expectedSHA256 != "" && hash != expectedSHA256 {
-		return nil, fmt.Errorf("papermc download: SHA-256 mismatch for %s: got %s, want %s", fileName, hash, expectedSHA256)
+	if expectedSHA256 == "" {
+		return nil, fmt.Errorf("papermc download: missing SHA-256 for %s: %w", fileName, modproviders.ErrMissingIntegrityMetadata)
+	}
+	if !strings.EqualFold(hash, expectedSHA256) {
+		return nil, fmt.Errorf("papermc download: SHA-256 mismatch for %s: got %s, want %s: %w", fileName, hash, expectedSHA256, modproviders.ErrIntegrityMismatch)
 	}
 
 	return []modproviders.DownloadedFile{

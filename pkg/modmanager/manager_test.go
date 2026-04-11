@@ -22,6 +22,7 @@ type mockProvider struct {
 	details           *modproviders.ModDetails
 	versions          []modproviders.ModVersion
 	downloadedFiles   []modproviders.DownloadedFile
+	downloadErrAfterWrite error
 	updateVersion     *modproviders.ModVersion
 	searchErr         error
 	detailsErr        error
@@ -65,6 +66,9 @@ func (m *mockProvider) Download(_ context.Context, _ string, _ string, targetDir
 		if errWrite != nil {
 			return nil, fmt.Errorf("mock provider: write file: %w", errWrite)
 		}
+	}
+	if m.downloadErrAfterWrite != nil {
+		return nil, m.downloadErrAfterWrite
 	}
 	return m.downloadedFiles, nil
 }
@@ -218,6 +222,42 @@ func TestInstallProviderNotFound(t *testing.T) {
 	}
 }
 
+func TestInstallIntegrityFailureDoesNotWriteLiveFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "mm-install-integrity-fail.sqlite")
+	seedTestFixture(t, conn)
+
+	pid := newUniqueProviderID()
+	mock := newMockProvider(pid)
+	mock.downloadErrAfterWrite = modproviders.ErrIntegrityMismatch
+	modproviders.RegisterProvider(mock)
+
+	mgr := New(conn)
+	serverDir := t.TempDir()
+
+	_, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	if !errors.Is(errInstall, modproviders.ErrIntegrityMismatch) {
+		t.Fatalf("Install() error = %v, want %v", errInstall, modproviders.ErrIntegrityMismatch)
+	}
+
+	filePath := filepath.Join(serverDir, "mods", "testmod-1.0.0.jar")
+	_, errStat := os.Stat(filePath)
+	if !os.IsNotExist(errStat) {
+		t.Fatalf("Install() wrote live file on integrity failure: %v", errStat)
+	}
+
+	mods, errMods := conn.GetInstalledModsByGameServerID("server-1")
+	if errMods != nil {
+		t.Fatalf("GetInstalledModsByGameServerID() error = %v", errMods)
+	}
+	if len(mods) != 0 {
+		t.Fatalf("GetInstalledModsByGameServerID() len = %d, want 0", len(mods))
+	}
+}
+
 func TestUninstall(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -317,6 +357,71 @@ func TestUpdate(t *testing.T) {
 	_, errNewStat := os.Stat(newPath)
 	if errNewStat != nil {
 		t.Errorf("expected new file to exist: %v", errNewStat)
+	}
+}
+
+func TestUpdateIntegrityFailureKeepsExistingFilesAndMetadata(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "mm-update-integrity-fail.sqlite")
+	seedTestFixture(t, conn)
+
+	pid := newUniqueProviderID()
+	mock := newMockProvider(pid)
+	modproviders.RegisterProvider(mock)
+
+	mgr := New(conn)
+	serverDir := t.TempDir()
+
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	if errInstall != nil {
+		t.Fatalf("Install() error = %v", errInstall)
+	}
+
+	mock.downloadedFiles = []modproviders.DownloadedFile{
+		{Path: "testmod-2.0.0.jar", Hash: "def456", Size: 2048, IsPrimary: true},
+	}
+	mock.downloadErrAfterWrite = modproviders.ErrIntegrityMismatch
+
+	_, errUpdate := mgr.Update(context.Background(), mod.ID, "v2", serverDir)
+	if !errors.Is(errUpdate, modproviders.ErrIntegrityMismatch) {
+		t.Fatalf("Update() error = %v, want %v", errUpdate, modproviders.ErrIntegrityMismatch)
+	}
+
+	oldPath := filepath.Join(serverDir, "mods", "testmod-1.0.0.jar")
+	_, errOldStat := os.Stat(oldPath)
+	if errOldStat != nil {
+		t.Fatalf("Update() removed existing file on integrity failure: %v", errOldStat)
+	}
+
+	newPath := filepath.Join(serverDir, "mods", "testmod-2.0.0.jar")
+	_, errNewStat := os.Stat(newPath)
+	if !os.IsNotExist(errNewStat) {
+		t.Fatalf("Update() left replacement file on integrity failure: %v", errNewStat)
+	}
+
+	storedMod, errStoredMod := conn.GetInstalledModByID(mod.ID)
+	if errStoredMod != nil {
+		t.Fatalf("GetInstalledModByID() error = %v", errStoredMod)
+	}
+	if storedMod.InstalledVersionID != "v1" {
+		t.Fatalf("InstalledVersionID = %q, want %q", storedMod.InstalledVersionID, "v1")
+	}
+	if storedMod.FileHash != "abc123" {
+		t.Fatalf("FileHash = %q, want %q", storedMod.FileHash, "abc123")
+	}
+
+	files, errFiles := conn.GetInstalledModFilesByModID(mod.ID)
+	if errFiles != nil {
+		t.Fatalf("GetInstalledModFilesByModID() error = %v", errFiles)
+	}
+	if len(files) != 1 {
+		t.Fatalf("GetInstalledModFilesByModID() len = %d, want 1", len(files))
+	}
+	if files[0].FilePath != filepath.Join("mods", "testmod-1.0.0.jar") {
+		t.Fatalf("FilePath = %q, want %q", files[0].FilePath, filepath.Join("mods", "testmod-1.0.0.jar"))
 	}
 }
 

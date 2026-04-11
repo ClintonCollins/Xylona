@@ -37,9 +37,160 @@ type ModManager struct {
 	db *db.Connection
 }
 
+type fileMove struct {
+	source string
+	target string
+}
+
 // New creates a new ModManager.
 func New(database *db.Connection) *ModManager {
 	return &ModManager{db: database}
+}
+
+func wrapProviderDownloadError(err error) error {
+	if errors.Is(err, modproviders.ErrMissingIntegrityMetadata) {
+		return fmt.Errorf("modmanager: provider integrity metadata missing: %w", err)
+	}
+	if errors.Is(err, modproviders.ErrIntegrityMismatch) {
+		return fmt.Errorf("modmanager: provider integrity verification failed: %w", err)
+	}
+	return err
+}
+
+func createDownloadStagingDir(targetDir string) (string, error) {
+	errMkdir := os.MkdirAll(targetDir, 0o750)
+	if errMkdir != nil {
+		return "", fmt.Errorf("modmanager: create install directory: %w", errMkdir)
+	}
+
+	stagingDir, errTempDir := os.MkdirTemp(targetDir, ".xylona-download-*")
+	if errTempDir != nil {
+		return "", fmt.Errorf("modmanager: create staging directory: %w", errTempDir)
+	}
+
+	return stagingDir, nil
+}
+
+func cleanupPromotedFiles(moves []fileMove) error {
+	var cleanupErr error
+	for i := len(moves) - 1; i >= 0; i-- {
+		errRemove := os.Remove(moves[i].target)
+		if errRemove != nil && !os.IsNotExist(errRemove) && cleanupErr == nil {
+			cleanupErr = fmt.Errorf("remove promoted file %s: %w", moves[i].target, errRemove)
+		}
+	}
+
+	return cleanupErr
+}
+
+func promoteDownloadedFiles(stagingDir string, targetDir string, downloaded []modproviders.DownloadedFile) ([]fileMove, error) {
+	promotedMoves := make([]fileMove, 0, len(downloaded))
+	for _, downloadedFile := range downloaded {
+		sourcePath := filepath.Join(stagingDir, downloadedFile.Path)
+		targetPath := filepath.Join(targetDir, downloadedFile.Path)
+
+		errMkdir := os.MkdirAll(filepath.Dir(targetPath), 0o750)
+		if errMkdir != nil {
+			errCleanup := cleanupPromotedFiles(promotedMoves)
+			if errCleanup != nil {
+				return nil, fmt.Errorf("modmanager: create destination directory: %w; cleanup promoted files: %s", errMkdir, errCleanup.Error())
+			}
+			return nil, fmt.Errorf("modmanager: create destination directory: %w", errMkdir)
+		}
+
+		errRename := os.Rename(sourcePath, targetPath)
+		if errRename != nil {
+			errCleanup := cleanupPromotedFiles(promotedMoves)
+			if errCleanup != nil {
+				return nil, fmt.Errorf("modmanager: promote staged file %s: %w; cleanup promoted files: %s", targetPath, errRename, errCleanup.Error())
+			}
+			return nil, fmt.Errorf("modmanager: promote staged file %s: %w", targetPath, errRename)
+		}
+
+		promotedMoves = append(promotedMoves, fileMove{
+			source: sourcePath,
+			target: targetPath,
+		})
+	}
+
+	return promotedMoves, nil
+}
+
+func relativeInstalledModPath(installSubdir string, filePath string) (string, error) {
+	cleanInstallSubdir := filepath.Clean(installSubdir)
+	if cleanInstallSubdir == "." || cleanInstallSubdir == "" {
+		return filePath, nil
+	}
+
+	relativePath, errRelative := filepath.Rel(cleanInstallSubdir, filePath)
+	if errRelative != nil {
+		return "", fmt.Errorf("modmanager: determine relative installed mod path: %w", errRelative)
+	}
+
+	return relativePath, nil
+}
+
+func moveExistingFilesToRollback(serverDir string, installSubdir string, oldFiles []*models.InstalledModFile, rollbackDir string) ([]fileMove, error) {
+	rollbackMoves := make([]fileMove, 0, len(oldFiles))
+	for _, installedFile := range oldFiles {
+		relativePath, errRelative := relativeInstalledModPath(installSubdir, installedFile.FilePath)
+		if errRelative != nil {
+			return nil, errRelative
+		}
+
+		sourcePath := filepath.Join(serverDir, installedFile.FilePath)
+		targetPath := filepath.Join(rollbackDir, relativePath)
+
+		errMkdir := os.MkdirAll(filepath.Dir(targetPath), 0o750)
+		if errMkdir != nil {
+			errRestore := restoreMovedFiles(rollbackMoves)
+			if errRestore != nil {
+				return nil, fmt.Errorf("modmanager: create rollback directory: %w; restore rollback files: %s", errMkdir, errRestore.Error())
+			}
+			return nil, fmt.Errorf("modmanager: create rollback directory: %w", errMkdir)
+		}
+
+		errRename := os.Rename(sourcePath, targetPath)
+		if errRename != nil {
+			if os.IsNotExist(errRename) {
+				continue
+			}
+
+			errRestore := restoreMovedFiles(rollbackMoves)
+			if errRestore != nil {
+				return nil, fmt.Errorf("modmanager: move existing file to rollback %s: %w; restore rollback files: %s", sourcePath, errRename, errRestore.Error())
+			}
+			return nil, fmt.Errorf("modmanager: move existing file to rollback %s: %w", sourcePath, errRename)
+		}
+
+		rollbackMoves = append(rollbackMoves, fileMove{
+			source: targetPath,
+			target: sourcePath,
+		})
+	}
+
+	return rollbackMoves, nil
+}
+
+func restoreMovedFiles(moves []fileMove) error {
+	var restoreErr error
+	for i := len(moves) - 1; i >= 0; i-- {
+		move := moves[i]
+		errMkdir := os.MkdirAll(filepath.Dir(move.target), 0o750)
+		if errMkdir != nil {
+			if restoreErr == nil {
+				restoreErr = fmt.Errorf("create restore directory: %w", errMkdir)
+			}
+			continue
+		}
+
+		errRename := os.Rename(move.source, move.target)
+		if errRename != nil && !os.IsNotExist(errRename) && restoreErr == nil {
+			restoreErr = fmt.Errorf("restore file %s: %w", move.target, errRename)
+		}
+	}
+
+	return restoreErr
 }
 
 // Install downloads a mod via the provider and creates DB records.
@@ -53,20 +204,33 @@ func (m *ModManager) Install(
 	}
 
 	targetDir := filepath.Join(serverDir, installPath)
-	errMkdir := os.MkdirAll(targetDir, 0o750)
-	if errMkdir != nil {
-		return nil, fmt.Errorf("modmanager: create install directory: %w", errMkdir)
+	stagingDir, errStagingDir := createDownloadStagingDir(targetDir)
+	if errStagingDir != nil {
+		return nil, errStagingDir
 	}
-	downloaded, errDownload := provider.Download(ctx, sourceID, versionID, targetDir)
+	defer func() {
+		_ = os.RemoveAll(stagingDir)
+	}()
+
+	downloaded, errDownload := provider.Download(ctx, sourceID, versionID, stagingDir)
 	if errDownload != nil {
-		return nil, fmt.Errorf("modmanager: download failed: %w", errDownload)
+		return nil, fmt.Errorf("modmanager: download failed: %w", wrapProviderDownloadError(errDownload))
 	}
 	if len(downloaded) == 0 {
 		return nil, ErrNoFilesDownloaded
 	}
 
+	promotedMoves, errPromote := promoteDownloadedFiles(stagingDir, targetDir, downloaded)
+	if errPromote != nil {
+		return nil, errPromote
+	}
+
 	details, errDetails := provider.GetModDetails(ctx, sourceID, nil)
 	if errDetails != nil {
+		errCleanup := cleanupPromotedFiles(promotedMoves)
+		if errCleanup != nil {
+			return nil, fmt.Errorf("modmanager: get mod details failed: %w; cleanup promoted files: %s", errDetails, errCleanup.Error())
+		}
 		return nil, fmt.Errorf("modmanager: get mod details failed: %w", errDetails)
 	}
 
@@ -152,6 +316,10 @@ func (m *ModManager) Install(
 
 	errCommit := tx.Commit(ctx)
 	if errCommit != nil {
+		errCleanup := cleanupPromotedFiles(promotedMoves)
+		if errCleanup != nil {
+			return nil, fmt.Errorf("modmanager: commit transaction: %w; cleanup promoted files: %s", errCommit, errCleanup.Error())
+		}
 		return nil, fmt.Errorf("modmanager: commit transaction: %w", errCommit)
 	}
 
@@ -203,17 +371,9 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		return nil, fmt.Errorf("%w: %s", ErrProviderNotFound, mod.Source)
 	}
 
-	// Remove old files.
 	oldFiles, errOldFiles := m.db.GetInstalledModFilesByModID(mod.ID)
 	if errOldFiles != nil {
 		return nil, fmt.Errorf("modmanager: get old files: %w", errOldFiles)
-	}
-	for _, f := range oldFiles {
-		fullPath := filepath.Join(serverDir, f.FilePath)
-		errRemove := os.Remove(fullPath)
-		if errRemove != nil && !os.IsNotExist(errRemove) {
-			log.Warn().Err(errRemove).Str("path", fullPath).Msg("Failed to remove old mod file during update")
-		}
 	}
 
 	// Determine install path from old file paths.
@@ -222,13 +382,42 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		installSubdir = filepath.Dir(oldFiles[0].FilePath)
 	}
 	installDir := filepath.Join(serverDir, installSubdir)
+	stagingDir, errStagingDir := createDownloadStagingDir(installDir)
+	if errStagingDir != nil {
+		return nil, errStagingDir
+	}
+	defer func() {
+		_ = os.RemoveAll(stagingDir)
+	}()
 
-	downloaded, errDownload := provider.Download(ctx, mod.SourceID, versionID, installDir)
+	downloaded, errDownload := provider.Download(ctx, mod.SourceID, versionID, stagingDir)
 	if errDownload != nil {
-		return nil, fmt.Errorf("modmanager: download update: %w", errDownload)
+		return nil, fmt.Errorf("modmanager: download update: %w", wrapProviderDownloadError(errDownload))
 	}
 	if len(downloaded) == 0 {
 		return nil, ErrNoFilesDownloaded
+	}
+
+	rollbackDir, errRollbackDir := os.MkdirTemp(installDir, ".xylona-rollback-*")
+	if errRollbackDir != nil {
+		return nil, fmt.Errorf("modmanager: create rollback directory: %w", errRollbackDir)
+	}
+	defer func() {
+		_ = os.RemoveAll(rollbackDir)
+	}()
+
+	rollbackMoves, errRollbackMoves := moveExistingFilesToRollback(serverDir, installSubdir, oldFiles, rollbackDir)
+	if errRollbackMoves != nil {
+		return nil, errRollbackMoves
+	}
+
+	promotedMoves, errPromote := promoteDownloadedFiles(stagingDir, installDir, downloaded)
+	if errPromote != nil {
+		errRestore := restoreMovedFiles(rollbackMoves)
+		if errRestore != nil {
+			return nil, fmt.Errorf("%w; restore old files: %s", errPromote, errRestore.Error())
+		}
+		return nil, errPromote
 	}
 
 	// Find the version string.
@@ -269,6 +458,11 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 	// Delete old file records and insert new ones.
 	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(tx, mod.ID)
 	if errDeleteFiles != nil {
+		errCleanup := cleanupPromotedFiles(promotedMoves)
+		errRestore := restoreMovedFiles(rollbackMoves)
+		if errCleanup != nil || errRestore != nil {
+			return nil, fmt.Errorf("modmanager: delete old file records: %w; cleanup promoted files: %v; restore old files: %v", errDeleteFiles, errCleanup, errRestore)
+		}
 		return nil, fmt.Errorf("modmanager: delete old file records: %w", errDeleteFiles)
 	}
 
@@ -305,11 +499,21 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 
 	errUpdate := m.db.UpdateInstalledModInTx(tx, mod, updateSetter)
 	if errUpdate != nil {
+		errCleanup := cleanupPromotedFiles(promotedMoves)
+		errRestore := restoreMovedFiles(rollbackMoves)
+		if errCleanup != nil || errRestore != nil {
+			return nil, fmt.Errorf("modmanager: update mod record: %w; cleanup promoted files: %v; restore old files: %v", errUpdate, errCleanup, errRestore)
+		}
 		return nil, fmt.Errorf("modmanager: update mod record: %w", errUpdate)
 	}
 
 	errCommit := tx.Commit(ctx)
 	if errCommit != nil {
+		errCleanup := cleanupPromotedFiles(promotedMoves)
+		errRestore := restoreMovedFiles(rollbackMoves)
+		if errCleanup != nil || errRestore != nil {
+			return nil, fmt.Errorf("modmanager: commit update transaction: %w; cleanup promoted files: %v; restore old files: %v", errCommit, errCleanup, errRestore)
+		}
 		return nil, fmt.Errorf("modmanager: commit update transaction: %w", errCommit)
 	}
 

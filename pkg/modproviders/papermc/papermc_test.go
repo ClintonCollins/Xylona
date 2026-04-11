@@ -2,7 +2,9 @@ package papermc
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -316,6 +318,7 @@ func TestCheckForUpdate_NoBuilds(t *testing.T) {
 
 func TestDownload_WritesFile(t *testing.T) {
 	jarContent := []byte("fake jar content for testing")
+	expectedSHA256 := fmt.Sprintf("%x", sha256.Sum256(jarContent))
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -330,7 +333,7 @@ func TestDownload_WritesFile(t *testing.T) {
 					"downloads": {
 						"application": {
 							"name": "paper-1.21.4-100.jar",
-							"sha256": ""
+							"sha256": "` + expectedSHA256 + `"
 						}
 					}
 				}]
@@ -380,6 +383,43 @@ func TestDownload_WritesFile(t *testing.T) {
 	}
 	if string(data) != string(jarContent) {
 		t.Errorf("downloaded file content = %q, want %q", string(data), string(jarContent))
+	}
+}
+
+func TestDownload_RequiresSHA256Metadata(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/projects/paper/versions/1.21.4/builds":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"builds": [{
+					"build": 100,
+					"time": "2024-12-01T10:00:00Z",
+					"channel": "default",
+					"changes": [],
+					"downloads": {
+						"application": {
+							"name": "paper-1.21.4-100.jar",
+							"sha256": ""
+						}
+					}
+				}]
+			}`))
+		case "/projects/paper/versions/1.21.4/builds/100/downloads/paper-1.21.4-100.jar":
+			_, _ = w.Write([]byte("real content"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv)
+	_, errDownload := p.Download(context.Background(), "paper", "1.21.4-100", t.TempDir())
+	if errDownload == nil {
+		t.Fatal("Download() error = nil, want non-nil when SHA-256 metadata is missing")
+	}
+	if !errors.Is(errDownload, modproviders.ErrMissingIntegrityMetadata) {
+		t.Fatalf("Download() error = %v, want %v", errDownload, modproviders.ErrMissingIntegrityMetadata)
 	}
 }
 

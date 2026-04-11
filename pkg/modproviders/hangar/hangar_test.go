@@ -2,7 +2,9 @@ package hangar
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -332,6 +334,87 @@ func TestCheckForUpdate_NoVersions(t *testing.T) {
 	}
 	if v != nil {
 		t.Errorf("CheckForUpdate() = %+v, want nil when no versions", v)
+	}
+}
+
+func TestDownload_VerifiesSHA256(t *testing.T) {
+	fileContent := []byte("hangar plugin content")
+	expectedSHA256 := fmt.Sprintf("%x", sha256.Sum256(fileContent))
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/projects/EngineHub/WorldEdit/versions":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"result":[{"name":"7.2.15","downloads":{"PAPER":{"downloadUrl":"` + srv.URL + `/downloads/worldedit.jar","fileInfo":{"name":"worldedit.jar","sizeBytes":21,"sha256Hash":"` + expectedSHA256 + `"}}}}]}`))
+		case "/downloads/worldedit.jar":
+			_, _ = w.Write(fileContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv)
+	files, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir())
+	if errDownload != nil {
+		t.Fatalf("Download() error = %v", errDownload)
+	}
+	if len(files) != 1 {
+		t.Fatalf("Download() len = %d, want 1", len(files))
+	}
+	if files[0].Hash != expectedSHA256 {
+		t.Errorf("Download().Hash = %q, want %q", files[0].Hash, expectedSHA256)
+	}
+}
+
+func TestDownload_RequiresSHA256Metadata(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/projects/EngineHub/WorldEdit/versions":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"result":[{"name":"7.2.15","downloads":{"PAPER":{"downloadUrl":"` + srv.URL + `/downloads/worldedit.jar","fileInfo":{"name":"worldedit.jar","sizeBytes":21,"sha256Hash":""}}}}]}`))
+		case "/downloads/worldedit.jar":
+			_, _ = w.Write([]byte("hangar plugin content"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv)
+	_, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir())
+	if errDownload == nil {
+		t.Fatal("Download() error = nil, want error")
+	}
+	if !errors.Is(errDownload, modproviders.ErrMissingIntegrityMetadata) {
+		t.Fatalf("Download() error = %v, want %v", errDownload, modproviders.ErrMissingIntegrityMetadata)
+	}
+}
+
+func TestDownload_SHA256Mismatch(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/projects/EngineHub/WorldEdit/versions":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"result":[{"name":"7.2.15","downloads":{"PAPER":{"downloadUrl":"` + srv.URL + `/downloads/worldedit.jar","fileInfo":{"name":"worldedit.jar","sizeBytes":21,"sha256Hash":"deadbeef"}}}}]}`))
+		case "/downloads/worldedit.jar":
+			_, _ = w.Write([]byte("hangar plugin content"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv)
+	_, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir())
+	if errDownload == nil {
+		t.Fatal("Download() error = nil, want error")
+	}
+	if !errors.Is(errDownload, modproviders.ErrIntegrityMismatch) {
+		t.Fatalf("Download() error = %v, want %v", errDownload, modproviders.ErrIntegrityMismatch)
 	}
 }
 

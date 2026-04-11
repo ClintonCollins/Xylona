@@ -2,6 +2,9 @@ package db
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/aarondl/opt/omitnull"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -47,6 +50,18 @@ func (c *Connection) DeleteSecretKeyByID(secretKeyID int64) error {
 	_, err := c.SQLDb.Exec("delete from local_secret_keys where id = ?", secretKeyID) //nolint:noctx // database/sql only exposes ExecContext on the wrapped executor path used elsewhere.
 	if err != nil {
 		return fmt.Errorf("delete secret key by ID: %w", err)
+	}
+	return nil
+}
+
+// UpdateSecretKeyUsage persists the last successful usage metadata for a local secret key.
+func (c *Connection) UpdateSecretKeyUsage(secretKey *models.LocalSecretKey, accessedFrom string, usedAt time.Time) error {
+	errUpdate := secretKey.Update(c.ctx, c.DB, &models.LocalSecretKeySetter{
+		LastAccessedFrom: omitnull.From(accessedFrom),
+		LastUsedAt:       omitnull.From(usedAt),
+	})
+	if errUpdate != nil {
+		return fmt.Errorf("update secret key usage: %w", errUpdate)
 	}
 	return nil
 }

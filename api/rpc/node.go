@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 	"github.com/rs/zerolog/log"
@@ -884,20 +883,31 @@ func (xs *XylonaService) syncRemoteServerCacheSummaries(node *models.Node, summa
 // VerifyNode verifies a node secret key and returns the local node identity.
 func (xs *XylonaService) VerifyNode(ctx context.Context, request *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {
 	secretKey := request.Msg.GetSecretKey()
-	secretKeyHash, err := xycrypt.GenerateHashFromString(secretKey, xycrypt.DefaultHashParameters)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	key, errGetSecretKey := xs.db.GetSecretKeyByHash(string(secretKeyHash))
-	if errGetSecretKey != nil {
-		if !errors.Is(errGetSecretKey, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeInternal, errGetSecretKey)
-		}
-		return nil, connect.NewError(connect.CodePermissionDenied, errGetSecretKey)
+	secretKeys, errGetSecretKeys := xs.db.GetAllSecretKeys()
+	if errGetSecretKeys != nil {
+		return nil, connect.NewError(connect.CodeInternal, errGetSecretKeys)
 	}
 
-	key.LastUsedAt = null.From(time.Now())
-	key.LastAccessedFrom = null.From(request.Peer().Addr)
+	var matchedKey *models.LocalSecretKey
+	for _, candidateKey := range secretKeys {
+		matches, errCompare := xycrypt.CompareHashAndString([]byte(candidateKey.SecretKeyHash), secretKey)
+		if errCompare != nil {
+			return nil, connect.NewError(connect.CodeInternal, errCompare)
+		}
+		if matches {
+			matchedKey = candidateKey
+			break
+		}
+	}
+	if matchedKey == nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("invalid node secret key"))
+	}
+
+	usedAt := time.Now().UTC()
+	errUpdateSecretKeyUsage := xs.db.UpdateSecretKeyUsage(matchedKey, request.Peer().Addr, usedAt)
+	if errUpdateSecretKeyUsage != nil {
+		return nil, connect.NewError(connect.CodeInternal, errUpdateSecretKeyUsage)
+	}
 
 	node, errNode := models.Nodes.Query(models.SelectWhere.Nodes.IsLocal.EQ(true)).One(ctx, xs.db.DB)
 	if errNode != nil {

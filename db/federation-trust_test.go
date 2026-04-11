@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 )
 
 func TestFederationLocalIdentityCRUD(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "federation-local-identity.sqlite")
+	conn := newEncryptedConnection(t, "federation-local-identity.sqlite")
 
 	errUpsert := conn.UpsertFederationLocalIdentity(
 		"local-node-1",
@@ -32,6 +34,9 @@ func TestFederationLocalIdentityCRUD(t *testing.T) {
 	}
 	if gotIdentity.KeyPEM != "key-pem-1" {
 		t.Errorf("KeyPEM = %q, want %q", gotIdentity.KeyPEM, "key-pem-1")
+	}
+	if !gotIdentity.KeyPEMStoredEncrypted() {
+		t.Errorf("KeyPEMStoredEncrypted() = false, want true")
 	}
 	if gotIdentity.CertFingerprint != "fp-local-1" {
 		t.Errorf("CertFingerprint = %q, want %q", gotIdentity.CertFingerprint, "fp-local-1")
@@ -63,6 +68,205 @@ func TestFederationLocalIdentityCRUD(t *testing.T) {
 	}
 	if gotIdentity.KeyPEM != "key-pem-2" {
 		t.Errorf("KeyPEM = %q, want %q", gotIdentity.KeyPEM, "key-pem-2")
+	}
+}
+
+func TestFederationLocalIdentityStoredEncryptedAtRest(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "federation-local-identity-encrypted.sqlite")
+
+	key, errGenerate := xycrypt.GenerateEncryptionKey()
+	if errGenerate != nil {
+		t.Fatalf("GenerateEncryptionKey() error = %v", errGenerate)
+	}
+	conn.SetEncryptionKey(key)
+
+	const plaintextCertPEM = `-----BEGIN CERTIFICATE-----
+cert-pem-plaintext
+-----END CERTIFICATE-----`
+	const plaintextKeyPEM = `-----BEGIN PRIVATE KEY-----
+key-pem-plaintext
+-----END PRIVATE KEY-----`
+
+	errUpsert := conn.UpsertFederationLocalIdentity(
+		"local-node-enc",
+		plaintextCertPEM,
+		plaintextKeyPEM,
+		"fp-local-enc",
+	)
+	if errUpsert != nil {
+		t.Fatalf("UpsertFederationLocalIdentity() error = %v", errUpsert)
+	}
+
+	gotIdentity, errGet := conn.GetFederationLocalIdentity()
+	if errGet != nil {
+		t.Fatalf("GetFederationLocalIdentity() error = %v", errGet)
+	}
+	if gotIdentity.CertPEM != plaintextCertPEM {
+		t.Errorf("CertPEM = %q, want plaintext %q", gotIdentity.CertPEM, plaintextCertPEM)
+	}
+	if gotIdentity.KeyPEM != plaintextKeyPEM {
+		t.Errorf("KeyPEM = %q, want plaintext %q", gotIdentity.KeyPEM, plaintextKeyPEM)
+	}
+	if !gotIdentity.KeyPEMStoredEncrypted() {
+		t.Errorf("KeyPEMStoredEncrypted() = false, want true")
+	}
+
+	var storedCertPEM string
+	var storedKeyPEM string
+	var storedKeyPEMFormat string
+	errScan := conn.SQLDb.QueryRowContext(
+		conn.ctx,
+		`SELECT cert_pem, key_pem, key_pem_format FROM federation_local_identity WHERE id = 1`,
+	).Scan(&storedCertPEM, &storedKeyPEM, &storedKeyPEMFormat)
+	if errScan != nil {
+		t.Fatalf("QueryRow() error = %v", errScan)
+	}
+
+	if storedCertPEM != plaintextCertPEM {
+		t.Errorf("stored cert_pem = %q, want plaintext %q", storedCertPEM, plaintextCertPEM)
+	}
+	if storedKeyPEM == plaintextKeyPEM {
+		t.Errorf("stored key_pem = %q, want encrypted value different from plaintext", storedKeyPEM)
+	}
+	if storedKeyPEMFormat != federationLocalIdentityKeyPEMFormatEncryptedV1 {
+		t.Errorf("stored key_pem_format = %q, want %q", storedKeyPEMFormat, federationLocalIdentityKeyPEMFormatEncryptedV1)
+	}
+}
+
+func TestMigrateLegacyFederationLocalIdentityKeyPEM(t *testing.T) {
+	conn := newEncryptedConnection(t, "federation-local-identity-migrate.sqlite")
+
+	_, errInsert := conn.SQLDb.ExecContext(
+		conn.ctx,
+		`insert into federation_local_identity
+			(id, node_id, cert_path, key_path, cert_pem, key_pem, key_pem_format, cert_fingerprint)
+		 values (1, ?, '', '', ?, ?, ?, ?)`,
+		"legacy-node",
+		"legacy-cert",
+		"legacy-key",
+		federationLocalIdentityKeyPEMFormatPlaintext,
+		"legacy-fp",
+	)
+	if errInsert != nil {
+		t.Fatalf("insert legacy federation local identity error = %v", errInsert)
+	}
+
+	errMigrate := conn.MigrateLegacyFederationLocalIdentityKeyPEM()
+	if errMigrate != nil {
+		t.Fatalf("MigrateLegacyFederationLocalIdentityKeyPEM() error = %v", errMigrate)
+	}
+
+	gotIdentity, errGet := conn.GetFederationLocalIdentity()
+	if errGet != nil {
+		t.Fatalf("GetFederationLocalIdentity() error = %v", errGet)
+	}
+	if gotIdentity.KeyPEM != "legacy-key" {
+		t.Errorf("KeyPEM = %q, want %q", gotIdentity.KeyPEM, "legacy-key")
+	}
+	if !gotIdentity.KeyPEMStoredEncrypted() {
+		t.Errorf("KeyPEMStoredEncrypted() = false, want true")
+	}
+
+	var storedKeyPEM string
+	var storedKeyPEMFormat string
+	errScan := conn.SQLDb.QueryRowContext(
+		conn.ctx,
+		`select key_pem, key_pem_format from federation_local_identity where id = 1`,
+	).Scan(&storedKeyPEM, &storedKeyPEMFormat)
+	if errScan != nil {
+		t.Fatalf("QueryRow() error = %v", errScan)
+	}
+	if storedKeyPEM == "legacy-key" {
+		t.Errorf("stored key_pem matches plaintext after migration")
+	}
+	if storedKeyPEMFormat != federationLocalIdentityKeyPEMFormatEncryptedV1 {
+		t.Errorf("stored key_pem_format = %q, want %q", storedKeyPEMFormat, federationLocalIdentityKeyPEMFormatEncryptedV1)
+	}
+}
+
+func TestMigrateLegacyFederationLocalIdentityKeyPEMNoOpForEncryptedRow(t *testing.T) {
+	conn := newEncryptedConnection(t, "federation-local-identity-noop.sqlite")
+
+	errUpsert := conn.UpsertFederationLocalIdentity(
+		"already-encrypted-node",
+		"cert-pem",
+		"key-pem",
+		"fp-noop",
+	)
+	if errUpsert != nil {
+		t.Fatalf("UpsertFederationLocalIdentity() error = %v", errUpsert)
+	}
+
+	var storedBefore string
+	errScanBefore := conn.SQLDb.QueryRowContext(
+		conn.ctx,
+		`select key_pem from federation_local_identity where id = 1`,
+	).Scan(&storedBefore)
+	if errScanBefore != nil {
+		t.Fatalf("QueryRow(before) error = %v", errScanBefore)
+	}
+
+	errMigrate := conn.MigrateLegacyFederationLocalIdentityKeyPEM()
+	if errMigrate != nil {
+		t.Fatalf("MigrateLegacyFederationLocalIdentityKeyPEM() error = %v", errMigrate)
+	}
+
+	var storedAfter string
+	errScanAfter := conn.SQLDb.QueryRowContext(
+		conn.ctx,
+		`select key_pem from federation_local_identity where id = 1`,
+	).Scan(&storedAfter)
+	if errScanAfter != nil {
+		t.Fatalf("QueryRow(after) error = %v", errScanAfter)
+	}
+	if storedAfter != storedBefore {
+		t.Errorf("stored key_pem changed for already encrypted row")
+	}
+}
+
+func TestGetFederationLocalIdentityFailsWithWrongKey(t *testing.T) {
+	conn := newEncryptedConnection(t, "federation-local-identity-wrong-key.sqlite")
+
+	errUpsert := conn.UpsertFederationLocalIdentity(
+		"wrong-key-node",
+		"cert-pem",
+		"key-pem",
+		"fp-wrong-key",
+	)
+	if errUpsert != nil {
+		t.Fatalf("UpsertFederationLocalIdentity() error = %v", errUpsert)
+	}
+
+	var storedBefore string
+	errScanBefore := conn.SQLDb.QueryRowContext(
+		conn.ctx,
+		`select key_pem from federation_local_identity where id = 1`,
+	).Scan(&storedBefore)
+	if errScanBefore != nil {
+		t.Fatalf("QueryRow(before) error = %v", errScanBefore)
+	}
+
+	wrongKey, errGenerate := xycrypt.GenerateEncryptionKey()
+	if errGenerate != nil {
+		t.Fatalf("GenerateEncryptionKey() error = %v", errGenerate)
+	}
+	conn.SetEncryptionKey(wrongKey)
+
+	_, errGet := conn.GetFederationLocalIdentity()
+	if errGet == nil {
+		t.Fatal("GetFederationLocalIdentity() error = nil, want error")
+	}
+
+	var storedAfter string
+	errScanAfter := conn.SQLDb.QueryRowContext(
+		conn.ctx,
+		`select key_pem from federation_local_identity where id = 1`,
+	).Scan(&storedAfter)
+	if errScanAfter != nil {
+		t.Fatalf("QueryRow(after) error = %v", errScanAfter)
+	}
+	if storedAfter != storedBefore {
+		t.Errorf("stored key_pem changed after wrong-key read")
 	}
 }
 

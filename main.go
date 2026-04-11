@@ -54,6 +54,7 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
+	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -292,20 +293,42 @@ func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, e
 
 	errMigrate := dbpkg.RunMigrations(dbInst.SQLDb, EmbeddedMigrations, "sql/migrations")
 	if errMigrate != nil {
+		_ = dbInst.SQLDb.Close()
 		return nil, fmt.Errorf("setupDatabase: run migrations: %w", errMigrate)
 	}
 
 	if cfg.EncryptionKey == "" {
+		_ = dbInst.SQLDb.Close()
 		return nil, errors.New("setupDatabase: ENCRYPTION_KEY_BASE64 must be set")
 	}
 	encKeyBytes, errDecodeEnc := base64.StdEncoding.DecodeString(cfg.EncryptionKey)
 	if errDecodeEnc != nil {
+		_ = dbInst.SQLDb.Close()
 		return nil, fmt.Errorf("setupDatabase: decode ENCRYPTION_KEY_BASE64: %w", errDecodeEnc)
 	}
-	if len(encKeyBytes) < 32 {
-		return nil, errors.New("setupDatabase: ENCRYPTION_KEY_BASE64 must decode to at least 32 bytes")
+	if len(encKeyBytes) != xycrypt.EncryptionKeySize {
+		_ = dbInst.SQLDb.Close()
+		return nil, fmt.Errorf("setupDatabase: ENCRYPTION_KEY_BASE64 must decode to exactly %d bytes", xycrypt.EncryptionKeySize)
 	}
-	dbInst.SetEncryptionKey(encKeyBytes[:32])
+	dbInst.SetEncryptionKey(encKeyBytes)
+
+	errValidateExistingEncryptedSecrets := dbInst.ValidateEncryptedSecretStorageWithoutFederationLocalIdentity()
+	if errValidateExistingEncryptedSecrets != nil {
+		_ = dbInst.SQLDb.Close()
+		return nil, fmt.Errorf("setupDatabase: validate existing encrypted secret storage: %w", errValidateExistingEncryptedSecrets)
+	}
+
+	errMigrateFederationIdentity := dbInst.MigrateLegacyFederationLocalIdentityKeyPEM()
+	if errMigrateFederationIdentity != nil {
+		_ = dbInst.SQLDb.Close()
+		return nil, fmt.Errorf("setupDatabase: migrate federation local identity key PEM: %w", errMigrateFederationIdentity)
+	}
+
+	errValidateEncryptedSecrets := dbInst.ValidateEncryptedSecretStorage()
+	if errValidateEncryptedSecrets != nil {
+		_ = dbInst.SQLDb.Close()
+		return nil, fmt.Errorf("setupDatabase: validate encrypted secret storage: %w", errValidateEncryptedSecrets)
+	}
 
 	return dbInst, nil
 }
@@ -367,6 +390,8 @@ func setupFederationIdentity(ctx context.Context, dbInst *dbpkg.Connection, cfg 
 
 	var certPEM []byte
 	var keyPEM []byte
+	hasStoredLocalIdentity := errLocalIdentity == nil
+	generatedNewIdentity := false
 	if errLocalIdentity == nil {
 		certPEM = []byte(localIdentity.CertPEM)
 		keyPEM = []byte(localIdentity.KeyPEM)
@@ -374,6 +399,10 @@ func setupFederationIdentity(ctx context.Context, dbInst *dbpkg.Connection, cfg 
 
 	federationMTLS, localCertFingerprint, errFederationMTLS := federation.NewMTLSFromPEM(cfg.FederationPort, certPEM, keyPEM)
 	if errFederationMTLS != nil {
+		if hasStoredLocalIdentity {
+			return nil, nil, fmt.Errorf("setupFederationIdentity: init federation mTLS from stored cert: %w", errFederationMTLS)
+		}
+
 		log.Warn().
 			Err(errFederationMTLS).
 			Msg("No usable federation certificate in database; generating a new in-database identity")
@@ -388,16 +417,20 @@ func setupFederationIdentity(ctx context.Context, dbInst *dbpkg.Connection, cfg 
 		if errFederationMTLS != nil {
 			return nil, nil, fmt.Errorf("setupFederationIdentity: init federation mTLS from generated cert: %w", errFederationMTLS)
 		}
+
+		generatedNewIdentity = true
 	}
 
-	errPersistFederationIdentity := dbInst.UpsertFederationLocalIdentity(
-		settings.NodeID,
-		string(certPEM),
-		string(keyPEM),
-		localCertFingerprint,
-	)
-	if errPersistFederationIdentity != nil {
-		return nil, nil, fmt.Errorf("setupFederationIdentity: persist federation local identity: %w", errPersistFederationIdentity)
+	if generatedNewIdentity {
+		errPersistFederationIdentity := dbInst.UpsertFederationLocalIdentity(
+			settings.NodeID,
+			string(certPEM),
+			string(keyPEM),
+			localCertFingerprint,
+		)
+		if errPersistFederationIdentity != nil {
+			return nil, nil, fmt.Errorf("setupFederationIdentity: persist federation local identity: %w", errPersistFederationIdentity)
+		}
 	}
 
 	return federationMTLS, settings, nil

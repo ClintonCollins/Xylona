@@ -79,4 +79,40 @@ func TestAuthRateLimiter(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("rate limits VerifyNode path after exceeding threshold", func(t *testing.T) {
+		handler := AuthRateLimiter()(okHandler)
+
+		var lastStatus int
+		for range 15 {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/VerifyNode", nil)
+			req.RemoteAddr = "192.0.2.4:12345"
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			lastStatus = rec.Code
+		}
+
+		if lastStatus != http.StatusTooManyRequests {
+			t.Fatalf("expected status %d after exceeding rate limit on /VerifyNode, got %d",
+				http.StatusTooManyRequests, lastStatus)
+		}
+	})
+
+	t.Run("localhost VerifyNode is never rate limited", func(t *testing.T) {
+		handler := AuthRateLimiter()(okHandler)
+
+		for i := range 20 {
+			for _, addr := range []string{"127.0.0.1:12345", "[::1]:12345"} {
+				req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/VerifyNode", nil)
+				req.RemoteAddr = addr
+				rec := httptest.NewRecorder()
+				handler.ServeHTTP(rec, req)
+
+				if rec.Code != http.StatusOK {
+					t.Fatalf("expected status %d for localhost VerifyNode request %d from %s, got %d",
+						http.StatusOK, i+1, addr, rec.Code)
+				}
+			}
+		}
+	})
 }

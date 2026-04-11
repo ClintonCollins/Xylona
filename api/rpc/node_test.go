@@ -2,11 +2,15 @@ package rpc
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 )
 
 func TestGetNode(t *testing.T) {
@@ -227,5 +231,182 @@ func TestListLocalSecretKeys(t *testing.T) {
 	}
 	if !foundKey {
 		t.Errorf("ListLocalSecretKeys() did not include created key %d", createResp.Msg.GetId())
+	}
+}
+
+func TestVerifyNodeAcceptsCreatedLocalSecretKey(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateLocalSecretKeyRequest{
+		Name: "verify-test-key",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-admin")
+
+	createResp, errCreate := fixture.service.CreateLocalSecretKey(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateLocalSecretKey() error = %v", errCreate)
+	}
+
+	verifyReq := connect.NewRequest(&xylona.VerifyNodeRequest{
+		SecretKey: createResp.Msg.GetSecretKey(),
+	})
+
+	verifyResp, errVerify := fixture.service.VerifyNode(context.Background(), verifyReq)
+	if errVerify != nil {
+		t.Fatalf("VerifyNode() error = %v", errVerify)
+	}
+	if verifyResp.Msg == nil || verifyResp.Msg.GetNode() == nil {
+		t.Fatalf("VerifyNode() returned empty response")
+	}
+	if verifyResp.Msg.GetNode().GetId() == "" {
+		t.Fatalf("VerifyNode().Node.Id is empty")
+	}
+	if !verifyResp.Msg.GetNode().GetLocal() {
+		t.Errorf("VerifyNode().Node.Local = false, want true")
+	}
+
+	storedKey, errGet := fixture.conn.GetSecretKeyByID(createResp.Msg.GetId())
+	if errGet != nil {
+		t.Fatalf("GetSecretKeyByID() error = %v", errGet)
+	}
+	if storedKey.LastUsedAt.GetOrZero().IsZero() {
+		t.Errorf("VerifyNode() did not persist LastUsedAt")
+	}
+}
+
+func TestVerifyNodeRejectsWrongSecret(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateLocalSecretKeyRequest{
+		Name: "verify-wrong-secret-key",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-admin")
+
+	_, errCreate := fixture.service.CreateLocalSecretKey(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateLocalSecretKey() error = %v", errCreate)
+	}
+
+	verifyReq := connect.NewRequest(&xylona.VerifyNodeRequest{
+		SecretKey: "definitely-not-the-secret",
+	})
+
+	_, errVerify := fixture.service.VerifyNode(context.Background(), verifyReq)
+	if errVerify == nil {
+		t.Fatalf("VerifyNode() error = nil, want permission denied")
+	}
+	if connect.CodeOf(errVerify) != connect.CodePermissionDenied {
+		t.Fatalf("VerifyNode() code = %v, want %v", connect.CodeOf(errVerify), connect.CodePermissionDenied)
+	}
+}
+
+func newVerifyNodeRPCServer(t *testing.T, service *XylonaService) *httptest.Server {
+	t.Helper()
+
+	mux := http.NewServeMux()
+	path, handler := xylonaconnect.NewXylonaHandler(service)
+	mux.Handle(path, handler)
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	return server
+}
+
+func TestVerifyNodeAcceptsExistingLocalSecretKeyAndPersistsUsageMetadata(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateLocalSecretKeyRequest{
+		Name: "verify-node-key",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-admin")
+
+	createResp, errCreate := fixture.service.CreateLocalSecretKey(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateLocalSecretKey() error = %v", errCreate)
+	}
+	if createResp.Msg == nil {
+		t.Fatal("CreateLocalSecretKey() returned nil message")
+	}
+
+	beforeSecretKey, errGetBefore := fixture.conn.GetSecretKeyByID(createResp.Msg.GetId())
+	if errGetBefore != nil {
+		t.Fatalf("GetSecretKeyByID(before VerifyNode) error = %v", errGetBefore)
+	}
+
+	server := newVerifyNodeRPCServer(t, fixture.service)
+	client := xylonaconnect.NewXylonaClient(server.Client(), server.URL)
+
+	verifyReq := connect.NewRequest(&xylona.VerifyNodeRequest{
+		SecretKey: createResp.Msg.GetSecretKey(),
+	})
+
+	response, errVerify := client.VerifyNode(context.Background(), verifyReq)
+	if errVerify != nil {
+		t.Fatalf("VerifyNode() error = %v", errVerify)
+	}
+	if response == nil || response.Msg == nil || response.Msg.GetNode() == nil {
+		t.Fatal("VerifyNode() returned empty response")
+	}
+	if response.Msg.GetNode().GetId() == "" {
+		t.Fatal("VerifyNode().Node.Id = empty, want a node identifier")
+	}
+	if !response.Msg.GetNode().GetLocal() {
+		t.Fatal("VerifyNode().Node.Local = false, want true")
+	}
+
+	afterSecretKey, errGetAfter := fixture.conn.GetSecretKeyByID(createResp.Msg.GetId())
+	if errGetAfter != nil {
+		t.Fatalf("GetSecretKeyByID(after VerifyNode) error = %v", errGetAfter)
+	}
+
+	beforeLastUsedAt := beforeSecretKey.LastUsedAt.GetOr(time.Time{})
+	afterLastUsedAt := afterSecretKey.LastUsedAt.GetOr(time.Time{})
+	if !afterLastUsedAt.After(beforeLastUsedAt) {
+		t.Fatalf("VerifyNode() did not persist a newer last_used_at: before=%v after=%v", beforeLastUsedAt, afterLastUsedAt)
+	}
+
+	if got := afterSecretKey.LastAccessedFrom.GetOr(""); got == "" {
+		t.Fatal("VerifyNode() did not persist last_accessed_from")
+	}
+}
+
+func TestVerifyNodeRejectsIncorrectSecretKey(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	createReq := connect.NewRequest(&xylona.CreateLocalSecretKeyRequest{
+		Name: "verify-node-reject-key",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-admin")
+
+	createResp, errCreate := fixture.service.CreateLocalSecretKey(context.Background(), createReq)
+	if errCreate != nil {
+		t.Fatalf("CreateLocalSecretKey() error = %v", errCreate)
+	}
+	if createResp.Msg == nil {
+		t.Fatal("CreateLocalSecretKey() returned nil message")
+	}
+
+	server := newVerifyNodeRPCServer(t, fixture.service)
+	client := xylonaconnect.NewXylonaClient(server.Client(), server.URL)
+
+	verifyReq := connect.NewRequest(&xylona.VerifyNodeRequest{
+		SecretKey: createResp.Msg.GetSecretKey() + "-wrong",
+	})
+
+	_, errVerify := client.VerifyNode(context.Background(), verifyReq)
+	if errVerify == nil {
+		t.Fatal("VerifyNode() with incorrect secret key error = nil, want permission denied")
+	}
+	if connect.CodeOf(errVerify) != connect.CodePermissionDenied {
+		t.Fatalf("VerifyNode() with incorrect secret key code = %v, want %v", connect.CodeOf(errVerify), connect.CodePermissionDenied)
 	}
 }

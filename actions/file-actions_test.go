@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,6 +67,49 @@ func TestArchiveAndCompressFilesRejectsProtectedDestination(t *testing.T) {
 	}
 }
 
+func TestArchiveAndCompressFilesRejectsTraversalSource(t *testing.T) {
+	fixture := newFileActionTestFixture(t)
+
+	outsidePath := filepath.Join(filepath.Dir(fixture.serverDir), "outside.txt")
+	errWrite := os.WriteFile(outsidePath, []byte("secret"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(outside.txt) error = %v", errWrite)
+	}
+
+	_, errCompress := fixture.inst.ArchiveAndCompressFiles(
+		context.Background(),
+		fixture.gameServer,
+		"archive",
+		[]string{"../outside.txt"},
+		xylona.GameServerFilesCompressionType_ZIP,
+	)
+	if !errors.Is(errCompress, ErrInvalidPath) {
+		t.Fatalf("ArchiveAndCompressFiles() error = %v, want %v", errCompress, ErrInvalidPath)
+	}
+}
+
+func TestArchiveFilesRejectsTraversalSource(t *testing.T) {
+	fixture := newFileActionTestFixture(t)
+
+	outsidePath := filepath.Join(filepath.Dir(fixture.serverDir), "outside.txt")
+	errWrite := os.WriteFile(outsidePath, []byte("secret"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(outside.txt) error = %v", errWrite)
+	}
+
+	_, errArchive := fixture.inst.ArchiveFiles(
+		context.Background(),
+		fixture.gameServer,
+		"archive",
+		[]string{"../outside.txt"},
+		xylona.GameServerFilesCompressionType_ZIP,
+		make(chan *xylona.GameServerFilesArchiveProgress, 1),
+	)
+	if !errors.Is(errArchive, ErrInvalidPath) {
+		t.Fatalf("ArchiveFiles() error = %v, want %v", errArchive, ErrInvalidPath)
+	}
+}
+
 func TestExtractArchiveRejectsProtectedEntry(t *testing.T) {
 	fixture := newFileActionTestFixture(t)
 
@@ -125,5 +169,41 @@ func TestSaveUploadedGameServerFileClosesTempFileOnce(t *testing.T) {
 
 	if strings.Contains(logBuffer.String(), "Failed to close upload temp file") {
 		t.Fatalf("log buffer contains false close error: %s", logBuffer.String())
+	}
+}
+
+func TestDownloadFileFromURLRejectsLoopbackTarget(t *testing.T) {
+	fixture := newFileActionTestFixture(t)
+
+	_, errDownload := fixture.inst.DownloadFileFromURL(
+		context.Background(),
+		fixture.gameServer,
+		"http://127.0.0.1:8080/file.txt",
+		"",
+	)
+	if errDownload == nil {
+		t.Fatal("DownloadFileFromURL() expected error, got nil")
+	}
+	if !strings.Contains(errDownload.Error(), "private or reserved") {
+		t.Fatalf("DownloadFileFromURL() error = %v, want SSRF validation failure", errDownload)
+	}
+}
+
+func TestValidateDownloadRedirectTargetRejectsPrivateRedirect(t *testing.T) {
+	req, errRequest := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://127.0.0.1:8080/private.txt", nil)
+	if errRequest != nil {
+		t.Fatalf("NewRequest() error = %v", errRequest)
+	}
+	viaReq, errViaRequest := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://downloads.example.com/public.txt", nil)
+	if errViaRequest != nil {
+		t.Fatalf("NewRequest(via) error = %v", errViaRequest)
+	}
+
+	errValidate := validateDownloadRedirectTarget(req, []*http.Request{viaReq})
+	if errValidate == nil {
+		t.Fatal("validateDownloadRedirectTarget() expected error, got nil")
+	}
+	if !strings.Contains(errValidate.Error(), "private or reserved") {
+		t.Fatalf("validateDownloadRedirectTarget() error = %v, want SSRF validation failure", errValidate)
 	}
 }

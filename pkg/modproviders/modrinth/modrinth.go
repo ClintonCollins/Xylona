@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -313,6 +314,9 @@ func (p *Provider) Download(ctx context.Context, _ string, versionID string, tar
 	if primary.URL == "" {
 		return nil, fmt.Errorf("modrinth download: no files found for version %q", versionID)
 	}
+	if primary.Hashes.SHA256 == "" {
+		return nil, fmt.Errorf("modrinth download: missing SHA-256 for version %q: %w", versionID, modproviders.ErrMissingIntegrityMetadata)
+	}
 
 	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, primary.URL, nil)
 	if errReq != nil {
@@ -362,6 +366,9 @@ func (p *Provider) Download(ctx context.Context, _ string, versionID string, tar
 	}
 
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))
+	if !strings.EqualFold(hash, primary.Hashes.SHA256) {
+		return nil, fmt.Errorf("modrinth download: SHA-256 mismatch for %s: got %s, want %s: %w", fileName, hash, primary.Hashes.SHA256, modproviders.ErrIntegrityMismatch)
+	}
 
 	return []modproviders.DownloadedFile{
 		{

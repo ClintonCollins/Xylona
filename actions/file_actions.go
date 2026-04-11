@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/webhooks"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -96,6 +97,16 @@ type fileExtractor struct {
 
 func wrapFileActionError(operation string, err error) error {
 	return fmt.Errorf("actions: %s: %w", operation, err)
+}
+
+func resolveValidatedArchiveSourcePath(gameServer *models.GameServer, relativePath string) (string, string, error) {
+	validatedPath, errPath := validateLocalServerPath(gameServer, relativePath)
+	if errPath != nil {
+		return "", "", errPath
+	}
+
+	absolutePath := filepath.Join(gameServer.Directory, validatedPath)
+	return validatedPath, absolutePath, nil
 }
 
 // CreateFileOrDirectory creates or writes a file or directory inside the server root.
@@ -271,7 +282,15 @@ func (inst *Instance) DownloadFileFromURL(ctx context.Context, gameServer *model
 		return "", errors.New("only http and https URLs are allowed")
 	}
 
-	httpClient := helpers.GetXylonaHTTPClient()
+	errSSRF := webhooks.ValidateWebhookTarget(rawURL)
+	if errSSRF != nil {
+		return "", fmt.Errorf("validate download URL: %w", errSSRF)
+	}
+
+	httpClientBase := helpers.GetXylonaHTTPClient()
+	httpClientCopy := *httpClientBase
+	httpClient := &httpClientCopy
+	httpClient.CheckRedirect = validateDownloadRedirectTarget
 	req, errNewReq := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if errNewReq != nil {
 		log.Error().Err(errNewReq).Msg("Failed to create request")
@@ -319,6 +338,19 @@ func (inst *Instance) DownloadFileFromURL(ctx context.Context, gameServer *model
 	return "", nil
 }
 
+func validateDownloadRedirectTarget(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+
+	errValidateRedirect := webhooks.ValidateWebhookTarget(req.URL.String())
+	if errValidateRedirect != nil {
+		return fmt.Errorf("download redirect blocked: %w", errValidateRedirect)
+	}
+
+	return nil
+}
+
 // ArchiveFiles archives the provided files and emits progress updates.
 func (inst *Instance) ArchiveFiles(ctx context.Context, gameServer *models.GameServer, fullArchivePath string, fullFilePaths []string,
 	compression xylona.GameServerFilesCompressionType,
@@ -333,12 +365,11 @@ func (inst *Instance) ArchiveFiles(ctx context.Context, gameServer *models.GameS
 
 	pathFilesMap := make(map[string]string)
 	for _, f := range fullFilePaths {
-		absPath, errAbsPath := filepath.Abs(filepath.Join(gameServer.Directory, f))
-		if errAbsPath != nil {
-			log.Error().Err(errAbsPath).Msg("Failed to get absolute path")
-			return nil, wrapFileActionError("resolve absolute archive path", errAbsPath)
+		validatedPath, absolutePath, errSourcePath := resolveValidatedArchiveSourcePath(gameServer, f)
+		if errSourcePath != nil {
+			return nil, errSourcePath
 		}
-		pathFilesMap[absPath] = filepath.Base(f)
+		pathFilesMap[absolutePath] = filepath.Base(validatedPath)
 	}
 
 	archivesDiskOptions := &archives.FromDiskOptions{
@@ -556,12 +587,11 @@ func (inst *Instance) ArchiveAndCompressFiles(ctx context.Context, gameServer *m
 
 	pathFilesMap := make(map[string]string)
 	for _, f := range fullFilePaths {
-		absPath, errAbsPath := filepath.Abs(filepath.Join(gameServer.Directory, f))
-		if errAbsPath != nil {
-			log.Error().Err(errAbsPath).Msg("Failed to get absolute path")
-			return "", wrapFileActionError("resolve absolute archive path", errAbsPath)
+		validatedPath, absolutePath, errSourcePath := resolveValidatedArchiveSourcePath(gameServer, f)
+		if errSourcePath != nil {
+			return "", errSourcePath
 		}
-		pathFilesMap[absPath] = filepath.Base(f)
+		pathFilesMap[absolutePath] = filepath.Base(validatedPath)
 	}
 
 	archivesDiskOptions := &archives.FromDiskOptions{

@@ -2,6 +2,7 @@ package modrinth
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -373,6 +374,7 @@ func TestDownload_UsesLimitReader(t *testing.T) {
 	// unit test is impractical, we test a smaller payload (2 MB) and confirm
 	// the LimitReader constant is wired correctly.
 	const testBodySize = 2 * 1024 * 1024 // 2 MB — well under the limit
+	expectedSHA256 := fmt.Sprintf("%x", sha256.Sum256(make([]byte, testBodySize)))
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -386,7 +388,7 @@ func TestDownload_UsesLimitReader(t *testing.T) {
 				"files": []map[string]any{
 					{
 						"url":     "http://" + r.Host + `/download/mod.jar`,
-						"hashes":  map[string]string{"sha256": "abc"},
+						"hashes":  map[string]string{"sha256": expectedSHA256},
 						"size":    testBodySize,
 						"primary": true,
 					},
@@ -420,6 +422,92 @@ func TestDownload_UsesLimitReader(t *testing.T) {
 	}
 	if files[0].Size != testBodySize {
 		t.Errorf("Download().Size = %d, want %d", files[0].Size, testBodySize)
+	}
+}
+
+func TestDownload_RequiresSHA256Metadata(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/version/"):
+			w.Header().Set("Content-Type", "application/json")
+			payload := map[string]any{
+				"id":             "v-nohash",
+				"version_number": "1.0.0",
+				"game_versions":  []string{"1.20.1"},
+				"loaders":        []string{},
+				"files": []map[string]any{
+					{
+						"url":     "http://" + r.Host + `/download/mod.jar`,
+						"hashes":  map[string]string{"sha256": ""},
+						"size":    4,
+						"primary": true,
+					},
+				},
+				"dependencies": []string{},
+			}
+			errEncode := json.NewEncoder(w).Encode(payload)
+			if errEncode != nil {
+				http.Error(w, errEncode.Error(), http.StatusInternalServerError)
+				return
+			}
+		case r.URL.Path == "/download/mod.jar":
+			_, _ = w.Write([]byte("data"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv)
+	_, errDownload := p.Download(context.Background(), "test-mod", "v-nohash", t.TempDir())
+	if errDownload == nil {
+		t.Fatal("Download() error = nil, want error")
+	}
+	if !errors.Is(errDownload, modproviders.ErrMissingIntegrityMetadata) {
+		t.Fatalf("Download() error = %v, want %v", errDownload, modproviders.ErrMissingIntegrityMetadata)
+	}
+}
+
+func TestDownload_SHA256Mismatch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/version/"):
+			w.Header().Set("Content-Type", "application/json")
+			payload := map[string]any{
+				"id":             "v-badhash",
+				"version_number": "1.0.0",
+				"game_versions":  []string{"1.20.1"},
+				"loaders":        []string{},
+				"files": []map[string]any{
+					{
+						"url":     "http://" + r.Host + `/download/mod.jar`,
+						"hashes":  map[string]string{"sha256": "deadbeef"},
+						"size":    4,
+						"primary": true,
+					},
+				},
+				"dependencies": []string{},
+			}
+			errEncode := json.NewEncoder(w).Encode(payload)
+			if errEncode != nil {
+				http.Error(w, errEncode.Error(), http.StatusInternalServerError)
+				return
+			}
+		case r.URL.Path == "/download/mod.jar":
+			_, _ = w.Write([]byte("data"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv)
+	_, errDownload := p.Download(context.Background(), "test-mod", "v-badhash", t.TempDir())
+	if errDownload == nil {
+		t.Fatal("Download() error = nil, want error")
+	}
+	if !errors.Is(errDownload, modproviders.ErrIntegrityMismatch) {
+		t.Fatalf("Download() error = %v, want %v", errDownload, modproviders.ErrIntegrityMismatch)
 	}
 }
 
