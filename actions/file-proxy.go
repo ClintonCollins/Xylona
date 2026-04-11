@@ -95,7 +95,7 @@ func resolveFileRequestTargetWithLookups(
 	}, nil
 }
 
-func (inst *Instance) proxyRemoteFileGet(ctx context.Context, target fileRequestTarget, filePath string, w http.ResponseWriter) error {
+func (inst *Instance) proxyRemoteFileGet(ctx context.Context, sourceRequest *http.Request, target fileRequestTarget, filePath string, w http.ResponseWriter) error {
 	payload := xylona.DownloadFileRequest{
 		GameServerId: target.remoteServerID,
 		Path:         filePath,
@@ -108,6 +108,7 @@ func (inst *Instance) proxyRemoteFileGet(ctx context.Context, target fileRequest
 
 	return inst.proxyRemoteFileRequest(
 		ctx,
+		sourceRequest,
 		target.remoteNode,
 		http.MethodPost,
 		fileGetPath,
@@ -117,7 +118,7 @@ func (inst *Instance) proxyRemoteFileGet(ctx context.Context, target fileRequest
 	)
 }
 
-func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRequestTarget, filePath string, w http.ResponseWriter) error {
+func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, sourceRequest *http.Request, target fileRequestTarget, filePath string, w http.ResponseWriter) error {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	errGameServerID := writer.WriteField("gameServerId", target.remoteServerID)
@@ -135,6 +136,7 @@ func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRe
 
 	return inst.proxyRemoteFileRequest(
 		ctx,
+		sourceRequest,
 		target.remoteNode,
 		http.MethodPost,
 		fileDownloadPath,
@@ -144,7 +146,7 @@ func (inst *Instance) proxyRemoteFileDownload(ctx context.Context, target fileRe
 	)
 }
 
-func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequestTarget, destinationPath string, fileName string, fileSource io.Reader, w http.ResponseWriter) error {
+func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, sourceRequest *http.Request, target fileRequestTarget, destinationPath string, fileName string, fileSource io.Reader, w http.ResponseWriter) error {
 	pipedReader, pipedWriter := io.Pipe()
 	writer := multipart.NewWriter(pipedWriter)
 
@@ -202,6 +204,7 @@ func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequ
 
 	return inst.proxyRemoteFileRequest(
 		ctx,
+		sourceRequest,
 		target.remoteNode,
 		http.MethodPost,
 		fileUploadPath,
@@ -213,6 +216,7 @@ func (inst *Instance) proxyRemoteFileUpload(ctx context.Context, target fileRequ
 
 func (inst *Instance) proxyRemoteFileRequest(
 	ctx context.Context,
+	sourceRequest *http.Request,
 	remoteNode *models.Node,
 	method string,
 	path string,
@@ -236,6 +240,10 @@ func (inst *Instance) proxyRemoteFileRequest(
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	errIdentity := inst.applyProxyActingIdentityHeaders(sourceRequest, req.Header)
+	if errIdentity != nil {
+		return fmt.Errorf("actions: apply acting identity headers for remote file proxy: %w", errIdentity)
 	}
 
 	resp, errDo := httpClient.Do(req)

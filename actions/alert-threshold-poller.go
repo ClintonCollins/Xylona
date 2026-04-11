@@ -508,7 +508,9 @@ func (inst *Instance) backgroundJobThresholdPoller(localNodeID string) {
 		case <-inst.ctx.Done():
 			return
 		case <-throttle.C:
-			poller.runOnce()
+			runBackgroundTask("backgroundJobThresholdPoller", "tick", nil, func() {
+				poller.runOnce()
+			})
 		}
 	}
 }

@@ -141,7 +141,6 @@ func (ws *WebSocket) listenForGameServerCreated(s *melody.Session) {
 func (ws *WebSocket) closeCommandOutputListeners(s *melody.Session) {
 	sessionConnection, errGetConnection := ws.getSessionConnection(s)
 	if errGetConnection != nil {
-		// log.Error().Err(errGetConnection).Msg("Failed to get session connection")
 		return
 	}
 	gameServerIDs := sessionConnection.consumeRequestedGameServerOutputIDs()

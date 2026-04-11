@@ -25,12 +25,14 @@ func (inst *Instance) backgroundJobQueryAllGameServers() {
 		case <-inst.ctx.Done():
 			return
 		case <-throttle.C:
-			gameServers, err := inst.db.GetAllGameServers()
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to get game servers")
-				continue
-			}
-			inst.queryGameServers(inst.ctx, gameServers)
+			runBackgroundTask("backgroundJobQueryAllGameServers", "tick", nil, func() {
+				gameServers, err := inst.db.GetAllGameServers()
+				if err != nil {
+					log.Error().Err(err).Msg("Failed to get game servers")
+					return
+				}
+				inst.queryGameServers(inst.ctx, gameServers)
+			})
 		}
 	}
 }
@@ -51,73 +53,77 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 	for _, gameServer := range gameServers {
 		gs := gameServer
 		errGroup.Go(func() error {
-			if inst.supervisorInstance == nil {
-				gs.Status = xylona.Status_OFFLINE.String()
-			} else {
-				gameServerCmd, errGetCommand := inst.supervisorInstance.GetCommandByID(gs.ID)
-				if errGetCommand != nil {
+			runBackgroundTask("backgroundJobQueryAllGameServers", "query-server", map[string]string{
+				"game_server_id": gs.ID,
+			}, func() {
+				if inst.supervisorInstance == nil {
 					gs.Status = xylona.Status_OFFLINE.String()
 				} else {
-					gs.Status = gameServerCmd.Status().String()
+					gameServerCmd, errGetCommand := inst.supervisorInstance.GetCommandByID(gs.ID)
+					if errGetCommand != nil {
+						gs.Status = xylona.Status_OFFLINE.String()
+					} else {
+						gs.Status = gameServerCmd.Status().String()
+					}
 				}
-			}
-			if gs.Status == "" {
-				gs.Status = xylona.Status_OFFLINE.String()
-			}
-			switch getQueryInfoType(gs.R.Game) {
-			case xylona.ServerQuery_Minecraft:
-				if gs.Status != xylona.Status_ONLINE.String() {
+				if gs.Status == "" {
+					gs.Status = xylona.Status_OFFLINE.String()
+				}
+				switch getQueryInfoType(gs.R.Game) {
+				case xylona.ServerQuery_Minecraft:
+					if gs.Status != xylona.Status_ONLINE.String() {
+						inst.serverQueriesMutex.Lock()
+						inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
+							ServerId:   gs.ID,
+							ServerName: gs.Name,
+							Type:       xylona.ServerQuery_Minecraft,
+							Minecraft:  &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
+						}
+						inst.serverQueriesMutex.Unlock()
+						return
+					}
+					info, err := query.Minecraft(gs.IP, int(gs.QueryPort))
+					if err != nil {
+						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query minecraft server")
+						info = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+					}
 					inst.serverQueriesMutex.Lock()
 					inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
 						ServerId:   gs.ID,
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Minecraft,
-						Minecraft:  &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
+						Minecraft:  info,
 					}
 					inst.serverQueriesMutex.Unlock()
-					return nil
-				}
-				info, err := query.Minecraft(gs.IP, int(gs.QueryPort))
-				if err != nil {
-					log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query minecraft server")
-					info = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
-				}
-				inst.serverQueriesMutex.Lock()
-				inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
-					ServerId:   gs.ID,
-					ServerName: gs.Name,
-					Type:       xylona.ServerQuery_Minecraft,
-					Minecraft:  info,
-				}
-				inst.serverQueriesMutex.Unlock()
-				return nil
-			case xylona.ServerQuery_Source:
-				if gs.Status != xylona.Status_ONLINE.String() {
+					return
+				case xylona.ServerQuery_Source:
+					if gs.Status != xylona.Status_ONLINE.String() {
+						inst.serverQueriesMutex.Lock()
+						inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
+							ServerId:   gs.ID,
+							ServerName: gs.Name,
+							Type:       xylona.ServerQuery_Source,
+							Source:     &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
+						}
+						inst.serverQueriesMutex.Unlock()
+						return
+					}
+					info, err := query.Source(gs.IP, int(gs.QueryPort))
+					if err != nil {
+						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query source server")
+						info = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+					}
 					inst.serverQueriesMutex.Lock()
 					inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
 						ServerId:   gs.ID,
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Source,
-						Source:     &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
+						Source:     info,
 					}
 					inst.serverQueriesMutex.Unlock()
-					return nil
+					return
 				}
-				info, err := query.Source(gs.IP, int(gs.QueryPort))
-				if err != nil {
-					log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query source server")
-					info = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
-				}
-				inst.serverQueriesMutex.Lock()
-				inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
-					ServerId:   gs.ID,
-					ServerName: gs.Name,
-					Type:       xylona.ServerQuery_Source,
-					Source:     info,
-				}
-				inst.serverQueriesMutex.Unlock()
-				return nil
-			}
+			})
 			return nil
 		})
 	}
@@ -147,7 +153,9 @@ func (inst *Instance) backgroundJobCheckVersionUpdates() {
 	case <-inst.ctx.Done():
 		return
 	case <-startupTimer.C:
-		inst.checkAllServerVersions()
+		runBackgroundTask("backgroundJobCheckVersionUpdates", "startup-check", nil, func() {
+			inst.checkAllServerVersions()
+		})
 	}
 
 	ticker := time.NewTicker(interval)
@@ -158,7 +166,9 @@ func (inst *Instance) backgroundJobCheckVersionUpdates() {
 		case <-inst.ctx.Done():
 			return
 		case <-ticker.C:
-			inst.checkAllServerVersions()
+			runBackgroundTask("backgroundJobCheckVersionUpdates", "tick", nil, func() {
+				inst.checkAllServerVersions()
+			})
 		}
 	}
 }
@@ -207,7 +217,12 @@ func (inst *Instance) checkAllServerVersions() {
 			case <-staggerTimer.C:
 			}
 		}
-		inst.checkServerVersion(gs, eb)
+		gameServer := gs
+		runBackgroundTask("backgroundJobCheckVersionUpdates", "check-server", map[string]string{
+			"game_server_id": gameServer.ID,
+		}, func() {
+			inst.checkServerVersion(gameServer, eb)
+		})
 	}
 }
 
@@ -239,27 +254,34 @@ func (inst *Instance) backgroundJobCheckModUpdates() {
 		case <-inst.ctx.Done():
 			return
 		case <-throttle.C:
-			gameServers, errServers := inst.db.GetAllGameServers()
-			if errServers != nil {
-				log.Error().Err(errServers).Msg("Mod update check: failed to get game servers")
-				continue
-			}
-
-			eb := eventbus.Get()
-
-			for _, gs := range gameServers {
-				updates, errCheck := inst.modManager.CheckUpdates(inst.ctx, gs.ID, "")
-				if errCheck != nil {
-					log.Warn().Err(errCheck).Str("game_server_id", gs.ID).
-						Msg("Mod update check: failed to check updates for game server")
-					continue
+			runBackgroundTask("backgroundJobCheckModUpdates", "tick", nil, func() {
+				gameServers, errServers := inst.db.GetAllGameServers()
+				if errServers != nil {
+					log.Error().Err(errServers).Msg("Mod update check: failed to get game servers")
+					return
 				}
-				if len(updates) > 0 {
-					eb.Publish("mod.update_available", gs.ID)
-					log.Info().Str("game_server_id", gs.ID).Int("update_count", len(updates)).
-						Msg("Mod update check: updates available")
+
+				eb := eventbus.Get()
+
+				for _, gs := range gameServers {
+					gameServer := gs
+					runBackgroundTask("backgroundJobCheckModUpdates", "check-server", map[string]string{
+						"game_server_id": gameServer.ID,
+					}, func() {
+						updates, errCheck := inst.modManager.CheckUpdates(inst.ctx, gameServer.ID, "")
+						if errCheck != nil {
+							log.Warn().Err(errCheck).Str("game_server_id", gameServer.ID).
+								Msg("Mod update check: failed to check updates for game server")
+							return
+						}
+						if len(updates) > 0 {
+							eb.Publish("mod.update_available", gameServer.ID)
+							log.Info().Str("game_server_id", gameServer.ID).Int("update_count", len(updates)).
+								Msg("Mod update check: updates available")
+						}
+					})
 				}
-			}
+			})
 		}
 	}
 }

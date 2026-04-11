@@ -114,7 +114,6 @@ func (ws *WebSocket) getSessionConnection(s *melody.Session) (*connection, error
 	}
 	_, userExists := ws.userWebsocketConnections[userID]
 	if !userExists {
-		// log.Error().Str("User", userID).Msg("User not found in websocket connections")
 		return nil, errors.New("user not found")
 	}
 
@@ -190,7 +189,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		return
 	}
 
-	log.Debug().Str("SessionID", sessionCookies.SessionID).Msg("Got session from cookies")
+	log.Debug().Msg("Got session from cookies")
 	user, errGetUser := gatekeeper.GetUserFromSession(sessionCookies.SessionID, sessionCookies.SessionToken,
 		ws.db, ws.secureCookie)
 	if errGetUser != nil {

@@ -59,8 +59,10 @@ func (mr *MetricsRecorder) runSnapshotLoop() {
 		case <-mr.ctx.Done():
 			return
 		case <-ticker.C:
-			mr.recordNodeMetrics()
-			mr.recordGameServerMetrics()
+			runBackgroundTask("MetricsRecorder.runSnapshotLoop", "tick", nil, func() {
+				mr.recordNodeMetrics()
+				mr.recordGameServerMetrics()
+			})
 		}
 	}
 }
@@ -74,7 +76,9 @@ func (mr *MetricsRecorder) runCleanupLoop() {
 		case <-mr.ctx.Done():
 			return
 		case <-ticker.C:
-			mr.cleanupAndRollup()
+			runBackgroundTask("MetricsRecorder.runCleanupLoop", "tick", nil, func() {
+				mr.cleanupAndRollup()
+			})
 		}
 	}
 }

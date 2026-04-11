@@ -99,7 +99,11 @@ func TestInstallGameServerRemovesArtifactsWhenCommandStartFails(t *testing.T) {
 		t.Fatalf(`InstallGameServer() returned server on failure: %+v`, installed)
 	}
 
-	serverDir := filepath.Join(DefaultInstallPath(), owner.UserName, `needs-cleanup`)
+	installPath, errDefaultInstallPath := DefaultInstallPath()
+	if errDefaultInstallPath != nil {
+		t.Fatalf(`DefaultInstallPath() error = %v`, errDefaultInstallPath)
+	}
+	serverDir := joinManagedPath(installPath, owner.UserName, `needs-cleanup`)
 	_, errStat := os.Stat(serverDir)
 	if !errors.Is(errStat, os.ErrNotExist) {
 		t.Fatalf(`expected install directory cleanup for %q, stat error = %v`, serverDir, errStat)

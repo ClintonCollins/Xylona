@@ -141,7 +141,12 @@
 import { computed, reactive, ref } from 'vue'
 
 import SimilarArgDialog from './SimilarArgDialog.vue'
-import type { ResolvedStartArgBlock, StartArgBlock, StartArgBlocklistEntry, StartArgPatch, } from './start-args'
+import type {
+  ResolvedStartArgBlock,
+  StartArgBlock,
+  StartArgBlocklistEntry,
+  StartArgPatch,
+} from './start-args'
 import {
   applyAddAction,
   clonePatches,

@@ -33,7 +33,8 @@ import (
 
 // MaxRequestBodySize caps file action request bodies at 1 MiB.
 const (
-	MaxRequestBodySize = 1024 * 1024 * 1 // 1 MB
+	MaxRequestBodySize          = 1024 * 1024 * 1 // 1 MB
+	maxMultipartUploadBodyBytes = 1 << 30
 )
 
 type progressReader struct {
@@ -518,7 +519,6 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 		log.Error().Err(err).Msg("Failed to archive files")
 		return nil, wrapFileActionError("archive files asynchronously", err)
 	}
-	// log.Debug().Msg("Finished archiving files")
 	return createXylonaarchivesesult(totalFiles, filesCompressedSoFar, totalBytes,
 		bytesReadSoFar, currentFile), nil
 }
@@ -766,29 +766,19 @@ func (inst *Instance) StreamFileToUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	target, errResolve := inst.resolveFileRequestTarget(fileRequest.GetGameServerId())
-	if errResolve != nil {
-		log.Error().Err(errResolve).Msg("Failed to get game server")
-		writeGameServerLookupError(w, errResolve)
-		return
-	}
-
-	if target.isLocal() {
-		errGetFile := inst.GetGameServerFile(target.gameServer, fileRequest.GetPath(), w, true, false)
-		if errGetFile != nil {
-			log.Error().Err(errGetFile).Msg("Failed to get file")
-			http.Error(w, "Failed to get file", http.StatusInternalServerError)
-			return
-		}
-		return
-	}
-
-	errProxy := inst.proxyRemoteFileGet(r.Context(), target, fileRequest.GetPath(), w)
-	if errProxy != nil {
-		log.Error().Err(errProxy).Msg("Failed to proxy remote file request")
-		http.Error(w, "Failed to get file", http.StatusInternalServerError)
-		return
-	}
+	inst.serveLegacyFileRequest(
+		w,
+		r,
+		fileRequest.GetGameServerId(),
+		"game_server.files.view",
+		"Failed to get file",
+		func(gameServer *models.GameServer) error {
+			return inst.GetGameServerFile(gameServer, fileRequest.GetPath(), w, true, false)
+		},
+		func(target fileRequestTarget) error {
+			return inst.proxyRemoteFileGet(r.Context(), r, target, fileRequest.GetPath(), w)
+		},
+	)
 }
 
 // UploadFileToUserGET streams a file download requested via query parameters.
@@ -801,29 +791,19 @@ func (inst *Instance) UploadFileToUserGET(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	target, errResolve := inst.resolveFileRequestTarget(gameServerID)
-	if errResolve != nil {
-		log.Error().Err(errResolve).Msg("Failed to get game server")
-		writeGameServerLookupError(w, errResolve)
-		return
-	}
-
-	if target.isLocal() {
-		errGetFile := inst.GetGameServerFile(target.gameServer, filePath, w, true, true)
-		if errGetFile != nil {
-			log.Error().Err(errGetFile).Msg("Failed to get file")
-			http.Error(w, "Failed to get file", http.StatusInternalServerError)
-			return
-		}
-		return
-	}
-
-	errProxy := inst.proxyRemoteFileDownload(r.Context(), target, filePath, w)
-	if errProxy != nil {
-		log.Error().Err(errProxy).Msg("Failed to proxy remote file download")
-		http.Error(w, "Failed to get file", http.StatusInternalServerError)
-		return
-	}
+	inst.serveLegacyFileRequest(
+		w,
+		r,
+		gameServerID,
+		"game_server.files.view",
+		"Failed to get file",
+		func(gameServer *models.GameServer) error {
+			return inst.GetGameServerFile(gameServer, filePath, w, true, true)
+		},
+		func(target fileRequestTarget) error {
+			return inst.proxyRemoteFileDownload(r.Context(), r, target, filePath, w)
+		},
+	)
 }
 
 // UploadFileToUserPOST streams a file download requested via form fields.
@@ -838,29 +818,19 @@ func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Reques
 	gameServerID := r.FormValue("gameServerId")
 	filePath := r.FormValue("path")
 
-	target, errResolve := inst.resolveFileRequestTarget(gameServerID)
-	if errResolve != nil {
-		log.Error().Err(errResolve).Msg("Failed to get game server")
-		writeGameServerLookupError(w, errResolve)
-		return
-	}
-
-	if target.isLocal() {
-		errGetFile := inst.GetGameServerFile(target.gameServer, filePath, w, true, true)
-		if errGetFile != nil {
-			log.Error().Err(errGetFile).Msg("Failed to get file")
-			http.Error(w, "Failed to get file", http.StatusInternalServerError)
-			return
-		}
-		return
-	}
-
-	errProxy := inst.proxyRemoteFileDownload(r.Context(), target, filePath, w)
-	if errProxy != nil {
-		log.Error().Err(errProxy).Msg("Failed to proxy remote file download")
-		http.Error(w, "Failed to get file", http.StatusInternalServerError)
-		return
-	}
+	inst.serveLegacyFileRequest(
+		w,
+		r,
+		gameServerID,
+		"game_server.files.view",
+		"Failed to get file",
+		func(gameServer *models.GameServer) error {
+			return inst.GetGameServerFile(gameServer, filePath, w, true, true)
+		},
+		func(target fileRequestTarget) error {
+			return inst.proxyRemoteFileDownload(r.Context(), r, target, filePath, w)
+		},
+	)
 }
 
 // ExtractArchive extracts an archive into a server directory without progress streaming.
@@ -1081,9 +1051,15 @@ func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, relativ
 
 // DownloadGameServerFile handles multipart uploads into a game server directory.
 func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Request) {
+	inst.downloadGameServerFileWithMaxBytes(w, r, maxMultipartUploadBodyBytes)
+}
+
+func (inst *Instance) downloadGameServerFileWithMaxBytes(w http.ResponseWriter, r *http.Request, maxBodyBytes int64) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+
 	multiReader, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, "Error creating multipart reader", http.StatusBadRequest)
+		writeMultipartUploadBodyError(w, err, "Error creating multipart reader")
 		return
 	}
 	foundGameServerID := false
@@ -1095,7 +1071,7 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 		if errNext == io.EOF {
 			break
 		} else if errNext != nil {
-			http.Error(w, "Error reading next part", http.StatusBadRequest)
+			writeMultipartUploadBodyError(w, errNext, "Error reading next part")
 			return
 		}
 		switch part.FormName() {
@@ -1103,7 +1079,7 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 			gameServerIDBytes, errRead := io.ReadAll(io.LimitReader(part, 10<<10))
 			if errRead != nil {
 				log.Error().Err(errRead).Msg("Failed to read game server ID")
-				http.Error(w, "Error reading game server ID", http.StatusBadRequest)
+				writeMultipartUploadBodyError(w, errRead, "Error reading game server ID")
 				return
 			}
 			gameServerID = string(gameServerIDBytes)
@@ -1112,7 +1088,7 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 			pathBytes, errRead := io.ReadAll(io.LimitReader(part, 1<<20))
 			if errRead != nil {
 				log.Error().Err(errRead).Msg("Failed to read path")
-				http.Error(w, "Error reading path", http.StatusBadRequest)
+				writeMultipartUploadBodyError(w, errRead, "Error reading path")
 				return
 			}
 			relativePath = string(pathBytes)
@@ -1124,32 +1100,45 @@ func (inst *Instance) DownloadGameServerFile(w http.ResponseWriter, r *http.Requ
 				return
 			}
 			filename := part.FileName()
-			target, errResolve := inst.resolveFileRequestTarget(gameServerID)
-			if errResolve != nil {
-				log.Error().Err(errResolve).Msg("Failed to get game server")
-				writeGameServerLookupError(w, errResolve)
+			if !inst.serveLegacyFileRequest(
+				w,
+				r,
+				gameServerID,
+				"game_server.files.edit",
+				"Failed to upload file",
+				func(gameServer *models.GameServer) error {
+					return inst.saveUploadedGameServerFile(gameServer, relativePath, filename, part)
+				},
+				func(target fileRequestTarget) error {
+					return inst.proxyRemoteFileUpload(r.Context(), r, target, relativePath, filename, part, w)
+				},
+			) {
 				return
 			}
-
-			if target.isLocal() {
-				errDownload := inst.saveUploadedGameServerFile(target.gameServer, relativePath, filename, part)
-				if errDownload != nil {
-					log.Error().Err(errDownload).Msg("Failed to download file")
-					http.Error(w, "Failed to download file", http.StatusInternalServerError)
-					return
-				}
-				continue
-			}
-
-			errProxy := inst.proxyRemoteFileUpload(r.Context(), target, relativePath, filename, part, w)
-			if errProxy != nil {
-				log.Error().Err(errProxy).Msg("Failed to proxy remote file upload")
-				http.Error(w, "Failed to upload file", http.StatusInternalServerError)
-				return
-			}
-			continue
 		}
 	}
+}
+
+func writeMultipartUploadBodyError(w http.ResponseWriter, err error, fallbackMessage string) {
+	if isRequestBodyTooLarge(err) {
+		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	http.Error(w, fallbackMessage, http.StatusBadRequest)
+}
+
+func isRequestBodyTooLarge(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		return true
+	}
+
+	errText := err.Error()
+	return strings.Contains(errText, "request body too large") || strings.Contains(errText, "message too large")
 }
 
 func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, relativePath, fileName string, fileSource io.Reader) error {
@@ -1191,19 +1180,49 @@ func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, 
 		return ErrInvalidPath
 	}
 
-	file, errCreateFile := os.Create(fullPath)
-	if errCreateFile != nil {
-		log.Error().Err(errCreateFile).Msg("Failed to create file")
-		return fmt.Errorf("actions: create uploaded file: %w", errCreateFile)
+	tempFile, errCreateTemp := os.CreateTemp(gameServerDirPlusPath, sanitizedFileName+".tmp-*")
+	if errCreateTemp != nil {
+		log.Error().Err(errCreateTemp).Msg("Failed to create upload temp file")
+		return fmt.Errorf("actions: create uploaded temp file: %w", errCreateTemp)
 	}
+	tempFilePath := tempFile.Name()
+	tempFileClosed := false
 	defer func() {
-		_ = file.Close()
+		if !tempFileClosed {
+			errClose := tempFile.Close()
+			if errClose != nil {
+				log.Error().Err(errClose).Msg("Failed to close upload temp file")
+			}
+		}
+		errRemove := os.Remove(tempFilePath)
+		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+			log.Error().Err(errRemove).Str("path", tempFilePath).Msg("Failed to remove upload temp file")
+		}
 	}()
 
-	_, errCopy := io.Copy(file, fileSource)
+	_, errCopy := io.Copy(tempFile, fileSource)
 	if errCopy != nil {
 		log.Error().Err(errCopy).Msg("Failed to copy file")
 		return fmt.Errorf("actions: write uploaded file: %w", errCopy)
+	}
+
+	errCloseTemp := tempFile.Close()
+	if errCloseTemp != nil {
+		log.Error().Err(errCloseTemp).Msg("Failed to close upload temp file")
+		return fmt.Errorf("actions: close uploaded temp file: %w", errCloseTemp)
+	}
+	tempFileClosed = true
+
+	errRemoveExisting := os.Remove(fullPath)
+	if errRemoveExisting != nil && !errors.Is(errRemoveExisting, os.ErrNotExist) {
+		log.Error().Err(errRemoveExisting).Str("path", fullPath).Msg("Failed to remove existing upload file")
+		return fmt.Errorf("actions: remove existing uploaded file: %w", errRemoveExisting)
+	}
+
+	errRename := os.Rename(tempFilePath, fullPath)
+	if errRename != nil {
+		log.Error().Err(errRename).Str("path", fullPath).Msg("Failed to move uploaded temp file into place")
+		return fmt.Errorf("actions: move uploaded file into place: %w", errRename)
 	}
 
 	return nil
@@ -1278,7 +1297,12 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativeP
 
 func (inst *Instance) createGameServerDirectory(gameServer *models.GameServer, owner *models.User) (string, error) {
 	gsNameSlug := slug.Make(gameServer.Name)
-	gameServerDir := filepath.Join(DefaultInstallPath(), owner.UserName, gsNameSlug)
+	installPath, errInstallPath := DefaultInstallPath()
+	if errInstallPath != nil {
+		log.Error().Err(errInstallPath).Msg("Failed to resolve default install path")
+		return "", fmt.Errorf("actions: resolve default install path: %w", errInstallPath)
+	}
+	gameServerDir := joinManagedPath(installPath, owner.UserName, gsNameSlug)
 	errMakePath := os.MkdirAll(gameServerDir, 0o750)
 	if errMakePath != nil {
 		log.Error().Err(errMakePath).Msg("Failed to create game server directory")

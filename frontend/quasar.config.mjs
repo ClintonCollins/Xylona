@@ -46,8 +46,13 @@ export default configure(function (/* ctx */) {
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#build
     build: {
+      // Vite interprets this budget in kB. Keep it just above the current
+      // largest Monaco lazy chunk (~6733 kB) so expected editor assets stay
+      // below the reporter while future growth still trips the warning.
+      chunkSizeWarningLimit: 7000,
+
       target: {
-        browser: ['esnext', 'edge88', 'firefox78', 'chrome87', 'safari14'],
+        browser: ['esnext', 'edge110', 'firefox115', 'chrome110', 'safari15.6'],
         node: 'node25',
       },
 
@@ -75,6 +80,11 @@ export default configure(function (/* ctx */) {
       // ]
 
       extendViteConf(viteConf) {
+        viteConf.build = {
+          ...viteConf.build,
+          chunkSizeWarningLimit: 7000,
+        }
+
         viteConf.resolve.alias = {
           ...viteConf.resolve.alias,
           '@': '/src',

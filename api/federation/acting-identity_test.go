@@ -17,7 +17,10 @@ func newActingIdentityTestDB(t *testing.T) *db.Connection {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "acting-identity.sqlite")
-	conn := db.NewConnection(context.Background(), dbPath)
+	conn, errNewConnection := db.NewConnection(context.Background(), dbPath)
+	if errNewConnection != nil {
+		t.Fatalf("failed to create test database: %v", errNewConnection)
+	}
 	t.Cleanup(func() {
 		if errClose := conn.SQLDb.Close(); errClose != nil {
 			t.Errorf("failed to close test db: %v", errClose)

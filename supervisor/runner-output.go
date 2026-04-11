@@ -179,7 +179,6 @@ func (c *Command) readTelnetOutput() {
 		default:
 		}
 		telnetOut := scanner.Text()
-		// log.Debug().Str("Game Server ID", c.ID).Str("telnet", "out").Msg(telnetOut)
 		c.sendJobNotification(telnetOut)
 	}
 	log.Debug().Str("Game Server ID", c.ID).Msg("Telnet listener stopped")
@@ -201,10 +200,8 @@ func (c *Command) handleOutputListeners(payload *xylona.Message) {
 				log.Debug().Str("Game Server ID", id).Msg("Received error group context shutdown signal. Closing output listener.")
 				return nil
 			case listener <- payload:
-				// log.Debug().Str("ID", id).Str("out", payload.Data).Str("type", payload.OutputType.String()).Str("status", payload.Status.String()).Msg("Sending output to listener")
-			// Give the channel receiver 500 milliseconds to handle the output, otherwise we discard the message.
+				// Give the channel receiver 500 milliseconds to handle the output, otherwise we discard the message.
 			case <-time.After(time.Second * 1):
-				// log.Debug().Msg("Had to wait for listener.")
 				removeLock.Lock()
 				listenerIDsToRemove = append(listenerIDsToRemove, id)
 				removeLock.Unlock()

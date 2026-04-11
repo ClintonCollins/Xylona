@@ -490,7 +490,12 @@ import { ConnectError } from '@connectrpc/connect'
 import dayjs from 'dayjs'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
-import type { AlertHistoryEntry, AlertRule, GameServer, NotificationChannel, } from '@/proto/shared_pb'
+import type {
+  AlertHistoryEntry,
+  AlertRule,
+  GameServer,
+  NotificationChannel,
+} from '@/proto/shared_pb'
 import { AlertEventType, DeliveryStatus, NotificationChannelType } from '@/proto/shared_pb'
 import {
   CreateNotificationChannelRequestSchema,

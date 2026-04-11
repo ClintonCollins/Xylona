@@ -10,23 +10,18 @@ import (
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
+	apifederation "github.com/ClintonCollins/Xylona/api/federation"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/helpers/federation"
+	fedhelpers "github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-type federationPeerIdentityContextKey string
-
-const federationPeerIdentityKey federationPeerIdentityContextKey = "federation-peer-identity"
-
 // FederationPeerIdentity describes the authenticated remote peer on a federation request.
-type FederationPeerIdentity struct {
-	NodeID      string
-	PeerNodeID  string
-	Fingerprint string
-}
+type FederationPeerIdentity = apifederation.PeerIdentity
+
+const federationPeerIdentityKey = apifederation.PeerIdentityKey
 
 // FederationPeerAuthMiddleware authenticates inbound federation requests using mTLS state.
 func FederationPeerAuthMiddleware(dbInst *db.Connection) func(http.Handler) http.Handler {
@@ -42,7 +37,7 @@ func FederationPeerAuthMiddleware(dbInst *db.Connection) func(http.Handler) http
 			}
 
 			peerCertificate := r.TLS.PeerCertificates[0]
-			peerFingerprint := federation.CertificateFingerprint(peerCertificate)
+			peerFingerprint := fedhelpers.CertificateFingerprint(peerCertificate)
 
 			trustedPeer, errGetTrustedPeer := dbInst.GetFederationTrustedPeerByFingerprint(peerFingerprint)
 			if errGetTrustedPeer != nil {
@@ -114,22 +109,14 @@ func FederationPeerAuthMiddleware(dbInst *db.Connection) func(http.Handler) http
 				PeerNodeID:  trustedPeer.PeerNodeID,
 				Fingerprint: peerFingerprint,
 			}
-			ctxWithIdentity := context.WithValue(r.Context(), federationPeerIdentityKey, identity)
+			ctxWithIdentity := apifederation.WithPeerIdentity(r.Context(), identity)
 			next.ServeHTTP(w, r.WithContext(ctxWithIdentity))
 		})
 	}
 }
 
 func federationPeerIdentityFromContext(ctx context.Context) (FederationPeerIdentity, bool) {
-	value := ctx.Value(federationPeerIdentityKey)
-	if value == nil {
-		return FederationPeerIdentity{}, false
-	}
-	identity, ok := value.(FederationPeerIdentity)
-	if !ok {
-		return FederationPeerIdentity{}, false
-	}
-	return identity, true
+	return apifederation.PeerIdentityFromContext(ctx)
 }
 
 func (fs FederationService) authenticateRequest(ctx context.Context) (FederationPeerIdentity, error) {
@@ -183,7 +170,7 @@ func (fs FederationService) authorizeFederatedPermission(
 	}
 
 	if strings.TrimSpace(actingUserID) == "" || strings.TrimSpace(originNodeID) == "" {
-		headerUserID, headerOriginNodeID := federation.GetActingIdentity(header)
+		headerUserID, headerOriginNodeID := fedhelpers.GetActingIdentity(header)
 		actingUserID = strings.TrimSpace(headerUserID)
 		originNodeID = strings.TrimSpace(headerOriginNodeID)
 	}
@@ -207,7 +194,7 @@ func (fs FederationService) authorizeFederatedPermission(
 		return permissionDenied("acting origin node is invalid")
 	}
 
-	if federation.ActingIsSuperUser(header) {
+	if fedhelpers.ActingIsSuperUser(header) {
 		if originNodeID == "" {
 			log.Warn().
 				Str("server_id", serverID).

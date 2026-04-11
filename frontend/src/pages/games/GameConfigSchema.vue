@@ -40,7 +40,10 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { GetGameConfigSchemasRequestSchema, UpdateGameConfigSchemasRequestSchema, } from '@/proto/xylona_pb'
+import {
+  GetGameConfigSchemasRequestSchema,
+  UpdateGameConfigSchemasRequestSchema,
+} from '@/proto/xylona_pb'
 import ConfigSchemaEditor from '@/components/games/ConfigSchemaEditor.vue'
 
 interface SchemaProperty {

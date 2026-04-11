@@ -18,7 +18,7 @@ Xylona is still evolving quickly. Expect active iteration, and treat upgrades th
 
 ### Prerequisites
 
-- [Go 1.26.1](https://go.dev/doc/install)
+- [Go 1.26.2](https://go.dev/doc/install)
 - [Node.js 22 LTS](https://nodejs.org/)
 - [pnpm 10.32.1](https://pnpm.io/installation)
 - [golangci-lint](https://golangci-lint.run/welcome/install/)
@@ -51,7 +51,9 @@ JWT_SECRET_KEY_BASE64=<base64-encoded 32+ byte signing key>
 ENCRYPTION_KEY_BASE64=<base64-encoded 32+ byte encryption key>
 ```
 
-`ENCRYPTION_KEY_BASE64` is strongly recommended. If it is omitted, Xylona falls back to the JWT secret for database encryption and logs a warning.
+`ENCRYPTION_KEY_BASE64` is required. Xylona does not fall back to the JWT secret for database encryption, and startup fails if the key is missing or too short.
+
+User passwords use bcrypt in the auth and user RPC paths. `pkg/xycrypt` provides AES-GCM encryption for stored secrets such as node API keys, and its Argon2id helpers are used for non-password secret tokens such as local and federation secret keys.
 
 Optional runtime controls:
 
@@ -66,6 +68,16 @@ FEDERATION_IDLE_TIMEOUT=30m
 ```
 
 Metrics are disabled by default. Enable them explicitly when you intend to expose a Prometheus scrape target.
+
+### Operational Endpoints
+
+Xylona exposes separate probes for process liveness and application readiness:
+
+- `GET /api/health` is a narrow liveness probe. It only proves the HTTP process is up and can answer requests.
+- `GET /api/ready` is the readiness probe. It returns `200` only after the database ping succeeds and returns `503` when the database is unavailable.
+- `GET /metrics` is the Prometheus scrape endpoint. It is only mounted when `METRICS_ENABLED=true`.
+
+`/metrics` is served from the main HTTP listener, so enable it only when your scrape target and network exposure are intentional.
 
 ### Backend Workflow
 
@@ -97,7 +109,7 @@ Run the backend in one terminal, then start the Quasar dev server in another:
 pnpm --dir frontend run dev
 ```
 
-The frontend dev server proxies API traffic to the backend using the project proxy configuration. The frontend build targets modern evergreen browsers with native `BigInt` support, including Safari 14+.
+The frontend dev server proxies API traffic to the backend using the project proxy configuration. The frontend build targets modern evergreen browsers with native `BigInt` support, including Safari 15.6+.
 
 ### Common Commands
 

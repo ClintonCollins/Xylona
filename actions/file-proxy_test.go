@@ -12,11 +12,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
+	apifederation "github.com/ClintonCollins/Xylona/api/federation"
+	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
 	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -27,7 +30,7 @@ var errUnexpectedLookup = errors.New("unexpected lookup")
 
 // newMTLSFileProxyTestSetup creates an mTLS-configured Instance with a TLS test server.
 // The handler argument is installed on the remote TLS server.
-// Returns the Instance, the remote node model, and a cleanup function.
+// Returns the Instance and the remote node model.
 func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *models.Node) {
 	t.Helper()
 
@@ -80,7 +83,10 @@ func newMTLSFileProxyTestSetup(t *testing.T, handler http.Handler) (*Instance, *
 	// Set up a test DB with the trust entry.
 	conn := dbtest.NewMigratedConnection(t, "file-proxy-test.sqlite")
 
+	_, _ = conn.SQLDb.ExecContext(context.Background(), `insert into node (id, name, is_local, host, port, base_url, enabled, health_status, last_sync_status, version, protocol_version, capabilities, sync_interval_seconds, allow_insecure_tls)
+		values ('node-local', 'Local Node', true, '127.0.0.1', 0, 'http://127.0.0.1', true, 'healthy', '', '', 0, '', 60, false)`)
 	_, _ = conn.SQLDb.ExecContext(context.Background(), `insert into node (id, name, is_local, host, port) values ('remote-node-1', 'Remote Node 1', 0, '', 0)`)
+	_, _ = conn.SQLDb.ExecContext(context.Background(), `insert into local_settings (id, node_id) values (1, 'node-local')`)
 
 	// Get the server fingerprint from its certificate.
 	serverFPFromCert := federation.CertificateFingerprint(testServer.Certificate())
@@ -246,6 +252,16 @@ func TestProxyRemoteFileGet(t *testing.T) {
 		if request.GetPath() != "server.properties" {
 			t.Fatalf("request.Path = %q, want %q", request.GetPath(), "server.properties")
 		}
+		actingUserID, originNodeID := federation.GetActingIdentity(r.Header)
+		if actingUserID != "user-owner" {
+			t.Fatalf("acting user id = %q, want %q", actingUserID, "user-owner")
+		}
+		if originNodeID != "node-local" {
+			t.Fatalf("origin node id = %q, want %q", originNodeID, "node-local")
+		}
+		if federation.ActingIsSuperUser(r.Header) {
+			t.Fatalf("acting super-user header = true, want false")
+		}
 
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("remote-content"))
@@ -256,8 +272,11 @@ func TestProxyRemoteFileGet(t *testing.T) {
 		remoteNode:     remoteNode,
 	}
 
+	sourceRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://localhost/api/file/get", nil)
+	sourceRequest = sourceRequest.WithContext(gatekeeper.WithUser(sourceRequest.Context(), &models.User{ID: "user-owner"}))
+
 	responseRecorder := httptest.NewRecorder()
-	errProxy := inst.proxyRemoteFileGet(context.Background(), target, "server.properties", responseRecorder)
+	errProxy := inst.proxyRemoteFileGet(sourceRequest.Context(), sourceRequest, target, "server.properties", responseRecorder)
 	if errProxy != nil {
 		t.Fatalf("proxyRemoteFileGet() error = %v", errProxy)
 	}
@@ -290,6 +309,13 @@ func TestProxyRemoteFileDownload(t *testing.T) {
 		if gotPath := r.FormValue("path"); gotPath != "logs/latest.log" {
 			t.Fatalf("path = %q, want %q", gotPath, "logs/latest.log")
 		}
+		actingUserID, originNodeID := federation.GetActingIdentity(r.Header)
+		if actingUserID != "user-owner" {
+			t.Fatalf("acting user id = %q, want %q", actingUserID, "user-owner")
+		}
+		if originNodeID != "node-local" {
+			t.Fatalf("origin node id = %q, want %q", originNodeID, "node-local")
+		}
 
 		_, _ = w.Write([]byte("download-content"))
 	}))
@@ -299,8 +325,11 @@ func TestProxyRemoteFileDownload(t *testing.T) {
 		remoteNode:     remoteNode,
 	}
 
+	sourceRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost/api/file/download/server-1/logs%2Flatest.log", nil)
+	sourceRequest = sourceRequest.WithContext(gatekeeper.WithUser(sourceRequest.Context(), &models.User{ID: "user-owner"}))
+
 	responseRecorder := httptest.NewRecorder()
-	errProxy := inst.proxyRemoteFileDownload(context.Background(), target, "logs/latest.log", responseRecorder)
+	errProxy := inst.proxyRemoteFileDownload(sourceRequest.Context(), sourceRequest, target, "logs/latest.log", responseRecorder)
 	if errProxy != nil {
 		t.Fatalf("proxyRemoteFileDownload() error = %v", errProxy)
 	}
@@ -367,6 +396,13 @@ func TestProxyRemoteFileUpload(t *testing.T) {
 				foundFile = true
 			}
 		}
+		actingUserID, originNodeID := federation.GetActingIdentity(r.Header)
+		if actingUserID != "user-owner" {
+			t.Fatalf("acting user id = %q, want %q", actingUserID, "user-owner")
+		}
+		if originNodeID != "node-local" {
+			t.Fatalf("origin node id = %q, want %q", originNodeID, "node-local")
+		}
 
 		if !foundFile {
 			t.Fatalf("expected multipart file part")
@@ -380,9 +416,13 @@ func TestProxyRemoteFileUpload(t *testing.T) {
 		remoteNode:     remoteNode,
 	}
 
+	sourceRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://localhost/api/file/upload", nil)
+	sourceRequest = sourceRequest.WithContext(gatekeeper.WithUser(sourceRequest.Context(), &models.User{ID: "user-owner"}))
+
 	responseRecorder := httptest.NewRecorder()
 	errProxy := inst.proxyRemoteFileUpload(
-		context.Background(),
+		sourceRequest.Context(),
+		sourceRequest,
 		target,
 		"uploads",
 		"test.txt",
@@ -398,6 +438,96 @@ func TestProxyRemoteFileUpload(t *testing.T) {
 	}
 	if responseRecorder.Body.String() != "uploaded" {
 		t.Errorf("response body = %q, want %q", responseRecorder.Body.String(), "uploaded")
+	}
+}
+
+func TestProxyRemoteFileRequestsRejectSpoofedFederatedActingIdentity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		call    func(*Instance, fileRequestTarget, *httptest.ResponseRecorder, *http.Request) error
+		request func(*testing.T) *http.Request
+	}{
+		{
+			name: "get",
+			call: func(inst *Instance, target fileRequestTarget, w *httptest.ResponseRecorder, sourceRequest *http.Request) error {
+				return inst.proxyRemoteFileGet(sourceRequest.Context(), sourceRequest, target, "server.properties", w)
+			},
+			request: func(t *testing.T) *http.Request {
+				t.Helper()
+				request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://localhost/api/file/get", nil)
+				request = request.WithContext(apifederation.WithPeerIdentity(request.Context(), apifederation.PeerIdentity{
+					NodeID:     "node-authenticated",
+					PeerNodeID: "peer-authenticated",
+				}))
+				request.Header.Set(federation.ActingUserIDHeader, "user-owner")
+				request.Header.Set(federation.OriginNodeIDHeader, "node-spoofed")
+				return request
+			},
+		},
+		{
+			name: "download",
+			call: func(inst *Instance, target fileRequestTarget, w *httptest.ResponseRecorder, sourceRequest *http.Request) error {
+				return inst.proxyRemoteFileDownload(sourceRequest.Context(), sourceRequest, target, "logs/latest.log", w)
+			},
+			request: func(t *testing.T) *http.Request {
+				t.Helper()
+				request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://localhost/api/file/download", nil)
+				request = request.WithContext(apifederation.WithPeerIdentity(request.Context(), apifederation.PeerIdentity{
+					NodeID:     "node-authenticated",
+					PeerNodeID: "peer-authenticated",
+				}))
+				request.Header.Set(federation.ActingUserIDHeader, "user-owner")
+				request.Header.Set(federation.OriginNodeIDHeader, "node-spoofed")
+				return request
+			},
+		},
+		{
+			name: "upload",
+			call: func(inst *Instance, target fileRequestTarget, w *httptest.ResponseRecorder, sourceRequest *http.Request) error {
+				return inst.proxyRemoteFileUpload(sourceRequest.Context(), sourceRequest, target, "uploads", "test.txt", strings.NewReader("file-content"), w)
+			},
+			request: func(t *testing.T) *http.Request {
+				t.Helper()
+				request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://localhost/api/file/upload", nil)
+				request = request.WithContext(apifederation.WithPeerIdentity(request.Context(), apifederation.PeerIdentity{
+					NodeID:     "node-authenticated",
+					PeerNodeID: "peer-authenticated",
+				}))
+				request.Header.Set(federation.ActingUserIDHeader, "user-owner")
+				request.Header.Set(federation.OriginNodeIDHeader, "node-spoofed")
+				return request
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var remoteCalled atomic.Bool
+			inst, remoteNode := newMTLSFileProxyTestSetup(t, http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+				remoteCalled.Store(true)
+				t.Fatalf("remote handler should not be called for invalid acting identity")
+			}))
+			target := fileRequestTarget{
+				remoteServerID: "remote-server-id",
+				remoteNode:     remoteNode,
+			}
+
+			responseRecorder := httptest.NewRecorder()
+			errProxy := tt.call(inst, target, responseRecorder, tt.request(t))
+			if errProxy == nil {
+				t.Fatalf("proxy request error = nil, want rejected spoofed acting identity")
+			}
+			if !strings.Contains(errProxy.Error(), "acting origin node is invalid") {
+				t.Fatalf("proxy request error = %v, want acting origin node validation failure", errProxy)
+			}
+			if remoteCalled.Load() {
+				t.Fatalf("remote handler was called, want spoofed relay to be rejected before forwarding")
+			}
+		})
 	}
 }
 
@@ -417,8 +547,11 @@ func TestProxyRemoteFileGetForwardsErrorStatusAndHeaders(t *testing.T) {
 		remoteNode:     remoteNode,
 	}
 
+	sourceRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://localhost/api/file/get", nil)
+	sourceRequest = sourceRequest.WithContext(gatekeeper.WithUser(sourceRequest.Context(), &models.User{ID: "user-owner"}))
+
 	responseRecorder := httptest.NewRecorder()
-	errProxy := inst.proxyRemoteFileGet(context.Background(), target, "server.properties", responseRecorder)
+	errProxy := inst.proxyRemoteFileGet(sourceRequest.Context(), sourceRequest, target, "server.properties", responseRecorder)
 	if errProxy != nil {
 		t.Fatalf("proxyRemoteFileGet() error = %v", errProxy)
 	}
@@ -453,11 +586,14 @@ func TestProxyRemoteFileGetRespectsCanceledContext(t *testing.T) {
 		remoteNode:     remoteNode,
 	}
 
+	sourceRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://localhost/api/file/get", nil)
+	sourceRequest = sourceRequest.WithContext(gatekeeper.WithUser(sourceRequest.Context(), &models.User{ID: "user-owner"}))
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	responseRecorder := httptest.NewRecorder()
-	errProxy := inst.proxyRemoteFileGet(ctx, target, "server.properties", responseRecorder)
+	errProxy := inst.proxyRemoteFileGet(ctx, sourceRequest, target, "server.properties", responseRecorder)
 	if errProxy == nil {
 		t.Fatalf("proxyRemoteFileGet() error = nil, want context cancellation error")
 	}

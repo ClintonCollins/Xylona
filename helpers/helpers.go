@@ -16,47 +16,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// CreateAppDirectory creates the application data directory if it does not exist.
-func CreateAppDirectory(path string) error {
-	errMkdir := os.MkdirAll(path, 0o750)
-	if errMkdir != nil {
-		return fmt.Errorf("create app directory %s: %w", path, errMkdir)
-	}
-	return nil
-}
-
 // DeleteAppDirectory removes the application data directory.
 func DeleteAppDirectory(path string) error {
 	errRemove := os.RemoveAll(path)
 	if errRemove != nil {
 		return fmt.Errorf("delete app directory %s: %w", path, errRemove)
-	}
-	return nil
-}
-
-// CheckAppDirectoryExists reports whether the application data directory exists.
-func CheckAppDirectoryExists(path string) error {
-	_, errStat := os.Stat(path)
-	if errStat != nil {
-		return fmt.Errorf("stat app directory %s: %w", path, errStat)
-	}
-	return nil
-}
-
-// CreateOperatingDirectory creates the operating directory if it does not exist.
-func CreateOperatingDirectory(path string) error {
-	errMkdir := os.MkdirAll(path, 0o750)
-	if errMkdir != nil {
-		return fmt.Errorf("create operating directory %s: %w", path, errMkdir)
-	}
-	return nil
-}
-
-// CheckOperatingDirectoryExists reports whether the operating directory exists.
-func CheckOperatingDirectoryExists(path string) error {
-	_, errStat := os.Stat(path)
-	if errStat != nil {
-		return fmt.Errorf("stat operating directory %s: %w", path, errStat)
 	}
 	return nil
 }

@@ -74,7 +74,10 @@ import {
 } from '@/proto/xylona_pb'
 import ConfigFileSidebar from '@/components/game_servers/ConfigFileSidebar.vue'
 import ConfigFileEditor from '@/components/game_servers/ConfigFileEditor.vue'
-import { buildCategoryColorMap, CATEGORY_COLORS, } from '@/components/game_servers/config-field-helpers'
+import {
+  buildCategoryColorMap,
+  CATEGORY_COLORS,
+} from '@/components/game_servers/config-field-helpers'
 
 const $q = useQuasar()
 const route = useRoute()

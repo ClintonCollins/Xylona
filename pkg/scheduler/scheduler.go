@@ -24,6 +24,7 @@ type DB interface {
 	UpdateScheduledTaskLastRun(id string, lastRunAt time.Time, nextRunAt *time.Time) error
 	InsertScheduledTaskLog(scheduledTaskID, gameServerID, taskType, status, message string, startedAt time.Time, finishedAt *time.Time) (*models.ScheduledTaskLog, error)
 	PruneScheduledTaskLogs(olderThan time.Time, maxPerTask int) (int64, error)
+	PruneExpiredUserSessions(olderThan time.Time) (int64, error)
 	GetGameServerByID(gameServerID string) (*models.GameServer, error)
 	GetNodeByID(id string) (*models.Node, error)
 }
@@ -104,6 +105,7 @@ func (s *Scheduler) Start() error {
 	s.scheduler.Start()
 
 	go s.backgroundLogPruner()
+	go s.backgroundSessionPruner()
 
 	log.Info().Int("task_count", len(tasks)).Msg("Scheduled task scheduler started")
 	return nil
@@ -201,6 +203,29 @@ func (s *Scheduler) backgroundLogPruner() {
 			}
 			if deleted > 0 {
 				log.Info().Int64("deleted", deleted).Msg("Pruned scheduled task logs")
+			}
+		}
+	}
+}
+
+// backgroundSessionPruner runs daily and removes expired user sessions.
+func (s *Scheduler) backgroundSessionPruner() {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			cutoff := time.Now().UTC()
+			deleted, errPrune := s.db.PruneExpiredUserSessions(cutoff)
+			if errPrune != nil {
+				log.Error().Err(errPrune).Msg("Failed to prune expired user sessions")
+				continue
+			}
+			if deleted > 0 {
+				log.Info().Int64("deleted", deleted).Msg("Pruned expired user sessions")
 			}
 		}
 	}

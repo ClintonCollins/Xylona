@@ -1,8 +1,11 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -27,12 +30,11 @@ var (
 )
 
 func init() {
-	osType, ok := detectOperatingSystem(runtime.GOOS)
-	if !ok {
-		log.Error().Str("OS", runtime.GOOS).Msg("Unsupported operating system")
-		os.Exit(1)
+	errInitOperatingSystem := initOperatingSystem(runtime.GOOS)
+	if errInitOperatingSystem != nil {
+		log.Warn().Err(errInitOperatingSystem).Str("OS", runtime.GOOS).Msg("Unsupported operating system")
+		OperatingSystem = OSType(runtime.GOOS)
 	}
-	OperatingSystem = osType
 }
 
 func detectOperatingSystem(goos string) (OSType, bool) {
@@ -48,21 +50,49 @@ func detectOperatingSystem(goos string) (OSType, bool) {
 	}
 }
 
-// DefaultInstallPath returns the default root directory for managed servers.
-func DefaultInstallPath() string {
-	if OperatingSystem == Linux || OperatingSystem == Darwin {
-		home := os.Getenv("HOME")
-		user := os.Getenv("USER")
+func initOperatingSystem(goos string) error {
+	osType, ok := detectOperatingSystem(goos)
+	if !ok {
+		return fmt.Errorf("unsupported operating system: %s", goos)
+	}
+	OperatingSystem = osType
+	return nil
+}
+
+func joinManagedPath(parts ...string) string {
+	if OperatingSystem == Windows {
+		return filepath.Join(parts...)
+	}
+	return path.Join(parts...)
+}
+
+func resolveDefaultInstallPath(operatingSystem OSType, home string, user string, userProfile string) (string, error) {
+	if operatingSystem == Linux || operatingSystem == Darwin {
 		if home == "" && user == "" {
-			log.Error().Msg("Failed to get home directory")
-			os.Exit(1)
+			return "", errors.New("failed to get home directory")
 		}
 		if home != "" {
-			return fmt.Sprintf("%s/xylona", home)
+			return path.Join(home, "xylona"), nil
 		}
-		return fmt.Sprintf("/home/%s/xylona", user)
+		return path.Join("/home", user, "xylona"), nil
 	}
-	return fmt.Sprintf("%s/Xylona", os.Getenv("USERPROFILE"))
+	if operatingSystem == Windows {
+		if userProfile == "" {
+			return "", errors.New("failed to get user profile directory")
+		}
+		return filepath.Join(userProfile, "Xylona"), nil
+	}
+	return "", fmt.Errorf("unsupported operating system: %s", operatingSystem)
+}
+
+// DefaultInstallPath returns the default root directory for managed servers.
+func DefaultInstallPath() (string, error) {
+	return resolveDefaultInstallPath(
+		OperatingSystem,
+		os.Getenv("HOME"),
+		os.Getenv("USER"),
+		os.Getenv("USERPROFILE"),
+	)
 }
 
 func gameBaseCommand(game *models.Game) string {

@@ -397,7 +397,6 @@ func (inst *Instance) GetCommandByID(commandID string) (*Command, error) {
 	defer inst.RUnlock()
 	proc, exists := inst.runningCommands[commandID]
 	if !exists || proc == nil {
-		// log.Debug().Str("Command ID", commandID).Msg("Command does not exist.")
 		return nil, ErrCommandDoesNotExist
 	}
 	return proc, nil

@@ -34,7 +34,10 @@ func newRBACMigratedConnection(t *testing.T, sqliteFileName string) *Connection 
 		t.Fatalf("failed to copy migrated sqlite template: %v", errCopy)
 	}
 
-	conn := NewConnection(context.Background(), dbPath)
+	conn, errNewConnection := NewConnection(context.Background(), dbPath)
+	if errNewConnection != nil {
+		t.Fatalf("failed to create test database: %v", errNewConnection)
+	}
 	t.Cleanup(func() {
 		if errClose := conn.SQLDb.Close(); errClose != nil {
 			t.Errorf("failed to close test database: %v", errClose)
@@ -59,7 +62,11 @@ func ensureRBACMigratedTemplate() (string, error) {
 			return
 		}
 
-		conn := NewConnection(context.Background(), rbacTemplatePath)
+		conn, errNewConnection := NewConnection(context.Background(), rbacTemplatePath)
+		if errNewConnection != nil {
+			rbacTemplateErr = errNewConnection
+			return
+		}
 
 		migrationSource := &migrate.FileMigrationSource{
 			Dir: filepath.Join("..", "sql", "migrations"),

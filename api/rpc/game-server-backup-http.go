@@ -19,6 +19,7 @@ import (
 )
 
 const maxBackupUploadFieldBytes = 10 << 10
+const maxBackupUploadBodyBytes = 1 << 30
 
 var (
 	errBackupUploadStagingFile = errors.New("failed to create backup upload staging file")
@@ -99,15 +100,21 @@ func (xs *XylonaService) DownloadGameServerBackupArchive(w http.ResponseWriter, 
 
 // UploadGameServerBackupArchive imports a managed backup archive from a multipart upload.
 func (xs *XylonaService) UploadGameServerBackupArchive(w http.ResponseWriter, r *http.Request) {
+	xs.uploadGameServerBackupArchiveWithMaxBytes(w, r, maxBackupUploadBodyBytes)
+}
+
+func (xs *XylonaService) uploadGameServerBackupArchiveWithMaxBytes(w http.ResponseWriter, r *http.Request, maxBodyBytes int64) {
 	user, errUser := xs.getUserFromHeader(r.Header)
 	if errUser != nil {
 		writeBackupHTTPError(w, http.StatusUnauthorized, "unauthenticated")
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+
 	multipartReader, errMultipartReader := r.MultipartReader()
 	if errMultipartReader != nil {
-		writeBackupHTTPError(w, http.StatusBadRequest, "invalid multipart upload")
+		writeBackupMultipartBodyError(w, errMultipartReader, "invalid multipart upload")
 		return
 	}
 
@@ -122,7 +129,7 @@ func (xs *XylonaService) UploadGameServerBackupArchive(w http.ResponseWriter, r 
 			break
 		}
 		if errNextPart != nil {
-			writeBackupHTTPError(w, http.StatusBadRequest, "failed to read multipart upload")
+			writeBackupMultipartBodyError(w, errNextPart, "failed to read multipart upload")
 			return
 		}
 
@@ -130,7 +137,7 @@ func (xs *XylonaService) UploadGameServerBackupArchive(w http.ResponseWriter, r 
 		case "gameServerId":
 			gameServerIDBytes, errReadGameServerID := io.ReadAll(io.LimitReader(part, maxBackupUploadFieldBytes))
 			if errReadGameServerID != nil {
-				writeBackupHTTPError(w, http.StatusBadRequest, "failed to read game server id")
+				writeBackupMultipartBodyError(w, errReadGameServerID, "failed to read game server id")
 				return
 			}
 
@@ -222,7 +229,10 @@ func (xs *XylonaService) importUploadedBackupPart(
 
 	_, errCopyPart := io.Copy(stagedFile, part)
 	errCloseStaged := stagedFile.Close()
-	if errCopyPart != nil || errCloseStaged != nil {
+	if errCopyPart != nil {
+		return fmt.Errorf("copy backup upload: %w", errCopyPart)
+	}
+	if errCloseStaged != nil {
 		return errBackupUploadStore
 	}
 
@@ -259,6 +269,10 @@ func (xs *XylonaService) prepareBackupUpload(user *models.User, gameServerID str
 }
 
 func writeBackupImportError(w http.ResponseWriter, err error) {
+	if isRequestBodyTooLarge(err) {
+		writeBackupHTTPError(w, http.StatusRequestEntityTooLarge, "request body too large")
+		return
+	}
 	if errors.Is(err, errBackupUploadStagingFile) {
 		writeBackupHTTPError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -305,4 +319,26 @@ func writeBackupConnectError(w http.ResponseWriter, err error) {
 
 func writeBackupHTTPError(w http.ResponseWriter, statusCode int, message string) {
 	http.Error(w, message, statusCode)
+}
+
+func isRequestBodyTooLarge(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		return true
+	}
+
+	errText := err.Error()
+	return strings.Contains(errText, "request body too large") || strings.Contains(errText, "message too large")
+}
+
+func writeBackupMultipartBodyError(w http.ResponseWriter, err error, fallbackMessage string) {
+	if isRequestBodyTooLarge(err) {
+		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	writeBackupHTTPError(w, http.StatusBadRequest, fallbackMessage)
 }

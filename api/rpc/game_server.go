@@ -61,18 +61,26 @@ func normalizeBackupRetention(maxBackups int64) int64 {
 	return actions.DefaultScheduledBackupRetention
 }
 
-func defaultBackupDirectoryForServer(serverDirectory string) string {
+func defaultBackupDirectoryForServer(serverDirectory string) (string, error) {
 	trimmedDirectory := strings.TrimSpace(serverDirectory)
 	if trimmedDirectory == "" {
-		return actions.DefaultBackupDirectory()
+		defaultBackupDirectory, errDefaultBackupDirectory := actions.DefaultBackupDirectory()
+		if errDefaultBackupDirectory != nil {
+			return "", fmt.Errorf("rpc: resolve default backup directory: %w", errDefaultBackupDirectory)
+		}
+		return defaultBackupDirectory, nil
 	}
 
 	parentDirectory := filepath.Dir(filepath.Clean(trimmedDirectory))
 	if parentDirectory == "." || parentDirectory == "" {
-		return actions.DefaultBackupDirectory()
+		defaultBackupDirectory, errDefaultBackupDirectory := actions.DefaultBackupDirectory()
+		if errDefaultBackupDirectory != nil {
+			return "", fmt.Errorf("rpc: resolve default backup directory: %w", errDefaultBackupDirectory)
+		}
+		return defaultBackupDirectory, nil
 	}
 
-	return filepath.Join(parentDirectory, "backups")
+	return filepath.Join(parentDirectory, "backups"), nil
 }
 
 // findAvailablePort checks for port conflicts on the given IP and returns the next available port.
@@ -167,9 +175,18 @@ func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Re
 
 	backupDirectory := strings.TrimSpace(newGameServerModel.BackupDirectory)
 	if backupDirectory == "" {
-		backupDirectory = defaultBackupDirectoryForServer(newGameServerModel.Directory)
+		defaultBackupDirectory, errDefaultBackupDirectory := defaultBackupDirectoryForServer(newGameServerModel.Directory)
+		if errDefaultBackupDirectory != nil {
+			return nil, fmt.Errorf("rpc: resolve default backup directory: %w", errDefaultBackupDirectory)
+		}
+		backupDirectory = defaultBackupDirectory
 	}
 	newGameServerModel.BackupDirectory = backupDirectory
+
+	errValidateSubmission := validateGameServerSubmission(game, newGameServerModel, true)
+	if errValidateSubmission != nil {
+		return nil, errValidateSubmission
+	}
 
 	// Check for port conflicts and auto-increment if necessary.
 	availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
@@ -216,18 +233,23 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 			gameServerModel := mergeEditableGameServerUpdate(existingGameServer, incomingGameServer, user.SuperUser)
 			gameServerModel.NodeID = fallbackNodeID(gameServerModel.NodeID, existingGameServer.NodeID)
 
+			// Check for port conflicts when IP or port changed.
+			game, errGetGame := xs.db.GetGameByID(gameServerModel.GameID)
+			if errGetGame != nil {
+				return nil, dbLookup(errGetGame)
+			}
+
+			errValidateSubmission := validateGameServerSubmission(game, gameServerModel, user.SuperUser)
+			if errValidateSubmission != nil {
+				return nil, errValidateSubmission
+			}
+
 			_, errNode := xs.db.GetNodeByID(gameServerModel.NodeID)
 			if errNode != nil {
 				if errors.Is(errNode, sql.ErrNoRows) {
 					return nil, invalidArg("invalid node")
 				}
 				return nil, internalErrf("failed to validate node")
-			}
-
-			// Check for port conflicts when IP or port changed.
-			game, errGetGame := xs.db.GetGameByID(gameServerModel.GameID)
-			if errGetGame != nil {
-				return nil, dbLookup(errGetGame)
 			}
 
 			if gameServerModel.IP != existingGameServer.IP || gameServerModel.Port != existingGameServer.Port || gameServerModel.QueryPort != existingGameServer.QueryPort {

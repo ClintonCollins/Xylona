@@ -2,9 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
+import { GetXylonaClient } from '@/utils/shared'
 import {
   GetGameServerRequestSchema,
   GetModVersionsRequestSchema,
@@ -80,13 +80,7 @@ async function loadInstalledMods(): Promise<void> {
     const response = await GetXylonaClient().listInstalledMods(request)
     installedMods.value = response.installedMods
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   } finally {
     loading.value = false
   }
@@ -110,8 +104,7 @@ async function loadGameServerConfig(): Promise<void> {
       await loadAvailableVersions()
     }
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    console.error('Failed to load game server config:', err)
+    console.error('Failed to load game server config:', unknownErr)
   }
 }
 
@@ -135,21 +128,10 @@ async function handleUpdate(modId: string): Promise<void> {
       versionId: '', // empty = latest
     })
     await GetXylonaClient().updateMod(request)
-    $q.notify({
-      type: 'xylona-success',
-      caption: 'Mod updated successfully',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess('Mod updated successfully')
     await loadInstalledMods()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 
@@ -170,21 +152,10 @@ async function handleUninstall(modId: string): Promise<void> {
         installedModId: modId,
       })
       await GetXylonaClient().uninstallMod(request)
-      $q.notify({
-        type: 'xylona-success',
-        caption: `${modName} uninstalled`,
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess(`${modName} uninstalled`)
       await loadInstalledMods()
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr)
     }
   })
 }
@@ -209,13 +180,7 @@ async function handleToggleAutoUpdate(modId: string, enabled: boolean): Promise<
     })
     await GetXylonaClient().setModAutoUpdate(request)
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
     // Revert on failure
     await loadInstalledMods()
   }
@@ -229,21 +194,10 @@ async function handleToggleEnabled(modId: string, enabled: boolean): Promise<voi
       enabled,
     })
     await GetXylonaClient().setModEnabled(request)
-    $q.notify({
-      type: 'xylona-success',
-      caption: `Mod ${enabled ? 'enabled' : 'disabled'}`,
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess(`Mod ${enabled ? 'enabled' : 'disabled'}`)
     await loadInstalledMods()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 
@@ -262,21 +216,10 @@ async function handlePinVersion(modId: string): Promise<void> {
         version: '',
       })
       await GetXylonaClient().pinModVersion(request)
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Version unpinned',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Version unpinned')
       await loadInstalledMods()
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr)
     }
     return
   }
@@ -289,21 +232,10 @@ async function handlePinVersion(modId: string): Promise<void> {
       version: mod.installedVersion,
     })
     await GetXylonaClient().pinModVersion(request)
-    $q.notify({
-      type: 'xylona-success',
-      caption: `Pinned to version ${mod.installedVersion}`,
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess(`Pinned to version ${mod.installedVersion}`)
     await loadInstalledMods()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 
@@ -329,20 +261,10 @@ async function handleUpdateAll(): Promise<void> {
   }
 
   if (successCount > 0) {
-    $q.notify({
-      type: 'xylona-success',
-      caption: `${successCount} mod${successCount === 1 ? '' : 's'} updated`,
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess(`${successCount} mod${successCount === 1 ? '' : 's'} updated`)
   }
   if (failCount > 0) {
-    $q.notify({
-      type: 'xylona-error',
-      caption: `${failCount} mod${failCount === 1 ? '' : 's'} failed to update`,
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyError(`${failCount} mod${failCount === 1 ? '' : 's'} failed to update`)
   }
 
   await loadInstalledMods()
@@ -365,12 +287,7 @@ async function handleInstallFromBrowse(source: string, sourceId: string): Promis
     const response = await GetXylonaClient().getModVersions(request)
 
     if (response.versions.length === 0) {
-      $q.notify({
-        type: 'xylona-error',
-        caption: 'No versions available for this mod',
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyError('No versions available for this mod')
       return
     }
 
@@ -388,13 +305,7 @@ async function handleInstallFromBrowse(source: string, sourceId: string): Promis
 
     openInstallDialog(source, sourceId, latestVersion)
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 
@@ -407,21 +318,10 @@ async function directInstall(source: string, sourceId: string, versionId: string
       versionId,
     })
     await GetXylonaClient().installMod(request)
-    $q.notify({
-      type: 'xylona-success',
-      caption: 'Mod installed successfully',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess('Mod installed successfully')
     await loadInstalledMods()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 
@@ -445,13 +345,7 @@ async function handleInstallFromDetail(
       openInstallDialog(source, sourceId, version)
     }
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 
@@ -499,31 +393,14 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
         })
         await GetXylonaClient().installMod(depRequest)
       } catch (depErr: unknown) {
-        const err = ConnectError.from(depErr)
-        $q.notify({
-          type: 'xylona-error',
-          caption: `Failed to install dependency: ${ConnectErrorToString(err)}`,
-          position: 'top',
-          timeout: 5000,
-        })
+        notifyConnectError(depErr, 'Failed to install dependency')
       }
     }
 
-    $q.notify({
-      type: 'xylona-success',
-      caption: 'Mod installed successfully',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess('Mod installed successfully')
     await loadInstalledMods()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   } finally {
     pendingInstall.value = null
   }

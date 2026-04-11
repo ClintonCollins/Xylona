@@ -1,8 +1,14 @@
-import MinecraftProperties from '@/components/editor/languages/minecraft-properties'
+type MonacoModule = typeof import('monaco-editor')
 
-export default function loadCustomEditorSettings() {
-  // Register languages
-  MinecraftProperties()
+export default async function loadCustomEditorSettings(monaco: MonacoModule, language: string) {
+  if (language !== 'minecraft-properties') {
+    return
+  }
+
+  const { default: registerMinecraftProperties } =
+    await import('@/components/editor/languages/minecraft-properties')
+
+  registerMinecraftProperties(monaco)
 }
 
 export const LanguageOptions = [

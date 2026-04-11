@@ -152,6 +152,55 @@ func TestCreateUserAndGetUser(t *testing.T) {
 	}
 }
 
+func TestPruneExpiredUserSessions(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-session-prune.sqlite")
+	seedRBACFixture(t, conn)
+
+	expiredAt := "2026-04-10 11:30:00"
+	validAt := "2026-04-10 13:30:00"
+
+	_, errExpired := conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into user_session (id, user_id, token, created_at, updated_at, expires_at)
+		 values (?, ?, ?, ?, ?, ?)`,
+		"session-expired", "user-owner", "expired-token", "2026-04-10 11:00:00", "2026-04-10 11:00:00", expiredAt,
+	)
+	if errExpired != nil {
+		t.Fatalf("insert expired session error = %v", errExpired)
+	}
+
+	_, errValid := conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into user_session (id, user_id, token, created_at, updated_at, expires_at)
+		 values (?, ?, ?, ?, ?, ?)`,
+		"session-valid", "user-owner", "valid-token", "2026-04-10 12:00:00", "2026-04-10 12:00:00", validAt,
+	)
+	if errValid != nil {
+		t.Fatalf("insert valid session error = %v", errValid)
+	}
+
+	deleted, errPrune := conn.PruneExpiredUserSessions(time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC))
+	if errPrune != nil {
+		t.Fatalf("PruneExpiredUserSessions() error = %v", errPrune)
+	}
+	if deleted != 1 {
+		t.Fatalf("PruneExpiredUserSessions() deleted = %d, want 1", deleted)
+	}
+
+	_, errGetExpired := conn.GetUserSession("session-expired")
+	if !errors.Is(errGetExpired, sql.ErrNoRows) {
+		t.Fatalf("GetUserSession(expired) error = %v, want %v", errGetExpired, sql.ErrNoRows)
+	}
+
+	validSession, errGetValid := conn.GetUserSession("session-valid")
+	if errGetValid != nil {
+		t.Fatalf("GetUserSession(valid) error = %v", errGetValid)
+	}
+	if validSession.ID != "session-valid" {
+		t.Fatalf("GetUserSession(valid).ID = %q, want %q", validSession.ID, "session-valid")
+	}
+}
+
 func TestGetUserByIDNotFound(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "user-not-found.sqlite")
 

@@ -38,7 +38,10 @@ func NewMigratedConnection(t *testing.T, sqliteFileName string) *db.Connection {
 		t.Fatalf("failed to copy migrated sqlite template: %v", errCopy)
 	}
 
-	conn := db.NewConnection(context.Background(), dbPath)
+	conn, errNewConnection := db.NewConnection(context.Background(), dbPath)
+	if errNewConnection != nil {
+		t.Fatalf("failed to create test database: %v", errNewConnection)
+	}
 	t.Cleanup(func() {
 		if errClose := conn.SQLDb.Close(); errClose != nil {
 			t.Errorf("failed to close test database: %v", errClose)
@@ -66,7 +69,11 @@ func ensureMigratedTemplate(t *testing.T) (string, error) {
 			return
 		}
 
-		conn := db.NewConnection(context.Background(), migratedTemplatePath)
+		conn, errNewConnection := db.NewConnection(context.Background(), migratedTemplatePath)
+		if errNewConnection != nil {
+			migratedTemplateErr = fmt.Errorf("open template db connection: %w", errNewConnection)
+			return
+		}
 		migrationSource := &migrate.FileMigrationSource{
 			Dir: migrationsDir(t),
 		}

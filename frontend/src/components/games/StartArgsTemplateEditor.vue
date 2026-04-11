@@ -326,8 +326,15 @@
 import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue'
 
 import type { StartArgBlock, StartArgOwnership } from '@/components/game_servers/start-args'
-import { formatTokensInline, joinTokensInput, splitTokensInput, } from '@/components/game_servers/start-args'
-import { getManagedSourceLabel, startArgManagedSourceOptions, } from '@/components/shared/placeholder-definitions'
+import {
+  formatTokensInline,
+  joinTokensInput,
+  splitTokensInput,
+} from '@/components/game_servers/start-args'
+import {
+  getManagedSourceLabel,
+  startArgManagedSourceOptions,
+} from '@/components/shared/placeholder-definitions'
 
 type Platform = 'linux' | 'windows'
 

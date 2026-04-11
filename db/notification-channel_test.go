@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 )
 
 func TestInsertNotificationChannel(t *testing.T) {
@@ -168,5 +170,53 @@ func TestNotificationChannel_ConfigEncryption(t *testing.T) {
 	}
 	if all[0].Config != newPlaintext {
 		t.Errorf("GetNotificationChannelsByUserID()[0].Config = %q, want plaintext %q", all[0].Config, newPlaintext)
+	}
+}
+
+func TestLegacyNotificationChannelCiphertextIsNotMigrated(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "nc-legacy.sqlite")
+	seedRBACFixture(t, conn)
+
+	oldKey, errOld := xycrypt.GenerateEncryptionKey()
+	if errOld != nil {
+		t.Fatalf("GenerateEncryptionKey(old) error = %v", errOld)
+	}
+	newKey, errNew := xycrypt.GenerateEncryptionKey()
+	if errNew != nil {
+		t.Fatalf("GenerateEncryptionKey(new) error = %v", errNew)
+	}
+
+	conn.SetEncryptionKey(oldKey)
+	channel, errInsert := conn.InsertNotificationChannel("user-owner", "Legacy Channel", "discord", `{"webhook":"https://legacy.example.com/hook"}`, true)
+	if errInsert != nil {
+		t.Fatalf("InsertNotificationChannel() error = %v", errInsert)
+	}
+
+	var storedBefore string
+	errScanBefore := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT config FROM notification_channel WHERE id = ?`, channel.ID).Scan(&storedBefore)
+	if errScanBefore != nil {
+		t.Fatalf("QueryRow(before) error = %v", errScanBefore)
+	}
+
+	conn.SetEncryptionKey(newKey)
+
+	_, errGetByID := conn.GetNotificationChannelByID(channel.ID)
+	if errGetByID == nil {
+		t.Fatal("GetNotificationChannelByID() expected error with wrong primary key, got nil")
+	}
+
+	_, errGetByUser := conn.GetNotificationChannelsByUserID("user-owner")
+	if errGetByUser == nil {
+		t.Fatal("GetNotificationChannelsByUserID() expected error with wrong primary key, got nil")
+	}
+
+	var storedAfter string
+	errScanAfter := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT config FROM notification_channel WHERE id = ?`, channel.ID).Scan(&storedAfter)
+	if errScanAfter != nil {
+		t.Fatalf("QueryRow(after) error = %v", errScanAfter)
+	}
+
+	if storedAfter != storedBefore {
+		t.Errorf("stored notification channel config changed after failed read; got %q, want %q", storedAfter, storedBefore)
 	}
 }

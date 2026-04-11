@@ -147,10 +147,26 @@ func backupSettingsToProto(gameServer *models.GameServer, includeDirectory bool)
 	if includeDirectory {
 		backupDirectory := strings.TrimSpace(gameServer.BackupDirectory)
 		if backupDirectory == "" {
-			backupDirectory = defaultBackupDirectoryForServer(gameServer.Directory)
+			defaultBackupDirectory, errDefaultBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+			if errDefaultBackupDirectory != nil {
+				log.Warn().
+					Err(errDefaultBackupDirectory).
+					Str("game_server_id", gameServer.ID).
+					Msg("Failed to resolve default backup directory")
+			} else {
+				backupDirectory = defaultBackupDirectory
+			}
 		}
 		settings.BackupDirectory = backupDirectory
-		settings.DefaultBackupDirectory = defaultBackupDirectoryForServer(gameServer.Directory)
+		defaultBackupDirectory, errDefaultBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+		if errDefaultBackupDirectory != nil {
+			log.Warn().
+				Err(errDefaultBackupDirectory).
+				Str("game_server_id", gameServer.ID).
+				Msg("Failed to resolve default backup directory")
+		} else {
+			settings.DefaultBackupDirectory = defaultBackupDirectory
+		}
 	}
 
 	return settings
@@ -290,7 +306,11 @@ func (xs *XylonaService) UpdateBackupSettings(
 	updatedGameServer.BackupsEnabled = request.Msg.GetBackupsEnabled()
 	updatedGameServer.BackupDirectory = strings.TrimSpace(request.Msg.GetBackupDirectory())
 	if updatedGameServer.BackupsEnabled && updatedGameServer.BackupDirectory == "" {
-		updatedGameServer.BackupDirectory = defaultBackupDirectoryForServer(gameServer.Directory)
+		defaultBackupDirectory, errDefaultBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+		if errDefaultBackupDirectory != nil {
+			return nil, internalErrf("failed to resolve default backup directory")
+		}
+		updatedGameServer.BackupDirectory = defaultBackupDirectory
 	}
 	updatedGameServer.MaxBackups = normalizeBackupRetention(request.Msg.GetMaxBackups())
 	if updatedGameServer.BackupsEnabled || backupDirectoryConfigured(&updatedGameServer) {

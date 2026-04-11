@@ -380,6 +380,56 @@ func TestFederationEditRemoteServerRestrictsProvisioningFieldsForNonSuperUsers(t
 	}
 }
 
+func TestFederationEditRemoteServerRejectsInvalidProvisioningFieldsForSuperUsers(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-remote")
+
+	service := FederationService{db: fixture.conn}
+	peerCtx := context.WithValue(context.Background(), federationPeerIdentityKey, FederationPeerIdentity{
+		NodeID:     "node-remote",
+		PeerNodeID: "peer-node-id",
+	})
+
+	existing, errGet := fixture.conn.GetGameServerByID("server-local-1")
+	if errGet != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGet)
+	}
+
+	requestServer := helpers.GameServerModelToProto(existing, nil)
+	requestServer.Name = "Federated Invalid Memory"
+	requestServer.MaxMemoryMb = 64
+
+	request := connect.NewRequest(&xylona.FederationEditServerRequest{
+		ServerId:   existing.ID,
+		GameServer: requestServer,
+	})
+	request.Header().Set(federation.ActingUserIDHeader, "user-admin")
+	request.Header().Set(federation.OriginNodeIDHeader, "node-remote")
+	request.Header().Set(federation.ActingSuperHeader, "true")
+
+	response, errEdit := service.EditRemoteServer(peerCtx, request)
+	if errEdit == nil {
+		t.Fatalf("EditRemoteServer(superuser invalid memory) expected error, got nil")
+	}
+	if connect.CodeOf(errEdit) != connect.CodeInvalidArgument {
+		t.Fatalf("EditRemoteServer(superuser invalid memory) code = %v, want %v", connect.CodeOf(errEdit), connect.CodeInvalidArgument)
+	}
+	if response != nil {
+		t.Fatalf("EditRemoteServer(superuser invalid memory) response = %v, want nil", response)
+	}
+
+	stored, errStored := fixture.conn.GetGameServerByID(existing.ID)
+	if errStored != nil {
+		t.Fatalf("GetGameServerByID(after invalid edit) error = %v", errStored)
+	}
+	if stored.Name != existing.Name {
+		t.Errorf("stored.Name = %q, want %q", stored.Name, existing.Name)
+	}
+	if stored.MaxMemoryMB != existing.MaxMemoryMB {
+		t.Errorf("stored.MaxMemoryMB = %d, want %d", stored.MaxMemoryMB, existing.MaxMemoryMB)
+	}
+}
+
 func seedAlternateNodeAndIP(t *testing.T, fixture *rbacRPCFixture) {
 	t.Helper()
 

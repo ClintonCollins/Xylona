@@ -32,10 +32,12 @@ func pruneAlertHistoryOnce(store historyPruner) error {
 // the periodic loop so that stale records are cleaned up without waiting a
 // full day.
 func (inst *Instance) backgroundJobAlertHistoryPruner() {
-	errPrune := pruneAlertHistoryOnce(inst.db)
-	if errPrune != nil {
-		log.Error().Err(errPrune).Msg("Alert history pruner: startup prune failed")
-	}
+	runBackgroundTask("backgroundJobAlertHistoryPruner", "startup-prune", nil, func() {
+		errPrune := pruneAlertHistoryOnce(inst.db)
+		if errPrune != nil {
+			log.Error().Err(errPrune).Msg("Alert history pruner: startup prune failed")
+		}
+	})
 
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
@@ -45,10 +47,12 @@ func (inst *Instance) backgroundJobAlertHistoryPruner() {
 		case <-inst.ctx.Done():
 			return
 		case <-ticker.C:
-			errTick := pruneAlertHistoryOnce(inst.db)
-			if errTick != nil {
-				log.Error().Err(errTick).Msg("Alert history pruner: periodic prune failed")
-			}
+			runBackgroundTask("backgroundJobAlertHistoryPruner", "tick", nil, func() {
+				errTick := pruneAlertHistoryOnce(inst.db)
+				if errTick != nil {
+					log.Error().Err(errTick).Msg("Alert history pruner: periodic prune failed")
+				}
+			})
 		}
 	}
 }

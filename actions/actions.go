@@ -638,7 +638,6 @@ func (inst *Instance) PersistSteamBranchSelection(gameServer *models.GameServer,
 func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string {
 	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
 	if err != nil {
-		// log.Error().Err(err).Msg("Failed to get game server command")
 		return ""
 	}
 	return gameServerCommand.GetOutputBuffer()

@@ -333,10 +333,14 @@
 <script lang="ts" setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useQuasar } from 'quasar'
+import { loadMonacoRuntime } from '@/components/editor/monaco-runtime'
 import type { SchemaFieldModel } from './ConfigSchemaFieldCard.vue'
 import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
 import ConfigImportInput from './ConfigImportInput.vue'
-import { toBackendManagedSource, toFrontendManagedSource, } from '@/components/shared/placeholder-definitions'
+import {
+  toBackendManagedSource,
+  toFrontendManagedSource,
+} from '@/components/shared/placeholder-definitions'
 import type { ImportDetectionResult, ImportedField } from '@/utils/config-import'
 import { groupFields } from '../game_servers/config-field-helpers'
 
@@ -388,7 +392,6 @@ const monacoContainer = ref<HTMLElement | null>(null)
 const groupOrder = ref<string[]>([])
 
 let monacoEditor: unknown = null
-let monacoModule: typeof import('monaco-editor') | null = null
 
 // Convert schema to field models on init
 onMounted(() => {
@@ -408,10 +411,11 @@ watch(mode, async (newMode) => {
     const schema = fieldsToSchema()
     const jsonStr = JSON.stringify(schema, null, 2)
     await nextTick()
-    await initMonaco(jsonStr)
+    const monaco = await loadMonacoRuntime('json')
+    await initMonaco(monaco, jsonStr)
   } else {
     // Sync from JSON back to form
-    if (monacoEditor && monacoModule) {
+    if (monacoEditor) {
       const editor = monacoEditor as import('monaco-editor').editor.IStandaloneCodeEditor
       const jsonStr = editor.getValue()
       try {
@@ -874,12 +878,11 @@ function onGroupDrop(targetGroupName: string) {
   dragOverGroup.value = null
 }
 
-async function initMonaco(content: string) {
+async function initMonaco(monaco: typeof import('monaco-editor'), content: string) {
   if (!monacoContainer.value) return
 
   try {
-    monacoModule = await import('monaco-editor')
-    monacoEditor = monacoModule.editor.create(monacoContainer.value, {
+    monacoEditor = monaco.editor.create(monacoContainer.value, {
       value: content,
       language: 'json',
       theme: 'vs-dark',

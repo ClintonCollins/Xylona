@@ -2,13 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useQuasar } from 'quasar'
 import dayjs from 'dayjs'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canManageAlerts } from '@/utils/alert-permissions'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 import {
   CreateAlertRuleRequestSchema,
   DeleteAlertRuleRequestSchema,
@@ -316,24 +316,13 @@ async function loadServerNodeID(): Promise<boolean> {
     const response = await GetXylonaClient().getGameServer(request)
     const nodeID = response.gameServer?.nodeId ?? ''
     if (nodeID === '') {
-      $q.notify({
-        type: 'xylona-error',
-        caption: 'Failed to determine the game server node for alerts',
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyError('Failed to determine the game server node for alerts')
       return false
     }
     gameServerNodeId.value = nodeID
     return true
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
     return false
   }
 }
@@ -344,13 +333,7 @@ async function loadChannels(): Promise<void> {
     const response = await GetXylonaClient().listNotificationChannels(request)
     channels.value = response.channels
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 
@@ -364,13 +347,7 @@ async function loadRules(): Promise<void> {
     const response = await GetXylonaClient().listAlertRules(request)
     alertRules.value = response.rules
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   } finally {
     rulesLoading.value = false
   }
@@ -394,13 +371,7 @@ async function loadHistory(append: boolean = false): Promise<void> {
     }
     historyHasMore.value = response.entries.length === historyPageSize
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   } finally {
     historyLoading.value = false
   }
@@ -462,20 +433,9 @@ async function saveRule(): Promise<void> {
         enabled: ruleForm.value.enabled,
       })
       await GetXylonaClient().updateAlertRule(request)
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Alert rule updated',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Alert rule updated')
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr)
     }
   } else {
     // Create
@@ -489,20 +449,9 @@ async function saveRule(): Promise<void> {
         enabled: ruleForm.value.enabled,
       })
       await GetXylonaClient().createAlertRule(request)
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Alert rule created',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Alert rule created')
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr)
     }
   }
 
@@ -526,21 +475,10 @@ function confirmDeleteRule(rule: AlertRule): void {
         id: rule.id,
       })
       await GetXylonaClient().deleteAlertRule(request)
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Alert rule deleted',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Alert rule deleted')
       await loadRules()
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr)
     }
   })
 }
@@ -561,13 +499,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
     await GetXylonaClient().updateAlertRule(request)
     await loadRules()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 </script>

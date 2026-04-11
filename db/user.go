@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -85,10 +86,30 @@ func (c *Connection) DeleteUserSession(id string) error {
 		models.DeleteWhere.UserSessions.ID.EQ(id),
 	).Exec(c.ctx, c.DB)
 	if err != nil {
-		log.Error().Err(err).Str("session_id", id).Msg("Error deleting user session")
+		log.Error().Err(err).Msg("Error deleting user session")
 		return fmt.Errorf("delete user session: %w", err)
 	}
 	return nil
+}
+
+// PruneExpiredUserSessions deletes user sessions that expired before the given time.
+func (c *Connection) PruneExpiredUserSessions(olderThan time.Time) (int64, error) {
+	result, errExec := c.SQLDb.ExecContext(
+		c.ctx,
+		`DELETE FROM user_session WHERE expires_at < ?`,
+		olderThan.UTC().Format("2006-01-02 15:04:05"),
+	)
+	if errExec != nil {
+		log.Error().Err(errExec).Msg("Error pruning expired user sessions")
+		return 0, fmt.Errorf("prune expired user sessions: %w", errExec)
+	}
+
+	rowsAffected, errRowsAffected := result.RowsAffected()
+	if errRowsAffected != nil {
+		return 0, fmt.Errorf("prune expired user sessions rows affected: %w", errRowsAffected)
+	}
+
+	return rowsAffected, nil
 }
 
 // GetAllUsers returns all user records.

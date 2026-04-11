@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/aarondl/opt/omit"
 	"github.com/rs/zerolog/log"
@@ -16,8 +15,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// encryptAPIKey encrypts an API key if an encryption key is configured.
-// Returns the original value unchanged when no encryption key is set (backward-compatible).
+// encryptAPIKey encrypts an API key with the configured encryption key.
 func (c *Connection) encryptAPIKey(plaintext string) (string, error) {
 	if len(c.encryptionKey) == 0 {
 		return plaintext, nil
@@ -29,64 +27,27 @@ func (c *Connection) encryptAPIKey(plaintext string) (string, error) {
 	return encrypted, nil
 }
 
-// decryptAPIKey decrypts an API key if an encryption key is configured.
-// Returns the stored value unchanged when no encryption key is set (backward-compatible).
-// If the primary key fails and a fallback key is configured, the fallback key
-// is tried to support encryption key migration. The second return value is
-// true when the fallback key was used, signaling that the caller should
-// re-encrypt the value under the primary key.
-func (c *Connection) decryptAPIKey(stored string) (string, bool, error) {
+// decryptAPIKey decrypts an API key with the configured encryption key.
+func (c *Connection) decryptAPIKey(stored string) (string, error) {
 	if len(c.encryptionKey) == 0 {
-		return stored, false, nil
+		return stored, nil
 	}
 	decrypted, errDecrypt := xycrypt.Decrypt(c.encryptionKey, stored)
 	if errDecrypt == nil {
-		return decrypted, false, nil
+		return decrypted, nil
 	}
 
-	// Try the fallback key if configured (supports key migration).
-	if len(c.fallbackEncryptionKey) > 0 {
-		decryptedFallback, errFallback := xycrypt.Decrypt(c.fallbackEncryptionKey, stored)
-		if errFallback == nil {
-			return decryptedFallback, true, nil
-		}
-	}
-
-	return "", false, fmt.Errorf("decrypt API key: %w", errDecrypt)
+	return "", fmt.Errorf("decrypt API key: %w", errDecrypt)
 }
 
 // decryptNodeAPIKey decrypts the APIKey field of a NodeAPIKey model in place.
-// Returns true if the fallback key was used (caller should re-encrypt).
-func (c *Connection) decryptNodeAPIKey(key *models.NodeAPIKey) (bool, error) {
-	decrypted, usedFallback, errDecrypt := c.decryptAPIKey(key.APIKey)
+func (c *Connection) decryptNodeAPIKey(key *models.NodeAPIKey) error {
+	decrypted, errDecrypt := c.decryptAPIKey(key.APIKey)
 	if errDecrypt != nil {
-		return false, errDecrypt
+		return errDecrypt
 	}
 	key.APIKey = decrypted
-	return usedFallback, nil
-}
-
-// reencryptNodeAPIKey re-encrypts a node API key under the primary encryption
-// key. Called when a fallback-key decrypt succeeds so legacy ciphertext is
-// migrated transparently.
-func (c *Connection) reencryptNodeAPIKey(serviceName, plaintext string) {
-	encrypted, errEncrypt := c.encryptAPIKey(plaintext)
-	if errEncrypt != nil {
-		log.Warn().Err(errEncrypt).Str("service", serviceName).
-			Msg("Failed to re-encrypt node API key under primary key")
-		return
-	}
-	_, errUpdate := c.SQLDb.ExecContext(c.ctx,
-		`UPDATE node_api_key SET api_key = ?, updated_at = ? WHERE service_name = ?`,
-		encrypted, time.Now().UTC(), serviceName,
-	)
-	if errUpdate != nil {
-		log.Warn().Err(errUpdate).Str("service", serviceName).
-			Msg("Failed to persist re-encrypted node API key")
-		return
-	}
-	log.Info().Str("service", serviceName).
-		Msg("Migrated node API key to primary encryption key")
+	return nil
 }
 
 // InsertOrUpdateNodeAPIKey upserts a node API key by service name.
@@ -113,9 +74,8 @@ func (c *Connection) InsertOrUpdateNodeAPIKey(exec bob.Executor, setter *models.
 		return nil, fmt.Errorf("insert or update node API key: %w", errUpsert)
 	}
 
-	// Decrypt for the caller. No re-encrypt needed here since we just wrote
-	// the value with the current key.
-	_, errDecrypt := c.decryptNodeAPIKey(key)
+	// Decrypt for the caller before returning the newly written value.
+	errDecrypt := c.decryptNodeAPIKey(key)
 	if errDecrypt != nil {
 		log.Error().Err(errDecrypt).Msg("Error decrypting node API key after upsert")
 		return nil, errDecrypt
@@ -125,8 +85,6 @@ func (c *Connection) InsertOrUpdateNodeAPIKey(exec bob.Executor, setter *models.
 }
 
 // GetNodeAPIKeys fetches all node API keys, decrypting them before returning.
-// Any keys decrypted via fallback key are transparently re-encrypted under
-// the primary key.
 func (c *Connection) GetNodeAPIKeys() ([]*models.NodeAPIKey, error) {
 	keys, errGet := models.NodeAPIKeys.Query().All(c.ctx, c.DB)
 	if errGet != nil {
@@ -138,13 +96,10 @@ func (c *Connection) GetNodeAPIKeys() ([]*models.NodeAPIKey, error) {
 	}
 
 	for _, k := range keys {
-		usedFallback, errDecrypt := c.decryptNodeAPIKey(k)
+		errDecrypt := c.decryptNodeAPIKey(k)
 		if errDecrypt != nil {
 			log.Error().Err(errDecrypt).Str("service", k.ServiceName).Msg("Error decrypting node API key")
 			return nil, errDecrypt
-		}
-		if usedFallback {
-			c.reencryptNodeAPIKey(k.ServiceName, k.APIKey)
 		}
 	}
 
@@ -152,8 +107,7 @@ func (c *Connection) GetNodeAPIKeys() ([]*models.NodeAPIKey, error) {
 }
 
 // GetNodeAPIKeyByServiceName fetches a node API key by service name,
-// decrypting it before returning. If the key was decrypted using the fallback
-// key, it is transparently re-encrypted under the primary key.
+// decrypting it before returning.
 func (c *Connection) GetNodeAPIKeyByServiceName(serviceName string) (*models.NodeAPIKey, error) {
 	key, errGet := models.NodeAPIKeys.Query(models.SelectWhere.NodeAPIKeys.ServiceName.EQ(serviceName)).One(c.ctx, c.DB)
 	if errGet != nil {
@@ -163,14 +117,10 @@ func (c *Connection) GetNodeAPIKeyByServiceName(serviceName string) (*models.Nod
 		return nil, fmt.Errorf("get node API key by service name: %w", errGet)
 	}
 
-	usedFallback, errDecrypt := c.decryptNodeAPIKey(key)
+	errDecrypt := c.decryptNodeAPIKey(key)
 	if errDecrypt != nil {
 		log.Error().Err(errDecrypt).Str("service", serviceName).Msg("Error decrypting node API key")
 		return nil, errDecrypt
-	}
-
-	if usedFallback {
-		c.reencryptNodeAPIKey(serviceName, key.APIKey)
 	}
 
 	return key, nil

@@ -91,8 +91,12 @@ var (
 )
 
 // DefaultBackupDirectory returns the default root directory for stored backups.
-func DefaultBackupDirectory() string {
-	return filepath.Join(DefaultInstallPath(), "backups")
+func DefaultBackupDirectory() (string, error) {
+	installPath, errInstallPath := DefaultInstallPath()
+	if errInstallPath != nil {
+		return "", errInstallPath
+	}
+	return joinManagedPath(installPath, "backups"), nil
 }
 
 // ValidateManualBackupName checks whether a user-supplied manual backup name can

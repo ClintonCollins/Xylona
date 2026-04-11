@@ -264,8 +264,8 @@ func TestEncryptedUpsertUpdatesExisting(t *testing.T) {
 	}
 }
 
-func TestDecryptAPIKey_FallbackKey(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "nak-fallback.sqlite")
+func TestLegacyNodeAPIKeyCiphertextIsNotMigrated(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "nak-legacy.sqlite")
 
 	oldKey, errOld := xycrypt.GenerateEncryptionKey()
 	if errOld != nil {
@@ -276,36 +276,38 @@ func TestDecryptAPIKey_FallbackKey(t *testing.T) {
 		t.Fatalf("GenerateEncryptionKey(new) error = %v", errNew)
 	}
 
-	// Insert with old key.
 	conn.SetEncryptionKey(oldKey)
-	setter := makeNodeAPIKeySetter("key-fb-1", "steam", "secret-steam-key")
+	setter := makeNodeAPIKeySetter("key-legacy-1", "steam", "secret-steam-key")
 	_, errUpsert := conn.InsertOrUpdateNodeAPIKey(conn.DB, setter)
 	if errUpsert != nil {
 		t.Fatalf("InsertOrUpdateNodeAPIKey() error = %v", errUpsert)
 	}
 
-	// Switch to new key with old key as fallback.
+	var storedBefore string
+	errScanBefore := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT api_key FROM node_api_key WHERE service_name = ?`, "steam").Scan(&storedBefore)
+	if errScanBefore != nil {
+		t.Fatalf("QueryRow(before) error = %v", errScanBefore)
+	}
+
 	conn.SetEncryptionKey(newKey)
-	conn.SetFallbackEncryptionKey(oldKey)
 
-	// First read should succeed via fallback and re-encrypt under the new key.
-	fetched, errGet := conn.GetNodeAPIKeyByServiceName("steam")
-	if errGet != nil {
-		t.Fatalf("GetNodeAPIKeyByServiceName() with fallback error = %v", errGet)
-	}
-	if fetched.APIKey != "secret-steam-key" {
-		t.Errorf("APIKey = %q, want %q", fetched.APIKey, "secret-steam-key")
+	_, errGet := conn.GetNodeAPIKeyByServiceName("steam")
+	if errGet == nil {
+		t.Fatal("GetNodeAPIKeyByServiceName() expected error with wrong primary key, got nil")
 	}
 
-	// Remove the fallback key. The value should now be readable with only the
-	// primary key, proving the re-encryption happened.
-	conn.SetFallbackEncryptionKey(nil)
-
-	fetchedAgain, errGetAgain := conn.GetNodeAPIKeyByServiceName("steam")
-	if errGetAgain != nil {
-		t.Fatalf("GetNodeAPIKeyByServiceName() after re-encrypt (no fallback) error = %v — re-encryption did not happen", errGetAgain)
+	_, errList := conn.GetNodeAPIKeys()
+	if errList == nil {
+		t.Fatal("GetNodeAPIKeys() expected error with wrong primary key, got nil")
 	}
-	if fetchedAgain.APIKey != "secret-steam-key" {
-		t.Errorf("APIKey after re-encrypt = %q, want %q", fetchedAgain.APIKey, "secret-steam-key")
+
+	var storedAfter string
+	errScanAfter := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT api_key FROM node_api_key WHERE service_name = ?`, "steam").Scan(&storedAfter)
+	if errScanAfter != nil {
+		t.Fatalf("QueryRow(after) error = %v", errScanAfter)
+	}
+
+	if storedAfter != storedBefore {
+		t.Errorf("stored API key changed after failed read; got %q, want %q", storedAfter, storedBefore)
 	}
 }

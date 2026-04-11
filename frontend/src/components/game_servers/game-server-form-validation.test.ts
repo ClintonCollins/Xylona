@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -10,6 +14,57 @@ import {
   validateRequiredText,
   validateRequiredValue,
 } from './game-server-form-validation'
+
+type ValidationParityFixture = {
+  port: Array<ValidationParityPortCase>
+  playerCount: Array<ValidationParityCountCase>
+  playerCountAtMost: Array<ValidationParityAtMostCase>
+  maxMemory: Array<ValidationParityMemoryCase>
+}
+
+type ValidationParityPortCase = {
+  name: string
+  value: number
+  expected: string
+}
+
+type ValidationParityCountCase = {
+  name: string
+  label: string
+  minimum: number
+  value: number
+  expected: string
+}
+
+type ValidationParityAtMostCase = {
+  name: string
+  label: string
+  maximumLabel: string
+  value: number
+  maximum: number | null
+  expected: string
+}
+
+type ValidationParityMemoryCase = {
+  name: string
+  value: number
+  expected: string
+}
+
+const validationParityFixture = JSON.parse(
+  readFileSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      '../../../../testdata/game-server-validation-parity.json',
+    ),
+    'utf8',
+  ),
+) as ValidationParityFixture
+
+function assertValidationParityResult(result: true | string, expected: string) {
+  const actual = result === true ? 'ok' : result
+  expect(actual).toBe(expected)
+}
 
 describe('validateRequiredText', () => {
   it('requires a non-empty value', () => {
@@ -141,5 +196,32 @@ describe('describeMinecraftMemoryState', () => {
 
   it('returns nothing when the memory limit is valid', () => {
     expect(describeMinecraftMemoryState(2048)).toBeUndefined()
+  })
+})
+
+describe('validation parity fixtures', () => {
+  it.each(validationParityFixture.port)('matches the port contract: %s', (tt) => {
+    assertValidationParityResult(validatePort(tt.value), tt.expected)
+  })
+
+  it.each(validationParityFixture.playerCount)('matches the player count contract: %s', (tt) => {
+    assertValidationParityResult(
+      validatePlayerCount(tt.value, tt.label, { minimum: tt.minimum }),
+      tt.expected,
+    )
+  })
+
+  it.each(validationParityFixture.playerCountAtMost)(
+    'matches the player-count relationship contract: %s',
+    (tt) => {
+      assertValidationParityResult(
+        validatePlayerCountAtMost(tt.value, tt.label, tt.maximum ?? undefined, tt.maximumLabel),
+        tt.expected,
+      )
+    },
+  )
+
+  it.each(validationParityFixture.maxMemory)('matches the max memory contract: %s', (tt) => {
+    assertValidationParityResult(validateMaxMemory(tt.value), tt.expected)
   })
 })

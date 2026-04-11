@@ -10,7 +10,12 @@ import { useQuasar } from 'quasar'
 import dayjs from 'dayjs'
 
 import BackupRestoreDialog from '@/components/game_servers/BackupRestoreDialog.vue'
-import type { BackupProgress, BackupSettings, GameServerBackup, GameServerBackupOverview, } from '@/proto/shared_pb'
+import type {
+  BackupProgress,
+  BackupSettings,
+  GameServerBackup,
+  GameServerBackupOverview,
+} from '@/proto/shared_pb'
 import {
   BackupProgressOperation,
   BackupProgressPhase,

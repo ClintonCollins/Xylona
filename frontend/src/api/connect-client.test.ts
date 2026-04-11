@@ -1,12 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  createXylonaTransport,
-  getXylonaApiBaseURL,
-  getXylonaClient,
-  getXylonaClientCallback,
-} from './connect-client'
-
 const mocks = vi.hoisted(() => ({
   createCallbackClient: vi.fn(),
   createClient: vi.fn(),
@@ -25,6 +18,7 @@ vi.mock('@connectrpc/connect-web', () => ({
 
 describe('connect-client', () => {
   beforeEach(() => {
+    vi.resetModules()
     mocks.createCallbackClient.mockReset()
     mocks.createClient.mockReset()
     mocks.createConnectTransport.mockReset()
@@ -32,17 +26,23 @@ describe('connect-client', () => {
     vi.stubGlobal('fetch', mocks.fetch)
   })
 
-  it('builds the local API base URL from the browser location', () => {
+  it('builds the local API base URL from the browser location', async () => {
+    const { getXylonaApiBaseURL } = await import('./connect-client')
+
     expect(getXylonaApiBaseURL()).toBe(`${window.location.protocol}//${window.location.host}`)
   })
 
-  it('builds a remote API base URL for a peer node', () => {
+  it('builds a remote API base URL for a peer node', async () => {
+    const { getXylonaApiBaseURL } = await import('./connect-client')
+
     expect(getXylonaApiBaseURL('peer.example.test:8443')).toBe(
       `${window.location.protocol}//peer.example.test:8443`,
     )
   })
 
   it('creates a transport that always includes browser credentials', async () => {
+    const { createXylonaTransport } = await import('./connect-client')
+
     mocks.createConnectTransport.mockReturnValue({ kind: 'transport' })
 
     const transport = createXylonaTransport('peer.example.test:8443')
@@ -63,7 +63,9 @@ describe('connect-client', () => {
     })
   })
 
-  it('creates the unary client from the shared transport', () => {
+  it('creates the unary client from the shared transport', async () => {
+    const { getXylonaClient } = await import('./connect-client')
+
     mocks.createConnectTransport.mockReturnValue({ kind: 'transport' })
     const client = { kind: 'client' }
     mocks.createClient.mockReturnValue(client)
@@ -72,7 +74,9 @@ describe('connect-client', () => {
     expect(mocks.createClient).toHaveBeenCalledWith(expect.anything(), { kind: 'transport' })
   })
 
-  it('creates the callback client from the shared transport', () => {
+  it('creates the callback client from the shared transport', async () => {
+    const { getXylonaClientCallback } = await import('./connect-client')
+
     mocks.createConnectTransport.mockReturnValue({ kind: 'transport' })
     const client = { kind: 'callback-client' }
     mocks.createCallbackClient.mockReturnValue(client)
@@ -81,5 +85,33 @@ describe('connect-client', () => {
     expect(mocks.createCallbackClient).toHaveBeenCalledWith(expect.anything(), {
       kind: 'transport',
     })
+  })
+
+  it('reuses the unary client for repeated calls to the same node', async () => {
+    const { getXylonaClient } = await import('./connect-client')
+
+    const transport = { kind: 'transport' }
+    const client = { kind: 'client' }
+    mocks.createConnectTransport.mockReturnValue(transport)
+    mocks.createClient.mockReturnValue(client)
+
+    expect(getXylonaClient('peer.example.test:8443')).toBe(client)
+    expect(getXylonaClient('peer.example.test:8443')).toBe(client)
+    expect(mocks.createConnectTransport).toHaveBeenCalledTimes(1)
+    expect(mocks.createClient).toHaveBeenCalledTimes(1)
+  })
+
+  it('reuses the callback client for repeated calls to the same node', async () => {
+    const { getXylonaClientCallback } = await import('./connect-client')
+
+    const transport = { kind: 'transport' }
+    const client = { kind: 'callback-client' }
+    mocks.createConnectTransport.mockReturnValue(transport)
+    mocks.createCallbackClient.mockReturnValue(client)
+
+    expect(getXylonaClientCallback('peer.example.test:8443')).toBe(client)
+    expect(getXylonaClientCallback('peer.example.test:8443')).toBe(client)
+    expect(mocks.createConnectTransport).toHaveBeenCalledTimes(1)
+    expect(mocks.createCallbackClient).toHaveBeenCalledTimes(1)
   })
 })

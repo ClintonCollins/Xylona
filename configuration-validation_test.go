@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -126,6 +127,28 @@ func TestRegisterMetricsRouteEnabled(t *testing.T) {
 
 	if response.Code != http.StatusOK {
 		t.Fatalf(`GET /metrics status = %d, want %d`, response.Code, http.StatusOK)
+	}
+}
+
+func TestStartupFailureReturnsNonZeroAndCleansUp(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cleanupCalled := false
+
+	exitCode := startupFailure(func() {
+		cleanupCalled = true
+	}, cancel, errors.New(`boom`), `startup failed`)
+
+	if exitCode != 1 {
+		t.Fatalf(`startupFailure() exit code = %d, want 1`, exitCode)
+	}
+	if !cleanupCalled {
+		t.Fatal(`startupFailure() did not call cleanup`)
+	}
+
+	select {
+	case <-ctx.Done():
+	default:
+		t.Fatal(`startupFailure() did not cancel context`)
 	}
 }
 

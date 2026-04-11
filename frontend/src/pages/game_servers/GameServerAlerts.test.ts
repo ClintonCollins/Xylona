@@ -17,7 +17,9 @@ import { useUserAuthStore } from '@/stores/xylona'
 import GameServerAlerts from './GameServerAlerts.vue'
 
 const mocks = vi.hoisted(() => ({
-  notify: vi.fn(),
+  notifyConnectError: vi.fn(),
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
   dialog: vi.fn(),
   getGameServer: vi.fn(),
   listNotificationChannels: vi.fn(),
@@ -33,12 +35,17 @@ vi.mock('quasar', async () => {
   return {
     ...actual,
     useQuasar: () => ({
-      notify: mocks.notify,
       screen: { lt: { md: false } },
       dialog: mocks.dialog,
     }),
   }
 })
+
+vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notifyConnectError,
+  notifyError: mocks.notifyError,
+  notifySuccess: mocks.notifySuccess,
+}))
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
@@ -416,11 +423,7 @@ describe('GameServerAlerts', () => {
     mountAlerts()
     await flushPromises()
 
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'xylona-error',
-      }),
-    )
+    expect(mocks.notifyConnectError).toHaveBeenCalledWith(expect.any(Error))
   })
 
   it('shows error notification when loading history fails', async () => {
@@ -437,11 +440,7 @@ describe('GameServerAlerts', () => {
     mountAlerts()
     await flushPromises()
 
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'xylona-error',
-      }),
-    )
+    expect(mocks.notifyConnectError).toHaveBeenCalledWith(expect.any(Error))
   })
 
   it('creates a rule with the current server node id', async () => {
@@ -485,6 +484,7 @@ describe('GameServerAlerts', () => {
         serverNodeId: 'node-local',
       }),
     )
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('Alert rule created')
   })
 
   it('loads more history when additional server entries are available', async () => {

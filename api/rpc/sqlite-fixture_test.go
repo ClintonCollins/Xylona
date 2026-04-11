@@ -34,7 +34,10 @@ func newRPCFixtureConnection(t *testing.T, sqliteFileName string) *db.Connection
 		t.Fatalf("failed to copy rpc sqlite template: %v", errCopy)
 	}
 
-	conn := db.NewConnection(context.Background(), dbPath)
+	conn, errNewConnection := db.NewConnection(context.Background(), dbPath)
+	if errNewConnection != nil {
+		t.Fatalf("failed to create test database: %v", errNewConnection)
+	}
 	t.Cleanup(func() {
 		errClose := conn.SQLDb.Close()
 		if errClose != nil {
@@ -60,7 +63,11 @@ func ensureRPCMigratedTemplate() (string, error) {
 			return
 		}
 
-		conn := db.NewConnection(context.Background(), rpcTemplatePath)
+		conn, errNewConnection := db.NewConnection(context.Background(), rpcTemplatePath)
+		if errNewConnection != nil {
+			rpcTemplateErr = errNewConnection
+			return
+		}
 
 		migrationSource := &migrate.FileMigrationSource{
 			Dir: filepath.Join("..", "..", "sql", "migrations"),

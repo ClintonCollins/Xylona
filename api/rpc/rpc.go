@@ -3,11 +3,11 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/gorilla/securecookie"
-	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
@@ -22,14 +22,6 @@ import (
 	"github.com/ClintonCollins/Xylona/steamcache"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
-
-// SyncEngine is an interface for the federation sync engine.
-// It allows the RPC layer to trigger sync operations without a direct dependency.
-type SyncEngine interface {
-	SyncPeer(peerNodeID string)
-	RemovePeer(peerNodeID string)
-	BroadcastPeerChange(changeType xylona.PeerChangeType, peer *xylona.PeerInfo, initiatedByNodeID string, initiatedByNodeName string)
-}
 
 // ServerSoftwareInstallBroadcaster broadcasts server software install events.
 type ServerSoftwareInstallBroadcaster interface {
@@ -50,7 +42,7 @@ type XylonaService struct {
 	federationMTLS                 *federation.MTLS
 	secureCookie                   *securecookie.SecureCookie
 	secureCookies                  bool
-	syncEngine                     SyncEngine
+	syncEngine                     actions.SyncEngine
 	modManager                     *modmanager.ModManager
 	steamCache                     *steamcache.Client
 	listCache                      *remoteServerListCache
@@ -81,10 +73,10 @@ func NewXylonaService(
 	steamCache *steamcache.Client,
 	modMgr *modmanager.ModManager,
 	versionState *versiontracker.VersionStateMap,
-) *XylonaService {
+) (*XylonaService, error) {
 	allPerms, errPerms := database.GetAllPermissions()
 	if errPerms != nil {
-		log.Fatal().Err(errPerms).Msg("Failed to load permission IDs")
+		return nil, fmt.Errorf("rpc: load permission IDs: %w", errPerms)
 	}
 	permIDs := make([]string, len(allPerms))
 	for i, p := range allPerms {
@@ -120,7 +112,7 @@ func NewXylonaService(
 		allPermissionIDs: permIDs,
 		installTracker:   tracker,
 		versionState:     versionState,
-	}
+	}, nil
 }
 
 func (xs *XylonaService) getNotificationChannelTestLimiter() *notificationChannelTestRateLimiter {
@@ -141,7 +133,7 @@ func (xs *XylonaService) resolvedSendTestEmailFunc() func(ctx context.Context, c
 }
 
 // SetSyncEngine configures the federation sync engine used by the RPC layer.
-func (xs *XylonaService) SetSyncEngine(engine SyncEngine) {
+func (xs *XylonaService) SetSyncEngine(engine actions.SyncEngine) {
 	xs.syncEngine = engine
 }
 

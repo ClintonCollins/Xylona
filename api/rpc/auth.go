@@ -99,7 +99,7 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 		ExpiresAt: omit.From(time.Now().Add(defaultSessionDuration)),
 	}
 
-	log.Debug().Str("session_id", sessionID).Str("user_id", user.ID).Msg("Creating user session")
+	log.Debug().Str("user_id", user.ID).Msg("Creating user session")
 	newSession, errSession := xs.db.CreateUserSession(x)
 
 	if errSession != nil {
@@ -157,7 +157,7 @@ func (xs *XylonaService) Logout(_ context.Context, request *connect.Request[xylo
 	if errGetSession == nil {
 		errDeleteSession := xs.db.DeleteUserSession(sessionCookies.SessionID)
 		if errDeleteSession != nil {
-			log.Warn().Err(errDeleteSession).Str("session_id", sessionCookies.SessionID).Msg("Failed to delete user session on logout")
+			log.Warn().Err(errDeleteSession).Msg("Failed to delete user session on logout")
 			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete session"))
 		}
 	}

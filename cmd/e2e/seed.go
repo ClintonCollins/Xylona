@@ -17,7 +17,10 @@ import (
 
 func runSeed(dbPath, username, password, migrationsDir string) error {
 	ctx := context.Background()
-	conn := db.NewConnection(ctx, dbPath)
+	conn, errNewConnection := db.NewConnection(ctx, dbPath)
+	if errNewConnection != nil {
+		return fmt.Errorf("open seed database: %w", errNewConnection)
+	}
 
 	// Run migrations using file-based source.
 	migrationSource := &migrate.FileMigrationSource{

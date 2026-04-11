@@ -101,10 +101,9 @@ func TestSystemConfig_Encryption(t *testing.T) {
 	}
 }
 
-func TestDecryptConfig_FallbackKey(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "sc-fallback.sqlite")
+func TestLegacySystemConfigCiphertextIsNotMigrated(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "sc-legacy.sqlite")
 
-	// Generate two distinct keys: old (JWT-derived) and new (dedicated).
 	oldKey, errOld := xycrypt.GenerateEncryptionKey()
 	if errOld != nil {
 		t.Fatalf("GenerateEncryptionKey(old) error = %v", errOld)
@@ -114,7 +113,6 @@ func TestDecryptConfig_FallbackKey(t *testing.T) {
 		t.Fatalf("GenerateEncryptionKey(new) error = %v", errNew)
 	}
 
-	// Encrypt data with the old key.
 	conn.SetEncryptionKey(oldKey)
 	plaintext := `{"secret":"fallback-test-value"}`
 
@@ -123,61 +121,27 @@ func TestDecryptConfig_FallbackKey(t *testing.T) {
 		t.Fatalf("SetSystemConfig() with old key error = %v", errSet)
 	}
 
-	// Switch to the new key with old key as fallback.
+	var storedBefore string
+	errScanBefore := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT value FROM system_config WHERE key = ?`, "test_fallback").Scan(&storedBefore)
+	if errScanBefore != nil {
+		t.Fatalf("QueryRow(before) error = %v", errScanBefore)
+	}
+
 	conn.SetEncryptionKey(newKey)
-	conn.SetFallbackEncryptionKey(oldKey)
 
-	// First read should succeed via fallback and re-encrypt under the new key.
-	decrypted, errGet := conn.GetSystemConfig("test_fallback")
-	if errGet != nil {
-		t.Fatalf("GetSystemConfig() with fallback error = %v", errGet)
-	}
-	if decrypted != plaintext {
-		t.Errorf("GetSystemConfig() = %q, want %q", decrypted, plaintext)
+	_, errGet := conn.GetSystemConfig("test_fallback")
+	if errGet == nil {
+		t.Fatal("GetSystemConfig() expected error with wrong primary key, got nil")
 	}
 
-	// Remove the fallback key. The value should now be readable with only the
-	// primary key, proving the re-encryption happened.
-	conn.SetFallbackEncryptionKey(nil)
-
-	decryptedAgain, errGetAgain := conn.GetSystemConfig("test_fallback")
-	if errGetAgain != nil {
-		t.Fatalf("GetSystemConfig() after re-encrypt (no fallback) error = %v — re-encryption did not happen", errGetAgain)
-	}
-	if decryptedAgain != plaintext {
-		t.Errorf("GetSystemConfig() after re-encrypt = %q, want %q", decryptedAgain, plaintext)
-	}
-}
-
-func TestDecryptConfig_PrimaryKeyPreferred(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "sc-primary-preferred.sqlite")
-
-	primaryKey, errPrimary := xycrypt.GenerateEncryptionKey()
-	if errPrimary != nil {
-		t.Fatalf("GenerateEncryptionKey(primary) error = %v", errPrimary)
-	}
-	fallbackKey, errFallback := xycrypt.GenerateEncryptionKey()
-	if errFallback != nil {
-		t.Fatalf("GenerateEncryptionKey(fallback) error = %v", errFallback)
+	var storedAfter string
+	errScanAfter := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT value FROM system_config WHERE key = ?`, "test_fallback").Scan(&storedAfter)
+	if errScanAfter != nil {
+		t.Fatalf("QueryRow(after) error = %v", errScanAfter)
 	}
 
-	// Encrypt with primary key.
-	conn.SetEncryptionKey(primaryKey)
-	conn.SetFallbackEncryptionKey(fallbackKey)
-
-	plaintext := `{"data":"primary-key-data"}`
-	errSet := conn.SetSystemConfig("test_primary", plaintext)
-	if errSet != nil {
-		t.Fatalf("SetSystemConfig() error = %v", errSet)
-	}
-
-	// Read should succeed with primary key, not needing fallback.
-	decrypted, errGet := conn.GetSystemConfig("test_primary")
-	if errGet != nil {
-		t.Fatalf("GetSystemConfig() error = %v", errGet)
-	}
-	if decrypted != plaintext {
-		t.Errorf("GetSystemConfig() = %q, want %q", decrypted, plaintext)
+	if storedAfter != storedBefore {
+		t.Errorf("stored system config changed after failed read; got %q, want %q", storedAfter, storedBefore)
 	}
 }
 

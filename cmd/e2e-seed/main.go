@@ -35,7 +35,10 @@ func main() {
 	}
 
 	ctx := context.Background()
-	conn := db.NewConnection(ctx, *dbPath)
+	conn, errNewConnection := db.NewConnection(ctx, *dbPath)
+	if errNewConnection != nil {
+		log.Fatal().Err(errNewConnection).Msg("Failed to open database")
+	}
 
 	// Run migrations using file-based source (no embed needed)
 	migrationSource := &migrate.FileMigrationSource{

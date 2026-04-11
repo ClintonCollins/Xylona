@@ -30,9 +30,9 @@ func TestSQLiteDSNWithPragma(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := sqliteDSNWithPragma(tt.path, tt.pragma)
+			got := sqliteDSNWithPragmas(tt.path, tt.pragma)
 			if got != tt.want {
-				t.Errorf("sqliteDSNWithPragma() = %q, want %q", got, tt.want)
+				t.Errorf("sqliteDSNWithPragmas() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -40,7 +40,10 @@ func TestSQLiteDSNWithPragma(t *testing.T) {
 
 func TestNewConnectionEnablesForeignKeys(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "foreign-keys.sqlite")
-	conn := NewConnection(context.Background(), dbPath)
+	conn, errNewConnection := NewConnection(context.Background(), dbPath)
+	if errNewConnection != nil {
+		t.Fatalf("NewConnection() error = %v", errNewConnection)
+	}
 	t.Cleanup(func() {
 		if errClose := conn.SQLDb.Close(); errClose != nil {
 			t.Errorf("failed to close db: %v", errClose)
@@ -72,5 +75,17 @@ func TestNewConnectionEnablesForeignKeys(t *testing.T) {
 
 	if !strings.Contains(strings.ToUpper(errInsertChild.Error()), "FOREIGN KEY") {
 		t.Errorf("expected foreign key error, got: %v", errInsertChild)
+	}
+}
+
+func TestNewConnectionReturnsErrorForInvalidPath(t *testing.T) {
+	dbPath := t.TempDir()
+
+	conn, errNewConnection := NewConnection(context.Background(), dbPath)
+	if errNewConnection == nil {
+		t.Fatal("NewConnection() error = nil, want error")
+	}
+	if conn != nil {
+		t.Fatalf("NewConnection() connection = %+v, want nil", conn)
 	}
 }

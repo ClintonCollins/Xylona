@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/aarondl/opt/null"
@@ -34,6 +35,21 @@ func TestDetectOperatingSystem(t *testing.T) {
 	}
 }
 
+func TestInitOperatingSystemReturnsErrorForUnsupportedOS(t *testing.T) {
+	originalOS := OperatingSystem
+	t.Cleanup(func() {
+		OperatingSystem = originalOS
+	})
+
+	errInitOperatingSystem := initOperatingSystem("plan9")
+	if errInitOperatingSystem == nil {
+		t.Fatal("initOperatingSystem() error = nil, want error")
+	}
+	if OperatingSystem != originalOS {
+		t.Fatalf("initOperatingSystem() changed OperatingSystem to %q, want %q", OperatingSystem, originalOS)
+	}
+}
+
 func TestDefaultInstallPath(t *testing.T) {
 	originalOS := OperatingSystem
 	t.Cleanup(func() {
@@ -51,17 +67,39 @@ func TestDefaultInstallPath(t *testing.T) {
 	}{
 		{name: "linux", os: Linux, want: "/home/tester/xylona"},
 		{name: "darwin", os: Darwin, want: "/home/tester/xylona"},
-		{name: "windows", os: Windows, want: `C:\Users\tester/Xylona`},
+		{name: "windows", os: Windows, want: filepath.Join(`C:\Users\tester`, "Xylona")},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			OperatingSystem = tt.os
-			got := DefaultInstallPath()
+			got, errDefaultInstallPath := DefaultInstallPath()
+			if errDefaultInstallPath != nil {
+				t.Fatalf("DefaultInstallPath() error = %v", errDefaultInstallPath)
+			}
 			if got != tt.want {
 				t.Errorf("DefaultInstallPath() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDefaultInstallPathReturnsErrorWhenUserHomeIsMissing(t *testing.T) {
+	originalOS := OperatingSystem
+	t.Cleanup(func() {
+		OperatingSystem = originalOS
+	})
+
+	OperatingSystem = Linux
+	t.Setenv("HOME", "")
+	t.Setenv("USER", "")
+
+	got, errDefaultInstallPath := DefaultInstallPath()
+	if errDefaultInstallPath == nil {
+		t.Fatal("DefaultInstallPath() error = nil, want error")
+	}
+	if got != "" {
+		t.Fatalf("DefaultInstallPath() path = %q, want empty", got)
 	}
 }
 

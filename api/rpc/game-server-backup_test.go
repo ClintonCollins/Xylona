@@ -112,7 +112,10 @@ func TestGetBackupSettingsDefaultsDirectoryForSuperuserWhenBlank(t *testing.T) {
 		t.Fatal("GetBackupSettings(superuser) returned nil settings")
 	}
 
-	wantBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+	wantBackupDirectory, errDefaultBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+	if errDefaultBackupDirectory != nil {
+		t.Fatalf("defaultBackupDirectoryForServer() error = %v", errDefaultBackupDirectory)
+	}
 	if settings.GetBackupDirectory() != wantBackupDirectory {
 		t.Fatalf("GetBackupSettings(superuser).BackupDirectory = %q, want %q", settings.GetBackupDirectory(), wantBackupDirectory)
 	}
@@ -631,7 +634,10 @@ func TestUpdateBackupSettingsDefaultsBackupDirectoryWhenEnablingLegacyServer(t *
 		t.Fatal("UpdateBackupSettings() returned nil settings")
 	}
 
-	wantBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+	wantBackupDirectory, errDefaultBackupDirectory := defaultBackupDirectoryForServer(gameServer.Directory)
+	if errDefaultBackupDirectory != nil {
+		t.Fatalf("defaultBackupDirectoryForServer() error = %v", errDefaultBackupDirectory)
+	}
 	if !settings.GetBackupsEnabled() {
 		t.Fatal("UpdateBackupSettings().Settings.BackupsEnabled = false, want true")
 	}
@@ -917,6 +923,87 @@ func TestUploadGameServerBackupArchiveRejectsInvalidZip(t *testing.T) {
 	response := responseRecorder.Result()
 	if response.StatusCode != http.StatusBadRequest {
 		t.Fatalf("UploadGameServerBackupArchive() status = %d, want %d", response.StatusCode, http.StatusBadRequest)
+	}
+}
+
+func TestUploadGameServerBackupArchiveWithMaxBytesRejectsOversizedMultipartBody(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+	serverDir := filepath.Join(t.TempDir(), "server-local-1")
+	backupRoot := filepath.Join(t.TempDir(), "backups")
+
+	errMkdirServer := os.MkdirAll(serverDir, 0o750)
+	if errMkdirServer != nil {
+		t.Fatalf("MkdirAll(serverDir) error = %v", errMkdirServer)
+	}
+	errMkdirBackup := os.MkdirAll(backupRoot, 0o750)
+	if errMkdirBackup != nil {
+		t.Fatalf("MkdirAll(backupRoot) error = %v", errMkdirBackup)
+	}
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		Directory:       omit.From(serverDir),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From(backupRoot),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(),
+		fixture.conn,
+		supervisorInst,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+	errWriteField := writer.WriteField("gameServerId", "server-local-1")
+	if errWriteField != nil {
+		t.Fatalf("WriteField(gameServerId) error = %v", errWriteField)
+	}
+	fileWriter, errCreateFormFile := writer.CreateFormFile("file", "oversized.zip")
+	if errCreateFormFile != nil {
+		t.Fatalf("CreateFormFile() error = %v", errCreateFormFile)
+	}
+	_, errWriteFile := fileWriter.Write(bytes.Repeat([]byte("b"), 2048))
+	if errWriteFile != nil {
+		t.Fatalf("form file write error = %v", errWriteFile)
+	}
+	errCloseWriter := writer.Close()
+	if errCloseWriter != nil {
+		t.Fatalf("writer.Close() error = %v", errCloseWriter)
+	}
+
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/backups/upload", &requestBody)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	addSessionCookieHeaderHTTP(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	responseRecorder := httptest.NewRecorder()
+	fixture.service.uploadGameServerBackupArchiveWithMaxBytes(responseRecorder, request, 1024)
+
+	response := responseRecorder.Result()
+	if response.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("UploadGameServerBackupArchive() status = %d, want %d", response.StatusCode, http.StatusRequestEntityTooLarge)
+	}
+
+	backups, errList := fixture.conn.ListGameServerBackupsByGameServerID("server-local-1")
+	if errList != nil {
+		t.Fatalf("ListGameServerBackupsByGameServerID() error = %v", errList)
+	}
+	if len(backups) != 0 {
+		t.Fatalf("backup count = %d, want %d", len(backups), 0)
 	}
 }
 

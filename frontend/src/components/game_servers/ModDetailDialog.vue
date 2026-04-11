@@ -124,8 +124,8 @@
             </div>
 
             <!-- Body (markdown) -->
-            <!-- eslint-disable-next-line vue/no-v-html -- Mod body content from trusted mod sources (Modrinth, CurseForge, etc.) -->
-            <div class="mod-detail-body" v-html="details.body"></div>
+            <!-- eslint-disable-next-line vue/no-v-html -- Mod description HTML comes from third-party registries, so we sanitize it before rendering. -->
+            <div class="mod-detail-body" v-html="sanitizedBody"></div>
           </q-tab-panel>
 
           <!-- Versions tab -->
@@ -241,6 +241,7 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
+import createDOMPurify from 'dompurify'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import type { Timestamp } from '@bufbuild/protobuf/wkt'
@@ -277,6 +278,35 @@ const versionOptions = computed(() =>
     value: v.versionId,
   })),
 )
+
+const domPurify = createDOMPurify(window)
+
+const modDescriptionSanitizeConfig = {
+  ALLOWED_TAGS: [
+    'a',
+    'blockquote',
+    'br',
+    'code',
+    'em',
+    'h1',
+    'h2',
+    'h3',
+    'li',
+    'ol',
+    'p',
+    'pre',
+    'strong',
+    'ul',
+  ],
+  ALLOWED_ATTR: ['href', 'title'],
+  FORBID_TAGS: ['iframe', 'img', 'object', 'script', 'style'],
+}
+const modDescriptionAllowedTags = new Set(modDescriptionSanitizeConfig.ALLOWED_TAGS)
+
+const sanitizedBody = computed(() => {
+  const body = details.value?.body ?? ''
+  return sanitizeModDescription(body)
+})
 
 const currentVersionDeps = computed((): ModDependency[] => {
   if (!selectedVersionId.value) return []
@@ -378,6 +408,70 @@ function formatDate(ts: Timestamp | undefined): string {
   if (!ts) return ''
   const date = new Date(Number(ts.seconds) * 1000)
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function sanitizeModDescription(body: string): string {
+  const clean = domPurify.sanitize(body, modDescriptionSanitizeConfig)
+  const template = document.createElement('template')
+  template.innerHTML = clean
+  stripUnsafeModBodyElements(template.content)
+  stripUnsafeModBodyAttributes(template.content)
+  return template.innerHTML
+}
+
+function stripUnsafeModBodyElements(node: ParentNode): void {
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType !== Node.ELEMENT_NODE) {
+      continue
+    }
+
+    const element = child as HTMLElement
+    if (!modDescriptionAllowedTags.has(element.tagName.toLowerCase())) {
+      const parent = element.parentNode
+      if (!parent) {
+        continue
+      }
+
+      while (element.firstChild) {
+        parent.insertBefore(element.firstChild, element)
+      }
+
+      element.remove()
+      continue
+    }
+
+    stripUnsafeModBodyElements(element)
+  }
+}
+
+function stripUnsafeModBodyAttributes(node: ParentNode): void {
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType !== Node.ELEMENT_NODE) {
+      continue
+    }
+
+    const element = child as HTMLElement
+    for (const attr of Array.from(element.attributes)) {
+      const attrName = attr.name.toLowerCase()
+      if (attrName.startsWith('on')) {
+        element.removeAttribute(attr.name)
+        continue
+      }
+
+      if (element.tagName === 'A' && attrName === 'href' && !isSafeHref(attr.value)) {
+        element.removeAttribute(attr.name)
+      }
+    }
+
+    stripUnsafeModBodyAttributes(element)
+  }
+}
+
+function isSafeHref(href: string): boolean {
+  const trimmedHref = href.trim().toLowerCase()
+  return ['#', '/', 'http://', 'https://', 'mailto:', 'tel:'].some((prefix) =>
+    trimmedHref.startsWith(prefix),
+  )
 }
 </script>
 

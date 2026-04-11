@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -72,20 +74,34 @@ type Configuration struct {
 	MetricsEnabled         bool          `env:"METRICS_ENABLED" envDefault:"false"`
 	Host                   string        `env:"HOST" envDefault:""`
 	HTTPPort               int           `env:"HTTP_PORT" envDefault:"8080"`
-	HTTPReadTimeout        time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"15m"`
-	HTTPWriteTimeout       time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"15m"`
-	HTTPIdleTimeout        time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"30m"`
+	HTTPReadTimeout        time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"6h"`
+	HTTPWriteTimeout       time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"6h"`
+	HTTPIdleTimeout        time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"24h"`
 	FederationPort         int           `env:"FEDERATION_PORT" envDefault:"8443"`
-	FederationReadTimeout  time.Duration `env:"FEDERATION_READ_TIMEOUT" envDefault:"15m"`
-	FederationWriteTimeout time.Duration `env:"FEDERATION_WRITE_TIMEOUT" envDefault:"15m"`
-	FederationIdleTimeout  time.Duration `env:"FEDERATION_IDLE_TIMEOUT" envDefault:"30m"`
+	FederationReadTimeout  time.Duration `env:"FEDERATION_READ_TIMEOUT" envDefault:"6h"`
+	FederationWriteTimeout time.Duration `env:"FEDERATION_WRITE_TIMEOUT" envDefault:"6h"`
+	FederationIdleTimeout  time.Duration `env:"FEDERATION_IDLE_TIMEOUT" envDefault:"24h"`
 	// DummyGameID enables the DummyTracker for E2E testing. When set, the game
 	// with this ID is treated as a trackable server returning a simulated 1.0.0→2.0.0
 	// update. Leave empty in production.
 	DummyGameID string `env:"DUMMY_GAME_ID" envDefault:""`
 }
 
-func setupLogger() func() {
+func parseLogLevel(logLevel string) (zerolog.Level, error) {
+	trimmedLevel := strings.TrimSpace(logLevel)
+	if trimmedLevel == "" {
+		return zerolog.InfoLevel, nil
+	}
+
+	parsedLevel, errParseLevel := zerolog.ParseLevel(strings.ToLower(trimmedLevel))
+	if errParseLevel != nil {
+		return zerolog.NoLevel, fmt.Errorf("invalid LOG_LEVEL %q: %w", logLevel, errParseLevel)
+	}
+
+	return parsedLevel, nil
+}
+
+func setupLogger(logLevel string) (func(), error) {
 	zerolog.CallerMarshalFunc = func(_ uintptr, file string, line int) string {
 		short := file
 		for i := len(file) - 1; i > 0; i-- {
@@ -97,15 +113,23 @@ func setupLogger() func() {
 		file = short
 		return file + ":" + strconv.Itoa(line)
 	}
+
+	parsedLevel, errParseLevel := parseLogLevel(logLevel)
+	if errParseLevel != nil {
+		return func() {}, errParseLevel
+	}
+
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr}
-	if logFile := os.Getenv("E2E_LOG_FILE"); logFile != "" {
+	writer := io.Writer(consoleWriter)
+	cleanup := func() {}
+
+	logFile := os.Getenv("E2E_LOG_FILE")
+	if logFile != "" {
 		cleanLogFile := filepath.Clean(logFile)
 		f, errOpen := os.OpenFile(cleanLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 		if errOpen == nil {
-			multi := zerolog.MultiLevelWriter(consoleWriter, f)
-			log.Logger = zerolog.New(multi).With().Caller().Timestamp().Logger()
-			zerolog.SetGlobalLevel(zerolog.DebugLevel)
-			return func() {
+			writer = zerolog.MultiLevelWriter(consoleWriter, f)
+			cleanup = func() {
 				errClose := f.Close()
 				if errClose != nil {
 					log.Error().Err(errClose).Str("file", cleanLogFile).Msg("Failed to close E2E log file")
@@ -113,15 +137,16 @@ func setupLogger() func() {
 			}
 		}
 	}
-	log.Logger = log.Output(consoleWriter).With().Caller().Logger()
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	return func() {}
+
+	log.Logger = zerolog.New(writer).With().Caller().Timestamp().Logger()
+	zerolog.SetGlobalLevel(parsedLevel)
+	return cleanup, nil
 }
 
-func setDetectedIPs(db *dbpkg.Connection) {
+func setDetectedIPs(db *dbpkg.Connection) error {
 	ips, err := helpers.GetIPs()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to get IPs")
+		return fmt.Errorf("setDetectedIPs: get IPs: %w", err)
 	}
 	for _, ip := range ips {
 		log.Debug().Str("ip", ip.String()).Bool("external", !ip.IsPrivate()).Msg("Detected IP")
@@ -133,10 +158,12 @@ func setDetectedIPs(db *dbpkg.Connection) {
 				AutomaticallyAdded: omit.From(true),
 			})
 			if errUpsertIP != nil && !errors.Is(errUpsertIP, dbpkg.ErrIPConflict) {
-				log.Fatal().Err(errUpsertIP).Msg("Failed to upsert IP on startup")
+				return fmt.Errorf("setDetectedIPs: upsert IP %s: %w", ip.String(), errUpsertIP)
 			}
 		}
 	}
+
+	return nil
 }
 
 func gracefulShutdown(ctxCancel context.CancelFunc, shutdownSignalType os.Signal, servers ...*http.Server) {
@@ -164,10 +191,15 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		connectSrc := `connect-src 'self' http: ws:`
+		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			connectSrc = `connect-src 'self' https: wss:`
+		}
 		w.Header().Set("Content-Security-Policy",
 			`default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; `+
 				`img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; `+
-				`script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' ws: wss: https: http:`)
+				`script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; `+
+				connectSrc)
 		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
 			w.Header().Set("Strict-Transport-Security", `max-age=31536000; includeSubDomains`)
 		}
@@ -190,6 +222,34 @@ func routerLogger(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+type readinessPinger interface {
+	PingContext(context.Context) error
+}
+
+func registerOperationalRoutes(router chi.Router, pinger readinessPinger) {
+	router.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	router.Get("/api/ready", func(w http.ResponseWriter, r *http.Request) {
+		errPing := pinger.PingContext(r.Context())
+		if errPing != nil {
+			log.Error().Err(errPing).Msg("Readiness check failed")
+			http.Error(w, "unready", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ready"))
+	})
+}
+
+func startupFailure(cleanupLogger func(), ctxCancel context.CancelFunc, err error, message string) int {
+	ctxCancel()
+	cleanupLogger()
+	log.Error().Err(err).Msg(message)
+	return 1
 }
 
 // dbSMTPConfigResolver implements mailer.SystemConfigResolver by reading the
@@ -223,9 +283,12 @@ func (r *dbSMTPConfigResolver) ResolveSystemSMTPConfig() (*mailer.SMTPConfig, er
 
 // setupDatabase opens the database connection, runs migrations, and configures
 // the encryption key for sensitive fields. It returns the ready-to-use
-// connection or a fatal-level error.
+// connection or an error.
 func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, error) {
-	dbInst := dbpkg.NewConnection(ctx, cfg.DBFilePath)
+	dbInst, errNewConnection := dbpkg.NewConnection(ctx, cfg.DBFilePath)
+	if errNewConnection != nil {
+		return nil, fmt.Errorf("setupDatabase: connect to database: %w", errNewConnection)
+	}
 
 	errMigrate := dbpkg.RunMigrations(dbInst.SQLDb, EmbeddedMigrations, "sql/migrations")
 	if errMigrate != nil {
@@ -356,39 +419,60 @@ func setupAlertSystem(ctx context.Context, dbInst *dbpkg.Connection, actionsInst
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
+	var cleanupOnce sync.Once
+	cleanupLogger := func() {}
+	cleanup := func() {
+		cleanupOnce.Do(func() {
+			cleanupLogger()
+		})
+	}
+	defer cleanup()
+
 	config := Configuration{}
 	_ = godotenv.Load()
 	errParseConfig := env.Parse(&config)
 	if errParseConfig != nil {
-		log.Fatal().Err(errParseConfig).Msg("Error parsing config")
+		log.Error().Err(errParseConfig).Msg("Error parsing config")
+		return 1
 	}
 	validatedConfig, errValidateConfig := validateConfiguration(config)
 	if errValidateConfig != nil {
-		log.Fatal().Err(errValidateConfig).Msg("Invalid runtime configuration")
+		log.Error().Err(errValidateConfig).Msg("Invalid runtime configuration")
+		return 1
 	}
 
-	cleanupLogger := setupLogger()
+	var errSetupLogger error
+	cleanupLogger, errSetupLogger = setupLogger(config.LogLevel)
+	if errSetupLogger != nil {
+		log.Error().Err(errSetupLogger).Msg("Error configuring logger")
+		return 1
+	}
 	if len(validatedConfig.cookieHashKey) != 32 && len(validatedConfig.cookieHashKey) != 64 {
 		log.Warn().Int("decoded_bytes", len(validatedConfig.cookieHashKey)).Msg("COOKIE_HASH_KEY_BASE64 uses a non-recommended securecookie hash key size; 32 or 64 bytes is recommended")
 	}
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
 
 	secureCookie := securecookie.New(validatedConfig.cookieHashKey, validatedConfig.cookieBlockKey)
 
 	superInst, errSupervisor := supervisor.New(ctx)
 	if errSupervisor != nil {
-		log.Fatal().Err(errSupervisor).Msg("Failed to create supervisor instance")
+		return startupFailure(cleanup, ctxCancel, errSupervisor, "Failed to create supervisor instance")
 	}
 
 	dbInst, errDB := setupDatabase(ctx, config)
 	if errDB != nil {
-		log.Fatal().Err(errDB).Msg("Failed to set up database")
+		return startupFailure(cleanup, ctxCancel, errDB, "Failed to set up database")
 	}
 
 	federationMTLS, settings, errFederation := setupFederationIdentity(ctx, dbInst, config)
 	if errFederation != nil {
-		log.Fatal().Err(errFederation).Msg("Failed to set up federation identity")
+		return startupFailure(cleanup, ctxCancel, errFederation, "Failed to set up federation identity")
 	}
 
 	modMgr := modmanager.New(dbInst)
@@ -416,15 +500,18 @@ func main() {
 	superAdapter := scheduler.NewSupervisorAdapter(superInst)
 	taskScheduler, errScheduler := scheduler.New(ctx, dbInst, actionsInst, actionsInst, superAdapter)
 	if errScheduler != nil {
-		log.Fatal().Err(errScheduler).Msg("Failed to create task scheduler")
+		return startupFailure(cleanup, ctxCancel, errScheduler, "Failed to create task scheduler")
 	}
 	errSchedulerStart := taskScheduler.Start()
 	if errSchedulerStart != nil {
-		log.Fatal().Err(errSchedulerStart).Msg("Failed to start task scheduler")
+		return startupFailure(cleanup, ctxCancel, errSchedulerStart, "Failed to start task scheduler")
 	}
 
 	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
-	setDetectedIPs(dbInst)
+	errSetDetectedIPs := setDetectedIPs(dbInst)
+	if errSetDetectedIPs != nil {
+		return startupFailure(cleanup, ctxCancel, errSetDetectedIPs, "Failed to detect startup IPs")
+	}
 
 	steamCache := steamcache.New()
 
@@ -433,7 +520,13 @@ func main() {
 	actionsInst.SetBackupProgressBroadcaster(wsInst)
 
 	router := chi.NewRouter()
-	xylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)
+	xylonaService, errXylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)
+	if errXylonaService != nil {
+		return startupFailure(cleanup, ctxCancel, errXylonaService, "Failed to create Xylona RPC service")
+	}
+	// Wire the already-constructed services together here so the startup
+	// sequence makes the dependency order explicit without pushing that
+	// cross-component wiring into the constructors.
 	xylonaService.SetSyncEngine(syncEngine)
 	xylonaService.SetScheduler(taskScheduler)
 	xylonaService.SetInstallBroadcaster(wsInst)
@@ -454,28 +547,22 @@ func main() {
 			rpc.NewUnaryTimeoutInterceptor(60*time.Second),
 		),
 	)
-	federationService := rpc.NewFederationService(ctx, dbInst, actionsInst, superInst, versionState)
+	federationService, errFederationService := rpc.NewFederationService(ctx, dbInst, actionsInst, superInst, versionState)
+	if errFederationService != nil {
+		return startupFailure(cleanup, ctxCancel, errFederationService, "Failed to create federation RPC service")
+	}
 	federationAPIPath, federationHandler := xylonaconnect.NewFederationHandler(federationService, connect.WithHandlerOptions())
 
 	frontendFS, errLoadFrontend := Frontend()
 	if errLoadFrontend != nil {
-		log.Fatal().Err(errLoadFrontend).Msg("Failed to load frontend")
+		return startupFailure(cleanup, ctxCancel, errLoadFrontend, "Failed to load frontend")
 	}
 
 	router.Use(middleware.RealIP)
 	router.Use(routerLogger)
 	router.Use(securityHeaders)
 	router.Use(gatekeeper.AuthRateLimiter())
-	router.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		errPing := dbInst.SQLDb.PingContext(r.Context())
-		if errPing != nil {
-			log.Error().Err(errPing).Msg("Health check failed")
-			http.Error(w, "unhealthy", http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
+	registerOperationalRoutes(router, dbInst.SQLDb)
 	registerMetricsRoute(router, config)
 	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
@@ -504,11 +591,14 @@ func main() {
 	router.Group(func(r chi.Router) {
 		r.Use(gatekeeper.RequireSessionAuth(dbInst, secureCookie))
 		r.Get("/api/backups/download/{gameServerId}/{backupId}", xylonaService.DownloadGameServerBackupArchive)
-		r.Post("/api/backups/upload", xylonaService.UploadGameServerBackupArchive)
 		r.Post("/api/file/get", actionsInst.StreamFileToUser)
 		r.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
-		r.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
-		r.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
+		r.Group(func(r chi.Router) {
+			r.Use(gatekeeper.RequireSameOriginFormRequests())
+			r.Post("/api/backups/upload", xylonaService.UploadGameServerBackupArchive)
+			r.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
+			r.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
+		})
 	})
 	router.HandleFunc("/*", handleSPAFunc(frontendFS))
 
@@ -546,8 +636,9 @@ func main() {
 	if errStopScheduler != nil {
 		log.Error().Err(errStopScheduler).Msg("Error stopping task scheduler")
 	}
-	cleanupLogger()
 	if startupFailed {
-		os.Exit(1)
+		return 1
 	}
+
+	return 0
 }

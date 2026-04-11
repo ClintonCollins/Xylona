@@ -389,7 +389,10 @@ import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import OperationProgressDialog from '@/components/game_servers/OperationProgressDialog.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
-import type { OperationContextFact, StepState, } from '@/components/game_servers/UpdateProgressPanel.types'
+import type {
+  OperationContextFact,
+  StepState,
+} from '@/components/game_servers/UpdateProgressPanel.types'
 import type { ServerSoftwareOperationEvent } from '@/components/game_servers/ServerSoftwareSelector.types'
 import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
@@ -745,7 +748,10 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('gameServerMetrics', onMetrics)
   XylonaEventBus.off('gameServerUpdateProgress', onUpdateProgress)
   XylonaEventBus.off('websocketConnected', onWebsocketReconnect)
-  XylonaEventBus.off('gameServerVersion')
+  XylonaEventBus.off('gameServersQueryInfo', onServerQueryInfo)
+  XylonaEventBus.off('gameServerStatus', onServerStatusUpdate)
+  XylonaEventBus.off('gameServerVersion', onServerVersionUpdate)
+  XylonaEventBus.off('gameServerConsoleOutput', onServerConsoleOutput)
   if (uptimeTicker !== null) {
     clearInterval(uptimeTicker)
     uptimeTicker = null
@@ -1144,23 +1150,25 @@ async function getGameServerOutput() {
   }
 }
 
+function onServerQueryInfo(allServersQueryInfo: AllServersQueryInfo) {
+  const queryInfo = allServersQueryInfo.servers[gameServerId.value]
+  if (queryInfo === undefined) {
+    return
+  }
+  switch (queryInfo.type) {
+    case ServerQuery_Type.Minecraft:
+      currentPlayerCount.value = queryInfo.minecraft.numberOfPlayers
+      maxPlayerCount.value = queryInfo.minecraft.maxPlayers
+      break
+    case ServerQuery_Type.Source:
+      currentPlayerCount.value = queryInfo.source.players
+      maxPlayerCount.value = queryInfo.source.maxPlayers
+      break
+  }
+}
+
 function listenForServerQueryInfo() {
-  XylonaEventBus.on('gameServersQueryInfo', (allServersQueryInfo: AllServersQueryInfo) => {
-    const queryInfo = allServersQueryInfo.servers[gameServerId.value]
-    if (queryInfo === undefined) {
-      return
-    }
-    switch (queryInfo.type) {
-      case ServerQuery_Type.Minecraft:
-        currentPlayerCount.value = queryInfo.minecraft.numberOfPlayers
-        maxPlayerCount.value = queryInfo.minecraft.maxPlayers
-        break
-      case ServerQuery_Type.Source:
-        currentPlayerCount.value = queryInfo.source.players
-        maxPlayerCount.value = queryInfo.source.maxPlayers
-        break
-    }
-  })
+  XylonaEventBus.on('gameServersQueryInfo', onServerQueryInfo)
 }
 
 function onWebsocketReconnect() {
@@ -1169,36 +1177,38 @@ function onWebsocketReconnect() {
   })
 }
 
+function onServerStatusUpdate(serverID: string, _serverName: string, serverStatus: Status) {
+  if (serverID !== gameServerId.value) {
+    return
+  }
+  gameServer.value.status = serverStatus
+}
+
+function onServerVersionUpdate(serverID: string, version: string, versionInfo?: VersionInfo) {
+  if (serverID !== gameServerId.value) {
+    return
+  }
+  gameServer.value.version = version
+  gameServer.value.versionInfo = versionInfo
+}
+
+function onServerConsoleOutput(serverID: string, output: string) {
+  if (serverID !== gameServerId.value) {
+    return
+  }
+  if (captureOperationOutput(output)) {
+    return
+  }
+  appendConsoleOutput(output)
+}
+
 function streamGameServerOutput() {
   // Listen for game server status changes.
-  XylonaEventBus.on(
-    'gameServerStatus',
-    (serverID: string, _serverName: string, serverStatus: Status) => {
-      if (serverID !== gameServerId.value) {
-        return
-      }
-      gameServer.value.status = serverStatus
-    },
-  )
-
-  XylonaEventBus.on('gameServerVersion', (serverID: string, version: string, versionInfo) => {
-    if (serverID !== gameServerId.value) {
-      return
-    }
-    gameServer.value.version = version
-    gameServer.value.versionInfo = versionInfo
-  })
+  XylonaEventBus.on('gameServerStatus', onServerStatusUpdate)
+  XylonaEventBus.on('gameServerVersion', onServerVersionUpdate)
 
   // Stream game server output.
-  XylonaEventBus.on('gameServerConsoleOutput', (serverID: string, output: string) => {
-    if (serverID !== gameServerId.value) {
-      return
-    }
-    if (captureOperationOutput(output)) {
-      return
-    }
-    appendConsoleOutput(output)
-  })
+  XylonaEventBus.on('gameServerConsoleOutput', onServerConsoleOutput)
 
   // Listen for update progress events before any initial websocket request so
   // an early send failure cannot skip the listener registration.

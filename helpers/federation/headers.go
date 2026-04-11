@@ -43,3 +43,23 @@ func GetActingIdentity(header http.Header) (string, string) {
 func ActingIsSuperUser(header http.Header) bool {
 	return strings.EqualFold(strings.TrimSpace(header.Get(ActingSuperHeader)), "true")
 }
+
+// CopyActingIdentityHeaders copies acting-identity headers when present.
+// It returns false when the source headers do not contain a complete identity.
+func CopyActingIdentityHeaders(dst http.Header, src http.Header) bool {
+	actingUserID, originNodeID := GetActingIdentity(src)
+	actingUserID = strings.TrimSpace(actingUserID)
+	originNodeID = strings.TrimSpace(originNodeID)
+	if actingUserID == "" || originNodeID == "" {
+		return false
+	}
+
+	dst.Set(ActingUserIDHeader, actingUserID)
+	dst.Set(OriginNodeIDHeader, originNodeID)
+	if ActingIsSuperUser(src) {
+		dst.Set(ActingSuperHeader, "true")
+	} else {
+		dst.Del(ActingSuperHeader)
+	}
+	return true
+}

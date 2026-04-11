@@ -2,6 +2,7 @@
 package gatekeeper
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -15,6 +16,10 @@ import (
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+type sessionUserContextKey string
+
+const sessionUserKey sessionUserContextKey = "session-user"
 
 // Session cookie names used by Xylona authentication.
 const (
@@ -32,6 +37,24 @@ var (
 type SessionCookies struct {
 	SessionID    string
 	SessionToken string
+}
+
+// WithUser stores an authenticated session user in the request context.
+func WithUser(ctx context.Context, user *models.User) context.Context {
+	return context.WithValue(ctx, sessionUserKey, user)
+}
+
+// UserFromContext returns the authenticated session user stored in context.
+func UserFromContext(ctx context.Context) (*models.User, bool) {
+	value := ctx.Value(sessionUserKey)
+	if value == nil {
+		return nil, false
+	}
+	user, ok := value.(*models.User)
+	if !ok || user == nil {
+		return nil, false
+	}
+	return user, true
 }
 
 // Cookies is a lightweight cookie lookup map.
@@ -56,11 +79,13 @@ func (c Cookies) Get(key string) (string, error) {
 }
 
 func getCookiesFromHeader(cookiesHeader string) Cookies {
-	cookies := strings.Fields(cookiesHeader)
+	cookies := strings.Split(cookiesHeader, ";")
 	cookiesMap := make(map[string]string)
 	for _, cookie := range cookies {
 		cookie = strings.TrimSpace(cookie)
-		cookie = strings.TrimSuffix(cookie, ";")
+		if cookie == "" {
+			continue
+		}
 		cookieParts := strings.SplitN(cookie, "=", 2)
 		if len(cookieParts) != 2 {
 			continue
@@ -170,12 +195,12 @@ func RequireSessionAuth(dbConn *db.Connection, sc *securecookie.SecureCookie) fu
 				http.Error(w, "unauthenticated", http.StatusUnauthorized)
 				return
 			}
-			_, errGetUser := GetUserFromSession(sessionCookies.SessionID, sessionCookies.SessionToken, dbConn, sc)
+			user, errGetUser := GetUserFromSession(sessionCookies.SessionID, sessionCookies.SessionToken, dbConn, sc)
 			if errGetUser != nil {
 				http.Error(w, "unauthenticated", http.StatusUnauthorized)
 				return
 			}
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(WithUser(r.Context(), user)))
 		})
 	}
 }

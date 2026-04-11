@@ -1,6 +1,6 @@
-import * as monaco from 'monaco-editor'
+type MonacoModule = typeof import('monaco-editor')
 
-export default () => {
+export default function registerMinecraftProperties(monaco: MonacoModule) {
   monaco.languages.register({ id: 'minecraft-properties' })
 
   monaco.languages.setLanguageConfiguration('minecraft-properties', {

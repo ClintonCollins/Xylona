@@ -1050,11 +1050,11 @@ async function updateExistingGame() {
   color: var(--xy-accent-hover);
 }
 
-.runtime-policy-toggle-indicator :deep(.q-icon) {
+.runtime-policy-toggle-indicator .q-icon {
   transition: transform 180ms ease-out;
 }
 
-.runtime-policy-toggle:hover .runtime-policy-toggle-indicator :deep(.q-icon) {
+.runtime-policy-toggle:hover .runtime-policy-toggle-indicator .q-icon {
   transform: scale(1.12);
 }
 
@@ -1062,7 +1062,7 @@ async function updateExistingGame() {
   .runtime-policy-panel-enter-active,
   .runtime-policy-panel-leave-active,
   .runtime-policy-toggle-indicator,
-  .runtime-policy-toggle-indicator :deep(.q-icon) {
+  .runtime-policy-toggle-indicator .q-icon {
     transition: none;
   }
 }
@@ -1769,15 +1769,6 @@ async function updateExistingGame() {
   color: var(--xy-text-primary);
 }
 
-/* Syntax highlight token colors */
-:deep(.cmd-hl-flag) {
-  color: var(--xy-accent);
-}
-
-:deep(.cmd-hl-binary) {
-  color: var(--xy-warning);
-}
-
 /* ---- Section Help Text ---- */
 
 .section-help {
@@ -2130,5 +2121,15 @@ async function updateExistingGame() {
     font-size: 0.72rem;
     padding-inline: 10px;
   }
+}
+</style>
+
+<style>
+.game-form-wrapper .cmd-hl-flag {
+  color: var(--xy-accent);
+}
+
+.game-form-wrapper .cmd-hl-binary {
+  color: var(--xy-warning);
 }
 </style>

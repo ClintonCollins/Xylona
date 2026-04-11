@@ -1,4 +1,6 @@
-// Package xycrypt provides encryption and Argon2id hashing helpers.
+// Package xycrypt provides AES-GCM helpers for stored secrets and Argon2id
+// hashing for non-password secret tokens. User passwords use bcrypt in the
+// auth and user RPC paths.
 package xycrypt
 
 import (
@@ -99,7 +101,8 @@ var (
 	ErrInvalidHashVersion = errors.New("invalid hash version")
 )
 
-// HashParameters defines the Argon2id settings used for password hashing.
+// HashParameters defines the Argon2id settings used for non-password secret
+// token hashing.
 type HashParameters struct {
 	keyLength       uint32
 	saltLength      uint32

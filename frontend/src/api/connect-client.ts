@@ -1,7 +1,16 @@
-import { createCallbackClient, createClient } from '@connectrpc/connect'
+import {
+  createCallbackClient,
+  createClient,
+  type CallbackClient,
+  type Client,
+} from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
 
 import { Xylona } from '@/proto/xylona_pb'
+
+const transportCache = new Map<string, ReturnType<typeof createConnectTransport>>()
+const unaryClientCache = new Map<string, Client<typeof Xylona>>()
+const callbackClientCache = new Map<string, CallbackClient<typeof Xylona>>()
 
 export function getXylonaApiBaseURL(nodeAddress: string = window.location.host): string {
   return nodeAddress === window.location.host
@@ -16,10 +25,35 @@ export function createXylonaTransport(nodeAddress: string = window.location.host
   })
 }
 
+function getCachedXylonaTransport(nodeAddress: string = window.location.host) {
+  const cachedTransport = transportCache.get(nodeAddress)
+  if (cachedTransport) {
+    return cachedTransport
+  }
+
+  const transport = createXylonaTransport(nodeAddress)
+  transportCache.set(nodeAddress, transport)
+  return transport
+}
+
 export function getXylonaClient(nodeAddress: string = window.location.host) {
-  return createClient(Xylona, createXylonaTransport(nodeAddress))
+  const cachedClient = unaryClientCache.get(nodeAddress)
+  if (cachedClient) {
+    return cachedClient
+  }
+
+  const client = createClient(Xylona, getCachedXylonaTransport(nodeAddress))
+  unaryClientCache.set(nodeAddress, client)
+  return client
 }
 
 export function getXylonaClientCallback(nodeAddress: string = window.location.host) {
-  return createCallbackClient(Xylona, createXylonaTransport(nodeAddress))
+  const cachedClient = callbackClientCache.get(nodeAddress)
+  if (cachedClient) {
+    return cachedClient
+  }
+
+  const client = createCallbackClient(Xylona, getCachedXylonaTransport(nodeAddress))
+  callbackClientCache.set(nodeAddress, client)
+  return client
 }

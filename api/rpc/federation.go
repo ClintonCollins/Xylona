@@ -55,10 +55,10 @@ func NewFederationService(
 	actionsInst *actions.Instance,
 	supervisorInst *supervisor.Instance,
 	versionState *versiontracker.VersionStateMap,
-) *FederationService {
+) (*FederationService, error) {
 	allPerms, errPerms := dbInst.GetAllPermissions()
 	if errPerms != nil {
-		log.Fatal().Err(errPerms).Msg("Failed to load permission IDs")
+		return nil, fmt.Errorf("rpc: load permission IDs: %w", errPerms)
 	}
 	permIDs := make([]string, len(allPerms))
 	for i, p := range allPerms {
@@ -72,7 +72,7 @@ func NewFederationService(
 		supervisorInst:   supervisorInst,
 		versionState:     versionState,
 		allPermissionIDs: permIDs,
-	}
+	}, nil
 }
 
 // Handshake returns local node metadata to an authenticated federation peer.
@@ -768,6 +768,16 @@ func (fs FederationService) EditRemoteServer(ctx context.Context, request *conne
 		incomingGameServer,
 		federation.ActingIsSuperUser(request.Header()),
 	)
+	game, errGame := fs.db.GetGameByID(gameServerModel.GameID)
+	if errGame != nil {
+		return nil, dbLookup(errGame)
+	}
+
+	errValidate := validateGameServerSubmission(game, gameServerModel, federation.ActingIsSuperUser(request.Header()))
+	if errValidate != nil {
+		return nil, errValidate
+	}
+
 	setter := helpers.GameServerModelToSetter(gameServerModel)
 	_, errUpdate := fs.db.UpdateGameServer(fs.db.DB, setter)
 	if errUpdate != nil {
