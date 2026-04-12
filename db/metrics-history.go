@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -10,9 +11,29 @@ import (
 // compatibility with SQLite's strftime() and datetime() functions.
 const sqliteDatetimeFormat = "2006-01-02 15:04:05"
 
+const sqliteDatetimePrefixLength = len(sqliteDatetimeFormat)
+
+const recordedAtComparableExpr = `replace(substr(recorded_at, 1, 19), 'T', ' ')`
+const recordedAtHourBucketExpr = `replace(substr(recorded_at, 1, 13), 'T', ' ')`
+const recordedAtMinuteSecondExpr = `substr(replace(recorded_at, 'T', ' '), 15, 5)`
+
 // fmtTime formats a time.Time as a SQLite-compatible datetime string.
 func fmtTime(t time.Time) string {
 	return t.UTC().Format(sqliteDatetimeFormat)
+}
+
+func parseMetricsRecordedAt(value string) (time.Time, error) {
+	if len(value) < sqliteDatetimePrefixLength {
+		return time.Time{}, fmt.Errorf("timestamp %q shorter than expected", value)
+	}
+
+	normalizedValue := strings.ReplaceAll(value[:sqliteDatetimePrefixLength], "T", " ")
+	parsedTime, errParse := time.Parse(sqliteDatetimeFormat, normalizedValue)
+	if errParse != nil {
+		return time.Time{}, fmt.Errorf("parse normalized timestamp %q: %w", normalizedValue, errParse)
+	}
+
+	return parsedTime.UTC(), nil
 }
 
 // NodeMetricsRow represents a row from the node_metrics_history table.
@@ -77,10 +98,16 @@ func (c *Connection) InsertGameServerMetricsHistory(row *GameServerMetricsRow) e
 
 // GetNodeMetricsHistory returns node metrics within the given time range.
 func (c *Connection) GetNodeMetricsHistory(nodeID string, since, until time.Time) ([]*NodeMetricsRow, error) {
-	rows, errQuery := c.SQLDb.QueryContext(c.ctx,
-		`SELECT id, node_id, cpu_percent, memory_percent, memory_used_bytes, memory_total_bytes, disk_percent, disk_used_bytes, disk_total_bytes, game_server_count, running_game_server_count, user_count, recorded_at FROM node_metrics_history WHERE node_id = ? AND recorded_at >= ? AND recorded_at <= ? ORDER BY recorded_at ASC`,
-		nodeID, fmtTime(since), fmtTime(until),
+	query := fmt.Sprintf(
+		`SELECT id, node_id, cpu_percent, memory_percent, memory_used_bytes, memory_total_bytes, disk_percent, disk_used_bytes, disk_total_bytes, game_server_count, running_game_server_count, user_count, recorded_at
+		FROM node_metrics_history
+		WHERE node_id = ? AND %s >= ? AND %s <= ?
+		ORDER BY %s ASC`,
+		recordedAtComparableExpr,
+		recordedAtComparableExpr,
+		recordedAtComparableExpr,
 	)
+	rows, errQuery := c.SQLDb.QueryContext(c.ctx, query, nodeID, fmtTime(since), fmtTime(until))
 	if errQuery != nil {
 		return nil, fmt.Errorf("query node metrics history: %w", errQuery)
 	}
@@ -98,11 +125,11 @@ func (c *Connection) GetNodeMetricsHistory(nodeID string, since, until time.Time
 		if errScan != nil {
 			return nil, fmt.Errorf("scan node metrics history row: %w", errScan)
 		}
-		parsedTime, errParse := time.Parse(sqliteDatetimeFormat, recordedAtStr)
+		parsedTime, errParse := parseMetricsRecordedAt(recordedAtStr)
 		if errParse != nil {
 			return nil, fmt.Errorf("parse node metrics history timestamp: %w", errParse)
 		}
-		row.RecordedAt = parsedTime.UTC()
+		row.RecordedAt = parsedTime
 		results = append(results, row)
 	}
 	errRows := rows.Err()
@@ -115,10 +142,16 @@ func (c *Connection) GetNodeMetricsHistory(nodeID string, since, until time.Time
 
 // GetGameServerMetricsHistory returns game server metrics within the given time range.
 func (c *Connection) GetGameServerMetricsHistory(gameServerID string, since, until time.Time) ([]*GameServerMetricsRow, error) {
-	rows, errQuery := c.SQLDb.QueryContext(c.ctx,
-		`SELECT id, game_server_id, cpu_percent, memory_bytes, memory_percent, disk_usage_bytes, io_read_rate, io_write_rate, connection_count, player_count, recorded_at FROM game_server_metrics_history WHERE game_server_id = ? AND recorded_at >= ? AND recorded_at <= ? ORDER BY recorded_at ASC`,
-		gameServerID, fmtTime(since), fmtTime(until),
+	query := fmt.Sprintf(
+		`SELECT id, game_server_id, cpu_percent, memory_bytes, memory_percent, disk_usage_bytes, io_read_rate, io_write_rate, connection_count, player_count, recorded_at
+		FROM game_server_metrics_history
+		WHERE game_server_id = ? AND %s >= ? AND %s <= ?
+		ORDER BY %s ASC`,
+		recordedAtComparableExpr,
+		recordedAtComparableExpr,
+		recordedAtComparableExpr,
 	)
+	rows, errQuery := c.SQLDb.QueryContext(c.ctx, query, gameServerID, fmtTime(since), fmtTime(until))
 	if errQuery != nil {
 		return nil, fmt.Errorf("query game server metrics history: %w", errQuery)
 	}
@@ -136,11 +169,11 @@ func (c *Connection) GetGameServerMetricsHistory(gameServerID string, since, unt
 		if errScan != nil {
 			return nil, fmt.Errorf("scan game server metrics history row: %w", errScan)
 		}
-		parsedTime, errParse := time.Parse(sqliteDatetimeFormat, recordedAtStr)
+		parsedTime, errParse := parseMetricsRecordedAt(recordedAtStr)
 		if errParse != nil {
 			return nil, fmt.Errorf("parse game server metrics history timestamp: %w", errParse)
 		}
-		row.RecordedAt = parsedTime.UTC()
+		row.RecordedAt = parsedTime
 		results = append(results, row)
 	}
 	errRows := rows.Err()
@@ -151,11 +184,14 @@ func (c *Connection) GetGameServerMetricsHistory(gameServerID string, since, unt
 	return results, nil
 }
 
-// DeleteNodeMetricsHistoryOlderThan deletes node metrics older than the given time.
-func (c *Connection) DeleteNodeMetricsHistoryOlderThan(olderThan time.Time) (int64, error) {
-	result, errExec := c.SQLDb.ExecContext(c.ctx,
-		`DELETE FROM node_metrics_history WHERE recorded_at < ?`, fmtTime(olderThan),
+// DeleteNodeMinuteMetricsHistoryOlderThan deletes minute-granularity node metrics older than the given time.
+func (c *Connection) DeleteNodeMinuteMetricsHistoryOlderThan(olderThan time.Time) (int64, error) {
+	query := fmt.Sprintf(
+		`DELETE FROM node_metrics_history WHERE %s < ? AND %s != '00:00'`,
+		recordedAtComparableExpr,
+		recordedAtMinuteSecondExpr,
 	)
+	result, errExec := c.SQLDb.ExecContext(c.ctx, query, fmtTime(olderThan))
 	if errExec != nil {
 		return 0, fmt.Errorf("delete old node metrics history: %w", errExec)
 	}
@@ -166,11 +202,28 @@ func (c *Connection) DeleteNodeMetricsHistoryOlderThan(olderThan time.Time) (int
 	return rowsAffected, nil
 }
 
+// DeleteNodeHourlyMetricsHistoryOlderThan deletes hourly node metrics older than the given time.
+func (c *Connection) DeleteNodeHourlyMetricsHistoryOlderThan(olderThan time.Time) (int64, error) {
+	query := fmt.Sprintf(
+		`DELETE FROM node_metrics_history WHERE %s < ? AND %s = '00:00'`,
+		recordedAtComparableExpr,
+		recordedAtMinuteSecondExpr,
+	)
+	result, errExec := c.SQLDb.ExecContext(c.ctx, query, fmtTime(olderThan))
+	if errExec != nil {
+		return 0, fmt.Errorf("delete old hourly node metrics history: %w", errExec)
+	}
+	rowsAffected, errRowsAffected := result.RowsAffected()
+	if errRowsAffected != nil {
+		return 0, fmt.Errorf("delete old hourly node metrics history rows affected: %w", errRowsAffected)
+	}
+	return rowsAffected, nil
+}
+
 // DeleteGameServerMetricsHistoryOlderThan deletes game server metrics older than the given time.
 func (c *Connection) DeleteGameServerMetricsHistoryOlderThan(olderThan time.Time) (int64, error) {
-	result, errExec := c.SQLDb.ExecContext(c.ctx,
-		`DELETE FROM game_server_metrics_history WHERE recorded_at < ?`, fmtTime(olderThan),
-	)
+	query := fmt.Sprintf(`DELETE FROM game_server_metrics_history WHERE %s < ?`, recordedAtComparableExpr)
+	result, errExec := c.SQLDb.ExecContext(c.ctx, query, fmtTime(olderThan))
 	if errExec != nil {
 		return 0, fmt.Errorf("delete old game server metrics history: %w", errExec)
 	}
@@ -185,7 +238,7 @@ func (c *Connection) DeleteGameServerMetricsHistoryOlderThan(olderThan time.Time
 // then deletes the original minute-level rows.
 func (c *Connection) RollupNodeMetricsToHourly(cutoff time.Time) error {
 	cutoffStr := fmtTime(cutoff)
-	_, errExec := c.SQLDb.ExecContext(c.ctx,
+	insertQuery := fmt.Sprintf(
 		`INSERT INTO node_metrics_history (id, node_id, cpu_percent, memory_percent, memory_used_bytes, memory_total_bytes, disk_percent, disk_used_bytes, disk_total_bytes, game_server_count, running_game_server_count, user_count, recorded_at)
 		SELECT
 			lower(hex(randomblob(16))),
@@ -200,23 +253,29 @@ func (c *Connection) RollupNodeMetricsToHourly(cutoff time.Time) error {
 			MAX(game_server_count),
 			MAX(running_game_server_count),
 			MAX(user_count),
-			strftime('%Y-%m-%d %H:00:00', recorded_at)
+			%s || ':00:00'
 		FROM node_metrics_history
-		WHERE recorded_at < ?
-		GROUP BY node_id, strftime('%Y-%m-%d %H', recorded_at)
-		HAVING COUNT(*) > 1`,
-		cutoffStr,
+		WHERE %s < ? AND %s != '00:00'
+		GROUP BY node_id, %s
+		`,
+		recordedAtHourBucketExpr,
+		recordedAtComparableExpr,
+		recordedAtMinuteSecondExpr,
+		recordedAtHourBucketExpr,
 	)
+	_, errExec := c.SQLDb.ExecContext(c.ctx, insertQuery, cutoffStr)
 	if errExec != nil {
 		return fmt.Errorf("roll up node metrics to hourly: %w", errExec)
 	}
 
 	// Delete the original fine-grained rows that were rolled up.
 	// Keep only the hourly aggregates (those with :00:00 seconds).
-	_, errDelete := c.SQLDb.ExecContext(c.ctx,
-		`DELETE FROM node_metrics_history WHERE recorded_at < ? AND strftime('%M:%S', recorded_at) != '00:00'`,
-		cutoffStr,
+	deleteQuery := fmt.Sprintf(
+		`DELETE FROM node_metrics_history WHERE %s < ? AND %s != '00:00'`,
+		recordedAtComparableExpr,
+		recordedAtMinuteSecondExpr,
 	)
+	_, errDelete := c.SQLDb.ExecContext(c.ctx, deleteQuery, cutoffStr)
 	if errDelete != nil {
 		return fmt.Errorf("delete rolled-up node metrics history: %w", errDelete)
 	}
@@ -226,7 +285,7 @@ func (c *Connection) RollupNodeMetricsToHourly(cutoff time.Time) error {
 // RollupGameServerMetricsToHourly aggregates minute-granularity data older than cutoff into hourly averages.
 func (c *Connection) RollupGameServerMetricsToHourly(cutoff time.Time) error {
 	cutoffStr := fmtTime(cutoff)
-	_, errExec := c.SQLDb.ExecContext(c.ctx,
+	insertQuery := fmt.Sprintf(
 		`INSERT INTO game_server_metrics_history (id, game_server_id, cpu_percent, memory_bytes, memory_percent, disk_usage_bytes, io_read_rate, io_write_rate, connection_count, player_count, recorded_at)
 		SELECT
 			lower(hex(randomblob(16))),
@@ -239,21 +298,27 @@ func (c *Connection) RollupGameServerMetricsToHourly(cutoff time.Time) error {
 			AVG(io_write_rate),
 			MAX(connection_count),
 			MAX(player_count),
-			strftime('%Y-%m-%d %H:00:00', recorded_at)
+			%s || ':00:00'
 		FROM game_server_metrics_history
-		WHERE recorded_at < ?
-		GROUP BY game_server_id, strftime('%Y-%m-%d %H', recorded_at)
-		HAVING COUNT(*) > 1`,
-		cutoffStr,
+		WHERE %s < ? AND %s != '00:00'
+		GROUP BY game_server_id, %s
+		`,
+		recordedAtHourBucketExpr,
+		recordedAtComparableExpr,
+		recordedAtMinuteSecondExpr,
+		recordedAtHourBucketExpr,
 	)
+	_, errExec := c.SQLDb.ExecContext(c.ctx, insertQuery, cutoffStr)
 	if errExec != nil {
 		return fmt.Errorf("roll up game server metrics to hourly: %w", errExec)
 	}
 
-	_, errDelete := c.SQLDb.ExecContext(c.ctx,
-		`DELETE FROM game_server_metrics_history WHERE recorded_at < ? AND strftime('%M:%S', recorded_at) != '00:00'`,
-		cutoffStr,
+	deleteQuery := fmt.Sprintf(
+		`DELETE FROM game_server_metrics_history WHERE %s < ? AND %s != '00:00'`,
+		recordedAtComparableExpr,
+		recordedAtMinuteSecondExpr,
 	)
+	_, errDelete := c.SQLDb.ExecContext(c.ctx, deleteQuery, cutoffStr)
 	if errDelete != nil {
 		return fmt.Errorf("delete rolled-up game server metrics history: %w", errDelete)
 	}

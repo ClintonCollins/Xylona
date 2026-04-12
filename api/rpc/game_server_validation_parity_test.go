@@ -165,7 +165,7 @@ func makeValidationParityFixture() validationParityFixture {
 }
 
 func int64Ptr(v int64) *int64 {
-	return &v
+	return new(v)
 }
 
 func assertValidationParityResult(t *testing.T, err error, expected string) {

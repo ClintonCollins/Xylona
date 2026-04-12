@@ -172,21 +172,6 @@ func (mr *MetricsRecorder) recordGameServerMetrics() {
 func (mr *MetricsRecorder) cleanupAndRollup() {
 	now := time.Now().UTC()
 
-	// Delete minute-level data older than 7 days.
-	deletedNode, errDeleteNode := mr.db.DeleteNodeMetricsHistoryOlderThan(now.Add(-minuteRetention))
-	if errDeleteNode != nil {
-		log.Error().Err(errDeleteNode).Msg("Failed to delete old node metrics history")
-	} else if deletedNode > 0 {
-		log.Debug().Int64("deleted", deletedNode).Msg("Cleaned up old node metrics history rows")
-	}
-
-	deletedGS, errDeleteGS := mr.db.DeleteGameServerMetricsHistoryOlderThan(now.Add(-hourlyRetention))
-	if errDeleteGS != nil {
-		log.Error().Err(errDeleteGS).Msg("Failed to delete old game server metrics history")
-	} else if deletedGS > 0 {
-		log.Debug().Int64("deleted", deletedGS).Msg("Cleaned up old game server metrics history rows")
-	}
-
 	// Rollup minute-level data older than 24h to hourly aggregates.
 	errRollupNode := mr.db.RollupNodeMetricsToHourly(now.Add(-rollupCutoff))
 	if errRollupNode != nil {
@@ -196,5 +181,27 @@ func (mr *MetricsRecorder) cleanupAndRollup() {
 	errRollupGS := mr.db.RollupGameServerMetricsToHourly(now.Add(-rollupCutoff))
 	if errRollupGS != nil {
 		log.Error().Err(errRollupGS).Msg("Failed to rollup game server metrics to hourly")
+	}
+
+	// Delete minute-level node data older than 7 days after rollup has had a chance to preserve it as hourly history.
+	deletedNodeMinute, errDeleteNodeMinute := mr.db.DeleteNodeMinuteMetricsHistoryOlderThan(now.Add(-minuteRetention))
+	if errDeleteNodeMinute != nil {
+		log.Error().Err(errDeleteNodeMinute).Msg("Failed to delete old minute-level node metrics history")
+	} else if deletedNodeMinute > 0 {
+		log.Debug().Int64("deleted", deletedNodeMinute).Msg("Cleaned up old minute-level node metrics history rows")
+	}
+
+	deletedNodeHourly, errDeleteNodeHourly := mr.db.DeleteNodeHourlyMetricsHistoryOlderThan(now.Add(-hourlyRetention))
+	if errDeleteNodeHourly != nil {
+		log.Error().Err(errDeleteNodeHourly).Msg("Failed to delete old hourly node metrics history")
+	} else if deletedNodeHourly > 0 {
+		log.Debug().Int64("deleted", deletedNodeHourly).Msg("Cleaned up old hourly node metrics history rows")
+	}
+
+	deletedGS, errDeleteGS := mr.db.DeleteGameServerMetricsHistoryOlderThan(now.Add(-hourlyRetention))
+	if errDeleteGS != nil {
+		log.Error().Err(errDeleteGS).Msg("Failed to delete old game server metrics history")
+	} else if deletedGS > 0 {
+		log.Debug().Int64("deleted", deletedGS).Msg("Cleaned up old game server metrics history rows")
 	}
 }
