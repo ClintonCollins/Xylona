@@ -4,6 +4,7 @@ package db
 
 import (
 	"fmt"
+	"math"
 	"os"
 
 	"golang.org/x/sys/unix"
@@ -37,8 +38,7 @@ func unlockFile(file *os.File) error {
 
 func fileDescriptor(file *os.File) (int, error) {
 	fd := file.Fd()
-	maxInt := int(^uint(0) >> 1)
-	if fd > uintptr(maxInt) {
+	if fd > uintptr(math.MaxInt) {
 		return 0, fmt.Errorf(`file descriptor %d exceeds int range`, fd)
 	}
 

@@ -51,7 +51,12 @@ func listen(endpoint string) (net.Listener, func() error, error) {
 
 func dialContext(ctx context.Context, endpoint string) (net.Conn, error) {
 	dialer := net.Dialer{}
-	return dialer.DialContext(ctx, `unix`, endpoint)
+	conn, errDial := dialer.DialContext(ctx, `unix`, endpoint)
+	if errDial != nil {
+		return nil, fmt.Errorf(`adminipc: dial unix socket: %w`, errDial)
+	}
+
+	return conn, nil
 }
 
 func closeListener(listener net.Listener) error {
