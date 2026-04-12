@@ -1440,6 +1440,12 @@ func TestRestoreGameServerBackupPreservesNonWritableDirectoryPermissions(t *test
 	if errMkdir != nil {
 		t.Fatalf("MkdirAll(protected-dir) error = %v", errMkdir)
 	}
+	t.Cleanup(func() {
+		errChmod := os.Chmod(protectedDirectory, 0o700) //nolint:gosec // test cleanup needs owner write+execute on a directory
+		if errChmod != nil && !errors.Is(errChmod, os.ErrNotExist) {
+			t.Errorf("cleanup Chmod(protected-dir) error = %v", errChmod)
+		}
+	})
 	errWrite := os.WriteFile(filepath.Join(protectedDirectory, "keep.txt"), []byte("original"), 0o600)
 	if errWrite != nil {
 		t.Fatalf("WriteFile(protected-dir/keep.txt) error = %v", errWrite)
@@ -1512,6 +1518,12 @@ func TestRestoreGameServerBackupExactPreservesNonWritableDirectoryPermissionsAft
 	if errMkdir != nil {
 		t.Fatalf("MkdirAll(protected-dir) error = %v", errMkdir)
 	}
+	t.Cleanup(func() {
+		errChmod := os.Chmod(protectedDirectory, 0o700) //nolint:gosec // test cleanup needs owner write+execute on a directory
+		if errChmod != nil && !errors.Is(errChmod, os.ErrNotExist) {
+			t.Errorf("cleanup Chmod(protected-dir) error = %v", errChmod)
+		}
+	})
 	errWrite := os.WriteFile(filepath.Join(protectedDirectory, "keep.txt"), []byte("original"), 0o600)
 	if errWrite != nil {
 		t.Fatalf("WriteFile(protected-dir/keep.txt) error = %v", errWrite)
@@ -1548,6 +1560,56 @@ func TestRestoreGameServerBackupExactPreservesNonWritableDirectoryPermissionsAft
 	}
 	if string(restoredContents) != "archived" {
 		t.Fatalf("protected-dir/keep.txt = %q, want %q", string(restoredContents), "archived")
+	}
+}
+
+func TestCleanupRestoreStagingDirRemovesUnreadableDirectories(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permission assertions are not reliable on Windows")
+	}
+
+	rootParent := t.TempDir()
+	stagingDir := filepath.Join(rootParent, "restore-staging")
+	errMkdir := os.MkdirAll(stagingDir, 0o700)
+	if errMkdir != nil {
+		t.Fatalf("MkdirAll(stagingDir) error = %v", errMkdir)
+	}
+
+	protectedDirectory := filepath.Join(stagingDir, "protected-dir")
+	errMkdir = os.MkdirAll(protectedDirectory, 0o700)
+	if errMkdir != nil {
+		t.Fatalf("MkdirAll(protected-dir) error = %v", errMkdir)
+	}
+
+	protectedFilePath := filepath.Join(protectedDirectory, "keep.txt")
+	errWrite := os.WriteFile(protectedFilePath, []byte("archived"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(protected-dir/keep.txt) error = %v", errWrite)
+	}
+
+	errChmod := os.Chmod(protectedDirectory, 0o000)
+	if errChmod != nil {
+		t.Fatalf("Chmod(protected-dir) error = %v", errChmod)
+	}
+
+	t.Cleanup(func() {
+		// #nosec G302 -- test cleanup needs owner access to remove the temp directory after failure
+		errCleanup := os.Chmod(protectedDirectory, 0o700)
+		if errCleanup != nil && !errors.Is(errCleanup, os.ErrNotExist) {
+			t.Errorf("cleanup Chmod(protected-dir) error = %v", errCleanup)
+		}
+	})
+
+	errCleanup := cleanupRestoreStagingDir(stagingDir)
+	if errCleanup != nil {
+		t.Fatalf("cleanupRestoreStagingDir() error = %v", errCleanup)
+	}
+
+	_, errStat := os.Stat(stagingDir)
+	if !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat(stagingDir) error = %v, want %v", errStat, os.ErrNotExist)
 	}
 }
 

@@ -103,8 +103,13 @@ func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, e
 	if err != nil {
 		return nil, err
 	}
-	if cmd.currentCMD == nil && !preparedCommand.InternalCommand {
-		return nil, fmt.Errorf("%s", cmd.GetOutputBuffer())
+	if !preparedCommand.InternalCommand {
+		cmd.RLock()
+		currentCMDNil := cmd.currentCMD == nil
+		cmd.RUnlock()
+		if currentCMDNil {
+			return nil, fmt.Errorf("%s", cmd.GetOutputBuffer())
+		}
 	}
 	return cmd, nil
 }
@@ -112,7 +117,10 @@ func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, e
 // Stop requests that the command shut down gracefully, then forces cancelation on timeout.
 func (c *Command) Stop(stopInputCommand string) {
 	c.intentionalStop.Store(true)
-	if c.currentCMD == nil {
+	c.RLock()
+	currentCMD := c.currentCMD
+	c.RUnlock()
+	if currentCMD == nil {
 		return
 	}
 	c.sendJobNotification(MessageStoppingServer)
@@ -123,10 +131,10 @@ func (c *Command) Stop(stopInputCommand string) {
 			log.Error().Err(errSend).Msg("Error sending stop command")
 		}
 	} else if runtime.GOOS != "windows" {
-		errInterrupt := c.currentCMD.Process.Signal(os.Interrupt)
+		errInterrupt := currentCMD.Process.Signal(os.Interrupt)
 		if errInterrupt != nil {
 			log.Error().Err(errInterrupt).Msg("Error interrupting process")
-			errTerm := c.currentCMD.Process.Signal(syscall.SIGTERM)
+			errTerm := currentCMD.Process.Signal(syscall.SIGTERM)
 			if errTerm != nil {
 				log.Error().Err(errTerm).Msg("Error terminating process")
 			}
@@ -226,11 +234,14 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 	}
 
 	// If it's not an internal command, we need to run the command.
-	if command.currentCMD == nil {
+	command.RLock()
+	currentCMD := command.currentCMD
+	command.RUnlock()
+	if currentCMD == nil {
 		return
 	}
-	fullCommandStr := fmt.Sprintf("%s %s", command.currentCMD.Path, strings.Join(command.currentCMD.Args, " "))
-	err := command.currentCMD.Start()
+	fullCommandStr := fmt.Sprintf("%s %s", currentCMD.Path, strings.Join(currentCMD.Args, " "))
+	err := currentCMD.Start()
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to start command.")
 		command.sendJobNotification(err.Error())
@@ -254,8 +265,8 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 		command.runAfterStartup(command)
 	}
 
-	errWait := command.currentCMD.Wait()
-	exitCode := extractExitCode(command.currentCMD, errWait)
+	errWait := currentCMD.Wait()
+	exitCode := extractExitCode(currentCMD, errWait)
 	if errWait != nil {
 		checkErrorAccessDenied(errWait, command)
 		log.Debug().Err(errWait).Msg("Error waiting for command.")
@@ -274,6 +285,8 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 	}
 
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")
+	oldStatus := command.Status()
+	command.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
 	command.Lock()
 	command.currentCMD = nil
 	command.status = xylona.Status_OFFLINE
@@ -286,7 +299,10 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*Command, error) {
 	persistentCommand, exists := inst.runningCommands[preparedCommand.ID]
 	if exists {
-		if persistentCommand.currentCMD != nil {
+		persistentCommand.RLock()
+		commandAlreadyRunning := persistentCommand.currentCMD != nil
+		persistentCommand.RUnlock()
+		if commandAlreadyRunning {
 			return nil, ErrCommandAlreadyRunning
 		}
 	}

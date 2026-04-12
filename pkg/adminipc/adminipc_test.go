@@ -149,6 +149,22 @@ func TestEndpointHashRespectsPlatformPathCaseSensitivity(t *testing.T) {
 	}
 }
 
+func TestResolveEndpointUsesDatabaseDirectoryOnUnix(t *testing.T) {
+	if runtime.GOOS == `windows` {
+		t.Skip(`unix-only socket path assertion`)
+	}
+
+	dbPath := prepareAdminIPCTestDBPath(t, `adminipc-endpoint-dir.sqlite`)
+	endpoint, errResolve := resolveEndpoint(dbPath)
+	if errResolve != nil {
+		t.Fatalf(`resolveEndpoint() error = %v`, errResolve)
+	}
+
+	if filepath.Dir(endpoint) != filepath.Dir(dbPath) {
+		t.Fatalf(`resolveEndpoint() dir = %q, want %q`, filepath.Dir(endpoint), filepath.Dir(dbPath))
+	}
+}
+
 type testXylonaHandler struct {
 	xylonaconnect.UnimplementedXylonaHandler
 

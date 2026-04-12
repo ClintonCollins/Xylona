@@ -6,15 +6,14 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 func TestRunBackgroundTaskRecoversAndLogsPanic(t *testing.T) {
 	var logOutput bytes.Buffer
-	previousLogger := log.Logger
-	log.Logger = zerolog.New(&logOutput).Level(zerolog.DebugLevel)
+	logger := zerolog.New(&logOutput).Level(zerolog.DebugLevel)
+	previousLogger := backgroundTaskLogger.Swap(&logger)
 	t.Cleanup(func() {
-		log.Logger = previousLogger
+		backgroundTaskLogger.Store(previousLogger)
 	})
 
 	runBackgroundTask("test-job", "tick", map[string]string{

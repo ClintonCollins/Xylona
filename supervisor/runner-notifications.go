@@ -9,8 +9,6 @@ import (
 
 func (c *Command) closeJobNotification() {
 	c.sendJobNotification(MessageStoppedServer)
-	oldStatus := c.Status()
-	c.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
 }
 
 func (c *Command) sendJobStatusNotification(oldStatus, newStatus xylona.Status) {

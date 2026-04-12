@@ -2,7 +2,9 @@
 
 package adminipc
 
-import "path/filepath"
+import (
+	"path/filepath"
+)
 
 func endpointForResolvedDatabasePath(resolvedDBPath string) string {
 	return filepath.Join(filepath.Dir(resolvedDBPath), `.xylona-admin-`+endpointHash(resolvedDBPath)+`.sock`)

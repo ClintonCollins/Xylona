@@ -34,11 +34,13 @@ func TestSetupCmdSetsExplicitChildEnvironment(t *testing.T) {
 }
 
 func TestSetupCmdFiltersSecretsFromChildEnvironment(t *testing.T) {
+	tmpRoot := t.TempDir()
+
 	t.Setenv("PATH", "/usr/bin")
 	t.Setenv("LANG", "en_US.UTF-8")
 	t.Setenv("LC_ALL", "en_GB.UTF-8")
 	t.Setenv("HOME", "/home/clinton")
-	t.Setenv("TMPDIR", "/tmp/xylona")
+	t.Setenv("TMPDIR", tmpRoot)
 	t.Setenv("USERPROFILE", `C:\Users\clinton`)
 	t.Setenv("APPDATA", `C:\Users\clinton\AppData\Roaming`)
 	t.Setenv("LOCALAPPDATA", `C:\Users\clinton\AppData\Local`)
@@ -50,7 +52,7 @@ func TestSetupCmdFiltersSecretsFromChildEnvironment(t *testing.T) {
 	t.Setenv("PATHEXT", ".COM;.EXE;.BAT;.CMD")
 	t.Setenv("JWT_SECRET_KEY_BASE64", "jwt-secret")
 	t.Setenv("ENCRYPTION_KEY_BASE64", "encryption-secret")
-	t.Setenv("DB_FILE_PATH", filepath.Join(t.TempDir(), "data.sqlite"))
+	t.Setenv("DB_FILE_PATH", filepath.Join(tmpRoot, "data.sqlite"))
 	t.Setenv("COOKIE_HASH_KEY_BASE64", "cookie-hash-secret")
 	t.Setenv("COOKIE_BLOCK_KEY_BASE64", "cookie-block-secret")
 
@@ -88,6 +90,8 @@ func TestSetupCmdFiltersSecretsFromChildEnvironment(t *testing.T) {
 }
 
 func TestSetupCmdKeepsAllowedEnvironmentEntries(t *testing.T) {
+	tmpRoot := t.TempDir()
+
 	t.Setenv("PATH", "/usr/bin")
 	t.Setenv("LANG", "en_US.UTF-8")
 	t.Setenv("LC_ALL", "en_GB.UTF-8")
@@ -105,7 +109,7 @@ func TestSetupCmdKeepsAllowedEnvironmentEntries(t *testing.T) {
 		t.Setenv("TMP", `C:\Users\clinton\AppData\Local\Temp`)
 	case RuntimeLinux, RuntimeDarwin, RuntimeUnknown:
 		t.Setenv("HOME", "/home/clinton")
-		t.Setenv("TMPDIR", "/tmp/xylona")
+		t.Setenv("TMPDIR", tmpRoot)
 	}
 
 	inst, errNew := New(context.Background())

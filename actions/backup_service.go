@@ -495,7 +495,13 @@ func (inst *Instance) RestoreGameServerBackup(
 		return fmt.Errorf("actions: create restore staging directory: %w", errTemp)
 	}
 	defer func() {
-		_ = os.RemoveAll(stagingDir)
+		errCleanup := cleanupRestoreStagingDir(stagingDir)
+		if errCleanup != nil {
+			log.Warn().
+				Err(errCleanup).
+				Str("staging_dir", stagingDir).
+				Msg("Failed to clean restore staging directory")
+		}
 	}()
 
 	inst.broadcastBackupProgress(
@@ -1464,6 +1470,71 @@ func applyBackupRestore(stagingDirectory string, gameServerDirectory string, res
 	default:
 		return fmt.Errorf("actions: unsupported restore mode: %s", restoreMode.String())
 	}
+}
+
+func cleanupRestoreStagingDir(stagingDir string) error {
+	errPrepare := makeRestorePathTreeRemovable(stagingDir)
+	errRemove := os.RemoveAll(stagingDir)
+	if errors.Is(errRemove, os.ErrNotExist) {
+		errRemove = nil
+	}
+	if errPrepare != nil || errRemove != nil {
+		return errors.Join(errPrepare, errRemove)
+	}
+
+	return nil
+}
+
+func makeRestorePathTreeRemovable(rootPath string) error {
+	pathsToVisit := []string{rootPath}
+	for len(pathsToVisit) > 0 {
+		lastIndex := len(pathsToVisit) - 1
+		currentPath := pathsToVisit[lastIndex]
+		pathsToVisit = pathsToVisit[:lastIndex]
+
+		info, errLstat := os.Lstat(currentPath)
+		if errLstat != nil {
+			if errors.Is(errLstat, os.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("actions: inspect restore cleanup path: %w", errLstat)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+
+		perm := info.Mode().Perm()
+		if info.IsDir() {
+			perm |= 0o700
+		} else {
+			perm |= 0o600
+		}
+
+		errChmod := os.Chmod(currentPath, perm)
+		if errChmod != nil {
+			if errors.Is(errChmod, os.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("actions: chmod restore cleanup path: %w", errChmod)
+		}
+		if !info.IsDir() {
+			continue
+		}
+
+		entries, errReadDir := os.ReadDir(currentPath)
+		if errReadDir != nil {
+			if errors.Is(errReadDir, os.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("actions: read restore cleanup path: %w", errReadDir)
+		}
+
+		for _, entry := range entries {
+			pathsToVisit = append(pathsToVisit, filepath.Join(currentPath, entry.Name()))
+		}
+	}
+
+	return nil
 }
 
 func syncBackupOverlay(stagingDirectory string, gameServerDirectory string) error {

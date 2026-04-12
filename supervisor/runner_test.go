@@ -336,12 +336,16 @@ func TestStatusChangeEventPublished(t *testing.T) {
 	// Use prepareCommandProcess directly to avoid a pre-existing race
 	// in StartCommand when very-short-lived processes exit before
 	// StartCommand can read currentCMD.
+	done := make(chan struct{})
 	pc := PreparedCommand{
 		ID:          "status-test-server",
 		NodeID:      "test-node-3",
 		BaseCommand: baseCommand,
 		Args:        args,
 		Status:      xylona.Status_ONLINE,
+		CallbackFunction: func(_ *Command) {
+			close(done)
+		},
 	}
 
 	_, errStart := inst.prepareCommandProcess(pc)
@@ -349,11 +353,18 @@ func TestStatusChangeEventPublished(t *testing.T) {
 		t.Fatalf("failed to start command: %v", errStart)
 	}
 
-	// Collect status change events. We expect at least:
+	// Collect status change events. We expect exactly:
 	// 1. OFFLINE -> ONLINE (server started)
-	// 2. ONLINE -> OFFLINE (server stopped / output reader finished)
+	// 2. ONLINE -> OFFLINE (server stopped)
 	events := make([]eventbus.StatusChangedEvent, 0)
 	deadline := time.After(10 * time.Second)
+	var drain <-chan time.Time
+	var drainTimer *time.Timer
+	defer func() {
+		if drainTimer != nil {
+			drainTimer.Stop()
+		}
+	}()
 
 	for {
 		select {
@@ -367,18 +378,20 @@ func TestStatusChangeEventPublished(t *testing.T) {
 				continue
 			}
 			events = append(events, statusEvt)
-			// After receiving the OFFLINE transition, we have enough.
-			if statusEvt.NewStatus == xylona.Status_OFFLINE.String() {
-				goto done
-			}
+		case <-done:
+			drainTimer = time.NewTimer(300 * time.Millisecond)
+			drain = drainTimer.C
+			done = nil
+		case <-drain:
+			goto done
 		case <-deadline:
 			t.Fatalf("timed out waiting for status events; received %d events: %+v", len(events), events)
 		}
 	}
 
 done:
-	if len(events) < 2 {
-		t.Fatalf("expected at least 2 status change events, got %d: %+v", len(events), events)
+	if len(events) != 2 {
+		t.Fatalf("expected exactly 2 status change events, got %d: %+v", len(events), events)
 	}
 
 	// Verify the startup transition.
