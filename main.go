@@ -469,9 +469,10 @@ func main() {
 }
 
 var (
-	rootCLIStdout  = io.Writer(os.Stdout)
-	rootCLIStderr  = io.Writer(os.Stderr)
-	runServiceFunc = runService
+	rootCLIStdout           = io.Writer(os.Stdout)
+	rootCLIStderr           = io.Writer(os.Stderr)
+	runServiceFunc          = runService
+	resolveCLIExecutableDir = os.Executable
 )
 
 func run(args []string) int {
@@ -772,20 +773,89 @@ func newRootCommand(serviceAction func() int) *cli.Command {
 }
 
 func resolveDefaultCLIUserDBPath(_ context.Context) (string, error) {
-	config := Configuration{}
-	_ = godotenv.Load()
-
-	errParseConfig := env.Parse(&config)
-	if errParseConfig != nil {
-		return ``, fmt.Errorf(`parse config for user command: %w`, errParseConfig)
+	dbPath, errResolveDBPath := resolveCLIUserDBPath()
+	if errResolveDBPath != nil {
+		return "", errResolveDBPath
 	}
 
-	resolvedDBPath, errResolveDBPath := dbpkg.ResolveDatabasePath(config.DBFilePath)
-	if errResolveDBPath != nil {
-		return ``, fmt.Errorf(`resolve database path for user command: %w`, errResolveDBPath)
+	resolvedDBPath, errResolveResolvedDBPath := dbpkg.ResolveDatabasePath(dbPath)
+	if errResolveResolvedDBPath != nil {
+		return ``, fmt.Errorf(`resolve database path for user command: %w`, errResolveResolvedDBPath)
 	}
 
 	return resolvedDBPath, nil
+}
+
+func resolveCLIUserDBPath() (string, error) {
+	processDBPath, processDBPathSet := os.LookupEnv("DB_FILE_PATH")
+	trimmedProcessDBPath := strings.TrimSpace(processDBPath)
+	if processDBPathSet && trimmedProcessDBPath != "" {
+		return trimmedProcessDBPath, nil
+	}
+
+	workingDirectory, errWorkingDirectory := os.Getwd()
+	if errWorkingDirectory != nil {
+		return "", fmt.Errorf("get current working directory for user command: %w", errWorkingDirectory)
+	}
+
+	cwdDBPath, foundCWDDBPath, errReadCWDDBPath := readCLIUserDBPathFromEnvFile(workingDirectory)
+	if errReadCWDDBPath != nil {
+		return "", errReadCWDDBPath
+	}
+	if foundCWDDBPath {
+		return cwdDBPath, nil
+	}
+
+	executablePath, errExecutablePath := resolveCLIExecutableDir()
+	if errExecutablePath == nil {
+		executableDirectory := filepath.Dir(executablePath)
+		if filepath.Clean(executableDirectory) != filepath.Clean(workingDirectory) {
+			executableDBPath, foundExecutableDBPath, errReadExecutableDBPath := readCLIUserDBPathFromEnvFile(executableDirectory)
+			if errReadExecutableDBPath != nil {
+				return "", errReadExecutableDBPath
+			}
+			if foundExecutableDBPath {
+				return executableDBPath, nil
+			}
+		}
+
+		executableDefaultDBPath := filepath.Join(executableDirectory, "data.sqlite")
+		executableDefaultDBInfo, errExecutableDefaultDBInfo := os.Stat(executableDefaultDBPath)
+		if errExecutableDefaultDBInfo == nil && !executableDefaultDBInfo.IsDir() {
+			return executableDefaultDBPath, nil
+		}
+		if errExecutableDefaultDBInfo != nil && !errors.Is(errExecutableDefaultDBInfo, os.ErrNotExist) {
+			return "", fmt.Errorf("stat executable-adjacent database for user command: %w", errExecutableDefaultDBInfo)
+		}
+	}
+
+	if errExecutablePath != nil && !errors.Is(errExecutablePath, os.ErrNotExist) {
+		log.Debug().Err(errExecutablePath).Msg("Failed to resolve executable path for CLI user DB lookup")
+	}
+
+	return "./data.sqlite", nil
+}
+
+func readCLIUserDBPathFromEnvFile(baseDirectory string) (string, bool, error) {
+	envPath := filepath.Join(baseDirectory, ".env")
+	envMap, errReadEnv := godotenv.Read(envPath)
+	if errReadEnv != nil {
+		if errors.Is(errReadEnv, os.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("read user command env file %q: %w", envPath, errReadEnv)
+	}
+
+	dbPath := strings.TrimSpace(envMap["DB_FILE_PATH"])
+	if dbPath == "" {
+		return "", false, nil
+	}
+
+	if filepath.IsAbs(dbPath) {
+		return dbPath, true, nil
+	}
+
+	return filepath.Join(baseDirectory, dbPath), true, nil
 }
 
 func shutdownLocalAdminServer(server *adminipc.Server) {

@@ -317,6 +317,7 @@ const selectedNodeForDelete = ref<Node | null>(null)
 const detailNode = ref<Node | null>(null)
 const dashboardSummaries = ref<DashboardNodeSummary[]>([])
 const liveSnapshots = ref<Map<string, NodeResourceSnapshot>>(new Map())
+let fetchSequence = 0
 
 const initialPagination = useStorage('node-pagination', {
   rowsPerPage: 25,
@@ -369,19 +370,28 @@ onBeforeUnmount(() => {
 })
 
 async function fetchAll() {
+  const fetchID = ++fetchSequence
   loading.value = true
-  try {
-    const [nodesResp, dashResp] = await Promise.all([
-      GetXylonaClient().listNodes(create(ListNodesRequestSchema, {})),
-      GetXylonaClient()
-        .getDashboardOverview({})
-        .catch(() => null),
-    ])
-    rows.value = nodesResp.nodes ? [...nodesResp.nodes] : []
-    if (dashResp) {
+  const dashboardPromise = GetXylonaClient()
+    .getDashboardOverview({})
+    .then((dashResp) => {
+      if (fetchID !== fetchSequence) {
+        return
+      }
       dashboardSummaries.value = dashResp.nodes
+    })
+    .catch(() => null)
+
+  try {
+    const nodesResp = await GetXylonaClient().listNodes(create(ListNodesRequestSchema, {}))
+    if (fetchID !== fetchSequence) {
+      return
     }
+    rows.value = nodesResp.nodes ? [...nodesResp.nodes] : []
   } catch (unknownError: unknown) {
+    if (fetchID !== fetchSequence) {
+      return
+    }
     const err = ConnectError.from(unknownError)
     Notify.create({
       type: 'xylona-error',
@@ -393,8 +403,12 @@ async function fetchAll() {
     })
     console.error(err.message)
   } finally {
-    loading.value = false
+    if (fetchID === fetchSequence) {
+      loading.value = false
+    }
   }
+
+  void dashboardPromise
 }
 
 function healthColor(status: string): string {

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/urfave/cli/v3"
+
 	"github.com/ClintonCollins/Xylona/pkg/usermgmt"
 )
 
@@ -79,6 +81,11 @@ func TestRunCreateReadsPasswordFromStdin(t *testing.T) {
 
 	var capturedFlags modeFlags
 	var capturedMutating bool
+	promptCalled := false
+	interactiveCreateInputFunc = func(*cli.Command) (usermgmt.CreateInput, error) {
+		promptCalled = true
+		return usermgmt.CreateInput{}, nil
+	}
 	newRunnerFunc = func(_ context.Context, flags *modeFlags, options Options, mutating bool) (commandRunner, func(), error) {
 		capturedFlags = *flags
 		capturedMutating = mutating
@@ -105,11 +112,74 @@ func TestRunCreateReadsPasswordFromStdin(t *testing.T) {
 	if runner.createInput.Password != `stdin-secret` {
 		t.Fatalf("Create().Password = %q, want %q", runner.createInput.Password, `stdin-secret`)
 	}
+	if promptCalled {
+		t.Fatal("interactive prompt should not be used when --password-stdin is set")
+	}
 	if !capturedFlags.offline {
 		t.Fatal("offline flag was not forwarded to the runner")
 	}
 	if !capturedMutating {
 		t.Fatal("mutating runner path was not selected for create")
+	}
+}
+
+func TestRunCreateWithoutFlagsUsesInteractivePrompt(t *testing.T) {
+	restore := setCommandTestEnv(t)
+	defer restore()
+
+	commandStdout = &bytes.Buffer{}
+	commandStderr = &bytes.Buffer{}
+	isTerminalFunc = func(int) bool { return true }
+
+	runner := &fakeRunner{
+		createdUser: &usermgmt.User{
+			ID:        `user-created`,
+			UserName:  `alice`,
+			Email:     `alice@example.com`,
+			FirstName: `Alice`,
+			LastName:  `Example`,
+			SuperUser: true,
+		},
+	}
+
+	promptCalled := false
+	interactiveCreateInputFunc = func(*cli.Command) (usermgmt.CreateInput, error) {
+		promptCalled = true
+		return usermgmt.CreateInput{
+			UserName:  `alice`,
+			Email:     `alice@example.com`,
+			FirstName: `Alice`,
+			LastName:  `Example`,
+			Password:  `prompt-secret`,
+			SuperUser: true,
+		}, nil
+	}
+
+	newRunnerFunc = func(context.Context, *modeFlags, Options, bool) (commandRunner, func(), error) {
+		return runner, func() {}, nil
+	}
+
+	errRun := Run(context.Background(), []string{`create`}, Options{DefaultDBPath: `default.sqlite`})
+	if errRun != nil {
+		t.Fatalf("Run() error = %v", errRun)
+	}
+	if !promptCalled {
+		t.Fatal("interactive prompt was not used for bare create")
+	}
+	if !runner.createCalled {
+		t.Fatal("Create() was not called")
+	}
+	if runner.createInput.UserName != `alice` {
+		t.Fatalf("Create().UserName = %q, want %q", runner.createInput.UserName, `alice`)
+	}
+	if runner.createInput.Email != `alice@example.com` {
+		t.Fatalf("Create().Email = %q, want %q", runner.createInput.Email, `alice@example.com`)
+	}
+	if runner.createInput.Password != `prompt-secret` {
+		t.Fatalf("Create().Password = %q, want %q", runner.createInput.Password, `prompt-secret`)
+	}
+	if !runner.createInput.SuperUser {
+		t.Fatal("Create().SuperUser = false, want true")
 	}
 }
 
@@ -122,6 +192,11 @@ func TestRunCreateWithoutTTYFailsBeforeRunner(t *testing.T) {
 	isTerminalFunc = func(int) bool { return false }
 
 	runnerCalled := false
+	promptCalled := false
+	interactiveCreateInputFunc = func(*cli.Command) (usermgmt.CreateInput, error) {
+		promptCalled = true
+		return usermgmt.CreateInput{}, nil
+	}
 	newRunnerFunc = func(context.Context, *modeFlags, Options, bool) (commandRunner, func(), error) {
 		runnerCalled = true
 		return &fakeRunner{}, func() {}, nil
@@ -140,6 +215,9 @@ func TestRunCreateWithoutTTYFailsBeforeRunner(t *testing.T) {
 	}
 	if runnerCalled {
 		t.Fatal("runner should not be created when password prompting fails")
+	}
+	if promptCalled {
+		t.Fatal("interactive prompt should not run without a TTY")
 	}
 }
 
@@ -351,6 +429,7 @@ func setCommandTestEnv(t *testing.T) func() {
 	originalGuard := guardOfflineMutationFunc
 	originalIsTerminal := isTerminalFunc
 	originalReadPassword := readPasswordFunc
+	originalInteractiveCreateInput := interactiveCreateInputFunc
 
 	return func() {
 		commandStdin = originalStdin
@@ -360,6 +439,7 @@ func setCommandTestEnv(t *testing.T) func() {
 		guardOfflineMutationFunc = originalGuard
 		isTerminalFunc = originalIsTerminal
 		readPasswordFunc = originalReadPassword
+		interactiveCreateInputFunc = originalInteractiveCreateInput
 	}
 }
 

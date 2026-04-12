@@ -61,6 +61,53 @@ func TestListAggregatedGameServers_UsesResolvedLocalVersion(t *testing.T) {
 	t.Fatal("local server not found in aggregated server list")
 }
 
+func TestListAggregatedGameServers_ReportsOfflineForStoppedLocalServer(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	supervisorInst, errSupervisor := supervisor.New(context.Background())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New() error = %v", errSupervisor)
+	}
+	fixture.service.supervisorInst = supervisorInst
+
+	_, errUpdate := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:     omit.From("server-local-1"),
+		Status: omit.From(xylona.Status_ONLINE.String()),
+	})
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+
+	request := connect.NewRequest(&xylona.ListAggregatedGameServersRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errList := fixture.service.ListAggregatedGameServers(context.Background(), request)
+	if errList != nil {
+		t.Fatalf("ListAggregatedGameServers() error = %v", errList)
+	}
+
+	for _, server := range response.Msg.GetServers() {
+		if !server.GetIsLocal() {
+			continue
+		}
+
+		localServer := server.GetLocalServer()
+		if localServer.GetId() != "server-local-1" {
+			continue
+		}
+
+		gotStatus := localServer.GetStatus()
+		if gotStatus != xylona.Status_OFFLINE {
+			t.Fatalf("LocalServer.Status = %v, want %v", gotStatus, xylona.Status_OFFLINE)
+		}
+		return
+	}
+
+	t.Fatal("local server not found in aggregated server list")
+}
+
 func createTestMinecraftJar(t *testing.T, dir string, fileName string, version string) {
 	t.Helper()
 

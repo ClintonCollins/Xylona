@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"charm.land/huh/v2"
 	"connectrpc.com/connect"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
@@ -63,8 +64,9 @@ var (
 	guardOfflineMutationFunc           = func(ctx context.Context, dbPath string) (io.Closer, error) {
 		return adminipc.GuardOfflineMutation(ctx, dbPath)
 	}
-	isTerminalFunc   = term.IsTerminal
-	readPasswordFunc = term.ReadPassword
+	isTerminalFunc             = term.IsTerminal
+	readPasswordFunc           = term.ReadPassword
+	interactiveCreateInputFunc = promptForCreateInput
 )
 
 // Run executes a `xylona user` subcommand.
@@ -151,9 +153,9 @@ func runCreate(ctx context.Context, cmd *cli.Command, options Options) error {
 		return errResolve
 	}
 
-	password, errPassword := readRequiredPassword(cmd.Bool(`password-stdin`), true)
-	if errPassword != nil {
-		return errPassword
+	createInput, errCreateInput := resolveCreateInput(cmd)
+	if errCreateInput != nil {
+		return errCreateInput
 	}
 
 	modeFlags := modeFlagsFromCommand(cmd)
@@ -163,14 +165,7 @@ func runCreate(ctx context.Context, cmd *cli.Command, options Options) error {
 	}
 	defer cleanup()
 
-	user, errCreate := runner.Create(ctx, usermgmt.CreateInput{
-		UserName:  cmd.String(`username`),
-		Email:     cmd.String(`email`),
-		FirstName: cmd.String(`first-name`),
-		LastName:  cmd.String(`last-name`),
-		Password:  password,
-		SuperUser: cmd.Bool(`superuser`),
-	})
+	user, errCreate := runner.Create(ctx, createInput)
 	if errCreate != nil {
 		return wrapCommandError(`create user`, errCreate)
 	}
@@ -184,6 +179,128 @@ func runCreate(ctx context.Context, cmd *cli.Command, options Options) error {
 	}
 
 	return printUserDetails(user)
+}
+
+func resolveCreateInput(cmd *cli.Command) (usermgmt.CreateInput, error) {
+	if cmd.Bool(`password-stdin`) {
+		password, errPassword := readRequiredPassword(true, true)
+		if errPassword != nil {
+			return usermgmt.CreateInput{}, errPassword
+		}
+		return createInputFromCommand(cmd, password), nil
+	}
+
+	if !isTerminalFunc(stdinFileDescriptor()) {
+		return usermgmt.CreateInput{}, errors.New(`interactive user creation requires a TTY; use --password-stdin for automation`)
+	}
+
+	return interactiveCreateInputFunc(cmd)
+}
+
+func createInputFromCommand(cmd *cli.Command, password string) usermgmt.CreateInput {
+	return usermgmt.CreateInput{
+		UserName:  cmd.String(`username`),
+		Email:     cmd.String(`email`),
+		FirstName: cmd.String(`first-name`),
+		LastName:  cmd.String(`last-name`),
+		Password:  password,
+		SuperUser: cmd.Bool(`superuser`),
+	}
+}
+
+func promptForCreateInput(cmd *cli.Command) (usermgmt.CreateInput, error) {
+	input := createInputFromCommand(cmd, ``)
+	password := ``
+	confirmPassword := ``
+	confirmed := false
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title(`Username`).
+				Placeholder(`admin`).
+				Value(&input.UserName).
+				Validate(func(value string) error {
+					if strings.TrimSpace(value) == `` {
+						return usermgmt.ErrUserNameRequired
+					}
+					return nil
+				}),
+			huh.NewInput().
+				Title(`Email`).
+				Placeholder(`admin@example.com`).
+				Value(&input.Email).
+				Validate(func(value string) error {
+					if strings.TrimSpace(value) == `` {
+						return usermgmt.ErrEmailRequired
+					}
+					return nil
+				}),
+			huh.NewConfirm().
+				Title(`Grant superuser access?`).
+				Affirmative(`Superuser`).
+				Negative(`Standard user`).
+				Value(&input.SuperUser),
+		),
+		huh.NewGroup(
+			huh.NewInput().
+				Title(`First name`).
+				Placeholder(`Optional`).
+				Value(&input.FirstName),
+			huh.NewInput().
+				Title(`Last name`).
+				Placeholder(`Optional`).
+				Value(&input.LastName),
+		),
+		huh.NewGroup(
+			huh.NewInput().
+				Title(`Password`).
+				EchoMode(huh.EchoModePassword).
+				Value(&password).
+				Validate(func(value string) error {
+					if strings.TrimSpace(value) == `` {
+						return usermgmt.ErrPasswordRequired
+					}
+					return nil
+				}),
+			huh.NewInput().
+				Title(`Confirm password`).
+				EchoMode(huh.EchoModePassword).
+				Value(&confirmPassword).
+				Validate(func(value string) error {
+					if strings.TrimSpace(value) == `` {
+						return usermgmt.ErrPasswordEmpty
+					}
+					if password != value {
+						return errors.New(`passwords do not match`)
+					}
+					return nil
+				}),
+		),
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title(`Create this user now?`).
+				Affirmative(`Create user`).
+				Negative(`Cancel`).
+				Value(&confirmed),
+		),
+	).WithAccessible(os.Getenv(`ACCESSIBLE`) != ``)
+
+	errRun := form.Run()
+	if errRun != nil {
+		return usermgmt.CreateInput{}, fmt.Errorf(`run interactive user create prompt: %w`, errRun)
+	}
+	if !confirmed {
+		return usermgmt.CreateInput{}, errors.New(`user creation cancelled`)
+	}
+
+	input.UserName = strings.TrimSpace(input.UserName)
+	input.Email = strings.TrimSpace(input.Email)
+	input.FirstName = strings.TrimSpace(input.FirstName)
+	input.LastName = strings.TrimSpace(input.LastName)
+	input.Password = password
+
+	return input, nil
 }
 
 func runUpdate(ctx context.Context, cmd *cli.Command, options Options) error {

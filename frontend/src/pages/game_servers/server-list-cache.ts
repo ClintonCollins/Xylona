@@ -1,4 +1,4 @@
-import type { Node, Status, VersionInfo } from '@/proto/shared_pb'
+import { Status, type Node, type VersionInfo } from '@/proto/shared_pb'
 import type { AggregatedGameServer } from '@/proto/xylona_pb'
 
 export interface DisplayRow {
@@ -116,4 +116,17 @@ export function filterRowsByRemoteNodeIDs(
   }
 
   return filteredRows
+}
+
+export function sanitizeBootstrapCachedRows(rows: DisplayRow[]): DisplayRow[] {
+  return rows.map((row) => {
+    if (!row.isLocal || row.statusEnum !== Status.ONLINE) {
+      return row
+    }
+
+    return {
+      ...row,
+      statusEnum: Status.UNKNOWN,
+    }
+  })
 }
