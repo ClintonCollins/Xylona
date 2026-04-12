@@ -122,32 +122,10 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
-import { QForm, useQuasar } from 'quasar'
-import {
-  AddGameRequest,
-  AddGameRequestSchema,
-  EditGameRequest,
-  EditGameRequestSchema,
-  GetGameRequest,
-  GetGameRequestSchema,
-  GetGameResponse,
-  ListGameServersRequestSchema,
-  type ListGameServersResponse,
-  UpdateGameConfigSchemasRequestSchema,
-} from '@/proto/xylona_pb'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, Ref } from 'vue'
+import { QForm } from 'quasar'
+import { computed, onBeforeUnmount, onMounted, provide, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  CommandType,
-  Game,
-  GameSchema,
-  ModProfileSchema,
-  type ModSource,
-  ModSourceSchema,
-  UpdateProviderConfigSchema,
-} from '@/proto/shared_pb'
+import { CommandType, Game, GameSchema, UpdateProviderConfigSchema } from '@/proto/shared_pb'
 import type { ConfigSchemaEntry } from './config-schema-types'
 import GameFormOverviewTab from './GameFormOverviewTab.vue'
 import GameFormRuntimeTab from './GameFormRuntimeTab.vue'
@@ -155,32 +133,21 @@ import GameFormModsTab from './GameFormModsTab.vue'
 import GameFormConfigTab from './GameFormConfigTab.vue'
 import { type GameFormContext, gameFormContextKey } from './GameFormTypes'
 import {
-  parseStartArgBlocklist,
-  parseStartArgsPatches,
-  parseStartArgsTemplate,
-  serializeStartArgBlocklist,
-  serializeStartArgsTemplate,
-  type StartArgBlock,
-  type StartArgBlocklistEntry,
-} from '@/components/game_servers/start-args'
-import {
   applySimpleGameConfig,
   getCommandProcessorOptions,
   getCommandTypeOptions,
-  getModSourceConfig,
-  getModSourceOptions,
   isCommandTypeCommand,
   isManagedGameConfig,
-  isManagedModConfig,
-  readModSourcePrimaryValue,
-  writeModSourcePrimaryValue,
 } from './game-form-provider-fields'
+import { useGameFormModProfile } from './useGameFormModProfile'
+import { useGameFormDirtyState } from './useGameFormDirtyState'
 import { useGameFormPlatform } from './useGameFormPlatform'
 import { useGameFormRuntimePanels } from './useGameFormRuntimePanels'
+import { useGameFormStartArgsState } from './useGameFormStartArgsState'
 import { useGameFormTabs } from './useGameFormTabs'
-import { normalizeSteamAppID } from './game-form-normalization'
+import { useGameFormNewGameSetup } from './useGameFormNewGameSetup'
+import { useGameFormPersistence } from './useGameFormPersistence'
 
-const $q = useQuasar()
 const router = useRouter()
 const formRef = ref<QForm | null>(null)
 const stickySentinel = ref<HTMLElement | null>(null)
@@ -188,10 +155,7 @@ const isStuck = ref(false)
 let stickyObserver: IntersectionObserver | null = null
 const defaultPort: Ref<number | null> = ref(null)
 const defaultQueryPort: Ref<number | null> = ref(null)
-const loading = ref(false)
-const submitting = ref(false)
 const savedSuccessfully = ref(false)
-let initialSnapshot = ''
 
 const formTitle = computed(() => {
   if (existingGame.value) {
@@ -261,25 +225,72 @@ const existingGame = ref(false)
 const copyGame = ref(false)
 const gameID = ref('')
 const configSchemas = ref<ConfigSchemaEntry[]>([])
-const baselineLinuxBaseCommand = ref('')
-const baselineWindowsBaseCommand = ref('')
-const baselineLinuxStartArgsTemplate = ref<StartArgBlock[]>([])
-const baselineWindowsStartArgsTemplate = ref<StartArgBlock[]>([])
-const linuxStartArgsTemplate = ref<StartArgBlock[]>([])
-const windowsStartArgsTemplate = ref<StartArgBlock[]>([])
-const startArgBlocklist = ref<StartArgBlocklistEntry[]>([])
+const {
+  linuxStartArgsTemplate,
+  windowsStartArgsTemplate,
+  startArgBlocklist,
+  baselineLinuxBaseCommand,
+  baselineWindowsBaseCommand,
+  baselineLinuxStartArgsTemplate,
+  baselineWindowsStartArgsTemplate,
+  syncStructuredStartArgsFromGame,
+  captureRuntimeBaselineFromCurrentState,
+  syncStructuredStartArgsToGame,
+} = useGameFormStartArgsState(game)
 const downstreamImpactServers = ref<Array<{ name: string; patchCount: number }>>([])
-const modSourceOptions = getModSourceOptions()
-const managedTypedConfig = computed(() => isManagedGameConfig(game.value))
-const managedModConfig = computed(() => isManagedModConfig(game.value))
-const activeModSourceLabel = computed(() => {
-  const sourceID = game.value.modProfile?.sources[0]?.id
-  if (!sourceID) {
-    return 'No provider'
-  }
-
-  return modSourceOptions.find((option) => option.value === sourceID)?.label ?? sourceID
+const { isDirty, commitSnapshot } = useGameFormDirtyState({
+  game,
+  defaultPort,
+  defaultQueryPort,
+  configSchemas,
+  linuxStartArgsTemplate,
+  windowsStartArgsTemplate,
+  startArgBlocklist,
+  downstreamImpactServers,
 })
+const managedTypedConfig = computed(() => isManagedGameConfig(game.value))
+const {
+  managedModConfig,
+  modSourceOptions,
+  activeModSourceLabel,
+  ensureModProfileSources,
+  addGameModProfile,
+  clearGameModProfile,
+  onModSourceProviderChanged,
+  readModSourceDisplayValue,
+  updateModSourceDisplayValue,
+  getModSourceConfig,
+} = useGameFormModProfile(game)
+const { initializeNewGameForm } = useGameFormNewGameSetup({
+  game,
+  downstreamImpactServers,
+  ensureTypedGameConfig,
+  syncSimpleGameConfig,
+  syncStructuredStartArgsFromGame,
+  captureRuntimeBaselineFromCurrentState,
+  syncActivePlatformFromGame,
+  commitSnapshot,
+})
+const { loading, submitting, loadGameDetails, navigateToSchemaEditor, submit } =
+  useGameFormPersistence({
+    formRef,
+    game,
+    gameID,
+    existingGame,
+    copyGame,
+    defaultPort,
+    defaultQueryPort,
+    configSchemas,
+    downstreamImpactServers,
+    savedSuccessfully,
+    ensureTypedGameConfig,
+    syncSimpleGameConfig,
+    syncStructuredStartArgsFromGame,
+    captureRuntimeBaselineFromCurrentState,
+    syncStructuredStartArgsToGame,
+    syncActivePlatformFromGame,
+    commitSnapshot,
+  })
 const runtimePolicySummary = computed(() => {
   const summary = [
     game.value.allowStartArgEditing ? 'Owners on' : 'Owners off',
@@ -350,48 +361,7 @@ function ensureTypedGameConfig(): void {
   if (!Array.isArray(game.value.variants)) {
     game.value.variants = []
   }
-  if (game.value.modProfile && game.value.modProfile.sources.length === 0) {
-    game.value.modProfile.sources.push(createEmptyModSource())
-  }
-}
-
-function createEmptyModProfile() {
-  return create(ModProfileSchema, {
-    installPath: '',
-    sources: [createEmptyModSource()],
-  })
-}
-
-function createEmptyModSource() {
-  return create(ModSourceSchema, {
-    id: 'modrinth',
-    searchParamsJson: '',
-  })
-}
-
-function onModSourceProviderChanged(source: ModSource): void {
-  source.searchParamsJson = ''
-}
-
-function readModSourceDisplayValue(source: ModSource): string {
-  return readModSourcePrimaryValue(source.id, source.searchParamsJson)
-}
-
-function updateModSourceDisplayValue(source: ModSource, value: string | number | null): void {
-  const nextValue = typeof value === 'string' ? value : value == null ? '' : String(value)
-  source.searchParamsJson = writeModSourcePrimaryValue(
-    source.id,
-    source.searchParamsJson,
-    nextValue,
-  )
-}
-
-function addGameModProfile(): void {
-  game.value.modProfile = createEmptyModProfile()
-}
-
-function clearGameModProfile(): void {
-  game.value.modProfile = undefined
+  ensureModProfileSources()
 }
 
 function syncSimpleGameConfig(): void {
@@ -400,25 +370,6 @@ function syncSimpleGameConfig(): void {
     return
   }
   applySimpleGameConfig(game.value)
-}
-
-function syncStructuredStartArgsFromGame(): void {
-  linuxStartArgsTemplate.value = parseStartArgsTemplate(game.value.linuxStartArgsTemplate)
-  windowsStartArgsTemplate.value = parseStartArgsTemplate(game.value.windowsStartArgsTemplate)
-  startArgBlocklist.value = parseStartArgBlocklist(game.value.startArgBlocklist)
-}
-
-function captureRuntimeBaselineFromCurrentState(): void {
-  baselineLinuxBaseCommand.value = game.value.linuxBaseCommand
-  baselineWindowsBaseCommand.value = game.value.windowsBaseCommand
-  baselineLinuxStartArgsTemplate.value = cloneStartArgTemplate(linuxStartArgsTemplate.value)
-  baselineWindowsStartArgsTemplate.value = cloneStartArgTemplate(windowsStartArgsTemplate.value)
-}
-
-function syncStructuredStartArgsToGame(): void {
-  game.value.linuxStartArgsTemplate = serializeStartArgsTemplate(linuxStartArgsTemplate.value)
-  game.value.windowsStartArgsTemplate = serializeStartArgsTemplate(windowsStartArgsTemplate.value)
-  game.value.startArgBlocklist = serializeStartArgBlocklist(startArgBlocklist.value)
 }
 
 function commandTypeSummary(commandType: CommandType, operation: 'install' | 'update'): string {
@@ -461,116 +412,12 @@ function highlightCommand(cmd: string): string {
   })
 }
 
-// --- Dirty tracking via snapshot comparison ---
-
-function takeSnapshot(): string {
-  return JSON.stringify(
-    {
-      game: game.value,
-      defaultPort: defaultPort.value,
-      defaultQueryPort: defaultQueryPort.value,
-      configSchemas: configSchemas.value,
-      linuxStartArgsTemplate: linuxStartArgsTemplate.value,
-      windowsStartArgsTemplate: windowsStartArgsTemplate.value,
-      startArgBlocklist: startArgBlocklist.value,
-      downstreamImpactServers: downstreamImpactServers.value,
-    },
-    (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
-  )
-}
-
-function cloneStartArgTemplate(template: StartArgBlock[]): StartArgBlock[] {
-  return template.map((block) => ({
-    ...block,
-    tokens: [...block.tokens],
-  }))
-}
-
-const isDirty = computed(() => {
-  if (!initialSnapshot) return false
-  return takeSnapshot() !== initialSnapshot
-})
-
 // --- Expose dirty state for route-level navigation guards ---
 
 defineExpose({
   isDirty,
   savedSuccessfully,
 })
-
-// --- Data loading ---
-
-async function getGameDetailsFromID() {
-  loading.value = true
-  const request: GetGameRequest = create(GetGameRequestSchema, {})
-  try {
-    request.id = gameID.value
-    const response: GetGameResponse = await GetXylonaClient().getGame(request)
-    if (response.game === undefined) {
-      return
-    }
-    game.value = response.game
-    ensureTypedGameConfig()
-    defaultPort.value = Number(response.game.defaultPort)
-    defaultQueryPort.value = Number(response.game.defaultQueryPort)
-    if (response.game.configSchemas) {
-      try {
-        configSchemas.value = JSON.parse(response.game.configSchemas) as ConfigSchemaEntry[]
-      } catch {
-        configSchemas.value = []
-      }
-    }
-    if (copyGame.value) {
-      game.value.id = ''
-      game.value.name = `${game.value.name} (Copy)`
-    }
-    syncStructuredStartArgsFromGame()
-    captureRuntimeBaselineFromCurrentState()
-    if (existingGame.value && !copyGame.value) {
-      await loadDownstreamImpact(response.game.id)
-    } else {
-      downstreamImpactServers.value = []
-    }
-    // Set initial platform tab based on loaded data
-    syncActivePlatformFromGame()
-  } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: `Failed to load game: ${ConnectErrorToString(err)}`,
-      position: 'top',
-      timeout: 5000,
-    })
-  } finally {
-    loading.value = false
-    // Snapshot after load settles so isDirty compares against the loaded state
-    await nextTick()
-    initialSnapshot = takeSnapshot()
-  }
-}
-
-async function loadDownstreamImpact(gameId: string) {
-  try {
-    const response: ListGameServersResponse = await GetXylonaClient().listGameServers(
-      create(ListGameServersRequestSchema, {}),
-    )
-    downstreamImpactServers.value = response.gameServers
-      .filter((server) => server.gameId === gameId)
-      .map((server) => ({
-        name: server.name,
-        patchCount: parseStartArgsPatches(server.startArgsPatches).length,
-      }))
-  } catch (unknownErr: unknown) {
-    downstreamImpactServers.value = []
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-warning',
-      caption: `Failed to load downstream impact: ${ConnectErrorToString(err)}`,
-      position: 'top',
-      timeout: 3500,
-    })
-  }
-}
 
 onMounted(async () => {
   // Sticky header detection
@@ -593,51 +440,9 @@ onMounted(async () => {
     gameID.value = props.copyGameId
   }
   if (existingGame.value || copyGame.value) {
-    await getGameDetailsFromID()
+    await loadGameDetails()
   } else {
-    // New game — check for wizard pre-fill state
-    const wizardState = history.state?.wizardState
-    if (wizardState) {
-      game.value.name = wizardState.name || ''
-      game.value.id = wizardState.slug || ''
-      game.value.steamAppid = wizardState.steamAppId || ''
-      game.value.usesSteamcmd = wizardState.usesSteamcmd ?? false
-      game.value.windowsSupport = wizardState.windowsSupport ?? false
-      game.value.linuxSupport = wizardState.linuxSupport ?? false
-      if (wizardState.installCommand) {
-        if (game.value.linuxSupport) game.value.linuxInstallCommand = wizardState.installCommand
-        if (game.value.windowsSupport) game.value.windowsInstallCommand = wizardState.installCommand
-      }
-      if (wizardState.updateCommand) {
-        if (game.value.linuxSupport) game.value.linuxUpdateCommand = wizardState.updateCommand
-        if (game.value.windowsSupport) game.value.windowsUpdateCommand = wizardState.updateCommand
-      }
-      if (wizardState.linuxBaseCommand) {
-        game.value.linuxBaseCommand = wizardState.linuxBaseCommand
-      }
-      if (wizardState.windowsBaseCommand) {
-        game.value.windowsBaseCommand = wizardState.windowsBaseCommand
-      }
-      if (wizardState.linuxStartArgsTemplate) {
-        game.value.linuxStartArgsTemplate = wizardState.linuxStartArgsTemplate
-      }
-      if (wizardState.windowsStartArgsTemplate) {
-        game.value.windowsStartArgsTemplate = wizardState.windowsStartArgsTemplate
-      }
-      ensureTypedGameConfig()
-      syncSimpleGameConfig()
-      syncStructuredStartArgsFromGame()
-      captureRuntimeBaselineFromCurrentState()
-      downstreamImpactServers.value = []
-      // Set platform tab to first enabled
-      syncActivePlatformFromGame()
-    }
-    ensureTypedGameConfig()
-    syncStructuredStartArgsFromGame()
-    captureRuntimeBaselineFromCurrentState()
-    // Snapshot after pre-fill settles
-    await nextTick()
-    initialSnapshot = takeSnapshot()
+    await initializeNewGameForm()
   }
 })
 
@@ -645,131 +450,9 @@ onBeforeUnmount(() => {
   stickyObserver?.disconnect()
 })
 
-function syncConfigSchemas() {
-  game.value.configSchemas =
-    configSchemas.value.length > 0 ? JSON.stringify(configSchemas.value) : ''
-}
-
-async function submit() {
-  const valid = await formRef.value?.validate()
-  if (!valid) {
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Please fix the validation errors before saving.',
-      position: 'top',
-      timeout: 3000,
-    })
-    return
-  }
-
-  submitting.value = true
-  syncConfigSchemas()
-  syncSimpleGameConfig()
-  try {
-    if (existingGame.value) {
-      await updateExistingGame()
-    } else {
-      await addNewGame()
-    }
-  } finally {
-    submitting.value = false
-  }
-}
-
 function handleCancel() {
   // The onBeforeRouteLeave guard handles the unsaved changes prompt
   router.back()
-}
-
-async function navigateToSchemaEditor(fileIndex: number) {
-  const id = existingGame.value ? gameID.value : ''
-  if (!id) return
-
-  // Persist current config schemas before navigating so the editor can load them
-  try {
-    const request = create(UpdateGameConfigSchemasRequestSchema, {
-      gameId: id,
-      configSchemasJson: JSON.stringify(configSchemas.value),
-    })
-    await GetXylonaClient().updateGameConfigSchemas(request)
-  } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: `Failed to save schemas before editing: ${ConnectErrorToString(err)}`,
-      position: 'top',
-      timeout: 5000,
-    })
-    return
-  }
-
-  // Schema navigation is intentional, skip the dirty guard
-  initialSnapshot = takeSnapshot()
-  await router.push({ path: `/games/${id}/config-schema/${fileIndex}` })
-}
-
-async function addNewGame() {
-  const request: AddGameRequest = create(AddGameRequestSchema, {})
-  game.value.steamAppid = normalizeSteamAppID(game.value.steamAppid)
-  syncSimpleGameConfig()
-  syncStructuredStartArgsToGame()
-  request.game = game.value
-  request.game.defaultPort = BigInt(defaultPort.value ?? 0)
-  request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
-  try {
-    const response = await GetXylonaClient().addGame(request)
-    const savedGameID = response.game?.id || request.game.id || game.value.id
-    savedSuccessfully.value = true
-    captureRuntimeBaselineFromCurrentState()
-    initialSnapshot = takeSnapshot()
-    $q.notify({
-      caption: `${game.value.name} added successfully`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
-    if (savedGameID) {
-      await router.push({ path: `/games/${savedGameID}/edit` })
-    }
-  } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      caption: `Error adding game: ${ConnectErrorToString(err)}`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
-  }
-}
-
-async function updateExistingGame() {
-  const request: EditGameRequest = create(EditGameRequestSchema, {})
-  game.value.steamAppid = normalizeSteamAppID(game.value.steamAppid)
-  syncSimpleGameConfig()
-  syncStructuredStartArgsToGame()
-  request.game = game.value as Game
-  request.game.defaultPort = BigInt(defaultPort.value ?? 0)
-  request.game.defaultQueryPort = BigInt(defaultQueryPort.value ?? 0)
-  try {
-    await GetXylonaClient().editGame(request)
-    savedSuccessfully.value = true
-    captureRuntimeBaselineFromCurrentState()
-    initialSnapshot = takeSnapshot()
-    $q.notify({
-      caption: `${game.value.name} updated successfully`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
-  } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      caption: `Error updating game: ${ConnectErrorToString(err)}`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
-  }
 }
 </script>
 
