@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -53,6 +54,12 @@ type serverSoftwareEntry struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	JarSource string `json:"jar_source"`
+}
+
+type minecraftExecutableCandidate struct {
+	name    string
+	score   int
+	modTime time.Time
 }
 
 // MinecraftTracker is a VersionTracker for Minecraft servers using PaperMC-compatible software
@@ -230,6 +237,138 @@ func ReadMinecraftJarVersion(dir string, executable string) (string, error) {
 		lastErr = errors.New("no minecraft jar candidates found")
 	}
 	return "", lastErr
+}
+
+// DiscoverMinecraftExecutable chooses the most likely root-level server jar for a
+// legacy Minecraft server that predates persisted server_executable metadata.
+func DiscoverMinecraftExecutable(dir string, serverSoftware string) (string, error) {
+	entries, errRead := os.ReadDir(dir)
+	if errRead != nil {
+		return "", fmt.Errorf("read minecraft server directory: %w", errRead)
+	}
+
+	hints := minecraftExecutableHints(serverSoftware)
+	validatedCandidates := make([]minecraftExecutableCandidate, 0)
+	fallbackCandidates := make([]minecraftExecutableCandidate, 0)
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		extension := strings.ToLower(filepath.Ext(name))
+		if extension != ".jar" {
+			continue
+		}
+
+		info, errInfo := entry.Info()
+		if errInfo != nil {
+			return "", fmt.Errorf("stat minecraft jar %q: %w", name, errInfo)
+		}
+
+		candidate := minecraftExecutableCandidate{
+			name:    name,
+			score:   scoreMinecraftExecutableCandidate(name, hints),
+			modTime: info.ModTime(),
+		}
+
+		_, errVersion := readMinecraftJarVersionFile(filepath.Join(dir, name))
+		if errVersion == nil {
+			validatedCandidates = append(validatedCandidates, candidate)
+			continue
+		}
+
+		fallbackCandidates = append(fallbackCandidates, candidate)
+	}
+
+	selected := selectMinecraftExecutableCandidate(validatedCandidates)
+	if selected != "" {
+		return selected, nil
+	}
+
+	return selectMinecraftExecutableCandidate(fallbackCandidates), nil
+}
+
+func minecraftExecutableHints(serverSoftware string) []string {
+	software := selectedMinecraftSoftware(serverSoftware)
+	hints := []string{}
+
+	switch software {
+	case "", "vanilla":
+		hints = append(hints, "minecraft_server")
+	case "papermc":
+		hints = append(hints, "paper")
+	default:
+		hints = append(hints, software)
+	}
+
+	project := jarSourceToProject(software)
+	if project != "" {
+		hints = append(hints, project)
+	}
+
+	if software == "fabric" {
+		hints = append(hints, "fabric-server")
+	}
+
+	seen := make(map[string]struct{}, len(hints))
+	deduped := make([]string, 0, len(hints))
+	for _, hint := range hints {
+		trimmedHint := strings.TrimSpace(strings.ToLower(hint))
+		if trimmedHint == "" {
+			continue
+		}
+		_, exists := seen[trimmedHint]
+		if exists {
+			continue
+		}
+		seen[trimmedHint] = struct{}{}
+		deduped = append(deduped, trimmedHint)
+	}
+
+	return deduped
+}
+
+func scoreMinecraftExecutableCandidate(name string, hints []string) int {
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	score := 0
+
+	if normalized == "minecraft_server.jar" {
+		score += 500
+	}
+	if normalized == "server.jar" {
+		score += 350
+	}
+	if strings.Contains(normalized, "server") {
+		score += 50
+	}
+
+	for idx, hint := range hints {
+		if strings.Contains(normalized, hint) {
+			score += 250 - (idx * 10)
+		}
+	}
+
+	return score
+}
+
+func selectMinecraftExecutableCandidate(candidates []minecraftExecutableCandidate) string {
+	if len(candidates) == 0 {
+		return ""
+	}
+
+	sort.SliceStable(candidates, func(i int, j int) bool {
+		if candidates[i].score != candidates[j].score {
+			return candidates[i].score > candidates[j].score
+		}
+		if !candidates[i].modTime.Equal(candidates[j].modTime) {
+			return candidates[i].modTime.After(candidates[j].modTime)
+		}
+		return candidates[i].name < candidates[j].name
+	})
+
+	return candidates[0].name
 }
 
 func readMinecraftJarVersionFile(jarPath string) (string, error) {

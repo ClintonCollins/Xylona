@@ -156,6 +156,50 @@ func TestRemoveNode(t *testing.T) {
 	}
 }
 
+func TestRemoveNodeAllowsValidPairingRollbackToken(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-rollback")
+
+	rollbackToken, errIssueRollbackToken := fixture.service.issuePairingRollbackToken("node-rollback")
+	if errIssueRollbackToken != nil {
+		t.Fatalf("issuePairingRollbackToken() error = %v", errIssueRollbackToken)
+	}
+
+	removeReq := connect.NewRequest(&xylona.RemoveNodeRequest{NodeId: "node-rollback"})
+	removeReq.Header().Set(pairingRollbackTokenHeader, rollbackToken)
+
+	_, errRemove := fixture.service.RemoveNode(context.Background(), removeReq)
+	if errRemove != nil {
+		t.Fatalf("RemoveNode() with rollback token error = %v", errRemove)
+	}
+
+	getReq := connect.NewRequest(&xylona.GetNodeRequest{NodeId: "node-rollback"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-admin")
+	_, errGetAfter := fixture.service.GetNode(context.Background(), getReq)
+	if errGetAfter == nil {
+		t.Fatalf("GetNode() after rollback remove error = nil, want error")
+	}
+}
+
+func TestRemoveNodeRejectsMissingRollbackTokenWithoutSession(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-no-rollback-token")
+
+	removeReq := connect.NewRequest(&xylona.RemoveNodeRequest{NodeId: "node-no-rollback-token"})
+
+	_, errRemove := fixture.service.RemoveNode(context.Background(), removeReq)
+	if errRemove == nil {
+		t.Fatalf("RemoveNode() without session or rollback token error = nil, want unauthenticated")
+	}
+	if connect.CodeOf(errRemove) != connect.CodeUnauthenticated {
+		t.Fatalf("RemoveNode() without session or rollback token code = %v, want %v", connect.CodeOf(errRemove), connect.CodeUnauthenticated)
+	}
+}
+
 func TestCreateAndDeleteLocalSecretKey(t *testing.T) {
 	t.Parallel()
 

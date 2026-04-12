@@ -710,12 +710,12 @@ func runService() int {
 		}
 	}()
 	go func() {
-		log.Info().Int("port", config.HTTPPort).Msg("Starting Xylona web server")
+		log.Info().Str("address", fmt.Sprintf("%s:%d", config.Host, config.HTTPPort)).Msg("Starting Xylona web server")
 		startServer(ctxCancel, "start Xylona web server", httpServer.ListenAndServe, startupErrCh)
 	}()
 
 	go func() {
-		log.Info().Int("port", config.FederationPort).Msg("Starting Xylona federation mTLS server")
+		log.Info().Str("address", fmt.Sprintf("%s:%d", config.Host, config.FederationPort)).Msg("Starting Xylona federation mTLS server")
 		startServer(ctxCancel, "start Xylona federation mTLS server", func() error {
 			return federationServer.ListenAndServeTLS("", "")
 		}, startupErrCh)

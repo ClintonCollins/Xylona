@@ -349,6 +349,11 @@ func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServe
 		return "", nil, errGameRelationNotLoaded
 	}
 
+	errEnsureExecutable := inst.ensureMinecraftServerExecutable(gameServer)
+	if errEnsureExecutable != nil {
+		return "", nil, errEnsureExecutable
+	}
+
 	templateJSON := strings.TrimSpace(gameStartArgsTemplate(gameServer.R.Game))
 	if templateJSON == "" {
 		return "", nil, errStartCommandTemplateMissing
@@ -365,6 +370,12 @@ func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServe
 	}
 
 	startVars := placeholder.BuildVarsFromGameServer(gameServer)
+	if gameServer.GameID == "minecraft" {
+		serverExecutable := strings.TrimSpace(gameServer.ServerExecutable.GetOr(""))
+		if serverExecutable == "" {
+			return "", nil, errors.New("minecraft server executable is not configured. set it in server settings or place the server jar in the server root")
+		}
+	}
 	baseCommand := placeholder.ResolveToken(gameBaseCommand(gameServer.R.Game), startVars)
 	if strings.TrimSpace(baseCommand) == "" {
 		return "", nil, errBaseCommandMissing

@@ -4,7 +4,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { GameServerSchema, NodeSchema, Status } from '@/proto/shared_pb'
+import {
+  GameServerSchema,
+  NodeSchema,
+  Status,
+  VersionInfoSchema,
+  VersionStatus,
+} from '@/proto/shared_pb'
 import {
   AggregatedGameServerSchema,
   RemoteServerSummarySchema,
@@ -18,6 +24,46 @@ const mocks = vi.hoisted(() => ({
   listAggregatedGameServers: vi.fn(),
   listGameServers: vi.fn(),
   listNodes: vi.fn(),
+  eventBus: (() => {
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>()
+
+    return {
+      on: vi.fn((eventName: string, handler: (...args: unknown[]) => void) => {
+        const handlers = listeners.get(eventName) ?? new Set<(...args: unknown[]) => void>()
+        handlers.add(handler)
+        listeners.set(eventName, handlers)
+      }),
+      off: vi.fn((eventName: string, handler?: (...args: unknown[]) => void) => {
+        if (handler === undefined) {
+          listeners.delete(eventName)
+          return
+        }
+
+        const handlers = listeners.get(eventName)
+        if (!handlers) {
+          return
+        }
+
+        handlers.delete(handler)
+        if (handlers.size === 0) {
+          listeners.delete(eventName)
+        }
+      }),
+      emit: (eventName: string, ...args: unknown[]) => {
+        const handlers = listeners.get(eventName)
+        if (!handlers) {
+          return
+        }
+
+        for (const handler of handlers) {
+          handler(...args)
+        }
+      },
+      reset: () => {
+        listeners.clear()
+      },
+    }
+  })(),
 }))
 
 const storageState = vi.hoisted(() => ({
@@ -35,9 +81,7 @@ vi.mock('@/utils/shared', async () => {
       startGameServer: vi.fn(),
       stopGameServer: vi.fn(),
     }),
-    XylonaEventBus: {
-      on: vi.fn(),
-    },
+    XylonaEventBus: mocks.eventBus,
   }
 })
 
@@ -175,6 +219,9 @@ describe('GameServerList', () => {
     mocks.listAggregatedGameServers.mockReset()
     mocks.listGameServers.mockReset()
     mocks.listNodes.mockReset()
+    mocks.eventBus.reset()
+    mocks.eventBus.on.mockClear()
+    mocks.eventBus.off.mockClear()
     mocks.listAggregatedGameServers.mockResolvedValue({ servers: [] })
     mocks.listGameServers.mockResolvedValue({
       gameServers: [buildLocalServer()],
@@ -211,6 +258,8 @@ describe('GameServerList', () => {
           'q-badge': true,
           'q-td': { template: '<div><slot /></div>' },
           'q-tooltip': true,
+          'q-spinner': true,
+          'q-skeleton': true,
           'q-table': defineComponent({
             name: 'QTableStub',
             props: {
@@ -221,6 +270,7 @@ describe('GameServerList', () => {
               '<div data-test="q-table-row-count">{{ rows.length }}</div>' +
               '<div data-test="q-table-loading">{{ loading }}</div>' +
               '<slot />' +
+              '<slot name="bottom-row" />' +
               '<slot name="no-data" />',
           }),
           'router-link': { template: '<a><slot /></a>' },
@@ -276,6 +326,56 @@ describe('GameServerList', () => {
     nodesRequest.resolve({ nodes: [buildLocalNode()] })
     aggregatedRequest.resolve({ servers: [] })
     await flushPromises()
+  })
+
+  it('shows subtle pending rows while aggregated remote data is still loading', async () => {
+    const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
+    mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
+    mocks.listGameServers.mockResolvedValueOnce({
+      gameServers: [buildLocalServer()],
+    })
+    mocks.listNodes.mockResolvedValueOnce({
+      nodes: [buildLocalNode(), buildRemoteNode()],
+    })
+
+    const wrapper = mountList(true)
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="game-server-remote-pending"]').exists()).toBe(true)
+    })
+    expect(
+      (wrapper.vm as unknown as { pendingRemotePlaceholderCount: number })
+        .pendingRemotePlaceholderCount,
+    ).toBe(1)
+
+    aggregatedRequest.resolve({
+      servers: [buildLocalAggregatedServer(), buildRemoteAggregatedServer()],
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="game-server-remote-pending"]').exists()).toBe(false)
+  })
+
+  it('clears pending remote placeholders when the aggregated remote request fails', async () => {
+    const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
+    mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
+    mocks.listGameServers.mockResolvedValueOnce({
+      gameServers: [buildLocalServer()],
+    })
+    mocks.listNodes.mockResolvedValueOnce({
+      nodes: [buildLocalNode(), buildRemoteNode()],
+    })
+
+    const wrapper = mountList(true)
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="game-server-remote-pending"]').exists()).toBe(true)
+    })
+
+    aggregatedRequest.reject(new Error('remote list failed'))
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="game-server-remote-pending"]').exists()).toBe(false)
   })
 
   it('does not render cached local online rows before the first live fetch completes', async () => {
@@ -427,7 +527,6 @@ describe('GameServerList', () => {
       gameServers: [buildLocalServer()],
     })
     await flushPromises()
-
     ;(
       wrapper.vm as unknown as {
         setServerStatus: (serverID: string, status: Status) => void
@@ -454,9 +553,7 @@ describe('GameServerList', () => {
     })
     await flushPromises()
 
-    expect(
-      (wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows,
-    ).toEqual(
+    expect((wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           compositeId: 'local/server-local',
@@ -510,9 +607,7 @@ describe('GameServerList', () => {
     })
     await flushPromises()
 
-    expect(
-      (wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows,
-    ).toEqual(
+    expect((wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           compositeId: 'local/server-local',
@@ -527,6 +622,220 @@ describe('GameServerList', () => {
           compositeId: 'local/server-local',
           statusEnum: Status.ONLINE,
           version: '1.20.6',
+        }),
+      ]),
+    )
+  })
+
+  it('applies version events that arrive before bootstrap rows finish loading', async () => {
+    const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
+    const localRequest = createDeferred<{ gameServers: unknown[] }>()
+    mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
+    mocks.listGameServers.mockReturnValueOnce(localRequest.promise)
+    mocks.listNodes.mockResolvedValueOnce({
+      nodes: [buildLocalNode()],
+    })
+
+    const wrapper = mountList(true)
+
+    mocks.eventBus.emit(
+      'gameServerVersion',
+      'server-local',
+      '1.21.1',
+      createProto(VersionInfoSchema, {
+        status: VersionStatus.CHECKED,
+        installedVersion: '1.21.1',
+      }),
+    )
+
+    localRequest.resolve({
+      gameServers: [
+        buildLocalServer({
+          version: '1.20.4',
+          versionInfo: createProto(VersionInfoSchema, {
+            status: VersionStatus.CHECKING,
+          }),
+        }),
+      ],
+    })
+    await flushPromises()
+
+    expect((wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'server-local',
+          version: '1.21.1',
+          versionInfo: expect.objectContaining({
+            status: VersionStatus.CHECKED,
+            installedVersion: '1.21.1',
+          }),
+        }),
+      ]),
+    )
+
+    aggregatedRequest.resolve({ servers: [] })
+    await flushPromises()
+  })
+
+  it('reloads the list after websocket reconnects', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValueOnce({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            version: '1.20.4',
+            versionInfo: createProto(VersionInfoSchema, {
+              status: VersionStatus.CHECKING,
+            }),
+          }),
+        }),
+      ],
+    })
+    mocks.listGameServers.mockResolvedValueOnce({
+      gameServers: [
+        buildLocalServer({
+          version: '1.20.4',
+          versionInfo: createProto(VersionInfoSchema, {
+            status: VersionStatus.CHECKING,
+          }),
+        }),
+      ],
+    })
+    mocks.listNodes.mockResolvedValueOnce({
+      nodes: [buildLocalNode()],
+    })
+
+    const wrapper = mountList(true)
+    await flushPromises()
+
+    mocks.listAggregatedGameServers.mockResolvedValueOnce({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            version: '1.21.1',
+            versionInfo: createProto(VersionInfoSchema, {
+              status: VersionStatus.CHECKED,
+              installedVersion: '1.21.1',
+            }),
+          }),
+        }),
+      ],
+    })
+    mocks.listGameServers.mockResolvedValueOnce({
+      gameServers: [
+        buildLocalServer({
+          version: '1.21.1',
+          versionInfo: createProto(VersionInfoSchema, {
+            status: VersionStatus.CHECKED,
+            installedVersion: '1.21.1',
+          }),
+        }),
+      ],
+    })
+    mocks.listNodes.mockResolvedValueOnce({
+      nodes: [buildLocalNode()],
+    })
+
+    mocks.eventBus.emit('websocketConnected')
+    await flushPromises()
+
+    expect(mocks.listGameServers).toHaveBeenCalledTimes(2)
+    expect((wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'server-local',
+          version: '1.21.1',
+          versionInfo: expect.objectContaining({
+            status: VersionStatus.CHECKED,
+            installedVersion: '1.21.1',
+          }),
+        }),
+      ]),
+    )
+  })
+
+  it('prefers fresher reloaded data over stale buffered websocket state after reconnect', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValueOnce({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            version: '1.20.4',
+            versionInfo: createProto(VersionInfoSchema, {
+              status: VersionStatus.CHECKING,
+            }),
+          }),
+        }),
+      ],
+    })
+    mocks.listGameServers.mockResolvedValueOnce({
+      gameServers: [
+        buildLocalServer({
+          version: '1.20.4',
+          versionInfo: createProto(VersionInfoSchema, {
+            status: VersionStatus.CHECKING,
+          }),
+        }),
+      ],
+    })
+    mocks.listNodes.mockResolvedValueOnce({
+      nodes: [buildLocalNode()],
+    })
+
+    const wrapper = mountList(true)
+    await flushPromises()
+
+    mocks.eventBus.emit(
+      'gameServerVersion',
+      'server-local',
+      '1.20.4',
+      createProto(VersionInfoSchema, {
+        status: VersionStatus.CHECKING,
+      }),
+    )
+
+    mocks.listAggregatedGameServers.mockResolvedValueOnce({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            version: '1.21.1',
+            versionInfo: createProto(VersionInfoSchema, {
+              status: VersionStatus.CHECKED,
+              installedVersion: '1.21.1',
+            }),
+          }),
+        }),
+      ],
+    })
+    mocks.listGameServers.mockResolvedValueOnce({
+      gameServers: [
+        buildLocalServer({
+          version: '1.21.1',
+          versionInfo: createProto(VersionInfoSchema, {
+            status: VersionStatus.CHECKED,
+            installedVersion: '1.21.1',
+          }),
+        }),
+      ],
+    })
+    mocks.listNodes.mockResolvedValueOnce({
+      nodes: [buildLocalNode()],
+    })
+
+    mocks.eventBus.emit('websocketConnected')
+    await flushPromises()
+
+    expect((wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'server-local',
+          version: '1.21.1',
+          versionInfo: expect.objectContaining({
+            status: VersionStatus.CHECKED,
+            installedVersion: '1.21.1',
+          }),
         }),
       ]),
     )

@@ -69,7 +69,10 @@
           </template>
           <template #body-cell-cpu="props">
             <q-td :props="props">
-              <template v-if="getSnapshot(props.row.id)">
+              <template v-if="shouldShowMetricSkeleton(props.row.id)">
+                <q-skeleton class="node-list__metric-skeleton" type="text" width="3rem" />
+              </template>
+              <template v-else-if="getSnapshot(props.row.id)">
                 <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.cpuPercent)">
                   {{ Math.round(getSnapshot(props.row.id)!.cpuPercent) }}%
                 </span>
@@ -79,7 +82,10 @@
           </template>
           <template #body-cell-ram="props">
             <q-td :props="props">
-              <template v-if="getSnapshot(props.row.id)">
+              <template v-if="shouldShowMetricSkeleton(props.row.id)">
+                <q-skeleton class="node-list__metric-skeleton" type="text" width="5rem" />
+              </template>
+              <template v-else-if="getSnapshot(props.row.id)">
                 <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.memoryPercent)">
                   {{ Math.round(getSnapshot(props.row.id)!.memoryPercent) }}%
                 </span>
@@ -92,7 +98,10 @@
           </template>
           <template #body-cell-disk="props">
             <q-td :props="props">
-              <template v-if="getSnapshot(props.row.id)">
+              <template v-if="shouldShowMetricSkeleton(props.row.id)">
+                <q-skeleton class="node-list__metric-skeleton" type="text" width="5rem" />
+              </template>
+              <template v-else-if="getSnapshot(props.row.id)">
                 <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.diskPercent)">
                   {{ Math.round(getSnapshot(props.row.id)!.diskPercent) }}%
                 </span>
@@ -105,7 +114,10 @@
           </template>
           <template #body-cell-servers="props">
             <q-td :props="props">
-              <template v-if="getSnapshot(props.row.id)">
+              <template v-if="shouldShowMetricSkeleton(props.row.id)">
+                <q-skeleton class="node-list__metric-skeleton" type="text" width="4rem" />
+              </template>
+              <template v-else-if="getSnapshot(props.row.id)">
                 <span class="text-success">{{
                   getSnapshot(props.row.id)!.runningGameServerCount
                 }}</span>
@@ -117,7 +129,10 @@
           </template>
           <template #body-cell-users="props">
             <q-td :props="props">
-              <template v-if="getSnapshot(props.row.id)">
+              <template v-if="shouldShowMetricSkeleton(props.row.id)">
+                <q-skeleton class="node-list__metric-skeleton" type="text" width="2.5rem" />
+              </template>
+              <template v-else-if="getSnapshot(props.row.id)">
                 {{ getSnapshot(props.row.id)!.userCount }}
               </template>
               <span v-else class="text-xy-muted">&mdash;</span>
@@ -125,7 +140,12 @@
           </template>
           <template #body-cell-version="props">
             <q-td :props="props">
-              <span v-if="getNodeVersion(props.row.id)">
+              <q-skeleton
+                v-if="shouldShowVersionSkeleton(props.row.id)"
+                class="node-list__metric-skeleton"
+                type="text"
+                width="4rem" />
+              <span v-else-if="getNodeVersion(props.row.id)">
                 {{ getNodeVersion(props.row.id) }}
               </span>
               <span v-else class="text-xy-muted">&mdash;</span>
@@ -311,6 +331,7 @@ import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
 const $q = useQuasar()
 const rows = ref([] as Node[])
 const loading: Ref<boolean> = ref(false)
+const metricsLoading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteDialog = ref(false)
 const selectedNodeForDelete = ref<Node | null>(null)
@@ -352,6 +373,14 @@ function metricColor(percent: number): string {
   return 'positive'
 }
 
+function shouldShowMetricSkeleton(nodeId: string): boolean {
+  return metricsLoading.value && getSnapshot(nodeId) === undefined
+}
+
+function shouldShowVersionSkeleton(nodeId: string): boolean {
+  return metricsLoading.value && !getNodeVersion(nodeId)
+}
+
 function onNodeMetrics(metrics: AllNodeMetrics | undefined) {
   if (!metrics?.nodes) return
   for (const [nodeId, snapshot] of Object.entries(metrics.nodes)) {
@@ -372,6 +401,9 @@ onBeforeUnmount(() => {
 async function fetchAll() {
   const fetchID = ++fetchSequence
   loading.value = true
+  if (dashboardSummaries.value.length === 0 && liveSnapshots.value.size === 0) {
+    metricsLoading.value = true
+  }
   const dashboardPromise = GetXylonaClient()
     .getDashboardOverview({})
     .then((dashResp) => {
@@ -381,6 +413,11 @@ async function fetchAll() {
       dashboardSummaries.value = dashResp.nodes
     })
     .catch(() => null)
+    .finally(() => {
+      if (fetchID === fetchSequence) {
+        metricsLoading.value = false
+      }
+    })
 
   try {
     const nodesResp = await GetXylonaClient().listNodes(create(ListNodesRequestSchema, {}))
@@ -560,5 +597,13 @@ const columns = ref([
 .badge-auto {
   background-color: var(--xy-accent);
   color: var(--xy-base);
+}
+
+.node-list__metric-skeleton {
+  opacity: 0.78;
+}
+
+.node-list__metric-skeleton :deep(.q-skeleton) {
+  background: color-mix(in srgb, var(--xy-text-muted) 18%, transparent);
 }
 </style>

@@ -1,4 +1,4 @@
 package supervisor
 
-func checkErrorAccessDenied(err error, command *Command) {
+func checkErrorAccessDenied(_ error, _ *Command) {
 }

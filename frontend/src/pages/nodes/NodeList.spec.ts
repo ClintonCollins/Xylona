@@ -55,6 +55,8 @@ const globalStubs = {
     'q-td': { template: '<div><slot /></div>' },
     'q-tooltip': true,
     'q-badge': true,
+    'q-spinner': true,
+    'q-skeleton': true,
     'q-dialog': true,
     'q-card-actions': true,
     'router-link': { template: '<a><slot /></a>' },
@@ -159,9 +161,30 @@ describe('NodeList', () => {
       expect(wrapper.find('[data-test="q-table-row-count"]').text()).toBe('1')
     })
     expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe('false')
+    expect(
+      (
+        wrapper.vm as unknown as { shouldShowMetricSkeleton: (nodeId: string) => boolean }
+      ).shouldShowMetricSkeleton('node-1'),
+    ).toBe(true)
+    expect(
+      (
+        wrapper.vm as unknown as { shouldShowVersionSkeleton: (nodeId: string) => boolean }
+      ).shouldShowVersionSkeleton('node-1'),
+    ).toBe(true)
 
     resolveDashboard({ nodes: [] })
     await flushPromises()
+
+    expect(
+      (
+        wrapper.vm as unknown as { shouldShowMetricSkeleton: (nodeId: string) => boolean }
+      ).shouldShowMetricSkeleton('node-1'),
+    ).toBe(false)
+    expect(
+      (
+        wrapper.vm as unknown as { shouldShowVersionSkeleton: (nodeId: string) => boolean }
+      ).shouldShowVersionSkeleton('node-1'),
+    ).toBe(false)
   })
 
   it('ignores stale overlapping node fetches', async () => {

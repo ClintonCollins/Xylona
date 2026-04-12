@@ -10,7 +10,12 @@ import (
 )
 
 func lockFileExclusiveNonBlocking(file *os.File) error {
-	errLock := unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+	fd, errFileDescriptor := fileDescriptor(file)
+	if errFileDescriptor != nil {
+		return errFileDescriptor
+	}
+
+	errLock := unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB)
 	if errLock != nil {
 		return fmt.Errorf(`lock file: %w`, errLock)
 	}
@@ -18,9 +23,24 @@ func lockFileExclusiveNonBlocking(file *os.File) error {
 }
 
 func unlockFile(file *os.File) error {
-	errUnlock := unix.Flock(int(file.Fd()), unix.LOCK_UN)
+	fd, errFileDescriptor := fileDescriptor(file)
+	if errFileDescriptor != nil {
+		return errFileDescriptor
+	}
+
+	errUnlock := unix.Flock(fd, unix.LOCK_UN)
 	if errUnlock != nil {
 		return fmt.Errorf(`unlock file: %w`, errUnlock)
 	}
 	return nil
+}
+
+func fileDescriptor(file *os.File) (int, error) {
+	fd := file.Fd()
+	maxInt := int(^uint(0) >> 1)
+	if fd > uintptr(maxInt) {
+		return 0, fmt.Errorf(`file descriptor %d exceeds int range`, fd)
+	}
+
+	return int(fd), nil
 }

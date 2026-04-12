@@ -4,6 +4,7 @@ package adminipc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -15,30 +16,58 @@ func listen(endpoint string) (net.Listener, func() error, error) {
 		return nil, nil, fmt.Errorf(`adminipc: remove stale socket: %w`, errRemove)
 	}
 
-	listener, errListen := net.Listen(`unix`, endpoint)
+	ctx := context.Background()
+	listenConfig := net.ListenConfig{}
+	listener, errListen := listenConfig.Listen(ctx, `unix`, endpoint)
 	if errListen != nil {
 		return nil, nil, fmt.Errorf(`adminipc: listen on unix socket: %w`, errListen)
 	}
 
 	errChmod := os.Chmod(endpoint, 0o600)
 	if errChmod != nil {
-		_ = listener.Close()
-		_ = os.Remove(endpoint)
+		errCleanup := errors.Join(
+			closeListener(listener),
+			removeSocket(endpoint),
+		)
+		if errCleanup != nil {
+			return nil, nil, errors.Join(
+				fmt.Errorf(`adminipc: chmod unix socket: %w`, errChmod),
+				errCleanup,
+			)
+		}
+
 		return nil, nil, fmt.Errorf(`adminipc: chmod unix socket: %w`, errChmod)
 	}
 
 	cleanup := func() error {
-		errClose := listener.Close()
-		errRemoveSocket := os.Remove(endpoint)
-		if errRemoveSocket != nil && !os.IsNotExist(errRemoveSocket) && errClose == nil {
-			return errRemoveSocket
-		}
-		return errClose
+		return errors.Join(
+			closeListener(listener),
+			removeSocket(endpoint),
+		)
 	}
 
 	return listener, cleanup, nil
 }
 
-func dialContext(_ context.Context, endpoint string) (net.Conn, error) {
-	return net.Dial(`unix`, endpoint)
+func dialContext(ctx context.Context, endpoint string) (net.Conn, error) {
+	dialer := net.Dialer{}
+	return dialer.DialContext(ctx, `unix`, endpoint)
+}
+
+func closeListener(listener net.Listener) error {
+	errClose := listener.Close()
+	if errClose != nil {
+		return fmt.Errorf(`adminipc: close unix socket listener: %w`, errClose)
+	}
+
+	return nil
+}
+
+func removeSocket(endpoint string) error {
+	errRemove := os.Remove(endpoint)
+	if errRemove != nil && !os.IsNotExist(errRemove) {
+		return fmt.Errorf(`adminipc: remove unix socket: %w`, errRemove)
+	}
+
+	return nil
 }

@@ -25,6 +25,12 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+const (
+	//nolint:gosec // This is a transport header name, not a credential.
+	pairingRollbackTokenHeader = "X-Xylona-Pairing-Rollback-Token"
+	pairingRollbackTokenTTL    = 2 * time.Minute
+)
+
 // GetNode returns a node by ID.
 func (xs *XylonaService) GetNode(_ context.Context, request *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
@@ -59,13 +65,6 @@ func (xs *XylonaService) ListNodes(_ context.Context, request *connect.Request[x
 
 // AddNode adds a remote node using a pairing token.
 func (xs *XylonaService) AddNode(ctx context.Context, request *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	if !user.SuperUser {
-		return nil, permissionDenied("superuser required")
-	}
 	nodeProto := request.Msg.GetNode()
 
 	baseURL := strings.TrimSpace(nodeProto.GetBaseUrl())
@@ -78,7 +77,25 @@ func (xs *XylonaService) AddNode(ctx context.Context, request *connect.Request[x
 		return nil, invalidArg("pairing token is required")
 	}
 
-	return xs.addRemoteNode(ctx, nodeProto.GetName(), baseURL, nodeProto.GetAllowInsecureTls(), pairingToken, "", int(nodeProto.GetPort()))
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser == nil && !user.SuperUser {
+		return nil, permissionDenied("superuser required")
+	}
+
+	response, errAddNode := xs.addRemoteNode(ctx, nodeProto.GetName(), baseURL, nodeProto.GetAllowInsecureTls(), pairingToken, "", int(nodeProto.GetPort()))
+	if errAddNode != nil {
+		return nil, errAddNode
+	}
+
+	if errUser != nil && response.Msg != nil && response.Msg.GetNode() != nil {
+		rollbackToken, errIssueRollbackToken := xs.issuePairingRollbackToken(response.Msg.GetNode().GetId())
+		if errIssueRollbackToken != nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to issue pairing rollback token"))
+		}
+		response.Header().Set(pairingRollbackTokenHeader, rollbackToken)
+	}
+
+	return response, nil
 }
 
 // GenerateNodePairingObject creates a pairing token and local metadata for node pairing.
@@ -235,9 +252,14 @@ func (xs *XylonaService) PairNode(ctx context.Context, request *connect.Request[
 			if reciprocalNode != nil && reciprocalNode.GetId() != "" {
 				rollbackCtx, cancelRollback := context.WithTimeout(ctx, federationRequestTimeout)
 				defer cancelRollback()
-				_, errRollback := remoteClient.RemoveNode(rollbackCtx, connect.NewRequest(&xylona.RemoveNodeRequest{
+				rollbackRequest := connect.NewRequest(&xylona.RemoveNodeRequest{
 					NodeId: reciprocalNode.GetId(),
-				}))
+				})
+				rollbackToken := strings.TrimSpace(remoteAddResp.Header().Get(pairingRollbackTokenHeader))
+				if rollbackToken != "" {
+					rollbackRequest.Header().Set(pairingRollbackTokenHeader, rollbackToken)
+				}
+				_, errRollback := remoteClient.RemoveNode(rollbackCtx, rollbackRequest)
 				if errRollback != nil {
 					log.Warn().
 						Err(errRollback).
@@ -471,11 +493,16 @@ func (xs *XylonaService) resolveLocalPairingBaseURL(preferredBaseURL string) (st
 // RemoveNode removes a configured node and its cached data.
 func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	if !user.SuperUser {
-		return nil, permissionDenied("superuser required")
+	if errUser == nil {
+		if !user.SuperUser {
+			return nil, permissionDenied("superuser required")
+		}
+	} else {
+		nodeID := request.Msg.GetNodeId()
+		rollbackToken := strings.TrimSpace(request.Header().Get(pairingRollbackTokenHeader))
+		if !xs.consumePairingRollbackToken(nodeID, rollbackToken) {
+			return nil, unauthenticated()
+		}
 	}
 	nodeID := request.Msg.GetNodeId()
 
@@ -535,6 +562,75 @@ func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, errDelete)
 	}
 	return connect.NewResponse(&xylona.RemoveNodeResponse{}), nil
+}
+
+func (xs *XylonaService) issuePairingRollbackToken(nodeID string) (string, error) {
+	nodeID = strings.TrimSpace(nodeID)
+	if nodeID == "" {
+		return "", errors.New("pairing rollback node ID is required")
+	}
+
+	token, errGenerateToken := helpers.GenerateRandomString(32)
+	if errGenerateToken != nil {
+		return "", fmt.Errorf("generate pairing rollback token: %w", errGenerateToken)
+	}
+
+	now := time.Now()
+	expiresAt := now.Add(pairingRollbackTokenTTL)
+
+	xs.pairingRollbackTokensMu.Lock()
+	defer xs.pairingRollbackTokensMu.Unlock()
+
+	if xs.pairingRollbackTokens == nil {
+		xs.pairingRollbackTokens = make(map[string]pairingRollbackToken)
+	}
+
+	for existingToken, rollbackToken := range xs.pairingRollbackTokens {
+		if now.After(rollbackToken.expiresAt) {
+			delete(xs.pairingRollbackTokens, existingToken)
+		}
+	}
+
+	xs.pairingRollbackTokens[token] = pairingRollbackToken{
+		nodeID:    nodeID,
+		expiresAt: expiresAt,
+	}
+
+	return token, nil
+}
+
+func (xs *XylonaService) consumePairingRollbackToken(nodeID string, token string) bool {
+	nodeID = strings.TrimSpace(nodeID)
+	token = strings.TrimSpace(token)
+	if nodeID == "" || token == "" {
+		return false
+	}
+
+	now := time.Now()
+
+	xs.pairingRollbackTokensMu.Lock()
+	defer xs.pairingRollbackTokensMu.Unlock()
+
+	for existingToken, rollbackToken := range xs.pairingRollbackTokens {
+		if now.After(rollbackToken.expiresAt) {
+			delete(xs.pairingRollbackTokens, existingToken)
+		}
+	}
+
+	rollbackToken, ok := xs.pairingRollbackTokens[token]
+	if !ok {
+		return false
+	}
+	delete(xs.pairingRollbackTokens, token)
+
+	if rollbackToken.nodeID != nodeID {
+		return false
+	}
+	if now.After(rollbackToken.expiresAt) {
+		return false
+	}
+
+	return true
 }
 
 // EditNode updates a configured node.

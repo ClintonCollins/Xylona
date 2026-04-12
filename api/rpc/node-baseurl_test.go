@@ -80,3 +80,22 @@ func TestAddNodeRejectsLocalNodeCreation(t *testing.T) {
 		t.Fatalf("AddNode() code = %v, want %v", connect.CodeOf(errAddNode), connect.CodeInvalidArgument)
 	}
 }
+
+func TestAddNodeAllowsPairingFlowWithoutSession(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	request := connect.NewRequest(&xylona.AddNodeRequest{
+		Node: &xylona.Node{
+			Name:      "pairing-node",
+			BaseUrl:   "https://remote.example.com:9000",
+			SecretKey: "pairing-token",
+		},
+	})
+
+	_, errAddNode := fixture.service.AddNode(t.Context(), request)
+	if errAddNode == nil {
+		t.Fatalf("AddNode() error = nil, want error")
+	}
+	if connect.CodeOf(errAddNode) != connect.CodeInternal {
+		t.Fatalf("AddNode() code = %v, want %v", connect.CodeOf(errAddNode), connect.CodeInternal)
+	}
+}

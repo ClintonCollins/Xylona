@@ -56,6 +56,31 @@
         hide-header-in-grid
         row-key="compositeId"
         selection="multiple">
+        <template #bottom-row>
+          <tr
+            v-for="placeholderIndex in pendingRemotePlaceholderCount"
+            :key="'pending-remote-' + placeholderIndex"
+            class="game-server-list__pending-row"
+            data-testid="game-server-remote-pending">
+            <td :colspan="columns.length + 1">
+              <div class="game-server-list__pending-shell">
+                <div
+                  v-if="placeholderIndex === 1"
+                  class="game-server-list__pending-status"
+                  aria-live="polite">
+                  <q-spinner color="primary" size="0.9rem" />
+                  <span>Syncing remote nodes</span>
+                </div>
+                <div class="game-server-list__pending-skeletons" aria-hidden="true">
+                  <q-skeleton type="text" width="11rem" />
+                  <q-skeleton type="text" width="5rem" />
+                  <q-skeleton type="text" width="6rem" />
+                  <q-skeleton type="text" width="4.5rem" />
+                </div>
+              </div>
+            </td>
+          </tr>
+        </template>
         <template #body-cell-name="props">
           <q-td :props="props">
             <router-link :to="'/game-servers/' + props.row.id + '/console'" class="table-link">
@@ -183,6 +208,7 @@ const bootstrapServers = ref<AggregatedGameServer[] | null>(null)
 const aggregatedServers = ref<AggregatedGameServer[] | null>(null)
 const nodesByID = ref(new Map<string, Node>())
 const loading: Ref<boolean> = ref(false)
+const remoteLoadState = ref<'idle' | 'loading' | 'loaded' | 'failed'>('idle')
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
 const selectedGameServers = ref([] as DisplayRow[])
@@ -191,7 +217,14 @@ const cachedRemoteNodeIDs = useStorage<string[]>('game-server-remote-node-ids-ca
 const allowedRemoteNodeIDs = ref(new Set(cachedRemoteNodeIDs.value))
 const $q = useQuasar()
 let loadSequence = 0
+let initialLoadComplete = false
 const dirtyLiveServerCompositeIDs = new Set<string>()
+type BufferedLiveServerState = {
+  status?: Status
+  version?: string
+  versionInfo?: VersionInfo
+}
+const bufferedLiveServerStateByID = new Map<string, BufferedLiveServerState>()
 
 const sanitizedCachedDisplayRows = sanitizeBootstrapCachedRows(cachedDisplayRows.value)
 if (sanitizedCachedDisplayRows.some((row, index) => row !== cachedDisplayRows.value[index])) {
@@ -215,6 +248,22 @@ const preferredServers = computed((): AggregatedGameServer[] => {
 })
 const hasFetchedLiveRows = computed(() => {
   return aggregatedServers.value !== null || bootstrapServers.value !== null
+})
+const pendingRemotePlaceholderCount = computed(() => {
+  if (loading.value || remoteLoadState.value !== 'loading') {
+    return 0
+  }
+  if (bootstrapServers.value === null || aggregatedServers.value !== null) {
+    return 0
+  }
+
+  if (allowedRemoteNodeIDs.value.size > 0) {
+    return Math.min(allowedRemoteNodeIDs.value.size, 2)
+  }
+  if (cachedDisplayRows.value.some((row) => !row.isLocal)) {
+    return 1
+  }
+  return 0
 })
 
 const liveDisplayRows = computed((): DisplayRow[] => {
@@ -243,11 +292,13 @@ const selectedGameServersForStop = computed(() => {
 })
 
 function buildLocalAggregatedServers(gameServers: GameServer[]): AggregatedGameServer[] {
-  return gameServers.map((gameServer) =>
-    create(AggregatedGameServerSchema, {
-      isLocal: true,
-      localServer: gameServer,
-    }),
+  return applyBufferedLiveServerStateToServers(
+    gameServers.map((gameServer) =>
+      create(AggregatedGameServerSchema, {
+        isLocal: true,
+        localServer: gameServer,
+      }),
+    ),
   )
 }
 
@@ -283,6 +334,63 @@ function getAggregatedServerCompositeID(server: AggregatedGameServer): string | 
 
   const sourceNodeID = server.remoteServer.sourceNodeId || server.remoteServer.nodeId
   return sourceNodeID + '/' + server.remoteServer.remoteServerId
+}
+
+function recordBufferedLiveServerState(serverID: string, state: BufferedLiveServerState) {
+  const existingState = bufferedLiveServerStateByID.get(serverID) ?? {}
+  bufferedLiveServerStateByID.set(serverID, {
+    ...existingState,
+    ...state,
+  })
+}
+
+function applyBufferedLiveServerStateToServers(
+  servers: AggregatedGameServer[],
+): AggregatedGameServer[] {
+  for (const server of servers) {
+    if (server.isLocal && server.localServer) {
+      const bufferedState = bufferedLiveServerStateByID.get(server.localServer.id)
+      if (!bufferedState) {
+        continue
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(bufferedState, 'status') &&
+        bufferedState.status !== undefined
+      ) {
+        server.localServer.status = bufferedState.status
+      }
+      if (Object.prototype.hasOwnProperty.call(bufferedState, 'version')) {
+        server.localServer.version = bufferedState.version ?? ''
+      }
+      if (Object.prototype.hasOwnProperty.call(bufferedState, 'versionInfo')) {
+        server.localServer.versionInfo = bufferedState.versionInfo
+      }
+      continue
+    }
+
+    if (!server.isLocal && server.remoteServer) {
+      const bufferedState = bufferedLiveServerStateByID.get(server.remoteServer.remoteServerId)
+      if (!bufferedState) {
+        continue
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(bufferedState, 'status') &&
+        bufferedState.status !== undefined
+      ) {
+        server.remoteServer.status = bufferedState.status
+      }
+      if (Object.prototype.hasOwnProperty.call(bufferedState, 'version')) {
+        server.remoteServer.version = bufferedState.version ?? ''
+      }
+      if (Object.prototype.hasOwnProperty.call(bufferedState, 'versionInfo')) {
+        server.remoteServer.versionInfo = bufferedState.versionInfo
+      }
+    }
+  }
+
+  return servers
 }
 
 function mergeLiveServerState(servers: AggregatedGameServer[]): AggregatedGameServer[] {
@@ -347,26 +455,31 @@ function mergeLiveServerState(servers: AggregatedGameServer[]): AggregatedGameSe
     }
   }
 
-  return servers
+  return applyBufferedLiveServerStateToServers(servers)
 }
 
 onMounted(async () => {
-  await getGameServers()
   watchServerStatusChanges()
   watchServerVersionChanges()
+  watchWebsocketReconnects()
+  await getGameServers()
+  initialLoadComplete = true
 })
 
 onBeforeUnmount(() => {
   XylonaEventBus.off('gameServerStatus', handleServerStatusUpdate)
   XylonaEventBus.off('gameServerVersion', handleServerVersionUpdate)
+  XylonaEventBus.off('websocketConnected', handleWebsocketReconnect)
 })
 
 async function getGameServers() {
   const loadID = ++loadSequence
   bootstrapServers.value = null
   aggregatedServers.value = null
+  bufferedLiveServerStateByID.clear()
   dirtyLiveServerCompositeIDs.clear()
   loading.value = true
+  remoteLoadState.value = 'loading'
   let didRenderRows = false
   const xylonaClient = GetXylonaClient()
 
@@ -391,6 +504,7 @@ async function getGameServers() {
 
       const mergedServers = mergeLiveServerState(response.servers)
       aggregatedServers.value = mergedServers
+      remoteLoadState.value = 'loaded'
       cacheAggregatedRows(mergedServers)
       finishInitialRender()
     })
@@ -407,6 +521,7 @@ async function getGameServers() {
           'Failed to load remote game servers: ' + ConnectErrorToString(ConnectError.from(reason)),
         icon: 'report_problem',
       })
+      remoteLoadState.value = 'failed'
     })
   const localServersRequest = xylonaClient
     .listGameServers(create(ListGameServersRequestSchema, {}))
@@ -471,6 +586,18 @@ function watchServerVersionChanges() {
   XylonaEventBus.on('gameServerVersion', handleServerVersionUpdate)
 }
 
+function watchWebsocketReconnects() {
+  XylonaEventBus.on('websocketConnected', handleWebsocketReconnect)
+}
+
+function handleWebsocketReconnect() {
+  if (!initialLoadComplete || loading.value) {
+    return
+  }
+
+  void getGameServers()
+}
+
 async function deleteGameServerAction(row: DisplayRow | null) {
   if (row !== null) {
     selectedGameServers.value = [row]
@@ -487,6 +614,8 @@ async function deleteGameServerSubmitted(error: unknown | boolean) {
 }
 
 function setServerStatus(serverID: string, serverStatus: Status) {
+  recordBufferedLiveServerState(serverID, { status: serverStatus })
+
   for (const row of cachedDisplayRows.value) {
     if (row.id === serverID) {
       row.statusEnum = serverStatus
@@ -507,6 +636,8 @@ function setServerStatus(serverID: string, serverStatus: Status) {
 }
 
 function setServerVersion(serverID: string, version: string, versionInfo?: VersionInfo) {
+  recordBufferedLiveServerState(serverID, { version, versionInfo })
+
   for (const row of cachedDisplayRows.value) {
     if (row.id === serverID) {
       row.version = version
@@ -734,5 +865,42 @@ const columns = ref([
 .version-na {
   color: var(--xy-text-muted);
   font-style: italic;
+}
+
+.game-server-list__pending-row td {
+  padding: 0;
+  border-top: 1px solid var(--xy-border);
+}
+
+.game-server-list__pending-shell {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-md);
+  min-height: 3rem;
+  padding: 0.65rem 1rem;
+  background: color-mix(in srgb, var(--xy-surface-1) 88%, transparent);
+}
+
+.game-server-list__pending-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  min-width: 11.5rem;
+  color: var(--xy-text-muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.game-server-list__pending-skeletons {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-md);
+  flex: 1;
+  opacity: 0.46;
+}
+
+.game-server-list__pending-shell :deep(.q-skeleton) {
+  background: color-mix(in srgb, var(--xy-text-muted) 15%, transparent);
 }
 </style>

@@ -61,6 +61,13 @@ type XylonaService struct {
 	notificationChannelTestOnce    sync.Once
 	notificationChannelTestLimiter *notificationChannelTestRateLimiter
 	taskScheduler                  *scheduler.Scheduler
+	pairingRollbackTokensMu        sync.Mutex
+	pairingRollbackTokens          map[string]pairingRollbackToken
+}
+
+type pairingRollbackToken struct {
+	nodeID    string
+	expiresAt time.Time
 }
 
 // NewXylonaService constructs the main RPC service implementation.
@@ -101,20 +108,21 @@ func NewXylonaService(
 	}()
 
 	return &XylonaService{
-		ctx:              ctx,
-		db:               database,
-		actionsInst:      actionsInst,
-		federationMTLS:   federationMTLS,
-		secureCookie:     secureCookie,
-		secureCookies:    secureCookies,
-		supervisorInst:   supervisorInst,
-		modManager:       modMgr,
-		steamCache:       steamCache,
-		listCache:        newRemoteServerListCache(remoteServerListCacheTTL),
-		allPermissionIDs: permIDs,
-		installTracker:   tracker,
-		versionState:     versionState,
-		userService:      usermgmt.NewService(database),
+		ctx:                   ctx,
+		db:                    database,
+		actionsInst:           actionsInst,
+		federationMTLS:        federationMTLS,
+		secureCookie:          secureCookie,
+		secureCookies:         secureCookies,
+		supervisorInst:        supervisorInst,
+		modManager:            modMgr,
+		steamCache:            steamCache,
+		listCache:             newRemoteServerListCache(remoteServerListCacheTTL),
+		allPermissionIDs:      permIDs,
+		installTracker:        tracker,
+		versionState:          versionState,
+		userService:           usermgmt.NewService(database),
+		pairingRollbackTokens: make(map[string]pairingRollbackToken),
 	}, nil
 }
 
