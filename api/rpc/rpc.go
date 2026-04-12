@@ -15,6 +15,7 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/scheduler"
+	"github.com/ClintonCollins/Xylona/pkg/usermgmt"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
@@ -55,6 +56,7 @@ type XylonaService struct {
 	updateBroadcast                UpdateProgressBroadcaster
 	versionState                   *versiontracker.VersionStateMap
 	dummyTracker                   *versiontracker.DummyTracker
+	userService                    *usermgmt.Service
 	testEmailSendFunc              func(ctx context.Context, cfg *mailer.SMTPConfig, to string, subject string, body string) error
 	notificationChannelTestOnce    sync.Once
 	notificationChannelTestLimiter *notificationChannelTestRateLimiter
@@ -112,6 +114,7 @@ func NewXylonaService(
 		allPermissionIDs: permIDs,
 		installTracker:   tracker,
 		versionState:     versionState,
+		userService:      usermgmt.NewService(database),
 	}, nil
 }
 

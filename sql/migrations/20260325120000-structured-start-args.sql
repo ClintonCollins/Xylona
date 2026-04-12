@@ -10,6 +10,71 @@ ALTER TABLE game ADD COLUMN allow_start_arg_editing BOOLEAN NOT NULL DEFAULT TRU
 ALTER TABLE game_server ADD COLUMN start_args_patches TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE node ADD COLUMN os TEXT NOT NULL DEFAULT '';
 
+WITH schema_tokens AS (
+    SELECT
+        CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table'
+                  AND name = 'game'
+                  AND sql LIKE '%xylona_internal%'
+            ) THEN 'xylona_internal'
+            ELSE 'internal'
+        END AS internal_type,
+        CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table'
+                  AND name = 'game'
+                  AND sql LIKE '%''pwsh''%'
+            ) THEN 'pwsh'
+            ELSE 'powershell'
+        END AS powershell_type
+)
+UPDATE game
+SET linux_install_command_type = CASE
+        WHEN lower(trim(linux_install_command_type)) IN ('direct', 'bash')
+            THEN lower(trim(linux_install_command_type))
+        WHEN lower(trim(linux_install_command_type)) IN ('internal', 'xylona_internal', 'papermc', 'mojang')
+            THEN (SELECT internal_type FROM schema_tokens)
+        WHEN lower(trim(linux_install_command_type)) IN ('none', 'steamcmd')
+            THEN 'direct'
+        ELSE 'direct'
+    END,
+    linux_update_command_type = CASE
+        WHEN lower(trim(linux_update_command_type)) IN ('direct', 'bash')
+            THEN lower(trim(linux_update_command_type))
+        WHEN lower(trim(linux_update_command_type)) IN ('internal', 'xylona_internal', 'papermc', 'mojang')
+            THEN (SELECT internal_type FROM schema_tokens)
+        WHEN lower(trim(linux_update_command_type)) IN ('none', 'steamcmd')
+            THEN 'direct'
+        ELSE 'direct'
+    END,
+    windows_install_command_type = CASE
+        WHEN lower(trim(windows_install_command_type)) IN ('direct', 'cmd', 'powershell')
+            THEN lower(trim(windows_install_command_type))
+        WHEN lower(trim(windows_install_command_type)) = 'pwsh'
+            THEN (SELECT powershell_type FROM schema_tokens)
+        WHEN lower(trim(windows_install_command_type)) IN ('internal', 'xylona_internal', 'papermc', 'mojang')
+            THEN (SELECT internal_type FROM schema_tokens)
+        WHEN lower(trim(windows_install_command_type)) IN ('none', 'steamcmd')
+            THEN 'direct'
+        ELSE 'direct'
+    END,
+    windows_update_command_type = CASE
+        WHEN lower(trim(windows_update_command_type)) IN ('direct', 'cmd', 'powershell')
+            THEN lower(trim(windows_update_command_type))
+        WHEN lower(trim(windows_update_command_type)) = 'pwsh'
+            THEN (SELECT powershell_type FROM schema_tokens)
+        WHEN lower(trim(windows_update_command_type)) IN ('internal', 'xylona_internal', 'papermc', 'mojang')
+            THEN (SELECT internal_type FROM schema_tokens)
+        WHEN lower(trim(windows_update_command_type)) IN ('none', 'steamcmd')
+            THEN 'direct'
+        ELSE 'direct'
+    END;
+
 UPDATE game
 SET linux_base_command = 'java',
     windows_base_command = 'java',
@@ -210,6 +275,18 @@ INSERT INTO game (
     true
 ) ON CONFLICT(id) DO NOTHING;
 
+WITH schema_tokens AS (
+    SELECT CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name = 'game'
+              AND sql LIKE '%xylona_internal%'
+        ) THEN 'xylona_internal'
+        ELSE 'internal'
+    END AS internal_type
+)
 INSERT INTO game (
     id,
     name,
@@ -232,7 +309,8 @@ INSERT INTO game (
     windows_start_args_template,
     start_arg_blocklist,
     xylona_official
-) VALUES (
+)
+SELECT
     'hytale',
     'Hytale',
     5520,
@@ -244,17 +322,22 @@ INSERT INTO game (
     '',
     true,
     true,
-    'internal',
-    'internal',
-    'internal',
-    'internal',
+    internal_type,
+    internal_type,
+    internal_type,
+    internal_type,
     'java',
     'java',
     '[{"id":"01JQSG00000000000000000001","order":1,"ownership":"editable","tokens":["-Xms1G"],"label":"Min heap size"},{"id":"01JQSG00000000000000000002","order":2,"ownership":"editable","tokens":["-Xmx4G"],"label":"Max heap size"},{"id":"01JQSG00000000000000000003","order":3,"ownership":"system","tokens":["-jar","{{SERVER_EXECUTABLE}}"],"label":"Server executable","managed_source":"server_executable"}]',
     '[{"id":"01JQSG00000000000000000001","order":1,"ownership":"editable","tokens":["-Xms1G"],"label":"Min heap size"},{"id":"01JQSG00000000000000000002","order":2,"ownership":"editable","tokens":["-Xmx4G"],"label":"Max heap size"},{"id":"01JQSG00000000000000000003","order":3,"ownership":"system","tokens":["-jar","{{SERVER_EXECUTABLE}}"],"label":"Server executable","managed_source":"server_executable"}]',
     '[]',
     true
-) ON CONFLICT(id) DO NOTHING;
+FROM schema_tokens
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM game
+    WHERE id = 'hytale'
+);
 
 INSERT INTO game (
     id,
@@ -308,16 +391,17 @@ ALTER TABLE game_server DROP COLUMN start_command;
 
 -- +migrate Down
 
-ALTER TABLE game ADD COLUMN linux_start_command TEXT NOT NULL DEFAULT '';
-ALTER TABLE game ADD COLUMN windows_start_command TEXT NOT NULL DEFAULT '';
-ALTER TABLE game_server ADD COLUMN start_command TEXT NOT NULL DEFAULT '';
+CREATE TEMP TABLE structured_start_args_down_guard
+(
+    id INTEGER PRIMARY KEY NOT NULL
+);
 
-ALTER TABLE game DROP COLUMN linux_start_args_template;
-ALTER TABLE game DROP COLUMN windows_start_args_template;
-ALTER TABLE game DROP COLUMN linux_base_command;
-ALTER TABLE game DROP COLUMN windows_base_command;
-ALTER TABLE game DROP COLUMN start_arg_blocklist;
-ALTER TABLE game DROP COLUMN allow_start_arg_editing;
+-- +migrate StatementBegin
+CREATE TEMP TRIGGER structured_start_args_down_guard_fail
+BEFORE INSERT ON structured_start_args_down_guard
+BEGIN
+    SELECT raise(abort, 'down migration unsupported: structured start args replaced legacy start commands and rollback would lose launch data; restore a pre-migration backup instead');
+END;
+-- +migrate StatementEnd
 
-ALTER TABLE game_server DROP COLUMN start_args_patches;
-ALTER TABLE node DROP COLUMN os;
+INSERT INTO structured_start_args_down_guard (id) VALUES (1);

@@ -30,6 +30,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/urfave/cli/v3"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/actions"
@@ -40,7 +41,9 @@ import (
 	dbpkg "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/helpers/federation"
+	"github.com/ClintonCollins/Xylona/pkg/adminipc"
 	"github.com/ClintonCollins/Xylona/pkg/alerts"
+	"github.com/ClintonCollins/Xylona/pkg/cli/usercmd"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
@@ -51,6 +54,7 @@ import (
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/steamworkshop"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/thunderstore"
 	"github.com/ClintonCollins/Xylona/pkg/scheduler"
+	"github.com/ClintonCollins/Xylona/pkg/usermgmt"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
@@ -461,10 +465,32 @@ func setupAlertSystem(ctx context.Context, dbInst *dbpkg.Connection, actionsInst
 }
 
 func main() {
-	os.Exit(run())
+	os.Exit(run(os.Args))
 }
 
-func run() int {
+var (
+	rootCLIStdout  = io.Writer(os.Stdout)
+	rootCLIStderr  = io.Writer(os.Stderr)
+	runServiceFunc = runService
+)
+
+func run(args []string) int {
+	serviceExitCode := 0
+	rootCommand := newRootCommand(func() int {
+		serviceExitCode = runServiceFunc()
+		return serviceExitCode
+	})
+
+	errRun := rootCommand.Run(context.Background(), args)
+	if errRun != nil {
+		_, _ = fmt.Fprintln(rootCLIStderr, errRun)
+		return 1
+	}
+
+	return serviceExitCode
+}
+
+func runService() int {
 	var cleanupOnce sync.Once
 	cleanupLogger := func() {}
 	cleanup := func() {
@@ -481,6 +507,14 @@ func run() int {
 		log.Error().Err(errParseConfig).Msg("Error parsing config")
 		return 1
 	}
+
+	resolvedDBPath, errResolveDBPath := dbpkg.ResolveDatabasePath(config.DBFilePath)
+	if errResolveDBPath != nil {
+		log.Error().Err(errResolveDBPath).Msg("Failed to resolve database path")
+		return 1
+	}
+	config.DBFilePath = resolvedDBPath
+
 	validatedConfig, errValidateConfig := validateConfiguration(config)
 	if errValidateConfig != nil {
 		log.Error().Err(errValidateConfig).Msg("Invalid runtime configuration")
@@ -499,6 +533,14 @@ func run() int {
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
+
+	runtimeDBLock, errRuntimeDBLock := dbpkg.AcquireRuntimeDBLock(config.DBFilePath)
+	if errRuntimeDBLock != nil {
+		return startupFailure(cleanup, ctxCancel, errRuntimeDBLock, "Failed to acquire runtime database lock")
+	}
+	defer func() {
+		_ = runtimeDBLock.Close()
+	}()
 
 	secureCookie := securecookie.New(validatedConfig.cookieHashKey, validatedConfig.cookieBlockKey)
 
@@ -570,6 +612,14 @@ func run() int {
 	xylonaService, errXylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)
 	if errXylonaService != nil {
 		return startupFailure(cleanup, ctxCancel, errXylonaService, "Failed to create Xylona RPC service")
+	}
+	localUserService := usermgmt.NewService(dbInst)
+	localAdminServer, errLocalAdminServer := adminipc.NewServer(adminipc.ServerConfig{
+		DBPath:  config.DBFilePath,
+		Handler: adminipc.NewUserHandler(localUserService),
+	})
+	if errLocalAdminServer != nil {
+		return startupFailure(cleanup, ctxCancel, errLocalAdminServer, "Failed to create local admin server")
 	}
 	// Wire the already-constructed services together here so the startup
 	// sequence makes the dependency order explicit without pushing that
@@ -650,7 +700,14 @@ func run() int {
 	router.HandleFunc("/*", handleSPAFunc(frontendFS))
 
 	// Start the web server
-	startupErrCh := make(chan error, 2)
+	startupErrCh := make(chan error, 3)
+	go func() {
+		log.Info().Str("endpoint", localAdminServer.Endpoint()).Msg("Starting Xylona local admin server")
+		errServe := localAdminServer.Serve()
+		if errServe != nil && !errors.Is(errServe, adminipc.ErrServerClosed) {
+			startupErrCh <- errServe
+		}
+	}()
 	go func() {
 		log.Info().Int("port", config.HTTPPort).Msg("Starting Xylona web server")
 		startServer(ctxCancel, "start Xylona web server", httpServer.ListenAndServe, startupErrCh)
@@ -671,10 +728,12 @@ func run() int {
 	var startupFailed bool
 	select {
 	case errStartup := <-startupErrCh:
+		shutdownLocalAdminServer(localAdminServer)
 		shutdownServers(ctxCancel, httpServer, federationServer)
 		log.Error().Err(errStartup).Msg("Startup failed")
 		startupFailed = true
 	case shutdownSignalType := <-shutdownSignalChannel:
+		shutdownLocalAdminServer(localAdminServer)
 		gracefulShutdown(ctxCancel, shutdownSignalType, httpServer, federationServer)
 	}
 	alertDeliveryPool.Wait()
@@ -688,4 +747,50 @@ func run() int {
 	}
 
 	return 0
+}
+
+func newRootCommand(serviceAction func() int) *cli.Command {
+	return &cli.Command{
+		Name:      `xylona`,
+		Usage:     `Run the Xylona service or a management subcommand`,
+		UsageText: `xylona [command]`,
+		Writer:    rootCLIStdout,
+		ErrWriter: rootCLIStderr,
+		Action: func(_ context.Context, _ *cli.Command) error {
+			serviceAction()
+			return nil
+		},
+		Commands: []*cli.Command{
+			usercmd.NewCommand(usercmd.Options{
+				Migrate: func(sqlDB *sql.DB) error {
+					return dbpkg.RunMigrations(sqlDB, EmbeddedMigrations, `sql/migrations`)
+				},
+				ResolveDefaultDBPath: resolveDefaultCLIUserDBPath,
+			}),
+		},
+	}
+}
+
+func resolveDefaultCLIUserDBPath(_ context.Context) (string, error) {
+	config := Configuration{}
+	_ = godotenv.Load()
+
+	errParseConfig := env.Parse(&config)
+	if errParseConfig != nil {
+		return ``, fmt.Errorf(`parse config for user command: %w`, errParseConfig)
+	}
+
+	resolvedDBPath, errResolveDBPath := dbpkg.ResolveDatabasePath(config.DBFilePath)
+	if errResolveDBPath != nil {
+		return ``, fmt.Errorf(`resolve database path for user command: %w`, errResolveDBPath)
+	}
+
+	return resolvedDBPath, nil
+}
+
+func shutdownLocalAdminServer(server *adminipc.Server) {
+	errShutdown := server.Close()
+	if errShutdown != nil {
+		log.Error().Err(errShutdown).Msg("Failed to shut down local admin server")
+	}
 }

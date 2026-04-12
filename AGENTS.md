@@ -71,6 +71,8 @@ Regenerate with:
 - Use three import groups: stdlib, third-party, internal `github.com/ClintonCollins/Xylona/...`
 - Name errors descriptively, for example `errGenerate`, `errShutdown`, `errUpsertIP`
 - Handle every returned error, including deferred closes; log with `zerolog` when appropriate
+- Do not silently discard errors with `_ = ...`. If an error truly cannot be returned to the caller, handle it locally with an explicit comment and at minimum log it.
+- Deferred cleanup errors must not be ignored. Return them when possible; otherwise log them with useful context.
 - Keep struct fields unexported unless external access or serialization requires export
 - Use structured `zerolog` logging and `log.Fatal()` for unrecoverable startup failures
 - Follow standard Go naming; define sentinel errors in package-level `var` blocks
@@ -79,6 +81,8 @@ Regenerate with:
 - Router uses `chi`; unknown SPA routes should fall back to `index.html`
 - Database access uses SQLite plus bob; DB methods live on `*db.Connection`
 - New multi-word Go filenames should be kebab-case
+- Prefer double-quoted Go strings by default.
+- Use raw string literals only when they materially improve readability or avoid escaping, such as embedded quotes, SQL snippets, JSON snippets, regex-like text, or multi-line content.
 
 ## Frontend Conventions
 
