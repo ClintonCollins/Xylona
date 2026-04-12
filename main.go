@@ -202,7 +202,8 @@ func securityHeaders(next http.Handler) http.Handler {
 		}
 		w.Header().Set("Content-Security-Policy",
 			`default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; `+
-				`img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; `+
+				`img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; `+
+				`style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; `+
 				`script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; `+
 				connectSrc)
 		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {

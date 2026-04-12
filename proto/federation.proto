@@ -3,6 +3,7 @@ import "google/protobuf/timestamp.proto";
 import "shared.proto";
 import "gameserver_files_operations.proto";
 import "websocket.proto";
+import "xylona.proto";
 
 package xylona;
 option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
@@ -44,6 +45,12 @@ service Federation {
 
   // UpdateRemoteServerStartArgs updates structured start-arg patches for a game server on this node.
   rpc UpdateRemoteServerStartArgs (FederationUpdateServerStartArgsRequest) returns (FederationUpdateServerStartArgsResponse) {}
+
+  // Remote config schema operations on game servers.
+  rpc ListRemoteGameServerConfigFiles (FederationGetGameServerConfigFilesRequest) returns (FederationGetGameServerConfigFilesResponse) {}
+  rpc GetRemoteGameServerConfigFile (FederationGetGameServerConfigFileRequest) returns (FederationGetGameServerConfigFileResponse) {}
+  rpc UpdateRemoteGameServerConfigFile (FederationUpdateGameServerConfigFileRequest) returns (FederationUpdateGameServerConfigFileResponse) {}
+  rpc GenerateRemoteGameServerConfigFile (FederationGenerateGameServerConfigFileRequest) returns (FederationGenerateGameServerConfigFileResponse) {}
 
   // RemoveRemoteServer removes a game server on this node.
   rpc RemoveRemoteServer (FederationRemoteActionRequest) returns (FederationRemoteActionResponse) {}
@@ -217,6 +224,46 @@ message FederationUpdateServerStartArgsResponse {
   bool success = 1;
   string error = 2;
   GameServer game_server = 3;
+}
+
+message FederationGetGameServerConfigFilesRequest {
+  GetGameServerConfigFilesRequest request = 1;
+  string acting_user_id = 2;
+  string origin_node_id = 3;
+}
+
+message FederationGetGameServerConfigFilesResponse {
+  GetGameServerConfigFilesResponse response = 1;
+}
+
+message FederationGetGameServerConfigFileRequest {
+  GetGameServerConfigFileRequest request = 1;
+  string acting_user_id = 2;
+  string origin_node_id = 3;
+}
+
+message FederationGetGameServerConfigFileResponse {
+  GetGameServerConfigFileResponse response = 1;
+}
+
+message FederationUpdateGameServerConfigFileRequest {
+  UpdateGameServerConfigFileRequest request = 1;
+  string acting_user_id = 2;
+  string origin_node_id = 3;
+}
+
+message FederationUpdateGameServerConfigFileResponse {
+  UpdateGameServerConfigFileResponse response = 1;
+}
+
+message FederationGenerateGameServerConfigFileRequest {
+  GenerateGameServerConfigFileRequest request = 1;
+  string acting_user_id = 2;
+  string origin_node_id = 3;
+}
+
+message FederationGenerateGameServerConfigFileResponse {
+  GenerateGameServerConfigFileResponse response = 1;
 }
 
 // Federation Console Streaming

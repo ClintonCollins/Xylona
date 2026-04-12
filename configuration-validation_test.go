@@ -130,6 +130,24 @@ func TestRegisterMetricsRouteEnabled(t *testing.T) {
 	}
 }
 
+func TestSecurityHeadersAllowGoogleFonts(t *testing.T) {
+	handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, `/`, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	csp := response.Header().Get(`Content-Security-Policy`)
+	if !strings.Contains(csp, `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`) {
+		t.Fatalf(`Content-Security-Policy missing Google Fonts stylesheet source: %q`, csp)
+	}
+	if !strings.Contains(csp, `font-src 'self' data: https://fonts.gstatic.com`) {
+		t.Fatalf(`Content-Security-Policy missing Google Fonts font source: %q`, csp)
+	}
+}
+
 func TestStartupFailureReturnsNonZeroAndCleansUp(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cleanupCalled := false

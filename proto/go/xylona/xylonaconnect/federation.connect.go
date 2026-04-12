@@ -68,6 +68,18 @@ const (
 	// FederationUpdateRemoteServerStartArgsProcedure is the fully-qualified name of the Federation's
 	// UpdateRemoteServerStartArgs RPC.
 	FederationUpdateRemoteServerStartArgsProcedure = "/xylona.Federation/UpdateRemoteServerStartArgs"
+	// FederationListRemoteGameServerConfigFilesProcedure is the fully-qualified name of the
+	// Federation's ListRemoteGameServerConfigFiles RPC.
+	FederationListRemoteGameServerConfigFilesProcedure = "/xylona.Federation/ListRemoteGameServerConfigFiles"
+	// FederationGetRemoteGameServerConfigFileProcedure is the fully-qualified name of the Federation's
+	// GetRemoteGameServerConfigFile RPC.
+	FederationGetRemoteGameServerConfigFileProcedure = "/xylona.Federation/GetRemoteGameServerConfigFile"
+	// FederationUpdateRemoteGameServerConfigFileProcedure is the fully-qualified name of the
+	// Federation's UpdateRemoteGameServerConfigFile RPC.
+	FederationUpdateRemoteGameServerConfigFileProcedure = "/xylona.Federation/UpdateRemoteGameServerConfigFile"
+	// FederationGenerateRemoteGameServerConfigFileProcedure is the fully-qualified name of the
+	// Federation's GenerateRemoteGameServerConfigFile RPC.
+	FederationGenerateRemoteGameServerConfigFileProcedure = "/xylona.Federation/GenerateRemoteGameServerConfigFile"
 	// FederationRemoveRemoteServerProcedure is the fully-qualified name of the Federation's
 	// RemoveRemoteServer RPC.
 	FederationRemoveRemoteServerProcedure = "/xylona.Federation/RemoveRemoteServer"
@@ -174,6 +186,11 @@ type FederationClient interface {
 	EditRemoteServer(context.Context, *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error)
 	// UpdateRemoteServerStartArgs updates structured start-arg patches for a game server on this node.
 	UpdateRemoteServerStartArgs(context.Context, *connect.Request[xylona.FederationUpdateServerStartArgsRequest]) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error)
+	// Remote config schema operations on game servers.
+	ListRemoteGameServerConfigFiles(context.Context, *connect.Request[xylona.FederationGetGameServerConfigFilesRequest]) (*connect.Response[xylona.FederationGetGameServerConfigFilesResponse], error)
+	GetRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationGetGameServerConfigFileRequest]) (*connect.Response[xylona.FederationGetGameServerConfigFileResponse], error)
+	UpdateRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationUpdateGameServerConfigFileRequest]) (*connect.Response[xylona.FederationUpdateGameServerConfigFileResponse], error)
+	GenerateRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationGenerateGameServerConfigFileRequest]) (*connect.Response[xylona.FederationGenerateGameServerConfigFileResponse], error)
 	// RemoveRemoteServer removes a game server on this node.
 	RemoveRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error)
 	// StreamConsoleOutput streams real-time console output for a game server on this node.
@@ -293,6 +310,30 @@ func NewFederationClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			httpClient,
 			baseURL+FederationUpdateRemoteServerStartArgsProcedure,
 			connect.WithSchema(federationMethods.ByName("UpdateRemoteServerStartArgs")),
+			connect.WithClientOptions(opts...),
+		),
+		listRemoteGameServerConfigFiles: connect.NewClient[xylona.FederationGetGameServerConfigFilesRequest, xylona.FederationGetGameServerConfigFilesResponse](
+			httpClient,
+			baseURL+FederationListRemoteGameServerConfigFilesProcedure,
+			connect.WithSchema(federationMethods.ByName("ListRemoteGameServerConfigFiles")),
+			connect.WithClientOptions(opts...),
+		),
+		getRemoteGameServerConfigFile: connect.NewClient[xylona.FederationGetGameServerConfigFileRequest, xylona.FederationGetGameServerConfigFileResponse](
+			httpClient,
+			baseURL+FederationGetRemoteGameServerConfigFileProcedure,
+			connect.WithSchema(federationMethods.ByName("GetRemoteGameServerConfigFile")),
+			connect.WithClientOptions(opts...),
+		),
+		updateRemoteGameServerConfigFile: connect.NewClient[xylona.FederationUpdateGameServerConfigFileRequest, xylona.FederationUpdateGameServerConfigFileResponse](
+			httpClient,
+			baseURL+FederationUpdateRemoteGameServerConfigFileProcedure,
+			connect.WithSchema(federationMethods.ByName("UpdateRemoteGameServerConfigFile")),
+			connect.WithClientOptions(opts...),
+		),
+		generateRemoteGameServerConfigFile: connect.NewClient[xylona.FederationGenerateGameServerConfigFileRequest, xylona.FederationGenerateGameServerConfigFileResponse](
+			httpClient,
+			baseURL+FederationGenerateRemoteGameServerConfigFileProcedure,
+			connect.WithSchema(federationMethods.ByName("GenerateRemoteGameServerConfigFile")),
 			connect.WithClientOptions(opts...),
 		),
 		removeRemoteServer: connect.NewClient[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse](
@@ -468,6 +509,10 @@ type federationClient struct {
 	checkRemoteServerForUpdate            *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationVersionInfoResponse]
 	editRemoteServer                      *connect.Client[xylona.FederationEditServerRequest, xylona.FederationEditServerResponse]
 	updateRemoteServerStartArgs           *connect.Client[xylona.FederationUpdateServerStartArgsRequest, xylona.FederationUpdateServerStartArgsResponse]
+	listRemoteGameServerConfigFiles       *connect.Client[xylona.FederationGetGameServerConfigFilesRequest, xylona.FederationGetGameServerConfigFilesResponse]
+	getRemoteGameServerConfigFile         *connect.Client[xylona.FederationGetGameServerConfigFileRequest, xylona.FederationGetGameServerConfigFileResponse]
+	updateRemoteGameServerConfigFile      *connect.Client[xylona.FederationUpdateGameServerConfigFileRequest, xylona.FederationUpdateGameServerConfigFileResponse]
+	generateRemoteGameServerConfigFile    *connect.Client[xylona.FederationGenerateGameServerConfigFileRequest, xylona.FederationGenerateGameServerConfigFileResponse]
 	removeRemoteServer                    *connect.Client[xylona.FederationRemoteActionRequest, xylona.FederationRemoteActionResponse]
 	streamConsoleOutput                   *connect.Client[xylona.FederationStreamConsoleRequest, xylona.FederationConsoleOutputChunk]
 	sendConsoleInput                      *connect.Client[xylona.FederationSendConsoleInputRequest, xylona.FederationSendConsoleInputResponse]
@@ -554,6 +599,26 @@ func (c *federationClient) EditRemoteServer(ctx context.Context, req *connect.Re
 // UpdateRemoteServerStartArgs calls xylona.Federation.UpdateRemoteServerStartArgs.
 func (c *federationClient) UpdateRemoteServerStartArgs(ctx context.Context, req *connect.Request[xylona.FederationUpdateServerStartArgsRequest]) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error) {
 	return c.updateRemoteServerStartArgs.CallUnary(ctx, req)
+}
+
+// ListRemoteGameServerConfigFiles calls xylona.Federation.ListRemoteGameServerConfigFiles.
+func (c *federationClient) ListRemoteGameServerConfigFiles(ctx context.Context, req *connect.Request[xylona.FederationGetGameServerConfigFilesRequest]) (*connect.Response[xylona.FederationGetGameServerConfigFilesResponse], error) {
+	return c.listRemoteGameServerConfigFiles.CallUnary(ctx, req)
+}
+
+// GetRemoteGameServerConfigFile calls xylona.Federation.GetRemoteGameServerConfigFile.
+func (c *federationClient) GetRemoteGameServerConfigFile(ctx context.Context, req *connect.Request[xylona.FederationGetGameServerConfigFileRequest]) (*connect.Response[xylona.FederationGetGameServerConfigFileResponse], error) {
+	return c.getRemoteGameServerConfigFile.CallUnary(ctx, req)
+}
+
+// UpdateRemoteGameServerConfigFile calls xylona.Federation.UpdateRemoteGameServerConfigFile.
+func (c *federationClient) UpdateRemoteGameServerConfigFile(ctx context.Context, req *connect.Request[xylona.FederationUpdateGameServerConfigFileRequest]) (*connect.Response[xylona.FederationUpdateGameServerConfigFileResponse], error) {
+	return c.updateRemoteGameServerConfigFile.CallUnary(ctx, req)
+}
+
+// GenerateRemoteGameServerConfigFile calls xylona.Federation.GenerateRemoteGameServerConfigFile.
+func (c *federationClient) GenerateRemoteGameServerConfigFile(ctx context.Context, req *connect.Request[xylona.FederationGenerateGameServerConfigFileRequest]) (*connect.Response[xylona.FederationGenerateGameServerConfigFileResponse], error) {
+	return c.generateRemoteGameServerConfigFile.CallUnary(ctx, req)
 }
 
 // RemoveRemoteServer calls xylona.Federation.RemoveRemoteServer.
@@ -713,6 +778,11 @@ type FederationHandler interface {
 	EditRemoteServer(context.Context, *connect.Request[xylona.FederationEditServerRequest]) (*connect.Response[xylona.FederationEditServerResponse], error)
 	// UpdateRemoteServerStartArgs updates structured start-arg patches for a game server on this node.
 	UpdateRemoteServerStartArgs(context.Context, *connect.Request[xylona.FederationUpdateServerStartArgsRequest]) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error)
+	// Remote config schema operations on game servers.
+	ListRemoteGameServerConfigFiles(context.Context, *connect.Request[xylona.FederationGetGameServerConfigFilesRequest]) (*connect.Response[xylona.FederationGetGameServerConfigFilesResponse], error)
+	GetRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationGetGameServerConfigFileRequest]) (*connect.Response[xylona.FederationGetGameServerConfigFileResponse], error)
+	UpdateRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationUpdateGameServerConfigFileRequest]) (*connect.Response[xylona.FederationUpdateGameServerConfigFileResponse], error)
+	GenerateRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationGenerateGameServerConfigFileRequest]) (*connect.Response[xylona.FederationGenerateGameServerConfigFileResponse], error)
 	// RemoveRemoteServer removes a game server on this node.
 	RemoveRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error)
 	// StreamConsoleOutput streams real-time console output for a game server on this node.
@@ -828,6 +898,30 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 		FederationUpdateRemoteServerStartArgsProcedure,
 		svc.UpdateRemoteServerStartArgs,
 		connect.WithSchema(federationMethods.ByName("UpdateRemoteServerStartArgs")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationListRemoteGameServerConfigFilesHandler := connect.NewUnaryHandler(
+		FederationListRemoteGameServerConfigFilesProcedure,
+		svc.ListRemoteGameServerConfigFiles,
+		connect.WithSchema(federationMethods.ByName("ListRemoteGameServerConfigFiles")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationGetRemoteGameServerConfigFileHandler := connect.NewUnaryHandler(
+		FederationGetRemoteGameServerConfigFileProcedure,
+		svc.GetRemoteGameServerConfigFile,
+		connect.WithSchema(federationMethods.ByName("GetRemoteGameServerConfigFile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationUpdateRemoteGameServerConfigFileHandler := connect.NewUnaryHandler(
+		FederationUpdateRemoteGameServerConfigFileProcedure,
+		svc.UpdateRemoteGameServerConfigFile,
+		connect.WithSchema(federationMethods.ByName("UpdateRemoteGameServerConfigFile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	federationGenerateRemoteGameServerConfigFileHandler := connect.NewUnaryHandler(
+		FederationGenerateRemoteGameServerConfigFileProcedure,
+		svc.GenerateRemoteGameServerConfigFile,
+		connect.WithSchema(federationMethods.ByName("GenerateRemoteGameServerConfigFile")),
 		connect.WithHandlerOptions(opts...),
 	)
 	federationRemoveRemoteServerHandler := connect.NewUnaryHandler(
@@ -1012,6 +1106,14 @@ func NewFederationHandler(svc FederationHandler, opts ...connect.HandlerOption) 
 			federationEditRemoteServerHandler.ServeHTTP(w, r)
 		case FederationUpdateRemoteServerStartArgsProcedure:
 			federationUpdateRemoteServerStartArgsHandler.ServeHTTP(w, r)
+		case FederationListRemoteGameServerConfigFilesProcedure:
+			federationListRemoteGameServerConfigFilesHandler.ServeHTTP(w, r)
+		case FederationGetRemoteGameServerConfigFileProcedure:
+			federationGetRemoteGameServerConfigFileHandler.ServeHTTP(w, r)
+		case FederationUpdateRemoteGameServerConfigFileProcedure:
+			federationUpdateRemoteGameServerConfigFileHandler.ServeHTTP(w, r)
+		case FederationGenerateRemoteGameServerConfigFileProcedure:
+			federationGenerateRemoteGameServerConfigFileHandler.ServeHTTP(w, r)
 		case FederationRemoveRemoteServerProcedure:
 			federationRemoveRemoteServerHandler.ServeHTTP(w, r)
 		case FederationStreamConsoleOutputProcedure:
@@ -1119,6 +1221,22 @@ func (UnimplementedFederationHandler) EditRemoteServer(context.Context, *connect
 
 func (UnimplementedFederationHandler) UpdateRemoteServerStartArgs(context.Context, *connect.Request[xylona.FederationUpdateServerStartArgsRequest]) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.UpdateRemoteServerStartArgs is not implemented"))
+}
+
+func (UnimplementedFederationHandler) ListRemoteGameServerConfigFiles(context.Context, *connect.Request[xylona.FederationGetGameServerConfigFilesRequest]) (*connect.Response[xylona.FederationGetGameServerConfigFilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.ListRemoteGameServerConfigFiles is not implemented"))
+}
+
+func (UnimplementedFederationHandler) GetRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationGetGameServerConfigFileRequest]) (*connect.Response[xylona.FederationGetGameServerConfigFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.GetRemoteGameServerConfigFile is not implemented"))
+}
+
+func (UnimplementedFederationHandler) UpdateRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationUpdateGameServerConfigFileRequest]) (*connect.Response[xylona.FederationUpdateGameServerConfigFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.UpdateRemoteGameServerConfigFile is not implemented"))
+}
+
+func (UnimplementedFederationHandler) GenerateRemoteGameServerConfigFile(context.Context, *connect.Request[xylona.FederationGenerateGameServerConfigFileRequest]) (*connect.Response[xylona.FederationGenerateGameServerConfigFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Federation.GenerateRemoteGameServerConfigFile is not implemented"))
 }
 
 func (UnimplementedFederationHandler) RemoveRemoteServer(context.Context, *connect.Request[xylona.FederationRemoteActionRequest]) (*connect.Response[xylona.FederationRemoteActionResponse], error) {
