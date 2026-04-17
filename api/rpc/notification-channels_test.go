@@ -37,7 +37,6 @@ func newNotifChanFixture(t *testing.T) *notifChanFixture {
 		ctx:          context.Background(),
 		db:           conn,
 		secureCookie: secureCookieInst,
-		listCache:    newRemoteServerListCache(remoteServerListCacheTTL),
 	}
 
 	return &notifChanFixture{
@@ -59,8 +58,8 @@ func seedNotifChanFixture(t *testing.T, conn *db.Connection) {
 
 	// Node + local_settings (required by schema constraints)
 	_, errNode := conn.SQLDb.ExecContext(ctx,
-		`INSERT INTO node (id, name, is_local, host, port, base_url, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"node-local", "Local Node", true, "localhost", 8080, "http://localhost:8080", true,
+		`INSERT INTO node (id, name, listen_url, enabled) VALUES (?, ?, ?, ?)`,
+		"node-local", "Local Node", "http://localhost:8080", true,
 	)
 	if errNode != nil {
 		t.Fatalf("failed to insert node: %v", errNode)

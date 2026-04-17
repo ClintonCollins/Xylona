@@ -223,45 +223,7 @@ func TestWebSocket_LocalStatusChangeSkipsUnauthorizedConnections(t *testing.T) {
 	<-done
 }
 
-func TestWebSocket_LocalStatusChangeIgnoresFederatedEvents(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	session, clientConn, cleanup := newConnectedMelodySession(t)
-	defer cleanup()
-
-	ws := &WebSocket{
-		ctx:                          ctx,
-		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
-		userWebsocketConnectionsLock: &sync.RWMutex{},
-	}
-
-	allowed := newTestConnection()
-	allowed.userID = "user-1"
-	allowed.allGameServerIDs = []string{"server-1"}
-	allowed.melodySession = session
-
-	ws.userWebsocketConnections[allowed.userID] = map[uuid.UUID]*connection{
-		allowed.id: allowed,
-	}
-
-	statusChanged := make(chan any, 1)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		ws.listenForLocalGameServerStatusChanges(statusChanged)
-	}()
-
-	statusChanged <- eventbus.StatusChangedEvent{
-		ServerID:   "server-1",
-		ServerName: "Alpha",
-		OldStatus:  xylona.Status_OFFLINE.String(),
-		NewStatus:  xylona.Status_ONLINE.String(),
-		Federated:  true,
-	}
-
-	expectNoWebsocketMessage(t, clientConn)
-
-	cancel()
-	<-done
-}
+// TestWebSocket_LocalStatusChangeIgnoresFederatedEvents covered the
+// federation-era broadcast filter. Hub-spoke has no federated events —
+// StatusChangedEvent no longer carries a Federated flag — so the test goes
+// away with the mesh.

@@ -27,50 +27,32 @@ var Nodes = Table[
 		Name: column{
 			Name:      "name",
 			DBType:    "TEXT",
-			Default:   "",
+			Default:   "''",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
 			AutoIncr:  false,
 		},
-		SecretKey: column{
-			Name:      "secret_key",
+		ListenURL: column{
+			Name:      "listen_url",
 			DBType:    "TEXT",
-			Default:   "NULL",
-			Comment:   "",
-			Nullable:  true,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		IsLocal: column{
-			Name:      "is_local",
-			DBType:    "BOOLEAN",
-			Default:   "false",
+			Default:   "''",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
 			AutoIncr:  false,
 		},
-		Host: column{
-			Name:      "host",
+		CertFingerprint: column{
+			Name:      "cert_fingerprint",
 			DBType:    "TEXT",
-			Default:   "",
+			Default:   "''",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
 			AutoIncr:  false,
 		},
-		Port: column{
-			Name:      "port",
-			DBType:    "INTEGER",
-			Default:   "",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		BaseURL: column{
-			Name:      "base_url",
+		SharedSecretEncrypted: column{
+			Name:      "shared_secret_encrypted",
 			DBType:    "TEXT",
 			Default:   "''",
 			Comment:   "",
@@ -96,118 +78,19 @@ var Nodes = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
-		LastSyncAt: column{
-			Name:      "last_sync_at",
-			DBType:    "DATETIME",
-			Default:   "NULL",
-			Comment:   "",
-			Nullable:  true,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		LastSyncStatus: column{
-			Name:      "last_sync_status",
-			DBType:    "TEXT",
-			Default:   "''",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		HealthStatus: column{
-			Name:      "health_status",
-			DBType:    "TEXT",
-			Default:   "''",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		Version: column{
-			Name:      "version",
-			DBType:    "TEXT",
-			Default:   "''",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		ProtocolVersion: column{
-			Name:      "protocol_version",
-			DBType:    "INTEGER",
-			Default:   "0",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		Capabilities: column{
-			Name:      "capabilities",
-			DBType:    "TEXT",
-			Default:   "''",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
 		CreatedAt: column{
 			Name:      "created_at",
 			DBType:    "DATETIME",
-			Default:   "NULL",
+			Default:   "current_timestamp",
 			Comment:   "",
-			Nullable:  true,
+			Nullable:  false,
 			Generated: false,
 			AutoIncr:  false,
 		},
 		UpdatedAt: column{
 			Name:      "updated_at",
 			DBType:    "DATETIME",
-			Default:   "NULL",
-			Comment:   "",
-			Nullable:  true,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		SyncIntervalSeconds: column{
-			Name:      "sync_interval_seconds",
-			DBType:    "INTEGER",
-			Default:   "60",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		AllowInsecureTLS: column{
-			Name:      "allow_insecure_tls",
-			DBType:    "BOOLEAN",
-			Default:   "false",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		Departed: column{
-			Name:      "departed",
-			DBType:    "BOOLEAN",
-			Default:   "FALSE",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		AutoPaired: column{
-			Name:      "auto_paired",
-			DBType:    "BOOLEAN",
-			Default:   "FALSE",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
-		Os: column{
-			Name:      "os",
-			DBType:    "TEXT",
-			Default:   "''",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -215,34 +98,6 @@ var Nodes = Table[
 		},
 	},
 	Indexes: nodeIndexes{
-		NodeIsLocal: index{
-			Type: "c",
-			Name: "node_is_local",
-			Columns: []indexColumn{
-				{
-					Name:         "is_local",
-					Desc:         null.FromCond(false, true),
-					IsExpression: false,
-				},
-			},
-			Unique:  false,
-			Comment: "",
-			Partial: false,
-		},
-		NodeBaseURLUnique: index{
-			Type: "c",
-			Name: "node_base_url_unique",
-			Columns: []indexColumn{
-				{
-					Name:         "base_url",
-					Desc:         null.FromCond(false, true),
-					IsExpression: false,
-				},
-			},
-			Unique:  true,
-			Comment: "",
-			Partial: true,
-		},
 		SqliteAutoindexNode1: index{
 			Type: "pk",
 			Name: "sqlite_autoindex_node_1",
@@ -268,45 +123,30 @@ var Nodes = Table[
 }
 
 type nodeColumns struct {
-	ID                  column
-	Name                column
-	SecretKey           column
-	IsLocal             column
-	Host                column
-	Port                column
-	BaseURL             column
-	Enabled             column
-	LastSeenAt          column
-	LastSyncAt          column
-	LastSyncStatus      column
-	HealthStatus        column
-	Version             column
-	ProtocolVersion     column
-	Capabilities        column
-	CreatedAt           column
-	UpdatedAt           column
-	SyncIntervalSeconds column
-	AllowInsecureTLS    column
-	Departed            column
-	AutoPaired          column
-	Os                  column
+	ID                    column
+	Name                  column
+	ListenURL             column
+	CertFingerprint       column
+	SharedSecretEncrypted column
+	Enabled               column
+	LastSeenAt            column
+	CreatedAt             column
+	UpdatedAt             column
 }
 
 func (c nodeColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.Name, c.SecretKey, c.IsLocal, c.Host, c.Port, c.BaseURL, c.Enabled, c.LastSeenAt, c.LastSyncAt, c.LastSyncStatus, c.HealthStatus, c.Version, c.ProtocolVersion, c.Capabilities, c.CreatedAt, c.UpdatedAt, c.SyncIntervalSeconds, c.AllowInsecureTLS, c.Departed, c.AutoPaired, c.Os,
+		c.ID, c.Name, c.ListenURL, c.CertFingerprint, c.SharedSecretEncrypted, c.Enabled, c.LastSeenAt, c.CreatedAt, c.UpdatedAt,
 	}
 }
 
 type nodeIndexes struct {
-	NodeIsLocal          index
-	NodeBaseURLUnique    index
 	SqliteAutoindexNode1 index
 }
 
 func (i nodeIndexes) AsSlice() []index {
 	return []index{
-		i.NodeIsLocal, i.NodeBaseURLUnique, i.SqliteAutoindexNode1,
+		i.SqliteAutoindexNode1,
 	}
 }
 

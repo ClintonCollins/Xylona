@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -9,9 +10,8 @@ import (
 
 	"github.com/ClintonCollins/Xylona/pkg/alerts"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
-	"github.com/ClintonCollins/Xylona/pkg/sysinfo"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 var errRuleConditionMissing = errors.New("rule has no condition set")
@@ -56,43 +56,68 @@ type nodeMetricsProvider interface {
 	CollectNodeMetrics() (nodeID string, cpuPercent, memoryPercent, diskPercent float64, err error)
 }
 
-// supervisorMetricsProvider wraps *supervisor.Instance to implement
-// serverMetricsProvider using live process metrics.
-type supervisorMetricsProvider struct {
-	inst *supervisor.Instance
+// registryServerMetricsProvider implements serverMetricsProvider by pulling
+// per-process metrics from every registered NodeClient. Replaces the older
+// supervisor-only provider so remote-node servers participate in threshold
+// evaluation.
+type registryServerMetricsProvider struct {
+	ctx      context.Context
+	registry *noderegistry.Registry
 }
 
-func (s *supervisorMetricsProvider) ListServerMetrics() []serverMetricsSnapshot {
-	if s.inst == nil {
+func (r *registryServerMetricsProvider) ListServerMetrics() []serverMetricsSnapshot {
+	if r.registry == nil {
 		return nil
 	}
-	commands := s.inst.ListCommands()
-	out := make([]serverMetricsSnapshot, 0, len(commands))
-	for _, cmd := range commands {
-		cpuPercent, _, _, memoryPercent, _, _, diskBytes, _, _, _ := cmd.Metrics()
-		out = append(out, serverMetricsSnapshot{
-			serverID:      cmd.ID,
-			nodeID:        cmd.NodeID(),
-			cpuPercent:    cpuPercent,
-			memoryPercent: float64(memoryPercent),
-			diskBytes:     diskBytes,
-		})
+	clients := r.registry.List()
+	var out []serverMetricsSnapshot
+	for _, client := range clients {
+		ctx, cancel := context.WithTimeout(r.ctx, 5*time.Second)
+		snap, errSnap := client.GetNodeSnapshot(ctx)
+		cancel()
+		if errSnap != nil {
+			log.Debug().Err(errSnap).Str("node_id", client.ID()).
+				Msg("threshold-poller: snapshot failed; skipping server metrics for this node")
+			continue
+		}
+		for _, ps := range snap.Processes {
+			out = append(out, serverMetricsSnapshot{
+				serverID:      ps.ID,
+				nodeID:        client.ID(),
+				cpuPercent:    ps.CPUPercent,
+				memoryPercent: float64(ps.MemoryPercent),
+				diskBytes:     ps.DiskUsageBytes,
+			})
+		}
 	}
 	return out
 }
 
-// sysinfoNodeMetricsProvider wraps sysinfo.CollectResourceSnapshot and a static
-// nodeID to implement nodeMetricsProvider.
-type sysinfoNodeMetricsProvider struct {
-	nodeID string
+// registryNodeMetricsProvider implements nodeMetricsProvider for the
+// controller's embedded node (the only node the threshold poller reports
+// node-level metrics for today; remote-node alerts consume per-node rows
+// via the snapshots polled above).
+type registryNodeMetricsProvider struct {
+	ctx      context.Context
+	registry *noderegistry.Registry
+	nodeID   string
 }
 
-func (s *sysinfoNodeMetricsProvider) CollectNodeMetrics() (nodeID string, cpuPercent, memoryPercent, diskPercent float64, err error) {
-	snap, errSnap := sysinfo.CollectResourceSnapshot()
+func (r *registryNodeMetricsProvider) CollectNodeMetrics() (nodeID string, cpuPercent, memoryPercent, diskPercent float64, err error) {
+	if r.registry == nil {
+		return "", 0, 0, 0, errors.New("actions: node registry not configured")
+	}
+	client, errGet := r.registry.Get(r.nodeID)
+	if errGet != nil {
+		return "", 0, 0, 0, fmt.Errorf("actions: resolve local node client: %w", errGet)
+	}
+	ctx, cancel := context.WithTimeout(r.ctx, 5*time.Second)
+	defer cancel()
+	snap, errSnap := client.GetNodeSnapshot(ctx)
 	if errSnap != nil {
 		return "", 0, 0, 0, fmt.Errorf("actions: collect node metrics: %w", errSnap)
 	}
-	return s.nodeID, snap.CPUPercent, snap.MemoryPercent, snap.DiskPercent, nil
+	return r.nodeID, snap.CPUPercent, snap.MemoryPercent, snap.DiskPercent, nil
 }
 
 // cachedRules holds one event-type's rules and when they were fetched.
@@ -493,10 +518,12 @@ func parseCondition(condition interface{ Get() (string, bool) }) (threshold floa
 }
 
 // backgroundJobThresholdPoller is the long-running background goroutine that
-// ticks every thresholdPollInterval and evaluates threshold rules.
+// ticks every thresholdPollInterval and evaluates threshold rules. Uses the
+// registry-based providers so both embedded and remote-node servers have
+// their metrics evaluated against the same rule set.
 func (inst *Instance) backgroundJobThresholdPoller(localNodeID string) {
-	serverProv := &supervisorMetricsProvider{inst: inst.supervisorInstance}
-	nodeProv := &sysinfoNodeMetricsProvider{nodeID: localNodeID}
+	serverProv := &registryServerMetricsProvider{ctx: inst.ctx, registry: inst.nodeRegistry}
+	nodeProv := &registryNodeMetricsProvider{ctx: inst.ctx, registry: inst.nodeRegistry, nodeID: localNodeID}
 
 	poller := newThresholdPoller(inst.db, inst.db, serverProv, nodeProv, inst, eventbus.Get())
 

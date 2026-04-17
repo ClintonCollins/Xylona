@@ -92,15 +92,6 @@ const (
 	// XylonaRevokeGameServerAccessProcedure is the fully-qualified name of the Xylona's
 	// RevokeGameServerAccess RPC.
 	XylonaRevokeGameServerAccessProcedure = "/xylona.Xylona/RevokeGameServerAccess"
-	// XylonaListFederatedAccessGrantsProcedure is the fully-qualified name of the Xylona's
-	// ListFederatedAccessGrants RPC.
-	XylonaListFederatedAccessGrantsProcedure = "/xylona.Xylona/ListFederatedAccessGrants"
-	// XylonaGrantFederatedAccessProcedure is the fully-qualified name of the Xylona's
-	// GrantFederatedAccess RPC.
-	XylonaGrantFederatedAccessProcedure = "/xylona.Xylona/GrantFederatedAccess"
-	// XylonaRevokeFederatedAccessProcedure is the fully-qualified name of the Xylona's
-	// RevokeFederatedAccess RPC.
-	XylonaRevokeFederatedAccessProcedure = "/xylona.Xylona/RevokeFederatedAccess"
 	// XylonaListIPsProcedure is the fully-qualified name of the Xylona's ListIPs RPC.
 	XylonaListIPsProcedure = "/xylona.Xylona/ListIPs"
 	// XylonaAddIPProcedure is the fully-qualified name of the Xylona's AddIP RPC.
@@ -178,44 +169,13 @@ const (
 	XylonaGetNodeProcedure = "/xylona.Xylona/GetNode"
 	// XylonaListNodesProcedure is the fully-qualified name of the Xylona's ListNodes RPC.
 	XylonaListNodesProcedure = "/xylona.Xylona/ListNodes"
-	// XylonaAddNodeProcedure is the fully-qualified name of the Xylona's AddNode RPC.
-	XylonaAddNodeProcedure = "/xylona.Xylona/AddNode"
 	// XylonaGenerateNodePairingObjectProcedure is the fully-qualified name of the Xylona's
 	// GenerateNodePairingObject RPC.
 	XylonaGenerateNodePairingObjectProcedure = "/xylona.Xylona/GenerateNodePairingObject"
-	// XylonaPairNodeProcedure is the fully-qualified name of the Xylona's PairNode RPC.
-	XylonaPairNodeProcedure = "/xylona.Xylona/PairNode"
 	// XylonaRemoveNodeProcedure is the fully-qualified name of the Xylona's RemoveNode RPC.
 	XylonaRemoveNodeProcedure = "/xylona.Xylona/RemoveNode"
 	// XylonaEditNodeProcedure is the fully-qualified name of the Xylona's EditNode RPC.
 	XylonaEditNodeProcedure = "/xylona.Xylona/EditNode"
-	// XylonaVerifyNodeProcedure is the fully-qualified name of the Xylona's VerifyNode RPC.
-	XylonaVerifyNodeProcedure = "/xylona.Xylona/VerifyNode"
-	// XylonaListRemoteNodeUsersProcedure is the fully-qualified name of the Xylona's
-	// ListRemoteNodeUsers RPC.
-	XylonaListRemoteNodeUsersProcedure = "/xylona.Xylona/ListRemoteNodeUsers"
-	// XylonaListLocalSecretKeysProcedure is the fully-qualified name of the Xylona's
-	// ListLocalSecretKeys RPC.
-	XylonaListLocalSecretKeysProcedure = "/xylona.Xylona/ListLocalSecretKeys"
-	// XylonaCreateLocalSecretKeyProcedure is the fully-qualified name of the Xylona's
-	// CreateLocalSecretKey RPC.
-	XylonaCreateLocalSecretKeyProcedure = "/xylona.Xylona/CreateLocalSecretKey"
-	// XylonaDeleteLocalSecretKeyProcedure is the fully-qualified name of the Xylona's
-	// DeleteLocalSecretKey RPC.
-	XylonaDeleteLocalSecretKeyProcedure = "/xylona.Xylona/DeleteLocalSecretKey"
-	// XylonaSyncNodeProcedure is the fully-qualified name of the Xylona's SyncNode RPC.
-	XylonaSyncNodeProcedure = "/xylona.Xylona/SyncNode"
-	// XylonaLeaveFederationProcedure is the fully-qualified name of the Xylona's LeaveFederation RPC.
-	XylonaLeaveFederationProcedure = "/xylona.Xylona/LeaveFederation"
-	// XylonaListFederationAdvisoriesProcedure is the fully-qualified name of the Xylona's
-	// ListFederationAdvisories RPC.
-	XylonaListFederationAdvisoriesProcedure = "/xylona.Xylona/ListFederationAdvisories"
-	// XylonaMarkAdvisoriesReadProcedure is the fully-qualified name of the Xylona's MarkAdvisoriesRead
-	// RPC.
-	XylonaMarkAdvisoriesReadProcedure = "/xylona.Xylona/MarkAdvisoriesRead"
-	// XylonaGetUnreadAdvisoryCountProcedure is the fully-qualified name of the Xylona's
-	// GetUnreadAdvisoryCount RPC.
-	XylonaGetUnreadAdvisoryCountProcedure = "/xylona.Xylona/GetUnreadAdvisoryCount"
 	// XylonaGetGameConfigSchemasProcedure is the fully-qualified name of the Xylona's
 	// GetGameConfigSchemas RPC.
 	XylonaGetGameConfigSchemasProcedure = "/xylona.Xylona/GetGameConfigSchemas"
@@ -282,12 +242,6 @@ const (
 	// XylonaSetDummyUpdateFailureProcedure is the fully-qualified name of the Xylona's
 	// SetDummyUpdateFailure RPC.
 	XylonaSetDummyUpdateFailureProcedure = "/xylona.Xylona/SetDummyUpdateFailure"
-	// XylonaListNodeApiKeysProcedure is the fully-qualified name of the Xylona's ListNodeApiKeys RPC.
-	XylonaListNodeApiKeysProcedure = "/xylona.Xylona/ListNodeApiKeys"
-	// XylonaSetNodeApiKeyProcedure is the fully-qualified name of the Xylona's SetNodeApiKey RPC.
-	XylonaSetNodeApiKeyProcedure = "/xylona.Xylona/SetNodeApiKey"
-	// XylonaDeleteNodeApiKeyProcedure is the fully-qualified name of the Xylona's DeleteNodeApiKey RPC.
-	XylonaDeleteNodeApiKeyProcedure = "/xylona.Xylona/DeleteNodeApiKey"
 	// XylonaCreateNotificationChannelProcedure is the fully-qualified name of the Xylona's
 	// CreateNotificationChannel RPC.
 	XylonaCreateNotificationChannelProcedure = "/xylona.Xylona/CreateNotificationChannel"
@@ -393,9 +347,6 @@ type XylonaClient interface {
 	ListGameServerAccessGrants(context.Context, *connect.Request[xylona.ListGameServerAccessGrantsRequest]) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error)
 	GrantGameServerAccess(context.Context, *connect.Request[xylona.GrantGameServerAccessRequest]) (*connect.Response[xylona.GrantGameServerAccessResponse], error)
 	RevokeGameServerAccess(context.Context, *connect.Request[xylona.RevokeGameServerAccessRequest]) (*connect.Response[xylona.RevokeGameServerAccessResponse], error)
-	ListFederatedAccessGrants(context.Context, *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error)
-	GrantFederatedAccess(context.Context, *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error)
-	RevokeFederatedAccess(context.Context, *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error)
 	ListIPs(context.Context, *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error)
 	AddIP(context.Context, *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error)
 	RemoveIP(context.Context, *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error)
@@ -430,26 +381,14 @@ type XylonaClient interface {
 	GameServerFilesMove(context.Context, *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error)
 	GameServersFileEdit(context.Context, *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error)
 	GameServersFileOrDirectoryCreate(context.Context, *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error)
-	// Nodes
+	// Nodes (hub-spoke)
 	GetNode(context.Context, *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error)
 	ListNodes(context.Context, *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error)
-	AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error)
+	// GenerateNodePairingObject issues a single-use join token that a remote
+	// xylona-node binary presents during bootstrap (see POST /api/node/bootstrap).
 	GenerateNodePairingObject(context.Context, *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error)
-	PairNode(context.Context, *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error)
 	RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error)
 	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
-	// Used to reach out to a new node and verify we're authorized when adding it.
-	VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error)
-	ListRemoteNodeUsers(context.Context, *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error)
-	ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error)
-	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
-	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
-	SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error)
-	// Federation Mesh
-	LeaveFederation(context.Context, *connect.Request[xylona.LeaveFederationRequest]) (*connect.Response[xylona.LeaveFederationResponse], error)
-	ListFederationAdvisories(context.Context, *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error)
-	MarkAdvisoriesRead(context.Context, *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error)
-	GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error)
 	// Config Schema Management (superuser)
 	GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error)
 	UpdateGameConfigSchemas(context.Context, *connect.Request[xylona.UpdateGameConfigSchemasRequest]) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error)
@@ -482,10 +421,6 @@ type XylonaClient interface {
 	GetVersionInfo(context.Context, *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error)
 	CheckForUpdate(context.Context, *connect.Request[xylona.CheckForUpdateRequest]) (*connect.Response[xylona.CheckForUpdateResponse], error)
 	SetDummyUpdateFailure(context.Context, *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error)
-	// Node API keys
-	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
-	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
-	DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error)
 	// Notification Channels
 	CreateNotificationChannel(context.Context, *connect.Request[xylona.CreateNotificationChannelRequest]) (*connect.Response[xylona.CreateNotificationChannelResponse], error)
 	UpdateNotificationChannel(context.Context, *connect.Request[xylona.UpdateNotificationChannelRequest]) (*connect.Response[xylona.UpdateNotificationChannelResponse], error)
@@ -687,24 +622,6 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("RevokeGameServerAccess")),
 			connect.WithClientOptions(opts...),
 		),
-		listFederatedAccessGrants: connect.NewClient[xylona.ListFederatedAccessGrantsRequest, xylona.ListFederatedAccessGrantsResponse](
-			httpClient,
-			baseURL+XylonaListFederatedAccessGrantsProcedure,
-			connect.WithSchema(xylonaMethods.ByName("ListFederatedAccessGrants")),
-			connect.WithClientOptions(opts...),
-		),
-		grantFederatedAccess: connect.NewClient[xylona.GrantFederatedAccessRequest, xylona.GrantFederatedAccessResponse](
-			httpClient,
-			baseURL+XylonaGrantFederatedAccessProcedure,
-			connect.WithSchema(xylonaMethods.ByName("GrantFederatedAccess")),
-			connect.WithClientOptions(opts...),
-		),
-		revokeFederatedAccess: connect.NewClient[xylona.RevokeFederatedAccessRequest, xylona.RevokeFederatedAccessResponse](
-			httpClient,
-			baseURL+XylonaRevokeFederatedAccessProcedure,
-			connect.WithSchema(xylonaMethods.ByName("RevokeFederatedAccess")),
-			connect.WithClientOptions(opts...),
-		),
 		listIPs: connect.NewClient[xylona.ListIPsRequest, xylona.ListIPsResponse](
 			httpClient,
 			baseURL+XylonaListIPsProcedure,
@@ -891,22 +808,10 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("ListNodes")),
 			connect.WithClientOptions(opts...),
 		),
-		addNode: connect.NewClient[xylona.AddNodeRequest, xylona.AddNodeResponse](
-			httpClient,
-			baseURL+XylonaAddNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("AddNode")),
-			connect.WithClientOptions(opts...),
-		),
 		generateNodePairingObject: connect.NewClient[xylona.GenerateNodePairingObjectRequest, xylona.GenerateNodePairingObjectResponse](
 			httpClient,
 			baseURL+XylonaGenerateNodePairingObjectProcedure,
 			connect.WithSchema(xylonaMethods.ByName("GenerateNodePairingObject")),
-			connect.WithClientOptions(opts...),
-		),
-		pairNode: connect.NewClient[xylona.PairNodeRequest, xylona.PairNodeResponse](
-			httpClient,
-			baseURL+XylonaPairNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("PairNode")),
 			connect.WithClientOptions(opts...),
 		),
 		removeNode: connect.NewClient[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse](
@@ -919,66 +824,6 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaEditNodeProcedure,
 			connect.WithSchema(xylonaMethods.ByName("EditNode")),
-			connect.WithClientOptions(opts...),
-		),
-		verifyNode: connect.NewClient[xylona.VerifyNodeRequest, xylona.VerifyNodeResponse](
-			httpClient,
-			baseURL+XylonaVerifyNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("VerifyNode")),
-			connect.WithClientOptions(opts...),
-		),
-		listRemoteNodeUsers: connect.NewClient[xylona.ListRemoteNodeUsersRequest, xylona.ListRemoteNodeUsersResponse](
-			httpClient,
-			baseURL+XylonaListRemoteNodeUsersProcedure,
-			connect.WithSchema(xylonaMethods.ByName("ListRemoteNodeUsers")),
-			connect.WithClientOptions(opts...),
-		),
-		listLocalSecretKeys: connect.NewClient[xylona.ListLocalSecretKeysRequest, xylona.ListLocalSecretKeysResponse](
-			httpClient,
-			baseURL+XylonaListLocalSecretKeysProcedure,
-			connect.WithSchema(xylonaMethods.ByName("ListLocalSecretKeys")),
-			connect.WithClientOptions(opts...),
-		),
-		createLocalSecretKey: connect.NewClient[xylona.CreateLocalSecretKeyRequest, xylona.CreateLocalSecretKeyResponse](
-			httpClient,
-			baseURL+XylonaCreateLocalSecretKeyProcedure,
-			connect.WithSchema(xylonaMethods.ByName("CreateLocalSecretKey")),
-			connect.WithClientOptions(opts...),
-		),
-		deleteLocalSecretKey: connect.NewClient[xylona.DeleteLocalSecretKeyRequest, xylona.DeleteLocalSecretKeyResponse](
-			httpClient,
-			baseURL+XylonaDeleteLocalSecretKeyProcedure,
-			connect.WithSchema(xylonaMethods.ByName("DeleteLocalSecretKey")),
-			connect.WithClientOptions(opts...),
-		),
-		syncNode: connect.NewClient[xylona.SyncNodeRequest, xylona.SyncNodeResponse](
-			httpClient,
-			baseURL+XylonaSyncNodeProcedure,
-			connect.WithSchema(xylonaMethods.ByName("SyncNode")),
-			connect.WithClientOptions(opts...),
-		),
-		leaveFederation: connect.NewClient[xylona.LeaveFederationRequest, xylona.LeaveFederationResponse](
-			httpClient,
-			baseURL+XylonaLeaveFederationProcedure,
-			connect.WithSchema(xylonaMethods.ByName("LeaveFederation")),
-			connect.WithClientOptions(opts...),
-		),
-		listFederationAdvisories: connect.NewClient[xylona.ListFederationAdvisoriesRequest, xylona.ListFederationAdvisoriesResponse](
-			httpClient,
-			baseURL+XylonaListFederationAdvisoriesProcedure,
-			connect.WithSchema(xylonaMethods.ByName("ListFederationAdvisories")),
-			connect.WithClientOptions(opts...),
-		),
-		markAdvisoriesRead: connect.NewClient[xylona.MarkAdvisoriesReadRequest, xylona.MarkAdvisoriesReadResponse](
-			httpClient,
-			baseURL+XylonaMarkAdvisoriesReadProcedure,
-			connect.WithSchema(xylonaMethods.ByName("MarkAdvisoriesRead")),
-			connect.WithClientOptions(opts...),
-		),
-		getUnreadAdvisoryCount: connect.NewClient[xylona.GetUnreadAdvisoryCountRequest, xylona.GetUnreadAdvisoryCountResponse](
-			httpClient,
-			baseURL+XylonaGetUnreadAdvisoryCountProcedure,
-			connect.WithSchema(xylonaMethods.ByName("GetUnreadAdvisoryCount")),
 			connect.WithClientOptions(opts...),
 		),
 		getGameConfigSchemas: connect.NewClient[xylona.GetGameConfigSchemasRequest, xylona.GetGameConfigSchemasResponse](
@@ -1135,24 +980,6 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaSetDummyUpdateFailureProcedure,
 			connect.WithSchema(xylonaMethods.ByName("SetDummyUpdateFailure")),
-			connect.WithClientOptions(opts...),
-		),
-		listNodeApiKeys: connect.NewClient[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse](
-			httpClient,
-			baseURL+XylonaListNodeApiKeysProcedure,
-			connect.WithSchema(xylonaMethods.ByName("ListNodeApiKeys")),
-			connect.WithClientOptions(opts...),
-		),
-		setNodeApiKey: connect.NewClient[xylona.SetNodeApiKeyRequest, xylona.SetNodeApiKeyResponse](
-			httpClient,
-			baseURL+XylonaSetNodeApiKeyProcedure,
-			connect.WithSchema(xylonaMethods.ByName("SetNodeApiKey")),
-			connect.WithClientOptions(opts...),
-		),
-		deleteNodeApiKey: connect.NewClient[xylona.DeleteNodeApiKeyRequest, xylona.DeleteNodeApiKeyResponse](
-			httpClient,
-			baseURL+XylonaDeleteNodeApiKeyProcedure,
-			connect.WithSchema(xylonaMethods.ByName("DeleteNodeApiKey")),
 			connect.WithClientOptions(opts...),
 		),
 		createNotificationChannel: connect.NewClient[xylona.CreateNotificationChannelRequest, xylona.CreateNotificationChannelResponse](
@@ -1342,9 +1169,6 @@ type xylonaClient struct {
 	listGameServerAccessGrants       *connect.Client[xylona.ListGameServerAccessGrantsRequest, xylona.ListGameServerAccessGrantsResponse]
 	grantGameServerAccess            *connect.Client[xylona.GrantGameServerAccessRequest, xylona.GrantGameServerAccessResponse]
 	revokeGameServerAccess           *connect.Client[xylona.RevokeGameServerAccessRequest, xylona.RevokeGameServerAccessResponse]
-	listFederatedAccessGrants        *connect.Client[xylona.ListFederatedAccessGrantsRequest, xylona.ListFederatedAccessGrantsResponse]
-	grantFederatedAccess             *connect.Client[xylona.GrantFederatedAccessRequest, xylona.GrantFederatedAccessResponse]
-	revokeFederatedAccess            *connect.Client[xylona.RevokeFederatedAccessRequest, xylona.RevokeFederatedAccessResponse]
 	listIPs                          *connect.Client[xylona.ListIPsRequest, xylona.ListIPsResponse]
 	addIP                            *connect.Client[xylona.AddIPRequest, xylona.AddIPResponse]
 	removeIP                         *connect.Client[xylona.RemoveIPRequest, xylona.RemoveIPResponse]
@@ -1376,21 +1200,9 @@ type xylonaClient struct {
 	gameServersFileOrDirectoryCreate *connect.Client[xylona.GameServerFileOrDirectoryCreateRequest, xylona.GameServerFileOrDirectoryCreateResponse]
 	getNode                          *connect.Client[xylona.GetNodeRequest, xylona.GetNodeResponse]
 	listNodes                        *connect.Client[xylona.ListNodesRequest, xylona.ListNodesResponse]
-	addNode                          *connect.Client[xylona.AddNodeRequest, xylona.AddNodeResponse]
 	generateNodePairingObject        *connect.Client[xylona.GenerateNodePairingObjectRequest, xylona.GenerateNodePairingObjectResponse]
-	pairNode                         *connect.Client[xylona.PairNodeRequest, xylona.PairNodeResponse]
 	removeNode                       *connect.Client[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse]
 	editNode                         *connect.Client[xylona.EditNodeRequest, xylona.EditNodeResponse]
-	verifyNode                       *connect.Client[xylona.VerifyNodeRequest, xylona.VerifyNodeResponse]
-	listRemoteNodeUsers              *connect.Client[xylona.ListRemoteNodeUsersRequest, xylona.ListRemoteNodeUsersResponse]
-	listLocalSecretKeys              *connect.Client[xylona.ListLocalSecretKeysRequest, xylona.ListLocalSecretKeysResponse]
-	createLocalSecretKey             *connect.Client[xylona.CreateLocalSecretKeyRequest, xylona.CreateLocalSecretKeyResponse]
-	deleteLocalSecretKey             *connect.Client[xylona.DeleteLocalSecretKeyRequest, xylona.DeleteLocalSecretKeyResponse]
-	syncNode                         *connect.Client[xylona.SyncNodeRequest, xylona.SyncNodeResponse]
-	leaveFederation                  *connect.Client[xylona.LeaveFederationRequest, xylona.LeaveFederationResponse]
-	listFederationAdvisories         *connect.Client[xylona.ListFederationAdvisoriesRequest, xylona.ListFederationAdvisoriesResponse]
-	markAdvisoriesRead               *connect.Client[xylona.MarkAdvisoriesReadRequest, xylona.MarkAdvisoriesReadResponse]
-	getUnreadAdvisoryCount           *connect.Client[xylona.GetUnreadAdvisoryCountRequest, xylona.GetUnreadAdvisoryCountResponse]
 	getGameConfigSchemas             *connect.Client[xylona.GetGameConfigSchemasRequest, xylona.GetGameConfigSchemasResponse]
 	updateGameConfigSchemas          *connect.Client[xylona.UpdateGameConfigSchemasRequest, xylona.UpdateGameConfigSchemasResponse]
 	getGameServerConfigFiles         *connect.Client[xylona.GetGameServerConfigFilesRequest, xylona.GetGameServerConfigFilesResponse]
@@ -1417,9 +1229,6 @@ type xylonaClient struct {
 	getVersionInfo                   *connect.Client[xylona.GetVersionInfoRequest, xylona.GetVersionInfoResponse]
 	checkForUpdate                   *connect.Client[xylona.CheckForUpdateRequest, xylona.CheckForUpdateResponse]
 	setDummyUpdateFailure            *connect.Client[xylona.SetDummyUpdateFailureRequest, xylona.SetDummyUpdateFailureResponse]
-	listNodeApiKeys                  *connect.Client[xylona.ListNodeApiKeysRequest, xylona.ListNodeApiKeysResponse]
-	setNodeApiKey                    *connect.Client[xylona.SetNodeApiKeyRequest, xylona.SetNodeApiKeyResponse]
-	deleteNodeApiKey                 *connect.Client[xylona.DeleteNodeApiKeyRequest, xylona.DeleteNodeApiKeyResponse]
 	createNotificationChannel        *connect.Client[xylona.CreateNotificationChannelRequest, xylona.CreateNotificationChannelResponse]
 	updateNotificationChannel        *connect.Client[xylona.UpdateNotificationChannelRequest, xylona.UpdateNotificationChannelResponse]
 	deleteNotificationChannel        *connect.Client[xylona.DeleteNotificationChannelRequest, xylona.DeleteNotificationChannelResponse]
@@ -1578,21 +1387,6 @@ func (c *xylonaClient) RevokeGameServerAccess(ctx context.Context, req *connect.
 	return c.revokeGameServerAccess.CallUnary(ctx, req)
 }
 
-// ListFederatedAccessGrants calls xylona.Xylona.ListFederatedAccessGrants.
-func (c *xylonaClient) ListFederatedAccessGrants(ctx context.Context, req *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error) {
-	return c.listFederatedAccessGrants.CallUnary(ctx, req)
-}
-
-// GrantFederatedAccess calls xylona.Xylona.GrantFederatedAccess.
-func (c *xylonaClient) GrantFederatedAccess(ctx context.Context, req *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error) {
-	return c.grantFederatedAccess.CallUnary(ctx, req)
-}
-
-// RevokeFederatedAccess calls xylona.Xylona.RevokeFederatedAccess.
-func (c *xylonaClient) RevokeFederatedAccess(ctx context.Context, req *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error) {
-	return c.revokeFederatedAccess.CallUnary(ctx, req)
-}
-
 // ListIPs calls xylona.Xylona.ListIPs.
 func (c *xylonaClient) ListIPs(ctx context.Context, req *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
 	return c.listIPs.CallUnary(ctx, req)
@@ -1748,19 +1542,9 @@ func (c *xylonaClient) ListNodes(ctx context.Context, req *connect.Request[xylon
 	return c.listNodes.CallUnary(ctx, req)
 }
 
-// AddNode calls xylona.Xylona.AddNode.
-func (c *xylonaClient) AddNode(ctx context.Context, req *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
-	return c.addNode.CallUnary(ctx, req)
-}
-
 // GenerateNodePairingObject calls xylona.Xylona.GenerateNodePairingObject.
 func (c *xylonaClient) GenerateNodePairingObject(ctx context.Context, req *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error) {
 	return c.generateNodePairingObject.CallUnary(ctx, req)
-}
-
-// PairNode calls xylona.Xylona.PairNode.
-func (c *xylonaClient) PairNode(ctx context.Context, req *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {
-	return c.pairNode.CallUnary(ctx, req)
 }
 
 // RemoveNode calls xylona.Xylona.RemoveNode.
@@ -1771,56 +1555,6 @@ func (c *xylonaClient) RemoveNode(ctx context.Context, req *connect.Request[xylo
 // EditNode calls xylona.Xylona.EditNode.
 func (c *xylonaClient) EditNode(ctx context.Context, req *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
 	return c.editNode.CallUnary(ctx, req)
-}
-
-// VerifyNode calls xylona.Xylona.VerifyNode.
-func (c *xylonaClient) VerifyNode(ctx context.Context, req *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {
-	return c.verifyNode.CallUnary(ctx, req)
-}
-
-// ListRemoteNodeUsers calls xylona.Xylona.ListRemoteNodeUsers.
-func (c *xylonaClient) ListRemoteNodeUsers(ctx context.Context, req *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error) {
-	return c.listRemoteNodeUsers.CallUnary(ctx, req)
-}
-
-// ListLocalSecretKeys calls xylona.Xylona.ListLocalSecretKeys.
-func (c *xylonaClient) ListLocalSecretKeys(ctx context.Context, req *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
-	return c.listLocalSecretKeys.CallUnary(ctx, req)
-}
-
-// CreateLocalSecretKey calls xylona.Xylona.CreateLocalSecretKey.
-func (c *xylonaClient) CreateLocalSecretKey(ctx context.Context, req *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
-	return c.createLocalSecretKey.CallUnary(ctx, req)
-}
-
-// DeleteLocalSecretKey calls xylona.Xylona.DeleteLocalSecretKey.
-func (c *xylonaClient) DeleteLocalSecretKey(ctx context.Context, req *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error) {
-	return c.deleteLocalSecretKey.CallUnary(ctx, req)
-}
-
-// SyncNode calls xylona.Xylona.SyncNode.
-func (c *xylonaClient) SyncNode(ctx context.Context, req *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
-	return c.syncNode.CallUnary(ctx, req)
-}
-
-// LeaveFederation calls xylona.Xylona.LeaveFederation.
-func (c *xylonaClient) LeaveFederation(ctx context.Context, req *connect.Request[xylona.LeaveFederationRequest]) (*connect.Response[xylona.LeaveFederationResponse], error) {
-	return c.leaveFederation.CallUnary(ctx, req)
-}
-
-// ListFederationAdvisories calls xylona.Xylona.ListFederationAdvisories.
-func (c *xylonaClient) ListFederationAdvisories(ctx context.Context, req *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error) {
-	return c.listFederationAdvisories.CallUnary(ctx, req)
-}
-
-// MarkAdvisoriesRead calls xylona.Xylona.MarkAdvisoriesRead.
-func (c *xylonaClient) MarkAdvisoriesRead(ctx context.Context, req *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error) {
-	return c.markAdvisoriesRead.CallUnary(ctx, req)
-}
-
-// GetUnreadAdvisoryCount calls xylona.Xylona.GetUnreadAdvisoryCount.
-func (c *xylonaClient) GetUnreadAdvisoryCount(ctx context.Context, req *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error) {
-	return c.getUnreadAdvisoryCount.CallUnary(ctx, req)
 }
 
 // GetGameConfigSchemas calls xylona.Xylona.GetGameConfigSchemas.
@@ -1951,21 +1685,6 @@ func (c *xylonaClient) CheckForUpdate(ctx context.Context, req *connect.Request[
 // SetDummyUpdateFailure calls xylona.Xylona.SetDummyUpdateFailure.
 func (c *xylonaClient) SetDummyUpdateFailure(ctx context.Context, req *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error) {
 	return c.setDummyUpdateFailure.CallUnary(ctx, req)
-}
-
-// ListNodeApiKeys calls xylona.Xylona.ListNodeApiKeys.
-func (c *xylonaClient) ListNodeApiKeys(ctx context.Context, req *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {
-	return c.listNodeApiKeys.CallUnary(ctx, req)
-}
-
-// SetNodeApiKey calls xylona.Xylona.SetNodeApiKey.
-func (c *xylonaClient) SetNodeApiKey(ctx context.Context, req *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error) {
-	return c.setNodeApiKey.CallUnary(ctx, req)
-}
-
-// DeleteNodeApiKey calls xylona.Xylona.DeleteNodeApiKey.
-func (c *xylonaClient) DeleteNodeApiKey(ctx context.Context, req *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error) {
-	return c.deleteNodeApiKey.CallUnary(ctx, req)
 }
 
 // CreateNotificationChannel calls xylona.Xylona.CreateNotificationChannel.
@@ -2129,9 +1848,6 @@ type XylonaHandler interface {
 	ListGameServerAccessGrants(context.Context, *connect.Request[xylona.ListGameServerAccessGrantsRequest]) (*connect.Response[xylona.ListGameServerAccessGrantsResponse], error)
 	GrantGameServerAccess(context.Context, *connect.Request[xylona.GrantGameServerAccessRequest]) (*connect.Response[xylona.GrantGameServerAccessResponse], error)
 	RevokeGameServerAccess(context.Context, *connect.Request[xylona.RevokeGameServerAccessRequest]) (*connect.Response[xylona.RevokeGameServerAccessResponse], error)
-	ListFederatedAccessGrants(context.Context, *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error)
-	GrantFederatedAccess(context.Context, *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error)
-	RevokeFederatedAccess(context.Context, *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error)
 	ListIPs(context.Context, *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error)
 	AddIP(context.Context, *connect.Request[xylona.AddIPRequest]) (*connect.Response[xylona.AddIPResponse], error)
 	RemoveIP(context.Context, *connect.Request[xylona.RemoveIPRequest]) (*connect.Response[xylona.RemoveIPResponse], error)
@@ -2166,26 +1882,14 @@ type XylonaHandler interface {
 	GameServerFilesMove(context.Context, *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error)
 	GameServersFileEdit(context.Context, *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error)
 	GameServersFileOrDirectoryCreate(context.Context, *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error)
-	// Nodes
+	// Nodes (hub-spoke)
 	GetNode(context.Context, *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error)
 	ListNodes(context.Context, *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error)
-	AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error)
+	// GenerateNodePairingObject issues a single-use join token that a remote
+	// xylona-node binary presents during bootstrap (see POST /api/node/bootstrap).
 	GenerateNodePairingObject(context.Context, *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error)
-	PairNode(context.Context, *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error)
 	RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error)
 	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
-	// Used to reach out to a new node and verify we're authorized when adding it.
-	VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error)
-	ListRemoteNodeUsers(context.Context, *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error)
-	ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error)
-	CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error)
-	DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error)
-	SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error)
-	// Federation Mesh
-	LeaveFederation(context.Context, *connect.Request[xylona.LeaveFederationRequest]) (*connect.Response[xylona.LeaveFederationResponse], error)
-	ListFederationAdvisories(context.Context, *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error)
-	MarkAdvisoriesRead(context.Context, *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error)
-	GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error)
 	// Config Schema Management (superuser)
 	GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error)
 	UpdateGameConfigSchemas(context.Context, *connect.Request[xylona.UpdateGameConfigSchemasRequest]) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error)
@@ -2218,10 +1922,6 @@ type XylonaHandler interface {
 	GetVersionInfo(context.Context, *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error)
 	CheckForUpdate(context.Context, *connect.Request[xylona.CheckForUpdateRequest]) (*connect.Response[xylona.CheckForUpdateResponse], error)
 	SetDummyUpdateFailure(context.Context, *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error)
-	// Node API keys
-	ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error)
-	SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error)
-	DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error)
 	// Notification Channels
 	CreateNotificationChannel(context.Context, *connect.Request[xylona.CreateNotificationChannelRequest]) (*connect.Response[xylona.CreateNotificationChannelResponse], error)
 	UpdateNotificationChannel(context.Context, *connect.Request[xylona.UpdateNotificationChannelRequest]) (*connect.Response[xylona.UpdateNotificationChannelResponse], error)
@@ -2419,24 +2119,6 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("RevokeGameServerAccess")),
 		connect.WithHandlerOptions(opts...),
 	)
-	xylonaListFederatedAccessGrantsHandler := connect.NewUnaryHandler(
-		XylonaListFederatedAccessGrantsProcedure,
-		svc.ListFederatedAccessGrants,
-		connect.WithSchema(xylonaMethods.ByName("ListFederatedAccessGrants")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaGrantFederatedAccessHandler := connect.NewUnaryHandler(
-		XylonaGrantFederatedAccessProcedure,
-		svc.GrantFederatedAccess,
-		connect.WithSchema(xylonaMethods.ByName("GrantFederatedAccess")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaRevokeFederatedAccessHandler := connect.NewUnaryHandler(
-		XylonaRevokeFederatedAccessProcedure,
-		svc.RevokeFederatedAccess,
-		connect.WithSchema(xylonaMethods.ByName("RevokeFederatedAccess")),
-		connect.WithHandlerOptions(opts...),
-	)
 	xylonaListIPsHandler := connect.NewUnaryHandler(
 		XylonaListIPsProcedure,
 		svc.ListIPs,
@@ -2623,22 +2305,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("ListNodes")),
 		connect.WithHandlerOptions(opts...),
 	)
-	xylonaAddNodeHandler := connect.NewUnaryHandler(
-		XylonaAddNodeProcedure,
-		svc.AddNode,
-		connect.WithSchema(xylonaMethods.ByName("AddNode")),
-		connect.WithHandlerOptions(opts...),
-	)
 	xylonaGenerateNodePairingObjectHandler := connect.NewUnaryHandler(
 		XylonaGenerateNodePairingObjectProcedure,
 		svc.GenerateNodePairingObject,
 		connect.WithSchema(xylonaMethods.ByName("GenerateNodePairingObject")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaPairNodeHandler := connect.NewUnaryHandler(
-		XylonaPairNodeProcedure,
-		svc.PairNode,
-		connect.WithSchema(xylonaMethods.ByName("PairNode")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaRemoveNodeHandler := connect.NewUnaryHandler(
@@ -2651,66 +2321,6 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaEditNodeProcedure,
 		svc.EditNode,
 		connect.WithSchema(xylonaMethods.ByName("EditNode")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaVerifyNodeHandler := connect.NewUnaryHandler(
-		XylonaVerifyNodeProcedure,
-		svc.VerifyNode,
-		connect.WithSchema(xylonaMethods.ByName("VerifyNode")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaListRemoteNodeUsersHandler := connect.NewUnaryHandler(
-		XylonaListRemoteNodeUsersProcedure,
-		svc.ListRemoteNodeUsers,
-		connect.WithSchema(xylonaMethods.ByName("ListRemoteNodeUsers")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaListLocalSecretKeysHandler := connect.NewUnaryHandler(
-		XylonaListLocalSecretKeysProcedure,
-		svc.ListLocalSecretKeys,
-		connect.WithSchema(xylonaMethods.ByName("ListLocalSecretKeys")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaCreateLocalSecretKeyHandler := connect.NewUnaryHandler(
-		XylonaCreateLocalSecretKeyProcedure,
-		svc.CreateLocalSecretKey,
-		connect.WithSchema(xylonaMethods.ByName("CreateLocalSecretKey")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaDeleteLocalSecretKeyHandler := connect.NewUnaryHandler(
-		XylonaDeleteLocalSecretKeyProcedure,
-		svc.DeleteLocalSecretKey,
-		connect.WithSchema(xylonaMethods.ByName("DeleteLocalSecretKey")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaSyncNodeHandler := connect.NewUnaryHandler(
-		XylonaSyncNodeProcedure,
-		svc.SyncNode,
-		connect.WithSchema(xylonaMethods.ByName("SyncNode")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaLeaveFederationHandler := connect.NewUnaryHandler(
-		XylonaLeaveFederationProcedure,
-		svc.LeaveFederation,
-		connect.WithSchema(xylonaMethods.ByName("LeaveFederation")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaListFederationAdvisoriesHandler := connect.NewUnaryHandler(
-		XylonaListFederationAdvisoriesProcedure,
-		svc.ListFederationAdvisories,
-		connect.WithSchema(xylonaMethods.ByName("ListFederationAdvisories")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaMarkAdvisoriesReadHandler := connect.NewUnaryHandler(
-		XylonaMarkAdvisoriesReadProcedure,
-		svc.MarkAdvisoriesRead,
-		connect.WithSchema(xylonaMethods.ByName("MarkAdvisoriesRead")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaGetUnreadAdvisoryCountHandler := connect.NewUnaryHandler(
-		XylonaGetUnreadAdvisoryCountProcedure,
-		svc.GetUnreadAdvisoryCount,
-		connect.WithSchema(xylonaMethods.ByName("GetUnreadAdvisoryCount")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetGameConfigSchemasHandler := connect.NewUnaryHandler(
@@ -2867,24 +2477,6 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaSetDummyUpdateFailureProcedure,
 		svc.SetDummyUpdateFailure,
 		connect.WithSchema(xylonaMethods.ByName("SetDummyUpdateFailure")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaListNodeApiKeysHandler := connect.NewUnaryHandler(
-		XylonaListNodeApiKeysProcedure,
-		svc.ListNodeApiKeys,
-		connect.WithSchema(xylonaMethods.ByName("ListNodeApiKeys")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaSetNodeApiKeyHandler := connect.NewUnaryHandler(
-		XylonaSetNodeApiKeyProcedure,
-		svc.SetNodeApiKey,
-		connect.WithSchema(xylonaMethods.ByName("SetNodeApiKey")),
-		connect.WithHandlerOptions(opts...),
-	)
-	xylonaDeleteNodeApiKeyHandler := connect.NewUnaryHandler(
-		XylonaDeleteNodeApiKeyProcedure,
-		svc.DeleteNodeApiKey,
-		connect.WithSchema(xylonaMethods.ByName("DeleteNodeApiKey")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaCreateNotificationChannelHandler := connect.NewUnaryHandler(
@@ -3097,12 +2689,6 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGrantGameServerAccessHandler.ServeHTTP(w, r)
 		case XylonaRevokeGameServerAccessProcedure:
 			xylonaRevokeGameServerAccessHandler.ServeHTTP(w, r)
-		case XylonaListFederatedAccessGrantsProcedure:
-			xylonaListFederatedAccessGrantsHandler.ServeHTTP(w, r)
-		case XylonaGrantFederatedAccessProcedure:
-			xylonaGrantFederatedAccessHandler.ServeHTTP(w, r)
-		case XylonaRevokeFederatedAccessProcedure:
-			xylonaRevokeFederatedAccessHandler.ServeHTTP(w, r)
 		case XylonaListIPsProcedure:
 			xylonaListIPsHandler.ServeHTTP(w, r)
 		case XylonaAddIPProcedure:
@@ -3165,36 +2751,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetNodeHandler.ServeHTTP(w, r)
 		case XylonaListNodesProcedure:
 			xylonaListNodesHandler.ServeHTTP(w, r)
-		case XylonaAddNodeProcedure:
-			xylonaAddNodeHandler.ServeHTTP(w, r)
 		case XylonaGenerateNodePairingObjectProcedure:
 			xylonaGenerateNodePairingObjectHandler.ServeHTTP(w, r)
-		case XylonaPairNodeProcedure:
-			xylonaPairNodeHandler.ServeHTTP(w, r)
 		case XylonaRemoveNodeProcedure:
 			xylonaRemoveNodeHandler.ServeHTTP(w, r)
 		case XylonaEditNodeProcedure:
 			xylonaEditNodeHandler.ServeHTTP(w, r)
-		case XylonaVerifyNodeProcedure:
-			xylonaVerifyNodeHandler.ServeHTTP(w, r)
-		case XylonaListRemoteNodeUsersProcedure:
-			xylonaListRemoteNodeUsersHandler.ServeHTTP(w, r)
-		case XylonaListLocalSecretKeysProcedure:
-			xylonaListLocalSecretKeysHandler.ServeHTTP(w, r)
-		case XylonaCreateLocalSecretKeyProcedure:
-			xylonaCreateLocalSecretKeyHandler.ServeHTTP(w, r)
-		case XylonaDeleteLocalSecretKeyProcedure:
-			xylonaDeleteLocalSecretKeyHandler.ServeHTTP(w, r)
-		case XylonaSyncNodeProcedure:
-			xylonaSyncNodeHandler.ServeHTTP(w, r)
-		case XylonaLeaveFederationProcedure:
-			xylonaLeaveFederationHandler.ServeHTTP(w, r)
-		case XylonaListFederationAdvisoriesProcedure:
-			xylonaListFederationAdvisoriesHandler.ServeHTTP(w, r)
-		case XylonaMarkAdvisoriesReadProcedure:
-			xylonaMarkAdvisoriesReadHandler.ServeHTTP(w, r)
-		case XylonaGetUnreadAdvisoryCountProcedure:
-			xylonaGetUnreadAdvisoryCountHandler.ServeHTTP(w, r)
 		case XylonaGetGameConfigSchemasProcedure:
 			xylonaGetGameConfigSchemasHandler.ServeHTTP(w, r)
 		case XylonaUpdateGameConfigSchemasProcedure:
@@ -3247,12 +2809,6 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaCheckForUpdateHandler.ServeHTTP(w, r)
 		case XylonaSetDummyUpdateFailureProcedure:
 			xylonaSetDummyUpdateFailureHandler.ServeHTTP(w, r)
-		case XylonaListNodeApiKeysProcedure:
-			xylonaListNodeApiKeysHandler.ServeHTTP(w, r)
-		case XylonaSetNodeApiKeyProcedure:
-			xylonaSetNodeApiKeyHandler.ServeHTTP(w, r)
-		case XylonaDeleteNodeApiKeyProcedure:
-			xylonaDeleteNodeApiKeyHandler.ServeHTTP(w, r)
 		case XylonaCreateNotificationChannelProcedure:
 			xylonaCreateNotificationChannelHandler.ServeHTTP(w, r)
 		case XylonaUpdateNotificationChannelProcedure:
@@ -3418,18 +2974,6 @@ func (UnimplementedXylonaHandler) RevokeGameServerAccess(context.Context, *conne
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RevokeGameServerAccess is not implemented"))
 }
 
-func (UnimplementedXylonaHandler) ListFederatedAccessGrants(context.Context, *connect.Request[xylona.ListFederatedAccessGrantsRequest]) (*connect.Response[xylona.ListFederatedAccessGrantsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListFederatedAccessGrants is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) GrantFederatedAccess(context.Context, *connect.Request[xylona.GrantFederatedAccessRequest]) (*connect.Response[xylona.GrantFederatedAccessResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GrantFederatedAccess is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) RevokeFederatedAccess(context.Context, *connect.Request[xylona.RevokeFederatedAccessRequest]) (*connect.Response[xylona.RevokeFederatedAccessResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RevokeFederatedAccess is not implemented"))
-}
-
 func (UnimplementedXylonaHandler) ListIPs(context.Context, *connect.Request[xylona.ListIPsRequest]) (*connect.Response[xylona.ListIPsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListIPs is not implemented"))
 }
@@ -3554,16 +3098,8 @@ func (UnimplementedXylonaHandler) ListNodes(context.Context, *connect.Request[xy
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListNodes is not implemented"))
 }
 
-func (UnimplementedXylonaHandler) AddNode(context.Context, *connect.Request[xylona.AddNodeRequest]) (*connect.Response[xylona.AddNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.AddNode is not implemented"))
-}
-
 func (UnimplementedXylonaHandler) GenerateNodePairingObject(context.Context, *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GenerateNodePairingObject is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) PairNode(context.Context, *connect.Request[xylona.PairNodeRequest]) (*connect.Response[xylona.PairNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.PairNode is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error) {
@@ -3572,46 +3108,6 @@ func (UnimplementedXylonaHandler) RemoveNode(context.Context, *connect.Request[x
 
 func (UnimplementedXylonaHandler) EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.EditNode is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) VerifyNode(context.Context, *connect.Request[xylona.VerifyNodeRequest]) (*connect.Response[xylona.VerifyNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.VerifyNode is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) ListRemoteNodeUsers(context.Context, *connect.Request[xylona.ListRemoteNodeUsersRequest]) (*connect.Response[xylona.ListRemoteNodeUsersResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListRemoteNodeUsers is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) ListLocalSecretKeys(context.Context, *connect.Request[xylona.ListLocalSecretKeysRequest]) (*connect.Response[xylona.ListLocalSecretKeysResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListLocalSecretKeys is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) CreateLocalSecretKey(context.Context, *connect.Request[xylona.CreateLocalSecretKeyRequest]) (*connect.Response[xylona.CreateLocalSecretKeyResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CreateLocalSecretKey is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) DeleteLocalSecretKey(context.Context, *connect.Request[xylona.DeleteLocalSecretKeyRequest]) (*connect.Response[xylona.DeleteLocalSecretKeyResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteLocalSecretKey is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) SyncNode(context.Context, *connect.Request[xylona.SyncNodeRequest]) (*connect.Response[xylona.SyncNodeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SyncNode is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) LeaveFederation(context.Context, *connect.Request[xylona.LeaveFederationRequest]) (*connect.Response[xylona.LeaveFederationResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.LeaveFederation is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) ListFederationAdvisories(context.Context, *connect.Request[xylona.ListFederationAdvisoriesRequest]) (*connect.Response[xylona.ListFederationAdvisoriesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListFederationAdvisories is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) MarkAdvisoriesRead(context.Context, *connect.Request[xylona.MarkAdvisoriesReadRequest]) (*connect.Response[xylona.MarkAdvisoriesReadResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.MarkAdvisoriesRead is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) GetUnreadAdvisoryCount(context.Context, *connect.Request[xylona.GetUnreadAdvisoryCountRequest]) (*connect.Response[xylona.GetUnreadAdvisoryCountResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetUnreadAdvisoryCount is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error) {
@@ -3716,18 +3212,6 @@ func (UnimplementedXylonaHandler) CheckForUpdate(context.Context, *connect.Reque
 
 func (UnimplementedXylonaHandler) SetDummyUpdateFailure(context.Context, *connect.Request[xylona.SetDummyUpdateFailureRequest]) (*connect.Response[xylona.SetDummyUpdateFailureResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetDummyUpdateFailure is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) ListNodeApiKeys(context.Context, *connect.Request[xylona.ListNodeApiKeysRequest]) (*connect.Response[xylona.ListNodeApiKeysResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListNodeApiKeys is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) SetNodeApiKey(context.Context, *connect.Request[xylona.SetNodeApiKeyRequest]) (*connect.Response[xylona.SetNodeApiKeyResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetNodeApiKey is not implemented"))
-}
-
-func (UnimplementedXylonaHandler) DeleteNodeApiKey(context.Context, *connect.Request[xylona.DeleteNodeApiKeyRequest]) (*connect.Response[xylona.DeleteNodeApiKeyResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteNodeApiKey is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) CreateNotificationChannel(context.Context, *connect.Request[xylona.CreateNotificationChannelRequest]) (*connect.Response[xylona.CreateNotificationChannelResponse], error) {

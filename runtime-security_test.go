@@ -49,9 +49,8 @@ func seedRuntimeSecurityTestFixture(t *testing.T, conn *db.Connection) {
 
 	_, errLocalNode := conn.SQLDb.ExecContext(
 		context.Background(),
-		`insert into node (id, name, is_local, host, port, base_url, enabled, os)
-		 values (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"node-local", "Local Node", true, "localhost", 8080, "http://localhost:8080", true, "linux",
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)`,
+		"node-local", "Local Node", "http://localhost:8080", true,
 	)
 	if errLocalNode != nil {
 		t.Fatalf("failed to insert local node: %v", errLocalNode)
@@ -59,9 +58,8 @@ func seedRuntimeSecurityTestFixture(t *testing.T, conn *db.Connection) {
 
 	_, errRemoteNode := conn.SQLDb.ExecContext(
 		context.Background(),
-		`insert into node (id, name, is_local, host, port, base_url, enabled, os)
-		 values (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"node-remote", "Remote Node", false, "remotehost", 8080, "http://remotehost:8080", true, "linux",
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)`,
+		"node-remote", "Remote Node", "http://remotehost:8080", true,
 	)
 	if errRemoteNode != nil {
 		t.Fatalf("failed to insert remote node: %v", errRemoteNode)

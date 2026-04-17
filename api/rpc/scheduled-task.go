@@ -243,7 +243,7 @@ func (xs *XylonaService) CreateScheduledTask(
 	}
 
 	if taskType == "backup" {
-		operationsAllowed, disabledReason := backupOperationsAllowed(gameServer)
+		operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
 		if !operationsAllowed {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 		}
@@ -341,7 +341,7 @@ func (xs *XylonaService) UpdateScheduledTask(
 	}
 
 	if taskType == "backup" {
-		operationsAllowed, disabledReason := backupOperationsAllowed(gameServer)
+		operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
 		if !operationsAllowed {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 		}

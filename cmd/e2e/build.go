@@ -59,6 +59,23 @@ func buildXylona(projectRoot, outputPath string) error {
 	return nil
 }
 
+func buildXylonaNode(projectRoot, outputPath string) error {
+	log.Info().Msg("[Hub-Spoke Setup] Building xylona-node binary...")
+	errMkdir := os.MkdirAll(filepath.Dir(outputPath), 0o750)
+	if errMkdir != nil {
+		return fmt.Errorf("create xylona-node output dir: %w", errMkdir)
+	}
+	cmd := exec.Command("go", "build", "-o", outputPath, "./cmd/xylona-node") //nolint:noctx // build commands don't need cancellation context
+	cmd.Dir = projectRoot
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	errRun := cmd.Run()
+	if errRun != nil {
+		return fmt.Errorf("build xylona-node binary: %w", errRun)
+	}
+	return nil
+}
+
 func buildFrontend(projectRoot string) error {
 	log.Info().Msg("[Federation Setup] Building frontend SPA...")
 	cmd := exec.Command("pnpm", "run", "build") //nolint:noctx // build commands don't need cancellation context

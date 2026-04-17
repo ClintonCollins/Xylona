@@ -416,9 +416,9 @@ func TestCheckAllServerVersionsDetectsOutOfBandMinecraftJarReplacement(t *testin
 
 	_, errNode := inst.db.SQLDb.ExecContext(
 		context.Background(),
-		`insert into node (id, name, is_local, host, port, base_url, enabled) values (?, ?, ?, ?, ?, ?, ?)
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)
 		 on conflict(id) do nothing`,
-		"node-local", "Local", true, "localhost", 8080, "http://localhost:8080", true,
+		"node-local", "Local", "http://localhost:8080", true,
 	)
 	if errNode != nil {
 		t.Fatalf("insert node: %v", errNode)

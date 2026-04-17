@@ -20,8 +20,6 @@ type preloaders struct {
 	AlertHistory             alertHistoryPreloader
 	AlertRule                alertRulePreloader
 	AlertState               alertStatePreloader
-	FederatedAccessGrant     federatedAccessGrantPreloader
-	FederationTrustedPeer    federationTrustedPeerPreloader
 	Game                     gamePreloader
 	GameServer               gameServerPreloader
 	GameServerBackup         gameServerBackupPreloader
@@ -29,20 +27,15 @@ type preloaders struct {
 	InstalledMod             installedModPreloader
 	InstalledModFile         installedModFilePreloader
 	IP                       ipPreloader
-	Log                      logPreloader
 	Node                     nodePreloader
 	NodeMetricsHistory       nodeMetricsHistoryPreloader
-	NodeSyncQueue            nodeSyncQueuePreloader
 	NotificationChannel      notificationChannelPreloader
-	PeerSyncState            peerSyncStatePreloader
 	Permission               permissionPreloader
-	RemoteServerCache        remoteServerCachePreloader
 	Role                     rolePreloader
 	RolePermission           rolePermissionPreloader
 	ScheduledTask            scheduledTaskPreloader
 	ScheduledTaskLog         scheduledTaskLogPreloader
 	User                     userPreloader
-	UserAPIKey               userAPIKeyPreloader
 	UserRoleAssignment       userRoleAssignmentPreloader
 	UserSession              userSessionPreloader
 }
@@ -52,8 +45,6 @@ func getPreloaders() preloaders {
 		AlertHistory:             buildAlertHistoryPreloader(),
 		AlertRule:                buildAlertRulePreloader(),
 		AlertState:               buildAlertStatePreloader(),
-		FederatedAccessGrant:     buildFederatedAccessGrantPreloader(),
-		FederationTrustedPeer:    buildFederationTrustedPeerPreloader(),
 		Game:                     buildGamePreloader(),
 		GameServer:               buildGameServerPreloader(),
 		GameServerBackup:         buildGameServerBackupPreloader(),
@@ -61,20 +52,15 @@ func getPreloaders() preloaders {
 		InstalledMod:             buildInstalledModPreloader(),
 		InstalledModFile:         buildInstalledModFilePreloader(),
 		IP:                       buildIPPreloader(),
-		Log:                      buildLogPreloader(),
 		Node:                     buildNodePreloader(),
 		NodeMetricsHistory:       buildNodeMetricsHistoryPreloader(),
-		NodeSyncQueue:            buildNodeSyncQueuePreloader(),
 		NotificationChannel:      buildNotificationChannelPreloader(),
-		PeerSyncState:            buildPeerSyncStatePreloader(),
 		Permission:               buildPermissionPreloader(),
-		RemoteServerCache:        buildRemoteServerCachePreloader(),
 		Role:                     buildRolePreloader(),
 		RolePermission:           buildRolePermissionPreloader(),
 		ScheduledTask:            buildScheduledTaskPreloader(),
 		ScheduledTaskLog:         buildScheduledTaskLogPreloader(),
 		User:                     buildUserPreloader(),
-		UserAPIKey:               buildUserAPIKeyPreloader(),
 		UserRoleAssignment:       buildUserRoleAssignmentPreloader(),
 		UserSession:              buildUserSessionPreloader(),
 	}
@@ -90,8 +76,6 @@ type thenLoaders[Q orm.Loadable] struct {
 	AlertHistory             alertHistoryThenLoader[Q]
 	AlertRule                alertRuleThenLoader[Q]
 	AlertState               alertStateThenLoader[Q]
-	FederatedAccessGrant     federatedAccessGrantThenLoader[Q]
-	FederationTrustedPeer    federationTrustedPeerThenLoader[Q]
 	Game                     gameThenLoader[Q]
 	GameServer               gameServerThenLoader[Q]
 	GameServerBackup         gameServerBackupThenLoader[Q]
@@ -99,20 +83,15 @@ type thenLoaders[Q orm.Loadable] struct {
 	InstalledMod             installedModThenLoader[Q]
 	InstalledModFile         installedModFileThenLoader[Q]
 	IP                       ipThenLoader[Q]
-	Log                      logThenLoader[Q]
 	Node                     nodeThenLoader[Q]
 	NodeMetricsHistory       nodeMetricsHistoryThenLoader[Q]
-	NodeSyncQueue            nodeSyncQueueThenLoader[Q]
 	NotificationChannel      notificationChannelThenLoader[Q]
-	PeerSyncState            peerSyncStateThenLoader[Q]
 	Permission               permissionThenLoader[Q]
-	RemoteServerCache        remoteServerCacheThenLoader[Q]
 	Role                     roleThenLoader[Q]
 	RolePermission           rolePermissionThenLoader[Q]
 	ScheduledTask            scheduledTaskThenLoader[Q]
 	ScheduledTaskLog         scheduledTaskLogThenLoader[Q]
 	User                     userThenLoader[Q]
-	UserAPIKey               userAPIKeyThenLoader[Q]
 	UserRoleAssignment       userRoleAssignmentThenLoader[Q]
 	UserSession              userSessionThenLoader[Q]
 }
@@ -122,8 +101,6 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		AlertHistory:             buildAlertHistoryThenLoader[Q](),
 		AlertRule:                buildAlertRuleThenLoader[Q](),
 		AlertState:               buildAlertStateThenLoader[Q](),
-		FederatedAccessGrant:     buildFederatedAccessGrantThenLoader[Q](),
-		FederationTrustedPeer:    buildFederationTrustedPeerThenLoader[Q](),
 		Game:                     buildGameThenLoader[Q](),
 		GameServer:               buildGameServerThenLoader[Q](),
 		GameServerBackup:         buildGameServerBackupThenLoader[Q](),
@@ -131,20 +108,15 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		InstalledMod:             buildInstalledModThenLoader[Q](),
 		InstalledModFile:         buildInstalledModFileThenLoader[Q](),
 		IP:                       buildIPThenLoader[Q](),
-		Log:                      buildLogThenLoader[Q](),
 		Node:                     buildNodeThenLoader[Q](),
 		NodeMetricsHistory:       buildNodeMetricsHistoryThenLoader[Q](),
-		NodeSyncQueue:            buildNodeSyncQueueThenLoader[Q](),
 		NotificationChannel:      buildNotificationChannelThenLoader[Q](),
-		PeerSyncState:            buildPeerSyncStateThenLoader[Q](),
 		Permission:               buildPermissionThenLoader[Q](),
-		RemoteServerCache:        buildRemoteServerCacheThenLoader[Q](),
 		Role:                     buildRoleThenLoader[Q](),
 		RolePermission:           buildRolePermissionThenLoader[Q](),
 		ScheduledTask:            buildScheduledTaskThenLoader[Q](),
 		ScheduledTaskLog:         buildScheduledTaskLogThenLoader[Q](),
 		User:                     buildUserThenLoader[Q](),
-		UserAPIKey:               buildUserAPIKeyThenLoader[Q](),
 		UserRoleAssignment:       buildUserRoleAssignmentThenLoader[Q](),
 		UserSession:              buildUserSessionThenLoader[Q](),
 	}

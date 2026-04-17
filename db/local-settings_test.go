@@ -38,9 +38,8 @@ func TestUpdateLocalSettings(t *testing.T) {
 	// First, insert a second node.
 	_, errNode := conn.SQLDb.ExecContext(
 		conn.ctx,
-		`insert into node (id, name, is_local, host, port, base_url, enabled)
-		 values (?, ?, ?, ?, ?, ?, ?)`,
-		"node-remote", "Remote Node", false, "10.0.0.1", 8080, "http://10.0.0.1:8080", true,
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)`,
+		"node-remote", "Remote Node", "http://10.0.0.1:8080", true,
 	)
 	if errNode != nil {
 		t.Fatalf("failed to insert second node: %v", errNode)
@@ -69,9 +68,8 @@ func TestUpdateLocalSettingsUpsert(t *testing.T) {
 	// Insert a node first (local_settings.node_id has no FK, but we need a valid value).
 	_, errNode := conn.SQLDb.ExecContext(
 		conn.ctx,
-		`insert into node (id, name, is_local, host, port, base_url, enabled)
-		 values (?, ?, ?, ?, ?, ?, ?)`,
-		"node-upsert", "Upsert Node", true, "localhost", 8080, "http://localhost:8080", true,
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)`,
+		"node-upsert", "Upsert Node", "http://localhost:8080", true,
 	)
 	if errNode != nil {
 		t.Fatalf("failed to insert node: %v", errNode)

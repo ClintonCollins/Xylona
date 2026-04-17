@@ -11,14 +11,13 @@ import (
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/scheduler"
 	"github.com/ClintonCollins/Xylona/pkg/usermgmt"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/steamcache"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -40,14 +39,11 @@ type XylonaService struct {
 	db                             *db.Connection
 	actionsInst                    *actions.Instance
 	supervisorInst                 *supervisor.Instance
-	federationMTLS                 *federation.MTLS
+	nodeRegistry                   *noderegistry.Registry
 	secureCookie                   *securecookie.SecureCookie
 	secureCookies                  bool
-	syncEngine                     actions.SyncEngine
 	modManager                     *modmanager.ModManager
 	steamCache                     *steamcache.Client
-	listCache                      *remoteServerListCache
-	remoteFederationClientFactory  func(node *models.Node, serverID string) (xylonaconnect.FederationClient, error)
 	installGameServerFn            func(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error)
 	allPermissionIDs               []string
 	permissionIDsForUserFn         func(user *models.User) ([]string, error)
@@ -61,13 +57,6 @@ type XylonaService struct {
 	notificationChannelTestOnce    sync.Once
 	notificationChannelTestLimiter *notificationChannelTestRateLimiter
 	taskScheduler                  *scheduler.Scheduler
-	pairingRollbackTokensMu        sync.Mutex
-	pairingRollbackTokens          map[string]pairingRollbackToken
-}
-
-type pairingRollbackToken struct {
-	nodeID    string
-	expiresAt time.Time
 }
 
 // NewXylonaService constructs the main RPC service implementation.
@@ -76,8 +65,8 @@ func NewXylonaService(
 	database *db.Connection,
 	actionsInst *actions.Instance,
 	supervisorInst *supervisor.Instance,
+	nodeRegistry *noderegistry.Registry,
 	secureCookie *securecookie.SecureCookie,
-	federationMTLS *federation.MTLS,
 	secureCookies bool,
 	steamCache *steamcache.Client,
 	modMgr *modmanager.ModManager,
@@ -108,21 +97,19 @@ func NewXylonaService(
 	}()
 
 	return &XylonaService{
-		ctx:                   ctx,
-		db:                    database,
-		actionsInst:           actionsInst,
-		federationMTLS:        federationMTLS,
-		secureCookie:          secureCookie,
-		secureCookies:         secureCookies,
-		supervisorInst:        supervisorInst,
-		modManager:            modMgr,
-		steamCache:            steamCache,
-		listCache:             newRemoteServerListCache(remoteServerListCacheTTL),
-		allPermissionIDs:      permIDs,
-		installTracker:        tracker,
-		versionState:          versionState,
-		userService:           usermgmt.NewService(database),
-		pairingRollbackTokens: make(map[string]pairingRollbackToken),
+		ctx:              ctx,
+		db:               database,
+		actionsInst:      actionsInst,
+		secureCookie:     secureCookie,
+		secureCookies:    secureCookies,
+		supervisorInst:   supervisorInst,
+		nodeRegistry:     nodeRegistry,
+		modManager:       modMgr,
+		steamCache:       steamCache,
+		allPermissionIDs: permIDs,
+		installTracker:   tracker,
+		versionState:     versionState,
+		userService:      usermgmt.NewService(database),
 	}, nil
 }
 
@@ -141,11 +128,6 @@ func (xs *XylonaService) resolvedSendTestEmailFunc() func(ctx context.Context, c
 		}
 	}
 	return mailer.SendTestEmail
-}
-
-// SetSyncEngine configures the federation sync engine used by the RPC layer.
-func (xs *XylonaService) SetSyncEngine(engine actions.SyncEngine) {
-	xs.syncEngine = engine
 }
 
 // SetInstallBroadcaster sets the broadcaster used to push server software install

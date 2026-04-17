@@ -39,9 +39,6 @@ service Xylona {
   rpc ListGameServerAccessGrants (ListGameServerAccessGrantsRequest) returns (ListGameServerAccessGrantsResponse) {}
   rpc GrantGameServerAccess (GrantGameServerAccessRequest) returns (GrantGameServerAccessResponse) {}
   rpc RevokeGameServerAccess (RevokeGameServerAccessRequest) returns (RevokeGameServerAccessResponse) {}
-  rpc ListFederatedAccessGrants (ListFederatedAccessGrantsRequest) returns (ListFederatedAccessGrantsResponse) {}
-  rpc GrantFederatedAccess (GrantFederatedAccessRequest) returns (GrantFederatedAccessResponse) {}
-  rpc RevokeFederatedAccess (RevokeFederatedAccessRequest) returns (RevokeFederatedAccessResponse) {}
   rpc ListIPs (ListIPsRequest) returns (ListIPsResponse) {}
   rpc AddIP (AddIPRequest) returns (AddIPResponse) {}
   rpc RemoveIP (RemoveIPRequest) returns (RemoveIPResponse) {}
@@ -79,28 +76,14 @@ service Xylona {
   rpc GameServersFileEdit (GameServersFileEditRequest) returns (GameServersFileEditResponse) {}
   rpc GameServersFileOrDirectoryCreate (GameServerFileOrDirectoryCreateRequest) returns (GameServerFileOrDirectoryCreateResponse) {}
 
-  // Nodes
+  // Nodes (hub-spoke)
   rpc GetNode (GetNodeRequest) returns (GetNodeResponse) {}
   rpc ListNodes (ListNodesRequest) returns (ListNodesResponse) {}
-  rpc AddNode (AddNodeRequest) returns (AddNodeResponse) {}
+  // GenerateNodePairingObject issues a single-use join token that a remote
+  // xylona-node binary presents during bootstrap (see POST /api/node/bootstrap).
   rpc GenerateNodePairingObject (GenerateNodePairingObjectRequest) returns (GenerateNodePairingObjectResponse) {}
-  rpc PairNode (PairNodeRequest) returns (PairNodeResponse) {}
   rpc RemoveNode (RemoveNodeRequest) returns (RemoveNodeResponse) {}
   rpc EditNode (EditNodeRequest) returns (EditNodeResponse) {}
-  // Used to reach out to a new node and verify we're authorized when adding it.
-  rpc VerifyNode (VerifyNodeRequest) returns (VerifyNodeResponse) {}
-  rpc ListRemoteNodeUsers (ListRemoteNodeUsersRequest) returns (ListRemoteNodeUsersResponse) {}
-  rpc ListLocalSecretKeys (ListLocalSecretKeysRequest) returns (ListLocalSecretKeysResponse) {}
-  rpc CreateLocalSecretKey (CreateLocalSecretKeyRequest) returns (CreateLocalSecretKeyResponse) {}
-  rpc DeleteLocalSecretKey (DeleteLocalSecretKeyRequest) returns (DeleteLocalSecretKeyResponse) {}
-
-  rpc SyncNode (SyncNodeRequest) returns (SyncNodeResponse) {}
-
-  // Federation Mesh
-  rpc LeaveFederation (LeaveFederationRequest) returns (LeaveFederationResponse) {}
-  rpc ListFederationAdvisories (ListFederationAdvisoriesRequest) returns (ListFederationAdvisoriesResponse) {}
-  rpc MarkAdvisoriesRead (MarkAdvisoriesReadRequest) returns (MarkAdvisoriesReadResponse) {}
-  rpc GetUnreadAdvisoryCount (GetUnreadAdvisoryCountRequest) returns (GetUnreadAdvisoryCountResponse) {}
 
   // Config Schema Management (superuser)
   rpc GetGameConfigSchemas (GetGameConfigSchemasRequest) returns (GetGameConfigSchemasResponse) {}
@@ -140,11 +123,6 @@ service Xylona {
   rpc GetVersionInfo (GetVersionInfoRequest) returns (GetVersionInfoResponse) {}
   rpc CheckForUpdate (CheckForUpdateRequest) returns (CheckForUpdateResponse) {}
   rpc SetDummyUpdateFailure (SetDummyUpdateFailureRequest) returns (SetDummyUpdateFailureResponse) {}
-
-  // Node API keys
-  rpc ListNodeApiKeys (ListNodeApiKeysRequest) returns (ListNodeApiKeysResponse) {}
-  rpc SetNodeApiKey (SetNodeApiKeyRequest) returns (SetNodeApiKeyResponse) {}
-  rpc DeleteNodeApiKey (DeleteNodeApiKeyRequest) returns (DeleteNodeApiKeyResponse) {}
 
   // Notification Channels
   rpc CreateNotificationChannel (CreateNotificationChannelRequest) returns (CreateNotificationChannelResponse) {}
@@ -476,52 +454,19 @@ message ListNodesResponse {
   repeated Node nodes = 1;
 }
 
-message AddNodeRequest {
-  Node node = 1;
-}
-
-message AddNodeResponse {
-  Node node = 1;
-}
-
+// GenerateNodePairingObjectRequest triggers issuance of a single-use join
+// token for bootstrapping a new xylona-node binary.
 message GenerateNodePairingObjectRequest {
-  // Optional remote panel base URL this token is intended for.
+  // Optional display hint; currently unused but retained for UI round-tripping.
   string target_url = 1;
 }
 
 message GenerateNodePairingObjectResponse {
+  // Base URL the new node should contact (typically the controller's public
+  // URL, echoed back from the request for the UI's convenience).
   string base_url = 1;
+  // Plaintext one-time token. The node presents this on POST /api/node/bootstrap.
   string pairing_token = 2;
-  int64 mtls_port = 3;
-}
-
-message PairNodeRequest {
-  // Remote node URL and pairing key generated on the remote panel.
-  string remote_base_url = 1;
-  string remote_secret_key = 2;
-  // Remote node federation mTLS port used for peer RPCs.
-  int64 remote_mtls_port = 8;
-
-  // Public base URL for this panel so the remote panel can add us back.
-  string local_base_url = 3;
-
-  // Optional display names.
-  string remote_name = 4;
-  string local_name = 5;
-
-  // Per-node TLS verification settings.
-  bool remote_allow_insecure_tls = 6;
-  bool local_allow_insecure_tls = 7;
-}
-
-message PairNodeResponse {
-  // Node added locally.
-  Node node = 1;
-
-  // Result of adding this panel to the remote panel.
-  bool reciprocal_added = 2;
-  string reciprocal_error = 3;
-  Node reciprocal_node = 4;
 }
 
 message RemoveNodeRequest {
@@ -539,38 +484,6 @@ message EditNodeRequest {
 message EditNodeResponse {
   Node node = 1;
 }
-
-message VerifyNodeRequest {
-  string secret_key = 1;
-}
-
-message VerifyNodeResponse {
-  Node node = 1;
-}
-
-message ListLocalSecretKeysRequest {
-}
-
-message ListLocalSecretKeysResponse {
-  repeated SecretKey secret_keys = 1;
-}
-
-message CreateLocalSecretKeyRequest {
-  string node_id = 1;
-  string name = 2;
-}
-
-message CreateLocalSecretKeyResponse {
-  int64 id = 1;
-  string secret_key = 2;
-  int64 mtls_port = 3;
-}
-
-message DeleteLocalSecretKeyRequest {
-  int64 id = 1;
-}
-
-message DeleteLocalSecretKeyResponse {}
 
 // RemoteServerSummary is a cached summary of a game server on a remote node.
 message RemoteServerSummary {
@@ -604,15 +517,6 @@ message AggregatedGameServer {
   GameServer local_server = 2;
   // Set when is_local == false
   RemoteServerSummary remote_server = 3;
-}
-
-message SyncNodeRequest {
-  string node_id = 1;
-}
-
-message SyncNodeResponse {
-  bool success = 1;
-  string error = 2;
 }
 
 message ListAggregatedGameServersRequest {}
@@ -700,68 +604,6 @@ message RevokeGameServerAccessRequest {
 
 message RevokeGameServerAccessResponse {}
 
-message ListRemoteNodeUsersRequest {
-  string node_id = 1;
-  // Optional search filter. Super users can leave this empty to list all users.
-  // Non-super users must provide a non-empty search term (matched against username or user ID).
-  string search = 2;
-}
-
-message ListRemoteNodeUsersResponse {
-  repeated RemoteUser users = 1;
-}
-
-message RemoteUser {
-  string user_id = 1;
-  string user_name = 2;
-  string email = 3;
-  string first_name = 4;
-  string last_name = 5;
-  string node_id = 6;
-  string node_name = 7;
-}
-
-message ListFederatedAccessGrantsRequest {
-  string game_server_id = 1;
-}
-
-message ListFederatedAccessGrantsResponse {
-  repeated FederatedAccessGrantInfo grants = 1;
-}
-
-message FederatedAccessGrantInfo {
-  string id = 1;
-  string game_server_id = 2;
-  string remote_node_id = 3;
-  string remote_node_name = 4;
-  string remote_user_id = 5;
-  string remote_user_name = 6;
-  string role_id = 7;
-  string role_name = 8;
-  string granted_by_user_id = 9;
-  string granted_by_user_name = 10;
-  google.protobuf.Timestamp created_at = 11;
-}
-
-message GrantFederatedAccessRequest {
-  string game_server_id = 1;
-  string remote_node_id = 2;
-  string remote_user_id = 3;
-  string remote_user_name = 4;
-  string role_id = 5;
-}
-
-message GrantFederatedAccessResponse {
-  FederatedAccessGrantInfo grant = 1;
-}
-
-message RevokeFederatedAccessRequest {
-  string grant_id = 1;
-  string game_server_id = 2;
-}
-
-message RevokeFederatedAccessResponse {}
-
 // Dashboard messages
 
 message GetNodeSystemInfoRequest {
@@ -811,45 +653,6 @@ message GetGameServerMetricsHistoryRequest {
 
 message GetGameServerMetricsHistoryResponse {
   repeated GameServerMetricsHistoryPoint points = 1;
-}
-
-// Federation Mesh
-message LeaveFederationRequest {}
-message LeaveFederationResponse {}
-
-message ListFederationAdvisoriesRequest {
-  bool unread_only = 1;
-  int32 limit = 2;
-  int32 offset = 3;
-}
-
-message FederationAdvisory {
-  string id = 1;
-  string type = 2;
-  string title = 3;
-  string message = 4;
-  string source_node_id = 5;
-  string source_node_name = 6;
-  string subject_node_id = 7;
-  string subject_node_name = 8;
-  string subject_node_base_url = 9;
-  bool read = 10;
-  google.protobuf.Timestamp created_at = 11;
-}
-
-message ListFederationAdvisoriesResponse {
-  repeated FederationAdvisory advisories = 1;
-  int32 total_count = 2;
-}
-
-message MarkAdvisoriesReadRequest {
-  repeated string advisory_ids = 1;
-}
-message MarkAdvisoriesReadResponse {}
-
-message GetUnreadAdvisoryCountRequest {}
-message GetUnreadAdvisoryCountResponse {
-  int32 count = 1;
 }
 
 // Config Schema Messages
@@ -1126,25 +929,6 @@ message SetDummyUpdateFailureRequest {
 }
 
 message SetDummyUpdateFailureResponse {}
-
-// Node API key messages
-message ListNodeApiKeysRequest {}
-message ListNodeApiKeysResponse {
-  repeated NodeApiKey api_keys = 1;
-}
-
-message SetNodeApiKeyRequest {
-  string service_name = 1;
-  string api_key = 2;
-}
-message SetNodeApiKeyResponse {
-  NodeApiKey api_key = 1;
-}
-
-message DeleteNodeApiKeyRequest {
-  string service_name = 1;
-}
-message DeleteNodeApiKeyResponse {}
 
 // --- Notification Channels ---
 

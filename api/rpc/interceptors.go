@@ -16,11 +16,9 @@ import (
 
 var publicSessionOptionalProcedures = map[string]struct{}{
 	xylonaconnect.XylonaCheckUserAuthenticatedProcedure: {},
-	xylonaconnect.XylonaAddNodeProcedure:                {},
 	xylonaconnect.XylonaLoginProcedure:                  {},
 	xylonaconnect.XylonaLogoutProcedure:                 {},
 	xylonaconnect.XylonaRemoveNodeProcedure:             {},
-	xylonaconnect.XylonaVerifyNodeProcedure:             {},
 }
 
 type sessionAuthInterceptor struct {

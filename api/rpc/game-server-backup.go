@@ -34,12 +34,21 @@ var (
 	errBackupLocalOnly = backupUserFacingError(backupDisabledReasonLocalOnly)
 )
 
-func isLocalBackupServer(gameServer *models.GameServer) bool {
-	if gameServer == nil || gameServer.R.Node == nil {
+// isLocalBackupServer reports whether the game server is managed by the
+// controller's embedded node (hub-spoke: only local backups run in Phase 1).
+// When no nodeRegistry is configured (e.g. unit tests that stand up a
+// service without wiring the registry), every server is treated as local —
+// the registry check is a production-time guard, not a core invariant.
+// TODO(hub-spoke step 10): drop the "local-only" restriction once NodeClient
+// supports backup creation/restore on remote nodes.
+func (xs *XylonaService) isLocalBackupServer(gameServer *models.GameServer) bool {
+	if gameServer == nil {
 		return false
 	}
-
-	return gameServer.R.Node.IsLocal
+	if xs.nodeRegistry == nil {
+		return true
+	}
+	return gameServer.NodeID == xs.nodeRegistry.SelfID()
 }
 
 func backupDirectoryConfigured(gameServer *models.GameServer) bool {
@@ -50,8 +59,8 @@ func backupDirectoryConfigured(gameServer *models.GameServer) bool {
 	return strings.TrimSpace(gameServer.BackupDirectory) != ""
 }
 
-func backupOperationsAllowed(gameServer *models.GameServer) (bool, string) {
-	if !isLocalBackupServer(gameServer) {
+func (xs *XylonaService) backupOperationsAllowed(gameServer *models.GameServer) (bool, string) {
+	if !xs.isLocalBackupServer(gameServer) {
 		return false, backupDisabledReasonLocalOnly
 	}
 	if !gameServer.BackupsEnabled {
@@ -68,8 +77,8 @@ func backupOperationsAllowed(gameServer *models.GameServer) (bool, string) {
 	return true, ""
 }
 
-func backupRestoreAllowed(gameServer *models.GameServer) (bool, string) {
-	if !isLocalBackupServer(gameServer) {
+func (xs *XylonaService) backupRestoreAllowed(gameServer *models.GameServer) (bool, string) {
+	if !xs.isLocalBackupServer(gameServer) {
 		return false, backupDisabledReasonLocalOnly
 	}
 	if !gameServer.BackupsEnabled {
@@ -234,11 +243,11 @@ func (xs *XylonaService) GetGameServerBackupOverview(
 		return nil, internalErrf("failed to load scheduled tasks")
 	}
 
-	operationsAllowed, disabledReason := backupOperationsAllowed(gameServer)
+	operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
 	overview := &xylona.GameServerBackupOverview{
 		Enabled:                   gameServer.BackupsEnabled,
 		CanManageSettings:         user.SuperUser,
-		LocalServer:               isLocalBackupServer(gameServer),
+		LocalServer:               xs.isLocalBackupServer(gameServer),
 		BackupDirectoryConfigured: backupDirectoryConfigured(gameServer),
 		ScheduledBackupCount:      countScheduledBackups(scheduledTasks),
 		OperationsAllowed:         operationsAllowed,
@@ -413,7 +422,7 @@ func (xs *XylonaService) CreateGameServerBackup(
 		return nil, errPermission
 	}
 
-	operationsAllowed, disabledReason := backupOperationsAllowed(gameServer)
+	operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
 	if !operationsAllowed {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 	}
@@ -466,7 +475,7 @@ func (xs *XylonaService) DeleteGameServerBackup(
 		return nil, errPermission
 	}
 
-	if !isLocalBackupServer(gameServer) {
+	if !xs.isLocalBackupServer(gameServer) {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errBackupLocalOnly)
 	}
 
@@ -518,7 +527,7 @@ func (xs *XylonaService) RestoreGameServerBackup(
 		return nil, errPermission
 	}
 
-	operationsAllowed, disabledReason := backupRestoreAllowed(gameServer)
+	operationsAllowed, disabledReason := xs.backupRestoreAllowed(gameServer)
 	if !operationsAllowed {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 	}

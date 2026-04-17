@@ -165,19 +165,9 @@ const routes: RouteRecordRaw[] = [
         beforeEnter: requireSuperUser,
       },
       {
-        path: '/nodes/activity',
-        component: () => import('pages/nodes/NodeActivity.vue'),
-        beforeEnter: requireSuperUser,
-      },
-      {
         path: '/notifications',
         component: () => import('pages/other/Notifications.vue'),
         beforeEnter: requireAlertAccess,
-      },
-      {
-        path: '/secret-keys',
-        component: () => import('pages/other/LocalSecretKeyList.vue'),
-        beforeEnter: requireSuperUser,
       },
       {
         path: '/admin/users',

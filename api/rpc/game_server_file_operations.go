@@ -8,15 +8,36 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/actions"
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// requireLocalNode returns a FailedPrecondition error when the game server
+// belongs to a remote node. Used by Archive/Extract/Compress/Decompress
+// handlers that still run controller-local against the embedded node's
+// filesystem. A streaming archive-over-RPC surface is a future extension.
+func (xs *XylonaService) requireLocalNode(gameServer *models.GameServer) error {
+	if xs.nodeRegistry == nil {
+		return nil
+	}
+	selfID := xs.nodeRegistry.SelfID()
+	if selfID == "" || gameServer.NodeID == selfID {
+		return nil
+	}
+	return connect.NewError(connect.CodeUnimplemented, errors.New("archive operations for remote-node servers are not yet supported"))
+}
+
+// TODO(hub-spoke): Archive/Extract/Compress/Decompress still run controller-
+// local against the embedded node's filesystem. They reject requests targeting
+// a remote node's game server because the current implementation relies on
+// actions layer helpers that don't yet route through NodeClient. Adding an
+// archive-over-RPC surface is tracked as a follow-up.
 func fileMutationError(err error) error {
-	if errors.Is(err, actions.ErrInvalidPath) {
+	if errors.Is(err, actions.ErrInvalidPath) || errors.Is(err, node.ErrInvalidPath) {
 		return invalidArg("invalid path")
 	}
-	if errors.Is(err, actions.ErrProtectedPath) {
+	if errors.Is(err, actions.ErrProtectedPath) || errors.Is(err, node.ErrProtectedPath) {
 		return permissionDenied("path is protected")
 	}
 
@@ -26,60 +47,55 @@ func fileMutationError(err error) error {
 
 // GameServersFileOrDirectoryCreate creates a file or directory for a game server.
 func (xs *XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, request *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
-	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			errCreate := xs.actionsInst.CreateFileOrDirectory(gameServer, request.Msg.GetFullFilePath(),
-				request.Msg.GetContent(), request.Msg.GetIsDirectory())
-			if errCreate != nil {
-				return nil, fileMutationError(errCreate)
-			}
-			return &connect.Response[xylona.GameServerFileOrDirectoryCreateResponse]{Msg: &xylona.GameServerFileOrDirectoryCreateResponse{}}, nil
-		},
-		func() (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
-			return xs.createRemoteFileOrDirectory(ctx, serverID, request.Msg.GetFullFilePath(), request.Msg.GetContent(), request.Msg.GetIsDirectory(), user)
-		},
-	)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+	errCreate := client.CreateFileOrDirectory(ctx, gameServer.Directory, request.Msg.GetFullFilePath(),
+		request.Msg.GetContent(), request.Msg.GetIsDirectory(), xs.buildProtectionPolicy(gameServer))
+	if errCreate != nil {
+		return nil, fileMutationError(errCreate)
+	}
+	return connect.NewResponse(&xylona.GameServerFileOrDirectoryCreateResponse{}), nil
 }
 
 // GameServerFilesDelete deletes files or directories for a game server.
 func (xs *XylonaService) GameServerFilesDelete(ctx context.Context, request *connect.Request[xylona.GameServerFilesDeleteRequest]) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
-	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			results, errDelete := xs.actionsInst.DeleteFiles(ctx, gameServer, request.Msg.GetFullFilePaths())
-			if errDelete != nil {
-				return nil, fileMutationError(errDelete)
-			}
-			response := &xylona.GameServerFilesDeleteResponse{FullFilePaths: results}
-			return &connect.Response[xylona.GameServerFilesDeleteResponse]{Msg: response}, nil
-		},
-		func() (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
-			return xs.deleteRemoteFiles(ctx, serverID, request.Msg.GetFullFilePaths(), user)
-		},
-	)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+	results, errDelete := client.DeleteFiles(ctx, gameServer.Directory, request.Msg.GetFullFilePaths(), xs.buildProtectionPolicy(gameServer))
+	if errDelete != nil {
+		return nil, fileMutationError(errDelete)
+	}
+	return connect.NewResponse(&xylona.GameServerFilesDeleteResponse{FullFilePaths: results}), nil
 }
 
 // GameServerFilesArchive streams archive progress for a game server file selection.
@@ -96,6 +112,10 @@ func (xs *XylonaService) GameServerFilesArchive(ctx context.Context, request *co
 	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
 	if errPermission != nil {
 		return errPermission
+	}
+	errLocal := xs.requireLocalNode(gameServer)
+	if errLocal != nil {
+		return errLocal
 	}
 
 	resultsChan := make(chan *xylona.GameServerFilesArchiveProgress)
@@ -145,6 +165,10 @@ func (xs *XylonaService) GameServerFilesExtract(ctx context.Context, request *co
 	if errPermission != nil {
 		return errPermission
 	}
+	errLocal := xs.requireLocalNode(gameServer)
+	if errLocal != nil {
+		return errLocal
+	}
 
 	resultsChan := make(chan *xylona.GameServerFilesExtractProgress)
 	go func() {
@@ -192,14 +216,17 @@ func (xs *XylonaService) GameServerFilesCompress(ctx context.Context, request *c
 	if errPermission != nil {
 		return nil, errPermission
 	}
+	errLocal := xs.requireLocalNode(gameServer)
+	if errLocal != nil {
+		return nil, errLocal
+	}
 
 	results, errCompress := xs.actionsInst.ArchiveAndCompressFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
 		request.Msg.GetFullFilePaths(), request.Msg.GetCompressionType())
 	if errCompress != nil {
 		return nil, fileMutationError(errCompress)
 	}
-	response := &xylona.GameServerFilesCompressionResponse{FullFilePath: results}
-	return &connect.Response[xylona.GameServerFilesCompressionResponse]{Msg: response}, nil
+	return connect.NewResponse(&xylona.GameServerFilesCompressionResponse{FullFilePath: results}), nil
 }
 
 // GameServerFilesDecompress extracts an archive for a game server.
@@ -217,126 +244,118 @@ func (xs *XylonaService) GameServerFilesDecompress(ctx context.Context, request 
 	if errPermission != nil {
 		return nil, errPermission
 	}
+	errLocal := xs.requireLocalNode(gameServer)
+	if errLocal != nil {
+		return nil, errLocal
+	}
 
 	results, errDecompress := xs.actionsInst.ExtractArchive(ctx, gameServer, request.Msg.GetFullFilePath(), request.Msg.GetDestinationBasePath())
 	if errDecompress != nil {
 		return nil, fileMutationError(errDecompress)
 	}
-	response := &xylona.GameServerFilesDecompressionResponse{FullFilePaths: results}
-	return &connect.Response[xylona.GameServerFilesDecompressionResponse]{Msg: response}, nil
+	return connect.NewResponse(&xylona.GameServerFilesDecompressionResponse{FullFilePaths: results}), nil
 }
 
 // GameServerFilesDownloadFromURL downloads a file into a game server directory.
 func (xs *XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, request *connect.Request[xylona.GameServersFileDownloadFromURLRequest]) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
-	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			results, errDownload := xs.actionsInst.DownloadFileFromURL(ctx, gameServer, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath())
-			if errDownload != nil {
-				return nil, fileMutationError(errDownload)
-			}
-			response := &xylona.GameServersFileDownloadFromURLResponse{FilePath: results}
-			return &connect.Response[xylona.GameServersFileDownloadFromURLResponse]{Msg: response}, nil
-		},
-		func() (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
-			return xs.downloadRemoteFileFromURL(ctx, serverID, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath(), user)
-		},
-	)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+	results, errDownload := client.DownloadFileFromURL(ctx, gameServer.Directory, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath(), xs.buildProtectionPolicy(gameServer))
+	if errDownload != nil {
+		return nil, fileMutationError(errDownload)
+	}
+	return connect.NewResponse(&xylona.GameServersFileDownloadFromURLResponse{FilePath: results}), nil
 }
 
 // GameServerFileRename renames a file for a game server.
 func (xs *XylonaService) GameServerFileRename(ctx context.Context, request *connect.Request[xylona.GameServerFileRenameRequest]) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
-	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			newFilePath, errRename := xs.actionsInst.RenameFile(gameServer, request.Msg.GetOldPath(), request.Msg.GetNewPath())
-			if errRename != nil {
-				return nil, fileMutationError(errRename)
-			}
-			response := &xylona.GameServerFileRenameResponse{NewPath: newFilePath}
-			return &connect.Response[xylona.GameServerFileRenameResponse]{Msg: response}, nil
-		},
-		func() (*connect.Response[xylona.GameServerFileRenameResponse], error) {
-			return xs.renameRemoteFile(ctx, serverID, request.Msg.GetOldPath(), request.Msg.GetNewPath(), user)
-		},
-	)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+	newFilePath, errRename := client.RenameFile(ctx, gameServer.Directory, request.Msg.GetOldPath(), request.Msg.GetNewPath(), xs.buildProtectionPolicy(gameServer))
+	if errRename != nil {
+		return nil, fileMutationError(errRename)
+	}
+	return connect.NewResponse(&xylona.GameServerFileRenameResponse{NewPath: newFilePath}), nil
 }
 
 // GameServerFilesMove moves files for a game server.
 func (xs *XylonaService) GameServerFilesMove(ctx context.Context, request *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
-	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			results, errMove := xs.actionsInst.MoveFiles(ctx, gameServer, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath())
-			if errMove != nil {
-				return nil, fileMutationError(errMove)
-			}
-			response := &xylona.GameServerFilesMoveResponse{FullFilePaths: results}
-			return &connect.Response[xylona.GameServerFilesMoveResponse]{Msg: response}, nil
-		},
-		func() (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
-			return xs.moveRemoteFiles(ctx, serverID, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath(), user)
-		},
-	)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+	results, errMove := client.MoveFiles(ctx, gameServer.Directory, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath(), xs.buildProtectionPolicy(gameServer))
+	if errMove != nil {
+		return nil, fileMutationError(errMove)
+	}
+	return connect.NewResponse(&xylona.GameServerFilesMoveResponse{FullFilePaths: results}), nil
 }
 
 // GameServersFileEdit edits a file for a game server.
 func (xs *XylonaService) GameServersFileEdit(ctx context.Context, request *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error) {
-	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GameServersFileEditResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			errEdit := xs.actionsInst.EditFile(gameServer, request.Msg.GetFullFilePath(), request.Msg.GetContent())
-			if errEdit != nil {
-				return nil, fileMutationError(errEdit)
-			}
-			return &connect.Response[xylona.GameServersFileEditResponse]{Msg: &xylona.GameServersFileEditResponse{}}, nil
-		},
-		func() (*connect.Response[xylona.GameServersFileEditResponse], error) {
-			return xs.editRemoteFile(ctx, serverID, request.Msg.GetFullFilePath(), request.Msg.GetContent(), user)
-		},
-	)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+	errEdit := client.WriteFile(ctx, gameServer.Directory, request.Msg.GetFullFilePath(), []byte(request.Msg.GetContent()), xs.buildProtectionPolicy(gameServer))
+	if errEdit != nil {
+		return nil, fileMutationError(errEdit)
+	}
+	return connect.NewResponse(&xylona.GameServersFileEditResponse{}), nil
 }

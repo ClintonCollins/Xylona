@@ -12,6 +12,18 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+// resolveLocalVersionData runs a version refresh for a controller-managed
+// game server and returns the resolved (installed, latest) version labels
+// plus the proto VersionInfo used by RPC responses. The remote-node path is
+// deferred until NodeClient exposes version metadata in step 9/10.
+func (xs *XylonaService) resolveLocalVersionData(ctx context.Context, gs *models.GameServer, opts actions.VersionResolveOptions) (string, *xylona.VersionInfo) {
+	if xs.actionsInst == nil || xs.versionState == nil {
+		return "", nil
+	}
+	_, state := xs.actionsInst.ResolveVersionData(ctx, gs, opts)
+	return state.InstalledVersion, versionStateToProto(state)
+}
+
 // GetVersionInfo returns cached or resolved version metadata for a game server.
 func (xs *XylonaService) GetVersionInfo(ctx context.Context, req *connect.Request[xylona.GetVersionInfoRequest]) (*connect.Response[xylona.GetVersionInfoResponse], error) {
 	user, errUser := xs.getUserFromHeader(req.Header())
@@ -19,26 +31,20 @@ func (xs *XylonaService) GetVersionInfo(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 
-	gameServerID := req.Msg.GetGameServerId()
-	return dispatchGameServerRequest(
-		xs,
-		gameServerID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GetVersionInfoResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(req.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			_, versionInfo := xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{})
+	_, versionInfo := xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{})
 
-			return connect.NewResponse(&xylona.GetVersionInfoResponse{
-				VersionInfo: versionInfo,
-			}), nil
-		},
-		func() (*connect.Response[xylona.GetVersionInfoResponse], error) {
-			return xs.getRemoteVersionInfo(ctx, gameServerID, user)
-		},
-	)
+	return connect.NewResponse(&xylona.GetVersionInfoResponse{
+		VersionInfo: versionInfo,
+	}), nil
 }
 
 // CheckForUpdate refreshes version metadata for a game server.
@@ -48,28 +54,22 @@ func (xs *XylonaService) CheckForUpdate(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 
-	gameServerID := req.Msg.GetGameServerId()
-	return dispatchGameServerRequest(
-		xs,
-		gameServerID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.CheckForUpdateResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(req.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			_, versionInfo := xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{
-				ForceRefresh: true,
-			})
+	_, versionInfo := xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{
+		ForceRefresh: true,
+	})
 
-			return connect.NewResponse(&xylona.CheckForUpdateResponse{
-				VersionInfo: versionInfo,
-			}), nil
-		},
-		func() (*connect.Response[xylona.CheckForUpdateResponse], error) {
-			return xs.checkRemoteServerForUpdate(ctx, gameServerID, user)
-		},
-	)
+	return connect.NewResponse(&xylona.CheckForUpdateResponse{
+		VersionInfo: versionInfo,
+	}), nil
 }
 
 // SetDummyUpdateFailure toggles simulated update failures for dummy tracker tests.
@@ -83,8 +83,6 @@ func (xs *XylonaService) SetDummyUpdateFailure(_ context.Context, req *connect.R
 		return connect.NewResponse(&xylona.SetDummyUpdateFailureResponse{}), nil
 	}
 	if req.Msg.GetSimulateFailure() {
-		// Reset the dummy tracker before failure-mode tests so E2E update cases do
-		// not inherit a previously "updated" version from an earlier test.
 		xs.dummyTracker.Reset()
 		if xs.versionState != nil {
 			clearDummyVersionStates(xs.versionState)
@@ -95,8 +93,6 @@ func (xs *XylonaService) SetDummyUpdateFailure(_ context.Context, req *connect.R
 }
 
 func clearDummyVersionStates(states *versiontracker.VersionStateMap) {
-	// Reset only dummy-tracked entries so E2E failure toggles do not wipe unrelated
-	// version state cached for other server types.
 	for serverID, state := range states.GetAll() {
 		if state.TrackerType == "dummy" {
 			states.Delete(serverID)

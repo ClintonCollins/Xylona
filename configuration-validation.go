@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -86,21 +85,6 @@ func validateServerTimeoutConfiguration(config Configuration) error {
 		return errHTTPIdleTimeout
 	}
 
-	errFederationReadTimeout := validatePositiveDuration(`FEDERATION_READ_TIMEOUT`, config.FederationReadTimeout)
-	if errFederationReadTimeout != nil {
-		return errFederationReadTimeout
-	}
-
-	errFederationWriteTimeout := validatePositiveDuration(`FEDERATION_WRITE_TIMEOUT`, config.FederationWriteTimeout)
-	if errFederationWriteTimeout != nil {
-		return errFederationWriteTimeout
-	}
-
-	errFederationIdleTimeout := validatePositiveDuration(`FEDERATION_IDLE_TIMEOUT`, config.FederationIdleTimeout)
-	if errFederationIdleTimeout != nil {
-		return errFederationIdleTimeout
-	}
-
 	return nil
 }
 
@@ -126,17 +110,5 @@ func newHTTPServer(config Configuration, handler http.Handler) *http.Server {
 		ReadTimeout:       config.HTTPReadTimeout,
 		WriteTimeout:      config.HTTPWriteTimeout,
 		IdleTimeout:       config.HTTPIdleTimeout,
-	}
-}
-
-func newFederationServer(config Configuration, handler http.Handler, tlsConfig *tls.Config) *http.Server {
-	return &http.Server{
-		Addr:              fmt.Sprintf(`%s:%d`, config.Host, config.FederationPort),
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       config.FederationReadTimeout,
-		WriteTimeout:      config.FederationWriteTimeout,
-		IdleTimeout:       config.FederationIdleTimeout,
-		TLSConfig:         tlsConfig,
 	}
 }

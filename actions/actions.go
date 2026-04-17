@@ -21,11 +21,13 @@ import (
 	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/placeholder"
 
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/startargs"
@@ -59,14 +61,6 @@ const (
 	CommandTypeInternal   = "internal"
 )
 
-// SyncEngine is implemented by FederationSyncEngine. Using an interface
-// avoids a circular dependency between actions and sync-engine.
-type SyncEngine interface {
-	SyncPeer(peerNodeID string)
-	RemovePeer(peerNodeID string)
-	BroadcastPeerChange(changeType xylona.PeerChangeType, peer *xylona.PeerInfo, initiatedByNodeID string, initiatedByNodeName string)
-}
-
 // VersionBroadcaster pushes refreshed version information to connected clients.
 type VersionBroadcaster interface {
 	BroadcastGameServerVersion(serverID string, version string, versionInfo *xylona.VersionInfo)
@@ -96,11 +90,10 @@ type VersionResolveOptions struct {
 type Instance struct {
 	ctx                  context.Context
 	supervisorInstance   *supervisor.Instance
+	nodeRegistry         *noderegistry.Registry
 	serverQueriesInfoMap map[string]*xylona.ServerQuery
 	serverQueriesMutex   *sync.RWMutex
 	db                   *db.Connection
-	federationMTLS       *federation.MTLS
-	syncEngine           SyncEngine
 	modManager           *modmanager.ModManager
 	versionState         *versiontracker.VersionStateMap
 	resolverConfig       versiontracker.ResolverConfig
@@ -115,13 +108,7 @@ type Instance struct {
 	backupCreateCalls    map[string]*backupCreateCall
 	localNodeID          string
 	restartState         *restartStateMap
-}
-
-// SetSyncEngine sets the sync engine on the actions instance. This is called
-// after both the actions instance and the sync engine are created to avoid
-// circular constructor dependencies.
-func (inst *Instance) SetSyncEngine(se SyncEngine) {
-	inst.syncEngine = se
+	exitHooks            *exitHookRegistry
 }
 
 // VersionState returns the version state map used to track game server versions.
@@ -166,14 +153,14 @@ func (inst *Instance) CheckServerVersionByID(_ context.Context, gameServerID str
 }
 
 // NewInstance creates an actions instance and starts background polling jobs.
-func NewInstance(ctx context.Context, database *db.Connection, supervisorInstance *supervisor.Instance, federationMTLS *federation.MTLS, modMgr *modmanager.ModManager, versionState *versiontracker.VersionStateMap, resolverConfig versiontracker.ResolverConfig) *Instance {
+func NewInstance(ctx context.Context, database *db.Connection, supervisorInstance *supervisor.Instance, nodeRegistry *noderegistry.Registry, modMgr *modmanager.ModManager, versionState *versiontracker.VersionStateMap, resolverConfig versiontracker.ResolverConfig) *Instance {
 	inst := &Instance{
 		ctx:                  ctx,
 		supervisorInstance:   supervisorInstance,
+		nodeRegistry:         nodeRegistry,
 		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
 		serverQueriesMutex:   &sync.RWMutex{},
 		db:                   database,
-		federationMTLS:       federationMTLS,
 		modManager:           modMgr,
 		versionState:         versionState,
 		resolverConfig:       resolverConfig,
@@ -182,10 +169,17 @@ func NewInstance(ctx context.Context, database *db.Connection, supervisorInstanc
 		versionRefreshCalls:  make(map[string]*versionRefreshCall),
 		backupCreateCalls:    make(map[string]*backupCreateCall),
 		restartState:         &restartStateMap{},
+		exitHooks:            newExitHookRegistry(),
 	}
 	go inst.backgroundJobQueryAllGameServers()
 	go inst.backgroundJobCheckModUpdates()
 	go inst.backgroundJobCheckVersionUpdates()
+
+	// Start the eventbus-driven auto-restart subscriber. Both embedded and
+	// remote nodes publish status-change events; this one subscriber drives
+	// restart decisions uniformly.
+	inst.startAutoRestartSubscriber(ctx)
+
 	return inst
 }
 
@@ -214,7 +208,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		_ = tx.Rollback(inst.ctx)
 	}()
 
-	node, errGetNode := inst.db.GetNodeByID(gameServer.NodeID)
+	nodeRow, errGetNode := inst.db.GetNodeByID(gameServer.NodeID)
 	if errGetNode != nil {
 		log.Error().Err(errGetNode).Msg("Failed to get node")
 		errInstall := fmt.Errorf("actions: get node for install: %w", errGetNode)
@@ -255,7 +249,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		}
 		return nil, errInstall
 	}
-	newGameServer.R.Node = node
+	newGameServer.R.Node = nodeRow
 
 	errCommit := tx.Commit(inst.ctx)
 	if errCommit != nil {
@@ -271,37 +265,58 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	installVars := placeholder.BuildVarsFromGameServer(newGameServer)
 	installCommand := placeholder.Resolve(gameInstallCommand(game), installVars)
 	baseCommand, args := splitCommandString(installCommand)
-	preparedCommand := supervisor.PreparedCommand{
+
+	client, errClient := inst.resolveNodeClient(newGameServer.NodeID)
+	if errClient != nil {
+		errInstall := fmt.Errorf("actions: resolve node client for install: %w", errClient)
+		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory)
+		if errCleanup != nil {
+			return nil, errors.Join(errInstall, errCleanup)
+		}
+		return nil, errInstall
+	}
+
+	installCfg := node.ProcessConfig{
 		ID:               newGameServer.ID,
-		GameServerName:   newGameServer.Name,
+		Name:             newGameServer.Name,
 		BaseCommand:      baseCommand,
 		Args:             args,
 		WorkingDirectory: newGameServer.Directory,
 		User:             newGameServer.UserID,
 		NodeID:           newGameServer.NodeID,
-		GameServerID:     &newGameServer.ID,
-		Status:           xylona.Status_INSTALLING,
 		ServiceID:        newGameServer.GameID,
-		CallbackFunction: func(_ *supervisor.Command) {
-			errPostInstall := postInstallStep(newGameServer)
-			if errPostInstall != nil {
-				log.Error().Err(errPostInstall).Msg("Failed to perform post install step")
-				return
-			}
-			inst.StartGameServer(newGameServer)
-		},
 	}
-
 	if gameInstallCommandType(game) == CommandTypeInternal {
-		preparedCommand.InternalCommand = true
-		preparedCommand.InternalGameServer = newGameServer
-		preparedCommand.GameID = &game.ID
+		installCfg.InternalCommand = true
+		installCfg.InternalGameServerID = newGameServer.ID
+		installCfg.InternalGameID = game.ID
+		installCfg.InternalGameServer = newGameServer
 	}
 
-	_, err := inst.supervisorInstance.StartCommand(preparedCommand)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to start install command")
-		errInstall := fmt.Errorf("actions: start install command: %w", err)
+	// Register a one-shot exit hook so post-install runs + the server starts
+	// once the install process exits. For embedded nodes this fires via the
+	// supervisor's own status event; for remote nodes it fires via the
+	// event bridge. Either way, the post-install code path is identical.
+	installedGS := newGameServer
+	inst.exitHooks.set(newGameServer.ID, func(event eventbus.StatusChangedEvent) {
+		if event.ExitCode != 0 {
+			log.Warn().Int("exit_code", event.ExitCode).Str("game_server_id", installedGS.ID).
+				Msg("Install command exited with non-zero; skipping post-install")
+			return
+		}
+		errPostInstall := postInstallStep(installedGS)
+		if errPostInstall != nil {
+			log.Error().Err(errPostInstall).Msg("Failed to perform post install step")
+			return
+		}
+		inst.StartGameServer(installedGS)
+	})
+
+	_, errStart := client.StartProcess(inst.ctx, installCfg, xylona.Status_INSTALLING)
+	if errStart != nil && !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
+		inst.exitHooks.clear(newGameServer.ID)
+		log.Error().Err(errStart).Msg("Failed to start install command")
+		errInstall := fmt.Errorf("actions: start install command: %w", errStart)
 		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory)
 		if errCleanup != nil {
 			return nil, errors.Join(errInstall, errCleanup)
@@ -339,9 +354,7 @@ func (inst *Instance) cleanupFailedInstall(gameServerID string, gameServerDir st
 
 func (inst *Instance) reportStartFailure(gameServer *models.GameServer, message string) {
 	log.Error().Str("game_server_id", gameServer.ID).Msg(message)
-
-	cmd := inst.supervisorInstance.GetCommandByIDOrCreateShell(gameServer.ID)
-	cmd.SendOutput(message)
+	inst.sendConsoleLine(gameServer, message)
 }
 
 func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServer) (string, []string, error) {
@@ -416,7 +429,10 @@ func postInstallStep(gameServer *models.GameServer) error {
 	}
 }
 
-// StartGameServer resolves and starts the configured runtime command for a server.
+// StartGameServer resolves and starts the configured runtime command for a
+// server. Routes through NodeClient so both embedded and remote nodes launch
+// processes via the same surface; exit handling is driven by the status-
+// change eventbus subscriber.
 func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 	// Run pre-start config enforcement before launching the process.
 	inst.runConfigPreStart(gameServer)
@@ -429,42 +445,65 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 		return
 	}
 
-	preparedCommand := supervisor.PreparedCommand{
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		log.Error().Err(errClient).Str("game_server_id", gameServer.ID).
+			Str("node_id", gameServer.NodeID).Msg("Failed to resolve node client for start")
+		inst.reportStartFailure(gameServer, "Failed to reach target node: "+errClient.Error())
+		return
+	}
+
+	cfg := node.ProcessConfig{
 		ID:               gameServer.ID,
-		GameServerName:   gameServer.Name,
+		Name:             gameServer.Name,
 		BaseCommand:      baseCommand,
 		Args:             args,
 		WorkingDirectory: gameServer.Directory,
 		User:             gameServer.UserID,
 		NodeID:           gameServer.NodeID,
-		GameServerID:     &gameServer.ID,
-		Status:           xylona.Status_ONLINE,
 		ServiceID:        gameServer.GameID,
-		CallbackFunction: func(cmd *supervisor.Command) {
-			inst.handleServerExit(cmd, gameServer.ID)
-		},
 	}
-	log.Debug().Msg("Checking input method during startup action")
+
 	if gameServer.GameID == "7_days_to_die" {
 		log.Debug().Msg("Found 7 Days to Die. Setting input method to telnet")
-		preparedCommand.InputMethod = supervisor.InputMethod{
-			Type: supervisor.InputTypeTelnet,
-			TelnetCredentials: &supervisor.TelnetCredentials{
-				Port:     int(gameServer.Port + 1),
-				Password: "",
-			},
+		cfg.InputTelnet = &node.TelnetInput{
+			Port:     int(gameServer.Port + 1),
+			Password: "",
 		}
 	}
 
-	_, err := inst.supervisorInstance.StartCommand(preparedCommand)
-	if err != nil {
-		log.Error().Err(err).Str("game_server_id", gameServer.ID).
+	_, errStart := client.StartProcess(inst.ctx, cfg, xylona.Status_ONLINE)
+	if errStart != nil && !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
+		log.Error().Err(errStart).Str("game_server_id", gameServer.ID).
 			Msg("Failed to start game server")
-		inst.supervisorInstance.SendConsoleOutput(gameServer.ID,
-			"Failed to start server: "+err.Error())
+		inst.reportStartFailure(gameServer, "Failed to start server: "+errStart.Error())
 		return
 	}
 	inst.restartState.recordStarted(gameServer.ID)
+}
+
+// resolveNodeClient looks up the NodeClient for a node ID. When the
+// registry is not configured (tests, migrations), falls back to a fresh
+// in-process client around the supervisor so callers still get working
+// semantics. Returns a plain Go error (not a connect error) since actions
+// callers don't want connect types.
+func (inst *Instance) resolveNodeClient(nodeID string) (nodeclient.NodeClient, error) {
+	if inst.nodeRegistry != nil {
+		client, errGet := inst.nodeRegistry.Get(nodeID)
+		if errGet == nil {
+			return client, nil
+		}
+		// Registry configured but no client for that ID — fall through to the
+		// supervisor fallback if we have one, otherwise bubble up the error.
+		if inst.supervisorInstance == nil {
+			return nil, fmt.Errorf("actions: resolve node client for %q: %w", nodeID, errGet)
+		}
+	}
+	if inst.supervisorInstance == nil {
+		return nil, errors.New("actions: neither node registry nor supervisor is configured")
+	}
+	embedded := node.New(inst.ctx, inst.supervisorInstance, inst.db)
+	return nodeclient.NewInProcessClient(nodeID, embedded), nil
 }
 
 func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
@@ -505,13 +544,11 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 		return
 	}
 
-	// Use the shell command slot so messages appear in the console before
-	// the server process takes over the same slot.
-	cmd := inst.supervisorInstance.GetCommandByIDOrCreateShell(gameServer.ID)
-
+	// Route status messages through the NodeClient so they reach the right
+	// console buffer for both embedded and remote game servers.
 	statusFn := func(msg string) {
 		formatted := fmt.Sprintf("[%s] [Xylona]: %s", time.Now().Format("2006-01-02 15:04:05"), msg)
-		cmd.SendOutput(formatted)
+		inst.sendConsoleLine(gameServer, formatted)
 		log.Info().Str("game_server_id", gameServer.ID).Msg(msg)
 	}
 
@@ -522,8 +559,29 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 	}
 }
 
-// StopGameServer stops a running game server using its configured stop command.
+// StopGameServer stops a running game server using its configured stop
+// command. Routes through the NodeClient for the server's owning node so
+// embedded and remote servers stop on the same code path.
 func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
+	if inst.nodeRegistry != nil {
+		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
+		if errGet == nil {
+			errStop := client.StopProcess(inst.ctx, gameServer.ID, gameStopCommand(gameServer.R.Game))
+			if errStop != nil && !errors.Is(errStop, supervisor.ErrCommandDoesNotExist) {
+				log.Error().Err(errStop).Str("node_id", gameServer.NodeID).
+					Msg("Failed to stop game server command")
+			}
+			return
+		}
+		log.Warn().Err(errGet).Str("node_id", gameServer.NodeID).
+			Msg("StopGameServer: node client unavailable, falling back to supervisor")
+	}
+
+	// Fallback: direct supervisor access if the registry is not wired up
+	// (should only occur in tests that construct Instance directly).
+	if inst.supervisorInstance == nil {
+		return
+	}
 	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
 	if err != nil {
 		if errors.Is(err, supervisor.ErrCommandDoesNotExist) {
@@ -535,14 +593,14 @@ func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 }
 
 // UpdateGameServer starts the configured update flow for a game server.
+// Routes through NodeClient for both embedded and remote nodes.
 func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
-	gameServerCommand, errGetCommand := inst.supervisorInstance.GetCommandByID(gameServer.ID)
-	if errGetCommand == nil {
-		status := gameServerCommand.Status()
-		if status != xylona.Status_OFFLINE && status != xylona.Status_UNKNOWN {
-			log.Info().Str("Game Server ID", gameServer.ID).Msg("Stopping game server before update")
-			gameServerCommand.Stop(gameStopCommand(gameServer.R.Game))
-		}
+	// Stop if currently running. Use snapshot status rather than direct
+	// supervisor lookup so remote-node servers are handled uniformly.
+	currentStatus := inst.currentProcessStatus(gameServer)
+	if currentStatus != xylona.Status_OFFLINE && currentStatus != xylona.Status_UNKNOWN {
+		log.Info().Str("Game Server ID", gameServer.ID).Msg("Stopping game server before update")
+		inst.StopGameServer(gameServer)
 	}
 
 	handled, errMinecraft := inst.tryUpdateMinecraftServerSoftware(gameServer)
@@ -566,40 +624,95 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 		}
 	}
 
-	preparedCommand := supervisor.PreparedCommand{
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return fmt.Errorf("actions: resolve node client for update: %w", errClient)
+	}
+
+	updateCfg := node.ProcessConfig{
 		ID:               gameServer.ID,
-		GameServerName:   gameServer.Name,
+		Name:             gameServer.Name,
 		WorkingDirectory: gameServer.Directory,
 		User:             gameServer.UserID,
 		NodeID:           gameServer.NodeID,
-		GameServerID:     &gameServer.ID,
-		Status:           xylona.Status_UPDATING,
 		ServiceID:        gameServer.GameID,
-		CallbackFunction: func(_ *supervisor.Command) {
-			log.Info().Str("Game Server ID", gameServer.ID).Msg("Game server update completed")
-		},
 	}
 	if !internalUpdate {
 		updateCommand := appendSteamBranchToUpdateCommand(
 			placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
 			gameServer.Branch,
 		)
-		preparedCommand.BaseCommand, preparedCommand.Args = splitCommandString(updateCommand)
+		updateCfg.BaseCommand, updateCfg.Args = splitCommandString(updateCommand)
 	}
-
 	if internalUpdate {
-		preparedCommand.InternalCommand = true
-		preparedCommand.InternalGameServer = gameServer
-		gameID := gameServer.GameID
-		preparedCommand.GameID = &gameID
+		updateCfg.InternalCommand = true
+		updateCfg.InternalGameServerID = gameServer.ID
+		updateCfg.InternalGameID = gameServer.GameID
+		updateCfg.InternalGameServer = gameServer
 	}
 
-	_, errStart := inst.supervisorInstance.StartCommand(preparedCommand)
-	if errStart != nil {
+	_, errStart := client.StartProcess(inst.ctx, updateCfg, xylona.Status_UPDATING)
+	if errStart != nil && !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
 		log.Error().Err(errStart).Str("Game Server ID", gameServer.ID).Msg("Failed to start update command")
 		return fmt.Errorf("actions: start update command: %w", errStart)
 	}
 	return nil
+}
+
+// CurrentStatus returns the current xylona.Status for the given game
+// server, routing through the NodeClient so embedded and remote nodes
+// resolve identically. Exposed for callers outside the actions package
+// (e.g. the scheduler) that need status without depending on the
+// supervisor directly.
+func (inst *Instance) CurrentStatus(gameServer *models.GameServer) xylona.Status {
+	return inst.currentProcessStatus(gameServer)
+}
+
+// SendConsoleInput writes a single line of input to the running game
+// server's console via the appropriate NodeClient. Returns an error when
+// the node is unreachable or the input write fails. Callers that want
+// controller-generated chatter to appear in the console buffer should use
+// sendConsoleLine instead.
+func (inst *Instance) SendConsoleInput(gameServer *models.GameServer, input string) error {
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return fmt.Errorf("actions: send console input: %w", errClient)
+	}
+	errSend := client.SendConsoleInput(inst.ctx, gameServer.ID, input)
+	if errSend != nil {
+		return fmt.Errorf("actions: send console input: %w", errSend)
+	}
+	return nil
+}
+
+// currentProcessStatus returns the current xylona.Status for the game
+// server's process, preferring the NodeClient path (works for both embedded
+// and remote) and falling back to UNKNOWN when the status cannot be
+// determined.
+func (inst *Instance) currentProcessStatus(gameServer *models.GameServer) xylona.Status {
+	if inst.nodeRegistry != nil {
+		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
+		if errGet == nil {
+			snap, found, errSnap := client.GetProcessSnapshot(inst.ctx, gameServer.ID)
+			if errSnap == nil && found && snap != nil {
+				status, ok := xylona.Status_value[snap.Status]
+				if ok {
+					return xylona.Status(status)
+				}
+				return xylona.Status_UNKNOWN
+			}
+			if errSnap == nil && !found {
+				return xylona.Status_OFFLINE
+			}
+		}
+	}
+	if inst.supervisorInstance != nil {
+		cmd, errCmd := inst.supervisorInstance.GetCommandByID(gameServer.ID)
+		if errCmd == nil {
+			return cmd.Status()
+		}
+	}
+	return xylona.Status_UNKNOWN
 }
 
 func normalizeSteamBranch(branch string) string {
@@ -648,8 +761,26 @@ func (inst *Instance) PersistSteamBranchSelection(gameServer *models.GameServer,
 	return nil
 }
 
-// ReadGameServerBuffer returns the buffered console output for a running server.
+// ReadGameServerBuffer returns the buffered console output for a running
+// server, routing through NodeClient for the server's owning node so remote
+// and embedded paths are identical.
 func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string {
+	if inst.nodeRegistry != nil {
+		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
+		if errGet == nil {
+			chunk, errRead := client.ReadConsoleBuffer(inst.ctx, gameServer.ID)
+			if errRead != nil {
+				return ""
+			}
+			return chunk.Data
+		}
+	}
+
+	// Fallback: direct supervisor access for tests that construct Instance
+	// without a registry.
+	if inst.supervisorInstance == nil {
+		return ""
+	}
 	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
 	if err != nil {
 		return ""

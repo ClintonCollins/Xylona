@@ -200,8 +200,20 @@ func (xs *XylonaService) SetServerVariant(
 	}
 
 	logConsoleOutput := func(message string) {
-		if xs.supervisorInst != nil {
-			xs.supervisorInst.SendConsoleOutput(gameServer.ID, message)
+		// Route through NodeClient so the message lands in the console
+		// buffer of whatever node runs the game server (embedded or remote).
+		client, errClient := xs.resolveNodeClient(gameServer)
+		if errClient != nil {
+			log.Debug().Err(errClient).Str("game_server_id", gameServer.ID).
+				Msg("SetServerVariant: node client unavailable for console output")
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		errSend := client.SendConsoleOutput(ctx, gameServer.ID, message)
+		if errSend != nil {
+			log.Debug().Err(errSend).Str("game_server_id", gameServer.ID).
+				Msg("SetServerVariant: failed to send console output")
 		}
 	}
 

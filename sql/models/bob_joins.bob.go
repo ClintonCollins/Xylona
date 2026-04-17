@@ -34,8 +34,6 @@ type joins[Q dialect.Joinable] struct {
 	AlertHistories             joinSet[alertHistoryJoins[Q]]
 	AlertRules                 joinSet[alertRuleJoins[Q]]
 	AlertStates                joinSet[alertStateJoins[Q]]
-	FederatedAccessGrants      joinSet[federatedAccessGrantJoins[Q]]
-	FederationTrustedPeers     joinSet[federationTrustedPeerJoins[Q]]
 	Games                      joinSet[gameJoins[Q]]
 	GameServers                joinSet[gameServerJoins[Q]]
 	GameServerBackups          joinSet[gameServerBackupJoins[Q]]
@@ -43,20 +41,15 @@ type joins[Q dialect.Joinable] struct {
 	InstalledMods              joinSet[installedModJoins[Q]]
 	InstalledModFiles          joinSet[installedModFileJoins[Q]]
 	Ips                        joinSet[ipJoins[Q]]
-	Logs                       joinSet[logJoins[Q]]
 	Nodes                      joinSet[nodeJoins[Q]]
 	NodeMetricsHistories       joinSet[nodeMetricsHistoryJoins[Q]]
-	NodeSyncQueues             joinSet[nodeSyncQueueJoins[Q]]
 	NotificationChannels       joinSet[notificationChannelJoins[Q]]
-	PeerSyncStates             joinSet[peerSyncStateJoins[Q]]
 	Permissions                joinSet[permissionJoins[Q]]
-	RemoteServerCaches         joinSet[remoteServerCacheJoins[Q]]
 	Roles                      joinSet[roleJoins[Q]]
 	RolePermissions            joinSet[rolePermissionJoins[Q]]
 	ScheduledTasks             joinSet[scheduledTaskJoins[Q]]
 	ScheduledTaskLogs          joinSet[scheduledTaskLogJoins[Q]]
 	Users                      joinSet[userJoins[Q]]
-	UserAPIKeys                joinSet[userAPIKeyJoins[Q]]
 	UserRoleAssignments        joinSet[userRoleAssignmentJoins[Q]]
 	UserSessions               joinSet[userSessionJoins[Q]]
 }
@@ -74,8 +67,6 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		AlertHistories:             buildJoinSet[alertHistoryJoins[Q]](AlertHistories.Columns, buildAlertHistoryJoins),
 		AlertRules:                 buildJoinSet[alertRuleJoins[Q]](AlertRules.Columns, buildAlertRuleJoins),
 		AlertStates:                buildJoinSet[alertStateJoins[Q]](AlertStates.Columns, buildAlertStateJoins),
-		FederatedAccessGrants:      buildJoinSet[federatedAccessGrantJoins[Q]](FederatedAccessGrants.Columns, buildFederatedAccessGrantJoins),
-		FederationTrustedPeers:     buildJoinSet[federationTrustedPeerJoins[Q]](FederationTrustedPeers.Columns, buildFederationTrustedPeerJoins),
 		Games:                      buildJoinSet[gameJoins[Q]](Games.Columns, buildGameJoins),
 		GameServers:                buildJoinSet[gameServerJoins[Q]](GameServers.Columns, buildGameServerJoins),
 		GameServerBackups:          buildJoinSet[gameServerBackupJoins[Q]](GameServerBackups.Columns, buildGameServerBackupJoins),
@@ -83,20 +74,15 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		InstalledMods:              buildJoinSet[installedModJoins[Q]](InstalledMods.Columns, buildInstalledModJoins),
 		InstalledModFiles:          buildJoinSet[installedModFileJoins[Q]](InstalledModFiles.Columns, buildInstalledModFileJoins),
 		Ips:                        buildJoinSet[ipJoins[Q]](Ips.Columns, buildIPJoins),
-		Logs:                       buildJoinSet[logJoins[Q]](Logs.Columns, buildLogJoins),
 		Nodes:                      buildJoinSet[nodeJoins[Q]](Nodes.Columns, buildNodeJoins),
 		NodeMetricsHistories:       buildJoinSet[nodeMetricsHistoryJoins[Q]](NodeMetricsHistories.Columns, buildNodeMetricsHistoryJoins),
-		NodeSyncQueues:             buildJoinSet[nodeSyncQueueJoins[Q]](NodeSyncQueues.Columns, buildNodeSyncQueueJoins),
 		NotificationChannels:       buildJoinSet[notificationChannelJoins[Q]](NotificationChannels.Columns, buildNotificationChannelJoins),
-		PeerSyncStates:             buildJoinSet[peerSyncStateJoins[Q]](PeerSyncStates.Columns, buildPeerSyncStateJoins),
 		Permissions:                buildJoinSet[permissionJoins[Q]](Permissions.Columns, buildPermissionJoins),
-		RemoteServerCaches:         buildJoinSet[remoteServerCacheJoins[Q]](RemoteServerCaches.Columns, buildRemoteServerCacheJoins),
 		Roles:                      buildJoinSet[roleJoins[Q]](Roles.Columns, buildRoleJoins),
 		RolePermissions:            buildJoinSet[rolePermissionJoins[Q]](RolePermissions.Columns, buildRolePermissionJoins),
 		ScheduledTasks:             buildJoinSet[scheduledTaskJoins[Q]](ScheduledTasks.Columns, buildScheduledTaskJoins),
 		ScheduledTaskLogs:          buildJoinSet[scheduledTaskLogJoins[Q]](ScheduledTaskLogs.Columns, buildScheduledTaskLogJoins),
 		Users:                      buildJoinSet[userJoins[Q]](Users.Columns, buildUserJoins),
-		UserAPIKeys:                buildJoinSet[userAPIKeyJoins[Q]](UserAPIKeys.Columns, buildUserAPIKeyJoins),
 		UserRoleAssignments:        buildJoinSet[userRoleAssignmentJoins[Q]](UserRoleAssignments.Columns, buildUserRoleAssignmentJoins),
 		UserSessions:               buildJoinSet[userSessionJoins[Q]](UserSessions.Columns, buildUserSessionJoins),
 	}

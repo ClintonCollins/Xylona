@@ -328,13 +328,10 @@ func TestRunUpdateWithBackupWritesProgressToConsoleBuffer(t *testing.T) {
 	}
 
 	_, errInsertNode := conn.InsertNode(&models.NodeSetter{
-		ID:      omit.From("node-local"),
-		Name:    omit.From("Local Node"),
-		IsLocal: omit.From(true),
-		Host:    omit.From("localhost"),
-		Port:    omit.From(int64(8080)),
-		BaseURL: omit.From("http://localhost:8080"),
-		Enabled: omit.From(true),
+		ID:        omit.From("node-local"),
+		Name:      omit.From("Local Node"),
+		ListenURL: omit.From("http://localhost:8080"),
+		Enabled:   omit.From(true),
 	})
 	if errInsertNode != nil {
 		t.Fatalf("InsertNode() error = %v", errInsertNode)

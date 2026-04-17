@@ -286,7 +286,7 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")
 	oldStatus := command.Status()
-	command.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
+	command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, exitCode)
 	command.Lock()
 	command.currentCMD = nil
 	command.status = xylona.Status_OFFLINE

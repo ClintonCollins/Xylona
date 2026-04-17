@@ -796,7 +796,7 @@ func (inst *Instance) StreamFileToUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inst.serveLegacyFileRequest(
+	inst.serveLocalFileRequest(
 		w,
 		r,
 		fileRequest.GetGameServerId(),
@@ -804,9 +804,6 @@ func (inst *Instance) StreamFileToUser(w http.ResponseWriter, r *http.Request) {
 		"Failed to get file",
 		func(gameServer *models.GameServer) error {
 			return inst.GetGameServerFile(gameServer, fileRequest.GetPath(), w, true, false)
-		},
-		func(target fileRequestTarget) error {
-			return inst.proxyRemoteFileGet(r.Context(), r, target, fileRequest.GetPath(), w)
 		},
 	)
 }
@@ -821,7 +818,7 @@ func (inst *Instance) UploadFileToUserGET(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	inst.serveLegacyFileRequest(
+	inst.serveLocalFileRequest(
 		w,
 		r,
 		gameServerID,
@@ -829,9 +826,6 @@ func (inst *Instance) UploadFileToUserGET(w http.ResponseWriter, r *http.Request
 		"Failed to get file",
 		func(gameServer *models.GameServer) error {
 			return inst.GetGameServerFile(gameServer, filePath, w, true, true)
-		},
-		func(target fileRequestTarget) error {
-			return inst.proxyRemoteFileDownload(r.Context(), r, target, filePath, w)
 		},
 	)
 }
@@ -848,7 +842,7 @@ func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Reques
 	gameServerID := r.FormValue("gameServerId")
 	filePath := r.FormValue("path")
 
-	inst.serveLegacyFileRequest(
+	inst.serveLocalFileRequest(
 		w,
 		r,
 		gameServerID,
@@ -856,9 +850,6 @@ func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Reques
 		"Failed to get file",
 		func(gameServer *models.GameServer) error {
 			return inst.GetGameServerFile(gameServer, filePath, w, true, true)
-		},
-		func(target fileRequestTarget) error {
-			return inst.proxyRemoteFileDownload(r.Context(), r, target, filePath, w)
 		},
 	)
 }
@@ -1130,7 +1121,7 @@ func (inst *Instance) downloadGameServerFileWithMaxBytes(w http.ResponseWriter, 
 				return
 			}
 			filename := part.FileName()
-			if !inst.serveLegacyFileRequest(
+			if !inst.serveLocalFileRequest(
 				w,
 				r,
 				gameServerID,
@@ -1138,9 +1129,6 @@ func (inst *Instance) downloadGameServerFileWithMaxBytes(w http.ResponseWriter, 
 				"Failed to upload file",
 				func(gameServer *models.GameServer) error {
 					return inst.saveUploadedGameServerFile(gameServer, relativePath, filename, part)
-				},
-				func(target fileRequestTarget) error {
-					return inst.proxyRemoteFileUpload(r.Context(), r, target, relativePath, filename, part, w)
 				},
 			) {
 				return

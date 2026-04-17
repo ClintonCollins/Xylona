@@ -78,16 +78,6 @@ func TestSessionAuthInterceptorWrapUnary(t *testing.T) {
 			wantNextCalled: true,
 		},
 		{
-			name:           "add node procedure is allowed without session for pairing",
-			procedure:      xylonaconnect.XylonaAddNodeProcedure,
-			wantNextCalled: true,
-		},
-		{
-			name:           "verify node procedure is allowed without session for node secrets",
-			procedure:      xylonaconnect.XylonaVerifyNodeProcedure,
-			wantNextCalled: true,
-		},
-		{
 			name:           "remove node procedure is allowed without session for pairing rollback",
 			procedure:      xylonaconnect.XylonaRemoveNodeProcedure,
 			wantNextCalled: true,

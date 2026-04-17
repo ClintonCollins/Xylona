@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/cfgparse"
 	"github.com/ClintonCollins/Xylona/cfgschema"
@@ -90,7 +89,7 @@ func (xs *XylonaService) UpdateGameConfigSchemas(
 // GetGameServerConfigFiles returns the list of config files defined by the
 // game's schema, with existence status for each file.
 func (xs *XylonaService) GetGameServerConfigFiles(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.GetGameServerConfigFilesRequest],
 ) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -98,23 +97,16 @@ func (xs *XylonaService) GetGameServerConfigFiles(
 		return nil, unauthenticated()
 	}
 
-	serverID := request.Msg.GetGameServerId()
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, db.PermissionGameServerConfig)
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, db.PermissionGameServerConfig)
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			return getGameServerConfigFilesLocal(xs.db, gameServer)
-		},
-		func() (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
-			return xs.getRemoteGameServerConfigFiles(ctx, request.Msg, user)
-		},
-	)
+	return getGameServerConfigFilesLocal(xs.db, gameServer)
 }
 
 func getGameServerConfigFilesLocal(
@@ -162,7 +154,7 @@ func getGameServerConfigFilesLocal(
 
 // GetGameServerConfigFile reads a config file and returns structured field data.
 func (xs *XylonaService) GetGameServerConfigFile(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.GetGameServerConfigFileRequest],
 ) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -170,23 +162,16 @@ func (xs *XylonaService) GetGameServerConfigFile(
 		return nil, unauthenticated()
 	}
 
-	serverID := request.Msg.GetGameServerId()
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, db.PermissionGameServerConfig)
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, db.PermissionGameServerConfig)
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			return getGameServerConfigFileLocal(xs.db, gameServer, request.Msg.GetFilePath())
-		},
-		func() (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
-			return xs.getRemoteGameServerConfigFile(ctx, request.Msg, user)
-		},
-	)
+	return getGameServerConfigFileLocal(xs.db, gameServer, request.Msg.GetFilePath())
 }
 
 func getGameServerConfigFileLocal(
@@ -298,7 +283,7 @@ func getGameServerConfigFileLocal(
 
 // UpdateGameServerConfigFile validates and writes config field values.
 func (xs *XylonaService) UpdateGameServerConfigFile(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.UpdateGameServerConfigFileRequest],
 ) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -306,23 +291,16 @@ func (xs *XylonaService) UpdateGameServerConfigFile(
 		return nil, unauthenticated()
 	}
 
-	serverID := request.Msg.GetGameServerId()
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, db.PermissionGameServerConfig)
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, db.PermissionGameServerConfig)
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			return updateGameServerConfigFileLocal(xs.db, gameServer, request.Msg)
-		},
-		func() (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
-			return xs.updateRemoteGameServerConfigFile(ctx, request.Msg, user)
-		},
-	)
+	return updateGameServerConfigFileLocal(xs.db, gameServer, request.Msg)
 }
 
 func updateGameServerConfigFileLocal(
@@ -468,7 +446,7 @@ func updateGameServerConfigFileLocal(
 
 // GenerateGameServerConfigFile creates a config file from schema defaults.
 func (xs *XylonaService) GenerateGameServerConfigFile(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.GenerateGameServerConfigFileRequest],
 ) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -476,23 +454,16 @@ func (xs *XylonaService) GenerateGameServerConfigFile(
 		return nil, unauthenticated()
 	}
 
-	serverID := request.Msg.GetGameServerId()
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, db.PermissionGameServerConfig)
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, db.PermissionGameServerConfig)
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			return generateGameServerConfigFileLocal(xs.db, gameServer, request.Msg.GetFilePath())
-		},
-		func() (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
-			return xs.generateRemoteGameServerConfigFile(ctx, request.Msg, user)
-		},
-	)
+	return generateGameServerConfigFileLocal(xs.db, gameServer, request.Msg.GetFilePath())
 }
 
 func generateGameServerConfigFileLocal(
@@ -533,164 +504,4 @@ func generateGameServerConfigFileLocal(
 			Success: true,
 		},
 	}, nil
-}
-
-func (xs *XylonaService) getRemoteGameServerConfigFiles(
-	ctx context.Context,
-	requestMsg *xylona.GetGameServerConfigFilesRequest,
-	actingUser *models.User,
-) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
-	serverID := requestMsg.GetGameServerId()
-
-	node, _, errGet := xs.getRemoteNodeForServer(serverID)
-	if errGet != nil {
-		return nil, errGet
-	}
-
-	client, errClient := xs.remoteFederationClient(node, serverID)
-	if errClient != nil {
-		return nil, errClient
-	}
-
-	req := connect.NewRequest(&xylona.FederationGetGameServerConfigFilesRequest{
-		Request: requestMsg,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to apply federation identity headers")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote config files"))
-	}
-
-	resp, errList := client.ListRemoteGameServerConfigFiles(ctx, req)
-	if errList != nil {
-		log.Error().Err(errList).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to list remote game server config files")
-		return nil, wrapRemoteRPCError(errList, "failed to get remote config files")
-	}
-
-	responseMsg := resp.Msg.GetResponse()
-	if responseMsg == nil {
-		return nil, internalErrf("failed to get remote config files")
-	}
-
-	return connect.NewResponse(responseMsg), nil
-}
-
-func (xs *XylonaService) getRemoteGameServerConfigFile(
-	ctx context.Context,
-	requestMsg *xylona.GetGameServerConfigFileRequest,
-	actingUser *models.User,
-) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
-	serverID := requestMsg.GetGameServerId()
-
-	node, _, errGet := xs.getRemoteNodeForServer(serverID)
-	if errGet != nil {
-		return nil, errGet
-	}
-
-	client, errClient := xs.remoteFederationClient(node, serverID)
-	if errClient != nil {
-		return nil, errClient
-	}
-
-	req := connect.NewRequest(&xylona.FederationGetGameServerConfigFileRequest{
-		Request: requestMsg,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to apply federation identity headers")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote config file"))
-	}
-
-	resp, errGetFile := client.GetRemoteGameServerConfigFile(ctx, req)
-	if errGetFile != nil {
-		log.Error().Err(errGetFile).Str("server_id", serverID).Str("node", node.Name).Str("file_path", requestMsg.GetFilePath()).Msg("Failed to get remote game server config file")
-		return nil, wrapRemoteRPCError(errGetFile, "failed to get remote config file")
-	}
-
-	responseMsg := resp.Msg.GetResponse()
-	if responseMsg == nil {
-		return nil, internalErrf("failed to get remote config file")
-	}
-
-	return connect.NewResponse(responseMsg), nil
-}
-
-func (xs *XylonaService) updateRemoteGameServerConfigFile(
-	ctx context.Context,
-	requestMsg *xylona.UpdateGameServerConfigFileRequest,
-	actingUser *models.User,
-) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
-	serverID := requestMsg.GetGameServerId()
-
-	node, _, errGet := xs.getRemoteNodeForServer(serverID)
-	if errGet != nil {
-		return nil, errGet
-	}
-
-	client, errClient := xs.remoteFederationClient(node, serverID)
-	if errClient != nil {
-		return nil, errClient
-	}
-
-	req := connect.NewRequest(&xylona.FederationUpdateGameServerConfigFileRequest{
-		Request: requestMsg,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to apply federation identity headers")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update remote config file"))
-	}
-
-	resp, errUpdate := client.UpdateRemoteGameServerConfigFile(ctx, req)
-	if errUpdate != nil {
-		log.Error().Err(errUpdate).Str("server_id", serverID).Str("node", node.Name).Str("file_path", requestMsg.GetFilePath()).Msg("Failed to update remote game server config file")
-		return nil, wrapRemoteRPCError(errUpdate, "failed to update remote config file")
-	}
-
-	responseMsg := resp.Msg.GetResponse()
-	if responseMsg == nil {
-		return nil, internalErrf("failed to update remote config file")
-	}
-
-	return connect.NewResponse(responseMsg), nil
-}
-
-func (xs *XylonaService) generateRemoteGameServerConfigFile(
-	ctx context.Context,
-	requestMsg *xylona.GenerateGameServerConfigFileRequest,
-	actingUser *models.User,
-) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
-	serverID := requestMsg.GetGameServerId()
-
-	node, _, errGet := xs.getRemoteNodeForServer(serverID)
-	if errGet != nil {
-		return nil, errGet
-	}
-
-	client, errClient := xs.remoteFederationClient(node, serverID)
-	if errClient != nil {
-		return nil, errClient
-	}
-
-	req := connect.NewRequest(&xylona.FederationGenerateGameServerConfigFileRequest{
-		Request: requestMsg,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to apply federation identity headers")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to generate remote config file"))
-	}
-
-	resp, errGenerate := client.GenerateRemoteGameServerConfigFile(ctx, req)
-	if errGenerate != nil {
-		log.Error().Err(errGenerate).Str("server_id", serverID).Str("node", node.Name).Str("file_path", requestMsg.GetFilePath()).Msg("Failed to generate remote game server config file")
-		return nil, wrapRemoteRPCError(errGenerate, "failed to generate remote config file")
-	}
-
-	responseMsg := resp.Msg.GetResponse()
-	if responseMsg == nil {
-		return nil, internalErrf("failed to generate remote config file")
-	}
-
-	return connect.NewResponse(responseMsg), nil
 }

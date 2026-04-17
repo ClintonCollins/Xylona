@@ -35,9 +35,6 @@ func (ws *WebSocket) listenForLocalGameServerStatusChanges(statusChanged <-chan 
 				log.Error().Msg("Failed to cast status event to StatusChangedEvent")
 				continue
 			}
-			if statusEvent.Federated {
-				continue
-			}
 
 			statusValue, statusExists := xylona.Status_value[statusEvent.NewStatus]
 			if !statusExists {

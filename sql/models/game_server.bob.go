@@ -70,7 +70,6 @@ type GameServersQuery = *sqlite.ViewQuery[*GameServer, GameServerSlice]
 
 // gameServerR is where relationships are stored.
 type gameServerR struct {
-	FederatedAccessGrants      FederatedAccessGrantSlice     // fk_federated_access_grant_3
 	Node                       *Node                         // fk_game_server_0
 	IP                         *IP                           // fk_game_server_1
 	Game                       *Game                         // fk_game_server_2
@@ -78,7 +77,6 @@ type gameServerR struct {
 	GameServerBackups          GameServerBackupSlice         // fk_game_server_backup_1
 	GameServerMetricsHistories GameServerMetricsHistorySlice // fk_game_server_metrics_history_0
 	InstalledMods              InstalledModSlice             // fk_installed_mod_0
-	Logs                       LogSlice                      // fk_log_0
 	ScheduledTasks             ScheduledTaskSlice            // fk_scheduled_task_1
 	UserRoleAssignments        UserRoleAssignmentSlice       // fk_user_role_assignment_1
 }
@@ -955,25 +953,6 @@ func (o GameServerSlice) ReloadAll(ctx context.Context, exec bob.Executor) error
 	return nil
 }
 
-// FederatedAccessGrants starts a query for related objects on federated_access_grant
-func (o *GameServer) FederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
-	return FederatedAccessGrants.Query(append(mods,
-		sm.Where(FederatedAccessGrants.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
-	)...)
-}
-
-func (os GameServerSlice) FederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
-	PKArgSlice := make([]bob.Expression, len(os))
-	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
-	}
-	PKArgExpr := sqlite.Group(PKArgSlice...)
-
-	return FederatedAccessGrants.Query(append(mods,
-		sm.Where(sqlite.Group(FederatedAccessGrants.Columns.GameServerID).OP("IN", PKArgExpr)),
-	)...)
-}
-
 // Node starts a query for related objects on node
 func (o *GameServer) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
 	return Nodes.Query(append(mods,
@@ -1107,25 +1086,6 @@ func (os GameServerSlice) InstalledMods(mods ...bob.Mod[*dialect.SelectQuery]) I
 	)...)
 }
 
-// Logs starts a query for related objects on log
-func (o *GameServer) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
-	return Logs.Query(append(mods,
-		sm.Where(Logs.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
-	)...)
-}
-
-func (os GameServerSlice) Logs(mods ...bob.Mod[*dialect.SelectQuery]) LogsQuery {
-	PKArgSlice := make([]bob.Expression, len(os))
-	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
-	}
-	PKArgExpr := sqlite.Group(PKArgSlice...)
-
-	return Logs.Query(append(mods,
-		sm.Where(sqlite.Group(Logs.Columns.GameServerID).OP("IN", PKArgExpr)),
-	)...)
-}
-
 // ScheduledTasks starts a query for related objects on scheduled_task
 func (o *GameServer) ScheduledTasks(mods ...bob.Mod[*dialect.SelectQuery]) ScheduledTasksQuery {
 	return ScheduledTasks.Query(append(mods,
@@ -1162,74 +1122,6 @@ func (os GameServerSlice) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQue
 	return UserRoleAssignments.Query(append(mods,
 		sm.Where(sqlite.Group(UserRoleAssignments.Columns.GameServerID).OP("IN", PKArgExpr)),
 	)...)
-}
-
-func insertGameServerFederatedAccessGrants0(ctx context.Context, exec bob.Executor, federatedAccessGrants1 []*FederatedAccessGrantSetter, gameServer0 *GameServer) (FederatedAccessGrantSlice, error) {
-	for i := range federatedAccessGrants1 {
-		federatedAccessGrants1[i].GameServerID = omit.From(gameServer0.ID)
-	}
-
-	ret, err := FederatedAccessGrants.Insert(bob.ToMods(federatedAccessGrants1...)).All(ctx, exec)
-	if err != nil {
-		return ret, fmt.Errorf("insertGameServerFederatedAccessGrants0: %w", err)
-	}
-
-	return ret, nil
-}
-
-func attachGameServerFederatedAccessGrants0(ctx context.Context, exec bob.Executor, count int, federatedAccessGrants1 FederatedAccessGrantSlice, gameServer0 *GameServer) (FederatedAccessGrantSlice, error) {
-	setter := &FederatedAccessGrantSetter{
-		GameServerID: omit.From(gameServer0.ID),
-	}
-
-	err := federatedAccessGrants1.UpdateAll(ctx, exec, *setter)
-	if err != nil {
-		return nil, fmt.Errorf("attachGameServerFederatedAccessGrants0: %w", err)
-	}
-
-	return federatedAccessGrants1, nil
-}
-
-func (gameServer0 *GameServer) InsertFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrantSetter) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-
-	federatedAccessGrants1, err := insertGameServerFederatedAccessGrants0(ctx, exec, related, gameServer0)
-	if err != nil {
-		return err
-	}
-
-	gameServer0.R.FederatedAccessGrants = append(gameServer0.R.FederatedAccessGrants, federatedAccessGrants1...)
-
-	for _, rel := range federatedAccessGrants1 {
-		rel.R.GameServer = gameServer0
-	}
-	return nil
-}
-
-func (gameServer0 *GameServer) AttachFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrant) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	federatedAccessGrants1 := FederatedAccessGrantSlice(related)
-
-	_, err = attachGameServerFederatedAccessGrants0(ctx, exec, len(related), federatedAccessGrants1, gameServer0)
-	if err != nil {
-		return err
-	}
-
-	gameServer0.R.FederatedAccessGrants = append(gameServer0.R.FederatedAccessGrants, federatedAccessGrants1...)
-
-	for _, rel := range related {
-		rel.R.GameServer = gameServer0
-	}
-
-	return nil
 }
 
 func attachGameServerNode0(ctx context.Context, exec bob.Executor, count int, gameServer0 *GameServer, node1 *Node) (*GameServer, error) {
@@ -1628,74 +1520,6 @@ func (gameServer0 *GameServer) AttachInstalledMods(ctx context.Context, exec bob
 	return nil
 }
 
-func insertGameServerLogs0(ctx context.Context, exec bob.Executor, logs1 []*LogSetter, gameServer0 *GameServer) (LogSlice, error) {
-	for i := range logs1 {
-		logs1[i].GameServerID = omitnull.From(gameServer0.ID)
-	}
-
-	ret, err := Logs.Insert(bob.ToMods(logs1...)).All(ctx, exec)
-	if err != nil {
-		return ret, fmt.Errorf("insertGameServerLogs0: %w", err)
-	}
-
-	return ret, nil
-}
-
-func attachGameServerLogs0(ctx context.Context, exec bob.Executor, count int, logs1 LogSlice, gameServer0 *GameServer) (LogSlice, error) {
-	setter := &LogSetter{
-		GameServerID: omitnull.From(gameServer0.ID),
-	}
-
-	err := logs1.UpdateAll(ctx, exec, *setter)
-	if err != nil {
-		return nil, fmt.Errorf("attachGameServerLogs0: %w", err)
-	}
-
-	return logs1, nil
-}
-
-func (gameServer0 *GameServer) InsertLogs(ctx context.Context, exec bob.Executor, related ...*LogSetter) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-
-	logs1, err := insertGameServerLogs0(ctx, exec, related, gameServer0)
-	if err != nil {
-		return err
-	}
-
-	gameServer0.R.Logs = append(gameServer0.R.Logs, logs1...)
-
-	for _, rel := range logs1 {
-		rel.R.GameServer = gameServer0
-	}
-	return nil
-}
-
-func (gameServer0 *GameServer) AttachLogs(ctx context.Context, exec bob.Executor, related ...*Log) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	logs1 := LogSlice(related)
-
-	_, err = attachGameServerLogs0(ctx, exec, len(related), logs1, gameServer0)
-	if err != nil {
-		return err
-	}
-
-	gameServer0.R.Logs = append(gameServer0.R.Logs, logs1...)
-
-	for _, rel := range related {
-		rel.R.GameServer = gameServer0
-	}
-
-	return nil
-}
-
 func insertGameServerScheduledTasks0(ctx context.Context, exec bob.Executor, scheduledTasks1 []*ScheduledTaskSetter, gameServer0 *GameServer) (ScheduledTaskSlice, error) {
 	for i := range scheduledTasks1 {
 		scheduledTasks1[i].GameServerID = omit.From(gameServer0.ID)
@@ -1908,20 +1732,6 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
-	case "FederatedAccessGrants":
-		rels, ok := retrieved.(FederatedAccessGrantSlice)
-		if !ok {
-			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
-		}
-
-		o.R.FederatedAccessGrants = rels
-
-		for _, rel := range rels {
-			if rel != nil {
-				rel.R.GameServer = o
-			}
-		}
-		return nil
 	case "Node":
 		rel, ok := retrieved.(*Node)
 		if !ok {
@@ -2005,20 +1815,6 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 		}
 
 		o.R.InstalledMods = rels
-
-		for _, rel := range rels {
-			if rel != nil {
-				rel.R.GameServer = o
-			}
-		}
-		return nil
-	case "Logs":
-		rels, ok := retrieved.(LogSlice)
-		if !ok {
-			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
-		}
-
-		o.R.Logs = rels
 
 		for _, rel := range rels {
 			if rel != nil {
@@ -2124,7 +1920,6 @@ func buildGameServerPreloader() gameServerPreloader {
 }
 
 type gameServerThenLoader[Q orm.Loadable] struct {
-	FederatedAccessGrants      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Node                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	IP                         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Game                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -2132,15 +1927,11 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 	GameServerBackups          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	Logs                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	ScheduledTasks             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserRoleAssignments        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
-	type FederatedAccessGrantsLoadInterface interface {
-		LoadFederatedAccessGrants(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
-	}
 	type NodeLoadInterface interface {
 		LoadNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
@@ -2162,9 +1953,6 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	type InstalledModsLoadInterface interface {
 		LoadInstalledMods(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
-	type LogsLoadInterface interface {
-		LoadLogs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
-	}
 	type ScheduledTasksLoadInterface interface {
 		LoadScheduledTasks(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
@@ -2173,12 +1961,6 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 
 	return gameServerThenLoader[Q]{
-		FederatedAccessGrants: thenLoadBuilder[Q](
-			"FederatedAccessGrants",
-			func(ctx context.Context, exec bob.Executor, retrieved FederatedAccessGrantsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
-				return retrieved.LoadFederatedAccessGrants(ctx, exec, mods...)
-			},
-		),
 		Node: thenLoadBuilder[Q](
 			"Node",
 			func(ctx context.Context, exec bob.Executor, retrieved NodeLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
@@ -2221,12 +2003,6 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 				return retrieved.LoadInstalledMods(ctx, exec, mods...)
 			},
 		),
-		Logs: thenLoadBuilder[Q](
-			"Logs",
-			func(ctx context.Context, exec bob.Executor, retrieved LogsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
-				return retrieved.LoadLogs(ctx, exec, mods...)
-			},
-		),
 		ScheduledTasks: thenLoadBuilder[Q](
 			"ScheduledTasks",
 			func(ctx context.Context, exec bob.Executor, retrieved ScheduledTasksLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
@@ -2240,67 +2016,6 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 			},
 		),
 	}
-}
-
-// LoadFederatedAccessGrants loads the gameServer's FederatedAccessGrants into the .R struct
-func (o *GameServer) LoadFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if o == nil {
-		return nil
-	}
-
-	// Reset the relationship
-	o.R.FederatedAccessGrants = nil
-
-	related, err := o.FederatedAccessGrants(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, rel := range related {
-		rel.R.GameServer = o
-	}
-
-	o.R.FederatedAccessGrants = related
-	return nil
-}
-
-// LoadFederatedAccessGrants loads the gameServer's FederatedAccessGrants into the .R struct
-func (os GameServerSlice) LoadFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if len(os) == 0 {
-		return nil
-	}
-
-	federatedAccessGrants, err := os.FederatedAccessGrants(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		o.R.FederatedAccessGrants = nil
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		for _, rel := range federatedAccessGrants {
-
-			if !(o.ID == rel.GameServerID) {
-				continue
-			}
-
-			rel.R.GameServer = o
-
-			o.R.FederatedAccessGrants = append(o.R.FederatedAccessGrants, rel)
-		}
-	}
-
-	return nil
 }
 
 // LoadNode loads the gameServer's Node into the .R struct
@@ -2694,70 +2409,6 @@ func (os GameServerSlice) LoadInstalledMods(ctx context.Context, exec bob.Execut
 	return nil
 }
 
-// LoadLogs loads the gameServer's Logs into the .R struct
-func (o *GameServer) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if o == nil {
-		return nil
-	}
-
-	// Reset the relationship
-	o.R.Logs = nil
-
-	related, err := o.Logs(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, rel := range related {
-		rel.R.GameServer = o
-	}
-
-	o.R.Logs = related
-	return nil
-}
-
-// LoadLogs loads the gameServer's Logs into the .R struct
-func (os GameServerSlice) LoadLogs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if len(os) == 0 {
-		return nil
-	}
-
-	logs, err := os.Logs(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		o.R.Logs = nil
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		for _, rel := range logs {
-
-			if !rel.GameServerID.IsValue() {
-				continue
-			}
-			if !(rel.GameServerID.IsValue() && o.ID == rel.GameServerID.MustGet()) {
-				continue
-			}
-
-			rel.R.GameServer = o
-
-			o.R.Logs = append(o.R.Logs, rel)
-		}
-	}
-
-	return nil
-}
-
 // LoadScheduledTasks loads the gameServer's ScheduledTasks into the .R struct
 func (o *GameServer) LoadScheduledTasks(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2885,7 +2536,6 @@ func (os GameServerSlice) LoadUserRoleAssignments(ctx context.Context, exec bob.
 
 type gameServerJoins[Q dialect.Joinable] struct {
 	typ                        string
-	FederatedAccessGrants      modAs[Q, federatedAccessGrantColumns]
 	Node                       modAs[Q, nodeColumns]
 	IP                         modAs[Q, ipColumns]
 	Game                       modAs[Q, gameColumns]
@@ -2893,7 +2543,6 @@ type gameServerJoins[Q dialect.Joinable] struct {
 	GameServerBackups          modAs[Q, gameServerBackupColumns]
 	GameServerMetricsHistories modAs[Q, gameServerMetricsHistoryColumns]
 	InstalledMods              modAs[Q, installedModColumns]
-	Logs                       modAs[Q, logColumns]
 	ScheduledTasks             modAs[Q, scheduledTaskColumns]
 	UserRoleAssignments        modAs[Q, userRoleAssignmentColumns]
 }
@@ -2905,20 +2554,6 @@ func (j gameServerJoins[Q]) aliasedAs(alias string) gameServerJoins[Q] {
 func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string) gameServerJoins[Q] {
 	return gameServerJoins[Q]{
 		typ: typ,
-		FederatedAccessGrants: modAs[Q, federatedAccessGrantColumns]{
-			c: FederatedAccessGrants.Columns,
-			f: func(to federatedAccessGrantColumns) bob.Mod[Q] {
-				mods := make(mods.QueryMods[Q], 0, 1)
-
-				{
-					mods = append(mods, dialect.Join[Q](typ, FederatedAccessGrants.Name().As(to.Alias())).On(
-						to.GameServerID.EQ(cols.ID),
-					))
-				}
-
-				return mods
-			},
-		},
 		Node: modAs[Q, nodeColumns]{
 			c: Nodes.Columns,
 			f: func(to nodeColumns) bob.Mod[Q] {
@@ -3010,20 +2645,6 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, InstalledMods.Name().As(to.Alias())).On(
-						to.GameServerID.EQ(cols.ID),
-					))
-				}
-
-				return mods
-			},
-		},
-		Logs: modAs[Q, logColumns]{
-			c: Logs.Columns,
-			f: func(to logColumns) bob.Mod[Q] {
-				mods := make(mods.QueryMods[Q], 0, 1)
-
-				{
-					mods = append(mods, dialect.Join[Q](typ, Logs.Name().As(to.Alias())).On(
 						to.GameServerID.EQ(cols.ID),
 					))
 				}

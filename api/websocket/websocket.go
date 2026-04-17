@@ -19,7 +19,7 @@ import (
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/helpers/federation"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -74,14 +74,12 @@ type WebSocket struct {
 	supervisor                   *supervisor.Instance
 	actions                      *actions.Instance
 	db                           *db.Connection
-	federationMTLS               *federation.MTLS
+	nodeRegistry                 *noderegistry.Registry
 	secureCookie                 *securecookie.SecureCookie
 	ctx                          context.Context
 	userWebsocketConnections     map[string]map[uuid.UUID]*connection // map[userID]map[connectionID]*connection
 	userWebsocketConnectionsLock *sync.RWMutex
 	sessionLock                  *sync.RWMutex
-	remoteNodeSnapshotCache      map[string]*xylona.NodeResourceSnapshot // keyed by remote node ID
-	remoteNodeSnapshotCacheLock  sync.RWMutex
 }
 
 func (ws *WebSocket) getSessionGameServers(s *melody.Session) ([]*models.GameServer, error) {
@@ -137,8 +135,8 @@ func NewInstance(
 	supervisorInst *supervisor.Instance,
 	actionsInst *actions.Instance,
 	database *db.Connection,
+	nodeRegistry *noderegistry.Registry,
 	secureCookie *securecookie.SecureCookie,
-	federationMTLS *federation.MTLS,
 ) (*WebSocket, http.HandlerFunc) {
 	m := melody.New()
 	inst := &WebSocket{
@@ -146,19 +144,17 @@ func NewInstance(
 		supervisor:                   supervisorInst,
 		actions:                      actionsInst,
 		db:                           database,
-		federationMTLS:               federationMTLS,
+		nodeRegistry:                 nodeRegistry,
 		ctx:                          ctx,
 		secureCookie:                 secureCookie,
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
 		userWebsocketConnectionsLock: &sync.RWMutex{},
 		sessionLock:                  &sync.RWMutex{},
-		remoteNodeSnapshotCache:      make(map[string]*xylona.NodeResourceSnapshot),
 	}
 	m.HandleConnect(inst.handleConnect)
 	m.HandleDisconnect(inst.handleDisconnect)
 	m.HandleMessage(inst.handleMessage)
 	go inst.subscribeLocalGameServerStatusChanges()
-	go inst.startRemoteNodeMetricsPoller()
 	return inst, inst.handleRequest
 }
 
@@ -412,17 +408,17 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		sessionConnection.Unlock()
 
 		localGameServer, errGetLocal := ws.db.GetGameServerByID(serverID)
-		if errGetLocal == nil {
-			command := ws.supervisor.GetCommandByIDOrCreateShell(localGameServer.ID)
-			command.AddOutputListener(sessionConnection.id.String(), sessionConnection.outputStreamChannel)
-		}
-		if errGetLocal != nil && errors.Is(errGetLocal, sql.ErrNoRows) {
-			go ws.startRemoteConsoleStream(s, sessionConnection, serverID)
-		}
-		if errGetLocal != nil && !errors.Is(errGetLocal, sql.ErrNoRows) {
-			log.Error().Err(errGetLocal).Str("server_id", serverID).Msg("Failed to get game server for console stream")
+		if errGetLocal != nil {
+			if !errors.Is(errGetLocal, sql.ErrNoRows) {
+				log.Error().Err(errGetLocal).Str("server_id", serverID).Msg("Failed to get game server for console stream")
+			}
+			// TODO(hub-spoke step 9): subscribe to remote nodes via
+			// NodeClient.StreamEvents / StreamConsoleOutput once the node
+			// binary implements those streams.
 			return
 		}
+		command := ws.supervisor.GetCommandByIDOrCreateShell(localGameServer.ID)
+		command.AddOutputListener(sessionConnection.id.String(), sessionConnection.outputStreamChannel)
 
 		rawData := &xylona.Message{
 			Type:    xylona.Message_Raw,

@@ -1,13 +1,17 @@
 package actions
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/supervisor"
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 // autoRestartStableWindow is how long a server must run continuously before its
@@ -42,16 +46,75 @@ func (r *restartStateMap) recordStarted(serverID string) {
 	e.mu.Unlock()
 }
 
-// handleServerExit is called from the StartGameServer callback after the
-// process exits. It decides whether to auto-restart the server, applying
-// exponential backoff and retry limits based on the server's current DB config.
-func (inst *Instance) handleServerExit(cmd *supervisor.Command, serverID string) {
-	if cmd.IntentionalStop() {
-		log.Debug().Str("game_server_id", serverID).
-			Msg("Auto-restart: stop was intentional, skipping")
+// startAutoRestartSubscriber spins up a goroutine that listens for game
+// server status-change events on the eventbus and invokes handleServerExit
+// when a server transitions into OFFLINE. Both embedded and remote nodes
+// publish status-change events uniformly (the remote-event bridge
+// republishes remote node events into the same bus), so the subscriber is
+// the single place that reacts to a process exiting.
+//
+// Call this once during controller startup. The goroutine exits when ctx
+// is canceled.
+func (inst *Instance) startAutoRestartSubscriber(ctx context.Context) {
+	bus := eventbus.Get()
+	ch := bus.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
+	go func() {
+		defer bus.Unsubscribe(eventbus.TopicGameServerStatusChanged, ch)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case raw, ok := <-ch:
+				if !ok {
+					return
+				}
+				event, castOK := raw.(eventbus.StatusChangedEvent)
+				if !castOK {
+					log.Warn().Msg("auto-restart: got non-StatusChangedEvent on status topic")
+					continue
+				}
+				inst.onStatusChanged(event)
+			}
+		}
+	}()
+}
+
+// onStatusChanged is the status-event sink. It filters for OFFLINE
+// transitions (process exited), runs any registered one-shot exit hook
+// (install post-install, update restart, etc.), then invokes the
+// auto-restart logic. Intentional stops skip auto-restart but still fire
+// hooks; non-OFFLINE transitions are informational only.
+func (inst *Instance) onStatusChanged(event eventbus.StatusChangedEvent) {
+	newStatus := strings.ToUpper(strings.TrimSpace(event.NewStatus))
+	if newStatus != xylona.Status_OFFLINE.String() {
 		return
 	}
 
+	// Fire one-shot exit hook first; install/update flows set these to run
+	// post-install or chain a restart.
+	if inst.exitHooks != nil {
+		hook, ok := inst.exitHooks.take(event.ServerID)
+		if ok {
+			// Run in a goroutine so a slow hook doesn't block the event
+			// subscriber from processing subsequent events.
+			go hook(event)
+		}
+	}
+
+	if event.IntentionalStop {
+		log.Debug().Str("game_server_id", event.ServerID).
+			Msg("Auto-restart: stop was intentional, skipping")
+		return
+	}
+	inst.handleServerExit(event.ServerID)
+}
+
+// handleServerExit runs the auto-restart decision for a server that has
+// just gone OFFLINE unexpectedly. Applies exponential backoff and retry
+// limits based on the server's current DB config. Works for both embedded
+// and remote nodes: the only differences flow through inst.StartGameServer
+// (which routes via NodeClient).
+func (inst *Instance) handleServerExit(serverID string) {
 	// Load fresh config from DB to pick up any live changes.
 	gameServer, errGet := inst.db.GetGameServerByID(serverID)
 	if errGet != nil {
@@ -86,7 +149,7 @@ func (inst *Instance) handleServerExit(cmd *supervisor.Command, serverID string)
 			"Auto-restart limit reached (%d/%d). Server will not be restarted automatically.",
 			e.attemptCount, maxRetries,
 		)
-		inst.supervisorInstance.SendConsoleOutput(serverID, msg)
+		inst.sendConsoleLine(gameServer, msg)
 		log.Warn().Str("game_server_id", serverID).
 			Int("attempts", e.attemptCount).Int("max", maxRetries).
 			Msg("Auto-restart: retry limit exhausted")
@@ -107,14 +170,14 @@ func (inst *Instance) handleServerExit(cmd *supervisor.Command, serverID string)
 		"Server exited unexpectedly. Restarting in %s (attempt %d/%d)...",
 		delay.Round(time.Second), attempt+1, maxRetries,
 	)
-	inst.supervisorInstance.SendConsoleOutput(serverID, msg)
+	inst.sendConsoleLine(gameServer, msg)
 
 	log.Warn().Str("game_server_id", serverID).
 		Int("attempt", attempt+1).Int("max", maxRetries).
 		Dur("delay", delay).
 		Msg("Auto-restart: scheduling restart")
 
-	// Run the restart in a goroutine so the callback returns promptly.
+	// Run the restart in a goroutine so the subscriber returns promptly.
 	go func() {
 		select {
 		case <-inst.ctx.Done():
@@ -132,8 +195,7 @@ func (inst *Instance) handleServerExit(cmd *supervisor.Command, serverID string)
 			return
 		}
 		if !gs.AutoRestartEnabled {
-			inst.supervisorInstance.SendConsoleOutput(serverID,
-				"Auto-restart was disabled during cooldown. Restart cancelled.")
+			inst.sendConsoleLine(gs, "Auto-restart was disabled during cooldown. Restart cancelled.")
 			log.Info().Str("game_server_id", serverID).
 				Msg("Auto-restart: disabled before restart fired, aborting")
 			return
@@ -141,11 +203,35 @@ func (inst *Instance) handleServerExit(cmd *supervisor.Command, serverID string)
 
 		startMsg := fmt.Sprintf("Auto-restart: starting server (attempt %d/%d)",
 			attempt+1, maxRetries)
-		inst.supervisorInstance.SendConsoleOutput(serverID, startMsg)
+		inst.sendConsoleLine(gs, startMsg)
 		log.Info().Str("game_server_id", serverID).
 			Int("attempt", attempt+1).
 			Msg("Auto-restart: starting server")
 
 		inst.StartGameServer(gs)
 	}()
+}
+
+// sendConsoleLine pushes a controller-generated line into the console buffer
+// for the game server, routing via the owning node's NodeClient so it works
+// for both embedded and remote servers. Falls back to the supervisor path
+// when the registry isn't configured (tests that bypass the node layer).
+func (inst *Instance) sendConsoleLine(gs *models.GameServer, line string) {
+	if gs == nil {
+		return
+	}
+	if inst.nodeRegistry != nil {
+		client, errGet := inst.nodeRegistry.Get(gs.NodeID)
+		if errGet == nil {
+			errSend := client.SendConsoleOutput(inst.ctx, gs.ID, line)
+			if errSend == nil {
+				return
+			}
+			log.Warn().Err(errSend).Str("game_server_id", gs.ID).
+				Msg("auto-restart: send console line via node client failed; falling back")
+		}
+	}
+	if inst.supervisorInstance != nil {
+		inst.supervisorInstance.SendConsoleOutput(gs.ID, line)
+	}
 }

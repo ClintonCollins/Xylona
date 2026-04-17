@@ -40,15 +40,7 @@
             </q-item-section>
 
             <q-item-section>
-              <q-item-label>
-                {{ link.title }}
-                <q-badge
-                  v-if="link.title === 'Nodes' && unreadAdvisoryCount > 0"
-                  :label="unreadAdvisoryCount"
-                  color="primary"
-                  floating
-                  rounded />
-              </q-item-label>
+              <q-item-label>{{ link.title }}</q-item-label>
             </q-item-section>
           </q-item>
           <q-expansion-item v-else v-model="link.expanded" :icon="link.icon" :label="link.title">
@@ -75,8 +67,7 @@
 </template>
 
 <script lang="ts" setup>
-import { create } from '@bufbuild/protobuf'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import {
   ionGameController,
   ionHome,
@@ -87,10 +78,9 @@ import {
 } from '@quasar/extras/ionicons-v7'
 import { laServerSolid } from '@quasar/extras/line-awesome'
 import { useRoute, useRouter } from 'vue-router'
-import { GetUnreadAdvisoryCountRequestSchema, User } from '@/proto/xylona_pb'
+import type { User } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canViewAlerts } from '@/utils/alert-permissions'
-import { GetXylonaClient } from '@/utils/shared'
 
 const store = useUserAuthStore()
 const user = computed(() => store.user as User | null)
@@ -199,34 +189,6 @@ const navLinks = computed((): NavItem[] => {
 })
 
 const leftDrawerOpen = ref(false)
-const unreadAdvisoryCount = ref(0)
-let advisoryPollTimer: ReturnType<typeof setInterval> | null = null
-
-async function fetchUnreadAdvisoryCount() {
-  if (!store.user?.superUser) return
-  try {
-    const resp = await GetXylonaClient().getUnreadAdvisoryCount(
-      create(GetUnreadAdvisoryCountRequestSchema, {}),
-    )
-    unreadAdvisoryCount.value = resp.count
-  } catch {
-    // Silently ignore — badge is non-critical
-  }
-}
-
-onMounted(() => {
-  void fetchUnreadAdvisoryCount()
-  advisoryPollTimer = setInterval(() => {
-    void fetchUnreadAdvisoryCount()
-  }, 60_000)
-})
-
-onBeforeUnmount(() => {
-  if (advisoryPollTimer) {
-    clearInterval(advisoryPollTimer)
-    advisoryPollTimer = null
-  }
-})
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value

@@ -108,12 +108,7 @@ func (s *Scheduler) executeRestart(task *models.ScheduledTask) (string, string) 
 		return statusFailed, fmt.Sprintf("failed to load game server: %s", errGS)
 	}
 
-	cmd, errCmd := s.super.GetCommandByID(task.GameServerID)
-	if errCmd != nil {
-		return statusSkipped, "server has no active supervisor command"
-	}
-
-	currentStatus := cmd.Status()
+	currentStatus := s.actions.CurrentStatus(gameServer)
 
 	switch currentStatus {
 	case xylona.Status_OFFLINE:
@@ -124,6 +119,8 @@ func (s *Scheduler) executeRestart(task *models.ScheduledTask) (string, string) 
 		return statusSkipped, fmt.Sprintf("server is in transition (%s); skipping restart", currentStatus)
 	case xylona.Status_ONLINE:
 		// proceed with restart
+	case xylona.Status_UNKNOWN:
+		return statusSkipped, "server status unknown; skipping restart"
 	default:
 		return statusSkipped, fmt.Sprintf("unexpected server status: %s", currentStatus)
 	}
@@ -143,7 +140,7 @@ func (s *Scheduler) executeRestart(task *models.ScheduledTask) (string, string) 
 		case <-deadline:
 			return statusTimedOut, "server did not reach OFFLINE within timeout after stop command"
 		case <-pollTick.C:
-			if cmd.Status() == xylona.Status_OFFLINE {
+			if s.actions.CurrentStatus(gameServer) == xylona.Status_OFFLINE {
 				// Phase 3: Start the server.
 				s.actions.StartGameServer(gameServer)
 				return statusSuccess, "server stop confirmed, start issued"
@@ -162,17 +159,17 @@ func (s *Scheduler) executeConsoleCommand(task *models.ScheduledTask) (string, s
 		return statusFailed, "no console command configured"
 	}
 
-	cmd, errCmd := s.super.GetCommandByID(task.GameServerID)
-	if errCmd != nil {
-		return statusSkipped, "server has no active supervisor command"
+	gameServer, errGS := s.db.GetGameServerByID(task.GameServerID)
+	if errGS != nil {
+		return statusFailed, fmt.Sprintf("failed to load game server: %s", errGS)
 	}
 
-	currentStatus := cmd.Status()
+	currentStatus := s.actions.CurrentStatus(gameServer)
 	if currentStatus != xylona.Status_ONLINE {
 		return statusSkipped, fmt.Sprintf("server is not online (%s); cannot send console command", currentStatus)
 	}
 
-	errSend := cmd.SendInput(consoleCommand)
+	errSend := s.actions.SendConsoleInput(gameServer, consoleCommand)
 	if errSend != nil {
 		return statusFailed, fmt.Sprintf("failed to send console command: %s", errSend)
 	}
@@ -190,13 +187,13 @@ func (s *Scheduler) executeBackup(task *models.ScheduledTask) (string, string) {
 		return statusFailed, fmt.Sprintf("failed to load game server: %s", errGetGS)
 	}
 
-	node, errGetNode := s.db.GetNodeByID(gameServer.NodeID)
+	_, errGetNode := s.db.GetNodeByID(gameServer.NodeID)
 	if errGetNode != nil {
 		return statusFailed, fmt.Sprintf("failed to load game server node: %s", errGetNode)
 	}
-	if !node.IsLocal {
-		return statusFailed, "scheduled backups only run on local servers"
-	}
+	// backup_service.produceBackupArchive handles local vs. remote node
+	// routing internally (writing directly on the controller for embedded
+	// servers, round-tripping via NodeClient for remote nodes).
 
 	backup, errCreateBackup := s.backup.CreateScheduledBackup(gameServer)
 	if errCreateBackup != nil {

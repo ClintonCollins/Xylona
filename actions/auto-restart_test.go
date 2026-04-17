@@ -78,13 +78,10 @@ func newAutoRestartTestFixture(t *testing.T, maxRetries int64, cooldownSeconds i
 	}
 
 	_, errInsertNode := conn.InsertNode(&models.NodeSetter{
-		ID:      omit.From(nodeID),
-		Name:    omit.From("Auto Restart Node"),
-		IsLocal: omit.From(true),
-		Host:    omit.From("localhost"),
-		Port:    omit.From(int64(8080)),
-		BaseURL: omit.From("http://localhost:8080"),
-		Enabled: omit.From(true),
+		ID:        omit.From(nodeID),
+		Name:      omit.From("Auto Restart Node"),
+		ListenURL: omit.From("http://localhost:8080"),
+		Enabled:   omit.From(true),
 	})
 	if errInsertNode != nil {
 		t.Fatalf("InsertNode() error = %v", errInsertNode)
@@ -175,7 +172,7 @@ func TestHandleServerExitResetsRetryCounterAfterStableWindow(t *testing.T) {
 	entry.lastStartTime = time.Now().Add(-(autoRestartStableWindow + time.Minute))
 	entry.mu.Unlock()
 
-	fixture.inst.handleServerExit(&supervisor.Command{}, fixture.gameServer.ID)
+	fixture.inst.handleServerExit(fixture.gameServer.ID)
 
 	buffer := waitForConsoleOutputSubstring(t, cmd, "Restarting in 1s (attempt 1/3)", time.Second)
 	if !strings.Contains(buffer, "Restarting in 1s (attempt 1/3)") {
@@ -200,7 +197,7 @@ func TestHandleServerExitStopsAtRetryLimit(t *testing.T) {
 	entry.lastStartTime = time.Now()
 	entry.mu.Unlock()
 
-	fixture.inst.handleServerExit(&supervisor.Command{}, fixture.gameServer.ID)
+	fixture.inst.handleServerExit(fixture.gameServer.ID)
 
 	buffer := waitForConsoleOutputSubstring(
 		t,
@@ -230,7 +227,7 @@ func TestHandleServerExitCancelsRestartWhenDisabledDuringCooldown(t *testing.T) 
 	entry.lastStartTime = time.Now()
 	entry.mu.Unlock()
 
-	fixture.inst.handleServerExit(&supervisor.Command{}, fixture.gameServer.ID)
+	fixture.inst.handleServerExit(fixture.gameServer.ID)
 
 	_, errUpdate := fixture.conn.SQLDb.ExecContext(
 		fixture.inst.ctx,

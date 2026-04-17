@@ -20,11 +20,6 @@ func Where[Q sqlite.Filterable]() struct {
 	AlertHistories             alertHistoryWhere[Q]
 	AlertRules                 alertRuleWhere[Q]
 	AlertStates                alertStateWhere[Q]
-	FederatedAccessGrants      federatedAccessGrantWhere[Q]
-	FederationAdvisories       federationAdvisoryWhere[Q]
-	FederationLocalIdentities  federationLocalIdentityWhere[Q]
-	FederationPairingTokens    federationPairingTokenWhere[Q]
-	FederationTrustedPeers     federationTrustedPeerWhere[Q]
 	Games                      gameWhere[Q]
 	GameServers                gameServerWhere[Q]
 	GameServerBackups          gameServerBackupWhere[Q]
@@ -32,19 +27,13 @@ func Where[Q sqlite.Filterable]() struct {
 	InstalledMods              installedModWhere[Q]
 	InstalledModFiles          installedModFileWhere[Q]
 	Ips                        ipWhere[Q]
-	LocalSecretKeys            localSecretKeyWhere[Q]
 	LocalSettings              localSettingWhere[Q]
-	Logs                       logWhere[Q]
 	Migrations                 migrationWhere[Q]
 	Nodes                      nodeWhere[Q]
-	NodeAPIKeys                nodeAPIKeyWhere[Q]
+	NodeJoinTokens             nodeJoinTokenWhere[Q]
 	NodeMetricsHistories       nodeMetricsHistoryWhere[Q]
-	NodeSyncQueues             nodeSyncQueueWhere[Q]
-	Notifications              notificationWhere[Q]
 	NotificationChannels       notificationChannelWhere[Q]
-	PeerSyncStates             peerSyncStateWhere[Q]
 	Permissions                permissionWhere[Q]
-	RemoteServerCaches         remoteServerCacheWhere[Q]
 	RevokedJWTS                revokedJWTWhere[Q]
 	Roles                      roleWhere[Q]
 	RolePermissions            rolePermissionWhere[Q]
@@ -52,7 +41,6 @@ func Where[Q sqlite.Filterable]() struct {
 	ScheduledTaskLogs          scheduledTaskLogWhere[Q]
 	SystemConfigs              systemConfigWhere[Q]
 	Users                      userWhere[Q]
-	UserAPIKeys                userAPIKeyWhere[Q]
 	UserRoleAssignments        userRoleAssignmentWhere[Q]
 	UserSessions               userSessionWhere[Q]
 } {
@@ -60,11 +48,6 @@ func Where[Q sqlite.Filterable]() struct {
 		AlertHistories             alertHistoryWhere[Q]
 		AlertRules                 alertRuleWhere[Q]
 		AlertStates                alertStateWhere[Q]
-		FederatedAccessGrants      federatedAccessGrantWhere[Q]
-		FederationAdvisories       federationAdvisoryWhere[Q]
-		FederationLocalIdentities  federationLocalIdentityWhere[Q]
-		FederationPairingTokens    federationPairingTokenWhere[Q]
-		FederationTrustedPeers     federationTrustedPeerWhere[Q]
 		Games                      gameWhere[Q]
 		GameServers                gameServerWhere[Q]
 		GameServerBackups          gameServerBackupWhere[Q]
@@ -72,19 +55,13 @@ func Where[Q sqlite.Filterable]() struct {
 		InstalledMods              installedModWhere[Q]
 		InstalledModFiles          installedModFileWhere[Q]
 		Ips                        ipWhere[Q]
-		LocalSecretKeys            localSecretKeyWhere[Q]
 		LocalSettings              localSettingWhere[Q]
-		Logs                       logWhere[Q]
 		Migrations                 migrationWhere[Q]
 		Nodes                      nodeWhere[Q]
-		NodeAPIKeys                nodeAPIKeyWhere[Q]
+		NodeJoinTokens             nodeJoinTokenWhere[Q]
 		NodeMetricsHistories       nodeMetricsHistoryWhere[Q]
-		NodeSyncQueues             nodeSyncQueueWhere[Q]
-		Notifications              notificationWhere[Q]
 		NotificationChannels       notificationChannelWhere[Q]
-		PeerSyncStates             peerSyncStateWhere[Q]
 		Permissions                permissionWhere[Q]
-		RemoteServerCaches         remoteServerCacheWhere[Q]
 		RevokedJWTS                revokedJWTWhere[Q]
 		Roles                      roleWhere[Q]
 		RolePermissions            rolePermissionWhere[Q]
@@ -92,18 +69,12 @@ func Where[Q sqlite.Filterable]() struct {
 		ScheduledTaskLogs          scheduledTaskLogWhere[Q]
 		SystemConfigs              systemConfigWhere[Q]
 		Users                      userWhere[Q]
-		UserAPIKeys                userAPIKeyWhere[Q]
 		UserRoleAssignments        userRoleAssignmentWhere[Q]
 		UserSessions               userSessionWhere[Q]
 	}{
 		AlertHistories:             buildAlertHistoryWhere[Q](AlertHistories.Columns),
 		AlertRules:                 buildAlertRuleWhere[Q](AlertRules.Columns),
 		AlertStates:                buildAlertStateWhere[Q](AlertStates.Columns),
-		FederatedAccessGrants:      buildFederatedAccessGrantWhere[Q](FederatedAccessGrants.Columns),
-		FederationAdvisories:       buildFederationAdvisoryWhere[Q](FederationAdvisories.Columns),
-		FederationLocalIdentities:  buildFederationLocalIdentityWhere[Q](FederationLocalIdentities.Columns),
-		FederationPairingTokens:    buildFederationPairingTokenWhere[Q](FederationPairingTokens.Columns),
-		FederationTrustedPeers:     buildFederationTrustedPeerWhere[Q](FederationTrustedPeers.Columns),
 		Games:                      buildGameWhere[Q](Games.Columns),
 		GameServers:                buildGameServerWhere[Q](GameServers.Columns),
 		GameServerBackups:          buildGameServerBackupWhere[Q](GameServerBackups.Columns),
@@ -111,19 +82,13 @@ func Where[Q sqlite.Filterable]() struct {
 		InstalledMods:              buildInstalledModWhere[Q](InstalledMods.Columns),
 		InstalledModFiles:          buildInstalledModFileWhere[Q](InstalledModFiles.Columns),
 		Ips:                        buildIPWhere[Q](Ips.Columns),
-		LocalSecretKeys:            buildLocalSecretKeyWhere[Q](LocalSecretKeys.Columns),
 		LocalSettings:              buildLocalSettingWhere[Q](LocalSettings.Columns),
-		Logs:                       buildLogWhere[Q](Logs.Columns),
 		Migrations:                 buildMigrationWhere[Q](Migrations.Columns),
 		Nodes:                      buildNodeWhere[Q](Nodes.Columns),
-		NodeAPIKeys:                buildNodeAPIKeyWhere[Q](NodeAPIKeys.Columns),
+		NodeJoinTokens:             buildNodeJoinTokenWhere[Q](NodeJoinTokens.Columns),
 		NodeMetricsHistories:       buildNodeMetricsHistoryWhere[Q](NodeMetricsHistories.Columns),
-		NodeSyncQueues:             buildNodeSyncQueueWhere[Q](NodeSyncQueues.Columns),
-		Notifications:              buildNotificationWhere[Q](Notifications.Columns),
 		NotificationChannels:       buildNotificationChannelWhere[Q](NotificationChannels.Columns),
-		PeerSyncStates:             buildPeerSyncStateWhere[Q](PeerSyncStates.Columns),
 		Permissions:                buildPermissionWhere[Q](Permissions.Columns),
-		RemoteServerCaches:         buildRemoteServerCacheWhere[Q](RemoteServerCaches.Columns),
 		RevokedJWTS:                buildRevokedJWTWhere[Q](RevokedJWTS.Columns),
 		Roles:                      buildRoleWhere[Q](Roles.Columns),
 		RolePermissions:            buildRolePermissionWhere[Q](RolePermissions.Columns),
@@ -131,7 +96,6 @@ func Where[Q sqlite.Filterable]() struct {
 		ScheduledTaskLogs:          buildScheduledTaskLogWhere[Q](ScheduledTaskLogs.Columns),
 		SystemConfigs:              buildSystemConfigWhere[Q](SystemConfigs.Columns),
 		Users:                      buildUserWhere[Q](Users.Columns),
-		UserAPIKeys:                buildUserAPIKeyWhere[Q](UserAPIKeys.Columns),
 		UserRoleAssignments:        buildUserRoleAssignmentWhere[Q](UserRoleAssignments.Columns),
 		UserSessions:               buildUserSessionWhere[Q](UserSessions.Columns),
 	}

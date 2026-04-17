@@ -1,0 +1,373 @@
+// node.proto defines the internal controller <-> node wire protocol. It is
+// NOT a browser-facing surface — the Xylona controller is the sole client of
+// this service. Each NodeService RPC maps 1:1 to a method on the
+// pkg/nodeclient.NodeClient interface.
+syntax = "proto3";
+
+package xylona.node.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1;nodeproto";
+
+// NodeErrorCode is the typed error taxonomy surfaced by NodeService methods.
+// Transport-layer errors (codes unavailable, deadline exceeded, etc.) remain
+// the domain of Connect / gRPC; this enum carries node-specific sentinels.
+enum NodeErrorCode {
+  NODE_ERROR_UNSPECIFIED = 0;
+  NODE_ERROR_INVALID_PATH = 1;
+  NODE_ERROR_PROTECTED_PATH = 2;
+  NODE_ERROR_PROCESS_NOT_FOUND = 3;
+  NODE_ERROR_PROCESS_ALREADY_RUNNING = 4;
+  NODE_ERROR_PROCESS_NOT_RUNNING = 5;
+  NODE_ERROR_START_FAILED = 6;
+  NODE_ERROR_FILE_NOT_FOUND = 7;
+  NODE_ERROR_IO = 8;
+  NODE_ERROR_PERMISSION = 9;
+}
+
+// ProcessStatus mirrors pkg/supervisor/xylona.Status. Intentionally duplicated
+// (rather than importing the public xylona.Status) so node.proto does not take
+// a dependency on the browser-facing proto surface.
+enum ProcessStatus {
+  PROCESS_STATUS_UNKNOWN = 0;
+  PROCESS_STATUS_OFFLINE = 1;
+  PROCESS_STATUS_ONLINE = 2;
+  PROCESS_STATUS_INSTALLING = 3;
+  PROCESS_STATUS_UPDATING = 4;
+  PROCESS_STATUS_PRE_START = 5;
+}
+
+// FileEntry mirrors pkg/node.FileEntry.
+message FileEntry {
+  string name = 1;
+  int64 size = 2;
+  bool is_directory = 3;
+  google.protobuf.Timestamp last_modified = 4;
+}
+
+// ProcessSnapshot mirrors pkg/node.ProcessSnapshot.
+message ProcessSnapshot {
+  string id = 1;
+  string name = 2;
+  string status = 3;
+  int64 unix_started_at = 4;
+  double cpu_percent = 5;
+  int32 cpu_cores = 6;
+  uint64 memory_rss = 7;
+  uint64 memory_vms = 8;
+  float memory_percent = 9;
+  int32 num_threads = 10;
+  uint64 disk_usage_bytes = 11;
+  double io_read_rate = 12;
+  double io_write_rate = 13;
+  int32 connection_count = 14;
+  string working_dir = 15;
+}
+
+// NodeSnapshot mirrors pkg/node.NodeSnapshot.
+message NodeSnapshot {
+  string cpu_model = 1;
+  int32 cpu_cores = 2;
+  int32 cpu_threads = 3;
+  uint64 total_memory = 4;
+  string os = 5;
+  string os_version = 6;
+  string architecture = 7;
+  string xylona_version = 8;
+
+  double cpu_percent = 9;
+  uint64 memory_used = 10;
+  double memory_percent = 11;
+  uint64 disk_used = 12;
+  uint64 disk_total = 13;
+  double disk_percent = 14;
+
+  repeated ProcessSnapshot processes = 15;
+  google.protobuf.Timestamp collected = 16;
+}
+
+// ConsoleChunk is a slice of buffered console output for one process.
+message ConsoleChunk {
+  string game_server_id = 1;
+  string text = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// ProcessStatusEvent fires when a supervised process changes lifecycle state.
+message ProcessStatusEvent {
+  string process_id = 1;
+  string status = 2;
+}
+
+// MetricsUpdateEvent fires when the node pushes a fresh metrics snapshot.
+message MetricsUpdateEvent {
+  NodeSnapshot snapshot = 1;
+}
+
+// ProcessCrashEvent fires when a supervised process exits unexpectedly.
+message ProcessCrashEvent {
+  string process_id = 1;
+  string reason = 2;
+  int32 exit_code = 3;
+}
+
+// Event is the union of events streamed by NodeService.StreamEvents. Exactly
+// one payload field is set per message.
+message Event {
+  google.protobuf.Timestamp timestamp = 1;
+  oneof payload {
+    ProcessStatusEvent process_status = 2;
+    ConsoleChunk console_output = 3;
+    MetricsUpdateEvent metrics_update = 4;
+    ProcessCrashEvent process_crash = 5;
+  }
+}
+
+// --- Process RPCs -----------------------------------------------------------
+
+message StartProcessRequest {
+  string id = 1;
+  string name = 2;
+  string base_command = 3;
+  repeated string args = 4;
+  string working_directory = 5;
+  string user = 6;
+  string node_id = 7;
+  string service_id = 8;
+  int64 stop_timeout_seconds = 9;
+  ProcessStatus initial_status = 10;
+}
+
+message StartProcessResponse {
+  string process_id = 1;
+}
+
+message StopProcessRequest {
+  string process_id = 1;
+  string stop_input_command = 2;
+}
+
+message StopProcessResponse {}
+
+message SendConsoleInputRequest {
+  string process_id = 1;
+  string input = 2;
+}
+
+message SendConsoleInputResponse {}
+
+message ReadConsoleBufferRequest {
+  string process_id = 1;
+}
+
+message ReadConsoleBufferResponse {
+  ConsoleChunk chunk = 1;
+}
+
+message StreamConsoleOutputRequest {
+  string process_id = 1;
+}
+
+// --- File RPCs --------------------------------------------------------------
+
+message ListFilesRequest {
+  string directory = 1;
+  string relative_path = 2;
+}
+
+message ListFilesResponse {
+  repeated FileEntry entries = 1;
+}
+
+message ReadFileRequest {
+  string directory = 1;
+  string relative_path = 2;
+}
+
+message ReadFileResponse {
+  bytes content = 1;
+}
+
+// Write-path requests carry server_executable + base_command so the node can
+// re-run the controller's IsProtectedServerPath check. Defense in depth: the
+// controller also validates before dispatch, but we don't want the node to
+// trust the controller blindly. When both fields are empty the node skips the
+// protection check (non-game-server call sites).
+message WriteFileRequest {
+  string directory = 1;
+  string relative_path = 2;
+  bytes content = 3;
+  string server_executable = 4;
+  string base_command = 5;
+}
+
+message WriteFileResponse {}
+
+message CreateFileOrDirectoryRequest {
+  string directory = 1;
+  string relative_path = 2;
+  string content = 3;
+  bool is_directory = 4;
+  string server_executable = 5;
+  string base_command = 6;
+}
+
+message CreateFileOrDirectoryResponse {}
+
+message DeleteFilesRequest {
+  string directory = 1;
+  repeated string files = 2;
+  string server_executable = 3;
+  string base_command = 4;
+}
+
+message DeleteFilesResponse {
+  repeated string deleted = 1;
+}
+
+message RenameFileRequest {
+  string directory = 1;
+  string old_relative_path = 2;
+  string new_relative_path = 3;
+  string server_executable = 4;
+  string base_command = 5;
+}
+
+message RenameFileResponse {
+  string new_relative_path = 1;
+}
+
+message MoveFilesRequest {
+  string directory = 1;
+  repeated string files = 2;
+  string destination = 3;
+  string server_executable = 4;
+  string base_command = 5;
+}
+
+message MoveFilesResponse {
+  repeated string moved = 1;
+}
+
+message DownloadFileFromURLRequest {
+  string directory = 1;
+  string url = 2;
+  string destination_directory_path = 3;
+  string server_executable = 4;
+  string base_command = 5;
+}
+
+message DownloadFileFromURLResponse {
+  string relative_path = 1;
+}
+
+// --- Backup RPCs ------------------------------------------------------------
+
+// CreateBackupArchiveRequest asks the node to create a zip archive containing
+// the selected include_paths (relative to directory). destination_archive_path
+// is the absolute path on the node where the archive should be written.
+message CreateBackupArchiveRequest {
+  string directory = 1;
+  repeated string include_paths = 2;
+  string destination_archive_path = 3;
+}
+
+message CreateBackupArchiveResponse {
+  int64 archive_bytes = 1;
+  string archive_sha256 = 2;
+}
+
+// ExtractBackupArchive asks the node to extract archive_path into directory.
+// overwrite_mode controls whether existing files are replaced or preserved:
+// EXTRACT_MODE_OVERLAY preserves existing files outside the archive;
+// EXTRACT_MODE_EXACT removes them before extraction. Symlinks in the archive
+// are rejected.
+message ExtractBackupArchiveRequest {
+  string directory = 1;
+  string archive_path = 2;
+  ExtractMode mode = 3;
+}
+
+enum ExtractMode {
+  EXTRACT_MODE_UNSPECIFIED = 0;
+  EXTRACT_MODE_OVERLAY = 1;
+  EXTRACT_MODE_EXACT = 2;
+}
+
+message ExtractBackupArchiveResponse {}
+
+// --- Process console output (controller-generated lines) --------------------
+
+// SendConsoleOutput writes a controller-generated line into the process's
+// console buffer. Used for pre-start messages, mod auto-update progress,
+// variant-change notifications, etc. — anything the controller wants to
+// show in the console for that game server regardless of whether the
+// underlying process is running.
+message SendConsoleOutputRequest {
+  string process_id = 1;
+  string line = 2;
+}
+
+message SendConsoleOutputResponse {}
+
+// GetProcessSnapshotRequest fetches the metrics + status for one process.
+// Equivalent to filtering GetNodeSnapshot's Processes list by ID but cheaper
+// when the caller only cares about one server.
+message GetProcessSnapshotRequest {
+  string process_id = 1;
+}
+
+message GetProcessSnapshotResponse {
+  ProcessSnapshot snapshot = 1;
+  bool found = 2;
+}
+
+// --- Node RPCs --------------------------------------------------------------
+
+message GetNodeSnapshotRequest {}
+
+message StreamEventsRequest {}
+
+message PingRequest {}
+
+message PingResponse {
+  google.protobuf.Timestamp server_time = 1;
+}
+
+// NodeService is the controller <-> node internal wire protocol. All methods
+// require an "Authorization: Bearer <shared_secret>" header; TLS layer handles
+// cert-fingerprint pinning.
+service NodeService {
+  // Process lifecycle
+  rpc StartProcess(StartProcessRequest) returns (StartProcessResponse);
+  rpc StopProcess(StopProcessRequest) returns (StopProcessResponse);
+  rpc SendConsoleInput(SendConsoleInputRequest) returns (SendConsoleInputResponse);
+  rpc ReadConsoleBuffer(ReadConsoleBufferRequest) returns (ReadConsoleBufferResponse);
+  rpc StreamConsoleOutput(StreamConsoleOutputRequest) returns (stream ConsoleChunk);
+
+  // File operations
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+  rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
+  rpc WriteFile(WriteFileRequest) returns (WriteFileResponse);
+  rpc CreateFileOrDirectory(CreateFileOrDirectoryRequest) returns (CreateFileOrDirectoryResponse);
+  rpc DeleteFiles(DeleteFilesRequest) returns (DeleteFilesResponse);
+  rpc RenameFile(RenameFileRequest) returns (RenameFileResponse);
+  rpc MoveFiles(MoveFilesRequest) returns (MoveFilesResponse);
+  rpc DownloadFileFromURL(DownloadFileFromURLRequest) returns (DownloadFileFromURLResponse);
+
+  // Backup operations
+  rpc CreateBackupArchive(CreateBackupArchiveRequest) returns (CreateBackupArchiveResponse);
+  rpc ExtractBackupArchive(ExtractBackupArchiveRequest) returns (ExtractBackupArchiveResponse);
+
+  // Console output (controller-generated lines pushed into the process buffer)
+  rpc SendConsoleOutput(SendConsoleOutputRequest) returns (SendConsoleOutputResponse);
+
+  // Process introspection
+  rpc GetProcessSnapshot(GetProcessSnapshotRequest) returns (GetProcessSnapshotResponse);
+
+  // Node introspection
+  rpc GetNodeSnapshot(GetNodeSnapshotRequest) returns (NodeSnapshot);
+  rpc StreamEvents(StreamEventsRequest) returns (stream Event);
+  rpc Ping(PingRequest) returns (PingResponse);
+}

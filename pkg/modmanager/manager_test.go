@@ -92,9 +92,8 @@ func seedTestFixture(t *testing.T, conn *db.Connection) {
 	ctx := context.Background()
 
 	_, errNode := conn.SQLDb.ExecContext(ctx,
-		`INSERT INTO node (id, name, is_local, host, port, base_url, enabled)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"node-local", "Local Node", true, "localhost", 8080, "http://localhost:8080", true,
+		`INSERT INTO node (id, name, listen_url, enabled) VALUES (?, ?, ?, ?)`,
+		"node-local", "Local Node", "http://localhost:8080", true,
 	)
 	if errNode != nil {
 		t.Fatalf("failed to insert node: %v", errNode)

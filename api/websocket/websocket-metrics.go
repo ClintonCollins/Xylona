@@ -1,17 +1,115 @@
 package websocket
 
 import (
+	"context"
+	"fmt"
 	"slices"
 	"time"
 
 	"github.com/olahol/melody"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+const (
+	nodeSnapshotFetchTimeout    = 5 * time.Second
+	processSnapshotFetchTimeout = 3 * time.Second
+)
+
+// buildNodeResourceSnapshot converts a node.NodeSnapshot plus DB-derived counts
+// into the on-the-wire NodeResourceSnapshot shape the websocket broadcasts.
+func buildNodeResourceSnapshot(snap *node.NodeSnapshot, gsCount, userCount int) *xylona.NodeResourceSnapshot {
+	runningCount := 0
+	for _, ps := range snap.Processes {
+		switch ps.Status {
+		case xylona.Status_ONLINE.String(),
+			xylona.Status_INSTALLING.String(),
+			xylona.Status_UPDATING.String():
+			runningCount++
+		}
+	}
+	return &xylona.NodeResourceSnapshot{
+		CpuPercent:             snap.CPUPercent,
+		MemoryPercent:          snap.MemoryPercent,
+		MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
+		MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.TotalMemory),
+		DiskPercent:            snap.DiskPercent,
+		DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
+		DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
+		GameServerCount:        helpers.ClampInt32FromInt(gsCount),
+		RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+		UserCount:              helpers.ClampInt32FromInt(userCount),
+		RecordedAt:             timestamppb.Now(),
+	}
+}
+
+// processSnapshotToGameServerMetrics converts a node.ProcessSnapshot to the
+// on-the-wire GameServerMetrics shape. Returns nil if snap is nil.
+func processSnapshotToGameServerMetrics(snap *node.ProcessSnapshot) *xylona.GameServerMetrics {
+	if snap == nil {
+		return nil
+	}
+	var uptimeSeconds int64
+	if snap.UnixStartedAt > 0 {
+		uptimeSeconds = time.Now().Unix() - snap.UnixStartedAt
+	}
+	return &xylona.GameServerMetrics{
+		CpuPercent:            snap.CPUPercent,
+		MemoryBytes:           helpers.ClampInt64FromUint64(snap.MemoryVMS),
+		MemoryWorkingSetBytes: helpers.ClampInt64FromUint64(snap.MemoryRSS),
+		MemoryPercent:         float64(snap.MemoryPercent),
+		CpuCores:              snap.CPUCores,
+		NumberOfThreads:       snap.NumThreads,
+		DiskUsageBytes:        helpers.ClampInt64FromUint64(snap.DiskUsageBytes),
+		IoReadRate:            snap.IOReadRate,
+		IoWriteRate:           snap.IOWriteRate,
+		ConnectionCount:       snap.ConnectionCount,
+		UptimeSeconds:         uptimeSeconds,
+	}
+}
+
+// fetchNodeSnapshot wraps NodeClient.GetNodeSnapshot with a bounded timeout.
+func fetchNodeSnapshot(ctx context.Context, client nodeclient.NodeClient) (*node.NodeSnapshot, error) {
+	snapCtx, cancel := context.WithTimeout(ctx, nodeSnapshotFetchTimeout)
+	defer cancel()
+	snap, errSnap := client.GetNodeSnapshot(snapCtx)
+	if errSnap != nil {
+		return nil, fmt.Errorf("websocket: fetch node snapshot: %w", errSnap)
+	}
+	return snap, nil
+}
+
+// resolveGameServerStatus returns the current xylona.Status for a game server,
+// routing through the node registry so embedded and remote nodes behave the
+// same. Falls back to OFFLINE when the node is unreachable or the process is
+// not currently tracked.
+func (ws *WebSocket) resolveGameServerStatus(gameServer *models.GameServer) xylona.Status {
+	if ws.nodeRegistry == nil || gameServer == nil {
+		return xylona.Status_OFFLINE
+	}
+	client, errClient := ws.nodeRegistry.Get(gameServer.NodeID)
+	if errClient != nil {
+		return xylona.Status_OFFLINE
+	}
+	ctx, cancel := context.WithTimeout(ws.ctx, processSnapshotFetchTimeout)
+	defer cancel()
+	snap, found, errSnap := client.GetProcessSnapshot(ctx, gameServer.ID)
+	if errSnap != nil || !found || snap == nil {
+		return xylona.Status_OFFLINE
+	}
+	statusValue, ok := xylona.Status_value[snap.Status]
+	if !ok {
+		return xylona.Status_OFFLINE
+	}
+	return xylona.Status(statusValue)
+}
 
 // queryEqual checks if two ServerQuery objects are equal. Used to save websocket traffic.
 func queryEqual(x, y *xylona.ServerQuery) bool {
@@ -114,7 +212,50 @@ func (ws *WebSocket) gameServerConnectionsWithAccess(serverID string) []*connect
 	return connections
 }
 
-// sendNodeMetrics sends node resource metrics to a superuser connection every 5 seconds.
+// collectAllNodeSnapshots iterates the node registry, calls GetNodeSnapshot
+// on each client (each request bounded by nodeSnapshotFetchTimeout), and
+// returns a map of nodeID -> proto snapshot suitable for websocket broadcast.
+// Errors are logged per-node; unreachable nodes are simply omitted.
+func (ws *WebSocket) collectAllNodeSnapshots(ctx context.Context) map[string]*xylona.NodeResourceSnapshot {
+	if ws.nodeRegistry == nil {
+		return map[string]*xylona.NodeResourceSnapshot{}
+	}
+	clients := ws.nodeRegistry.List()
+	out := make(map[string]*xylona.NodeResourceSnapshot, len(clients))
+
+	userCount, errUsers := ws.db.CountUsers()
+	if errUsers != nil {
+		log.Warn().Err(errUsers).Msg("Failed to count users for websocket snapshot")
+	}
+
+	// Pre-compute game server counts per node so we do a single DB scan
+	// instead of one per registered node.
+	gsCountsByNode := make(map[string]int)
+	allServers, errAll := ws.db.GetAllGameServers()
+	if errAll != nil {
+		log.Warn().Err(errAll).Msg("websocket: failed to enumerate game servers for snapshot")
+	} else {
+		for _, gs := range allServers {
+			gsCountsByNode[gs.NodeID]++
+		}
+	}
+
+	for _, client := range clients {
+		nodeID := client.ID()
+		snap, errSnap := fetchNodeSnapshot(ctx, client)
+		if errSnap != nil {
+			log.Debug().Err(errSnap).Str("node_id", nodeID).
+				Msg("websocket: GetNodeSnapshot failed")
+			continue
+		}
+		out[nodeID] = buildNodeResourceSnapshot(snap, gsCountsByNode[nodeID], userCount)
+	}
+	return out
+}
+
+// sendNodeMetrics sends node resource metrics to a superuser connection every
+// 5 seconds. Snapshots are fetched directly through the node registry so
+// embedded and remote nodes render identically.
 func (ws *WebSocket) sendNodeMetrics(s *melody.Session) {
 	previousSnapshots := make(map[string]*xylona.NodeResourceSnapshot)
 	ticker := time.NewTicker(5 * time.Second)
@@ -141,37 +282,21 @@ func (ws *WebSocket) sendNodeMetrics(s *melody.Session) {
 				continue
 			}
 
-			localNodeID, errLocalID := ws.db.GetLocalNodeID()
-			if errLocalID != nil {
-				log.Error().Err(errLocalID).Msg("Failed to get local node ID for node metrics")
-				continue
-			}
+			snapshots := ws.collectAllNodeSnapshots(ws.ctx)
+			allNodeMetrics := &xylona.AllNodeMetrics{Nodes: snapshots}
 
-			allNodeMetrics := &xylona.AllNodeMetrics{Nodes: make(map[string]*xylona.NodeResourceSnapshot)}
-			changed := false
-
-			// Collect local node snapshot.
-			localSnap := ws.collectLocalNodeSnapshot()
-			if localSnap != nil {
-				prev, exists := previousSnapshots[localNodeID]
-				if !exists || !nodeSnapshotEqual(prev, localSnap) {
-					changed = true
+			// Detect changes (add/drop/modified) so we can skip no-op sends.
+			changed := len(snapshots) != len(previousSnapshots)
+			if !changed {
+				for nodeID, snap := range snapshots {
+					prev, exists := previousSnapshots[nodeID]
+					if !exists || !nodeSnapshotEqual(prev, snap) {
+						changed = true
+						break
+					}
 				}
-				previousSnapshots[localNodeID] = localSnap
-				allNodeMetrics.Nodes[localNodeID] = localSnap
 			}
-
-			// Merge remote node snapshots from cache.
-			ws.remoteNodeSnapshotCacheLock.RLock()
-			for nodeID, snap := range ws.remoteNodeSnapshotCache {
-				prev, exists := previousSnapshots[nodeID]
-				if !exists || !nodeSnapshotEqual(prev, snap) {
-					changed = true
-				}
-				previousSnapshots[nodeID] = snap
-				allNodeMetrics.Nodes[nodeID] = snap
-			}
-			ws.remoteNodeSnapshotCacheLock.RUnlock()
+			previousSnapshots = snapshots
 
 			if !changed {
 				continue
@@ -195,6 +320,49 @@ func (ws *WebSocket) sendNodeMetrics(s *melody.Session) {
 	}
 }
 
+// collectOwnedServerMetrics batches per-node GetNodeSnapshot calls so we do at
+// most one round-trip per distinct node per tick, then extracts the snapshot
+// for each game server the session owns. Returns a map keyed by game server
+// ID; missing servers simply don't appear in the result.
+func (ws *WebSocket) collectOwnedServerMetrics(ctx context.Context, gameServers []*models.GameServer) map[string]*xylona.GameServerMetrics {
+	if ws.nodeRegistry == nil || len(gameServers) == 0 {
+		return map[string]*xylona.GameServerMetrics{}
+	}
+
+	// Group the session's servers by node so we fetch each node snapshot once.
+	serversByNode := make(map[string][]*models.GameServer, len(gameServers))
+	for _, gs := range gameServers {
+		serversByNode[gs.NodeID] = append(serversByNode[gs.NodeID], gs)
+	}
+
+	out := make(map[string]*xylona.GameServerMetrics, len(gameServers))
+	for nodeID, nodeServers := range serversByNode {
+		client, errClient := ws.nodeRegistry.Get(nodeID)
+		if errClient != nil {
+			// Node not currently reachable; leave these servers out of this tick.
+			continue
+		}
+		snap, errSnap := fetchNodeSnapshot(ctx, client)
+		if errSnap != nil {
+			log.Debug().Err(errSnap).Str("node_id", nodeID).
+				Msg("websocket: GetNodeSnapshot for owned-server metrics failed")
+			continue
+		}
+		processByID := make(map[string]*node.ProcessSnapshot, len(snap.Processes))
+		for i := range snap.Processes {
+			processByID[snap.Processes[i].ID] = &snap.Processes[i]
+		}
+		for _, gs := range nodeServers {
+			ps, exists := processByID[gs.ID]
+			if !exists {
+				continue
+			}
+			out[gs.ID] = processSnapshotToGameServerMetrics(ps)
+		}
+	}
+	return out
+}
+
 func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
 	previousMetricsMap := make(map[string]*xylona.GameServerMetrics)
 	ticker := time.NewTicker(3 * time.Second)
@@ -214,34 +382,16 @@ func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
 				log.Error().Err(errGetServers).Msg("Failed to get game servers from session for metrics")
 				return
 			}
-			allMetrics := &xylona.AllServersMetrics{Servers: make(map[string]*xylona.GameServerMetrics)}
+			collected := ws.collectOwnedServerMetrics(ws.ctx, gameServers)
+			allMetrics := &xylona.AllServersMetrics{Servers: make(map[string]*xylona.GameServerMetrics, len(collected))}
 			metricsChanged := false
 			for _, gameServer := range gameServers {
-				cmd, errGetCmd := ws.supervisor.GetCommandByID(gameServer.ID)
-				if errGetCmd != nil {
+				current, exists := collected[gameServer.ID]
+				if !exists {
 					continue
 				}
-				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := cmd.Metrics()
-				startedAt := cmd.UnixStartedAt()
-				var uptimeSeconds int64
-				if startedAt > 0 {
-					uptimeSeconds = time.Now().Unix() - startedAt
-				}
-				current := &xylona.GameServerMetrics{
-					CpuPercent:            cpuPct,
-					MemoryBytes:           helpers.ClampInt64FromUint64(memVMS),
-					MemoryWorkingSetBytes: helpers.ClampInt64FromUint64(memRSS),
-					MemoryPercent:         float64(memPct),
-					CpuCores:              cpuCores,
-					NumberOfThreads:       threads,
-					DiskUsageBytes:        helpers.ClampInt64FromUint64(diskBytes),
-					IoReadRate:            ioRead,
-					IoWriteRate:           ioWrite,
-					ConnectionCount:       connCount,
-					UptimeSeconds:         uptimeSeconds,
-				}
-				previous, exists := previousMetricsMap[gameServer.ID]
-				if !exists || !metricsEqual(previous, current) {
+				previous, seen := previousMetricsMap[gameServer.ID]
+				if !seen || !metricsEqual(previous, current) {
 					previousMetricsMap[gameServer.ID] = current
 					metricsChanged = true
 				}
@@ -335,11 +485,7 @@ func (ws *WebSocket) sendOwnedServersQueryInfo(s *melody.Session) {
 }
 
 func (ws *WebSocket) sendUserGameServerStatus(s *melody.Session, gameServer *models.GameServer) {
-	command, errGetCommand := ws.supervisor.GetCommandByID(gameServer.ID)
-	if errGetCommand != nil {
-		return
-	}
-	status := command.Status()
+	status := ws.resolveGameServerStatus(gameServer)
 	out := &xylona.Message{
 		Type: xylona.Message_GameServerStatus,
 		GameServerStatusUpdate: &xylona.GameServerStatusUpdate{

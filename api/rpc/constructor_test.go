@@ -40,30 +40,3 @@ func TestNewXylonaServiceReturnsErrorWhenPermissionsCannotLoad(t *testing.T) {
 		t.Fatalf("NewXylonaService() service = %+v, want nil", service)
 	}
 }
-
-func TestNewFederationServiceReturnsErrorWhenPermissionsCannotLoad(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "federation-service.sqlite")
-	conn, errNewConnection := db.NewConnection(context.Background(), dbPath)
-	if errNewConnection != nil {
-		t.Fatalf("db.NewConnection() error = %v", errNewConnection)
-	}
-	t.Cleanup(func() {
-		if errClose := conn.SQLDb.Close(); errClose != nil {
-			t.Errorf("failed to close test db: %v", errClose)
-		}
-	})
-
-	service, errNewService := NewFederationService(
-		context.Background(),
-		conn,
-		nil,
-		nil,
-		versiontracker.NewVersionStateMap(),
-	)
-	if errNewService == nil {
-		t.Fatal("NewFederationService() error = nil, want error")
-	}
-	if service != nil {
-		t.Fatalf("NewFederationService() service = %+v, want nil", service)
-	}
-}

@@ -60,6 +60,25 @@ func Build() {
 	}
 }
 
+// BuildNode compiles the xylona-node agent binary. The controller (xylona)
+// and the node binary are independent — this target only builds the node so
+// developers can iterate on it without paying for a full goreleaser run.
+//
+// Note: `mage Build` currently drives goreleaser, which is configured to
+// release the controller binary only. Once the node binary ships to end
+// users, goreleaser should be extended to include it; until then, use
+// BuildNode during development.
+func BuildNode() {
+	cmdBuild := exec.Command("go", "build", "-o", "xylona-node", "./cmd/xylona-node/")
+	cmdBuild.Stdout = os.Stdout
+	cmdBuild.Stderr = os.Stderr
+	errRun := cmdBuild.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("Failed to build xylona-node")
+		os.Exit(1)
+	}
+}
+
 func GenerateProto() {
 	cmdGenProto := exec.Command("buf", "generate")
 	cmdGenProto.Dir = "proto"
@@ -256,45 +275,9 @@ func E2EReport() {
 	}
 }
 
-// E2EFederation runs the two-node federation Playwright E2E tests.
-// Fully self-contained — builds binaries, starts two nodes, pairs them, runs tests, tears down.
-func E2EFederation() {
-	cmdE2E := exec.Command("pnpm", "run", "e2e:federation")
-	cmdE2E.Dir = "frontend"
-	cmdE2E.Stdout = os.Stdout
-	cmdE2E.Stderr = os.Stderr
-	errRun := cmdE2E.Run()
-	if errRun != nil {
-		log.Error().Err(errRun).Msg("Federation E2E tests failed")
-		os.Exit(1)
-	}
-}
-
-// E2EFederationHeaded runs federation E2E tests in headed browser mode.
-func E2EFederationHeaded() {
-	cmdE2E := exec.Command("pnpm", "run", "e2e:federation:headed")
-	cmdE2E.Dir = "frontend"
-	cmdE2E.Stdout = os.Stdout
-	cmdE2E.Stderr = os.Stderr
-	errRun := cmdE2E.Run()
-	if errRun != nil {
-		log.Error().Err(errRun).Msg("Federation E2E headed tests failed")
-		os.Exit(1)
-	}
-}
-
-// E2EFederationReport opens the last federation Playwright HTML report.
-func E2EFederationReport() {
-	cmdE2E := exec.Command("pnpm", "run", "e2e:federation:report")
-	cmdE2E.Dir = "frontend"
-	cmdE2E.Stdout = os.Stdout
-	cmdE2E.Stderr = os.Stderr
-	errRun := cmdE2E.Run()
-	if errRun != nil {
-		log.Error().Err(errRun).Msg("Federation E2E report failed")
-		os.Exit(1)
-	}
-}
+// E2EFederation, E2EFederationHeaded, and E2EFederationReport were removed
+// alongside the federation mesh harness. The hub-spoke multi-node E2E
+// (controller + xylona-node) lands in step 11 of the hub-spoke migration.
 
 // E2ESeed bootstraps a fresh SQLite database with an admin user.
 // Usage: mage e2eSeed <db_path> [username] [password]

@@ -8,16 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func fallbackNodeID(requestNodeID string, defaultNodeID string) string {
@@ -213,551 +214,280 @@ func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Re
 	return connect.NewResponse(response), nil
 }
 
-// EditGameServer updates an existing local game server.
-func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
-	serverID := request.Msg.GetServerId()
+// EditGameServer updates an existing game server.
+func (xs *XylonaService) EditGameServer(_ context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(existingGameServer *models.GameServer) (*connect.Response[xylona.EditGameServerResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, existingGameServer, "game_server.settings")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	existingGameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, existingGameServer, "game_server.settings")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			incomingGameServer := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
-			gameServerModel := mergeEditableGameServerUpdate(existingGameServer, incomingGameServer, user.SuperUser)
-			gameServerModel.NodeID = fallbackNodeID(gameServerModel.NodeID, existingGameServer.NodeID)
+	incomingGameServer := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+	gameServerModel := mergeEditableGameServerUpdate(existingGameServer, incomingGameServer, user.SuperUser)
+	gameServerModel.NodeID = fallbackNodeID(gameServerModel.NodeID, existingGameServer.NodeID)
 
-			// Check for port conflicts when IP or port changed.
-			game, errGetGame := xs.db.GetGameByID(gameServerModel.GameID)
-			if errGetGame != nil {
-				return nil, dbLookup(errGetGame)
-			}
+	game, errGetGame := xs.db.GetGameByID(gameServerModel.GameID)
+	if errGetGame != nil {
+		return nil, dbLookup(errGetGame)
+	}
 
-			errValidateSubmission := validateGameServerSubmission(game, gameServerModel, user.SuperUser)
-			if errValidateSubmission != nil {
-				return nil, errValidateSubmission
-			}
+	errValidateSubmission := validateGameServerSubmission(game, gameServerModel, user.SuperUser)
+	if errValidateSubmission != nil {
+		return nil, errValidateSubmission
+	}
 
-			_, errNode := xs.db.GetNodeByID(gameServerModel.NodeID)
-			if errNode != nil {
-				if errors.Is(errNode, sql.ErrNoRows) {
-					return nil, invalidArg("invalid node")
-				}
-				return nil, internalErrf("failed to validate node")
-			}
+	_, errNode := xs.db.GetNodeByID(gameServerModel.NodeID)
+	if errNode != nil {
+		if errors.Is(errNode, sql.ErrNoRows) {
+			return nil, invalidArg("invalid node")
+		}
+		return nil, internalErrf("failed to validate node")
+	}
 
-			if gameServerModel.IP != existingGameServer.IP || gameServerModel.Port != existingGameServer.Port || gameServerModel.QueryPort != existingGameServer.QueryPort {
-				availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
-					gameServerModel.IP, gameServerModel.Port, gameServerModel.QueryPort, game, existingGameServer.ID,
-				)
-				if errPortCheck != nil {
-					return nil, connect.NewError(connect.CodeAlreadyExists, errPortCheck)
-				}
-				gameServerModel.Port = availablePort
-				gameServerModel.QueryPort = availableQueryPort
-			}
+	if gameServerModel.IP != existingGameServer.IP || gameServerModel.Port != existingGameServer.Port || gameServerModel.QueryPort != existingGameServer.QueryPort {
+		availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
+			gameServerModel.IP, gameServerModel.Port, gameServerModel.QueryPort, game, existingGameServer.ID,
+		)
+		if errPortCheck != nil {
+			return nil, connect.NewError(connect.CodeAlreadyExists, errPortCheck)
+		}
+		gameServerModel.Port = availablePort
+		gameServerModel.QueryPort = availableQueryPort
+	}
 
-			setter := helpers.GameServerModelToSetter(gameServerModel)
-			_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
-			if errUpdate != nil {
-				return nil, internalErr()
-			}
+	setter := helpers.GameServerModelToSetter(gameServerModel)
+	_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
+	if errUpdate != nil {
+		return nil, internalErr()
+	}
 
-			gameServerProto := helpers.GameServerModelToProto(gameServerModel, xs.versionState)
-			if !user.SuperUser {
-				redactGameServerForNonSuperuser(gameServerProto)
-			}
-			response := &xylona.EditGameServerResponse{Game_Server: gameServerProto}
-			return connect.NewResponse(response), nil
-		},
-		func() (*connect.Response[xylona.EditGameServerResponse], error) {
-			return xs.editRemoteGameServer(ctx, serverID, request.Msg.GetGameServer(), user)
-		},
-	)
+	gameServerProto := helpers.GameServerModelToProto(gameServerModel, xs.versionState)
+	if !user.SuperUser {
+		redactGameServerForNonSuperuser(gameServerProto)
+	}
+	return connect.NewResponse(&xylona.EditGameServerResponse{Game_Server: gameServerProto}), nil
 }
 
-// RemoveGameServer deletes a local or remote game server.
-func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
-	serverID := request.Msg.GetServerId()
+// RemoveGameServer deletes a game server managed by the controller's embedded node.
+func (xs *XylonaService) RemoveGameServer(_ context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.RemoveGameServerResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.delete")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.delete")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			xs.actionsInst.StopGameServer(gameServer)
-			errRemove := xs.actionsInst.RemoveGameServer(gameServer, true)
-			if errRemove != nil {
-				return nil, internalErr()
-			}
-			return connect.NewResponse(&xylona.RemoveGameServerResponse{}), nil
-		},
-		func() (*connect.Response[xylona.RemoveGameServerResponse], error) {
-			return xs.removeRemoteGameServer(ctx, serverID, user)
-		},
-	)
+	xs.actionsInst.StopGameServer(gameServer)
+	errRemove := xs.actionsInst.RemoveGameServer(gameServer, true)
+	if errRemove != nil {
+		return nil, internalErr()
+	}
+	return connect.NewResponse(&xylona.RemoveGameServerResponse{}), nil
 }
 
-// StartGameServer starts a local or remote game server.
-func (xs *XylonaService) StartGameServer(ctx context.Context, request *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error) {
-	serverID := request.Msg.GetServerId()
+// StartGameServer starts a game server managed by the controller's embedded node.
+func (xs *XylonaService) StartGameServer(_ context.Context, request *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.StartGameServerResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.start")
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			xs.actionsInst.StartGameServer(gameServer)
-			return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
-		},
-		func() (*connect.Response[xylona.StartGameServerResponse], error) {
-			return xs.startRemoteGameServer(ctx, serverID, user)
-		},
-	)
-}
-
-func (xs *XylonaService) startRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.StartGameServerResponse], error) {
-	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
-	if errGetPeer != nil {
-		return nil, errGetPeer
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.start")
+	if errPermission != nil {
+		return nil, errPermission
 	}
 
-	client, errClient := xs.newRemoteFederationClient(peerNode)
-	if errClient != nil {
-		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
-	}
-
-	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
-		ServerId: serverID,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to start remote server"))
-	}
-
-	resp, errStart := client.StartRemoteServer(ctx, req)
-	if errStart != nil {
-		log.Error().Err(errStart).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to start remote game server")
-		return nil, wrapRemoteRPCError(errStart, "failed to start remote server")
-	}
-
-	if !resp.Msg.GetSuccess() {
-		return nil, internalErrf(resp.Msg.GetError())
-	}
-
+	xs.actionsInst.StartGameServer(gameServer)
 	return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
 }
 
-// StopGameServer stops a local or remote game server.
-func (xs *XylonaService) StopGameServer(ctx context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
-	serverID := request.Msg.GetServerId()
+// StopGameServer stops a game server managed by the controller's embedded node.
+func (xs *XylonaService) StopGameServer(_ context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.StopGameServerResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.stop")
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			xs.actionsInst.StopGameServer(gameServer)
-			return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
-		},
-		func() (*connect.Response[xylona.StopGameServerResponse], error) {
-			return xs.stopRemoteGameServer(ctx, serverID, user)
-		},
-	)
-}
-
-func (xs *XylonaService) stopRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.StopGameServerResponse], error) {
-	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
-	if errGetPeer != nil {
-		return nil, errGetPeer
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.stop")
+	if errPermission != nil {
+		return nil, errPermission
 	}
 
-	client, errClient := xs.newRemoteFederationClient(peerNode)
-	if errClient != nil {
-		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
-	}
-
-	req := connect.NewRequest(&xylona.FederationRemoteActionRequest{
-		ServerId: serverID,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to stop remote server"))
-	}
-
-	resp, errStop := client.StopRemoteServer(ctx, req)
-	if errStop != nil {
-		log.Error().Err(errStop).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to stop remote game server")
-		return nil, wrapRemoteRPCError(errStop, "failed to stop remote server")
-	}
-
-	if !resp.Msg.GetSuccess() {
-		return nil, internalErrf(resp.Msg.GetError())
-	}
-
+	xs.actionsInst.StopGameServer(gameServer)
 	return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
 }
 
-// ReadGameServerOutput returns buffered console output for a local or remote server.
-func (xs *XylonaService) ReadGameServerOutput(ctx context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
-	serverID := request.Msg.GetServerId()
+// ReadGameServerOutput returns buffered console output.
+func (xs *XylonaService) ReadGameServerOutput(_ context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.console")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.console")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			output := xs.actionsInst.ReadGameServerBuffer(gameServer)
-			response := &xylona.ReadGameServerOutputResponse{
-				Output: output,
-			}
-			return connect.NewResponse(response), nil
-		},
-		func() (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
-			return xs.readRemoteGameServerOutput(ctx, serverID, user)
-		},
-	)
+	output := xs.actionsInst.ReadGameServerBuffer(gameServer)
+	return connect.NewResponse(&xylona.ReadGameServerOutputResponse{Output: output}), nil
 }
 
-func (xs *XylonaService) readRemoteGameServerOutput(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
-	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
-	if errGetPeer != nil {
-		return nil, errGetPeer
-	}
-
-	client, errClient := xs.newRemoteFederationClient(peerNode)
-	if errClient != nil {
-		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
-	}
-
-	req := connect.NewRequest(&xylona.FederationReadConsoleBufferRequest{
-		ServerId: serverID,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to read remote console"))
-	}
-
-	resp, errRead := client.ReadConsoleBuffer(ctx, req)
-	if errRead != nil {
-		log.Error().Err(errRead).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to read remote console buffer")
-		return nil, wrapRemoteRPCError(errRead, "failed to read remote console")
-	}
-
-	return connect.NewResponse(&xylona.ReadGameServerOutputResponse{
-		Output: resp.Msg.GetOutput(),
-	}), nil
-}
-
-// SendGameServerInput sends console input to a local or remote server.
+// SendGameServerInput sends console input to a running server.
 func (xs *XylonaService) SendGameServerInput(ctx context.Context, request *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error) {
-	serverID := request.Msg.GetServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.SendGameServerInputResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.console")
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
-			if errGetCommand != nil {
-				log.Error().Err(errGetCommand).Msg("Failed to get game server command")
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("game server not running"))
-			}
-			status := gameServerCmd.Status()
-			if status == xylona.Status_OFFLINE || status == xylona.Status_UNKNOWN {
-				return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
-			}
-			errSend := gameServerCmd.SendInput(request.Msg.GetInput())
-			if errSend != nil {
-				log.Error().Err(errSend).Msg("Failed to send input to game server")
-				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-			}
-			return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
-		},
-		func() (*connect.Response[xylona.SendGameServerInputResponse], error) {
-			return xs.sendRemoteGameServerInput(ctx, serverID, request.Msg.GetInput(), user)
-		},
-	)
-}
-
-func (xs *XylonaService) sendRemoteGameServerInput(ctx context.Context, serverID string, input string, actingUser *models.User) (*connect.Response[xylona.SendGameServerInputResponse], error) {
-	peerNode, _, errGetPeer := xs.getRemoteNodeForServer(serverID)
-	if errGetPeer != nil {
-		return nil, errGetPeer
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.console")
+	if errPermission != nil {
+		return nil, errPermission
 	}
 
-	client, errClient := xs.newRemoteFederationClient(peerNode)
+	client, errClient := xs.resolveNodeClient(gameServer)
 	if errClient != nil {
-		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
+		return nil, errClient
 	}
-
-	req := connect.NewRequest(&xylona.FederationSendConsoleInputRequest{
-		ServerId: serverID,
-		Input:    input,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to send remote input"))
-	}
-
-	resp, errSend := client.SendConsoleInput(ctx, req)
+	errSend := client.SendConsoleInput(ctx, gameServer.ID, request.Msg.GetInput())
 	if errSend != nil {
-		log.Error().Err(errSend).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to send remote console input")
-		return nil, wrapRemoteRPCError(errSend, "failed to send remote input")
+		if errors.Is(errSend, supervisor.ErrCommandDoesNotExist) {
+			return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
+		}
+		log.Error().Err(errSend).Msg("Failed to send input to game server")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
-
-	if !resp.Msg.GetSuccess() {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(resp.Msg.GetError()))
-	}
-
 	return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
 }
 
-// ListDirectoryFiles lists files in a local or remote server directory.
+// ListDirectoryFiles lists files in a server directory via the controller's embedded node.
 func (xs *XylonaService) ListDirectoryFiles(ctx context.Context, request *connect.Request[xylona.ListDirectoryFilesRequest]) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
-	serverID := request.Msg.GetGameServerId()
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.view")
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			files, errListGameServerFiles := xs.actionsInst.ListGameServerFiles(gameServer, request.Msg.GetPath())
-			if errListGameServerFiles != nil {
-				if errors.Is(errListGameServerFiles, actions.ErrInvalidPath) {
-					return nil, invalidArg("invalid path")
-				}
-				if errors.Is(errListGameServerFiles, os.ErrNotExist) {
-					return nil, notFoundErr()
-				}
-				return nil, internalErr()
-			}
-			response := &xylona.ListDirectoryFilesResponse{
-				Files: files,
-			}
-			return connect.NewResponse(response), nil
-		},
-		func() (*connect.Response[xylona.ListDirectoryFilesResponse], error) {
-			return xs.listRemoteDirectoryFiles(ctx, serverID, request.Msg.GetPath(), user)
-		},
-	)
-}
-
-// GetGameServer returns details for a local or remote game server.
-func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error) {
-	serverID := request.Msg.GetId()
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GetGameServerResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
-			if errGetCommand != nil {
-				gameServer.Status = xylona.Status_OFFLINE.String()
-			} else {
-				gameServer.Status = gameServerCmd.Status().String()
-			}
-			gsProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
-			if !user.SuperUser {
-				redactGameServerForNonSuperuser(gsProto)
-			}
-			gsProto.Version, gsProto.VersionInfo = xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{
-				AllowAsync: true,
-			})
-			if errGetCommand == nil {
-				cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
-				gsProto.CpuPercent = int64(cpuPct)
-				gsProto.MemoryBytes = helpers.ClampInt64FromUint64(memVMS)
-				gsProto.MemoryWorkingSetBytes = helpers.ClampInt64FromUint64(memRSS)
-				gsProto.MemoryPercent = float64(memPct)
-				gsProto.CpuCores = cpuCores
-				gsProto.NumberOfThreads = int64(threads)
-				gsProto.DiskUsageBytes = helpers.ClampInt64FromUint64(diskBytes)
-				gsProto.IoReadRate = ioRead
-				gsProto.IoWriteRate = ioWrite
-				gsProto.ConnectionCount = connCount
-				startedAt := gameServerCmd.UnixStartedAt()
-				if startedAt > 0 {
-					gsProto.UptimeSeconds = time.Now().Unix() - startedAt
-				}
-			}
-			gsProto.EffectivePermissions = xs.computeEffectivePermissions(user, gameServer)
-			response := &xylona.GetGameServerResponse{GameServer: gsProto}
-			return connect.NewResponse(response), nil
-		},
-		func() (*connect.Response[xylona.GetGameServerResponse], error) {
-			return xs.getRemoteGameServer(ctx, serverID, user)
-		},
-	)
-}
-
-func (xs *XylonaService) getRemoteGameServer(ctx context.Context, serverID string, actingUser *models.User) (*connect.Response[xylona.GetGameServerResponse], error) {
-	peerNode, remoteCache, errGetPeer := xs.getRemoteNodeForServer(serverID)
-	if errGetPeer != nil {
-		return nil, errGetPeer
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.view")
+	if errPermission != nil {
+		return nil, errPermission
 	}
 
-	// Try to fetch live detail from the peer.
-	client, errClient := xs.newRemoteFederationClient(peerNode)
+	client, errClient := xs.resolveNodeClient(gameServer)
 	if errClient != nil {
-		log.Error().Err(errClient).Str("server_id", serverID).Str("peer", peerNode.Name).Msg("Failed to create remote federation client")
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("remote federation trust is not configured"))
+		return nil, errClient
+	}
+	entries, errListGameServerFiles := client.ListFiles(ctx, gameServer.Directory, request.Msg.GetPath())
+	if errListGameServerFiles != nil {
+		if errors.Is(errListGameServerFiles, actions.ErrInvalidPath) || errors.Is(errListGameServerFiles, node.ErrInvalidPath) {
+			return nil, invalidArg("invalid path")
+		}
+		if errors.Is(errListGameServerFiles, os.ErrNotExist) {
+			return nil, notFoundErr()
+		}
+		return nil, internalErr()
+	}
+	files := make([]*xylona.File, len(entries))
+	for i, entry := range entries {
+		files[i] = &xylona.File{
+			Name:         entry.Name,
+			Size:         entry.Size,
+			IsDirectory:  entry.IsDirectory,
+			LastModified: timestamppb.New(entry.LastModified),
+		}
+	}
+	return connect.NewResponse(&xylona.ListDirectoryFilesResponse{Files: files}), nil
+}
+
+// GetGameServer returns details for a game server managed by the controller's embedded node.
+func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+	if errPermission != nil {
+		return nil, errPermission
 	}
 
-	req := connect.NewRequest(&xylona.FederationGetServerDetailRequest{
-		ServerId: serverID,
+	// Fetch the owning node's view of the process so status + metrics
+	// work for both embedded and remote servers.
+	snap, errSnap := xs.resolveProcessSnapshot(ctx, gameServer)
+	if errSnap != nil {
+		log.Debug().Err(errSnap).Str("game_server_id", gameServer.ID).
+			Msg("GetGameServer: snapshot unavailable; using DB status")
+	}
+	if snap != nil {
+		gameServer.Status = snap.Status
+	} else {
+		gameServer.Status = xylona.Status_OFFLINE.String()
+	}
+
+	gsProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
+	if !user.SuperUser {
+		redactGameServerForNonSuperuser(gsProto)
+	}
+	gsProto.Version, gsProto.VersionInfo = xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{
+		AllowAsync: true,
 	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to resolve local node identity for federation request")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote game server"))
-	}
-
-	resp, errDetail := client.GetServerDetail(ctx, req)
-	if errDetail != nil {
-		// Fall back to cached data.
-		log.Debug().Err(errDetail).Str("server_id", serverID).Msg("Failed to get remote server detail, using cache")
-		return connect.NewResponse(&xylona.GetGameServerResponse{
-			GameServer: helpers.RemoteServerCacheToProto(remoteCache, peerNode),
-		}), nil
-	}
-
-	server := resp.Msg.GetServer()
-	gs := &xylona.GameServer{
-		Id:                    server.GetServerId(),
-		Name:                  server.GetDisplayName(),
-		GameId:                server.GetGameId(),
-		Status:                server.GetStatus(),
-		Ip:                    &xylona.IP{Address: server.GetIpAddress()},
-		Port:                  server.GetPort(),
-		QueryPort:             server.GetQueryPort(),
-		SetMaxPlayers:         server.GetMaxPlayers(),
-		MaxPlayers:            server.GetMaxPlayers(),
-		CurrentPlayerCount:    server.GetCurrentPlayers(),
-		Map:                   server.GetMapName(),
-		Version:               server.GetVersion(),
-		GameName:              server.GetGameName(),
-		NodeId:                peerNode.ID,
-		NodeName:              peerNode.Name,
-		NodeHost:              peerNode.BaseURL,
-		CpuPercent:            server.GetCpuPercent(),
-		MemoryBytes:           server.GetMemoryBytes(),
-		MemoryWorkingSetBytes: server.GetMemoryWorkingSetBytes(),
-		MemoryPercent:         server.GetMemoryPercent(),
-		CpuCores:              server.GetCpuCores(),
-		NumberOfThreads:       int64(server.GetNumberOfThreads()),
-		DiskUsageBytes:        server.GetDiskUsageBytes(),
-		IoReadRate:            server.GetIoReadRate(),
-		IoWriteRate:           server.GetIoWriteRate(),
-		ConnectionCount:       server.GetConnectionCount(),
-		UptimeSeconds:         server.GetUptimeSeconds(),
-	}
-	gs.EffectivePermissions = resp.Msg.GetEffectivePermissions()
-	if !actingUser.SuperUser {
-		redactGameServerForNonSuperuser(gs)
-	}
-
-	return connect.NewResponse(&xylona.GetGameServerResponse{
-		GameServer: gs,
-	}), nil
+	applyProcessMetricsToProto(gsProto, snap)
+	gsProto.EffectivePermissions = xs.computeEffectivePermissions(user, gameServer)
+	return connect.NewResponse(&xylona.GetGameServerResponse{GameServer: gsProto}), nil
 }
 
-func resolveGameServerVersion(gs *models.GameServer) string {
-	return versiontracker.ResolveCurrentVersion(gs)
-}
-
-// UpdateGameServer updates a local or remote game server.
-func (xs *XylonaService) UpdateGameServer(ctx context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
-	serverID := request.Msg.GetServerId()
+// UpdateGameServer triggers an update for a game server managed by the controller's embedded node.
+func (xs *XylonaService) UpdateGameServer(_ context.Context, request *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error) {
 	selectedTarget := strings.TrimSpace(request.Msg.GetTarget())
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.UpdateGameServerResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.settings")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.settings")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			if selectedTarget != "" {
-				gameServer.Branch = selectedTarget
-			}
+	if selectedTarget != "" {
+		gameServer.Branch = selectedTarget
+	}
 
-			xs.actionsInst.UpdateGameServerWithBackup(gameServer, xs.updateBroadcast)
-			return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
-		},
-		func() (*connect.Response[xylona.UpdateGameServerResponse], error) {
-			return xs.updateRemoteGameServer(ctx, serverID, selectedTarget, user)
-		},
-	)
+	xs.actionsInst.UpdateGameServerWithBackup(gameServer, xs.updateBroadcast)
+	return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
 }
 
 // ListGameServers lists all game servers visible to the caller.
@@ -802,30 +532,18 @@ func (xs *XylonaService) ListGameServers(_ context.Context, request *connect.Req
 
 	gameServersProto := make([]*xylona.GameServer, len(gameServers))
 	for i, gameServer := range gameServers {
-		gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
-		if errGetCommand != nil {
-			gameServer.Status = xylona.Status_OFFLINE.String()
+		snap, errSnap := xs.resolveProcessSnapshot(context.Background(), gameServer)
+		if errSnap != nil {
+			log.Debug().Err(errSnap).Str("game_server_id", gameServer.ID).
+				Msg("ListGameServers: snapshot unavailable; using DB status")
+		}
+		if snap != nil {
+			gameServer.Status = snap.Status
 		} else {
-			gameServer.Status = gameServerCmd.Status().String()
+			gameServer.Status = xylona.Status_OFFLINE.String()
 		}
 		gameServerProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
-		if errGetCommand == nil {
-			cpuPct, memRSS, memVMS, memPct, cpuCores, threads, diskBytes, ioRead, ioWrite, connCount := gameServerCmd.Metrics()
-			gameServerProto.CpuPercent = int64(cpuPct)
-			gameServerProto.MemoryBytes = helpers.ClampInt64FromUint64(memVMS)
-			gameServerProto.MemoryWorkingSetBytes = helpers.ClampInt64FromUint64(memRSS)
-			gameServerProto.MemoryPercent = float64(memPct)
-			gameServerProto.CpuCores = cpuCores
-			gameServerProto.NumberOfThreads = int64(threads)
-			gameServerProto.DiskUsageBytes = helpers.ClampInt64FromUint64(diskBytes)
-			gameServerProto.IoReadRate = ioRead
-			gameServerProto.IoWriteRate = ioWrite
-			gameServerProto.ConnectionCount = connCount
-			startedAt := gameServerCmd.UnixStartedAt()
-			if startedAt > 0 {
-				gameServerProto.UptimeSeconds = time.Now().Unix() - startedAt
-			}
-		}
+		applyProcessMetricsToProto(gameServerProto, snap)
 		if user.SuperUser || gameServer.UserID == user.ID {
 			gameServerProto.EffectivePermissions = xs.allPermissionIDs
 		} else if perms, ok := bulkPerms[gameServer.ID]; ok {
@@ -842,47 +560,41 @@ func (xs *XylonaService) ListGameServers(_ context.Context, request *connect.Req
 	return connect.NewResponse(response), nil
 }
 
-// QueryGameServer performs a live query against a local or remote game server.
-func (xs *XylonaService) QueryGameServer(ctx context.Context, request *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
-	serverID := request.Msg.GetServerId()
+// QueryGameServer performs a live query against a game server managed by the controller's embedded node.
+func (xs *XylonaService) QueryGameServer(_ context.Context, request *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.QueryGameServerResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
-			if errPermission != nil {
-				return nil, errPermission
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+	if errPermission != nil {
+		return nil, errPermission
+	}
 
-			allServerQueries := xs.actionsInst.GetServerQueries()
-			queryInfo, exists := allServerQueries.GetServers()[gameServer.ID]
-			if !exists {
-				var queryType xylona.ServerQuery_Type
-				if gameServer.GameID == "minecraft" {
-					queryType = xylona.ServerQuery_Minecraft
-				} else {
-					queryType = xylona.ServerQuery_Source
-				}
-				resp := &xylona.QueryGameServerResponse{QueryInfo: &xylona.ServerQuery{
-					ServerId:   gameServer.ID,
-					ServerName: gameServer.Name,
-					Type:       queryType,
-					Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers)},
-					Source: &xylona.SourceQueryInfo{
-						Players:    0,
-						MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers),
-					},
-				}}
-				return connect.NewResponse(resp), nil
-			}
-			return connect.NewResponse(&xylona.QueryGameServerResponse{QueryInfo: queryInfo}), nil
-		},
-		func() (*connect.Response[xylona.QueryGameServerResponse], error) {
-			return xs.queryRemoteGameServer(ctx, serverID, user)
-		},
-	)
+	allServerQueries := xs.actionsInst.GetServerQueries()
+	queryInfo, exists := allServerQueries.GetServers()[gameServer.ID]
+	if !exists {
+		var queryType xylona.ServerQuery_Type
+		if gameServer.GameID == "minecraft" {
+			queryType = xylona.ServerQuery_Minecraft
+		} else {
+			queryType = xylona.ServerQuery_Source
+		}
+		resp := &xylona.QueryGameServerResponse{QueryInfo: &xylona.ServerQuery{
+			ServerId:   gameServer.ID,
+			ServerName: gameServer.Name,
+			Type:       queryType,
+			Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers)},
+			Source: &xylona.SourceQueryInfo{
+				Players:    0,
+				MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers),
+			},
+		}}
+		return connect.NewResponse(resp), nil
+	}
+	return connect.NewResponse(&xylona.QueryGameServerResponse{QueryInfo: queryInfo}), nil
 }

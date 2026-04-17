@@ -47,13 +47,10 @@ func TestInstallGameServerRemovesArtifactsWhenCommandStartFails(t *testing.T) {
 	}
 
 	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
-		ID:      omit.From(`install-node`),
-		Name:    omit.From(`Install Node`),
-		IsLocal: omit.From(true),
-		Host:    omit.From(`localhost`),
-		Port:    omit.From(int64(8080)),
-		BaseURL: omit.From(`http://localhost:8080`),
-		Enabled: omit.From(true),
+		ID:        omit.From(`install-node`),
+		Name:      omit.From(`Install Node`),
+		ListenURL: omit.From(`http://localhost:8080`),
+		Enabled:   omit.From(true),
 	})
 	if errInsertNode != nil {
 		t.Fatalf(`InsertNode() error = %v`, errInsertNode)

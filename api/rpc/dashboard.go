@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -12,41 +11,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/pkg/sysinfo"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func sysInfoToProto(info *sysinfo.SystemInfo) *xylona.NodeSystemInfo {
-	return &xylona.NodeSystemInfo{
-		CpuModel:         info.CPUModel,
-		CpuCores:         helpers.ClampInt32FromInt(info.CPUCores),
-		CpuThreads:       helpers.ClampInt32FromInt(info.CPUThreads),
-		TotalMemoryBytes: helpers.ClampInt64FromUint64(info.TotalMemory),
-		Os:               info.OS,
-		OsVersion:        info.OSVersion,
-		Architecture:     info.Architecture,
-		XylonaVersion:    info.XylonaVersion,
-	}
-}
-
-func snapshotToProto(snap *sysinfo.ResourceSnapshot, gsCount, runningCount, userCount int) *xylona.NodeResourceSnapshot {
-	return &xylona.NodeResourceSnapshot{
-		CpuPercent:             snap.CPUPercent,
-		MemoryPercent:          snap.MemoryPercent,
-		MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
-		MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.MemoryTotal),
-		DiskPercent:            snap.DiskPercent,
-		DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
-		DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-		GameServerCount:        helpers.ClampInt32FromInt(gsCount),
-		RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
-		UserCount:              helpers.ClampInt32FromInt(userCount),
-		RecordedAt:             timestamppb.Now(),
-	}
-}
-
-// GetNodeSystemInfo returns system hardware/OS info for a node.
+// GetNodeSystemInfo returns system hardware/OS info for the requested node,
+// resolving through NodeClient so embedded and remote nodes behave identically.
+// When node_id is empty, defaults to the controller's embedded node.
 func (xs *XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect.Request[xylona.GetNodeSystemInfoRequest]) (*connect.Response[xylona.GetNodeSystemInfoResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -57,51 +27,39 @@ func (xs *XylonaService) GetNodeSystemInfo(ctx context.Context, request *connect
 	}
 
 	nodeID := request.Msg.GetNodeId()
-
-	// Check if this is a remote node request.
-	localNodeID, errLocal := xs.db.GetLocalNodeID()
-	if errLocal != nil {
-		return nil, internalErrf("failed to get local node ID")
+	if nodeID == "" {
+		nodeID = xs.nodeRegistry.SelfID()
 	}
 
-	if nodeID != "" && nodeID != localNodeID {
-		// Proxy to remote node via federation.
-		node, errGetNode := xs.db.GetRemoteNodeByID(nodeID)
-		if errGetNode != nil {
-			if errors.Is(errGetNode, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("node not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get node"))
-		}
-
-		client, errClient := xs.newRemoteFederationClient(node)
-		if errClient != nil {
-			return nil, internalErrf("failed to create federation client")
-		}
-
-		resp, errRPC := client.FederationGetNodeSystemInfo(ctx, connect.NewRequest(&xylona.FederationGetNodeSystemInfoRequest{}))
-		if errRPC != nil {
-			log.Error().Err(errRPC).Str("node_id", nodeID).Msg("Failed to get remote node system info")
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote node system info"))
-		}
-
-		return connect.NewResponse(&xylona.GetNodeSystemInfoResponse{
-			SystemInfo: resp.Msg.GetSystemInfo(),
-		}), nil
+	client, errClient := xs.nodeRegistry.Get(nodeID)
+	if errClient != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("node not reachable: %w", errClient))
 	}
 
-	// Local node.
-	info, errInfo := sysinfo.CollectSystemInfo()
-	if errInfo != nil {
-		return nil, internalErrf("failed to collect system info")
+	snapCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	snap, errSnap := client.GetNodeSnapshot(snapCtx)
+	cancel()
+	if errSnap != nil {
+		return nil, internalErrf(fmt.Sprintf("failed to collect system info: %v", errSnap))
 	}
 
 	return connect.NewResponse(&xylona.GetNodeSystemInfoResponse{
-		SystemInfo: sysInfoToProto(info),
+		SystemInfo: &xylona.NodeSystemInfo{
+			CpuModel:         snap.CPUModel,
+			CpuCores:         helpers.ClampInt32FromInt(snap.CPUCores),
+			CpuThreads:       helpers.ClampInt32FromInt(snap.CPUThreads),
+			TotalMemoryBytes: helpers.ClampInt64FromUint64(snap.TotalMemory),
+			Os:               snap.OS,
+			OsVersion:        snap.OSVersion,
+			Architecture:     snap.Architecture,
+			XylonaVersion:    snap.XylonaVersion,
+		},
 	}), nil
 }
 
-// GetNodeResourceSnapshot returns a live resource usage snapshot for a node.
+// GetNodeResourceSnapshot returns a live resource usage snapshot for the
+// requested node, routing through NodeClient for full parity between
+// embedded and remote. Defaults to the local node when node_id is empty.
 func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *connect.Request[xylona.GetNodeResourceSnapshotRequest]) (*connect.Response[xylona.GetNodeResourceSnapshotResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -112,47 +70,60 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 	}
 
 	nodeID := request.Msg.GetNodeId()
-	localNodeID, errLocal := xs.db.GetLocalNodeID()
-	if errLocal != nil {
-		return nil, internalErrf("failed to get local node ID")
+	if nodeID == "" {
+		nodeID = xs.nodeRegistry.SelfID()
 	}
 
-	if nodeID != "" && nodeID != localNodeID {
-		node, errGetNode := xs.db.GetRemoteNodeByID(nodeID)
-		if errGetNode != nil {
-			if errors.Is(errGetNode, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("node not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get node"))
-		}
-
-		client, errClient := xs.newRemoteFederationClient(node)
-		if errClient != nil {
-			return nil, internalErrf("failed to create federation client")
-		}
-
-		resp, errRPC := client.FederationGetNodeResourceSnapshot(ctx, connect.NewRequest(&xylona.FederationGetNodeResourceSnapshotRequest{}))
-		if errRPC != nil {
-			log.Error().Err(errRPC).Str("node_id", nodeID).Msg("Failed to get remote node resource snapshot")
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote node resource snapshot"))
-		}
-
-		return connect.NewResponse(&xylona.GetNodeResourceSnapshotResponse{
-			Snapshot: resp.Msg.GetSnapshot(),
-		}), nil
+	client, errClient := xs.nodeRegistry.Get(nodeID)
+	if errClient != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("node not reachable: %w", errClient))
 	}
 
-	snapshot, gsCount, runningCount, userCount, errCollect := xs.collectLocalSnapshot()
-	if errCollect != nil {
-		return nil, internalErrf("failed to collect resource snapshot")
+	snapCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	snap, errSnap := client.GetNodeSnapshot(snapCtx)
+	cancel()
+	if errSnap != nil {
+		return nil, internalErrf(fmt.Sprintf("failed to collect resource snapshot: %v", errSnap))
 	}
+
+	gsCount := 0
+	allServers, _ := xs.db.GetAllGameServers()
+	for _, gs := range allServers {
+		if gs.NodeID == nodeID {
+			gsCount++
+		}
+	}
+	runningCount := 0
+	for _, ps := range snap.Processes {
+		switch ps.Status {
+		case xylona.Status_ONLINE.String(),
+			xylona.Status_INSTALLING.String(),
+			xylona.Status_UPDATING.String():
+			runningCount++
+		}
+	}
+	userCount, _ := xs.db.CountUsers()
 
 	return connect.NewResponse(&xylona.GetNodeResourceSnapshotResponse{
-		Snapshot: snapshotToProto(snapshot, gsCount, runningCount, userCount),
+		Snapshot: &xylona.NodeResourceSnapshot{
+			CpuPercent:             snap.CPUPercent,
+			MemoryPercent:          snap.MemoryPercent,
+			MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
+			MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.TotalMemory),
+			DiskPercent:            snap.DiskPercent,
+			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
+			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
+			GameServerCount:        helpers.ClampInt32FromInt(gsCount),
+			RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+			UserCount:              helpers.ClampInt32FromInt(userCount),
+			RecordedAt:             timestamppb.Now(),
+		},
 	}), nil
 }
 
-// GetDashboardOverview returns an overview of all nodes with live resource snapshots.
+// GetDashboardOverview returns an overview of all registered nodes, pulling
+// system info + per-node snapshot via NodeClient.GetNodeSnapshot for both
+// embedded and remote nodes.
 func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *connect.Request[xylona.GetDashboardOverviewRequest]) (*connect.Response[xylona.GetDashboardOverviewResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -164,72 +135,76 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 
 	var summaries []*xylona.DashboardNodeSummary
 
-	// Local node.
 	allNodes, errNodes := xs.db.GetAllNodes()
 	if errNodes != nil {
 		return nil, internalErrf("failed to list nodes")
 	}
 
-	for _, node := range allNodes {
-		if node.IsLocal {
-			info, errInfo := sysinfo.CollectSystemInfo()
-			if errInfo != nil {
-				log.Error().Err(errInfo).Msg("Failed to collect local system info")
-				continue
-			}
-
-			snapshot, gsCount, runningCount, userCount, errSnap := xs.collectLocalSnapshot()
-			if errSnap != nil {
-				log.Error().Err(errSnap).Msg("Failed to collect local resource snapshot")
-				continue
-			}
-
-			nodeProto := helpers.NodeModelToProto(node)
-			// The local node never has its health_status set by the sync engine
-			// (which only monitors remote nodes), so override it here.
-			if nodeProto.GetHealthStatus() == "" {
-				nodeProto.HealthStatus = "healthy"
-			}
-
-			summaries = append(summaries, &xylona.DashboardNodeSummary{
-				Node:       nodeProto,
-				SystemInfo: sysInfoToProto(info),
-				Snapshot:   snapshotToProto(snapshot, gsCount, runningCount, userCount),
-			})
-			continue
+	for _, nodeRow := range allNodes {
+		summary := &xylona.DashboardNodeSummary{
+			Node: helpers.NodeModelToProto(nodeRow),
 		}
 
-		// Remote node — try to fetch live data, fall back to cached info.
-		client, errClient := xs.newRemoteFederationClient(node)
+		client, errClient := xs.nodeRegistry.Get(nodeRow.ID)
 		if errClient != nil {
-			log.Warn().Err(errClient).Str("node_id", node.ID).Msg("Failed to create federation client for dashboard")
-			summaries = append(summaries, &xylona.DashboardNodeSummary{
-				Node: helpers.NodeModelToProto(node),
-			})
+			log.Debug().Err(errClient).Str("node_id", nodeRow.ID).
+				Msg("GetDashboardOverview: node not currently reachable")
+			summaries = append(summaries, summary)
 			continue
 		}
 
-		sysResp, errSys := client.FederationGetNodeSystemInfo(ctx, connect.NewRequest(&xylona.FederationGetNodeSystemInfoRequest{}))
-		var sysInfo *xylona.NodeSystemInfo
-		if errSys == nil {
-			sysInfo = sysResp.Msg.GetSystemInfo()
-		} else {
-			log.Debug().Err(errSys).Str("node_id", node.ID).Msg("Failed to fetch remote system info for dashboard")
+		snapCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		snap, errSnap := client.GetNodeSnapshot(snapCtx)
+		cancel()
+		if errSnap != nil {
+			log.Warn().Err(errSnap).Str("node_id", nodeRow.ID).
+				Msg("GetDashboardOverview: node snapshot failed")
+			summaries = append(summaries, summary)
+			continue
 		}
 
-		snapResp, errSnap := client.FederationGetNodeResourceSnapshot(ctx, connect.NewRequest(&xylona.FederationGetNodeResourceSnapshotRequest{}))
-		var snap *xylona.NodeResourceSnapshot
-		if errSnap == nil {
-			snap = snapResp.Msg.GetSnapshot()
-		} else {
-			log.Debug().Err(errSnap).Str("node_id", node.ID).Msg("Failed to fetch remote resource snapshot for dashboard")
+		summary.SystemInfo = &xylona.NodeSystemInfo{
+			CpuModel:         snap.CPUModel,
+			CpuCores:         helpers.ClampInt32FromInt(snap.CPUCores),
+			CpuThreads:       helpers.ClampInt32FromInt(snap.CPUThreads),
+			TotalMemoryBytes: helpers.ClampInt64FromUint64(snap.TotalMemory),
+			Os:               snap.OS,
+			OsVersion:        snap.OSVersion,
+			Architecture:     snap.Architecture,
+			XylonaVersion:    snap.XylonaVersion,
 		}
 
-		summaries = append(summaries, &xylona.DashboardNodeSummary{
-			Node:       helpers.NodeModelToProto(node),
-			SystemInfo: sysInfo,
-			Snapshot:   snap,
-		})
+		gsCount := 0
+		allServers, _ := xs.db.GetAllGameServers()
+		for _, gs := range allServers {
+			if gs.NodeID == nodeRow.ID {
+				gsCount++
+			}
+		}
+		userCount, _ := xs.db.CountUsers()
+		runningCount := 0
+		for _, ps := range snap.Processes {
+			if ps.Status == xylona.Status_ONLINE.String() ||
+				ps.Status == xylona.Status_INSTALLING.String() ||
+				ps.Status == xylona.Status_UPDATING.String() {
+				runningCount++
+			}
+		}
+
+		summary.Snapshot = &xylona.NodeResourceSnapshot{
+			CpuPercent:             snap.CPUPercent,
+			MemoryPercent:          snap.MemoryPercent,
+			MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
+			MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.TotalMemory),
+			DiskPercent:            snap.DiskPercent,
+			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
+			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
+			GameServerCount:        helpers.ClampInt32FromInt(gsCount),
+			RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+			UserCount:              helpers.ClampInt32FromInt(userCount),
+		}
+
+		summaries = append(summaries, summary)
 	}
 
 	return connect.NewResponse(&xylona.GetDashboardOverviewResponse{
@@ -237,8 +212,11 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 	}), nil
 }
 
-// GetNodeMetricsHistory returns historical metrics for a node.
-func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error) {
+// GetNodeMetricsHistory returns historical metrics for the requested node.
+// History rows are keyed by node_id in the controller's DB, so the same
+// handler serves embedded and remote nodes uniformly. Defaults to the local
+// node when node_id is empty.
+func (xs *XylonaService) GetNodeMetricsHistory(_ context.Context, request *connect.Request[xylona.GetNodeMetricsHistoryRequest]) (*connect.Response[xylona.GetNodeMetricsHistoryResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
@@ -247,43 +225,15 @@ func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *con
 		return nil, permissionDenied("superuser access required")
 	}
 
-	nodeID := request.Msg.GetNodeId()
 	since := request.Msg.GetSince().AsTime()
 	until := request.Msg.GetUntil().AsTime()
 
-	localNodeID, errLocal := xs.db.GetLocalNodeID()
-	if errLocal != nil {
-		return nil, internalErrf("failed to get local node ID")
+	nodeID := request.Msg.GetNodeId()
+	if nodeID == "" {
+		nodeID = xs.nodeRegistry.SelfID()
 	}
 
-	if nodeID != "" && nodeID != localNodeID {
-		node, errGetNode := xs.db.GetRemoteNodeByID(nodeID)
-		if errGetNode != nil {
-			if errors.Is(errGetNode, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("node not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get node"))
-		}
-
-		client, errClient := xs.newRemoteFederationClient(node)
-		if errClient != nil {
-			return nil, internalErrf("failed to create federation client")
-		}
-
-		resp, errRPC := client.FederationGetNodeMetricsHistory(ctx, connect.NewRequest(&xylona.FederationGetNodeMetricsHistoryRequest{
-			Since: request.Msg.GetSince(),
-			Until: request.Msg.GetUntil(),
-		}))
-		if errRPC != nil {
-			return nil, internalErrf("failed to get remote node metrics history")
-		}
-
-		return connect.NewResponse(&xylona.GetNodeMetricsHistoryResponse{
-			Points: resp.Msg.GetPoints(),
-		}), nil
-	}
-
-	rows, errQuery := xs.db.GetNodeMetricsHistory(localNodeID, since, until)
+	rows, errQuery := xs.db.GetNodeMetricsHistory(nodeID, since, until)
 	if errQuery != nil {
 		return nil, internalErrf("failed to query node metrics history")
 	}
@@ -305,8 +255,9 @@ func (xs *XylonaService) GetNodeMetricsHistory(ctx context.Context, request *con
 	}), nil
 }
 
-// GetGameServerMetricsHistory returns historical metrics for a game server.
-func (xs *XylonaService) GetGameServerMetricsHistory(ctx context.Context, request *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+// GetGameServerMetricsHistory returns historical metrics for a game server
+// owned by the controller's embedded node.
+func (xs *XylonaService) GetGameServerMetricsHistory(_ context.Context, request *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
@@ -316,27 +267,22 @@ func (xs *XylonaService) GetGameServerMetricsHistory(ctx context.Context, reques
 	since := request.Msg.GetSince().AsTime()
 	until := request.Msg.GetUntil().AsTime()
 
-	return dispatchGameServerRequest(
-		xs,
-		gameServerID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
-			// Local server — check access: owner, superuser, or RBAC grant.
-			if !user.SuperUser && gameServer.UserID != user.ID {
-				allowed, errPerm := helpers.HasPermission(xs.db, user, gameServerID, gameServer.UserID, "game_server.metrics")
-				if errPerm != nil {
-					return nil, internalErrf("failed to check permissions")
-				}
-				if !allowed {
-					return nil, permissionDenied("access denied")
-				}
-			}
+	gameServer, errLookup := xs.db.GetGameServerByID(gameServerID)
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
 
-			return xs.queryLocalGameServerMetricsHistory(gameServerID, since, until)
-		},
-		func() (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
-			return xs.getRemoteGameServerMetricsHistory(ctx, gameServerID, user, request.Msg)
-		},
-	)
+	if !user.SuperUser && gameServer.UserID != user.ID {
+		allowed, errPerm := helpers.HasPermission(xs.db, user, gameServerID, gameServer.UserID, "game_server.metrics")
+		if errPerm != nil {
+			return nil, internalErrf("failed to check permissions")
+		}
+		if !allowed {
+			return nil, permissionDenied("access denied")
+		}
+	}
+
+	return xs.queryLocalGameServerMetricsHistory(gameServerID, since, until)
 }
 
 func (xs *XylonaService) queryLocalGameServerMetricsHistory(gameServerID string, since, until time.Time) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
@@ -360,70 +306,4 @@ func (xs *XylonaService) queryLocalGameServerMetricsHistory(gameServerID string,
 	return connect.NewResponse(&xylona.GetGameServerMetricsHistoryResponse{
 		Points: points,
 	}), nil
-}
-
-func (xs *XylonaService) getRemoteGameServerMetricsHistory(ctx context.Context, serverID string, actingUser *models.User, originalMsg *xylona.GetGameServerMetricsHistoryRequest) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
-	peerNode, remoteCache, errGetPeer := xs.getRemoteNodeForServer(serverID)
-	if errGetPeer != nil {
-		return nil, errGetPeer
-	}
-
-	client, errClient := xs.newRemoteFederationClient(peerNode)
-	if errClient != nil {
-		log.Error().Err(errClient).Str("server_id", serverID).Msg("Failed to create federation client for game server metrics history")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create federation client"))
-	}
-
-	req := connect.NewRequest(&xylona.FederationGetGameServerMetricsHistoryRequest{
-		GameServerId: remoteCache.RemoteServerID,
-		Since:        originalMsg.GetSince(),
-		Until:        originalMsg.GetUntil(),
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Msg("Failed to apply federation identity for game server metrics history")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to resolve federation identity"))
-	}
-
-	resp, errRPC := client.FederationGetGameServerMetricsHistory(ctx, req)
-	if errRPC != nil {
-		log.Error().Err(errRPC).Str("server_id", serverID).Str("remote_server_id", remoteCache.RemoteServerID).Msg("Failed to get remote game server metrics history")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get remote game server metrics history"))
-	}
-
-	return connect.NewResponse(&xylona.GetGameServerMetricsHistoryResponse{
-		Points: resp.Msg.GetPoints(),
-	}), nil
-}
-
-func (xs *XylonaService) collectLocalSnapshot() (*sysinfo.ResourceSnapshot, int, int, int, error) {
-	snapshot, errSnap := sysinfo.CollectResourceSnapshot()
-	if errSnap != nil {
-		return nil, 0, 0, 0, fmt.Errorf("rpc: collect local resource snapshot: %w", errSnap)
-	}
-
-	gsCount, errGS := xs.db.CountGameServers()
-	if errGS != nil {
-		log.Error().Err(errGS).Msg("Failed to count game servers")
-	}
-
-	// Use the supervisor to get the real running count rather than relying on
-	// potentially stale DB status values. ListCommands() returns all commands
-	// that have ever been started (including stopped ones still in the map),
-	// so we must filter by status.
-	runningCount := 0
-	if xs.supervisorInst != nil {
-		for _, cmd := range xs.supervisorInst.ListCommands() {
-			if cmd.Status() == xylona.Status_ONLINE || cmd.Status() == xylona.Status_INSTALLING || cmd.Status() == xylona.Status_UPDATING {
-				runningCount++
-			}
-		}
-	}
-
-	userCount, errUsers := xs.db.CountUsers()
-	if errUsers != nil {
-		log.Error().Err(errUsers).Msg("Failed to count users")
-	}
-
-	return snapshot, gsCount, runningCount, userCount, nil
 }

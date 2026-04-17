@@ -388,14 +388,6 @@ message Node {
   string os = 22;
 }
 
-message SecretKey {
-  int64 id = 1;
-  string name = 2;
-  google.protobuf.Timestamp created_at = 3;
-  google.protobuf.Timestamp last_used = 4;
-  string last_accessed_from = 5;
-}
-
 // NodeSystemInfo contains static hardware and OS information for a node.
 message NodeSystemInfo {
   string cpu_model = 1;
@@ -519,14 +511,6 @@ message ModDependency {
   string source_id = 1;
   string name = 2;
   bool required = 3;
-}
-
-message NodeApiKey {
-  string id = 1;
-  string service_name = 2;
-  string masked_key = 3;
-  google.protobuf.Timestamp created_at = 4;
-  google.protobuf.Timestamp updated_at = 5;
 }
 
 enum AlertEventType {

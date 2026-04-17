@@ -17,21 +17,6 @@ var _ bob.HookableType = &AlertRule{}
 // Make sure the type AlertState runs hooks after queries
 var _ bob.HookableType = &AlertState{}
 
-// Make sure the type FederatedAccessGrant runs hooks after queries
-var _ bob.HookableType = &FederatedAccessGrant{}
-
-// Make sure the type FederationAdvisory runs hooks after queries
-var _ bob.HookableType = &FederationAdvisory{}
-
-// Make sure the type FederationLocalIdentity runs hooks after queries
-var _ bob.HookableType = &FederationLocalIdentity{}
-
-// Make sure the type FederationPairingToken runs hooks after queries
-var _ bob.HookableType = &FederationPairingToken{}
-
-// Make sure the type FederationTrustedPeer runs hooks after queries
-var _ bob.HookableType = &FederationTrustedPeer{}
-
 // Make sure the type Game runs hooks after queries
 var _ bob.HookableType = &Game{}
 
@@ -53,14 +38,8 @@ var _ bob.HookableType = &InstalledModFile{}
 // Make sure the type IP runs hooks after queries
 var _ bob.HookableType = &IP{}
 
-// Make sure the type LocalSecretKey runs hooks after queries
-var _ bob.HookableType = &LocalSecretKey{}
-
 // Make sure the type LocalSetting runs hooks after queries
 var _ bob.HookableType = &LocalSetting{}
-
-// Make sure the type Log runs hooks after queries
-var _ bob.HookableType = &Log{}
 
 // Make sure the type Migration runs hooks after queries
 var _ bob.HookableType = &Migration{}
@@ -68,29 +47,17 @@ var _ bob.HookableType = &Migration{}
 // Make sure the type Node runs hooks after queries
 var _ bob.HookableType = &Node{}
 
-// Make sure the type NodeAPIKey runs hooks after queries
-var _ bob.HookableType = &NodeAPIKey{}
+// Make sure the type NodeJoinToken runs hooks after queries
+var _ bob.HookableType = &NodeJoinToken{}
 
 // Make sure the type NodeMetricsHistory runs hooks after queries
 var _ bob.HookableType = &NodeMetricsHistory{}
 
-// Make sure the type NodeSyncQueue runs hooks after queries
-var _ bob.HookableType = &NodeSyncQueue{}
-
-// Make sure the type Notification runs hooks after queries
-var _ bob.HookableType = &Notification{}
-
 // Make sure the type NotificationChannel runs hooks after queries
 var _ bob.HookableType = &NotificationChannel{}
 
-// Make sure the type PeerSyncState runs hooks after queries
-var _ bob.HookableType = &PeerSyncState{}
-
 // Make sure the type Permission runs hooks after queries
 var _ bob.HookableType = &Permission{}
-
-// Make sure the type RemoteServerCache runs hooks after queries
-var _ bob.HookableType = &RemoteServerCache{}
 
 // Make sure the type RevokedJWT runs hooks after queries
 var _ bob.HookableType = &RevokedJWT{}
@@ -112,9 +79,6 @@ var _ bob.HookableType = &SystemConfig{}
 
 // Make sure the type User runs hooks after queries
 var _ bob.HookableType = &User{}
-
-// Make sure the type UserAPIKey runs hooks after queries
-var _ bob.HookableType = &UserAPIKey{}
 
 // Make sure the type UserRoleAssignment runs hooks after queries
 var _ bob.HookableType = &UserRoleAssignment{}

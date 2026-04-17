@@ -218,13 +218,10 @@ func (inst *Instance) UpdateGameServerWithBackup(
 func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadcaster UpdateProgressBroadcaster) {
 	serverID := gameServer.ID
 
-	// Determine pre-update running state.
-	wasRunning := false
-	cmd, errGetCmd := inst.supervisorInstance.GetCommandByID(serverID)
-	if errGetCmd == nil {
-		status := cmd.Status()
-		wasRunning = status != xylona.Status_OFFLINE && status != xylona.Status_UNKNOWN
-	}
+	// Determine pre-update running state via NodeClient so both embedded
+	// and remote game servers report a consistent status.
+	preStatus := inst.currentProcessStatus(gameServer)
+	wasRunning := preStatus != xylona.Status_OFFLINE && preStatus != xylona.Status_UNKNOWN
 
 	updatePlan, errPlan := inst.resolveMinecraftUpdatePlan(gameServer)
 	if errPlan != nil && gameServer.GameID == "minecraft" {
@@ -235,8 +232,8 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	}
 
 	broadcast := func(step xylona.UpdateStep, status xylona.StepStatus, msg string) {
-		if inst.supervisorInstance != nil && msg != "" {
-			inst.supervisorInstance.SendConsoleOutput(serverID, msg)
+		if msg != "" {
+			inst.sendConsoleLine(gameServer, msg)
 		}
 		if broadcaster != nil {
 			broadcaster.BroadcastUpdateProgress(serverID, gameServer.Name, step, status, msg)
@@ -247,15 +244,11 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	if wasRunning {
 		broadcast(xylona.UpdateStep_UPDATE_STEP_STOPPING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Stopping server")
 		inst.StopGameServer(gameServer)
-		// Wait for server to fully stop (poll up to 30s).
+		// Wait for server to fully stop (poll up to 30s). Uses NodeClient
+		// snapshots so remote-node stops are observed identically.
 		stopped := false
 		for range 30 {
-			c, errGet := inst.supervisorInstance.GetCommandByID(serverID)
-			if errGet != nil {
-				stopped = true
-				break
-			}
-			s := c.Status()
+			s := inst.currentProcessStatus(gameServer)
 			if s == xylona.Status_OFFLINE || s == xylona.Status_UNKNOWN {
 				stopped = true
 				break
@@ -307,17 +300,15 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 			installStartMessage(gameServer, updatePlan),
 		)
 	}
-	// UpdateGameServer is async (starts a supervised process). Wait for it to complete.
+	// UpdateGameServer is async (starts a supervised process). Wait for it
+	// to complete. Uses NodeClient snapshot so remote-node updates are
+	// observed identically.
 	for range 120 {
-		c, errGet := inst.supervisorInstance.GetCommandByID(serverID)
-		if errGet != nil {
-			break // Command finished and was removed.
-		}
-		s := c.Status()
+		s := inst.currentProcessStatus(gameServer)
 		if s == xylona.Status_OFFLINE || s == xylona.Status_UNKNOWN {
 			break
 		}
-		if s == xylona.Status_ONLINE || s == xylona.Status_UPDATING {
+		if s == xylona.Status_ONLINE || s == xylona.Status_UPDATING || s == xylona.Status_INSTALLING {
 			time.Sleep(time.Second)
 			continue
 		}
@@ -349,13 +340,14 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	if wasRunning {
 		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Restarting server")
 		inst.StartGameServer(gameServer)
-		// Poll up to 60s for the server to come online.
+		// Poll up to 60s for the server to come online. Uses NodeClient
+		// so embedded and remote restarts are observed uniformly.
 		restarted := waitForServerOnline(inst.ctx, func() (xylona.Status, bool) {
-			c, errGet := inst.supervisorInstance.GetCommandByID(serverID)
-			if errGet != nil {
+			s := inst.currentProcessStatus(gameServer)
+			if s == xylona.Status_UNKNOWN {
 				return xylona.Status_UNKNOWN, false
 			}
-			return c.Status(), true
+			return s, true
 		}, 60, time.Second)
 		if !restarted {
 			broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_FAILED, "Server failed to restart")
@@ -510,8 +502,8 @@ func waitForServerOnline(
 func (inst *Instance) rollbackUpdate(gameServer *models.GameServer, wasRunning bool, broadcaster UpdateProgressBroadcaster) {
 	serverID := gameServer.ID
 	broadcast := func(step xylona.UpdateStep, status xylona.StepStatus, msg string) {
-		if inst.supervisorInstance != nil && msg != "" {
-			inst.supervisorInstance.SendConsoleOutput(serverID, msg)
+		if msg != "" {
+			inst.sendConsoleLine(gameServer, msg)
 		}
 		if broadcaster != nil {
 			broadcaster.BroadcastUpdateProgress(serverID, gameServer.Name, step, status, msg)

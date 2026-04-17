@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -104,6 +105,14 @@ func (a *executeTaskActionsFake) StartGameServer(*models.GameServer) {}
 
 func (a *executeTaskActionsFake) StopGameServer(*models.GameServer) {}
 
+func (a *executeTaskActionsFake) CurrentStatus(*models.GameServer) xylona.Status {
+	return xylona.Status_OFFLINE
+}
+
+func (a *executeTaskActionsFake) SendConsoleInput(*models.GameServer, string) error {
+	return errors.New("unexpected SendConsoleInput in actions fake")
+}
+
 type executeTaskBackupFake struct {
 	calls  []*models.GameServer
 	backup *models.GameServerBackup
@@ -113,12 +122,6 @@ type executeTaskBackupFake struct {
 func (b *executeTaskBackupFake) CreateScheduledBackup(gameServer *models.GameServer) (*models.GameServerBackup, error) {
 	b.calls = append(b.calls, gameServer)
 	return b.backup, b.err
-}
-
-type executeTaskSupervisorFake struct{}
-
-func (s *executeTaskSupervisorFake) GetCommandByID(string) (SupervisorCommand, error) {
-	return nil, errors.New("unexpected supervisor access")
 }
 
 func TestExecuteTaskRunsBackupExecutor(t *testing.T) {
@@ -149,7 +152,7 @@ func TestExecuteTaskRunsBackupExecutor(t *testing.T) {
 		gameServer: gameServer,
 		node: &models.Node{
 			ID:      "node-1",
-			IsLocal: true,
+			Enabled: true,
 		},
 	}
 	backupExecutor := &executeTaskBackupFake{
@@ -161,7 +164,6 @@ func TestExecuteTaskRunsBackupExecutor(t *testing.T) {
 		db:      db,
 		actions: &executeTaskActionsFake{},
 		backup:  backupExecutor,
-		super:   &executeTaskSupervisorFake{},
 		jobs:    map[string]uuid.UUID{},
 	}
 
@@ -228,14 +230,13 @@ func TestExecuteTaskBackupWithoutExecutorFailsClearly(t *testing.T) {
 	db := &executeTaskDBFake{
 		task:       task,
 		gameServer: &models.GameServer{ID: "server-2", Name: "Server Two"},
-		node:       &models.Node{ID: "node-2", IsLocal: true},
+		node:       &models.Node{ID: "node-2", Enabled: true},
 	}
 
 	s := &Scheduler{
 		ctx:     context.Background(),
 		db:      db,
 		actions: &executeTaskActionsFake{},
-		super:   &executeTaskSupervisorFake{},
 		jobs:    map[string]uuid.UUID{},
 	}
 
@@ -271,7 +272,7 @@ func TestExecuteTaskBackupPartialSuccessReportsPostBackupFailure(t *testing.T) {
 	db := &executeTaskDBFake{
 		task:       task,
 		gameServer: &models.GameServer{ID: "server-3", Name: "Server Three", NodeID: "node-3"},
-		node:       &models.Node{ID: "node-3", IsLocal: true},
+		node:       &models.Node{ID: "node-3", Enabled: true},
 	}
 	backupExecutor := &executeTaskBackupFake{
 		backup: &models.GameServerBackup{ID: "backup-3"},
@@ -283,7 +284,6 @@ func TestExecuteTaskBackupPartialSuccessReportsPostBackupFailure(t *testing.T) {
 		db:      db,
 		actions: &executeTaskActionsFake{},
 		backup:  backupExecutor,
-		super:   &executeTaskSupervisorFake{},
 		jobs:    map[string]uuid.UUID{},
 	}
 
@@ -307,60 +307,9 @@ func TestExecuteTaskBackupPartialSuccessReportsPostBackupFailure(t *testing.T) {
 	}
 }
 
-func TestExecuteTaskBackupFailsForNonLocalServer(t *testing.T) {
-	now := time.Now().UTC()
-	task := &models.ScheduledTask{
-		ID:             "task-4",
-		GameServerID:   "server-4",
-		Name:           "Nightly Backup",
-		TaskType:       "backup",
-		CronExpression: "0 2 * * *",
-		Timezone:       "UTC",
-		Enabled:        1,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-	}
-	db := &executeTaskDBFake{
-		task: task,
-		gameServer: &models.GameServer{
-			ID:             "server-4",
-			Name:           "Server Four",
-			BackupsEnabled: true,
-			NodeID:         "node-remote",
-		},
-		node: &models.Node{
-			ID:      "node-remote",
-			IsLocal: false,
-		},
-	}
-	backupExecutor := &executeTaskBackupFake{
-		backup: &models.GameServerBackup{ID: "backup-4"},
-	}
-
-	s := &Scheduler{
-		ctx:     context.Background(),
-		db:      db,
-		actions: &executeTaskActionsFake{},
-		backup:  backupExecutor,
-		super:   &executeTaskSupervisorFake{},
-		jobs:    map[string]uuid.UUID{},
-	}
-
-	s.executeTask(task.ID)
-
-	if len(backupExecutor.calls) != 0 {
-		t.Fatalf("backup executor call count = %d, want 0", len(backupExecutor.calls))
-	}
-	if len(db.logCalls) != 1 {
-		t.Fatalf("scheduled task log call count = %d, want 1", len(db.logCalls))
-	}
-	if db.logCalls[0].status != statusFailed {
-		t.Fatalf("log status = %q, want %q", db.logCalls[0].status, statusFailed)
-	}
-	if db.logCalls[0].message != "scheduled backups only run on local servers" {
-		t.Fatalf("log message = %q, want %q", db.logCalls[0].message, "scheduled backups only run on local servers")
-	}
-	if !db.lastRunSeen {
-		t.Fatal("expected last_run_at update to be written")
-	}
-}
+// TestExecuteTaskBackupFailsForNonLocalServer was a federation-era guard that
+// rejected scheduled backups for remote nodes. Hub-spoke doesn't make that
+// distinction yet; remote-node backup support is deferred to phase 2 (the
+// executor currently assumes the game server lives on the controller's
+// embedded node — see pkg/scheduler/executor.go). The test returns when
+// that invariant is revisited.

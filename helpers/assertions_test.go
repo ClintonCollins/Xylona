@@ -169,7 +169,7 @@ func TestGameServerModelToProto(t *testing.T) {
 		}
 		input.R.Game = &models.Game{Name: "Counter-Strike"}
 		input.R.User = &models.User{UserName: "admin"}
-		input.R.Node = &models.Node{Name: "Node-1", Host: "node1.example.com", Port: 8080}
+		input.R.Node = &models.Node{Name: "Node-1", ListenURL: "https://node1.example.com:8080"}
 
 		got := GameServerModelToProto(input, nil)
 
@@ -191,11 +191,11 @@ func TestGameServerModelToProto(t *testing.T) {
 		if got.GetNodeName() != "Node-1" {
 			t.Errorf("NodeName = %q, want %q", got.GetNodeName(), "Node-1")
 		}
-		if got.GetNodeHost() != "node1.example.com" {
-			t.Errorf("NodeHost = %q, want %q", got.GetNodeHost(), "node1.example.com")
+		if got.GetNodeHost() != "https://node1.example.com:8080" {
+			t.Errorf("NodeHost = %q, want %q", got.GetNodeHost(), "https://node1.example.com:8080")
 		}
-		if got.GetNodePort() != 8080 {
-			t.Errorf("NodePort = %d, want %d", got.GetNodePort(), 8080)
+		if got.GetNodePort() != 0 {
+			t.Errorf("NodePort = %d, want %d", got.GetNodePort(), 0)
 		}
 		if got.GetVersion() != "1.0.0" {
 			t.Errorf("Version = %q, want %q", got.GetVersion(), "1.0.0")

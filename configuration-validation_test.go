@@ -172,15 +172,12 @@ func TestStartupFailureReturnsNonZeroAndCleansUp(t *testing.T) {
 
 func validConfigurationForTest() Configuration {
 	return Configuration{
-		CookieHashKey:          encodeSecretForTest(64),
-		CookieBlockKey:         encodeSecretForTest(32),
-		JWTSecretKey:           encodeSecretForTest(64),
-		HTTPReadTimeout:        15 * time.Minute,
-		HTTPWriteTimeout:       15 * time.Minute,
-		HTTPIdleTimeout:        30 * time.Minute,
-		FederationReadTimeout:  15 * time.Minute,
-		FederationWriteTimeout: 15 * time.Minute,
-		FederationIdleTimeout:  30 * time.Minute,
+		CookieHashKey:    encodeSecretForTest(64),
+		CookieBlockKey:   encodeSecretForTest(32),
+		JWTSecretKey:     encodeSecretForTest(64),
+		HTTPReadTimeout:  15 * time.Minute,
+		HTTPWriteTimeout: 15 * time.Minute,
+		HTTPIdleTimeout:  30 * time.Minute,
 	}
 }
 

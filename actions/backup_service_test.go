@@ -820,13 +820,10 @@ func TestCreateScheduledBackupPrunesOnlyScheduledArtifacts(t *testing.T) {
 	}
 
 	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
-		ID:      omit.From("node-remote"),
-		Name:    omit.From("Remote Backup Node"),
-		IsLocal: omit.From(false),
-		Host:    omit.From("remotehost"),
-		Port:    omit.From(int64(9080)),
-		BaseURL: omit.From("http://remotehost:9080"),
-		Enabled: omit.From(true),
+		ID:        omit.From("node-remote"),
+		Name:      omit.From("Remote Backup Node"),
+		ListenURL: omit.From("http://remotehost:9080"),
+		Enabled:   omit.From(true),
 	})
 	if errInsertNode != nil {
 		t.Fatalf("InsertNode(node-remote) error = %v", errInsertNode)
@@ -2071,13 +2068,10 @@ func newBackupServiceFixture(t *testing.T, inst *Instance) backupServiceFixture 
 	}
 
 	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
-		ID:      omit.From(nodeID),
-		Name:    omit.From("Backup Node"),
-		IsLocal: omit.From(true),
-		Host:    omit.From("localhost"),
-		Port:    omit.From(int64(8080)),
-		BaseURL: omit.From("http://localhost:8080"),
-		Enabled: omit.From(true),
+		ID:        omit.From(nodeID),
+		Name:      omit.From("Backup Node"),
+		ListenURL: omit.From("http://localhost:8080"),
+		Enabled:   omit.From(true),
 	})
 	if errInsertNode != nil {
 		t.Fatalf("InsertNode() error = %v", errInsertNode)

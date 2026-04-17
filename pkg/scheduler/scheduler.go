@@ -29,27 +29,19 @@ type DB interface {
 	GetNodeByID(id string) (*models.Node, error)
 }
 
-// ActionsExecutor abstracts the actions layer for game server lifecycle operations.
+// ActionsExecutor abstracts the actions layer for game server lifecycle
+// operations. The status/console methods route through the NodeClient so
+// embedded and remote nodes execute identically.
 type ActionsExecutor interface {
 	StartGameServer(gameServer *models.GameServer)
 	StopGameServer(gameServer *models.GameServer)
+	CurrentStatus(gameServer *models.GameServer) xylona.Status
+	SendConsoleInput(gameServer *models.GameServer, input string) error
 }
 
 // BackupExecutor abstracts the actions layer for scheduled backup creation.
 type BackupExecutor interface {
 	CreateScheduledBackup(gameServer *models.GameServer) (*models.GameServerBackup, error)
-}
-
-// SupervisorCommand abstracts a supervisor.Command for reading status and
-// sending console input.
-type SupervisorCommand interface {
-	Status() xylona.Status
-	SendInput(input string) error
-}
-
-// SupervisorAccessor abstracts the supervisor.Instance for getting commands.
-type SupervisorAccessor interface {
-	GetCommandByID(commandID string) (SupervisorCommand, error)
 }
 
 // Scheduler manages cron-scheduled tasks for game servers.
@@ -59,13 +51,14 @@ type Scheduler struct {
 	db        DB
 	actions   ActionsExecutor
 	backup    BackupExecutor
-	super     SupervisorAccessor
 	mu        sync.RWMutex
 	jobs      map[string]uuid.UUID // scheduled_task.id → gocron job UUID
 }
 
 // New creates a Scheduler. Call Start() to begin executing tasks.
-func New(ctx context.Context, database DB, actions ActionsExecutor, backup BackupExecutor, super SupervisorAccessor) (*Scheduler, error) {
+// The scheduler routes all game-server interactions through actions, which
+// resolves the right NodeClient for embedded vs remote nodes.
+func New(ctx context.Context, database DB, actions ActionsExecutor, backup BackupExecutor) (*Scheduler, error) {
 	gs, errNew := gocron.NewScheduler(
 		gocron.WithStopTimeout(schedulerStopTimeout),
 	)
@@ -79,7 +72,6 @@ func New(ctx context.Context, database DB, actions ActionsExecutor, backup Backu
 		db:        database,
 		actions:   actions,
 		backup:    backup,
-		super:     super,
 		jobs:      make(map[string]uuid.UUID),
 	}, nil
 }

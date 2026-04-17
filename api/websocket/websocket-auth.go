@@ -1,16 +1,12 @@
 package websocket
 
 import (
-	"fmt"
-	"net/http"
 	"slices"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/olahol/melody"
 	"github.com/rs/zerolog/log"
-
-	"github.com/ClintonCollins/Xylona/api/federation"
 )
 
 func getSessionUsername(s *melody.Session) (string, error) {
@@ -131,12 +127,4 @@ func (c *connection) currentlySuperUser() bool {
 	c.lastSuperUserCheck = time.Now()
 	c.Unlock()
 	return user.SuperUser
-}
-
-func (ws *WebSocket) applyFederatedActingIdentity(header http.Header, userID string) error {
-	errApply := federation.ApplyActingIdentityHeadersForUserID(ws.db, header, userID)
-	if errApply != nil {
-		return fmt.Errorf("websocket: apply federated acting identity: %w", errApply)
-	}
-	return nil
 }

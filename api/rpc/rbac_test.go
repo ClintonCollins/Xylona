@@ -44,7 +44,6 @@ func newRBACRPCFixture(t *testing.T) *rbacRPCFixture {
 		ctx:          context.Background(),
 		db:           conn,
 		secureCookie: secureCookieInst,
-		listCache:    newRemoteServerListCache(remoteServerListCacheTTL),
 	}
 
 	return &rbacRPCFixture{
@@ -59,9 +58,8 @@ func seedRBACRPCFixture(t *testing.T, conn *db.Connection) {
 
 	_, errNode := conn.SQLDb.ExecContext(
 		context.Background(),
-		`insert into node (id, name, is_local, host, port, base_url, enabled, os)
-		 values (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"node-local", "Local Node", true, "localhost", 8080, "http://localhost:8080", true, "linux",
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)`,
+		"node-local", "Local Node", "http://localhost:8080", true,
 	)
 	if errNode != nil {
 		t.Fatalf("failed to insert node: %v", errNode)
@@ -126,23 +124,6 @@ func seedRBACRPCFixture(t *testing.T, conn *db.Connection) {
 	)
 	if errServer != nil {
 		t.Fatalf("failed to insert game server: %v", errServer)
-	}
-}
-
-func seedRemoteNodeForRBACRPCTests(t *testing.T, conn *db.Connection, nodeID string) {
-	t.Helper()
-
-	host := fmt.Sprintf("%s.remote.test", nodeID)
-	baseURL := fmt.Sprintf("https://%s", host)
-
-	_, errInsertNode := conn.SQLDb.ExecContext(
-		context.Background(),
-		`insert into node (id, name, is_local, host, port, base_url, enabled, os)
-			 values (?, ?, ?, ?, ?, ?, ?, ?)`,
-		nodeID, "Remote Node", false, host, 8443, baseURL, true, "",
-	)
-	if errInsertNode != nil {
-		t.Fatalf("failed to insert remote node: %v", errInsertNode)
 	}
 }
 
@@ -344,111 +325,11 @@ func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 	}
 }
 
-func TestGrantFederatedAccessAuthorizationAndShape(t *testing.T) {
-	fixture := newRBACRPCFixture(t)
-	seedRemoteNodeForRBACRPCTests(t, fixture.conn, "node-remote-1")
-
-	tests := []struct {
-		name     string
-		userID   string
-		roleID   string
-		wantErr  bool
-		wantCode connect.Code
-	}{
-		{
-			name:    "owner can grant federated access",
-			userID:  "user-owner",
-			roleID:  "viewer",
-			wantErr: false,
-		},
-		{
-			name:    "super user can grant federated access",
-			userID:  "user-admin",
-			roleID:  "operator",
-			wantErr: false,
-		},
-		{
-			name:     "non-owner non-super denied",
-			userID:   "user-other",
-			roleID:   "admin",
-			wantErr:  true,
-			wantCode: connect.CodePermissionDenied,
-		},
-	}
-
-	remoteUserSuffixes := []string{"a", "b", "c"}
-	for i, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			request := connect.NewRequest(&xylona.GrantFederatedAccessRequest{
-				GameServerId:   "server-local-1",
-				RemoteNodeId:   "node-remote-1",
-				RemoteUserId:   "remote-user-" + remoteUserSuffixes[i],
-				RemoteUserName: "Remote User",
-				RoleId:         tt.roleID,
-			})
-			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, tt.userID)
-
-			response, errGrant := fixture.service.GrantFederatedAccess(context.Background(), request)
-			if !tt.wantErr {
-				if errGrant != nil {
-					t.Fatalf("GrantFederatedAccess() error = %v", errGrant)
-				}
-				if response == nil || response.Msg == nil || response.Msg.GetGrant() == nil {
-					t.Fatalf("GrantFederatedAccess() returned empty response")
-				}
-				if response.Msg.GetGrant().GetGameServerId() != "server-local-1" {
-					t.Errorf("GrantFederatedAccess().Grant.GameServerId = %q, want %q", response.Msg.GetGrant().GetGameServerId(), "server-local-1")
-				}
-				if response.Msg.GetGrant().GetRemoteNodeId() != "node-remote-1" {
-					t.Errorf("GrantFederatedAccess().Grant.RemoteNodeId = %q, want %q", response.Msg.GetGrant().GetRemoteNodeId(), "node-remote-1")
-				}
-				if response.Msg.GetGrant().GetRoleId() != tt.roleID {
-					t.Errorf("GrantFederatedAccess().Grant.RoleId = %q, want %q", response.Msg.GetGrant().GetRoleId(), tt.roleID)
-				}
-				if response.Msg.GetGrant().GetRoleName() == "" || response.Msg.GetGrant().GetGrantedByUserName() == "" {
-					t.Errorf("GrantFederatedAccess() response missing expected display fields: %+v", response.Msg.GetGrant())
-				}
-				return
-			}
-
-			if errGrant == nil {
-				t.Fatalf("GrantFederatedAccess() expected error with code %v, got nil", tt.wantCode)
-			}
-			if connect.CodeOf(errGrant) != tt.wantCode {
-				t.Errorf("GrantFederatedAccess() code = %v, want %v", connect.CodeOf(errGrant), tt.wantCode)
-			}
-		})
-	}
-}
-
-func TestListRemoteNodeUsersRequiresSearchForNonSuper(t *testing.T) {
-	fixture := newRBACRPCFixture(t)
-
-	requestUnauthenticated := connect.NewRequest(&xylona.ListRemoteNodeUsersRequest{NodeId: "node-remote-1"})
-	_, errUnauthenticated := fixture.service.ListRemoteNodeUsers(context.Background(), requestUnauthenticated)
-	if connect.CodeOf(errUnauthenticated) != connect.CodeUnauthenticated {
-		t.Fatalf("ListRemoteNodeUsers(unauthenticated) code = %v, want %v", connect.CodeOf(errUnauthenticated), connect.CodeUnauthenticated)
-	}
-
-	// Non-super user without search term should get InvalidArgument.
-	requestNoSearch := connect.NewRequest(&xylona.ListRemoteNodeUsersRequest{NodeId: "node-remote-1"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, requestNoSearch, "user-owner")
-
-	_, errNoSearch := fixture.service.ListRemoteNodeUsers(context.Background(), requestNoSearch)
-	if connect.CodeOf(errNoSearch) != connect.CodeInvalidArgument {
-		t.Fatalf("ListRemoteNodeUsers(non-super, no search) code = %v, want %v", connect.CodeOf(errNoSearch), connect.CodeInvalidArgument)
-	}
-
-	// Non-super user with search term should be allowed (will fail at node lookup, which is expected).
-	requestWithSearch := connect.NewRequest(&xylona.ListRemoteNodeUsersRequest{NodeId: "node-remote-1", Search: "someuser"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, requestWithSearch, "user-owner")
-
-	_, errWithSearch := fixture.service.ListRemoteNodeUsers(context.Background(), requestWithSearch)
-	// Should fail with NotFound (node doesn't exist in test fixture), not PermissionDenied.
-	if connect.CodeOf(errWithSearch) != connect.CodeNotFound {
-		t.Fatalf("ListRemoteNodeUsers(non-super, with search) code = %v, want %v", connect.CodeOf(errWithSearch), connect.CodeNotFound)
-	}
-}
+// TestGrantFederatedAccessAuthorizationAndShape and
+// TestListRemoteNodeUsersRequiresSearchForNonSuper covered the federation-era
+// acting-identity flow. Hub-spoke removed federated access entirely: the
+// RPCs now return Unimplemented and the tests go with them. Step 7 will
+// delete the RPCs from the public proto and the stubs that replaced them.
 
 func TestListRoles(t *testing.T) {
 	fixture := newRBACRPCFixture(t)

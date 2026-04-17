@@ -12,6 +12,8 @@ import (
 
 	"github.com/stephenafamo/bob"
 	_ "modernc.org/sqlite" // Register the SQLite driver.
+
+	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 )
 
 // Connection wraps the SQLite database and ORM executor used by Xylona.
@@ -34,6 +36,32 @@ func (c *Connection) SetEncryptionKey(key []byte) {
 // the JWT secret-derived database key.
 func (c *Connection) SetFallbackEncryptionKey(key []byte) {
 	c.fallbackEncryptionKey = key
+}
+
+// EncryptText encrypts plaintext with the controller's primary encryption
+// key for storage in the DB (e.g., node shared secrets).
+func (c *Connection) EncryptText(plaintext string) (string, error) {
+	if len(c.encryptionKey) == 0 {
+		return "", errors.New("encryption key is not configured")
+	}
+	return xycrypt.Encrypt(c.encryptionKey, plaintext)
+}
+
+// DecryptText decrypts ciphertext stored by EncryptText. Falls back to the
+// legacy key if the primary fails so older ciphertext keeps working across
+// an ENCRYPTION_KEY_BASE64 rotation.
+func (c *Connection) DecryptText(ciphertext string) (string, error) {
+	if len(c.encryptionKey) == 0 {
+		return "", errors.New("encryption key is not configured")
+	}
+	plaintext, errPrimary := xycrypt.Decrypt(c.encryptionKey, ciphertext)
+	if errPrimary == nil {
+		return plaintext, nil
+	}
+	if len(c.fallbackEncryptionKey) == 0 {
+		return "", errPrimary
+	}
+	return xycrypt.Decrypt(c.fallbackEncryptionKey, ciphertext)
 }
 
 func sqliteDSNWithPragmas(path string, pragmas ...string) string {

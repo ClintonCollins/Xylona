@@ -10,10 +10,8 @@ import (
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
-	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/placeholder"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -54,21 +52,14 @@ func normalizeStartArgsPlatform(platform string) (string, error) {
 	}
 }
 
-func platformForNode(node *models.Node) string {
-	if node != nil {
-		nodeOS := strings.ToLower(strings.TrimSpace(node.Os))
-		if strings.Contains(nodeOS, "windows") {
-			return "windows"
-		}
-		if nodeOS != "" {
-			return "linux"
-		}
-	}
-
+// platformForNode returns the OS family for a node's runtime. Hub-spoke keeps
+// this helper so existing call sites can be updated later to use the remote
+// node's reported OS via NodeClient.GetNodeSnapshot; for now we fall back to
+// the controller's own GOOS.
+func platformForNode(_ *models.Node) string {
 	if runtime.GOOS == "windows" {
 		return "windows"
 	}
-
 	return "linux"
 }
 
@@ -429,7 +420,7 @@ func (xs *XylonaService) UpdateGameStartArgBlocklist(
 
 // UpdateGameServerStartArgs updates structured start args patches for a server.
 func (xs *XylonaService) UpdateGameServerStartArgs(
-	ctx context.Context,
+	_ context.Context,
 	request *connect.Request[xylona.UpdateGameServerStartArgsRequest],
 ) (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error) {
 	serverID := request.Msg.GetServerId()
@@ -440,133 +431,23 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 
 	normalizedPatches := normalizeStartArgsPatchesJSON(request.Msg.GetStartArgsPatches())
 
-	return dispatchGameServerRequest(
-		xs,
-		serverID,
-		func(gameServer *models.GameServer) (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error) {
-			errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.settings")
-			if errPermission != nil {
-				return nil, errPermission
-			}
-
-			if gameServer.R.Game == nil {
-				return nil, internalErrf("game relation missing")
-			}
-			if !user.SuperUser && !gameServer.R.Game.AllowStartArgEditing {
-				return nil, permissionDenied("start arg editing is disabled for this game")
-			}
-
-			errValidate := validateGameServerStartArgsUpdate(gameServer, normalizedPatches)
-			if errValidate != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
-			}
-
-			setter := &models.GameServerSetter{
-				ID:               omit.From(gameServer.ID),
-				StartArgsPatches: omit.From(normalizedPatches),
-			}
-			updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
-			if errUpdate != nil {
-				return nil, internalErrf("failed to update game server")
-			}
-
-			gameServerProto := helpers.GameServerModelToProto(updated, xs.versionState)
-			if !user.SuperUser {
-				redactGameServerForNonSuperuser(gameServerProto)
-			}
-
-			return connect.NewResponse(&xylona.UpdateGameServerStartArgsResponse{
-				GameServer: gameServerProto,
-			}), nil
-		},
-		func() (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error) {
-			return xs.updateRemoteGameServerStartArgs(ctx, serverID, normalizedPatches, user)
-		},
-	)
-}
-
-func (xs *XylonaService) updateRemoteGameServerStartArgs(
-	ctx context.Context,
-	serverID string,
-	startArgsPatches string,
-	actingUser *models.User,
-) (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error) {
-	node, _, errGet := xs.getRemoteNodeForServer(serverID)
-	if errGet != nil {
-		return nil, errGet
+	gameServer, errLookup := xs.db.GetGameServerByID(serverID)
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
 	}
 
-	client, errClient := xs.remoteFederationClient(node, serverID)
-	if errClient != nil {
-		return nil, errClient
-	}
-
-	req := connect.NewRequest(&xylona.FederationUpdateServerStartArgsRequest{
-		ServerId:         serverID,
-		StartArgsPatches: startArgsPatches,
-	})
-	errIdentity := xs.applyFederatedActingIdentity(req.Header(), actingUser)
-	if errIdentity != nil {
-		log.Error().Err(errIdentity).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to apply federation identity headers")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to update remote server start args"))
-	}
-
-	resp, errUpdate := client.UpdateRemoteServerStartArgs(ctx, req)
-	if errUpdate != nil {
-		log.Error().Err(errUpdate).Str("server_id", serverID).Str("node", node.Name).Msg("Failed to update remote game server start args")
-		return nil, wrapRemoteRPCError(errUpdate, "failed to update remote server start args")
-	}
-
-	if !resp.Msg.GetSuccess() {
-		return nil, internalErrf(resp.Msg.GetError())
-	}
-
-	gameServerProto := resp.Msg.GetGameServer()
-	if actingUser != nil && !actingUser.SuperUser {
-		redactGameServerForNonSuperuser(gameServerProto)
-	}
-
-	return connect.NewResponse(&xylona.UpdateGameServerStartArgsResponse{
-		GameServer: gameServerProto,
-	}), nil
-}
-
-// UpdateRemoteServerStartArgs updates structured start args patches over federation.
-func (fs FederationService) UpdateRemoteServerStartArgs(
-	ctx context.Context,
-	request *connect.Request[xylona.FederationUpdateServerStartArgsRequest],
-) (*connect.Response[xylona.FederationUpdateServerStartArgsResponse], error) {
-	_, errAuth := fs.authenticateRequest(ctx)
-	if errAuth != nil {
-		return nil, permissionDenied("authentication failed")
-	}
-
-	serverID := request.Msg.GetServerId()
-	errPermission := fs.authorizeFederatedPermission(
-		ctx,
-		request.Header(),
-		request.Msg.GetActingUserId(),
-		request.Msg.GetOriginNodeId(),
-		serverID,
-		"game_server.settings",
-	)
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.settings")
 	if errPermission != nil {
 		return nil, errPermission
-	}
-
-	gameServer, errGet := fs.db.GetGameServerByID(serverID)
-	if errGet != nil {
-		return nil, dbLookupMsg(errGet, "failed to get game server")
 	}
 
 	if gameServer.R.Game == nil {
 		return nil, internalErrf("game relation missing")
 	}
-	if !federation.ActingIsSuperUser(request.Header()) && !gameServer.R.Game.AllowStartArgEditing {
+	if !user.SuperUser && !gameServer.R.Game.AllowStartArgEditing {
 		return nil, permissionDenied("start arg editing is disabled for this game")
 	}
 
-	normalizedPatches := normalizeStartArgsPatchesJSON(request.Msg.GetStartArgsPatches())
 	errValidate := validateGameServerStartArgsUpdate(gameServer, normalizedPatches)
 	if errValidate != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
@@ -576,18 +457,17 @@ func (fs FederationService) UpdateRemoteServerStartArgs(
 		ID:               omit.From(gameServer.ID),
 		StartArgsPatches: omit.From(normalizedPatches),
 	}
-	updated, errUpdate := fs.db.UpdateGameServer(fs.db.DB, setter)
+	updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 	if errUpdate != nil {
 		return nil, internalErrf("failed to update game server")
 	}
 
-	gameServerProto := helpers.GameServerModelToProto(updated, fs.versionState)
-	if !federation.ActingIsSuperUser(request.Header()) {
+	gameServerProto := helpers.GameServerModelToProto(updated, xs.versionState)
+	if !user.SuperUser {
 		redactGameServerForNonSuperuser(gameServerProto)
 	}
 
-	return connect.NewResponse(&xylona.FederationUpdateServerStartArgsResponse{
-		Success:    true,
+	return connect.NewResponse(&xylona.UpdateGameServerStartArgsResponse{
 		GameServer: gameServerProto,
 	}), nil
 }

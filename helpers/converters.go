@@ -122,8 +122,8 @@ func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.Vers
 		GameName:                   gameName,
 		NodeId:                     gsModel.NodeID,
 		NodeName:                   gsModel.R.Node.Name,
-		NodeHost:                   gsModel.R.Node.Host,
-		NodePort:                   gsModel.R.Node.Port,
+		NodeHost:                   gsModel.R.Node.ListenURL,
+		NodePort:                   0,
 		Version:                    gsModel.Version,
 		SelectedTarget:             gsModel.Branch,
 		SelectedTargetPinned:       gsModel.TargetPinned,
@@ -675,85 +675,42 @@ func defaultProviderSourceID(kind updateproviders.ProviderKind, current string) 
 	}
 }
 
-// NodeProtoToModel converts a node protobuf message to a database model.
+// NodeProtoToModel converts a node protobuf message to a database model. The
+// hub-spoke Node model only exposes name + listen_url on writes; the other
+// fields (cert_fingerprint, shared_secret_encrypted, enabled) are managed by
+// the join-token flow and the controller's admin handlers, not by frontend
+// edits.
 func NodeProtoToModel(nodeProto *xylona.Node) *models.Node {
-	secretKey := strings.TrimSpace(nodeProto.GetSecretKey())
-
 	return &models.Node{
-		ID:               nodeProto.GetId(),
-		Name:             strings.TrimSpace(nodeProto.GetName()),
-		Host:             strings.TrimSpace(nodeProto.GetHost()),
-		Port:             nodeProto.GetPort(),
-		SecretKey:        null.FromCond(secretKey, secretKey != ""),
-		IsLocal:          nodeProto.GetLocal(),
-		BaseURL:          strings.TrimSpace(nodeProto.GetBaseUrl()),
-		AllowInsecureTLS: nodeProto.GetAllowInsecureTls(),
-		Os:               strings.TrimSpace(nodeProto.GetOs()),
+		ID:        nodeProto.GetId(),
+		Name:      strings.TrimSpace(nodeProto.GetName()),
+		ListenURL: strings.TrimSpace(nodeProto.GetBaseUrl()),
+		Enabled:   true,
 	}
 }
 
-// NodeModelToProto converts a node database model to a protobuf message.
+// NodeModelToProto converts a node database model to a protobuf message. The
+// legacy federation-era fields (Host, Port, IsLocal, Version, etc.) are zeroed
+// — the public proto will be trimmed in step 7.
 func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
 	return &xylona.Node{
-		Id:               nodeModel.ID,
-		Name:             nodeModel.Name,
-		Host:             nodeModel.Host,
-		Port:             nodeModel.Port,
-		Local:            nodeModel.IsLocal,
-		SecretKey:        nodeModel.SecretKey.GetOr(""),
-		BaseUrl:          nodeModel.BaseURL,
-		Enabled:          nodeModel.Enabled,
-		LastSeenAt:       timestamppb.New(nodeModel.LastSeenAt.GetOr(time.Time{})),
-		LastSyncAt:       timestamppb.New(nodeModel.LastSyncAt.GetOr(time.Time{})),
-		LastSyncStatus:   nodeModel.LastSyncStatus,
-		HealthStatus:     nodeModel.HealthStatus,
-		Version:          nodeModel.Version,
-		ProtocolVersion:  nodeModel.ProtocolVersion,
-		Capabilities:     nodeModel.Capabilities,
-		CreatedAt:        timestamppb.New(nodeModel.CreatedAt.GetOr(time.Time{})),
-		UpdatedAt:        timestamppb.New(nodeModel.UpdatedAt.GetOr(time.Time{})),
-		AllowInsecureTls: nodeModel.AllowInsecureTLS,
-		Departed:         nodeModel.Departed,
-		AutoPaired:       nodeModel.AutoPaired,
-		Os:               nodeModel.Os,
+		Id:         nodeModel.ID,
+		Name:       nodeModel.Name,
+		BaseUrl:    nodeModel.ListenURL,
+		Enabled:    nodeModel.Enabled,
+		LastSeenAt: timestamppb.New(nodeModel.LastSeenAt.GetOr(time.Time{})),
+		CreatedAt:  timestamppb.New(nodeModel.CreatedAt),
+		UpdatedAt:  timestamppb.New(nodeModel.UpdatedAt),
 	}
 }
 
 // NodeModelToSetter converts a node model to a bob setter.
 func NodeModelToSetter(nodeModel *models.Node) *models.NodeSetter {
 	return &models.NodeSetter{
-		ID:               omit.From(nodeModel.ID),
-		Name:             omit.From(nodeModel.Name),
-		SecretKey:        omitnull.FromNull(nodeModel.SecretKey),
-		Host:             omit.From(nodeModel.Host),
-		Port:             omit.From(nodeModel.Port),
-		BaseURL:          omit.From(nodeModel.BaseURL),
-		AllowInsecureTLS: omit.From(nodeModel.AllowInsecureTLS),
-		Os:               omit.From(nodeModel.Os),
-	}
-}
-
-// RemoteServerCacheToProto converts a cached remote server record into a GameServer proto,
-// suitable for use in GetGameServerResponse when the peer is unreachable.
-// RemoteServerCacheToProto converts cached remote server data to a game server protobuf message.
-func RemoteServerCacheToProto(rsc *models.RemoteServerCache, node *models.Node) *xylona.GameServer {
-	return &xylona.GameServer{
-		Id:                 rsc.RemoteServerID,
-		Name:               rsc.DisplayName,
-		GameId:             rsc.GameID,
-		GameName:           rsc.GameName,
-		Status:             GameServerModelStatusToProtoStatus(rsc.Status),
-		Ip:                 &xylona.IP{Address: rsc.IPAddress},
-		Port:               rsc.Port,
-		QueryPort:          rsc.QueryPort,
-		SetMaxPlayers:      rsc.MaxPlayers,
-		MaxPlayers:         rsc.MaxPlayers,
-		CurrentPlayerCount: rsc.CurrentPlayers,
-		Map:                rsc.MapName,
-		Version:            rsc.Version,
-		NodeId:             node.ID,
-		NodeName:           node.Name,
-		NodeHost:           node.BaseURL,
+		ID:        omit.From(nodeModel.ID),
+		Name:      omit.From(nodeModel.Name),
+		ListenURL: omit.From(nodeModel.ListenURL),
+		Enabled:   omit.From(nodeModel.Enabled),
 	}
 }
 
@@ -788,46 +745,5 @@ func InstalledModFileModelToProto(file *models.InstalledModFile) *xylona.Install
 		FileHash:       file.FileHash,
 		FileSize:       file.FileSize,
 		IsPrimary:      file.IsPrimary != 0,
-	}
-}
-
-// NodeAPIKeyModelToProto converts a node API key model to a protobuf message.
-func NodeAPIKeyModelToProto(key *models.NodeAPIKey) *xylona.NodeApiKey {
-	maskedKey := "****"
-	if len(key.APIKey) >= 4 {
-		maskedKey = key.APIKey[:4] + "****"
-	}
-	return &xylona.NodeApiKey{
-		Id:          key.ID,
-		ServiceName: key.ServiceName,
-		MaskedKey:   maskedKey,
-		CreatedAt:   timestamppb.New(key.CreatedAt),
-		UpdatedAt:   timestamppb.New(key.UpdatedAt),
-	}
-}
-
-// RemoteServerCacheModelToProto converts a remote server cache model to a summary protobuf message.
-func RemoteServerCacheModelToProto(rsc *models.RemoteServerCache) *xylona.RemoteServerSummary {
-	return &xylona.RemoteServerSummary{
-		Id:               rsc.ID,
-		SourceNodeId:     rsc.SourceNodeID,
-		NodeId:           rsc.NodeID,
-		RemoteServerId:   rsc.RemoteServerID,
-		DisplayName:      rsc.DisplayName,
-		Status:           GameServerModelStatusToProtoStatus(rsc.Status),
-		GameName:         rsc.GameName,
-		GameId:           rsc.GameID,
-		IpAddress:        rsc.IPAddress,
-		Port:             rsc.Port,
-		QueryPort:        rsc.QueryPort,
-		MaxPlayers:       rsc.MaxPlayers,
-		CurrentPlayers:   rsc.CurrentPlayers,
-		MapName:          rsc.MapName,
-		Version:          rsc.Version,
-		NodeName:         rsc.NodeName,
-		NodeHost:         rsc.NodeHost,
-		LastRemoteUpdate: timestamppb.New(rsc.LastRemoteUpdate.GetOr(time.Time{})),
-		LastSyncedAt:     timestamppb.New(rsc.LastSyncedAt.GetOr(time.Time{})),
-		IsStale:          rsc.IsStale,
 	}
 }

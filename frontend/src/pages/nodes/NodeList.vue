@@ -31,7 +31,6 @@
               <q-icon name="search" />
             </template>
           </q-input>
-          <q-btn color="primary" flat icon="notifications" label="Activity" to="/nodes/activity" />
           <q-btn color="primary" label="Add Node" to="/nodes/add" />
         </div>
       </div>
@@ -52,19 +51,11 @@
               <button class="table-link" type="button" @click="openDetail(props.row)">
                 {{ props.row.name || 'Unnamed' }}
               </button>
-              <q-badge v-if="props.row.local" class="q-ml-sm" color="primary" label="local" />
-              <q-badge v-else class="badge-remote q-ml-sm" label="remote" />
-              <q-badge v-if="props.row.autoPaired" class="badge-auto q-ml-xs" label="auto" />
             </q-td>
           </template>
           <template #body-cell-health="props">
             <q-td :props="props">
-              <template v-if="!props.row.local">
-                <q-badge
-                  :color="healthColor(props.row.healthStatus)"
-                  :label="healthLabel(props.row.healthStatus)" />
-              </template>
-              <q-badge v-else color="positive" label="Healthy" />
+              <q-badge color="positive" label="Healthy" />
             </q-td>
           </template>
           <template #body-cell-cpu="props">
@@ -153,37 +144,15 @@
           </template>
           <template #body-cell-lastSync="props">
             <q-td :props="props">
-              <template v-if="!props.row.local">
-                <span v-if="props.row.lastSyncAt?.seconds">
-                  {{ formatTimestamp(props.row.lastSyncAt) }}
-                </span>
-                <span v-else class="text-xy-muted">Never</span>
-                <q-badge
-                  v-if="props.row.lastSyncStatus === 'error'"
-                  class="q-ml-sm"
-                  color="negative"
-                  label="error" />
-                <q-badge
-                  v-else-if="props.row.lastSyncStatus === 'success'"
-                  class="q-ml-sm"
-                  color="positive"
-                  label="ok" />
-              </template>
-              <span v-else class="text-xy-muted">&mdash;</span>
+              <span v-if="props.row.lastSeenAt?.seconds">
+                {{ formatTimestamp(props.row.lastSeenAt) }}
+              </span>
+              <span v-else class="text-xy-muted">Never</span>
             </q-td>
           </template>
           <template #body-cell-actions="props">
             <q-td :props="props">
-              <div v-if="!props.row.local" class="q-gutter-xs">
-                <q-btn
-                  aria-label="Sync node"
-                  color="primary"
-                  dense
-                  flat
-                  icon="sync"
-                  @click="syncNode(props.row)">
-                  <q-tooltip>Sync now</q-tooltip>
-                </q-btn>
+              <div class="q-gutter-xs">
                 <router-link :to="'/nodes/' + props.row.id + '/edit'">
                   <q-btn
                     :icon="tabSettings"
@@ -203,18 +172,6 @@
                   @click="deleteNodeAction(props.row)">
                   <q-tooltip>Remove node</q-tooltip>
                 </q-btn>
-              </div>
-              <div v-else class="q-gutter-xs">
-                <router-link :to="'/nodes/' + props.row.id + '/edit'">
-                  <q-btn
-                    :icon="tabSettings"
-                    aria-label="Edit node"
-                    class="text-main-brighter"
-                    dense
-                    flat>
-                    <q-tooltip>Edit node</q-tooltip>
-                  </q-btn>
-                </router-link>
               </div>
             </q-td>
           </template>
@@ -242,17 +199,8 @@
             round
             @click="detailNode = null" />
           <div class="text-h6 q-ml-sm">{{ detailNode.name || 'Node Details' }}</div>
-          <q-badge v-if="detailNode.local" class="q-ml-sm" color="primary" label="local" />
-          <q-badge v-else class="badge-remote q-ml-sm" label="remote" />
         </div>
-        <div v-if="!detailNode.local" class="xy-page-actions">
-          <q-btn
-            color="primary"
-            dense
-            flat
-            icon="sync"
-            label="Sync"
-            @click="syncNode(detailNode)" />
+        <div class="xy-page-actions">
           <q-btn
             :icon="tabSettings"
             :to="'/nodes/' + detailNode.id + '/edit'"
@@ -267,15 +215,6 @@
             flat
             label="Remove"
             @click="deleteNodeAction(detailNode)" />
-        </div>
-        <div v-else class="xy-page-actions">
-          <q-btn
-            :icon="tabSettings"
-            :to="'/nodes/' + detailNode.id + '/edit'"
-            class="text-main-brighter"
-            dense
-            flat
-            label="Edit" />
         </div>
       </div>
 
@@ -324,7 +263,6 @@ import {
   DashboardNodeSummary,
   ListNodesRequestSchema,
   RemoveNodeRequestSchema,
-  SyncNodeRequestSchema,
 } from '@/proto/xylona_pb'
 import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
 
@@ -448,20 +386,6 @@ async function fetchAll() {
   void dashboardPromise
 }
 
-function healthColor(status: string): string {
-  if (status === 'healthy') return 'positive'
-  if (status === 'degraded') return 'warning'
-  if (status === 'unreachable' || status === 'offline') return 'negative'
-  return 'grey'
-}
-
-function healthLabel(status: string): string {
-  if (status === 'healthy') return 'Healthy'
-  if (status === 'degraded') return 'Degraded'
-  if (status === 'unreachable') return 'Unreachable'
-  return status || 'Unknown'
-}
-
 function formatTimestamp(ts: { seconds: bigint }): string {
   if (!ts || !ts.seconds) return 'Never'
   const date = new Date(Number(ts.seconds) * 1000)
@@ -470,24 +394,6 @@ function formatTimestamp(ts: { seconds: bigint }): string {
 
 function openDetail(node: Node) {
   detailNode.value = node
-}
-
-async function syncNode(node: Node) {
-  try {
-    await GetXylonaClient().syncNode(create(SyncNodeRequestSchema, { nodeId: node.id }))
-    setTimeout(() => fetchAll(), 2000)
-  } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    Notify.create({
-      type: 'xylona-error',
-      position: 'top',
-      caption: ConnectErrorToString(err),
-      timeout: 0,
-      closeBtn: 'Dismiss',
-      icon: 'report_problem',
-    })
-    console.error(err.message)
-  }
 }
 
 function deleteNodeAction(node: Node) {
@@ -533,8 +439,8 @@ const columns = ref([
     name: 'health',
     label: 'Status',
     align: 'left' as const,
-    field: (row: Node) => row.healthStatus,
-    sortable: true,
+    field: () => '',
+    sortable: false,
   },
   {
     name: 'cpu',
@@ -580,9 +486,9 @@ const columns = ref([
   },
   {
     name: 'lastSync',
-    label: 'Last Sync',
+    label: 'Last Seen',
     align: 'left' as const,
-    field: (row: Node) => row.lastSyncAt,
+    field: (row: Node) => row.lastSeenAt,
     sortable: false,
   },
   { name: 'actions', label: '', align: 'center' as const, field: () => '' },

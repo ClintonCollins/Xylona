@@ -135,7 +135,7 @@ var GameServers = Table[
 		BackupsEnabled: column{
 			Name:      "backups_enabled",
 			DBType:    "BOOLEAN",
-			Default:   "false",
+			Default:   "true",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -252,7 +252,7 @@ var GameServers = Table[
 		AutoRestartEnabled: column{
 			Name:      "auto_restart_enabled",
 			DBType:    "BOOLEAN",
-			Default:   "false",
+			Default:   "true",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,

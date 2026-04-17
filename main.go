@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,13 +33,13 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/actions"
+	"github.com/ClintonCollins/Xylona/api/events"
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/api/rpc"
 	"github.com/ClintonCollins/Xylona/api/websocket"
 	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
 	dbpkg "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/helpers/federation"
 	"github.com/ClintonCollins/Xylona/pkg/adminipc"
 	"github.com/ClintonCollins/Xylona/pkg/alerts"
 	"github.com/ClintonCollins/Xylona/pkg/cli/usercmd"
@@ -53,9 +52,11 @@ import (
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/papermc"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/steamworkshop"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/thunderstore"
+	xynode "github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/scheduler"
 	"github.com/ClintonCollins/Xylona/pkg/usermgmt"
-	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
 	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
@@ -71,21 +72,17 @@ type Configuration struct {
 	CookieBlockKey string `env:"COOKIE_BLOCK_KEY_BASE64"`
 	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
 	// EncryptionKey is a dedicated base64-encoded key for encrypting sensitive DB
-	// fields (notification channel configs, node API keys).
-	EncryptionKey          string        `env:"ENCRYPTION_KEY_BASE64"`
-	DBFilePath             string        `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
-	LogLevel               string        `env:"LOG_LEVEL" envDefault:"info"`
-	SecureCookies          bool          `env:"SECURE_COOKIES" envDefault:"false"`
-	MetricsEnabled         bool          `env:"METRICS_ENABLED" envDefault:"false"`
-	Host                   string        `env:"HOST" envDefault:""`
-	HTTPPort               int           `env:"HTTP_PORT" envDefault:"8080"`
-	HTTPReadTimeout        time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"6h"`
-	HTTPWriteTimeout       time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"6h"`
-	HTTPIdleTimeout        time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"24h"`
-	FederationPort         int           `env:"FEDERATION_PORT" envDefault:"8443"`
-	FederationReadTimeout  time.Duration `env:"FEDERATION_READ_TIMEOUT" envDefault:"6h"`
-	FederationWriteTimeout time.Duration `env:"FEDERATION_WRITE_TIMEOUT" envDefault:"6h"`
-	FederationIdleTimeout  time.Duration `env:"FEDERATION_IDLE_TIMEOUT" envDefault:"24h"`
+	// fields (notification channel configs).
+	EncryptionKey    string        `env:"ENCRYPTION_KEY_BASE64"`
+	DBFilePath       string        `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
+	LogLevel         string        `env:"LOG_LEVEL" envDefault:"info"`
+	SecureCookies    bool          `env:"SECURE_COOKIES" envDefault:"false"`
+	MetricsEnabled   bool          `env:"METRICS_ENABLED" envDefault:"false"`
+	Host             string        `env:"HOST" envDefault:""`
+	HTTPPort         int           `env:"HTTP_PORT" envDefault:"8080"`
+	HTTPReadTimeout  time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"6h"`
+	HTTPWriteTimeout time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"6h"`
+	HTTPIdleTimeout  time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"24h"`
 	// DummyGameID enables the DummyTracker for E2E testing. When set, the game
 	// with this ID is treated as a trackable server returning a simulated 1.0.0→2.0.0
 	// update. Leave empty in production.
@@ -326,43 +323,23 @@ func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, e
 		}
 	}
 
-	errValidateExistingEncryptedSecrets := dbInst.ValidateEncryptedSecretStorageWithoutFederationLocalIdentity()
-	if errValidateExistingEncryptedSecrets != nil {
-		_ = dbInst.SQLDb.Close()
-		return nil, fmt.Errorf("setupDatabase: validate existing encrypted secret storage: %w", errValidateExistingEncryptedSecrets)
-	}
-
-	errMigrateFederationIdentity := dbInst.MigrateLegacyFederationLocalIdentityKeyPEM()
-	if errMigrateFederationIdentity != nil {
-		_ = dbInst.SQLDb.Close()
-		return nil, fmt.Errorf("setupDatabase: migrate federation local identity key PEM: %w", errMigrateFederationIdentity)
-	}
-
-	errValidateEncryptedSecrets := dbInst.ValidateEncryptedSecretStorage()
-	if errValidateEncryptedSecrets != nil {
-		_ = dbInst.SQLDb.Close()
-		return nil, fmt.Errorf("setupDatabase: validate encrypted secret storage: %w", errValidateEncryptedSecrets)
-	}
-
 	return dbInst, nil
 }
 
-// setupFederationIdentity loads or generates the federation mTLS identity and
-// persists it to the database. It returns the mTLS instance, the local node ID,
-// and the local settings.
-func setupFederationIdentity(ctx context.Context, dbInst *dbpkg.Connection, cfg Configuration) (*federation.MTLS, *models.LocalSetting, error) {
-	_ = ctx // reserved for future use
-
+// setupSelfNodeIdentity loads or generates the controller's local node ID. In
+// the hub-spoke model the controller's embedded node is registered into the
+// node registry using this ID; remote nodes are dialed via the node registry
+// once they're paired via the join-token flow (step 6).
+func setupSelfNodeIdentity(dbInst *dbpkg.Connection) (*models.LocalSetting, error) {
 	settings, errSettings := dbInst.GetLocalSettings()
 	if errSettings != nil {
 		if !errors.Is(errSettings, sql.ErrNoRows) {
-			return nil, nil, fmt.Errorf("setupFederationIdentity: get local settings: %w", errSettings)
+			return nil, fmt.Errorf("setupSelfNodeIdentity: get local settings: %w", errSettings)
 		}
-		// Create default settings.
 		log.Warn().Msg("No settings found. Generating a node ID and default settings.")
 		newID, errID := helpers.GenerateUniqueID()
 		if errID != nil {
-			return nil, nil, fmt.Errorf("setupFederationIdentity: generate unique ID: %w", errID)
+			return nil, fmt.Errorf("setupSelfNodeIdentity: generate unique ID: %w", errID)
 		}
 		settings = &models.LocalSetting{
 			ID:     1,
@@ -370,84 +347,25 @@ func setupFederationIdentity(ctx context.Context, dbInst *dbpkg.Connection, cfg 
 		}
 		errInsert := dbInst.UpdateLocalSettings(settings)
 		if errInsert != nil {
-			return nil, nil, fmt.Errorf("setupFederationIdentity: insert local settings: %w", errInsert)
+			return nil, fmt.Errorf("setupSelfNodeIdentity: insert local settings: %w", errInsert)
 		}
 		log.Info().Msgf("Generated ID for this node: %s", settings.NodeID)
 	}
 
-	// Update node ID in the database to be a real and unique ID.
-	node, errGetNode := dbInst.GetNodeByID("1")
-	if errGetNode != nil && !errors.Is(errGetNode, sql.ErrNoRows) {
-		return nil, nil, fmt.Errorf("setupFederationIdentity: get node: %w", errGetNode)
-	}
-	if node != nil {
-		_, errExec := dbInst.SQLDb.Exec(`update node set id = ? where id = 1`, settings.NodeID) //nolint:noctx // startup migration, context not meaningful
-		if errExec != nil {
-			return nil, nil, fmt.Errorf("setupFederationIdentity: update node ID: %w", errExec)
+	// Ensure a matching row exists in the node table so game_server.node_id
+	// foreign keys can resolve to the controller's self-node.
+	_, errGetNode := dbInst.GetNodeByID(settings.NodeID)
+	if errGetNode != nil {
+		if !errors.Is(errGetNode, sql.ErrNoRows) {
+			return nil, fmt.Errorf("setupSelfNodeIdentity: look up self node: %w", errGetNode)
 		}
-	}
-	errUpdateNodeIdentity := dbInst.UpdateNodeIdentity(
-		settings.NodeID,
-		version.SystemVersion,
-		version.FederationProtocolVersion,
-		version.FederationCapabilities,
-		runtime.GOOS,
-	)
-	if errUpdateNodeIdentity != nil {
-		return nil, nil, fmt.Errorf("setupFederationIdentity: stamp local node identity: %w", errUpdateNodeIdentity)
-	}
-
-	localIdentity, errLocalIdentity := dbInst.GetFederationLocalIdentity()
-	if errLocalIdentity != nil && !errors.Is(errLocalIdentity, sql.ErrNoRows) {
-		return nil, nil, fmt.Errorf("setupFederationIdentity: load federation local identity: %w", errLocalIdentity)
-	}
-
-	var certPEM []byte
-	var keyPEM []byte
-	hasStoredLocalIdentity := errLocalIdentity == nil
-	generatedNewIdentity := false
-	if errLocalIdentity == nil {
-		certPEM = []byte(localIdentity.CertPEM)
-		keyPEM = []byte(localIdentity.KeyPEM)
-	}
-
-	federationMTLS, localCertFingerprint, errFederationMTLS := federation.NewMTLSFromPEM(cfg.FederationPort, certPEM, keyPEM)
-	if errFederationMTLS != nil {
-		if hasStoredLocalIdentity {
-			return nil, nil, fmt.Errorf("setupFederationIdentity: init federation mTLS from stored cert: %w", errFederationMTLS)
-		}
-
-		log.Warn().
-			Err(errFederationMTLS).
-			Msg("No usable federation certificate in database; generating a new in-database identity")
-
-		var errGenerateFederationPEM error
-		certPEM, keyPEM, errGenerateFederationPEM = federation.GenerateCertificatePEM(settings.NodeID)
-		if errGenerateFederationPEM != nil {
-			return nil, nil, fmt.Errorf("setupFederationIdentity: generate federation mTLS identity: %w", errGenerateFederationPEM)
-		}
-
-		federationMTLS, localCertFingerprint, errFederationMTLS = federation.NewMTLSFromPEM(cfg.FederationPort, certPEM, keyPEM)
-		if errFederationMTLS != nil {
-			return nil, nil, fmt.Errorf("setupFederationIdentity: init federation mTLS from generated cert: %w", errFederationMTLS)
-		}
-
-		generatedNewIdentity = true
-	}
-
-	if generatedNewIdentity {
-		errPersistFederationIdentity := dbInst.UpsertFederationLocalIdentity(
-			settings.NodeID,
-			string(certPEM),
-			string(keyPEM),
-			localCertFingerprint,
-		)
-		if errPersistFederationIdentity != nil {
-			return nil, nil, fmt.Errorf("setupFederationIdentity: persist federation local identity: %w", errPersistFederationIdentity)
+		errInsertSelf := dbInst.UpsertSelfNode(settings.NodeID, "Controller")
+		if errInsertSelf != nil {
+			return nil, fmt.Errorf("setupSelfNodeIdentity: insert self node: %w", errInsertSelf)
 		}
 	}
 
-	return federationMTLS, settings, nil
+	return settings, nil
 }
 
 // setupAlertSystem initializes the alert evaluator and delivery pool. The
@@ -561,9 +479,9 @@ func runService() int {
 		return startupFailure(cleanup, ctxCancel, errRuntimeSecurity, "Runtime security validation failed")
 	}
 
-	federationMTLS, settings, errFederation := setupFederationIdentity(ctx, dbInst, config)
-	if errFederation != nil {
-		return startupFailure(cleanup, ctxCancel, errFederation, "Failed to set up federation identity")
+	settings, errSelfIdentity := setupSelfNodeIdentity(dbInst)
+	if errSelfIdentity != nil {
+		return startupFailure(cleanup, ctxCancel, errSelfIdentity, "Failed to set up self node identity")
 	}
 
 	modMgr := modmanager.New(dbInst)
@@ -578,18 +496,27 @@ func runService() int {
 		resolverConfig.DummyGameID = config.DummyGameID
 	}
 
-	actionsInst := actions.NewInstance(ctx, dbInst, superInst, federationMTLS, modMgr, versionState, resolverConfig)
+	// Wrap the supervisor + db in an embedded node and register it with the
+	// node registry. Step 2 of the hub-spoke migration routes controller
+	// code through nodeRegistry.GetSelf() where the method set on NodeClient
+	// already matches the supervisor surface area; direct supervisor calls
+	// remain in place for richer APIs (callbacks, PreparedCommand) until
+	// later steps extend the interface.
+	embeddedNode := xynode.New(ctx, superInst, dbInst)
+	embeddedClient := nodeclient.NewInProcessClient(settings.NodeID, embeddedNode)
+	nodeRegistry := noderegistry.New(settings.NodeID, embeddedClient)
+
+	actionsInst := actions.NewInstance(ctx, dbInst, superInst, nodeRegistry, modMgr, versionState, resolverConfig)
 	if dummyTracker != nil {
 		actionsInst.SetDummyTracker(dummyTracker)
 	}
 	superInst.StartMetricsPoller(ctx)
-	_ = actions.NewMetricsRecorder(ctx, dbInst, superInst, settings.NodeID, actionsInst)
+	_ = actions.NewMetricsRecorder(ctx, dbInst, nodeRegistry, actionsInst)
 
 	alertDeliveryPool := setupAlertSystem(ctx, dbInst, actionsInst, settings.NodeID)
 
 	// Scheduled tasks scheduler.
-	superAdapter := scheduler.NewSupervisorAdapter(superInst)
-	taskScheduler, errScheduler := scheduler.New(ctx, dbInst, actionsInst, actionsInst, superAdapter)
+	taskScheduler, errScheduler := scheduler.New(ctx, dbInst, actionsInst, actionsInst)
 	if errScheduler != nil {
 		return startupFailure(cleanup, ctxCancel, errScheduler, "Failed to create task scheduler")
 	}
@@ -598,7 +525,6 @@ func runService() int {
 		return startupFailure(cleanup, ctxCancel, errSchedulerStart, "Failed to start task scheduler")
 	}
 
-	syncEngine := actions.NewFederationSyncEngine(ctx, dbInst, federationMTLS)
 	errSetDetectedIPs := setDetectedIPs(dbInst)
 	if errSetDetectedIPs != nil {
 		return startupFailure(cleanup, ctxCancel, errSetDetectedIPs, "Failed to detect startup IPs")
@@ -606,12 +532,12 @@ func runService() int {
 
 	steamCache := steamcache.New()
 
-	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, secureCookie, federationMTLS)
+	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, nodeRegistry, secureCookie)
 	actionsInst.SetVersionBroadcaster(wsInst)
 	actionsInst.SetBackupProgressBroadcaster(wsInst)
 
 	router := chi.NewRouter()
-	xylonaService, errXylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, secureCookie, federationMTLS, config.SecureCookies, steamCache, modMgr, versionState)
+	xylonaService, errXylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, nodeRegistry, secureCookie, config.SecureCookies, steamCache, modMgr, versionState)
 	if errXylonaService != nil {
 		return startupFailure(cleanup, ctxCancel, errXylonaService, "Failed to create Xylona RPC service")
 	}
@@ -626,18 +552,12 @@ func runService() int {
 	// Wire the already-constructed services together here so the startup
 	// sequence makes the dependency order explicit without pushing that
 	// cross-component wiring into the constructors.
-	xylonaService.SetSyncEngine(syncEngine)
 	xylonaService.SetScheduler(taskScheduler)
 	xylonaService.SetInstallBroadcaster(wsInst)
 	xylonaService.SetUpdateBroadcaster(wsInst)
 	if dummyTracker != nil {
 		xylonaService.SetDummyTracker(dummyTracker)
 	}
-	syncEngine.SetStatusBroadcaster(wsInst)
-	syncEngine.SetMetricsBroadcaster(wsInst)
-	syncEngine.SetVersionBroadcaster(wsInst)
-	syncEngine.SetActionsInstance(actionsInst)
-	actionsInst.SetSyncEngine(syncEngine)
 
 	xylonaAPIPath, handler := xylonaconnect.NewXylonaHandler(
 		xylonaService,
@@ -646,11 +566,6 @@ func runService() int {
 			rpc.NewUnaryTimeoutInterceptor(60*time.Second),
 		),
 	)
-	federationService, errFederationService := rpc.NewFederationService(ctx, dbInst, actionsInst, superInst, versionState)
-	if errFederationService != nil {
-		return startupFailure(cleanup, ctxCancel, errFederationService, "Failed to create federation RPC service")
-	}
-	federationAPIPath, federationHandler := xylonaconnect.NewFederationHandler(federationService, connect.WithHandlerOptions())
 
 	frontendFS, errLoadFrontend := Frontend()
 	if errLoadFrontend != nil {
@@ -665,27 +580,22 @@ func runService() int {
 	registerMetricsRoute(router, config)
 	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
+	// Node bootstrap endpoint — auth is by the one-shot join token in the
+	// JSON body; does not require a session cookie.
+	router.Post("/api/node/bootstrap", rpc.NodeBootstrapHandler(dbInst, nodeRegistry))
+
+	errDialRemotes := dialRegisteredRemoteNodes(ctx, dbInst, settings.NodeID, nodeRegistry)
+	if errDialRemotes != nil {
+		log.Warn().Err(errDialRemotes).Msg("Some remote nodes could not be dialed at startup")
+	}
+
+	// Bridge remote-node event streams into the controller's eventbus so
+	// websocket subscribers, auto-restart, and alert evaluators see remote
+	// game-server lifecycle events identically to embedded ones.
+	remoteEventBridge := events.NewRemoteEventBridge(ctx, nodeRegistry, dbInst, eventbus.Get())
+	remoteEventBridge.Start()
 
 	httpServer := newHTTPServer(config, router)
-
-	federationRouter := chi.NewRouter()
-	federationRouter.Use(middleware.RealIP)
-	federationRouter.Use(routerLogger)
-	federationRouter.Use(securityHeaders)
-
-	// The complete-pairing endpoint is exempt from trust-store auth — the pairing token authenticates it.
-	federationRouter.Post("/federation/complete-pairing", rpc.CompletePairingHandler(dbInst, federationMTLS))
-
-	federationRouter.Group(func(r chi.Router) {
-		r.Use(rpc.FederationPeerAuthMiddleware(dbInst))
-		r.Mount(federationAPIPath, federationHandler)
-		r.Post("/api/file/get", actionsInst.StreamFileToUser)
-		r.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
-		r.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
-		r.Post("/api/file/upload", actionsInst.DownloadGameServerFile)
-	})
-
-	federationServer := newFederationServer(config, federationRouter, federationMTLS.ServerTLSConfig())
 
 	router.Group(func(r chi.Router) {
 		r.Use(gatekeeper.RequireSessionAuth(dbInst, secureCookie))
@@ -715,13 +625,6 @@ func runService() int {
 		startServer(ctxCancel, "start Xylona web server", httpServer.ListenAndServe, startupErrCh)
 	}()
 
-	go func() {
-		log.Info().Str("address", fmt.Sprintf("%s:%d", config.Host, config.FederationPort)).Msg("Starting Xylona federation mTLS server")
-		startServer(ctxCancel, "start Xylona federation mTLS server", func() error {
-			return federationServer.ListenAndServeTLS("", "")
-		}, startupErrCh)
-	}()
-
 	games.RegisterInternalGames()
 
 	// Handle SIGINT and SIGTERM
@@ -731,12 +634,12 @@ func runService() int {
 	select {
 	case errStartup := <-startupErrCh:
 		shutdownLocalAdminServer(localAdminServer)
-		shutdownServers(ctxCancel, httpServer, federationServer)
+		shutdownServers(ctxCancel, httpServer)
 		log.Error().Err(errStartup).Msg("Startup failed")
 		startupFailed = true
 	case shutdownSignalType := <-shutdownSignalChannel:
 		shutdownLocalAdminServer(localAdminServer)
-		gracefulShutdown(ctxCancel, shutdownSignalType, httpServer, federationServer)
+		gracefulShutdown(ctxCancel, shutdownSignalType, httpServer)
 	}
 	alertDeliveryPool.Wait()
 	log.Info().Msg("Alert delivery pool drained")

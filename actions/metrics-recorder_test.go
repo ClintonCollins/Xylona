@@ -99,9 +99,8 @@ func TestMetricsRecorderCleanupAndRollupPreservesHourlyNodeHistory(t *testing.T)
 	}
 
 	recorder := &MetricsRecorder{
-		ctx:         ctx,
-		db:          conn,
-		localNodeID: "node-local",
+		ctx: ctx,
+		db:  conn,
 	}
 
 	recorder.cleanupAndRollup()
@@ -140,16 +139,11 @@ func seedMetricsRecorderNodeFixture(t *testing.T, conn *db.Connection) {
 
 	_, errExec := conn.SQLDb.ExecContext(
 		context.Background(),
-		`INSERT INTO node (id, name, is_local, host, port, base_url, enabled, os)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO node (id, name, listen_url, enabled) VALUES (?, ?, ?, ?)`,
 		"node-local",
 		"Local Node",
-		true,
-		"localhost",
-		8080,
 		"http://localhost:8080",
 		true,
-		"linux",
 	)
 	if errExec != nil {
 		t.Fatalf("insert node fixture: %v", errExec)

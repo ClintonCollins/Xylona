@@ -34,7 +34,6 @@ func newAlertRulesFixture(t *testing.T) *alertRulesFixture {
 		ctx:          context.Background(),
 		db:           conn,
 		secureCookie: secureCookieInst,
-		listCache:    newRemoteServerListCache(remoteServerListCacheTTL),
 	}
 
 	return &alertRulesFixture{
@@ -61,8 +60,8 @@ func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 
 	// Node + local_settings
 	_, errNode := conn.SQLDb.ExecContext(ctx,
-		`INSERT INTO node (id, name, is_local, host, port, base_url, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"node-local", "Local Node", true, "localhost", 8080, "http://localhost:8080", true,
+		`INSERT INTO node (id, name, listen_url, enabled) VALUES (?, ?, ?, ?)`,
+		"node-local", "Local Node", "http://localhost:8080", true,
 	)
 	if errNode != nil {
 		t.Fatalf("failed to insert node: %v", errNode)

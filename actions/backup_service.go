@@ -18,6 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -412,7 +413,7 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 
 	progressReporter := newBackupProgressReporter(inst, gameServer.ID, gameServer.Name, backup.ID)
 
-	sizeBytes, errArchive := writeBackupArchiveFunc(gameServer.Directory, backup.ArchivePath, progressReporter.Observe, func() error {
+	sizeBytes, errArchive := inst.produceBackupArchive(backupCtx, gameServer, backup.ArchivePath, progressReporter.Observe, func() error {
 		return backupCreateCancelErr(backupCtx)
 	})
 	if errArchive != nil {
@@ -466,6 +467,17 @@ func (inst *Instance) RestoreGameServerBackup(
 	}
 	if backup.ArchiveFormat != "zip" {
 		return errUnsupportedBackupArchive
+	}
+
+	// Route remote-node restores through NodeClient so the work happens on
+	// the node that owns the filesystem. Local-node restores continue to use
+	// the staging-based flow below to preserve the existing permission and
+	// symlink handling rules covered by the test suite.
+	if inst.nodeRegistry != nil {
+		selfID := inst.nodeRegistry.SelfID()
+		if selfID != "" && gameServer.NodeID != selfID {
+			return inst.restoreRemoteBackupArchive(gameServer, backup, archivePath, restoreMode)
+		}
 	}
 
 	inst.broadcastBackupProgress(
@@ -566,6 +578,150 @@ func (inst *Instance) RestoreGameServerBackup(
 	)
 
 	return nil
+}
+
+// restoreRemoteBackupArchive streams the controller-side archive to the
+// owning node and asks it to extract in place via NodeClient.ExtractBackupArchive.
+// Progress broadcasts match the local path so the UI renders the same three
+// phases regardless of node placement.
+func (inst *Instance) restoreRemoteBackupArchive(
+	gameServer *models.GameServer,
+	backup *models.GameServerBackup,
+	controllerArchivePath string,
+	restoreMode xylona.BackupRestoreMode,
+) error {
+	inst.broadcastBackupProgress(
+		gameServer.ID,
+		gameServer.Name,
+		backup.ID,
+		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PREPARING,
+		5,
+		backup.SizeBytes,
+		"Preparing backup restore",
+	)
+
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		inst.broadcastBackupProgress(
+			gameServer.ID,
+			gameServer.Name,
+			backup.ID,
+			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
+			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
+			100,
+			backup.SizeBytes,
+			"Restore failed",
+		)
+		return fmt.Errorf("actions: resolve node client for restore: %w", errClient)
+	}
+
+	// Read the archive off the controller's filesystem. It already lives in
+	// the controller's managed backup directory, validated by
+	// resolveValidatedBackupArchivePath above.
+	// #nosec G304 -- controllerArchivePath is validated against the managed backup directory.
+	archiveBytes, errRead := os.ReadFile(controllerArchivePath)
+	if errRead != nil {
+		inst.broadcastBackupProgress(
+			gameServer.ID,
+			gameServer.Name,
+			backup.ID,
+			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
+			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
+			100,
+			backup.SizeBytes,
+			"Restore failed",
+		)
+		return fmt.Errorf("actions: read controller-side backup archive: %w", errRead)
+	}
+
+	// Upload to a node-side temp location next to the game server directory
+	// (same layout as remote backup creation).
+	remoteArchivePath := buildRemoteBackupTempPath(gameServer, controllerArchivePath)
+	remoteDir := path.Dir(filepath.ToSlash(remoteArchivePath))
+	remoteName := path.Base(filepath.ToSlash(remoteArchivePath))
+
+	inst.broadcastBackupProgress(
+		gameServer.ID,
+		gameServer.Name,
+		backup.ID,
+		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_STAGING,
+		45,
+		backup.SizeBytes,
+		"Uploading backup archive",
+	)
+	errWrite := client.WriteFile(inst.ctx, remoteDir, remoteName, archiveBytes, node.ProtectionPolicy{})
+	if errWrite != nil {
+		inst.broadcastBackupProgress(
+			gameServer.ID,
+			gameServer.Name,
+			backup.ID,
+			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
+			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
+			100,
+			backup.SizeBytes,
+			"Restore failed",
+		)
+		return fmt.Errorf("actions: upload remote backup archive: %w", errWrite)
+	}
+	defer func() {
+		_, errDelete := client.DeleteFiles(inst.ctx, remoteDir, []string{remoteName}, node.ProtectionPolicy{})
+		if errDelete != nil {
+			log.Warn().Err(errDelete).
+				Str("node_id", gameServer.NodeID).
+				Str("remote_path", remoteArchivePath).
+				Msg("actions: cleanup temp remote restore archive failed")
+		}
+	}()
+
+	inst.broadcastBackupProgress(
+		gameServer.ID,
+		gameServer.Name,
+		backup.ID,
+		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_APPLYING,
+		80,
+		backup.SizeBytes,
+		"Applying backup contents",
+	)
+	errExtract := client.ExtractBackupArchive(inst.ctx, gameServer.Directory, remoteArchivePath, backupRestoreModeToExtractMode(restoreMode))
+	if errExtract != nil {
+		inst.broadcastBackupProgress(
+			gameServer.ID,
+			gameServer.Name,
+			backup.ID,
+			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
+			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
+			100,
+			backup.SizeBytes,
+			"Restore failed",
+		)
+		return fmt.Errorf("actions: remote extract backup archive: %w", errExtract)
+	}
+
+	inst.broadcastBackupProgress(
+		gameServer.ID,
+		gameServer.Name,
+		backup.ID,
+		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
+		100,
+		backup.SizeBytes,
+		"Restore complete",
+	)
+	return nil
+}
+
+// backupRestoreModeToExtractMode maps the proto-level restore mode onto the
+// transport-agnostic node.ExtractMode understood by NodeClient.
+func backupRestoreModeToExtractMode(restoreMode xylona.BackupRestoreMode) node.ExtractMode {
+	switch restoreMode {
+	case xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_EXACT:
+		return node.ExtractModeExact
+	default:
+		return node.ExtractModeOverlay
+	}
 }
 
 // BackupRestoreUserFacingMessage returns a safe client-facing message for expected restore failures.
@@ -903,6 +1059,94 @@ func isWindowsReservedArchiveBaseName(name string) bool {
 }
 
 type backupArchiveCancelFunc func() error
+
+// produceBackupArchive routes archive creation by node: the controller's
+// embedded node uses the direct filesystem walker; remote nodes drive the
+// node's CreateBackupArchive RPC and pull the bytes back to the controller's
+// backup directory.
+func (inst *Instance) produceBackupArchive(
+	ctx context.Context,
+	gameServer *models.GameServer,
+	controllerArchivePath string,
+	onProgress backupArchiveProgressFunc,
+	checkCancel backupArchiveCancelFunc,
+) (int64, error) {
+	if inst.nodeRegistry != nil {
+		selfID := inst.nodeRegistry.SelfID()
+		if selfID != "" && gameServer.NodeID != selfID {
+			return inst.produceRemoteBackupArchive(ctx, gameServer, controllerArchivePath, onProgress)
+		}
+	}
+	return writeBackupArchiveFunc(gameServer.Directory, controllerArchivePath, onProgress, checkCancel)
+}
+
+// produceRemoteBackupArchive creates the archive on the owning node, reads
+// the bytes back via NodeClient.ReadFile, writes them to the controller's
+// managed backup directory, and deletes the temporary remote copy.
+func (inst *Instance) produceRemoteBackupArchive(
+	ctx context.Context,
+	gameServer *models.GameServer,
+	controllerArchivePath string,
+	onProgress backupArchiveProgressFunc,
+) (int64, error) {
+	client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
+	if errGet != nil {
+		return 0, fmt.Errorf("actions: resolve node client for backup: %w", errGet)
+	}
+
+	remoteArchivePath := buildRemoteBackupTempPath(gameServer, controllerArchivePath)
+
+	_, _, errArchive := client.CreateBackupArchive(ctx, gameServer.Directory, nil, remoteArchivePath)
+	if errArchive != nil {
+		return 0, fmt.Errorf("actions: remote create backup archive: %w", errArchive)
+	}
+
+	// Pull the archive bytes back and write into the controller's managed
+	// backup path.
+	remoteDir := path.Dir(filepath.ToSlash(remoteArchivePath))
+	remoteName := path.Base(filepath.ToSlash(remoteArchivePath))
+	payload, errRead := client.ReadFile(ctx, remoteDir, remoteName)
+	if errRead != nil {
+		// Best-effort cleanup of the remote archive; ignore errors since we
+		// already failed to fetch it.
+		_, _ = client.DeleteFiles(ctx, remoteDir, []string{remoteName}, node.ProtectionPolicy{})
+		return 0, fmt.Errorf("actions: fetch remote backup archive: %w", errRead)
+	}
+
+	// Write payload to controller's backup path (parent dir is already
+	// ensured to exist by executeBackupCreate's MkdirAll).
+	errWrite := os.WriteFile(controllerArchivePath, payload, 0o600)
+	if errWrite != nil {
+		_, _ = client.DeleteFiles(ctx, remoteDir, []string{remoteName}, node.ProtectionPolicy{})
+		return 0, fmt.Errorf("actions: write controller-side backup archive: %w", errWrite)
+	}
+
+	if onProgress != nil {
+		onProgress(int64(len(payload)))
+	}
+
+	// Remove the temporary remote copy now that the controller has its own.
+	_, errDelete := client.DeleteFiles(ctx, remoteDir, []string{remoteName}, node.ProtectionPolicy{})
+	if errDelete != nil {
+		log.Warn().
+			Err(errDelete).
+			Str("node_id", gameServer.NodeID).
+			Str("remote_path", remoteArchivePath).
+			Msg("failed to delete remote backup archive after pull")
+	}
+	return int64(len(payload)), nil
+}
+
+// buildRemoteBackupTempPath picks a node-side absolute path the node can
+// create the archive at. It mirrors the controller's archive name under the
+// parent of the game-server directory so the node writes alongside the game
+// tree rather than in the controller's backup dir (which may not exist on
+// the node).
+func buildRemoteBackupTempPath(gameServer *models.GameServer, controllerArchivePath string) string {
+	archiveName := filepath.Base(controllerArchivePath)
+	gameParent := filepath.Dir(gameServer.Directory)
+	return filepath.Join(gameParent, archiveName+".remote-tmp")
+}
 
 func writeBackupArchive(serverDirectory string, archivePath string, onProgress backupArchiveProgressFunc, checkCancel backupArchiveCancelFunc) (int64, error) {
 	outputFile, errCreate := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)

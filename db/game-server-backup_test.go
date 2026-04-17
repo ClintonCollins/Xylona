@@ -341,9 +341,8 @@ func TestPruneScheduledGameServerBackupsSkipsManualRows(t *testing.T) {
 
 	_, errNode := conn.SQLDb.ExecContext(
 		context.Background(),
-		`insert into node (id, name, is_local, host, port, base_url, enabled, os)
-		 values (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"node-remote", "Remote Node", false, "remotehost", 9080, "http://remotehost:9080", true, "linux",
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)`,
+		"node-remote", "Remote Node", "http://remotehost:9080", true,
 	)
 	if errNode != nil {
 		t.Fatalf("insert node-remote error = %v", errNode)

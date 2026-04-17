@@ -55,11 +55,6 @@ func (xs *XylonaService) DownloadGameServerBackupArchive(w http.ResponseWriter, 
 		return
 	}
 
-	if !isLocalBackupServer(gameServer) {
-		writeBackupHTTPError(w, http.StatusPreconditionFailed, backupDisabledReasonLocalOnly)
-		return
-	}
-
 	backup, errGetBackup := xs.getBackupByIDForGameServer(gameServerID, backupID)
 	if errGetBackup != nil {
 		writeBackupConnectError(w, errGetBackup)
@@ -72,6 +67,52 @@ func (xs *XylonaService) DownloadGameServerBackupArchive(w http.ResponseWriter, 
 		return
 	}
 
+	// Self-node backups stream from the local filesystem for efficiency.
+	// Remote-node backups read via NodeClient.ReadFile and serve the bytes.
+	if xs.isLocalBackupServer(gameServer) {
+		xs.serveBackupArchiveLocal(w, r, archivePath)
+		return
+	}
+	xs.serveBackupArchiveRemote(w, r, gameServer, archivePath)
+}
+
+// serveBackupArchiveRemote fetches the archive bytes from the owning node via
+// NodeClient.ReadFile and streams them to the browser. The bytes are held in
+// memory for the duration of the request; for very large archives this is
+// suboptimal, and a streaming RPC is tracked as a follow-up.
+func (xs *XylonaService) serveBackupArchiveRemote(w http.ResponseWriter, r *http.Request, gameServer *models.GameServer, archivePath string) {
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		writeBackupConnectError(w, errClient)
+		return
+	}
+
+	archiveDir := filepath.Dir(archivePath)
+	archiveName := filepath.Base(archivePath)
+	payload, errRead := client.ReadFile(r.Context(), archiveDir, archiveName)
+	if errRead != nil {
+		if errors.Is(errRead, os.ErrNotExist) {
+			writeBackupHTTPError(w, http.StatusNotFound, "backup archive not found")
+			return
+		}
+		writeBackupHTTPError(w, http.StatusBadGateway, "failed to fetch backup from node")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, archiveName))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(payload)))
+	// payload is a binary backup archive; the Content-Type + Content-Disposition
+	// headers above prevent the browser from interpreting it as HTML/JS, so
+	// there is no XSS surface via this write.
+	_, errWrite := w.Write(payload) //nolint:gosec // zip payload with Content-Disposition=attachment
+	if errWrite != nil {
+		// Response already partially flushed; nothing actionable here.
+		return
+	}
+}
+
+func (xs *XylonaService) serveBackupArchiveLocal(w http.ResponseWriter, r *http.Request, archivePath string) {
 	//nolint:gosec // archivePath is resolved and confined to the managed backup directory above.
 	archiveFile, errOpenArchive := os.Open(archivePath)
 	if errOpenArchive != nil {
@@ -260,7 +301,7 @@ func (xs *XylonaService) prepareBackupUpload(user *models.User, gameServerID str
 		return nil, errPermission
 	}
 
-	operationsAllowed, disabledReason := backupOperationsAllowed(gameServer)
+	operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
 	if !operationsAllowed {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 	}

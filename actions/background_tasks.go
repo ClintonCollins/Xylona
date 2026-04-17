@@ -56,16 +56,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 			runBackgroundTask("backgroundJobQueryAllGameServers", "query-server", map[string]string{
 				"game_server_id": gs.ID,
 			}, func() {
-				if inst.supervisorInstance == nil {
-					gs.Status = xylona.Status_OFFLINE.String()
-				} else {
-					gameServerCmd, errGetCommand := inst.supervisorInstance.GetCommandByID(gs.ID)
-					if errGetCommand != nil {
-						gs.Status = xylona.Status_OFFLINE.String()
-					} else {
-						gs.Status = gameServerCmd.Status().String()
-					}
-				}
+				gs.Status = inst.currentProcessStatus(gs).String()
 				if gs.Status == "" {
 					gs.Status = xylona.Status_OFFLINE.String()
 				}

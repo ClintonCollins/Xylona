@@ -46,9 +46,8 @@ type RolesQuery = *sqlite.ViewQuery[*Role, RoleSlice]
 
 // roleR is where relationships are stored.
 type roleR struct {
-	FederatedAccessGrants FederatedAccessGrantSlice // fk_federated_access_grant_1
-	Permissions           PermissionSlice           // fk_role_permission_0fk_role_permission_1
-	UserRoleAssignments   UserRoleAssignmentSlice   // fk_user_role_assignment_2
+	Permissions         PermissionSlice         // fk_role_permission_0fk_role_permission_1
+	UserRoleAssignments UserRoleAssignmentSlice // fk_user_role_assignment_2
 }
 
 func buildRoleColumns(alias string) roleColumns {
@@ -443,25 +442,6 @@ func (o RoleSlice) ReloadAll(ctx context.Context, exec bob.Executor) error {
 	return nil
 }
 
-// FederatedAccessGrants starts a query for related objects on federated_access_grant
-func (o *Role) FederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
-	return FederatedAccessGrants.Query(append(mods,
-		sm.Where(FederatedAccessGrants.Columns.RoleID.EQ(sqlite.Arg(o.ID))),
-	)...)
-}
-
-func (os RoleSlice) FederatedAccessGrants(mods ...bob.Mod[*dialect.SelectQuery]) FederatedAccessGrantsQuery {
-	PKArgSlice := make([]bob.Expression, len(os))
-	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
-	}
-	PKArgExpr := sqlite.Group(PKArgSlice...)
-
-	return FederatedAccessGrants.Query(append(mods,
-		sm.Where(sqlite.Group(FederatedAccessGrants.Columns.RoleID).OP("IN", PKArgExpr)),
-	)...)
-}
-
 // Permissions starts a query for related objects on permission
 func (o *Role) Permissions(mods ...bob.Mod[*dialect.SelectQuery]) PermissionsQuery {
 	return Permissions.Query(append(mods,
@@ -503,74 +483,6 @@ func (os RoleSlice) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) U
 	return UserRoleAssignments.Query(append(mods,
 		sm.Where(sqlite.Group(UserRoleAssignments.Columns.RoleID).OP("IN", PKArgExpr)),
 	)...)
-}
-
-func insertRoleFederatedAccessGrants0(ctx context.Context, exec bob.Executor, federatedAccessGrants1 []*FederatedAccessGrantSetter, role0 *Role) (FederatedAccessGrantSlice, error) {
-	for i := range federatedAccessGrants1 {
-		federatedAccessGrants1[i].RoleID = omit.From(role0.ID)
-	}
-
-	ret, err := FederatedAccessGrants.Insert(bob.ToMods(federatedAccessGrants1...)).All(ctx, exec)
-	if err != nil {
-		return ret, fmt.Errorf("insertRoleFederatedAccessGrants0: %w", err)
-	}
-
-	return ret, nil
-}
-
-func attachRoleFederatedAccessGrants0(ctx context.Context, exec bob.Executor, count int, federatedAccessGrants1 FederatedAccessGrantSlice, role0 *Role) (FederatedAccessGrantSlice, error) {
-	setter := &FederatedAccessGrantSetter{
-		RoleID: omit.From(role0.ID),
-	}
-
-	err := federatedAccessGrants1.UpdateAll(ctx, exec, *setter)
-	if err != nil {
-		return nil, fmt.Errorf("attachRoleFederatedAccessGrants0: %w", err)
-	}
-
-	return federatedAccessGrants1, nil
-}
-
-func (role0 *Role) InsertFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrantSetter) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-
-	federatedAccessGrants1, err := insertRoleFederatedAccessGrants0(ctx, exec, related, role0)
-	if err != nil {
-		return err
-	}
-
-	role0.R.FederatedAccessGrants = append(role0.R.FederatedAccessGrants, federatedAccessGrants1...)
-
-	for _, rel := range federatedAccessGrants1 {
-		rel.R.Role = role0
-	}
-	return nil
-}
-
-func (role0 *Role) AttachFederatedAccessGrants(ctx context.Context, exec bob.Executor, related ...*FederatedAccessGrant) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	federatedAccessGrants1 := FederatedAccessGrantSlice(related)
-
-	_, err = attachRoleFederatedAccessGrants0(ctx, exec, len(related), federatedAccessGrants1, role0)
-	if err != nil {
-		return err
-	}
-
-	role0.R.FederatedAccessGrants = append(role0.R.FederatedAccessGrants, federatedAccessGrants1...)
-
-	for _, rel := range related {
-		rel.R.Role = role0
-	}
-
-	return nil
 }
 
 func attachRolePermissions0(ctx context.Context, exec bob.Executor, count int, role0 *Role, permissions2 PermissionSlice) (RolePermissionSlice, error) {
@@ -734,20 +646,6 @@ func (o *Role) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
-	case "FederatedAccessGrants":
-		rels, ok := retrieved.(FederatedAccessGrantSlice)
-		if !ok {
-			return fmt.Errorf("role cannot load %T as %q", retrieved, name)
-		}
-
-		o.R.FederatedAccessGrants = rels
-
-		for _, rel := range rels {
-			if rel != nil {
-				rel.R.Role = o
-			}
-		}
-		return nil
 	case "Permissions":
 		rels, ok := retrieved.(PermissionSlice)
 		if !ok {
@@ -788,15 +686,11 @@ func buildRolePreloader() rolePreloader {
 }
 
 type roleThenLoader[Q orm.Loadable] struct {
-	FederatedAccessGrants func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	Permissions           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserRoleAssignments   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	Permissions         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserRoleAssignments func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildRoleThenLoader[Q orm.Loadable]() roleThenLoader[Q] {
-	type FederatedAccessGrantsLoadInterface interface {
-		LoadFederatedAccessGrants(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
-	}
 	type PermissionsLoadInterface interface {
 		LoadPermissions(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
@@ -805,12 +699,6 @@ func buildRoleThenLoader[Q orm.Loadable]() roleThenLoader[Q] {
 	}
 
 	return roleThenLoader[Q]{
-		FederatedAccessGrants: thenLoadBuilder[Q](
-			"FederatedAccessGrants",
-			func(ctx context.Context, exec bob.Executor, retrieved FederatedAccessGrantsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
-				return retrieved.LoadFederatedAccessGrants(ctx, exec, mods...)
-			},
-		),
 		Permissions: thenLoadBuilder[Q](
 			"Permissions",
 			func(ctx context.Context, exec bob.Executor, retrieved PermissionsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
@@ -824,67 +712,6 @@ func buildRoleThenLoader[Q orm.Loadable]() roleThenLoader[Q] {
 			},
 		),
 	}
-}
-
-// LoadFederatedAccessGrants loads the role's FederatedAccessGrants into the .R struct
-func (o *Role) LoadFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if o == nil {
-		return nil
-	}
-
-	// Reset the relationship
-	o.R.FederatedAccessGrants = nil
-
-	related, err := o.FederatedAccessGrants(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, rel := range related {
-		rel.R.Role = o
-	}
-
-	o.R.FederatedAccessGrants = related
-	return nil
-}
-
-// LoadFederatedAccessGrants loads the role's FederatedAccessGrants into the .R struct
-func (os RoleSlice) LoadFederatedAccessGrants(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if len(os) == 0 {
-		return nil
-	}
-
-	federatedAccessGrants, err := os.FederatedAccessGrants(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		o.R.FederatedAccessGrants = nil
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		for _, rel := range federatedAccessGrants {
-
-			if !(o.ID == rel.RoleID) {
-				continue
-			}
-
-			rel.R.Role = o
-
-			o.R.FederatedAccessGrants = append(o.R.FederatedAccessGrants, rel)
-		}
-	}
-
-	return nil
 }
 
 // LoadPermissions loads the role's Permissions into the .R struct
@@ -1030,10 +857,9 @@ func (os RoleSlice) LoadUserRoleAssignments(ctx context.Context, exec bob.Execut
 }
 
 type roleJoins[Q dialect.Joinable] struct {
-	typ                   string
-	FederatedAccessGrants modAs[Q, federatedAccessGrantColumns]
-	Permissions           modAs[Q, permissionColumns]
-	UserRoleAssignments   modAs[Q, userRoleAssignmentColumns]
+	typ                 string
+	Permissions         modAs[Q, permissionColumns]
+	UserRoleAssignments modAs[Q, userRoleAssignmentColumns]
 }
 
 func (j roleJoins[Q]) aliasedAs(alias string) roleJoins[Q] {
@@ -1043,20 +869,6 @@ func (j roleJoins[Q]) aliasedAs(alias string) roleJoins[Q] {
 func buildRoleJoins[Q dialect.Joinable](cols roleColumns, typ string) roleJoins[Q] {
 	return roleJoins[Q]{
 		typ: typ,
-		FederatedAccessGrants: modAs[Q, federatedAccessGrantColumns]{
-			c: FederatedAccessGrants.Columns,
-			f: func(to federatedAccessGrantColumns) bob.Mod[Q] {
-				mods := make(mods.QueryMods[Q], 0, 1)
-
-				{
-					mods = append(mods, dialect.Join[Q](typ, FederatedAccessGrants.Name().As(to.Alias())).On(
-						to.RoleID.EQ(cols.ID),
-					))
-				}
-
-				return mods
-			},
-		},
 		Permissions: modAs[Q, permissionColumns]{
 			c: Permissions.Columns,
 			f: func(to permissionColumns) bob.Mod[Q] {

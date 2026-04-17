@@ -163,21 +163,26 @@ func TestUpdateGameServerStartArgsRejectsBlockedResolvedArgs(t *testing.T) {
 	game := addGameForTests(t, fixture, "start-args-blocked-game", "Structured Args Blocked Game")
 	insertStartArgsTestServer(t, fixture, "server-start-args-2", game.GetId())
 
-	templateReq := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
-		GameId:   game.GetId(),
-		Platform: "linux",
-		StartArgsTemplate: `[
-			{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"],"label":"Heap"},
-			{"id":"jar","order":2,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}
-		]`,
-		BaseCommand:          "java",
-		AllowStartArgEditing: true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, templateReq, "user-admin")
+	// Set the template for both platforms so this test runs uniformly on any
+	// host OS — the hub-spoke Node model no longer carries an "os" column that
+	// the old test relied on to pin the platform to linux.
+	for _, platform := range []string{"linux", "windows"} {
+		templateReq := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
+			GameId:   game.GetId(),
+			Platform: platform,
+			StartArgsTemplate: `[
+				{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"],"label":"Heap"},
+				{"id":"jar","order":2,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}
+			]`,
+			BaseCommand:          "java",
+			AllowStartArgEditing: true,
+		})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, templateReq, "user-admin")
 
-	_, errTemplate := fixture.service.UpdateGameStartArgsTemplate(context.Background(), templateReq)
-	if errTemplate != nil {
-		t.Fatalf("UpdateGameStartArgsTemplate() setup error = %v", errTemplate)
+		_, errTemplate := fixture.service.UpdateGameStartArgsTemplate(context.Background(), templateReq)
+		if errTemplate != nil {
+			t.Fatalf("UpdateGameStartArgsTemplate(%s) setup error = %v", platform, errTemplate)
+		}
 	}
 
 	blocklistReq := connect.NewRequest(&xylona.UpdateGameStartArgBlocklistRequest{

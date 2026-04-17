@@ -51,34 +51,31 @@ func main() {
 		}
 		runSingleTeardown(*e2eDir)
 
-	case "federation-setup":
-		fs := flag.NewFlagSet("federation-setup", flag.ExitOnError)
+	case "hub-spoke-setup":
+		fs := flag.NewFlagSet("hub-spoke-setup", flag.ExitOnError)
+		httpPort := fs.Int("http-port", 9091, "Controller HTTP port")
+		nodePort := fs.Int("node-port", 9501, "Remote xylona-node HTTPS port")
+		adminUsername := fs.String("admin-username", "admin", "Admin username")
+		adminPassword := fs.String("admin-password", "admin", "Admin password")
 		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
 		projectRoot := fs.String("project-root", ".", "Project root directory")
-		nodeAPort := fs.Int("node-a-port", 9081, "Node A HTTP port")
-		nodeBPort := fs.Int("node-b-port", 9082, "Node B HTTP port")
-		nodeAFedPort := fs.Int("node-a-fed-port", 9444, "Node A federation port")
-		nodeBFedPort := fs.Int("node-b-fed-port", 9445, "Node B federation port")
 		errParse := fs.Parse(os.Args[2:])
 		if errParse != nil {
 			log.Fatal().Err(errParse).Msg("Failed to parse flags")
 		}
-		errRun := runFederationSetup(ctx, *e2eDir, *projectRoot, *nodeAPort, *nodeBPort, *nodeAFedPort, *nodeBFedPort)
+		errRun := runHubSpokeSetup(ctx, *httpPort, *nodePort, *adminUsername, *adminPassword, *e2eDir, *projectRoot)
 		if errRun != nil {
-			log.Fatal().Err(errRun).Msg("Federation setup failed")
+			log.Fatal().Err(errRun).Msg("Hub-spoke setup failed")
 		}
 
-	case "federation-teardown":
-		fs := flag.NewFlagSet("federation-teardown", flag.ExitOnError)
+	case "hub-spoke-teardown":
+		fs := flag.NewFlagSet("hub-spoke-teardown", flag.ExitOnError)
 		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
-		keepData := fs.Bool("keep-data", false, "Preserve federation data for debugging")
-		nodeAPort := fs.Int("node-a-port", 9081, "Node A HTTP port")
-		nodeBPort := fs.Int("node-b-port", 9082, "Node B HTTP port")
 		errParse := fs.Parse(os.Args[2:])
 		if errParse != nil {
 			log.Fatal().Err(errParse).Msg("Failed to parse flags")
 		}
-		runFederationTeardown(ctx, *e2eDir, *keepData, *nodeAPort, *nodeBPort)
+		runHubSpokeTeardown(*e2eDir)
 
 	case "seed":
 		fs := flag.NewFlagSet("seed", flag.ExitOnError)
@@ -113,7 +110,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "Subcommands:")
 	fmt.Fprintln(os.Stderr, "  single-setup         Set up single-node E2E test environment")
 	fmt.Fprintln(os.Stderr, "  single-teardown      Tear down single-node E2E test environment")
-	fmt.Fprintln(os.Stderr, "  federation-setup     Set up federation E2E test environment")
-	fmt.Fprintln(os.Stderr, "  federation-teardown  Tear down federation E2E test environment")
+	fmt.Fprintln(os.Stderr, "  hub-spoke-setup      Spawn controller + remote xylona-node for E2E")
+	fmt.Fprintln(os.Stderr, "  hub-spoke-teardown   Tear down hub-spoke E2E environment")
 	fmt.Fprintln(os.Stderr, "  seed                 Seed a database with an admin user")
 }

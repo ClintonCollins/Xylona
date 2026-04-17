@@ -214,39 +214,29 @@ func (xs *XylonaService) validateAlertRuleRequest(
 	return serverID, serverNodeID, nodeID, nil
 }
 
-// validateServerAccess verifies that the given server exists and that the user
-// has access to it. For local servers it uses getGameServerFromID and checks
-// ownership/permissions. For remote servers it verifies via the remote server
-// cache.
+// validateServerAccess verifies that the given server exists and that the
+// user has access to it. In hub-spoke, game-server metadata is authoritative
+// on the controller regardless of which node runs the process, so the
+// local/remote distinction only matters for logging.
 func (xs *XylonaService) validateServerAccess(user *models.User, serverID, serverNodeID string) error {
-	localNodeID, errLocal := xs.db.GetLocalNodeID()
-	if errLocal != nil {
-		log.Error().Err(errLocal).Msg("failed to get local node ID")
-		return internalErr()
+	gameServer, errServer := xs.getGameServerFromID(serverID)
+	if errServer != nil {
+		return errServer
 	}
-
-	if serverNodeID == localNodeID {
-		// Local server — verify it exists and user has access.
-		gameServer, errServer := xs.getGameServerFromID(serverID)
-		if errServer != nil {
-			return errServer
-		}
-		// Superusers and server owners always have access.
-		if user.SuperUser || user.ID == gameServer.UserID {
-			return nil
-		}
-		// Check if the user has at least game_server.view permission.
-		errPerm := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
-		if errPerm != nil {
-			return errPerm
-		}
+	// When the caller supplies a server_node_id, reject mismatches so the
+	// controller-side state and the caller's expectation can't silently
+	// disagree.
+	if serverNodeID != "" && gameServer.NodeID != serverNodeID {
+		return invalidArg("server_node_id does not match game server")
+	}
+	// Superusers and server owners always have access.
+	if user.SuperUser || user.ID == gameServer.UserID {
 		return nil
 	}
-
-	// Remote server — verify it exists in the remote cache.
-	_, _, errRemote := xs.getRemoteNodeForServer(serverID)
-	if errRemote != nil {
-		return errRemote
+	// Everyone else needs at least the base view permission on the server.
+	errPerm := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
+	if errPerm != nil {
+		return errPerm
 	}
 	return nil
 }
