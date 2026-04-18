@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/aarondl/opt/omit"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
+	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -54,6 +54,38 @@ func TestCreateUserRejectsDuplicateUsername(t *testing.T) {
 	errText := strings.ToLower(errCreateUser.Error())
 	if !strings.Contains(errText, `already exists`) {
 		t.Fatalf(`CreateUser() error = %q, want message mentioning existing username`, errCreateUser.Error())
+	}
+}
+
+func TestCreateUserHashesPasswordWithArgon2id(t *testing.T) {
+	t.Parallel()
+
+	conn := newUserMgmtTestConnection(t, `usermgmt-create-password.sqlite`)
+	service := NewService(conn)
+
+	createdUser, errCreateUser := service.Create(CreateInput{
+		UserName:  `create-password`,
+		Email:     `create-password@example.com`,
+		FirstName: `Create`,
+		LastName:  `Password`,
+		Password:  `new-password-123`,
+		SuperUser: false,
+	})
+	if errCreateUser != nil {
+		t.Fatalf(`Create() error = %v`, errCreateUser)
+	}
+
+	storedUser, errGetUser := conn.GetUserByID(createdUser.ID)
+	if errGetUser != nil {
+		t.Fatalf(`GetUserByID() error = %v`, errGetUser)
+	}
+
+	match, errVerify := passwordhash.Verify(storedUser.PasswordHash, `new-password-123`)
+	if errVerify != nil {
+		t.Fatalf(`Verify() error = %v`, errVerify)
+	}
+	if !match {
+		t.Fatal(`Verify() = false, want true`)
 	}
 }
 
@@ -223,9 +255,12 @@ func TestUpdateUserWithPasswordRehashesPassword(t *testing.T) {
 		t.Fatal(`password hash did not change after password update`)
 	}
 
-	errComparePassword := bcrypt.CompareHashAndPassword([]byte(updatedUser.PasswordHash), []byte(`new-password-123`))
-	if errComparePassword != nil {
-		t.Fatalf(`CompareHashAndPassword() error = %v`, errComparePassword)
+	match, errVerify := passwordhash.Verify(updatedUser.PasswordHash, `new-password-123`)
+	if errVerify != nil {
+		t.Fatalf(`Verify() error = %v`, errVerify)
+	}
+	if !match {
+		t.Fatal(`Verify() = false, want true`)
 	}
 }
 
@@ -329,9 +364,9 @@ func newUserMgmtTestConnection(t *testing.T, sqliteFileName string) *db.Connecti
 func seedUserMgmtUser(t *testing.T, conn *db.Connection, user userMgmtSeedUser) *models.User {
 	t.Helper()
 
-	passwordHash, errHashPassword := bcrypt.GenerateFromPassword([]byte(user.password), bcrypt.DefaultCost)
+	passwordHash, errHashPassword := passwordhash.Hash(user.password)
 	if errHashPassword != nil {
-		t.Fatalf(`GenerateFromPassword() error = %v`, errHashPassword)
+		t.Fatalf(`Hash() error = %v`, errHashPassword)
 	}
 
 	now := time.Date(2026, time.April, 11, 12, 0, 0, 0, time.UTC)
@@ -341,7 +376,7 @@ func seedUserMgmtUser(t *testing.T, conn *db.Connection, user userMgmtSeedUser) 
 		Email:        omit.From(user.email),
 		FirstName:    omit.From(user.firstName),
 		LastName:     omit.From(user.lastName),
-		PasswordHash: omit.From(string(passwordHash)),
+		PasswordHash: omit.From(passwordHash),
 		SuperUser:    omit.From(user.superUser),
 		LastLoginAt:  omit.From(now),
 		CreatedAt:    omit.From(now),

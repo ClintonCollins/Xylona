@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	"golang.org/x/crypto/bcrypt"
 
+	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -147,6 +147,18 @@ func TestCreateListGetUser(t *testing.T) {
 	}
 
 	createdUserID := createResponse.Msg.GetUser().GetId()
+	createdModel, errGetCreatedUser := fixture.conn.GetUserByID(createdUserID)
+	if errGetCreatedUser != nil {
+		t.Fatalf("GetUserByID(created) error = %v", errGetCreatedUser)
+	}
+
+	match, errVerify := passwordhash.Verify(createdModel.PasswordHash, "password123")
+	if errVerify != nil {
+		t.Fatalf("Verify(created password hash) error = %v", errVerify)
+	}
+	if !match {
+		t.Fatal("Verify(created password hash) = false, want true")
+	}
 
 	listRequest := connect.NewRequest(&xylona.ListUsersRequest{})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listRequest, "user-admin")
@@ -265,9 +277,12 @@ func TestUpdateUserWithPasswordRehashesPassword(t *testing.T) {
 		t.Fatalf("password hash did not change")
 	}
 
-	errComparePassword := bcrypt.CompareHashAndPassword([]byte(updatedModel.PasswordHash), []byte("new-password-123"))
-	if errComparePassword != nil {
-		t.Errorf("updated password hash does not match password: %v", errComparePassword)
+	match, errVerify := passwordhash.Verify(updatedModel.PasswordHash, "new-password-123")
+	if errVerify != nil {
+		t.Fatalf("Verify(updated password hash) error = %v", errVerify)
+	}
+	if !match {
+		t.Fatal("Verify(updated password hash) = false, want true")
 	}
 }
 

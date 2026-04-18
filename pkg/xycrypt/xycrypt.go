@@ -1,6 +1,6 @@
 // Package xycrypt provides AES-GCM helpers for stored secrets and Argon2id
-// hashing for non-password secret tokens. User passwords use bcrypt in the
-// auth and user RPC paths.
+// hashing for non-password secret tokens. User passwords use the dedicated
+// passwordhash Argon2id helpers in the auth and user RPC paths.
 package xycrypt
 
 import (

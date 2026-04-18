@@ -8,19 +8,25 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func runSeed(dbPath, username, password, migrationsDir string) error {
+func runSeed(dbPath, username, password, migrationsDir string) (errResult error) {
 	ctx := context.Background()
 	conn, errNewConnection := db.NewConnection(ctx, dbPath)
 	if errNewConnection != nil {
 		return fmt.Errorf("open seed database: %w", errNewConnection)
 	}
+	defer func() {
+		errClose := conn.SQLDb.Close()
+		if errClose != nil && errResult == nil {
+			errResult = fmt.Errorf("close seed database: %w", errClose)
+		}
+	}()
 
 	// Run migrations using file-based source.
 	migrationSource := &migrate.FileMigrationSource{
@@ -35,8 +41,8 @@ func runSeed(dbPath, username, password, migrationsDir string) error {
 		log.Info().Msgf("Applied %d migrations", totalMigrations)
 	}
 
-	// Hash the password with bcrypt.
-	hashedPassword, errHash := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	// Hash the password with Argon2id.
+	hashedPassword, errHash := passwordhash.Hash(password)
 	if errHash != nil {
 		return fmt.Errorf("hash seed password: %w", errHash)
 	}
@@ -56,7 +62,7 @@ func runSeed(dbPath, username, password, migrationsDir string) error {
 		Email:        omit.From(username + "@localhost"),
 		FirstName:    omit.From("Admin"),
 		LastName:     omit.From("User"),
-		PasswordHash: omit.From(string(hashedPassword)),
+		PasswordHash: omit.From(hashedPassword),
 		SuperUser:    omit.From(true),
 		CreatedAt:    omit.From(now),
 		UpdatedAt:    omit.From(now),

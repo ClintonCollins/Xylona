@@ -12,10 +12,10 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	migrate "github.com/rubenv/sql-migrate"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -34,35 +34,48 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := context.Background()
-	conn, errNewConnection := db.NewConnection(ctx, *dbPath)
-	if errNewConnection != nil {
-		log.Fatal().Err(errNewConnection).Msg("Failed to open database")
+	errRun := runSeedCommand(*dbPath, *username, *password, *migrationsDir)
+	if errRun != nil {
+		log.Fatal().Err(errRun).Msg("Failed to seed database")
 	}
+}
+
+func runSeedCommand(dbPath string, username string, password string, migrationsDir string) (errResult error) {
+	ctx := context.Background()
+	conn, errNewConnection := db.NewConnection(ctx, dbPath)
+	if errNewConnection != nil {
+		return fmt.Errorf("open database: %w", errNewConnection)
+	}
+	defer func() {
+		errClose := conn.SQLDb.Close()
+		if errClose != nil && errResult == nil {
+			errResult = fmt.Errorf("close database: %w", errClose)
+		}
+	}()
 
 	// Run migrations using file-based source (no embed needed)
 	migrationSource := &migrate.FileMigrationSource{
-		Dir: *migrationsDir,
+		Dir: migrationsDir,
 	}
 	migrate.SetTable("migrations")
 	totalMigrations, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
 	if errMigrate != nil {
-		log.Fatal().Err(errMigrate).Msg("Failed to run migrations")
+		return fmt.Errorf("run migrations: %w", errMigrate)
 	}
 	if totalMigrations > 0 {
 		log.Info().Msgf("Applied %d migrations", totalMigrations)
 	}
 
-	// Hash the password with bcrypt (must match auth.go's bcrypt.CompareHashAndPassword)
-	hashedPassword, errHash := bcrypt.GenerateFromPassword([]byte(*password), bcrypt.DefaultCost)
+	// Hash the password with Argon2id.
+	hashedPassword, errHash := passwordhash.Hash(password)
 	if errHash != nil {
-		log.Fatal().Err(errHash).Msg("Failed to hash password")
+		return fmt.Errorf("hash password: %w", errHash)
 	}
 
 	// Generate a unique user ID
 	userID, errID := helpers.GenerateUniqueID()
 	if errID != nil {
-		log.Fatal().Err(errID).Msg("Failed to generate user ID")
+		return fmt.Errorf("generate user ID: %w", errID)
 	}
 
 	now := time.Now()
@@ -70,25 +83,25 @@ func main() {
 	// Create the admin superuser
 	_, errCreate := conn.CreateUser(&models.UserSetter{
 		ID:           omit.From(userID.String()),
-		UserName:     omit.From(*username),
-		Email:        omit.From(*username + "@localhost"),
+		UserName:     omit.From(username),
+		Email:        omit.From(username + "@localhost"),
 		FirstName:    omit.From("Admin"),
 		LastName:     omit.From("User"),
-		PasswordHash: omit.From(string(hashedPassword)),
+		PasswordHash: omit.From(hashedPassword),
 		SuperUser:    omit.From(true),
 		CreatedAt:    omit.From(now),
 		UpdatedAt:    omit.From(now),
 	})
 	if errCreate != nil {
-		log.Fatal().Err(errCreate).Msg("Failed to create admin user")
+		return fmt.Errorf("create admin user: %w", errCreate)
 	}
 
-	log.Info().Str("username", *username).Str("id", userID.String()).Msg("Created admin superuser")
+	log.Info().Str("username", username).Str("id", userID.String()).Msg("Created admin superuser")
 
 	// Create default local settings with a generated node ID
 	nodeID, errNodeID := helpers.GenerateUniqueID()
 	if errNodeID != nil {
-		log.Fatal().Err(errNodeID).Msg("Failed to generate node ID")
+		return fmt.Errorf("generate node ID: %w", errNodeID)
 	}
 
 	settings := &models.LocalSetting{
@@ -97,9 +110,10 @@ func main() {
 	}
 	errSettings := conn.UpdateLocalSettings(settings)
 	if errSettings != nil {
-		log.Fatal().Err(errSettings).Msg("Failed to create local settings")
+		return fmt.Errorf("create local settings: %w", errSettings)
 	}
 
 	log.Info().Str("node_id", nodeID.String()).Msg("Created local settings with node ID")
 	log.Info().Msg("Database seeded successfully")
+	return nil
 }

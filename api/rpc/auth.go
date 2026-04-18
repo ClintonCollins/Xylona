@@ -12,10 +12,10 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
+	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -86,8 +86,8 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 		return nil, internalErr()
 	}
 
-	errCompare := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
-	if errCompare != nil {
+	passwordMatches, errVerify := passwordhash.Verify(user.PasswordHash, password)
+	if errVerify != nil || !passwordMatches {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
 	}
 

@@ -57,7 +57,7 @@ ENCRYPTION_KEY_BASE64=<base64-encoded encryption key; 32 bytes recommended, firs
 
 `ENCRYPTION_KEY_BASE64` is required. Xylona does not fall back to the JWT secret for new database encryption, and startup fails if the key is missing or does not decode to at least 32 bytes. For compatibility with older deployments, Xylona uses the first 32 decoded bytes as the AES-256 key and can use the first 32 decoded bytes of `JWT_SECRET_KEY_BASE64` only as a legacy decryption fallback while it re-encrypts older stored secrets under `ENCRYPTION_KEY_BASE64`.
 
-User passwords use bcrypt in the auth and user RPC paths. `pkg/xycrypt` provides AES-GCM encryption for stored secrets such as node API keys, and its Argon2id helpers are used for non-password secret tokens such as local and federation secret keys.
+User passwords use Argon2id in the auth and user RPC paths. `pkg/xycrypt` provides AES-GCM encryption for stored secrets such as node API keys, and its Argon2id helpers are used for non-password secret tokens such as local and federation secret keys.
 
 Optional runtime controls:
 
@@ -81,7 +81,7 @@ Built-in game-server backups cover game-server data, not Xylona control-plane se
 
 | Secret class | Storage at rest | Included in built-in game-server backups | Notes |
 | --- | --- | --- | --- |
-| User passwords | bcrypt hash | No | Non-reversible password hashes stored in the database. |
+| User passwords | Argon2id hash | No | Non-reversible password hashes stored in the database. |
 | Local node secret keys | Argon2id hash | No | Used for node-to-node verification; hashes only. |
 | Federation local identity `cert_pem` | Plaintext in `data.sqlite` | No | Public certificate material, not secret. |
 | Federation local identity `key_pem` | AES-GCM encrypted in `data.sqlite` | No | Encrypted with `ENCRYPTION_KEY_BASE64`; startup fails if existing ciphertext cannot be decrypted. |

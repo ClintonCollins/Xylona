@@ -11,10 +11,10 @@ import (
 
 	"github.com/aarondl/opt/omit"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -135,7 +135,7 @@ func (s *Service) Create(input CreateInput) (*User, error) {
 		return nil, ErrPasswordRequired
 	}
 
-	passwordHash, errHashPassword := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	passwordHash, errHashPassword := passwordhash.Hash(password)
 	if errHashPassword != nil {
 		log.Error().Err(errHashPassword).Str(`user_name`, userName).Msg(`failed to hash password for user create`)
 		return nil, errors.New(`internal error`)
@@ -153,7 +153,7 @@ func (s *Service) Create(input CreateInput) (*User, error) {
 		Email:        omit.From(email),
 		FirstName:    omit.From(firstName),
 		LastName:     omit.From(lastName),
-		PasswordHash: omit.From(string(passwordHash)),
+		PasswordHash: omit.From(passwordHash),
 		SuperUser:    omit.From(input.SuperUser),
 	})
 	if errCreateUser != nil {
@@ -231,12 +231,12 @@ func (s *Service) Update(input UpdateInput) (*User, error) {
 			return nil, ErrPasswordEmpty
 		}
 
-		passwordHash, errHashPassword := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		passwordHash, errHashPassword := passwordhash.Hash(password)
 		if errHashPassword != nil {
 			log.Error().Err(errHashPassword).Str(`user_id`, userID).Msg(`failed to hash password for user update`)
 			return nil, errors.New(`internal error`)
 		}
-		userSetter.PasswordHash = omit.From(string(passwordHash))
+		userSetter.PasswordHash = omit.From(passwordHash)
 		hasChanges = true
 	}
 

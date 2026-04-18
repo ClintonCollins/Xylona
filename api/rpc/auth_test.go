@@ -6,8 +6,11 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"github.com/aarondl/opt/omit"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ClintonCollins/Xylona/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -227,6 +230,47 @@ func TestLoginNonExistentUser(t *testing.T) {
 	_, errLogin := fixture.service.Login(context.Background(), req)
 	if errLogin == nil {
 		t.Fatalf("Login() expected error, got nil")
+	}
+	if connect.CodeOf(errLogin) != connect.CodeUnauthenticated {
+		t.Errorf("Login() code = %v, want %v", connect.CodeOf(errLogin), connect.CodeUnauthenticated)
+	}
+}
+
+func TestLoginRejectsLegacyBcryptHash(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	legacyHash, errLegacyHash := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if errLegacyHash != nil {
+		t.Fatalf("GenerateFromPassword() error = %v", errLegacyHash)
+	}
+
+	now := time.Now().UTC()
+	_, errCreateUser := fixture.conn.CreateUser(&models.UserSetter{
+		ID:           omit.From("user-legacy-bcrypt"),
+		UserName:     omit.From("legacy-bcrypt"),
+		Email:        omit.From("legacy-bcrypt@example.com"),
+		FirstName:    omit.From("Legacy"),
+		LastName:     omit.From("User"),
+		PasswordHash: omit.From(string(legacyHash)),
+		SuperUser:    omit.From(false),
+		LastLoginAt:  omit.From(now),
+		CreatedAt:    omit.From(now),
+		UpdatedAt:    omit.From(now),
+	})
+	if errCreateUser != nil {
+		t.Fatalf("CreateUser() error = %v", errCreateUser)
+	}
+
+	req := connect.NewRequest(&xylona.LoginRequest{
+		UserName: "legacy-bcrypt",
+		Password: "password123",
+	})
+
+	_, errLogin := fixture.service.Login(context.Background(), req)
+	if errLogin == nil {
+		t.Fatal("Login() expected error for legacy bcrypt hash, got nil")
 	}
 	if connect.CodeOf(errLogin) != connect.CodeUnauthenticated {
 		t.Errorf("Login() code = %v, want %v", connect.CodeOf(errLogin), connect.CodeUnauthenticated)
