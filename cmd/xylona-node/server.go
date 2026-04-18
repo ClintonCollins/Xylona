@@ -16,6 +16,8 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	nodeprotov1 "github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
+	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // nodeServiceServer is the Connect-RPC handler implementation that wraps a
@@ -135,22 +137,23 @@ func nodeSnapshotToProto(snap *node.NodeSnapshot) *nodeprotov1.NodeSnapshot {
 		})
 	}
 	return &nodeprotov1.NodeSnapshot{
-		CpuModel:      snap.CPUModel,
-		CpuCores:      clampToInt32(snap.CPUCores),
-		CpuThreads:    clampToInt32(snap.CPUThreads),
-		TotalMemory:   snap.TotalMemory,
-		Os:            snap.OS,
-		OsVersion:     snap.OSVersion,
-		Architecture:  snap.Architecture,
-		XylonaVersion: snap.XylonaVersion,
-		CpuPercent:    snap.CPUPercent,
-		MemoryUsed:    snap.MemoryUsed,
-		MemoryPercent: snap.MemoryPercent,
-		DiskUsed:      snap.DiskUsed,
-		DiskTotal:     snap.DiskTotal,
-		DiskPercent:   snap.DiskPercent,
-		Processes:     processes,
-		Collected:     timestamppb.New(snap.Collected),
+		CpuModel:           snap.CPUModel,
+		CpuCores:           clampToInt32(snap.CPUCores),
+		CpuThreads:         clampToInt32(snap.CPUThreads),
+		TotalMemory:        snap.TotalMemory,
+		Os:                 snap.OS,
+		OsVersion:          snap.OSVersion,
+		Architecture:       snap.Architecture,
+		XylonaVersion:      snap.XylonaVersion,
+		CpuPercent:         snap.CPUPercent,
+		MemoryUsed:         snap.MemoryUsed,
+		MemoryPercent:      snap.MemoryPercent,
+		DiskUsed:           snap.DiskUsed,
+		DiskTotal:          snap.DiskTotal,
+		DiskPercent:        snap.DiskPercent,
+		DefaultInstallPath: snap.DefaultInstallPath,
+		Processes:          processes,
+		Collected:          timestamppb.New(snap.Collected),
 	}
 }
 
@@ -176,6 +179,22 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 		NodeID:           msg.GetNodeId(),
 		ServiceID:        msg.GetServiceId(),
 		StopTimeout:      time.Duration(msg.GetStopTimeoutSeconds()) * time.Second,
+	}
+	if msg.GetInternalCommand() {
+		// Internal commands dispatch to a registered Game implementation
+		// (see api/xylona-internal). The supervisor needs a *models.GameServer
+		// to pass to the installer; the node has no DB so we synthesize one
+		// from the fields the wire carries. Current built-in installers
+		// (e.g. Minecraft) only read ID/Name/Directory, so this minimal shape
+		// is sufficient. Extend the proto if a future installer needs more.
+		cfg.InternalCommand = true
+		cfg.InternalGameID = msg.GetInternalGameId()
+		cfg.InternalGameServerID = msg.GetId()
+		cfg.InternalGameServer = &models.GameServer{
+			ID:        msg.GetId(),
+			Name:      msg.GetName(),
+			Directory: msg.GetWorkingDirectory(),
+		}
 	}
 	_ = ctx // ctx is unused by StartProcess but accepted for future cancellation
 
@@ -530,12 +549,55 @@ func (s *nodeServiceServer) StreamEvents(ctx context.Context, req *connect.Reque
 // StreamConsoleOutput is the per-process console stream. Step 4 wires a stub
 // that returns CodeUnimplemented so the registered route exists but callers
 // know the feature lands in Step 9 along with the full event rewiring.
-func (s *nodeServiceServer) StreamConsoleOutput(_ context.Context, req *connect.Request[nodeprotov1.StreamConsoleOutputRequest], _ *connect.ServerStream[nodeprotov1.ConsoleChunk]) error {
+func (s *nodeServiceServer) StreamConsoleOutput(ctx context.Context, req *connect.Request[nodeprotov1.StreamConsoleOutputRequest], stream *connect.ServerStream[nodeprotov1.ConsoleChunk]) error {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
 		return errAuth
 	}
-	return connect.NewError(connect.CodeUnimplemented, errors.New("per-process console streaming lands in Step 9"))
+
+	if s.n == nil {
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+
+	supervisorInst := s.n.Supervisor()
+	if supervisorInst == nil {
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node supervisor not initialized"))
+	}
+
+	return streamConsoleOutput(ctx, req.Msg.GetProcessId(), supervisorInst, stream)
+}
+
+func streamConsoleOutput(ctx context.Context, processID string, supervisorInst *supervisor.Instance, stream *connect.ServerStream[nodeprotov1.ConsoleChunk]) error {
+	command := supervisorInst.GetCommandByIDOrCreateShell(processID)
+	listenerID := fmt.Sprintf("node-rpc-console-%s-%d", processID, time.Now().UnixNano())
+	listener := make(chan *xylona.Message, 256)
+	command.AddOutputListener(listenerID, listener)
+	defer command.RemoveOutputListener(listenerID)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case msg := <-listener:
+			if msg == nil || msg.GetType() != xylona.Message_GameServerConsole {
+				continue
+			}
+
+			consoleOutput := msg.GetGameServerConsoleOutput()
+			if consoleOutput == nil {
+				continue
+			}
+
+			errSend := stream.Send(&nodeprotov1.ConsoleChunk{
+				GameServerId: consoleOutput.GetGameServerId(),
+				Text:         consoleOutput.GetOutput(),
+				Timestamp:    timestamppb.Now(),
+			})
+			if errSend != nil {
+				return fmt.Errorf("stream console output send: %w", errSend)
+			}
+		}
+	}
 }
 
 func (s *nodeServiceServer) Ping(_ context.Context, req *connect.Request[nodeprotov1.PingRequest]) (*connect.Response[nodeprotov1.PingResponse], error) {

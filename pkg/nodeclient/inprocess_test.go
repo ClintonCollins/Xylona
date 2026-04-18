@@ -8,7 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // newTestClient constructs an in-process client backed by a Node with no
@@ -17,6 +20,17 @@ import (
 func newTestClient(t *testing.T) (NodeClient, *node.Node) {
 	t.Helper()
 	n := node.New(t.Context(), nil, nil)
+	client := NewInProcessClient("node-A", n)
+	return client, n
+}
+
+func newSupervisorBackedTestClient(t *testing.T) (NodeClient, *node.Node) {
+	t.Helper()
+	supervisorInst, errSupervisor := supervisor.New(t.Context())
+	if errSupervisor != nil {
+		t.Fatalf("supervisor.New: %v", errSupervisor)
+	}
+	n := node.New(t.Context(), supervisorInst, nil)
 	client := NewInProcessClient("node-A", n)
 	return client, n
 }
@@ -174,6 +188,73 @@ func TestInProcessClientStreamEventsClosesOnContextCancel(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatalf("stream not closed after cancel")
+	}
+}
+
+func TestInProcessClientStreamEventsMirrorsStatusEventBusUpdates(t *testing.T) {
+	client, _ := newTestClient(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	stream, errStream := client.StreamEvents(ctx)
+	if errStream != nil {
+		t.Fatalf("StreamEvents: %v", errStream)
+	}
+
+	eventbus.Get().Publish(eventbus.TopicGameServerStatusChanged, eventbus.StatusChangedEvent{
+		ServerID:  "srv-bridge",
+		NewStatus: xylona.Status_ONLINE.String(),
+	})
+
+	select {
+	case got, ok := <-stream:
+		if !ok {
+			t.Fatal("stream closed before status event arrived")
+		}
+		if got.Type != node.EventTypeProcessStatus {
+			t.Fatalf("got.Type = %v, want %v", got.Type, node.EventTypeProcessStatus)
+		}
+		if got.ProcessID != "srv-bridge" {
+			t.Fatalf("got.ProcessID = %q, want %q", got.ProcessID, "srv-bridge")
+		}
+		if got.Status != xylona.Status_ONLINE.String() {
+			t.Fatalf("got.Status = %q, want %q", got.Status, xylona.Status_ONLINE.String())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for bridged status event")
+	}
+}
+
+func TestInProcessClientStreamConsoleOutputDeliversInjectedConsoleLines(t *testing.T) {
+	client, n := newSupervisorBackedTestClient(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	stream, errStream := client.StreamConsoleOutput(ctx, "srv-console")
+	if errStream != nil {
+		t.Fatalf("StreamConsoleOutput: %v", errStream)
+	}
+
+	errSend := n.SendConsoleOutput("srv-console", "hello remote console")
+	if errSend != nil {
+		t.Fatalf("SendConsoleOutput: %v", errSend)
+	}
+
+	select {
+	case chunk, ok := <-stream:
+		if !ok {
+			t.Fatal("stream closed before console chunk arrived")
+		}
+		if chunk.ProcessID != "srv-console" {
+			t.Fatalf("chunk.ProcessID = %q, want %q", chunk.ProcessID, "srv-console")
+		}
+		if chunk.Data == "" {
+			t.Fatal("chunk.Data should not be empty")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for console chunk")
 	}
 }
 

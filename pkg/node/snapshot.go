@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ClintonCollins/Xylona/pkg/sysinfo"
 )
 
@@ -41,6 +43,18 @@ func (n *Node) GetNodeSnapshot(_ context.Context) (*NodeSnapshot, error) {
 		DiskPercent:   resource.DiskPercent,
 
 		Collected: time.Now(),
+	}
+
+	// Resolve the node's own default install root. Logged-and-zeroed on error
+	// so a misconfigured node (missing $HOME on Linux, missing %USERPROFILE%
+	// on Windows) still reports a snapshot — the controller falls back to its
+	// own default and surfaces a user-visible error only when the empty
+	// install path actually matters.
+	installPath, errInstallPath := DefaultInstallPath()
+	if errInstallPath != nil {
+		log.Warn().Err(errInstallPath).Msg("node: could not resolve default install path for snapshot")
+	} else {
+		snapshot.DefaultInstallPath = installPath
 	}
 
 	if n.supervisor != nil {

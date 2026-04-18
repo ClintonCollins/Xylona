@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,6 +76,14 @@ func performBootstrap(ctx context.Context, cfg *cliConfig, dataDir string) (*nod
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 30 * time.Second}
+	if cfg.skipInsecureTLS {
+		log.Warn().
+			Str("controller_url", controllerURL).
+			Msg("bootstrap: --skip-insecure-tls set; controller certificate will NOT be verified for the pairing request")
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // G402: intentional; gated behind --skip-insecure-tls for one-shot bootstrap.
+		}
+	}
 	httpResp, errDo := client.Do(httpReq)
 	if errDo != nil {
 		return nil, fmt.Errorf("send bootstrap request: %w", errDo)

@@ -20,27 +20,13 @@ const permissionBackup = "game_server.backup"
 const (
 	backupDisabledReasonBackupsDisabled  = "Backups are disabled for this server."
 	backupDisabledReasonInvalidDirectory = "Backup directory is not valid for this server."
-	backupDisabledReasonLocalOnly        = "Backups are only available for local servers."
 	backupDisabledReasonNotConfigured    = "Backups are not configured for this server."
 )
 
-type backupUserFacingError string
-
-func (e backupUserFacingError) Error() string {
-	return string(e)
-}
-
-var (
-	errBackupLocalOnly = backupUserFacingError(backupDisabledReasonLocalOnly)
-)
-
 // isLocalBackupServer reports whether the game server is managed by the
-// controller's embedded node (hub-spoke: only local backups run in Phase 1).
-// When no nodeRegistry is configured (e.g. unit tests that stand up a
-// service without wiring the registry), every server is treated as local —
-// the registry check is a production-time guard, not a core invariant.
-// TODO(hub-spoke step 10): drop the "local-only" restriction once NodeClient
-// supports backup creation/restore on remote nodes.
+// controller's embedded node. The flag remains useful for UI copy and
+// diagnostics, but remote nodes now support the same managed backup flows as
+// the embedded node through the controller-proxy path.
 func (xs *XylonaService) isLocalBackupServer(gameServer *models.GameServer) bool {
 	if gameServer == nil {
 		return false
@@ -60,9 +46,6 @@ func backupDirectoryConfigured(gameServer *models.GameServer) bool {
 }
 
 func (xs *XylonaService) backupOperationsAllowed(gameServer *models.GameServer) (bool, string) {
-	if !xs.isLocalBackupServer(gameServer) {
-		return false, backupDisabledReasonLocalOnly
-	}
 	if !gameServer.BackupsEnabled {
 		return false, backupDisabledReasonBackupsDisabled
 	}
@@ -78,9 +61,6 @@ func (xs *XylonaService) backupOperationsAllowed(gameServer *models.GameServer) 
 }
 
 func (xs *XylonaService) backupRestoreAllowed(gameServer *models.GameServer) (bool, string) {
-	if !xs.isLocalBackupServer(gameServer) {
-		return false, backupDisabledReasonLocalOnly
-	}
 	if !gameServer.BackupsEnabled {
 		return false, backupDisabledReasonBackupsDisabled
 	}
@@ -473,10 +453,6 @@ func (xs *XylonaService) DeleteGameServerBackup(
 	errPermission := xs.ensureLocalServerPermission(user, gameServer, permissionBackup)
 	if errPermission != nil {
 		return nil, errPermission
-	}
-
-	if !xs.isLocalBackupServer(gameServer) {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errBackupLocalOnly)
 	}
 
 	backup, errGetBackup := xs.getBackupByIDForGameServer(gameServerID, backupID)

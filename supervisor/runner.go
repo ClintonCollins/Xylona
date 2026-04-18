@@ -420,10 +420,11 @@ func (inst *Instance) GetCommandByID(commandID string) (*Command, error) {
 
 // GetCommandByIDOrCreateShell returns a tracked command or creates an offline shell placeholder.
 func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
+	inst.Lock()
+	defer inst.Unlock()
+
 	persistentCommand, exists := inst.runningCommands[commandID]
 	if !exists {
-		inst.Lock()
-		defer inst.Unlock()
 		inst.runningCommands[commandID] = &Command{
 			ID:                  commandID,
 			instanceCtx:         inst.ctx,

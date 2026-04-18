@@ -26,6 +26,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/nodetls"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
@@ -34,12 +35,13 @@ import (
 
 // cliConfig holds parsed command-line flags.
 type cliConfig struct {
-	controllerURL string
-	joinToken     string
-	listen        string
-	advertiseURL  string
-	nodeName      string
-	dataDir       string
+	controllerURL   string
+	joinToken       string
+	listen          string
+	advertiseURL    string
+	nodeName        string
+	dataDir         string
+	skipInsecureTLS bool
 }
 
 // parseFlags parses CLI flags from args (excluding program name).
@@ -52,6 +54,7 @@ func parseFlags(args []string) (*cliConfig, error) {
 	fs.StringVar(&cfg.advertiseURL, "advertise-url", "", "URL the controller should use to reach this node (defaults to hostname + --listen port)")
 	fs.StringVar(&cfg.nodeName, "node-name", "", "display name to register with the controller (defaults to OS hostname)")
 	fs.StringVar(&cfg.dataDir, "data-dir", "./xylona-node-data", "directory to store persistent node identity")
+	fs.BoolVar(&cfg.skipInsecureTLS, "skip-insecure-tls", false, "skip TLS certificate verification when sending the bootstrap request (one-shot; only affects --join-token pairing)")
 
 	errParse := fs.Parse(args)
 	if errParse != nil {
@@ -117,6 +120,13 @@ func run(ctx context.Context, cfg *cliConfig) error {
 	if errSup != nil {
 		return fmt.Errorf("create supervisor: %w", errSup)
 	}
+	// Register built-in internal game installers (e.g. Minecraft) so
+	// StartProcess requests with internal_command=true resolve to a running
+	// Game implementation on this node. The controller does the same from
+	// its own main.go — we duplicate the call here because the xylona-node
+	// binary runs the supervisor locally when the controller targets a
+	// remote node.
+	games.RegisterInternalGames()
 	// pkg/node.New tolerates a nil *db.Connection for the node binary — the
 	// node does not persist any game-server data. Controller is the single
 	// source of truth.

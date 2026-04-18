@@ -25,12 +25,14 @@ type Node struct {
 // later migration steps that need access to node-local settings; pkg/node
 // itself does not currently issue queries against it.
 func New(ctx context.Context, supervisorInst *supervisor.Instance, database *db.Connection) *Node {
-	return &Node{
+	nodeInst := &Node{
 		ctx:        ctx,
 		supervisor: supervisorInst,
 		db:         database,
 		events:     NewEventEmitter(),
 	}
+	nodeInst.startStatusEventBridge()
+	return nodeInst
 }
 
 // Supervisor returns the underlying supervisor instance. Exposed for callers

@@ -4,9 +4,9 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -196,7 +196,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	if errTx != nil {
 		log.Error().Err(errTx).Msg("Failed to start transaction")
 		errInstall := fmt.Errorf("actions: begin install transaction: %w", errTx)
-		errCleanup := inst.cleanupFailedInstall("", gameServerDir)
+		errCleanup := inst.cleanupFailedInstall("", gameServerDir, gameServer.NodeID)
 		if errCleanup != nil {
 			return nil, errors.Join(errInstall, errCleanup)
 		}
@@ -212,7 +212,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	if errGetNode != nil {
 		log.Error().Err(errGetNode).Msg("Failed to get node")
 		errInstall := fmt.Errorf("actions: get node for install: %w", errGetNode)
-		errCleanup := inst.cleanupFailedInstall("", gameServerDir)
+		errCleanup := inst.cleanupFailedInstall("", gameServerDir, gameServer.NodeID)
 		if errCleanup != nil {
 			return nil, errors.Join(errInstall, errCleanup)
 		}
@@ -243,7 +243,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Failed to insert game server")
 		errInstall := fmt.Errorf("actions: insert game server: %w", errInsert)
-		errCleanup := inst.cleanupFailedInstall("", gameServerDir)
+		errCleanup := inst.cleanupFailedInstall("", gameServerDir, gameServer.NodeID)
 		if errCleanup != nil {
 			return nil, errors.Join(errInstall, errCleanup)
 		}
@@ -255,21 +255,22 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	if errCommit != nil {
 		log.Error().Str("Game Server ID", gameServer.ID).Err(errCommit).Msg("Failed to commit transaction")
 		errInstall := fmt.Errorf("actions: commit install transaction: %w", errCommit)
-		errCleanup := inst.cleanupFailedInstall("", gameServerDir)
+		errCleanup := inst.cleanupFailedInstall("", gameServerDir, gameServer.NodeID)
 		if errCleanup != nil {
 			return nil, errors.Join(errInstall, errCleanup)
 		}
 		return nil, errInstall
 	}
 
+	nodeOS := inst.resolveNodeOS(inst.ctx, newGameServer.NodeID)
 	installVars := placeholder.BuildVarsFromGameServer(newGameServer)
-	installCommand := placeholder.Resolve(gameInstallCommand(game), installVars)
+	installCommand := placeholder.Resolve(gameInstallCommand(game, nodeOS), installVars)
 	baseCommand, args := splitCommandString(installCommand)
 
 	client, errClient := inst.resolveNodeClient(newGameServer.NodeID)
 	if errClient != nil {
 		errInstall := fmt.Errorf("actions: resolve node client for install: %w", errClient)
-		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory)
+		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory, newGameServer.NodeID)
 		if errCleanup != nil {
 			return nil, errors.Join(errInstall, errCleanup)
 		}
@@ -286,7 +287,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		NodeID:           newGameServer.NodeID,
 		ServiceID:        newGameServer.GameID,
 	}
-	if gameInstallCommandType(game) == CommandTypeInternal {
+	if gameInstallCommandType(game, nodeOS) == CommandTypeInternal {
 		installCfg.InternalCommand = true
 		installCfg.InternalGameServerID = newGameServer.ID
 		installCfg.InternalGameID = game.ID
@@ -317,7 +318,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		inst.exitHooks.clear(newGameServer.ID)
 		log.Error().Err(errStart).Msg("Failed to start install command")
 		errInstall := fmt.Errorf("actions: start install command: %w", errStart)
-		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory)
+		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory, newGameServer.NodeID)
 		if errCleanup != nil {
 			return nil, errors.Join(errInstall, errCleanup)
 		}
@@ -330,8 +331,20 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	return newGameServer, nil
 }
 
-func (inst *Instance) cleanupFailedInstall(gameServerID string, gameServerDir string) error {
+func (inst *Instance) cleanupFailedInstall(gameServerID string, gameServerDir string, nodeID string) error {
 	var errCleanup error
+
+	resolvedNodeID := nodeID
+	if resolvedNodeID == "" && gameServerID != "" {
+		gameServer, errGetGameServer := inst.db.GetGameServerByID(gameServerID)
+		if errGetGameServer == nil {
+			resolvedNodeID = gameServer.NodeID
+		}
+		if errGetGameServer != nil && !errors.Is(errGetGameServer, sql.ErrNoRows) {
+			log.Error().Err(errGetGameServer).Str("game_server_id", gameServerID).Msg("Failed to load game server for install cleanup")
+			errCleanup = errors.Join(errCleanup, fmt.Errorf("actions: load failed install game server: %w", errGetGameServer))
+		}
+	}
 
 	if gameServerID != "" {
 		errDeleteGameServer := inst.db.DeleteGameServer(gameServerID)
@@ -342,7 +355,7 @@ func (inst *Instance) cleanupFailedInstall(gameServerID string, gameServerDir st
 	}
 
 	if gameServerDir != "" {
-		errDeleteGameServerFiles := os.RemoveAll(gameServerDir)
+		errDeleteGameServerFiles := inst.deleteGameServerDirectory(resolvedNodeID, gameServerDir)
 		if errDeleteGameServerFiles != nil {
 			log.Error().Err(errDeleteGameServerFiles).Str("game_server_dir", gameServerDir).Msg("Failed to remove game server directory after install failure")
 			errCleanup = errors.Join(errCleanup, fmt.Errorf("actions: delete failed install directory: %w", errDeleteGameServerFiles))
@@ -367,7 +380,8 @@ func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServe
 		return "", nil, errEnsureExecutable
 	}
 
-	templateJSON := strings.TrimSpace(gameStartArgsTemplate(gameServer.R.Game))
+	nodeOS := inst.resolveNodeOS(inst.ctx, gameServer.NodeID)
+	templateJSON := strings.TrimSpace(gameStartArgsTemplate(gameServer.R.Game, nodeOS))
 	if templateJSON == "" {
 		return "", nil, errStartCommandTemplateMissing
 	}
@@ -389,7 +403,7 @@ func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServe
 			return "", nil, errors.New("minecraft server executable is not configured. set it in server settings or place the server jar in the server root")
 		}
 	}
-	baseCommand := placeholder.ResolveToken(gameBaseCommand(gameServer.R.Game), startVars)
+	baseCommand := placeholder.ResolveToken(gameBaseCommand(gameServer.R.Game, nodeOS), startVars)
 	if strings.TrimSpace(baseCommand) == "" {
 		return "", nil, errBaseCommandMissing
 	}
@@ -563,10 +577,11 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 // command. Routes through the NodeClient for the server's owning node so
 // embedded and remote servers stop on the same code path.
 func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
+	nodeOS := inst.resolveNodeOS(inst.ctx, gameServer.NodeID)
 	if inst.nodeRegistry != nil {
 		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
 		if errGet == nil {
-			errStop := client.StopProcess(inst.ctx, gameServer.ID, gameStopCommand(gameServer.R.Game))
+			errStop := client.StopProcess(inst.ctx, gameServer.ID, gameStopCommand(gameServer.R.Game, nodeOS))
 			if errStop != nil && !errors.Is(errStop, supervisor.ErrCommandDoesNotExist) {
 				log.Error().Err(errStop).Str("node_id", gameServer.NodeID).
 					Msg("Failed to stop game server command")
@@ -578,7 +593,9 @@ func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 	}
 
 	// Fallback: direct supervisor access if the registry is not wired up
-	// (should only occur in tests that construct Instance directly).
+	// (should only occur in tests that construct Instance directly). The
+	// supervisor always runs the controller's own OS, so OperatingSystem is
+	// the correct flavor here.
 	if inst.supervisorInstance == nil {
 		return
 	}
@@ -589,7 +606,7 @@ func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 		}
 		return
 	}
-	gameServerCommand.Stop(gameStopCommand(gameServer.R.Game))
+	gameServerCommand.Stop(gameStopCommand(gameServer.R.Game, OperatingSystem))
 }
 
 // UpdateGameServer starts the configured update flow for a game server.
@@ -608,8 +625,9 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 		return errMinecraft
 	}
 
-	updateCmd := gameUpdateCommand(gameServer.R.Game)
-	internalUpdate := gameUpdateCommandType(gameServer.R.Game) == CommandTypeInternal
+	nodeOS := inst.resolveNodeOS(inst.ctx, gameServer.NodeID)
+	updateCmd := gameUpdateCommand(gameServer.R.Game, nodeOS)
+	internalUpdate := gameUpdateCommandType(gameServer.R.Game, nodeOS) == CommandTypeInternal
 	if !internalUpdate && updateCmd == "" {
 		_, internalUpdate = internal.GetGame(gameServer.GameID)
 	}

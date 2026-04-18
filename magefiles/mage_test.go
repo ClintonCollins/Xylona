@@ -2,7 +2,10 @@
 
 package main
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestValidateDeployParam(t *testing.T) {
 	tests := []struct {
@@ -30,7 +33,6 @@ func TestValidateDeployParam(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateDeployParam(tt.param, tt.value)
 			if (err != nil) != tt.wantErr {
@@ -38,5 +40,33 @@ func TestValidateDeployParam(t *testing.T) {
 					tt.param, tt.value, err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestResolveDeployConfig(t *testing.T) {
+	t.Setenv("USER", "")
+	t.Setenv("USERNAME", "deploy-user")
+
+	got := resolveDeployConfig("example.com", "", "", "")
+
+	if got.host != "example.com" {
+		t.Fatalf("resolveDeployConfig host = %q, want %q", got.host, "example.com")
+	}
+	if got.user != "deploy-user" {
+		t.Fatalf("resolveDeployConfig user = %q, want %q", got.user, "deploy-user")
+	}
+	if got.service != "xylona-node" {
+		t.Fatalf("resolveDeployConfig service = %q, want %q", got.service, "xylona-node")
+	}
+	if got.remotePath != "/usr/local/bin/xylona-node" {
+		t.Fatalf("resolveDeployConfig remotePath = %q, want %q", got.remotePath, "/usr/local/bin/xylona-node")
+	}
+	if got.localBinary != "dist/xylona-node-linux-amd64" {
+		t.Fatalf("resolveDeployConfig localBinary = %q, want %q", got.localBinary, "dist/xylona-node-linux-amd64")
+	}
+
+	wantBuildArgs := []string{"build", "-o", "dist/xylona-node-linux-amd64", "./cmd/xylona-node/"}
+	if !reflect.DeepEqual(got.buildArgs, wantBuildArgs) {
+		t.Fatalf("resolveDeployConfig buildArgs = %v, want %v", got.buildArgs, wantBuildArgs)
 	}
 }

@@ -55,7 +55,9 @@
           </template>
           <template #body-cell-health="props">
             <q-td :props="props">
-              <q-badge color="positive" label="Healthy" />
+              <q-badge
+                :color="healthBadgeFor(props.row).color"
+                :label="healthBadgeFor(props.row).label" />
             </q-td>
           </template>
           <template #body-cell-cpu="props">
@@ -303,6 +305,19 @@ function getSnapshot(nodeId: string): NodeResourceSnapshot | undefined {
 
 function getNodeVersion(nodeId: string): string | undefined {
   return getNodeSummary(nodeId)?.systemInfo?.xylonaVersion
+}
+
+function healthBadgeFor(node: Node): { color: string; label: string } {
+  if (node.healthStatus === 'offline') {
+    return { color: 'negative', label: 'Offline' }
+  }
+  if (node.healthStatus === 'disabled') {
+    return { color: 'warning', label: 'Disabled' }
+  }
+  if (node.healthStatus === 'healthy') {
+    return { color: 'positive', label: 'Healthy' }
+  }
+  return { color: 'grey-6', label: 'Unknown' }
 }
 
 function metricColor(percent: number): string {

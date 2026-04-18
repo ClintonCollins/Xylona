@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -443,7 +444,7 @@ func (inst *Instance) archiveFilesWithProgress(ctx context.Context, archiveFullP
 		format.Compression = &archives.Xz{}
 	}
 
-	archiveFullPath += format.Extension()
+	archiveFullPath += archiveCompressionExtension(compression)
 
 	archiveOut, errCreate := os.Create(archiveFullPath)
 	if errCreate != nil {
@@ -636,7 +637,7 @@ func (inst *Instance) handleArchiveAndCompression(_ context.Context, archivePath
 		format.Compression = &archives.Xz{}
 	}
 
-	archiveFullPath += format.Extension()
+	archiveFullPath += archiveCompressionExtension(compression)
 
 	archiveOut, errCreate := os.Create(archiveFullPath)
 	if errCreate != nil {
@@ -653,6 +654,21 @@ func (inst *Instance) handleArchiveAndCompression(_ context.Context, archivePath
 		return "", wrapFileActionError("archive files", errArchive)
 	}
 	return archiveFullPath, nil
+}
+
+func archiveCompressionExtension(compression xylona.GameServerFilesCompressionType) string {
+	switch compression {
+	case xylona.GameServerFilesCompressionType_GZIP:
+		return ".tar.gz"
+	case xylona.GameServerFilesCompressionType_BZIP2:
+		return ".tar.bz2"
+	case xylona.GameServerFilesCompressionType_ZST:
+		return ".tar.zst"
+	case xylona.GameServerFilesCompressionType_XZ:
+		return ".tar.xz"
+	default:
+		return ".zip"
+	}
 }
 
 // ExtractFiles extracts an archive and reports progress updates.
@@ -1315,26 +1331,123 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativeP
 
 func (inst *Instance) createGameServerDirectory(gameServer *models.GameServer, owner *models.User) (string, error) {
 	gsNameSlug := slug.Make(gameServer.Name)
-	installPath, errInstallPath := DefaultInstallPath()
-	if errInstallPath != nil {
-		log.Error().Err(errInstallPath).Msg("Failed to resolve default install path")
-		return "", fmt.Errorf("actions: resolve default install path: %w", errInstallPath)
+
+	// In a hub-spoke deployment the target node may run a different OS and
+	// different env from the controller, so the install root and path
+	// separator must be resolved on the node. For self / in-process nodes
+	// this still works: the in-process client's GetNodeSnapshot also reports
+	// DefaultInstallPath via the shared pkg/node resolver.
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return "", fmt.Errorf("actions: resolve node client for install dir: %w", errClient)
 	}
-	gameServerDir := joinManagedPath(installPath, owner.UserName, gsNameSlug)
-	errMakePath := os.MkdirAll(gameServerDir, 0o750)
-	if errMakePath != nil {
-		log.Error().Err(errMakePath).Msg("Failed to create game server directory")
-		return "", fmt.Errorf("actions: create game server directory: %w", errMakePath)
+
+	snap, errSnap := client.GetNodeSnapshot(inst.ctx)
+	if errSnap != nil || snap == nil {
+		return "", fmt.Errorf("actions: get node snapshot for install dir: %w", errSnap)
 	}
-	return gameServerDir, nil
+
+	installRoot := strings.TrimSpace(snap.DefaultInstallPath)
+	if installRoot == "" {
+		log.Error().Str("node_id", gameServer.NodeID).Str("node_os", snap.OS).
+			Msg("target node did not report a default install path; check HOME / USERPROFILE on the node")
+		return "", errors.New("actions: target node has no default install path — set HOME (Linux) or USERPROFILE (Windows) for the xylona-node process")
+	}
+
+	nodeOS, _ := detectOperatingSystem(strings.ToLower(strings.TrimSpace(snap.OS)))
+
+	// Build the relative path with forward slashes — the node's
+	// CreateFileOrDirectory handler accepts them on both Linux and Windows
+	// (filepath.IsLocal allows them) and normalizes to the host separator.
+	relativePath := path.Join(owner.UserName, gsNameSlug)
+
+	errCreate := client.CreateFileOrDirectory(inst.ctx, installRoot, relativePath, "", true, node.ProtectionPolicy{})
+	if errCreate != nil {
+		log.Error().Err(errCreate).Str("node_id", gameServer.NodeID).
+			Str("install_root", installRoot).Str("relative_path", relativePath).
+			Msg("Failed to create game server directory on node")
+		return "", fmt.Errorf("actions: create game server directory on node: %w", errCreate)
+	}
+
+	// Compose the full directory string with the target node's separator so
+	// everything downstream (StartProcess.working_directory, protected-path
+	// checks, post-install file writes) matches the node's native path
+	// format. The controller's own filepath.Join uses the controller OS, so
+	// join by hand for the heterogeneous case.
+	return joinForNodeOS(nodeOS, installRoot, owner.UserName, gsNameSlug), nil
+}
+
+// joinForNodeOS composes a path with the target-node's native separator.
+// Unlike filepath.Join (which uses the controller's separator), this lets a
+// Windows controller produce a Linux-style path when the target node is
+// Linux, and vice versa. nodeOS being unknown falls back to forward slashes
+// (safe for Linux/Darwin and tolerated by Windows).
+func joinForNodeOS(nodeOS OSType, parts ...string) string {
+	sep := "/"
+	if nodeOS == Windows {
+		sep = "\\"
+	}
+	out := make([]string, 0, len(parts))
+	for i, p := range parts {
+		if i == 0 {
+			// Keep the root as-is (preserves leading / on Unix or C:\ on Windows);
+			// only trim trailing separators so we don't double-up when joining.
+			p = strings.TrimRight(p, "\\/")
+			if p == "" {
+				continue
+			}
+			out = append(out, p)
+			continue
+		}
+		p = strings.Trim(p, "\\/")
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return strings.Join(out, sep)
 }
 
 // PurgeAllGameServerFiles deletes the server's working directory.
 func (inst *Instance) PurgeAllGameServerFiles(gameServer *models.GameServer) error {
-	err := os.RemoveAll(gameServer.Directory)
+	err := inst.deleteGameServerDirectory(gameServer.NodeID, gameServer.Directory)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to delete game server files")
 		return fmt.Errorf("actions: delete game server files: %w", err)
+	}
+	return nil
+}
+
+func (inst *Instance) deleteGameServerDirectory(nodeID string, directory string) error {
+	if directory == "" {
+		return nil
+	}
+
+	ctx := context.Background()
+	if inst != nil && inst.ctx != nil {
+		ctx = inst.ctx
+	}
+
+	if inst != nil && inst.nodeRegistry != nil {
+		selfID := inst.nodeRegistry.SelfID()
+		if nodeID != "" {
+			client, errGetClient := inst.nodeRegistry.Get(nodeID)
+			if errGetClient == nil {
+				_, errDelete := client.DeleteFiles(ctx, directory, []string{""}, node.ProtectionPolicy{})
+				if errDelete != nil {
+					return fmt.Errorf("actions: delete game server directory on node: %w", errDelete)
+				}
+				return nil
+			}
+			if nodeID != selfID {
+				return fmt.Errorf("actions: resolve node client for directory delete: %w", errGetClient)
+			}
+		}
+	}
+
+	errRemove := os.RemoveAll(directory)
+	if errRemove != nil {
+		return fmt.Errorf("actions: remove local game server directory: %w", errRemove)
 	}
 	return nil
 }

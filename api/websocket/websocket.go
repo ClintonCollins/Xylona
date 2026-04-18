@@ -407,18 +407,19 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		sessionConnection.requestedGameServerOutputIDs[serverID] = struct{}{}
 		sessionConnection.Unlock()
 
-		localGameServer, errGetLocal := ws.db.GetGameServerByID(serverID)
-		if errGetLocal != nil {
-			if !errors.Is(errGetLocal, sql.ErrNoRows) {
-				log.Error().Err(errGetLocal).Str("server_id", serverID).Msg("Failed to get game server for console stream")
+		gameServer, errGetServer := ws.db.GetGameServerByID(serverID)
+		if errGetServer != nil {
+			if !errors.Is(errGetServer, sql.ErrNoRows) {
+				log.Error().Err(errGetServer).Str("server_id", serverID).Msg("Failed to get game server for console stream")
 			}
-			// TODO(hub-spoke step 9): subscribe to remote nodes via
-			// NodeClient.StreamEvents / StreamConsoleOutput once the node
-			// binary implements those streams.
 			return
 		}
-		command := ws.supervisor.GetCommandByIDOrCreateShell(localGameServer.ID)
-		command.AddOutputListener(sessionConnection.id.String(), sessionConnection.outputStreamChannel)
+
+		errSubscribe := ws.subscribeGameServerConsole(sessionConnection, gameServer)
+		if errSubscribe != nil {
+			log.Error().Err(errSubscribe).Str("server_id", serverID).Msg("Failed to subscribe to game server console output")
+			return
+		}
 
 		rawData := &xylona.Message{
 			Type:    xylona.Message_Raw,
@@ -440,7 +441,7 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		sessionConnection.Unlock()
 
 		gameServer, errGetServer := ws.db.GetGameServerByID(serverID)
-		if errGetServer == nil {
+		if errGetServer == nil && ws.isLocalNode(gameServer.NodeID) && ws.supervisor != nil {
 			command := ws.supervisor.GetCommandByIDOrCreateShell(gameServer.ID)
 			command.RemoveOutputListener(sessionConnection.id.String())
 		}

@@ -7,24 +7,24 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "quasar dev",
-    "build": "quasar build",
-    "lint": "eslint .",
-    "lint:fix": "eslint --fix .",
-    "format": "prettier --write \"src/**/*.{ts,vue,scss,html,json}\" \"e2e/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.{ts,vue,scss,html,json}\" \"e2e/**/*.ts\"",
-    "test": "vitest run --configLoader native",
-    "test:watch": "vitest --configLoader native",
-    "test:ui": "vitest --configLoader native --ui",
-    "test:coverage": "vitest run --configLoader native --coverage",
-    "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui",
-    "e2e:headed": "playwright test --headed",
-    "e2e:debug": "playwright test --debug",
-    "e2e:report": "playwright show-report e2e/playwright-report",
-    "e2e:federation": "playwright test --config playwright-federation.config.ts",
-    "e2e:federation:headed": "playwright test --config playwright-federation.config.ts --headed",
-    "e2e:federation:report": "playwright show-report e2e/playwright-report-federation"
+    "dev": "bunx --bun quasar dev",
+    "build": "bunx --bun quasar build",
+    "lint": "bunx --bun eslint .",
+    "lint:fix": "bunx --bun eslint --fix .",
+    "format": "bunx --bun prettier --write \"src/**/*.{ts,vue,scss,html,json}\" \"e2e/**/*.ts\"",
+    "format:check": "bunx --bun prettier --check \"src/**/*.{ts,vue,scss,html,json}\" \"e2e/**/*.ts\"",
+    "test": "bunx vitest run --configLoader native",
+    "test:watch": "bunx vitest --configLoader native",
+    "test:ui": "bunx vitest --configLoader native --ui",
+    "test:coverage": "bunx vitest run --configLoader native --coverage",
+    "e2e": "bunx playwright test",
+    "e2e:ui": "bunx playwright test --ui",
+    "e2e:headed": "bunx playwright test --headed",
+    "e2e:debug": "bunx playwright test --debug",
+    "e2e:report": "bunx playwright show-report e2e/playwright-report",
+    "e2e:federation": "bunx playwright test --config playwright-federation.config.ts",
+    "e2e:federation:headed": "bunx playwright test --config playwright-federation.config.ts --headed",
+    "e2e:federation:report": "bunx playwright show-report e2e/playwright-report-federation"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",
@@ -37,6 +37,7 @@
     "chart.js": "^4.5.1",
     "cronstrue": "^3.14.0",
     "dayjs": "^1.11.20",
+    "dompurify": "^3.3.2",
     "ini": "^6.0.0",
     "monaco-editor": "^0.55.1",
     "pinia": "^3.0.4",
@@ -54,7 +55,9 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.58.2",
     "@quasar/app-vite": "2.6.0",
+    "@quasar/vite-plugin": "1.11.0",
     "@types/node": "^25.5.0",
+    "@vitejs/plugin-vue": "6.0.5",
     "@vitest/coverage-v8": "^4.1.4",
     "@vitest/ui": "^4.1.4",
     "@vue/test-utils": "^2.4.6",
@@ -67,22 +70,19 @@
     "prettier": "^3.8.1",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1",
+    "vite": "8.0.8",
     "vitest": "^4.1.4"
   },
-  "pnpm": {
-    "overrides": {
-      "dompurify": "^3.3.2",
-      "brace-expansion": "5.0.5",
-      "log-symbols": "^5",
-      "ora": "^6"
-    },
-    "onlyBuiltDependencies": [
-      "@bufbuild/buf",
-      "@playwright/test",
-      "@parcel/watcher",
-      "esbuild",
-      "quasar-extras-svg-icons"
-    ]
+  "overrides": {
+    "dompurify": "^3.3.2",
+    "brace-expansion": "5.0.5",
+    "log-symbols": "^5",
+    "ora": "^6"
   },
-  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be"
+  "trustedDependencies": [
+    "@bufbuild/buf",
+    "@parcel/watcher",
+    "esbuild"
+  ],
+  "packageManager": "bun@1.3.12"
 }

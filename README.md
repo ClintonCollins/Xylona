@@ -19,10 +19,13 @@ Xylona is still evolving quickly. Expect active iteration, and treat upgrades th
 ### Prerequisites
 
 - [Go 1.26.2](https://go.dev/doc/install)
-- [Node.js 22 LTS](https://nodejs.org/)
-- [pnpm 10.32.1](https://pnpm.io/installation)
+- [Bun 1.3.12](https://bun.sh/docs/installation)
 - [golangci-lint](https://golangci-lint.run/welcome/install/)
 - [Mage](https://magefile.org/) for build, codegen, and E2E helpers
+
+Windows note: frontend installs and normal build tooling use Bun, but Vitest and
+Playwright still need Node-compatible execution on Windows until Bun's worker
+runtime compatibility catches up.
 
 Optional tooling:
 
@@ -37,7 +40,8 @@ git clone https://github.com/ClintonCollins/Xylona.git
 ```
 
 ```bash
-pnpm --dir frontend install
+cd frontend
+bun install
 ```
 
 ### Runtime Configuration
@@ -117,7 +121,8 @@ Xylona uses SQLite locally and applies embedded SQL migrations automatically on 
 The Go binary embeds `frontend/dist`, so build the frontend bundle once before compiling or running the backend:
 
 ```bash
-pnpm --dir frontend run build
+cd frontend
+bun run build
 ```
 
 ```bash
@@ -137,7 +142,8 @@ The default app bind is `localhost:8080`.
 Run the backend in one terminal, then start the Quasar dev server in another:
 
 ```bash
-pnpm --dir frontend run dev
+cd frontend
+bun run dev
 ```
 
 The frontend dev server proxies API traffic to the backend using the project proxy configuration. The frontend build targets modern evergreen browsers with native `BigInt` support, including Safari 15.6+.
@@ -157,15 +163,18 @@ golangci-lint run ./...
 Frontend:
 
 ```bash
-pnpm --dir frontend run lint
+cd frontend
+bun run lint
 ```
 
 ```bash
-pnpm --dir frontend run test
+cd frontend
+bun run test
 ```
 
 ```bash
-pnpm --dir frontend run build
+cd frontend
+bun run build
 ```
 
 Mage helpers:
@@ -199,7 +208,8 @@ mage SQLMigrateDown
 Single-node suite:
 
 ```bash
-pnpm --dir frontend run e2e
+cd frontend
+bun run e2e
 ```
 
 ```bash
@@ -209,7 +219,8 @@ mage E2E
 Federation suite:
 
 ```bash
-pnpm --dir frontend run e2e:federation
+cd frontend
+bun run e2e:federation
 ```
 
 ```bash
@@ -240,7 +251,7 @@ Set `E2E_KEEP_DATA=1` to preserve federation test data for debugging.
 
 - Run `golangci-lint run ./...`
 - Run `go test -race -count=1 ./...`
-- Run `pnpm --dir frontend run lint`
-- Run `pnpm --dir frontend run test`
-- Run `pnpm --dir frontend run build`
+- Run `bun run lint` from `frontend/`
+- Run `bun run test` from `frontend/`
+- Run `bun run build` from `frontend/`
 - Rebuild generated code with `mage GenerateProto` or `mage GenerateModels` only when you changed the corresponding sources

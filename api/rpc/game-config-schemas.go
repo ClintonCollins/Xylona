@@ -4,16 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/cfgparse"
 	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -89,7 +93,7 @@ func (xs *XylonaService) UpdateGameConfigSchemas(
 // GetGameServerConfigFiles returns the list of config files defined by the
 // game's schema, with existence status for each file.
 func (xs *XylonaService) GetGameServerConfigFiles(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.GetGameServerConfigFilesRequest],
 ) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -106,12 +110,19 @@ func (xs *XylonaService) GetGameServerConfigFiles(
 		return nil, errPermission
 	}
 
-	return getGameServerConfigFilesLocal(xs.db, gameServer)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	return getGameServerConfigFiles(ctx, xs.db, gameServer, client)
 }
 
-func getGameServerConfigFilesLocal(
+func getGameServerConfigFiles(
+	ctx context.Context,
 	dbInst *db.Connection,
 	gameServer *models.GameServer,
+	client nodeclient.NodeClient,
 ) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
 	game, errGame := dbInst.GetGameByID(gameServer.GameID)
 	if errGame != nil {
@@ -126,9 +137,11 @@ func getGameServerConfigFilesLocal(
 
 	var configFiles []*xylona.ConfigFileInfo
 	for _, entry := range entries {
-		filePath := filepath.Join(gameServer.Directory, entry.Path)
-		_, errStat := os.Stat(filePath)
-		existsOnDisk := errStat == nil
+		relativePath, errPath := sanitizeConfigRelativePath(entry.Path)
+		if errPath != nil {
+			return nil, errPath
+		}
+		existsOnDisk := configFileExists(ctx, client, gameServer.Directory, relativePath)
 
 		fieldCount := helpers.ClampInt32FromInt(len(entry.Schema.Properties))
 		managedCount := helpers.ClampInt32FromInt(len(entry.ManagedFields))
@@ -154,7 +167,7 @@ func getGameServerConfigFilesLocal(
 
 // GetGameServerConfigFile reads a config file and returns structured field data.
 func (xs *XylonaService) GetGameServerConfigFile(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.GetGameServerConfigFileRequest],
 ) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -171,12 +184,19 @@ func (xs *XylonaService) GetGameServerConfigFile(
 		return nil, errPermission
 	}
 
-	return getGameServerConfigFileLocal(xs.db, gameServer, request.Msg.GetFilePath())
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	return getGameServerConfigFile(ctx, xs.db, gameServer, client, request.Msg.GetFilePath())
 }
 
-func getGameServerConfigFileLocal(
+func getGameServerConfigFile(
+	ctx context.Context,
 	dbInst *db.Connection,
 	gameServer *models.GameServer,
+	client nodeclient.NodeClient,
 	requestedPath string,
 ) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
 	game, errGame := dbInst.GetGameByID(gameServer.GameID)
@@ -201,6 +221,10 @@ func getGameServerConfigFileLocal(
 	if schemaEntry == nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("config file not found in schema"))
 	}
+	relativePath, errPath := sanitizeConfigRelativePath(requestedPath)
+	if errPath != nil {
+		return nil, errPath
+	}
 
 	// Get parser.
 	p, errGetParser := cfgparse.GetParser(schemaEntry.Format)
@@ -209,10 +233,9 @@ func getGameServerConfigFileLocal(
 	}
 
 	// Read and parse the file.
-	filePath := filepath.Join(gameServer.Directory, requestedPath)
 	var parsed []cfgparse.ConfigEntry
 
-	fileData, errRead := os.ReadFile(filePath)
+	fileData, errRead := client.ReadFile(ctx, gameServer.Directory, relativePath)
 	if errRead == nil && p.IsFlat() {
 		parsed, errRead = p.Flat.Parse(fileData)
 		if errRead != nil {
@@ -283,7 +306,7 @@ func getGameServerConfigFileLocal(
 
 // UpdateGameServerConfigFile validates and writes config field values.
 func (xs *XylonaService) UpdateGameServerConfigFile(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.UpdateGameServerConfigFileRequest],
 ) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -300,12 +323,19 @@ func (xs *XylonaService) UpdateGameServerConfigFile(
 		return nil, errPermission
 	}
 
-	return updateGameServerConfigFileLocal(xs.db, gameServer, request.Msg)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	return updateGameServerConfigFile(ctx, xs.db, gameServer, client, request.Msg)
 }
 
-func updateGameServerConfigFileLocal(
+func updateGameServerConfigFile(
+	ctx context.Context,
 	dbInst *db.Connection,
 	gameServer *models.GameServer,
+	client nodeclient.NodeClient,
 	msg *xylona.UpdateGameServerConfigFileRequest,
 ) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
 	game, errGame := dbInst.GetGameByID(gameServer.GameID)
@@ -384,22 +414,15 @@ func updateGameServerConfigFileLocal(
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("structured format editing not yet supported"))
 	}
 
-	relativePath := strings.TrimPrefix(schemaEntry.Path, string(filepath.Separator))
-	if relativePath != "" && !filepath.IsLocal(relativePath) {
-		return nil, invalidArg("invalid config file path")
-	}
-
-	cleanGameServerDir := filepath.Clean(gameServer.Directory)
-	filePath := filepath.Clean(filepath.Join(cleanGameServerDir, relativePath))
-	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
-	if filePath != cleanGameServerDir && !strings.HasPrefix(filePath, gameServerDirPrefix) {
-		return nil, invalidArg("config file path escapes server directory")
+	relativePath, errPath := sanitizeConfigRelativePath(schemaEntry.Path)
+	if errPath != nil {
+		return nil, errPath
 	}
 
 	// Read existing file.
 	var existingEntries []cfgparse.ConfigEntry
 
-	fileData, errRead := os.ReadFile(filePath)
+	fileData, errRead := client.ReadFile(ctx, gameServer.Directory, relativePath)
 	if errRead == nil {
 		existingEntries, errRead = p.Flat.Parse(fileData)
 		if errRead != nil {
@@ -425,14 +448,12 @@ func updateGameServerConfigFileLocal(
 		return nil, internalErrf("failed to write config file")
 	}
 
-	// Ensure parent directory exists.
-	dir := filepath.Dir(filePath)
-	errMkdir := os.MkdirAll(dir, 0o750)
-	if errMkdir != nil {
+	errEnsureDir := ensureConfigParentDirectory(ctx, client, gameServer.Directory, relativePath)
+	if errEnsureDir != nil {
 		return nil, internalErrf("failed to create directory")
 	}
 
-	errWriteFile := os.WriteFile(filePath, output, 0o600) //nolint:gosec // filePath is validated as local and constrained to gameServer.Directory above.
+	errWriteFile := client.WriteFile(ctx, gameServer.Directory, relativePath, output, node.ProtectionPolicy{})
 	if errWriteFile != nil {
 		return nil, internalErrf("failed to write config file")
 	}
@@ -446,7 +467,7 @@ func updateGameServerConfigFileLocal(
 
 // GenerateGameServerConfigFile creates a config file from schema defaults.
 func (xs *XylonaService) GenerateGameServerConfigFile(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.GenerateGameServerConfigFileRequest],
 ) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -463,12 +484,19 @@ func (xs *XylonaService) GenerateGameServerConfigFile(
 		return nil, errPermission
 	}
 
-	return generateGameServerConfigFileLocal(xs.db, gameServer, request.Msg.GetFilePath())
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	return generateGameServerConfigFile(ctx, xs.db, gameServer, client, request.Msg.GetFilePath())
 }
 
-func generateGameServerConfigFileLocal(
+func generateGameServerConfigFile(
+	ctx context.Context,
 	dbInst *db.Connection,
 	gameServer *models.GameServer,
+	client nodeclient.NodeClient,
 	requestedPath string,
 ) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
 	game, errGame := dbInst.GetGameByID(gameServer.GameID)
@@ -492,16 +520,72 @@ func generateGameServerConfigFileLocal(
 	if schemaEntry == nil {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("config file not found in schema"))
 	}
+	relativePath, errPath := sanitizeConfigRelativePath(requestedPath)
+	if errPath != nil {
+		return nil, errPath
+	}
 
 	// Get resolver.
 	resolver := cfgschema.ServerSettingsResolver(gameServer.IP, gameServer.Port, gameServer.QueryPort)
 
-	// Use the pre-start logic to generate the file.
-	cfgschema.RunPreStart(gameServer.Directory, schemasJSON, resolver)
+	stagingDir, errMkdirTemp := os.MkdirTemp("", "xylona-config-generate-*")
+	if errMkdirTemp != nil {
+		return nil, internalErrf("failed to create config staging directory")
+	}
+	defer func() {
+		errRemoveAll := os.RemoveAll(stagingDir)
+		if errRemoveAll != nil {
+			log.Warn().Err(errRemoveAll).Str("path", stagingDir).Msg("failed to remove config staging directory")
+		}
+	}()
+
+	cfgschema.RunPreStart(stagingDir, schemasJSON, resolver)
+
+	stagedFilePath := filepath.Join(stagingDir, filepath.FromSlash(relativePath))
+	fileData, errRead := os.ReadFile(stagedFilePath)
+	if errRead != nil {
+		return nil, internalErrf("failed to generate config file")
+	}
+
+	errEnsureDir := ensureConfigParentDirectory(ctx, client, gameServer.Directory, relativePath)
+	if errEnsureDir != nil {
+		return nil, internalErrf("failed to create directory")
+	}
+
+	errWrite := client.WriteFile(ctx, gameServer.Directory, relativePath, fileData, node.ProtectionPolicy{})
+	if errWrite != nil {
+		return nil, internalErrf("failed to write config file")
+	}
 
 	return &connect.Response[xylona.GenerateGameServerConfigFileResponse]{
 		Msg: &xylona.GenerateGameServerConfigFileResponse{
 			Success: true,
 		},
 	}, nil
+}
+
+func sanitizeConfigRelativePath(relativePath string) (string, error) {
+	normalizedPath := filepath.ToSlash(strings.TrimSpace(relativePath))
+	normalizedPath = strings.TrimPrefix(normalizedPath, "/")
+	if normalizedPath != "" && !filepath.IsLocal(normalizedPath) {
+		return "", invalidArg("invalid config file path")
+	}
+	return normalizedPath, nil
+}
+
+func configFileExists(ctx context.Context, client nodeclient.NodeClient, directory string, relativePath string) bool {
+	_, errRead := client.ReadFile(ctx, directory, relativePath)
+	return errRead == nil
+}
+
+func ensureConfigParentDirectory(ctx context.Context, client nodeclient.NodeClient, directory string, relativePath string) error {
+	parentDir := filepath.ToSlash(filepath.Dir(filepath.FromSlash(relativePath)))
+	if parentDir == "." || parentDir == "" {
+		return nil
+	}
+	errCreate := client.CreateFileOrDirectory(ctx, directory, parentDir, "", true, node.ProtectionPolicy{})
+	if errCreate != nil {
+		return fmt.Errorf("create config parent directory %q: %w", parentDir, errCreate)
+	}
+	return nil
 }

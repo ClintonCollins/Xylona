@@ -103,12 +103,62 @@ func TestDefaultInstallPathReturnsErrorWhenUserHomeIsMissing(t *testing.T) {
 	}
 }
 
-func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
-	originalOS := OperatingSystem
-	t.Cleanup(func() {
-		OperatingSystem = originalOS
-	})
+func TestJoinForNodeOS(t *testing.T) {
+	tests := []struct {
+		name   string
+		nodeOS OSType
+		parts  []string
+		want   string
+	}{
+		{
+			name:   "linux root joined with user and slug",
+			nodeOS: Linux,
+			parts:  []string{"/home/clinton/xylona", "clinton", "media-minecraft"},
+			want:   "/home/clinton/xylona/clinton/media-minecraft",
+		},
+		{
+			name:   "linux trims trailing slashes and skips empty segments",
+			nodeOS: Linux,
+			parts:  []string{"/home/clinton/xylona/", "", "clinton/", "/media-minecraft"},
+			want:   "/home/clinton/xylona/clinton/media-minecraft",
+		},
+		{
+			name:   "darwin uses unix separator",
+			nodeOS: Darwin,
+			parts:  []string{"/Users/clinton/xylona", "clinton", "media-minecraft"},
+			want:   "/Users/clinton/xylona/clinton/media-minecraft",
+		},
+		{
+			name:   "windows uses backslash separator",
+			nodeOS: Windows,
+			parts:  []string{`C:\Users\Clinton\Xylona`, "Clinton", "media-minecraft"},
+			want:   `C:\Users\Clinton\Xylona\Clinton\media-minecraft`,
+		},
+		{
+			name:   "windows normalizes mixed separators on input",
+			nodeOS: Windows,
+			parts:  []string{`C:\Users\Clinton\Xylona/`, "/Clinton/", "media-minecraft/"},
+			want:   `C:\Users\Clinton\Xylona\Clinton\media-minecraft`,
+		},
+		{
+			name:   "unknown OS falls back to unix separator",
+			nodeOS: OSType(""),
+			parts:  []string{"/opt/xylona", "clinton", "server"},
+			want:   "/opt/xylona/clinton/server",
+		},
+	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := joinForNodeOS(tt.nodeOS, tt.parts...)
+			if got != tt.want {
+				t.Errorf("joinForNodeOS(%q, %q) = %q, want %q", tt.nodeOS, tt.parts, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 	game := &models.Game{
 		LinuxBaseCommand:          "linux-base",
 		LinuxStartArgsTemplate:    null.From("linux-template"),
@@ -128,7 +178,7 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		os           OSType
+		nodeOS       OSType
 		wantBase     string
 		wantTemplate string
 		wantStop     string
@@ -139,7 +189,7 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 	}{
 		{
 			name:         "linux uses unix commands",
-			os:           Linux,
+			nodeOS:       Linux,
 			wantBase:     "linux-base",
 			wantTemplate: "linux-template",
 			wantStop:     "linux-stop",
@@ -150,7 +200,7 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 		},
 		{
 			name:         "darwin uses unix commands",
-			os:           Darwin,
+			nodeOS:       Darwin,
 			wantBase:     "linux-base",
 			wantTemplate: "linux-template",
 			wantStop:     "linux-stop",
@@ -161,7 +211,7 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 		},
 		{
 			name:         "windows uses windows commands",
-			os:           Windows,
+			nodeOS:       Windows,
 			wantBase:     "windows-base",
 			wantTemplate: "windows-template",
 			wantStop:     "windows-stop",
@@ -174,27 +224,25 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			OperatingSystem = tt.os
-
-			if got := gameBaseCommand(game); got != tt.wantBase {
+			if got := gameBaseCommand(game, tt.nodeOS); got != tt.wantBase {
 				t.Errorf("gameBaseCommand() = %q, want %q", got, tt.wantBase)
 			}
-			if got := gameStartArgsTemplate(game); got != tt.wantTemplate {
+			if got := gameStartArgsTemplate(game, tt.nodeOS); got != tt.wantTemplate {
 				t.Errorf("gameStartArgsTemplate() = %q, want %q", got, tt.wantTemplate)
 			}
-			if got := gameStopCommand(game); got != tt.wantStop {
+			if got := gameStopCommand(game, tt.nodeOS); got != tt.wantStop {
 				t.Errorf("gameStopCommand() = %q, want %q", got, tt.wantStop)
 			}
-			if got := gameInstallCommand(game); got != tt.wantInstall {
+			if got := gameInstallCommand(game, tt.nodeOS); got != tt.wantInstall {
 				t.Errorf("gameInstallCommand() = %q, want %q", got, tt.wantInstall)
 			}
-			if got := gameInstallCommandType(game); got != tt.wantType {
+			if got := gameInstallCommandType(game, tt.nodeOS); got != tt.wantType {
 				t.Errorf("gameInstallCommandType() = %q, want %q", got, tt.wantType)
 			}
-			if got := gameUpdateCommand(game); got != tt.wantUpdate {
+			if got := gameUpdateCommand(game, tt.nodeOS); got != tt.wantUpdate {
 				t.Errorf("gameUpdateCommand() = %q, want %q", got, tt.wantUpdate)
 			}
-			if got := gameUpdateCommandType(game); got != tt.wantUpdType {
+			if got := gameUpdateCommandType(game, tt.nodeOS); got != tt.wantUpdType {
 				t.Errorf("gameUpdateCommandType() = %q, want %q", got, tt.wantUpdType)
 			}
 		})

@@ -9,6 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -238,5 +242,49 @@ func TestWebSocket_GameServerConnectionsWithAccess(t *testing.T) {
 	}
 	if _, ok := seen[denied.id]; ok {
 		t.Fatal("expected unauthorized connection to be excluded from install broadcasts")
+	}
+}
+
+func TestWebSocket_StartRemoteConsoleStreamForwardsChunks(t *testing.T) {
+	stream := make(chan node.ConsoleChunk, 1)
+	stream <- node.ConsoleChunk{ProcessID: "server-remote", Data: "hello remote\n"}
+
+	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                     "node-remote",
+		StreamConsoleOutputChannel: stream,
+	}
+	registry.Register(remoteClient)
+
+	conn := newTestConnection()
+	conn.outputStreamChannel = make(chan *xylona.Message, 1)
+
+	ws := &WebSocket{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+
+	errStart := ws.startRemoteConsoleStream(conn, &models.GameServer{
+		ID:     "server-remote",
+		NodeID: "node-remote",
+	})
+	if errStart != nil {
+		t.Fatalf("startRemoteConsoleStream() error = %v", errStart)
+	}
+
+	select {
+	case msg := <-conn.outputStreamChannel:
+		if msg.GetType() != xylona.Message_GameServerConsole {
+			t.Fatalf("message type = %v, want %v", msg.GetType(), xylona.Message_GameServerConsole)
+		}
+		if msg.GetGameServerConsoleOutput().GetGameServerId() != "server-remote" {
+			t.Fatalf("gameServerId = %q, want %q", msg.GetGameServerConsoleOutput().GetGameServerId(), "server-remote")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for remote console output")
+	}
+
+	if len(remoteClient.StreamConsoleOutputCalls) != 1 || remoteClient.StreamConsoleOutputCalls[0] != "server-remote" {
+		t.Fatalf("StreamConsoleOutput calls = %+v, want server-remote", remoteClient.StreamConsoleOutputCalls)
 	}
 }

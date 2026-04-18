@@ -133,8 +133,8 @@ const totalBackupSize = computed(() =>
 )
 const totalBackupSizeSummary = computed(() => `${formatBackupSize(totalBackupSize.value)} total`)
 const createAllowed = computed(() => overview.value.operationsAllowed)
-const restoreAllowed = computed(() => overview.value.enabled && overview.value.localServer)
-const deleteAllowed = computed(() => overview.value.localServer)
+const restoreAllowed = computed(() => overview.value.enabled)
+const deleteAllowed = computed(() => true)
 const uploadAllowed = computed(() => overview.value.operationsAllowed)
 const uploadReady = computed(() => uploadFile.value !== null)
 
@@ -173,9 +173,6 @@ const stateAlertTitle = computed(() => {
 const stateAlertMessage = computed(() => {
   if (overview.value.disabledReason) {
     return overview.value.disabledReason
-  }
-  if (!overview.value.localServer) {
-    return 'Backups can only be managed on local servers.'
   }
   if (!overview.value.backupDirectoryConfigured) {
     return 'Configure a backup directory before creating new backups.'

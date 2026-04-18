@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -92,17 +93,185 @@ func (xs *XylonaService) buildProtectionPolicy(gameServer *models.GameServer) no
 	}
 	if gameServer.R.Game != nil {
 		game := gameServer.R.Game
-		// Use the controller's own OS to pick the matching base command.
-		// In a homogeneous deployment this matches the node; heterogeneous
-		// deployments see a reduced node-side check but the executable
-		// check (which is OS-agnostic) still applies.
-		if runtime.GOOS == "windows" {
+		nodeOS := xs.resolveNodeGOOS(gameServer.NodeID)
+		if nodeOS == "windows" {
 			policy.BaseCommand = game.WindowsBaseCommand
 		} else {
 			policy.BaseCommand = game.LinuxBaseCommand
 		}
 	}
 	return policy
+}
+
+func (xs *XylonaService) resolveNodeGOOS(nodeID string) string {
+	if xs == nil || xs.nodeRegistry == nil {
+		return runtime.GOOS
+	}
+
+	client, errGetClient := xs.nodeRegistry.Get(nodeID)
+	if errGetClient != nil {
+		return runtime.GOOS
+	}
+
+	baseCtx := context.Background()
+	if xs.ctx != nil {
+		baseCtx = xs.ctx
+	}
+	snapCtx, cancel := context.WithTimeout(baseCtx, 2*time.Second)
+	defer cancel()
+
+	snapshot, errSnapshot := client.GetNodeSnapshot(snapCtx)
+	if errSnapshot != nil || snapshot == nil {
+		return runtime.GOOS
+	}
+
+	nodeOS := strings.ToLower(strings.TrimSpace(snapshot.OS))
+	switch nodeOS {
+	case "windows", "linux", "darwin":
+		return nodeOS
+	default:
+		return runtime.GOOS
+	}
+}
+
+func (xs *XylonaService) selfNodeID() string {
+	if xs == nil {
+		return ""
+	}
+	if xs.nodeRegistry != nil {
+		nodeID := strings.TrimSpace(xs.nodeRegistry.SelfID())
+		if nodeID != "" {
+			return nodeID
+		}
+	}
+	if xs.db == nil {
+		return ""
+	}
+	localSettings, errSettings := xs.db.GetLocalSettings()
+	if errSettings != nil {
+		return ""
+	}
+	return strings.TrimSpace(localSettings.NodeID)
+}
+
+type nodeRuntimeState struct {
+	snapshot *node.NodeSnapshot
+}
+
+func (xs *XylonaService) nodeSnapshotBaseContext(ctx context.Context) context.Context {
+	if ctx != nil {
+		return ctx
+	}
+	if xs != nil && xs.ctx != nil {
+		return xs.ctx
+	}
+	return context.Background()
+}
+
+func (xs *XylonaService) collectNodeRuntimeState(ctx context.Context, nodeRows []*models.Node) map[string]nodeRuntimeState {
+	states := make(map[string]nodeRuntimeState, len(nodeRows))
+	if xs == nil || xs.nodeRegistry == nil {
+		return states
+	}
+
+	baseCtx := xs.nodeSnapshotBaseContext(ctx)
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, nodeRow := range nodeRows {
+		if nodeRow == nil {
+			continue
+		}
+		if !nodeRow.Enabled {
+			continue
+		}
+		nodeID := strings.TrimSpace(nodeRow.ID)
+		if nodeID == "" {
+			continue
+		}
+
+		client, errGet := xs.nodeRegistry.Get(nodeID)
+		if errGet != nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(nodeID string, client nodeclient.NodeClient) {
+			defer wg.Done()
+
+			snapCtx, cancel := context.WithTimeout(baseCtx, 2*time.Second)
+			defer cancel()
+
+			snapshot, errSnapshot := client.GetNodeSnapshot(snapCtx)
+			if errSnapshot != nil || snapshot == nil {
+				return
+			}
+
+			mu.Lock()
+			states[nodeID] = nodeRuntimeState{snapshot: snapshot}
+			mu.Unlock()
+		}(nodeID, client)
+	}
+
+	wg.Wait()
+	return states
+}
+
+func (xs *XylonaService) nodeProtoWithRuntimeState(
+	nodeRow *models.Node,
+	selfNodeID string,
+	runtimeState map[string]nodeRuntimeState,
+) *xylona.Node {
+	if nodeRow == nil {
+		return &xylona.Node{}
+	}
+
+	proto := helpers.NodeModelToProto(nodeRow)
+	isLocal := strings.TrimSpace(nodeRow.ID) != "" && nodeRow.ID == selfNodeID
+	proto.Local = isLocal
+
+	if !nodeRow.Enabled {
+		proto.HealthStatus = "disabled"
+		if isLocal {
+			proto.Os = runtime.GOOS
+		}
+		return proto
+	}
+
+	if xs == nil || xs.nodeRegistry == nil {
+		if isLocal {
+			proto.HealthStatus = "healthy"
+			proto.Os = runtime.GOOS
+		} else {
+			proto.HealthStatus = "offline"
+		}
+		return proto
+	}
+
+	state, ok := runtimeState[nodeRow.ID]
+	if !ok || state.snapshot == nil {
+		proto.HealthStatus = "offline"
+		if isLocal {
+			proto.Os = runtime.GOOS
+		}
+		return proto
+	}
+
+	proto.HealthStatus = "healthy"
+	nodeOS := strings.ToLower(strings.TrimSpace(state.snapshot.OS))
+	if nodeOS == "" && isLocal {
+		nodeOS = runtime.GOOS
+	}
+	proto.Os = nodeOS
+
+	return proto
+}
+
+func (xs *XylonaService) nodeProtoWithRuntime(ctx context.Context, nodeRow *models.Node) *xylona.Node {
+	selfNodeID := xs.selfNodeID()
+	runtimeState := xs.collectNodeRuntimeState(ctx, []*models.Node{nodeRow})
+	return xs.nodeProtoWithRuntimeState(nodeRow, selfNodeID, runtimeState)
 }
 
 func (xs *XylonaService) getLocalGameServerStatus(gameServer *models.GameServer) xylona.Status {

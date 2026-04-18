@@ -24,12 +24,19 @@ func validateLocalServerPath(gameServer *models.GameServer, relativePath string)
 	return trimmedPath, nil
 }
 
+// baseCommandForProtectedPath picks the base command used by the protected-
+// path check. Callers reach this via validateWritableServerPath from the
+// controller's file-operation RPCs, where we don't have a cheap way to
+// dispatch to the target node for its OS. We use the controller's own
+// OperatingSystem here as a best-effort hint; the real protection check
+// still runs on the node (which knows its own OS) so the executable match
+// remains accurate end-to-end.
 func baseCommandForProtectedPath(gameServer *models.GameServer) string {
 	if gameServer == nil || gameServer.R.Game == nil {
 		return ""
 	}
 
-	return gameBaseCommand(gameServer.R.Game)
+	return gameBaseCommand(gameServer.R.Game, OperatingSystem)
 }
 
 func validateWritableServerPath(gameServer *models.GameServer, relativePath string) (string, error) {

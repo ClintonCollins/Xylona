@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/helpers"
@@ -140,28 +139,34 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 		return nil, internalErrf("failed to list nodes")
 	}
 
+	selfNodeID := xs.selfNodeID()
+	runtimeState := xs.collectNodeRuntimeState(ctx, allNodes)
+
+	serverCountsByNodeID := map[string]int{}
+	allServers, errServers := xs.db.GetAllGameServers()
+	if errServers == nil {
+		for _, gameServer := range allServers {
+			serverCountsByNodeID[gameServer.NodeID]++
+		}
+	}
+
+	userCount, errUserCount := xs.db.CountUsers()
+	if errUserCount != nil {
+		userCount = 0
+	}
+
 	for _, nodeRow := range allNodes {
 		summary := &xylona.DashboardNodeSummary{
-			Node: helpers.NodeModelToProto(nodeRow),
+			Node: xs.nodeProtoWithRuntimeState(nodeRow, selfNodeID, runtimeState),
 		}
 
-		client, errClient := xs.nodeRegistry.Get(nodeRow.ID)
-		if errClient != nil {
-			log.Debug().Err(errClient).Str("node_id", nodeRow.ID).
-				Msg("GetDashboardOverview: node not currently reachable")
+		state, ok := runtimeState[nodeRow.ID]
+		if !ok || state.snapshot == nil {
 			summaries = append(summaries, summary)
 			continue
 		}
 
-		snapCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		snap, errSnap := client.GetNodeSnapshot(snapCtx)
-		cancel()
-		if errSnap != nil {
-			log.Warn().Err(errSnap).Str("node_id", nodeRow.ID).
-				Msg("GetDashboardOverview: node snapshot failed")
-			summaries = append(summaries, summary)
-			continue
-		}
+		snap := state.snapshot
 
 		summary.SystemInfo = &xylona.NodeSystemInfo{
 			CpuModel:         snap.CPUModel,
@@ -174,14 +179,6 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 			XylonaVersion:    snap.XylonaVersion,
 		}
 
-		gsCount := 0
-		allServers, _ := xs.db.GetAllGameServers()
-		for _, gs := range allServers {
-			if gs.NodeID == nodeRow.ID {
-				gsCount++
-			}
-		}
-		userCount, _ := xs.db.CountUsers()
 		runningCount := 0
 		for _, ps := range snap.Processes {
 			if ps.Status == xylona.Status_ONLINE.String() ||
@@ -199,7 +196,7 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 			DiskPercent:            snap.DiskPercent,
 			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
 			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        helpers.ClampInt32FromInt(gsCount),
+			GameServerCount:        helpers.ClampInt32FromInt(serverCountsByNodeID[nodeRow.ID]),
 			RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
 			UserCount:              helpers.ClampInt32FromInt(userCount),
 		}

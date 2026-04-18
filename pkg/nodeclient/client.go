@@ -54,6 +54,10 @@ type NodeClient interface {
 	// missing servers.
 	ReadConsoleBuffer(ctx context.Context, processID string) (node.ConsoleChunk, error)
 
+	// StreamConsoleOutput streams live console output chunks for one process.
+	// The returned channel closes when ctx is canceled or the stream ends.
+	StreamConsoleOutput(ctx context.Context, processID string) (<-chan node.ConsoleChunk, error)
+
 	// ListFiles enumerates the entries directly under directory/relativePath.
 	ListFiles(ctx context.Context, directory, relativePath string) ([]node.FileEntry, error)
 

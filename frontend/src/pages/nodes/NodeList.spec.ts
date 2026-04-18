@@ -261,4 +261,24 @@ describe('NodeList', () => {
       ).getNodeVersion('node-stale'),
     ).toBeUndefined()
   })
+
+  it('maps node health status to badge labels and colors', async () => {
+    mocks.listNodes.mockResolvedValueOnce({ nodes: [] })
+
+    const wrapper = mount(NodeList, { global: globalStubs })
+    await flushPromises()
+
+    const healthBadgeFor = (
+      wrapper.vm as unknown as {
+        healthBadgeFor: (node: { healthStatus: string }) => { color: string; label: string }
+      }
+    ).healthBadgeFor
+
+    expect(healthBadgeFor({ healthStatus: 'healthy' }).label).toBe('Healthy')
+    expect(healthBadgeFor({ healthStatus: 'healthy' }).color).toBe('positive')
+    expect(healthBadgeFor({ healthStatus: 'offline' }).label).toBe('Offline')
+    expect(healthBadgeFor({ healthStatus: 'offline' }).color).toBe('negative')
+    expect(healthBadgeFor({ healthStatus: 'disabled' }).label).toBe('Disabled')
+    expect(healthBadgeFor({ healthStatus: 'disabled' }).color).toBe('warning')
+  })
 })

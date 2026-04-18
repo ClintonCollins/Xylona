@@ -15,7 +15,7 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     restoreMocks: true,
-    pool: 'threads',
+    pool: 'forks',
     include: [
       'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
     ],

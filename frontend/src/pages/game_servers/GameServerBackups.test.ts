@@ -283,6 +283,33 @@ describe('GameServerBackups', () => {
     )
   })
 
+  it('allows restore and delete actions for reachable remote servers', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview({
+        localServer: false,
+        operationsAllowed: true,
+      }),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({
+      backups: [
+        makeBackup({
+          nodeId: 'node-remote',
+        }),
+      ],
+    })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Backups can only be managed on local servers.')
+
+    const restoreButton = wrapper.get('button[aria-label="Restore backup"]')
+    expect((restoreButton.element as HTMLButtonElement).disabled).toBe(false)
+
+    const deleteButton = wrapper.get('button[aria-label="Delete backup"]')
+    expect((deleteButton.element as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('creates a manual backup from the page action', async () => {
     mocks.getGameServerBackupOverview.mockResolvedValueOnce({
       overview: makeOverview(),

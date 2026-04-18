@@ -107,12 +107,19 @@ func (c *Connection) ConsumeNodeJoinToken(plainToken string, consumedByNodeID st
 		return nil, ErrJoinTokenInvalid
 	}
 
-	_, errUpdate := tx.ExecContext(c.ctx,
+	updateResult, errUpdate := tx.ExecContext(c.ctx,
 		`update node_join_token set consumed_at = ?, consumed_by_node_id = ? where id = ? and consumed_at is null`,
 		now, consumedByNodeID, id,
 	)
 	if errUpdate != nil {
 		return nil, fmt.Errorf("mark token consumed: %w", errUpdate)
+	}
+	rowsAffected, errRowsAffected := updateResult.RowsAffected()
+	if errRowsAffected != nil {
+		return nil, fmt.Errorf("count consumed join token rows: %w", errRowsAffected)
+	}
+	if rowsAffected == 0 {
+		return nil, ErrJoinTokenInvalid
 	}
 
 	errCommit := tx.Commit()

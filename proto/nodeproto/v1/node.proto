@@ -85,6 +85,12 @@ message NodeSnapshot {
 
   repeated ProcessSnapshot processes = 15;
   google.protobuf.Timestamp collected = 16;
+
+  // default_install_path is the node-resolved root directory under which the
+  // controller should create managed game-server directories. The node
+  // computes it from its own OS + HOME/USERPROFILE env so hub-spoke
+  // deployments don't incorrectly use the controller's paths.
+  string default_install_path = 17;
 }
 
 // ConsoleChunk is a slice of buffered console output for one process.
@@ -137,6 +143,15 @@ message StartProcessRequest {
   string service_id = 8;
   int64 stop_timeout_seconds = 9;
   ProcessStatus initial_status = 10;
+  // internal_command indicates the supervisor should run a built-in
+  // installer/updater from api/xylona-internal rather than exec a shell
+  // command. When true, base_command/args are ignored and the supervisor
+  // dispatches to the registered Game implementation identified by
+  // internal_game_id.
+  bool internal_command = 11;
+  // internal_game_id identifies the built-in Game implementation to run
+  // (e.g. "minecraft"). Only consulted when internal_command is true.
+  string internal_game_id = 12;
 }
 
 message StartProcessResponse {

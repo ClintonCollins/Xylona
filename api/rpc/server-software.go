@@ -18,10 +18,14 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+var variantProviderLookup = providerForVariant
 
 // GetUpdateTargets lists selectable update targets for a server variant.
 func (xs *XylonaService) GetUpdateTargets(
@@ -278,7 +282,7 @@ func (xs *XylonaService) listUpdateTargets(
 		}
 		return targets, nil
 	case updateproviders.ProviderKindPaperMC, updateproviders.ProviderKindMojang:
-		provider, ok := providerForVariant(resolved.Provider)
+		provider, ok := variantProviderLookup(resolved.Provider)
 		if !ok {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("update provider is unavailable"))
 		}
@@ -323,7 +327,24 @@ func (xs *XylonaService) applyVariantDownload(
 	downloadCtx, cancel := context.WithTimeout(xs.ctx, 10*time.Minute)
 	defer cancel()
 
-	provider, ok := providerForVariant(resolved.Provider)
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		errMsg := errClient.Error()
+		xs.installTracker.SetFailed(gameServer.ID, errMsg)
+		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errMsg))
+		if xs.installBroadcast != nil {
+			xs.installBroadcast.BroadcastServerSoftwareInstall(
+				gameServer.ID,
+				gameServer.Name,
+				modmanager.InstallStatusFailed,
+				variantID,
+				errMsg,
+			)
+		}
+		return
+	}
+
+	provider, ok := variantProviderLookup(resolved.Provider)
 	if !ok {
 		errMsg := "variant update provider not found"
 		xs.installTracker.SetFailed(gameServer.ID, errMsg)
@@ -355,8 +376,31 @@ func (xs *XylonaService) applyVariantDownload(
 		return
 	}
 
+	stagingDir, errMkdirTemp := os.MkdirTemp("", "xylona-variant-*")
+	if errMkdirTemp != nil {
+		errMsg := fmt.Sprintf("create variant staging directory: %v", errMkdirTemp)
+		xs.installTracker.SetFailed(gameServer.ID, errMsg)
+		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errMsg))
+		if xs.installBroadcast != nil {
+			xs.installBroadcast.BroadcastServerSoftwareInstall(
+				gameServer.ID,
+				gameServer.Name,
+				modmanager.InstallStatusFailed,
+				variantID,
+				errMsg,
+			)
+		}
+		return
+	}
+	defer func() {
+		errRemoveAll := os.RemoveAll(stagingDir)
+		if errRemoveAll != nil {
+			log.Warn().Err(errRemoveAll).Str("path", stagingDir).Msg("failed to remove variant staging directory")
+		}
+	}()
+
 	logConsoleOutput(fmt.Sprintf("Downloading files for %s", variantDisplayName(resolved)))
-	files, errDownload := provider.Download(downloadCtx, resolved.Provider.SourceID, downloadVersionID, gameServer.Directory)
+	files, errDownload := provider.Download(downloadCtx, resolved.Provider.SourceID, downloadVersionID, stagingDir)
 	if errDownload != nil {
 		xs.installTracker.SetFailed(gameServer.ID, errDownload.Error())
 		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errDownload.Error()))
@@ -371,19 +415,35 @@ func (xs *XylonaService) applyVariantDownload(
 		}
 		return
 	}
+	files = normalizeDownloadedVariantFiles(files)
+
+	errInstall := xs.installVariantFiles(downloadCtx, client, gameServer, stagingDir, files)
+	if errInstall != nil {
+		xs.installTracker.SetFailed(gameServer.ID, errInstall.Error())
+		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errInstall.Error()))
+		if xs.installBroadcast != nil {
+			xs.installBroadcast.BroadcastServerSoftwareInstall(
+				gameServer.ID,
+				gameServer.Name,
+				modmanager.InstallStatusFailed,
+				variantID,
+				errInstall.Error(),
+			)
+		}
+		return
+	}
 
 	newExecutable := primaryVariantDownloadedFile(files)
 	oldExecutable := gameServer.ServerExecutable.GetOr("")
 	if oldExecutable != "" && oldExecutable != newExecutable {
-		oldPath := filepath.Join(gameServer.Directory, oldExecutable)
-		errRemove := os.Remove(oldPath)
-		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
-			log.Warn().Err(errRemove).Str("path", oldPath).Msg("Failed to remove superseded executable")
+		_, errDelete := client.DeleteFiles(downloadCtx, gameServer.Directory, []string{oldExecutable}, node.ProtectionPolicy{})
+		if errDelete != nil {
+			log.Warn().Err(errDelete).Str("path", oldExecutable).Msg("Failed to remove superseded executable")
 		}
 	}
 
 	logConsoleOutput(fmt.Sprintf("Applying variant %s", variantDisplayName(resolved)))
-	updated, errUpdate := xs.persistVariantSelection(
+	_, errUpdate := xs.persistVariantSelection(
 		gameServer,
 		variantID,
 		persistedTarget,
@@ -405,11 +465,6 @@ func (xs *XylonaService) applyVariantDownload(
 		return
 	}
 
-	gameServer.ServerExecutable = updated.ServerExecutable
-	gameServer.ServerSoftware = updated.ServerSoftware
-	gameServer.Branch = updated.Branch
-	gameServer.TargetPinned = updated.TargetPinned
-
 	xs.installTracker.SetComplete(gameServer.ID)
 	logConsoleOutput(fmt.Sprintf("Variant changed to %s", variantDisplayName(resolved)))
 	if xs.installBroadcast != nil {
@@ -424,6 +479,42 @@ func (xs *XylonaService) applyVariantDownload(
 	if xs.actionsInst != nil {
 		xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServer.ID)
 	}
+}
+
+func (xs *XylonaService) installVariantFiles(
+	ctx context.Context,
+	client nodeclient.NodeClient,
+	gameServer *models.GameServer,
+	stagingDir string,
+	files []modproviders.DownloadedFile,
+) error {
+	for _, file := range files {
+		relativePath := strings.TrimSpace(file.Path)
+		if relativePath == "" {
+			continue
+		}
+
+		localPath := filepath.Join(stagingDir, filepath.FromSlash(relativePath))
+		content, errRead := os.ReadFile(localPath)
+		if errRead != nil {
+			return fmt.Errorf("read staged variant file %q: %w", relativePath, errRead)
+		}
+
+		parentDir := filepath.ToSlash(filepath.Dir(relativePath))
+		if parentDir != "." && parentDir != "" {
+			errCreate := client.CreateFileOrDirectory(ctx, gameServer.Directory, parentDir, "", true, node.ProtectionPolicy{})
+			if errCreate != nil {
+				return fmt.Errorf("create variant directory %q: %w", parentDir, errCreate)
+			}
+		}
+
+		errWrite := client.WriteFile(ctx, gameServer.Directory, relativePath, content, node.ProtectionPolicy{})
+		if errWrite != nil {
+			return fmt.Errorf("upload variant file %q: %w", relativePath, errWrite)
+		}
+	}
+
+	return nil
 }
 
 func (xs *XylonaService) persistVariantSelection(
@@ -547,8 +638,17 @@ func variantDisplayName(resolved updateproviders.ResolvedConfig) string {
 func primaryVariantDownloadedFile(files []modproviders.DownloadedFile) string {
 	for _, file := range files {
 		if file.IsPrimary {
-			return file.Path
+			return strings.TrimSpace(file.Path)
 		}
 	}
 	return ""
+}
+
+func normalizeDownloadedVariantFiles(files []modproviders.DownloadedFile) []modproviders.DownloadedFile {
+	normalized := make([]modproviders.DownloadedFile, 0, len(files))
+	for _, file := range files {
+		file.Path = filepath.ToSlash(strings.TrimSpace(file.Path))
+		normalized = append(normalized, file)
+	}
+	return normalized
 }

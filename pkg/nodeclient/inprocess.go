@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -72,6 +73,57 @@ func (c *inProcessNodeClient) ReadConsoleBuffer(_ context.Context, processID str
 		return node.ConsoleChunk{ProcessID: processID}, ErrNodeNil
 	}
 	return c.node.ReadConsoleBuffer(processID), nil
+}
+
+func (c *inProcessNodeClient) StreamConsoleOutput(ctx context.Context, processID string) (<-chan node.ConsoleChunk, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+
+	supervisorInst := c.node.Supervisor()
+	if supervisorInst == nil {
+		return nil, errors.New("nodeclient: node has no supervisor")
+	}
+
+	command := supervisorInst.GetCommandByIDOrCreateShell(processID)
+	listenerID := fmt.Sprintf("nodeclient-console-%s-%d", processID, time.Now().UnixNano())
+	listener := make(chan *xylona.Message, 256)
+	command.AddOutputListener(listenerID, listener)
+
+	out := make(chan node.ConsoleChunk, 64)
+	go func() {
+		defer close(out)
+		defer command.RemoveOutputListener(listenerID)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-listener:
+				if msg == nil || msg.GetType() != xylona.Message_GameServerConsole {
+					continue
+				}
+
+				consoleOutput := msg.GetGameServerConsoleOutput()
+				if consoleOutput == nil {
+					continue
+				}
+
+				chunk := node.ConsoleChunk{
+					ProcessID: consoleOutput.GetGameServerId(),
+					Data:      consoleOutput.GetOutput(),
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				case out <- chunk:
+				}
+			}
+		}
+	}()
+
+	return out, nil
 }
 
 func (c *inProcessNodeClient) ListFiles(_ context.Context, directory, relativePath string) ([]node.FileEntry, error) {

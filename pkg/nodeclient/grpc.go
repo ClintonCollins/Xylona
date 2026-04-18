@@ -128,6 +128,8 @@ func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfi
 		ServiceId:          cfg.ServiceID,
 		StopTimeoutSeconds: int64(cfg.StopTimeout / time.Second),
 		InitialStatus:      processStatusFromXylona(status),
+		InternalCommand:    cfg.InternalCommand,
+		InternalGameId:     cfg.InternalGameID,
 	})
 
 	_, errRPC := c.connectClient.StartProcess(ctx, req)
@@ -178,6 +180,37 @@ func (c *GRPCNodeClient) ReadConsoleBuffer(ctx context.Context, processID string
 		ProcessID: chunk.GetGameServerId(),
 		Data:      chunk.GetText(),
 	}, nil
+}
+
+// StreamConsoleOutput subscribes to live console chunks for one process.
+func (c *GRPCNodeClient) StreamConsoleOutput(ctx context.Context, processID string) (<-chan node.ConsoleChunk, error) {
+	req := newReq(c, &nodeprotov1.StreamConsoleOutputRequest{ProcessId: processID})
+	stream, errOpen := c.connectClient.StreamConsoleOutput(ctx, req)
+	if errOpen != nil {
+		return nil, translateError("stream console output", errOpen)
+	}
+
+	out := make(chan node.ConsoleChunk, 64)
+	go func() {
+		defer close(out)
+		defer func() { _ = stream.Close() }()
+
+		for stream.Receive() {
+			msg := stream.Msg()
+			chunk := node.ConsoleChunk{
+				ProcessID: msg.GetGameServerId(),
+				Data:      msg.GetText(),
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case out <- chunk:
+			}
+		}
+	}()
+
+	return out, nil
 }
 
 // ListFiles invokes the ListFiles RPC.
@@ -491,6 +524,8 @@ func nodeSnapshotFromProto(snap *nodeprotov1.NodeSnapshot) *node.NodeSnapshot {
 		DiskUsed:      snap.GetDiskUsed(),
 		DiskTotal:     snap.GetDiskTotal(),
 		DiskPercent:   snap.GetDiskPercent(),
+
+		DefaultInstallPath: snap.GetDefaultInstallPath(),
 
 		Processes: make([]node.ProcessSnapshot, 0, len(processes)),
 		Collected: snap.GetCollected().AsTime(),

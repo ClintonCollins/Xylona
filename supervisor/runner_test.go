@@ -4,6 +4,7 @@ import (
 	"context"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -472,5 +473,44 @@ func TestNodeIDThreadedThroughInitNewCommand(t *testing.T) {
 
 	if reusedCmd.nodeID != "updated-node-id" {
 		t.Errorf("expected nodeID %q on reused command, got %q", "updated-node-id", reusedCmd.nodeID)
+	}
+}
+
+func TestGetCommandByIDOrCreateShellReturnsSingleShellUnderConcurrentAccess(t *testing.T) {
+	inst, errNew := New(t.Context())
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor: %v", errNew)
+	}
+
+	const goroutineCount = 16
+	results := make([]*Command, goroutineCount)
+
+	var wg sync.WaitGroup
+	wg.Add(goroutineCount)
+	for i := range goroutineCount {
+		go func(index int) {
+			defer wg.Done()
+			results[index] = inst.GetCommandByIDOrCreateShell("concurrent-shell")
+		}(i)
+	}
+	wg.Wait()
+
+	first := results[0]
+	if first == nil {
+		t.Fatal("expected first shell result to be non-nil")
+	}
+
+	for i, result := range results[1:] {
+		if result != first {
+			t.Fatalf("result %d returned a different shell pointer", i+1)
+		}
+	}
+
+	stored, errGet := inst.GetCommandByID("concurrent-shell")
+	if errGet != nil {
+		t.Fatalf("GetCommandByID() error = %v", errGet)
+	}
+	if stored != first {
+		t.Fatal("stored command pointer does not match concurrent shell result")
 	}
 }

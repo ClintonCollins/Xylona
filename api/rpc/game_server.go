@@ -458,9 +458,16 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 	if !user.SuperUser {
 		redactGameServerForNonSuperuser(gsProto)
 	}
-	gsProto.Version, gsProto.VersionInfo = xs.resolveLocalVersionData(ctx, gameServer, actions.VersionResolveOptions{
+	resolvedVersion, resolvedVersionInfo, errResolveVersion := xs.resolveVersionData(ctx, gameServer, actions.VersionResolveOptions{
 		AllowAsync: true,
 	})
+	if errResolveVersion != nil {
+		log.Debug().Err(errResolveVersion).Str("game_server_id", gameServer.ID).
+			Msg("GetGameServer: version resolution unavailable")
+	} else {
+		gsProto.Version = resolvedVersion
+		gsProto.VersionInfo = resolvedVersionInfo
+	}
 	applyProcessMetricsToProto(gsProto, snap)
 	gsProto.EffectivePermissions = xs.computeEffectivePermissions(user, gameServer)
 	return connect.NewResponse(&xylona.GetGameServerResponse{GameServer: gsProto}), nil

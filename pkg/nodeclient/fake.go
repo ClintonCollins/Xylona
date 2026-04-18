@@ -39,6 +39,10 @@ type FakeNodeClient struct {
 	ReadConsoleBufferErr    error
 	ReadConsoleBufferCalls  []string
 
+	StreamConsoleOutputChannel chan node.ConsoleChunk
+	StreamConsoleOutputErr     error
+	StreamConsoleOutputCalls   []string
+
 	ListFilesResult []node.FileEntry
 	ListFilesErr    error
 	ListFilesCalls  []ListFilesCall
@@ -221,6 +225,14 @@ func (f *FakeNodeClient) ReadConsoleBuffer(_ context.Context, processID string) 
 		return node.ConsoleChunk{ProcessID: processID}, f.ReadConsoleBufferErr
 	}
 	return f.ReadConsoleBufferResult, nil
+}
+
+// StreamConsoleOutput records the call and returns the configured channel.
+func (f *FakeNodeClient) StreamConsoleOutput(_ context.Context, processID string) (<-chan node.ConsoleChunk, error) {
+	f.mu.Lock()
+	f.StreamConsoleOutputCalls = append(f.StreamConsoleOutputCalls, processID)
+	f.mu.Unlock()
+	return f.StreamConsoleOutputChannel, f.StreamConsoleOutputErr
 }
 
 // ListFiles records the call and returns the configured result.

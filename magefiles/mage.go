@@ -13,11 +13,44 @@ import (
 
 var validDeployParam = regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
 
+type deployConfig struct {
+	host        string
+	user        string
+	service     string
+	remotePath  string
+	localBinary string
+	buildArgs   []string
+}
+
 func validateDeployParam(name, value string) error {
 	if !validDeployParam.MatchString(value) {
 		return fmt.Errorf("invalid %s: %q contains disallowed characters", name, value)
 	}
 	return nil
+}
+
+func resolveDeployConfig(host string, user string, service string, path string) deployConfig {
+	if user == "" {
+		user = os.Getenv("USER")
+		if user == "" {
+			user = os.Getenv("USERNAME")
+		}
+	}
+	if service == "" {
+		service = "xylona-node"
+	}
+	if path == "" {
+		path = "/usr/local/bin/xylona-node"
+	}
+
+	return deployConfig{
+		host:        host,
+		user:        user,
+		service:     service,
+		remotePath:  path,
+		localBinary: "dist/xylona-node-linux-amd64",
+		buildArgs:   []string{"build", "-o", "dist/xylona-node-linux-amd64", "./cmd/xylona-node/"},
+	}
 }
 
 // Lint runs golangci-lint on the Go codebase.
@@ -142,81 +175,88 @@ func SQLMigrateUp() {
 }
 
 // Deploy builds the Linux binary and deploys it to a remote server.
-// Usage: mage deploy <remote_host> [remote_user] [service_name] [remote_path]
+// Usage: mage deploy <remote_host> [remote_user] [service_name] [remote_path].
 func Deploy(host string, user string, service string, path string) {
 	if host == "" {
 		log.Fatal().Msg("Remote host is required. Usage: mage deploy <host> [user] [service] [path]")
 	}
-	if user == "" {
-		user = os.Getenv("USER")
-		if user == "" {
-			user = os.Getenv("USERNAME")
-		}
-	}
-	if service == "" {
-		service = "xylona"
-	}
-	if path == "" {
-		path = "/usr/local/bin/xylona"
-	}
+
+	config := resolveDeployConfig(host, user, service, path)
 
 	params := map[string]string{
-		"host":    host,
-		"user":    user,
-		"service": service,
-		"path":    path,
+		"host":    config.host,
+		"user":    config.user,
+		"service": config.service,
+		"path":    config.remotePath,
 	}
 	for paramName, paramValue := range params {
-		if errValidate := validateDeployParam(paramName, paramValue); errValidate != nil {
+		errValidate := validateDeployParam(paramName, paramValue)
+		if errValidate != nil {
 			log.Fatal().Err(errValidate).Msg("Invalid deploy parameter")
 		}
 	}
 
-	remoteAddr := user + "@" + host
+	remoteAddr := config.user + "@" + config.host
 
 	// 0. Build Frontend
 	buildFrontend()
 
 	// 1. Build
-	log.Info().Msg("Building Xylona for Linux/amd64...")
-	cmdBuild := exec.Command("goreleaser", "build", "--snapshot", "--clean", "--single-target")
+	log.Info().Msg("Building xylona-node for Linux/amd64...")
+	errMkdir := os.MkdirAll("dist", 0o750)
+	if errMkdir != nil {
+		log.Fatal().Err(errMkdir).Msg("Failed to prepare dist directory")
+	}
+
+	// #nosec G204 -- build args are fixed for the local xylona-node build target.
+	cmdBuild := exec.Command("go", config.buildArgs...)
 	cmdBuild.Env = append(os.Environ(), "GOOS=linux", "GOARCH=amd64")
 	cmdBuild.Stdout = os.Stdout
 	cmdBuild.Stderr = os.Stderr
-	if err := cmdBuild.Run(); err != nil {
-		log.Fatal().Err(err).Msg("Build failed")
+	errBuild := cmdBuild.Run()
+	if errBuild != nil {
+		log.Fatal().Err(errBuild).Msg("Build failed")
 	}
 
-	localBinary := "dist/Xylona_linux_amd64_v1/Xylona"
-	if _, err := os.Stat(localBinary); os.IsNotExist(err) {
-		log.Fatal().Msgf("Binary not found at %s. Please check goreleaser output structure.", localBinary)
+	_, errStat := os.Stat(config.localBinary)
+	if os.IsNotExist(errStat) {
+		log.Fatal().Msgf("Binary not found at %s after build.", config.localBinary)
+	}
+	if errStat != nil {
+		log.Fatal().Err(errStat).Msg("Failed to verify built binary")
 	}
 
 	// 2. Stop Service
-	log.Info().Str("host", host).Msg("Stopping service...")
-	cmdStop := exec.Command("ssh", "--", remoteAddr, "sudo systemctl stop "+service)
+	log.Info().Str("host", config.host).Msg("Stopping service...")
+	// #nosec G204 -- remote host, user, service, and path are validated against a strict allowlist.
+	cmdStop := exec.Command("ssh", "--", remoteAddr, "sudo systemctl stop "+config.service)
 	cmdStop.Stdout = os.Stdout
 	cmdStop.Stderr = os.Stderr
-	if err := cmdStop.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to stop service (it might not be running)")
+	errStop := cmdStop.Run()
+	if errStop != nil {
+		log.Warn().Err(errStop).Msg("Failed to stop service (it might not be running)")
 	}
 
 	// 3. Copy Binary
-	log.Info().Str("host", host).Msg("Uploading binary...")
-	cmdScp := exec.Command("scp", "--", localBinary, remoteAddr+":"+path)
+	log.Info().Str("host", config.host).Msg("Uploading binary...")
+	// #nosec G204 -- remote host, user, service, and path are validated against a strict allowlist.
+	cmdScp := exec.Command("scp", "--", config.localBinary, remoteAddr+":"+config.remotePath)
 	cmdScp.Stdout = os.Stdout
 	cmdScp.Stderr = os.Stderr
-	if err := cmdScp.Run(); err != nil {
-		log.Fatal().Err(err).Msg("Upload failed")
+	errUpload := cmdScp.Run()
+	if errUpload != nil {
+		log.Fatal().Err(errUpload).Msg("Upload failed")
 	}
 
 	// 4. Start Service
-	log.Info().Str("host", host).Msg("Starting service...")
-	cmdStart := exec.Command("ssh", "--", remoteAddr, "sudo systemctl start "+service)
+	log.Info().Str("host", config.host).Msg("Starting service...")
+	// #nosec G204 -- remote host, user, service, and path are validated against a strict allowlist.
+	cmdStart := exec.Command("ssh", "--", remoteAddr, "sudo systemctl start "+config.service)
 	cmdStart.Stdout = os.Stdout
 	cmdStart.Stderr = os.Stderr
-	if err := cmdStart.Run(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start service")
+	errStart := cmdStart.Run()
+	if errStart != nil {
+		log.Fatal().Err(errStart).Msg("Failed to start service")
 	}
 
 	log.Info().Msg("Deployment successful!")
@@ -225,7 +265,7 @@ func Deploy(host string, user string, service string, path string) {
 // E2E runs the single-node Playwright E2E tests.
 // Fully self-contained -- builds backend, seeds DB, starts on :9091, runs tests, tears down.
 func E2E() {
-	cmdE2E := exec.Command("pnpm", "run", "e2e")
+	cmdE2E := exec.Command("bun", "run", "e2e")
 	cmdE2E.Dir = "frontend"
 	cmdE2E.Stdout = os.Stdout
 	cmdE2E.Stderr = os.Stderr
@@ -238,7 +278,7 @@ func E2E() {
 
 // E2EHeaded runs single-node E2E tests in headed browser mode.
 func E2EHeaded() {
-	cmdE2E := exec.Command("pnpm", "run", "e2e:headed")
+	cmdE2E := exec.Command("bun", "run", "e2e:headed")
 	cmdE2E.Dir = "frontend"
 	cmdE2E.Stdout = os.Stdout
 	cmdE2E.Stderr = os.Stderr
@@ -251,7 +291,7 @@ func E2EHeaded() {
 
 // E2EUI opens the Playwright interactive UI for single-node tests.
 func E2EUI() {
-	cmdE2E := exec.Command("pnpm", "run", "e2e:ui")
+	cmdE2E := exec.Command("bun", "run", "e2e:ui")
 	cmdE2E.Dir = "frontend"
 	cmdE2E.Stdout = os.Stdout
 	cmdE2E.Stderr = os.Stderr
@@ -264,7 +304,7 @@ func E2EUI() {
 
 // E2EReport opens the last Playwright HTML report for single-node tests.
 func E2EReport() {
-	cmdE2E := exec.Command("pnpm", "run", "e2e:report")
+	cmdE2E := exec.Command("bun", "run", "e2e:report")
 	cmdE2E.Dir = "frontend"
 	cmdE2E.Stdout = os.Stdout
 	cmdE2E.Stderr = os.Stderr
@@ -280,7 +320,7 @@ func E2EReport() {
 // (controller + xylona-node) lands in step 11 of the hub-spoke migration.
 
 // E2ESeed bootstraps a fresh SQLite database with an admin user.
-// Usage: mage e2eSeed <db_path> [username] [password]
+// Usage: mage e2eSeed <db_path> [username] [password].
 func E2ESeed(dbPath string, username string, password string) {
 	if dbPath == "" {
 		log.Fatal().Msg("db_path is required. Usage: mage e2eSeed <db_path> [username] [password]")
@@ -303,11 +343,11 @@ func E2ESeed(dbPath string, username string, password string) {
 
 func buildFrontend() {
 	// Build the frontend
-	cmdPnpm := exec.Command("pnpm", "run", "build")
-	cmdPnpm.Dir = "frontend"
-	cmdPnpm.Stdout = os.Stdout
-	cmdPnpm.Stderr = os.Stderr
-	errRun := cmdPnpm.Run()
+	cmdBun := exec.Command("bun", "run", "build")
+	cmdBun.Dir = "frontend"
+	cmdBun.Stdout = os.Stdout
+	cmdBun.Stderr = os.Stderr
+	errRun := cmdBun.Run()
 	if errRun != nil {
 		log.Error().Err(errRun).Msg("Failed to build frontend")
 		os.Exit(1)

@@ -19,18 +19,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v5
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10.32.1
-          run_install: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 25
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          bun-version-file: frontend/package.json
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -39,10 +31,12 @@ jobs:
           cache: true
 
       - name: Install frontend dependencies
-        run: pnpm --dir frontend install --frozen-lockfile
+        working-directory: frontend
+        run: bun ci
 
       - name: Build embedded frontend
-        run: pnpm --dir frontend run build
+        working-directory: frontend
+        run: bun run build
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -70,30 +64,27 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v5
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10.32.1
-          run_install: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 25
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          bun-version-file: frontend/package.json
 
       - name: Install frontend dependencies
-        run: pnpm --dir frontend install --frozen-lockfile
+        working-directory: frontend
+        run: bun ci
 
       - name: Run frontend audit
-        run: pnpm --dir frontend audit --audit-level=high
+        working-directory: frontend
+        run: bun audit --audit-level=high
 
       - name: Run frontend lint
-        run: pnpm --dir frontend run lint
+        working-directory: frontend
+        run: bun run lint
 
       - name: Run frontend tests
-        run: pnpm --dir frontend run test
+        working-directory: frontend
+        run: bun run test
 
       - name: Run frontend build
-        run: pnpm --dir frontend run build
+        working-directory: frontend
+        run: bun run build

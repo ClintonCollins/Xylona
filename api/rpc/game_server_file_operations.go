@@ -10,29 +10,8 @@ import (
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// requireLocalNode returns a FailedPrecondition error when the game server
-// belongs to a remote node. Used by Archive/Extract/Compress/Decompress
-// handlers that still run controller-local against the embedded node's
-// filesystem. A streaming archive-over-RPC surface is a future extension.
-func (xs *XylonaService) requireLocalNode(gameServer *models.GameServer) error {
-	if xs.nodeRegistry == nil {
-		return nil
-	}
-	selfID := xs.nodeRegistry.SelfID()
-	if selfID == "" || gameServer.NodeID == selfID {
-		return nil
-	}
-	return connect.NewError(connect.CodeUnimplemented, errors.New("archive operations for remote-node servers are not yet supported"))
-}
-
-// TODO(hub-spoke): Archive/Extract/Compress/Decompress still run controller-
-// local against the embedded node's filesystem. They reject requests targeting
-// a remote node's game server because the current implementation relies on
-// actions layer helpers that don't yet route through NodeClient. Adding an
-// archive-over-RPC surface is tracked as a follow-up.
 func fileMutationError(err error) error {
 	if errors.Is(err, actions.ErrInvalidPath) || errors.Is(err, node.ErrInvalidPath) {
 		return invalidArg("invalid path")
@@ -113,9 +92,9 @@ func (xs *XylonaService) GameServerFilesArchive(ctx context.Context, request *co
 	if errPermission != nil {
 		return errPermission
 	}
-	errLocal := xs.requireLocalNode(gameServer)
-	if errLocal != nil {
-		return errLocal
+
+	if !xs.gameServerUsesEmbeddedNode(gameServer) {
+		return xs.archiveRemoteGameServerFiles(ctx, gameServer, request, c)
 	}
 
 	resultsChan := make(chan *xylona.GameServerFilesArchiveProgress)
@@ -165,9 +144,9 @@ func (xs *XylonaService) GameServerFilesExtract(ctx context.Context, request *co
 	if errPermission != nil {
 		return errPermission
 	}
-	errLocal := xs.requireLocalNode(gameServer)
-	if errLocal != nil {
-		return errLocal
+
+	if !xs.gameServerUsesEmbeddedNode(gameServer) {
+		return xs.extractRemoteGameServerFiles(ctx, gameServer, request, c)
 	}
 
 	resultsChan := make(chan *xylona.GameServerFilesExtractProgress)
@@ -216,9 +195,9 @@ func (xs *XylonaService) GameServerFilesCompress(ctx context.Context, request *c
 	if errPermission != nil {
 		return nil, errPermission
 	}
-	errLocal := xs.requireLocalNode(gameServer)
-	if errLocal != nil {
-		return nil, errLocal
+
+	if !xs.gameServerUsesEmbeddedNode(gameServer) {
+		return xs.compressRemoteGameServerFiles(ctx, gameServer, request)
 	}
 
 	results, errCompress := xs.actionsInst.ArchiveAndCompressFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
@@ -244,9 +223,9 @@ func (xs *XylonaService) GameServerFilesDecompress(ctx context.Context, request 
 	if errPermission != nil {
 		return nil, errPermission
 	}
-	errLocal := xs.requireLocalNode(gameServer)
-	if errLocal != nil {
-		return nil, errLocal
+
+	if !xs.gameServerUsesEmbeddedNode(gameServer) {
+		return xs.decompressRemoteGameServerFiles(ctx, gameServer, request)
 	}
 
 	results, errDecompress := xs.actionsInst.ExtractArchive(ctx, gameServer, request.Msg.GetFullFilePath(), request.Msg.GetDestinationBasePath())

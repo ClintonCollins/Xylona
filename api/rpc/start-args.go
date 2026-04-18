@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -52,12 +51,10 @@ func normalizeStartArgsPlatform(platform string) (string, error) {
 	}
 }
 
-// platformForNode returns the OS family for a node's runtime. Hub-spoke keeps
-// this helper so existing call sites can be updated later to use the remote
-// node's reported OS via NodeClient.GetNodeSnapshot; for now we fall back to
-// the controller's own GOOS.
-func platformForNode(_ *models.Node) string {
-	if runtime.GOOS == "windows" {
+// platformForGOOS normalizes a GOOS-like value into the two platform families
+// supported by the structured start-args templates.
+func platformForGOOS(goos string) string {
+	if strings.EqualFold(strings.TrimSpace(goos), "windows") {
 		return "windows"
 	}
 	return "linux"
@@ -277,12 +274,11 @@ func validateServerPatchStructure(template []startargs.ArgBlock, patches []start
 	return nil
 }
 
-func validateGameServerStartArgsUpdate(gameServer *models.GameServer, patchesJSON string) error {
+func validateGameServerStartArgsUpdate(gameServer *models.GameServer, patchesJSON string, platform string) error {
 	if gameServer.R.Game == nil {
 		return errors.New("game relation is required")
 	}
 
-	platform := platformForNode(gameServer.R.Node)
 	templateJSON := templateJSONForPlatform(gameServer.R.Game, platform)
 	templateBlocks, errTemplate := startargs.ParseTemplate(templateJSON)
 	if errTemplate != nil {
@@ -448,7 +444,8 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 		return nil, permissionDenied("start arg editing is disabled for this game")
 	}
 
-	errValidate := validateGameServerStartArgsUpdate(gameServer, normalizedPatches)
+	platform := platformForGOOS(xs.resolveNodeGOOS(gameServer.NodeID))
+	errValidate := validateGameServerStartArgsUpdate(gameServer, normalizedPatches, platform)
 	if errValidate != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
 	}

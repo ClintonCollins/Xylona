@@ -7,7 +7,7 @@ Xylona is a game server control panel built to be easy to self-host and ship as 
 Core stack:
 - Backend: Go 1.26, `chi`, ConnectRPC, SQLite (`modernc.org/sqlite`), bob ORM, `sql-migrate`, `zerolog`
 - Frontend: Vue 3, Quasar 2, Vite, TypeScript, Pinia, ConnectRPC, Monaco Editor
-- Tooling: Mage, pnpm, Playwright, Vitest
+- Tooling: Mage, Bun, Playwright, Vitest
 
 ## Repo Map
 
@@ -17,7 +17,7 @@ Core stack:
 - Generated and build assets: `proto`, `sql/migrations`, `sql/models`, `magefiles`, `cmd`
 - Frontend app: `frontend/src/pages`, `components`, `stores`, `router`, `layouts`, `boot`, `utils`, `proto`, `css`, `assets`
 
-## Default Commands
+## Project Commands
 
 Backend:
 - `go test -race -count=1 ./...`
@@ -29,14 +29,14 @@ Backend:
 - `mage LintFix`
 
 Frontend:
-- `pnpm --dir frontend run dev`
-- `pnpm --dir frontend run build`
-- `pnpm --dir frontend run lint`
-- `pnpm --dir frontend run format`
-- `pnpm --dir frontend run test`
-- `pnpm --dir frontend run test:coverage`
-- `pnpm --dir frontend run e2e`
-- `pnpm --dir frontend run e2e:federation`
+- from `frontend/`: `bun run dev`
+- from `frontend/`: `bun run build`
+- from `frontend/`: `bun run lint`
+- from `frontend/`: `bun run format`
+- from `frontend/`: `bun run test`
+- from `frontend/`: `bun run test:coverage`
+- from `frontend/`: `bun run e2e`
+- from `frontend/`: `bun run e2e:federation`
 
 Build and codegen:
 - `mage Build`
@@ -59,7 +59,7 @@ Regenerate with:
 - `mage GenerateProto`
 - `mage GenerateModels`
 
-## Working Rules
+## Local Rules
 
 - Prefer `cmd.exe`, `bash`, or `sh` over PowerShell.
 - Use LF line endings. If a touched file is CRLF, normalize it to LF.
@@ -81,15 +81,13 @@ Regenerate with:
 - Router uses `chi`; unknown SPA routes should fall back to `index.html`
 - Database access uses SQLite plus bob; DB methods live on `*db.Connection`
 - New multi-word Go filenames should be kebab-case
-- Prefer double-quoted Go strings by default.
-- Use raw string literals only when they materially improve readability or avoid escaping, such as embedded quotes, SQL snippets, JSON snippets, regex-like text, or multi-line content.
 
 ## Frontend Conventions
 
-- TypeScript uses ESM, pnpm, Vue 3, Quasar 2, Pinia, ConnectRPC, and Monaco
+- TypeScript uses ESM, Bun, Vue 3, Quasar 2, Pinia, ConnectRPC, and Monaco
 - Use PascalCase `.vue` filenames
 - Generated protobuf types come from shared `.proto` files via `buf` and `protoc-gen-es`
-- Before finishing frontend changes, run `pnpm --dir frontend run lint`, `format`, `test`, and `build` as appropriate
+- Before finishing frontend changes, run `bun run lint`, `bun run format`, `bun run test`, and `bun run build` from `frontend/` as appropriate
 
 ## Accepted `v-html`
 
@@ -101,11 +99,9 @@ Do not add DOMPurify or replace these with plain text unless the trust boundary 
 
 ## Testing
 
-- Add or update tests for new or changed logic with real regression risk; skip trivial config, wiring, and pure presentation work unless requested
 - Backend tests should be table-driven where useful, use the standard `testing` package, live beside the code, be deterministic, and prefer `errors.Is` or `errors.As`
 - Use `t.TempDir()`, `t.Setenv()`, and `t.Cleanup()` for isolation; use in-memory SQLite for `db` tests
 - Heavier filesystem, DB, or process tests should be skippable in `testing.Short()`
-- Bug fixes should add a regression test when practical; concurrency-sensitive changes should be exercised under `-race`
 - Frontend tests should focus on utilities, composables, Pinia stores, RPC wrappers, significant stateful components, and critical user flows
 - Purely visual frontend changes usually need lint, format, build, and manual verification rather than automated tests
 

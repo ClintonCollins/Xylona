@@ -38,6 +38,7 @@ type callRecorder struct {
 	readFileResponse []byte
 	listFilesResp    *nodeprotov1.ListFilesResponse
 	streamEvents     []*nodeprotov1.Event
+	streamConsole    []*nodeprotov1.ConsoleChunk
 	nodeSnapshot     *nodeprotov1.NodeSnapshot
 	errOverride      error
 }
@@ -105,6 +106,20 @@ func (s *stubHandler) StreamEvents(_ context.Context, req *connect.Request[nodep
 		errSend := stream.Send(ev)
 		if errSend != nil {
 			return fmt.Errorf("stub stream send: %w", errSend)
+		}
+	}
+	return nil
+}
+
+func (s *stubHandler) StreamConsoleOutput(_ context.Context, req *connect.Request[nodeprotov1.StreamConsoleOutputRequest], stream *connect.ServerStream[nodeprotov1.ConsoleChunk]) error {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	chunks := append([]*nodeprotov1.ConsoleChunk(nil), s.rec.streamConsole...)
+	s.rec.mu.Unlock()
+	for _, chunk := range chunks {
+		errSend := stream.Send(chunk)
+		if errSend != nil {
+			return fmt.Errorf("stub console stream send: %w", errSend)
 		}
 	}
 	return nil
@@ -381,6 +396,38 @@ func TestGRPCClient(t *testing.T) {
 		}
 		if seen[1].Type != node.EventTypeConsoleOutput {
 			t.Fatalf("second event type: %v", seen[1].Type)
+		}
+	})
+
+	t.Run("stream console output delivers chunks", func(t *testing.T) {
+		t.Parallel()
+		rec := &callRecorder{
+			streamConsole: []*nodeprotov1.ConsoleChunk{
+				{GameServerId: "p1", Text: "line 1"},
+				{GameServerId: "p1", Text: "line 2"},
+			},
+		}
+		url, fingerprint := newPinnedTestServer(t, rec)
+		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		stream, errStream := client.StreamConsoleOutput(ctx, "p1")
+		if errStream != nil {
+			t.Fatalf("StreamConsoleOutput: %v", errStream)
+		}
+
+		var seen []node.ConsoleChunk
+		for chunk := range stream {
+			seen = append(seen, chunk)
+		}
+
+		if len(seen) != 2 {
+			t.Fatalf("got %d chunks, want 2", len(seen))
+		}
+		if seen[0].ProcessID != "p1" || seen[0].Data != "line 1" {
+			t.Fatalf("first chunk mismatch: %+v", seen[0])
 		}
 	})
 

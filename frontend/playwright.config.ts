@@ -34,7 +34,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm exec quasar dev -p 9002',
+    command: 'bun run dev -- -p 9002',
     url: BASE_URL,
     reuseExistingServer: false,
     ignoreHTTPSErrors: true,

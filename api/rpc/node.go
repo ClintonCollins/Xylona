@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -14,7 +16,7 @@ import (
 )
 
 // GetNode returns a node by ID.
-func (xs *XylonaService) GetNode(_ context.Context, request *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
+func (xs *XylonaService) GetNode(ctx context.Context, request *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
@@ -24,11 +26,11 @@ func (xs *XylonaService) GetNode(_ context.Context, request *connect.Request[xyl
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&xylona.GetNodeResponse{Node: helpers.NodeModelToProto(node)}), nil
+	return connect.NewResponse(&xylona.GetNodeResponse{Node: xs.nodeProtoWithRuntime(ctx, node)}), nil
 }
 
 // ListNodes returns all configured nodes.
-func (xs *XylonaService) ListNodes(_ context.Context, request *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
+func (xs *XylonaService) ListNodes(ctx context.Context, request *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
@@ -38,9 +40,12 @@ func (xs *XylonaService) ListNodes(_ context.Context, request *connect.Request[x
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	selfNodeID := xs.selfNodeID()
+	runtimeState := xs.collectNodeRuntimeState(ctx, nodes)
+
 	resp := &xylona.ListNodesResponse{}
 	for _, node := range nodes {
-		resp.Nodes = append(resp.Nodes, helpers.NodeModelToProto(node))
+		resp.Nodes = append(resp.Nodes, xs.nodeProtoWithRuntimeState(node, selfNodeID, runtimeState))
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -89,6 +94,9 @@ func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[
 	if errGetNode != nil {
 		return nil, notFoundErr()
 	}
+	if nodeID == xs.selfNodeID() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("the embedded self node cannot be removed"))
+	}
 
 	errDelete := xs.db.DeleteNodeByID(nodeID)
 	if errDelete != nil {
@@ -111,14 +119,83 @@ func (xs *XylonaService) EditNode(_ context.Context, request *connect.Request[xy
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&xylona.EditNodeResponse{Node: helpers.NodeModelToProto(node)}), nil
+	return connect.NewResponse(&xylona.EditNodeResponse{Node: xs.nodeProtoWithRuntime(context.Background(), node)}), nil
 }
 
-// ListAggregatedGameServers returns the controller-local servers the caller
-// has access to. Remote-node servers will join the aggregated view once
-// NodeClient exposes a cross-node server lookup; for now the list is local
-// only.
-func (xs *XylonaService) ListAggregatedGameServers(_ context.Context, request *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {
+func (xs *XylonaService) aggregatedServerStatus(ctx context.Context, gameServer *models.GameServer) xylona.Status {
+	if gameServer == nil {
+		return xylona.Status_UNKNOWN
+	}
+
+	snapCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	snapshot, errSnapshot := xs.resolveProcessSnapshot(snapCtx, gameServer)
+	if errSnapshot == nil && snapshot != nil {
+		statusVal, ok := xylona.Status_value[snapshot.Status]
+		if ok {
+			return xylona.Status(statusVal)
+		}
+	}
+	if errSnapshot == nil && snapshot == nil {
+		return xylona.Status_OFFLINE
+	}
+
+	statusVal, ok := xylona.Status_value[gameServer.Status]
+	if ok {
+		return xylona.Status(statusVal)
+	}
+	return xylona.Status_UNKNOWN
+}
+
+func (xs *XylonaService) remoteSummaryFromGameServer(ctx context.Context, gameServer *models.GameServer) *xylona.RemoteServerSummary {
+	if gameServer == nil {
+		return &xylona.RemoteServerSummary{}
+	}
+
+	var lastSeenAt *time.Time
+	if gameServer.R.Node != nil {
+		nodeLastSeen, ok := gameServer.R.Node.LastSeenAt.Get()
+		if ok {
+			lastSeenAt = &nodeLastSeen
+		}
+	}
+
+	protoStatus := xs.aggregatedServerStatus(ctx, gameServer)
+	out := &xylona.RemoteServerSummary{
+		Id:             gameServer.ID,
+		SourceNodeId:   gameServer.NodeID,
+		NodeId:         gameServer.NodeID,
+		RemoteServerId: gameServer.ID,
+		DisplayName:    gameServer.Name,
+		Status:         protoStatus,
+		GameId:         gameServer.GameID,
+		IpAddress:      gameServer.IP,
+		Port:           gameServer.Port,
+		QueryPort:      gameServer.QueryPort,
+		MaxPlayers:     gameServer.MaxPlayers,
+		CurrentPlayers: gameServer.SetPlayers,
+		MapName:        gameServer.Map,
+		Version:        gameServer.Version,
+		IsStale:        false,
+	}
+	if gameServer.R.Game != nil {
+		out.GameName = gameServer.R.Game.Name
+	}
+	if gameServer.R.Node != nil {
+		out.NodeName = gameServer.R.Node.Name
+		out.NodeHost = gameServer.R.Node.ListenURL
+	}
+	if lastSeenAt != nil {
+		out.LastRemoteUpdate = timestamppb.New(*lastSeenAt)
+		out.LastSyncedAt = timestamppb.New(*lastSeenAt)
+	}
+	return out
+}
+
+// ListAggregatedGameServers returns the servers the caller can access across
+// both the embedded node and any configured remote nodes.
+func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request *connect.Request[xylona.ListAggregatedGameServersRequest]) (*connect.Response[xylona.ListAggregatedGameServersResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, errUser
@@ -138,7 +215,16 @@ func (xs *XylonaService) ListAggregatedGameServers(_ context.Context, request *c
 		return connect.NewResponse(resp), nil
 	}
 
+	selfNodeID := xs.selfNodeID()
 	for _, gs := range localServers {
+		if strings.TrimSpace(gs.NodeID) != "" && gs.NodeID != selfNodeID {
+			resp.Servers = append(resp.Servers, &xylona.AggregatedGameServer{
+				IsLocal:      false,
+				RemoteServer: xs.remoteSummaryFromGameServer(ctx, gs),
+			})
+			continue
+		}
+
 		gsProto := helpers.GameServerModelToProto(gs, xs.versionState)
 		gsProto.Status = xs.getLocalGameServerStatus(gs)
 		if user.SuperUser || gs.UserID == user.ID {

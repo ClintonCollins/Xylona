@@ -13,6 +13,8 @@ import (
 	"github.com/aarondl/opt/null"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -205,5 +207,90 @@ func TestValidateDownloadRedirectTargetRejectsPrivateRedirect(t *testing.T) {
 	}
 	if !strings.Contains(errValidate.Error(), "private or reserved") {
 		t.Fatalf("validateDownloadRedirectTarget() error = %v, want SSRF validation failure", errValidate)
+	}
+}
+
+func TestPurgeAllGameServerFilesRoutesRemoteDeletesThroughNodeClient(t *testing.T) {
+	serverDir := t.TempDir()
+	sentinelPath := filepath.Join(serverDir, "sentinel.txt")
+
+	errWrite := os.WriteFile(sentinelPath, []byte("keep-local"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(sentinel.txt) error = %v", errWrite)
+	}
+
+	registry := noderegistry.New("node-local", nil)
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry.Register(remoteClient)
+
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:        "server-remote-files",
+		NodeID:    "node-remote",
+		Directory: serverDir,
+	}
+
+	errPurge := inst.PurgeAllGameServerFiles(gameServer)
+	if errPurge != nil {
+		t.Fatalf("PurgeAllGameServerFiles() error = %v", errPurge)
+	}
+
+	if len(remoteClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFilesCalls len = %d, want 1", len(remoteClient.DeleteFilesCalls))
+	}
+	deleteCall := remoteClient.DeleteFilesCalls[0]
+	if deleteCall.Directory != serverDir {
+		t.Fatalf("DeleteFilesCalls[0].Directory = %q, want %q", deleteCall.Directory, serverDir)
+	}
+	if len(deleteCall.Files) != 1 || deleteCall.Files[0] != "" {
+		t.Fatalf("DeleteFilesCalls[0].Files = %v, want [\"\"]", deleteCall.Files)
+	}
+
+	_, errStat := os.Stat(sentinelPath)
+	if errStat != nil {
+		t.Fatalf("Stat(%q) error = %v, want file to remain on controller", sentinelPath, errStat)
+	}
+}
+
+func TestCleanupFailedInstallRoutesRemoteDeletesThroughNodeClient(t *testing.T) {
+	serverDir := t.TempDir()
+	sentinelPath := filepath.Join(serverDir, "sentinel.txt")
+
+	errWrite := os.WriteFile(sentinelPath, []byte("keep-local"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(sentinel.txt) error = %v", errWrite)
+	}
+
+	registry := noderegistry.New("node-local", nil)
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry.Register(remoteClient)
+
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+
+	errCleanup := inst.cleanupFailedInstall("", serverDir, "node-remote")
+	if errCleanup != nil {
+		t.Fatalf("cleanupFailedInstall() error = %v", errCleanup)
+	}
+
+	if len(remoteClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFilesCalls len = %d, want 1", len(remoteClient.DeleteFilesCalls))
+	}
+	deleteCall := remoteClient.DeleteFilesCalls[0]
+	if deleteCall.Directory != serverDir {
+		t.Fatalf("DeleteFilesCalls[0].Directory = %q, want %q", deleteCall.Directory, serverDir)
+	}
+	if len(deleteCall.Files) != 1 || deleteCall.Files[0] != "" {
+		t.Fatalf("DeleteFilesCalls[0].Files = %v, want [\"\"]", deleteCall.Files)
+	}
+
+	_, errStat := os.Stat(sentinelPath)
+	if errStat != nil {
+		t.Fatalf("Stat(%q) error = %v, want file to remain on controller", sentinelPath, errStat)
 	}
 }

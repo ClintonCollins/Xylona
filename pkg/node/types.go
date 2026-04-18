@@ -166,6 +166,13 @@ type NodeSnapshot struct {
 	DiskTotal     uint64
 	DiskPercent   float64
 
+	// DefaultInstallPath is the node-resolved root directory under which the
+	// controller should place managed game-server directories for this node.
+	// Resolved on the node because it depends on the node's own OS and
+	// HOME/USERPROFILE env vars (which are not knowable from the controller
+	// in a hub-spoke deployment).
+	DefaultInstallPath string
+
 	Processes []ProcessSnapshot
 	Collected time.Time
 }

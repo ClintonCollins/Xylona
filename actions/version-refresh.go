@@ -72,7 +72,7 @@ func (inst *Instance) resolveTrackerContextForServer(gs *models.GameServer) vers
 
 	updateCommand := ""
 	if gs.R.Game != nil {
-		updateCommand = gameUpdateCommand(gs.R.Game)
+		updateCommand = gameUpdateCommand(gs.R.Game, inst.resolveNodeOS(inst.ctx, gs.NodeID))
 	}
 	info := versiontracker.TrackerContext{
 		GameID:        gs.GameID,

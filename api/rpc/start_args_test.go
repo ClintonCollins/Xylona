@@ -2,11 +2,15 @@ package rpc
 
 import (
 	"context"
+	"runtime"
 	"testing"
 
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
 
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -264,5 +268,75 @@ func TestUpdateGameServerStartArgsRedactsBackupDirectoryForNonSuperUser(t *testi
 	}
 	if resp.Msg.GetGameServer().GetMaxBackups() != 9 {
 		t.Fatalf("UpdateGameServerStartArgs(non-superuser).GameServer.MaxBackups = %d, want %d", resp.Msg.GetGameServer().GetMaxBackups(), 9)
+	}
+}
+
+func TestUpdateGameServerStartArgsUsesOwningNodePlatform(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	game := addGameForTests(t, fixture, "start-args-remote-platform-game", "Remote Platform Game")
+	insertStartArgsTestServer(t, fixture, "server-start-args-remote-platform", game.GetId())
+
+	remoteOS := "windows"
+	remotePlatform := "windows"
+	if runtime.GOOS == "windows" {
+		remoteOS = "linux"
+		remotePlatform = "linux"
+	}
+
+	_, errNode := fixture.conn.InsertNode(&models.NodeSetter{
+		ID:        omit.From("node-remote-platform"),
+		Name:      omit.From("Remote Platform Node"),
+		ListenURL: omit.From("https://remote-platform.example.com"),
+		Enabled:   omit.From(true),
+	})
+	if errNode != nil {
+		t.Fatalf("InsertNode() error = %v", errNode)
+	}
+
+	_, errServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:     omit.From("server-start-args-remote-platform"),
+		NodeID: omit.From("node-remote-platform"),
+	})
+	if errServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errServer)
+	}
+
+	fixture.service.nodeRegistry = noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+	fixture.service.nodeRegistry.Register(&nodeclient.FakeNodeClient{
+		NodeID: "node-remote-platform",
+		SnapshotResult: &node.NodeSnapshot{
+			OS: remoteOS,
+		},
+	})
+
+	templateReq := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
+		GameId:   game.GetId(),
+		Platform: remotePlatform,
+		StartArgsTemplate: `[
+			{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"],"label":"Heap"},
+			{"id":"jar","order":2,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"}
+		]`,
+		BaseCommand:          "java",
+		AllowStartArgEditing: true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, templateReq, "user-admin")
+
+	_, errTemplate := fixture.service.UpdateGameStartArgsTemplate(context.Background(), templateReq)
+	if errTemplate != nil {
+		t.Fatalf("UpdateGameStartArgsTemplate() setup error = %v", errTemplate)
+	}
+
+	req := connect.NewRequest(&xylona.UpdateGameServerStartArgsRequest{
+		ServerId:         "server-start-args-remote-platform",
+		StartArgsPatches: `[{"id":"heap","op":"edit","tokens":["-Xmx3G"],"afterId":null}]`,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-owner")
+
+	resp, errUpdate := fixture.service.UpdateGameServerStartArgs(context.Background(), req)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServerStartArgs() error = %v", errUpdate)
+	}
+	if resp.Msg.GetGameServer().GetStartArgsPatches() != `[{"id":"heap","op":"edit","tokens":["-Xmx3G"],"afterId":null}]` {
+		t.Fatalf("UpdateGameServerStartArgs().GameServer.StartArgsPatches = %q, want persisted patches", resp.Msg.GetGameServer().GetStartArgsPatches())
 	}
 }
