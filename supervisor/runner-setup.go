@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -88,7 +89,11 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		return nil, ErrNoCommandProvided
 	}
 
-	cmd := exec.CommandContext(newCommand.processCtx, baseCommand, preparedCommand.Args...)
+	cmd := exec.CommandContext( //nolint:gosec // Supervisor intentionally launches configured game server commands.
+		newCommand.processCtx,
+		resolveServerLocalBaseCommand(baseCommand, preparedCommand.WorkingDirectory),
+		preparedCommand.Args...,
+	)
 	cmd.Dir = preparedCommand.WorkingDirectory
 	cmd.Env = buildChildEnvironment(CurrentRuntime, os.Environ())
 
@@ -114,6 +119,52 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		newCommand.stdInWriter = stdInPipe
 	}
 	return cmd, nil
+}
+
+func resolveServerLocalBaseCommand(baseCommand string, workingDir string) string {
+	baseCommand = strings.TrimSpace(baseCommand)
+	if baseCommand == "" || workingDir == "" {
+		return baseCommand
+	}
+	if filepath.IsAbs(baseCommand) {
+		return baseCommand
+	}
+	if !looksLikeServerLocalBaseCommand(baseCommand) {
+		return baseCommand
+	}
+
+	cleanBaseCommand := filepath.Clean(baseCommand)
+	if !filepath.IsLocal(cleanBaseCommand) {
+		return baseCommand
+	}
+
+	candidate := filepath.Join(workingDir, cleanBaseCommand)
+	info, errStat := os.Stat(candidate)
+	if errStat != nil {
+		return baseCommand
+	}
+	if info.IsDir() {
+		return baseCommand
+	}
+
+	return candidate
+}
+
+func looksLikeServerLocalBaseCommand(baseCommand string) bool {
+	if strings.ContainsAny(baseCommand, `/\`) {
+		return true
+	}
+	if strings.HasPrefix(baseCommand, ".") {
+		return true
+	}
+	if filepath.Ext(baseCommand) != "" {
+		return true
+	}
+	if strings.ContainsAny(baseCommand, "-_") {
+		return true
+	}
+
+	return false
 }
 
 func (inst *Instance) setupCmdPipes(newCommand *Command, cmd *exec.Cmd) (io.Reader, io.Reader, error) {

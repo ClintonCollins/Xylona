@@ -85,6 +85,21 @@ export default configure(function (/* ctx */) {
           chunkSizeWarningLimit: 7000,
         }
 
+        viteConf.optimizeDeps = {
+          ...viteConf.optimizeDeps,
+          include: [
+            ...(viteConf.optimizeDeps?.include ?? []),
+            'axios',
+            'chart.js',
+            'dayjs',
+            'ini',
+            'quasar-extras-svg-icons/tabler-icons-v2',
+            'smol-toml',
+            'vue-chartjs',
+            'yaml',
+          ],
+        }
+
         viteConf.resolve.alias = {
           ...viteConf.resolve.alias,
           '@': '/src',

@@ -11,6 +11,8 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+const windroseConfigPath = "R5/ServerDescription.json"
+
 func TestGetGameServerConfigFileReadsStructuredJSON(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	updateGameConfigSchemasForRemoteParity(t, fixture, windroseLikeJSONSchema())
@@ -35,7 +37,7 @@ func TestGetGameServerConfigFileReadsStructuredJSON(t *testing.T) {
 
 	request := connect.NewRequest(&xylona.GetGameServerConfigFileRequest{
 		GameServerId: "server-remote-json-config",
-		FilePath:     "ServerDescription.json",
+		FilePath:     windroseConfigPath,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
 
@@ -89,7 +91,7 @@ func TestUpdateGameServerConfigFileWritesStructuredJSON(t *testing.T) {
 
 	request := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
 		GameServerId: "server-remote-json-config",
-		FilePath:     "ServerDescription.json",
+		FilePath:     windroseConfigPath,
 		Fields: []*xylona.ConfigFieldData{
 			{Key: "ServerDescription_Persistent.ServerName", Value: "New Windrose"},
 			{Key: "ServerDescription_Persistent.MaxPlayerCount", Value: "8"},
@@ -107,6 +109,9 @@ func TestUpdateGameServerConfigFileWritesStructuredJSON(t *testing.T) {
 	}
 	if len(remoteClient.WriteFileCalls) != 1 {
 		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	}
+	if remoteClient.WriteFileCalls[0].RelativePath != windroseConfigPath {
+		t.Fatalf("WriteFile relative path = %q, want %q", remoteClient.WriteFileCalls[0].RelativePath, windroseConfigPath)
 	}
 
 	var config map[string]any
@@ -148,7 +153,7 @@ func TestGenerateGameServerConfigFileWritesStructuredJSONDefaults(t *testing.T) 
 
 	request := connect.NewRequest(&xylona.GenerateGameServerConfigFileRequest{
 		GameServerId: "server-remote-json-config",
-		FilePath:     "ServerDescription.json",
+		FilePath:     windroseConfigPath,
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
 
@@ -161,6 +166,9 @@ func TestGenerateGameServerConfigFileWritesStructuredJSONDefaults(t *testing.T) 
 	}
 	if len(remoteClient.WriteFileCalls) != 1 {
 		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	}
+	if remoteClient.WriteFileCalls[0].RelativePath != windroseConfigPath {
+		t.Fatalf("WriteFile relative path = %q, want %q", remoteClient.WriteFileCalls[0].RelativePath, windroseConfigPath)
 	}
 
 	var config map[string]any
@@ -198,5 +206,5 @@ func configFieldsByKey(fields []*xylona.ConfigFieldData) map[string]*xylona.Conf
 }
 
 func windroseLikeJSONSchema() string {
-	return `[{"managed_fields":{"ServerDescription_Persistent.DirectConnectionServerPort":"game_server.port"},"path":"ServerDescription.json","format":"json","category":"Server","generate_before_start":false,"schema":{"type":"object","properties":{"ServerDescription_Persistent.ServerName":{"type":"string","default":"My Windrose Server"},"ServerDescription_Persistent.MaxPlayerCount":{"type":"integer","default":8},"ServerDescription_Persistent.UseDirectConnection":{"type":"boolean","default":false},"ServerDescription_Persistent.DirectConnectionServerPort":{"type":"integer","default":7777}}}}]`
+	return `[{"managed_fields":{"ServerDescription_Persistent.DirectConnectionServerPort":"game_server.port"},"path":"R5/ServerDescription.json","format":"json","category":"Server","generate_before_start":false,"schema":{"type":"object","properties":{"ServerDescription_Persistent.ServerName":{"type":"string","default":"My Windrose Server"},"ServerDescription_Persistent.MaxPlayerCount":{"type":"integer","default":8},"ServerDescription_Persistent.UseDirectConnection":{"type":"boolean","default":false},"ServerDescription_Persistent.DirectConnectionServerPort":{"type":"integer","default":7777}}}}]`
 }

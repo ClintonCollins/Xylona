@@ -13,6 +13,14 @@ func TestValidate_ValidSchema(t *testing.T) {
 	}
 }
 
+func TestValidate_CommandCFGFormat(t *testing.T) {
+	input := `[{"path":"server.cfg","format":"commandcfg","category":"Core","schema":{"type":"object","properties":{"hostname":{"type":"string"}}}}]`
+	errs := ValidateConfigSchemas(input)
+	if len(errs) != 0 {
+		t.Errorf("ValidateConfigSchemas() returned %d errors, want 0: %v", len(errs), errs)
+	}
+}
+
 func TestValidate_EmptyArray(t *testing.T) {
 	errs := ValidateConfigSchemas("[]")
 	if len(errs) != 0 {

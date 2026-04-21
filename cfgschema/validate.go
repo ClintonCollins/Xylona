@@ -14,6 +14,7 @@ var validFormats = map[string]bool{
 	"yaml":       true,
 	"toml":       true,
 	"xml":        true,
+	"commandcfg": true,
 }
 
 // configSchemaEntry represents a single entry in the config_schemas JSON array.

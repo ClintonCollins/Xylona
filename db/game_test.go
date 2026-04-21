@@ -112,8 +112,9 @@ func TestSeededWindroseGame(t *testing.T) {
 	if !game.WindowsSupport {
 		t.Error("WindowsSupport = false, want true")
 	}
-	if game.WindowsBaseCommand != "WindroseServer.exe" {
-		t.Errorf("WindowsBaseCommand = %q, want %q", game.WindowsBaseCommand, "WindroseServer.exe")
+	wantWindowsBaseCommand := "R5\\Binaries\\Win64\\WindroseServer-Win64-Shipping.exe"
+	if game.WindowsBaseCommand != wantWindowsBaseCommand {
+		t.Errorf("WindowsBaseCommand = %q, want %q", game.WindowsBaseCommand, wantWindowsBaseCommand)
 	}
 	if game.WindowsStartArgsTemplate.GetOr("") == "" {
 		t.Error("WindowsStartArgsTemplate is empty, want -log template")
@@ -136,8 +137,8 @@ func TestSeededWindroseGame(t *testing.T) {
 		t.Fatalf("config schema entry count = %d, want 1", len(entries))
 	}
 	entry := entries[0]
-	if entry.Path != "ServerDescription.json" {
-		t.Errorf("schema path = %q, want %q", entry.Path, "ServerDescription.json")
+	if entry.Path != "R5/ServerDescription.json" {
+		t.Errorf("schema path = %q, want %q", entry.Path, "R5/ServerDescription.json")
 	}
 	if entry.Format != "json" {
 		t.Errorf("schema format = %q, want %q", entry.Format, "json")
