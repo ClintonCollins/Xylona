@@ -109,6 +109,7 @@ type Instance struct {
 	localNodeID          string
 	restartState         *restartStateMap
 	exitHooks            *exitHookRegistry
+	intentionalStops     intentionalStopRegistry
 }
 
 // VersionState returns the version state map used to track game server versions.
@@ -135,7 +136,7 @@ func (inst *Instance) SetBackupProgressBroadcaster(b BackupProgressBroadcaster) 
 // after the node ID is known (i.e. after settings are loaded from the DB).
 func (inst *Instance) StartAlertJobs(localNodeID string) {
 	inst.localNodeID = localNodeID
-	go inst.backgroundJobThresholdPoller(localNodeID)
+	go inst.backgroundJobThresholdPoller()
 	go inst.backgroundJobAlertHistoryPruner()
 }
 
@@ -305,7 +306,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 				Msg("Install command exited with non-zero; skipping post-install")
 			return
 		}
-		errPostInstall := postInstallStep(installedGS)
+		errPostInstall := inst.postInstallStep(installedGS)
 		if errPostInstall != nil {
 			log.Error().Err(errPostInstall).Msg("Failed to perform post install step")
 			return
@@ -431,12 +432,12 @@ func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServe
 	return baseCommand, args, nil
 }
 
-func postInstallStep(gameServer *models.GameServer) error {
+func (inst *Instance) postInstallStep(gameServer *models.GameServer) error {
 	switch gameServer.GameID {
 	case "minecraft":
-		return postMinecraftInstall(gameServer)
+		return inst.postMinecraftInstall(gameServer)
 	case "7_days_to_die":
-		return post7DaysToDieInstall(gameServer)
+		return inst.post7DaysToDieInstall(gameServer)
 	default:
 		log.Debug().Str("Game ID", gameServer.GameID).Msg("No post install step")
 		return nil
@@ -493,23 +494,27 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 		inst.reportStartFailure(gameServer, "Failed to start server: "+errStart.Error())
 		return
 	}
+	inst.intentionalStops.clear(gameServer.ID)
 	inst.restartState.recordStarted(gameServer.ID)
 }
 
 // resolveNodeClient looks up the NodeClient for a node ID. When the
 // registry is not configured (tests, migrations), falls back to a fresh
 // in-process client around the supervisor so callers still get working
-// semantics. Returns a plain Go error (not a connect error) since actions
-// callers don't want connect types.
+// semantics. With a configured registry, non-self node misses fail closed
+// instead of running remote work against the controller filesystem.
+// Returns a plain Go error (not a connect error) since actions callers don't
+// want connect types.
 func (inst *Instance) resolveNodeClient(nodeID string) (nodeclient.NodeClient, error) {
 	if inst.nodeRegistry != nil {
 		client, errGet := inst.nodeRegistry.Get(nodeID)
 		if errGet == nil {
 			return client, nil
 		}
-		// Registry configured but no client for that ID — fall through to the
-		// supervisor fallback if we have one, otherwise bubble up the error.
-		if inst.supervisorInstance == nil {
+
+		targetID := strings.TrimSpace(nodeID)
+		selfID := strings.TrimSpace(inst.nodeRegistry.SelfID())
+		if targetID != "" && targetID != selfID {
 			return nil, fmt.Errorf("actions: resolve node client for %q: %w", nodeID, errGet)
 		}
 	}
@@ -532,7 +537,63 @@ func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
 	}
 
 	resolver := cfgschema.ServerSettingsResolver(gameServer.IP, gameServer.Port, gameServer.QueryPort)
+	if inst.isRemoteGameServer(gameServer) {
+		client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+		if errClient != nil {
+			log.Warn().Err(errClient).Str("game_server_id", gameServer.ID).
+				Msg("Pre-start: failed to resolve node client, skipping")
+			return
+		}
+		store := remotePreStartFileStore{
+			ctx:       inst.ctx,
+			client:    client,
+			directory: gameServer.Directory,
+		}
+		cfgschema.RunPreStartWithStore(schemasJSON, resolver, store)
+		return
+	}
 	cfgschema.RunPreStart(gameServer.Directory, schemasJSON, resolver)
+}
+
+type remotePreStartFileStore struct {
+	ctx       context.Context
+	client    nodeclient.NodeClient
+	directory string
+}
+
+func (store remotePreStartFileStore) ReadFile(relativePath string) ([]byte, error) {
+	data, errRead := store.client.ReadFile(store.context(), store.directory, relativePath)
+	if errRead != nil {
+		return nil, fmt.Errorf("actions: read remote pre-start config: %w", errRead)
+	}
+	return data, nil
+}
+
+func (store remotePreStartFileStore) EnsureDir(relativePath string) error {
+	if relativePath == "" || relativePath == "." {
+		return nil
+	}
+
+	errCreate := store.client.CreateFileOrDirectory(store.context(), store.directory, relativePath, "", true, node.ProtectionPolicy{})
+	if errCreate != nil {
+		return fmt.Errorf("actions: create remote pre-start config directory: %w", errCreate)
+	}
+	return nil
+}
+
+func (store remotePreStartFileStore) WriteFile(relativePath string, data []byte) error {
+	errWrite := store.client.WriteFile(store.context(), store.directory, relativePath, data, node.ProtectionPolicy{})
+	if errWrite != nil {
+		return fmt.Errorf("actions: write remote pre-start config: %w", errWrite)
+	}
+	return nil
+}
+
+func (store remotePreStartFileStore) context() context.Context {
+	if store.ctx == nil {
+		return context.Background()
+	}
+	return store.ctx
 }
 
 func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
@@ -566,7 +627,18 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 		log.Info().Str("game_server_id", gameServer.ID).Msg(msg)
 	}
 
-	errAutoUpdate := inst.modManager.RunAutoUpdates(inst.ctx, gameServer.ID, "", gameServer.Directory, statusFn)
+	var errAutoUpdate error
+	if inst.nodeRegistry != nil && gameServer.NodeID != "" && gameServer.NodeID != inst.nodeRegistry.SelfID() {
+		client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
+		if errClient != nil {
+			log.Warn().Err(errClient).Str("game_server_id", gameServer.ID).
+				Msg("Pre-start mod auto-update: remote node unavailable, skipping")
+			return
+		}
+		errAutoUpdate = inst.modManager.RunAutoUpdatesRemote(inst.ctx, client, gameServer.ID, "", gameServer.Directory, statusFn)
+	} else {
+		errAutoUpdate = inst.modManager.RunAutoUpdates(inst.ctx, gameServer.ID, "", gameServer.Directory, statusFn)
+	}
 	if errAutoUpdate != nil {
 		log.Warn().Err(errAutoUpdate).Str("game_server_id", gameServer.ID).
 			Msg("Pre-start mod auto-update failed; continuing server startup")
@@ -578,11 +650,13 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 // embedded and remote servers stop on the same code path.
 func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 	nodeOS := inst.resolveNodeOS(inst.ctx, gameServer.NodeID)
+	inst.intentionalStops.mark(gameServer.ID)
 	if inst.nodeRegistry != nil {
 		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
 		if errGet == nil {
 			errStop := client.StopProcess(inst.ctx, gameServer.ID, gameStopCommand(gameServer.R.Game, nodeOS))
 			if errStop != nil && !errors.Is(errStop, supervisor.ErrCommandDoesNotExist) {
+				inst.intentionalStops.clear(gameServer.ID)
 				log.Error().Err(errStop).Str("node_id", gameServer.NodeID).
 					Msg("Failed to stop game server command")
 			}
@@ -597,6 +671,7 @@ func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 	// supervisor always runs the controller's own OS, so OperatingSystem is
 	// the correct flavor here.
 	if inst.supervisorInstance == nil {
+		inst.intentionalStops.clear(gameServer.ID)
 		return
 	}
 	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
@@ -636,7 +711,8 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 		return ErrGameUpdateNotConfigured
 	}
 	if internalUpdate {
-		if _, exists := internal.GetGame(gameServer.GameID); !exists {
+		_, exists := internal.GetGame(gameServer.GameID)
+		if !exists {
 			log.Warn().Str("Game Server ID", gameServer.ID).Str("Game ID", gameServer.GameID).Msg("No internal updater registered for this game")
 			return ErrInternalGameUpdateMissing
 		}

@@ -339,6 +339,9 @@ func runUpdate(ctx context.Context, cmd *cli.Command, options Options) error {
 		value := false
 		superUser = &value
 	}
+	if !updateHasRequestedChanges(cmd, password, superUser) {
+		return errors.New(`no changes requested; use --password-prompt, --password-stdin, or one of the profile update flags`)
+	}
 
 	modeFlags := modeFlagsFromCommand(cmd)
 	runner, cleanup, errRunner := newRunnerFunc(ctx, modeFlags, resolvedOptions, isOfflineMutation(modeFlags))
@@ -374,6 +377,17 @@ func runUpdate(ctx context.Context, cmd *cli.Command, options Options) error {
 	}
 
 	return printUserDetails(updatedUser)
+}
+
+func updateHasRequestedChanges(cmd *cli.Command, password *string, superUser *bool) bool {
+	if password != nil || superUser != nil {
+		return true
+	}
+
+	return cmd.IsSet(`username`) ||
+		cmd.IsSet(`email`) ||
+		cmd.IsSet(`first-name`) ||
+		cmd.IsSet(`last-name`)
 }
 
 func runDelete(ctx context.Context, cmd *cli.Command, options Options) error {

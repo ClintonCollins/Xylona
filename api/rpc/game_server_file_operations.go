@@ -93,40 +93,7 @@ func (xs *XylonaService) GameServerFilesArchive(ctx context.Context, request *co
 		return errPermission
 	}
 
-	if !xs.gameServerUsesEmbeddedNode(gameServer) {
-		return xs.archiveRemoteGameServerFiles(ctx, gameServer, request, c)
-	}
-
-	resultsChan := make(chan *xylona.GameServerFilesArchiveProgress)
-	go func() {
-		for {
-			select {
-			case <-xs.ctx.Done():
-				return
-			case <-ctx.Done():
-				return
-			case result := <-resultsChan:
-				if c != nil {
-					errSend := c.Send(result)
-					if errSend != nil {
-						return
-					}
-				}
-			}
-		}
-	}()
-
-	lastResult, errCompress := xs.actionsInst.ArchiveFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
-		request.Msg.GetFullFilePaths(), request.Msg.GetCompressionType(), resultsChan)
-	if errCompress != nil {
-		return fileMutationError(errCompress)
-	}
-	errSend := c.Send(lastResult)
-	if errSend != nil {
-		log.Err(errSend).Msg("failed to send last result")
-		return connect.NewError(connect.CodeInternal, errSend)
-	}
-	return nil
+	return xs.archiveGameServerFilesWithNodeClient(ctx, gameServer, request, c)
 }
 
 // GameServerFilesExtract streams archive extraction progress for a game server.
@@ -145,39 +112,7 @@ func (xs *XylonaService) GameServerFilesExtract(ctx context.Context, request *co
 		return errPermission
 	}
 
-	if !xs.gameServerUsesEmbeddedNode(gameServer) {
-		return xs.extractRemoteGameServerFiles(ctx, gameServer, request, c)
-	}
-
-	resultsChan := make(chan *xylona.GameServerFilesExtractProgress)
-	go func() {
-		if recover() != nil {
-			log.Error().Msg("recovered from panic")
-			return
-		}
-		for {
-			select {
-			case <-xs.ctx.Done():
-				return
-			case <-ctx.Done():
-				return
-			case result := <-resultsChan:
-				if c != nil {
-					errSend := c.Send(result)
-					if errSend != nil {
-						return
-					}
-				}
-			}
-		}
-	}()
-
-	_, errCompress := xs.actionsInst.ExtractFiles(ctx, gameServer, request.Msg.GetFullFilePath(),
-		request.Msg.GetDestinationBasePath(), resultsChan)
-	if errCompress != nil {
-		return fileMutationError(errCompress)
-	}
-	return nil
+	return xs.extractGameServerFilesWithNodeClient(ctx, gameServer, request, c)
 }
 
 // GameServerFilesCompress creates a compressed archive for game server files.
@@ -196,16 +131,7 @@ func (xs *XylonaService) GameServerFilesCompress(ctx context.Context, request *c
 		return nil, errPermission
 	}
 
-	if !xs.gameServerUsesEmbeddedNode(gameServer) {
-		return xs.compressRemoteGameServerFiles(ctx, gameServer, request)
-	}
-
-	results, errCompress := xs.actionsInst.ArchiveAndCompressFiles(ctx, gameServer, request.Msg.GetFullDestinationFilePath(),
-		request.Msg.GetFullFilePaths(), request.Msg.GetCompressionType())
-	if errCompress != nil {
-		return nil, fileMutationError(errCompress)
-	}
-	return connect.NewResponse(&xylona.GameServerFilesCompressionResponse{FullFilePath: results}), nil
+	return xs.compressGameServerFilesWithNodeClient(ctx, gameServer, request)
 }
 
 // GameServerFilesDecompress extracts an archive for a game server.
@@ -224,15 +150,7 @@ func (xs *XylonaService) GameServerFilesDecompress(ctx context.Context, request 
 		return nil, errPermission
 	}
 
-	if !xs.gameServerUsesEmbeddedNode(gameServer) {
-		return xs.decompressRemoteGameServerFiles(ctx, gameServer, request)
-	}
-
-	results, errDecompress := xs.actionsInst.ExtractArchive(ctx, gameServer, request.Msg.GetFullFilePath(), request.Msg.GetDestinationBasePath())
-	if errDecompress != nil {
-		return nil, fileMutationError(errDecompress)
-	}
-	return connect.NewResponse(&xylona.GameServerFilesDecompressionResponse{FullFilePaths: results}), nil
+	return xs.decompressGameServerFilesWithNodeClient(ctx, gameServer, request)
 }
 
 // GameServerFilesDownloadFromURL downloads a file into a game server directory.
@@ -254,11 +172,11 @@ func (xs *XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, req
 	if errClient != nil {
 		return nil, errClient
 	}
-	results, errDownload := client.DownloadFileFromURL(ctx, gameServer.Directory, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath(), xs.buildProtectionPolicy(gameServer))
+	result, errDownload := client.DownloadFileFromURL(ctx, gameServer.Directory, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath(), node.DownloadIntegrity{}, xs.buildProtectionPolicy(gameServer))
 	if errDownload != nil {
 		return nil, fileMutationError(errDownload)
 	}
-	return connect.NewResponse(&xylona.GameServersFileDownloadFromURLResponse{FilePath: results}), nil
+	return connect.NewResponse(&xylona.GameServersFileDownloadFromURLResponse{FilePath: result.RelativePath}), nil
 }
 
 // GameServerFileRename renames a file for a game server.

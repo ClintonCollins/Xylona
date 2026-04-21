@@ -2,6 +2,8 @@ package nodeclient
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"sync"
 
 	"github.com/ClintonCollins/Xylona/pkg/node"
@@ -51,8 +53,20 @@ type FakeNodeClient struct {
 	ReadFileErr    error
 	ReadFileCalls  []ListFilesCall
 
+	StatFileResult node.FileEntry
+	StatFileErr    error
+	StatFileCalls  []ListFilesCall
+
+	StreamFileReader io.ReadCloser
+	StreamFileErr    error
+	StreamFileCalls  []ListFilesCall
+
 	WriteFileErr   error
 	WriteFileCalls []WriteFileCall
+
+	StreamWriteFileResult node.WriteFileResult
+	StreamWriteFileErr    error
+	StreamWriteFileCalls  []StreamWriteFileCall
 
 	CreateFileOrDirectoryErr   error
 	CreateFileOrDirectoryCalls []CreateFileOrDirectoryCall
@@ -69,9 +83,23 @@ type FakeNodeClient struct {
 	MoveFilesErr    error
 	MoveFilesCalls  []MoveFilesCall
 
-	DownloadFileFromURLResult string
+	CopyFilesResult []string
+	CopyFilesErr    error
+	CopyFilesCalls  []CopyFilesCall
+
+	DownloadFileFromURLResult node.DownloadFileResult
 	DownloadFileFromURLErr    error
 	DownloadFileFromURLCalls  []DownloadFileFromURLCall
+
+	CreateFileArchiveResult   string
+	CreateFileArchiveProgress node.ArchiveProgress
+	CreateFileArchiveErr      error
+	CreateFileArchiveCalls    []CreateFileArchiveCall
+
+	ExtractFileArchiveResult   []string
+	ExtractFileArchiveProgress node.ExtractProgress
+	ExtractFileArchiveErr      error
+	ExtractFileArchiveCalls    []ExtractFileArchiveCall
 
 	CreateBackupArchiveBytes  int64
 	CreateBackupArchiveSHA256 string
@@ -80,6 +108,14 @@ type FakeNodeClient struct {
 
 	ExtractBackupArchiveErr   error
 	ExtractBackupArchiveCalls []ExtractBackupArchiveCall
+
+	ProbeInstalledVersionResult node.InstalledVersionProbeResult
+	ProbeInstalledVersionErr    error
+	ProbeInstalledVersionCalls  []node.InstalledVersionProbeRequest
+
+	QueryGameServerResult node.GameServerQueryResult
+	QueryGameServerErr    error
+	QueryGameServerCalls  []node.GameServerQueryRequest
 
 	SendConsoleOutputErr   error
 	SendConsoleOutputCalls []SendConsoleOutputCall
@@ -92,6 +128,10 @@ type FakeNodeClient struct {
 	SnapshotResult *node.NodeSnapshot
 	SnapshotErr    error
 	SnapshotCalls  int
+
+	BindableIPsResult []node.BindableIP
+	BindableIPsErr    error
+	BindableIPsCalls  int
 
 	StreamEventsChannel chan node.Event
 	StreamEventsErr     error
@@ -132,6 +172,14 @@ type WriteFileCall struct {
 	Content      []byte
 }
 
+// StreamWriteFileCall records a single StreamWriteFile invocation.
+type StreamWriteFileCall struct {
+	Directory    string
+	RelativePath string
+	Content      []byte
+	Policy       node.ProtectionPolicy
+}
+
 // CreateFileOrDirectoryCall records a single CreateFileOrDirectory invocation.
 type CreateFileOrDirectoryCall struct {
 	Directory    string
@@ -160,10 +208,34 @@ type MoveFilesCall struct {
 	Destination string
 }
 
+// CopyFilesCall records a single CopyFiles invocation.
+type CopyFilesCall struct {
+	Directory  string
+	Operations []node.CopyFileOperation
+	Policy     node.ProtectionPolicy
+}
+
 // DownloadFileFromURLCall records a single DownloadFileFromURL invocation.
 type DownloadFileFromURLCall struct {
 	Directory                string
 	RawURL                   string
+	DestinationDirectoryPath string
+	Integrity                node.DownloadIntegrity
+	Policy                   node.ProtectionPolicy
+}
+
+// CreateFileArchiveCall records a single CreateFileArchive invocation.
+type CreateFileArchiveCall struct {
+	Directory              string
+	DestinationArchivePath string
+	IncludePaths           []string
+	Compression            node.ArchiveCompression
+}
+
+// ExtractFileArchiveCall records a single ExtractFileArchive invocation.
+type ExtractFileArchiveCall struct {
+	Directory                string
+	ArchivePath              string
 	DestinationDirectoryPath string
 }
 
@@ -251,6 +323,22 @@ func (f *FakeNodeClient) ReadFile(_ context.Context, directory, relativePath str
 	return f.ReadFileResult, f.ReadFileErr
 }
 
+// StatFile records the call and returns the configured result.
+func (f *FakeNodeClient) StatFile(_ context.Context, directory, relativePath string) (node.FileEntry, error) {
+	f.mu.Lock()
+	f.StatFileCalls = append(f.StatFileCalls, ListFilesCall{Directory: directory, RelativePath: relativePath})
+	f.mu.Unlock()
+	return f.StatFileResult, f.StatFileErr
+}
+
+// StreamFile records the call and returns the configured reader.
+func (f *FakeNodeClient) StreamFile(_ context.Context, directory, relativePath string) (io.ReadCloser, error) {
+	f.mu.Lock()
+	f.StreamFileCalls = append(f.StreamFileCalls, ListFilesCall{Directory: directory, RelativePath: relativePath})
+	f.mu.Unlock()
+	return f.StreamFileReader, f.StreamFileErr
+}
+
 // WriteFile records the call and returns the configured error.
 func (f *FakeNodeClient) WriteFile(_ context.Context, directory, relativePath string, content []byte, _ node.ProtectionPolicy) error {
 	f.mu.Lock()
@@ -259,6 +347,23 @@ func (f *FakeNodeClient) WriteFile(_ context.Context, directory, relativePath st
 	f.WriteFileCalls = append(f.WriteFileCalls, WriteFileCall{Directory: directory, RelativePath: relativePath, Content: copied})
 	f.mu.Unlock()
 	return f.WriteFileErr
+}
+
+// StreamWriteFile records the call and returns the configured result.
+func (f *FakeNodeClient) StreamWriteFile(_ context.Context, directory, relativePath string, reader io.Reader, policy node.ProtectionPolicy) (node.WriteFileResult, error) {
+	var content []byte
+	if reader != nil {
+		data, errRead := io.ReadAll(reader)
+		if errRead != nil {
+			return node.WriteFileResult{}, fmt.Errorf("nodeclient fake: read stream write file: %w", errRead)
+		}
+		content = data
+	}
+	f.mu.Lock()
+	copied := append([]byte(nil), content...)
+	f.StreamWriteFileCalls = append(f.StreamWriteFileCalls, StreamWriteFileCall{Directory: directory, RelativePath: relativePath, Content: copied, Policy: policy})
+	f.mu.Unlock()
+	return f.StreamWriteFileResult, f.StreamWriteFileErr
 }
 
 // CreateFileOrDirectory records the call and returns the configured error.
@@ -304,16 +409,75 @@ func (f *FakeNodeClient) MoveFiles(_ context.Context, directory string, files []
 	return f.MoveFilesResult, f.MoveFilesErr
 }
 
+// CopyFiles records the call and returns the configured result.
+func (f *FakeNodeClient) CopyFiles(_ context.Context, directory string, operations []node.CopyFileOperation, policy node.ProtectionPolicy) ([]string, error) {
+	f.mu.Lock()
+	copiedOperations := append([]node.CopyFileOperation(nil), operations...)
+	f.CopyFilesCalls = append(f.CopyFilesCalls, CopyFilesCall{Directory: directory, Operations: copiedOperations, Policy: policy})
+	f.mu.Unlock()
+	return append([]string(nil), f.CopyFilesResult...), f.CopyFilesErr
+}
+
 // DownloadFileFromURL records the call and returns the configured result.
-func (f *FakeNodeClient) DownloadFileFromURL(_ context.Context, directory, rawURL, destinationDirectoryPath string, _ node.ProtectionPolicy) (string, error) {
+func (f *FakeNodeClient) DownloadFileFromURL(_ context.Context, directory, rawURL, destinationDirectoryPath string, integrity node.DownloadIntegrity, policy node.ProtectionPolicy) (node.DownloadFileResult, error) {
 	f.mu.Lock()
 	f.DownloadFileFromURLCalls = append(f.DownloadFileFromURLCalls, DownloadFileFromURLCall{
 		Directory:                directory,
 		RawURL:                   rawURL,
 		DestinationDirectoryPath: destinationDirectoryPath,
+		Integrity:                integrity,
+		Policy:                   policy,
 	})
 	f.mu.Unlock()
 	return f.DownloadFileFromURLResult, f.DownloadFileFromURLErr
+}
+
+// CreateFileArchive records the call and returns the configured result.
+func (f *FakeNodeClient) CreateFileArchive(_ context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, _ node.ProtectionPolicy) (string, node.ArchiveProgress, error) {
+	return f.CreateFileArchiveWithProgress(context.Background(), directory, destinationArchivePath, includePaths, compression, node.ProtectionPolicy{}, nil)
+}
+
+// CreateFileArchiveWithProgress records the call and returns the configured result.
+func (f *FakeNodeClient) CreateFileArchiveWithProgress(_ context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, _ node.ProtectionPolicy, onProgress func(node.ArchiveProgress) error) (string, node.ArchiveProgress, error) {
+	f.mu.Lock()
+	copied := append([]string(nil), includePaths...)
+	f.CreateFileArchiveCalls = append(f.CreateFileArchiveCalls, CreateFileArchiveCall{
+		Directory:              directory,
+		DestinationArchivePath: destinationArchivePath,
+		IncludePaths:           copied,
+		Compression:            compression,
+	})
+	f.mu.Unlock()
+	if onProgress != nil {
+		errProgress := onProgress(f.CreateFileArchiveProgress)
+		if errProgress != nil {
+			return "", node.ArchiveProgress{}, errProgress
+		}
+	}
+	return f.CreateFileArchiveResult, f.CreateFileArchiveProgress, f.CreateFileArchiveErr
+}
+
+// ExtractFileArchive records the call and returns the configured result.
+func (f *FakeNodeClient) ExtractFileArchive(_ context.Context, directory string, archivePath string, destinationDirectoryPath string, _ node.ProtectionPolicy) ([]string, node.ExtractProgress, error) {
+	return f.ExtractFileArchiveWithProgress(context.Background(), directory, archivePath, destinationDirectoryPath, node.ProtectionPolicy{}, nil)
+}
+
+// ExtractFileArchiveWithProgress records the call and returns the configured result.
+func (f *FakeNodeClient) ExtractFileArchiveWithProgress(_ context.Context, directory string, archivePath string, destinationDirectoryPath string, _ node.ProtectionPolicy, onProgress func(node.ExtractProgress) error) ([]string, node.ExtractProgress, error) {
+	f.mu.Lock()
+	f.ExtractFileArchiveCalls = append(f.ExtractFileArchiveCalls, ExtractFileArchiveCall{
+		Directory:                directory,
+		ArchivePath:              archivePath,
+		DestinationDirectoryPath: destinationDirectoryPath,
+	})
+	f.mu.Unlock()
+	if onProgress != nil {
+		errProgress := onProgress(f.ExtractFileArchiveProgress)
+		if errProgress != nil {
+			return nil, node.ExtractProgress{}, errProgress
+		}
+	}
+	return append([]string(nil), f.ExtractFileArchiveResult...), f.ExtractFileArchiveProgress, f.ExtractFileArchiveErr
 }
 
 // CreateBackupArchive records the call and returns the configured result.
@@ -341,6 +505,24 @@ func (f *FakeNodeClient) ExtractBackupArchive(_ context.Context, directory strin
 	return f.ExtractBackupArchiveErr
 }
 
+// ProbeInstalledVersion records the call and returns the configured result.
+func (f *FakeNodeClient) ProbeInstalledVersion(_ context.Context, req node.InstalledVersionProbeRequest) (node.InstalledVersionProbeResult, error) {
+	f.mu.Lock()
+	copied := req
+	copied.RelativePaths = append([]string(nil), req.RelativePaths...)
+	f.ProbeInstalledVersionCalls = append(f.ProbeInstalledVersionCalls, copied)
+	f.mu.Unlock()
+	return f.ProbeInstalledVersionResult, f.ProbeInstalledVersionErr
+}
+
+// QueryGameServer records the call and returns the configured result.
+func (f *FakeNodeClient) QueryGameServer(_ context.Context, req node.GameServerQueryRequest) (node.GameServerQueryResult, error) {
+	f.mu.Lock()
+	f.QueryGameServerCalls = append(f.QueryGameServerCalls, req)
+	f.mu.Unlock()
+	return f.QueryGameServerResult, f.QueryGameServerErr
+}
+
 // SendConsoleOutput records the call and returns the configured error.
 func (f *FakeNodeClient) SendConsoleOutput(_ context.Context, processID, line string) error {
 	f.mu.Lock()
@@ -366,6 +548,14 @@ func (f *FakeNodeClient) GetNodeSnapshot(_ context.Context) (*node.NodeSnapshot,
 	f.SnapshotCalls++
 	f.mu.Unlock()
 	return f.SnapshotResult, f.SnapshotErr
+}
+
+// ListBindableIPs records the call and returns the configured result.
+func (f *FakeNodeClient) ListBindableIPs(_ context.Context) ([]node.BindableIP, error) {
+	f.mu.Lock()
+	f.BindableIPsCalls++
+	f.mu.Unlock()
+	return append([]node.BindableIP(nil), f.BindableIPsResult...), f.BindableIPsErr
 }
 
 // StreamEvents records the call and returns the configured channel.

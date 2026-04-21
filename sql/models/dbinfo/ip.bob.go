@@ -51,14 +51,42 @@ var Ips = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		NodeID: column{
+			Name:      "node_id",
+			DBType:    "TEXT",
+			Default:   "",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: ipIndexes{
+		IdxIPNodeID: index{
+			Type: "c",
+			Name: "idx_ip_node_id",
+			Columns: []indexColumn{
+				{
+					Name:         "node_id",
+					Desc:         null.FromCond(false, true),
+					IsExpression: false,
+				},
+			},
+			Unique:  false,
+			Comment: "",
+			Partial: false,
+		},
 		SqliteAutoindexIP1: index{
 			Type: "pk",
 			Name: "sqlite_autoindex_ip_1",
 			Columns: []indexColumn{
 				{
 					Name:         "address",
+					Desc:         null.FromCond(false, true),
+					IsExpression: false,
+				},
+				{
+					Name:         "node_id",
 					Desc:         null.FromCond(false, true),
 					IsExpression: false,
 				},
@@ -70,8 +98,19 @@ var Ips = Table[
 	},
 	PrimaryKey: &constraint{
 		Name:    "pk_main_ip",
-		Columns: []string{"address"},
+		Columns: []string{"address", "node_id"},
 		Comment: "",
+	},
+	ForeignKeys: ipForeignKeys{
+		FKIP0: foreignKey{
+			constraint: constraint{
+				Name:    "fk_ip_0",
+				Columns: []string{"node_id"},
+				Comment: "",
+			},
+			ForeignTable:   "node",
+			ForeignColumns: []string{"id"},
+		},
 	},
 
 	Comment: "",
@@ -82,28 +121,34 @@ type ipColumns struct {
 	Usable             column
 	External           column
 	AutomaticallyAdded column
+	NodeID             column
 }
 
 func (c ipColumns) AsSlice() []column {
 	return []column{
-		c.Address, c.Usable, c.External, c.AutomaticallyAdded,
+		c.Address, c.Usable, c.External, c.AutomaticallyAdded, c.NodeID,
 	}
 }
 
 type ipIndexes struct {
+	IdxIPNodeID        index
 	SqliteAutoindexIP1 index
 }
 
 func (i ipIndexes) AsSlice() []index {
 	return []index{
-		i.SqliteAutoindexIP1,
+		i.IdxIPNodeID, i.SqliteAutoindexIP1,
 	}
 }
 
-type ipForeignKeys struct{}
+type ipForeignKeys struct {
+	FKIP0 foreignKey
+}
 
 func (f ipForeignKeys) AsSlice() []foreignKey {
-	return []foreignKey{}
+	return []foreignKey{
+		f.FKIP0,
+	}
 }
 
 type ipUniques struct{}

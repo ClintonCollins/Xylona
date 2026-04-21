@@ -7,7 +7,7 @@ var IPErrors = &ipErrors{
 	ErrUniquePkMainIp: &UniqueConstraintError{
 		schema:  "",
 		table:   "ip",
-		columns: []string{"address"},
+		columns: []string{"address", "node_id"},
 		s:       "pk_main_ip",
 	},
 }

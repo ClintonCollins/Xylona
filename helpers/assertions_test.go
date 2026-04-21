@@ -893,27 +893,31 @@ func TestIPModelToProto(t *testing.T) {
 		wantAddress  string
 		wantUsable   bool
 		wantExternal bool
+		wantNodeID   string
 	}{
 		{
 			name:         "all fields set",
-			input:        &models.IP{Address: "192.168.1.1", Usable: true, External: false},
+			input:        &models.IP{Address: "192.168.1.1", Usable: true, External: false, NodeID: "node-1"},
 			wantAddress:  "192.168.1.1",
 			wantUsable:   true,
 			wantExternal: false,
+			wantNodeID:   "node-1",
 		},
 		{
 			name:         "external IP",
-			input:        &models.IP{Address: "8.8.8.8", Usable: true, External: true},
+			input:        &models.IP{Address: "8.8.8.8", Usable: true, External: true, NodeID: "node-2"},
 			wantAddress:  "8.8.8.8",
 			wantUsable:   true,
 			wantExternal: true,
+			wantNodeID:   "node-2",
 		},
 		{
 			name:         "unusable IP",
-			input:        &models.IP{Address: "10.0.0.1", Usable: false, External: false},
+			input:        &models.IP{Address: "10.0.0.1", Usable: false, External: false, NodeID: "node-3"},
 			wantAddress:  "10.0.0.1",
 			wantUsable:   false,
 			wantExternal: false,
+			wantNodeID:   "node-3",
 		},
 	}
 
@@ -928,6 +932,9 @@ func TestIPModelToProto(t *testing.T) {
 			}
 			if got.GetExternal() != tt.wantExternal {
 				t.Errorf("External = %v, want %v", got.GetExternal(), tt.wantExternal)
+			}
+			if got.GetNodeId() != tt.wantNodeID {
+				t.Errorf("NodeId = %q, want %q", got.GetNodeId(), tt.wantNodeID)
 			}
 		})
 	}

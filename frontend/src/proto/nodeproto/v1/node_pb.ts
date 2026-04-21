@@ -17,7 +17,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nodeproto/v1/node.proto.
  */
 export const file_nodeproto_v1_node: GenFile = /*@__PURE__*/
-  fileDesc("Chdub2RlcHJvdG8vdjEvbm9kZS5wcm90bxIOeHlsb25hLm5vZGUudjEicAoJRmlsZUVudHJ5EgwKBG5hbWUYASABKAkSDAoEc2l6ZRgCIAEoAxIUCgxpc19kaXJlY3RvcnkYAyABKAgSMQoNbGFzdF9tb2RpZmllZBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAixwIKD1Byb2Nlc3NTbmFwc2hvdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnN0YXR1cxgDIAEoCRIXCg91bml4X3N0YXJ0ZWRfYXQYBCABKAMSEwoLY3B1X3BlcmNlbnQYBSABKAESEQoJY3B1X2NvcmVzGAYgASgFEhIKCm1lbW9yeV9yc3MYByABKAQSEgoKbWVtb3J5X3ZtcxgIIAEoBBIWCg5tZW1vcnlfcGVyY2VudBgJIAEoAhITCgtudW1fdGhyZWFkcxgKIAEoBRIYChBkaXNrX3VzYWdlX2J5dGVzGAsgASgEEhQKDGlvX3JlYWRfcmF0ZRgMIAEoARIVCg1pb193cml0ZV9yYXRlGA0gASgBEhgKEGNvbm5lY3Rpb25fY291bnQYDiABKAUSEwoLd29ya2luZ19kaXIYDyABKAkirQMKDE5vZGVTbmFwc2hvdBIRCgljcHVfbW9kZWwYASABKAkSEQoJY3B1X2NvcmVzGAIgASgFEhMKC2NwdV90aHJlYWRzGAMgASgFEhQKDHRvdGFsX21lbW9yeRgEIAEoBBIKCgJvcxgFIAEoCRISCgpvc192ZXJzaW9uGAYgASgJEhQKDGFyY2hpdGVjdHVyZRgHIAEoCRIWCg54eWxvbmFfdmVyc2lvbhgIIAEoCRITCgtjcHVfcGVyY2VudBgJIAEoARITCgttZW1vcnlfdXNlZBgKIAEoBBIWCg5tZW1vcnlfcGVyY2VudBgLIAEoARIRCglkaXNrX3VzZWQYDCABKAQSEgoKZGlza190b3RhbBgNIAEoBBIUCgxkaXNrX3BlcmNlbnQYDiABKAESMgoJcHJvY2Vzc2VzGA8gAygLMh8ueHlsb25hLm5vZGUudjEuUHJvY2Vzc1NuYXBzaG90Ei0KCWNvbGxlY3RlZBgQIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASHAoUZGVmYXVsdF9pbnN0YWxsX3BhdGgYESABKAkiYwoMQ29uc29sZUNodW5rEhYKDmdhbWVfc2VydmVyX2lkGAEgASgJEgwKBHRleHQYAiABKAkSLQoJdGltZXN0YW1wGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCI4ChJQcm9jZXNzU3RhdHVzRXZlbnQSEgoKcHJvY2Vzc19pZBgBIAEoCRIOCgZzdGF0dXMYAiABKAkiRAoSTWV0cmljc1VwZGF0ZUV2ZW50Ei4KCHNuYXBzaG90GAEgASgLMhwueHlsb25hLm5vZGUudjEuTm9kZVNuYXBzaG90IkoKEVByb2Nlc3NDcmFzaEV2ZW50EhIKCnByb2Nlc3NfaWQYASABKAkSDgoGcmVhc29uGAIgASgJEhEKCWV4aXRfY29kZRgDIAEoBSKxAgoFRXZlbnQSLQoJdGltZXN0YW1wGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI8Cg5wcm9jZXNzX3N0YXR1cxgCIAEoCzIiLnh5bG9uYS5ub2RlLnYxLlByb2Nlc3NTdGF0dXNFdmVudEgAEjYKDmNvbnNvbGVfb3V0cHV0GAMgASgLMhwueHlsb25hLm5vZGUudjEuQ29uc29sZUNodW5rSAASPAoObWV0cmljc191cGRhdGUYBCABKAsyIi54eWxvbmEubm9kZS52MS5NZXRyaWNzVXBkYXRlRXZlbnRIABI6Cg1wcm9jZXNzX2NyYXNoGAUgASgLMiEueHlsb25hLm5vZGUudjEuUHJvY2Vzc0NyYXNoRXZlbnRIAEIJCgdwYXlsb2FkIqoCChNTdGFydFByb2Nlc3NSZXF1ZXN0EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSFAoMYmFzZV9jb21tYW5kGAMgASgJEgwKBGFyZ3MYBCADKAkSGQoRd29ya2luZ19kaXJlY3RvcnkYBSABKAkSDAoEdXNlchgGIAEoCRIPCgdub2RlX2lkGAcgASgJEhIKCnNlcnZpY2VfaWQYCCABKAkSHAoUc3RvcF90aW1lb3V0X3NlY29uZHMYCSABKAMSNQoOaW5pdGlhbF9zdGF0dXMYCiABKA4yHS54eWxvbmEubm9kZS52MS5Qcm9jZXNzU3RhdHVzEhgKEGludGVybmFsX2NvbW1hbmQYCyABKAgSGAoQaW50ZXJuYWxfZ2FtZV9pZBgMIAEoCSIqChRTdGFydFByb2Nlc3NSZXNwb25zZRISCgpwcm9jZXNzX2lkGAEgASgJIkQKElN0b3BQcm9jZXNzUmVxdWVzdBISCgpwcm9jZXNzX2lkGAEgASgJEhoKEnN0b3BfaW5wdXRfY29tbWFuZBgCIAEoCSIVChNTdG9wUHJvY2Vzc1Jlc3BvbnNlIjwKF1NlbmRDb25zb2xlSW5wdXRSZXF1ZXN0EhIKCnByb2Nlc3NfaWQYASABKAkSDQoFaW5wdXQYAiABKAkiGgoYU2VuZENvbnNvbGVJbnB1dFJlc3BvbnNlIi4KGFJlYWRDb25zb2xlQnVmZmVyUmVxdWVzdBISCgpwcm9jZXNzX2lkGAEgASgJIkgKGVJlYWRDb25zb2xlQnVmZmVyUmVzcG9uc2USKwoFY2h1bmsYASABKAsyHC54eWxvbmEubm9kZS52MS5Db25zb2xlQ2h1bmsiMAoaU3RyZWFtQ29uc29sZU91dHB1dFJlcXVlc3QSEgoKcHJvY2Vzc19pZBgBIAEoCSI8ChBMaXN0RmlsZXNSZXF1ZXN0EhEKCWRpcmVjdG9yeRgBIAEoCRIVCg1yZWxhdGl2ZV9wYXRoGAIgASgJIj8KEUxpc3RGaWxlc1Jlc3BvbnNlEioKB2VudHJpZXMYASADKAsyGS54eWxvbmEubm9kZS52MS5GaWxlRW50cnkiOwoPUmVhZEZpbGVSZXF1ZXN0EhEKCWRpcmVjdG9yeRgBIAEoCRIVCg1yZWxhdGl2ZV9wYXRoGAIgASgJIiMKEFJlYWRGaWxlUmVzcG9uc2USDwoHY29udGVudBgBIAEoDCJ+ChBXcml0ZUZpbGVSZXF1ZXN0EhEKCWRpcmVjdG9yeRgBIAEoCRIVCg1yZWxhdGl2ZV9wYXRoGAIgASgJEg8KB2NvbnRlbnQYAyABKAwSGQoRc2VydmVyX2V4ZWN1dGFibGUYBCABKAkSFAoMYmFzZV9jb21tYW5kGAUgASgJIhMKEVdyaXRlRmlsZVJlc3BvbnNlIqABChxDcmVhdGVGaWxlT3JEaXJlY3RvcnlSZXF1ZXN0EhEKCWRpcmVjdG9yeRgBIAEoCRIVCg1yZWxhdGl2ZV9wYXRoGAIgASgJEg8KB2NvbnRlbnQYAyABKAkSFAoMaXNfZGlyZWN0b3J5GAQgASgIEhkKEXNlcnZlcl9leGVjdXRhYmxlGAUgASgJEhQKDGJhc2VfY29tbWFuZBgGIAEoCSIfCh1DcmVhdGVGaWxlT3JEaXJlY3RvcnlSZXNwb25zZSJnChJEZWxldGVGaWxlc1JlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEg0KBWZpbGVzGAIgAygJEhkKEXNlcnZlcl9leGVjdXRhYmxlGAMgASgJEhQKDGJhc2VfY29tbWFuZBgEIAEoCSImChNEZWxldGVGaWxlc1Jlc3BvbnNlEg8KB2RlbGV0ZWQYASADKAkijQEKEVJlbmFtZUZpbGVSZXF1ZXN0EhEKCWRpcmVjdG9yeRgBIAEoCRIZChFvbGRfcmVsYXRpdmVfcGF0aBgCIAEoCRIZChFuZXdfcmVsYXRpdmVfcGF0aBgDIAEoCRIZChFzZXJ2ZXJfZXhlY3V0YWJsZRgEIAEoCRIUCgxiYXNlX2NvbW1hbmQYBSABKAkiLwoSUmVuYW1lRmlsZVJlc3BvbnNlEhkKEW5ld19yZWxhdGl2ZV9wYXRoGAEgASgJInoKEE1vdmVGaWxlc1JlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEg0KBWZpbGVzGAIgAygJEhMKC2Rlc3RpbmF0aW9uGAMgASgJEhkKEXNlcnZlcl9leGVjdXRhYmxlGAQgASgJEhQKDGJhc2VfY29tbWFuZBgFIAEoCSIiChFNb3ZlRmlsZXNSZXNwb25zZRINCgVtb3ZlZBgBIAMoCSKRAQoaRG93bmxvYWRGaWxlRnJvbVVSTFJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEgsKA3VybBgCIAEoCRIiChpkZXN0aW5hdGlvbl9kaXJlY3RvcnlfcGF0aBgDIAEoCRIZChFzZXJ2ZXJfZXhlY3V0YWJsZRgEIAEoCRIUCgxiYXNlX2NvbW1hbmQYBSABKAkiNAobRG93bmxvYWRGaWxlRnJvbVVSTFJlc3BvbnNlEhUKDXJlbGF0aXZlX3BhdGgYASABKAkiaAoaQ3JlYXRlQmFja3VwQXJjaGl2ZVJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEhUKDWluY2x1ZGVfcGF0aHMYAiADKAkSIAoYZGVzdGluYXRpb25fYXJjaGl2ZV9wYXRoGAMgASgJIkwKG0NyZWF0ZUJhY2t1cEFyY2hpdmVSZXNwb25zZRIVCg1hcmNoaXZlX2J5dGVzGAEgASgDEhYKDmFyY2hpdmVfc2hhMjU2GAIgASgJInEKG0V4dHJhY3RCYWNrdXBBcmNoaXZlUmVxdWVzdBIRCglkaXJlY3RvcnkYASABKAkSFAoMYXJjaGl2ZV9wYXRoGAIgASgJEikKBG1vZGUYAyABKA4yGy54eWxvbmEubm9kZS52MS5FeHRyYWN0TW9kZSIeChxFeHRyYWN0QmFja3VwQXJjaGl2ZVJlc3BvbnNlIjwKGFNlbmRDb25zb2xlT3V0cHV0UmVxdWVzdBISCgpwcm9jZXNzX2lkGAEgASgJEgwKBGxpbmUYAiABKAkiGwoZU2VuZENvbnNvbGVPdXRwdXRSZXNwb25zZSIvChlHZXRQcm9jZXNzU25hcHNob3RSZXF1ZXN0EhIKCnByb2Nlc3NfaWQYASABKAkiXgoaR2V0UHJvY2Vzc1NuYXBzaG90UmVzcG9uc2USMQoIc25hcHNob3QYASABKAsyHy54eWxvbmEubm9kZS52MS5Qcm9jZXNzU25hcHNob3QSDQoFZm91bmQYAiABKAgiGAoWR2V0Tm9kZVNuYXBzaG90UmVxdWVzdCIVChNTdHJlYW1FdmVudHNSZXF1ZXN0Ig0KC1BpbmdSZXF1ZXN0Ij8KDFBpbmdSZXNwb25zZRIvCgtzZXJ2ZXJfdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAqvwIKDU5vZGVFcnJvckNvZGUSGgoWTk9ERV9FUlJPUl9VTlNQRUNJRklFRBAAEhsKF05PREVfRVJST1JfSU5WQUxJRF9QQVRIEAESHQoZTk9ERV9FUlJPUl9QUk9URUNURURfUEFUSBACEiAKHE5PREVfRVJST1JfUFJPQ0VTU19OT1RfRk9VTkQQAxImCiJOT0RFX0VSUk9SX1BST0NFU1NfQUxSRUFEWV9SVU5OSU5HEAQSIgoeTk9ERV9FUlJPUl9QUk9DRVNTX05PVF9SVU5OSU5HEAUSGwoXTk9ERV9FUlJPUl9TVEFSVF9GQUlMRUQQBhIdChlOT0RFX0VSUk9SX0ZJTEVfTk9UX0ZPVU5EEAcSEQoNTk9ERV9FUlJPUl9JTxAIEhkKFU5PREVfRVJST1JfUEVSTUlTU0lPThAJKrwBCg1Qcm9jZXNzU3RhdHVzEhoKFlBST0NFU1NfU1RBVFVTX1VOS05PV04QABIaChZQUk9DRVNTX1NUQVRVU19PRkZMSU5FEAESGQoVUFJPQ0VTU19TVEFUVVNfT05MSU5FEAISHQoZUFJPQ0VTU19TVEFUVVNfSU5TVEFMTElORxADEhsKF1BST0NFU1NfU1RBVFVTX1VQREFUSU5HEAQSHAoYUFJPQ0VTU19TVEFUVVNfUFJFX1NUQVJUEAUqXQoLRXh0cmFjdE1vZGUSHAoYRVhUUkFDVF9NT0RFX1VOU1BFQ0lGSUVEEAASGAoURVhUUkFDVF9NT0RFX09WRVJMQVkQARIWChJFWFRSQUNUX01PREVfRVhBQ1QQAjLwDgoLTm9kZVNlcnZpY2USWQoMU3RhcnRQcm9jZXNzEiMueHlsb25hLm5vZGUudjEuU3RhcnRQcm9jZXNzUmVxdWVzdBokLnh5bG9uYS5ub2RlLnYxLlN0YXJ0UHJvY2Vzc1Jlc3BvbnNlElYKC1N0b3BQcm9jZXNzEiIueHlsb25hLm5vZGUudjEuU3RvcFByb2Nlc3NSZXF1ZXN0GiMueHlsb25hLm5vZGUudjEuU3RvcFByb2Nlc3NSZXNwb25zZRJlChBTZW5kQ29uc29sZUlucHV0EicueHlsb25hLm5vZGUudjEuU2VuZENvbnNvbGVJbnB1dFJlcXVlc3QaKC54eWxvbmEubm9kZS52MS5TZW5kQ29uc29sZUlucHV0UmVzcG9uc2USaAoRUmVhZENvbnNvbGVCdWZmZXISKC54eWxvbmEubm9kZS52MS5SZWFkQ29uc29sZUJ1ZmZlclJlcXVlc3QaKS54eWxvbmEubm9kZS52MS5SZWFkQ29uc29sZUJ1ZmZlclJlc3BvbnNlEmEKE1N0cmVhbUNvbnNvbGVPdXRwdXQSKi54eWxvbmEubm9kZS52MS5TdHJlYW1Db25zb2xlT3V0cHV0UmVxdWVzdBocLnh5bG9uYS5ub2RlLnYxLkNvbnNvbGVDaHVuazABElAKCUxpc3RGaWxlcxIgLnh5bG9uYS5ub2RlLnYxLkxpc3RGaWxlc1JlcXVlc3QaIS54eWxvbmEubm9kZS52MS5MaXN0RmlsZXNSZXNwb25zZRJNCghSZWFkRmlsZRIfLnh5bG9uYS5ub2RlLnYxLlJlYWRGaWxlUmVxdWVzdBogLnh5bG9uYS5ub2RlLnYxLlJlYWRGaWxlUmVzcG9uc2USUAoJV3JpdGVGaWxlEiAueHlsb25hLm5vZGUudjEuV3JpdGVGaWxlUmVxdWVzdBohLnh5bG9uYS5ub2RlLnYxLldyaXRlRmlsZVJlc3BvbnNlEnQKFUNyZWF0ZUZpbGVPckRpcmVjdG9yeRIsLnh5bG9uYS5ub2RlLnYxLkNyZWF0ZUZpbGVPckRpcmVjdG9yeVJlcXVlc3QaLS54eWxvbmEubm9kZS52MS5DcmVhdGVGaWxlT3JEaXJlY3RvcnlSZXNwb25zZRJWCgtEZWxldGVGaWxlcxIiLnh5bG9uYS5ub2RlLnYxLkRlbGV0ZUZpbGVzUmVxdWVzdBojLnh5bG9uYS5ub2RlLnYxLkRlbGV0ZUZpbGVzUmVzcG9uc2USUwoKUmVuYW1lRmlsZRIhLnh5bG9uYS5ub2RlLnYxLlJlbmFtZUZpbGVSZXF1ZXN0GiIueHlsb25hLm5vZGUudjEuUmVuYW1lRmlsZVJlc3BvbnNlElAKCU1vdmVGaWxlcxIgLnh5bG9uYS5ub2RlLnYxLk1vdmVGaWxlc1JlcXVlc3QaIS54eWxvbmEubm9kZS52MS5Nb3ZlRmlsZXNSZXNwb25zZRJuChNEb3dubG9hZEZpbGVGcm9tVVJMEioueHlsb25hLm5vZGUudjEuRG93bmxvYWRGaWxlRnJvbVVSTFJlcXVlc3QaKy54eWxvbmEubm9kZS52MS5Eb3dubG9hZEZpbGVGcm9tVVJMUmVzcG9uc2USbgoTQ3JlYXRlQmFja3VwQXJjaGl2ZRIqLnh5bG9uYS5ub2RlLnYxLkNyZWF0ZUJhY2t1cEFyY2hpdmVSZXF1ZXN0GisueHlsb25hLm5vZGUudjEuQ3JlYXRlQmFja3VwQXJjaGl2ZVJlc3BvbnNlEnEKFEV4dHJhY3RCYWNrdXBBcmNoaXZlEisueHlsb25hLm5vZGUudjEuRXh0cmFjdEJhY2t1cEFyY2hpdmVSZXF1ZXN0GiwueHlsb25hLm5vZGUudjEuRXh0cmFjdEJhY2t1cEFyY2hpdmVSZXNwb25zZRJoChFTZW5kQ29uc29sZU91dHB1dBIoLnh5bG9uYS5ub2RlLnYxLlNlbmRDb25zb2xlT3V0cHV0UmVxdWVzdBopLnh5bG9uYS5ub2RlLnYxLlNlbmRDb25zb2xlT3V0cHV0UmVzcG9uc2USawoSR2V0UHJvY2Vzc1NuYXBzaG90EikueHlsb25hLm5vZGUudjEuR2V0UHJvY2Vzc1NuYXBzaG90UmVxdWVzdBoqLnh5bG9uYS5ub2RlLnYxLkdldFByb2Nlc3NTbmFwc2hvdFJlc3BvbnNlElcKD0dldE5vZGVTbmFwc2hvdBImLnh5bG9uYS5ub2RlLnYxLkdldE5vZGVTbmFwc2hvdFJlcXVlc3QaHC54eWxvbmEubm9kZS52MS5Ob2RlU25hcHNob3QSTAoMU3RyZWFtRXZlbnRzEiMueHlsb25hLm5vZGUudjEuU3RyZWFtRXZlbnRzUmVxdWVzdBoVLnh5bG9uYS5ub2RlLnYxLkV2ZW50MAESQQoEUGluZxIbLnh5bG9uYS5ub2RlLnYxLlBpbmdSZXF1ZXN0GhwueHlsb25hLm5vZGUudjEuUGluZ1Jlc3BvbnNlQklaR2dpdGh1Yi5jb20vQ2xpbnRvbkNvbGxpbnMvWHlsb25hL3Byb3RvL2dvL3h5bG9uYS9ub2RlcHJvdG8vdjE7bm9kZXByb3RvYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("Chdub2RlcHJvdG8vdjEvbm9kZS5wcm90bxIOeHlsb25hLm5vZGUudjEihwEKCUZpbGVFbnRyeRIMCgRuYW1lGAEgASgJEgwKBHNpemUYAiABKAMSFAoMaXNfZGlyZWN0b3J5GAMgASgIEjEKDWxhc3RfbW9kaWZpZWQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKDWlzX2V4ZWN1dGFibGUYBSABKAgixwIKD1Byb2Nlc3NTbmFwc2hvdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBnN0YXR1cxgDIAEoCRIXCg91bml4X3N0YXJ0ZWRfYXQYBCABKAMSEwoLY3B1X3BlcmNlbnQYBSABKAESEQoJY3B1X2NvcmVzGAYgASgFEhIKCm1lbW9yeV9yc3MYByABKAQSEgoKbWVtb3J5X3ZtcxgIIAEoBBIWCg5tZW1vcnlfcGVyY2VudBgJIAEoAhITCgtudW1fdGhyZWFkcxgKIAEoBRIYChBkaXNrX3VzYWdlX2J5dGVzGAsgASgEEhQKDGlvX3JlYWRfcmF0ZRgMIAEoARIVCg1pb193cml0ZV9yYXRlGA0gASgBEhgKEGNvbm5lY3Rpb25fY291bnQYDiABKAUSEwoLd29ya2luZ19kaXIYDyABKAkirQMKDE5vZGVTbmFwc2hvdBIRCgljcHVfbW9kZWwYASABKAkSEQoJY3B1X2NvcmVzGAIgASgFEhMKC2NwdV90aHJlYWRzGAMgASgFEhQKDHRvdGFsX21lbW9yeRgEIAEoBBIKCgJvcxgFIAEoCRISCgpvc192ZXJzaW9uGAYgASgJEhQKDGFyY2hpdGVjdHVyZRgHIAEoCRIWCg54eWxvbmFfdmVyc2lvbhgIIAEoCRITCgtjcHVfcGVyY2VudBgJIAEoARITCgttZW1vcnlfdXNlZBgKIAEoBBIWCg5tZW1vcnlfcGVyY2VudBgLIAEoARIRCglkaXNrX3VzZWQYDCABKAQSEgoKZGlza190b3RhbBgNIAEoBBIUCgxkaXNrX3BlcmNlbnQYDiABKAESMgoJcHJvY2Vzc2VzGA8gAygLMh8ueHlsb25hLm5vZGUudjEuUHJvY2Vzc1NuYXBzaG90Ei0KCWNvbGxlY3RlZBgQIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASHAoUZGVmYXVsdF9pbnN0YWxsX3BhdGgYESABKAkiPwoKQmluZGFibGVJUBIPCgdhZGRyZXNzGAEgASgJEg4KBnVzYWJsZRgCIAEoCBIQCghleHRlcm5hbBgDIAEoCCJjCgxDb25zb2xlQ2h1bmsSFgoOZ2FtZV9zZXJ2ZXJfaWQYASABKAkSDAoEdGV4dBgCIAEoCRItCgl0aW1lc3RhbXAYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIjgKElByb2Nlc3NTdGF0dXNFdmVudBISCgpwcm9jZXNzX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCSJEChJNZXRyaWNzVXBkYXRlRXZlbnQSLgoIc25hcHNob3QYASABKAsyHC54eWxvbmEubm9kZS52MS5Ob2RlU25hcHNob3QiSgoRUHJvY2Vzc0NyYXNoRXZlbnQSEgoKcHJvY2Vzc19pZBgBIAEoCRIOCgZyZWFzb24YAiABKAkSEQoJZXhpdF9jb2RlGAMgASgFIrECCgVFdmVudBItCgl0aW1lc3RhbXAYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjwKDnByb2Nlc3Nfc3RhdHVzGAIgASgLMiIueHlsb25hLm5vZGUudjEuUHJvY2Vzc1N0YXR1c0V2ZW50SAASNgoOY29uc29sZV9vdXRwdXQYAyABKAsyHC54eWxvbmEubm9kZS52MS5Db25zb2xlQ2h1bmtIABI8Cg5tZXRyaWNzX3VwZGF0ZRgEIAEoCzIiLnh5bG9uYS5ub2RlLnYxLk1ldHJpY3NVcGRhdGVFdmVudEgAEjoKDXByb2Nlc3NfY3Jhc2gYBSABKAsyIS54eWxvbmEubm9kZS52MS5Qcm9jZXNzQ3Jhc2hFdmVudEgAQgkKB3BheWxvYWQiqgIKE1N0YXJ0UHJvY2Vzc1JlcXVlc3QSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIUCgxiYXNlX2NvbW1hbmQYAyABKAkSDAoEYXJncxgEIAMoCRIZChF3b3JraW5nX2RpcmVjdG9yeRgFIAEoCRIMCgR1c2VyGAYgASgJEg8KB25vZGVfaWQYByABKAkSEgoKc2VydmljZV9pZBgIIAEoCRIcChRzdG9wX3RpbWVvdXRfc2Vjb25kcxgJIAEoAxI1Cg5pbml0aWFsX3N0YXR1cxgKIAEoDjIdLnh5bG9uYS5ub2RlLnYxLlByb2Nlc3NTdGF0dXMSGAoQaW50ZXJuYWxfY29tbWFuZBgLIAEoCBIYChBpbnRlcm5hbF9nYW1lX2lkGAwgASgJIioKFFN0YXJ0UHJvY2Vzc1Jlc3BvbnNlEhIKCnByb2Nlc3NfaWQYASABKAkiRAoSU3RvcFByb2Nlc3NSZXF1ZXN0EhIKCnByb2Nlc3NfaWQYASABKAkSGgoSc3RvcF9pbnB1dF9jb21tYW5kGAIgASgJIhUKE1N0b3BQcm9jZXNzUmVzcG9uc2UiPAoXU2VuZENvbnNvbGVJbnB1dFJlcXVlc3QSEgoKcHJvY2Vzc19pZBgBIAEoCRINCgVpbnB1dBgCIAEoCSIaChhTZW5kQ29uc29sZUlucHV0UmVzcG9uc2UiLgoYUmVhZENvbnNvbGVCdWZmZXJSZXF1ZXN0EhIKCnByb2Nlc3NfaWQYASABKAkiSAoZUmVhZENvbnNvbGVCdWZmZXJSZXNwb25zZRIrCgVjaHVuaxgBIAEoCzIcLnh5bG9uYS5ub2RlLnYxLkNvbnNvbGVDaHVuayIwChpTdHJlYW1Db25zb2xlT3V0cHV0UmVxdWVzdBISCgpwcm9jZXNzX2lkGAEgASgJIjwKEExpc3RGaWxlc1JlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEhUKDXJlbGF0aXZlX3BhdGgYAiABKAkiPwoRTGlzdEZpbGVzUmVzcG9uc2USKgoHZW50cmllcxgBIAMoCzIZLnh5bG9uYS5ub2RlLnYxLkZpbGVFbnRyeSI7Cg9SZWFkRmlsZVJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEhUKDXJlbGF0aXZlX3BhdGgYAiABKAkiIwoQUmVhZEZpbGVSZXNwb25zZRIPCgdjb250ZW50GAEgASgMIjsKD1N0YXRGaWxlUmVxdWVzdBIRCglkaXJlY3RvcnkYASABKAkSFQoNcmVsYXRpdmVfcGF0aBgCIAEoCSI8ChBTdGF0RmlsZVJlc3BvbnNlEigKBWVudHJ5GAEgASgLMhkueHlsb25hLm5vZGUudjEuRmlsZUVudHJ5Ij0KEVN0cmVhbUZpbGVSZXF1ZXN0EhEKCWRpcmVjdG9yeRgBIAEoCRIVCg1yZWxhdGl2ZV9wYXRoGAIgASgJIiUKElN0cmVhbUZpbGVSZXNwb25zZRIPCgdjb250ZW50GAEgASgMIn4KEFdyaXRlRmlsZVJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEhUKDXJlbGF0aXZlX3BhdGgYAiABKAkSDwoHY29udGVudBgDIAEoDBIZChFzZXJ2ZXJfZXhlY3V0YWJsZRgEIAEoCRIUCgxiYXNlX2NvbW1hbmQYBSABKAkiEwoRV3JpdGVGaWxlUmVzcG9uc2UihAEKFlN0cmVhbVdyaXRlRmlsZVJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEhUKDXJlbGF0aXZlX3BhdGgYAiABKAkSDwoHY29udGVudBgDIAEoDBIZChFzZXJ2ZXJfZXhlY3V0YWJsZRgEIAEoCRIUCgxiYXNlX2NvbW1hbmQYBSABKAkiQAoXU3RyZWFtV3JpdGVGaWxlUmVzcG9uc2USFQoNYnl0ZXNfd3JpdHRlbhgBIAEoAxIOCgZzaGEyNTYYAiABKAkiVAoRQ29weUZpbGVPcGVyYXRpb24SHAoUc291cmNlX3JlbGF0aXZlX3BhdGgYASABKAkSIQoZZGVzdGluYXRpb25fcmVsYXRpdmVfcGF0aBgCIAEoCSKNAQoQQ29weUZpbGVzUmVxdWVzdBIRCglkaXJlY3RvcnkYASABKAkSNQoKb3BlcmF0aW9ucxgCIAMoCzIhLnh5bG9uYS5ub2RlLnYxLkNvcHlGaWxlT3BlcmF0aW9uEhkKEXNlcnZlcl9leGVjdXRhYmxlGAMgASgJEhQKDGJhc2VfY29tbWFuZBgEIAEoCSIjChFDb3B5RmlsZXNSZXNwb25zZRIOCgZjb3BpZWQYASADKAkioAEKHENyZWF0ZUZpbGVPckRpcmVjdG9yeVJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEhUKDXJlbGF0aXZlX3BhdGgYAiABKAkSDwoHY29udGVudBgDIAEoCRIUCgxpc19kaXJlY3RvcnkYBCABKAgSGQoRc2VydmVyX2V4ZWN1dGFibGUYBSABKAkSFAoMYmFzZV9jb21tYW5kGAYgASgJIh8KHUNyZWF0ZUZpbGVPckRpcmVjdG9yeVJlc3BvbnNlImcKEkRlbGV0ZUZpbGVzUmVxdWVzdBIRCglkaXJlY3RvcnkYASABKAkSDQoFZmlsZXMYAiADKAkSGQoRc2VydmVyX2V4ZWN1dGFibGUYAyABKAkSFAoMYmFzZV9jb21tYW5kGAQgASgJIiYKE0RlbGV0ZUZpbGVzUmVzcG9uc2USDwoHZGVsZXRlZBgBIAMoCSKNAQoRUmVuYW1lRmlsZVJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEhkKEW9sZF9yZWxhdGl2ZV9wYXRoGAIgASgJEhkKEW5ld19yZWxhdGl2ZV9wYXRoGAMgASgJEhkKEXNlcnZlcl9leGVjdXRhYmxlGAQgASgJEhQKDGJhc2VfY29tbWFuZBgFIAEoCSIvChJSZW5hbWVGaWxlUmVzcG9uc2USGQoRbmV3X3JlbGF0aXZlX3BhdGgYASABKAkiegoQTW92ZUZpbGVzUmVxdWVzdBIRCglkaXJlY3RvcnkYASABKAkSDQoFZmlsZXMYAiADKAkSEwoLZGVzdGluYXRpb24YAyABKAkSGQoRc2VydmVyX2V4ZWN1dGFibGUYBCABKAkSFAoMYmFzZV9jb21tYW5kGAUgASgJIiIKEU1vdmVGaWxlc1Jlc3BvbnNlEg0KBW1vdmVkGAEgAygJItgBChpEb3dubG9hZEZpbGVGcm9tVVJMUmVxdWVzdBIRCglkaXJlY3RvcnkYASABKAkSCwoDdXJsGAIgASgJEiIKGmRlc3RpbmF0aW9uX2RpcmVjdG9yeV9wYXRoGAMgASgJEhkKEXNlcnZlcl9leGVjdXRhYmxlGAQgASgJEhQKDGJhc2VfY29tbWFuZBgFIAEoCRIVCg1leHBlY3RlZF9zaXplGAYgASgDEhcKD2V4cGVjdGVkX3NoYTI1NhgHIAEoCRIVCg1leHBlY3RlZF9zaGExGAggASgJIoEBChtEb3dubG9hZEZpbGVGcm9tVVJMUmVzcG9uc2USFQoNcmVsYXRpdmVfcGF0aBgBIAEoCRIVCg1ieXRlc193cml0dGVuGAIgASgDEg4KBnNoYTI1NhgDIAEoCRIMCgRzaGExGAQgASgJEhYKDmV4cGVjdGVkX21hdGNoGAUgASgIItQBChhDcmVhdGVGaWxlQXJjaGl2ZVJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEiAKGGRlc3RpbmF0aW9uX2FyY2hpdmVfcGF0aBgCIAEoCRIVCg1pbmNsdWRlX3BhdGhzGAMgAygJEjsKC2NvbXByZXNzaW9uGAQgASgOMiYueHlsb25hLm5vZGUudjEuRmlsZUFyY2hpdmVDb21wcmVzc2lvbhIZChFzZXJ2ZXJfZXhlY3V0YWJsZRgFIAEoCRIUCgxiYXNlX2NvbW1hbmQYBiABKAkipgEKGUNyZWF0ZUZpbGVBcmNoaXZlUmVzcG9uc2USFQoNcmVsYXRpdmVfcGF0aBgBIAEoCRITCgt0b3RhbF9maWxlcxgCIAEoAxIYChBmaWxlc19jb21wcmVzc2VkGAMgASgDEhMKC3RvdGFsX2J5dGVzGAQgASgDEhgKEGJ5dGVzX2NvbXByZXNzZWQYBSABKAMSFAoMY3VycmVudF9maWxlGAYgASgJIpkBChlFeHRyYWN0RmlsZUFyY2hpdmVSZXF1ZXN0EhEKCWRpcmVjdG9yeRgBIAEoCRIUCgxhcmNoaXZlX3BhdGgYAiABKAkSIgoaZGVzdGluYXRpb25fZGlyZWN0b3J5X3BhdGgYAyABKAkSGQoRc2VydmVyX2V4ZWN1dGFibGUYBCABKAkSFAoMYmFzZV9jb21tYW5kGAUgASgJIqcBChpFeHRyYWN0RmlsZUFyY2hpdmVSZXNwb25zZRIXCg9leHRyYWN0ZWRfcGF0aHMYASADKAkSEwoLdG90YWxfZmlsZXMYAiABKAMSFwoPZmlsZXNfZXh0cmFjdGVkGAMgASgDEhMKC3RvdGFsX2J5dGVzGAQgASgDEhcKD2J5dGVzX2V4dHJhY3RlZBgFIAEoAxIUCgxjdXJyZW50X2ZpbGUYBiABKAkiaAoaQ3JlYXRlQmFja3VwQXJjaGl2ZVJlcXVlc3QSEQoJZGlyZWN0b3J5GAEgASgJEhUKDWluY2x1ZGVfcGF0aHMYAiADKAkSIAoYZGVzdGluYXRpb25fYXJjaGl2ZV9wYXRoGAMgASgJIkwKG0NyZWF0ZUJhY2t1cEFyY2hpdmVSZXNwb25zZRIVCg1hcmNoaXZlX2J5dGVzGAEgASgDEhYKDmFyY2hpdmVfc2hhMjU2GAIgASgJInEKG0V4dHJhY3RCYWNrdXBBcmNoaXZlUmVxdWVzdBIRCglkaXJlY3RvcnkYASABKAkSFAoMYXJjaGl2ZV9wYXRoGAIgASgJEikKBG1vZGUYAyABKA4yGy54eWxvbmEubm9kZS52MS5FeHRyYWN0TW9kZSIeChxFeHRyYWN0QmFja3VwQXJjaGl2ZVJlc3BvbnNlIqIBChxQcm9iZUluc3RhbGxlZFZlcnNpb25SZXF1ZXN0EhEKCWRpcmVjdG9yeRgBIAEoCRI3CgRraW5kGAIgASgOMikueHlsb25hLm5vZGUudjEuSW5zdGFsbGVkVmVyc2lvblByb2JlS2luZBIWCg5yZWxhdGl2ZV9wYXRocxgDIAMoCRIeChZwcmVmZXJyZWRfc3RlYW1fYXBwX2lkGAQgASgJIlQKHVByb2JlSW5zdGFsbGVkVmVyc2lvblJlc3BvbnNlEg0KBWZvdW5kGAEgASgIEg8KB3ZlcnNpb24YAiABKAkSEwoLc291cmNlX3BhdGgYAyABKAkigAEKFlF1ZXJ5R2FtZVNlcnZlclJlcXVlc3QSMQoEa2luZBgBIAEoDjIjLnh5bG9uYS5ub2RlLnYxLkdhbWVTZXJ2ZXJRdWVyeUtpbmQSCgoCaXAYAiABKAkSEgoKcXVlcnlfcG9ydBgDIAEoAxITCgttYXhfcGxheWVycxgEIAEoAyLDAQocR2FtZVNlcnZlck1pbmVjcmFmdFF1ZXJ5SW5mbxIMCgRtb3RkGAEgASgJEhEKCWdhbWVfdHlwZRgCIAEoCRILCgNtYXAYAyABKAkSGQoRbnVtYmVyX29mX3BsYXllcnMYBCABKA0SEwoLbWF4X3BsYXllcnMYBSABKA0SEwoLcGxheWVyX2xpc3QYBiADKAkSGAoQcHJvdG9jb2xfdmVyc2lvbhgHIAEoDRIWCg5zZXJ2ZXJfdmVyc2lvbhgIIAEoCSKCAgoZR2FtZVNlcnZlclNvdXJjZVF1ZXJ5SW5mbxIMCgRuYW1lGAEgASgJEgsKA21hcBgCIAEoCRIMCgRnYW1lGAMgASgJEg4KBmFwcF9pZBgEIAEoDRIQCghzdGVhbV9pZBgFIAEoBBIPCgdnYW1lX2lkGAYgASgEEg8KB3BsYXllcnMYByABKA0SEwoLbWF4X3BsYXllcnMYCCABKA0SDAoEYm90cxgJIAEoDRIRCglzZXJ2ZXJfb3MYCiABKAkSEgoKdmlzaWJpbGl0eRgLIAEoCBILCgN2YWMYDCABKAgSDwoHdmVyc2lvbhgNIAEoCRIQCghwcm90b2NvbBgOIAEoDSLIAQoXUXVlcnlHYW1lU2VydmVyUmVzcG9uc2USMQoEa2luZBgBIAEoDjIjLnh5bG9uYS5ub2RlLnYxLkdhbWVTZXJ2ZXJRdWVyeUtpbmQSPwoJbWluZWNyYWZ0GAIgASgLMiwueHlsb25hLm5vZGUudjEuR2FtZVNlcnZlck1pbmVjcmFmdFF1ZXJ5SW5mbxI5CgZzb3VyY2UYAyABKAsyKS54eWxvbmEubm9kZS52MS5HYW1lU2VydmVyU291cmNlUXVlcnlJbmZvIjwKGFNlbmRDb25zb2xlT3V0cHV0UmVxdWVzdBISCgpwcm9jZXNzX2lkGAEgASgJEgwKBGxpbmUYAiABKAkiGwoZU2VuZENvbnNvbGVPdXRwdXRSZXNwb25zZSIvChlHZXRQcm9jZXNzU25hcHNob3RSZXF1ZXN0EhIKCnByb2Nlc3NfaWQYASABKAkiXgoaR2V0UHJvY2Vzc1NuYXBzaG90UmVzcG9uc2USMQoIc25hcHNob3QYASABKAsyHy54eWxvbmEubm9kZS52MS5Qcm9jZXNzU25hcHNob3QSDQoFZm91bmQYAiABKAgiGAoWR2V0Tm9kZVNuYXBzaG90UmVxdWVzdCIYChZMaXN0QmluZGFibGVJUHNSZXF1ZXN0IkIKF0xpc3RCaW5kYWJsZUlQc1Jlc3BvbnNlEicKA2lwcxgBIAMoCzIaLnh5bG9uYS5ub2RlLnYxLkJpbmRhYmxlSVAiFQoTU3RyZWFtRXZlbnRzUmVxdWVzdCINCgtQaW5nUmVxdWVzdCI/CgxQaW5nUmVzcG9uc2USLwoLc2VydmVyX3RpbWUYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wKr8CCg1Ob2RlRXJyb3JDb2RlEhoKFk5PREVfRVJST1JfVU5TUEVDSUZJRUQQABIbChdOT0RFX0VSUk9SX0lOVkFMSURfUEFUSBABEh0KGU5PREVfRVJST1JfUFJPVEVDVEVEX1BBVEgQAhIgChxOT0RFX0VSUk9SX1BST0NFU1NfTk9UX0ZPVU5EEAMSJgoiTk9ERV9FUlJPUl9QUk9DRVNTX0FMUkVBRFlfUlVOTklORxAEEiIKHk5PREVfRVJST1JfUFJPQ0VTU19OT1RfUlVOTklORxAFEhsKF05PREVfRVJST1JfU1RBUlRfRkFJTEVEEAYSHQoZTk9ERV9FUlJPUl9GSUxFX05PVF9GT1VORBAHEhEKDU5PREVfRVJST1JfSU8QCBIZChVOT0RFX0VSUk9SX1BFUk1JU1NJT04QCSq8AQoNUHJvY2Vzc1N0YXR1cxIaChZQUk9DRVNTX1NUQVRVU19VTktOT1dOEAASGgoWUFJPQ0VTU19TVEFUVVNfT0ZGTElORRABEhkKFVBST0NFU1NfU1RBVFVTX09OTElORRACEh0KGVBST0NFU1NfU1RBVFVTX0lOU1RBTExJTkcQAxIbChdQUk9DRVNTX1NUQVRVU19VUERBVElORxAEEhwKGFBST0NFU1NfU1RBVFVTX1BSRV9TVEFSVBAFKsQBChZGaWxlQXJjaGl2ZUNvbXByZXNzaW9uEiAKHEZJTEVfQVJDSElWRV9DT01QUkVTU0lPTl9aSVAQABIiCh5GSUxFX0FSQ0hJVkVfQ09NUFJFU1NJT05fQlpJUDIQARIhCh1GSUxFX0FSQ0hJVkVfQ09NUFJFU1NJT05fR1pJUBACEiAKHEZJTEVfQVJDSElWRV9DT01QUkVTU0lPTl9aU1QQAxIfChtGSUxFX0FSQ0hJVkVfQ09NUFJFU1NJT05fWFoQBCpdCgtFeHRyYWN0TW9kZRIcChhFWFRSQUNUX01PREVfVU5TUEVDSUZJRUQQABIYChRFWFRSQUNUX01PREVfT1ZFUkxBWRABEhYKEkVYVFJBQ1RfTU9ERV9FWEFDVBACKqoBChlJbnN0YWxsZWRWZXJzaW9uUHJvYmVLaW5kEiwKKElOU1RBTExFRF9WRVJTSU9OX1BST0JFX0tJTkRfVU5TUEVDSUZJRUQQABIuCipJTlNUQUxMRURfVkVSU0lPTl9QUk9CRV9LSU5EX01JTkVDUkFGVF9KQVIQARIvCitJTlNUQUxMRURfVkVSU0lPTl9QUk9CRV9LSU5EX1NURUFNX01BTklGRVNUEAIqhgEKE0dhbWVTZXJ2ZXJRdWVyeUtpbmQSJgoiR0FNRV9TRVJWRVJfUVVFUllfS0lORF9VTlNQRUNJRklFRBAAEiQKIEdBTUVfU0VSVkVSX1FVRVJZX0tJTkRfTUlORUNSQUZUEAESIQodR0FNRV9TRVJWRVJfUVVFUllfS0lORF9TT1VSQ0UQAjLKFwoLTm9kZVNlcnZpY2USWQoMU3RhcnRQcm9jZXNzEiMueHlsb25hLm5vZGUudjEuU3RhcnRQcm9jZXNzUmVxdWVzdBokLnh5bG9uYS5ub2RlLnYxLlN0YXJ0UHJvY2Vzc1Jlc3BvbnNlElYKC1N0b3BQcm9jZXNzEiIueHlsb25hLm5vZGUudjEuU3RvcFByb2Nlc3NSZXF1ZXN0GiMueHlsb25hLm5vZGUudjEuU3RvcFByb2Nlc3NSZXNwb25zZRJlChBTZW5kQ29uc29sZUlucHV0EicueHlsb25hLm5vZGUudjEuU2VuZENvbnNvbGVJbnB1dFJlcXVlc3QaKC54eWxvbmEubm9kZS52MS5TZW5kQ29uc29sZUlucHV0UmVzcG9uc2USaAoRUmVhZENvbnNvbGVCdWZmZXISKC54eWxvbmEubm9kZS52MS5SZWFkQ29uc29sZUJ1ZmZlclJlcXVlc3QaKS54eWxvbmEubm9kZS52MS5SZWFkQ29uc29sZUJ1ZmZlclJlc3BvbnNlEmEKE1N0cmVhbUNvbnNvbGVPdXRwdXQSKi54eWxvbmEubm9kZS52MS5TdHJlYW1Db25zb2xlT3V0cHV0UmVxdWVzdBocLnh5bG9uYS5ub2RlLnYxLkNvbnNvbGVDaHVuazABElAKCUxpc3RGaWxlcxIgLnh5bG9uYS5ub2RlLnYxLkxpc3RGaWxlc1JlcXVlc3QaIS54eWxvbmEubm9kZS52MS5MaXN0RmlsZXNSZXNwb25zZRJNCghSZWFkRmlsZRIfLnh5bG9uYS5ub2RlLnYxLlJlYWRGaWxlUmVxdWVzdBogLnh5bG9uYS5ub2RlLnYxLlJlYWRGaWxlUmVzcG9uc2USTQoIU3RhdEZpbGUSHy54eWxvbmEubm9kZS52MS5TdGF0RmlsZVJlcXVlc3QaIC54eWxvbmEubm9kZS52MS5TdGF0RmlsZVJlc3BvbnNlElUKClN0cmVhbUZpbGUSIS54eWxvbmEubm9kZS52MS5TdHJlYW1GaWxlUmVxdWVzdBoiLnh5bG9uYS5ub2RlLnYxLlN0cmVhbUZpbGVSZXNwb25zZTABElAKCVdyaXRlRmlsZRIgLnh5bG9uYS5ub2RlLnYxLldyaXRlRmlsZVJlcXVlc3QaIS54eWxvbmEubm9kZS52MS5Xcml0ZUZpbGVSZXNwb25zZRJkCg9TdHJlYW1Xcml0ZUZpbGUSJi54eWxvbmEubm9kZS52MS5TdHJlYW1Xcml0ZUZpbGVSZXF1ZXN0GicueHlsb25hLm5vZGUudjEuU3RyZWFtV3JpdGVGaWxlUmVzcG9uc2UoARJ0ChVDcmVhdGVGaWxlT3JEaXJlY3RvcnkSLC54eWxvbmEubm9kZS52MS5DcmVhdGVGaWxlT3JEaXJlY3RvcnlSZXF1ZXN0Gi0ueHlsb25hLm5vZGUudjEuQ3JlYXRlRmlsZU9yRGlyZWN0b3J5UmVzcG9uc2USVgoLRGVsZXRlRmlsZXMSIi54eWxvbmEubm9kZS52MS5EZWxldGVGaWxlc1JlcXVlc3QaIy54eWxvbmEubm9kZS52MS5EZWxldGVGaWxlc1Jlc3BvbnNlElMKClJlbmFtZUZpbGUSIS54eWxvbmEubm9kZS52MS5SZW5hbWVGaWxlUmVxdWVzdBoiLnh5bG9uYS5ub2RlLnYxLlJlbmFtZUZpbGVSZXNwb25zZRJQCglNb3ZlRmlsZXMSIC54eWxvbmEubm9kZS52MS5Nb3ZlRmlsZXNSZXF1ZXN0GiEueHlsb25hLm5vZGUudjEuTW92ZUZpbGVzUmVzcG9uc2USUAoJQ29weUZpbGVzEiAueHlsb25hLm5vZGUudjEuQ29weUZpbGVzUmVxdWVzdBohLnh5bG9uYS5ub2RlLnYxLkNvcHlGaWxlc1Jlc3BvbnNlEm4KE0Rvd25sb2FkRmlsZUZyb21VUkwSKi54eWxvbmEubm9kZS52MS5Eb3dubG9hZEZpbGVGcm9tVVJMUmVxdWVzdBorLnh5bG9uYS5ub2RlLnYxLkRvd25sb2FkRmlsZUZyb21VUkxSZXNwb25zZRJoChFDcmVhdGVGaWxlQXJjaGl2ZRIoLnh5bG9uYS5ub2RlLnYxLkNyZWF0ZUZpbGVBcmNoaXZlUmVxdWVzdBopLnh5bG9uYS5ub2RlLnYxLkNyZWF0ZUZpbGVBcmNoaXZlUmVzcG9uc2UScAoXU3RyZWFtQ3JlYXRlRmlsZUFyY2hpdmUSKC54eWxvbmEubm9kZS52MS5DcmVhdGVGaWxlQXJjaGl2ZVJlcXVlc3QaKS54eWxvbmEubm9kZS52MS5DcmVhdGVGaWxlQXJjaGl2ZVJlc3BvbnNlMAESawoSRXh0cmFjdEZpbGVBcmNoaXZlEikueHlsb25hLm5vZGUudjEuRXh0cmFjdEZpbGVBcmNoaXZlUmVxdWVzdBoqLnh5bG9uYS5ub2RlLnYxLkV4dHJhY3RGaWxlQXJjaGl2ZVJlc3BvbnNlEnMKGFN0cmVhbUV4dHJhY3RGaWxlQXJjaGl2ZRIpLnh5bG9uYS5ub2RlLnYxLkV4dHJhY3RGaWxlQXJjaGl2ZVJlcXVlc3QaKi54eWxvbmEubm9kZS52MS5FeHRyYWN0RmlsZUFyY2hpdmVSZXNwb25zZTABEm4KE0NyZWF0ZUJhY2t1cEFyY2hpdmUSKi54eWxvbmEubm9kZS52MS5DcmVhdGVCYWNrdXBBcmNoaXZlUmVxdWVzdBorLnh5bG9uYS5ub2RlLnYxLkNyZWF0ZUJhY2t1cEFyY2hpdmVSZXNwb25zZRJxChRFeHRyYWN0QmFja3VwQXJjaGl2ZRIrLnh5bG9uYS5ub2RlLnYxLkV4dHJhY3RCYWNrdXBBcmNoaXZlUmVxdWVzdBosLnh5bG9uYS5ub2RlLnYxLkV4dHJhY3RCYWNrdXBBcmNoaXZlUmVzcG9uc2USdAoVUHJvYmVJbnN0YWxsZWRWZXJzaW9uEiwueHlsb25hLm5vZGUudjEuUHJvYmVJbnN0YWxsZWRWZXJzaW9uUmVxdWVzdBotLnh5bG9uYS5ub2RlLnYxLlByb2JlSW5zdGFsbGVkVmVyc2lvblJlc3BvbnNlEmIKD1F1ZXJ5R2FtZVNlcnZlchImLnh5bG9uYS5ub2RlLnYxLlF1ZXJ5R2FtZVNlcnZlclJlcXVlc3QaJy54eWxvbmEubm9kZS52MS5RdWVyeUdhbWVTZXJ2ZXJSZXNwb25zZRJoChFTZW5kQ29uc29sZU91dHB1dBIoLnh5bG9uYS5ub2RlLnYxLlNlbmRDb25zb2xlT3V0cHV0UmVxdWVzdBopLnh5bG9uYS5ub2RlLnYxLlNlbmRDb25zb2xlT3V0cHV0UmVzcG9uc2USawoSR2V0UHJvY2Vzc1NuYXBzaG90EikueHlsb25hLm5vZGUudjEuR2V0UHJvY2Vzc1NuYXBzaG90UmVxdWVzdBoqLnh5bG9uYS5ub2RlLnYxLkdldFByb2Nlc3NTbmFwc2hvdFJlc3BvbnNlEmIKD0xpc3RCaW5kYWJsZUlQcxImLnh5bG9uYS5ub2RlLnYxLkxpc3RCaW5kYWJsZUlQc1JlcXVlc3QaJy54eWxvbmEubm9kZS52MS5MaXN0QmluZGFibGVJUHNSZXNwb25zZRJXCg9HZXROb2RlU25hcHNob3QSJi54eWxvbmEubm9kZS52MS5HZXROb2RlU25hcHNob3RSZXF1ZXN0GhwueHlsb25hLm5vZGUudjEuTm9kZVNuYXBzaG90EkwKDFN0cmVhbUV2ZW50cxIjLnh5bG9uYS5ub2RlLnYxLlN0cmVhbUV2ZW50c1JlcXVlc3QaFS54eWxvbmEubm9kZS52MS5FdmVudDABEkEKBFBpbmcSGy54eWxvbmEubm9kZS52MS5QaW5nUmVxdWVzdBocLnh5bG9uYS5ub2RlLnYxLlBpbmdSZXNwb25zZUJJWkdnaXRodWIuY29tL0NsaW50b25Db2xsaW5zL1h5bG9uYS9wcm90by9nby94eWxvbmEvbm9kZXByb3RvL3YxO25vZGVwcm90b2IGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * FileEntry mirrors pkg/node.FileEntry.
@@ -44,6 +44,11 @@ export type FileEntry = Message<"xylona.node.v1.FileEntry"> & {
    * @generated from field: google.protobuf.Timestamp last_modified = 4;
    */
   lastModified?: Timestamp;
+
+  /**
+   * @generated from field: bool is_executable = 5;
+   */
+  isExecutable: boolean;
 };
 
 /**
@@ -247,6 +252,33 @@ export const NodeSnapshotSchema: GenMessage<NodeSnapshot> = /*@__PURE__*/
   messageDesc(file_nodeproto_v1_node, 2);
 
 /**
+ * @generated from message xylona.node.v1.BindableIP
+ */
+export type BindableIP = Message<"xylona.node.v1.BindableIP"> & {
+  /**
+   * @generated from field: string address = 1;
+   */
+  address: string;
+
+  /**
+   * @generated from field: bool usable = 2;
+   */
+  usable: boolean;
+
+  /**
+   * @generated from field: bool external = 3;
+   */
+  external: boolean;
+};
+
+/**
+ * Describes the message xylona.node.v1.BindableIP.
+ * Use `create(BindableIPSchema)` to create a new message.
+ */
+export const BindableIPSchema: GenMessage<BindableIP> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 3);
+
+/**
  * ConsoleChunk is a slice of buffered console output for one process.
  *
  * @generated from message xylona.node.v1.ConsoleChunk
@@ -273,7 +305,7 @@ export type ConsoleChunk = Message<"xylona.node.v1.ConsoleChunk"> & {
  * Use `create(ConsoleChunkSchema)` to create a new message.
  */
 export const ConsoleChunkSchema: GenMessage<ConsoleChunk> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 3);
+  messageDesc(file_nodeproto_v1_node, 4);
 
 /**
  * ProcessStatusEvent fires when a supervised process changes lifecycle state.
@@ -297,7 +329,7 @@ export type ProcessStatusEvent = Message<"xylona.node.v1.ProcessStatusEvent"> & 
  * Use `create(ProcessStatusEventSchema)` to create a new message.
  */
 export const ProcessStatusEventSchema: GenMessage<ProcessStatusEvent> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 4);
+  messageDesc(file_nodeproto_v1_node, 5);
 
 /**
  * MetricsUpdateEvent fires when the node pushes a fresh metrics snapshot.
@@ -316,7 +348,7 @@ export type MetricsUpdateEvent = Message<"xylona.node.v1.MetricsUpdateEvent"> & 
  * Use `create(MetricsUpdateEventSchema)` to create a new message.
  */
 export const MetricsUpdateEventSchema: GenMessage<MetricsUpdateEvent> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 5);
+  messageDesc(file_nodeproto_v1_node, 6);
 
 /**
  * ProcessCrashEvent fires when a supervised process exits unexpectedly.
@@ -345,7 +377,7 @@ export type ProcessCrashEvent = Message<"xylona.node.v1.ProcessCrashEvent"> & {
  * Use `create(ProcessCrashEventSchema)` to create a new message.
  */
 export const ProcessCrashEventSchema: GenMessage<ProcessCrashEvent> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 6);
+  messageDesc(file_nodeproto_v1_node, 7);
 
 /**
  * Event is the union of events streamed by NodeService.StreamEvents. Exactly
@@ -394,7 +426,7 @@ export type Event = Message<"xylona.node.v1.Event"> & {
  * Use `create(EventSchema)` to create a new message.
  */
 export const EventSchema: GenMessage<Event> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 7);
+  messageDesc(file_nodeproto_v1_node, 8);
 
 /**
  * @generated from message xylona.node.v1.StartProcessRequest
@@ -475,7 +507,7 @@ export type StartProcessRequest = Message<"xylona.node.v1.StartProcessRequest"> 
  * Use `create(StartProcessRequestSchema)` to create a new message.
  */
 export const StartProcessRequestSchema: GenMessage<StartProcessRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 8);
+  messageDesc(file_nodeproto_v1_node, 9);
 
 /**
  * @generated from message xylona.node.v1.StartProcessResponse
@@ -492,7 +524,7 @@ export type StartProcessResponse = Message<"xylona.node.v1.StartProcessResponse"
  * Use `create(StartProcessResponseSchema)` to create a new message.
  */
 export const StartProcessResponseSchema: GenMessage<StartProcessResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 9);
+  messageDesc(file_nodeproto_v1_node, 10);
 
 /**
  * @generated from message xylona.node.v1.StopProcessRequest
@@ -514,7 +546,7 @@ export type StopProcessRequest = Message<"xylona.node.v1.StopProcessRequest"> & 
  * Use `create(StopProcessRequestSchema)` to create a new message.
  */
 export const StopProcessRequestSchema: GenMessage<StopProcessRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 10);
+  messageDesc(file_nodeproto_v1_node, 11);
 
 /**
  * @generated from message xylona.node.v1.StopProcessResponse
@@ -527,7 +559,7 @@ export type StopProcessResponse = Message<"xylona.node.v1.StopProcessResponse"> 
  * Use `create(StopProcessResponseSchema)` to create a new message.
  */
 export const StopProcessResponseSchema: GenMessage<StopProcessResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 11);
+  messageDesc(file_nodeproto_v1_node, 12);
 
 /**
  * @generated from message xylona.node.v1.SendConsoleInputRequest
@@ -549,7 +581,7 @@ export type SendConsoleInputRequest = Message<"xylona.node.v1.SendConsoleInputRe
  * Use `create(SendConsoleInputRequestSchema)` to create a new message.
  */
 export const SendConsoleInputRequestSchema: GenMessage<SendConsoleInputRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 12);
+  messageDesc(file_nodeproto_v1_node, 13);
 
 /**
  * @generated from message xylona.node.v1.SendConsoleInputResponse
@@ -562,7 +594,7 @@ export type SendConsoleInputResponse = Message<"xylona.node.v1.SendConsoleInputR
  * Use `create(SendConsoleInputResponseSchema)` to create a new message.
  */
 export const SendConsoleInputResponseSchema: GenMessage<SendConsoleInputResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 13);
+  messageDesc(file_nodeproto_v1_node, 14);
 
 /**
  * @generated from message xylona.node.v1.ReadConsoleBufferRequest
@@ -579,7 +611,7 @@ export type ReadConsoleBufferRequest = Message<"xylona.node.v1.ReadConsoleBuffer
  * Use `create(ReadConsoleBufferRequestSchema)` to create a new message.
  */
 export const ReadConsoleBufferRequestSchema: GenMessage<ReadConsoleBufferRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 14);
+  messageDesc(file_nodeproto_v1_node, 15);
 
 /**
  * @generated from message xylona.node.v1.ReadConsoleBufferResponse
@@ -596,7 +628,7 @@ export type ReadConsoleBufferResponse = Message<"xylona.node.v1.ReadConsoleBuffe
  * Use `create(ReadConsoleBufferResponseSchema)` to create a new message.
  */
 export const ReadConsoleBufferResponseSchema: GenMessage<ReadConsoleBufferResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 15);
+  messageDesc(file_nodeproto_v1_node, 16);
 
 /**
  * @generated from message xylona.node.v1.StreamConsoleOutputRequest
@@ -613,7 +645,7 @@ export type StreamConsoleOutputRequest = Message<"xylona.node.v1.StreamConsoleOu
  * Use `create(StreamConsoleOutputRequestSchema)` to create a new message.
  */
 export const StreamConsoleOutputRequestSchema: GenMessage<StreamConsoleOutputRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 16);
+  messageDesc(file_nodeproto_v1_node, 17);
 
 /**
  * @generated from message xylona.node.v1.ListFilesRequest
@@ -635,7 +667,7 @@ export type ListFilesRequest = Message<"xylona.node.v1.ListFilesRequest"> & {
  * Use `create(ListFilesRequestSchema)` to create a new message.
  */
 export const ListFilesRequestSchema: GenMessage<ListFilesRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 17);
+  messageDesc(file_nodeproto_v1_node, 18);
 
 /**
  * @generated from message xylona.node.v1.ListFilesResponse
@@ -652,7 +684,7 @@ export type ListFilesResponse = Message<"xylona.node.v1.ListFilesResponse"> & {
  * Use `create(ListFilesResponseSchema)` to create a new message.
  */
 export const ListFilesResponseSchema: GenMessage<ListFilesResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 18);
+  messageDesc(file_nodeproto_v1_node, 19);
 
 /**
  * @generated from message xylona.node.v1.ReadFileRequest
@@ -674,7 +706,7 @@ export type ReadFileRequest = Message<"xylona.node.v1.ReadFileRequest"> & {
  * Use `create(ReadFileRequestSchema)` to create a new message.
  */
 export const ReadFileRequestSchema: GenMessage<ReadFileRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 19);
+  messageDesc(file_nodeproto_v1_node, 20);
 
 /**
  * @generated from message xylona.node.v1.ReadFileResponse
@@ -691,7 +723,85 @@ export type ReadFileResponse = Message<"xylona.node.v1.ReadFileResponse"> & {
  * Use `create(ReadFileResponseSchema)` to create a new message.
  */
 export const ReadFileResponseSchema: GenMessage<ReadFileResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 20);
+  messageDesc(file_nodeproto_v1_node, 21);
+
+/**
+ * @generated from message xylona.node.v1.StatFileRequest
+ */
+export type StatFileRequest = Message<"xylona.node.v1.StatFileRequest"> & {
+  /**
+   * @generated from field: string directory = 1;
+   */
+  directory: string;
+
+  /**
+   * @generated from field: string relative_path = 2;
+   */
+  relativePath: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.StatFileRequest.
+ * Use `create(StatFileRequestSchema)` to create a new message.
+ */
+export const StatFileRequestSchema: GenMessage<StatFileRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 22);
+
+/**
+ * @generated from message xylona.node.v1.StatFileResponse
+ */
+export type StatFileResponse = Message<"xylona.node.v1.StatFileResponse"> & {
+  /**
+   * @generated from field: xylona.node.v1.FileEntry entry = 1;
+   */
+  entry?: FileEntry;
+};
+
+/**
+ * Describes the message xylona.node.v1.StatFileResponse.
+ * Use `create(StatFileResponseSchema)` to create a new message.
+ */
+export const StatFileResponseSchema: GenMessage<StatFileResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 23);
+
+/**
+ * @generated from message xylona.node.v1.StreamFileRequest
+ */
+export type StreamFileRequest = Message<"xylona.node.v1.StreamFileRequest"> & {
+  /**
+   * @generated from field: string directory = 1;
+   */
+  directory: string;
+
+  /**
+   * @generated from field: string relative_path = 2;
+   */
+  relativePath: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.StreamFileRequest.
+ * Use `create(StreamFileRequestSchema)` to create a new message.
+ */
+export const StreamFileRequestSchema: GenMessage<StreamFileRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 24);
+
+/**
+ * @generated from message xylona.node.v1.StreamFileResponse
+ */
+export type StreamFileResponse = Message<"xylona.node.v1.StreamFileResponse"> & {
+  /**
+   * @generated from field: bytes content = 1;
+   */
+  content: Uint8Array;
+};
+
+/**
+ * Describes the message xylona.node.v1.StreamFileResponse.
+ * Use `create(StreamFileResponseSchema)` to create a new message.
+ */
+export const StreamFileResponseSchema: GenMessage<StreamFileResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 25);
 
 /**
  * Write-path requests carry server_executable + base_command so the node can
@@ -734,7 +844,7 @@ export type WriteFileRequest = Message<"xylona.node.v1.WriteFileRequest"> & {
  * Use `create(WriteFileRequestSchema)` to create a new message.
  */
 export const WriteFileRequestSchema: GenMessage<WriteFileRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 21);
+  messageDesc(file_nodeproto_v1_node, 26);
 
 /**
  * @generated from message xylona.node.v1.WriteFileResponse
@@ -747,7 +857,137 @@ export type WriteFileResponse = Message<"xylona.node.v1.WriteFileResponse"> & {
  * Use `create(WriteFileResponseSchema)` to create a new message.
  */
 export const WriteFileResponseSchema: GenMessage<WriteFileResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 22);
+  messageDesc(file_nodeproto_v1_node, 27);
+
+/**
+ * @generated from message xylona.node.v1.StreamWriteFileRequest
+ */
+export type StreamWriteFileRequest = Message<"xylona.node.v1.StreamWriteFileRequest"> & {
+  /**
+   * @generated from field: string directory = 1;
+   */
+  directory: string;
+
+  /**
+   * @generated from field: string relative_path = 2;
+   */
+  relativePath: string;
+
+  /**
+   * @generated from field: bytes content = 3;
+   */
+  content: Uint8Array;
+
+  /**
+   * @generated from field: string server_executable = 4;
+   */
+  serverExecutable: string;
+
+  /**
+   * @generated from field: string base_command = 5;
+   */
+  baseCommand: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.StreamWriteFileRequest.
+ * Use `create(StreamWriteFileRequestSchema)` to create a new message.
+ */
+export const StreamWriteFileRequestSchema: GenMessage<StreamWriteFileRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 28);
+
+/**
+ * @generated from message xylona.node.v1.StreamWriteFileResponse
+ */
+export type StreamWriteFileResponse = Message<"xylona.node.v1.StreamWriteFileResponse"> & {
+  /**
+   * @generated from field: int64 bytes_written = 1;
+   */
+  bytesWritten: bigint;
+
+  /**
+   * @generated from field: string sha256 = 2;
+   */
+  sha256: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.StreamWriteFileResponse.
+ * Use `create(StreamWriteFileResponseSchema)` to create a new message.
+ */
+export const StreamWriteFileResponseSchema: GenMessage<StreamWriteFileResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 29);
+
+/**
+ * @generated from message xylona.node.v1.CopyFileOperation
+ */
+export type CopyFileOperation = Message<"xylona.node.v1.CopyFileOperation"> & {
+  /**
+   * @generated from field: string source_relative_path = 1;
+   */
+  sourceRelativePath: string;
+
+  /**
+   * @generated from field: string destination_relative_path = 2;
+   */
+  destinationRelativePath: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.CopyFileOperation.
+ * Use `create(CopyFileOperationSchema)` to create a new message.
+ */
+export const CopyFileOperationSchema: GenMessage<CopyFileOperation> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 30);
+
+/**
+ * @generated from message xylona.node.v1.CopyFilesRequest
+ */
+export type CopyFilesRequest = Message<"xylona.node.v1.CopyFilesRequest"> & {
+  /**
+   * @generated from field: string directory = 1;
+   */
+  directory: string;
+
+  /**
+   * @generated from field: repeated xylona.node.v1.CopyFileOperation operations = 2;
+   */
+  operations: CopyFileOperation[];
+
+  /**
+   * @generated from field: string server_executable = 3;
+   */
+  serverExecutable: string;
+
+  /**
+   * @generated from field: string base_command = 4;
+   */
+  baseCommand: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.CopyFilesRequest.
+ * Use `create(CopyFilesRequestSchema)` to create a new message.
+ */
+export const CopyFilesRequestSchema: GenMessage<CopyFilesRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 31);
+
+/**
+ * @generated from message xylona.node.v1.CopyFilesResponse
+ */
+export type CopyFilesResponse = Message<"xylona.node.v1.CopyFilesResponse"> & {
+  /**
+   * @generated from field: repeated string copied = 1;
+   */
+  copied: string[];
+};
+
+/**
+ * Describes the message xylona.node.v1.CopyFilesResponse.
+ * Use `create(CopyFilesResponseSchema)` to create a new message.
+ */
+export const CopyFilesResponseSchema: GenMessage<CopyFilesResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 32);
 
 /**
  * @generated from message xylona.node.v1.CreateFileOrDirectoryRequest
@@ -789,7 +1029,7 @@ export type CreateFileOrDirectoryRequest = Message<"xylona.node.v1.CreateFileOrD
  * Use `create(CreateFileOrDirectoryRequestSchema)` to create a new message.
  */
 export const CreateFileOrDirectoryRequestSchema: GenMessage<CreateFileOrDirectoryRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 23);
+  messageDesc(file_nodeproto_v1_node, 33);
 
 /**
  * @generated from message xylona.node.v1.CreateFileOrDirectoryResponse
@@ -802,7 +1042,7 @@ export type CreateFileOrDirectoryResponse = Message<"xylona.node.v1.CreateFileOr
  * Use `create(CreateFileOrDirectoryResponseSchema)` to create a new message.
  */
 export const CreateFileOrDirectoryResponseSchema: GenMessage<CreateFileOrDirectoryResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 24);
+  messageDesc(file_nodeproto_v1_node, 34);
 
 /**
  * @generated from message xylona.node.v1.DeleteFilesRequest
@@ -834,7 +1074,7 @@ export type DeleteFilesRequest = Message<"xylona.node.v1.DeleteFilesRequest"> & 
  * Use `create(DeleteFilesRequestSchema)` to create a new message.
  */
 export const DeleteFilesRequestSchema: GenMessage<DeleteFilesRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 25);
+  messageDesc(file_nodeproto_v1_node, 35);
 
 /**
  * @generated from message xylona.node.v1.DeleteFilesResponse
@@ -851,7 +1091,7 @@ export type DeleteFilesResponse = Message<"xylona.node.v1.DeleteFilesResponse"> 
  * Use `create(DeleteFilesResponseSchema)` to create a new message.
  */
 export const DeleteFilesResponseSchema: GenMessage<DeleteFilesResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 26);
+  messageDesc(file_nodeproto_v1_node, 36);
 
 /**
  * @generated from message xylona.node.v1.RenameFileRequest
@@ -888,7 +1128,7 @@ export type RenameFileRequest = Message<"xylona.node.v1.RenameFileRequest"> & {
  * Use `create(RenameFileRequestSchema)` to create a new message.
  */
 export const RenameFileRequestSchema: GenMessage<RenameFileRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 27);
+  messageDesc(file_nodeproto_v1_node, 37);
 
 /**
  * @generated from message xylona.node.v1.RenameFileResponse
@@ -905,7 +1145,7 @@ export type RenameFileResponse = Message<"xylona.node.v1.RenameFileResponse"> & 
  * Use `create(RenameFileResponseSchema)` to create a new message.
  */
 export const RenameFileResponseSchema: GenMessage<RenameFileResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 28);
+  messageDesc(file_nodeproto_v1_node, 38);
 
 /**
  * @generated from message xylona.node.v1.MoveFilesRequest
@@ -942,7 +1182,7 @@ export type MoveFilesRequest = Message<"xylona.node.v1.MoveFilesRequest"> & {
  * Use `create(MoveFilesRequestSchema)` to create a new message.
  */
 export const MoveFilesRequestSchema: GenMessage<MoveFilesRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 29);
+  messageDesc(file_nodeproto_v1_node, 39);
 
 /**
  * @generated from message xylona.node.v1.MoveFilesResponse
@@ -959,7 +1199,7 @@ export type MoveFilesResponse = Message<"xylona.node.v1.MoveFilesResponse"> & {
  * Use `create(MoveFilesResponseSchema)` to create a new message.
  */
 export const MoveFilesResponseSchema: GenMessage<MoveFilesResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 30);
+  messageDesc(file_nodeproto_v1_node, 40);
 
 /**
  * @generated from message xylona.node.v1.DownloadFileFromURLRequest
@@ -989,6 +1229,21 @@ export type DownloadFileFromURLRequest = Message<"xylona.node.v1.DownloadFileFro
    * @generated from field: string base_command = 5;
    */
   baseCommand: string;
+
+  /**
+   * @generated from field: int64 expected_size = 6;
+   */
+  expectedSize: bigint;
+
+  /**
+   * @generated from field: string expected_sha256 = 7;
+   */
+  expectedSha256: string;
+
+  /**
+   * @generated from field: string expected_sha1 = 8;
+   */
+  expectedSha1: string;
 };
 
 /**
@@ -996,7 +1251,7 @@ export type DownloadFileFromURLRequest = Message<"xylona.node.v1.DownloadFileFro
  * Use `create(DownloadFileFromURLRequestSchema)` to create a new message.
  */
 export const DownloadFileFromURLRequestSchema: GenMessage<DownloadFileFromURLRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 31);
+  messageDesc(file_nodeproto_v1_node, 41);
 
 /**
  * @generated from message xylona.node.v1.DownloadFileFromURLResponse
@@ -1006,6 +1261,26 @@ export type DownloadFileFromURLResponse = Message<"xylona.node.v1.DownloadFileFr
    * @generated from field: string relative_path = 1;
    */
   relativePath: string;
+
+  /**
+   * @generated from field: int64 bytes_written = 2;
+   */
+  bytesWritten: bigint;
+
+  /**
+   * @generated from field: string sha256 = 3;
+   */
+  sha256: string;
+
+  /**
+   * @generated from field: string sha1 = 4;
+   */
+  sha1: string;
+
+  /**
+   * @generated from field: bool expected_match = 5;
+   */
+  expectedMatch: boolean;
 };
 
 /**
@@ -1013,7 +1288,170 @@ export type DownloadFileFromURLResponse = Message<"xylona.node.v1.DownloadFileFr
  * Use `create(DownloadFileFromURLResponseSchema)` to create a new message.
  */
 export const DownloadFileFromURLResponseSchema: GenMessage<DownloadFileFromURLResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 32);
+  messageDesc(file_nodeproto_v1_node, 42);
+
+/**
+ * @generated from message xylona.node.v1.CreateFileArchiveRequest
+ */
+export type CreateFileArchiveRequest = Message<"xylona.node.v1.CreateFileArchiveRequest"> & {
+  /**
+   * @generated from field: string directory = 1;
+   */
+  directory: string;
+
+  /**
+   * @generated from field: string destination_archive_path = 2;
+   */
+  destinationArchivePath: string;
+
+  /**
+   * @generated from field: repeated string include_paths = 3;
+   */
+  includePaths: string[];
+
+  /**
+   * @generated from field: xylona.node.v1.FileArchiveCompression compression = 4;
+   */
+  compression: FileArchiveCompression;
+
+  /**
+   * @generated from field: string server_executable = 5;
+   */
+  serverExecutable: string;
+
+  /**
+   * @generated from field: string base_command = 6;
+   */
+  baseCommand: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.CreateFileArchiveRequest.
+ * Use `create(CreateFileArchiveRequestSchema)` to create a new message.
+ */
+export const CreateFileArchiveRequestSchema: GenMessage<CreateFileArchiveRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 43);
+
+/**
+ * @generated from message xylona.node.v1.CreateFileArchiveResponse
+ */
+export type CreateFileArchiveResponse = Message<"xylona.node.v1.CreateFileArchiveResponse"> & {
+  /**
+   * @generated from field: string relative_path = 1;
+   */
+  relativePath: string;
+
+  /**
+   * @generated from field: int64 total_files = 2;
+   */
+  totalFiles: bigint;
+
+  /**
+   * @generated from field: int64 files_compressed = 3;
+   */
+  filesCompressed: bigint;
+
+  /**
+   * @generated from field: int64 total_bytes = 4;
+   */
+  totalBytes: bigint;
+
+  /**
+   * @generated from field: int64 bytes_compressed = 5;
+   */
+  bytesCompressed: bigint;
+
+  /**
+   * @generated from field: string current_file = 6;
+   */
+  currentFile: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.CreateFileArchiveResponse.
+ * Use `create(CreateFileArchiveResponseSchema)` to create a new message.
+ */
+export const CreateFileArchiveResponseSchema: GenMessage<CreateFileArchiveResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 44);
+
+/**
+ * @generated from message xylona.node.v1.ExtractFileArchiveRequest
+ */
+export type ExtractFileArchiveRequest = Message<"xylona.node.v1.ExtractFileArchiveRequest"> & {
+  /**
+   * @generated from field: string directory = 1;
+   */
+  directory: string;
+
+  /**
+   * @generated from field: string archive_path = 2;
+   */
+  archivePath: string;
+
+  /**
+   * @generated from field: string destination_directory_path = 3;
+   */
+  destinationDirectoryPath: string;
+
+  /**
+   * @generated from field: string server_executable = 4;
+   */
+  serverExecutable: string;
+
+  /**
+   * @generated from field: string base_command = 5;
+   */
+  baseCommand: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.ExtractFileArchiveRequest.
+ * Use `create(ExtractFileArchiveRequestSchema)` to create a new message.
+ */
+export const ExtractFileArchiveRequestSchema: GenMessage<ExtractFileArchiveRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 45);
+
+/**
+ * @generated from message xylona.node.v1.ExtractFileArchiveResponse
+ */
+export type ExtractFileArchiveResponse = Message<"xylona.node.v1.ExtractFileArchiveResponse"> & {
+  /**
+   * @generated from field: repeated string extracted_paths = 1;
+   */
+  extractedPaths: string[];
+
+  /**
+   * @generated from field: int64 total_files = 2;
+   */
+  totalFiles: bigint;
+
+  /**
+   * @generated from field: int64 files_extracted = 3;
+   */
+  filesExtracted: bigint;
+
+  /**
+   * @generated from field: int64 total_bytes = 4;
+   */
+  totalBytes: bigint;
+
+  /**
+   * @generated from field: int64 bytes_extracted = 5;
+   */
+  bytesExtracted: bigint;
+
+  /**
+   * @generated from field: string current_file = 6;
+   */
+  currentFile: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.ExtractFileArchiveResponse.
+ * Use `create(ExtractFileArchiveResponseSchema)` to create a new message.
+ */
+export const ExtractFileArchiveResponseSchema: GenMessage<ExtractFileArchiveResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 46);
 
 /**
  * CreateBackupArchiveRequest asks the node to create a zip archive containing
@@ -1044,7 +1482,7 @@ export type CreateBackupArchiveRequest = Message<"xylona.node.v1.CreateBackupArc
  * Use `create(CreateBackupArchiveRequestSchema)` to create a new message.
  */
 export const CreateBackupArchiveRequestSchema: GenMessage<CreateBackupArchiveRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 33);
+  messageDesc(file_nodeproto_v1_node, 47);
 
 /**
  * @generated from message xylona.node.v1.CreateBackupArchiveResponse
@@ -1066,7 +1504,7 @@ export type CreateBackupArchiveResponse = Message<"xylona.node.v1.CreateBackupAr
  * Use `create(CreateBackupArchiveResponseSchema)` to create a new message.
  */
 export const CreateBackupArchiveResponseSchema: GenMessage<CreateBackupArchiveResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 34);
+  messageDesc(file_nodeproto_v1_node, 48);
 
 /**
  * ExtractBackupArchive asks the node to extract archive_path into directory.
@@ -1099,7 +1537,7 @@ export type ExtractBackupArchiveRequest = Message<"xylona.node.v1.ExtractBackupA
  * Use `create(ExtractBackupArchiveRequestSchema)` to create a new message.
  */
 export const ExtractBackupArchiveRequestSchema: GenMessage<ExtractBackupArchiveRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 35);
+  messageDesc(file_nodeproto_v1_node, 49);
 
 /**
  * @generated from message xylona.node.v1.ExtractBackupArchiveResponse
@@ -1112,7 +1550,259 @@ export type ExtractBackupArchiveResponse = Message<"xylona.node.v1.ExtractBackup
  * Use `create(ExtractBackupArchiveResponseSchema)` to create a new message.
  */
 export const ExtractBackupArchiveResponseSchema: GenMessage<ExtractBackupArchiveResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 36);
+  messageDesc(file_nodeproto_v1_node, 50);
+
+/**
+ * @generated from message xylona.node.v1.ProbeInstalledVersionRequest
+ */
+export type ProbeInstalledVersionRequest = Message<"xylona.node.v1.ProbeInstalledVersionRequest"> & {
+  /**
+   * @generated from field: string directory = 1;
+   */
+  directory: string;
+
+  /**
+   * @generated from field: xylona.node.v1.InstalledVersionProbeKind kind = 2;
+   */
+  kind: InstalledVersionProbeKind;
+
+  /**
+   * @generated from field: repeated string relative_paths = 3;
+   */
+  relativePaths: string[];
+
+  /**
+   * @generated from field: string preferred_steam_app_id = 4;
+   */
+  preferredSteamAppId: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.ProbeInstalledVersionRequest.
+ * Use `create(ProbeInstalledVersionRequestSchema)` to create a new message.
+ */
+export const ProbeInstalledVersionRequestSchema: GenMessage<ProbeInstalledVersionRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 51);
+
+/**
+ * @generated from message xylona.node.v1.ProbeInstalledVersionResponse
+ */
+export type ProbeInstalledVersionResponse = Message<"xylona.node.v1.ProbeInstalledVersionResponse"> & {
+  /**
+   * @generated from field: bool found = 1;
+   */
+  found: boolean;
+
+  /**
+   * @generated from field: string version = 2;
+   */
+  version: string;
+
+  /**
+   * @generated from field: string source_path = 3;
+   */
+  sourcePath: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.ProbeInstalledVersionResponse.
+ * Use `create(ProbeInstalledVersionResponseSchema)` to create a new message.
+ */
+export const ProbeInstalledVersionResponseSchema: GenMessage<ProbeInstalledVersionResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 52);
+
+/**
+ * @generated from message xylona.node.v1.QueryGameServerRequest
+ */
+export type QueryGameServerRequest = Message<"xylona.node.v1.QueryGameServerRequest"> & {
+  /**
+   * @generated from field: xylona.node.v1.GameServerQueryKind kind = 1;
+   */
+  kind: GameServerQueryKind;
+
+  /**
+   * @generated from field: string ip = 2;
+   */
+  ip: string;
+
+  /**
+   * @generated from field: int64 query_port = 3;
+   */
+  queryPort: bigint;
+
+  /**
+   * @generated from field: int64 max_players = 4;
+   */
+  maxPlayers: bigint;
+};
+
+/**
+ * Describes the message xylona.node.v1.QueryGameServerRequest.
+ * Use `create(QueryGameServerRequestSchema)` to create a new message.
+ */
+export const QueryGameServerRequestSchema: GenMessage<QueryGameServerRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 53);
+
+/**
+ * @generated from message xylona.node.v1.GameServerMinecraftQueryInfo
+ */
+export type GameServerMinecraftQueryInfo = Message<"xylona.node.v1.GameServerMinecraftQueryInfo"> & {
+  /**
+   * @generated from field: string motd = 1;
+   */
+  motd: string;
+
+  /**
+   * @generated from field: string game_type = 2;
+   */
+  gameType: string;
+
+  /**
+   * @generated from field: string map = 3;
+   */
+  map: string;
+
+  /**
+   * @generated from field: uint32 number_of_players = 4;
+   */
+  numberOfPlayers: number;
+
+  /**
+   * @generated from field: uint32 max_players = 5;
+   */
+  maxPlayers: number;
+
+  /**
+   * @generated from field: repeated string player_list = 6;
+   */
+  playerList: string[];
+
+  /**
+   * @generated from field: uint32 protocol_version = 7;
+   */
+  protocolVersion: number;
+
+  /**
+   * @generated from field: string server_version = 8;
+   */
+  serverVersion: string;
+};
+
+/**
+ * Describes the message xylona.node.v1.GameServerMinecraftQueryInfo.
+ * Use `create(GameServerMinecraftQueryInfoSchema)` to create a new message.
+ */
+export const GameServerMinecraftQueryInfoSchema: GenMessage<GameServerMinecraftQueryInfo> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 54);
+
+/**
+ * @generated from message xylona.node.v1.GameServerSourceQueryInfo
+ */
+export type GameServerSourceQueryInfo = Message<"xylona.node.v1.GameServerSourceQueryInfo"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string map = 2;
+   */
+  map: string;
+
+  /**
+   * @generated from field: string game = 3;
+   */
+  game: string;
+
+  /**
+   * @generated from field: uint32 app_id = 4;
+   */
+  appId: number;
+
+  /**
+   * @generated from field: uint64 steam_id = 5;
+   */
+  steamId: bigint;
+
+  /**
+   * @generated from field: uint64 game_id = 6;
+   */
+  gameId: bigint;
+
+  /**
+   * @generated from field: uint32 players = 7;
+   */
+  players: number;
+
+  /**
+   * @generated from field: uint32 max_players = 8;
+   */
+  maxPlayers: number;
+
+  /**
+   * @generated from field: uint32 bots = 9;
+   */
+  bots: number;
+
+  /**
+   * @generated from field: string server_os = 10;
+   */
+  serverOs: string;
+
+  /**
+   * @generated from field: bool visibility = 11;
+   */
+  visibility: boolean;
+
+  /**
+   * @generated from field: bool vac = 12;
+   */
+  vac: boolean;
+
+  /**
+   * @generated from field: string version = 13;
+   */
+  version: string;
+
+  /**
+   * @generated from field: uint32 protocol = 14;
+   */
+  protocol: number;
+};
+
+/**
+ * Describes the message xylona.node.v1.GameServerSourceQueryInfo.
+ * Use `create(GameServerSourceQueryInfoSchema)` to create a new message.
+ */
+export const GameServerSourceQueryInfoSchema: GenMessage<GameServerSourceQueryInfo> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 55);
+
+/**
+ * @generated from message xylona.node.v1.QueryGameServerResponse
+ */
+export type QueryGameServerResponse = Message<"xylona.node.v1.QueryGameServerResponse"> & {
+  /**
+   * @generated from field: xylona.node.v1.GameServerQueryKind kind = 1;
+   */
+  kind: GameServerQueryKind;
+
+  /**
+   * @generated from field: xylona.node.v1.GameServerMinecraftQueryInfo minecraft = 2;
+   */
+  minecraft?: GameServerMinecraftQueryInfo;
+
+  /**
+   * @generated from field: xylona.node.v1.GameServerSourceQueryInfo source = 3;
+   */
+  source?: GameServerSourceQueryInfo;
+};
+
+/**
+ * Describes the message xylona.node.v1.QueryGameServerResponse.
+ * Use `create(QueryGameServerResponseSchema)` to create a new message.
+ */
+export const QueryGameServerResponseSchema: GenMessage<QueryGameServerResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 56);
 
 /**
  * SendConsoleOutput writes a controller-generated line into the process's
@@ -1140,7 +1830,7 @@ export type SendConsoleOutputRequest = Message<"xylona.node.v1.SendConsoleOutput
  * Use `create(SendConsoleOutputRequestSchema)` to create a new message.
  */
 export const SendConsoleOutputRequestSchema: GenMessage<SendConsoleOutputRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 37);
+  messageDesc(file_nodeproto_v1_node, 57);
 
 /**
  * @generated from message xylona.node.v1.SendConsoleOutputResponse
@@ -1153,7 +1843,7 @@ export type SendConsoleOutputResponse = Message<"xylona.node.v1.SendConsoleOutpu
  * Use `create(SendConsoleOutputResponseSchema)` to create a new message.
  */
 export const SendConsoleOutputResponseSchema: GenMessage<SendConsoleOutputResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 38);
+  messageDesc(file_nodeproto_v1_node, 58);
 
 /**
  * GetProcessSnapshotRequest fetches the metrics + status for one process.
@@ -1174,7 +1864,7 @@ export type GetProcessSnapshotRequest = Message<"xylona.node.v1.GetProcessSnapsh
  * Use `create(GetProcessSnapshotRequestSchema)` to create a new message.
  */
 export const GetProcessSnapshotRequestSchema: GenMessage<GetProcessSnapshotRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 39);
+  messageDesc(file_nodeproto_v1_node, 59);
 
 /**
  * @generated from message xylona.node.v1.GetProcessSnapshotResponse
@@ -1196,7 +1886,7 @@ export type GetProcessSnapshotResponse = Message<"xylona.node.v1.GetProcessSnaps
  * Use `create(GetProcessSnapshotResponseSchema)` to create a new message.
  */
 export const GetProcessSnapshotResponseSchema: GenMessage<GetProcessSnapshotResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 40);
+  messageDesc(file_nodeproto_v1_node, 60);
 
 /**
  * @generated from message xylona.node.v1.GetNodeSnapshotRequest
@@ -1209,7 +1899,37 @@ export type GetNodeSnapshotRequest = Message<"xylona.node.v1.GetNodeSnapshotRequ
  * Use `create(GetNodeSnapshotRequestSchema)` to create a new message.
  */
 export const GetNodeSnapshotRequestSchema: GenMessage<GetNodeSnapshotRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 41);
+  messageDesc(file_nodeproto_v1_node, 61);
+
+/**
+ * @generated from message xylona.node.v1.ListBindableIPsRequest
+ */
+export type ListBindableIPsRequest = Message<"xylona.node.v1.ListBindableIPsRequest"> & {
+};
+
+/**
+ * Describes the message xylona.node.v1.ListBindableIPsRequest.
+ * Use `create(ListBindableIPsRequestSchema)` to create a new message.
+ */
+export const ListBindableIPsRequestSchema: GenMessage<ListBindableIPsRequest> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 62);
+
+/**
+ * @generated from message xylona.node.v1.ListBindableIPsResponse
+ */
+export type ListBindableIPsResponse = Message<"xylona.node.v1.ListBindableIPsResponse"> & {
+  /**
+   * @generated from field: repeated xylona.node.v1.BindableIP ips = 1;
+   */
+  ips: BindableIP[];
+};
+
+/**
+ * Describes the message xylona.node.v1.ListBindableIPsResponse.
+ * Use `create(ListBindableIPsResponseSchema)` to create a new message.
+ */
+export const ListBindableIPsResponseSchema: GenMessage<ListBindableIPsResponse> = /*@__PURE__*/
+  messageDesc(file_nodeproto_v1_node, 63);
 
 /**
  * @generated from message xylona.node.v1.StreamEventsRequest
@@ -1222,7 +1942,7 @@ export type StreamEventsRequest = Message<"xylona.node.v1.StreamEventsRequest"> 
  * Use `create(StreamEventsRequestSchema)` to create a new message.
  */
 export const StreamEventsRequestSchema: GenMessage<StreamEventsRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 42);
+  messageDesc(file_nodeproto_v1_node, 64);
 
 /**
  * @generated from message xylona.node.v1.PingRequest
@@ -1235,7 +1955,7 @@ export type PingRequest = Message<"xylona.node.v1.PingRequest"> & {
  * Use `create(PingRequestSchema)` to create a new message.
  */
 export const PingRequestSchema: GenMessage<PingRequest> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 43);
+  messageDesc(file_nodeproto_v1_node, 65);
 
 /**
  * @generated from message xylona.node.v1.PingResponse
@@ -1252,7 +1972,7 @@ export type PingResponse = Message<"xylona.node.v1.PingResponse"> & {
  * Use `create(PingResponseSchema)` to create a new message.
  */
 export const PingResponseSchema: GenMessage<PingResponse> = /*@__PURE__*/
-  messageDesc(file_nodeproto_v1_node, 44);
+  messageDesc(file_nodeproto_v1_node, 66);
 
 /**
  * NodeErrorCode is the typed error taxonomy surfaced by NodeService methods.
@@ -1365,6 +2085,42 @@ export const ProcessStatusSchema: GenEnum<ProcessStatus> = /*@__PURE__*/
   enumDesc(file_nodeproto_v1_node, 1);
 
 /**
+ * @generated from enum xylona.node.v1.FileArchiveCompression
+ */
+export enum FileArchiveCompression {
+  /**
+   * @generated from enum value: FILE_ARCHIVE_COMPRESSION_ZIP = 0;
+   */
+  ZIP = 0,
+
+  /**
+   * @generated from enum value: FILE_ARCHIVE_COMPRESSION_BZIP2 = 1;
+   */
+  BZIP2 = 1,
+
+  /**
+   * @generated from enum value: FILE_ARCHIVE_COMPRESSION_GZIP = 2;
+   */
+  GZIP = 2,
+
+  /**
+   * @generated from enum value: FILE_ARCHIVE_COMPRESSION_ZST = 3;
+   */
+  ZST = 3,
+
+  /**
+   * @generated from enum value: FILE_ARCHIVE_COMPRESSION_XZ = 4;
+   */
+  XZ = 4,
+}
+
+/**
+ * Describes the enum xylona.node.v1.FileArchiveCompression.
+ */
+export const FileArchiveCompressionSchema: GenEnum<FileArchiveCompression> = /*@__PURE__*/
+  enumDesc(file_nodeproto_v1_node, 2);
+
+/**
  * @generated from enum xylona.node.v1.ExtractMode
  */
 export enum ExtractMode {
@@ -1388,7 +2144,59 @@ export enum ExtractMode {
  * Describes the enum xylona.node.v1.ExtractMode.
  */
 export const ExtractModeSchema: GenEnum<ExtractMode> = /*@__PURE__*/
-  enumDesc(file_nodeproto_v1_node, 2);
+  enumDesc(file_nodeproto_v1_node, 3);
+
+/**
+ * @generated from enum xylona.node.v1.InstalledVersionProbeKind
+ */
+export enum InstalledVersionProbeKind {
+  /**
+   * @generated from enum value: INSTALLED_VERSION_PROBE_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: INSTALLED_VERSION_PROBE_KIND_MINECRAFT_JAR = 1;
+   */
+  MINECRAFT_JAR = 1,
+
+  /**
+   * @generated from enum value: INSTALLED_VERSION_PROBE_KIND_STEAM_MANIFEST = 2;
+   */
+  STEAM_MANIFEST = 2,
+}
+
+/**
+ * Describes the enum xylona.node.v1.InstalledVersionProbeKind.
+ */
+export const InstalledVersionProbeKindSchema: GenEnum<InstalledVersionProbeKind> = /*@__PURE__*/
+  enumDesc(file_nodeproto_v1_node, 4);
+
+/**
+ * @generated from enum xylona.node.v1.GameServerQueryKind
+ */
+export enum GameServerQueryKind {
+  /**
+   * @generated from enum value: GAME_SERVER_QUERY_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: GAME_SERVER_QUERY_KIND_MINECRAFT = 1;
+   */
+  MINECRAFT = 1,
+
+  /**
+   * @generated from enum value: GAME_SERVER_QUERY_KIND_SOURCE = 2;
+   */
+  SOURCE = 2,
+}
+
+/**
+ * Describes the enum xylona.node.v1.GameServerQueryKind.
+ */
+export const GameServerQueryKindSchema: GenEnum<GameServerQueryKind> = /*@__PURE__*/
+  enumDesc(file_nodeproto_v1_node, 5);
 
 /**
  * NodeService is the controller <-> node internal wire protocol. All methods
@@ -1459,12 +2267,36 @@ export const NodeService: GenService<{
     output: typeof ReadFileResponseSchema;
   },
   /**
+   * @generated from rpc xylona.node.v1.NodeService.StatFile
+   */
+  statFile: {
+    methodKind: "unary";
+    input: typeof StatFileRequestSchema;
+    output: typeof StatFileResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.node.v1.NodeService.StreamFile
+   */
+  streamFile: {
+    methodKind: "server_streaming";
+    input: typeof StreamFileRequestSchema;
+    output: typeof StreamFileResponseSchema;
+  },
+  /**
    * @generated from rpc xylona.node.v1.NodeService.WriteFile
    */
   writeFile: {
     methodKind: "unary";
     input: typeof WriteFileRequestSchema;
     output: typeof WriteFileResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.node.v1.NodeService.StreamWriteFile
+   */
+  streamWriteFile: {
+    methodKind: "client_streaming";
+    input: typeof StreamWriteFileRequestSchema;
+    output: typeof StreamWriteFileResponseSchema;
   },
   /**
    * @generated from rpc xylona.node.v1.NodeService.CreateFileOrDirectory
@@ -1499,12 +2331,52 @@ export const NodeService: GenService<{
     output: typeof MoveFilesResponseSchema;
   },
   /**
+   * @generated from rpc xylona.node.v1.NodeService.CopyFiles
+   */
+  copyFiles: {
+    methodKind: "unary";
+    input: typeof CopyFilesRequestSchema;
+    output: typeof CopyFilesResponseSchema;
+  },
+  /**
    * @generated from rpc xylona.node.v1.NodeService.DownloadFileFromURL
    */
   downloadFileFromURL: {
     methodKind: "unary";
     input: typeof DownloadFileFromURLRequestSchema;
     output: typeof DownloadFileFromURLResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.node.v1.NodeService.CreateFileArchive
+   */
+  createFileArchive: {
+    methodKind: "unary";
+    input: typeof CreateFileArchiveRequestSchema;
+    output: typeof CreateFileArchiveResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.node.v1.NodeService.StreamCreateFileArchive
+   */
+  streamCreateFileArchive: {
+    methodKind: "server_streaming";
+    input: typeof CreateFileArchiveRequestSchema;
+    output: typeof CreateFileArchiveResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.node.v1.NodeService.ExtractFileArchive
+   */
+  extractFileArchive: {
+    methodKind: "unary";
+    input: typeof ExtractFileArchiveRequestSchema;
+    output: typeof ExtractFileArchiveResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.node.v1.NodeService.StreamExtractFileArchive
+   */
+  streamExtractFileArchive: {
+    methodKind: "server_streaming";
+    input: typeof ExtractFileArchiveRequestSchema;
+    output: typeof ExtractFileArchiveResponseSchema;
   },
   /**
    * Backup operations
@@ -1523,6 +2395,22 @@ export const NodeService: GenService<{
     methodKind: "unary";
     input: typeof ExtractBackupArchiveRequestSchema;
     output: typeof ExtractBackupArchiveResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.node.v1.NodeService.ProbeInstalledVersion
+   */
+  probeInstalledVersion: {
+    methodKind: "unary";
+    input: typeof ProbeInstalledVersionRequestSchema;
+    output: typeof ProbeInstalledVersionResponseSchema;
+  },
+  /**
+   * @generated from rpc xylona.node.v1.NodeService.QueryGameServer
+   */
+  queryGameServer: {
+    methodKind: "unary";
+    input: typeof QueryGameServerRequestSchema;
+    output: typeof QueryGameServerResponseSchema;
   },
   /**
    * Console output (controller-generated lines pushed into the process buffer)
@@ -1547,6 +2435,14 @@ export const NodeService: GenService<{
   /**
    * Node introspection
    *
+   * @generated from rpc xylona.node.v1.NodeService.ListBindableIPs
+   */
+  listBindableIPs: {
+    methodKind: "unary";
+    input: typeof ListBindableIPsRequestSchema;
+    output: typeof ListBindableIPsResponseSchema;
+  },
+  /**
    * @generated from rpc xylona.node.v1.NodeService.GetNodeSnapshot
    */
   getNodeSnapshot: {

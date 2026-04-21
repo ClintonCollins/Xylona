@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -35,10 +37,16 @@ var minecraftUpdateProviderLookup = func(kind updateproviders.ProviderKind) (mod
 type minecraftUpdatePlan struct {
 	softwareID          string
 	softwareName        string
+	providerKind        updateproviders.ProviderKind
+	sourceID            string
 	provider            modproviders.ModProvider
 	targetVersion       string
 	downloadVersionID   string
 	downloadVersionName string
+	downloadURL         string
+	downloadSize        int64
+	downloadSHA256      string
+	downloadSHA1        string
 	plannedFileName     string
 }
 
@@ -100,6 +108,10 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 
 	downloadVersionID := targetVersion
 	downloadVersionName := targetVersion
+	downloadURL := ""
+	downloadSize := int64(0)
+	downloadSHA256 := ""
+	downloadSHA1 := ""
 	plannedFileName := ""
 
 	builds, errBuilds := provider.GetVersions(updateCtx, sourceID, targetVersion, nil)
@@ -111,7 +123,12 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 		if selectedBuild.VersionString != "" {
 			downloadVersionName = selectedBuild.VersionString
 		}
-		if fileName := plannedDownloadFileName(selectedBuild.DownloadURL); fileName != "" {
+		downloadURL = strings.TrimSpace(selectedBuild.DownloadURL)
+		downloadSize = selectedBuild.FileSize
+		downloadSHA256 = selectedBuild.FileHashSHA256
+		downloadSHA1 = selectedBuild.FileHashSHA1
+		fileName := plannedDownloadFileName(selectedBuild.DownloadURL)
+		if fileName != "" {
 			plannedFileName = fileName
 		}
 	}
@@ -127,10 +144,16 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 	return &minecraftUpdatePlan{
 		softwareID:          softwareID,
 		softwareName:        softwareName,
+		providerKind:        resolved.Provider.Kind,
+		sourceID:            sourceID,
 		provider:            provider,
 		targetVersion:       targetVersion,
 		downloadVersionID:   downloadVersionID,
 		downloadVersionName: downloadVersionName,
+		downloadURL:         downloadURL,
+		downloadSize:        downloadSize,
+		downloadSHA256:      downloadSHA256,
+		downloadSHA1:        downloadSHA1,
 		plannedFileName:     plannedFileName,
 	}, nil
 }
@@ -191,6 +214,11 @@ func (inst *Instance) tryUpdateMinecraftServerSoftware(gameServer *models.GameSe
 	updateCtx, cancel := context.WithTimeout(inst.ctx, 10*time.Minute)
 	defer cancel()
 
+	if inst.shouldUseRemoteNodeFiles(gameServer.NodeID) {
+		errRemoteUpdate := inst.updateRemoteMinecraftServerSoftware(updateCtx, gameServer, plan)
+		return true, errRemoteUpdate
+	}
+
 	files, errDownload := plan.provider.Download(
 		updateCtx,
 		plan.softwareID,
@@ -202,27 +230,132 @@ func (inst *Instance) tryUpdateMinecraftServerSoftware(gameServer *models.GameSe
 	}
 
 	newExecutable := primaryDownloadedFile(files)
-	if oldExecutable := gameServer.ServerExecutable.GetOr(""); oldExecutable != "" && oldExecutable != newExecutable {
+	oldExecutable := gameServer.ServerExecutable.GetOr("")
+	if oldExecutable != "" && oldExecutable != newExecutable {
 		oldPath := filepath.Join(gameServer.Directory, oldExecutable)
-		if errRemove := os.Remove(oldPath); errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+		errRemove := os.Remove(oldPath)
+		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
 			log.Warn().Err(errRemove).Str("game_server_id", gameServer.ID).Str("path", oldPath).
 				Msg("Failed to remove superseded game server executable")
 		}
 	}
 
+	errPersist := inst.persistMinecraftUpdateResult(gameServer, plan.softwareID, newExecutable)
+	if errPersist != nil {
+		return true, errPersist
+	}
+	return true, nil
+}
+
+func (inst *Instance) updateRemoteMinecraftServerSoftware(
+	ctx context.Context,
+	gameServer *models.GameServer,
+	plan *minecraftUpdatePlan,
+) error {
+	downloadURL := plan.downloadURL
+	if downloadURL == "" {
+		downloadURL = remoteMinecraftDownloadURL(plan)
+	}
+	if downloadURL == "" {
+		return fmt.Errorf("download minecraft update: remote download URL unavailable for %s %s", plan.softwareID, plan.downloadVersionID)
+	}
+
+	client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
+	if errClient != nil {
+		return fmt.Errorf("resolve node client for minecraft update: %w", errClient)
+	}
+
+	integrity := node.DownloadIntegrity{
+		ExpectedSize:   plan.downloadSize,
+		ExpectedSHA256: plan.downloadSHA256,
+		ExpectedSHA1:   plan.downloadSHA1,
+	}
+	if !integrity.HasExpectedMetadata() {
+		return fmt.Errorf("download remote minecraft update: integrity metadata unavailable for %s %s", plan.softwareID, plan.downloadVersionID)
+	}
+
+	downloadResult, errDownload := client.DownloadFileFromURL(ctx, gameServer.Directory, downloadURL, "", integrity, node.ProtectionPolicy{})
+	if errDownload != nil {
+		return fmt.Errorf("download remote minecraft update: %w", errDownload)
+	}
+
+	newExecutable := path.Base(downloadResult.RelativePath)
+	oldExecutable := gameServer.ServerExecutable.GetOr("")
+	if oldExecutable != "" && oldExecutable != newExecutable {
+		_, errRemove := client.DeleteFiles(ctx, gameServer.Directory, []string{oldExecutable}, node.ProtectionPolicy{})
+		if errRemove != nil {
+			log.Warn().Err(errRemove).Str("game_server_id", gameServer.ID).Str("path", oldExecutable).
+				Msg("Failed to remove superseded remote game server executable")
+		}
+	}
+
+	errPersist := inst.persistMinecraftUpdateResult(gameServer, plan.softwareID, newExecutable)
+	if errPersist != nil {
+		return errPersist
+	}
+	return nil
+}
+
+func remoteMinecraftDownloadURL(plan *minecraftUpdatePlan) string {
+	if plan == nil || plan.providerKind != updateproviders.ProviderKindPaperMC {
+		return ""
+	}
+
+	version, buildNumber, ok := splitPaperMCVersionID(plan.downloadVersionID)
+	if !ok {
+		return ""
+	}
+
+	sourceID := strings.TrimSpace(plan.sourceID)
+	if sourceID == "" {
+		sourceID = strings.TrimSpace(plan.softwareID)
+	}
+	if sourceID == "" {
+		return ""
+	}
+
+	baseURL := "https://api.papermc.io/v2"
+	if sourceID == "purpur" {
+		baseURL = "https://api.purpurmc.org/v2"
+	}
+
+	fileName := fmt.Sprintf("%s-%s-%d.jar", sourceID, version, buildNumber)
+	return fmt.Sprintf("%s/projects/%s/versions/%s/builds/%d/downloads/%s", baseURL, sourceID, version, buildNumber, fileName)
+}
+
+func splitPaperMCVersionID(versionID string) (string, int, bool) {
+	trimmed := strings.TrimSpace(versionID)
+	lastDash := strings.LastIndex(trimmed, "-")
+	if lastDash < 0 || lastDash == len(trimmed)-1 {
+		return "", 0, false
+	}
+
+	buildNumber, errParse := strconv.Atoi(trimmed[lastDash+1:])
+	if errParse != nil {
+		return "", 0, false
+	}
+
+	version := strings.TrimSpace(trimmed[:lastDash])
+	if version == "" {
+		return "", 0, false
+	}
+	return version, buildNumber, true
+}
+
+func (inst *Instance) persistMinecraftUpdateResult(gameServer *models.GameServer, softwareID string, newExecutable string) error {
 	if inst.db == nil {
 		if newExecutable == "" {
 			gameServer.ServerExecutable = null.FromPtr[string](nil)
 		} else {
 			gameServer.ServerExecutable = null.From(newExecutable)
 		}
-		gameServer.ServerSoftware = null.From(plan.softwareID)
-		return true, nil
+		gameServer.ServerSoftware = null.From(softwareID)
+		return nil
 	}
 
 	setter := &models.GameServerSetter{
 		ID:             omit.From(gameServer.ID),
-		ServerSoftware: omitnull.From(plan.softwareID),
+		ServerSoftware: omitnull.From(softwareID),
 	}
 	if newExecutable == "" {
 		setter.ServerExecutable = omitnull.FromNull(null.Val[string]{})
@@ -232,11 +365,11 @@ func (inst *Instance) tryUpdateMinecraftServerSoftware(gameServer *models.GameSe
 
 	updated, errUpdate := inst.db.UpdateGameServer(inst.db.DB, setter)
 	if errUpdate != nil {
-		return true, fmt.Errorf("persist minecraft update: %w", errUpdate)
+		return fmt.Errorf("persist minecraft update: %w", errUpdate)
 	}
 	gameServer.ServerExecutable = updated.ServerExecutable
 	gameServer.ServerSoftware = updated.ServerSoftware
-	return true, nil
+	return nil
 }
 
 func primaryDownloadedFile(files []modproviders.DownloadedFile) string {

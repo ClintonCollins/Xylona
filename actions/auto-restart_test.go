@@ -12,6 +12,10 @@ import (
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
+	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -24,7 +28,7 @@ type autoRestartTestFixture struct {
 	gameServer *models.GameServer
 }
 
-func newAutoRestartTestFixture(t *testing.T, maxRetries int64, cooldownSeconds int64) autoRestartTestFixture {
+func newAutoRestartTestFixture(t *testing.T, maxRetries int64) autoRestartTestFixture {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -92,6 +96,7 @@ func newAutoRestartTestFixture(t *testing.T, maxRetries int64, cooldownSeconds i
 		Usable:             omit.From(true),
 		External:           omit.From(false),
 		AutomaticallyAdded: omit.From(false),
+		NodeID:             omit.From(nodeID),
 	})
 	if errUpsertIP != nil {
 		t.Fatalf("UpsertIP() error = %v", errUpsertIP)
@@ -128,7 +133,7 @@ func newAutoRestartTestFixture(t *testing.T, maxRetries int64, cooldownSeconds i
 		StartArgsPatches:           omit.From("[]"),
 		AutoRestartEnabled:         omit.From(true),
 		AutoRestartMaxRetries:      omit.From(maxRetries),
-		AutoRestartCooldownSeconds: omit.From(cooldownSeconds),
+		AutoRestartCooldownSeconds: omit.From(int64(0)),
 		CreatedAt:                  omit.From(now),
 		UpdatedAt:                  omit.From(now),
 	})
@@ -162,7 +167,7 @@ func waitForConsoleOutputSubstring(t *testing.T, cmd *supervisor.Command, want s
 }
 
 func TestHandleServerExitResetsRetryCounterAfterStableWindow(t *testing.T) {
-	fixture := newAutoRestartTestFixture(t, 3, 0)
+	fixture := newAutoRestartTestFixture(t, 3)
 	defer fixture.cancel()
 
 	cmd := fixture.inst.supervisorInstance.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
@@ -187,7 +192,7 @@ func TestHandleServerExitResetsRetryCounterAfterStableWindow(t *testing.T) {
 }
 
 func TestHandleServerExitStopsAtRetryLimit(t *testing.T) {
-	fixture := newAutoRestartTestFixture(t, 2, 0)
+	fixture := newAutoRestartTestFixture(t, 2)
 	defer fixture.cancel()
 
 	cmd := fixture.inst.supervisorInstance.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
@@ -217,7 +222,7 @@ func TestHandleServerExitStopsAtRetryLimit(t *testing.T) {
 }
 
 func TestHandleServerExitCancelsRestartWhenDisabledDuringCooldown(t *testing.T) {
-	fixture := newAutoRestartTestFixture(t, 3, 0)
+	fixture := newAutoRestartTestFixture(t, 3)
 	defer fixture.cancel()
 
 	cmd := fixture.inst.supervisorInstance.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
@@ -246,5 +251,51 @@ func TestHandleServerExitCancelsRestartWhenDisabledDuringCooldown(t *testing.T) 
 	)
 	if strings.Contains(buffer, "Auto-restart: starting server") {
 		t.Fatalf("console output = %q, want restart to stay cancelled", buffer)
+	}
+}
+
+func TestOnStatusChangedSkipsAutoRestartAfterRemoteIntentionalStopRequest(t *testing.T) {
+	fixture := newAutoRestartTestFixture(t, 3)
+	defer fixture.cancel()
+
+	game, errGetGame := fixture.conn.GetGameByID(fixture.gameServer.GameID)
+	if errGetGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGetGame)
+	}
+	fixture.gameServer.R.Game = game
+
+	selfClient := &nodeclient.FakeNodeClient{NodeID: "node-self"}
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         fixture.gameServer.NodeID,
+		SnapshotResult: &node.NodeSnapshot{OS: "linux"},
+	}
+	registry := noderegistry.New("node-self", selfClient)
+	registry.Register(remoteClient)
+	fixture.inst.nodeRegistry = registry
+
+	entry := fixture.inst.restartState.entry(fixture.gameServer.ID)
+	entry.mu.Lock()
+	entry.attemptCount = 0
+	entry.lastStartTime = time.Now()
+	entry.mu.Unlock()
+
+	fixture.inst.StopGameServer(fixture.gameServer)
+	fixture.inst.onStatusChanged(eventbus.StatusChangedEvent{
+		ServerID:     fixture.gameServer.ID,
+		ServerNodeID: fixture.gameServer.NodeID,
+		NewStatus:    "OFFLINE",
+	})
+
+	entry.mu.Lock()
+	attemptCount := entry.attemptCount
+	entry.mu.Unlock()
+	if attemptCount != 0 {
+		t.Fatalf("retry count = %d, want 0 after intentional remote stop", attemptCount)
+	}
+	if len(remoteClient.StopProcessCalls) != 1 {
+		t.Fatalf("StopProcess call count = %d, want 1", len(remoteClient.StopProcessCalls))
+	}
+	if len(remoteClient.SendConsoleOutputCalls) != 0 {
+		t.Fatalf("SendConsoleOutput calls = %+v, want none for intentional stop", remoteClient.SendConsoleOutputCalls)
 	}
 }

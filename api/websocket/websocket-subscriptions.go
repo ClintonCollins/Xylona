@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -138,7 +137,7 @@ func (ws *WebSocket) listenForGameServerCreated(s *melody.Session) {
 	}
 }
 
-func (ws *WebSocket) closeCommandOutputListeners(s *melody.Session) {
+func (ws *WebSocket) closeConsoleOutputStreams(s *melody.Session) {
 	sessionConnection, errGetConnection := ws.getSessionConnection(s)
 	if errGetConnection != nil {
 		return
@@ -146,27 +145,29 @@ func (ws *WebSocket) closeCommandOutputListeners(s *melody.Session) {
 	gameServerIDs := sessionConnection.consumeRequestedGameServerOutputIDs()
 
 	for _, gameServerID := range gameServerIDs {
-		gameServer, errGetServer := ws.db.GetGameServerByID(gameServerID)
-		if errGetServer != nil {
-			if errors.Is(errGetServer, sql.ErrNoRows) {
-				continue
-			}
-			log.Error().Err(errGetServer).Str("server_id", gameServerID).Msg("Failed to get game server for console listener cleanup")
-			continue
-		}
-		if ws.isLocalNode(gameServer.NodeID) && ws.supervisor != nil {
-			command := ws.supervisor.GetCommandByIDOrCreateShell(gameServer.ID)
-			command.RemoveOutputListener(sessionConnection.id.String())
-		}
+		ws.cancelConsoleStream(sessionConnection, gameServerID)
 	}
 }
 
-func (ws *WebSocket) cancelRemoteConsoleStreams(conn *connection) {
+func (ws *WebSocket) cancelConsoleStreams(conn *connection) {
 	conn.Lock()
 	defer conn.Unlock()
-	for serverID, cancel := range conn.remoteConsoleCancels {
+	for serverID, cancel := range conn.consoleStreamCancels {
 		cancel()
-		delete(conn.remoteConsoleCancels, serverID)
+		delete(conn.consoleStreamCancels, serverID)
+	}
+}
+
+func (ws *WebSocket) cancelConsoleStream(conn *connection, serverID string) {
+	conn.Lock()
+	cancel, exists := conn.consoleStreamCancels[serverID]
+	if exists {
+		delete(conn.consoleStreamCancels, serverID)
+	}
+	conn.Unlock()
+
+	if exists {
+		cancel()
 	}
 }
 
@@ -182,26 +183,21 @@ func (ws *WebSocket) subscribeGameServerConsole(conn *connection, gameServer *mo
 		return errors.New("game server console subscription requires connection and server")
 	}
 
-	if ws.isLocalNode(gameServer.NodeID) {
-		if ws.supervisor == nil {
-			return errors.New("local supervisor unavailable")
-		}
-		command := ws.supervisor.GetCommandByIDOrCreateShell(gameServer.ID)
-		command.AddOutputListener(conn.id.String(), conn.outputStreamChannel)
-		return nil
-	}
-
-	return ws.startRemoteConsoleStream(conn, gameServer)
+	return ws.startConsoleStream(conn, gameServer)
 }
 
-func (ws *WebSocket) startRemoteConsoleStream(conn *connection, gameServer *models.GameServer) error {
+func (ws *WebSocket) startConsoleStream(conn *connection, gameServer *models.GameServer) error {
 	if ws == nil || ws.nodeRegistry == nil {
 		return errors.New("node registry unavailable")
 	}
 
-	client, errClient := ws.nodeRegistry.Get(gameServer.NodeID)
+	nodeID := gameServer.NodeID
+	if ws.isLocalNode(nodeID) {
+		nodeID = ws.nodeRegistry.SelfID()
+	}
+	client, errClient := ws.nodeRegistry.Get(nodeID)
 	if errClient != nil {
-		return fmt.Errorf("resolve node client %q: %w", gameServer.NodeID, errClient)
+		return fmt.Errorf("resolve node client %q: %w", nodeID, errClient)
 	}
 
 	baseCtx := ws.ctx
@@ -211,19 +207,20 @@ func (ws *WebSocket) startRemoteConsoleStream(conn *connection, gameServer *mode
 	streamCtx, cancel := context.WithCancel(baseCtx)
 
 	conn.Lock()
-	if existingCancel, ok := conn.remoteConsoleCancels[gameServer.ID]; ok {
+	existingCancel, exists := conn.consoleStreamCancels[gameServer.ID]
+	if exists {
 		existingCancel()
 	}
-	conn.remoteConsoleCancels[gameServer.ID] = cancel
+	conn.consoleStreamCancels[gameServer.ID] = cancel
 	conn.Unlock()
 
 	stream, errStream := client.StreamConsoleOutput(streamCtx, gameServer.ID)
 	if errStream != nil {
 		cancel()
 		conn.Lock()
-		delete(conn.remoteConsoleCancels, gameServer.ID)
+		delete(conn.consoleStreamCancels, gameServer.ID)
 		conn.Unlock()
-		return fmt.Errorf("stream remote console output for %q: %w", gameServer.ID, errStream)
+		return fmt.Errorf("stream console output for %q: %w", gameServer.ID, errStream)
 	}
 
 	go func() {
@@ -254,7 +251,7 @@ func (ws *WebSocket) startRemoteConsoleStream(conn *connection, gameServer *mode
 					return
 				case conn.outputStreamChannel <- payload:
 				case <-time.After(time.Second):
-					log.Warn().Str("game_server_id", gameServer.ID).Msg("Dropping slow remote console message")
+					log.Warn().Str("game_server_id", gameServer.ID).Msg("Dropping slow console message")
 				}
 			}
 		}

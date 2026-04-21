@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -82,7 +84,7 @@ func (c *GRPCNodeClient) ID() string {
 
 // Close releases idle TLS connections held by the underlying transport. Safe
 // to call multiple times.
-func (c *GRPCNodeClient) Close(_ context.Context) error {
+func (c *GRPCNodeClient) Close() error {
 	transport, ok := c.httpClient.Transport.(*http.Transport)
 	if ok {
 		transport.CloseIdleConnections()
@@ -101,6 +103,12 @@ func newReq[T any](c *GRPCNodeClient, msg *T) *connect.Request[T] {
 	req := connect.NewRequest(msg)
 	c.authorize(req.Header())
 	return req
+}
+
+func (c *GRPCNodeClient) streamConnectClient() nodeprotoconnect.NodeServiceClient {
+	streamHTTPClient := *c.httpClient
+	streamHTTPClient.Timeout = 0
+	return nodeprotoconnect.NewNodeServiceClient(&streamHTTPClient, c.listenURL)
 }
 
 // ErrRemoteStartProcessHandle is returned by the gRPC client's StartProcess to
@@ -185,7 +193,7 @@ func (c *GRPCNodeClient) ReadConsoleBuffer(ctx context.Context, processID string
 // StreamConsoleOutput subscribes to live console chunks for one process.
 func (c *GRPCNodeClient) StreamConsoleOutput(ctx context.Context, processID string) (<-chan node.ConsoleChunk, error) {
 	req := newReq(c, &nodeprotov1.StreamConsoleOutputRequest{ProcessId: processID})
-	stream, errOpen := c.connectClient.StreamConsoleOutput(ctx, req)
+	stream, errOpen := c.streamConnectClient().StreamConsoleOutput(ctx, req)
 	if errOpen != nil {
 		return nil, translateError("stream console output", errOpen)
 	}
@@ -226,12 +234,7 @@ func (c *GRPCNodeClient) ListFiles(ctx context.Context, directory string, relati
 	entries := resp.Msg.GetEntries()
 	out := make([]node.FileEntry, 0, len(entries))
 	for _, entry := range entries {
-		out = append(out, node.FileEntry{
-			Name:         entry.GetName(),
-			Size:         entry.GetSize(),
-			IsDirectory:  entry.GetIsDirectory(),
-			LastModified: entry.GetLastModified().AsTime(),
-		})
+		out = append(out, fileEntryFromProto(entry))
 	}
 	return out, nil
 }
@@ -249,6 +252,76 @@ func (c *GRPCNodeClient) ReadFile(ctx context.Context, directory string, relativ
 	return resp.Msg.GetContent(), nil
 }
 
+// StatFile invokes the StatFile RPC.
+func (c *GRPCNodeClient) StatFile(ctx context.Context, directory string, relativePath string) (node.FileEntry, error) {
+	req := newReq(c, &nodeprotov1.StatFileRequest{
+		Directory:    directory,
+		RelativePath: relativePath,
+	})
+	resp, errRPC := c.connectClient.StatFile(ctx, req)
+	if errRPC != nil {
+		return node.FileEntry{}, translateError("stat file", errRPC)
+	}
+	return fileEntryFromProto(resp.Msg.GetEntry()), nil
+}
+
+// StreamFile invokes the StreamFile RPC and exposes the response as an
+// io.ReadCloser for callers that proxy node-resident content.
+func (c *GRPCNodeClient) StreamFile(ctx context.Context, directory string, relativePath string) (io.ReadCloser, error) {
+	req := newReq(c, &nodeprotov1.StreamFileRequest{
+		Directory:    directory,
+		RelativePath: relativePath,
+	})
+	stream, errOpen := c.streamConnectClient().StreamFile(ctx, req)
+	if errOpen != nil {
+		return nil, translateError("stream file", errOpen)
+	}
+
+	reader, writer := io.Pipe()
+	go func() {
+		var errStream error
+		defer func() {
+			errCloseStream := stream.Close()
+			if errStream != nil {
+				errClosePipe := writer.CloseWithError(errStream)
+				if errClosePipe != nil {
+					return
+				}
+				return
+			}
+			if errCloseStream != nil {
+				errClosePipe := writer.CloseWithError(fmt.Errorf("nodeclient: stream file close: %w", errCloseStream))
+				if errClosePipe != nil {
+					return
+				}
+				return
+			}
+			errCloseWriter := writer.Close()
+			if errCloseWriter != nil {
+				return
+			}
+		}()
+
+		for stream.Receive() {
+			content := stream.Msg().GetContent()
+			if len(content) == 0 {
+				continue
+			}
+			_, errWrite := writer.Write(content)
+			if errWrite != nil {
+				errStream = fmt.Errorf("nodeclient: stream file pipe write: %w", errWrite)
+				return
+			}
+		}
+
+		errReceive := stream.Err()
+		if errReceive != nil {
+			errStream = translateError("stream file", errReceive)
+		}
+	}()
+	return reader, nil
+}
+
 // WriteFile invokes the WriteFile RPC.
 func (c *GRPCNodeClient) WriteFile(ctx context.Context, directory string, relativePath string, content []byte, policy node.ProtectionPolicy) error {
 	req := newReq(c, &nodeprotov1.WriteFileRequest{
@@ -263,6 +336,53 @@ func (c *GRPCNodeClient) WriteFile(ctx context.Context, directory string, relati
 		return translateError("write file", errRPC)
 	}
 	return nil
+}
+
+const streamWriteFileChunkBytes = 64 * 1024
+
+// StreamWriteFile invokes the client-streaming StreamWriteFile RPC.
+func (c *GRPCNodeClient) StreamWriteFile(ctx context.Context, directory string, relativePath string, reader io.Reader, policy node.ProtectionPolicy) (node.WriteFileResult, error) {
+	stream := c.streamConnectClient().StreamWriteFile(ctx)
+	c.authorize(stream.RequestHeader())
+
+	errSend := stream.Send(&nodeprotov1.StreamWriteFileRequest{
+		Directory:        directory,
+		RelativePath:     relativePath,
+		ServerExecutable: policy.ServerExecutable,
+		BaseCommand:      policy.BaseCommand,
+	})
+	if errSend != nil {
+		return node.WriteFileResult{}, translateError("stream write file", errSend)
+	}
+
+	if reader != nil {
+		buf := make([]byte, streamWriteFileChunkBytes)
+		for {
+			n, errRead := reader.Read(buf)
+			if n > 0 {
+				content := append([]byte(nil), buf[:n]...)
+				errSend = stream.Send(&nodeprotov1.StreamWriteFileRequest{Content: content})
+				if errSend != nil {
+					return node.WriteFileResult{}, translateError("stream write file", errSend)
+				}
+			}
+			if errors.Is(errRead, io.EOF) {
+				break
+			}
+			if errRead != nil {
+				return node.WriteFileResult{}, fmt.Errorf("nodeclient: read stream write file content: %w", errRead)
+			}
+		}
+	}
+
+	resp, errRPC := stream.CloseAndReceive()
+	if errRPC != nil {
+		return node.WriteFileResult{}, translateError("stream write file", errRPC)
+	}
+	return node.WriteFileResult{
+		BytesWritten: resp.Msg.GetBytesWritten(),
+		SHA256:       resp.Msg.GetSha256(),
+	}, nil
 }
 
 // CreateFileOrDirectory invokes the CreateFileOrDirectory RPC.
@@ -329,20 +449,138 @@ func (c *GRPCNodeClient) MoveFiles(ctx context.Context, directory string, files 
 	return resp.Msg.GetMoved(), nil
 }
 
+// CopyFiles invokes the CopyFiles RPC.
+func (c *GRPCNodeClient) CopyFiles(ctx context.Context, directory string, operations []node.CopyFileOperation, policy node.ProtectionPolicy) ([]string, error) {
+	protoOperations := make([]*nodeprotov1.CopyFileOperation, 0, len(operations))
+	for _, operation := range operations {
+		protoOperations = append(protoOperations, &nodeprotov1.CopyFileOperation{
+			SourceRelativePath:      operation.SourceRelativePath,
+			DestinationRelativePath: operation.DestinationRelativePath,
+		})
+	}
+
+	req := newReq(c, &nodeprotov1.CopyFilesRequest{
+		Directory:        directory,
+		Operations:       protoOperations,
+		ServerExecutable: policy.ServerExecutable,
+		BaseCommand:      policy.BaseCommand,
+	})
+	resp, errRPC := c.connectClient.CopyFiles(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("copy files", errRPC)
+	}
+	return resp.Msg.GetCopied(), nil
+}
+
 // DownloadFileFromURL invokes the DownloadFileFromURL RPC.
-func (c *GRPCNodeClient) DownloadFileFromURL(ctx context.Context, directory string, rawURL string, destinationDirectoryPath string, policy node.ProtectionPolicy) (string, error) {
+func (c *GRPCNodeClient) DownloadFileFromURL(ctx context.Context, directory string, rawURL string, destinationDirectoryPath string, integrity node.DownloadIntegrity, policy node.ProtectionPolicy) (node.DownloadFileResult, error) {
 	req := newReq(c, &nodeprotov1.DownloadFileFromURLRequest{
 		Directory:                directory,
 		Url:                      rawURL,
 		DestinationDirectoryPath: destinationDirectoryPath,
 		ServerExecutable:         policy.ServerExecutable,
 		BaseCommand:              policy.BaseCommand,
+		ExpectedSize:             integrity.ExpectedSize,
+		ExpectedSha256:           integrity.ExpectedSHA256,
+		ExpectedSha1:             integrity.ExpectedSHA1,
 	})
 	resp, errRPC := c.connectClient.DownloadFileFromURL(ctx, req)
 	if errRPC != nil {
-		return "", translateError("download file from URL", errRPC)
+		return node.DownloadFileResult{}, translateError("download file from URL", errRPC)
 	}
-	return resp.Msg.GetRelativePath(), nil
+	return node.DownloadFileResult{
+		RelativePath:  resp.Msg.GetRelativePath(),
+		BytesWritten:  resp.Msg.GetBytesWritten(),
+		SHA256:        resp.Msg.GetSha256(),
+		SHA1:          resp.Msg.GetSha1(),
+		ExpectedMatch: resp.Msg.GetExpectedMatch(),
+	}, nil
+}
+
+// CreateFileArchive invokes the CreateFileArchive RPC.
+func (c *GRPCNodeClient) CreateFileArchive(ctx context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, policy node.ProtectionPolicy) (string, node.ArchiveProgress, error) {
+	return c.CreateFileArchiveWithProgress(ctx, directory, destinationArchivePath, includePaths, compression, policy, nil)
+}
+
+// CreateFileArchiveWithProgress invokes the streaming CreateFileArchive RPC.
+func (c *GRPCNodeClient) CreateFileArchiveWithProgress(ctx context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, policy node.ProtectionPolicy, onProgress func(node.ArchiveProgress) error) (string, node.ArchiveProgress, error) {
+	req := newReq(c, &nodeprotov1.CreateFileArchiveRequest{
+		Directory:              directory,
+		DestinationArchivePath: destinationArchivePath,
+		IncludePaths:           append([]string(nil), includePaths...),
+		Compression:            archiveCompressionToProto(compression),
+		ServerExecutable:       policy.ServerExecutable,
+		BaseCommand:            policy.BaseCommand,
+	})
+	stream, errRPC := c.streamConnectClient().StreamCreateFileArchive(ctx, req)
+	if errRPC != nil {
+		return "", node.ArchiveProgress{}, translateError("create file archive", errRPC)
+	}
+
+	archivePath := ""
+	var progress node.ArchiveProgress
+	for stream.Receive() {
+		msg := stream.Msg()
+		progress = archiveProgressFromProto(msg)
+		if msg.GetRelativePath() != "" {
+			archivePath = msg.GetRelativePath()
+		}
+		if onProgress != nil {
+			errProgress := onProgress(progress)
+			if errProgress != nil {
+				return "", node.ArchiveProgress{}, fmt.Errorf("nodeclient: create file archive progress: %w", errProgress)
+			}
+		}
+	}
+	errStream := stream.Err()
+	if errStream != nil {
+		return "", node.ArchiveProgress{}, translateError("create file archive stream", errStream)
+	}
+	if archivePath == "" {
+		return "", node.ArchiveProgress{}, errors.New("nodeclient: create file archive stream ended without archive path")
+	}
+	return archivePath, progress, nil
+}
+
+// ExtractFileArchive invokes the ExtractFileArchive RPC.
+func (c *GRPCNodeClient) ExtractFileArchive(ctx context.Context, directory string, archivePath string, destinationDirectoryPath string, policy node.ProtectionPolicy) ([]string, node.ExtractProgress, error) {
+	return c.ExtractFileArchiveWithProgress(ctx, directory, archivePath, destinationDirectoryPath, policy, nil)
+}
+
+// ExtractFileArchiveWithProgress invokes the streaming ExtractFileArchive RPC.
+func (c *GRPCNodeClient) ExtractFileArchiveWithProgress(ctx context.Context, directory string, archivePath string, destinationDirectoryPath string, policy node.ProtectionPolicy, onProgress func(node.ExtractProgress) error) ([]string, node.ExtractProgress, error) {
+	req := newReq(c, &nodeprotov1.ExtractFileArchiveRequest{
+		Directory:                directory,
+		ArchivePath:              archivePath,
+		DestinationDirectoryPath: destinationDirectoryPath,
+		ServerExecutable:         policy.ServerExecutable,
+		BaseCommand:              policy.BaseCommand,
+	})
+	stream, errRPC := c.streamConnectClient().StreamExtractFileArchive(ctx, req)
+	if errRPC != nil {
+		return nil, node.ExtractProgress{}, translateError("extract file archive", errRPC)
+	}
+
+	var extractedPaths []string
+	var progress node.ExtractProgress
+	for stream.Receive() {
+		msg := stream.Msg()
+		progress = extractProgressFromProto(msg)
+		if len(msg.GetExtractedPaths()) > 0 {
+			extractedPaths = append([]string(nil), msg.GetExtractedPaths()...)
+		}
+		if onProgress != nil {
+			errProgress := onProgress(progress)
+			if errProgress != nil {
+				return nil, node.ExtractProgress{}, fmt.Errorf("nodeclient: extract file archive progress: %w", errProgress)
+			}
+		}
+	}
+	errStream := stream.Err()
+	if errStream != nil {
+		return nil, node.ExtractProgress{}, translateError("extract file archive stream", errStream)
+	}
+	return extractedPaths, progress, nil
 }
 
 // CreateBackupArchive invokes the CreateBackupArchive RPC.
@@ -373,6 +611,44 @@ func (c *GRPCNodeClient) ExtractBackupArchive(ctx context.Context, directory str
 	return nil
 }
 
+// ProbeInstalledVersion invokes the ProbeInstalledVersion RPC.
+func (c *GRPCNodeClient) ProbeInstalledVersion(ctx context.Context, probe node.InstalledVersionProbeRequest) (node.InstalledVersionProbeResult, error) {
+	req := newReq(c, &nodeprotov1.ProbeInstalledVersionRequest{
+		Directory:           probe.Directory,
+		Kind:                installedVersionProbeKindToProto(probe.Kind),
+		RelativePaths:       append([]string(nil), probe.RelativePaths...),
+		PreferredSteamAppId: probe.PreferredSteamAppID,
+	})
+	resp, errRPC := c.connectClient.ProbeInstalledVersion(ctx, req)
+	if errRPC != nil {
+		return node.InstalledVersionProbeResult{}, translateError("probe installed version", errRPC)
+	}
+	return node.InstalledVersionProbeResult{
+		Found:      resp.Msg.GetFound(),
+		Version:    resp.Msg.GetVersion(),
+		SourcePath: resp.Msg.GetSourcePath(),
+	}, nil
+}
+
+// QueryGameServer invokes the QueryGameServer RPC.
+func (c *GRPCNodeClient) QueryGameServer(ctx context.Context, queryReq node.GameServerQueryRequest) (node.GameServerQueryResult, error) {
+	req := newReq(c, &nodeprotov1.QueryGameServerRequest{
+		Kind:       gameServerQueryKindToProto(queryReq.Kind),
+		Ip:         queryReq.IP,
+		QueryPort:  queryReq.QueryPort,
+		MaxPlayers: queryReq.MaxPlayers,
+	})
+	resp, errRPC := c.connectClient.QueryGameServer(ctx, req)
+	if errRPC != nil {
+		return node.GameServerQueryResult{}, translateError("query game server", errRPC)
+	}
+	return node.GameServerQueryResult{
+		Kind:      gameServerQueryKindFromProto(resp.Msg.GetKind()),
+		Minecraft: minecraftQueryFromProto(resp.Msg.GetMinecraft()),
+		Source:    sourceQueryFromProto(resp.Msg.GetSource()),
+	}, nil
+}
+
 // SendConsoleOutput invokes the SendConsoleOutput RPC.
 func (c *GRPCNodeClient) SendConsoleOutput(ctx context.Context, processID, line string) error {
 	req := newReq(c, &nodeprotov1.SendConsoleOutputRequest{
@@ -399,12 +675,142 @@ func (c *GRPCNodeClient) GetProcessSnapshot(ctx context.Context, processID strin
 	return processSnapshotFromProto(resp.Msg.GetSnapshot()), true, nil
 }
 
+func archiveProgressFromProto(msg *nodeprotov1.CreateFileArchiveResponse) node.ArchiveProgress {
+	if msg == nil {
+		return node.ArchiveProgress{}
+	}
+	return node.ArchiveProgress{
+		TotalFiles:      msg.GetTotalFiles(),
+		FilesCompressed: msg.GetFilesCompressed(),
+		TotalBytes:      msg.GetTotalBytes(),
+		BytesCompressed: msg.GetBytesCompressed(),
+		CurrentFile:     msg.GetCurrentFile(),
+	}
+}
+
+func extractProgressFromProto(msg *nodeprotov1.ExtractFileArchiveResponse) node.ExtractProgress {
+	if msg == nil {
+		return node.ExtractProgress{}
+	}
+	return node.ExtractProgress{
+		TotalFiles:     msg.GetTotalFiles(),
+		FilesExtracted: msg.GetFilesExtracted(),
+		TotalBytes:     msg.GetTotalBytes(),
+		BytesExtracted: msg.GetBytesExtracted(),
+		CurrentFile:    msg.GetCurrentFile(),
+	}
+}
+
+func archiveCompressionToProto(compression node.ArchiveCompression) nodeprotov1.FileArchiveCompression {
+	switch compression {
+	case node.ArchiveCompressionBZIP2:
+		return nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_BZIP2
+	case node.ArchiveCompressionGZIP:
+		return nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_GZIP
+	case node.ArchiveCompressionZST:
+		return nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_ZST
+	case node.ArchiveCompressionXZ:
+		return nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_XZ
+	default:
+		return nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_ZIP
+	}
+}
+
 func extractModeToProto(mode node.ExtractMode) nodeprotov1.ExtractMode {
 	switch mode {
 	case node.ExtractModeExact:
 		return nodeprotov1.ExtractMode_EXTRACT_MODE_EXACT
 	default:
 		return nodeprotov1.ExtractMode_EXTRACT_MODE_OVERLAY
+	}
+}
+
+func installedVersionProbeKindToProto(kind node.InstalledVersionProbeKind) nodeprotov1.InstalledVersionProbeKind {
+	switch kind {
+	case node.InstalledVersionProbeKindMinecraftJar:
+		return nodeprotov1.InstalledVersionProbeKind_INSTALLED_VERSION_PROBE_KIND_MINECRAFT_JAR
+	case node.InstalledVersionProbeKindSteamManifest:
+		return nodeprotov1.InstalledVersionProbeKind_INSTALLED_VERSION_PROBE_KIND_STEAM_MANIFEST
+	default:
+		return nodeprotov1.InstalledVersionProbeKind_INSTALLED_VERSION_PROBE_KIND_UNSPECIFIED
+	}
+}
+
+func gameServerQueryKindToProto(kind node.GameServerQueryKind) nodeprotov1.GameServerQueryKind {
+	switch kind {
+	case node.GameServerQueryKindMinecraft:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT
+	case node.GameServerQueryKindSource:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE
+	default:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_UNSPECIFIED
+	}
+}
+
+func gameServerQueryKindFromProto(kind nodeprotov1.GameServerQueryKind) node.GameServerQueryKind {
+	switch kind {
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT:
+		return node.GameServerQueryKindMinecraft
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE:
+		return node.GameServerQueryKindSource
+	default:
+		return node.GameServerQueryKindUnknown
+	}
+}
+
+func minecraftQueryFromProto(info *nodeprotov1.GameServerMinecraftQueryInfo) *node.MinecraftQueryInfo {
+	if info == nil {
+		return nil
+	}
+	return &node.MinecraftQueryInfo{
+		MOTD:            info.GetMotd(),
+		GameType:        info.GetGameType(),
+		Map:             info.GetMap(),
+		NumberOfPlayers: info.GetNumberOfPlayers(),
+		MaxPlayers:      info.GetMaxPlayers(),
+		PlayerList:      append([]string(nil), info.GetPlayerList()...),
+		ProtocolVersion: info.GetProtocolVersion(),
+		ServerVersion:   info.GetServerVersion(),
+	}
+}
+
+func sourceQueryFromProto(info *nodeprotov1.GameServerSourceQueryInfo) *node.SourceQueryInfo {
+	if info == nil {
+		return nil
+	}
+	return &node.SourceQueryInfo{
+		Name:       info.GetName(),
+		Map:        info.GetMap(),
+		Game:       info.GetGame(),
+		AppID:      info.GetAppId(),
+		SteamID:    info.GetSteamId(),
+		GameID:     info.GetGameId(),
+		Players:    info.GetPlayers(),
+		MaxPlayers: info.GetMaxPlayers(),
+		Bots:       info.GetBots(),
+		ServerOS:   info.GetServerOs(),
+		Visibility: info.GetVisibility(),
+		VAC:        info.GetVac(),
+		Version:    info.GetVersion(),
+		Protocol:   info.GetProtocol(),
+	}
+}
+
+func fileEntryFromProto(entry *nodeprotov1.FileEntry) node.FileEntry {
+	if entry == nil {
+		return node.FileEntry{}
+	}
+	var lastModified time.Time
+	timestamp := entry.GetLastModified()
+	if timestamp != nil {
+		lastModified = timestamp.AsTime()
+	}
+	return node.FileEntry{
+		Name:         entry.GetName(),
+		Size:         entry.GetSize(),
+		IsDirectory:  entry.GetIsDirectory(),
+		IsExecutable: entry.GetIsExecutable(),
+		LastModified: lastModified,
 	}
 }
 
@@ -444,13 +850,33 @@ func (c *GRPCNodeClient) GetNodeSnapshot(ctx context.Context) (*node.NodeSnapsho
 	return nodeSnapshotFromProto(resp.Msg), nil
 }
 
+// ListBindableIPs invokes the ListBindableIPs RPC.
+func (c *GRPCNodeClient) ListBindableIPs(ctx context.Context) ([]node.BindableIP, error) {
+	req := newReq(c, &nodeprotov1.ListBindableIPsRequest{})
+	resp, errRPC := c.connectClient.ListBindableIPs(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("list bindable IPs", errRPC)
+	}
+
+	ipProtos := resp.Msg.GetIps()
+	ips := make([]node.BindableIP, 0, len(ipProtos))
+	for _, ipProto := range ipProtos {
+		ips = append(ips, node.BindableIP{
+			Address:  ipProto.GetAddress(),
+			Usable:   ipProto.GetUsable(),
+			External: ipProto.GetExternal(),
+		})
+	}
+	return ips, nil
+}
+
 // StreamEvents subscribes to the node's event stream and returns a channel
 // that closes when ctx is canceled or the underlying stream errors. A failure
 // to open the stream is reported synchronously via the error return; failures
 // during streaming are logged via the closed channel.
 func (c *GRPCNodeClient) StreamEvents(ctx context.Context) (<-chan node.Event, error) {
 	req := newReq(c, &nodeprotov1.StreamEventsRequest{})
-	stream, errOpen := c.connectClient.StreamEvents(ctx, req)
+	stream, errOpen := c.streamConnectClient().StreamEvents(ctx, req)
 	if errOpen != nil {
 		return nil, translateError("stream events", errOpen)
 	}
@@ -619,8 +1045,10 @@ func mapNodeErrorCode(connectErr *connect.Error) error {
 	// Fallback heuristics based on connect.Code so the embedded node and
 	// future wrappers both behave sensibly.
 	switch connectErr.Code() {
-	case connect.CodeNotFound:
+	case connect.CodeInvalidArgument:
 		return node.ErrInvalidPath
+	case connect.CodeNotFound:
+		return os.ErrNotExist
 	case connect.CodePermissionDenied:
 		return node.ErrProtectedPath
 	}

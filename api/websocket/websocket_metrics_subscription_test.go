@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ func newTestConnection() *connection {
 		id:                           uuid.New(),
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
-		remoteConsoleCancels:         make(map[string]context.CancelFunc),
+		consoleStreamCancels:         make(map[string]context.CancelFunc),
 		RWMutex:                      &sync.RWMutex{},
 	}
 }
@@ -245,7 +246,7 @@ func TestWebSocket_GameServerConnectionsWithAccess(t *testing.T) {
 	}
 }
 
-func TestWebSocket_StartRemoteConsoleStreamForwardsChunks(t *testing.T) {
+func TestWebSocket_StartConsoleStreamForwardsRemoteChunks(t *testing.T) {
 	stream := make(chan node.ConsoleChunk, 1)
 	stream <- node.ConsoleChunk{ProcessID: "server-remote", Data: "hello remote\n"}
 
@@ -264,12 +265,12 @@ func TestWebSocket_StartRemoteConsoleStreamForwardsChunks(t *testing.T) {
 		nodeRegistry: registry,
 	}
 
-	errStart := ws.startRemoteConsoleStream(conn, &models.GameServer{
+	errStart := ws.startConsoleStream(conn, &models.GameServer{
 		ID:     "server-remote",
 		NodeID: "node-remote",
 	})
 	if errStart != nil {
-		t.Fatalf("startRemoteConsoleStream() error = %v", errStart)
+		t.Fatalf("startConsoleStream() error = %v", errStart)
 	}
 
 	select {
@@ -286,5 +287,109 @@ func TestWebSocket_StartRemoteConsoleStreamForwardsChunks(t *testing.T) {
 
 	if len(remoteClient.StreamConsoleOutputCalls) != 1 || remoteClient.StreamConsoleOutputCalls[0] != "server-remote" {
 		t.Fatalf("StreamConsoleOutput calls = %+v, want server-remote", remoteClient.StreamConsoleOutputCalls)
+	}
+}
+
+func TestWebSocket_SubscribeGameServerConsoleUsesSelfNodeClientStream(t *testing.T) {
+	stream := make(chan node.ConsoleChunk, 1)
+	stream <- node.ConsoleChunk{ProcessID: "server-local", Data: "hello local\n"}
+
+	localClient := &nodeclient.FakeNodeClient{
+		NodeID:                     "node-local",
+		StreamConsoleOutputChannel: stream,
+	}
+	registry := noderegistry.New("node-local", localClient)
+
+	conn := newTestConnection()
+	conn.outputStreamChannel = make(chan *xylona.Message, 1)
+
+	ws := &WebSocket{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+
+	errSubscribe := ws.subscribeGameServerConsole(conn, &models.GameServer{
+		ID:     "server-local",
+		NodeID: "node-local",
+	})
+	if errSubscribe != nil {
+		t.Fatalf("subscribeGameServerConsole() error = %v", errSubscribe)
+	}
+
+	select {
+	case msg := <-conn.outputStreamChannel:
+		if msg.GetGameServerConsoleOutput().GetOutput() != "hello local\n" {
+			t.Fatalf("console output = %q, want %q", msg.GetGameServerConsoleOutput().GetOutput(), "hello local\n")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for local console output")
+	}
+
+	if len(localClient.StreamConsoleOutputCalls) != 1 || localClient.StreamConsoleOutputCalls[0] != "server-local" {
+		t.Fatalf("StreamConsoleOutput calls = %+v, want server-local", localClient.StreamConsoleOutputCalls)
+	}
+}
+
+type contextCapturingNodeClient struct {
+	*nodeclient.FakeNodeClient
+	contexts chan context.Context
+}
+
+func (c *contextCapturingNodeClient) StreamConsoleOutput(ctx context.Context, processID string) (<-chan node.ConsoleChunk, error) {
+	c.contexts <- ctx
+	stream, errStream := c.FakeNodeClient.StreamConsoleOutput(ctx, processID)
+	if errStream != nil {
+		return nil, fmt.Errorf("test stream console output: %w", errStream)
+	}
+	return stream, nil
+}
+
+func TestWebSocket_CancelConsoleStreamsCancelsSelfNodeClientStream(t *testing.T) {
+	stream := make(chan node.ConsoleChunk)
+	localClient := &contextCapturingNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{
+			NodeID:                     "node-local",
+			StreamConsoleOutputChannel: stream,
+		},
+		contexts: make(chan context.Context, 1),
+	}
+	registry := noderegistry.New("node-local", localClient)
+
+	conn := newTestConnection()
+	conn.outputStreamChannel = make(chan *xylona.Message, 1)
+
+	ws := &WebSocket{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+
+	errSubscribe := ws.subscribeGameServerConsole(conn, &models.GameServer{
+		ID:     "server-local",
+		NodeID: "node-local",
+	})
+	if errSubscribe != nil {
+		t.Fatalf("subscribeGameServerConsole() error = %v", errSubscribe)
+	}
+
+	var streamCtx context.Context
+	select {
+	case streamCtx = <-localClient.contexts:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for stream context")
+	}
+
+	ws.cancelConsoleStreams(conn)
+
+	select {
+	case <-streamCtx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("stream context was not canceled")
+	}
+
+	conn.RLock()
+	remaining := len(conn.consoleStreamCancels)
+	conn.RUnlock()
+	if remaining != 0 {
+		t.Fatalf("consoleStreamCancels len = %d, want 0", remaining)
 	}
 }

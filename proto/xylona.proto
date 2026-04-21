@@ -300,7 +300,9 @@ message GetUpdateTargetsResponse {
   string current_target = 2;
 }
 
-message ListIPsRequest {}
+message ListIPsRequest {
+  string node_id = 1;
+}
 
 message ListIPsResponse {
   repeated IP ips = 1;

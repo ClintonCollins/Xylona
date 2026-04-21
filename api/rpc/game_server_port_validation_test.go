@@ -8,6 +8,7 @@ import (
 func TestFindAvailablePortIgnoresQueryPortConflicts(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	seedAlternateNodeAndIP(t, fixture)
+	insertNodeScopedIPForParityTests(t, fixture, "node-local", "127.0.0.2")
 	seedTestGame(t, fixture, "test-game")
 
 	_, errInsert := fixture.conn.SQLDb.ExecContext(
@@ -28,6 +29,7 @@ func TestFindAvailablePortIgnoresQueryPortConflicts(t *testing.T) {
 	}
 
 	availablePort, availableQueryPort, errFind := fixture.service.findAvailablePort(
+		"node-local",
 		"127.0.0.2",
 		25566,
 		25565,
@@ -48,6 +50,7 @@ func TestFindAvailablePortIgnoresQueryPortConflicts(t *testing.T) {
 func TestFindAvailablePortAllowsSamePortAndQueryPort(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	seedAlternateNodeAndIP(t, fixture)
+	insertNodeScopedIPForParityTests(t, fixture, "node-local", "127.0.0.2")
 	seedTestGame(t, fixture, "test-game")
 
 	game, errGetGame := fixture.conn.GetGameByID("test-game")
@@ -56,6 +59,7 @@ func TestFindAvailablePortAllowsSamePortAndQueryPort(t *testing.T) {
 	}
 
 	availablePort, availableQueryPort, errFind := fixture.service.findAvailablePort(
+		"node-local",
 		"127.0.0.2",
 		25566,
 		25566,
@@ -70,5 +74,34 @@ func TestFindAvailablePortAllowsSamePortAndQueryPort(t *testing.T) {
 	}
 	if availableQueryPort != 25566 {
 		t.Errorf("findAvailablePort() queryPort = %d, want %d", availableQueryPort, 25566)
+	}
+}
+
+func TestFindAvailablePortAllowsSameIPAndPortOnDifferentNode(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	seedAlternateNodeAndIP(t, fixture)
+	seedTestGame(t, fixture, "test-game")
+
+	game, errGetGame := fixture.conn.GetGameByID("test-game")
+	if errGetGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGetGame)
+	}
+
+	availablePort, availableQueryPort, errFind := fixture.service.findAvailablePort(
+		"node-alt",
+		"127.0.0.1",
+		25565,
+		25565,
+		game,
+		"",
+	)
+	if errFind != nil {
+		t.Fatalf("findAvailablePort() error = %v", errFind)
+	}
+	if availablePort != 25565 {
+		t.Errorf("findAvailablePort() port = %d, want %d", availablePort, 25565)
+	}
+	if availableQueryPort != 25565 {
+		t.Errorf("findAvailablePort() queryPort = %d, want %d", availableQueryPort, 25565)
 	}
 }

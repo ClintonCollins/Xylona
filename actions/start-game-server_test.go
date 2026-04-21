@@ -98,9 +98,9 @@ func TestResolveStructuredStartCommand_BackfillsLegacyMinecraftExecutable(t *tes
 
 	_, errIP := inst.db.SQLDb.ExecContext(
 		context.Background(),
-		`insert into ip (address, usable, external) values (?, ?, ?)
-		 on conflict(address) do nothing`,
-		"127.0.0.1", true, false,
+		`insert into ip (address, usable, external, node_id) values (?, ?, ?, ?)
+		 on conflict(address, node_id) do nothing`,
+		"127.0.0.1", true, false, "node-local",
 	)
 	if errIP != nil {
 		t.Fatalf("insert ip: %v", errIP)

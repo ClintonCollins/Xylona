@@ -16,6 +16,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var (
+	listInterfaceAddrs = net.InterfaceAddrs
+	lookupExternalIP   = ipify.GetIp
+)
+
 // DeleteAppDirectory removes the application data directory.
 func DeleteAppDirectory(path string) error {
 	errRemove := os.RemoveAll(path)
@@ -67,14 +72,13 @@ func DeletePathIfExists(filePath string) error {
 	return nil
 }
 
-// GetIPs returns the set of detected local and public IP addresses for this host.
-func GetIPs() ([]net.IP, error) {
-	networkInterfaces, errInterfaces := net.InterfaceAddrs()
+func getInterfaceIPs() ([]net.IP, error) {
+	networkInterfaces, errInterfaces := listInterfaceAddrs()
 	if errInterfaces != nil {
 		log.Error().Err(errInterfaces).Msg("Unable to get network interfaces")
 		return nil, fmt.Errorf("list network interfaces: %w", errInterfaces)
 	}
-	ipsMap := make(map[string]net.IP)
+	ipsMap := make(map[string]net.IP, len(networkInterfaces))
 	for _, addresses := range networkInterfaces {
 		ipNet, ok := addresses.(*net.IPNet)
 		if !ok {
@@ -85,21 +89,45 @@ func GetIPs() ([]net.IP, error) {
 			ipsMap[ip.String()] = ip
 		}
 	}
-	externalIPString, exErr := ipify.GetIp()
-	if exErr != nil {
-		var ips []net.IP
-		for _, ip := range ipsMap {
-			ips = append(ips, ip)
+	ips := make([]net.IP, 0, len(ipsMap))
+	for _, ip := range ipsMap {
+		ips = append(ips, ip)
+	}
+	return ips, nil
+}
+
+// GetBindableIPs returns the set of interface-local IP addresses this host can bind to.
+func GetBindableIPs() ([]net.IP, error) {
+	return getInterfaceIPs()
+}
+
+// GetIPs returns the set of detected local and public IP addresses for this host.
+func GetIPs() ([]net.IP, error) {
+	localIPs, errLocalIPs := getInterfaceIPs()
+	if errLocalIPs != nil {
+		return nil, errLocalIPs
+	}
+
+	ipsMap := make(map[string]net.IP, len(localIPs)+1)
+	for _, ip := range localIPs {
+		if ip == nil {
+			continue
 		}
+		ipsMap[ip.String()] = ip
+	}
+
+	externalIPString, exErr := lookupExternalIP()
+	if exErr != nil {
 		log.Warn().Err(exErr).Msg("Unable to get external IP")
-		return ips, nil
+		return localIPs, nil
 	}
 	externalIP := net.ParseIP(externalIPString)
 	if externalIP == nil {
 		log.Warn().Str("IP", externalIPString).Msg("Unable to parse external IP")
+	} else {
+		ipsMap[externalIP.String()] = externalIP
 	}
-	ipsMap[externalIP.String()] = externalIP
-	var ips []net.IP
+	ips := make([]net.IP, 0, len(ipsMap))
 	for _, ip := range ipsMap {
 		ips = append(ips, ip)
 	}

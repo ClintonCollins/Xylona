@@ -258,6 +258,82 @@ func TestRunDeleteWithYesSkipsConfirmation(t *testing.T) {
 	}
 }
 
+func TestRunUpdateWithoutRequestedChangesFails(t *testing.T) {
+	restore := setCommandTestEnv(t)
+	defer restore()
+
+	commandStdout = &bytes.Buffer{}
+	commandStderr = &bytes.Buffer{}
+
+	runner := &fakeRunner{
+		userByUsername: &usermgmt.User{
+			ID:       `user-update`,
+			UserName: `alice`,
+			Email:    `alice@example.com`,
+		},
+	}
+	newRunnerFunc = func(context.Context, *modeFlags, Options, bool) (commandRunner, func(), error) {
+		return runner, func() {}, nil
+	}
+
+	errRun := Run(context.Background(), []string{
+		`update`,
+		`alice`,
+	}, Options{DefaultDBPath: `default.sqlite`})
+	if errRun == nil {
+		t.Fatal("Run() error = nil, want no-op update failure")
+	}
+	if !strings.Contains(errRun.Error(), `no changes requested`) {
+		t.Fatalf("Run() error = %q, want no-op guidance", errRun.Error())
+	}
+	if runner.updateCalled {
+		t.Fatal("Update() should not be called for a no-op update")
+	}
+}
+
+func TestRunUpdateReadsPasswordFromStdin(t *testing.T) {
+	restore := setCommandTestEnv(t)
+	defer restore()
+
+	commandStdin = strings.NewReader("new-secret\n")
+	commandStdout = &bytes.Buffer{}
+	commandStderr = &bytes.Buffer{}
+
+	runner := &fakeRunner{
+		userByUsername: &usermgmt.User{
+			ID:       `user-update`,
+			UserName: `alice`,
+			Email:    `alice@example.com`,
+		},
+		updatedUser: &usermgmt.User{
+			ID:       `user-update`,
+			UserName: `alice`,
+			Email:    `alice@example.com`,
+		},
+	}
+	newRunnerFunc = func(context.Context, *modeFlags, Options, bool) (commandRunner, func(), error) {
+		return runner, func() {}, nil
+	}
+
+	errRun := Run(context.Background(), []string{
+		`update`,
+		`alice`,
+		`--password-stdin`,
+	}, Options{DefaultDBPath: `default.sqlite`})
+	if errRun != nil {
+		t.Fatalf("Run() error = %v", errRun)
+	}
+	if !runner.updateCalled {
+		t.Fatal("Update() was not called")
+	}
+	if runner.updateInput.Password == nil {
+		t.Fatal("Update().Password = nil, want password update")
+	}
+	if *runner.updateInput.Password != `new-secret` {
+		t.Fatalf("Update().Password = %q, want %q", *runner.updateInput.Password, `new-secret`)
+	}
+}
+
 func TestRunListPrintsJSON(t *testing.T) {
 	restore := setCommandTestEnv(t)
 	defer restore()

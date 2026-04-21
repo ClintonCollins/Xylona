@@ -56,31 +56,6 @@
         hide-header-in-grid
         row-key="compositeId"
         selection="multiple">
-        <template #bottom-row>
-          <tr
-            v-for="placeholderIndex in pendingRemotePlaceholderCount"
-            :key="'pending-remote-' + placeholderIndex"
-            class="game-server-list__pending-row"
-            data-testid="game-server-remote-pending">
-            <td :colspan="columns.length + 1">
-              <div class="game-server-list__pending-shell">
-                <div
-                  v-if="placeholderIndex === 1"
-                  class="game-server-list__pending-status"
-                  aria-live="polite">
-                  <q-spinner color="primary" size="0.9rem" />
-                  <span>Syncing remote nodes</span>
-                </div>
-                <div class="game-server-list__pending-skeletons" aria-hidden="true">
-                  <q-skeleton type="text" width="11rem" />
-                  <q-skeleton type="text" width="5rem" />
-                  <q-skeleton type="text" width="6rem" />
-                  <q-skeleton type="text" width="4.5rem" />
-                </div>
-              </div>
-            </td>
-          </tr>
-        </template>
         <template #body-cell-name="props">
           <q-td :props="props">
             <router-link :to="'/game-servers/' + props.row.id + '/console'" class="table-link">
@@ -176,7 +151,6 @@ import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/s
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {
-  GameServer,
   Node,
   StartGameServerRequest,
   StartGameServerRequestSchema,
@@ -188,9 +162,7 @@ import {
 import { useStorage } from '@vueuse/core'
 import {
   AggregatedGameServer,
-  AggregatedGameServerSchema,
   ListAggregatedGameServersRequestSchema,
-  ListGameServersRequestSchema,
   ListNodesRequestSchema,
 } from '@/proto/xylona_pb'
 import {
@@ -204,11 +176,9 @@ import { getStartableServers, getStoppableServers } from './server-list-actions'
 import { useUserAuthStore } from '@/stores/xylona'
 import { resolveCanonicalVersionDisplay } from './version-display'
 
-const bootstrapServers = ref<AggregatedGameServer[] | null>(null)
 const aggregatedServers = ref<AggregatedGameServer[] | null>(null)
 const nodesByID = ref(new Map<string, Node>())
 const loading: Ref<boolean> = ref(false)
-const remoteLoadState = ref<'idle' | 'loading' | 'loaded' | 'failed'>('idle')
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
 const selectedGameServers = ref([] as DisplayRow[])
@@ -218,7 +188,6 @@ const allowedRemoteNodeIDs = ref(new Set(cachedRemoteNodeIDs.value))
 const $q = useQuasar()
 let loadSequence = 0
 let initialLoadComplete = false
-const dirtyLiveServerCompositeIDs = new Set<string>()
 type BufferedLiveServerState = {
   status?: Status
   version?: string
@@ -237,37 +206,12 @@ const initialPagination = useStorage('game-server-pagination', {
 })
 const authStore = useUserAuthStore()
 const showCreateButton = computed(() => authStore.user?.superUser ?? false)
-const preferredServers = computed((): AggregatedGameServer[] => {
-  if (aggregatedServers.value !== null) {
-    return aggregatedServers.value
-  }
-  if (bootstrapServers.value !== null) {
-    return bootstrapServers.value
-  }
-  return []
-})
 const hasFetchedLiveRows = computed(() => {
-  return aggregatedServers.value !== null || bootstrapServers.value !== null
-})
-const pendingRemotePlaceholderCount = computed(() => {
-  if (loading.value || remoteLoadState.value !== 'loading') {
-    return 0
-  }
-  if (bootstrapServers.value === null || aggregatedServers.value !== null) {
-    return 0
-  }
-
-  if (allowedRemoteNodeIDs.value.size > 0) {
-    return Math.min(allowedRemoteNodeIDs.value.size, 2)
-  }
-  if (cachedDisplayRows.value.some((row) => !row.isLocal)) {
-    return 1
-  }
-  return 0
+  return aggregatedServers.value !== null
 })
 
 const liveDisplayRows = computed((): DisplayRow[] => {
-  return buildDisplayRows(preferredServers.value, nodesByID.value)
+  return buildDisplayRows(aggregatedServers.value ?? [], nodesByID.value)
 })
 
 const displayRows = computed((): DisplayRow[] => {
@@ -291,17 +235,6 @@ const selectedGameServersForStop = computed(() => {
   return getStoppableServers(selectedGameServers.value)
 })
 
-function buildLocalAggregatedServers(gameServers: GameServer[]): AggregatedGameServer[] {
-  return applyBufferedLiveServerStateToServers(
-    gameServers.map((gameServer) =>
-      create(AggregatedGameServerSchema, {
-        isLocal: true,
-        localServer: gameServer,
-      }),
-    ),
-  )
-}
-
 function applyNodesResponse(nodes: Node[]) {
   nodesByID.value = new Map(nodes.map((node) => [node.id, node]))
   const remoteNodeIDs = extractRemoteNodeIDs(nodes)
@@ -322,18 +255,6 @@ function cacheAggregatedRows(servers: AggregatedGameServer[]) {
     })),
     allowedRemoteNodeIDs.value,
   )
-}
-
-function getAggregatedServerCompositeID(server: AggregatedGameServer): string | null {
-  if (server.isLocal && server.localServer) {
-    return 'local/' + server.localServer.id
-  }
-  if (server.isLocal || !server.remoteServer) {
-    return null
-  }
-
-  const sourceNodeID = server.remoteServer.sourceNodeId || server.remoteServer.nodeId
-  return sourceNodeID + '/' + server.remoteServer.remoteServerId
 }
 
 function recordBufferedLiveServerState(serverID: string, state: BufferedLiveServerState) {
@@ -393,71 +314,6 @@ function applyBufferedLiveServerStateToServers(
   return servers
 }
 
-function mergeLiveServerState(servers: AggregatedGameServer[]): AggregatedGameServer[] {
-  const currentStateByCompositeID = new Map<
-    string,
-    { status: Status; version: string; versionInfo?: VersionInfo }
-  >()
-
-  for (const liveServers of [bootstrapServers.value, aggregatedServers.value]) {
-    if (liveServers === null) {
-      continue
-    }
-
-    for (const liveServer of liveServers) {
-      const compositeID = getAggregatedServerCompositeID(liveServer)
-      if (compositeID === null) {
-        continue
-      }
-
-      if (liveServer.isLocal && liveServer.localServer) {
-        currentStateByCompositeID.set(compositeID, {
-          status: liveServer.localServer.status,
-          version: liveServer.localServer.version,
-          versionInfo: liveServer.localServer.versionInfo,
-        })
-        continue
-      }
-      if (!liveServer.isLocal && liveServer.remoteServer) {
-        currentStateByCompositeID.set(compositeID, {
-          status: liveServer.remoteServer.status,
-          version: liveServer.remoteServer.version,
-          versionInfo: liveServer.remoteServer.versionInfo,
-        })
-      }
-    }
-  }
-
-  for (const server of servers) {
-    const compositeID = getAggregatedServerCompositeID(server)
-    if (compositeID === null) {
-      continue
-    }
-    if (!dirtyLiveServerCompositeIDs.has(compositeID)) {
-      continue
-    }
-
-    const currentState = currentStateByCompositeID.get(compositeID)
-    if (!currentState) {
-      continue
-    }
-
-    if (server.isLocal && server.localServer) {
-      server.localServer.status = currentState.status
-      server.localServer.version = currentState.version
-      server.localServer.versionInfo = currentState.versionInfo
-      continue
-    }
-    if (!server.isLocal && server.remoteServer) {
-      server.remoteServer.status = currentState.status
-      server.remoteServer.version = currentState.version
-      server.remoteServer.versionInfo = currentState.versionInfo
-    }
-  }
-
-  return applyBufferedLiveServerStateToServers(servers)
-}
-
 onMounted(async () => {
   watchServerStatusChanges()
   watchServerVersionChanges()
@@ -474,26 +330,10 @@ onBeforeUnmount(() => {
 
 async function getGameServers() {
   const loadID = ++loadSequence
-  bootstrapServers.value = null
   aggregatedServers.value = null
   bufferedLiveServerStateByID.clear()
-  dirtyLiveServerCompositeIDs.clear()
   loading.value = true
-  remoteLoadState.value = 'loading'
-  let didRenderRows = false
   const xylonaClient = GetXylonaClient()
-
-  const finishInitialRender = () => {
-    if (loadID !== loadSequence) {
-      return
-    }
-    if (didRenderRows) {
-      return
-    }
-
-    didRenderRows = true
-    loading.value = false
-  }
 
   const aggregatedRequest = xylonaClient
     .listAggregatedGameServers(create(ListAggregatedGameServersRequestSchema, {}))
@@ -502,11 +342,9 @@ async function getGameServers() {
         return
       }
 
-      const mergedServers = mergeLiveServerState(response.servers)
-      aggregatedServers.value = mergedServers
-      remoteLoadState.value = 'loaded'
-      cacheAggregatedRows(mergedServers)
-      finishInitialRender()
+      const servers = applyBufferedLiveServerStateToServers(response.servers)
+      aggregatedServers.value = servers
+      cacheAggregatedRows(servers)
     })
     .catch((reason: unknown) => {
       if (loadID !== loadSequence) {
@@ -517,36 +355,15 @@ async function getGameServers() {
       $q.notify({
         type: 'xylona-error',
         position: 'top-right',
-        caption:
-          'Failed to load remote game servers: ' + ConnectErrorToString(ConnectError.from(reason)),
+        caption: 'Failed to load game servers: ' + ConnectErrorToString(ConnectError.from(reason)),
         icon: 'report_problem',
       })
-      remoteLoadState.value = 'failed'
     })
-  const localServersRequest = xylonaClient
-    .listGameServers(create(ListGameServersRequestSchema, {}))
-    .then((response) => {
+    .finally(() => {
       if (loadID !== loadSequence) {
         return
       }
-
-      bootstrapServers.value = buildLocalAggregatedServers(response.gameServers)
-      finishInitialRender()
-    })
-    .catch((reason: unknown) => {
-      if (loadID !== loadSequence) {
-        return
-      }
-
-      console.error(reason)
-      $q.notify({
-        type: 'xylona-error',
-        position: 'top-right',
-        caption:
-          'Failed to load local game servers: ' + ConnectErrorToString(ConnectError.from(reason)),
-        icon: 'report_problem',
-      })
-      finishInitialRender()
+      loading.value = false
     })
   const nodesRequest = xylonaClient
     .listNodes(create(ListNodesRequestSchema, {}))
@@ -572,10 +389,9 @@ async function getGameServers() {
       nodesByID.value = new Map()
     })
 
-  void aggregatedRequest
   void nodesRequest
 
-  await Promise.race([localServersRequest, aggregatedRequest])
+  await aggregatedRequest
 }
 
 function watchServerStatusChanges() {
@@ -660,7 +476,7 @@ function setServerVersion(serverID: string, version: string, versionInfo?: Versi
 }
 
 function updateLiveServerData(updater: (server: AggregatedGameServer) => boolean) {
-  const liveServerSets = [bootstrapServers.value, aggregatedServers.value]
+  const liveServerSets = [aggregatedServers.value]
 
   for (const liveServers of liveServerSets) {
     if (liveServers === null) {
@@ -671,11 +487,6 @@ function updateLiveServerData(updater: (server: AggregatedGameServer) => boolean
       const didUpdate = updater(server)
       if (!didUpdate) {
         continue
-      }
-
-      const compositeID = getAggregatedServerCompositeID(server)
-      if (compositeID !== null) {
-        dirtyLiveServerCompositeIDs.add(compositeID)
       }
     }
   }
@@ -865,42 +676,5 @@ const columns = ref([
 .version-na {
   color: var(--xy-text-muted);
   font-style: italic;
-}
-
-.game-server-list__pending-row td {
-  padding: 0;
-  border-top: 1px solid var(--xy-border);
-}
-
-.game-server-list__pending-shell {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-md);
-  min-height: 3rem;
-  padding: 0.65rem 1rem;
-  background: color-mix(in srgb, var(--xy-surface-1) 88%, transparent);
-}
-
-.game-server-list__pending-status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--xy-space-sm);
-  min-width: 11.5rem;
-  color: var(--xy-text-muted);
-  font-size: 0.74rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.game-server-list__pending-skeletons {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-md);
-  flex: 1;
-  opacity: 0.46;
-}
-
-.game-server-list__pending-shell :deep(.q-skeleton) {
-  background: color-mix(in srgb, var(--xy-text-muted) 15%, transparent);
 }
 </style>

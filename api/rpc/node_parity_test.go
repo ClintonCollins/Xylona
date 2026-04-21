@@ -2,7 +2,10 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -37,6 +40,73 @@ func (c *blockingSnapshotNodeClient) GetNodeSnapshot(ctx context.Context) (*node
 	return c.SnapshotResult, c.SnapshotErr
 }
 
+type blockingProbeInstalledVersionNodeClient struct {
+	*nodeclient.FakeNodeClient
+	entered chan<- string
+	release <-chan struct{}
+	calls   atomic.Int32
+}
+
+func (c *blockingProbeInstalledVersionNodeClient) ProbeInstalledVersion(ctx context.Context, req node.InstalledVersionProbeRequest) (node.InstalledVersionProbeResult, error) {
+	c.calls.Add(1)
+	c.entered <- fmt.Sprint(req.Kind)
+
+	select {
+	case <-ctx.Done():
+		return node.InstalledVersionProbeResult{}, fmt.Errorf("blocking probe wait: %w", ctx.Err())
+	case <-c.release:
+	}
+
+	if c.ProbeInstalledVersionErr != nil {
+		return node.InstalledVersionProbeResult{}, c.ProbeInstalledVersionErr
+	}
+	return c.ProbeInstalledVersionResult, nil
+}
+
+func (c *blockingProbeInstalledVersionNodeClient) probeCallCount() int {
+	return int(c.calls.Load())
+}
+
+type rpcVersionTestTracker struct {
+	mu          sync.Mutex
+	installed   string
+	latest      string
+	installHits int
+	latestHits  int
+}
+
+func (t *rpcVersionTestTracker) GetInstalledVersion(_ context.Context, _ *models.GameServer) (string, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.installHits++
+	return t.installed, nil
+}
+
+func (t *rpcVersionTestTracker) GetLatestVersion(_ context.Context, _ *models.GameServer) (string, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.latestHits++
+	return t.latest, nil
+}
+
+func (t *rpcVersionTestTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer) (*versiontracker.UpdateInfo, error) {
+	installed, errInstalled := t.GetInstalledVersion(ctx, gs)
+	if errInstalled != nil {
+		return nil, errInstalled
+	}
+
+	latest, errLatest := t.GetLatestVersion(ctx, gs)
+	if errLatest != nil {
+		return nil, errLatest
+	}
+
+	return &versiontracker.UpdateInfo{
+		InstalledVersion: installed,
+		LatestVersion:    latest,
+		UpdateAvailable:  installed != latest,
+	}, nil
+}
+
 func insertRemoteNodeForParityTests(t *testing.T, fixture *rbacRPCFixture, nodeID string) {
 	t.Helper()
 
@@ -49,6 +119,23 @@ func insertRemoteNodeForParityTests(t *testing.T, fixture *rbacRPCFixture, nodeI
 	})
 	if errInsert != nil {
 		t.Fatalf("InsertNode() error = %v", errInsert)
+	}
+
+	insertNodeScopedIPForParityTests(t, fixture, nodeID, "127.0.0.1")
+}
+
+func insertNodeScopedIPForParityTests(t *testing.T, fixture *rbacRPCFixture, nodeID string, address string) {
+	t.Helper()
+
+	_, errInsert := fixture.conn.InsertIP(&models.IPSetter{
+		Address:            omit.From(address),
+		Usable:             omit.From(true),
+		External:           omit.From(false),
+		AutomaticallyAdded: omit.From(false),
+		NodeID:             omit.From(nodeID),
+	})
+	if errInsert != nil {
+		t.Fatalf("InsertIP() error = %v", errInsert)
 	}
 }
 
@@ -66,6 +153,76 @@ func insertRemoteServerForParityTests(t *testing.T, fixture *rbacRPCFixture, ser
 	if errInsert != nil {
 		t.Fatalf("insert remote game server error = %v", errInsert)
 	}
+}
+
+func configureRemoteVersionTrackingForTests(
+	t *testing.T,
+	fixture *rbacRPCFixture,
+	registry *noderegistry.Registry,
+	tracker versiontracker.VersionTracker,
+) {
+	t.Helper()
+
+	fixture.service.versionState = versiontracker.NewVersionStateMap()
+	fixture.service.nodeRegistry = registry
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(),
+		fixture.conn,
+		nil,
+		registry,
+		nil,
+		fixture.service.versionState,
+		versiontracker.ResolverConfig{
+			CustomTrackerFactory: func(info versiontracker.TrackerContext) versiontracker.VersionTracker {
+				if info.GameID == "minecraft" {
+					return tracker
+				}
+				return nil
+			},
+		},
+	)
+
+	_, errUpdate := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		`update game_server set server_executable = ? where id = ?`,
+		"server.jar",
+		"server-remote-1",
+	)
+	if errUpdate != nil {
+		t.Fatalf("update remote server executable: %v", errUpdate)
+	}
+}
+
+func waitForVersionValues(t *testing.T, states *versiontracker.VersionStateMap, serverID string, wantInstalled string, wantLatest string) versiontracker.VersionState {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		state, ok := states.GetWithOK(serverID)
+		if ok && state.Status == versiontracker.VersionStatusChecked &&
+			state.InstalledVersion == wantInstalled && state.LatestVersion == wantLatest {
+			return state
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	state := states.Get(serverID)
+	t.Fatalf(
+		"version state for %s = %+v, want installed=%q latest=%q",
+		serverID,
+		state,
+		wantInstalled,
+		wantLatest,
+	)
+	return versiontracker.VersionState{}
+}
+
+func minecraftRemoteVersionContextKeyForParityTests() string {
+	return versiontracker.TrackerContext{
+		GameID:           "minecraft",
+		ProviderKind:     "mojang",
+		ProviderSourceID: "vanilla",
+	}.CacheKey()
 }
 
 func testParityRegistry(self nodeclient.NodeClient, remote nodeclient.NodeClient) *noderegistry.Registry {
@@ -145,6 +302,49 @@ func TestListAggregatedGameServersIncludesRemoteRows(t *testing.T) {
 	}
 }
 
+func TestListAggregatedGameServersRedactsLocalRowsForNonSuperuser(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, nil)
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		BackupsEnabled:  omit.From(true),
+		BackupDirectory: omit.From("/srv/local-backups"),
+		MaxBackups:      omit.From(int64(5)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.ListAggregatedGameServersRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errList := fixture.service.ListAggregatedGameServers(context.Background(), request)
+	if errList != nil {
+		t.Fatalf("ListAggregatedGameServers() error = %v", errList)
+	}
+
+	var localServer *xylona.GameServer
+	for _, server := range response.Msg.GetServers() {
+		if server.GetIsLocal() && server.GetLocalServer().GetId() == "server-local-1" {
+			localServer = server.GetLocalServer()
+			break
+		}
+	}
+	if localServer == nil {
+		t.Fatal("ListAggregatedGameServers() missing local server-local-1 row")
+	}
+	if !localServer.GetBackupsEnabled() {
+		t.Fatal("local server BackupsEnabled = false, want true")
+	}
+	if localServer.GetBackupDirectory() != "" {
+		t.Fatalf("local server BackupDirectory = %q, want empty for non-superuser", localServer.GetBackupDirectory())
+	}
+	if localServer.GetMaxBackups() != 5 {
+		t.Fatalf("local server MaxBackups = %d, want 5", localServer.GetMaxBackups())
+	}
+}
+
 func TestReadGameServerOutputReadsRemoteNodeBuffer(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
@@ -182,6 +382,297 @@ func TestReadGameServerOutputReadsRemoteNodeBuffer(t *testing.T) {
 	if len(remoteClient.ReadConsoleBufferCalls) != 1 || remoteClient.ReadConsoleBufferCalls[0] != "server-remote-1" {
 		t.Fatalf("remote ReadConsoleBuffer calls = %+v, want [server-remote-1]", remoteClient.ReadConsoleBufferCalls)
 	}
+}
+
+func TestGetGameServerFallsBackToStoredStatusWhenRemoteProcessSnapshotFails(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	_, errUpdate := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:     omit.From("server-remote-1"),
+		Status: omit.From(xylona.Status_ONLINE.String()),
+	})
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                "node-remote",
+		GetProcessSnapshotErr: errors.New("remote snapshot should not be called"),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.GetGameServerRequest{Id: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetGameServer(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServer() error = %v", errGet)
+	}
+	if response.Msg.GetGameServer().GetStatus() != xylona.Status_ONLINE {
+		t.Fatalf("GetGameServer().Status = %v, want %v", response.Msg.GetGameServer().GetStatus(), xylona.Status_ONLINE)
+	}
+	if len(remoteClient.GetProcessSnapshotCalls) != 1 || remoteClient.GetProcessSnapshotCalls[0] != "server-remote-1" {
+		t.Fatalf("GetProcessSnapshot calls = %+v, want [server-remote-1]", remoteClient.GetProcessSnapshotCalls)
+	}
+}
+
+func TestGetGameServerHydratesRemoteSnapshotAndTiming(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                  "node-remote",
+		GetProcessSnapshotFound: true,
+		GetProcessSnapshotResult: &node.ProcessSnapshot{
+			ID:              "server-remote-1",
+			Status:          xylona.Status_ONLINE.String(),
+			CPUPercent:      37.5,
+			CPUCores:        2,
+			MemoryVMS:       256 * 1024 * 1024,
+			MemoryRSS:       128 * 1024 * 1024,
+			MemoryPercent:   42.5,
+			NumThreads:      17,
+			DiskUsageBytes:  999,
+			IOReadRate:      11,
+			IOWriteRate:     22,
+			ConnectionCount: 5,
+			UnixStartedAt:   time.Now().Add(-2 * time.Minute).Unix(),
+		},
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.GetGameServerRequest{Id: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetGameServer(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServer() error = %v", errGet)
+	}
+
+	gameServer := response.Msg.GetGameServer()
+	if gameServer.GetStatus() != xylona.Status_ONLINE {
+		t.Fatalf("GetGameServer().Status = %v, want %v", gameServer.GetStatus(), xylona.Status_ONLINE)
+	}
+	if gameServer.GetCpuPercent() != 37 {
+		t.Fatalf("GetGameServer().CpuPercent = %d, want %d", gameServer.GetCpuPercent(), 37)
+	}
+	if gameServer.GetMemoryBytes() != 256*1024*1024 {
+		t.Fatalf("GetGameServer().MemoryBytes = %d, want %d", gameServer.GetMemoryBytes(), 256*1024*1024)
+	}
+	if gameServer.GetConnectionCount() != 5 {
+		t.Fatalf("GetGameServer().ConnectionCount = %d, want %d", gameServer.GetConnectionCount(), 5)
+	}
+}
+
+func TestGetGameServerReturnsCheckingBeforeRemoteVersionStagingCompletes(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	readEntered := make(chan string, 4)
+	readRelease := make(chan struct{})
+	remoteClient := &blockingProbeInstalledVersionNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{
+			NodeID: "node-remote",
+			ProbeInstalledVersionResult: node.InstalledVersionProbeResult{
+				Found:   true,
+				Version: "1.20.4",
+			},
+			GetProcessSnapshotResult: &node.ProcessSnapshot{
+				ID:     "server-remote-1",
+				Status: xylona.Status_ONLINE.String(),
+			},
+			GetProcessSnapshotFound: true,
+		},
+		entered: readEntered,
+		release: readRelease,
+	}
+	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	configureRemoteVersionTrackingForTests(t, fixture, registry, &rpcVersionTestTracker{
+		installed: "1.20.4",
+		latest:    "1.21.1",
+	})
+	_, errUpdate := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:      omit.From("server-remote-1"),
+		Version: omit.From("1.18.2"),
+	})
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+	fixture.service.versionState.Set("server-remote-1", versiontracker.VersionState{
+		Status:          versiontracker.VersionStatusUnchecked,
+		LatestVersion:   "1.21.1",
+		LatestCheckTime: time.Now(),
+		TrackerType:     "minecraft",
+		ContextKey:      minecraftRemoteVersionContextKeyForParityTests(),
+	})
+
+	request := connect.NewRequest(&xylona.GetGameServerRequest{Id: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	resultCh := make(chan *connect.Response[xylona.GetGameServerResponse], 1)
+	errCh := make(chan error, 1)
+	go func() {
+		response, errGet := fixture.service.GetGameServer(context.Background(), request)
+		resultCh <- response
+		errCh <- errGet
+	}()
+
+	var response *connect.Response[xylona.GetGameServerResponse]
+	select {
+	case response = <-resultCh:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("GetGameServer() blocked on remote version refresh")
+	}
+
+	if errGet := <-errCh; errGet != nil {
+		t.Fatalf("GetGameServer() error = %v", errGet)
+	}
+
+	gameServer := response.Msg.GetGameServer()
+	if gameServer.GetStatus() != xylona.Status_ONLINE {
+		t.Fatalf("GetGameServer().Status = %v, want %v", gameServer.GetStatus(), xylona.Status_ONLINE)
+	}
+	if gameServer.GetVersion() != "1.18.2" {
+		t.Fatalf("GetGameServer().Version = %q, want persisted remote %q", gameServer.GetVersion(), "1.18.2")
+	}
+	if gameServer.GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_CHECKING {
+		t.Fatalf("GetGameServer().VersionInfo.Status = %v, want %v", gameServer.GetVersionInfo().GetStatus(), xylona.VersionStatus_VERSION_STATUS_CHECKING)
+	}
+
+	select {
+	case <-readEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("remote version read did not start in the background")
+	}
+
+	close(readRelease)
+
+	state := waitForVersionValues(t, fixture.service.versionState, "server-remote-1", "1.20.4", "1.21.1")
+	if state.InstalledVersion != "1.20.4" {
+		t.Fatalf("installed version = %q, want %q", state.InstalledVersion, "1.20.4")
+	}
+	if state.LatestVersion != "1.21.1" {
+		t.Fatalf("latest version = %q, want %q", state.LatestVersion, "1.21.1")
+	}
+}
+
+func TestGetGameServerCoalescesAsyncRemoteVersionRefreshes(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	readEntered := make(chan string, 4)
+	readRelease := make(chan struct{})
+	remoteClient := &blockingProbeInstalledVersionNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{
+			NodeID: "node-remote",
+			ProbeInstalledVersionResult: node.InstalledVersionProbeResult{
+				Found:   true,
+				Version: "1.20.4",
+			},
+			GetProcessSnapshotResult: &node.ProcessSnapshot{
+				ID:     "server-remote-1",
+				Status: xylona.Status_ONLINE.String(),
+			},
+			GetProcessSnapshotFound: true,
+		},
+		entered: readEntered,
+		release: readRelease,
+	}
+	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	tracker := &rpcVersionTestTracker{
+		installed: "1.20.4",
+		latest:    "1.21.1",
+	}
+	configureRemoteVersionTrackingForTests(t, fixture, registry, tracker)
+	_, errUpdate := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:      omit.From("server-remote-1"),
+		Version: omit.From("1.18.2"),
+	})
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+	fixture.service.versionState.Set("server-remote-1", versiontracker.VersionState{
+		Status:             versiontracker.VersionStatusChecked,
+		InstalledVersion:   "1.19.4",
+		LatestVersion:      "1.21.1",
+		UpdateAvailable:    true,
+		InstalledCheckTime: time.Now().Add(-1 * time.Minute),
+		LatestCheckTime:    time.Now(),
+		LastCheckTime:      time.Now().Add(-3 * time.Minute),
+		TrackerType:        "minecraft",
+		ContextKey:         minecraftRemoteVersionContextKeyForParityTests(),
+	})
+
+	requestA := connect.NewRequest(&xylona.GetGameServerRequest{Id: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, requestA, "user-owner")
+	requestB := connect.NewRequest(&xylona.GetGameServerRequest{Id: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, requestB, "user-owner")
+
+	type result struct {
+		response *connect.Response[xylona.GetGameServerResponse]
+		err      error
+	}
+	results := make(chan result, 2)
+	go func() {
+		response, errGet := fixture.service.GetGameServer(context.Background(), requestA)
+		results <- result{response: response, err: errGet}
+	}()
+	go func() {
+		response, errGet := fixture.service.GetGameServer(context.Background(), requestB)
+		results <- result{response: response, err: errGet}
+	}()
+
+	for range 2 {
+		select {
+		case getResult := <-results:
+			if getResult.err != nil {
+				t.Fatalf("GetGameServer() error = %v", getResult.err)
+			}
+			if getResult.response.Msg.GetGameServer().GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_CHECKED {
+				t.Fatalf("GetGameServer().VersionInfo.Status = %v, want cached checked state", getResult.response.Msg.GetGameServer().GetVersionInfo().GetStatus())
+			}
+			if getResult.response.Msg.GetGameServer().GetVersion() != "1.19.4" {
+				t.Fatalf("GetGameServer().Version = %q, want cached %q", getResult.response.Msg.GetGameServer().GetVersion(), "1.19.4")
+			}
+			if getResult.response.Msg.GetGameServer().GetVersionInfo().GetInstalledVersion() != "1.19.4" {
+				t.Fatalf("GetGameServer().VersionInfo.InstalledVersion = %q, want cached %q", getResult.response.Msg.GetGameServer().GetVersionInfo().GetInstalledVersion(), "1.19.4")
+			}
+		case <-time.After(250 * time.Millisecond):
+			t.Fatal("GetGameServer() blocked while async remote refresh was pending")
+		}
+	}
+
+	select {
+	case <-readEntered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected one background remote version read")
+	}
+
+	select {
+	case extra := <-readEntered:
+		t.Fatalf("unexpected duplicate remote version read %q before release", extra)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	if remoteClient.probeCallCount() != 1 {
+		t.Fatalf("remote ProbeInstalledVersion call count = %d, want 1 while refresh is coalesced", remoteClient.probeCallCount())
+	}
+
+	close(readRelease)
+
+	state := waitForVersionValues(t, fixture.service.versionState, "server-remote-1", "1.20.4", "1.21.1")
+	if state.InstalledVersion != "1.20.4" {
+		t.Fatalf("installed version = %q, want %q", state.InstalledVersion, "1.20.4")
+	}
+	if state.LatestVersion != "1.21.1" {
+		t.Fatalf("latest version = %q, want %q", state.LatestVersion, "1.21.1")
+	}
+
 }
 
 func TestListNodesIncludesLocalHealthAndOSMetadata(t *testing.T) {

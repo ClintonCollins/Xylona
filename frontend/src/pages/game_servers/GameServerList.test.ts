@@ -297,28 +297,48 @@ describe('GameServerList', () => {
     expect(wrapper.text()).toContain('Create Game Server')
   })
 
-  it('shows local rows before nodes and aggregated data finish loading', async () => {
+  it('does not call the local game server list endpoint', async () => {
+    mountList(true)
+    await flushPromises()
+
+    expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(1)
+    expect(mocks.listGameServers).not.toHaveBeenCalled()
+  })
+
+  it('shows cached rows before aggregated data finishes loading', async () => {
+    seedStoredDisplayRows([
+      {
+        compositeId: 'local/server-cached',
+        id: 'server-cached',
+        isLocal: true,
+        displayName: 'Cached Local Server',
+        gameName: 'Minecraft',
+        userName: 'owner',
+        statusEnum: Status.OFFLINE,
+        nodeName: 'Cached Local Node',
+        isStale: false,
+        sourceNodeId: '',
+        version: '1.20.4',
+      },
+    ])
     const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
     const nodesRequest = createDeferred<{ nodes: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
     mocks.listNodes.mockReturnValueOnce(nodesRequest.promise)
-    mocks.listGameServers.mockResolvedValueOnce({
-      gameServers: [buildLocalServer()],
-    })
 
     const wrapper = mountList(true)
 
     await vi.waitFor(() => {
       expect(wrapper.find('[data-test="q-table-row-count"]').text()).toBe('1')
     })
-    expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe('false')
+    expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe('true')
     expect(
       (wrapper.vm as unknown as { displayRows: Array<{ displayName: string }> }).displayRows,
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          displayName: 'Local Server',
-          nodeName: 'Local',
+          displayName: 'Cached Local Server',
+          nodeName: 'Cached Local Node',
         }),
       ]),
     )
@@ -326,56 +346,6 @@ describe('GameServerList', () => {
     nodesRequest.resolve({ nodes: [buildLocalNode()] })
     aggregatedRequest.resolve({ servers: [] })
     await flushPromises()
-  })
-
-  it('shows subtle pending rows while aggregated remote data is still loading', async () => {
-    const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listGameServers.mockResolvedValueOnce({
-      gameServers: [buildLocalServer()],
-    })
-    mocks.listNodes.mockResolvedValueOnce({
-      nodes: [buildLocalNode(), buildRemoteNode()],
-    })
-
-    const wrapper = mountList(true)
-
-    await vi.waitFor(() => {
-      expect(wrapper.find('[data-testid="game-server-remote-pending"]').exists()).toBe(true)
-    })
-    expect(
-      (wrapper.vm as unknown as { pendingRemotePlaceholderCount: number })
-        .pendingRemotePlaceholderCount,
-    ).toBe(1)
-
-    aggregatedRequest.resolve({
-      servers: [buildLocalAggregatedServer(), buildRemoteAggregatedServer()],
-    })
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="game-server-remote-pending"]').exists()).toBe(false)
-  })
-
-  it('clears pending remote placeholders when the aggregated remote request fails', async () => {
-    const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listGameServers.mockResolvedValueOnce({
-      gameServers: [buildLocalServer()],
-    })
-    mocks.listNodes.mockResolvedValueOnce({
-      nodes: [buildLocalNode(), buildRemoteNode()],
-    })
-
-    const wrapper = mountList(true)
-
-    await vi.waitFor(() => {
-      expect(wrapper.find('[data-testid="game-server-remote-pending"]').exists()).toBe(true)
-    })
-
-    aggregatedRequest.reject(new Error('remote list failed'))
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="game-server-remote-pending"]').exists()).toBe(false)
   })
 
   it('does not render cached local online rows before the first live fetch completes', async () => {
@@ -397,14 +367,13 @@ describe('GameServerList', () => {
 
     const pendingRequest = new Promise<never>(() => {})
     mocks.listAggregatedGameServers.mockReturnValueOnce(pendingRequest)
-    mocks.listGameServers.mockReturnValueOnce(pendingRequest)
     mocks.listNodes.mockReturnValueOnce(pendingRequest)
 
     const wrapper = mountList(true)
 
     await vi.waitFor(() => {
       expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(1)
-      expect(mocks.listGameServers).toHaveBeenCalledTimes(1)
+      expect(mocks.listGameServers).not.toHaveBeenCalled()
       expect(mocks.listNodes).toHaveBeenCalledTimes(1)
     })
 
@@ -430,11 +399,9 @@ describe('GameServerList', () => {
     )
   })
 
-  it('keeps remote rows when aggregated data resolves before the local bootstrap', async () => {
+  it('renders local and remote rows from aggregated data', async () => {
     const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    const localRequest = createDeferred<{ gameServers: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listGameServers.mockReturnValueOnce(localRequest.promise)
     mocks.listNodes.mockResolvedValueOnce({
       nodes: [buildLocalNode(), buildRemoteNode()],
     })
@@ -449,9 +416,6 @@ describe('GameServerList', () => {
       expect(wrapper.find('[data-test="q-table-row-count"]').text()).toBe('2')
     })
 
-    localRequest.resolve({
-      gameServers: [buildLocalServer()],
-    })
     await flushPromises()
 
     expect(
@@ -466,10 +430,8 @@ describe('GameServerList', () => {
 
   it('rebuilds cached remote rows when nodes resolve after aggregated data', async () => {
     const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    const localRequest = createDeferred<{ gameServers: unknown[] }>()
     const nodesRequest = createDeferred<{ nodes: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listGameServers.mockReturnValueOnce(localRequest.promise)
     mocks.listNodes.mockReturnValueOnce(nodesRequest.promise)
 
     const wrapper = mountList(true)
@@ -495,9 +457,6 @@ describe('GameServerList', () => {
     nodesRequest.resolve({
       nodes: [buildLocalNode(), buildRemoteNode()],
     })
-    localRequest.resolve({
-      gameServers: [buildLocalServer()],
-    })
     await flushPromises()
 
     expect(getStoredDisplayRows()?.value).toEqual(
@@ -512,21 +471,15 @@ describe('GameServerList', () => {
     )
   })
 
-  it('preserves newer local state when aggregated data resolves after bootstrap updates', async () => {
+  it('preserves buffered local state when aggregated data resolves after websocket updates', async () => {
     const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    const localRequest = createDeferred<{ gameServers: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listGameServers.mockReturnValueOnce(localRequest.promise)
     mocks.listNodes.mockResolvedValueOnce({
       nodes: [buildLocalNode()],
     })
 
     const wrapper = mountList(true)
 
-    localRequest.resolve({
-      gameServers: [buildLocalServer()],
-    })
-    await flushPromises()
     ;(
       wrapper.vm as unknown as {
         setServerStatus: (serverID: string, status: Status) => void
@@ -573,26 +526,14 @@ describe('GameServerList', () => {
     )
   })
 
-  it('keeps fresher aggregated local state when bootstrap data was older and no updates occurred', async () => {
+  it('uses aggregated local state when no websocket updates occurred', async () => {
     const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    const localRequest = createDeferred<{ gameServers: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listGameServers.mockReturnValueOnce(localRequest.promise)
     mocks.listNodes.mockResolvedValueOnce({
       nodes: [buildLocalNode()],
     })
 
     const wrapper = mountList(true)
-
-    localRequest.resolve({
-      gameServers: [
-        buildLocalServer({
-          status: Status.OFFLINE,
-          version: '1.20.4',
-        }),
-      ],
-    })
-    await flushPromises()
 
     aggregatedRequest.resolve({
       servers: [
@@ -627,11 +568,9 @@ describe('GameServerList', () => {
     )
   })
 
-  it('applies version events that arrive before bootstrap rows finish loading', async () => {
+  it('applies version events that arrive before aggregated rows finish loading', async () => {
     const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    const localRequest = createDeferred<{ gameServers: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listGameServers.mockReturnValueOnce(localRequest.promise)
     mocks.listNodes.mockResolvedValueOnce({
       nodes: [buildLocalNode()],
     })
@@ -648,12 +587,15 @@ describe('GameServerList', () => {
       }),
     )
 
-    localRequest.resolve({
-      gameServers: [
-        buildLocalServer({
-          version: '1.20.4',
-          versionInfo: createProto(VersionInfoSchema, {
-            status: VersionStatus.CHECKING,
+    aggregatedRequest.resolve({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            version: '1.20.4',
+            versionInfo: createProto(VersionInfoSchema, {
+              status: VersionStatus.CHECKING,
+            }),
           }),
         }),
       ],
@@ -672,9 +614,6 @@ describe('GameServerList', () => {
         }),
       ]),
     )
-
-    aggregatedRequest.resolve({ servers: [] })
-    await flushPromises()
   })
 
   it('reloads the list after websocket reconnects', async () => {
@@ -687,16 +626,6 @@ describe('GameServerList', () => {
             versionInfo: createProto(VersionInfoSchema, {
               status: VersionStatus.CHECKING,
             }),
-          }),
-        }),
-      ],
-    })
-    mocks.listGameServers.mockResolvedValueOnce({
-      gameServers: [
-        buildLocalServer({
-          version: '1.20.4',
-          versionInfo: createProto(VersionInfoSchema, {
-            status: VersionStatus.CHECKING,
           }),
         }),
       ],
@@ -722,17 +651,6 @@ describe('GameServerList', () => {
         }),
       ],
     })
-    mocks.listGameServers.mockResolvedValueOnce({
-      gameServers: [
-        buildLocalServer({
-          version: '1.21.1',
-          versionInfo: createProto(VersionInfoSchema, {
-            status: VersionStatus.CHECKED,
-            installedVersion: '1.21.1',
-          }),
-        }),
-      ],
-    })
     mocks.listNodes.mockResolvedValueOnce({
       nodes: [buildLocalNode()],
     })
@@ -740,7 +658,8 @@ describe('GameServerList', () => {
     mocks.eventBus.emit('websocketConnected')
     await flushPromises()
 
-    expect(mocks.listGameServers).toHaveBeenCalledTimes(2)
+    expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(2)
+    expect(mocks.listGameServers).not.toHaveBeenCalled()
     expect((wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -765,16 +684,6 @@ describe('GameServerList', () => {
             versionInfo: createProto(VersionInfoSchema, {
               status: VersionStatus.CHECKING,
             }),
-          }),
-        }),
-      ],
-    })
-    mocks.listGameServers.mockResolvedValueOnce({
-      gameServers: [
-        buildLocalServer({
-          version: '1.20.4',
-          versionInfo: createProto(VersionInfoSchema, {
-            status: VersionStatus.CHECKING,
           }),
         }),
       ],
@@ -809,17 +718,6 @@ describe('GameServerList', () => {
         }),
       ],
     })
-    mocks.listGameServers.mockResolvedValueOnce({
-      gameServers: [
-        buildLocalServer({
-          version: '1.21.1',
-          versionInfo: createProto(VersionInfoSchema, {
-            status: VersionStatus.CHECKED,
-            installedVersion: '1.21.1',
-          }),
-        }),
-      ],
-    })
     mocks.listNodes.mockResolvedValueOnce({
       nodes: [buildLocalNode()],
     })
@@ -843,24 +741,32 @@ describe('GameServerList', () => {
 
   it('ignores stale overlapping game server loads', async () => {
     const firstAggregated = createDeferred<{ servers: unknown[] }>()
-    const firstLocal = createDeferred<{ gameServers: unknown[] }>()
     const firstNodes = createDeferred<{ nodes: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(firstAggregated.promise)
-    mocks.listGameServers.mockReturnValueOnce(firstLocal.promise)
     mocks.listNodes.mockReturnValueOnce(firstNodes.promise)
 
     const wrapper = mountList(true)
 
     const secondAggregated = createDeferred<{ servers: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(secondAggregated.promise)
-    mocks.listGameServers.mockResolvedValueOnce({
-      gameServers: [buildLocalServer({ id: 'server-current', name: 'Current Local' })],
-    })
     mocks.listNodes.mockResolvedValueOnce({
       nodes: [buildLocalNode({ name: 'Current Node' })],
     })
 
-    await (wrapper.vm as unknown as { getGameServers: () => Promise<void> }).getGameServers()
+    const currentLoad = (
+      wrapper.vm as unknown as { getGameServers: () => Promise<void> }
+    ).getGameServers()
+
+    secondAggregated.resolve({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ id: 'server-current', name: 'Current Local' }),
+        }),
+        buildRemoteAggregatedServer('Current Remote'),
+      ],
+    })
+    await currentLoad
 
     await vi.waitFor(() => {
       expect(
@@ -874,34 +780,8 @@ describe('GameServerList', () => {
         buildRemoteAggregatedServer('Stale Remote'),
       ],
     })
-    firstLocal.resolve({
-      gameServers: [buildLocalServer({ id: 'server-stale', name: 'Stale Local' })],
-    })
     firstNodes.resolve({
       nodes: [buildLocalNode({ name: 'Stale Node' })],
-    })
-    await flushPromises()
-
-    expect(
-      (wrapper.vm as unknown as { displayRows: Array<{ displayName: string }> }).displayRows,
-    ).toEqual(expect.arrayContaining([expect.objectContaining({ displayName: 'Current Local' })]))
-    expect(
-      (wrapper.vm as unknown as { displayRows: Array<{ displayName: string }> }).displayRows,
-    ).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ displayName: 'Stale Local' }),
-        expect.objectContaining({ displayName: 'Stale Remote' }),
-      ]),
-    )
-
-    secondAggregated.resolve({
-      servers: [
-        createProto(AggregatedGameServerSchema, {
-          isLocal: true,
-          localServer: buildLocalServer({ id: 'server-current', name: 'Current Local' }),
-        }),
-        buildRemoteAggregatedServer('Current Remote'),
-      ],
     })
     await flushPromises()
 
@@ -911,6 +791,14 @@ describe('GameServerList', () => {
       expect.arrayContaining([
         expect.objectContaining({ displayName: 'Current Local' }),
         expect.objectContaining({ displayName: 'Current Remote' }),
+      ]),
+    )
+    expect(
+      (wrapper.vm as unknown as { displayRows: Array<{ displayName: string }> }).displayRows,
+    ).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ displayName: 'Stale Local' }),
+        expect.objectContaining({ displayName: 'Stale Remote' }),
       ]),
     )
   })

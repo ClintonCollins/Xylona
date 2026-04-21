@@ -2,14 +2,17 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -38,102 +41,121 @@ var configExtensions = map[string]bool{
 
 // backupServerFiles copies the server executable and config files to
 // .update-backup/ in the server's directory.
-func backupServerFiles(gs *models.GameServer) error {
-	backupDir := filepath.Join(gs.Directory, ".update-backup")
-	errMkdir := os.MkdirAll(backupDir, 0o750)
-	if errMkdir != nil {
-		return fmt.Errorf("actions: create backup directory: %w", errMkdir)
+func (inst *Instance) backupServerFiles(gs *models.GameServer) error {
+	client, errClient := inst.resolveUpdateFileClient(gs, "update backup")
+	if errClient != nil {
+		return errClient
+	}
+	return inst.backupNodeServerFiles(gs, client)
+}
+
+func (inst *Instance) backupNodeServerFiles(gs *models.GameServer, client nodeclient.NodeClient) error {
+	ctx := inst.actionContext()
+	errCreate := client.CreateFileOrDirectory(ctx, gs.Directory, ".update-backup", "", true, node.ProtectionPolicy{})
+	if errCreate != nil {
+		return fmt.Errorf("actions: create node backup directory: %w", errCreate)
 	}
 
-	entries, errRead := os.ReadDir(gs.Directory)
-	if errRead != nil {
-		return fmt.Errorf("actions: read server directory: %w", errRead)
+	entries, errList := client.ListFiles(ctx, gs.Directory, "")
+	if errList != nil {
+		return fmt.Errorf("actions: list node server directory: %w", errList)
 	}
 
-	// Determine whether we back up a named executable or all executables.
 	namedExecutable := ""
 	if !gs.ServerExecutable.IsNull() {
 		namedExecutable = gs.ServerExecutable.GetOr("")
 	}
 
+	operations := make([]node.CopyFileOperation, 0)
 	for _, entry := range entries {
-		if entry.IsDir() {
+		if entry.IsDirectory {
 			continue
 		}
-		name := entry.Name()
-		// Skip the backup directory itself if it somehow appears as an entry.
+
+		name := entry.Name
 		if name == ".update-backup" {
 			continue
 		}
 
-		shouldCopy := false
-		ext := filepath.Ext(name)
-		if configExtensions[ext] {
-			shouldCopy = true
-		}
-
-		if !shouldCopy {
-			if namedExecutable != "" {
-				if name == namedExecutable {
-					shouldCopy = true
-				}
-			} else {
-				if isExecutableFile(entry) {
-					shouldCopy = true
-				}
-			}
-		}
-
+		shouldCopy := shouldBackupUpdateFile(name, namedExecutable, entry.IsExecutable)
 		if !shouldCopy {
 			continue
 		}
 
-		errCopy := copyFile(
-			filepath.Join(gs.Directory, name),
-			filepath.Join(backupDir, name),
-		)
-		if errCopy != nil {
-			return errCopy
-		}
+		operations = append(operations, node.CopyFileOperation{
+			SourceRelativePath:      name,
+			DestinationRelativePath: path.Join(".update-backup", name),
+		})
+	}
+
+	if len(operations) == 0 {
+		return nil
+	}
+
+	_, errCopy := client.CopyFiles(ctx, gs.Directory, operations, node.ProtectionPolicy{})
+	if errCopy != nil {
+		return fmt.Errorf("actions: copy node update backup files: %w", errCopy)
 	}
 
 	return nil
 }
 
+func shouldBackupUpdateFile(name string, namedExecutable string, executable bool) bool {
+	ext := filepath.Ext(name)
+	if configExtensions[ext] {
+		return true
+	}
+
+	if namedExecutable != "" {
+		return name == namedExecutable
+	}
+
+	return executable
+}
+
 // restoreServerFiles restores from .update-backup/ back to the server
 // directory and removes the backup directory.
-func restoreServerFiles(gs *models.GameServer) error {
-	backupDir := filepath.Join(gs.Directory, ".update-backup")
+func (inst *Instance) restoreServerFiles(gs *models.GameServer) error {
+	client, errClient := inst.resolveUpdateFileClient(gs, "update restore")
+	if errClient != nil {
+		return errClient
+	}
+	return inst.restoreNodeServerFiles(gs, client)
+}
 
-	_, errStat := os.Stat(backupDir)
-	if os.IsNotExist(errStat) {
+func (inst *Instance) restoreNodeServerFiles(gs *models.GameServer, client nodeclient.NodeClient) error {
+	ctx := inst.actionContext()
+	entries, errList := client.ListFiles(ctx, gs.Directory, ".update-backup")
+	if errors.Is(errList, os.ErrNotExist) {
 		return nil
 	}
-	if errStat != nil {
-		return fmt.Errorf("actions: stat backup directory: %w", errStat)
+	if errList != nil {
+		return fmt.Errorf("actions: list node backup directory: %w", errList)
 	}
 
-	entries, errRead := os.ReadDir(backupDir)
-	if errRead != nil {
-		return fmt.Errorf("actions: read backup directory: %w", errRead)
-	}
-
+	operations := make([]node.CopyFileOperation, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() {
+		if entry.IsDirectory {
 			continue
 		}
-		errCopy := copyFile(
-			filepath.Join(backupDir, entry.Name()),
-			filepath.Join(gs.Directory, entry.Name()),
-		)
+
+		backupPath := path.Join(".update-backup", entry.Name)
+		operations = append(operations, node.CopyFileOperation{
+			SourceRelativePath:      backupPath,
+			DestinationRelativePath: entry.Name,
+		})
+	}
+
+	if len(operations) > 0 {
+		_, errCopy := client.CopyFiles(ctx, gs.Directory, operations, node.ProtectionPolicy{})
 		if errCopy != nil {
-			return errCopy
+			return fmt.Errorf("actions: copy node update restore files: %w", errCopy)
 		}
 	}
 
-	errRemove := os.RemoveAll(backupDir)
-	if errRemove != nil {
-		return fmt.Errorf("actions: remove backup directory: %w", errRemove)
+	_, errDelete := client.DeleteFiles(ctx, gs.Directory, []string{".update-backup"}, node.ProtectionPolicy{})
+	if errDelete != nil {
+		return fmt.Errorf("actions: remove node backup directory: %w", errDelete)
 	}
 
 	return nil
@@ -141,67 +163,28 @@ func restoreServerFiles(gs *models.GameServer) error {
 
 // cleanupBackup removes the .update-backup/ directory. Errors are logged but
 // not returned.
-func cleanupBackup(gs *models.GameServer) {
-	backupDir := filepath.Join(gs.Directory, ".update-backup")
-	errRemove := os.RemoveAll(backupDir)
-	if errRemove != nil {
-		log.Error().Err(errRemove).Str("game_server_id", gs.ID).Msg("Failed to remove backup directory")
+func (inst *Instance) cleanupBackup(gs *models.GameServer) {
+	client, errClient := inst.resolveUpdateFileClient(gs, "backup cleanup")
+	if errClient != nil {
+		log.Error().Err(errClient).Str("game_server_id", gs.ID).Msg("Failed to resolve node client for backup cleanup")
+		return
+	}
+	inst.cleanupNodeBackup(gs, client)
+}
+
+func (inst *Instance) cleanupNodeBackup(gs *models.GameServer, client nodeclient.NodeClient) {
+	_, errDelete := client.DeleteFiles(inst.actionContext(), gs.Directory, []string{".update-backup"}, node.ProtectionPolicy{})
+	if errDelete != nil {
+		log.Error().Err(errDelete).Str("game_server_id", gs.ID).Msg("Failed to remove node backup directory")
 	}
 }
 
-// windowsExecutableExtensions is the set of extensions treated as executables
-// on Windows, where POSIX execute bits are not supported.
-var windowsExecutableExtensions = map[string]bool{
-	".exe": true,
-	".bat": true,
-	".cmd": true,
-	".ps1": true,
-	".com": true,
-}
-
-// isExecutableFile reports whether a directory entry looks like an executable.
-// On Linux/Darwin this checks POSIX execute bits. On Windows it checks file
-// extension because the filesystem does not expose execute bits.
-func isExecutableFile(entry os.DirEntry) bool {
-	if OperatingSystem == Windows {
-		ext := filepath.Ext(entry.Name())
-		return windowsExecutableExtensions[ext]
+func (inst *Instance) resolveUpdateFileClient(gs *models.GameServer, operation string) (nodeclient.NodeClient, error) {
+	client, errClient := inst.resolveNodeClient(gs.NodeID)
+	if errClient == nil {
+		return client, nil
 	}
-	info, errInfo := entry.Info()
-	if errInfo != nil {
-		return false
-	}
-	return info.Mode()&0111 != 0
-}
-
-// copyFile copies the file at src to dst, creating or truncating dst.
-func copyFile(src, dst string) error {
-	srcFile, errOpen := os.Open(src)
-	if errOpen != nil {
-		return fmt.Errorf("actions: open source file %s: %w", src, errOpen)
-	}
-	defer func() {
-		_ = srcFile.Close()
-	}()
-
-	srcInfo, errStat := srcFile.Stat()
-	if errStat != nil {
-		return fmt.Errorf("actions: stat source file %s: %w", src, errStat)
-	}
-
-	dstFile, errCreate := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, srcInfo.Mode())
-	if errCreate != nil {
-		return fmt.Errorf("actions: create destination file %s: %w", dst, errCreate)
-	}
-	defer func() {
-		_ = dstFile.Close()
-	}()
-
-	_, errCopy := io.Copy(dstFile, srcFile)
-	if errCopy != nil {
-		return fmt.Errorf("actions: copy %s to %s: %w", src, dst, errCopy)
-	}
-	return nil
+	return nil, fmt.Errorf("actions: resolve node client for %s: %w", operation, errClient)
 }
 
 // UpdateGameServerWithBackup stops the server (if running), backs up config
@@ -263,7 +246,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 
 	// Step 2: Backup.
 	broadcast(xylona.UpdateStep_UPDATE_STEP_BACKING_UP, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Backing up files")
-	errBackup := backupServerFiles(gameServer)
+	errBackup := inst.backupServerFiles(gameServer)
 	if errBackup != nil {
 		log.Error().Err(errBackup).Str("game_server_id", serverID).Msg("Backup failed")
 		broadcast(xylona.UpdateStep_UPDATE_STEP_BACKING_UP, xylona.StepStatus_STEP_STATUS_FAILED, "Backup failed")
@@ -357,7 +340,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Server restarted")
 	}
 
-	cleanupBackup(gameServer)
+	inst.cleanupBackup(gameServer)
 
 	// If the dummy tracker is active, mark it as updated so subsequent version
 	// checks report the installed version as up-to-date.
@@ -399,7 +382,8 @@ func downloadCompleteMessage(gameServer *models.GameServer, plan *minecraftUpdat
 		return "Download complete"
 	}
 
-	if targetJar := updatedJarName(gameServer, plan); targetJar != "" {
+	targetJar := updatedJarName(gameServer, plan)
+	if targetJar != "" {
 		return "Downloaded " + targetJar + " for " + plan.softwareName + " " + plan.targetVersion
 	}
 	return "Downloaded " + plan.softwareName + " " + plan.targetVersion
@@ -417,7 +401,8 @@ func installStartMessage(gameServer *models.GameServer, plan *minecraftUpdatePla
 		return "Installing update"
 	}
 
-	if targetJar := updatedJarName(gameServer, plan); targetJar != "" {
+	targetJar := updatedJarName(gameServer, plan)
+	if targetJar != "" {
 		return "Applying " + targetJar
 	}
 	return "Applying " + plan.softwareName + " " + plan.targetVersion
@@ -434,7 +419,8 @@ func installCompleteMessage(gameServer *models.GameServer, plan *minecraftUpdate
 		return "Update complete"
 	}
 
-	if targetJar := updatedJarName(gameServer, plan); targetJar != "" {
+	targetJar := updatedJarName(gameServer, plan)
+	if targetJar != "" {
 		return "Installed " + plan.softwareName + " " + plan.targetVersion + " with " + targetJar
 	}
 	return "Installed " + plan.softwareName + " " + plan.targetVersion
@@ -442,7 +428,8 @@ func installCompleteMessage(gameServer *models.GameServer, plan *minecraftUpdate
 
 func updatedJarName(gameServer *models.GameServer, plan *minecraftUpdatePlan) string {
 	if gameServer != nil {
-		if executable := filepath.Base(gameServer.ServerExecutable.GetOr("")); executable != "." && executable != "" {
+		executable := filepath.Base(gameServer.ServerExecutable.GetOr(""))
+		if executable != "." && executable != "" {
 			return executable
 		}
 	}
@@ -511,7 +498,7 @@ func (inst *Instance) rollbackUpdate(gameServer *models.GameServer, wasRunning b
 	}
 
 	broadcast(xylona.UpdateStep_UPDATE_STEP_ROLLING_BACK, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Rolling back")
-	errRestore := restoreServerFiles(gameServer)
+	errRestore := inst.restoreServerFiles(gameServer)
 	if errRestore != nil {
 		log.Error().Err(errRestore).Str("game_server_id", serverID).Msg("Rollback restore failed")
 	}

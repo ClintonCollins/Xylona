@@ -2,9 +2,12 @@ package nodeclient
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -102,6 +105,50 @@ func TestInProcessClientFileRoundTrip(t *testing.T) {
 	}
 	if string(on) != "bye" {
 		t.Fatalf("on disk = %q, want %q", string(on), "bye")
+	}
+}
+
+func TestInProcessClientStreamWriteCopyAndProbe(t *testing.T) {
+	client, _ := newTestClient(t)
+	dir := t.TempDir()
+
+	result, errStreamWrite := client.StreamWriteFile(t.Context(), dir, "payload.bin", strings.NewReader("streamed payload"), node.ProtectionPolicy{})
+	if errStreamWrite != nil {
+		t.Fatalf("StreamWriteFile: %v", errStreamWrite)
+	}
+	wantSHA := fmt.Sprintf("%x", sha256.Sum256([]byte("streamed payload")))
+	if result.BytesWritten != int64(len("streamed payload")) || result.SHA256 != wantSHA {
+		t.Fatalf("StreamWriteFile result = %+v, want bytes and sha %q", result, wantSHA)
+	}
+
+	copied, errCopy := client.CopyFiles(t.Context(), dir, []node.CopyFileOperation{
+		{SourceRelativePath: "payload.bin", DestinationRelativePath: "copies/payload.bin"},
+	}, node.ProtectionPolicy{})
+	if errCopy != nil {
+		t.Fatalf("CopyFiles: %v", errCopy)
+	}
+	if len(copied) != 1 || copied[0] != "copies/payload.bin" {
+		t.Fatalf("CopyFiles copied = %v, want [copies/payload.bin]", copied)
+	}
+
+	errMkdir := os.Mkdir(filepath.Join(dir, "steamapps"), 0o750)
+	if errMkdir != nil {
+		t.Fatalf("Mkdir steamapps: %v", errMkdir)
+	}
+	errManifest := os.WriteFile(filepath.Join(dir, "steamapps", "appmanifest_90.acf"), []byte(`"buildid" "222"`), 0o600)
+	if errManifest != nil {
+		t.Fatalf("WriteFile manifest: %v", errManifest)
+	}
+	probe, errProbe := client.ProbeInstalledVersion(t.Context(), node.InstalledVersionProbeRequest{
+		Directory:           dir,
+		Kind:                node.InstalledVersionProbeKindSteamManifest,
+		PreferredSteamAppID: "90",
+	})
+	if errProbe != nil {
+		t.Fatalf("ProbeInstalledVersion: %v", errProbe)
+	}
+	if !probe.Found || probe.Version != "222" || probe.SourcePath != "steamapps/appmanifest_90.acf" {
+		t.Fatalf("ProbeInstalledVersion result = %+v, want Steam manifest hit", probe)
 	}
 }
 

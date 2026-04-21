@@ -17,6 +17,9 @@ import (
 	internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -174,6 +177,408 @@ func TestUpdateGameServerUsesMinecraftServerSoftwareProvider(t *testing.T) {
 	_, errGetCmd := supervisorInst.GetCommandByID(gameServer.ID)
 	if !errors.Is(errGetCmd, supervisor.ErrCommandDoesNotExist) {
 		t.Fatalf("expected no supervised update command, got %v", errGetCmd)
+	}
+}
+
+func TestBackupServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T) {
+	controllerDir := t.TempDir()
+	localBackupPath := filepath.Join(controllerDir, ".update-backup")
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+		ListFilesResult: []node.FileEntry{
+			node.NewFileEntry("server.properties", 12, false, time.Now()),
+			node.NewFileEntry("paper.jar", 34, false, time.Now(), true),
+			node.NewFileEntry("notes.txt", 34, false, time.Now()),
+			node.NewFileEntry("world", 56, true, time.Now()),
+		},
+	}
+	registry := noderegistry.New("node-local", nil)
+	registry.Register(remoteClient)
+
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:               "server-remote-backup",
+		Directory:        controllerDir,
+		NodeID:           "node-remote",
+		ServerExecutable: null.From("paper.jar"),
+	}
+
+	errBackup := inst.backupServerFiles(gameServer)
+	if errBackup != nil {
+		t.Fatalf("backupServerFiles() error = %v", errBackup)
+	}
+
+	if len(remoteClient.CreateFileOrDirectoryCalls) != 1 {
+		t.Fatalf("CreateFileOrDirectory call count = %d, want 1", len(remoteClient.CreateFileOrDirectoryCalls))
+	}
+	if remoteClient.CreateFileOrDirectoryCalls[0].RelativePath != ".update-backup" {
+		t.Fatalf("CreateFileOrDirectory relative path = %q, want %q", remoteClient.CreateFileOrDirectoryCalls[0].RelativePath, ".update-backup")
+	}
+	if len(remoteClient.CopyFilesCalls) != 1 {
+		t.Fatalf("CopyFiles call count = %d, want 1", len(remoteClient.CopyFilesCalls))
+	}
+	operations := remoteClient.CopyFilesCalls[0].Operations
+	if len(operations) != 2 {
+		t.Fatalf("CopyFiles operations length = %d, want 2", len(operations))
+	}
+	if operations[0].SourceRelativePath != "server.properties" || operations[0].DestinationRelativePath != ".update-backup/server.properties" {
+		t.Fatalf("first CopyFiles operation = %+v, want server.properties backup", operations[0])
+	}
+	if operations[1].SourceRelativePath != "paper.jar" || operations[1].DestinationRelativePath != ".update-backup/paper.jar" {
+		t.Fatalf("second CopyFiles operation = %+v, want executable jar backup", operations[1])
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
+	}
+	_, errStat := os.Stat(localBackupPath)
+	if !os.IsNotExist(errStat) {
+		t.Fatalf("controller backup path stat error = %v, want not exist", errStat)
+	}
+}
+
+func TestRestoreServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T) {
+	controllerDir := t.TempDir()
+	localSettingsPath := filepath.Join(controllerDir, "server.properties")
+	errWrite := os.WriteFile(localSettingsPath, []byte("controller"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(server.properties) error = %v", errWrite)
+	}
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+		ListFilesResult: []node.FileEntry{
+			node.NewFileEntry("server.properties", 12, false, time.Now()),
+		},
+		DeleteFilesResult: []string{".update-backup"},
+	}
+	registry := noderegistry.New("node-local", nil)
+	registry.Register(remoteClient)
+
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:        "server-remote-restore",
+		Directory: controllerDir,
+		NodeID:    "node-remote",
+	}
+
+	errRestore := inst.restoreServerFiles(gameServer)
+	if errRestore != nil {
+		t.Fatalf("restoreServerFiles() error = %v", errRestore)
+	}
+
+	if len(remoteClient.ListFilesCalls) != 1 {
+		t.Fatalf("ListFiles call count = %d, want 1", len(remoteClient.ListFilesCalls))
+	}
+	if remoteClient.ListFilesCalls[0].RelativePath != ".update-backup" {
+		t.Fatalf("ListFiles relative path = %q, want %q", remoteClient.ListFilesCalls[0].RelativePath, ".update-backup")
+	}
+	if len(remoteClient.CopyFilesCalls) != 1 {
+		t.Fatalf("CopyFiles call count = %d, want 1", len(remoteClient.CopyFilesCalls))
+	}
+	operations := remoteClient.CopyFilesCalls[0].Operations
+	if len(operations) != 1 {
+		t.Fatalf("CopyFiles operations length = %d, want 1", len(operations))
+	}
+	if operations[0].SourceRelativePath != ".update-backup/server.properties" || operations[0].DestinationRelativePath != "server.properties" {
+		t.Fatalf("CopyFiles operation = %+v, want restore server.properties", operations[0])
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
+	}
+	if len(remoteClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFiles call count = %d, want 1", len(remoteClient.DeleteFilesCalls))
+	}
+	if len(remoteClient.DeleteFilesCalls[0].Files) != 1 || remoteClient.DeleteFilesCalls[0].Files[0] != ".update-backup" {
+		t.Fatalf("DeleteFiles files = %v, want [.update-backup]", remoteClient.DeleteFilesCalls[0].Files)
+	}
+	controllerContents, errRead := os.ReadFile(localSettingsPath)
+	if errRead != nil {
+		t.Fatalf("ReadFile(server.properties) error = %v", errRead)
+	}
+	if string(controllerContents) != "controller" {
+		t.Fatalf("controller server.properties = %q, want %q", string(controllerContents), "controller")
+	}
+}
+
+func TestBackupAndRestoreServerFilesRoutesEmbeddedNodeThroughCopyFiles(t *testing.T) {
+	controllerDir := t.TempDir()
+	selfClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-local",
+		ListFilesResult: []node.FileEntry{
+			node.NewFileEntry("server.properties", 12, false, time.Now()),
+		},
+		DeleteFilesResult: []string{".update-backup"},
+	}
+	registry := noderegistry.New("node-local", selfClient)
+
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:        "server-embedded-update-copy",
+		Directory: controllerDir,
+		NodeID:    "node-local",
+	}
+
+	errBackup := inst.backupServerFiles(gameServer)
+	if errBackup != nil {
+		t.Fatalf("backupServerFiles() error = %v", errBackup)
+	}
+	if len(selfClient.CopyFilesCalls) != 1 {
+		t.Fatalf("backup CopyFiles call count = %d, want 1", len(selfClient.CopyFilesCalls))
+	}
+	if selfClient.CopyFilesCalls[0].Operations[0].DestinationRelativePath != ".update-backup/server.properties" {
+		t.Fatalf("backup CopyFiles operation = %+v, want backup destination", selfClient.CopyFilesCalls[0].Operations[0])
+	}
+
+	selfClient.CopyFilesCalls = nil
+	selfClient.ListFilesCalls = nil
+	selfClient.ListFilesResult = []node.FileEntry{
+		node.NewFileEntry("server.properties", 12, false, time.Now()),
+	}
+
+	errRestore := inst.restoreServerFiles(gameServer)
+	if errRestore != nil {
+		t.Fatalf("restoreServerFiles() error = %v", errRestore)
+	}
+	if len(selfClient.CopyFilesCalls) != 1 {
+		t.Fatalf("restore CopyFiles call count = %d, want 1", len(selfClient.CopyFilesCalls))
+	}
+	if selfClient.CopyFilesCalls[0].Operations[0].SourceRelativePath != ".update-backup/server.properties" {
+		t.Fatalf("restore CopyFiles operation = %+v, want backup source", selfClient.CopyFilesCalls[0].Operations[0])
+	}
+	if len(selfClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFiles call count = %d, want 1", len(selfClient.DeleteFilesCalls))
+	}
+}
+
+func TestUpdateGameServerUsesRemoteNodeForMinecraftJarDownloadAndDelete(t *testing.T) {
+	controllerDir := t.TempDir()
+	oldJarPath := filepath.Join(controllerDir, "paper-old.jar")
+	errWrite := os.WriteFile(oldJarPath, []byte("controller-old"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(paper-old.jar) error = %v", errWrite)
+	}
+
+	provider := &minecraftUpdateTestProvider{
+		providerID:      "test-minecraft-remote-update-provider",
+		latestVersion:   "1.21.5",
+		downloadVersion: "1.21.5-build-9",
+		downloadURL:     "https://downloads.example.test/paper-new.jar",
+		downloadSize:    8192,
+		downloadSHA256:  "paper-new-sha",
+	}
+	withMinecraftUpdateProviderLookup(t, provider)
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "paper-new.jar"},
+		DeleteFilesResult:         []string{"paper-old.jar"},
+	}
+	registry := noderegistry.New("node-local", nil)
+	registry.Register(remoteClient)
+
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:               "minecraft-remote-provider-update",
+		GameID:           "minecraft",
+		Directory:        controllerDir,
+		NodeID:           "node-remote",
+		UserID:           "user-1",
+		ServerSoftware:   null.From("paper"),
+		ServerExecutable: null.From("paper-old.jar"),
+	}
+	gameServer.R.Game = &models.Game{
+		ID: "minecraft",
+	}
+	setMinecraftTypedVariants(t, gameServer.R.Game, updateproviders.Variant{
+		ID:            "paper",
+		Name:          "Paper",
+		DefaultTarget: "1.21.5",
+		UpdateProvider: &updateproviders.ProviderConfig{
+			Kind:     updateproviders.ProviderKindPaperMC,
+			SourceID: "paper",
+		},
+	})
+
+	errUpdate := inst.UpdateGameServer(gameServer)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+
+	if provider.downloadCalls != 0 {
+		t.Fatalf("provider Download call count = %d, want 0 for remote update", provider.downloadCalls)
+	}
+	if len(remoteClient.DownloadFileFromURLCalls) != 1 {
+		t.Fatalf("DownloadFileFromURL call count = %d, want 1", len(remoteClient.DownloadFileFromURLCalls))
+	}
+	downloadCall := remoteClient.DownloadFileFromURLCalls[0]
+	if downloadCall.Directory != controllerDir {
+		t.Fatalf("DownloadFileFromURL directory = %q, want %q", downloadCall.Directory, controllerDir)
+	}
+	if downloadCall.RawURL != "https://downloads.example.test/paper-new.jar" {
+		t.Fatalf("DownloadFileFromURL raw URL = %q, want %q", downloadCall.RawURL, "https://downloads.example.test/paper-new.jar")
+	}
+	if downloadCall.Integrity.ExpectedSize != 8192 || downloadCall.Integrity.ExpectedSHA256 != "paper-new-sha" {
+		t.Fatalf("DownloadFileFromURL integrity = %+v, want size=8192 paper-new-sha", downloadCall.Integrity)
+	}
+	if len(remoteClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFiles call count = %d, want 1", len(remoteClient.DeleteFilesCalls))
+	}
+	if len(remoteClient.DeleteFilesCalls[0].Files) != 1 || remoteClient.DeleteFilesCalls[0].Files[0] != "paper-old.jar" {
+		t.Fatalf("DeleteFiles files = %v, want [paper-old.jar]", remoteClient.DeleteFilesCalls[0].Files)
+	}
+	if gameServer.ServerExecutable.GetOr("") != "paper-new.jar" {
+		t.Fatalf("server executable = %q, want %q", gameServer.ServerExecutable.GetOr(""), "paper-new.jar")
+	}
+	controllerContents, errRead := os.ReadFile(oldJarPath)
+	if errRead != nil {
+		t.Fatalf("ReadFile(paper-old.jar) error = %v", errRead)
+	}
+	if string(controllerContents) != "controller-old" {
+		t.Fatalf("controller old jar = %q, want %q", string(controllerContents), "controller-old")
+	}
+}
+
+func TestUpdateGameServerRejectsRemoteMinecraftDownloadWithoutIntegrity(t *testing.T) {
+	controllerDir := t.TempDir()
+	provider := &minecraftUpdateTestProvider{
+		providerID:      "test-minecraft-remote-missing-integrity-provider",
+		latestVersion:   "1.21.5",
+		downloadVersion: "1.21.5-build-9",
+		downloadURL:     "https://downloads.example.test/paper-new.jar",
+	}
+	withMinecraftUpdateProviderLookup(t, provider)
+
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry := noderegistry.New("node-local", nil)
+	registry.Register(remoteClient)
+
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:               "minecraft-remote-missing-integrity",
+		GameID:           "minecraft",
+		Directory:        controllerDir,
+		NodeID:           "node-remote",
+		UserID:           "user-1",
+		ServerSoftware:   null.From("paper"),
+		ServerExecutable: null.From("paper-old.jar"),
+	}
+	gameServer.R.Game = &models.Game{
+		ID: "minecraft",
+	}
+	setMinecraftTypedVariants(t, gameServer.R.Game, updateproviders.Variant{
+		ID:            "paper",
+		Name:          "Paper",
+		DefaultTarget: "1.21.5",
+		UpdateProvider: &updateproviders.ProviderConfig{
+			Kind:     updateproviders.ProviderKindPaperMC,
+			SourceID: "paper",
+		},
+	})
+
+	errUpdate := inst.UpdateGameServer(gameServer)
+	if errUpdate == nil {
+		t.Fatal("UpdateGameServer() error = nil, want missing integrity error")
+	}
+	if !strings.Contains(errUpdate.Error(), "integrity metadata unavailable") {
+		t.Fatalf("UpdateGameServer() error = %v, want missing integrity metadata", errUpdate)
+	}
+	if provider.downloadCalls != 0 {
+		t.Fatalf("provider Download call count = %d, want 0 for remote update", provider.downloadCalls)
+	}
+	if len(remoteClient.DownloadFileFromURLCalls) != 0 {
+		t.Fatalf("DownloadFileFromURL call count = %d, want 0", len(remoteClient.DownloadFileFromURLCalls))
+	}
+	if len(remoteClient.DeleteFilesCalls) != 0 {
+		t.Fatalf("DeleteFiles call count = %d, want 0", len(remoteClient.DeleteFilesCalls))
+	}
+	if gameServer.ServerExecutable.GetOr("") != "paper-old.jar" {
+		t.Fatalf("server executable = %q, want paper-old.jar", gameServer.ServerExecutable.GetOr(""))
+	}
+}
+
+func TestUpdateGameServerBuildsPaperRemoteDownloadURLWhenProviderOmitsURL(t *testing.T) {
+	controllerDir := t.TempDir()
+	provider := &minecraftUpdateTestProvider{
+		providerID:      "test-minecraft-remote-paper-update-provider",
+		latestVersion:   "1.21.5",
+		downloadVersion: "1.21.5-9",
+		downloadSize:    4096,
+		downloadSHA256:  "paper-built-sha",
+	}
+	withMinecraftUpdateProviderLookup(t, provider)
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "paper-1.21.5-9.jar"},
+	}
+	registry := noderegistry.New("node-local", nil)
+	registry.Register(remoteClient)
+
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:             "minecraft-remote-paper-update",
+		GameID:         "minecraft",
+		Directory:      controllerDir,
+		NodeID:         "node-remote",
+		UserID:         "user-1",
+		ServerSoftware: null.From("paper"),
+	}
+	gameServer.R.Game = &models.Game{
+		ID: "minecraft",
+	}
+	setMinecraftTypedVariants(t, gameServer.R.Game, updateproviders.Variant{
+		ID:            "paper",
+		Name:          "Paper",
+		DefaultTarget: "1.21.5",
+		UpdateProvider: &updateproviders.ProviderConfig{
+			Kind:     updateproviders.ProviderKindPaperMC,
+			SourceID: "paper",
+		},
+	})
+
+	errUpdate := inst.UpdateGameServer(gameServer)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+
+	if len(remoteClient.DownloadFileFromURLCalls) != 1 {
+		t.Fatalf("DownloadFileFromURL call count = %d, want 1", len(remoteClient.DownloadFileFromURLCalls))
+	}
+	wantURL := "https://api.papermc.io/v2/projects/paper/versions/1.21.5/builds/9/downloads/paper-1.21.5-9.jar"
+	if remoteClient.DownloadFileFromURLCalls[0].RawURL != wantURL {
+		t.Fatalf("DownloadFileFromURL raw URL = %q, want %q", remoteClient.DownloadFileFromURLCalls[0].RawURL, wantURL)
+	}
+	if remoteClient.DownloadFileFromURLCalls[0].Integrity.ExpectedSize != 4096 ||
+		remoteClient.DownloadFileFromURLCalls[0].Integrity.ExpectedSHA256 != "paper-built-sha" {
+		t.Fatalf("DownloadFileFromURL integrity = %+v, want size=4096 paper-built-sha", remoteClient.DownloadFileFromURLCalls[0].Integrity)
+	}
+	if gameServer.ServerExecutable.GetOr("") != "paper-1.21.5-9.jar" {
+		t.Fatalf("server executable = %q, want %q", gameServer.ServerExecutable.GetOr(""), "paper-1.21.5-9.jar")
 	}
 }
 
@@ -342,6 +747,7 @@ func TestRunUpdateWithBackupWritesProgressToConsoleBuffer(t *testing.T) {
 		Usable:             omit.From(true),
 		External:           omit.From(false),
 		AutomaticallyAdded: omit.From(false),
+		NodeID:             omit.From("node-local"),
 	})
 	if errUpsertIP != nil {
 		t.Fatalf("UpsertIP() error = %v", errUpsertIP)
@@ -625,12 +1031,17 @@ type minecraftUpdateTestProvider struct {
 	providerID          string
 	latestVersion       string
 	downloadVersion     string
+	downloadURL         string
+	downloadSize        int64
+	downloadSHA256      string
+	downloadSHA1        string
 	markerPath          string
 	detailsSourceID     string
 	versionsSourceID    string
 	versionsGameVersion string
 	downloadSourceID    string
 	downloadVersionID   string
+	downloadCalls       int
 }
 
 func (p *minecraftUpdateTestProvider) ID() string {
@@ -709,11 +1120,19 @@ func (p *minecraftUpdateTestProvider) GetVersions(_ context.Context, sourceID st
 	p.versionsSourceID = sourceID
 	p.versionsGameVersion = gameVersion
 	return []modproviders.ModVersion{
-		{VersionID: p.downloadVersion, VersionString: "Build 9"},
+		{
+			VersionID:      p.downloadVersion,
+			VersionString:  "Build 9",
+			DownloadURL:    p.downloadURL,
+			FileSize:       p.downloadSize,
+			FileHashSHA256: p.downloadSHA256,
+			FileHashSHA1:   p.downloadSHA1,
+		},
 	}, nil
 }
 
 func (p *minecraftUpdateTestProvider) Download(_ context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
+	p.downloadCalls++
 	p.downloadSourceID = sourceID
 	p.downloadVersionID = versionID
 	relativePath := filepath.Base(p.markerPath)

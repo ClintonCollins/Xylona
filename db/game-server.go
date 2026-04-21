@@ -181,6 +181,22 @@ func (c *Connection) GetGameServersByIP(ip string) ([]*models.GameServer, error)
 	return gameServers, nil
 }
 
+// GetGameServersByNodeIDAndIP returns game servers bound to an IP address on a node.
+func (c *Connection) GetGameServersByNodeIDAndIP(nodeID string, ip string) ([]*models.GameServer, error) {
+	gameServers, err := models.GameServers.Query(
+		models.SelectWhere.GameServers.NodeID.EQ(nodeID),
+		models.SelectWhere.GameServers.IP.EQ(ip),
+		models.Preload.GameServer.IP(),
+		models.Preload.GameServer.Game(),
+		models.Preload.GameServer.User(),
+		models.Preload.GameServer.Node(),
+	).All(c.ctx, c.DB)
+	if err != nil {
+		return nil, fmt.Errorf("get game servers by node ID and IP: %w", err)
+	}
+	return gameServers, nil
+}
+
 // GetGameServersByGameID returns all servers for a game definition.
 func (c *Connection) GetGameServersByGameID(gameID string) ([]*models.GameServer, error) {
 	gameServers, err := models.GameServers.Query(

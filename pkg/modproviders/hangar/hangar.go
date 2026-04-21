@@ -294,7 +294,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 
 	versions := make([]modproviders.ModVersion, 0, len(raw.Result))
 	for _, v := range raw.Result {
-		downloadURL, fileSize := primaryDownloadFor(v.Downloads, platform)
+		downloadURL, fileSize, fileHashSHA256 := primaryDownloadFor(v.Downloads, platform)
 
 		gameVersions := collectGameVersions(v.PlatformDependencies)
 		if gameVersion != "" {
@@ -306,13 +306,14 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 		deps := collectDependencies(v.PluginDependencies, platform)
 
 		versions = append(versions, modproviders.ModVersion{
-			VersionID:     v.Name,
-			VersionString: v.Name,
-			GameVersions:  gameVersions,
-			DownloadURL:   downloadURL,
-			FileSize:      fileSize,
-			Dependencies:  deps,
-			Changelog:     v.Description,
+			VersionID:      v.Name,
+			VersionString:  v.Name,
+			GameVersions:   gameVersions,
+			DownloadURL:    downloadURL,
+			FileSize:       fileSize,
+			FileHashSHA256: fileHashSHA256,
+			Dependencies:   deps,
+			Changelog:      v.Description,
 		})
 	}
 	return versions, nil
@@ -508,17 +509,17 @@ func extractPlatform(params modproviders.SearchParams) string {
 // primaryDownloadFor returns the download URL and file size for the best available platform.
 // If platform is specified and present, that platform is preferred. Otherwise the first
 // available platform is used.
-func primaryDownloadFor(downloads map[string]hangarPlatformDownload, platform string) (downloadURL string, fileSize int64) {
+func primaryDownloadFor(downloads map[string]hangarPlatformDownload, platform string) (downloadURL string, fileSize int64, fileHashSHA256 string) {
 	if platform != "" {
 		if d, ok := downloads[platform]; ok {
-			return d.DownloadURL, d.FileInfo.SizeBytes
+			return d.DownloadURL, d.FileInfo.SizeBytes, d.FileInfo.SHA256
 		}
 	}
 	// Fall back to first available platform entry.
 	for _, d := range downloads {
-		return d.DownloadURL, d.FileInfo.SizeBytes
+		return d.DownloadURL, d.FileInfo.SizeBytes, d.FileInfo.SHA256
 	}
-	return "", 0
+	return "", 0, ""
 }
 
 // collectGameVersions merges all game version arrays from all platforms into a deduplicated slice.

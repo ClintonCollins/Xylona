@@ -5,13 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 )
 
 // mockProvider implements modproviders.ModProvider for testing.
@@ -108,8 +113,8 @@ func seedTestFixture(t *testing.T, conn *db.Connection) {
 	}
 
 	_, errIP := conn.SQLDb.ExecContext(ctx,
-		`INSERT INTO ip (address, usable, external) VALUES (?, ?, ?)`,
-		"127.0.0.1", true, false,
+		`INSERT INTO ip (address, node_id, usable, external) VALUES (?, ?, ?, ?)`,
+		"127.0.0.1", "node-local", true, false,
 	)
 	if errIP != nil {
 		t.Fatalf("failed to insert ip: %v", errIP)
@@ -145,13 +150,445 @@ func newMockProvider(providerID string) *mockProvider {
 			Name:     "Test Mod",
 			Author:   "Test Author",
 			Versions: []modproviders.ModVersion{
-				{VersionID: "v1", VersionString: "1.0.0"},
-				{VersionID: "v2", VersionString: "2.0.0"},
+				{
+					VersionID:      "v1",
+					VersionString:  "1.0.0",
+					DownloadURL:    "https://example.test/testmod-1.0.0.jar",
+					FileSize:       1024,
+					FileHashSHA256: "sha-v1",
+				},
+				{
+					VersionID:      "v2",
+					VersionString:  "2.0.0",
+					DownloadURL:    "https://example.test/testmod-2.0.0.jar",
+					FileSize:       2048,
+					FileHashSHA256: "sha-v2",
+				},
 			},
 		},
 		downloadedFiles: []modproviders.DownloadedFile{
 			{Path: "testmod-1.0.0.jar", Hash: "abc123", Size: 1024, IsPrimary: true},
 		},
+	}
+}
+
+func clearVersionIntegrity(version *modproviders.ModVersion) {
+	version.FileSize = 0
+	version.FileHashSHA256 = ""
+	version.FileHashSHA1 = ""
+}
+
+func resetFakeNodeClientCalls(client *nodeclient.FakeNodeClient) {
+	client.CreateFileOrDirectoryCalls = nil
+	client.DeleteFilesCalls = nil
+	client.DownloadFileFromURLCalls = nil
+	client.MoveFilesCalls = nil
+	client.RenameFileCalls = nil
+}
+
+func assertSlashPath(t *testing.T, got string) {
+	t.Helper()
+	if strings.Contains(got, `\`) {
+		t.Fatalf("path %q contains backslash, want slash-style relative path", got)
+	}
+	if !path.IsAbs(got) && filepath.IsAbs(got) {
+		t.Fatalf("path %q is platform absolute, want relative path", got)
+	}
+}
+
+func TestRemoteModDownloadRejectsMissingIntegrityMetadata(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	t.Run("install", func(t *testing.T) {
+		conn := dbtest.NewMigratedConnection(t, "mm-remote-install-missing-integrity.sqlite")
+		seedTestFixture(t, conn)
+
+		pid := newUniqueProviderID()
+		mock := newMockProvider(pid)
+		clearVersionIntegrity(&mock.details.Versions[0])
+		modproviders.RegisterProvider(mock)
+
+		mgr := New(conn)
+		client := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+		_, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", t.TempDir(), "mods")
+		if !errors.Is(errInstall, modproviders.ErrMissingIntegrityMetadata) {
+			t.Fatalf("InstallRemote() error = %v, want %v", errInstall, modproviders.ErrMissingIntegrityMetadata)
+		}
+		if len(client.DownloadFileFromURLCalls) != 0 {
+			t.Fatalf("DownloadFileFromURL call count = %d, want 0", len(client.DownloadFileFromURLCalls))
+		}
+	})
+
+	t.Run("update", func(t *testing.T) {
+		conn := dbtest.NewMigratedConnection(t, "mm-remote-update-missing-integrity.sqlite")
+		seedTestFixture(t, conn)
+
+		pid := newUniqueProviderID()
+		mock := newMockProvider(pid)
+		modproviders.RegisterProvider(mock)
+
+		mgr := New(conn)
+		client := &nodeclient.FakeNodeClient{
+			NodeID:                    "node-remote",
+			DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar", BytesWritten: 1024, SHA256: "sha-v1"},
+			RenameFileResult:          "mods/testmod-1.0.0.jar",
+		}
+		mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", t.TempDir(), "mods")
+		if errInstall != nil {
+			t.Fatalf("InstallRemote() error = %v", errInstall)
+		}
+
+		clearVersionIntegrity(&mock.details.Versions[1])
+		resetFakeNodeClientCalls(client)
+		_, errUpdate := mgr.UpdateRemote(context.Background(), client, mod.ID, "v2", t.TempDir())
+		if !errors.Is(errUpdate, modproviders.ErrMissingIntegrityMetadata) {
+			t.Fatalf("UpdateRemote() error = %v, want %v", errUpdate, modproviders.ErrMissingIntegrityMetadata)
+		}
+		if len(client.DownloadFileFromURLCalls) != 0 {
+			t.Fatalf("DownloadFileFromURL call count = %d, want 0", len(client.DownloadFileFromURLCalls))
+		}
+	})
+}
+
+func TestRemoteModInstallUsesNodeDownloadAndStoresSlashPaths(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "mm-remote-install.sqlite")
+	seedTestFixture(t, conn)
+
+	pid := newUniqueProviderID()
+	mock := newMockProvider(pid)
+	modproviders.RegisterProvider(mock)
+
+	mgr := New(conn)
+	serverDir := t.TempDir()
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-remote/testmod-1.0.0.jar", BytesWritten: 1024, SHA256: "sha-v1"},
+		RenameFileResult:          "mods/testmod-1.0.0.jar",
+	}
+
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	if errInstall != nil {
+		t.Fatalf("InstallRemote() error = %v", errInstall)
+	}
+	if mod.InstalledVersionID != "v1" {
+		t.Fatalf("InstallRemote().InstalledVersionID = %q, want %q", mod.InstalledVersionID, "v1")
+	}
+	if mod.FileHash != "sha-v1" {
+		t.Fatalf("InstallRemote().FileHash = %q, want sha-v1", mod.FileHash)
+	}
+	if len(client.DownloadFileFromURLCalls) != 1 {
+		t.Fatalf("DownloadFileFromURL call count = %d, want 1", len(client.DownloadFileFromURLCalls))
+	}
+	downloadCall := client.DownloadFileFromURLCalls[0]
+	if downloadCall.Directory != serverDir {
+		t.Fatalf("DownloadFileFromURL directory = %q, want %q", downloadCall.Directory, serverDir)
+	}
+	if downloadCall.RawURL != "https://example.test/testmod-1.0.0.jar" {
+		t.Fatalf("DownloadFileFromURL raw URL = %q", downloadCall.RawURL)
+	}
+	if !strings.HasPrefix(downloadCall.DestinationDirectoryPath, "mods/.xylona-download-") {
+		t.Fatalf("DownloadFileFromURL destination = %q, want node staging under mods", downloadCall.DestinationDirectoryPath)
+	}
+	if downloadCall.Integrity.ExpectedSize != 1024 || downloadCall.Integrity.ExpectedSHA256 != "sha-v1" {
+		t.Fatalf("DownloadFileFromURL integrity = %+v, want size=1024 sha-v1", downloadCall.Integrity)
+	}
+	if len(client.RenameFileCalls) != 1 {
+		t.Fatalf("RenameFile call count = %d, want 1", len(client.RenameFileCalls))
+	}
+	if client.RenameFileCalls[0].OldRelativePath != "mods/.xylona-download-remote/testmod-1.0.0.jar" {
+		t.Fatalf("RenameFile old path = %q", client.RenameFileCalls[0].OldRelativePath)
+	}
+	if client.RenameFileCalls[0].NewRelativePath != "mods/testmod-1.0.0.jar" {
+		t.Fatalf("RenameFile new path = %q", client.RenameFileCalls[0].NewRelativePath)
+	}
+
+	files, errFiles := conn.GetInstalledModFilesByModID(mod.ID)
+	if errFiles != nil {
+		t.Fatalf("GetInstalledModFilesByModID() error = %v", errFiles)
+	}
+	if len(files) != 1 {
+		t.Fatalf("GetInstalledModFilesByModID() len = %d, want 1", len(files))
+	}
+	assertSlashPath(t, files[0].FilePath)
+	if files[0].FilePath != "mods/testmod-1.0.0.jar" {
+		t.Fatalf("FilePath = %q, want %q", files[0].FilePath, "mods/testmod-1.0.0.jar")
+	}
+	if files[0].FileHash != "sha-v1" || files[0].FileSize != 1024 {
+		t.Fatalf("installed file integrity = hash %q size %d, want sha-v1/1024", files[0].FileHash, files[0].FileSize)
+	}
+	entries, errReadDir := os.ReadDir(serverDir)
+	if errReadDir != nil {
+		t.Fatalf("ReadDir(serverDir) error = %v", errReadDir)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("InstallRemote() touched controller server dir, entries = %d", len(entries))
+	}
+}
+
+func TestRemoteModUpdateUsesNodeRollbackAndStoresSlashPaths(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "mm-remote-update.sqlite")
+	seedTestFixture(t, conn)
+
+	pid := newUniqueProviderID()
+	mock := newMockProvider(pid)
+	modproviders.RegisterProvider(mock)
+
+	mgr := New(conn)
+	serverDir := t.TempDir()
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar", BytesWritten: 1024, SHA256: "sha-v1"},
+		RenameFileResult:          "mods/testmod-1.0.0.jar",
+	}
+
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	if errInstall != nil {
+		t.Fatalf("InstallRemote() error = %v", errInstall)
+	}
+	resetFakeNodeClientCalls(client)
+	client.DownloadFileFromURLResult = node.DownloadFileResult{RelativePath: "mods/.xylona-download-update/testmod-2.0.0.jar", BytesWritten: 2048, SHA256: "sha-v2"}
+
+	updated, errUpdate := mgr.UpdateRemote(context.Background(), client, mod.ID, "v2", serverDir)
+	if errUpdate != nil {
+		t.Fatalf("UpdateRemote() error = %v", errUpdate)
+	}
+	if updated.InstalledVersionID != "v2" {
+		t.Fatalf("UpdateRemote().InstalledVersionID = %q, want %q", updated.InstalledVersionID, "v2")
+	}
+	if updated.FileHash != "sha-v2" {
+		t.Fatalf("UpdateRemote().FileHash = %q, want sha-v2", updated.FileHash)
+	}
+	if len(client.DownloadFileFromURLCalls) != 1 {
+		t.Fatalf("DownloadFileFromURL call count = %d, want 1", len(client.DownloadFileFromURLCalls))
+	}
+	if client.DownloadFileFromURLCalls[0].RawURL != "https://example.test/testmod-2.0.0.jar" {
+		t.Fatalf("DownloadFileFromURL raw URL = %q", client.DownloadFileFromURLCalls[0].RawURL)
+	}
+	if client.DownloadFileFromURLCalls[0].Integrity.ExpectedSize != 2048 || client.DownloadFileFromURLCalls[0].Integrity.ExpectedSHA256 != "sha-v2" {
+		t.Fatalf("DownloadFileFromURL integrity = %+v, want size=2048 sha-v2", client.DownloadFileFromURLCalls[0].Integrity)
+	}
+	if len(client.RenameFileCalls) < 2 {
+		t.Fatalf("RenameFile call count = %d, want at least 2", len(client.RenameFileCalls))
+	}
+	if client.RenameFileCalls[0].OldRelativePath != "mods/testmod-1.0.0.jar" {
+		t.Fatalf("rollback RenameFile old path = %q", client.RenameFileCalls[0].OldRelativePath)
+	}
+	if !strings.HasPrefix(client.RenameFileCalls[0].NewRelativePath, "mods/.xylona-rollback-") {
+		t.Fatalf("rollback RenameFile new path = %q", client.RenameFileCalls[0].NewRelativePath)
+	}
+	lastRename := client.RenameFileCalls[len(client.RenameFileCalls)-1]
+	if lastRename.OldRelativePath != "mods/.xylona-download-update/testmod-2.0.0.jar" {
+		t.Fatalf("promote RenameFile old path = %q", lastRename.OldRelativePath)
+	}
+	if lastRename.NewRelativePath != "mods/testmod-2.0.0.jar" {
+		t.Fatalf("promote RenameFile new path = %q", lastRename.NewRelativePath)
+	}
+
+	files, errFiles := conn.GetInstalledModFilesByModID(mod.ID)
+	if errFiles != nil {
+		t.Fatalf("GetInstalledModFilesByModID() error = %v", errFiles)
+	}
+	if len(files) != 1 {
+		t.Fatalf("GetInstalledModFilesByModID() len = %d, want 1", len(files))
+	}
+	assertSlashPath(t, files[0].FilePath)
+	if files[0].FilePath != "mods/testmod-2.0.0.jar" {
+		t.Fatalf("FilePath = %q, want %q", files[0].FilePath, "mods/testmod-2.0.0.jar")
+	}
+	if files[0].FileHash != "sha-v2" || files[0].FileSize != 2048 {
+		t.Fatalf("updated file integrity = hash %q size %d, want sha-v2/2048", files[0].FileHash, files[0].FileSize)
+	}
+}
+
+func TestRemoteModUninstallDeletesOnNode(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "mm-remote-uninstall.sqlite")
+	seedTestFixture(t, conn)
+
+	pid := newUniqueProviderID()
+	mock := newMockProvider(pid)
+	modproviders.RegisterProvider(mock)
+
+	mgr := New(conn)
+	serverDir := t.TempDir()
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar"},
+		RenameFileResult:          "mods/testmod-1.0.0.jar",
+	}
+
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	if errInstall != nil {
+		t.Fatalf("InstallRemote() error = %v", errInstall)
+	}
+	resetFakeNodeClientCalls(client)
+
+	errUninstall := mgr.UninstallRemote(context.Background(), client, mod.ID, serverDir)
+	if errUninstall != nil {
+		t.Fatalf("UninstallRemote() error = %v", errUninstall)
+	}
+	if len(client.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFiles call count = %d, want 1", len(client.DeleteFilesCalls))
+	}
+	if client.DeleteFilesCalls[0].Directory != serverDir {
+		t.Fatalf("DeleteFiles directory = %q, want %q", client.DeleteFilesCalls[0].Directory, serverDir)
+	}
+	if !slices.Equal(client.DeleteFilesCalls[0].Files, []string{"mods/testmod-1.0.0.jar"}) {
+		t.Fatalf("DeleteFiles files = %v, want [mods/testmod-1.0.0.jar]", client.DeleteFilesCalls[0].Files)
+	}
+
+	files, errFiles := conn.GetInstalledModFilesByModID(mod.ID)
+	if errFiles != nil {
+		t.Fatalf("GetInstalledModFilesByModID() error = %v", errFiles)
+	}
+	if len(files) != 0 {
+		t.Fatalf("GetInstalledModFilesByModID() len = %d, want 0", len(files))
+	}
+}
+
+func TestRemoteModEnableDisableMovesOnNode(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "mm-remote-enable-disable.sqlite")
+	seedTestFixture(t, conn)
+
+	pid := newUniqueProviderID()
+	mock := newMockProvider(pid)
+	modproviders.RegisterProvider(mock)
+
+	mgr := New(conn)
+	serverDir := t.TempDir()
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar"},
+		RenameFileResult:          "mods/testmod-1.0.0.jar",
+	}
+
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	if errInstall != nil {
+		t.Fatalf("InstallRemote() error = %v", errInstall)
+	}
+	resetFakeNodeClientCalls(client)
+
+	errDisable := mgr.DisableRemote(context.Background(), client, mod.ID, serverDir, "mods")
+	if errDisable != nil {
+		t.Fatalf("DisableRemote() error = %v", errDisable)
+	}
+	if len(client.MoveFilesCalls) != 1 {
+		t.Fatalf("DisableRemote() MoveFiles call count = %d, want 1", len(client.MoveFilesCalls))
+	}
+	if !slices.Equal(client.MoveFilesCalls[0].Files, []string{"mods/testmod-1.0.0.jar"}) {
+		t.Fatalf("DisableRemote() files = %v", client.MoveFilesCalls[0].Files)
+	}
+	if client.MoveFilesCalls[0].Destination != "mods/disabled" {
+		t.Fatalf("DisableRemote() destination = %q, want %q", client.MoveFilesCalls[0].Destination, "mods/disabled")
+	}
+	disabled, errDisabled := conn.GetInstalledModByID(mod.ID)
+	if errDisabled != nil {
+		t.Fatalf("GetInstalledModByID() disabled error = %v", errDisabled)
+	}
+	if disabled.Enabled != 0 {
+		t.Fatalf("DisableRemote() enabled = %d, want 0", disabled.Enabled)
+	}
+
+	resetFakeNodeClientCalls(client)
+	errEnable := mgr.EnableRemote(context.Background(), client, mod.ID, serverDir, "mods")
+	if errEnable != nil {
+		t.Fatalf("EnableRemote() error = %v", errEnable)
+	}
+	if len(client.MoveFilesCalls) != 1 {
+		t.Fatalf("EnableRemote() MoveFiles call count = %d, want 1", len(client.MoveFilesCalls))
+	}
+	if !slices.Equal(client.MoveFilesCalls[0].Files, []string{"mods/disabled/testmod-1.0.0.jar"}) {
+		t.Fatalf("EnableRemote() files = %v", client.MoveFilesCalls[0].Files)
+	}
+	if client.MoveFilesCalls[0].Destination != "mods" {
+		t.Fatalf("EnableRemote() destination = %q, want %q", client.MoveFilesCalls[0].Destination, "mods")
+	}
+	enabled, errEnabled := conn.GetInstalledModByID(mod.ID)
+	if errEnabled != nil {
+		t.Fatalf("GetInstalledModByID() enabled error = %v", errEnabled)
+	}
+	if enabled.Enabled != 1 {
+		t.Fatalf("EnableRemote() enabled = %d, want 1", enabled.Enabled)
+	}
+}
+
+func TestRemoteModAutoUpdateUsesNodeDownload(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	conn := dbtest.NewMigratedConnection(t, "mm-remote-autoupdate.sqlite")
+	seedTestFixture(t, conn)
+
+	pid := newUniqueProviderID()
+	mock := newMockProvider(pid)
+	mock.updateVersion = &modproviders.ModVersion{
+		VersionID:     "v2",
+		VersionString: "2.0.0",
+	}
+	modproviders.RegisterProvider(mock)
+
+	mgr := New(conn)
+	serverDir := t.TempDir()
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar"},
+		RenameFileResult:          "mods/testmod-1.0.0.jar",
+	}
+
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	if errInstall != nil {
+		t.Fatalf("InstallRemote() error = %v", errInstall)
+	}
+	_, errExec := conn.SQLDb.ExecContext(context.Background(),
+		`UPDATE installed_mod SET auto_update = 1 WHERE id = ?`, mod.ID)
+	if errExec != nil {
+		t.Fatalf("failed to enable auto_update: %v", errExec)
+	}
+
+	resetFakeNodeClientCalls(client)
+	client.DownloadFileFromURLResult = node.DownloadFileResult{RelativePath: "mods/.xylona-download-update/testmod-2.0.0.jar"}
+	var messages []string
+	statusFn := func(msg string) {
+		messages = append(messages, msg)
+	}
+
+	errAuto := mgr.RunAutoUpdatesRemote(context.Background(), client, "server-1", "1.20.1", serverDir, statusFn)
+	if errAuto != nil {
+		t.Fatalf("RunAutoUpdatesRemote() error = %v", errAuto)
+	}
+	if len(messages) == 0 {
+		t.Fatal("RunAutoUpdatesRemote() expected status messages, got none")
+	}
+	if len(client.DownloadFileFromURLCalls) != 1 {
+		t.Fatalf("DownloadFileFromURL call count = %d, want 1", len(client.DownloadFileFromURLCalls))
+	}
+	if client.DownloadFileFromURLCalls[0].RawURL != "https://example.test/testmod-2.0.0.jar" {
+		t.Fatalf("DownloadFileFromURL raw URL = %q", client.DownloadFileFromURLCalls[0].RawURL)
+	}
+	updated, errGetUpdated := conn.GetInstalledModByID(mod.ID)
+	if errGetUpdated != nil {
+		t.Fatalf("GetInstalledModByID() error = %v", errGetUpdated)
+	}
+	if updated.InstalledVersionID != "v2" {
+		t.Fatalf("RunAutoUpdatesRemote() version = %q, want %q", updated.InstalledVersionID, "v2")
 	}
 }
 

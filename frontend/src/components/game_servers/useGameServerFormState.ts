@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { QForm } from 'quasar'
 import { useQuasar } from 'quasar'
 
@@ -42,6 +42,8 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   const loading = ref(true)
   const formSubmitting = ref(false)
   const formRef = ref<QForm | null>(null)
+  let allowNodeIPRefresh = false
+  let ipRequestSequence = 0
 
   const isEditing = computed(() => options.existingGameServerId !== undefined)
   const isMinecraftGame = computed(() => gameServer.value.gameId === 'minecraft')
@@ -240,7 +242,9 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
       }
 
       if (options.loadProvisioningOptions) {
-        await Promise.all([getGames(), getNodes(), getUsers(), getIPs()])
+        await Promise.all([getGames(), getNodes(), getUsers()])
+        await getIPs()
+        allowNodeIPRefresh = true
       }
     } finally {
       loading.value = false
@@ -426,10 +430,32 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   }
 
   async function getIPs() {
-    try {
-      availableIPs.value = await listIPs()
+    const requestSequence = ++ipRequestSequence
+    const nodeId = gameServer.value.nodeId?.trim() ?? ''
+    const isStaleRequest = () =>
+      requestSequence !== ipRequestSequence || (gameServer.value.nodeId?.trim() ?? '') !== nodeId
 
-      if (gameServer.value.ip?.address) {
+    try {
+      if (nodeId.length === 0) {
+        if (isStaleRequest()) {
+          return
+        }
+        availableIPs.value = []
+        gameServer.value.ip = undefined
+        return
+      }
+
+      const previousAddress = gameServer.value.ip?.address?.trim() ?? ''
+      const nextIPs = await listIPs(nodeId)
+      if (isStaleRequest()) {
+        return
+      }
+
+      availableIPs.value = nextIPs
+
+      const existingSelection = availableIPs.value.find((ip) => ip.address === previousAddress)
+      if (existingSelection) {
+        gameServer.value.ip = existingSelection
         return
       }
 
@@ -439,10 +465,17 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
         return
       }
 
-      if (availableIPs.value.length > 0) {
-        gameServer.value.ip = availableIPs.value[0]
+      const firstAvailableIP = availableIPs.value[0]
+      if (firstAvailableIP) {
+        gameServer.value.ip = firstAvailableIP
+        return
       }
+
+      gameServer.value.ip = undefined
     } catch (e) {
+      if (isStaleRequest()) {
+        return
+      }
       console.error(e)
       $q.notify({
         ...buildXylonaErrorNotification(connectErrorMessage(e, 'Failed to load IP addresses')),
@@ -450,6 +483,19 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
       })
     }
   }
+
+  watch(
+    () => gameServer.value.nodeId,
+    async (nodeId, previousNodeId) => {
+      if (!allowNodeIPRefresh) {
+        return
+      }
+      if ((nodeId ?? '') === (previousNodeId ?? '')) {
+        return
+      }
+      await getIPs()
+    },
+  )
 
   return {
     autoRestartCooldownModel,

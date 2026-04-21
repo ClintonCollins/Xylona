@@ -59,6 +59,7 @@ describe('game-server-provisioning api', () => {
 
     await expect(listNodes(client as never)).resolves.toEqual([node])
     await expect(listUsers(client as never)).resolves.toEqual([{ label: 'owner', value: 'user-1' }])
-    await expect(listIPs(client as never)).resolves.toEqual([ip])
+    await expect(listIPs('node-1', client as never)).resolves.toEqual([ip])
+    expect(client.listIPs).toHaveBeenCalledWith(expect.objectContaining({ nodeId: 'node-1' }))
   })
 })

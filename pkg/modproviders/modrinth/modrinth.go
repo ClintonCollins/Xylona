@@ -284,13 +284,14 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 			})
 		}
 		versions = append(versions, modproviders.ModVersion{
-			VersionID:     v.ID,
-			VersionString: v.VersionNumber,
-			GameVersions:  v.GameVersions,
-			DownloadURL:   primaryFile.URL,
-			FileSize:      primaryFile.Size,
-			Dependencies:  deps,
-			Changelog:     v.Changelog,
+			VersionID:      v.ID,
+			VersionString:  v.VersionNumber,
+			GameVersions:   v.GameVersions,
+			DownloadURL:    primaryFile.URL,
+			FileSize:       primaryFile.Size,
+			FileHashSHA256: primaryFile.Hashes.SHA256,
+			Dependencies:   deps,
+			Changelog:      v.Changelog,
 		})
 	}
 	return versions, nil

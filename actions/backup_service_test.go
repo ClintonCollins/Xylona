@@ -3,6 +3,7 @@ package actions
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/binary"
 	"errors"
@@ -21,6 +22,9 @@ import (
 	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -198,6 +202,35 @@ func TestCreateManualBackupUsesProvidedNameInArchivePath(t *testing.T) {
 	}
 }
 
+func TestPrepareBackupForRemoteServerIgnoresControllerFilesystemCollisions(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+	registry.Register(&nodeclient.FakeNodeClient{NodeID: fixture.nodeID})
+	inst.nodeRegistry = registry
+
+	fixture.gameServer.BackupDirectory = filepath.Join(t.TempDir(), "remote-backups")
+	collisionDir := filepath.Join(fixture.gameServer.BackupDirectory, fixture.gameServer.ID)
+	errMkdir := os.MkdirAll(collisionDir, 0o750)
+	if errMkdir != nil {
+		t.Fatalf("MkdirAll(collisionDir) error = %v", errMkdir)
+	}
+	collisionPath := filepath.Join(collisionDir, "Friday-Night-Save.zip")
+	errWrite := os.WriteFile(collisionPath, []byte("controller-local-file"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(collisionPath) error = %v", errWrite)
+	}
+
+	backup, errPrepare := inst.prepareBackup(fixture.gameServer, "manual", fixture.userID, true, "Friday Night Save")
+	if errPrepare != nil {
+		t.Fatalf("prepareBackup(remote) error = %v", errPrepare)
+	}
+	if backup.ArchivePath != collisionPath {
+		t.Fatalf("prepareBackup(remote).ArchivePath = %q, want %q", backup.ArchivePath, collisionPath)
+	}
+}
+
 func TestCreateManualBackupUsesUniqueArchivePathWhenTimestampCollides(t *testing.T) {
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
@@ -237,6 +270,246 @@ func TestCreateManualBackupUsesUniqueArchivePathWhenTimestampCollides(t *testing
 	completedBackup := fixture.waitForBackupCompletion(t, backup.ID)
 	if _, errStat := os.Stat(completedBackup.ArchivePath); errStat != nil {
 		t.Fatalf("Stat(new ArchivePath) error = %v", errStat)
+	}
+}
+
+func TestProduceRemoteBackupArchiveLeavesArchiveOnOwningNode(t *testing.T) {
+	t.Parallel()
+
+	serverDirectory := "/home/clinton/xylona/clinton/media-minecraft"
+	remoteArchivePath := "/home/clinton/xylona/clinton/backups/media-minecraft/manual.zip"
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                   "remote-node",
+		CreateBackupArchiveBytes: int64(len("remote-archive")),
+		ReadFileErr:              errors.New("remote backup should stay on node"),
+	}
+	registry := noderegistry.New("local-node", nil)
+	registry.Register(remoteClient)
+	inst := &Instance{nodeRegistry: registry}
+
+	gameServer := &models.GameServer{
+		ID:        "server-remote-backup",
+		NodeID:    "remote-node",
+		Directory: serverDirectory,
+	}
+
+	var progressBytes []int64
+	sizeBytes, errProduce := inst.produceBackupArchive(context.Background(), gameServer, remoteArchivePath, func(sizeBytes int64) {
+		progressBytes = append(progressBytes, sizeBytes)
+	}, nil)
+	if errProduce != nil {
+		t.Fatalf("produceBackupArchive() error = %v", errProduce)
+	}
+	if sizeBytes != int64(len("remote-archive")) {
+		t.Fatalf("produceBackupArchive() size = %d, want %d", sizeBytes, len("remote-archive"))
+	}
+	if !slices.Equal(progressBytes, []int64{int64(len("remote-archive"))}) {
+		t.Fatalf("progress bytes = %v, want %v", progressBytes, []int64{int64(len("remote-archive"))})
+	}
+
+	if len(remoteClient.CreateBackupArchiveCalls) != 1 {
+		t.Fatalf("CreateBackupArchive call count = %d, want 1", len(remoteClient.CreateBackupArchiveCalls))
+	}
+	if remoteClient.CreateBackupArchiveCalls[0].Directory != serverDirectory {
+		t.Fatalf("CreateBackupArchive directory = %q, want %q", remoteClient.CreateBackupArchiveCalls[0].Directory, serverDirectory)
+	}
+	if remoteClient.CreateBackupArchiveCalls[0].DestinationArchivePath != remoteArchivePath {
+		t.Fatalf(
+			"CreateBackupArchive destination = %q, want %q",
+			remoteClient.CreateBackupArchiveCalls[0].DestinationArchivePath,
+			remoteArchivePath,
+		)
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
+	if len(remoteClient.DeleteFilesCalls) != 0 {
+		t.Fatalf("DeleteFiles call count = %d, want 0", len(remoteClient.DeleteFilesCalls))
+	}
+}
+
+func TestProduceLocalBackupArchiveUsesRegisteredNodeClient(t *testing.T) {
+	t.Parallel()
+
+	serverDirectory := filepath.Join(t.TempDir(), "server")
+	archivePath := filepath.Join(t.TempDir(), "backups", "server-local", "manual.zip")
+
+	localClient := &nodeclient.FakeNodeClient{
+		NodeID:                   "local-node",
+		CreateBackupArchiveBytes: 4096,
+	}
+	registry := noderegistry.New("local-node", localClient)
+	inst := &Instance{nodeRegistry: registry}
+
+	gameServer := &models.GameServer{
+		ID:        "server-local",
+		NodeID:    "local-node",
+		Directory: serverDirectory,
+	}
+
+	var progressBytes []int64
+	sizeBytes, errProduce := inst.produceBackupArchive(context.Background(), gameServer, archivePath, func(sizeBytes int64) {
+		progressBytes = append(progressBytes, sizeBytes)
+	}, nil)
+	if errProduce != nil {
+		t.Fatalf("produceBackupArchive() error = %v", errProduce)
+	}
+	if sizeBytes != 4096 {
+		t.Fatalf("produceBackupArchive() size = %d, want %d", sizeBytes, 4096)
+	}
+	if !slices.Equal(progressBytes, []int64{4096}) {
+		t.Fatalf("progress bytes = %v, want [4096]", progressBytes)
+	}
+	if len(localClient.CreateBackupArchiveCalls) != 1 {
+		t.Fatalf("CreateBackupArchive call count = %d, want 1", len(localClient.CreateBackupArchiveCalls))
+	}
+	call := localClient.CreateBackupArchiveCalls[0]
+	if call.Directory != serverDirectory {
+		t.Fatalf("CreateBackupArchive directory = %q, want %q", call.Directory, serverDirectory)
+	}
+	if call.DestinationArchivePath != archivePath {
+		t.Fatalf("CreateBackupArchive destination = %q, want %q", call.DestinationArchivePath, archivePath)
+	}
+}
+
+func TestExecuteBackupCreateCleansRemoteArchiveWhenRemoteCreateFails(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+	createErr := errors.New("forced remote create failure")
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                 "node-remote",
+		CreateBackupArchiveErr: createErr,
+		DeleteFilesResult:      []string{"manual.zip"},
+	}
+	registry := noderegistry.New(fixture.nodeID, nil)
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+
+	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
+		ID:        omit.From("node-remote"),
+		Name:      omit.From("Remote Backup Node"),
+		ListenURL: omit.From("http://remotehost:9080"),
+		Enabled:   omit.From(true),
+	})
+	if errInsertNode != nil {
+		t.Fatalf("InsertNode(node-remote) error = %v", errInsertNode)
+	}
+
+	fixture.gameServer.NodeID = "node-remote"
+	fixture.gameServer.Directory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-server"))
+	fixture.gameServer.BackupDirectory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-backups"))
+	archiveDir := fixture.gameServer.BackupDirectory + "/" + fixture.gameServer.ID
+	archivePath := archiveDir + "/manual.zip"
+	backup := fixture.createBackupRow(t, db.CreateGameServerBackupParams{
+		GameServerID:    fixture.gameServer.ID,
+		NodeID:          "node-remote",
+		CreatedBy:       fixture.userID,
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     fixture.gameServer.BackupDirectory,
+		ArchiveFormat:   "zip",
+		Status:          "pending",
+		SizeBytes:       0,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 20, 4, 42, 55, 0, time.UTC),
+	})
+
+	_, errCreate := inst.executeBackupCreate(context.Background(), fixture.gameServer, backup)
+	if !errors.Is(errCreate, createErr) {
+		t.Fatalf("executeBackupCreate() error = %v, want %v", errCreate, createErr)
+	}
+	if len(remoteClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFiles call count = %d, want 1", len(remoteClient.DeleteFilesCalls))
+	}
+	if remoteClient.DeleteFilesCalls[0].Directory != archiveDir {
+		t.Fatalf("DeleteFiles directory = %q, want %q", remoteClient.DeleteFilesCalls[0].Directory, archiveDir)
+	}
+	if !slices.Equal(remoteClient.DeleteFilesCalls[0].Files, []string{"manual.zip"}) {
+		t.Fatalf("DeleteFiles files = %v, want %v", remoteClient.DeleteFilesCalls[0].Files, []string{"manual.zip"})
+	}
+}
+
+func TestBuildBackupArchivePathPreservesRemoteDirectorySlashStyle(t *testing.T) {
+	t.Parallel()
+
+	fixedNow := time.Date(2026, 4, 20, 4, 42, 55, 325410000, time.UTC)
+	tests := []struct {
+		name            string
+		backupDirectory string
+		want            string
+	}{
+		{
+			name:            "linux remote directory from windows controller",
+			backupDirectory: "/home/clinton/xylona/clinton/backups",
+			want:            "/home/clinton/xylona/clinton/backups/media-minecraft/20260420T044255.325410000Z-manual.zip",
+		},
+		{
+			name:            "linux remote directory with trailing slash",
+			backupDirectory: "/home/clinton/xylona/clinton/backups/",
+			want:            "/home/clinton/xylona/clinton/backups/media-minecraft/20260420T044255.325410000Z-manual.zip",
+		},
+		{
+			name:            "windows remote directory",
+			backupDirectory: `C:\xylona\backups`,
+			want:            `C:\xylona\backups\media-minecraft\20260420T044255.325410000Z-manual.zip`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, errBuild := buildBackupArchivePath(tt.backupDirectory, "media-minecraft", fixedNow, "manual", "")
+			if errBuild != nil {
+				t.Fatalf("buildBackupArchivePath() error = %v", errBuild)
+			}
+			if got != tt.want {
+				t.Fatalf("buildBackupArchivePath() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveValidatedRemoteBackupArchivePathPreservesWindowsNodePath(t *testing.T) {
+	t.Parallel()
+
+	gameServer := &models.GameServer{
+		ID:              "server-backup",
+		NodeID:          "node-windows",
+		Directory:       `C:\xylona\servers\server-backup`,
+		BackupDirectory: `C:\xylona\backups`,
+	}
+	backup := &models.GameServerBackup{
+		GameServerID:  gameServer.ID,
+		NodeID:        gameServer.NodeID,
+		ArchivePath:   `C:\xylona\backups\server-backup\manual.zip`,
+		ArchiveRoot:   `C:\xylona\backups`,
+		ArchiveFormat: "zip",
+		Status:        "completed",
+	}
+
+	got, errResolve := resolveValidatedRemoteBackupArchivePath(gameServer, backup)
+	if errResolve != nil {
+		t.Fatalf("resolveValidatedRemoteBackupArchivePath() error = %v", errResolve)
+	}
+	if got != backup.ArchivePath {
+		t.Fatalf("resolveValidatedRemoteBackupArchivePath() = %q, want %q", got, backup.ArchivePath)
+	}
+}
+
+func TestResolveValidRemoteGameServerBackupDirectoryRejectsWindowsPathInsideServerTree(t *testing.T) {
+	t.Parallel()
+
+	gameServer := &models.GameServer{
+		ID:              "server-backup",
+		Directory:       `C:\xylona\servers\server-backup`,
+		BackupDirectory: `C:\xylona\servers\server-backup\backups`,
+	}
+
+	_, errResolve := resolveValidRemoteGameServerBackupDirectory(gameServer)
+	if !errors.Is(errResolve, errBackupDirectoryInsideServer) {
+		t.Fatalf("resolveValidRemoteGameServerBackupDirectory() error = %v, want %v", errResolve, errBackupDirectoryInsideServer)
 	}
 }
 
@@ -527,6 +800,201 @@ func TestImportUploadedBackupCreatesCompletedCatalogRow(t *testing.T) {
 	}
 	if _, errStat := os.Stat(uploadedPath); !errors.Is(errStat, os.ErrNotExist) {
 		t.Fatalf("Stat(uploadedPath) error = %v, want %v", errStat, os.ErrNotExist)
+	}
+}
+
+func TestImportUploadedBackupWritesRemoteArchiveToOwningNode(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry := noderegistry.New(fixture.nodeID, nil)
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+
+	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
+		ID:        omit.From("node-remote"),
+		Name:      omit.From("Remote Backup Node"),
+		ListenURL: omit.From("http://remotehost:9080"),
+		Enabled:   omit.From(true),
+	})
+	if errInsertNode != nil {
+		t.Fatalf("InsertNode(node-remote) error = %v", errInsertNode)
+	}
+
+	fixture.gameServer.NodeID = "node-remote"
+	fixture.gameServer.Directory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-server"))
+	fixture.gameServer.BackupDirectory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-backups"))
+
+	uploadedPath := filepath.Join(t.TempDir(), "Friday Night Save.zip")
+	createTestZipArchive(t, uploadedPath, map[string]string{
+		"world.txt": "uploaded-state",
+	})
+	uploadedBytes, errReadUploaded := os.ReadFile(uploadedPath)
+	if errReadUploaded != nil {
+		t.Fatalf("ReadFile(uploadedPath) error = %v", errReadUploaded)
+	}
+
+	backup, errImport := inst.ImportUploadedBackup(
+		fixture.gameServer,
+		fixture.userID,
+		uploadedPath,
+		"Friday Night Save.zip",
+	)
+	if errImport != nil {
+		t.Fatalf("ImportUploadedBackup() error = %v", errImport)
+	}
+
+	archiveDir := fixture.gameServer.BackupDirectory + "/" + fixture.gameServer.ID
+	archivePath := archiveDir + "/Friday-Night-Save.zip"
+	if backup.ArchivePath != archivePath {
+		t.Fatalf("ImportUploadedBackup().ArchivePath = %q, want %q", backup.ArchivePath, archivePath)
+	}
+	if backup.NodeID != "node-remote" {
+		t.Fatalf("ImportUploadedBackup().NodeID = %q, want %q", backup.NodeID, "node-remote")
+	}
+	if len(remoteClient.CreateFileOrDirectoryCalls) != 1 {
+		t.Fatalf("CreateFileOrDirectory call count = %d, want 1", len(remoteClient.CreateFileOrDirectoryCalls))
+	}
+	if remoteClient.CreateFileOrDirectoryCalls[0].Directory != fixture.gameServer.BackupDirectory {
+		t.Fatalf(
+			"CreateFileOrDirectory directory = %q, want %q",
+			remoteClient.CreateFileOrDirectoryCalls[0].Directory,
+			fixture.gameServer.BackupDirectory,
+		)
+	}
+	if remoteClient.CreateFileOrDirectoryCalls[0].RelativePath != fixture.gameServer.ID {
+		t.Fatalf(
+			"CreateFileOrDirectory relative path = %q, want %q",
+			remoteClient.CreateFileOrDirectoryCalls[0].RelativePath,
+			fixture.gameServer.ID,
+		)
+	}
+	if !remoteClient.CreateFileOrDirectoryCalls[0].IsDirectory {
+		t.Fatal("CreateFileOrDirectory IsDirectory = false, want true")
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
+	}
+	if len(remoteClient.StreamWriteFileCalls) != 1 {
+		t.Fatalf("StreamWriteFile call count = %d, want 1", len(remoteClient.StreamWriteFileCalls))
+	}
+	if remoteClient.StreamWriteFileCalls[0].Directory != archiveDir {
+		t.Fatalf("StreamWriteFile directory = %q, want %q", remoteClient.StreamWriteFileCalls[0].Directory, archiveDir)
+	}
+	if remoteClient.StreamWriteFileCalls[0].RelativePath != "Friday-Night-Save.zip" {
+		t.Fatalf(
+			"StreamWriteFile relative path = %q, want %q",
+			remoteClient.StreamWriteFileCalls[0].RelativePath,
+			"Friday-Night-Save.zip",
+		)
+	}
+	if !bytes.Equal(remoteClient.StreamWriteFileCalls[0].Content, uploadedBytes) {
+		t.Fatal("StreamWriteFile content did not match uploaded archive bytes")
+	}
+	if _, errStat := os.Stat(backup.ArchivePath); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat(remote archive path) error = %v, want %v", errStat, os.ErrNotExist)
+	}
+	if _, errStat := os.Stat(uploadedPath); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat(uploadedPath) error = %v, want %v", errStat, os.ErrNotExist)
+	}
+}
+
+func TestImportUploadedBackupRejectsRemoteArchiveCollision(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+		ListFilesResult: []node.FileEntry{
+			{Name: "Friday-Night-Save.zip"},
+		},
+	}
+	registry := noderegistry.New(fixture.nodeID, nil)
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+
+	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
+		ID:        omit.From("node-remote"),
+		Name:      omit.From("Remote Backup Node"),
+		ListenURL: omit.From("http://remotehost:9080"),
+		Enabled:   omit.From(true),
+	})
+	if errInsertNode != nil {
+		t.Fatalf("InsertNode(node-remote) error = %v", errInsertNode)
+	}
+
+	fixture.gameServer.NodeID = "node-remote"
+	fixture.gameServer.Directory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-server"))
+	fixture.gameServer.BackupDirectory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-backups"))
+
+	uploadedPath := filepath.Join(t.TempDir(), "Friday Night Save.zip")
+	createTestZipArchive(t, uploadedPath, map[string]string{
+		"world.txt": "uploaded-state",
+	})
+
+	_, errImport := inst.ImportUploadedBackup(
+		fixture.gameServer,
+		fixture.userID,
+		uploadedPath,
+		"Friday Night Save.zip",
+	)
+	if !errors.Is(errImport, ErrManualBackupNameAlreadyExists) {
+		t.Fatalf("ImportUploadedBackup() error = %v, want %v", errImport, ErrManualBackupNameAlreadyExists)
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
+	}
+}
+
+func TestImportUploadedBackupCleansPartialRemoteArchiveWhenWriteFails(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+	writeErr := errors.New("forced remote write failure")
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:             "node-remote",
+		StreamWriteFileErr: writeErr,
+		DeleteFilesResult:  []string{"Friday-Night-Save.zip"},
+	}
+	registry := noderegistry.New(fixture.nodeID, nil)
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+
+	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
+		ID:        omit.From("node-remote"),
+		Name:      omit.From("Remote Backup Node"),
+		ListenURL: omit.From("http://remotehost:9080"),
+		Enabled:   omit.From(true),
+	})
+	if errInsertNode != nil {
+		t.Fatalf("InsertNode(node-remote) error = %v", errInsertNode)
+	}
+
+	fixture.gameServer.NodeID = "node-remote"
+	fixture.gameServer.Directory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-server"))
+	fixture.gameServer.BackupDirectory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-backups"))
+
+	uploadedPath := filepath.Join(t.TempDir(), "Friday Night Save.zip")
+	createTestZipArchive(t, uploadedPath, map[string]string{
+		"world.txt": "uploaded-state",
+	})
+
+	_, errImport := inst.ImportUploadedBackup(
+		fixture.gameServer,
+		fixture.userID,
+		uploadedPath,
+		"Friday Night Save.zip",
+	)
+	if !errors.Is(errImport, writeErr) {
+		t.Fatalf("ImportUploadedBackup() error = %v, want %v", errImport, writeErr)
+	}
+	if len(remoteClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFiles call count = %d, want 1", len(remoteClient.DeleteFilesCalls))
+	}
+	archiveDir := fixture.gameServer.BackupDirectory + "/" + fixture.gameServer.ID
+	if remoteClient.DeleteFilesCalls[0].Directory != archiveDir {
+		t.Fatalf("DeleteFiles directory = %q, want %q", remoteClient.DeleteFilesCalls[0].Directory, archiveDir)
+	}
+	if !slices.Equal(remoteClient.DeleteFilesCalls[0].Files, []string{"Friday-Night-Save.zip"}) {
+		t.Fatalf("DeleteFiles files = %v, want %v", remoteClient.DeleteFilesCalls[0].Files, []string{"Friday-Night-Save.zip"})
 	}
 }
 
@@ -1043,6 +1511,63 @@ func TestDeleteGameServerBackupRejectsBackupFromDifferentNode(t *testing.T) {
 	}
 }
 
+func TestDeleteGameServerBackupKeepsRowWhenRemoteNodeDoesNotConfirmArchiveRemoval(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry := noderegistry.New(fixture.nodeID, nil)
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+
+	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
+		ID:        omit.From("node-remote"),
+		Name:      omit.From("Remote Backup Node"),
+		ListenURL: omit.From("http://remotehost:9080"),
+		Enabled:   omit.From(true),
+	})
+	if errInsertNode != nil {
+		t.Fatalf("InsertNode(node-remote) error = %v", errInsertNode)
+	}
+
+	fixture.gameServer.NodeID = "node-remote"
+	fixture.gameServer.Directory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-server"))
+	fixture.gameServer.BackupDirectory = filepath.ToSlash(filepath.Join(t.TempDir(), "remote-backups"))
+
+	archiveDir := fixture.gameServer.BackupDirectory + "/" + fixture.gameServer.ID
+	archivePath := archiveDir + "/delete.zip"
+	backup := fixture.createBackupRow(t, db.CreateGameServerBackupParams{
+		GameServerID:    fixture.gameServer.ID,
+		NodeID:          "node-remote",
+		CreatedBy:       fixture.userID,
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     fixture.gameServer.BackupDirectory,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       14,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC),
+	})
+
+	errDelete := inst.DeleteGameServerBackup(fixture.gameServer, backup)
+	if errDelete == nil {
+		t.Fatal("DeleteGameServerBackup() error = nil, want remote delete confirmation failure")
+	}
+	if !strings.Contains(errDelete.Error(), "did not confirm") {
+		t.Fatalf("DeleteGameServerBackup() error = %v, want delete confirmation context", errDelete)
+	}
+	if len(remoteClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFiles call count = %d, want 1", len(remoteClient.DeleteFilesCalls))
+	}
+	if remoteClient.DeleteFilesCalls[0].Directory != archiveDir {
+		t.Fatalf("DeleteFiles directory = %q, want %q", remoteClient.DeleteFilesCalls[0].Directory, archiveDir)
+	}
+	_, errGet := inst.db.GetGameServerBackupByID(backup.ID)
+	if errGet != nil {
+		t.Fatalf("GetGameServerBackupByID() error = %v", errGet)
+	}
+}
+
 func TestDeleteGameServerBackupCancelsPendingBackup(t *testing.T) {
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
@@ -1174,6 +1699,119 @@ func TestRestoreGameServerBackupAllowsHistoricalArchiveAfterBackupRootChange(t *
 	}
 	if string(contents) != "after" {
 		t.Fatalf("keep.txt = %q, want %q", string(contents), "after")
+	}
+}
+
+func TestRestoreGameServerBackupExtractsLocalArchiveThroughNodeClient(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+	localClient := &nodeclient.FakeNodeClient{NodeID: fixture.nodeID}
+	inst.nodeRegistry = noderegistry.New(fixture.nodeID, localClient)
+
+	archivePath := filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "restore.zip")
+	backup := fixture.createBackupRow(t, db.CreateGameServerBackupParams{
+		GameServerID:    fixture.gameServer.ID,
+		NodeID:          fixture.nodeID,
+		CreatedBy:       fixture.userID,
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     fixture.backupRoot,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       10,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 1, 12, 30, 0, 0, time.UTC),
+	})
+
+	errRestore := inst.RestoreGameServerBackup(
+		fixture.gameServer,
+		backup.ID,
+		xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_EXACT,
+	)
+	if errRestore != nil {
+		t.Fatalf("RestoreGameServerBackup() error = %v", errRestore)
+	}
+	if len(localClient.ExtractBackupArchiveCalls) != 1 {
+		t.Fatalf("ExtractBackupArchive call count = %d, want 1", len(localClient.ExtractBackupArchiveCalls))
+	}
+	call := localClient.ExtractBackupArchiveCalls[0]
+	if call.Directory != fixture.gameServer.Directory {
+		t.Fatalf("ExtractBackupArchive directory = %q, want %q", call.Directory, fixture.gameServer.Directory)
+	}
+	if call.ArchivePath != archivePath {
+		t.Fatalf("ExtractBackupArchive archive path = %q, want %q", call.ArchivePath, archivePath)
+	}
+	if call.Mode != node.ExtractModeExact {
+		t.Fatalf("ExtractBackupArchive mode = %v, want %v", call.Mode, node.ExtractModeExact)
+	}
+}
+
+func TestRestoreGameServerBackupExtractsRemoteArchiveOnOwningNode(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry := noderegistry.New(fixture.nodeID, nil)
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+
+	_, errInsertNode := inst.db.InsertNode(&models.NodeSetter{
+		ID:        omit.From("node-remote"),
+		Name:      omit.From("Remote Backup Node"),
+		ListenURL: omit.From("http://remotehost:9080"),
+		Enabled:   omit.From(true),
+	})
+	if errInsertNode != nil {
+		t.Fatalf("InsertNode(node-remote) error = %v", errInsertNode)
+	}
+
+	fixture.gameServer.NodeID = "node-remote"
+	fixture.gameServer.Directory = "/home/clinton/xylona/server-backup"
+	fixture.gameServer.BackupDirectory = "/home/clinton/xylona/backups"
+	archivePath := "/home/clinton/xylona/backups/server-backup/restore.zip"
+	backup := fixture.createBackupRow(t, db.CreateGameServerBackupParams{
+		GameServerID:    fixture.gameServer.ID,
+		NodeID:          "node-remote",
+		CreatedBy:       fixture.userID,
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     fixture.gameServer.BackupDirectory,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       64,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 20, 4, 42, 55, 0, time.UTC),
+	})
+
+	errRestore := inst.RestoreGameServerBackup(
+		fixture.gameServer,
+		backup.ID,
+		xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_EXACT,
+	)
+	if errRestore != nil {
+		t.Fatalf("RestoreGameServerBackup() error = %v", errRestore)
+	}
+
+	if len(remoteClient.ExtractBackupArchiveCalls) != 1 {
+		t.Fatalf("ExtractBackupArchive call count = %d, want 1", len(remoteClient.ExtractBackupArchiveCalls))
+	}
+	call := remoteClient.ExtractBackupArchiveCalls[0]
+	if call.Directory != fixture.gameServer.Directory {
+		t.Fatalf("ExtractBackupArchive directory = %q, want %q", call.Directory, fixture.gameServer.Directory)
+	}
+	if call.ArchivePath != archivePath {
+		t.Fatalf("ExtractBackupArchive archive path = %q, want %q", call.ArchivePath, archivePath)
+	}
+	if call.Mode != node.ExtractModeExact {
+		t.Fatalf("ExtractBackupArchive mode = %v, want %v", call.Mode, node.ExtractModeExact)
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
+	}
+	if len(remoteClient.DeleteFilesCalls) != 0 {
+		t.Fatalf("DeleteFiles call count = %d, want 0", len(remoteClient.DeleteFilesCalls))
 	}
 }
 
@@ -2079,6 +2717,7 @@ func newBackupServiceFixture(t *testing.T, inst *Instance) backupServiceFixture 
 
 	_, errUpsertIP := inst.db.UpsertIP(&models.IPSetter{
 		Address:            omit.From("127.0.0.1"),
+		NodeID:             omit.From(nodeID),
 		Usable:             omit.From(true),
 		External:           omit.From(false),
 		AutomaticallyAdded: omit.From(false),

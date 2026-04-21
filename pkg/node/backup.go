@@ -286,12 +286,15 @@ func (n *Node) ExtractBackupArchive(ctx context.Context, directory, archivePath 
 		}
 	}()
 
-	// Collect the set of archive-relative paths (for exact-mode pruning
-	// and for cycle-safe extraction). Using forward slashes because
-	// zip.File.Name always uses forward slashes.
-	archivePaths := make(map[string]struct{}, len(reader.File))
-	for _, f := range reader.File {
-		archivePaths[filepath.ToSlash(filepath.Clean(f.Name))] = struct{}{}
+	stageRoot, errStage := os.MkdirTemp("", "xylona-backup-restore-*")
+	if errStage != nil {
+		return fmt.Errorf("node: create backup restore staging dir: %w", errStage)
+	}
+	defer cleanupBackupRestoreStaging(stageRoot)
+
+	archivePaths, errStageExtract := extractBackupArchiveToStaging(ctx, stageRoot, reader.File)
+	if errStageExtract != nil {
+		return errStageExtract
 	}
 
 	errMkdir := os.MkdirAll(cleanRoot, 0o750)
@@ -306,23 +309,39 @@ func (n *Node) ExtractBackupArchive(ctx context.Context, directory, archivePath 
 		}
 	}
 
-	for _, f := range reader.File {
-		errCtx := ctx.Err()
-		if errCtx != nil {
-			return fmt.Errorf("node: extract canceled: %w", errCtx)
-		}
-		errExtract := extractBackupEntry(cleanRoot, f)
-		if errExtract != nil {
-			return errExtract
-		}
+	errApply := applyStagedBackupExtract(ctx, stageRoot, cleanRoot)
+	if errApply != nil {
+		return errApply
 	}
 	return nil
 }
 
+func extractBackupArchiveToStaging(ctx context.Context, stageRoot string, files []*zip.File) (map[string]struct{}, error) {
+	archivePaths := make(map[string]struct{}, len(files))
+	for _, f := range files {
+		errCtx := ctx.Err()
+		if errCtx != nil {
+			return nil, fmt.Errorf("node: extract canceled: %w", errCtx)
+		}
+
+		relative, errRelative := backupExtractRelativePath(f.Name)
+		if errRelative != nil {
+			return nil, errRelative
+		}
+		archivePaths[relative] = struct{}{}
+
+		errExtract := extractBackupEntry(stageRoot, f)
+		if errExtract != nil {
+			return nil, errExtract
+		}
+	}
+	return archivePaths, nil
+}
+
 func extractBackupEntry(root string, f *zip.File) error {
-	relative := filepath.ToSlash(filepath.Clean(f.Name))
-	if !filepath.IsLocal(relative) {
-		return fmt.Errorf("node: archive entry escapes root: %s", f.Name)
+	relative, errRelative := backupExtractRelativePath(f.Name)
+	if errRelative != nil {
+		return errRelative
 	}
 	full := filepath.Join(root, filepath.FromSlash(relative))
 
@@ -376,6 +395,112 @@ func extractBackupEntry(root string, f *zip.File) error {
 		return fmt.Errorf("node: close extracted file %s: %w", f.Name, errClose)
 	}
 	return nil
+}
+
+func backupExtractRelativePath(entryName string) (string, error) {
+	relative := filepath.ToSlash(filepath.Clean(entryName))
+	if !filepath.IsLocal(relative) {
+		return "", fmt.Errorf("node: archive entry escapes root: %s", entryName)
+	}
+	return relative, nil
+}
+
+func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string) error {
+	errWalk := filepath.WalkDir(stageRoot, func(currentPath string, entry fs.DirEntry, walkErr error) error {
+		errCtx := ctx.Err()
+		if errCtx != nil {
+			return fmt.Errorf("node: extract canceled: %w", errCtx)
+		}
+		if walkErr != nil {
+			return fmt.Errorf("node: walk staged backup extract: %w", walkErr)
+		}
+		if currentPath == stageRoot {
+			return nil
+		}
+
+		relative, errRel := filepath.Rel(stageRoot, currentPath)
+		if errRel != nil {
+			return fmt.Errorf("node: resolve staged backup path: %w", errRel)
+		}
+		if !filepath.IsLocal(relative) {
+			return fmt.Errorf("node: staged backup path escapes root: %s", relative)
+		}
+
+		info, errInfo := entry.Info()
+		if errInfo != nil {
+			return fmt.Errorf("node: stat staged backup entry: %w", errInfo)
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("node: symlinks not allowed in staged backup extract: %s", relative)
+		}
+
+		livePath := filepath.Join(liveRoot, relative)
+		if info.IsDir() {
+			errMkdir := os.MkdirAll(livePath, 0o750)
+			if errMkdir != nil {
+				return fmt.Errorf("node: create live backup directory %s: %w", relative, errMkdir)
+			}
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		errCopy := copyStagedBackupFile(currentPath, livePath, info.Mode().Perm())
+		if errCopy != nil {
+			return errCopy
+		}
+		return nil
+	})
+	if errWalk != nil {
+		return fmt.Errorf("node: apply staged backup extract: %w", errWalk)
+	}
+	return nil
+}
+
+func copyStagedBackupFile(sourcePath, destinationPath string, perm fs.FileMode) error {
+	srcFile, errOpen := os.Open(sourcePath)
+	if errOpen != nil {
+		return fmt.Errorf("node: open staged backup file: %w", errOpen)
+	}
+	defer func() {
+		errClose := srcFile.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Str("path", sourcePath).Msg("node: close staged backup file")
+		}
+	}()
+
+	errMkParent := os.MkdirAll(filepath.Dir(destinationPath), 0o750)
+	if errMkParent != nil {
+		return fmt.Errorf("node: create live backup parent: %w", errMkParent)
+	}
+
+	if perm == 0 {
+		perm = 0o600
+	}
+	// #nosec G304 -- destinationPath is filepath.Join(liveRoot, local-rel);
+	// filepath.IsLocal rejected escapes before this helper is called.
+	dstFile, errCreate := os.OpenFile(destinationPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
+	if errCreate != nil {
+		return fmt.Errorf("node: create live backup file: %w", errCreate)
+	}
+
+	_, errCopy := io.Copy(dstFile, srcFile)
+	errClose := dstFile.Close()
+	if errCopy != nil {
+		return fmt.Errorf("node: copy staged backup file: %w", errCopy)
+	}
+	if errClose != nil {
+		return fmt.Errorf("node: close live backup file: %w", errClose)
+	}
+	return nil
+}
+
+func cleanupBackupRestoreStaging(stageRoot string) {
+	errRemove := os.RemoveAll(stageRoot)
+	if errRemove != nil {
+		log.Warn().Err(errRemove).Str("path", stageRoot).Msg("node: remove backup restore staging dir")
+	}
 }
 
 // pruneDirectoryForExactExtract removes any entry inside root that is not in

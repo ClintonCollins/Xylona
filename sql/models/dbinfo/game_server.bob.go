@@ -189,7 +189,7 @@ var GameServers = Table[
 		CreatedAt: column{
 			Name:      "created_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -198,7 +198,7 @@ var GameServers = Table[
 		UpdatedAt: column{
 			Name:      "updated_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -206,8 +206,8 @@ var GameServers = Table[
 		},
 		NodeID: column{
 			Name:      "node_id",
-			DBType:    "",
-			Default:   "1",
+			DBType:    "TEXT",
+			Default:   "",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -321,20 +321,20 @@ var GameServers = Table[
 		FKGameServer0: foreignKey{
 			constraint: constraint{
 				Name:    "fk_game_server_0",
+				Columns: []string{"ip", "node_id"},
+				Comment: "",
+			},
+			ForeignTable:   "ip",
+			ForeignColumns: []string{"address", "node_id"},
+		},
+		FKGameServer1: foreignKey{
+			constraint: constraint{
+				Name:    "fk_game_server_1",
 				Columns: []string{"node_id"},
 				Comment: "",
 			},
 			ForeignTable:   "node",
 			ForeignColumns: []string{"id"},
-		},
-		FKGameServer1: foreignKey{
-			constraint: constraint{
-				Name:    "fk_game_server_1",
-				Columns: []string{"ip"},
-				Comment: "",
-			},
-			ForeignTable:   "ip",
-			ForeignColumns: []string{"address"},
 		},
 		FKGameServer2: foreignKey{
 			constraint: constraint{

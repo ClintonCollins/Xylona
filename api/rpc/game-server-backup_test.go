@@ -128,6 +128,45 @@ func TestGetBackupSettingsDefaultsDirectoryForSuperuserWhenBlank(t *testing.T) {
 	}
 }
 
+func TestGetBackupSettingsDefaultsDirectoryUsesRemoteSlashPath(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:              omit.From("server-local-1"),
+		NodeID:          omit.From("node-remote"),
+		Directory:       omit.From("/home/clinton/xylona/servers/alpha"),
+		BackupsEnabled:  omit.From(false),
+		BackupDirectory: omit.From(""),
+		MaxBackups:      omit.From(int64(0)),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.GetBackupSettingsRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	response, errGet := fixture.service.GetBackupSettings(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetBackupSettings(remote superuser) error = %v", errGet)
+	}
+
+	settings := response.Msg.GetSettings()
+	if settings == nil {
+		t.Fatal("GetBackupSettings(remote superuser) returned nil settings")
+	}
+	wantBackupDirectory := "/home/clinton/xylona/servers/backups"
+	if settings.GetBackupDirectory() != wantBackupDirectory {
+		t.Fatalf("BackupDirectory = %q, want %q", settings.GetBackupDirectory(), wantBackupDirectory)
+	}
+	if settings.GetDefaultBackupDirectory() != wantBackupDirectory {
+		t.Fatalf("DefaultBackupDirectory = %q, want %q", settings.GetDefaultBackupDirectory(), wantBackupDirectory)
+	}
+}
+
 func TestGetGameServerBackupOverviewReturnsDisabledState(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 

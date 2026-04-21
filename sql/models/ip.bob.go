@@ -26,6 +26,7 @@ type IP struct {
 	Usable             bool   `db:"usable" `
 	External           bool   `db:"external" `
 	AutomaticallyAdded bool   `db:"automatically_added" `
+	NodeID             string `db:"node_id,pk" `
 
 	R ipR `db:"-" `
 }
@@ -42,19 +43,21 @@ type IpsQuery = *sqlite.ViewQuery[*IP, IPSlice]
 
 // ipR is where relationships are stored.
 type ipR struct {
-	GameServers GameServerSlice // fk_game_server_1
+	GameServers GameServerSlice // fk_game_server_0
+	Node        *Node           // fk_ip_0
 }
 
 func buildIPColumns(alias string) ipColumns {
 	return ipColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"address", "usable", "external", "automatically_added",
+			"address", "usable", "external", "automatically_added", "node_id",
 		).WithParent("ip"),
 		tableAlias:         alias,
 		Address:            sqlite.Quote(alias, "address"),
 		Usable:             sqlite.Quote(alias, "usable"),
 		External:           sqlite.Quote(alias, "external"),
 		AutomaticallyAdded: sqlite.Quote(alias, "automatically_added"),
+		NodeID:             sqlite.Quote(alias, "node_id"),
 	}
 }
 
@@ -65,6 +68,7 @@ type ipColumns struct {
 	Usable             sqlite.Expression
 	External           sqlite.Expression
 	AutomaticallyAdded sqlite.Expression
+	NodeID             sqlite.Expression
 }
 
 func (c ipColumns) Alias() string {
@@ -83,10 +87,11 @@ type IPSetter struct {
 	Usable             omit.Val[bool]   `db:"usable" `
 	External           omit.Val[bool]   `db:"external" `
 	AutomaticallyAdded omit.Val[bool]   `db:"automatically_added" `
+	NodeID             omit.Val[string] `db:"node_id,pk" `
 }
 
 func (s IPSetter) SetColumns() []string {
-	vals := make([]string, 0, 4)
+	vals := make([]string, 0, 5)
 	if s.Address.IsValue() {
 		vals = append(vals, "address")
 	}
@@ -98,6 +103,9 @@ func (s IPSetter) SetColumns() []string {
 	}
 	if s.AutomaticallyAdded.IsValue() {
 		vals = append(vals, "automatically_added")
+	}
+	if s.NodeID.IsValue() {
+		vals = append(vals, "node_id")
 	}
 	return vals
 }
@@ -115,6 +123,9 @@ func (s IPSetter) Overwrite(t *IP) {
 	if s.AutomaticallyAdded.IsValue() {
 		t.AutomaticallyAdded = s.AutomaticallyAdded.MustGet()
 	}
+	if s.NodeID.IsValue() {
+		t.NodeID = s.NodeID.MustGet()
+	}
 }
 
 func (s *IPSetter) Apply(q *dialect.InsertQuery) {
@@ -125,13 +136,13 @@ func (s *IPSetter) Apply(q *dialect.InsertQuery) {
 	if len(q.TableRef.Columns) == 0 {
 		q.TableRef.Columns = s.SetColumns()
 		if len(q.TableRef.Columns) == 0 {
-			q.TableRef.Columns = []string{"address"}
+			q.TableRef.Columns = []string{"address", "node_id"}
 		}
 
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 4)
+		vals := make([]bob.Expression, 0, 5)
 		if s.Address.IsValue() {
 			vals = append(vals, sqlite.Arg(s.Address.MustGet()))
 		}
@@ -148,8 +159,12 @@ func (s *IPSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.AutomaticallyAdded.MustGet()))
 		}
 
+		if s.NodeID.IsValue() {
+			vals = append(vals, sqlite.Arg(s.NodeID.MustGet()))
+		}
+
 		if len(vals) == 0 {
-			vals = append(vals, sqlite.Arg(nil))
+			vals = append(vals, sqlite.Arg(nil), sqlite.Arg(nil))
 		}
 
 		return bob.ExpressSlice(ctx, w, d, start, vals, "", ", ", "")
@@ -161,7 +176,7 @@ func (s IPSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s IPSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 4)
+	exprs := make([]bob.Expression, 0, 5)
 
 	if s.Address.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -191,28 +206,38 @@ func (s IPSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
+	if s.NodeID.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "node_id")...),
+			sqlite.Arg(s.NodeID),
+		}})
+	}
+
 	return exprs
 }
 
 // FindIP retrieves a single record by primary key
 // If cols is empty Find will return all columns.
-func FindIP(ctx context.Context, exec bob.Executor, AddressPK string, cols ...string) (*IP, error) {
+func FindIP(ctx context.Context, exec bob.Executor, AddressPK string, NodeIDPK string, cols ...string) (*IP, error) {
 	if len(cols) == 0 {
 		return Ips.Query(
 			sm.Where(Ips.Columns.Address.EQ(sqlite.Arg(AddressPK))),
+			sm.Where(Ips.Columns.NodeID.EQ(sqlite.Arg(NodeIDPK))),
 		).One(ctx, exec)
 	}
 
 	return Ips.Query(
 		sm.Where(Ips.Columns.Address.EQ(sqlite.Arg(AddressPK))),
+		sm.Where(Ips.Columns.NodeID.EQ(sqlite.Arg(NodeIDPK))),
 		sm.Columns(Ips.Columns.Only(cols...)),
 	).One(ctx, exec)
 }
 
 // IPExists checks the presence of a single record by primary key
-func IPExists(ctx context.Context, exec bob.Executor, AddressPK string) (bool, error) {
+func IPExists(ctx context.Context, exec bob.Executor, AddressPK string, NodeIDPK string) (bool, error) {
 	return Ips.Query(
 		sm.Where(Ips.Columns.Address.EQ(sqlite.Arg(AddressPK))),
+		sm.Where(Ips.Columns.NodeID.EQ(sqlite.Arg(NodeIDPK))),
 	).Exists(ctx, exec)
 }
 
@@ -236,11 +261,14 @@ func (o *IP) AfterQueryHook(ctx context.Context, exec bob.Executor, queryType bo
 
 // primaryKeyVals returns the primary key values of the IP
 func (o *IP) primaryKeyVals() bob.Expression {
-	return sqlite.Arg(o.Address)
+	return sqlite.ArgGroup(
+		o.Address,
+		o.NodeID,
+	)
 }
 
 func (o *IP) pkEQ() dialect.Expression {
-	return sqlite.Quote("ip", "address").EQ(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+	return sqlite.Group(sqlite.Quote("ip", "address"), sqlite.Quote("ip", "node_id")).EQ(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
 		return o.primaryKeyVals().WriteSQL(ctx, w, d, start)
 	}))
 }
@@ -268,6 +296,7 @@ func (o *IP) Delete(ctx context.Context, exec bob.Executor) error {
 func (o *IP) Reload(ctx context.Context, exec bob.Executor) error {
 	o2, err := Ips.Query(
 		sm.Where(Ips.Columns.Address.EQ(sqlite.Arg(o.Address))),
+		sm.Where(Ips.Columns.NodeID.EQ(sqlite.Arg(o.NodeID))),
 	).One(ctx, exec)
 	if err != nil {
 		return err
@@ -301,7 +330,7 @@ func (o IPSlice) pkIN() dialect.Expression {
 		return sqlite.Raw("NULL")
 	}
 
-	return sqlite.Quote("ip", "address").In(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+	return sqlite.Group(sqlite.Quote("ip", "address"), sqlite.Quote("ip", "node_id")).In(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
 		pkPairs := make([]bob.Expression, len(o))
 		for i, row := range o {
 			pkPairs[i] = row.primaryKeyVals()
@@ -317,6 +346,9 @@ func (o IPSlice) copyMatchingRows(from ...*IP) {
 	for i, old := range o {
 		for _, new := range from {
 			if new.Address != old.Address {
+				continue
+			}
+			if new.NodeID != old.NodeID {
 				continue
 			}
 			new.R = old.R
@@ -420,25 +452,45 @@ func (o IPSlice) ReloadAll(ctx context.Context, exec bob.Executor) error {
 // GameServers starts a query for related objects on game_server
 func (o *IP) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServersQuery {
 	return GameServers.Query(append(mods,
-		sm.Where(GameServers.Columns.IP.EQ(sqlite.Arg(o.Address))),
+		sm.Where(GameServers.Columns.IP.EQ(sqlite.Arg(o.Address))), sm.Where(GameServers.Columns.NodeID.EQ(sqlite.Arg(o.NodeID))),
 	)...)
 }
 
 func (os IPSlice) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServersQuery {
 	PKArgSlice := make([]bob.Expression, len(os))
 	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.Address)
+		PKArgSlice[i] = sqlite.ArgGroup(o.Address, o.NodeID)
 	}
 	PKArgExpr := sqlite.Group(PKArgSlice...)
 
 	return GameServers.Query(append(mods,
-		sm.Where(sqlite.Group(GameServers.Columns.IP).OP("IN", PKArgExpr)),
+		sm.Where(sqlite.Group(GameServers.Columns.IP, GameServers.Columns.NodeID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// Node starts a query for related objects on node
+func (o *IP) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
+	return Nodes.Query(append(mods,
+		sm.Where(Nodes.Columns.ID.EQ(sqlite.Arg(o.NodeID))),
+	)...)
+}
+
+func (os IPSlice) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.NodeID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return Nodes.Query(append(mods,
+		sm.Where(sqlite.Group(Nodes.Columns.ID).OP("IN", PKArgExpr)),
 	)...)
 }
 
 func insertIPGameServers0(ctx context.Context, exec bob.Executor, gameServers1 []*GameServerSetter, ip0 *IP) (GameServerSlice, error) {
 	for i := range gameServers1 {
 		gameServers1[i].IP = omit.From(ip0.Address)
+		gameServers1[i].NodeID = omit.From(ip0.NodeID)
 	}
 
 	ret, err := GameServers.Insert(bob.ToMods(gameServers1...)).All(ctx, exec)
@@ -451,7 +503,8 @@ func insertIPGameServers0(ctx context.Context, exec bob.Executor, gameServers1 [
 
 func attachIPGameServers0(ctx context.Context, exec bob.Executor, count int, gameServers1 GameServerSlice, ip0 *IP) (GameServerSlice, error) {
 	setter := &GameServerSetter{
-		IP: omit.From(ip0.Address),
+		IP:     omit.From(ip0.Address),
+		NodeID: omit.From(ip0.NodeID),
 	}
 
 	err := gameServers1.UpdateAll(ctx, exec, *setter)
@@ -504,11 +557,60 @@ func (ip0 *IP) AttachGameServers(ctx context.Context, exec bob.Executor, related
 	return nil
 }
 
+func attachIPNode0(ctx context.Context, exec bob.Executor, count int, ip0 *IP, node1 *Node) (*IP, error) {
+	setter := &IPSetter{
+		NodeID: omit.From(node1.ID),
+	}
+
+	err := ip0.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachIPNode0: %w", err)
+	}
+
+	return ip0, nil
+}
+
+func (ip0 *IP) InsertNode(ctx context.Context, exec bob.Executor, related *NodeSetter) error {
+	var err error
+
+	node1, err := Nodes.Insert(related).One(ctx, exec)
+	if err != nil {
+		return fmt.Errorf("inserting related objects: %w", err)
+	}
+
+	_, err = attachIPNode0(ctx, exec, 1, ip0, node1)
+	if err != nil {
+		return err
+	}
+
+	ip0.R.Node = node1
+
+	node1.R.Ips = append(node1.R.Ips, ip0)
+
+	return nil
+}
+
+func (ip0 *IP) AttachNode(ctx context.Context, exec bob.Executor, node1 *Node) error {
+	var err error
+
+	_, err = attachIPNode0(ctx, exec, 1, ip0, node1)
+	if err != nil {
+		return err
+	}
+
+	ip0.R.Node = node1
+
+	node1.R.Ips = append(node1.R.Ips, ip0)
+
+	return nil
+}
+
 type ipWhere[Q sqlite.Filterable] struct {
 	Address            sqlite.WhereMod[Q, string]
 	Usable             sqlite.WhereMod[Q, bool]
 	External           sqlite.WhereMod[Q, bool]
 	AutomaticallyAdded sqlite.WhereMod[Q, bool]
+	NodeID             sqlite.WhereMod[Q, string]
 }
 
 func (ipWhere[Q]) AliasedAs(alias string) ipWhere[Q] {
@@ -521,6 +623,7 @@ func buildIPWhere[Q sqlite.Filterable](cols ipColumns) ipWhere[Q] {
 		Usable:             sqlite.Where[Q, bool](cols.Usable),
 		External:           sqlite.Where[Q, bool](cols.External),
 		AutomaticallyAdded: sqlite.Where[Q, bool](cols.AutomaticallyAdded),
+		NodeID:             sqlite.Where[Q, string](cols.NodeID),
 	}
 }
 
@@ -544,24 +647,56 @@ func (o *IP) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "Node":
+		rel, ok := retrieved.(*Node)
+		if !ok {
+			return fmt.Errorf("ip cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.Node = rel
+
+		if rel != nil {
+			rel.R.Ips = IPSlice{o}
+		}
+		return nil
 	default:
 		return fmt.Errorf("ip has no relationship %q", name)
 	}
 }
 
-type ipPreloader struct{}
+type ipPreloader struct {
+	Node func(...sqlite.PreloadOption) sqlite.Preloader
+}
 
 func buildIPPreloader() ipPreloader {
-	return ipPreloader{}
+	return ipPreloader{
+		Node: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*Node, NodeSlice](sqlite.PreloadRel{
+				Name: "Node",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        Ips,
+						To:          Nodes,
+						FromColumns: []string{"node_id"},
+						ToColumns:   []string{"id"},
+					},
+				},
+			}, Nodes.Columns.Names(), opts...)
+		},
+	}
 }
 
 type ipThenLoader[Q orm.Loadable] struct {
 	GameServers func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	Node        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildIPThenLoader[Q orm.Loadable]() ipThenLoader[Q] {
 	type GameServersLoadInterface interface {
 		LoadGameServers(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type NodeLoadInterface interface {
+		LoadNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 
 	return ipThenLoader[Q]{
@@ -569,6 +704,12 @@ func buildIPThenLoader[Q orm.Loadable]() ipThenLoader[Q] {
 			"GameServers",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServersLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServers(ctx, exec, mods...)
+			},
+		),
+		Node: thenLoadBuilder[Q](
+			"Node",
+			func(ctx context.Context, exec bob.Executor, retrieved NodeLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadNode(ctx, exec, mods...)
 			},
 		),
 	}
@@ -626,6 +767,10 @@ func (os IPSlice) LoadGameServers(ctx context.Context, exec bob.Executor, mods .
 				continue
 			}
 
+			if !(o.NodeID == rel.NodeID) {
+				continue
+			}
+
 			rel.R.IP = o
 
 			o.R.GameServers = append(o.R.GameServers, rel)
@@ -635,9 +780,62 @@ func (os IPSlice) LoadGameServers(ctx context.Context, exec bob.Executor, mods .
 	return nil
 }
 
+// LoadNode loads the ip's Node into the .R struct
+func (o *IP) LoadNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.Node = nil
+
+	related, err := o.Node(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.Ips = IPSlice{o}
+
+	o.R.Node = related
+	return nil
+}
+
+// LoadNode loads the ip's Node into the .R struct
+func (os IPSlice) LoadNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	nodes, err := os.Node(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range nodes {
+
+			if !(o.NodeID == rel.ID) {
+				continue
+			}
+
+			rel.R.Ips = append(rel.R.Ips, o)
+
+			o.R.Node = rel
+			break
+		}
+	}
+
+	return nil
+}
+
 type ipJoins[Q dialect.Joinable] struct {
 	typ         string
 	GameServers modAs[Q, gameServerColumns]
+	Node        modAs[Q, nodeColumns]
 }
 
 func (j ipJoins[Q]) aliasedAs(alias string) ipJoins[Q] {
@@ -654,7 +852,21 @@ func buildIPJoins[Q dialect.Joinable](cols ipColumns, typ string) ipJoins[Q] {
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServers.Name().As(to.Alias())).On(
-						to.IP.EQ(cols.Address),
+						to.IP.EQ(cols.Address), to.NodeID.EQ(cols.NodeID),
+					))
+				}
+
+				return mods
+			},
+		},
+		Node: modAs[Q, nodeColumns]{
+			c: Nodes.Columns,
+			f: func(to nodeColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, Nodes.Name().As(to.Alias())).On(
+						to.ID.EQ(cols.NodeID),
 					))
 				}
 

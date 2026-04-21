@@ -51,8 +51,9 @@ type NodesQuery = *sqlite.ViewQuery[*Node, NodeSlice]
 // nodeR is where relationships are stored.
 type nodeR struct {
 	AlertRules           AlertRuleSlice          // fk_alert_rule_1
-	GameServers          GameServerSlice         // fk_game_server_0
+	GameServers          GameServerSlice         // fk_game_server_1
 	GameServerBackups    GameServerBackupSlice   // fk_game_server_backup_0
+	Ips                  IPSlice                 // fk_ip_0
 	NodeMetricsHistories NodeMetricsHistorySlice // fk_node_metrics_history_0
 }
 
@@ -585,6 +586,25 @@ func (os NodeSlice) GameServerBackups(mods ...bob.Mod[*dialect.SelectQuery]) Gam
 	)...)
 }
 
+// Ips starts a query for related objects on ip
+func (o *Node) Ips(mods ...bob.Mod[*dialect.SelectQuery]) IpsQuery {
+	return Ips.Query(append(mods,
+		sm.Where(Ips.Columns.NodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) Ips(mods ...bob.Mod[*dialect.SelectQuery]) IpsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return Ips.Query(append(mods,
+		sm.Where(sqlite.Group(Ips.Columns.NodeID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // NodeMetricsHistories starts a query for related objects on node_metrics_history
 func (o *Node) NodeMetricsHistories(mods ...bob.Mod[*dialect.SelectQuery]) NodeMetricsHistoriesQuery {
 	return NodeMetricsHistories.Query(append(mods,
@@ -808,6 +828,74 @@ func (node0 *Node) AttachGameServerBackups(ctx context.Context, exec bob.Executo
 	return nil
 }
 
+func insertNodeIps0(ctx context.Context, exec bob.Executor, ips1 []*IPSetter, node0 *Node) (IPSlice, error) {
+	for i := range ips1 {
+		ips1[i].NodeID = omit.From(node0.ID)
+	}
+
+	ret, err := Ips.Insert(bob.ToMods(ips1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodeIps0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodeIps0(ctx context.Context, exec bob.Executor, count int, ips1 IPSlice, node0 *Node) (IPSlice, error) {
+	setter := &IPSetter{
+		NodeID: omit.From(node0.ID),
+	}
+
+	err := ips1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodeIps0: %w", err)
+	}
+
+	return ips1, nil
+}
+
+func (node0 *Node) InsertIps(ctx context.Context, exec bob.Executor, related ...*IPSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	ips1, err := insertNodeIps0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.Ips = append(node0.R.Ips, ips1...)
+
+	for _, rel := range ips1 {
+		rel.R.Node = node0
+	}
+	return nil
+}
+
+func (node0 *Node) AttachIps(ctx context.Context, exec bob.Executor, related ...*IP) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	ips1 := IPSlice(related)
+
+	_, err = attachNodeIps0(ctx, exec, len(related), ips1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.Ips = append(node0.R.Ips, ips1...)
+
+	for _, rel := range related {
+		rel.R.Node = node0
+	}
+
+	return nil
+}
+
 func insertNodeNodeMetricsHistories0(ctx context.Context, exec bob.Executor, nodeMetricsHistories1 []*NodeMetricsHistorySetter, node0 *Node) (NodeMetricsHistorySlice, error) {
 	for i := range nodeMetricsHistories1 {
 		nodeMetricsHistories1[i].NodeID = omit.From(node0.ID)
@@ -954,6 +1042,20 @@ func (o *Node) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "Ips":
+		rels, ok := retrieved.(IPSlice)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.Ips = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.Node = o
+			}
+		}
+		return nil
 	case "NodeMetricsHistories":
 		rels, ok := retrieved.(NodeMetricsHistorySlice)
 		if !ok {
@@ -983,6 +1085,7 @@ type nodeThenLoader[Q orm.Loadable] struct {
 	AlertRules           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServers          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerBackups    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	Ips                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	NodeMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
@@ -995,6 +1098,9 @@ func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
 	}
 	type GameServerBackupsLoadInterface interface {
 		LoadGameServerBackups(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type IpsLoadInterface interface {
+		LoadIps(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type NodeMetricsHistoriesLoadInterface interface {
 		LoadNodeMetricsHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1017,6 +1123,12 @@ func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
 			"GameServerBackups",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerBackupsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServerBackups(ctx, exec, mods...)
+			},
+		),
+		Ips: thenLoadBuilder[Q](
+			"Ips",
+			func(ctx context.Context, exec bob.Executor, retrieved IpsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadIps(ctx, exec, mods...)
 			},
 		),
 		NodeMetricsHistories: thenLoadBuilder[Q](
@@ -1214,6 +1326,67 @@ func (os NodeSlice) LoadGameServerBackups(ctx context.Context, exec bob.Executor
 	return nil
 }
 
+// LoadIps loads the node's Ips into the .R struct
+func (o *Node) LoadIps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.Ips = nil
+
+	related, err := o.Ips(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.Node = o
+	}
+
+	o.R.Ips = related
+	return nil
+}
+
+// LoadIps loads the node's Ips into the .R struct
+func (os NodeSlice) LoadIps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	ips, err := os.Ips(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.Ips = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range ips {
+
+			if !(o.ID == rel.NodeID) {
+				continue
+			}
+
+			rel.R.Node = o
+
+			o.R.Ips = append(o.R.Ips, rel)
+		}
+	}
+
+	return nil
+}
+
 // LoadNodeMetricsHistories loads the node's NodeMetricsHistories into the .R struct
 func (o *Node) LoadNodeMetricsHistories(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -1280,6 +1453,7 @@ type nodeJoins[Q dialect.Joinable] struct {
 	AlertRules           modAs[Q, alertRuleColumns]
 	GameServers          modAs[Q, gameServerColumns]
 	GameServerBackups    modAs[Q, gameServerBackupColumns]
+	Ips                  modAs[Q, ipColumns]
 	NodeMetricsHistories modAs[Q, nodeMetricsHistoryColumns]
 }
 
@@ -1325,6 +1499,20 @@ func buildNodeJoins[Q dialect.Joinable](cols nodeColumns, typ string) nodeJoins[
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServerBackups.Name().As(to.Alias())).On(
+						to.NodeID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		Ips: modAs[Q, ipColumns]{
+			c: Ips.Columns,
+			f: func(to ipColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, Ips.Name().As(to.Alias())).On(
 						to.NodeID.EQ(cols.ID),
 					))
 				}

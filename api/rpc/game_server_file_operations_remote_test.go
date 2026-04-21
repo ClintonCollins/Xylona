@@ -1,40 +1,33 @@
 package rpc
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
-	"io"
 	"testing"
 
 	"connectrpc.com/connect"
 
-	"github.com/ClintonCollins/Xylona/actions"
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-func TestGameServerFilesCompressAllowsRemoteNodeByStagingAndUploading(t *testing.T) {
+func TestGameServerFilesCompressRoutesToRemoteNodeWithoutControllerStaging(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
 	insertRemoteServerForParityTests(t, fixture, "server-remote-files")
 
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID:         "node-remote",
-		ReadFileResult: []byte("remote-log-data"),
+		NodeID:                  "node-remote",
+		CreateFileArchiveResult: "archives/latest-log.zip",
+		CreateFileArchiveProgress: node.ArchiveProgress{
+			TotalFiles:      1,
+			FilesCompressed: 1,
+			TotalBytes:      10,
+			BytesCompressed: 10,
+			CurrentFile:     "latest.log",
+		},
 	}
-	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
-	fixture.service.nodeRegistry = registry
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		nil,
-		registry,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
 
 	request := connect.NewRequest(&xylona.GameServerFilesCompressionRequest{
 		GameServerId:            "server-remote-files",
@@ -46,50 +39,174 @@ func TestGameServerFilesCompressAllowsRemoteNodeByStagingAndUploading(t *testing
 
 	response, errCompress := fixture.service.GameServerFilesCompress(context.Background(), request)
 	if errCompress != nil {
-		t.Fatalf("GameServerFilesCompress() error = %v", errCompress)
+		t.Fatalf("GameServerFilesCompress() error = %v, want nil", errCompress)
 	}
 	if response.Msg.GetFullFilePath() != "archives/latest-log.zip" {
-		t.Fatalf("GameServerFilesCompress().FullFilePath = %q, want %q", response.Msg.GetFullFilePath(), "archives/latest-log.zip")
+		t.Fatalf("GameServerFilesCompress() path = %q, want %q", response.Msg.GetFullFilePath(), "archives/latest-log.zip")
 	}
-	if len(remoteClient.ReadFileCalls) != 1 {
-		t.Fatalf("ReadFile call count = %d, want 1", len(remoteClient.ReadFileCalls))
+	if len(remoteClient.CreateFileArchiveCalls) != 1 {
+		t.Fatalf("CreateFileArchive call count = %d, want 1", len(remoteClient.CreateFileArchiveCalls))
 	}
-	if remoteClient.ReadFileCalls[0].RelativePath != "logs/latest.log" {
-		t.Fatalf("ReadFile relative path = %q, want %q", remoteClient.ReadFileCalls[0].RelativePath, "logs/latest.log")
+	call := remoteClient.CreateFileArchiveCalls[0]
+	if call.Directory != "/srv/remote-server" {
+		t.Fatalf("CreateFileArchive directory = %q, want %q", call.Directory, "/srv/remote-server")
 	}
-	if len(remoteClient.WriteFileCalls) != 1 {
-		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	if call.DestinationArchivePath != "archives/latest-log" {
+		t.Fatalf("CreateFileArchive destination = %q, want %q", call.DestinationArchivePath, "archives/latest-log")
 	}
-	if remoteClient.WriteFileCalls[0].RelativePath != "archives/latest-log.zip" {
-		t.Fatalf("WriteFile relative path = %q, want %q", remoteClient.WriteFileCalls[0].RelativePath, "archives/latest-log.zip")
+	if call.Compression != node.ArchiveCompressionZIP {
+		t.Fatalf("CreateFileArchive compression = %v, want %v", call.Compression, node.ArchiveCompressionZIP)
 	}
-
-	archiveEntries := readZipEntries(t, remoteClient.WriteFileCalls[0].Content)
-	if archiveEntries["latest.log"] != "remote-log-data" {
-		t.Fatalf("archive latest.log contents = %q, want %q", archiveEntries["latest.log"], "remote-log-data")
+	if len(call.IncludePaths) != 1 || call.IncludePaths[0] != "logs/latest.log" {
+		t.Fatalf("CreateFileArchive include paths = %v, want [logs/latest.log]", call.IncludePaths)
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
 	}
 }
 
-func TestGameServerFilesDecompressAllowsRemoteNodeByStagingAndUploading(t *testing.T) {
+func TestGameServerFileArchiveOperationsRouteLocalNodeThroughNodeClient(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	selfClient := &nodeclient.FakeNodeClient{
+		NodeID:                  "node-local",
+		CreateFileArchiveResult: "archives/latest-log.zip",
+		CreateFileArchiveProgress: node.ArchiveProgress{
+			TotalFiles:      1,
+			FilesCompressed: 1,
+			TotalBytes:      10,
+			BytesCompressed: 10,
+			CurrentFile:     "latest.log",
+		},
+		ExtractFileArchiveResult: []string{"server.properties"},
+		ExtractFileArchiveProgress: node.ExtractProgress{
+			TotalFiles:     1,
+			FilesExtracted: 1,
+			TotalBytes:     42,
+			BytesExtracted: 42,
+			CurrentFile:    "server.properties",
+		},
+	}
+	fixture.service.nodeRegistry = testParityRegistry(selfClient, nil)
+
+	compressRequest := connect.NewRequest(&xylona.GameServerFilesCompressionRequest{
+		GameServerId:            "server-local-1",
+		FullFilePaths:           []string{"logs/latest.log"},
+		FullDestinationFilePath: "archives/latest-log",
+		CompressionType:         xylona.GameServerFilesCompressionType_ZIP,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, compressRequest, "user-owner")
+
+	compressResponse, errCompress := fixture.service.GameServerFilesCompress(context.Background(), compressRequest)
+	if errCompress != nil {
+		t.Fatalf("GameServerFilesCompress() error = %v, want nil", errCompress)
+	}
+	if compressResponse.Msg.GetFullFilePath() != "archives/latest-log.zip" {
+		t.Fatalf("GameServerFilesCompress() path = %q, want %q", compressResponse.Msg.GetFullFilePath(), "archives/latest-log.zip")
+	}
+
+	archiveRequest := connect.NewRequest(&xylona.GameServerFilesCompressionRequest{
+		GameServerId:            "server-local-1",
+		FullFilePaths:           []string{"logs/latest.log"},
+		FullDestinationFilePath: "archives/latest-log",
+		CompressionType:         xylona.GameServerFilesCompressionType_ZIP,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, archiveRequest, "user-owner")
+
+	errArchive := fixture.service.GameServerFilesArchive(context.Background(), archiveRequest, nil)
+	if errArchive != nil {
+		t.Fatalf("GameServerFilesArchive() error = %v, want nil", errArchive)
+	}
+
+	decompressRequest := connect.NewRequest(&xylona.GameServerFilesDecompressionRequest{
+		GameServerId:        "server-local-1",
+		FullFilePath:        "imports/bundle.zip",
+		DestinationBasePath: "restored",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, decompressRequest, "user-owner")
+
+	decompressResponse, errDecompress := fixture.service.GameServerFilesDecompress(context.Background(), decompressRequest)
+	if errDecompress != nil {
+		t.Fatalf("GameServerFilesDecompress() error = %v, want nil", errDecompress)
+	}
+	if len(decompressResponse.Msg.GetFullFilePaths()) != 1 || decompressResponse.Msg.GetFullFilePaths()[0] != "server.properties" {
+		t.Fatalf("GameServerFilesDecompress() paths = %v, want [server.properties]", decompressResponse.Msg.GetFullFilePaths())
+	}
+
+	extractRequest := connect.NewRequest(&xylona.GameServerFilesDecompressionRequest{
+		GameServerId:        "server-local-1",
+		FullFilePath:        "imports/bundle.zip",
+		DestinationBasePath: "restored",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, extractRequest, "user-owner")
+
+	errExtract := fixture.service.GameServerFilesExtract(context.Background(), extractRequest, nil)
+	if errExtract != nil {
+		t.Fatalf("GameServerFilesExtract() error = %v, want nil", errExtract)
+	}
+
+	if len(selfClient.CreateFileArchiveCalls) != 2 {
+		t.Fatalf("CreateFileArchive call count = %d, want 2", len(selfClient.CreateFileArchiveCalls))
+	}
+	if len(selfClient.ExtractFileArchiveCalls) != 2 {
+		t.Fatalf("ExtractFileArchive call count = %d, want 2", len(selfClient.ExtractFileArchiveCalls))
+	}
+	if len(selfClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(selfClient.ReadFileCalls))
+	}
+	if len(selfClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(selfClient.WriteFileCalls))
+	}
+}
+
+func TestGameServerFilesCompressRejectsRemoteTraversal(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-files")
+
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.GameServerFilesCompressionRequest{
+		GameServerId:            "server-remote-files",
+		FullFilePaths:           []string{`..\latest.log`},
+		FullDestinationFilePath: "archives/latest-log",
+		CompressionType:         xylona.GameServerFilesCompressionType_ZIP,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errCompress := fixture.service.GameServerFilesCompress(context.Background(), request)
+	if errCompress == nil {
+		t.Fatal("GameServerFilesCompress() error = nil, want invalid path error")
+	}
+	if connect.CodeOf(errCompress) != connect.CodeInvalidArgument {
+		t.Fatalf("GameServerFilesCompress() code = %v, want %v", connect.CodeOf(errCompress), connect.CodeInvalidArgument)
+	}
+	if len(remoteClient.CreateFileArchiveCalls) != 0 {
+		t.Fatalf("CreateFileArchive call count = %d, want 0", len(remoteClient.CreateFileArchiveCalls))
+	}
+}
+
+func TestGameServerFilesDecompressRoutesToRemoteNodeWithoutControllerStaging(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
 	insertRemoteServerForParityTests(t, fixture, "server-remote-files")
 
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID:         "node-remote",
-		ReadFileResult: buildZipArchive(t, map[string]string{"plugins/test.txt": "hello remote"}),
+		NodeID:                   "node-remote",
+		ExtractFileArchiveResult: []string{"server.properties"},
+		ExtractFileArchiveProgress: node.ExtractProgress{
+			TotalFiles:     1,
+			FilesExtracted: 1,
+			TotalBytes:     42,
+			BytesExtracted: 42,
+			CurrentFile:    "server.properties",
+		},
 	}
-	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
-	fixture.service.nodeRegistry = registry
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		nil,
-		registry,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
 
 	request := connect.NewRequest(&xylona.GameServerFilesDecompressionRequest{
 		GameServerId:        "server-remote-files",
@@ -100,124 +217,152 @@ func TestGameServerFilesDecompressAllowsRemoteNodeByStagingAndUploading(t *testi
 
 	response, errDecompress := fixture.service.GameServerFilesDecompress(context.Background(), request)
 	if errDecompress != nil {
-		t.Fatalf("GameServerFilesDecompress() error = %v", errDecompress)
+		t.Fatalf("GameServerFilesDecompress() error = %v, want nil", errDecompress)
 	}
-	if len(response.Msg.GetFullFilePaths()) != 1 || response.Msg.GetFullFilePaths()[0] != "plugins/test.txt" {
-		t.Fatalf("GameServerFilesDecompress().FullFilePaths = %+v, want [plugins/test.txt]", response.Msg.GetFullFilePaths())
+	if len(response.Msg.GetFullFilePaths()) != 1 || response.Msg.GetFullFilePaths()[0] != "server.properties" {
+		t.Fatalf("GameServerFilesDecompress() paths = %v, want [server.properties]", response.Msg.GetFullFilePaths())
 	}
-	if len(remoteClient.ReadFileCalls) != 1 {
-		t.Fatalf("ReadFile call count = %d, want 1", len(remoteClient.ReadFileCalls))
+	if len(remoteClient.ExtractFileArchiveCalls) != 1 {
+		t.Fatalf("ExtractFileArchive call count = %d, want 1", len(remoteClient.ExtractFileArchiveCalls))
 	}
-	if remoteClient.ReadFileCalls[0].RelativePath != "imports/bundle.zip" {
-		t.Fatalf("ReadFile relative path = %q, want %q", remoteClient.ReadFileCalls[0].RelativePath, "imports/bundle.zip")
+	call := remoteClient.ExtractFileArchiveCalls[0]
+	if call.Directory != "/srv/remote-server" {
+		t.Fatalf("ExtractFileArchive directory = %q, want %q", call.Directory, "/srv/remote-server")
 	}
-	if len(remoteClient.WriteFileCalls) != 1 {
-		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	if call.ArchivePath != "imports/bundle.zip" {
+		t.Fatalf("ExtractFileArchive archive path = %q, want %q", call.ArchivePath, "imports/bundle.zip")
 	}
-	if remoteClient.WriteFileCalls[0].RelativePath != "restored/plugins/test.txt" {
-		t.Fatalf("WriteFile relative path = %q, want %q", remoteClient.WriteFileCalls[0].RelativePath, "restored/plugins/test.txt")
+	if call.DestinationDirectoryPath != "restored" {
+		t.Fatalf("ExtractFileArchive destination = %q, want %q", call.DestinationDirectoryPath, "restored")
 	}
-	if got := string(remoteClient.WriteFileCalls[0].Content); got != "hello remote" {
-		t.Fatalf("WriteFile content = %q, want %q", got, "hello remote")
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
 	}
 }
 
-func TestGameServerFilesDecompressToServerRootDoesNotReuploadSourceArchive(t *testing.T) {
+func TestGameServerFilesArchiveRoutesToRemoteNodeWithoutControllerStaging(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
 	insertRemoteServerForParityTests(t, fixture, "server-remote-files")
 
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID:         "node-remote",
-		ReadFileResult: buildZipArchive(t, map[string]string{"plugins/test.txt": "hello remote"}),
+		NodeID:                  "node-remote",
+		CreateFileArchiveResult: "archives/latest-log.zip",
+		CreateFileArchiveProgress: node.ArchiveProgress{
+			TotalFiles:      1,
+			FilesCompressed: 1,
+			TotalBytes:      10,
+			BytesCompressed: 10,
+			CurrentFile:     "latest.log",
+		},
 	}
-	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
-	fixture.service.nodeRegistry = registry
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		nil,
-		registry,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
 
-	request := connect.NewRequest(&xylona.GameServerFilesDecompressionRequest{
-		GameServerId: "server-remote-files",
-		FullFilePath: "imports/bundle.zip",
+	request := connect.NewRequest(&xylona.GameServerFilesCompressionRequest{
+		GameServerId:            "server-remote-files",
+		FullFilePaths:           []string{"logs/latest.log"},
+		FullDestinationFilePath: "archives/latest-log",
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
 
-	response, errDecompress := fixture.service.GameServerFilesDecompress(context.Background(), request)
-	if errDecompress != nil {
-		t.Fatalf("GameServerFilesDecompress() error = %v", errDecompress)
+	errArchive := fixture.service.GameServerFilesArchive(context.Background(), request, nil)
+	if errArchive != nil {
+		t.Fatalf("GameServerFilesArchive() error = %v, want nil", errArchive)
 	}
-	if len(response.Msg.GetFullFilePaths()) != 1 || response.Msg.GetFullFilePaths()[0] != "plugins/test.txt" {
-		t.Fatalf("GameServerFilesDecompress().FullFilePaths = %+v, want [plugins/test.txt]", response.Msg.GetFullFilePaths())
+	if len(remoteClient.CreateFileArchiveCalls) != 1 {
+		t.Fatalf("CreateFileArchive call count = %d, want 1", len(remoteClient.CreateFileArchiveCalls))
 	}
-	if len(remoteClient.ReadFileCalls) != 1 {
-		t.Fatalf("ReadFile call count = %d, want 1", len(remoteClient.ReadFileCalls))
-	}
-	if remoteClient.ReadFileCalls[0].RelativePath != "imports/bundle.zip" {
-		t.Fatalf("ReadFile relative path = %q, want %q", remoteClient.ReadFileCalls[0].RelativePath, "imports/bundle.zip")
-	}
-	if len(remoteClient.WriteFileCalls) != 1 {
-		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
-	}
-	if remoteClient.WriteFileCalls[0].RelativePath != "plugins/test.txt" {
-		t.Fatalf("WriteFile relative path = %q, want %q", remoteClient.WriteFileCalls[0].RelativePath, "plugins/test.txt")
-	}
-	if got := string(remoteClient.WriteFileCalls[0].Content); got != "hello remote" {
-		t.Fatalf("WriteFile content = %q, want %q", got, "hello remote")
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
 	}
 }
 
-func buildZipArchive(t *testing.T, entries map[string]string) []byte {
-	t.Helper()
+func TestGameServerFilesExtractRoutesToRemoteNodeWithoutControllerStaging(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-files")
 
-	var buffer bytes.Buffer
-	archive := zip.NewWriter(&buffer)
-	for name, content := range entries {
-		writer, errCreate := archive.Create(name)
-		if errCreate != nil {
-			t.Fatalf("zip.Create(%s) error = %v", name, errCreate)
-		}
-		_, errWrite := writer.Write([]byte(content))
-		if errWrite != nil {
-			t.Fatalf("zip write %s error = %v", name, errWrite)
-		}
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                   "node-remote",
+		ExtractFileArchiveResult: []string{"server.properties"},
+		ExtractFileArchiveProgress: node.ExtractProgress{
+			TotalFiles:     1,
+			FilesExtracted: 1,
+			TotalBytes:     42,
+			BytesExtracted: 42,
+			CurrentFile:    "server.properties",
+		},
 	}
-	errClose := archive.Close()
-	if errClose != nil {
-		t.Fatalf("zip.Close() error = %v", errClose)
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.GameServerFilesDecompressionRequest{
+		GameServerId:        "server-remote-files",
+		FullFilePath:        "imports/bundle.zip",
+		DestinationBasePath: "restored",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	errExtract := fixture.service.GameServerFilesExtract(context.Background(), request, nil)
+	if errExtract != nil {
+		t.Fatalf("GameServerFilesExtract() error = %v, want nil", errExtract)
 	}
-	return buffer.Bytes()
+	if len(remoteClient.ExtractFileArchiveCalls) != 1 {
+		t.Fatalf("ExtractFileArchive call count = %d, want 1", len(remoteClient.ExtractFileArchiveCalls))
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
 }
 
-func readZipEntries(t *testing.T, archiveBytes []byte) map[string]string {
-	t.Helper()
-
-	reader, errReader := zip.NewReader(bytes.NewReader(archiveBytes), int64(len(archiveBytes)))
-	if errReader != nil {
-		t.Fatalf("zip.NewReader() error = %v", errReader)
+func TestSanitizeRemoteFileActionPathIsSlashNeutral(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		want      string
+		wantError bool
+	}{
+		{
+			name:  "normalizes windows separators",
+			input: `configs\server.properties`,
+			want:  "configs/server.properties",
+		},
+		{
+			name:  "trims a browser-leading slash",
+			input: `/configs\server.properties`,
+			want:  "configs/server.properties",
+		},
+		{
+			name:      "rejects parent traversal",
+			input:     `..\server.properties`,
+			wantError: true,
+		},
+		{
+			name:      "rejects windows drive absolute path",
+			input:     `C:\servers\server.properties`,
+			wantError: true,
+		},
+		{
+			name:      "rejects unc path",
+			input:     `\\server\share\server.properties`,
+			wantError: true,
+		},
 	}
 
-	entries := make(map[string]string, len(reader.File))
-	for _, file := range reader.File {
-		rc, errOpen := file.Open()
-		if errOpen != nil {
-			t.Fatalf("zip file open %s error = %v", file.Name, errOpen)
-		}
-		data, errRead := io.ReadAll(rc)
-		errClose := rc.Close()
-		if errRead != nil {
-			t.Fatalf("zip read %s error = %v", file.Name, errRead)
-		}
-		if errClose != nil {
-			t.Fatalf("zip close %s error = %v", file.Name, errClose)
-		}
-		entries[file.Name] = string(data)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, errSanitize := sanitizeRemoteFileActionPath(tt.input)
+			if tt.wantError {
+				if errSanitize == nil {
+					t.Fatalf("sanitizeRemoteFileActionPath(%q) error = nil, want error", tt.input)
+				}
+				return
+			}
+			if errSanitize != nil {
+				t.Fatalf("sanitizeRemoteFileActionPath(%q) error = %v", tt.input, errSanitize)
+			}
+			if got != tt.want {
+				t.Fatalf("sanitizeRemoteFileActionPath(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
 	}
-	return entries
 }

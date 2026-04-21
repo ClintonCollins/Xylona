@@ -13,6 +13,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -22,8 +23,8 @@ const maxBackupUploadFieldBytes = 10 << 10
 const maxBackupUploadBodyBytes = 1 << 30
 
 var (
-	errBackupUploadStagingFile = errors.New("failed to create backup upload staging file")
-	errBackupUploadStore       = errors.New("failed to store backup upload")
+	errBackupUploadTempFile = errors.New("failed to create backup upload temp file")
+	errBackupUploadStore    = errors.New("failed to store backup upload")
 )
 
 // DownloadGameServerBackupArchive streams a managed backup archive to the browser.
@@ -61,14 +62,12 @@ func (xs *XylonaService) DownloadGameServerBackupArchive(w http.ResponseWriter, 
 		return
 	}
 
-	archivePath, errArchivePath := actions.ResolveManagedBackupArchivePath(gameServer, backup)
+	archivePath, errArchivePath := xs.resolveBackupArchivePathForDownload(gameServer, backup)
 	if errArchivePath != nil {
 		writeBackupHTTPError(w, http.StatusPreconditionFailed, errArchivePath.Error())
 		return
 	}
 
-	// Self-node backups stream from the local filesystem for efficiency.
-	// Remote-node backups read via NodeClient.ReadFile and serve the bytes.
 	if xs.isLocalBackupServer(gameServer) {
 		xs.serveBackupArchiveLocal(w, r, archivePath)
 		return
@@ -76,10 +75,21 @@ func (xs *XylonaService) DownloadGameServerBackupArchive(w http.ResponseWriter, 
 	xs.serveBackupArchiveRemote(w, r, gameServer, archivePath)
 }
 
-// serveBackupArchiveRemote fetches the archive bytes from the owning node via
-// NodeClient.ReadFile and streams them to the browser. The bytes are held in
-// memory for the duration of the request; for very large archives this is
-// suboptimal, and a streaming RPC is tracked as a follow-up.
+func (xs *XylonaService) resolveBackupArchivePathForDownload(gameServer *models.GameServer, backup *models.GameServerBackup) (string, error) {
+	if xs.isLocalBackupServer(gameServer) {
+		archivePath, errResolve := actions.ResolveManagedBackupArchivePath(gameServer, backup)
+		if errResolve != nil {
+			return "", fmt.Errorf("resolve local backup archive path: %w", errResolve)
+		}
+		return archivePath, nil
+	}
+	archivePath, errResolve := actions.ResolveManagedRemoteBackupArchivePath(gameServer, backup)
+	if errResolve != nil {
+		return "", fmt.Errorf("resolve remote backup archive path: %w", errResolve)
+	}
+	return archivePath, nil
+}
+
 func (xs *XylonaService) serveBackupArchiveRemote(w http.ResponseWriter, r *http.Request, gameServer *models.GameServer, archivePath string) {
 	client, errClient := xs.resolveNodeClient(gameServer)
 	if errClient != nil {
@@ -87,27 +97,38 @@ func (xs *XylonaService) serveBackupArchiveRemote(w http.ResponseWriter, r *http
 		return
 	}
 
-	archiveDir := filepath.Dir(archivePath)
-	archiveName := filepath.Base(archivePath)
-	payload, errRead := client.ReadFile(r.Context(), archiveDir, archiveName)
-	if errRead != nil {
-		if errors.Is(errRead, os.ErrNotExist) {
+	archiveDir := remoteArchivePathDir(archivePath)
+	archiveName := remoteArchivePathBase(archivePath)
+	archiveInfo, errStat := client.StatFile(r.Context(), archiveDir, archiveName)
+	if errStat != nil {
+		if errors.Is(errStat, os.ErrNotExist) {
 			writeBackupHTTPError(w, http.StatusNotFound, "backup archive not found")
 			return
 		}
-		writeBackupHTTPError(w, http.StatusBadGateway, "failed to fetch backup from node")
+		writeBackupHTTPError(w, http.StatusBadGateway, "failed to stat backup on node")
 		return
 	}
+	archiveReader, errStream := client.StreamFile(r.Context(), archiveDir, archiveName)
+	if errStream != nil {
+		if errors.Is(errStream, os.ErrNotExist) {
+			writeBackupHTTPError(w, http.StatusNotFound, "backup archive not found")
+			return
+		}
+		writeBackupHTTPError(w, http.StatusBadGateway, "failed to stream backup from node")
+		return
+	}
+	defer func() {
+		errClose := archiveReader.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("failed to close remote backup archive stream")
+		}
+	}()
 
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, archiveName))
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(payload)))
-	// payload is a binary backup archive; the Content-Type + Content-Disposition
-	// headers above prevent the browser from interpreting it as HTML/JS, so
-	// there is no XSS surface via this write.
-	_, errWrite := w.Write(payload) //nolint:gosec // zip payload with Content-Disposition=attachment
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", archiveInfo.Size))
+	_, errWrite := io.Copy(w, archiveReader)
 	if errWrite != nil {
-		// Response already partially flushed; nothing actionable here.
 		return
 	}
 }
@@ -139,6 +160,27 @@ func (xs *XylonaService) serveBackupArchiveLocal(w http.ResponseWriter, r *http.
 	http.ServeContent(w, r, downloadName, archiveInfo.ModTime(), archiveFile)
 }
 
+func remoteArchivePathBase(pathValue string) string {
+	trimmedPath := strings.TrimRight(pathValue, `/\`)
+	index := strings.LastIndexAny(trimmedPath, `/\`)
+	if index < 0 {
+		return trimmedPath
+	}
+	return trimmedPath[index+1:]
+}
+
+func remoteArchivePathDir(pathValue string) string {
+	trimmedPath := strings.TrimRight(pathValue, `/\`)
+	index := strings.LastIndexAny(trimmedPath, `/\`)
+	if index < 0 {
+		return "."
+	}
+	if index == 0 {
+		return trimmedPath[:1]
+	}
+	return trimmedPath[:index]
+}
+
 // UploadGameServerBackupArchive imports a managed backup archive from a multipart upload.
 func (xs *XylonaService) UploadGameServerBackupArchive(w http.ResponseWriter, r *http.Request) {
 	xs.uploadGameServerBackupArchiveWithMaxBytes(w, r, maxBackupUploadBodyBytes)
@@ -161,7 +203,7 @@ func (xs *XylonaService) uploadGameServerBackupArchiveWithMaxBytes(w http.Respon
 
 	var gameServerLoaded bool
 	var gameServerForUpload *models.GameServer
-	var stagingDirectory string
+	var localUploadDirectory string
 	var importedBackup bool
 
 	for {
@@ -194,12 +236,14 @@ func (xs *XylonaService) uploadGameServerBackupArchiveWithMaxBytes(w http.Respon
 				return
 			}
 
-			backupDirectory := strings.TrimSpace(gameServer.BackupDirectory)
-			stagingDirectory = filepath.Join(backupDirectory, gameServer.ID)
-			errMkdirStaging := os.MkdirAll(stagingDirectory, 0o750)
-			if errMkdirStaging != nil {
-				writeBackupHTTPError(w, http.StatusInternalServerError, "failed to create backup upload staging directory")
-				return
+			localUploadDirectory = ""
+			if xs.isLocalBackupServer(gameServer) {
+				nextLocalUploadDirectory, errLocalUploadDirectory := xs.prepareBackupUploadDirectory(gameServer)
+				if errLocalUploadDirectory != nil {
+					writeBackupHTTPError(w, http.StatusInternalServerError, "failed to create backup upload directory")
+					return
+				}
+				localUploadDirectory = nextLocalUploadDirectory
 			}
 
 			gameServerForUpload = gameServer
@@ -228,7 +272,7 @@ func (xs *XylonaService) uploadGameServerBackupArchiveWithMaxBytes(w http.Respon
 				part,
 				gameServerForUpload,
 				user.ID,
-				stagingDirectory,
+				localUploadDirectory,
 				uploadedFilename,
 			)
 			if errImportBackup != nil {
@@ -252,25 +296,49 @@ func (xs *XylonaService) uploadGameServerBackupArchiveWithMaxBytes(w http.Respon
 	w.WriteHeader(http.StatusCreated)
 }
 
+func (xs *XylonaService) prepareBackupUploadDirectory(gameServer *models.GameServer) (string, error) {
+	if xs.isLocalBackupServer(gameServer) {
+		backupDirectory := strings.TrimSpace(gameServer.BackupDirectory)
+		uploadDirectory := filepath.Join(backupDirectory, gameServer.ID)
+		//nolint:gosec // uploadDirectory is derived from the validated managed backup directory.
+		errMkdirUpload := os.MkdirAll(uploadDirectory, 0o750)
+		if errMkdirUpload != nil {
+			return "", fmt.Errorf("create local backup upload directory: %w", errMkdirUpload)
+		}
+		return uploadDirectory, nil
+	}
+
+	return "", nil
+}
+
 func (xs *XylonaService) importUploadedBackupPart(
 	part *multipart.Part,
 	gameServer *models.GameServer,
 	userID string,
-	stagingDirectory string,
+	localUploadDirectory string,
 	uploadedFilename string,
 ) error {
-	stagedFile, errCreateTemp := os.CreateTemp(stagingDirectory, "backup-upload-*.zip")
+	stagedFile, errCreateTemp := os.CreateTemp(localUploadDirectory, "backup-upload-*.zip")
 	if errCreateTemp != nil {
-		return errBackupUploadStagingFile
+		return errBackupUploadTempFile
 	}
 	stagedFilePath := stagedFile.Name()
 	defer func() {
-		_ = os.Remove(stagedFilePath)
+		errRemove := os.Remove(stagedFilePath)
+		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+			log.Warn().Err(errRemove).Str("path", stagedFilePath).Msg("failed to remove staged backup upload")
+		}
 	}()
 
 	_, errCopyPart := io.Copy(stagedFile, part)
 	errCloseStaged := stagedFile.Close()
 	if errCopyPart != nil {
+		if errCloseStaged != nil {
+			return errors.Join(
+				fmt.Errorf("copy backup upload: %w", errCopyPart),
+				fmt.Errorf("close staged backup upload: %w", errCloseStaged),
+			)
+		}
 		return fmt.Errorf("copy backup upload: %w", errCopyPart)
 	}
 	if errCloseStaged != nil {
@@ -314,7 +382,7 @@ func writeBackupImportError(w http.ResponseWriter, err error) {
 		writeBackupHTTPError(w, http.StatusRequestEntityTooLarge, "request body too large")
 		return
 	}
-	if errors.Is(err, errBackupUploadStagingFile) {
+	if errors.Is(err, errBackupUploadTempFile) {
 		writeBackupHTTPError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

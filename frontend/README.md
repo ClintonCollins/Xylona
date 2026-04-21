@@ -17,5 +17,10 @@ On Windows, `bun run test` and Playwright commands currently use Bun's
 Node-compatible path rather than Bun-native `--bun` execution because Vitest's
 worker startup is not fully compatible there yet.
 
+On Windows, `bun run dev` also uses the Node-compatible path. Bun-native
+
+`bunx --bun quasar dev` currently serves HTTPS without negotiating
+`http/1.1`, which breaks websocket upgrades for Vite HMR and `/api/websocket`.
+
 For config details, see [quasar.config.mjs](quasar.config.mjs) and the
 [Quasar CLI Vite config docs](https://v2.quasar.dev/quasar-cli-vite/quasar-config-js).

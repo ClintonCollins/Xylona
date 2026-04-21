@@ -76,8 +76,8 @@ func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 	}
 
 	_, errIP := conn.SQLDb.ExecContext(ctx,
-		`INSERT INTO ip (address, usable, external) VALUES (?, ?, ?)`,
-		"127.0.0.1", true, false,
+		`INSERT INTO ip (address, usable, external, node_id) VALUES (?, ?, ?, ?)`,
+		"127.0.0.1", true, false, "node-local",
 	)
 	if errIP != nil {
 		t.Fatalf("failed to insert ip: %v", errIP)

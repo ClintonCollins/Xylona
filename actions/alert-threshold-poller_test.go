@@ -1,7 +1,9 @@
 package actions
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -9,6 +11,9 @@ import (
 	"github.com/aarondl/opt/null"
 
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -143,6 +148,7 @@ func (f *fakeServerMetricsProvider) ListServerMetrics() []serverMetricsSnapshot 
 // fakeNodeMetricsProvider implements nodeMetricsProvider.
 type fakeNodeMetricsProvider struct {
 	mu            sync.Mutex
+	nodes         []nodeMetricsSnapshot
 	nodeID        string
 	cpuPercent    float64
 	memoryPercent float64
@@ -150,20 +156,27 @@ type fakeNodeMetricsProvider struct {
 	shouldErr     bool
 }
 
-func (f *fakeNodeMetricsProvider) CollectNodeMetrics() (nodeID string, cpuPercent, memoryPercent, diskPercent float64, err error) {
+func (f *fakeNodeMetricsProvider) ListNodeMetrics() []nodeMetricsSnapshot {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.shouldErr {
-		return "", 0, 0, 0, errFakeNodeMetrics
+		return nil
 	}
-	return f.nodeID, f.cpuPercent, f.memoryPercent, f.diskPercent, nil
+	if f.nodes != nil {
+		return append([]nodeMetricsSnapshot(nil), f.nodes...)
+	}
+	if f.nodeID == "" {
+		return nil
+	}
+	return []nodeMetricsSnapshot{
+		{
+			nodeID:        f.nodeID,
+			cpuPercent:    f.cpuPercent,
+			memoryPercent: f.memoryPercent,
+			diskPercent:   f.diskPercent,
+		},
+	}
 }
-
-var errFakeNodeMetrics = &fakeError{msg: "fake node metrics error"}
-
-type fakeError struct{ msg string }
-
-func (e *fakeError) Error() string { return e.msg }
 
 // fakePlayerCountProvider implements PlayerCountProvider.
 type fakePlayerCountProvider struct {
@@ -531,6 +544,128 @@ func TestThresholdPollerNodeRuleEvaluated(t *testing.T) {
 	}
 	if ev.NodeID != "node-x" {
 		t.Errorf("nodeID = %q, want %q", ev.NodeID, "node-x")
+	}
+}
+
+func TestThresholdPollerAllNodesRuleEvaluatesEveryNode(t *testing.T) {
+	ruleStore := newFakeAlertRuleStore()
+	stateStore := newFakeAlertStateStore()
+
+	rule := makeRule("rule-all-node-memory", "ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD",
+		makeCondition(70), null.Val[string]{})
+	ruleStore.addRule(rule)
+
+	serverProv := &fakeServerMetricsProvider{}
+	nodeProv := &fakeNodeMetricsProvider{
+		nodes: []nodeMetricsSnapshot{
+			{nodeID: "node-a", memoryPercent: 75.0},
+			{nodeID: "node-b", memoryPercent: 71.0},
+			{nodeID: "node-c", memoryPercent: 55.0},
+		},
+	}
+	playerProv := &fakePlayerCountProvider{counts: map[string]int{}}
+
+	bus := eventbus.Get()
+	sub := subscribeReliable(bus, eventbus.TopicNodeMemoryThreshold)
+	defer bus.Unsubscribe(eventbus.TopicNodeMemoryThreshold, sub)
+
+	poller := newThresholdPoller(ruleStore, stateStore, serverProv, nodeProv, playerProv, bus)
+	poller.runOnce()
+
+	stateStore.mu.Lock()
+	updates := append([]fakeStateUpdate(nil), stateStore.updateCalls...)
+	stateStore.mu.Unlock()
+
+	triggered := 0
+	for _, update := range updates {
+		if update.triggered {
+			triggered++
+		}
+	}
+	if triggered != 2 {
+		t.Fatalf("triggered updates = %d, want 2", triggered)
+	}
+
+	seen := map[string]bool{}
+	deadline := time.After(200 * time.Millisecond)
+loop:
+	for {
+		select {
+		case msg := <-sub:
+			ev, ok := msg.(eventbus.NodeThresholdEvent)
+			if !ok {
+				t.Fatalf("expected NodeThresholdEvent, got %T", msg)
+			}
+			seen[ev.NodeID] = true
+		case <-deadline:
+			break loop
+		}
+	}
+
+	if !seen["node-a"] || !seen["node-b"] {
+		t.Fatalf("node events = %+v, want node-a and node-b", seen)
+	}
+	if seen["node-c"] {
+		t.Fatalf("node events = %+v, did not expect node-c", seen)
+	}
+}
+
+func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *testing.T) {
+	registry := noderegistry.New("node-a", &nodeclient.FakeNodeClient{
+		NodeID: "node-a",
+		SnapshotResult: &node.NodeSnapshot{
+			CPUPercent:    61,
+			MemoryPercent: 62,
+			DiskPercent:   63,
+		},
+	})
+	registry.Register(&nodeclient.FakeNodeClient{
+		NodeID: "node-b",
+		SnapshotResult: &node.NodeSnapshot{
+			CPUPercent:    71,
+			MemoryPercent: 72,
+			DiskPercent:   73,
+		},
+	})
+	registry.Register(&nodeclient.FakeNodeClient{
+		NodeID:      "node-failing",
+		SnapshotErr: errors.New("snapshot failed"),
+	})
+
+	provider := &registryNodeMetricsProvider{
+		ctx:      context.Background(),
+		registry: registry,
+	}
+
+	snapshots := provider.ListNodeMetrics()
+	if len(snapshots) != 2 {
+		t.Fatalf("ListNodeMetrics() len = %d, want 2", len(snapshots))
+	}
+
+	seen := map[string]nodeMetricsSnapshot{}
+	for _, snapshot := range snapshots {
+		seen[snapshot.nodeID] = snapshot
+	}
+
+	nodeA, ok := seen["node-a"]
+	if !ok {
+		t.Fatal("missing node-a metrics")
+	}
+	if nodeA.cpuPercent != 61 || nodeA.memoryPercent != 62 || nodeA.diskPercent != 63 {
+		t.Fatalf("node-a metrics = %+v, want cpu=61 memory=62 disk=63", nodeA)
+	}
+
+	nodeB, ok := seen["node-b"]
+	if !ok {
+		t.Fatal("missing node-b metrics")
+	}
+	if nodeB.cpuPercent != 71 || nodeB.memoryPercent != 72 || nodeB.diskPercent != 73 {
+		t.Fatalf("node-b metrics = %+v, want cpu=71 memory=72 disk=73", nodeB)
+	}
+
+	_, ok = seen["node-failing"]
+	if ok {
+		t.Fatal("failing node should have been skipped")
 	}
 }
 

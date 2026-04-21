@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/aarondl/opt/null"
-	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
@@ -131,20 +129,16 @@ func TestExtractArchiveRejectsProtectedEntry(t *testing.T) {
 	}
 }
 
-func TestSaveUploadedGameServerFileClosesTempFileOnce(t *testing.T) {
+func TestSaveUploadedGameServerFileWritesLocalUploadThroughNodeClient(t *testing.T) {
 	fixture := newFileActionTestFixture(t)
-
-	var logBuffer bytes.Buffer
-	originalLogger := log.Logger
-	log.Logger = log.Logger.Output(&logBuffer)
-	t.Cleanup(func() {
-		log.Logger = originalLogger
-	})
+	fixture.gameServer.NodeID = "node-local"
+	localClient := &nodeclient.FakeNodeClient{NodeID: "node-local"}
+	fixture.inst.nodeRegistry = noderegistry.New("node-local", localClient)
 
 	uploadContent := `payload-data`
 	errSave := fixture.inst.saveUploadedGameServerFile(
 		fixture.gameServer,
-		`uploads`,
+		`uploads\active`,
 		`server.jar`,
 		strings.NewReader(uploadContent),
 	)
@@ -152,25 +146,31 @@ func TestSaveUploadedGameServerFileClosesTempFileOnce(t *testing.T) {
 		t.Fatalf("saveUploadedGameServerFile() error = %v", errSave)
 	}
 
-	savedPath := filepath.Join(fixture.serverDir, "uploads", "server.jar")
-	savedContent, errRead := os.ReadFile(savedPath)
-	if errRead != nil {
-		t.Fatalf("ReadFile(%q) error = %v", savedPath, errRead)
+	if len(localClient.CreateFileOrDirectoryCalls) != 1 {
+		t.Fatalf("CreateFileOrDirectory call count = %d, want 1", len(localClient.CreateFileOrDirectoryCalls))
 	}
-	if string(savedContent) != uploadContent {
-		t.Fatalf("saved content = %q, want %q", string(savedContent), uploadContent)
+	if localClient.CreateFileOrDirectoryCalls[0].Directory != fixture.gameServer.Directory {
+		t.Fatalf("CreateFileOrDirectory directory = %q, want %q", localClient.CreateFileOrDirectoryCalls[0].Directory, fixture.gameServer.Directory)
 	}
-
-	tempFiles, errGlob := filepath.Glob(filepath.Join(fixture.serverDir, "uploads", "server.jar.tmp-*"))
-	if errGlob != nil {
-		t.Fatalf("Glob(temp files) error = %v", errGlob)
-	}
-	if len(tempFiles) != 0 {
-		t.Fatalf("temp files remain: %v", tempFiles)
+	if localClient.CreateFileOrDirectoryCalls[0].RelativePath != "uploads/active" {
+		t.Fatalf("CreateFileOrDirectory path = %q, want %q", localClient.CreateFileOrDirectoryCalls[0].RelativePath, "uploads/active")
 	}
 
-	if strings.Contains(logBuffer.String(), "Failed to close upload temp file") {
-		t.Fatalf("log buffer contains false close error: %s", logBuffer.String())
+	if len(localClient.StreamWriteFileCalls) != 1 {
+		t.Fatalf("StreamWriteFile call count = %d, want 1", len(localClient.StreamWriteFileCalls))
+	}
+	call := localClient.StreamWriteFileCalls[0]
+	if call.Directory != fixture.gameServer.Directory {
+		t.Fatalf("StreamWriteFile directory = %q, want %q", call.Directory, fixture.gameServer.Directory)
+	}
+	if call.RelativePath != "uploads/active/server.jar" {
+		t.Fatalf("StreamWriteFile path = %q, want %q", call.RelativePath, "uploads/active/server.jar")
+	}
+	if string(call.Content) != uploadContent {
+		t.Fatalf("StreamWriteFile content = %q, want %q", string(call.Content), uploadContent)
+	}
+	if len(localClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(localClient.WriteFileCalls))
 	}
 }
 

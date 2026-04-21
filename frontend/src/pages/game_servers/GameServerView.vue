@@ -360,7 +360,7 @@
     :game-name="gameServer.gameName"
     :game-server-id="gameServerId"
     :variants="gameServer.game?.variants ?? []"
-    @software-changed="getGameServerDetails"
+    @software-changed="handleSoftwareChanged"
     @software-operation-state="onSoftwareOperationState" />
 
   <operation-progress-dialog
@@ -863,6 +863,14 @@ function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
   )
   softwareOperationComplete.value = true
   softwareOperationOpen.value = true
+}
+
+async function handleSoftwareChanged() {
+  await getGameServerDetails()
+  if (hasConsoleOutput.value) {
+    return
+  }
+  await getGameServerOutput()
 }
 
 function appendOutputLines(target: typeof updateOutputLines, output: string) {

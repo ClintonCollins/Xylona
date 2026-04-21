@@ -1,7 +1,10 @@
 package cfgschema
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -10,10 +13,32 @@ import (
 	"github.com/ClintonCollins/Xylona/cfgparse"
 )
 
+// PreStartFileStore abstracts config file IO so pre-start enforcement can run
+// against either controller-local files or node-hosted remote files.
+type PreStartFileStore interface {
+	ReadFile(relativePath string) ([]byte, error)
+	EnsureDir(relativePath string) error
+	WriteFile(relativePath string, data []byte) error
+}
+
+type localPreStartFileStore struct {
+	serverDir string
+}
+
 // RunPreStart enforces managed field values and generates missing config files
 // before a game server process starts. It does not block the start on errors —
 // parse failures are logged as warnings and skipped.
 func RunPreStart(serverDir string, schemasJSON string, resolver ManagedFieldResolver) {
+	store := localPreStartFileStore{serverDir: serverDir}
+	RunPreStartWithStore(schemasJSON, resolver, store)
+}
+
+// RunPreStartWithStore enforces managed field values using the provided store.
+func RunPreStartWithStore(schemasJSON string, resolver ManagedFieldResolver, store PreStartFileStore) {
+	if store == nil {
+		return
+	}
+
 	entries, errParse := ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
 		log.Warn().Err(errParse).Msg("Pre-start: failed to parse config schemas")
@@ -21,30 +46,28 @@ func RunPreStart(serverDir string, schemasJSON string, resolver ManagedFieldReso
 	}
 
 	for _, entry := range entries {
-		processPreStartEntry(serverDir, entry, resolver)
+		processPreStartEntry(store, entry, resolver)
 	}
 }
 
-func processPreStartEntry(serverDir string, entry ConfigSchemaEntry, resolver ManagedFieldResolver) {
+func processPreStartEntry(store PreStartFileStore, entry ConfigSchemaEntry, resolver ManagedFieldResolver) {
 	if len(entry.ManagedFields) == 0 && !entry.GenerateBeforeStart {
 		return
 	}
 
-	relativePath := strings.TrimPrefix(entry.Path, string(filepath.Separator))
-	if relativePath != "" && !filepath.IsLocal(relativePath) {
+	relativePath, errPath := normalizePreStartRelativePath(entry.Path)
+	if errPath != nil {
 		log.Warn().Str("path", entry.Path).Msg("Pre-start: invalid config path, skipping")
 		return
 	}
 
-	cleanServerDir := filepath.Clean(serverDir)
-	filePath := filepath.Clean(filepath.Join(cleanServerDir, relativePath))
-	if filePath != cleanServerDir && !strings.HasPrefix(filePath, cleanServerDir+string(filepath.Separator)) {
-		log.Warn().Str("path", entry.Path).Msg("Pre-start: config path escapes server directory, skipping")
+	fileData, errRead := store.ReadFile(relativePath)
+	fileExists := errRead == nil
+	if errRead != nil && !errors.Is(errRead, os.ErrNotExist) {
+		log.Warn().Err(errRead).Str("path", entry.Path).
+			Msg("Pre-start: failed to read config file, skipping")
 		return
 	}
-
-	fileData, errRead := os.ReadFile(filePath)
-	fileExists := errRead == nil
 
 	if !fileExists && !entry.GenerateBeforeStart {
 		return
@@ -93,15 +116,15 @@ func processPreStartEntry(serverDir string, entry ConfigSchemaEntry, resolver Ma
 	}
 
 	// Ensure parent directory exists.
-	dir := filepath.Dir(filePath)
-	errMkdir := os.MkdirAll(dir, 0o750)
+	dir := path.Dir(relativePath)
+	errMkdir := store.EnsureDir(dir)
 	if errMkdir != nil {
 		log.Warn().Err(errMkdir).Str("path", dir).
 			Msg("Pre-start: failed to create directory")
 		return
 	}
 
-	errWriteFile := os.WriteFile(filePath, output, 0o600) //nolint:gosec // filePath is validated as a local path and constrained to serverDir above.
+	errWriteFile := store.WriteFile(relativePath, output)
 	if errWriteFile != nil {
 		log.Warn().Err(errWriteFile).Str("path", entry.Path).
 			Msg("Pre-start: failed to write config file")
@@ -109,6 +132,94 @@ func processPreStartEntry(serverDir string, entry ConfigSchemaEntry, resolver Ma
 	}
 
 	log.Debug().Str("path", entry.Path).Msg("Pre-start: processed config file")
+}
+
+func normalizePreStartRelativePath(entryPath string) (string, error) {
+	normalizedPath := strings.ReplaceAll(strings.TrimSpace(entryPath), `\`, "/")
+	if strings.HasPrefix(normalizedPath, "//") {
+		return "", os.ErrInvalid
+	}
+
+	normalizedPath = strings.TrimPrefix(normalizedPath, "/")
+	cleanedPath := path.Clean(normalizedPath)
+	if cleanedPath == "." {
+		return "", nil
+	}
+	if cleanedPath == ".." || strings.HasPrefix(cleanedPath, "../") {
+		return "", os.ErrInvalid
+	}
+	if strings.HasPrefix(cleanedPath, "/") {
+		return "", os.ErrInvalid
+	}
+	if hasPreStartWindowsDrivePrefix(cleanedPath) {
+		return "", os.ErrInvalid
+	}
+
+	return cleanedPath, nil
+}
+
+func hasPreStartWindowsDrivePrefix(pathValue string) bool {
+	if len(pathValue) < 2 {
+		return false
+	}
+	if (pathValue[0] < 'A' || pathValue[0] > 'Z') && (pathValue[0] < 'a' || pathValue[0] > 'z') {
+		return false
+	}
+	return pathValue[1] == ':'
+}
+
+func (store localPreStartFileStore) ReadFile(relativePath string) ([]byte, error) {
+	filePath, errPath := store.resolve(relativePath)
+	if errPath != nil {
+		return nil, errPath
+	}
+	data, errRead := os.ReadFile(filePath)
+	if errRead != nil {
+		return nil, fmt.Errorf("cfgschema: read pre-start file: %w", errRead)
+	}
+	return data, nil
+}
+
+func (store localPreStartFileStore) EnsureDir(relativePath string) error {
+	if relativePath == "" || relativePath == "." {
+		return nil
+	}
+
+	dirPath, errPath := store.resolve(relativePath)
+	if errPath != nil {
+		return errPath
+	}
+	errMkdir := os.MkdirAll(dirPath, 0o750)
+	if errMkdir != nil {
+		return fmt.Errorf("cfgschema: create pre-start directory: %w", errMkdir)
+	}
+	return nil
+}
+
+func (store localPreStartFileStore) WriteFile(relativePath string, data []byte) error {
+	filePath, errPath := store.resolve(relativePath)
+	if errPath != nil {
+		return errPath
+	}
+	errWrite := os.WriteFile(filePath, data, 0o600)
+	if errWrite != nil {
+		return fmt.Errorf("cfgschema: write pre-start file: %w", errWrite)
+	}
+	return nil
+}
+
+func (store localPreStartFileStore) resolve(relativePath string) (string, error) {
+	cleanServerDir := filepath.Clean(store.serverDir)
+	filePath := filepath.Clean(filepath.Join(cleanServerDir, filepath.FromSlash(relativePath)))
+	if filePath == cleanServerDir {
+		return filePath, nil
+	}
+
+	serverDirPrefix := cleanServerDir + string(filepath.Separator)
+	if !strings.HasPrefix(filePath, serverDirPrefix) {
+		return "", os.ErrInvalid
+	}
+	return filePath, nil
 }
 
 // generateDefaultEntries creates entries from schema defaults for a new file.

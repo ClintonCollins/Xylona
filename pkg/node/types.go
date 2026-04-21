@@ -1,7 +1,7 @@
 // Package node is the thin layer the Xylona node binary will expose. It owns
 // process supervision, file operations, and host metrics for a single host.
-// The package contains no HTTP/proto types; it is consumed by the controller
-// in-process and (in later steps) wrapped by a gRPC implementation.
+// Its public APIs avoid HTTP/proto transport types; it is consumed by the
+// controller in-process and wrapped by a gRPC implementation.
 package node
 
 import (
@@ -18,6 +18,12 @@ var (
 	// pkg/node never sets this directly; callers (the controller) may layer
 	// protected-path policy on top of node operations.
 	ErrProtectedPath = errors.New("node: path is protected")
+	// ErrUnexpectedHTTPStatus is returned when a node download receives a
+	// non-success HTTP status.
+	ErrUnexpectedHTTPStatus = errors.New("node: unexpected download HTTP status")
+	// ErrDownloadIntegrityMismatch is returned when a node download does not
+	// match the expected size or hash supplied by the controller.
+	ErrDownloadIntegrityMismatch = errors.New("node: download integrity verification failed")
 )
 
 // defaultStopTimeout mirrors supervisor's default graceful stop window.
@@ -89,7 +95,80 @@ type FileEntry struct {
 	Name         string
 	Size         int64
 	IsDirectory  bool
+	IsExecutable bool
 	LastModified time.Time
+}
+
+// WriteFileResult summarizes a completed node-side file write.
+type WriteFileResult struct {
+	BytesWritten int64
+	SHA256       string
+}
+
+// DownloadIntegrity carries provider-advertised integrity metadata for a
+// node-side HTTP download. Zero values mean the corresponding check is skipped.
+type DownloadIntegrity struct {
+	ExpectedSize   int64
+	ExpectedSHA256 string
+	ExpectedSHA1   string
+}
+
+// DownloadFileResult summarizes a completed node-side HTTP download.
+type DownloadFileResult struct {
+	RelativePath  string
+	BytesWritten  int64
+	SHA256        string
+	SHA1          string
+	ExpectedMatch bool
+}
+
+// HasExpectedMetadata reports whether at least one integrity check is configured.
+func (i DownloadIntegrity) HasExpectedMetadata() bool {
+	return i.ExpectedSize > 0 || strings.TrimSpace(i.ExpectedSHA256) != "" || strings.TrimSpace(i.ExpectedSHA1) != ""
+}
+
+// CopyFileOperation describes one source -> destination copy inside a node
+// directory.
+type CopyFileOperation struct {
+	SourceRelativePath      string
+	DestinationRelativePath string
+}
+
+// ArchiveCompression names the file-archive format a node should create.
+type ArchiveCompression int
+
+// Archive compression formats supported by node file archives.
+const (
+	ArchiveCompressionZIP ArchiveCompression = iota
+	ArchiveCompressionBZIP2
+	ArchiveCompressionGZIP
+	ArchiveCompressionZST
+	ArchiveCompressionXZ
+)
+
+// ArchiveProgress summarizes a completed file archive operation.
+type ArchiveProgress struct {
+	TotalFiles      int64
+	FilesCompressed int64
+	TotalBytes      int64
+	BytesCompressed int64
+	CurrentFile     string
+}
+
+// ExtractProgress summarizes a completed file extraction operation.
+type ExtractProgress struct {
+	TotalFiles     int64
+	FilesExtracted int64
+	TotalBytes     int64
+	BytesExtracted int64
+	CurrentFile    string
+}
+
+// BindableIP describes a host IP address that game servers may bind to.
+type BindableIP struct {
+	Address  string
+	Usable   bool
+	External bool
 }
 
 // ProtectionPolicy is the per-request game-server context the node uses to
@@ -106,6 +185,96 @@ type ProtectionPolicy struct {
 	BaseCommand string
 }
 
+// InstalledVersionProbeKind identifies the narrow node-side installed-version
+// probe to run.
+type InstalledVersionProbeKind int
+
+const (
+	// InstalledVersionProbeKindUnspecified is invalid and returns ErrInvalidPath.
+	InstalledVersionProbeKindUnspecified InstalledVersionProbeKind = iota
+	// InstalledVersionProbeKindMinecraftJar reads version.json from a Minecraft server jar.
+	InstalledVersionProbeKindMinecraftJar
+	// InstalledVersionProbeKindSteamManifest reads buildid from a Steam appmanifest ACF file.
+	InstalledVersionProbeKindSteamManifest
+)
+
+// InstalledVersionProbeRequest asks the node to inspect local files for an
+// installed game version. It intentionally carries only filesystem paths and
+// probe hints, not controller models.
+type InstalledVersionProbeRequest struct {
+	Directory           string
+	Kind                InstalledVersionProbeKind
+	RelativePaths       []string
+	PreferredSteamAppID string
+}
+
+// InstalledVersionProbeResult is the outcome of a node-side installed-version
+// probe.
+type InstalledVersionProbeResult struct {
+	Found      bool
+	Version    string
+	SourcePath string
+}
+
+// GameServerQueryKind identifies the narrow game-server network probe a node
+// may execute. Scheduling and persistence stay in the controller.
+type GameServerQueryKind int
+
+const (
+	// GameServerQueryKindUnknown is invalid and performs no probe.
+	GameServerQueryKindUnknown GameServerQueryKind = iota
+	// GameServerQueryKindMinecraft probes Minecraft query/ping protocols.
+	GameServerQueryKindMinecraft
+	// GameServerQueryKindSource probes Source-engine A2S info.
+	GameServerQueryKindSource
+)
+
+// GameServerQueryRequest asks a node to probe a game server from the node host.
+type GameServerQueryRequest struct {
+	Kind       GameServerQueryKind
+	IP         string
+	QueryPort  int64
+	MaxPlayers int64
+}
+
+// MinecraftQueryInfo is the transport-agnostic result of a Minecraft query.
+type MinecraftQueryInfo struct {
+	MOTD            string
+	GameType        string
+	Map             string
+	NumberOfPlayers uint32
+	MaxPlayers      uint32
+	PlayerList      []string
+	ProtocolVersion uint32
+	ServerVersion   string
+}
+
+// SourceQueryInfo is the transport-agnostic result of a Source query.
+type SourceQueryInfo struct {
+	Name       string
+	Map        string
+	Game       string
+	AppID      uint32
+	SteamID    uint64
+	GameID     uint64
+	Players    uint32
+	MaxPlayers uint32
+	Bots       uint32
+	ServerOS   string
+	Visibility bool
+	VAC        bool
+	Version    string
+	Protocol   uint32
+}
+
+// GameServerQueryResult is the transport-agnostic result of a node-side
+// network probe.
+type GameServerQueryResult struct {
+	Kind      GameServerQueryKind
+	Minecraft *MinecraftQueryInfo
+	Source    *SourceQueryInfo
+}
+
 // IsConfigured reports whether the policy has any fields worth checking. If
 // both fields are empty the node will skip the protected-path check.
 func (p ProtectionPolicy) IsConfigured() bool {
@@ -114,11 +283,16 @@ func (p ProtectionPolicy) IsConfigured() bool {
 
 // NewFileEntry builds a FileEntry from raw fields. Provided for callers that
 // need to build entries directly (tests, in-process bridges).
-func NewFileEntry(name string, size int64, isDirectory bool, modTime time.Time) FileEntry {
+func NewFileEntry(name string, size int64, isDirectory bool, modTime time.Time, isExecutable ...bool) FileEntry {
+	executable := false
+	if len(isExecutable) > 0 {
+		executable = isExecutable[0]
+	}
 	return FileEntry{
 		Name:         name,
 		Size:         size,
 		IsDirectory:  isDirectory,
+		IsExecutable: executable,
 		LastModified: modTime,
 	}
 }

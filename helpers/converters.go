@@ -460,6 +460,7 @@ func IPModelToProto(ipModel *models.IP) *xylona.IP {
 		Address:  ipModel.Address,
 		Usable:   ipModel.Usable,
 		External: ipModel.External,
+		NodeId:   ipModel.NodeID,
 	}
 }
 

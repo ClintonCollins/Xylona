@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -376,31 +378,8 @@ func (xs *XylonaService) applyVariantDownload(
 		return
 	}
 
-	stagingDir, errMkdirTemp := os.MkdirTemp("", "xylona-variant-*")
-	if errMkdirTemp != nil {
-		errMsg := fmt.Sprintf("create variant staging directory: %v", errMkdirTemp)
-		xs.installTracker.SetFailed(gameServer.ID, errMsg)
-		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errMsg))
-		if xs.installBroadcast != nil {
-			xs.installBroadcast.BroadcastServerSoftwareInstall(
-				gameServer.ID,
-				gameServer.Name,
-				modmanager.InstallStatusFailed,
-				variantID,
-				errMsg,
-			)
-		}
-		return
-	}
-	defer func() {
-		errRemoveAll := os.RemoveAll(stagingDir)
-		if errRemoveAll != nil {
-			log.Warn().Err(errRemoveAll).Str("path", stagingDir).Msg("failed to remove variant staging directory")
-		}
-	}()
-
 	logConsoleOutput(fmt.Sprintf("Downloading files for %s", variantDisplayName(resolved)))
-	files, errDownload := provider.Download(downloadCtx, resolved.Provider.SourceID, downloadVersionID, stagingDir)
+	files, errDownload := xs.downloadVariantFiles(downloadCtx, client, gameServer, provider, resolved, downloadVersionID)
 	if errDownload != nil {
 		xs.installTracker.SetFailed(gameServer.ID, errDownload.Error())
 		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errDownload.Error()))
@@ -416,22 +395,6 @@ func (xs *XylonaService) applyVariantDownload(
 		return
 	}
 	files = normalizeDownloadedVariantFiles(files)
-
-	errInstall := xs.installVariantFiles(downloadCtx, client, gameServer, stagingDir, files)
-	if errInstall != nil {
-		xs.installTracker.SetFailed(gameServer.ID, errInstall.Error())
-		logConsoleOutput(fmt.Sprintf("Variant change failed: %s", errInstall.Error()))
-		if xs.installBroadcast != nil {
-			xs.installBroadcast.BroadcastServerSoftwareInstall(
-				gameServer.ID,
-				gameServer.Name,
-				modmanager.InstallStatusFailed,
-				variantID,
-				errInstall.Error(),
-			)
-		}
-		return
-	}
 
 	newExecutable := primaryVariantDownloadedFile(files)
 	oldExecutable := gameServer.ServerExecutable.GetOr("")
@@ -481,6 +444,103 @@ func (xs *XylonaService) applyVariantDownload(
 	}
 }
 
+func (xs *XylonaService) downloadVariantFiles(
+	ctx context.Context,
+	client nodeclient.NodeClient,
+	gameServer *models.GameServer,
+	provider modproviders.ModProvider,
+	resolved updateproviders.ResolvedConfig,
+	downloadVersionID string,
+) ([]modproviders.DownloadedFile, error) {
+	if !xs.gameServerUsesEmbeddedNode(gameServer) {
+		return xs.downloadVariantFilesRemote(ctx, client, gameServer, provider, resolved, downloadVersionID)
+	}
+	return xs.downloadVariantFilesLocal(ctx, client, gameServer, provider, resolved, downloadVersionID)
+}
+
+func (xs *XylonaService) downloadVariantFilesLocal(
+	ctx context.Context,
+	client nodeclient.NodeClient,
+	gameServer *models.GameServer,
+	provider modproviders.ModProvider,
+	resolved updateproviders.ResolvedConfig,
+	downloadVersionID string,
+) ([]modproviders.DownloadedFile, error) {
+	stagingDir, errMkdirTemp := os.MkdirTemp("", "xylona-variant-*")
+	if errMkdirTemp != nil {
+		return nil, fmt.Errorf("create variant staging directory: %w", errMkdirTemp)
+	}
+	defer func() {
+		errRemoveAll := os.RemoveAll(stagingDir)
+		if errRemoveAll != nil {
+			log.Warn().Err(errRemoveAll).Str("path", stagingDir).Msg("failed to remove variant staging directory")
+		}
+	}()
+
+	files, errDownload := provider.Download(ctx, resolved.Provider.SourceID, downloadVersionID, stagingDir)
+	if errDownload != nil {
+		return nil, fmt.Errorf("download variant files: %w", errDownload)
+	}
+
+	errInstall := xs.installVariantFiles(ctx, client, gameServer, stagingDir, files)
+	if errInstall != nil {
+		return nil, errInstall
+	}
+	return files, nil
+}
+
+func (xs *XylonaService) downloadVariantFilesRemote(
+	ctx context.Context,
+	client nodeclient.NodeClient,
+	gameServer *models.GameServer,
+	provider modproviders.ModProvider,
+	resolved updateproviders.ResolvedConfig,
+	downloadVersionID string,
+) ([]modproviders.DownloadedFile, error) {
+	version, errVersion := resolveVariantDownloadVersionMetadata(ctx, provider, resolved, downloadVersionID)
+	if errVersion != nil {
+		return nil, errVersion
+	}
+	if version == nil || strings.TrimSpace(version.DownloadURL) == "" {
+		return nil, errors.New("variant download URL is unavailable for remote node install")
+	}
+
+	integrity := node.DownloadIntegrity{
+		ExpectedSize:   version.FileSize,
+		ExpectedSHA256: version.FileHashSHA256,
+		ExpectedSHA1:   version.FileHashSHA1,
+	}
+	if !integrity.HasExpectedMetadata() {
+		return nil, errors.New("variant integrity metadata is unavailable for remote node install")
+	}
+
+	downloadResult, errDownload := client.DownloadFileFromURL(ctx, gameServer.Directory, version.DownloadURL, "", integrity, node.ProtectionPolicy{})
+	if errDownload != nil {
+		return nil, fmt.Errorf("download variant file on node: %w", errDownload)
+	}
+
+	relativePath := strings.TrimSpace(downloadResult.RelativePath)
+	if relativePath == "" {
+		relativePath = variantDownloadURLFileName(version.DownloadURL)
+	}
+	if relativePath == "" {
+		return nil, errors.New("node did not return a variant download path")
+	}
+	fileSize := version.FileSize
+	if fileSize <= 0 {
+		fileSize = downloadResult.BytesWritten
+	}
+
+	return []modproviders.DownloadedFile{
+		{
+			Path:      relativePath,
+			Hash:      strings.TrimSpace(downloadResult.SHA256),
+			Size:      fileSize,
+			IsPrimary: true,
+		},
+	}, nil
+}
+
 func (xs *XylonaService) installVariantFiles(
 	ctx context.Context,
 	client nodeclient.NodeClient,
@@ -515,6 +575,63 @@ func (xs *XylonaService) installVariantFiles(
 	}
 
 	return nil
+}
+
+func resolveVariantDownloadVersionMetadata(
+	ctx context.Context,
+	provider modproviders.ModProvider,
+	resolved updateproviders.ResolvedConfig,
+	downloadVersionID string,
+) (*modproviders.ModVersion, error) {
+	target := strings.TrimSpace(resolved.Target)
+	if target == "" {
+		details, errDetails := provider.GetModDetails(ctx, resolved.Provider.SourceID, nil)
+		if errDetails != nil {
+			return nil, fmt.Errorf("resolve target version metadata: %w", errDetails)
+		}
+		if details == nil || len(details.Versions) == 0 {
+			return nil, errors.New("variant target is not configured")
+		}
+		target = strings.TrimSpace(details.Versions[0].VersionID)
+		if target == "" {
+			target = strings.TrimSpace(details.Versions[0].VersionString)
+		}
+		if target == "" {
+			return nil, errors.New("variant target is not configured")
+		}
+	}
+
+	versions, errVersions := provider.GetVersions(ctx, resolved.Provider.SourceID, target, nil)
+	if errVersions != nil {
+		return nil, fmt.Errorf("resolve target version metadata: %w", errVersions)
+	}
+	if len(versions) == 0 {
+		return nil, errors.New("variant version metadata is unavailable")
+	}
+
+	normalizedDownloadID := strings.TrimSpace(downloadVersionID)
+	for index := range versions {
+		versionID := strings.TrimSpace(versions[index].VersionID)
+		versionString := strings.TrimSpace(versions[index].VersionString)
+		if versionID == normalizedDownloadID || versionString == normalizedDownloadID {
+			return &versions[index], nil
+		}
+	}
+
+	return &versions[len(versions)-1], nil
+}
+
+func variantDownloadURLFileName(rawURL string) string {
+	parsedURL, errParse := url.Parse(strings.TrimSpace(rawURL))
+	if errParse != nil {
+		return ""
+	}
+
+	fileName := strings.TrimSpace(path.Base(parsedURL.Path))
+	if fileName == "." || fileName == "/" {
+		return ""
+	}
+	return fileName
 }
 
 func (xs *XylonaService) persistVariantSelection(

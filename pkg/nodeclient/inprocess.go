@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -148,6 +150,28 @@ func (c *inProcessNodeClient) ReadFile(_ context.Context, directory, relativePat
 	return data, nil
 }
 
+func (c *inProcessNodeClient) StatFile(_ context.Context, directory, relativePath string) (node.FileEntry, error) {
+	if c.node == nil {
+		return node.FileEntry{}, ErrNodeNil
+	}
+	entry, errStat := c.node.StatFile(directory, relativePath)
+	if errStat != nil {
+		return node.FileEntry{}, fmt.Errorf("nodeclient: stat file: %w", errStat)
+	}
+	return entry, nil
+}
+
+func (c *inProcessNodeClient) StreamFile(_ context.Context, directory, relativePath string) (io.ReadCloser, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+	reader, errOpen := c.node.OpenFile(directory, relativePath)
+	if errOpen != nil {
+		return nil, fmt.Errorf("nodeclient: stream file: %w", errOpen)
+	}
+	return reader, nil
+}
+
 func (c *inProcessNodeClient) WriteFile(_ context.Context, directory, relativePath string, content []byte, policy node.ProtectionPolicy) error {
 	if c.node == nil {
 		return ErrNodeNil
@@ -157,6 +181,17 @@ func (c *inProcessNodeClient) WriteFile(_ context.Context, directory, relativePa
 		return fmt.Errorf("nodeclient: write file: %w", errWrite)
 	}
 	return nil
+}
+
+func (c *inProcessNodeClient) StreamWriteFile(_ context.Context, directory, relativePath string, reader io.Reader, policy node.ProtectionPolicy) (node.WriteFileResult, error) {
+	if c.node == nil {
+		return node.WriteFileResult{}, ErrNodeNil
+	}
+	result, errWrite := c.node.WriteFileFromReader(directory, relativePath, reader, policy)
+	if errWrite != nil {
+		return node.WriteFileResult{}, fmt.Errorf("nodeclient: stream write file: %w", errWrite)
+	}
+	return result, nil
 }
 
 func (c *inProcessNodeClient) CreateFileOrDirectory(_ context.Context, directory, relativePath, content string, isDirectory bool, policy node.ProtectionPolicy) error {
@@ -203,15 +238,56 @@ func (c *inProcessNodeClient) MoveFiles(ctx context.Context, directory string, f
 	return moved, nil
 }
 
-func (c *inProcessNodeClient) DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, policy node.ProtectionPolicy) (string, error) {
+func (c *inProcessNodeClient) CopyFiles(ctx context.Context, directory string, operations []node.CopyFileOperation, policy node.ProtectionPolicy) ([]string, error) {
 	if c.node == nil {
-		return "", ErrNodeNil
+		return nil, ErrNodeNil
 	}
-	downloaded, errDownload := c.node.DownloadFileFromURL(ctx, directory, rawURL, destinationDirectoryPath, policy)
+	copied, errCopy := c.node.CopyFiles(ctx, directory, operations, policy)
+	if errCopy != nil {
+		return nil, fmt.Errorf("nodeclient: copy files: %w", errCopy)
+	}
+	return copied, nil
+}
+
+func (c *inProcessNodeClient) DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, integrity node.DownloadIntegrity, policy node.ProtectionPolicy) (node.DownloadFileResult, error) {
+	if c.node == nil {
+		return node.DownloadFileResult{}, ErrNodeNil
+	}
+	downloaded, errDownload := c.node.DownloadFileFromURL(ctx, directory, rawURL, destinationDirectoryPath, integrity, policy)
 	if errDownload != nil {
-		return "", fmt.Errorf("nodeclient: download file from URL: %w", errDownload)
+		return node.DownloadFileResult{}, fmt.Errorf("nodeclient: download file from URL: %w", errDownload)
 	}
 	return downloaded, nil
+}
+
+func (c *inProcessNodeClient) CreateFileArchive(ctx context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, policy node.ProtectionPolicy) (string, node.ArchiveProgress, error) {
+	return c.CreateFileArchiveWithProgress(ctx, directory, destinationArchivePath, includePaths, compression, policy, nil)
+}
+
+func (c *inProcessNodeClient) CreateFileArchiveWithProgress(ctx context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, policy node.ProtectionPolicy, onProgress func(node.ArchiveProgress) error) (string, node.ArchiveProgress, error) {
+	if c.node == nil {
+		return "", node.ArchiveProgress{}, ErrNodeNil
+	}
+	archivePath, progress, errArchive := c.node.CreateFileArchiveWithProgress(ctx, directory, destinationArchivePath, includePaths, compression, policy, onProgress)
+	if errArchive != nil {
+		return "", node.ArchiveProgress{}, fmt.Errorf("nodeclient: create file archive: %w", errArchive)
+	}
+	return archivePath, progress, nil
+}
+
+func (c *inProcessNodeClient) ExtractFileArchive(ctx context.Context, directory string, archivePath string, destinationDirectoryPath string, policy node.ProtectionPolicy) ([]string, node.ExtractProgress, error) {
+	return c.ExtractFileArchiveWithProgress(ctx, directory, archivePath, destinationDirectoryPath, policy, nil)
+}
+
+func (c *inProcessNodeClient) ExtractFileArchiveWithProgress(ctx context.Context, directory string, archivePath string, destinationDirectoryPath string, policy node.ProtectionPolicy, onProgress func(node.ExtractProgress) error) ([]string, node.ExtractProgress, error) {
+	if c.node == nil {
+		return nil, node.ExtractProgress{}, ErrNodeNil
+	}
+	extracted, progress, errExtract := c.node.ExtractFileArchiveWithProgress(ctx, directory, archivePath, destinationDirectoryPath, policy, onProgress)
+	if errExtract != nil {
+		return nil, node.ExtractProgress{}, fmt.Errorf("nodeclient: extract file archive: %w", errExtract)
+	}
+	return extracted, progress, nil
 }
 
 func (c *inProcessNodeClient) CreateBackupArchive(ctx context.Context, directory string, includePaths []string, destinationArchivePath string) (int64, string, error) {
@@ -234,6 +310,28 @@ func (c *inProcessNodeClient) ExtractBackupArchive(ctx context.Context, director
 		return fmt.Errorf("nodeclient: extract backup archive: %w", errExtract)
 	}
 	return nil
+}
+
+func (c *inProcessNodeClient) ProbeInstalledVersion(_ context.Context, req node.InstalledVersionProbeRequest) (node.InstalledVersionProbeResult, error) {
+	if c.node == nil {
+		return node.InstalledVersionProbeResult{}, ErrNodeNil
+	}
+	result, errProbe := c.node.ProbeInstalledVersion(req)
+	if errProbe != nil {
+		return node.InstalledVersionProbeResult{}, fmt.Errorf("nodeclient: probe installed version: %w", errProbe)
+	}
+	return result, nil
+}
+
+func (c *inProcessNodeClient) QueryGameServer(ctx context.Context, req node.GameServerQueryRequest) (node.GameServerQueryResult, error) {
+	if c.node == nil {
+		return node.GameServerQueryResult{}, ErrNodeNil
+	}
+	result, errQuery := c.node.QueryGameServer(ctx, req)
+	if errQuery != nil {
+		return node.GameServerQueryResult{}, fmt.Errorf("nodeclient: query game server: %w", errQuery)
+	}
+	return result, nil
 }
 
 func (c *inProcessNodeClient) SendConsoleOutput(_ context.Context, processID, line string) error {
@@ -267,6 +365,30 @@ func (c *inProcessNodeClient) GetNodeSnapshot(ctx context.Context) (*node.NodeSn
 		return nil, fmt.Errorf("nodeclient: get node snapshot: %w", errSnapshot)
 	}
 	return snapshot, nil
+}
+
+func (c *inProcessNodeClient) ListBindableIPs(_ context.Context) ([]node.BindableIP, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+
+	rawIPs, errIPs := helpers.GetBindableIPs()
+	if errIPs != nil {
+		return nil, fmt.Errorf("nodeclient: list bindable IPs: %w", errIPs)
+	}
+
+	ips := make([]node.BindableIP, 0, len(rawIPs))
+	for _, rawIP := range rawIPs {
+		if rawIP == nil {
+			continue
+		}
+		ips = append(ips, node.BindableIP{
+			Address:  rawIP.String(),
+			Usable:   true,
+			External: !rawIP.IsPrivate(),
+		})
+	}
+	return ips, nil
 }
 
 // StreamEvents bridges the underlying node's EventEmitter to a per-call

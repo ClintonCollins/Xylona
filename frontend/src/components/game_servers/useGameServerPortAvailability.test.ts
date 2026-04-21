@@ -30,11 +30,13 @@ describe('evaluateGameServerPortAvailability', () => {
         create(GameServerSchema, {
           id: 'server-1',
           name: 'Existing Server',
+          nodeId: 'node-local',
           ip: create(IPSchema, { address: '216.177.177.228' }),
           port: 25565n,
           queryPort: 25566n,
         }),
       ],
+      nodeId: 'node-local',
       ipAddress: '216.177.177.228',
       port: 25565,
       queryPort: 25567,
@@ -52,11 +54,13 @@ describe('evaluateGameServerPortAvailability', () => {
         create(GameServerSchema, {
           id: 'server-1',
           name: 'Existing Server',
+          nodeId: 'node-local',
           ip: create(IPSchema, { address: '216.177.177.228' }),
           port: 25565n,
           queryPort: 25566n,
         }),
       ],
+      nodeId: 'node-local',
       ipAddress: '216.177.177.228',
       port: 25565,
       queryPort: 0,
@@ -73,11 +77,13 @@ describe('evaluateGameServerPortAvailability', () => {
         create(GameServerSchema, {
           id: 'server-1',
           name: 'Existing Server',
+          nodeId: 'node-local',
           ip: create(IPSchema, { address: '216.177.177.228' }),
           port: 25565n,
           queryPort: 25566n,
         }),
       ],
+      nodeId: 'node-local',
       ipAddress: '216.177.177.228',
       port: 25565,
       queryPort: 25567,
@@ -93,11 +99,13 @@ describe('evaluateGameServerPortAvailability', () => {
         create(GameServerSchema, {
           id: 'server-1',
           name: 'Existing Server',
+          nodeId: 'node-local',
           ip: create(IPSchema, { address: '216.177.177.228' }),
           port: 25565n,
           queryPort: 25565n,
         }),
       ],
+      nodeId: 'node-local',
       ipAddress: '216.177.177.228',
       port: 25566,
       queryPort: 25565,
@@ -111,6 +119,7 @@ describe('evaluateGameServerPortAvailability', () => {
   it('allows the same port and query port on the same IP', () => {
     const result = evaluateGameServerPortAvailability({
       existingServers: [],
+      nodeId: 'node-local',
       ipAddress: '216.177.177.228',
       port: 25565,
       queryPort: 25565,
@@ -127,11 +136,13 @@ describe('evaluateGameServerPortAvailability', () => {
         create(GameServerSchema, {
           id: 'server-1',
           name: 'Occupied Server',
+          nodeId: 'node-local',
           ip: create(IPSchema, { address: '216.177.177.228' }),
           port: 27015n,
           queryPort: 27016n,
         }),
       ],
+      nodeId: 'node-local',
       ipAddress: '216.177.177.228',
       port: 27017,
       queryPort: 27018,
@@ -149,9 +160,33 @@ describe('evaluateGameServerPortAvailability', () => {
   it('marks a free port pair as available', () => {
     const result = evaluateGameServerPortAvailability({
       existingServers: [],
+      nodeId: 'node-local',
       ipAddress: '216.177.177.228',
       port: 25565,
       queryPort: 25566,
+      selectedGame: create(GameSchema, { id: 'minecraft', name: 'Minecraft' }),
+    })
+
+    expect(result.state).toBe('available')
+    expect(result.message).toContain('available')
+  })
+
+  it('ignores servers on other nodes even when IP and port match', () => {
+    const result = evaluateGameServerPortAvailability({
+      existingServers: [
+        create(GameServerSchema, {
+          id: 'server-1',
+          name: 'Other Node Server',
+          nodeId: 'node-remote',
+          ip: create(IPSchema, { address: '216.177.177.228' }),
+          port: 25565n,
+          queryPort: 25566n,
+        }),
+      ],
+      nodeId: 'node-local',
+      ipAddress: '216.177.177.228',
+      port: 25565,
+      queryPort: 25567,
       selectedGame: create(GameSchema, { id: 'minecraft', name: 'Minecraft' }),
     })
 
@@ -176,6 +211,7 @@ describe('useGameServerPortAvailability', () => {
         create(GameServerSchema, {
           id: 'server-1',
           name: 'Existing Server',
+          nodeId: 'node-local',
           ip: create(IPSchema, { address: '216.177.177.228' }),
           port: 25565n,
           queryPort: 25566n,
@@ -187,6 +223,7 @@ describe('useGameServerPortAvailability', () => {
     const selectedGame = ref(create(GameSchema, { id: 'minecraft', name: 'Minecraft' }))
     const gameServer = ref(
       create(GameServerSchema, {
+        nodeId: 'node-local',
         ip: create(IPSchema, { address: '216.177.177.228' }),
         port: 25565n,
         queryPort: 25567n,

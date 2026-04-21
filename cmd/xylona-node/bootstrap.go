@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -35,6 +36,11 @@ type bootstrapResponse struct {
 	NodeID       string `json:"node_id"`
 	SharedSecret string `json:"shared_secret"`
 }
+
+var (
+	lookupAdvertiseLocalIP = detectAdvertiseLocalIP
+	readHostname           = os.Hostname
+)
 
 // performBootstrap runs the one-shot pairing exchange with the controller
 // and writes a complete identity file to dataDir. It is safe to call
@@ -134,35 +140,92 @@ func performBootstrap(ctx context.Context, cfg *cliConfig, dataDir string) (*nod
 }
 
 // resolveReportedListenURL builds the URL the controller will use to dial
-// this node. It prefers --advertise-url when set; otherwise infers from
-// --listen with an https:// scheme.
+// this node. It prefers --advertise-url when set; otherwise it infers the
+// advertised host from --listen. Wildcard listeners first try the local IP
+// routed toward the controller, then fall back to the OS hostname.
 func resolveReportedListenURL(cfg *cliConfig) string {
 	if strings.TrimSpace(cfg.advertiseURL) != "" {
 		return strings.TrimRight(strings.TrimSpace(cfg.advertiseURL), "/")
 	}
 
-	listen := strings.TrimSpace(cfg.listen)
-	host, port, hasHost := strings.Cut(listen, ":")
-	if !hasHost {
-		port = listen
-		host = ""
-	}
+	host, port := splitListenHostPort(strings.TrimSpace(cfg.listen))
 	if host == "" || host == "0.0.0.0" || host == "::" {
-		fallbackHost, errHostname := os.Hostname()
-		if errHostname == nil && strings.TrimSpace(fallbackHost) != "" {
-			host = fallbackHost
-		} else {
-			host = "localhost"
+		host = strings.TrimSpace(lookupAdvertiseLocalIP(cfg.controllerURL))
+		if host == "" {
+			fallbackHost, errHostname := readHostname()
+			if errHostname == nil && strings.TrimSpace(fallbackHost) != "" {
+				host = strings.TrimSpace(fallbackHost)
+			} else {
+				host = "localhost"
+			}
 		}
-	}
-	if strings.Contains(host, ":") {
-		// IPv6 literal.
-		host = "[" + host + "]"
 	}
 	if port == "" {
 		return "https://" + host
 	}
-	return "https://" + host + ":" + port
+	return "https://" + net.JoinHostPort(host, port)
+}
+
+func splitListenHostPort(listen string) (string, string) {
+	if listen == "" {
+		return "", ""
+	}
+	if port, ok := strings.CutPrefix(listen, ":"); ok {
+		return "", port
+	}
+	if !strings.Contains(listen, ":") {
+		return "", listen
+	}
+
+	host, port, errSplit := net.SplitHostPort(listen)
+	if errSplit == nil {
+		return host, port
+	}
+	return listen, ""
+}
+
+func detectAdvertiseLocalIP(controllerURL string) string {
+	parsedURL, errParse := url.Parse(strings.TrimSpace(controllerURL))
+	if errParse != nil {
+		return ""
+	}
+
+	controllerHost := parsedURL.Hostname()
+	if controllerHost == "" {
+		return ""
+	}
+
+	controllerPort := parsedURL.Port()
+	if controllerPort == "" {
+		if strings.EqualFold(parsedURL.Scheme, "http") {
+			controllerPort = "80"
+		} else {
+			controllerPort = "443"
+		}
+	}
+
+	dialer := &net.Dialer{}
+	conn, errDial := dialer.DialContext(context.Background(), "udp", net.JoinHostPort(controllerHost, controllerPort))
+	if errDial != nil {
+		return ""
+	}
+	defer func() {
+		errClose := conn.Close()
+		if errClose != nil {
+			log.Debug().Err(errClose).Msg("bootstrap: close advertise IP probe connection")
+		}
+	}()
+
+	udpAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok || udpAddr.IP == nil {
+		return ""
+	}
+
+	localIP := udpAddr.IP
+	if localIP.IsLoopback() || localIP.IsLinkLocalUnicast() || localIP.IsLinkLocalMulticast() || localIP.IsUnspecified() {
+		return ""
+	}
+	return localIP.String()
 }
 
 // resolveNodeName picks a display name for the node row the controller
@@ -173,7 +236,7 @@ func resolveNodeName(cfg *cliConfig) string {
 	if trimmed != "" {
 		return trimmed
 	}
-	hostName, errHost := os.Hostname()
+	hostName, errHost := readHostname()
 	if errHost == nil && strings.TrimSpace(hostName) != "" {
 		return hostName
 	}

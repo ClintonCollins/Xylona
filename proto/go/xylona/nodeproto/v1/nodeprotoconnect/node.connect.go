@@ -56,8 +56,15 @@ const (
 	NodeServiceListFilesProcedure = "/xylona.node.v1.NodeService/ListFiles"
 	// NodeServiceReadFileProcedure is the fully-qualified name of the NodeService's ReadFile RPC.
 	NodeServiceReadFileProcedure = "/xylona.node.v1.NodeService/ReadFile"
+	// NodeServiceStatFileProcedure is the fully-qualified name of the NodeService's StatFile RPC.
+	NodeServiceStatFileProcedure = "/xylona.node.v1.NodeService/StatFile"
+	// NodeServiceStreamFileProcedure is the fully-qualified name of the NodeService's StreamFile RPC.
+	NodeServiceStreamFileProcedure = "/xylona.node.v1.NodeService/StreamFile"
 	// NodeServiceWriteFileProcedure is the fully-qualified name of the NodeService's WriteFile RPC.
 	NodeServiceWriteFileProcedure = "/xylona.node.v1.NodeService/WriteFile"
+	// NodeServiceStreamWriteFileProcedure is the fully-qualified name of the NodeService's
+	// StreamWriteFile RPC.
+	NodeServiceStreamWriteFileProcedure = "/xylona.node.v1.NodeService/StreamWriteFile"
 	// NodeServiceCreateFileOrDirectoryProcedure is the fully-qualified name of the NodeService's
 	// CreateFileOrDirectory RPC.
 	NodeServiceCreateFileOrDirectoryProcedure = "/xylona.node.v1.NodeService/CreateFileOrDirectory"
@@ -67,21 +74,44 @@ const (
 	NodeServiceRenameFileProcedure = "/xylona.node.v1.NodeService/RenameFile"
 	// NodeServiceMoveFilesProcedure is the fully-qualified name of the NodeService's MoveFiles RPC.
 	NodeServiceMoveFilesProcedure = "/xylona.node.v1.NodeService/MoveFiles"
+	// NodeServiceCopyFilesProcedure is the fully-qualified name of the NodeService's CopyFiles RPC.
+	NodeServiceCopyFilesProcedure = "/xylona.node.v1.NodeService/CopyFiles"
 	// NodeServiceDownloadFileFromURLProcedure is the fully-qualified name of the NodeService's
 	// DownloadFileFromURL RPC.
 	NodeServiceDownloadFileFromURLProcedure = "/xylona.node.v1.NodeService/DownloadFileFromURL"
+	// NodeServiceCreateFileArchiveProcedure is the fully-qualified name of the NodeService's
+	// CreateFileArchive RPC.
+	NodeServiceCreateFileArchiveProcedure = "/xylona.node.v1.NodeService/CreateFileArchive"
+	// NodeServiceStreamCreateFileArchiveProcedure is the fully-qualified name of the NodeService's
+	// StreamCreateFileArchive RPC.
+	NodeServiceStreamCreateFileArchiveProcedure = "/xylona.node.v1.NodeService/StreamCreateFileArchive"
+	// NodeServiceExtractFileArchiveProcedure is the fully-qualified name of the NodeService's
+	// ExtractFileArchive RPC.
+	NodeServiceExtractFileArchiveProcedure = "/xylona.node.v1.NodeService/ExtractFileArchive"
+	// NodeServiceStreamExtractFileArchiveProcedure is the fully-qualified name of the NodeService's
+	// StreamExtractFileArchive RPC.
+	NodeServiceStreamExtractFileArchiveProcedure = "/xylona.node.v1.NodeService/StreamExtractFileArchive"
 	// NodeServiceCreateBackupArchiveProcedure is the fully-qualified name of the NodeService's
 	// CreateBackupArchive RPC.
 	NodeServiceCreateBackupArchiveProcedure = "/xylona.node.v1.NodeService/CreateBackupArchive"
 	// NodeServiceExtractBackupArchiveProcedure is the fully-qualified name of the NodeService's
 	// ExtractBackupArchive RPC.
 	NodeServiceExtractBackupArchiveProcedure = "/xylona.node.v1.NodeService/ExtractBackupArchive"
+	// NodeServiceProbeInstalledVersionProcedure is the fully-qualified name of the NodeService's
+	// ProbeInstalledVersion RPC.
+	NodeServiceProbeInstalledVersionProcedure = "/xylona.node.v1.NodeService/ProbeInstalledVersion"
+	// NodeServiceQueryGameServerProcedure is the fully-qualified name of the NodeService's
+	// QueryGameServer RPC.
+	NodeServiceQueryGameServerProcedure = "/xylona.node.v1.NodeService/QueryGameServer"
 	// NodeServiceSendConsoleOutputProcedure is the fully-qualified name of the NodeService's
 	// SendConsoleOutput RPC.
 	NodeServiceSendConsoleOutputProcedure = "/xylona.node.v1.NodeService/SendConsoleOutput"
 	// NodeServiceGetProcessSnapshotProcedure is the fully-qualified name of the NodeService's
 	// GetProcessSnapshot RPC.
 	NodeServiceGetProcessSnapshotProcedure = "/xylona.node.v1.NodeService/GetProcessSnapshot"
+	// NodeServiceListBindableIPsProcedure is the fully-qualified name of the NodeService's
+	// ListBindableIPs RPC.
+	NodeServiceListBindableIPsProcedure = "/xylona.node.v1.NodeService/ListBindableIPs"
 	// NodeServiceGetNodeSnapshotProcedure is the fully-qualified name of the NodeService's
 	// GetNodeSnapshot RPC.
 	NodeServiceGetNodeSnapshotProcedure = "/xylona.node.v1.NodeService/GetNodeSnapshot"
@@ -103,20 +133,31 @@ type NodeServiceClient interface {
 	// File operations
 	ListFiles(context.Context, *connect.Request[v1.ListFilesRequest]) (*connect.Response[v1.ListFilesResponse], error)
 	ReadFile(context.Context, *connect.Request[v1.ReadFileRequest]) (*connect.Response[v1.ReadFileResponse], error)
+	StatFile(context.Context, *connect.Request[v1.StatFileRequest]) (*connect.Response[v1.StatFileResponse], error)
+	StreamFile(context.Context, *connect.Request[v1.StreamFileRequest]) (*connect.ServerStreamForClient[v1.StreamFileResponse], error)
 	WriteFile(context.Context, *connect.Request[v1.WriteFileRequest]) (*connect.Response[v1.WriteFileResponse], error)
+	StreamWriteFile(context.Context) *connect.ClientStreamForClient[v1.StreamWriteFileRequest, v1.StreamWriteFileResponse]
 	CreateFileOrDirectory(context.Context, *connect.Request[v1.CreateFileOrDirectoryRequest]) (*connect.Response[v1.CreateFileOrDirectoryResponse], error)
 	DeleteFiles(context.Context, *connect.Request[v1.DeleteFilesRequest]) (*connect.Response[v1.DeleteFilesResponse], error)
 	RenameFile(context.Context, *connect.Request[v1.RenameFileRequest]) (*connect.Response[v1.RenameFileResponse], error)
 	MoveFiles(context.Context, *connect.Request[v1.MoveFilesRequest]) (*connect.Response[v1.MoveFilesResponse], error)
+	CopyFiles(context.Context, *connect.Request[v1.CopyFilesRequest]) (*connect.Response[v1.CopyFilesResponse], error)
 	DownloadFileFromURL(context.Context, *connect.Request[v1.DownloadFileFromURLRequest]) (*connect.Response[v1.DownloadFileFromURLResponse], error)
+	CreateFileArchive(context.Context, *connect.Request[v1.CreateFileArchiveRequest]) (*connect.Response[v1.CreateFileArchiveResponse], error)
+	StreamCreateFileArchive(context.Context, *connect.Request[v1.CreateFileArchiveRequest]) (*connect.ServerStreamForClient[v1.CreateFileArchiveResponse], error)
+	ExtractFileArchive(context.Context, *connect.Request[v1.ExtractFileArchiveRequest]) (*connect.Response[v1.ExtractFileArchiveResponse], error)
+	StreamExtractFileArchive(context.Context, *connect.Request[v1.ExtractFileArchiveRequest]) (*connect.ServerStreamForClient[v1.ExtractFileArchiveResponse], error)
 	// Backup operations
 	CreateBackupArchive(context.Context, *connect.Request[v1.CreateBackupArchiveRequest]) (*connect.Response[v1.CreateBackupArchiveResponse], error)
 	ExtractBackupArchive(context.Context, *connect.Request[v1.ExtractBackupArchiveRequest]) (*connect.Response[v1.ExtractBackupArchiveResponse], error)
+	ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error)
+	QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
 	// Process introspection
 	GetProcessSnapshot(context.Context, *connect.Request[v1.GetProcessSnapshotRequest]) (*connect.Response[v1.GetProcessSnapshotResponse], error)
 	// Node introspection
+	ListBindableIPs(context.Context, *connect.Request[v1.ListBindableIPsRequest]) (*connect.Response[v1.ListBindableIPsResponse], error)
 	GetNodeSnapshot(context.Context, *connect.Request[v1.GetNodeSnapshotRequest]) (*connect.Response[v1.NodeSnapshot], error)
 	StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest]) (*connect.ServerStreamForClient[v1.Event], error)
 	Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error)
@@ -175,10 +216,28 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("ReadFile")),
 			connect.WithClientOptions(opts...),
 		),
+		statFile: connect.NewClient[v1.StatFileRequest, v1.StatFileResponse](
+			httpClient,
+			baseURL+NodeServiceStatFileProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StatFile")),
+			connect.WithClientOptions(opts...),
+		),
+		streamFile: connect.NewClient[v1.StreamFileRequest, v1.StreamFileResponse](
+			httpClient,
+			baseURL+NodeServiceStreamFileProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StreamFile")),
+			connect.WithClientOptions(opts...),
+		),
 		writeFile: connect.NewClient[v1.WriteFileRequest, v1.WriteFileResponse](
 			httpClient,
 			baseURL+NodeServiceWriteFileProcedure,
 			connect.WithSchema(nodeServiceMethods.ByName("WriteFile")),
+			connect.WithClientOptions(opts...),
+		),
+		streamWriteFile: connect.NewClient[v1.StreamWriteFileRequest, v1.StreamWriteFileResponse](
+			httpClient,
+			baseURL+NodeServiceStreamWriteFileProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StreamWriteFile")),
 			connect.WithClientOptions(opts...),
 		),
 		createFileOrDirectory: connect.NewClient[v1.CreateFileOrDirectoryRequest, v1.CreateFileOrDirectoryResponse](
@@ -205,10 +264,40 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("MoveFiles")),
 			connect.WithClientOptions(opts...),
 		),
+		copyFiles: connect.NewClient[v1.CopyFilesRequest, v1.CopyFilesResponse](
+			httpClient,
+			baseURL+NodeServiceCopyFilesProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("CopyFiles")),
+			connect.WithClientOptions(opts...),
+		),
 		downloadFileFromURL: connect.NewClient[v1.DownloadFileFromURLRequest, v1.DownloadFileFromURLResponse](
 			httpClient,
 			baseURL+NodeServiceDownloadFileFromURLProcedure,
 			connect.WithSchema(nodeServiceMethods.ByName("DownloadFileFromURL")),
+			connect.WithClientOptions(opts...),
+		),
+		createFileArchive: connect.NewClient[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse](
+			httpClient,
+			baseURL+NodeServiceCreateFileArchiveProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("CreateFileArchive")),
+			connect.WithClientOptions(opts...),
+		),
+		streamCreateFileArchive: connect.NewClient[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse](
+			httpClient,
+			baseURL+NodeServiceStreamCreateFileArchiveProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StreamCreateFileArchive")),
+			connect.WithClientOptions(opts...),
+		),
+		extractFileArchive: connect.NewClient[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse](
+			httpClient,
+			baseURL+NodeServiceExtractFileArchiveProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("ExtractFileArchive")),
+			connect.WithClientOptions(opts...),
+		),
+		streamExtractFileArchive: connect.NewClient[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse](
+			httpClient,
+			baseURL+NodeServiceStreamExtractFileArchiveProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StreamExtractFileArchive")),
 			connect.WithClientOptions(opts...),
 		),
 		createBackupArchive: connect.NewClient[v1.CreateBackupArchiveRequest, v1.CreateBackupArchiveResponse](
@@ -223,6 +312,18 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("ExtractBackupArchive")),
 			connect.WithClientOptions(opts...),
 		),
+		probeInstalledVersion: connect.NewClient[v1.ProbeInstalledVersionRequest, v1.ProbeInstalledVersionResponse](
+			httpClient,
+			baseURL+NodeServiceProbeInstalledVersionProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("ProbeInstalledVersion")),
+			connect.WithClientOptions(opts...),
+		),
+		queryGameServer: connect.NewClient[v1.QueryGameServerRequest, v1.QueryGameServerResponse](
+			httpClient,
+			baseURL+NodeServiceQueryGameServerProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("QueryGameServer")),
+			connect.WithClientOptions(opts...),
+		),
 		sendConsoleOutput: connect.NewClient[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse](
 			httpClient,
 			baseURL+NodeServiceSendConsoleOutputProcedure,
@@ -233,6 +334,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+NodeServiceGetProcessSnapshotProcedure,
 			connect.WithSchema(nodeServiceMethods.ByName("GetProcessSnapshot")),
+			connect.WithClientOptions(opts...),
+		),
+		listBindableIPs: connect.NewClient[v1.ListBindableIPsRequest, v1.ListBindableIPsResponse](
+			httpClient,
+			baseURL+NodeServiceListBindableIPsProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("ListBindableIPs")),
 			connect.WithClientOptions(opts...),
 		),
 		getNodeSnapshot: connect.NewClient[v1.GetNodeSnapshotRequest, v1.NodeSnapshot](
@@ -258,26 +365,37 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // nodeServiceClient implements NodeServiceClient.
 type nodeServiceClient struct {
-	startProcess          *connect.Client[v1.StartProcessRequest, v1.StartProcessResponse]
-	stopProcess           *connect.Client[v1.StopProcessRequest, v1.StopProcessResponse]
-	sendConsoleInput      *connect.Client[v1.SendConsoleInputRequest, v1.SendConsoleInputResponse]
-	readConsoleBuffer     *connect.Client[v1.ReadConsoleBufferRequest, v1.ReadConsoleBufferResponse]
-	streamConsoleOutput   *connect.Client[v1.StreamConsoleOutputRequest, v1.ConsoleChunk]
-	listFiles             *connect.Client[v1.ListFilesRequest, v1.ListFilesResponse]
-	readFile              *connect.Client[v1.ReadFileRequest, v1.ReadFileResponse]
-	writeFile             *connect.Client[v1.WriteFileRequest, v1.WriteFileResponse]
-	createFileOrDirectory *connect.Client[v1.CreateFileOrDirectoryRequest, v1.CreateFileOrDirectoryResponse]
-	deleteFiles           *connect.Client[v1.DeleteFilesRequest, v1.DeleteFilesResponse]
-	renameFile            *connect.Client[v1.RenameFileRequest, v1.RenameFileResponse]
-	moveFiles             *connect.Client[v1.MoveFilesRequest, v1.MoveFilesResponse]
-	downloadFileFromURL   *connect.Client[v1.DownloadFileFromURLRequest, v1.DownloadFileFromURLResponse]
-	createBackupArchive   *connect.Client[v1.CreateBackupArchiveRequest, v1.CreateBackupArchiveResponse]
-	extractBackupArchive  *connect.Client[v1.ExtractBackupArchiveRequest, v1.ExtractBackupArchiveResponse]
-	sendConsoleOutput     *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
-	getProcessSnapshot    *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
-	getNodeSnapshot       *connect.Client[v1.GetNodeSnapshotRequest, v1.NodeSnapshot]
-	streamEvents          *connect.Client[v1.StreamEventsRequest, v1.Event]
-	ping                  *connect.Client[v1.PingRequest, v1.PingResponse]
+	startProcess             *connect.Client[v1.StartProcessRequest, v1.StartProcessResponse]
+	stopProcess              *connect.Client[v1.StopProcessRequest, v1.StopProcessResponse]
+	sendConsoleInput         *connect.Client[v1.SendConsoleInputRequest, v1.SendConsoleInputResponse]
+	readConsoleBuffer        *connect.Client[v1.ReadConsoleBufferRequest, v1.ReadConsoleBufferResponse]
+	streamConsoleOutput      *connect.Client[v1.StreamConsoleOutputRequest, v1.ConsoleChunk]
+	listFiles                *connect.Client[v1.ListFilesRequest, v1.ListFilesResponse]
+	readFile                 *connect.Client[v1.ReadFileRequest, v1.ReadFileResponse]
+	statFile                 *connect.Client[v1.StatFileRequest, v1.StatFileResponse]
+	streamFile               *connect.Client[v1.StreamFileRequest, v1.StreamFileResponse]
+	writeFile                *connect.Client[v1.WriteFileRequest, v1.WriteFileResponse]
+	streamWriteFile          *connect.Client[v1.StreamWriteFileRequest, v1.StreamWriteFileResponse]
+	createFileOrDirectory    *connect.Client[v1.CreateFileOrDirectoryRequest, v1.CreateFileOrDirectoryResponse]
+	deleteFiles              *connect.Client[v1.DeleteFilesRequest, v1.DeleteFilesResponse]
+	renameFile               *connect.Client[v1.RenameFileRequest, v1.RenameFileResponse]
+	moveFiles                *connect.Client[v1.MoveFilesRequest, v1.MoveFilesResponse]
+	copyFiles                *connect.Client[v1.CopyFilesRequest, v1.CopyFilesResponse]
+	downloadFileFromURL      *connect.Client[v1.DownloadFileFromURLRequest, v1.DownloadFileFromURLResponse]
+	createFileArchive        *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
+	streamCreateFileArchive  *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
+	extractFileArchive       *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
+	streamExtractFileArchive *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
+	createBackupArchive      *connect.Client[v1.CreateBackupArchiveRequest, v1.CreateBackupArchiveResponse]
+	extractBackupArchive     *connect.Client[v1.ExtractBackupArchiveRequest, v1.ExtractBackupArchiveResponse]
+	probeInstalledVersion    *connect.Client[v1.ProbeInstalledVersionRequest, v1.ProbeInstalledVersionResponse]
+	queryGameServer          *connect.Client[v1.QueryGameServerRequest, v1.QueryGameServerResponse]
+	sendConsoleOutput        *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
+	getProcessSnapshot       *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
+	listBindableIPs          *connect.Client[v1.ListBindableIPsRequest, v1.ListBindableIPsResponse]
+	getNodeSnapshot          *connect.Client[v1.GetNodeSnapshotRequest, v1.NodeSnapshot]
+	streamEvents             *connect.Client[v1.StreamEventsRequest, v1.Event]
+	ping                     *connect.Client[v1.PingRequest, v1.PingResponse]
 }
 
 // StartProcess calls xylona.node.v1.NodeService.StartProcess.
@@ -315,9 +433,24 @@ func (c *nodeServiceClient) ReadFile(ctx context.Context, req *connect.Request[v
 	return c.readFile.CallUnary(ctx, req)
 }
 
+// StatFile calls xylona.node.v1.NodeService.StatFile.
+func (c *nodeServiceClient) StatFile(ctx context.Context, req *connect.Request[v1.StatFileRequest]) (*connect.Response[v1.StatFileResponse], error) {
+	return c.statFile.CallUnary(ctx, req)
+}
+
+// StreamFile calls xylona.node.v1.NodeService.StreamFile.
+func (c *nodeServiceClient) StreamFile(ctx context.Context, req *connect.Request[v1.StreamFileRequest]) (*connect.ServerStreamForClient[v1.StreamFileResponse], error) {
+	return c.streamFile.CallServerStream(ctx, req)
+}
+
 // WriteFile calls xylona.node.v1.NodeService.WriteFile.
 func (c *nodeServiceClient) WriteFile(ctx context.Context, req *connect.Request[v1.WriteFileRequest]) (*connect.Response[v1.WriteFileResponse], error) {
 	return c.writeFile.CallUnary(ctx, req)
+}
+
+// StreamWriteFile calls xylona.node.v1.NodeService.StreamWriteFile.
+func (c *nodeServiceClient) StreamWriteFile(ctx context.Context) *connect.ClientStreamForClient[v1.StreamWriteFileRequest, v1.StreamWriteFileResponse] {
+	return c.streamWriteFile.CallClientStream(ctx)
 }
 
 // CreateFileOrDirectory calls xylona.node.v1.NodeService.CreateFileOrDirectory.
@@ -340,9 +473,34 @@ func (c *nodeServiceClient) MoveFiles(ctx context.Context, req *connect.Request[
 	return c.moveFiles.CallUnary(ctx, req)
 }
 
+// CopyFiles calls xylona.node.v1.NodeService.CopyFiles.
+func (c *nodeServiceClient) CopyFiles(ctx context.Context, req *connect.Request[v1.CopyFilesRequest]) (*connect.Response[v1.CopyFilesResponse], error) {
+	return c.copyFiles.CallUnary(ctx, req)
+}
+
 // DownloadFileFromURL calls xylona.node.v1.NodeService.DownloadFileFromURL.
 func (c *nodeServiceClient) DownloadFileFromURL(ctx context.Context, req *connect.Request[v1.DownloadFileFromURLRequest]) (*connect.Response[v1.DownloadFileFromURLResponse], error) {
 	return c.downloadFileFromURL.CallUnary(ctx, req)
+}
+
+// CreateFileArchive calls xylona.node.v1.NodeService.CreateFileArchive.
+func (c *nodeServiceClient) CreateFileArchive(ctx context.Context, req *connect.Request[v1.CreateFileArchiveRequest]) (*connect.Response[v1.CreateFileArchiveResponse], error) {
+	return c.createFileArchive.CallUnary(ctx, req)
+}
+
+// StreamCreateFileArchive calls xylona.node.v1.NodeService.StreamCreateFileArchive.
+func (c *nodeServiceClient) StreamCreateFileArchive(ctx context.Context, req *connect.Request[v1.CreateFileArchiveRequest]) (*connect.ServerStreamForClient[v1.CreateFileArchiveResponse], error) {
+	return c.streamCreateFileArchive.CallServerStream(ctx, req)
+}
+
+// ExtractFileArchive calls xylona.node.v1.NodeService.ExtractFileArchive.
+func (c *nodeServiceClient) ExtractFileArchive(ctx context.Context, req *connect.Request[v1.ExtractFileArchiveRequest]) (*connect.Response[v1.ExtractFileArchiveResponse], error) {
+	return c.extractFileArchive.CallUnary(ctx, req)
+}
+
+// StreamExtractFileArchive calls xylona.node.v1.NodeService.StreamExtractFileArchive.
+func (c *nodeServiceClient) StreamExtractFileArchive(ctx context.Context, req *connect.Request[v1.ExtractFileArchiveRequest]) (*connect.ServerStreamForClient[v1.ExtractFileArchiveResponse], error) {
+	return c.streamExtractFileArchive.CallServerStream(ctx, req)
 }
 
 // CreateBackupArchive calls xylona.node.v1.NodeService.CreateBackupArchive.
@@ -355,6 +513,16 @@ func (c *nodeServiceClient) ExtractBackupArchive(ctx context.Context, req *conne
 	return c.extractBackupArchive.CallUnary(ctx, req)
 }
 
+// ProbeInstalledVersion calls xylona.node.v1.NodeService.ProbeInstalledVersion.
+func (c *nodeServiceClient) ProbeInstalledVersion(ctx context.Context, req *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error) {
+	return c.probeInstalledVersion.CallUnary(ctx, req)
+}
+
+// QueryGameServer calls xylona.node.v1.NodeService.QueryGameServer.
+func (c *nodeServiceClient) QueryGameServer(ctx context.Context, req *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error) {
+	return c.queryGameServer.CallUnary(ctx, req)
+}
+
 // SendConsoleOutput calls xylona.node.v1.NodeService.SendConsoleOutput.
 func (c *nodeServiceClient) SendConsoleOutput(ctx context.Context, req *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error) {
 	return c.sendConsoleOutput.CallUnary(ctx, req)
@@ -363,6 +531,11 @@ func (c *nodeServiceClient) SendConsoleOutput(ctx context.Context, req *connect.
 // GetProcessSnapshot calls xylona.node.v1.NodeService.GetProcessSnapshot.
 func (c *nodeServiceClient) GetProcessSnapshot(ctx context.Context, req *connect.Request[v1.GetProcessSnapshotRequest]) (*connect.Response[v1.GetProcessSnapshotResponse], error) {
 	return c.getProcessSnapshot.CallUnary(ctx, req)
+}
+
+// ListBindableIPs calls xylona.node.v1.NodeService.ListBindableIPs.
+func (c *nodeServiceClient) ListBindableIPs(ctx context.Context, req *connect.Request[v1.ListBindableIPsRequest]) (*connect.Response[v1.ListBindableIPsResponse], error) {
+	return c.listBindableIPs.CallUnary(ctx, req)
 }
 
 // GetNodeSnapshot calls xylona.node.v1.NodeService.GetNodeSnapshot.
@@ -391,20 +564,31 @@ type NodeServiceHandler interface {
 	// File operations
 	ListFiles(context.Context, *connect.Request[v1.ListFilesRequest]) (*connect.Response[v1.ListFilesResponse], error)
 	ReadFile(context.Context, *connect.Request[v1.ReadFileRequest]) (*connect.Response[v1.ReadFileResponse], error)
+	StatFile(context.Context, *connect.Request[v1.StatFileRequest]) (*connect.Response[v1.StatFileResponse], error)
+	StreamFile(context.Context, *connect.Request[v1.StreamFileRequest], *connect.ServerStream[v1.StreamFileResponse]) error
 	WriteFile(context.Context, *connect.Request[v1.WriteFileRequest]) (*connect.Response[v1.WriteFileResponse], error)
+	StreamWriteFile(context.Context, *connect.ClientStream[v1.StreamWriteFileRequest]) (*connect.Response[v1.StreamWriteFileResponse], error)
 	CreateFileOrDirectory(context.Context, *connect.Request[v1.CreateFileOrDirectoryRequest]) (*connect.Response[v1.CreateFileOrDirectoryResponse], error)
 	DeleteFiles(context.Context, *connect.Request[v1.DeleteFilesRequest]) (*connect.Response[v1.DeleteFilesResponse], error)
 	RenameFile(context.Context, *connect.Request[v1.RenameFileRequest]) (*connect.Response[v1.RenameFileResponse], error)
 	MoveFiles(context.Context, *connect.Request[v1.MoveFilesRequest]) (*connect.Response[v1.MoveFilesResponse], error)
+	CopyFiles(context.Context, *connect.Request[v1.CopyFilesRequest]) (*connect.Response[v1.CopyFilesResponse], error)
 	DownloadFileFromURL(context.Context, *connect.Request[v1.DownloadFileFromURLRequest]) (*connect.Response[v1.DownloadFileFromURLResponse], error)
+	CreateFileArchive(context.Context, *connect.Request[v1.CreateFileArchiveRequest]) (*connect.Response[v1.CreateFileArchiveResponse], error)
+	StreamCreateFileArchive(context.Context, *connect.Request[v1.CreateFileArchiveRequest], *connect.ServerStream[v1.CreateFileArchiveResponse]) error
+	ExtractFileArchive(context.Context, *connect.Request[v1.ExtractFileArchiveRequest]) (*connect.Response[v1.ExtractFileArchiveResponse], error)
+	StreamExtractFileArchive(context.Context, *connect.Request[v1.ExtractFileArchiveRequest], *connect.ServerStream[v1.ExtractFileArchiveResponse]) error
 	// Backup operations
 	CreateBackupArchive(context.Context, *connect.Request[v1.CreateBackupArchiveRequest]) (*connect.Response[v1.CreateBackupArchiveResponse], error)
 	ExtractBackupArchive(context.Context, *connect.Request[v1.ExtractBackupArchiveRequest]) (*connect.Response[v1.ExtractBackupArchiveResponse], error)
+	ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error)
+	QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
 	// Process introspection
 	GetProcessSnapshot(context.Context, *connect.Request[v1.GetProcessSnapshotRequest]) (*connect.Response[v1.GetProcessSnapshotResponse], error)
 	// Node introspection
+	ListBindableIPs(context.Context, *connect.Request[v1.ListBindableIPsRequest]) (*connect.Response[v1.ListBindableIPsResponse], error)
 	GetNodeSnapshot(context.Context, *connect.Request[v1.GetNodeSnapshotRequest]) (*connect.Response[v1.NodeSnapshot], error)
 	StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest], *connect.ServerStream[v1.Event]) error
 	Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error)
@@ -459,10 +643,28 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("ReadFile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceStatFileHandler := connect.NewUnaryHandler(
+		NodeServiceStatFileProcedure,
+		svc.StatFile,
+		connect.WithSchema(nodeServiceMethods.ByName("StatFile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceStreamFileHandler := connect.NewServerStreamHandler(
+		NodeServiceStreamFileProcedure,
+		svc.StreamFile,
+		connect.WithSchema(nodeServiceMethods.ByName("StreamFile")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceWriteFileHandler := connect.NewUnaryHandler(
 		NodeServiceWriteFileProcedure,
 		svc.WriteFile,
 		connect.WithSchema(nodeServiceMethods.ByName("WriteFile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceStreamWriteFileHandler := connect.NewClientStreamHandler(
+		NodeServiceStreamWriteFileProcedure,
+		svc.StreamWriteFile,
+		connect.WithSchema(nodeServiceMethods.ByName("StreamWriteFile")),
 		connect.WithHandlerOptions(opts...),
 	)
 	nodeServiceCreateFileOrDirectoryHandler := connect.NewUnaryHandler(
@@ -489,10 +691,40 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("MoveFiles")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceCopyFilesHandler := connect.NewUnaryHandler(
+		NodeServiceCopyFilesProcedure,
+		svc.CopyFiles,
+		connect.WithSchema(nodeServiceMethods.ByName("CopyFiles")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceDownloadFileFromURLHandler := connect.NewUnaryHandler(
 		NodeServiceDownloadFileFromURLProcedure,
 		svc.DownloadFileFromURL,
 		connect.WithSchema(nodeServiceMethods.ByName("DownloadFileFromURL")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceCreateFileArchiveHandler := connect.NewUnaryHandler(
+		NodeServiceCreateFileArchiveProcedure,
+		svc.CreateFileArchive,
+		connect.WithSchema(nodeServiceMethods.ByName("CreateFileArchive")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceStreamCreateFileArchiveHandler := connect.NewServerStreamHandler(
+		NodeServiceStreamCreateFileArchiveProcedure,
+		svc.StreamCreateFileArchive,
+		connect.WithSchema(nodeServiceMethods.ByName("StreamCreateFileArchive")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceExtractFileArchiveHandler := connect.NewUnaryHandler(
+		NodeServiceExtractFileArchiveProcedure,
+		svc.ExtractFileArchive,
+		connect.WithSchema(nodeServiceMethods.ByName("ExtractFileArchive")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceStreamExtractFileArchiveHandler := connect.NewServerStreamHandler(
+		NodeServiceStreamExtractFileArchiveProcedure,
+		svc.StreamExtractFileArchive,
+		connect.WithSchema(nodeServiceMethods.ByName("StreamExtractFileArchive")),
 		connect.WithHandlerOptions(opts...),
 	)
 	nodeServiceCreateBackupArchiveHandler := connect.NewUnaryHandler(
@@ -507,6 +739,18 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("ExtractBackupArchive")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceProbeInstalledVersionHandler := connect.NewUnaryHandler(
+		NodeServiceProbeInstalledVersionProcedure,
+		svc.ProbeInstalledVersion,
+		connect.WithSchema(nodeServiceMethods.ByName("ProbeInstalledVersion")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceQueryGameServerHandler := connect.NewUnaryHandler(
+		NodeServiceQueryGameServerProcedure,
+		svc.QueryGameServer,
+		connect.WithSchema(nodeServiceMethods.ByName("QueryGameServer")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceSendConsoleOutputHandler := connect.NewUnaryHandler(
 		NodeServiceSendConsoleOutputProcedure,
 		svc.SendConsoleOutput,
@@ -517,6 +761,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		NodeServiceGetProcessSnapshotProcedure,
 		svc.GetProcessSnapshot,
 		connect.WithSchema(nodeServiceMethods.ByName("GetProcessSnapshot")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceListBindableIPsHandler := connect.NewUnaryHandler(
+		NodeServiceListBindableIPsProcedure,
+		svc.ListBindableIPs,
+		connect.WithSchema(nodeServiceMethods.ByName("ListBindableIPs")),
 		connect.WithHandlerOptions(opts...),
 	)
 	nodeServiceGetNodeSnapshotHandler := connect.NewUnaryHandler(
@@ -553,8 +803,14 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceListFilesHandler.ServeHTTP(w, r)
 		case NodeServiceReadFileProcedure:
 			nodeServiceReadFileHandler.ServeHTTP(w, r)
+		case NodeServiceStatFileProcedure:
+			nodeServiceStatFileHandler.ServeHTTP(w, r)
+		case NodeServiceStreamFileProcedure:
+			nodeServiceStreamFileHandler.ServeHTTP(w, r)
 		case NodeServiceWriteFileProcedure:
 			nodeServiceWriteFileHandler.ServeHTTP(w, r)
+		case NodeServiceStreamWriteFileProcedure:
+			nodeServiceStreamWriteFileHandler.ServeHTTP(w, r)
 		case NodeServiceCreateFileOrDirectoryProcedure:
 			nodeServiceCreateFileOrDirectoryHandler.ServeHTTP(w, r)
 		case NodeServiceDeleteFilesProcedure:
@@ -563,16 +819,32 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceRenameFileHandler.ServeHTTP(w, r)
 		case NodeServiceMoveFilesProcedure:
 			nodeServiceMoveFilesHandler.ServeHTTP(w, r)
+		case NodeServiceCopyFilesProcedure:
+			nodeServiceCopyFilesHandler.ServeHTTP(w, r)
 		case NodeServiceDownloadFileFromURLProcedure:
 			nodeServiceDownloadFileFromURLHandler.ServeHTTP(w, r)
+		case NodeServiceCreateFileArchiveProcedure:
+			nodeServiceCreateFileArchiveHandler.ServeHTTP(w, r)
+		case NodeServiceStreamCreateFileArchiveProcedure:
+			nodeServiceStreamCreateFileArchiveHandler.ServeHTTP(w, r)
+		case NodeServiceExtractFileArchiveProcedure:
+			nodeServiceExtractFileArchiveHandler.ServeHTTP(w, r)
+		case NodeServiceStreamExtractFileArchiveProcedure:
+			nodeServiceStreamExtractFileArchiveHandler.ServeHTTP(w, r)
 		case NodeServiceCreateBackupArchiveProcedure:
 			nodeServiceCreateBackupArchiveHandler.ServeHTTP(w, r)
 		case NodeServiceExtractBackupArchiveProcedure:
 			nodeServiceExtractBackupArchiveHandler.ServeHTTP(w, r)
+		case NodeServiceProbeInstalledVersionProcedure:
+			nodeServiceProbeInstalledVersionHandler.ServeHTTP(w, r)
+		case NodeServiceQueryGameServerProcedure:
+			nodeServiceQueryGameServerHandler.ServeHTTP(w, r)
 		case NodeServiceSendConsoleOutputProcedure:
 			nodeServiceSendConsoleOutputHandler.ServeHTTP(w, r)
 		case NodeServiceGetProcessSnapshotProcedure:
 			nodeServiceGetProcessSnapshotHandler.ServeHTTP(w, r)
+		case NodeServiceListBindableIPsProcedure:
+			nodeServiceListBindableIPsHandler.ServeHTTP(w, r)
 		case NodeServiceGetNodeSnapshotProcedure:
 			nodeServiceGetNodeSnapshotHandler.ServeHTTP(w, r)
 		case NodeServiceStreamEventsProcedure:
@@ -616,8 +888,20 @@ func (UnimplementedNodeServiceHandler) ReadFile(context.Context, *connect.Reques
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.ReadFile is not implemented"))
 }
 
+func (UnimplementedNodeServiceHandler) StatFile(context.Context, *connect.Request[v1.StatFileRequest]) (*connect.Response[v1.StatFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.StatFile is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) StreamFile(context.Context, *connect.Request[v1.StreamFileRequest], *connect.ServerStream[v1.StreamFileResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.StreamFile is not implemented"))
+}
+
 func (UnimplementedNodeServiceHandler) WriteFile(context.Context, *connect.Request[v1.WriteFileRequest]) (*connect.Response[v1.WriteFileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.WriteFile is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) StreamWriteFile(context.Context, *connect.ClientStream[v1.StreamWriteFileRequest]) (*connect.Response[v1.StreamWriteFileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.StreamWriteFile is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) CreateFileOrDirectory(context.Context, *connect.Request[v1.CreateFileOrDirectoryRequest]) (*connect.Response[v1.CreateFileOrDirectoryResponse], error) {
@@ -636,8 +920,28 @@ func (UnimplementedNodeServiceHandler) MoveFiles(context.Context, *connect.Reque
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.MoveFiles is not implemented"))
 }
 
+func (UnimplementedNodeServiceHandler) CopyFiles(context.Context, *connect.Request[v1.CopyFilesRequest]) (*connect.Response[v1.CopyFilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.CopyFiles is not implemented"))
+}
+
 func (UnimplementedNodeServiceHandler) DownloadFileFromURL(context.Context, *connect.Request[v1.DownloadFileFromURLRequest]) (*connect.Response[v1.DownloadFileFromURLResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.DownloadFileFromURL is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) CreateFileArchive(context.Context, *connect.Request[v1.CreateFileArchiveRequest]) (*connect.Response[v1.CreateFileArchiveResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.CreateFileArchive is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) StreamCreateFileArchive(context.Context, *connect.Request[v1.CreateFileArchiveRequest], *connect.ServerStream[v1.CreateFileArchiveResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.StreamCreateFileArchive is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) ExtractFileArchive(context.Context, *connect.Request[v1.ExtractFileArchiveRequest]) (*connect.Response[v1.ExtractFileArchiveResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.ExtractFileArchive is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) StreamExtractFileArchive(context.Context, *connect.Request[v1.ExtractFileArchiveRequest], *connect.ServerStream[v1.ExtractFileArchiveResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.StreamExtractFileArchive is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) CreateBackupArchive(context.Context, *connect.Request[v1.CreateBackupArchiveRequest]) (*connect.Response[v1.CreateBackupArchiveResponse], error) {
@@ -648,12 +952,24 @@ func (UnimplementedNodeServiceHandler) ExtractBackupArchive(context.Context, *co
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.ExtractBackupArchive is not implemented"))
 }
 
+func (UnimplementedNodeServiceHandler) ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.ProbeInstalledVersion is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QueryGameServer is not implemented"))
+}
+
 func (UnimplementedNodeServiceHandler) SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.SendConsoleOutput is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) GetProcessSnapshot(context.Context, *connect.Request[v1.GetProcessSnapshotRequest]) (*connect.Response[v1.GetProcessSnapshotResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.GetProcessSnapshot is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) ListBindableIPs(context.Context, *connect.Request[v1.ListBindableIPsRequest]) (*connect.Response[v1.ListBindableIPsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.ListBindableIPs is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) GetNodeSnapshot(context.Context, *connect.Request[v1.GetNodeSnapshotRequest]) (*connect.Response[v1.NodeSnapshot], error) {

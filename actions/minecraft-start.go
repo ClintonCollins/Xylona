@@ -2,12 +2,14 @@ package actions
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -25,10 +27,7 @@ func (inst *Instance) ensureMinecraftServerExecutable(gameServer *models.GameSer
 		return nil
 	}
 
-	discoveredExecutable, errDiscover := versiontracker.DiscoverMinecraftExecutable(
-		gameServer.Directory,
-		gameServer.ServerSoftware.GetOr(""),
-	)
+	discoveredExecutable, errDiscover := inst.discoverMinecraftExecutable(gameServer)
 	if errDiscover != nil {
 		return fmt.Errorf("discover minecraft server executable: %w", errDiscover)
 	}
@@ -52,4 +51,77 @@ func (inst *Instance) ensureMinecraftServerExecutable(gameServer *models.GameSer
 
 	gameServer.ServerExecutable = updated.ServerExecutable
 	return nil
+}
+
+func (inst *Instance) discoverMinecraftExecutable(gameServer *models.GameServer) (string, error) {
+	if inst.shouldUseRemoteNodeFiles(gameServer.NodeID) {
+		return inst.discoverRemoteMinecraftExecutable(gameServer)
+	}
+
+	discoveredExecutable, errDiscover := versiontracker.DiscoverMinecraftExecutable(
+		gameServer.Directory,
+		gameServer.ServerSoftware.GetOr(""),
+	)
+	if errDiscover != nil {
+		return "", fmt.Errorf("discover local minecraft executable: %w", errDiscover)
+	}
+	return discoveredExecutable, nil
+}
+
+func (inst *Instance) discoverRemoteMinecraftExecutable(gameServer *models.GameServer) (string, error) {
+	client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
+	if errClient != nil {
+		return "", fmt.Errorf("resolve node client for minecraft executable discovery: %w", errClient)
+	}
+
+	entries, errList := client.ListFiles(inst.actionContext(), gameServer.Directory, "")
+	if errList != nil {
+		return "", fmt.Errorf("list minecraft server files: %w", errList)
+	}
+
+	fallbackExecutable := ""
+	candidates := []string{}
+	for _, entry := range entries {
+		if entry.IsDirectory {
+			continue
+		}
+
+		entryName := strings.TrimSpace(entry.Name)
+		if !isRemoteRootJarName(entryName) {
+			continue
+		}
+		if fallbackExecutable == "" {
+			fallbackExecutable = entryName
+		}
+		candidates = append(candidates, entryName)
+	}
+
+	if len(candidates) == 0 {
+		return "", nil
+	}
+
+	result, errProbe := client.ProbeInstalledVersion(inst.actionContext(), node.InstalledVersionProbeRequest{
+		Directory:     gameServer.Directory,
+		Kind:          node.InstalledVersionProbeKindMinecraftJar,
+		RelativePaths: candidates,
+	})
+	if errProbe != nil {
+		return "", fmt.Errorf("probe remote minecraft executable candidates: %w", errProbe)
+	}
+	if result.Found && strings.TrimSpace(result.SourcePath) != "" {
+		return strings.TrimSpace(result.SourcePath), nil
+	}
+
+	return fallbackExecutable, nil
+}
+
+func isRemoteRootJarName(name string) bool {
+	if name == "" || strings.Contains(name, "/") || strings.Contains(name, `\`) {
+		return false
+	}
+	cleaned := path.Clean(name)
+	if cleaned != name || cleaned == "." || cleaned == ".." || hasWindowsDrivePrefix(cleaned) {
+		return false
+	}
+	return strings.EqualFold(path.Ext(cleaned), ".jar")
 }

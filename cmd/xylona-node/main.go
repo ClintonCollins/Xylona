@@ -51,7 +51,7 @@ func parseFlags(args []string) (*cliConfig, error) {
 	fs.StringVar(&cfg.controllerURL, "controller-url", "", "base URL of the Xylona controller, e.g. https://xylona.example.com")
 	fs.StringVar(&cfg.joinToken, "join-token", "", "one-time bootstrap pairing token issued by the controller")
 	fs.StringVar(&cfg.listen, "listen", ":9500", "HTTPS listen address for the node service")
-	fs.StringVar(&cfg.advertiseURL, "advertise-url", "", "URL the controller should use to reach this node (defaults to hostname + --listen port)")
+	fs.StringVar(&cfg.advertiseURL, "advertise-url", "", "URL the controller should use to reach this node (defaults to the local address routed to the controller plus the --listen port, then hostname)")
 	fs.StringVar(&cfg.nodeName, "node-name", "", "display name to register with the controller (defaults to OS hostname)")
 	fs.StringVar(&cfg.dataDir, "data-dir", "./xylona-node-data", "directory to store persistent node identity")
 	fs.BoolVar(&cfg.skipInsecureTLS, "skip-insecure-tls", false, "skip TLS certificate verification when sending the bootstrap request (one-shot; only affects --join-token pairing)")
@@ -120,6 +120,7 @@ func run(ctx context.Context, cfg *cliConfig) error {
 	if errSup != nil {
 		return fmt.Errorf("create supervisor: %w", errSup)
 	}
+	supInst.StartMetricsPoller(ctx)
 	// Register built-in internal game installers (e.g. Minecraft) so
 	// StartProcess requests with internal_command=true resolve to a running
 	// Game implementation on this node. The controller does the same from

@@ -145,8 +145,8 @@ func setupLogger(logLevel string) (func(), error) {
 	return cleanup, nil
 }
 
-func setDetectedIPs(db *dbpkg.Connection) error {
-	ips, err := helpers.GetIPs()
+func setDetectedIPs(db *dbpkg.Connection, nodeID string) error {
+	ips, err := helpers.GetBindableIPs()
 	if err != nil {
 		return fmt.Errorf("setDetectedIPs: get IPs: %w", err)
 	}
@@ -158,6 +158,7 @@ func setDetectedIPs(db *dbpkg.Connection) error {
 				Address:            omit.From(ip.String()),
 				External:           omit.From(!ip.IsPrivate()),
 				AutomaticallyAdded: omit.From(true),
+				NodeID:             omit.From(nodeID),
 			})
 			if errUpsertIP != nil && !errors.Is(errUpsertIP, dbpkg.ErrIPConflict) {
 				return fmt.Errorf("setDetectedIPs: upsert IP %s: %w", ip.String(), errUpsertIP)
@@ -525,7 +526,7 @@ func runService() int {
 		return startupFailure(cleanup, ctxCancel, errSchedulerStart, "Failed to start task scheduler")
 	}
 
-	errSetDetectedIPs := setDetectedIPs(dbInst)
+	errSetDetectedIPs := setDetectedIPs(dbInst, settings.NodeID)
 	if errSetDetectedIPs != nil {
 		return startupFailure(cleanup, ctxCancel, errSetDetectedIPs, "Failed to detect startup IPs")
 	}

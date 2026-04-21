@@ -10,6 +10,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/query"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -47,6 +48,120 @@ func getQueryInfoType(game *models.Game) xylona.ServerQuery_Type {
 	return xylona.ServerQuery_Unknown
 }
 
+func defaultServerQuery(gs *models.GameServer, queryType xylona.ServerQuery_Type) *xylona.ServerQuery {
+	out := &xylona.ServerQuery{
+		ServerId:   gs.ID,
+		ServerName: gs.Name,
+		Type:       queryType,
+	}
+	switch queryType {
+	case xylona.ServerQuery_Minecraft:
+		out.Minecraft = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+	case xylona.ServerQuery_Source:
+		out.Source = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+	}
+	return out
+}
+
+func nodeQueryKind(queryType xylona.ServerQuery_Type) node.GameServerQueryKind {
+	switch queryType {
+	case xylona.ServerQuery_Minecraft:
+		return node.GameServerQueryKindMinecraft
+	case xylona.ServerQuery_Source:
+		return node.GameServerQueryKindSource
+	default:
+		return node.GameServerQueryKindUnknown
+	}
+}
+
+func queryResultComplete(result *xylona.ServerQuery) bool {
+	if result == nil {
+		return false
+	}
+	switch result.GetType() {
+	case xylona.ServerQuery_Minecraft:
+		return result.GetMinecraft() != nil
+	case xylona.ServerQuery_Source:
+		return result.GetSource() != nil
+	default:
+		return false
+	}
+}
+
+func serverQueryFromNodeResult(gs *models.GameServer, result node.GameServerQueryResult) *xylona.ServerQuery {
+	out := &xylona.ServerQuery{
+		ServerId:   gs.ID,
+		ServerName: gs.Name,
+		Type:       xylona.ServerQuery_Unknown,
+	}
+	switch result.Kind {
+	case node.GameServerQueryKindMinecraft:
+		out.Type = xylona.ServerQuery_Minecraft
+		if result.Minecraft != nil {
+			out.Minecraft = &xylona.MinecraftQueryInfo{
+				Motd:            result.Minecraft.MOTD,
+				GameType:        result.Minecraft.GameType,
+				Map:             result.Minecraft.Map,
+				NumberOfPlayers: result.Minecraft.NumberOfPlayers,
+				MaxPlayers:      result.Minecraft.MaxPlayers,
+				PlayerList:      append([]string(nil), result.Minecraft.PlayerList...),
+				ProtocolVersion: result.Minecraft.ProtocolVersion,
+				ServerVersion:   result.Minecraft.ServerVersion,
+			}
+		}
+	case node.GameServerQueryKindSource:
+		out.Type = xylona.ServerQuery_Source
+		if result.Source != nil {
+			out.Source = &xylona.SourceQueryInfo{
+				Name:       result.Source.Name,
+				Map:        result.Source.Map,
+				Game:       result.Source.Game,
+				AppId:      result.Source.AppID,
+				SteamId:    result.Source.SteamID,
+				GameId:     result.Source.GameID,
+				Players:    result.Source.Players,
+				MaxPlayers: result.Source.MaxPlayers,
+				Bots:       result.Source.Bots,
+				ServerOs:   result.Source.ServerOS,
+				Visibility: result.Source.Visibility,
+				Vac:        result.Source.VAC,
+				Version:    result.Source.Version,
+				Protocol:   result.Source.Protocol,
+			}
+		}
+	}
+	return out
+}
+
+func (inst *Instance) storeServerQuery(result *xylona.ServerQuery) {
+	inst.serverQueriesMutex.Lock()
+	inst.serverQueriesInfoMap[result.GetServerId()] = result
+	inst.serverQueriesMutex.Unlock()
+}
+
+func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.GameServer, queryType xylona.ServerQuery_Type) *xylona.ServerQuery {
+	client, errClient := inst.resolveNodeClient(gs.NodeID)
+	if errClient != nil {
+		log.Debug().Err(errClient).Str("server", gs.Name).Str("node_id", gs.NodeID).Msg("Failed to resolve node client for game server query")
+		return defaultServerQuery(gs, queryType)
+	}
+	result, errQuery := client.QueryGameServer(ctx, node.GameServerQueryRequest{
+		Kind:       nodeQueryKind(queryType),
+		IP:         gs.IP,
+		QueryPort:  gs.QueryPort,
+		MaxPlayers: gs.MaxPlayers,
+	})
+	if errQuery != nil {
+		log.Debug().Err(errQuery).Str("server", gs.Name).Str("node_id", gs.NodeID).Msg("Failed to query game server through node")
+		return defaultServerQuery(gs, queryType)
+	}
+	serverQuery := serverQueryFromNodeResult(gs, result)
+	if !queryResultComplete(serverQuery) {
+		return defaultServerQuery(gs, queryType)
+	}
+	return serverQuery
+}
+
 func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*models.GameServer) {
 	errGroup, _ := errgroup.WithContext(ctx)
 	errGroup.SetLimit(30)
@@ -60,17 +175,15 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 				if gs.Status == "" {
 					gs.Status = xylona.Status_OFFLINE.String()
 				}
-				switch getQueryInfoType(gs.R.Game) {
+				queryType := getQueryInfoType(gs.R.Game)
+				switch queryType {
 				case xylona.ServerQuery_Minecraft:
 					if gs.Status != xylona.Status_ONLINE.String() {
-						inst.serverQueriesMutex.Lock()
-						inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
-							ServerId:   gs.ID,
-							ServerName: gs.Name,
-							Type:       xylona.ServerQuery_Minecraft,
-							Minecraft:  &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
-						}
-						inst.serverQueriesMutex.Unlock()
+						inst.storeServerQuery(defaultServerQuery(gs, queryType))
+						return
+					}
+					if inst.isRemoteGameServer(gs) {
+						inst.storeServerQuery(inst.queryRemoteGameServer(ctx, gs, queryType))
 						return
 					}
 					info, err := query.Minecraft(gs.IP, int(gs.QueryPort))
@@ -78,25 +191,20 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query minecraft server")
 						info = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
 					}
-					inst.serverQueriesMutex.Lock()
-					inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
+					inst.storeServerQuery(&xylona.ServerQuery{
 						ServerId:   gs.ID,
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Minecraft,
 						Minecraft:  info,
-					}
-					inst.serverQueriesMutex.Unlock()
+					})
 					return
 				case xylona.ServerQuery_Source:
 					if gs.Status != xylona.Status_ONLINE.String() {
-						inst.serverQueriesMutex.Lock()
-						inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
-							ServerId:   gs.ID,
-							ServerName: gs.Name,
-							Type:       xylona.ServerQuery_Source,
-							Source:     &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)},
-						}
-						inst.serverQueriesMutex.Unlock()
+						inst.storeServerQuery(defaultServerQuery(gs, queryType))
+						return
+					}
+					if inst.isRemoteGameServer(gs) {
+						inst.storeServerQuery(inst.queryRemoteGameServer(ctx, gs, queryType))
 						return
 					}
 					info, err := query.Source(gs.IP, int(gs.QueryPort))
@@ -104,14 +212,12 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query source server")
 						info = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
 					}
-					inst.serverQueriesMutex.Lock()
-					inst.serverQueriesInfoMap[gs.ID] = &xylona.ServerQuery{
+					inst.storeServerQuery(&xylona.ServerQuery{
 						ServerId:   gs.ID,
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Source,
 						Source:     info,
-					}
-					inst.serverQueriesMutex.Unlock()
+					})
 					return
 				}
 			})

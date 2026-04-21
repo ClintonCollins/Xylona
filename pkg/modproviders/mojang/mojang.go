@@ -133,6 +133,7 @@ func (p *Provider) GetVersions(ctx context.Context, _ string, gameVersion string
 			GameVersions:  []string{gameVersion},
 			DownloadURL:   details.Downloads.Server.URL,
 			FileSize:      details.Downloads.Server.Size,
+			FileHashSHA1:  details.Downloads.Server.Sha1,
 		},
 	}, nil
 }

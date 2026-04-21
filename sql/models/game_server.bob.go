@@ -70,8 +70,8 @@ type GameServersQuery = *sqlite.ViewQuery[*GameServer, GameServerSlice]
 
 // gameServerR is where relationships are stored.
 type gameServerR struct {
-	Node                       *Node                         // fk_game_server_0
-	IP                         *IP                           // fk_game_server_1
+	IP                         *IP                           // fk_game_server_0
+	Node                       *Node                         // fk_game_server_1
 	Game                       *Game                         // fk_game_server_2
 	User                       *User                         // fk_game_server_3
 	GameServerBackups          GameServerBackupSlice         // fk_game_server_backup_1
@@ -953,6 +953,25 @@ func (o GameServerSlice) ReloadAll(ctx context.Context, exec bob.Executor) error
 	return nil
 }
 
+// IP starts a query for related objects on ip
+func (o *GameServer) RelatedIP(mods ...bob.Mod[*dialect.SelectQuery]) IpsQuery {
+	return Ips.Query(append(mods,
+		sm.Where(Ips.Columns.Address.EQ(sqlite.Arg(o.IP))), sm.Where(Ips.Columns.NodeID.EQ(sqlite.Arg(o.NodeID))),
+	)...)
+}
+
+func (os GameServerSlice) RelatedIP(mods ...bob.Mod[*dialect.SelectQuery]) IpsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.IP, o.NodeID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return Ips.Query(append(mods,
+		sm.Where(sqlite.Group(Ips.Columns.Address, Ips.Columns.NodeID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // Node starts a query for related objects on node
 func (o *GameServer) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery {
 	return Nodes.Query(append(mods,
@@ -969,25 +988,6 @@ func (os GameServerSlice) Node(mods ...bob.Mod[*dialect.SelectQuery]) NodesQuery
 
 	return Nodes.Query(append(mods,
 		sm.Where(sqlite.Group(Nodes.Columns.ID).OP("IN", PKArgExpr)),
-	)...)
-}
-
-// IP starts a query for related objects on ip
-func (o *GameServer) RelatedIP(mods ...bob.Mod[*dialect.SelectQuery]) IpsQuery {
-	return Ips.Query(append(mods,
-		sm.Where(Ips.Columns.Address.EQ(sqlite.Arg(o.IP))),
-	)...)
-}
-
-func (os GameServerSlice) RelatedIP(mods ...bob.Mod[*dialect.SelectQuery]) IpsQuery {
-	PKArgSlice := make([]bob.Expression, len(os))
-	for i, o := range os {
-		PKArgSlice[i] = sqlite.ArgGroup(o.IP)
-	}
-	PKArgExpr := sqlite.Group(PKArgSlice...)
-
-	return Ips.Query(append(mods,
-		sm.Where(sqlite.Group(Ips.Columns.Address).OP("IN", PKArgExpr)),
 	)...)
 }
 
@@ -1124,6 +1124,55 @@ func (os GameServerSlice) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQue
 	)...)
 }
 
+func attachGameServerIP0(ctx context.Context, exec bob.Executor, count int, gameServer0 *GameServer, ip1 *IP) (*GameServer, error) {
+	setter := &GameServerSetter{
+		IP:     omit.From(ip1.Address),
+		NodeID: omit.From(ip1.NodeID),
+	}
+
+	err := gameServer0.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerIP0: %w", err)
+	}
+
+	return gameServer0, nil
+}
+
+func (gameServer0 *GameServer) InsertIP(ctx context.Context, exec bob.Executor, related *IPSetter) error {
+	var err error
+
+	ip1, err := Ips.Insert(related).One(ctx, exec)
+	if err != nil {
+		return fmt.Errorf("inserting related objects: %w", err)
+	}
+
+	_, err = attachGameServerIP0(ctx, exec, 1, gameServer0, ip1)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.IP = ip1
+
+	ip1.R.GameServers = append(ip1.R.GameServers, gameServer0)
+
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachIP(ctx context.Context, exec bob.Executor, ip1 *IP) error {
+	var err error
+
+	_, err = attachGameServerIP0(ctx, exec, 1, gameServer0, ip1)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.IP = ip1
+
+	ip1.R.GameServers = append(ip1.R.GameServers, gameServer0)
+
+	return nil
+}
+
 func attachGameServerNode0(ctx context.Context, exec bob.Executor, count int, gameServer0 *GameServer, node1 *Node) (*GameServer, error) {
 	setter := &GameServerSetter{
 		NodeID: omit.From(node1.ID),
@@ -1168,54 +1217,6 @@ func (gameServer0 *GameServer) AttachNode(ctx context.Context, exec bob.Executor
 	gameServer0.R.Node = node1
 
 	node1.R.GameServers = append(node1.R.GameServers, gameServer0)
-
-	return nil
-}
-
-func attachGameServerIP0(ctx context.Context, exec bob.Executor, count int, gameServer0 *GameServer, ip1 *IP) (*GameServer, error) {
-	setter := &GameServerSetter{
-		IP: omit.From(ip1.Address),
-	}
-
-	err := gameServer0.Update(ctx, exec, setter)
-	if err != nil {
-		return nil, fmt.Errorf("attachGameServerIP0: %w", err)
-	}
-
-	return gameServer0, nil
-}
-
-func (gameServer0 *GameServer) InsertIP(ctx context.Context, exec bob.Executor, related *IPSetter) error {
-	var err error
-
-	ip1, err := Ips.Insert(related).One(ctx, exec)
-	if err != nil {
-		return fmt.Errorf("inserting related objects: %w", err)
-	}
-
-	_, err = attachGameServerIP0(ctx, exec, 1, gameServer0, ip1)
-	if err != nil {
-		return err
-	}
-
-	gameServer0.R.IP = ip1
-
-	ip1.R.GameServers = append(ip1.R.GameServers, gameServer0)
-
-	return nil
-}
-
-func (gameServer0 *GameServer) AttachIP(ctx context.Context, exec bob.Executor, ip1 *IP) error {
-	var err error
-
-	_, err = attachGameServerIP0(ctx, exec, 1, gameServer0, ip1)
-	if err != nil {
-		return err
-	}
-
-	gameServer0.R.IP = ip1
-
-	ip1.R.GameServers = append(ip1.R.GameServers, gameServer0)
 
 	return nil
 }
@@ -1732,18 +1733,6 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
-	case "Node":
-		rel, ok := retrieved.(*Node)
-		if !ok {
-			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
-		}
-
-		o.R.Node = rel
-
-		if rel != nil {
-			rel.R.GameServers = GameServerSlice{o}
-		}
-		return nil
 	case "IP":
 		rel, ok := retrieved.(*IP)
 		if !ok {
@@ -1751,6 +1740,18 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 		}
 
 		o.R.IP = rel
+
+		if rel != nil {
+			rel.R.GameServers = GameServerSlice{o}
+		}
+		return nil
+	case "Node":
+		rel, ok := retrieved.(*Node)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.Node = rel
 
 		if rel != nil {
 			rel.R.GameServers = GameServerSlice{o}
@@ -1856,14 +1857,27 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 }
 
 type gameServerPreloader struct {
-	Node func(...sqlite.PreloadOption) sqlite.Preloader
 	IP   func(...sqlite.PreloadOption) sqlite.Preloader
+	Node func(...sqlite.PreloadOption) sqlite.Preloader
 	Game func(...sqlite.PreloadOption) sqlite.Preloader
 	User func(...sqlite.PreloadOption) sqlite.Preloader
 }
 
 func buildGameServerPreloader() gameServerPreloader {
 	return gameServerPreloader{
+		IP: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*IP, IPSlice](sqlite.PreloadRel{
+				Name: "IP",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        GameServers,
+						To:          Ips,
+						FromColumns: []string{"ip", "node_id"},
+						ToColumns:   []string{"address", "node_id"},
+					},
+				},
+			}, Ips.Columns.Names(), opts...)
+		},
 		Node: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
 			return sqlite.Preload[*Node, NodeSlice](sqlite.PreloadRel{
 				Name: "Node",
@@ -1876,19 +1890,6 @@ func buildGameServerPreloader() gameServerPreloader {
 					},
 				},
 			}, Nodes.Columns.Names(), opts...)
-		},
-		IP: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
-			return sqlite.Preload[*IP, IPSlice](sqlite.PreloadRel{
-				Name: "IP",
-				Sides: []sqlite.PreloadSide{
-					{
-						From:        GameServers,
-						To:          Ips,
-						FromColumns: []string{"ip"},
-						ToColumns:   []string{"address"},
-					},
-				},
-			}, Ips.Columns.Names(), opts...)
 		},
 		Game: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
 			return sqlite.Preload[*Game, GameSlice](sqlite.PreloadRel{
@@ -1920,8 +1921,8 @@ func buildGameServerPreloader() gameServerPreloader {
 }
 
 type gameServerThenLoader[Q orm.Loadable] struct {
-	Node                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	IP                         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	Node                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Game                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	User                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerBackups          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1932,11 +1933,11 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 }
 
 func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
-	type NodeLoadInterface interface {
-		LoadNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
-	}
 	type IPLoadInterface interface {
 		LoadIP(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type NodeLoadInterface interface {
+		LoadNode(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type GameLoadInterface interface {
 		LoadGame(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1961,16 +1962,16 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 
 	return gameServerThenLoader[Q]{
-		Node: thenLoadBuilder[Q](
-			"Node",
-			func(ctx context.Context, exec bob.Executor, retrieved NodeLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
-				return retrieved.LoadNode(ctx, exec, mods...)
-			},
-		),
 		IP: thenLoadBuilder[Q](
 			"IP",
 			func(ctx context.Context, exec bob.Executor, retrieved IPLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadIP(ctx, exec, mods...)
+			},
+		),
+		Node: thenLoadBuilder[Q](
+			"Node",
+			func(ctx context.Context, exec bob.Executor, retrieved NodeLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadNode(ctx, exec, mods...)
 			},
 		),
 		Game: thenLoadBuilder[Q](
@@ -2018,6 +2019,62 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 }
 
+// LoadIP loads the gameServer's IP into the .R struct
+func (o *GameServer) LoadIP(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.IP = nil
+
+	related, err := o.RelatedIP(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.GameServers = GameServerSlice{o}
+
+	o.R.IP = related
+	return nil
+}
+
+// LoadIP loads the gameServer's IP into the .R struct
+func (os GameServerSlice) LoadIP(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	ips, err := os.RelatedIP(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range ips {
+
+			if !(o.IP == rel.Address) {
+				continue
+			}
+
+			if !(o.NodeID == rel.NodeID) {
+				continue
+			}
+
+			rel.R.GameServers = append(rel.R.GameServers, o)
+
+			o.R.IP = rel
+			break
+		}
+	}
+
+	return nil
+}
+
 // LoadNode loads the gameServer's Node into the .R struct
 func (o *GameServer) LoadNode(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2063,58 +2120,6 @@ func (os GameServerSlice) LoadNode(ctx context.Context, exec bob.Executor, mods 
 			rel.R.GameServers = append(rel.R.GameServers, o)
 
 			o.R.Node = rel
-			break
-		}
-	}
-
-	return nil
-}
-
-// LoadIP loads the gameServer's IP into the .R struct
-func (o *GameServer) LoadIP(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if o == nil {
-		return nil
-	}
-
-	// Reset the relationship
-	o.R.IP = nil
-
-	related, err := o.RelatedIP(mods...).One(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	related.R.GameServers = GameServerSlice{o}
-
-	o.R.IP = related
-	return nil
-}
-
-// LoadIP loads the gameServer's IP into the .R struct
-func (os GameServerSlice) LoadIP(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
-	if len(os) == 0 {
-		return nil
-	}
-
-	ips, err := os.RelatedIP(mods...).All(ctx, exec)
-	if err != nil {
-		return err
-	}
-
-	for _, o := range os {
-		if o == nil {
-			continue
-		}
-
-		for _, rel := range ips {
-
-			if !(o.IP == rel.Address) {
-				continue
-			}
-
-			rel.R.GameServers = append(rel.R.GameServers, o)
-
-			o.R.IP = rel
 			break
 		}
 	}
@@ -2536,8 +2541,8 @@ func (os GameServerSlice) LoadUserRoleAssignments(ctx context.Context, exec bob.
 
 type gameServerJoins[Q dialect.Joinable] struct {
 	typ                        string
-	Node                       modAs[Q, nodeColumns]
 	IP                         modAs[Q, ipColumns]
+	Node                       modAs[Q, nodeColumns]
 	Game                       modAs[Q, gameColumns]
 	User                       modAs[Q, userColumns]
 	GameServerBackups          modAs[Q, gameServerBackupColumns]
@@ -2554,6 +2559,20 @@ func (j gameServerJoins[Q]) aliasedAs(alias string) gameServerJoins[Q] {
 func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string) gameServerJoins[Q] {
 	return gameServerJoins[Q]{
 		typ: typ,
+		IP: modAs[Q, ipColumns]{
+			c: Ips.Columns,
+			f: func(to ipColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, Ips.Name().As(to.Alias())).On(
+						to.Address.EQ(cols.IP), to.NodeID.EQ(cols.NodeID),
+					))
+				}
+
+				return mods
+			},
+		},
 		Node: modAs[Q, nodeColumns]{
 			c: Nodes.Columns,
 			f: func(to nodeColumns) bob.Mod[Q] {
@@ -2562,20 +2581,6 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 				{
 					mods = append(mods, dialect.Join[Q](typ, Nodes.Name().As(to.Alias())).On(
 						to.ID.EQ(cols.NodeID),
-					))
-				}
-
-				return mods
-			},
-		},
-		IP: modAs[Q, ipColumns]{
-			c: Ips.Columns,
-			f: func(to ipColumns) bob.Mod[Q] {
-				mods := make(mods.QueryMods[Q], 0, 1)
-
-				{
-					mods = append(mods, dialect.Join[Q](typ, Ips.Name().As(to.Alias())).On(
-						to.Address.EQ(cols.IP),
 					))
 				}
 

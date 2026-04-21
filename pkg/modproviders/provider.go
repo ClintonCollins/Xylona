@@ -82,13 +82,15 @@ type ModDetails struct {
 
 // ModVersion represents a specific version of a mod.
 type ModVersion struct {
-	VersionID     string
-	VersionString string
-	GameVersions  []string
-	DownloadURL   string
-	FileSize      int64
-	Dependencies  []ModDependency
-	Changelog     string
+	VersionID      string
+	VersionString  string
+	GameVersions   []string
+	DownloadURL    string
+	FileSize       int64
+	FileHashSHA256 string
+	FileHashSHA1   string
+	Dependencies   []ModDependency
+	Changelog      string
 }
 
 // ModDependency represents a mod dependency.

@@ -2,6 +2,7 @@ package actions
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -127,7 +129,7 @@ func (inst *Instance) ImportUploadedBackup(
 	uploadedArchivePath string,
 	originalFilename string,
 ) (*models.GameServerBackup, error) {
-	backupDirectory, errValidate := validateBackupCreateSettings(gameServer)
+	backupDirectory, errValidate := inst.validateBackupCreateSettings(gameServer)
 	if errValidate != nil {
 		return nil, errValidate
 	}
@@ -149,9 +151,9 @@ func (inst *Instance) ImportUploadedBackup(
 	}
 
 	now := backupNowFunc().UTC()
-	archivePath, errArchivePath := resolveUniqueBackupArchivePath(
+	archivePath, errArchivePath := inst.resolveUniqueBackupArchivePath(
+		gameServer,
 		backupDirectory,
-		gameServer.ID,
 		now,
 		"manual",
 		archiveBaseName,
@@ -159,17 +161,11 @@ func (inst *Instance) ImportUploadedBackup(
 	if errArchivePath != nil {
 		return nil, fmt.Errorf("actions: resolve imported backup archive path: %w", errArchivePath)
 	}
-	if archiveBaseName != "" {
+	if archiveBaseName != "" && !inst.isRemoteGameServer(gameServer) {
 		errEnsurePath := ensureBackupArchivePathAvailable(inst.db, gameServer.ID, archivePath)
 		if errEnsurePath != nil {
 			return nil, errEnsurePath
 		}
-	}
-
-	parentDir := filepath.Dir(archivePath)
-	errMkdir := os.MkdirAll(parentDir, 0o750)
-	if errMkdir != nil {
-		return nil, fmt.Errorf("actions: create imported backup directory: %w", errMkdir)
 	}
 
 	archiveInfo, errStat := os.Stat(uploadedArchivePath)
@@ -177,9 +173,9 @@ func (inst *Instance) ImportUploadedBackup(
 		return nil, fmt.Errorf("actions: stat uploaded backup archive: %w", errStat)
 	}
 
-	errMove := moveUploadedBackupArchive(uploadedArchivePath, archivePath)
-	if errMove != nil {
-		return nil, fmt.Errorf("actions: move uploaded backup archive: %w", errMove)
+	errStore := inst.storeUploadedBackupArchive(gameServer, uploadedArchivePath, archivePath)
+	if errStore != nil {
+		return nil, errStore
 	}
 
 	completedAt := now
@@ -198,8 +194,8 @@ func (inst *Instance) ImportUploadedBackup(
 		CompletedAt:     &completedAt,
 	})
 	if errCreateRow != nil {
-		errRemoveArchive := os.Remove(archivePath)
-		if errRemoveArchive != nil && !errors.Is(errRemoveArchive, os.ErrNotExist) {
+		errRemoveArchive := inst.removeBackupArchive(gameServer, archivePath)
+		if errRemoveArchive != nil {
 			return nil, errors.Join(
 				fmt.Errorf("actions: create imported backup row: %w", errCreateRow),
 				fmt.Errorf("actions: remove imported backup archive after row failure: %w", errRemoveArchive),
@@ -209,6 +205,172 @@ func (inst *Instance) ImportUploadedBackup(
 	}
 
 	return backup, nil
+}
+
+// ImportUploadedBackupBytes validates and imports an uploaded zip archive already held in memory.
+func (inst *Instance) ImportUploadedBackupBytes(
+	gameServer *models.GameServer,
+	createdBy string,
+	uploadedArchive []byte,
+	originalFilename string,
+) (*models.GameServerBackup, error) {
+	backupDirectory, errValidate := inst.validateBackupCreateSettings(gameServer)
+	if errValidate != nil {
+		return nil, errValidate
+	}
+
+	fileExtension := filepath.Ext(strings.TrimSpace(originalFilename))
+	if !strings.EqualFold(fileExtension, ".zip") {
+		return nil, errUnsupportedBackupArchive
+	}
+
+	errValidateArchive := validateUploadedBackupArchiveBytes(uploadedArchive)
+	if errValidateArchive != nil {
+		return nil, errValidateArchive
+	}
+
+	archiveBaseName := strings.TrimSpace(strings.TrimSuffix(filepath.Base(originalFilename), fileExtension))
+	errValidateName := ValidateManualBackupName(archiveBaseName)
+	if errValidateName != nil {
+		archiveBaseName = ""
+	}
+
+	now := backupNowFunc().UTC()
+	archivePath, errArchivePath := inst.resolveUniqueBackupArchivePath(
+		gameServer,
+		backupDirectory,
+		now,
+		"manual",
+		archiveBaseName,
+	)
+	if errArchivePath != nil {
+		return nil, fmt.Errorf("actions: resolve imported backup archive path: %w", errArchivePath)
+	}
+
+	errStore := inst.storeUploadedBackupArchiveBytes(gameServer, uploadedArchive, archivePath)
+	if errStore != nil {
+		return nil, errStore
+	}
+
+	completedAt := now
+	backup, errCreateRow := createGameServerBackupRow(inst.db, db.CreateGameServerBackupParams{
+		GameServerID:    gameServer.ID,
+		NodeID:          gameServer.NodeID,
+		CreatedBy:       createdBy,
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveRoot:     backupDirectory,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       int64(len(uploadedArchive)),
+		RetentionExempt: true,
+		CreatedAt:       now,
+		CompletedAt:     &completedAt,
+	})
+	if errCreateRow != nil {
+		errRemoveArchive := inst.removeBackupArchive(gameServer, archivePath)
+		if errRemoveArchive != nil {
+			return nil, errors.Join(
+				fmt.Errorf("actions: create imported backup row: %w", errCreateRow),
+				fmt.Errorf("actions: remove imported backup archive after row failure: %w", errRemoveArchive),
+			)
+		}
+		return nil, fmt.Errorf("actions: create imported backup row: %w", errCreateRow)
+	}
+
+	return backup, nil
+}
+
+func (inst *Instance) storeUploadedBackupArchive(gameServer *models.GameServer, uploadedArchivePath string, archivePath string) error {
+	if inst.isRemoteGameServer(gameServer) {
+		return inst.storeUploadedBackupArchiveRemote(gameServer, uploadedArchivePath, archivePath)
+	}
+
+	parentDir := filepath.Dir(archivePath)
+	errMkdir := os.MkdirAll(parentDir, 0o750)
+	if errMkdir != nil {
+		return fmt.Errorf("actions: create imported backup directory: %w", errMkdir)
+	}
+
+	errMove := moveUploadedBackupArchive(uploadedArchivePath, archivePath)
+	if errMove != nil {
+		return fmt.Errorf("actions: move uploaded backup archive: %w", errMove)
+	}
+	return nil
+}
+
+func (inst *Instance) storeUploadedBackupArchiveBytes(gameServer *models.GameServer, archiveBytes []byte, archivePath string) error {
+	if inst.isRemoteGameServer(gameServer) {
+		return inst.storeUploadedBackupArchiveRemoteBytes(gameServer, archiveBytes, archivePath)
+	}
+	return errors.New("actions: byte-based uploaded backup import is only supported for remote game servers")
+}
+
+func (inst *Instance) storeUploadedBackupArchiveRemote(gameServer *models.GameServer, uploadedArchivePath string, archivePath string) error {
+	archiveFile, errOpen := os.Open(uploadedArchivePath)
+	if errOpen != nil {
+		return fmt.Errorf("actions: open uploaded backup archive for remote import: %w", errOpen)
+	}
+
+	errStore := inst.storeUploadedBackupArchiveRemoteReader(gameServer, archiveFile, archivePath)
+	errClose := archiveFile.Close()
+	if errStore != nil {
+		if errClose != nil {
+			return errors.Join(errStore, fmt.Errorf("actions: close uploaded backup archive after remote import: %w", errClose))
+		}
+		return errStore
+	}
+	if errClose != nil {
+		return fmt.Errorf("actions: close uploaded backup archive after remote import: %w", errClose)
+	}
+
+	errRemove := os.Remove(uploadedArchivePath)
+	if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+		return fmt.Errorf("actions: remove uploaded backup archive after remote import: %w", errRemove)
+	}
+	return nil
+}
+
+func (inst *Instance) storeUploadedBackupArchiveRemoteBytes(gameServer *models.GameServer, archiveBytes []byte, archivePath string) error {
+	return inst.storeUploadedBackupArchiveRemoteReader(gameServer, bytes.NewReader(archiveBytes), archivePath)
+}
+
+func (inst *Instance) storeUploadedBackupArchiveRemoteReader(gameServer *models.GameServer, archiveReader io.Reader, archivePath string) error {
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return fmt.Errorf("actions: resolve node client for uploaded backup import: %w", errClient)
+	}
+
+	archiveDir := remotePathDir(archivePath)
+	errCreateDir := client.CreateFileOrDirectory(inst.ctx, gameServer.BackupDirectory, gameServer.ID, "", true, node.ProtectionPolicy{})
+	if errCreateDir != nil {
+		return fmt.Errorf("actions: create remote imported backup directory: %w", errCreateDir)
+	}
+
+	archiveName := remotePathBase(archivePath)
+	entries, errList := client.ListFiles(inst.ctx, archiveDir, "")
+	if errList != nil {
+		return fmt.Errorf("actions: list remote imported backup directory: %w", errList)
+	}
+	for _, entry := range entries {
+		if strings.EqualFold(entry.Name, archiveName) {
+			return ErrManualBackupNameAlreadyExists
+		}
+	}
+
+	_, errWrite := client.StreamWriteFile(inst.ctx, archiveDir, archiveName, archiveReader, node.ProtectionPolicy{})
+	if errWrite != nil {
+		errDelete := inst.removeBackupArchive(gameServer, archivePath)
+		if errDelete != nil {
+			return errors.Join(
+				fmt.Errorf("actions: write remote imported backup archive: %w", errWrite),
+				fmt.Errorf("actions: remove partial remote imported backup archive: %w", errDelete),
+			)
+		}
+		return fmt.Errorf("actions: write remote imported backup archive: %w", errWrite)
+	}
+
+	return nil
 }
 
 // CreateScheduledBackup writes a zip archive and prunes older scheduled artifacts beyond retention.
@@ -281,13 +443,13 @@ func (inst *Instance) DeleteGameServerBackup(gameServer *models.GameServer, back
 		<-backupDone
 	}
 
-	archivePath, errArchivePath := resolveValidatedBackupArchivePath(gameServer, backup)
+	archivePath, errArchivePath := inst.resolveValidatedBackupArchivePath(gameServer, backup)
 	if errArchivePath != nil {
 		return errArchivePath
 	}
 
-	errRemoveArchive := os.Remove(archivePath)
-	if errRemoveArchive != nil && !errors.Is(errRemoveArchive, os.ErrNotExist) {
+	errRemoveArchive := inst.removeBackupArchive(gameServer, archivePath)
+	if errRemoveArchive != nil {
 		return fmt.Errorf("actions: remove backup archive before deleting backup row: %w", errRemoveArchive)
 	}
 
@@ -299,6 +461,43 @@ func (inst *Instance) DeleteGameServerBackup(gameServer *models.GameServer, back
 	return nil
 }
 
+func (inst *Instance) removeBackupArchive(gameServer *models.GameServer, archivePath string) error {
+	if inst.isRemoteGameServer(gameServer) {
+		client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+		if errClient != nil {
+			return fmt.Errorf("actions: resolve node client for backup archive removal: %w", errClient)
+		}
+
+		archiveDir := remotePathDir(archivePath)
+		archiveName := remotePathBase(archivePath)
+		deleted, errDelete := client.DeleteFiles(inst.ctx, archiveDir, []string{archiveName}, node.ProtectionPolicy{})
+		if errDelete != nil {
+			return fmt.Errorf("actions: delete remote backup archive: %w", errDelete)
+		}
+		if !slices.Contains(deleted, archiveName) {
+			return fmt.Errorf("actions: delete remote backup archive: node did not confirm deletion of %q", archiveName)
+		}
+		return nil
+	}
+
+	errRemoveArchive := os.Remove(archivePath)
+	if errRemoveArchive != nil && !errors.Is(errRemoveArchive, os.ErrNotExist) {
+		return fmt.Errorf("actions: remove local backup archive: %w", errRemoveArchive)
+	}
+	return nil
+}
+
+func (inst *Instance) isRemoteGameServer(gameServer *models.GameServer) bool {
+	if inst == nil || gameServer == nil || inst.nodeRegistry == nil {
+		return false
+	}
+	selfID := inst.nodeRegistry.SelfID()
+	if selfID == "" {
+		return false
+	}
+	return gameServer.NodeID != selfID
+}
+
 func (inst *Instance) prepareBackup(
 	gameServer *models.GameServer,
 	triggerSource string,
@@ -306,18 +505,18 @@ func (inst *Instance) prepareBackup(
 	retentionExempt bool,
 	backupName string,
 ) (*models.GameServerBackup, error) {
-	backupDirectory, errValidate := validateBackupCreateSettings(gameServer)
+	backupDirectory, errValidate := inst.validateBackupCreateSettings(gameServer)
 	if errValidate != nil {
 		return nil, errValidate
 	}
 
 	now := backupNowFunc().UTC()
-	archivePath, errPath := resolveUniqueBackupArchivePath(backupDirectory, gameServer.ID, now, triggerSource, backupName)
+	archivePath, errPath := inst.resolveUniqueBackupArchivePath(gameServer, backupDirectory, now, triggerSource, backupName)
 	if errPath != nil {
 		return nil, fmt.Errorf("actions: resolve backup archive path: %w", errPath)
 	}
 	trimmedBackupName := strings.TrimSpace(backupName)
-	if trimmedBackupName != "" {
+	if trimmedBackupName != "" && !inst.isRemoteGameServer(gameServer) {
 		errEnsurePath := ensureBackupArchivePathAvailable(inst.db, gameServer.ID, archivePath)
 		if errEnsurePath != nil {
 			return nil, errEnsurePath
@@ -389,15 +588,18 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 		"Preparing backup archive",
 	)
 
-	parentDir := filepath.Dir(backup.ArchivePath)
-	errMkdir := os.MkdirAll(parentDir, 0o750)
-	if errMkdir != nil {
-		return nil, inst.failBackupCreate(
-			backup,
-			gameServer.ID,
-			gameServer.Name,
-			fmt.Errorf("actions: create backup directory: %w", errMkdir),
-		)
+	if !inst.isRemoteGameServer(gameServer) {
+		parentDir := filepath.Dir(backup.ArchivePath)
+		errMkdir := os.MkdirAll(parentDir, 0o750)
+		if errMkdir != nil {
+			return nil, inst.failBackupCreate(
+				gameServer,
+				backup,
+				gameServer.ID,
+				gameServer.Name,
+				fmt.Errorf("actions: create backup directory: %w", errMkdir),
+			)
+		}
 	}
 
 	inst.broadcastBackupProgress(
@@ -421,7 +623,7 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 		if errors.Is(errArchive, errBackupCreateCancelled) {
 			return nil, errBackupCreateCancelled
 		}
-		return nil, inst.failBackupCreate(backup, gameServer.ID, gameServer.Name, errArchive)
+		return nil, inst.failBackupCreate(gameServer, backup, gameServer.ID, gameServer.Name, errArchive)
 	}
 	progressReporter.Close(sizeBytes)
 
@@ -433,7 +635,7 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 		CompletedAt:  &completedAt,
 	})
 	if errUpdate != nil {
-		return nil, inst.handleBackupFinalizationFailure(backup, gameServer.ID, gameServer.Name, errUpdate)
+		return nil, inst.handleBackupFinalizationFailure(gameServer, backup, gameServer.ID, gameServer.Name, errUpdate)
 	}
 
 	return updatedBackup, nil
@@ -458,7 +660,7 @@ func (inst *Instance) RestoreGameServerBackup(
 		return fmt.Errorf("actions: backup does not belong to game server %s", gameServer.ID)
 	}
 
-	archivePath, errArchivePath := resolveValidatedBackupArchivePath(gameServer, backup)
+	archivePath, errArchivePath := inst.resolveValidatedBackupArchivePath(gameServer, backup)
 	if errArchivePath != nil {
 		return errArchivePath
 	}
@@ -469,14 +671,10 @@ func (inst *Instance) RestoreGameServerBackup(
 		return errUnsupportedBackupArchive
 	}
 
-	// Route remote-node restores through NodeClient so the work happens on
-	// the node that owns the filesystem. Local-node restores continue to use
-	// the staging-based flow below to preserve the existing permission and
-	// symlink handling rules covered by the test suite.
 	if inst.nodeRegistry != nil {
-		selfID := inst.nodeRegistry.SelfID()
-		if selfID != "" && gameServer.NodeID != selfID {
-			return inst.restoreRemoteBackupArchive(gameServer, backup, archivePath, restoreMode)
+		_, errGetClient := inst.nodeRegistry.Get(gameServer.NodeID)
+		if errGetClient == nil || inst.isRemoteGameServer(gameServer) {
+			return inst.restoreBackupArchiveWithNodeClient(gameServer, backup, archivePath, restoreMode)
 		}
 	}
 
@@ -580,14 +778,12 @@ func (inst *Instance) RestoreGameServerBackup(
 	return nil
 }
 
-// restoreRemoteBackupArchive streams the controller-side archive to the
-// owning node and asks it to extract in place via NodeClient.ExtractBackupArchive.
-// Progress broadcasts match the local path so the UI renders the same three
-// phases regardless of node placement.
-func (inst *Instance) restoreRemoteBackupArchive(
+// restoreBackupArchiveWithNodeClient asks the owning node to extract its
+// node-local archive in place via NodeClient.ExtractBackupArchive.
+func (inst *Instance) restoreBackupArchiveWithNodeClient(
 	gameServer *models.GameServer,
 	backup *models.GameServerBackup,
-	controllerArchivePath string,
+	archivePath string,
 	restoreMode xylona.BackupRestoreMode,
 ) error {
 	inst.broadcastBackupProgress(
@@ -601,7 +797,11 @@ func (inst *Instance) restoreRemoteBackupArchive(
 		"Preparing backup restore",
 	)
 
-	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if inst.nodeRegistry == nil {
+		return errors.New("actions: node registry unavailable for backup restore")
+	}
+
+	client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
 	if errClient != nil {
 		inst.broadcastBackupProgress(
 			gameServer.ID,
@@ -616,31 +816,6 @@ func (inst *Instance) restoreRemoteBackupArchive(
 		return fmt.Errorf("actions: resolve node client for restore: %w", errClient)
 	}
 
-	// Read the archive off the controller's filesystem. It already lives in
-	// the controller's managed backup directory, validated by
-	// resolveValidatedBackupArchivePath above.
-	// #nosec G304 -- controllerArchivePath is validated against the managed backup directory.
-	archiveBytes, errRead := os.ReadFile(controllerArchivePath)
-	if errRead != nil {
-		inst.broadcastBackupProgress(
-			gameServer.ID,
-			gameServer.Name,
-			backup.ID,
-			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
-			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
-			100,
-			backup.SizeBytes,
-			"Restore failed",
-		)
-		return fmt.Errorf("actions: read controller-side backup archive: %w", errRead)
-	}
-
-	// Upload to a node-side temp location next to the game server directory
-	// (same layout as remote backup creation).
-	remoteArchivePath := buildRemoteBackupTempPath(gameServer, controllerArchivePath)
-	remoteDir := path.Dir(filepath.ToSlash(remoteArchivePath))
-	remoteName := path.Base(filepath.ToSlash(remoteArchivePath))
-
 	inst.broadcastBackupProgress(
 		gameServer.ID,
 		gameServer.Name,
@@ -649,31 +824,8 @@ func (inst *Instance) restoreRemoteBackupArchive(
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_STAGING,
 		45,
 		backup.SizeBytes,
-		"Uploading backup archive",
+		"Loading backup archive",
 	)
-	errWrite := client.WriteFile(inst.ctx, remoteDir, remoteName, archiveBytes, node.ProtectionPolicy{})
-	if errWrite != nil {
-		inst.broadcastBackupProgress(
-			gameServer.ID,
-			gameServer.Name,
-			backup.ID,
-			xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_RESTORE,
-			xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
-			100,
-			backup.SizeBytes,
-			"Restore failed",
-		)
-		return fmt.Errorf("actions: upload remote backup archive: %w", errWrite)
-	}
-	defer func() {
-		_, errDelete := client.DeleteFiles(inst.ctx, remoteDir, []string{remoteName}, node.ProtectionPolicy{})
-		if errDelete != nil {
-			log.Warn().Err(errDelete).
-				Str("node_id", gameServer.NodeID).
-				Str("remote_path", remoteArchivePath).
-				Msg("actions: cleanup temp remote restore archive failed")
-		}
-	}()
 
 	inst.broadcastBackupProgress(
 		gameServer.ID,
@@ -685,7 +837,7 @@ func (inst *Instance) restoreRemoteBackupArchive(
 		backup.SizeBytes,
 		"Applying backup contents",
 	)
-	errExtract := client.ExtractBackupArchive(inst.ctx, gameServer.Directory, remoteArchivePath, backupRestoreModeToExtractMode(restoreMode))
+	errExtract := client.ExtractBackupArchive(inst.ctx, gameServer.Directory, archivePath, backupRestoreModeToExtractMode(restoreMode))
 	if errExtract != nil {
 		inst.broadcastBackupProgress(
 			gameServer.ID,
@@ -745,11 +897,20 @@ func ValidateGameServerBackupDirectory(gameServer *models.GameServer) error {
 	return errValidate
 }
 
-func validateBackupCreateSettings(gameServer *models.GameServer) (string, error) {
+// ValidateRemoteGameServerBackupDirectory checks a node-native backup directory
+// without applying controller-host filepath semantics.
+func ValidateRemoteGameServerBackupDirectory(gameServer *models.GameServer) error {
+	_, errValidate := resolveValidRemoteGameServerBackupDirectory(gameServer)
+	return errValidate
+}
+
+func (inst *Instance) validateBackupCreateSettings(gameServer *models.GameServer) (string, error) {
 	if !gameServer.BackupsEnabled {
 		return "", errBackupsDisabled
 	}
-
+	if inst.isRemoteGameServer(gameServer) {
+		return resolveValidRemoteGameServerBackupDirectory(gameServer)
+	}
 	return resolveValidGameServerBackupDirectory(gameServer)
 }
 
@@ -766,6 +927,18 @@ func validateBackupRestoreSettings(inst *Instance, gameServer *models.GameServer
 
 // ResolveManagedBackupArchivePath resolves and validates a backup archive path for callers outside this package.
 func ResolveManagedBackupArchivePath(gameServer *models.GameServer, backup *models.GameServerBackup) (string, error) {
+	return resolveValidatedBackupArchivePath(gameServer, backup)
+}
+
+// ResolveManagedRemoteBackupArchivePath resolves and validates a node-native backup archive path.
+func ResolveManagedRemoteBackupArchivePath(gameServer *models.GameServer, backup *models.GameServerBackup) (string, error) {
+	return resolveValidatedRemoteBackupArchivePath(gameServer, backup)
+}
+
+func (inst *Instance) resolveValidatedBackupArchivePath(gameServer *models.GameServer, backup *models.GameServerBackup) (string, error) {
+	if inst.isRemoteGameServer(gameServer) {
+		return resolveValidatedRemoteBackupArchivePath(gameServer, backup)
+	}
 	return resolveValidatedBackupArchivePath(gameServer, backup)
 }
 
@@ -799,7 +972,35 @@ func resolveValidatedBackupArchivePath(gameServer *models.GameServer, backup *mo
 		return "", errBackupDirectoryInsideServer
 	}
 
-	return resolvedArchivePath, nil
+	return strings.TrimSpace(backup.ArchivePath), nil
+}
+
+func resolveValidatedRemoteBackupArchivePath(gameServer *models.GameServer, backup *models.GameServerBackup) (string, error) {
+	if backup == nil {
+		return "", errInvalidBackupArchivePath
+	}
+	if backup.NodeID != gameServer.NodeID {
+		return "", errBackupNodeMismatch
+	}
+
+	archivePath := strings.TrimSpace(backup.ArchivePath)
+	archiveRoot := strings.TrimSpace(backup.ArchiveRoot)
+	if archivePath == "" || archiveRoot == "" {
+		return "", errInvalidBackupArchivePath
+	}
+	if !strings.EqualFold(path.Ext(strings.ReplaceAll(archivePath, `\`, "/")), ".zip") {
+		return "", errInvalidBackupArchivePath
+	}
+
+	archiveDirectory := buildBackupArchiveDirectory(archiveRoot, gameServer.ID)
+	if !remotePathWithinOrEqual(archiveDirectory, archivePath) {
+		return "", errInvalidBackupArchivePath
+	}
+	if remotePathWithinOrEqual(gameServer.Directory, archiveDirectory) {
+		return "", errBackupDirectoryInsideServer
+	}
+
+	return archivePath, nil
 }
 
 func resolveValidGameServerBackupDirectory(gameServer *models.GameServer) (string, error) {
@@ -809,6 +1010,19 @@ func resolveValidGameServerBackupDirectory(gameServer *models.GameServer) (strin
 	}
 	archiveDirectory := buildBackupArchiveDirectory(backupDirectory, gameServer.ID)
 	if backupDirectoryWithinGameServer(gameServer.Directory, archiveDirectory) {
+		return "", errBackupDirectoryInsideServer
+	}
+
+	return backupDirectory, nil
+}
+
+func resolveValidRemoteGameServerBackupDirectory(gameServer *models.GameServer) (string, error) {
+	backupDirectory := strings.TrimSpace(gameServer.BackupDirectory)
+	if backupDirectory == "" {
+		return "", errBackupDirectoryNotConfigured
+	}
+	archiveDirectory := buildBackupArchiveDirectory(backupDirectory, gameServer.ID)
+	if remotePathWithinOrEqual(gameServer.Directory, archiveDirectory) {
 		return "", errBackupDirectoryInsideServer
 	}
 
@@ -838,7 +1052,7 @@ func buildBackupArchivePath(
 		return "", errFileName
 	}
 
-	return filepath.Join(buildBackupArchiveDirectory(backupDirectory, gameServerID), fileName), nil
+	return joinRemotePath(buildBackupArchiveDirectory(backupDirectory, gameServerID), fileName), nil
 }
 
 func buildBackupArchiveFileName(now time.Time, triggerSource string, backupName string) (string, error) {
@@ -859,7 +1073,7 @@ func buildBackupArchiveFileName(now time.Time, triggerSource string, backupName 
 }
 
 func buildBackupArchiveDirectory(backupDirectory string, gameServerID string) string {
-	return filepath.Join(backupDirectory, gameServerID)
+	return joinRemotePath(backupDirectory, gameServerID)
 }
 
 func resolveUniqueBackupArchivePath(
@@ -885,14 +1099,14 @@ func resolveUniqueBackupArchivePath(
 		return "", ErrManualBackupNameAlreadyExists
 	}
 
-	baseDirectory := filepath.Dir(basePath)
-	baseName := strings.TrimSuffix(filepath.Base(basePath), ".zip")
+	baseDirectory := remotePathDir(basePath)
+	baseName := strings.TrimSuffix(remotePathBase(basePath), ".zip")
 
 	for suffix := range maxBackupArchiveResolveAttempts {
 		candidatePath := basePath
 		if suffix > 0 {
 			fileName := fmt.Sprintf("%s-%d.zip", baseName, suffix)
-			candidatePath = filepath.Join(baseDirectory, fileName)
+			candidatePath = joinRemotePath(baseDirectory, fileName)
 		}
 
 		_, errStat := os.Stat(candidatePath)
@@ -901,6 +1115,60 @@ func resolveUniqueBackupArchivePath(
 		}
 		if errStat != nil {
 			return "", fmt.Errorf("stat backup archive candidate: %w", errStat)
+		}
+	}
+
+	return "", fmt.Errorf("exhausted backup archive path candidates after %d attempts", maxBackupArchiveResolveAttempts)
+}
+
+func (inst *Instance) resolveUniqueBackupArchivePath(
+	gameServer *models.GameServer,
+	backupDirectory string,
+	now time.Time,
+	triggerSource string,
+	backupName string,
+) (string, error) {
+	if inst.isRemoteGameServer(gameServer) {
+		return resolveUniqueRemoteBackupArchivePath(inst.db, backupDirectory, gameServer.ID, now, triggerSource, backupName)
+	}
+	return resolveUniqueBackupArchivePath(backupDirectory, gameServer.ID, now, triggerSource, backupName)
+}
+
+func resolveUniqueRemoteBackupArchivePath(
+	conn *db.Connection,
+	backupDirectory string,
+	gameServerID string,
+	now time.Time,
+	triggerSource string,
+	backupName string,
+) (string, error) {
+	basePath, errBasePath := buildBackupArchivePath(backupDirectory, gameServerID, now, triggerSource, backupName)
+	if errBasePath != nil {
+		return "", errBasePath
+	}
+
+	backups, errList := listGameServerBackupsByGameServerID(conn, gameServerID)
+	if errList != nil {
+		return "", fmt.Errorf("actions: list backups while checking remote archive path: %w", errList)
+	}
+
+	if strings.TrimSpace(backupName) != "" {
+		if remoteBackupArchivePathClaimed(backups, basePath) {
+			return "", ErrManualBackupNameAlreadyExists
+		}
+		return basePath, nil
+	}
+
+	baseDirectory := remotePathDir(basePath)
+	baseName := strings.TrimSuffix(remotePathBase(basePath), ".zip")
+	for suffix := range maxBackupArchiveResolveAttempts {
+		candidatePath := basePath
+		if suffix > 0 {
+			fileName := fmt.Sprintf("%s-%d.zip", baseName, suffix)
+			candidatePath = joinRemotePath(baseDirectory, fileName)
+		}
+		if !remoteBackupArchivePathClaimed(backups, candidatePath) {
+			return candidatePath, nil
 		}
 	}
 
@@ -941,6 +1209,29 @@ func backupArchivePathClaimed(backups []*models.GameServerBackup, archivePath st
 		if errExistingPath != nil {
 			resolvedExistingPath = filepath.Clean(strings.TrimSpace(backup.ArchivePath))
 		}
+		if strings.EqualFold(resolvedArchivePath, resolvedExistingPath) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func remoteBackupArchivePathClaimed(backups []*models.GameServerBackup, archivePath string) bool {
+	if len(backups) == 0 {
+		return false
+	}
+
+	resolvedArchivePath := normalizeRemoteComparablePath(archivePath)
+	for _, backup := range backups {
+		if backup == nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(backup.Status), "failed") {
+			continue
+		}
+
+		resolvedExistingPath := normalizeRemoteComparablePath(backup.ArchivePath)
 		if strings.EqualFold(resolvedArchivePath, resolvedExistingPath) {
 			return true
 		}
@@ -1024,6 +1315,46 @@ func validateUploadedBackupArchive(uploadedArchivePath string) error {
 	return nil
 }
 
+func validateUploadedBackupArchiveBytes(uploadedArchive []byte) error {
+	reader := bytes.NewReader(uploadedArchive)
+	archiveReader, errOpen := zip.NewReader(reader, int64(len(uploadedArchive)))
+	if errOpen != nil {
+		return errInvalidUploadedBackupArchive
+	}
+	return validateUploadedBackupArchiveFiles(archiveReader.File)
+}
+
+func validateUploadedBackupArchiveFiles(files []*zip.File) error {
+	for _, file := range files {
+		_, errValidate := validateBackupZipEntryPath(file.Name)
+		if errValidate != nil {
+			return errInvalidUploadedBackupArchive
+		}
+		if file.UncompressedSize64 > uint64(maxBackupExtractEntrySizeBytes) {
+			return errInvalidUploadedBackupArchive
+		}
+
+		fileInfo := file.FileInfo()
+		if fileInfo.IsDir() {
+			continue
+		}
+
+		archiveFile, errOpenFile := file.Open()
+		if errOpenFile != nil {
+			return errInvalidUploadedBackupArchive
+		}
+
+		limitedArchiveReader := io.LimitReader(archiveFile, maxBackupExtractEntrySizeBytes+1)
+		bytesCopied, errCopy := io.Copy(io.Discard, limitedArchiveReader)
+		errCloseArchiveFile := archiveFile.Close()
+		if bytesCopied > maxBackupExtractEntrySizeBytes || errCopy != nil || errCloseArchiveFile != nil {
+			return errInvalidUploadedBackupArchive
+		}
+	}
+
+	return nil
+}
+
 func isAllowedManualBackupNameRune(currentRune rune) bool {
 	switch {
 	case currentRune >= 'a' && currentRune <= 'z':
@@ -1060,10 +1391,9 @@ func isWindowsReservedArchiveBaseName(name string) bool {
 
 type backupArchiveCancelFunc func() error
 
-// produceBackupArchive routes archive creation by node: the controller's
-// embedded node uses the direct filesystem walker; remote nodes drive the
-// node's CreateBackupArchive RPC and pull the bytes back to the controller's
-// backup directory.
+// produceBackupArchive routes archive creation through the owning node when a
+// NodeClient is registered. The filesystem writer remains a compatibility
+// fallback for tests or startup paths without a node registry.
 func (inst *Instance) produceBackupArchive(
 	ctx context.Context,
 	gameServer *models.GameServer,
@@ -1072,80 +1402,101 @@ func (inst *Instance) produceBackupArchive(
 	checkCancel backupArchiveCancelFunc,
 ) (int64, error) {
 	if inst.nodeRegistry != nil {
-		selfID := inst.nodeRegistry.SelfID()
-		if selfID != "" && gameServer.NodeID != selfID {
-			return inst.produceRemoteBackupArchive(ctx, gameServer, controllerArchivePath, onProgress)
+		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
+		if errGet == nil {
+			return inst.produceBackupArchiveWithNodeClient(ctx, client, gameServer, controllerArchivePath, onProgress)
+		}
+		if inst.isRemoteGameServer(gameServer) {
+			return 0, fmt.Errorf("actions: resolve node client for backup: %w", errGet)
 		}
 	}
 	return writeBackupArchiveFunc(gameServer.Directory, controllerArchivePath, onProgress, checkCancel)
 }
 
-// produceRemoteBackupArchive creates the archive on the owning node, reads
-// the bytes back via NodeClient.ReadFile, writes them to the controller's
-// managed backup directory, and deletes the temporary remote copy.
-func (inst *Instance) produceRemoteBackupArchive(
+// produceBackupArchiveWithNodeClient creates and stores the archive on the owning node.
+func (inst *Instance) produceBackupArchiveWithNodeClient(
 	ctx context.Context,
+	client nodeclient.NodeClient,
 	gameServer *models.GameServer,
-	controllerArchivePath string,
+	archivePath string,
 	onProgress backupArchiveProgressFunc,
 ) (int64, error) {
-	client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
-	if errGet != nil {
-		return 0, fmt.Errorf("actions: resolve node client for backup: %w", errGet)
-	}
-
-	remoteArchivePath := buildRemoteBackupTempPath(gameServer, controllerArchivePath)
-
-	_, _, errArchive := client.CreateBackupArchive(ctx, gameServer.Directory, nil, remoteArchivePath)
+	archiveBytes, _, errArchive := client.CreateBackupArchive(ctx, gameServer.Directory, nil, archivePath)
 	if errArchive != nil {
-		return 0, fmt.Errorf("actions: remote create backup archive: %w", errArchive)
-	}
-
-	// Pull the archive bytes back and write into the controller's managed
-	// backup path.
-	remoteDir := path.Dir(filepath.ToSlash(remoteArchivePath))
-	remoteName := path.Base(filepath.ToSlash(remoteArchivePath))
-	payload, errRead := client.ReadFile(ctx, remoteDir, remoteName)
-	if errRead != nil {
-		// Best-effort cleanup of the remote archive; ignore errors since we
-		// already failed to fetch it.
-		_, _ = client.DeleteFiles(ctx, remoteDir, []string{remoteName}, node.ProtectionPolicy{})
-		return 0, fmt.Errorf("actions: fetch remote backup archive: %w", errRead)
-	}
-
-	// Write payload to controller's backup path (parent dir is already
-	// ensured to exist by executeBackupCreate's MkdirAll).
-	errWrite := os.WriteFile(controllerArchivePath, payload, 0o600)
-	if errWrite != nil {
-		_, _ = client.DeleteFiles(ctx, remoteDir, []string{remoteName}, node.ProtectionPolicy{})
-		return 0, fmt.Errorf("actions: write controller-side backup archive: %w", errWrite)
+		return 0, fmt.Errorf("actions: create backup archive on node: %w", errArchive)
 	}
 
 	if onProgress != nil {
-		onProgress(int64(len(payload)))
+		onProgress(archiveBytes)
 	}
-
-	// Remove the temporary remote copy now that the controller has its own.
-	_, errDelete := client.DeleteFiles(ctx, remoteDir, []string{remoteName}, node.ProtectionPolicy{})
-	if errDelete != nil {
-		log.Warn().
-			Err(errDelete).
-			Str("node_id", gameServer.NodeID).
-			Str("remote_path", remoteArchivePath).
-			Msg("failed to delete remote backup archive after pull")
-	}
-	return int64(len(payload)), nil
+	return archiveBytes, nil
 }
 
-// buildRemoteBackupTempPath picks a node-side absolute path the node can
-// create the archive at. It mirrors the controller's archive name under the
-// parent of the game-server directory so the node writes alongside the game
-// tree rather than in the controller's backup dir (which may not exist on
-// the node).
-func buildRemoteBackupTempPath(gameServer *models.GameServer, controllerArchivePath string) string {
-	archiveName := filepath.Base(controllerArchivePath)
-	gameParent := filepath.Dir(gameServer.Directory)
-	return filepath.Join(gameParent, archiveName+".remote-tmp")
+func joinRemotePath(directory string, name string) string {
+	separator := remotePathSeparator(directory)
+	trimmedDirectory := strings.TrimRight(directory, `/\`)
+	if trimmedDirectory == "" {
+		return separator + name
+	}
+	return trimmedDirectory + separator + name
+}
+
+func remotePathSeparator(directory string) string {
+	hasBackslash := strings.Contains(directory, `\`)
+	hasSlash := strings.Contains(directory, "/")
+	if hasBackslash && !hasSlash {
+		return `\`
+	}
+	return "/"
+}
+
+func remotePathBase(pathValue string) string {
+	trimmedPath := strings.TrimRight(pathValue, `/\`)
+	index := strings.LastIndexAny(trimmedPath, `/\`)
+	if index < 0 {
+		return trimmedPath
+	}
+	return trimmedPath[index+1:]
+}
+
+func remotePathDir(pathValue string) string {
+	trimmedPath := strings.TrimRight(pathValue, `/\`)
+	index := strings.LastIndexAny(trimmedPath, `/\`)
+	if index < 0 {
+		return "."
+	}
+	if index == 0 {
+		return trimmedPath[:1]
+	}
+	return trimmedPath[:index]
+}
+
+func remotePathWithinOrEqual(parentPath string, candidatePath string) bool {
+	parent := normalizeRemoteComparablePath(parentPath)
+	candidate := normalizeRemoteComparablePath(candidatePath)
+	if parent == "" || candidate == "" {
+		return false
+	}
+	if strings.EqualFold(parent, candidate) {
+		return true
+	}
+	prefix := parent
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	return strings.HasPrefix(strings.ToLower(candidate), strings.ToLower(prefix))
+}
+
+func normalizeRemoteComparablePath(pathValue string) string {
+	slashPath := strings.ReplaceAll(strings.TrimSpace(pathValue), `\`, "/")
+	cleanPath := path.Clean(slashPath)
+	if cleanPath == "." {
+		return ""
+	}
+	if cleanPath != "/" {
+		cleanPath = strings.TrimRight(cleanPath, "/")
+	}
+	return cleanPath
 }
 
 func writeBackupArchive(serverDirectory string, archivePath string, onProgress backupArchiveProgressFunc, checkCancel backupArchiveCancelFunc) (int64, error) {
@@ -2285,6 +2636,7 @@ func (inst *Instance) pruneScheduledBackups(gameServer *models.GameServer, keepC
 }
 
 func (inst *Instance) handleBackupFinalizationFailure(
+	gameServer *models.GameServer,
 	backup *models.GameServerBackup,
 	gameServerID string,
 	gameServerName string,
@@ -2292,8 +2644,8 @@ func (inst *Instance) handleBackupFinalizationFailure(
 ) error {
 	terminalErr := fmt.Errorf("actions: finalize backup row after archive write: %w", finalizeErr)
 
-	errRemoveArchive := os.Remove(backup.ArchivePath)
-	if errRemoveArchive != nil && !errors.Is(errRemoveArchive, os.ErrNotExist) {
+	errRemoveArchive := inst.removeBackupArchive(gameServer, backup.ArchivePath)
+	if errRemoveArchive != nil {
 		log.Error().
 			Err(errRemoveArchive).
 			Str("backup_id", backup.ID).
@@ -2350,6 +2702,7 @@ func (inst *Instance) handleBackupFinalizationFailure(
 }
 
 func (inst *Instance) failBackupCreate(
+	gameServer *models.GameServer,
 	backup *models.GameServerBackup,
 	gameServerID string,
 	gameServerName string,
@@ -2373,8 +2726,8 @@ func (inst *Instance) failBackupCreate(
 	}
 
 	if !errors.Is(cause, fs.ErrExist) {
-		errRemove := os.Remove(backup.ArchivePath)
-		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+		errRemove := inst.removeBackupArchive(gameServer, backup.ArchivePath)
+		if errRemove != nil {
 			log.Error().
 				Err(errRemove).
 				Str("backup_id", backup.ID).

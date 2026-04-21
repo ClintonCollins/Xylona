@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -31,6 +34,8 @@ var (
 	ErrModNotFound = errors.New("modmanager: installed mod not found")
 	// ErrNoFilesDownloaded is returned when a provider download produces no files.
 	ErrNoFilesDownloaded = errors.New("modmanager: provider returned no downloaded files")
+	// ErrRemoteDownloadURLMissing is returned when a remote install/update cannot resolve a node-downloadable artifact URL.
+	ErrRemoteDownloadURLMissing = errors.New("modmanager: provider did not expose a remote download URL")
 )
 
 // ModManager coordinates between mod providers, the database, and the filesystem.
@@ -41,6 +46,23 @@ type ModManager struct {
 type fileMove struct {
 	source string
 	target string
+}
+
+// RemoteFileClient is the subset of nodeclient.NodeClient needed for remote
+// mod artifact work. Keeping this narrow lets tests use small fakes while the
+// RPC/actions layers pass their existing node clients.
+type RemoteFileClient interface {
+	CreateFileOrDirectory(ctx context.Context, directory, relativePath, content string, isDirectory bool, policy node.ProtectionPolicy) error
+	DeleteFiles(ctx context.Context, directory string, files []string, policy node.ProtectionPolicy) ([]string, error)
+	DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, integrity node.DownloadIntegrity, policy node.ProtectionPolicy) (node.DownloadFileResult, error)
+	MoveFiles(ctx context.Context, directory string, files []string, destination string, policy node.ProtectionPolicy) ([]string, error)
+	RenameFile(ctx context.Context, directory, oldRelativePath, newRelativePath string, policy node.ProtectionPolicy) (string, error)
+}
+
+type remoteDownloadPlan struct {
+	details       *modproviders.ModDetails
+	version       modproviders.ModVersion
+	versionString string
 }
 
 // New creates a new ModManager.
@@ -72,10 +94,10 @@ func createDownloadStagingDir(targetDir string) (string, error) {
 	return stagingDir, nil
 }
 
-func logRemoveAllError(path string, purpose string) {
-	errRemoveAll := os.RemoveAll(path)
+func logRemoveAllError(removePath string, purpose string) {
+	errRemoveAll := os.RemoveAll(removePath)
 	if errRemoveAll != nil {
-		log.Warn().Err(errRemoveAll).Str("path", path).Msg(purpose)
+		log.Warn().Err(errRemoveAll).Str("path", removePath).Msg(purpose)
 	}
 }
 
@@ -144,6 +166,209 @@ func relativeInstalledModPath(installSubdir string, filePath string) (string, er
 	}
 
 	return relativePath, nil
+}
+
+func cleanRemotePath(value string) string {
+	slashPath := strings.ReplaceAll(strings.TrimSpace(value), `\`, "/")
+	slashPath = strings.TrimPrefix(slashPath, "/")
+	cleaned := path.Clean(slashPath)
+	if cleaned == "." {
+		return ""
+	}
+	return cleaned
+}
+
+func joinRemotePath(parts ...string) string {
+	cleanedParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		cleaned := cleanRemotePath(part)
+		if cleaned != "" {
+			cleanedParts = append(cleanedParts, cleaned)
+		}
+	}
+	if len(cleanedParts) == 0 {
+		return ""
+	}
+	return path.Join(cleanedParts...)
+}
+
+func remoteFileName(filePath string) string {
+	return path.Base(cleanRemotePath(filePath))
+}
+
+func remoteInstalledModPath(installSubdir string, filePath string) string {
+	cleanInstallSubdir := cleanRemotePath(installSubdir)
+	cleanFilePath := cleanRemotePath(filePath)
+	if cleanInstallSubdir == "" {
+		return cleanFilePath
+	}
+
+	prefix := cleanInstallSubdir + "/"
+	relativePath, hasPrefix := strings.CutPrefix(cleanFilePath, prefix)
+	if hasPrefix {
+		return relativePath
+	}
+	return remoteFileName(cleanFilePath)
+}
+
+func newRemoteScratchDir(installPath string, prefix string) string {
+	return joinRemotePath(installPath, prefix+uuid.NewString())
+}
+
+func logRemoteDeleteError(ctx context.Context, client RemoteFileClient, directory string, files []string, purpose string) {
+	_, errDelete := client.DeleteFiles(ctx, directory, files, node.ProtectionPolicy{})
+	if errDelete != nil {
+		log.Warn().Err(errDelete).Strs("paths", files).Msg(purpose)
+	}
+}
+
+func cleanupRemotePromotedFiles(ctx context.Context, client RemoteFileClient, directory string, moves []fileMove) error {
+	var cleanupErr error
+	for i := len(moves) - 1; i >= 0; i-- {
+		_, errDelete := client.DeleteFiles(ctx, directory, []string{moves[i].target}, node.ProtectionPolicy{})
+		if errDelete != nil && cleanupErr == nil {
+			cleanupErr = fmt.Errorf("remove promoted remote file %s: %w", moves[i].target, errDelete)
+		}
+	}
+	return cleanupErr
+}
+
+func restoreRemoteMovedFiles(ctx context.Context, client RemoteFileClient, directory string, moves []fileMove) error {
+	var restoreErr error
+	for i := len(moves) - 1; i >= 0; i-- {
+		move := moves[i]
+		parent := path.Dir(move.target)
+		if parent != "." && parent != "" {
+			errMkdir := client.CreateFileOrDirectory(ctx, directory, parent, "", true, node.ProtectionPolicy{})
+			if errMkdir != nil {
+				if restoreErr == nil {
+					restoreErr = fmt.Errorf("create remote restore directory: %w", errMkdir)
+				}
+				continue
+			}
+		}
+
+		_, errRename := client.RenameFile(ctx, directory, move.source, move.target, node.ProtectionPolicy{})
+		if errRename != nil && restoreErr == nil {
+			restoreErr = fmt.Errorf("restore remote file %s: %w", move.target, errRename)
+		}
+	}
+	return restoreErr
+}
+
+func moveRemoteExistingFilesToRollback(
+	ctx context.Context,
+	client RemoteFileClient,
+	serverDir string,
+	installSubdir string,
+	oldFiles []*models.InstalledModFile,
+	rollbackDir string,
+) ([]fileMove, error) {
+	rollbackMoves := make([]fileMove, 0, len(oldFiles))
+	for _, installedFile := range oldFiles {
+		sourcePath := cleanRemotePath(installedFile.FilePath)
+		relativePath := remoteInstalledModPath(installSubdir, sourcePath)
+		targetPath := joinRemotePath(rollbackDir, relativePath)
+		parent := path.Dir(targetPath)
+		if parent != "." && parent != "" {
+			errMkdir := client.CreateFileOrDirectory(ctx, serverDir, parent, "", true, node.ProtectionPolicy{})
+			if errMkdir != nil {
+				errRestore := restoreRemoteMovedFiles(ctx, client, serverDir, rollbackMoves)
+				if errRestore != nil {
+					return nil, fmt.Errorf("modmanager: create remote rollback directory: %w; restore rollback files: %s", errMkdir, errRestore.Error())
+				}
+				return nil, fmt.Errorf("modmanager: create remote rollback directory: %w", errMkdir)
+			}
+		}
+
+		_, errRename := client.RenameFile(ctx, serverDir, sourcePath, targetPath, node.ProtectionPolicy{})
+		if errRename != nil {
+			errRestore := restoreRemoteMovedFiles(ctx, client, serverDir, rollbackMoves)
+			if errRestore != nil {
+				return nil, fmt.Errorf("modmanager: move remote existing file to rollback %s: %w; restore rollback files: %s", sourcePath, errRename, errRestore.Error())
+			}
+			return nil, fmt.Errorf("modmanager: move remote existing file to rollback %s: %w", sourcePath, errRename)
+		}
+
+		rollbackMoves = append(rollbackMoves, fileMove{
+			source: targetPath,
+			target: sourcePath,
+		})
+	}
+	return rollbackMoves, nil
+}
+
+func buildRemoteDownloadPlan(ctx context.Context, provider modproviders.ModProvider, sourceID string, versionID string) (*remoteDownloadPlan, error) {
+	details, errDetails := provider.GetModDetails(ctx, sourceID, nil)
+	if errDetails != nil {
+		return nil, fmt.Errorf("modmanager: get mod details failed: %w", errDetails)
+	}
+	if details == nil {
+		return nil, errors.New("modmanager: provider returned nil mod details")
+	}
+
+	versionString := versionID
+	targetVersion := modproviders.ModVersion{
+		VersionID:     versionID,
+		VersionString: versionID,
+	}
+	for _, version := range details.Versions {
+		if version.VersionID == versionID {
+			targetVersion = version
+			if version.VersionString != "" {
+				versionString = version.VersionString
+			}
+			break
+		}
+	}
+	if strings.TrimSpace(targetVersion.DownloadURL) == "" {
+		return nil, fmt.Errorf("%w: %s/%s", ErrRemoteDownloadURLMissing, provider.ID(), versionID)
+	}
+	if !remoteDownloadIntegrity(targetVersion).HasExpectedMetadata() {
+		return nil, fmt.Errorf("%w: %s/%s", modproviders.ErrMissingIntegrityMetadata, provider.ID(), versionID)
+	}
+
+	return &remoteDownloadPlan{
+		details:       details,
+		version:       targetVersion,
+		versionString: versionString,
+	}, nil
+}
+
+func remoteDownloadIntegrity(version modproviders.ModVersion) node.DownloadIntegrity {
+	return node.DownloadIntegrity{
+		ExpectedSize:   version.FileSize,
+		ExpectedSHA256: version.FileHashSHA256,
+		ExpectedSHA1:   version.FileHashSHA1,
+	}
+}
+
+func verifiedRemoteDownloadHash(version modproviders.ModVersion, result node.DownloadFileResult) string {
+	if strings.TrimSpace(version.FileHashSHA256) != "" {
+		return strings.TrimSpace(version.FileHashSHA256)
+	}
+	return strings.TrimSpace(result.SHA256)
+}
+
+func verifiedRemoteDownloadSize(version modproviders.ModVersion, result node.DownloadFileResult) int64 {
+	if version.FileSize > 0 {
+		return version.FileSize
+	}
+	return result.BytesWritten
+}
+
+func primaryHashFromDownloaded(downloaded []modproviders.DownloadedFile) string {
+	primaryHash := ""
+	for _, f := range downloaded {
+		if f.IsPrimary {
+			primaryHash = f.Hash
+			break
+		}
+	}
+	if primaryHash == "" && len(downloaded) > 0 {
+		primaryHash = downloaded[0].Hash
+	}
+	return primaryHash
 }
 
 func moveExistingFilesToRollback(serverDir string, installSubdir string, oldFiles []*models.InstalledModFile, rollbackDir string) ([]fileMove, error) {
@@ -259,17 +484,7 @@ func (m *ModManager) Install(
 		}
 	}
 
-	// Find the primary file hash.
-	primaryHash := ""
-	for _, f := range downloaded {
-		if f.IsPrimary {
-			primaryHash = f.Hash
-			break
-		}
-	}
-	if primaryHash == "" && len(downloaded) > 0 {
-		primaryHash = downloaded[0].Hash
-	}
+	primaryHash := primaryHashFromDownloaded(downloaded)
 
 	now := time.Now().UTC()
 	modID := uuid.NewString()
@@ -342,6 +557,124 @@ func (m *ModManager) Install(
 	return mod, nil
 }
 
+// InstallRemote downloads a mod through a node client and creates DB records.
+func (m *ModManager) InstallRemote(
+	ctx context.Context,
+	client RemoteFileClient,
+	serverID, source, sourceID, versionID, serverDir, installPath string,
+) (*models.InstalledMod, error) {
+	provider, ok := modproviders.GetProvider(source)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrProviderNotFound, source)
+	}
+
+	plan, errPlan := buildRemoteDownloadPlan(ctx, provider, sourceID, versionID)
+	if errPlan != nil {
+		return nil, errPlan
+	}
+
+	cleanInstallPath := cleanRemotePath(installPath)
+	errCreateInstall := client.CreateFileOrDirectory(ctx, serverDir, cleanInstallPath, "", true, node.ProtectionPolicy{})
+	if errCreateInstall != nil {
+		return nil, fmt.Errorf("modmanager: create remote install directory: %w", errCreateInstall)
+	}
+
+	stagingDir := newRemoteScratchDir(cleanInstallPath, ".xylona-download-")
+	errCreateStaging := client.CreateFileOrDirectory(ctx, serverDir, stagingDir, "", true, node.ProtectionPolicy{})
+	if errCreateStaging != nil {
+		return nil, fmt.Errorf("modmanager: create remote staging directory: %w", errCreateStaging)
+	}
+	defer func() {
+		logRemoteDeleteError(ctx, client, serverDir, []string{stagingDir}, "Failed to remove remote mod install staging directory")
+	}()
+
+	downloadResult, errDownload := client.DownloadFileFromURL(ctx, serverDir, plan.version.DownloadURL, stagingDir, remoteDownloadIntegrity(plan.version), node.ProtectionPolicy{})
+	if errDownload != nil {
+		return nil, fmt.Errorf("modmanager: remote download failed: %w", errDownload)
+	}
+	downloadedPath := downloadResult.RelativePath
+
+	targetPath := joinRemotePath(cleanInstallPath, remoteFileName(downloadedPath))
+	_, errPromote := client.RenameFile(ctx, serverDir, downloadedPath, targetPath, node.ProtectionPolicy{})
+	if errPromote != nil {
+		return nil, fmt.Errorf("modmanager: promote remote staged file %s: %w", targetPath, errPromote)
+	}
+	promotedMoves := []fileMove{{source: downloadedPath, target: targetPath}}
+
+	now := time.Now().UTC()
+	modID := uuid.NewString()
+	downloadHash := verifiedRemoteDownloadHash(plan.version, downloadResult)
+	downloadSize := verifiedRemoteDownloadSize(plan.version, downloadResult)
+
+	t, errTx := m.db.SQLDb.BeginTx(ctx, nil)
+	if errTx != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		if errCleanup != nil {
+			return nil, fmt.Errorf("modmanager: begin transaction: %w; cleanup promoted files: %s", errTx, errCleanup.Error())
+		}
+		return nil, fmt.Errorf("modmanager: begin transaction: %w", errTx)
+	}
+	tx := bob.NewTx(t)
+
+	defer func() {
+		logRollbackError(tx.Rollback(ctx), "Failed to rollback remote mod install transaction")
+	}()
+
+	modSetter := &models.InstalledModSetter{
+		ID:                 omit.From(modID),
+		GameServerID:       omit.From(serverID),
+		Source:             omit.From(source),
+		SourceID:           omit.From(sourceID),
+		ModName:            omit.From(plan.details.Name),
+		ModAuthor:          omit.From(plan.details.Author),
+		InstalledVersion:   omit.From(plan.versionString),
+		InstalledVersionID: omit.From(versionID),
+		FileHash:           omit.From(downloadHash),
+		AutoUpdate:         omit.From(int64(0)),
+		Enabled:            omit.From(int64(1)),
+		CreatedAt:          omit.From(now),
+		UpdatedAt:          omit.From(now),
+	}
+
+	mod, errInsert := m.db.InsertInstalledMod(tx, modSetter)
+	if errInsert != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		if errCleanup != nil {
+			return nil, fmt.Errorf("modmanager: insert mod: %w; cleanup promoted files: %s", errInsert, errCleanup.Error())
+		}
+		return nil, fmt.Errorf("modmanager: insert mod: %w", errInsert)
+	}
+
+	fileSetter := &models.InstalledModFileSetter{
+		ID:             omit.From(uuid.NewString()),
+		InstalledModID: omit.From(modID),
+		FilePath:       omit.From(targetPath),
+		FileHash:       omit.From(downloadHash),
+		FileSize:       omit.From(downloadSize),
+		IsPrimary:      omit.From(int64(1)),
+	}
+
+	_, errInsertFile := m.db.InsertInstalledModFile(tx, fileSetter)
+	if errInsertFile != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		if errCleanup != nil {
+			return nil, fmt.Errorf("modmanager: insert mod file: %w; cleanup promoted files: %s", errInsertFile, errCleanup.Error())
+		}
+		return nil, fmt.Errorf("modmanager: insert mod file: %w", errInsertFile)
+	}
+
+	errCommit := tx.Commit(ctx)
+	if errCommit != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		if errCleanup != nil {
+			return nil, fmt.Errorf("modmanager: commit transaction: %w; cleanup promoted files: %s", errCommit, errCleanup.Error())
+		}
+		return nil, fmt.Errorf("modmanager: commit transaction: %w", errCommit)
+	}
+
+	return mod, nil
+}
+
 // Uninstall removes mod files from disk and deletes DB records.
 func (m *ModManager) Uninstall(_ context.Context, modID, serverDir string) error {
 	mod, errGet := m.db.GetInstalledModByID(modID)
@@ -360,6 +693,41 @@ func (m *ModManager) Uninstall(_ context.Context, modID, serverDir string) error
 		if errRemove != nil && !os.IsNotExist(errRemove) {
 			log.Warn().Err(errRemove).Str("path", fullPath).Msg("Failed to remove mod file")
 		}
+	}
+
+	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(m.db.DB, mod.ID)
+	if errDeleteFiles != nil {
+		return fmt.Errorf("modmanager: delete mod files: %w", errDeleteFiles)
+	}
+
+	errDelete := m.db.DeleteInstalledModByID(mod.ID)
+	if errDelete != nil {
+		return fmt.Errorf("modmanager: delete mod: %w", errDelete)
+	}
+
+	return nil
+}
+
+// UninstallRemote removes mod files through a node client and deletes DB records.
+func (m *ModManager) UninstallRemote(ctx context.Context, client RemoteFileClient, modID, serverDir string) error {
+	mod, errGet := m.db.GetInstalledModByID(modID)
+	if errGet != nil {
+		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
+	}
+
+	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)
+	if errFiles != nil {
+		return fmt.Errorf("modmanager: get mod files: %w", errFiles)
+	}
+
+	remoteFiles := make([]string, 0, len(files))
+	for _, f := range files {
+		remoteFiles = append(remoteFiles, cleanRemotePath(f.FilePath))
+	}
+
+	_, errDeleteRemote := client.DeleteFiles(ctx, serverDir, remoteFiles, node.ProtectionPolicy{})
+	if errDeleteRemote != nil {
+		return fmt.Errorf("modmanager: delete remote mod files: %w", errDeleteRemote)
 	}
 
 	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(m.db.DB, mod.ID)
@@ -448,16 +816,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		}
 	}
 
-	primaryHash := ""
-	for _, f := range downloaded {
-		if f.IsPrimary {
-			primaryHash = f.Hash
-			break
-		}
-	}
-	if primaryHash == "" && len(downloaded) > 0 {
-		primaryHash = downloaded[0].Hash
-	}
+	primaryHash := primaryHashFromDownloaded(downloaded)
 
 	// Wrap all DB mutations in a transaction so a partial failure does not leave
 	// the database in an inconsistent state.
@@ -548,6 +907,176 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 	// Re-fetch after commit so the returned record reflects the committed values.
 	// Reading inside the transaction via UpdateInstalledMod would see pre-commit
 	// state from the connection pool's read path.
+	updated, errRefetch := m.db.GetInstalledModByID(mod.ID)
+	if errRefetch != nil {
+		return nil, fmt.Errorf("modmanager: re-fetch updated mod: %w", errRefetch)
+	}
+
+	return updated, nil
+}
+
+// UpdateRemote downloads a new version through a node client and replaces files.
+func (m *ModManager) UpdateRemote(ctx context.Context, client RemoteFileClient, modID, versionID, serverDir string) (*models.InstalledMod, error) {
+	mod, errGet := m.db.GetInstalledModByID(modID)
+	if errGet != nil {
+		return nil, fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
+	}
+
+	provider, ok := modproviders.GetProvider(mod.Source)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrProviderNotFound, mod.Source)
+	}
+
+	oldFiles, errOldFiles := m.db.GetInstalledModFilesByModID(mod.ID)
+	if errOldFiles != nil {
+		return nil, fmt.Errorf("modmanager: get old files: %w", errOldFiles)
+	}
+
+	installSubdir := ""
+	if len(oldFiles) > 0 {
+		installSubdir = path.Dir(cleanRemotePath(oldFiles[0].FilePath))
+		if installSubdir == "." {
+			installSubdir = ""
+		}
+	}
+
+	plan, errPlan := buildRemoteDownloadPlan(ctx, provider, mod.SourceID, versionID)
+	if errPlan != nil {
+		return nil, errPlan
+	}
+
+	stagingDir := newRemoteScratchDir(installSubdir, ".xylona-download-")
+	errCreateStaging := client.CreateFileOrDirectory(ctx, serverDir, stagingDir, "", true, node.ProtectionPolicy{})
+	if errCreateStaging != nil {
+		return nil, fmt.Errorf("modmanager: create remote staging directory: %w", errCreateStaging)
+	}
+	defer func() {
+		logRemoteDeleteError(ctx, client, serverDir, []string{stagingDir}, "Failed to remove remote mod update staging directory")
+	}()
+
+	downloadResult, errDownload := client.DownloadFileFromURL(ctx, serverDir, plan.version.DownloadURL, stagingDir, remoteDownloadIntegrity(plan.version), node.ProtectionPolicy{})
+	if errDownload != nil {
+		return nil, fmt.Errorf("modmanager: remote download update: %w", errDownload)
+	}
+	downloadedPath := downloadResult.RelativePath
+	downloadHash := verifiedRemoteDownloadHash(plan.version, downloadResult)
+	downloadSize := verifiedRemoteDownloadSize(plan.version, downloadResult)
+
+	rollbackDir := newRemoteScratchDir(installSubdir, ".xylona-rollback-")
+	errCreateRollback := client.CreateFileOrDirectory(ctx, serverDir, rollbackDir, "", true, node.ProtectionPolicy{})
+	if errCreateRollback != nil {
+		return nil, fmt.Errorf("modmanager: create remote rollback directory: %w", errCreateRollback)
+	}
+	defer func() {
+		logRemoteDeleteError(ctx, client, serverDir, []string{rollbackDir}, "Failed to remove remote mod update rollback directory")
+	}()
+
+	rollbackMoves, errRollbackMoves := moveRemoteExistingFilesToRollback(ctx, client, serverDir, installSubdir, oldFiles, rollbackDir)
+	if errRollbackMoves != nil {
+		return nil, errRollbackMoves
+	}
+
+	targetPath := joinRemotePath(installSubdir, remoteFileName(downloadedPath))
+	_, errPromote := client.RenameFile(ctx, serverDir, downloadedPath, targetPath, node.ProtectionPolicy{})
+	if errPromote != nil {
+		errRestore := restoreRemoteMovedFiles(ctx, client, serverDir, rollbackMoves)
+		if errRestore != nil {
+			return nil, fmt.Errorf("modmanager: promote remote staged file %s: %w; restore old files: %s", targetPath, errPromote, errRestore.Error())
+		}
+		return nil, fmt.Errorf("modmanager: promote remote staged file %s: %w", targetPath, errPromote)
+	}
+	promotedMoves := []fileMove{{source: downloadedPath, target: targetPath}}
+
+	t, errTx := m.db.SQLDb.BeginTx(ctx, nil)
+	if errTx != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		errRestore := restoreRemoteMovedFiles(ctx, client, serverDir, rollbackMoves)
+		if errCleanup != nil || errRestore != nil {
+			return nil, errors.Join(
+				fmt.Errorf("modmanager: begin update transaction: %w", errTx),
+				errCleanup,
+				errRestore,
+			)
+		}
+		return nil, fmt.Errorf("modmanager: begin update transaction: %w", errTx)
+	}
+	tx := bob.NewTx(t)
+
+	defer func() {
+		logRollbackError(tx.Rollback(ctx), "Failed to rollback remote mod update transaction")
+	}()
+
+	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(tx, mod.ID)
+	if errDeleteFiles != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		errRestore := restoreRemoteMovedFiles(ctx, client, serverDir, rollbackMoves)
+		if errCleanup != nil || errRestore != nil {
+			return nil, errors.Join(
+				fmt.Errorf("modmanager: delete old file records: %w", errDeleteFiles),
+				errCleanup,
+				errRestore,
+			)
+		}
+		return nil, fmt.Errorf("modmanager: delete old file records: %w", errDeleteFiles)
+	}
+
+	fileSetter := &models.InstalledModFileSetter{
+		ID:             omit.From(uuid.NewString()),
+		InstalledModID: omit.From(mod.ID),
+		FilePath:       omit.From(targetPath),
+		FileHash:       omit.From(downloadHash),
+		FileSize:       omit.From(downloadSize),
+		IsPrimary:      omit.From(int64(1)),
+	}
+	_, errInsertFile := m.db.InsertInstalledModFile(tx, fileSetter)
+	if errInsertFile != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		errRestore := restoreRemoteMovedFiles(ctx, client, serverDir, rollbackMoves)
+		if errCleanup != nil || errRestore != nil {
+			return nil, errors.Join(
+				fmt.Errorf("modmanager: insert updated file record: %w", errInsertFile),
+				errCleanup,
+				errRestore,
+			)
+		}
+		return nil, fmt.Errorf("modmanager: insert updated file record: %w", errInsertFile)
+	}
+
+	updateSetter := &models.InstalledModSetter{
+		InstalledVersion:   omit.From(plan.versionString),
+		InstalledVersionID: omit.From(versionID),
+		FileHash:           omit.From(downloadHash),
+		UpdatedAt:          omit.From(time.Now().UTC()),
+	}
+
+	errUpdate := m.db.UpdateInstalledModInTx(tx, mod, updateSetter)
+	if errUpdate != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		errRestore := restoreRemoteMovedFiles(ctx, client, serverDir, rollbackMoves)
+		if errCleanup != nil || errRestore != nil {
+			return nil, errors.Join(
+				fmt.Errorf("modmanager: update mod record: %w", errUpdate),
+				errCleanup,
+				errRestore,
+			)
+		}
+		return nil, fmt.Errorf("modmanager: update mod record: %w", errUpdate)
+	}
+
+	errCommit := tx.Commit(ctx)
+	if errCommit != nil {
+		errCleanup := cleanupRemotePromotedFiles(ctx, client, serverDir, promotedMoves)
+		errRestore := restoreRemoteMovedFiles(ctx, client, serverDir, rollbackMoves)
+		if errCleanup != nil || errRestore != nil {
+			return nil, errors.Join(
+				fmt.Errorf("modmanager: commit update transaction: %w", errCommit),
+				errCleanup,
+				errRestore,
+			)
+		}
+		return nil, fmt.Errorf("modmanager: commit update transaction: %w", errCommit)
+	}
+
 	updated, errRefetch := m.db.GetInstalledModByID(mod.ID)
 	if errRefetch != nil {
 		return nil, fmt.Errorf("modmanager: re-fetch updated mod: %w", errRefetch)
@@ -666,6 +1195,65 @@ func (m *ModManager) RunAutoUpdates(
 	return nil
 }
 
+// RunAutoUpdatesRemote updates eligible mods through a node client before server start.
+func (m *ModManager) RunAutoUpdatesRemote(
+	ctx context.Context,
+	client RemoteFileClient,
+	serverID, gameVersion, serverDir string,
+	statusFn func(string),
+) error {
+	mods, errGet := m.db.GetInstalledModsByGameServerID(serverID)
+	if errGet != nil {
+		return fmt.Errorf("modmanager: get installed mods: %w", errGet)
+	}
+
+	for _, mod := range mods {
+		if mod.AutoUpdate != 1 {
+			continue
+		}
+		if !mod.PinnedVersion.IsNull() {
+			continue
+		}
+		if mod.Enabled != 1 {
+			continue
+		}
+
+		provider, ok := modproviders.GetProvider(mod.Source)
+		if !ok {
+			continue
+		}
+
+		statusFn(fmt.Sprintf("Checking for updates: %s", mod.ModName))
+
+		version, errCheck := provider.CheckForUpdate(ctx, mod.SourceID, gameVersion)
+		if errCheck != nil {
+			if errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
+				continue
+			}
+			log.Warn().Err(errCheck).Str("mod", mod.ModName).Msg("Failed to check for auto-update")
+			statusFn(fmt.Sprintf("Failed to check update for %s: %s", mod.ModName, errCheck.Error()))
+			continue
+		}
+
+		if version == nil || version.VersionID == mod.InstalledVersionID {
+			continue
+		}
+
+		statusFn(fmt.Sprintf("Updating %s to %s", mod.ModName, version.VersionString))
+
+		_, errUpdate := m.UpdateRemote(ctx, client, mod.ID, version.VersionID, serverDir)
+		if errUpdate != nil {
+			log.Error().Err(errUpdate).Str("mod", mod.ModName).Msg("Failed to auto-update remote mod")
+			statusFn(fmt.Sprintf("Failed to update %s: %s", mod.ModName, errUpdate.Error()))
+			continue
+		}
+
+		statusFn(fmt.Sprintf("Updated %s to %s", mod.ModName, version.VersionString))
+	}
+
+	return nil
+}
+
 // Enable moves mod files back from the disabled directory.
 func (m *ModManager) Enable(_ context.Context, modID, serverDir, installPath string) error {
 	mod, errGet := m.db.GetInstalledModByID(modID)
@@ -689,6 +1277,42 @@ func (m *ModManager) Enable(_ context.Context, modID, serverDir, installPath str
 		if errMove != nil {
 			return fmt.Errorf("modmanager: move file from disabled: %w", errMove)
 		}
+	}
+
+	updateSetter := &models.InstalledModSetter{
+		Enabled:   omit.From(int64(1)),
+		UpdatedAt: omit.From(time.Now().UTC()),
+	}
+	_, errUpdate := m.db.UpdateInstalledMod(m.db.DB, mod, updateSetter)
+	if errUpdate != nil {
+		return fmt.Errorf("modmanager: update mod enabled state: %w", errUpdate)
+	}
+
+	return nil
+}
+
+// EnableRemote moves mod files back from the disabled directory through a node client.
+func (m *ModManager) EnableRemote(ctx context.Context, client RemoteFileClient, modID, serverDir, installPath string) error {
+	mod, errGet := m.db.GetInstalledModByID(modID)
+	if errGet != nil {
+		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
+	}
+
+	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)
+	if errFiles != nil {
+		return fmt.Errorf("modmanager: get mod files: %w", errFiles)
+	}
+
+	cleanInstallPath := cleanRemotePath(installPath)
+	disabledDir := joinRemotePath(cleanInstallPath, "disabled")
+	filesToMove := make([]string, 0, len(files))
+	for _, f := range files {
+		filesToMove = append(filesToMove, joinRemotePath(disabledDir, remoteFileName(f.FilePath)))
+	}
+
+	_, errMove := client.MoveFiles(ctx, serverDir, filesToMove, cleanInstallPath, node.ProtectionPolicy{})
+	if errMove != nil {
+		return fmt.Errorf("modmanager: move remote file from disabled: %w", errMove)
 	}
 
 	updateSetter := &models.InstalledModSetter{
@@ -730,6 +1354,47 @@ func (m *ModManager) Disable(_ context.Context, modID, serverDir, installPath st
 		if errMove != nil {
 			return fmt.Errorf("modmanager: move file to disabled: %w", errMove)
 		}
+	}
+
+	updateSetter := &models.InstalledModSetter{
+		Enabled:   omit.From(int64(0)),
+		UpdatedAt: omit.From(time.Now().UTC()),
+	}
+	_, errUpdate := m.db.UpdateInstalledMod(m.db.DB, mod, updateSetter)
+	if errUpdate != nil {
+		return fmt.Errorf("modmanager: update mod disabled state: %w", errUpdate)
+	}
+
+	return nil
+}
+
+// DisableRemote moves mod files to a disabled subdirectory through a node client.
+func (m *ModManager) DisableRemote(ctx context.Context, client RemoteFileClient, modID, serverDir, installPath string) error {
+	mod, errGet := m.db.GetInstalledModByID(modID)
+	if errGet != nil {
+		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
+	}
+
+	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)
+	if errFiles != nil {
+		return fmt.Errorf("modmanager: get mod files: %w", errFiles)
+	}
+
+	cleanInstallPath := cleanRemotePath(installPath)
+	disabledDir := joinRemotePath(cleanInstallPath, "disabled")
+	errMkdir := client.CreateFileOrDirectory(ctx, serverDir, disabledDir, "", true, node.ProtectionPolicy{})
+	if errMkdir != nil {
+		return fmt.Errorf("modmanager: create remote disabled directory: %w", errMkdir)
+	}
+
+	filesToMove := make([]string, 0, len(files))
+	for _, f := range files {
+		filesToMove = append(filesToMove, cleanRemotePath(f.FilePath))
+	}
+
+	_, errMove := client.MoveFiles(ctx, serverDir, filesToMove, disabledDir, node.ProtectionPolicy{})
+	if errMove != nil {
+		return fmt.Errorf("modmanager: move remote file to disabled: %w", errMove)
 	}
 
 	updateSetter := &models.InstalledModSetter{

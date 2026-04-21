@@ -1,13 +1,12 @@
 package rpc
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -160,11 +159,27 @@ func TestGetVersionInfoReadsRemoteExecutableViaNodeClient(t *testing.T) {
 	if errUpdateServer != nil {
 		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
 	}
+	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-remote-version")
+	if errGetServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGetServer)
+	}
+	contextKey := fixture.service.remoteVersionTrackerContext(gameServer).CacheKey()
 
 	versionStates := versiontracker.NewVersionStateMap()
+	versionStates.Set("server-remote-version", versiontracker.VersionState{
+		Status:          versiontracker.VersionStatusChecked,
+		LatestVersion:   "1.21.5",
+		LatestCheckTime: time.Now(),
+		TrackerType:     "minecraft",
+		ContextKey:      contextKey,
+	})
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID:         "node-remote",
-		ReadFileResult: buildMinecraftVersionJarBytes(t, "1.21.4"),
+		NodeID: "node-remote",
+		ProbeInstalledVersionResult: node.InstalledVersionProbeResult{
+			Found:      true,
+			Version:    "1.21.4",
+			SourcePath: "server.jar",
+		},
 		SnapshotResult: &node.NodeSnapshot{OS: "linux"},
 	}
 	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
@@ -177,11 +192,7 @@ func TestGetVersionInfoReadsRemoteExecutableViaNodeClient(t *testing.T) {
 		registry,
 		nil,
 		versionStates,
-		versiontracker.ResolverConfig{
-			CustomTrackerFactory: func(versiontracker.TrackerContext) versiontracker.VersionTracker {
-				return remoteVersionTestTracker{}
-			},
-		},
+		versiontracker.ResolverConfig{},
 	)
 
 	request := connect.NewRequest(&xylona.GetVersionInfoRequest{GameServerId: "server-remote-version"})
@@ -194,11 +205,21 @@ func TestGetVersionInfoReadsRemoteExecutableViaNodeClient(t *testing.T) {
 	if response.Msg.GetVersionInfo().GetInstalledVersion() != "1.21.4" {
 		t.Fatalf("GetVersionInfo().InstalledVersion = %q, want %q", response.Msg.GetVersionInfo().GetInstalledVersion(), "1.21.4")
 	}
-	if len(remoteClient.ReadFileCalls) != 1 {
-		t.Fatalf("ReadFile call count = %d, want 1", len(remoteClient.ReadFileCalls))
+	if len(remoteClient.ProbeInstalledVersionCalls) != 1 {
+		t.Fatalf("ProbeInstalledVersion call count = %d, want 1", len(remoteClient.ProbeInstalledVersionCalls))
 	}
-	if remoteClient.ReadFileCalls[0].RelativePath != "server.jar" {
-		t.Fatalf("ReadFile relative path = %q, want %q", remoteClient.ReadFileCalls[0].RelativePath, "server.jar")
+	probeCall := remoteClient.ProbeInstalledVersionCalls[0]
+	if probeCall.Kind != node.InstalledVersionProbeKindMinecraftJar {
+		t.Fatalf("ProbeInstalledVersion kind = %v, want minecraft jar", probeCall.Kind)
+	}
+	if len(probeCall.RelativePaths) == 0 || probeCall.RelativePaths[0] != "server.jar" {
+		t.Fatalf("ProbeInstalledVersion relative paths = %v, want server.jar first", probeCall.RelativePaths)
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
+	if len(remoteClient.ListFilesCalls) != 0 {
+		t.Fatalf("ListFiles call count = %d, want 0", len(remoteClient.ListFilesCalls))
 	}
 }
 
@@ -229,8 +250,9 @@ func TestSetServerVariantUploadsDownloadedFilesToRemoteNode(t *testing.T) {
 	}
 
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID:                  "node-remote",
-		GetProcessSnapshotFound: true,
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "paper-1.21.5.jar", BytesWritten: 4096, SHA256: "paper-sha"},
+		GetProcessSnapshotFound:   true,
 		GetProcessSnapshotResult: &node.ProcessSnapshot{
 			ID:     "server-remote-variant",
 			Status: xylona.Status_OFFLINE.String(),
@@ -285,20 +307,130 @@ func TestSetServerVariantUploadsDownloadedFilesToRemoteNode(t *testing.T) {
 	if state.Status != modmanager.InstallStatusComplete {
 		t.Fatalf("install status = %q, want %q (error=%q)", state.Status, modmanager.InstallStatusComplete, state.Error)
 	}
-	if provider.downloadTargetDir == "/srv/remote-server" {
-		t.Fatalf("Download target dir = %q, want controller staging path", provider.downloadTargetDir)
+	if provider.downloadTargetDir != "" {
+		t.Fatalf("provider.Download target dir = %q, want no controller-side provider download", provider.downloadTargetDir)
 	}
-	if len(remoteClient.WriteFileCalls) != 1 {
-		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	if len(remoteClient.DownloadFileFromURLCalls) != 1 {
+		t.Fatalf("DownloadFileFromURL call count = %d, want 1", len(remoteClient.DownloadFileFromURLCalls))
 	}
-	if remoteClient.WriteFileCalls[0].RelativePath != "paper-1.21.5.jar" {
-		t.Fatalf("WriteFile relative path = %q, want %q", remoteClient.WriteFileCalls[0].RelativePath, "paper-1.21.5.jar")
+	downloadCall := remoteClient.DownloadFileFromURLCalls[0]
+	if downloadCall.Directory != "/srv/remote-server" {
+		t.Fatalf("DownloadFileFromURL directory = %q, want %q", downloadCall.Directory, "/srv/remote-server")
+	}
+	if downloadCall.RawURL != "https://downloads.example.test/paper-1.21.5.jar" {
+		t.Fatalf("DownloadFileFromURL raw URL = %q, want provider metadata URL", downloadCall.RawURL)
+	}
+	if downloadCall.DestinationDirectoryPath != "" {
+		t.Fatalf("DownloadFileFromURL destination = %q, want server root", downloadCall.DestinationDirectoryPath)
+	}
+	if downloadCall.Integrity.ExpectedSize != 4096 || downloadCall.Integrity.ExpectedSHA256 != "paper-sha" {
+		t.Fatalf("DownloadFileFromURL integrity = %+v, want size=4096 paper-sha", downloadCall.Integrity)
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
 	}
 	if len(remoteClient.DeleteFilesCalls) != 1 {
 		t.Fatalf("DeleteFiles call count = %d, want 1", len(remoteClient.DeleteFilesCalls))
 	}
 	if remoteClient.DeleteFilesCalls[0].Files[0] != "paper-1.21.4.jar" {
 		t.Fatalf("DeleteFiles file = %q, want %q", remoteClient.DeleteFilesCalls[0].Files[0], "paper-1.21.4.jar")
+	}
+}
+
+func TestSetServerVariantRejectsRemoteDownloadWithoutIntegrity(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-variant")
+
+	game, errGetGame := fixture.conn.GetGameByID("minecraft")
+	if errGetGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGetGame)
+	}
+	setMinecraftRemoteVariantConfig(t, game)
+	_, errUpdateGame := fixture.conn.UpdateGame(fixture.conn.DB, game, &models.GameSetter{
+		ID:             omit.From(game.ID),
+		ServerSoftware: omitnull.From(game.ServerSoftware.GetOr("")),
+	})
+	if errUpdateGame != nil {
+		t.Fatalf("UpdateGame() error = %v", errUpdateGame)
+	}
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:               omit.From("server-remote-variant"),
+		Status:           omit.From(xylona.Status_OFFLINE.String()),
+		ServerExecutable: omitnull.From("paper-1.21.4.jar"),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+	}
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+		GetProcessSnapshotResult: &node.ProcessSnapshot{
+			ID:     "server-remote-variant",
+			Status: xylona.Status_OFFLINE.String(),
+		},
+		GetProcessSnapshotFound: true,
+		SnapshotResult:          &node.NodeSnapshot{OS: "linux"},
+	}
+	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	fixture.service.nodeRegistry = registry
+	fixture.service.installTracker = modmanager.NewInstallTracker()
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(),
+		fixture.conn,
+		nil,
+		registry,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	provider := &remoteVariantProvider{remoteDirectory: "/srv/remote-server", omitIntegrity: true}
+	previousLookup := variantProviderLookup
+	variantProviderLookup = func(cfg updateproviders.ProviderConfig) (modproviders.ModProvider, bool) {
+		if cfg.Kind == updateproviders.ProviderKindPaperMC {
+			return provider, true
+		}
+		return previousLookup(cfg)
+	}
+	defer func() {
+		variantProviderLookup = previousLookup
+	}()
+
+	request := connect.NewRequest(&xylona.SetServerVariantRequest{
+		GameServerId: "server-remote-variant",
+		VariantId:    "paper",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errSet := fixture.service.SetServerVariant(context.Background(), request)
+	if errSet != nil {
+		t.Fatalf("SetServerVariant() error = %v", errSet)
+	}
+	if response.Msg.GetStatus() != modmanager.InstallStatusInstalling {
+		t.Fatalf("SetServerVariant().Status = %q, want %q", response.Msg.GetStatus(), modmanager.InstallStatusInstalling)
+	}
+
+	waitForCondition(t, func() bool {
+		state, ok := fixture.service.installTracker.Get("server-remote-variant")
+		return ok && state.Status != modmanager.InstallStatusInstalling
+	})
+
+	state, _ := fixture.service.installTracker.Get("server-remote-variant")
+	if state.Status != modmanager.InstallStatusFailed {
+		t.Fatalf("install status = %q, want %q", state.Status, modmanager.InstallStatusFailed)
+	}
+	if !strings.Contains(state.Error, "integrity metadata is unavailable") {
+		t.Fatalf("install error = %q, want missing integrity metadata", state.Error)
+	}
+	if len(remoteClient.DownloadFileFromURLCalls) != 0 {
+		t.Fatalf("DownloadFileFromURL call count = %d, want 0", len(remoteClient.DownloadFileFromURLCalls))
+	}
+	if len(remoteClient.DeleteFilesCalls) != 0 {
+		t.Fatalf("DeleteFiles call count = %d, want 0", len(remoteClient.DeleteFilesCalls))
+	}
+	if provider.downloadTargetDir != "" {
+		t.Fatalf("provider.Download target dir = %q, want no controller-side provider download", provider.downloadTargetDir)
 	}
 }
 
@@ -318,60 +450,10 @@ func updateGameConfigSchemasForRemoteParity(t *testing.T, fixture *rbacRPCFixtur
 	}
 }
 
-func buildMinecraftVersionJarBytes(t *testing.T, version string) []byte {
-	t.Helper()
-
-	var buffer bytes.Buffer
-	archive := zip.NewWriter(&buffer)
-	writer, errCreate := archive.Create("version.json")
-	if errCreate != nil {
-		t.Fatalf("zip.Create(version.json) error = %v", errCreate)
-	}
-	payload := fmt.Appendf(nil, `{"id":"%s","name":"%s"}`, version, version)
-	_, errWrite := writer.Write(payload)
-	if errWrite != nil {
-		t.Fatalf("write version.json error = %v", errWrite)
-	}
-	errClose := archive.Close()
-	if errClose != nil {
-		t.Fatalf("zip.Close() error = %v", errClose)
-	}
-	return buffer.Bytes()
-}
-
-type remoteVersionTestTracker struct{}
-
-func (remoteVersionTestTracker) GetInstalledVersion(_ context.Context, gs *models.GameServer) (string, error) {
-	version, errRead := versiontracker.ReadMinecraftJarVersion(gs.Directory, gs.ServerExecutable.GetOr(""))
-	if errRead != nil {
-		return "", fmt.Errorf("read minecraft jar version: %w", errRead)
-	}
-	return version, nil
-}
-
-func (remoteVersionTestTracker) GetLatestVersion(_ context.Context, _ *models.GameServer) (string, error) {
-	return "1.21.5", nil
-}
-
-func (remoteVersionTestTracker) CheckForUpdate(ctx context.Context, gs *models.GameServer) (*versiontracker.UpdateInfo, error) {
-	installed, errInstalled := remoteVersionTestTracker{}.GetInstalledVersion(ctx, gs)
-	if errInstalled != nil {
-		return nil, fmt.Errorf("get installed version: %w", errInstalled)
-	}
-	latest, errLatest := remoteVersionTestTracker{}.GetLatestVersion(ctx, gs)
-	if errLatest != nil {
-		return nil, fmt.Errorf("get latest version: %w", errLatest)
-	}
-	return &versiontracker.UpdateInfo{
-		InstalledVersion: installed,
-		LatestVersion:    latest,
-		UpdateAvailable:  installed != "" && latest != "" && installed != latest,
-	}, nil
-}
-
 type remoteVariantProvider struct {
 	remoteDirectory   string
 	downloadTargetDir string
+	omitIntegrity     bool
 }
 
 func (p *remoteVariantProvider) ID() string {
@@ -392,15 +474,24 @@ func (p *remoteVariantProvider) GetModDetails(_ context.Context, sourceID string
 }
 
 func (p *remoteVariantProvider) GetVersions(_ context.Context, _ string, gameVersion string, _ modproviders.SearchParams) ([]modproviders.ModVersion, error) {
+	version := modproviders.ModVersion{
+		VersionID:     "1.21.5",
+		VersionString: gameVersion,
+		DownloadURL:   "https://downloads.example.test/paper-1.21.5.jar",
+	}
+	if !p.omitIntegrity {
+		version.FileSize = 4096
+		version.FileHashSHA256 = "paper-sha"
+	}
 	return []modproviders.ModVersion{
-		{VersionID: "1.21.5", VersionString: gameVersion},
+		version,
 	}, nil
 }
 
 func (p *remoteVariantProvider) Download(_ context.Context, _ string, _ string, targetDir string) ([]modproviders.DownloadedFile, error) {
 	p.downloadTargetDir = targetDir
 	if targetDir == p.remoteDirectory {
-		return nil, errors.New("download must use controller staging directory")
+		return nil, errors.New("provider download must not target the remote server directory")
 	}
 
 	fullPath := filepath.Join(targetDir, "paper-1.21.5.jar")

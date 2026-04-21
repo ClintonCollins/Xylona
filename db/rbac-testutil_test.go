@@ -139,8 +139,8 @@ func seedRBACFixture(t *testing.T, conn *Connection) {
 
 	_, errIP := conn.SQLDb.ExecContext(
 		context.Background(),
-		`insert into ip (address, usable, external) values (?, ?, ?)`,
-		"127.0.0.1", true, false,
+		`insert into ip (address, usable, external, node_id) values (?, ?, ?, ?)`,
+		"127.0.0.1", true, false, "node-local",
 	)
 	if errIP != nil {
 		t.Fatalf("failed to insert ip: %v", errIP)

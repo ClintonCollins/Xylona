@@ -81,7 +81,14 @@ import {
 
 const $q = useQuasar()
 const route = useRoute()
-const gameServerId = route.params.id as string
+
+function getGameServerId(): string {
+  const routeID = route?.params?.id
+  if (routeID instanceof Array) {
+    return routeID[0] ?? ''
+  }
+  return routeID ?? ''
+}
 
 const editorRef = ref<InstanceType<typeof ConfigFileEditor> | null>(null)
 
@@ -149,6 +156,16 @@ async function loadConfigFiles(showLoading = true) {
   if (showLoading) {
     loading.value = true
   }
+
+  const gameServerId = getGameServerId()
+  if (gameServerId === '') {
+    configFiles.value = []
+    if (showLoading) {
+      loading.value = false
+    }
+    return
+  }
+
   try {
     const request = create(GetGameServerConfigFilesRequestSchema, {
       gameServerId,
@@ -175,6 +192,11 @@ async function loadConfigFiles(showLoading = true) {
 }
 
 async function handleFileSelect(path: string, isMissing: boolean) {
+  const gameServerId = getGameServerId()
+  if (gameServerId === '') {
+    return
+  }
+
   // Guard against switching files with unsaved changes
   if (editorHasChanges.value && path !== selectedFilePath.value) {
     const confirmed = await new Promise<boolean>((resolve) => {
@@ -223,6 +245,11 @@ async function handleFileSelect(path: string, isMissing: boolean) {
 }
 
 async function handleSave(fieldValues: Map<string, string>) {
+  const gameServerId = getGameServerId()
+  if (gameServerId === '' || selectedFilePath.value === '') {
+    return
+  }
+
   saving.value = true
   validationErrors.value = []
 
@@ -276,6 +303,11 @@ async function handleSave(fieldValues: Map<string, string>) {
 }
 
 async function handleGenerate() {
+  const gameServerId = getGameServerId()
+  if (gameServerId === '' || selectedFilePath.value === '') {
+    return
+  }
+
   generating.value = true
   try {
     const request = create(GenerateGameServerConfigFileRequestSchema, {

@@ -116,11 +116,16 @@ func readBuildID(acfPath string) (string, error) {
 	if errRead != nil {
 		return "", fmt.Errorf("read ACF file: %w", errRead)
 	}
+	return ReadSteamBuildID(data), nil
+}
+
+// ReadSteamBuildID extracts the buildid field from an appmanifest ACF payload.
+func ReadSteamBuildID(data []byte) string {
 	sub := reBuildID.FindSubmatch(data)
 	if sub == nil {
-		return "", nil
+		return ""
 	}
-	return strings.TrimSpace(string(sub[1])), nil
+	return strings.TrimSpace(string(sub[1]))
 }
 
 // extractAppID parses the Steam app ID from an ACF filename.
@@ -131,6 +136,11 @@ func extractAppID(acfPath string) string {
 		return ""
 	}
 	return sub[1]
+}
+
+// ExtractSteamAppIDFromManifestName parses a Steam app ID from an appmanifest filename.
+func ExtractSteamAppIDFromManifestName(name string) string {
+	return extractAppID(name)
 }
 
 // GetInstalledVersion returns the buildid from the appmanifest ACF file in

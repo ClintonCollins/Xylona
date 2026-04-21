@@ -1,9 +1,16 @@
 package node
 
 import (
+	"crypto/sha1" // #nosec G505 -- test coverage for Mojang-published checksum verification.
+	"crypto/sha256"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +79,36 @@ func TestListFilesReturnsEntries(t *testing.T) {
 	}
 }
 
+func TestListFilesReportsExecutableMetadata(t *testing.T) {
+	dir := t.TempDir()
+	executablePath := filepath.Join(dir, "run.cmd")
+	errWrite := os.WriteFile(executablePath, []byte("@echo off\n"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile executable error = %v", errWrite)
+	}
+	errWriteData := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("plain"), 0o600)
+	if errWriteData != nil {
+		t.Fatalf("WriteFile data error = %v", errWriteData)
+	}
+
+	n := &Node{}
+	entries, errList := n.ListFiles(dir, "")
+	if errList != nil {
+		t.Fatalf("ListFiles error = %v", errList)
+	}
+
+	byName := map[string]FileEntry{}
+	for _, entry := range entries {
+		byName[entry.Name] = entry
+	}
+	if !byName["run.cmd"].IsExecutable {
+		t.Fatalf("run.cmd IsExecutable = false, want true")
+	}
+	if byName["notes.txt"].IsExecutable {
+		t.Fatalf("notes.txt IsExecutable = true, want false")
+	}
+}
+
 func TestListFilesRejectsTraversal(t *testing.T) {
 	dir := t.TempDir()
 	n := &Node{}
@@ -89,8 +126,9 @@ func TestCreateFileOrDirectoryAndDelete(t *testing.T) {
 	if errCreateDir != nil {
 		t.Fatalf("CreateFileOrDirectory dir error = %v", errCreateDir)
 	}
-	if _, errStat := os.Stat(filepath.Join(dir, "configs")); errStat != nil {
-		t.Fatalf("expected configs dir, stat error = %v", errStat)
+	_, errStatConfigs := os.Stat(filepath.Join(dir, "configs"))
+	if errStatConfigs != nil {
+		t.Fatalf("expected configs dir, stat error = %v", errStatConfigs)
 	}
 
 	errCreateFile := n.CreateFileOrDirectory(dir, "configs/server.cfg", "name=value", false, ProtectionPolicy{})
@@ -142,8 +180,9 @@ func TestRenameAndMove(t *testing.T) {
 	if len(moved) != 1 {
 		t.Fatalf("MoveFiles returned %v, want one entry", moved)
 	}
-	if _, errStat := os.Stat(filepath.Join(dir, "dest", "new.txt")); errStat != nil {
-		t.Fatalf("expected moved file, stat error = %v", errStat)
+	_, errStatMoved := os.Stat(filepath.Join(dir, "dest", "new.txt"))
+	if errStatMoved != nil {
+		t.Fatalf("expected moved file, stat error = %v", errStatMoved)
 	}
 }
 
@@ -205,6 +244,135 @@ func TestWriteProtectionEnforced(t *testing.T) {
 	}
 }
 
+func TestDownloadFileFromURLRejectsNonSuccessStatus(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer server.Close()
+	withDownloadTestHTTPClient(t, server.Client())
+
+	_, errDownload := n.DownloadFileFromURL(
+		t.Context(),
+		dir,
+		server.URL+"/server.jar",
+		"",
+		DownloadIntegrity{},
+		ProtectionPolicy{},
+	)
+	if !errors.Is(errDownload, ErrUnexpectedHTTPStatus) {
+		t.Fatalf("DownloadFileFromURL() error = %v, want %v", errDownload, ErrUnexpectedHTTPStatus)
+	}
+	_, errStat := os.Stat(filepath.Join(dir, "server.jar"))
+	if !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("downloaded file stat error = %v, want not exist", errStat)
+	}
+}
+
+func TestDownloadFileFromURLVerifiesIntegrityBeforePromotion(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+	body := []byte("server jar payload")
+	sha256Sum := sha256.Sum256(body)
+	sha1Sum := sha1.Sum(body) // #nosec G401 -- test coverage for Mojang-published checksum verification.
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, errWrite := w.Write(body)
+		if errWrite != nil {
+			t.Fatalf("Write response: %v", errWrite)
+		}
+	}))
+	defer server.Close()
+	withDownloadTestHTTPClient(t, server.Client())
+
+	result, errDownload := n.DownloadFileFromURL(
+		t.Context(),
+		dir,
+		server.URL+"/server.jar",
+		"",
+		DownloadIntegrity{
+			ExpectedSize:   int64(len(body)),
+			ExpectedSHA256: fmt.Sprintf("%x", sha256Sum),
+			ExpectedSHA1:   fmt.Sprintf("%x", sha1Sum),
+		},
+		ProtectionPolicy{},
+	)
+	if errDownload != nil {
+		t.Fatalf("DownloadFileFromURL() error = %v", errDownload)
+	}
+	if result.RelativePath != "server.jar" {
+		t.Fatalf("RelativePath = %q, want server.jar", result.RelativePath)
+	}
+	if result.BytesWritten != int64(len(body)) {
+		t.Fatalf("BytesWritten = %d, want %d", result.BytesWritten, len(body))
+	}
+	if result.SHA256 != fmt.Sprintf("%x", sha256Sum) {
+		t.Fatalf("SHA256 = %q, want %x", result.SHA256, sha256Sum)
+	}
+	if result.SHA1 != fmt.Sprintf("%x", sha1Sum) {
+		t.Fatalf("SHA1 = %q, want %x", result.SHA1, sha1Sum)
+	}
+	data, errRead := os.ReadFile(filepath.Join(dir, "server.jar"))
+	if errRead != nil {
+		t.Fatalf("ReadFile downloaded artifact: %v", errRead)
+	}
+	if string(data) != string(body) {
+		t.Fatalf("downloaded artifact = %q, want %q", data, body)
+	}
+}
+
+func TestDownloadFileFromURLRemovesIntegrityMismatch(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, errWrite := w.Write([]byte("unexpected payload"))
+		if errWrite != nil {
+			t.Fatalf("Write response: %v", errWrite)
+		}
+	}))
+	defer server.Close()
+	withDownloadTestHTTPClient(t, server.Client())
+
+	_, errDownload := n.DownloadFileFromURL(
+		t.Context(),
+		dir,
+		server.URL+"/server.jar",
+		"",
+		DownloadIntegrity{
+			ExpectedSize:   int64(len("expected payload")),
+			ExpectedSHA256: fmt.Sprintf("%x", sha256.Sum256([]byte("expected payload"))),
+		},
+		ProtectionPolicy{},
+	)
+	if !errors.Is(errDownload, ErrDownloadIntegrityMismatch) {
+		t.Fatalf("DownloadFileFromURL() error = %v, want %v", errDownload, ErrDownloadIntegrityMismatch)
+	}
+	_, errStat := os.Stat(filepath.Join(dir, "server.jar"))
+	if !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("downloaded file stat error = %v, want not exist", errStat)
+	}
+}
+
+func withDownloadTestHTTPClient(t *testing.T, client *http.Client) {
+	t.Helper()
+
+	oldClient := downloadHTTPClient
+	oldValidate := validateDownloadTarget
+	downloadHTTPClient = func() *http.Client {
+		return client
+	}
+	validateDownloadTarget = func(string) error {
+		return nil
+	}
+	t.Cleanup(func() {
+		downloadHTTPClient = oldClient
+		validateDownloadTarget = oldValidate
+	})
+}
+
 func TestReadAndWriteFile(t *testing.T) {
 	dir := t.TempDir()
 	n := &Node{}
@@ -220,5 +388,110 @@ func TestReadAndWriteFile(t *testing.T) {
 	}
 	if string(got) != "payload" {
 		t.Fatalf("ReadFile = %q, want %q", got, "payload")
+	}
+}
+
+func TestWriteFileFromReaderReplacesContentAndReturnsDigest(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+	errInitial := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("old"), 0o600)
+	if errInitial != nil {
+		t.Fatalf("WriteFile initial error = %v", errInitial)
+	}
+
+	result, errWrite := n.WriteFileFromReader(dir, "notes.txt", strings.NewReader("new payload"), ProtectionPolicy{})
+	if errWrite != nil {
+		t.Fatalf("WriteFileFromReader error = %v", errWrite)
+	}
+
+	got, errRead := os.ReadFile(filepath.Join(dir, "notes.txt"))
+	if errRead != nil {
+		t.Fatalf("ReadFile error = %v", errRead)
+	}
+	if string(got) != "new payload" {
+		t.Fatalf("file content = %q, want %q", string(got), "new payload")
+	}
+	wantSHA := fmt.Sprintf("%x", sha256.Sum256([]byte("new payload")))
+	if result.BytesWritten != int64(len("new payload")) {
+		t.Fatalf("BytesWritten = %d, want %d", result.BytesWritten, len("new payload"))
+	}
+	if result.SHA256 != wantSHA {
+		t.Fatalf("SHA256 = %q, want %q", result.SHA256, wantSHA)
+	}
+
+	matches, errGlob := filepath.Glob(filepath.Join(dir, ".xylona-write-*"))
+	if errGlob != nil {
+		t.Fatalf("Glob temp files error = %v", errGlob)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("leftover temp files = %v, want none", matches)
+	}
+}
+
+func TestCopyFilesCopiesContentAndProtectsDestination(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+
+	errWrite := os.WriteFile(filepath.Join(dir, "source.txt"), []byte("copy me"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile source error = %v", errWrite)
+	}
+
+	copied, errCopy := n.CopyFiles(t.Context(), dir, []CopyFileOperation{
+		{SourceRelativePath: "source.txt", DestinationRelativePath: "nested/destination.txt"},
+	}, ProtectionPolicy{})
+	if errCopy != nil {
+		t.Fatalf("CopyFiles error = %v", errCopy)
+	}
+	if len(copied) != 1 || copied[0] != "nested/destination.txt" {
+		t.Fatalf("CopyFiles copied = %v, want [nested/destination.txt]", copied)
+	}
+	data, errRead := os.ReadFile(filepath.Join(dir, "nested", "destination.txt"))
+	if errRead != nil {
+		t.Fatalf("ReadFile copied error = %v", errRead)
+	}
+	if string(data) != "copy me" {
+		t.Fatalf("copied content = %q, want %q", string(data), "copy me")
+	}
+
+	_, errProtected := n.CopyFiles(t.Context(), dir, []CopyFileOperation{
+		{SourceRelativePath: "source.txt", DestinationRelativePath: "server.jar"},
+	}, ProtectionPolicy{ServerExecutable: "server.jar"})
+	if !errors.Is(errProtected, ErrProtectedPath) {
+		t.Fatalf("CopyFiles protected err = %v, want %v", errProtected, ErrProtectedPath)
+	}
+}
+
+func TestStatAndOpenFile(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+
+	errWrite := os.WriteFile(filepath.Join(dir, "archive.zip"), []byte("zip payload"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile error = %v", errWrite)
+	}
+
+	entry, errStat := n.StatFile(dir, "archive.zip")
+	if errStat != nil {
+		t.Fatalf("StatFile error = %v", errStat)
+	}
+	if entry.Name != "archive.zip" || entry.Size != int64(len("zip payload")) || entry.IsDirectory {
+		t.Fatalf("StatFile entry = %+v, want archive.zip file", entry)
+	}
+
+	stream, errOpen := n.OpenFile(dir, "archive.zip")
+	if errOpen != nil {
+		t.Fatalf("OpenFile error = %v", errOpen)
+	}
+	data, errRead := io.ReadAll(stream)
+	errClose := stream.Close()
+	if errRead != nil {
+		t.Fatalf("ReadAll stream error = %v", errRead)
+	}
+	if errClose != nil {
+		t.Fatalf("Close stream error = %v", errClose)
+	}
+	if string(data) != "zip payload" {
+		t.Fatalf("OpenFile stream = %q, want %q", string(data), "zip payload")
 	}
 }

@@ -30,6 +30,7 @@ func seedAlternateNodeAndIP(t *testing.T, fixture *rbacRPCFixture) {
 		Usable:             omit.From(true),
 		External:           omit.From(false),
 		AutomaticallyAdded: omit.From(false),
+		NodeID:             omit.From("node-alt"),
 	})
 	if errIP != nil {
 		t.Fatalf("UpsertIP() error = %v", errIP)

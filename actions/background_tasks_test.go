@@ -2,10 +2,15 @@ package actions
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -105,5 +110,100 @@ func TestCheckServerVersionPopulatesVersionsWhenUpToDate(t *testing.T) {
 	}
 	if state.UpdateAvailable {
 		t.Errorf("UpdateAvailable = true, want false")
+	}
+}
+
+func TestQueryGameServersUsesNodeClientForRemoteOnlineServer(t *testing.T) {
+	t.Parallel()
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "remote-node",
+		GetProcessSnapshotResult: &node.ProcessSnapshot{
+			ID:     "server-1",
+			Status: xylona.Status_ONLINE.String(),
+		},
+		GetProcessSnapshotFound: true,
+		QueryGameServerResult: node.GameServerQueryResult{
+			Kind: node.GameServerQueryKindMinecraft,
+			Minecraft: &node.MinecraftQueryInfo{
+				NumberOfPlayers: 7,
+				MaxPlayers:      20,
+			},
+		},
+	}
+	registry := noderegistry.New("local-node", &nodeclient.FakeNodeClient{NodeID: "local-node"})
+	registry.Register(remoteClient)
+	inst := &Instance{
+		ctx:                  context.Background(),
+		nodeRegistry:         registry,
+		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
+		serverQueriesMutex:   &sync.RWMutex{},
+	}
+	gs := &models.GameServer{
+		ID:         "server-1",
+		Name:       "Remote Minecraft",
+		NodeID:     "remote-node",
+		IP:         "10.0.0.5",
+		QueryPort:  25565,
+		MaxPlayers: 20,
+	}
+	gs.R.Game = &models.Game{ID: "minecraft"}
+
+	inst.queryGameServers(context.Background(), []*models.GameServer{gs})
+
+	if len(remoteClient.QueryGameServerCalls) != 1 {
+		t.Fatalf("QueryGameServer calls = %d, want 1", len(remoteClient.QueryGameServerCalls))
+	}
+	call := remoteClient.QueryGameServerCalls[0]
+	if call.Kind != node.GameServerQueryKindMinecraft || call.IP != "10.0.0.5" || call.QueryPort != 25565 {
+		t.Fatalf("QueryGameServer call = %+v, want Minecraft 10.0.0.5:25565", call)
+	}
+
+	inst.serverQueriesMutex.RLock()
+	result := inst.serverQueriesInfoMap["server-1"]
+	inst.serverQueriesMutex.RUnlock()
+	if result.GetType() != xylona.ServerQuery_Minecraft {
+		t.Fatalf("query type = %v, want Minecraft", result.GetType())
+	}
+	if result.GetMinecraft().GetNumberOfPlayers() != 7 {
+		t.Fatalf("players = %d, want 7", result.GetMinecraft().GetNumberOfPlayers())
+	}
+}
+
+func TestQueryGameServersKeepsOfflineDefaultForRemoteServer(t *testing.T) {
+	t.Parallel()
+
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "remote-node"}
+	registry := noderegistry.New("local-node", &nodeclient.FakeNodeClient{NodeID: "local-node"})
+	registry.Register(remoteClient)
+	inst := &Instance{
+		ctx:                  context.Background(),
+		nodeRegistry:         registry,
+		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
+		serverQueriesMutex:   &sync.RWMutex{},
+	}
+	gs := &models.GameServer{
+		ID:         "server-1",
+		Name:       "Remote Source",
+		NodeID:     "remote-node",
+		IP:         "10.0.0.5",
+		QueryPort:  27015,
+		MaxPlayers: 16,
+	}
+	gs.R.Game = &models.Game{ID: "source-game", UsesSourceQuery: true}
+
+	inst.queryGameServers(context.Background(), []*models.GameServer{gs})
+
+	if len(remoteClient.QueryGameServerCalls) != 0 {
+		t.Fatalf("QueryGameServer calls = %d, want 0 for offline server", len(remoteClient.QueryGameServerCalls))
+	}
+	inst.serverQueriesMutex.RLock()
+	result := inst.serverQueriesInfoMap["server-1"]
+	inst.serverQueriesMutex.RUnlock()
+	if result.GetType() != xylona.ServerQuery_Source {
+		t.Fatalf("query type = %v, want Source", result.GetType())
+	}
+	if result.GetSource().GetMaxPlayers() != 16 {
+		t.Fatalf("max players = %d, want 16", result.GetSource().GetMaxPlayers())
 	}
 }

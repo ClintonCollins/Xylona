@@ -13,6 +13,7 @@ export type PortAvailabilityState = 'idle' | 'checking' | 'available' | 'conflic
 interface PortAvailabilityEvaluationOptions {
   excludeServerId?: string
   existingServers: GameServer[]
+  nodeId: string
   ipAddress: string
   port: number
   queryPort: number
@@ -35,8 +36,9 @@ export function evaluateGameServerPortAvailability(options: PortAvailabilityEval
   message: string
   state: 'idle' | 'available' | 'conflict'
 } {
+  const normalizedNodeID = options.nodeId.trim()
   const normalizedIP = options.ipAddress.trim()
-  if (normalizedIP.length === 0 || !isValidPort(options.port)) {
+  if (normalizedNodeID.length === 0 || normalizedIP.length === 0 || !isValidPort(options.port)) {
     return {
       state: 'idle',
       message: '',
@@ -46,6 +48,8 @@ export function evaluateGameServerPortAvailability(options: PortAvailabilityEval
   const matchingServers = options.existingServers.filter(
     (server) =>
       server.id !== options.excludeServerId && server.ip?.address?.trim() === normalizedIP,
+  ).filter(
+    (server) => (server.nodeId?.trim() ?? '') === normalizedNodeID,
   )
 
   if (options.selectedGame?.requireDedicatedIp && matchingServers.length > 0) {
@@ -91,6 +95,7 @@ export function useGameServerPortAvailability(options: {
   let requestToken = 0
 
   const currentRequest = computed(() => ({
+    nodeId: options.gameServer.value.nodeId?.trim() ?? '',
     ipAddress: options.gameServer.value.ip?.address?.trim() ?? '',
     port: Number(options.gameServer.value.port ?? 0n),
     queryPort: Number(options.gameServer.value.queryPort ?? 0n),
@@ -100,6 +105,7 @@ export function useGameServerPortAvailability(options: {
   const canCheckAvailability = computed(
     () =>
       options.enabled.value &&
+      currentRequest.value.nodeId.length > 0 &&
       currentRequest.value.ipAddress.length > 0 &&
       isValidPort(currentRequest.value.port),
   )
@@ -139,6 +145,7 @@ export function useGameServerPortAvailability(options: {
 
       const evaluation = evaluateGameServerPortAvailability({
         existingServers: response.gameServers,
+        nodeId: currentRequest.value.nodeId,
         ipAddress: currentRequest.value.ipAddress,
         port: currentRequest.value.port,
         queryPort: currentRequest.value.queryPort,
@@ -181,6 +188,7 @@ export function useGameServerPortAvailability(options: {
     () => [
       options.enabled.value,
       currentRequest.value.selectedGame?.id ?? '',
+      currentRequest.value.nodeId,
       currentRequest.value.ipAddress,
       currentRequest.value.port,
       currentRequest.value.queryPort,

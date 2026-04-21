@@ -1,30 +1,36 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func postMinecraftInstall(gameServer *models.GameServer) error {
-	dir := gameServer.Directory
-	f, errFile := os.Create(path.Join(dir, "eula.txt"))
-	if errFile != nil {
-		log.Error().Err(errFile).Msg("Failed to open eula.txt")
-		return fmt.Errorf("actions: create eula.txt: %w", errFile)
-	}
-	defer func() {
-		errClose := f.Close()
-		if errClose != nil {
-			log.Error().Err(errClose).Msg("Failed to close eula.txt")
+func (inst *Instance) postMinecraftInstall(gameServer *models.GameServer) error {
+	if inst.shouldUseRemoteNodeFiles(gameServer.NodeID) {
+		client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
+		if errClient != nil {
+			return fmt.Errorf("actions: resolve node client for post install: %w", errClient)
 		}
-	}()
-	_, errWrite := f.WriteString("eula=true")
+
+		errWrite := client.WriteFile(inst.actionContext(), gameServer.Directory, "eula.txt", []byte("eula=true"), node.ProtectionPolicy{})
+		if errWrite != nil {
+			log.Error().Err(errWrite).Msg("Failed to write remote eula.txt")
+			return fmt.Errorf("actions: create eula.txt: %w", errWrite)
+		}
+		return nil
+	}
+
+	dir := gameServer.Directory
+	errWrite := os.WriteFile(filepath.Join(dir, "eula.txt"), []byte("eula=true"), 0o600)
 	if errWrite != nil {
 		log.Error().Err(errWrite).Msg("Failed to write to eula.txt")
 		return fmt.Errorf("actions: write eula.txt: %w", errWrite)
@@ -32,9 +38,57 @@ func postMinecraftInstall(gameServer *models.GameServer) error {
 	return nil
 }
 
+func (inst *Instance) shouldUseRemoteNodeFiles(nodeID string) bool {
+	if inst == nil || inst.nodeRegistry == nil {
+		return false
+	}
+
+	trimmedNodeID := strings.TrimSpace(nodeID)
+	if trimmedNodeID == "" {
+		return false
+	}
+
+	selfNodeID := strings.TrimSpace(inst.nodeRegistry.SelfID())
+	if selfNodeID == "" {
+		return true
+	}
+
+	return trimmedNodeID != selfNodeID
+}
+
+func (inst *Instance) actionContext() context.Context {
+	if inst != nil && inst.ctx != nil {
+		return inst.ctx
+	}
+	return context.Background()
+}
+
+func (inst *Instance) post7DaysToDieInstall(gameServer *models.GameServer) error {
+	if inst.shouldUseRemoteNodeFiles(gameServer.NodeID) {
+		client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
+		if errClient != nil {
+			return fmt.Errorf("actions: resolve node client for 7 days to die post install: %w", errClient)
+		}
+
+		_, errCopy := client.CopyFiles(inst.actionContext(), gameServer.Directory, []node.CopyFileOperation{
+			{
+				SourceRelativePath:      "serverconfig.xml",
+				DestinationRelativePath: "settings.xml",
+			},
+		}, node.ProtectionPolicy{})
+		if errCopy != nil {
+			log.Error().Err(errCopy).Msg("Failed to copy remote serverconfig.xml to settings.xml")
+			return fmt.Errorf("actions: copy serverconfig.xml to settings.xml: %w", errCopy)
+		}
+		return nil
+	}
+
+	return post7DaysToDieInstall(gameServer)
+}
+
 func post7DaysToDieInstall(gameServer *models.GameServer) error {
 	log.Debug().Msg("Copying serverconfig.xml to settings.xml")
-	readConfig, errRead := os.Open(path.Join(gameServer.Directory, "serverconfig.xml"))
+	readConfig, errRead := os.Open(filepath.Join(gameServer.Directory, "serverconfig.xml")) // #nosec G703 -- gameServer.Directory is a controller-managed install root and the file name is fixed.
 	if errRead != nil {
 		log.Error().Err(errRead).Msg("Failed to open serverconfig.xml")
 		return fmt.Errorf("actions: open serverconfig.xml: %w", errRead)
@@ -45,7 +99,7 @@ func post7DaysToDieInstall(gameServer *models.GameServer) error {
 			log.Error().Err(errClose).Msg("Failed to close serverconfig.xml")
 		}
 	}()
-	writeConfig, errWrite := os.Create(path.Join(gameServer.Directory, "settings.xml"))
+	writeConfig, errWrite := os.Create(filepath.Join(gameServer.Directory, "settings.xml")) // #nosec G703 -- gameServer.Directory is a controller-managed install root and the file name is fixed.
 	if errWrite != nil {
 		log.Error().Err(errWrite).Msg("Failed to open settings.xml")
 		return fmt.Errorf("actions: create settings.xml: %w", errWrite)

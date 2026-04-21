@@ -75,8 +75,14 @@ func seedRuntimeSecurityTestFixture(t *testing.T, conn *db.Connection) {
 
 	_, errIP := conn.SQLDb.ExecContext(
 		context.Background(),
-		`insert into ip (address, usable, external) values (?, ?, ?)`,
+		`insert into ip (address, node_id, usable, external)
+		 values (?, ?, ?, ?), (?, ?, ?, ?)`,
 		"127.0.0.1",
+		"node-local",
+		true,
+		false,
+		"127.0.0.1",
+		"node-remote",
 		true,
 		false,
 	)

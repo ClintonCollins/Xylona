@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -52,7 +53,7 @@ func (xs *XylonaService) backupOperationsAllowed(gameServer *models.GameServer) 
 	if !backupDirectoryConfigured(gameServer) {
 		return false, backupDisabledReasonNotConfigured
 	}
-	errValidateDirectory := actions.ValidateGameServerBackupDirectory(gameServer)
+	errValidateDirectory := xs.validateGameServerBackupDirectory(gameServer)
 	if errValidateDirectory != nil {
 		return false, backupDisabledReasonInvalidDirectory
 	}
@@ -66,6 +67,21 @@ func (xs *XylonaService) backupRestoreAllowed(gameServer *models.GameServer) (bo
 	}
 
 	return true, ""
+}
+
+func (xs *XylonaService) validateGameServerBackupDirectory(gameServer *models.GameServer) error {
+	if xs.isLocalBackupServer(gameServer) {
+		errValidate := actions.ValidateGameServerBackupDirectory(gameServer)
+		if errValidate != nil {
+			return fmt.Errorf("validate local backup directory: %w", errValidate)
+		}
+		return nil
+	}
+	errValidate := actions.ValidateRemoteGameServerBackupDirectory(gameServer)
+	if errValidate != nil {
+		return fmt.Errorf("validate remote backup directory: %w", errValidate)
+	}
+	return nil
 }
 
 func gameServerBackupStatusToProto(status string) xylona.GameServerBackupStatus {
@@ -303,7 +319,7 @@ func (xs *XylonaService) UpdateBackupSettings(
 	}
 	updatedGameServer.MaxBackups = normalizeBackupRetention(request.Msg.GetMaxBackups())
 	if updatedGameServer.BackupsEnabled || backupDirectoryConfigured(&updatedGameServer) {
-		errValidateDirectory := actions.ValidateGameServerBackupDirectory(&updatedGameServer)
+		errValidateDirectory := xs.validateGameServerBackupDirectory(&updatedGameServer)
 		if errValidateDirectory != nil {
 			reason := backupDisabledReasonInvalidDirectory
 			if !backupDirectoryConfigured(&updatedGameServer) {

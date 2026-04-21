@@ -46,6 +46,14 @@ type serverMetricsSnapshot struct {
 	diskBytes     uint64
 }
 
+// nodeMetricsSnapshot holds a single node's current metrics.
+type nodeMetricsSnapshot struct {
+	nodeID        string
+	cpuPercent    float64
+	memoryPercent float64
+	diskPercent   float64
+}
+
 // serverMetricsProvider abstracts listing running server metrics.
 type serverMetricsProvider interface {
 	ListServerMetrics() []serverMetricsSnapshot
@@ -53,7 +61,7 @@ type serverMetricsProvider interface {
 
 // nodeMetricsProvider abstracts collecting node-level resource metrics.
 type nodeMetricsProvider interface {
-	CollectNodeMetrics() (nodeID string, cpuPercent, memoryPercent, diskPercent float64, err error)
+	ListNodeMetrics() []nodeMetricsSnapshot
 }
 
 // registryServerMetricsProvider implements serverMetricsProvider by pulling
@@ -69,15 +77,24 @@ func (r *registryServerMetricsProvider) ListServerMetrics() []serverMetricsSnaps
 	if r.registry == nil {
 		return nil
 	}
+	baseCtx := r.ctx
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
 	clients := r.registry.List()
 	var out []serverMetricsSnapshot
 	for _, client := range clients {
-		ctx, cancel := context.WithTimeout(r.ctx, 5*time.Second)
+		ctx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
 		snap, errSnap := client.GetNodeSnapshot(ctx)
 		cancel()
 		if errSnap != nil {
 			log.Debug().Err(errSnap).Str("node_id", client.ID()).
 				Msg("threshold-poller: snapshot failed; skipping server metrics for this node")
+			continue
+		}
+		if snap == nil {
+			log.Debug().Str("node_id", client.ID()).
+				Msg("threshold-poller: nil snapshot; skipping server metrics for this node")
 			continue
 		}
 		for _, ps := range snap.Processes {
@@ -93,31 +110,48 @@ func (r *registryServerMetricsProvider) ListServerMetrics() []serverMetricsSnaps
 	return out
 }
 
-// registryNodeMetricsProvider implements nodeMetricsProvider for the
-// controller's embedded node (the only node the threshold poller reports
-// node-level metrics for today; remote-node alerts consume per-node rows
-// via the snapshots polled above).
+// registryNodeMetricsProvider implements nodeMetricsProvider by pulling host
+// metrics from every registered NodeClient. Failed nodes are logged and
+// skipped independently so one unavailable node does not suppress alerts for
+// the rest of the registry.
 type registryNodeMetricsProvider struct {
 	ctx      context.Context
 	registry *noderegistry.Registry
-	nodeID   string
 }
 
-func (r *registryNodeMetricsProvider) CollectNodeMetrics() (nodeID string, cpuPercent, memoryPercent, diskPercent float64, err error) {
+func (r *registryNodeMetricsProvider) ListNodeMetrics() []nodeMetricsSnapshot {
 	if r.registry == nil {
-		return "", 0, 0, 0, errors.New("actions: node registry not configured")
+		return nil
 	}
-	client, errGet := r.registry.Get(r.nodeID)
-	if errGet != nil {
-		return "", 0, 0, 0, fmt.Errorf("actions: resolve local node client: %w", errGet)
+	baseCtx := r.ctx
+	if baseCtx == nil {
+		baseCtx = context.Background()
 	}
-	ctx, cancel := context.WithTimeout(r.ctx, 5*time.Second)
-	defer cancel()
-	snap, errSnap := client.GetNodeSnapshot(ctx)
-	if errSnap != nil {
-		return "", 0, 0, 0, fmt.Errorf("actions: collect node metrics: %w", errSnap)
+
+	clients := r.registry.List()
+	out := make([]nodeMetricsSnapshot, 0, len(clients))
+	for _, client := range clients {
+		ctx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+		snap, errSnap := client.GetNodeSnapshot(ctx)
+		cancel()
+		if errSnap != nil {
+			log.Debug().Err(errSnap).Str("node_id", client.ID()).
+				Msg("threshold-poller: snapshot failed; skipping node metrics for this node")
+			continue
+		}
+		if snap == nil {
+			log.Debug().Str("node_id", client.ID()).
+				Msg("threshold-poller: nil snapshot; skipping node metrics for this node")
+			continue
+		}
+		out = append(out, nodeMetricsSnapshot{
+			nodeID:        client.ID(),
+			cpuPercent:    snap.CPUPercent,
+			memoryPercent: snap.MemoryPercent,
+			diskPercent:   snap.DiskPercent,
+		})
 	}
-	return r.nodeID, snap.CPUPercent, snap.MemoryPercent, snap.DiskPercent, nil
+	return out
 }
 
 // cachedRules holds one event-type's rules and when they were fetched.
@@ -420,20 +454,37 @@ func (p *thresholdPoller) evaluateServerRules(snapshots []serverMetricsSnapshot)
 
 // evaluateNodeRules evaluates all node-level threshold event types.
 func (p *thresholdPoller) evaluateNodeRules() {
-	nodeID, cpuPercent, memoryPercent, diskPercent, errCollect := p.nodeProv.CollectNodeMetrics()
-	if errCollect != nil {
-		log.Error().Err(errCollect).Msg("Threshold poller: failed to collect node metrics")
+	if p.nodeProv == nil {
 		return
 	}
+	snapshots := p.nodeProv.ListNodeMetrics()
 
 	nodeEventTypes := []struct {
 		eventType string
 		topic     string
-		value     float64
+		getValue  func(nodeMetricsSnapshot) float64
 	}{
-		{"ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD", eventbus.TopicNodeCPUThreshold, cpuPercent},
-		{"ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD", eventbus.TopicNodeMemoryThreshold, memoryPercent},
-		{"ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD", eventbus.TopicNodeDiskThreshold, diskPercent},
+		{
+			"ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD",
+			eventbus.TopicNodeCPUThreshold,
+			func(snap nodeMetricsSnapshot) float64 {
+				return snap.cpuPercent
+			},
+		},
+		{
+			"ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD",
+			eventbus.TopicNodeMemoryThreshold,
+			func(snap nodeMetricsSnapshot) float64 {
+				return snap.memoryPercent
+			},
+		},
+		{
+			"ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD",
+			eventbus.TopicNodeDiskThreshold,
+			func(snap nodeMetricsSnapshot) float64 {
+				return snap.diskPercent
+			},
+		},
 	}
 
 	for _, et := range nodeEventTypes {
@@ -448,56 +499,58 @@ func (p *thresholdPoller) evaluateNodeRules() {
 				continue
 			}
 
-			// Check if this rule targets our node or all nodes.
 			ruleNodeID, nodeIDSet := rule.NodeID.Get()
-			if nodeIDSet && ruleNodeID != nodeID {
-				continue
-			}
-
-			op, threshold, errParse := p.getConditionCached(rule)
-			if errParse != nil {
-				log.Warn().Err(errParse).Str("rule_id", rule.ID).Msg("Threshold poller: failed to parse node rule condition")
-				continue
-			}
-
-			breached, errEval := alerts.EvaluateThresholdOp(op, threshold, et.value)
-			if errEval != nil {
-				log.Warn().Err(errEval).Str("rule_id", rule.ID).Msg("Threshold poller: failed to evaluate node threshold")
-				continue
-			}
-
-			cached, errState := p.getOrCreateStateCached(rule.ID, "node", nodeID, "")
-			if errState != nil {
-				log.Error().Err(errState).Str("rule_id", rule.ID).Str("node_id", nodeID).Msg("Threshold poller: failed to get/create node alert state")
-				continue
-			}
-
-			if breached && !cached.triggered {
-				errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, true)
-				if errUpdate != nil {
-					log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update node state to triggered")
+			for _, snap := range snapshots {
+				if nodeIDSet && ruleNodeID != snap.nodeID {
 					continue
 				}
-				cached.triggered = true
-				p.bus.Publish(et.topic, eventbus.NodeThresholdEvent{
-					NodeID:       nodeID,
-					CurrentValue: et.value,
-					Threshold:    threshold,
-					Direction:    eventbus.ThresholdEntered,
-				})
-			} else if !breached && cached.triggered {
-				errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, false)
-				if errUpdate != nil {
-					log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update node state to resolved")
+
+				currentValue := et.getValue(snap)
+				op, threshold, errParse := p.getConditionCached(rule)
+				if errParse != nil {
+					log.Warn().Err(errParse).Str("rule_id", rule.ID).Msg("Threshold poller: failed to parse node rule condition")
 					continue
 				}
-				cached.triggered = false
-				p.bus.Publish(et.topic, eventbus.NodeThresholdEvent{
-					NodeID:       nodeID,
-					CurrentValue: et.value,
-					Threshold:    threshold,
-					Direction:    eventbus.ThresholdResolved,
-				})
+
+				breached, errEval := alerts.EvaluateThresholdOp(op, threshold, currentValue)
+				if errEval != nil {
+					log.Warn().Err(errEval).Str("rule_id", rule.ID).Msg("Threshold poller: failed to evaluate node threshold")
+					continue
+				}
+
+				cached, errState := p.getOrCreateStateCached(rule.ID, "node", snap.nodeID, "")
+				if errState != nil {
+					log.Error().Err(errState).Str("rule_id", rule.ID).Str("node_id", snap.nodeID).Msg("Threshold poller: failed to get/create node alert state")
+					continue
+				}
+
+				if breached && !cached.triggered {
+					errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, true)
+					if errUpdate != nil {
+						log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update node state to triggered")
+						continue
+					}
+					cached.triggered = true
+					p.bus.Publish(et.topic, eventbus.NodeThresholdEvent{
+						NodeID:       snap.nodeID,
+						CurrentValue: currentValue,
+						Threshold:    threshold,
+						Direction:    eventbus.ThresholdEntered,
+					})
+				} else if !breached && cached.triggered {
+					errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, false)
+					if errUpdate != nil {
+						log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update node state to resolved")
+						continue
+					}
+					cached.triggered = false
+					p.bus.Publish(et.topic, eventbus.NodeThresholdEvent{
+						NodeID:       snap.nodeID,
+						CurrentValue: currentValue,
+						Threshold:    threshold,
+						Direction:    eventbus.ThresholdResolved,
+					})
+				}
 			}
 		}
 	}
@@ -521,9 +574,9 @@ func parseCondition(condition interface{ Get() (string, bool) }) (threshold floa
 // ticks every thresholdPollInterval and evaluates threshold rules. Uses the
 // registry-based providers so both embedded and remote-node servers have
 // their metrics evaluated against the same rule set.
-func (inst *Instance) backgroundJobThresholdPoller(localNodeID string) {
+func (inst *Instance) backgroundJobThresholdPoller() {
 	serverProv := &registryServerMetricsProvider{ctx: inst.ctx, registry: inst.nodeRegistry}
-	nodeProv := &registryNodeMetricsProvider{ctx: inst.ctx, registry: inst.nodeRegistry, nodeID: localNodeID}
+	nodeProv := &registryNodeMetricsProvider{ctx: inst.ctx, registry: inst.nodeRegistry}
 
 	poller := newThresholdPoller(inst.db, inst.db, serverProv, nodeProv, inst, eventbus.Get())
 

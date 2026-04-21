@@ -206,6 +206,12 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 	versions := make([]modproviders.ModVersion, 0, len(resp.Builds))
 	for _, b := range resp.Builds {
 		versionID := fmt.Sprintf("%s-%d", gameVersion, b.Build)
+		fileName := b.Downloads.Application.Name
+		if fileName == "" {
+			fileName = fmt.Sprintf("%s-%s-%d.jar", sourceID, gameVersion, b.Build)
+		}
+		downloadURL := fmt.Sprintf("%s/projects/%s/versions/%s/builds/%d/downloads/%s",
+			p.baseURLFor(sourceID), sourceID, gameVersion, b.Build, fileName)
 
 		var changelog string
 		if len(b.Changes) > 0 {
@@ -217,10 +223,12 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 		}
 
 		versions = append(versions, modproviders.ModVersion{
-			VersionID:     versionID,
-			VersionString: fmt.Sprintf("Build %d", b.Build),
-			GameVersions:  []string{gameVersion},
-			Changelog:     changelog,
+			VersionID:      versionID,
+			VersionString:  fmt.Sprintf("Build %d", b.Build),
+			GameVersions:   []string{gameVersion},
+			DownloadURL:    downloadURL,
+			FileHashSHA256: b.Downloads.Application.SHA256,
+			Changelog:      changelog,
 		})
 	}
 	return versions, nil

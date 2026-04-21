@@ -2,6 +2,7 @@ package versiontracker
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -383,7 +384,22 @@ func readMinecraftJarVersionFile(jarPath string) (string, error) {
 		}
 	}()
 
-	for _, f := range zr.File {
+	return readMinecraftJarVersionFromFiles(zr.File)
+}
+
+// ReadMinecraftJarVersionBytes extracts the version name from version.json
+// inside a Minecraft server jar already held in memory.
+func ReadMinecraftJarVersionBytes(jarBytes []byte) (string, error) {
+	reader := bytes.NewReader(jarBytes)
+	zr, errOpen := zip.NewReader(reader, int64(len(jarBytes)))
+	if errOpen != nil {
+		return "", fmt.Errorf("open jar bytes: %w", errOpen)
+	}
+	return readMinecraftJarVersionFromFiles(zr.File)
+}
+
+func readMinecraftJarVersionFromFiles(files []*zip.File) (string, error) {
+	for _, f := range files {
 		if f.Name != "version.json" {
 			continue
 		}

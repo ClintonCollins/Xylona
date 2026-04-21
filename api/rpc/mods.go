@@ -71,6 +71,23 @@ func getInstallPath(profile *updateproviders.ModProfile) string {
 	return profile.InstallPath
 }
 
+func (xs *XylonaService) remoteModClient(gameServer *models.GameServer) (modmanager.RemoteFileClient, bool, error) {
+	if gameServer == nil {
+		return nil, false, nil
+	}
+
+	selfNodeID := xs.selfNodeID()
+	if gameServer.NodeID == "" || gameServer.NodeID == selfNodeID {
+		return nil, false, nil
+	}
+
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, true, errClient
+	}
+	return client, true, nil
+}
+
 // modSearchResultToProto converts a provider search result to proto.
 func modSearchResultToProto(r modproviders.ModSearchResult) *xylona.ModSearchResult {
 	return &xylona.ModSearchResult{
@@ -359,15 +376,35 @@ func (xs *XylonaService) InstallMod(
 
 	installPath := getInstallPath(info.modProfile)
 
-	mod, errInstall := xs.modManager.Install(
-		ctx,
-		info.gameServer.ID,
-		request.Msg.GetSource(),
-		request.Msg.GetSourceId(),
-		request.Msg.GetVersionId(),
-		info.gameServer.Directory,
-		installPath,
-	)
+	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(info.gameServer)
+	if errRemoteClient != nil {
+		return nil, errRemoteClient
+	}
+
+	var mod *models.InstalledMod
+	var errInstall error
+	if isRemote {
+		mod, errInstall = xs.modManager.InstallRemote(
+			ctx,
+			remoteClient,
+			info.gameServer.ID,
+			request.Msg.GetSource(),
+			request.Msg.GetSourceId(),
+			request.Msg.GetVersionId(),
+			info.gameServer.Directory,
+			installPath,
+		)
+	} else {
+		mod, errInstall = xs.modManager.Install(
+			ctx,
+			info.gameServer.ID,
+			request.Msg.GetSource(),
+			request.Msg.GetSourceId(),
+			request.Msg.GetVersionId(),
+			info.gameServer.Directory,
+			installPath,
+		)
+	}
 	if errInstall != nil {
 		log.Error().Err(errInstall).Msg("Failed to install mod")
 		return nil, internalErrf("failed to install mod")
@@ -400,7 +437,17 @@ func (xs *XylonaService) UninstallMod(
 		return nil, errPerm
 	}
 
-	errUninstall := xs.modManager.Uninstall(ctx, request.Msg.GetInstalledModId(), gameServer.Directory)
+	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(gameServer)
+	if errRemoteClient != nil {
+		return nil, errRemoteClient
+	}
+
+	var errUninstall error
+	if isRemote {
+		errUninstall = xs.modManager.UninstallRemote(ctx, remoteClient, request.Msg.GetInstalledModId(), gameServer.Directory)
+	} else {
+		errUninstall = xs.modManager.Uninstall(ctx, request.Msg.GetInstalledModId(), gameServer.Directory)
+	}
 	if errUninstall != nil {
 		log.Error().Err(errUninstall).Msg("Failed to uninstall mod")
 		return nil, internalErrf("failed to uninstall mod")
@@ -431,7 +478,18 @@ func (xs *XylonaService) UpdateMod(
 		return nil, errPerm
 	}
 
-	updated, errUpdate := xs.modManager.Update(ctx, request.Msg.GetInstalledModId(), request.Msg.GetVersionId(), gameServer.Directory)
+	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(gameServer)
+	if errRemoteClient != nil {
+		return nil, errRemoteClient
+	}
+
+	var updated *models.InstalledMod
+	var errUpdate error
+	if isRemote {
+		updated, errUpdate = xs.modManager.UpdateRemote(ctx, remoteClient, request.Msg.GetInstalledModId(), request.Msg.GetVersionId(), gameServer.Directory)
+	} else {
+		updated, errUpdate = xs.modManager.Update(ctx, request.Msg.GetInstalledModId(), request.Msg.GetVersionId(), gameServer.Directory)
+	}
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Failed to update mod")
 		return nil, internalErrf("failed to update mod")
@@ -546,14 +604,29 @@ func (xs *XylonaService) SetModEnabled(
 
 	installPath := getInstallPath(info.modProfile)
 
+	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(info.gameServer)
+	if errRemoteClient != nil {
+		return nil, errRemoteClient
+	}
+
 	if request.Msg.GetEnabled() {
-		errEnable := xs.modManager.Enable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
+		var errEnable error
+		if isRemote {
+			errEnable = xs.modManager.EnableRemote(ctx, remoteClient, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
+		} else {
+			errEnable = xs.modManager.Enable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
+		}
 		if errEnable != nil {
 			log.Error().Err(errEnable).Msg("Failed to enable mod")
 			return nil, internalErrf("failed to enable mod")
 		}
 	} else {
-		errDisable := xs.modManager.Disable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
+		var errDisable error
+		if isRemote {
+			errDisable = xs.modManager.DisableRemote(ctx, remoteClient, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
+		} else {
+			errDisable = xs.modManager.Disable(ctx, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
+		}
 		if errDisable != nil {
 			log.Error().Err(errDisable).Msg("Failed to disable mod")
 			return nil, internalErrf("failed to disable mod")

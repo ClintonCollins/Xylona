@@ -65,7 +65,14 @@ export async function listUsers(
   }))
 }
 
-export async function listIPs(client: ProvisioningClient = getXylonaClient()): Promise<IP[]> {
-  const response = await client.listIPs(create(ListIPsRequestSchema, {}))
+export async function listIPs(
+  nodeId: string,
+  client: ProvisioningClient = getXylonaClient(),
+): Promise<IP[]> {
+  const response = await client.listIPs(
+    create(ListIPsRequestSchema, {
+      nodeId,
+    }),
+  )
   return response.ips.slice()
 }

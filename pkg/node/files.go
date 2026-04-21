@@ -1,7 +1,11 @@
 package node
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha1" // #nosec G505 -- used only for Mojang-published checksum verification.
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -17,6 +22,11 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
 	"github.com/ClintonCollins/Xylona/startargs"
+)
+
+var (
+	downloadHTTPClient     = helpers.GetXylonaHTTPClient
+	validateDownloadTarget = webhooks.ValidateWebhookTarget
 )
 
 // enforceProtection runs the shared IsProtectedServerPath check on a write-
@@ -100,9 +110,27 @@ func (n *Node) ListFiles(directory, relativePath string) ([]FileEntry, error) {
 			size = recursiveSize
 		}
 
-		results = append(results, NewFileEntry(info.Name(), size, info.IsDir(), info.ModTime()))
+		results = append(results, NewFileEntry(info.Name(), size, info.IsDir(), info.ModTime(), isExecutableFile(info)))
 	}
 	return results, nil
+}
+
+func isExecutableFile(info os.FileInfo) bool {
+	if info == nil || info.IsDir() {
+		return false
+	}
+	if info.Mode().Perm()&0o111 != 0 {
+		return true
+	}
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	switch strings.ToLower(filepath.Ext(info.Name())) {
+	case ".bat", ".cmd", ".com", ".exe", ".ps1", ".sh":
+		return true
+	default:
+		return false
+	}
 }
 
 func walkDirectorySize(root string) (int64, error) {
@@ -147,29 +175,170 @@ func (n *Node) ReadFile(directory, relativePath string) ([]byte, error) {
 	return data, nil
 }
 
+// StatFile returns metadata for directory/relativePath after verifying the
+// resolved path stays inside directory.
+func (n *Node) StatFile(directory, relativePath string) (FileEntry, error) {
+	validated, errPath := validateLocalPath(relativePath)
+	if errPath != nil {
+		return FileEntry{}, errPath
+	}
+
+	fullPath, errResolve := resolveWithinRoot(directory, validated)
+	if errResolve != nil {
+		return FileEntry{}, errResolve
+	}
+
+	info, errStat := os.Stat(fullPath)
+	if errStat != nil {
+		return FileEntry{}, fmt.Errorf("node: stat file: %w", errStat)
+	}
+	return NewFileEntry(info.Name(), info.Size(), info.IsDir(), info.ModTime(), isExecutableFile(info)), nil
+}
+
+// OpenFile opens directory/relativePath for streaming without loading the
+// entire file into controller memory. The caller owns the returned closer.
+func (n *Node) OpenFile(directory, relativePath string) (io.ReadCloser, error) {
+	validated, errPath := validateLocalPath(relativePath)
+	if errPath != nil {
+		return nil, errPath
+	}
+
+	fullPath, errResolve := resolveWithinRoot(directory, validated)
+	if errResolve != nil {
+		return nil, errResolve
+	}
+
+	file, errOpen := os.Open(fullPath)
+	if errOpen != nil {
+		return nil, fmt.Errorf("node: open file: %w", errOpen)
+	}
+
+	info, errStat := file.Stat()
+	if errStat != nil {
+		errClose := file.Close()
+		if errClose != nil {
+			return nil, errors.Join(fmt.Errorf("node: stat opened file: %w", errStat), fmt.Errorf("node: close opened file after stat error: %w", errClose))
+		}
+		return nil, fmt.Errorf("node: stat opened file: %w", errStat)
+	}
+	if info.IsDir() {
+		errClose := file.Close()
+		if errClose != nil {
+			return nil, errors.Join(ErrInvalidPath, fmt.Errorf("node: close opened directory: %w", errClose))
+		}
+		return nil, ErrInvalidPath
+	}
+	return file, nil
+}
+
 // WriteFile writes content to directory/relativePath. The parent directory is
 // not created. When policy is configured, writes to the game server's
 // protected paths (server executable, launch script) are rejected with
 // ErrProtectedPath.
 func (n *Node) WriteFile(directory, relativePath string, content []byte, policy ProtectionPolicy) error {
+	_, errWrite := n.WriteFileFromReader(directory, relativePath, bytes.NewReader(content), policy)
+	if errWrite != nil {
+		return errWrite
+	}
+	return nil
+}
+
+// WriteFileFromReader writes reader content to directory/relativePath via a
+// same-directory temp file, then replaces the target. It returns the byte count
+// and SHA-256 digest of the written content.
+func (n *Node) WriteFileFromReader(directory, relativePath string, reader io.Reader, policy ProtectionPolicy) (WriteFileResult, error) {
 	validated, errPath := validateLocalPath(relativePath)
 	if errPath != nil {
-		return errPath
+		return WriteFileResult{}, errPath
 	}
 
 	errProtected := enforceProtection(validated, policy)
 	if errProtected != nil {
-		return errProtected
+		return WriteFileResult{}, errProtected
 	}
 
 	fullPath, errResolve := resolveWithinRoot(directory, validated)
 	if errResolve != nil {
-		return errResolve
+		return WriteFileResult{}, errResolve
 	}
 
-	errWrite := os.WriteFile(fullPath, content, 0o600)
-	if errWrite != nil {
-		return fmt.Errorf("node: write file: %w", errWrite)
+	return writeFileFromReaderAtPath(fullPath, reader, 0o600)
+}
+
+func writeFileFromReaderAtPath(fullPath string, reader io.Reader, perm os.FileMode) (result WriteFileResult, err error) {
+	parent := filepath.Dir(fullPath)
+	tempFile, errCreate := os.CreateTemp(parent, ".xylona-write-*")
+	if errCreate != nil {
+		return WriteFileResult{}, fmt.Errorf("node: create temp file: %w", errCreate)
+	}
+
+	tempPath := tempFile.Name()
+	removeTemp := true
+	defer func() {
+		if !removeTemp {
+			return
+		}
+		errRemove := os.Remove(tempPath)
+		if err == nil && errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+			err = fmt.Errorf("node: remove temp file: %w", errRemove)
+		}
+	}()
+
+	errChmod := tempFile.Chmod(perm)
+	if errChmod != nil {
+		errClose := tempFile.Close()
+		if errClose != nil {
+			return WriteFileResult{}, errors.Join(fmt.Errorf("node: chmod temp file: %w", errChmod), fmt.Errorf("node: close temp file after chmod error: %w", errClose))
+		}
+		return WriteFileResult{}, fmt.Errorf("node: chmod temp file: %w", errChmod)
+	}
+
+	hasher := sha256.New()
+	writer := io.MultiWriter(tempFile, hasher)
+	bytesWritten, errCopy := io.Copy(writer, reader)
+	errClose := tempFile.Close()
+	if errCopy != nil {
+		if errClose != nil {
+			return WriteFileResult{}, errors.Join(fmt.Errorf("node: write temp file: %w", errCopy), fmt.Errorf("node: close temp file after write error: %w", errClose))
+		}
+		return WriteFileResult{}, fmt.Errorf("node: write temp file: %w", errCopy)
+	}
+	if errClose != nil {
+		return WriteFileResult{}, fmt.Errorf("node: close temp file: %w", errClose)
+	}
+
+	errRename := replaceFile(tempPath, fullPath)
+	if errRename != nil {
+		return WriteFileResult{}, fmt.Errorf("node: replace file: %w", errRename)
+	}
+	removeTemp = false
+
+	return WriteFileResult{
+		BytesWritten: bytesWritten,
+		SHA256:       hex.EncodeToString(hasher.Sum(nil)),
+	}, nil
+}
+
+func replaceFile(tempPath, targetPath string) error {
+	errRename := os.Rename(tempPath, targetPath)
+	if errRename == nil {
+		return nil
+	}
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("rename temp file: %w", errRename)
+	}
+
+	_, errStat := os.Stat(targetPath)
+	if errStat != nil {
+		return fmt.Errorf("rename temp file: %w", errRename)
+	}
+	errRemove := os.Remove(targetPath)
+	if errRemove != nil {
+		return errors.Join(errRename, fmt.Errorf("node: remove existing file before replace: %w", errRemove))
+	}
+	errRenameAgain := os.Rename(tempPath, targetPath)
+	if errRenameAgain != nil {
+		return errors.Join(errRename, fmt.Errorf("node: rename after removing existing file: %w", errRenameAgain))
 	}
 	return nil
 }
@@ -368,51 +537,183 @@ func (n *Node) MoveFiles(ctx context.Context, directory string, files []string, 
 	return moved, nil
 }
 
+// CopyFiles copies each source path to its paired destination path inside
+// directory. Destination paths are subject to the protected-path check.
+func (n *Node) CopyFiles(ctx context.Context, directory string, operations []CopyFileOperation, policy ProtectionPolicy) ([]string, error) {
+	copied := make([]string, 0, len(operations))
+	for _, operation := range operations {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("node: copy files canceled: %w", ctx.Err())
+		default:
+		}
+
+		validatedSource, errSourcePath := validateLocalPath(operation.SourceRelativePath)
+		if errSourcePath != nil {
+			return nil, errSourcePath
+		}
+		validatedDestination, errDestinationPath := validateLocalPath(operation.DestinationRelativePath)
+		if errDestinationPath != nil {
+			return nil, errDestinationPath
+		}
+		errProtected := enforceProtection(validatedDestination, policy)
+		if errProtected != nil {
+			return nil, errProtected
+		}
+
+		sourceFullPath, errSourceResolve := resolveWithinRoot(directory, validatedSource)
+		if errSourceResolve != nil {
+			return nil, errSourceResolve
+		}
+		destinationFullPath, errDestinationResolve := resolveWithinRoot(directory, validatedDestination)
+		if errDestinationResolve != nil {
+			return nil, errDestinationResolve
+		}
+
+		errCopy := copyPath(ctx, sourceFullPath, destinationFullPath, validatedDestination, policy)
+		if errCopy != nil {
+			return nil, errCopy
+		}
+		copied = append(copied, filepath.ToSlash(validatedDestination))
+	}
+	return copied, nil
+}
+
+func copyPath(ctx context.Context, sourceFullPath, destinationFullPath, destinationRelativePath string, policy ProtectionPolicy) error {
+	sourceInfo, errStat := os.Lstat(sourceFullPath)
+	if errStat != nil {
+		return fmt.Errorf("node: stat copy source: %w", errStat)
+	}
+	if sourceInfo.Mode()&os.ModeSymlink != 0 {
+		return ErrInvalidPath
+	}
+	if !sourceInfo.IsDir() {
+		return copyRegularFile(sourceFullPath, destinationFullPath, sourceInfo.Mode().Perm())
+	}
+
+	cleanSource := filepath.Clean(sourceFullPath)
+	cleanDestination := filepath.Clean(destinationFullPath)
+	sourcePrefix := cleanSource + string(filepath.Separator)
+	if cleanDestination == cleanSource || strings.HasPrefix(cleanDestination, sourcePrefix) {
+		return ErrInvalidPath
+	}
+
+	errWalk := filepath.WalkDir(sourceFullPath, func(current string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		errCtx := ctx.Err()
+		if errCtx != nil {
+			return fmt.Errorf("node: copy files canceled: %w", errCtx)
+		}
+
+		relativeToSource, errRel := filepath.Rel(sourceFullPath, current)
+		if errRel != nil {
+			return fmt.Errorf("node: calculate copy relative path: %w", errRel)
+		}
+		targetPath := filepath.Join(destinationFullPath, relativeToSource)
+		targetRelativePath := filepath.ToSlash(filepath.Join(destinationRelativePath, relativeToSource))
+		if relativeToSource == "." {
+			targetPath = destinationFullPath
+			targetRelativePath = filepath.ToSlash(destinationRelativePath)
+		}
+
+		errProtected := enforceProtection(targetRelativePath, policy)
+		if errProtected != nil {
+			return errProtected
+		}
+
+		info, errInfo := entry.Info()
+		if errInfo != nil {
+			return fmt.Errorf("node: stat copy entry: %w", errInfo)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return ErrInvalidPath
+		}
+		if info.IsDir() {
+			errMkdir := os.MkdirAll(targetPath, info.Mode().Perm())
+			if errMkdir != nil {
+				return fmt.Errorf("node: create copy directory: %w", errMkdir)
+			}
+			return nil
+		}
+		return copyRegularFile(current, targetPath, info.Mode().Perm())
+	})
+	if errWalk != nil {
+		return fmt.Errorf("node: copy directory: %w", errWalk)
+	}
+	return nil
+}
+
+func copyRegularFile(sourcePath, destinationPath string, perm os.FileMode) error {
+	errMkdir := os.MkdirAll(filepath.Dir(destinationPath), 0o750)
+	if errMkdir != nil {
+		return fmt.Errorf("node: create copy parent directory: %w", errMkdir)
+	}
+
+	sourceFile, errOpen := os.Open(sourcePath)
+	if errOpen != nil {
+		return fmt.Errorf("node: open copy source: %w", errOpen)
+	}
+	defer func() {
+		errClose := sourceFile.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("node: close copy source")
+		}
+	}()
+
+	_, errWrite := writeFileFromReaderAtPath(destinationPath, sourceFile, perm)
+	if errWrite != nil {
+		return errWrite
+	}
+	return nil
+}
+
 // DownloadFileFromURL fetches rawURL over HTTP/HTTPS and stores the result
 // inside directory under destinationDirectoryPath, using the URL's basename as
 // the file name. The function rejects non-http(s) schemes, applies the
 // webhook SSRF guard, and validates redirects against the same guard. The
 // final destination path (destinationDirectoryPath + basename) is subject to
 // the protected-path check.
-func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, policy ProtectionPolicy) (string, error) {
+func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, integrity DownloadIntegrity, policy ProtectionPolicy) (DownloadFileResult, error) {
 	validatedDestination, errPath := validateLocalPath(destinationDirectoryPath)
 	if errPath != nil {
-		return "", errPath
+		return DownloadFileResult{}, errPath
 	}
 
 	parsedURL, errParseURL := url.Parse(rawURL)
 	if errParseURL != nil {
 		log.Error().Err(errParseURL).Msg("node: failed to parse download URL")
-		return "", errors.New("node: invalid URL")
+		return DownloadFileResult{}, errors.New("node: invalid URL")
 	}
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		log.Error().Str("scheme", parsedURL.Scheme).Msg("node: download URL scheme not allowed")
-		return "", errors.New("node: only http and https URLs are allowed")
+		return DownloadFileResult{}, errors.New("node: only http and https URLs are allowed")
 	}
 
-	errSSRF := webhooks.ValidateWebhookTarget(rawURL)
+	errSSRF := validateDownloadTarget(rawURL)
 	if errSSRF != nil {
-		return "", fmt.Errorf("node: validate download URL: %w", errSSRF)
+		return DownloadFileResult{}, fmt.Errorf("node: validate download URL: %w", errSSRF)
 	}
 
-	httpClientBase := helpers.GetXylonaHTTPClient()
+	httpClientBase := downloadHTTPClient()
 	httpClientCopy := *httpClientBase
 	httpClient := &httpClientCopy
 	httpClient.CheckRedirect = validateDownloadRedirectTarget
 
 	req, errNewReq := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if errNewReq != nil {
-		return "", fmt.Errorf("node: create download request: %w", errNewReq)
+		return DownloadFileResult{}, fmt.Errorf("node: create download request: %w", errNewReq)
 	}
 
 	fileName := strings.TrimPrefix(path.Base(req.URL.Path), "/")
 	if !filepath.IsLocal(fileName) {
-		return "", ErrInvalidPath
+		return DownloadFileResult{}, ErrInvalidPath
 	}
 
 	resp, errGet := httpClient.Do(req)
 	if errGet != nil {
-		return "", fmt.Errorf("node: download file from URL: %w", errGet)
+		return DownloadFileResult{}, fmt.Errorf("node: download file from URL: %w", errGet)
 	}
 	defer func() {
 		errClose := resp.Body.Close()
@@ -420,33 +721,88 @@ func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, desti
 			log.Warn().Err(errClose).Msg("node: close download response body")
 		}
 	}()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return DownloadFileResult{}, fmt.Errorf("%w: %s", ErrUnexpectedHTTPStatus, resp.Status)
+	}
 
 	destinationRelative := filepath.Join(validatedDestination, fileName)
 	errProtected := enforceProtection(destinationRelative, policy)
 	if errProtected != nil {
-		return "", errProtected
+		return DownloadFileResult{}, errProtected
 	}
 	destinationFullPath, errResolve := resolveWithinRoot(directory, destinationRelative)
 	if errResolve != nil {
-		return "", errResolve
+		return DownloadFileResult{}, errResolve
 	}
 
-	file, errCreate := os.Create(destinationFullPath)
+	tempFile, errCreate := os.CreateTemp(filepath.Dir(destinationFullPath), "."+filepath.Base(destinationFullPath)+".download-*")
 	if errCreate != nil {
-		return "", fmt.Errorf("node: create downloaded file: %w", errCreate)
+		return DownloadFileResult{}, fmt.Errorf("node: create downloaded file: %w", errCreate)
 	}
+	tempPath := tempFile.Name()
+	keepTemp := false
 	defer func() {
-		errClose := file.Close()
-		if errClose != nil {
-			log.Warn().Err(errClose).Msg("node: close downloaded file")
+		if keepTemp {
+			return
+		}
+		errRemove := os.Remove(tempPath)
+		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+			log.Warn().Err(errRemove).Str("path", tempPath).Msg("node: remove incomplete download")
 		}
 	}()
 
-	_, errCopy := io.Copy(file, resp.Body)
-	if errCopy != nil {
-		return "", fmt.Errorf("node: write downloaded file: %w", errCopy)
+	sha256Hasher := sha256.New()
+	sha1Hasher := sha1.New() // #nosec G401 -- used only for Mojang-published checksum verification.
+	writer := io.MultiWriter(tempFile, sha256Hasher, sha1Hasher)
+	reader := io.Reader(resp.Body)
+	if integrity.ExpectedSize > 0 {
+		reader = io.LimitReader(resp.Body, integrity.ExpectedSize+1)
 	}
-	return destinationRelative, nil
+	bytesWritten, errCopy := io.Copy(writer, reader)
+	if errCopy != nil {
+		errClose := tempFile.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("node: close downloaded file after copy error")
+		}
+		return DownloadFileResult{}, fmt.Errorf("node: write downloaded file: %w", errCopy)
+	}
+
+	sha256Hex := hex.EncodeToString(sha256Hasher.Sum(nil))
+	sha1Hex := hex.EncodeToString(sha1Hasher.Sum(nil))
+	errIntegrity := validateDownloadIntegrity(integrity, bytesWritten, sha256Hex, sha1Hex)
+	if errIntegrity != nil {
+		errClose := tempFile.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("node: close downloaded file after integrity failure")
+		}
+		return DownloadFileResult{}, errIntegrity
+	}
+
+	errClose := tempFile.Close()
+	if errClose != nil {
+		return DownloadFileResult{}, fmt.Errorf("node: close downloaded file: %w", errClose)
+	}
+
+	errRename := os.Rename(tempPath, destinationFullPath)
+	if errRename != nil {
+		errRemoveDestination := os.Remove(destinationFullPath)
+		if errRemoveDestination != nil && !errors.Is(errRemoveDestination, os.ErrNotExist) {
+			return DownloadFileResult{}, fmt.Errorf("node: replace downloaded file: %w", errRemoveDestination)
+		}
+		errRename = os.Rename(tempPath, destinationFullPath)
+		if errRename != nil {
+			return DownloadFileResult{}, fmt.Errorf("node: promote downloaded file: %w", errRename)
+		}
+	}
+	keepTemp = true
+
+	return DownloadFileResult{
+		RelativePath:  destinationRelative,
+		BytesWritten:  bytesWritten,
+		SHA256:        sha256Hex,
+		SHA1:          sha1Hex,
+		ExpectedMatch: integrity.HasExpectedMetadata(),
+	}, nil
 }
 
 func validateDownloadRedirectTarget(req *http.Request, via []*http.Request) error {
@@ -454,9 +810,24 @@ func validateDownloadRedirectTarget(req *http.Request, via []*http.Request) erro
 		return errors.New("stopped after 10 redirects")
 	}
 
-	errValidateRedirect := webhooks.ValidateWebhookTarget(req.URL.String())
+	errValidateRedirect := validateDownloadTarget(req.URL.String())
 	if errValidateRedirect != nil {
 		return fmt.Errorf("node: download redirect blocked: %w", errValidateRedirect)
+	}
+	return nil
+}
+
+func validateDownloadIntegrity(integrity DownloadIntegrity, bytesWritten int64, sha256Hex string, sha1Hex string) error {
+	if integrity.ExpectedSize > 0 && bytesWritten != integrity.ExpectedSize {
+		return fmt.Errorf("%w: size got %d, want %d", ErrDownloadIntegrityMismatch, bytesWritten, integrity.ExpectedSize)
+	}
+	expectedSHA256 := strings.TrimSpace(integrity.ExpectedSHA256)
+	if expectedSHA256 != "" && !strings.EqualFold(sha256Hex, expectedSHA256) {
+		return fmt.Errorf("%w: sha256 got %s, want %s", ErrDownloadIntegrityMismatch, sha256Hex, expectedSHA256)
+	}
+	expectedSHA1 := strings.TrimSpace(integrity.ExpectedSHA1)
+	if expectedSHA1 != "" && !strings.EqualFold(sha1Hex, expectedSHA1) {
+		return fmt.Errorf("%w: sha1 got %s, want %s", ErrDownloadIntegrityMismatch, sha1Hex, expectedSHA1)
 	}
 	return nil
 }

@@ -14,6 +14,7 @@ package nodeclient
 
 import (
 	"context"
+	"io"
 
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -64,11 +65,23 @@ type NodeClient interface {
 	// ReadFile returns the bytes of directory/relativePath.
 	ReadFile(ctx context.Context, directory, relativePath string) ([]byte, error)
 
+	// StatFile returns metadata for directory/relativePath without reading
+	// the file content.
+	StatFile(ctx context.Context, directory, relativePath string) (node.FileEntry, error)
+
+	// StreamFile returns a reader for directory/relativePath so callers can
+	// proxy large node-resident files without controller-side temp staging.
+	StreamFile(ctx context.Context, directory, relativePath string) (io.ReadCloser, error)
+
 	// WriteFile writes content to directory/relativePath. policy carries the
 	// controller's protected-path context so the node can reject writes to
 	// the game server's executable or launch script; pass a zero-value
 	// ProtectionPolicy for non-game-server requests.
 	WriteFile(ctx context.Context, directory, relativePath string, content []byte, policy node.ProtectionPolicy) error
+
+	// StreamWriteFile writes reader content to directory/relativePath without
+	// loading the complete payload into memory.
+	StreamWriteFile(ctx context.Context, directory, relativePath string, reader io.Reader, policy node.ProtectionPolicy) (node.WriteFileResult, error)
 
 	// CreateFileOrDirectory creates a file (with optional content) or
 	// directory inside directory.
@@ -87,9 +100,31 @@ type NodeClient interface {
 	// slice contains the validated source paths that were successfully moved.
 	MoveFiles(ctx context.Context, directory string, files []string, destination string, policy node.ProtectionPolicy) ([]string, error)
 
+	// CopyFiles copies source paths to paired destination paths inside
+	// directory. Destination paths are protected by policy.
+	CopyFiles(ctx context.Context, directory string, operations []node.CopyFileOperation, policy node.ProtectionPolicy) ([]string, error)
+
 	// DownloadFileFromURL fetches rawURL over HTTP/HTTPS and stores the
 	// result inside directory under destinationDirectoryPath.
-	DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, policy node.ProtectionPolicy) (string, error)
+	DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, integrity node.DownloadIntegrity, policy node.ProtectionPolicy) (node.DownloadFileResult, error)
+
+	// CreateFileArchive asks the node to build a user-requested archive inside
+	// directory without staging remote content on the controller.
+	CreateFileArchive(ctx context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, policy node.ProtectionPolicy) (string, node.ArchiveProgress, error)
+
+	// CreateFileArchiveWithProgress is CreateFileArchive plus progress events
+	// forwarded from the node. Implementations should avoid short HTTP client
+	// timeouts because archive operations can be long-running.
+	CreateFileArchiveWithProgress(ctx context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, policy node.ProtectionPolicy, onProgress func(node.ArchiveProgress) error) (string, node.ArchiveProgress, error)
+
+	// ExtractFileArchive asks the node to extract a user-requested archive
+	// inside directory without staging remote content on the controller.
+	ExtractFileArchive(ctx context.Context, directory string, archivePath string, destinationDirectoryPath string, policy node.ProtectionPolicy) ([]string, node.ExtractProgress, error)
+
+	// ExtractFileArchiveWithProgress is ExtractFileArchive plus progress
+	// events forwarded from the node. Implementations should avoid short HTTP
+	// client timeouts because extraction can be long-running.
+	ExtractFileArchiveWithProgress(ctx context.Context, directory string, archivePath string, destinationDirectoryPath string, policy node.ProtectionPolicy, onProgress func(node.ExtractProgress) error) ([]string, node.ExtractProgress, error)
 
 	// CreateBackupArchive asks the node to build a zip archive at
 	// destinationArchivePath containing includePaths relative to directory.
@@ -100,6 +135,15 @@ type NodeClient interface {
 	// ExtractBackupArchive unpacks archivePath into directory using the given
 	// mode. Used by backup-restore flows.
 	ExtractBackupArchive(ctx context.Context, directory string, archivePath string, mode node.ExtractMode) error
+
+	// ProbeInstalledVersion asks the node to inspect local files for a narrow
+	// installed-version marker.
+	ProbeInstalledVersion(ctx context.Context, req node.InstalledVersionProbeRequest) (node.InstalledVersionProbeResult, error)
+
+	// QueryGameServer asks the node to execute a game-server network query
+	// probe from the node host. The controller remains responsible for
+	// scheduling and storing the returned result.
+	QueryGameServer(ctx context.Context, req node.GameServerQueryRequest) (node.GameServerQueryResult, error)
 
 	// SendConsoleOutput writes a controller-generated line into the process's
 	// console buffer on the node side. Used for pre-start messages, mod
@@ -115,6 +159,10 @@ type NodeClient interface {
 	// GetNodeSnapshot returns a point-in-time view of the host plus
 	// per-process metrics for everything the node is currently tracking.
 	GetNodeSnapshot(ctx context.Context) (*node.NodeSnapshot, error)
+
+	// ListBindableIPs returns the node-local IP addresses that can be bound
+	// by game servers on this node.
+	ListBindableIPs(ctx context.Context) ([]node.BindableIP, error)
 
 	// StreamEvents returns a channel receiving events published by the node.
 	// The channel closes when ctx is canceled or the client is closed.

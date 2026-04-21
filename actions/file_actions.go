@@ -31,6 +31,7 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/startargs"
 )
 
 // MaxRequestBodySize caps file action request bodies at 1 MiB.
@@ -53,7 +54,8 @@ func (pr *progressReader) Stat() (fs.FileInfo, error) {
 }
 
 func (pr *progressReader) Close() error {
-	if closer, ok := pr.Reader.(io.Closer); ok {
+	closer, ok := pr.Reader.(io.Closer)
+	if ok {
 		errClose := closer.Close()
 		if errClose != nil {
 			return wrapFileActionError("close progress reader", errClose)
@@ -849,14 +851,14 @@ func (inst *Instance) UploadFileToUserGET(w http.ResponseWriter, r *http.Request
 // UploadFileToUserPOST streams a file download requested via form fields.
 func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	errParseForm := r.ParseForm()
+	errParseForm := r.ParseForm() // #nosec G120 -- request body is capped by MaxBytesReader above.
 	if errParseForm != nil {
 		log.Error().Err(errParseForm).Msg("Failed to parse form")
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
-	gameServerID := r.FormValue("gameServerId")
-	filePath := r.FormValue("path")
+	gameServerID := r.PostForm.Get("gameServerId")
+	filePath := r.PostForm.Get("path")
 
 	inst.serveLocalFileRequest(
 		w,
@@ -1176,94 +1178,93 @@ func isRequestBodyTooLarge(err error) bool {
 }
 
 func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, relativePath, fileName string, fileSource io.Reader) error {
-	validatedPath, errPath := validateLocalServerPath(gameServer, relativePath)
+	validatedPath, errPath := validateRemoteServerPath(relativePath)
 	if errPath != nil {
 		return errPath
 	}
 
-	// Sanitize uploaded filename to prevent path traversal (e.g., "../../etc/passwd").
-	sanitizedFileName := filepath.Base(fileName)
-	if sanitizedFileName == "." || sanitizedFileName == string(filepath.Separator) {
-		log.Error().Str("fileName", fileName).Msg("Invalid file name")
-		return ErrInvalidPath
+	sanitizedFileName, errFileName := sanitizeRemoteUploadFileName(fileName)
+	if errFileName != nil {
+		return errFileName
 	}
 
-	protectedRelativePath := filepath.Join(validatedPath, sanitizedFileName)
-	_, errProtected := validateWritableServerPath(gameServer, protectedRelativePath)
-	if errProtected != nil {
-		return errProtected
+	protectedRelativePath := path.Join(validatedPath, sanitizedFileName)
+	policy := remoteFileProtectionPolicy(gameServer)
+	if policy.IsConfigured() && startargs.IsProtectedServerPath(protectedRelativePath, policy.BaseCommand, policy.ServerExecutable) {
+		log.Warn().Str("Game Server ID", gameServer.ID).Str("path", protectedRelativePath).Msg("Blocked mutation of protected server path")
+		return ErrProtectedPath
 	}
 
-	cleanGameServerDir := filepath.Clean(gameServer.Directory)
-	gameServerDirPlusPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath))
-	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
-	if gameServerDirPlusPath != cleanGameServerDir && !strings.HasPrefix(gameServerDirPlusPath, gameServerDirPrefix) {
-		log.Error().Str("path", gameServerDirPlusPath).Msg("Upload directory escaped game server root")
-		return ErrInvalidPath
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return fmt.Errorf("actions: resolve node client for upload: %w", errClient)
 	}
 
-	errMkdirAll := os.MkdirAll(gameServerDirPlusPath, 0o750)
-	if errMkdirAll != nil {
-		log.Error().Err(errMkdirAll).Msg("Failed to create directory")
-		return fmt.Errorf("actions: create upload directory: %w", errMkdirAll)
-	}
-
-	fullPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath, sanitizedFileName))
-	if fullPath != cleanGameServerDir && !strings.HasPrefix(fullPath, gameServerDirPrefix) {
-		log.Error().Str("path", fullPath).Msg("Upload file path escaped game server root")
-		return ErrInvalidPath
-	}
-
-	tempFile, errCreateTemp := os.CreateTemp(gameServerDirPlusPath, sanitizedFileName+".tmp-*")
-	if errCreateTemp != nil {
-		log.Error().Err(errCreateTemp).Msg("Failed to create upload temp file")
-		return fmt.Errorf("actions: create uploaded temp file: %w", errCreateTemp)
-	}
-	tempFilePath := tempFile.Name()
-	tempFileClosed := false
-	defer func() {
-		if !tempFileClosed {
-			errClose := tempFile.Close()
-			if errClose != nil {
-				log.Error().Err(errClose).Msg("Failed to close upload temp file")
-			}
+	if validatedPath != "" {
+		errCreateDir := client.CreateFileOrDirectory(inst.ctx, gameServer.Directory, validatedPath, "", true, policy)
+		if errCreateDir != nil {
+			return fmt.Errorf("actions: create upload directory: %w", errCreateDir)
 		}
-		errRemove := os.Remove(tempFilePath)
-		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
-			log.Error().Err(errRemove).Str("path", tempFilePath).Msg("Failed to remove upload temp file")
-		}
-	}()
-
-	_, errCopy := io.Copy(tempFile, fileSource)
-	if errCopy != nil {
-		log.Error().Err(errCopy).Msg("Failed to copy file")
-		return fmt.Errorf("actions: write uploaded file: %w", errCopy)
 	}
 
-	errCloseTemp := tempFile.Close()
-	if errCloseTemp != nil {
-		log.Error().Err(errCloseTemp).Msg("Failed to close upload temp file")
-		return fmt.Errorf("actions: close uploaded temp file: %w", errCloseTemp)
-	}
-	tempFileClosed = true
-
-	errRemoveExisting := os.Remove(fullPath)
-	if errRemoveExisting != nil && !errors.Is(errRemoveExisting, os.ErrNotExist) {
-		log.Error().Err(errRemoveExisting).Str("path", fullPath).Msg("Failed to remove existing upload file")
-		return fmt.Errorf("actions: remove existing uploaded file: %w", errRemoveExisting)
-	}
-
-	errRename := os.Rename(tempFilePath, fullPath)
-	if errRename != nil {
-		log.Error().Err(errRename).Str("path", fullPath).Msg("Failed to move uploaded temp file into place")
-		return fmt.Errorf("actions: move uploaded file into place: %w", errRename)
+	_, errWrite := client.StreamWriteFile(inst.ctx, gameServer.Directory, protectedRelativePath, fileSource, policy)
+	if errWrite != nil {
+		return fmt.Errorf("actions: stream uploaded file: %w", errWrite)
 	}
 
 	return nil
 }
 
-// GetGameServerFile streams a local game server file to the provided writer.
+func validateRemoteServerPath(relativePath string) (string, error) {
+	normalizedPath := strings.ReplaceAll(strings.TrimSpace(relativePath), `\`, "/")
+	if strings.HasPrefix(normalizedPath, "//") {
+		return "", ErrInvalidPath
+	}
+
+	normalizedPath = strings.TrimPrefix(normalizedPath, "/")
+	cleanedPath := path.Clean(normalizedPath)
+	if cleanedPath == "." {
+		return "", nil
+	}
+	if cleanedPath == ".." || strings.HasPrefix(cleanedPath, "../") {
+		return "", ErrInvalidPath
+	}
+	if strings.HasPrefix(cleanedPath, "/") {
+		return "", ErrInvalidPath
+	}
+	if hasWindowsDrivePrefix(cleanedPath) {
+		return "", ErrInvalidPath
+	}
+
+	return cleanedPath, nil
+}
+
+func sanitizeRemoteUploadFileName(fileName string) (string, error) {
+	normalizedName := strings.ReplaceAll(strings.TrimSpace(fileName), `\`, "/")
+	sanitizedFileName := path.Base(normalizedName)
+	if sanitizedFileName == "." || sanitizedFileName == ".." || sanitizedFileName == "" {
+		log.Error().Str("fileName", fileName).Msg("Invalid file name")
+		return "", ErrInvalidPath
+	}
+	if hasWindowsDrivePrefix(sanitizedFileName) {
+		return "", ErrInvalidPath
+	}
+	return sanitizedFileName, nil
+}
+
+func remoteFileProtectionPolicy(gameServer *models.GameServer) node.ProtectionPolicy {
+	return node.ProtectionPolicy{
+		ServerExecutable: gameServer.ServerExecutable.GetOr(""),
+		BaseCommand:      baseCommandForProtectedPath(gameServer),
+	}
+}
+
+// GetGameServerFile streams a game server file to the provided writer.
 func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativePath string, writer io.Writer, setHeaders, setAsAttachment bool) error {
+	if inst.isRemoteGameServer(gameServer) {
+		return inst.getRemoteGameServerFile(gameServer, relativePath, writer, setHeaders, setAsAttachment)
+	}
+
 	validatedPath, errPath := validateLocalServerPath(gameServer, relativePath)
 	if errPath != nil {
 		return errPath
@@ -1327,6 +1328,65 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativeP
 		return fmt.Errorf("actions: stream game server file: %w", errCopy)
 	}
 	return nil
+}
+
+func (inst *Instance) getRemoteGameServerFile(gameServer *models.GameServer, relativePath string, writer io.Writer, setHeaders, setAsAttachment bool) error {
+	validatedPath, errPath := validateRemoteServerPath(relativePath)
+	if errPath != nil {
+		return errPath
+	}
+
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return fmt.Errorf("actions: resolve node client for game server file: %w", errClient)
+	}
+
+	fileInfo, errStat := client.StatFile(inst.ctx, gameServer.Directory, validatedPath)
+	if errStat != nil {
+		return fmt.Errorf("actions: stat remote game server file: %w", errStat)
+	}
+
+	fileReader, errOpen := client.StreamFile(inst.ctx, gameServer.Directory, validatedPath)
+	if errOpen != nil {
+		return fmt.Errorf("actions: stream remote game server file: %w", errOpen)
+	}
+	defer func() {
+		errClose := fileReader.Close()
+		if errClose != nil {
+			log.Error().Err(errClose).Msg("Failed to close remote game server file stream")
+		}
+	}()
+
+	if setHeaders {
+		w, ok := writer.(http.ResponseWriter)
+		if !ok {
+			log.Error().Msg("Writer is not an http.ResponseWriter")
+			return errors.New("writer is not an http.ResponseWriter")
+		}
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size, 10))
+		if setAsAttachment {
+			safeName := sanitizeDownloadFileName(fileInfo.Name)
+			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safeName))
+		}
+	}
+
+	_, errCopy := io.Copy(writer, fileReader)
+	if errCopy != nil {
+		log.Error().Err(errCopy).Msg("Failed to copy remote file")
+		return fmt.Errorf("actions: stream remote game server file: %w", errCopy)
+	}
+	return nil
+}
+
+func sanitizeDownloadFileName(fileName string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || r == '\n' || r == '\r' {
+			return '_'
+		}
+		return r
+	}, fileName)
 }
 
 func (inst *Instance) createGameServerDirectory(gameServer *models.GameServer, owner *models.User) (string, error) {

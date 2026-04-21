@@ -5,12 +5,15 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -67,10 +70,16 @@ func translate(err error) error {
 		return nil
 	}
 	if errors.Is(err, node.ErrInvalidPath) {
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if errors.Is(err, os.ErrNotExist) {
 		return connect.NewError(connect.CodeNotFound, err)
 	}
 	if errors.Is(err, node.ErrProtectedPath) {
 		return connect.NewError(connect.CodePermissionDenied, err)
+	}
+	if errors.Is(err, node.ErrUnexpectedHTTPStatus) || errors.Is(err, node.ErrDownloadIntegrityMismatch) {
+		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}
 	return connect.NewError(connect.CodeInternal, err)
 }
@@ -268,14 +277,38 @@ func (s *nodeServiceServer) ListFiles(_ context.Context, req *connect.Request[no
 	}
 	out := make([]*nodeprotov1.FileEntry, 0, len(entries))
 	for _, entry := range entries {
-		out = append(out, &nodeprotov1.FileEntry{
-			Name:         entry.Name,
-			Size:         entry.Size,
-			IsDirectory:  entry.IsDirectory,
-			LastModified: timestamppb.New(entry.LastModified),
-		})
+		out = append(out, fileEntryToProto(entry))
 	}
 	return connect.NewResponse(&nodeprotov1.ListFilesResponse{Entries: out}), nil
+}
+
+func (s *nodeServiceServer) ListBindableIPs(_ context.Context, req *connect.Request[nodeprotov1.ListBindableIPsRequest]) (*connect.Response[nodeprotov1.ListBindableIPsResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+
+	rawIPs, errIPs := helpers.GetBindableIPs()
+	if errIPs != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("list bindable IPs: %w", errIPs))
+	}
+
+	ips := make([]*nodeprotov1.BindableIP, 0, len(rawIPs))
+	for _, rawIP := range rawIPs {
+		if rawIP == nil {
+			continue
+		}
+		ips = append(ips, &nodeprotov1.BindableIP{
+			Address:  rawIP.String(),
+			Usable:   true,
+			External: !rawIP.IsPrivate(),
+		})
+	}
+
+	return connect.NewResponse(&nodeprotov1.ListBindableIPsResponse{Ips: ips}), nil
 }
 
 func (s *nodeServiceServer) ReadFile(_ context.Context, req *connect.Request[nodeprotov1.ReadFileRequest]) (*connect.Response[nodeprotov1.ReadFileResponse], error) {
@@ -291,6 +324,107 @@ func (s *nodeServiceServer) ReadFile(_ context.Context, req *connect.Request[nod
 		return nil, translate(errRead)
 	}
 	return connect.NewResponse(&nodeprotov1.ReadFileResponse{Content: data}), nil
+}
+
+func (s *nodeServiceServer) StatFile(_ context.Context, req *connect.Request[nodeprotov1.StatFileRequest]) (*connect.Response[nodeprotov1.StatFileResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	entry, errStat := s.n.StatFile(req.Msg.GetDirectory(), req.Msg.GetRelativePath())
+	if errStat != nil {
+		return nil, translate(errStat)
+	}
+	return connect.NewResponse(&nodeprotov1.StatFileResponse{Entry: fileEntryToProto(entry)}), nil
+}
+
+func (s *nodeServiceServer) StreamFile(ctx context.Context, req *connect.Request[nodeprotov1.StreamFileRequest], stream *connect.ServerStream[nodeprotov1.StreamFileResponse]) error {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return errAuth
+	}
+	if s.n == nil {
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	reader, errOpen := s.n.OpenFile(req.Msg.GetDirectory(), req.Msg.GetRelativePath())
+	if errOpen != nil {
+		return translate(errOpen)
+	}
+	return streamFileContent(ctx, reader, stream)
+}
+
+func fileEntryToProto(entry node.FileEntry) *nodeprotov1.FileEntry {
+	return &nodeprotov1.FileEntry{
+		Name:         entry.Name,
+		Size:         entry.Size,
+		IsDirectory:  entry.IsDirectory,
+		IsExecutable: entry.IsExecutable,
+		LastModified: timestamppb.New(entry.LastModified),
+	}
+}
+
+const streamFileChunkBytes = 64 * 1024
+
+func streamFileContent(ctx context.Context, reader io.ReadCloser, stream *connect.ServerStream[nodeprotov1.StreamFileResponse]) (err error) {
+	defer func() {
+		errClose := reader.Close()
+		if err == nil && errClose != nil {
+			err = fmt.Errorf("stream file close: %w", errClose)
+		}
+	}()
+
+	buf := make([]byte, streamFileChunkBytes)
+	for {
+		errCtx := ctx.Err()
+		if errCtx != nil {
+			return fmt.Errorf("stream file canceled: %w", errCtx)
+		}
+
+		n, errRead := reader.Read(buf)
+		if n > 0 {
+			content := append([]byte(nil), buf[:n]...)
+			errSend := stream.Send(&nodeprotov1.StreamFileResponse{Content: content})
+			if errSend != nil {
+				return fmt.Errorf("stream file send: %w", errSend)
+			}
+		}
+		if errors.Is(errRead, io.EOF) {
+			return nil
+		}
+		if errRead != nil {
+			return fmt.Errorf("stream file read: %w", errRead)
+		}
+	}
+}
+
+type streamWriteFileReader struct {
+	ctx    context.Context
+	stream *connect.ClientStream[nodeprotov1.StreamWriteFileRequest]
+	buffer []byte
+}
+
+func (r *streamWriteFileReader) Read(p []byte) (int, error) {
+	for len(r.buffer) == 0 {
+		errCtx := r.ctx.Err()
+		if errCtx != nil {
+			return 0, fmt.Errorf("stream write file canceled: %w", errCtx)
+		}
+		if !r.stream.Receive() {
+			errStream := r.stream.Err()
+			if errStream != nil {
+				return 0, fmt.Errorf("stream write file receive: %w", errStream)
+			}
+			return 0, io.EOF
+		}
+		r.buffer = r.stream.Msg().GetContent()
+	}
+
+	n := copy(p, r.buffer)
+	r.buffer = r.buffer[n:]
+	return n, nil
 }
 
 // policyFromWriteRequest extracts the controller-supplied protection context
@@ -318,6 +452,39 @@ func (s *nodeServiceServer) WriteFile(_ context.Context, req *connect.Request[no
 		return nil, translate(errWrite)
 	}
 	return connect.NewResponse(&nodeprotov1.WriteFileResponse{}), nil
+}
+
+func (s *nodeServiceServer) StreamWriteFile(ctx context.Context, stream *connect.ClientStream[nodeprotov1.StreamWriteFileRequest]) (*connect.Response[nodeprotov1.StreamWriteFileResponse], error) {
+	errAuth := s.authorize(stream.RequestHeader())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	if !stream.Receive() {
+		errStream := stream.Err()
+		if errStream != nil {
+			return nil, connect.NewError(connect.CodeInternal, errStream)
+		}
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("stream write file requires an initial message"))
+	}
+
+	first := stream.Msg()
+	policy := policyFromFields(first.GetServerExecutable(), first.GetBaseCommand())
+	reader := &streamWriteFileReader{
+		ctx:    ctx,
+		stream: stream,
+		buffer: append([]byte(nil), first.GetContent()...),
+	}
+	result, errWrite := s.n.WriteFileFromReader(first.GetDirectory(), first.GetRelativePath(), reader, policy)
+	if errWrite != nil {
+		return nil, translate(errWrite)
+	}
+	return connect.NewResponse(&nodeprotov1.StreamWriteFileResponse{
+		BytesWritten: result.BytesWritten,
+		Sha256:       result.SHA256,
+	}), nil
 }
 
 func (s *nodeServiceServer) CreateFileOrDirectory(_ context.Context, req *connect.Request[nodeprotov1.CreateFileOrDirectoryRequest]) (*connect.Response[nodeprotov1.CreateFileOrDirectoryResponse], error) {
@@ -384,6 +551,29 @@ func (s *nodeServiceServer) MoveFiles(ctx context.Context, req *connect.Request[
 	return connect.NewResponse(&nodeprotov1.MoveFilesResponse{Moved: moved}), nil
 }
 
+func (s *nodeServiceServer) CopyFiles(ctx context.Context, req *connect.Request[nodeprotov1.CopyFilesRequest]) (*connect.Response[nodeprotov1.CopyFilesResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	operations := make([]node.CopyFileOperation, 0, len(req.Msg.GetOperations()))
+	for _, operation := range req.Msg.GetOperations() {
+		operations = append(operations, node.CopyFileOperation{
+			SourceRelativePath:      operation.GetSourceRelativePath(),
+			DestinationRelativePath: operation.GetDestinationRelativePath(),
+		})
+	}
+	policy := policyFromFields(req.Msg.GetServerExecutable(), req.Msg.GetBaseCommand())
+	copied, errCopy := s.n.CopyFiles(ctx, req.Msg.GetDirectory(), operations, policy)
+	if errCopy != nil {
+		return nil, translate(errCopy)
+	}
+	return connect.NewResponse(&nodeprotov1.CopyFilesResponse{Copied: copied}), nil
+}
+
 func (s *nodeServiceServer) DownloadFileFromURL(ctx context.Context, req *connect.Request[nodeprotov1.DownloadFileFromURLRequest]) (*connect.Response[nodeprotov1.DownloadFileFromURLResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -393,11 +583,109 @@ func (s *nodeServiceServer) DownloadFileFromURL(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
 	}
 	policy := policyFromFields(req.Msg.GetServerExecutable(), req.Msg.GetBaseCommand())
-	rel, errDownload := s.n.DownloadFileFromURL(ctx, req.Msg.GetDirectory(), req.Msg.GetUrl(), req.Msg.GetDestinationDirectoryPath(), policy)
+	result, errDownload := s.n.DownloadFileFromURL(ctx, req.Msg.GetDirectory(), req.Msg.GetUrl(), req.Msg.GetDestinationDirectoryPath(), node.DownloadIntegrity{
+		ExpectedSize:   req.Msg.GetExpectedSize(),
+		ExpectedSHA256: req.Msg.GetExpectedSha256(),
+		ExpectedSHA1:   req.Msg.GetExpectedSha1(),
+	}, policy)
 	if errDownload != nil {
 		return nil, translate(errDownload)
 	}
-	return connect.NewResponse(&nodeprotov1.DownloadFileFromURLResponse{RelativePath: rel}), nil
+	return connect.NewResponse(&nodeprotov1.DownloadFileFromURLResponse{
+		RelativePath:  result.RelativePath,
+		BytesWritten:  result.BytesWritten,
+		Sha256:        result.SHA256,
+		Sha1:          result.SHA1,
+		ExpectedMatch: result.ExpectedMatch,
+	}), nil
+}
+
+func (s *nodeServiceServer) CreateFileArchive(ctx context.Context, req *connect.Request[nodeprotov1.CreateFileArchiveRequest]) (*connect.Response[nodeprotov1.CreateFileArchiveResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	policy := policyFromFields(req.Msg.GetServerExecutable(), req.Msg.GetBaseCommand())
+	compression := nodeArchiveCompressionFromProto(req.Msg.GetCompression())
+	archivePath, progress, errArchive := s.n.CreateFileArchive(ctx, req.Msg.GetDirectory(), req.Msg.GetDestinationArchivePath(), req.Msg.GetIncludePaths(), compression, policy)
+	if errArchive != nil {
+		return nil, translate(errArchive)
+	}
+	return connect.NewResponse(fileArchiveResponse(archivePath, progress)), nil
+}
+
+func (s *nodeServiceServer) StreamCreateFileArchive(ctx context.Context, req *connect.Request[nodeprotov1.CreateFileArchiveRequest], stream *connect.ServerStream[nodeprotov1.CreateFileArchiveResponse]) error {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return errAuth
+	}
+	if s.n == nil {
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	policy := policyFromFields(req.Msg.GetServerExecutable(), req.Msg.GetBaseCommand())
+	compression := nodeArchiveCompressionFromProto(req.Msg.GetCompression())
+	onProgress := func(progress node.ArchiveProgress) error {
+		errSend := stream.Send(fileArchiveResponse("", progress))
+		if errSend != nil {
+			return fmt.Errorf("send file archive progress: %w", errSend)
+		}
+		return nil
+	}
+	archivePath, progress, errArchive := s.n.CreateFileArchiveWithProgress(ctx, req.Msg.GetDirectory(), req.Msg.GetDestinationArchivePath(), req.Msg.GetIncludePaths(), compression, policy, onProgress)
+	if errArchive != nil {
+		return translate(errArchive)
+	}
+	errSend := stream.Send(fileArchiveResponse(archivePath, progress))
+	if errSend != nil {
+		return connect.NewError(connect.CodeInternal, errSend)
+	}
+	return nil
+}
+
+func (s *nodeServiceServer) ExtractFileArchive(ctx context.Context, req *connect.Request[nodeprotov1.ExtractFileArchiveRequest]) (*connect.Response[nodeprotov1.ExtractFileArchiveResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	policy := policyFromFields(req.Msg.GetServerExecutable(), req.Msg.GetBaseCommand())
+	extracted, progress, errExtract := s.n.ExtractFileArchive(ctx, req.Msg.GetDirectory(), req.Msg.GetArchivePath(), req.Msg.GetDestinationDirectoryPath(), policy)
+	if errExtract != nil {
+		return nil, translate(errExtract)
+	}
+	return connect.NewResponse(fileExtractResponse(extracted, progress)), nil
+}
+
+func (s *nodeServiceServer) StreamExtractFileArchive(ctx context.Context, req *connect.Request[nodeprotov1.ExtractFileArchiveRequest], stream *connect.ServerStream[nodeprotov1.ExtractFileArchiveResponse]) error {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return errAuth
+	}
+	if s.n == nil {
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	policy := policyFromFields(req.Msg.GetServerExecutable(), req.Msg.GetBaseCommand())
+	onProgress := func(progress node.ExtractProgress) error {
+		errSend := stream.Send(fileExtractResponse(nil, progress))
+		if errSend != nil {
+			return fmt.Errorf("send file extract progress: %w", errSend)
+		}
+		return nil
+	}
+	extracted, progress, errExtract := s.n.ExtractFileArchiveWithProgress(ctx, req.Msg.GetDirectory(), req.Msg.GetArchivePath(), req.Msg.GetDestinationDirectoryPath(), policy, onProgress)
+	if errExtract != nil {
+		return translate(errExtract)
+	}
+	errSend := stream.Send(fileExtractResponse(extracted, progress))
+	if errSend != nil {
+		return connect.NewError(connect.CodeInternal, errSend)
+	}
+	return nil
 }
 
 func (s *nodeServiceServer) CreateBackupArchive(ctx context.Context, req *connect.Request[nodeprotov1.CreateBackupArchiveRequest]) (*connect.Response[nodeprotov1.CreateBackupArchiveResponse], error) {
@@ -434,6 +722,54 @@ func (s *nodeServiceServer) ExtractBackupArchive(ctx context.Context, req *conne
 	return connect.NewResponse(&nodeprotov1.ExtractBackupArchiveResponse{}), nil
 }
 
+func (s *nodeServiceServer) ProbeInstalledVersion(_ context.Context, req *connect.Request[nodeprotov1.ProbeInstalledVersionRequest]) (*connect.Response[nodeprotov1.ProbeInstalledVersionResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	result, errProbe := s.n.ProbeInstalledVersion(node.InstalledVersionProbeRequest{
+		Directory:           req.Msg.GetDirectory(),
+		Kind:                nodeInstalledVersionProbeKindFromProto(req.Msg.GetKind()),
+		RelativePaths:       append([]string(nil), req.Msg.GetRelativePaths()...),
+		PreferredSteamAppID: req.Msg.GetPreferredSteamAppId(),
+	})
+	if errProbe != nil {
+		return nil, translate(errProbe)
+	}
+	return connect.NewResponse(&nodeprotov1.ProbeInstalledVersionResponse{
+		Found:      result.Found,
+		Version:    result.Version,
+		SourcePath: result.SourcePath,
+	}), nil
+}
+
+func (s *nodeServiceServer) QueryGameServer(ctx context.Context, req *connect.Request[nodeprotov1.QueryGameServerRequest]) (*connect.Response[nodeprotov1.QueryGameServerResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	result, errQuery := s.n.QueryGameServer(ctx, node.GameServerQueryRequest{
+		Kind:       nodeGameServerQueryKindFromProto(req.Msg.GetKind()),
+		IP:         req.Msg.GetIp(),
+		QueryPort:  req.Msg.GetQueryPort(),
+		MaxPlayers: req.Msg.GetMaxPlayers(),
+	})
+	if errQuery != nil {
+		return nil, translate(errQuery)
+	}
+	return connect.NewResponse(&nodeprotov1.QueryGameServerResponse{
+		Kind:      gameServerQueryKindToProto(result.Kind),
+		Minecraft: minecraftQueryToProto(result.Minecraft),
+		Source:    sourceQueryToProto(result.Source),
+	}), nil
+}
+
 func (s *nodeServiceServer) SendConsoleOutput(_ context.Context, req *connect.Request[nodeprotov1.SendConsoleOutputRequest]) (*connect.Response[nodeprotov1.SendConsoleOutputResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -468,11 +804,119 @@ func (s *nodeServiceServer) GetProcessSnapshot(_ context.Context, req *connect.R
 	return connect.NewResponse(resp), nil
 }
 
+func fileArchiveResponse(archivePath string, progress node.ArchiveProgress) *nodeprotov1.CreateFileArchiveResponse {
+	return &nodeprotov1.CreateFileArchiveResponse{
+		RelativePath:    archivePath,
+		TotalFiles:      progress.TotalFiles,
+		FilesCompressed: progress.FilesCompressed,
+		TotalBytes:      progress.TotalBytes,
+		BytesCompressed: progress.BytesCompressed,
+		CurrentFile:     progress.CurrentFile,
+	}
+}
+
+func fileExtractResponse(extractedPaths []string, progress node.ExtractProgress) *nodeprotov1.ExtractFileArchiveResponse {
+	return &nodeprotov1.ExtractFileArchiveResponse{
+		ExtractedPaths: extractedPaths,
+		TotalFiles:     progress.TotalFiles,
+		FilesExtracted: progress.FilesExtracted,
+		TotalBytes:     progress.TotalBytes,
+		BytesExtracted: progress.BytesExtracted,
+		CurrentFile:    progress.CurrentFile,
+	}
+}
+
+func nodeArchiveCompressionFromProto(compression nodeprotov1.FileArchiveCompression) node.ArchiveCompression {
+	switch compression {
+	case nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_BZIP2:
+		return node.ArchiveCompressionBZIP2
+	case nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_GZIP:
+		return node.ArchiveCompressionGZIP
+	case nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_ZST:
+		return node.ArchiveCompressionZST
+	case nodeprotov1.FileArchiveCompression_FILE_ARCHIVE_COMPRESSION_XZ:
+		return node.ArchiveCompressionXZ
+	default:
+		return node.ArchiveCompressionZIP
+	}
+}
+
 func extractModeFromProto(m nodeprotov1.ExtractMode) node.ExtractMode {
 	if m == nodeprotov1.ExtractMode_EXTRACT_MODE_EXACT {
 		return node.ExtractModeExact
 	}
 	return node.ExtractModeOverlay
+}
+
+func nodeInstalledVersionProbeKindFromProto(kind nodeprotov1.InstalledVersionProbeKind) node.InstalledVersionProbeKind {
+	switch kind {
+	case nodeprotov1.InstalledVersionProbeKind_INSTALLED_VERSION_PROBE_KIND_MINECRAFT_JAR:
+		return node.InstalledVersionProbeKindMinecraftJar
+	case nodeprotov1.InstalledVersionProbeKind_INSTALLED_VERSION_PROBE_KIND_STEAM_MANIFEST:
+		return node.InstalledVersionProbeKindSteamManifest
+	default:
+		return node.InstalledVersionProbeKindUnspecified
+	}
+}
+
+func nodeGameServerQueryKindFromProto(kind nodeprotov1.GameServerQueryKind) node.GameServerQueryKind {
+	switch kind {
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT:
+		return node.GameServerQueryKindMinecraft
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE:
+		return node.GameServerQueryKindSource
+	default:
+		return node.GameServerQueryKindUnknown
+	}
+}
+
+func gameServerQueryKindToProto(kind node.GameServerQueryKind) nodeprotov1.GameServerQueryKind {
+	switch kind {
+	case node.GameServerQueryKindMinecraft:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT
+	case node.GameServerQueryKindSource:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE
+	default:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_UNSPECIFIED
+	}
+}
+
+func minecraftQueryToProto(info *node.MinecraftQueryInfo) *nodeprotov1.GameServerMinecraftQueryInfo {
+	if info == nil {
+		return nil
+	}
+	return &nodeprotov1.GameServerMinecraftQueryInfo{
+		Motd:            info.MOTD,
+		GameType:        info.GameType,
+		Map:             info.Map,
+		NumberOfPlayers: info.NumberOfPlayers,
+		MaxPlayers:      info.MaxPlayers,
+		PlayerList:      append([]string(nil), info.PlayerList...),
+		ProtocolVersion: info.ProtocolVersion,
+		ServerVersion:   info.ServerVersion,
+	}
+}
+
+func sourceQueryToProto(info *node.SourceQueryInfo) *nodeprotov1.GameServerSourceQueryInfo {
+	if info == nil {
+		return nil
+	}
+	return &nodeprotov1.GameServerSourceQueryInfo{
+		Name:       info.Name,
+		Map:        info.Map,
+		Game:       info.Game,
+		AppId:      info.AppID,
+		SteamId:    info.SteamID,
+		GameId:     info.GameID,
+		Players:    info.Players,
+		MaxPlayers: info.MaxPlayers,
+		Bots:       info.Bots,
+		ServerOs:   info.ServerOS,
+		Visibility: info.Visibility,
+		Vac:        info.VAC,
+		Version:    info.Version,
+		Protocol:   info.Protocol,
+	}
 }
 
 func processSnapshotToProto(p *node.ProcessSnapshot) *nodeprotov1.ProcessSnapshot {

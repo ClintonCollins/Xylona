@@ -57,6 +57,12 @@ type XylonaService struct {
 	notificationChannelTestOnce    sync.Once
 	notificationChannelTestLimiter *notificationChannelTestRateLimiter
 	taskScheduler                  *scheduler.Scheduler
+	remoteVersionRefreshMu         sync.Mutex
+	remoteVersionRefreshCalls      map[string]*remoteVersionRefreshCall
+}
+
+type remoteVersionRefreshCall struct {
+	done chan struct{}
 }
 
 // NewXylonaService constructs the main RPC service implementation.

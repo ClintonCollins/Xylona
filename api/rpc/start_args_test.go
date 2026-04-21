@@ -292,6 +292,7 @@ func TestUpdateGameServerStartArgsUsesOwningNodePlatform(t *testing.T) {
 	if errNode != nil {
 		t.Fatalf("InsertNode() error = %v", errNode)
 	}
+	insertNodeScopedIPForParityTests(t, fixture, "node-remote-platform", "127.0.0.1")
 
 	_, errServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
 		ID:     omit.From("server-start-args-remote-platform"),

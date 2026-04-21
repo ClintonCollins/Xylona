@@ -6,14 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/aarondl/opt/omit"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/actions"
+	xylonadb "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -72,7 +73,7 @@ func defaultBackupDirectoryForServer(serverDirectory string) (string, error) {
 		return defaultBackupDirectory, nil
 	}
 
-	parentDirectory := filepath.Dir(filepath.Clean(trimmedDirectory))
+	parentDirectory := nodePathDir(trimmedDirectory)
 	if parentDirectory == "." || parentDirectory == "" {
 		defaultBackupDirectory, errDefaultBackupDirectory := actions.DefaultBackupDirectory()
 		if errDefaultBackupDirectory != nil {
@@ -81,16 +82,94 @@ func defaultBackupDirectoryForServer(serverDirectory string) (string, error) {
 		return defaultBackupDirectory, nil
 	}
 
-	return filepath.Join(parentDirectory, "backups"), nil
+	return joinNodePath(parentDirectory, "backups"), nil
+}
+
+func nodePathDir(pathValue string) string {
+	trimmedPath := strings.TrimRight(strings.TrimSpace(pathValue), `/\`)
+	index := strings.LastIndexAny(trimmedPath, `/\`)
+	if index < 0 {
+		return ""
+	}
+	if index == 0 {
+		return trimmedPath[:1]
+	}
+	if index == 2 && len(trimmedPath) > 1 && trimmedPath[1] == ':' {
+		return trimmedPath[:3]
+	}
+	return trimmedPath[:index]
+}
+
+func joinNodePath(directory string, name string) string {
+	separator := nodePathSeparator(directory)
+	trimmedDirectory := strings.TrimRight(directory, `/\`)
+	if len(trimmedDirectory) == 2 && trimmedDirectory[1] == ':' {
+		return trimmedDirectory + separator + name
+	}
+	if trimmedDirectory == "" {
+		return name
+	}
+	if trimmedDirectory == "/" {
+		return "/" + name
+	}
+	return trimmedDirectory + separator + name
+}
+
+func nodePathSeparator(pathValue string) string {
+	hasBackslash := strings.Contains(pathValue, `\`)
+	hasSlash := strings.Contains(pathValue, "/")
+	if hasBackslash && !hasSlash {
+		return `\`
+	}
+	return "/"
+}
+
+func (xs *XylonaService) ensureNodeScopedIP(ctx context.Context, nodeID string, address string) error {
+	trimmedNodeID := strings.TrimSpace(nodeID)
+	trimmedAddress := strings.TrimSpace(address)
+	if trimmedAddress == "" {
+		return invalidArg("invalid IP")
+	}
+
+	_, errGetIP := xs.db.GetIPByNodeIDAndAddress(trimmedNodeID, trimmedAddress)
+	if errGetIP == nil {
+		return nil
+	}
+	if !errors.Is(errGetIP, sql.ErrNoRows) {
+		return connect.NewError(connect.CodeInternal, fmt.Errorf("lookup node IP: %w", errGetIP))
+	}
+
+	for _, runtimeIP := range xs.listRuntimeIPs(ctx, trimmedNodeID) {
+		if runtimeIP == nil {
+			continue
+		}
+		if strings.TrimSpace(runtimeIP.GetAddress()) != trimmedAddress {
+			continue
+		}
+
+		_, errUpsertIP := xs.db.UpsertIP(&models.IPSetter{
+			Address:            omit.From(trimmedAddress),
+			Usable:             omit.From(runtimeIP.GetUsable()),
+			External:           omit.From(runtimeIP.GetExternal()),
+			AutomaticallyAdded: omit.From(true),
+			NodeID:             omit.From(trimmedNodeID),
+		})
+		if errUpsertIP != nil && !errors.Is(errUpsertIP, xylonadb.ErrIPConflict) {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("register node IP: %w", errUpsertIP))
+		}
+		return nil
+	}
+
+	return invalidArg("invalid IP")
 }
 
 // findAvailablePort checks for port conflicts on the given IP and returns the next available port.
 // If the game requires a dedicated IP, no other game server should use the same IP at all.
 // excludeServerID can be set to skip a specific server (useful when editing an existing server).
-func (xs *XylonaService) findAvailablePort(ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
-	existingServers, errGetServers := xs.db.GetGameServersByIP(ip)
+func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
+	existingServers, errGetServers := xs.db.GetGameServersByNodeIDAndIP(nodeID, ip)
 	if errGetServers != nil {
-		return 0, 0, fmt.Errorf("rpc: list game servers by IP: %w", errGetServers)
+		return 0, 0, fmt.Errorf("rpc: list game servers by node and IP: %w", errGetServers)
 	}
 
 	// If the game requires a dedicated IP, no other server should use this IP.
@@ -134,7 +213,7 @@ func (xs *XylonaService) findAvailablePort(ip string, port int64, queryPort int6
 }
 
 // CreateGameServer creates a new local game server.
-func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
+func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.Request[xylona.CreateGameServerRequest]) (*connect.Response[xylona.CreateGameServerResponse], error) {
 	callingUser, errCallingUser := xs.getUserFromHeader(request.Header())
 	if errCallingUser != nil {
 		return nil, unauthenticated()
@@ -170,6 +249,10 @@ func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Re
 		}
 		return nil, internalErrf("failed to validate node")
 	}
+	errEnsureIP := xs.ensureNodeScopedIP(ctx, newGameServerModel.NodeID, newGameServerModel.IP)
+	if errEnsureIP != nil {
+		return nil, errEnsureIP
+	}
 
 	newGameServerModel.BackupsEnabled = true
 	newGameServerModel.MaxBackups = normalizeBackupRetention(newGameServerModel.MaxBackups)
@@ -191,7 +274,7 @@ func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Re
 
 	// Check for port conflicts and auto-increment if necessary.
 	availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
-		newGameServerModel.IP, newGameServerModel.Port, newGameServerModel.QueryPort, game, "",
+		newGameServerModel.NodeID, newGameServerModel.IP, newGameServerModel.Port, newGameServerModel.QueryPort, game, "",
 	)
 	if errPortCheck != nil {
 		return nil, connect.NewError(connect.CodeAlreadyExists, errPortCheck)
@@ -215,7 +298,7 @@ func (xs *XylonaService) CreateGameServer(_ context.Context, request *connect.Re
 }
 
 // EditGameServer updates an existing game server.
-func (xs *XylonaService) EditGameServer(_ context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
+func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Request[xylona.EditGameServerRequest]) (*connect.Response[xylona.EditGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
@@ -250,10 +333,14 @@ func (xs *XylonaService) EditGameServer(_ context.Context, request *connect.Requ
 		}
 		return nil, internalErrf("failed to validate node")
 	}
+	errEnsureIP := xs.ensureNodeScopedIP(ctx, gameServerModel.NodeID, gameServerModel.IP)
+	if errEnsureIP != nil {
+		return nil, errEnsureIP
+	}
 
 	if gameServerModel.IP != existingGameServer.IP || gameServerModel.Port != existingGameServer.Port || gameServerModel.QueryPort != existingGameServer.QueryPort {
 		availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
-			gameServerModel.IP, gameServerModel.Port, gameServerModel.QueryPort, game, existingGameServer.ID,
+			gameServerModel.NodeID, gameServerModel.IP, gameServerModel.Port, gameServerModel.QueryPort, game, existingGameServer.ID,
 		)
 		if errPortCheck != nil {
 			return nil, connect.NewError(connect.CodeAlreadyExists, errPortCheck)
@@ -432,32 +519,31 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
+
 	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetId())
 	if errLookup != nil {
 		return nil, dbLookup(errLookup)
 	}
+
 	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.view")
 	if errPermission != nil {
 		return nil, errPermission
 	}
 
-	// Fetch the owning node's view of the process so status + metrics
-	// work for both embedded and remote servers.
 	snap, errSnap := xs.resolveProcessSnapshot(ctx, gameServer)
 	if errSnap != nil {
 		log.Debug().Err(errSnap).Str("game_server_id", gameServer.ID).
-			Msg("GetGameServer: snapshot unavailable; using DB status")
+			Msg("GetGameServer: snapshot unavailable; using stored status")
 	}
 	if snap != nil {
 		gameServer.Status = snap.Status
-	} else {
-		gameServer.Status = xylona.Status_OFFLINE.String()
 	}
 
 	gsProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
 	if !user.SuperUser {
 		redactGameServerForNonSuperuser(gsProto)
 	}
+
 	resolvedVersion, resolvedVersionInfo, errResolveVersion := xs.resolveVersionData(ctx, gameServer, actions.VersionResolveOptions{
 		AllowAsync: true,
 	})
@@ -468,8 +554,9 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 		gsProto.Version = resolvedVersion
 		gsProto.VersionInfo = resolvedVersionInfo
 	}
-	applyProcessMetricsToProto(gsProto, snap)
+
 	gsProto.EffectivePermissions = xs.computeEffectivePermissions(user, gameServer)
+	applyProcessMetricsToProto(gsProto, snap)
 	return connect.NewResponse(&xylona.GetGameServerResponse{GameServer: gsProto}), nil
 }
 
@@ -553,8 +640,11 @@ func (xs *XylonaService) ListGameServers(_ context.Context, request *connect.Req
 		applyProcessMetricsToProto(gameServerProto, snap)
 		if user.SuperUser || gameServer.UserID == user.ID {
 			gameServerProto.EffectivePermissions = xs.allPermissionIDs
-		} else if perms, ok := bulkPerms[gameServer.ID]; ok {
-			gameServerProto.EffectivePermissions = perms
+		} else {
+			perms, ok := bulkPerms[gameServer.ID]
+			if ok {
+				gameServerProto.EffectivePermissions = perms
+			}
 		}
 		if !user.SuperUser {
 			redactGameServerForNonSuperuser(gameServerProto)

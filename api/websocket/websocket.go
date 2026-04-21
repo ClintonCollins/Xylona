@@ -49,7 +49,7 @@ type connection struct {
 	allGameServerIDs             []string
 	requestedGameServerOutputIDs map[string]struct{}
 	subscribedMetricsServerIDs   map[string]struct{}
-	remoteConsoleCancels         map[string]context.CancelFunc
+	consoleStreamCancels         map[string]context.CancelFunc
 	isSuperUser                  bool
 	lastSuperUserCheck           time.Time
 	*sync.RWMutex
@@ -204,7 +204,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		allGameServerIDs:             []string{},
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
-		remoteConsoleCancels:         make(map[string]context.CancelFunc),
+		consoleStreamCancels:         make(map[string]context.CancelFunc),
 		isSuperUser:                  user.SuperUser,
 		lastSuperUserCheck:           time.Now(),
 		RWMutex:                      &sync.RWMutex{},
@@ -262,12 +262,12 @@ func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *mode
 		case <-ws.ctx.Done():
 			log.Debug().Str("User", user.UserName).Msg("Got Xylona shutdown signal. Closing websocket stream.")
 			closeSession(s)
-			ws.closeCommandOutputListeners(s)
+			ws.closeConsoleOutputStreams(s)
 			return
 		case <-s.Request.Context().Done():
 			log.Debug().Str("User", user.UserName).Msg("Websocket connection closed. Closing websocket stream.")
 			closeSession(s)
-			ws.closeCommandOutputListeners(s)
+			ws.closeConsoleOutputStreams(s)
 			return
 		case output := <-streamChan:
 			// Only write game server console output if this connection is subscribed.
@@ -343,10 +343,10 @@ func (ws *WebSocket) handleDisconnect(s *melody.Session) {
 		}
 		return
 	}
-	// Cancel any active remote console streams for this connection.
+	// Cancel any active console streams for this connection.
 	sessionConnection, errGetConnection := ws.getSessionConnection(s)
 	if errGetConnection == nil {
-		ws.cancelRemoteConsoleStreams(sessionConnection)
+		ws.cancelConsoleStreams(sessionConnection)
 	}
 	ws.deleteConnection(s)
 	if s.IsClosed() {
@@ -440,24 +440,7 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 		delete(sessionConnection.requestedGameServerOutputIDs, serverID)
 		sessionConnection.Unlock()
 
-		gameServer, errGetServer := ws.db.GetGameServerByID(serverID)
-		if errGetServer == nil && ws.isLocalNode(gameServer.NodeID) && ws.supervisor != nil {
-			command := ws.supervisor.GetCommandByIDOrCreateShell(gameServer.ID)
-			command.RemoveOutputListener(sessionConnection.id.String())
-		}
-		if errGetServer != nil && !errors.Is(errGetServer, sql.ErrNoRows) {
-			log.Error().Err(errGetServer).Str("server_id", serverID).Msg("Failed to remove game server console listener")
-		}
-
-		sessionConnection.Lock()
-		cancelRemote, remoteExists := sessionConnection.remoteConsoleCancels[serverID]
-		if remoteExists {
-			delete(sessionConnection.remoteConsoleCancels, serverID)
-		}
-		sessionConnection.Unlock()
-		if remoteExists {
-			cancelRemote()
-		}
+		ws.cancelConsoleStream(sessionConnection, serverID)
 	case xylona.Request_SubscribeServerMetrics:
 		if websocketRequest.GameServerId == nil {
 			return

@@ -102,8 +102,15 @@ func (inst *Instance) onStatusChanged(event eventbus.StatusChangedEvent) {
 	}
 
 	if event.IntentionalStop {
+		inst.intentionalStops.clear(event.ServerID)
 		log.Debug().Str("game_server_id", event.ServerID).
 			Msg("Auto-restart: stop was intentional, skipping")
+		return
+	}
+
+	if inst.intentionalStops.take(event.ServerID) {
+		log.Debug().Str("game_server_id", event.ServerID).
+			Msg("Auto-restart: stop was intentionally requested, skipping")
 		return
 	}
 	inst.handleServerExit(event.ServerID)
