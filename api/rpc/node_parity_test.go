@@ -302,6 +302,67 @@ func TestListAggregatedGameServersIncludesRemoteRows(t *testing.T) {
 	}
 }
 
+func TestListAggregatedGameServersReportsRemoteOfflineWhenSnapshotUnavailable(t *testing.T) {
+	cases := []struct {
+		name   string
+		client *nodeclient.FakeNodeClient
+	}{
+		{
+			name: "snapshot not found",
+			client: &nodeclient.FakeNodeClient{
+				NodeID: "node-remote",
+			},
+		},
+		{
+			name: "snapshot fails",
+			client: &nodeclient.FakeNodeClient{
+				NodeID:                "node-remote",
+				GetProcessSnapshotErr: errors.New("snapshot unavailable"),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			insertRemoteNodeForParityTests(t, fixture, "node-remote")
+			insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+			_, errUpdate := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+				ID:     omit.From("server-remote-1"),
+				Status: omit.From(xylona.Status_ONLINE.String()),
+			})
+			if errUpdate != nil {
+				t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+			}
+
+			fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, tc.client)
+
+			request := connect.NewRequest(&xylona.ListAggregatedGameServersRequest{})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+			response, errList := fixture.service.ListAggregatedGameServers(context.Background(), request)
+			if errList != nil {
+				t.Fatalf("ListAggregatedGameServers() error = %v", errList)
+			}
+
+			var remoteSummary *xylona.RemoteServerSummary
+			for _, server := range response.Msg.GetServers() {
+				if !server.GetIsLocal() && server.GetRemoteServer().GetRemoteServerId() == "server-remote-1" {
+					remoteSummary = server.GetRemoteServer()
+					break
+				}
+			}
+			if remoteSummary == nil {
+				t.Fatal("ListAggregatedGameServers() missing remote server summary for server-remote-1")
+			}
+			if remoteSummary.GetStatus() != xylona.Status_OFFLINE {
+				t.Fatalf("remote summary status = %v, want %v", remoteSummary.GetStatus(), xylona.Status_OFFLINE)
+			}
+		})
+	}
+}
+
 func TestListAggregatedGameServersRedactsLocalRowsForNonSuperuser(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, nil)
@@ -384,7 +445,40 @@ func TestReadGameServerOutputReadsRemoteNodeBuffer(t *testing.T) {
 	}
 }
 
-func TestGetGameServerFallsBackToStoredStatusWhenRemoteProcessSnapshotFails(t *testing.T) {
+func TestGetGameServerReportsOfflineWhenRemoteProcessSnapshotMissing(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	_, errUpdate := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:     omit.From("server-remote-1"),
+		Status: omit.From(xylona.Status_ONLINE.String()),
+	})
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.GetGameServerRequest{Id: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetGameServer(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServer() error = %v", errGet)
+	}
+	if response.Msg.GetGameServer().GetStatus() != xylona.Status_OFFLINE {
+		t.Fatalf("GetGameServer().Status = %v, want %v", response.Msg.GetGameServer().GetStatus(), xylona.Status_OFFLINE)
+	}
+	if len(remoteClient.GetProcessSnapshotCalls) != 1 || remoteClient.GetProcessSnapshotCalls[0] != "server-remote-1" {
+		t.Fatalf("GetProcessSnapshot calls = %+v, want [server-remote-1]", remoteClient.GetProcessSnapshotCalls)
+	}
+}
+
+func TestGetGameServerReportsOfflineWhenRemoteProcessSnapshotFails(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
 	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
@@ -410,8 +504,8 @@ func TestGetGameServerFallsBackToStoredStatusWhenRemoteProcessSnapshotFails(t *t
 	if errGet != nil {
 		t.Fatalf("GetGameServer() error = %v", errGet)
 	}
-	if response.Msg.GetGameServer().GetStatus() != xylona.Status_ONLINE {
-		t.Fatalf("GetGameServer().Status = %v, want %v", response.Msg.GetGameServer().GetStatus(), xylona.Status_ONLINE)
+	if response.Msg.GetGameServer().GetStatus() != xylona.Status_OFFLINE {
+		t.Fatalf("GetGameServer().Status = %v, want %v", response.Msg.GetGameServer().GetStatus(), xylona.Status_OFFLINE)
 	}
 	if len(remoteClient.GetProcessSnapshotCalls) != 1 || remoteClient.GetProcessSnapshotCalls[0] != "server-remote-1" {
 		t.Fatalf("GetProcessSnapshot calls = %+v, want [server-remote-1]", remoteClient.GetProcessSnapshotCalls)

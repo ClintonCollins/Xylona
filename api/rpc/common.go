@@ -355,3 +355,26 @@ func (xs *XylonaService) resolveProcessSnapshot(ctx context.Context, gameServer 
 	}
 	return snap, nil
 }
+
+// resolveGameServerRuntimeState returns the live runtime status for a game
+// server. The process snapshot is authoritative: missing or unreachable
+// snapshots mean the server is not currently tracked as running.
+func (xs *XylonaService) resolveGameServerRuntimeState(ctx context.Context, gameServer *models.GameServer) (xylona.Status, *node.ProcessSnapshot, error) {
+	if gameServer == nil {
+		return xylona.Status_UNKNOWN, nil, nil
+	}
+
+	snap, errSnap := xs.resolveProcessSnapshot(ctx, gameServer)
+	if errSnap != nil {
+		return xylona.Status_OFFLINE, nil, errSnap
+	}
+	if snap == nil {
+		return xylona.Status_OFFLINE, nil, nil
+	}
+
+	statusValue, ok := xylona.Status_value[snap.Status]
+	if !ok {
+		return xylona.Status_UNKNOWN, snap, nil
+	}
+	return xylona.Status(statusValue), snap, nil
+}

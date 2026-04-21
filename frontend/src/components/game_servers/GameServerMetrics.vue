@@ -42,7 +42,7 @@
           <q-list dense>
             <q-item>
               <q-item-section>
-                <q-item-label>Private</q-item-label>
+                <q-item-label>Memory</q-item-label>
                 <q-linear-progress
                   v-if="maxMemoryBytes > 0"
                   :class="{ 'progress-disabled': !isOnline }"
@@ -53,7 +53,7 @@
               </q-item-section>
               <q-item-section side>
                 <span v-if="isOnline"
-                  >{{ bytesToSize(memoryBytes)
+                  >{{ bytesToSize(memoryWorkingSetBytes)
                   }}<span v-if="maxMemoryBytes > 0">
                     / {{ bytesToSize(maxMemoryBytes) }}</span
                   ></span
@@ -62,10 +62,8 @@
               </q-item-section>
             </q-item>
             <q-item>
-              <q-item-section>Working Set</q-item-section>
-              <q-item-section side>{{
-                isOnline ? bytesToSize(memoryWorkingSetBytes) : '--'
-              }}</q-item-section>
+              <q-item-section>Private Committed</q-item-section>
+              <q-item-section side>{{ isOnline ? bytesToSize(memoryBytes) : '--' }}</q-item-section>
             </q-item>
             <q-item v-if="isOnline && memoryPercent > 0">
               <q-item-section>System RAM</q-item-section>
@@ -152,7 +150,7 @@ const maxMemoryBytes = computed(() => Number(props.gameServer.maxMemoryMb) * 102
 
 const memoryRatio = computed(() => {
   if (maxMemoryBytes.value <= 0) return 0
-  return Math.min(memoryBytes.value / maxMemoryBytes.value, 1)
+  return Math.min(memoryWorkingSetBytes.value / maxMemoryBytes.value, 1)
 })
 
 const memoryColor = computed(() => {

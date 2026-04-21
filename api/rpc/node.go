@@ -130,22 +130,12 @@ func (xs *XylonaService) aggregatedServerStatus(ctx context.Context, gameServer 
 	snapCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	snapshot, errSnapshot := xs.resolveProcessSnapshot(snapCtx, gameServer)
-	if errSnapshot == nil && snapshot != nil {
-		statusVal, ok := xylona.Status_value[snapshot.Status]
-		if ok {
-			return xylona.Status(statusVal)
-		}
+	status, _, errSnapshot := xs.resolveGameServerRuntimeState(snapCtx, gameServer)
+	if errSnapshot != nil {
+		log.Debug().Err(errSnapshot).Str("game_server_id", gameServer.ID).
+			Msg("ListAggregatedGameServers: snapshot unavailable; using offline status")
 	}
-	if errSnapshot == nil && snapshot == nil {
-		return xylona.Status_OFFLINE
-	}
-
-	statusVal, ok := xylona.Status_value[gameServer.Status]
-	if ok {
-		return xylona.Status(statusVal)
-	}
-	return xylona.Status_UNKNOWN
+	return status
 }
 
 func (xs *XylonaService) remoteSummaryFromGameServer(ctx context.Context, gameServer *models.GameServer) *xylona.RemoteServerSummary {

@@ -120,13 +120,13 @@ export function filterRowsByRemoteNodeIDs(
 
 export function sanitizeBootstrapCachedRows(rows: DisplayRow[]): DisplayRow[] {
   return rows.map((row) => {
-    if (!row.isLocal || row.statusEnum !== Status.ONLINE) {
+    if (row.statusEnum !== Status.ONLINE) {
       return row
     }
 
     return {
       ...row,
-      statusEnum: Status.UNKNOWN,
+      statusEnum: Status.OFFLINE,
     }
   })
 }

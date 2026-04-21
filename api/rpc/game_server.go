@@ -530,14 +530,12 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 		return nil, errPermission
 	}
 
-	snap, errSnap := xs.resolveProcessSnapshot(ctx, gameServer)
+	runtimeStatus, snap, errSnap := xs.resolveGameServerRuntimeState(ctx, gameServer)
 	if errSnap != nil {
 		log.Debug().Err(errSnap).Str("game_server_id", gameServer.ID).
-			Msg("GetGameServer: snapshot unavailable; using stored status")
+			Msg("GetGameServer: snapshot unavailable; using offline status")
 	}
-	if snap != nil {
-		gameServer.Status = snap.Status
-	}
+	gameServer.Status = runtimeStatus.String()
 
 	gsProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
 	if !user.SuperUser {

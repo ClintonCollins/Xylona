@@ -84,7 +84,8 @@ export function useGameServerMetricsPreview({
 
     metricsCpu.value = serverMetrics.cpuPercent
     metricsCpuCores.value = serverMetrics.cpuCores
-    metricsMemory.value = Number(serverMetrics.memoryBytes)
+    const workingSetBytes = Number(serverMetrics.memoryWorkingSetBytes)
+    metricsMemory.value = workingSetBytes > 0 ? workingSetBytes : Number(serverMetrics.memoryBytes)
     metricsMemoryPercent.value = serverMetrics.memoryPercent
     metricsThreads.value = serverMetrics.numberOfThreads
     metricsDisk.value = Number(serverMetrics.diskUsageBytes)

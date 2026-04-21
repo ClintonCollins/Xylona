@@ -53,6 +53,7 @@ interface MetricsOverrides {
   ioReadRate?: number
   ioWriteRate?: number
   memoryBytes?: bigint
+  memoryWorkingSetBytes?: bigint
   memoryPercent?: number
   numberOfThreads?: number
   uptimeSeconds?: bigint
@@ -69,6 +70,7 @@ function makeAllMetrics(serverId: string, overrides: MetricsOverrides = {}) {
         ioReadRate: 1048576,
         ioWriteRate: 524288,
         memoryBytes: 1073741824n,
+        memoryWorkingSetBytes: 1073741824n,
         memoryPercent: 3.2,
         numberOfThreads: 8,
         uptimeSeconds: 3750n,
@@ -248,6 +250,38 @@ describe('useGameServerMetricsPreview', () => {
     expect(wrapper.vm.metricsCpuCores).toBe(16)
     expect(wrapper.vm.formattedUptime).toBe('1h 2m 30s')
     expect(wrapper.vm.formatRate(wrapper.vm.metricsIoReadRate)).toBe('2.0 MB/s')
+  })
+
+  it('uses working set memory as the displayed memory value when private committed memory is larger', async () => {
+    const wrapper = mountHarness()
+
+    XylonaEventBus.emit(
+      'gameServerMetrics',
+      makeAllMetrics('server-1', {
+        memoryBytes: 40n * 1024n * 1024n * 1024n,
+        memoryWorkingSetBytes: 1024n * 1024n * 1024n,
+      }),
+    )
+    await nextTick()
+
+    expect(wrapper.vm.metricsMemory).toBe(1024 * 1024 * 1024)
+    expect(wrapper.vm.metricsMemoryRatio).toBe(0.25)
+  })
+
+  it('falls back to private committed memory when working set memory is unavailable', async () => {
+    const wrapper = mountHarness()
+
+    XylonaEventBus.emit(
+      'gameServerMetrics',
+      makeAllMetrics('server-1', {
+        memoryBytes: 2n * 1024n * 1024n * 1024n,
+        memoryWorkingSetBytes: 0n,
+      }),
+    )
+    await nextTick()
+
+    expect(wrapper.vm.metricsMemory).toBe(2 * 1024 * 1024 * 1024)
+    expect(wrapper.vm.metricsMemoryRatio).toBe(0.5)
   })
 
   it('ignores metrics events for other servers', async () => {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { create } from '@bufbuild/protobuf'
-import { Quasar } from 'quasar'
+import { QLinearProgress, Quasar } from 'quasar'
 import { GameServerSchema, Status } from '@/proto/shared_pb'
 import {
   AllServersMetrics,
@@ -138,7 +138,7 @@ describe('GameServerMetrics', () => {
     expect(wrapper.text()).toContain('0.0%')
   })
 
-  it('formats memory bytes as human-readable', async () => {
+  it('uses working set memory as the primary memory display and progress value', async () => {
     const gameServer = makeGameServer()
     const wrapper = mount(GameServerMetrics, {
       global: globalConfig,
@@ -147,14 +147,23 @@ describe('GameServerMetrics', () => {
 
     XylonaEventBus.emit(
       'gameServerMetrics',
-      makeAllMetrics('server-1', { memoryBytes: 1073741824n }),
+      makeAllMetrics('server-1', {
+        memoryBytes: 40n * 1024n * 1024n * 1024n,
+        memoryWorkingSetBytes: 1024n * 1024n * 1024n,
+      }),
     )
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('GB')
+    const text = wrapper.text()
+    expect(text).toContain('Memory')
+    expect(text).toContain('1 GB')
+    expect(text).toContain('4 GB')
+
+    const progressBars = wrapper.findAllComponents(QLinearProgress)
+    expect(progressBars[1]?.props('value')).toBe(0.25)
   })
 
-  it('shows working set memory row', async () => {
+  it('shows private committed memory as a secondary row', async () => {
     const gameServer = makeGameServer()
     const wrapper = mount(GameServerMetrics, {
       global: globalConfig,
@@ -163,12 +172,12 @@ describe('GameServerMetrics', () => {
 
     XylonaEventBus.emit(
       'gameServerMetrics',
-      makeAllMetrics('server-1', { memoryWorkingSetBytes: 2147483648n }),
+      makeAllMetrics('server-1', { memoryBytes: 40n * 1024n * 1024n * 1024n }),
     )
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('Working Set')
-    expect(wrapper.text()).toContain('GB')
+    expect(wrapper.text()).toContain('Private Committed')
+    expect(wrapper.text()).toContain('40 GB')
   })
 
   it('shows memory percent row when non-zero', async () => {

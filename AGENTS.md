@@ -61,7 +61,6 @@ Regenerate with:
 
 ## Local Rules
 
-- Prefer `cmd.exe`, `bash`, or `sh` over PowerShell.
 - Use LF line endings. If a touched file is CRLF, normalize it to LF.
 - Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `frontend/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
 - For local browser verification, you may read `XYLONA_ADMIN_USERNAME` and `XYLONA_ADMIN_PASSWORD` from `.env`; never print, log, or commit them.

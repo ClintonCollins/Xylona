@@ -8,6 +8,7 @@ import {
   type DisplayRow,
   extractRemoteNodeIDs,
   filterRowsByRemoteNodeIDs,
+  sanitizeBootstrapCachedRows,
 } from './server-list-cache'
 
 describe('buildDisplayRows', () => {
@@ -257,5 +258,59 @@ describe('filterRowsByRemoteNodeIDs', () => {
     const filteredRows = filterRowsByRemoteNodeIDs(rows, new Set(['node-remote-a']))
     expect(filteredRows).toHaveLength(1)
     expect(filteredRows[0]?.displayName).toBe('First Value')
+  })
+})
+
+describe('sanitizeBootstrapCachedRows', () => {
+  it('normalizes cached online rows to offline before live state loads', () => {
+    const rows: DisplayRow[] = [
+      {
+        compositeId: 'local/local-1',
+        id: 'local-1',
+        isLocal: true,
+        displayName: 'Local One',
+        gameName: 'Minecraft',
+        userName: 'admin',
+        statusEnum: Status.ONLINE,
+        nodeName: 'Local Node',
+        isStale: false,
+        sourceNodeId: '',
+        version: '1.20.4',
+      },
+      {
+        compositeId: 'node-remote-a/remote-1',
+        id: 'remote-1',
+        isLocal: false,
+        displayName: 'Remote One',
+        gameName: 'Valheim',
+        userName: '',
+        statusEnum: Status.ONLINE,
+        nodeName: 'Remote A',
+        isStale: false,
+        sourceNodeId: 'node-remote-a',
+        version: '0.217.46',
+      },
+      {
+        compositeId: 'node-remote-a/remote-2',
+        id: 'remote-2',
+        isLocal: false,
+        displayName: 'Remote Two',
+        gameName: 'Rust',
+        userName: '',
+        statusEnum: Status.OFFLINE,
+        nodeName: 'Remote A',
+        isStale: false,
+        sourceNodeId: 'node-remote-a',
+        version: '1.0.0',
+      },
+    ]
+
+    const sanitizedRows = sanitizeBootstrapCachedRows(rows)
+
+    expect(sanitizedRows.map((row) => row.statusEnum)).toEqual([
+      Status.OFFLINE,
+      Status.OFFLINE,
+      Status.OFFLINE,
+    ])
   })
 })

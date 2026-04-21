@@ -174,7 +174,7 @@
               <div class="metrics-group-label">Memory</div>
               <div>
                 <div class="metric-row">
-                  <span class="ml">Private</span>
+                  <span class="ml">Memory</span>
                   <span class="mv">
                     <template v-if="isServerOnline">
                       {{ bytesToSize(metricsMemory) }}
