@@ -93,14 +93,9 @@ func Build() {
 	}
 }
 
-// BuildNode compiles the xylona-node agent binary. The controller (xylona)
-// and the node binary are independent — this target only builds the node so
-// developers can iterate on it without paying for a full goreleaser run.
-//
-// Note: `mage Build` currently drives goreleaser, which is configured to
-// release the controller binary only. Once the node binary ships to end
-// users, goreleaser should be extended to include it; until then, use
-// BuildNode during development.
+// BuildNode compiles the local xylona-node agent binary for development.
+// Release and deploy packaging use their own platform-specific output paths,
+// so this target stays intentionally small for fast node iteration.
 func BuildNode() {
 	cmdBuild := exec.Command("go", "build", "-o", "xylona-node", "./cmd/xylona-node/")
 	cmdBuild.Stdout = os.Stdout

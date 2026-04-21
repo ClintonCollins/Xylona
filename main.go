@@ -56,6 +56,7 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/scheduler"
+	"github.com/ClintonCollins/Xylona/pkg/selfupdate"
 	"github.com/ClintonCollins/Xylona/pkg/usermgmt"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/webhooks"
@@ -176,6 +177,7 @@ func gracefulShutdown(ctxCancel context.CancelFunc, shutdownSignalType os.Signal
 }
 
 func handleSPAFunc(frontendFS fs.FS) func(w http.ResponseWriter, r *http.Request) {
+	fileServer := http.FileServerFS(frontendFS)
 	return func(w http.ResponseWriter, r *http.Request) {
 		sFile, errStat := frontendFS.Open(strings.TrimPrefix(r.URL.Path, "/"))
 		if errStat != nil {
@@ -184,7 +186,7 @@ func handleSPAFunc(frontendFS fs.FS) func(w http.ResponseWriter, r *http.Request
 		if errStat == nil {
 			_ = sFile.Close()
 		}
-		http.FileServerFS(frontendFS).ServeHTTP(w, r)
+		fileServer.ServeHTTP(w, r)
 	}
 }
 
@@ -396,6 +398,15 @@ var (
 )
 
 func run(args []string) int {
+	handledHelper, errHelper := selfupdate.RunHelperFromArgs(args)
+	if handledHelper {
+		if errHelper != nil {
+			_, _ = fmt.Fprintln(rootCLIStderr, errHelper)
+			return 1
+		}
+		return 0
+	}
+
 	serviceExitCode := 0
 	rootCommand := newRootCommand(func() int {
 		serviceExitCode = runServiceFunc()
@@ -556,6 +567,8 @@ func runService() int {
 	xylonaService.SetScheduler(taskScheduler)
 	xylonaService.SetInstallBroadcaster(wsInst)
 	xylonaService.SetUpdateBroadcaster(wsInst)
+	xylonaService.SetSystemUpdateBroadcaster(wsInst)
+	xylonaService.ResumeSystemUpdateJobs(ctx)
 	if dummyTracker != nil {
 		xylonaService.SetDummyTracker(dummyTracker)
 	}

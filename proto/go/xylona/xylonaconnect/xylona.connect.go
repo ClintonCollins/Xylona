@@ -176,6 +176,18 @@ const (
 	XylonaRemoveNodeProcedure = "/xylona.Xylona/RemoveNode"
 	// XylonaEditNodeProcedure is the fully-qualified name of the Xylona's EditNode RPC.
 	XylonaEditNodeProcedure = "/xylona.Xylona/EditNode"
+	// XylonaCheckSystemUpdatesProcedure is the fully-qualified name of the Xylona's CheckSystemUpdates
+	// RPC.
+	XylonaCheckSystemUpdatesProcedure = "/xylona.Xylona/CheckSystemUpdates"
+	// XylonaStartSystemUpdateProcedure is the fully-qualified name of the Xylona's StartSystemUpdate
+	// RPC.
+	XylonaStartSystemUpdateProcedure = "/xylona.Xylona/StartSystemUpdate"
+	// XylonaListSystemUpdateJobsProcedure is the fully-qualified name of the Xylona's
+	// ListSystemUpdateJobs RPC.
+	XylonaListSystemUpdateJobsProcedure = "/xylona.Xylona/ListSystemUpdateJobs"
+	// XylonaGetSystemUpdateJobProcedure is the fully-qualified name of the Xylona's GetSystemUpdateJob
+	// RPC.
+	XylonaGetSystemUpdateJobProcedure = "/xylona.Xylona/GetSystemUpdateJob"
 	// XylonaGetGameConfigSchemasProcedure is the fully-qualified name of the Xylona's
 	// GetGameConfigSchemas RPC.
 	XylonaGetGameConfigSchemasProcedure = "/xylona.Xylona/GetGameConfigSchemas"
@@ -389,6 +401,11 @@ type XylonaClient interface {
 	GenerateNodePairingObject(context.Context, *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error)
 	RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error)
 	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
+	// System updates (superuser only)
+	CheckSystemUpdates(context.Context, *connect.Request[xylona.CheckSystemUpdatesRequest]) (*connect.Response[xylona.CheckSystemUpdatesResponse], error)
+	StartSystemUpdate(context.Context, *connect.Request[xylona.StartSystemUpdateRequest]) (*connect.Response[xylona.StartSystemUpdateResponse], error)
+	ListSystemUpdateJobs(context.Context, *connect.Request[xylona.ListSystemUpdateJobsRequest]) (*connect.Response[xylona.ListSystemUpdateJobsResponse], error)
+	GetSystemUpdateJob(context.Context, *connect.Request[xylona.GetSystemUpdateJobRequest]) (*connect.Response[xylona.GetSystemUpdateJobResponse], error)
 	// Config Schema Management (superuser)
 	GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error)
 	UpdateGameConfigSchemas(context.Context, *connect.Request[xylona.UpdateGameConfigSchemasRequest]) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error)
@@ -826,6 +843,30 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("EditNode")),
 			connect.WithClientOptions(opts...),
 		),
+		checkSystemUpdates: connect.NewClient[xylona.CheckSystemUpdatesRequest, xylona.CheckSystemUpdatesResponse](
+			httpClient,
+			baseURL+XylonaCheckSystemUpdatesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CheckSystemUpdates")),
+			connect.WithClientOptions(opts...),
+		),
+		startSystemUpdate: connect.NewClient[xylona.StartSystemUpdateRequest, xylona.StartSystemUpdateResponse](
+			httpClient,
+			baseURL+XylonaStartSystemUpdateProcedure,
+			connect.WithSchema(xylonaMethods.ByName("StartSystemUpdate")),
+			connect.WithClientOptions(opts...),
+		),
+		listSystemUpdateJobs: connect.NewClient[xylona.ListSystemUpdateJobsRequest, xylona.ListSystemUpdateJobsResponse](
+			httpClient,
+			baseURL+XylonaListSystemUpdateJobsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListSystemUpdateJobs")),
+			connect.WithClientOptions(opts...),
+		),
+		getSystemUpdateJob: connect.NewClient[xylona.GetSystemUpdateJobRequest, xylona.GetSystemUpdateJobResponse](
+			httpClient,
+			baseURL+XylonaGetSystemUpdateJobProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetSystemUpdateJob")),
+			connect.WithClientOptions(opts...),
+		),
 		getGameConfigSchemas: connect.NewClient[xylona.GetGameConfigSchemasRequest, xylona.GetGameConfigSchemasResponse](
 			httpClient,
 			baseURL+XylonaGetGameConfigSchemasProcedure,
@@ -1203,6 +1244,10 @@ type xylonaClient struct {
 	generateNodePairingObject        *connect.Client[xylona.GenerateNodePairingObjectRequest, xylona.GenerateNodePairingObjectResponse]
 	removeNode                       *connect.Client[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse]
 	editNode                         *connect.Client[xylona.EditNodeRequest, xylona.EditNodeResponse]
+	checkSystemUpdates               *connect.Client[xylona.CheckSystemUpdatesRequest, xylona.CheckSystemUpdatesResponse]
+	startSystemUpdate                *connect.Client[xylona.StartSystemUpdateRequest, xylona.StartSystemUpdateResponse]
+	listSystemUpdateJobs             *connect.Client[xylona.ListSystemUpdateJobsRequest, xylona.ListSystemUpdateJobsResponse]
+	getSystemUpdateJob               *connect.Client[xylona.GetSystemUpdateJobRequest, xylona.GetSystemUpdateJobResponse]
 	getGameConfigSchemas             *connect.Client[xylona.GetGameConfigSchemasRequest, xylona.GetGameConfigSchemasResponse]
 	updateGameConfigSchemas          *connect.Client[xylona.UpdateGameConfigSchemasRequest, xylona.UpdateGameConfigSchemasResponse]
 	getGameServerConfigFiles         *connect.Client[xylona.GetGameServerConfigFilesRequest, xylona.GetGameServerConfigFilesResponse]
@@ -1557,6 +1602,26 @@ func (c *xylonaClient) EditNode(ctx context.Context, req *connect.Request[xylona
 	return c.editNode.CallUnary(ctx, req)
 }
 
+// CheckSystemUpdates calls xylona.Xylona.CheckSystemUpdates.
+func (c *xylonaClient) CheckSystemUpdates(ctx context.Context, req *connect.Request[xylona.CheckSystemUpdatesRequest]) (*connect.Response[xylona.CheckSystemUpdatesResponse], error) {
+	return c.checkSystemUpdates.CallUnary(ctx, req)
+}
+
+// StartSystemUpdate calls xylona.Xylona.StartSystemUpdate.
+func (c *xylonaClient) StartSystemUpdate(ctx context.Context, req *connect.Request[xylona.StartSystemUpdateRequest]) (*connect.Response[xylona.StartSystemUpdateResponse], error) {
+	return c.startSystemUpdate.CallUnary(ctx, req)
+}
+
+// ListSystemUpdateJobs calls xylona.Xylona.ListSystemUpdateJobs.
+func (c *xylonaClient) ListSystemUpdateJobs(ctx context.Context, req *connect.Request[xylona.ListSystemUpdateJobsRequest]) (*connect.Response[xylona.ListSystemUpdateJobsResponse], error) {
+	return c.listSystemUpdateJobs.CallUnary(ctx, req)
+}
+
+// GetSystemUpdateJob calls xylona.Xylona.GetSystemUpdateJob.
+func (c *xylonaClient) GetSystemUpdateJob(ctx context.Context, req *connect.Request[xylona.GetSystemUpdateJobRequest]) (*connect.Response[xylona.GetSystemUpdateJobResponse], error) {
+	return c.getSystemUpdateJob.CallUnary(ctx, req)
+}
+
 // GetGameConfigSchemas calls xylona.Xylona.GetGameConfigSchemas.
 func (c *xylonaClient) GetGameConfigSchemas(ctx context.Context, req *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error) {
 	return c.getGameConfigSchemas.CallUnary(ctx, req)
@@ -1890,6 +1955,11 @@ type XylonaHandler interface {
 	GenerateNodePairingObject(context.Context, *connect.Request[xylona.GenerateNodePairingObjectRequest]) (*connect.Response[xylona.GenerateNodePairingObjectResponse], error)
 	RemoveNode(context.Context, *connect.Request[xylona.RemoveNodeRequest]) (*connect.Response[xylona.RemoveNodeResponse], error)
 	EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error)
+	// System updates (superuser only)
+	CheckSystemUpdates(context.Context, *connect.Request[xylona.CheckSystemUpdatesRequest]) (*connect.Response[xylona.CheckSystemUpdatesResponse], error)
+	StartSystemUpdate(context.Context, *connect.Request[xylona.StartSystemUpdateRequest]) (*connect.Response[xylona.StartSystemUpdateResponse], error)
+	ListSystemUpdateJobs(context.Context, *connect.Request[xylona.ListSystemUpdateJobsRequest]) (*connect.Response[xylona.ListSystemUpdateJobsResponse], error)
+	GetSystemUpdateJob(context.Context, *connect.Request[xylona.GetSystemUpdateJobRequest]) (*connect.Response[xylona.GetSystemUpdateJobResponse], error)
 	// Config Schema Management (superuser)
 	GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error)
 	UpdateGameConfigSchemas(context.Context, *connect.Request[xylona.UpdateGameConfigSchemasRequest]) (*connect.Response[xylona.UpdateGameConfigSchemasResponse], error)
@@ -2321,6 +2391,30 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaEditNodeProcedure,
 		svc.EditNode,
 		connect.WithSchema(xylonaMethods.ByName("EditNode")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaCheckSystemUpdatesHandler := connect.NewUnaryHandler(
+		XylonaCheckSystemUpdatesProcedure,
+		svc.CheckSystemUpdates,
+		connect.WithSchema(xylonaMethods.ByName("CheckSystemUpdates")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaStartSystemUpdateHandler := connect.NewUnaryHandler(
+		XylonaStartSystemUpdateProcedure,
+		svc.StartSystemUpdate,
+		connect.WithSchema(xylonaMethods.ByName("StartSystemUpdate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListSystemUpdateJobsHandler := connect.NewUnaryHandler(
+		XylonaListSystemUpdateJobsProcedure,
+		svc.ListSystemUpdateJobs,
+		connect.WithSchema(xylonaMethods.ByName("ListSystemUpdateJobs")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetSystemUpdateJobHandler := connect.NewUnaryHandler(
+		XylonaGetSystemUpdateJobProcedure,
+		svc.GetSystemUpdateJob,
+		connect.WithSchema(xylonaMethods.ByName("GetSystemUpdateJob")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetGameConfigSchemasHandler := connect.NewUnaryHandler(
@@ -2757,6 +2851,14 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaRemoveNodeHandler.ServeHTTP(w, r)
 		case XylonaEditNodeProcedure:
 			xylonaEditNodeHandler.ServeHTTP(w, r)
+		case XylonaCheckSystemUpdatesProcedure:
+			xylonaCheckSystemUpdatesHandler.ServeHTTP(w, r)
+		case XylonaStartSystemUpdateProcedure:
+			xylonaStartSystemUpdateHandler.ServeHTTP(w, r)
+		case XylonaListSystemUpdateJobsProcedure:
+			xylonaListSystemUpdateJobsHandler.ServeHTTP(w, r)
+		case XylonaGetSystemUpdateJobProcedure:
+			xylonaGetSystemUpdateJobHandler.ServeHTTP(w, r)
 		case XylonaGetGameConfigSchemasProcedure:
 			xylonaGetGameConfigSchemasHandler.ServeHTTP(w, r)
 		case XylonaUpdateGameConfigSchemasProcedure:
@@ -3108,6 +3210,22 @@ func (UnimplementedXylonaHandler) RemoveNode(context.Context, *connect.Request[x
 
 func (UnimplementedXylonaHandler) EditNode(context.Context, *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.EditNode is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CheckSystemUpdates(context.Context, *connect.Request[xylona.CheckSystemUpdatesRequest]) (*connect.Response[xylona.CheckSystemUpdatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CheckSystemUpdates is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) StartSystemUpdate(context.Context, *connect.Request[xylona.StartSystemUpdateRequest]) (*connect.Response[xylona.StartSystemUpdateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.StartSystemUpdate is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListSystemUpdateJobs(context.Context, *connect.Request[xylona.ListSystemUpdateJobsRequest]) (*connect.Response[xylona.ListSystemUpdateJobsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListSystemUpdateJobs is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetSystemUpdateJob(context.Context, *connect.Request[xylona.GetSystemUpdateJobRequest]) (*connect.Response[xylona.GetSystemUpdateJobResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSystemUpdateJob is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetGameConfigSchemas(context.Context, *connect.Request[xylona.GetGameConfigSchemasRequest]) (*connect.Response[xylona.GetGameConfigSchemasResponse], error) {

@@ -1,5 +1,41 @@
-/// <reference types="chrome" />
-/// <reference types="web-bluetooth" />
+declare namespace chrome {
+  namespace runtime {
+    interface Port {
+      name: string
+      disconnect(): void
+      postMessage(message: unknown): void
+      onDisconnect: {
+        addListener(callback: (port: Port) => void): void
+        removeListener(callback: (port: Port) => void): void
+      }
+      onMessage: {
+        addListener(callback: (message: unknown, port: Port) => void): void
+        removeListener(callback: (message: unknown, port: Port) => void): void
+      }
+    }
+  }
+}
+
+interface BluetoothLEScanFilter {
+  name?: string
+  namePrefix?: string
+  services?: BluetoothServiceUUID[]
+}
+
+type BluetoothServiceUUID = string | number
+
+interface BluetoothDevice {
+  id: string
+  name?: string
+  gatt?: BluetoothRemoteGATTServer
+}
+
+interface BluetoothRemoteGATTServer {
+  connected: boolean
+  device: BluetoothDevice
+  connect(): Promise<BluetoothRemoteGATTServer>
+  disconnect(): void
+}
 
 declare module 'quasar/dist/types/globals'
 

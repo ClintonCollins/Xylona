@@ -870,6 +870,95 @@ func (c *GRPCNodeClient) ListBindableIPs(ctx context.Context) ([]node.BindableIP
 	return ips, nil
 }
 
+// GetUpdateCapabilities invokes the GetUpdateCapabilities RPC.
+func (c *GRPCNodeClient) GetUpdateCapabilities(ctx context.Context) (node.UpdateCapabilities, error) {
+	req := newReq(c, &nodeprotov1.GetUpdateCapabilitiesRequest{})
+	resp, errRPC := c.connectClient.GetUpdateCapabilities(ctx, req)
+	if errRPC != nil {
+		return node.UpdateCapabilities{}, translateError("get update capabilities", errRPC)
+	}
+	msg := resp.Msg
+	return node.UpdateCapabilities{
+		Supported:               msg.GetSupported(),
+		Reason:                  msg.GetReason(),
+		Component:               msg.GetComponent(),
+		CurrentVersion:          msg.GetCurrentVersion(),
+		OS:                      msg.GetOs(),
+		Architecture:            msg.GetArchitecture(),
+		ProtocolVersion:         msg.GetProtocolVersion(),
+		ServiceManagerSupported: msg.GetServiceManagerSupported(),
+		InstallPathWritable:     msg.GetInstallPathWritable(),
+		InstallPath:             msg.GetInstallPath(),
+	}, nil
+}
+
+const stageSelfUpdateChunkBytes = 256 * 1024
+
+// StageSelfUpdate streams a self-update artifact to the node.
+func (c *GRPCNodeClient) StageSelfUpdate(ctx context.Context, req node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error) {
+	stream := c.streamConnectClient().StageSelfUpdate(ctx)
+	c.authorize(stream.RequestHeader())
+
+	errSend := stream.Send(&nodeprotov1.StageSelfUpdateRequest{
+		Component:      req.Component,
+		TargetVersion:  req.TargetVersion,
+		Os:             req.OS,
+		Architecture:   req.Architecture,
+		ExpectedSize:   req.ExpectedSize,
+		ExpectedSha256: req.ExpectedSHA256,
+	})
+	if errSend != nil {
+		return node.StageSelfUpdateResult{}, translateError("stage self-update", errSend)
+	}
+
+	if req.Reader != nil {
+		buf := make([]byte, stageSelfUpdateChunkBytes)
+		for {
+			n, errRead := req.Reader.Read(buf)
+			if n > 0 {
+				content := append([]byte(nil), buf[:n]...)
+				errSend = stream.Send(&nodeprotov1.StageSelfUpdateRequest{Content: content})
+				if errSend != nil {
+					return node.StageSelfUpdateResult{}, translateError("stage self-update", errSend)
+				}
+			}
+			if errors.Is(errRead, io.EOF) {
+				break
+			}
+			if errRead != nil {
+				return node.StageSelfUpdateResult{}, fmt.Errorf("nodeclient: read self-update artifact: %w", errRead)
+			}
+		}
+	}
+
+	resp, errRPC := stream.CloseAndReceive()
+	if errRPC != nil {
+		return node.StageSelfUpdateResult{}, translateError("stage self-update", errRPC)
+	}
+	return node.StageSelfUpdateResult{
+		StageID:      resp.Msg.GetStageId(),
+		BytesWritten: resp.Msg.GetBytesWritten(),
+		SHA256:       resp.Msg.GetSha256(),
+	}, nil
+}
+
+// ApplySelfUpdate invokes the ApplySelfUpdate RPC.
+func (c *GRPCNodeClient) ApplySelfUpdate(ctx context.Context, req node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error) {
+	rpcReq := newReq(c, &nodeprotov1.ApplySelfUpdateRequest{
+		StageId:        req.StageID,
+		TargetVersion:  req.TargetVersion,
+		ExpectedSha256: req.ExpectedSHA256,
+	})
+	resp, errRPC := c.connectClient.ApplySelfUpdate(ctx, rpcReq)
+	if errRPC != nil {
+		return node.ApplySelfUpdateResult{}, translateError("apply self-update", errRPC)
+	}
+	return node.ApplySelfUpdateResult{
+		Accepted: resp.Msg.GetAccepted(),
+		Message:  resp.Msg.GetMessage(),
+	}, nil
+}
+
 // StreamEvents subscribes to the node's event stream and returns a channel
 // that closes when ctx is canceled or the underlying stream errors. A failure
 // to open the stream is reported synchronously via the error return; failures

@@ -19,6 +19,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders/internal/providerhttp"
 )
 
 const (
@@ -354,28 +355,9 @@ func (p *Provider) getPublishedFileDetails(ctx context.Context, publishedFileID 
 
 // getJSON performs a GET request to the given URL and decodes the JSON body into dest.
 func (p *Provider) getJSON(ctx context.Context, endpoint string, dest any) error {
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if errReq != nil {
-		return fmt.Errorf("build request for %s: %w", endpoint, errReq)
-	}
-
-	resp, errDo := p.httpClient.Do(req)
-	if errDo != nil {
-		return fmt.Errorf("GET %s: %w", endpoint, errDo)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("url", endpoint).Msg("steam workshop: failed to close response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: unexpected status %d", endpoint, resp.StatusCode)
-	}
-
-	errDecode := json.NewDecoder(resp.Body).Decode(dest)
-	if errDecode != nil {
-		return fmt.Errorf("decode response from %s: %w", endpoint, errDecode)
+	errGet := providerhttp.GetJSON(ctx, p.httpClient, endpoint, dest, "steam workshop")
+	if errGet != nil {
+		return fmt.Errorf("steam workshop get JSON: %w", errGet)
 	}
 	return nil
 }

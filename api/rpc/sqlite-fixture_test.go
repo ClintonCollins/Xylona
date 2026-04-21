@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 
@@ -76,17 +75,6 @@ func ensureRPCMigratedTemplate() (string, error) {
 		_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
 		if errMigrate != nil {
 			rpcTemplateErr = errMigrate
-		}
-
-		_, errAlterGame := conn.SQLDb.ExecContext(
-			context.Background(),
-			`alter table game add column binds_to_all_ips boolean not null default false`,
-		)
-		if errAlterGame != nil {
-			isDuplicateColumnErr := strings.Contains(strings.ToLower(errAlterGame.Error()), "duplicate column name")
-			if !isDuplicateColumnErr {
-				rpcTemplateErr = errAlterGame
-			}
 		}
 
 		errCloseConn := conn.SQLDb.Close()

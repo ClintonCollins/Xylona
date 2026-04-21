@@ -189,6 +189,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/admin/NodeSettings.vue'),
         beforeEnter: requireSuperUser,
       },
+      {
+        path: '/admin/updates',
+        component: () => import('pages/admin/SystemUpdates.vue'),
+        beforeEnter: requireSuperUser,
+      },
     ],
   },
   // Always leave this as last one,

@@ -164,6 +164,16 @@ type NodeClient interface {
 	// by game servers on this node.
 	ListBindableIPs(ctx context.Context) ([]node.BindableIP, error)
 
+	// GetUpdateCapabilities reports whether the node can stage and apply a
+	// service-manager-backed self-update.
+	GetUpdateCapabilities(ctx context.Context) (node.UpdateCapabilities, error)
+
+	// StageSelfUpdate streams a verified xylona-node artifact to the node.
+	StageSelfUpdate(ctx context.Context, req node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error)
+
+	// ApplySelfUpdate asks the node to hand a staged update to its helper.
+	ApplySelfUpdate(ctx context.Context, req node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error)
+
 	// StreamEvents returns a channel receiving events published by the node.
 	// The channel closes when ctx is canceled or the client is closed.
 	//

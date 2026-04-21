@@ -133,6 +133,21 @@ type FakeNodeClient struct {
 	BindableIPsErr    error
 	BindableIPsCalls  int
 
+	UpdateCapabilitiesResult node.UpdateCapabilities
+	UpdateCapabilitiesErr    error
+	UpdateCapabilitiesCalls  int
+	UpdateCapabilitiesFunc   func(context.Context) (node.UpdateCapabilities, error)
+
+	StageSelfUpdateResult node.StageSelfUpdateResult
+	StageSelfUpdateErr    error
+	StageSelfUpdateCalls  []StageSelfUpdateCall
+	StageSelfUpdateFunc   func(context.Context, node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error)
+
+	ApplySelfUpdateResult node.ApplySelfUpdateResult
+	ApplySelfUpdateErr    error
+	ApplySelfUpdateCalls  []node.ApplySelfUpdateRequest
+	ApplySelfUpdateFunc   func(context.Context, node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error)
+
 	StreamEventsChannel chan node.Event
 	StreamEventsErr     error
 	StreamEventsCalls   int
@@ -257,6 +272,12 @@ type ExtractBackupArchiveCall struct {
 type SendConsoleOutputCall struct {
 	ProcessID string
 	Line      string
+}
+
+// StageSelfUpdateCall records a single StageSelfUpdate invocation.
+type StageSelfUpdateCall struct {
+	Request node.StageSelfUpdateRequest
+	Content []byte
 }
 
 // ID returns the configured NodeID (zero-value-safe: empty string if unset).
@@ -556,6 +577,52 @@ func (f *FakeNodeClient) ListBindableIPs(_ context.Context) ([]node.BindableIP, 
 	f.BindableIPsCalls++
 	f.mu.Unlock()
 	return append([]node.BindableIP(nil), f.BindableIPsResult...), f.BindableIPsErr
+}
+
+// GetUpdateCapabilities records the call and returns the configured result.
+func (f *FakeNodeClient) GetUpdateCapabilities(ctx context.Context) (node.UpdateCapabilities, error) {
+	f.mu.Lock()
+	f.UpdateCapabilitiesCalls++
+	f.mu.Unlock()
+	if f.UpdateCapabilitiesFunc != nil {
+		return f.UpdateCapabilitiesFunc(ctx)
+	}
+	return f.UpdateCapabilitiesResult, f.UpdateCapabilitiesErr
+}
+
+// StageSelfUpdate records the call and returns the configured result.
+func (f *FakeNodeClient) StageSelfUpdate(ctx context.Context, req node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error) {
+	if f.StageSelfUpdateFunc != nil {
+		return f.StageSelfUpdateFunc(ctx, req)
+	}
+	var content []byte
+	if req.Reader != nil {
+		data, errRead := io.ReadAll(req.Reader)
+		if errRead != nil {
+			return node.StageSelfUpdateResult{}, fmt.Errorf("nodeclient fake: read stage self-update content: %w", errRead)
+		}
+		content = data
+	}
+	recorded := req
+	recorded.Reader = nil
+	f.mu.Lock()
+	f.StageSelfUpdateCalls = append(f.StageSelfUpdateCalls, StageSelfUpdateCall{
+		Request: recorded,
+		Content: append([]byte(nil), content...),
+	})
+	f.mu.Unlock()
+	return f.StageSelfUpdateResult, f.StageSelfUpdateErr
+}
+
+// ApplySelfUpdate records the call and returns the configured result.
+func (f *FakeNodeClient) ApplySelfUpdate(ctx context.Context, req node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error) {
+	if f.ApplySelfUpdateFunc != nil {
+		return f.ApplySelfUpdateFunc(ctx, req)
+	}
+	f.mu.Lock()
+	f.ApplySelfUpdateCalls = append(f.ApplySelfUpdateCalls, req)
+	f.mu.Unlock()
+	return f.ApplySelfUpdateResult, f.ApplySelfUpdateErr
 }
 
 // StreamEvents records the call and returns the configured channel.

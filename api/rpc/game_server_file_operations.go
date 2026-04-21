@@ -3,14 +3,49 @@ package rpc
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+type fileMutationSetup struct {
+	gameServer *models.GameServer
+	client     nodeclient.NodeClient
+	policy     node.ProtectionPolicy
+}
+
+func (xs *XylonaService) prepareFileMutation(header http.Header, gameServerID string) (*fileMutationSetup, error) {
+	user, errUser := xs.getUserFromHeader(header)
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+	gameServer, errLookup := xs.db.GetGameServerByID(gameServerID)
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	client, errClient := xs.resolveNodeClient(gameServer)
+	if errClient != nil {
+		return nil, errClient
+	}
+
+	return &fileMutationSetup{
+		gameServer: gameServer,
+		client:     client,
+		policy:     xs.buildProtectionPolicy(gameServer),
+	}, nil
+}
 
 func fileMutationError(err error) error {
 	if errors.Is(err, actions.ErrInvalidPath) || errors.Is(err, node.ErrInvalidPath) {
@@ -26,25 +61,12 @@ func fileMutationError(err error) error {
 
 // GameServersFileOrDirectoryCreate creates a file or directory for a game server.
 func (xs *XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, request *connect.Request[xylona.GameServerFileOrDirectoryCreateRequest]) (*connect.Response[xylona.GameServerFileOrDirectoryCreateResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
+	setup, errSetup := xs.prepareFileMutation(request.Header(), request.Msg.GetGameServerId())
+	if errSetup != nil {
+		return nil, errSetup
 	}
-	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
-	if errLookup != nil {
-		return nil, dbLookup(errLookup)
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-	if errPermission != nil {
-		return nil, errPermission
-	}
-
-	client, errClient := xs.resolveNodeClient(gameServer)
-	if errClient != nil {
-		return nil, errClient
-	}
-	errCreate := client.CreateFileOrDirectory(ctx, gameServer.Directory, request.Msg.GetFullFilePath(),
-		request.Msg.GetContent(), request.Msg.GetIsDirectory(), xs.buildProtectionPolicy(gameServer))
+	errCreate := setup.client.CreateFileOrDirectory(ctx, setup.gameServer.Directory, request.Msg.GetFullFilePath(),
+		request.Msg.GetContent(), request.Msg.GetIsDirectory(), setup.policy)
 	if errCreate != nil {
 		return nil, fileMutationError(errCreate)
 	}
@@ -53,24 +75,11 @@ func (xs *XylonaService) GameServersFileOrDirectoryCreate(ctx context.Context, r
 
 // GameServerFilesDelete deletes files or directories for a game server.
 func (xs *XylonaService) GameServerFilesDelete(ctx context.Context, request *connect.Request[xylona.GameServerFilesDeleteRequest]) (*connect.Response[xylona.GameServerFilesDeleteResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
+	setup, errSetup := xs.prepareFileMutation(request.Header(), request.Msg.GetGameServerId())
+	if errSetup != nil {
+		return nil, errSetup
 	}
-	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
-	if errLookup != nil {
-		return nil, dbLookup(errLookup)
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-	if errPermission != nil {
-		return nil, errPermission
-	}
-
-	client, errClient := xs.resolveNodeClient(gameServer)
-	if errClient != nil {
-		return nil, errClient
-	}
-	results, errDelete := client.DeleteFiles(ctx, gameServer.Directory, request.Msg.GetFullFilePaths(), xs.buildProtectionPolicy(gameServer))
+	results, errDelete := setup.client.DeleteFiles(ctx, setup.gameServer.Directory, request.Msg.GetFullFilePaths(), setup.policy)
 	if errDelete != nil {
 		return nil, fileMutationError(errDelete)
 	}
@@ -155,24 +164,11 @@ func (xs *XylonaService) GameServerFilesDecompress(ctx context.Context, request 
 
 // GameServerFilesDownloadFromURL downloads a file into a game server directory.
 func (xs *XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, request *connect.Request[xylona.GameServersFileDownloadFromURLRequest]) (*connect.Response[xylona.GameServersFileDownloadFromURLResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
+	setup, errSetup := xs.prepareFileMutation(request.Header(), request.Msg.GetGameServerId())
+	if errSetup != nil {
+		return nil, errSetup
 	}
-	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
-	if errLookup != nil {
-		return nil, dbLookup(errLookup)
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-	if errPermission != nil {
-		return nil, errPermission
-	}
-
-	client, errClient := xs.resolveNodeClient(gameServer)
-	if errClient != nil {
-		return nil, errClient
-	}
-	result, errDownload := client.DownloadFileFromURL(ctx, gameServer.Directory, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath(), node.DownloadIntegrity{}, xs.buildProtectionPolicy(gameServer))
+	result, errDownload := setup.client.DownloadFileFromURL(ctx, setup.gameServer.Directory, request.Msg.GetUrl(), request.Msg.GetDestinationBasePath(), node.DownloadIntegrity{}, setup.policy)
 	if errDownload != nil {
 		return nil, fileMutationError(errDownload)
 	}
@@ -181,24 +177,11 @@ func (xs *XylonaService) GameServerFilesDownloadFromURL(ctx context.Context, req
 
 // GameServerFileRename renames a file for a game server.
 func (xs *XylonaService) GameServerFileRename(ctx context.Context, request *connect.Request[xylona.GameServerFileRenameRequest]) (*connect.Response[xylona.GameServerFileRenameResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
+	setup, errSetup := xs.prepareFileMutation(request.Header(), request.Msg.GetGameServerId())
+	if errSetup != nil {
+		return nil, errSetup
 	}
-	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
-	if errLookup != nil {
-		return nil, dbLookup(errLookup)
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-	if errPermission != nil {
-		return nil, errPermission
-	}
-
-	client, errClient := xs.resolveNodeClient(gameServer)
-	if errClient != nil {
-		return nil, errClient
-	}
-	newFilePath, errRename := client.RenameFile(ctx, gameServer.Directory, request.Msg.GetOldPath(), request.Msg.GetNewPath(), xs.buildProtectionPolicy(gameServer))
+	newFilePath, errRename := setup.client.RenameFile(ctx, setup.gameServer.Directory, request.Msg.GetOldPath(), request.Msg.GetNewPath(), setup.policy)
 	if errRename != nil {
 		return nil, fileMutationError(errRename)
 	}
@@ -207,24 +190,11 @@ func (xs *XylonaService) GameServerFileRename(ctx context.Context, request *conn
 
 // GameServerFilesMove moves files for a game server.
 func (xs *XylonaService) GameServerFilesMove(ctx context.Context, request *connect.Request[xylona.GameServerFilesMoveRequest]) (*connect.Response[xylona.GameServerFilesMoveResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
+	setup, errSetup := xs.prepareFileMutation(request.Header(), request.Msg.GetGameServerId())
+	if errSetup != nil {
+		return nil, errSetup
 	}
-	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
-	if errLookup != nil {
-		return nil, dbLookup(errLookup)
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-	if errPermission != nil {
-		return nil, errPermission
-	}
-
-	client, errClient := xs.resolveNodeClient(gameServer)
-	if errClient != nil {
-		return nil, errClient
-	}
-	results, errMove := client.MoveFiles(ctx, gameServer.Directory, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath(), xs.buildProtectionPolicy(gameServer))
+	results, errMove := setup.client.MoveFiles(ctx, setup.gameServer.Directory, request.Msg.GetFullFilePaths(), request.Msg.GetDestinationBasePath(), setup.policy)
 	if errMove != nil {
 		return nil, fileMutationError(errMove)
 	}
@@ -233,24 +203,11 @@ func (xs *XylonaService) GameServerFilesMove(ctx context.Context, request *conne
 
 // GameServersFileEdit edits a file for a game server.
 func (xs *XylonaService) GameServersFileEdit(ctx context.Context, request *connect.Request[xylona.GameServersFileEditRequest]) (*connect.Response[xylona.GameServersFileEditResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
+	setup, errSetup := xs.prepareFileMutation(request.Header(), request.Msg.GetGameServerId())
+	if errSetup != nil {
+		return nil, errSetup
 	}
-	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetGameServerId())
-	if errLookup != nil {
-		return nil, dbLookup(errLookup)
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.files.edit")
-	if errPermission != nil {
-		return nil, errPermission
-	}
-
-	client, errClient := xs.resolveNodeClient(gameServer)
-	if errClient != nil {
-		return nil, errClient
-	}
-	errEdit := client.WriteFile(ctx, gameServer.Directory, request.Msg.GetFullFilePath(), []byte(request.Msg.GetContent()), xs.buildProtectionPolicy(gameServer))
+	errEdit := setup.client.WriteFile(ctx, setup.gameServer.Directory, request.Msg.GetFullFilePath(), []byte(request.Msg.GetContent()), setup.policy)
 	if errEdit != nil {
 		return nil, fileMutationError(errEdit)
 	}

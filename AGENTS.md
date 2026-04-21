@@ -33,6 +33,7 @@ Frontend:
 - from `frontend/`: `bun run build`
 - from `frontend/`: `bun run lint`
 - from `frontend/`: `bun run format`
+- from `frontend/`: `bun run format:check`
 - from `frontend/`: `bun run test`
 - from `frontend/`: `bun run test:coverage`
 - from `frontend/`: `bun run e2e`
@@ -53,6 +54,7 @@ Never hand-edit generated outputs:
 - `sql/models/*.bob.go`
 - `sql/models/dberrors/*.bob.go`
 - `sql/models/dbinfo/*.bob.go`
+- `sql/models/enums/*.bob.go`
 
 Regenerate with:
 - `mage GenerateProto`
@@ -62,6 +64,7 @@ Regenerate with:
 
 - Use LF line endings. If a touched file is CRLF, normalize it to LF.
 - Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `frontend/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
+- `/docs/` is intentionally ignored as local scratch space. Do not put durable project documentation there unless the ignore policy changes first.
 - For local browser verification, you may read `XYLONA_ADMIN_USERNAME` and `XYLONA_ADMIN_PASSWORD` from `.env`; never print, log, or commit them.
 
 ## Go Conventions
@@ -109,7 +112,7 @@ A self-contained Playwright suite exists, driven by `cmd/e2e`.
 
 Single-node:
 - `cmd/e2e single-setup` builds binaries, seeds a fresh DB, starts backend on `:9091`, and runs behind Vite on `:9002`
-- Coverage areas: login, smoke, admin, permissions, page permissions, console errors, file browser, server lifecycle, config schema ordering, mods
+- Coverage areas: login, smoke, admin, permissions, page permissions, console errors, file browser, server lifecycle, config schema ordering, mods, version tracking
 - Entry files: `frontend/e2e/global-setup.ts`, `frontend/e2e/global-teardown.ts`, `frontend/e2e/helpers.ts`, `frontend/e2e/auth.setup.ts`
 
 Hub-spoke:

@@ -681,13 +681,6 @@ async function getGameServerDetails() {
     console.error(e)
   }
 }
-
-// function getRelativeFilePath(...filePaths: string[]): string {
-//     if (path.value === '') {
-//         return filePaths.join(pathSeparator.value)
-//     }
-//     return path.value + pathSeparator.value + filePaths.join(pathSeparator.value)
-// }
 </script>
 
 <style scoped>

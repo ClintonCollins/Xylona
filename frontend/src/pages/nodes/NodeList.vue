@@ -166,6 +166,14 @@
                   </q-btn>
                 </router-link>
                 <q-btn
+                  :to="{ path: '/admin/updates', query: { nodeId: props.row.id } }"
+                  aria-label="Update node"
+                  dense
+                  flat
+                  icon="system_update_alt">
+                  <q-tooltip>Update node</q-tooltip>
+                </q-btn>
+                <q-btn
                   :icon="tabTrash"
                   aria-label="Delete node"
                   class="text-error-brighter"
@@ -203,6 +211,12 @@
           <div class="text-h6 q-ml-sm">{{ detailNode.name || 'Node Details' }}</div>
         </div>
         <div class="xy-page-actions">
+          <q-btn
+            :to="{ path: '/admin/updates', query: { nodeId: detailNode.id } }"
+            dense
+            flat
+            icon="system_update_alt"
+            label="Update" />
           <q-btn
             :icon="tabSettings"
             :to="'/nodes/' + detailNode.id + '/edit'"

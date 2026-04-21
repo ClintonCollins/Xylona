@@ -1,11 +1,6 @@
 import { create } from '@bufbuild/protobuf'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  BackupProgressOperation,
-  BackupProgressPhase,
-  Status,
-  VersionStatus,
-} from '@/proto/shared_pb'
+import { BackupProgressOperation, BackupProgressPhase, VersionStatus } from '@/proto/shared_pb'
 import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
 import { AllServersMetrics, Message_Type, MessageSchema } from '@/proto/websocket_pb'
 
@@ -13,13 +8,11 @@ import {
   ArchiveTypeToExtension,
   ArchiveTypeToString,
   bytesToSize,
-  bytesToSize1,
   dispatchWebsocketMessage,
   getColorFromFilenameExtension,
   getIconFromFilenameExtension,
   GetPathSeparator,
   GetRelativeFilePath,
-  StatusToString,
   XylonaEventBus,
 } from './shared'
 
@@ -69,32 +62,6 @@ describe('GetPathSeparator', () => {
   })
 })
 
-describe('StatusToString', () => {
-  it('maps UNKNOWN to "Unknown"', () => {
-    expect(StatusToString(Status.UNKNOWN)).toBe('Unknown')
-  })
-
-  it('maps ONLINE to "Online"', () => {
-    expect(StatusToString(Status.ONLINE)).toBe('Online')
-  })
-
-  it('maps OFFLINE to "Offline"', () => {
-    expect(StatusToString(Status.OFFLINE)).toBe('Offline')
-  })
-
-  it('maps UPDATING to "Updating"', () => {
-    expect(StatusToString(Status.UPDATING)).toBe('Updating')
-  })
-
-  it('maps INSTALLING to "Installing"', () => {
-    expect(StatusToString(Status.INSTALLING)).toBe('Installing')
-  })
-
-  it('defaults to "Unknown" for unrecognized values', () => {
-    expect(StatusToString(999 as Status)).toBe('Unknown')
-  })
-})
-
 describe('bytesToSize', () => {
   it('returns "0 Byte" for 0 bytes', () => {
     expect(bytesToSize(0)).toBe('0 Byte')
@@ -114,24 +81,6 @@ describe('bytesToSize', () => {
 
   it('formats gigabytes correctly', () => {
     expect(bytesToSize(1073741824)).toBe('1 GB')
-  })
-})
-
-describe('bytesToSize1', () => {
-  it('returns "0 Bytes" for 0 bytes', () => {
-    expect(bytesToSize1(0)).toBe('0 Bytes')
-  })
-
-  it('formats bytes correctly', () => {
-    expect(bytesToSize1(500)).toBe('500.00 Bytes')
-  })
-
-  it('formats kilobytes correctly', () => {
-    expect(bytesToSize1(1024)).toBe('1.00 KB')
-  })
-
-  it('formats megabytes correctly', () => {
-    expect(bytesToSize1(1048576)).toBe('1.00 MB')
   })
 })
 

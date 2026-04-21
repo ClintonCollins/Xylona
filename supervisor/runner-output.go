@@ -65,70 +65,45 @@ func (c *Command) readJobOut() {
 		}
 	}()
 
-	go func() {
-		defer wg.Done()
-		defer func() {
-			scannerDone <- struct{}{}
-		}()
-		scannerStdOut := bufio.NewScanner(stdoutReader)
-		scannerStdOut.Split(bufio.ScanLines)
-		for scannerStdOut.Scan() {
-			if scannerStdOut.Err() != nil {
-				log.Error().Err(scannerStdOut.Err()).Msg("Error scanning output")
-				return
-			}
-			select {
-			case <-c.instanceCtx.Done():
-				log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
-				return
-			case <-c.processCtx.Done():
-				log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
-				return
-			default:
-				if disableOutput.Load() {
-					continue
-				}
-				stdOut := scannerStdOut.Text()
-				log.Debug().Str("ID", c.ID).Str("stdout", stdOut).Msg("Output")
-				c.sendJobNotification(stdOut)
-			}
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer func() {
-			scannerDone <- struct{}{}
-		}()
-		scannerStdErr := bufio.NewScanner(stderrReader)
-		scannerStdErr.Split(bufio.ScanLines)
-		for scannerStdErr.Scan() {
-			if scannerStdErr.Err() != nil {
-				log.Error().Err(scannerStdErr.Err()).Msg("Error scanning output")
-				return
-			}
-			select {
-			case <-c.instanceCtx.Done():
-				log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
-				return
-			case <-c.processCtx.Done():
-				log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
-				return
-			default:
-				if disableOutput.Load() {
-					continue
-				}
-				stdErr := scannerStdErr.Text()
-				log.Debug().Str("ID", c.ID).Str("stderr", stdErr).Msg("Output")
-				c.sendJobNotification(stdErr)
-			}
-		}
-	}()
+	go c.scanJobOutput(stdoutReader, "stdout", &disableOutput, scannerDone, wg)
+	go c.scanJobOutput(stderrReader, "stderr", &disableOutput, scannerDone, wg)
 
 	wg.Wait()
 	log.Debug().Str("Game Server ID", c.ID).Msg("Job output listener stopped")
 	c.processCtxCancel()
 	c.closeJobNotification()
+}
+
+func (c *Command) scanJobOutput(reader io.Reader, logField string, disableOutput *atomic.Bool, scannerDone chan<- struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer func() {
+		scannerDone <- struct{}{}
+	}()
+
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		select {
+		case <-c.instanceCtx.Done():
+			log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
+			return
+		case <-c.processCtx.Done():
+			log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
+			return
+		default:
+			if disableOutput.Load() {
+				continue
+			}
+			output := scanner.Text()
+			log.Debug().Str("ID", c.ID).Str(logField, output).Msg("Output")
+			c.sendJobNotification(output)
+		}
+	}
+
+	errScan := scanner.Err()
+	if errScan != nil {
+		log.Error().Err(errScan).Msg("Error scanning output")
+	}
 }
 
 // readTelnetOutput reads the output of the telnet connection.

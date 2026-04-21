@@ -16,6 +16,7 @@ import (
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/selfupdate"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	nodeprotov1 "github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
@@ -32,12 +33,23 @@ type nodeServiceServer struct {
 
 	n            *node.Node
 	sharedSecret string
+	updater      selfUpdater
+}
+
+type selfUpdater interface {
+	Capabilities() node.UpdateCapabilities
+	Stage(ctx context.Context, req node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error)
+	Apply(ctx context.Context, req node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error)
 }
 
 // newNodeServiceServer constructs a handler. sharedSecret is the bearer token
 // the caller must present on every RPC.
-func newNodeServiceServer(n *node.Node, sharedSecret string) *nodeServiceServer {
-	return &nodeServiceServer{n: n, sharedSecret: sharedSecret}
+func newNodeServiceServer(n *node.Node, sharedSecret string, updaters ...selfUpdater) *nodeServiceServer {
+	var updater selfUpdater
+	if len(updaters) > 0 {
+		updater = updaters[0]
+	}
+	return &nodeServiceServer{n: n, sharedSecret: sharedSecret, updater: updater}
 }
 
 // authorize inspects the Connect request headers and returns a connect.Error
@@ -79,6 +91,9 @@ func translate(err error) error {
 		return connect.NewError(connect.CodePermissionDenied, err)
 	}
 	if errors.Is(err, node.ErrUnexpectedHTTPStatus) || errors.Is(err, node.ErrDownloadIntegrityMismatch) {
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	}
+	if errors.Is(err, selfupdate.ErrApplyUnsupported) || errors.Is(err, selfupdate.ErrInvalidStage) {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}
 	return connect.NewError(connect.CodeInternal, err)
@@ -1050,6 +1065,123 @@ func (s *nodeServiceServer) Ping(_ context.Context, req *connect.Request[nodepro
 		return nil, errAuth
 	}
 	return connect.NewResponse(&nodeprotov1.PingResponse{ServerTime: timestamppb.Now()}), nil
+}
+
+func (s *nodeServiceServer) GetUpdateCapabilities(_ context.Context, req *connect.Request[nodeprotov1.GetUpdateCapabilitiesRequest]) (*connect.Response[nodeprotov1.GetUpdateCapabilitiesResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.updater == nil {
+		return connect.NewResponse(&nodeprotov1.GetUpdateCapabilitiesResponse{
+			Supported: false,
+			Reason:    "node binary does not expose self-update support",
+			Component: "node",
+		}), nil
+	}
+	caps := s.updater.Capabilities()
+	return connect.NewResponse(&nodeprotov1.GetUpdateCapabilitiesResponse{
+		Supported:               caps.Supported,
+		Reason:                  caps.Reason,
+		Component:               caps.Component,
+		CurrentVersion:          caps.CurrentVersion,
+		Os:                      caps.OS,
+		Architecture:            caps.Architecture,
+		ProtocolVersion:         caps.ProtocolVersion,
+		ServiceManagerSupported: caps.ServiceManagerSupported,
+		InstallPathWritable:     caps.InstallPathWritable,
+		InstallPath:             caps.InstallPath,
+	}), nil
+}
+
+type stageSelfUpdateReader struct {
+	ctx    context.Context
+	stream *connect.ClientStream[nodeprotov1.StageSelfUpdateRequest]
+	buffer []byte
+}
+
+func (r *stageSelfUpdateReader) Read(p []byte) (int, error) {
+	for len(r.buffer) == 0 {
+		errCtx := r.ctx.Err()
+		if errCtx != nil {
+			return 0, fmt.Errorf("stage self-update canceled: %w", errCtx)
+		}
+		if !r.stream.Receive() {
+			errStream := r.stream.Err()
+			if errStream != nil {
+				return 0, fmt.Errorf("stage self-update receive: %w", errStream)
+			}
+			return 0, io.EOF
+		}
+		r.buffer = r.stream.Msg().GetContent()
+	}
+
+	n := copy(p, r.buffer)
+	r.buffer = r.buffer[n:]
+	return n, nil
+}
+
+func (s *nodeServiceServer) StageSelfUpdate(ctx context.Context, stream *connect.ClientStream[nodeprotov1.StageSelfUpdateRequest]) (*connect.Response[nodeprotov1.StageSelfUpdateResponse], error) {
+	errAuth := s.authorize(stream.RequestHeader())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.updater == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("self-update is not supported by this node"))
+	}
+	if !stream.Receive() {
+		errStream := stream.Err()
+		if errStream != nil {
+			return nil, connect.NewError(connect.CodeInternal, errStream)
+		}
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("stage self-update requires an initial metadata message"))
+	}
+
+	first := stream.Msg()
+	reader := &stageSelfUpdateReader{
+		ctx:    ctx,
+		stream: stream,
+		buffer: append([]byte(nil), first.GetContent()...),
+	}
+	result, errStage := s.updater.Stage(ctx, node.StageSelfUpdateRequest{
+		Component:      first.GetComponent(),
+		TargetVersion:  first.GetTargetVersion(),
+		OS:             first.GetOs(),
+		Architecture:   first.GetArchitecture(),
+		ExpectedSize:   first.GetExpectedSize(),
+		ExpectedSHA256: first.GetExpectedSha256(),
+		Reader:         reader,
+	})
+	if errStage != nil {
+		return nil, translate(errStage)
+	}
+	return connect.NewResponse(&nodeprotov1.StageSelfUpdateResponse{
+		StageId:      result.StageID,
+		BytesWritten: result.BytesWritten,
+		Sha256:       result.SHA256,
+	}), nil
+}
+
+func (s *nodeServiceServer) ApplySelfUpdate(ctx context.Context, req *connect.Request[nodeprotov1.ApplySelfUpdateRequest]) (*connect.Response[nodeprotov1.ApplySelfUpdateResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.updater == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("self-update is not supported by this node"))
+	}
+	result, errApply := s.updater.Apply(ctx, node.ApplySelfUpdateRequest{
+		StageID:        req.Msg.GetStageId(),
+		TargetVersion:  req.Msg.GetTargetVersion(),
+		ExpectedSHA256: req.Msg.GetExpectedSha256(),
+	})
+	if errApply != nil {
+		return nil, translate(errApply)
+	}
+	return connect.NewResponse(&nodeprotov1.ApplySelfUpdateResponse{
+		Accepted: result.Accepted,
+		Message:  result.Message,
+	}), nil
 }
 
 // nodeEventToProto converts a node.Event to its wire form.

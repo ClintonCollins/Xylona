@@ -361,29 +361,14 @@ func (xs *XylonaService) DeleteNotificationChannel(
 	_ context.Context,
 	request *connect.Request[xylona.DeleteNotificationChannelRequest],
 ) (*connect.Response[xylona.DeleteNotificationChannelResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-
-	allowed, errPerm := xs.hasGlobalPermission(user)
-	if errPerm != nil {
-		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	if !allowed {
-		return nil, permissionDenied("insufficient permissions")
-	}
-
-	id := strings.TrimSpace(request.Msg.GetId())
-	if id == "" {
-		return nil, invalidArg("id is required")
-	}
-
-	errDelete := xs.db.DeleteNotificationChannel(id, user.ID)
+	errDelete := xs.deleteOwnedAlertResource(request.Header(), request.Msg.GetId(), alertResourceDeleteConfig{
+		logIDField:       "notification_channel_id",
+		deleteLogMessage: "failed to delete notification channel",
+		internalMessage:  "failed to delete notification channel",
+		deleteFn:         xs.db.DeleteNotificationChannel,
+	})
 	if errDelete != nil {
-		log.Error().Err(errDelete).Str("notification_channel_id", id).Msg("failed to delete notification channel")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete notification channel"))
+		return nil, errDelete
 	}
 
 	return connect.NewResponse(&xylona.DeleteNotificationChannelResponse{}), nil

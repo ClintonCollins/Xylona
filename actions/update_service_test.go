@@ -598,7 +598,7 @@ func TestUpdateGameServerRejectsUnsupportedMinecraftVariant(t *testing.T) {
 			internal.RegisterGame("minecraft", previousGame)
 			return
 		}
-		delete(internal.GetGames(), "minecraft")
+		internal.UnregisterGameForTest("minecraft")
 	})
 
 	inst := &Instance{

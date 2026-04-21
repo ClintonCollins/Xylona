@@ -155,7 +155,8 @@ func (xs *XylonaService) selfNodeID() string {
 }
 
 type nodeRuntimeState struct {
-	snapshot *node.NodeSnapshot
+	snapshot           *node.NodeSnapshot
+	updateCapabilities *node.UpdateCapabilities
 }
 
 func (xs *XylonaService) nodeSnapshotBaseContext(ctx context.Context) context.Context {
@@ -204,12 +205,22 @@ func (xs *XylonaService) collectNodeRuntimeState(ctx context.Context, nodeRows [
 			defer cancel()
 
 			snapshot, errSnapshot := client.GetNodeSnapshot(snapCtx)
-			if errSnapshot != nil || snapshot == nil {
-				return
+
+			var capsPtr *node.UpdateCapabilities
+			capsCtx, capsCancel := context.WithTimeout(baseCtx, 2*time.Second)
+			caps, errCaps := client.GetUpdateCapabilities(capsCtx)
+			capsCancel()
+			if errCaps == nil {
+				capsPtr = &caps
 			}
 
+			if errSnapshot != nil || snapshot == nil {
+				if capsPtr == nil {
+					return
+				}
+			}
 			mu.Lock()
-			states[nodeID] = nodeRuntimeState{snapshot: snapshot}
+			states[nodeID] = nodeRuntimeState{snapshot: snapshot, updateCapabilities: capsPtr}
 			mu.Unlock()
 		}(nodeID, client)
 	}
@@ -264,6 +275,15 @@ func (xs *XylonaService) nodeProtoWithRuntimeState(
 		nodeOS = runtime.GOOS
 	}
 	proto.Os = nodeOS
+	proto.Version = state.snapshot.XylonaVersion
+	if state.updateCapabilities != nil {
+		proto.ProtocolVersion = state.updateCapabilities.ProtocolVersion
+		if state.updateCapabilities.Supported {
+			proto.Capabilities = "self-update"
+		} else {
+			proto.Capabilities = strings.TrimSpace(state.updateCapabilities.Reason)
+		}
+	}
 
 	return proto
 }

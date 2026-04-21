@@ -3,12 +3,9 @@ package mojang
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -16,6 +13,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders/internal/providerhttp"
 )
 
 const (
@@ -153,51 +151,16 @@ func (p *Provider) Download(ctx context.Context, _ string, versionID string, tar
 		return nil, fmt.Errorf("mojang version %s has no server download", versionID)
 	}
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, details.Downloads.Server.URL, nil)
-	if errReq != nil {
-		return nil, fmt.Errorf("mojang download request: %w", errReq)
-	}
-
-	resp, errDo := p.httpClient.Do(req)
-	if errDo != nil {
-		return nil, fmt.Errorf("mojang download server jar: %w", errDo)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Msg("mojang: failed to close server download response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("mojang download returned status %d", resp.StatusCode)
-	}
-
 	destPath := filepath.Join(targetDir, serverJarName)
-	outFile, errCreate := os.Create(destPath)
-	if errCreate != nil {
-		return nil, fmt.Errorf("mojang create output file: %w", errCreate)
-	}
-	defer func() {
-		if errClose := outFile.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("path", destPath).Msg("mojang: failed to close output file")
-		}
-	}()
-
-	hasher := sha256.New()
-	writer := io.MultiWriter(outFile, hasher)
-	limitedBody := io.LimitReader(resp.Body, modproviders.MaxModDownloadSize+1)
-	written, errCopy := io.Copy(writer, limitedBody)
-	if errCopy != nil {
-		return nil, fmt.Errorf("mojang write server jar: %w", errCopy)
-	}
-	if written > modproviders.MaxModDownloadSize {
-		return nil, fmt.Errorf("mojang download too large: %w", modproviders.ErrDownloadTooLarge)
+	written, hash, errDownload := providerhttp.DownloadToFile(ctx, p.httpClient, details.Downloads.Server.URL, destPath, providerID)
+	if errDownload != nil {
+		return nil, fmt.Errorf("mojang download server jar: %w", errDownload)
 	}
 
 	return []modproviders.DownloadedFile{
 		{
 			Path:      serverJarName,
-			Hash:      fmt.Sprintf("%x", hasher.Sum(nil)),
+			Hash:      hash,
 			Size:      written,
 			IsPrimary: true,
 		},

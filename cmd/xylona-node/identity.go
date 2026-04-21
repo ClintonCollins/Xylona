@@ -10,10 +10,9 @@ import (
 )
 
 // identityFileName is the on-disk filename inside the data directory that
-// holds the node's persistent pairing identity. A JSON file is intentional for
-// Step 4: it keeps the node binary free of any SQLite dependency until the
-// bootstrap pairing flow lands in Step 6, at which point the storage can be
-// migrated if more schema is needed.
+// holds the node's persistent pairing identity. A JSON file keeps the node
+// binary free of any SQLite dependency; if the identity grows enough to need
+// richer migrations, this file is the boundary to replace.
 const identityFileName = "node-identity.json"
 
 // nodeIdentity is the on-disk representation of everything the node needs to

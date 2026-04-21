@@ -36,36 +36,34 @@
       <div class="text-body2 q-mb-md">
         Adding a node is a two-step process:
         <ol>
-          <li>Generate a join token here.</li>
-          <li>
-            Run <code>xylona-node --controller-url &lt;this panel&gt; --join-token &lt;token&gt;</code>
-            on the target host. The node contacts the controller, exchanges its self-signed cert,
-            and shows up in the node list.
-          </li>
+          <li>Generate a node join command here.</li>
+          <li>Run the generated command on the target host.</li>
         </ol>
+        The node contacts the controller, exchanges its self-signed cert, and shows up in the node
+        list.
       </div>
 
       <q-btn
         :loading="pairingKeySubmitting"
         color="primary"
-        label="Generate Join Token"
+        label="Generate Join Command"
         @click="generateJoinToken"></q-btn>
 
-      <q-card v-if="generatedPairingKey !== ''" class="q-mt-md" flat bordered>
+      <q-card v-if="generatedJoinCommand !== ''" class="q-mt-md" flat bordered>
         <q-card-section>
-          <div class="text-subtitle1">Join Token</div>
+          <div class="text-subtitle1">Node Join Command</div>
           <div class="text-caption q-mb-sm">
-            One-time use. Expires in approximately 2 hours. Copy this exact string into the
-            node binary's <code>--join-token</code> flag.
+            One-time use. Expires in approximately 2 hours. Run this exact command on the target
+            host.
           </div>
           <q-input
-            v-model="generatedPairingKey"
+            :model-value="generatedJoinCommand"
             dense
             filled
             readonly
             type="textarea"
             autogrow></q-input>
-          <q-btn class="q-mt-sm" flat icon="content_copy" label="Copy" @click="copyToken"></q-btn>
+          <q-btn class="q-mt-sm" flat icon="content_copy" label="Copy" @click="copyCommand"></q-btn>
         </q-card-section>
       </q-card>
 
@@ -82,7 +80,7 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useClipboard } from '@vueuse/core'
 import { useQuasar } from 'quasar'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NodeSchema } from '@/proto/shared_pb'
 import {
@@ -110,7 +108,16 @@ const node = ref(create(NodeSchema, {}))
 const formSubmitting = ref(false)
 const errorMessage = ref('')
 const generatedPairingKey = ref('')
+const generatedControllerURL = ref('')
 const pairingKeySubmitting = ref(false)
+
+const generatedJoinCommand = computed(() => {
+  if (generatedControllerURL.value === '' || generatedPairingKey.value === '') {
+    return ''
+  }
+
+  return `xylona-node --controller-url ${generatedControllerURL.value} --join-token ${generatedPairingKey.value}`
+})
 
 onMounted(async () => {
   if (props.existingNodeId) {
@@ -165,10 +172,12 @@ async function generateJoinToken() {
   errorMessage.value = ''
   pairingKeySubmitting.value = true
   try {
-    const response = await GetXylonaClient().generateNodePairingObject(
-      create(GenerateNodePairingObjectRequestSchema, {}),
-    )
+    const panelURL = getPanelURL()
+    const request = create(GenerateNodePairingObjectRequestSchema, {})
+    request.targetUrl = panelURL
+    const response = await GetXylonaClient().generateNodePairingObject(request)
     generatedPairingKey.value = response.pairingToken
+    generatedControllerURL.value = response.baseUrl.trim() || panelURL
   } catch (e) {
     if (e instanceof ConnectError) {
       errorMessage.value = e.message
@@ -181,12 +190,16 @@ async function generateJoinToken() {
   }
 }
 
-async function copyToken() {
-  if (generatedPairingKey.value === '') return
-  await copy(generatedPairingKey.value)
+function getPanelURL() {
+  return window.location.origin.trim().replace(/\/+$/, '')
+}
+
+async function copyCommand() {
+  if (generatedJoinCommand.value === '') return
+  await copy(generatedJoinCommand.value)
   $q.notify({
     type: 'positive',
-    message: 'Join token copied to clipboard',
+    message: 'Node join command copied to clipboard',
   })
 }
 </script>

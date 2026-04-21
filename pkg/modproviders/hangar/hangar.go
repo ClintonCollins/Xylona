@@ -3,13 +3,9 @@ package hangar
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -17,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders/internal/providerhttp"
 )
 
 const (
@@ -39,26 +36,9 @@ type Provider struct {
 // required User-Agent header on every request.
 func New() *Provider {
 	return &Provider{
-		httpClient: &http.Client{
-			Transport: &userAgentTransport{wrapped: http.DefaultTransport},
-		},
-		baseURL: defaultBaseURL,
+		httpClient: providerhttp.NewUserAgentClient(userAgent),
+		baseURL:    defaultBaseURL,
 	}
-}
-
-// userAgentTransport wraps an http.RoundTripper and injects the Xylona User-Agent.
-type userAgentTransport struct {
-	wrapped http.RoundTripper
-}
-
-func (t *userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	cloned := req.Clone(req.Context())
-	cloned.Header.Set("User-Agent", userAgent)
-	resp, errRT := t.wrapped.RoundTrip(cloned)
-	if errRT != nil {
-		return nil, fmt.Errorf("round trip request: %w", errRT)
-	}
-	return resp, nil
 }
 
 // ID returns the provider identifier.
@@ -162,13 +142,13 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 	queryParams := url.Values{}
 	queryParams.Set("q", query)
 
-	limit := getIntParam(params, modproviders.ParamLimit, 20)
+	limit := providerhttp.IntParam(params, modproviders.ParamLimit, 20)
 	queryParams.Set("limit", fmt.Sprintf("%d", limit))
 
-	offset := getIntParam(params, modproviders.ParamOffset, 0)
+	offset := providerhttp.IntParam(params, modproviders.ParamOffset, 0)
 	queryParams.Set("offset", fmt.Sprintf("%d", offset))
 
-	sortBy := getStringParam(params, modproviders.ParamSortBy)
+	sortBy := providerhttp.StringParam(params, modproviders.ParamSortBy)
 	if sortBy != "" {
 		hangarSort := mapSortToHangar(sortBy)
 		if hangarSort != "" {
@@ -176,7 +156,7 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 		}
 	}
 
-	gameVersion := getStringParam(params, modproviders.ParamGameVersion)
+	gameVersion := providerhttp.StringParam(params, modproviders.ParamGameVersion)
 	if gameVersion != "" {
 		queryParams.Set("version", gameVersion)
 	}
@@ -298,7 +278,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 
 		gameVersions := collectGameVersions(v.PlatformDependencies)
 		if gameVersion != "" {
-			if !containsGameVersion(gameVersions, gameVersion) {
+			if !slices.Contains(gameVersions, gameVersion) {
 				continue
 			}
 		}
@@ -370,54 +350,16 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 		return nil, fmt.Errorf("hangar download: missing SHA-256 for version %q of %q: %w", versionID, sourceID, modproviders.ErrMissingIntegrityMetadata)
 	}
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-	if errReq != nil {
-		return nil, fmt.Errorf("hangar download: build request: %w", errReq)
-	}
-
-	resp, errGet := p.httpClient.Do(req)
-	if errGet != nil {
-		return nil, fmt.Errorf("hangar download: GET %s: %w", downloadURL, errGet)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Msg("hangar: failed to close download response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("hangar download: unexpected status %d for %s", resp.StatusCode, downloadURL)
-	}
-
 	fileName := filepath.Base(downloadURL)
 	if fileName == "" || fileName == "." {
 		fileName = fmt.Sprintf("%s-%s.jar", slug, versionID)
 	}
 	destPath := filepath.Join(targetDir, fileName)
 
-	outFile, errCreate := os.Create(destPath)
-	if errCreate != nil {
-		return nil, fmt.Errorf("hangar download: create file %s: %w", destPath, errCreate)
+	written, hash, errDownload := providerhttp.DownloadToFile(ctx, p.httpClient, downloadURL, destPath, providerID)
+	if errDownload != nil {
+		return nil, fmt.Errorf("hangar download: %w", errDownload)
 	}
-	defer func() {
-		if errClose := outFile.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("path", destPath).Msg("hangar: failed to close output file")
-		}
-	}()
-
-	hasher := sha256.New()
-	writer := io.MultiWriter(outFile, hasher)
-
-	limitedBody := io.LimitReader(resp.Body, modproviders.MaxModDownloadSize+1)
-	written, errCopy := io.Copy(writer, limitedBody)
-	if errCopy != nil {
-		return nil, fmt.Errorf("hangar download: write file %s: %w", destPath, errCopy)
-	}
-	if written > modproviders.MaxModDownloadSize {
-		return nil, fmt.Errorf("hangar download: file %s (%d bytes): %w", destPath, written, modproviders.ErrDownloadTooLarge)
-	}
-
-	hash := fmt.Sprintf("%x", hasher.Sum(nil))
 	if !strings.EqualFold(hash, expectedSHA256) {
 		return nil, fmt.Errorf("hangar download: SHA-256 mismatch for %s: got %s, want %s: %w", fileName, hash, expectedSHA256, modproviders.ErrIntegrityMismatch)
 	}
@@ -455,28 +397,9 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 
 // getJSON performs a GET request to the given URL and decodes the JSON body into dest.
 func (p *Provider) getJSON(ctx context.Context, endpoint string, dest any) error {
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if errReq != nil {
-		return fmt.Errorf("build request for %s: %w", endpoint, errReq)
-	}
-
-	resp, errDo := p.httpClient.Do(req)
-	if errDo != nil {
-		return fmt.Errorf("GET %s: %w", endpoint, errDo)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("url", endpoint).Msg("hangar: failed to close response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: unexpected status %d", endpoint, resp.StatusCode)
-	}
-
-	errDecode := json.NewDecoder(resp.Body).Decode(dest)
-	if errDecode != nil {
-		return fmt.Errorf("decode response from %s: %w", endpoint, errDecode)
+	errGet := providerhttp.GetJSON(ctx, p.httpClient, endpoint, dest, providerID)
+	if errGet != nil {
+		return fmt.Errorf("hangar get JSON: %w", errGet)
 	}
 	return nil
 }
@@ -535,43 +458,6 @@ func collectGameVersions(platformDependencies map[string][]string) []string {
 		}
 	}
 	return result
-}
-
-// containsGameVersion returns true if needle is present in the slice.
-func containsGameVersion(versions []string, needle string) bool {
-	return slices.Contains(versions, needle)
-}
-
-// getStringParam safely reads a string value from SearchParams.
-func getStringParam(params modproviders.SearchParams, key string) string {
-	if params == nil {
-		return ""
-	}
-	v, ok := params[key]
-	if !ok {
-		return ""
-	}
-	s, ok := v.(string)
-	if !ok {
-		return ""
-	}
-	return s
-}
-
-// getIntParam safely reads an int value from SearchParams, returning defaultVal if missing or wrong type.
-func getIntParam(params modproviders.SearchParams, key string, defaultVal int) int {
-	if params == nil {
-		return defaultVal
-	}
-	v, ok := params[key]
-	if !ok {
-		return defaultVal
-	}
-	n, ok := v.(int)
-	if !ok {
-		return defaultVal
-	}
-	return n
 }
 
 // mapSortToHangar maps well-known sort values to Hangar's sort parameter format.

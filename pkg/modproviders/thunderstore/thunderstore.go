@@ -2,22 +2,16 @@
 package thunderstore
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders/internal/providerhttp"
 )
 
 const (
@@ -53,28 +47,11 @@ type Provider struct {
 // required User-Agent header on every request.
 func New() *Provider {
 	return &Provider{
-		httpClient: &http.Client{
-			Transport: &userAgentTransport{wrapped: http.DefaultTransport},
-		},
+		httpClient:      providerhttp.NewUserAgentClient(userAgent),
 		baseURL:         defaultBaseURL,
 		cache:           make(map[string]cachedPackages),
 		sourceCommunity: make(map[string]string),
 	}
-}
-
-// userAgentTransport wraps an http.RoundTripper and injects the Xylona User-Agent.
-type userAgentTransport struct {
-	wrapped http.RoundTripper
-}
-
-func (t *userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	cloned := req.Clone(req.Context())
-	cloned.Header.Set("User-Agent", userAgent)
-	resp, errRT := t.wrapped.RoundTrip(cloned)
-	if errRT != nil {
-		return nil, fmt.Errorf("round trip request: %w", errRT)
-	}
-	return resp, nil
 }
 
 // ID returns the provider identifier.
@@ -316,50 +293,13 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 		downloadURL = fmt.Sprintf("%s/package/download/%s/%s/%s/", p.baseURL, parts[0], parts[1], versionID)
 	}
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-	if errReq != nil {
-		return nil, fmt.Errorf("thunderstore download: build request: %w", errReq)
-	}
-	resp, errGet := p.httpClient.Do(req)
-	if errGet != nil {
-		return nil, fmt.Errorf("thunderstore download: GET %s: %w", downloadURL, errGet)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Msg("thunderstore: failed to close download response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("thunderstore download: unexpected status %d for %s", resp.StatusCode, downloadURL)
-	}
-
 	fileName := fmt.Sprintf("%s-%s.zip", sourceID, versionID)
 	destPath := filepath.Join(targetDir, fileName)
 
-	outFile, errCreate := os.Create(destPath)
-	if errCreate != nil {
-		return nil, fmt.Errorf("thunderstore download: create file %s: %w", destPath, errCreate)
+	written, hash, errDownload := providerhttp.DownloadToFile(ctx, p.httpClient, downloadURL, destPath, providerID)
+	if errDownload != nil {
+		return nil, fmt.Errorf("thunderstore download: %w", errDownload)
 	}
-	defer func() {
-		if errClose := outFile.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("path", destPath).Msg("thunderstore: failed to close output file")
-		}
-	}()
-
-	hasher := sha256.New()
-	writer := io.MultiWriter(outFile, hasher)
-
-	limitedBody := io.LimitReader(resp.Body, modproviders.MaxModDownloadSize+1)
-	written, errCopy := io.Copy(writer, limitedBody)
-	if errCopy != nil {
-		return nil, fmt.Errorf("thunderstore download: write file %s: %w", destPath, errCopy)
-	}
-	if written > modproviders.MaxModDownloadSize {
-		return nil, fmt.Errorf("thunderstore download: file %s (%d bytes): %w", destPath, written, modproviders.ErrDownloadTooLarge)
-	}
-
-	hash := fmt.Sprintf("%x", hasher.Sum(nil))
 
 	return []modproviders.DownloadedFile{
 		{
@@ -395,37 +335,9 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 
 // getJSON performs a GET request to the given URL and decodes the JSON body into dest.
 func (p *Provider) getJSON(ctx context.Context, endpoint string, dest any) error {
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if errReq != nil {
-		return fmt.Errorf("build request for %s: %w", endpoint, errReq)
-	}
-
-	resp, errDo := p.httpClient.Do(req)
-	if errDo != nil {
-		return fmt.Errorf("GET %s: %w", endpoint, errDo)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("url", endpoint).Msg("thunderstore: failed to close response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: unexpected status %d", endpoint, resp.StatusCode)
-	}
-
-	limitedBody := io.LimitReader(resp.Body, maxPackageListResponseBytes+1)
-	body, errRead := io.ReadAll(limitedBody)
-	if errRead != nil {
-		return fmt.Errorf("read response from %s: %w", endpoint, errRead)
-	}
-	if len(body) > maxPackageListResponseBytes {
-		return fmt.Errorf("response exceeded %d bytes for %s", maxPackageListResponseBytes, endpoint)
-	}
-
-	errDecode := json.NewDecoder(bytes.NewReader(body)).Decode(dest)
-	if errDecode != nil {
-		return fmt.Errorf("decode response from %s: %w", endpoint, errDecode)
+	errGet := providerhttp.GetJSONLimited(ctx, p.httpClient, endpoint, dest, providerID, maxPackageListResponseBytes)
+	if errGet != nil {
+		return fmt.Errorf("thunderstore get JSON: %w", errGet)
 	}
 	return nil
 }

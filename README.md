@@ -31,6 +31,7 @@ Optional tooling:
 
 - `sql-migrate` if you need to create or run migration commands manually
 - `buf` if you need to regenerate protobuf clients
+- `govulncheck` if you want to run the Go vulnerability scan locally
 - `goreleaser` if you want to run `mage Build`
 
 ### Clone And Install
@@ -166,6 +167,11 @@ bun run lint
 
 ```bash
 cd frontend
+bun run format:check
+```
+
+```bash
+cd frontend
 bun run test
 ```
 
@@ -223,11 +229,16 @@ mage E2EHeaded
 mage E2EReport
 ```
 
+The current Playwright suite covers login, smoke, admin, permissions, page permissions, console errors, file browser, server lifecycle, config schema ordering, mods, and version tracking flows. The `cmd/e2e` orchestrator also exposes `single-setup`, `single-teardown`, `hub-spoke-setup`, `hub-spoke-teardown`, and `seed` for local debugging; use `--http-port`, `--e2e-dir`, and `--project-root` on common setup commands, `--node-port` for hub-spoke, and `--db`, `--username`, `--password`, and `--migrations` for seed.
+
 ## Before Opening A PR
 
 - Run `golangci-lint run ./...`
+- Run `govulncheck ./...`
 - Run `go test -race -count=1 ./...`
 - Run `bun run lint` from `frontend/`
+- Run `bun run format:check` from `frontend/`
 - Run `bun run test` from `frontend/`
+- Run `bun audit --audit-level=high` from `frontend/`
 - Run `bun run build` from `frontend/`
 - Rebuild generated code with `mage GenerateProto` or `mage GenerateModels` only when you changed the corresponding sources

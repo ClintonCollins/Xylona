@@ -4,10 +4,14 @@ package games
 import internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
 
 func init() {
-	internal.RegisterGame("minecraft", &Minecraft{})
+	registerMinecraft()
 }
 
 // RegisterInternalGames registers all built-in internal game implementations.
 func RegisterInternalGames() {
+	registerMinecraft()
+}
+
+func registerMinecraft() {
 	internal.RegisterGame("minecraft", &Minecraft{})
 }

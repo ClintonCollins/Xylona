@@ -120,6 +120,15 @@ const (
 	NodeServiceStreamEventsProcedure = "/xylona.node.v1.NodeService/StreamEvents"
 	// NodeServicePingProcedure is the fully-qualified name of the NodeService's Ping RPC.
 	NodeServicePingProcedure = "/xylona.node.v1.NodeService/Ping"
+	// NodeServiceGetUpdateCapabilitiesProcedure is the fully-qualified name of the NodeService's
+	// GetUpdateCapabilities RPC.
+	NodeServiceGetUpdateCapabilitiesProcedure = "/xylona.node.v1.NodeService/GetUpdateCapabilities"
+	// NodeServiceStageSelfUpdateProcedure is the fully-qualified name of the NodeService's
+	// StageSelfUpdate RPC.
+	NodeServiceStageSelfUpdateProcedure = "/xylona.node.v1.NodeService/StageSelfUpdate"
+	// NodeServiceApplySelfUpdateProcedure is the fully-qualified name of the NodeService's
+	// ApplySelfUpdate RPC.
+	NodeServiceApplySelfUpdateProcedure = "/xylona.node.v1.NodeService/ApplySelfUpdate"
 )
 
 // NodeServiceClient is a client for the xylona.node.v1.NodeService service.
@@ -161,6 +170,10 @@ type NodeServiceClient interface {
 	GetNodeSnapshot(context.Context, *connect.Request[v1.GetNodeSnapshotRequest]) (*connect.Response[v1.NodeSnapshot], error)
 	StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest]) (*connect.ServerStreamForClient[v1.Event], error)
 	Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error)
+	// Self-update
+	GetUpdateCapabilities(context.Context, *connect.Request[v1.GetUpdateCapabilitiesRequest]) (*connect.Response[v1.GetUpdateCapabilitiesResponse], error)
+	StageSelfUpdate(context.Context) *connect.ClientStreamForClient[v1.StageSelfUpdateRequest, v1.StageSelfUpdateResponse]
+	ApplySelfUpdate(context.Context, *connect.Request[v1.ApplySelfUpdateRequest]) (*connect.Response[v1.ApplySelfUpdateResponse], error)
 }
 
 // NewNodeServiceClient constructs a client for the xylona.node.v1.NodeService service. By default,
@@ -360,6 +373,24 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("Ping")),
 			connect.WithClientOptions(opts...),
 		),
+		getUpdateCapabilities: connect.NewClient[v1.GetUpdateCapabilitiesRequest, v1.GetUpdateCapabilitiesResponse](
+			httpClient,
+			baseURL+NodeServiceGetUpdateCapabilitiesProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("GetUpdateCapabilities")),
+			connect.WithClientOptions(opts...),
+		),
+		stageSelfUpdate: connect.NewClient[v1.StageSelfUpdateRequest, v1.StageSelfUpdateResponse](
+			httpClient,
+			baseURL+NodeServiceStageSelfUpdateProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StageSelfUpdate")),
+			connect.WithClientOptions(opts...),
+		),
+		applySelfUpdate: connect.NewClient[v1.ApplySelfUpdateRequest, v1.ApplySelfUpdateResponse](
+			httpClient,
+			baseURL+NodeServiceApplySelfUpdateProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("ApplySelfUpdate")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -396,6 +427,9 @@ type nodeServiceClient struct {
 	getNodeSnapshot          *connect.Client[v1.GetNodeSnapshotRequest, v1.NodeSnapshot]
 	streamEvents             *connect.Client[v1.StreamEventsRequest, v1.Event]
 	ping                     *connect.Client[v1.PingRequest, v1.PingResponse]
+	getUpdateCapabilities    *connect.Client[v1.GetUpdateCapabilitiesRequest, v1.GetUpdateCapabilitiesResponse]
+	stageSelfUpdate          *connect.Client[v1.StageSelfUpdateRequest, v1.StageSelfUpdateResponse]
+	applySelfUpdate          *connect.Client[v1.ApplySelfUpdateRequest, v1.ApplySelfUpdateResponse]
 }
 
 // StartProcess calls xylona.node.v1.NodeService.StartProcess.
@@ -553,6 +587,21 @@ func (c *nodeServiceClient) Ping(ctx context.Context, req *connect.Request[v1.Pi
 	return c.ping.CallUnary(ctx, req)
 }
 
+// GetUpdateCapabilities calls xylona.node.v1.NodeService.GetUpdateCapabilities.
+func (c *nodeServiceClient) GetUpdateCapabilities(ctx context.Context, req *connect.Request[v1.GetUpdateCapabilitiesRequest]) (*connect.Response[v1.GetUpdateCapabilitiesResponse], error) {
+	return c.getUpdateCapabilities.CallUnary(ctx, req)
+}
+
+// StageSelfUpdate calls xylona.node.v1.NodeService.StageSelfUpdate.
+func (c *nodeServiceClient) StageSelfUpdate(ctx context.Context) *connect.ClientStreamForClient[v1.StageSelfUpdateRequest, v1.StageSelfUpdateResponse] {
+	return c.stageSelfUpdate.CallClientStream(ctx)
+}
+
+// ApplySelfUpdate calls xylona.node.v1.NodeService.ApplySelfUpdate.
+func (c *nodeServiceClient) ApplySelfUpdate(ctx context.Context, req *connect.Request[v1.ApplySelfUpdateRequest]) (*connect.Response[v1.ApplySelfUpdateResponse], error) {
+	return c.applySelfUpdate.CallUnary(ctx, req)
+}
+
 // NodeServiceHandler is an implementation of the xylona.node.v1.NodeService service.
 type NodeServiceHandler interface {
 	// Process lifecycle
@@ -592,6 +641,10 @@ type NodeServiceHandler interface {
 	GetNodeSnapshot(context.Context, *connect.Request[v1.GetNodeSnapshotRequest]) (*connect.Response[v1.NodeSnapshot], error)
 	StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest], *connect.ServerStream[v1.Event]) error
 	Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error)
+	// Self-update
+	GetUpdateCapabilities(context.Context, *connect.Request[v1.GetUpdateCapabilitiesRequest]) (*connect.Response[v1.GetUpdateCapabilitiesResponse], error)
+	StageSelfUpdate(context.Context, *connect.ClientStream[v1.StageSelfUpdateRequest]) (*connect.Response[v1.StageSelfUpdateResponse], error)
+	ApplySelfUpdate(context.Context, *connect.Request[v1.ApplySelfUpdateRequest]) (*connect.Response[v1.ApplySelfUpdateResponse], error)
 }
 
 // NewNodeServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -787,6 +840,24 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("Ping")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceGetUpdateCapabilitiesHandler := connect.NewUnaryHandler(
+		NodeServiceGetUpdateCapabilitiesProcedure,
+		svc.GetUpdateCapabilities,
+		connect.WithSchema(nodeServiceMethods.ByName("GetUpdateCapabilities")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceStageSelfUpdateHandler := connect.NewClientStreamHandler(
+		NodeServiceStageSelfUpdateProcedure,
+		svc.StageSelfUpdate,
+		connect.WithSchema(nodeServiceMethods.ByName("StageSelfUpdate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceApplySelfUpdateHandler := connect.NewUnaryHandler(
+		NodeServiceApplySelfUpdateProcedure,
+		svc.ApplySelfUpdate,
+		connect.WithSchema(nodeServiceMethods.ByName("ApplySelfUpdate")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.node.v1.NodeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case NodeServiceStartProcessProcedure:
@@ -851,6 +922,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceStreamEventsHandler.ServeHTTP(w, r)
 		case NodeServicePingProcedure:
 			nodeServicePingHandler.ServeHTTP(w, r)
+		case NodeServiceGetUpdateCapabilitiesProcedure:
+			nodeServiceGetUpdateCapabilitiesHandler.ServeHTTP(w, r)
+		case NodeServiceStageSelfUpdateProcedure:
+			nodeServiceStageSelfUpdateHandler.ServeHTTP(w, r)
+		case NodeServiceApplySelfUpdateProcedure:
+			nodeServiceApplySelfUpdateHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -982,4 +1059,16 @@ func (UnimplementedNodeServiceHandler) StreamEvents(context.Context, *connect.Re
 
 func (UnimplementedNodeServiceHandler) Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.Ping is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) GetUpdateCapabilities(context.Context, *connect.Request[v1.GetUpdateCapabilitiesRequest]) (*connect.Response[v1.GetUpdateCapabilitiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.GetUpdateCapabilities is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) StageSelfUpdate(context.Context, *connect.ClientStream[v1.StageSelfUpdateRequest]) (*connect.Response[v1.StageSelfUpdateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.StageSelfUpdate is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) ApplySelfUpdate(context.Context, *connect.Request[v1.ApplySelfUpdateRequest]) (*connect.Response[v1.ApplySelfUpdateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.ApplySelfUpdate is not implemented"))
 }

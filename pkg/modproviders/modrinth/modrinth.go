@@ -3,19 +3,17 @@ package modrinth
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders/internal/providerhttp"
 )
 
 const (
@@ -38,26 +36,9 @@ type Provider struct {
 // required User-Agent header on every request.
 func New() *Provider {
 	return &Provider{
-		httpClient: &http.Client{
-			Transport: &userAgentTransport{wrapped: http.DefaultTransport},
-		},
-		baseURL: defaultBaseURL,
+		httpClient: providerhttp.NewUserAgentClient(userAgent),
+		baseURL:    defaultBaseURL,
 	}
-}
-
-// userAgentTransport wraps an http.RoundTripper and injects the Xylona User-Agent.
-type userAgentTransport struct {
-	wrapped http.RoundTripper
-}
-
-func (t *userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	cloned := req.Clone(req.Context())
-	cloned.Header.Set("User-Agent", userAgent)
-	resp, errRT := t.wrapped.RoundTrip(cloned)
-	if errRT != nil {
-		return nil, fmt.Errorf("round trip request: %w", errRT)
-	}
-	return resp, nil
 }
 
 // ID returns the provider identifier.
@@ -104,15 +85,15 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 	queryParams := url.Values{}
 	queryParams.Set("query", query)
 
-	limit := getIntParam(params, modproviders.ParamLimit, 20)
+	limit := providerhttp.IntParam(params, modproviders.ParamLimit, 20)
 	queryParams.Set("limit", fmt.Sprintf("%d", limit))
 
-	offset := getIntParam(params, modproviders.ParamOffset, 0)
+	offset := providerhttp.IntParam(params, modproviders.ParamOffset, 0)
 	if offset > 0 {
 		queryParams.Set("offset", fmt.Sprintf("%d", offset))
 	}
 
-	sortBy := getStringParam(params, modproviders.ParamSortBy)
+	sortBy := providerhttp.StringParam(params, modproviders.ParamSortBy)
 	if sortBy != "" {
 		// Modrinth uses the same names: downloads, updated, newest, relevance.
 		queryParams.Set("index", sortBy)
@@ -319,54 +300,16 @@ func (p *Provider) Download(ctx context.Context, _ string, versionID string, tar
 		return nil, fmt.Errorf("modrinth download: missing SHA-256 for version %q: %w", versionID, modproviders.ErrMissingIntegrityMetadata)
 	}
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, primary.URL, nil)
-	if errReq != nil {
-		return nil, fmt.Errorf("modrinth download: build request: %w", errReq)
-	}
-
-	resp, errGet := p.httpClient.Do(req)
-	if errGet != nil {
-		return nil, fmt.Errorf("modrinth download: GET %s: %w", primary.URL, errGet)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Msg("modrinth: failed to close download response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("modrinth download: unexpected status %d for %s", resp.StatusCode, primary.URL)
-	}
-
 	fileName := filepath.Base(primary.URL)
 	if fileName == "" || fileName == "." {
 		fileName = fmt.Sprintf("%s.jar", versionID)
 	}
 	destPath := filepath.Join(targetDir, fileName)
 
-	outFile, errCreate := os.Create(destPath)
-	if errCreate != nil {
-		return nil, fmt.Errorf("modrinth download: create file %s: %w", destPath, errCreate)
+	written, hash, errDownload := providerhttp.DownloadToFile(ctx, p.httpClient, primary.URL, destPath, providerID)
+	if errDownload != nil {
+		return nil, fmt.Errorf("modrinth download: %w", errDownload)
 	}
-	defer func() {
-		if errClose := outFile.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("path", destPath).Msg("modrinth: failed to close output file")
-		}
-	}()
-
-	hasher := sha256.New()
-	writer := io.MultiWriter(outFile, hasher)
-
-	limitedBody := io.LimitReader(resp.Body, modproviders.MaxModDownloadSize+1)
-	written, errCopy := io.Copy(writer, limitedBody)
-	if errCopy != nil {
-		return nil, fmt.Errorf("modrinth download: write file %s: %w", destPath, errCopy)
-	}
-	if written > modproviders.MaxModDownloadSize {
-		return nil, fmt.Errorf("modrinth download: file %s (%d bytes): %w", destPath, written, modproviders.ErrDownloadTooLarge)
-	}
-
-	hash := fmt.Sprintf("%x", hasher.Sum(nil))
 	if !strings.EqualFold(hash, primary.Hashes.SHA256) {
 		return nil, fmt.Errorf("modrinth download: SHA-256 mismatch for %s: got %s, want %s: %w", fileName, hash, primary.Hashes.SHA256, modproviders.ErrIntegrityMismatch)
 	}
@@ -404,28 +347,9 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 
 // getJSON performs a GET request to the given URL and decodes the JSON body into dest.
 func (p *Provider) getJSON(ctx context.Context, endpoint string, dest any) error {
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if errReq != nil {
-		return fmt.Errorf("build request for %s: %w", endpoint, errReq)
-	}
-
-	resp, errDo := p.httpClient.Do(req)
-	if errDo != nil {
-		return fmt.Errorf("GET %s: %w", endpoint, errDo)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("url", endpoint).Msg("modrinth: failed to close response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: unexpected status %d", endpoint, resp.StatusCode)
-	}
-
-	errDecode := json.NewDecoder(resp.Body).Decode(dest)
-	if errDecode != nil {
-		return fmt.Errorf("decode response from %s: %w", endpoint, errDecode)
+	errGet := providerhttp.GetJSON(ctx, p.httpClient, endpoint, dest, providerID)
+	if errGet != nil {
+		return fmt.Errorf("modrinth get JSON: %w", errGet)
 	}
 	return nil
 }
@@ -535,54 +459,6 @@ func extractLoaders(params modproviders.SearchParams) []string {
 	return nil
 }
 
-// getStringParam safely reads a string value from SearchParams.
-func getStringParam(params modproviders.SearchParams, key string) string {
-	if params == nil {
-		return ""
-	}
-	v, ok := params[key]
-	if !ok {
-		return ""
-	}
-	s, ok := v.(string)
-	if !ok {
-		return ""
-	}
-	return s
-}
-
-// getIntParam safely reads an int value from SearchParams, returning defaultVal if missing or wrong type.
-func getIntParam(params modproviders.SearchParams, key string, defaultVal int) int {
-	if params == nil {
-		return defaultVal
-	}
-	v, ok := params[key]
-	if !ok {
-		return defaultVal
-	}
-	n, ok := v.(int)
-	if !ok {
-		return defaultVal
-	}
-	return n
-}
-
-// getStringSliceParam safely reads a []string value from SearchParams.
-func getStringSliceParam(params modproviders.SearchParams, key string) []string {
-	if params == nil {
-		return nil
-	}
-	v, ok := params[key]
-	if !ok {
-		return nil
-	}
-	s, ok := v.([]string)
-	if !ok {
-		return nil
-	}
-	return s
-}
-
 // mergeFacets takes existing facets JSON and merges in well-known filter params
 // (game_version, categories) from SearchParams. Returns the updated facets JSON string.
 func mergeFacets(existingFacets string, params modproviders.SearchParams) string {
@@ -598,12 +474,12 @@ func mergeFacets(existingFacets string, params modproviders.SearchParams) string
 		}
 	}
 
-	gameVersion := getStringParam(params, modproviders.ParamGameVersion)
+	gameVersion := providerhttp.StringParam(params, modproviders.ParamGameVersion)
 	if gameVersion != "" {
 		outer = append(outer, []string{"versions:" + gameVersion})
 	}
 
-	categories := getStringSliceParam(params, modproviders.ParamCategories)
+	categories := providerhttp.StringSliceParam(params, modproviders.ParamCategories)
 	if len(categories) > 0 {
 		inner := make([]string, 0, len(categories))
 		for _, cat := range categories {

@@ -35,24 +35,34 @@ builds:
         -X github.com/ClintonCollins/Xylona/pkg/version.softwareVersionStamp={{ if .Tag }}{{ .Tag }}{{ else }}{{ .Version }}-g{{ .ShortCommit }}{{ end }}
 
 archives:
-  - format: binary
-    id: binary
-  - format: tar.gz
-    id: archive
-    # this name template makes the OS and Arch compatible with the results of uname.
+  - id: xylona-binary
+    builds:
+      - xylona
+    format: binary
     name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
-    format_overrides:
-      - goos: windows
-        format: zip
+      xylona_
+      {{- .Os }}_
+      {{- .Arch }}
+  - id: xylona-node-binary
+    builds:
+      - xylona-node
+    format: binary
+    name_template: >-
+      xylona-node_
+      {{- .Os }}_
+      {{- .Arch }}
 checksum:
   name_template: 'checksums.txt'
+signs:
+  - artifacts: checksum
+    signature: '${artifact}.sig'
+    cmd: gpg
+    args:
+      - '--batch'
+      - '--output'
+      - '${signature}'
+      - '--detach-sign'
+      - '${artifact}'
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:

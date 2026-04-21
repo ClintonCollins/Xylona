@@ -3,19 +3,14 @@ package papermc
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders/internal/providerhttp"
 )
 
 const (
@@ -45,26 +40,9 @@ type Provider struct {
 // required User-Agent header on every request.
 func New() *Provider {
 	return &Provider{
-		httpClient: &http.Client{
-			Transport: &userAgentTransport{wrapped: http.DefaultTransport},
-		},
-		baseURL: defaultBaseURL,
+		httpClient: providerhttp.NewUserAgentClient(userAgent),
+		baseURL:    defaultBaseURL,
 	}
-}
-
-// userAgentTransport wraps an http.RoundTripper and injects the Xylona User-Agent.
-type userAgentTransport struct {
-	wrapped http.RoundTripper
-}
-
-func (t *userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	cloned := req.Clone(req.Context())
-	cloned.Header.Set("User-Agent", userAgent)
-	resp, errRT := t.wrapped.RoundTrip(cloned)
-	if errRT != nil {
-		return nil, fmt.Errorf("round trip request: %w", errRT)
-	}
-	return resp, nil
 }
 
 // ID returns the provider identifier.
@@ -275,49 +253,11 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 	downloadURL := fmt.Sprintf("%s/projects/%s/versions/%s/builds/%d/downloads/%s",
 		p.baseURLFor(sourceID), sourceID, version, buildNum, fileName)
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-	if errReq != nil {
-		return nil, fmt.Errorf("papermc download: build request: %w", errReq)
-	}
-
-	dlResp, errGet := p.httpClient.Do(req)
-	if errGet != nil {
-		return nil, fmt.Errorf("papermc download: GET %s: %w", downloadURL, errGet)
-	}
-	defer func() {
-		if errClose := dlResp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Msg("papermc: failed to close download response body")
-		}
-	}()
-
-	if dlResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("papermc download: unexpected status %d for %s", dlResp.StatusCode, downloadURL)
-	}
-
 	destPath := filepath.Join(targetDir, fileName)
-	outFile, errCreate := os.Create(destPath)
-	if errCreate != nil {
-		return nil, fmt.Errorf("papermc download: create file %s: %w", destPath, errCreate)
+	written, hash, errDownload := providerhttp.DownloadToFile(ctx, p.httpClient, downloadURL, destPath, providerID)
+	if errDownload != nil {
+		return nil, fmt.Errorf("papermc download: %w", errDownload)
 	}
-	defer func() {
-		if errClose := outFile.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("path", destPath).Msg("papermc: failed to close output file")
-		}
-	}()
-
-	hasher := sha256.New()
-	writer := io.MultiWriter(outFile, hasher)
-
-	limitedBody := io.LimitReader(dlResp.Body, modproviders.MaxModDownloadSize+1)
-	written, errCopy := io.Copy(writer, limitedBody)
-	if errCopy != nil {
-		return nil, fmt.Errorf("papermc download: write file %s: %w", destPath, errCopy)
-	}
-	if written > modproviders.MaxModDownloadSize {
-		return nil, fmt.Errorf("papermc download: file %s (%d bytes): %w", destPath, written, modproviders.ErrDownloadTooLarge)
-	}
-
-	hash := fmt.Sprintf("%x", hasher.Sum(nil))
 
 	if expectedSHA256 == "" {
 		return nil, fmt.Errorf("papermc download: missing SHA-256 for %s: %w", fileName, modproviders.ErrMissingIntegrityMetadata)
@@ -360,28 +300,9 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 
 // getJSON performs a GET request to the given URL and decodes the JSON body into dest.
 func (p *Provider) getJSON(ctx context.Context, endpoint string, dest any) error {
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if errReq != nil {
-		return fmt.Errorf("build request for %s: %w", endpoint, errReq)
-	}
-
-	resp, errDo := p.httpClient.Do(req)
-	if errDo != nil {
-		return fmt.Errorf("GET %s: %w", endpoint, errDo)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Warn().Err(errClose).Str("url", endpoint).Msg("papermc: failed to close response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: unexpected status %d", endpoint, resp.StatusCode)
-	}
-
-	errDecode := json.NewDecoder(resp.Body).Decode(dest)
-	if errDecode != nil {
-		return fmt.Errorf("decode response from %s: %w", endpoint, errDecode)
+	errGet := providerhttp.GetJSON(ctx, p.httpClient, endpoint, dest, providerID)
+	if errGet != nil {
+		return fmt.Errorf("papermc get JSON: %w", errGet)
 	}
 	return nil
 }

@@ -526,6 +526,50 @@ message PingResponse {
   google.protobuf.Timestamp server_time = 1;
 }
 
+// --- Self-update RPCs -------------------------------------------------------
+
+message GetUpdateCapabilitiesRequest {}
+
+message GetUpdateCapabilitiesResponse {
+  bool supported = 1;
+  string reason = 2;
+  string component = 3;
+  string current_version = 4;
+  string os = 5;
+  string architecture = 6;
+  int64 protocol_version = 7;
+  bool service_manager_supported = 8;
+  bool install_path_writable = 9;
+  string install_path = 10;
+}
+
+message StageSelfUpdateRequest {
+  string component = 1;
+  string target_version = 2;
+  string os = 3;
+  string architecture = 4;
+  int64 expected_size = 5;
+  string expected_sha256 = 6;
+  bytes content = 7;
+}
+
+message StageSelfUpdateResponse {
+  string stage_id = 1;
+  int64 bytes_written = 2;
+  string sha256 = 3;
+}
+
+message ApplySelfUpdateRequest {
+  string stage_id = 1;
+  string target_version = 2;
+  string expected_sha256 = 3;
+}
+
+message ApplySelfUpdateResponse {
+  bool accepted = 1;
+  string message = 2;
+}
+
 // NodeService is the controller <-> node internal wire protocol. All methods
 // require an "Authorization: Bearer <shared_secret>" header; TLS layer handles
 // cert-fingerprint pinning.
@@ -572,4 +616,9 @@ service NodeService {
   rpc GetNodeSnapshot(GetNodeSnapshotRequest) returns (NodeSnapshot);
   rpc StreamEvents(StreamEventsRequest) returns (stream Event);
   rpc Ping(PingRequest) returns (PingResponse);
+
+  // Self-update
+  rpc GetUpdateCapabilities(GetUpdateCapabilitiesRequest) returns (GetUpdateCapabilitiesResponse);
+  rpc StageSelfUpdate(stream StageSelfUpdateRequest) returns (StageSelfUpdateResponse);
+  rpc ApplySelfUpdate(ApplySelfUpdateRequest) returns (ApplySelfUpdateResponse);
 }

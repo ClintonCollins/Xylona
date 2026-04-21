@@ -239,7 +239,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -247,11 +247,14 @@ import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
 import { GetModCategoriesRequestSchema, SearchModsRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-sources'
-
-const VALID_SORT_VALUES = ['downloads', 'updated', 'newest', 'relevance'] as const
-const PAGE_SIZE_OPTIONS = [12, 20, 40, 60] as const
-const PAGE_SIZE_STORAGE_KEY = 'xylona-mod-browse-page-size'
-const DEFAULT_PAGE_SIZE = 20
+import {
+  buildModBrowseQuery,
+  clampModBrowsePage,
+  loadModBrowsePageSize,
+  PAGE_SIZE_OPTIONS,
+  PAGE_SIZE_STORAGE_KEY,
+  parseModBrowseQuery,
+} from './mod-browse-query'
 
 interface ModSource {
   id: string
@@ -275,18 +278,7 @@ const emit = defineEmits<{
 const route = useRoute()
 const router = useRouter()
 
-function loadPageSize(): number {
-  const stored = localStorage.getItem(PAGE_SIZE_STORAGE_KEY)
-  if (stored !== null) {
-    const parsed = parseInt(stored, 10)
-    if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed)) {
-      return parsed
-    }
-  }
-  return DEFAULT_PAGE_SIZE
-}
-
-const pageSize = ref(loadPageSize())
+const pageSize = ref(loadModBrowsePageSize(localStorage))
 
 const searchQuery = ref('')
 const activeSource = ref('')
@@ -325,74 +317,28 @@ const sortOptions = computed(() => {
 })
 
 function initFromQuery(): void {
-  const q = route.query
-
-  if (typeof q.q === 'string' && q.q !== '') {
-    searchQuery.value = q.q
-  }
-
-  if (typeof q.sort === 'string' && (VALID_SORT_VALUES as readonly string[]).includes(q.sort)) {
-    if (q.sort === 'relevance' && searchQuery.value.trim() === '') {
-      sortBy.value = 'downloads'
-    } else {
-      sortBy.value = q.sort
-    }
-  }
-
-  if (typeof q.source === 'string') {
-    activeSource.value = q.source
-  }
-
-  if (typeof q.version === 'string') {
-    gameVersionFilter.value = q.version
-  }
-
-  // Categories use repeated query params: ?categories=foo&categories=bar
-  const rawCats = q.categories
-  if (Array.isArray(rawCats)) {
-    categoryFilter.value = rawCats.filter((c): c is string => typeof c === 'string' && c !== '')
-  } else if (typeof rawCats === 'string' && rawCats !== '') {
-    categoryFilter.value = [rawCats]
-  }
-
-  if (typeof q.page === 'string') {
-    const parsed = parseInt(q.page, 10)
-    if (!isNaN(parsed) && parsed > 0) {
-      currentPage.value = parsed
-    }
-  }
+  const parsed = parseModBrowseQuery(route.query)
+  suppressWatchSearch.value = true
+  searchQuery.value = parsed.searchQuery
+  sortBy.value = parsed.sortBy
+  activeSource.value = parsed.activeSource
+  gameVersionFilter.value = parsed.gameVersionFilter
+  categoryFilter.value = parsed.categoryFilter
+  currentPage.value = parsed.currentPage
+  void nextTick().then(() => {
+    suppressWatchSearch.value = false
+  })
 }
 
 function syncQueryParams(): void {
-  const query: Record<string, string | string[]> = {}
-
-  // Preserve any query params not managed by this component.
-  const managedKeys = new Set(['q', 'sort', 'source', 'version', 'categories', 'page'])
-  for (const [key, value] of Object.entries(route.query)) {
-    if (!managedKeys.has(key) && value != null) {
-      query[key] = value as string | string[]
-    }
-  }
-
-  if (searchQuery.value.trim() !== '') {
-    query.q = searchQuery.value.trim()
-  }
-  if (sortBy.value !== 'downloads') {
-    query.sort = sortBy.value
-  }
-  if (activeSource.value !== '') {
-    query.source = activeSource.value
-  }
-  if (gameVersionFilter.value !== '') {
-    query.version = gameVersionFilter.value
-  }
-  if (categoryFilter.value.length > 0) {
-    query.categories = categoryFilter.value
-  }
-  if (currentPage.value !== 1) {
-    query.page = String(currentPage.value)
-  }
-
+  const query = buildModBrowseQuery(route.query, {
+    searchQuery: searchQuery.value,
+    sortBy: sortBy.value,
+    activeSource: activeSource.value,
+    gameVersionFilter: gameVersionFilter.value,
+    categoryFilter: categoryFilter.value,
+    currentPage: currentPage.value,
+  })
   void router.replace({ query })
 }
 
@@ -497,14 +443,14 @@ async function performSearch(retried: boolean = false): Promise<void> {
     results.value = response.results
     totalCount.value = response.totalCount
 
-    const maxPage = Math.max(1, Math.ceil(totalCount.value / pageSize.value))
-    if (
-      !retried &&
-      results.value.length === 0 &&
-      totalCount.value > 0 &&
-      maxPage < currentPage.value
-    ) {
-      currentPage.value = maxPage
+    const pageClamp = clampModBrowsePage(
+      currentPage.value,
+      totalCount.value,
+      pageSize.value,
+      results.value.length,
+    )
+    if (!retried && pageClamp.clamped) {
+      currentPage.value = pageClamp.page
       syncQueryParams()
       await performSearch(true)
       return

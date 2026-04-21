@@ -3,6 +3,7 @@ package internal
 
 import (
 	"io"
+	"maps"
 	"sync"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -26,6 +27,13 @@ func RegisterGame(id string, game Game) {
 	games[id] = game
 }
 
+// UnregisterGameForTest removes a registered internal game integration.
+func UnregisterGameForTest(id string) {
+	gamesLock.Lock()
+	defer gamesLock.Unlock()
+	delete(games, id)
+}
+
 // GetGame returns a registered internal game integration by ID.
 func GetGame(id string) (Game, bool) {
 	gamesLock.RLock()
@@ -38,5 +46,7 @@ func GetGame(id string) (Game, bool) {
 func GetGames() map[string]Game {
 	gamesLock.RLock()
 	defer gamesLock.RUnlock()
-	return games
+	result := make(map[string]Game, len(games))
+	maps.Copy(result, games)
+	return result
 }

@@ -1,6 +1,6 @@
 import { create, fromJsonString, toJsonString } from '@bufbuild/protobuf'
 import type { ConnectError } from '@connectrpc/connect'
-import { UpdateProgress } from '@/proto/xylona_pb'
+import { SystemUpdateProgress, UpdateProgress } from '@/proto/xylona_pb'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { BackupProgress, VersionInfo } from '@/proto/shared_pb'
 import { AllServersQueryInfo, Status } from '@/proto/shared_pb'
@@ -64,6 +64,7 @@ type XylonaEventBusEvents = {
   ) => void
   gameServerUpdateProgress: (progress: UpdateProgress) => void
   gameServerBackupProgress: (progress: BackupProgress) => void
+  systemUpdateProgress: (progress: SystemUpdateProgress) => void
 }
 
 /**
@@ -236,6 +237,13 @@ export function dispatchWebsocketMessage(out: Message): boolean {
       }
       return true
     }
+    case Message_Type.SystemUpdateProgress: {
+      const progress = out.systemUpdateProgress
+      if (progress) {
+        XylonaEventBus.emit('systemUpdateProgress', progress)
+      }
+      return true
+    }
     default:
       return false
   }
@@ -293,23 +301,6 @@ export function WindowWidth() {
   return windowWidth
 }
 
-export function StatusToString(status: Status): string {
-  switch (status) {
-    case Status.UNKNOWN:
-      return 'Unknown'
-    case Status.ONLINE:
-      return 'Online'
-    case Status.OFFLINE:
-      return 'Offline'
-    case Status.UPDATING:
-      return 'Updating'
-    case Status.INSTALLING:
-      return 'Installing'
-    default:
-      return 'Unknown'
-  }
-}
-
 export function ArchiveTypeToString(archiveType: GameServerFilesCompressionType): string {
   switch (archiveType) {
     case GameServerFilesCompressionType.ZIP:
@@ -342,14 +333,6 @@ export function ArchiveTypeToExtension(archiveType: GameServerFilesCompressionTy
     default:
       return '.unknown'
   }
-}
-
-// The conversion function
-export function bytesToSize1(bytes: number): string {
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-  if (bytes === 0) return '0 Bytes'
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i]
 }
 
 export function bytesToSize(bytes: number): string {

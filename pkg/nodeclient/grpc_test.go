@@ -295,644 +295,619 @@ func newPinnedTestServer(t *testing.T, rec *callRecorder) (string, string) {
 	return server.URL, fingerprint
 }
 
-func TestGRPCClient(t *testing.T) {
+func TestGRPCClientPingAttachesBearerToken(t *testing.T) {
 	t.Parallel()
+	rec := &callRecorder{}
+	url, fingerprint := newPinnedTestServer(t, rec)
 
-	t.Run("ping attaches bearer token", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{}
-		url, fingerprint := newPinnedTestServer(t, rec)
+	client, errNew := nodeclient.NewGRPCClient("node-1", url, fingerprint, "s3cret")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
 
-		client, errNew := nodeclient.NewGRPCClient("node-1", url, fingerprint, "s3cret")
-		if errNew != nil {
-			t.Fatalf("NewGRPCClient: %v", errNew)
-		}
+	errPing := client.Ping(t.Context())
+	if errPing != nil {
+		t.Fatalf("Ping: %v", errPing)
+	}
 
-		errPing := client.Ping(t.Context())
-		if errPing != nil {
-			t.Fatalf("Ping: %v", errPing)
-		}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.authHeaders) != 1 {
+		t.Fatalf("expected 1 auth header, got %d", len(rec.authHeaders))
+	}
+	if rec.authHeaders[0] != "Bearer s3cret" {
+		t.Fatalf("unexpected auth header: %q", rec.authHeaders[0])
+	}
+}
+func TestGRPCClientIDIsStable(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{}
+	url, fingerprint := newPinnedTestServer(t, rec)
 
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		if len(rec.authHeaders) != 1 {
-			t.Fatalf("expected 1 auth header, got %d", len(rec.authHeaders))
-		}
-		if rec.authHeaders[0] != "Bearer s3cret" {
-			t.Fatalf("unexpected auth header: %q", rec.authHeaders[0])
-		}
-	})
-
-	t.Run("ID is stable", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{}
-		url, fingerprint := newPinnedTestServer(t, rec)
-
-		client, errNew := nodeclient.NewGRPCClient("my-node", url, fingerprint, "secret")
-		if errNew != nil {
-			t.Fatalf("NewGRPCClient: %v", errNew)
-		}
-		if client.ID() != "my-node" {
-			t.Fatalf("ID: got %q want %q", client.ID(), "my-node")
-		}
-	})
-
-	t.Run("constructor validates required fields", func(t *testing.T) {
-		t.Parallel()
-		cases := []struct {
-			name        string
-			nodeID      string
-			url         string
-			fingerprint string
-			secret      string
-		}{
-			{name: "empty node ID", url: "https://x", fingerprint: "abc", secret: "s"},
-			{name: "empty URL", nodeID: "id", fingerprint: "abc", secret: "s"},
-			{name: "empty secret", nodeID: "id", url: "https://x", fingerprint: "abc"},
-			{name: "empty fingerprint", nodeID: "id", url: "https://x", secret: "s"},
-		}
-		for _, tc := range cases {
-			t.Run(tc.name, func(t *testing.T) {
-				_, errNew := nodeclient.NewGRPCClient(tc.nodeID, tc.url, tc.fingerprint, tc.secret)
-				if errNew == nil {
-					t.Fatalf("expected error for %s", tc.name)
-				}
-			})
-		}
-	})
-
-	t.Run("list files translates response", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			listFilesResp: &nodeprotov1.ListFilesResponse{
-				Entries: []*nodeprotov1.FileEntry{
-					{Name: "a.txt", Size: 12, IsDirectory: false, LastModified: timestamppb.New(time.Unix(100, 0))},
-					{Name: "sub", Size: 0, IsDirectory: true, LastModified: timestamppb.New(time.Unix(200, 0))},
-					{Name: "run.sh", Size: 4, IsExecutable: true, LastModified: timestamppb.New(time.Unix(300, 0))},
-				},
-			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-
-		client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-		if errNew != nil {
-			t.Fatalf("NewGRPCClient: %v", errNew)
-		}
-
-		entries, errList := client.ListFiles(t.Context(), "/srv", "sub")
-		if errList != nil {
-			t.Fatalf("ListFiles: %v", errList)
-		}
-		if len(entries) != 3 {
-			t.Fatalf("got %d entries want 3", len(entries))
-		}
-		if entries[0].Name != "a.txt" || entries[0].Size != 12 || entries[0].IsDirectory {
-			t.Fatalf("entries[0] unexpected: %+v", entries[0])
-		}
-		if !entries[1].IsDirectory || entries[1].Name != "sub" {
-			t.Fatalf("entries[1] unexpected: %+v", entries[1])
-		}
-		if !entries[2].IsExecutable || entries[2].Name != "run.sh" {
-			t.Fatalf("entries[2] unexpected: %+v", entries[2])
-		}
-
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		if rec.listFilesReq.GetDirectory() != "/srv" {
-			t.Fatalf("directory sent incorrectly: %q", rec.listFilesReq.GetDirectory())
-		}
-		if rec.listFilesReq.GetRelativePath() != "sub" {
-			t.Fatalf("relative path sent incorrectly: %q", rec.listFilesReq.GetRelativePath())
-		}
-	})
-
-	t.Run("stream write sends metadata and chunks", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			streamWriteResp: &nodeprotov1.StreamWriteFileResponse{BytesWritten: 11, Sha256: "digest"},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		result, errWrite := client.StreamWriteFile(t.Context(), "/srv", "upload.bin", strings.NewReader("hello world"), node.ProtectionPolicy{ServerExecutable: "server.jar"})
-		if errWrite != nil {
-			t.Fatalf("StreamWriteFile: %v", errWrite)
-		}
-		if result.BytesWritten != 11 || result.SHA256 != "digest" {
-			t.Fatalf("StreamWriteFile result = %+v, want configured response", result)
-		}
-
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		if len(rec.streamWriteReqs) < 2 {
-			t.Fatalf("stream write requests = %d, want metadata plus content", len(rec.streamWriteReqs))
-		}
-		if rec.streamWriteReqs[0].GetDirectory() != "/srv" || rec.streamWriteReqs[0].GetRelativePath() != "upload.bin" {
-			t.Fatalf("metadata request = %+v, want directory and relative path", rec.streamWriteReqs[0])
-		}
-		if rec.streamWriteReqs[0].GetServerExecutable() != "server.jar" {
-			t.Fatalf("server executable = %q, want server.jar", rec.streamWriteReqs[0].GetServerExecutable())
-		}
-		var body strings.Builder
-		for _, msg := range rec.streamWriteReqs[1:] {
-			_, errBody := body.Write(msg.GetContent())
-			if errBody != nil {
-				t.Fatalf("body.Write: %v", errBody)
+	client, errNew := nodeclient.NewGRPCClient("my-node", url, fingerprint, "secret")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+	if client.ID() != "my-node" {
+		t.Fatalf("ID: got %q want %q", client.ID(), "my-node")
+	}
+}
+func TestGRPCClientConstructorValidatesRequiredFields(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name        string
+		nodeID      string
+		url         string
+		fingerprint string
+		secret      string
+	}{
+		{name: "empty node ID", url: "https://x", fingerprint: "abc", secret: "s"},
+		{name: "empty URL", nodeID: "id", fingerprint: "abc", secret: "s"},
+		{name: "empty secret", nodeID: "id", url: "https://x", fingerprint: "abc"},
+		{name: "empty fingerprint", nodeID: "id", url: "https://x", secret: "s"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errNew := nodeclient.NewGRPCClient(tc.nodeID, tc.url, tc.fingerprint, tc.secret)
+			if errNew == nil {
+				t.Fatalf("expected error for %s", tc.name)
 			}
-		}
-		gotBody := body.String()
-		if gotBody != "hello world" {
-			t.Fatalf("streamed body = %q, want hello world", gotBody)
-		}
-	})
-
-	t.Run("copy files sends operations and policy", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			copyFilesResp: &nodeprotov1.CopyFilesResponse{Copied: []string{"dst.txt"}},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		copied, errCopy := client.CopyFiles(t.Context(), "/srv", []node.CopyFileOperation{
-			{SourceRelativePath: "src.txt", DestinationRelativePath: "dst.txt"},
-		}, node.ProtectionPolicy{BaseCommand: "./run.sh"})
-		if errCopy != nil {
-			t.Fatalf("CopyFiles: %v", errCopy)
-		}
-		if len(copied) != 1 || copied[0] != "dst.txt" {
-			t.Fatalf("CopyFiles copied = %v, want [dst.txt]", copied)
-		}
-
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		if rec.copyFilesReq.GetDirectory() != "/srv" {
-			t.Fatalf("directory = %q, want /srv", rec.copyFilesReq.GetDirectory())
-		}
-		if rec.copyFilesReq.GetOperations()[0].GetDestinationRelativePath() != "dst.txt" {
-			t.Fatalf("operations = %+v, want destination", rec.copyFilesReq.GetOperations())
-		}
-		if rec.copyFilesReq.GetBaseCommand() != "./run.sh" {
-			t.Fatalf("base command = %q, want ./run.sh", rec.copyFilesReq.GetBaseCommand())
-		}
-	})
-
-	t.Run("probe installed version round trips", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			probeResp: &nodeprotov1.ProbeInstalledVersionResponse{Found: true, Version: "123", SourcePath: "steamapps/appmanifest_90.acf"},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		result, errProbe := client.ProbeInstalledVersion(t.Context(), node.InstalledVersionProbeRequest{
-			Directory:           "/srv",
-			Kind:                node.InstalledVersionProbeKindSteamManifest,
-			PreferredSteamAppID: "90",
 		})
-		if errProbe != nil {
-			t.Fatalf("ProbeInstalledVersion: %v", errProbe)
-		}
-		if !result.Found || result.Version != "123" || result.SourcePath != "steamapps/appmanifest_90.acf" {
-			t.Fatalf("ProbeInstalledVersion result = %+v, want configured response", result)
-		}
+	}
+}
+func TestGRPCClientListFilesTranslatesResponse(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		listFilesResp: &nodeprotov1.ListFilesResponse{
+			Entries: []*nodeprotov1.FileEntry{
+				{Name: "a.txt", Size: 12, IsDirectory: false, LastModified: timestamppb.New(time.Unix(100, 0))},
+				{Name: "sub", Size: 0, IsDirectory: true, LastModified: timestamppb.New(time.Unix(200, 0))},
+				{Name: "run.sh", Size: 4, IsExecutable: true, LastModified: timestamppb.New(time.Unix(300, 0))},
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
 
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		if rec.probeReq.GetKind() != nodeprotov1.InstalledVersionProbeKind_INSTALLED_VERSION_PROBE_KIND_STEAM_MANIFEST {
-			t.Fatalf("probe kind = %v, want steam", rec.probeReq.GetKind())
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	entries, errList := client.ListFiles(t.Context(), "/srv", "sub")
+	if errList != nil {
+		t.Fatalf("ListFiles: %v", errList)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("got %d entries want 3", len(entries))
+	}
+	if entries[0].Name != "a.txt" || entries[0].Size != 12 || entries[0].IsDirectory {
+		t.Fatalf("entries[0] unexpected: %+v", entries[0])
+	}
+	if !entries[1].IsDirectory || entries[1].Name != "sub" {
+		t.Fatalf("entries[1] unexpected: %+v", entries[1])
+	}
+	if !entries[2].IsExecutable || entries[2].Name != "run.sh" {
+		t.Fatalf("entries[2] unexpected: %+v", entries[2])
+	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if rec.listFilesReq.GetDirectory() != "/srv" {
+		t.Fatalf("directory sent incorrectly: %q", rec.listFilesReq.GetDirectory())
+	}
+	if rec.listFilesReq.GetRelativePath() != "sub" {
+		t.Fatalf("relative path sent incorrectly: %q", rec.listFilesReq.GetRelativePath())
+	}
+}
+func TestGRPCClientStreamWriteSendsMetadataAndChunks(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		streamWriteResp: &nodeprotov1.StreamWriteFileResponse{BytesWritten: 11, Sha256: "digest"},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	result, errWrite := client.StreamWriteFile(t.Context(), "/srv", "upload.bin", strings.NewReader("hello world"), node.ProtectionPolicy{ServerExecutable: "server.jar"})
+	if errWrite != nil {
+		t.Fatalf("StreamWriteFile: %v", errWrite)
+	}
+	if result.BytesWritten != 11 || result.SHA256 != "digest" {
+		t.Fatalf("StreamWriteFile result = %+v, want configured response", result)
+	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.streamWriteReqs) < 2 {
+		t.Fatalf("stream write requests = %d, want metadata plus content", len(rec.streamWriteReqs))
+	}
+	if rec.streamWriteReqs[0].GetDirectory() != "/srv" || rec.streamWriteReqs[0].GetRelativePath() != "upload.bin" {
+		t.Fatalf("metadata request = %+v, want directory and relative path", rec.streamWriteReqs[0])
+	}
+	if rec.streamWriteReqs[0].GetServerExecutable() != "server.jar" {
+		t.Fatalf("server executable = %q, want server.jar", rec.streamWriteReqs[0].GetServerExecutable())
+	}
+	var body strings.Builder
+	for _, msg := range rec.streamWriteReqs[1:] {
+		_, errBody := body.Write(msg.GetContent())
+		if errBody != nil {
+			t.Fatalf("body.Write: %v", errBody)
 		}
-		if rec.probeReq.GetPreferredSteamAppId() != "90" {
-			t.Fatalf("preferred app = %q, want 90", rec.probeReq.GetPreferredSteamAppId())
-		}
+	}
+	gotBody := body.String()
+	if gotBody != "hello world" {
+		t.Fatalf("streamed body = %q, want hello world", gotBody)
+	}
+}
+func TestGRPCClientCopyFilesSendsOperationsAndPolicy(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		copyFilesResp: &nodeprotov1.CopyFilesResponse{Copied: []string{"dst.txt"}},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	copied, errCopy := client.CopyFiles(t.Context(), "/srv", []node.CopyFileOperation{
+		{SourceRelativePath: "src.txt", DestinationRelativePath: "dst.txt"},
+	}, node.ProtectionPolicy{BaseCommand: "./run.sh"})
+	if errCopy != nil {
+		t.Fatalf("CopyFiles: %v", errCopy)
+	}
+	if len(copied) != 1 || copied[0] != "dst.txt" {
+		t.Fatalf("CopyFiles copied = %v, want [dst.txt]", copied)
+	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if rec.copyFilesReq.GetDirectory() != "/srv" {
+		t.Fatalf("directory = %q, want /srv", rec.copyFilesReq.GetDirectory())
+	}
+	if rec.copyFilesReq.GetOperations()[0].GetDestinationRelativePath() != "dst.txt" {
+		t.Fatalf("operations = %+v, want destination", rec.copyFilesReq.GetOperations())
+	}
+	if rec.copyFilesReq.GetBaseCommand() != "./run.sh" {
+		t.Fatalf("base command = %q, want ./run.sh", rec.copyFilesReq.GetBaseCommand())
+	}
+}
+func TestGRPCClientProbeInstalledVersionRoundTrips(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		probeResp: &nodeprotov1.ProbeInstalledVersionResponse{Found: true, Version: "123", SourcePath: "steamapps/appmanifest_90.acf"},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	result, errProbe := client.ProbeInstalledVersion(t.Context(), node.InstalledVersionProbeRequest{
+		Directory:           "/srv",
+		Kind:                node.InstalledVersionProbeKindSteamManifest,
+		PreferredSteamAppID: "90",
 	})
+	if errProbe != nil {
+		t.Fatalf("ProbeInstalledVersion: %v", errProbe)
+	}
+	if !result.Found || result.Version != "123" || result.SourcePath != "steamapps/appmanifest_90.acf" {
+		t.Fatalf("ProbeInstalledVersion result = %+v, want configured response", result)
+	}
 
-	t.Run("query game server round trips", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			queryResp: &nodeprotov1.QueryGameServerResponse{
-				Kind: nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT,
-				Minecraft: &nodeprotov1.GameServerMinecraftQueryInfo{
-					NumberOfPlayers: 3,
-					MaxPlayers:      20,
-					ServerVersion:   "1.21.5",
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if rec.probeReq.GetKind() != nodeprotov1.InstalledVersionProbeKind_INSTALLED_VERSION_PROBE_KIND_STEAM_MANIFEST {
+		t.Fatalf("probe kind = %v, want steam", rec.probeReq.GetKind())
+	}
+	if rec.probeReq.GetPreferredSteamAppId() != "90" {
+		t.Fatalf("preferred app = %q, want 90", rec.probeReq.GetPreferredSteamAppId())
+	}
+}
+func TestGRPCClientQueryGameServerRoundTrips(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		queryResp: &nodeprotov1.QueryGameServerResponse{
+			Kind: nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT,
+			Minecraft: &nodeprotov1.GameServerMinecraftQueryInfo{
+				NumberOfPlayers: 3,
+				MaxPlayers:      20,
+				ServerVersion:   "1.21.5",
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	result, errQuery := client.QueryGameServer(t.Context(), node.GameServerQueryRequest{
+		Kind:       node.GameServerQueryKindMinecraft,
+		IP:         "203.0.113.10",
+		QueryPort:  25565,
+		MaxPlayers: 20,
+	})
+	if errQuery != nil {
+		t.Fatalf("QueryGameServer: %v", errQuery)
+	}
+	if result.Kind != node.GameServerQueryKindMinecraft {
+		t.Fatalf("kind = %v, want Minecraft", result.Kind)
+	}
+	if result.Minecraft.NumberOfPlayers != 3 || result.Minecraft.ServerVersion != "1.21.5" {
+		t.Fatalf("Minecraft result = %+v, want configured response", result.Minecraft)
+	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if rec.queryReq.GetKind() != nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT {
+		t.Fatalf("query kind = %v, want Minecraft", rec.queryReq.GetKind())
+	}
+	if rec.queryReq.GetIp() != "203.0.113.10" || rec.queryReq.GetQueryPort() != 25565 || rec.queryReq.GetMaxPlayers() != 20 {
+		t.Fatalf("query request = %+v, want address and defaults", rec.queryReq)
+	}
+}
+func TestGRPCClientReadFileReturnsBytes(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{readFileResponse: []byte("hello world")}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	data, errRead := client.ReadFile(t.Context(), "/srv", "hello.txt")
+	if errRead != nil {
+		t.Fatalf("ReadFile: %v", errRead)
+	}
+	if string(data) != "hello world" {
+		t.Fatalf("unexpected body: %q", string(data))
+	}
+}
+func TestGRPCClientStatFileReturnsMetadata(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		statFileResp: &nodeprotov1.StatFileResponse{
+			Entry: &nodeprotov1.FileEntry{
+				Name:         "archive.zip",
+				Size:         42,
+				LastModified: timestamppb.New(time.Unix(300, 0)),
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	entry, errStat := client.StatFile(t.Context(), "/srv", "archive.zip")
+	if errStat != nil {
+		t.Fatalf("StatFile: %v", errStat)
+	}
+	if entry.Name != "archive.zip" || entry.Size != 42 || entry.IsDirectory {
+		t.Fatalf("StatFile entry mismatch: %+v", entry)
+	}
+}
+func TestGRPCClientStreamFileReturnsReader(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{streamFileChunks: [][]byte{[]byte("hello "), []byte("stream")}}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	reader, errStream := client.StreamFile(t.Context(), "/srv", "archive.zip")
+	if errStream != nil {
+		t.Fatalf("StreamFile: %v", errStream)
+	}
+	data, errRead := io.ReadAll(reader)
+	errClose := reader.Close()
+	if errRead != nil {
+		t.Fatalf("ReadAll stream: %v", errRead)
+	}
+	if errClose != nil {
+		t.Fatalf("Close stream: %v", errClose)
+	}
+	if string(data) != "hello stream" {
+		t.Fatalf("StreamFile data = %q, want %q", string(data), "hello stream")
+	}
+}
+func TestGRPCClientFileArchiveStreamsProgress(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		fileArchiveResp: []*nodeprotov1.CreateFileArchiveResponse{
+			{TotalFiles: 2, FilesCompressed: 0, TotalBytes: 20, CurrentFile: "a.log"},
+			{TotalFiles: 2, FilesCompressed: 1, TotalBytes: 20, BytesCompressed: 10, CurrentFile: "a.log"},
+			{RelativePath: "archives/logs.zip", TotalFiles: 2, FilesCompressed: 2, TotalBytes: 20, BytesCompressed: 20, CurrentFile: "b.log"},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	var progressEvents []node.ArchiveProgress
+	archivePath, progress, errArchive := client.CreateFileArchiveWithProgress(
+		t.Context(),
+		"/srv",
+		"archives/logs",
+		[]string{"a.log", "b.log"},
+		node.ArchiveCompressionZIP,
+		node.ProtectionPolicy{ServerExecutable: "server.jar"},
+		func(progress node.ArchiveProgress) error {
+			progressEvents = append(progressEvents, progress)
+			return nil
+		},
+	)
+	if errArchive != nil {
+		t.Fatalf("CreateFileArchiveWithProgress: %v", errArchive)
+	}
+	if archivePath != "archives/logs.zip" {
+		t.Fatalf("archive path = %q, want %q", archivePath, "archives/logs.zip")
+	}
+	if progress.FilesCompressed != 2 || progress.BytesCompressed != 20 {
+		t.Fatalf("archive final progress = %+v, want completed", progress)
+	}
+	if len(progressEvents) != 3 {
+		t.Fatalf("progress event count = %d, want 3", len(progressEvents))
+	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if rec.fileArchiveReq.GetDestinationArchivePath() != "archives/logs" {
+		t.Fatalf("destination = %q, want %q", rec.fileArchiveReq.GetDestinationArchivePath(), "archives/logs")
+	}
+	if rec.fileArchiveReq.GetServerExecutable() != "server.jar" {
+		t.Fatalf("server executable = %q, want server.jar", rec.fileArchiveReq.GetServerExecutable())
+	}
+}
+func TestGRPCClientFileExtractStreamsProgress(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		fileExtractResp: []*nodeprotov1.ExtractFileArchiveResponse{
+			{TotalFiles: 1, FilesExtracted: 0, TotalBytes: 10, CurrentFile: "server.properties"},
+			{ExtractedPaths: []string{"server.properties"}, TotalFiles: 1, FilesExtracted: 1, TotalBytes: 10, BytesExtracted: 10, CurrentFile: "server.properties"},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	var progressEvents []node.ExtractProgress
+	extracted, progress, errExtract := client.ExtractFileArchiveWithProgress(
+		t.Context(),
+		"/srv",
+		"imports/bundle.zip",
+		"restored",
+		node.ProtectionPolicy{BaseCommand: "./run.sh"},
+		func(progress node.ExtractProgress) error {
+			progressEvents = append(progressEvents, progress)
+			return nil
+		},
+	)
+	if errExtract != nil {
+		t.Fatalf("ExtractFileArchiveWithProgress: %v", errExtract)
+	}
+	if len(extracted) != 1 || extracted[0] != "server.properties" {
+		t.Fatalf("extracted paths = %v, want [server.properties]", extracted)
+	}
+	if progress.FilesExtracted != 1 || progress.BytesExtracted != 10 {
+		t.Fatalf("extract final progress = %+v, want completed", progress)
+	}
+	if len(progressEvents) != 2 {
+		t.Fatalf("progress event count = %d, want 2", len(progressEvents))
+	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if rec.fileExtractReq.GetDestinationDirectoryPath() != "restored" {
+		t.Fatalf("destination = %q, want restored", rec.fileExtractReq.GetDestinationDirectoryPath())
+	}
+	if rec.fileExtractReq.GetBaseCommand() != "./run.sh" {
+		t.Fatalf("base command = %q, want ./run.sh", rec.fileExtractReq.GetBaseCommand())
+	}
+}
+func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	cfg := node.ProcessConfig{
+		ID:               "gs-1",
+		Name:             "server",
+		BaseCommand:      "./run.sh",
+		Args:             []string{"-p", "27015"},
+		WorkingDirectory: "/games/gs-1",
+		User:             "xylona",
+		NodeID:           "node",
+		ServiceID:        "svc-1",
+		StopTimeout:      20 * time.Second,
+	}
+	_, errStart := client.StartProcess(t.Context(), cfg, xylona.Status_ONLINE)
+	if !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
+		t.Fatalf("StartProcess: expected ErrRemoteStartProcessHandle, got %v", errStart)
+	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	got := rec.startProcessReq
+	if got.GetId() != "gs-1" || got.GetBaseCommand() != "./run.sh" {
+		t.Fatalf("StartProcess request missing fields: %+v", got)
+	}
+	if got.GetInitialStatus() != nodeprotov1.ProcessStatus_PROCESS_STATUS_ONLINE {
+		t.Fatalf("initial status: got %v want ONLINE", got.GetInitialStatus())
+	}
+	if got.GetStopTimeoutSeconds() != 20 {
+		t.Fatalf("stop timeout seconds: got %d want 20", got.GetStopTimeoutSeconds())
+	}
+}
+func TestGRPCClientStartProcessPropagatesServerError(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{errOverride: connect.NewError(connect.CodeNotFound, errors.New("missing"))}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	_, errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "x"}, xylona.Status_ONLINE)
+	if errStart == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(errStart, os.ErrNotExist) {
+		t.Fatalf("expected os.ErrNotExist via not-found mapping, got %v", errStart)
+	}
+}
+func TestGRPCClientInvalidArgumentMapsToInvalidPath(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{errOverride: connect.NewError(connect.CodeInvalidArgument, node.ErrInvalidPath)}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	_, errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "x"}, xylona.Status_ONLINE)
+	if errStart == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(errStart, node.ErrInvalidPath) {
+		t.Fatalf("expected ErrInvalidPath via invalid-argument mapping, got %v", errStart)
+	}
+}
+func TestGRPCClientGetNodeSnapshotRoundTripsFields(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		nodeSnapshot: &nodeprotov1.NodeSnapshot{
+			CpuModel:    "stub-cpu",
+			CpuCores:    8,
+			TotalMemory: 16 * 1024 * 1024,
+			Processes: []*nodeprotov1.ProcessSnapshot{
+				{Id: "p1", Name: "proc-1", Status: "ONLINE"},
+			},
+			Collected: timestamppb.Now(),
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	snap, errSnap := client.GetNodeSnapshot(t.Context())
+	if errSnap != nil {
+		t.Fatalf("GetNodeSnapshot: %v", errSnap)
+	}
+	if snap.CPUModel != "stub-cpu" || snap.CPUCores != 8 {
+		t.Fatalf("snapshot mismatch: %+v", snap)
+	}
+	if len(snap.Processes) != 1 || snap.Processes[0].ID != "p1" {
+		t.Fatalf("processes mismatch: %+v", snap.Processes)
+	}
+}
+func TestGRPCClientListBindableIPsRoundTripsFields(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		bindableIPsResp: &nodeprotov1.ListBindableIPsResponse{
+			Ips: []*nodeprotov1.BindableIP{
+				{Address: "127.0.0.1", Usable: true},
+				{Address: "203.0.113.42", Usable: true, External: true},
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	ips, errList := client.ListBindableIPs(t.Context())
+	if errList != nil {
+		t.Fatalf("ListBindableIPs: %v", errList)
+	}
+	if len(ips) != 2 {
+		t.Fatalf("got %d IPs, want 2", len(ips))
+	}
+	if ips[0].Address != "127.0.0.1" || !ips[0].Usable {
+		t.Fatalf("first IP mismatch: %+v", ips[0])
+	}
+	if ips[1].Address != "203.0.113.42" || !ips[1].External {
+		t.Fatalf("second IP mismatch: %+v", ips[1])
+	}
+}
+func TestGRPCClientStreamEventsDeliversPayloadAndClosesOnCtx(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		streamEvents: []*nodeprotov1.Event{
+			{
+				Timestamp: timestamppb.Now(),
+				Payload: &nodeprotov1.Event_ProcessStatus{
+					ProcessStatus: &nodeprotov1.ProcessStatusEvent{ProcessId: "p1", Status: "ONLINE"},
 				},
 			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		result, errQuery := client.QueryGameServer(t.Context(), node.GameServerQueryRequest{
-			Kind:       node.GameServerQueryKindMinecraft,
-			IP:         "203.0.113.10",
-			QueryPort:  25565,
-			MaxPlayers: 20,
-		})
-		if errQuery != nil {
-			t.Fatalf("QueryGameServer: %v", errQuery)
-		}
-		if result.Kind != node.GameServerQueryKindMinecraft {
-			t.Fatalf("kind = %v, want Minecraft", result.Kind)
-		}
-		if result.Minecraft.NumberOfPlayers != 3 || result.Minecraft.ServerVersion != "1.21.5" {
-			t.Fatalf("Minecraft result = %+v, want configured response", result.Minecraft)
-		}
-
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		if rec.queryReq.GetKind() != nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT {
-			t.Fatalf("query kind = %v, want Minecraft", rec.queryReq.GetKind())
-		}
-		if rec.queryReq.GetIp() != "203.0.113.10" || rec.queryReq.GetQueryPort() != 25565 || rec.queryReq.GetMaxPlayers() != 20 {
-			t.Fatalf("query request = %+v, want address and defaults", rec.queryReq)
-		}
-	})
-
-	t.Run("read file returns bytes", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{readFileResponse: []byte("hello world")}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		data, errRead := client.ReadFile(t.Context(), "/srv", "hello.txt")
-		if errRead != nil {
-			t.Fatalf("ReadFile: %v", errRead)
-		}
-		if string(data) != "hello world" {
-			t.Fatalf("unexpected body: %q", string(data))
-		}
-	})
-
-	t.Run("stat file returns metadata", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			statFileResp: &nodeprotov1.StatFileResponse{
-				Entry: &nodeprotov1.FileEntry{
-					Name:         "archive.zip",
-					Size:         42,
-					LastModified: timestamppb.New(time.Unix(300, 0)),
+			{
+				Timestamp: timestamppb.Now(),
+				Payload: &nodeprotov1.Event_ConsoleOutput{
+					ConsoleOutput: &nodeprotov1.ConsoleChunk{GameServerId: "p1", Text: "ready"},
 				},
 			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
 
-		entry, errStat := client.StatFile(t.Context(), "/srv", "archive.zip")
-		if errStat != nil {
-			t.Fatalf("StatFile: %v", errStat)
-		}
-		if entry.Name != "archive.zip" || entry.Size != 42 || entry.IsDirectory {
-			t.Fatalf("StatFile entry mismatch: %+v", entry)
-		}
-	})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
 
-	t.Run("stream file returns reader", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{streamFileChunks: [][]byte{[]byte("hello "), []byte("stream")}}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	events, errStream := client.StreamEvents(ctx)
+	if errStream != nil {
+		t.Fatalf("StreamEvents: %v", errStream)
+	}
 
-		reader, errStream := client.StreamFile(t.Context(), "/srv", "archive.zip")
-		if errStream != nil {
-			t.Fatalf("StreamFile: %v", errStream)
-		}
-		data, errRead := io.ReadAll(reader)
-		errClose := reader.Close()
-		if errRead != nil {
-			t.Fatalf("ReadAll stream: %v", errRead)
-		}
-		if errClose != nil {
-			t.Fatalf("Close stream: %v", errClose)
-		}
-		if string(data) != "hello stream" {
-			t.Fatalf("StreamFile data = %q, want %q", string(data), "hello stream")
-		}
-	})
+	seen := make([]node.Event, 0, 2)
+	for ev := range events {
+		seen = append(seen, ev)
+	}
+	if len(seen) != 2 {
+		t.Fatalf("got %d events, want 2", len(seen))
+	}
+	if seen[0].Type != node.EventTypeProcessStatus || seen[0].ProcessID != "p1" {
+		t.Fatalf("first event: %+v", seen[0])
+	}
+	if seen[1].Type != node.EventTypeConsoleOutput {
+		t.Fatalf("second event type: %v", seen[1].Type)
+	}
+}
+func TestGRPCClientStreamConsoleOutputDeliversChunks(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		streamConsole: []*nodeprotov1.ConsoleChunk{
+			{GameServerId: "p1", Text: "line 1"},
+			{GameServerId: "p1", Text: "line 2"},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
 
-	t.Run("file archive streams progress", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			fileArchiveResp: []*nodeprotov1.CreateFileArchiveResponse{
-				{TotalFiles: 2, FilesCompressed: 0, TotalBytes: 20, CurrentFile: "a.log"},
-				{TotalFiles: 2, FilesCompressed: 1, TotalBytes: 20, BytesCompressed: 10, CurrentFile: "a.log"},
-				{RelativePath: "archives/logs.zip", TotalFiles: 2, FilesCompressed: 2, TotalBytes: 20, BytesCompressed: 20, CurrentFile: "b.log"},
-			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
 
-		var progressEvents []node.ArchiveProgress
-		archivePath, progress, errArchive := client.CreateFileArchiveWithProgress(
-			t.Context(),
-			"/srv",
-			"archives/logs",
-			[]string{"a.log", "b.log"},
-			node.ArchiveCompressionZIP,
-			node.ProtectionPolicy{ServerExecutable: "server.jar"},
-			func(progress node.ArchiveProgress) error {
-				progressEvents = append(progressEvents, progress)
-				return nil
-			},
-		)
-		if errArchive != nil {
-			t.Fatalf("CreateFileArchiveWithProgress: %v", errArchive)
-		}
-		if archivePath != "archives/logs.zip" {
-			t.Fatalf("archive path = %q, want %q", archivePath, "archives/logs.zip")
-		}
-		if progress.FilesCompressed != 2 || progress.BytesCompressed != 20 {
-			t.Fatalf("archive final progress = %+v, want completed", progress)
-		}
-		if len(progressEvents) != 3 {
-			t.Fatalf("progress event count = %d, want 3", len(progressEvents))
-		}
+	stream, errStream := client.StreamConsoleOutput(ctx, "p1")
+	if errStream != nil {
+		t.Fatalf("StreamConsoleOutput: %v", errStream)
+	}
 
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		if rec.fileArchiveReq.GetDestinationArchivePath() != "archives/logs" {
-			t.Fatalf("destination = %q, want %q", rec.fileArchiveReq.GetDestinationArchivePath(), "archives/logs")
-		}
-		if rec.fileArchiveReq.GetServerExecutable() != "server.jar" {
-			t.Fatalf("server executable = %q, want server.jar", rec.fileArchiveReq.GetServerExecutable())
-		}
-	})
+	var seen []node.ConsoleChunk
+	for chunk := range stream {
+		seen = append(seen, chunk)
+	}
 
-	t.Run("file extract streams progress", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			fileExtractResp: []*nodeprotov1.ExtractFileArchiveResponse{
-				{TotalFiles: 1, FilesExtracted: 0, TotalBytes: 10, CurrentFile: "server.properties"},
-				{ExtractedPaths: []string{"server.properties"}, TotalFiles: 1, FilesExtracted: 1, TotalBytes: 10, BytesExtracted: 10, CurrentFile: "server.properties"},
-			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	if len(seen) != 2 {
+		t.Fatalf("got %d chunks, want 2", len(seen))
+	}
+	if seen[0].ProcessID != "p1" || seen[0].Data != "line 1" {
+		t.Fatalf("first chunk mismatch: %+v", seen[0])
+	}
+}
+func TestGRPCClientCloseClearsIdleConnections(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+	errPing := client.Ping(t.Context())
+	if errPing != nil {
+		t.Fatalf("Ping: %v", errPing)
+	}
+	var closer io.Closer = client
+	errClose := closer.Close()
+	if errClose != nil {
+		t.Fatalf("Close: %v", errClose)
+	}
+}
+func TestGRPCClientWrongFingerprintFailsTLS(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{}
+	url, _ := newPinnedTestServer(t, rec)
+	wrongFingerprint := strings.Repeat("0", 64)
 
-		var progressEvents []node.ExtractProgress
-		extracted, progress, errExtract := client.ExtractFileArchiveWithProgress(
-			t.Context(),
-			"/srv",
-			"imports/bundle.zip",
-			"restored",
-			node.ProtectionPolicy{BaseCommand: "./run.sh"},
-			func(progress node.ExtractProgress) error {
-				progressEvents = append(progressEvents, progress)
-				return nil
-			},
-		)
-		if errExtract != nil {
-			t.Fatalf("ExtractFileArchiveWithProgress: %v", errExtract)
-		}
-		if len(extracted) != 1 || extracted[0] != "server.properties" {
-			t.Fatalf("extracted paths = %v, want [server.properties]", extracted)
-		}
-		if progress.FilesExtracted != 1 || progress.BytesExtracted != 10 {
-			t.Fatalf("extract final progress = %+v, want completed", progress)
-		}
-		if len(progressEvents) != 2 {
-			t.Fatalf("progress event count = %d, want 2", len(progressEvents))
-		}
-
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		if rec.fileExtractReq.GetDestinationDirectoryPath() != "restored" {
-			t.Fatalf("destination = %q, want restored", rec.fileExtractReq.GetDestinationDirectoryPath())
-		}
-		if rec.fileExtractReq.GetBaseCommand() != "./run.sh" {
-			t.Fatalf("base command = %q, want ./run.sh", rec.fileExtractReq.GetBaseCommand())
-		}
-	})
-
-	t.Run("start process sends normalized request", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		cfg := node.ProcessConfig{
-			ID:               "gs-1",
-			Name:             "server",
-			BaseCommand:      "./run.sh",
-			Args:             []string{"-p", "27015"},
-			WorkingDirectory: "/games/gs-1",
-			User:             "xylona",
-			NodeID:           "node",
-			ServiceID:        "svc-1",
-			StopTimeout:      20 * time.Second,
-		}
-		_, errStart := client.StartProcess(t.Context(), cfg, xylona.Status_ONLINE)
-		if !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
-			t.Fatalf("StartProcess: expected ErrRemoteStartProcessHandle, got %v", errStart)
-		}
-
-		rec.mu.Lock()
-		defer rec.mu.Unlock()
-		got := rec.startProcessReq
-		if got.GetId() != "gs-1" || got.GetBaseCommand() != "./run.sh" {
-			t.Fatalf("StartProcess request missing fields: %+v", got)
-		}
-		if got.GetInitialStatus() != nodeprotov1.ProcessStatus_PROCESS_STATUS_ONLINE {
-			t.Fatalf("initial status: got %v want ONLINE", got.GetInitialStatus())
-		}
-		if got.GetStopTimeoutSeconds() != 20 {
-			t.Fatalf("stop timeout seconds: got %d want 20", got.GetStopTimeoutSeconds())
-		}
-	})
-
-	t.Run("start process propagates server error", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{errOverride: connect.NewError(connect.CodeNotFound, errors.New("missing"))}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		_, errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "x"}, xylona.Status_ONLINE)
-		if errStart == nil {
-			t.Fatal("expected error")
-		}
-		if !errors.Is(errStart, os.ErrNotExist) {
-			t.Fatalf("expected os.ErrNotExist via not-found mapping, got %v", errStart)
-		}
-	})
-
-	t.Run("invalid argument maps to invalid path", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{errOverride: connect.NewError(connect.CodeInvalidArgument, node.ErrInvalidPath)}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		_, errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "x"}, xylona.Status_ONLINE)
-		if errStart == nil {
-			t.Fatal("expected error")
-		}
-		if !errors.Is(errStart, node.ErrInvalidPath) {
-			t.Fatalf("expected ErrInvalidPath via invalid-argument mapping, got %v", errStart)
-		}
-	})
-
-	t.Run("get node snapshot round-trips fields", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			nodeSnapshot: &nodeprotov1.NodeSnapshot{
-				CpuModel:    "stub-cpu",
-				CpuCores:    8,
-				TotalMemory: 16 * 1024 * 1024,
-				Processes: []*nodeprotov1.ProcessSnapshot{
-					{Id: "p1", Name: "proc-1", Status: "ONLINE"},
-				},
-				Collected: timestamppb.Now(),
-			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		snap, errSnap := client.GetNodeSnapshot(t.Context())
-		if errSnap != nil {
-			t.Fatalf("GetNodeSnapshot: %v", errSnap)
-		}
-		if snap.CPUModel != "stub-cpu" || snap.CPUCores != 8 {
-			t.Fatalf("snapshot mismatch: %+v", snap)
-		}
-		if len(snap.Processes) != 1 || snap.Processes[0].ID != "p1" {
-			t.Fatalf("processes mismatch: %+v", snap.Processes)
-		}
-	})
-
-	t.Run("list bindable IPs round-trips fields", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			bindableIPsResp: &nodeprotov1.ListBindableIPsResponse{
-				Ips: []*nodeprotov1.BindableIP{
-					{Address: "127.0.0.1", Usable: true},
-					{Address: "203.0.113.42", Usable: true, External: true},
-				},
-			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		ips, errList := client.ListBindableIPs(t.Context())
-		if errList != nil {
-			t.Fatalf("ListBindableIPs: %v", errList)
-		}
-		if len(ips) != 2 {
-			t.Fatalf("got %d IPs, want 2", len(ips))
-		}
-		if ips[0].Address != "127.0.0.1" || !ips[0].Usable {
-			t.Fatalf("first IP mismatch: %+v", ips[0])
-		}
-		if ips[1].Address != "203.0.113.42" || !ips[1].External {
-			t.Fatalf("second IP mismatch: %+v", ips[1])
-		}
-	})
-
-	t.Run("stream events delivers payload and closes on ctx", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			streamEvents: []*nodeprotov1.Event{
-				{
-					Timestamp: timestamppb.Now(),
-					Payload: &nodeprotov1.Event_ProcessStatus{
-						ProcessStatus: &nodeprotov1.ProcessStatusEvent{ProcessId: "p1", Status: "ONLINE"},
-					},
-				},
-				{
-					Timestamp: timestamppb.Now(),
-					Payload: &nodeprotov1.Event_ConsoleOutput{
-						ConsoleOutput: &nodeprotov1.ConsoleChunk{GameServerId: "p1", Text: "ready"},
-					},
-				},
-			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		ctx, cancel := context.WithCancel(t.Context())
-		defer cancel()
-
-		events, errStream := client.StreamEvents(ctx)
-		if errStream != nil {
-			t.Fatalf("StreamEvents: %v", errStream)
-		}
-
-		seen := make([]node.Event, 0, 2)
-		for ev := range events {
-			seen = append(seen, ev)
-		}
-		if len(seen) != 2 {
-			t.Fatalf("got %d events, want 2", len(seen))
-		}
-		if seen[0].Type != node.EventTypeProcessStatus || seen[0].ProcessID != "p1" {
-			t.Fatalf("first event: %+v", seen[0])
-		}
-		if seen[1].Type != node.EventTypeConsoleOutput {
-			t.Fatalf("second event type: %v", seen[1].Type)
-		}
-	})
-
-	t.Run("stream console output delivers chunks", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{
-			streamConsole: []*nodeprotov1.ConsoleChunk{
-				{GameServerId: "p1", Text: "line 1"},
-				{GameServerId: "p1", Text: "line 2"},
-			},
-		}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-
-		ctx, cancel := context.WithCancel(t.Context())
-		defer cancel()
-
-		stream, errStream := client.StreamConsoleOutput(ctx, "p1")
-		if errStream != nil {
-			t.Fatalf("StreamConsoleOutput: %v", errStream)
-		}
-
-		var seen []node.ConsoleChunk
-		for chunk := range stream {
-			seen = append(seen, chunk)
-		}
-
-		if len(seen) != 2 {
-			t.Fatalf("got %d chunks, want 2", len(seen))
-		}
-		if seen[0].ProcessID != "p1" || seen[0].Data != "line 1" {
-			t.Fatalf("first chunk mismatch: %+v", seen[0])
-		}
-	})
-
-	t.Run("close clears idle connections", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{}
-		url, fingerprint := newPinnedTestServer(t, rec)
-		client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
-		if errNew != nil {
-			t.Fatalf("NewGRPCClient: %v", errNew)
-		}
-		errPing := client.Ping(t.Context())
-		if errPing != nil {
-			t.Fatalf("Ping: %v", errPing)
-		}
-		var closer io.Closer = client
-		errClose := closer.Close()
-		if errClose != nil {
-			t.Fatalf("Close: %v", errClose)
-		}
-	})
-
-	t.Run("wrong fingerprint fails TLS", func(t *testing.T) {
-		t.Parallel()
-		rec := &callRecorder{}
-		url, _ := newPinnedTestServer(t, rec)
-		wrongFingerprint := strings.Repeat("0", 64)
-
-		client, errNew := nodeclient.NewGRPCClient("node", url, wrongFingerprint, "s")
-		if errNew != nil {
-			t.Fatalf("NewGRPCClient: %v", errNew)
-		}
-		errPing := client.Ping(t.Context())
-		if errPing == nil {
-			t.Fatal("expected TLS handshake failure with wrong fingerprint")
-		}
-	})
+	client, errNew := nodeclient.NewGRPCClient("node", url, wrongFingerprint, "s")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+	errPing := client.Ping(t.Context())
+	if errPing == nil {
+		t.Fatal("expected TLS handshake failure with wrong fingerprint")
+	}
 }

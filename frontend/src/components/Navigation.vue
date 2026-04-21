@@ -173,6 +173,14 @@ const navLinks = computed((): NavItem[] => {
         groupItems: [],
       },
       {
+        title: 'System Updates',
+        icon: 'system_update_alt',
+        link: '/admin/updates',
+        expanded: true,
+        exact: false,
+        groupItems: [],
+      },
+      {
         title: 'Node Settings',
         icon: ionSettings,
         link: '/admin/settings',

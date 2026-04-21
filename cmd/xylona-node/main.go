@@ -1,13 +1,9 @@
 // Command xylona-node is the lightweight agent half of the Xylona hub-spoke
 // architecture. It owns process supervision, file operations, and host metrics
 // for a single host and exposes them to the Xylona controller over Connect-RPC
-// (xylona.node.v1.NodeService). See docs/hub-spoke-migration-plan.md for the
-// full design.
-//
-// Step 4 scope: this binary builds and runs, and — when an identity file is
-// present — serves the NodeService over HTTPS. The bootstrap pairing flow
-// that accepts --join-token and writes the initial identity file is out of
-// scope for Step 4 and lands in Step 6.
+// (xylona.node.v1.NodeService). On first run it can exchange a controller
+// join token for a persistent node identity, then serve the pinned TLS
+// NodeService endpoint on subsequent starts.
 package main
 
 import (
@@ -29,6 +25,7 @@ import (
 	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/nodetls"
+	"github.com/ClintonCollins/Xylona/pkg/selfupdate"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
 	"github.com/ClintonCollins/Xylona/supervisor"
 )
@@ -73,6 +70,14 @@ func parseFlags(args []string) (*cliConfig, error) {
 func main() {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
+
+	handledHelper, errHelper := selfupdate.RunHelperFromArgs(os.Args)
+	if handledHelper {
+		if errHelper != nil {
+			log.Fatal().Err(errHelper).Msg("xylona-node update helper failed")
+		}
+		return
+	}
 
 	cfg, errFlags := parseFlags(os.Args[1:])
 	if errFlags != nil {
@@ -121,32 +126,34 @@ func run(ctx context.Context, cfg *cliConfig) error {
 		return fmt.Errorf("create supervisor: %w", errSup)
 	}
 	supInst.StartMetricsPoller(ctx)
-	// Register built-in internal game installers (e.g. Minecraft) so
-	// StartProcess requests with internal_command=true resolve to a running
-	// Game implementation on this node. The controller does the same from
-	// its own main.go — we duplicate the call here because the xylona-node
-	// binary runs the supervisor locally when the controller targets a
-	// remote node.
+	// Register built-in internal game installers (e.g. Minecraft) so remote
+	// StartProcess requests with internal_command=true resolve locally. The
+	// controller also registers these for the embedded node path.
 	games.RegisterInternalGames()
 	// pkg/node.New tolerates a nil *db.Connection for the node binary — the
 	// node does not persist any game-server data. Controller is the single
 	// source of truth.
 	n := node.New(ctx, supInst, nil)
 
-	return serveNodeService(ctx, cfg.listen, identity, n)
+	updateManager, errUpdateManager := selfupdate.NewDefaultManager("node", filepath.Join(absDataDir, "updates"))
+	if errUpdateManager != nil {
+		return fmt.Errorf("create self-update manager: %w", errUpdateManager)
+	}
+
+	return serveNodeService(ctx, cfg.listen, identity, n, updateManager)
 }
 
 // serveNodeService mounts the NodeService handler on an HTTPS listener and
 // blocks until ctx is canceled. Split out so serve can be exercised against a
 // test listener.
-func serveNodeService(ctx context.Context, listen string, identity *nodeIdentity, n *node.Node) error {
+func serveNodeService(ctx context.Context, listen string, identity *nodeIdentity, n *node.Node, updateManager selfUpdater) error {
 	tlsConfig, errTLS := nodetls.NewServerTLSConfig([]byte(identity.CertPEM), []byte(identity.KeyPEM))
 	if errTLS != nil {
 		return fmt.Errorf("build server TLS: %w", errTLS)
 	}
 
 	mux := http.NewServeMux()
-	svc := newNodeServiceServer(n, identity.SharedSecret)
+	svc := newNodeServiceServer(n, identity.SharedSecret, updateManager)
 	path, handler := nodeprotoconnect.NewNodeServiceHandler(svc)
 	mux.Handle(path, handler)
 

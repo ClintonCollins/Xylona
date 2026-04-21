@@ -369,29 +369,14 @@ func (xs *XylonaService) DeleteAlertRule(
 	_ context.Context,
 	request *connect.Request[xylona.DeleteAlertRuleRequest],
 ) (*connect.Response[xylona.DeleteAlertRuleResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-
-	allowed, errPerm := xs.hasGlobalPermission(user)
-	if errPerm != nil {
-		log.Error().Err(errPerm).Str("user_id", user.ID).Msg("failed to check alerts.manage permission")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
-	}
-	if !allowed {
-		return nil, permissionDenied("insufficient permissions")
-	}
-
-	id := strings.TrimSpace(request.Msg.GetId())
-	if id == "" {
-		return nil, invalidArg("id is required")
-	}
-
-	errDelete := xs.db.DeleteAlertRule(id, user.ID)
+	errDelete := xs.deleteOwnedAlertResource(request.Header(), request.Msg.GetId(), alertResourceDeleteConfig{
+		logIDField:       "alert_rule_id",
+		deleteLogMessage: "failed to delete alert rule",
+		internalMessage:  "failed to delete alert rule",
+		deleteFn:         xs.db.DeleteAlertRule,
+	})
 	if errDelete != nil {
-		log.Error().Err(errDelete).Str("alert_rule_id", id).Msg("failed to delete alert rule")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete alert rule"))
+		return nil, errDelete
 	}
 
 	return connect.NewResponse(&xylona.DeleteAlertRuleResponse{}), nil

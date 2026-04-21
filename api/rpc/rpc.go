@@ -33,6 +33,11 @@ type UpdateProgressBroadcaster interface {
 	BroadcastUpdateProgress(serverID string, serverName string, step xylona.UpdateStep, stepStatus xylona.StepStatus, message string)
 }
 
+// SystemUpdateBroadcaster broadcasts controller/node update progress.
+type SystemUpdateBroadcaster interface {
+	BroadcastSystemUpdateProgress(progress *xylona.SystemUpdateProgress)
+}
+
 // XylonaService implements the primary ConnectRPC service for the panel API.
 type XylonaService struct {
 	ctx                            context.Context
@@ -50,6 +55,7 @@ type XylonaService struct {
 	installTracker                 *modmanager.InstallTracker
 	installBroadcast               ServerSoftwareInstallBroadcaster
 	updateBroadcast                UpdateProgressBroadcaster
+	systemUpdateBroadcast          SystemUpdateBroadcaster
 	versionState                   *versiontracker.VersionStateMap
 	dummyTracker                   *versiontracker.DummyTracker
 	userService                    *usermgmt.Service
@@ -145,6 +151,11 @@ func (xs *XylonaService) SetInstallBroadcaster(b ServerSoftwareInstallBroadcaste
 // SetUpdateBroadcaster sets the broadcaster used to push update progress events over WebSocket.
 func (xs *XylonaService) SetUpdateBroadcaster(b UpdateProgressBroadcaster) {
 	xs.updateBroadcast = b
+}
+
+// SetSystemUpdateBroadcaster sets the broadcaster used to push system update events over WebSocket.
+func (xs *XylonaService) SetSystemUpdateBroadcaster(b SystemUpdateBroadcaster) {
+	xs.systemUpdateBroadcast = b
 }
 
 // SetDummyTracker sets the dummy tracker used for testing update failure simulation.

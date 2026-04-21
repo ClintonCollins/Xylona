@@ -17,6 +17,10 @@ import (
 // an underlying *node.Node.
 var ErrNodeNil = errors.New("nodeclient: underlying node is nil")
 
+// ErrUpdateUnsupported is returned by clients that cannot self-update through
+// the node update RPC surface.
+var ErrUpdateUnsupported = errors.New("nodeclient: update unsupported")
+
 // inProcessNodeClient implements NodeClient by delegating to an in-process
 // *pkg/node.Node. Used for the controller's embedded node.
 type inProcessNodeClient struct {
@@ -389,6 +393,31 @@ func (c *inProcessNodeClient) ListBindableIPs(_ context.Context) ([]node.Bindabl
 		})
 	}
 	return ips, nil
+}
+
+func (c *inProcessNodeClient) GetUpdateCapabilities(_ context.Context) (node.UpdateCapabilities, error) {
+	if c.node == nil {
+		return node.UpdateCapabilities{}, ErrNodeNil
+	}
+	return node.UpdateCapabilities{
+		Supported: false,
+		Reason:    "embedded node updates are handled by controller self-update",
+		Component: "node",
+	}, nil
+}
+
+func (c *inProcessNodeClient) StageSelfUpdate(_ context.Context, _ node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error) {
+	if c.node == nil {
+		return node.StageSelfUpdateResult{}, ErrNodeNil
+	}
+	return node.StageSelfUpdateResult{}, ErrUpdateUnsupported
+}
+
+func (c *inProcessNodeClient) ApplySelfUpdate(_ context.Context, _ node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error) {
+	if c.node == nil {
+		return node.ApplySelfUpdateResult{}, ErrNodeNil
+	}
+	return node.ApplySelfUpdateResult{}, ErrUpdateUnsupported
 }
 
 // StreamEvents bridges the underlying node's EventEmitter to a per-call
