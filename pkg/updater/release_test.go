@@ -1,6 +1,11 @@
 package updater
 
-import "testing"
+import (
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
 
 func TestFindArtifact(t *testing.T) {
 	t.Parallel()
@@ -28,6 +33,30 @@ func TestFindArtifact(t *testing.T) {
 	}
 	if node.Name != "xylona-node_linux_amd64" {
 		t.Fatalf("node artifact = %q, want xylona-node_linux_amd64", node.Name)
+	}
+}
+
+func TestLatestReleaseReturnsHTTPStatusError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "missing release", http.StatusNotFound)
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewGitHubClient("owner", "repo")
+	client.BaseURL = server.URL
+
+	_, errLatest := client.LatestRelease(t.Context())
+	if errLatest == nil {
+		t.Fatal("LatestRelease() error = nil, want HTTP status error")
+	}
+	var statusErr *HTTPStatusError
+	if !errors.As(errLatest, &statusErr) {
+		t.Fatalf("LatestRelease() error = %T, want HTTPStatusError", errLatest)
+	}
+	if statusErr.StatusCode != http.StatusNotFound {
+		t.Fatalf("LatestRelease() status = %d, want %d", statusErr.StatusCode, http.StatusNotFound)
 	}
 }
 

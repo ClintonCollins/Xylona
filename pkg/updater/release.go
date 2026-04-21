@@ -57,6 +57,20 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// HTTPStatusError reports a non-success response from a release metadata request.
+type HTTPStatusError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *HTTPStatusError) Error() string {
+	body := strings.TrimSpace(e.Body)
+	if body == "" {
+		return fmt.Sprintf("updater: fetch latest release: status %d", e.StatusCode)
+	}
+	return fmt.Sprintf("updater: fetch latest release: status %d: %s", e.StatusCode, body)
+}
+
 // NewGitHubClient returns a release client for a GitHub repository.
 func NewGitHubClient(owner string, repo string) *Client {
 	return &Client{
@@ -106,7 +120,10 @@ func (c *Client) LatestRelease(ctx context.Context) (*Release, error) {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return nil, fmt.Errorf("updater: fetch latest release: status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, &HTTPStatusError{
+			StatusCode: resp.StatusCode,
+			Body:       string(body),
+		}
 	}
 
 	var gh githubRelease

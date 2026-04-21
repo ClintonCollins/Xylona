@@ -408,6 +408,40 @@ func TestRunSystemUpdateJobCompletesWhenRemoteApplyTimeoutThenNodeReportsTarget(
 	}
 }
 
+func TestCheckSystemUpdatesTreatsMissingLatestReleaseAsUnavailableTarget(t *testing.T) {
+	releaseServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "{\"message\":\"Not Found\"}", http.StatusNotFound)
+	}))
+	t.Cleanup(releaseServer.Close)
+	t.Setenv("XYLONA_UPDATE_RELEASE_API_URL", releaseServer.URL)
+
+	fixture := newRBACRPCFixture(t)
+	req := connect.NewRequest(&xylona.CheckSystemUpdatesRequest{IncludeNodes: true})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	resp, errCheck := fixture.service.CheckSystemUpdates(t.Context(), req)
+	if errCheck != nil {
+		t.Fatalf("CheckSystemUpdates() error = %v, want nil", errCheck)
+	}
+	updates := resp.Msg.GetUpdates()
+	if len(updates) != 1 {
+		t.Fatalf("CheckSystemUpdates() updates = %d, want 1", len(updates))
+	}
+	update := updates[0]
+	if update.GetComponent() != xylona.SystemUpdateComponent_SYSTEM_UPDATE_COMPONENT_CONTROLLER {
+		t.Fatalf("update component = %v, want controller", update.GetComponent())
+	}
+	if update.GetUpdateAvailable() {
+		t.Fatal("updateAvailable = true, want false")
+	}
+	if update.GetUpdateable() {
+		t.Fatal("updateable = true, want false")
+	}
+	if !strings.Contains(update.GetReason(), "no published system update release") {
+		t.Fatalf("reason = %q, want missing release reason", update.GetReason())
+	}
+}
+
 func TestSystemUpdateAvailabilityBlocksChecksumResolutionFailures(t *testing.T) {
 	oldVersion := version.SoftwareVersion
 	version.SoftwareVersion = "1.0.0"

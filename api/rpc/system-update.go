@@ -86,6 +86,13 @@ func (xs *XylonaService) CheckSystemUpdates(ctx context.Context, request *connec
 
 	release, errRelease := xs.fetchLatestSystemRelease(ctx)
 	if errRelease != nil {
+		if isLatestSystemReleaseNotFound(errRelease) {
+			response, errUnavailable := xs.systemUpdateReleaseUnavailableAvailability(ctx, request.Msg, "no published system update release found for the configured repository")
+			if errUnavailable != nil {
+				return nil, errUnavailable
+			}
+			return connect.NewResponse(response), nil
+		}
 		return nil, connect.NewError(connect.CodeUnavailable, errRelease)
 	}
 
@@ -784,6 +791,116 @@ func (xs *XylonaService) fetchLatestSystemRelease(ctx context.Context) (*updater
 		return nil, fmt.Errorf("fetch latest system release: %w", errRelease)
 	}
 	return release, nil
+}
+
+func isLatestSystemReleaseNotFound(err error) bool {
+	var statusErr *updater.HTTPStatusError
+	if !errors.As(err, &statusErr) {
+		return false
+	}
+	return statusErr.StatusCode == http.StatusNotFound
+}
+
+func (xs *XylonaService) systemUpdateReleaseUnavailableAvailability(ctx context.Context, request *xylona.CheckSystemUpdatesRequest, reason string) (*xylona.CheckSystemUpdatesResponse, error) {
+	response := &xylona.CheckSystemUpdatesResponse{}
+	nodeID := strings.TrimSpace(request.GetNodeId())
+	if nodeID == "" {
+		response.Updates = append(response.Updates, xs.controllerUpdateReleaseUnavailableAvailability(reason))
+	}
+
+	if request.GetIncludeNodes() || nodeID != "" {
+		nodeUpdates, errNodes := xs.nodeUpdateReleaseUnavailableAvailability(ctx, nodeID, reason)
+		if errNodes != nil {
+			return nil, errNodes
+		}
+		response.Updates = append(response.Updates, nodeUpdates...)
+	}
+
+	return response, nil
+}
+
+func (xs *XylonaService) controllerUpdateReleaseUnavailableAvailability(reason string) *xylona.SystemUpdateAvailability {
+	availability := &xylona.SystemUpdateAvailability{
+		Component:      xylona.SystemUpdateComponent_SYSTEM_UPDATE_COMPONENT_CONTROLLER,
+		CurrentVersion: version.SoftwareVersion,
+		Os:             runtime.GOOS,
+		Architecture:   runtime.GOARCH,
+		Reason:         reason,
+	}
+	manager, errManager := xs.controllerSelfUpdateManager()
+	if errManager != nil {
+		return availability
+	}
+	caps := manager.Capabilities()
+	availability.ServiceManagerSupported = caps.ServiceManagerSupported
+	availability.InstallPathWritable = caps.InstallPathWritable
+	return availability
+}
+
+func (xs *XylonaService) nodeUpdateReleaseUnavailableAvailability(ctx context.Context, onlyNodeID string, reason string) ([]*xylona.SystemUpdateAvailability, error) {
+	nodes, errNodes := xs.db.GetAllNodes()
+	if errNodes != nil {
+		return nil, connect.NewError(connect.CodeInternal, errNodes)
+	}
+	selfNodeID := xs.selfNodeID()
+	candidates := make([]*models.Node, 0, len(nodes))
+	for _, nodeRow := range nodes {
+		if onlyNodeID != "" && nodeRow.ID != onlyNodeID {
+			continue
+		}
+		if nodeRow.ID == selfNodeID {
+			continue
+		}
+		candidates = append(candidates, nodeRow)
+	}
+	if len(candidates) == 0 {
+		return []*xylona.SystemUpdateAvailability{}, nil
+	}
+
+	out := make([]*xylona.SystemUpdateAvailability, len(candidates))
+	jobs := make(chan int, len(candidates))
+	workerCount := min(defaultSystemUpdateAvailabilityProbes, len(candidates))
+	var wg sync.WaitGroup
+	for range workerCount {
+		wg.Go(func() {
+			for idx := range jobs {
+				out[idx] = xs.singleNodeUpdateReleaseUnavailableAvailability(ctx, candidates[idx], reason)
+			}
+		})
+	}
+	for idx := range candidates {
+		jobs <- idx
+	}
+	close(jobs)
+	wg.Wait()
+	return out, nil
+}
+
+func (xs *XylonaService) singleNodeUpdateReleaseUnavailableAvailability(ctx context.Context, nodeRow *models.Node, reason string) *xylona.SystemUpdateAvailability {
+	availability := &xylona.SystemUpdateAvailability{
+		Component: xylona.SystemUpdateComponent_SYSTEM_UPDATE_COMPONENT_NODE,
+		NodeId:    nodeRow.ID,
+		NodeName:  nodeRow.Name,
+		Reason:    reason,
+	}
+	client, errClient := xs.resolveNodeClientByID(nodeRow.ID)
+	if errClient != nil {
+		availability.Reason = errClient.Error()
+		return availability
+	}
+	capsCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	caps, errCaps := client.GetUpdateCapabilities(capsCtx)
+	cancel()
+	if errCaps != nil {
+		availability.Reason = "node does not support update capability RPC"
+		return availability
+	}
+	availability.CurrentVersion = caps.CurrentVersion
+	availability.Os = caps.OS
+	availability.Architecture = caps.Architecture
+	availability.ServiceManagerSupported = caps.ServiceManagerSupported
+	availability.InstallPathWritable = caps.InstallPathWritable
+	return availability
 }
 
 func (xs *XylonaService) fillArtifactSHA(ctx context.Context, release *updater.Release, artifact *updater.Artifact) error {
