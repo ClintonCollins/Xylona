@@ -44,7 +44,11 @@ func (c *Connection) EncryptText(plaintext string) (string, error) {
 	if len(c.encryptionKey) == 0 {
 		return "", errors.New("encryption key is not configured")
 	}
-	return xycrypt.Encrypt(c.encryptionKey, plaintext)
+	ciphertext, errEncrypt := xycrypt.Encrypt(c.encryptionKey, plaintext)
+	if errEncrypt != nil {
+		return "", fmt.Errorf("db: encrypt text: %w", errEncrypt)
+	}
+	return ciphertext, nil
 }
 
 // DecryptText decrypts ciphertext stored by EncryptText. Falls back to the
@@ -59,9 +63,13 @@ func (c *Connection) DecryptText(ciphertext string) (string, error) {
 		return plaintext, nil
 	}
 	if len(c.fallbackEncryptionKey) == 0 {
-		return "", errPrimary
+		return "", fmt.Errorf("db: decrypt text: %w", errPrimary)
 	}
-	return xycrypt.Decrypt(c.fallbackEncryptionKey, ciphertext)
+	fallbackPlaintext, errFallback := xycrypt.Decrypt(c.fallbackEncryptionKey, ciphertext)
+	if errFallback != nil {
+		return "", errors.Join(fmt.Errorf("db: decrypt text with primary key: %w", errPrimary), fmt.Errorf("db: decrypt text with fallback key: %w", errFallback))
+	}
+	return fallbackPlaintext, nil
 }
 
 func sqliteDSNWithPragmas(path string, pragmas ...string) string {

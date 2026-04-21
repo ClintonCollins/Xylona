@@ -85,7 +85,7 @@ func (n *Node) CreateFileArchiveWithProgress(
 	if errProgress != nil {
 		return "", ArchiveProgress{}, errProgress
 	}
-	errArchive := writeNodeArchive(ctx, outputPath, archiveFiles, compression, progress, onProgress)
+	errArchive := writeNodeArchive(ctx, directory, outputRelative, outputPath, archiveFiles, compression, progress, onProgress)
 	if errArchive != nil {
 		return "", ArchiveProgress{}, errArchive
 	}
@@ -109,7 +109,7 @@ func completedArchiveProgress(progress ArchiveProgress) ArchiveProgress {
 	return progress
 }
 
-func writeNodeArchive(ctx context.Context, outputPath string, archiveFiles []archives.FileInfo, compression ArchiveCompression, progress ArchiveProgress, onProgress func(ArchiveProgress) error) error {
+func writeNodeArchive(ctx context.Context, rootDirectory string, outputRelative string, outputPath string, archiveFiles []archives.FileInfo, compression ArchiveCompression, progress ArchiveProgress, onProgress func(ArchiveProgress) error) error {
 	format := archiveFormat(compression)
 	archiveOut, errCreate := os.Create(outputPath)
 	if errCreate != nil {
@@ -119,14 +119,14 @@ func writeNodeArchive(ctx context.Context, outputPath string, archiveFiles []arc
 	errArchive := archiveWithProgress(ctx, format, archiveOut, archiveFiles, progress, onProgress)
 	errClose := archiveOut.Close()
 	if errArchive != nil {
-		errCleanup := cleanupPartialNodeArchive(outputPath)
+		errCleanup := cleanupPartialNodeArchive(rootDirectory, outputRelative)
 		if errCleanup != nil {
 			return errors.Join(fmt.Errorf("node: archive files: %w", errArchive), errCleanup)
 		}
 		return fmt.Errorf("node: archive files: %w", errArchive)
 	}
 	if errClose != nil {
-		errCleanup := cleanupPartialNodeArchive(outputPath)
+		errCleanup := cleanupPartialNodeArchive(rootDirectory, outputRelative)
 		if errCleanup != nil {
 			return errors.Join(fmt.Errorf("node: close file archive: %w", errClose), errCleanup)
 		}
@@ -191,10 +191,27 @@ func sendArchiveProgress(onProgress func(ArchiveProgress) error, progress Archiv
 	return nil
 }
 
-func cleanupPartialNodeArchive(pathValue string) error {
-	errRemove := os.Remove(pathValue)
+func cleanupPartialNodeArchive(rootDirectory string, relativePath string) error {
+	validated, errPath := validateLocalPath(relativePath)
+	if errPath != nil {
+		return errPath
+	}
+
+	archiveRoot, errRoot := os.OpenRoot(rootDirectory)
+	if errRoot != nil {
+		return fmt.Errorf("node: open archive root: %w", errRoot)
+	}
+
+	errRemove := archiveRoot.Remove(validated)
+	errClose := archiveRoot.Close()
 	if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+		if errClose != nil {
+			return errors.Join(fmt.Errorf("node: remove partial file archive: %w", errRemove), fmt.Errorf("node: close archive root: %w", errClose))
+		}
 		return fmt.Errorf("node: remove partial file archive: %w", errRemove)
+	}
+	if errClose != nil {
+		return fmt.Errorf("node: close archive root: %w", errClose)
 	}
 	return nil
 }

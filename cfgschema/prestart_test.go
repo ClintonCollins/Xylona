@@ -1,6 +1,7 @@
 package cfgschema
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -176,4 +177,120 @@ func TestRunPreStart_EmptySchemas(t *testing.T) {
 	// Should not panic with empty or null schemas.
 	RunPreStart(dir, "", nil)
 	RunPreStart(dir, "[]", nil)
+}
+
+func TestRunPreStart_GenerateStructuredJSONWhenMissing(t *testing.T) {
+	dir := t.TempDir()
+
+	schemasJSON := `[{
+		"path": "ServerDescription.json",
+		"format": "json",
+		"category": "Server",
+		"generate_before_start": true,
+		"managed_fields": {
+			"ServerDescription_Persistent.DirectConnectionServerPort": "game_server.port"
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"ServerDescription_Persistent.ServerName": {"type": "string", "default": "My Windrose Server"},
+				"ServerDescription_Persistent.MaxPlayerCount": {"type": "integer", "default": 8},
+				"ServerDescription_Persistent.UseDirectConnection": {"type": "boolean", "default": true},
+				"ServerDescription_Persistent.DirectConnectionServerPort": {"type": "integer", "default": 7777}
+			}
+		}
+	}]`
+
+	resolver := ServerSettingsResolver("0.0.0.0", 7781, 7782)
+	RunPreStart(dir, schemasJSON, resolver)
+
+	data, errRead := os.ReadFile(filepath.Join(dir, "ServerDescription.json"))
+	if errRead != nil {
+		t.Fatalf("expected JSON file to be generated, got read error: %v", errRead)
+	}
+
+	var config map[string]any
+	errUnmarshal := json.Unmarshal(data, &config)
+	if errUnmarshal != nil {
+		t.Fatalf("json.Unmarshal() error = %v", errUnmarshal)
+	}
+
+	persistent, ok := config["ServerDescription_Persistent"].(map[string]any)
+	if !ok {
+		t.Fatalf("ServerDescription_Persistent type = %T, want object", config["ServerDescription_Persistent"])
+	}
+	if persistent["ServerName"] != "My Windrose Server" {
+		t.Errorf("ServerName = %v, want %q", persistent["ServerName"], "My Windrose Server")
+	}
+	if persistent["MaxPlayerCount"] != float64(8) {
+		t.Errorf("MaxPlayerCount = %v, want 8", persistent["MaxPlayerCount"])
+	}
+	useDirectConnection, ok := persistent["UseDirectConnection"].(bool)
+	if !ok || !useDirectConnection {
+		t.Errorf("UseDirectConnection = %v, want true", persistent["UseDirectConnection"])
+	}
+	if persistent["DirectConnectionServerPort"] != float64(7781) {
+		t.Errorf("DirectConnectionServerPort = %v, want 7781", persistent["DirectConnectionServerPort"])
+	}
+}
+
+func TestRunPreStart_ManagedStructuredJSONOverwritten(t *testing.T) {
+	dir := t.TempDir()
+
+	content := `{
+  "ServerDescription_Persistent": {
+    "ServerName": "Keep Me",
+    "DirectConnectionServerPort": 7777
+  },
+  "Unknown": "preserved"
+}
+`
+	errWrite := os.WriteFile(filepath.Join(dir, "ServerDescription.json"), []byte(content), 0o600)
+	if errWrite != nil {
+		t.Fatalf("setup write error: %v", errWrite)
+	}
+
+	schemasJSON := `[{
+		"path": "ServerDescription.json",
+		"format": "json",
+		"category": "Server",
+		"managed_fields": {
+			"ServerDescription_Persistent.DirectConnectionServerPort": "game_server.port"
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"ServerDescription_Persistent.ServerName": {"type": "string"},
+				"ServerDescription_Persistent.DirectConnectionServerPort": {"type": "integer"}
+			}
+		}
+	}]`
+
+	resolver := ServerSettingsResolver("0.0.0.0", 7781, 7782)
+	RunPreStart(dir, schemasJSON, resolver)
+
+	data, errRead := os.ReadFile(filepath.Join(dir, "ServerDescription.json"))
+	if errRead != nil {
+		t.Fatalf("read error: %v", errRead)
+	}
+
+	var config map[string]any
+	errUnmarshal := json.Unmarshal(data, &config)
+	if errUnmarshal != nil {
+		t.Fatalf("json.Unmarshal() error = %v", errUnmarshal)
+	}
+
+	persistent, ok := config["ServerDescription_Persistent"].(map[string]any)
+	if !ok {
+		t.Fatalf("ServerDescription_Persistent type = %T, want object", config["ServerDescription_Persistent"])
+	}
+	if persistent["ServerName"] != "Keep Me" {
+		t.Errorf("ServerName = %v, want %q", persistent["ServerName"], "Keep Me")
+	}
+	if persistent["DirectConnectionServerPort"] != float64(7781) {
+		t.Errorf("DirectConnectionServerPort = %v, want 7781", persistent["DirectConnectionServerPort"])
+	}
+	if config["Unknown"] != "preserved" {
+		t.Errorf("Unknown = %v, want %q", config["Unknown"], "preserved")
+	}
 }

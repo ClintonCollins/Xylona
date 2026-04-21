@@ -9,7 +9,7 @@ func TestFindAvailablePortIgnoresQueryPortConflicts(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	seedAlternateNodeAndIP(t, fixture)
 	insertNodeScopedIPForParityTests(t, fixture, "node-local", "127.0.0.2")
-	seedTestGame(t, fixture, "test-game")
+	seedTestGame(t, fixture)
 
 	_, errInsert := fixture.conn.SQLDb.ExecContext(
 		context.Background(),
@@ -51,7 +51,7 @@ func TestFindAvailablePortAllowsSamePortAndQueryPort(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	seedAlternateNodeAndIP(t, fixture)
 	insertNodeScopedIPForParityTests(t, fixture, "node-local", "127.0.0.2")
-	seedTestGame(t, fixture, "test-game")
+	seedTestGame(t, fixture)
 
 	game, errGetGame := fixture.conn.GetGameByID("test-game")
 	if errGetGame != nil {
@@ -80,7 +80,7 @@ func TestFindAvailablePortAllowsSamePortAndQueryPort(t *testing.T) {
 func TestFindAvailablePortAllowsSameIPAndPortOnDifferentNode(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	seedAlternateNodeAndIP(t, fixture)
-	seedTestGame(t, fixture, "test-game")
+	seedTestGame(t, fixture)
 
 	game, errGetGame := fixture.conn.GetGameByID("test-game")
 	if errGetGame != nil {

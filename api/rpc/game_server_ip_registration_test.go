@@ -18,7 +18,7 @@ import (
 func TestCreateGameServerPersistsRuntimeOnlyNodeIP(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	seedAlternateNodeAndIP(t, fixture)
-	seedTestGame(t, fixture, "test-game")
+	seedTestGame(t, fixture)
 
 	remoteClient := &nodeclient.FakeNodeClient{
 		NodeID: "node-alt",
@@ -78,7 +78,7 @@ func TestCreateGameServerPersistsRuntimeOnlyNodeIP(t *testing.T) {
 func TestCreateGameServerRejectsIPNotConfiguredForNode(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	seedAlternateNodeAndIP(t, fixture)
-	seedTestGame(t, fixture, "test-game")
+	seedTestGame(t, fixture)
 
 	remoteClient := &nodeclient.FakeNodeClient{
 		NodeID: "node-alt",

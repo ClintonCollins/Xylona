@@ -37,12 +37,14 @@ func seedAlternateNodeAndIP(t *testing.T, fixture *rbacRPCFixture) {
 	}
 }
 
-func seedTestGame(t *testing.T, fixture *rbacRPCFixture, gameID string) {
+const testGameID = "test-game"
+
+func seedTestGame(t *testing.T, fixture *rbacRPCFixture) {
 	t.Helper()
 
 	now := time.Now().UTC()
 	_, errInsert := fixture.conn.InsertGame(fixture.conn.DB, &models.GameSetter{
-		ID:                omit.From(gameID),
+		ID:                omit.From(testGameID),
 		Name:              omit.From("Test Game"),
 		DefaultPort:       omit.From(int64(28000)),
 		DefaultQueryPort:  omit.From(int64(28001)),

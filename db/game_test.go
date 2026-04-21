@@ -9,6 +9,7 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/stephenafamo/bob"
 
+	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -77,6 +78,73 @@ func TestGetGames(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("GetGames() missing seeded game %q", "minecraft")
+	}
+}
+
+func TestSeededWindroseGame(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "game-windrose.sqlite")
+
+	game, errGet := conn.GetGameByID("windrose")
+	if errGet != nil {
+		t.Fatalf("GetGameByID(windrose) error = %v", errGet)
+	}
+	if game.Name != "Windrose" {
+		t.Errorf("Name = %q, want %q", game.Name, "Windrose")
+	}
+	if game.DefaultPort != 7777 {
+		t.Errorf("DefaultPort = %d, want 7777", game.DefaultPort)
+	}
+	if game.DefaultQueryPort != 7778 {
+		t.Errorf("DefaultQueryPort = %d, want 7778", game.DefaultQueryPort)
+	}
+	if game.DefaultMaxPlayers != 8 {
+		t.Errorf("DefaultMaxPlayers = %d, want 8", game.DefaultMaxPlayers)
+	}
+	if !game.UsesSteamcmd {
+		t.Error("UsesSteamcmd = false, want true")
+	}
+	if game.SteamAppID != "4129620" {
+		t.Errorf("SteamAppID = %q, want %q", game.SteamAppID, "4129620")
+	}
+	if game.LinuxSupport {
+		t.Error("LinuxSupport = true, want false")
+	}
+	if !game.WindowsSupport {
+		t.Error("WindowsSupport = false, want true")
+	}
+	if game.WindowsBaseCommand != "WindroseServer.exe" {
+		t.Errorf("WindowsBaseCommand = %q, want %q", game.WindowsBaseCommand, "WindroseServer.exe")
+	}
+	if game.WindowsStartArgsTemplate.GetOr("") == "" {
+		t.Error("WindowsStartArgsTemplate is empty, want -log template")
+	}
+
+	schemasJSON := game.ConfigSchemas.GetOr("")
+	if schemasJSON == "" {
+		t.Fatal("ConfigSchemas is empty, want ServerDescription.json schema")
+	}
+	validationErrors := cfgschema.ValidateConfigSchemas(schemasJSON)
+	if len(validationErrors) > 0 {
+		t.Fatalf("ValidateConfigSchemas() errors = %v", validationErrors)
+	}
+
+	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
+	if errParse != nil {
+		t.Fatalf("ParseConfigSchemas() error = %v", errParse)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("config schema entry count = %d, want 1", len(entries))
+	}
+	entry := entries[0]
+	if entry.Path != "ServerDescription.json" {
+		t.Errorf("schema path = %q, want %q", entry.Path, "ServerDescription.json")
+	}
+	if entry.Format != "json" {
+		t.Errorf("schema format = %q, want %q", entry.Format, "json")
+	}
+	managedSource := entry.ManagedFields["ServerDescription_Persistent.DirectConnectionServerPort"]
+	if managedSource != "game_server.port" {
+		t.Errorf("managed direct port source = %q, want %q", managedSource, "game_server.port")
 	}
 }
 

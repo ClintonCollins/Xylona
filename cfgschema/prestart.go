@@ -80,38 +80,8 @@ func processPreStartEntry(store PreStartFileStore, entry ConfigSchemaEntry, reso
 		return
 	}
 
-	if !p.IsFlat() {
-		// For structured formats, we'd need the dot-path adapter. For now,
-		// skip structured format pre-start enforcement.
-		log.Debug().Str("path", entry.Path).Msg("Pre-start: structured format support pending")
-		return
-	}
-
-	var parsed []cfgparse.ConfigEntry
-
-	if fileExists {
-		var errParseFile error
-		parsed, errParseFile = p.Flat.Parse(fileData)
-		if errParseFile != nil {
-			log.Warn().Err(errParseFile).Str("path", entry.Path).
-				Msg("Pre-start: failed to parse config file, skipping")
-			return
-		}
-	}
-
-	if !fileExists && entry.GenerateBeforeStart {
-		// Generate file from defaults.
-		parsed = generateDefaultEntries(entry)
-	}
-
-	// Enforce managed fields.
-	parsed = enforceManagedFields(parsed, entry.ManagedFields, resolver)
-
-	// Write the file back.
-	output, errWrite := p.Flat.Write(parsed)
-	if errWrite != nil {
-		log.Warn().Err(errWrite).Str("path", entry.Path).
-			Msg("Pre-start: failed to write config file")
+	output, ok := preStartOutput(p, entry, fileData, fileExists, resolver)
+	if !ok {
 		return
 	}
 
@@ -132,6 +102,90 @@ func processPreStartEntry(store PreStartFileStore, entry ConfigSchemaEntry, reso
 	}
 
 	log.Debug().Str("path", entry.Path).Msg("Pre-start: processed config file")
+}
+
+func preStartOutput(
+	p *cfgparse.Parser,
+	entry ConfigSchemaEntry,
+	fileData []byte,
+	fileExists bool,
+	resolver ManagedFieldResolver,
+) ([]byte, bool) {
+	if p.IsFlat() {
+		output, ok := preStartFlatOutput(p, entry, fileData, fileExists, resolver)
+		return output, ok
+	}
+
+	output, ok := preStartStructuredOutput(p, entry, fileData, fileExists, resolver)
+	return output, ok
+}
+
+func preStartFlatOutput(
+	p *cfgparse.Parser,
+	entry ConfigSchemaEntry,
+	fileData []byte,
+	fileExists bool,
+	resolver ManagedFieldResolver,
+) ([]byte, bool) {
+	var parsed []cfgparse.ConfigEntry
+
+	if fileExists {
+		var errParseFile error
+		parsed, errParseFile = p.Flat.Parse(fileData)
+		if errParseFile != nil {
+			log.Warn().Err(errParseFile).Str("path", entry.Path).
+				Msg("Pre-start: failed to parse config file, skipping")
+			return nil, false
+		}
+	}
+
+	if !fileExists && entry.GenerateBeforeStart {
+		parsed = generateDefaultEntries(entry)
+	}
+
+	parsed = enforceManagedFields(parsed, entry.ManagedFields, resolver)
+
+	output, errWrite := p.Flat.Write(parsed)
+	if errWrite != nil {
+		log.Warn().Err(errWrite).Str("path", entry.Path).
+			Msg("Pre-start: failed to write config file")
+		return nil, false
+	}
+
+	return output, true
+}
+
+func preStartStructuredOutput(
+	p *cfgparse.Parser,
+	entry ConfigSchemaEntry,
+	fileData []byte,
+	fileExists bool,
+	resolver ManagedFieldResolver,
+) ([]byte, bool) {
+	var root *cfgparse.ConfigNode
+
+	if fileExists {
+		var errParseFile error
+		root, errParseFile = p.Structured.Parse(fileData)
+		if errParseFile != nil {
+			log.Warn().Err(errParseFile).Str("path", entry.Path).
+				Msg("Pre-start: failed to parse config file, skipping")
+			return nil, false
+		}
+	} else {
+		root = structuredDefaultRoot(entry)
+	}
+
+	enforceManagedStructuredFields(root, entry.ManagedFields, entry.Schema, resolver)
+
+	output, errWrite := p.Structured.Write(root)
+	if errWrite != nil {
+		log.Warn().Err(errWrite).Str("path", entry.Path).
+			Msg("Pre-start: failed to write config file")
+		return nil, false
+	}
+
+	return output, true
 }
 
 func normalizePreStartRelativePath(entryPath string) (string, error) {

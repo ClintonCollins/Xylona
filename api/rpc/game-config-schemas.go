@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -236,10 +237,18 @@ func getGameServerConfigFile(
 	var parsed []cfgparse.ConfigEntry
 
 	fileData, errRead := client.ReadFile(ctx, gameServer.Directory, relativePath)
-	if errRead == nil && p.IsFlat() {
-		parsed, errRead = p.Flat.Parse(fileData)
-		if errRead != nil {
-			return nil, internalErrf("failed to parse config file")
+	if errRead == nil {
+		if p.IsFlat() {
+			parsed, errRead = p.Flat.Parse(fileData)
+			if errRead != nil {
+				return nil, internalErrf("failed to parse config file")
+			}
+		} else {
+			root, errParseStructured := p.Structured.Parse(fileData)
+			if errParseStructured != nil {
+				return nil, internalErrf("failed to parse config file")
+			}
+			parsed = cfgparse.Flatten(root)
 		}
 	}
 
@@ -410,25 +419,12 @@ func updateGameServerConfigFile(
 		return nil, internalErrf("unsupported format")
 	}
 
-	if !p.IsFlat() {
-		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("structured format editing not yet supported"))
-	}
-
 	relativePath, errPath := sanitizeConfigRelativePath(schemaEntry.Path)
 	if errPath != nil {
 		return nil, errPath
 	}
 
-	// Read existing file.
-	var existingEntries []cfgparse.ConfigEntry
-
 	fileData, errRead := client.ReadFile(ctx, gameServer.Directory, relativePath)
-	if errRead == nil {
-		existingEntries, errRead = p.Flat.Parse(fileData)
-		if errRead != nil {
-			return nil, internalErrf("failed to parse existing config file")
-		}
-	}
 
 	// Convert advanced fields.
 	var advancedFields []cfgschema.AdvancedFieldData
@@ -440,11 +436,11 @@ func updateGameServerConfigFile(
 		})
 	}
 
-	// Merge and write.
-	merged := cfgschema.MergeAndWrite(existingEntries, fields, advancedFields, schemaEntry.Schema)
-
-	output, errWrite := p.Flat.Write(merged)
-	if errWrite != nil {
+	output, errBuildOutput := configFileOutput(p, fileData, errRead, fields, advancedFields, schemaEntry.Schema)
+	if errors.Is(errBuildOutput, errParseConfigFile) {
+		return nil, internalErrf("failed to parse existing config file")
+	}
+	if errBuildOutput != nil {
 		return nil, internalErrf("failed to write config file")
 	}
 
@@ -463,6 +459,77 @@ func updateGameServerConfigFile(
 			Success: true,
 		},
 	}, nil
+}
+
+var errParseConfigFile = errors.New("parse config file")
+
+func configFileOutput(
+	p *cfgparse.Parser,
+	fileData []byte,
+	errRead error,
+	fields []cfgschema.FieldData,
+	advancedFields []cfgschema.AdvancedFieldData,
+	schema cfgschema.SchemaDefinition,
+) ([]byte, error) {
+	if p.IsFlat() {
+		return flatConfigFileOutput(p, fileData, errRead, fields, advancedFields, schema)
+	}
+
+	return structuredConfigFileOutput(p, fileData, errRead, fields, advancedFields, schema)
+}
+
+func flatConfigFileOutput(
+	p *cfgparse.Parser,
+	fileData []byte,
+	errRead error,
+	fields []cfgschema.FieldData,
+	advancedFields []cfgschema.AdvancedFieldData,
+	schema cfgschema.SchemaDefinition,
+) ([]byte, error) {
+	var existingEntries []cfgparse.ConfigEntry
+
+	if errRead == nil {
+		var errParseFile error
+		existingEntries, errParseFile = p.Flat.Parse(fileData)
+		if errParseFile != nil {
+			return nil, fmt.Errorf("%w: %w", errParseConfigFile, errParseFile)
+		}
+	}
+
+	merged := cfgschema.MergeAndWrite(existingEntries, fields, advancedFields, schema)
+	output, errWrite := p.Flat.Write(merged)
+	if errWrite != nil {
+		return nil, fmt.Errorf("write flat config: %w", errWrite)
+	}
+
+	return output, nil
+}
+
+func structuredConfigFileOutput(
+	p *cfgparse.Parser,
+	fileData []byte,
+	errRead error,
+	fields []cfgschema.FieldData,
+	advancedFields []cfgschema.AdvancedFieldData,
+	schema cfgschema.SchemaDefinition,
+) ([]byte, error) {
+	root := &cfgparse.ConfigNode{Type: cfgparse.NodeObject}
+
+	if errRead == nil {
+		var errParseFile error
+		root, errParseFile = p.Structured.Parse(fileData)
+		if errParseFile != nil {
+			return nil, fmt.Errorf("%w: %w", errParseConfigFile, errParseFile)
+		}
+	}
+
+	cfgschema.MergeStructuredFields(root, fields, advancedFields, schema)
+	output, errWrite := p.Structured.Write(root)
+	if errWrite != nil {
+		return nil, fmt.Errorf("write structured config: %w", errWrite)
+	}
+
+	return output, nil
 }
 
 // GenerateGameServerConfigFile creates a config file from schema defaults.
@@ -539,7 +606,12 @@ func generateGameServerConfigFile(
 		}
 	}()
 
-	cfgschema.RunPreStart(stagingDir, schemasJSON, resolver)
+	generationSchemasJSON, errGenerationSchemas := configSchemasJSONForGeneration(schemaEntry)
+	if errGenerationSchemas != nil {
+		return nil, internalErrf("failed to generate config file")
+	}
+
+	cfgschema.RunPreStart(stagingDir, generationSchemasJSON, resolver)
 
 	stagedFilePath := filepath.Join(stagingDir, filepath.FromSlash(relativePath))
 	fileData, errRead := os.ReadFile(stagedFilePath)
@@ -562,6 +634,18 @@ func generateGameServerConfigFile(
 			Success: true,
 		},
 	}, nil
+}
+
+func configSchemasJSONForGeneration(schemaEntry *cfgschema.ConfigSchemaEntry) (string, error) {
+	generationEntry := *schemaEntry
+	generationEntry.GenerateBeforeStart = true
+
+	data, errMarshal := json.Marshal([]cfgschema.ConfigSchemaEntry{generationEntry})
+	if errMarshal != nil {
+		return "", fmt.Errorf("marshal generation config schema: %w", errMarshal)
+	}
+
+	return string(data), nil
 }
 
 func sanitizeConfigRelativePath(relativePath string) (string, error) {
