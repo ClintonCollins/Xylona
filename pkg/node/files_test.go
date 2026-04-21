@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -81,8 +82,18 @@ func TestListFilesReturnsEntries(t *testing.T) {
 
 func TestListFilesReportsExecutableMetadata(t *testing.T) {
 	dir := t.TempDir()
-	executablePath := filepath.Join(dir, "run.cmd")
-	errWrite := os.WriteFile(executablePath, []byte("@echo off\n"), 0o600)
+
+	executableName := "run.sh"
+	executableMode := os.FileMode(0o700)
+	executableContent := []byte("#!/bin/sh\n")
+	if runtime.GOOS == "windows" {
+		executableName = "run.cmd"
+		executableMode = 0o600
+		executableContent = []byte("@echo off\n")
+	}
+
+	executablePath := filepath.Join(dir, executableName)
+	errWrite := os.WriteFile(executablePath, executableContent, executableMode)
 	if errWrite != nil {
 		t.Fatalf("WriteFile executable error = %v", errWrite)
 	}
@@ -101,8 +112,8 @@ func TestListFilesReportsExecutableMetadata(t *testing.T) {
 	for _, entry := range entries {
 		byName[entry.Name] = entry
 	}
-	if !byName["run.cmd"].IsExecutable {
-		t.Fatalf("run.cmd IsExecutable = false, want true")
+	if !byName[executableName].IsExecutable {
+		t.Fatalf("%s IsExecutable = false, want true", executableName)
 	}
 	if byName["notes.txt"].IsExecutable {
 		t.Fatalf("notes.txt IsExecutable = true, want false")

@@ -7,7 +7,7 @@ import (
 )
 
 func endpointForResolvedDatabasePath(resolvedDBPath string) string {
-	return filepath.Join(filepath.Dir(resolvedDBPath), `.xylona-admin-`+endpointHash(resolvedDBPath)+`.sock`)
+	return filepath.Join(filepath.Dir(resolvedDBPath), `.xyadm-`+endpointHash(resolvedDBPath))
 }
 
 func endpointHashInput(resolvedDBPath string) string {
