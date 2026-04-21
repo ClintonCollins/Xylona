@@ -19,29 +19,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Set up Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: frontend/package.json
-
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: bun ci
-
-      - name: Build embedded frontend
-        working-directory: frontend
-        run: bun run build
+      - name: Prepare embedded frontend placeholder
+        run: mkdir -p frontend/dist/spa && touch frontend/dist/spa/.gitkeep
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -55,11 +40,29 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./...
 
-      - name: Build Go binary
-        run: go build -o xylona
-
       - name: Run Go tests
         run: go test -race -count=1 ./...
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: frontend/package.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun ci
+
+      - name: Build embedded frontend
+        working-directory: frontend
+        run: bun run build
+
+      - name: Build Go binary
+        run: go build -o xylona
 
   frontend:
     name: Frontend
