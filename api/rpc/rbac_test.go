@@ -325,12 +325,6 @@ func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 	}
 }
 
-// TestGrantFederatedAccessAuthorizationAndShape and
-// TestListRemoteNodeUsersRequiresSearchForNonSuper covered the federation-era
-// acting-identity flow. Hub-spoke removed federated access entirely: the
-// RPCs now return Unimplemented and the tests go with them. Step 7 will
-// delete the RPCs from the public proto and the stubs that replaced them.
-
 func TestListRoles(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 

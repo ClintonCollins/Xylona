@@ -12,7 +12,7 @@ Xylona is still evolving quickly. Expect active iteration, and treat upgrades th
 - View console output and runtime status
 - Manage files and backups
 - Configure game and server settings
-- Administer users, permissions, nodes, and federation
+- Administer users, permissions, and nodes
 
 ## Development
 
@@ -57,7 +57,7 @@ ENCRYPTION_KEY_BASE64=<base64-encoded encryption key; 32 bytes recommended, firs
 
 `ENCRYPTION_KEY_BASE64` is required. Xylona does not fall back to the JWT secret for new database encryption, and startup fails if the key is missing or does not decode to at least 32 bytes. For compatibility with older deployments, Xylona uses the first 32 decoded bytes as the AES-256 key and can use the first 32 decoded bytes of `JWT_SECRET_KEY_BASE64` only as a legacy decryption fallback while it re-encrypts older stored secrets under `ENCRYPTION_KEY_BASE64`.
 
-User passwords use Argon2id in the auth and user RPC paths. `pkg/xycrypt` provides AES-GCM encryption for stored secrets such as node API keys, and its Argon2id helpers are used for non-password secret tokens such as local and federation secret keys.
+User passwords use Argon2id in the auth and user RPC paths. `pkg/xycrypt` provides AES-GCM encryption for stored secrets such as node API keys, and its Argon2id helpers are used for non-password secret tokens such as node join tokens.
 
 Optional runtime controls:
 
@@ -66,9 +66,6 @@ METRICS_ENABLED=false
 HTTP_READ_TIMEOUT=15m
 HTTP_WRITE_TIMEOUT=15m
 HTTP_IDLE_TIMEOUT=30m
-FEDERATION_READ_TIMEOUT=15m
-FEDERATION_WRITE_TIMEOUT=15m
-FEDERATION_IDLE_TIMEOUT=30m
 ```
 
 Metrics are disabled by default. Enable them explicitly when you intend to expose a Prometheus scrape target.
@@ -77,20 +74,20 @@ Metrics are disabled by default. Enable them explicitly when you intend to expos
 
 `data.sqlite` and `ENCRYPTION_KEY_BASE64` are a matched recovery set. Keep them together in disaster-recovery planning: the database alone is not enough to recover encrypted control-plane secrets, and the encryption key alone is not enough to recreate state.
 
-Built-in game-server backups cover game-server data, not Xylona control-plane secrets. If you need to back up users, roles, API keys, federation identity, or notification credentials, back up `data.sqlite` and your environment secrets separately.
+Built-in game-server backups cover game-server data, not Xylona control-plane secrets. If you need to back up users, roles, API keys, node identity, or notification credentials, back up `data.sqlite` and your environment secrets separately.
 
 | Secret class | Storage at rest | Included in built-in game-server backups | Notes |
 | --- | --- | --- | --- |
 | User passwords | Argon2id hash | No | Non-reversible password hashes stored in the database. |
-| Local node secret keys | Argon2id hash | No | Used for node-to-node verification; hashes only. |
-| Federation local identity `cert_pem` | Plaintext in `data.sqlite` | No | Public certificate material, not secret. |
-| Federation local identity `key_pem` | AES-GCM encrypted in `data.sqlite` | No | Encrypted with `ENCRYPTION_KEY_BASE64`; startup fails if existing ciphertext cannot be decrypted. |
+| Node join tokens | Argon2id hash | No | One-time bootstrap tokens; hashes only. |
+| Remote node certificate fingerprints | Plaintext in `data.sqlite` | No | Public certificate pinning material, not secret. |
+| Remote node shared secrets | AES-GCM encrypted in `data.sqlite` | No | Encrypted with `ENCRYPTION_KEY_BASE64`; startup fails if existing ciphertext cannot be decrypted. |
 | System config secrets | AES-GCM encrypted in `data.sqlite` | No | Includes values such as SMTP credentials. |
 | Notification channel configs | AES-GCM encrypted in `data.sqlite` | No | Includes webhook URLs and similar credentials. |
 | Node API keys | AES-GCM encrypted in `data.sqlite` | No | Provider/API tokens stored encrypted at rest. |
 | Cookie and JWT secrets | Environment / `.env` | No | Not stored in the database. |
 
-If you suspect `data.sqlite` or a backup copy of it was exposed, treat the federation private key as compromised. Xylona does not rotate federation identity automatically in that situation. Rotate it manually by removing or replacing the `federation_local_identity` row while Xylona is stopped, starting Xylona to mint a fresh identity, and then re-pairing any remote nodes that trusted the previous certificate fingerprint.
+If you suspect `data.sqlite` or a backup copy of it was exposed, treat remote node shared secrets as compromised. Xylona does not rotate those secrets automatically in that situation. Rotate them by removing affected remote nodes while Xylona is stopped, then re-pairing those nodes after restart.
 
 ### Mod Provider Integrity
 
@@ -216,17 +213,6 @@ bun run e2e
 mage E2E
 ```
 
-Federation suite:
-
-```bash
-cd frontend
-bun run e2e:federation
-```
-
-```bash
-mage E2EFederation
-```
-
 Useful variants:
 
 ```bash
@@ -234,18 +220,8 @@ mage E2EHeaded
 ```
 
 ```bash
-mage E2EFederationHeaded
-```
-
-```bash
 mage E2EReport
 ```
-
-```bash
-mage E2EFederationReport
-```
-
-Set `E2E_KEEP_DATA=1` to preserve federation test data for debugging.
 
 ## Before Opening A PR
 

@@ -2,9 +2,8 @@
 // HTTPS client primitives the hub-spoke node binary uses to authenticate the
 // controller <-> node channel.
 //
-// It is intentionally narrower than helpers/federation/mtls.go: there is no
-// trusted-peer store, no acting-identity headers, and no federation port
-// abstraction. The model is: a node generates a self-signed certificate,
+// It is intentionally narrow: there is no trusted-peer store and no
+// acting-identity header layer. The model is: a node generates a self-signed certificate,
 // publishes its SHA-256 fingerprint to the controller during bootstrap pairing
 // (Step 6), and the controller pins that fingerprint on every subsequent
 // connection. Application-layer authorization travels in the
@@ -28,9 +27,8 @@ import (
 	"time"
 )
 
-// CertificateTTL is the validity window for generated node certificates. Ten
-// years matches helpers/federation/mtls.go and keeps self-hosters from having
-// to rotate by hand.
+// CertificateTTL is the validity window for generated node certificates.
+// Ten years keeps self-hosters from having to rotate by hand.
 const CertificateTTL = 10 * 365 * 24 * time.Hour
 
 // GenerateSelfSigned produces a fresh ECDSA P-256 self-signed certificate for

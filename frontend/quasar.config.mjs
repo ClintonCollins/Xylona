@@ -103,12 +103,6 @@ export default configure(function (/* ctx */) {
           secure: false,
           ws: true,
         },
-        '/xylona.Federation': {
-          target: backendProxyTarget,
-          changeOrigin: true,
-          secure: false,
-          ws: true,
-        },
         '/api': {
           target: backendProxyTarget,
           changeOrigin: true,

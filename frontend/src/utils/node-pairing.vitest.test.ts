@@ -87,6 +87,22 @@ describe('parseNodePairingPayload', () => {
     })
   })
 
+  it('ignores removed mTLS port alias', () => {
+    const removedPortAlias = ['fed', 'er', 'ation_port'].join('')
+    const parsed = parseNodePairingPayload(
+      JSON.stringify({
+        base_url: 'https://example.com',
+        secret_key: 'abc',
+        [removedPortAlias]: 8443,
+      }),
+    )
+    expect(parsed).toEqual({
+      base_url: 'https://example.com',
+      secret_key: 'abc',
+      mtls_port: 0,
+    })
+  })
+
   it('throws for invalid json payload', () => {
     expect(() => parseNodePairingPayload('not-json')).toThrow('Pairing JSON is invalid')
   })

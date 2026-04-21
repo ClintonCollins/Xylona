@@ -21,10 +21,7 @@
     "e2e:ui": "bunx playwright test --ui",
     "e2e:headed": "bunx playwright test --headed",
     "e2e:debug": "bunx playwright test --debug",
-    "e2e:report": "bunx playwright show-report e2e/playwright-report",
-    "e2e:federation": "bunx playwright test --config playwright-federation.config.ts",
-    "e2e:federation:headed": "bunx playwright test --config playwright-federation.config.ts --headed",
-    "e2e:federation:report": "bunx playwright show-report e2e/playwright-report-federation"
+    "e2e:report": "bunx playwright show-report e2e/playwright-report"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.11.0",

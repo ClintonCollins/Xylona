@@ -14,14 +14,6 @@ var SoftwareVersion = resolveSoftwareVersion(softwareVersionStamp, readBuildInfo
 // SystemVersion is the runtime version string exposed in system info responses.
 var SystemVersion = SoftwareVersion
 
-const (
-	// FederationProtocolVersion is the version of the federation protocol.
-	FederationProtocolVersion = 1
-
-	// FederationCapabilities is a comma-separated list of capabilities supported by this node.
-	FederationCapabilities = "server_list,server_detail,remote_actions,console_streaming,status_streaming,file_operations,update,edit,remove"
-)
-
 func readBuildInfo() *debug.BuildInfo {
 	buildInfo, ok := debug.ReadBuildInfo()
 	if !ok {

@@ -88,7 +88,7 @@ func runHubSpokeSetup(ctx context.Context, httpPort, nodePort int, adminUsername
 	// Start controller.
 	controllerCmd, errStart := startNode(
 		"Controller", controllerDir, e2eDir, xylonaExe,
-		httpPort, 0,
+		httpPort,
 		"DUMMY_GAME_ID=e2e-test-game",
 		"XYLONA_VERSION_CHECK_INTERVAL=30s",
 	)

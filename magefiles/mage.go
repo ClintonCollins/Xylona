@@ -315,10 +315,6 @@ func E2EReport() {
 	}
 }
 
-// E2EFederation, E2EFederationHeaded, and E2EFederationReport were removed
-// alongside the federation mesh harness. The hub-spoke multi-node E2E
-// (controller + xylona-node) lands in step 11 of the hub-spoke migration.
-
 // E2ESeed bootstraps a fresh SQLite database with an admin user.
 // Usage: mage e2eSeed <db_path> [username] [password].
 func E2ESeed(dbPath string, username string, password string) {

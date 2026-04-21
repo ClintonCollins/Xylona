@@ -4,8 +4,5 @@ dist/
 .quasar/
 coverage/
 e2e/playwright-report/
-e2e/playwright-report-federation/
 e2e/test-results/
-e2e/test-results-federation/
 e2e/.e2e-data/
-e2e/.federation/

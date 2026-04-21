@@ -223,7 +223,5 @@ func TestWebSocket_LocalStatusChangeSkipsUnauthorizedConnections(t *testing.T) {
 	<-done
 }
 
-// TestWebSocket_LocalStatusChangeIgnoresFederatedEvents covered the
-// federation-era broadcast filter. Hub-spoke has no federated events —
-// StatusChangedEvent no longer carries a Federated flag — so the test goes
-// away with the mesh.
+// StatusChangedEvent is now source-agnostic, so status broadcast coverage lives
+// in the authorization tests above.

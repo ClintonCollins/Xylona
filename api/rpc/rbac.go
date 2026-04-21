@@ -16,10 +16,6 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// TODO(hub-spoke step 7): the Federated* access grant RPCs are holdovers from
-// the federation mesh. They're stubbed Unimplemented here and will be removed
-// from the proto (and the frontend) in step 7 along with the other mesh RPCs.
-
 // ListRoles returns all defined RBAC roles.
 func (xs *XylonaService) ListRoles(_ context.Context, request *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error) {
 	_, errUser := xs.getUserFromHeader(request.Header())

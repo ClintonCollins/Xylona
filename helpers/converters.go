@@ -690,9 +690,8 @@ func NodeProtoToModel(nodeProto *xylona.Node) *models.Node {
 	}
 }
 
-// NodeModelToProto converts a node database model to a protobuf message. The
-// legacy federation-era fields (Host, Port, IsLocal, Version, etc.) are zeroed
-// — the public proto will be trimmed in step 7.
+// NodeModelToProto converts a node database model to a protobuf message. Fields
+// outside the hub-spoke Node model are left at their protobuf zero values.
 func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
 	return &xylona.Node{
 		Id:         nodeModel.ID,

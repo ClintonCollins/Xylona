@@ -75,7 +75,7 @@ export function parseNodePairingPayload(payloadText: string): NodePairingPayload
   const baseURL = typeof payloadObject['base_url'] === 'string' ? payloadObject['base_url'] : ''
   const secretKey =
     typeof payloadObject['secret_key'] === 'string' ? payloadObject['secret_key'] : ''
-  const rawMTLSPort = payloadObject['mtls_port'] ?? payloadObject['federation_port']
+  const rawMTLSPort = payloadObject['mtls_port']
   const normalizedSecretKey = secretKey.trim()
   if (normalizedSecretKey === '') {
     throw new Error('secret_key is required')

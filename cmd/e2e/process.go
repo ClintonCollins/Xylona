@@ -28,7 +28,7 @@ func generateBase64Key(length int) (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-func startNode(name, workDir, logDir, xylonaExe string, httpPort, fedPort int, extraEnv ...string) (*exec.Cmd, error) {
+func startNode(name, workDir, logDir, xylonaExe string, httpPort int, extraEnv ...string) (*exec.Cmd, error) {
 	cookieHashKey, errCookie := generateBase64Key(64)
 	if errCookie != nil {
 		return nil, errCookie
@@ -47,7 +47,6 @@ func startNode(name, workDir, logDir, xylonaExe string, httpPort, fedPort int, e
 	baseEnv := []string{
 		"DB_FILE_PATH=" + filepath.Join(workDir, "data.sqlite"),
 		"HTTP_PORT=" + strconv.Itoa(httpPort),
-		"FEDERATION_PORT=" + strconv.Itoa(fedPort),
 		"COOKIE_HASH_KEY_BASE64=" + cookieHashKey,
 		"COOKIE_BLOCK_KEY_BASE64=" + cookieBlockKey,
 		"JWT_SECRET_KEY_BASE64=" + jwtSecretKey,
@@ -65,7 +64,7 @@ func startNode(name, workDir, logDir, xylonaExe string, httpPort, fedPort int, e
 		return nil, fmt.Errorf("stderr pipe: %w", errStderr)
 	}
 
-	log.Info().Msgf("[%s] Starting on HTTP :%d, Federation :%d", name, httpPort, fedPort)
+	log.Info().Msgf("[%s] Starting on HTTP :%d", name, httpPort)
 
 	errStart := cmd.Start()
 	if errStart != nil {

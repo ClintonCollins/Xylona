@@ -103,14 +103,13 @@ var testUserDefs = []struct {
 
 const e2eDummyStartTemplateJSON = `[{"id":"heartbeat","order":0,"ownership":"system","tokens":["-heartbeat","5s"],"label":"Heartbeat"}]`
 
-func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, adminPassword, e2eDir, projectRoot string) error {
+func runSingleSetup(ctx context.Context, httpPort int, adminUsername, adminPassword, e2eDir, projectRoot string) error {
 	backendURL := fmt.Sprintf("http://localhost:%d", httpPort)
 	log.Info().Msgf("[E2E Setup] Target backend: %s", backendURL)
 
 	// Acquire lock to prevent concurrent runs.
 	errLock := acquireLock(e2eDir, "single", map[string]int{
-		"http":       httpPort,
-		"federation": fedPort,
+		"http": httpPort,
 	})
 	if errLock != nil {
 		return fmt.Errorf("acquire lock: %w", errLock)
@@ -134,8 +133,6 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 	for _, suffix := range []string{"", "-wal", "-shm"} {
 		_ = os.Remove(dbFile + suffix)
 	}
-	// Clean leftover federation identity.
-	_ = os.RemoveAll(filepath.Join(dataDir, "federation"))
 
 	// Build frontend SPA (embedded in the Xylona binary).
 	log.Info().Msg("[E2E Setup] Building frontend SPA...")
@@ -161,7 +158,7 @@ func runSingleSetup(ctx context.Context, httpPort, fedPort int, adminUsername, a
 	}
 
 	// Start the Xylona backend.
-	backendCmd, errStart := startNode("E2E-Backend", dataDir, e2eDir, xylonaExe, httpPort, fedPort, "DUMMY_GAME_ID=e2e-test-game", "XYLONA_VERSION_CHECK_INTERVAL=30s")
+	backendCmd, errStart := startNode("E2E-Backend", dataDir, e2eDir, xylonaExe, httpPort, "DUMMY_GAME_ID=e2e-test-game", "XYLONA_VERSION_CHECK_INTERVAL=30s")
 	if errStart != nil {
 		return fmt.Errorf("start backend: %w", errStart)
 	}

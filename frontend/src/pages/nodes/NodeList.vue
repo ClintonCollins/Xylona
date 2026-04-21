@@ -182,7 +182,7 @@
               <q-icon class="q-mb-sm text-xy-muted" name="dns" size="3rem" />
               <div class="text-subtitle1">No nodes found</div>
               <div class="text-caption text-xy-muted">
-                Add a remote node to get started with federation.
+                Add a remote node to start managing another host.
               </div>
             </div>
           </template>

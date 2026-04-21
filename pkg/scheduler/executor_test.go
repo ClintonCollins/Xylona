@@ -307,9 +307,6 @@ func TestExecuteTaskBackupPartialSuccessReportsPostBackupFailure(t *testing.T) {
 	}
 }
 
-// TestExecuteTaskBackupFailsForNonLocalServer was a federation-era guard that
-// rejected scheduled backups for remote nodes. Hub-spoke doesn't make that
-// distinction yet; remote-node backup support is deferred to phase 2 (the
-// executor currently assumes the game server lives on the controller's
-// embedded node — see pkg/scheduler/executor.go). The test returns when
+// Remote-node backup support is deferred; the executor currently assumes the
+// game server lives on the controller's embedded node. Add coverage here when
 // that invariant is revisited.

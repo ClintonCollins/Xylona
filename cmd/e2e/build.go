@@ -43,7 +43,7 @@ func buildDummyGameServer(projectRoot, outputPath string) error {
 }
 
 func buildXylona(projectRoot, outputPath string) error {
-	log.Info().Msg("[Federation Setup] Building Xylona binary...")
+	log.Info().Msg("[E2E Setup] Building Xylona binary...")
 	errMkdir := os.MkdirAll(filepath.Dir(outputPath), 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("create output dir: %w", errMkdir)
@@ -77,7 +77,7 @@ func buildXylonaNode(projectRoot, outputPath string) error {
 }
 
 func buildFrontend(projectRoot string) error {
-	log.Info().Msg("[Federation Setup] Building frontend SPA...")
+	log.Info().Msg("[E2E Setup] Building frontend SPA...")
 	cmd := exec.Command("pnpm", "run", "build") //nolint:noctx // build commands don't need cancellation context
 	cmd.Dir = filepath.Join(projectRoot, "frontend")
 	cmd.Stdout = os.Stdout

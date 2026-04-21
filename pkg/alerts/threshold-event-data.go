@@ -10,7 +10,7 @@ import (
 const thresholdFloatEqualityEpsilon = 0.000001
 
 // ThresholdEventData is the shared JSON payload for threshold-based alert
-// events across evaluator, delivery, and federation forwarding.
+// events across evaluator and delivery paths.
 type ThresholdEventData struct {
 	CurrentValue float64 `json:"current_value"`
 	Threshold    float64 `json:"threshold"`

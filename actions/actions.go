@@ -86,7 +86,7 @@ type VersionResolveOptions struct {
 	AllowAsync   bool
 }
 
-// Instance coordinates game server lifecycle, files, federation, and background jobs.
+// Instance coordinates game server lifecycle, files, remote nodes, and background jobs.
 type Instance struct {
 	ctx                  context.Context
 	supervisorInstance   *supervisor.Instance

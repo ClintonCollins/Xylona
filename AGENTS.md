@@ -36,7 +36,6 @@ Frontend:
 - from `frontend/`: `bun run test`
 - from `frontend/`: `bun run test:coverage`
 - from `frontend/`: `bun run e2e`
-- from `frontend/`: `bun run e2e:federation`
 
 Build and codegen:
 - `mage Build`
@@ -106,39 +105,33 @@ Do not add DOMPurify or replace these with plain text unless the trust boundary 
 
 ## E2E
 
-Two self-contained Playwright suites exist, both driven by `cmd/e2e`.
+A self-contained Playwright suite exists, driven by `cmd/e2e`.
 
 Single-node:
-- `cmd/e2e single-setup` builds binaries, seeds a fresh DB, starts backend on `:9091`, federation on `:9446`, and runs behind Vite on `:9002`
+- `cmd/e2e single-setup` builds binaries, seeds a fresh DB, starts backend on `:9091`, and runs behind Vite on `:9002`
 - Coverage areas: login, smoke, admin, permissions, page permissions, console errors, file browser, server lifecycle, config schema ordering, mods
 - Entry files: `frontend/e2e/global-setup.ts`, `frontend/e2e/global-teardown.ts`, `frontend/e2e/helpers.ts`, `frontend/e2e/auth.setup.ts`
 
-Federation:
-- `cmd/e2e federation-setup` builds binaries, seeds two DBs, starts nodes on `:9081/:9444` and `:9082/:9445`, pairs them, and creates test data
-- Coverage areas: pairing, console, console errors, file browser, permissions, server lifecycle
-- Entry files: `frontend/e2e/federation-setup.ts`, `frontend/e2e/federation-teardown.ts`, `frontend/e2e/federation-helpers.ts`, `frontend/e2e/federation-auth.setup.ts`, `frontend/playwright-federation.config.ts`
+Hub-spoke:
+- `cmd/e2e hub-spoke-setup` builds controller and node binaries, seeds a fresh DB, starts a controller plus one remote `xylona-node`, pairs the node, and leaves both processes running for tests or manual inspection
+- `cmd/e2e hub-spoke-teardown` tears down the hub-spoke environment
 
 Useful commands:
 - `mage E2E`
 - `mage E2EHeaded`
 - `mage E2EUI`
 - `mage E2EReport`
-- `mage E2EFederation`
-- `mage E2EFederationHeaded`
-- `mage E2EFederationReport`
-- Set `E2E_KEEP_DATA=1` to keep federation data for debugging
 
 Artifacts:
 - `frontend/e2e/.e2e-data/`
 - `frontend/e2e/.e2e-*.lock`
-- `frontend/e2e/.federation/`
 - `frontend/e2e/playwright-report/`
-- `frontend/e2e/playwright-report-federation/`
 - `frontend/e2e/test-results/`
 
 Orchestrator reference:
-- Subcommands: `single-setup`, `single-teardown`, `federation-setup`, `federation-teardown`, `seed`
-- Common flags: `--http-port`, `--fed-port`, `--e2e-dir`, `--project-root`
+- Subcommands: `single-setup`, `single-teardown`, `hub-spoke-setup`, `hub-spoke-teardown`, `seed`
+- Common flags: `--http-port`, `--e2e-dir`, `--project-root`
+- Hub-spoke flags: `--node-port`
 - Seed flags: `--db`, `--username`, `--password`, `--migrations`
 
 ## Design Context
