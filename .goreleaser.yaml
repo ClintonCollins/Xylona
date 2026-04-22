@@ -1,3 +1,5 @@
+version: 2
+
 # This is an example .goreleaser.yml file with some sensible defaults.
 # Make sure to check the documentation at https://goreleaser.com
 before:
@@ -36,17 +38,19 @@ builds:
 
 archives:
   - id: xylona-binary
-    builds:
+    ids:
       - xylona
-    format: binary
+    formats:
+      - binary
     name_template: >-
       xylona_
       {{- .Os }}_
       {{- .Arch }}
   - id: xylona-node-binary
-    builds:
+    ids:
       - xylona-node
-    format: binary
+    formats:
+      - binary
     name_template: >-
       xylona-node_
       {{- .Os }}_
@@ -64,7 +68,7 @@ signs:
       - '--detach-sign'
       - '${artifact}'
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
   filters:

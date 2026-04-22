@@ -93,7 +93,7 @@ func translate(err error) error {
 	if errors.Is(err, node.ErrUnexpectedHTTPStatus) || errors.Is(err, node.ErrDownloadIntegrityMismatch) {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}
-	if errors.Is(err, selfupdate.ErrApplyUnsupported) || errors.Is(err, selfupdate.ErrInvalidStage) {
+	if errors.Is(err, selfupdate.ErrInvalidStage) {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}
 	return connect.NewError(connect.CodeInternal, err)

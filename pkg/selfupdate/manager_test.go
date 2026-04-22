@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -27,7 +26,6 @@ func TestManagerStageSelfUpdate(t *testing.T) {
 		Component:      "node",
 		StageDir:       t.TempDir(),
 		ExecutablePath: exePath,
-		AllowApply:     false,
 		ExitFunc:       func(int) {},
 	})
 	if errManager != nil {
@@ -88,26 +86,6 @@ func TestManagerStageRejectsBadInput(t *testing.T) {
 	}
 }
 
-func TestManagerApplyDisabled(t *testing.T) {
-	t.Parallel()
-
-	manager, errManager := NewManager(Config{
-		Component:      "node",
-		StageDir:       t.TempDir(),
-		ExecutablePath: t.TempDir() + "/xylona-node",
-		AllowApply:     false,
-		ExitFunc:       func(int) {},
-	})
-	if errManager != nil {
-		t.Fatalf("NewManager() error = %v", errManager)
-	}
-
-	_, errApply := manager.Apply(t.Context(), node.ApplySelfUpdateRequest{StageID: "missing"})
-	if !errors.Is(errApply, ErrApplyUnsupported) {
-		t.Fatalf("Apply() error = %v, want ErrApplyUnsupported", errApply)
-	}
-}
-
 func TestManagerApplyStartsHelperAfterRequestContextCanceled(t *testing.T) {
 	t.Parallel()
 
@@ -120,7 +98,6 @@ func TestManagerApplyStartsHelperAfterRequestContextCanceled(t *testing.T) {
 		Component:      "node",
 		StageDir:       t.TempDir(),
 		ExecutablePath: t.TempDir() + "/xylona-node",
-		AllowApply:     true,
 		ExitFunc: func(code int) {
 			exitCalls <- code
 		},
@@ -185,7 +162,6 @@ func TestManagerApplyPreparesInstallCandidateNextToExecutable(t *testing.T) {
 		Component:      "node",
 		StageDir:       t.TempDir(),
 		ExecutablePath: executablePath,
-		AllowApply:     true,
 		ExitFunc:       func(int) {},
 	})
 	if errManager != nil {

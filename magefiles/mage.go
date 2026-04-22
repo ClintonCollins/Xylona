@@ -82,7 +82,7 @@ func Build() {
 	buildFrontend()
 
 	// Run Goreleaser
-	cmdGoReleaser := exec.Command("goreleaser", "release", "--snapshot", "--clean")
+	cmdGoReleaser := exec.Command("goreleaser", "release", "--snapshot", "--clean", "--skip=sign")
 	cmdGoReleaser.Dir = "."
 	cmdGoReleaser.Stdout = os.Stdout
 	cmdGoReleaser.Stderr = os.Stderr

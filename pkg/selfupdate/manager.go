@@ -29,8 +29,6 @@ const (
 )
 
 var (
-	// ErrApplyUnsupported is returned when the runtime is not configured for self-update.
-	ErrApplyUnsupported = errors.New("selfupdate: apply unsupported")
 	// ErrInvalidStage is returned when a staged artifact is missing or invalid.
 	ErrInvalidStage = errors.New("selfupdate: invalid staged artifact")
 )
@@ -40,7 +38,6 @@ type Config struct {
 	Component      string
 	StageDir       string
 	ExecutablePath string
-	AllowApply     bool
 	ExitFunc       func(code int)
 }
 
@@ -51,7 +48,6 @@ type Manager struct {
 	component      string
 	stageDir       string
 	executablePath string
-	allowApply     bool
 	exitFunc       func(code int)
 	startHelper    helperStarter
 }
@@ -93,18 +89,16 @@ func NewManager(cfg Config) (*Manager, error) {
 		component:      component,
 		stageDir:       absStageDir,
 		executablePath: absExe,
-		allowApply:     cfg.AllowApply,
 		exitFunc:       exitFunc,
 		startHelper:    startHelperProcess,
 	}, nil
 }
 
-// NewDefaultManager creates a Manager using environment-controlled apply support.
+// NewDefaultManager creates a Manager using default executable and stage paths.
 func NewDefaultManager(component string, stageDir string) (*Manager, error) {
 	return NewManager(Config{
-		Component:  component,
-		StageDir:   stageDir,
-		AllowApply: envBool("XYLONA_SELF_UPDATE_ALLOW_APPLY"),
+		Component: component,
+		StageDir:  stageDir,
 	})
 }
 
@@ -117,14 +111,10 @@ func (m *Manager) Capabilities() node.UpdateCapabilities {
 		OS:                      runtime.GOOS,
 		Architecture:            runtime.GOARCH,
 		ProtocolVersion:         ProtocolVersion,
-		ServiceManagerSupported: m.allowApply,
+		ServiceManagerSupported: true,
 		InstallPath:             m.executablePath,
 	}
 	caps.InstallPathWritable = m.installPathWritable()
-	if !m.allowApply {
-		caps.Reason = "self-update apply is disabled; set XYLONA_SELF_UPDATE_ALLOW_APPLY=1 for service-managed installs"
-		return caps
-	}
 	if !caps.InstallPathWritable {
 		caps.Reason = "install path is not writable"
 		return caps
@@ -218,9 +208,6 @@ func (m *Manager) Stage(ctx context.Context, req node.StageSelfUpdateRequest) (n
 func (m *Manager) Apply(_ context.Context, req node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error) {
 	if m == nil {
 		return node.ApplySelfUpdateResult{}, errors.New("selfupdate: manager is nil")
-	}
-	if !m.allowApply {
-		return node.ApplySelfUpdateResult{}, ErrApplyUnsupported
 	}
 	stageID := strings.TrimSpace(req.StageID)
 	if stageID == "" {
@@ -503,13 +490,4 @@ func hashFile(r io.Reader) (string, int64, error) {
 		return "", written, fmt.Errorf("selfupdate: hash file: %w", errCopy)
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), written, nil
-}
-
-func envBool(key string) bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
 }
