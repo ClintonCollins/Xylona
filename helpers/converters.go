@@ -287,6 +287,7 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		WindowsBaseCommand:                gameModel.WindowsBaseCommand,
 		StartArgBlocklist:                 gameModel.StartArgBlocklist,
 		AllowStartArgEditing:              gameModel.AllowStartArgEditing,
+		XylonaOfficial:                    gameModel.XylonaOfficial,
 		UpdateProvider:                    updateproviders.ProviderConfigToProto(gameConfig.UpdateProvider),
 		DefaultTarget:                     gameConfig.DefaultTarget,
 		ModProfile:                        updateproviders.ModProfileToProto(gameConfig.ModProfile),

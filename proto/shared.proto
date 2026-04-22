@@ -139,6 +139,7 @@ message Game {
   string windows_base_command = 83;
   string start_arg_blocklist = 84;
   bool allow_start_arg_editing = 85;
+  bool xylona_official = 86;
 }
 
 message SteamApp {

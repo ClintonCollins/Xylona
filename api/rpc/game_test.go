@@ -105,6 +105,11 @@ func TestListGamesReturnsSeededGames(t *testing.T) {
 	if baselineCount == 0 {
 		t.Errorf("ListGames() returned 0 games, expected seeded games from migration")
 	}
+	for _, game := range resp.Msg.GetGames() {
+		if !game.GetXylonaOfficial() {
+			t.Errorf("ListGames() seeded game %q should be Xylona official", game.GetId())
+		}
+	}
 }
 
 func TestListGamesIncludesAdded(t *testing.T) {

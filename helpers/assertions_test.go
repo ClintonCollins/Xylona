@@ -358,6 +358,7 @@ func TestGameModelToProto(t *testing.T) {
 		RequiresSteamGameServerLoginToken: true,
 		UsesSteamcmd:                      true,
 		SteamAppID:                        "294420",
+		XylonaOfficial:                    true,
 	}
 
 	got := GameModelToProto(input)
@@ -409,6 +410,9 @@ func TestGameModelToProto(t *testing.T) {
 	}
 	if got.GetSteamAppid() != "294420" {
 		t.Errorf("SteamAppid = %q, want %q", got.GetSteamAppid(), "294420")
+	}
+	if !got.GetXylonaOfficial() {
+		t.Errorf("XylonaOfficial = %v, want true", got.GetXylonaOfficial())
 	}
 }
 

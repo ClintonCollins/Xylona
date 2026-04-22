@@ -39,6 +39,13 @@
             </router-link>
           </q-td>
         </template>
+        <template #body-cell-xylona_official="props">
+          <q-td :props="props">
+            <q-badge
+              :color="props.row.xylonaOfficial ? 'positive' : 'grey-8'"
+              :label="props.row.xylonaOfficial ? 'Official' : 'Custom'" />
+          </q-td>
+        </template>
         <template #body-cell-windows_support="props">
           <q-td :props="props">
             <q-icon v-if="props.row.windowsSupport" color="positive" name="check" size="md" />
@@ -160,6 +167,13 @@ const columns = ref([
     required: true,
     align: 'left',
     field: (row: { name: string }) => row.name,
+    sortable: true,
+  },
+  {
+    name: 'xylona_official',
+    label: 'Source',
+    align: 'left',
+    field: (row: { xylonaOfficial: boolean }) => (row.xylonaOfficial ? 'Official' : 'Custom'),
     sortable: true,
   },
   {
