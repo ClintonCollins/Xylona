@@ -8,6 +8,7 @@ import (
 	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -84,7 +85,7 @@ func TestParsePreservesExplicitUpdateConfig(t *testing.T) {
 		t.Fatalf("Parse() error = %v", errParse)
 	}
 
-	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(parsed.Model)
+	gameConfig, errConfig := updateconfig.LoadGameConfigFromModel(parsed.Model)
 	if errConfig != nil {
 		t.Fatalf("LoadGameConfigFromModel() error = %v", errConfig)
 	}

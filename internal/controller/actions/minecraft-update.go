@@ -18,6 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -60,7 +61,7 @@ func (inst *Instance) resolveMinecraftUpdatePlan(
 		return nil, errMinecraftGameRelationNotLoaded
 	}
 
-	resolved, errResolve := updateproviders.ResolveModelConfig(gameServer.R.Game, gameServer)
+	resolved, errResolve := updateconfig.ResolveModelConfig(gameServer.R.Game, gameServer)
 	if errResolve != nil {
 		return nil, fmt.Errorf("resolve minecraft update config: %w", errResolve)
 	}

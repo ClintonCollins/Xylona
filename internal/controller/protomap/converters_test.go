@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -563,7 +564,7 @@ func TestGameModelToProtoMapsInstallAndUpdateTypes(t *testing.T) {
 			}
 
 			if tt.updateProvider != nil {
-				errSave := updateproviders.SaveGameConfigToModel(gameModel, updateproviders.GameConfig{
+				errSave := updateconfig.SaveGameConfigToModel(gameModel, updateproviders.GameConfig{
 					UpdateProvider: updateproviders.ProviderConfig{
 						Kind: updateproviders.ProviderKindMojang,
 					},

@@ -1,10 +1,11 @@
-package updateproviders
+package updateconfig
 
 import (
 	"testing"
 
 	"github.com/aarondl/opt/null"
 
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -37,8 +38,8 @@ func TestLoadGameConfigFromModel_LegacyServerSoftwareJSON(t *testing.T) {
 	if variant.ID != "paper" {
 		t.Fatalf("variant.ID = %q, want %q", variant.ID, "paper")
 	}
-	if variant.UpdateProvider == nil || variant.UpdateProvider.Kind != ProviderKindPaperMC {
-		t.Fatalf("variant.UpdateProvider.Kind = %v, want %v", variant.UpdateProvider, ProviderKindPaperMC)
+	if variant.UpdateProvider == nil || variant.UpdateProvider.Kind != updateproviders.ProviderKindPaperMC {
+		t.Fatalf("variant.UpdateProvider.Kind = %v, want %v", variant.UpdateProvider, updateproviders.ProviderKindPaperMC)
 	}
 	if variant.ModProfile == nil {
 		t.Fatalf("variant.ModProfile = nil, want value")
@@ -65,8 +66,8 @@ func TestLoadGameConfigFromModel_DerivesSteamCMDDefaults(t *testing.T) {
 		t.Fatalf("LoadGameConfigFromModel() error = %v", errLoad)
 	}
 
-	if cfg.UpdateProvider.Kind != ProviderKindSteamCMD {
-		t.Fatalf("cfg.UpdateProvider.Kind = %q, want %q", cfg.UpdateProvider.Kind, ProviderKindSteamCMD)
+	if cfg.UpdateProvider.Kind != updateproviders.ProviderKindSteamCMD {
+		t.Fatalf("cfg.UpdateProvider.Kind = %q, want %q", cfg.UpdateProvider.Kind, updateproviders.ProviderKindSteamCMD)
 	}
 	if cfg.DefaultTarget != "public" {
 		t.Fatalf("cfg.DefaultTarget = %q, want %q", cfg.DefaultTarget, "public")
@@ -99,8 +100,8 @@ func TestResolveModelConfig_UsesStoredVariantAndTarget(t *testing.T) {
 	if resolved.VariantID != "paper" {
 		t.Fatalf("resolved.VariantID = %q, want %q", resolved.VariantID, "paper")
 	}
-	if resolved.Provider.Kind != ProviderKindPaperMC {
-		t.Fatalf("resolved.Provider.Kind = %q, want %q", resolved.Provider.Kind, ProviderKindPaperMC)
+	if resolved.Provider.Kind != updateproviders.ProviderKindPaperMC {
+		t.Fatalf("resolved.Provider.Kind = %q, want %q", resolved.Provider.Kind, updateproviders.ProviderKindPaperMC)
 	}
 	if resolved.Provider.SourceID != "paper" {
 		t.Fatalf("resolved.Provider.SourceID = %q, want %q", resolved.Provider.SourceID, "paper")

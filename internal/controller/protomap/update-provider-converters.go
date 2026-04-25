@@ -1,14 +1,14 @@
-package updateproviders
+package protomap
 
 import (
-	"encoding/json"
 	"strings"
 
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 // ProviderConfigToProto converts a provider config to its protobuf form.
-func ProviderConfigToProto(cfg ProviderConfig) *xylona.UpdateProviderConfig {
+func ProviderConfigToProto(cfg updateproviders.ProviderConfig) *xylona.UpdateProviderConfig {
 	return &xylona.UpdateProviderConfig{
 		Kind:     providerKindToProto(cfg.Kind),
 		SourceId: cfg.SourceID,
@@ -16,19 +16,19 @@ func ProviderConfigToProto(cfg ProviderConfig) *xylona.UpdateProviderConfig {
 }
 
 // ProviderConfigFromProto converts a protobuf provider config to its local form.
-func ProviderConfigFromProto(proto *xylona.UpdateProviderConfig) ProviderConfig {
+func ProviderConfigFromProto(proto *xylona.UpdateProviderConfig) updateproviders.ProviderConfig {
 	if proto == nil {
-		return ProviderConfig{}
+		return updateproviders.ProviderConfig{}
 	}
 
-	return ProviderConfig{
+	return updateproviders.ProviderConfig{
 		Kind:     providerKindFromProto(proto.GetKind()),
 		SourceID: strings.TrimSpace(proto.GetSourceId()),
 	}
 }
 
 // ModProfileToProto converts a mod profile to protobuf form.
-func ModProfileToProto(profile *ModProfile) *xylona.ModProfile {
+func ModProfileToProto(profile *updateproviders.ModProfile) *xylona.ModProfile {
 	if profile == nil {
 		return nil
 	}
@@ -48,27 +48,27 @@ func ModProfileToProto(profile *ModProfile) *xylona.ModProfile {
 }
 
 // ModProfileFromProto converts a protobuf mod profile to local form.
-func ModProfileFromProto(proto *xylona.ModProfile) *ModProfile {
+func ModProfileFromProto(proto *xylona.ModProfile) *updateproviders.ModProfile {
 	if proto == nil {
 		return nil
 	}
 
-	sources := make([]ModSource, 0, len(proto.GetSources()))
+	sources := make([]updateproviders.ModSource, 0, len(proto.GetSources()))
 	for _, source := range proto.GetSources() {
-		sources = append(sources, ModSource{
+		sources = append(sources, updateproviders.ModSource{
 			ID:               strings.TrimSpace(source.GetId()),
 			SearchParamsJSON: strings.TrimSpace(source.GetSearchParamsJson()),
 		})
 	}
 
-	return &ModProfile{
+	return &updateproviders.ModProfile{
 		InstallPath: strings.TrimSpace(proto.GetInstallPath()),
 		Sources:     sources,
 	}
 }
 
 // VariantsToProto converts variants to protobuf form.
-func VariantsToProto(variants []Variant) []*xylona.Variant {
+func VariantsToProto(variants []updateproviders.Variant) []*xylona.Variant {
 	protoVariants := make([]*xylona.Variant, 0, len(variants))
 	for _, variant := range variants {
 		var updateProvider *xylona.UpdateProviderConfig
@@ -87,15 +87,15 @@ func VariantsToProto(variants []Variant) []*xylona.Variant {
 }
 
 // VariantsFromProto converts protobuf variants to local form.
-func VariantsFromProto(protoVariants []*xylona.Variant) []Variant {
-	variants := make([]Variant, 0, len(protoVariants))
+func VariantsFromProto(protoVariants []*xylona.Variant) []updateproviders.Variant {
+	variants := make([]updateproviders.Variant, 0, len(protoVariants))
 	for _, protoVariant := range protoVariants {
-		var updateProvider *ProviderConfig
+		var updateProvider *updateproviders.ProviderConfig
 		if protoVariant.GetUpdateProvider() != nil {
 			cfg := ProviderConfigFromProto(protoVariant.GetUpdateProvider())
 			updateProvider = &cfg
 		}
-		variants = append(variants, Variant{
+		variants = append(variants, updateproviders.Variant{
 			ID:             strings.TrimSpace(protoVariant.GetId()),
 			Name:           strings.TrimSpace(protoVariant.GetName()),
 			UpdateProvider: updateProvider,
@@ -106,47 +106,47 @@ func VariantsFromProto(protoVariants []*xylona.Variant) []Variant {
 	return variants
 }
 
-// SearchParams decodes serialized search parameters for a mod source.
-func SearchParams(source ModSource) map[string]any {
-	raw := strings.TrimSpace(source.SearchParamsJSON)
-	if raw == "" {
-		return nil
-	}
-
-	var parsed map[string]any
-	errUnmarshal := json.Unmarshal([]byte(raw), &parsed)
-	if errUnmarshal != nil {
-		return nil
-	}
-	return parsed
-}
-
-func providerKindToProto(kind ProviderKind) xylona.UpdateProviderKind {
+func providerKindToProto(kind updateproviders.ProviderKind) xylona.UpdateProviderKind {
 	switch normalizeProviderKind(kind) {
-	case ProviderKindSteamCMD:
+	case updateproviders.ProviderKindSteamCMD:
 		return xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_STEAMCMD
-	case ProviderKindPaperMC:
+	case updateproviders.ProviderKindPaperMC:
 		return xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_PAPERMC
-	case ProviderKindMojang:
+	case updateproviders.ProviderKindMojang:
 		return xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_MOJANG
-	case ProviderKindCommand:
+	case updateproviders.ProviderKindCommand:
 		return xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND
 	default:
 		return xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_NONE
 	}
 }
 
-func providerKindFromProto(kind xylona.UpdateProviderKind) ProviderKind {
+func providerKindFromProto(kind xylona.UpdateProviderKind) updateproviders.ProviderKind {
 	switch kind {
 	case xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_STEAMCMD:
-		return ProviderKindSteamCMD
+		return updateproviders.ProviderKindSteamCMD
 	case xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_PAPERMC:
-		return ProviderKindPaperMC
+		return updateproviders.ProviderKindPaperMC
 	case xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_MOJANG:
-		return ProviderKindMojang
+		return updateproviders.ProviderKindMojang
 	case xylona.UpdateProviderKind_UPDATE_PROVIDER_KIND_COMMAND:
-		return ProviderKindCommand
+		return updateproviders.ProviderKindCommand
 	default:
-		return ProviderKindNone
+		return updateproviders.ProviderKindNone
+	}
+}
+
+func normalizeProviderKind(kind updateproviders.ProviderKind) updateproviders.ProviderKind {
+	switch updateproviders.ProviderKind(strings.ToLower(strings.TrimSpace(string(kind)))) {
+	case updateproviders.ProviderKindSteamCMD:
+		return updateproviders.ProviderKindSteamCMD
+	case updateproviders.ProviderKindPaperMC:
+		return updateproviders.ProviderKindPaperMC
+	case updateproviders.ProviderKindMojang:
+		return updateproviders.ProviderKindMojang
+	case updateproviders.ProviderKindCommand:
+		return updateproviders.ProviderKindCommand
+	default:
+		return updateproviders.ProviderKindNone
 	}
 }

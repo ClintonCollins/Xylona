@@ -16,6 +16,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -50,7 +51,7 @@ func getServerModInfo(xs *XylonaService, gameServerID string) (*serverModInfo, e
 		return nil, internalErrf("failed to get game")
 	}
 
-	resolved, errResolve := updateproviders.ResolveModelConfig(game, gameServer)
+	resolved, errResolve := updateconfig.ResolveModelConfig(game, gameServer)
 	if errResolve != nil {
 		return nil, internalErrf("failed to resolve server configuration")
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
@@ -54,12 +55,12 @@ func (xs *XylonaService) GetUpdateTargets(
 		return nil, internalErrf("game relation not loaded")
 	}
 
-	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameServer.R.Game)
+	gameConfig, errConfig := updateconfig.LoadGameConfigFromModel(gameServer.R.Game)
 	if errConfig != nil {
 		return nil, internalErrf("failed to load update configuration")
 	}
 
-	serverConfig := updateproviders.LoadServerConfigFromModel(gameServer)
+	serverConfig := updateconfig.LoadServerConfigFromModel(gameServer)
 	requestedVariantID := strings.TrimSpace(request.Msg.GetVariantId())
 	if requestedVariantID != "" {
 		currentVariantID := serverConfig.VariantID
@@ -151,7 +152,7 @@ func (xs *XylonaService) SetServerVariant(
 		return nil, internalErrf("game relation not loaded")
 	}
 
-	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(game)
+	gameConfig, errConfig := updateconfig.LoadGameConfigFromModel(game)
 	if errConfig != nil {
 		return nil, internalErrf("failed to load variant configuration")
 	}

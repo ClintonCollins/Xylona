@@ -1,4 +1,5 @@
-package updateproviders
+// Package updateconfig adapts update-provider domain config to database models.
+package updateconfig
 
 import (
 	"encoding/json"
@@ -7,6 +8,7 @@ import (
 
 	"github.com/aarondl/opt/null"
 
+	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -32,9 +34,9 @@ type legacySourceConfig struct {
 }
 
 // LoadGameConfigFromModel loads a game's persisted update-provider config.
-func LoadGameConfigFromModel(game *models.Game) (GameConfig, error) {
+func LoadGameConfigFromModel(game *models.Game) (updateproviders.GameConfig, error) {
 	if game == nil {
-		return GameConfig{}, nil
+		return updateproviders.GameConfig{}, nil
 	}
 
 	raw := strings.TrimSpace(game.ServerSoftware.GetOr(""))
@@ -45,22 +47,22 @@ func LoadGameConfigFromModel(game *models.Game) (GameConfig, error) {
 	if strings.HasPrefix(raw, "[") {
 		cfg, errLegacy := legacyServerSoftwareToGameConfig(game, raw)
 		if errLegacy != nil {
-			return GameConfig{}, errLegacy
+			return updateproviders.GameConfig{}, errLegacy
 		}
 		return normalizeGameConfig(cfg), nil
 	}
 
-	var cfg GameConfig
+	var cfg updateproviders.GameConfig
 	errUnmarshal := json.Unmarshal([]byte(raw), &cfg)
 	if errUnmarshal != nil {
-		return GameConfig{}, fmt.Errorf("parse game config: %w", errUnmarshal)
+		return updateproviders.GameConfig{}, fmt.Errorf("parse game config: %w", errUnmarshal)
 	}
 
 	return normalizeGameConfig(cfg), nil
 }
 
 // SaveGameConfigToModel stores a normalized game config on the model.
-func SaveGameConfigToModel(game *models.Game, cfg GameConfig) error {
+func SaveGameConfigToModel(game *models.Game, cfg updateproviders.GameConfig) error {
 	if game == nil {
 		return nil
 	}
@@ -81,15 +83,15 @@ func SaveGameConfigToModel(game *models.Game, cfg GameConfig) error {
 }
 
 // ResolveModelConfig loads and resolves effective config from game and server models.
-func ResolveModelConfig(game *models.Game, server *models.GameServer) (ResolvedConfig, error) {
+func ResolveModelConfig(game *models.Game, server *models.GameServer) (updateproviders.ResolvedConfig, error) {
 	cfg, errConfig := LoadGameConfigFromModel(game)
 	if errConfig != nil {
-		return ResolvedConfig{}, errConfig
+		return updateproviders.ResolvedConfig{}, errConfig
 	}
 
-	resolved, errResolve := ResolveConfig(cfg, LoadServerConfigFromModel(server))
+	resolved, errResolve := updateproviders.ResolveConfig(cfg, LoadServerConfigFromModel(server))
 	if errResolve != nil {
-		return ResolvedConfig{}, errResolve
+		return updateproviders.ResolvedConfig{}, errResolve
 	}
 
 	resolved.Target = normalizeTarget(resolved.Provider.Kind, resolved.Target)
@@ -97,9 +99,9 @@ func ResolveModelConfig(game *models.Game, server *models.GameServer) (ResolvedC
 }
 
 // LoadServerConfigFromModel loads per-server overrides from a server model.
-func LoadServerConfigFromModel(server *models.GameServer) ServerConfig {
+func LoadServerConfigFromModel(server *models.GameServer) updateproviders.ServerConfig {
 	if server == nil {
-		return ServerConfig{}
+		return updateproviders.ServerConfig{}
 	}
 
 	target := strings.TrimSpace(server.Branch)
@@ -107,7 +109,7 @@ func LoadServerConfigFromModel(server *models.GameServer) ServerConfig {
 		target = ""
 	}
 
-	return ServerConfig{
+	return updateproviders.ServerConfig{
 		VariantID:    strings.TrimSpace(server.ServerSoftware.GetOr("")),
 		Target:       target,
 		TargetPinned: server.TargetPinned,
@@ -115,7 +117,7 @@ func LoadServerConfigFromModel(server *models.GameServer) ServerConfig {
 }
 
 // SaveServerConfigToModel stores per-server overrides on a server model.
-func SaveServerConfigToModel(server *models.GameServer, cfg ServerConfig, provider ProviderKind) {
+func SaveServerConfigToModel(server *models.GameServer, cfg updateproviders.ServerConfig, provider updateproviders.ProviderKind) {
 	if server == nil {
 		return
 	}
@@ -130,7 +132,7 @@ func SaveServerConfigToModel(server *models.GameServer, cfg ServerConfig, provid
 	server.ServerSoftware = null.From(variantID)
 }
 
-func normalizeGameConfig(cfg GameConfig) GameConfig {
+func normalizeGameConfig(cfg updateproviders.GameConfig) updateproviders.GameConfig {
 	cfg.UpdateProvider.Kind = normalizeProviderKind(cfg.UpdateProvider.Kind)
 	cfg.DefaultTarget = normalizeTarget(cfg.UpdateProvider.Kind, cfg.DefaultTarget)
 
@@ -153,18 +155,18 @@ func normalizeGameConfig(cfg GameConfig) GameConfig {
 	return cfg
 }
 
-func normalizeModProfile(profile *ModProfile) *ModProfile {
+func normalizeModProfile(profile *updateproviders.ModProfile) *updateproviders.ModProfile {
 	if profile == nil {
 		return nil
 	}
 
-	normalized := &ModProfile{
+	normalized := &updateproviders.ModProfile{
 		InstallPath: strings.TrimSpace(profile.InstallPath),
-		Sources:     make([]ModSource, 0, len(profile.Sources)),
+		Sources:     make([]updateproviders.ModSource, 0, len(profile.Sources)),
 	}
 
 	for _, source := range profile.Sources {
-		normalized.Sources = append(normalized.Sources, ModSource{
+		normalized.Sources = append(normalized.Sources, updateproviders.ModSource{
 			ID:               strings.TrimSpace(source.ID),
 			SearchParamsJSON: strings.TrimSpace(source.SearchParamsJSON),
 		})
@@ -173,24 +175,24 @@ func normalizeModProfile(profile *ModProfile) *ModProfile {
 	return normalized
 }
 
-func normalizeProviderKind(kind ProviderKind) ProviderKind {
-	switch ProviderKind(strings.ToLower(strings.TrimSpace(string(kind)))) {
-	case ProviderKindSteamCMD:
-		return ProviderKindSteamCMD
-	case ProviderKindPaperMC:
-		return ProviderKindPaperMC
-	case ProviderKindMojang:
-		return ProviderKindMojang
-	case ProviderKindCommand:
-		return ProviderKindCommand
+func normalizeProviderKind(kind updateproviders.ProviderKind) updateproviders.ProviderKind {
+	switch updateproviders.ProviderKind(strings.ToLower(strings.TrimSpace(string(kind)))) {
+	case updateproviders.ProviderKindSteamCMD:
+		return updateproviders.ProviderKindSteamCMD
+	case updateproviders.ProviderKindPaperMC:
+		return updateproviders.ProviderKindPaperMC
+	case updateproviders.ProviderKindMojang:
+		return updateproviders.ProviderKindMojang
+	case updateproviders.ProviderKindCommand:
+		return updateproviders.ProviderKindCommand
 	default:
-		return ProviderKindNone
+		return updateproviders.ProviderKindNone
 	}
 }
 
-func normalizeTarget(kind ProviderKind, target string) string {
+func normalizeTarget(kind updateproviders.ProviderKind, target string) string {
 	trimmed := strings.TrimSpace(target)
-	if kind == ProviderKindSteamCMD && trimmed == "" {
+	if kind == updateproviders.ProviderKindSteamCMD && trimmed == "" {
 		return "public"
 	}
 	return trimmed
@@ -198,29 +200,29 @@ func normalizeTarget(kind ProviderKind, target string) string {
 
 // NormalizeSteamTarget normalizes Steam branch targets to the persisted form.
 func NormalizeSteamTarget(target string) string {
-	return normalizeTarget(ProviderKindSteamCMD, target)
+	return normalizeTarget(updateproviders.ProviderKindSteamCMD, target)
 }
 
-func providerKindForVariant(game GameConfig, variant Variant) ProviderKind {
+func providerKindForVariant(game updateproviders.GameConfig, variant updateproviders.Variant) updateproviders.ProviderKind {
 	if variant.UpdateProvider != nil {
 		return variant.UpdateProvider.Kind
 	}
 	return game.UpdateProvider.Kind
 }
 
-func deriveGameConfigFromLegacyFields(game *models.Game) GameConfig {
-	cfg := GameConfig{}
+func deriveGameConfigFromLegacyFields(game *models.Game) updateproviders.GameConfig {
+	cfg := updateproviders.GameConfig{}
 
 	switch {
 	case game.UsesSteamcmd:
-		cfg.UpdateProvider = ProviderConfig{Kind: ProviderKindSteamCMD}
+		cfg.UpdateProvider = updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindSteamCMD}
 		cfg.DefaultTarget = "public"
 	case strings.EqualFold(game.ID, "minecraft"):
-		cfg.UpdateProvider = ProviderConfig{Kind: ProviderKindMojang, SourceID: "vanilla"}
+		cfg.UpdateProvider = updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindMojang, SourceID: "vanilla"}
 	case hasLegacyUpdateCommand(game):
-		cfg.UpdateProvider = ProviderConfig{Kind: ProviderKindCommand}
+		cfg.UpdateProvider = updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindCommand}
 	default:
-		cfg.UpdateProvider = ProviderConfig{Kind: ProviderKindNone}
+		cfg.UpdateProvider = updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindNone}
 	}
 
 	return cfg
@@ -235,29 +237,30 @@ func hasLegacyUpdateCommand(game *models.Game) bool {
 		strings.TrimSpace(game.LinuxUpdateCommand) != ""
 }
 
-func legacyServerSoftwareToGameConfig(game *models.Game, raw string) (GameConfig, error) {
+func legacyServerSoftwareToGameConfig(game *models.Game, raw string) (updateproviders.GameConfig, error) {
 	var legacyEntries []legacyServerSoftwareEntry
 	errParse := json.Unmarshal([]byte(raw), &legacyEntries)
 	if errParse != nil {
-		return GameConfig{}, fmt.Errorf("parse legacy server software: %w", errParse)
+		return updateproviders.GameConfig{}, fmt.Errorf("parse legacy server software: %w", errParse)
 	}
 
 	cfg := deriveGameConfigFromLegacyFields(game)
 	if len(legacyEntries) > 0 {
-		cfg.UpdateProvider = ProviderConfig{Kind: ProviderKindNone}
+		cfg.UpdateProvider = updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindNone}
 		cfg.DefaultTarget = ""
 	}
-	cfg.Variants = make([]Variant, 0, len(legacyEntries))
+	cfg.Variants = make([]updateproviders.Variant, 0, len(legacyEntries))
 
 	for _, entry := range legacyEntries {
-		variant := Variant{
+		variant := updateproviders.Variant{
 			ID:   strings.TrimSpace(entry.ID),
 			Name: strings.TrimSpace(entry.Name),
 		}
 
 		providerID := legacyProviderIDForGame(game.ID, entry)
-		if kind := providerKindFromProviderID(providerID); kind != ProviderKindNone {
-			variant.UpdateProvider = &ProviderConfig{
+		kind := providerKindFromProviderID(providerID)
+		if kind != updateproviders.ProviderKindNone {
+			variant.UpdateProvider = &updateproviders.ProviderConfig{
 				Kind:     kind,
 				SourceID: providerSourceID(kind, entry.ID, providerID),
 			}
@@ -273,14 +276,14 @@ func legacyServerSoftwareToGameConfig(game *models.Game, raw string) (GameConfig
 	return cfg, nil
 }
 
-func legacyModConfigToProfile(cfg *legacyModConfig) *ModProfile {
+func legacyModConfigToProfile(cfg *legacyModConfig) *updateproviders.ModProfile {
 	if cfg == nil {
 		return nil
 	}
 
-	profile := &ModProfile{
+	profile := &updateproviders.ModProfile{
 		InstallPath: "",
-		Sources:     make([]ModSource, 0, len(cfg.Sources)),
+		Sources:     make([]updateproviders.ModSource, 0, len(cfg.Sources)),
 	}
 
 	if len(cfg.ModTypes) > 0 {
@@ -295,7 +298,7 @@ func legacyModConfigToProfile(cfg *legacyModConfig) *ModProfile {
 				paramsJSON = string(data)
 			}
 		}
-		profile.Sources = append(profile.Sources, ModSource{
+		profile.Sources = append(profile.Sources, updateproviders.ModSource{
 			ID:               strings.TrimSpace(source.ID),
 			SearchParamsJSON: paramsJSON,
 		})
@@ -314,38 +317,38 @@ func legacyProviderIDForGame(gameID string, entry legacyServerSoftwareEntry) str
 	return ""
 }
 
-func providerKindFromProviderID(providerID string) ProviderKind {
+func providerKindFromProviderID(providerID string) updateproviders.ProviderKind {
 	switch strings.ToLower(strings.TrimSpace(providerID)) {
 	case "papermc":
-		return ProviderKindPaperMC
+		return updateproviders.ProviderKindPaperMC
 	case "mojang":
-		return ProviderKindMojang
+		return updateproviders.ProviderKindMojang
 	case "steamcmd":
-		return ProviderKindSteamCMD
+		return updateproviders.ProviderKindSteamCMD
 	default:
-		return ProviderKindNone
+		return updateproviders.ProviderKindNone
 	}
 }
 
-func providerSourceID(kind ProviderKind, variantID string, providerID string) string {
+func providerSourceID(kind updateproviders.ProviderKind, variantID string, providerID string) string {
 	switch kind {
-	case ProviderKindPaperMC:
+	case updateproviders.ProviderKindPaperMC:
 		switch strings.ToLower(strings.TrimSpace(variantID)) {
 		case "paper", "folia", "purpur", "velocity", "waterfall":
 			return strings.ToLower(strings.TrimSpace(variantID))
 		}
 		return strings.ToLower(strings.TrimSpace(variantID))
-	case ProviderKindMojang:
+	case updateproviders.ProviderKindMojang:
 		return "vanilla"
-	case ProviderKindSteamCMD:
+	case updateproviders.ProviderKindSteamCMD:
 		return strings.TrimSpace(providerID)
 	default:
 		return ""
 	}
 }
 
-func isEmptyGameConfig(cfg GameConfig) bool {
-	return cfg.UpdateProvider.Kind == ProviderKindNone &&
+func isEmptyGameConfig(cfg updateproviders.GameConfig) bool {
+	return cfg.UpdateProvider.Kind == updateproviders.ProviderKindNone &&
 		cfg.DefaultTarget == "" &&
 		cfg.ModProfile == nil &&
 		len(cfg.Variants) == 0

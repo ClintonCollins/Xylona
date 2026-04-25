@@ -10,6 +10,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -167,7 +168,7 @@ func TestResolveRemoteVersionStateUsesProbeForSteamManifest(t *testing.T) {
 		ID:         "steam-game",
 		SteamAppID: "294420",
 	}
-	errConfig := updateproviders.SaveGameConfigToModel(game, updateproviders.GameConfig{
+	errConfig := updateconfig.SaveGameConfigToModel(game, updateproviders.GameConfig{
 		UpdateProvider: updateproviders.ProviderConfig{
 			Kind: updateproviders.ProviderKindSteamCMD,
 		},

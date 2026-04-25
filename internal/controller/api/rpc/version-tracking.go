@@ -13,8 +13,8 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
-	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -346,7 +346,7 @@ func (xs *XylonaService) remoteVersionTrackerContext(gs *models.GameServer) vers
 	info.ServerSoftware = gs.R.Game.ServerSoftware.GetOr("")
 	info.SteamAppID = strings.TrimSpace(gs.R.Game.SteamAppID)
 
-	resolved, errResolve := updateproviders.ResolveModelConfig(gs.R.Game, gs)
+	resolved, errResolve := updateconfig.ResolveModelConfig(gs.R.Game, gs)
 	if errResolve == nil {
 		info.ProviderKind = string(resolved.Provider.Kind)
 		info.ProviderSourceID = resolved.Provider.SourceID

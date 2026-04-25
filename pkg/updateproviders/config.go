@@ -1,7 +1,10 @@
 // Package updateproviders defines persisted update-provider configuration.
 package updateproviders
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // ProviderKind identifies the backend used to resolve server updates.
 type ProviderKind string
@@ -153,6 +156,11 @@ func shouldUseServerTarget(kind ProviderKind, server ServerConfig) bool {
 	return true
 }
 
+// NormalizeSteamTarget normalizes Steam branch targets to the persisted form.
+func NormalizeSteamTarget(target string) string {
+	return normalizeTarget(ProviderKindSteamCMD, target)
+}
+
 func findVariant(variants []Variant, variantID string) (Variant, bool) {
 	for _, variant := range variants {
 		if variant.ID == variantID {
@@ -161,4 +169,19 @@ func findVariant(variants []Variant, variantID string) (Variant, bool) {
 	}
 
 	return Variant{}, false
+}
+
+func providerKindForVariant(game GameConfig, variant Variant) ProviderKind {
+	if variant.UpdateProvider != nil {
+		return variant.UpdateProvider.Kind
+	}
+	return game.UpdateProvider.Kind
+}
+
+func normalizeTarget(kind ProviderKind, target string) string {
+	trimmed := strings.TrimSpace(target)
+	if kind == ProviderKindSteamCMD && trimmed == "" {
+		return "public"
+	}
+	return trimmed
 }

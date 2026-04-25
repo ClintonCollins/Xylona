@@ -18,6 +18,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
@@ -515,7 +516,7 @@ func (p *remoteVariantProvider) RequiresAPIKey() bool {
 func setMinecraftRemoteVariantConfig(t *testing.T, game *models.Game) {
 	t.Helper()
 
-	errSave := updateproviders.SaveGameConfigToModel(game, updateproviders.GameConfig{
+	errSave := updateconfig.SaveGameConfigToModel(game, updateproviders.GameConfig{
 		UpdateProvider: updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindCommand},
 		Variants: []updateproviders.Variant{
 			{

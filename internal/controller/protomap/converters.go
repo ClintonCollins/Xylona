@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -135,12 +136,12 @@ func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.Vers
 		Game:                       gameProtoFromRelation(gsModel),
 	}
 	if gsModel.R.Game != nil {
-		resolvedConfig, errResolve := updateproviders.ResolveModelConfig(gsModel.R.Game, gsModel)
+		resolvedConfig, errResolve := updateconfig.ResolveModelConfig(gsModel.R.Game, gsModel)
 		if errResolve != nil {
 			log.Warn().Err(errResolve).Str("game_server_id", gsModel.ID).Msg("failed to resolve typed game server config")
 		} else {
-			proto.ResolvedUpdateProvider = updateproviders.ProviderConfigToProto(resolvedConfig.Provider)
-			proto.ResolvedModProfile = updateproviders.ModProfileToProto(resolvedConfig.ModProfile)
+			proto.ResolvedUpdateProvider = ProviderConfigToProto(resolvedConfig.Provider)
+			proto.ResolvedModProfile = ModProfileToProto(resolvedConfig.ModProfile)
 			proto.ResolvedHasUpdate = resolvedConfig.Provider.Kind != updateproviders.ProviderKindNone
 			proto.ResolvedHasModSupport = resolvedConfig.ModProfile != nil
 		}
@@ -226,7 +227,7 @@ func GameServerModelToSetter(gsModel *models.GameServer) *models.GameServerSette
 
 // GameModelToProto converts a game database model to a protobuf message.
 func GameModelToProto(gameModel *models.Game) *xylona.Game {
-	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameModel)
+	gameConfig, errConfig := updateconfig.LoadGameConfigFromModel(gameModel)
 	if errConfig != nil {
 		log.Warn().Err(errConfig).Str("game_id", gameModel.ID).Msg("failed to load typed game config")
 	}
@@ -292,10 +293,10 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		OfficialDefinitionSource:          gameModel.OfficialDefinitionSource,
 		OfficialDefinitionSchemaVersion:   gameModel.OfficialDefinitionSchemaVersion,
 		OfficialDefinitionDiverged:        gameModel.OfficialDefinitionDiverged,
-		UpdateProvider:                    updateproviders.ProviderConfigToProto(gameConfig.UpdateProvider),
+		UpdateProvider:                    ProviderConfigToProto(gameConfig.UpdateProvider),
 		DefaultTarget:                     gameConfig.DefaultTarget,
-		ModProfile:                        updateproviders.ModProfileToProto(gameConfig.ModProfile),
-		Variants:                          updateproviders.VariantsToProto(gameConfig.Variants),
+		ModProfile:                        ModProfileToProto(gameConfig.ModProfile),
+		Variants:                          VariantsToProto(gameConfig.Variants),
 		LinuxInstallType:                  linuxInstallType,
 		LinuxUpdateType:                   linuxUpdateType,
 		WindowsInstallType:                windowsInstallType,
@@ -369,13 +370,13 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 	}
 
 	gameConfig := updateproviders.GameConfig{
-		UpdateProvider: updateproviders.ProviderConfigFromProto(gameProto.GetUpdateProvider()),
+		UpdateProvider: ProviderConfigFromProto(gameProto.GetUpdateProvider()),
 		DefaultTarget:  strings.TrimSpace(gameProto.GetDefaultTarget()),
-		ModProfile:     updateproviders.ModProfileFromProto(gameProto.GetModProfile()),
-		Variants:       updateproviders.VariantsFromProto(gameProto.GetVariants()),
+		ModProfile:     ModProfileFromProto(gameProto.GetModProfile()),
+		Variants:       VariantsFromProto(gameProto.GetVariants()),
 	}
 	gameConfig = normalizeGameConfigForCommandTypes(gameProto, gameConfig)
-	errConfig := updateproviders.SaveGameConfigToModel(gameModel, gameConfig)
+	errConfig := updateconfig.SaveGameConfigToModel(gameModel, gameConfig)
 	if errConfig != nil {
 		log.Warn().Err(errConfig).Str("game_id", gameProto.GetId()).Msg("failed to save typed game config")
 	}
@@ -385,13 +386,13 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 
 // GameModelToGameSetter converts a game model to a bob setter.
 func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
-	gameConfig, errConfig := updateproviders.LoadGameConfigFromModel(gameModel)
+	gameConfig, errConfig := updateconfig.LoadGameConfigFromModel(gameModel)
 	if errConfig != nil {
 		log.Warn().Err(errConfig).Str("game_id", gameModel.ID).Msg("failed to load typed game config for setter")
 	}
 	configModel := &models.Game{ServerSoftware: gameModel.ServerSoftware}
 	if errConfig == nil {
-		errSave := updateproviders.SaveGameConfigToModel(configModel, gameConfig)
+		errSave := updateconfig.SaveGameConfigToModel(configModel, gameConfig)
 		if errSave != nil {
 			log.Warn().Err(errSave).Str("game_id", gameModel.ID).Msg("failed to marshal typed game config for setter")
 		}

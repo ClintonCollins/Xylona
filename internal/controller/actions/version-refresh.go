@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
-	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -85,7 +85,7 @@ func (inst *Instance) resolveTrackerContextForServer(gs *models.GameServer) vers
 	}
 
 	if gs.R.Game != nil {
-		resolved, errResolve := updateproviders.ResolveModelConfig(gs.R.Game, gs)
+		resolved, errResolve := updateconfig.ResolveModelConfig(gs.R.Game, gs)
 		if errResolve == nil {
 			info.ProviderKind = string(resolved.Provider.Kind)
 			info.ProviderSourceID = resolved.Provider.SourceID

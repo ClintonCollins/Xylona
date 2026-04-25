@@ -22,6 +22,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -145,7 +146,7 @@ func Parse(data []byte) (*ParsedDefinition, error) {
 	}
 
 	model := protomap.GameProtoToModel(game)
-	errSaveConfig := updateproviders.SaveGameConfigToModel(model, doc.UpdateConfig)
+	errSaveConfig := updateconfig.SaveGameConfigToModel(model, doc.UpdateConfig)
 	if errSaveConfig != nil {
 		return nil, fmt.Errorf("update_config: %w", errSaveConfig)
 	}
@@ -190,7 +191,7 @@ func ValidateModel(game *models.Game) []string {
 		validationErrors = append(validationErrors, errStartArgs.Error())
 	}
 
-	_, errConfig := updateproviders.LoadGameConfigFromModel(game)
+	_, errConfig := updateconfig.LoadGameConfigFromModel(game)
 	if errConfig != nil {
 		validationErrors = append(validationErrors, fmt.Sprintf("update config: %v", errConfig))
 	}
@@ -438,7 +439,7 @@ func documentFromModel(game *models.Game, exportedFromVersion string, exportedAt
 		return Document{}, fmt.Errorf("marshal game fields: %w", errGame)
 	}
 
-	updateConfig, errConfig := updateproviders.LoadGameConfigFromModel(game)
+	updateConfig, errConfig := updateconfig.LoadGameConfigFromModel(game)
 	if errConfig != nil {
 		return Document{}, fmt.Errorf("load update config: %w", errConfig)
 	}
@@ -492,10 +493,10 @@ func applyStructuredSections(doc Document, game *xylona.Game) error {
 	game.LinuxStartArgsTemplate = emptyToBlank(linuxStartArgs)
 	game.WindowsStartArgsTemplate = emptyToBlank(windowsStartArgs)
 	game.StartArgBlocklist = blocklist
-	game.UpdateProvider = updateproviders.ProviderConfigToProto(doc.UpdateConfig.UpdateProvider)
+	game.UpdateProvider = protomap.ProviderConfigToProto(doc.UpdateConfig.UpdateProvider)
 	game.DefaultTarget = doc.UpdateConfig.DefaultTarget
-	game.ModProfile = updateproviders.ModProfileToProto(doc.UpdateConfig.ModProfile)
-	game.Variants = updateproviders.VariantsToProto(doc.UpdateConfig.Variants)
+	game.ModProfile = protomap.ModProfileToProto(doc.UpdateConfig.ModProfile)
+	game.Variants = protomap.VariantsToProto(doc.UpdateConfig.Variants)
 	return nil
 }
 

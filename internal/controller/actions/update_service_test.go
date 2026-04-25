@@ -20,6 +20,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
@@ -1093,7 +1094,7 @@ func withMinecraftUpdateProviderLookupForKinds(
 func setMinecraftTypedVariants(t *testing.T, game *models.Game, variants ...updateproviders.Variant) {
 	t.Helper()
 
-	errSave := updateproviders.SaveGameConfigToModel(game, updateproviders.GameConfig{
+	errSave := updateconfig.SaveGameConfigToModel(game, updateproviders.GameConfig{
 		UpdateProvider: updateproviders.ProviderConfig{Kind: updateproviders.ProviderKindCommand},
 		Variants:       variants,
 	})
