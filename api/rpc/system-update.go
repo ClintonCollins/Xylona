@@ -20,8 +20,8 @@ import (
 
 	xylonadb "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/pkg/node"
-	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/selfupdate"
 	"github.com/ClintonCollins/Xylona/pkg/updater"
 	"github.com/ClintonCollins/Xylona/pkg/version"

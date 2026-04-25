@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 )
 
 // closableFake wraps FakeNodeClient with an io.Closer so Remove/Close paths

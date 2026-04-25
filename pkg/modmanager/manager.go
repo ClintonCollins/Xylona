@@ -22,8 +22,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
-	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 

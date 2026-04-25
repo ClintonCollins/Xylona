@@ -8,9 +8,9 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/alerts"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
-	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/internal/node"
 )
 
 func TestFakeNodeClientRecordsNewFileAPIs(t *testing.T) {

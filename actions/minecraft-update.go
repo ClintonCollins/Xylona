@@ -17,8 +17,8 @@ import (
 	"github.com/aarondl/opt/omitnull"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
-	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )

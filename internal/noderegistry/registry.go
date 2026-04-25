@@ -16,7 +16,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 )
 
 // ErrNodeNotRegistered is returned by Get when no client exists for the

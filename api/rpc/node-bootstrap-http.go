@@ -14,8 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
-	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 )
 
 // nodeBootstrapMaxBodyBytes bounds the request body so a misbehaving node

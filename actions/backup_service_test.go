@@ -22,9 +22,9 @@ import (
 	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/pkg/node"
-	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
-	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )

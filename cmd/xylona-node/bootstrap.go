@@ -17,7 +17,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/pkg/nodetls"
+	"github.com/ClintonCollins/Xylona/internal/nodetls"
 )
 
 // bootstrapRequest mirrors api/rpc.NodeBootstrapRequest. We copy the shape

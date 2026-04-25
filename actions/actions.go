@@ -20,11 +20,11 @@ import (
 
 	internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
 	"github.com/ClintonCollins/Xylona/cfgschema"
+	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
-	"github.com/ClintonCollins/Xylona/pkg/node"
-	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
-	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/placeholder"
 

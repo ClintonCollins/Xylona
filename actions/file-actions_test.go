@@ -9,8 +9,8 @@ import (
 
 	"github.com/aarondl/opt/null"
 
-	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
-	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 

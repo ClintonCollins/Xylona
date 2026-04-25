@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/internal/node"
 )
 
 func TestManagerStageSelfUpdate(t *testing.T) {

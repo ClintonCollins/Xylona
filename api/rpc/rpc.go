@@ -11,9 +11,9 @@ import (
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/mailer"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
-	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/scheduler"
 	"github.com/ClintonCollins/Xylona/pkg/usermgmt"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"

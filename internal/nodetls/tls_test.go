@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/pkg/nodetls"
+	"github.com/ClintonCollins/Xylona/internal/nodetls"
 )
 
 // TestGenerateSelfSigned exercises the cert-generation roundtrip: the
