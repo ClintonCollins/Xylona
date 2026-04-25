@@ -35,13 +35,14 @@ const (
 	// SchemaVersion is the current supported game definition JSON schema.
 	SchemaVersion = int64(1)
 
-	emptyJSONArray = "[]"
+	emptyJSONArray         = "[]"
+	officialDefinitionsDir = "official"
 )
 
 var (
 	// FS contains bundled official game definition JSON files.
 	//
-	//go:embed *.json
+	//go:embed official/*.json
 	FS embed.FS
 
 	errMissingGameDefinition = errors.New("game definition is required")
@@ -201,7 +202,7 @@ func ValidateModel(game *models.Game) []string {
 
 // LoadBundled parses all embedded official game definition documents.
 func LoadBundled() ([]*ParsedDefinition, error) {
-	entries, errEntries := FS.ReadDir(".")
+	entries, errEntries := FS.ReadDir(officialDefinitionsDir)
 	if errEntries != nil {
 		return nil, fmt.Errorf("read bundled game definitions: %w", errEntries)
 	}
@@ -212,7 +213,8 @@ func LoadBundled() ([]*ParsedDefinition, error) {
 			continue
 		}
 
-		data, errRead := FS.ReadFile(entry.Name())
+		definitionPath := officialDefinitionsDir + "/" + entry.Name()
+		data, errRead := FS.ReadFile(definitionPath)
 		if errRead != nil {
 			return nil, fmt.Errorf("read bundled game definition %q: %w", entry.Name(), errRead)
 		}

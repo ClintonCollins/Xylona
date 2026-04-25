@@ -75,7 +75,7 @@ func TestParseReportsHashMismatchAsWarning(t *testing.T) {
 }
 
 func TestParsePreservesExplicitUpdateConfig(t *testing.T) {
-	data, errRead := FS.ReadFile("hytale.json")
+	data, errRead := FS.ReadFile("official/hytale.json")
 	if errRead != nil {
 		t.Fatalf("ReadFile() error = %v", errRead)
 	}
