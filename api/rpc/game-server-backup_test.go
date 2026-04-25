@@ -18,7 +18,6 @@ import (
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/supervisor"
@@ -294,15 +293,7 @@ func TestCreateGameServerBackupUsesRequestedBackupName(t *testing.T) {
 	if errSupervisor != nil {
 		t.Fatalf("supervisor.New() error = %v", errSupervisor)
 	}
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		supervisorInst,
-		nil,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.actionsInst = newSupervisorBackedActionsInstance(context.Background(), t, fixture.conn, supervisorInst)
 
 	request := connect.NewRequest(&xylona.CreateGameServerBackupRequest{
 		GameServerId: "server-local-1",
@@ -351,7 +342,7 @@ func TestGetGameServerRedactsBackupDirectoryForNonSuperuser(t *testing.T) {
 	if errSupervisor != nil {
 		t.Fatalf("supervisor.New() error = %v", errSupervisor)
 	}
-	fixture.service.supervisorInst = supervisorInst
+	wireServiceEmbeddedNode(t, fixture, supervisorInst)
 
 	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
 		ID:              omit.From("server-local-1"),
@@ -500,15 +491,7 @@ func TestRestoreGameServerBackupAllowsHistoricalArchiveWithBlankCurrentBackupDir
 	if errSupervisor != nil {
 		t.Fatalf("supervisor.New() error = %v", errSupervisor)
 	}
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		supervisorInst,
-		nil,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.actionsInst = newSupervisorBackedActionsInstance(context.Background(), t, fixture.conn, supervisorInst)
 
 	request := connect.NewRequest(&xylona.RestoreGameServerBackupRequest{
 		GameServerId: "server-local-1",
@@ -579,15 +562,7 @@ func TestRestoreGameServerBackupHidesInternalRestoreErrors(t *testing.T) {
 	if errSupervisor != nil {
 		t.Fatalf("supervisor.New() error = %v", errSupervisor)
 	}
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		supervisorInst,
-		nil,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.actionsInst = newSupervisorBackedActionsInstance(context.Background(), t, fixture.conn, supervisorInst)
 
 	request := connect.NewRequest(&xylona.RestoreGameServerBackupRequest{
 		GameServerId: "server-local-1",
@@ -837,15 +812,7 @@ func TestUploadGameServerBackupArchiveImportsZip(t *testing.T) {
 	if errSupervisor != nil {
 		t.Fatalf("supervisor.New() error = %v", errSupervisor)
 	}
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		supervisorInst,
-		nil,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.actionsInst = newSupervisorBackedActionsInstance(context.Background(), t, fixture.conn, supervisorInst)
 
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
@@ -922,15 +889,7 @@ func TestUploadGameServerBackupArchiveRejectsInvalidZip(t *testing.T) {
 	if errSupervisor != nil {
 		t.Fatalf("supervisor.New() error = %v", errSupervisor)
 	}
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		supervisorInst,
-		nil,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.actionsInst = newSupervisorBackedActionsInstance(context.Background(), t, fixture.conn, supervisorInst)
 
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
@@ -995,15 +954,7 @@ func TestUploadGameServerBackupArchiveWithMaxBytesRejectsOversizedMultipartBody(
 	if errSupervisor != nil {
 		t.Fatalf("supervisor.New() error = %v", errSupervisor)
 	}
-	fixture.service.actionsInst = actions.NewInstance(
-		context.Background(),
-		fixture.conn,
-		supervisorInst,
-		nil,
-		nil,
-		versiontracker.NewVersionStateMap(),
-		versiontracker.ResolverConfig{},
-	)
+	fixture.service.actionsInst = newSupervisorBackedActionsInstance(context.Background(), t, fixture.conn, supervisorInst)
 
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)

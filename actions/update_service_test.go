@@ -77,7 +77,7 @@ func TestUpdateGameServerRunsInternalUpdaterWhenNoShellCommandConfigured(t *test
 
 	inst := &Instance{
 		ctx:                ctx,
-		supervisorInstance: supervisorInst,
+		embeddedNodeClient: newSupervisorBackedNodeClient(ctx, t, supervisorInst, nil),
 	}
 	gameServer := &models.GameServer{
 		ID:        "server-1",
@@ -125,7 +125,7 @@ func TestUpdateGameServerUsesMinecraftServerSoftwareProvider(t *testing.T) {
 
 	inst := &Instance{
 		ctx:                ctx,
-		supervisorInstance: supervisorInst,
+		embeddedNodeClient: newSupervisorBackedNodeClient(ctx, t, supervisorInst, nil),
 	}
 	gameServer := &models.GameServer{
 		ID:               "minecraft-provider-update",
@@ -603,7 +603,7 @@ func TestUpdateGameServerRejectsUnsupportedMinecraftVariant(t *testing.T) {
 
 	inst := &Instance{
 		ctx:                ctx,
-		supervisorInstance: supervisorInst,
+		embeddedNodeClient: newSupervisorBackedNodeClient(ctx, t, supervisorInst, nil),
 	}
 	gameServer := &models.GameServer{
 		ID:               "minecraft-unsupported-update",
@@ -665,7 +665,7 @@ func TestUpdateGameServerFallsBackFromInvalidStoredVanillaTarget(t *testing.T) {
 
 	inst := &Instance{
 		ctx:                ctx,
-		supervisorInstance: supervisorInst,
+		embeddedNodeClient: newSupervisorBackedNodeClient(ctx, t, supervisorInst, nil),
 	}
 	gameServer := &models.GameServer{
 		ID:               "minecraft-vanilla-invalid-target",
@@ -772,7 +772,7 @@ func TestRunUpdateWithBackupWritesProgressToConsoleBuffer(t *testing.T) {
 		ctx:                ctx,
 		db:                 conn,
 		versionState:       versiontracker.NewVersionStateMap(),
-		supervisorInstance: supervisorInst,
+		embeddedNodeClient: newSupervisorBackedNodeClient(ctx, t, supervisorInst, conn),
 	}
 	gameServer := &models.GameServer{
 		ID:        "server-console-progress",
@@ -872,7 +872,7 @@ func TestRunUpdateWithBackupIncludesMinecraftUpdateDetails(t *testing.T) {
 
 	inst := &Instance{
 		ctx:                ctx,
-		supervisorInstance: supervisorInst,
+		embeddedNodeClient: newSupervisorBackedNodeClient(ctx, t, supervisorInst, nil),
 	}
 	gameServer := &models.GameServer{
 		ID:               "minecraft-detailed-update",

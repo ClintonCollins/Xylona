@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -31,7 +32,6 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/startargs"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 var (
@@ -89,7 +89,7 @@ type VersionResolveOptions struct {
 // Instance coordinates game server lifecycle, files, remote nodes, and background jobs.
 type Instance struct {
 	ctx                  context.Context
-	supervisorInstance   *supervisor.Instance
+	embeddedNodeClient   nodeclient.NodeClient
 	nodeRegistry         *noderegistry.Registry
 	serverQueriesInfoMap map[string]*xylona.ServerQuery
 	serverQueriesMutex   *sync.RWMutex
@@ -154,10 +154,10 @@ func (inst *Instance) CheckServerVersionByID(_ context.Context, gameServerID str
 }
 
 // NewInstance creates an actions instance and starts background polling jobs.
-func NewInstance(ctx context.Context, database *db.Connection, supervisorInstance *supervisor.Instance, nodeRegistry *noderegistry.Registry, modMgr *modmanager.ModManager, versionState *versiontracker.VersionStateMap, resolverConfig versiontracker.ResolverConfig) *Instance {
+func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClient nodeclient.NodeClient, nodeRegistry *noderegistry.Registry, modMgr *modmanager.ModManager, versionState *versiontracker.VersionStateMap, resolverConfig versiontracker.ResolverConfig) *Instance {
 	inst := &Instance{
 		ctx:                  ctx,
-		supervisorInstance:   supervisorInstance,
+		embeddedNodeClient:   embeddedNodeClient,
 		nodeRegistry:         nodeRegistry,
 		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
 		serverQueriesMutex:   &sync.RWMutex{},
@@ -314,8 +314,8 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		inst.StartGameServer(installedGS)
 	})
 
-	_, errStart := client.StartProcess(inst.ctx, installCfg, xylona.Status_INSTALLING)
-	if errStart != nil && !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
+	errStart := client.StartProcess(inst.ctx, installCfg, xylona.Status_INSTALLING)
+	if errStart != nil {
 		inst.exitHooks.clear(newGameServer.ID)
 		log.Error().Err(errStart).Msg("Failed to start install command")
 		errInstall := fmt.Errorf("actions: start install command: %w", errStart)
@@ -487,8 +487,8 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 		}
 	}
 
-	_, errStart := client.StartProcess(inst.ctx, cfg, xylona.Status_ONLINE)
-	if errStart != nil && !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
+	errStart := client.StartProcess(inst.ctx, cfg, xylona.Status_ONLINE)
+	if errStart != nil {
 		log.Error().Err(errStart).Str("game_server_id", gameServer.ID).
 			Msg("Failed to start game server")
 		inst.reportStartFailure(gameServer, "Failed to start server: "+errStart.Error())
@@ -499,10 +499,10 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 }
 
 // resolveNodeClient looks up the NodeClient for a node ID. When the
-// registry is not configured (tests, migrations), falls back to a fresh
-// in-process client around the supervisor so callers still get working
-// semantics. With a configured registry, non-self node misses fail closed
-// instead of running remote work against the controller filesystem.
+// registry is not configured (tests, migrations), falls back to the embedded
+// node client supplied at construction. With a configured registry, non-self
+// node misses fail closed instead of running remote work against the
+// controller filesystem.
 // Returns a plain Go error (not a connect error) since actions callers don't
 // want connect types.
 func (inst *Instance) resolveNodeClient(nodeID string) (nodeclient.NodeClient, error) {
@@ -518,11 +518,10 @@ func (inst *Instance) resolveNodeClient(nodeID string) (nodeclient.NodeClient, e
 			return nil, fmt.Errorf("actions: resolve node client for %q: %w", nodeID, errGet)
 		}
 	}
-	if inst.supervisorInstance == nil {
-		return nil, errors.New("actions: neither node registry nor supervisor is configured")
+	if inst.embeddedNodeClient == nil {
+		return nil, errors.New("actions: neither node registry nor embedded node client is configured")
 	}
-	embedded := node.New(inst.ctx, inst.supervisorInstance, inst.db)
-	return nodeclient.NewInProcessClient(nodeID, embedded), nil
+	return inst.embeddedNodeClient, nil
 }
 
 func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
@@ -651,37 +650,24 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 	nodeOS := inst.resolveNodeOS(inst.ctx, gameServer.NodeID)
 	inst.intentionalStops.mark(gameServer.ID)
-	if inst.nodeRegistry != nil {
-		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
-		if errGet == nil {
-			errStop := client.StopProcess(inst.ctx, gameServer.ID, gameStopCommand(gameServer.R.Game, nodeOS))
-			if errStop != nil && !errors.Is(errStop, supervisor.ErrCommandDoesNotExist) {
-				inst.intentionalStops.clear(gameServer.ID)
-				log.Error().Err(errStop).Str("node_id", gameServer.NodeID).
-					Msg("Failed to stop game server command")
-			}
-			return
-		}
-		log.Warn().Err(errGet).Str("node_id", gameServer.NodeID).
-			Msg("StopGameServer: node client unavailable, falling back to supervisor")
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		inst.intentionalStops.clear(gameServer.ID)
+		log.Warn().Err(errClient).Str("node_id", gameServer.NodeID).
+			Msg("StopGameServer: node client unavailable")
+		return
 	}
 
-	// Fallback: direct supervisor access if the registry is not wired up
-	// (should only occur in tests that construct Instance directly). The
-	// supervisor always runs the controller's own OS, so OperatingSystem is
-	// the correct flavor here.
-	if inst.supervisorInstance == nil {
-		inst.intentionalStops.clear(gameServer.ID)
-		return
-	}
-	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
-	if err != nil {
-		if errors.Is(err, supervisor.ErrCommandDoesNotExist) {
-			log.Error().Err(err).Msg("Failed to get game server command")
+	errStop := client.StopProcess(inst.ctx, gameServer.ID, gameStopCommand(gameServer.R.Game, nodeOS))
+	if errStop != nil {
+		if errors.Is(errStop, node.ErrProcessNotFound) || errors.Is(errStop, os.ErrNotExist) {
+			return
 		}
+		inst.intentionalStops.clear(gameServer.ID)
+		log.Error().Err(errStop).Str("node_id", gameServer.NodeID).
+			Msg("Failed to stop game server command")
 		return
 	}
-	gameServerCommand.Stop(gameStopCommand(gameServer.R.Game, OperatingSystem))
 }
 
 // UpdateGameServer starts the configured update flow for a game server.
@@ -745,8 +731,8 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 		updateCfg.InternalGameServer = gameServer
 	}
 
-	_, errStart := client.StartProcess(inst.ctx, updateCfg, xylona.Status_UPDATING)
-	if errStart != nil && !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
+	errStart := client.StartProcess(inst.ctx, updateCfg, xylona.Status_UPDATING)
+	if errStart != nil {
 		log.Error().Err(errStart).Str("Game Server ID", gameServer.ID).Msg("Failed to start update command")
 		return fmt.Errorf("actions: start update command: %w", errStart)
 	}
@@ -784,27 +770,23 @@ func (inst *Instance) SendConsoleInput(gameServer *models.GameServer, input stri
 // and remote) and falling back to UNKNOWN when the status cannot be
 // determined.
 func (inst *Instance) currentProcessStatus(gameServer *models.GameServer) xylona.Status {
-	if inst.nodeRegistry != nil {
-		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
-		if errGet == nil {
-			snap, found, errSnap := client.GetProcessSnapshot(inst.ctx, gameServer.ID)
-			if errSnap == nil && found && snap != nil {
-				status, ok := xylona.Status_value[snap.Status]
-				if ok {
-					return xylona.Status(status)
-				}
-				return xylona.Status_UNKNOWN
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient == nil {
+		snap, found, errSnap := client.GetProcessSnapshot(inst.ctx, gameServer.ID)
+		if errSnap == nil && found && snap != nil {
+			status, ok := xylona.Status_value[snap.Status]
+			if ok {
+				return xylona.Status(status)
 			}
-			if errSnap == nil && !found {
-				return xylona.Status_OFFLINE
-			}
+			return xylona.Status_UNKNOWN
+		}
+		if errSnap == nil && !found {
+			return xylona.Status_OFFLINE
 		}
 	}
-	if inst.supervisorInstance != nil {
-		cmd, errCmd := inst.supervisorInstance.GetCommandByID(gameServer.ID)
-		if errCmd == nil {
-			return cmd.Status()
-		}
+	status, ok := xylona.Status_value[gameServer.Status]
+	if ok {
+		return xylona.Status(status)
 	}
 	return xylona.Status_UNKNOWN
 }
@@ -859,27 +841,15 @@ func (inst *Instance) PersistSteamBranchSelection(gameServer *models.GameServer,
 // server, routing through NodeClient for the server's owning node so remote
 // and embedded paths are identical.
 func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string {
-	if inst.nodeRegistry != nil {
-		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
-		if errGet == nil {
-			chunk, errRead := client.ReadConsoleBuffer(inst.ctx, gameServer.ID)
-			if errRead != nil {
-				return ""
-			}
-			return chunk.Data
-		}
-	}
-
-	// Fallback: direct supervisor access for tests that construct Instance
-	// without a registry.
-	if inst.supervisorInstance == nil {
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
 		return ""
 	}
-	gameServerCommand, err := inst.supervisorInstance.GetCommandByID(gameServer.ID)
-	if err != nil {
+	chunk, errRead := client.ReadConsoleBuffer(inst.ctx, gameServer.ID)
+	if errRead != nil {
 		return ""
 	}
-	return gameServerCommand.GetOutputBuffer()
+	return chunk.Data
 }
 
 // RemoveGameServer deletes a server and optionally tolerates file cleanup failures.

@@ -44,7 +44,6 @@ func TestRunSeedCreatesAdminThatCanLogin(t *testing.T) {
 		conn,
 		nil,
 		nil,
-		nil,
 		securecookie.New(
 			[]byte("0123456789abcdef0123456789abcdef"),
 			[]byte("0123456789abcdef"),

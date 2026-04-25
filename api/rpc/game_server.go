@@ -19,7 +19,6 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func fallbackNodeID(requestNodeID string, defaultNodeID string) string {
@@ -463,7 +462,7 @@ func (xs *XylonaService) SendGameServerInput(ctx context.Context, request *conne
 	}
 	errSend := client.SendConsoleInput(ctx, gameServer.ID, request.Msg.GetInput())
 	if errSend != nil {
-		if errors.Is(errSend, supervisor.ErrCommandDoesNotExist) {
+		if errors.Is(errSend, node.ErrProcessNotFound) || errors.Is(errSend, os.ErrNotExist) {
 			return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
 		}
 		log.Error().Err(errSend).Msg("Failed to send input to game server")

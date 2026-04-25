@@ -63,7 +63,7 @@ func TestPersistedVariantTarget(t *testing.T) {
 	}
 }
 
-func TestSetServerSoftwareUsesLiveSupervisorStatus(t *testing.T) {
+func TestSetServerSoftwareUsesLiveNodeStatus(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
 	supervisorInst, errSupervisor := supervisor.New(context.Background())
@@ -71,7 +71,7 @@ func TestSetServerSoftwareUsesLiveSupervisorStatus(t *testing.T) {
 		t.Fatalf("supervisor.New() error = %v", errSupervisor)
 	}
 
-	fixture.service.supervisorInst = supervisorInst
+	wireServiceEmbeddedNode(t, fixture, supervisorInst)
 	fixture.service.installTracker = modmanager.NewInstallTracker()
 
 	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-local-1")

@@ -7,9 +7,8 @@
 // in-process wrapper (inProcessNodeClient); for remote nodes it will be a
 // gRPC client implementation added in a later migration step.
 //
-// Method signatures use plain Go types from pkg/node (and, transitionally,
-// pkg/supervisor for StartProcess) rather than proto types. This keeps the
-// interface stable even when the on-the-wire proto evolves.
+// Method signatures use plain Go types from pkg/node rather than proto types.
+// This keeps the interface stable even when the on-the-wire proto evolves.
 package nodeclient
 
 import (
@@ -18,7 +17,6 @@ import (
 
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // NodeClient is the controller-side handle to a single node (embedded or
@@ -31,14 +29,10 @@ type NodeClient interface {
 	// ID returns the node's identifier. Stable for the lifetime of the client.
 	ID() string
 
-	// StartProcess launches the process described by cfg. The supervisor
-	// return value is a transitional artifact: callbacks and status tracking
-	// still flow through supervisor.Command. Step 9 will replace the direct
-	// *supervisor.Command return with an event stream.
-	//
-	// TODO(hub-spoke step 9): return only (error); surface lifecycle events
-	// through StreamEvents instead of a supervisor handle.
-	StartProcess(ctx context.Context, cfg node.ProcessConfig, status xylona.Status) (*supervisor.Command, error)
+	// StartProcess launches the process described by cfg. Callers observe
+	// lifecycle, status, metrics, and console output through the node client
+	// stream/snapshot methods instead of a supervisor handle.
+	StartProcess(ctx context.Context, cfg node.ProcessConfig, status xylona.Status) error
 
 	// StopProcess requests a graceful stop of the process identified by
 	// processID. The optional stopInputCommand is written to the process's

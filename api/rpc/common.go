@@ -317,14 +317,6 @@ func (xs *XylonaService) getLocalGameServerStatus(gameServer *models.GameServer)
 		}
 	}
 
-	if xs.supervisorInst != nil {
-		gameServerCmd, errGetCommand := xs.supervisorInst.GetCommandByID(gameServer.ID)
-		if errGetCommand != nil {
-			return xylona.Status_OFFLINE
-		}
-		return gameServerCmd.Status()
-	}
-
 	status, ok := xylona.Status_value[gameServer.Status]
 	if !ok {
 		return xylona.Status_UNKNOWN

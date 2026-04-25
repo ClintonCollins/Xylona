@@ -1,13 +1,53 @@
 package rpc
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/aarondl/opt/omit"
 
+	"github.com/ClintonCollins/Xylona/actions"
+	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
+	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/sql/models"
+	"github.com/ClintonCollins/Xylona/supervisor"
 )
+
+func newSupervisorBackedNodeClient(ctx context.Context, t *testing.T, supervisorInst *supervisor.Instance, conn *db.Connection) nodeclient.NodeClient {
+	t.Helper()
+
+	embeddedNode := node.New(ctx, supervisorInst, conn)
+	return nodeclient.NewInProcessClient("node-local", embeddedNode)
+}
+
+func newSupervisorBackedActionsInstance(ctx context.Context, t *testing.T, conn *db.Connection, supervisorInst *supervisor.Instance) *actions.Instance {
+	t.Helper()
+
+	client := newSupervisorBackedNodeClient(ctx, t, supervisorInst, conn)
+	return actions.NewInstance(ctx, conn, client, nil, nil, versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{})
+}
+
+func wireServiceEmbeddedNode(t *testing.T, fixture *rbacRPCFixture, supervisorInst *supervisor.Instance) {
+	t.Helper()
+
+	client := newSupervisorBackedNodeClient(context.Background(), t, supervisorInst, fixture.conn)
+	fixture.service.nodeRegistry = noderegistry.New("node-local", client)
+	if fixture.service.actionsInst == nil {
+		fixture.service.actionsInst = actions.NewInstance(
+			context.Background(),
+			fixture.conn,
+			client,
+			fixture.service.nodeRegistry,
+			nil,
+			versiontracker.NewVersionStateMap(),
+			versiontracker.ResolverConfig{},
+		)
+	}
+}
 
 // seedAlternateNodeAndIP inserts a second node row plus a secondary IP so
 // port-validation tests can exercise multi-node game server layouts without

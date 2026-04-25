@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -140,6 +141,71 @@ func TestNodeServiceServerListFiles(t *testing.T) {
 	}
 	if entries[0].Name != "sample.txt" || entries[0].Size != int64(len(contents)) {
 		t.Fatalf("entry mismatch: %+v", entries[0])
+	}
+}
+
+func TestNodeServiceServerStreamConsoleOutput(t *testing.T) {
+	t.Parallel()
+
+	const secret = "test-secret"
+	const processID = "srv-console"
+	const line = "hello from node stream"
+
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+
+	streamResultCh := make(chan struct {
+		chunks <-chan node.ConsoleChunk
+		err    error
+	}, 1)
+	go func() {
+		chunks, errStream := client.StreamConsoleOutput(ctx, processID)
+		streamResultCh <- struct {
+			chunks <-chan node.ConsoleChunk
+			err    error
+		}{chunks: chunks, err: errStream}
+	}()
+
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+
+	var chunks <-chan node.ConsoleChunk
+	for chunks == nil {
+		select {
+		case result := <-streamResultCh:
+			if result.err != nil {
+				t.Fatalf("StreamConsoleOutput: %v", result.err)
+			}
+			chunks = result.chunks
+		case <-ticker.C:
+			errSend := client.SendConsoleOutput(ctx, processID, line)
+			if errSend != nil {
+				t.Fatalf("SendConsoleOutput: %v", errSend)
+			}
+		case <-ctx.Done():
+			t.Fatalf("timed out opening console stream: %v", ctx.Err())
+		}
+	}
+
+	select {
+	case chunk, ok := <-chunks:
+		if !ok {
+			t.Fatal("console stream closed before chunk arrived")
+		}
+		if chunk.ProcessID != processID {
+			t.Fatalf("chunk.ProcessID = %q, want %q", chunk.ProcessID, processID)
+		}
+		if !strings.Contains(chunk.Data, line) {
+			t.Fatalf("chunk.Data = %q, want it to contain %q", chunk.Data, line)
+		}
+	case <-ctx.Done():
+		t.Fatalf("timed out waiting for console chunk: %v", ctx.Err())
 	}
 }
 

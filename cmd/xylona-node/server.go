@@ -21,7 +21,6 @@ import (
 	nodeprotov1 "github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // nodeServiceServer is the Connect-RPC handler implementation that wraps a
@@ -85,6 +84,9 @@ func translate(err error) error {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	if errors.Is(err, os.ErrNotExist) {
+		return connect.NewError(connect.CodeNotFound, err)
+	}
+	if errors.Is(err, node.ErrProcessNotFound) {
 		return connect.NewError(connect.CodeNotFound, err)
 	}
 	if errors.Is(err, node.ErrProtectedPath) {
@@ -1005,9 +1007,7 @@ func (s *nodeServiceServer) StreamEvents(ctx context.Context, req *connect.Reque
 	}
 }
 
-// StreamConsoleOutput is the per-process console stream. Step 4 wires a stub
-// that returns CodeUnimplemented so the registered route exists but callers
-// know the feature lands in Step 9 along with the full event rewiring.
+// StreamConsoleOutput is the per-process console stream.
 func (s *nodeServiceServer) StreamConsoleOutput(ctx context.Context, req *connect.Request[nodeprotov1.StreamConsoleOutputRequest], stream *connect.ServerStream[nodeprotov1.ConsoleChunk]) error {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1018,38 +1018,22 @@ func (s *nodeServiceServer) StreamConsoleOutput(ctx context.Context, req *connec
 		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
 	}
 
-	supervisorInst := s.n.Supervisor()
-	if supervisorInst == nil {
-		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node supervisor not initialized"))
+	chunks, errStream := s.n.StreamConsoleOutput(ctx, req.Msg.GetProcessId())
+	if errStream != nil {
+		return connect.NewError(connect.CodeFailedPrecondition, errStream)
 	}
-
-	return streamConsoleOutput(ctx, req.Msg.GetProcessId(), supervisorInst, stream)
-}
-
-func streamConsoleOutput(ctx context.Context, processID string, supervisorInst *supervisor.Instance, stream *connect.ServerStream[nodeprotov1.ConsoleChunk]) error {
-	command := supervisorInst.GetCommandByIDOrCreateShell(processID)
-	listenerID := fmt.Sprintf("node-rpc-console-%s-%d", processID, time.Now().UnixNano())
-	listener := make(chan *xylona.Message, 256)
-	command.AddOutputListener(listenerID, listener)
-	defer command.RemoveOutputListener(listenerID)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case msg := <-listener:
-			if msg == nil || msg.GetType() != xylona.Message_GameServerConsole {
-				continue
+		case chunk, ok := <-chunks:
+			if !ok {
+				return nil
 			}
-
-			consoleOutput := msg.GetGameServerConsoleOutput()
-			if consoleOutput == nil {
-				continue
-			}
-
 			errSend := stream.Send(&nodeprotov1.ConsoleChunk{
-				GameServerId: consoleOutput.GetGameServerId(),
-				Text:         consoleOutput.GetOutput(),
+				GameServerId: chunk.ProcessID,
+				Text:         chunk.Data,
 				Timestamp:    timestamppb.Now(),
 			})
 			if errSend != nil {

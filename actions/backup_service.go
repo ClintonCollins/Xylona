@@ -1030,11 +1030,8 @@ func resolveValidRemoteGameServerBackupDirectory(gameServer *models.GameServer) 
 }
 
 func isGameServerOffline(inst *Instance, gameServer *models.GameServer) bool {
-	if inst != nil && inst.supervisorInstance != nil {
-		command, errGetCommand := inst.supervisorInstance.GetCommandByID(gameServer.ID)
-		if errGetCommand == nil {
-			return command.Status() == xylona.Status_OFFLINE
-		}
+	if inst != nil {
+		return inst.currentProcessStatus(gameServer) == xylona.Status_OFFLINE
 	}
 
 	return strings.EqualFold(gameServer.Status, xylona.Status_OFFLINE.String())

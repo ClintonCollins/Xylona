@@ -27,7 +27,6 @@ func TestNewXylonaServiceReturnsErrorWhenPermissionsCannotLoad(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 		false,
 		nil,
 		nil,

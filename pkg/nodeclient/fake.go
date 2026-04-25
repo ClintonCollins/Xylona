@@ -8,7 +8,6 @@ import (
 
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // FakeNodeClient is a test double implementing NodeClient. All error fields
@@ -27,7 +26,6 @@ type FakeNodeClient struct {
 
 	NodeID string
 
-	StartProcessCmd   *supervisor.Command
 	StartProcessErr   error
 	StartProcessCalls []StartProcessCall
 
@@ -285,12 +283,12 @@ func (f *FakeNodeClient) ID() string {
 	return f.NodeID
 }
 
-// StartProcess records the call and returns the configured result.
-func (f *FakeNodeClient) StartProcess(_ context.Context, cfg node.ProcessConfig, status xylona.Status) (*supervisor.Command, error) {
+// StartProcess records the call and returns the configured error.
+func (f *FakeNodeClient) StartProcess(_ context.Context, cfg node.ProcessConfig, status xylona.Status) error {
 	f.mu.Lock()
 	f.StartProcessCalls = append(f.StartProcessCalls, StartProcessCall{Config: cfg, Status: status})
 	f.mu.Unlock()
-	return f.StartProcessCmd, f.StartProcessErr
+	return f.StartProcessErr
 }
 
 // StopProcess records the call and returns the configured error.

@@ -221,24 +221,20 @@ func (inst *Instance) handleServerExit(serverID string) {
 
 // sendConsoleLine pushes a controller-generated line into the console buffer
 // for the game server, routing via the owning node's NodeClient so it works
-// for both embedded and remote servers. Falls back to the supervisor path
-// when the registry isn't configured (tests that bypass the node layer).
+// for both embedded and remote servers.
 func (inst *Instance) sendConsoleLine(gs *models.GameServer, line string) {
 	if gs == nil {
 		return
 	}
-	if inst.nodeRegistry != nil {
-		client, errGet := inst.nodeRegistry.Get(gs.NodeID)
-		if errGet == nil {
-			errSend := client.SendConsoleOutput(inst.ctx, gs.ID, line)
-			if errSend == nil {
-				return
-			}
-			log.Warn().Err(errSend).Str("game_server_id", gs.ID).
-				Msg("auto-restart: send console line via node client failed; falling back")
-		}
+	client, errClient := inst.resolveNodeClient(gs.NodeID)
+	if errClient != nil {
+		log.Warn().Err(errClient).Str("game_server_id", gs.ID).
+			Msg("auto-restart: node client unavailable for console line")
+		return
 	}
-	if inst.supervisorInstance != nil {
-		inst.supervisorInstance.SendConsoleOutput(gs.ID, line)
+	errSend := client.SendConsoleOutput(inst.ctx, gs.ID, line)
+	if errSend != nil {
+		log.Warn().Err(errSend).Str("game_server_id", gs.ID).
+			Msg("auto-restart: send console line via node client failed")
 	}
 }

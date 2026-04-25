@@ -18,6 +18,9 @@ var (
 	// pkg/node never sets this directly; callers (the controller) may layer
 	// protected-path policy on top of node operations.
 	ErrProtectedPath = errors.New("node: path is protected")
+	// ErrProcessNotFound is returned when a process command is not currently
+	// tracked by the node.
+	ErrProcessNotFound = errors.New("node: process not found")
 	// ErrUnexpectedHTTPStatus is returned when a node download receives a
 	// non-success HTTP status.
 	ErrUnexpectedHTTPStatus = errors.New("node: unexpected download HTTP status")

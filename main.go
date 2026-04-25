@@ -518,7 +518,7 @@ func runService() int {
 	embeddedClient := nodeclient.NewInProcessClient(settings.NodeID, embeddedNode)
 	nodeRegistry := noderegistry.New(settings.NodeID, embeddedClient)
 
-	actionsInst := actions.NewInstance(ctx, dbInst, superInst, nodeRegistry, modMgr, versionState, resolverConfig)
+	actionsInst := actions.NewInstance(ctx, dbInst, embeddedClient, nodeRegistry, modMgr, versionState, resolverConfig)
 	if dummyTracker != nil {
 		actionsInst.SetDummyTracker(dummyTracker)
 	}
@@ -544,12 +544,12 @@ func runService() int {
 
 	steamCache := steamcache.New()
 
-	wsInst, websocketHandler := websocket.NewInstance(ctx, superInst, actionsInst, dbInst, nodeRegistry, secureCookie)
+	wsInst, websocketHandler := websocket.NewInstance(ctx, actionsInst, dbInst, nodeRegistry, secureCookie)
 	actionsInst.SetVersionBroadcaster(wsInst)
 	actionsInst.SetBackupProgressBroadcaster(wsInst)
 
 	router := chi.NewRouter()
-	xylonaService, errXylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, superInst, nodeRegistry, secureCookie, config.SecureCookies, steamCache, modMgr, versionState)
+	xylonaService, errXylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, nodeRegistry, secureCookie, config.SecureCookies, steamCache, modMgr, versionState)
 	if errXylonaService != nil {
 		return startupFailure(cleanup, ctxCancel, errXylonaService, "Failed to create Xylona RPC service")
 	}

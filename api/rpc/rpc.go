@@ -20,7 +20,6 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/steamcache"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // ServerSoftwareInstallBroadcaster broadcasts server software install events.
@@ -43,7 +42,6 @@ type XylonaService struct {
 	ctx                            context.Context
 	db                             *db.Connection
 	actionsInst                    *actions.Instance
-	supervisorInst                 *supervisor.Instance
 	nodeRegistry                   *noderegistry.Registry
 	secureCookie                   *securecookie.SecureCookie
 	secureCookies                  bool
@@ -76,7 +74,6 @@ func NewXylonaService(
 	ctx context.Context,
 	database *db.Connection,
 	actionsInst *actions.Instance,
-	supervisorInst *supervisor.Instance,
 	nodeRegistry *noderegistry.Registry,
 	secureCookie *securecookie.SecureCookie,
 	secureCookies bool,
@@ -114,7 +111,6 @@ func NewXylonaService(
 		actionsInst:      actionsInst,
 		secureCookie:     secureCookie,
 		secureCookies:    secureCookies,
-		supervisorInst:   supervisorInst,
 		nodeRegistry:     nodeRegistry,
 		modManager:       modMgr,
 		steamCache:       steamCache,

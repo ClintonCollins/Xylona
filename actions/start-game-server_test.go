@@ -30,7 +30,7 @@ func TestStartGameServerPreservesServerNodeID(t *testing.T) {
 	inst := NewInstance(
 		ctx,
 		conn,
-		supervisorInst,
+		newSupervisorBackedNodeClient(ctx, t, supervisorInst, conn),
 		nil,
 		nil,
 		versiontracker.NewVersionStateMap(),

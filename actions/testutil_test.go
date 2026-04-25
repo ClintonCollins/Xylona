@@ -4,8 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
+	"github.com/ClintonCollins/Xylona/pkg/node"
+	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func newTestInstance(t *testing.T) *Instance {
@@ -16,4 +20,11 @@ func newTestInstance(t *testing.T) *Instance {
 	t.Cleanup(cancel)
 
 	return NewInstance(ctx, conn, nil, nil, nil, versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{})
+}
+
+func newSupervisorBackedNodeClient(ctx context.Context, t *testing.T, supervisorInst *supervisor.Instance, conn *db.Connection) nodeclient.NodeClient {
+	t.Helper()
+
+	embeddedNode := node.New(ctx, supervisorInst, conn)
+	return nodeclient.NewInProcessClient("node-local", embeddedNode)
 }

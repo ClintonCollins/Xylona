@@ -1,8 +1,10 @@
 package node
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -80,6 +82,9 @@ func (n *Node) StopProcess(processID, stopInputCommand string) error {
 
 	cmd, errGet := n.supervisor.GetCommandByID(processID)
 	if errGet != nil {
+		if errors.Is(errGet, supervisor.ErrCommandDoesNotExist) {
+			return ErrProcessNotFound
+		}
 		return fmt.Errorf("node: stop process: %w", errGet)
 	}
 	cmd.Stop(stopInputCommand)
@@ -95,6 +100,9 @@ func (n *Node) SendConsoleInput(processID, input string) error {
 
 	cmd, errGet := n.supervisor.GetCommandByID(processID)
 	if errGet != nil {
+		if errors.Is(errGet, supervisor.ErrCommandDoesNotExist) {
+			return ErrProcessNotFound
+		}
 		return fmt.Errorf("node: send console input: %w", errGet)
 	}
 	errSend := cmd.SendInput(input)
@@ -166,4 +174,54 @@ func (n *Node) GetProcessSnapshot(processID string) (*ProcessSnapshot, bool, err
 		ConnectionCount: connectionCount,
 		WorkingDir:      cmd.WorkingDir(),
 	}, true, nil
+}
+
+// StreamConsoleOutput streams live console output chunks for one process.
+func (n *Node) StreamConsoleOutput(ctx context.Context, processID string) (<-chan ConsoleChunk, error) {
+	if n.supervisor == nil {
+		return nil, errors.New("node: supervisor not configured")
+	}
+
+	command := n.supervisor.GetCommandByIDOrCreateShell(processID)
+	listenerID := fmt.Sprintf("node-console-%s-%d", processID, time.Now().UnixNano())
+	listener := make(chan *xylona.Message, 256)
+	command.AddOutputListener(listenerID, listener)
+
+	out := make(chan ConsoleChunk, 64)
+	go func() {
+		defer close(out)
+		defer command.RemoveOutputListener(listenerID)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-listener:
+				if !ok {
+					return
+				}
+				if msg == nil || msg.GetType() != xylona.Message_GameServerConsole {
+					continue
+				}
+
+				consoleOutput := msg.GetGameServerConsoleOutput()
+				if consoleOutput == nil {
+					continue
+				}
+
+				chunk := ConsoleChunk{
+					ProcessID: consoleOutput.GetGameServerId(),
+					Data:      consoleOutput.GetOutput(),
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				case out <- chunk:
+				}
+			}
+		}
+	}()
+
+	return out, nil
 }

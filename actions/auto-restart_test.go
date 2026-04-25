@@ -22,10 +22,11 @@ import (
 )
 
 type autoRestartTestFixture struct {
-	cancel     context.CancelFunc
-	conn       *db.Connection
-	inst       *Instance
-	gameServer *models.GameServer
+	cancel         context.CancelFunc
+	conn           *db.Connection
+	inst           *Instance
+	gameServer     *models.GameServer
+	supervisorInst *supervisor.Instance
 }
 
 func newAutoRestartTestFixture(t *testing.T, maxRetries int64) autoRestartTestFixture {
@@ -42,7 +43,7 @@ func newAutoRestartTestFixture(t *testing.T, maxRetries int64) autoRestartTestFi
 
 	inst := &Instance{
 		ctx:                ctx,
-		supervisorInstance: supervisorInst,
+		embeddedNodeClient: newSupervisorBackedNodeClient(ctx, t, supervisorInst, conn),
 		db:                 conn,
 		restartState:       &restartStateMap{},
 		versionState:       versiontracker.NewVersionStateMap(),
@@ -142,10 +143,11 @@ func newAutoRestartTestFixture(t *testing.T, maxRetries int64) autoRestartTestFi
 	}
 
 	return autoRestartTestFixture{
-		cancel:     cancel,
-		conn:       conn,
-		inst:       inst,
-		gameServer: gameServer,
+		cancel:         cancel,
+		conn:           conn,
+		inst:           inst,
+		gameServer:     gameServer,
+		supervisorInst: supervisorInst,
 	}
 }
 
@@ -170,7 +172,7 @@ func TestHandleServerExitResetsRetryCounterAfterStableWindow(t *testing.T) {
 	fixture := newAutoRestartTestFixture(t, 3)
 	defer fixture.cancel()
 
-	cmd := fixture.inst.supervisorInstance.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
+	cmd := fixture.supervisorInst.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
 	entry := fixture.inst.restartState.entry(fixture.gameServer.ID)
 	entry.mu.Lock()
 	entry.attemptCount = 2
@@ -195,7 +197,7 @@ func TestHandleServerExitStopsAtRetryLimit(t *testing.T) {
 	fixture := newAutoRestartTestFixture(t, 2)
 	defer fixture.cancel()
 
-	cmd := fixture.inst.supervisorInstance.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
+	cmd := fixture.supervisorInst.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
 	entry := fixture.inst.restartState.entry(fixture.gameServer.ID)
 	entry.mu.Lock()
 	entry.attemptCount = 2
@@ -225,7 +227,7 @@ func TestHandleServerExitCancelsRestartWhenDisabledDuringCooldown(t *testing.T) 
 	fixture := newAutoRestartTestFixture(t, 3)
 	defer fixture.cancel()
 
-	cmd := fixture.inst.supervisorInstance.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
+	cmd := fixture.supervisorInst.GetCommandByIDOrCreateShell(fixture.gameServer.ID)
 	entry := fixture.inst.restartState.entry(fixture.gameServer.ID)
 	entry.mu.Lock()
 	entry.attemptCount = 0

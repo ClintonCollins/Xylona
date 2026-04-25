@@ -35,13 +35,6 @@ func New(ctx context.Context, supervisorInst *supervisor.Instance, database *db.
 	return nodeInst
 }
 
-// Supervisor returns the underlying supervisor instance. Exposed for callers
-// that still need direct access during the transition; will be removed once
-// all access flows through Node methods.
-func (n *Node) Supervisor() *supervisor.Instance {
-	return n.supervisor
-}
-
 // Events returns the node's EventEmitter. Step 9 will wire this up; for now
 // the existing pkg/eventbus continues to drive event delivery.
 func (n *Node) Events() *EventEmitter {

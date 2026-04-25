@@ -170,7 +170,7 @@ func TestInProcessClientReadConsoleBufferHandlesUnknownProcess(t *testing.T) {
 func TestInProcessClientStartProcessWithoutSupervisorReturnsError(t *testing.T) {
 	client, _ := newTestClient(t)
 
-	_, errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "srv-1", BaseCommand: "echo"}, 0)
+	errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "srv-1", BaseCommand: "echo"}, 0)
 	if errStart == nil {
 		t.Fatalf("StartProcess expected error when supervisor is nil")
 	}

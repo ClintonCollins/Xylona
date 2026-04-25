@@ -704,9 +704,9 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 		ServiceID:        "svc-1",
 		StopTimeout:      20 * time.Second,
 	}
-	_, errStart := client.StartProcess(t.Context(), cfg, xylona.Status_ONLINE)
-	if !errors.Is(errStart, nodeclient.ErrRemoteStartProcessHandle) {
-		t.Fatalf("StartProcess: expected ErrRemoteStartProcessHandle, got %v", errStart)
+	errStart := client.StartProcess(t.Context(), cfg, xylona.Status_ONLINE)
+	if errStart != nil {
+		t.Fatalf("StartProcess: %v", errStart)
 	}
 
 	rec.mu.Lock()
@@ -728,7 +728,7 @@ func TestGRPCClientStartProcessPropagatesServerError(t *testing.T) {
 	url, fingerprint := newPinnedTestServer(t, rec)
 	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
 
-	_, errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "x"}, xylona.Status_ONLINE)
+	errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "x"}, xylona.Status_ONLINE)
 	if errStart == nil {
 		t.Fatal("expected error")
 	}
@@ -742,7 +742,7 @@ func TestGRPCClientInvalidArgumentMapsToInvalidPath(t *testing.T) {
 	url, fingerprint := newPinnedTestServer(t, rec)
 	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
 
-	_, errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "x"}, xylona.Status_ONLINE)
+	errStart := client.StartProcess(t.Context(), node.ProcessConfig{ID: "x"}, xylona.Status_ONLINE)
 	if errStart == nil {
 		t.Fatal("expected error")
 	}

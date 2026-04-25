@@ -17,7 +17,6 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	nodeprotov1 "github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // AuthorizationHeader is the header the controller uses to present its
@@ -111,20 +110,9 @@ func (c *GRPCNodeClient) streamConnectClient() nodeprotoconnect.NodeServiceClien
 	return nodeprotoconnect.NewNodeServiceClient(&streamHTTPClient, c.listenURL)
 }
 
-// ErrRemoteStartProcessHandle is returned by the gRPC client's StartProcess to
-// indicate success without a live *supervisor.Command handle. The controller
-// cannot reconstruct one from the wire, and Step 9 will collapse the return
-// signature to drop the Command entirely. Callers treat this sentinel as a
-// success signal and fall back to StreamEvents for lifecycle observation.
-var ErrRemoteStartProcessHandle = errors.New("nodeclient: remote start process has no supervisor handle; subscribe via StreamEvents")
-
-// StartProcess sends the StartProcess RPC. For the gRPC client the returned
-// *supervisor.Command is always nil and the error is ErrRemoteStartProcessHandle
-// on success — the controller cannot reconstruct a live supervisor handle from
-// the wire. Callers should rely on StreamEvents for lifecycle observation; this
-// is the temporary shape called out by the TODO in client.go and lives until
-// Step 9 collapses the return signature.
-func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfig, status xylona.Status) (*supervisor.Command, error) {
+// StartProcess sends the StartProcess RPC. Callers should rely on StreamEvents,
+// StreamConsoleOutput, and snapshots for lifecycle observation.
+func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfig, status xylona.Status) error {
 	req := newReq(c, &nodeprotov1.StartProcessRequest{
 		Id:                 cfg.ID,
 		Name:               cfg.Name,
@@ -142,9 +130,9 @@ func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfi
 
 	_, errRPC := c.connectClient.StartProcess(ctx, req)
 	if errRPC != nil {
-		return nil, translateError("start process", errRPC)
+		return translateError("start process", errRPC)
 	}
-	return nil, ErrRemoteStartProcessHandle
+	return nil
 }
 
 // StopProcess invokes the StopProcess RPC.
@@ -155,7 +143,7 @@ func (c *GRPCNodeClient) StopProcess(ctx context.Context, processID string, stop
 	})
 	_, errRPC := c.connectClient.StopProcess(ctx, req)
 	if errRPC != nil {
-		return translateError("stop process", errRPC)
+		return translateProcessError("stop process", errRPC)
 	}
 	return nil
 }
@@ -168,7 +156,7 @@ func (c *GRPCNodeClient) SendConsoleInput(ctx context.Context, processID string,
 	})
 	_, errRPC := c.connectClient.SendConsoleInput(ctx, req)
 	if errRPC != nil {
-		return translateError("send console input", errRPC)
+		return translateProcessError("send console input", errRPC)
 	}
 	return nil
 }
@@ -1114,6 +1102,18 @@ func translateError(call string, err error) error {
 		}
 	}
 	return fmt.Errorf("nodeclient: %s: %w", call, err)
+}
+
+func translateProcessError(call string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	connectErr := new(connect.Error)
+	if errors.As(err, &connectErr) && connectErr.Code() == connect.CodeNotFound {
+		return fmt.Errorf("nodeclient: %s: %w", call, node.ErrProcessNotFound)
+	}
+	return translateError(call, err)
 }
 
 // mapNodeErrorCode looks at the connect error's metadata for a typed

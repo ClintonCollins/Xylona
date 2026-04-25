@@ -27,7 +27,7 @@ func TestInstallGameServerRemovesArtifactsWhenCommandStartFails(t *testing.T) {
 		t.Fatalf(`supervisor.New() error = %v`, errSupervisor)
 	}
 
-	inst := NewInstance(ctx, conn, supervisorInst, nil, nil, versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{})
+	inst := NewInstance(ctx, conn, newSupervisorBackedNodeClient(ctx, t, supervisorInst, conn), nil, nil, versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{})
 
 	now := time.Now().UTC()
 	owner, errCreateUser := inst.db.CreateUser(&models.UserSetter{

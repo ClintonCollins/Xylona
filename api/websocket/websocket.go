@@ -22,7 +22,6 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 const (
@@ -71,7 +70,6 @@ func (c *connection) consumeRequestedGameServerOutputIDs() []string {
 // WebSocket coordinates websocket sessions and broadcasts real-time updates.
 type WebSocket struct {
 	melody                       *melody.Melody
-	supervisor                   *supervisor.Instance
 	actions                      *actions.Instance
 	db                           *db.Connection
 	nodeRegistry                 *noderegistry.Registry
@@ -132,7 +130,6 @@ func (ws *WebSocket) getSessionConnection(s *melody.Session) (*connection, error
 // NewInstance builds the websocket manager and returns its HTTP upgrade handler.
 func NewInstance(
 	ctx context.Context,
-	supervisorInst *supervisor.Instance,
 	actionsInst *actions.Instance,
 	database *db.Connection,
 	nodeRegistry *noderegistry.Registry,
@@ -141,7 +138,6 @@ func NewInstance(
 	m := melody.New()
 	inst := &WebSocket{
 		melody:                       m,
-		supervisor:                   supervisorInst,
 		actions:                      actionsInst,
 		db:                           database,
 		nodeRegistry:                 nodeRegistry,

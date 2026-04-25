@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // ErrNodeNil is returned when an inProcessNodeClient is constructed without
@@ -41,15 +39,15 @@ func (c *inProcessNodeClient) ID() string {
 	return c.id
 }
 
-func (c *inProcessNodeClient) StartProcess(_ context.Context, cfg node.ProcessConfig, status xylona.Status) (*supervisor.Command, error) {
+func (c *inProcessNodeClient) StartProcess(_ context.Context, cfg node.ProcessConfig, status xylona.Status) error {
 	if c.node == nil {
-		return nil, ErrNodeNil
+		return ErrNodeNil
 	}
-	cmd, errStart := c.node.StartProcess(cfg, status)
+	_, errStart := c.node.StartProcess(cfg, status)
 	if errStart != nil {
-		return nil, fmt.Errorf("nodeclient: start process: %w", errStart)
+		return fmt.Errorf("nodeclient: start process: %w", errStart)
 	}
-	return cmd, nil
+	return nil
 }
 
 func (c *inProcessNodeClient) StopProcess(_ context.Context, processID, stopInputCommand string) error {
@@ -86,50 +84,11 @@ func (c *inProcessNodeClient) StreamConsoleOutput(ctx context.Context, processID
 		return nil, ErrNodeNil
 	}
 
-	supervisorInst := c.node.Supervisor()
-	if supervisorInst == nil {
-		return nil, errors.New("nodeclient: node has no supervisor")
+	stream, errStream := c.node.StreamConsoleOutput(ctx, processID)
+	if errStream != nil {
+		return nil, fmt.Errorf("nodeclient: stream console output: %w", errStream)
 	}
-
-	command := supervisorInst.GetCommandByIDOrCreateShell(processID)
-	listenerID := fmt.Sprintf("nodeclient-console-%s-%d", processID, time.Now().UnixNano())
-	listener := make(chan *xylona.Message, 256)
-	command.AddOutputListener(listenerID, listener)
-
-	out := make(chan node.ConsoleChunk, 64)
-	go func() {
-		defer close(out)
-		defer command.RemoveOutputListener(listenerID)
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case msg := <-listener:
-				if msg == nil || msg.GetType() != xylona.Message_GameServerConsole {
-					continue
-				}
-
-				consoleOutput := msg.GetGameServerConsoleOutput()
-				if consoleOutput == nil {
-					continue
-				}
-
-				chunk := node.ConsoleChunk{
-					ProcessID: consoleOutput.GetGameServerId(),
-					Data:      consoleOutput.GetOutput(),
-				}
-
-				select {
-				case <-ctx.Done():
-					return
-				case out <- chunk:
-				}
-			}
-		}
-	}()
-
-	return out, nil
+	return stream, nil
 }
 
 func (c *inProcessNodeClient) ListFiles(_ context.Context, directory, relativePath string) ([]node.FileEntry, error) {

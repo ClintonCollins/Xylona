@@ -7,19 +7,13 @@ import (
 
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func TestResolveNodeClientFailsClosedForMissingRemoteRegistryClient(t *testing.T) {
-	supervisorInst, errSupervisor := supervisor.New(context.Background())
-	if errSupervisor != nil {
-		t.Fatalf("supervisor.New() error = %v", errSupervisor)
-	}
-
 	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
 	inst := &Instance{
 		ctx:                context.Background(),
-		supervisorInstance: supervisorInst,
+		embeddedNodeClient: &nodeclient.FakeNodeClient{NodeID: "node-local"},
 		nodeRegistry:       registry,
 	}
 
