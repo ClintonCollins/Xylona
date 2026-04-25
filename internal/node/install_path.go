@@ -1,19 +1,16 @@
 package node
 
 // install_path.go resolves the node-local default install root for managed
-// game-server directories. Kept in internal/node (rather than reused from
-// pkg/actions) to avoid an import cycle: the actions package depends on
-// internal/node, not the other way around. The logic mirrors
-// actions.resolveDefaultInstallPath and the two functions should stay in
-// lockstep if either is changed.
+// game-server directories. Kept as a node wrapper so error messages and
+// call sites still describe node-local path resolution.
 
 import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
-	"path/filepath"
 	"runtime"
+
+	"github.com/ClintonCollins/Xylona/internal/defaultpaths"
 )
 
 // resolveDefaultInstallPath returns the default root directory for managed
@@ -21,23 +18,20 @@ import (
 // HOME/USER/USERPROFILE env vars so hub-spoke deployments get a path
 // appropriate for the node, not the controller.
 func resolveDefaultInstallPath(goos, home, user, userProfile string) (string, error) {
-	switch goos {
-	case "linux", "darwin":
-		if home == "" && user == "" {
-			return "", errors.New("node: failed to resolve install root (no $HOME or $USER)")
-		}
-		if home != "" {
-			return path.Join(home, "xylona"), nil
-		}
-		return path.Join("/home", user, "xylona"), nil
-	case "windows":
-		if userProfile == "" {
-			return "", errors.New("node: failed to resolve install root (no %USERPROFILE%)")
-		}
-		return filepath.Join(userProfile, "Xylona"), nil
-	default:
+	installPath, errResolve := defaultpaths.ResolveInstallPath(goos, home, user, userProfile)
+	if errResolve == nil {
+		return installPath, nil
+	}
+	if errors.Is(errResolve, defaultpaths.ErrMissingUnixHomeUser) {
+		return "", errors.New("node: failed to resolve install root (no $HOME or $USER)")
+	}
+	if errors.Is(errResolve, defaultpaths.ErrMissingWindowsUserProfile) {
+		return "", errors.New("node: failed to resolve install root (no %USERPROFILE%)")
+	}
+	if errors.Is(errResolve, defaultpaths.ErrUnsupportedOS) {
 		return "", fmt.Errorf("node: unsupported OS for default install path: %s", goos)
 	}
+	return "", errResolve
 }
 
 // DefaultInstallPath returns resolveDefaultInstallPath for the host process's

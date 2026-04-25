@@ -13,6 +13,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/defaultpaths"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -96,22 +97,20 @@ func joinManagedPath(parts ...string) string {
 }
 
 func resolveDefaultInstallPath(operatingSystem OSType, home string, user string, userProfile string) (string, error) {
-	if operatingSystem == Linux || operatingSystem == Darwin {
-		if home == "" && user == "" {
-			return "", errors.New("failed to get home directory")
-		}
-		if home != "" {
-			return path.Join(home, "xylona"), nil
-		}
-		return path.Join("/home", user, "xylona"), nil
+	installPath, errResolve := defaultpaths.ResolveInstallPath(string(operatingSystem), home, user, userProfile)
+	if errResolve == nil {
+		return installPath, nil
 	}
-	if operatingSystem == Windows {
-		if userProfile == "" {
-			return "", errors.New("failed to get user profile directory")
-		}
-		return filepath.Join(userProfile, "Xylona"), nil
+	if errors.Is(errResolve, defaultpaths.ErrMissingUnixHomeUser) {
+		return "", errors.New("failed to get home directory")
 	}
-	return "", fmt.Errorf("unsupported operating system: %s", operatingSystem)
+	if errors.Is(errResolve, defaultpaths.ErrMissingWindowsUserProfile) {
+		return "", errors.New("failed to get user profile directory")
+	}
+	if errors.Is(errResolve, defaultpaths.ErrUnsupportedOS) {
+		return "", fmt.Errorf("unsupported operating system: %s", operatingSystem)
+	}
+	return "", errResolve
 }
 
 // DefaultInstallPath returns the default root directory for managed servers.
