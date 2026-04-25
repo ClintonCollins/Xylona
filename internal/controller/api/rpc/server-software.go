@@ -17,6 +17,7 @@ import (
 	"github.com/aarondl/opt/omitnull"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
@@ -199,7 +200,7 @@ func (xs *XylonaService) SetServerVariant(
 			xs.actionsInst.CheckServerVersionByID(xs.ctx, gameServer.ID)
 		}
 		return connect.NewResponse(&xylona.SetServerVariantResponse{
-			GameServer:        helpers.GameServerModelToProto(updated, xs.versionState),
+			GameServer:        protomap.GameServerModelToProto(updated, xs.versionState),
 			Status:            modmanager.InstallStatusComplete,
 			InstalledModCount: modCount,
 		}), nil
@@ -239,7 +240,7 @@ func (xs *XylonaService) SetServerVariant(
 	go xs.applyVariantDownload(gameServer, variantID, resolved, persistedTarget, persistedTargetPinned, logConsoleOutput)
 
 	return connect.NewResponse(&xylona.SetServerVariantResponse{
-		GameServer:        helpers.GameServerModelToProto(gameServer, xs.versionState),
+		GameServer:        protomap.GameServerModelToProto(gameServer, xs.versionState),
 		Status:            modmanager.InstallStatusInstalling,
 		InstalledModCount: modCount,
 	}), nil

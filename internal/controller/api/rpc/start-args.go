@@ -10,9 +10,9 @@ import (
 	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
-	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -363,7 +363,7 @@ func (xs *XylonaService) UpdateGameStartArgsTemplate(
 	}
 	updatedGame.AllowStartArgEditing = request.Msg.GetAllowStartArgEditing()
 
-	gameSetter := helpers.GameModelToGameSetter(&updatedGame)
+	gameSetter := protomap.GameModelToGameSetter(&updatedGame)
 	gameSetter.ID = omit.From(gameModel.ID)
 	updated, errUpdate := xs.db.UpdateGame(xs.db.DB, gameModel, gameSetter)
 	if errUpdate != nil {
@@ -371,7 +371,7 @@ func (xs *XylonaService) UpdateGameStartArgsTemplate(
 	}
 
 	return connect.NewResponse(&xylona.UpdateGameStartArgsTemplateResponse{
-		Game: helpers.GameModelToProto(updated),
+		Game: protomap.GameModelToProto(updated),
 	}), nil
 }
 
@@ -402,7 +402,7 @@ func (xs *XylonaService) UpdateGameStartArgBlocklist(
 	updatedGame := *gameModel
 	updatedGame.StartArgBlocklist = blocklistJSON
 
-	gameSetter := helpers.GameModelToGameSetter(&updatedGame)
+	gameSetter := protomap.GameModelToGameSetter(&updatedGame)
 	gameSetter.ID = omit.From(gameModel.ID)
 	updated, errUpdate := xs.db.UpdateGame(xs.db.DB, gameModel, gameSetter)
 	if errUpdate != nil {
@@ -410,7 +410,7 @@ func (xs *XylonaService) UpdateGameStartArgBlocklist(
 	}
 
 	return connect.NewResponse(&xylona.UpdateGameStartArgBlocklistResponse{
-		Game: helpers.GameModelToProto(updated),
+		Game: protomap.GameModelToProto(updated),
 	}), nil
 }
 
@@ -459,7 +459,7 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 		return nil, internalErrf("failed to update game server")
 	}
 
-	gameServerProto := helpers.GameServerModelToProto(updated, xs.versionState)
+	gameServerProto := protomap.GameServerModelToProto(updated, xs.versionState)
 	if !user.SuperUser {
 		redactGameServerForNonSuperuser(gameServerProto)
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/google/uuid"
 
-	"github.com/ClintonCollins/Xylona/pkg/helpers"
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -23,7 +23,7 @@ func (xs *XylonaService) GetGame(_ context.Context, request *connect.Request[xyl
 	if errGetGame != nil {
 		return nil, dbLookup(errGetGame)
 	}
-	gameProto := helpers.GameModelToProto(game)
+	gameProto := protomap.GameModelToProto(game)
 	if !user.SuperUser {
 		redactGameForNonSuperuser(gameProto)
 	}
@@ -55,7 +55,7 @@ func (xs *XylonaService) ListGames(_ context.Context, request *connect.Request[x
 	}
 	gamesProto := make([]*xylona.Game, len(games))
 	for i, game := range games {
-		gameProto := helpers.GameModelToProto(game)
+		gameProto := protomap.GameModelToProto(game)
 		if !user.SuperUser {
 			redactGameForNonSuperuser(gameProto)
 		}
@@ -82,19 +82,19 @@ func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xyl
 	if gameProto.GetId() == "" {
 		gameProto.Id = uuid.NewString()
 	}
-	gameModel := helpers.GameProtoToModel(gameProto)
+	gameModel := protomap.GameProtoToModel(gameProto)
 	errValidateStartArgs := validateStructuredStartArgsGameConfig(gameModel)
 	if errValidateStartArgs != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidateStartArgs)
 	}
-	gameSetter := helpers.GameModelToGameSetter(gameModel)
+	gameSetter := protomap.GameModelToGameSetter(gameModel)
 	game, errInsertGame := xs.db.InsertGame(xs.db.DB, gameSetter)
 	if errInsertGame != nil {
 		return nil, connect.NewError(connect.CodeInternal, errInsertGame)
 	}
 	resp := &connect.Response[xylona.AddGameResponse]{
 		Msg: &xylona.AddGameResponse{
-			Game: helpers.GameModelToProto(game),
+			Game: protomap.GameModelToProto(game),
 		},
 	}
 	return resp, nil
@@ -114,12 +114,12 @@ func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xy
 	if errGetGameModel != nil {
 		return nil, dbLookup(errGetGameModel)
 	}
-	updatedGameModel := helpers.GameProtoToModel(gameProto)
+	updatedGameModel := protomap.GameProtoToModel(gameProto)
 	errValidateStartArgs := validateStructuredStartArgsGameConfig(updatedGameModel)
 	if errValidateStartArgs != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidateStartArgs)
 	}
-	gameSetter := helpers.GameModelToGameSetter(updatedGameModel)
+	gameSetter := protomap.GameModelToGameSetter(updatedGameModel)
 	gameSetter.ID = omit.From(gameModel.ID)
 
 	game, errUpdateGame := xs.db.UpdateGame(xs.db.DB, gameModel, gameSetter)
@@ -128,7 +128,7 @@ func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xy
 	}
 	resp := &connect.Response[xylona.EditGameResponse]{
 		Msg: &xylona.EditGameResponse{
-			Game: helpers.GameModelToProto(game),
+			Game: protomap.GameModelToProto(game),
 		},
 	}
 	return resp, nil

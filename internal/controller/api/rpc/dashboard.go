@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/authz"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
@@ -270,7 +271,7 @@ func (xs *XylonaService) GetGameServerMetricsHistory(_ context.Context, request 
 	}
 
 	if !user.SuperUser && gameServer.UserID != user.ID {
-		allowed, errPerm := helpers.HasPermission(xs.db, user, gameServerID, gameServer.UserID, "game_server.metrics")
+		allowed, errPerm := authz.HasPermission(xs.db, user, gameServerID, gameServer.UserID, "game_server.metrics")
 		if errPerm != nil {
 			return nil, internalErrf("failed to check permissions")
 		}

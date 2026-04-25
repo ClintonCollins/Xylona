@@ -1,4 +1,4 @@
-package helpers
+package protomap
 
 import (
 	"testing"
@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -24,21 +25,20 @@ func TestGameServerSteamBranchRoundTrip(t *testing.T) {
 	model.R.Node = &models.Node{}
 	model.Version = "21600865"
 
-	versionStates := testGameServerVersionStates{
-		model.ID: {
-			Status:                GameServerVersionStatusChecked,
-			InstalledVersion:      "21600865",
-			LatestVersion:         "22422094",
-			UpdateAvailable:       true,
-			TrackerType:           "steam",
-			InstalledVersionLabel: "Public (21600865)",
-			LatestVersionLabel:    "Unstable build (22422094)",
-			InstalledBranch:       "public",
-			LatestBranch:          "latest_experimental",
-		},
-	}
+	vsm := versiontracker.NewVersionStateMap()
+	vsm.Set(model.ID, versiontracker.VersionState{
+		Status:                versiontracker.VersionStatusChecked,
+		InstalledVersion:      "21600865",
+		LatestVersion:         "22422094",
+		UpdateAvailable:       true,
+		TrackerType:           "steam",
+		InstalledVersionLabel: "Public (21600865)",
+		LatestVersionLabel:    "Unstable build (22422094)",
+		InstalledBranch:       "public",
+		LatestBranch:          "latest_experimental",
+	})
 
-	got := GameServerModelToProto(model, versionStates)
+	got := GameServerModelToProto(model, vsm)
 	if got.GetSelectedTarget() != "latest_experimental" {
 		t.Fatalf("GameServerModelToProto().SelectedTarget = %q, want %q", got.GetSelectedTarget(), "latest_experimental")
 	}

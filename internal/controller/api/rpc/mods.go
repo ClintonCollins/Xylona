@@ -14,8 +14,8 @@ import (
 	"github.com/aarondl/opt/omitnull"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
-	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -412,7 +412,7 @@ func (xs *XylonaService) InstallMod(
 
 	return &connect.Response[xylona.InstallModResponse]{
 		Msg: &xylona.InstallModResponse{
-			InstalledMod: helpers.InstalledModModelToProto(mod),
+			InstalledMod: protomap.InstalledModModelToProto(mod),
 		},
 	}, nil
 }
@@ -492,7 +492,7 @@ func (xs *XylonaService) UpdateMod(
 
 	return &connect.Response[xylona.UpdateModResponse]{
 		Msg: &xylona.UpdateModResponse{
-			InstalledMod: helpers.InstalledModModelToProto(updated),
+			InstalledMod: protomap.InstalledModModelToProto(updated),
 		},
 	}, nil
 }
@@ -515,7 +515,7 @@ func (xs *XylonaService) ListInstalledMods(
 
 	var protoMods []*xylona.InstalledMod
 	for _, m := range mods {
-		protoMods = append(protoMods, helpers.InstalledModModelToProto(m))
+		protoMods = append(protoMods, protomap.InstalledModModelToProto(m))
 	}
 
 	return &connect.Response[xylona.ListInstalledModsResponse]{
@@ -568,7 +568,7 @@ func (xs *XylonaService) SetModAutoUpdate(
 
 	return &connect.Response[xylona.SetModAutoUpdateResponse]{
 		Msg: &xylona.SetModAutoUpdateResponse{
-			InstalledMod: helpers.InstalledModModelToProto(updated),
+			InstalledMod: protomap.InstalledModModelToProto(updated),
 		},
 	}, nil
 }
@@ -626,7 +626,7 @@ func (xs *XylonaService) SetModEnabled(
 
 	return &connect.Response[xylona.SetModEnabledResponse]{
 		Msg: &xylona.SetModEnabledResponse{
-			InstalledMod: helpers.InstalledModModelToProto(mod),
+			InstalledMod: protomap.InstalledModModelToProto(mod),
 		},
 	}, nil
 }
@@ -700,7 +700,7 @@ func (xs *XylonaService) PinModVersion(
 
 	return &connect.Response[xylona.PinModVersionResponse]{
 		Msg: &xylona.PinModVersionResponse{
-			InstalledMod: helpers.InstalledModModelToProto(updated),
+			InstalledMod: protomap.InstalledModModelToProto(updated),
 		},
 	}, nil
 }

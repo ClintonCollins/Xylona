@@ -18,12 +18,12 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	xylonadb "github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/internal/selfupdate"
 	"github.com/ClintonCollins/Xylona/internal/updater"
-	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -1173,7 +1173,7 @@ func (xs *XylonaService) systemUpdateJobToProto(ctx context.Context, job *xylona
 		if errServers == nil {
 			out.AffectedGameServers = make([]*xylona.GameServer, 0, len(servers))
 			for _, server := range servers {
-				out.AffectedGameServers = append(out.AffectedGameServers, helpers.GameServerModelToProto(server, xs.versionState))
+				out.AffectedGameServers = append(out.AffectedGameServers, protomap.GameServerModelToProto(server, xs.versionState))
 			}
 		}
 	}

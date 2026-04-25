@@ -12,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -92,7 +93,7 @@ func mergeNodeIPs(storedIPs []*models.IP, runtimeIPs []*xylona.IP, nodeID string
 		if address == "" {
 			continue
 		}
-		ipProto := helpers.IPModelToProto(storedIP)
+		ipProto := protomap.IPModelToProto(storedIP)
 		ipProto.NodeId = nodeID
 		merged = append(merged, ipProto)
 		seenAddresses[address] = struct{}{}

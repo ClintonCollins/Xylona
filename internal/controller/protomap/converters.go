@@ -1,5 +1,5 @@
-// Package helpers contains shared model, protobuf, permission, and filesystem helpers.
-package helpers
+// Package protomap converts between controller database models and protobuf messages.
+package protomap
 
 import (
 	"strings"
@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -83,7 +84,7 @@ func GameServerProtoToModel(gsProto *xylona.GameServer) *models.GameServer {
 }
 
 // GameServerModelToProto converts a game server database model to a protobuf message.
-func GameServerModelToProto(gsModel *models.GameServer, versionStates GameServerVersionStateProvider) *xylona.GameServer {
+func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.VersionStateMap) *xylona.GameServer {
 	gameName := ""
 	if gsModel.R.Game != nil {
 		gameName = gsModel.R.Game.Name
@@ -144,22 +145,22 @@ func GameServerModelToProto(gsModel *models.GameServer, versionStates GameServer
 			proto.ResolvedHasModSupport = resolvedConfig.ModProfile != nil
 		}
 	}
-	if hasGameServerVersionStateProvider(versionStates) {
-		proto.VersionInfo = versionStateToVersionInfoProto(versionStates.GameServerVersionState(gsModel.ID))
+	if vsm != nil {
+		proto.VersionInfo = versionStateToVersionInfoProto(vsm.Get(gsModel.ID))
 	}
 	return proto
 }
 
-func versionStateToVersionInfoProto(state GameServerVersionState) *xylona.VersionInfo {
+func versionStateToVersionInfoProto(state versiontracker.VersionState) *xylona.VersionInfo {
 	protoStatus := xylona.VersionStatus_VERSION_STATUS_NO_TRACKER
 	switch state.Status {
-	case GameServerVersionStatusUnchecked:
+	case versiontracker.VersionStatusUnchecked:
 		protoStatus = xylona.VersionStatus_VERSION_STATUS_UNCHECKED
-	case GameServerVersionStatusChecking:
+	case versiontracker.VersionStatusChecking:
 		protoStatus = xylona.VersionStatus_VERSION_STATUS_CHECKING
-	case GameServerVersionStatusChecked:
+	case versiontracker.VersionStatusChecked:
 		protoStatus = xylona.VersionStatus_VERSION_STATUS_CHECKED
-	case GameServerVersionStatusError:
+	case versiontracker.VersionStatusError:
 		protoStatus = xylona.VersionStatus_VERSION_STATUS_ERROR
 	}
 

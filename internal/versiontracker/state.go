@@ -4,8 +4,6 @@ import (
 	"maps"
 	"sync"
 	"time"
-
-	"github.com/ClintonCollins/Xylona/pkg/helpers"
 )
 
 // VersionStatus represents the current state of version tracking for a server.
@@ -66,12 +64,6 @@ func (m *VersionStateMap) Get(serverID string) VersionState {
 	return state
 }
 
-// GameServerVersionState adapts internal version tracking state for protobuf
-// conversion helpers.
-func (m *VersionStateMap) GameServerVersionState(serverID string) helpers.GameServerVersionState {
-	return gameServerVersionStateFromInternal(m.Get(serverID))
-}
-
 // GetWithOK returns the VersionState and whether it was explicitly stored.
 func (m *VersionStateMap) GetWithOK(serverID string) (VersionState, bool) {
 	m.mu.RLock()
@@ -116,34 +108,4 @@ func (m *VersionStateMap) Delete(serverID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.states, serverID)
-}
-
-func gameServerVersionStateFromInternal(state VersionState) helpers.GameServerVersionState {
-	return helpers.GameServerVersionState{
-		Status:                gameServerVersionStatusFromInternal(state.Status),
-		InstalledVersion:      state.InstalledVersion,
-		LatestVersion:         state.LatestVersion,
-		UpdateAvailable:       state.UpdateAvailable,
-		LastCheckTime:         state.LastCheckTime,
-		TrackerType:           state.TrackerType,
-		InstalledVersionLabel: state.InstalledVersionLabel,
-		LatestVersionLabel:    state.LatestVersionLabel,
-		InstalledBranch:       state.InstalledBranch,
-		LatestBranch:          state.LatestBranch,
-	}
-}
-
-func gameServerVersionStatusFromInternal(status VersionStatus) helpers.GameServerVersionStatus {
-	switch status {
-	case VersionStatusUnchecked:
-		return helpers.GameServerVersionStatusUnchecked
-	case VersionStatusChecking:
-		return helpers.GameServerVersionStatusChecking
-	case VersionStatusChecked:
-		return helpers.GameServerVersionStatusChecked
-	case VersionStatusError:
-		return helpers.GameServerVersionStatusError
-	default:
-		return helpers.GameServerVersionStatusNoTracker
-	}
 }

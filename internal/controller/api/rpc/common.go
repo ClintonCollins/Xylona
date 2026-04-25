@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/api/gatekeeper"
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
@@ -238,7 +239,7 @@ func (xs *XylonaService) nodeProtoWithRuntimeState(
 		return &xylona.Node{}
 	}
 
-	proto := helpers.NodeModelToProto(nodeRow)
+	proto := protomap.NodeModelToProto(nodeRow)
 	isLocal := strings.TrimSpace(nodeRow.ID) != "" && nodeRow.ID == selfNodeID
 	proto.Local = isLocal
 

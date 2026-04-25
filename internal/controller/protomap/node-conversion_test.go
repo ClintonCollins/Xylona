@@ -1,4 +1,4 @@
-package helpers
+package protomap
 
 import (
 	"testing"

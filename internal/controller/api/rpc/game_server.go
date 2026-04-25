@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	xylonadb "github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
@@ -232,7 +233,7 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 		return nil, dbLookup(errGetGame)
 	}
 
-	newGameServerModel := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+	newGameServerModel := protomap.GameServerProtoToModel(request.Msg.GetGameServer())
 	if strings.TrimSpace(newGameServerModel.NodeID) == "" {
 		localSettings, errSettings := xs.db.GetLocalSettings()
 		if errSettings != nil {
@@ -291,7 +292,7 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 	}
 
 	response := &xylona.CreateGameServerResponse{
-		GameServer: helpers.GameServerModelToProto(newGameServer, xs.versionState),
+		GameServer: protomap.GameServerModelToProto(newGameServer, xs.versionState),
 	}
 	return connect.NewResponse(response), nil
 }
@@ -311,7 +312,7 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 		return nil, errPermission
 	}
 
-	incomingGameServer := helpers.GameServerProtoToModel(request.Msg.GetGameServer())
+	incomingGameServer := protomap.GameServerProtoToModel(request.Msg.GetGameServer())
 	gameServerModel := mergeEditableGameServerUpdate(existingGameServer, incomingGameServer, user.SuperUser)
 	gameServerModel.NodeID = fallbackNodeID(gameServerModel.NodeID, existingGameServer.NodeID)
 
@@ -348,13 +349,13 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 		gameServerModel.QueryPort = availableQueryPort
 	}
 
-	setter := helpers.GameServerModelToSetter(gameServerModel)
+	setter := protomap.GameServerModelToSetter(gameServerModel)
 	_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 	if errUpdate != nil {
 		return nil, internalErr()
 	}
 
-	gameServerProto := helpers.GameServerModelToProto(gameServerModel, xs.versionState)
+	gameServerProto := protomap.GameServerModelToProto(gameServerModel, xs.versionState)
 	if !user.SuperUser {
 		redactGameServerForNonSuperuser(gameServerProto)
 	}
@@ -536,7 +537,7 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 	}
 	gameServer.Status = runtimeStatus.String()
 
-	gsProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
+	gsProto := protomap.GameServerModelToProto(gameServer, xs.versionState)
 	if !user.SuperUser {
 		redactGameServerForNonSuperuser(gsProto)
 	}
@@ -633,7 +634,7 @@ func (xs *XylonaService) ListGameServers(_ context.Context, request *connect.Req
 		} else {
 			gameServer.Status = xylona.Status_OFFLINE.String()
 		}
-		gameServerProto := helpers.GameServerModelToProto(gameServer, xs.versionState)
+		gameServerProto := protomap.GameServerModelToProto(gameServer, xs.versionState)
 		applyProcessMetricsToProto(gameServerProto, snap)
 		if user.SuperUser || gameServer.UserID == user.ID {
 			gameServerProto.EffectivePermissions = xs.allPermissionIDs

@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/ClintonCollins/Xylona/pkg/helpers"
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -114,8 +114,8 @@ func (xs *XylonaService) EditNode(_ context.Context, request *connect.Request[xy
 	if !user.SuperUser {
 		return nil, permissionDenied("superuser required")
 	}
-	nodeModel := helpers.NodeProtoToModel(request.Msg.GetNode())
-	node, err := xs.db.UpdateNode(nodeModel, helpers.NodeModelToSetter(nodeModel))
+	nodeModel := protomap.NodeProtoToModel(request.Msg.GetNode())
+	node, err := xs.db.UpdateNode(nodeModel, protomap.NodeModelToSetter(nodeModel))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -233,7 +233,7 @@ func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request 
 			continue
 		}
 
-		gsProto := helpers.GameServerModelToProto(gs, xs.versionState)
+		gsProto := protomap.GameServerModelToProto(gs, xs.versionState)
 		gsProto.Status = xs.getLocalGameServerStatus(gs)
 		if user.SuperUser || gs.UserID == user.ID {
 			gsProto.EffectivePermissions = xs.allPermissionIDs
