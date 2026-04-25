@@ -146,6 +146,79 @@ func newTestModFileClient(t *testing.T, conn *db.Connection) FileClient {
 	return nodeclient.NewInProcessClient("node-local", node.New(t.Context(), nil, conn))
 }
 
+type fakeModFileClient struct {
+	DeleteFilesCalls         []deleteFilesCall
+	DownloadFileFromURLCalls []downloadFileFromURLCall
+	MoveFilesCalls           []moveFilesCall
+	RenameFileCalls          []renameFileCall
+
+	DownloadFileFromURLResult node.DownloadFileResult
+	RenameFileResult          string
+}
+
+type deleteFilesCall struct {
+	Directory string
+	Files     []string
+}
+
+type downloadFileFromURLCall struct {
+	Directory                string
+	RawURL                   string
+	DestinationDirectoryPath string
+	Integrity                node.DownloadIntegrity
+}
+
+type moveFilesCall struct {
+	Files       []string
+	Destination string
+}
+
+type renameFileCall struct {
+	OldRelativePath string
+	NewRelativePath string
+}
+
+func (c *fakeModFileClient) CreateFileOrDirectory(_ context.Context, _, _, _ string, _ bool, _ node.ProtectionPolicy) error {
+	return nil
+}
+
+func (c *fakeModFileClient) DeleteFiles(_ context.Context, directory string, files []string, _ node.ProtectionPolicy) ([]string, error) {
+	c.DeleteFilesCalls = append(c.DeleteFilesCalls, deleteFilesCall{
+		Directory: directory,
+		Files:     append([]string(nil), files...),
+	})
+	return files, nil
+}
+
+func (c *fakeModFileClient) DownloadFileFromURL(_ context.Context, directory, rawURL, destinationDirectoryPath string, integrity node.DownloadIntegrity, _ node.ProtectionPolicy) (node.DownloadFileResult, error) {
+	c.DownloadFileFromURLCalls = append(c.DownloadFileFromURLCalls, downloadFileFromURLCall{
+		Directory:                directory,
+		RawURL:                   rawURL,
+		DestinationDirectoryPath: destinationDirectoryPath,
+		Integrity:                integrity,
+	})
+	return c.DownloadFileFromURLResult, nil
+}
+
+func (c *fakeModFileClient) MoveFiles(_ context.Context, _ string, files []string, destination string, _ node.ProtectionPolicy) ([]string, error) {
+	c.MoveFilesCalls = append(c.MoveFilesCalls, moveFilesCall{
+		Files:       append([]string(nil), files...),
+		Destination: destination,
+	})
+	return files, nil
+}
+
+func (c *fakeModFileClient) RenameFile(_ context.Context, _ string, oldRelativePath, newRelativePath string, _ node.ProtectionPolicy) (string, error) {
+	c.RenameFileCalls = append(c.RenameFileCalls, renameFileCall{
+		OldRelativePath: oldRelativePath,
+		NewRelativePath: newRelativePath,
+	})
+	if c.RenameFileResult != "" {
+		return c.RenameFileResult, nil
+	}
+	return newRelativePath, nil
+}
+
 func newMockProvider(providerID string) *mockProvider {
 	return &mockProvider{
 		id: providerID,
@@ -183,8 +256,7 @@ func clearVersionIntegrity(version *modproviders.ModVersion) {
 	version.FileHashSHA1 = ""
 }
 
-func resetFakeNodeClientCalls(client *nodeclient.FakeNodeClient) {
-	client.CreateFileOrDirectoryCalls = nil
+func resetFakeModFileClientCalls(client *fakeModFileClient) {
 	client.DeleteFilesCalls = nil
 	client.DownloadFileFromURLCalls = nil
 	client.MoveFilesCalls = nil
@@ -216,7 +288,7 @@ func TestRemoteModDownloadRejectsMissingIntegrityMetadata(t *testing.T) {
 		modproviders.RegisterProvider(mock)
 
 		mgr := New(conn)
-		client := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+		client := &fakeModFileClient{}
 		_, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", t.TempDir(), "mods")
 		if !errors.Is(errInstall, modproviders.ErrMissingIntegrityMetadata) {
 			t.Fatalf("InstallRemote() error = %v, want %v", errInstall, modproviders.ErrMissingIntegrityMetadata)
@@ -235,8 +307,7 @@ func TestRemoteModDownloadRejectsMissingIntegrityMetadata(t *testing.T) {
 		modproviders.RegisterProvider(mock)
 
 		mgr := New(conn)
-		client := &nodeclient.FakeNodeClient{
-			NodeID:                    "node-remote",
+		client := &fakeModFileClient{
 			DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar", BytesWritten: 1024, SHA256: "sha-v1"},
 			RenameFileResult:          "mods/testmod-1.0.0.jar",
 		}
@@ -246,7 +317,7 @@ func TestRemoteModDownloadRejectsMissingIntegrityMetadata(t *testing.T) {
 		}
 
 		clearVersionIntegrity(&mock.details.Versions[1])
-		resetFakeNodeClientCalls(client)
+		resetFakeModFileClientCalls(client)
 		_, errUpdate := mgr.UpdateRemote(context.Background(), client, mod.ID, "v2", t.TempDir())
 		if !errors.Is(errUpdate, modproviders.ErrMissingIntegrityMetadata) {
 			t.Fatalf("UpdateRemote() error = %v, want %v", errUpdate, modproviders.ErrMissingIntegrityMetadata)
@@ -271,8 +342,7 @@ func TestRemoteModInstallUsesNodeDownloadAndStoresSlashPaths(t *testing.T) {
 
 	mgr := New(conn)
 	serverDir := t.TempDir()
-	client := &nodeclient.FakeNodeClient{
-		NodeID:                    "node-remote",
+	client := &fakeModFileClient{
 		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-remote/testmod-1.0.0.jar", BytesWritten: 1024, SHA256: "sha-v1"},
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
@@ -350,8 +420,7 @@ func TestRemoteModUpdateUsesNodeRollbackAndStoresSlashPaths(t *testing.T) {
 
 	mgr := New(conn)
 	serverDir := t.TempDir()
-	client := &nodeclient.FakeNodeClient{
-		NodeID:                    "node-remote",
+	client := &fakeModFileClient{
 		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar", BytesWritten: 1024, SHA256: "sha-v1"},
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
@@ -360,7 +429,7 @@ func TestRemoteModUpdateUsesNodeRollbackAndStoresSlashPaths(t *testing.T) {
 	if errInstall != nil {
 		t.Fatalf("InstallRemote() error = %v", errInstall)
 	}
-	resetFakeNodeClientCalls(client)
+	resetFakeModFileClientCalls(client)
 	client.DownloadFileFromURLResult = node.DownloadFileResult{RelativePath: "mods/.xylona-download-update/testmod-2.0.0.jar", BytesWritten: 2048, SHA256: "sha-v2"}
 
 	updated, errUpdate := mgr.UpdateRemote(context.Background(), client, mod.ID, "v2", serverDir)
@@ -429,8 +498,7 @@ func TestRemoteModUninstallDeletesOnNode(t *testing.T) {
 
 	mgr := New(conn)
 	serverDir := t.TempDir()
-	client := &nodeclient.FakeNodeClient{
-		NodeID:                    "node-remote",
+	client := &fakeModFileClient{
 		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar"},
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
@@ -439,7 +507,7 @@ func TestRemoteModUninstallDeletesOnNode(t *testing.T) {
 	if errInstall != nil {
 		t.Fatalf("InstallRemote() error = %v", errInstall)
 	}
-	resetFakeNodeClientCalls(client)
+	resetFakeModFileClientCalls(client)
 
 	errUninstall := mgr.Uninstall(context.Background(), client, mod.ID, serverDir)
 	if errUninstall != nil {
@@ -478,8 +546,7 @@ func TestRemoteModEnableDisableMovesOnNode(t *testing.T) {
 
 	mgr := New(conn)
 	serverDir := t.TempDir()
-	client := &nodeclient.FakeNodeClient{
-		NodeID:                    "node-remote",
+	client := &fakeModFileClient{
 		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar"},
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
@@ -488,7 +555,7 @@ func TestRemoteModEnableDisableMovesOnNode(t *testing.T) {
 	if errInstall != nil {
 		t.Fatalf("InstallRemote() error = %v", errInstall)
 	}
-	resetFakeNodeClientCalls(client)
+	resetFakeModFileClientCalls(client)
 
 	errDisable := mgr.Disable(context.Background(), client, mod.ID, serverDir, "mods")
 	if errDisable != nil {
@@ -511,7 +578,7 @@ func TestRemoteModEnableDisableMovesOnNode(t *testing.T) {
 		t.Fatalf("Disable() enabled = %d, want 0", disabled.Enabled)
 	}
 
-	resetFakeNodeClientCalls(client)
+	resetFakeModFileClientCalls(client)
 	errEnable := mgr.Enable(context.Background(), client, mod.ID, serverDir, "mods")
 	if errEnable != nil {
 		t.Fatalf("Enable() error = %v", errEnable)
@@ -552,8 +619,7 @@ func TestRemoteModAutoUpdateUsesNodeDownload(t *testing.T) {
 
 	mgr := New(conn)
 	serverDir := t.TempDir()
-	client := &nodeclient.FakeNodeClient{
-		NodeID:                    "node-remote",
+	client := &fakeModFileClient{
 		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar"},
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
@@ -568,7 +634,7 @@ func TestRemoteModAutoUpdateUsesNodeDownload(t *testing.T) {
 		t.Fatalf("failed to enable auto_update: %v", errExec)
 	}
 
-	resetFakeNodeClientCalls(client)
+	resetFakeModFileClientCalls(client)
 	client.DownloadFileFromURLResult = node.DownloadFileResult{RelativePath: "mods/.xylona-download-update/testmod-2.0.0.jar"}
 	var messages []string
 	statusFn := func(msg string) {
