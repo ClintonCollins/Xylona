@@ -282,6 +282,45 @@ func TestDownloadFileFromURLRejectsNonSuccessStatus(t *testing.T) {
 	}
 }
 
+func TestDownloadFileFromURLRejectsLoopbackTarget(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+
+	_, errDownload := n.DownloadFileFromURL(
+		t.Context(),
+		dir,
+		"http://127.0.0.1:8080/file.txt",
+		"",
+		DownloadIntegrity{},
+		ProtectionPolicy{},
+	)
+	if errDownload == nil {
+		t.Fatal("DownloadFileFromURL() expected error, got nil")
+	}
+	if !strings.Contains(errDownload.Error(), "private or reserved") {
+		t.Fatalf("DownloadFileFromURL() error = %v, want SSRF validation failure", errDownload)
+	}
+}
+
+func TestValidateDownloadRedirectTargetRejectsPrivateRedirect(t *testing.T) {
+	req, errRequest := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://127.0.0.1:8080/private.txt", nil)
+	if errRequest != nil {
+		t.Fatalf("NewRequest() error = %v", errRequest)
+	}
+	viaReq, errViaRequest := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://downloads.example.com/public.txt", nil)
+	if errViaRequest != nil {
+		t.Fatalf("NewRequest(via) error = %v", errViaRequest)
+	}
+
+	errValidate := validateDownloadRedirectTarget(req, []*http.Request{viaReq})
+	if errValidate == nil {
+		t.Fatal("validateDownloadRedirectTarget() expected error, got nil")
+	}
+	if !strings.Contains(errValidate.Error(), "private or reserved") {
+		t.Fatalf("validateDownloadRedirectTarget() error = %v, want SSRF validation failure", errValidate)
+	}
+}
+
 func TestDownloadFileFromURLVerifiesIntegrityBeforePromotion(t *testing.T) {
 	dir := t.TempDir()
 	n := &Node{}

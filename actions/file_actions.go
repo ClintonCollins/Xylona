@@ -26,9 +26,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/node"
-	"github.com/ClintonCollins/Xylona/pkg/webhooks"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/startargs"
@@ -110,248 +108,6 @@ func resolveValidatedArchiveSourcePath(gameServer *models.GameServer, relativePa
 
 	absolutePath := filepath.Join(gameServer.Directory, validatedPath)
 	return validatedPath, absolutePath, nil
-}
-
-// CreateFileOrDirectory creates or writes a file or directory inside the server root.
-func (inst *Instance) CreateFileOrDirectory(gameServer *models.GameServer, relativePath string, content string, isDirectory bool) error {
-	validatedPath, errPath := validateWritableServerPath(gameServer, relativePath)
-	if errPath != nil {
-		return errPath
-	}
-	fullPath := filepath.Join(gameServer.Directory, validatedPath)
-	if isDirectory {
-		errMkdir := os.MkdirAll(fullPath, 0o750)
-		if errMkdir != nil {
-			log.Error().Err(errMkdir).Msg("Failed to create directory")
-			return wrapFileActionError("create directory", errMkdir)
-		}
-	} else {
-		file, errCreate := os.Create(fullPath)
-		if errCreate != nil {
-			log.Error().Err(errCreate).Msg("Failed to create file")
-			return wrapFileActionError("create file", errCreate)
-		}
-
-		if content != "" {
-			_, errWrite := file.WriteString(content)
-			if errWrite != nil {
-				log.Error().Err(errWrite).Msg("Failed to write to file")
-				errClose := file.Close()
-				if errClose != nil {
-					log.Error().Err(errClose).Msg("Failed to close file after write error")
-				}
-				return wrapFileActionError("write file", errWrite)
-			}
-		}
-
-		errClose := file.Close()
-		if errClose != nil {
-			log.Error().Err(errClose).Msg("Failed to close file")
-			return wrapFileActionError("close file", errClose)
-		}
-	}
-	return nil
-}
-
-// DeleteFiles deletes multiple files or directories from a server.
-func (inst *Instance) DeleteFiles(ctx context.Context, gameServer *models.GameServer, files []string) ([]string, error) {
-	successfullyDeleted := make([]string, 0, len(files))
-	for _, file := range files {
-		select {
-		case <-ctx.Done():
-			return nil, wrapFileActionError("delete files context canceled", ctx.Err())
-		default:
-			validatedPath, errPath := validateWritableServerPath(gameServer, file)
-			if errPath != nil {
-				return nil, errPath
-			}
-			fullPath := filepath.Join(gameServer.Directory, validatedPath)
-			errRemove := os.RemoveAll(fullPath)
-			if errRemove != nil {
-				log.Error().Err(errRemove).Msg("Failed to remove file")
-				continue
-			}
-			successfullyDeleted = append(successfullyDeleted, validatedPath)
-		}
-	}
-	return successfullyDeleted, nil
-}
-
-// RenameFile renames a file or directory within a server.
-func (inst *Instance) RenameFile(gameServer *models.GameServer, oldFilePath, newFilePath string) (string, error) {
-	validatedOldPath, errOldPath := validateWritableServerPath(gameServer, oldFilePath)
-	if errOldPath != nil {
-		return "", errOldPath
-	}
-	validatedNewPath, errNewPath := validateWritableServerPath(gameServer, newFilePath)
-	if errNewPath != nil {
-		return "", errNewPath
-	}
-	oldFullPath := filepath.Join(gameServer.Directory, validatedOldPath)
-	newFullPath := filepath.Join(gameServer.Directory, validatedNewPath)
-	errRename := os.Rename(oldFullPath, newFullPath)
-	if errRename != nil {
-		log.Error().Err(errRename).Msg("Failed to rename file")
-		return "", wrapFileActionError("rename file", errRename)
-	}
-	return validatedNewPath, nil
-}
-
-// MoveFiles moves files into another directory within the same server root.
-func (inst *Instance) MoveFiles(ctx context.Context, gameServer *models.GameServer, files []string, destination string) ([]string, error) {
-	successfullyMoved := make([]string, 0, len(files))
-	validatedDestination, errDestination := validateLocalServerPath(gameServer, destination)
-	if errDestination != nil {
-		return nil, errDestination
-	}
-	if validatedDestination == ".." {
-		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-		return nil, ErrInvalidPath
-	}
-	destinationFullPath := filepath.Join(gameServer.Directory, validatedDestination)
-	errMkdir := os.MkdirAll(destinationFullPath, 0o750)
-	if errMkdir != nil {
-		log.Error().Err(errMkdir).Msg("Failed to create destination directory")
-		return nil, wrapFileActionError("create destination directory", errMkdir)
-	}
-	for _, file := range files {
-		select {
-		case <-ctx.Done():
-			return nil, wrapFileActionError("move files context canceled", ctx.Err())
-		default:
-			validatedFilePath, errFilePath := validateWritableServerPath(gameServer, file)
-			if errFilePath != nil {
-				return nil, errFilePath
-			}
-			destinationFilePath := filepath.Join(validatedDestination, filepath.Base(validatedFilePath))
-			_, errProtected := validateWritableServerPath(gameServer, destinationFilePath)
-			if errProtected != nil {
-				return nil, errProtected
-			}
-			fullPath := filepath.Join(gameServer.Directory, validatedFilePath)
-			fileDestinationPath := filepath.Join(destinationFullPath, filepath.Base(file))
-			errRename := os.Rename(fullPath, fileDestinationPath)
-			if errRename != nil {
-				log.Error().Err(errRename).Msg("Failed to move file")
-				continue
-			}
-			successfullyMoved = append(successfullyMoved, validatedFilePath)
-		}
-	}
-	return successfullyMoved, nil
-}
-
-// EditFile overwrites a file with the provided content.
-func (inst *Instance) EditFile(gameServer *models.GameServer, filePath string, content string) error {
-	validatedPath, errPath := validateWritableServerPath(gameServer, filePath)
-	if errPath != nil {
-		return errPath
-	}
-	fullPath := filepath.Join(gameServer.Directory, validatedPath)
-	file, errOpen := os.Create(fullPath)
-	if errOpen != nil {
-		log.Error().Err(errOpen).Msg("Failed to open file")
-		return wrapFileActionError("open file for edit", errOpen)
-	}
-	defer func() {
-		errClose := file.Close()
-		if errClose != nil {
-			log.Error().Err(errClose).Msg("Failed to close file")
-		}
-	}()
-	_, errWrite := file.WriteString(content)
-	if errWrite != nil {
-		log.Error().Err(errWrite).Msg("Failed to write to file")
-		return wrapFileActionError("write edited file", errWrite)
-	}
-	return nil
-}
-
-// DownloadFileFromURL downloads a remote file into a server directory.
-func (inst *Instance) DownloadFileFromURL(ctx context.Context, gameServer *models.GameServer, rawURL, destinationDirectoryPath string) (string, error) {
-	validatedDestinationDirectory, errPath := validateLocalServerPath(gameServer, destinationDirectoryPath)
-	if errPath != nil {
-		return "", errPath
-	}
-
-	// Validate URL scheme to prevent SSRF via file://, gopher://, etc.
-	parsedURL, errParseURL := url.Parse(rawURL)
-	if errParseURL != nil {
-		log.Error().Err(errParseURL).Msg("Failed to parse URL")
-		return "", errors.New("invalid URL")
-	}
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		log.Error().Str("scheme", parsedURL.Scheme).Msg("URL scheme not allowed")
-		return "", errors.New("only http and https URLs are allowed")
-	}
-
-	errSSRF := webhooks.ValidateWebhookTarget(rawURL)
-	if errSSRF != nil {
-		return "", fmt.Errorf("validate download URL: %w", errSSRF)
-	}
-
-	httpClientBase := helpers.GetXylonaHTTPClient()
-	httpClientCopy := *httpClientBase
-	httpClient := &httpClientCopy
-	httpClient.CheckRedirect = validateDownloadRedirectTarget
-	req, errNewReq := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if errNewReq != nil {
-		log.Error().Err(errNewReq).Msg("Failed to create request")
-		return "", wrapFileActionError("create download request", errNewReq)
-	}
-
-	fileName := path.Base(req.URL.Path)
-	fileName = strings.TrimPrefix(fileName, "/")
-	filePathIsLocal := filepath.IsLocal(fileName)
-	if !filePathIsLocal {
-		log.Error().Str("Game Server ID", gameServer.ID).Msg("Invalid path")
-		return "", ErrInvalidPath
-	}
-
-	resp, errGet := httpClient.Do(req)
-	if errGet != nil {
-		log.Error().Err(errGet).Msg("Failed to get URL")
-		return "", wrapFileActionError("download file from URL", errGet)
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	protectedRelativePath := filepath.Join(validatedDestinationDirectory, fileName)
-	_, errProtected := validateWritableServerPath(gameServer, protectedRelativePath)
-	if errProtected != nil {
-		return "", errProtected
-	}
-
-	destinationFullPath := filepath.Join(gameServer.Directory, validatedDestinationDirectory, fileName)
-	file, errCreate := os.Create(destinationFullPath)
-	if errCreate != nil {
-		log.Error().Err(errCreate).Msg("Failed to create file")
-		return "", wrapFileActionError("create downloaded file", errCreate)
-	}
-	defer func() {
-		_ = file.Close()
-	}()
-
-	_, errCopy := io.Copy(file, resp.Body)
-	if errCopy != nil {
-		log.Error().Err(errCopy).Msg("Failed to copy file")
-		return "", wrapFileActionError("write downloaded file", errCopy)
-	}
-	return "", nil
-}
-
-func validateDownloadRedirectTarget(req *http.Request, via []*http.Request) error {
-	if len(via) >= 10 {
-		return errors.New("stopped after 10 redirects")
-	}
-
-	errValidateRedirect := webhooks.ValidateWebhookTarget(req.URL.String())
-	if errValidateRedirect != nil {
-		return fmt.Errorf("download redirect blocked: %w", errValidateRedirect)
-	}
-
-	return nil
 }
 
 // ArchiveFiles archives the provided files and emits progress updates.
@@ -1482,32 +1238,22 @@ func (inst *Instance) deleteGameServerDirectory(nodeID string, directory string)
 	if directory == "" {
 		return nil
 	}
-
 	ctx := context.Background()
 	if inst != nil && inst.ctx != nil {
 		ctx = inst.ctx
 	}
-
-	if inst != nil && inst.nodeRegistry != nil {
-		selfID := inst.nodeRegistry.SelfID()
-		if nodeID != "" {
-			client, errGetClient := inst.nodeRegistry.Get(nodeID)
-			if errGetClient == nil {
-				_, errDelete := client.DeleteFiles(ctx, directory, []string{""}, node.ProtectionPolicy{})
-				if errDelete != nil {
-					return fmt.Errorf("actions: delete game server directory on node: %w", errDelete)
-				}
-				return nil
-			}
-			if nodeID != selfID {
-				return fmt.Errorf("actions: resolve node client for directory delete: %w", errGetClient)
-			}
-		}
+	if inst == nil {
+		return errors.New("actions: instance is not configured")
 	}
 
-	errRemove := os.RemoveAll(directory)
-	if errRemove != nil {
-		return fmt.Errorf("actions: remove local game server directory: %w", errRemove)
+	client, errClient := inst.resolveNodeClient(nodeID)
+	if errClient != nil {
+		return fmt.Errorf("actions: resolve node client for directory delete: %w", errClient)
 	}
+	_, errDelete := client.DeleteFiles(ctx, directory, []string{""}, node.ProtectionPolicy{})
+	if errDelete != nil {
+		return fmt.Errorf("actions: delete game server directory on node: %w", errDelete)
+	}
+
 	return nil
 }

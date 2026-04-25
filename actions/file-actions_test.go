@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"errors"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,42 +173,6 @@ func TestSaveUploadedGameServerFileWritesLocalUploadThroughNodeClient(t *testing
 	}
 }
 
-func TestDownloadFileFromURLRejectsLoopbackTarget(t *testing.T) {
-	fixture := newFileActionTestFixture(t)
-
-	_, errDownload := fixture.inst.DownloadFileFromURL(
-		context.Background(),
-		fixture.gameServer,
-		"http://127.0.0.1:8080/file.txt",
-		"",
-	)
-	if errDownload == nil {
-		t.Fatal("DownloadFileFromURL() expected error, got nil")
-	}
-	if !strings.Contains(errDownload.Error(), "private or reserved") {
-		t.Fatalf("DownloadFileFromURL() error = %v, want SSRF validation failure", errDownload)
-	}
-}
-
-func TestValidateDownloadRedirectTargetRejectsPrivateRedirect(t *testing.T) {
-	req, errRequest := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://127.0.0.1:8080/private.txt", nil)
-	if errRequest != nil {
-		t.Fatalf("NewRequest() error = %v", errRequest)
-	}
-	viaReq, errViaRequest := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://downloads.example.com/public.txt", nil)
-	if errViaRequest != nil {
-		t.Fatalf("NewRequest(via) error = %v", errViaRequest)
-	}
-
-	errValidate := validateDownloadRedirectTarget(req, []*http.Request{viaReq})
-	if errValidate == nil {
-		t.Fatal("validateDownloadRedirectTarget() expected error, got nil")
-	}
-	if !strings.Contains(errValidate.Error(), "private or reserved") {
-		t.Fatalf("validateDownloadRedirectTarget() error = %v, want SSRF validation failure", errValidate)
-	}
-}
-
 func TestPurgeAllGameServerFilesRoutesRemoteDeletesThroughNodeClient(t *testing.T) {
 	serverDir := t.TempDir()
 	sentinelPath := filepath.Join(serverDir, "sentinel.txt")
@@ -252,6 +215,36 @@ func TestPurgeAllGameServerFilesRoutesRemoteDeletesThroughNodeClient(t *testing.
 	_, errStat := os.Stat(sentinelPath)
 	if errStat != nil {
 		t.Fatalf("Stat(%q) error = %v, want file to remain on controller", sentinelPath, errStat)
+	}
+}
+
+func TestPurgeAllGameServerFilesRoutesLocalDeletesThroughNodeClient(t *testing.T) {
+	serverDir := t.TempDir()
+	localClient := &nodeclient.FakeNodeClient{NodeID: "node-local"}
+	inst := &Instance{
+		ctx:                context.Background(),
+		embeddedNodeClient: localClient,
+	}
+	gameServer := &models.GameServer{
+		ID:        "server-local-files",
+		NodeID:    "node-local",
+		Directory: serverDir,
+	}
+
+	errPurge := inst.PurgeAllGameServerFiles(gameServer)
+	if errPurge != nil {
+		t.Fatalf("PurgeAllGameServerFiles() error = %v", errPurge)
+	}
+
+	if len(localClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFilesCalls len = %d, want 1", len(localClient.DeleteFilesCalls))
+	}
+	deleteCall := localClient.DeleteFilesCalls[0]
+	if deleteCall.Directory != serverDir {
+		t.Fatalf("DeleteFilesCalls[0].Directory = %q, want %q", deleteCall.Directory, serverDir)
+	}
+	if len(deleteCall.Files) != 1 || deleteCall.Files[0] != "" {
+		t.Fatalf("DeleteFilesCalls[0].Files = %v, want [\"\"]", deleteCall.Files)
 	}
 }
 
