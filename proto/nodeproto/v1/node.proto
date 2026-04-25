@@ -1,7 +1,7 @@
 // node.proto defines the internal controller <-> node wire protocol. It is
 // NOT a browser-facing surface — the Xylona controller is the sole client of
 // this service. Each NodeService RPC maps 1:1 to a method on the
-// pkg/nodeclient.NodeClient interface.
+// internal/nodeclient.NodeClient interface.
 syntax = "proto3";
 
 package xylona.node.v1;
@@ -26,7 +26,7 @@ enum NodeErrorCode {
   NODE_ERROR_PERMISSION = 9;
 }
 
-// ProcessStatus mirrors pkg/supervisor/xylona.Status. Intentionally duplicated
+// ProcessStatus mirrors internal/node/supervisor/xylona.Status. Intentionally duplicated
 // (rather than importing the public xylona.Status) so node.proto does not take
 // a dependency on the browser-facing proto surface.
 enum ProcessStatus {
@@ -38,7 +38,7 @@ enum ProcessStatus {
   PROCESS_STATUS_PRE_START = 5;
 }
 
-// FileEntry mirrors pkg/node.FileEntry.
+// FileEntry mirrors internal/node.FileEntry.
 message FileEntry {
   string name = 1;
   int64 size = 2;
@@ -47,7 +47,7 @@ message FileEntry {
   bool is_executable = 5;
 }
 
-// ProcessSnapshot mirrors pkg/node.ProcessSnapshot.
+// ProcessSnapshot mirrors internal/node.ProcessSnapshot.
 message ProcessSnapshot {
   string id = 1;
   string name = 2;
@@ -66,7 +66,7 @@ message ProcessSnapshot {
   string working_dir = 15;
 }
 
-// NodeSnapshot mirrors pkg/node.NodeSnapshot.
+// NodeSnapshot mirrors internal/node.NodeSnapshot.
 message NodeSnapshot {
   string cpu_model = 1;
   int32 cpu_cores = 2;
@@ -151,7 +151,7 @@ message StartProcessRequest {
   int64 stop_timeout_seconds = 9;
   ProcessStatus initial_status = 10;
   // internal_command indicates the supervisor should run a built-in
-  // installer/updater from api/xylona-internal rather than exec a shell
+  // installer/updater from internal/gameintegrations rather than exec a shell
   // command. When true, base_command/args are ignored and the supervisor
   // dispatches to the registered Game implementation identified by
   // internal_game_id.

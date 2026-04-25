@@ -6,7 +6,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -782,10 +781,19 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 		}
 	})
 
+	t.Run("nil concrete vsm leaves VersionInfo nil", func(t *testing.T) {
+		var versionStates *testPointerGameServerVersionStates
+		got := GameServerModelToProto(baseInput(), versionStates)
+		if got.GetVersionInfo() != nil {
+			t.Errorf("VersionInfo = %v, want nil when vsm is nil", got.GetVersionInfo())
+		}
+	})
+
 	t.Run("vsm present with no tracker status", func(t *testing.T) {
-		vsm := versiontracker.NewVersionStateMap()
-		vsm.InitNoTracker("gs-vi-1")
-		got := GameServerModelToProto(baseInput(), vsm)
+		versionStates := testGameServerVersionStates{
+			"gs-vi-1": {Status: GameServerVersionStatusNoTracker},
+		}
+		got := GameServerModelToProto(baseInput(), versionStates)
 		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
@@ -795,9 +803,13 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 	})
 
 	t.Run("vsm present with unchecked status", func(t *testing.T) {
-		vsm := versiontracker.NewVersionStateMap()
-		vsm.InitUnchecked("gs-vi-1", "dummy")
-		got := GameServerModelToProto(baseInput(), vsm)
+		versionStates := testGameServerVersionStates{
+			"gs-vi-1": {
+				Status:      GameServerVersionStatusUnchecked,
+				TrackerType: "dummy",
+			},
+		}
+		got := GameServerModelToProto(baseInput(), versionStates)
 		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
@@ -811,16 +823,17 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 
 	t.Run("vsm present with checked status populates all fields", func(t *testing.T) {
 		checkTime := time.Now().Truncate(time.Second)
-		vsm := versiontracker.NewVersionStateMap()
-		vsm.Set("gs-vi-1", versiontracker.VersionState{
-			Status:           versiontracker.VersionStatusChecked,
-			InstalledVersion: "1.0.0",
-			LatestVersion:    "1.1.0",
-			UpdateAvailable:  true,
-			LastCheckTime:    checkTime,
-			TrackerType:      "minecraft",
-		})
-		got := GameServerModelToProto(baseInput(), vsm)
+		versionStates := testGameServerVersionStates{
+			"gs-vi-1": {
+				Status:           GameServerVersionStatusChecked,
+				InstalledVersion: "1.0.0",
+				LatestVersion:    "1.1.0",
+				UpdateAvailable:  true,
+				LastCheckTime:    checkTime,
+				TrackerType:      "minecraft",
+			},
+		}
+		got := GameServerModelToProto(baseInput(), versionStates)
 		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
@@ -845,12 +858,13 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 	})
 
 	t.Run("vsm present with error status", func(t *testing.T) {
-		vsm := versiontracker.NewVersionStateMap()
-		vsm.Set("gs-vi-1", versiontracker.VersionState{
-			Status:      versiontracker.VersionStatusError,
-			TrackerType: "steam",
-		})
-		got := GameServerModelToProto(baseInput(), vsm)
+		versionStates := testGameServerVersionStates{
+			"gs-vi-1": {
+				Status:      GameServerVersionStatusError,
+				TrackerType: "steam",
+			},
+		}
+		got := GameServerModelToProto(baseInput(), versionStates)
 		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
@@ -860,12 +874,13 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 	})
 
 	t.Run("vsm present with checking status", func(t *testing.T) {
-		vsm := versiontracker.NewVersionStateMap()
-		vsm.Set("gs-vi-1", versiontracker.VersionState{
-			Status:      versiontracker.VersionStatusChecking,
-			TrackerType: "steam",
-		})
-		got := GameServerModelToProto(baseInput(), vsm)
+		versionStates := testGameServerVersionStates{
+			"gs-vi-1": {
+				Status:      GameServerVersionStatusChecking,
+				TrackerType: "steam",
+			},
+		}
+		got := GameServerModelToProto(baseInput(), versionStates)
 		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
@@ -875,12 +890,13 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 	})
 
 	t.Run("zero LastCheckTime yields zero unix timestamp", func(t *testing.T) {
-		vsm := versiontracker.NewVersionStateMap()
-		vsm.Set("gs-vi-1", versiontracker.VersionState{
-			Status:        versiontracker.VersionStatusChecked,
-			LastCheckTime: time.Time{},
-		})
-		got := GameServerModelToProto(baseInput(), vsm)
+		versionStates := testGameServerVersionStates{
+			"gs-vi-1": {
+				Status:        GameServerVersionStatusChecked,
+				LastCheckTime: time.Time{},
+			},
+		}
+		got := GameServerModelToProto(baseInput(), versionStates)
 		if got.GetVersionInfo() == nil {
 			t.Fatalf("VersionInfo should not be nil when vsm is provided")
 		}
@@ -888,6 +904,25 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 			t.Errorf("LastCheckTime = %d, want 0 for zero time", got.GetVersionInfo().GetLastCheckTime())
 		}
 	})
+}
+
+type testGameServerVersionStates map[string]GameServerVersionState
+
+func (states testGameServerVersionStates) GameServerVersionState(gameServerID string) GameServerVersionState {
+	state, ok := states[gameServerID]
+	if !ok {
+		return GameServerVersionState{Status: GameServerVersionStatusNoTracker}
+	}
+	return state
+}
+
+type testPointerGameServerVersionStates struct{}
+
+func (states *testPointerGameServerVersionStates) GameServerVersionState(string) GameServerVersionState {
+	if states == nil {
+		panic("nil testPointerGameServerVersionStates should not be called")
+	}
+	return GameServerVersionState{Status: GameServerVersionStatusNoTracker}
 }
 
 func TestIPModelToProto(t *testing.T) {
