@@ -15,6 +15,7 @@ data.sqlite
 /CLAUDE.md
 /.mcp.json
 /.claude/
+/.worktrees/
 # Local scratch notes and generated planning docs; tracked project docs should live outside this ignored path unless this policy changes.
 /docs/
 /.superpowers/
