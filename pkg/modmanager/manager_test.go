@@ -141,6 +141,11 @@ func seedTestFixture(t *testing.T, conn *db.Connection) {
 	}
 }
 
+func newTestModFileClient(t *testing.T, conn *db.Connection) FileClient {
+	t.Helper()
+	return nodeclient.NewInProcessClient("node-local", node.New(t.Context(), nil, conn))
+}
+
 func newMockProvider(providerID string) *mockProvider {
 	return &mockProvider{
 		id: providerID,
@@ -436,9 +441,9 @@ func TestRemoteModUninstallDeletesOnNode(t *testing.T) {
 	}
 	resetFakeNodeClientCalls(client)
 
-	errUninstall := mgr.UninstallRemote(context.Background(), client, mod.ID, serverDir)
+	errUninstall := mgr.Uninstall(context.Background(), client, mod.ID, serverDir)
 	if errUninstall != nil {
-		t.Fatalf("UninstallRemote() error = %v", errUninstall)
+		t.Fatalf("Uninstall() error = %v", errUninstall)
 	}
 	if len(client.DeleteFilesCalls) != 1 {
 		t.Fatalf("DeleteFiles call count = %d, want 1", len(client.DeleteFilesCalls))
@@ -485,47 +490,47 @@ func TestRemoteModEnableDisableMovesOnNode(t *testing.T) {
 	}
 	resetFakeNodeClientCalls(client)
 
-	errDisable := mgr.DisableRemote(context.Background(), client, mod.ID, serverDir, "mods")
+	errDisable := mgr.Disable(context.Background(), client, mod.ID, serverDir, "mods")
 	if errDisable != nil {
-		t.Fatalf("DisableRemote() error = %v", errDisable)
+		t.Fatalf("Disable() error = %v", errDisable)
 	}
 	if len(client.MoveFilesCalls) != 1 {
-		t.Fatalf("DisableRemote() MoveFiles call count = %d, want 1", len(client.MoveFilesCalls))
+		t.Fatalf("Disable() MoveFiles call count = %d, want 1", len(client.MoveFilesCalls))
 	}
 	if !slices.Equal(client.MoveFilesCalls[0].Files, []string{"mods/testmod-1.0.0.jar"}) {
-		t.Fatalf("DisableRemote() files = %v", client.MoveFilesCalls[0].Files)
+		t.Fatalf("Disable() files = %v", client.MoveFilesCalls[0].Files)
 	}
 	if client.MoveFilesCalls[0].Destination != "mods/disabled" {
-		t.Fatalf("DisableRemote() destination = %q, want %q", client.MoveFilesCalls[0].Destination, "mods/disabled")
+		t.Fatalf("Disable() destination = %q, want %q", client.MoveFilesCalls[0].Destination, "mods/disabled")
 	}
 	disabled, errDisabled := conn.GetInstalledModByID(mod.ID)
 	if errDisabled != nil {
 		t.Fatalf("GetInstalledModByID() disabled error = %v", errDisabled)
 	}
 	if disabled.Enabled != 0 {
-		t.Fatalf("DisableRemote() enabled = %d, want 0", disabled.Enabled)
+		t.Fatalf("Disable() enabled = %d, want 0", disabled.Enabled)
 	}
 
 	resetFakeNodeClientCalls(client)
-	errEnable := mgr.EnableRemote(context.Background(), client, mod.ID, serverDir, "mods")
+	errEnable := mgr.Enable(context.Background(), client, mod.ID, serverDir, "mods")
 	if errEnable != nil {
-		t.Fatalf("EnableRemote() error = %v", errEnable)
+		t.Fatalf("Enable() error = %v", errEnable)
 	}
 	if len(client.MoveFilesCalls) != 1 {
-		t.Fatalf("EnableRemote() MoveFiles call count = %d, want 1", len(client.MoveFilesCalls))
+		t.Fatalf("Enable() MoveFiles call count = %d, want 1", len(client.MoveFilesCalls))
 	}
 	if !slices.Equal(client.MoveFilesCalls[0].Files, []string{"mods/disabled/testmod-1.0.0.jar"}) {
-		t.Fatalf("EnableRemote() files = %v", client.MoveFilesCalls[0].Files)
+		t.Fatalf("Enable() files = %v", client.MoveFilesCalls[0].Files)
 	}
 	if client.MoveFilesCalls[0].Destination != "mods" {
-		t.Fatalf("EnableRemote() destination = %q, want %q", client.MoveFilesCalls[0].Destination, "mods")
+		t.Fatalf("Enable() destination = %q, want %q", client.MoveFilesCalls[0].Destination, "mods")
 	}
 	enabled, errEnabled := conn.GetInstalledModByID(mod.ID)
 	if errEnabled != nil {
 		t.Fatalf("GetInstalledModByID() enabled error = %v", errEnabled)
 	}
 	if enabled.Enabled != 1 {
-		t.Fatalf("EnableRemote() enabled = %d, want 1", enabled.Enabled)
+		t.Fatalf("Enable() enabled = %d, want 1", enabled.Enabled)
 	}
 }
 
@@ -721,7 +726,7 @@ func TestUninstall(t *testing.T) {
 		t.Fatalf("expected file to exist before uninstall: %v", errStat)
 	}
 
-	errUninstall := mgr.Uninstall(context.Background(), mod.ID, serverDir)
+	errUninstall := mgr.Uninstall(context.Background(), newTestModFileClient(t, conn), mod.ID, serverDir)
 	if errUninstall != nil {
 		t.Fatalf("Uninstall() error = %v", errUninstall)
 	}
@@ -993,7 +998,9 @@ func TestEnableDisable(t *testing.T) {
 	}
 
 	// Disable the mod.
-	errDisable := mgr.Disable(context.Background(), mod.ID, serverDir, "mods")
+	fileClient := newTestModFileClient(t, conn)
+
+	errDisable := mgr.Disable(context.Background(), fileClient, mod.ID, serverDir, "mods")
 	if errDisable != nil {
 		t.Fatalf("Disable() error = %v", errDisable)
 	}
@@ -1022,7 +1029,7 @@ func TestEnableDisable(t *testing.T) {
 	}
 
 	// Enable the mod.
-	errEnable := mgr.Enable(context.Background(), mod.ID, serverDir, "mods")
+	errEnable := mgr.Enable(context.Background(), fileClient, mod.ID, serverDir, "mods")
 	if errEnable != nil {
 		t.Fatalf("Enable() error = %v", errEnable)
 	}

@@ -627,8 +627,8 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 	}
 
 	var errAutoUpdate error
-	if inst.nodeRegistry != nil && gameServer.NodeID != "" && gameServer.NodeID != inst.nodeRegistry.SelfID() {
-		client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
+	if inst.isRemoteGameServer(gameServer) {
+		client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 		if errClient != nil {
 			log.Warn().Err(errClient).Str("game_server_id", gameServer.ID).
 				Msg("Pre-start mod auto-update: remote node unavailable, skipping")

@@ -48,10 +48,10 @@ type fileMove struct {
 	target string
 }
 
-// RemoteFileClient is the subset of nodeclient.NodeClient needed for remote
-// mod artifact work. Keeping this narrow lets tests use small fakes while the
-// RPC/actions layers pass their existing node clients.
-type RemoteFileClient interface {
+// FileClient is the subset of nodeclient.NodeClient needed for mod artifact
+// work. Keeping this narrow lets tests use small fakes while the RPC/actions
+// layers pass their existing node clients.
+type FileClient interface {
 	CreateFileOrDirectory(ctx context.Context, directory, relativePath, content string, isDirectory bool, policy node.ProtectionPolicy) error
 	DeleteFiles(ctx context.Context, directory string, files []string, policy node.ProtectionPolicy) ([]string, error)
 	DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, integrity node.DownloadIntegrity, policy node.ProtectionPolicy) (node.DownloadFileResult, error)
@@ -215,14 +215,14 @@ func newRemoteScratchDir(installPath string, prefix string) string {
 	return joinRemotePath(installPath, prefix+uuid.NewString())
 }
 
-func logRemoteDeleteError(ctx context.Context, client RemoteFileClient, directory string, files []string, purpose string) {
+func logRemoteDeleteError(ctx context.Context, client FileClient, directory string, files []string, purpose string) {
 	_, errDelete := client.DeleteFiles(ctx, directory, files, node.ProtectionPolicy{})
 	if errDelete != nil {
 		log.Warn().Err(errDelete).Strs("paths", files).Msg(purpose)
 	}
 }
 
-func cleanupRemotePromotedFiles(ctx context.Context, client RemoteFileClient, directory string, moves []fileMove) error {
+func cleanupRemotePromotedFiles(ctx context.Context, client FileClient, directory string, moves []fileMove) error {
 	var cleanupErr error
 	for i := len(moves) - 1; i >= 0; i-- {
 		_, errDelete := client.DeleteFiles(ctx, directory, []string{moves[i].target}, node.ProtectionPolicy{})
@@ -233,7 +233,7 @@ func cleanupRemotePromotedFiles(ctx context.Context, client RemoteFileClient, di
 	return cleanupErr
 }
 
-func restoreRemoteMovedFiles(ctx context.Context, client RemoteFileClient, directory string, moves []fileMove) error {
+func restoreRemoteMovedFiles(ctx context.Context, client FileClient, directory string, moves []fileMove) error {
 	var restoreErr error
 	for i := len(moves) - 1; i >= 0; i-- {
 		move := moves[i]
@@ -258,7 +258,7 @@ func restoreRemoteMovedFiles(ctx context.Context, client RemoteFileClient, direc
 
 func moveRemoteExistingFilesToRollback(
 	ctx context.Context,
-	client RemoteFileClient,
+	client FileClient,
 	serverDir string,
 	installSubdir string,
 	oldFiles []*models.InstalledModFile,
@@ -560,7 +560,7 @@ func (m *ModManager) Install(
 // InstallRemote downloads a mod through a node client and creates DB records.
 func (m *ModManager) InstallRemote(
 	ctx context.Context,
-	client RemoteFileClient,
+	client FileClient,
 	serverID, source, sourceID, versionID, serverDir, installPath string,
 ) (*models.InstalledMod, error) {
 	provider, ok := modproviders.GetProvider(source)
@@ -675,41 +675,8 @@ func (m *ModManager) InstallRemote(
 	return mod, nil
 }
 
-// Uninstall removes mod files from disk and deletes DB records.
-func (m *ModManager) Uninstall(_ context.Context, modID, serverDir string) error {
-	mod, errGet := m.db.GetInstalledModByID(modID)
-	if errGet != nil {
-		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
-	}
-
-	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)
-	if errFiles != nil {
-		return fmt.Errorf("modmanager: get mod files: %w", errFiles)
-	}
-
-	for _, f := range files {
-		fullPath := filepath.Join(serverDir, f.FilePath)
-		errRemove := os.Remove(fullPath)
-		if errRemove != nil && !os.IsNotExist(errRemove) {
-			log.Warn().Err(errRemove).Str("path", fullPath).Msg("Failed to remove mod file")
-		}
-	}
-
-	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(m.db.DB, mod.ID)
-	if errDeleteFiles != nil {
-		return fmt.Errorf("modmanager: delete mod files: %w", errDeleteFiles)
-	}
-
-	errDelete := m.db.DeleteInstalledModByID(mod.ID)
-	if errDelete != nil {
-		return fmt.Errorf("modmanager: delete mod: %w", errDelete)
-	}
-
-	return nil
-}
-
-// UninstallRemote removes mod files through a node client and deletes DB records.
-func (m *ModManager) UninstallRemote(ctx context.Context, client RemoteFileClient, modID, serverDir string) error {
+// Uninstall removes mod files through a node client and deletes DB records.
+func (m *ModManager) Uninstall(ctx context.Context, client FileClient, modID, serverDir string) error {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -727,7 +694,7 @@ func (m *ModManager) UninstallRemote(ctx context.Context, client RemoteFileClien
 
 	_, errDeleteRemote := client.DeleteFiles(ctx, serverDir, remoteFiles, node.ProtectionPolicy{})
 	if errDeleteRemote != nil {
-		return fmt.Errorf("modmanager: delete remote mod files: %w", errDeleteRemote)
+		return fmt.Errorf("modmanager: delete mod files on node: %w", errDeleteRemote)
 	}
 
 	errDeleteFiles := m.db.DeleteInstalledModFilesByModID(m.db.DB, mod.ID)
@@ -916,7 +883,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 }
 
 // UpdateRemote downloads a new version through a node client and replaces files.
-func (m *ModManager) UpdateRemote(ctx context.Context, client RemoteFileClient, modID, versionID, serverDir string) (*models.InstalledMod, error) {
+func (m *ModManager) UpdateRemote(ctx context.Context, client FileClient, modID, versionID, serverDir string) (*models.InstalledMod, error) {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -1198,7 +1165,7 @@ func (m *ModManager) RunAutoUpdates(
 // RunAutoUpdatesRemote updates eligible mods through a node client before server start.
 func (m *ModManager) RunAutoUpdatesRemote(
 	ctx context.Context,
-	client RemoteFileClient,
+	client FileClient,
 	serverID, gameVersion, serverDir string,
 	statusFn func(string),
 ) error {
@@ -1254,45 +1221,8 @@ func (m *ModManager) RunAutoUpdatesRemote(
 	return nil
 }
 
-// Enable moves mod files back from the disabled directory.
-func (m *ModManager) Enable(_ context.Context, modID, serverDir, installPath string) error {
-	mod, errGet := m.db.GetInstalledModByID(modID)
-	if errGet != nil {
-		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
-	}
-
-	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)
-	if errFiles != nil {
-		return fmt.Errorf("modmanager: get mod files: %w", errFiles)
-	}
-
-	disabledDir := filepath.Join(serverDir, installPath, "disabled")
-
-	for _, f := range files {
-		filename := filepath.Base(f.FilePath)
-		src := filepath.Join(disabledDir, filename)
-		dst := filepath.Join(serverDir, installPath, filename)
-
-		errMove := os.Rename(src, dst)
-		if errMove != nil {
-			return fmt.Errorf("modmanager: move file from disabled: %w", errMove)
-		}
-	}
-
-	updateSetter := &models.InstalledModSetter{
-		Enabled:   omit.From(int64(1)),
-		UpdatedAt: omit.From(time.Now().UTC()),
-	}
-	_, errUpdate := m.db.UpdateInstalledMod(m.db.DB, mod, updateSetter)
-	if errUpdate != nil {
-		return fmt.Errorf("modmanager: update mod enabled state: %w", errUpdate)
-	}
-
-	return nil
-}
-
-// EnableRemote moves mod files back from the disabled directory through a node client.
-func (m *ModManager) EnableRemote(ctx context.Context, client RemoteFileClient, modID, serverDir, installPath string) error {
+// Enable moves mod files back from the disabled directory through a node client.
+func (m *ModManager) Enable(ctx context.Context, client FileClient, modID, serverDir, installPath string) error {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -1312,7 +1242,7 @@ func (m *ModManager) EnableRemote(ctx context.Context, client RemoteFileClient, 
 
 	_, errMove := client.MoveFiles(ctx, serverDir, filesToMove, cleanInstallPath, node.ProtectionPolicy{})
 	if errMove != nil {
-		return fmt.Errorf("modmanager: move remote file from disabled: %w", errMove)
+		return fmt.Errorf("modmanager: move file from disabled on node: %w", errMove)
 	}
 
 	updateSetter := &models.InstalledModSetter{
@@ -1327,49 +1257,8 @@ func (m *ModManager) EnableRemote(ctx context.Context, client RemoteFileClient, 
 	return nil
 }
 
-// Disable moves mod files to a disabled subdirectory.
-func (m *ModManager) Disable(_ context.Context, modID, serverDir, installPath string) error {
-	mod, errGet := m.db.GetInstalledModByID(modID)
-	if errGet != nil {
-		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
-	}
-
-	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)
-	if errFiles != nil {
-		return fmt.Errorf("modmanager: get mod files: %w", errFiles)
-	}
-
-	disabledDir := filepath.Join(serverDir, installPath, "disabled")
-	errMkdir := os.MkdirAll(disabledDir, 0o750)
-	if errMkdir != nil {
-		return fmt.Errorf("modmanager: create disabled directory: %w", errMkdir)
-	}
-
-	for _, f := range files {
-		filename := filepath.Base(f.FilePath)
-		src := filepath.Join(serverDir, installPath, filename)
-		dst := filepath.Join(disabledDir, filename)
-
-		errMove := os.Rename(src, dst)
-		if errMove != nil {
-			return fmt.Errorf("modmanager: move file to disabled: %w", errMove)
-		}
-	}
-
-	updateSetter := &models.InstalledModSetter{
-		Enabled:   omit.From(int64(0)),
-		UpdatedAt: omit.From(time.Now().UTC()),
-	}
-	_, errUpdate := m.db.UpdateInstalledMod(m.db.DB, mod, updateSetter)
-	if errUpdate != nil {
-		return fmt.Errorf("modmanager: update mod disabled state: %w", errUpdate)
-	}
-
-	return nil
-}
-
-// DisableRemote moves mod files to a disabled subdirectory through a node client.
-func (m *ModManager) DisableRemote(ctx context.Context, client RemoteFileClient, modID, serverDir, installPath string) error {
+// Disable moves mod files to a disabled subdirectory through a node client.
+func (m *ModManager) Disable(ctx context.Context, client FileClient, modID, serverDir, installPath string) error {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -1384,7 +1273,7 @@ func (m *ModManager) DisableRemote(ctx context.Context, client RemoteFileClient,
 	disabledDir := joinRemotePath(cleanInstallPath, "disabled")
 	errMkdir := client.CreateFileOrDirectory(ctx, serverDir, disabledDir, "", true, node.ProtectionPolicy{})
 	if errMkdir != nil {
-		return fmt.Errorf("modmanager: create remote disabled directory: %w", errMkdir)
+		return fmt.Errorf("modmanager: create disabled directory on node: %w", errMkdir)
 	}
 
 	filesToMove := make([]string, 0, len(files))
@@ -1394,7 +1283,7 @@ func (m *ModManager) DisableRemote(ctx context.Context, client RemoteFileClient,
 
 	_, errMove := client.MoveFiles(ctx, serverDir, filesToMove, disabledDir, node.ProtectionPolicy{})
 	if errMove != nil {
-		return fmt.Errorf("modmanager: move remote file to disabled: %w", errMove)
+		return fmt.Errorf("modmanager: move file to disabled on node: %w", errMove)
 	}
 
 	updateSetter := &models.InstalledModSetter{
