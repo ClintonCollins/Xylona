@@ -24,6 +24,16 @@
           to="/games/new">
           Use guided setup
         </router-link>
+        <q-btn
+          v-if="existingGame && !copyGame"
+          aria-label="Export game JSON"
+          :disable="loading || submitting"
+          flat
+          icon="file_download"
+          round
+          @click="exportCurrentGame">
+          <q-tooltip>Export game JSON</q-tooltip>
+        </q-btn>
         <q-btn :disable="submitting" flat label="Cancel" @click="handleCancel" />
         <q-btn
           :disable="loading"
@@ -122,7 +132,8 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { QForm } from 'quasar'
+import { ConnectError } from '@connectrpc/connect'
+import { QForm, useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, provide, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { CommandType, Game, GameSchema, UpdateProviderConfigSchema } from '@/proto/shared_pb'
@@ -147,8 +158,11 @@ import { useGameFormStartArgsState } from './useGameFormStartArgsState'
 import { useGameFormTabs } from './useGameFormTabs'
 import { useGameFormNewGameSetup } from './useGameFormNewGameSetup'
 import { useGameFormPersistence } from './useGameFormPersistence'
+import { exportGameDefinitionJSON } from './game-definition-json'
+import { ConnectErrorToString } from '@/utils/shared'
 
 const router = useRouter()
+const $q = useQuasar()
 const formRef = ref<QForm | null>(null)
 const stickySentinel = ref<HTMLElement | null>(null)
 const isStuck = ref(false)
@@ -453,6 +467,29 @@ onBeforeUnmount(() => {
 function handleCancel() {
   // The onBeforeRouteLeave guard handles the unsaved changes prompt
   router.back()
+}
+
+async function exportCurrentGame(): Promise<void> {
+  if (gameID.value === '') {
+    return
+  }
+
+  try {
+    const fileName = await exportGameDefinitionJSON(gameID.value)
+    $q.notify({
+      type: 'xylona-success',
+      position: 'top',
+      caption: `Exported ${fileName}.`,
+      icon: 'check_circle',
+    })
+  } catch (unknownError: unknown) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to export game: ' + ConnectErrorToString(ConnectError.from(unknownError)),
+      icon: 'report_problem',
+    })
+  }
 }
 </script>
 

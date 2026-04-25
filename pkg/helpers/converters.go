@@ -287,6 +287,10 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		StartArgBlocklist:                 gameModel.StartArgBlocklist,
 		AllowStartArgEditing:              gameModel.AllowStartArgEditing,
 		XylonaOfficial:                    gameModel.XylonaOfficial,
+		OfficialDefinitionHash:            gameModel.OfficialDefinitionHash,
+		OfficialDefinitionSource:          gameModel.OfficialDefinitionSource,
+		OfficialDefinitionSchemaVersion:   gameModel.OfficialDefinitionSchemaVersion,
+		OfficialDefinitionDiverged:        gameModel.OfficialDefinitionDiverged,
 		UpdateProvider:                    updateproviders.ProviderConfigToProto(gameConfig.UpdateProvider),
 		DefaultTarget:                     gameConfig.DefaultTarget,
 		ModProfile:                        updateproviders.ModProfileToProto(gameConfig.ModProfile),
@@ -356,6 +360,11 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		WindowsBaseCommand:                gameProto.GetWindowsBaseCommand(),
 		StartArgBlocklist:                 gameProto.GetStartArgBlocklist(),
 		AllowStartArgEditing:              gameProto.GetAllowStartArgEditing(),
+		XylonaOfficial:                    gameProto.GetXylonaOfficial(),
+		OfficialDefinitionHash:            gameProto.GetOfficialDefinitionHash(),
+		OfficialDefinitionSource:          gameProto.GetOfficialDefinitionSource(),
+		OfficialDefinitionSchemaVersion:   gameProto.GetOfficialDefinitionSchemaVersion(),
+		OfficialDefinitionDiverged:        gameProto.GetOfficialDefinitionDiverged(),
 	}
 
 	gameConfig := updateproviders.GameConfig{
@@ -420,6 +429,11 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		WindowsBaseCommand:                omit.From(gameModel.WindowsBaseCommand),
 		StartArgBlocklist:                 omit.From(gameModel.StartArgBlocklist),
 		AllowStartArgEditing:              omit.From(gameModel.AllowStartArgEditing),
+		XylonaOfficial:                    omit.From(gameModel.XylonaOfficial),
+		OfficialDefinitionHash:            omit.From(gameModel.OfficialDefinitionHash),
+		OfficialDefinitionSource:          omit.From(gameModel.OfficialDefinitionSource),
+		OfficialDefinitionSchemaVersion:   omit.From(gameModel.OfficialDefinitionSchemaVersion),
+		OfficialDefinitionDiverged:        omit.From(gameModel.OfficialDefinitionDiverged),
 		CreatedAt:                         omit.From(time.Now()),
 		UpdatedAt:                         omit.From(time.Now()),
 	}

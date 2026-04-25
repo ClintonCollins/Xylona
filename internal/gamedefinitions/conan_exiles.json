@@ -1,0 +1,115 @@
+{
+  "document_type": "xylona.game_definition",
+  "schema_version": 1,
+  "content_hash": "sha256:b8df3be0cf5a53f0bde30a48fe99f1af01e0766a646cbde31f8fbbe8864439d2",
+  "game": {
+    "id": "conan_exiles",
+    "name": "Conan Exiles",
+    "defaultPort": "27015",
+    "defaultQueryPort": "27015",
+    "defaultMaxPlayers": "16",
+    "linuxSupport": false,
+    "windowsSupport": true,
+    "linuxStopCommand": "",
+    "linuxInstallCommand": "",
+    "linuxUpdateCommand": "",
+    "linuxWorkingDirectory": "",
+    "linuxAllowBackups": false,
+    "windowsStopCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 443030 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 443030 validate +quit",
+    "windowsWorkingDirectory": "",
+    "windowsAllowBackups": false,
+    "requireDedicatedIp": true,
+    "bindsToAllIps": false,
+    "createdAt": null,
+    "updatedAt": null,
+    "usesSourceQuery": false,
+    "requiresSteamGameServerLoginToken": false,
+    "linuxInstallCommandProcessor": "DIRECT",
+    "linuxUpdateCommandProcessor": "DIRECT",
+    "windowsInstallCommandProcessor": "DIRECT",
+    "windowsUpdateCommandProcessor": "DIRECT",
+    "usesSteamcmd": true,
+    "steamAppid": "443030",
+    "configSchemas": "",
+    "updateProvider": null,
+    "defaultTarget": "",
+    "modProfile": null,
+    "variants": [],
+    "linuxInstallType": "NONE",
+    "linuxUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
+    "linuxStartArgsTemplate": "",
+    "windowsStartArgsTemplate": "",
+    "linuxBaseCommand": "",
+    "windowsBaseCommand": "ConanSandboxServer.exe",
+    "startArgBlocklist": "",
+    "allowStartArgEditing": true,
+    "xylonaOfficial": true,
+    "officialDefinitionHash": "",
+    "officialDefinitionSource": "",
+    "officialDefinitionSchemaVersion": "0",
+    "officialDefinitionDiverged": false
+  },
+  "config_schemas": [],
+  "linux_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_conan_exiles_windows_01",
+      "order": 1,
+      "ownership": "system",
+      "tokens": [
+        "-MULTIHOME={{IP}}"
+      ],
+      "label": "Bind IP",
+      "managed_source": "game_server.ip"
+    },
+    {
+      "id": "runtime_conan_exiles_windows_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "-Port={{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_conan_exiles_windows_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-QueryPort={{QUERY_PORT}}"
+      ],
+      "label": "Query port",
+      "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_conan_exiles_windows_04",
+      "order": 4,
+      "ownership": "editable",
+      "tokens": [
+        "-MaxPlayers={{MAX_PLAYERS}}"
+      ],
+      "label": "Max Players"
+    },
+    {
+      "id": "runtime_conan_exiles_windows_05",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "-log"
+      ],
+      "label": "Log output"
+    }
+  ],
+  "start_arg_blocklist": [],
+  "update_config": {
+    "update_provider": {
+      "kind": "steamcmd"
+    },
+    "default_target": "public"
+  }
+}

@@ -42,6 +42,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/controller/api/websocket"
 	dbpkg "github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
+	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations/games"
 	"github.com/ClintonCollins/Xylona/internal/mailer"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
@@ -302,6 +303,20 @@ func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, e
 	if errMigrate != nil {
 		_ = dbInst.SQLDb.Close()
 		return nil, fmt.Errorf("setupDatabase: run migrations: %w", errMigrate)
+	}
+
+	syncResult, errSyncDefinitions := gamedefinitions.SyncOfficialDefinitions(dbInst)
+	if errSyncDefinitions != nil {
+		_ = dbInst.SQLDb.Close()
+		return nil, fmt.Errorf("setupDatabase: sync official game definitions: %w", errSyncDefinitions)
+	}
+	if syncResult.Inserted > 0 || syncResult.Updated > 0 || syncResult.Diverged > 0 || syncResult.Skipped > 0 {
+		log.Info().
+			Int("inserted", syncResult.Inserted).
+			Int("updated", syncResult.Updated).
+			Int("diverged", syncResult.Diverged).
+			Int("skipped", syncResult.Skipped).
+			Msg("Synced official game definitions")
 	}
 
 	if cfg.EncryptionKey == "" {

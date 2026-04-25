@@ -49,6 +49,8 @@ type joins[Q dialect.Joinable] struct {
 	RolePermissions            joinSet[rolePermissionJoins[Q]]
 	ScheduledTasks             joinSet[scheduledTaskJoins[Q]]
 	ScheduledTaskLogs          joinSet[scheduledTaskLogJoins[Q]]
+	SystemUpdateJobs           joinSet[systemUpdateJobJoins[Q]]
+	SystemUpdateJobEvents      joinSet[systemUpdateJobEventJoins[Q]]
 	Users                      joinSet[userJoins[Q]]
 	UserRoleAssignments        joinSet[userRoleAssignmentJoins[Q]]
 	UserSessions               joinSet[userSessionJoins[Q]]
@@ -82,6 +84,8 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		RolePermissions:            buildJoinSet[rolePermissionJoins[Q]](RolePermissions.Columns, buildRolePermissionJoins),
 		ScheduledTasks:             buildJoinSet[scheduledTaskJoins[Q]](ScheduledTasks.Columns, buildScheduledTaskJoins),
 		ScheduledTaskLogs:          buildJoinSet[scheduledTaskLogJoins[Q]](ScheduledTaskLogs.Columns, buildScheduledTaskLogJoins),
+		SystemUpdateJobs:           buildJoinSet[systemUpdateJobJoins[Q]](SystemUpdateJobs.Columns, buildSystemUpdateJobJoins),
+		SystemUpdateJobEvents:      buildJoinSet[systemUpdateJobEventJoins[Q]](SystemUpdateJobEvents.Columns, buildSystemUpdateJobEventJoins),
 		Users:                      buildJoinSet[userJoins[Q]](Users.Columns, buildUserJoins),
 		UserRoleAssignments:        buildJoinSet[userRoleAssignmentJoins[Q]](UserRoleAssignments.Columns, buildUserRoleAssignmentJoins),
 		UserSessions:               buildJoinSet[userSessionJoins[Q]](UserSessions.Columns, buildUserSessionJoins),

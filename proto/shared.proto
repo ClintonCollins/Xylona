@@ -140,6 +140,10 @@ message Game {
   string start_arg_blocklist = 84;
   bool allow_start_arg_editing = 85;
   bool xylona_official = 86;
+  string official_definition_hash = 87;
+  string official_definition_source = 88;
+  int64 official_definition_schema_version = 89;
+  bool official_definition_diverged = 90;
 }
 
 message SteamApp {

@@ -40,6 +40,8 @@ func Where[Q sqlite.Filterable]() struct {
 	ScheduledTasks             scheduledTaskWhere[Q]
 	ScheduledTaskLogs          scheduledTaskLogWhere[Q]
 	SystemConfigs              systemConfigWhere[Q]
+	SystemUpdateJobs           systemUpdateJobWhere[Q]
+	SystemUpdateJobEvents      systemUpdateJobEventWhere[Q]
 	Users                      userWhere[Q]
 	UserRoleAssignments        userRoleAssignmentWhere[Q]
 	UserSessions               userSessionWhere[Q]
@@ -68,6 +70,8 @@ func Where[Q sqlite.Filterable]() struct {
 		ScheduledTasks             scheduledTaskWhere[Q]
 		ScheduledTaskLogs          scheduledTaskLogWhere[Q]
 		SystemConfigs              systemConfigWhere[Q]
+		SystemUpdateJobs           systemUpdateJobWhere[Q]
+		SystemUpdateJobEvents      systemUpdateJobEventWhere[Q]
 		Users                      userWhere[Q]
 		UserRoleAssignments        userRoleAssignmentWhere[Q]
 		UserSessions               userSessionWhere[Q]
@@ -95,6 +99,8 @@ func Where[Q sqlite.Filterable]() struct {
 		ScheduledTasks:             buildScheduledTaskWhere[Q](ScheduledTasks.Columns),
 		ScheduledTaskLogs:          buildScheduledTaskLogWhere[Q](ScheduledTaskLogs.Columns),
 		SystemConfigs:              buildSystemConfigWhere[Q](SystemConfigs.Columns),
+		SystemUpdateJobs:           buildSystemUpdateJobWhere[Q](SystemUpdateJobs.Columns),
+		SystemUpdateJobEvents:      buildSystemUpdateJobEventWhere[Q](SystemUpdateJobEvents.Columns),
 		Users:                      buildUserWhere[Q](Users.Columns),
 		UserRoleAssignments:        buildUserRoleAssignmentWhere[Q](UserRoleAssignments.Columns),
 		UserSessions:               buildUserSessionWhere[Q](UserSessions.Columns),

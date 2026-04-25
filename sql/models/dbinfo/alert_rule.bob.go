@@ -99,7 +99,7 @@ var AlertRules = Table[
 		CreatedAt: column{
 			Name:      "created_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -108,7 +108,7 @@ var AlertRules = Table[
 		UpdatedAt: column{
 			Name:      "updated_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,

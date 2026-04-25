@@ -55,6 +55,7 @@ type nodeR struct {
 	GameServerBackups    GameServerBackupSlice   // fk_game_server_backup_0
 	Ips                  IPSlice                 // fk_ip_0
 	NodeMetricsHistories NodeMetricsHistorySlice // fk_node_metrics_history_0
+	SystemUpdateJobs     SystemUpdateJobSlice    // fk_system_update_job_1
 }
 
 func buildNodeColumns(alias string) nodeColumns {
@@ -624,6 +625,25 @@ func (os NodeSlice) NodeMetricsHistories(mods ...bob.Mod[*dialect.SelectQuery]) 
 	)...)
 }
 
+// SystemUpdateJobs starts a query for related objects on system_update_job
+func (o *Node) SystemUpdateJobs(mods ...bob.Mod[*dialect.SelectQuery]) SystemUpdateJobsQuery {
+	return SystemUpdateJobs.Query(append(mods,
+		sm.Where(SystemUpdateJobs.Columns.NodeID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os NodeSlice) SystemUpdateJobs(mods ...bob.Mod[*dialect.SelectQuery]) SystemUpdateJobsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return SystemUpdateJobs.Query(append(mods,
+		sm.Where(sqlite.Group(SystemUpdateJobs.Columns.NodeID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 func insertNodeAlertRules0(ctx context.Context, exec bob.Executor, alertRules1 []*AlertRuleSetter, node0 *Node) (AlertRuleSlice, error) {
 	for i := range alertRules1 {
 		alertRules1[i].NodeID = omitnull.From(node0.ID)
@@ -964,6 +984,74 @@ func (node0 *Node) AttachNodeMetricsHistories(ctx context.Context, exec bob.Exec
 	return nil
 }
 
+func insertNodeSystemUpdateJobs0(ctx context.Context, exec bob.Executor, systemUpdateJobs1 []*SystemUpdateJobSetter, node0 *Node) (SystemUpdateJobSlice, error) {
+	for i := range systemUpdateJobs1 {
+		systemUpdateJobs1[i].NodeID = omitnull.From(node0.ID)
+	}
+
+	ret, err := SystemUpdateJobs.Insert(bob.ToMods(systemUpdateJobs1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertNodeSystemUpdateJobs0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachNodeSystemUpdateJobs0(ctx context.Context, exec bob.Executor, count int, systemUpdateJobs1 SystemUpdateJobSlice, node0 *Node) (SystemUpdateJobSlice, error) {
+	setter := &SystemUpdateJobSetter{
+		NodeID: omitnull.From(node0.ID),
+	}
+
+	err := systemUpdateJobs1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachNodeSystemUpdateJobs0: %w", err)
+	}
+
+	return systemUpdateJobs1, nil
+}
+
+func (node0 *Node) InsertSystemUpdateJobs(ctx context.Context, exec bob.Executor, related ...*SystemUpdateJobSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	systemUpdateJobs1, err := insertNodeSystemUpdateJobs0(ctx, exec, related, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.SystemUpdateJobs = append(node0.R.SystemUpdateJobs, systemUpdateJobs1...)
+
+	for _, rel := range systemUpdateJobs1 {
+		rel.R.Node = node0
+	}
+	return nil
+}
+
+func (node0 *Node) AttachSystemUpdateJobs(ctx context.Context, exec bob.Executor, related ...*SystemUpdateJob) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	systemUpdateJobs1 := SystemUpdateJobSlice(related)
+
+	_, err = attachNodeSystemUpdateJobs0(ctx, exec, len(related), systemUpdateJobs1, node0)
+	if err != nil {
+		return err
+	}
+
+	node0.R.SystemUpdateJobs = append(node0.R.SystemUpdateJobs, systemUpdateJobs1...)
+
+	for _, rel := range related {
+		rel.R.Node = node0
+	}
+
+	return nil
+}
+
 type nodeWhere[Q sqlite.Filterable] struct {
 	ID                    sqlite.WhereMod[Q, string]
 	Name                  sqlite.WhereMod[Q, string]
@@ -1070,6 +1158,20 @@ func (o *Node) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "SystemUpdateJobs":
+		rels, ok := retrieved.(SystemUpdateJobSlice)
+		if !ok {
+			return fmt.Errorf("node cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.SystemUpdateJobs = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.Node = o
+			}
+		}
+		return nil
 	default:
 		return fmt.Errorf("node has no relationship %q", name)
 	}
@@ -1087,6 +1189,7 @@ type nodeThenLoader[Q orm.Loadable] struct {
 	GameServerBackups    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Ips                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	NodeMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	SystemUpdateJobs     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
@@ -1104,6 +1207,9 @@ func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
 	}
 	type NodeMetricsHistoriesLoadInterface interface {
 		LoadNodeMetricsHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type SystemUpdateJobsLoadInterface interface {
+		LoadSystemUpdateJobs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 
 	return nodeThenLoader[Q]{
@@ -1135,6 +1241,12 @@ func buildNodeThenLoader[Q orm.Loadable]() nodeThenLoader[Q] {
 			"NodeMetricsHistories",
 			func(ctx context.Context, exec bob.Executor, retrieved NodeMetricsHistoriesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadNodeMetricsHistories(ctx, exec, mods...)
+			},
+		),
+		SystemUpdateJobs: thenLoadBuilder[Q](
+			"SystemUpdateJobs",
+			func(ctx context.Context, exec bob.Executor, retrieved SystemUpdateJobsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadSystemUpdateJobs(ctx, exec, mods...)
 			},
 		),
 	}
@@ -1448,6 +1560,70 @@ func (os NodeSlice) LoadNodeMetricsHistories(ctx context.Context, exec bob.Execu
 	return nil
 }
 
+// LoadSystemUpdateJobs loads the node's SystemUpdateJobs into the .R struct
+func (o *Node) LoadSystemUpdateJobs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.SystemUpdateJobs = nil
+
+	related, err := o.SystemUpdateJobs(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.Node = o
+	}
+
+	o.R.SystemUpdateJobs = related
+	return nil
+}
+
+// LoadSystemUpdateJobs loads the node's SystemUpdateJobs into the .R struct
+func (os NodeSlice) LoadSystemUpdateJobs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	systemUpdateJobs, err := os.SystemUpdateJobs(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.SystemUpdateJobs = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range systemUpdateJobs {
+
+			if !rel.NodeID.IsValue() {
+				continue
+			}
+			if !(rel.NodeID.IsValue() && o.ID == rel.NodeID.MustGet()) {
+				continue
+			}
+
+			rel.R.Node = o
+
+			o.R.SystemUpdateJobs = append(o.R.SystemUpdateJobs, rel)
+		}
+	}
+
+	return nil
+}
+
 type nodeJoins[Q dialect.Joinable] struct {
 	typ                  string
 	AlertRules           modAs[Q, alertRuleColumns]
@@ -1455,6 +1631,7 @@ type nodeJoins[Q dialect.Joinable] struct {
 	GameServerBackups    modAs[Q, gameServerBackupColumns]
 	Ips                  modAs[Q, ipColumns]
 	NodeMetricsHistories modAs[Q, nodeMetricsHistoryColumns]
+	SystemUpdateJobs     modAs[Q, systemUpdateJobColumns]
 }
 
 func (j nodeJoins[Q]) aliasedAs(alias string) nodeJoins[Q] {
@@ -1527,6 +1704,20 @@ func buildNodeJoins[Q dialect.Joinable](cols nodeColumns, typ string) nodeJoins[
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, NodeMetricsHistories.Name().As(to.Alias())).On(
+						to.NodeID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		SystemUpdateJobs: modAs[Q, systemUpdateJobColumns]{
+			c: SystemUpdateJobs.Columns,
+			f: func(to systemUpdateJobColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, SystemUpdateJobs.Name().As(to.Alias())).On(
 						to.NodeID.EQ(cols.ID),
 					))
 				}

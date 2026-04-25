@@ -68,14 +68,6 @@ func templateJSONForPlatform(game *models.Game, platform string) string {
 	return game.LinuxStartArgsTemplate.GetOr("")
 }
 
-func baseCommandForPlatform(game *models.Game, platform string) string {
-	if platform == "windows" {
-		return game.WindowsBaseCommand
-	}
-
-	return game.LinuxBaseCommand
-}
-
 func normalizeStartArgsPatchesJSON(patches string) string {
 	trimmed := strings.TrimSpace(patches)
 	if trimmed == "" {
@@ -181,39 +173,6 @@ func validateGameBlocklistUpdate(blocklistJSON string) error {
 	if errCompile != nil {
 		return fmt.Errorf("rpc: compile start arg blocklist: %w", errCompile)
 	}
-	return nil
-}
-
-func validateStructuredStartArgsGameConfig(game *models.Game) error {
-	if game == nil {
-		return errors.New("game is required")
-	}
-
-	errValidateLinux := validateGameTemplateUpdate(
-		game,
-		"linux",
-		templateJSONForPlatform(game, "linux"),
-		baseCommandForPlatform(game, "linux"),
-	)
-	if errValidateLinux != nil {
-		return fmt.Errorf("linux start args: %w", errValidateLinux)
-	}
-
-	errValidateWindows := validateGameTemplateUpdate(
-		game,
-		"windows",
-		templateJSONForPlatform(game, "windows"),
-		baseCommandForPlatform(game, "windows"),
-	)
-	if errValidateWindows != nil {
-		return fmt.Errorf("windows start args: %w", errValidateWindows)
-	}
-
-	errValidateBlocklist := validateGameBlocklistUpdate(game.StartArgBlocklist)
-	if errValidateBlocklist != nil {
-		return fmt.Errorf("start arg blocklist: %w", errValidateBlocklist)
-	}
-
 	return nil
 }
 
@@ -362,6 +321,9 @@ func (xs *XylonaService) UpdateGameStartArgsTemplate(
 		updatedGame.LinuxBaseCommand = baseCommand
 	}
 	updatedGame.AllowStartArgEditing = request.Msg.GetAllowStartArgEditing()
+	if updatedGame.XylonaOfficial {
+		updatedGame.OfficialDefinitionDiverged = true
+	}
 
 	gameSetter := helpers.GameModelToGameSetter(&updatedGame)
 	gameSetter.ID = omit.From(gameModel.ID)
@@ -401,6 +363,9 @@ func (xs *XylonaService) UpdateGameStartArgBlocklist(
 
 	updatedGame := *gameModel
 	updatedGame.StartArgBlocklist = blocklistJSON
+	if updatedGame.XylonaOfficial {
+		updatedGame.OfficialDefinitionDiverged = true
+	}
 
 	gameSetter := helpers.GameModelToGameSetter(&updatedGame)
 	gameSetter.ID = omit.From(gameModel.ID)

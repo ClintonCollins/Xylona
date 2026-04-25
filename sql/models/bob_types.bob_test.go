@@ -77,6 +77,12 @@ var _ bob.HookableType = &ScheduledTaskLog{}
 // Make sure the type SystemConfig runs hooks after queries
 var _ bob.HookableType = &SystemConfig{}
 
+// Make sure the type SystemUpdateJob runs hooks after queries
+var _ bob.HookableType = &SystemUpdateJob{}
+
+// Make sure the type SystemUpdateJobEvent runs hooks after queries
+var _ bob.HookableType = &SystemUpdateJobEvent{}
+
 // Make sure the type User runs hooks after queries
 var _ bob.HookableType = &User{}
 

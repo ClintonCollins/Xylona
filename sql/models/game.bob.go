@@ -61,6 +61,10 @@ type Game struct {
 	WindowsBaseCommand                string           `db:"windows_base_command" `
 	StartArgBlocklist                 string           `db:"start_arg_blocklist" `
 	AllowStartArgEditing              bool             `db:"allow_start_arg_editing" `
+	OfficialDefinitionHash            string           `db:"official_definition_hash" `
+	OfficialDefinitionSource          string           `db:"official_definition_source" `
+	OfficialDefinitionSchemaVersion   int64            `db:"official_definition_schema_version" `
+	OfficialDefinitionDiverged        bool             `db:"official_definition_diverged" `
 
 	R gameR `db:"-" `
 }
@@ -83,7 +87,7 @@ type gameR struct {
 func buildGameColumns(alias string) gameColumns {
 	return gameColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing",
+			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing", "official_definition_hash", "official_definition_source", "official_definition_schema_version", "official_definition_diverged",
 		).WithParent("game"),
 		tableAlias:                        alias,
 		ID:                                sqlite.Quote(alias, "id"),
@@ -122,6 +126,10 @@ func buildGameColumns(alias string) gameColumns {
 		WindowsBaseCommand:                sqlite.Quote(alias, "windows_base_command"),
 		StartArgBlocklist:                 sqlite.Quote(alias, "start_arg_blocklist"),
 		AllowStartArgEditing:              sqlite.Quote(alias, "allow_start_arg_editing"),
+		OfficialDefinitionHash:            sqlite.Quote(alias, "official_definition_hash"),
+		OfficialDefinitionSource:          sqlite.Quote(alias, "official_definition_source"),
+		OfficialDefinitionSchemaVersion:   sqlite.Quote(alias, "official_definition_schema_version"),
+		OfficialDefinitionDiverged:        sqlite.Quote(alias, "official_definition_diverged"),
 	}
 }
 
@@ -164,6 +172,10 @@ type gameColumns struct {
 	WindowsBaseCommand                sqlite.Expression
 	StartArgBlocklist                 sqlite.Expression
 	AllowStartArgEditing              sqlite.Expression
+	OfficialDefinitionHash            sqlite.Expression
+	OfficialDefinitionSource          sqlite.Expression
+	OfficialDefinitionSchemaVersion   sqlite.Expression
+	OfficialDefinitionDiverged        sqlite.Expression
 }
 
 func (c gameColumns) Alias() string {
@@ -214,10 +226,14 @@ type GameSetter struct {
 	WindowsBaseCommand                omit.Val[string]     `db:"windows_base_command" `
 	StartArgBlocklist                 omit.Val[string]     `db:"start_arg_blocklist" `
 	AllowStartArgEditing              omit.Val[bool]       `db:"allow_start_arg_editing" `
+	OfficialDefinitionHash            omit.Val[string]     `db:"official_definition_hash" `
+	OfficialDefinitionSource          omit.Val[string]     `db:"official_definition_source" `
+	OfficialDefinitionSchemaVersion   omit.Val[int64]      `db:"official_definition_schema_version" `
+	OfficialDefinitionDiverged        omit.Val[bool]       `db:"official_definition_diverged" `
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 36)
+	vals := make([]string, 0, 40)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -325,6 +341,18 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if s.AllowStartArgEditing.IsValue() {
 		vals = append(vals, "allow_start_arg_editing")
+	}
+	if s.OfficialDefinitionHash.IsValue() {
+		vals = append(vals, "official_definition_hash")
+	}
+	if s.OfficialDefinitionSource.IsValue() {
+		vals = append(vals, "official_definition_source")
+	}
+	if s.OfficialDefinitionSchemaVersion.IsValue() {
+		vals = append(vals, "official_definition_schema_version")
+	}
+	if s.OfficialDefinitionDiverged.IsValue() {
+		vals = append(vals, "official_definition_diverged")
 	}
 	return vals
 }
@@ -438,6 +466,18 @@ func (s GameSetter) Overwrite(t *Game) {
 	if s.AllowStartArgEditing.IsValue() {
 		t.AllowStartArgEditing = s.AllowStartArgEditing.MustGet()
 	}
+	if s.OfficialDefinitionHash.IsValue() {
+		t.OfficialDefinitionHash = s.OfficialDefinitionHash.MustGet()
+	}
+	if s.OfficialDefinitionSource.IsValue() {
+		t.OfficialDefinitionSource = s.OfficialDefinitionSource.MustGet()
+	}
+	if s.OfficialDefinitionSchemaVersion.IsValue() {
+		t.OfficialDefinitionSchemaVersion = s.OfficialDefinitionSchemaVersion.MustGet()
+	}
+	if s.OfficialDefinitionDiverged.IsValue() {
+		t.OfficialDefinitionDiverged = s.OfficialDefinitionDiverged.MustGet()
+	}
 }
 
 func (s *GameSetter) Apply(q *dialect.InsertQuery) {
@@ -454,7 +494,7 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 36)
+		vals := make([]bob.Expression, 0, 40)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -599,6 +639,22 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.AllowStartArgEditing.MustGet()))
 		}
 
+		if s.OfficialDefinitionHash.IsValue() {
+			vals = append(vals, sqlite.Arg(s.OfficialDefinitionHash.MustGet()))
+		}
+
+		if s.OfficialDefinitionSource.IsValue() {
+			vals = append(vals, sqlite.Arg(s.OfficialDefinitionSource.MustGet()))
+		}
+
+		if s.OfficialDefinitionSchemaVersion.IsValue() {
+			vals = append(vals, sqlite.Arg(s.OfficialDefinitionSchemaVersion.MustGet()))
+		}
+
+		if s.OfficialDefinitionDiverged.IsValue() {
+			vals = append(vals, sqlite.Arg(s.OfficialDefinitionDiverged.MustGet()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -612,7 +668,7 @@ func (s GameSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 36)
+	exprs := make([]bob.Expression, 0, 40)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -863,6 +919,34 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "allow_start_arg_editing")...),
 			sqlite.Arg(s.AllowStartArgEditing),
+		}})
+	}
+
+	if s.OfficialDefinitionHash.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "official_definition_hash")...),
+			sqlite.Arg(s.OfficialDefinitionHash),
+		}})
+	}
+
+	if s.OfficialDefinitionSource.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "official_definition_source")...),
+			sqlite.Arg(s.OfficialDefinitionSource),
+		}})
+	}
+
+	if s.OfficialDefinitionSchemaVersion.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "official_definition_schema_version")...),
+			sqlite.Arg(s.OfficialDefinitionSchemaVersion),
+		}})
+	}
+
+	if s.OfficialDefinitionDiverged.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "official_definition_diverged")...),
+			sqlite.Arg(s.OfficialDefinitionDiverged),
 		}})
 	}
 
@@ -1216,6 +1300,10 @@ type gameWhere[Q sqlite.Filterable] struct {
 	WindowsBaseCommand                sqlite.WhereMod[Q, string]
 	StartArgBlocklist                 sqlite.WhereMod[Q, string]
 	AllowStartArgEditing              sqlite.WhereMod[Q, bool]
+	OfficialDefinitionHash            sqlite.WhereMod[Q, string]
+	OfficialDefinitionSource          sqlite.WhereMod[Q, string]
+	OfficialDefinitionSchemaVersion   sqlite.WhereMod[Q, int64]
+	OfficialDefinitionDiverged        sqlite.WhereMod[Q, bool]
 }
 
 func (gameWhere[Q]) AliasedAs(alias string) gameWhere[Q] {
@@ -1260,6 +1348,10 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		WindowsBaseCommand:                sqlite.Where[Q, string](cols.WindowsBaseCommand),
 		StartArgBlocklist:                 sqlite.Where[Q, string](cols.StartArgBlocklist),
 		AllowStartArgEditing:              sqlite.Where[Q, bool](cols.AllowStartArgEditing),
+		OfficialDefinitionHash:            sqlite.Where[Q, string](cols.OfficialDefinitionHash),
+		OfficialDefinitionSource:          sqlite.Where[Q, string](cols.OfficialDefinitionSource),
+		OfficialDefinitionSchemaVersion:   sqlite.Where[Q, int64](cols.OfficialDefinitionSchemaVersion),
+		OfficialDefinitionDiverged:        sqlite.Where[Q, bool](cols.OfficialDefinitionDiverged),
 	}
 }
 

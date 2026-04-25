@@ -372,22 +372,37 @@ message RemoveGameRequest {
 message RemoveGameResponse {
 }
 
+enum GameImportMode {
+  GAME_IMPORT_MODE_PREVIEW = 0;
+  GAME_IMPORT_MODE_APPLY = 1;
+  GAME_IMPORT_MODE_IMPORT_COPY = 2;
+}
+
 message ImportGameRequest {
-  string file_path = 1;
+  string game_definition_json = 1;
+  GameImportMode mode = 2;
 }
 
 message ImportGameResponse {
   Game game = 1;
   optional Error error = 2;
+  bool success = 3;
+  bool id_conflict = 4;
+  bool updates_existing = 5;
+  int64 affected_game_server_count = 6;
+  repeated string affected_game_server_names = 7;
+  repeated string warnings = 8;
+  repeated string validation_errors = 9;
+  string imported_game_id = 10;
 }
 
 message ExportGameRequest {
   string game_id = 1;
-  string file_path = 2;
 }
 
 message ExportGameResponse {
-  GameServer game_server = 1;
+  string game_definition_json = 1;
+  string file_name = 2;
 }
 
 message UpdateGameServerRequest {

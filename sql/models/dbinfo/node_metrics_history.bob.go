@@ -126,7 +126,7 @@ var NodeMetricsHistories = Table[
 		RecordedAt: column{
 			Name:      "recorded_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,

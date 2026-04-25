@@ -16,6 +16,11 @@
             <q-icon name="search" />
           </template>
         </q-input>
+        <q-btn
+          color="secondary"
+          icon="upload_file"
+          label="Import JSON"
+          @click="showGameImportDialog = true" />
         <q-btn color="primary" label="Add Game" to="/games/new" />
       </div>
     </div>
@@ -30,7 +35,7 @@
         class="xy-standalone-table"
         flat
         hide-header-in-grid
-        row-key="name"
+        row-key="id"
         selection="multiple">
         <template #body-cell-name="props">
           <q-td :props="props">
@@ -73,6 +78,16 @@
               </router-link>
               <span>
                 <q-btn
+                  aria-label="Export game JSON"
+                  class="text-xy-accent"
+                  flat
+                  icon="file_download"
+                  @click="exportGameAction(props.row)">
+                  <q-tooltip>Export game JSON</q-tooltip>
+                </q-btn>
+              </span>
+              <span>
+                <q-btn
                   :icon="tabTrash"
                   aria-label="Delete game"
                   class="text-error-brighter"
@@ -97,6 +112,9 @@
       v-model:show-dialog="showGameDeleteDialog"
       :game="selectedActionGame"
       @submit="deleteGameSubmitted"></game-delete-dialog>
+    <game-import-dialog
+      v-model:show-dialog="showGameImportDialog"
+      @imported="gameImported"></game-import-dialog>
   </q-page>
 </template>
 
@@ -104,18 +122,23 @@
 import { create } from '@bufbuild/protobuf'
 import { useStorage } from '@vueuse/core'
 import GameDeleteDialog from '@/components/games/GameDeleteDialog.vue'
+import GameImportDialog from '@/components/games/GameImportDialog.vue'
+import { exportGameDefinitionJSON } from '@/components/games/game-definition-json'
 import { tabCopy, tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { onMounted, Ref, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { Game } from '@/proto/shared_pb'
 import { ListGamesRequest, ListGamesRequestSchema, ListGamesResponse } from '@/proto/xylona_pb'
 
 const $q = useQuasar()
+const router = useRouter()
 const rows = ref([] as Game[])
 const search: Ref<string> = ref('')
 const showGameDeleteDialog = ref(false)
+const showGameImportDialog = ref(false)
 const selectedActionGame = ref<Game | null>(null)
 
 // Use VueUse to store the pagination state automatically.
@@ -153,9 +176,35 @@ async function deleteGameAction(game: Game) {
   showGameDeleteDialog.value = true
 }
 
+async function exportGameAction(game: Game) {
+  try {
+    const fileName = await exportGameDefinitionJSON(game.id)
+    $q.notify({
+      type: 'xylona-success',
+      position: 'top',
+      caption: `Exported ${fileName}.`,
+      icon: 'check_circle',
+    })
+  } catch (unknownError: unknown) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to export game: ' + ConnectErrorToString(ConnectError.from(unknownError)),
+      icon: 'report_problem',
+    })
+  }
+}
+
 async function deleteGameSubmitted(error: unknown | boolean) {
   if (!error) {
     void getGames()
+  }
+}
+
+async function gameImported(gameID: string) {
+  await getGames()
+  if (gameID !== '') {
+    await router.push(`/games/${gameID}/edit`)
   }
 }
 

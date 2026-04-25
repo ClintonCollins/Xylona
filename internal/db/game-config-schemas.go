@@ -40,7 +40,15 @@ func (c *Connection) UpdateGameConfigSchemas(gameID string, schemasJSON string) 
 		value = schemasJSON
 	}
 	_, errUpdateSchemas := c.SQLDb.ExecContext(c.ctx,
-		"UPDATE game SET config_schemas = ? WHERE id = ?", value, gameID,
+		`UPDATE game
+		 SET config_schemas = ?,
+		     official_definition_diverged = CASE
+		       WHEN xylona_official THEN true
+		       ELSE official_definition_diverged
+		     END,
+		     updated_at = CURRENT_TIMESTAMP
+		 WHERE id = ?`,
+		value, gameID,
 	)
 	if errUpdateSchemas != nil {
 		log.Error().Err(errUpdateSchemas).Str("game_id", gameID).Msg("Error updating config schemas")
