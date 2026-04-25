@@ -102,6 +102,7 @@ type FakeNodeClient struct {
 	CreateBackupArchiveBytes  int64
 	CreateBackupArchiveSHA256 string
 	CreateBackupArchiveErr    error
+	CreateBackupArchiveFunc   func(ctx context.Context, directory string, includePaths []string, destinationArchivePath string) (int64, string, error)
 	CreateBackupArchiveCalls  []CreateBackupArchiveCall
 
 	ExtractBackupArchiveErr   error
@@ -500,7 +501,7 @@ func (f *FakeNodeClient) ExtractFileArchiveWithProgress(_ context.Context, direc
 }
 
 // CreateBackupArchive records the call and returns the configured result.
-func (f *FakeNodeClient) CreateBackupArchive(_ context.Context, directory string, includePaths []string, destinationArchivePath string) (int64, string, error) {
+func (f *FakeNodeClient) CreateBackupArchive(ctx context.Context, directory string, includePaths []string, destinationArchivePath string) (int64, string, error) {
 	f.mu.Lock()
 	copied := append([]string(nil), includePaths...)
 	f.CreateBackupArchiveCalls = append(f.CreateBackupArchiveCalls, CreateBackupArchiveCall{
@@ -509,6 +510,9 @@ func (f *FakeNodeClient) CreateBackupArchive(_ context.Context, directory string
 		DestinationArchivePath: destinationArchivePath,
 	})
 	f.mu.Unlock()
+	if f.CreateBackupArchiveFunc != nil {
+		return f.CreateBackupArchiveFunc(ctx, directory, copied, destinationArchivePath)
+	}
 	return f.CreateBackupArchiveBytes, f.CreateBackupArchiveSHA256, f.CreateBackupArchiveErr
 }
 

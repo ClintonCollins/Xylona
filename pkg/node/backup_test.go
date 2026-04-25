@@ -2,10 +2,100 @@ package node
 
 import (
 	"archive/zip"
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+func TestCreateBackupArchiveWritesZipOnNode(t *testing.T) {
+	root := t.TempDir()
+	worldDir := filepath.Join(root, "world")
+	errMkdir := os.MkdirAll(worldDir, 0o750)
+	if errMkdir != nil {
+		t.Fatalf("MkdirAll world error = %v", errMkdir)
+	}
+	errWrite := os.WriteFile(filepath.Join(worldDir, "level.dat"), []byte("node-level"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile level error = %v", errWrite)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	n := &Node{}
+	sizeBytes, checksum, errCreate := n.CreateBackupArchive(t.Context(), root, nil, archivePath)
+	if errCreate != nil {
+		t.Fatalf("CreateBackupArchive() error = %v", errCreate)
+	}
+	if sizeBytes <= 0 {
+		t.Fatalf("CreateBackupArchive() size = %d, want > 0", sizeBytes)
+	}
+	if checksum == "" {
+		t.Fatal("CreateBackupArchive() checksum is empty")
+	}
+
+	reader, errOpen := zip.OpenReader(archivePath)
+	if errOpen != nil {
+		t.Fatalf("OpenReader backup error = %v", errOpen)
+	}
+	defer func() {
+		errClose := reader.Close()
+		if errClose != nil {
+			t.Fatalf("Close backup reader error = %v", errClose)
+		}
+	}()
+
+	entries := make(map[string]struct{}, len(reader.File))
+	for _, file := range reader.File {
+		entries[file.Name] = struct{}{}
+	}
+	if _, ok := entries["world/"]; !ok {
+		t.Fatalf("backup entries = %v, want world directory", entries)
+	}
+	if _, ok := entries["world/level.dat"]; !ok {
+		t.Fatalf("backup entries = %v, want world/level.dat", entries)
+	}
+}
+
+func TestCreateBackupArchiveRejectsTraversalInclude(t *testing.T) {
+	root := t.TempDir()
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+
+	n := &Node{}
+	_, _, errCreate := n.CreateBackupArchive(t.Context(), root, []string{"../outside"}, archivePath)
+	if errCreate == nil {
+		t.Fatal("CreateBackupArchive() error = nil, want traversal include rejection")
+	}
+	if _, errStat := os.Stat(archivePath); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat archive error = %v, want %v", errStat, os.ErrNotExist)
+	}
+}
+
+func TestCreateBackupArchiveRejectsSymlinkAndCleansPartial(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows symlink creation requires extra privileges in some environments")
+	}
+
+	root := t.TempDir()
+	errWrite := os.WriteFile(filepath.Join(root, "target.txt"), []byte("target"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile target error = %v", errWrite)
+	}
+	errSymlink := os.Symlink("target.txt", filepath.Join(root, "linked.txt"))
+	if errSymlink != nil {
+		t.Fatalf("Symlink error = %v", errSymlink)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	n := &Node{}
+	_, _, errCreate := n.CreateBackupArchive(t.Context(), root, nil, archivePath)
+	if errCreate == nil {
+		t.Fatal("CreateBackupArchive() error = nil, want symlink rejection")
+	}
+	if _, errStat := os.Stat(archivePath); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat archive error = %v, want %v", errStat, os.ErrNotExist)
+	}
+}
 
 func TestExtractBackupArchiveCorruptArchiveLeavesLiveFileUnchanged(t *testing.T) {
 	root := t.TempDir()

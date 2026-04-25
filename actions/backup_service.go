@@ -71,7 +71,6 @@ var (
 	createGameServerBackupRow = func(conn *db.Connection, params db.CreateGameServerBackupParams) (*models.GameServerBackup, error) {
 		return conn.CreateGameServerBackup(params)
 	}
-	writeBackupArchiveFunc       = writeBackupArchive
 	copyRestoreFileFunc          = copyRestoreFile
 	createRestoreStagingDirFunc  = os.MkdirTemp
 	backupNowFunc                = func() time.Time { return time.Now().UTC() }
@@ -462,27 +461,19 @@ func (inst *Instance) DeleteGameServerBackup(gameServer *models.GameServer, back
 }
 
 func (inst *Instance) removeBackupArchive(gameServer *models.GameServer, archivePath string) error {
-	if inst.isRemoteGameServer(gameServer) {
-		client, errClient := inst.resolveNodeClient(gameServer.NodeID)
-		if errClient != nil {
-			return fmt.Errorf("actions: resolve node client for backup archive removal: %w", errClient)
-		}
-
-		archiveDir := remotePathDir(archivePath)
-		archiveName := remotePathBase(archivePath)
-		deleted, errDelete := client.DeleteFiles(inst.ctx, archiveDir, []string{archiveName}, node.ProtectionPolicy{})
-		if errDelete != nil {
-			return fmt.Errorf("actions: delete remote backup archive: %w", errDelete)
-		}
-		if !slices.Contains(deleted, archiveName) {
-			return fmt.Errorf("actions: delete remote backup archive: node did not confirm deletion of %q", archiveName)
-		}
-		return nil
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return fmt.Errorf("actions: resolve node client for backup archive removal: %w", errClient)
 	}
 
-	errRemoveArchive := os.Remove(archivePath)
-	if errRemoveArchive != nil && !errors.Is(errRemoveArchive, os.ErrNotExist) {
-		return fmt.Errorf("actions: remove local backup archive: %w", errRemoveArchive)
+	archiveDir := remotePathDir(archivePath)
+	archiveName := remotePathBase(archivePath)
+	deleted, errDelete := client.DeleteFiles(inst.ctx, archiveDir, []string{archiveName}, node.ProtectionPolicy{})
+	if errDelete != nil {
+		return fmt.Errorf("actions: delete backup archive on node: %w", errDelete)
+	}
+	if !slices.Contains(deleted, archiveName) {
+		return fmt.Errorf("actions: delete backup archive on node: node did not confirm deletion of %q", archiveName)
 	}
 	return nil
 }
@@ -588,20 +579,6 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 		"Preparing backup archive",
 	)
 
-	if !inst.isRemoteGameServer(gameServer) {
-		parentDir := filepath.Dir(backup.ArchivePath)
-		errMkdir := os.MkdirAll(parentDir, 0o750)
-		if errMkdir != nil {
-			return nil, inst.failBackupCreate(
-				gameServer,
-				backup,
-				gameServer.ID,
-				gameServer.Name,
-				fmt.Errorf("actions: create backup directory: %w", errMkdir),
-			)
-		}
-	}
-
 	inst.broadcastBackupProgress(
 		gameServer.ID,
 		gameServer.Name,
@@ -615,9 +592,7 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 
 	progressReporter := newBackupProgressReporter(inst, gameServer.ID, gameServer.Name, backup.ID)
 
-	sizeBytes, errArchive := inst.produceBackupArchive(backupCtx, gameServer, backup.ArchivePath, progressReporter.Observe, func() error {
-		return backupCreateCancelErr(backupCtx)
-	})
+	sizeBytes, errArchive := inst.produceBackupArchive(backupCtx, gameServer, backup.ArchivePath, progressReporter.Observe)
 	if errArchive != nil {
 		progressReporter.Abort()
 		if errors.Is(errArchive, errBackupCreateCancelled) {
@@ -1386,28 +1361,18 @@ func isWindowsReservedArchiveBaseName(name string) bool {
 	}
 }
 
-type backupArchiveCancelFunc func() error
-
-// produceBackupArchive routes archive creation through the owning node when a
-// NodeClient is registered. The filesystem writer remains a compatibility
-// fallback for tests or startup paths without a node registry.
+// produceBackupArchive routes archive creation through the owning node.
 func (inst *Instance) produceBackupArchive(
 	ctx context.Context,
 	gameServer *models.GameServer,
 	controllerArchivePath string,
 	onProgress backupArchiveProgressFunc,
-	checkCancel backupArchiveCancelFunc,
 ) (int64, error) {
-	if inst.nodeRegistry != nil {
-		client, errGet := inst.nodeRegistry.Get(gameServer.NodeID)
-		if errGet == nil {
-			return inst.produceBackupArchiveWithNodeClient(ctx, client, gameServer, controllerArchivePath, onProgress)
-		}
-		if inst.isRemoteGameServer(gameServer) {
-			return 0, fmt.Errorf("actions: resolve node client for backup: %w", errGet)
-		}
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return 0, fmt.Errorf("actions: resolve node client for backup: %w", errClient)
 	}
-	return writeBackupArchiveFunc(gameServer.Directory, controllerArchivePath, onProgress, checkCancel)
+	return inst.produceBackupArchiveWithNodeClient(ctx, client, gameServer, controllerArchivePath, onProgress)
 }
 
 // produceBackupArchiveWithNodeClient creates and stores the archive on the owning node.
@@ -1420,6 +1385,10 @@ func (inst *Instance) produceBackupArchiveWithNodeClient(
 ) (int64, error) {
 	archiveBytes, _, errArchive := client.CreateBackupArchive(ctx, gameServer.Directory, nil, archivePath)
 	if errArchive != nil {
+		errCancel := backupCreateCancelErr(ctx)
+		if errCancel != nil {
+			return 0, errCancel
+		}
 		return 0, fmt.Errorf("actions: create backup archive on node: %w", errArchive)
 	}
 
@@ -1494,152 +1463,6 @@ func normalizeRemoteComparablePath(pathValue string) string {
 		cleanPath = strings.TrimRight(cleanPath, "/")
 	}
 	return cleanPath
-}
-
-func writeBackupArchive(serverDirectory string, archivePath string, onProgress backupArchiveProgressFunc, checkCancel backupArchiveCancelFunc) (int64, error) {
-	outputFile, errCreate := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
-	if errCreate != nil {
-		return 0, fmt.Errorf("actions: create backup archive: %w", errCreate)
-	}
-
-	archiveWriter := io.Writer(outputFile)
-	if onProgress != nil {
-		archiveWriter = &countingWriter{
-			writer: outputFile,
-			onWrite: func(sizeBytes int64) {
-				onProgress(sizeBytes)
-			},
-		}
-	}
-
-	zipWriter := zip.NewWriter(archiveWriter)
-	cleanServerDirectory := filepath.Clean(serverDirectory)
-	cleanArchivePath := filepath.Clean(archivePath)
-	errWalk := filepath.WalkDir(cleanServerDirectory, func(currentPath string, entry fs.DirEntry, walkErr error) error {
-		errCancel := checkBackupArchiveCancelled(checkCancel)
-		if errCancel != nil {
-			return errCancel
-		}
-		if walkErr != nil {
-			return fmt.Errorf("actions: walk backup source: %w", walkErr)
-		}
-		if currentPath == cleanServerDirectory {
-			return nil
-		}
-
-		cleanCurrentPath := filepath.Clean(currentPath)
-		if cleanCurrentPath == cleanArchivePath {
-			return nil
-		}
-
-		relativePath, errRel := filepath.Rel(cleanServerDirectory, cleanCurrentPath)
-		if errRel != nil {
-			return fmt.Errorf("actions: resolve backup relative path: %w", errRel)
-		}
-		archiveEntryPath, errValidate := validateBackupRelativePath(relativePath)
-		if errValidate != nil {
-			return errValidate
-		}
-
-		info, errInfo := entry.Info()
-		if errInfo != nil {
-			return fmt.Errorf("actions: stat backup source: %w", errInfo)
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("actions: symlinks are not supported in backups: %s", archiveEntryPath)
-		}
-		if info.IsDir() {
-			return addDirectoryToZipArchive(zipWriter, archiveEntryPath, info)
-		}
-		if !info.Mode().IsRegular() {
-			return nil
-		}
-
-		return addFileToZipArchive(zipWriter, cleanCurrentPath, archiveEntryPath, info, checkCancel)
-	})
-
-	errCloseZip := zipWriter.Close()
-	errCloseFile := outputFile.Close()
-	if errWalk != nil {
-		return 0, cleanupPartialBackupArchive(archivePath, fmt.Errorf("actions: walk backup source: %w", errWalk))
-	}
-	if errCloseZip != nil {
-		return 0, cleanupPartialBackupArchive(archivePath, fmt.Errorf("actions: finalize backup archive: %w", errCloseZip))
-	}
-	if errCloseFile != nil {
-		return 0, cleanupPartialBackupArchive(archivePath, fmt.Errorf("actions: close backup archive: %w", errCloseFile))
-	}
-
-	archiveInfo, errStat := os.Stat(archivePath)
-	if errStat != nil {
-		return 0, fmt.Errorf("actions: stat backup archive: %w", errStat)
-	}
-
-	return archiveInfo.Size(), nil
-}
-
-func checkBackupArchiveCancelled(checkCancel backupArchiveCancelFunc) error {
-	if checkCancel == nil {
-		return nil
-	}
-
-	errCancel := checkCancel()
-	if errCancel != nil {
-		return errCancel
-	}
-
-	return nil
-}
-
-type countingWriter struct {
-	writer  io.Writer
-	total   int64
-	onWrite func(sizeBytes int64)
-}
-
-func (w *countingWriter) Write(p []byte) (int, error) {
-	written, errWrite := w.writer.Write(p)
-	if written > 0 {
-		w.total += int64(written)
-		if w.onWrite != nil {
-			w.onWrite(w.total)
-		}
-	}
-
-	if errWrite != nil {
-		return written, fmt.Errorf("write counted bytes: %w", errWrite)
-	}
-
-	return written, nil
-}
-
-type cancelableReader struct {
-	reader      io.Reader
-	checkCancel backupArchiveCancelFunc
-}
-
-func (r *cancelableReader) Read(p []byte) (int, error) {
-	errCancel := checkBackupArchiveCancelled(r.checkCancel)
-	if errCancel != nil {
-		return 0, errCancel
-	}
-
-	readBytes, errRead := r.reader.Read(p)
-	if readBytes > 0 {
-		errCancel = checkBackupArchiveCancelled(r.checkCancel)
-		if errCancel != nil {
-			return readBytes, errCancel
-		}
-	}
-
-	if errRead != nil {
-		if errors.Is(errRead, io.EOF) {
-			return readBytes, io.EOF
-		}
-		return readBytes, fmt.Errorf("read cancelable backup stream: %w", errRead)
-	}
-
-	return readBytes, nil
 }
 
 type backupProgressReporter struct {
@@ -1875,68 +1698,6 @@ func moveUploadedBackupArchive(sourcePath string, destinationPath string) error 
 	errRemoveSource := os.Remove(sourcePath)
 	if errRemoveSource != nil {
 		return fmt.Errorf("remove uploaded temp archive: %w", errRemoveSource)
-	}
-
-	return nil
-}
-
-func cleanupPartialBackupArchive(archivePath string, cause error) error {
-	errRemoveArchive := os.Remove(archivePath)
-	if errRemoveArchive != nil && !errors.Is(errRemoveArchive, os.ErrNotExist) {
-		return errors.Join(cause, fmt.Errorf("actions: remove partial backup archive: %w", errRemoveArchive))
-	}
-
-	return cause
-}
-
-func addDirectoryToZipArchive(zipWriter *zip.Writer, archiveEntryPath string, info fs.FileInfo) error {
-	header, errHeader := zip.FileInfoHeader(info)
-	if errHeader != nil {
-		return fmt.Errorf("actions: create zip directory header: %w", errHeader)
-	}
-	header.Name = archiveEntryPath + "/"
-	header.Method = zip.Store
-
-	_, errEntry := zipWriter.CreateHeader(header)
-	if errEntry != nil {
-		return fmt.Errorf("actions: create zip directory entry: %w", errEntry)
-	}
-
-	return nil
-}
-
-func addFileToZipArchive(zipWriter *zip.Writer, sourcePath string, archiveEntryPath string, info fs.FileInfo, checkCancel backupArchiveCancelFunc) error {
-	errCancel := checkBackupArchiveCancelled(checkCancel)
-	if errCancel != nil {
-		return errCancel
-	}
-
-	header, errHeader := zip.FileInfoHeader(info)
-	if errHeader != nil {
-		return fmt.Errorf("actions: create zip header: %w", errHeader)
-	}
-	header.Name = archiveEntryPath
-	header.Method = zip.Deflate
-
-	archiveWriter, errEntry := zipWriter.CreateHeader(header)
-	if errEntry != nil {
-		return fmt.Errorf("actions: create zip entry: %w", errEntry)
-	}
-
-	sourceFile, errOpen := os.Open(sourcePath)
-	if errOpen != nil {
-		return fmt.Errorf("actions: open backup source file: %w", errOpen)
-	}
-	defer func() {
-		_ = sourceFile.Close()
-	}()
-
-	_, errCopy := io.Copy(archiveWriter, &cancelableReader{
-		reader:      sourceFile,
-		checkCancel: checkCancel,
-	})
-	if errCopy != nil {
-		return fmt.Errorf("actions: write zip entry: %w", errCopy)
 	}
 
 	return nil

@@ -74,15 +74,7 @@ func TestCreateManualBackupReturnsPendingBackupBeforeArchiveCompletes(t *testing
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 
-	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
-	writeBackupArchiveFunc = func(serverDirectory string, archivePath string, onProgress backupArchiveProgressFunc, _ backupArchiveCancelFunc) (int64, error) {
-		started <- struct{}{}
-		<-release
-		return previousWriteBackupArchiveFunc(serverDirectory, archivePath, onProgress, nil)
-	}
-	t.Cleanup(func() {
-		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
-	})
+	installBlockingBackupCreateClient(t, inst, fixture.nodeID, started, release)
 
 	done := make(chan *models.GameServerBackup, 1)
 	errs := make(chan error, 1)
@@ -297,7 +289,7 @@ func TestProduceRemoteBackupArchiveLeavesArchiveOnOwningNode(t *testing.T) {
 	var progressBytes []int64
 	sizeBytes, errProduce := inst.produceBackupArchive(context.Background(), gameServer, remoteArchivePath, func(sizeBytes int64) {
 		progressBytes = append(progressBytes, sizeBytes)
-	}, nil)
+	})
 	if errProduce != nil {
 		t.Fatalf("produceBackupArchive() error = %v", errProduce)
 	}
@@ -351,7 +343,7 @@ func TestProduceLocalBackupArchiveUsesRegisteredNodeClient(t *testing.T) {
 	var progressBytes []int64
 	sizeBytes, errProduce := inst.produceBackupArchive(context.Background(), gameServer, archivePath, func(sizeBytes int64) {
 		progressBytes = append(progressBytes, sizeBytes)
-	}, nil)
+	})
 	if errProduce != nil {
 		t.Fatalf("produceBackupArchive() error = %v", errProduce)
 	}
@@ -360,6 +352,43 @@ func TestProduceLocalBackupArchiveUsesRegisteredNodeClient(t *testing.T) {
 	}
 	if !slices.Equal(progressBytes, []int64{4096}) {
 		t.Fatalf("progress bytes = %v, want [4096]", progressBytes)
+	}
+	if len(localClient.CreateBackupArchiveCalls) != 1 {
+		t.Fatalf("CreateBackupArchive call count = %d, want 1", len(localClient.CreateBackupArchiveCalls))
+	}
+	call := localClient.CreateBackupArchiveCalls[0]
+	if call.Directory != serverDirectory {
+		t.Fatalf("CreateBackupArchive directory = %q, want %q", call.Directory, serverDirectory)
+	}
+	if call.DestinationArchivePath != archivePath {
+		t.Fatalf("CreateBackupArchive destination = %q, want %q", call.DestinationArchivePath, archivePath)
+	}
+}
+
+func TestProduceLocalBackupArchiveUsesEmbeddedNodeClient(t *testing.T) {
+	t.Parallel()
+
+	serverDirectory := filepath.Join(t.TempDir(), "server")
+	archivePath := filepath.Join(t.TempDir(), "backups", "server-local", "manual.zip")
+
+	localClient := &nodeclient.FakeNodeClient{
+		NodeID:                   "local-node",
+		CreateBackupArchiveBytes: 2048,
+	}
+	inst := &Instance{embeddedNodeClient: localClient}
+
+	gameServer := &models.GameServer{
+		ID:        "server-local",
+		NodeID:    "local-node",
+		Directory: serverDirectory,
+	}
+
+	sizeBytes, errProduce := inst.produceBackupArchive(context.Background(), gameServer, archivePath, nil)
+	if errProduce != nil {
+		t.Fatalf("produceBackupArchive() error = %v", errProduce)
+	}
+	if sizeBytes != 2048 {
+		t.Fatalf("produceBackupArchive() size = %d, want %d", sizeBytes, 2048)
 	}
 	if len(localClient.CreateBackupArchiveCalls) != 1 {
 		t.Fatalf("CreateBackupArchive call count = %d, want 1", len(localClient.CreateBackupArchiveCalls))
@@ -559,15 +588,7 @@ func TestCreateManualBackupRejectsDuplicateProvidedNameWhilePending(t *testing.T
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 
-	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
-	writeBackupArchiveFunc = func(serverDirectory string, archivePath string, onProgress backupArchiveProgressFunc, _ backupArchiveCancelFunc) (int64, error) {
-		started <- struct{}{}
-		<-release
-		return previousWriteBackupArchiveFunc(serverDirectory, archivePath, onProgress, nil)
-	}
-	t.Cleanup(func() {
-		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
-	})
+	installBlockingBackupCreateClient(t, inst, fixture.nodeID, started, release)
 
 	firstBackup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "Friday Night Save")
 	if errCreate != nil {
@@ -1113,21 +1134,22 @@ func TestCreateManualBackupRemovesArchiveWhenWriteAndReconciliationFail(t *testi
 		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
 	}
 
-	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
-	writeBackupArchiveFunc = func(_ string, archivePath string, _ backupArchiveProgressFunc, _ backupArchiveCancelFunc) (int64, error) {
+	fakeClient := &nodeclient.FakeNodeClient{
+		NodeID: fixture.nodeID,
+	}
+	fakeClient.CreateBackupArchiveFunc = func(_ context.Context, _ string, _ []string, archivePath string) (int64, string, error) {
 		errMkdir := os.MkdirAll(filepath.Dir(archivePath), 0o750)
 		if errMkdir != nil {
-			return 0, fmt.Errorf("mkdir partial archive dir: %w", errMkdir)
+			return 0, "", fmt.Errorf("mkdir partial archive dir: %w", errMkdir)
 		}
+		fakeClient.DeleteFilesResult = []string{remotePathBase(archivePath)}
 		errWriteArchive := os.WriteFile(archivePath, []byte("partial"), 0o600)
 		if errWriteArchive != nil {
-			return 0, fmt.Errorf("write partial archive: %w", errWriteArchive)
+			return 0, "", fmt.Errorf("write partial archive: %w", errWriteArchive)
 		}
-		return 0, errors.New("forced archive write failure")
+		return 0, "", errors.New("forced archive write failure")
 	}
-	t.Cleanup(func() {
-		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
-	})
+	inst.embeddedNodeClient = fakeClient
 
 	previousUpdateBackupResult := updateGameServerBackupResult
 	updateGameServerBackupResult = func(
@@ -1159,12 +1181,8 @@ func TestCreateManualBackupRemovesArchiveWhenWriteAndReconciliationFail(t *testi
 			t.Fatalf("ListGameServerBackupsByGameServerID() error = %v", errList)
 		}
 		if len(backups) == 0 {
-			archivePaths, errGlob := filepath.Glob(filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "*.zip"))
-			if errGlob != nil {
-				t.Fatalf("Glob() error = %v", errGlob)
-			}
-			if len(archivePaths) != 0 {
-				t.Fatalf("remaining backup archives = %v, want none", archivePaths)
+			if len(fakeClient.DeleteFilesCalls) != 1 {
+				t.Fatalf("DeleteFiles call count = %d, want 1", len(fakeClient.DeleteFilesCalls))
 			}
 			return
 		}
@@ -1242,21 +1260,10 @@ func TestCreateScheduledBackupCoalescesArchiveProgressUpdates(t *testing.T) {
 	broadcaster := &recordingBackupProgressBroadcaster{}
 	inst.SetBackupProgressBroadcaster(broadcaster)
 
-	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
-	writeBackupArchiveFunc = func(_ string, _ string, onProgress backupArchiveProgressFunc, _ backupArchiveCancelFunc) (int64, error) {
-		var sizeBytes int64
-		for range 4096 {
-			sizeBytes += 1024
-			if onProgress != nil {
-				onProgress(sizeBytes)
-			}
-		}
-
-		return sizeBytes, nil
+	inst.embeddedNodeClient = &nodeclient.FakeNodeClient{
+		NodeID:                   fixture.nodeID,
+		CreateBackupArchiveBytes: 4096 * 1024,
 	}
-	t.Cleanup(func() {
-		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
-	})
 
 	backup, errCreate := inst.CreateScheduledBackup(fixture.gameServer)
 	if errCreate != nil {
@@ -1583,37 +1590,18 @@ func TestDeleteGameServerBackupCancelsPendingBackup(t *testing.T) {
 	started := make(chan struct{}, 1)
 	cancelObserved := make(chan struct{}, 1)
 
-	previousWriteBackupArchiveFunc := writeBackupArchiveFunc
-	writeBackupArchiveFunc = func(_ string, archivePath string, _ backupArchiveProgressFunc, checkCancel backupArchiveCancelFunc) (int64, error) {
-		errMkdir := os.MkdirAll(filepath.Dir(archivePath), 0o750)
-		if errMkdir != nil {
-			return 0, fmt.Errorf("mkdir partial archive dir: %w", errMkdir)
-		}
-
-		errPartial := os.WriteFile(archivePath, []byte("partial"), 0o600)
-		if errPartial != nil {
-			return 0, fmt.Errorf("write partial archive: %w", errPartial)
-		}
-
+	fakeClient := &nodeclient.FakeNodeClient{NodeID: fixture.nodeID}
+	fakeClient.CreateBackupArchiveFunc = func(ctx context.Context, _ string, _ []string, _ string) (int64, string, error) {
 		started <- struct{}{}
-
-		deadline := time.Now().Add(5 * time.Second)
-		for time.Now().Before(deadline) {
-			errCancel := checkCancel()
-			if errCancel == nil {
-				time.Sleep(10 * time.Millisecond)
-				continue
-			}
-
+		select {
+		case <-ctx.Done():
 			cancelObserved <- struct{}{}
-			return 0, errCancel
+			return 0, "", ctx.Err()
+		case <-time.After(5 * time.Second):
+			return 0, "", errors.New("backup cancel was not observed")
 		}
-
-		return 0, errors.New("backup cancel was not observed")
 	}
-	t.Cleanup(func() {
-		writeBackupArchiveFunc = previousWriteBackupArchiveFunc
-	})
+	inst.embeddedNodeClient = fakeClient
 
 	backup, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
 	if errCreate != nil {
@@ -1626,6 +1614,7 @@ func TestDeleteGameServerBackupCancelsPendingBackup(t *testing.T) {
 		t.Fatal("background archive worker did not start")
 	}
 
+	fakeClient.DeleteFilesResult = []string{remotePathBase(backup.ArchivePath)}
 	errDelete := inst.DeleteGameServerBackup(fixture.gameServer, backup)
 	if errDelete != nil {
 		t.Fatalf("DeleteGameServerBackup() error = %v", errDelete)
@@ -1641,8 +1630,8 @@ func TestDeleteGameServerBackupCancelsPendingBackup(t *testing.T) {
 	if !errors.Is(errGet, sql.ErrNoRows) {
 		t.Fatalf("GetGameServerBackupByID() error = %v, want %v", errGet, sql.ErrNoRows)
 	}
-	if _, errStat := os.Stat(backup.ArchivePath); !errors.Is(errStat, os.ErrNotExist) {
-		t.Fatalf("Stat(backup.ArchivePath) error = %v, want %v", errStat, os.ErrNotExist)
+	if len(fakeClient.DeleteFilesCalls) != 1 {
+		t.Fatalf("DeleteFiles call count = %d, want 1", len(fakeClient.DeleteFilesCalls))
 	}
 	if broadcaster.containsPhase(xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED) {
 		t.Fatalf("backup progress unexpectedly contained failed phase after cancel: %v", broadcaster.events)
@@ -2680,6 +2669,10 @@ func newBackupServiceFixture(t *testing.T, inst *Instance) backupServiceFixture 
 	serverDir := filepath.Join(t.TempDir(), "server-data")
 	backupRoot := filepath.Join(t.TempDir(), "backups-root")
 
+	if inst.embeddedNodeClient == nil {
+		inst.embeddedNodeClient = nodeclient.NewInProcessClient(nodeID, node.New(inst.ctx, nil, inst.db))
+	}
+
 	errMkdir := os.MkdirAll(serverDir, 0o750)
 	if errMkdir != nil {
 		t.Fatalf("MkdirAll(serverDir) error = %v", errMkdir)
@@ -2770,6 +2763,23 @@ func newBackupServiceFixture(t *testing.T, inst *Instance) backupServiceFixture 
 		gameServer: gameServer,
 		inst:       inst,
 	}
+}
+
+func installBlockingBackupCreateClient(t *testing.T, inst *Instance, nodeID string, started chan<- struct{}, release <-chan struct{}) {
+	t.Helper()
+
+	realClient := inst.embeddedNodeClient
+	fakeClient := &nodeclient.FakeNodeClient{NodeID: nodeID}
+	fakeClient.CreateBackupArchiveFunc = func(ctx context.Context, directory string, includePaths []string, archivePath string) (int64, string, error) {
+		started <- struct{}{}
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return 0, "", ctx.Err()
+		}
+		return realClient.CreateBackupArchive(ctx, directory, includePaths, archivePath)
+	}
+	inst.embeddedNodeClient = fakeClient
 }
 
 func (f backupServiceFixture) createBackupRow(t *testing.T, params db.CreateGameServerBackupParams) *models.GameServerBackup {
