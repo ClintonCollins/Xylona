@@ -29,3 +29,4 @@ data.sqlite
 /data.sqlite.xylona.lock
 /internal/webui/dist/*
 !/internal/webui/dist/.gitkeep
+/plans/
