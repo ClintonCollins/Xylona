@@ -2,7 +2,6 @@ package actions
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/noderegistry"
-	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -38,93 +36,6 @@ func newFileActionTestFixture(t *testing.T) fileActionTestFixture {
 		},
 		gameServer: gameServer,
 		serverDir:  serverDir,
-	}
-}
-
-func TestArchiveAndCompressFilesRejectsProtectedDestination(t *testing.T) {
-	fixture := newFileActionTestFixture(t)
-
-	errWrite := os.WriteFile(filepath.Join(fixture.serverDir, "world.txt"), []byte("seed-data"), 0o600)
-	if errWrite != nil {
-		t.Fatalf("WriteFile(world.txt) error = %v", errWrite)
-	}
-
-	_, errCompress := fixture.inst.ArchiveAndCompressFiles(
-		context.Background(),
-		fixture.gameServer,
-		"server.jar",
-		[]string{"world.txt"},
-		xylona.GameServerFilesCompressionType_ZIP,
-	)
-	if !errors.Is(errCompress, ErrProtectedPath) {
-		t.Fatalf("ArchiveAndCompressFiles() error = %v, want %v", errCompress, ErrProtectedPath)
-	}
-
-	archivePath := filepath.Join(fixture.serverDir, "server.jar.zip")
-	if _, errStat := os.Stat(archivePath); !errors.Is(errStat, os.ErrNotExist) {
-		t.Fatalf("Stat(%q) error = %v, want %v", archivePath, errStat, os.ErrNotExist)
-	}
-}
-
-func TestArchiveAndCompressFilesRejectsTraversalSource(t *testing.T) {
-	fixture := newFileActionTestFixture(t)
-
-	outsidePath := filepath.Join(filepath.Dir(fixture.serverDir), "outside.txt")
-	errWrite := os.WriteFile(outsidePath, []byte("secret"), 0o600)
-	if errWrite != nil {
-		t.Fatalf("WriteFile(outside.txt) error = %v", errWrite)
-	}
-
-	_, errCompress := fixture.inst.ArchiveAndCompressFiles(
-		context.Background(),
-		fixture.gameServer,
-		"archive",
-		[]string{"../outside.txt"},
-		xylona.GameServerFilesCompressionType_ZIP,
-	)
-	if !errors.Is(errCompress, ErrInvalidPath) {
-		t.Fatalf("ArchiveAndCompressFiles() error = %v, want %v", errCompress, ErrInvalidPath)
-	}
-}
-
-func TestArchiveFilesRejectsTraversalSource(t *testing.T) {
-	fixture := newFileActionTestFixture(t)
-
-	outsidePath := filepath.Join(filepath.Dir(fixture.serverDir), "outside.txt")
-	errWrite := os.WriteFile(outsidePath, []byte("secret"), 0o600)
-	if errWrite != nil {
-		t.Fatalf("WriteFile(outside.txt) error = %v", errWrite)
-	}
-
-	_, errArchive := fixture.inst.ArchiveFiles(
-		context.Background(),
-		fixture.gameServer,
-		"archive",
-		[]string{"../outside.txt"},
-		xylona.GameServerFilesCompressionType_ZIP,
-		make(chan *xylona.GameServerFilesArchiveProgress, 1),
-	)
-	if !errors.Is(errArchive, ErrInvalidPath) {
-		t.Fatalf("ArchiveFiles() error = %v, want %v", errArchive, ErrInvalidPath)
-	}
-}
-
-func TestExtractArchiveRejectsProtectedEntry(t *testing.T) {
-	fixture := newFileActionTestFixture(t)
-
-	archivePath := filepath.Join(fixture.serverDir, "import.zip")
-	createTestZipArchive(t, archivePath, map[string]string{
-		"server.jar": "blocked",
-	})
-
-	_, errExtract := fixture.inst.ExtractArchive(context.Background(), fixture.gameServer, "import.zip", "")
-	if !errors.Is(errExtract, ErrProtectedPath) {
-		t.Fatalf("ExtractArchive() error = %v, want %v", errExtract, ErrProtectedPath)
-	}
-
-	protectedFilePath := filepath.Join(fixture.serverDir, "server.jar")
-	if _, errStat := os.Stat(protectedFilePath); !errors.Is(errStat, os.ErrNotExist) {
-		t.Fatalf("Stat(%q) error = %v, want %v", protectedFilePath, errStat, os.ErrNotExist)
 	}
 }
 

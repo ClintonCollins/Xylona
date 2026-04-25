@@ -1,6 +1,7 @@
 package node
 
 import (
+	"archive/zip"
 	"errors"
 	"os"
 	"path/filepath"
@@ -87,9 +88,84 @@ func TestCreateFileArchiveRejectsProtectedDestination(t *testing.T) {
 	}
 }
 
+func TestCreateFileArchiveRejectsTraversalSource(t *testing.T) {
+	dir := t.TempDir()
+	outsidePath := filepath.Join(filepath.Dir(dir), "outside.txt")
+	errWrite := os.WriteFile(outsidePath, []byte("secret"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile outside.txt error = %v", errWrite)
+	}
+
+	n := &Node{}
+	_, _, errArchive := n.CreateFileArchive(
+		t.Context(),
+		dir,
+		"archive",
+		[]string{"../outside.txt"},
+		ArchiveCompressionZIP,
+		ProtectionPolicy{},
+	)
+	if !errors.Is(errArchive, ErrInvalidPath) {
+		t.Fatalf("CreateFileArchive error = %v, want %v", errArchive, ErrInvalidPath)
+	}
+}
+
 func TestExtractFileArchiveRejectsEscapingEntry(t *testing.T) {
 	_, _, errEntry := cleanArchiveEntryPath("../escape.txt")
 	if !errors.Is(errEntry, ErrInvalidPath) {
 		t.Fatalf("cleanArchiveEntryPath error = %v, want %v", errEntry, ErrInvalidPath)
+	}
+}
+
+func TestExtractFileArchiveRejectsProtectedEntry(t *testing.T) {
+	dir := t.TempDir()
+	archivePath := filepath.Join(dir, "import.zip")
+	createNodeTestZipArchive(t, archivePath, map[string]string{
+		"server.jar": "blocked",
+	})
+
+	n := &Node{}
+	_, _, errExtract := n.ExtractFileArchive(
+		t.Context(),
+		dir,
+		"import.zip",
+		"",
+		ProtectionPolicy{ServerExecutable: "server.jar"},
+	)
+	if !errors.Is(errExtract, ErrProtectedPath) {
+		t.Fatalf("ExtractFileArchive error = %v, want %v", errExtract, ErrProtectedPath)
+	}
+
+	protectedPath := filepath.Join(dir, "server.jar")
+	if _, errStat := os.Stat(protectedPath); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat(%q) error = %v, want %v", protectedPath, errStat, os.ErrNotExist)
+	}
+}
+
+func createNodeTestZipArchive(t *testing.T, archivePath string, entries map[string]string) {
+	t.Helper()
+
+	file, errCreate := os.Create(archivePath)
+	if errCreate != nil {
+		t.Fatalf("Create(%q) error = %v", archivePath, errCreate)
+	}
+	zipWriter := zip.NewWriter(file)
+	for name, contents := range entries {
+		writer, errCreateEntry := zipWriter.Create(name)
+		if errCreateEntry != nil {
+			t.Fatalf("zip.Create(%q) error = %v", name, errCreateEntry)
+		}
+		_, errWrite := writer.Write([]byte(contents))
+		if errWrite != nil {
+			t.Fatalf("zip entry write %q error = %v", name, errWrite)
+		}
+	}
+	errCloseZip := zipWriter.Close()
+	if errCloseZip != nil {
+		t.Fatalf("zip.Close() error = %v", errCloseZip)
+	}
+	errCloseFile := file.Close()
+	if errCloseFile != nil {
+		t.Fatalf("file.Close() error = %v", errCloseFile)
 	}
 }
