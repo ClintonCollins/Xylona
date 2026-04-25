@@ -41,6 +41,7 @@ import (
 	dbpkg "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
+	"github.com/ClintonCollins/Xylona/internal/webui"
 	"github.com/ClintonCollins/Xylona/pkg/adminipc"
 	"github.com/ClintonCollins/Xylona/pkg/alerts"
 	"github.com/ClintonCollins/Xylona/pkg/cli/usercmd"
@@ -64,6 +65,7 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
+	"github.com/ClintonCollins/Xylona/sql/migrations"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/steamcache"
 )
@@ -296,7 +298,7 @@ func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, e
 		return nil, fmt.Errorf("setupDatabase: connect to database: %w", errNewConnection)
 	}
 
-	errMigrate := dbpkg.RunMigrations(dbInst.SQLDb, EmbeddedMigrations, "sql/migrations")
+	errMigrate := dbpkg.RunMigrations(dbInst.SQLDb, migrations.FS, migrations.Root)
 	if errMigrate != nil {
 		_ = dbInst.SQLDb.Close()
 		return nil, fmt.Errorf("setupDatabase: run migrations: %w", errMigrate)
@@ -581,7 +583,7 @@ func runService() int {
 		),
 	)
 
-	frontendFS, errLoadFrontend := Frontend()
+	frontendFS, errLoadFrontend := webui.Frontend()
 	if errLoadFrontend != nil {
 		return startupFailure(cleanup, ctxCancel, errLoadFrontend, "Failed to load frontend")
 	}
@@ -682,7 +684,7 @@ func newRootCommand(serviceAction func() int) *cli.Command {
 		Commands: []*cli.Command{
 			usercmd.NewCommand(usercmd.Options{
 				Migrate: func(sqlDB *sql.DB) error {
-					return dbpkg.RunMigrations(sqlDB, EmbeddedMigrations, `sql/migrations`)
+					return dbpkg.RunMigrations(sqlDB, migrations.FS, migrations.Root)
 				},
 				ResolveDefaultDBPath: resolveDefaultCLIUserDBPath,
 			}),

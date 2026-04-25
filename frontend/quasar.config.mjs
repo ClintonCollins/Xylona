@@ -70,7 +70,7 @@ export default configure(function (/* ctx */) {
       // ignorePublicFolder: true,
       // minify: false,
       // polyfillModulePreload: true,
-      // distDir
+      distDir: '../internal/webui/dist/spa',
 
       // extendViteConf (viteConf) {},
       // viteVuePluginOptions: {},

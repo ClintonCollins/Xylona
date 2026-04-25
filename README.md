@@ -116,7 +116,7 @@ Xylona exposes separate probes for process liveness and application readiness:
 
 Xylona uses SQLite locally and applies embedded SQL migrations automatically on startup. You do not need `sql/dbconfig.yml`, and you do not need a manual migration step just to boot the app.
 
-The Go binary embeds `frontend/dist`, so build the frontend bundle once before compiling or running the backend:
+The Go binary embeds `internal/webui/dist`, so build the frontend bundle once before compiling or running the backend:
 
 ```bash
 cd frontend
@@ -124,13 +124,13 @@ bun run build
 ```
 
 ```bash
-go run .
+go run ./cmd/xylona
 ```
 
 For a compiled binary:
 
 ```bash
-go build -o xylona
+go build -o xylona ./cmd/xylona
 ```
 
 The default app bind is `localhost:8080`.

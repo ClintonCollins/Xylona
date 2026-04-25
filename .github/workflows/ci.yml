@@ -26,7 +26,7 @@ jobs:
           cache: true
 
       - name: Prepare embedded frontend placeholder
-        run: mkdir -p frontend/dist/spa && touch frontend/dist/spa/.gitkeep
+        run: mkdir -p internal/webui/dist && touch internal/webui/dist/.gitkeep
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -62,7 +62,7 @@ jobs:
         run: bun run build
 
       - name: Build Go binary
-        run: go build -o xylona
+        run: go build -o xylona ./cmd/xylona
 
   frontend:
     name: Frontend

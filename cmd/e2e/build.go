@@ -48,7 +48,7 @@ func buildXylona(projectRoot, outputPath string) error {
 	if errMkdir != nil {
 		return fmt.Errorf("create output dir: %w", errMkdir)
 	}
-	cmd := exec.Command("go", "build", "-o", outputPath, ".") //nolint:noctx // build commands don't need cancellation context
+	cmd := exec.Command("go", "build", "-o", outputPath, "./cmd/xylona") //nolint:noctx // build commands don't need cancellation context
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -78,7 +78,7 @@ func buildXylonaNode(projectRoot, outputPath string) error {
 
 func buildFrontend(projectRoot string) error {
 	log.Info().Msg("[E2E Setup] Building frontend SPA...")
-	cmd := exec.Command("pnpm", "run", "build") //nolint:noctx // build commands don't need cancellation context
+	cmd := exec.Command("bun", "run", "build") //nolint:noctx // build commands don't need cancellation context
 	cmd.Dir = filepath.Join(projectRoot, "frontend")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -89,27 +89,28 @@ func buildFrontend(projectRoot string) error {
 	return nil
 }
 
-// cleanFrontendDist removes the built SPA files from frontend/dist so stale
-// E2E build artifacts don't linger after teardown. It leaves a .gitkeep file
-// so the embed directive in embed.go doesn't break go build.
+// cleanFrontendDist removes the built SPA files from internal/webui/dist/spa so
+// stale E2E build artifacts don't linger after teardown. It leaves a .gitkeep
+// file so the embed directive in internal/webui doesn't break go build.
 func cleanFrontendDist(e2eDir string) {
-	distDir := filepath.Join(e2eDir, "..", "dist")
-	entries, errRead := os.ReadDir(distDir)
+	distDir := filepath.Join(e2eDir, "..", "..", "internal", "webui", "dist")
+	spaDir := filepath.Join(distDir, "spa")
+	entries, errRead := os.ReadDir(spaDir)
 	if errRead != nil {
 		// dist doesn't exist or can't be read — nothing to clean.
 		return
 	}
 
 	for _, entry := range entries {
-		_ = os.RemoveAll(filepath.Join(distDir, entry.Name()))
+		_ = os.RemoveAll(filepath.Join(spaDir, entry.Name()))
 	}
 
-	// Write a .gitkeep so embed.go's "all:frontend/dist" has at least one file.
+	// Write a .gitkeep so internal/webui's "all:dist" has at least one file.
 	errKeep := os.WriteFile(filepath.Join(distDir, ".gitkeep"), []byte(""), 0o600)
 	if errKeep != nil {
-		log.Warn().Err(errKeep).Msg("Could not write .gitkeep to frontend/dist")
+		log.Warn().Err(errKeep).Msg("Could not write .gitkeep to internal/webui/dist")
 		return
 	}
 
-	log.Info().Msg("Cleaned frontend/dist (left .gitkeep for embed directive)")
+	log.Info().Msg("Cleaned internal/webui/dist/spa (left .gitkeep for embed directive)")
 }

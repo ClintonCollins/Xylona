@@ -23,7 +23,7 @@ Backend:
 - `go test -race -count=1 ./...`
 - `go test -short ./...`
 - `go test -tags=integration ./...`
-- `go build -o xylona`
+- `go build -o xylona ./cmd/xylona`
 - `golangci-lint run ./...`
 - `mage Lint`
 - `mage LintFix`
