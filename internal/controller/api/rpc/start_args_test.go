@@ -110,6 +110,83 @@ func TestUpdateGameStartArgBlocklistRejectsInvalidRegex(t *testing.T) {
 	}
 }
 
+func TestOfficialGameStartArgsDefinitionEditsMarkDiverged(t *testing.T) {
+	tests := []struct {
+		name  string
+		id    string
+		apply func(t *testing.T, fixture *rbacRPCFixture, gameID string)
+	}{
+		{
+			name: "template update",
+			id:   "template-update",
+			apply: func(t *testing.T, fixture *rbacRPCFixture, gameID string) {
+				t.Helper()
+
+				req := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
+					GameId:   gameID,
+					Platform: "linux",
+					StartArgsTemplate: `[
+						{"id":"jar","order":0,"ownership":"system","tokens":["-jar","server.jar"],"label":"Jar"},
+						{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx4G"],"label":"Heap"}
+					]`,
+					BaseCommand:          "java",
+					AllowStartArgEditing: true,
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+				_, errUpdate := fixture.service.UpdateGameStartArgsTemplate(context.Background(), req)
+				if errUpdate != nil {
+					t.Fatalf("UpdateGameStartArgsTemplate() error = %v", errUpdate)
+				}
+			},
+		},
+		{
+			name: "blocklist update",
+			id:   "blocklist-update",
+			apply: func(t *testing.T, fixture *rbacRPCFixture, gameID string) {
+				t.Helper()
+
+				req := connect.NewRequest(&xylona.UpdateGameStartArgBlocklistRequest{
+					GameId:            gameID,
+					StartArgBlocklist: `[{"pattern":"^-debug$","reason":"debug flag is not allowed"}]`,
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+				_, errUpdate := fixture.service.UpdateGameStartArgBlocklist(context.Background(), req)
+				if errUpdate != nil {
+					t.Fatalf("UpdateGameStartArgBlocklist() error = %v", errUpdate)
+				}
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			game := addGameForTests(t, fixture, "official-start-args-"+test.id, "Official Start Args "+test.name)
+
+			_, errSetOfficial := fixture.conn.SQLDb.ExecContext(
+				context.Background(),
+				"UPDATE game SET xylona_official = true, official_definition_diverged = false WHERE id = ?",
+				game.GetId(),
+			)
+			if errSetOfficial != nil {
+				t.Fatalf("set official game setup error = %v", errSetOfficial)
+			}
+
+			test.apply(t, fixture, game.GetId())
+
+			updated, errGame := fixture.conn.GetGameByID(game.GetId())
+			if errGame != nil {
+				t.Fatalf("GetGameByID() error = %v", errGame)
+			}
+			if !updated.OfficialDefinitionDiverged {
+				t.Fatal("OfficialDefinitionDiverged = false, want true")
+			}
+		})
+	}
+}
+
 func TestUpdateGameServerStartArgsRequiresEditingEnabledForNonSuperUser(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	game := addGameForTests(t, fixture, "start-args-server-game", "Structured Args Server Game")

@@ -117,7 +117,7 @@ var InstalledMods = Table[
 		PinnedVersion: column{
 			Name:      "pinned_version",
 			DBType:    "TEXT",
-			Default:   "NULL",
+			Default:   "null",
 			Comment:   "",
 			Nullable:  true,
 			Generated: false,
@@ -126,7 +126,7 @@ var InstalledMods = Table[
 		CreatedAt: column{
 			Name:      "created_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -135,7 +135,7 @@ var InstalledMods = Table[
 		UpdatedAt: column{
 			Name:      "updated_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,

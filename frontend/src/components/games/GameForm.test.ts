@@ -18,6 +18,7 @@ import GameForm from './GameForm.vue'
 const mocks = vi.hoisted(() => ({
   addGame: vi.fn(),
   editGame: vi.fn(),
+  exportGame: vi.fn(),
   getGame: vi.fn(),
   listGameServers: vi.fn(),
   push: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock('@/utils/shared', async () => {
     GetXylonaClient: () => ({
       addGame: mocks.addGame,
       editGame: mocks.editGame,
+      exportGame: mocks.exportGame,
       getGame: mocks.getGame,
       listGameServers: mocks.listGameServers,
       updateGameStartArgsTemplate: mocks.updateGameStartArgsTemplate,
@@ -109,6 +111,7 @@ function mountGameForm(
         },
         'q-icon': true,
         'q-badge': { template: '<span><slot />{{ label }}</span>', props: ['label'] },
+        'q-tooltip': true,
         'q-toggle': true,
         'q-spinner-dots': true,
         'router-link': { template: '<a><slot /></a>' },
@@ -140,6 +143,7 @@ describe('GameForm', () => {
 
     mocks.addGame.mockReset()
     mocks.editGame.mockReset()
+    mocks.exportGame.mockReset()
     mocks.getGame.mockReset()
     mocks.listGameServers.mockReset()
     mocks.push.mockReset()

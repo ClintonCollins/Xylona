@@ -270,7 +270,7 @@ var Games = Table[
 		ConfigSchemas: column{
 			Name:      "config_schemas",
 			DBType:    "TEXT",
-			Default:   "NULL",
+			Default:   "null",
 			Comment:   "",
 			Nullable:  true,
 			Generated: false,
@@ -279,7 +279,7 @@ var Games = Table[
 		ServerSoftware: column{
 			Name:      "server_software",
 			DBType:    "TEXT",
-			Default:   "NULL",
+			Default:   "null",
 			Comment:   "",
 			Nullable:  true,
 			Generated: false,
@@ -288,7 +288,7 @@ var Games = Table[
 		LinuxStartArgsTemplate: column{
 			Name:      "linux_start_args_template",
 			DBType:    "TEXT",
-			Default:   "NULL",
+			Default:   "null",
 			Comment:   "",
 			Nullable:  true,
 			Generated: false,
@@ -297,7 +297,7 @@ var Games = Table[
 		WindowsStartArgsTemplate: column{
 			Name:      "windows_start_args_template",
 			DBType:    "TEXT",
-			Default:   "NULL",
+			Default:   "null",
 			Comment:   "",
 			Nullable:  true,
 			Generated: false,
@@ -333,7 +333,43 @@ var Games = Table[
 		AllowStartArgEditing: column{
 			Name:      "allow_start_arg_editing",
 			DBType:    "BOOLEAN",
-			Default:   "TRUE",
+			Default:   "true",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		OfficialDefinitionHash: column{
+			Name:      "official_definition_hash",
+			DBType:    "TEXT",
+			Default:   "''",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		OfficialDefinitionSource: column{
+			Name:      "official_definition_source",
+			DBType:    "TEXT",
+			Default:   "''",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		OfficialDefinitionSchemaVersion: column{
+			Name:      "official_definition_schema_version",
+			DBType:    "BIGINT",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		OfficialDefinitionDiverged: column{
+			Name:      "official_definition_diverged",
+			DBType:    "BOOLEAN",
+			Default:   "false",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -402,11 +438,15 @@ type gameColumns struct {
 	WindowsBaseCommand                column
 	StartArgBlocklist                 column
 	AllowStartArgEditing              column
+	OfficialDefinitionHash            column
+	OfficialDefinitionSource          column
+	OfficialDefinitionSchemaVersion   column
+	OfficialDefinitionDiverged        column
 }
 
 func (c gameColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.BindsToAllIps, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware, c.LinuxStartArgsTemplate, c.WindowsStartArgsTemplate, c.LinuxBaseCommand, c.WindowsBaseCommand, c.StartArgBlocklist, c.AllowStartArgEditing,
+		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.BindsToAllIps, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware, c.LinuxStartArgsTemplate, c.WindowsStartArgsTemplate, c.LinuxBaseCommand, c.WindowsBaseCommand, c.StartArgBlocklist, c.AllowStartArgEditing, c.OfficialDefinitionHash, c.OfficialDefinitionSource, c.OfficialDefinitionSchemaVersion, c.OfficialDefinitionDiverged,
 	}
 }
 

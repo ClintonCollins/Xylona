@@ -4,13 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
 	"github.com/google/uuid"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
+	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
+	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 // GetGame returns a single game definition by ID.
@@ -83,11 +88,12 @@ func (xs *XylonaService) AddGame(_ context.Context, request *connect.Request[xyl
 		gameProto.Id = uuid.NewString()
 	}
 	gameModel := protomap.GameProtoToModel(gameProto)
-	errValidateStartArgs := validateStructuredStartArgsGameConfig(gameModel)
-	if errValidateStartArgs != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errValidateStartArgs)
+	gamedefinitions.ClearOfficialMetadata(gameModel)
+	validationErrors := gamedefinitions.ValidateModel(gameModel)
+	if len(validationErrors) > 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(strings.Join(validationErrors, "; ")))
 	}
-	gameSetter := protomap.GameModelToGameSetter(gameModel)
+	gameSetter := gamedefinitions.GameSetterForModel(gameModel)
 	game, errInsertGame := xs.db.InsertGame(xs.db.DB, gameSetter)
 	if errInsertGame != nil {
 		return nil, connect.NewError(connect.CodeInternal, errInsertGame)
@@ -115,11 +121,16 @@ func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xy
 		return nil, dbLookup(errGetGameModel)
 	}
 	updatedGameModel := protomap.GameProtoToModel(gameProto)
-	errValidateStartArgs := validateStructuredStartArgsGameConfig(updatedGameModel)
-	if errValidateStartArgs != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errValidateStartArgs)
+	if gameModel.XylonaOfficial {
+		gamedefinitions.MarkImportedOfficialEdit(updatedGameModel, gameModel)
+	} else {
+		gamedefinitions.ClearOfficialMetadata(updatedGameModel)
 	}
-	gameSetter := protomap.GameModelToGameSetter(updatedGameModel)
+	validationErrors := gamedefinitions.ValidateModel(updatedGameModel)
+	if len(validationErrors) > 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(strings.Join(validationErrors, "; ")))
+	}
+	gameSetter := gamedefinitions.GameSetterForModel(updatedGameModel)
 	gameSetter.ID = omit.From(gameModel.ID)
 
 	game, errUpdateGame := xs.db.UpdateGame(xs.db.DB, gameModel, gameSetter)
@@ -162,12 +173,174 @@ func (xs *XylonaService) RemoveGame(_ context.Context, request *connect.Request[
 	return &connect.Response[xylona.RemoveGameResponse]{Msg: &xylona.RemoveGameResponse{}}, nil
 }
 
-// ImportGame is reserved for future game import support.
-func (xs *XylonaService) ImportGame(_ context.Context, _ *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
+// ImportGame validates or imports a browser-provided game definition JSON document.
+func (xs *XylonaService) ImportGame(_ context.Context, request *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+	if !user.SuperUser {
+		return nil, permissionDenied("superuser required")
+	}
+
+	parsed, parseValidationErrors := parseImportGameDefinition(request.Msg.GetGameDefinitionJson())
+	if len(parseValidationErrors) > 0 {
+		return connect.NewResponse(&xylona.ImportGameResponse{
+			Success:          false,
+			ValidationErrors: parseValidationErrors,
+		}), nil
+	}
+
+	validationErrors := gamedefinitions.ValidateModel(parsed.Model)
+	existingGame, existingFound, errExisting := xs.lookupImportGameConflict(parsed.Model.ID)
+	if errExisting != nil {
+		return nil, errExisting
+	}
+	affectedNames, errAffected := xs.affectedGameServerNames(parsed.Model.ID, existingFound)
+	if errAffected != nil {
+		return nil, errAffected
+	}
+
+	mode := request.Msg.GetMode()
+	response := &xylona.ImportGameResponse{
+		Game:                    protomap.GameModelToProto(parsed.Model),
+		Success:                 len(validationErrors) == 0,
+		IdConflict:              existingFound,
+		UpdatesExisting:         existingFound && mode == xylona.GameImportMode_GAME_IMPORT_MODE_APPLY,
+		AffectedGameServerCount: int64(len(affectedNames)),
+		AffectedGameServerNames: affectedNames,
+		Warnings:                parsed.Warnings,
+		ValidationErrors:        validationErrors,
+		ImportedGameId:          parsed.Model.ID,
+	}
+	if mode == xylona.GameImportMode_GAME_IMPORT_MODE_PREVIEW {
+		return connect.NewResponse(response), nil
+	}
+	if len(validationErrors) > 0 {
+		return connect.NewResponse(response), nil
+	}
+
+	switch mode {
+	case xylona.GameImportMode_GAME_IMPORT_MODE_APPLY:
+		importedGame, errApply := xs.applyImportedGame(parsed.Model, existingGame, existingFound)
+		if errApply != nil {
+			return nil, errApply
+		}
+		response.Game = protomap.GameModelToProto(importedGame)
+		response.ImportedGameId = importedGame.ID
+		response.Success = true
+	case xylona.GameImportMode_GAME_IMPORT_MODE_IMPORT_COPY:
+		importedGame, errCopy := xs.copyImportedGame(parsed.Model)
+		if errCopy != nil {
+			return nil, errCopy
+		}
+		response.Game = protomap.GameModelToProto(importedGame)
+		response.IdConflict = false
+		response.UpdatesExisting = false
+		response.AffectedGameServerCount = 0
+		response.AffectedGameServerNames = nil
+		response.ImportedGameId = importedGame.ID
+		response.Success = true
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("unsupported game import mode"))
+	}
+
+	return connect.NewResponse(response), nil
 }
 
-// ExportGame is reserved for future game export support.
-func (xs *XylonaService) ExportGame(_ context.Context, _ *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not yet implemented"))
+// ExportGame returns a browser-downloadable game definition JSON document.
+func (xs *XylonaService) ExportGame(_ context.Context, request *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+	if !user.SuperUser {
+		return nil, permissionDenied("superuser required")
+	}
+
+	game, errGetGame := xs.db.GetGameByID(request.Msg.GetGameId())
+	if errGetGame != nil {
+		return nil, dbLookup(errGetGame)
+	}
+
+	definitionJSON, _, errExport := gamedefinitions.ExportModel(game, version.SoftwareVersion, time.Now())
+	if errExport != nil {
+		return nil, connect.NewError(connect.CodeInternal, errExport)
+	}
+
+	return connect.NewResponse(&xylona.ExportGameResponse{
+		GameDefinitionJson: definitionJSON,
+		FileName:           gamedefinitions.ExportFileName(game),
+	}), nil
+}
+
+func (xs *XylonaService) lookupImportGameConflict(gameID string) (*models.Game, bool, error) {
+	existingGame, errExisting := xs.db.GetGameByID(gameID)
+	if errExisting != nil {
+		if errors.Is(errExisting, sql.ErrNoRows) {
+			return nil, false, nil
+		}
+		return nil, false, dbLookup(errExisting)
+	}
+	return existingGame, true, nil
+}
+
+func parseImportGameDefinition(definitionJSON string) (*gamedefinitions.ParsedDefinition, []string) {
+	parsed, errParse := gamedefinitions.Parse([]byte(definitionJSON))
+	if errParse != nil {
+		return nil, []string{errParse.Error()}
+	}
+	return parsed, nil
+}
+
+func (xs *XylonaService) affectedGameServerNames(gameID string, existingFound bool) ([]string, error) {
+	if !existingFound {
+		return []string{}, nil
+	}
+	gameServers, errServers := xs.db.GetGameServersByGameID(gameID)
+	if errServers != nil {
+		return nil, connect.NewError(connect.CodeInternal, errServers)
+	}
+	names := make([]string, 0, len(gameServers))
+	for _, gameServer := range gameServers {
+		names = append(names, gameServer.Name)
+	}
+	return names, nil
+}
+
+func (xs *XylonaService) applyImportedGame(imported *models.Game, existing *models.Game, existingFound bool) (*models.Game, error) {
+	if existingFound {
+		imported.ID = existing.ID
+		if existing.XylonaOfficial {
+			gamedefinitions.MarkImportedOfficialEdit(imported, existing)
+		} else {
+			gamedefinitions.ClearOfficialMetadata(imported)
+		}
+		updated, errUpdate := xs.db.UpdateGame(xs.db.DB, existing, gamedefinitions.GameSetterForModel(imported))
+		if errUpdate != nil {
+			return nil, connect.NewError(connect.CodeInternal, errUpdate)
+		}
+		return updated, nil
+	}
+
+	gamedefinitions.ClearOfficialMetadata(imported)
+	inserted, errInsert := xs.db.InsertGame(xs.db.DB, gamedefinitions.GameSetterForModel(imported))
+	if errInsert != nil {
+		return nil, connect.NewError(connect.CodeInternal, errInsert)
+	}
+	return inserted, nil
+}
+
+func (xs *XylonaService) copyImportedGame(imported *models.Game) (*models.Game, error) {
+	newID, errID := gamedefinitions.CopyID(xs.db, imported.ID)
+	if errID != nil {
+		return nil, connect.NewError(connect.CodeInternal, errID)
+	}
+	imported.ID = newID
+	gamedefinitions.ClearOfficialMetadata(imported)
+	inserted, errInsert := xs.db.InsertGame(xs.db.DB, gamedefinitions.GameSetterForModel(imported))
+	if errInsert != nil {
+		return nil, connect.NewError(connect.CodeInternal, errInsert)
+	}
+	return inserted, nil
 }

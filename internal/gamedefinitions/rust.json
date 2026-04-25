@@ -1,0 +1,201 @@
+{
+  "document_type": "xylona.game_definition",
+  "schema_version": 1,
+  "content_hash": "sha256:76512cfde5fbe40c2a04b0ceb86d753e636a466fd809c994c8a9ec4137e27a4c",
+  "game": {
+    "id": "rust",
+    "name": "Rust",
+    "defaultPort": "28015",
+    "defaultQueryPort": "28016",
+    "defaultMaxPlayers": "100",
+    "linuxSupport": true,
+    "windowsSupport": true,
+    "linuxStopCommand": "",
+    "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
+    "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
+    "linuxWorkingDirectory": "",
+    "linuxAllowBackups": false,
+    "windowsStopCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
+    "windowsWorkingDirectory": "",
+    "windowsAllowBackups": false,
+    "requireDedicatedIp": true,
+    "bindsToAllIps": false,
+    "createdAt": null,
+    "updatedAt": null,
+    "usesSourceQuery": true,
+    "requiresSteamGameServerLoginToken": false,
+    "linuxInstallCommandProcessor": "DIRECT",
+    "linuxUpdateCommandProcessor": "DIRECT",
+    "windowsInstallCommandProcessor": "DIRECT",
+    "windowsUpdateCommandProcessor": "DIRECT",
+    "usesSteamcmd": true,
+    "steamAppid": "258550",
+    "configSchemas": "",
+    "updateProvider": null,
+    "defaultTarget": "",
+    "modProfile": null,
+    "variants": [],
+    "linuxInstallType": "STEAMCMD",
+    "linuxUpdateType": "STEAMCMD",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
+    "linuxStartArgsTemplate": "",
+    "windowsStartArgsTemplate": "",
+    "linuxBaseCommand": "./RustDedicated",
+    "windowsBaseCommand": "RustDedicated.exe",
+    "startArgBlocklist": "",
+    "allowStartArgEditing": true,
+    "xylonaOfficial": true,
+    "officialDefinitionHash": "",
+    "officialDefinitionSource": "",
+    "officialDefinitionSchemaVersion": "0",
+    "officialDefinitionDiverged": false
+  },
+  "config_schemas": [],
+  "linux_start_args_template": [
+    {
+      "id": "runtime_rust_linux_01",
+      "order": 1,
+      "ownership": "editable",
+      "tokens": [
+        "-batchmode"
+      ],
+      "label": "Batch mode"
+    },
+    {
+      "id": "runtime_rust_linux_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "+server.port",
+        "{{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_rust_linux_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "+server.queryport",
+        "{{QUERY_PORT}}"
+      ],
+      "label": "Query port",
+      "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_rust_linux_04",
+      "order": 4,
+      "ownership": "editable",
+      "tokens": [
+        "+server.identity",
+        "rust"
+      ],
+      "label": "Server Identity"
+    },
+    {
+      "id": "runtime_rust_linux_05",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "+server.hostname",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "Server Hostname"
+    },
+    {
+      "id": "runtime_rust_linux_06",
+      "order": 6,
+      "ownership": "editable",
+      "tokens": [
+        "+server.maxplayers",
+        "{{MAX_PLAYERS}}"
+      ],
+      "label": "Server Maxplayers"
+    }
+  ],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_rust_windows_01",
+      "order": 1,
+      "ownership": "editable",
+      "tokens": [
+        "-batchmode"
+      ],
+      "label": "Batch mode"
+    },
+    {
+      "id": "runtime_rust_windows_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "+server.ip",
+        "{{IP}}"
+      ],
+      "label": "Bind IP",
+      "managed_source": "game_server.ip"
+    },
+    {
+      "id": "runtime_rust_windows_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "+server.port",
+        "{{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_rust_windows_04",
+      "order": 4,
+      "ownership": "system",
+      "tokens": [
+        "+server.queryport",
+        "{{QUERY_PORT}}"
+      ],
+      "label": "Query port",
+      "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_rust_windows_05",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "+server.identity",
+        "rust"
+      ],
+      "label": "Server Identity"
+    },
+    {
+      "id": "runtime_rust_windows_06",
+      "order": 6,
+      "ownership": "editable",
+      "tokens": [
+        "+server.hostname",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "Server Hostname"
+    },
+    {
+      "id": "runtime_rust_windows_07",
+      "order": 7,
+      "ownership": "editable",
+      "tokens": [
+        "+server.maxplayers",
+        "{{MAX_PLAYERS}}"
+      ],
+      "label": "Server Maxplayers"
+    }
+  ],
+  "start_arg_blocklist": [],
+  "update_config": {
+    "update_provider": {
+      "kind": "steamcmd"
+    },
+    "default_target": "public"
+  }
+}

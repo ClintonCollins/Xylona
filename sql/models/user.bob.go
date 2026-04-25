@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
 	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/sqlite"
 	"github.com/stephenafamo/bob/dialect/sqlite/dialect"
@@ -49,14 +50,15 @@ type UsersQuery = *sqlite.ViewQuery[*User, UserSlice]
 
 // userR is where relationships are stored.
 type userR struct {
-	AlertHistories               AlertHistorySlice        // fk_alert_history_0
-	AlertRules                   AlertRuleSlice           // fk_alert_rule_2
-	GameServers                  GameServerSlice          // fk_game_server_3
-	NotificationChannels         NotificationChannelSlice // fk_notification_channel_0
-	CreatedByScheduledTasks      ScheduledTaskSlice       // fk_scheduled_task_0
-	GrantedByUserRoleAssignments UserRoleAssignmentSlice  // fk_user_role_assignment_0
-	UserRoleAssignments          UserRoleAssignmentSlice  // fk_user_role_assignment_3
-	UserSessions                 UserSessionSlice         // fk_user_session_0
+	AlertHistories                  AlertHistorySlice        // fk_alert_history_0
+	AlertRules                      AlertRuleSlice           // fk_alert_rule_2
+	GameServers                     GameServerSlice          // fk_game_server_3
+	NotificationChannels            NotificationChannelSlice // fk_notification_channel_0
+	CreatedByScheduledTasks         ScheduledTaskSlice       // fk_scheduled_task_0
+	RequestedByUserSystemUpdateJobs SystemUpdateJobSlice     // fk_system_update_job_0
+	GrantedByUserRoleAssignments    UserRoleAssignmentSlice  // fk_user_role_assignment_0
+	UserRoleAssignments             UserRoleAssignmentSlice  // fk_user_role_assignment_3
+	UserSessions                    UserSessionSlice         // fk_user_session_0
 }
 
 func buildUserColumns(alias string) userColumns {
@@ -646,6 +648,25 @@ func (os UserSlice) CreatedByScheduledTasks(mods ...bob.Mod[*dialect.SelectQuery
 	)...)
 }
 
+// RequestedByUserSystemUpdateJobs starts a query for related objects on system_update_job
+func (o *User) RequestedByUserSystemUpdateJobs(mods ...bob.Mod[*dialect.SelectQuery]) SystemUpdateJobsQuery {
+	return SystemUpdateJobs.Query(append(mods,
+		sm.Where(SystemUpdateJobs.Columns.RequestedByUserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) RequestedByUserSystemUpdateJobs(mods ...bob.Mod[*dialect.SelectQuery]) SystemUpdateJobsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return SystemUpdateJobs.Query(append(mods,
+		sm.Where(sqlite.Group(SystemUpdateJobs.Columns.RequestedByUserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // GrantedByUserRoleAssignments starts a query for related objects on user_role_assignment
 func (o *User) GrantedByUserRoleAssignments(mods ...bob.Mod[*dialect.SelectQuery]) UserRoleAssignmentsQuery {
 	return UserRoleAssignments.Query(append(mods,
@@ -1043,6 +1064,74 @@ func (user0 *User) AttachCreatedByScheduledTasks(ctx context.Context, exec bob.E
 	return nil
 }
 
+func insertUserRequestedByUserSystemUpdateJobs0(ctx context.Context, exec bob.Executor, systemUpdateJobs1 []*SystemUpdateJobSetter, user0 *User) (SystemUpdateJobSlice, error) {
+	for i := range systemUpdateJobs1 {
+		systemUpdateJobs1[i].RequestedByUserID = omitnull.From(user0.ID)
+	}
+
+	ret, err := SystemUpdateJobs.Insert(bob.ToMods(systemUpdateJobs1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserRequestedByUserSystemUpdateJobs0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserRequestedByUserSystemUpdateJobs0(ctx context.Context, exec bob.Executor, count int, systemUpdateJobs1 SystemUpdateJobSlice, user0 *User) (SystemUpdateJobSlice, error) {
+	setter := &SystemUpdateJobSetter{
+		RequestedByUserID: omitnull.From(user0.ID),
+	}
+
+	err := systemUpdateJobs1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserRequestedByUserSystemUpdateJobs0: %w", err)
+	}
+
+	return systemUpdateJobs1, nil
+}
+
+func (user0 *User) InsertRequestedByUserSystemUpdateJobs(ctx context.Context, exec bob.Executor, related ...*SystemUpdateJobSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	systemUpdateJobs1, err := insertUserRequestedByUserSystemUpdateJobs0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.RequestedByUserSystemUpdateJobs = append(user0.R.RequestedByUserSystemUpdateJobs, systemUpdateJobs1...)
+
+	for _, rel := range systemUpdateJobs1 {
+		rel.R.RequestedByUserUser = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachRequestedByUserSystemUpdateJobs(ctx context.Context, exec bob.Executor, related ...*SystemUpdateJob) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	systemUpdateJobs1 := SystemUpdateJobSlice(related)
+
+	_, err = attachUserRequestedByUserSystemUpdateJobs0(ctx, exec, len(related), systemUpdateJobs1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.RequestedByUserSystemUpdateJobs = append(user0.R.RequestedByUserSystemUpdateJobs, systemUpdateJobs1...)
+
+	for _, rel := range related {
+		rel.R.RequestedByUserUser = user0
+	}
+
+	return nil
+}
+
 func insertUserGrantedByUserRoleAssignments0(ctx context.Context, exec bob.Executor, userRoleAssignments1 []*UserRoleAssignmentSetter, user0 *User) (UserRoleAssignmentSlice, error) {
 	for i := range userRoleAssignments1 {
 		userRoleAssignments1[i].GrantedBy = omit.From(user0.ID)
@@ -1355,6 +1444,20 @@ func (o *User) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "RequestedByUserSystemUpdateJobs":
+		rels, ok := retrieved.(SystemUpdateJobSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.RequestedByUserSystemUpdateJobs = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.RequestedByUserUser = o
+			}
+		}
+		return nil
 	case "GrantedByUserRoleAssignments":
 		rels, ok := retrieved.(UserRoleAssignmentSlice)
 		if !ok {
@@ -1409,14 +1512,15 @@ func buildUserPreloader() userPreloader {
 }
 
 type userThenLoader[Q orm.Loadable] struct {
-	AlertHistories               func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	AlertRules                   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GameServers                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	NotificationChannels         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	CreatedByScheduledTasks      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GrantedByUserRoleAssignments func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserRoleAssignments          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserSessions                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	AlertHistories                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	AlertRules                      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServers                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	NotificationChannels            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	CreatedByScheduledTasks         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	RequestedByUserSystemUpdateJobs func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GrantedByUserRoleAssignments    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserRoleAssignments             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserSessions                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
@@ -1434,6 +1538,9 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 	}
 	type CreatedByScheduledTasksLoadInterface interface {
 		LoadCreatedByScheduledTasks(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type RequestedByUserSystemUpdateJobsLoadInterface interface {
+		LoadRequestedByUserSystemUpdateJobs(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type GrantedByUserRoleAssignmentsLoadInterface interface {
 		LoadGrantedByUserRoleAssignments(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1474,6 +1581,12 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 			"CreatedByScheduledTasks",
 			func(ctx context.Context, exec bob.Executor, retrieved CreatedByScheduledTasksLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadCreatedByScheduledTasks(ctx, exec, mods...)
+			},
+		),
+		RequestedByUserSystemUpdateJobs: thenLoadBuilder[Q](
+			"RequestedByUserSystemUpdateJobs",
+			func(ctx context.Context, exec bob.Executor, retrieved RequestedByUserSystemUpdateJobsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadRequestedByUserSystemUpdateJobs(ctx, exec, mods...)
 			},
 		),
 		GrantedByUserRoleAssignments: thenLoadBuilder[Q](
@@ -1802,6 +1915,70 @@ func (os UserSlice) LoadCreatedByScheduledTasks(ctx context.Context, exec bob.Ex
 	return nil
 }
 
+// LoadRequestedByUserSystemUpdateJobs loads the user's RequestedByUserSystemUpdateJobs into the .R struct
+func (o *User) LoadRequestedByUserSystemUpdateJobs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.RequestedByUserSystemUpdateJobs = nil
+
+	related, err := o.RequestedByUserSystemUpdateJobs(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.RequestedByUserUser = o
+	}
+
+	o.R.RequestedByUserSystemUpdateJobs = related
+	return nil
+}
+
+// LoadRequestedByUserSystemUpdateJobs loads the user's RequestedByUserSystemUpdateJobs into the .R struct
+func (os UserSlice) LoadRequestedByUserSystemUpdateJobs(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	systemUpdateJobs, err := os.RequestedByUserSystemUpdateJobs(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.RequestedByUserSystemUpdateJobs = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range systemUpdateJobs {
+
+			if !rel.RequestedByUserID.IsValue() {
+				continue
+			}
+			if !(rel.RequestedByUserID.IsValue() && o.ID == rel.RequestedByUserID.MustGet()) {
+				continue
+			}
+
+			rel.R.RequestedByUserUser = o
+
+			o.R.RequestedByUserSystemUpdateJobs = append(o.R.RequestedByUserSystemUpdateJobs, rel)
+		}
+	}
+
+	return nil
+}
+
 // LoadGrantedByUserRoleAssignments loads the user's GrantedByUserRoleAssignments into the .R struct
 func (o *User) LoadGrantedByUserRoleAssignments(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -1986,15 +2163,16 @@ func (os UserSlice) LoadUserSessions(ctx context.Context, exec bob.Executor, mod
 }
 
 type userJoins[Q dialect.Joinable] struct {
-	typ                          string
-	AlertHistories               modAs[Q, alertHistoryColumns]
-	AlertRules                   modAs[Q, alertRuleColumns]
-	GameServers                  modAs[Q, gameServerColumns]
-	NotificationChannels         modAs[Q, notificationChannelColumns]
-	CreatedByScheduledTasks      modAs[Q, scheduledTaskColumns]
-	GrantedByUserRoleAssignments modAs[Q, userRoleAssignmentColumns]
-	UserRoleAssignments          modAs[Q, userRoleAssignmentColumns]
-	UserSessions                 modAs[Q, userSessionColumns]
+	typ                             string
+	AlertHistories                  modAs[Q, alertHistoryColumns]
+	AlertRules                      modAs[Q, alertRuleColumns]
+	GameServers                     modAs[Q, gameServerColumns]
+	NotificationChannels            modAs[Q, notificationChannelColumns]
+	CreatedByScheduledTasks         modAs[Q, scheduledTaskColumns]
+	RequestedByUserSystemUpdateJobs modAs[Q, systemUpdateJobColumns]
+	GrantedByUserRoleAssignments    modAs[Q, userRoleAssignmentColumns]
+	UserRoleAssignments             modAs[Q, userRoleAssignmentColumns]
+	UserSessions                    modAs[Q, userSessionColumns]
 }
 
 func (j userJoins[Q]) aliasedAs(alias string) userJoins[Q] {
@@ -2068,6 +2246,20 @@ func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[
 				{
 					mods = append(mods, dialect.Join[Q](typ, ScheduledTasks.Name().As(to.Alias())).On(
 						to.CreatedBy.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		RequestedByUserSystemUpdateJobs: modAs[Q, systemUpdateJobColumns]{
+			c: SystemUpdateJobs.Columns,
+			f: func(to systemUpdateJobColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, SystemUpdateJobs.Name().As(to.Alias())).On(
+						to.RequestedByUserID.EQ(cols.ID),
 					))
 				}
 

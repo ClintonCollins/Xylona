@@ -1,0 +1,167 @@
+{
+  "document_type": "xylona.game_definition",
+  "schema_version": 1,
+  "content_hash": "sha256:4ef1f5b1b25df2bd677393a27cdd1492897abece433e500f1ffd443aea863daa",
+  "game": {
+    "id": "redm",
+    "name": "RedM",
+    "defaultPort": "30120",
+    "defaultQueryPort": "30120",
+    "defaultMaxPlayers": "48",
+    "linuxSupport": true,
+    "windowsSupport": true,
+    "linuxStopCommand": "",
+    "linuxInstallCommand": "",
+    "linuxUpdateCommand": "",
+    "linuxWorkingDirectory": "",
+    "linuxAllowBackups": false,
+    "windowsStopCommand": "",
+    "windowsInstallCommand": "",
+    "windowsUpdateCommand": "",
+    "windowsWorkingDirectory": "",
+    "windowsAllowBackups": false,
+    "requireDedicatedIp": true,
+    "bindsToAllIps": false,
+    "createdAt": null,
+    "updatedAt": null,
+    "usesSourceQuery": false,
+    "requiresSteamGameServerLoginToken": false,
+    "linuxInstallCommandProcessor": "DIRECT",
+    "linuxUpdateCommandProcessor": "DIRECT",
+    "windowsInstallCommandProcessor": "DIRECT",
+    "windowsUpdateCommandProcessor": "DIRECT",
+    "usesSteamcmd": false,
+    "steamAppid": "",
+    "configSchemas": "",
+    "updateProvider": null,
+    "defaultTarget": "",
+    "modProfile": null,
+    "variants": [],
+    "linuxInstallType": "NONE",
+    "linuxUpdateType": "NONE",
+    "windowsInstallType": "NONE",
+    "windowsUpdateType": "NONE",
+    "linuxStartArgsTemplate": "",
+    "windowsStartArgsTemplate": "",
+    "linuxBaseCommand": "alpine/opt/cfx-server/ld-musl-x86_64.so.1",
+    "windowsBaseCommand": "run.cmd",
+    "startArgBlocklist": "",
+    "allowStartArgEditing": true,
+    "xylonaOfficial": true,
+    "officialDefinitionHash": "",
+    "officialDefinitionSource": "",
+    "officialDefinitionSchemaVersion": "0",
+    "officialDefinitionDiverged": false
+  },
+  "config_schemas": [
+    {
+      "path": "server.cfg",
+      "format": "commandcfg",
+      "category": "Server",
+      "schema": {
+        "type": "object",
+        "x-groups": [
+          "Identity",
+          "Access"
+        ],
+        "properties": {
+          "sv_hostname": {
+            "type": "string",
+            "title": "Server name",
+            "default": "RedM Server",
+            "x-group": "Identity",
+            "x-order": 0
+          },
+          "sv_maxclients": {
+            "type": "integer",
+            "title": "Max clients",
+            "default": 48,
+            "minimum": 1,
+            "maximum": 2048,
+            "x-group": "Access",
+            "x-order": 0
+          },
+          "sv_password": {
+            "type": "string",
+            "title": "Password",
+            "default": "",
+            "x-group": "Access",
+            "x-order": 1
+          }
+        }
+      }
+    }
+  ],
+  "linux_start_args_template": [
+    {
+      "id": "runtime_redm_linux_01",
+      "order": 1,
+      "ownership": "editable",
+      "tokens": [
+        "--library-path",
+        "alpine/usr/lib/v8/:alpine/lib/:alpine/usr/lib/"
+      ],
+      "label": "Library Path"
+    },
+    {
+      "id": "runtime_redm_linux_02",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
+        "--",
+        "alpine/opt/cfx-server/FXServer"
+      ],
+      "label": "Command separator"
+    },
+    {
+      "id": "runtime_redm_linux_03",
+      "order": 3,
+      "ownership": "editable",
+      "tokens": [
+        "+set",
+        "gamename",
+        "rdr3"
+      ],
+      "label": "Set Gamename"
+    },
+    {
+      "id": "runtime_redm_linux_04",
+      "order": 4,
+      "ownership": "editable",
+      "tokens": [
+        "+exec",
+        "server.cfg"
+      ],
+      "label": "Exec config"
+    }
+  ],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_redm_windows_01",
+      "order": 1,
+      "ownership": "editable",
+      "tokens": [
+        "+set",
+        "gamename",
+        "rdr3"
+      ],
+      "label": "Set Gamename"
+    },
+    {
+      "id": "runtime_redm_windows_02",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
+        "+exec",
+        "server.cfg"
+      ],
+      "label": "Exec config"
+    }
+  ],
+  "start_arg_blocklist": [],
+  "update_config": {
+    "update_provider": {
+      "kind": "none"
+    }
+  }
+}

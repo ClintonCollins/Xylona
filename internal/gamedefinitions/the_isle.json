@@ -1,0 +1,95 @@
+{
+  "document_type": "xylona.game_definition",
+  "schema_version": 1,
+  "content_hash": "sha256:063c2cf92e4fae0f9776a9c4f23ea8e364097f18075dc8b70c7fac89b270d235",
+  "game": {
+    "id": "the_isle",
+    "name": "The Isle",
+    "defaultPort": "27015",
+    "defaultQueryPort": "27015",
+    "defaultMaxPlayers": "16",
+    "linuxSupport": true,
+    "windowsSupport": false,
+    "linuxStopCommand": "",
+    "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 412680 validate +quit",
+    "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 412680 validate +quit",
+    "linuxWorkingDirectory": "",
+    "linuxAllowBackups": false,
+    "windowsStopCommand": "",
+    "windowsInstallCommand": "",
+    "windowsUpdateCommand": "",
+    "windowsWorkingDirectory": "",
+    "windowsAllowBackups": false,
+    "requireDedicatedIp": true,
+    "bindsToAllIps": false,
+    "createdAt": null,
+    "updatedAt": null,
+    "usesSourceQuery": false,
+    "requiresSteamGameServerLoginToken": false,
+    "linuxInstallCommandProcessor": "DIRECT",
+    "linuxUpdateCommandProcessor": "DIRECT",
+    "windowsInstallCommandProcessor": "DIRECT",
+    "windowsUpdateCommandProcessor": "DIRECT",
+    "usesSteamcmd": true,
+    "steamAppid": "412680",
+    "configSchemas": "",
+    "updateProvider": null,
+    "defaultTarget": "",
+    "modProfile": null,
+    "variants": [],
+    "linuxInstallType": "STEAMCMD",
+    "linuxUpdateType": "STEAMCMD",
+    "windowsInstallType": "NONE",
+    "windowsUpdateType": "NONE",
+    "linuxStartArgsTemplate": "",
+    "windowsStartArgsTemplate": "",
+    "linuxBaseCommand": "{{INSTALL_DIR}}/TheIsle/Binaries/Linux/TheIsleServer-Linux-Shipping",
+    "windowsBaseCommand": "",
+    "startArgBlocklist": "",
+    "allowStartArgEditing": true,
+    "xylonaOfficial": true,
+    "officialDefinitionHash": "",
+    "officialDefinitionSource": "",
+    "officialDefinitionSchemaVersion": "0",
+    "officialDefinitionDiverged": false
+  },
+  "config_schemas": [],
+  "linux_start_args_template": [
+    {
+      "id": "runtime_the_isle_linux_01",
+      "order": 1,
+      "ownership": "system",
+      "tokens": [
+        "-Port={{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_the_isle_linux_02",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
+        "-ini:Engine:[EpicOnlineServices]:DedicatedServerClientId=xyza7891gk5PRo3J7G9puCJGFJjmEguW"
+      ],
+      "label": "Ini Engine [epic Online Services] Dedicated Server Client Id"
+    },
+    {
+      "id": "runtime_the_isle_linux_03",
+      "order": 3,
+      "ownership": "editable",
+      "tokens": [
+        "-ini:Engine:[EpicOnlineServices]:DedicatedServerClientSecret=pKWl6t5i9NJK8gTpVlAxzENZ65P8hYzodV8Dqe5Rlc8"
+      ],
+      "label": "Ini Engine [epic Online Services] Dedicated Server Client Secret"
+    }
+  ],
+  "windows_start_args_template": [],
+  "start_arg_blocklist": [],
+  "update_config": {
+    "update_provider": {
+      "kind": "steamcmd"
+    },
+    "default_target": "public"
+  }
+}

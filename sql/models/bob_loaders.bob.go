@@ -35,6 +35,8 @@ type preloaders struct {
 	RolePermission           rolePermissionPreloader
 	ScheduledTask            scheduledTaskPreloader
 	ScheduledTaskLog         scheduledTaskLogPreloader
+	SystemUpdateJob          systemUpdateJobPreloader
+	SystemUpdateJobEvent     systemUpdateJobEventPreloader
 	User                     userPreloader
 	UserRoleAssignment       userRoleAssignmentPreloader
 	UserSession              userSessionPreloader
@@ -60,6 +62,8 @@ func getPreloaders() preloaders {
 		RolePermission:           buildRolePermissionPreloader(),
 		ScheduledTask:            buildScheduledTaskPreloader(),
 		ScheduledTaskLog:         buildScheduledTaskLogPreloader(),
+		SystemUpdateJob:          buildSystemUpdateJobPreloader(),
+		SystemUpdateJobEvent:     buildSystemUpdateJobEventPreloader(),
 		User:                     buildUserPreloader(),
 		UserRoleAssignment:       buildUserRoleAssignmentPreloader(),
 		UserSession:              buildUserSessionPreloader(),
@@ -91,6 +95,8 @@ type thenLoaders[Q orm.Loadable] struct {
 	RolePermission           rolePermissionThenLoader[Q]
 	ScheduledTask            scheduledTaskThenLoader[Q]
 	ScheduledTaskLog         scheduledTaskLogThenLoader[Q]
+	SystemUpdateJob          systemUpdateJobThenLoader[Q]
+	SystemUpdateJobEvent     systemUpdateJobEventThenLoader[Q]
 	User                     userThenLoader[Q]
 	UserRoleAssignment       userRoleAssignmentThenLoader[Q]
 	UserSession              userSessionThenLoader[Q]
@@ -116,6 +122,8 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		RolePermission:           buildRolePermissionThenLoader[Q](),
 		ScheduledTask:            buildScheduledTaskThenLoader[Q](),
 		ScheduledTaskLog:         buildScheduledTaskLogThenLoader[Q](),
+		SystemUpdateJob:          buildSystemUpdateJobThenLoader[Q](),
+		SystemUpdateJobEvent:     buildSystemUpdateJobEventThenLoader[Q](),
 		User:                     buildUserThenLoader[Q](),
 		UserRoleAssignment:       buildUserRoleAssignmentThenLoader[Q](),
 		UserSession:              buildUserSessionThenLoader[Q](),

@@ -117,7 +117,7 @@ var ScheduledTasks = Table[
 		CreatedAt: column{
 			Name:      "created_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,
@@ -126,7 +126,7 @@ var ScheduledTasks = Table[
 		UpdatedAt: column{
 			Name:      "updated_at",
 			DBType:    "DATETIME",
-			Default:   "CURRENT_TIMESTAMP",
+			Default:   "current_timestamp",
 			Comment:   "",
 			Nullable:  false,
 			Generated: false,

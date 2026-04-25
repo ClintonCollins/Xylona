@@ -79,3 +79,30 @@ func TestUpdateGameConfigSchemas_ClearWithEmpty(t *testing.T) {
 		t.Errorf("GetGameConfigSchemas() = %q, want empty after clear", got)
 	}
 }
+
+func TestUpdateGameConfigSchemas_MarksOfficialGameDiverged(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "cfg-schema-official-diverged.sqlite")
+	insertTestGameForConfig(t, conn, "official-test-game")
+
+	_, errSetOfficial := conn.SQLDb.ExecContext(
+		conn.ctx,
+		"UPDATE game SET xylona_official = true, official_definition_diverged = false WHERE id = ?",
+		"official-test-game",
+	)
+	if errSetOfficial != nil {
+		t.Fatalf("set official game setup error = %v", errSetOfficial)
+	}
+
+	errUpdate := conn.UpdateGameConfigSchemas("official-test-game", `[{"path":"server.properties","format":"properties"}]`)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameConfigSchemas() error = %v", errUpdate)
+	}
+
+	game, errGame := conn.GetGameByID("official-test-game")
+	if errGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGame)
+	}
+	if !game.OfficialDefinitionDiverged {
+		t.Fatal("OfficialDefinitionDiverged = false, want true")
+	}
+}
