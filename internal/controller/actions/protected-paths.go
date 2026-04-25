@@ -7,8 +7,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/startargs"
 )
 
 // ErrProtectedPath is returned when a write targets a protected server file.

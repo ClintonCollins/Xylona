@@ -15,7 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/pkg/modmanager"
+	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"

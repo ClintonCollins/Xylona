@@ -6,8 +6,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	dbpkg "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
+	dbpkg "github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 

@@ -12,7 +12,7 @@ import (
 
 	migrate "github.com/rubenv/sql-migrate"
 
-	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/internal/db"
 )
 
 var rpcTemplateOnce sync.Once

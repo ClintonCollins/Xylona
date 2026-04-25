@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/ClintonCollins/Xylona/pkg/mailer"
+	"github.com/ClintonCollins/Xylona/internal/mailer"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 

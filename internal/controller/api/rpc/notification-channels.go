@@ -12,9 +12,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/ClintonCollins/Xylona/pkg/alerts"
-	"github.com/ClintonCollins/Xylona/pkg/mailer"
-	"github.com/ClintonCollins/Xylona/pkg/webhooks"
+	"github.com/ClintonCollins/Xylona/internal/alerts"
+	"github.com/ClintonCollins/Xylona/internal/mailer"
+	"github.com/ClintonCollins/Xylona/internal/webhooks"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )

@@ -14,7 +14,7 @@ import (
 	"github.com/olahol/melody"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 

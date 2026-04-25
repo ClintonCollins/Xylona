@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/db/dbtest"
+	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
 )
 
 func TestMetricsRecorderCleanupAndRollupPreservesHourlyNodeHistory(t *testing.T) {

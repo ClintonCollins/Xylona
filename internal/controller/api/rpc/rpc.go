@@ -9,17 +9,17 @@ import (
 
 	"github.com/gorilla/securecookie"
 
-	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
+	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/mailer"
+	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
-	"github.com/ClintonCollins/Xylona/pkg/mailer"
-	"github.com/ClintonCollins/Xylona/pkg/modmanager"
-	"github.com/ClintonCollins/Xylona/pkg/scheduler"
-	"github.com/ClintonCollins/Xylona/pkg/usermgmt"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/internal/scheduler"
+	"github.com/ClintonCollins/Xylona/internal/steamcache"
+	"github.com/ClintonCollins/Xylona/internal/usermgmt"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/steamcache"
 )
 
 // ServerSoftwareInstallBroadcaster broadcasts server software install events.

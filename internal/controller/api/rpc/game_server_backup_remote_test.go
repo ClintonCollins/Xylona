@@ -18,11 +18,11 @@ import (
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
 
-	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )

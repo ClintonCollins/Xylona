@@ -7,7 +7,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/pkg/sysinfo"
+	"github.com/ClintonCollins/Xylona/internal/sysinfo"
 )
 
 // GetNodeSnapshot returns a point-in-time view of the host (CPU/memory/disk)

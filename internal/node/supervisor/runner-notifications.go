@@ -3,7 +3,7 @@ package supervisor
 import (
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 

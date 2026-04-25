@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 )
 
 func TestNewXylonaServiceReturnsErrorWhenPermissionsCannotLoad(t *testing.T) {

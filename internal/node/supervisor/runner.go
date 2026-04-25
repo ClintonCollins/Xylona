@@ -18,8 +18,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/ziutek/telnet"
 
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
-	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )

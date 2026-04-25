@@ -11,9 +11,9 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 
-	"github.com/ClintonCollins/Xylona/db/dbtest"
+	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 

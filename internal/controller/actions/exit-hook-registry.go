@@ -3,7 +3,7 @@ package actions
 import (
 	"sync"
 
-	"github.com/ClintonCollins/Xylona/pkg/eventbus"
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 )
 
 // exitHookFunc runs when a game-server process transitions to OFFLINE. It is

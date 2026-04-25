@@ -16,8 +16,8 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/go-chi/chi/v5"
 
-	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"

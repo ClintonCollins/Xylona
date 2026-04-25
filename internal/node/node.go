@@ -3,7 +3,7 @@ package node
 import (
 	"context"
 
-	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 )
 

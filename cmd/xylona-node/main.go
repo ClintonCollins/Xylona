@@ -26,7 +26,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/internal/nodetls"
-	"github.com/ClintonCollins/Xylona/pkg/selfupdate"
+	"github.com/ClintonCollins/Xylona/internal/selfupdate"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
 )
 

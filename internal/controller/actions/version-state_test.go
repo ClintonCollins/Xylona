@@ -3,7 +3,7 @@ package actions
 import (
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 )
 
 func TestInstanceVersionStateReturnsStoredMap(t *testing.T) {

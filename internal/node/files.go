@@ -20,8 +20,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/pkg/webhooks"
-	"github.com/ClintonCollins/Xylona/startargs"
+	"github.com/ClintonCollins/Xylona/internal/startargs"
+	"github.com/ClintonCollins/Xylona/internal/webhooks"
 )
 
 var (

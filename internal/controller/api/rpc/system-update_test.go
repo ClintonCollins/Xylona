@@ -16,11 +16,11 @@ import (
 
 	"connectrpc.com/connect"
 
-	xylonadb "github.com/ClintonCollins/Xylona/db"
+	xylonadb "github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
-	"github.com/ClintonCollins/Xylona/pkg/updater"
+	"github.com/ClintonCollins/Xylona/internal/updater"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"

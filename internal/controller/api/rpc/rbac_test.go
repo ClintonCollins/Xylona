@@ -14,8 +14,8 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/gorilla/securecookie"
 
-	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/internal/controller/api/gatekeeper"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )

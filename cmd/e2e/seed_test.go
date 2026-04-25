@@ -8,8 +8,8 @@ import (
 	"connectrpc.com/connect"
 	"github.com/gorilla/securecookie"
 
-	"github.com/ClintonCollins/Xylona/db"
 	rpcpkg "github.com/ClintonCollins/Xylona/internal/controller/api/rpc"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 

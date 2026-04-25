@@ -19,19 +19,19 @@ import (
 	"github.com/stephenafamo/bob"
 
 	"github.com/ClintonCollins/Xylona/cfgschema"
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
+	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
-	"github.com/ClintonCollins/Xylona/pkg/eventbus"
-	"github.com/ClintonCollins/Xylona/pkg/modmanager"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
-	"github.com/ClintonCollins/Xylona/placeholder"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 
-	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/startargs"
 )
 
 var (

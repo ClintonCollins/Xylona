@@ -11,10 +11,10 @@ import (
 	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/helpers"
-	"github.com/ClintonCollins/Xylona/placeholder"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
+	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/startargs"
 )
 
 const emptyStartArgsPatchesJSON = "[]"

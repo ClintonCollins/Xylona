@@ -10,7 +10,7 @@ import (
 	"github.com/aarondl/opt/omitnull"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
-	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
