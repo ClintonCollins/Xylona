@@ -16,7 +16,7 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/helpers"
 )
 
 // EncryptionKeySize is the required length for AES-256 keys.

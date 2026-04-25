@@ -32,7 +32,6 @@ import (
 	"github.com/urfave/cli/v3"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/internal/adminipc"
 	"github.com/ClintonCollins/Xylona/internal/alerts"
 	"github.com/ClintonCollins/Xylona/internal/cli/usercmd"
@@ -57,6 +56,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/internal/webhooks"
 	"github.com/ClintonCollins/Xylona/internal/webui"
+	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/hangar"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/modrinth"
 	_ "github.com/ClintonCollins/Xylona/pkg/modproviders/mojang"

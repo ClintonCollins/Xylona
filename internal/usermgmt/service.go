@@ -12,8 +12,8 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )

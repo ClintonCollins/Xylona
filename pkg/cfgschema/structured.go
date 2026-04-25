@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ClintonCollins/Xylona/cfgparse"
+	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
 )
 
 // MergeStructuredFields applies schema field and advanced field values to a

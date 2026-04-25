@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/query"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )

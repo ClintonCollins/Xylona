@@ -13,12 +13,12 @@ import (
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/cfgparse"
-	"github.com/ClintonCollins/Xylona/cfgschema"
-	"github.com/ClintonCollins/Xylona/helpers"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
+	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
+	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )

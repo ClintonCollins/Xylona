@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/cfgparse"
+	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
 )
 
 func TestSchemaProperty_GroupDeserialization(t *testing.T) {

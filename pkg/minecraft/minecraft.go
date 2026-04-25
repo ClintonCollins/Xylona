@@ -9,7 +9,7 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/helpers"
 )
 
 // GlobalVersionsManifestJSON represents Mojang's global version manifest response.

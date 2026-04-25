@@ -18,7 +18,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
 
-	"github.com/ClintonCollins/Xylona/cfgschema"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
@@ -27,6 +26,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
+	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/startargs"

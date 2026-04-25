@@ -10,7 +10,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/cfgparse"
+	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
 )
 
 // PreStartFileStore abstracts config file IO so pre-start enforcement can run

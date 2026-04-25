@@ -9,7 +9,7 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/stephenafamo/bob"
 
-	"github.com/ClintonCollins/Xylona/cfgschema"
+	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 

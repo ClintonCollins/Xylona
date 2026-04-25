@@ -7,8 +7,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/cfgparse"
-	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
+	"github.com/ClintonCollins/Xylona/pkg/helpers"
 )
 
 // SchemaDefinition represents a parsed JSON Schema for a config file.
