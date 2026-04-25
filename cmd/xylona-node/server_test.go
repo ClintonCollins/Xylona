@@ -25,7 +25,7 @@ import (
 )
 
 // newTestServer wires up a pinned-TLS httptest server with a nodeServiceServer
-// wrapping a real *pkg/node.Node (backed by a fresh supervisor, no DB). Returns
+// wrapping a real *internal/node.Node (backed by a fresh supervisor, no DB). Returns
 // the server URL and the cert fingerprint.
 func newTestServer(t *testing.T, sharedSecret string) (string, string) {
 	t.Helper()

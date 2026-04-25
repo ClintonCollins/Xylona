@@ -12,7 +12,7 @@ import (
 )
 
 // TestMinecraftTracker_Integration_GetLatestVersion_PaperMC tests against the real PaperMC API.
-// Run with: go test -tags=integration ./pkg/versiontracker/ -run TestMinecraftTracker_Integration
+// Run with: go test -tags=integration ./internal/versiontracker/ -run TestMinecraftTracker_Integration
 func TestMinecraftTracker_Integration_GetLatestVersion_PaperMC(t *testing.T) {
 	tracker := NewMinecraftTracker()
 	gs := &models.GameServer{

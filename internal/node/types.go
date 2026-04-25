@@ -15,7 +15,7 @@ var (
 	// ErrInvalidPath is returned when a relative path escapes the resolved root.
 	ErrInvalidPath = errors.New("node: invalid path")
 	// ErrProtectedPath is returned when a write targets a protected file path.
-	// pkg/node never sets this directly; callers (the controller) may layer
+	// internal/node never sets this directly; callers (the controller) may layer
 	// protected-path policy on top of node operations.
 	ErrProtectedPath = errors.New("node: path is protected")
 	// ErrProcessNotFound is returned when a process command is not currently
@@ -69,7 +69,7 @@ type ProcessConfig struct {
 	// lookup by InternalGameServerID. Ignored by remote nodes (internal
 	// commands run as Go functions in the controller process space).
 	// Typed as interface{} to avoid pulling the models package into
-	// pkg/node; the in-process client type-asserts.
+	// internal/node; the in-process client type-asserts.
 	InternalGameServer any
 }
 

@@ -7,12 +7,12 @@ import (
 )
 
 // eventBufferSize is the per-subscriber buffer size for the in-process event
-// emitter. Mirrors pkg/eventbus' reliable buffer.
+// emitter. Mirrors internal/eventbus' reliable buffer.
 const eventBufferSize = 1024
 
 // EventEmitter is a minimal in-process event publisher that the controller
 // will subscribe to in Step 9. Until then it stays empty; the existing
-// pkg/eventbus continues to carry events.
+// internal/eventbus continues to carry events.
 type EventEmitter struct {
 	mu          sync.RWMutex
 	subscribers map[chan Event]struct{}

@@ -130,7 +130,7 @@ func run(ctx context.Context, cfg *cliConfig) error {
 	// StartProcess requests with internal_command=true resolve locally. The
 	// controller also registers these for the embedded node path.
 	games.RegisterInternalGames()
-	// pkg/node.New tolerates a nil *db.Connection for the node binary — the
+	// node.New tolerates a nil *db.Connection for the node binary — the
 	// node does not persist any game-server data. Controller is the single
 	// source of truth.
 	n := node.New(ctx, supInst, nil)

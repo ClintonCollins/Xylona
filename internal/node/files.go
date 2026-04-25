@@ -55,7 +55,7 @@ func enforceProtection(relativePath string, policy ProtectionPolicy) error {
 //
 // This mirrors the semantics of actions.validateLocalServerPath but does not
 // reach into the game server model: the caller is expected to resolve the
-// game server directory before invoking pkg/node.
+// game server directory before invoking internal/node.
 func validateLocalPath(relativePath string) (string, error) {
 	trimmedPath := strings.TrimPrefix(relativePath, "/")
 	if trimmedPath != "" && !filepath.IsLocal(trimmedPath) {

@@ -13,7 +13,7 @@ import (
 
 // TestSteamTracker_Integration_RealAPI tests GetLatestVersion against the live Steam API
 // using Counter-Strike 2 Dedicated Server (App ID 740), which is always publicly available.
-// Run with: go test -tags=integration ./pkg/versiontracker/ -run TestSteamTracker_Integration_RealAPI -v
+// Run with: go test -tags=integration ./internal/versiontracker/ -run TestSteamTracker_Integration_RealAPI -v
 func TestSteamTracker_Integration_RealAPI(t *testing.T) {
 	dir := t.TempDir()
 

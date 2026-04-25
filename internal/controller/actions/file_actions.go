@@ -474,7 +474,7 @@ func (inst *Instance) createGameServerDirectory(gameServer *models.GameServer, o
 	// different env from the controller, so the install root and path
 	// separator must be resolved on the node. For self / in-process nodes
 	// this still works: the in-process client's GetNodeSnapshot also reports
-	// DefaultInstallPath via the shared pkg/node resolver.
+	// DefaultInstallPath via the shared internal/node resolver.
 	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 	if errClient != nil {
 		return "", fmt.Errorf("actions: resolve node client for install dir: %w", errClient)

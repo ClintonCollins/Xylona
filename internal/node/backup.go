@@ -180,7 +180,7 @@ func addBackupFileEntry(zipWriter *zip.Writer, sourcePath, archiveEntryPath stri
 		return fmt.Errorf("node: zip create file: %w", errCreate)
 	}
 	// #nosec G304 -- source path was produced by filepath.WalkDir under a
-	// controller-supplied root that pkg/node's caller has already validated.
+	// controller-supplied root that internal/node's caller has already validated.
 	srcFile, errOpen := os.Open(sourcePath)
 	if errOpen != nil {
 		return fmt.Errorf("node: open backup source: %w", errOpen)

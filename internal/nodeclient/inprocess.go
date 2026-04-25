@@ -20,7 +20,7 @@ var ErrNodeNil = errors.New("nodeclient: underlying node is nil")
 var ErrUpdateUnsupported = errors.New("nodeclient: update unsupported")
 
 // inProcessNodeClient implements NodeClient by delegating to an in-process
-// *pkg/node.Node. Used for the controller's embedded node.
+// *internal/node.Node. Used for the controller's embedded node.
 type inProcessNodeClient struct {
 	id   string
 	node *node.Node

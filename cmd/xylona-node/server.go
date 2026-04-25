@@ -24,7 +24,7 @@ import (
 )
 
 // nodeServiceServer is the Connect-RPC handler implementation that wraps a
-// *pkg/node.Node. Every method validates the bearer token, translates proto
+// *internal/node.Node. Every method validates the bearer token, translates proto
 // input into the Go domain types, invokes the node, and translates the result
 // back out.
 type nodeServiceServer struct {
@@ -73,7 +73,7 @@ func (s *nodeServiceServer) authorize(header interface {
 	return nil
 }
 
-// translate translates a Go-side error into a Connect error. pkg/node sentinel
+// translate translates a Go-side error into a Connect error. internal/node sentinel
 // errors are mapped to explicit Connect codes; everything else surfaces as
 // CodeInternal so the controller's retry/back-off logic can react uniformly.
 func translate(err error) error {
@@ -137,7 +137,7 @@ func clampToInt32(v int) int32 {
 }
 
 // nodeSnapshotToProto is the node-side counterpart of the client-side
-// nodeSnapshotFromProto (pkg/nodeclient/grpc.go).
+// nodeSnapshotFromProto (internal/nodeclient/grpc.go).
 func nodeSnapshotToProto(snap *node.NodeSnapshot) *nodeprotov1.NodeSnapshot {
 	if snap == nil {
 		return &nodeprotov1.NodeSnapshot{}

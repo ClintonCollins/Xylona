@@ -1005,7 +1005,7 @@ func processStatusFromXylona(status xylona.Status) nodeprotov1.ProcessStatus {
 }
 
 // nodeSnapshotFromProto converts a v1.NodeSnapshot back into the Go domain
-// type that pkg/node consumers expect.
+// type that internal/node consumers expect.
 func nodeSnapshotFromProto(snap *nodeprotov1.NodeSnapshot) *node.NodeSnapshot {
 	if snap == nil {
 		return nil
@@ -1086,7 +1086,7 @@ func nodeEventFromProto(ev *nodeprotov1.Event) node.Event {
 	return out
 }
 
-// translateError maps a Connect error back into a pkg/node sentinel where
+// translateError maps a Connect error back into an internal/node sentinel where
 // possible, so callers can use errors.Is() to react. Errors with no mapping
 // are wrapped with the call name for log readability.
 func translateError(call string, err error) error {

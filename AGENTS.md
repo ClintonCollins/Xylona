@@ -11,9 +11,11 @@ Core stack:
 
 ## Repo Map
 
-- Backend entry and HTTP/API surface: `main`, `embed.go`, `api/rpc`, `api/gatekeeper`, `api/websocket`, `api/xylona-internal`
-- Core backend logic: `actions`, `db`, `helpers`, `gsutils`, `supervisor`, `steamcache`
-- Shared/domain packages: `cfgparse`, `cfgschema`, `pkg/eventbus`, `pkg/minecraft`, `pkg/query`, `pkg/xycrypt`, `pkg/modmanager`, `pkg/modproviders`, `pkg/sysinfo`, `pkg/version`
+- Backend entry and embedded assets: `cmd/xylona`, `internal/webui`, `sql/migrations`
+- Controller logic and API surface: `internal/controller/actions`, `internal/controller/api/{events,gatekeeper,rpc,websocket}`, `internal/gameintegrations`
+- Node runtime boundary: `cmd/xylona-node`, `internal/node`, `internal/nodeclient`, `internal/noderegistry`, `internal/nodetls`, `internal/node/supervisor`
+- App services: `internal/db`, `internal/modmanager`, `internal/scheduler`, `internal/alerts`, `internal/usermgmt`, `internal/mailer`, `internal/webhooks`, `internal/selfupdate`, `internal/updater`, `internal/steamcache`
+- Shared/domain packages: `pkg/cfgparse`, `pkg/cfgschema`, `pkg/gsutils`, `pkg/helpers`, `pkg/minecraft`, `pkg/query`, `pkg/xycrypt`, `pkg/modproviders`, `pkg/updateproviders`, `pkg/passwordhash`, `pkg/version`
 - Generated and build assets: `proto`, `sql/migrations`, `sql/models`, `magefiles`, `cmd`
 - Frontend app: `frontend/src/pages`, `components`, `stores`, `router`, `layouts`, `boot`, `utils`, `proto`, `css`, `assets`
 
@@ -63,7 +65,7 @@ Regenerate with:
 ## Local Rules
 
 - Use LF line endings. If a touched file is CRLF, normalize it to LF.
-- Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `frontend/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
+- Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `internal/webui/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
 - `/docs/` is intentionally ignored as local scratch space. Do not put durable project documentation there unless the ignore policy changes first.
 - For local browser verification, you may read `XYLONA_ADMIN_USERNAME` and `XYLONA_ADMIN_PASSWORD` from `.env`; never print, log, or commit them.
 
@@ -101,7 +103,7 @@ Do not add DOMPurify or replace these with plain text unless the trust boundary 
 ## Testing
 
 - Backend tests should be table-driven where useful, use the standard `testing` package, live beside the code, be deterministic, and prefer `errors.Is` or `errors.As`
-- Use `t.TempDir()`, `t.Setenv()`, and `t.Cleanup()` for isolation; use in-memory SQLite for `db` tests
+- Use `t.TempDir()`, `t.Setenv()`, and `t.Cleanup()` for isolation; use in-memory SQLite for `internal/db` tests
 - Heavier filesystem, DB, or process tests should be skippable in `testing.Short()`
 - Frontend tests should focus on utilities, composables, Pinia stores, RPC wrappers, significant stateful components, and critical user flows
 - Purely visual frontend changes usually need lint, format, build, and manual verification rather than automated tests

@@ -1,9 +1,9 @@
 package node
 
 // install_path.go resolves the node-local default install root for managed
-// game-server directories. Kept in pkg/node (rather than reused from
+// game-server directories. Kept in internal/node (rather than reused from
 // pkg/actions) to avoid an import cycle: the actions package depends on
-// pkg/node, not the other way around. The logic mirrors
+// internal/node, not the other way around. The logic mirrors
 // actions.resolveDefaultInstallPath and the two functions should stay in
 // lockstep if either is changed.
 

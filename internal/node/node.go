@@ -22,7 +22,7 @@ type Node struct {
 // callers are expected to manage their lifetimes.
 //
 // db is included on the constructor signature for forward compatibility with
-// later migration steps that need access to node-local settings; pkg/node
+// later migration steps that need access to node-local settings; internal/node
 // itself does not currently issue queries against it.
 func New(ctx context.Context, supervisorInst *supervisor.Instance, database *db.Connection) *Node {
 	nodeInst := &Node{
@@ -36,7 +36,7 @@ func New(ctx context.Context, supervisorInst *supervisor.Instance, database *db.
 }
 
 // Events returns the node's EventEmitter. Step 9 will wire this up; for now
-// the existing pkg/eventbus continues to drive event delivery.
+// the existing internal/eventbus continues to drive event delivery.
 func (n *Node) Events() *EventEmitter {
 	return n.events
 }

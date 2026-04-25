@@ -2,12 +2,12 @@
 // talk to a node, regardless of whether the node is running in-process
 // (embedded) or across the network (remote gRPC node, introduced in Step 4).
 //
-// The controller never holds a *supervisor.Instance or a *pkg/node.Node
+// The controller never holds a *supervisor.Instance or a *internal/node.Node
 // directly; it holds a NodeClient. For the embedded path this is a thin
 // in-process wrapper (inProcessNodeClient); for remote nodes it will be a
 // gRPC client implementation added in a later migration step.
 //
-// Method signatures use plain Go types from pkg/node rather than proto types.
+// Method signatures use plain Go types from internal/node rather than proto types.
 // This keeps the interface stable even when the on-the-wire proto evolves.
 package nodeclient
 
