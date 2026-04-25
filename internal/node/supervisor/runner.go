@@ -18,7 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/ziutek/telnet"
 
-	internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
+	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -189,7 +189,7 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 			log.Error().Str("Game Server ID", command.ID).Msg("Game ID is nil")
 			return
 		}
-		internalGame, exists := internal.GetGame(*command.gameID)
+		internalGame, exists := gameintegrations.GetGame(*command.gameID)
 		if !exists {
 			log.Error().Str("Game ID", *command.gameID).Str("Game Server ID", command.ID).Msg("Internal game does not exist")
 			return

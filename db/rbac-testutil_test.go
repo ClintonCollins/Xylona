@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -68,8 +69,13 @@ func ensureRBACMigratedTemplate() (string, error) {
 			return
 		}
 
+		migrationsDir, errMigrationsDir := rbacMigrationsDir()
+		if errMigrationsDir != nil {
+			rbacTemplateErr = errMigrationsDir
+			return
+		}
 		migrationSource := &migrate.FileMigrationSource{
-			Dir: filepath.Join("..", "sql", "migrations"),
+			Dir: migrationsDir,
 		}
 		setTableOnce.Do(func() { migrate.SetTable("migrations") })
 		_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
@@ -84,6 +90,28 @@ func ensureRBACMigratedTemplate() (string, error) {
 	})
 
 	return rbacTemplatePath, rbacTemplateErr
+}
+
+func rbacMigrationsDir() (string, error) {
+	workingDir, errWorkingDir := os.Getwd()
+	if errWorkingDir != nil {
+		return "", fmt.Errorf("get working directory: %w", errWorkingDir)
+	}
+
+	for dir := workingDir; ; dir = filepath.Dir(dir) {
+		candidate := filepath.Join(dir, "sql", "migrations")
+		matches, errGlob := filepath.Glob(filepath.Join(candidate, "*.sql"))
+		if errGlob == nil && len(matches) > 0 {
+			return candidate, nil
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+	}
+
+	return "", errors.New("locate sql/migrations directory")
 }
 
 func copyTestSQLiteDB(sourcePath string, destinationPath string) error {

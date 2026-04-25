@@ -123,29 +123,26 @@ func copySQLiteTemplate(sourcePath string, destinationPath string) error {
 	return nil
 }
 
-// migrationsDir locates the sql/migrations directory relative to the test's
-// working directory. Tests in different packages run from different directories,
-// so we walk up looking for the canonical path.
+// migrationsDir locates the sql/migrations directory by walking up from the
+// test package working directory.
 func migrationsDir(t *testing.T) string {
 	t.Helper()
 
-	// All packages in this repo are at most 2 levels deep from the root.
-	candidates := []string{
-		filepath.Join("..", "sql", "migrations"),
-		filepath.Join("..", "..", "sql", "migrations"),
-		filepath.Join("sql", "migrations"),
+	workingDir, errWorkingDir := os.Getwd()
+	if errWorkingDir != nil {
+		t.Fatalf("get working directory: %v", errWorkingDir)
 	}
-	for _, candidate := range candidates {
-		abs, errAbs := filepath.Abs(candidate)
-		if errAbs != nil {
-			continue
+
+	for dir := workingDir; ; dir = filepath.Dir(dir) {
+		candidate := filepath.Join(dir, "sql", "migrations")
+		matches, errGlob := filepath.Glob(filepath.Join(candidate, "*.sql"))
+		if errGlob == nil && len(matches) > 0 {
+			return candidate
 		}
-		matches, errGlob := filepath.Glob(filepath.Join(abs, "*.sql"))
-		if errGlob != nil {
-			continue
-		}
-		if len(matches) > 0 {
-			return abs
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
 		}
 	}
 

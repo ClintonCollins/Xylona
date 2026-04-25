@@ -22,7 +22,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
+	"github.com/ClintonCollins/Xylona/internal/gameintegrations/games"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/internal/nodetls"

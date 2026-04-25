@@ -20,7 +20,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/nodetls"
 )
 
-// bootstrapRequest mirrors api/rpc.NodeBootstrapRequest. We copy the shape
+// bootstrapRequest mirrors internal/controller/api/rpc.NodeBootstrapRequest. We copy the shape
 // here instead of importing to keep the xylona-node binary free of any
 // dependency on the controller-side code.
 type bootstrapRequest struct {
@@ -31,7 +31,7 @@ type bootstrapRequest struct {
 	CertFingerprint string `json:"cert_fingerprint"`
 }
 
-// bootstrapResponse mirrors api/rpc.NodeBootstrapResponse.
+// bootstrapResponse mirrors internal/controller/api/rpc.NodeBootstrapResponse.
 type bootstrapResponse struct {
 	NodeID       string `json:"node_id"`
 	SharedSecret string `json:"shared_secret"`

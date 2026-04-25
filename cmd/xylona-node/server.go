@@ -208,7 +208,7 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 	}
 	if msg.GetInternalCommand() {
 		// Internal commands dispatch to a registered Game implementation
-		// (see api/xylona-internal). The supervisor needs a *models.GameServer
+		// (see internal/gameintegrations). The supervisor needs a *models.GameServer
 		// to pass to the installer; the node has no DB so we synthesize one
 		// from the fields the wire carries. Current built-in installers
 		// (e.g. Minecraft) only read ID/Name/Directory, so this minimal shape
