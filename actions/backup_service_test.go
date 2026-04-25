@@ -664,13 +664,13 @@ func TestBackupRestoreUserFacingMessage(t *testing.T) {
 		t.Fatalf("BackupRestoreUserFacingMessage(errBackupNotCompleted) message = %q, want %q", message, errBackupNotCompleted.Error())
 	}
 
-	wrappedErr := fmt.Errorf("wrapped: %w", errRestoreDestinationSymlink)
+	wrappedErr := fmt.Errorf("wrapped: %w", node.ErrRestoreDestinationSymlink)
 	message, ok = BackupRestoreUserFacingMessage(wrappedErr)
 	if !ok {
 		t.Fatal("BackupRestoreUserFacingMessage(wrapped restore symlink error) ok = false, want true")
 	}
-	if message != errRestoreDestinationSymlink.Error() {
-		t.Fatalf("BackupRestoreUserFacingMessage(wrapped restore symlink error) message = %q, want %q", message, errRestoreDestinationSymlink.Error())
+	if message != node.ErrRestoreDestinationSymlink.Error() {
+		t.Fatalf("BackupRestoreUserFacingMessage(wrapped restore symlink error) message = %q, want %q", message, node.ErrRestoreDestinationSymlink.Error())
 	}
 
 	message, ok = BackupRestoreUserFacingMessage(errors.New("internal only"))
@@ -1695,7 +1695,8 @@ func TestRestoreGameServerBackupExtractsLocalArchiveThroughNodeClient(t *testing
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 	localClient := &nodeclient.FakeNodeClient{NodeID: fixture.nodeID}
-	inst.nodeRegistry = noderegistry.New(fixture.nodeID, localClient)
+	inst.embeddedNodeClient = localClient
+	inst.nodeRegistry = nil
 
 	archivePath := filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "restore.zip")
 	backup := fixture.createBackupRow(t, db.CreateGameServerBackupParams{
@@ -2187,56 +2188,6 @@ func TestRestoreGameServerBackupExactPreservesNonWritableDirectoryPermissionsAft
 	}
 }
 
-func TestCleanupRestoreStagingDirRemovesUnreadableDirectories(t *testing.T) {
-	t.Parallel()
-
-	if runtime.GOOS == "windows" {
-		t.Skip("directory permission assertions are not reliable on Windows")
-	}
-
-	rootParent := t.TempDir()
-	stagingDir := filepath.Join(rootParent, "restore-staging")
-	errMkdir := os.MkdirAll(stagingDir, 0o700)
-	if errMkdir != nil {
-		t.Fatalf("MkdirAll(stagingDir) error = %v", errMkdir)
-	}
-
-	protectedDirectory := filepath.Join(stagingDir, "protected-dir")
-	errMkdir = os.MkdirAll(protectedDirectory, 0o700)
-	if errMkdir != nil {
-		t.Fatalf("MkdirAll(protected-dir) error = %v", errMkdir)
-	}
-
-	protectedFilePath := filepath.Join(protectedDirectory, "keep.txt")
-	errWrite := os.WriteFile(protectedFilePath, []byte("archived"), 0o600)
-	if errWrite != nil {
-		t.Fatalf("WriteFile(protected-dir/keep.txt) error = %v", errWrite)
-	}
-
-	errChmod := os.Chmod(protectedDirectory, 0o000)
-	if errChmod != nil {
-		t.Fatalf("Chmod(protected-dir) error = %v", errChmod)
-	}
-
-	t.Cleanup(func() {
-		// #nosec G302 -- test cleanup needs owner access to remove the temp directory after failure
-		errCleanup := os.Chmod(protectedDirectory, 0o700)
-		if errCleanup != nil && !errors.Is(errCleanup, os.ErrNotExist) {
-			t.Errorf("cleanup Chmod(protected-dir) error = %v", errCleanup)
-		}
-	})
-
-	errCleanup := cleanupRestoreStagingDir(stagingDir)
-	if errCleanup != nil {
-		t.Fatalf("cleanupRestoreStagingDir() error = %v", errCleanup)
-	}
-
-	_, errStat := os.Stat(stagingDir)
-	if !errors.Is(errStat, os.ErrNotExist) {
-		t.Fatalf("Stat(stagingDir) error = %v, want %v", errStat, os.ErrNotExist)
-	}
-}
-
 func TestRestoreGameServerBackupExactReplacesConflictingDestinationTypes(t *testing.T) {
 	t.Parallel()
 
@@ -2359,8 +2310,8 @@ func TestRestoreGameServerBackupRejectsPathTraversal(t *testing.T) {
 	if errRestore == nil {
 		t.Fatal("RestoreGameServerBackup() error = nil, want path traversal error")
 	}
-	if !strings.Contains(strings.ToLower(errRestore.Error()), "path") {
-		t.Fatalf("RestoreGameServerBackup() error = %v, want path traversal context", errRestore)
+	if !strings.Contains(strings.ToLower(errRestore.Error()), "escapes root") {
+		t.Fatalf("RestoreGameServerBackup() error = %v, want archive root escape context", errRestore)
 	}
 	if _, errStat := os.Stat(filepath.Join(filepath.Dir(fixture.gameServer.Directory), "escaped.txt")); !errors.Is(errStat, os.ErrNotExist) {
 		t.Fatalf("Stat(escaped.txt) error = %v, want %v", errStat, os.ErrNotExist)
@@ -2417,7 +2368,7 @@ func TestRestoreGameServerBackupRejectsCorruptedCRCEntry(t *testing.T) {
 	}
 }
 
-func TestRestoreGameServerBackupBroadcastsFailedProgressWhenStagingDirectoryCreationFails(t *testing.T) {
+func TestRestoreGameServerBackupBroadcastsFailedProgressWhenNodeExtractFails(t *testing.T) {
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 
@@ -2438,15 +2389,10 @@ func TestRestoreGameServerBackupBroadcastsFailedProgressWhenStagingDirectoryCrea
 		CreatedAt:       time.Date(2026, 4, 1, 13, 45, 0, 0, time.UTC),
 	})
 
-	previousCreateRestoreStagingDirFunc := createRestoreStagingDirFunc
-	createRestoreStagingDirFunc = func(dir string, pattern string) (string, error) {
-		_ = dir
-		_ = pattern
-		return "", errors.New("forced staging temp dir failure")
+	inst.embeddedNodeClient = &nodeclient.FakeNodeClient{
+		NodeID:                  fixture.nodeID,
+		ExtractBackupArchiveErr: errors.New("forced node restore failure"),
 	}
-	t.Cleanup(func() {
-		createRestoreStagingDirFunc = previousCreateRestoreStagingDirFunc
-	})
 
 	broadcaster := &recordingBackupProgressBroadcaster{}
 	inst.SetBackupProgressBroadcaster(broadcaster)
@@ -2457,15 +2403,17 @@ func TestRestoreGameServerBackupBroadcastsFailedProgressWhenStagingDirectoryCrea
 		xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_OVERLAY,
 	)
 	if errRestore == nil {
-		t.Fatal("RestoreGameServerBackup() error = nil, want staging directory creation failure")
+		t.Fatal("RestoreGameServerBackup() error = nil, want node extract failure")
 	}
-	if !strings.Contains(errRestore.Error(), "forced staging temp dir failure") {
-		t.Fatalf("RestoreGameServerBackup() error = %v, want staging directory failure context", errRestore)
+	if !strings.Contains(errRestore.Error(), "forced node restore failure") {
+		t.Fatalf("RestoreGameServerBackup() error = %v, want node extract failure context", errRestore)
 	}
 
 	gotPhases := broadcaster.phases()
 	wantPhases := []xylona.BackupProgressPhase{
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_PREPARING,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_STAGING,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_APPLYING,
 		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_FAILED,
 	}
 	if !slices.Equal(gotPhases, wantPhases) {
@@ -2512,55 +2460,11 @@ func TestRestoreGameServerBackupRejectsDestinationSymlink(t *testing.T) {
 		backup.ID,
 		xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_OVERLAY,
 	)
-	if !errors.Is(errRestore, errRestoreDestinationSymlink) {
-		t.Fatalf("RestoreGameServerBackup() error = %v, want %v", errRestore, errRestoreDestinationSymlink)
+	if !errors.Is(errRestore, node.ErrRestoreDestinationSymlink) {
+		t.Fatalf("RestoreGameServerBackup() error = %v, want %v", errRestore, node.ErrRestoreDestinationSymlink)
 	}
 	if _, errStat := os.Stat(outsideTargetPath); !errors.Is(errStat, os.ErrNotExist) {
 		t.Fatalf("Stat(outsideTargetPath) error = %v, want %v", errStat, os.ErrNotExist)
-	}
-}
-
-func TestRestoreGameServerBackupFailsWhenRestoreCopyFinalizationFails(t *testing.T) {
-	inst := newTestInstance(t)
-	fixture := newBackupServiceFixture(t, inst)
-
-	archivePath := filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "restore-copy-failure.zip")
-	createTestZipArchive(t, archivePath, map[string]string{
-		"copied.txt": "copied",
-	})
-	backup := fixture.createBackupRow(t, db.CreateGameServerBackupParams{
-		GameServerID:    fixture.gameServer.ID,
-		NodeID:          fixture.nodeID,
-		CreatedBy:       fixture.userID,
-		TriggerSource:   "manual",
-		ArchivePath:     archivePath,
-		ArchiveFormat:   "zip",
-		Status:          "completed",
-		SizeBytes:       23,
-		RetentionExempt: true,
-		CreatedAt:       time.Date(2026, 4, 1, 15, 0, 0, 0, time.UTC),
-	})
-
-	previousCopyRestoreFileFunc := copyRestoreFileFunc
-	copyRestoreFileFunc = func(src string, dst string) error {
-		_ = src
-		_ = dst
-		return errors.New("forced restore copy finalization failure")
-	}
-	t.Cleanup(func() {
-		copyRestoreFileFunc = previousCopyRestoreFileFunc
-	})
-
-	errRestore := inst.RestoreGameServerBackup(
-		fixture.gameServer,
-		backup.ID,
-		xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_OVERLAY,
-	)
-	if errRestore == nil {
-		t.Fatal("RestoreGameServerBackup() error = nil, want restore copy failure")
-	}
-	if !strings.Contains(errRestore.Error(), "forced restore copy finalization failure") {
-		t.Fatalf("RestoreGameServerBackup() error = %v, want restore copy failure context", errRestore)
 	}
 }
 

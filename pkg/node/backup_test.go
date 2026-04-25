@@ -127,6 +127,90 @@ func TestExtractBackupArchiveCorruptArchiveLeavesLiveFileUnchanged(t *testing.T)
 	}
 }
 
+func TestExtractBackupArchiveOverlayPreservesExtraFiles(t *testing.T) {
+	root := t.TempDir()
+	errWrite := os.WriteFile(filepath.Join(root, "extra.txt"), []byte("keep"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile extra error = %v", errWrite)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "restore.zip")
+	writeNodeBackupArchive(t, archivePath, map[string]string{
+		"world/level.dat": "restored",
+	})
+
+	n := &Node{}
+	errExtract := n.ExtractBackupArchive(t.Context(), root, archivePath, ExtractModeOverlay)
+	if errExtract != nil {
+		t.Fatalf("ExtractBackupArchive() error = %v", errExtract)
+	}
+
+	extraContents, errRead := os.ReadFile(filepath.Join(root, "extra.txt"))
+	if errRead != nil {
+		t.Fatalf("ReadFile extra error = %v", errRead)
+	}
+	if string(extraContents) != "keep" {
+		t.Fatalf("extra contents = %q, want keep", string(extraContents))
+	}
+	restoredContents, errRead := os.ReadFile(filepath.Join(root, "world", "level.dat"))
+	if errRead != nil {
+		t.Fatalf("ReadFile restored error = %v", errRead)
+	}
+	if string(restoredContents) != "restored" {
+		t.Fatalf("restored contents = %q, want restored", string(restoredContents))
+	}
+}
+
+func TestExtractBackupArchiveExactDeletesExtraFiles(t *testing.T) {
+	root := t.TempDir()
+	errWrite := os.WriteFile(filepath.Join(root, "extra.txt"), []byte("remove"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile extra error = %v", errWrite)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "restore.zip")
+	writeNodeBackupArchive(t, archivePath, map[string]string{
+		"keep.txt": "restored",
+	})
+
+	n := &Node{}
+	errExtract := n.ExtractBackupArchive(t.Context(), root, archivePath, ExtractModeExact)
+	if errExtract != nil {
+		t.Fatalf("ExtractBackupArchive() error = %v", errExtract)
+	}
+	if _, errStat := os.Stat(filepath.Join(root, "extra.txt")); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat extra error = %v, want %v", errStat, os.ErrNotExist)
+	}
+}
+
+func TestExtractBackupArchiveRejectsDestinationSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows symlink creation requires extra privileges in some environments")
+	}
+
+	root := t.TempDir()
+	outsidePath := filepath.Join(t.TempDir(), "outside.txt")
+	linkPath := filepath.Join(root, "link.txt")
+	errLink := os.Symlink(outsidePath, linkPath)
+	if errLink != nil {
+		t.Fatalf("Symlink error = %v", errLink)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "restore.zip")
+	writeNodeBackupArchive(t, archivePath, map[string]string{
+		"link.txt": "blocked",
+	})
+
+	n := &Node{}
+	errExtract := n.ExtractBackupArchive(t.Context(), root, archivePath, ExtractModeOverlay)
+	if !errors.Is(errExtract, ErrRestoreDestinationSymlink) {
+		t.Fatalf("ExtractBackupArchive() error = %v, want %v", errExtract, ErrRestoreDestinationSymlink)
+	}
+	if _, errStat := os.Stat(outsidePath); !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat outside error = %v, want %v", errStat, os.ErrNotExist)
+	}
+}
+
 func TestExtractBackupArchiveExactDoesNotPruneBeforeFailedExtraction(t *testing.T) {
 	root := t.TempDir()
 	orphanPath := filepath.Join(root, "orphan.txt")
@@ -150,6 +234,34 @@ func TestExtractBackupArchiveExactDoesNotPruneBeforeFailedExtraction(t *testing.
 	}
 	if string(contents) != "keep-me" {
 		t.Fatalf("orphan contents = %q, want unchanged %q", contents, "keep-me")
+	}
+}
+
+func writeNodeBackupArchive(t *testing.T, archivePath string, entries map[string]string) {
+	t.Helper()
+
+	archiveFile, errCreate := os.OpenFile(archivePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if errCreate != nil {
+		t.Fatalf("OpenFile archive error = %v", errCreate)
+	}
+	zipWriter := zip.NewWriter(archiveFile)
+	for name, contents := range entries {
+		writer, errEntry := zipWriter.Create(name)
+		if errEntry != nil {
+			t.Fatalf("Create zip entry error = %v", errEntry)
+		}
+		_, errWrite := writer.Write([]byte(contents))
+		if errWrite != nil {
+			t.Fatalf("Write zip entry error = %v", errWrite)
+		}
+	}
+	errCloseZip := zipWriter.Close()
+	errCloseFile := archiveFile.Close()
+	if errCloseZip != nil {
+		t.Fatalf("Close zip writer error = %v", errCloseZip)
+	}
+	if errCloseFile != nil {
+		t.Fatalf("Close archive file error = %v", errCloseFile)
 	}
 }
 

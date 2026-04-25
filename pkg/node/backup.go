@@ -256,6 +256,10 @@ const (
 	ExtractModeExact
 )
 
+// ErrRestoreDestinationSymlink reports a live restore target that would cause
+// extraction to follow a symlink outside the intended tree.
+var ErrRestoreDestinationSymlink = errors.New("restore destination contains a symlink")
+
 // maxBackupExtractEntryBytes caps individual archive entries to 8 GiB so a
 // decompression bomb cannot fill the node's disk via ExtractBackupArchive.
 const maxBackupExtractEntryBytes int64 = 8 << 30
@@ -351,9 +355,17 @@ func extractBackupEntry(root string, f *zip.File) error {
 	}
 
 	if f.FileInfo().IsDir() {
-		errMkdir := os.MkdirAll(full, 0o750)
+		perm := f.Mode().Perm()
+		if perm == 0 {
+			perm = 0o750
+		}
+		errMkdir := os.MkdirAll(full, perm)
 		if errMkdir != nil {
 			return fmt.Errorf("node: create archive directory %s: %w", f.Name, errMkdir)
+		}
+		errChmod := os.Chmod(full, perm)
+		if errChmod != nil {
+			return fmt.Errorf("node: set archive directory mode %s: %w", f.Name, errChmod)
 		}
 		return nil
 	}
@@ -436,9 +448,9 @@ func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string) e
 
 		livePath := filepath.Join(liveRoot, relative)
 		if info.IsDir() {
-			errMkdir := os.MkdirAll(livePath, 0o750)
-			if errMkdir != nil {
-				return fmt.Errorf("node: create live backup directory %s: %w", relative, errMkdir)
+			errPrepare := prepareBackupRestoreDirectory(liveRoot, livePath, info.Mode().Perm())
+			if errPrepare != nil {
+				return errPrepare
 			}
 			return nil
 		}
@@ -446,7 +458,7 @@ func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string) e
 			return nil
 		}
 
-		errCopy := copyStagedBackupFile(currentPath, livePath, info.Mode().Perm())
+		errCopy := copyStagedBackupFile(liveRoot, currentPath, livePath, info.Mode().Perm())
 		if errCopy != nil {
 			return errCopy
 		}
@@ -458,7 +470,7 @@ func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string) e
 	return nil
 }
 
-func copyStagedBackupFile(sourcePath, destinationPath string, perm fs.FileMode) error {
+func copyStagedBackupFile(liveRoot, sourcePath, destinationPath string, perm fs.FileMode) error {
 	srcFile, errOpen := os.Open(sourcePath)
 	if errOpen != nil {
 		return fmt.Errorf("node: open staged backup file: %w", errOpen)
@@ -470,28 +482,153 @@ func copyStagedBackupFile(sourcePath, destinationPath string, perm fs.FileMode) 
 		}
 	}()
 
-	errMkParent := os.MkdirAll(filepath.Dir(destinationPath), 0o750)
-	if errMkParent != nil {
-		return fmt.Errorf("node: create live backup parent: %w", errMkParent)
+	errPrepare := prepareBackupRestoreFile(liveRoot, destinationPath)
+	if errPrepare != nil {
+		return errPrepare
 	}
 
 	if perm == 0 {
 		perm = 0o600
 	}
-	// #nosec G304 -- destinationPath is filepath.Join(liveRoot, local-rel);
-	// filepath.IsLocal rejected escapes before this helper is called.
-	dstFile, errCreate := os.OpenFile(destinationPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
+
+	parentDirectory := filepath.Dir(destinationPath)
+	tempFile, errCreate := os.CreateTemp(parentDirectory, ".xylona-restore-*")
 	if errCreate != nil {
-		return fmt.Errorf("node: create live backup file: %w", errCreate)
+		return fmt.Errorf("node: create live backup temp file: %w", errCreate)
+	}
+	tempPath := tempFile.Name()
+	removeTemp := true
+	defer func() {
+		if removeTemp {
+			errRemove := os.Remove(tempPath)
+			if errRemove != nil && !errors.Is(errRemove, fs.ErrNotExist) {
+				log.Warn().Err(errRemove).Str("path", tempPath).Msg("node: remove backup restore temp file")
+			}
+		}
+	}()
+
+	_, errCopy := io.Copy(tempFile, srcFile)
+	errSync := tempFile.Sync()
+	errClose := tempFile.Close()
+	if errCopy != nil || errSync != nil || errClose != nil {
+		return fmt.Errorf("node: write live backup temp file: %w", errors.Join(errCopy, errSync, errClose))
+	}
+	errChmod := os.Chmod(tempPath, perm)
+	if errChmod != nil {
+		return fmt.Errorf("node: set live backup temp file mode: %w", errChmod)
+	}
+	errRename := os.Rename(tempPath, destinationPath)
+	if errRename != nil {
+		return fmt.Errorf("node: move live backup temp file into place: %w", errRename)
+	}
+	removeTemp = false
+
+	errChmod = os.Chmod(destinationPath, perm)
+	if errChmod != nil {
+		return fmt.Errorf("node: set live backup file mode: %w", errChmod)
+	}
+	return nil
+}
+
+func prepareBackupRestoreDirectory(liveRoot, targetPath string, perm fs.FileMode) error {
+	errParents := ensureBackupRestoreDirectoryChain(liveRoot, filepath.Dir(targetPath))
+	if errParents != nil {
+		return errParents
 	}
 
-	_, errCopy := io.Copy(dstFile, srcFile)
-	errClose := dstFile.Close()
-	if errCopy != nil {
-		return fmt.Errorf("node: copy staged backup file: %w", errCopy)
+	info, errLstat := os.Lstat(targetPath)
+	if errLstat == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return ErrRestoreDestinationSymlink
+		}
+		if !info.IsDir() {
+			errRemove := os.RemoveAll(targetPath)
+			if errRemove != nil {
+				return fmt.Errorf("node: replace restore file with directory: %w", errRemove)
+			}
+		}
+	} else if !errors.Is(errLstat, fs.ErrNotExist) {
+		return fmt.Errorf("node: inspect restore directory target: %w", errLstat)
 	}
-	if errClose != nil {
-		return fmt.Errorf("node: close live backup file: %w", errClose)
+
+	if perm == 0 {
+		perm = 0o750
+	}
+	errMkdir := os.MkdirAll(targetPath, perm)
+	if errMkdir != nil {
+		return fmt.Errorf("node: create live backup directory: %w", errMkdir)
+	}
+	errChmod := os.Chmod(targetPath, perm)
+	if errChmod != nil {
+		return fmt.Errorf("node: set live backup directory mode: %w", errChmod)
+	}
+	return nil
+}
+
+func prepareBackupRestoreFile(liveRoot, targetPath string) error {
+	errParents := ensureBackupRestoreDirectoryChain(liveRoot, filepath.Dir(targetPath))
+	if errParents != nil {
+		return errParents
+	}
+
+	info, errLstat := os.Lstat(targetPath)
+	if errLstat != nil {
+		if errors.Is(errLstat, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("node: inspect restore file target: %w", errLstat)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return ErrRestoreDestinationSymlink
+	}
+
+	errRemove := os.RemoveAll(targetPath)
+	if errRemove != nil {
+		return fmt.Errorf("node: replace restore destination: %w", errRemove)
+	}
+	return nil
+}
+
+func ensureBackupRestoreDirectoryChain(liveRoot, targetDirectory string) error {
+	cleanRoot := filepath.Clean(liveRoot)
+	cleanTarget := filepath.Clean(targetDirectory)
+	relative, errRel := filepath.Rel(cleanRoot, cleanTarget)
+	if errRel != nil {
+		return fmt.Errorf("node: resolve restore parent path: %w", errRel)
+	}
+	if relative == "." {
+		return nil
+	}
+	if !filepath.IsLocal(relative) {
+		return fmt.Errorf("node: restore parent escapes root: %s", relative)
+	}
+
+	currentPath := cleanRoot
+	for part := range strings.SplitSeq(relative, string(filepath.Separator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		currentPath = filepath.Join(currentPath, part)
+		info, errLstat := os.Lstat(currentPath)
+		if errLstat == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				return ErrRestoreDestinationSymlink
+			}
+			if info.IsDir() {
+				continue
+			}
+			errRemove := os.RemoveAll(currentPath)
+			if errRemove != nil {
+				return fmt.Errorf("node: replace restore parent with directory: %w", errRemove)
+			}
+		} else if !errors.Is(errLstat, fs.ErrNotExist) {
+			return fmt.Errorf("node: inspect restore parent directory: %w", errLstat)
+		}
+
+		errMkdir := os.Mkdir(currentPath, 0o750)
+		if errMkdir != nil && !errors.Is(errMkdir, fs.ErrExist) {
+			return fmt.Errorf("node: create restore parent directory: %w", errMkdir)
+		}
 	}
 	return nil
 }
