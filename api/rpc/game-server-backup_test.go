@@ -18,9 +18,9 @@ import (
 
 	"github.com/ClintonCollins/Xylona/actions"
 	"github.com/ClintonCollins/Xylona/db"
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func TestGetBackupSettingsRequiresBackupPermission(t *testing.T) {

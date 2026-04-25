@@ -16,12 +16,12 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/nodetls"
 	nodeprotov1 "github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // newTestServer wires up a pinned-TLS httptest server with a nodeServiceServer

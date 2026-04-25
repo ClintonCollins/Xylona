@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ClintonCollins/Xylona/db"
-	"github.com/ClintonCollins/Xylona/supervisor"
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 )
 
 // Node is the in-process node implementation. The controller creates one of

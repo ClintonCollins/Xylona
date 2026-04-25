@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // StartProcess launches the process described by config and returns the

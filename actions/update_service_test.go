@@ -16,6 +16,7 @@ import (
 
 	internal "github.com/ClintonCollins/Xylona/api/xylona-internal"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
@@ -24,7 +25,6 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func TestWaitForServerOnlineReturnsFalseWhenContextCanceled(t *testing.T) {

@@ -6,10 +6,10 @@ import (
 
 	"github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/db/dbtest"
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/pkg/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/versiontracker"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func newTestInstance(t *testing.T) *Instance {

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/pkg/eventbus"
 	"github.com/ClintonCollins/Xylona/pkg/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 // newTestClient constructs an in-process client backed by a Node with no

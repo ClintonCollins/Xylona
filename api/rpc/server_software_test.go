@@ -8,11 +8,11 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/pkg/modmanager"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 func TestPersistedVariantTarget(t *testing.T) {

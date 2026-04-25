@@ -40,6 +40,7 @@ import (
 	"github.com/ClintonCollins/Xylona/api/xylona-internal/games"
 	dbpkg "github.com/ClintonCollins/Xylona/db"
 	"github.com/ClintonCollins/Xylona/helpers"
+	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/pkg/adminipc"
 	"github.com/ClintonCollins/Xylona/pkg/alerts"
 	"github.com/ClintonCollins/Xylona/pkg/cli/usercmd"
@@ -65,7 +66,6 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/steamcache"
-	"github.com/ClintonCollins/Xylona/supervisor"
 )
 
 type Configuration struct {
