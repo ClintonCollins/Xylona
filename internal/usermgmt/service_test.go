@@ -17,7 +17,7 @@ import (
 
 // These tests pin down the shared user-management seam described in
 // docs/specs/2026-04-11-cli-03-user-management-commands.md. They assume the
-// implementation introduces a pkg/usermgmt Service with shared mutation rules
+// implementation introduces an internal/usermgmt Service with shared mutation rules
 // that can be reused by RPC, local admin IPC, and offline CLI execution.
 
 func TestCreateUserRejectsDuplicateUsername(t *testing.T) {

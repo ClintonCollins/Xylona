@@ -821,7 +821,7 @@ func TestThresholdPollerDisabledRuleSkipped(t *testing.T) {
 	}
 }
 
-// TestEvaluateThresholdOp has been moved to pkg/alerts/threshold-event-data_test.go
+// TestEvaluateThresholdOp has been moved to internal/alerts/threshold-event-data_test.go
 // where the shared EvaluateThresholdOp function is defined and tested.
 
 // TestThresholdPollerStateCaching verifies that the poller caches alert state

@@ -144,23 +144,7 @@ func nodeSnapshotToProto(snap *node.NodeSnapshot) *nodeprotov1.NodeSnapshot {
 	}
 	processes := make([]*nodeprotov1.ProcessSnapshot, 0, len(snap.Processes))
 	for _, p := range snap.Processes {
-		processes = append(processes, &nodeprotov1.ProcessSnapshot{
-			Id:              p.ID,
-			Name:            p.Name,
-			Status:          p.Status,
-			UnixStartedAt:   p.UnixStartedAt,
-			CpuPercent:      p.CPUPercent,
-			CpuCores:        p.CPUCores,
-			MemoryRss:       p.MemoryRSS,
-			MemoryVms:       p.MemoryVMS,
-			MemoryPercent:   p.MemoryPercent,
-			NumThreads:      p.NumThreads,
-			DiskUsageBytes:  p.DiskUsageBytes,
-			IoReadRate:      p.IOReadRate,
-			IoWriteRate:     p.IOWriteRate,
-			ConnectionCount: p.ConnectionCount,
-			WorkingDir:      p.WorkingDir,
-		})
+		processes = append(processes, processSnapshotToProto(&p))
 	}
 	return &nodeprotov1.NodeSnapshot{
 		CpuModel:           snap.CPUModel,

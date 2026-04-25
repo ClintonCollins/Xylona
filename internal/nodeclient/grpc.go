@@ -1034,23 +1034,12 @@ func nodeSnapshotFromProto(snap *nodeprotov1.NodeSnapshot) *node.NodeSnapshot {
 		Collected: snap.GetCollected().AsTime(),
 	}
 	for _, p := range processes {
-		out.Processes = append(out.Processes, node.ProcessSnapshot{
-			ID:              p.GetId(),
-			Name:            p.GetName(),
-			Status:          p.GetStatus(),
-			UnixStartedAt:   p.GetUnixStartedAt(),
-			CPUPercent:      p.GetCpuPercent(),
-			CPUCores:        p.GetCpuCores(),
-			MemoryRSS:       p.GetMemoryRss(),
-			MemoryVMS:       p.GetMemoryVms(),
-			MemoryPercent:   p.GetMemoryPercent(),
-			NumThreads:      p.GetNumThreads(),
-			DiskUsageBytes:  p.GetDiskUsageBytes(),
-			IOReadRate:      p.GetIoReadRate(),
-			IOWriteRate:     p.GetIoWriteRate(),
-			ConnectionCount: p.GetConnectionCount(),
-			WorkingDir:      p.GetWorkingDir(),
-		})
+		processSnapshot := processSnapshotFromProto(p)
+		if processSnapshot == nil {
+			out.Processes = append(out.Processes, node.ProcessSnapshot{})
+			continue
+		}
+		out.Processes = append(out.Processes, *processSnapshot)
 	}
 	return out
 }

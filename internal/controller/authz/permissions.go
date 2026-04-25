@@ -1,3 +1,4 @@
+// Package authz contains controller authorization helpers.
 package authz
 
 import (
