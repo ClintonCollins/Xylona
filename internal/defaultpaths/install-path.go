@@ -9,9 +9,12 @@ import (
 )
 
 var (
-	ErrMissingUnixHomeUser       = errors.New("missing HOME or USER")
+	// ErrMissingUnixHomeUser reports that neither HOME nor USER is available.
+	ErrMissingUnixHomeUser = errors.New("missing HOME or USER")
+	// ErrMissingWindowsUserProfile reports that USERPROFILE is unavailable.
 	ErrMissingWindowsUserProfile = errors.New("missing USERPROFILE")
-	ErrUnsupportedOS             = errors.New("unsupported operating system")
+	// ErrUnsupportedOS reports that the host OS has no default install root.
+	ErrUnsupportedOS = errors.New("unsupported operating system")
 )
 
 // ResolveInstallPath resolves the default managed server root for a host OS.

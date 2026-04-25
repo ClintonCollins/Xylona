@@ -132,7 +132,7 @@ func (inst *Instance) ImportUploadedBackup(
 	uploadedArchivePath string,
 	originalFilename string,
 ) (*models.GameServerBackup, error) {
-	return inst.importUploadedBackup(gameServer, createdBy, originalFilename, uploadedBackupImportSource{
+	return inst.runUploadedBackupImport(gameServer, createdBy, originalFilename, uploadedBackupImportSource{
 		validateArchive: func() error {
 			return validateUploadedBackupArchive(uploadedArchivePath)
 		},
@@ -157,7 +157,7 @@ func (inst *Instance) ImportUploadedBackupBytes(
 	uploadedArchive []byte,
 	originalFilename string,
 ) (*models.GameServerBackup, error) {
-	return inst.importUploadedBackup(gameServer, createdBy, originalFilename, uploadedBackupImportSource{
+	return inst.runUploadedBackupImport(gameServer, createdBy, originalFilename, uploadedBackupImportSource{
 		validateArchive: func() error {
 			return validateUploadedBackupArchiveBytes(uploadedArchive)
 		},
@@ -170,7 +170,7 @@ func (inst *Instance) ImportUploadedBackupBytes(
 	})
 }
 
-func (inst *Instance) importUploadedBackup(
+func (inst *Instance) runUploadedBackupImport(
 	gameServer *models.GameServer,
 	createdBy string,
 	originalFilename string,

@@ -110,7 +110,7 @@ func resolveDefaultInstallPath(operatingSystem OSType, home string, user string,
 	if errors.Is(errResolve, defaultpaths.ErrUnsupportedOS) {
 		return "", fmt.Errorf("unsupported operating system: %s", operatingSystem)
 	}
-	return "", errResolve
+	return "", fmt.Errorf("resolve default install path: %w", errResolve)
 }
 
 // DefaultInstallPath returns the default root directory for managed servers.

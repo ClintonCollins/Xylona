@@ -91,7 +91,7 @@ func ResolveModelConfig(game *models.Game, server *models.GameServer) (updatepro
 
 	resolved, errResolve := updateproviders.ResolveConfig(cfg, LoadServerConfigFromModel(server))
 	if errResolve != nil {
-		return updateproviders.ResolvedConfig{}, errResolve
+		return updateproviders.ResolvedConfig{}, fmt.Errorf("resolve update provider config: %w", errResolve)
 	}
 
 	resolved.Target = normalizeTarget(resolved.Provider.Kind, resolved.Target)

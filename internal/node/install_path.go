@@ -31,7 +31,7 @@ func resolveDefaultInstallPath(goos, home, user, userProfile string) (string, er
 	if errors.Is(errResolve, defaultpaths.ErrUnsupportedOS) {
 		return "", fmt.Errorf("node: unsupported OS for default install path: %s", goos)
 	}
-	return "", errResolve
+	return "", fmt.Errorf("node: resolve default install path: %w", errResolve)
 }
 
 // DefaultInstallPath returns resolveDefaultInstallPath for the host process's
