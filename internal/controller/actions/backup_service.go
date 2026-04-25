@@ -118,6 +118,13 @@ func (inst *Instance) CreateManualBackup(gameServer *models.GameServer, createdB
 	return backup, nil
 }
 
+type uploadedBackupImportSource struct {
+	validateArchive           func() error
+	archiveSize               func() (int64, error)
+	storeArchive              func(archivePath string) error
+	ensureNamedLocalCollision bool
+}
+
 // ImportUploadedBackup validates and imports an uploaded zip archive into the managed backup catalog.
 func (inst *Instance) ImportUploadedBackup(
 	gameServer *models.GameServer,
@@ -125,82 +132,22 @@ func (inst *Instance) ImportUploadedBackup(
 	uploadedArchivePath string,
 	originalFilename string,
 ) (*models.GameServerBackup, error) {
-	backupDirectory, errValidate := inst.validateBackupCreateSettings(gameServer)
-	if errValidate != nil {
-		return nil, errValidate
-	}
-
-	fileExtension := filepath.Ext(strings.TrimSpace(originalFilename))
-	if !strings.EqualFold(fileExtension, ".zip") {
-		return nil, errUnsupportedBackupArchive
-	}
-
-	errValidateArchive := validateUploadedBackupArchive(uploadedArchivePath)
-	if errValidateArchive != nil {
-		return nil, errValidateArchive
-	}
-
-	archiveBaseName := strings.TrimSpace(strings.TrimSuffix(filepath.Base(originalFilename), fileExtension))
-	errValidateName := ValidateManualBackupName(archiveBaseName)
-	if errValidateName != nil {
-		archiveBaseName = ""
-	}
-
-	now := backupNowFunc().UTC()
-	archivePath, errArchivePath := inst.resolveUniqueBackupArchivePath(
-		gameServer,
-		backupDirectory,
-		now,
-		"manual",
-		archiveBaseName,
-	)
-	if errArchivePath != nil {
-		return nil, fmt.Errorf("actions: resolve imported backup archive path: %w", errArchivePath)
-	}
-	if archiveBaseName != "" && !inst.isRemoteGameServer(gameServer) {
-		errEnsurePath := ensureBackupArchivePathAvailable(inst.db, gameServer.ID, archivePath)
-		if errEnsurePath != nil {
-			return nil, errEnsurePath
-		}
-	}
-
-	archiveInfo, errStat := os.Stat(uploadedArchivePath)
-	if errStat != nil {
-		return nil, fmt.Errorf("actions: stat uploaded backup archive: %w", errStat)
-	}
-
-	errStore := inst.storeUploadedBackupArchive(gameServer, uploadedArchivePath, archivePath)
-	if errStore != nil {
-		return nil, errStore
-	}
-
-	completedAt := now
-	backup, errCreateRow := createGameServerBackupRow(inst.db, db.CreateGameServerBackupParams{
-		GameServerID:    gameServer.ID,
-		NodeID:          gameServer.NodeID,
-		CreatedBy:       createdBy,
-		TriggerSource:   "manual",
-		ArchivePath:     archivePath,
-		ArchiveRoot:     backupDirectory,
-		ArchiveFormat:   "zip",
-		Status:          "completed",
-		SizeBytes:       archiveInfo.Size(),
-		RetentionExempt: true,
-		CreatedAt:       now,
-		CompletedAt:     &completedAt,
+	return inst.importUploadedBackup(gameServer, createdBy, originalFilename, uploadedBackupImportSource{
+		validateArchive: func() error {
+			return validateUploadedBackupArchive(uploadedArchivePath)
+		},
+		archiveSize: func() (int64, error) {
+			archiveInfo, errStat := os.Stat(uploadedArchivePath)
+			if errStat != nil {
+				return 0, fmt.Errorf("actions: stat uploaded backup archive: %w", errStat)
+			}
+			return archiveInfo.Size(), nil
+		},
+		storeArchive: func(archivePath string) error {
+			return inst.storeUploadedBackupArchive(gameServer, uploadedArchivePath, archivePath)
+		},
+		ensureNamedLocalCollision: true,
 	})
-	if errCreateRow != nil {
-		errRemoveArchive := inst.removeBackupArchive(gameServer, archivePath)
-		if errRemoveArchive != nil {
-			return nil, errors.Join(
-				fmt.Errorf("actions: create imported backup row: %w", errCreateRow),
-				fmt.Errorf("actions: remove imported backup archive after row failure: %w", errRemoveArchive),
-			)
-		}
-		return nil, fmt.Errorf("actions: create imported backup row: %w", errCreateRow)
-	}
-
-	return backup, nil
 }
 
 // ImportUploadedBackupBytes validates and imports an uploaded zip archive already held in memory.
@@ -210,6 +157,25 @@ func (inst *Instance) ImportUploadedBackupBytes(
 	uploadedArchive []byte,
 	originalFilename string,
 ) (*models.GameServerBackup, error) {
+	return inst.importUploadedBackup(gameServer, createdBy, originalFilename, uploadedBackupImportSource{
+		validateArchive: func() error {
+			return validateUploadedBackupArchiveBytes(uploadedArchive)
+		},
+		archiveSize: func() (int64, error) {
+			return int64(len(uploadedArchive)), nil
+		},
+		storeArchive: func(archivePath string) error {
+			return inst.storeUploadedBackupArchiveBytes(gameServer, uploadedArchive, archivePath)
+		},
+	})
+}
+
+func (inst *Instance) importUploadedBackup(
+	gameServer *models.GameServer,
+	createdBy string,
+	originalFilename string,
+	source uploadedBackupImportSource,
+) (*models.GameServerBackup, error) {
 	backupDirectory, errValidate := inst.validateBackupCreateSettings(gameServer)
 	if errValidate != nil {
 		return nil, errValidate
@@ -220,16 +186,12 @@ func (inst *Instance) ImportUploadedBackupBytes(
 		return nil, errUnsupportedBackupArchive
 	}
 
-	errValidateArchive := validateUploadedBackupArchiveBytes(uploadedArchive)
+	errValidateArchive := source.validateArchive()
 	if errValidateArchive != nil {
 		return nil, errValidateArchive
 	}
 
-	archiveBaseName := strings.TrimSpace(strings.TrimSuffix(filepath.Base(originalFilename), fileExtension))
-	errValidateName := ValidateManualBackupName(archiveBaseName)
-	if errValidateName != nil {
-		archiveBaseName = ""
-	}
+	archiveBaseName := uploadedBackupArchiveBaseName(originalFilename, fileExtension)
 
 	now := backupNowFunc().UTC()
 	archivePath, errArchivePath := inst.resolveUniqueBackupArchivePath(
@@ -242,12 +204,43 @@ func (inst *Instance) ImportUploadedBackupBytes(
 	if errArchivePath != nil {
 		return nil, fmt.Errorf("actions: resolve imported backup archive path: %w", errArchivePath)
 	}
+	if source.ensureNamedLocalCollision && archiveBaseName != "" && !inst.isRemoteGameServer(gameServer) {
+		errEnsurePath := ensureBackupArchivePathAvailable(inst.db, gameServer.ID, archivePath)
+		if errEnsurePath != nil {
+			return nil, errEnsurePath
+		}
+	}
 
-	errStore := inst.storeUploadedBackupArchiveBytes(gameServer, uploadedArchive, archivePath)
+	archiveSize, errSize := source.archiveSize()
+	if errSize != nil {
+		return nil, errSize
+	}
+
+	errStore := source.storeArchive(archivePath)
 	if errStore != nil {
 		return nil, errStore
 	}
 
+	return inst.createImportedBackupRow(gameServer, createdBy, backupDirectory, archivePath, now, archiveSize)
+}
+
+func uploadedBackupArchiveBaseName(originalFilename string, fileExtension string) string {
+	archiveBaseName := strings.TrimSpace(strings.TrimSuffix(filepath.Base(originalFilename), fileExtension))
+	errValidateName := ValidateManualBackupName(archiveBaseName)
+	if errValidateName != nil {
+		return ""
+	}
+	return archiveBaseName
+}
+
+func (inst *Instance) createImportedBackupRow(
+	gameServer *models.GameServer,
+	createdBy string,
+	backupDirectory string,
+	archivePath string,
+	now time.Time,
+	sizeBytes int64,
+) (*models.GameServerBackup, error) {
 	completedAt := now
 	backup, errCreateRow := createGameServerBackupRow(inst.db, db.CreateGameServerBackupParams{
 		GameServerID:    gameServer.ID,
@@ -258,7 +251,7 @@ func (inst *Instance) ImportUploadedBackupBytes(
 		ArchiveRoot:     backupDirectory,
 		ArchiveFormat:   "zip",
 		Status:          "completed",
-		SizeBytes:       int64(len(uploadedArchive)),
+		SizeBytes:       sizeBytes,
 		RetentionExempt: true,
 		CreatedAt:       now,
 		CompletedAt:     &completedAt,
