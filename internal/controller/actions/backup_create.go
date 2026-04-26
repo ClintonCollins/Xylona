@@ -12,10 +12,13 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+type backupArchiveCreator interface {
+	CreateBackupArchive(ctx context.Context, directory string, includePaths []string, destinationArchivePath string) (int64, string, error)
+}
 
 // DefaultBackupDirectory returns the default root directory for stored backups.
 func DefaultBackupDirectory() (string, error) {
@@ -334,7 +337,7 @@ func (inst *Instance) produceBackupArchive(
 // produceBackupArchiveWithNodeClient creates and stores the archive on the owning node.
 func (inst *Instance) produceBackupArchiveWithNodeClient(
 	ctx context.Context,
-	client nodeclient.NodeClient,
+	client backupArchiveCreator,
 	gameServer *models.GameServer,
 	archivePath string,
 	onProgress backupArchiveProgressFunc,

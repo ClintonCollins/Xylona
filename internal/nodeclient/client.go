@@ -1,11 +1,10 @@
 // Package nodeclient defines the abstraction the Xylona controller uses to
 // talk to a node, regardless of whether the node is running in-process
-// (embedded) or across the network (remote gRPC node, introduced in Step 4).
+// (embedded) or across the network (remote gRPC node).
 //
 // The controller never holds a *supervisor.Instance or a *internal/node.Node
 // directly; it holds a NodeClient. For the embedded path this is a thin
-// in-process wrapper (inProcessNodeClient); for remote nodes it will be a
-// gRPC client implementation added in a later migration step.
+// in-process wrapper; for remote nodes it is a gRPC client.
 //
 // Method signatures use plain Go types from internal/node rather than proto types.
 // This keeps the interface stable even when the on-the-wire proto evolves.
@@ -21,8 +20,11 @@ import (
 
 // NodeClient is the controller-side handle to a single node (embedded or
 // remote). Each implementation is responsible for translating method calls
-// into the appropriate transport (direct method call for in-process, gRPC
-// for remote in Step 4).
+// into the appropriate transport: direct method calls for in-process nodes,
+// gRPC for remote nodes.
+//
+// Consumers that only need a small subset of node behavior should declare a
+// local consumer-side interface instead of accepting this full aggregate.
 //
 // Implementations MUST be safe for concurrent use by multiple goroutines.
 type NodeClient interface {
@@ -171,8 +173,6 @@ type NodeClient interface {
 	// StreamEvents returns a channel receiving events published by the node.
 	// The channel closes when ctx is canceled or the client is closed.
 	//
-	// Step 2 wires this up for the in-process path only; remote event
-	// streaming lands in Step 9.
 	StreamEvents(ctx context.Context) (<-chan node.Event, error)
 
 	// Ping verifies the client can reach the node. For the in-process
