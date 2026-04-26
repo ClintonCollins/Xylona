@@ -10,9 +10,12 @@ import (
 type StartFailureKind string
 
 const (
+	// StartFailureConfiguration means a user-fixable setting or node capability blocked the start.
 	StartFailureConfiguration StartFailureKind = "configuration"
-	StartFailureUnavailable   StartFailureKind = "unavailable"
-	StartFailureInternal      StartFailureKind = "internal"
+	// StartFailureUnavailable means the target node was not reachable.
+	StartFailureUnavailable StartFailureKind = "unavailable"
+	// StartFailureInternal means Xylona failed after configuration checks passed.
+	StartFailureInternal StartFailureKind = "internal"
 )
 
 // StartGameServerResult describes a successfully issued start request.

@@ -53,6 +53,7 @@ type userR struct {
 	AlertHistories                  AlertHistorySlice        // fk_alert_history_0
 	AlertRules                      AlertRuleSlice           // fk_alert_rule_2
 	GameServers                     GameServerSlice          // fk_game_server_3
+	UpdatedByUserGameServerSecrets  GameServerSecretSlice    // fk_game_server_secret_0
 	NotificationChannels            NotificationChannelSlice // fk_notification_channel_0
 	CreatedByScheduledTasks         ScheduledTaskSlice       // fk_scheduled_task_0
 	RequestedByUserSystemUpdateJobs SystemUpdateJobSlice     // fk_system_update_job_0
@@ -610,6 +611,25 @@ func (os UserSlice) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServe
 	)...)
 }
 
+// UpdatedByUserGameServerSecrets starts a query for related objects on game_server_secret
+func (o *User) UpdatedByUserGameServerSecrets(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSecretsQuery {
+	return GameServerSecrets.Query(append(mods,
+		sm.Where(GameServerSecrets.Columns.UpdatedByUserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) UpdatedByUserGameServerSecrets(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSecretsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerSecrets.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerSecrets.Columns.UpdatedByUserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // NotificationChannels starts a query for related objects on notification_channel
 func (o *User) NotificationChannels(mods ...bob.Mod[*dialect.SelectQuery]) NotificationChannelsQuery {
 	return NotificationChannels.Query(append(mods,
@@ -923,6 +943,74 @@ func (user0 *User) AttachGameServers(ctx context.Context, exec bob.Executor, rel
 
 	for _, rel := range related {
 		rel.R.User = user0
+	}
+
+	return nil
+}
+
+func insertUserUpdatedByUserGameServerSecrets0(ctx context.Context, exec bob.Executor, gameServerSecrets1 []*GameServerSecretSetter, user0 *User) (GameServerSecretSlice, error) {
+	for i := range gameServerSecrets1 {
+		gameServerSecrets1[i].UpdatedByUserID = omitnull.From(user0.ID)
+	}
+
+	ret, err := GameServerSecrets.Insert(bob.ToMods(gameServerSecrets1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserUpdatedByUserGameServerSecrets0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserUpdatedByUserGameServerSecrets0(ctx context.Context, exec bob.Executor, count int, gameServerSecrets1 GameServerSecretSlice, user0 *User) (GameServerSecretSlice, error) {
+	setter := &GameServerSecretSetter{
+		UpdatedByUserID: omitnull.From(user0.ID),
+	}
+
+	err := gameServerSecrets1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserUpdatedByUserGameServerSecrets0: %w", err)
+	}
+
+	return gameServerSecrets1, nil
+}
+
+func (user0 *User) InsertUpdatedByUserGameServerSecrets(ctx context.Context, exec bob.Executor, related ...*GameServerSecretSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerSecrets1, err := insertUserUpdatedByUserGameServerSecrets0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UpdatedByUserGameServerSecrets = append(user0.R.UpdatedByUserGameServerSecrets, gameServerSecrets1...)
+
+	for _, rel := range gameServerSecrets1 {
+		rel.R.UpdatedByUserUser = user0
+	}
+	return nil
+}
+
+func (user0 *User) AttachUpdatedByUserGameServerSecrets(ctx context.Context, exec bob.Executor, related ...*GameServerSecret) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerSecrets1 := GameServerSecretSlice(related)
+
+	_, err = attachUserUpdatedByUserGameServerSecrets0(ctx, exec, len(related), gameServerSecrets1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UpdatedByUserGameServerSecrets = append(user0.R.UpdatedByUserGameServerSecrets, gameServerSecrets1...)
+
+	for _, rel := range related {
+		rel.R.UpdatedByUserUser = user0
 	}
 
 	return nil
@@ -1416,6 +1504,20 @@ func (o *User) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "UpdatedByUserGameServerSecrets":
+		rels, ok := retrieved.(GameServerSecretSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.UpdatedByUserGameServerSecrets = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.UpdatedByUserUser = o
+			}
+		}
+		return nil
 	case "NotificationChannels":
 		rels, ok := retrieved.(NotificationChannelSlice)
 		if !ok {
@@ -1515,6 +1617,7 @@ type userThenLoader[Q orm.Loadable] struct {
 	AlertHistories                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	AlertRules                      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServers                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerSecrets  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	NotificationChannels            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	CreatedByScheduledTasks         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	RequestedByUserSystemUpdateJobs func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1532,6 +1635,9 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 	}
 	type GameServersLoadInterface interface {
 		LoadGameServers(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type UpdatedByUserGameServerSecretsLoadInterface interface {
+		LoadUpdatedByUserGameServerSecrets(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type NotificationChannelsLoadInterface interface {
 		LoadNotificationChannels(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1569,6 +1675,12 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 			"GameServers",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServersLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServers(ctx, exec, mods...)
+			},
+		),
+		UpdatedByUserGameServerSecrets: thenLoadBuilder[Q](
+			"UpdatedByUserGameServerSecrets",
+			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerSecretsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadUpdatedByUserGameServerSecrets(ctx, exec, mods...)
 			},
 		),
 		NotificationChannels: thenLoadBuilder[Q](
@@ -1787,6 +1899,70 @@ func (os UserSlice) LoadGameServers(ctx context.Context, exec bob.Executor, mods
 			rel.R.User = o
 
 			o.R.GameServers = append(o.R.GameServers, rel)
+		}
+	}
+
+	return nil
+}
+
+// LoadUpdatedByUserGameServerSecrets loads the user's UpdatedByUserGameServerSecrets into the .R struct
+func (o *User) LoadUpdatedByUserGameServerSecrets(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.UpdatedByUserGameServerSecrets = nil
+
+	related, err := o.UpdatedByUserGameServerSecrets(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.UpdatedByUserUser = o
+	}
+
+	o.R.UpdatedByUserGameServerSecrets = related
+	return nil
+}
+
+// LoadUpdatedByUserGameServerSecrets loads the user's UpdatedByUserGameServerSecrets into the .R struct
+func (os UserSlice) LoadUpdatedByUserGameServerSecrets(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerSecrets, err := os.UpdatedByUserGameServerSecrets(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.UpdatedByUserGameServerSecrets = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range gameServerSecrets {
+
+			if !rel.UpdatedByUserID.IsValue() {
+				continue
+			}
+			if !(rel.UpdatedByUserID.IsValue() && o.ID == rel.UpdatedByUserID.MustGet()) {
+				continue
+			}
+
+			rel.R.UpdatedByUserUser = o
+
+			o.R.UpdatedByUserGameServerSecrets = append(o.R.UpdatedByUserGameServerSecrets, rel)
 		}
 	}
 
@@ -2167,6 +2343,7 @@ type userJoins[Q dialect.Joinable] struct {
 	AlertHistories                  modAs[Q, alertHistoryColumns]
 	AlertRules                      modAs[Q, alertRuleColumns]
 	GameServers                     modAs[Q, gameServerColumns]
+	UpdatedByUserGameServerSecrets  modAs[Q, gameServerSecretColumns]
 	NotificationChannels            modAs[Q, notificationChannelColumns]
 	CreatedByScheduledTasks         modAs[Q, scheduledTaskColumns]
 	RequestedByUserSystemUpdateJobs modAs[Q, systemUpdateJobColumns]
@@ -2218,6 +2395,20 @@ func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServers.Name().As(to.Alias())).On(
 						to.UserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		UpdatedByUserGameServerSecrets: modAs[Q, gameServerSecretColumns]{
+			c: GameServerSecrets.Columns,
+			f: func(to gameServerSecretColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerSecrets.Name().As(to.Alias())).On(
+						to.UpdatedByUserID.EQ(cols.ID),
 					))
 				}
 

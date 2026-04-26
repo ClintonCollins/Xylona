@@ -7,8 +7,12 @@ import GameServerSettingsForm from './GameServerSettingsForm.vue'
 const mocks = vi.hoisted(() => ({
   back: vi.fn(),
   editGameServer: vi.fn(),
+  getGameServerEnvironment: vi.fn(),
   getGameServerBackupOverview: vi.fn(),
   getBackupSettings: vi.fn(),
+  updateGameServerEnvironment: vi.fn(),
+  setGameServerSecretEnv: vi.fn(),
+  clearGameServerSecretEnv: vi.fn(),
   updateBackupSettings: vi.fn(),
   initialize: vi.fn(),
   notify: vi.fn(),
@@ -24,8 +28,12 @@ vi.mock('@/utils/shared', async () => {
     ...actual,
     GetXylonaClient: () => ({
       editGameServer: mocks.editGameServer,
+      getGameServerEnvironment: mocks.getGameServerEnvironment,
       getGameServerBackupOverview: mocks.getGameServerBackupOverview,
       getBackupSettings: mocks.getBackupSettings,
+      updateGameServerEnvironment: mocks.updateGameServerEnvironment,
+      setGameServerSecretEnv: mocks.setGameServerSecretEnv,
+      clearGameServerSecretEnv: mocks.clearGameServerSecretEnv,
       updateBackupSettings: mocks.updateBackupSettings,
     }),
   }
@@ -110,8 +118,12 @@ describe('GameServerSettingsForm submit flow', () => {
   beforeEach(() => {
     mocks.back.mockReset()
     mocks.editGameServer.mockReset()
+    mocks.getGameServerEnvironment.mockReset()
     mocks.getGameServerBackupOverview.mockReset()
     mocks.getBackupSettings.mockReset()
+    mocks.updateGameServerEnvironment.mockReset()
+    mocks.setGameServerSecretEnv.mockReset()
+    mocks.clearGameServerSecretEnv.mockReset()
     mocks.updateBackupSettings.mockReset()
     mocks.initialize.mockReset()
     mocks.notify.mockReset()
@@ -138,6 +150,24 @@ describe('GameServerSettingsForm submit flow', () => {
         maxBackups: 10n,
         defaultBackupDirectory: 'C:\\\\default-backups',
       },
+    })
+    mocks.getGameServerEnvironment.mockResolvedValue({
+      serverEnv: [],
+      secretEnv: [],
+      validationIssues: [],
+    })
+    mocks.updateGameServerEnvironment.mockResolvedValue({
+      serverEnv: [],
+      effectiveEnv: [],
+      validationIssues: [],
+    })
+    mocks.setGameServerSecretEnv.mockResolvedValue({
+      secretEnv: [],
+      validationIssues: [],
+    })
+    mocks.clearGameServerSecretEnv.mockResolvedValue({
+      secretEnv: [],
+      validationIssues: [],
     })
     mocks.updateBackupSettings.mockResolvedValue({
       settings: {

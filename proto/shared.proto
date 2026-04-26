@@ -244,6 +244,22 @@ message GameServer {
   int64 auto_restart_cooldown_seconds = 56;
 }
 
+message EnvironmentVariable {
+  string name = 1;
+  string value = 2;
+}
+
+message SecretEnvironmentVariableState {
+  string name = 1;
+  bool configured = 2;
+  google.protobuf.Timestamp updated_at = 3;
+}
+
+message EnvironmentValidationIssue {
+  string name = 1;
+  string message = 2;
+}
+
 enum VersionStatus {
   VERSION_STATUS_NO_TRACKER = 0;
   VERSION_STATUS_UNCHECKED = 1;

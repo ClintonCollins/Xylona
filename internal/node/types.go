@@ -6,6 +6,7 @@ package node
 
 import (
 	"errors"
+	"maps"
 	"strings"
 	"time"
 )
@@ -90,9 +91,7 @@ func (p ProcessConfig) normalize() ProcessConfig {
 	}
 	if len(p.LaunchEnv) > 0 {
 		out.LaunchEnv = make(map[string]string, len(p.LaunchEnv))
-		for key, value := range p.LaunchEnv {
-			out.LaunchEnv[key] = value
-		}
+		maps.Copy(out.LaunchEnv, p.LaunchEnv)
 	}
 	if out.StopTimeout <= 0 {
 		out.StopTimeout = defaultStopTimeout

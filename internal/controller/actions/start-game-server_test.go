@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 
@@ -37,23 +36,81 @@ func TestStartGameServerPreservesServerNodeID(t *testing.T) {
 		versiontracker.ResolverConfig{},
 	)
 
-	gameServer := &models.GameServer{
-		ID:               "server-start-node-id",
-		UserID:           "user-start-node-id",
-		Name:             "Start Node ID Server",
-		GameID:           "game-start-node-id",
-		Directory:        t.TempDir(),
-		NodeID:           "node-local",
-		StartArgsPatches: "[]",
-	}
-	gameServer.R.Game = &models.Game{
-		LinuxBaseCommand:         "sh",
-		LinuxStartArgsTemplate:   null.From(`[{"id":"exit","order":1,"ownership":"editable","tokens":["-c","exit 0"]}]`),
-		WindowsBaseCommand:       "cmd",
-		WindowsStartArgsTemplate: null.From(`[{"id":"exit","order":1,"ownership":"editable","tokens":["/c","exit 0"]}]`),
+	_, errNode := conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)
+		 on conflict(id) do nothing`,
+		"node-local", "Local Node", "http://localhost:8080", true,
+	)
+	if errNode != nil {
+		t.Fatalf("insert node: %v", errNode)
 	}
 
-	inst.StartGameServer(gameServer)
+	_, errIP := conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into ip (address, usable, external, node_id) values (?, ?, ?, ?)
+		 on conflict(address, node_id) do nothing`,
+		"127.0.0.1", true, false, "node-local",
+	)
+	if errIP != nil {
+		t.Fatalf("insert ip: %v", errIP)
+	}
+
+	_, errUser := conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into user (id, user_name, email, first_name, last_name, password_hash, super_user, created_at, updated_at)
+		 values (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		 on conflict(id) do nothing`,
+		"user-start-node-id", "owner", "owner@example.com", "Owner", "User", "hash", false,
+	)
+	if errUser != nil {
+		t.Fatalf("insert user: %v", errUser)
+	}
+
+	_, errGame := conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into game
+		 (id, name, default_port, default_query_port, default_max_players, windows_support,
+		  linux_base_command, linux_start_args_template, windows_base_command, windows_start_args_template)
+		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 on conflict(id) do nothing`,
+		"game-start-node-id", "Start Node ID Game", 25565, 25565, 20, true,
+		"sh", `[{"id":"exit","order":1,"ownership":"editable","tokens":["-c","exit 0"]}]`,
+		"cmd", `[{"id":"exit","order":1,"ownership":"editable","tokens":["/c","exit 0"]}]`,
+	)
+	if errGame != nil {
+		t.Fatalf("insert game: %v", errGame)
+	}
+
+	_, errInsertServer := conn.InsertGameServer(conn.DB, &models.GameServerSetter{
+		ID:               omit.From("server-start-node-id"),
+		UserID:           omit.From("user-start-node-id"),
+		Name:             omit.From("Start Node ID Server"),
+		GameID:           omit.From("game-start-node-id"),
+		Status:           omit.From("OFFLINE"),
+		SetPlayers:       omit.From(int64(20)),
+		MaxPlayers:       omit.From(int64(20)),
+		Map:              omit.From("world"),
+		IP:               omit.From("127.0.0.1"),
+		Port:             omit.From(int64(25565)),
+		QueryPort:        omit.From(int64(25565)),
+		Directory:        omit.From(t.TempDir()),
+		NodeID:           omit.From("node-local"),
+		StartArgsPatches: omit.From("[]"),
+	})
+	if errInsertServer != nil {
+		t.Fatalf("InsertGameServer() error = %v", errInsertServer)
+	}
+
+	gameServer, errGetServer := conn.GetGameServerByID("server-start-node-id")
+	if errGetServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGetServer)
+	}
+
+	_, errStart := inst.StartGameServer(gameServer)
+	if errStart != nil {
+		t.Fatalf("StartGameServer() error = %v", errStart)
+	}
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {

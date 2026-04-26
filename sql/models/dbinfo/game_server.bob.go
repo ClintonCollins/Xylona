@@ -276,6 +276,15 @@ var GameServers = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		EnvVars: column{
+			Name:      "env_vars",
+			DBType:    "TEXT",
+			Default:   "'[]'",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameServerIndexes{
 		GameServerUserIDNameUniqueIndex: index{
@@ -389,11 +398,12 @@ type gameServerColumns struct {
 	AutoRestartEnabled         column
 	AutoRestartMaxRetries      column
 	AutoRestartCooldownSeconds column
+	EnvVars                    column
 }
 
 func (c gameServerColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches, c.AutoRestartEnabled, c.AutoRestartMaxRetries, c.AutoRestartCooldownSeconds,
+		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches, c.AutoRestartEnabled, c.AutoRestartMaxRetries, c.AutoRestartCooldownSeconds, c.EnvVars,
 	}
 }
 

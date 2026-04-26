@@ -163,6 +163,155 @@
         </div>
       </section>
 
+      <section class="form-section" data-testid="environment-settings-section">
+        <div class="section-header">
+          <span class="section-icon section-icon--accent">
+            <q-icon name="key" size="14px" />
+          </span>
+          <span class="section-title font-display">Environment</span>
+          <span class="section-line"></span>
+        </div>
+
+        <div
+          v-if="environmentLoading"
+          class="text-caption text-muted"
+          data-testid="environment-settings-loading">
+          Loading environment...
+        </div>
+
+        <template v-else>
+          <q-banner
+            v-if="environmentIssues.length > 0"
+            class="q-mb-md"
+            data-testid="environment-validation-issues"
+            dense
+            rounded>
+            <div v-for="issue in environmentIssues" :key="issue.name + issue.message">
+              {{ issue.message }}
+            </div>
+          </q-banner>
+
+          <div class="environment-grid">
+            <div class="environment-panel">
+              <div class="environment-panel-header">
+                <div class="environment-panel-title">Variables</div>
+                <q-btn
+                  color="primary"
+                  data-testid="add-environment-row"
+                  dense
+                  flat
+                  icon="add"
+                  round
+                  @click="addEnvironmentRow" />
+              </div>
+
+              <div
+                v-if="environmentRows.length === 0"
+                class="environment-empty text-caption text-muted"
+                data-testid="environment-empty">
+                No variables configured.
+              </div>
+
+              <div
+                v-for="(row, index) in environmentRows"
+                :key="index"
+                class="environment-row"
+                data-testid="environment-row">
+                <q-input
+                  v-model="row.name"
+                  class="environment-name-input"
+                  data-testid="environment-name"
+                  dense
+                  label="Name"
+                  outlined />
+                <q-input
+                  v-model="row.value"
+                  class="environment-value-input"
+                  data-testid="environment-value"
+                  dense
+                  label="Value"
+                  outlined />
+                <q-btn
+                  color="negative"
+                  data-testid="remove-environment-row"
+                  dense
+                  flat
+                  icon="delete"
+                  round
+                  @click="removeEnvironmentRow(index)" />
+              </div>
+
+              <div class="environment-actions">
+                <q-btn
+                  :loading="environmentSaving"
+                  color="primary"
+                  data-testid="save-environment-settings"
+                  label="Save Variables"
+                  no-caps
+                  @click="saveEnvironmentSettings" />
+              </div>
+            </div>
+
+            <div class="environment-panel">
+              <div class="environment-panel-header">
+                <div class="environment-panel-title">Secrets</div>
+              </div>
+
+              <div
+                v-if="secretEnvironmentStates.length === 0"
+                class="environment-empty text-caption text-muted"
+                data-testid="secret-environment-empty">
+                No secrets configured.
+              </div>
+
+              <div
+                v-for="secret in secretEnvironmentStates"
+                :key="secret.name"
+                class="secret-environment-row"
+                data-testid="secret-environment-row">
+                <div class="secret-environment-summary">
+                  <div class="secret-environment-name">{{ secret.name }}</div>
+                  <div class="secret-environment-updated text-caption text-muted">
+                    {{ formatSecretUpdatedAt(secret) }}
+                  </div>
+                </div>
+                <q-btn
+                  color="negative"
+                  data-testid="clear-secret-environment"
+                  dense
+                  flat
+                  icon="delete"
+                  round
+                  @click="clearSecretEnvironment(secret.name)" />
+              </div>
+
+              <div class="secret-environment-editor">
+                <q-input
+                  v-model="secretEnvironmentName"
+                  data-testid="secret-environment-name"
+                  dense
+                  label="Name"
+                  outlined />
+                <q-input
+                  v-model="secretEnvironmentValue"
+                  data-testid="secret-environment-value"
+                  dense
+                  label="Value"
+                  outlined
+                  type="password" />
+                <q-btn
+                  :loading="secretEnvironmentSaving"
+                  color="primary"
+                  data-testid="set-secret-environment"
+                  label="Set Secret"
+                  no-caps
+                  @click="setSecretEnvironment" />
+              </div>
+            </div>
+          </div>
+        </template>
+      </section>
+
       <section class="form-section">
         <div class="section-header">
           <span class="section-icon section-icon--warning">
@@ -350,17 +499,29 @@ import { useRouter } from 'vue-router'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import GameServerFormShell from './GameServerFormShell.vue'
 import GameServerProvisioningContext from './GameServerProvisioningContext.vue'
+import { formatProtoTimestamp } from './game-server-access-utils'
 import { useGameServerFormState } from './useGameServerFormState'
-import type { BackupSettings, GameServerBackupOverview } from '@/proto/shared_pb'
+import type {
+  BackupSettings,
+  EnvironmentValidationIssue,
+  EnvironmentVariable,
+  GameServerBackupOverview,
+  SecretEnvironmentVariableState,
+} from '@/proto/shared_pb'
 import {
   BackupSettingsSchema,
   EditGameServerRequest,
   EditGameServerRequestSchema,
+  EnvironmentVariableSchema,
   GameServerBackupOverviewSchema,
 } from '@/proto/shared_pb'
 import {
+  ClearGameServerSecretEnvRequestSchema,
   GetBackupSettingsRequestSchema,
+  GetGameServerEnvironmentRequestSchema,
   GetGameServerBackupOverviewRequestSchema,
+  SetGameServerSecretEnvRequestSchema,
+  UpdateGameServerEnvironmentRequestSchema,
   UpdateBackupSettingsRequestSchema,
 } from '@/proto/xylona_pb'
 
@@ -375,6 +536,14 @@ const backupSettings = ref<BackupSettings>(create(BackupSettingsSchema))
 const backupOverview = ref<GameServerBackupOverview>(create(GameServerBackupOverviewSchema))
 const backupSettingsLoading = ref(true)
 const backupSettingsSaving = ref(false)
+const environmentRows = ref<EnvironmentVariable[]>([])
+const environmentIssues = ref<EnvironmentValidationIssue[]>([])
+const environmentLoading = ref(true)
+const environmentSaving = ref(false)
+const secretEnvironmentStates = ref<SecretEnvironmentVariableState[]>([])
+const secretEnvironmentName = ref('')
+const secretEnvironmentValue = ref('')
+const secretEnvironmentSaving = ref(false)
 
 const {
   autoRestartCooldownModel,
@@ -425,7 +594,7 @@ const {
 
 onMounted(async () => {
   await initialize()
-  await initializeBackupSettings()
+  await Promise.all([initializeBackupSettings(), initializeEnvironmentSettings()])
 })
 
 async function cancel() {
@@ -470,6 +639,157 @@ async function initializeBackupSettings() {
   } finally {
     backupSettingsLoading.value = false
   }
+}
+
+async function initializeEnvironmentSettings() {
+  environmentLoading.value = true
+
+  try {
+    const response = await GetXylonaClient().getGameServerEnvironment(
+      create(GetGameServerEnvironmentRequestSchema, {
+        serverId: props.gameServerId,
+      }),
+    )
+
+    environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
+    environmentIssues.value = response.validationIssues
+    secretEnvironmentStates.value = response.secretEnv
+  } catch (e) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to load environment: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    environmentLoading.value = false
+  }
+}
+
+function cloneEnvironmentVariables(variables: EnvironmentVariable[]): EnvironmentVariable[] {
+  return variables.map((variable) =>
+    create(EnvironmentVariableSchema, {
+      name: variable.name,
+      value: variable.value,
+    }),
+  )
+}
+
+function addEnvironmentRow(): void {
+  environmentRows.value.push(create(EnvironmentVariableSchema))
+}
+
+function removeEnvironmentRow(index: number): void {
+  environmentRows.value.splice(index, 1)
+}
+
+async function saveEnvironmentSettings() {
+  environmentSaving.value = true
+  try {
+    const envVars = environmentRows.value.map((row) =>
+      create(EnvironmentVariableSchema, {
+        name: row.name.trim(),
+        value: row.value,
+      }),
+    )
+
+    const response = await GetXylonaClient().updateGameServerEnvironment(
+      create(UpdateGameServerEnvironmentRequestSchema, {
+        serverId: props.gameServerId,
+        envVars,
+      }),
+    )
+
+    environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
+    environmentIssues.value = response.validationIssues
+    await initializeEnvironmentSettings()
+    $q.notify({
+      type: 'positive',
+      position: 'top',
+      caption: 'Environment variables saved successfully.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to save environment: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    environmentSaving.value = false
+  }
+}
+
+async function setSecretEnvironment() {
+  secretEnvironmentSaving.value = true
+  try {
+    const response = await GetXylonaClient().setGameServerSecretEnv(
+      create(SetGameServerSecretEnvRequestSchema, {
+        serverId: props.gameServerId,
+        name: secretEnvironmentName.value.trim(),
+        value: secretEnvironmentValue.value,
+      }),
+    )
+
+    secretEnvironmentStates.value = response.secretEnv
+    environmentIssues.value = response.validationIssues
+    secretEnvironmentValue.value = ''
+    await initializeEnvironmentSettings()
+    $q.notify({
+      type: 'positive',
+      position: 'top',
+      caption: 'Secret saved successfully.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to save secret: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    secretEnvironmentSaving.value = false
+  }
+}
+
+async function clearSecretEnvironment(name: string) {
+  secretEnvironmentSaving.value = true
+  try {
+    const response = await GetXylonaClient().clearGameServerSecretEnv(
+      create(ClearGameServerSecretEnvRequestSchema, {
+        serverId: props.gameServerId,
+        name,
+      }),
+    )
+
+    secretEnvironmentStates.value = response.secretEnv
+    environmentIssues.value = response.validationIssues
+    await initializeEnvironmentSettings()
+    $q.notify({
+      type: 'positive',
+      position: 'top',
+      caption: 'Secret cleared successfully.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to clear secret: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    secretEnvironmentSaving.value = false
+  }
+}
+
+function formatSecretUpdatedAt(secret: SecretEnvironmentVariableState): string {
+  if (!secret.configured) {
+    return 'Not configured'
+  }
+  return formatProtoTimestamp(secret.updatedAt)
 }
 
 function updateBackupMaxBackups(value: string | number | null): void {
@@ -556,3 +876,92 @@ async function submitGameServer() {
   }
 }
 </script>
+
+<style scoped>
+.environment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: var(--xy-space-md);
+}
+
+.environment-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-sm);
+  min-width: 0;
+}
+
+.environment-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+}
+
+.environment-panel-title {
+  color: var(--xy-text-emphasis-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.environment-empty {
+  padding: var(--xy-space-sm) 0;
+}
+
+.environment-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(160px, 1fr) auto;
+  gap: var(--xy-space-sm);
+  align-items: start;
+}
+
+.environment-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.secret-environment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+  min-height: 40px;
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.secret-environment-summary {
+  min-width: 0;
+}
+
+.secret-environment-name {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.secret-environment-updated {
+  line-height: 1.3;
+}
+
+.secret-environment-editor {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(160px, 1fr) auto;
+  gap: var(--xy-space-sm);
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .environment-row,
+  .secret-environment-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .environment-row :deep(.q-btn),
+  .secret-environment-editor :deep(.q-btn) {
+    justify-self: flex-start;
+  }
+}
+</style>

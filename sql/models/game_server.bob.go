@@ -54,6 +54,7 @@ type GameServer struct {
 	AutoRestartEnabled         bool             `db:"auto_restart_enabled" `
 	AutoRestartMaxRetries      int64            `db:"auto_restart_max_retries" `
 	AutoRestartCooldownSeconds int64            `db:"auto_restart_cooldown_seconds" `
+	EnvVars                    string           `db:"env_vars" `
 
 	R gameServerR `db:"-" `
 }
@@ -76,6 +77,7 @@ type gameServerR struct {
 	User                       *User                         // fk_game_server_3
 	GameServerBackups          GameServerBackupSlice         // fk_game_server_backup_1
 	GameServerMetricsHistories GameServerMetricsHistorySlice // fk_game_server_metrics_history_0
+	GameServerSecrets          GameServerSecretSlice         // fk_game_server_secret_1
 	InstalledMods              InstalledModSlice             // fk_installed_mod_0
 	ScheduledTasks             ScheduledTaskSlice            // fk_scheduled_task_1
 	UserRoleAssignments        UserRoleAssignmentSlice       // fk_user_role_assignment_1
@@ -84,7 +86,7 @@ type gameServerR struct {
 func buildGameServerColumns(alias string) gameServerColumns {
 	return gameServerColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds",
+			"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars",
 		).WithParent("game_server"),
 		tableAlias:                 alias,
 		ID:                         sqlite.Quote(alias, "id"),
@@ -116,6 +118,7 @@ func buildGameServerColumns(alias string) gameServerColumns {
 		AutoRestartEnabled:         sqlite.Quote(alias, "auto_restart_enabled"),
 		AutoRestartMaxRetries:      sqlite.Quote(alias, "auto_restart_max_retries"),
 		AutoRestartCooldownSeconds: sqlite.Quote(alias, "auto_restart_cooldown_seconds"),
+		EnvVars:                    sqlite.Quote(alias, "env_vars"),
 	}
 }
 
@@ -151,6 +154,7 @@ type gameServerColumns struct {
 	AutoRestartEnabled         sqlite.Expression
 	AutoRestartMaxRetries      sqlite.Expression
 	AutoRestartCooldownSeconds sqlite.Expression
+	EnvVars                    sqlite.Expression
 }
 
 func (c gameServerColumns) Alias() string {
@@ -194,10 +198,11 @@ type GameServerSetter struct {
 	AutoRestartEnabled         omit.Val[bool]       `db:"auto_restart_enabled" `
 	AutoRestartMaxRetries      omit.Val[int64]      `db:"auto_restart_max_retries" `
 	AutoRestartCooldownSeconds omit.Val[int64]      `db:"auto_restart_cooldown_seconds" `
+	EnvVars                    omit.Val[string]     `db:"env_vars" `
 }
 
 func (s GameServerSetter) SetColumns() []string {
-	vals := make([]string, 0, 29)
+	vals := make([]string, 0, 30)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -284,6 +289,9 @@ func (s GameServerSetter) SetColumns() []string {
 	}
 	if s.AutoRestartCooldownSeconds.IsValue() {
 		vals = append(vals, "auto_restart_cooldown_seconds")
+	}
+	if s.EnvVars.IsValue() {
+		vals = append(vals, "env_vars")
 	}
 	return vals
 }
@@ -376,6 +384,9 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	if s.AutoRestartCooldownSeconds.IsValue() {
 		t.AutoRestartCooldownSeconds = s.AutoRestartCooldownSeconds.MustGet()
 	}
+	if s.EnvVars.IsValue() {
+		t.EnvVars = s.EnvVars.MustGet()
+	}
 }
 
 func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
@@ -392,7 +403,7 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 29)
+		vals := make([]bob.Expression, 0, 30)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -509,6 +520,10 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.AutoRestartCooldownSeconds.MustGet()))
 		}
 
+		if s.EnvVars.IsValue() {
+			vals = append(vals, sqlite.Arg(s.EnvVars.MustGet()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -522,7 +537,7 @@ func (s GameServerSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 29)
+	exprs := make([]bob.Expression, 0, 30)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -724,6 +739,13 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "auto_restart_cooldown_seconds")...),
 			sqlite.Arg(s.AutoRestartCooldownSeconds),
+		}})
+	}
+
+	if s.EnvVars.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "env_vars")...),
+			sqlite.Arg(s.EnvVars),
 		}})
 	}
 
@@ -1064,6 +1086,25 @@ func (os GameServerSlice) GameServerMetricsHistories(mods ...bob.Mod[*dialect.Se
 
 	return GameServerMetricsHistories.Query(append(mods,
 		sm.Where(sqlite.Group(GameServerMetricsHistories.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// GameServerSecrets starts a query for related objects on game_server_secret
+func (o *GameServer) GameServerSecrets(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSecretsQuery {
+	return GameServerSecrets.Query(append(mods,
+		sm.Where(GameServerSecrets.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerSecrets(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSecretsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerSecrets.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerSecrets.Columns.GameServerID).OP("IN", PKArgExpr)),
 	)...)
 }
 
@@ -1453,6 +1494,74 @@ func (gameServer0 *GameServer) AttachGameServerMetricsHistories(ctx context.Cont
 	return nil
 }
 
+func insertGameServerGameServerSecrets0(ctx context.Context, exec bob.Executor, gameServerSecrets1 []*GameServerSecretSetter, gameServer0 *GameServer) (GameServerSecretSlice, error) {
+	for i := range gameServerSecrets1 {
+		gameServerSecrets1[i].GameServerID = omit.From(gameServer0.ID)
+	}
+
+	ret, err := GameServerSecrets.Insert(bob.ToMods(gameServerSecrets1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerSecrets0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerSecrets0(ctx context.Context, exec bob.Executor, count int, gameServerSecrets1 GameServerSecretSlice, gameServer0 *GameServer) (GameServerSecretSlice, error) {
+	setter := &GameServerSecretSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerSecrets1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerSecrets0: %w", err)
+	}
+
+	return gameServerSecrets1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerSecrets(ctx context.Context, exec bob.Executor, related ...*GameServerSecretSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerSecrets1, err := insertGameServerGameServerSecrets0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerSecrets = append(gameServer0.R.GameServerSecrets, gameServerSecrets1...)
+
+	for _, rel := range gameServerSecrets1 {
+		rel.R.GameServer = gameServer0
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerSecrets(ctx context.Context, exec bob.Executor, related ...*GameServerSecret) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerSecrets1 := GameServerSecretSlice(related)
+
+	_, err = attachGameServerGameServerSecrets0(ctx, exec, len(related), gameServerSecrets1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerSecrets = append(gameServer0.R.GameServerSecrets, gameServerSecrets1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+	}
+
+	return nil
+}
+
 func insertGameServerInstalledMods0(ctx context.Context, exec bob.Executor, installedMods1 []*InstalledModSetter, gameServer0 *GameServer) (InstalledModSlice, error) {
 	for i := range installedMods1 {
 		installedMods1[i].GameServerID = omit.From(gameServer0.ID)
@@ -1687,6 +1796,7 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	AutoRestartEnabled         sqlite.WhereMod[Q, bool]
 	AutoRestartMaxRetries      sqlite.WhereMod[Q, int64]
 	AutoRestartCooldownSeconds sqlite.WhereMod[Q, int64]
+	EnvVars                    sqlite.WhereMod[Q, string]
 }
 
 func (gameServerWhere[Q]) AliasedAs(alias string) gameServerWhere[Q] {
@@ -1724,6 +1834,7 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		AutoRestartEnabled:         sqlite.Where[Q, bool](cols.AutoRestartEnabled),
 		AutoRestartMaxRetries:      sqlite.Where[Q, int64](cols.AutoRestartMaxRetries),
 		AutoRestartCooldownSeconds: sqlite.Where[Q, int64](cols.AutoRestartCooldownSeconds),
+		EnvVars:                    sqlite.Where[Q, string](cols.EnvVars),
 	}
 }
 
@@ -1802,6 +1913,20 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 		}
 
 		o.R.GameServerMetricsHistories = rels
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+			}
+		}
+		return nil
+	case "GameServerSecrets":
+		rels, ok := retrieved.(GameServerSecretSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerSecrets = rels
 
 		for _, rel := range rels {
 			if rel != nil {
@@ -1927,6 +2052,7 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 	User                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerBackups          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerSecrets          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	ScheduledTasks             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	UserRoleAssignments        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -1950,6 +2076,9 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 	type GameServerMetricsHistoriesLoadInterface interface {
 		LoadGameServerMetricsHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerSecretsLoadInterface interface {
+		LoadGameServerSecrets(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type InstalledModsLoadInterface interface {
 		LoadInstalledMods(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1996,6 +2125,12 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 			"GameServerMetricsHistories",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerMetricsHistoriesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServerMetricsHistories(ctx, exec, mods...)
+			},
+		),
+		GameServerSecrets: thenLoadBuilder[Q](
+			"GameServerSecrets",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerSecretsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerSecrets(ctx, exec, mods...)
 			},
 		),
 		InstalledMods: thenLoadBuilder[Q](
@@ -2353,6 +2488,67 @@ func (os GameServerSlice) LoadGameServerMetricsHistories(ctx context.Context, ex
 	return nil
 }
 
+// LoadGameServerSecrets loads the gameServer's GameServerSecrets into the .R struct
+func (o *GameServer) LoadGameServerSecrets(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerSecrets = nil
+
+	related, err := o.GameServerSecrets(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+	}
+
+	o.R.GameServerSecrets = related
+	return nil
+}
+
+// LoadGameServerSecrets loads the gameServer's GameServerSecrets into the .R struct
+func (os GameServerSlice) LoadGameServerSecrets(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerSecrets, err := os.GameServerSecrets(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerSecrets = nil
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		for _, rel := range gameServerSecrets {
+
+			if !(o.ID == rel.GameServerID) {
+				continue
+			}
+
+			rel.R.GameServer = o
+
+			o.R.GameServerSecrets = append(o.R.GameServerSecrets, rel)
+		}
+	}
+
+	return nil
+}
+
 // LoadInstalledMods loads the gameServer's InstalledMods into the .R struct
 func (o *GameServer) LoadInstalledMods(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2547,6 +2743,7 @@ type gameServerJoins[Q dialect.Joinable] struct {
 	User                       modAs[Q, userColumns]
 	GameServerBackups          modAs[Q, gameServerBackupColumns]
 	GameServerMetricsHistories modAs[Q, gameServerMetricsHistoryColumns]
+	GameServerSecrets          modAs[Q, gameServerSecretColumns]
 	InstalledMods              modAs[Q, installedModColumns]
 	ScheduledTasks             modAs[Q, scheduledTaskColumns]
 	UserRoleAssignments        modAs[Q, userRoleAssignmentColumns]
@@ -2636,6 +2833,20 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServerMetricsHistories.Name().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerSecrets: modAs[Q, gameServerSecretColumns]{
+			c: GameServerSecrets.Columns,
+			f: func(to gameServerSecretColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerSecrets.Name().As(to.Alias())).On(
 						to.GameServerID.EQ(cols.ID),
 					))
 				}

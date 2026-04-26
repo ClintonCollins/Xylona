@@ -55,6 +55,10 @@ service Xylona {
   rpc GetGameServer (GetGameServerRequest) returns (GetGameServerResponse) {}
   rpc UpdateGameServer (UpdateGameServerRequest) returns (UpdateGameServerResponse) {}
   rpc UpdateGameServerStartArgs (UpdateGameServerStartArgsRequest) returns (UpdateGameServerStartArgsResponse) {}
+  rpc GetGameServerEnvironment (GetGameServerEnvironmentRequest) returns (GetGameServerEnvironmentResponse) {}
+  rpc UpdateGameServerEnvironment (UpdateGameServerEnvironmentRequest) returns (UpdateGameServerEnvironmentResponse) {}
+  rpc SetGameServerSecretEnv (SetGameServerSecretEnvRequest) returns (SetGameServerSecretEnvResponse) {}
+  rpc ClearGameServerSecretEnv (ClearGameServerSecretEnvRequest) returns (ClearGameServerSecretEnvResponse) {}
   //  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
   //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
@@ -427,6 +431,50 @@ message UpdateGameServerStartArgsRequest {
 
 message UpdateGameServerStartArgsResponse {
   GameServer game_server = 1;
+}
+
+message GetGameServerEnvironmentRequest {
+  string server_id = 1;
+}
+
+message GetGameServerEnvironmentResponse {
+  repeated EnvironmentVariable game_default_env = 1;
+  repeated EnvironmentVariable server_env = 2;
+  repeated EnvironmentVariable effective_env = 3;
+  repeated SecretEnvironmentVariableState secret_env = 4;
+  repeated EnvironmentValidationIssue validation_issues = 5;
+}
+
+message UpdateGameServerEnvironmentRequest {
+  string server_id = 1;
+  repeated EnvironmentVariable env_vars = 2;
+}
+
+message UpdateGameServerEnvironmentResponse {
+  repeated EnvironmentVariable server_env = 1;
+  repeated EnvironmentVariable effective_env = 2;
+  repeated EnvironmentValidationIssue validation_issues = 3;
+}
+
+message SetGameServerSecretEnvRequest {
+  string server_id = 1;
+  string name = 2;
+  string value = 3;
+}
+
+message SetGameServerSecretEnvResponse {
+  repeated SecretEnvironmentVariableState secret_env = 1;
+  repeated EnvironmentValidationIssue validation_issues = 2;
+}
+
+message ClearGameServerSecretEnvRequest {
+  string server_id = 1;
+  string name = 2;
+}
+
+message ClearGameServerSecretEnvResponse {
+  repeated SecretEnvironmentVariableState secret_env = 1;
+  repeated EnvironmentValidationIssue validation_issues = 2;
 }
 
 message SetServerVariantRequest {

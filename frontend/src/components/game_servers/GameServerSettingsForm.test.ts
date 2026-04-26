@@ -15,8 +15,12 @@ import GameServerSettingsForm from './GameServerSettingsForm.vue'
 
 const mocks = vi.hoisted(() => ({
   getGameServer: vi.fn(),
+  getGameServerEnvironment: vi.fn(),
   getGameServerBackupOverview: vi.fn(),
   getBackupSettings: vi.fn(),
+  updateGameServerEnvironment: vi.fn(),
+  setGameServerSecretEnv: vi.fn(),
+  clearGameServerSecretEnv: vi.fn(),
   updateBackupSettings: vi.fn(),
   listGames: vi.fn(),
   listNodes: vi.fn(),
@@ -37,8 +41,12 @@ vi.mock('@/utils/shared', async () => {
   return {
     ...actual,
     GetXylonaClient: () => ({
+      getGameServerEnvironment: mocks.getGameServerEnvironment,
       getGameServerBackupOverview: mocks.getGameServerBackupOverview,
       getBackupSettings: mocks.getBackupSettings,
+      updateGameServerEnvironment: mocks.updateGameServerEnvironment,
+      setGameServerSecretEnv: mocks.setGameServerSecretEnv,
+      clearGameServerSecretEnv: mocks.clearGameServerSecretEnv,
       updateBackupSettings: mocks.updateBackupSettings,
       editGameServer: vi.fn(),
     }),
@@ -97,6 +105,7 @@ function mountSettingsForm(canEditProvisioning: boolean) {
     global: {
       stubs: {
         'q-form': { template: '<form><slot /></form>' },
+        'q-banner': { template: '<div><slot /></div>' },
         'q-input': QInputStub,
         'q-select': QSelectStub,
         'q-btn': { template: '<button><slot />{{ label }}</button>', props: ['label'] },
@@ -121,8 +130,12 @@ describe('GameServerSettingsForm', () => {
     )
 
     mocks.getGameServer.mockReset()
+    mocks.getGameServerEnvironment.mockReset()
     mocks.getGameServerBackupOverview.mockReset()
     mocks.getBackupSettings.mockReset()
+    mocks.updateGameServerEnvironment.mockReset()
+    mocks.setGameServerSecretEnv.mockReset()
+    mocks.clearGameServerSecretEnv.mockReset()
     mocks.updateBackupSettings.mockReset()
     mocks.listGames.mockReset()
     mocks.listNodes.mockReset()
@@ -171,6 +184,24 @@ describe('GameServerSettingsForm', () => {
         maxBackups: 10n,
         defaultBackupDirectory: 'C:\\\\default-backups',
       }),
+    })
+    mocks.getGameServerEnvironment.mockResolvedValue({
+      serverEnv: [],
+      secretEnv: [],
+      validationIssues: [],
+    })
+    mocks.updateGameServerEnvironment.mockResolvedValue({
+      serverEnv: [],
+      effectiveEnv: [],
+      validationIssues: [],
+    })
+    mocks.setGameServerSecretEnv.mockResolvedValue({
+      secretEnv: [],
+      validationIssues: [],
+    })
+    mocks.clearGameServerSecretEnv.mockResolvedValue({
+      secretEnv: [],
+      validationIssues: [],
     })
   })
 

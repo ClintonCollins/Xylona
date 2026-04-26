@@ -237,6 +237,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		MaxMemoryMB:               omit.From(gameServer.MaxMemoryMB),
 		BackupsEnabled:            omit.From(gameServer.BackupsEnabled),
 		SteamGameServerLoginToken: omit.From(gameServer.SteamGameServerLoginToken),
+		EnvVars:                   omit.From("[]"),
 		BackupDirectory:           omit.From(gameServer.BackupDirectory),
 		MaxBackups:                omit.From(gameServer.MaxBackups),
 		NodeID:                    omit.From(gameServer.NodeID),
@@ -461,6 +462,23 @@ func (inst *Instance) postInstallStep(gameServer *models.GameServer) error {
 // processes via the same surface; exit handling is driven by the status-
 // change eventbus subscriber.
 func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGameServerResult, error) {
+	if gameServer == nil {
+		return nil, startConfigurationError("game server is missing", errors.New("game server is nil"))
+	}
+
+	reloadedGameServer, errReload := inst.reloadGameServerForStart(gameServer)
+	if errReload != nil {
+		inst.reportStartFailure(gameServer, "Failed to load server start configuration: "+errReload.Error())
+		return nil, startInternalError("failed to load server start configuration", errReload)
+	}
+	gameServer = reloadedGameServer
+
+	normalLaunchEnv, secretLaunchEnvStates, errLaunchEnvMetadata := inst.loadStartLaunchEnvMetadata(gameServer)
+	if errLaunchEnvMetadata != nil {
+		inst.reportStartFailure(gameServer, "Launch environment is invalid: "+errLaunchEnvMetadata.Error())
+		return nil, startConfigurationError("launch environment is invalid", errLaunchEnvMetadata)
+	}
+
 	// Run pre-start config enforcement before launching the process.
 	inst.runConfigPreStart(gameServer)
 	// Run mod auto-updates before launching the process.
@@ -499,11 +517,18 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		}
 	}
 
-	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, cfg.LaunchEnv)
+	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, startLaunchEnvRequired(normalLaunchEnv, secretLaunchEnvStates))
 	if errLaunchEnvSupported != nil {
 		inst.reportStartFailure(gameServer, errLaunchEnvSupported.Error())
 		return nil, errLaunchEnvSupported
 	}
+
+	launchEnv, errLaunchEnv := inst.decryptStartLaunchEnv(gameServer, normalLaunchEnv)
+	if errLaunchEnv != nil {
+		inst.reportStartFailure(gameServer, "Launch environment could not be loaded: "+errLaunchEnv.Error())
+		return nil, startConfigurationError("launch environment could not be loaded", errLaunchEnv)
+	}
+	cfg.LaunchEnv = launchEnv
 
 	errStart := client.StartProcess(inst.ctx, cfg, xylona.Status_ONLINE)
 	if errStart != nil {
@@ -517,8 +542,8 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	return &StartGameServerResult{Started: true}, nil
 }
 
-func (inst *Instance) ensureLaunchEnvSupported(client nodeclient.NodeClient, launchEnv map[string]string) error {
-	if len(launchEnv) == 0 {
+func (inst *Instance) ensureLaunchEnvSupported(client nodeclient.NodeClient, required bool) error {
+	if !required {
 		return nil
 	}
 	caps, errCaps := client.GetRuntimeCapabilities(inst.ctx)

@@ -24,6 +24,7 @@ func Where[Q sqlite.Filterable]() struct {
 	GameServers                gameServerWhere[Q]
 	GameServerBackups          gameServerBackupWhere[Q]
 	GameServerMetricsHistories gameServerMetricsHistoryWhere[Q]
+	GameServerSecrets          gameServerSecretWhere[Q]
 	InstalledMods              installedModWhere[Q]
 	InstalledModFiles          installedModFileWhere[Q]
 	Ips                        ipWhere[Q]
@@ -54,6 +55,7 @@ func Where[Q sqlite.Filterable]() struct {
 		GameServers                gameServerWhere[Q]
 		GameServerBackups          gameServerBackupWhere[Q]
 		GameServerMetricsHistories gameServerMetricsHistoryWhere[Q]
+		GameServerSecrets          gameServerSecretWhere[Q]
 		InstalledMods              installedModWhere[Q]
 		InstalledModFiles          installedModFileWhere[Q]
 		Ips                        ipWhere[Q]
@@ -83,6 +85,7 @@ func Where[Q sqlite.Filterable]() struct {
 		GameServers:                buildGameServerWhere[Q](GameServers.Columns),
 		GameServerBackups:          buildGameServerBackupWhere[Q](GameServerBackups.Columns),
 		GameServerMetricsHistories: buildGameServerMetricsHistoryWhere[Q](GameServerMetricsHistories.Columns),
+		GameServerSecrets:          buildGameServerSecretWhere[Q](GameServerSecrets.Columns),
 		InstalledMods:              buildInstalledModWhere[Q](InstalledMods.Columns),
 		InstalledModFiles:          buildInstalledModFileWhere[Q](InstalledModFiles.Columns),
 		Ips:                        buildIPWhere[Q](Ips.Columns),

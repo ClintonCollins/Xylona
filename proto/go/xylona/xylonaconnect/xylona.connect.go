@@ -121,6 +121,18 @@ const (
 	// XylonaUpdateGameServerStartArgsProcedure is the fully-qualified name of the Xylona's
 	// UpdateGameServerStartArgs RPC.
 	XylonaUpdateGameServerStartArgsProcedure = "/xylona.Xylona/UpdateGameServerStartArgs"
+	// XylonaGetGameServerEnvironmentProcedure is the fully-qualified name of the Xylona's
+	// GetGameServerEnvironment RPC.
+	XylonaGetGameServerEnvironmentProcedure = "/xylona.Xylona/GetGameServerEnvironment"
+	// XylonaUpdateGameServerEnvironmentProcedure is the fully-qualified name of the Xylona's
+	// UpdateGameServerEnvironment RPC.
+	XylonaUpdateGameServerEnvironmentProcedure = "/xylona.Xylona/UpdateGameServerEnvironment"
+	// XylonaSetGameServerSecretEnvProcedure is the fully-qualified name of the Xylona's
+	// SetGameServerSecretEnv RPC.
+	XylonaSetGameServerSecretEnvProcedure = "/xylona.Xylona/SetGameServerSecretEnv"
+	// XylonaClearGameServerSecretEnvProcedure is the fully-qualified name of the Xylona's
+	// ClearGameServerSecretEnv RPC.
+	XylonaClearGameServerSecretEnvProcedure = "/xylona.Xylona/ClearGameServerSecretEnv"
 	// XylonaListGameServersProcedure is the fully-qualified name of the Xylona's ListGameServers RPC.
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
 	// XylonaQueryGameServerProcedure is the fully-qualified name of the Xylona's QueryGameServer RPC.
@@ -374,6 +386,10 @@ type XylonaClient interface {
 	GetGameServer(context.Context, *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error)
 	UpdateGameServer(context.Context, *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error)
 	UpdateGameServerStartArgs(context.Context, *connect.Request[xylona.UpdateGameServerStartArgsRequest]) (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error)
+	GetGameServerEnvironment(context.Context, *connect.Request[xylona.GetGameServerEnvironmentRequest]) (*connect.Response[xylona.GetGameServerEnvironmentResponse], error)
+	UpdateGameServerEnvironment(context.Context, *connect.Request[xylona.UpdateGameServerEnvironmentRequest]) (*connect.Response[xylona.UpdateGameServerEnvironmentResponse], error)
+	SetGameServerSecretEnv(context.Context, *connect.Request[xylona.SetGameServerSecretEnvRequest]) (*connect.Response[xylona.SetGameServerSecretEnvResponse], error)
+	ClearGameServerSecretEnv(context.Context, *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error)
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
@@ -715,6 +731,30 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaUpdateGameServerStartArgsProcedure,
 			connect.WithSchema(xylonaMethods.ByName("UpdateGameServerStartArgs")),
+			connect.WithClientOptions(opts...),
+		),
+		getGameServerEnvironment: connect.NewClient[xylona.GetGameServerEnvironmentRequest, xylona.GetGameServerEnvironmentResponse](
+			httpClient,
+			baseURL+XylonaGetGameServerEnvironmentProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameServerEnvironment")),
+			connect.WithClientOptions(opts...),
+		),
+		updateGameServerEnvironment: connect.NewClient[xylona.UpdateGameServerEnvironmentRequest, xylona.UpdateGameServerEnvironmentResponse](
+			httpClient,
+			baseURL+XylonaUpdateGameServerEnvironmentProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateGameServerEnvironment")),
+			connect.WithClientOptions(opts...),
+		),
+		setGameServerSecretEnv: connect.NewClient[xylona.SetGameServerSecretEnvRequest, xylona.SetGameServerSecretEnvResponse](
+			httpClient,
+			baseURL+XylonaSetGameServerSecretEnvProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetGameServerSecretEnv")),
+			connect.WithClientOptions(opts...),
+		),
+		clearGameServerSecretEnv: connect.NewClient[xylona.ClearGameServerSecretEnvRequest, xylona.ClearGameServerSecretEnvResponse](
+			httpClient,
+			baseURL+XylonaClearGameServerSecretEnvProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ClearGameServerSecretEnv")),
 			connect.WithClientOptions(opts...),
 		),
 		listGameServers: connect.NewClient[xylona.ListGameServersRequest, xylona.ListGameServersResponse](
@@ -1223,6 +1263,10 @@ type xylonaClient struct {
 	getGameServer                    *connect.Client[xylona.GetGameServerRequest, xylona.GetGameServerResponse]
 	updateGameServer                 *connect.Client[xylona.UpdateGameServerRequest, xylona.UpdateGameServerResponse]
 	updateGameServerStartArgs        *connect.Client[xylona.UpdateGameServerStartArgsRequest, xylona.UpdateGameServerStartArgsResponse]
+	getGameServerEnvironment         *connect.Client[xylona.GetGameServerEnvironmentRequest, xylona.GetGameServerEnvironmentResponse]
+	updateGameServerEnvironment      *connect.Client[xylona.UpdateGameServerEnvironmentRequest, xylona.UpdateGameServerEnvironmentResponse]
+	setGameServerSecretEnv           *connect.Client[xylona.SetGameServerSecretEnvRequest, xylona.SetGameServerSecretEnvResponse]
+	clearGameServerSecretEnv         *connect.Client[xylona.ClearGameServerSecretEnvRequest, xylona.ClearGameServerSecretEnvResponse]
 	listGameServers                  *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
 	queryGameServer                  *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
 	getUpdateTargets                 *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
@@ -1495,6 +1539,26 @@ func (c *xylonaClient) UpdateGameServer(ctx context.Context, req *connect.Reques
 // UpdateGameServerStartArgs calls xylona.Xylona.UpdateGameServerStartArgs.
 func (c *xylonaClient) UpdateGameServerStartArgs(ctx context.Context, req *connect.Request[xylona.UpdateGameServerStartArgsRequest]) (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error) {
 	return c.updateGameServerStartArgs.CallUnary(ctx, req)
+}
+
+// GetGameServerEnvironment calls xylona.Xylona.GetGameServerEnvironment.
+func (c *xylonaClient) GetGameServerEnvironment(ctx context.Context, req *connect.Request[xylona.GetGameServerEnvironmentRequest]) (*connect.Response[xylona.GetGameServerEnvironmentResponse], error) {
+	return c.getGameServerEnvironment.CallUnary(ctx, req)
+}
+
+// UpdateGameServerEnvironment calls xylona.Xylona.UpdateGameServerEnvironment.
+func (c *xylonaClient) UpdateGameServerEnvironment(ctx context.Context, req *connect.Request[xylona.UpdateGameServerEnvironmentRequest]) (*connect.Response[xylona.UpdateGameServerEnvironmentResponse], error) {
+	return c.updateGameServerEnvironment.CallUnary(ctx, req)
+}
+
+// SetGameServerSecretEnv calls xylona.Xylona.SetGameServerSecretEnv.
+func (c *xylonaClient) SetGameServerSecretEnv(ctx context.Context, req *connect.Request[xylona.SetGameServerSecretEnvRequest]) (*connect.Response[xylona.SetGameServerSecretEnvResponse], error) {
+	return c.setGameServerSecretEnv.CallUnary(ctx, req)
+}
+
+// ClearGameServerSecretEnv calls xylona.Xylona.ClearGameServerSecretEnv.
+func (c *xylonaClient) ClearGameServerSecretEnv(ctx context.Context, req *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error) {
+	return c.clearGameServerSecretEnv.CallUnary(ctx, req)
 }
 
 // ListGameServers calls xylona.Xylona.ListGameServers.
@@ -1928,6 +1992,10 @@ type XylonaHandler interface {
 	GetGameServer(context.Context, *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error)
 	UpdateGameServer(context.Context, *connect.Request[xylona.UpdateGameServerRequest]) (*connect.Response[xylona.UpdateGameServerResponse], error)
 	UpdateGameServerStartArgs(context.Context, *connect.Request[xylona.UpdateGameServerStartArgsRequest]) (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error)
+	GetGameServerEnvironment(context.Context, *connect.Request[xylona.GetGameServerEnvironmentRequest]) (*connect.Response[xylona.GetGameServerEnvironmentResponse], error)
+	UpdateGameServerEnvironment(context.Context, *connect.Request[xylona.UpdateGameServerEnvironmentRequest]) (*connect.Response[xylona.UpdateGameServerEnvironmentResponse], error)
+	SetGameServerSecretEnv(context.Context, *connect.Request[xylona.SetGameServerSecretEnvRequest]) (*connect.Response[xylona.SetGameServerSecretEnvResponse], error)
+	ClearGameServerSecretEnv(context.Context, *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error)
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
@@ -2265,6 +2333,30 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaUpdateGameServerStartArgsProcedure,
 		svc.UpdateGameServerStartArgs,
 		connect.WithSchema(xylonaMethods.ByName("UpdateGameServerStartArgs")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetGameServerEnvironmentHandler := connect.NewUnaryHandler(
+		XylonaGetGameServerEnvironmentProcedure,
+		svc.GetGameServerEnvironment,
+		connect.WithSchema(xylonaMethods.ByName("GetGameServerEnvironment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateGameServerEnvironmentHandler := connect.NewUnaryHandler(
+		XylonaUpdateGameServerEnvironmentProcedure,
+		svc.UpdateGameServerEnvironment,
+		connect.WithSchema(xylonaMethods.ByName("UpdateGameServerEnvironment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetGameServerSecretEnvHandler := connect.NewUnaryHandler(
+		XylonaSetGameServerSecretEnvProcedure,
+		svc.SetGameServerSecretEnv,
+		connect.WithSchema(xylonaMethods.ByName("SetGameServerSecretEnv")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaClearGameServerSecretEnvHandler := connect.NewUnaryHandler(
+		XylonaClearGameServerSecretEnvProcedure,
+		svc.ClearGameServerSecretEnv,
+		connect.WithSchema(xylonaMethods.ByName("ClearGameServerSecretEnv")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListGameServersHandler := connect.NewUnaryHandler(
@@ -2809,6 +2901,14 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaUpdateGameServerHandler.ServeHTTP(w, r)
 		case XylonaUpdateGameServerStartArgsProcedure:
 			xylonaUpdateGameServerStartArgsHandler.ServeHTTP(w, r)
+		case XylonaGetGameServerEnvironmentProcedure:
+			xylonaGetGameServerEnvironmentHandler.ServeHTTP(w, r)
+		case XylonaUpdateGameServerEnvironmentProcedure:
+			xylonaUpdateGameServerEnvironmentHandler.ServeHTTP(w, r)
+		case XylonaSetGameServerSecretEnvProcedure:
+			xylonaSetGameServerSecretEnvHandler.ServeHTTP(w, r)
+		case XylonaClearGameServerSecretEnvProcedure:
+			xylonaClearGameServerSecretEnvHandler.ServeHTTP(w, r)
 		case XylonaListGameServersProcedure:
 			xylonaListGameServersHandler.ServeHTTP(w, r)
 		case XylonaQueryGameServerProcedure:
@@ -3126,6 +3226,22 @@ func (UnimplementedXylonaHandler) UpdateGameServer(context.Context, *connect.Req
 
 func (UnimplementedXylonaHandler) UpdateGameServerStartArgs(context.Context, *connect.Request[xylona.UpdateGameServerStartArgsRequest]) (*connect.Response[xylona.UpdateGameServerStartArgsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateGameServerStartArgs is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameServerEnvironment(context.Context, *connect.Request[xylona.GetGameServerEnvironmentRequest]) (*connect.Response[xylona.GetGameServerEnvironmentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerEnvironment is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateGameServerEnvironment(context.Context, *connect.Request[xylona.UpdateGameServerEnvironmentRequest]) (*connect.Response[xylona.UpdateGameServerEnvironmentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateGameServerEnvironment is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetGameServerSecretEnv(context.Context, *connect.Request[xylona.SetGameServerSecretEnvRequest]) (*connect.Response[xylona.SetGameServerSecretEnvResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetGameServerSecretEnv is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ClearGameServerSecretEnv(context.Context, *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ClearGameServerSecretEnv is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {

@@ -11,7 +11,7 @@
 
 - [x] Phase 0: Start contract prerequisite
 - [x] Phase 1: Secret-safe launch env plumbing
-- [ ] Phase 2: Per-server env + secret env
+- [x] Phase 2: Per-server env + secret env
 - [ ] Phase 3: Game default normal env
 - [ ] Update readiness plan
 - [ ] Final validation
@@ -53,11 +53,11 @@
 
 ## Phase 2: Per-Server Env + Secret Env
 
-- [ ] Add `game_server.env_vars text not null default '[]'`.
-- [ ] Run `mage GenerateModels` after the SQL migration because `game_server` is generated-model-backed.
-- [ ] Use generated models for `game_server.env_vars` in existing setters/converters.
+- [x] Add `game_server.env_vars text not null default '[]'`.
+- [x] Run `mage GenerateModels` after the SQL migration because `game_server` is generated-model-backed.
+- [x] Use generated models for `game_server.env_vars` in existing setters/converters.
 
-- [ ] Add `game_server_secret` table:
+- [x] Add `game_server_secret` table:
   - primary key `(game_server_id, kind, name)`
   - FK to `game_server` with cascade delete
   - `value_encrypted` text not null
@@ -66,30 +66,30 @@
   - `updated_at`
   - no `public_data` in v1
   - no SQLite `kind` check; allowed kinds enforced by typed Go helpers
-- [ ] Initial secret kind is `env`, where `name` is the env var name.
-- [ ] Add small DB helper methods for encrypted secret env:
+- [x] Initial secret kind is `env`, where `name` is the env var name.
+- [x] Add small DB helper methods for encrypted secret env:
   - set/replace
   - clear
   - list configured state
   - decrypt for launch only
-- [ ] Keep secret helper transactions responsible for encryption/decryption and timestamp updates.
+- [x] Keep secret helper transactions responsible for encryption/decryption and timestamp updates.
 
-- [ ] Add public proto message `EnvironmentVariable { string name; string value; }` for environment RPC payloads.
-- [ ] Do not add server env values to broad `GameServer` or game-server list payloads.
-- [ ] Add server environment RPCs:
+- [x] Add public proto message `EnvironmentVariable { string name; string value; }` for environment RPC payloads.
+- [x] Do not add server env values to broad `GameServer` or game-server list payloads.
+- [x] Add server environment RPCs:
   - `GetGameServerEnvironment(server_id)`
   - `UpdateGameServerEnvironment(server_id, repeated EnvironmentVariable env_vars)`
   - `SetGameServerSecretEnv(server_id, name, value)`
   - `ClearGameServerSecretEnv(server_id, name)`
-- [ ] `GetGameServerEnvironment` returns:
+- [x] `GetGameServerEnvironment` returns:
   - game default env
   - server env
   - effective normal env
   - secret env states `{name, configured, updated_at}`
   - validation/conflict status for values that would block start
-- [ ] `GetGameServerEnvironment` requires server settings permission because normal values and secret key names can be sensitive.
-- [ ] Server env mutation requires server settings permission plus either superuser or `game.allow_start_arg_editing`.
-- [ ] Secret values are never returned by any RPC.
+- [x] `GetGameServerEnvironment` requires server settings permission because normal values and secret key names can be sensitive.
+- [x] Server env mutation requires server settings permission plus either superuser or `game.allow_start_arg_editing`.
+- [x] Secret values are never returned by any RPC.
 
 ## Phase 3: Game Default Normal Env
 
@@ -110,21 +110,21 @@
 
 ## Validation Rules
 
-- [ ] Add a small package such as `internal/controller/launchenv` for parsing, validation, merge, and redaction helpers.
-- [ ] Store normal env JSON as an array of `{name,value}` to keep UI order stable.
-- [ ] Validate names for normal and secret env:
+- [x] Add a small package such as `internal/controller/launchenv` for parsing, validation, merge, and redaction helpers.
+- [x] Store normal env JSON as an array of `{name,value}` to keep UI order stable.
+- [x] Validate names for normal and secret env:
   - portable regex `^[A-Za-z_][A-Za-z0-9_]*$`
   - max name length `128`
   - no NUL/control characters
   - case-insensitive uniqueness within each stored list
-- [ ] Validate values:
+- [x] Validate values:
   - max value length `4096` bytes
   - no NUL bytes
   - empty string allowed as an explicit value
-- [ ] Limit each normal/secret list to `64` entries.
-- [ ] Enforce a conservative merged custom env size cap, for example `16 KiB`.
-- [ ] Keep the final Windows environment block below the platform limit.
-- [ ] Deny dangerous env names/prefixes case-insensitively:
+- [x] Limit each normal/secret list to `64` entries.
+- [x] Enforce a conservative merged custom env size cap, for example `16 KiB`.
+- [x] Keep the final Windows environment block below the platform limit.
+- [x] Deny dangerous env names/prefixes case-insensitively:
   - `PATH`
   - `COMSPEC`
   - `SYSTEMROOT`
@@ -136,38 +136,38 @@
   - `_JAVA_OPTIONS`
   - `NODE_OPTIONS`
   - `PYTHONPATH`
-- [ ] Keep the deny list exact and test-covered; do not rely on vague “similar variables” logic.
+- [x] Keep the deny list exact and test-covered; do not rely on vague “similar variables” logic.
 
 ## Merge Rules
 
 - [ ] Game default normal env can be overridden by per-server normal env.
-- [ ] Secret env names cannot duplicate the effective normal env.
+- [x] Secret env names cannot duplicate the effective normal env.
 - [ ] Future readiness launch-only env names cannot duplicate user normal/secret env names.
-- [ ] No secret-overrides-normal behavior in v1; duplicates are validation/configuration errors.
+- [x] No secret-overrides-normal behavior in v1; duplicates are validation/configuration errors.
 
 ## Controller Start Flow
 
-- [ ] `StartGameServer` reloads game server, game relation, normal env JSON, and secret env metadata inside the action path.
-- [ ] Resolve the target node client and runtime capabilities before decrypting secret env values.
-- [ ] If effective normal env or secret env exists and the node lacks `launch_env`, return a configuration/capability block before decrypting secrets.
-- [ ] Run config pre-start and mod updates as today.
-- [ ] Resolve command/args as today.
-- [ ] Decrypt user-managed secret env only after capability checks pass and immediately before launch.
+- [x] `StartGameServer` reloads game server, game relation, normal env JSON, and secret env metadata inside the action path.
+- [x] Resolve the target node client and runtime capabilities before decrypting secret env values.
+- [x] If effective normal env or secret env exists and the node lacks `launch_env`, return a configuration/capability block before decrypting secrets.
+- [x] Run config pre-start and mod updates as today.
+- [x] Resolve command/args as today.
+- [x] Decrypt user-managed secret env only after capability checks pass and immediately before launch.
 - [ ] Merge game default env, per-server normal env, and user-managed secret env into one final `LaunchEnv` map.
 - [ ] Later readiness/auth work may append launch-only env into the final map immediately before launch after its own capability checks.
-- [ ] Pass only the final `LaunchEnv` to `client.StartProcess`.
+- [x] Pass only the final `LaunchEnv` to `client.StartProcess`.
 
 ## Frontend
 
-- [ ] Add one advanced Environment section to game-server settings.
-- [ ] Include a compact table for visible per-server normal env vars.
-- [ ] Include a compact secret env manager:
+- [x] Add one advanced Environment section to game-server settings.
+- [x] Include a compact table for visible per-server normal env vars.
+- [x] Include a compact secret env manager:
   - list secret key names and configured state only
   - set/replace one secret value
   - clear one secret value
   - never display saved secret values
 - [ ] Add optional game default env editing to game edit UI in a compact table.
-- [ ] Do not build inheritance graphs, required flags, templates, scopes, or policy controls.
+- [x] Do not build inheritance graphs, required flags, templates, scopes, or policy controls.
 
 ## Readiness Plan Update After Implementation
 
@@ -191,33 +191,33 @@
 ## Test Plan
 
 - [ ] Backend:
-  - start contract propagation for env/capability blocks
-  - runtime capability RPC
-  - old remote node `Unimplemented` fail-closed behavior
-  - normal env validation, ordering, persistence, and merge behavior
+  - [x] start contract propagation for env/capability blocks
+  - [x] runtime capability RPC
+  - [x] old remote node `Unimplemented` fail-closed behavior
+  - [x] normal env validation, ordering, persistence, and merge behavior
   - game default env import/export and canonical hash behavior
-  - secret env set/clear/list status
-  - secret env encryption at rest
-  - `created_at` preservation and `updated_at` bump behavior
-  - secret values never returned by RPCs or logs
-  - permission checks for view/update/secret mutation
-  - launch env reaches child process
-  - launch env is not retained on snapshots or command state
-  - `exec.Cmd.Env` is cleared after successful process start
-  - launch env applies only to `Status_ONLINE` runtime starts
-  - capability checked before secret decrypt
+  - [x] secret env set/clear/list status
+  - [x] secret env encryption at rest
+  - [x] `created_at` preservation and `updated_at` bump behavior
+  - [x] secret values never returned by RPCs or logs
+  - [x] permission checks for view/update/secret mutation
+  - [x] launch env reaches child process
+  - [x] launch env is not retained on snapshots or command state
+  - [x] `exec.Cmd.Env` is cleared after successful process start
+  - [x] launch env applies only to `Status_ONLINE` runtime starts
+  - [x] capability checked before secret decrypt
 
 - [ ] Frontend:
-  - advanced server env section
-  - normal env table validation
-  - secret env set/clear/status behavior
+  - [x] advanced server env section
+  - [x] normal env table validation
+  - [x] secret env set/clear/status behavior
   - game default env editor
   - saved secret values never echoed
 
 - [ ] Validation:
-  - `mage GenerateProto`
-  - `mage GenerateModels`
-  - focused `go test -race -count=1` packages
+  - [x] `mage GenerateProto`
+  - [x] `mage GenerateModels`
+  - [x] focused `go test -race -count=1` packages
   - final `go test -race -count=1 ./...`
   - `golangci-lint run ./...`
   - from `frontend/`: `bun run lint`

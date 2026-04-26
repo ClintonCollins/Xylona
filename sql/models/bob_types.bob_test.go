@@ -29,6 +29,9 @@ var _ bob.HookableType = &GameServerBackup{}
 // Make sure the type GameServerMetricsHistory runs hooks after queries
 var _ bob.HookableType = &GameServerMetricsHistory{}
 
+// Make sure the type GameServerSecret runs hooks after queries
+var _ bob.HookableType = &GameServerSecret{}
+
 // Make sure the type InstalledMod runs hooks after queries
 var _ bob.HookableType = &InstalledMod{}
 
