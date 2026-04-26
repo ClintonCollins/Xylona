@@ -75,6 +75,7 @@ type PreparedCommand struct {
 	// StopTimeout overrides the default 15-second graceful-stop timeout.
 	// When zero the default is used.
 	StopTimeout time.Duration
+	LaunchEnv   map[string]string
 }
 
 func (imt inputType) String() string {
@@ -256,6 +257,11 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 		}
 		return
 	}
+	command.Lock()
+	if command.currentCMD == currentCMD {
+		command.currentCMD.Env = nil
+	}
+	command.Unlock()
 
 	log.Debug().Str("Command ID", command.ID).Str("Exec", fullCommandStr).Msg("Command started")
 	command.sendJobStatusNotification(xylona.Status_OFFLINE, command.status)

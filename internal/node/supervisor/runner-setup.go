@@ -95,7 +95,7 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		preparedCommand.Args...,
 	)
 	cmd.Dir = preparedCommand.WorkingDirectory
-	cmd.Env = buildChildEnvironment(CurrentRuntime, os.Environ())
+	cmd.Env = appendLaunchEnvironment(buildChildEnvironment(CurrentRuntime, os.Environ()), preparedCommand.LaunchEnv)
 
 	stdOutPipe, stdErrPipe, err := inst.setupCmdPipes(newCommand, cmd)
 	if err != nil {

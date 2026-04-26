@@ -45,6 +45,7 @@ type ProcessConfig struct {
 	NodeID           string
 	ServiceID        string
 	StopTimeout      time.Duration
+	LaunchEnv        map[string]string
 
 	// InputTelnet, when non-zero, configures the process to receive console
 	// input over telnet (used by games like 7 Days to Die that don't accept
@@ -86,6 +87,12 @@ func (p ProcessConfig) normalize() ProcessConfig {
 	out.BaseCommand = strings.TrimSpace(p.BaseCommand)
 	if len(p.Args) > 0 {
 		out.Args = append([]string(nil), p.Args...)
+	}
+	if len(p.LaunchEnv) > 0 {
+		out.LaunchEnv = make(map[string]string, len(p.LaunchEnv))
+		for key, value := range p.LaunchEnv {
+			out.LaunchEnv[key] = value
+		}
 	}
 	if out.StopTimeout <= 0 {
 		out.StopTimeout = defaultStopTimeout

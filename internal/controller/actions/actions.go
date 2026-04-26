@@ -499,6 +499,12 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		}
 	}
 
+	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, cfg.LaunchEnv)
+	if errLaunchEnvSupported != nil {
+		inst.reportStartFailure(gameServer, errLaunchEnvSupported.Error())
+		return nil, errLaunchEnvSupported
+	}
+
 	errStart := client.StartProcess(inst.ctx, cfg, xylona.Status_ONLINE)
 	if errStart != nil {
 		log.Error().Err(errStart).Str("game_server_id", gameServer.ID).
@@ -509,6 +515,20 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	inst.intentionalStops.clear(gameServer.ID)
 	inst.restartState.recordStarted(gameServer.ID)
 	return &StartGameServerResult{Started: true}, nil
+}
+
+func (inst *Instance) ensureLaunchEnvSupported(client nodeclient.NodeClient, launchEnv map[string]string) error {
+	if len(launchEnv) == 0 {
+		return nil
+	}
+	caps, errCaps := client.GetRuntimeCapabilities(inst.ctx)
+	if errCaps != nil {
+		return startUnavailableError("target node runtime capabilities unavailable", errCaps)
+	}
+	if !caps.LaunchEnv {
+		return startConfigurationError("target node does not support launch environment variables", nil)
+	}
+	return nil
 }
 
 // resolveNodeClient looks up the NodeClient for a node ID. When the

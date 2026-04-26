@@ -189,6 +189,7 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 		NodeID:           msg.GetNodeId(),
 		ServiceID:        msg.GetServiceId(),
 		StopTimeout:      time.Duration(msg.GetStopTimeoutSeconds()) * time.Second,
+		LaunchEnv:        cloneStringMap(msg.GetLaunchEnv()),
 	}
 	if msg.GetInternalCommand() {
 		// Internal commands dispatch to a registered Game implementation
@@ -213,6 +214,17 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 		return nil, translate(errStart)
 	}
 	return connect.NewResponse(&nodeprotov1.StartProcessResponse{ProcessId: cfg.ID}), nil
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(values))
+	for key, value := range values {
+		out[key] = value
+	}
+	return out
 }
 
 func (s *nodeServiceServer) StopProcess(_ context.Context, req *connect.Request[nodeprotov1.StopProcessRequest]) (*connect.Response[nodeprotov1.StopProcessResponse], error) {
@@ -1033,6 +1045,21 @@ func (s *nodeServiceServer) Ping(_ context.Context, req *connect.Request[nodepro
 		return nil, errAuth
 	}
 	return connect.NewResponse(&nodeprotov1.PingResponse{ServerTime: timestamppb.Now()}), nil
+}
+
+func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *connect.Request[nodeprotov1.GetRuntimeCapabilitiesRequest]) (*connect.Response[nodeprotov1.GetRuntimeCapabilitiesResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	caps := s.n.RuntimeCapabilities()
+	return connect.NewResponse(&nodeprotov1.GetRuntimeCapabilitiesResponse{
+		ProtocolVersion: caps.ProtocolVersion,
+		LaunchEnv:       caps.LaunchEnv,
+	}), nil
 }
 
 func (s *nodeServiceServer) GetUpdateCapabilities(_ context.Context, req *connect.Request[nodeprotov1.GetUpdateCapabilitiesRequest]) (*connect.Response[nodeprotov1.GetUpdateCapabilitiesResponse], error) {

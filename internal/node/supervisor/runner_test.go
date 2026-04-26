@@ -26,6 +26,13 @@ func shellCommandArgs(command string) (string, []string) {
 	return "sh", []string{"-c", command}
 }
 
+func launchEnvProbeCommand(key string) (string, []string) {
+	if runtime.GOOS == "windows" {
+		return shellCommandArgs("echo %" + key + "% & ping -n 3 127.0.0.1 >NUL")
+	}
+	return shellCommandArgs("printf '%s\n' \"$" + key + "\"; sleep 2")
+}
+
 func TestStartCommand(t *testing.T) {
 	ctx := t.Context()
 
@@ -100,6 +107,56 @@ func TestCommandOutputListener(t *testing.T) {
 			t.Fatal("Timed out waiting for listener message")
 		}
 	}
+}
+
+func TestLaunchEnvReachesChildAndIsClearedAfterStart(t *testing.T) {
+	ctx := t.Context()
+
+	inst, errNew := New(ctx)
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor: %v", errNew)
+	}
+
+	const envKey = "XYLONA_LAUNCH_ENV_TEST"
+	const envValue = "launch-value"
+	baseCommand, args := launchEnvProbeCommand(envKey)
+
+	cmd, errStart := inst.StartCommand(PreparedCommand{
+		ID:          "launch-env-running-test",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
+		LaunchEnv: map[string]string{
+			envKey: envValue,
+		},
+	})
+	if errStart != nil {
+		t.Fatalf("StartCommand() error = %v", errStart)
+	}
+	defer cmd.Stop("")
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if strings.Contains(cmd.GetOutputBuffer(), envValue) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !strings.Contains(cmd.GetOutputBuffer(), envValue) {
+		t.Fatalf("output buffer = %q, want launch env value", cmd.GetOutputBuffer())
+	}
+
+	for time.Now().Before(deadline) {
+		cmd.RLock()
+		currentCMD := cmd.currentCMD
+		envCleared := currentCMD != nil && currentCMD.Env == nil
+		cmd.RUnlock()
+		if envCleared {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("exec.Cmd.Env was not cleared while process was still tracked")
 }
 
 func TestInitNewCommandPreservesInjectedOutputOnFirstReuse(t *testing.T) {

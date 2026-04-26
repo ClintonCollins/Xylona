@@ -35,6 +35,7 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 		ServiceID:        normalized.ServiceID,
 		Status:           status,
 		StopTimeout:      normalized.StopTimeout,
+		LaunchEnv:        normalized.LaunchEnv,
 	}
 
 	if normalized.InputTelnet != nil {

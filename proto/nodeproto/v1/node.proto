@@ -159,6 +159,12 @@ message StartProcessRequest {
   // internal_game_id identifies the built-in Game implementation to run
   // (e.g. "minecraft"). Only consulted when internal_command is true.
   string internal_game_id = 12;
+  // launch_env is a secret-safe launch-only environment overlay. The node
+  // appends it to the sanitized child environment immediately before process
+  // start and must not expose it in snapshots, logs, or long-lived state.
+  // Xylona avoids its own env leaks, but node host admins, process inspectors,
+  // crash dumps, and the launched game/plugin can still read these values.
+  map<string, string> launch_env = 13;
 }
 
 message StartProcessResponse {
@@ -526,6 +532,13 @@ message PingResponse {
   google.protobuf.Timestamp server_time = 1;
 }
 
+message GetRuntimeCapabilitiesRequest {}
+
+message GetRuntimeCapabilitiesResponse {
+  int64 protocol_version = 1;
+  bool launch_env = 2;
+}
+
 // --- Self-update RPCs -------------------------------------------------------
 
 message GetUpdateCapabilitiesRequest {}
@@ -614,6 +627,7 @@ service NodeService {
   // Node introspection
   rpc ListBindableIPs(ListBindableIPsRequest) returns (ListBindableIPsResponse);
   rpc GetNodeSnapshot(GetNodeSnapshotRequest) returns (NodeSnapshot);
+  rpc GetRuntimeCapabilities(GetRuntimeCapabilitiesRequest) returns (GetRuntimeCapabilitiesResponse);
   rpc StreamEvents(StreamEventsRequest) returns (stream Event);
   rpc Ping(PingRequest) returns (PingResponse);
 

@@ -57,6 +57,8 @@ type callRecorder struct {
 	streamEvents     []*nodeprotov1.Event
 	streamConsole    []*nodeprotov1.ConsoleChunk
 	nodeSnapshot     *nodeprotov1.NodeSnapshot
+	runtimeCapsResp  *nodeprotov1.GetRuntimeCapabilitiesResponse
+	runtimeCapsErr   error
 	errOverride      error
 }
 
@@ -225,6 +227,21 @@ func (s *stubHandler) GetNodeSnapshot(_ context.Context, req *connect.Request[no
 		snap = &nodeprotov1.NodeSnapshot{}
 	}
 	return connect.NewResponse(snap), nil
+}
+
+func (s *stubHandler) GetRuntimeCapabilities(_ context.Context, req *connect.Request[nodeprotov1.GetRuntimeCapabilitiesRequest]) (*connect.Response[nodeprotov1.GetRuntimeCapabilitiesResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	resp := s.rec.runtimeCapsResp
+	errResp := s.rec.runtimeCapsErr
+	s.rec.mu.Unlock()
+	if errResp != nil {
+		return nil, errResp
+	}
+	if resp == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("runtime capabilities unavailable"))
+	}
+	return connect.NewResponse(resp), nil
 }
 
 func (s *stubHandler) ListBindableIPs(_ context.Context, req *connect.Request[nodeprotov1.ListBindableIPsRequest]) (*connect.Response[nodeprotov1.ListBindableIPsResponse], error) {
@@ -703,6 +720,9 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 		NodeID:           "node",
 		ServiceID:        "svc-1",
 		StopTimeout:      20 * time.Second,
+		LaunchEnv: map[string]string{
+			"XYLONA_TEST_TOKEN": "secret-value",
+		},
 	}
 	errStart := client.StartProcess(t.Context(), cfg, xylona.Status_ONLINE)
 	if errStart != nil {
@@ -720,6 +740,44 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 	}
 	if got.GetStopTimeoutSeconds() != 20 {
 		t.Fatalf("stop timeout seconds: got %d want 20", got.GetStopTimeoutSeconds())
+	}
+	if got.GetLaunchEnv()["XYLONA_TEST_TOKEN"] != "secret-value" {
+		t.Fatalf("launch env was not sent: %+v", got.GetLaunchEnv())
+	}
+}
+
+func TestGRPCClientRuntimeCapabilities(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		runtimeCapsResp: &nodeprotov1.GetRuntimeCapabilitiesResponse{
+			ProtocolVersion: 7,
+			LaunchEnv:       true,
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	caps, errCaps := client.GetRuntimeCapabilities(t.Context())
+	if errCaps != nil {
+		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
+	}
+	if caps.ProtocolVersion != 7 || !caps.LaunchEnv {
+		t.Fatalf("runtime capabilities = %+v, want protocol 7 and launch env", caps)
+	}
+}
+
+func TestGRPCClientRuntimeCapabilitiesUnimplementedMeansNoOptionalFeatures(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+
+	caps, errCaps := client.GetRuntimeCapabilities(t.Context())
+	if errCaps != nil {
+		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
+	}
+	if caps != (node.RuntimeCapabilities{}) {
+		t.Fatalf("runtime capabilities = %+v, want empty capabilities", caps)
 	}
 }
 func TestGRPCClientStartProcessPropagatesServerError(t *testing.T) {

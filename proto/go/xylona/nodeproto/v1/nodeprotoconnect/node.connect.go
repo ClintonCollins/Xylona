@@ -115,6 +115,9 @@ const (
 	// NodeServiceGetNodeSnapshotProcedure is the fully-qualified name of the NodeService's
 	// GetNodeSnapshot RPC.
 	NodeServiceGetNodeSnapshotProcedure = "/xylona.node.v1.NodeService/GetNodeSnapshot"
+	// NodeServiceGetRuntimeCapabilitiesProcedure is the fully-qualified name of the NodeService's
+	// GetRuntimeCapabilities RPC.
+	NodeServiceGetRuntimeCapabilitiesProcedure = "/xylona.node.v1.NodeService/GetRuntimeCapabilities"
 	// NodeServiceStreamEventsProcedure is the fully-qualified name of the NodeService's StreamEvents
 	// RPC.
 	NodeServiceStreamEventsProcedure = "/xylona.node.v1.NodeService/StreamEvents"
@@ -168,6 +171,7 @@ type NodeServiceClient interface {
 	// Node introspection
 	ListBindableIPs(context.Context, *connect.Request[v1.ListBindableIPsRequest]) (*connect.Response[v1.ListBindableIPsResponse], error)
 	GetNodeSnapshot(context.Context, *connect.Request[v1.GetNodeSnapshotRequest]) (*connect.Response[v1.NodeSnapshot], error)
+	GetRuntimeCapabilities(context.Context, *connect.Request[v1.GetRuntimeCapabilitiesRequest]) (*connect.Response[v1.GetRuntimeCapabilitiesResponse], error)
 	StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest]) (*connect.ServerStreamForClient[v1.Event], error)
 	Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error)
 	// Self-update
@@ -361,6 +365,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("GetNodeSnapshot")),
 			connect.WithClientOptions(opts...),
 		),
+		getRuntimeCapabilities: connect.NewClient[v1.GetRuntimeCapabilitiesRequest, v1.GetRuntimeCapabilitiesResponse](
+			httpClient,
+			baseURL+NodeServiceGetRuntimeCapabilitiesProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("GetRuntimeCapabilities")),
+			connect.WithClientOptions(opts...),
+		),
 		streamEvents: connect.NewClient[v1.StreamEventsRequest, v1.Event](
 			httpClient,
 			baseURL+NodeServiceStreamEventsProcedure,
@@ -425,6 +435,7 @@ type nodeServiceClient struct {
 	getProcessSnapshot       *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
 	listBindableIPs          *connect.Client[v1.ListBindableIPsRequest, v1.ListBindableIPsResponse]
 	getNodeSnapshot          *connect.Client[v1.GetNodeSnapshotRequest, v1.NodeSnapshot]
+	getRuntimeCapabilities   *connect.Client[v1.GetRuntimeCapabilitiesRequest, v1.GetRuntimeCapabilitiesResponse]
 	streamEvents             *connect.Client[v1.StreamEventsRequest, v1.Event]
 	ping                     *connect.Client[v1.PingRequest, v1.PingResponse]
 	getUpdateCapabilities    *connect.Client[v1.GetUpdateCapabilitiesRequest, v1.GetUpdateCapabilitiesResponse]
@@ -577,6 +588,11 @@ func (c *nodeServiceClient) GetNodeSnapshot(ctx context.Context, req *connect.Re
 	return c.getNodeSnapshot.CallUnary(ctx, req)
 }
 
+// GetRuntimeCapabilities calls xylona.node.v1.NodeService.GetRuntimeCapabilities.
+func (c *nodeServiceClient) GetRuntimeCapabilities(ctx context.Context, req *connect.Request[v1.GetRuntimeCapabilitiesRequest]) (*connect.Response[v1.GetRuntimeCapabilitiesResponse], error) {
+	return c.getRuntimeCapabilities.CallUnary(ctx, req)
+}
+
 // StreamEvents calls xylona.node.v1.NodeService.StreamEvents.
 func (c *nodeServiceClient) StreamEvents(ctx context.Context, req *connect.Request[v1.StreamEventsRequest]) (*connect.ServerStreamForClient[v1.Event], error) {
 	return c.streamEvents.CallServerStream(ctx, req)
@@ -639,6 +655,7 @@ type NodeServiceHandler interface {
 	// Node introspection
 	ListBindableIPs(context.Context, *connect.Request[v1.ListBindableIPsRequest]) (*connect.Response[v1.ListBindableIPsResponse], error)
 	GetNodeSnapshot(context.Context, *connect.Request[v1.GetNodeSnapshotRequest]) (*connect.Response[v1.NodeSnapshot], error)
+	GetRuntimeCapabilities(context.Context, *connect.Request[v1.GetRuntimeCapabilitiesRequest]) (*connect.Response[v1.GetRuntimeCapabilitiesResponse], error)
 	StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest], *connect.ServerStream[v1.Event]) error
 	Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error)
 	// Self-update
@@ -828,6 +845,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("GetNodeSnapshot")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceGetRuntimeCapabilitiesHandler := connect.NewUnaryHandler(
+		NodeServiceGetRuntimeCapabilitiesProcedure,
+		svc.GetRuntimeCapabilities,
+		connect.WithSchema(nodeServiceMethods.ByName("GetRuntimeCapabilities")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceStreamEventsHandler := connect.NewServerStreamHandler(
 		NodeServiceStreamEventsProcedure,
 		svc.StreamEvents,
@@ -918,6 +941,8 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceListBindableIPsHandler.ServeHTTP(w, r)
 		case NodeServiceGetNodeSnapshotProcedure:
 			nodeServiceGetNodeSnapshotHandler.ServeHTTP(w, r)
+		case NodeServiceGetRuntimeCapabilitiesProcedure:
+			nodeServiceGetRuntimeCapabilitiesHandler.ServeHTTP(w, r)
 		case NodeServiceStreamEventsProcedure:
 			nodeServiceStreamEventsHandler.ServeHTTP(w, r)
 		case NodeServicePingProcedure:
@@ -1051,6 +1076,10 @@ func (UnimplementedNodeServiceHandler) ListBindableIPs(context.Context, *connect
 
 func (UnimplementedNodeServiceHandler) GetNodeSnapshot(context.Context, *connect.Request[v1.GetNodeSnapshotRequest]) (*connect.Response[v1.NodeSnapshot], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.GetNodeSnapshot is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) GetRuntimeCapabilities(context.Context, *connect.Request[v1.GetRuntimeCapabilitiesRequest]) (*connect.Response[v1.GetRuntimeCapabilitiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.GetRuntimeCapabilities is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) StreamEvents(context.Context, *connect.Request[v1.StreamEventsRequest], *connect.ServerStream[v1.Event]) error {

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/nodetls"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	nodeprotov1 "github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
 )
@@ -142,6 +144,84 @@ func TestNodeServiceServerListFiles(t *testing.T) {
 	if entries[0].Name != "sample.txt" || entries[0].Size != int64(len(contents)) {
 		t.Fatalf("entry mismatch: %+v", entries[0])
 	}
+}
+
+func TestNodeServiceServerRuntimeCapabilities(t *testing.T) {
+	t.Parallel()
+
+	const secret = "test-secret"
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	caps, errCaps := client.GetRuntimeCapabilities(t.Context())
+	if errCaps != nil {
+		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
+	}
+	if caps.ProtocolVersion != node.RuntimeProtocolVersion || !caps.LaunchEnv {
+		t.Fatalf("runtime capabilities = %+v", caps)
+	}
+}
+
+func TestNodeServiceServerLaunchEnvReachesChild(t *testing.T) {
+	t.Parallel()
+
+	const secret = "test-secret"
+	const processID = "srv-launch-env"
+	const envKey = "XYLONA_REMOTE_LAUNCH_ENV_TEST"
+	const envValue = "remote-launch-value"
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	baseCommand, args := launchEnvEchoCommand(envKey)
+	errStart := client.StartProcess(t.Context(), node.ProcessConfig{
+		ID:               processID,
+		Name:             "Launch Env",
+		BaseCommand:      baseCommand,
+		Args:             args,
+		WorkingDirectory: t.TempDir(),
+		LaunchEnv: map[string]string{
+			envKey: envValue,
+		},
+	}, xylona.Status_ONLINE)
+	if errStart != nil {
+		t.Fatalf("StartProcess: %v", errStart)
+	}
+	defer func() {
+		errStop := client.StopProcess(context.Background(), processID, "")
+		if errStop != nil && !errors.Is(errStop, node.ErrProcessNotFound) {
+			t.Logf("StopProcess after launch-env test: %v", errStop)
+		}
+	}()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		chunk, errRead := client.ReadConsoleBuffer(t.Context(), processID)
+		if errRead != nil {
+			t.Fatalf("ReadConsoleBuffer: %v", errRead)
+		}
+		if strings.Contains(chunk.Data, envValue) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	chunk, errRead := client.ReadConsoleBuffer(t.Context(), processID)
+	if errRead != nil {
+		t.Fatalf("ReadConsoleBuffer after timeout: %v", errRead)
+	}
+	t.Fatalf("console output = %q, want launch env value", chunk.Data)
+}
+
+func launchEnvEchoCommand(key string) (string, []string) {
+	if runtime.GOOS == "windows" {
+		return "cmd", []string{"/c", "echo %" + key + "% & ping -n 3 127.0.0.1 >NUL"}
+	}
+	return "sh", []string{"-c", "printf '%s\n' \"$" + key + "\"; sleep 2"}
 }
 
 func TestNodeServiceServerStreamConsoleOutput(t *testing.T) {

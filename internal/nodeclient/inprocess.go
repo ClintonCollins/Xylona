@@ -365,6 +365,13 @@ func (c *inProcessNodeClient) GetUpdateCapabilities(_ context.Context) (node.Upd
 	}, nil
 }
 
+func (c *inProcessNodeClient) GetRuntimeCapabilities(_ context.Context) (node.RuntimeCapabilities, error) {
+	if c.node == nil {
+		return node.RuntimeCapabilities{}, ErrNodeNil
+	}
+	return c.node.RuntimeCapabilities(), nil
+}
+
 func (c *inProcessNodeClient) StageSelfUpdate(_ context.Context, _ node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error) {
 	if c.node == nil {
 		return node.StageSelfUpdateResult{}, ErrNodeNil

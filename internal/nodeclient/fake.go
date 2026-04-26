@@ -137,6 +137,11 @@ type FakeNodeClient struct {
 	UpdateCapabilitiesCalls  int
 	UpdateCapabilitiesFunc   func(context.Context) (node.UpdateCapabilities, error)
 
+	RuntimeCapabilitiesResult node.RuntimeCapabilities
+	RuntimeCapabilitiesErr    error
+	RuntimeCapabilitiesCalls  int
+	RuntimeCapabilitiesFunc   func(context.Context) (node.RuntimeCapabilities, error)
+
 	StageSelfUpdateResult node.StageSelfUpdateResult
 	StageSelfUpdateErr    error
 	StageSelfUpdateCalls  []StageSelfUpdateCall
@@ -286,8 +291,11 @@ func (f *FakeNodeClient) ID() string {
 
 // StartProcess records the call and returns the configured error.
 func (f *FakeNodeClient) StartProcess(_ context.Context, cfg node.ProcessConfig, status xylona.Status) error {
+	recorded := cfg
+	recorded.Args = append([]string(nil), cfg.Args...)
+	recorded.LaunchEnv = cloneStringMap(cfg.LaunchEnv)
 	f.mu.Lock()
-	f.StartProcessCalls = append(f.StartProcessCalls, StartProcessCall{Config: cfg, Status: status})
+	f.StartProcessCalls = append(f.StartProcessCalls, StartProcessCall{Config: recorded, Status: status})
 	f.mu.Unlock()
 	return f.StartProcessErr
 }
@@ -590,6 +598,17 @@ func (f *FakeNodeClient) GetUpdateCapabilities(ctx context.Context) (node.Update
 		return f.UpdateCapabilitiesFunc(ctx)
 	}
 	return f.UpdateCapabilitiesResult, f.UpdateCapabilitiesErr
+}
+
+// GetRuntimeCapabilities records the call and returns the configured result.
+func (f *FakeNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.RuntimeCapabilities, error) {
+	f.mu.Lock()
+	f.RuntimeCapabilitiesCalls++
+	f.mu.Unlock()
+	if f.RuntimeCapabilitiesFunc != nil {
+		return f.RuntimeCapabilitiesFunc(ctx)
+	}
+	return f.RuntimeCapabilitiesResult, f.RuntimeCapabilitiesErr
 }
 
 // StageSelfUpdate records the call and returns the configured result.

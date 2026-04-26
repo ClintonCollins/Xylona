@@ -73,6 +73,23 @@ func buildChildEnvironment(runtime Runtime, sourceEnv []string) []string {
 	return childEnvironment
 }
 
+func appendLaunchEnvironment(baseEnv []string, launchEnv map[string]string) []string {
+	if len(launchEnv) == 0 {
+		return baseEnv
+	}
+
+	childEnvironment := append([]string(nil), baseEnv...)
+	keys := make([]string, 0, len(launchEnv))
+	for key := range launchEnv {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	for _, key := range keys {
+		childEnvironment = append(childEnvironment, fmt.Sprintf(`%s=%s`, key, launchEnv[key]))
+	}
+	return childEnvironment
+}
+
 func localeEnvironmentKeys(sourceEnv []string) []string {
 	localeKeys := make([]string, 0)
 	for _, entry := range sourceEnv {

@@ -10,7 +10,7 @@
 ## Progress
 
 - [x] Phase 0: Start contract prerequisite
-- [ ] Phase 1: Secret-safe launch env plumbing
+- [x] Phase 1: Secret-safe launch env plumbing
 - [ ] Phase 2: Per-server env + secret env
 - [ ] Phase 3: Game default normal env
 - [ ] Update readiness plan
@@ -27,29 +27,29 @@
 
 ## Phase 1: Secret-Safe Launch Env Plumbing
 
-- [ ] Add runtime node capabilities separate from self-update capabilities:
+- [x] Add runtime node capabilities separate from self-update capabilities:
   - protocol version
   - feature flag `launch_env`
   - missing/unimplemented capability RPC means remote node has no `launch_env` support
-- [ ] Add `GetRuntimeCapabilities` or equivalent to NodeService and `NodeClient`.
-- [ ] Add one `LaunchEnv map[string]string` to:
+- [x] Add `GetRuntimeCapabilities` or equivalent to NodeService and `NodeClient`.
+- [x] Add one `LaunchEnv map[string]string` to:
   - `node.ProcessConfig`
   - node proto `StartProcessRequest`
   - nodeclient mappings
   - supervisor `PreparedCommand`
-- [ ] Do not add separate `Env` / `SecretEnv` fields to the node protocol.
-- [ ] Define `launch_env` as secret-safe process-env injection:
+- [x] Do not add separate `Env` / `SecretEnv` fields to the node protocol.
+- [x] Define `launch_env` as secret-safe process-env injection:
   - append env only at process launch
   - do not log env
   - do not expose env in snapshots or payloads
   - clear `exec.Cmd.Env` after `Start()` succeeds
-- [ ] Deep-copy `LaunchEnv` at every boundary.
-- [ ] Keep launch env off long-lived `supervisor.Command` state, snapshots, frontend payloads, and logs.
-- [ ] Preserve the existing sanitized child environment from `buildChildEnvironment`, then append validated launch env immediately before process launch.
-- [ ] Apply launch env only to runtime game-server starts in v1, not install/update/internal commands.
-- [ ] Fail closed before launch when a remote node lacks `launch_env` and the start has non-empty launch env.
-- [ ] Allow starts with empty env to continue on older nodes.
-- [ ] Document trust boundary: Xylona avoids its own env leaks, but node host admins, process inspectors, crash dumps, and the launched game/plugin can still read env values.
+- [x] Deep-copy `LaunchEnv` at every boundary.
+- [x] Keep launch env off long-lived `supervisor.Command` state, snapshots, frontend payloads, and logs.
+- [x] Preserve the existing sanitized child environment from `buildChildEnvironment`, then append validated launch env immediately before process launch.
+- [x] Apply launch env only to runtime game-server starts in v1, not install/update/internal commands.
+- [x] Fail closed before launch when a remote node lacks `launch_env` and the start has non-empty launch env.
+- [x] Allow starts with empty env to continue on older nodes.
+- [x] Document trust boundary: Xylona avoids its own env leaks, but node host admins, process inspectors, crash dumps, and the launched game/plugin can still read env values.
 
 ## Phase 2: Per-Server Env + Secret Env
 

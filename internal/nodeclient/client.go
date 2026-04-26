@@ -164,6 +164,10 @@ type NodeClient interface {
 	// service-manager-backed self-update.
 	GetUpdateCapabilities(ctx context.Context) (node.UpdateCapabilities, error)
 
+	// GetRuntimeCapabilities reports process-runtime features such as
+	// secret-safe launch environment support.
+	GetRuntimeCapabilities(ctx context.Context) (node.RuntimeCapabilities, error)
+
 	// StageSelfUpdate streams a verified xylona-node artifact to the node.
 	StageSelfUpdate(ctx context.Context, req node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error)
 

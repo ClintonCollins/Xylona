@@ -164,6 +164,35 @@ func TestSetupCmdKeepsAllowedEnvironmentEntries(t *testing.T) {
 	}
 }
 
+func TestSetupCmdAppendsLaunchEnvironment(t *testing.T) {
+	inst, errNew := New(context.Background())
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor instance: %v", errNew)
+	}
+
+	preparedCommand := PreparedCommand{
+		ID:               "launch-env-test",
+		BaseCommand:      "echo",
+		Args:             []string{"hello"},
+		WorkingDirectory: t.TempDir(),
+		Status:           xylona.Status_ONLINE,
+		LaunchEnv: map[string]string{
+			"XYLONA_VISIBLE_TOKEN": "launch-secret",
+		},
+	}
+	newCommand := inst.initNewCommand(preparedCommand, nil)
+
+	cmd, errSetup := inst.setupCmd(newCommand, preparedCommand)
+	if errSetup != nil {
+		t.Fatalf("setupCmd() error = %v", errSetup)
+	}
+
+	gotEnv := envMap(cmd.Env)
+	if gotEnv["XYLONA_VISIBLE_TOKEN"] != "launch-secret" {
+		t.Fatalf("launch env value = %q, want launch-secret", gotEnv["XYLONA_VISIBLE_TOKEN"])
+	}
+}
+
 func envMap(env []string) map[string]string {
 	got := make(map[string]string, len(env))
 	for _, entry := range env {

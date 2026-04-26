@@ -110,6 +110,17 @@ func (c *GRPCNodeClient) streamConnectClient() nodeprotoconnect.NodeServiceClien
 	return nodeprotoconnect.NewNodeServiceClient(&streamHTTPClient, c.listenURL)
 }
 
+func cloneStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(values))
+	for key, value := range values {
+		out[key] = value
+	}
+	return out
+}
+
 // StartProcess sends the StartProcess RPC. Callers should rely on StreamEvents,
 // StreamConsoleOutput, and snapshots for lifecycle observation.
 func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfig, status xylona.Status) error {
@@ -126,6 +137,7 @@ func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfi
 		InitialStatus:      processStatusFromXylona(status),
 		InternalCommand:    cfg.InternalCommand,
 		InternalGameId:     cfg.InternalGameID,
+		LaunchEnv:          cloneStringMap(cfg.LaunchEnv),
 	})
 
 	_, errRPC := c.connectClient.StartProcess(ctx, req)
@@ -877,6 +889,24 @@ func (c *GRPCNodeClient) GetUpdateCapabilities(ctx context.Context) (node.Update
 		ServiceManagerSupported: msg.GetServiceManagerSupported(),
 		InstallPathWritable:     msg.GetInstallPathWritable(),
 		InstallPath:             msg.GetInstallPath(),
+	}, nil
+}
+
+// GetRuntimeCapabilities invokes the runtime capability RPC. Older nodes that
+// do not implement the RPC are treated as having no optional runtime features.
+func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.RuntimeCapabilities, error) {
+	req := newReq(c, &nodeprotov1.GetRuntimeCapabilitiesRequest{})
+	resp, errRPC := c.connectClient.GetRuntimeCapabilities(ctx, req)
+	if errRPC != nil {
+		if connect.CodeOf(errRPC) == connect.CodeUnimplemented {
+			return node.RuntimeCapabilities{}, nil
+		}
+		return node.RuntimeCapabilities{}, translateError("get runtime capabilities", errRPC)
+	}
+	msg := resp.Msg
+	return node.RuntimeCapabilities{
+		ProtocolVersion: msg.GetProtocolVersion(),
+		LaunchEnv:       msg.GetLaunchEnv(),
 	}, nil
 }
 
