@@ -1110,56 +1110,17 @@ func (m *ModManager) RunAutoUpdates(
 	serverID, gameVersion, serverDir string,
 	statusFn func(string),
 ) error {
-	mods, errGet := m.db.GetInstalledModsByGameServerID(serverID)
-	if errGet != nil {
-		return fmt.Errorf("modmanager: get installed mods: %w", errGet)
-	}
-
-	for _, mod := range mods {
-		if mod.AutoUpdate != 1 {
-			continue
-		}
-		if !mod.PinnedVersion.IsNull() {
-			continue
-		}
-		if mod.Enabled != 1 {
-			continue
-		}
-
-		provider, ok := modproviders.GetProvider(mod.Source)
-		if !ok {
-			continue
-		}
-
-		statusFn(fmt.Sprintf("Checking for updates: %s", mod.ModName))
-
-		version, errCheck := provider.CheckForUpdate(ctx, mod.SourceID, gameVersion)
-		if errCheck != nil {
-			if errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
-				continue
-			}
-			log.Warn().Err(errCheck).Str("mod", mod.ModName).Msg("Failed to check for auto-update")
-			statusFn(fmt.Sprintf("Failed to check update for %s: %s", mod.ModName, errCheck.Error()))
-			continue
-		}
-
-		if version == nil || version.VersionID == mod.InstalledVersionID {
-			continue
-		}
-
-		statusFn(fmt.Sprintf("Updating %s to %s", mod.ModName, version.VersionString))
-
-		_, errUpdate := m.Update(ctx, mod.ID, version.VersionID, serverDir)
-		if errUpdate != nil {
-			log.Error().Err(errUpdate).Str("mod", mod.ModName).Msg("Failed to auto-update mod")
-			statusFn(fmt.Sprintf("Failed to update %s: %s", mod.ModName, errUpdate.Error()))
-			continue
-		}
-
-		statusFn(fmt.Sprintf("Updated %s to %s", mod.ModName, version.VersionString))
-	}
-
-	return nil
+	return m.runEligibleAutoUpdates(
+		ctx,
+		serverID,
+		gameVersion,
+		serverDir,
+		statusFn,
+		func(ctx context.Context, modID, versionID, serverDir string) (*models.InstalledMod, error) {
+			return m.Update(ctx, modID, versionID, serverDir)
+		},
+		"Failed to auto-update mod",
+	)
 }
 
 // RunAutoUpdatesRemote updates eligible mods through a node client before server start.
@@ -1168,6 +1129,26 @@ func (m *ModManager) RunAutoUpdatesRemote(
 	client FileClient,
 	serverID, gameVersion, serverDir string,
 	statusFn func(string),
+) error {
+	return m.runEligibleAutoUpdates(
+		ctx,
+		serverID,
+		gameVersion,
+		serverDir,
+		statusFn,
+		func(ctx context.Context, modID, versionID, serverDir string) (*models.InstalledMod, error) {
+			return m.UpdateRemote(ctx, client, modID, versionID, serverDir)
+		},
+		"Failed to auto-update remote mod",
+	)
+}
+
+func (m *ModManager) runEligibleAutoUpdates(
+	ctx context.Context,
+	serverID, gameVersion, serverDir string,
+	statusFn func(string),
+	updateMod func(context.Context, string, string, string) (*models.InstalledMod, error),
+	updateFailureMessage string,
 ) error {
 	mods, errGet := m.db.GetInstalledModsByGameServerID(serverID)
 	if errGet != nil {
@@ -1208,9 +1189,9 @@ func (m *ModManager) RunAutoUpdatesRemote(
 
 		statusFn(fmt.Sprintf("Updating %s to %s", mod.ModName, version.VersionString))
 
-		_, errUpdate := m.UpdateRemote(ctx, client, mod.ID, version.VersionID, serverDir)
+		_, errUpdate := updateMod(ctx, mod.ID, version.VersionID, serverDir)
 		if errUpdate != nil {
-			log.Error().Err(errUpdate).Str("mod", mod.ModName).Msg("Failed to auto-update remote mod")
+			log.Error().Err(errUpdate).Str("mod", mod.ModName).Msg(updateFailureMessage)
 			statusFn(fmt.Sprintf("Failed to update %s: %s", mod.ModName, errUpdate.Error()))
 			continue
 		}
