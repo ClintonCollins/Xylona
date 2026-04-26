@@ -200,6 +200,14 @@ func (xs *XylonaService) ImportGame(_ context.Context, request *connect.Request[
 	if errAffected != nil {
 		return nil, errAffected
 	}
+	changes := []*xylona.GameImportChange{}
+	if existingFound && len(validationErrors) == 0 {
+		var errChanges error
+		changes, errChanges = importGameChanges(existingGame, parsed.Model)
+		if errChanges != nil {
+			return nil, connect.NewError(connect.CodeInternal, errChanges)
+		}
+	}
 
 	mode := request.Msg.GetMode()
 	response := &xylona.ImportGameResponse{
@@ -212,6 +220,7 @@ func (xs *XylonaService) ImportGame(_ context.Context, request *connect.Request[
 		Warnings:                parsed.Warnings,
 		ValidationErrors:        validationErrors,
 		ImportedGameId:          parsed.Model.ID,
+		Changes:                 changes,
 	}
 	if mode == xylona.GameImportMode_GAME_IMPORT_MODE_PREVIEW {
 		return connect.NewResponse(response), nil
@@ -239,6 +248,7 @@ func (xs *XylonaService) ImportGame(_ context.Context, request *connect.Request[
 		response.UpdatesExisting = false
 		response.AffectedGameServerCount = 0
 		response.AffectedGameServerNames = nil
+		response.Changes = nil
 		response.ImportedGameId = importedGame.ID
 		response.Success = true
 	default:

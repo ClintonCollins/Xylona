@@ -383,6 +383,14 @@ message ImportGameRequest {
   GameImportMode mode = 2;
 }
 
+message GameImportChange {
+  string section = 1;
+  string label = 2;
+  string path = 3;
+  string previous_value = 4;
+  string imported_value = 5;
+}
+
 message ImportGameResponse {
   Game game = 1;
   optional Error error = 2;
@@ -394,6 +402,7 @@ message ImportGameResponse {
   repeated string warnings = 8;
   repeated string validation_errors = 9;
   string imported_game_id = 10;
+  repeated GameImportChange changes = 11;
 }
 
 message ExportGameRequest {

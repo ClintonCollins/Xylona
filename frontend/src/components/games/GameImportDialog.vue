@@ -64,6 +64,59 @@
             </ul>
           </q-banner>
 
+          <div v-if="showChangePreview" class="game-import-dialog__changes">
+            <div class="game-import-dialog__changes-header">
+              <div>
+                <div class="text-caption text-xy-muted">Changed fields</div>
+                <div class="game-import-dialog__changes-summary">
+                  {{ changeSummaryLabel }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="changeGroups.length > 0" class="game-import-dialog__change-groups">
+              <section
+                v-for="group in changeGroups"
+                :key="group.section"
+                class="game-import-dialog__change-group">
+                <div class="game-import-dialog__change-section font-display">
+                  {{ group.section }}
+                </div>
+                <div class="game-import-dialog__change-list">
+                  <div
+                    v-for="change in group.changes"
+                    :key="`${change.path}:${change.label}`"
+                    class="game-import-dialog__change-row">
+                    <div class="game-import-dialog__change-meta">
+                      <span class="game-import-dialog__change-label">{{ change.label }}</span>
+                      <code class="game-import-dialog__change-path">{{ change.path }}</code>
+                    </div>
+                    <div class="game-import-dialog__change-values">
+                      <div class="game-import-dialog__change-value">
+                        <span>Current</span>
+                        <strong>{{ change.previousValue }}</strong>
+                      </div>
+                      <q-icon
+                        class="game-import-dialog__change-arrow"
+                        color="accent"
+                        name="arrow_forward"
+                        size="18px" />
+                      <div class="game-import-dialog__change-value">
+                        <span>Imported</span>
+                        <strong>{{ change.importedValue }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div v-else class="game-import-dialog__no-changes">
+              <q-icon color="positive" name="check_circle" size="20px" />
+              <span>No field changes detected.</span>
+            </div>
+          </div>
+
           <div class="game-import-dialog__impact">
             <div class="game-import-dialog__impact-line">
               <span>Affected servers</span>
@@ -126,10 +179,19 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { computed, ref, watch } from 'vue'
 import { useQuasar } from 'quasar'
-import { GameImportMode, ImportGameRequestSchema, type ImportGameResponse } from '@/proto/xylona_pb'
+import {
+  GameImportMode,
+  ImportGameRequestSchema,
+  type GameImportChange,
+  type ImportGameResponse,
+} from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 type QFileValue = File | File[] | null
+interface ChangeGroup {
+  section: string
+  changes: GameImportChange[]
+}
 
 const props = defineProps({
   showDialog: {
@@ -202,6 +264,44 @@ const remainingAffectedServers = computed(() => {
   return Math.max(0, count - affectedServerPreview.value.length)
 })
 
+const showChangePreview = computed(() => {
+  return (
+    previewResponse.value !== null &&
+    previewResponse.value.idConflict &&
+    previewResponse.value.validationErrors.length === 0
+  )
+})
+
+const changeGroups = computed<ChangeGroup[]>(() => {
+  const changes = previewResponse.value?.changes ?? []
+  const groups: ChangeGroup[] = []
+  const groupBySection = new Map<string, ChangeGroup>()
+
+  for (const change of changes) {
+    const section = change.section || 'Other'
+    let group = groupBySection.get(section)
+    if (!group) {
+      group = { section, changes: [] }
+      groupBySection.set(section, group)
+      groups.push(group)
+    }
+    group.changes.push(change)
+  }
+
+  return groups
+})
+
+const changeSummaryLabel = computed(() => {
+  const count = previewResponse.value?.changes.length ?? 0
+  if (count === 0) {
+    return 'No effective definition changes.'
+  }
+  if (selectedMode.value === GameImportMode.IMPORT_COPY) {
+    return `${count} ${count === 1 ? 'field differs' : 'fields differ'} from existing.`
+  }
+  return `${count} ${count === 1 ? 'field' : 'fields'} will change.`
+})
+
 const canApply = computed(() => {
   return (
     fileContent.value !== '' &&
@@ -247,7 +347,6 @@ async function previewImport(): Promise<void> {
   }
 
   previewing.value = true
-  previewResponse.value = null
   readError.value = ''
   selectedMode.value = GameImportMode.APPLY
 
@@ -375,6 +474,7 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
 }
 
 .game-import-dialog__preview-header,
+.game-import-dialog__changes,
 .game-import-dialog__impact {
   border: 1px solid var(--xy-border);
   border-radius: 8px;
@@ -398,6 +498,106 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
 .game-import-dialog__message-list {
   margin: var(--xy-space-xs) 0 0;
   padding-left: var(--xy-space-lg);
+}
+
+.game-import-dialog__changes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
+}
+
+.game-import-dialog__changes-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+}
+
+.game-import-dialog__changes-summary {
+  color: var(--xy-text-primary);
+  font-weight: 600;
+}
+
+.game-import-dialog__change-groups,
+.game-import-dialog__change-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-sm);
+}
+
+.game-import-dialog__change-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-xs);
+}
+
+.game-import-dialog__change-section {
+  color: var(--xy-accent);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.game-import-dialog__change-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.65fr) minmax(0, 1fr);
+  gap: var(--xy-space-md);
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--xy-border) 78%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--xy-surface-1) 72%, transparent);
+  padding: var(--xy-space-sm);
+}
+
+.game-import-dialog__change-meta,
+.game-import-dialog__change-value {
+  min-width: 0;
+}
+
+.game-import-dialog__change-label {
+  display: block;
+  color: var(--xy-text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.game-import-dialog__change-path {
+  display: block;
+  margin-top: 2px;
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.game-import-dialog__change-values {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+  gap: var(--xy-space-sm);
+  align-items: center;
+}
+
+.game-import-dialog__change-value span {
+  display: block;
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+}
+
+.game-import-dialog__change-value strong {
+  display: block;
+  color: var(--xy-text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.game-import-dialog__change-arrow {
+  justify-self: center;
+}
+
+.game-import-dialog__no-changes {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  color: var(--xy-text-primary);
 }
 
 .game-import-dialog__impact {
@@ -442,5 +642,19 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
   border-radius: 8px;
   background: color-mix(in srgb, var(--xy-warning) 10%, var(--xy-surface-0));
   color: var(--xy-text-primary);
+}
+
+@media (max-width: 640px) {
+  .game-import-dialog__change-row {
+    grid-template-columns: 1fr;
+  }
+
+  .game-import-dialog__change-values {
+    grid-template-columns: 1fr;
+  }
+
+  .game-import-dialog__change-arrow {
+    display: none;
+  }
 }
 </style>
