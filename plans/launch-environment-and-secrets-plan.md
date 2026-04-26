@@ -14,7 +14,7 @@
 - [x] Phase 2: Per-server env + secret env
 - [x] Phase 3: Game default normal env
 - [x] Update readiness plan
-- [ ] Final validation
+- [x] Final validation
 
 ## Phase 0: Start Contract Prerequisite
 
@@ -190,7 +190,7 @@
 
 ## Test Plan
 
-- [ ] Backend:
+- [x] Backend:
   - [x] start contract propagation for env/capability blocks
   - [x] runtime capability RPC
   - [x] old remote node `Unimplemented` fail-closed behavior
@@ -207,21 +207,21 @@
   - [x] launch env applies only to `Status_ONLINE` runtime starts
   - [x] capability checked before secret decrypt
 
-- [ ] Frontend:
+- [x] Frontend:
   - [x] advanced server env section
   - [x] normal env table validation
   - [x] secret env set/clear/status behavior
   - [x] game default env editor
-  - saved secret values never echoed
+  - [x] saved secret values never echoed
 
-- [ ] Validation:
+- [x] Validation:
   - [x] `mage GenerateProto`
   - [x] `mage GenerateModels`
   - [x] focused `go test -race -count=1` packages
-  - final `go test -race -count=1 ./...`
+  - [x] final `go test -race -count=1 ./...`
   - [x] `golangci-lint run ./...`
   - [x] from `frontend/`: `bun run lint`
-  - from `frontend/`: `bun run test`
+  - [x] from `frontend/`: `bun run test`
   - [x] from `frontend/`: `bun run build`
   - [x] `git diff --check`
 
