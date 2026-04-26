@@ -421,9 +421,7 @@ import {
   UpdateStep,
 } from '@/proto/xylona_pb'
 import { ConnectError } from '@connectrpc/connect'
-import { parseConsole } from '@/utils/console'
 import { canShowUpdateButton } from './game-server-update-capability'
-import { type ConsoleLine, splitConsoleChunk, trimConsoleLines } from './console-buffer'
 import {
   appendOperationOutputLines,
   normalizeOperationOutputChunk,
@@ -443,33 +441,24 @@ import {
   XylonaEventBus,
 } from '@/utils/shared'
 import { recordLifecycleIntent } from '@/utils/game-server-notifications'
-import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './version-display'
 import { canSelectSteamBranch, chooseSteamBranchForUpdate } from './steam-branch-update'
+import { useGameServerConsoleState } from './useGameServerConsoleState'
 import { useGameServerMetricsPreview } from './useGameServerMetricsPreview'
 import { useGameServerQueryStatusVersion } from './useGameServerQueryStatusVersion'
 
 const $q = useQuasar()
-const consoleLines = ref<ConsoleLine[]>([])
-let consoleLineIdCounter = 0
-let pendingConsoleChunks: string[] = []
-let consoleRafId: number | null = null
 const route = useRoute()
 const gameServer: Ref<GameServer> = ref(create(GameServerSchema)) as Ref<GameServer>
-const serverInput = ref('')
 const gameServerId: Ref<string> = ref(
   route.params.id instanceof Array ? route.params.id[0] : route.params.id,
 )
 const consoleScrollArea = ref<QScrollArea | null>(null)
 const softwareSelector = ref<InstanceType<typeof ServerSoftwareSelector> | null>(null)
-const consoleHistory = ref<string[]>([])
-const consoleHistoryCurrentIndex = ref(0)
 const consoleExpanded = ref(false)
-const maxConsoleCharacters = 100000
-const consoleTruncated = ref(false)
 const sidebarCollapsed = ref(false)
-const consoleAutoScroll = ref(localStorage.getItem('xylona_console_autoscroll') !== 'false')
 
 function scrollConsoleToBottom() {
   const el = consoleScrollArea.value?.$el as HTMLElement | undefined
@@ -479,43 +468,20 @@ function scrollConsoleToBottom() {
   }
 }
 
-function appendConsoleOutput(rawOutput: string) {
-  const parsed = parseConsole(gameServer.value.gameId, rawOutput)
-  if (parsed.length === 0) return
-  pendingConsoleChunks.push(parsed)
-  if (consoleRafId === null) {
-    consoleRafId = requestAnimationFrame(flushConsolePending)
-  }
-}
-
-function flushConsolePending() {
-  consoleRafId = null
-  if (pendingConsoleChunks.length === 0) return
-
-  const newLines = pendingConsoleChunks.flatMap((html) =>
-    splitConsoleChunk(html).map((lineHtml) => ({
-      id: consoleLineIdCounter++,
-      html: lineHtml,
-    })),
-  )
-  pendingConsoleChunks = []
-
-  if (newLines.length === 0) {
-    return
-  }
-
-  consoleLines.value.push(...newLines)
-
-  const trimmedConsole = trimConsoleLines(consoleLines.value, maxConsoleCharacters)
-  consoleLines.value = trimmedConsole.lines
-  if (trimmedConsole.truncated) {
-    consoleTruncated.value = true
-  }
-
-  if (consoleAutoScroll.value) {
-    void nextTick(scrollConsoleToBottom)
-  }
-}
+const {
+  appendConsoleOutput,
+  cancelPendingConsoleFlush,
+  consoleAutoScroll,
+  consoleLines,
+  consoleTruncated,
+  navigateConsoleInputHistory,
+  recordConsoleInput,
+  serverInput,
+  toggleConsoleAutoScroll: toggleAutoScroll,
+} = useGameServerConsoleState({
+  gameID: computed(() => gameServer.value.gameId),
+  scrollToBottom: scrollConsoleToBottom,
+})
 
 const startingServer = ref(false)
 const stoppingServer = ref(false)
@@ -581,14 +547,6 @@ const connectionAddress = computed(() => {
   if (!ip) return port
   return `${ip}:${port}`
 })
-
-function toggleAutoScroll() {
-  consoleAutoScroll.value = !consoleAutoScroll.value
-  localStorage.setItem('xylona_console_autoscroll', String(consoleAutoScroll.value))
-  if (consoleAutoScroll.value) {
-    void nextTick(scrollConsoleToBottom)
-  }
-}
 
 function onEscapeKey(e: KeyboardEvent) {
   if (e.key === 'Escape' && consoleExpanded.value) {
@@ -678,10 +636,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  if (consoleRafId !== null) {
-    cancelAnimationFrame(consoleRafId)
-    consoleRafId = null
-  }
+  cancelPendingConsoleFlush()
   document.removeEventListener('keydown', onEscapeKey)
   unsubscribeConsoleOutputStream()
 
@@ -1077,41 +1032,6 @@ function streamGameServerOutput() {
   })
 }
 
-async function navigateConsoleInputHistory(direction: string) {
-  let historyDirection: number
-  switch (direction.toLowerCase()) {
-    case 'up':
-      historyDirection = -1
-      break
-    case 'down':
-      historyDirection = 1
-      break
-    default:
-      return
-  }
-  if (consoleHistory.value.length === 0) {
-    return
-  }
-
-  if (consoleHistoryCurrentIndex.value > consoleHistory.value.length) {
-    return
-  }
-
-  const newIndex = consoleHistoryCurrentIndex.value + historyDirection
-  if (newIndex < 0) {
-    return
-  }
-  if (newIndex > consoleHistory.value.length) {
-    return
-  }
-  consoleHistoryCurrentIndex.value = newIndex
-  if (newIndex === consoleHistory.value.length) {
-    serverInput.value = ''
-  } else {
-    serverInput.value = consoleHistory.value[newIndex]
-  }
-}
-
 async function sendGameServerInput() {
   const request: SendGameServerInputRequest = create(SendGameServerInputRequestSchema, {})
   try {
@@ -1127,9 +1047,7 @@ async function sendGameServerInput() {
       icon: 'report_problem',
     })
   }
-  consoleHistory.value.push(serverInput.value)
-  consoleHistoryCurrentIndex.value = consoleHistory.value.length
-  serverInput.value = ''
+  recordConsoleInput()
 }
 </script>
 
