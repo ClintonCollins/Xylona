@@ -105,10 +105,13 @@ function mountSettingsForm(canEditProvisioning: boolean) {
     global: {
       stubs: {
         'q-form': { template: '<form><slot /></form>' },
-        'q-banner': { template: '<div><slot /></div>' },
+        'q-banner': { template: '<div v-bind="$attrs"><slot /></div>' },
         'q-input': QInputStub,
         'q-select': QSelectStub,
-        'q-btn': { template: '<button><slot />{{ label }}</button>', props: ['label'] },
+        'q-btn': {
+          template: '<button v-bind="$attrs"><slot />{{ label }}</button>',
+          props: ['label'],
+        },
         'q-icon': true,
         'q-spinner-dots': true,
         'q-inner-loading': true,
@@ -299,6 +302,37 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="editable-max-players"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="backup-settings-readonly"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="save-backup-settings"]').exists()).toBe(false)
+  })
+
+  it('marks environment edits as separately unsaved', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
+        id: 'server-local-1',
+        name: 'Local One',
+        userId: 'user-owner',
+        userName: 'owner',
+        gameId: 'minecraft',
+        gameName: 'Minecraft',
+        nodeId: 'node-local',
+        nodeName: 'Local Node',
+        ip: create(IPSchema, { address: '127.0.0.1' }),
+        port: 25565n,
+        queryPort: 25565n,
+        setMaxPlayers: 20n,
+        maxPlayers: 20n,
+        maxMemoryMb: 1024n,
+      }),
+    )
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="environment-unsaved-warning"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Save Environment')
+
+    await wrapper.get('[data-testid="add-environment-row"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="environment-unsaved-warning"]').exists()).toBe(true)
   })
 
   it('hides minecraft memory context when the server is not minecraft', async () => {

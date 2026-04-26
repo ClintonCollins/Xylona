@@ -289,12 +289,6 @@ func validateSecretNameCanBeSet(name string, existingStates []launchenv.SecretSt
 	replaced := false
 	for _, state := range existingStates {
 		if strings.EqualFold(state.Name, name) {
-			if state.Name != name {
-				return []launchenv.ValidationIssue{{
-					Name:    name,
-					Message: "secret environment variable name conflicts with an existing secret",
-				}}
-			}
 			replaced = true
 		}
 		states = append(states, state)

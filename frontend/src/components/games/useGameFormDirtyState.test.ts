@@ -2,7 +2,7 @@ import { create } from '@bufbuild/protobuf'
 import { ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 
-import { GameSchema } from '@/proto/shared_pb'
+import { EnvironmentVariableSchema, GameSchema } from '@/proto/shared_pb'
 import type { ConfigSchemaEntry } from './config-schema-types'
 import type { StartArgBlock, StartArgBlocklistEntry } from '@/components/game_servers/start-args'
 import { useGameFormDirtyState } from './useGameFormDirtyState'
@@ -12,6 +12,9 @@ function createState() {
   const defaultPort = ref<number | null>(25565)
   const defaultQueryPort = ref<number | null>(25565)
   const configSchemas = ref<ConfigSchemaEntry[]>([])
+  const defaultEnvRows = ref([
+    create(EnvironmentVariableSchema, { name: 'JAVA_HOME', value: '/opt/java' }),
+  ])
   const linuxStartArgsTemplate = ref<StartArgBlock[]>([])
   const windowsStartArgsTemplate = ref<StartArgBlock[]>([])
   const startArgBlocklist = ref<StartArgBlocklistEntry[]>([])
@@ -22,6 +25,7 @@ function createState() {
     defaultPort,
     defaultQueryPort,
     configSchemas,
+    defaultEnvRows,
     linuxStartArgsTemplate,
     windowsStartArgsTemplate,
     startArgBlocklist,
@@ -71,6 +75,62 @@ describe('useGameFormDirtyState', () => {
     dirtyState.commitSnapshot()
 
     expect(dirtyState.isDirty.value).toBe(false)
+  })
+
+  it('marks the form dirty when default environment rows change', () => {
+    const state = createState()
+    const dirtyState = useGameFormDirtyState(state)
+
+    dirtyState.commitSnapshot()
+    state.defaultEnvRows.value.push(
+      create(EnvironmentVariableSchema, { name: 'EULA', value: 'true' }),
+    )
+
+    expect(dirtyState.isDirty.value).toBe(true)
+  })
+
+  it('marks game edits dirty before default environment baseline is committed', () => {
+    const state = createState()
+    const dirtyState = useGameFormDirtyState(state)
+
+    dirtyState.commitFormSnapshot()
+    state.game.value.name = 'Changed'
+
+    expect(dirtyState.isDirty.value).toBe(true)
+  })
+
+  it('can recommit only default environment without clearing game edits', () => {
+    const state = createState()
+    const dirtyState = useGameFormDirtyState(state)
+
+    dirtyState.commitSnapshot()
+    state.game.value.name = 'Changed'
+    state.defaultEnvRows.value.push(
+      create(EnvironmentVariableSchema, { name: 'EULA', value: 'true' }),
+    )
+
+    expect(dirtyState.isDirty.value).toBe(true)
+
+    dirtyState.commitDefaultEnvSnapshot()
+
+    expect(dirtyState.isDirty.value).toBe(true)
+  })
+
+  it('can recommit only game fields without clearing default environment edits', () => {
+    const state = createState()
+    const dirtyState = useGameFormDirtyState(state)
+
+    dirtyState.commitSnapshot()
+    state.game.value.name = 'Changed'
+    state.defaultEnvRows.value.push(
+      create(EnvironmentVariableSchema, { name: 'EULA', value: 'true' }),
+    )
+
+    expect(dirtyState.isDirty.value).toBe(true)
+
+    dirtyState.commitFormSnapshot()
+
+    expect(dirtyState.isDirty.value).toBe(true)
   })
 
   it('serializes bigint-backed game fields without throwing', () => {

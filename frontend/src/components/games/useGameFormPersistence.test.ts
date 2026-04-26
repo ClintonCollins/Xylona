@@ -77,7 +77,7 @@ function createState() {
   const captureRuntimeBaselineFromCurrentState = vi.fn()
   const syncStructuredStartArgsToGame = vi.fn()
   const syncActivePlatformFromGame = vi.fn()
-  const commitSnapshot = vi.fn()
+  const commitFormSnapshot = vi.fn()
 
   return {
     formRef,
@@ -96,7 +96,7 @@ function createState() {
     captureRuntimeBaselineFromCurrentState,
     syncStructuredStartArgsToGame,
     syncActivePlatformFromGame,
-    commitSnapshot,
+    commitFormSnapshot,
   }
 }
 
@@ -150,7 +150,7 @@ describe('useGameFormPersistence', () => {
     expect(state.captureRuntimeBaselineFromCurrentState).toHaveBeenCalledTimes(1)
     expect(state.syncActivePlatformFromGame).toHaveBeenCalledTimes(1)
     expect(state.downstreamImpactServers.value).toEqual([{ name: 'Alpha', patchCount: 1 }])
-    expect(state.commitSnapshot).toHaveBeenCalledTimes(1)
+    expect(state.commitFormSnapshot).toHaveBeenCalledTimes(1)
   })
 
   it('normalizes and submits new games through addGame, then redirects to edit', async () => {
@@ -186,7 +186,7 @@ describe('useGameFormPersistence', () => {
     expect(state.game.value.defaultQueryPort).toBe(25566n)
     expect(state.savedSuccessfully.value).toBe(true)
     expect(state.captureRuntimeBaselineFromCurrentState).toHaveBeenCalledTimes(1)
-    expect(state.commitSnapshot).toHaveBeenCalledTimes(1)
+    expect(state.commitFormSnapshot).toHaveBeenCalledTimes(1)
     expect(mocks.push).toHaveBeenCalledWith({ path: '/games/minecraft/edit' })
   })
 
@@ -213,7 +213,7 @@ describe('useGameFormPersistence', () => {
     expect(mocks.updateGameConfigSchemas.mock.calls[0]?.[0]?.configSchemasJson).toContain(
       '"path":"server.properties"',
     )
-    expect(state.commitSnapshot).toHaveBeenCalledTimes(1)
+    expect(state.commitFormSnapshot).toHaveBeenCalledTimes(1)
     expect(mocks.push).toHaveBeenCalledWith({ path: '/games/minecraft/config-schema/2' })
   })
 })

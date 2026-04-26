@@ -16,7 +16,7 @@ const $q = useQuasar()
 const formRef = ref<InstanceType<typeof GameForm> | null>(null)
 
 onBeforeRouteLeave(() => {
-  if (!formRef.value?.isDirty || formRef.value?.savedSuccessfully) {
+  if (!formRef.value?.isDirty) {
     return true
   }
   return new Promise<boolean>((resolve) => {

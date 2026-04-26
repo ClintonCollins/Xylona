@@ -36,6 +36,25 @@ func (c *Connection) SetGameServerSecretEnv(gameServerID string, name string, va
 
 	now := time.Now().UTC()
 	updatedBy := sql.NullString{String: strings.TrimSpace(updatedByUserID), Valid: strings.TrimSpace(updatedByUserID) != ""}
+	canonicalName := name
+	var existingName string
+	errCanonicalName := tx.QueryRowContext(
+		c.ctx,
+		`select name
+		 from game_server_secret
+		 where game_server_id = ? and kind = ? and lower(name) = lower(?)
+		 order by name
+		 limit 1`,
+		gameServerID,
+		GameServerSecretKindEnv,
+		name,
+	).Scan(&existingName)
+	if errCanonicalName != nil && !errors.Is(errCanonicalName, sql.ErrNoRows) {
+		return fmt.Errorf("lookup game server secret env name: %w", errCanonicalName)
+	}
+	if existingName != "" {
+		canonicalName = existingName
+	}
 
 	_, errExec := tx.ExecContext(
 		c.ctx,
@@ -48,7 +67,7 @@ func (c *Connection) SetGameServerSecretEnv(gameServerID string, name string, va
 			updated_at = excluded.updated_at`,
 		gameServerID,
 		GameServerSecretKindEnv,
-		name,
+		canonicalName,
 		encryptedValue,
 		updatedBy,
 		now,
@@ -78,7 +97,7 @@ func (c *Connection) ClearGameServerSecretEnv(gameServerID string, name string) 
 	_, errExec := tx.ExecContext(
 		c.ctx,
 		`delete from game_server_secret
-		 where game_server_id = ? and kind = ? and name = ?`,
+		 where game_server_id = ? and kind = ? and lower(name) = lower(?)`,
 		gameServerID,
 		GameServerSecretKindEnv,
 		name,

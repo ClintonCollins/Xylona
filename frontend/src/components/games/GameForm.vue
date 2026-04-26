@@ -268,16 +268,18 @@ const {
   syncStructuredStartArgsToGame,
 } = useGameFormStartArgsState(game)
 const downstreamImpactServers = ref<Array<{ name: string; patchCount: number }>>([])
-const { isDirty, commitSnapshot } = useGameFormDirtyState({
-  game,
-  defaultPort,
-  defaultQueryPort,
-  configSchemas,
-  linuxStartArgsTemplate,
-  windowsStartArgsTemplate,
-  startArgBlocklist,
-  downstreamImpactServers,
-})
+const { isDirty, commitSnapshot, commitFormSnapshot, commitDefaultEnvSnapshot } =
+  useGameFormDirtyState({
+    game,
+    defaultPort,
+    defaultQueryPort,
+    configSchemas,
+    defaultEnvRows,
+    linuxStartArgsTemplate,
+    windowsStartArgsTemplate,
+    startArgBlocklist,
+    downstreamImpactServers,
+  })
 const managedTypedConfig = computed(() => isManagedGameConfig(game.value))
 const {
   managedModConfig,
@@ -319,7 +321,7 @@ const { loading, submitting, loadGameDetails, navigateToSchemaEditor, submit } =
     captureRuntimeBaselineFromCurrentState,
     syncStructuredStartArgsToGame,
     syncActivePlatformFromGame,
-    commitSnapshot,
+    commitFormSnapshot,
   })
 const runtimePolicySummary = computed(() => {
   const summary = [
@@ -479,9 +481,11 @@ onMounted(async () => {
   if (existingGame.value || copyGame.value) {
     await loadGameDetails()
     await initializeGameDefaultEnvironment()
+    commitDefaultEnvSnapshot()
   } else {
     await initializeNewGameForm()
     resetDefaultEnvironment()
+    commitSnapshot()
   }
 })
 
@@ -589,6 +593,7 @@ async function saveDefaultEnvironment(): Promise<void> {
     )
     defaultEnvRows.value = cloneEnvironmentVariables(response.defaultEnv)
     defaultEnvIssues.value = response.validationIssues
+    commitDefaultEnvSnapshot()
     $q.notify({
       type: 'positive',
       position: 'top',

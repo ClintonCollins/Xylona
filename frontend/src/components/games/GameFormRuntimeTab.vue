@@ -213,7 +213,7 @@
               :loading="defaultEnvSaving"
               color="primary"
               data-testid="save-default-environment"
-              label="Save Defaults"
+              label="Save Default Environment"
               no-caps
               @click="saveDefaultEnvironment" />
           </div>

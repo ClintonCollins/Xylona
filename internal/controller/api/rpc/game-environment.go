@@ -2,6 +2,9 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
@@ -65,6 +68,15 @@ func (xs *XylonaService) UpdateGameEnvironment(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errMarshal)
 	}
 
+	validationErrors, errValidate := xs.validateGameDefaultEnvironmentAgainstServers(request.Msg.GetGameId(), defaultEnv)
+	if errValidate != nil {
+		return nil, errValidate
+	}
+	if len(validationErrors) > 0 {
+		message := strings.Join(validationErrors, "; ")
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(message))
+	}
+
 	updatedGame := *game
 	updatedGame.DefaultEnvVars = encoded
 	if updatedGame.XylonaOfficial {
@@ -97,4 +109,40 @@ func parseStoredGameEnvironment(game *models.Game) ([]launchenv.Variable, error)
 		return nil, internalErrf("stored game default environment variables are invalid")
 	}
 	return defaultEnv, nil
+}
+
+func (xs *XylonaService) validateGameDefaultEnvironmentAgainstServers(
+	gameID string,
+	defaultEnv []launchenv.Variable,
+) ([]string, error) {
+	servers, errServers := xs.db.GetGameServersByGameID(gameID)
+	if errServers != nil {
+		return nil, internalErr()
+	}
+
+	validationErrors := make([]string, 0)
+	for _, server := range servers {
+		serverEnv, errServerEnv := parseStoredServerEnvironment(server)
+		if errServerEnv != nil {
+			return nil, errServerEnv
+		}
+
+		effectiveEnv, issues := launchenv.MergeNormal(defaultEnv, serverEnv)
+
+		secretStates, errSecrets := xs.listLaunchSecretStates(server.ID)
+		if errSecrets != nil {
+			return nil, errSecrets
+		}
+		issues = append(issues, launchenv.ValidateSecretStates(secretStates, effectiveEnv)...)
+
+		serverName := strings.TrimSpace(server.Name)
+		if serverName == "" {
+			serverName = server.ID
+		}
+		for _, issue := range issues {
+			validationErrors = append(validationErrors, fmt.Sprintf("game server %q: %s", serverName, issue.Message))
+		}
+	}
+
+	return validationErrors, nil
 }

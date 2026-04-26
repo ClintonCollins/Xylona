@@ -68,6 +68,49 @@ func TestGameServerEnvironmentRoundTripDoesNotReturnSecretValues(t *testing.T) {
 	}
 }
 
+func TestGameServerEnvironmentAllowsCaseOnlySecretReplacement(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+
+	setReq := connect.NewRequest(&xylona.SetGameServerSecretEnvRequest{
+		ServerId: "server-local-1",
+		Name:     "SECRET_TOKEN",
+		Value:    "secret-value",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, setReq, "user-admin")
+
+	_, errSet := fixture.service.SetGameServerSecretEnv(context.Background(), setReq)
+	if errSet != nil {
+		t.Fatalf("SetGameServerSecretEnv() setup error = %v", errSet)
+	}
+
+	replaceReq := connect.NewRequest(&xylona.SetGameServerSecretEnvRequest{
+		ServerId: "server-local-1",
+		Name:     "secret_token",
+		Value:    "replacement-value",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, replaceReq, "user-admin")
+
+	replaceResp, errReplace := fixture.service.SetGameServerSecretEnv(context.Background(), replaceReq)
+	if errReplace != nil {
+		t.Fatalf("SetGameServerSecretEnv(case replace) error = %v", errReplace)
+	}
+	if len(replaceResp.Msg.GetSecretEnv()) != 1 {
+		t.Fatalf("SetGameServerSecretEnv(case replace).SecretEnv length = %d, want 1", len(replaceResp.Msg.GetSecretEnv()))
+	}
+	if replaceResp.Msg.GetSecretEnv()[0].GetName() != "SECRET_TOKEN" {
+		t.Fatalf("SetGameServerSecretEnv(case replace).SecretEnv[0].Name = %q, want SECRET_TOKEN", replaceResp.Msg.GetSecretEnv()[0].GetName())
+	}
+
+	decrypted, errDecrypt := fixture.conn.DecryptGameServerSecretEnv("server-local-1")
+	if errDecrypt != nil {
+		t.Fatalf("DecryptGameServerSecretEnv() error = %v", errDecrypt)
+	}
+	if decrypted["SECRET_TOKEN"] != "replacement-value" {
+		t.Fatalf("DecryptGameServerSecretEnv()[SECRET_TOKEN] = %q, want replacement-value", decrypted["SECRET_TOKEN"])
+	}
+}
+
 func TestGameServerEnvironmentRequiresMutationPermission(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
@@ -236,7 +279,7 @@ func TestGameServerEnvironmentClearSecret(t *testing.T) {
 
 	clearReq := connect.NewRequest(&xylona.ClearGameServerSecretEnvRequest{
 		ServerId: "server-local-1",
-		Name:     "SECRET_TOKEN",
+		Name:     "secret_token",
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, clearReq, "user-admin")
 

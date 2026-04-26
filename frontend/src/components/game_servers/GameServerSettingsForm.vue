@@ -190,6 +190,15 @@
               {{ issue.message }}
             </div>
           </q-banner>
+          <q-banner
+            v-if="environmentDirty"
+            class="q-mb-md"
+            data-testid="environment-unsaved-warning"
+            dense
+            rounded>
+            Unsaved environment changes. Save Environment applies them separately from server
+            settings.
+          </q-banner>
 
           <div class="environment-grid">
             <div class="environment-panel">
@@ -246,7 +255,7 @@
                   :loading="environmentSaving"
                   color="primary"
                   data-testid="save-environment-settings"
-                  label="Save Variables"
+                  label="Save Environment"
                   no-caps
                   @click="saveEnvironmentSettings" />
               </div>
@@ -493,7 +502,7 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
@@ -537,6 +546,7 @@ const backupOverview = ref<GameServerBackupOverview>(create(GameServerBackupOver
 const backupSettingsLoading = ref(true)
 const backupSettingsSaving = ref(false)
 const environmentRows = ref<EnvironmentVariable[]>([])
+const environmentSnapshot = ref('')
 const environmentIssues = ref<EnvironmentValidationIssue[]>([])
 const environmentLoading = ref(true)
 const environmentSaving = ref(false)
@@ -544,6 +554,13 @@ const secretEnvironmentStates = ref<SecretEnvironmentVariableState[]>([])
 const secretEnvironmentName = ref('')
 const secretEnvironmentValue = ref('')
 const secretEnvironmentSaving = ref(false)
+const environmentDirty = computed(() => {
+  if (!environmentSnapshot.value) {
+    return false
+  }
+
+  return serializeEnvironmentRows(environmentRows.value) !== environmentSnapshot.value
+})
 
 const {
   autoRestartCooldownModel,
@@ -652,6 +669,7 @@ async function initializeEnvironmentSettings() {
     )
 
     environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
+    commitEnvironmentSnapshot()
     environmentIssues.value = response.validationIssues
     secretEnvironmentStates.value = response.secretEnv
   } catch (e) {
@@ -673,6 +691,19 @@ function cloneEnvironmentVariables(variables: EnvironmentVariable[]): Environmen
       value: variable.value,
     }),
   )
+}
+
+function serializeEnvironmentRows(rows: EnvironmentVariable[]): string {
+  return JSON.stringify(
+    rows.map((row) => ({
+      name: row.name,
+      value: row.value,
+    })),
+  )
+}
+
+function commitEnvironmentSnapshot(): void {
+  environmentSnapshot.value = serializeEnvironmentRows(environmentRows.value)
 }
 
 function addEnvironmentRow(): void {
@@ -701,6 +732,7 @@ async function saveEnvironmentSettings() {
     )
 
     environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
+    commitEnvironmentSnapshot()
     environmentIssues.value = response.validationIssues
     $q.notify({
       type: 'positive',

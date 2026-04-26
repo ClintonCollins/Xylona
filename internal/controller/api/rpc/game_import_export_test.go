@@ -81,6 +81,83 @@ func TestImportGamePreviewReportsConflictAndImpact(t *testing.T) {
 	}
 }
 
+func TestImportGameRejectsDefaultEnvConflictWithExistingServerSecret(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+	errSet := fixture.conn.SetGameServerSecretEnv("server-local-1", "TOKEN", "secret-value", "user-admin")
+	if errSet != nil {
+		t.Fatalf("SetGameServerSecretEnv() setup error = %v", errSet)
+	}
+
+	exportResp := exportGameForTest(t, fixture, "minecraft")
+	definitionJSON := mutateImportDefinitionJSON(t, exportResp.Msg.GetGameDefinitionJson(), func(t *testing.T, document map[string]any) {
+		t.Helper()
+
+		document["default_env_vars"] = []any{
+			map[string]any{
+				"name":  "token",
+				"value": "visible-value",
+			},
+		}
+	})
+
+	previewReq := connect.NewRequest(&xylona.ImportGameRequest{
+		GameDefinitionJson: definitionJSON,
+		Mode:               xylona.GameImportMode_GAME_IMPORT_MODE_PREVIEW,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, previewReq, "user-admin")
+	previewResp, errPreview := fixture.service.ImportGame(context.Background(), previewReq)
+	if errPreview != nil {
+		t.Fatalf("ImportGame(PREVIEW) error = %v", errPreview)
+	}
+	if !previewResp.Msg.GetSuccess() {
+		t.Fatalf("ImportGame(PREVIEW).Success = false, errors = %v", previewResp.Msg.GetValidationErrors())
+	}
+	if !validationErrorsContain(previewResp.Msg.GetWarnings(), "Local One") {
+		t.Fatalf("ImportGame(PREVIEW).Warnings = %v, want affected server warning", previewResp.Msg.GetWarnings())
+	}
+
+	applyReq := connect.NewRequest(&xylona.ImportGameRequest{
+		GameDefinitionJson: definitionJSON,
+		Mode:               xylona.GameImportMode_GAME_IMPORT_MODE_APPLY,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, applyReq, "user-admin")
+	applyResp, errApply := fixture.service.ImportGame(context.Background(), applyReq)
+	if errApply != nil {
+		t.Fatalf("ImportGame(APPLY) error = %v", errApply)
+	}
+	if applyResp.Msg.GetSuccess() {
+		t.Fatal("ImportGame(APPLY).Success = true, want false")
+	}
+	if !validationErrorsContain(applyResp.Msg.GetValidationErrors(), "Local One") {
+		t.Fatalf("ImportGame(APPLY).ValidationErrors = %v, want affected server", applyResp.Msg.GetValidationErrors())
+	}
+
+	copyReq := connect.NewRequest(&xylona.ImportGameRequest{
+		GameDefinitionJson: definitionJSON,
+		Mode:               xylona.GameImportMode_GAME_IMPORT_MODE_IMPORT_COPY,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, copyReq, "user-admin")
+	copyResp, errCopy := fixture.service.ImportGame(context.Background(), copyReq)
+	if errCopy != nil {
+		t.Fatalf("ImportGame(IMPORT_COPY) error = %v", errCopy)
+	}
+	if !copyResp.Msg.GetSuccess() {
+		t.Fatalf("ImportGame(IMPORT_COPY).Success = false, errors = %v", copyResp.Msg.GetValidationErrors())
+	}
+	if copyResp.Msg.GetImportedGameId() == "minecraft" || copyResp.Msg.GetImportedGameId() == "" {
+		t.Fatalf("ImportGame(IMPORT_COPY).ImportedGameId = %q, want copied ID", copyResp.Msg.GetImportedGameId())
+	}
+
+	game, errGame := fixture.conn.GetGameByID("minecraft")
+	if errGame != nil {
+		t.Fatalf("GetGameByID(minecraft) error = %v", errGame)
+	}
+	if strings.Contains(game.DefaultEnvVars, "token") {
+		t.Fatalf("ImportGame(APPLY) wrote conflicting default env vars: %s", game.DefaultEnvVars)
+	}
+}
+
 func TestImportGamePreviewReportsChangedFieldsForEditedConflict(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	exportResp := exportGameForTest(t, fixture, "valheim")
@@ -802,6 +879,15 @@ func replaceOnce(t *testing.T, input string, old string, replacement string) str
 		t.Fatalf("replacement target %q not found", old)
 	}
 	return output
+}
+
+func validationErrorsContain(validationErrors []string, substring string) bool {
+	for _, validationError := range validationErrors {
+		if strings.Contains(validationError, substring) {
+			return true
+		}
+	}
+	return false
 }
 
 func seedValheimVariantForImportTest(t *testing.T, fixture *rbacRPCFixture) {

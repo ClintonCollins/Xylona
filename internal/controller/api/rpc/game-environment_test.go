@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -59,6 +60,66 @@ func TestGameEnvironmentRequiresSuperuser(t *testing.T) {
 	}
 	if connect.CodeOf(errUpdate) != connect.CodePermissionDenied {
 		t.Fatalf("UpdateGameEnvironment(non-superuser) code = %v, want %v", connect.CodeOf(errUpdate), connect.CodePermissionDenied)
+	}
+}
+
+func TestGameEnvironmentRejectsDefaultConflictWithExistingServerSecret(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+	errSet := fixture.conn.SetGameServerSecretEnv("server-local-1", "TOKEN", "secret-value", "user-admin")
+	if errSet != nil {
+		t.Fatalf("SetGameServerSecretEnv() setup error = %v", errSet)
+	}
+
+	req := connect.NewRequest(&xylona.UpdateGameEnvironmentRequest{
+		GameId: "minecraft",
+		DefaultEnv: []*xylona.EnvironmentVariable{
+			{Name: "token", Value: "visible-value"},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	_, errUpdate := fixture.service.UpdateGameEnvironment(context.Background(), req)
+	if errUpdate == nil {
+		t.Fatal("UpdateGameEnvironment(conflict) error = nil, want invalid argument")
+	}
+	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
+		t.Fatalf("UpdateGameEnvironment(conflict) code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
+	}
+	if !strings.Contains(errUpdate.Error(), "Local One") {
+		t.Fatalf("UpdateGameEnvironment(conflict) error = %q, want affected server name", errUpdate.Error())
+	}
+}
+
+func TestGameEnvironmentAllowsDefaultWhenServerNormalOverrides(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	serverReq := connect.NewRequest(&xylona.UpdateGameServerEnvironmentRequest{
+		ServerId: "server-local-1",
+		EnvVars: []*xylona.EnvironmentVariable{
+			{Name: "TOKEN", Value: "server-value"},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, serverReq, "user-admin")
+	_, errServer := fixture.service.UpdateGameServerEnvironment(context.Background(), serverReq)
+	if errServer != nil {
+		t.Fatalf("UpdateGameServerEnvironment() setup error = %v", errServer)
+	}
+
+	req := connect.NewRequest(&xylona.UpdateGameEnvironmentRequest{
+		GameId: "minecraft",
+		DefaultEnv: []*xylona.EnvironmentVariable{
+			{Name: "token", Value: "default-value"},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	resp, errUpdate := fixture.service.UpdateGameEnvironment(context.Background(), req)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameEnvironment(override) error = %v", errUpdate)
+	}
+	if len(resp.Msg.GetDefaultEnv()) != 1 {
+		t.Fatalf("UpdateGameEnvironment(override).DefaultEnv length = %d, want 1", len(resp.Msg.GetDefaultEnv()))
 	}
 }
 

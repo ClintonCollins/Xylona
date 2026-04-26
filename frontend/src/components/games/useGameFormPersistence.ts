@@ -44,7 +44,7 @@ interface UseGameFormPersistenceOptions {
   captureRuntimeBaselineFromCurrentState: () => void
   syncStructuredStartArgsToGame: () => void
   syncActivePlatformFromGame: () => void
-  commitSnapshot: () => void
+  commitFormSnapshot: () => void
 }
 
 export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
@@ -146,7 +146,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
     } finally {
       loading.value = false
       await nextTick()
-      options.commitSnapshot()
+      options.commitFormSnapshot()
     }
   }
 
@@ -181,7 +181,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
       return
     }
 
-    options.commitSnapshot()
+    options.commitFormSnapshot()
     await router.push({ path: `/games/${id}/config-schema/${fileIndex}` })
   }
 
@@ -196,7 +196,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
 
       options.savedSuccessfully.value = true
       options.captureRuntimeBaselineFromCurrentState()
-      options.commitSnapshot()
+      options.commitFormSnapshot()
       $q.notify({
         caption: `${options.game.value.name} added successfully`,
         type: 'xylona-success',
@@ -227,7 +227,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
       await GetXylonaClient().editGame(request)
       options.savedSuccessfully.value = true
       options.captureRuntimeBaselineFromCurrentState()
-      options.commitSnapshot()
+      options.commitFormSnapshot()
       $q.notify({
         caption: `${options.game.value.name} updated successfully`,
         type: 'xylona-success',

@@ -11,6 +11,7 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/google/uuid"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
 	"github.com/ClintonCollins/Xylona/pkg/version"
@@ -193,9 +194,32 @@ func (xs *XylonaService) ImportGame(_ context.Context, request *connect.Request[
 	}
 
 	validationErrors := gamedefinitions.ValidateModel(parsed.Model)
+	warnings := append([]string{}, parsed.Warnings...)
+	mode := request.Msg.GetMode()
 	existingGame, existingFound, errExisting := xs.lookupImportGameConflict(parsed.Model.ID)
 	if errExisting != nil {
 		return nil, errExisting
+	}
+	if existingFound && len(validationErrors) == 0 && mode != xylona.GameImportMode_GAME_IMPORT_MODE_IMPORT_COPY {
+		defaultEnv, errDefaultEnv := launchenv.ParseStored(parsed.Model.DefaultEnvVars)
+		if errDefaultEnv != nil {
+			validationErrors = append(validationErrors, errDefaultEnv.Error())
+		} else {
+			defaultEnvValidationErrors, errValidate := xs.validateGameDefaultEnvironmentAgainstServers(
+				parsed.Model.ID,
+				defaultEnv,
+			)
+			if errValidate != nil {
+				return nil, errValidate
+			}
+			if mode == xylona.GameImportMode_GAME_IMPORT_MODE_PREVIEW {
+				for _, validationError := range defaultEnvValidationErrors {
+					warnings = append(warnings, "Updating the existing game would fail: "+validationError)
+				}
+			} else {
+				validationErrors = append(validationErrors, defaultEnvValidationErrors...)
+			}
+		}
 	}
 	affectedNames, errAffected := xs.affectedGameServerNames(parsed.Model.ID, existingFound)
 	if errAffected != nil {
@@ -210,7 +234,6 @@ func (xs *XylonaService) ImportGame(_ context.Context, request *connect.Request[
 		}
 	}
 
-	mode := request.Msg.GetMode()
 	response := &xylona.ImportGameResponse{
 		Game:                    protomap.GameModelToProto(parsed.Model),
 		Success:                 len(validationErrors) == 0,
@@ -218,7 +241,7 @@ func (xs *XylonaService) ImportGame(_ context.Context, request *connect.Request[
 		UpdatesExisting:         existingFound && mode == xylona.GameImportMode_GAME_IMPORT_MODE_APPLY,
 		AffectedGameServerCount: int64(len(affectedNames)),
 		AffectedGameServerNames: affectedNames,
-		Warnings:                parsed.Warnings,
+		Warnings:                warnings,
 		ValidationErrors:        validationErrors,
 		ImportedGameId:          parsed.Model.ID,
 		Changes:                 changes,

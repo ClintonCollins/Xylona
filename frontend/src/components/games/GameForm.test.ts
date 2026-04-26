@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { defineComponent, inject } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -15,6 +15,7 @@ import {
   VariantSchema,
 } from '@/proto/shared_pb'
 import GameForm from './GameForm.vue'
+import { gameFormContextKey } from './GameFormTypes'
 
 const mocks = vi.hoisted(() => ({
   addGame: vi.fn(),
@@ -631,6 +632,29 @@ describe('GameForm', () => {
     expect(wrapper.get('[data-testid="baseline-windows-count"]').text()).toBe('1')
   })
 
+  it('hides default environment editor for new and copy forms', async () => {
+    const newWrapper = mountGameForm({}, { existingGameId: '' })
+    await flushPromises()
+
+    expect(newWrapper.find('[data-testid="game-default-environment-section"]').exists()).toBe(false)
+
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    const copyWrapper = mountGameForm({}, { existingGameId: '', copyGameId: 'minecraft' })
+    await flushPromises()
+
+    expect(copyWrapper.find('[data-testid="game-default-environment-section"]').exists()).toBe(
+      false,
+    )
+  })
+
   it('saves game default environment through the dedicated RPC', async () => {
     mocks.getGame.mockResolvedValue({
       game: create(GameSchema, {
@@ -665,11 +689,11 @@ describe('GameForm', () => {
     await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
     const saveButton = wrapper
       .findAll('button')
-      .find((button) => button.text().trim() === 'Save Defaults')
+      .find((button) => button.text().trim() === 'Save Default Environment')
 
     expect(saveButton).toBeDefined()
     if (!saveButton) {
-      throw new Error('expected Save Defaults button to exist')
+      throw new Error('expected Save Default Environment button to exist')
     }
 
     await saveButton.trigger('click')
@@ -684,5 +708,63 @@ describe('GameForm', () => {
       name: 'HYTALE_AUTH_MODE',
       value: 'refresh_token',
     })
+  })
+
+  it('keeps game edits dirty when default environment finishes loading later', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+
+    let resolveEnvironment:
+      | ((value: { defaultEnv: never[]; validationIssues: never[] }) => void)
+      | undefined
+    mocks.getGameEnvironment.mockReturnValue(
+      new Promise((resolve) => {
+        resolveEnvironment = resolve
+      }),
+    )
+
+    const wrapper = mountGameForm({
+      GameFormOverviewTab: defineComponent({
+        name: 'DirtyDuringEnvLoadOverviewStub',
+        setup() {
+          const ctx = inject(gameFormContextKey)
+          if (!ctx) {
+            throw new Error('expected game form context')
+          }
+
+          function mutateName(): void {
+            ctx.game.value.name = 'Changed During Env Load'
+          }
+
+          return {
+            mutateName,
+          }
+        },
+        template:
+          '<button data-testid="mutate-game-name" type="button" @click="mutateName">Mutate</button>',
+      }),
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="mutate-game-name"]').trigger('click')
+
+    expect(wrapper.vm.isDirty).toBe(true)
+
+    if (!resolveEnvironment) {
+      throw new Error('expected delayed default environment request')
+    }
+    resolveEnvironment({
+      defaultEnv: [],
+      validationIssues: [],
+    })
+    await flushPromises()
+
+    expect(wrapper.vm.isDirty).toBe(true)
   })
 })
