@@ -400,8 +400,26 @@ func (xs *XylonaService) StartGameServer(_ context.Context, request *connect.Req
 		return nil, errPermission
 	}
 
-	xs.actionsInst.StartGameServer(gameServer)
+	_, errStart := xs.actionsInst.StartGameServer(gameServer)
+	if errStart != nil {
+		return nil, startGameServerConnectError(errStart)
+	}
 	return connect.NewResponse(&xylona.StartGameServerResponse{}), nil
+}
+
+func startGameServerConnectError(err error) error {
+	var startErr *actions.StartGameServerError
+	if errors.As(err, &startErr) && startErr != nil {
+		switch startErr.Kind {
+		case actions.StartFailureConfiguration:
+			return connect.NewError(connect.CodeFailedPrecondition, errors.New(startErr.Error()))
+		case actions.StartFailureUnavailable:
+			return connect.NewError(connect.CodeUnavailable, errors.New(startErr.Error()))
+		default:
+			return connect.NewError(connect.CodeInternal, errors.New(startErr.Error()))
+		}
+	}
+	return connect.NewError(connect.CodeInternal, errors.New(err.Error()))
 }
 
 // StopGameServer stops a game server managed by the controller's embedded node.

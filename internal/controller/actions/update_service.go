@@ -323,7 +323,13 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	// Step 4: Restart if the server was running before the update.
 	if wasRunning {
 		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Restarting server")
-		inst.StartGameServer(gameServer)
+		_, errStart := inst.StartGameServer(gameServer)
+		if errStart != nil {
+			log.Error().Err(errStart).Str("game_server_id", serverID).Msg("Failed to restart server after update")
+			broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_FAILED, "Server failed to restart")
+			inst.rollbackUpdate(gameServer, wasRunning, broadcaster)
+			return
+		}
 		// Poll up to 60s for the server to come online. Uses NodeClient
 		// so embedded and remote restarts are observed uniformly.
 		restarted := waitForServerOnline(inst.ctx, func() (xylona.Status, bool) {
@@ -504,7 +510,10 @@ func (inst *Instance) rollbackUpdate(gameServer *models.GameServer, wasRunning b
 		log.Error().Err(errRestore).Str("game_server_id", serverID).Msg("Rollback restore failed")
 	}
 	if wasRunning {
-		inst.StartGameServer(gameServer)
+		_, errStart := inst.StartGameServer(gameServer)
+		if errStart != nil {
+			log.Error().Err(errStart).Str("game_server_id", serverID).Msg("Failed to restart server after rollback")
+		}
 	}
 	broadcast(xylona.UpdateStep_UPDATE_STEP_ROLLING_BACK, xylona.StepStatus_STEP_STATUS_COMPLETED, "Rollback complete")
 	log.Warn().Str("game_server_id", serverID).Msg("Update rolled back")

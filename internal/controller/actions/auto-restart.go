@@ -215,7 +215,19 @@ func (inst *Instance) handleServerExit(serverID string) {
 			Int("attempt", attempt+1).
 			Msg("Auto-restart: starting server")
 
-		inst.StartGameServer(gs)
+		_, errStart := inst.StartGameServer(gs)
+		if errStart != nil {
+			if IsStartConfigurationError(errStart) {
+				e.mu.Lock()
+				e.attemptCount = maxRetries
+				e.mu.Unlock()
+				log.Warn().Err(errStart).Str("game_server_id", serverID).
+					Msg("Auto-restart: start blocked by configuration, retrying disabled")
+				return
+			}
+			log.Error().Err(errStart).Str("game_server_id", serverID).
+				Msg("Auto-restart: start failed")
+		}
 	}()
 }
 

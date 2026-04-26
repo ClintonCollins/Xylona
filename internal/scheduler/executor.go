@@ -142,7 +142,10 @@ func (s *Scheduler) executeRestart(task *models.ScheduledTask) (string, string) 
 		case <-pollTick.C:
 			if s.actions.CurrentStatus(gameServer) == xylona.Status_OFFLINE {
 				// Phase 3: Start the server.
-				s.actions.StartGameServer(gameServer)
+				_, errStart := s.actions.StartGameServer(gameServer)
+				if errStart != nil {
+					return statusFailed, fmt.Sprintf("server stop confirmed, but start failed: %s", errStart)
+				}
 				return statusSuccess, "server stop confirmed, start issued"
 			}
 		}

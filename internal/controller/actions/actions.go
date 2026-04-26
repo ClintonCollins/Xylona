@@ -319,7 +319,11 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 			log.Error().Err(errPostInstall).Msg("Failed to perform post install step")
 			return
 		}
-		inst.StartGameServer(installedGS)
+		_, errStart := inst.StartGameServer(installedGS)
+		if errStart != nil {
+			log.Error().Err(errStart).Str("game_server_id", installedGS.ID).
+				Msg("Failed to start server after install")
+		}
 	})
 
 	errStart := client.StartProcess(inst.ctx, installCfg, xylona.Status_INSTALLING)
@@ -456,7 +460,7 @@ func (inst *Instance) postInstallStep(gameServer *models.GameServer) error {
 // server. Routes through NodeClient so both embedded and remote nodes launch
 // processes via the same surface; exit handling is driven by the status-
 // change eventbus subscriber.
-func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
+func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGameServerResult, error) {
 	// Run pre-start config enforcement before launching the process.
 	inst.runConfigPreStart(gameServer)
 	// Run mod auto-updates before launching the process.
@@ -465,7 +469,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 	baseCommand, args, errResolve := inst.resolveStructuredStartCommand(gameServer)
 	if errResolve != nil {
 		inst.reportStartFailure(gameServer, errResolve.Error())
-		return
+		return nil, startConfigurationError("start configuration is incomplete", errResolve)
 	}
 
 	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
@@ -473,7 +477,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 		log.Error().Err(errClient).Str("game_server_id", gameServer.ID).
 			Str("node_id", gameServer.NodeID).Msg("Failed to resolve node client for start")
 		inst.reportStartFailure(gameServer, "Failed to reach target node: "+errClient.Error())
-		return
+		return nil, startUnavailableError("target node is unavailable", errClient)
 	}
 
 	cfg := node.ProcessConfig{
@@ -500,10 +504,11 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) {
 		log.Error().Err(errStart).Str("game_server_id", gameServer.ID).
 			Msg("Failed to start game server")
 		inst.reportStartFailure(gameServer, "Failed to start server: "+errStart.Error())
-		return
+		return nil, startInternalError("failed to start server process", errStart)
 	}
 	inst.intentionalStops.clear(gameServer.ID)
 	inst.restartState.recordStarted(gameServer.ID)
+	return &StartGameServerResult{Started: true}, nil
 }
 
 // resolveNodeClient looks up the NodeClient for a node ID. When the

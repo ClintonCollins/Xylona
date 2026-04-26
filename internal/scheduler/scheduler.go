@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	controlleractions "github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -33,7 +34,7 @@ type DB interface {
 // operations. The status/console methods route through the NodeClient so
 // embedded and remote nodes execute identically.
 type ActionsExecutor interface {
-	StartGameServer(gameServer *models.GameServer)
+	StartGameServer(gameServer *models.GameServer) (*controlleractions.StartGameServerResult, error)
 	StopGameServer(gameServer *models.GameServer)
 	CurrentStatus(gameServer *models.GameServer) xylona.Status
 	SendConsoleInput(gameServer *models.GameServer, input string) error

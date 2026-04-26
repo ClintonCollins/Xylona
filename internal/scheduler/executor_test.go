@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	controlleractions "github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -101,7 +102,9 @@ func (db *executeTaskDBFake) GetNodeByID(_ string) (*models.Node, error) {
 
 type executeTaskActionsFake struct{}
 
-func (a *executeTaskActionsFake) StartGameServer(*models.GameServer) {}
+func (a *executeTaskActionsFake) StartGameServer(*models.GameServer) (*controlleractions.StartGameServerResult, error) {
+	return &controlleractions.StartGameServerResult{Started: true}, nil
+}
 
 func (a *executeTaskActionsFake) StopGameServer(*models.GameServer) {}
 
