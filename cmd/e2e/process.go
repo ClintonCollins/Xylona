@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -77,37 +76,35 @@ func startNode(name, workDir, logDir, xylonaExe string, httpPort int, runtimeEnv
 	}
 	cmd.Env = append(os.Environ(), append(baseEnv, extraEnv...)...)
 
-	stdout, errStdout := cmd.StdoutPipe()
-	if errStdout != nil {
-		return nil, fmt.Errorf("stdout pipe: %w", errStdout)
-	}
-	stderr, errStderr := cmd.StderrPipe()
-	if errStderr != nil {
-		return nil, fmt.Errorf("stderr pipe: %w", errStderr)
+	errMkdirLog := os.MkdirAll(logDir, 0o750)
+	if errMkdirLog != nil {
+		return nil, fmt.Errorf("create %s log directory: %w", name, errMkdirLog)
 	}
 
-	log.Info().Msgf("[%s] Starting on HTTP :%d", name, httpPort)
+	processLogName := strings.ToLower(strings.ReplaceAll(name, " ", "-")) + ".process.log"
+	processLogPath := filepath.Join(logDir, processLogName)
+	processLogFile, errOpenLog := os.OpenFile(processLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if errOpenLog != nil {
+		return nil, fmt.Errorf("open %s process log: %w", name, errOpenLog)
+	}
+	cmd.Stdout = processLogFile
+	cmd.Stderr = processLogFile
+
+	log.Info().Str("log_file", processLogPath).Msgf("[%s] Starting on HTTP :%d", name, httpPort)
 
 	errStart := cmd.Start()
 	if errStart != nil {
+		errClose := processLogFile.Close()
+		if errClose != nil {
+			return nil, fmt.Errorf("start %s: %w; close process log: %w", name, errStart, errClose)
+		}
 		return nil, fmt.Errorf("start %s: %w", name, errStart)
 	}
 
-	// Pipe stdout with prefix.
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			fmt.Printf("[%s] %s\n", name, scanner.Text())
-		}
-	}()
-
-	// Pipe stderr with prefix.
-	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			fmt.Fprintf(os.Stderr, "[%s] %s\n", name, scanner.Text())
-		}
-	}()
+	errClose := processLogFile.Close()
+	if errClose != nil {
+		log.Warn().Err(errClose).Str("log_file", processLogPath).Msg("close parent process log handle")
+	}
 
 	return cmd, nil
 }

@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -296,7 +297,7 @@ func (n *Node) ExtractBackupArchive(ctx context.Context, directory, archivePath 
 	}
 	defer cleanupBackupRestoreStaging(stageRoot)
 
-	archivePaths, errStageExtract := extractBackupArchiveToStaging(ctx, stageRoot, reader.File)
+	archivePaths, directoryModes, errStageExtract := extractBackupArchiveToStaging(ctx, stageRoot, reader.File)
 	if errStageExtract != nil {
 		return errStageExtract
 	}
@@ -313,36 +314,37 @@ func (n *Node) ExtractBackupArchive(ctx context.Context, directory, archivePath 
 		}
 	}
 
-	errApply := applyStagedBackupExtract(ctx, stageRoot, cleanRoot)
+	errApply := applyStagedBackupExtract(ctx, stageRoot, cleanRoot, directoryModes)
 	if errApply != nil {
 		return errApply
 	}
 	return nil
 }
 
-func extractBackupArchiveToStaging(ctx context.Context, stageRoot string, files []*zip.File) (map[string]struct{}, error) {
+func extractBackupArchiveToStaging(ctx context.Context, stageRoot string, files []*zip.File) (map[string]struct{}, map[string]fs.FileMode, error) {
 	archivePaths := make(map[string]struct{}, len(files))
+	directoryModes := make(map[string]fs.FileMode, len(files))
 	for _, f := range files {
 		errCtx := ctx.Err()
 		if errCtx != nil {
-			return nil, fmt.Errorf("node: extract canceled: %w", errCtx)
+			return nil, nil, fmt.Errorf("node: extract canceled: %w", errCtx)
 		}
 
 		relative, errRelative := backupExtractRelativePath(f.Name)
 		if errRelative != nil {
-			return nil, errRelative
+			return nil, nil, errRelative
 		}
 		archivePaths[relative] = struct{}{}
 
-		errExtract := extractBackupEntry(stageRoot, f)
+		errExtract := extractBackupEntry(stageRoot, f, directoryModes)
 		if errExtract != nil {
-			return nil, errExtract
+			return nil, nil, errExtract
 		}
 	}
-	return archivePaths, nil
+	return archivePaths, directoryModes, nil
 }
 
-func extractBackupEntry(root string, f *zip.File) error {
+func extractBackupEntry(root string, f *zip.File, directoryModes map[string]fs.FileMode) error {
 	relative, errRelative := backupExtractRelativePath(f.Name)
 	if errRelative != nil {
 		return errRelative
@@ -355,15 +357,13 @@ func extractBackupEntry(root string, f *zip.File) error {
 	}
 
 	if f.FileInfo().IsDir() {
-		perm := f.Mode().Perm()
-		if perm == 0 {
-			perm = 0o750
-		}
-		errMkdir := os.MkdirAll(full, perm)
+		perm := backupDirectoryPerm(f.Mode().Perm())
+		directoryModes[relative] = perm
+		errMkdir := os.MkdirAll(full, writableBackupDirectoryPerm(perm))
 		if errMkdir != nil {
 			return fmt.Errorf("node: create archive directory %s: %w", f.Name, errMkdir)
 		}
-		errChmod := os.Chmod(full, perm)
+		errChmod := os.Chmod(full, writableBackupDirectoryPerm(perm))
 		if errChmod != nil {
 			return fmt.Errorf("node: set archive directory mode %s: %w", f.Name, errChmod)
 		}
@@ -417,7 +417,8 @@ func backupExtractRelativePath(entryName string) (string, error) {
 	return relative, nil
 }
 
-func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string) error {
+func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string, archivedDirectoryModes map[string]fs.FileMode) error {
+	finalDirectoryModes := make(map[string]fs.FileMode, len(archivedDirectoryModes))
 	errWalk := filepath.WalkDir(stageRoot, func(currentPath string, entry fs.DirEntry, walkErr error) error {
 		errCtx := ctx.Err()
 		if errCtx != nil {
@@ -448,7 +449,16 @@ func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string) e
 
 		livePath := filepath.Join(liveRoot, relative)
 		if info.IsDir() {
-			errPrepare := prepareBackupRestoreDirectory(liveRoot, livePath, info.Mode().Perm())
+			relativeSlash := filepath.ToSlash(relative)
+			perm := info.Mode().Perm()
+			archivedPerm, hasArchivedPerm := archivedDirectoryModes[relativeSlash]
+			if hasArchivedPerm {
+				perm = archivedPerm
+			}
+			perm = backupDirectoryPerm(perm)
+			finalDirectoryModes[relativeSlash] = perm
+
+			errPrepare := prepareBackupRestoreDirectory(liveRoot, livePath, writableBackupDirectoryPerm(perm))
 			if errPrepare != nil {
 				return errPrepare
 			}
@@ -467,7 +477,48 @@ func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string) e
 	if errWalk != nil {
 		return fmt.Errorf("node: apply staged backup extract: %w", errWalk)
 	}
+	errRestoreModes := restoreBackupDirectoryModes(liveRoot, finalDirectoryModes)
+	if errRestoreModes != nil {
+		return errRestoreModes
+	}
 	return nil
+}
+
+func backupDirectoryPerm(perm fs.FileMode) fs.FileMode {
+	if perm == 0 {
+		return 0o750
+	}
+	return perm
+}
+
+func writableBackupDirectoryPerm(perm fs.FileMode) fs.FileMode {
+	return backupDirectoryPerm(perm) | 0o700
+}
+
+func restoreBackupDirectoryModes(liveRoot string, directoryModes map[string]fs.FileMode) error {
+	directories := make([]string, 0, len(directoryModes))
+	for relative := range directoryModes {
+		directories = append(directories, relative)
+	}
+	sort.Slice(directories, func(i, j int) bool {
+		return backupDirectoryDepth(directories[i]) > backupDirectoryDepth(directories[j])
+	})
+
+	for _, relative := range directories {
+		livePath := filepath.Join(liveRoot, filepath.FromSlash(relative))
+		errChmod := os.Chmod(livePath, backupDirectoryPerm(directoryModes[relative]))
+		if errChmod != nil {
+			return fmt.Errorf("node: set live backup directory mode: %w", errChmod)
+		}
+	}
+	return nil
+}
+
+func backupDirectoryDepth(relative string) int {
+	if relative == "" || relative == "." {
+		return 0
+	}
+	return strings.Count(relative, "/")
 }
 
 func copyStagedBackupFile(liveRoot, sourcePath, destinationPath string, perm fs.FileMode) error {
