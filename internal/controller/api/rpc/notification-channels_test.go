@@ -402,123 +402,81 @@ func TestCreateNotificationChannel_GlobalPermission(t *testing.T) {
 // Validation tests
 // ---------------------------------------------------------------------------
 
-func TestCreateNotificationChannel_EmptyName(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
-		Config:      `{"url":"x"}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
-
-	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateNotificationChannel(empty name) expected error, got nil")
+func TestCreateNotificationChannel_InvalidInput(t *testing.T) {
+	tests := []struct {
+		name string
+		req  *xylona.CreateNotificationChannelRequest
+	}{
+		{
+			name: "empty name",
+			req: &xylona.CreateNotificationChannelRequest{
+				Name:        "",
+				ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
+				Config:      `{"url":"x"}`,
+				Enabled:     true,
+			},
+		},
+		{
+			name: "unspecified type",
+			req: &xylona.CreateNotificationChannelRequest{
+				Name:        "bad-type",
+				ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_UNSPECIFIED,
+				Config:      `{}`,
+				Enabled:     true,
+			},
+		},
+		{
+			name: "invalid webhook url scheme",
+			req: &xylona.CreateNotificationChannelRequest{
+				Name:        "bad-webhook",
+				ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_GENERIC,
+				Config:      `{"url":"file:///tmp/webhook"}`,
+				Enabled:     true,
+			},
+		},
+		{
+			name: "invalid email recipient",
+			req: &xylona.CreateNotificationChannelRequest{
+				Name:        "bad-email",
+				ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+				Config:      `{"to":"victim@example.com\r\nBcc: attacker@example.com","smtp_source":"node"}`,
+				Enabled:     true,
+			},
+		},
+		{
+			name: "custom smtp missing user",
+			req: &xylona.CreateNotificationChannelRequest{
+				Name:        "missing-user",
+				ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+				Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_password":"secret","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+				Enabled:     true,
+			},
+		},
+		{
+			name: "custom smtp missing password",
+			req: &xylona.CreateNotificationChannelRequest{
+				Name:        "missing-password",
+				ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
+				Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
+				Enabled:     true,
+			},
+		},
 	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
 
-func TestCreateNotificationChannel_UnspecifiedType(t *testing.T) {
-	fixture := newNotifChanFixture(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newNotifChanFixture(t)
+			req := connect.NewRequest(tt.req)
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
 
-	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "bad-type",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_UNSPECIFIED,
-		Config:      `{}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
-
-	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateNotificationChannel(unspecified type) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
-
-func TestCreateNotificationChannel_InvalidWebhookURLScheme(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "bad-webhook",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_GENERIC,
-		Config:      `{"url":"file:///tmp/webhook"}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
-
-	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateNotificationChannel(invalid webhook scheme) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
-
-func TestCreateNotificationChannel_InvalidEmailRecipient(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "bad-email",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
-		Config:      `{"to":"victim@example.com\r\nBcc: attacker@example.com","smtp_source":"node"}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
-
-	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateNotificationChannel(invalid email recipient) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
-
-func TestCreateNotificationChannel_CustomSMTPRequiresUser(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "missing-user",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
-		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_password":"secret","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
-
-	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
-	if errCreate == nil {
-		t.Fatal("CreateNotificationChannel(custom missing smtp_user) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
-
-func TestCreateNotificationChannel_CustomSMTPRequiresPassword(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "missing-password",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL,
-		Config:      `{"to":"alerts@example.com","smtp_source":"custom","smtp_host":"smtp.example.com","smtp_port":587,"smtp_user":"mailer","smtp_from":"noreply@example.com","smtp_tls_enabled":true}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
-
-	_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
-	if errCreate == nil {
-		t.Fatal("CreateNotificationChannel(custom missing smtp_password) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+			_, errCreate := fixture.service.CreateNotificationChannel(context.Background(), req)
+			if errCreate == nil {
+				t.Fatalf("CreateNotificationChannel() error = nil, want invalid argument")
+			}
+			if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+				t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+			}
+		})
 	}
 }
 
@@ -789,72 +747,71 @@ func TestDeleteNotificationChannel_CrossUserIsolation(t *testing.T) {
 // Update + Delete permission and validation
 // ---------------------------------------------------------------------------
 
-func TestUpdateNotificationChannel_EmptyID(t *testing.T) {
-	fixture := newNotifChanFixture(t)
+func TestUpdateNotificationChannel_InvalidInput(t *testing.T) {
+	tests := []struct {
+		name string
+		req  func(t *testing.T, fixture *notifChanFixture) *xylona.UpdateNotificationChannelRequest
+	}{
+		{
+			name: "empty id",
+			req: func(_ *testing.T, _ *notifChanFixture) *xylona.UpdateNotificationChannelRequest {
+				return &xylona.UpdateNotificationChannelRequest{
+					Id:   "",
+					Name: "x",
+				}
+			},
+		},
+		{
+			name: "empty name",
+			req: func(_ *testing.T, _ *notifChanFixture) *xylona.UpdateNotificationChannelRequest {
+				return &xylona.UpdateNotificationChannelRequest{
+					Id:   "some-id",
+					Name: "",
+				}
+			},
+		},
+		{
+			name: "invalid webhook url scheme",
+			req: func(t *testing.T, fixture *notifChanFixture) *xylona.UpdateNotificationChannelRequest {
+				t.Helper()
 
-	req := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
-		Id:   "",
-		Name: "x",
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+				createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
+					Name:        "webhook-channel",
+					ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_GENERIC,
+					Config:      `{"url":"https://example.com/hook"}`,
+					Enabled:     true,
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
 
-	_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), req)
-	if errUpdate == nil {
-		t.Fatalf("expected error, got nil")
+				createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
+				if errCreate != nil {
+					t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
+				}
+
+				return &xylona.UpdateNotificationChannelRequest{
+					Id:      createResp.Msg.GetChannel().GetId(),
+					Name:    "webhook-channel",
+					Config:  `{"url":"gopher://127.0.0.1/internal"}`,
+					Enabled: true,
+				}
+			},
+		},
 	}
-	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
-	}
-}
 
-func TestUpdateNotificationChannel_EmptyName(t *testing.T) {
-	fixture := newNotifChanFixture(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newNotifChanFixture(t)
+			updateReq := connect.NewRequest(tt.req(t, fixture))
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-super")
 
-	req := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
-		Id:   "some-id",
-		Name: "",
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
-
-	_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), req)
-	if errUpdate == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
-	}
-}
-
-func TestUpdateNotificationChannel_InvalidWebhookURLScheme(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "webhook-channel",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_GENERIC,
-		Config:      `{"url":"https://example.com/hook"}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
-
-	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
-	if errCreate != nil {
-		t.Fatalf("CreateNotificationChannel() error = %v", errCreate)
-	}
-
-	updateReq := connect.NewRequest(&xylona.UpdateNotificationChannelRequest{
-		Id:      createResp.Msg.GetChannel().GetId(),
-		Name:    "webhook-channel",
-		Config:  `{"url":"gopher://127.0.0.1/internal"}`,
-		Enabled: true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-super")
-
-	_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), updateReq)
-	if errUpdate == nil {
-		t.Fatalf("UpdateNotificationChannel(invalid webhook scheme) expected error, got nil")
-	}
-	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
+			_, errUpdate := fixture.service.UpdateNotificationChannel(context.Background(), updateReq)
+			if errUpdate == nil {
+				t.Fatalf("UpdateNotificationChannel() error = nil, want invalid argument")
+			}
+			if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
+				t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
+			}
+		})
 	}
 }
 
@@ -1013,33 +970,31 @@ func TestListNotificationChannels_ManageMasksEmailPasswordButKeepsMetadata(t *te
 // TestNotificationChannel
 // ---------------------------------------------------------------------------
 
-func TestTestNotificationChannel_EmptyID(t *testing.T) {
-	fixture := newNotifChanFixture(t)
-
-	req := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: ""})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
-
-	_, errTest := fixture.service.TestNotificationChannel(context.Background(), req)
-	if errTest == nil {
-		t.Fatalf("expected error, got nil")
+func TestTestNotificationChannel_InvalidLookup(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+		code connect.Code
+	}{
+		{name: "empty id", id: "", code: connect.CodeInvalidArgument},
+		{name: "not found", id: "nonexistent", code: connect.CodeNotFound},
 	}
-	if connect.CodeOf(errTest) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errTest), connect.CodeInvalidArgument)
-	}
-}
 
-func TestTestNotificationChannel_NotFound(t *testing.T) {
-	fixture := newNotifChanFixture(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newNotifChanFixture(t)
 
-	req := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: "nonexistent"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
+			req := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: tt.id})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-super")
 
-	_, errTest := fixture.service.TestNotificationChannel(context.Background(), req)
-	if errTest == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if connect.CodeOf(errTest) != connect.CodeNotFound {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errTest), connect.CodeNotFound)
+			_, errTest := fixture.service.TestNotificationChannel(context.Background(), req)
+			if errTest == nil {
+				t.Fatalf("TestNotificationChannel() error = nil, want %v", tt.code)
+			}
+			if connect.CodeOf(errTest) != tt.code {
+				t.Errorf("code = %v, want %v", connect.CodeOf(errTest), tt.code)
+			}
+		})
 	}
 }
 

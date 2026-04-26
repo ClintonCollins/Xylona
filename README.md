@@ -210,18 +210,36 @@ mage SQLMigrateDown
 
 ## E2E Testing
 
-Single-node suite:
+The browser suite is intentionally small and workflow-focused. Backend edge
+cases and controller/node boundary behavior belong in Go tests.
+
+Fast smoke suite:
+
+```bash
+cd frontend
+bun run e2e:smoke
+```
+
+```bash
+mage E2ESmoke
+```
+
+Full local-controller browser suite:
 
 ```bash
 cd frontend
 bun run e2e
 ```
 
+Useful variants:
+
 ```bash
 mage E2E
 ```
 
-Useful variants:
+```bash
+mage E2ERemoteNode
+```
 
 ```bash
 mage E2EHeaded
@@ -231,7 +249,24 @@ mage E2EHeaded
 mage E2EReport
 ```
 
-The current Playwright suite covers login, smoke, admin, permissions, page permissions, console errors, file browser, server lifecycle, config schema ordering, mods, and version tracking flows. The `cmd/e2e` orchestrator also exposes `single-setup`, `single-teardown`, `hub-spoke-setup`, `hub-spoke-teardown`, and `seed` for local debugging; use `--http-port`, `--e2e-dir`, and `--project-root` on common setup commands, `--node-port` for hub-spoke, and `--db`, `--username`, `--password`, and `--migrations` for seed.
+Local process integration tests use real controller and `xylona-node` binaries
+without external network calls:
+
+```bash
+mage IntegrationLocal
+```
+
+Live provider/API integration tests are separate and opt-in:
+
+```bash
+mage IntegrationLive
+```
+
+The `cmd/e2e` orchestrator exposes `setup`, `teardown`, `status`, and `seed`.
+Use `--mode local-controller` for the normal browser environment and
+`--mode remote-node` for controller plus remote node coverage. Common flags are
+`--http-port`, `--node-port`, `--e2e-dir`, and `--project-root`; `seed` keeps
+`--db`, `--username`, `--password`, and `--migrations`.
 
 ## Before Opening A PR
 

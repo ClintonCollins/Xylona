@@ -22,6 +22,11 @@ data.sqlite
 /notes.md
 /frontend/mockups
 /.e2e-data/
+/frontend/e2e/.auth/
+/frontend/e2e/.e2e-data/
+/frontend/e2e/.e2e-*.lock
+/frontend/e2e/playwright-report/
+/frontend/e2e/test-results/
 /coverage
 .mockups/
 /refactor.md

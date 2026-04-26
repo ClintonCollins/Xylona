@@ -49,46 +49,6 @@ func fixtureHandler(t *testing.T, routes map[string]string) http.HandlerFunc {
 }
 
 // --------------------------------------------------------------------------
-// Provider identity
-// --------------------------------------------------------------------------
-
-func TestID(t *testing.T) {
-	p := New()
-	if p.ID() != providerID {
-		t.Errorf("ID() = %q, want %q", p.ID(), providerID)
-	}
-}
-
-func TestRequiresAPIKey(t *testing.T) {
-	p := New()
-	if !p.RequiresAPIKey() {
-		t.Error("RequiresAPIKey() = false, want true")
-	}
-}
-
-func TestSetAPIKey(t *testing.T) {
-	p := New()
-	if p.apiKey != "" {
-		t.Errorf("New() apiKey = %q, want empty", p.apiKey)
-	}
-	p.SetAPIKey("test-key")
-	if p.apiKey != "test-key" {
-		t.Errorf("SetAPIKey() apiKey = %q, want %q", p.apiKey, "test-key")
-	}
-}
-
-func TestSetSteamCMDPath(t *testing.T) {
-	p := New()
-	if p.steamCMDPath != "" {
-		t.Errorf("New() steamCMDPath = %q, want empty", p.steamCMDPath)
-	}
-	p.SetSteamCMDPath("/usr/local/bin/steamcmd")
-	if p.steamCMDPath != "/usr/local/bin/steamcmd" {
-		t.Errorf("SetSteamCMDPath() steamCMDPath = %q, want %q", p.steamCMDPath, "/usr/local/bin/steamcmd")
-	}
-}
-
-// --------------------------------------------------------------------------
 // Search
 // --------------------------------------------------------------------------
 

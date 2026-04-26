@@ -28,7 +28,7 @@ func generateBase64Key(length int) (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-func startNode(name, workDir, logDir, xylonaExe string, httpPort int, extraEnv ...string) (*exec.Cmd, error) {
+func generateControllerRuntimeEnv() (map[string]string, error) {
 	cookieHashKey, errCookie := generateBase64Key(64)
 	if errCookie != nil {
 		return nil, errCookie
@@ -41,15 +41,37 @@ func startNode(name, workDir, logDir, xylonaExe string, httpPort int, extraEnv .
 	if errJWT != nil {
 		return nil, errJWT
 	}
+	encryptionKey, errEncryption := generateBase64Key(32)
+	if errEncryption != nil {
+		return nil, errEncryption
+	}
+
+	return map[string]string{
+		"COOKIE_HASH_KEY_BASE64":  cookieHashKey,
+		"COOKIE_BLOCK_KEY_BASE64": cookieBlockKey,
+		"JWT_SECRET_KEY_BASE64":   jwtSecretKey,
+		"ENCRYPTION_KEY_BASE64":   encryptionKey,
+	}, nil
+}
+
+func startNode(name, workDir, logDir, xylonaExe string, httpPort int, runtimeEnv map[string]string, extraEnv ...string) (*exec.Cmd, error) {
+	if runtimeEnv == nil {
+		generatedEnv, errGenerateEnv := generateControllerRuntimeEnv()
+		if errGenerateEnv != nil {
+			return nil, errGenerateEnv
+		}
+		runtimeEnv = generatedEnv
+	}
 
 	cmd := exec.Command(xylonaExe) //nolint:noctx // the test server process intentionally outlives the caller context until teardown.
 	cmd.Dir = workDir
 	baseEnv := []string{
 		"DB_FILE_PATH=" + filepath.Join(workDir, "data.sqlite"),
 		"HTTP_PORT=" + strconv.Itoa(httpPort),
-		"COOKIE_HASH_KEY_BASE64=" + cookieHashKey,
-		"COOKIE_BLOCK_KEY_BASE64=" + cookieBlockKey,
-		"JWT_SECRET_KEY_BASE64=" + jwtSecretKey,
+		"COOKIE_HASH_KEY_BASE64=" + runtimeEnv["COOKIE_HASH_KEY_BASE64"],
+		"COOKIE_BLOCK_KEY_BASE64=" + runtimeEnv["COOKIE_BLOCK_KEY_BASE64"],
+		"JWT_SECRET_KEY_BASE64=" + runtimeEnv["JWT_SECRET_KEY_BASE64"],
+		"ENCRYPTION_KEY_BASE64=" + runtimeEnv["ENCRYPTION_KEY_BASE64"],
 		"SECURE_COOKIES=false",
 		"E2E_LOG_FILE=" + filepath.Join(logDir, "backend.log"),
 	}

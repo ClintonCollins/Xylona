@@ -103,44 +103,47 @@ describe('groupFields', () => {
 })
 
 describe('filterFields', () => {
-  it('filters by key substring', () => {
-    const fields = [
-      makeField('server-port', '', 'Server Port', '25565'),
-      makeField('motd', '', 'MOTD', 'Hello'),
-    ]
-    const result = filterFields(fields, 'port')
-    expect(result).toHaveLength(1)
-    expect(result[0]?.key).toBe('server-port')
-  })
-
-  it('filters by title substring', () => {
-    const fields = [
-      makeField('server-port', '', 'Server Port', '25565'),
-      makeField('motd', '', 'Message of the Day', 'Hello'),
-    ]
-    const result = filterFields(fields, 'message')
-    expect(result).toHaveLength(1)
-    expect(result[0]?.key).toBe('motd')
-  })
-
-  it('filters by value substring', () => {
-    const fields = [
-      makeField('motd', '', 'MOTD', 'Hello World'),
-      makeField('port', '', 'Port', '25565'),
-    ]
-    const result = filterFields(fields, 'hello')
-    expect(result).toHaveLength(1)
-    expect(result[0]?.key).toBe('motd')
-  })
-
-  it('is case-insensitive', () => {
-    const fields = [makeField('ServerPort', '', 'Server Port')]
-    expect(filterFields(fields, 'serverport')).toHaveLength(1)
-    expect(filterFields(fields, 'SERVERPORT')).toHaveLength(1)
-  })
-
-  it('returns all fields for empty query', () => {
-    const fields = [makeField('a', '', '', ''), makeField('b', '', '', '')]
-    expect(filterFields(fields, '')).toHaveLength(2)
+  it.each([
+    {
+      name: 'filters by key substring',
+      fields: [
+        makeField('server-port', '', 'Server Port', '25565'),
+        makeField('motd', '', 'MOTD', 'Hello'),
+      ],
+      query: 'port',
+      wantKeys: ['server-port'],
+    },
+    {
+      name: 'filters by title substring',
+      fields: [
+        makeField('server-port', '', 'Server Port', '25565'),
+        makeField('motd', '', 'Message of the Day', 'Hello'),
+      ],
+      query: 'message',
+      wantKeys: ['motd'],
+    },
+    {
+      name: 'filters by value substring',
+      fields: [
+        makeField('motd', '', 'MOTD', 'Hello World'),
+        makeField('port', '', 'Port', '25565'),
+      ],
+      query: 'hello',
+      wantKeys: ['motd'],
+    },
+    {
+      name: 'is case-insensitive',
+      fields: [makeField('ServerPort', '', 'Server Port')],
+      query: 'SERVERPORT',
+      wantKeys: ['ServerPort'],
+    },
+    {
+      name: 'returns all fields for empty query',
+      fields: [makeField('a', '', '', ''), makeField('b', '', '', '')],
+      query: '',
+      wantKeys: ['a', 'b'],
+    },
+  ])('$name', ({ fields, query, wantKeys }) => {
+    expect(filterFields(fields, query).map((field) => field.key)).toEqual(wantKeys)
   })
 })

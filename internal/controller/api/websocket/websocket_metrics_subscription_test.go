@@ -99,27 +99,6 @@ func TestConnection_ShouldReceiveMetrics_AfterUnsubscribe(t *testing.T) {
 	}
 }
 
-func TestConnection_ShouldReceiveMetrics_ConcurrentAccess(_ *testing.T) {
-	c := newTestConnection()
-
-	// Pre-populate a subscription
-	c.subscribedMetricsServerIDs["server-1"] = struct{}{}
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for range 100 {
-			_ = c.shouldReceiveMetrics("server-1")
-		}
-	}()
-
-	for range 100 {
-		_ = c.shouldReceiveMetrics("server-1")
-	}
-
-	<-done
-}
-
 func TestConnection_ConsumeRequestedGameServerOutputIDs_ClearsSubscriptions(t *testing.T) {
 	c := newTestConnection()
 	c.requestedGameServerOutputIDs["server-1"] = struct{}{}

@@ -25,6 +25,7 @@ func main() {
 	pid := os.Getpid()
 
 	fmt.Printf("[dummy-game-server] started pid=%d\n", pid)
+	fmt.Printf("[dummy-game-server] parent-pid=%d\n", os.Getppid())
 
 	shutdownCh := make(chan int, 1)
 

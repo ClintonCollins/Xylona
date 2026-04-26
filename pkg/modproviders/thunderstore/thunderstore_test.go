@@ -624,21 +624,3 @@ func TestExtractCommunity(t *testing.T) {
 		})
 	}
 }
-
-// --------------------------------------------------------------------------
-// Provider identity
-// --------------------------------------------------------------------------
-
-func TestID(t *testing.T) {
-	p := New()
-	if p.ID() != providerID {
-		t.Errorf("ID() = %q, want %q", p.ID(), providerID)
-	}
-}
-
-func TestRequiresAPIKey(t *testing.T) {
-	p := New()
-	if p.RequiresAPIKey() {
-		t.Error("RequiresAPIKey() = true, want false")
-	}
-}

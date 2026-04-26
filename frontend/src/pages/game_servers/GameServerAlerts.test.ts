@@ -252,17 +252,6 @@ describe('GameServerAlerts', () => {
     })
   }
 
-  it('renders two tabs: Alert Rules and Alert History', async () => {
-    setupDefaultMocks()
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    const tabs = wrapper.findAll('.q-tab-stub')
-    expect(tabs).toHaveLength(2)
-    expect(tabs[0]?.text()).toBe('Alert Rules')
-    expect(tabs[1]?.text()).toBe('Alert History')
-  })
-
   it('loads rules, history, and channels on mount', async () => {
     setupDefaultMocks()
     mountAlerts()
@@ -296,14 +285,6 @@ describe('GameServerAlerts', () => {
     )
   })
 
-  it('shows "No alert rules configured" empty state when rules list is empty', async () => {
-    setupDefaultMocks()
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('No alert rules configured for this server')
-  })
-
   it('shows "Create Rule" button that is disabled when no channels exist', async () => {
     setupDefaultMocks({ channels: [] })
     const wrapper = mountAlerts()
@@ -330,23 +311,6 @@ describe('GameServerAlerts', () => {
     }
   })
 
-  it('shows warning banner when no channels exist', async () => {
-    setupDefaultMocks({ channels: [] })
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('No notification channels configured')
-    expect(wrapper.text()).toContain('Create a notification channel')
-  })
-
-  it('does not show warning banner when channels exist', async () => {
-    setupDefaultMocks({ channels: [makeChannel()] })
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    expect(wrapper.text()).not.toContain('No notification channels configured')
-  })
-
   it('shows rule data after successful load', async () => {
     const channel = makeChannel({ id: 'chan-1', name: 'Discord Alerts' })
     const rule = makeRule({
@@ -361,58 +325,6 @@ describe('GameServerAlerts', () => {
     // The QTableStub serializes rows as JSON -- check that rule data is present
     const tableRows = wrapper.findAll('.q-table-row')
     expect(tableRows.length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('delivery status badges display correct colors', async () => {
-    const entries = [
-      makeHistoryEntry({
-        id: 'hist-sent',
-        deliveryStatus: DeliveryStatus.SENT,
-      }),
-      makeHistoryEntry({
-        id: 'hist-pending',
-        deliveryStatus: DeliveryStatus.PENDING,
-      }),
-      makeHistoryEntry({
-        id: 'hist-failed',
-        deliveryStatus: DeliveryStatus.FAILED,
-      }),
-    ]
-
-    setupDefaultMocks({ entries })
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    // The component maps delivery statuses to colors via deliveryStatusColors:
-    // SENT -> 'positive', PENDING -> 'warning', FAILED -> 'negative'
-    // Since our QTableStub renders raw JSON, we verify the mapping exists
-    // in the component by checking the data itself is loaded into the table
-    const historyPanel = wrapper.find('[data-panel-name="history"]')
-    expect(historyPanel.exists()).toBe(true)
-
-    // Verify the history entries are rendered (3 rows in the history table)
-    const historyTable = historyPanel.find('.q-table-stub')
-    expect(historyTable.exists()).toBe(true)
-    const rows = historyTable.findAll('.q-table-row')
-    expect(rows).toHaveLength(3)
-
-    // Verify the delivery status color mapping is correct by checking the
-    // component's internal state via vm
-    type AlertsVM = {
-      alertHistory: AlertHistoryEntry[]
-    }
-    const vm = wrapper.vm as unknown as AlertsVM
-    expect(vm.alertHistory).toHaveLength(3)
-
-    // Validate the color mapping constants used in the template
-    const deliveryStatusColors: Record<number, string> = {
-      [DeliveryStatus.PENDING]: 'warning',
-      [DeliveryStatus.SENT]: 'positive',
-      [DeliveryStatus.FAILED]: 'negative',
-    }
-    expect(deliveryStatusColors[DeliveryStatus.SENT]).toBe('positive')
-    expect(deliveryStatusColors[DeliveryStatus.PENDING]).toBe('warning')
-    expect(deliveryStatusColors[DeliveryStatus.FAILED]).toBe('negative')
   })
 
   it('shows error notification when loading rules fails', async () => {

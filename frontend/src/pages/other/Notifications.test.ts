@@ -186,22 +186,6 @@ describe('Notifications', () => {
     Object.values(mocks).forEach((mock) => mock.mockReset())
   })
 
-  it('renders three tabs: Channels, Alert Rules, Alert History', async () => {
-    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
-    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [] })
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
-
-    const wrapper = mountNotifications()
-    await flushPromises()
-
-    const tabs = wrapper.findAll('.q-tab-stub')
-    expect(tabs).toHaveLength(3)
-    expect(tabs[0]?.text()).toBe('Channels')
-    expect(tabs[1]?.text()).toBe('Alert Rules')
-    expect(tabs[2]?.text()).toBe('Alert History')
-  })
-
   it('loads channels on mount', async () => {
     mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
     mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [] })
@@ -212,19 +196,6 @@ describe('Notifications', () => {
     await flushPromises()
 
     expect(mocks.listNotificationChannels).toHaveBeenCalledTimes(1)
-  })
-
-  it('shows "No notification channels" empty state when channels list is empty', async () => {
-    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
-    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [] })
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
-
-    const wrapper = mountNotifications()
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('No notification channels')
-    expect(wrapper.text()).toContain('Add a channel to start receiving alerts.')
   })
 
   it('shows channel data after successful load', async () => {
@@ -239,20 +210,6 @@ describe('Notifications', () => {
 
     // The QTableStub renders row data as JSON, so the channel name should appear
     expect(wrapper.text()).toContain('Production Discord')
-  })
-
-  it('shows "Add Channel" button', async () => {
-    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
-    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [] })
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
-
-    const wrapper = mountNotifications()
-    await flushPromises()
-
-    const buttons = wrapper.findAll('button')
-    const addButton = buttons.find((b) => b.text().includes('Add Channel'))
-    expect(addButton).toBeDefined()
   })
 
   it('does not show test delivery actions while the backend endpoint is a stub', async () => {

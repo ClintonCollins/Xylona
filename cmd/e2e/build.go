@@ -106,7 +106,7 @@ func cleanFrontendDist(e2eDir string) {
 	}
 
 	// Write a .gitkeep so internal/webui's "all:dist" has at least one file.
-	errKeep := os.WriteFile(filepath.Join(distDir, ".gitkeep"), []byte(""), 0o600)
+	errKeep := os.WriteFile(filepath.Join(distDir, ".gitkeep"), []byte("\n"), 0o600)
 	if errKeep != nil {
 		log.Warn().Err(errKeep).Msg("Could not write .gitkeep to internal/webui/dist")
 		return

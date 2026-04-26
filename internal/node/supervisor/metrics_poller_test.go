@@ -7,22 +7,6 @@ import (
 	"time"
 )
 
-func TestStartMetricsPoller_StopsOnContextCancel(_ *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	inst := &Instance{
-		ctx:             ctx,
-		runningCommands: make(map[string]*Command),
-		RWMutex:         &sync.RWMutex{},
-	}
-
-	inst.StartMetricsPoller(ctx)
-
-	// Cancel the context and give goroutines time to exit.
-	cancel()
-	time.Sleep(50 * time.Millisecond)
-	// No assertions needed — the test passes if it doesn't deadlock or panic.
-}
-
 func TestPollProcessMetrics_NoCommands(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()

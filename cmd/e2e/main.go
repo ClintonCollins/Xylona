@@ -22,59 +22,49 @@ func main() {
 	subcommand := os.Args[1]
 
 	switch subcommand {
-	case "single-setup":
-		fs := flag.NewFlagSet("single-setup", flag.ExitOnError)
+	case "setup":
+		fs := flag.NewFlagSet("setup", flag.ExitOnError)
+		modeValue := fs.String("mode", string(e2eModeLocalController), "E2E mode: local-controller or remote-node")
 		httpPort := fs.Int("http-port", 9091, "Backend HTTP port for E2E")
-		adminUsername := fs.String("admin-username", "admin", "Admin username")
-		adminPassword := fs.String("admin-password", "admin", "Admin password")
-		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
-		projectRoot := fs.String("project-root", ".", "Project root directory")
-		errParse := fs.Parse(os.Args[2:])
-		if errParse != nil {
-			log.Fatal().Err(errParse).Msg("Failed to parse flags")
-		}
-		errRun := runSingleSetup(ctx, *httpPort, *adminUsername, *adminPassword, *e2eDir, *projectRoot)
-		if errRun != nil {
-			log.Fatal().Err(errRun).Msg("Single setup failed")
-		}
-
-	case "single-teardown":
-		fs := flag.NewFlagSet("single-teardown", flag.ExitOnError)
-		fs.Int("http-port", 9091, "Backend HTTP port for E2E")
-		fs.String("admin-username", "admin", "Admin username")
-		fs.String("admin-password", "admin", "Admin password")
-		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
-		errParse := fs.Parse(os.Args[2:])
-		if errParse != nil {
-			log.Fatal().Err(errParse).Msg("Failed to parse flags")
-		}
-		runSingleTeardown(*e2eDir)
-
-	case "hub-spoke-setup":
-		fs := flag.NewFlagSet("hub-spoke-setup", flag.ExitOnError)
-		httpPort := fs.Int("http-port", 9091, "Controller HTTP port")
 		nodePort := fs.Int("node-port", 9501, "Remote xylona-node HTTPS port")
-		adminUsername := fs.String("admin-username", "admin", "Admin username")
-		adminPassword := fs.String("admin-password", "admin", "Admin password")
+		adminUsername := fs.String("admin-username", "admin", "Seed admin username")
+		adminPassword := fs.String("admin-password", "admin", "Seed admin password")
 		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
 		projectRoot := fs.String("project-root", ".", "Project root directory")
 		errParse := fs.Parse(os.Args[2:])
 		if errParse != nil {
 			log.Fatal().Err(errParse).Msg("Failed to parse flags")
 		}
-		errRun := runHubSpokeSetup(ctx, *httpPort, *nodePort, *adminUsername, *adminPassword, *e2eDir, *projectRoot)
+		mode, errMode := parseE2EMode(*modeValue)
+		if errMode != nil {
+			log.Fatal().Err(errMode).Msg("Invalid mode")
+		}
+		_, errRun := runSetup(ctx, setupConfig{
+			mode:          mode,
+			httpPort:      *httpPort,
+			nodePort:      *nodePort,
+			adminUsername: *adminUsername,
+			adminPassword: *adminPassword,
+			e2eDir:        *e2eDir,
+			projectRoot:   *projectRoot,
+		})
 		if errRun != nil {
-			log.Fatal().Err(errRun).Msg("Hub-spoke setup failed")
+			log.Fatal().Err(errRun).Msg("Setup failed")
 		}
 
-	case "hub-spoke-teardown":
-		fs := flag.NewFlagSet("hub-spoke-teardown", flag.ExitOnError)
+	case "teardown":
+		fs := flag.NewFlagSet("teardown", flag.ExitOnError)
+		modeValue := fs.String("mode", string(e2eModeLocalController), "E2E mode: local-controller or remote-node")
 		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
 		errParse := fs.Parse(os.Args[2:])
 		if errParse != nil {
 			log.Fatal().Err(errParse).Msg("Failed to parse flags")
 		}
-		runHubSpokeTeardown(*e2eDir)
+		mode, errMode := parseE2EMode(*modeValue)
+		if errMode != nil {
+			log.Fatal().Err(errMode).Msg("Invalid mode")
+		}
+		runTeardown(*e2eDir, mode)
 
 	case "seed":
 		fs := flag.NewFlagSet("seed", flag.ExitOnError)
@@ -96,6 +86,23 @@ func main() {
 			log.Fatal().Err(errRun).Msg("Seed failed")
 		}
 
+	case "status":
+		fs := flag.NewFlagSet("status", flag.ExitOnError)
+		modeValue := fs.String("mode", string(e2eModeLocalController), "E2E mode: local-controller or remote-node")
+		e2eDir := fs.String("e2e-dir", "frontend/e2e", "E2E test directory")
+		errParse := fs.Parse(os.Args[2:])
+		if errParse != nil {
+			log.Fatal().Err(errParse).Msg("Failed to parse flags")
+		}
+		mode, errMode := parseE2EMode(*modeValue)
+		if errMode != nil {
+			log.Fatal().Err(errMode).Msg("Invalid mode")
+		}
+		errRun := runStatus(*e2eDir, mode)
+		if errRun != nil {
+			log.Fatal().Err(errRun).Msg("Status failed")
+		}
+
 	default:
 		fmt.Fprintf(os.Stderr, "unknown subcommand: %s\n", subcommand)
 		printUsage()
@@ -107,9 +114,8 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "Usage: e2e <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Subcommands:")
-	fmt.Fprintln(os.Stderr, "  single-setup         Set up single-node E2E test environment")
-	fmt.Fprintln(os.Stderr, "  single-teardown      Tear down single-node E2E test environment")
-	fmt.Fprintln(os.Stderr, "  hub-spoke-setup      Spawn controller + remote xylona-node for E2E")
-	fmt.Fprintln(os.Stderr, "  hub-spoke-teardown   Tear down hub-spoke E2E environment")
+	fmt.Fprintln(os.Stderr, "  setup                Set up local-controller or remote-node E2E environment")
+	fmt.Fprintln(os.Stderr, "  teardown             Tear down an E2E environment")
 	fmt.Fprintln(os.Stderr, "  seed                 Seed a database with an admin user")
+	fmt.Fprintln(os.Stderr, "  status               Print current E2E environment status")
 }

@@ -126,20 +126,22 @@ func TestGetSoftwareByID(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		software []ServerSoftware
 		id       string
 		wantName string
 		wantOK   bool
 	}{
-		{name: "find first", id: "paper", wantName: "Paper", wantOK: true},
-		{name: "find middle", id: "fabric", wantName: "Fabric", wantOK: true},
-		{name: "find last", id: "forge", wantName: "Forge", wantOK: true},
-		{name: "not found", id: "vanilla", wantName: "", wantOK: false},
-		{name: "empty id", id: "", wantName: "", wantOK: false},
+		{name: "find first", software: software, id: "paper", wantName: "Paper", wantOK: true},
+		{name: "find middle", software: software, id: "fabric", wantName: "Fabric", wantOK: true},
+		{name: "find last", software: software, id: "forge", wantName: "Forge", wantOK: true},
+		{name: "not found", software: software, id: "vanilla", wantName: "", wantOK: false},
+		{name: "empty id", software: software, id: "", wantName: "", wantOK: false},
+		{name: "nil slice", software: nil, id: "paper", wantName: "", wantOK: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := GetSoftwareByID(software, tt.id)
+			got, ok := GetSoftwareByID(tt.software, tt.id)
 			if ok != tt.wantOK {
 				t.Fatalf("GetSoftwareByID() ok = %v, want %v", ok, tt.wantOK)
 			}
@@ -147,16 +149,6 @@ func TestGetSoftwareByID(t *testing.T) {
 				t.Errorf("GetSoftwareByID().Name = %q, want %q", got.Name, tt.wantName)
 			}
 		})
-	}
-}
-
-func TestGetSoftwareByIDNilSlice(t *testing.T) {
-	got, ok := GetSoftwareByID(nil, "paper")
-	if ok {
-		t.Errorf("GetSoftwareByID(nil) ok = true, want false")
-	}
-	if got != nil {
-		t.Errorf("GetSoftwareByID(nil) got non-nil result")
 	}
 }
 

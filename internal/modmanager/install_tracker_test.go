@@ -5,8 +5,19 @@ import (
 	"time"
 )
 
-func TestInstallTracker_SetAndGet(t *testing.T) {
+func TestInstallTracker_Lifecycle(t *testing.T) {
 	tracker := NewInstallTracker()
+
+	idleState, ok := tracker.Get("missing")
+	if ok {
+		t.Fatal("Get(missing) ok = true, want false")
+	}
+	if idleState.Status != InstallStatusIdle {
+		t.Errorf("Get(missing).Status = %q, want %q", idleState.Status, InstallStatusIdle)
+	}
+	if tracker.IsInstalling("server-1") {
+		t.Fatal("IsInstalling() = true before install starts")
+	}
 
 	tracker.SetInstalling("server-1", "paper")
 	state, ok := tracker.Get("server-1")
@@ -19,35 +30,28 @@ func TestInstallTracker_SetAndGet(t *testing.T) {
 	if state.SoftwareID != "paper" {
 		t.Errorf("softwareID = %q, want %q", state.SoftwareID, "paper")
 	}
-}
-
-func TestInstallTracker_IsInstalling(t *testing.T) {
-	tracker := NewInstallTracker()
-
-	if tracker.IsInstalling("server-1") {
-		t.Error("expected not installing")
-	}
-
-	tracker.SetInstalling("server-1", "paper")
 	if !tracker.IsInstalling("server-1") {
-		t.Error("expected installing")
+		t.Error("IsInstalling() = false after SetInstalling")
 	}
 
 	tracker.SetComplete("server-1")
 	if tracker.IsInstalling("server-1") {
-		t.Error("expected not installing after complete")
+		t.Error("IsInstalling() = true after SetComplete")
 	}
-}
-
-func TestInstallTracker_SetFailed(t *testing.T) {
-	tracker := NewInstallTracker()
-
-	tracker.SetInstalling("server-1", "paper")
-	tracker.SetFailed("server-1", "download error")
-
-	state, ok := tracker.Get("server-1")
+	state, ok = tracker.Get("server-1")
 	if !ok {
-		t.Fatal("expected state to exist")
+		t.Fatal("expected completed state to exist")
+	}
+	if state.Status != InstallStatusComplete {
+		t.Errorf("status = %q, want %q", state.Status, InstallStatusComplete)
+	}
+
+	tracker.SetInstalling("server-2", "fabric")
+	tracker.SetFailed("server-2", "download error")
+
+	state, ok = tracker.Get("server-2")
+	if !ok {
+		t.Fatal("expected failed state to exist")
 	}
 	if state.Status != InstallStatusFailed {
 		t.Errorf("status = %q, want %q", state.Status, InstallStatusFailed)
@@ -57,49 +61,40 @@ func TestInstallTracker_SetFailed(t *testing.T) {
 	}
 }
 
-func TestInstallTracker_GetIdle(t *testing.T) {
-	tracker := NewInstallTracker()
-
-	state, ok := tracker.Get("nonexistent")
-	if ok {
-		t.Error("expected ok=false for nonexistent server")
-	}
-	if state.Status != InstallStatusIdle {
-		t.Errorf("status = %q, want %q", state.Status, InstallStatusIdle)
-	}
-}
-
 func TestInstallTracker_Cleanup(t *testing.T) {
-	tracker := NewInstallTracker()
-	tracker.ttl = 50 * time.Millisecond
-
-	tracker.SetInstalling("server-1", "paper")
-	tracker.SetComplete("server-1")
-
-	_, ok := tracker.Get("server-1")
-	if !ok {
-		t.Fatal("expected state to exist immediately after completion")
+	tests := []struct {
+		name           string
+		complete       bool
+		fail           bool
+		wantStateAfter bool
+	}{
+		{name: "removes complete state", complete: true, wantStateAfter: false},
+		{name: "removes failed state", fail: true, wantStateAfter: false},
+		{name: "keeps installing state", wantStateAfter: true},
 	}
 
-	time.Sleep(100 * time.Millisecond)
-	tracker.Cleanup()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tracker := NewInstallTracker()
+			tracker.ttl = 50 * time.Millisecond
+			tracker.SetInstalling("server-1", "paper")
+			switch {
+			case tt.complete:
+				tracker.SetComplete("server-1")
+			case tt.fail:
+				tracker.SetFailed("server-1", "download error")
+			}
 
-	_, ok = tracker.Get("server-1")
-	if ok {
-		t.Error("expected state to be cleaned up after TTL")
-	}
-}
+			time.Sleep(100 * time.Millisecond)
+			tracker.Cleanup()
 
-func TestInstallTracker_CleanupKeepsInstalling(t *testing.T) {
-	tracker := NewInstallTracker()
-	tracker.ttl = 50 * time.Millisecond
-
-	tracker.SetInstalling("server-1", "paper")
-
-	time.Sleep(100 * time.Millisecond)
-	tracker.Cleanup()
-
-	if !tracker.IsInstalling("server-1") {
-		t.Error("expected installing state to survive cleanup")
+			_, ok := tracker.Get("server-1")
+			if ok != tt.wantStateAfter {
+				t.Fatalf("Get() ok = %v, want %v", ok, tt.wantStateAfter)
+			}
+			if tt.wantStateAfter && !tracker.IsInstalling("server-1") {
+				t.Fatal("installing state should survive cleanup")
+			}
+		})
 	}
 }

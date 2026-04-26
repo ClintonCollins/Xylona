@@ -1,6 +1,7 @@
 import { test as setup, expect } from '@playwright/test'
 import * as path from 'path'
-import { loginAsUser, AUTH_DIR } from './helpers'
+import { loginAsUser } from './auth'
+import { AUTH_DIR } from './fixtures'
 
 // Save auth state for all test users so permission tests can use pre-saved
 // storage states via browser.newContext({ storageState }) instead of logging

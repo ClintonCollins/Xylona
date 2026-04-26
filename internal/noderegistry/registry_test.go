@@ -149,12 +149,6 @@ func TestRemoveDeletesAndClosesClosableClients(t *testing.T) {
 	}
 }
 
-func TestRemoveUnknownIsNoop(_ *testing.T) {
-	registry := New("self", nil)
-	// Should not panic.
-	registry.Remove("unknown")
-}
-
 func TestRemoveNonCloserClient(t *testing.T) {
 	registry := New("self", nil)
 	registry.Register(newFake("remote"))

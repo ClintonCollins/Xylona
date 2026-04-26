@@ -2,7 +2,10 @@ package main
 
 import (
 	"os/exec"
+	"runtime"
 	"strconv"
+	"syscall"
+	"time"
 )
 
 // killProcess terminates cmd and its descendants. On Windows the Go
@@ -19,10 +22,17 @@ func killProcess(cmd *exec.Cmd) {
 		return
 	}
 
-	//nolint:gosec,noctx // PID comes from os.Process and taskkill has no context-aware API on Windows.
-	killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T")
-	errKill := killCmd.Run()
-	if errKill != nil {
-		_ = cmd.Process.Kill()
+	if runtime.GOOS == "windows" {
+		//nolint:gosec,noctx // PID comes from os.Process and taskkill has no context-aware API on Windows.
+		killCmd := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/F", "/T")
+		errKill := killCmd.Run()
+		if errKill != nil {
+			_ = cmd.Process.Kill()
+		}
+		return
 	}
+
+	_ = cmd.Process.Signal(syscall.SIGTERM)
+	time.Sleep(500 * time.Millisecond)
+	_ = cmd.Process.Kill()
 }

@@ -108,24 +108,29 @@ Do not add DOMPurify or replace these with plain text unless the trust boundary 
 - Frontend tests should focus on utilities, composables, Pinia stores, RPC wrappers, significant stateful components, and critical user flows
 - Purely visual frontend changes usually need lint, format, build, and manual verification rather than automated tests
 
-## E2E
+## E2E And Integration
 
-A self-contained Playwright suite exists, driven by `cmd/e2e`.
+The Playwright suite is workflow-focused and driven by `cmd/e2e`.
 
-Single-node:
-- `cmd/e2e single-setup` builds binaries, seeds a fresh DB, starts backend on `:9091`, and runs behind Vite on `:9002`
-- Coverage areas: login, smoke, admin, permissions, page permissions, console errors, file browser, server lifecycle, config schema ordering, mods, version tracking
-- Entry files: `frontend/e2e/global-setup.ts`, `frontend/e2e/global-teardown.ts`, `frontend/e2e/helpers.ts`, `frontend/e2e/auth.setup.ts`
+Local controller:
+- `cmd/e2e setup --mode local-controller` builds binaries, seeds a fresh DB, starts the controller on `:9091`, and runs behind Vite on `:9002`
+- Coverage areas: login, smoke navigation, game server lifecycle, console, files, backups, RBAC, game definitions/start args, notifications
+- Entry files: `frontend/e2e/global-setup.ts`, `frontend/e2e/global-teardown.ts`, `frontend/e2e/api.ts`, `frontend/e2e/auth.ts`, `frontend/e2e/fixtures.ts`, `frontend/e2e/pages.ts`, `frontend/e2e/auth.setup.ts`
 
-Hub-spoke:
-- `cmd/e2e hub-spoke-setup` builds controller and node binaries, seeds a fresh DB, starts a controller plus one remote `xylona-node`, pairs the node, and leaves both processes running for tests or manual inspection
-- `cmd/e2e hub-spoke-teardown` tears down the hub-spoke environment
+Remote node:
+- `cmd/e2e setup --mode remote-node` builds controller and node binaries, seeds a fresh DB, starts the controller plus one remote `xylona-node`, pairs the node, and creates a server assigned to that node
+- `mage E2ERemoteNode` runs the remote-node browser smoke suite
+- `mage IntegrationLocal` runs the Go process integration test with controller restart/redial coverage
 
 Useful commands:
+- `mage E2ESmoke`
 - `mage E2E`
+- `mage E2ERemoteNode`
 - `mage E2EHeaded`
 - `mage E2EUI`
 - `mage E2EReport`
+- `mage IntegrationLocal`
+- `mage IntegrationLive`
 
 Artifacts:
 - `frontend/e2e/.e2e-data/`
@@ -134,9 +139,8 @@ Artifacts:
 - `frontend/e2e/test-results/`
 
 Orchestrator reference:
-- Subcommands: `single-setup`, `single-teardown`, `hub-spoke-setup`, `hub-spoke-teardown`, `seed`
-- Common flags: `--http-port`, `--e2e-dir`, `--project-root`
-- Hub-spoke flags: `--node-port`
+- Subcommands: `setup`, `teardown`, `status`, `seed`
+- Common flags: `--mode`, `--http-port`, `--node-port`, `--e2e-dir`, `--project-root`
 - Seed flags: `--db`, `--username`, `--password`, `--migrations`
 
 ## Design Context

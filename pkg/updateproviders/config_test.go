@@ -217,71 +217,84 @@ func TestResolveConfigReturnsErrorForUnknownVariant(t *testing.T) {
 	}
 }
 
-func TestResetTargetForVariantUsesVariantDefault(t *testing.T) {
-	game := GameConfig{
-		DefaultTarget: "public",
-		UpdateProvider: ProviderConfig{
-			Kind: ProviderKindPaperMC,
+func TestResetTargetForVariant(t *testing.T) {
+	tests := []struct {
+		name string
+		game GameConfig
+		want string
+	}{
+		{
+			name: "uses variant default for non PaperMC variant",
+			game: GameConfig{
+				DefaultTarget: "public",
+				UpdateProvider: ProviderConfig{
+					Kind: ProviderKindSteamCMD,
+				},
+				Variants: []Variant{
+					{
+						ID:            "experimental",
+						DefaultTarget: "beta",
+					},
+				},
+			},
+			want: "beta",
 		},
-		Variants: []Variant{
-			{
-				ID: "paper",
-				UpdateProvider: &ProviderConfig{
+		{
+			name: "paper variants clear target",
+			game: GameConfig{
+				DefaultTarget: "public",
+				UpdateProvider: ProviderConfig{
 					Kind: ProviderKindPaperMC,
 				},
-				DefaultTarget: "1.21.4",
+				Variants: []Variant{
+					{
+						ID: "paper",
+						UpdateProvider: &ProviderConfig{
+							Kind: ProviderKindPaperMC,
+						},
+						DefaultTarget: "1.21.4",
+					},
+				},
 			},
+			want: "",
 		},
-	}
-
-	target, errReset := ResetTargetForVariant(game, "paper")
-	if errReset != nil {
-		t.Fatalf("ResetTargetForVariant() error = %v", errReset)
-	}
-
-	if target != "" {
-		t.Errorf("ResetTargetForVariant() = %q, want empty string", target)
-	}
-}
-
-func TestResetTargetForVariantFallsBackToGameDefault(t *testing.T) {
-	game := GameConfig{
-		DefaultTarget: "public",
-		UpdateProvider: ProviderConfig{
-			Kind: ProviderKindPaperMC,
-		},
-		Variants: []Variant{
-			{
-				ID: "paper",
+		{
+			name: "falls back to game default",
+			game: GameConfig{
+				DefaultTarget: "public",
+				UpdateProvider: ProviderConfig{
+					Kind: ProviderKindSteamCMD,
+				},
+				Variants: []Variant{
+					{
+						ID: "vanilla",
+					},
+				},
 			},
+			want: "public",
 		},
-	}
-
-	target, errReset := ResetTargetForVariant(game, "paper")
-	if errReset != nil {
-		t.Fatalf("ResetTargetForVariant() error = %v", errReset)
-	}
-
-	if target != "" {
-		t.Errorf("ResetTargetForVariant() = %q, want empty string", target)
-	}
-}
-
-func TestResetTargetForVariantClearsTargetWhenNoDefaultsExist(t *testing.T) {
-	game := GameConfig{
-		Variants: []Variant{
-			{
-				ID: "paper",
+		{
+			name: "clears target when no defaults exist",
+			game: GameConfig{
+				Variants: []Variant{
+					{
+						ID: "custom",
+					},
+				},
 			},
+			want: "",
 		},
 	}
 
-	target, errReset := ResetTargetForVariant(game, "paper")
-	if errReset != nil {
-		t.Fatalf("ResetTargetForVariant() error = %v", errReset)
-	}
-
-	if target != "" {
-		t.Errorf("ResetTargetForVariant() = %q, want empty string", target)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			target, errReset := ResetTargetForVariant(tt.game, tt.game.Variants[0].ID)
+			if errReset != nil {
+				t.Fatalf("ResetTargetForVariant() error = %v", errReset)
+			}
+			if target != tt.want {
+				t.Errorf("ResetTargetForVariant() = %q, want %q", target, tt.want)
+			}
+		})
 	}
 }

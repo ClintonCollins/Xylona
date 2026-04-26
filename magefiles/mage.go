@@ -257,55 +257,68 @@ func Deploy(host string, user string, service string, path string) {
 	log.Info().Msg("Deployment successful!")
 }
 
-// E2E runs the single-node Playwright E2E tests.
-// Fully self-contained -- builds backend, seeds DB, starts on :9091, runs tests, tears down.
-func E2E() {
-	cmdE2E := exec.Command("bun", "run", "e2e")
+func runFrontendScript(script string, failureMessage string) {
+	cmdE2E := exec.Command("bun", "run", script)
 	cmdE2E.Dir = "frontend"
 	cmdE2E.Stdout = os.Stdout
 	cmdE2E.Stderr = os.Stderr
 	errRun := cmdE2E.Run()
 	if errRun != nil {
-		log.Error().Err(errRun).Msg("E2E tests failed")
+		log.Error().Err(errRun).Msg(failureMessage)
 		os.Exit(1)
 	}
 }
 
-// E2EHeaded runs single-node E2E tests in headed browser mode.
+// E2ESmoke runs the smallest browser suite against a fresh local-controller environment.
+func E2ESmoke() {
+	runFrontendScript("e2e:smoke", "E2E smoke tests failed")
+}
+
+// E2E runs the browser E2E suite against a fresh local-controller environment.
+func E2E() {
+	runFrontendScript("e2e", "E2E tests failed")
+}
+
+// E2ERemoteNode runs the browser remote-node smoke suite.
+func E2ERemoteNode() {
+	runFrontendScript("e2e:remote-node", "E2E remote-node tests failed")
+}
+
+// E2EHeaded runs E2E tests in headed browser mode.
 func E2EHeaded() {
-	cmdE2E := exec.Command("bun", "run", "e2e:headed")
-	cmdE2E.Dir = "frontend"
-	cmdE2E.Stdout = os.Stdout
-	cmdE2E.Stderr = os.Stderr
-	errRun := cmdE2E.Run()
-	if errRun != nil {
-		log.Error().Err(errRun).Msg("E2E headed tests failed")
-		os.Exit(1)
-	}
+	runFrontendScript("e2e:headed", "E2E headed tests failed")
 }
 
 // E2EUI opens the Playwright interactive UI for single-node tests.
 func E2EUI() {
-	cmdE2E := exec.Command("bun", "run", "e2e:ui")
-	cmdE2E.Dir = "frontend"
-	cmdE2E.Stdout = os.Stdout
-	cmdE2E.Stderr = os.Stderr
-	errRun := cmdE2E.Run()
-	if errRun != nil {
-		log.Error().Err(errRun).Msg("E2E UI failed")
-		os.Exit(1)
-	}
+	runFrontendScript("e2e:ui", "E2E UI failed")
 }
 
 // E2EReport opens the last Playwright HTML report for single-node tests.
 func E2EReport() {
-	cmdE2E := exec.Command("bun", "run", "e2e:report")
-	cmdE2E.Dir = "frontend"
-	cmdE2E.Stdout = os.Stdout
-	cmdE2E.Stderr = os.Stderr
-	errRun := cmdE2E.Run()
+	runFrontendScript("e2e:report", "E2E report failed")
+}
+
+// IntegrationLocal runs local process integration tests with controller + xylona-node.
+func IntegrationLocal() {
+	cmdTest := exec.Command("go", "test", "-race", "-count=1", "-tags=local_integration", "./cmd/e2e")
+	cmdTest.Stdout = os.Stdout
+	cmdTest.Stderr = os.Stderr
+	errRun := cmdTest.Run()
 	if errRun != nil {
-		log.Error().Err(errRun).Msg("E2E report failed")
+		log.Error().Err(errRun).Msg("Local integration tests failed")
+		os.Exit(1)
+	}
+}
+
+// IntegrationLive runs opt-in tests that call external provider APIs.
+func IntegrationLive() {
+	cmdTest := exec.Command("go", "test", "-race", "-count=1", "-tags=integration", "./...")
+	cmdTest.Stdout = os.Stdout
+	cmdTest.Stderr = os.Stderr
+	errRun := cmdTest.Run()
+	if errRun != nil {
+		log.Error().Err(errRun).Msg("Live integration tests failed")
 		os.Exit(1)
 	}
 }

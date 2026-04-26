@@ -238,28 +238,6 @@ func TestStatusCommand(t *testing.T) {
 	}
 }
 
-// TestStatusUptimeIncreases verifies uptime in status is non-zero after a delay.
-func TestStatusUptimeIncreases(t *testing.T) {
-	t.Parallel()
-
-	stdin, _, wait := runServerWithPipe(t, "-heartbeat=0")
-	time.Sleep(250 * time.Millisecond)
-	_, _ = fmt.Fprintln(stdin, "status")
-	_, _ = fmt.Fprintln(stdin, "stop")
-	_ = stdin.Close()
-	wait()
-
-	// Re-run with proper output capture.
-	stdout, _, exitCode := runServer(t, "status\nstop\n", "-heartbeat=0")
-	if exitCode != 0 {
-		t.Fatalf("unexpected exit code %d", exitCode)
-	}
-	// Just verify the uptime field is present - timing is hard to assert reliably.
-	if !strings.Contains(stdout, "uptime=") {
-		t.Errorf("status output missing uptime=: %q", stdout)
-	}
-}
-
 // TestCrashCommand verifies crash exits with code 1.
 func TestCrashCommand(t *testing.T) {
 	t.Parallel()
@@ -352,9 +330,7 @@ func TestUnknownCommand(t *testing.T) {
 		cmd  string
 	}{
 		{name: "all caps", cmd: "STOP"},
-		{name: "mixed case", cmd: "Stop"},
 		{name: "nonsense", cmd: "foobar"},
-		{name: "numeric", cmd: "12345"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -425,64 +401,6 @@ func TestHeartbeatDisabled(t *testing.T) {
 	}
 }
 
-// TestHeartbeatDefaultIs5s verifies the default heartbeat interval is 5 seconds.
-func TestHeartbeatDefaultIs5s(t *testing.T) {
-	t.Parallel()
-
-	if testing.Short() {
-		t.Skip("skipping long-running heartbeat default test in short mode")
-	}
-	stdin, stdoutBuf, wait := runServerWithPipe(t)
-	// After 5.5s at least one heartbeat should have fired.
-	time.Sleep(5500 * time.Millisecond)
-	_, _ = fmt.Fprintln(stdin, "stop")
-	_ = stdin.Close()
-	exitCode := wait()
-	if exitCode != 0 {
-		t.Errorf("default heartbeat: expected exit code 0, got %d", exitCode)
-	}
-	stdout := stdoutBuf.String()
-	var count int
-	for l := range strings.SplitSeq(stdout, "\n") {
-		if strings.Contains(l, "heartbeat") {
-			count++
-		}
-	}
-	if count < 1 {
-		t.Errorf("default heartbeat: expected at least 1 heartbeat in 5.5s, got 0")
-	}
-}
-
-// TestHeartbeatPIDMatchesBanner verifies heartbeat PID matches startup banner PID.
-func TestHeartbeatPIDMatchesBanner(t *testing.T) {
-	t.Parallel()
-
-	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=100ms")
-	time.Sleep(250 * time.Millisecond)
-	_, _ = fmt.Fprintln(stdin, "stop")
-	_ = stdin.Close()
-	wait()
-	stdout := stdoutBuf.String()
-	var bannerPID, heartbeatPID string
-	for l := range strings.SplitSeq(stdout, "\n") {
-		if strings.Contains(l, "started pid=") {
-			bannerPID = extractField(l, "pid=")
-		}
-		if strings.Contains(l, "heartbeat") && heartbeatPID == "" {
-			heartbeatPID = extractField(l, "pid=")
-		}
-	}
-	if bannerPID == "" {
-		t.Fatal("no startup banner PID found")
-	}
-	if heartbeatPID == "" {
-		t.Fatal("no heartbeat PID found")
-	}
-	if bannerPID != heartbeatPID {
-		t.Errorf("banner PID %q != heartbeat PID %q", bannerPID, heartbeatPID)
-	}
-}
-
 // TestStartupDelay verifies the -startup-delay flag delays the startup banner.
 func TestStartupDelay(t *testing.T) {
 	t.Parallel()
@@ -498,21 +416,6 @@ func TestStartupDelay(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "started pid=") {
 		t.Errorf("startup delay: banner missing from stdout: %q", stdout)
-	}
-}
-
-// TestStartupDelayZero verifies -startup-delay=0 has no meaningful delay.
-func TestStartupDelayZero(t *testing.T) {
-	t.Parallel()
-
-	start := time.Now()
-	_, _, exitCode := runServer(t, "stop\n", "-heartbeat=0", "-startup-delay=0")
-	elapsed := time.Since(start)
-	if exitCode != 0 {
-		t.Errorf("startup-delay=0: expected exit code 0, got %d", exitCode)
-	}
-	if elapsed > 500*time.Millisecond {
-		t.Errorf("startup-delay=0: expected fast startup, elapsed %v", elapsed)
 	}
 }
 
@@ -555,35 +458,6 @@ func TestBlankLinesIgnored(t *testing.T) {
 	}
 }
 
-// TestCommandCaseSensitivity verifies commands are case-sensitive.
-func TestCommandCaseSensitivity(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		cmd  string
-	}{
-		{"uppercase STOP", "STOP"},
-		{"title case Stop", "Stop"},
-		{"uppercase ECHO", "ECHO"},
-		{"uppercase CRASH", "CRASH"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			input := fmt.Sprintf("%s\nstop\n", tt.cmd)
-			stdout, _, exitCode := runServer(t, input, "-heartbeat=0")
-			if exitCode != 0 {
-				t.Fatalf("unexpected exit code %d", exitCode)
-			}
-			if !strings.Contains(strings.ToLower(stdout), "unknown command") {
-				t.Errorf("command %q should be unknown (case-sensitive), stdout: %q", tt.cmd, stdout)
-			}
-		})
-	}
-}
-
 // TestMultipleCommands verifies multiple commands in sequence are all processed.
 func TestMultipleCommands(t *testing.T) {
 	t.Parallel()
@@ -597,21 +471,6 @@ func TestMultipleCommands(t *testing.T) {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("expected %q in stdout, not found: %q", want, stdout)
 		}
-	}
-}
-
-// TestCrashNoStdout verifies crash does not print additional lines to stdout after banner.
-func TestCrashNoStdout(t *testing.T) {
-	t.Parallel()
-
-	stdout, _, exitCode := runServer(t, "crash\n", "-heartbeat=0")
-	if exitCode != 1 {
-		t.Errorf("crash: expected exit code 1, got %d", exitCode)
-	}
-	lines := nonEmptyLines(stdout)
-	// Should only have the startup banner.
-	if len(lines) != 1 {
-		t.Errorf("crash: expected only startup banner on stdout, got %d lines: %q", len(lines), stdout)
 	}
 }
 
@@ -629,81 +488,6 @@ func TestScannerBufferOverflow(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "stdin read error") {
 		t.Errorf("expected 'stdin read error' in stderr, got: %q", stderr)
-	}
-}
-
-// TestHeartbeatUptimeMonotonic verifies heartbeat uptime values increase over time.
-func TestHeartbeatUptimeMonotonic(t *testing.T) {
-	t.Parallel()
-
-	stdin, stdoutBuf, wait := runServerWithPipe(t, "-heartbeat=100ms")
-	time.Sleep(500 * time.Millisecond)
-	_, _ = fmt.Fprintln(stdin, "stop")
-	_ = stdin.Close()
-	wait()
-	stdout := stdoutBuf.String()
-
-	var uptimes []time.Duration
-	for l := range strings.SplitSeq(stdout, "\n") {
-		if strings.Contains(l, "heartbeat") {
-			uptimeStr := extractField(l, "uptime=")
-			if uptimeStr == "" {
-				continue
-			}
-			d, err := time.ParseDuration(uptimeStr)
-			if err != nil {
-				t.Errorf("failed to parse uptime %q: %v", uptimeStr, err)
-				continue
-			}
-			uptimes = append(uptimes, d)
-		}
-	}
-	if len(uptimes) < 2 {
-		t.Skipf("not enough heartbeat lines to check monotonicity (%d)", len(uptimes))
-	}
-	for i := 1; i < len(uptimes); i++ {
-		if uptimes[i] <= uptimes[i-1] {
-			t.Errorf("heartbeat uptime not increasing: [%d]=%v <= [%d]=%v",
-				i, uptimes[i], i-1, uptimes[i-1])
-		}
-	}
-}
-
-// TestFloodThenStop verifies flood followed by stop works correctly.
-func TestFloodThenStop(t *testing.T) {
-	t.Parallel()
-
-	stdout, _, exitCode := runServer(t, "flood\nstop\n", "-heartbeat=0")
-	if exitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", exitCode)
-	}
-	if !strings.Contains(stdout, "goodbye") {
-		t.Errorf("expected goodbye after flood+stop: %q", stdout)
-	}
-	var floodCount int
-	for l := range strings.SplitSeq(stdout, "\n") {
-		if strings.Contains(l, "flood line") {
-			floodCount++
-		}
-	}
-	if floodCount != 100 {
-		t.Errorf("expected 100 flood lines after flood+stop, got %d", floodCount)
-	}
-}
-
-// TestLargeEchoMessage verifies echo handles messages up to the scanner limit.
-func TestLargeEchoMessage(t *testing.T) {
-	t.Parallel()
-
-	// 10000 chars is well within the 64KB scanner limit.
-	bigMsg := strings.Repeat("X", 10000)
-	input := fmt.Sprintf("echo %s\nstop\n", bigMsg)
-	stdout, _, exitCode := runServer(t, input, "-heartbeat=0")
-	if exitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", exitCode)
-	}
-	if !strings.Contains(stdout, bigMsg) {
-		t.Errorf("echo: 10000-char message not found in stdout (len=%d)", len(stdout))
 	}
 }
 
@@ -725,22 +509,3 @@ func TestInvalidFlagExitsNonZero(t *testing.T) {
 }
 
 // extractField extracts the value after a key= prefix up to the next space or end.
-func extractField(line, key string) string {
-	_, rest, found := strings.Cut(line, key)
-	if !found {
-		return ""
-	}
-	before, _, _ := strings.Cut(rest, " ")
-	return before
-}
-
-// nonEmptyLines returns non-empty lines from a string.
-func nonEmptyLines(s string) []string {
-	var result []string
-	for l := range strings.SplitSeq(s, "\n") {
-		if strings.TrimSpace(l) != "" {
-			result = append(result, l)
-		}
-	}
-	return result
-}

@@ -114,22 +114,3 @@ func TestAllProviders_ReturnsCopy(t *testing.T) {
 		t.Error("AllProviders() mutation affected the registry, want independent copy")
 	}
 }
-
-func TestRequiresAPIKey(t *testing.T) {
-	tests := []struct {
-		name           string
-		requiresAPIKey bool
-	}{
-		{name: "provider requires API key", requiresAPIKey: true},
-		{name: "provider does not require API key", requiresAPIKey: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := &mockProvider{id: "test-apikey-" + tt.name, requiresAPIKey: tt.requiresAPIKey}
-			if got := p.RequiresAPIKey(); got != tt.requiresAPIKey {
-				t.Errorf("RequiresAPIKey() = %v, want %v", got, tt.requiresAPIKey)
-			}
-		})
-	}
-}

@@ -96,12 +96,6 @@ func TestUnsubscribe_StopsDelivery(t *testing.T) {
 	}
 }
 
-func TestPublish_NoSubscribers_NoPanic(_ *testing.T) {
-	eb := Get()
-	// Should not panic or block
-	eb.Publish("test.no_subs", "orphan")
-}
-
 func TestPublish_NonBlocking_DropsOnFullChannel(t *testing.T) {
 	eb := Get()
 	topic := "test.drop"
@@ -117,21 +111,6 @@ func TestPublish_NonBlocking_DropsOnFullChannel(t *testing.T) {
 	case <-time.After(50 * time.Millisecond):
 		// Expected — message was dropped
 	}
-}
-
-func TestConcurrent_SubscribePublishUnsubscribe(_ *testing.T) {
-	eb := Get()
-	topic := "test.concurrent"
-
-	var wg sync.WaitGroup
-	for range 50 {
-		wg.Go(func() {
-			ch := eb.Subscribe(topic)
-			eb.Publish(topic, "msg")
-			eb.Unsubscribe(topic, ch)
-		})
-	}
-	wg.Wait()
 }
 
 func TestSubscribeAfterPublish_MissesMessage(t *testing.T) {

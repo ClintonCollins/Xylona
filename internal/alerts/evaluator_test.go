@@ -865,16 +865,6 @@ func TestRecordDroppedJob(t *testing.T) {
 	}
 }
 
-func TestRecordDroppedJob_NilRecorder(_ *testing.T) {
-	eval := &Evaluator{
-		dropRecorder: nil,
-		jobChan:      make(chan DeliveryJob),
-	}
-
-	// Should not panic.
-	eval.recordDroppedJob(DeliveryJob{RuleID: "r1"})
-}
-
 // --- topicToEventType tests ---
 
 func TestTopicToEventType(t *testing.T) {

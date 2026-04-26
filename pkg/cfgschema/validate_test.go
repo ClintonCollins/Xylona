@@ -5,194 +5,182 @@ import (
 	"testing"
 )
 
-func TestValidate_ValidSchema(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","properties":{}}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) != 0 {
-		t.Errorf("ValidateConfigSchemas() returned %d errors, want 0: %v", len(errs), errs)
+func TestValidateConfigSchemas_BasicCases(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantErr   bool
+		wantMatch string
+	}{
+		{
+			name:  "valid properties schema",
+			input: `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","properties":{}}}]`,
+		},
+		{
+			name:  "valid commandcfg schema",
+			input: `[{"path":"server.cfg","format":"commandcfg","category":"Core","schema":{"type":"object","properties":{"hostname":{"type":"string"}}}}]`,
+		},
+		{
+			name:  "empty array",
+			input: `[]`,
+		},
+		{
+			name:    "malformed json",
+			input:   `{bad json`,
+			wantErr: true,
+		},
+		{
+			name:    "missing path",
+			input:   `[{"format":"properties","category":"Core"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "missing format",
+			input:   `[{"path":"server.properties","category":"Core"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "missing category",
+			input:   `[{"path":"server.properties","format":"properties"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid format",
+			input:   `[{"path":"test.cfg","format":"lua","category":"Core"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "path traversal",
+			input:   `[{"path":"../etc/passwd","format":"properties","category":"Core"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "unknown managed source",
+			input:   `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"key":"unknown.source"}}]`,
+			wantErr: true,
+		},
+		{
+			name:  "valid managed sources",
+			input: `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"server-ip":"game_server.ip","server-port":"game_server.port","query-port":"game_server.query_port"}}]`,
+		},
+		{
+			name:  "valid managed source aliases",
+			input: `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"server-ip":"ip","server-port":"server_port","query-port":"query_port"}}]`,
+		},
+		{
+			name: "unknown managed source in schema property",
+			input: `[{
+				"path":"server.properties",
+				"format":"properties",
+				"category":"Core",
+				"schema":{
+					"type":"object",
+					"properties":{
+						"server-ip":{"type":"string","x-managed":{"source":"unknown.source"}}
+					}
+				}
+			}]`,
+			wantErr: true,
+		},
+		{
+			name: "valid managed source aliases in schema property",
+			input: `[{
+				"path":"server.properties",
+				"format":"properties",
+				"category":"Core",
+				"schema":{
+					"type":"object",
+					"properties":{
+						"server-ip":{"type":"string","x-managed":{"source":"ip"}},
+						"server-port":{"type":"integer","x-managed":{"source":"server_port"}},
+						"query-port":{"type":"integer","x-managed":{"source":"query_port"}}
+					}
+				}
+			}]`,
+		},
+		{
+			name:    "xml key mode on non xml",
+			input:   `[{"path":"server.properties","format":"properties","category":"Core","xml_key_mode":{"mode":"elements"}}]`,
+			wantErr: true,
+		},
+		{
+			name:  "valid xml attributes mode",
+			input: `[{"path":"server.xml","format":"xml","category":"Core","xml_key_mode":{"mode":"attributes","element":"property","key_attr":"name","value_attr":"value"}}]`,
+		},
+		{
+			name:    "xml attributes mode missing fields",
+			input:   `[{"path":"server.xml","format":"xml","category":"Core","xml_key_mode":{"mode":"attributes"}}]`,
+			wantErr: true,
+		},
+		{
+			name:  "valid xml elements mode",
+			input: `[{"path":"server.xml","format":"xml","category":"Core","xml_key_mode":{"mode":"elements"}}]`,
+		},
+		{
+			name:    "duplicate paths",
+			input:   `[{"path":"server.properties","format":"properties","category":"Core"},{"path":"server.properties","format":"properties","category":"Core"}]`,
+			wantErr: true,
+		},
+		{
+			name: "accepts x-group",
+			input: `[{
+				"path": "server.properties",
+				"format": "properties",
+				"category": "Core",
+				"schema": {
+					"type": "object",
+					"properties": {
+						"port": {"type": "integer", "x-group": "network"},
+						"motd": {"type": "string", "x-group": "gameplay"}
+					}
+				}
+			}]`,
+		},
+		{
+			name:  "accepts x-order and x-groups",
+			input: `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","x-groups":["network","gameplay"],"properties":{"port":{"type":"integer","x-group":"network","x-order":0},"motd":{"type":"string","x-group":"gameplay","x-order":1}}}}]`,
+		},
+		{
+			name:      "negative x-order",
+			input:     `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","properties":{"port":{"type":"integer","x-order":-1}}}}]`,
+			wantErr:   true,
+			wantMatch: "x-order",
+		},
+		{
+			name:    "duplicate x-groups",
+			input:   `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","x-groups":["network","network"],"properties":{}}}]`,
+			wantErr: true,
+		},
+		{
+			name:    "empty string in x-groups",
+			input:   `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","x-groups":["network",""],"properties":{}}}]`,
+			wantErr: true,
+		},
 	}
-}
 
-func TestValidate_CommandCFGFormat(t *testing.T) {
-	input := `[{"path":"server.cfg","format":"commandcfg","category":"Core","schema":{"type":"object","properties":{"hostname":{"type":"string"}}}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) != 0 {
-		t.Errorf("ValidateConfigSchemas() returned %d errors, want 0: %v", len(errs), errs)
-	}
-}
-
-func TestValidate_EmptyArray(t *testing.T) {
-	errs := ValidateConfigSchemas("[]")
-	if len(errs) != 0 {
-		t.Errorf("ValidateConfigSchemas([]) returned %d errors, want 0: %v", len(errs), errs)
-	}
-}
-
-func TestValidate_MalformedJSON(t *testing.T) {
-	errs := ValidateConfigSchemas("{bad json")
-	if len(errs) == 0 {
-		t.Error("ValidateConfigSchemas(malformed) expected errors, got none")
-	}
-}
-
-func TestValidate_MissingPath(t *testing.T) {
-	input := `[{"format":"properties","category":"Core"}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for missing path")
-	}
-}
-
-func TestValidate_MissingFormat(t *testing.T) {
-	input := `[{"path":"server.properties","category":"Core"}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for missing format")
-	}
-}
-
-func TestValidate_MissingCategory(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties"}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for missing category")
-	}
-}
-
-func TestValidate_InvalidFormat(t *testing.T) {
-	input := `[{"path":"test.cfg","format":"lua","category":"Core"}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for invalid format")
-	}
-}
-
-func TestValidate_PathTraversal(t *testing.T) {
-	input := `[{"path":"../etc/passwd","format":"properties","category":"Core"}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for path traversal")
-	}
-}
-
-func TestValidate_UnknownManagedSource(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"key":"unknown.source"}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for unknown managed field source")
-	}
-}
-
-func TestValidate_ValidManagedSources(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"server-ip":"game_server.ip","server-port":"game_server.port","query-port":"game_server.query_port"}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) != 0 {
-		t.Errorf("ValidateConfigSchemas() returned %d errors for valid managed sources: %v", len(errs), errs)
-	}
-}
-
-func TestValidate_ValidManagedSourceAliases(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"server-ip":"ip","server-port":"server_port","query-port":"query_port"}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) != 0 {
-		t.Errorf("ValidateConfigSchemas() returned %d errors for valid managed source aliases: %v", len(errs), errs)
-	}
-}
-
-func TestValidate_UnknownManagedSourceInSchemaProperty(t *testing.T) {
-	input := `[{
-		"path":"server.properties",
-		"format":"properties",
-		"category":"Core",
-		"schema":{
-			"type":"object",
-			"properties":{
-				"server-ip":{"type":"string","x-managed":{"source":"unknown.source"}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateConfigSchemas(tt.input)
+			if tt.wantErr && len(errs) == 0 {
+				t.Fatal("ValidateConfigSchemas() errors = 0, want at least 1")
 			}
-		}
-	}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for unknown x-managed source")
-	}
-}
-
-func TestValidate_ValidManagedSourceAliasesInSchemaProperty(t *testing.T) {
-	input := `[{
-		"path":"server.properties",
-		"format":"properties",
-		"category":"Core",
-		"schema":{
-			"type":"object",
-			"properties":{
-				"server-ip":{"type":"string","x-managed":{"source":"ip"}},
-				"server-port":{"type":"integer","x-managed":{"source":"server_port"}},
-				"query-port":{"type":"integer","x-managed":{"source":"query_port"}}
+			if !tt.wantErr && len(errs) != 0 {
+				t.Fatalf("ValidateConfigSchemas() returned %d errors, want 0: %v", len(errs), errs)
 			}
-		}
-	}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) != 0 {
-		t.Errorf("ValidateConfigSchemas() returned %d errors for valid x-managed aliases: %v", len(errs), errs)
-	}
-}
-
-func TestValidate_XMLKeyModeOnNonXML(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","xml_key_mode":{"mode":"elements"}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for xml_key_mode on non-XML format")
-	}
-}
-
-func TestValidate_XMLAttributesModeValid(t *testing.T) {
-	input := `[{"path":"server.xml","format":"xml","category":"Core","xml_key_mode":{"mode":"attributes","element":"property","key_attr":"name","value_attr":"value"}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) != 0 {
-		t.Errorf("ValidateConfigSchemas() returned %d errors for valid XML attributes mode: %v", len(errs), errs)
-	}
-}
-
-func TestValidate_XMLAttributesModeMissingFields(t *testing.T) {
-	input := `[{"path":"server.xml","format":"xml","category":"Core","xml_key_mode":{"mode":"attributes"}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for attributes mode without element/key_attr/value_attr")
-	}
-}
-
-func TestValidate_XMLElementsModeValid(t *testing.T) {
-	input := `[{"path":"server.xml","format":"xml","category":"Core","xml_key_mode":{"mode":"elements"}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) != 0 {
-		t.Errorf("ValidateConfigSchemas() returned %d errors for valid XML elements mode: %v", len(errs), errs)
-	}
-}
-
-func TestValidate_DuplicatePaths(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core"},{"path":"server.properties","format":"properties","category":"Core"}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for duplicate paths")
-	}
-}
-
-func TestValidateConfigSchemas_AcceptsXGroup(t *testing.T) {
-	schemasJSON := `[{
-		"path": "server.properties",
-		"format": "properties",
-		"category": "Core",
-		"schema": {
-			"type": "object",
-			"properties": {
-				"port": {"type": "integer", "x-group": "network"},
-				"motd": {"type": "string", "x-group": "gameplay"}
+			if tt.wantMatch == "" {
+				return
 			}
-		}
-	}]`
-	errs := ValidateConfigSchemas(schemasJSON)
-	if len(errs) > 0 {
-		t.Errorf("expected no validation errors, got: %v", errs)
+
+			found := false
+			for _, errText := range errs {
+				if strings.Contains(errText, tt.wantMatch) {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("expected error containing %q, got: %v", tt.wantMatch, errs)
+			}
+		})
 	}
 }
 
@@ -360,46 +348,5 @@ func TestBuildFieldData_EnumLabels(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestValidate_AcceptsXOrderAndXGroups(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","x-groups":["network","gameplay"],"properties":{"port":{"type":"integer","x-group":"network","x-order":0},"motd":{"type":"string","x-group":"gameplay","x-order":1}}}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) != 0 {
-		t.Errorf("expected no errors, got: %v", errs)
-	}
-}
-
-func TestValidate_NegativeXOrder(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","properties":{"port":{"type":"integer","x-order":-1}}}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for negative x-order")
-	}
-	found := false
-	for _, e := range errs {
-		if strings.Contains(e, "x-order") {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected error mentioning x-order, got: %v", errs)
-	}
-}
-
-func TestValidate_DuplicateXGroups(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","x-groups":["network","network"],"properties":{}}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for duplicate x-groups")
-	}
-}
-
-func TestValidate_EmptyStringInXGroups(t *testing.T) {
-	input := `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","x-groups":["network",""],"properties":{}}}]`
-	errs := ValidateConfigSchemas(input)
-	if len(errs) == 0 {
-		t.Error("expected error for empty string in x-groups")
 	}
 }

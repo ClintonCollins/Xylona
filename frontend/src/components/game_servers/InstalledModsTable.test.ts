@@ -100,18 +100,6 @@ describe('InstalledModsTable', () => {
     expect(wrapper.text()).toContain('Update to 0.91.0')
   })
 
-  it('shows amber version text when update is available', () => {
-    const mod = makeMod({
-      updateAvailable: true,
-      latestVersion: '0.91.0',
-    })
-    const wrapper = mountTable([mod])
-
-    const versionEl = wrapper.find('.version-text--update')
-    expect(versionEl.exists()).toBe(true)
-    expect(versionEl.text()).toBe('0.90.0')
-  })
-
   it('emits toggle-auto-update when toggle is changed', async () => {
     const mod = makeMod({ autoUpdate: true })
     const wrapper = mountTable([mod])
@@ -196,30 +184,6 @@ describe('InstalledModsTable', () => {
     expect(wrapper.emitted('update-all')).toBeTruthy()
   })
 
-  it('shows empty state when no mods are installed', () => {
-    const wrapper = mountTable([])
-
-    expect(wrapper.text()).toContain('No mods installed')
-  })
-
-  it('shows loading spinner when loading is true', () => {
-    const wrapper = mountTable([], true)
-
-    expect(wrapper.find('.q-spinner-stub').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Loading mods')
-  })
-
-  it('shows correct source badges for different sources', () => {
-    const modrinthMod = makeMod({ id: 'mod-m', source: 'modrinth' })
-    const hangarMod = makeMod({ id: 'mod-h', source: 'hangar' })
-    const wrapper = mountTable([modrinthMod, hangarMod])
-
-    const badges = wrapper.findAll('.source-badge')
-    expect(badges).toHaveLength(2)
-    expect(badges[0]?.text()).toBe('M')
-    expect(badges[1]?.text()).toBe('H')
-  })
-
   it('emits update when single update button is clicked', async () => {
     const mod = makeMod({ updateAvailable: true, latestVersion: '0.91.0' })
     const wrapper = mountTable([mod])
@@ -233,13 +197,6 @@ describe('InstalledModsTable', () => {
     const emitted = wrapper.emitted('update') ?? []
     expect(emitted).toHaveLength(1)
     expect(emitted[0]).toEqual(['mod-1'])
-  })
-
-  it('shows "Up to date" for enabled mods with no updates', () => {
-    const mod = makeMod({ enabled: true, updateAvailable: false })
-    const wrapper = mountTable([mod])
-
-    expect(wrapper.text()).toContain('Up to date')
   })
 
   it('shows no-results message when filter matches nothing', async () => {

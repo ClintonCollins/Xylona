@@ -17,10 +17,23 @@ type testUser struct {
 
 // testState matches helpers.ts TestState interface.
 type testState struct {
-	GameServerID      string `json:"gameServerId,omitempty"`
-	GameID            string `json:"gameId,omitempty"`
-	GameName          string `json:"gameName,omitempty"`
-	NoTrackerServerID string `json:"noTrackerServerId,omitempty"`
+	Mode              string            `json:"mode,omitempty"`
+	BackendURL        string            `json:"backendUrl,omitempty"`
+	DataDir           string            `json:"dataDir,omitempty"`
+	ControllerDir     string            `json:"controllerDir,omitempty"`
+	ControllerHomeDir string            `json:"controllerHomeDir,omitempty"`
+	ControllerPID     int               `json:"controllerPid,omitempty"`
+	NodeDir           string            `json:"nodeDir,omitempty"`
+	NodeHomeDir       string            `json:"nodeHomeDir,omitempty"`
+	RemoteNodePID     int               `json:"remoteNodePid,omitempty"`
+	GameServerID      string            `json:"gameServerId,omitempty"`
+	GameServerDir     string            `json:"gameServerDir,omitempty"`
+	GameID            string            `json:"gameId,omitempty"`
+	GameName          string            `json:"gameName,omitempty"`
+	TargetNodeID      string            `json:"targetNodeId,omitempty"`
+	RemoteNodeID      string            `json:"remoteNodeId,omitempty"`
+	DummyServerPath   string            `json:"dummyServerPath,omitempty"`
+	RuntimeEnv        map[string]string `json:"runtimeEnv,omitempty"`
 }
 
 func saveTestUsers(dir string, users []testUser) error {
@@ -64,4 +77,18 @@ func saveTestState(dir string, state *testState) error {
 		return fmt.Errorf("write test state: %w", errWrite)
 	}
 	return nil
+}
+
+func loadTestState(dir string) (*testState, error) {
+	data, errRead := os.ReadFile(filepath.Join(dir, ".auth", "test-state.json"))
+	if errRead != nil {
+		return nil, fmt.Errorf("read test state: %w", errRead)
+	}
+
+	state := &testState{}
+	errUnmarshal := json.Unmarshal(data, state)
+	if errUnmarshal != nil {
+		return nil, fmt.Errorf("unmarshal test state: %w", errUnmarshal)
+	}
+	return state, nil
 }

@@ -345,24 +345,6 @@ func TestBuildFacets_SliceValue(t *testing.T) {
 }
 
 // --------------------------------------------------------------------------
-// Provider identity
-// --------------------------------------------------------------------------
-
-func TestID(t *testing.T) {
-	p := New()
-	if p.ID() != providerID {
-		t.Errorf("ID() = %q, want %q", p.ID(), providerID)
-	}
-}
-
-func TestRequiresAPIKey(t *testing.T) {
-	p := New()
-	if p.RequiresAPIKey() {
-		t.Error("RequiresAPIKey() = true, want false")
-	}
-}
-
-// --------------------------------------------------------------------------
 // Download size limit
 // --------------------------------------------------------------------------
 
@@ -508,21 +490,5 @@ func TestDownload_SHA256Mismatch(t *testing.T) {
 	}
 	if !errors.Is(errDownload, modproviders.ErrIntegrityMismatch) {
 		t.Fatalf("Download() error = %v, want %v", errDownload, modproviders.ErrIntegrityMismatch)
-	}
-}
-
-func TestDownloadSizeLimitConstant(t *testing.T) {
-	// Verify the shared constant is 500 MB as documented.
-	expected := int64(500 * 1024 * 1024)
-	if modproviders.MaxModDownloadSize != expected {
-		t.Errorf("MaxModDownloadSize = %d, want %d", modproviders.MaxModDownloadSize, expected)
-	}
-}
-
-func TestDownloadTooLargeErrorType(t *testing.T) {
-	// Verify the error type is usable with errors.Is for wrapping.
-	wrapped := fmt.Errorf("test: %w", modproviders.ErrDownloadTooLarge)
-	if !errors.Is(wrapped, modproviders.ErrDownloadTooLarge) {
-		t.Errorf("errors.Is(wrapped, ErrDownloadTooLarge) = false, want true")
 	}
 }

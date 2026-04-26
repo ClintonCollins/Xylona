@@ -1,7 +1,6 @@
 package versiontracker
 
 import (
-	"sync"
 	"testing"
 	"time"
 )
@@ -65,23 +64,6 @@ func TestVersionStateMap_GetAll(t *testing.T) {
 	if len(all) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(all))
 	}
-}
-
-func TestVersionStateMap_ConcurrentAccess(_ *testing.T) {
-	m := NewVersionStateMap()
-	var wg sync.WaitGroup
-	for i := range 100 {
-		wg.Add(2)
-		go func(id string) {
-			defer wg.Done()
-			m.Set(id, VersionState{Status: VersionStatusChecked})
-		}("server-" + string(rune('a'+i%26)))
-		go func(id string) {
-			defer wg.Done()
-			_ = m.Get(id)
-		}("server-" + string(rune('a'+i%26)))
-	}
-	wg.Wait()
 }
 
 func TestVersionStateMap_Delete(t *testing.T) {

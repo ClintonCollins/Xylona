@@ -341,41 +341,46 @@ func TestAlertRuleRPC_NoPermission(t *testing.T) {
 // Validation tests
 // ---------------------------------------------------------------------------
 
-func TestCreateAlertRule_UnspecifiedEventType(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_UNSPECIFIED,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(unspecified event type) expected error, got nil")
+func TestCreateAlertRule_InvalidRequiredFields(t *testing.T) {
+	tests := []struct {
+		name              string
+		eventType         xylona.AlertEventType
+		useFixtureChannel bool
+	}{
+		{
+			name:              "unspecified event type",
+			eventType:         xylona.AlertEventType_ALERT_EVENT_TYPE_UNSPECIFIED,
+			useFixtureChannel: true,
+		},
+		{
+			name:      "empty notification channel id",
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+		},
 	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
 
-func TestCreateAlertRule_EmptyNotificationChannelID(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newAlertRulesFixture(t)
+			channelID := ""
+			if tt.useFixtureChannel {
+				channelID = fixture.channelID
+			}
 
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: "",
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+			req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
+				EventType:             tt.eventType,
+				NotificationChannelId: channelID,
+				Enabled:               true,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
 
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(empty channel ID) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+			_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
+			if errCreate == nil {
+				t.Fatalf("CreateAlertRule() error = nil, want invalid argument")
+			}
+			if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+				t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+			}
+		})
 	}
 }
 
@@ -409,106 +414,66 @@ func TestCreateAlertRule_ChannelNotBelongingToUser(t *testing.T) {
 	}
 }
 
-func TestCreateAlertRule_ServerIDWithoutServerNodeID(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerId:              new("server-local-1"),
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(server_id without server_node_id) expected error, got nil")
+func TestCreateAlertRule_InvalidScopePairing(t *testing.T) {
+	tests := []struct {
+		name         string
+		serverID     *string
+		serverNodeID *string
+		nodeID       *string
+		eventType    xylona.AlertEventType
+	}{
+		{
+			name:      "server id without server node id",
+			serverID:  new("server-local-1"),
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+		},
+		{
+			name:         "server node id without server id",
+			serverNodeID: new("node-local"),
+			eventType:    xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+		},
+		{
+			name:         "server scope and node scope both set",
+			serverID:     new("server-local-1"),
+			serverNodeID: new("node-local"),
+			nodeID:       new("node-local"),
+			eventType:    xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+		},
+		{
+			name:         "node event with server scope",
+			serverID:     new("server-local-1"),
+			serverNodeID: new("node-local"),
+			eventType:    xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
+		},
+		{
+			name:      "server event with node scope",
+			nodeID:    new("node-local"),
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+		},
 	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
 
-func TestCreateAlertRule_ServerNodeIDWithoutServerID(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newAlertRulesFixture(t)
 
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerNodeId:          new("node-local"),
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+			req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
+				ServerId:              tt.serverID,
+				ServerNodeId:          tt.serverNodeID,
+				NodeId:                tt.nodeID,
+				EventType:             tt.eventType,
+				NotificationChannelId: fixture.channelID,
+				Enabled:               true,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
 
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(server_node_id without server_id) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
-
-func TestCreateAlertRule_ServerIDAndNodeIDBothSet(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerId:              new("server-local-1"),
-		ServerNodeId:          new("node-local"),
-		NodeId:                new("node-local"),
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(server_id and node_id both set) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
-
-func TestCreateAlertRule_NodeEventWithServerID(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		ServerId:              new("server-local-1"),
-		ServerNodeId:          new("node-local"),
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(node event with server_id) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
-	}
-}
-
-func TestCreateAlertRule_ServerEventWithNodeID(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		NodeId:                new("node-local"),
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate == nil {
-		t.Fatalf("CreateAlertRule(server event with node_id) expected error, got nil")
-	}
-	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+			_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
+			if errCreate == nil {
+				t.Fatalf("CreateAlertRule() error = nil, want invalid argument")
+			}
+			if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+				t.Errorf("code = %v, want %v", connect.CodeOf(errCreate), connect.CodeInvalidArgument)
+			}
+		})
 	}
 }
 
@@ -1047,43 +1012,44 @@ func TestGetAlertHistory_DefaultLimit(t *testing.T) {
 // Update validation tests
 // ---------------------------------------------------------------------------
 
-func TestUpdateAlertRule_UnspecifiedEventType(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
-		Id:                    "some-id",
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_UNSPECIFIED,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	_, errUpdate := fixture.service.UpdateAlertRule(context.Background(), req)
-	if errUpdate == nil {
-		t.Fatalf("UpdateAlertRule(unspecified event type) expected error, got nil")
+func TestUpdateAlertRule_InvalidInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        string
+		eventType xylona.AlertEventType
+	}{
+		{
+			name:      "unspecified event type",
+			id:        "some-id",
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_UNSPECIFIED,
+		},
+		{
+			name:      "empty id",
+			id:        "",
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
+		},
 	}
-	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
-	}
-}
 
-func TestUpdateAlertRule_EmptyID(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newAlertRulesFixture(t)
 
-	req := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
-		Id:                    "",
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+			req := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
+				Id:                    tt.id,
+				EventType:             tt.eventType,
+				NotificationChannelId: fixture.channelID,
+				Enabled:               true,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
 
-	_, errUpdate := fixture.service.UpdateAlertRule(context.Background(), req)
-	if errUpdate == nil {
-		t.Fatalf("UpdateAlertRule(empty id) expected error, got nil")
-	}
-	if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
+			_, errUpdate := fixture.service.UpdateAlertRule(context.Background(), req)
+			if errUpdate == nil {
+				t.Fatalf("UpdateAlertRule() error = nil, want invalid argument")
+			}
+			if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
+				t.Errorf("code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeInvalidArgument)
+			}
+		})
 	}
 }
 
@@ -1108,38 +1074,47 @@ func TestDeleteAlertRule_EmptyID(t *testing.T) {
 // Half-pair rejection tests
 // ---------------------------------------------------------------------------
 
-func TestListAlertRules_HalfPairServerID(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.ListAlertRulesRequest{
-		ServerId: new("server-local-1"),
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	_, errList := fixture.service.ListAlertRules(context.Background(), req)
-	if errList == nil {
-		t.Fatalf("ListAlertRules(half-pair) expected error, got nil")
+func TestAlertRuleServerFilterRejectsHalfPair(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(t *testing.T, fixture *alertRulesFixture) error
+	}{
+		{
+			name: "list alert rules",
+			call: func(t *testing.T, fixture *alertRulesFixture) error {
+				req := connect.NewRequest(&xylona.ListAlertRulesRequest{
+					ServerId: new("server-local-1"),
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+				_, errList := fixture.service.ListAlertRules(context.Background(), req)
+				return errList
+			},
+		},
+		{
+			name: "get alert history",
+			call: func(t *testing.T, fixture *alertRulesFixture) error {
+				req := connect.NewRequest(&xylona.GetAlertHistoryRequest{
+					ServerId: new("server-local-1"),
+					Limit:    50,
+				})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+				_, errHist := fixture.service.GetAlertHistory(context.Background(), req)
+				return errHist
+			},
+		},
 	}
-	if connect.CodeOf(errList) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errList), connect.CodeInvalidArgument)
-	}
-}
 
-func TestGetAlertHistory_HalfPairServerID(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.GetAlertHistoryRequest{
-		ServerId: new("server-local-1"),
-		Limit:    50,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	_, errHist := fixture.service.GetAlertHistory(context.Background(), req)
-	if errHist == nil {
-		t.Fatalf("GetAlertHistory(half-pair) expected error, got nil")
-	}
-	if connect.CodeOf(errHist) != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want %v", connect.CodeOf(errHist), connect.CodeInvalidArgument)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newAlertRulesFixture(t)
+			errCall := tt.call(t, fixture)
+			if errCall == nil {
+				t.Fatalf("%s error = nil, want invalid argument", tt.name)
+			}
+			if connect.CodeOf(errCall) != connect.CodeInvalidArgument {
+				t.Errorf("code = %v, want %v", connect.CodeOf(errCall), connect.CodeInvalidArgument)
+			}
+		})
 	}
 }
 
