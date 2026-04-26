@@ -266,7 +266,15 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	nodeOS := inst.resolveNodeOS(inst.ctx, newGameServer.NodeID)
 	installVars := placeholder.BuildVarsFromGameServer(newGameServer)
 	installCommand := placeholder.Resolve(gameInstallCommand(game, nodeOS), installVars)
-	baseCommand, args := splitCommandString(installCommand)
+	baseCommand, args, errCommandArgs := commandLineToProcessArgs(installCommand)
+	if errCommandArgs != nil {
+		errInstall := fmt.Errorf("actions: parse install command: %w", errCommandArgs)
+		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory, newGameServer.NodeID)
+		if errCleanup != nil {
+			return nil, errors.Join(errInstall, errCleanup)
+		}
+		return nil, errInstall
+	}
 
 	client, errClient := inst.resolveNodeClient(newGameServer.NodeID)
 	if errClient != nil {
@@ -722,7 +730,12 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 			placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
 			gameServer.Branch,
 		)
-		updateCfg.BaseCommand, updateCfg.Args = splitCommandString(updateCommand)
+		baseCommand, args, errCommandArgs := commandLineToProcessArgs(updateCommand)
+		if errCommandArgs != nil {
+			return fmt.Errorf("actions: parse update command: %w", errCommandArgs)
+		}
+		updateCfg.BaseCommand = baseCommand
+		updateCfg.Args = args
 	}
 	if internalUpdate {
 		updateCfg.InternalCommand = true

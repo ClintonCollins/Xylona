@@ -2,6 +2,7 @@ package actions
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/aarondl/opt/null"
@@ -244,6 +245,79 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 			}
 			if got := gameUpdateCommandType(game, tt.nodeOS); got != tt.wantUpdType {
 				t.Errorf("gameUpdateCommandType() = %q, want %q", got, tt.wantUpdType)
+			}
+		})
+	}
+}
+
+func TestCommandLineToProcessArgs(t *testing.T) {
+	tests := []struct {
+		name     string
+		command  string
+		wantBase string
+		wantArgs []string
+		wantErr  bool
+	}{
+		{
+			name:     "empty command",
+			command:  "  ",
+			wantBase: "",
+			wantArgs: nil,
+		},
+		{
+			name:     "plain args",
+			command:  "steamcmd +login anonymous +quit",
+			wantBase: "steamcmd",
+			wantArgs: []string{"+login", "anonymous", "+quit"},
+		},
+		{
+			name:     "double quoted arg",
+			command:  `steamcmd +force_install_dir "C:\Game Servers\server one" +quit`,
+			wantBase: "steamcmd",
+			wantArgs: []string{"+force_install_dir", `C:\Game Servers\server one`, "+quit"},
+		},
+		{
+			name:     "single quoted arg",
+			command:  `bash -c 'echo hello world'`,
+			wantBase: "bash",
+			wantArgs: []string{"-c", "echo hello world"},
+		},
+		{
+			name:     "escaped whitespace outside quotes",
+			command:  `runner one\ arg two`,
+			wantBase: "runner",
+			wantArgs: []string{"one arg", "two"},
+		},
+		{
+			name:     "empty quoted arg",
+			command:  `cmd "" tail`,
+			wantBase: "cmd",
+			wantArgs: []string{"", "tail"},
+		},
+		{
+			name:    "unterminated quote",
+			command: `cmd "missing`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotBase, gotArgs, errParse := commandLineToProcessArgs(tt.command)
+			if tt.wantErr {
+				if errParse == nil {
+					t.Fatal("commandLineToProcessArgs() error = nil, want error")
+				}
+				return
+			}
+			if errParse != nil {
+				t.Fatalf("commandLineToProcessArgs() error = %v", errParse)
+			}
+			if gotBase != tt.wantBase {
+				t.Errorf("commandLineToProcessArgs() base = %q, want %q", gotBase, tt.wantBase)
+			}
+			if !slices.Equal(gotArgs, tt.wantArgs) {
+				t.Errorf("commandLineToProcessArgs() args = %#v, want %#v", gotArgs, tt.wantArgs)
 			}
 		})
 	}

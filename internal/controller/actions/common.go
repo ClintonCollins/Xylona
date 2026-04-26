@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/rs/zerolog/log"
 
@@ -185,28 +186,80 @@ func gameUpdateCommandType(game *models.Game, osType OSType) string {
 	return updateType
 }
 
-// splitCommandString preserves the legacy double-quote-only tokenization used for
-// install and update command strings. It does not support single quotes,
-// backslash escaping, or escaped double quotes inside arguments.
-//
-// TODO(GE-06 follow-up): remove this compatibility parser once install/update
-// command-string paths are replaced with structured argv or a proper tokenizer.
-// Still actively called from InstallGameServer and UpdateGameServer in actions.go.
-func splitCommandString(command string) (string, []string) {
-	foundQuote := false
-	commandSplit := strings.FieldsFunc(command, func(r rune) bool {
-		if r == '"' {
-			foundQuote = !foundQuote
-		}
-		return r == ' ' && !foundQuote
-	})
-	for i, arg := range commandSplit {
-		if strings.HasPrefix(arg, `"`) && strings.HasSuffix(arg, `"`) {
-			commandSplit[i] = strings.Trim(arg, `"`)
-		}
+func commandLineToProcessArgs(command string) (string, []string, error) {
+	fields, errFields := commandLineFields(command)
+	if errFields != nil {
+		return "", nil, errFields
 	}
-	if len(commandSplit) == 0 {
-		return "", nil
+	if len(fields) == 0 {
+		return "", nil, nil
 	}
-	return commandSplit[0], commandSplit[1:]
+	return fields[0], fields[1:], nil
+}
+
+func commandLineFields(command string) ([]string, error) {
+	runes := []rune(command)
+	fields := []string{}
+	var current strings.Builder
+	inField := false
+	var quote rune
+
+	for i := 0; i < len(runes); i++ {
+		currentRune := runes[i]
+
+		if quote != 0 {
+			if currentRune == quote {
+				quote = 0
+				inField = true
+				continue
+			}
+			if currentRune == '\\' && quote == '"' && i+1 < len(runes) && isCommandLineEscapable(runes[i+1]) {
+				i++
+				current.WriteRune(runes[i])
+				inField = true
+				continue
+			}
+			current.WriteRune(currentRune)
+			inField = true
+			continue
+		}
+
+		if unicode.IsSpace(currentRune) {
+			if inField {
+				fields = append(fields, current.String())
+				current.Reset()
+				inField = false
+			}
+			continue
+		}
+
+		if currentRune == '\'' || currentRune == '"' {
+			quote = currentRune
+			inField = true
+			continue
+		}
+
+		if currentRune == '\\' && i+1 < len(runes) && isCommandLineEscapable(runes[i+1]) {
+			i++
+			current.WriteRune(runes[i])
+			inField = true
+			continue
+		}
+
+		current.WriteRune(currentRune)
+		inField = true
+	}
+
+	if quote != 0 {
+		return nil, fmt.Errorf("invalid command line: unterminated %q quote", string(quote))
+	}
+
+	if inField {
+		fields = append(fields, current.String())
+	}
+	return fields, nil
+}
+
+func isCommandLineEscapable(r rune) bool {
+	return unicode.IsSpace(r) || r == '\'' || r == '"' || r == '\\'
 }
