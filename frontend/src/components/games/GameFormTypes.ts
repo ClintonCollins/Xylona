@@ -1,5 +1,11 @@
 import type { ComputedRef, InjectionKey, Ref } from 'vue'
-import type { CommandType, Game, ModSource } from '@/proto/shared_pb'
+import type {
+  CommandType,
+  EnvironmentValidationIssue,
+  EnvironmentVariable,
+  Game,
+  ModSource,
+} from '@/proto/shared_pb'
 import type { StartArgBlock, StartArgBlocklistEntry } from '@/components/game_servers/start-args'
 import type { ConfigSchemaEntry } from './config-schema-types'
 
@@ -43,6 +49,14 @@ export interface GameFormContext {
   toggleRuntimePolicy: () => void
   updateRuntimeSequenceExpanded: (value: boolean) => void
   downstreamImpactServers: Ref<Array<{ name: string; patchCount: number }>>
+
+  defaultEnvRows: Ref<EnvironmentVariable[]>
+  defaultEnvIssues: Ref<EnvironmentValidationIssue[]>
+  defaultEnvLoading: Ref<boolean>
+  defaultEnvSaving: Ref<boolean>
+  addDefaultEnvRow: () => void
+  removeDefaultEnvRow: (index: number) => void
+  saveDefaultEnvironment: () => Promise<void>
 
   modSourceOptions: Array<{ label: string; value: string }>
   managedModConfig: ComputedRef<boolean>

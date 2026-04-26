@@ -135,6 +135,91 @@
         </transition>
       </section>
 
+      <section
+        v-if="existingGame && !copyGame"
+        class="game-default-env-panel"
+        data-testid="game-default-environment-section">
+        <div class="game-default-env-header">
+          <div>
+            <div class="game-default-env-title font-display">Default Environment</div>
+          </div>
+          <q-btn
+            color="primary"
+            data-testid="add-default-environment-row"
+            dense
+            flat
+            icon="add"
+            round
+            @click="addDefaultEnvRow" />
+        </div>
+
+        <div
+          v-if="defaultEnvLoading"
+          class="game-default-env-empty text-caption text-muted"
+          data-testid="game-default-environment-loading">
+          Loading environment...
+        </div>
+
+        <template v-else>
+          <q-banner
+            v-if="defaultEnvIssues.length > 0"
+            class="q-mb-md"
+            data-testid="game-default-environment-issues"
+            dense
+            rounded>
+            <div v-for="issue in defaultEnvIssues" :key="issue.name + issue.message">
+              {{ issue.message }}
+            </div>
+          </q-banner>
+
+          <div
+            v-if="defaultEnvRows.length === 0"
+            class="game-default-env-empty text-caption text-muted"
+            data-testid="game-default-environment-empty">
+            No default variables configured.
+          </div>
+
+          <div
+            v-for="(row, index) in defaultEnvRows"
+            :key="index"
+            class="game-default-env-row"
+            data-testid="game-default-environment-row">
+            <q-input
+              v-model="row.name"
+              class="game-default-env-name"
+              data-testid="game-default-environment-name"
+              dense
+              label="Name"
+              outlined />
+            <q-input
+              v-model="row.value"
+              class="game-default-env-value"
+              data-testid="game-default-environment-value"
+              dense
+              label="Value"
+              outlined />
+            <q-btn
+              color="negative"
+              data-testid="remove-default-environment-row"
+              dense
+              flat
+              icon="delete"
+              round
+              @click="removeDefaultEnvRow(index)" />
+          </div>
+
+          <div class="game-default-env-actions">
+            <q-btn
+              :loading="defaultEnvSaving"
+              color="primary"
+              data-testid="save-default-environment"
+              label="Save Defaults"
+              no-caps
+              @click="saveDefaultEnvironment" />
+          </div>
+        </template>
+      </section>
+
       <start-args-template-editor
         :active-platform="activePlatformResolved ?? undefined"
         :advanced-expanded="runtimeSequenceExpanded"
@@ -190,5 +275,12 @@ const {
   toggleRuntimePolicy,
   updateRuntimeSequenceExpanded,
   downstreamImpactServers,
+  defaultEnvRows,
+  defaultEnvIssues,
+  defaultEnvLoading,
+  defaultEnvSaving,
+  addDefaultEnvRow,
+  removeDefaultEnvRow,
+  saveDefaultEnvironment,
 } = ctx
 </script>

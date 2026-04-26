@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
@@ -97,6 +98,10 @@ func importGameChanges(existing *models.Game, imported *models.Game) ([]*xylona.
 	errBlocklist := builder.addStartArgBlocklist(existing.StartArgBlocklist, imported.StartArgBlocklist)
 	if errBlocklist != nil {
 		return nil, errBlocklist
+	}
+	errDefaultEnv := builder.addDefaultEnv(existing.DefaultEnvVars, imported.DefaultEnvVars)
+	if errDefaultEnv != nil {
+		return nil, errDefaultEnv
 	}
 
 	builder.addString("Updates", "Update provider", "update_config.update_provider", providerConfigSummary(existingConfig.UpdateProvider), providerConfigSummary(importedConfig.UpdateProvider))
@@ -322,6 +327,23 @@ func (builder *importGameChangeBuilder) addStartArgBlocklist(previous string, im
 	}
 
 	builder.addDetected("Runtime", "Start argument blocklist", "start_arg_blocklist", blocklistSummary(previousEntries), blocklistSummary(importedEntries))
+	return nil
+}
+
+func (builder *importGameChangeBuilder) addDefaultEnv(previous string, imported string) error {
+	previousVars, errPreviousVars := launchenv.ParseStored(previous)
+	if errPreviousVars != nil {
+		return fmt.Errorf("parse existing default_env_vars: %w", errPreviousVars)
+	}
+	importedVars, errImportedVars := launchenv.ParseStored(imported)
+	if errImportedVars != nil {
+		return fmt.Errorf("parse imported default_env_vars: %w", errImportedVars)
+	}
+	if reflect.DeepEqual(previousVars, importedVars) {
+		return nil
+	}
+
+	builder.addDetected("Runtime", "Default environment variables", "default_env_vars", envVarsSummary(previousVars), envVarsSummary(importedVars))
 	return nil
 }
 
@@ -719,6 +741,10 @@ func variantsSummary(variants []updateproviders.Variant) string {
 		summary += fmt.Sprintf(", +%d more", remaining)
 	}
 	return summary
+}
+
+func envVarsSummary(variables []launchenv.Variable) string {
+	return pluralCount(len(variables), "variable", "variables")
 }
 
 func pluralCount(count int, singular string, plural string) string {

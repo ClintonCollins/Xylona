@@ -23,12 +23,21 @@ func (inst *Instance) reloadGameServerForStart(gameServer *models.GameServer) (*
 }
 
 func (inst *Instance) loadStartLaunchEnvMetadata(gameServer *models.GameServer) ([]launchenv.Variable, []launchenv.SecretState, error) {
+	gameDefaultEnv := []launchenv.Variable{}
+	if gameServer.R.Game != nil {
+		var errDefaultEnv error
+		gameDefaultEnv, errDefaultEnv = launchenv.ParseStored(gameServer.R.Game.DefaultEnvVars)
+		if errDefaultEnv != nil {
+			return nil, nil, fmt.Errorf("parse game default launch environment: %w", errDefaultEnv)
+		}
+	}
+
 	serverEnv, errParse := launchenv.ParseStored(gameServer.EnvVars)
 	if errParse != nil {
 		return nil, nil, fmt.Errorf("parse server launch environment: %w", errParse)
 	}
 
-	effectiveEnv, issues := launchenv.MergeNormal(nil, serverEnv)
+	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
 	if len(issues) > 0 {
 		errValidation := launchenv.NewValidationError(issues)
 		return nil, nil, fmt.Errorf("validate normal launch environment: %w", errValidation)

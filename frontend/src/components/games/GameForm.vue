@@ -136,7 +136,19 @@ import { ConnectError } from '@connectrpc/connect'
 import { QForm, useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, provide, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { CommandType, Game, GameSchema, UpdateProviderConfigSchema } from '@/proto/shared_pb'
+import {
+  CommandType,
+  EnvironmentValidationIssue,
+  EnvironmentVariable,
+  EnvironmentVariableSchema,
+  Game,
+  GameSchema,
+  UpdateProviderConfigSchema,
+} from '@/proto/shared_pb'
+import {
+  GetGameEnvironmentRequestSchema,
+  UpdateGameEnvironmentRequestSchema,
+} from '@/proto/xylona_pb'
 import type { ConfigSchemaEntry } from './config-schema-types'
 import GameFormOverviewTab from './GameFormOverviewTab.vue'
 import GameFormRuntimeTab from './GameFormRuntimeTab.vue'
@@ -159,7 +171,7 @@ import { useGameFormTabs } from './useGameFormTabs'
 import { useGameFormNewGameSetup } from './useGameFormNewGameSetup'
 import { useGameFormPersistence } from './useGameFormPersistence'
 import { exportGameDefinitionJSON } from './game-definition-json'
-import { ConnectErrorToString } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -239,6 +251,10 @@ const existingGame = ref(false)
 const copyGame = ref(false)
 const gameID = ref('')
 const configSchemas = ref<ConfigSchemaEntry[]>([])
+const defaultEnvRows = ref<EnvironmentVariable[]>([])
+const defaultEnvIssues = ref<EnvironmentValidationIssue[]>([])
+const defaultEnvLoading = ref(false)
+const defaultEnvSaving = ref(false)
 const {
   linuxStartArgsTemplate,
   windowsStartArgsTemplate,
@@ -354,6 +370,13 @@ provide(gameFormContextKey, {
   toggleRuntimePolicy,
   updateRuntimeSequenceExpanded,
   downstreamImpactServers,
+  defaultEnvRows,
+  defaultEnvIssues,
+  defaultEnvLoading,
+  defaultEnvSaving,
+  addDefaultEnvRow,
+  removeDefaultEnvRow,
+  saveDefaultEnvironment,
   modSourceOptions,
   managedModConfig,
   activeModSourceLabel,
@@ -455,8 +478,10 @@ onMounted(async () => {
   }
   if (existingGame.value || copyGame.value) {
     await loadGameDetails()
+    await initializeGameDefaultEnvironment()
   } else {
     await initializeNewGameForm()
+    resetDefaultEnvironment()
   }
 })
 
@@ -489,6 +514,98 @@ async function exportCurrentGame(): Promise<void> {
       caption: 'Failed to export game: ' + ConnectErrorToString(ConnectError.from(unknownError)),
       icon: 'report_problem',
     })
+  }
+}
+
+function resetDefaultEnvironment(): void {
+  defaultEnvRows.value = []
+  defaultEnvIssues.value = []
+}
+
+async function initializeGameDefaultEnvironment(): Promise<void> {
+  if (!existingGame.value || copyGame.value || gameID.value === '') {
+    resetDefaultEnvironment()
+    return
+  }
+
+  defaultEnvLoading.value = true
+  try {
+    const response = await GetXylonaClient().getGameEnvironment(
+      create(GetGameEnvironmentRequestSchema, {
+        gameId: gameID.value,
+      }),
+    )
+    defaultEnvRows.value = cloneEnvironmentVariables(response.defaultEnv)
+    defaultEnvIssues.value = response.validationIssues
+  } catch (unknownError: unknown) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption:
+        'Failed to load default environment: ' +
+        ConnectErrorToString(ConnectError.from(unknownError)),
+      icon: 'report_problem',
+    })
+  } finally {
+    defaultEnvLoading.value = false
+  }
+}
+
+function cloneEnvironmentVariables(variables: EnvironmentVariable[]): EnvironmentVariable[] {
+  return variables.map((variable) =>
+    create(EnvironmentVariableSchema, {
+      name: variable.name,
+      value: variable.value,
+    }),
+  )
+}
+
+function addDefaultEnvRow(): void {
+  defaultEnvRows.value.push(create(EnvironmentVariableSchema))
+}
+
+function removeDefaultEnvRow(index: number): void {
+  defaultEnvRows.value.splice(index, 1)
+}
+
+async function saveDefaultEnvironment(): Promise<void> {
+  if (gameID.value === '') {
+    return
+  }
+
+  defaultEnvSaving.value = true
+  try {
+    const defaultEnv = defaultEnvRows.value.map((row) =>
+      create(EnvironmentVariableSchema, {
+        name: row.name.trim(),
+        value: row.value,
+      }),
+    )
+    const response = await GetXylonaClient().updateGameEnvironment(
+      create(UpdateGameEnvironmentRequestSchema, {
+        gameId: gameID.value,
+        defaultEnv,
+      }),
+    )
+    defaultEnvRows.value = cloneEnvironmentVariables(response.defaultEnv)
+    defaultEnvIssues.value = response.validationIssues
+    $q.notify({
+      type: 'positive',
+      position: 'top',
+      caption: 'Default environment saved.',
+      icon: 'task_alt',
+    })
+  } catch (unknownError: unknown) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption:
+        'Failed to save default environment: ' +
+        ConnectErrorToString(ConnectError.from(unknownError)),
+      icon: 'report_problem',
+    })
+  } finally {
+    defaultEnvSaving.value = false
   }
 }
 </script>
@@ -699,6 +816,46 @@ async function exportCurrentGame(): Promise<void> {
   min-width: 0;
 }
 
+.game-default-env-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--xy-border);
+  border-radius: 10px;
+  background: var(--xy-surface-1);
+}
+
+.game-default-env-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.game-default-env-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--xy-accent);
+}
+
+.game-default-env-empty {
+  padding: 0.5rem 0;
+}
+
+.game-default-env-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.75fr) minmax(180px, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.game-default-env-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .runtime-policy-subsection--impact {
   /* no override needed -- inherits flat style */
 }
@@ -797,6 +954,10 @@ async function exportCurrentGame(): Promise<void> {
   }
 
   .runtime-policy-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .game-default-env-row {
     grid-template-columns: minmax(0, 1fr);
   }
 

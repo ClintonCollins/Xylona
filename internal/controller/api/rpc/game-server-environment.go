@@ -65,7 +65,11 @@ func (xs *XylonaService) UpdateGameServerEnvironment(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errMarshal)
 	}
 
-	effectiveEnv, issues := launchenv.MergeNormal(nil, serverEnv)
+	gameDefaultEnv, errDefaultEnv := parseStoredGameDefaultEnvironment(gameServer)
+	if errDefaultEnv != nil {
+		return nil, errDefaultEnv
+	}
+	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
 	if len(issues) > 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
 	}
@@ -118,7 +122,11 @@ func (xs *XylonaService) SetGameServerSecretEnv(
 	if errServerEnv != nil {
 		return nil, errServerEnv
 	}
-	effectiveEnv, issues := launchenv.MergeNormal(nil, serverEnv)
+	gameDefaultEnv, errDefaultEnv := parseStoredGameDefaultEnvironment(gameServer)
+	if errDefaultEnv != nil {
+		return nil, errDefaultEnv
+	}
+	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
 	if len(issues) > 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
 	}
@@ -211,12 +219,16 @@ func ensureEnvironmentMutationAllowed(user *models.User, gameServer *models.Game
 }
 
 func (xs *XylonaService) loadServerEnvironmentView(gameServer *models.GameServer) (*serverEnvironmentView, error) {
+	gameDefaultEnv, errDefaultEnv := parseStoredGameDefaultEnvironment(gameServer)
+	if errDefaultEnv != nil {
+		return nil, errDefaultEnv
+	}
 	serverEnv, errServerEnv := parseStoredServerEnvironment(gameServer)
 	if errServerEnv != nil {
 		return nil, errServerEnv
 	}
 
-	effectiveEnv, issues := launchenv.MergeNormal(nil, serverEnv)
+	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
 	secretStates, errSecretStates := xs.listLaunchSecretStates(gameServer.ID)
 	if errSecretStates != nil {
 		return nil, errSecretStates
@@ -224,12 +236,23 @@ func (xs *XylonaService) loadServerEnvironmentView(gameServer *models.GameServer
 	issues = append(issues, launchenv.ValidateSecretStates(secretStates, effectiveEnv)...)
 
 	return &serverEnvironmentView{
-		gameDefaultEnv:   []launchenv.Variable{},
+		gameDefaultEnv:   gameDefaultEnv,
 		serverEnv:        serverEnv,
 		effectiveEnv:     effectiveEnv,
 		secretEnv:        secretStates,
 		validationIssues: issues,
 	}, nil
+}
+
+func parseStoredGameDefaultEnvironment(gameServer *models.GameServer) ([]launchenv.Variable, error) {
+	if gameServer.R.Game == nil {
+		return nil, internalErrf("game relation missing")
+	}
+	gameDefaultEnv, errParse := launchenv.ParseStored(gameServer.R.Game.DefaultEnvVars)
+	if errParse != nil {
+		return nil, internalErrf("stored game default environment variables are invalid")
+	}
+	return gameDefaultEnv, nil
 }
 
 func parseStoredServerEnvironment(gameServer *models.GameServer) ([]launchenv.Variable, error) {

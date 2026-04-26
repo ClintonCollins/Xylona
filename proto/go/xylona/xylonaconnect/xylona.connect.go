@@ -43,6 +43,12 @@ const (
 	// XylonaUpdateGameStartArgBlocklistProcedure is the fully-qualified name of the Xylona's
 	// UpdateGameStartArgBlocklist RPC.
 	XylonaUpdateGameStartArgBlocklistProcedure = "/xylona.Xylona/UpdateGameStartArgBlocklist"
+	// XylonaGetGameEnvironmentProcedure is the fully-qualified name of the Xylona's GetGameEnvironment
+	// RPC.
+	XylonaGetGameEnvironmentProcedure = "/xylona.Xylona/GetGameEnvironment"
+	// XylonaUpdateGameEnvironmentProcedure is the fully-qualified name of the Xylona's
+	// UpdateGameEnvironment RPC.
+	XylonaUpdateGameEnvironmentProcedure = "/xylona.Xylona/UpdateGameEnvironment"
 	// XylonaGetGameProcedure is the fully-qualified name of the Xylona's GetGame RPC.
 	XylonaGetGameProcedure = "/xylona.Xylona/GetGame"
 	// XylonaRemoveGameProcedure is the fully-qualified name of the Xylona's RemoveGame RPC.
@@ -347,6 +353,8 @@ type XylonaClient interface {
 	EditGame(context.Context, *connect.Request[xylona.EditGameRequest]) (*connect.Response[xylona.EditGameResponse], error)
 	UpdateGameStartArgsTemplate(context.Context, *connect.Request[xylona.UpdateGameStartArgsTemplateRequest]) (*connect.Response[xylona.UpdateGameStartArgsTemplateResponse], error)
 	UpdateGameStartArgBlocklist(context.Context, *connect.Request[xylona.UpdateGameStartArgBlocklistRequest]) (*connect.Response[xylona.UpdateGameStartArgBlocklistResponse], error)
+	GetGameEnvironment(context.Context, *connect.Request[xylona.GetGameEnvironmentRequest]) (*connect.Response[xylona.GetGameEnvironmentResponse], error)
+	UpdateGameEnvironment(context.Context, *connect.Request[xylona.UpdateGameEnvironmentRequest]) (*connect.Response[xylona.UpdateGameEnvironmentResponse], error)
 	GetGame(context.Context, *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error)
 	RemoveGame(context.Context, *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error)
 	ImportGame(context.Context, *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error)
@@ -521,6 +529,18 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaUpdateGameStartArgBlocklistProcedure,
 			connect.WithSchema(xylonaMethods.ByName("UpdateGameStartArgBlocklist")),
+			connect.WithClientOptions(opts...),
+		),
+		getGameEnvironment: connect.NewClient[xylona.GetGameEnvironmentRequest, xylona.GetGameEnvironmentResponse](
+			httpClient,
+			baseURL+XylonaGetGameEnvironmentProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameEnvironment")),
+			connect.WithClientOptions(opts...),
+		),
+		updateGameEnvironment: connect.NewClient[xylona.UpdateGameEnvironmentRequest, xylona.UpdateGameEnvironmentResponse](
+			httpClient,
+			baseURL+XylonaUpdateGameEnvironmentProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateGameEnvironment")),
 			connect.WithClientOptions(opts...),
 		),
 		getGame: connect.NewClient[xylona.GetGameRequest, xylona.GetGameResponse](
@@ -1228,6 +1248,8 @@ type xylonaClient struct {
 	editGame                         *connect.Client[xylona.EditGameRequest, xylona.EditGameResponse]
 	updateGameStartArgsTemplate      *connect.Client[xylona.UpdateGameStartArgsTemplateRequest, xylona.UpdateGameStartArgsTemplateResponse]
 	updateGameStartArgBlocklist      *connect.Client[xylona.UpdateGameStartArgBlocklistRequest, xylona.UpdateGameStartArgBlocklistResponse]
+	getGameEnvironment               *connect.Client[xylona.GetGameEnvironmentRequest, xylona.GetGameEnvironmentResponse]
+	updateGameEnvironment            *connect.Client[xylona.UpdateGameEnvironmentRequest, xylona.UpdateGameEnvironmentResponse]
 	getGame                          *connect.Client[xylona.GetGameRequest, xylona.GetGameResponse]
 	removeGame                       *connect.Client[xylona.RemoveGameRequest, xylona.RemoveGameResponse]
 	importGame                       *connect.Client[xylona.ImportGameRequest, xylona.ImportGameResponse]
@@ -1364,6 +1386,16 @@ func (c *xylonaClient) UpdateGameStartArgsTemplate(ctx context.Context, req *con
 // UpdateGameStartArgBlocklist calls xylona.Xylona.UpdateGameStartArgBlocklist.
 func (c *xylonaClient) UpdateGameStartArgBlocklist(ctx context.Context, req *connect.Request[xylona.UpdateGameStartArgBlocklistRequest]) (*connect.Response[xylona.UpdateGameStartArgBlocklistResponse], error) {
 	return c.updateGameStartArgBlocklist.CallUnary(ctx, req)
+}
+
+// GetGameEnvironment calls xylona.Xylona.GetGameEnvironment.
+func (c *xylonaClient) GetGameEnvironment(ctx context.Context, req *connect.Request[xylona.GetGameEnvironmentRequest]) (*connect.Response[xylona.GetGameEnvironmentResponse], error) {
+	return c.getGameEnvironment.CallUnary(ctx, req)
+}
+
+// UpdateGameEnvironment calls xylona.Xylona.UpdateGameEnvironment.
+func (c *xylonaClient) UpdateGameEnvironment(ctx context.Context, req *connect.Request[xylona.UpdateGameEnvironmentRequest]) (*connect.Response[xylona.UpdateGameEnvironmentResponse], error) {
+	return c.updateGameEnvironment.CallUnary(ctx, req)
 }
 
 // GetGame calls xylona.Xylona.GetGame.
@@ -1953,6 +1985,8 @@ type XylonaHandler interface {
 	EditGame(context.Context, *connect.Request[xylona.EditGameRequest]) (*connect.Response[xylona.EditGameResponse], error)
 	UpdateGameStartArgsTemplate(context.Context, *connect.Request[xylona.UpdateGameStartArgsTemplateRequest]) (*connect.Response[xylona.UpdateGameStartArgsTemplateResponse], error)
 	UpdateGameStartArgBlocklist(context.Context, *connect.Request[xylona.UpdateGameStartArgBlocklistRequest]) (*connect.Response[xylona.UpdateGameStartArgBlocklistResponse], error)
+	GetGameEnvironment(context.Context, *connect.Request[xylona.GetGameEnvironmentRequest]) (*connect.Response[xylona.GetGameEnvironmentResponse], error)
+	UpdateGameEnvironment(context.Context, *connect.Request[xylona.UpdateGameEnvironmentRequest]) (*connect.Response[xylona.UpdateGameEnvironmentResponse], error)
 	GetGame(context.Context, *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error)
 	RemoveGame(context.Context, *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error)
 	ImportGame(context.Context, *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error)
@@ -2123,6 +2157,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaUpdateGameStartArgBlocklistProcedure,
 		svc.UpdateGameStartArgBlocklist,
 		connect.WithSchema(xylonaMethods.ByName("UpdateGameStartArgBlocklist")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetGameEnvironmentHandler := connect.NewUnaryHandler(
+		XylonaGetGameEnvironmentProcedure,
+		svc.GetGameEnvironment,
+		connect.WithSchema(xylonaMethods.ByName("GetGameEnvironment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateGameEnvironmentHandler := connect.NewUnaryHandler(
+		XylonaUpdateGameEnvironmentProcedure,
+		svc.UpdateGameEnvironment,
+		connect.WithSchema(xylonaMethods.ByName("UpdateGameEnvironment")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetGameHandler := connect.NewUnaryHandler(
@@ -2831,6 +2877,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaUpdateGameStartArgsTemplateHandler.ServeHTTP(w, r)
 		case XylonaUpdateGameStartArgBlocklistProcedure:
 			xylonaUpdateGameStartArgBlocklistHandler.ServeHTTP(w, r)
+		case XylonaGetGameEnvironmentProcedure:
+			xylonaGetGameEnvironmentHandler.ServeHTTP(w, r)
+		case XylonaUpdateGameEnvironmentProcedure:
+			xylonaUpdateGameEnvironmentHandler.ServeHTTP(w, r)
 		case XylonaGetGameProcedure:
 			xylonaGetGameHandler.ServeHTTP(w, r)
 		case XylonaRemoveGameProcedure:
@@ -3086,6 +3136,14 @@ func (UnimplementedXylonaHandler) UpdateGameStartArgsTemplate(context.Context, *
 
 func (UnimplementedXylonaHandler) UpdateGameStartArgBlocklist(context.Context, *connect.Request[xylona.UpdateGameStartArgBlocklistRequest]) (*connect.Response[xylona.UpdateGameStartArgBlocklistResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateGameStartArgBlocklist is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameEnvironment(context.Context, *connect.Request[xylona.GetGameEnvironmentRequest]) (*connect.Response[xylona.GetGameEnvironmentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameEnvironment is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateGameEnvironment(context.Context, *connect.Request[xylona.UpdateGameEnvironmentRequest]) (*connect.Response[xylona.UpdateGameEnvironmentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateGameEnvironment is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetGame(context.Context, *connect.Request[xylona.GetGameRequest]) (*connect.Response[xylona.GetGameResponse], error) {

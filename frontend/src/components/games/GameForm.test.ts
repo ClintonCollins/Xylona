@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CommandProcessor,
   CommandType,
+  EnvironmentVariableSchema,
   GameSchema,
   ModProfileSchema,
   ModSourceSchema,
@@ -20,10 +21,12 @@ const mocks = vi.hoisted(() => ({
   editGame: vi.fn(),
   exportGame: vi.fn(),
   getGame: vi.fn(),
+  getGameEnvironment: vi.fn(),
   listGameServers: vi.fn(),
   push: vi.fn(),
   updateGameStartArgBlocklist: vi.fn(),
   updateGameStartArgsTemplate: vi.fn(),
+  updateGameEnvironment: vi.fn(),
 }))
 
 vi.mock('@/utils/shared', async () => {
@@ -35,7 +38,9 @@ vi.mock('@/utils/shared', async () => {
       editGame: mocks.editGame,
       exportGame: mocks.exportGame,
       getGame: mocks.getGame,
+      getGameEnvironment: mocks.getGameEnvironment,
       listGameServers: mocks.listGameServers,
+      updateGameEnvironment: mocks.updateGameEnvironment,
       updateGameStartArgsTemplate: mocks.updateGameStartArgsTemplate,
       updateGameStartArgBlocklist: mocks.updateGameStartArgBlocklist,
       updateGameConfigSchemas: vi.fn(),
@@ -145,10 +150,16 @@ describe('GameForm', () => {
     mocks.editGame.mockReset()
     mocks.exportGame.mockReset()
     mocks.getGame.mockReset()
+    mocks.getGameEnvironment.mockReset()
     mocks.listGameServers.mockReset()
     mocks.push.mockReset()
     mocks.updateGameStartArgBlocklist.mockReset()
     mocks.updateGameStartArgsTemplate.mockReset()
+    mocks.updateGameEnvironment.mockReset()
+    mocks.getGameEnvironment.mockResolvedValue({
+      defaultEnv: [],
+      validationIssues: [],
+    })
     mocks.listGameServers.mockResolvedValue({ gameServers: [] })
   })
 
@@ -618,5 +629,60 @@ describe('GameForm', () => {
     expect(wrapper.get('[data-testid="baseline-windows-command"]').text()).toBe('javaw')
     expect(wrapper.get('[data-testid="baseline-linux-count"]').text()).toBe('1')
     expect(wrapper.get('[data-testid="baseline-windows-count"]').text()).toBe('1')
+  })
+
+  it('saves game default environment through the dedicated RPC', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        windowsSupport: true,
+      }),
+    })
+    mocks.getGameEnvironment.mockResolvedValue({
+      defaultEnv: [
+        create(EnvironmentVariableSchema, {
+          name: 'HYTALE_AUTH_MODE',
+          value: 'refresh_token',
+        }),
+      ],
+      validationIssues: [],
+    })
+    mocks.updateGameEnvironment.mockResolvedValue({
+      defaultEnv: [
+        create(EnvironmentVariableSchema, {
+          name: 'HYTALE_AUTH_MODE',
+          value: 'refresh_token',
+        }),
+      ],
+      validationIssues: [],
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+    const saveButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Save Defaults')
+
+    expect(saveButton).toBeDefined()
+    if (!saveButton) {
+      throw new Error('expected Save Defaults button to exist')
+    }
+
+    await saveButton.trigger('click')
+    await flushPromises()
+
+    expect(mocks.getGameEnvironment).toHaveBeenCalledTimes(1)
+    expect(mocks.updateGameEnvironment).toHaveBeenCalledTimes(1)
+    expect(mocks.updateGameEnvironment.mock.calls[0]?.[0]).toMatchObject({
+      gameId: 'minecraft',
+    })
+    expect(mocks.updateGameEnvironment.mock.calls[0]?.[0]?.defaultEnv[0]).toMatchObject({
+      name: 'HYTALE_AUTH_MODE',
+      value: 'refresh_token',
+    })
   })
 })

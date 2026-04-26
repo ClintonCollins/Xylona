@@ -121,6 +121,7 @@ func (xs *XylonaService) EditGame(_ context.Context, request *connect.Request[xy
 		return nil, dbLookup(errGetGameModel)
 	}
 	updatedGameModel := protomap.GameProtoToModel(gameProto)
+	updatedGameModel.DefaultEnvVars = gameModel.DefaultEnvVars
 	if gameModel.XylonaOfficial {
 		gamedefinitions.MarkImportedOfficialEdit(updatedGameModel, gameModel)
 	} else {

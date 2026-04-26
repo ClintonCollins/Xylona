@@ -53,6 +53,56 @@ func TestExportParseRoundTripPreservesStructuredSections(t *testing.T) {
 	}
 }
 
+func TestExportParseRoundTripPreservesDefaultEnvVars(t *testing.T) {
+	conn := dbtest.NewMigratedConnection(t, "definition-default-env-roundtrip.sqlite")
+	game, errGame := conn.GetGameByID("hytale")
+	if errGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGame)
+	}
+	game.DefaultEnvVars = `[{"name":"HYTALE_AUTH_MODE","value":"refresh_token"}]`
+
+	definitionJSON, hash, errExport := gamedefinitions.ExportModel(game, "test", fixedZeroTime())
+	if errExport != nil {
+		t.Fatalf("ExportModel() error = %v", errExport)
+	}
+	if !strings.Contains(definitionJSON, `"default_env_vars": [`) {
+		t.Fatal("ExportModel() did not expose default_env_vars as structured JSON")
+	}
+
+	parsed, errParse := gamedefinitions.Parse([]byte(definitionJSON))
+	if errParse != nil {
+		t.Fatalf("Parse() error = %v", errParse)
+	}
+	if parsed.Hash != hash {
+		t.Fatalf("Parse().Hash = %q, want %q", parsed.Hash, hash)
+	}
+	if parsed.Model.DefaultEnvVars != game.DefaultEnvVars {
+		t.Fatalf("Parse().Model.DefaultEnvVars = %q, want %q", parsed.Model.DefaultEnvVars, game.DefaultEnvVars)
+	}
+}
+
+func TestDefaultEnvHashTreatsMissingAndEmptyAsEquivalent(t *testing.T) {
+	conn := dbtest.NewMigratedConnection(t, "definition-default-env-empty-hash.sqlite")
+	game, errGame := conn.GetGameByID("minecraft")
+	if errGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGame)
+	}
+
+	definitionJSON, hashMissing, errExport := gamedefinitions.ExportModel(game, "test", fixedZeroTime())
+	if errExport != nil {
+		t.Fatalf("ExportModel() error = %v", errExport)
+	}
+	withEmptyEnv := strings.Replace(definitionJSON, `"update_config": {`, `"default_env_vars": [],`+"\n  "+`"update_config": {`, 1)
+
+	parsed, errParse := gamedefinitions.Parse([]byte(withEmptyEnv))
+	if errParse != nil {
+		t.Fatalf("Parse() with empty default_env_vars error = %v", errParse)
+	}
+	if parsed.Hash != hashMissing {
+		t.Fatalf("Parse().Hash = %q, want %q", parsed.Hash, hashMissing)
+	}
+}
+
 func TestParseReportsHashMismatchAsWarning(t *testing.T) {
 	conn := dbtest.NewMigratedConnection(t, "definition-hash-warning.sqlite")
 	game, errGame := conn.GetGameByID("valheim")

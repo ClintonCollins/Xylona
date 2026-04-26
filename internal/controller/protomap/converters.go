@@ -369,6 +369,7 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		OfficialDefinitionSource:          gameProto.GetOfficialDefinitionSource(),
 		OfficialDefinitionSchemaVersion:   gameProto.GetOfficialDefinitionSchemaVersion(),
 		OfficialDefinitionDiverged:        gameProto.GetOfficialDefinitionDiverged(),
+		DefaultEnvVars:                    "[]",
 	}
 
 	gameConfig := updateproviders.GameConfig{
@@ -438,6 +439,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		OfficialDefinitionSource:          omit.From(gameModel.OfficialDefinitionSource),
 		OfficialDefinitionSchemaVersion:   omit.From(gameModel.OfficialDefinitionSchemaVersion),
 		OfficialDefinitionDiverged:        omit.From(gameModel.OfficialDefinitionDiverged),
+		DefaultEnvVars:                    omit.From(gameModel.DefaultEnvVars),
 		CreatedAt:                         omit.From(time.Now()),
 		UpdatedAt:                         omit.From(time.Now()),
 	}

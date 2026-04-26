@@ -12,7 +12,7 @@
 - [x] Phase 0: Start contract prerequisite
 - [x] Phase 1: Secret-safe launch env plumbing
 - [x] Phase 2: Per-server env + secret env
-- [ ] Phase 3: Game default normal env
+- [x] Phase 3: Game default normal env
 - [ ] Update readiness plan
 - [ ] Final validation
 
@@ -93,15 +93,15 @@
 
 ## Phase 3: Game Default Normal Env
 
-- [ ] Add `game.default_env_vars text not null default '[]'`.
-- [ ] Run `mage GenerateModels` after the SQL migration because `game` is generated-model-backed.
-- [ ] Update generated-model-based game converters/setters intentionally.
-- [ ] Use dedicated game environment RPCs for read/write rather than broad `Game` payloads.
-- [ ] Do not expose default env through broad `Game` or nested `GameServer.game` unless explicitly redacted.
-- [ ] Add optional game default env editing for superusers/game editors.
-- [ ] Game default env contains visible normal values only; no game-level secret defaults in v1.
+- [x] Add `game.default_env_vars text not null default '[]'`.
+- [x] Run `mage GenerateModels` after the SQL migration because `game` is generated-model-backed.
+- [x] Update generated-model-based game converters/setters intentionally.
+- [x] Use dedicated game environment RPCs for read/write rather than broad `Game` payloads.
+- [x] Do not expose default env through broad `Game` or nested `GameServer.game` unless explicitly redacted.
+- [x] Add optional game default env editing for superusers/game editors.
+- [x] Game default env contains visible normal values only; no game-level secret defaults in v1.
 
-- [ ] Game definition import/export:
+- [x] Game definition import/export:
   - add optional top-level `default_env_vars` section
   - emit only when non-empty
   - treat missing and empty default env as equivalent
@@ -140,7 +140,7 @@
 
 ## Merge Rules
 
-- [ ] Game default normal env can be overridden by per-server normal env.
+- [x] Game default normal env can be overridden by per-server normal env.
 - [x] Secret env names cannot duplicate the effective normal env.
 - [ ] Future readiness launch-only env names cannot duplicate user normal/secret env names.
 - [x] No secret-overrides-normal behavior in v1; duplicates are validation/configuration errors.
@@ -153,7 +153,7 @@
 - [x] Run config pre-start and mod updates as today.
 - [x] Resolve command/args as today.
 - [x] Decrypt user-managed secret env only after capability checks pass and immediately before launch.
-- [ ] Merge game default env, per-server normal env, and user-managed secret env into one final `LaunchEnv` map.
+- [x] Merge game default env, per-server normal env, and user-managed secret env into one final `LaunchEnv` map.
 - [ ] Later readiness/auth work may append launch-only env into the final map immediately before launch after its own capability checks.
 - [x] Pass only the final `LaunchEnv` to `client.StartProcess`.
 
@@ -166,7 +166,7 @@
   - set/replace one secret value
   - clear one secret value
   - never display saved secret values
-- [ ] Add optional game default env editing to game edit UI in a compact table.
+- [x] Add optional game default env editing to game edit UI in a compact table.
 - [x] Do not build inheritance graphs, required flags, templates, scopes, or policy controls.
 
 ## Readiness Plan Update After Implementation
@@ -195,7 +195,7 @@
   - [x] runtime capability RPC
   - [x] old remote node `Unimplemented` fail-closed behavior
   - [x] normal env validation, ordering, persistence, and merge behavior
-  - game default env import/export and canonical hash behavior
+  - [x] game default env import/export and canonical hash behavior
   - [x] secret env set/clear/list status
   - [x] secret env encryption at rest
   - [x] `created_at` preservation and `updated_at` bump behavior
@@ -211,7 +211,7 @@
   - [x] advanced server env section
   - [x] normal env table validation
   - [x] secret env set/clear/status behavior
-  - game default env editor
+  - [x] game default env editor
   - saved secret values never echoed
 
 - [ ] Validation:
@@ -219,11 +219,11 @@
   - [x] `mage GenerateModels`
   - [x] focused `go test -race -count=1` packages
   - final `go test -race -count=1 ./...`
-  - `golangci-lint run ./...`
-  - from `frontend/`: `bun run lint`
+  - [x] `golangci-lint run ./...`
+  - [x] from `frontend/`: `bun run lint`
   - from `frontend/`: `bun run test`
-  - from `frontend/`: `bun run build`
-  - `git diff --check`
+  - [x] from `frontend/`: `bun run build`
+  - [x] `git diff --check`
 
 ## Assumptions
 

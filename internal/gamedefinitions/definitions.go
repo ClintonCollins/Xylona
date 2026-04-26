@@ -19,6 +19,7 @@ import (
 	"github.com/aarondl/opt/omit"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
@@ -62,6 +63,7 @@ type Document struct {
 	LinuxStartArgs        json.RawMessage            `json:"linux_start_args_template"`
 	WindowsStartArgs      json.RawMessage            `json:"windows_start_args_template"`
 	StartArgBlocklist     json.RawMessage            `json:"start_arg_blocklist"`
+	DefaultEnvVars        json.RawMessage            `json:"default_env_vars,omitempty"`
 	UpdateConfig          updateproviders.GameConfig `json:"update_config"`
 	OfficialSource        string                     `json:"official_source,omitempty"`
 	OfficialSchemaVersion int64                      `json:"official_schema_version,omitempty"`
@@ -147,6 +149,11 @@ func Parse(data []byte) (*ParsedDefinition, error) {
 	}
 
 	model := protomap.GameProtoToModel(game)
+	defaultEnvVars, errDefaultEnv := defaultEnvFromDocument(doc)
+	if errDefaultEnv != nil {
+		return nil, errDefaultEnv
+	}
+	model.DefaultEnvVars = defaultEnvVars
 	errSaveConfig := updateconfig.SaveGameConfigToModel(model, doc.UpdateConfig)
 	if errSaveConfig != nil {
 		return nil, fmt.Errorf("update_config: %w", errSaveConfig)
@@ -190,6 +197,15 @@ func ValidateModel(game *models.Game) []string {
 	errStartArgs := validateStructuredStartArgsGameConfig(game)
 	if errStartArgs != nil {
 		validationErrors = append(validationErrors, errStartArgs.Error())
+	}
+
+	defaultEnv, errDefaultEnv := launchenv.ParseStored(game.DefaultEnvVars)
+	if errDefaultEnv != nil {
+		validationErrors = append(validationErrors, fmt.Sprintf("default_env_vars: %v", errDefaultEnv))
+	} else {
+		for _, issue := range launchenv.ValidateVariables(defaultEnv) {
+			validationErrors = append(validationErrors, "default_env_vars: "+issue.Message)
+		}
 	}
 
 	_, errConfig := updateconfig.LoadGameConfigFromModel(game)
@@ -459,6 +475,11 @@ func documentFromModel(game *models.Game, exportedFromVersion string, exportedAt
 		OfficialSource:        game.OfficialDefinitionSource,
 		OfficialSchemaVersion: game.OfficialDefinitionSchemaVersion,
 	}
+	defaultEnvVars, errDefaultEnv := defaultEnvRawFromModel(game)
+	if errDefaultEnv != nil {
+		return Document{}, errDefaultEnv
+	}
+	doc.DefaultEnvVars = defaultEnvVars
 	if !exportedAt.IsZero() {
 		doc.ExportedAt = exportedAt.UTC().Format(time.RFC3339)
 	}
@@ -500,6 +521,33 @@ func applyStructuredSections(doc Document, game *xylona.Game) error {
 	game.ModProfile = protomap.ModProfileToProto(doc.UpdateConfig.ModProfile)
 	game.Variants = protomap.VariantsToProto(doc.UpdateConfig.Variants)
 	return nil
+}
+
+func defaultEnvFromDocument(doc Document) (string, error) {
+	defaultEnv, errParse := launchenv.ParseStored(string(doc.DefaultEnvVars))
+	if errParse != nil {
+		return "", fmt.Errorf("default_env_vars: %w", errParse)
+	}
+	encoded, errMarshal := launchenv.MarshalStored(defaultEnv)
+	if errMarshal != nil {
+		return "", fmt.Errorf("default_env_vars: %w", errMarshal)
+	}
+	return encoded, nil
+}
+
+func defaultEnvRawFromModel(game *models.Game) (json.RawMessage, error) {
+	defaultEnv, errParse := launchenv.ParseStored(game.DefaultEnvVars)
+	if errParse != nil {
+		return nil, fmt.Errorf("default_env_vars: %w", errParse)
+	}
+	if len(defaultEnv) == 0 {
+		return nil, nil
+	}
+	encoded, errMarshal := launchenv.MarshalStored(defaultEnv)
+	if errMarshal != nil {
+		return nil, fmt.Errorf("default_env_vars: %w", errMarshal)
+	}
+	return json.RawMessage(encoded), nil
 }
 
 func compactRawSection(raw json.RawMessage) (string, error) {
@@ -547,6 +595,10 @@ func canonicalPayload(doc Document) ([]byte, error) {
 	if errBlocklist != nil {
 		return nil, fmt.Errorf("canonicalize start_arg_blocklist: %w", errBlocklist)
 	}
+	defaultEnvRaw, errDefaultEnvRaw := defaultEnvRawForHash(doc.DefaultEnvVars)
+	if errDefaultEnvRaw != nil {
+		return nil, errDefaultEnvRaw
+	}
 
 	payload := map[string]any{
 		"document_type":               doc.DocumentType,
@@ -558,12 +610,34 @@ func canonicalPayload(doc Document) ([]byte, error) {
 		"start_arg_blocklist":         blocklist,
 		"update_config":               doc.UpdateConfig,
 	}
+	if len(defaultEnvRaw) > 0 {
+		defaultEnv, errDefaultEnv := canonicalJSONValue(defaultEnvRaw)
+		if errDefaultEnv != nil {
+			return nil, fmt.Errorf("canonicalize default_env_vars: %w", errDefaultEnv)
+		}
+		payload["default_env_vars"] = defaultEnv
+	}
 
 	out, errMarshal := json.Marshal(payload)
 	if errMarshal != nil {
 		return nil, fmt.Errorf("marshal canonical payload: %w", errMarshal)
 	}
 	return out, nil
+}
+
+func defaultEnvRawForHash(raw json.RawMessage) (json.RawMessage, error) {
+	defaultEnv, errParse := launchenv.ParseStored(string(raw))
+	if errParse != nil {
+		return nil, fmt.Errorf("default_env_vars: %w", errParse)
+	}
+	if len(defaultEnv) == 0 {
+		return nil, nil
+	}
+	encoded, errMarshal := launchenv.MarshalStored(defaultEnv)
+	if errMarshal != nil {
+		return nil, fmt.Errorf("default_env_vars: %w", errMarshal)
+	}
+	return json.RawMessage(encoded), nil
 }
 
 func rawArrayOrDefault(raw json.RawMessage) json.RawMessage {

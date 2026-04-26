@@ -13,6 +13,8 @@ service Xylona {
   rpc EditGame (EditGameRequest) returns (EditGameResponse) {}
   rpc UpdateGameStartArgsTemplate (UpdateGameStartArgsTemplateRequest) returns (UpdateGameStartArgsTemplateResponse) {}
   rpc UpdateGameStartArgBlocklist (UpdateGameStartArgBlocklistRequest) returns (UpdateGameStartArgBlocklistResponse) {}
+  rpc GetGameEnvironment (GetGameEnvironmentRequest) returns (GetGameEnvironmentResponse) {}
+  rpc UpdateGameEnvironment (UpdateGameEnvironmentRequest) returns (UpdateGameEnvironmentResponse) {}
   rpc GetGame (GetGameRequest) returns (GetGameResponse) {}
   rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
   rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
@@ -431,6 +433,25 @@ message UpdateGameServerStartArgsRequest {
 
 message UpdateGameServerStartArgsResponse {
   GameServer game_server = 1;
+}
+
+message GetGameEnvironmentRequest {
+  string game_id = 1;
+}
+
+message GetGameEnvironmentResponse {
+  repeated EnvironmentVariable default_env = 1;
+  repeated EnvironmentValidationIssue validation_issues = 2;
+}
+
+message UpdateGameEnvironmentRequest {
+  string game_id = 1;
+  repeated EnvironmentVariable default_env = 2;
+}
+
+message UpdateGameEnvironmentResponse {
+  repeated EnvironmentVariable default_env = 1;
+  repeated EnvironmentValidationIssue validation_issues = 2;
 }
 
 message GetGameServerEnvironmentRequest {

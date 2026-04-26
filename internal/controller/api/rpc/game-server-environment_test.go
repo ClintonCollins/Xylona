@@ -143,6 +143,81 @@ func TestGameServerEnvironmentRejectsSecretNormalConflict(t *testing.T) {
 	}
 }
 
+func TestGameServerEnvironmentMergesGameDefaults(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	_, errSetup := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		"update game set default_env_vars = ? where id = ?",
+		`[{"name":"DEFAULT_ONLY","value":"base"},{"name":"OVERRIDE_ME","value":"base"}]`,
+		"minecraft",
+	)
+	if errSetup != nil {
+		t.Fatalf("update game setup error = %v", errSetup)
+	}
+
+	updateReq := connect.NewRequest(&xylona.UpdateGameServerEnvironmentRequest{
+		ServerId: "server-local-1",
+		EnvVars: []*xylona.EnvironmentVariable{
+			{Name: "OVERRIDE_ME", Value: "server"},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-admin")
+	updateResp, errUpdate := fixture.service.UpdateGameServerEnvironment(context.Background(), updateReq)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServerEnvironment() error = %v", errUpdate)
+	}
+	if len(updateResp.Msg.GetEffectiveEnv()) != 2 {
+		t.Fatalf("UpdateGameServerEnvironment().EffectiveEnv length = %d, want 2", len(updateResp.Msg.GetEffectiveEnv()))
+	}
+	if updateResp.Msg.GetEffectiveEnv()[0].GetName() != "DEFAULT_ONLY" {
+		t.Fatalf("EffectiveEnv[0].Name = %q, want DEFAULT_ONLY", updateResp.Msg.GetEffectiveEnv()[0].GetName())
+	}
+	if updateResp.Msg.GetEffectiveEnv()[1].GetValue() != "server" {
+		t.Fatalf("EffectiveEnv[1].Value = %q, want server override", updateResp.Msg.GetEffectiveEnv()[1].GetValue())
+	}
+
+	getReq := connect.NewRequest(&xylona.GetGameServerEnvironmentRequest{
+		ServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getReq, "user-admin")
+	getResp, errGet := fixture.service.GetGameServerEnvironment(context.Background(), getReq)
+	if errGet != nil {
+		t.Fatalf("GetGameServerEnvironment() error = %v", errGet)
+	}
+	if len(getResp.Msg.GetGameDefaultEnv()) != 2 {
+		t.Fatalf("GetGameServerEnvironment().GameDefaultEnv length = %d, want 2", len(getResp.Msg.GetGameDefaultEnv()))
+	}
+}
+
+func TestGameServerEnvironmentRejectsSecretConflictWithGameDefault(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+	_, errSetup := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		"update game set default_env_vars = ? where id = ?",
+		`[{"name":"TOKEN","value":"visible"}]`,
+		"minecraft",
+	)
+	if errSetup != nil {
+		t.Fatalf("update game setup error = %v", errSetup)
+	}
+
+	setReq := connect.NewRequest(&xylona.SetGameServerSecretEnvRequest{
+		ServerId: "server-local-1",
+		Name:     "token",
+		Value:    "secret-value",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, setReq, "user-admin")
+
+	_, errSet := fixture.service.SetGameServerSecretEnv(context.Background(), setReq)
+	if errSet == nil {
+		t.Fatal("SetGameServerSecretEnv(conflict with default) error = nil, want invalid argument")
+	}
+	if connect.CodeOf(errSet) != connect.CodeInvalidArgument {
+		t.Fatalf("SetGameServerSecretEnv(conflict with default) code = %v, want %v", connect.CodeOf(errSet), connect.CodeInvalidArgument)
+	}
+}
+
 func TestGameServerEnvironmentClearSecret(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
