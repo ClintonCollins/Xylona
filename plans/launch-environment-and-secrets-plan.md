@@ -13,7 +13,7 @@
 - [x] Phase 1: Secret-safe launch env plumbing
 - [x] Phase 2: Per-server env + secret env
 - [x] Phase 3: Game default normal env
-- [ ] Update readiness plan
+- [x] Update readiness plan
 - [ ] Final validation
 
 ## Phase 0: Start Contract Prerequisite
@@ -171,7 +171,7 @@
 
 ## Readiness Plan Update After Implementation
 
-- [ ] Update `plans/readiness-checks-plan.md` after this plan lands:
+- [x] Update `plans/readiness-checks-plan.md` after this plan lands:
   - remove duplicate node env plumbing from readiness Phase 2
   - readiness uses `LaunchEnv` capability and final launch env merge
   - Steam GSLT migration remains readiness Phase 2, but uses `game_server_secret` typed helpers
