@@ -702,7 +702,6 @@ async function saveEnvironmentSettings() {
 
     environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
     environmentIssues.value = response.validationIssues
-    await initializeEnvironmentSettings()
     $q.notify({
       type: 'positive',
       position: 'top',
@@ -735,7 +734,6 @@ async function setSecretEnvironment() {
     secretEnvironmentStates.value = response.secretEnv
     environmentIssues.value = response.validationIssues
     secretEnvironmentValue.value = ''
-    await initializeEnvironmentSettings()
     $q.notify({
       type: 'positive',
       position: 'top',
@@ -766,7 +764,6 @@ async function clearSecretEnvironment(name: string) {
 
     secretEnvironmentStates.value = response.secretEnv
     environmentIssues.value = response.validationIssues
-    await initializeEnvironmentSettings()
     $q.notify({
       type: 'positive',
       position: 'top',

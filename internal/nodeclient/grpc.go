@@ -115,9 +115,7 @@ func cloneStringMap(values map[string]string) map[string]string {
 	if len(values) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(values))
-	maps.Copy(out, values)
-	return out
+	return maps.Clone(values)
 }
 
 // StartProcess sends the StartProcess RPC. Callers should rely on StreamEvents,

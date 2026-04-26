@@ -221,9 +221,7 @@ func cloneStringMap(values map[string]string) map[string]string {
 	if len(values) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(values))
-	maps.Copy(out, values)
-	return out
+	return maps.Clone(values)
 }
 
 func (s *nodeServiceServer) StopProcess(_ context.Context, req *connect.Request[nodeprotov1.StopProcessRequest]) (*connect.Response[nodeprotov1.StopProcessResponse], error) {

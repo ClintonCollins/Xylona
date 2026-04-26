@@ -65,22 +65,18 @@ func (xs *XylonaService) UpdateGameServerEnvironment(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errMarshal)
 	}
 
-	gameDefaultEnv, errDefaultEnv := parseStoredGameDefaultEnvironment(gameServer)
-	if errDefaultEnv != nil {
-		return nil, errDefaultEnv
-	}
-	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
-	if len(issues) > 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
+	effectiveEnv, errEffectiveEnv := effectiveServerEnvironment(gameServer, serverEnv)
+	if errEffectiveEnv != nil {
+		return nil, errEffectiveEnv
 	}
 
 	secretStates, errSecretStates := xs.listLaunchSecretStates(gameServer.ID)
 	if errSecretStates != nil {
 		return nil, errSecretStates
 	}
-	issues = launchenv.ValidateSecretStates(secretStates, effectiveEnv)
-	if len(issues) > 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
+	errIssues := environmentValidationError(launchenv.ValidateSecretStates(secretStates, effectiveEnv))
+	if errIssues != nil {
+		return nil, errIssues
 	}
 
 	_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, &models.GameServerSetter{
@@ -113,31 +109,27 @@ func (xs *XylonaService) SetGameServerSecretEnv(
 	}
 
 	name := strings.TrimSpace(request.Msg.GetName())
-	issues := launchenv.ValidateSecretInput(name, request.Msg.GetValue())
-	if len(issues) > 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
+	errIssues := environmentValidationError(launchenv.ValidateSecretInput(name, request.Msg.GetValue()))
+	if errIssues != nil {
+		return nil, errIssues
 	}
 
 	serverEnv, errServerEnv := parseStoredServerEnvironment(gameServer)
 	if errServerEnv != nil {
 		return nil, errServerEnv
 	}
-	gameDefaultEnv, errDefaultEnv := parseStoredGameDefaultEnvironment(gameServer)
-	if errDefaultEnv != nil {
-		return nil, errDefaultEnv
-	}
-	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
-	if len(issues) > 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
+	effectiveEnv, errEffectiveEnv := effectiveServerEnvironment(gameServer, serverEnv)
+	if errEffectiveEnv != nil {
+		return nil, errEffectiveEnv
 	}
 
 	secretStates, errSecretStates := xs.listLaunchSecretStates(gameServer.ID)
 	if errSecretStates != nil {
 		return nil, errSecretStates
 	}
-	issues = validateSecretNameCanBeSet(name, secretStates, effectiveEnv)
-	if len(issues) > 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
+	errIssues = environmentValidationError(validateSecretNameCanBeSet(name, secretStates, effectiveEnv))
+	if errIssues != nil {
+		return nil, errIssues
 	}
 
 	errSet := xs.db.SetGameServerSecretEnv(gameServer.ID, name, request.Msg.GetValue(), user.ID)
@@ -170,9 +162,9 @@ func (xs *XylonaService) ClearGameServerSecretEnv(
 	}
 
 	name := strings.TrimSpace(request.Msg.GetName())
-	issues := launchenv.ValidateName(name)
-	if len(issues) > 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
+	errIssues := environmentValidationError(launchenv.ValidateName(name))
+	if errIssues != nil {
+		return nil, errIssues
 	}
 
 	errClear := xs.db.ClearGameServerSecretEnv(gameServer.ID, name)
@@ -263,6 +255,19 @@ func parseStoredServerEnvironment(gameServer *models.GameServer) ([]launchenv.Va
 	return serverEnv, nil
 }
 
+func effectiveServerEnvironment(gameServer *models.GameServer, serverEnv []launchenv.Variable) ([]launchenv.Variable, error) {
+	gameDefaultEnv, errDefaultEnv := parseStoredGameDefaultEnvironment(gameServer)
+	if errDefaultEnv != nil {
+		return nil, errDefaultEnv
+	}
+	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
+	errIssues := environmentValidationError(issues)
+	if errIssues != nil {
+		return nil, errIssues
+	}
+	return effectiveEnv, nil
+}
+
 func (xs *XylonaService) listLaunchSecretStates(gameServerID string) ([]launchenv.SecretState, error) {
 	dbStates, errList := xs.db.ListGameServerSecretEnvStates(gameServerID)
 	if errList != nil {
@@ -298,6 +303,13 @@ func validateSecretNameCanBeSet(name string, existingStates []launchenv.SecretSt
 		states = append(states, launchenv.SecretState{Name: name, Configured: true})
 	}
 	return launchenv.ValidateSecretStates(states, effectiveEnv)
+}
+
+func environmentValidationError(issues []launchenv.ValidationIssue) error {
+	if len(issues) == 0 {
+		return nil
+	}
+	return connect.NewError(connect.CodeInvalidArgument, launchenv.NewValidationError(issues))
 }
 
 func environmentVariablesFromProto(protoVars []*xylona.EnvironmentVariable) []launchenv.Variable {
