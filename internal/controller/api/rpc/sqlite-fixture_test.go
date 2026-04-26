@@ -13,6 +13,7 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
 )
 
 var rpcTemplateOnce sync.Once
@@ -81,6 +82,12 @@ func ensureRPCMigratedTemplate() (string, error) {
 		_, errMigrate := migrate.Exec(conn.SQLDb, "sqlite3", migrationSource, migrate.Up)
 		if errMigrate != nil {
 			rpcTemplateErr = errMigrate
+		}
+		if rpcTemplateErr == nil {
+			_, errSyncDefinitions := gamedefinitions.SyncOfficialDefinitions(conn)
+			if errSyncDefinitions != nil {
+				rpcTemplateErr = errSyncDefinitions
+			}
 		}
 
 		errCloseConn := conn.SQLDb.Close()

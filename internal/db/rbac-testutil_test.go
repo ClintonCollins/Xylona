@@ -174,6 +174,16 @@ func seedRBACFixture(t *testing.T, conn *Connection) {
 		t.Fatalf("failed to insert ip: %v", errIP)
 	}
 
+	_, errGame := conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into game (id, name, default_port, default_query_port, default_max_players, windows_support)
+		 values (?, ?, ?, ?, ?, ?)`,
+		"minecraft", "Minecraft", 25565, 25565, 20, true,
+	)
+	if errGame != nil {
+		t.Fatalf("failed to insert game: %v", errGame)
+	}
+
 	now := time.Now().UTC()
 	_, errOwner := conn.SQLDb.ExecContext(
 		context.Background(),

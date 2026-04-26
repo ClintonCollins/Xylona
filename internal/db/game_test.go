@@ -9,7 +9,6 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/stephenafamo/bob"
 
-	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -60,7 +59,17 @@ func TestGetGameByIDNotFound(t *testing.T) {
 func TestGetGames(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "game-list.sqlite")
 
-	// The migration seeds at least the "minecraft" game.
+	_, errInsert := conn.InsertGame(conn.DB, &models.GameSetter{
+		ID:                omit.From("list-game"),
+		Name:              omit.From("List Game"),
+		DefaultPort:       omit.From(int64(27015)),
+		DefaultQueryPort:  omit.From(int64(27015)),
+		DefaultMaxPlayers: omit.From(int64(16)),
+	})
+	if errInsert != nil {
+		t.Fatalf("InsertGame() error = %v", errInsert)
+	}
+
 	games, errGet := conn.GetGames()
 	if errGet != nil {
 		t.Fatalf("GetGames() error = %v", errGet)
@@ -71,81 +80,13 @@ func TestGetGames(t *testing.T) {
 
 	found := false
 	for _, g := range games {
-		if g.ID == "minecraft" {
+		if g.ID == "list-game" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("GetGames() missing seeded game %q", "minecraft")
-	}
-}
-
-func TestSeededWindroseGame(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "game-windrose.sqlite")
-
-	game, errGet := conn.GetGameByID("windrose")
-	if errGet != nil {
-		t.Fatalf("GetGameByID(windrose) error = %v", errGet)
-	}
-	if game.Name != "Windrose" {
-		t.Errorf("Name = %q, want %q", game.Name, "Windrose")
-	}
-	if game.DefaultPort != 7777 {
-		t.Errorf("DefaultPort = %d, want 7777", game.DefaultPort)
-	}
-	if game.DefaultQueryPort != 7778 {
-		t.Errorf("DefaultQueryPort = %d, want 7778", game.DefaultQueryPort)
-	}
-	if game.DefaultMaxPlayers != 8 {
-		t.Errorf("DefaultMaxPlayers = %d, want 8", game.DefaultMaxPlayers)
-	}
-	if !game.UsesSteamcmd {
-		t.Error("UsesSteamcmd = false, want true")
-	}
-	if game.SteamAppID != "4129620" {
-		t.Errorf("SteamAppID = %q, want %q", game.SteamAppID, "4129620")
-	}
-	if game.LinuxSupport {
-		t.Error("LinuxSupport = true, want false")
-	}
-	if !game.WindowsSupport {
-		t.Error("WindowsSupport = false, want true")
-	}
-	wantWindowsBaseCommand := "R5\\Binaries\\Win64\\WindroseServer-Win64-Shipping.exe"
-	if game.WindowsBaseCommand != wantWindowsBaseCommand {
-		t.Errorf("WindowsBaseCommand = %q, want %q", game.WindowsBaseCommand, wantWindowsBaseCommand)
-	}
-	if game.WindowsStartArgsTemplate.GetOr("") == "" {
-		t.Error("WindowsStartArgsTemplate is empty, want -log template")
-	}
-
-	schemasJSON := game.ConfigSchemas.GetOr("")
-	if schemasJSON == "" {
-		t.Fatal("ConfigSchemas is empty, want ServerDescription.json schema")
-	}
-	validationErrors := cfgschema.ValidateConfigSchemas(schemasJSON)
-	if len(validationErrors) > 0 {
-		t.Fatalf("ValidateConfigSchemas() errors = %v", validationErrors)
-	}
-
-	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
-	if errParse != nil {
-		t.Fatalf("ParseConfigSchemas() error = %v", errParse)
-	}
-	if len(entries) != 1 {
-		t.Fatalf("config schema entry count = %d, want 1", len(entries))
-	}
-	entry := entries[0]
-	if entry.Path != "R5/ServerDescription.json" {
-		t.Errorf("schema path = %q, want %q", entry.Path, "R5/ServerDescription.json")
-	}
-	if entry.Format != "json" {
-		t.Errorf("schema format = %q, want %q", entry.Format, "json")
-	}
-	managedSource := entry.ManagedFields["ServerDescription_Persistent.DirectConnectionServerPort"]
-	if managedSource != "game_server.port" {
-		t.Errorf("managed direct port source = %q, want %q", managedSource, "game_server.port")
+		t.Errorf("GetGames() missing game %q", "list-game")
 	}
 }
 

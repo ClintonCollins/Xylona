@@ -11,6 +11,7 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -40,6 +41,11 @@ func Run(dbPath string, username string, password string, migrationsDir string) 
 	}
 	if totalMigrations > 0 {
 		log.Info().Msgf("Applied %d migrations", totalMigrations)
+	}
+
+	_, errSyncDefinitions := gamedefinitions.SyncOfficialDefinitions(conn)
+	if errSyncDefinitions != nil {
+		return fmt.Errorf("sync official game definitions: %w", errSyncDefinitions)
 	}
 
 	hashedPassword, errHash := passwordhash.Hash(password)

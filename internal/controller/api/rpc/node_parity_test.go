@@ -217,12 +217,14 @@ func waitForVersionValues(t *testing.T, states *versiontracker.VersionStateMap, 
 	return versiontracker.VersionState{}
 }
 
-func minecraftRemoteVersionContextKeyForParityTests() string {
-	return versiontracker.TrackerContext{
-		GameID:           "minecraft",
-		ProviderKind:     "mojang",
-		ProviderSourceID: "vanilla",
-	}.CacheKey()
+func remoteVersionContextKeyForParityTests(t *testing.T, fixture *rbacRPCFixture, serverID string) string {
+	t.Helper()
+
+	gameServer, errGameServer := fixture.conn.GetGameServerByID(serverID)
+	if errGameServer != nil {
+		t.Fatalf("GetGameServerByID(%q) error = %v", serverID, errGameServer)
+	}
+	return fixture.service.remoteVersionTrackerContext(gameServer).CacheKey()
 }
 
 func testParityRegistry(self nodeclient.NodeClient, remote nodeclient.NodeClient) *noderegistry.Registry {
@@ -601,7 +603,7 @@ func TestGetGameServerReturnsCheckingBeforeRemoteVersionStagingCompletes(t *test
 		LatestVersion:   "1.21.1",
 		LatestCheckTime: time.Now(),
 		TrackerType:     "minecraft",
-		ContextKey:      minecraftRemoteVersionContextKeyForParityTests(),
+		ContextKey:      remoteVersionContextKeyForParityTests(t, fixture, "server-remote-1"),
 	})
 
 	request := connect.NewRequest(&xylona.GetGameServerRequest{Id: "server-remote-1"})
@@ -699,7 +701,7 @@ func TestGetGameServerCoalescesAsyncRemoteVersionRefreshes(t *testing.T) {
 		LatestCheckTime:    time.Now(),
 		LastCheckTime:      time.Now().Add(-3 * time.Minute),
 		TrackerType:        "minecraft",
-		ContextKey:         minecraftRemoteVersionContextKeyForParityTests(),
+		ContextKey:         remoteVersionContextKeyForParityTests(t, fixture, "server-remote-1"),
 	})
 
 	requestA := connect.NewRequest(&xylona.GetGameServerRequest{Id: "server-remote-1"})

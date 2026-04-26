@@ -1,4 +1,4 @@
-package gamedefinitions
+package gamedefinitions_test
 
 import (
 	"strings"
@@ -8,6 +8,7 @@ import (
 	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
+	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -20,7 +21,7 @@ func TestExportParseRoundTripPreservesStructuredSections(t *testing.T) {
 		t.Fatalf("GetGameByID() error = %v", errGame)
 	}
 
-	definitionJSON, hash, errExport := ExportModel(game, "test", fixedZeroTime())
+	definitionJSON, hash, errExport := gamedefinitions.ExportModel(game, "test", fixedZeroTime())
 	if errExport != nil {
 		t.Fatalf("ExportModel() error = %v", errExport)
 	}
@@ -34,7 +35,7 @@ func TestExportParseRoundTripPreservesStructuredSections(t *testing.T) {
 		t.Fatal("ExportModel() contains escaped config schema JSON")
 	}
 
-	parsed, errParse := Parse([]byte(definitionJSON))
+	parsed, errParse := gamedefinitions.Parse([]byte(definitionJSON))
 	if errParse != nil {
 		t.Fatalf("Parse() error = %v", errParse)
 	}
@@ -59,13 +60,13 @@ func TestParseReportsHashMismatchAsWarning(t *testing.T) {
 		t.Fatalf("GetGameByID() error = %v", errGame)
 	}
 
-	definitionJSON, _, errExport := ExportModel(game, "test", fixedZeroTime())
+	definitionJSON, _, errExport := gamedefinitions.ExportModel(game, "test", fixedZeroTime())
 	if errExport != nil {
 		t.Fatalf("ExportModel() error = %v", errExport)
 	}
 	modified := strings.Replace(definitionJSON, `"content_hash": "sha256:`, `"content_hash": "sha256:0000`, 1)
 
-	parsed, errParse := Parse([]byte(modified))
+	parsed, errParse := gamedefinitions.Parse([]byte(modified))
 	if errParse != nil {
 		t.Fatalf("Parse() error = %v", errParse)
 	}
@@ -75,12 +76,12 @@ func TestParseReportsHashMismatchAsWarning(t *testing.T) {
 }
 
 func TestParsePreservesExplicitUpdateConfig(t *testing.T) {
-	data, errRead := FS.ReadFile("official/hytale.json")
+	data, errRead := gamedefinitions.FS.ReadFile("official/hytale.json")
 	if errRead != nil {
 		t.Fatalf("ReadFile() error = %v", errRead)
 	}
 
-	parsed, errParse := Parse(data)
+	parsed, errParse := gamedefinitions.Parse(data)
 	if errParse != nil {
 		t.Fatalf("Parse() error = %v", errParse)
 	}
@@ -95,7 +96,7 @@ func TestParsePreservesExplicitUpdateConfig(t *testing.T) {
 }
 
 func TestLoadBundledDefinitions(t *testing.T) {
-	definitions, errLoad := LoadBundled()
+	definitions, errLoad := gamedefinitions.LoadBundled()
 	if errLoad != nil {
 		t.Fatalf("LoadBundled() error = %v", errLoad)
 	}
@@ -103,22 +104,22 @@ func TestLoadBundledDefinitions(t *testing.T) {
 		t.Fatalf("LoadBundled() = %d definitions, want 52", len(definitions))
 	}
 	for _, definition := range definitions {
-		validationErrors := ValidateModel(definition.Model)
+		validationErrors := gamedefinitions.ValidateModel(definition.Model)
 		if len(validationErrors) > 0 {
 			t.Fatalf("ValidateModel(%s) errors = %v", definition.Model.ID, validationErrors)
 		}
 	}
 }
 
-func TestSyncOfficialDefinitionsSetsMetadataForCleanSeedRows(t *testing.T) {
-	conn := dbtest.NewMigratedConnection(t, "definition-sync-clean.sqlite")
+func TestSyncOfficialDefinitionsInsertsDefinitionsForEmptyDatabase(t *testing.T) {
+	conn := dbtest.NewMigratedSchemaConnection(t, "definition-sync-empty.sqlite")
 
-	result, errSync := SyncOfficialDefinitions(conn)
+	result, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
 	if errSync != nil {
 		t.Fatalf("SyncOfficialDefinitions() error = %v", errSync)
 	}
-	if result.Updated == 0 {
-		t.Fatalf("SyncOfficialDefinitions().Updated = %d, want > 0", result.Updated)
+	if result.Inserted == 0 {
+		t.Fatalf("SyncOfficialDefinitions().Inserted = %d, want > 0", result.Inserted)
 	}
 
 	game, errGame := conn.GetGameByID("minecraft")
@@ -131,8 +132,8 @@ func TestSyncOfficialDefinitionsSetsMetadataForCleanSeedRows(t *testing.T) {
 	if game.OfficialDefinitionSource != "minecraft.json" {
 		t.Fatalf("OfficialDefinitionSource = %q, want minecraft.json", game.OfficialDefinitionSource)
 	}
-	if game.OfficialDefinitionSchemaVersion != SchemaVersion {
-		t.Fatalf("OfficialDefinitionSchemaVersion = %d, want %d", game.OfficialDefinitionSchemaVersion, SchemaVersion)
+	if game.OfficialDefinitionSchemaVersion != gamedefinitions.SchemaVersion {
+		t.Fatalf("OfficialDefinitionSchemaVersion = %d, want %d", game.OfficialDefinitionSchemaVersion, gamedefinitions.SchemaVersion)
 	}
 	if game.OfficialDefinitionDiverged {
 		t.Fatal("OfficialDefinitionDiverged = true, want false")
@@ -142,12 +143,12 @@ func TestSyncOfficialDefinitionsSetsMetadataForCleanSeedRows(t *testing.T) {
 func TestSyncOfficialDefinitionsSkipsUnchangedOfficialRows(t *testing.T) {
 	conn := dbtest.NewMigratedConnection(t, "definition-sync-unchanged.sqlite")
 
-	_, errSync := SyncOfficialDefinitions(conn)
+	_, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
 	if errSync != nil {
 		t.Fatalf("SyncOfficialDefinitions() setup error = %v", errSync)
 	}
 
-	result, errSecondSync := SyncOfficialDefinitions(conn)
+	result, errSecondSync := gamedefinitions.SyncOfficialDefinitions(conn)
 	if errSecondSync != nil {
 		t.Fatalf("SyncOfficialDefinitions() error = %v", errSecondSync)
 	}
@@ -162,7 +163,7 @@ func TestSyncOfficialDefinitionsSkipsUnchangedOfficialRows(t *testing.T) {
 func TestSyncOfficialDefinitionsPreservesLocallyEditedOfficialRows(t *testing.T) {
 	conn := dbtest.NewMigratedConnection(t, "definition-sync-diverged.sqlite")
 
-	_, errSync := SyncOfficialDefinitions(conn)
+	_, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
 	if errSync != nil {
 		t.Fatalf("SyncOfficialDefinitions() setup error = %v", errSync)
 	}
@@ -180,7 +181,7 @@ func TestSyncOfficialDefinitionsPreservesLocallyEditedOfficialRows(t *testing.T)
 		t.Fatalf("UpdateGame() error = %v", errUpdate)
 	}
 
-	result, errSecondSync := SyncOfficialDefinitions(conn)
+	result, errSecondSync := gamedefinitions.SyncOfficialDefinitions(conn)
 	if errSecondSync != nil {
 		t.Fatalf("SyncOfficialDefinitions() error = %v", errSecondSync)
 	}
@@ -200,23 +201,20 @@ func TestSyncOfficialDefinitionsPreservesLocallyEditedOfficialRows(t *testing.T)
 }
 
 func TestSyncOfficialDefinitionsSkipsCustomIDCollision(t *testing.T) {
-	conn := dbtest.NewMigratedConnection(t, "definition-sync-custom-collision.sqlite")
-	game, errGame := conn.GetGameByID("minecraft")
-	if errGame != nil {
-		t.Fatalf("GetGameByID() error = %v", errGame)
-	}
-	game.XylonaOfficial = false
-	game.Name = "Custom Minecraft"
-	_, errUpdate := conn.UpdateGame(conn.DB, game, &models.GameSetter{
-		ID:             omit.From(game.ID),
-		Name:           omit.From(game.Name),
-		XylonaOfficial: omit.From(false),
+	conn := dbtest.NewMigratedSchemaConnection(t, "definition-sync-custom-collision.sqlite")
+	_, errInsert := conn.InsertGame(conn.DB, &models.GameSetter{
+		ID:                omit.From("minecraft"),
+		Name:              omit.From("Custom Minecraft"),
+		DefaultPort:       omit.From(int64(25565)),
+		DefaultQueryPort:  omit.From(int64(25565)),
+		DefaultMaxPlayers: omit.From(int64(20)),
+		XylonaOfficial:    omit.From(false),
 	})
-	if errUpdate != nil {
-		t.Fatalf("UpdateGame() error = %v", errUpdate)
+	if errInsert != nil {
+		t.Fatalf("InsertGame() error = %v", errInsert)
 	}
 
-	result, errSync := SyncOfficialDefinitions(conn)
+	result, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
 	if errSync != nil {
 		t.Fatalf("SyncOfficialDefinitions() error = %v", errSync)
 	}
@@ -242,7 +240,7 @@ func TestSyncOfficialDefinitionsInsertsMissingOfficialDefinition(t *testing.T) {
 		t.Fatalf("DeleteGameByID() error = %v", errDelete)
 	}
 
-	result, errSync := SyncOfficialDefinitions(conn)
+	result, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
 	if errSync != nil {
 		t.Fatalf("SyncOfficialDefinitions() error = %v", errSync)
 	}

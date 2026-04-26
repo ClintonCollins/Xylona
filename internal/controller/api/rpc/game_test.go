@@ -100,14 +100,14 @@ func TestListGamesReturnsSeededGames(t *testing.T) {
 	if resp.Msg == nil {
 		t.Fatalf("ListGames() returned nil message")
 	}
-	// The initial migration seeds games, so there should be at least some.
+	// The test fixture syncs official bundled games after migrations.
 	baselineCount := len(resp.Msg.GetGames())
 	if baselineCount == 0 {
-		t.Errorf("ListGames() returned 0 games, expected seeded games from migration")
+		t.Errorf("ListGames() returned 0 games, expected synced official games")
 	}
 	for _, game := range resp.Msg.GetGames() {
 		if !game.GetXylonaOfficial() {
-			t.Errorf("ListGames() seeded game %q should be Xylona official", game.GetId())
+			t.Errorf("ListGames() official game %q should be Xylona official", game.GetId())
 		}
 	}
 }
@@ -115,7 +115,7 @@ func TestListGamesReturnsSeededGames(t *testing.T) {
 func TestListGamesIncludesAdded(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
-	// Get baseline count from migration-seeded games.
+	// Get baseline count from synced official games.
 	baselineReq := connect.NewRequest(&xylona.ListGamesRequest{})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, baselineReq, "user-admin")
 	baselineResp, errBaseline := fixture.service.ListGames(context.Background(), baselineReq)
@@ -364,7 +364,7 @@ func TestRemoveGameUsedByGameServer(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
 	// The seed fixture creates a game_server with game_id "minecraft",
-	// and the initial migration seeds a "minecraft" game row.
+	// and the fixture syncs a "minecraft" official game row.
 	// Trying to remove it should fail because servers reference it.
 	req := connect.NewRequest(&xylona.RemoveGameRequest{
 		GameId: "minecraft",

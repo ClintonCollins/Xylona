@@ -13,6 +13,7 @@ import (
 	migrate "github.com/rubenv/sql-migrate"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
 )
 
 var migratedTemplateOnce sync.Once
@@ -25,6 +26,21 @@ var setMigrationTableOnce sync.Once
 // This is intended for use by test packages outside db/ that need a fully
 // migrated schema without manually creating tables.
 func NewMigratedConnection(t *testing.T, sqliteFileName string) *db.Connection {
+	t.Helper()
+
+	return openMigratedConnection(t, sqliteFileName, true)
+}
+
+// NewMigratedSchemaConnection creates a temporary SQLite database with only
+// migrations applied. Use it for tests that specifically exercise startup data
+// synchronization.
+func NewMigratedSchemaConnection(t *testing.T, sqliteFileName string) *db.Connection {
+	t.Helper()
+
+	return openMigratedConnection(t, sqliteFileName, false)
+}
+
+func openMigratedConnection(t *testing.T, sqliteFileName string, syncOfficialDefinitions bool) *db.Connection {
 	t.Helper()
 
 	templatePath, errTemplate := ensureMigratedTemplate(t)
@@ -47,6 +63,13 @@ func NewMigratedConnection(t *testing.T, sqliteFileName string) *db.Connection {
 			t.Errorf("failed to close test database: %v", errClose)
 		}
 	})
+
+	if syncOfficialDefinitions {
+		_, errSyncDefinitions := gamedefinitions.SyncOfficialDefinitions(conn)
+		if errSyncDefinitions != nil {
+			t.Fatalf("failed to sync official game definitions: %v", errSyncDefinitions)
+		}
+	}
 
 	return conn
 }
