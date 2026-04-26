@@ -38,6 +38,7 @@ import { bytesToSize, ConnectErrorToString, GetXylonaClient, XylonaEventBus } fr
 const $q = useQuasar()
 const route = useRoute()
 const gameServerId = computed(() => String(route.params.id ?? ''))
+const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 
 const loading = ref(true)
 const overview = ref<GameServerBackupOverview>(create(GameServerBackupOverviewSchema))
@@ -765,7 +766,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   <div class="backups-page xy-page-content">
     <div class="xy-page-header">
       <div>
-        <div class="xy-page-title">Backups</div>
+        <h1 class="xy-page-title">Backups</h1>
         <div class="backups-page__subtitle">
           Manual backups, restore history, and the shortcut into scheduled backup automation.
         </div>
@@ -808,7 +809,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
     <q-card bordered class="backups-page__section" flat>
       <q-card-section class="backups-page__section-header">
         <div>
-          <div class="backups-page__section-title">Automated Backups</div>
+          <h2 class="backups-page__section-title">Automated Backups</h2>
           <div class="backups-page__section-copy">
             {{ overview.scheduledBackupCount }} scheduled backup
             {{ overview.scheduledBackupCount === 1 ? 'task' : 'tasks' }} currently target this
@@ -840,7 +841,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
     <q-card bordered class="backups-page__section" flat>
       <q-card-section class="backups-page__section-header">
         <div>
-          <div class="backups-page__section-title">Backup History</div>
+          <h2 class="backups-page__section-title">Backup History</h2>
           <div class="backups-page__section-copy">
             Manual and scheduled backups appear here with restore and cleanup actions.
           </div>
@@ -853,6 +854,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       <q-separator />
       <q-table
         :columns="columns"
+        :grid="mobileGrid"
         :loading="loading"
         :pagination="{ rowsPerPage: 0 }"
         :rows="sortedBackups"
@@ -861,6 +863,78 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         hide-pagination
         no-data-label="No backups yet. Manual and scheduled backups will appear here."
         row-key="id">
+        <template #item="props">
+          <q-card
+            bordered
+            :class="{ 'backups-page__mobile-card--active': isActiveBackup(props.row) }"
+            class="backups-page__mobile-card"
+            flat>
+            <q-card-section class="backups-page__mobile-card-header">
+              <div class="backups-page__archive-cell">
+                <div class="backups-page__archive-name">
+                  {{ archiveFileName(props.row.archivePath) }}
+                </div>
+                <div class="backups-page__archive-path">{{ props.row.archivePath }}</div>
+              </div>
+              <q-badge
+                :color="statusBadgeColor(props.row)"
+                :label="statusLabel(props.row)"
+                class="backups-page__status-badge" />
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section class="backups-page__mobile-fields">
+              <div>
+                <span>Source</span>
+                <strong>{{ formatSource(props.row.triggerSource) }}</strong>
+                <em v-if="sourceCopy(props.row)">{{ sourceCopy(props.row) }}</em>
+              </div>
+              <div>
+                <span>Size</span>
+                <strong>{{ formatBackupSize(props.row.sizeBytes) }}</strong>
+              </div>
+              <div>
+                <span>Completed</span>
+                <strong>{{ formatCompletedTimestamp(props.row) }}</strong>
+              </div>
+              <div v-if="statusCopy(props.row)">
+                <span>Status Detail</span>
+                <strong>{{ statusCopy(props.row) }}</strong>
+              </div>
+            </q-card-section>
+
+            <q-card-actions align="right">
+              <a
+                v-if="props.row.status === GameServerBackupStatus.COMPLETED"
+                :data-testid="`download-backup-${props.row.id}`"
+                :href="backupDownloadHref(props.row)"
+                class="backups-page__download-link"
+                rel="noopener"
+                target="_blank">
+                <q-btn flat icon="download" label="Download" no-caps />
+              </a>
+              <q-btn
+                :disable="!restoreAllowed || props.row.status !== GameServerBackupStatus.COMPLETED"
+                :loading="restoringBackupId === props.row.id"
+                flat
+                icon="settings_backup_restore"
+                label="Restore"
+                no-caps
+                @click="openRestoreDialog(props.row)" />
+              <q-btn
+                :disable="!deleteAllowed"
+                :loading="deletingBackupId === props.row.id"
+                color="negative"
+                flat
+                icon="delete"
+                label="Delete"
+                no-caps
+                @click="confirmDelete(props.row)" />
+            </q-card-actions>
+          </q-card>
+        </template>
+
         <template #body-cell-archive="props">
           <q-td :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }" :props="props">
             <div
@@ -968,7 +1042,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
     <q-dialog v-model="showUploadBackupDialog" persistent>
       <q-card class="backups-page__upload-dialog" data-testid="upload-backup-dialog">
         <q-card-section>
-          <div class="backups-page__section-title">Upload Backup Archive</div>
+          <h2 class="backups-page__section-title">Upload Backup Archive</h2>
           <div class="backups-page__section-copy">
             Import a `.zip` backup into this server's managed backup history so it can be restored
             later from this page.
@@ -1071,6 +1145,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   font-family: var(--xy-font-display);
   font-size: 1rem;
   color: var(--xy-text-primary);
+  margin: 0;
 }
 
 .backups-page__section-copy {
@@ -1103,6 +1178,55 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 .backups-page__download-link {
   display: inline-flex;
   text-decoration: none;
+}
+
+.backups-page__mobile-card {
+  width: 100%;
+  background: var(--xy-surface-1);
+  border-color: var(--xy-border);
+}
+
+.backups-page__mobile-card--active {
+  border-color: color-mix(in srgb, var(--xy-accent) 34%, var(--xy-border));
+  background: color-mix(in srgb, var(--xy-accent) 5%, var(--xy-surface-1));
+}
+
+.backups-page__mobile-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+}
+
+.backups-page__mobile-fields {
+  display: grid;
+  gap: var(--xy-space-sm);
+}
+
+.backups-page__mobile-fields > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.backups-page__mobile-fields span {
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.backups-page__mobile-fields strong {
+  color: var(--xy-text-primary);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.backups-page__mobile-fields em {
+  color: var(--xy-text-muted);
+  font-size: 0.85rem;
+  font-style: normal;
+  overflow-wrap: anywhere;
 }
 
 .backups-page__live-strip {
@@ -1198,23 +1322,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 }
 
 .backups-page__archive-cell--active {
-  position: relative;
-  padding-left: 0.9rem;
-}
-
-.backups-page__archive-cell--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0.15rem;
-  bottom: 0.15rem;
-  width: 2px;
-  border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    var(--xy-accent),
-    color-mix(in srgb, var(--xy-accent) 30%, transparent)
-  );
+  color: var(--xy-accent-hover);
 }
 
 .backups-page__archive-path,

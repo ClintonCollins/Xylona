@@ -1,4 +1,4 @@
-@import "design-tokens.css";
+@import 'design-tokens.css';
 
 .selected-option {
   color: var(--xy-info);
@@ -50,9 +50,8 @@ a {
 
 .xylona-notification {
   font-size: 1.1rem;
-  border: none;
-  border-left: 3px solid;
-  border-radius: 0 8px 8px 0;
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
   padding-top: var(--xy-space-sm);
   padding-bottom: var(--xy-space-sm);
   background-color: var(--xy-surface-2);
@@ -71,7 +70,7 @@ a {
 
 .notification-success {
   background-color: var(--xy-success-bg);
-  border-left-color: var(--xy-success);
+  border-color: var(--xy-success-border);
 }
 
 .notification-success .q-notification__icon {
@@ -81,7 +80,7 @@ a {
 
 .notification-error {
   background-color: var(--xy-danger-bg);
-  border-left-color: var(--xy-danger);
+  border-color: var(--xy-danger-border);
 }
 
 .notification-error .q-notification__icon {
@@ -91,7 +90,7 @@ a {
 
 .notification-alert {
   background-color: var(--xy-warning-bg);
-  border-left-color: var(--xy-warning);
+  border-color: var(--xy-warning-border);
 }
 
 .notification-alert .q-notification__icon {
@@ -101,7 +100,7 @@ a {
 
 .notification-info {
   background-color: var(--xy-info-bg);
-  border-left-color: var(--xy-info);
+  border-color: var(--xy-info-border);
 }
 
 .notification-info .q-notification__icon {

@@ -271,10 +271,11 @@ function getAbbreviation(path: string): string {
 .file-item {
   padding: var(--xy-space-xs) var(--xy-space-md);
   min-height: 44px;
-  border-left: 2px solid transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
   transition:
     background-color var(--xy-transition-fast),
-    border-left-color var(--xy-transition-fast);
+    border-color var(--xy-transition-fast);
 }
 
 .file-item:hover {
@@ -283,7 +284,7 @@ function getAbbreviation(path: string): string {
 
 .file-active {
   background-color: color-mix(in srgb, var(--xy-primary) 8%, var(--xy-surface-2));
-  border-left-color: var(--xy-primary);
+  border-color: var(--xy-primary);
 }
 
 .file-active .file-name {
@@ -427,15 +428,13 @@ function getAbbreviation(path: string): string {
     flex-shrink: 0;
     min-width: 140px;
     max-width: 200px;
-    border-left: none;
-    border-bottom: 2px solid transparent;
+    border-color: transparent;
     border-radius: 6px;
     background-color: var(--xy-surface-0);
   }
 
   .file-active {
-    border-left-color: transparent;
-    border-bottom-color: var(--xy-primary);
+    border-color: var(--xy-primary);
     background-color: var(--xy-surface-2);
   }
 

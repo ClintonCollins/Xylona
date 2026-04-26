@@ -12,19 +12,21 @@ a.q-item {
   height: 100%;
   padding-top: 12px;
   padding-bottom: 12px;
-  border-left: 3px solid transparent;
-  transition: border-color var(--xy-transition-fast), background-color var(--xy-transition-fast);
+  border: 1px solid transparent;
+  transition:
+    border-color var(--xy-transition-fast),
+    background-color var(--xy-transition-fast);
 }
 
 a.q-item:hover {
-  border-left-color: var(--xy-surface-4);
+  border-color: var(--xy-border-hover);
   background-color: rgba(255, 255, 255, 0.03);
 }
 
 .q-item.q-router-link--active {
   color: var(--xy-accent);
   background-color: var(--xy-accent-muted);
-  border-left: 3px solid var(--xy-accent);
+  border-color: var(--xy-accent);
 }
 
 /* ---- Toolbar ---- */

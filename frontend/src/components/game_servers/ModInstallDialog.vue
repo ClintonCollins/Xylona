@@ -143,8 +143,8 @@ function formatBytes(bytes: number): string {
 <style scoped>
 .mod-install-dialog {
   background-color: var(--xy-surface-0);
-  min-width: 420px;
-  max-width: 520px;
+  width: min(520px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
 }
 
 .mod-install-header {
@@ -219,6 +219,7 @@ function formatBytes(bytes: number): string {
   align-items: center;
   gap: var(--xy-space-sm);
   padding: var(--xy-space-xs) var(--xy-space-sm);
+  border: 1px solid transparent;
   border-radius: var(--xy-radius-sm);
   cursor: pointer;
   transition: background-color var(--xy-transition-fast);
@@ -234,7 +235,8 @@ function formatBytes(bytes: number): string {
 }
 
 .dep-required {
-  border-left: 2px solid var(--xy-warning);
+  background-color: var(--xy-warning-bg-faint);
+  border-color: var(--xy-warning-border);
 }
 
 .dep-info {
@@ -248,6 +250,7 @@ function formatBytes(bytes: number): string {
 .dep-name {
   font-size: 0.8rem;
   color: var(--xy-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .dep-tag {
@@ -287,9 +290,28 @@ function formatBytes(bytes: number): string {
 /* ---- Mobile ---- */
 @media (max-width: 500px) {
   .mod-install-dialog {
-    min-width: 0;
-    max-width: none;
-    width: 100%;
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .mod-install-body {
+    padding: var(--xy-space-md);
+  }
+
+  .mod-install-detail,
+  .mod-install-dep-row,
+  .dep-info {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .mod-install-actions {
+    flex-wrap: wrap;
+    padding: var(--xy-space-sm) var(--xy-space-md);
+  }
+
+  .mod-install-actions .q-btn {
+    flex: 1 1 8rem;
   }
 }
 </style>

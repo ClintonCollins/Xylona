@@ -313,13 +313,13 @@ function notifyError(message: string) {
   border: 1px solid var(--xy-border);
   border-radius: 8px;
   padding: var(--xy-space-md);
-  border-left: 3px solid transparent;
   animation: panel-enter calc(var(--xy-animation-duration) * 0.3s) cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
 .access-panel--local {
-  border-left-color: var(--xy-primary);
+  background-color: color-mix(in srgb, var(--xy-primary) 4%, var(--xy-surface-0));
+  border-color: var(--xy-primary-border-soft);
 }
 
 .access-section-header {

@@ -7,7 +7,7 @@
     <template v-else>
       <div class="schema-settings">
         <div class="schema-settings-copy">
-          <div class="schema-settings-title font-display">File Behavior</div>
+          <h2 class="schema-settings-title font-display">File Behavior</h2>
           <div class="schema-settings-description text-xy-secondary">
             Control how this config file is handled before the server starts.
           </div>
@@ -192,6 +192,7 @@ async function handleSave(updatedSchema: JsonSchema) {
 .schema-settings-title {
   font-size: 0.95rem;
   color: var(--xy-text-primary);
+  margin: 0;
 }
 
 .schema-settings-description {

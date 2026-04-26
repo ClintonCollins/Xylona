@@ -602,8 +602,8 @@ async function handleSubmit(): Promise<void> {
 
 <style scoped>
 .scheduled-task-form-card {
-  min-width: 480px;
-  max-width: 560px;
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
   background-color: var(--xy-surface-1);
 }
 
@@ -628,10 +628,12 @@ async function handleSubmit(): Promise<void> {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .time-select {
-  flex: 0 0 100px;
+  flex: 1 1 100px;
+  min-width: 0;
 }
 
 .time-separator {
@@ -647,11 +649,12 @@ async function handleSubmit(): Promise<void> {
 .weekday-row {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .weekday-btn {
   min-width: 0;
-  width: 50px;
+  flex: 1 1 50px;
   padding: 4px 6px;
   font-size: 0.78rem;
   border-radius: 6px;
@@ -697,10 +700,31 @@ async function handleSubmit(): Promise<void> {
   font-size: 0.82rem;
   color: var(--xy-text-secondary);
   margin-bottom: 16px;
+  overflow-wrap: anywhere;
 }
 
 .schedule-preview--invalid {
   color: var(--xy-danger);
   background-color: var(--xy-danger-bg);
+}
+
+@media (max-width: 480px) {
+  .scheduled-task-form-card {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .scheduled-task-form-card :deep(.q-card__section) {
+    padding-left: var(--xy-space-md);
+    padding-right: var(--xy-space-md);
+  }
+
+  .scheduled-task-form-card :deep(.q-card__actions) {
+    flex-wrap: wrap;
+  }
+
+  .scheduled-task-form-card :deep(.q-card__actions .q-btn) {
+    flex: 1 1 8rem;
+  }
 }
 </style>

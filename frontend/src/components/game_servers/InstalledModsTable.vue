@@ -341,13 +341,9 @@ function iconGradient(name: string): string {
   vertical-align: middle;
 }
 
-/* Update-available row: left amber border */
+/* Update-available row: subtle warning tint */
 .mod-row--update {
-  border-left: 2px solid var(--xy-warning);
-}
-
-.mod-row--update td:first-child {
-  padding-left: calc(1rem - 2px);
+  background-color: var(--xy-warning-bg-faint);
 }
 
 /* Disabled row: reduced opacity */

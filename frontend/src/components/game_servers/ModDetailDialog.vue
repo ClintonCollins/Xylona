@@ -626,6 +626,7 @@ function isSafeHref(href: string): boolean {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
+  border: 1px solid transparent;
   border-radius: 4px;
   background-color: var(--xy-surface-2);
   color: var(--xy-text-secondary);
@@ -633,7 +634,8 @@ function isSafeHref(href: string): boolean {
 }
 
 .dep-required {
-  border-left: 2px solid var(--xy-warning);
+  background-color: var(--xy-warning-bg-faint);
+  border-color: var(--xy-warning-border);
 }
 
 .dep-required-label {
@@ -701,7 +703,8 @@ function isSafeHref(href: string): boolean {
 
 .mod-version-row--selected {
   background-color: color-mix(in srgb, var(--xy-primary) 8%, var(--xy-surface-0));
-  border-left: 2px solid var(--xy-primary);
+  outline: 1px solid var(--xy-primary-border-soft);
+  outline-offset: -1px;
 }
 
 .mod-version-info {

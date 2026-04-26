@@ -340,6 +340,7 @@
   font-weight: 700;
   color: var(--xy-text-primary);
   letter-spacing: 0.02em;
+  margin: 0;
 }
 
 .xy-page-header .xy-page-actions {

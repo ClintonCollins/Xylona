@@ -296,9 +296,14 @@ async function handleSubmit() {
 
 <style scoped>
 .add-config-dialog {
-  min-width: 460px;
-  max-width: 560px;
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
   background-color: var(--xy-surface-1);
+}
+
+.dialog-body {
+  max-height: min(70vh, 42rem);
+  overflow: auto;
 }
 
 .dialog-header {
@@ -321,5 +326,12 @@ async function handleSubmit() {
   border: 1px solid var(--xy-border);
   border-radius: 8px;
   background-color: var(--xy-surface-0);
+}
+
+@media (max-width: 480px) {
+  .add-config-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
 }
 </style>

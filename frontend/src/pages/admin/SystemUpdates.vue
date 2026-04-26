@@ -20,14 +20,63 @@
 
     <div class="system-updates__grid">
       <section class="system-updates__section">
-        <div class="section-title">Available Targets</div>
+        <h2 class="section-title">Available Targets</h2>
         <q-table
           :columns="updateColumns"
+          :grid="mobileGrid"
           :loading="loading"
           :rows="updates"
           class="xy-standalone-table"
           flat
           row-key="targetKey">
+          <template #item="props">
+            <q-card bordered class="system-updates__mobile-card" flat>
+              <q-card-section class="system-updates__mobile-card-header">
+                <div>
+                  <div class="system-updates__mobile-title">{{ targetName(props.row) }}</div>
+                  <div class="text-caption text-xy-muted">
+                    {{ props.row.os || 'unknown' }} / {{ props.row.architecture || 'unknown' }}
+                  </div>
+                </div>
+                <q-badge
+                  :color="availabilityBadge(props.row).color"
+                  :label="availabilityBadge(props.row).label" />
+              </q-card-section>
+
+              <q-separator />
+
+              <q-card-section class="system-updates__mobile-fields">
+                <div>
+                  <span>Current</span>
+                  <strong>{{ props.row.currentVersion || 'Unknown' }}</strong>
+                </div>
+                <div>
+                  <span>Latest</span>
+                  <strong>{{ props.row.latestVersion || '-' }}</strong>
+                </div>
+                <div v-if="props.row.artifactName">
+                  <span>Artifact</span>
+                  <strong>{{ props.row.artifactName }}</strong>
+                </div>
+                <div v-if="props.row.reason">
+                  <span>Reason</span>
+                  <strong>{{ props.row.reason }}</strong>
+                </div>
+              </q-card-section>
+
+              <q-card-actions align="right">
+                <q-btn
+                  :disable="!props.row.updateable"
+                  color="primary"
+                  flat
+                  icon="system_update_alt"
+                  label="Update"
+                  no-caps
+                  @click="openConfirm(props.row)" />
+              </q-card-actions>
+            </q-card>
+          </template>
+
           <template #body-cell-target="props">
             <q-td :props="props">
               <div class="text-weight-medium">{{ targetName(props.row) }}</div>
@@ -81,14 +130,46 @@
       </section>
 
       <section class="system-updates__section">
-        <div class="section-title">Recent Jobs</div>
+        <h2 class="section-title">Recent Jobs</h2>
         <q-table
           :columns="jobColumns"
+          :grid="mobileGrid"
           :loading="jobsLoading"
           :rows="jobs"
           class="xy-standalone-table"
           flat
           row-key="id">
+          <template #item="props">
+            <q-card bordered class="system-updates__mobile-card" flat>
+              <q-card-section>
+                <div class="system-updates__mobile-title">{{ jobTargetName(props.row) }}</div>
+                <div class="text-caption text-xy-muted">{{ props.row.targetVersion }}</div>
+              </q-card-section>
+
+              <q-card-section class="system-updates__mobile-progress">
+                <q-linear-progress
+                  :color="jobProgressColor(props.row)"
+                  :value="props.row.progressPercent / 100"
+                  rounded
+                  size="8px" />
+                <div class="text-caption text-xy-muted">
+                  {{ statusLabel(props.row.status) }} &middot; {{ props.row.progressPercent }}%
+                </div>
+              </q-card-section>
+
+              <q-card-section class="system-updates__mobile-fields q-pt-none">
+                <div>
+                  <span>Created</span>
+                  <strong>{{ formatTimestamp(props.row.createdAt) }}</strong>
+                </div>
+                <div v-if="props.row.error">
+                  <span>Error</span>
+                  <strong class="text-negative">{{ props.row.error }}</strong>
+                </div>
+              </q-card-section>
+            </q-card>
+          </template>
+
           <template #body-cell-target="props">
             <q-td :props="props">
               <div class="text-weight-medium">{{ jobTargetName(props.row) }}</div>
@@ -159,7 +240,7 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { Notify } from 'quasar'
+import { Notify, useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -194,6 +275,8 @@ const gameServers = ref<GameServer[]>([])
 const confirmOpen = ref(false)
 const selectedUpdate = ref<UpdateRow | null>(null)
 const route = useRoute()
+const $q = useQuasar()
+const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 
 const pendingJobCount = computed(
   () =>
@@ -378,5 +461,53 @@ function notifyError(unknownError: unknown) {
 
 .system-updates__dialog {
   width: min(620px, 92vw);
+}
+
+.system-updates__mobile-card {
+  width: 100%;
+  background: var(--xy-surface-1);
+  border-color: var(--xy-border);
+}
+
+.system-updates__mobile-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+}
+
+.system-updates__mobile-title {
+  color: var(--xy-text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.system-updates__mobile-fields {
+  display: grid;
+  gap: var(--xy-space-sm);
+}
+
+.system-updates__mobile-fields > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.system-updates__mobile-fields span {
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.system-updates__mobile-fields strong {
+  color: var(--xy-text-primary);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.system-updates__mobile-progress {
+  display: grid;
+  gap: var(--xy-space-sm);
 }
 </style>

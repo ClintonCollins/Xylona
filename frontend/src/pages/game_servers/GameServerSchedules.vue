@@ -19,6 +19,7 @@ import ScheduledTaskForm from '@/components/game_servers/ScheduledTaskForm.vue'
 const $q = useQuasar()
 const route = useRoute()
 const gameServerId = computed(() => route.params.id as string)
+const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 
 const loading = ref(true)
 const tasks = ref<ScheduledTask[]>([])
@@ -215,7 +216,7 @@ function confirmDelete(task: ScheduledTask): void {
 <template>
   <div class="schedules-page xy-page-content">
     <div class="xy-page-header">
-      <div class="xy-page-title">Scheduled Tasks</div>
+      <h1 class="xy-page-title">Scheduled Tasks</h1>
       <div class="xy-page-actions">
         <q-btn color="primary" icon="add" label="Add Schedule" no-caps @click="openCreateDialog" />
       </div>
@@ -223,6 +224,7 @@ function confirmDelete(task: ScheduledTask): void {
 
     <q-table
       :columns="columns"
+      :grid="mobileGrid"
       :loading="loading"
       :pagination="{ rowsPerPage: 0 }"
       :rows="tasks"
@@ -231,6 +233,60 @@ function confirmDelete(task: ScheduledTask): void {
       hide-pagination
       no-data-label="No scheduled tasks yet. Create one to automate server actions."
       row-key="id">
+      <template #item="props">
+        <q-card bordered class="schedule-card" flat>
+          <q-card-section class="schedule-card__header">
+            <div>
+              <div class="schedule-card__title">{{ props.row.name }}</div>
+              <div class="schedule-card__type">
+                <q-icon
+                  :name="taskTypeIcons[props.row.taskType] ?? 'help'"
+                  class="q-mr-xs"
+                  size="xs" />
+                {{ taskTypeLabels[props.row.taskType] ?? props.row.taskType }}
+              </div>
+            </div>
+            <q-toggle
+              :model-value="props.row.enabled"
+              color="positive"
+              dense
+              @update:model-value="toggleEnabled(props.row)" />
+          </q-card-section>
+
+          <q-separator />
+
+          <q-card-section class="schedule-card__details">
+            <div>
+              <span class="schedule-card__label">Schedule</span>
+              <span>{{ formatCron(props.row.cronExpression) }}</span>
+            </div>
+            <div>
+              <span class="schedule-card__label">Timezone</span>
+              <span>{{ props.row.timezone }}</span>
+            </div>
+            <div>
+              <span class="schedule-card__label">Last Run</span>
+              <span>{{ formatTimestamp(props.row.lastRunAt) }}</span>
+            </div>
+            <div>
+              <span class="schedule-card__label">Next Run</span>
+              <span>{{ formatTimestamp(props.row.nextRunAt) }}</span>
+            </div>
+          </q-card-section>
+
+          <q-card-actions align="right">
+            <q-btn flat icon="edit" label="Edit" no-caps @click="openEditDialog(props.row)" />
+            <q-btn
+              color="negative"
+              flat
+              icon="delete"
+              label="Delete"
+              no-caps
+              @click="confirmDelete(props.row)" />
+          </q-card-actions>
+        </q-card>
+      </template>
+
       <template #body-cell-taskType="props">
         <q-td :props="props">
           <div class="row items-center no-wrap">
@@ -290,5 +346,48 @@ function confirmDelete(task: ScheduledTask): void {
   display: flex;
   flex-direction: column;
   overflow: auto;
+}
+
+.schedule-card {
+  width: 100%;
+  background: var(--xy-surface-1);
+  border-color: var(--xy-border);
+}
+
+.schedule-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+}
+
+.schedule-card__title {
+  color: var(--xy-text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.schedule-card__type {
+  margin-top: var(--xy-space-xs);
+  color: var(--xy-text-muted);
+  font-size: 0.85rem;
+}
+
+.schedule-card__details {
+  display: grid;
+  gap: var(--xy-space-sm);
+}
+
+.schedule-card__details > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.schedule-card__label {
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 </style>

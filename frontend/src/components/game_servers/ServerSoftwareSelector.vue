@@ -497,8 +497,8 @@ defineExpose({
 
 <style scoped>
 .change-dialog-card {
-  width: 420px;
-  max-width: 90vw;
+  width: min(420px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
 }
@@ -556,6 +556,7 @@ defineExpose({
 .dialog-current-value {
   font-weight: 600;
   color: var(--xy-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .dialog-current-version {
@@ -592,5 +593,21 @@ defineExpose({
 .change-dialog-footer {
   border-top: 1px solid var(--xy-border);
   padding-top: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .change-dialog-card {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .dialog-current,
+  .change-dialog-footer {
+    flex-wrap: wrap;
+  }
+
+  .change-dialog-footer .q-btn {
+    flex: 1 1 8rem;
+  }
 }
 </style>

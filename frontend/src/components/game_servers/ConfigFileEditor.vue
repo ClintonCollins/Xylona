@@ -1114,7 +1114,8 @@ watch(
   align-items: center;
   justify-content: space-between;
   padding: 0.65rem 1rem 0.5rem;
-  border-left: 3px solid var(--group-accent, var(--xy-primary));
+  border: 1px solid color-mix(in srgb, var(--group-accent, var(--xy-primary)) 28%, var(--xy-border));
+  background-color: color-mix(in srgb, var(--group-accent, var(--xy-primary)) 5%, transparent);
 }
 
 .group-header-title {
@@ -1139,8 +1140,9 @@ watch(
 .setting-row {
   transition:
     background-color var(--xy-transition-fast),
-    border-left-color var(--xy-transition-fast);
-  border-left: 3px solid transparent;
+    outline-color var(--xy-transition-fast);
+  outline: 1px solid transparent;
+  outline-offset: -1px;
 }
 
 /* Subtle alternating rows for scan-ability.
@@ -1152,22 +1154,18 @@ watch(
 
 .setting-row:hover {
   background-color: var(--xy-surface-1);
-  border-left-color: color-mix(in srgb, var(--xy-primary) 40%, transparent);
+  outline-color: color-mix(in srgb, var(--xy-primary) 30%, transparent);
 }
 
 .setting-row:focus-within {
   background-color: var(--xy-surface-1);
-  border-left-color: var(--xy-primary);
+  outline-color: var(--xy-primary);
 }
 
 .setting-row td {
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--xy-border);
   vertical-align: middle;
-}
-
-.setting-row td:first-child {
-  padding-left: calc(1rem - 3px);
 }
 
 /* When a description is present, top-align so the value stays paired with the label */
@@ -1177,12 +1175,12 @@ watch(
 }
 
 .setting-edited {
-  border-left-color: var(--xy-warning);
   background-color: color-mix(in srgb, var(--xy-warning) 4%, transparent);
+  outline-color: var(--xy-warning-border);
 }
 
 .setting-edited:hover {
-  border-left-color: var(--xy-warning);
+  outline-color: var(--xy-warning);
 }
 
 .setting-managed {

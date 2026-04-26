@@ -1,7 +1,7 @@
 <template>
   <q-page class="index-page flex flex-center">
     <div class="index-content">
-      <div class="brand-title">Xylona</div>
+      <h1 class="brand-title">Xylona</h1>
       <div class="brand-subtitle">Game Server Control Panel</div>
       <div class="nav-grid">
         <router-link v-for="item in navItems" :key="item.to" :to="item.to" class="nav-card">
@@ -43,7 +43,7 @@ const navItems = computed(() => {
   color: var(--xy-accent);
   letter-spacing: 0.06em;
   line-height: 1;
-  margin-bottom: var(--xy-space-sm);
+  margin: 0 0 var(--xy-space-sm);
 }
 
 .brand-subtitle {

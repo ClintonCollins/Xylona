@@ -1,7 +1,7 @@
 <template>
   <q-page class="xy-page-content">
     <div class="xy-page-header">
-      <div class="xy-page-title">Notifications</div>
+      <h1 class="xy-page-title">Notifications</h1>
     </div>
 
     <q-tabs

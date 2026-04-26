@@ -64,9 +64,7 @@ describe('useGameServerFormState', () => {
 
   it('loads IPs for the selected node and refreshes them when the node changes', async () => {
     mocks.listIPs
-      .mockResolvedValueOnce([
-        create(IPSchema, { address: '127.0.0.1', nodeId: 'node-local' }),
-      ])
+      .mockResolvedValueOnce([create(IPSchema, { address: '127.0.0.1', nodeId: 'node-local' })])
       .mockResolvedValueOnce([
         create(IPSchema, { address: '10.0.0.10', nodeId: 'node-remote' }),
         create(IPSchema, { address: '198.51.100.10', nodeId: 'node-remote', external: true }),
@@ -96,10 +94,7 @@ describe('useGameServerFormState', () => {
     await flushPromises()
 
     expect(mocks.listIPs).toHaveBeenNthCalledWith(2, 'node-remote')
-    expect(state.availableIPs.value.map((ip) => ip.address)).toEqual([
-      '10.0.0.10',
-      '198.51.100.10',
-    ])
+    expect(state.availableIPs.value.map((ip) => ip.address)).toEqual(['10.0.0.10', '198.51.100.10'])
     expect(state.gameServer.value.ip?.address).toBe('198.51.100.10')
   })
 
@@ -110,12 +105,13 @@ describe('useGameServerFormState', () => {
       create(NodeSchema, { id: 'node-remote-b', name: 'Remote Node B', local: false }),
     ])
 
-    const pendingRequests = new Map<string, (ips: Array<ReturnType<typeof create<typeof IPSchema>>>) => void>()
+    const pendingRequests = new Map<
+      string,
+      (ips: Array<ReturnType<typeof create<typeof IPSchema>>>) => void
+    >()
     mocks.listIPs.mockImplementation((nodeId: string) => {
       if (nodeId === 'node-local') {
-        return Promise.resolve([
-          create(IPSchema, { address: '127.0.0.1', nodeId: 'node-local' }),
-        ])
+        return Promise.resolve([create(IPSchema, { address: '127.0.0.1', nodeId: 'node-local' })])
       }
 
       return new Promise((resolve) => {
@@ -155,10 +151,7 @@ describe('useGameServerFormState', () => {
     ])
     await flushPromises()
 
-    expect(state.availableIPs.value.map((ip) => ip.address)).toEqual([
-      '10.0.0.20',
-      '198.51.100.20',
-    ])
+    expect(state.availableIPs.value.map((ip) => ip.address)).toEqual(['10.0.0.20', '198.51.100.20'])
     expect(state.gameServer.value.ip?.address).toBe('198.51.100.20')
 
     const resolveRemoteA = pendingRequests.get('node-remote-a')
@@ -171,10 +164,7 @@ describe('useGameServerFormState', () => {
     ])
     await flushPromises()
 
-    expect(state.availableIPs.value.map((ip) => ip.address)).toEqual([
-      '10.0.0.20',
-      '198.51.100.20',
-    ])
+    expect(state.availableIPs.value.map((ip) => ip.address)).toEqual(['10.0.0.20', '198.51.100.20'])
     expect(state.gameServer.value.nodeId).toBe('node-remote-b')
     expect(state.gameServer.value.ip?.address).toBe('198.51.100.20')
   })

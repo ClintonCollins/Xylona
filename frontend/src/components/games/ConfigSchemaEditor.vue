@@ -1136,6 +1136,7 @@ function handleSave() {
   display: flex;
   align-items: center;
   gap: var(--xy-space-sm);
+  min-width: 0;
 }
 
 .editor-title {
@@ -1146,12 +1147,15 @@ function handleSave() {
 
 .editor-subtitle {
   font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 .editor-header-actions {
   display: flex;
   align-items: center;
   gap: var(--xy-space-sm);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .mode-toggle {
@@ -1213,10 +1217,12 @@ function handleSave() {
   align-items: center;
   gap: var(--xy-space-sm);
   margin-bottom: var(--xy-space-sm);
+  flex-wrap: wrap;
 }
 
 .schema-search-input {
   flex: 1;
+  min-width: min(100%, 16rem);
   max-width: 320px;
 }
 
@@ -1268,6 +1274,7 @@ function handleSave() {
   border: 1px solid var(--xy-accent);
   border-radius: 8px;
   background-color: var(--xy-accent-muted);
+  flex-wrap: wrap;
 }
 
 .selection-count {
@@ -1278,6 +1285,7 @@ function handleSave() {
 
 .bulk-group-input {
   flex: 1;
+  min-width: min(100%, 12rem);
   max-width: 240px;
 }
 
@@ -1333,8 +1341,8 @@ function handleSave() {
 
 /* Import dialog */
 .import-dialog {
-  min-width: 500px;
-  max-width: 640px;
+  width: min(640px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
   background-color: var(--xy-surface-1);
 }
 
@@ -1400,5 +1408,48 @@ function handleSave() {
   outline: 2px dashed var(--xy-accent);
   outline-offset: 2px;
   border-radius: 8px;
+}
+
+@media (max-width: 720px) {
+  .editor-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .editor-header-actions,
+  .mode-toggle {
+    width: 100%;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-actions :deep(.q-btn) {
+    flex: 1 1 10rem;
+  }
+
+  .form-builder-toolbar,
+  .selection-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .schema-search-input,
+  .schema-filter-toggle,
+  .bulk-group-input {
+    max-width: none;
+    width: 100%;
+  }
+
+  .field-select-row {
+    gap: var(--xy-space-sm);
+  }
+
+  .import-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
 }
 </style>

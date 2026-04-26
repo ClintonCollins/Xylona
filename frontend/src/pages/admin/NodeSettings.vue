@@ -1,7 +1,7 @@
 <template>
   <q-page class="xy-page-content">
     <div class="xy-page-header">
-      <div class="xy-page-title">Node Settings</div>
+      <h1 class="xy-page-title">Node Settings</h1>
     </div>
     <s-m-t-p-settings />
   </q-page>

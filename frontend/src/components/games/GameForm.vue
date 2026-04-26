@@ -1172,25 +1172,25 @@ async function exportCurrentGame(): Promise<void> {
 .cmd-block {
   background: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
-  border-radius: 0 8px 8px 0;
+  border-radius: 8px;
   overflow: hidden;
-  transition: border-left-color var(--xy-transition-fast);
+  transition: border-color var(--xy-transition-fast);
 }
 
 .cmd-block--windows {
-  border-left: 3px solid var(--xy-platform-windows);
+  border-color: var(--xy-platform-windows);
 }
 
 .cmd-block--windows:hover {
-  border-left-color: var(--xy-platform-windows-hover);
+  border-color: var(--xy-platform-windows-hover);
 }
 
 .cmd-block--linux {
-  border-left: 3px solid var(--xy-platform-linux);
+  border-color: var(--xy-platform-linux);
 }
 
 .cmd-block--linux:hover {
-  border-left-color: var(--xy-platform-linux-hover);
+  border-color: var(--xy-platform-linux-hover);
 }
 
 .cmd-header {

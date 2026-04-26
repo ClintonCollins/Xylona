@@ -25,6 +25,7 @@ const $q = useQuasar()
 const authStore = useUserAuthStore()
 const route = useRoute()
 const gameServerId = computed(() => route.params.id as string)
+const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 const gameServerNodeId = ref('')
 const hasAlertsManage = computed(() => canManageAlerts(authStore.user, authStore.initialResponse))
 
@@ -564,6 +565,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
           <q-table
             :columns="rulesColumns"
+            :grid="mobileGrid"
             :loading="rulesLoading"
             :pagination="{ rowsPerPage: 0 }"
             :rows="alertRules"
@@ -572,6 +574,52 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             hide-pagination
             no-data-label="No alert rules configured for this server"
             row-key="id">
+            <template #item="props">
+              <q-card bordered class="alerts-mobile-card" flat>
+                <q-card-section class="alerts-mobile-card__header">
+                  <div>
+                    <div class="alerts-mobile-card__title">
+                      {{ eventTypeLabels[props.row.eventType] ?? 'Unknown' }}
+                    </div>
+                    <div class="text-caption text-xy-muted">
+                      {{ formatCondition(props.row.eventType, props.row.condition) }}
+                    </div>
+                  </div>
+                  <q-toggle
+                    v-if="hasAlertsManage"
+                    :model-value="props.row.enabled"
+                    color="positive"
+                    dense
+                    @update:model-value="toggleRuleEnabled(props.row)" />
+                  <q-badge
+                    v-else
+                    :color="props.row.enabled ? 'positive' : 'negative'"
+                    :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
+                </q-card-section>
+
+                <q-card-section class="alerts-mobile-card__fields q-pt-none">
+                  <div>
+                    <span>Channel</span>
+                    <strong>{{
+                      channels.find((channel) => channel.id === props.row.notificationChannelId)
+                        ?.name ?? 'Unknown'
+                    }}</strong>
+                  </div>
+                </q-card-section>
+
+                <q-card-actions v-if="hasAlertsManage" align="right">
+                  <q-btn flat icon="edit" label="Edit" no-caps @click="openEditDialog(props.row)" />
+                  <q-btn
+                    color="negative"
+                    flat
+                    icon="delete"
+                    label="Delete"
+                    no-caps
+                    @click="confirmDeleteRule(props.row)" />
+                </q-card-actions>
+              </q-card>
+            </template>
+
             <template #body-cell-enabled="props">
               <q-td :props="props">
                 <q-toggle
@@ -639,6 +687,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
           <q-table
             :columns="historyColumns"
+            :grid="mobileGrid"
             :loading="historyLoading"
             :pagination="{ page: historyPage, rowsPerPage: historyRowsPerPage }"
             :rows="filteredHistory"
@@ -646,6 +695,39 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             flat
             no-data-label="No alert history for this server"
             row-key="id">
+            <template #item="props">
+              <q-card bordered class="alerts-mobile-card" flat>
+                <q-card-section class="alerts-mobile-card__header">
+                  <div>
+                    <div class="alerts-mobile-card__title">
+                      {{ eventTypeLabels[props.row.eventType] ?? 'Unknown' }}
+                    </div>
+                    <div class="text-caption text-xy-muted">
+                      {{ formatTimestamp(props.row.createdAt) }}
+                    </div>
+                  </div>
+                  <q-badge
+                    :color="deliveryStatusColors[props.row.deliveryStatus] ?? 'grey'"
+                    :label="deliveryStatusLabels[props.row.deliveryStatus] ?? 'Unknown'" />
+                </q-card-section>
+
+                <q-card-section class="alerts-mobile-card__fields q-pt-none">
+                  <div>
+                    <span>Channel</span>
+                    <strong>{{ channelTypeLabels[props.row.channelType] ?? 'Unknown' }}</strong>
+                  </div>
+                  <div>
+                    <span>Details</span>
+                    <strong>{{ props.row.eventData || '-' }}</strong>
+                  </div>
+                  <div v-if="props.row.deliveryError">
+                    <span>Delivery Error</span>
+                    <strong class="text-negative">{{ props.row.deliveryError }}</strong>
+                  </div>
+                </q-card-section>
+              </q-card>
+            </template>
+
             <template #body-cell-deliveryStatus="props">
               <q-td :props="props">
                 <q-badge
@@ -672,7 +754,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
     <!-- Create/Edit Rule Dialog -->
     <q-dialog v-if="hasAlertsManage" v-model="showRuleDialog" persistent>
-      <q-card style="min-width: 450px">
+      <q-card class="alert-rule-dialog">
         <q-card-section>
           <div class="text-h6">{{ dialogTitle }}</div>
         </q-card-section>
@@ -762,5 +844,68 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
   min-height: 0;
   overflow: auto;
   background-color: transparent;
+}
+
+.alert-rule-dialog {
+  width: min(450px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+}
+
+.alerts-mobile-card {
+  width: 100%;
+  background: var(--xy-surface-1);
+  border-color: var(--xy-border);
+}
+
+.alerts-mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+}
+
+.alerts-mobile-card__title {
+  color: var(--xy-text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.alerts-mobile-card__fields {
+  display: grid;
+  gap: var(--xy-space-sm);
+}
+
+.alerts-mobile-card__fields > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.alerts-mobile-card__fields span {
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.alerts-mobile-card__fields strong {
+  color: var(--xy-text-primary);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .alert-rule-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .alert-rule-dialog :deep(.q-card__actions) {
+    flex-wrap: wrap;
+  }
+
+  .alert-rule-dialog :deep(.q-card__actions .q-btn) {
+    flex: 1 1 8rem;
+  }
 }
 </style>

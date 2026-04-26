@@ -45,12 +45,12 @@ export function evaluateGameServerPortAvailability(options: PortAvailabilityEval
     }
   }
 
-  const matchingServers = options.existingServers.filter(
-    (server) =>
-      server.id !== options.excludeServerId && server.ip?.address?.trim() === normalizedIP,
-  ).filter(
-    (server) => (server.nodeId?.trim() ?? '') === normalizedNodeID,
-  )
+  const matchingServers = options.existingServers
+    .filter(
+      (server) =>
+        server.id !== options.excludeServerId && server.ip?.address?.trim() === normalizedIP,
+    )
+    .filter((server) => (server.nodeId?.trim() ?? '') === normalizedNodeID)
 
   if (options.selectedGame?.requireDedicatedIp && matchingServers.length > 0) {
     const conflictingServer = matchingServers[0]
