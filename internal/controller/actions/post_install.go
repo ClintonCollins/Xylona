@@ -14,30 +14,6 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func (inst *Instance) postMinecraftInstall(gameServer *models.GameServer) error {
-	if inst.shouldUseRemoteNodeFiles(gameServer.NodeID) {
-		client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
-		if errClient != nil {
-			return fmt.Errorf("actions: resolve node client for post install: %w", errClient)
-		}
-
-		errWrite := client.WriteFile(inst.actionContext(), gameServer.Directory, "eula.txt", []byte("eula=true"), node.ProtectionPolicy{})
-		if errWrite != nil {
-			log.Error().Err(errWrite).Msg("Failed to write remote eula.txt")
-			return fmt.Errorf("actions: create eula.txt: %w", errWrite)
-		}
-		return nil
-	}
-
-	dir := gameServer.Directory
-	errWrite := os.WriteFile(filepath.Join(dir, "eula.txt"), []byte("eula=true"), 0o600)
-	if errWrite != nil {
-		log.Error().Err(errWrite).Msg("Failed to write to eula.txt")
-		return fmt.Errorf("actions: write eula.txt: %w", errWrite)
-	}
-	return nil
-}
-
 func (inst *Instance) shouldUseRemoteNodeFiles(nodeID string) bool {
 	if inst == nil || inst.nodeRegistry == nil {
 		return false

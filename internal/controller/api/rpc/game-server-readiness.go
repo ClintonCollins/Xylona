@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"connectrpc.com/connect"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -79,6 +80,7 @@ func (xs *XylonaService) AcceptMinecraftEula(
 	if errItems != nil {
 		return nil, connect.NewError(connect.CodeInternal, errItems)
 	}
+	xs.maybeStartGameServerAfterReadiness(user, gameServer, items)
 	return connect.NewResponse(&xylona.AcceptMinecraftEulaResponse{
 		Items: readinessItemsToProto(items),
 	}), nil
@@ -115,6 +117,7 @@ func (xs *XylonaService) SetSteamGSLT(
 	if errItems != nil {
 		return nil, connect.NewError(connect.CodeInternal, errItems)
 	}
+	xs.maybeStartGameServerAfterReadiness(user, gameServer, items)
 	return connect.NewResponse(&xylona.SetSteamGSLTResponse{
 		Items: readinessItemsToProto(items),
 	}), nil
@@ -247,6 +250,7 @@ func (xs *XylonaService) SelectHytaleProfile(
 	if errItems != nil {
 		return nil, connect.NewError(connect.CodeInternal, errItems)
 	}
+	xs.maybeStartGameServerAfterReadiness(user, gameServer, items)
 	return connect.NewResponse(&xylona.SelectHytaleProfileResponse{
 		Items: readinessItemsToProto(items),
 	}), nil
@@ -302,6 +306,34 @@ func readinessItemsToProto(items []readiness.Item) []*xylona.GameServerReadiness
 		}
 	}
 	return protoItems
+}
+
+func (xs *XylonaService) maybeStartGameServerAfterReadiness(user *models.User, gameServer *models.GameServer, items []readiness.Item) {
+	if xs == nil || xs.actionsInst == nil {
+		return
+	}
+	if hasBlockingReadinessItem(items) {
+		return
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.start")
+	if errPermission != nil {
+		return
+	}
+
+	_, errStart := xs.actionsInst.StartGameServer(gameServer)
+	if errStart != nil {
+		log.Warn().Err(errStart).Str("game_server_id", gameServer.ID).
+			Msg("Auto-start after readiness completion failed")
+	}
+}
+
+func hasBlockingReadinessItem(items []readiness.Item) bool {
+	for _, item := range items {
+		if item.Blocking {
+			return true
+		}
+	}
+	return false
 }
 
 func hytaleProfilesToProto(profiles []readiness.HytaleProfile) []*xylona.HytaleProfile {

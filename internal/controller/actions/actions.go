@@ -197,21 +197,8 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 	return inst
 }
 
-// InstallGameServerOptions controls install-time setup that must be persisted
-// before the install process starts.
-type InstallGameServerOptions struct {
-	AcceptMinecraftEULA bool
-	AcceptedByUserID    string
-}
-
 // InstallGameServer creates the server record, schedules install, and starts post-install startup.
 func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error) {
-	return inst.InstallGameServerWithOptions(game, gameServer, owner, InstallGameServerOptions{})
-}
-
-// InstallGameServerWithOptions creates the server record, schedules install,
-// and starts post-install startup with install-time setup state.
-func (inst *Instance) InstallGameServerWithOptions(game *models.Game, gameServer *models.GameServer, owner *models.User, options InstallGameServerOptions) (*models.GameServer, error) {
 	gameServerDir, errCreateGameServerDir := inst.createGameServerDirectory(gameServer, owner)
 	if errCreateGameServerDir != nil {
 		log.Error().Err(errCreateGameServerDir).Msg("Failed to create game server directory")
@@ -287,18 +274,6 @@ func (inst *Instance) InstallGameServerWithOptions(game *models.Game, gameServer
 			return nil, errors.Join(errInstall, errCleanup)
 		}
 		return nil, errInstall
-	}
-
-	if game.ID == "minecraft" && options.AcceptMinecraftEULA {
-		errEULA := readiness.PersistMinecraftEULAAccepted(inst.db, newGameServer.ID, options.AcceptedByUserID)
-		if errEULA != nil {
-			errInstall := fmt.Errorf("actions: persist minecraft EULA acceptance: %w", errEULA)
-			errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory, newGameServer.NodeID)
-			if errCleanup != nil {
-				return nil, errors.Join(errInstall, errCleanup)
-			}
-			return nil, errInstall
-		}
 	}
 
 	nodeOS := inst.resolveNodeOS(inst.ctx, newGameServer.NodeID)
@@ -485,7 +460,8 @@ func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServe
 func (inst *Instance) postInstallStep(gameServer *models.GameServer) error {
 	switch gameServer.GameID {
 	case "minecraft":
-		return inst.postMinecraftInstall(gameServer)
+		// Minecraft EULA acceptance is a readiness action from the server view.
+		return nil
 	case "7_days_to_die":
 		return inst.post7DaysToDieInstall(gameServer)
 	default:

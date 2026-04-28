@@ -2,6 +2,7 @@ package readiness
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,6 +13,49 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func TestCheckStartMinecraftEULABlocksUntilAccepted(t *testing.T) {
+	conn := newReadinessSecretConnection(t)
+	gameServer := &models.GameServer{
+		ID:        "server-1",
+		GameID:    "minecraft",
+		Directory: "/srv/minecraft",
+	}
+	client := &nodeclient.FakeNodeClient{
+		ReadFileErr: os.ErrNotExist,
+	}
+
+	errMissing := CheckStart(context.Background(), conn, gameServer, client)
+	if errMissing == nil {
+		t.Fatal("CheckStart() error = nil, want Minecraft EULA required")
+	}
+	if !strings.Contains(errMissing.Error(), "Minecraft EULA required") {
+		t.Fatalf("CheckStart() error = %v, want Minecraft EULA required", errMissing)
+	}
+	if len(client.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(client.WriteFileCalls))
+	}
+
+	errAccept := AcceptMinecraftEULA(context.Background(), conn, gameServer, client, "user-admin")
+	if errAccept != nil {
+		t.Fatalf("AcceptMinecraftEULA() error = %v", errAccept)
+	}
+	if len(client.WriteFileCalls) != 1 {
+		t.Fatalf("WriteFile call count = %d, want 1", len(client.WriteFileCalls))
+	}
+	writeCall := client.WriteFileCalls[0]
+	if writeCall.RelativePath != minecraftEULAFileName {
+		t.Fatalf("WriteFile relative path = %q, want %q", writeCall.RelativePath, minecraftEULAFileName)
+	}
+	if string(writeCall.Content) != "eula=true\n" {
+		t.Fatalf("WriteFile content = %q, want eula=true", string(writeCall.Content))
+	}
+
+	errReady := CheckStart(context.Background(), conn, gameServer, client)
+	if errReady != nil {
+		t.Fatalf("CheckStart() after AcceptMinecraftEULA error = %v", errReady)
+	}
+}
 
 func TestCheckStartSteamGSLTBlocksUntilSecretConfigured(t *testing.T) {
 	conn := newReadinessSecretConnection(t)

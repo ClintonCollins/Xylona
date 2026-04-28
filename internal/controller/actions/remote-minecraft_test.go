@@ -16,7 +16,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func TestPostMinecraftInstallWritesEULAThroughRemoteNodeClient(t *testing.T) {
+func TestPostInstallDoesNotAcceptMinecraftEULA(t *testing.T) {
+	controllerDir := t.TempDir()
 	remoteClient := &nodeclient.FakeNodeClient{
 		NodeID: "node-remote",
 	}
@@ -30,28 +31,21 @@ func TestPostMinecraftInstallWritesEULAThroughRemoteNodeClient(t *testing.T) {
 	gameServer := &models.GameServer{
 		ID:        "server-remote",
 		GameID:    "minecraft",
-		Directory: "/home/clinton/xylona/clinton/media-minecraft-server",
+		Directory: controllerDir,
 		NodeID:    "node-remote",
 	}
 
-	errPostInstall := inst.postMinecraftInstall(gameServer)
+	errPostInstall := inst.postInstallStep(gameServer)
 	if errPostInstall != nil {
-		t.Fatalf("postMinecraftInstall() error = %v", errPostInstall)
+		t.Fatalf("postInstallStep() error = %v", errPostInstall)
 	}
 
-	if len(remoteClient.WriteFileCalls) != 1 {
-		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
 	}
-
-	writeCall := remoteClient.WriteFileCalls[0]
-	if writeCall.Directory != gameServer.Directory {
-		t.Fatalf("WriteFile directory = %q, want %q", writeCall.Directory, gameServer.Directory)
-	}
-	if writeCall.RelativePath != "eula.txt" {
-		t.Fatalf("WriteFile relative path = %q, want %q", writeCall.RelativePath, "eula.txt")
-	}
-	if string(writeCall.Content) != "eula=true" {
-		t.Fatalf("WriteFile content = %q, want %q", string(writeCall.Content), "eula=true")
+	_, errStat := os.Stat(filepath.Join(controllerDir, "eula.txt"))
+	if !os.IsNotExist(errStat) {
+		t.Fatalf("eula.txt stat error = %v, want not exist", errStat)
 	}
 }
 

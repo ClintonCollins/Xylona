@@ -37,9 +37,9 @@
 - [x] Add `CheckStartReadiness(ctx, gameServer)` before config pre-start and mod updates.
 - [x] Add `PrepareLaunchSecrets(ctx, gameServer)` as a Phase 1 no-op that runs after config/mod work and immediately before `StartProcess`.
 
-- [x] Add `accept_minecraft_eula` to `CreateGameServerRequest`.
-- [x] Reject Minecraft create with `FailedPrecondition` when `accept_minecraft_eula` is false.
-- [x] Persist the Minecraft EULA readiness row before install starts when accepted.
+- [x] Keep Minecraft EULA acceptance out of `CreateGameServerRequest`; create can finish and start is blocked by readiness until accepted.
+- [x] Reserve the removed `accept_minecraft_eula` create-request field.
+- [x] Persist the Minecraft EULA readiness row only through the game-server view readiness action.
 - [x] For existing Minecraft servers, lazily read `eula.txt` through the target `NodeClient` when the readiness row is missing.
 - [x] If `eula.txt` contains `eula=true`, persist readiness and allow start.
 - [x] If the node/file read fails, report the node/file error instead of silently treating it as missing acceptance.
@@ -125,7 +125,7 @@
 ## Frontend
 
 - [x] Add one compact Readiness panel on the game-server detail page near start controls.
-- [x] Add a Minecraft EULA checkbox/control to the create flow before install.
+- [x] Keep Minecraft EULA acceptance on the game-server detail readiness panel, not the create flow.
 - [ ] Show only missing/blocking items and direct actions:
   - [x] accept Minecraft EULA
   - [x] set Steam token
@@ -155,7 +155,7 @@
   - [ ] relink on expired/revoked refresh token
 
 - [ ] Frontend tests:
-  - create-flow EULA control
+  - server-view EULA readiness control
   - [x] readiness panel state/actions for each check
   - start button handles backend failed-precondition errors
   - [x] token fields are set/clear only and never echo saved secrets

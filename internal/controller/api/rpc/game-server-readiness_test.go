@@ -7,10 +7,97 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
+
+func TestAcceptMinecraftEulaAutoStartsWhenReadinessComplete(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	ctx := context.Background()
+
+	_, errGame := fixture.conn.SQLDb.ExecContext(
+		ctx,
+		`update game
+		 set linux_base_command = ?,
+		     linux_start_args_template = ?,
+		     windows_base_command = ?,
+		     windows_start_args_template = ?
+		 where id = ?`,
+		"java",
+		`[{"id":"jar","order":1,"ownership":"system","tokens":["-jar","{{SERVER_EXECUTABLE}}"]}]`,
+		"java",
+		`[{"id":"jar","order":1,"ownership":"system","tokens":["-jar","{{SERVER_EXECUTABLE}}"]}]`,
+		"minecraft",
+	)
+	if errGame != nil {
+		t.Fatalf("configure minecraft start command error = %v", errGame)
+	}
+
+	_, errServer := fixture.conn.SQLDb.ExecContext(
+		ctx,
+		`update game_server
+		 set directory = ?,
+		     server_executable = ?
+		 where id = ?`,
+		"/srv/server-local-1",
+		"server.jar",
+		"server-local-1",
+	)
+	if errServer != nil {
+		t.Fatalf("configure minecraft server error = %v", errServer)
+	}
+
+	fakeNode := &nodeclient.FakeNodeClient{
+		NodeID: "node-local",
+		SnapshotResult: &node.NodeSnapshot{
+			OS: "linux",
+		},
+		RuntimeCapabilitiesResult: node.RuntimeCapabilities{LaunchEnv: true},
+	}
+	registry := noderegistry.New("node-local", fakeNode)
+	fixture.service.nodeRegistry = registry
+	fixture.service.actionsInst = actions.NewInstance(
+		ctx,
+		fixture.conn,
+		fakeNode,
+		registry,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+
+	request := connect.NewRequest(&xylona.AcceptMinecraftEulaRequest{
+		ServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	response, errAccept := fixture.service.AcceptMinecraftEula(ctx, request)
+	if errAccept != nil {
+		t.Fatalf("AcceptMinecraftEula() error = %v", errAccept)
+	}
+	item := findReadinessItem(t, response.Msg.GetItems(), "minecraft_eula")
+	if !item.GetComplete() || item.GetBlocking() {
+		t.Fatalf("AcceptMinecraftEula().Items minecraft_eula = %+v, want complete non-blocking", item)
+	}
+	if len(fakeNode.StartProcessCalls) != 1 {
+		t.Fatalf("StartProcess call count = %d, want 1", len(fakeNode.StartProcessCalls))
+	}
+	startCall := fakeNode.StartProcessCalls[0]
+	if startCall.Config.ID != "server-local-1" {
+		t.Fatalf("StartProcess ID = %q, want server-local-1", startCall.Config.ID)
+	}
+	if startCall.Config.BaseCommand != "java" {
+		t.Fatalf("StartProcess base command = %q, want java", startCall.Config.BaseCommand)
+	}
+	if strings.Join(startCall.Config.Args, " ") != "-jar server.jar" {
+		t.Fatalf("StartProcess args = %q, want -jar server.jar", strings.Join(startCall.Config.Args, " "))
+	}
+}
 
 func TestSteamGSLTReadinessRPCStoresEncryptedSecret(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
