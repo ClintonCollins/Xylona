@@ -18,6 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
@@ -184,8 +185,21 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 	return inst
 }
 
+// InstallGameServerOptions controls install-time setup that must be persisted
+// before the install process starts.
+type InstallGameServerOptions struct {
+	AcceptMinecraftEULA bool
+	AcceptedByUserID    string
+}
+
 // InstallGameServer creates the server record, schedules install, and starts post-install startup.
 func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error) {
+	return inst.InstallGameServerWithOptions(game, gameServer, owner, InstallGameServerOptions{})
+}
+
+// InstallGameServerWithOptions creates the server record, schedules install,
+// and starts post-install startup with install-time setup state.
+func (inst *Instance) InstallGameServerWithOptions(game *models.Game, gameServer *models.GameServer, owner *models.User, options InstallGameServerOptions) (*models.GameServer, error) {
 	gameServerDir, errCreateGameServerDir := inst.createGameServerDirectory(gameServer, owner)
 	if errCreateGameServerDir != nil {
 		log.Error().Err(errCreateGameServerDir).Msg("Failed to create game server directory")
@@ -221,26 +235,25 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	}
 
 	newGameServer, errInsert := inst.db.InsertGameServer(tx, &models.GameServerSetter{
-		ID:                        omit.From(uuid.NewString()),
-		UserID:                    omit.From(owner.ID),
-		Name:                      omit.From(gameServer.Name),
-		GameID:                    omit.From(game.ID),
-		StartArgsPatches:          omit.From("[]"),
-		Status:                    omit.From(""),
-		SetPlayers:                omit.From(gameServer.SetPlayers),
-		MaxPlayers:                omit.From(gameServer.MaxPlayers),
-		Map:                       omit.From(gameServer.Map),
-		IP:                        omit.From(gameServer.IP),
-		Port:                      omit.From(gameServer.Port),
-		QueryPort:                 omit.From(gameServer.QueryPort),
-		Directory:                 omit.From(gameServer.Directory),
-		MaxMemoryMB:               omit.From(gameServer.MaxMemoryMB),
-		BackupsEnabled:            omit.From(gameServer.BackupsEnabled),
-		SteamGameServerLoginToken: omit.From(gameServer.SteamGameServerLoginToken),
-		EnvVars:                   omit.From("[]"),
-		BackupDirectory:           omit.From(gameServer.BackupDirectory),
-		MaxBackups:                omit.From(gameServer.MaxBackups),
-		NodeID:                    omit.From(gameServer.NodeID),
+		ID:               omit.From(uuid.NewString()),
+		UserID:           omit.From(owner.ID),
+		Name:             omit.From(gameServer.Name),
+		GameID:           omit.From(game.ID),
+		StartArgsPatches: omit.From("[]"),
+		Status:           omit.From(""),
+		SetPlayers:       omit.From(gameServer.SetPlayers),
+		MaxPlayers:       omit.From(gameServer.MaxPlayers),
+		Map:              omit.From(gameServer.Map),
+		IP:               omit.From(gameServer.IP),
+		Port:             omit.From(gameServer.Port),
+		QueryPort:        omit.From(gameServer.QueryPort),
+		Directory:        omit.From(gameServer.Directory),
+		MaxMemoryMB:      omit.From(gameServer.MaxMemoryMB),
+		BackupsEnabled:   omit.From(gameServer.BackupsEnabled),
+		EnvVars:          omit.From("[]"),
+		BackupDirectory:  omit.From(gameServer.BackupDirectory),
+		MaxBackups:       omit.From(gameServer.MaxBackups),
+		NodeID:           omit.From(gameServer.NodeID),
 	})
 	if errInsert != nil {
 		log.Error().Err(errInsert).Msg("Failed to insert game server")
@@ -262,6 +275,18 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 			return nil, errors.Join(errInstall, errCleanup)
 		}
 		return nil, errInstall
+	}
+
+	if game.ID == "minecraft" && options.AcceptMinecraftEULA {
+		errEULA := readiness.PersistMinecraftEULAAccepted(inst.db, newGameServer.ID, options.AcceptedByUserID)
+		if errEULA != nil {
+			errInstall := fmt.Errorf("actions: persist minecraft EULA acceptance: %w", errEULA)
+			errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory, newGameServer.NodeID)
+			if errCleanup != nil {
+				return nil, errors.Join(errInstall, errCleanup)
+			}
+			return nil, errInstall
+		}
 	}
 
 	nodeOS := inst.resolveNodeOS(inst.ctx, newGameServer.NodeID)
@@ -479,6 +504,20 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		return nil, startConfigurationError("launch environment is invalid", errLaunchEnvMetadata)
 	}
 
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		log.Error().Err(errClient).Str("game_server_id", gameServer.ID).
+			Str("node_id", gameServer.NodeID).Msg("Failed to resolve node client for start")
+		inst.reportStartFailure(gameServer, "Failed to reach target node: "+errClient.Error())
+		return nil, startUnavailableError("target node is unavailable", errClient)
+	}
+
+	errReadiness := readiness.CheckStart(inst.ctx, inst.db, gameServer, client)
+	if errReadiness != nil {
+		inst.reportStartFailure(gameServer, errReadiness.Error())
+		return nil, startConfigurationError("server setup is incomplete", errReadiness)
+	}
+
 	// Run pre-start config enforcement before launching the process.
 	inst.runConfigPreStart(gameServer)
 	// Run mod auto-updates before launching the process.
@@ -488,14 +527,6 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	if errResolve != nil {
 		inst.reportStartFailure(gameServer, errResolve.Error())
 		return nil, startConfigurationError("start configuration is incomplete", errResolve)
-	}
-
-	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
-	if errClient != nil {
-		log.Error().Err(errClient).Str("game_server_id", gameServer.ID).
-			Str("node_id", gameServer.NodeID).Msg("Failed to resolve node client for start")
-		inst.reportStartFailure(gameServer, "Failed to reach target node: "+errClient.Error())
-		return nil, startUnavailableError("target node is unavailable", errClient)
 	}
 
 	cfg := node.ProcessConfig{
@@ -527,6 +558,11 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	if errLaunchEnv != nil {
 		inst.reportStartFailure(gameServer, "Launch environment could not be loaded: "+errLaunchEnv.Error())
 		return nil, startConfigurationError("launch environment could not be loaded", errLaunchEnv)
+	}
+	launchEnv, errLaunchEnv = inst.prepareLaunchSecrets(gameServer, client, launchEnv)
+	if errLaunchEnv != nil {
+		inst.reportStartFailure(gameServer, "Launch secrets could not be prepared: "+errLaunchEnv.Error())
+		return nil, startConfigurationError("launch secrets could not be prepared", errLaunchEnv)
 	}
 	cfg.LaunchEnv = launchEnv
 

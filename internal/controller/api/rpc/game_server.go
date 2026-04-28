@@ -233,6 +233,9 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 	if errGetGame != nil {
 		return nil, dbLookup(errGetGame)
 	}
+	if game.ID == "minecraft" && !request.Msg.GetAcceptMinecraftEula() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("Minecraft EULA must be accepted before creating this server"))
+	}
 
 	newGameServerModel := protomap.GameServerProtoToModel(request.Msg.GetGameServer())
 	if strings.TrimSpace(newGameServerModel.NodeID) == "" {
@@ -285,7 +288,18 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 
 	installGameServer := xs.installGameServerFn
 	if installGameServer == nil {
-		installGameServer = xs.actionsInst.InstallGameServer
+		newGameServer, errInstallGameServer := xs.actionsInst.InstallGameServerWithOptions(game, newGameServerModel, user, actions.InstallGameServerOptions{
+			AcceptMinecraftEULA: request.Msg.GetAcceptMinecraftEula(),
+			AcceptedByUserID:    callingUser.ID,
+		})
+		if errInstallGameServer != nil {
+			return nil, internalErr()
+		}
+
+		response := &xylona.CreateGameServerResponse{
+			GameServer: protomap.GameServerModelToProto(newGameServer, xs.versionState),
+		}
+		return connect.NewResponse(response), nil
 	}
 	newGameServer, errInstallGameServer := installGameServer(game, newGameServerModel, user)
 	if errInstallGameServer != nil {

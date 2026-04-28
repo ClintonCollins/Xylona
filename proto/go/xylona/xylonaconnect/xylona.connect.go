@@ -139,6 +139,12 @@ const (
 	// XylonaClearGameServerSecretEnvProcedure is the fully-qualified name of the Xylona's
 	// ClearGameServerSecretEnv RPC.
 	XylonaClearGameServerSecretEnvProcedure = "/xylona.Xylona/ClearGameServerSecretEnv"
+	// XylonaGetGameServerReadinessProcedure is the fully-qualified name of the Xylona's
+	// GetGameServerReadiness RPC.
+	XylonaGetGameServerReadinessProcedure = "/xylona.Xylona/GetGameServerReadiness"
+	// XylonaAcceptMinecraftEulaProcedure is the fully-qualified name of the Xylona's
+	// AcceptMinecraftEula RPC.
+	XylonaAcceptMinecraftEulaProcedure = "/xylona.Xylona/AcceptMinecraftEula"
 	// XylonaListGameServersProcedure is the fully-qualified name of the Xylona's ListGameServers RPC.
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
 	// XylonaQueryGameServerProcedure is the fully-qualified name of the Xylona's QueryGameServer RPC.
@@ -398,6 +404,8 @@ type XylonaClient interface {
 	UpdateGameServerEnvironment(context.Context, *connect.Request[xylona.UpdateGameServerEnvironmentRequest]) (*connect.Response[xylona.UpdateGameServerEnvironmentResponse], error)
 	SetGameServerSecretEnv(context.Context, *connect.Request[xylona.SetGameServerSecretEnvRequest]) (*connect.Response[xylona.SetGameServerSecretEnvResponse], error)
 	ClearGameServerSecretEnv(context.Context, *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error)
+	GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error)
+	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
@@ -775,6 +783,18 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaClearGameServerSecretEnvProcedure,
 			connect.WithSchema(xylonaMethods.ByName("ClearGameServerSecretEnv")),
+			connect.WithClientOptions(opts...),
+		),
+		getGameServerReadiness: connect.NewClient[xylona.GetGameServerReadinessRequest, xylona.GetGameServerReadinessResponse](
+			httpClient,
+			baseURL+XylonaGetGameServerReadinessProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameServerReadiness")),
+			connect.WithClientOptions(opts...),
+		),
+		acceptMinecraftEula: connect.NewClient[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse](
+			httpClient,
+			baseURL+XylonaAcceptMinecraftEulaProcedure,
+			connect.WithSchema(xylonaMethods.ByName("AcceptMinecraftEula")),
 			connect.WithClientOptions(opts...),
 		),
 		listGameServers: connect.NewClient[xylona.ListGameServersRequest, xylona.ListGameServersResponse](
@@ -1289,6 +1309,8 @@ type xylonaClient struct {
 	updateGameServerEnvironment      *connect.Client[xylona.UpdateGameServerEnvironmentRequest, xylona.UpdateGameServerEnvironmentResponse]
 	setGameServerSecretEnv           *connect.Client[xylona.SetGameServerSecretEnvRequest, xylona.SetGameServerSecretEnvResponse]
 	clearGameServerSecretEnv         *connect.Client[xylona.ClearGameServerSecretEnvRequest, xylona.ClearGameServerSecretEnvResponse]
+	getGameServerReadiness           *connect.Client[xylona.GetGameServerReadinessRequest, xylona.GetGameServerReadinessResponse]
+	acceptMinecraftEula              *connect.Client[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse]
 	listGameServers                  *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
 	queryGameServer                  *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
 	getUpdateTargets                 *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
@@ -1591,6 +1613,16 @@ func (c *xylonaClient) SetGameServerSecretEnv(ctx context.Context, req *connect.
 // ClearGameServerSecretEnv calls xylona.Xylona.ClearGameServerSecretEnv.
 func (c *xylonaClient) ClearGameServerSecretEnv(ctx context.Context, req *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error) {
 	return c.clearGameServerSecretEnv.CallUnary(ctx, req)
+}
+
+// GetGameServerReadiness calls xylona.Xylona.GetGameServerReadiness.
+func (c *xylonaClient) GetGameServerReadiness(ctx context.Context, req *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error) {
+	return c.getGameServerReadiness.CallUnary(ctx, req)
+}
+
+// AcceptMinecraftEula calls xylona.Xylona.AcceptMinecraftEula.
+func (c *xylonaClient) AcceptMinecraftEula(ctx context.Context, req *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error) {
+	return c.acceptMinecraftEula.CallUnary(ctx, req)
 }
 
 // ListGameServers calls xylona.Xylona.ListGameServers.
@@ -2030,6 +2062,8 @@ type XylonaHandler interface {
 	UpdateGameServerEnvironment(context.Context, *connect.Request[xylona.UpdateGameServerEnvironmentRequest]) (*connect.Response[xylona.UpdateGameServerEnvironmentResponse], error)
 	SetGameServerSecretEnv(context.Context, *connect.Request[xylona.SetGameServerSecretEnvRequest]) (*connect.Response[xylona.SetGameServerSecretEnvResponse], error)
 	ClearGameServerSecretEnv(context.Context, *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error)
+	GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error)
+	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
@@ -2403,6 +2437,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaClearGameServerSecretEnvProcedure,
 		svc.ClearGameServerSecretEnv,
 		connect.WithSchema(xylonaMethods.ByName("ClearGameServerSecretEnv")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetGameServerReadinessHandler := connect.NewUnaryHandler(
+		XylonaGetGameServerReadinessProcedure,
+		svc.GetGameServerReadiness,
+		connect.WithSchema(xylonaMethods.ByName("GetGameServerReadiness")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaAcceptMinecraftEulaHandler := connect.NewUnaryHandler(
+		XylonaAcceptMinecraftEulaProcedure,
+		svc.AcceptMinecraftEula,
+		connect.WithSchema(xylonaMethods.ByName("AcceptMinecraftEula")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListGameServersHandler := connect.NewUnaryHandler(
@@ -2959,6 +3005,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaSetGameServerSecretEnvHandler.ServeHTTP(w, r)
 		case XylonaClearGameServerSecretEnvProcedure:
 			xylonaClearGameServerSecretEnvHandler.ServeHTTP(w, r)
+		case XylonaGetGameServerReadinessProcedure:
+			xylonaGetGameServerReadinessHandler.ServeHTTP(w, r)
+		case XylonaAcceptMinecraftEulaProcedure:
+			xylonaAcceptMinecraftEulaHandler.ServeHTTP(w, r)
 		case XylonaListGameServersProcedure:
 			xylonaListGameServersHandler.ServeHTTP(w, r)
 		case XylonaQueryGameServerProcedure:
@@ -3300,6 +3350,14 @@ func (UnimplementedXylonaHandler) SetGameServerSecretEnv(context.Context, *conne
 
 func (UnimplementedXylonaHandler) ClearGameServerSecretEnv(context.Context, *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ClearGameServerSecretEnv is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerReadiness is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.AcceptMinecraftEula is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {

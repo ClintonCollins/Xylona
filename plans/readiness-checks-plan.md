@@ -4,14 +4,14 @@
 
 - Implement readiness in three strict phases.
 - Phase 1 is only readiness storage + Minecraft EULA, using the existing typed start contract.
-- Phase 2 fixes encrypted Steam GSLT storage/readiness using the existing `game_server_secret` helpers.
+- Phase 2 fixes encrypted Steam GSLT storage/readiness using the existing `game_server_secret` helpers and removes the old plaintext `game_server.steam_game_server_login_token` column.
 - Phase 3 adds Hytale account linking using the official device flow.
 - Launch environment plumbing is already available through `LaunchEnv`; do not duplicate node protocol/supervisor env work here.
 - Secret command-line argument substitution is explicitly out of scope for this plan.
 
 ## Progress
 
-- [ ] Phase 1: Readiness storage + Minecraft EULA
+- [x] Phase 1: Readiness storage + Minecraft EULA
 - [ ] Phase 2: Encrypted Steam GSLT
 - [ ] Phase 3: Hytale account link
 - [ ] Frontend readiness UI
@@ -19,35 +19,34 @@
 
 ## Phase 1: Readiness Storage + Minecraft EULA
 
-- [ ] Use the existing `actions.StartGameServer` typed result/error contract; do not add another taxonomy.
-- [ ] Map readiness blocks to the existing configuration/`FailedPrecondition` path in the RPC layer.
+- [x] Use the existing `actions.StartGameServer` typed result/error contract; do not add another taxonomy.
+- [x] Map readiness blocks to the existing configuration/`FailedPrecondition` path in the RPC layer.
 - [ ] Update install post-hook, auto-restart, update restart, and scheduled callers so readiness blocks are terminal/no-retry.
 - [ ] Keep one owner for user-facing start failure messages to avoid duplicate logs or console lines.
 
-- [ ] Add `game_server_readiness`:
+- [x] Add `game_server_readiness`:
   - primary key `(game_server_id, kind)`
   - FK cascade to `game_server`
   - `public_data` JSON text
-  - `secret_data_encrypted` text for later phases
   - nullable `updated_by_user_id`
   - `created_at` and `updated_at`
   - no SQLite `kind` check; enforce allowed kinds in typed Go helpers to avoid later table rebuild migrations
-- [ ] Use either narrow raw SQL helpers or regenerated bob models intentionally; do not mix both approaches accidentally.
+- [x] Use narrow raw SQL helpers; do not generate bob models for this table.
 
-- [ ] Add `internal/controller/readiness`.
-- [ ] Add `CheckStartReadiness(ctx, gameServer)` before config pre-start and mod updates.
-- [ ] Add `PrepareLaunchSecrets(ctx, gameServer)` as a Phase 1 no-op that runs after config/mod work and immediately before `StartProcess`.
+- [x] Add `internal/controller/readiness`.
+- [x] Add `CheckStartReadiness(ctx, gameServer)` before config pre-start and mod updates.
+- [x] Add `PrepareLaunchSecrets(ctx, gameServer)` as a Phase 1 no-op that runs after config/mod work and immediately before `StartProcess`.
 
-- [ ] Add `accept_minecraft_eula` to `CreateGameServerRequest`.
-- [ ] Reject Minecraft create with `FailedPrecondition` when `accept_minecraft_eula` is false.
-- [ ] Persist the Minecraft EULA readiness row before install starts when accepted.
-- [ ] For existing Minecraft servers, lazily read `eula.txt` through the target `NodeClient` when the readiness row is missing.
-- [ ] If `eula.txt` contains `eula=true`, persist readiness and allow start.
-- [ ] If the node/file read fails, report the node/file error instead of silently treating it as missing acceptance.
-- [ ] If the file exists but is not accepted, block with `Minecraft EULA required`.
-- [ ] When accepted, write `eula.txt` with `eula=true` through the target `NodeClient` for embedded and remote nodes.
+- [x] Add `accept_minecraft_eula` to `CreateGameServerRequest`.
+- [x] Reject Minecraft create with `FailedPrecondition` when `accept_minecraft_eula` is false.
+- [x] Persist the Minecraft EULA readiness row before install starts when accepted.
+- [x] For existing Minecraft servers, lazily read `eula.txt` through the target `NodeClient` when the readiness row is missing.
+- [x] If `eula.txt` contains `eula=true`, persist readiness and allow start.
+- [x] If the node/file read fails, report the node/file error instead of silently treating it as missing acceptance.
+- [x] If the file exists but is not accepted, block with `Minecraft EULA required`.
+- [x] When accepted, write `eula.txt` with `eula=true` through the target `NodeClient` for embedded and remote nodes.
 
-- [ ] Add authenticated readiness RPCs:
+- [x] Add authenticated readiness RPCs:
   - `GetGameServerReadiness(server_id)` requires existing server view permission.
   - `AcceptMinecraftEula(server_id)` requires existing server settings permission.
 - [ ] Keep `GetGameServerReadiness` responses small: `kind`, `required`, `complete`, `blocking`, `message`, and minimal public metadata.
@@ -59,15 +58,14 @@
 - [ ] Do not add duplicate node capability, proto, supervisor, or process env plumbing in this plan.
 
 - [ ] Extend readiness kind helpers to include `steam_gslt`.
-- [ ] Migrate existing `game_server.steam_game_server_login_token` safely:
-  - SQL migration adds/extends schema only.
-  - Run idempotent post-key startup data migration after `ENCRYPTION_KEY_BASE64` is loaded.
-  - For each row, transactionally insert encrypted `game_server_secret` data, decrypt-verify it, then clear plaintext.
-  - If write/verification fails, leave plaintext untouched and fail startup loudly.
-  - Treat the old proto field as write-only compatibility.
-  - Accept create/edit input, store encrypted readiness, and never return the secret.
-  - Preserve existing encrypted secrets when edit requests round-trip blank/redacted token.
-  - Document one-way compatibility: older binaries after migration will no longer see cleared plaintext tokens.
+- [ ] Remove old Steam plaintext storage:
+  - remove `steam_game_server_login_token` from `GameServer` proto
+  - reserve field `20` and the old field name
+  - add a migration that drops `game_server.steam_game_server_login_token`
+  - regenerate protobuf and SQL models
+  - remove all Go/TS references to the old field
+  - do not add fallback, migration, or write-only compatibility behavior
+  - existing plaintext tokens are intentionally discarded; admins re-enter tokens through the new secret UI
 
 - [ ] Steam GSLT v1 scope:
   - store
@@ -80,7 +78,7 @@
 - [ ] Add Steam readiness RPCs:
   - `SetSteamGSLT(server_id, token)` requires server settings permission.
   - `ClearSteamGSLT(server_id)` requires server settings permission.
-  - `GetGameServerReadiness` never returns the token.
+  - `GetGameServerReadiness` reports configured/missing state and never returns the token.
 
 ## Phase 3: Hytale Account Link
 
@@ -145,10 +143,8 @@
   - install auto-start behavior
   - readiness table validation
   - nullable `updated_by_user_id` paths
-  - post-key Steam plaintext migration
-  - blank edit preservation
-  - write-only proto compatibility
-  - startup failure on partial migration errors
+  - Steam plaintext column removal
+  - old Steam proto field reservation
   - Steam secret storage through `game_server_secret`
   - LaunchEnv capability fail-closed behavior for readiness-auth launch-only env
   - Hytale flow binding

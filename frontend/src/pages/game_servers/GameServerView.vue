@@ -68,6 +68,30 @@
           </div>
         </div>
 
+        <div v-if="readinessVisible" class="sidebar-section">
+          <div class="sidebar-section-label">Readiness</div>
+          <div class="readiness-list">
+            <div v-for="item in blockingReadinessItems" :key="item.kind" class="readiness-item">
+              <div class="readiness-item-icon">
+                <q-icon name="report_problem" />
+              </div>
+              <div class="readiness-item-body">
+                <div class="readiness-item-title">{{ readinessLabel(item.kind) }}</div>
+                <div class="readiness-item-message">{{ item.message }}</div>
+                <q-btn
+                  v-if="item.kind === 'minecraft_eula' && hasPermission('game_server.settings')"
+                  :loading="acceptingMinecraftEula"
+                  class="readiness-action"
+                  color="primary"
+                  dense
+                  label="Accept EULA"
+                  unelevated
+                  @click="acceptMinecraftEula" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Variant -->
         <div class="sidebar-section">
           <div class="sidebar-section-label">Variant</div>
@@ -410,10 +434,12 @@ import {
   StopGameServerRequest,
   StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
-import type { UpdateProgress } from '@/proto/xylona_pb'
+import type { GameServerReadinessItem, UpdateProgress } from '@/proto/xylona_pb'
 import {
+  AcceptMinecraftEulaRequestSchema,
   GetGameServerRequest,
   GetGameServerRequestSchema,
+  GetGameServerReadinessRequestSchema,
   GetUpdateTargetsRequestSchema,
   StepStatus,
   UpdateGameServerRequest,
@@ -496,6 +522,9 @@ const softwareOperationComplete = ref(false)
 const softwareOperationSteps = ref<StepState[]>([])
 const softwareOperationOutputLines = ref<string[]>([])
 const softwareOperationContextFacts = ref<OperationContextFact[]>([])
+const readinessItems = ref<GameServerReadinessItem[]>([])
+const readinessLoading = ref(false)
+const acceptingMinecraftEula = ref(false)
 const maxOperationOutputLines = 80
 
 const {
@@ -539,6 +568,12 @@ const showConsolePlaceholder = computed(
     !hasConsoleOutput.value &&
     !updateInProgress.value &&
     !softwareOperationInProgress.value,
+)
+const blockingReadinessItems = computed(() =>
+  readinessItems.value.filter((item) => item.required && item.blocking && !item.complete),
+)
+const readinessVisible = computed(
+  () => readinessLoading.value || blockingReadinessItems.value.length > 0,
 )
 
 const connectionAddress = computed(() => {
@@ -627,6 +662,7 @@ onMounted(async () => {
 
   void getGameServerDetails()
     .then(() => {
+      void loadReadiness()
       void getGameServerOutput()
       streamGameServerOutput()
       startQueryStatusVersionLifecycle()
@@ -679,6 +715,61 @@ async function getGameServerDetails() {
   }
 }
 
+async function loadReadiness() {
+  readinessLoading.value = true
+  try {
+    const request = create(GetGameServerReadinessRequestSchema, {
+      serverId: gameServerId.value,
+    })
+    const response = await GetXylonaClient().getGameServerReadiness(request)
+    readinessItems.value = response.items
+  } catch (e) {
+    console.error(e)
+  } finally {
+    readinessLoading.value = false
+  }
+}
+
+async function acceptMinecraftEula() {
+  acceptingMinecraftEula.value = true
+  try {
+    const request = create(AcceptMinecraftEulaRequestSchema, {
+      serverId: gameServerId.value,
+    })
+    const response = await GetXylonaClient().acceptMinecraftEula(request)
+    readinessItems.value = response.items
+    $q.notify({
+      type: 'positive',
+      position: 'top-right',
+      caption: 'Minecraft EULA accepted.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top-right',
+      caption: 'Failed to accept Minecraft EULA: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    acceptingMinecraftEula.value = false
+  }
+}
+
+function readinessLabel(kind: string): string {
+  if (kind === 'minecraft_eula') {
+    return 'Minecraft EULA'
+  }
+  if (kind === 'steam_gslt') {
+    return 'Steam token'
+  }
+  if (kind === 'hytale_account') {
+    return 'Hytale account'
+  }
+  return 'Setup'
+}
+
 async function startGameServer() {
   const request: StartGameServerRequest = create(StartGameServerRequestSchema, {})
   startingServer.value = true
@@ -687,6 +778,7 @@ async function startGameServer() {
     await GetXylonaClient().startGameServer(request)
   } catch (e) {
     console.error(e)
+    void loadReadiness()
     $q.notify({
       type: 'xylona-error',
       position: 'top-right',
@@ -1169,6 +1261,50 @@ async function sendGameServerInput() {
   display: flex;
   flex-wrap: wrap;
   gap: var(--xy-space-sm);
+}
+
+.readiness-list {
+  display: grid;
+  gap: var(--xy-space-sm);
+}
+
+.readiness-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-sm);
+  border: 1px solid color-mix(in srgb, var(--xy-warning) 35%, var(--xy-border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--xy-warning) 9%, var(--xy-surface-1));
+}
+
+.readiness-item-icon {
+  color: var(--xy-warning);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.readiness-item-body {
+  min-width: 0;
+}
+
+.readiness-item-title {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-display);
+  font-size: 0.78rem;
+}
+
+.readiness-item-message {
+  color: var(--xy-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.readiness-action {
+  margin-top: var(--xy-space-sm);
 }
 
 /* ===== Software Card ===== */

@@ -142,6 +142,12 @@
             label="Server Executable"
             outlined
             type="text" />
+          <q-checkbox
+            v-if="isMinecraftGame"
+            v-model="minecraftEulaAccepted"
+            class="col-12"
+            color="primary"
+            label="I accept the Minecraft EULA for this server" />
         </div>
       </section>
 
@@ -215,7 +221,7 @@
 
             <div class="deployment-summary">
               <article
-                v-for="item in createDeploymentWarningItems"
+                v-for="item in displayedDeploymentWarningItems"
                 :key="item.label"
                 class="deployment-summary-item deployment-summary-item--warning">
                 <div class="deployment-summary-icon is-warning">
@@ -238,7 +244,7 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
@@ -249,6 +255,7 @@ import { CreateGameServerRequest, CreateGameServerRequestSchema } from '@/proto/
 
 const router = useRouter()
 const $q = useQuasar()
+const minecraftEulaAccepted = ref(false)
 
 const {
   availableGames,
@@ -302,7 +309,11 @@ const {
 })
 
 const createDeploymentReady = computed(
-  () => deploymentReady.value && !portAvailabilityBlocking.value && !portAvailabilityChecking.value,
+  () =>
+    deploymentReady.value &&
+    !portAvailabilityBlocking.value &&
+    !portAvailabilityChecking.value &&
+    (!isMinecraftGame.value || minecraftEulaAccepted.value),
 )
 const showPortAvailabilityError = computed(() => portAvailabilityBlocking.value)
 const portAvailabilityErrorMessage = computed(() =>
@@ -331,6 +342,31 @@ const createDeploymentWarningItems = computed(() => {
       icon: 'lan',
     },
   ]
+})
+
+const eulaWarningItem = computed(() => {
+  if (!isMinecraftGame.value || minecraftEulaAccepted.value) {
+    return null
+  }
+  return {
+    label: 'Minecraft EULA',
+    value: 'Accept the EULA before deployment.',
+    icon: 'gavel',
+  }
+})
+
+const displayedDeploymentWarningItems = computed(() => {
+  const items = [...createDeploymentWarningItems.value]
+  if (eulaWarningItem.value) {
+    items.push(eulaWarningItem.value)
+  }
+  return items
+})
+
+watch(isMinecraftGame, (minecraftSelected) => {
+  if (!minecraftSelected) {
+    minecraftEulaAccepted.value = false
+  }
 })
 
 onMounted(async () => {
@@ -365,6 +401,7 @@ async function submitGameServer() {
   try {
     const request: CreateGameServerRequest = create(CreateGameServerRequestSchema, {})
     request.gameServer = gameServer.value
+    request.acceptMinecraftEula = isMinecraftGame.value && minecraftEulaAccepted.value
 
     const response = await GetXylonaClient().createGameServer(request)
     await router.push(`/game-servers/${response.gameServer?.id}/console`)

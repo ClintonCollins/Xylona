@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -93,6 +94,13 @@ func (inst *Instance) decryptStartLaunchEnv(gameServer *models.GameServer, norma
 	if len(issues) > 0 {
 		errValidation := launchenv.NewValidationError(issues)
 		return nil, fmt.Errorf("build launch environment: %w", errValidation)
+	}
+	return launchEnv, nil
+}
+
+func (inst *Instance) prepareLaunchSecrets(_ *models.GameServer, _ nodeclient.NodeClient, launchEnv map[string]string) (map[string]string, error) {
+	if launchEnv == nil {
+		return map[string]string{}, nil
 	}
 	return launchEnv, nil
 }

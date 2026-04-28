@@ -61,6 +61,8 @@ service Xylona {
   rpc UpdateGameServerEnvironment (UpdateGameServerEnvironmentRequest) returns (UpdateGameServerEnvironmentResponse) {}
   rpc SetGameServerSecretEnv (SetGameServerSecretEnvRequest) returns (SetGameServerSecretEnvResponse) {}
   rpc ClearGameServerSecretEnv (ClearGameServerSecretEnvRequest) returns (ClearGameServerSecretEnvResponse) {}
+  rpc GetGameServerReadiness (GetGameServerReadinessRequest) returns (GetGameServerReadinessResponse) {}
+  rpc AcceptMinecraftEula (AcceptMinecraftEulaRequest) returns (AcceptMinecraftEulaResponse) {}
   //  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
   //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
@@ -496,6 +498,31 @@ message ClearGameServerSecretEnvRequest {
 message ClearGameServerSecretEnvResponse {
   repeated SecretEnvironmentVariableState secret_env = 1;
   repeated EnvironmentValidationIssue validation_issues = 2;
+}
+
+message GameServerReadinessItem {
+  string kind = 1;
+  bool required = 2;
+  bool complete = 3;
+  bool blocking = 4;
+  string message = 5;
+  string public_data_json = 6;
+}
+
+message GetGameServerReadinessRequest {
+  string server_id = 1;
+}
+
+message GetGameServerReadinessResponse {
+  repeated GameServerReadinessItem items = 1;
+}
+
+message AcceptMinecraftEulaRequest {
+  string server_id = 1;
+}
+
+message AcceptMinecraftEulaResponse {
+  repeated GameServerReadinessItem items = 1;
 }
 
 message SetServerVariantRequest {

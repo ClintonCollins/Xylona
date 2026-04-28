@@ -312,6 +312,7 @@ message RemoveGameServerResponse {}
 
 message CreateGameServerRequest {
   GameServer game_server = 1;
+  bool accept_minecraft_eula = 2;
 }
 message CreateGameServerResponse {
   GameServer game_server = 1;
