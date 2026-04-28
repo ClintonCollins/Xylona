@@ -18,12 +18,19 @@
       Start command editing is disabled for this game definition.
     </q-banner>
 
-    <div class="start-args-editor__list">
+    <div class="start-args-editor__list" role="list">
+      <div v-if="displayBlocks.length === 0" class="start-args-editor__empty">
+        <q-icon name="terminal" size="20px" />
+        <span>No argument blocks are configured for this template.</span>
+      </div>
+
       <article
         v-for="(block, index) in displayBlocks"
         :key="block.id"
         :data-testid="`arg-row-${block.id}`"
-        class="start-args-editor__row">
+        class="start-args-editor__row"
+        role="listitem">
+        <div class="start-args-editor__sequence">{{ formatSequence(index) }}</div>
         <div class="start-args-editor__row-main">
           <div class="start-args-editor__row-meta">
             <q-badge :class="badgeClass(block.provenance)" :label="badgeLabel(block.provenance)" />
@@ -41,6 +48,8 @@
           <q-btn
             v-if="canEdit(block)"
             :data-testid="`edit-${block.id}`"
+            :title="`Edit ${block.label || 'argument'}`"
+            aria-label="Edit argument"
             dense
             flat
             icon="edit"
@@ -49,6 +58,8 @@
           <q-btn
             v-if="canRemove(block)"
             :data-testid="`remove-${block.id}`"
+            :title="`Remove ${block.label || 'argument'}`"
+            aria-label="Remove argument"
             color="negative"
             dense
             flat
@@ -58,6 +69,8 @@
           <q-btn
             v-if="canReset(block)"
             :data-testid="`reset-${block.id}`"
+            :title="`Reset ${block.label || 'argument'}`"
+            aria-label="Reset argument"
             dense
             flat
             icon="restart_alt"
@@ -66,6 +79,8 @@
           <q-btn
             v-if="canMoveUp(index, block)"
             :data-testid="`move-up-${block.id}`"
+            :title="`Move ${block.label || 'argument'} up`"
+            aria-label="Move argument up"
             dense
             flat
             icon="arrow_upward"
@@ -74,6 +89,8 @@
           <q-btn
             v-if="canMoveDown(index, block)"
             :data-testid="`move-down-${block.id}`"
+            :title="`Move ${block.label || 'argument'} down`"
+            aria-label="Move argument down"
             dense
             flat
             icon="arrow_downward"
@@ -208,6 +225,10 @@ function badgeLabel(provenance: ResolvedStartArgBlock['provenance']) {
     default:
       return 'Default'
   }
+}
+
+function formatSequence(index: number) {
+  return String(index + 1).padStart(2, '0')
 }
 
 function canEdit(block: ResolvedStartArgBlock) {
@@ -460,7 +481,11 @@ function createPatchId() {
 .start-args-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--xy-space-md);
+  gap: var(--xy-space-lg);
+  padding: var(--xy-space-lg);
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
+  background: var(--xy-surface-gradient-subtle), var(--xy-surface-1);
 }
 
 .start-args-editor__header {
@@ -472,11 +497,14 @@ function createPatchId() {
 }
 
 .start-args-editor__title {
-  font-size: 1rem;
+  font-size: 1.02rem;
+  line-height: 1.25;
   color: var(--xy-text-primary);
 }
 
 .start-args-editor__copy {
+  max-width: 56ch;
+  margin-top: 4px;
   font-size: 0.82rem;
   line-height: 1.45;
 }
@@ -485,16 +513,21 @@ function createPatchId() {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  max-width: min(100%, 28rem);
   padding: 10px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--xy-border);
-  background: var(--xy-surface-0);
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 14%, var(--xy-border) 86%);
+  background: color-mix(in srgb, var(--xy-accent) 4%, var(--xy-surface-0) 96%);
   color: var(--xy-text-secondary);
 }
 
 .start-args-editor__base code {
+  min-width: 0;
+  overflow: hidden;
   font-family: var(--xy-font-mono);
   color: var(--xy-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .start-args-editor__banner {
@@ -506,18 +539,52 @@ function createPatchId() {
 .start-args-editor__list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+}
+
+.start-args-editor__empty {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  min-height: 88px;
+  padding: var(--xy-space-lg);
+  border: 1px dashed var(--xy-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--xy-surface-0) 82%, transparent);
+  color: var(--xy-text-secondary);
+  font-size: 0.85rem;
 }
 
 .start-args-editor__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
   align-items: flex-start;
-  justify-content: space-between;
   gap: var(--xy-space-md);
   padding: var(--xy-space-md);
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--xy-border);
-  background: var(--xy-surface-1);
+  background: color-mix(in srgb, var(--xy-surface-0) 74%, var(--xy-surface-1) 26%);
+  transition:
+    border-color var(--xy-transition-fast),
+    background var(--xy-transition-fast);
+}
+
+.start-args-editor__row:hover {
+  border-color: var(--xy-border-hover);
+  background: color-mix(in srgb, var(--xy-surface-0) 62%, var(--xy-surface-2) 38%);
+}
+
+.start-args-editor__sequence {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 18%, var(--xy-border) 82%);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--xy-accent) 4%, var(--xy-surface-0) 96%);
+  color: color-mix(in srgb, var(--xy-accent) 68%, var(--xy-text-secondary) 32%);
+  font-family: var(--xy-font-mono);
+  font-size: 0.76rem;
 }
 
 .start-args-editor__row-main {
@@ -543,13 +610,19 @@ function createPatchId() {
 .start-args-editor__tokens,
 .start-args-editor__previous {
   font-family: var(--xy-font-mono);
-  font-size: 0.82rem;
+  font-size: 0.83rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .start-args-editor__tokens {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--xy-border) 74%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--xy-base) 72%, var(--xy-surface-0) 28%);
   color: var(--xy-text-primary);
+  line-height: 1.45;
 }
 
 .start-args-editor__previous {
@@ -561,6 +634,7 @@ function createPatchId() {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 4px;
+  min-width: 7.25rem;
 }
 
 .start-args-editor__footer {
@@ -570,6 +644,7 @@ function createPatchId() {
 
 .start-args-editor__dialog {
   width: min(640px, calc(100vw - 32px));
+  border-radius: 8px;
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
 }
@@ -621,11 +696,12 @@ function createPatchId() {
 
 @media (max-width: 720px) {
   .start-args-editor__row {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .start-args-editor__actions {
     justify-content: flex-start;
+    min-width: 0;
   }
 }
 </style>

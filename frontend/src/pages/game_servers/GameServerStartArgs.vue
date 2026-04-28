@@ -1,7 +1,7 @@
 <template>
   <div class="start-args-page">
     <div class="start-args-page__header">
-      <div>
+      <div class="start-args-page__header-main">
         <div class="start-args-page__eyebrow">Runtime</div>
         <h1 class="start-args-page__title font-display">Start Command</h1>
         <p class="start-args-page__copy text-xy-secondary">
@@ -13,6 +13,7 @@
         <q-btn
           :disable="saving || restarting || !isDirty || !canEditStartArgs"
           flat
+          icon="restart_alt"
           label="Reset All"
           @click="resetAll" />
         <q-btn
@@ -20,12 +21,14 @@
           :loading="restarting"
           color="warning"
           flat
+          icon="replay"
           label="Save & Restart"
           @click="saveAndRestart" />
         <q-btn
           :disable="saving || restarting || !isDirty || !canEditStartArgs"
           :loading="saving"
           color="primary"
+          icon="save"
           label="Save"
           @click="saveOnly" />
       </div>
@@ -49,17 +52,54 @@
         {{ platformWarning }}
       </q-banner>
 
-      <start-args-editor
-        :allow-editing="canEditStartArgs"
-        :base-command="baseCommand"
-        :blocklist="blocklistEntries"
-        :patches="draftPatches"
-        :template="templateBlocks"
-        @update:patches="draftPatches = $event" />
+      <div class="start-args-page__preview-rail">
+        <resolved-command-preview
+          :base-command="baseCommand"
+          :resolved-blocks="resolvedPreview.resolvedBlocks" />
+      </div>
 
-      <resolved-command-preview
-        :base-command="baseCommand"
-        :resolved-blocks="resolvedPreview.resolvedBlocks" />
+      <div class="start-args-page__status-strip" aria-label="Start command state">
+        <div class="start-args-page__status-item">
+          <q-icon :name="platformIcon" class="start-args-page__status-icon" size="20px" />
+          <div>
+            <span class="start-args-page__status-label">Platform</span>
+            <strong>{{ platformLabel }}</strong>
+          </div>
+        </div>
+        <div class="start-args-page__status-item">
+          <q-icon class="start-args-page__status-icon" name="format_list_numbered" size="20px" />
+          <div>
+            <span class="start-args-page__status-label">Template blocks</span>
+            <strong>{{ templateBlockCount }}</strong>
+          </div>
+        </div>
+        <div class="start-args-page__status-item">
+          <q-icon class="start-args-page__status-icon" name="edit" size="20px" />
+          <div>
+            <span class="start-args-page__status-label">Draft state</span>
+            <strong>{{ draftChangeLabel }}</strong>
+          </div>
+        </div>
+        <div class="start-args-page__status-item">
+          <q-icon class="start-args-page__status-icon" name="code" size="20px" />
+          <div>
+            <span class="start-args-page__status-label">Resolved argv</span>
+            <strong>{{ resolvedTokenCount }} tokens</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="start-args-page__workspace">
+        <div class="start-args-page__editor-column">
+          <start-args-editor
+            :allow-editing="canEditStartArgs"
+            :base-command="baseCommand"
+            :blocklist="blocklistEntries"
+            :patches="draftPatches"
+            :template="templateBlocks"
+            @update:patches="draftPatches = $event" />
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -159,6 +199,38 @@ const resolvedPreview = computed(() =>
         draftPatches.value,
         buildPlaceholderVars(gameServer.value ?? undefined),
       ),
+)
+
+const platformLabel = computed(() => {
+  if (selectedPlatform.value === null) {
+    return 'Unknown'
+  }
+
+  return selectedPlatform.value === 'windows' ? 'Windows' : 'Linux'
+})
+
+const platformIcon = computed(() => {
+  if (selectedPlatform.value === 'windows') {
+    return 'desktop_windows'
+  }
+
+  return selectedPlatform.value === 'linux' ? 'terminal' : 'help_outline'
+})
+
+const templateBlockCount = computed(() => templateBlocks.value.length)
+const draftChangeCount = computed(() => draftPatches.value.length)
+const draftChangeLabel = computed(() => {
+  if (draftChangeCount.value === 0) {
+    return 'Clean'
+  }
+
+  return draftChangeCount.value === 1 ? '1 change' : `${draftChangeCount.value} changes`
+})
+const resolvedTokenCount = computed(() =>
+  resolvedPreview.value.resolvedBlocks.reduce(
+    (count, block) => count + block.resolvedTokens.length,
+    baseCommand.value === '' ? 0 : 1,
+  ),
 )
 
 const isDirty = computed(
@@ -300,7 +372,7 @@ function resetAll() {
   display: flex;
   flex-direction: column;
   gap: var(--xy-space-lg);
-  padding: var(--xy-space-lg);
+  padding: var(--xy-space-xl);
 }
 
 .start-args-page__header {
@@ -309,6 +381,10 @@ function resetAll() {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--xy-space-lg);
+}
+
+.start-args-page__header-main {
+  min-width: min(100%, 34rem);
 }
 
 .start-args-page__eyebrow {
@@ -320,7 +396,8 @@ function resetAll() {
 
 .start-args-page__title {
   margin: 0;
-  font-size: clamp(1.2rem, 1rem + 0.7vw, 1.7rem);
+  font-size: 1.55rem;
+  line-height: 1.15;
   color: var(--xy-text-primary);
 }
 
@@ -337,6 +414,55 @@ function resetAll() {
   gap: var(--xy-space-sm);
 }
 
+.start-args-page__status-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--xy-border);
+  border-radius: 8px;
+  background: var(--xy-border);
+}
+
+.start-args-page__status-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--xy-space-sm);
+  align-items: center;
+  min-height: 72px;
+  padding: var(--xy-space-md);
+  background:
+    var(--xy-surface-gradient-subtle),
+    color-mix(in srgb, var(--xy-surface-0) 78%, var(--xy-surface-1) 22%);
+}
+
+.start-args-page__status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--xy-accent);
+}
+
+.start-args-page__status-label {
+  display: block;
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.start-args-page__status-item strong {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .start-args-page__loading {
   display: flex;
   min-height: 280px;
@@ -351,9 +477,49 @@ function resetAll() {
   gap: var(--xy-space-md);
 }
 
+.start-args-page__preview-rail {
+  position: sticky;
+  top: var(--xy-space-sm);
+  z-index: 5;
+  min-width: 0;
+}
+
+.start-args-page__workspace {
+  min-width: 0;
+}
+
+.start-args-page__editor-column {
+  min-width: 0;
+}
+
 .start-args-page__warning {
   background: var(--xy-warning-bg-soft);
   border: 1px solid var(--xy-warning-border);
   color: var(--xy-text-primary);
+}
+
+@media (max-width: 1160px) {
+  .start-args-page__status-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .start-args-page {
+    padding: var(--xy-space-md);
+  }
+
+  .start-args-page__actions,
+  .start-args-page__actions :deep(.q-btn) {
+    width: 100%;
+  }
+
+  .start-args-page__status-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .start-args-page__preview-rail {
+    top: var(--xy-space-xs);
+  }
 }
 </style>
